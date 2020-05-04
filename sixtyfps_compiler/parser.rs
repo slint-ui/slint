@@ -13,10 +13,16 @@ pub enum SyntaxKind {
     LBrace,
     RBrace,
     Colon,
+    Semicolon,
 
     //SyntaxKind:
     Document,
     Component,
+    Binding,
+    CodeStatement,
+    CodeBlock,
+    Expression,
+
 }
 
 impl From<SyntaxKind> for rowan::SyntaxKind {
@@ -60,6 +66,8 @@ impl Parser {
                     (tok(RBrace), r"\}"),
                     (tok(LBrace), r"\{"),
                     (tok(Equal), r"="),
+                    (tok(Colon), r":"),
+                    (tok(Semicolon), r";"),
                 ])
                 .build();
             lexer
@@ -104,7 +112,7 @@ impl Parser {
     pub fn expect(&mut self, kind: SyntaxKind) -> bool {
         let t = self.peek();
         if t.0 != kind {
-            self.error("Syntax error"); // FIXME better error
+            self.error(format!("Syntax error: expected {:?}", kind)); // FIXME better error
             return false;
         }
         self.consume();
@@ -114,27 +122,84 @@ impl Parser {
     pub fn error(&mut self, e: impl Into<String>) {
         self.errors.push(e.into());
     }
+
+    /// consume everyting until the token
+    pub fn until(&mut self, kind: SyntaxKind) {
+        // FIXME! match {} () []
+        while self.cursor < self.tokens.len() && self.current_token().0 != kind {
+            self.consume();
+        }
+        self.expect(kind);
+    }
 }
 
 // Type = Base { /*...*/ }
 fn parse_document(p: &mut Parser) -> bool {
     let mut p = p.start_node(SyntaxKind::Document);
+    let mut p = p.start_node(SyntaxKind::Component);
 
     if !(p.expect(SyntaxKind::Identifier)
         && p.expect(SyntaxKind::Equal)
         && p.expect(SyntaxKind::Identifier)
-        && p.expect(SyntaxKind::LBrace)
-        && p.expect(SyntaxKind::RBrace))
+        && p.expect(SyntaxKind::LBrace))
     {
         return false;
     }
 
-    p.expect(SyntaxKind::LBrace);
+    parse_element_content(p.0);
+
+    p.expect(SyntaxKind::RBrace);
     if p.peek().0 != SyntaxKind::Eof {
         p.error("Should be end of file");
         return false;
     }
     return true;
+}
+
+fn parse_element_content(p: &mut Parser) {
+
+    loop {
+        match p.peek().0 {
+            SyntaxKind::RBrace => return,
+            SyntaxKind::Eof => return,
+            SyntaxKind::Identifier => {
+                let mut p = p.start_node(SyntaxKind::Binding);
+                p.consume();
+                p.expect(SyntaxKind::Colon);
+                parse_code_statement(p.0);
+            }
+            // TODO: right now this only parse bindings
+            _ => {
+                p.consume();
+                p.error("FIXME");
+            }
+        }
+    }
+}
+
+fn parse_code_statement(p: &mut Parser) {
+    let mut p = p.start_node(SyntaxKind::CodeStatement);
+    match p.peek().0 {
+        SyntaxKind::LBrace => parse_code_block(p.0),
+        _ => {
+            parse_expression(p.0);
+            p.expect(SyntaxKind::Semicolon);
+        }
+    }
+}
+
+fn parse_code_block(p: &mut Parser) {
+    let mut p = p.start_node(SyntaxKind::CodeBlock);
+    p.expect(SyntaxKind::LBrace); // Or assert?
+
+    // FIXME
+
+    p.until(SyntaxKind::RBrace);
+}
+
+fn parse_expression(p: &mut Parser) {
+    let mut p = p.start_node(SyntaxKind::Expression);
+    p.expect(SyntaxKind::Identifier);
 }
 
 pub fn parse(source: &str) -> (rowan::GreenNode, Vec<ParseError>) {
