@@ -4,5 +4,6 @@ members = [
     'sixtyfps_runtime/rendering_backends/gl',
     'sixtyfps_compiler',
     'api/sixtyfps-rs',
+    'examples/graphicstest',
 ]
 

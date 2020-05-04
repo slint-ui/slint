@@ -1,3 +1,5 @@
+pub mod graphics;
+
 #[cfg(test)]
 mod tests {
     #[test]

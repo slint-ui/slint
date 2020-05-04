@@ -1,0 +1,14 @@
+[package]
+name = "graphicstest"
+version = "0.1.0"
+authors = ["Simon Hausmann <simon.hausmann@sixtyfps.io>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+sixtyfps_corelib = { package = "corelib", path = "../../sixtyfps_runtime/corelib" }
+sixtyfps_gl_backend = { package = "gl", path = "../../sixtyfps_runtime/rendering_backends/gl" }
+glium = "0.27.0"
+kurbo = "0.5.11"
+
