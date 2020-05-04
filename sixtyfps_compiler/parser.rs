@@ -2,6 +2,11 @@ use std::convert::TryFrom;
 
 mod document;
 
+mod prelude {
+    pub use super::{ParseError, Parser, SyntaxKind};
+    pub use parser_test_macro::parser_test;
+}
+
 #[repr(u16)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq, num_enum::IntoPrimitive, num_enum::TryFromPrimitive)]
 pub enum SyntaxKind {
@@ -35,7 +40,7 @@ impl From<SyntaxKind> for rowan::SyntaxKind {
 #[derive(Clone, Debug)]
 pub struct Token(SyntaxKind, rowan::SmolStr);
 
-type ParseError = String;
+pub type ParseError = String;
 
 pub struct Parser {
     builder: rowan::GreenNodeBuilder<'static>,

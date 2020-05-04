@@ -3,7 +3,7 @@ members = [
     'sixtyfps_runtime/corelib',
     'sixtyfps_runtime/rendering_backends/gl',
     'sixtyfps_compiler',
+    'sixtyfps_compiler/parser_test_macro',
     'api/sixtyfps-rs',
     'examples/graphicstest',
 ]
-

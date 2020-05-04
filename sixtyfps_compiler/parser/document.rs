@@ -1,6 +1,9 @@
-use super::*;
+use super::prelude::*;
 
-// Type = Base { /*...*/ }
+#[parser_test]
+/// ```test
+/// Type = Base { }
+/// ```
 pub fn parse_document(p: &mut Parser) -> bool {
     let mut p = p.start_node(SyntaxKind::Document);
     let mut p = p.start_node(SyntaxKind::Component);
@@ -43,6 +46,11 @@ fn parse_element_content(p: &mut Parser) {
     }
 }
 
+#[parser_test]
+/// ```test
+/// {  }
+/// expression ;
+/// ```
 fn parse_code_statement(p: &mut Parser) {
     let mut p = p.start_node(SyntaxKind::CodeStatement);
     match p.peek().0 {
