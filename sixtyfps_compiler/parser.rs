@@ -54,9 +54,14 @@ impl From<SyntaxKind> for rowan::SyntaxKind {
 }
 
 #[derive(Clone, Debug)]
-pub struct Token(SyntaxKind, rowan::SmolStr);
+pub struct Token {
+    kind: SyntaxKind,
+    text: rowan::SmolStr,
+    offset: usize,
+}
 
-pub type ParseError = String;
+#[derive(Default, Debug, Clone, PartialEq)]
+pub struct ParseError(pub String, pub usize);
 
 pub struct Parser {
     builder: rowan::GreenNodeBuilder<'static>,
@@ -81,8 +86,9 @@ impl Parser {
                 .into_iter()
                 .scan(0usize, |start_offset, t| {
                     let s: rowan::SmolStr = source[*start_offset..*start_offset + t.len].into();
+                    let offset = *start_offset;
                     *start_offset += t.len;
-                    Some(Token(SyntaxKind::try_from(t.kind.0).unwrap(), s))
+                    Some(Token { kind: SyntaxKind::try_from(t.kind.0).unwrap(), text: s, offset })
                 })
                 .collect()
         }
@@ -95,7 +101,11 @@ impl Parser {
     }
 
     fn current_token(&self) -> Token {
-        self.tokens.get(self.cursor).cloned().unwrap_or(Token(SyntaxKind::Eof, "".into()))
+        self.tokens.get(self.cursor).cloned().unwrap_or(Token {
+            kind: SyntaxKind::Eof,
+            text: Default::default(),
+            offset: 0,
+        })
     }
 
     pub fn peek(&mut self) -> Token {
@@ -104,24 +114,23 @@ impl Parser {
     }
 
     pub fn peek_kind(&mut self) -> SyntaxKind {
-        self.peek().0
+        self.peek().kind
     }
 
     pub fn consume_ws(&mut self) {
-        while self.current_token().0 == SyntaxKind::Whitespace {
+        while self.current_token().kind == SyntaxKind::Whitespace {
             self.consume()
         }
     }
 
     pub fn consume(&mut self) {
         let t = self.current_token();
-        self.builder.token(t.0.into(), t.1);
+        self.builder.token(t.kind.into(), t.text);
         self.cursor += 1;
     }
 
     pub fn expect(&mut self, kind: SyntaxKind) -> bool {
-        let t = self.peek();
-        if t.0 != kind {
+        if self.peek_kind() != kind {
             self.error(format!("Syntax error: expected {:?}", kind)); // FIXME better error
             return false;
         }
@@ -130,13 +139,13 @@ impl Parser {
     }
 
     pub fn error(&mut self, e: impl Into<String>) {
-        self.errors.push(e.into());
+        self.errors.push(ParseError(e.into(), self.current_token().offset));
     }
 
     /// consume everyting until the token
     pub fn until(&mut self, kind: SyntaxKind) {
         // FIXME! match {} () []
-        while self.cursor < self.tokens.len() && self.current_token().0 != kind {
+        while self.cursor < self.tokens.len() && self.current_token().kind != kind {
             self.consume();
         }
         self.expect(kind);
