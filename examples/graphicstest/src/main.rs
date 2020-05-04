@@ -1,6 +1,6 @@
 use glium::glutin;
 use kurbo::{Affine, BezPath};
-use sixtyfps_corelib::graphics::GraphicsBackend;
+use sixtyfps_corelib::graphics::{Frame, GraphicsBackend};
 use sixtyfps_gl_backend::GLRenderer;
 
 fn main() {

@@ -29,7 +29,7 @@ pub struct GLRenderer {
     fill_tesselator: FillTessellator,
 }
 
-struct GLFrame {
+pub struct GLFrame {
     display: Display,
     glium_frame: GLiumFrame,
     path_program: Rc<Program>,
@@ -72,6 +72,7 @@ impl GLRenderer {
 
 impl GraphicsBackend for GLRenderer {
     type RenderingPrimitive = RenderingPrimitive;
+    type Frame = GLFrame;
 
     fn create_path_primitive(&mut self, path: &BezPath) -> Self::RenderingPrimitive {
         let mut geometry = VertexBuffers::new();
@@ -93,16 +94,16 @@ impl GraphicsBackend for GLRenderer {
         RenderingPrimitive::Path { geometry: geometry }
     }
 
-    fn new_frame(&self) -> Box<dyn GraphicsFrame<RenderingPrimitive = RenderingPrimitive>> {
+    fn new_frame(&self) -> GLFrame {
         let (w, h) = self.display.get_framebuffer_dimensions();
         let root_transform =
             Affine::FLIP_Y * Affine::scale_non_uniform(1.0 / (w as f64), 1.0 / (h as f64));
-        Box::new(GLFrame {
+        GLFrame {
             display: self.display.clone(),
             glium_frame: self.display.draw(),
             path_program: self.path_program.clone(),
             root_transform,
-        })
+        }
     }
 }
 
@@ -149,7 +150,7 @@ impl GraphicsFrame for GLFrame {
         }
     }
 
-    fn submit(self: Box<Self>) {
+    fn submit(self) {
         self.glium_frame.finish().unwrap();
     }
 }
