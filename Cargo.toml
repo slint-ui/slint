@@ -1,0 +1,8 @@
+[workspace]
+members = [
+    'sixtyfps_runtime/corelib',
+    'sixtyfps_runtime/rendering_backends/gl',
+    'sixtyfps_compiler',
+    'api/sixtyfps-rs',
+]
+
