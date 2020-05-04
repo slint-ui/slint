@@ -16,10 +16,10 @@ pub fn parse_document(p: &mut Parser) -> bool {
         return false;
     }
 
-    parse_element_content(p.0);
+    parse_element_content(&mut *p);
 
     p.expect(SyntaxKind::RBrace);
-    if p.peek().0 != SyntaxKind::Eof {
+    if p.peek_kind() != SyntaxKind::Eof {
         p.error("Should be end of file");
         return false;
     }
@@ -28,14 +28,14 @@ pub fn parse_document(p: &mut Parser) -> bool {
 
 fn parse_element_content(p: &mut Parser) {
     loop {
-        match p.peek().0 {
+        match p.peek_kind() {
             SyntaxKind::RBrace => return,
             SyntaxKind::Eof => return,
             SyntaxKind::Identifier => {
                 let mut p = p.start_node(SyntaxKind::Binding);
                 p.consume();
                 p.expect(SyntaxKind::Colon);
-                parse_code_statement(p.0);
+                parse_code_statement(&mut *p);
             }
             // TODO: right now this only parse bindings
             _ => {
@@ -53,10 +53,10 @@ fn parse_element_content(p: &mut Parser) {
 /// ```
 fn parse_code_statement(p: &mut Parser) {
     let mut p = p.start_node(SyntaxKind::CodeStatement);
-    match p.peek().0 {
-        SyntaxKind::LBrace => parse_code_block(p.0),
+    match p.peek_kind() {
+        SyntaxKind::LBrace => parse_code_block(&mut *p),
         _ => {
-            parse_expression(p.0);
+            parse_expression(&mut *p);
             p.expect(SyntaxKind::Semicolon);
         }
     }

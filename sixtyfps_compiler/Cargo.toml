@@ -15,7 +15,7 @@ num_enum = "0.4.3"
 rowan = "0.10.0"
 derive_more = "0.99.5"
 structopt = "0.3.14" # FIXME: remove this: bin should be somewhere else
-parser_test_macro = { path = "./parser_test_macro" }
+parser_test_macro = { path = "./parser_test_macro" }  # idealy this would be a dev-dependencies
 
 ## FIXME remove
 [[bin]]

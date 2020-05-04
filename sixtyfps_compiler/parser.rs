@@ -103,6 +103,10 @@ impl Parser {
         self.current_token()
     }
 
+    pub fn peek_kind(&mut self) -> SyntaxKind {
+        self.peek().0
+    }
+
     pub fn consume_ws(&mut self) {
         while self.current_token().0 == SyntaxKind::Whitespace {
             self.consume()
