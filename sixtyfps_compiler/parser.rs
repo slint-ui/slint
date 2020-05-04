@@ -7,28 +7,44 @@ mod prelude {
     pub use parser_test_macro::parser_test;
 }
 
-#[repr(u16)]
-#[derive(Debug, Copy, Clone, Eq, PartialEq, num_enum::IntoPrimitive, num_enum::TryFromPrimitive)]
-pub enum SyntaxKind {
-    Whitespace,
-    Error,
-    Eof,
+macro_rules! declare_token_kind {
+    ($($token:ident -> $rx:expr ,)*) => {
+        #[repr(u16)]
+        #[derive(Debug, Copy, Clone, Eq, PartialEq, num_enum::IntoPrimitive, num_enum::TryFromPrimitive)]
+        pub enum SyntaxKind {
+            Error,
+            Eof,
 
-    // Tokens:
-    Identifier,
-    Equal,
-    LBrace,
-    RBrace,
-    Colon,
-    Semicolon,
+            // Token:
+            $($token,)*
 
-    //SyntaxKind:
-    Document,
-    Component,
-    Binding,
-    CodeStatement,
-    CodeBlock,
-    Expression,
+            //SyntaxKind:
+            Document,
+            Component,
+            Binding,
+            CodeStatement,
+            CodeBlock,
+            Expression,
+        }
+
+        fn lexer() -> m_lexer::Lexer {
+            m_lexer::LexerBuilder::new()
+                .error_token(m_lexer::TokenKind(SyntaxKind::Error.into()))
+                .tokens(&[
+                    $((m_lexer::TokenKind(SyntaxKind::$token.into()), $rx)),*
+                ])
+                .build()
+        }
+    }
+}
+declare_token_kind! {
+    Whitespace -> r"\s+",
+    Identifier -> r"[\w]+",
+    RBrace -> r"\}",
+    LBrace -> r"\{",
+    Equal -> r"=",
+    Colon -> r":",
+    Semicolon -> r";",
 }
 
 impl From<SyntaxKind> for rowan::SyntaxKind {
@@ -60,23 +76,7 @@ impl<'a> Drop for Node<'a> {
 impl Parser {
     pub fn new(source: &str) -> Self {
         fn lex(source: &str) -> Vec<Token> {
-            use SyntaxKind::*;
-            fn tok(t: SyntaxKind) -> m_lexer::TokenKind {
-                m_lexer::TokenKind(t.into())
-            }
-            let lexer = m_lexer::LexerBuilder::new()
-                .error_token(tok(Error))
-                .tokens(&[
-                    (tok(Whitespace), r"\s+"),
-                    (tok(Identifier), r"[\w]+"),
-                    (tok(RBrace), r"\}"),
-                    (tok(LBrace), r"\{"),
-                    (tok(Equal), r"="),
-                    (tok(Colon), r":"),
-                    (tok(Semicolon), r";"),
-                ])
-                .build();
-            lexer
+            lexer()
                 .tokenize(source)
                 .into_iter()
                 .scan(0usize, |start_offset, t| {
