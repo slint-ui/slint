@@ -9,7 +9,5 @@ pub trait Frame {
 pub trait GraphicsBackend {
     type RenderingPrimitive;
     fn create_path_primitive(&mut self, path: &BezPath) -> Self::RenderingPrimitive;
-    fn new_frame<'a>(
-        &'a self,
-    ) -> Box<dyn Frame<RenderingPrimitive = Self::RenderingPrimitive> + 'a>;
+    fn new_frame(&self) -> Box<dyn Frame<RenderingPrimitive = Self::RenderingPrimitive>>;
 }
