@@ -7,7 +7,7 @@ use lyon::path::PathEvent;
 use lyon::tessellation::geometry_builder::{BuffersBuilder, VertexBuffers};
 use lyon::tessellation::{FillAttributes, FillOptions, FillTessellator};
 
-use sixtyfps_corelib::graphics::{FillStyle, Frame as GraphicsFrame, GraphicsBackend};
+use sixtyfps_corelib::graphics::{Color, FillStyle, Frame as GraphicsFrame, GraphicsBackend};
 
 extern crate alloc;
 use alloc::rc::Rc;
@@ -107,15 +107,13 @@ impl GraphicsBackend for GLRenderer {
         OpaqueRenderingPrimitive(GLRenderingPrimitive::FillPath { vertices, indices, style })
     }
 
-    fn new_frame(&self) -> GLFrame {
+    fn new_frame(&self, clear_color: &Color) -> GLFrame {
         let (w, h) = self.display.get_framebuffer_dimensions();
         let root_transform =
             Affine::FLIP_Y * Affine::scale_non_uniform(1.0 / (w as f64), 1.0 / (h as f64));
-        GLFrame {
-            glium_frame: self.display.draw(),
-            path_program: self.path_program.clone(),
-            root_transform,
-        }
+        let mut glium_frame = self.display.draw();
+        glium_frame.clear(None, Some(clear_color.as_rgba_f32()), false, None, None);
+        GLFrame { glium_frame, path_program: self.path_program.clone(), root_transform }
     }
 }
 

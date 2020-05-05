@@ -29,7 +29,7 @@ fn main() {
     let mut render_tree = RenderTree::<GLRenderer>::default();
 
     let root = {
-        let root_rect = create_rect(&mut renderer, 0.0, 0.0, Color::WHITE);
+        let root_rect = create_rect(&mut renderer, 0.0, 0.0, Color::BLUE);
         render_tree.allocate_index_with_content(Some(root_rect), None)
     };
 

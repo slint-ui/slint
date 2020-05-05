@@ -50,7 +50,7 @@ pub trait GraphicsBackend: Sized {
         path: &BezPath,
         style: FillStyle,
     ) -> Self::RenderingPrimitive;
-    fn new_frame(&self) -> Self::Frame;
+    fn new_frame(&self, clear_color: &Color) -> Self::Frame;
 }
 
 struct RenderNodeData<RenderingPrimitive> {
@@ -153,6 +153,7 @@ where
     nodes: Vec<NodeEntry<Backend::RenderingPrimitive>>,
     next_free: Option<usize>,
     len: usize,
+    clear_color: Color,
 }
 
 impl<Backend> Default for RenderTree<Backend>
@@ -160,7 +161,7 @@ where
     Backend: GraphicsBackend,
 {
     fn default() -> Self {
-        Self { nodes: vec![], next_free: None, len: 0 }
+        Self { nodes: vec![], next_free: None, len: 0, clear_color: Color::WHITE }
     }
 }
 
@@ -223,7 +224,7 @@ where
     }
 
     pub fn render(&self, renderer: &Backend, root: usize) {
-        let mut frame = renderer.new_frame();
+        let mut frame = renderer.new_frame(&self.clear_color);
         self.render_node(&mut frame, root, &Affine::default());
         frame.submit();
     }
@@ -244,6 +245,14 @@ where
         for child_idx in node.children_iter() {
             self.render_node(frame, *child_idx, &transform);
         }
+    }
+
+    pub fn clear_color(self) -> Color {
+        self.clear_color
+    }
+
+    pub fn set_clear_color(&mut self, clear_color: Color) {
+        self.clear_color = clear_color
     }
 }
 
@@ -268,7 +277,7 @@ mod test {
         ) -> Self::RenderingPrimitive {
             todo!()
         }
-        fn new_frame(&self) -> Self::Frame {
+        fn new_frame(&self, _clear_color: &Color) -> Self::Frame {
             todo!()
         }
     }
