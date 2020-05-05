@@ -1,5 +1,6 @@
 extern crate alloc;
-use kurbo::{Affine, BezPath, Rect};
+use cgmath::{Matrix4, SquareMatrix};
+use kurbo::{BezPath, Rect};
 
 pub struct Color {
     red: u8,
@@ -38,7 +39,7 @@ pub enum FillStyle {
 
 pub trait Frame {
     type RenderingPrimitive;
-    fn render_primitive(&mut self, primitive: &Self::RenderingPrimitive, transform: &Affine);
+    fn render_primitive(&mut self, primitive: &Self::RenderingPrimitive, transform: &Matrix4<f32>);
     fn submit(self);
 }
 
@@ -60,7 +61,7 @@ pub trait GraphicsBackend: Sized {
 }
 
 struct RenderNodeData<RenderingPrimitive> {
-    transform: Option<Affine>,
+    transform: Option<Matrix4<f32>>,
     content: Option<RenderingPrimitive>,
     children: Vec<usize>,
 }
@@ -89,7 +90,7 @@ impl<'a, RenderingPrimitive> RenderNode<'a, RenderingPrimitive> {
         }
     }
 
-    pub fn transform(&self) -> Option<Affine> {
+    pub fn transform(&self) -> Option<Matrix4<f32>> {
         self.data().transform
     }
 
@@ -124,11 +125,11 @@ impl<'a, RenderingPrimitive> RenderNodeMut<'a, RenderingPrimitive> {
         }
     }
 
-    pub fn set_transform(&mut self, transform: Option<Affine>) {
+    pub fn set_transform(&mut self, transform: Option<Matrix4<f32>>) {
         self.data_mut().transform = transform;
     }
 
-    pub fn transform(&self) -> Option<Affine> {
+    pub fn transform(&self) -> Option<Matrix4<f32>> {
         self.data().transform
     }
 
@@ -198,7 +199,7 @@ where
     pub fn allocate_index_with_content(
         &mut self,
         content: Option<Backend::RenderingPrimitive>,
-        transform: Option<Affine>,
+        transform: Option<Matrix4<f32>>,
     ) -> usize {
         self.allocate_index(RenderNodeData { content, transform, children: vec![] })
     }
@@ -231,17 +232,17 @@ where
 
     pub fn render(&self, renderer: &Backend, root: usize) {
         let mut frame = renderer.new_frame(&self.clear_color);
-        self.render_node(&mut frame, root, &Affine::default());
+        self.render_node(&mut frame, root, &Matrix4::identity());
         frame.submit();
     }
 
-    fn render_node(&self, frame: &mut Backend::Frame, idx: usize, parent_transform: &Affine) {
+    fn render_node(&self, frame: &mut Backend::Frame, idx: usize, parent_transform: &Matrix4<f32>) {
         let node = self.node_at(idx);
 
         let transform = *parent_transform
             * match node.transform() {
                 Some(transform) => transform,
-                None => Affine::default(),
+                None => Matrix4::identity(),
             };
 
         if let Some(content) = node.content() {
@@ -298,7 +299,11 @@ mod test {
 
     impl Frame for TestFrame {
         type RenderingPrimitive = TestPrimitive;
-        fn render_primitive(&mut self, _primitive: &Self::RenderingPrimitive, _transform: &Affine) {
+        fn render_primitive(
+            &mut self,
+            _primitive: &Self::RenderingPrimitive,
+            _transform: &Matrix4<f32>,
+        ) {
             todo!()
         }
         fn submit(self) {

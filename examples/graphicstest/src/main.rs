@@ -1,5 +1,6 @@
+use cgmath::{Matrix4, SquareMatrix, Vector3};
 use glium::glutin;
-use kurbo::{Affine, BezPath, Rect};
+use kurbo::{BezPath, Rect};
 use sixtyfps_corelib::graphics::{Color, FillStyle, GraphicsBackend, RenderTree};
 use sixtyfps_gl_backend::{GLRenderer, OpaqueRenderingPrimitive};
 
@@ -35,8 +36,10 @@ fn main() {
 
     let translated_child_rect = {
         let child_rect = create_rect(&mut renderer, 0.0, 0.0, Color::GREEN);
-        render_tree
-            .allocate_index_with_content(Some(child_rect), Some(Affine::translate((100.0, 100.0))))
+        render_tree.allocate_index_with_content(
+            Some(child_rect),
+            Some(Matrix4::from_translation(Vector3::new(100., 100., 0.))),
+        )
     };
 
     render_tree.node_at_mut(root).append_child(translated_child_rect);
@@ -58,7 +61,7 @@ fn main() {
 
         let image_primitive = renderer.create_image_primitive(source_rect, dest_rect, im);
 
-        render_tree.allocate_index_with_content(Some(image_primitive), Some(Affine::default()))
+        render_tree.allocate_index_with_content(Some(image_primitive), Some(Matrix4::identity()))
     };
 
     render_tree.node_at_mut(root).append_child(image_node);

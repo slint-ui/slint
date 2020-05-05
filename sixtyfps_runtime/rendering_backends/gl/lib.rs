@@ -1,8 +1,9 @@
+use cgmath::Matrix4;
 use glium::{
     implement_vertex, uniform, Display, Frame as GLiumFrame, IndexBuffer, Program, Surface,
     Texture2d, VertexBuffer,
 };
-use kurbo::{Affine, BezPath, PathEl, Point, Rect};
+use kurbo::{BezPath, PathEl, Point, Rect};
 use lyon::path::PathEvent;
 use lyon::tessellation::geometry_builder::{BuffersBuilder, VertexBuffers};
 use lyon::tessellation::{FillAttributes, FillOptions, FillTessellator};
@@ -185,36 +186,11 @@ impl GraphicsBackend for GLRenderer {
     }
 }
 
-impl GLFrame {
-    fn gl_matrix(&self, affine: &Affine) -> [[f32; 4]; 4] {
-        let coefs = affine.as_coeffs();
-        let m = cgmath::Matrix4::<f32>::new(
-            coefs[0] as f32,
-            coefs[2] as f32,
-            0.0,
-            0.0,
-            coefs[1] as f32,
-            coefs[3] as f32,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            coefs[4] as f32,
-            coefs[5] as f32,
-            0.0,
-            1.0,
-        );
-        (self.root_matrix * m).into()
-    }
-}
-
 impl GraphicsFrame for GLFrame {
     type RenderingPrimitive = OpaqueRenderingPrimitive;
 
-    fn render_primitive(&mut self, primitive: &OpaqueRenderingPrimitive, transform: &Affine) {
-        let matrix = self.gl_matrix(&transform);
+    fn render_primitive(&mut self, primitive: &OpaqueRenderingPrimitive, transform: &Matrix4<f32>) {
+        let matrix: [[f32; 4]; 4] = (self.root_matrix * transform).into();
 
         match &primitive.0 {
             GLRenderingPrimitive::FillPath { ref vertices, ref indices, style } => {
