@@ -1,5 +1,5 @@
 use glium::glutin;
-use kurbo::BezPath;
+use kurbo::{Affine, BezPath};
 use sixtyfps_corelib::graphics::{GraphicsBackend, RenderTree};
 use sixtyfps_gl_backend::{GLRenderer, GLRenderingPrimitive};
 
@@ -33,8 +33,9 @@ fn main() {
     };
 
     let translated_child_rect = {
-        let child_rect = create_rect(&mut renderer, 100.0, 100.0);
-        render_tree.allocate_index_with_content(Some(child_rect), None)
+        let child_rect = create_rect(&mut renderer, 0.0, 0.0);
+        render_tree
+            .allocate_index_with_content(Some(child_rect), Some(Affine::translate((100.0, 100.0))))
     };
 
     render_tree.node_at_mut(root).append_child(translated_child_rect);
