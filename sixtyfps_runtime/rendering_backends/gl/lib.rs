@@ -20,7 +20,7 @@ pub struct PathVertex {
 implement_vertex!(PathVertex, pos);
 
 pub enum GLRenderingPrimitive {
-    FillPath { geometry: VertexBuffers<PathVertex, u16>, style: FillStyle },
+    FillPath { vertices: VertexBuffer<PathVertex>, indices: IndexBuffer<u16>, style: FillStyle },
 }
 
 pub struct GLRenderer {
@@ -30,7 +30,6 @@ pub struct GLRenderer {
 }
 
 pub struct GLFrame {
-    display: Display,
     glium_frame: GLiumFrame,
     path_program: Rc<Program>,
     root_transform: Affine,
@@ -95,7 +94,15 @@ impl GraphicsBackend for GLRenderer {
             )
             .unwrap();
 
-        GLRenderingPrimitive::FillPath { geometry: geometry, style }
+        let vertices = VertexBuffer::new(&self.display, &geometry.vertices).unwrap();
+        let indices = IndexBuffer::new(
+            &self.display,
+            glium::index::PrimitiveType::TrianglesList,
+            &geometry.indices,
+        )
+        .unwrap();
+
+        GLRenderingPrimitive::FillPath { vertices, indices, style }
     }
 
     fn new_frame(&self) -> GLFrame {
@@ -103,7 +110,6 @@ impl GraphicsBackend for GLRenderer {
         let root_transform =
             Affine::FLIP_Y * Affine::scale_non_uniform(1.0 / (w as f64), 1.0 / (h as f64));
         GLFrame {
-            display: self.display.clone(),
             glium_frame: self.display.draw(),
             path_program: self.path_program.clone(),
             root_transform,
@@ -118,17 +124,7 @@ impl GraphicsFrame for GLFrame {
         let transform = self.root_transform * *transform;
 
         match primitive {
-            GLRenderingPrimitive::FillPath { geometry, style } => {
-                let vertices = &geometry.vertices;
-                let vertex_buffer = VertexBuffer::new(&self.display, &vertices).unwrap();
-                let indices = &geometry.indices;
-                let index_buffer = IndexBuffer::new(
-                    &self.display,
-                    glium::index::PrimitiveType::TrianglesList,
-                    &indices,
-                )
-                .unwrap();
-
+            GLRenderingPrimitive::FillPath { vertices, indices, style } => {
                 let (r, g, b, a) = match style {
                     FillStyle::SolidColor(color) => color.as_rgba_f32(),
                 };
@@ -144,13 +140,7 @@ impl GraphicsFrame for GLFrame {
                 };
 
                 self.glium_frame
-                    .draw(
-                        &vertex_buffer,
-                        &index_buffer,
-                        &self.path_program,
-                        &uniforms,
-                        &Default::default(),
-                    )
+                    .draw(vertices, indices, &self.path_program, &uniforms, &Default::default())
                     .unwrap();
             }
         }
