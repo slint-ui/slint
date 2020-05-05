@@ -7,6 +7,8 @@ mod prelude {
     pub use parser_test_macro::parser_test;
 }
 
+use crate::diagnostics::Diagnostics;
+
 macro_rules! declare_token_kind {
     ($($token:ident -> $rx:expr ,)*) => {
         #[repr(u16)]
@@ -21,6 +23,7 @@ macro_rules! declare_token_kind {
             //SyntaxKind:
             Document,
             Component,
+            Element,
             Binding,
             CodeStatement,
             CodeBlock,
@@ -67,7 +70,7 @@ pub struct Parser {
     builder: rowan::GreenNodeBuilder<'static>,
     tokens: Vec<Token>,
     cursor: usize,
-    errors: Vec<ParseError>,
+    diags: Diagnostics,
 }
 
 #[derive(derive_more::Deref, derive_more::DerefMut)]
@@ -92,7 +95,12 @@ impl Parser {
                 })
                 .collect()
         }
-        Self { builder: Default::default(), tokens: lex(source), cursor: 0, errors: vec![] }
+        Self {
+            builder: Default::default(),
+            tokens: lex(source),
+            cursor: 0,
+            diags: Default::default(),
+        }
     }
 
     pub fn start_node(&mut self, kind: SyntaxKind) -> Node {
@@ -139,7 +147,7 @@ impl Parser {
     }
 
     pub fn error(&mut self, e: impl Into<String>) {
-        self.errors.push(ParseError(e.into(), self.current_token().offset));
+        self.diags.push_error(e.into(), self.current_token().offset);
     }
 
     /// consume everyting until the token
@@ -165,11 +173,31 @@ impl rowan::Language for Language {
 }
 
 pub type SyntaxNode = rowan::SyntaxNode<Language>;
-//type SyntaxToken = rowan::SyntaxToken<Language>;
+pub type SyntaxToken = rowan::SyntaxToken<Language>;
 //type SyntaxElement = rowan::NodeOrToken<SyntaxNode, SyntaxToken>;
 
-pub fn parse(source: &str) -> (SyntaxNode, Vec<ParseError>) {
+pub trait SyntaxNodeEx {
+    fn child_node(&self, kind: SyntaxKind) -> Option<SyntaxNode>;
+    fn child_token(&self, kind: SyntaxKind) -> Option<SyntaxToken>;
+    fn child_text(&self, kind: SyntaxKind) -> Option<String>;
+}
+
+impl SyntaxNodeEx for SyntaxNode {
+    fn child_node(&self, kind: SyntaxKind) -> Option<SyntaxNode> {
+        self.children().find(|n| n.kind() == kind)
+    }
+    fn child_token(&self, kind: SyntaxKind) -> Option<SyntaxToken> {
+        self.children_with_tokens().find(|n| n.kind() == kind).and_then(|x| x.into_token())
+    }
+    fn child_text(&self, kind: SyntaxKind) -> Option<String> {
+        self.children_with_tokens()
+            .find(|n| n.kind() == kind)
+            .and_then(|x| x.as_token().map(|x| x.text().to_string()))
+    }
+}
+
+pub fn parse(source: &str) -> (SyntaxNode, Diagnostics) {
     let mut p = Parser::new(source);
     document::parse_document(&mut p);
-    (SyntaxNode::new_root(p.builder.finish()), p.errors)
+    (SyntaxNode::new_root(p.builder.finish()), p.diags)
 }

@@ -1,6 +1,8 @@
 ///! FIXME:  remove this
 use structopt::StructOpt;
 
+mod diagnostics;
+mod object_tree;
 mod parser;
 
 #[derive(StructOpt)]
@@ -12,17 +14,18 @@ struct Cli {
 fn main() -> std::io::Result<()> {
     let args = Cli::from_args();
     let source = std::fs::read_to_string(&args.path)?;
-    let res = parser::parse(&source);
-    println!("{:#?}", res.0);
-    if !res.1.is_empty() {
+    let (res, mut diag) = parser::parse(&source);
+    println!("{:#?}", res);
+    println!("{:#?}", object_tree::Document::from_node(res, &mut diag));
+    if !diag.inner.is_empty() {
         let mut codemap = codemap::CodeMap::new();
         let file = codemap.add_file(args.path.to_string_lossy().into_owned(), source);
         let file_span = file.span;
 
-        let diags: Vec<_> = res
-            .1
+        let diags: Vec<_> = diag
+            .inner
             .into_iter()
-            .map(|parser::ParseError(message, offset)| {
+            .map(|diagnostics::CompilerDiagnostic { message, offset }| {
                 let s = codemap_diagnostic::SpanLabel {
                     span: file_span.subspan(offset as u64, offset as u64),
                     style: codemap_diagnostic::SpanStyle::Primary,

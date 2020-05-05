@@ -8,22 +8,34 @@ pub fn parse_document(p: &mut Parser) -> bool {
     let mut p = p.start_node(SyntaxKind::Document);
     let mut p = p.start_node(SyntaxKind::Component);
 
-    if !(p.expect(SyntaxKind::Identifier)
-        && p.expect(SyntaxKind::Equal)
-        && p.expect(SyntaxKind::Identifier)
-        && p.expect(SyntaxKind::LBrace))
-    {
+    if !(p.expect(SyntaxKind::Identifier) && p.expect(SyntaxKind::Equal)) {
+        return false;
+    }
+
+    if !parse_element(&mut *p) {
+        return false;
+    }
+
+    if p.peek_kind() != SyntaxKind::Eof {
+        p.error("Should be end of file");
+        return false;
+    }
+    true
+}
+
+#[parser_test]
+/// ```test
+/// Item { }
+/// ```
+pub fn parse_element(p: &mut Parser) -> bool {
+    let mut p = p.start_node(SyntaxKind::Element);
+    if !(p.expect(SyntaxKind::Identifier) && p.expect(SyntaxKind::LBrace)) {
         return false;
     }
 
     parse_element_content(&mut *p);
 
-    p.expect(SyntaxKind::RBrace);
-    if p.peek_kind() != SyntaxKind::Eof {
-        p.error("Should be end of file");
-        return false;
-    }
-    return true;
+    p.expect(SyntaxKind::RBrace)
 }
 
 fn parse_element_content(p: &mut Parser) {

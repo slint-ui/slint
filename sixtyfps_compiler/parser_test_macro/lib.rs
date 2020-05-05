@@ -37,7 +37,7 @@ fn generate_test(fn_name: &str, doc: &str) -> String {
         {{
             let mut p = Parser::new("{source}");
             {fn}(&mut p);
-            assert_eq!(p.errors, Vec::<ParseError>::new());
+            assert_eq!(p.diags.inner, Vec::new());
         }}
         "#, fn = fn_name, i = i, source = line)
     }
