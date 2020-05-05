@@ -42,6 +42,7 @@ macro_rules! declare_token_kind {
 }
 declare_token_kind! {
     Whitespace -> r"\s+",
+    Comment -> r"//.*\n",
     Identifier -> r"[\w]+",
     RBrace -> r"\}",
     LBrace -> r"\{",
@@ -126,7 +127,7 @@ impl Parser {
     }
 
     pub fn consume_ws(&mut self) {
-        while self.current_token().kind == SyntaxKind::Whitespace {
+        while matches!(self.current_token().kind, SyntaxKind::Whitespace | SyntaxKind::Comment) {
             self.consume()
         }
     }

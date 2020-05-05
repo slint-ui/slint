@@ -1,12 +1,12 @@
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct CompilerDiagnostic {
-    pub(super) message: String,
-    pub(super) offset: usize,
+    pub message: String,
+    pub offset: usize,
 }
 
 #[derive(Default, Debug)]
 pub struct Diagnostics {
-    pub(super) inner: Vec<CompilerDiagnostic>,
+    pub inner: Vec<CompilerDiagnostic>,
 }
 
 impl Diagnostics {
