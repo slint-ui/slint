@@ -14,7 +14,6 @@ m_lexer = "0.0.4" # simple lexer for now
 num_enum = "0.4.3"
 rowan = "0.10.0"
 derive_more = "0.99.5"
-parser_test_macro = { path = "./parser_test_macro" }  # idealy this would be a dev-dependencies
 
  # FIXME: remove this: bin should be somewhere else
 structopt = "0.3.14"
@@ -23,6 +22,7 @@ codemap = "0.1"
 
 [dev-dependencies]
 regex = "1.3.7"
+parser_test_macro = { path = "./parser_test_macro" }
 
 ## FIXME remove
 [[bin]]

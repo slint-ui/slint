@@ -1,6 +1,6 @@
 use super::prelude::*;
 
-#[parser_test]
+#[cfg_attr(test, parser_test)]
 /// ```test
 /// Type = Base { }
 /// ```
@@ -23,7 +23,7 @@ pub fn parse_document(p: &mut Parser) -> bool {
     true
 }
 
-#[parser_test]
+#[cfg_attr(test, parser_test)]
 /// ```test
 /// Item { }
 /// ```
@@ -58,7 +58,7 @@ fn parse_element_content(p: &mut Parser) {
     }
 }
 
-#[parser_test]
+#[cfg_attr(test, parser_test)]
 /// ```test
 /// {  }
 /// expression ;
@@ -74,6 +74,10 @@ fn parse_code_statement(p: &mut Parser) {
     }
 }
 
+#[cfg_attr(test, parser_test)]
+/// ```test
+/// {  }
+/// ```
 fn parse_code_block(p: &mut Parser) {
     let mut p = p.start_node(SyntaxKind::CodeBlock);
     p.expect(SyntaxKind::LBrace); // Or assert?
@@ -83,6 +87,10 @@ fn parse_code_block(p: &mut Parser) {
     p.until(SyntaxKind::RBrace);
 }
 
+#[cfg_attr(test, parser_test)]
+/// ```test
+/// something
+/// ```
 fn parse_expression(p: &mut Parser) {
     let mut p = p.start_node(SyntaxKind::Expression);
     p.expect(SyntaxKind::Identifier);

@@ -4,6 +4,7 @@ mod document;
 
 mod prelude {
     pub use super::{ParseError, Parser, SyntaxKind};
+    #[cfg(test)]
     pub use parser_test_macro::parser_test;
 }
 

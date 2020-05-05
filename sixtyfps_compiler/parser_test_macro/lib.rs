@@ -38,6 +38,7 @@ fn generate_test(fn_name: &str, doc: &str) -> String {
             let mut p = Parser::new("{source}");
             {fn}(&mut p);
             assert_eq!(p.diags.inner, Vec::new());
+            assert_eq!(p.cursor, p.tokens.len());
         }}
         "#, fn = fn_name, i = i, source = line)
     }
