@@ -1,6 +1,16 @@
 mod cpp_ast {
 
+    use std::cell::Cell;
     use std::fmt::{Display, Error, Formatter};
+    thread_local!(static INDETATION : Cell<u32> = Cell::new(0));
+    fn indent(f: &mut Formatter<'_>) -> Result<(), Error> {
+        INDETATION.with(|i| {
+            for _ in 0..(i.get()) {
+                write!(f, "    ")?;
+            }
+            Ok(())
+        })
+    }
 
     #[derive(Default, Debug)]
     pub struct File {
@@ -35,11 +45,15 @@ mod cpp_ast {
 
     impl Display for Struct {
         fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+            indent(f)?;
             writeln!(f, "struct {} {{", self.name)?;
+            INDETATION.with(|x| x.set(x.get() + 1));
             for m in &self.members {
                 // FIXME! identation
                 write!(f, "{}", m)?;
             }
+            INDETATION.with(|x| x.set(x.get() - 1));
+            indent(f)?;
             writeln!(f, "}};")
         }
     }
@@ -55,13 +69,16 @@ mod cpp_ast {
 
     impl Display for Function {
         fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+            indent(f)?;
             if !self.is_constructor {
                 write!(f, "auto ")?;
             }
             writeln!(f, "{} {} {{", self.name, self.signature)?;
             for s in &self.statements {
+                indent(f)?;
                 writeln!(f, "    {}", s)?;
             }
+            indent(f)?;
             writeln!(f, "}}")
         }
     }
@@ -75,6 +92,7 @@ mod cpp_ast {
 
     impl Display for Var {
         fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+            indent(f)?;
             write!(f, "{} {}", self.ty, self.name)?;
             if let Some(i) = &self.init {
                 write!(f, " = {}", i)?;
