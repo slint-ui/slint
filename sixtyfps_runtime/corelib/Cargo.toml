@@ -11,3 +11,4 @@ path = "lib.rs"
 
 [dependencies]
 kurbo = "0.5.11"
+image = "0.23.4"

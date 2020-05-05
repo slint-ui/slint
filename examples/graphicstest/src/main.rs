@@ -1,5 +1,5 @@
 use glium::glutin;
-use kurbo::{Affine, BezPath};
+use kurbo::{Affine, BezPath, Rect};
 use sixtyfps_corelib::graphics::{Color, FillStyle, GraphicsBackend, RenderTree};
 use sixtyfps_gl_backend::{GLRenderer, OpaqueRenderingPrimitive};
 
@@ -40,6 +40,28 @@ fn main() {
     };
 
     render_tree.node_at_mut(root).append_child(translated_child_rect);
+
+    let image_node = {
+        let mut logo_path = std::env::current_exe().unwrap();
+        logo_path.pop(); // pop off executable file name
+        logo_path.push("..");
+        logo_path.push("..");
+        logo_path.push("examples");
+        logo_path.push("graphicstest");
+        logo_path.push("logo.png");
+        let im = image::open(logo_path.as_path()).unwrap().into_rgba();
+        let source_size = im.dimensions();
+
+        let source_rect = Rect::new(0.0, 0.0, source_size.0 as f64, source_size.1 as f64);
+        let dest_rect =
+            Rect::new(200.0, 200.0, 200. + source_size.0 as f64, 200. + source_size.1 as f64);
+
+        let image_primitive = renderer.create_image_primitive(source_rect, dest_rect, im);
+
+        render_tree.allocate_index_with_content(Some(image_primitive), Some(Affine::default()))
+    };
+
+    render_tree.node_at_mut(root).append_child(image_node);
 
     event_loop.run(move |event, _, control_flow| {
         let next_frame_time =

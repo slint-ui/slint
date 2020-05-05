@@ -1,5 +1,5 @@
 extern crate alloc;
-use kurbo::{Affine, BezPath};
+use kurbo::{Affine, BezPath, Rect};
 
 pub struct Color {
     red: u8,
@@ -49,6 +49,12 @@ pub trait GraphicsBackend: Sized {
         &mut self,
         path: &BezPath,
         style: FillStyle,
+    ) -> Self::RenderingPrimitive;
+    fn create_image_primitive(
+        &mut self,
+        source_rect: impl Into<Rect>,
+        dest_rect: impl Into<Rect>,
+        image: image::ImageBuffer<image::Rgba<u8>, Vec<u8>>,
     ) -> Self::RenderingPrimitive;
     fn new_frame(&self, clear_color: &Color) -> Self::Frame;
 }
@@ -274,6 +280,14 @@ mod test {
             &mut self,
             _path: &BezPath,
             _style: FillStyle,
+        ) -> Self::RenderingPrimitive {
+            todo!()
+        }
+        fn create_image_primitive(
+            &mut self,
+            _source_rect: impl Into<Rect>,
+            _dest_rect: impl Into<Rect>,
+            _image: image::ImageBuffer<image::Rgba<u8>, Vec<u8>>,
         ) -> Self::RenderingPrimitive {
             todo!()
         }

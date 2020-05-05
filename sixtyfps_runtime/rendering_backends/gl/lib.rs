@@ -1,8 +1,8 @@
 use glium::{
     implement_vertex, uniform, Display, Frame as GLiumFrame, IndexBuffer, Program, Surface,
-    VertexBuffer,
+    Texture2d, VertexBuffer,
 };
-use kurbo::{Affine, BezPath, PathEl, Point};
+use kurbo::{Affine, BezPath, PathEl, Point, Rect};
 use lyon::path::PathEvent;
 use lyon::tessellation::geometry_builder::{BuffersBuilder, VertexBuffers};
 use lyon::tessellation::{FillAttributes, FillOptions, FillTessellator};
@@ -19,19 +19,30 @@ struct PathVertex {
 
 implement_vertex!(PathVertex, pos);
 
+#[derive(Copy, Clone)]
+struct ImageVertex {
+    pos: [f32; 2],
+    tex_pos: [f32; 2],
+}
+
+implement_vertex!(ImageVertex, pos, tex_pos);
+
 enum GLRenderingPrimitive {
     FillPath { vertices: VertexBuffer<PathVertex>, indices: IndexBuffer<u16>, style: FillStyle },
+    Texture { vertices: VertexBuffer<ImageVertex>, texture: Texture2d },
 }
 
 pub struct GLRenderer {
     display: Display,
     path_program: Rc<Program>,
+    image_program: Rc<Program>,
     fill_tesselator: FillTessellator,
 }
 
 pub struct GLFrame {
     glium_frame: GLiumFrame,
     path_program: Rc<Program>,
+    image_program: Rc<Program>,
     root_transform: Affine,
 }
 
@@ -53,17 +64,37 @@ impl GLRenderer {
             gl_FragColor = fragcolor;
         }"#;
 
+        let path_program = Rc::new(
+            glium::Program::from_source(display, PATH_VERTEX_SHADER, PATH_FRAGMENT_SHADER, None)
+                .unwrap(),
+        );
+
+        const IMAGE_VERTEX_SHADER: &str = r#"#version 100
+        attribute vec2 pos;
+        attribute vec2 tex_pos;
+        uniform mat4 matrix;
+        varying highp vec2 frag_tex_pos;
+        void main() {
+            gl_Position = vec4(pos, 0.0, 1) * matrix;
+            frag_tex_pos = tex_pos;
+        }"#;
+
+        const IMAGE_FRAGMENT_SHADER: &str = r#"#version 100
+        varying highp vec2 frag_tex_pos;
+        uniform sampler2D tex;
+        void main() {
+            gl_FragColor = texture2D(tex, frag_tex_pos);
+        }"#;
+
+        let image_program = Rc::new(
+            glium::Program::from_source(display, IMAGE_VERTEX_SHADER, IMAGE_FRAGMENT_SHADER, None)
+                .unwrap(),
+        );
+
         GLRenderer {
             display: display.clone(),
-            path_program: Rc::new(
-                glium::Program::from_source(
-                    display,
-                    PATH_VERTEX_SHADER,
-                    PATH_FRAGMENT_SHADER,
-                    None,
-                )
-                .unwrap(),
-            ),
+            path_program,
+            image_program,
             fill_tesselator: FillTessellator::new(),
         }
     }
@@ -107,13 +138,52 @@ impl GraphicsBackend for GLRenderer {
         OpaqueRenderingPrimitive(GLRenderingPrimitive::FillPath { vertices, indices, style })
     }
 
+    fn create_image_primitive(
+        &mut self,
+        source_rect: impl Into<Rect>,
+        dest_rect: impl Into<Rect>,
+        image: image::ImageBuffer<image::Rgba<u8>, Vec<u8>>,
+    ) -> Self::RenderingPrimitive {
+        let dimensions = image.dimensions();
+        let image = glium::texture::RawImage2d::from_raw_rgba(image.into_raw(), dimensions);
+        let texture = glium::texture::Texture2d::new(&self.display, image).unwrap();
+
+        let rect = dest_rect.into();
+        let src_rect = source_rect.into();
+        let image_width = dimensions.0 as f32;
+        let image_height = dimensions.1 as f32;
+        let src_left = (src_rect.x0 as f32) / image_width;
+        let src_top = (src_rect.y0 as f32) / image_height;
+        let src_right = (src_rect.x1 as f32) / image_width;
+        let src_bottom = (src_rect.y1 as f32) / image_height;
+
+        let vertex1 =
+            ImageVertex { pos: [rect.x0 as f32, rect.y0 as f32], tex_pos: [src_left, src_top] };
+        let vertex2 =
+            ImageVertex { pos: [rect.x1 as f32, rect.y0 as f32], tex_pos: [src_right, src_top] };
+        let vertex3 =
+            ImageVertex { pos: [rect.x1 as f32, rect.y1 as f32], tex_pos: [src_right, src_bottom] };
+        let vertex4 =
+            ImageVertex { pos: [rect.x0 as f32, rect.y1 as f32], tex_pos: [src_left, src_bottom] };
+        let shape = vec![vertex1, vertex2, vertex3, vertex1, vertex3, vertex4];
+
+        let vertices = glium::VertexBuffer::new(&self.display, &shape).unwrap();
+
+        OpaqueRenderingPrimitive(GLRenderingPrimitive::Texture { texture, vertices })
+    }
+
     fn new_frame(&self, clear_color: &Color) -> GLFrame {
         let (w, h) = self.display.get_framebuffer_dimensions();
         let root_transform =
             Affine::FLIP_Y * Affine::scale_non_uniform(1.0 / (w as f64), 1.0 / (h as f64));
         let mut glium_frame = self.display.draw();
         glium_frame.clear(None, Some(clear_color.as_rgba_f32()), false, None, None);
-        GLFrame { glium_frame, path_program: self.path_program.clone(), root_transform }
+        GLFrame {
+            glium_frame,
+            path_program: self.path_program.clone(),
+            image_program: self.image_program.clone(),
+            root_transform,
+        }
     }
 }
 
@@ -141,6 +211,25 @@ impl GraphicsFrame for GLFrame {
 
                 self.glium_frame
                     .draw(vertices, indices, &self.path_program, &uniforms, &Default::default())
+                    .unwrap();
+            }
+            GLRenderingPrimitive::Texture { texture, vertices } => {
+                let indices = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
+
+                let coefs = transform.as_coeffs();
+
+                let uniforms = uniform! {
+                    tex: texture,
+                    matrix: [
+                        [coefs[0] as f32, coefs[1] as f32, 0.0, coefs[4] as f32],
+                        [coefs[2] as f32, coefs[3] as f32, 0.0, coefs[5] as f32],
+                        [0.0, 0.0, 0.0, 0.0],
+                        [0.0, 0.0, 0.0, 1.0],
+                    ]
+                };
+
+                self.glium_frame
+                    .draw(vertices, &indices, &self.image_program, &uniforms, &Default::default())
                     .unwrap();
             }
         }
