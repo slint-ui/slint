@@ -7,7 +7,7 @@ use lyon::path::PathEvent;
 use lyon::tessellation::geometry_builder::{BuffersBuilder, VertexBuffers};
 use lyon::tessellation::{FillAttributes, FillOptions, FillTessellator};
 
-use sixtyfps_corelib::graphics::{Frame as GraphicsFrame, GraphicsBackend};
+use sixtyfps_corelib::graphics::{FillStyle, Frame as GraphicsFrame, GraphicsBackend};
 
 extern crate alloc;
 use alloc::rc::Rc;
@@ -20,7 +20,7 @@ pub struct PathVertex {
 implement_vertex!(PathVertex, pos);
 
 pub enum GLRenderingPrimitive {
-    Path { geometry: VertexBuffers<PathVertex, u16> },
+    FillPath { geometry: VertexBuffers<PathVertex, u16>, style: FillStyle },
 }
 
 pub struct GLRenderer {
@@ -74,7 +74,11 @@ impl GraphicsBackend for GLRenderer {
     type RenderingPrimitive = GLRenderingPrimitive;
     type Frame = GLFrame;
 
-    fn create_path_primitive(&mut self, path: &BezPath) -> Self::RenderingPrimitive {
+    fn create_path_fill_primitive(
+        &mut self,
+        path: &BezPath,
+        style: FillStyle,
+    ) -> Self::RenderingPrimitive {
         let mut geometry = VertexBuffers::new();
 
         let fill_opts = FillOptions::default();
@@ -91,7 +95,7 @@ impl GraphicsBackend for GLRenderer {
             )
             .unwrap();
 
-        GLRenderingPrimitive::Path { geometry: geometry }
+        GLRenderingPrimitive::FillPath { geometry: geometry, style }
     }
 
     fn new_frame(&self) -> GLFrame {
@@ -114,7 +118,7 @@ impl GraphicsFrame for GLFrame {
         let transform = self.root_transform * *transform;
 
         match primitive {
-            GLRenderingPrimitive::Path { geometry } => {
+            GLRenderingPrimitive::FillPath { geometry, style } => {
                 let vertices = &geometry.vertices;
                 let vertex_buffer = VertexBuffer::new(&self.display, &vertices).unwrap();
                 let indices = &geometry.indices;
@@ -125,7 +129,9 @@ impl GraphicsFrame for GLFrame {
                 )
                 .unwrap();
 
-                let (r, g, b, a) = (0.0f32, 1.0f32, 0.0f32, 0.0f32);
+                let (r, g, b, a) = match style {
+                    FillStyle::SolidColor(color) => color.as_rgba_f32(),
+                };
                 let coefs = transform.as_coeffs();
                 let uniforms = uniform! {
                     vertcolor: (r, g, b, a),

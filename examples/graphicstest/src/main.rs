@@ -1,12 +1,13 @@
 use glium::glutin;
 use kurbo::{Affine, BezPath};
-use sixtyfps_corelib::graphics::{GraphicsBackend, RenderTree};
+use sixtyfps_corelib::graphics::{Color, FillStyle, GraphicsBackend, RenderTree};
 use sixtyfps_gl_backend::{GLRenderer, GLRenderingPrimitive};
 
 fn create_rect(
     renderer: &mut impl GraphicsBackend<RenderingPrimitive = GLRenderingPrimitive>,
     x0: f64,
     y0: f64,
+    color: Color,
 ) -> GLRenderingPrimitive {
     let mut rect_path = BezPath::new();
     rect_path.move_to((x0, y0));
@@ -14,7 +15,7 @@ fn create_rect(
     rect_path.line_to((x0 + 100.0, y0 + 100.0));
     rect_path.line_to((x0, y0 + 100.0));
     rect_path.close_path();
-    renderer.create_path_primitive(&rect_path)
+    renderer.create_path_fill_primitive(&rect_path, FillStyle::SolidColor(color))
 }
 
 fn main() {
@@ -28,12 +29,12 @@ fn main() {
     let mut render_tree = RenderTree::<GLRenderer>::default();
 
     let root = {
-        let root_rect = create_rect(&mut renderer, 0.0, 0.0);
+        let root_rect = create_rect(&mut renderer, 0.0, 0.0, Color::WHITE);
         render_tree.allocate_index_with_content(Some(root_rect), None)
     };
 
     let translated_child_rect = {
-        let child_rect = create_rect(&mut renderer, 0.0, 0.0);
+        let child_rect = create_rect(&mut renderer, 0.0, 0.0, Color::GREEN);
         render_tree
             .allocate_index_with_content(Some(child_rect), Some(Affine::translate((100.0, 100.0))))
     };

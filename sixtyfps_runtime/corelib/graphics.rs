@@ -1,6 +1,41 @@
 extern crate alloc;
 use kurbo::{Affine, BezPath};
 
+pub struct Color {
+    red: u8,
+    green: u8,
+    blue: u8,
+    alpha: u8,
+}
+
+impl Color {
+    pub const fn from_rgba(red: u8, green: u8, blue: u8, alpha: u8) -> Color {
+        Color { red, green, blue, alpha }
+    }
+    pub const fn from_rgb(red: u8, green: u8, blue: u8) -> Color {
+        Color::from_rgba(red, green, blue, 0xff)
+    }
+
+    pub fn as_rgba_f32(&self) -> (f32, f32, f32, f32) {
+        (
+            (self.red as f32) / 255.0,
+            (self.green as f32) / 255.0,
+            (self.blue as f32) / 255.0,
+            (self.alpha as f32) / 255.0,
+        )
+    }
+
+    pub const BLACK: Color = Color::from_rgb(0, 0, 0);
+    pub const RED: Color = Color::from_rgb(255, 0, 0);
+    pub const GREEN: Color = Color::from_rgb(0, 255, 0);
+    pub const BLUE: Color = Color::from_rgb(0, 0, 255);
+    pub const WHITE: Color = Color::from_rgb(255, 255, 255);
+}
+
+pub enum FillStyle {
+    SolidColor(Color),
+}
+
 pub trait Frame {
     type RenderingPrimitive;
     fn render_primitive(&mut self, primitive: &Self::RenderingPrimitive, transform: &Affine);
@@ -10,7 +45,11 @@ pub trait Frame {
 pub trait GraphicsBackend: Sized {
     type RenderingPrimitive;
     type Frame: Frame<RenderingPrimitive = Self::RenderingPrimitive>;
-    fn create_path_primitive(&mut self, path: &BezPath) -> Self::RenderingPrimitive;
+    fn create_path_fill_primitive(
+        &mut self,
+        path: &BezPath,
+        style: FillStyle,
+    ) -> Self::RenderingPrimitive;
     fn new_frame(&self) -> Self::Frame;
 }
 
@@ -222,7 +261,11 @@ mod test {
     impl GraphicsBackend for TestBackend {
         type RenderingPrimitive = TestPrimitive;
         type Frame = TestFrame;
-        fn create_path_primitive(&mut self, _path: &BezPath) -> Self::RenderingPrimitive {
+        fn create_path_fill_primitive(
+            &mut self,
+            _path: &BezPath,
+            _style: FillStyle,
+        ) -> Self::RenderingPrimitive {
             todo!()
         }
         fn new_frame(&self) -> Self::Frame {
