@@ -19,7 +19,7 @@ pub struct PathVertex {
 
 implement_vertex!(PathVertex, pos);
 
-pub enum RenderingPrimitive {
+pub enum GLRenderingPrimitive {
     Path { geometry: VertexBuffers<PathVertex, u16> },
 }
 
@@ -71,7 +71,7 @@ impl GLRenderer {
 }
 
 impl GraphicsBackend for GLRenderer {
-    type RenderingPrimitive = RenderingPrimitive;
+    type RenderingPrimitive = GLRenderingPrimitive;
     type Frame = GLFrame;
 
     fn create_path_primitive(&mut self, path: &BezPath) -> Self::RenderingPrimitive {
@@ -91,7 +91,7 @@ impl GraphicsBackend for GLRenderer {
             )
             .unwrap();
 
-        RenderingPrimitive::Path { geometry: geometry }
+        GLRenderingPrimitive::Path { geometry: geometry }
     }
 
     fn new_frame(&self) -> GLFrame {
@@ -108,13 +108,13 @@ impl GraphicsBackend for GLRenderer {
 }
 
 impl GraphicsFrame for GLFrame {
-    type RenderingPrimitive = RenderingPrimitive;
+    type RenderingPrimitive = GLRenderingPrimitive;
 
-    fn render_primitive(&mut self, primitive: &RenderingPrimitive, transform: &Affine) {
+    fn render_primitive(&mut self, primitive: &GLRenderingPrimitive, transform: &Affine) {
         let transform = self.root_transform * *transform;
 
         match primitive {
-            RenderingPrimitive::Path { geometry } => {
+            GLRenderingPrimitive::Path { geometry } => {
                 let vertices = &geometry.vertices;
                 let vertex_buffer = VertexBuffer::new(&self.display, &vertices).unwrap();
                 let indices = &geometry.indices;

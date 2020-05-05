@@ -1,7 +1,21 @@
 use glium::glutin;
-use kurbo::{Affine, BezPath};
-use sixtyfps_corelib::graphics::{Frame, GraphicsBackend};
-use sixtyfps_gl_backend::GLRenderer;
+use kurbo::BezPath;
+use sixtyfps_corelib::graphics::{GraphicsBackend, RenderTree};
+use sixtyfps_gl_backend::{GLRenderer, GLRenderingPrimitive};
+
+fn create_rect(
+    renderer: &mut impl GraphicsBackend<RenderingPrimitive = GLRenderingPrimitive>,
+    x0: f64,
+    y0: f64,
+) -> GLRenderingPrimitive {
+    let mut rect_path = BezPath::new();
+    rect_path.move_to((x0, y0));
+    rect_path.line_to((x0 + 100.0, y0));
+    rect_path.line_to((x0 + 100.0, y0 + 100.0));
+    rect_path.line_to((x0, y0 + 100.0));
+    rect_path.close_path();
+    renderer.create_path_primitive(&rect_path)
+}
 
 fn main() {
     let event_loop = glutin::event_loop::EventLoop::new();
@@ -11,13 +25,19 @@ fn main() {
 
     let mut renderer = GLRenderer::new(&display);
 
-    let mut rect_path = BezPath::new();
-    rect_path.move_to((0.0, 0.0));
-    rect_path.line_to((100.0, 0.0));
-    rect_path.line_to((100.0, 100.0));
-    rect_path.line_to((0.0, 100.0));
-    rect_path.close_path();
-    let primitive = renderer.create_path_primitive(&rect_path);
+    let mut render_tree = RenderTree::<GLRenderer>::default();
+
+    let root = {
+        let root_rect = create_rect(&mut renderer, 0.0, 0.0);
+        render_tree.allocate_index_with_content(Some(root_rect), None)
+    };
+
+    let translated_child_rect = {
+        let child_rect = create_rect(&mut renderer, 100.0, 100.0);
+        render_tree.allocate_index_with_content(Some(child_rect), None)
+    };
+
+    render_tree.node_at(root).append_child(translated_child_rect);
 
     event_loop.run(move |event, _, control_flow| {
         let next_frame_time =
@@ -40,8 +60,6 @@ fn main() {
             _ => return,
         }
 
-        let mut frame = renderer.new_frame();
-        frame.render_primitive(&primitive, &Affine::default());
-        frame.submit();
+        render_tree.render(&renderer, root);
     });
 }
