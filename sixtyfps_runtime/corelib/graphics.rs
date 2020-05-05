@@ -33,10 +33,39 @@ enum NodeEntry<RenderPrimitive> {
 
 pub struct RenderNode<'a, RenderingPrimitive> {
     pub idx: usize,
-    nodes: &'a mut Vec<NodeEntry<RenderingPrimitive>>,
+    nodes: &'a Vec<NodeEntry<RenderingPrimitive>>,
 }
 
 impl<'a, RenderingPrimitive> RenderNode<'a, RenderingPrimitive> {
+    fn data(&self) -> &RenderNodeData<RenderingPrimitive> {
+        match &self.nodes[self.idx] {
+            NodeEntry::AllocateEntry(data) => return &data,
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn transform(&self) -> Option<Affine> {
+        self.data().transform
+    }
+
+    pub fn content(&self) -> Option<&RenderingPrimitive> {
+        if let Some(ref prim) = self.data().content {
+            return Some(&prim);
+        }
+        return None;
+    }
+
+    pub fn children_iter(&'a self) -> std::slice::Iter<'a, usize> {
+        self.data().children.iter()
+    }
+}
+
+pub struct RenderNodeMut<'a, RenderingPrimitive> {
+    pub idx: usize,
+    nodes: &'a mut Vec<NodeEntry<RenderingPrimitive>>,
+}
+
+impl<'a, RenderingPrimitive> RenderNodeMut<'a, RenderingPrimitive> {
     fn data(&self) -> &RenderNodeData<RenderingPrimitive> {
         match &self.nodes[self.idx] {
             NodeEntry::AllocateEntry(data) => return &data,
@@ -128,13 +157,20 @@ where
         self.allocate_index(RenderNodeData { content, transform, children: vec![] })
     }
 
-    pub fn allocate_node(&mut self) -> RenderNode<Backend::RenderingPrimitive> {
+    pub fn allocate_node(&mut self) -> RenderNodeMut<Backend::RenderingPrimitive> {
         let idx = self.allocate_index(RenderNodeData::default());
-        self.node_at(idx)
+        self.node_at_mut(idx)
     }
 
-    pub fn node_at<'a>(&'a mut self, idx: usize) -> RenderNode<'a, Backend::RenderingPrimitive> {
-        RenderNode { idx, nodes: &mut self.nodes }
+    pub fn node_at_mut<'a>(
+        &'a mut self,
+        idx: usize,
+    ) -> RenderNodeMut<'a, Backend::RenderingPrimitive> {
+        RenderNodeMut { idx, nodes: &mut self.nodes }
+    }
+
+    pub fn node_at<'a>(&'a self, idx: usize) -> RenderNode<'a, Backend::RenderingPrimitive> {
+        RenderNode { idx, nodes: &self.nodes }
     }
 
     pub fn free(&mut self, idx: usize) {
@@ -147,15 +183,14 @@ where
         self.len
     }
 
-    pub fn render(&mut self, renderer: &Backend, root: usize) {
+    pub fn render(&self, renderer: &Backend, root: usize) {
         let mut frame = renderer.new_frame();
         self.render_node(&mut frame, root, &Affine::default());
         frame.submit();
     }
 
-    fn render_node(&mut self, frame: &mut Backend::Frame, idx: usize, parent_transform: &Affine) {
+    fn render_node(&self, frame: &mut Backend::Frame, idx: usize, parent_transform: &Affine) {
         let node = self.node_at(idx);
-        let children: Vec<usize> = node.children_iter().map(|i| *i).collect();
 
         let transform = *parent_transform
             * match node.transform() {
@@ -167,8 +202,8 @@ where
             frame.render_primitive(content, &transform);
         }
 
-        for child_idx in children {
-            self.render_node(frame, child_idx, &transform);
+        for child_idx in node.children_iter() {
+            self.render_node(frame, *child_idx, &transform);
         }
     }
 }

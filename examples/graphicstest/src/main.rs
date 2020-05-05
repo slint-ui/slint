@@ -37,7 +37,7 @@ fn main() {
         render_tree.allocate_index_with_content(Some(child_rect), None)
     };
 
-    render_tree.node_at(root).append_child(translated_child_rect);
+    render_tree.node_at_mut(root).append_child(translated_child_rect);
 
     event_loop.run(move |event, _, control_flow| {
         let next_frame_time =
