@@ -84,6 +84,11 @@ impl CodeStatement {
     pub fn from_node(node: SyntaxNode, _diag: &mut Diagnostics) -> Self {
         debug_assert_eq!(node.kind(), SyntaxKind::CodeStatement);
         // FIXME
-        CodeStatement { value: node.child_text(SyntaxKind::Identifier).unwrap_or_default() }
+        CodeStatement {
+            value: node
+                .child_node(SyntaxKind::Expression)
+                .and_then(|x| x.child_text(SyntaxKind::Identifier))
+                .unwrap_or_default(),
+        }
     }
 }
