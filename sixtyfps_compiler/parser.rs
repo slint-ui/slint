@@ -152,8 +152,24 @@ impl Parser {
     }
 }
 
-pub fn parse(source: &str) -> (rowan::GreenNode, Vec<ParseError>) {
+#[derive(Clone, Copy, Debug, Eq, Ord, Hash, PartialEq, PartialOrd)]
+pub enum Language {}
+impl rowan::Language for Language {
+    type Kind = SyntaxKind;
+    fn kind_from_raw(raw: rowan::SyntaxKind) -> Self::Kind {
+        SyntaxKind::try_from(raw.0).unwrap()
+    }
+    fn kind_to_raw(kind: Self::Kind) -> rowan::SyntaxKind {
+        kind.into()
+    }
+}
+
+pub type SyntaxNode = rowan::SyntaxNode<Language>;
+//type SyntaxToken = rowan::SyntaxToken<Language>;
+//type SyntaxElement = rowan::NodeOrToken<SyntaxNode, SyntaxToken>;
+
+pub fn parse(source: &str) -> (SyntaxNode, Vec<ParseError>) {
     let mut p = Parser::new(source);
     document::parse_document(&mut p);
-    (p.builder.finish(), p.errors)
+    (SyntaxNode::new_root(p.builder.finish()), p.errors)
 }
