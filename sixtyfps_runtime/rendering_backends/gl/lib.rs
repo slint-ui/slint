@@ -13,13 +13,13 @@ extern crate alloc;
 use alloc::rc::Rc;
 
 #[derive(Copy, Clone)]
-pub struct PathVertex {
+struct PathVertex {
     pos: [f32; 2],
 }
 
 implement_vertex!(PathVertex, pos);
 
-pub enum GLRenderingPrimitive {
+enum GLRenderingPrimitive {
     FillPath { vertices: VertexBuffer<PathVertex>, indices: IndexBuffer<u16>, style: FillStyle },
 }
 
@@ -69,8 +69,10 @@ impl GLRenderer {
     }
 }
 
+pub struct OpaqueRenderingPrimitive(GLRenderingPrimitive);
+
 impl GraphicsBackend for GLRenderer {
-    type RenderingPrimitive = GLRenderingPrimitive;
+    type RenderingPrimitive = OpaqueRenderingPrimitive;
     type Frame = GLFrame;
 
     fn create_path_fill_primitive(
@@ -102,7 +104,7 @@ impl GraphicsBackend for GLRenderer {
         )
         .unwrap();
 
-        GLRenderingPrimitive::FillPath { vertices, indices, style }
+        OpaqueRenderingPrimitive(GLRenderingPrimitive::FillPath { vertices, indices, style })
     }
 
     fn new_frame(&self) -> GLFrame {
@@ -118,13 +120,13 @@ impl GraphicsBackend for GLRenderer {
 }
 
 impl GraphicsFrame for GLFrame {
-    type RenderingPrimitive = GLRenderingPrimitive;
+    type RenderingPrimitive = OpaqueRenderingPrimitive;
 
-    fn render_primitive(&mut self, primitive: &GLRenderingPrimitive, transform: &Affine) {
+    fn render_primitive(&mut self, primitive: &OpaqueRenderingPrimitive, transform: &Affine) {
         let transform = self.root_transform * *transform;
 
-        match primitive {
-            GLRenderingPrimitive::FillPath { vertices, indices, style } => {
+        match &primitive.0 {
+            GLRenderingPrimitive::FillPath { ref vertices, ref indices, style } => {
                 let (r, g, b, a) = match style {
                     FillStyle::SolidColor(color) => color.as_rgba_f32(),
                 };

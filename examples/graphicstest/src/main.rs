@@ -1,14 +1,14 @@
 use glium::glutin;
 use kurbo::{Affine, BezPath};
 use sixtyfps_corelib::graphics::{Color, FillStyle, GraphicsBackend, RenderTree};
-use sixtyfps_gl_backend::{GLRenderer, GLRenderingPrimitive};
+use sixtyfps_gl_backend::{GLRenderer, OpaqueRenderingPrimitive};
 
 fn create_rect(
-    renderer: &mut impl GraphicsBackend<RenderingPrimitive = GLRenderingPrimitive>,
+    renderer: &mut impl GraphicsBackend<RenderingPrimitive = OpaqueRenderingPrimitive>,
     x0: f64,
     y0: f64,
     color: Color,
-) -> GLRenderingPrimitive {
+) -> OpaqueRenderingPrimitive {
     let mut rect_path = BezPath::new();
     rect_path.move_to((x0, y0));
     rect_path.line_to((x0 + 100.0, y0));
