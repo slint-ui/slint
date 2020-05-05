@@ -15,4 +15,4 @@ glium = "0.27.0"
 lyon = { version = "0.15.8" }
 kurbo = "0.5.11"
 image = "0.23.4"
-
+cgmath = "0.17.0"

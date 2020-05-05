@@ -43,7 +43,7 @@ pub struct GLFrame {
     glium_frame: GLiumFrame,
     path_program: Rc<Program>,
     image_program: Rc<Program>,
-    root_transform: Affine,
+    root_matrix: cgmath::Matrix4<f32>,
 }
 
 impl GLRenderer {
@@ -54,7 +54,7 @@ impl GLRenderer {
         uniform mat4 matrix;
         varying lowp vec4 fragcolor;
         void main() {
-            gl_Position = vec4(pos, 0.0, 1) * matrix;
+            gl_Position = matrix * vec4(pos, 0.0, 1);
             fragcolor = vertcolor;
         }"#;
 
@@ -75,7 +75,7 @@ impl GLRenderer {
         uniform mat4 matrix;
         varying highp vec2 frag_tex_pos;
         void main() {
-            gl_Position = vec4(pos, 0.0, 1) * matrix;
+            gl_Position = matrix * vec4(pos, 0.0, 1);
             frag_tex_pos = tex_pos;
         }"#;
 
@@ -174,16 +174,39 @@ impl GraphicsBackend for GLRenderer {
 
     fn new_frame(&self, clear_color: &Color) -> GLFrame {
         let (w, h) = self.display.get_framebuffer_dimensions();
-        let root_transform =
-            Affine::FLIP_Y * Affine::scale_non_uniform(1.0 / (w as f64), 1.0 / (h as f64));
         let mut glium_frame = self.display.draw();
         glium_frame.clear(None, Some(clear_color.as_rgba_f32()), false, None, None);
         GLFrame {
             glium_frame,
             path_program: self.path_program.clone(),
             image_program: self.image_program.clone(),
-            root_transform,
+            root_matrix: cgmath::ortho(0.0, w as f32, h as f32, 0.0, -1., 1.0),
         }
+    }
+}
+
+impl GLFrame {
+    fn gl_matrix(&self, affine: &Affine) -> [[f32; 4]; 4] {
+        let coefs = affine.as_coeffs();
+        let m = cgmath::Matrix4::<f32>::new(
+            coefs[0] as f32,
+            coefs[2] as f32,
+            0.0,
+            0.0,
+            coefs[1] as f32,
+            coefs[3] as f32,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            coefs[4] as f32,
+            coefs[5] as f32,
+            0.0,
+            1.0,
+        );
+        (self.root_matrix * m).into()
     }
 }
 
@@ -191,22 +214,16 @@ impl GraphicsFrame for GLFrame {
     type RenderingPrimitive = OpaqueRenderingPrimitive;
 
     fn render_primitive(&mut self, primitive: &OpaqueRenderingPrimitive, transform: &Affine) {
-        let transform = self.root_transform * *transform;
+        let matrix = self.gl_matrix(&transform);
 
         match &primitive.0 {
             GLRenderingPrimitive::FillPath { ref vertices, ref indices, style } => {
                 let (r, g, b, a) = match style {
                     FillStyle::SolidColor(color) => color.as_rgba_f32(),
                 };
-                let coefs = transform.as_coeffs();
                 let uniforms = uniform! {
                     vertcolor: (r, g, b, a),
-                    matrix: [
-                        [coefs[0] as f32, coefs[1] as f32, 0.0, coefs[4] as f32],
-                        [coefs[2] as f32, coefs[3] as f32, 0.0, coefs[5] as f32],
-                        [0.0, 0.0, 0.0, 0.0],
-                        [0.0, 0.0, 0.0, 1.0],
-                    ]
+                    matrix: matrix
                 };
 
                 self.glium_frame
@@ -216,16 +233,9 @@ impl GraphicsFrame for GLFrame {
             GLRenderingPrimitive::Texture { texture, vertices } => {
                 let indices = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
 
-                let coefs = transform.as_coeffs();
-
                 let uniforms = uniform! {
                     tex: texture,
-                    matrix: [
-                        [coefs[0] as f32, coefs[1] as f32, 0.0, coefs[4] as f32],
-                        [coefs[2] as f32, coefs[3] as f32, 0.0, coefs[5] as f32],
-                        [0.0, 0.0, 0.0, 0.0],
-                        [0.0, 0.0, 0.0, 1.0],
-                    ]
+                    matrix: matrix
                 };
 
                 self.glium_frame
