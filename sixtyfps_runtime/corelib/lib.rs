@@ -1,4 +1,6 @@
+pub mod datastructures;
 pub mod graphics;
+pub mod primitives;
 
 #[cfg(test)]
 mod tests {

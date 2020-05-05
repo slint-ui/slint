@@ -6,7 +6,7 @@ use std::rc::Rc;
 #[derive(Default, Debug)]
 pub struct Document {
     //     node: SyntaxNode,
-    root_component: Rc<Component>,
+    pub root_component: Rc<Component>,
 }
 
 impl Document {
@@ -24,8 +24,8 @@ impl Document {
 #[derive(Default, Debug)]
 pub struct Component {
     //     node: SyntaxNode,
-    id: String,
-    root_element: Rc<Element>,
+    pub id: String,
+    pub root_element: Rc<Element>,
 }
 
 impl Component {
@@ -44,8 +44,8 @@ impl Component {
 #[derive(Default, Debug)]
 pub struct Element {
     //     node: SyntaxNode,
-    base: String,
-    bindings: HashMap<String, CodeStatement>,
+    pub base: String,
+    pub bindings: HashMap<String, CodeStatement>,
 }
 
 impl Element {
@@ -77,7 +77,7 @@ impl Element {
 #[derive(Default, Debug)]
 pub struct CodeStatement {
     //     node: SyntaxNode,
-    value: String,
+    pub value: String,
 }
 
 impl CodeStatement {

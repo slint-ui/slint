@@ -2,7 +2,7 @@
 type ComponentImpl = ();
 
 #[repr(C)]
-struct ComponentType {
+pub struct ComponentType {
     /// Allocate an instance of this component
     create: fn(*const ComponentType) -> *mut ComponentImpl,
 
@@ -25,15 +25,15 @@ type ItemImpl = ();
 // 64    | RenderNode | render node index
 
 #[repr(C)]
-struct RenderNode {
+pub struct RenderNode {
     /// Used and modified by the backend, should be initialized to 0 by the user code
-    cache_index: Cell<usize>,
+    cache_index: core::cell::Cell<usize>,
     /// Set to true by the user code, and reset to false by the backend
-    dirty_bit: Cell<bool>,
+    dirty_bit: core::cell::Cell<bool>,
 }
 
 #[repr(C)]
-struct ItemTreeNode {
+pub struct ItemTreeNode {
     /// byte offset where we can find the item (from the *ComponentImpl)
     offset: isize,
     /// virtual table of the item
@@ -47,23 +47,23 @@ struct ItemTreeNode {
 }
 
 #[repr(C)]
-struct ItemVTable {
-
+#[derive(Default)]
+pub struct ItemVTable {
     // Rectangle: x/y/width/height ==> (path -> vertices/indicies(triangle))
-    geometry: fn(*const ItemImpl) -> PrimitiveRectangle, // like kurbo::Rect
+    pub geometry: Option<fn(*const ItemImpl) -> ()>, // like kurbo::Rect
 
     // offset in bytes fromthe *const ItemImpl
-    renderNodeIndexOffset: usize,
+    pub render_node_index_offset: Option<usize>,
     // fn(*const ItemImpl) -> usize,
 
     // ???
-    rendering_info: Option<fn(*const ItemImpl) -> RenderingInfo>,
+    pub rendering_info: Option<fn(*const ItemImpl) -> RenderingInfo>,
 
     /// We would need max/min/preferred size, and all layout info
-    layouting_info: Option<fn(*const ItemImpl) -> LayoutInfo>,
+    pub layouting_info: Option<fn(*const ItemImpl) -> LayoutInfo>,
 
     /// input event
-    input_event: Option<fn(*const ItemImpl, MouseEvent)>,
+    pub input_event: Option<fn(*const ItemImpl, MouseEvent)>,
 }
 
 // given an ItemImpl & ItemVTable
@@ -71,20 +71,22 @@ struct ItemVTable {
 // (2) change the width
 
 #[repr(C)]
-struct LayoutInfo {
+pub struct LayoutInfo {
     min_size: f32,
     //...
     width_offset: isize,
 }
 
 #[repr(C)]
-enum RenderingInfo {
+pub enum RenderingInfo {
     NoContents,
-    Path(Vec<PathElement>),
+    /*Path(Vec<PathElement>),
     Image(OpaqueImageHandle, AspectRatio),
-    Text(String)
+    Text(String)*/
 }
 
+type MouseEvent = ();
+/*
 
 /*
 Button { visible: false; text: "foo"}
@@ -177,7 +179,7 @@ pub static RECTANGLE_VTABLE: ItemVTable = ItemVTable {
 //#[derive(SixtyFpsItem)]
 struct QtButton {
     text: String,
-    is_pressed: bool, 
+    is_pressed: bool,
 }
 
 
@@ -211,3 +213,4 @@ sixtyfps_runtime::run(&foo, ComponentType{ nullptr, nullptr, []{return array}  }
 }
 
 "#
+*/

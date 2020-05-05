@@ -2,6 +2,8 @@
 use structopt::StructOpt;
 
 mod diagnostics;
+mod generator;
+mod lower;
 mod object_tree;
 mod parser;
 
@@ -14,9 +16,10 @@ struct Cli {
 fn main() -> std::io::Result<()> {
     let args = Cli::from_args();
     let source = std::fs::read_to_string(&args.path)?;
-    let (res, mut diag) = parser::parse(&source);
-    println!("{:#?}", res);
-    println!("{:#?}", object_tree::Document::from_node(res, &mut diag));
+    let (syntax_node, mut diag) = parser::parse(&source);
+    //println!("{:#?}", syntax_node);
+    let tree = object_tree::Document::from_node(syntax_node, &mut diag);
+    //println!("{:#?}", tree);
     if !diag.inner.is_empty() {
         let mut codemap = codemap::CodeMap::new();
         let file = codemap.add_file(args.path.to_string_lossy().into_owned(), source);
@@ -45,6 +48,10 @@ fn main() -> std::io::Result<()> {
             Some(&codemap),
         );
         emitter.emit(&diags);
+        std::process::exit(-1);
     }
+
+    let l = lower::LoweredComponent::lower(&*tree.root_component);
+    generator::generate(&l);
     Ok(())
 }
