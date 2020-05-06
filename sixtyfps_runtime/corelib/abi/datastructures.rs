@@ -56,7 +56,6 @@ pub struct ItemVTable {
     /// isize::MAX  means None
     pub render_node_index_offset: isize,
     // fn(*const ItemImpl) -> usize,
-
     /// ???
     pub rendering_info: Option<fn(*const ItemImpl) -> RenderingInfo>,
 

@@ -1,4 +1,3 @@
-
 /// FIXME: if we have a use of that, take from clib
 #[allow(non_camel_case_types)]
 type c_char = u8;

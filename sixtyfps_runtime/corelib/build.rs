@@ -3,7 +3,6 @@ extern crate cbindgen;
 use std::env;
 
 fn main() {
-
     let include = vec!["Rectangle".to_owned()];
 
     let config = cbindgen::Config {
@@ -16,7 +15,7 @@ fn main() {
         language: cbindgen::Language::Cxx,
         cpp_compat: true,
         documentation: true,
-        export: cbindgen::ExportConfig { include , ..Default::default() },
+        export: cbindgen::ExportConfig { include, ..Default::default() },
         ..Default::default()
     };
 
@@ -24,8 +23,8 @@ fn main() {
 
     let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     cbindgen::Builder::new()
-         .with_config(config)
-      //  .with_src(crate_dir + "/lib.rs")
+        .with_config(config)
+        //  .with_src(crate_dir + "/lib.rs")
         //.with_src("primitives.rs")
         .with_crate(crate_dir)
         .generate()

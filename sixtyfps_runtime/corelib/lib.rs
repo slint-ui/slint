@@ -1,6 +1,9 @@
 pub mod graphics;
-pub mod datastructures;
-pub mod primitives;
+
+pub mod abi {
+    pub mod datastructures;
+    pub mod primitives;
+}
 
 #[cfg(test)]
 mod tests {
@@ -9,4 +12,3 @@ mod tests {
         assert_eq!(2 + 2, 4);
     }
 }
-
