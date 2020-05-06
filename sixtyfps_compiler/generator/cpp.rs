@@ -116,7 +116,7 @@ fn handle_item(item: &LoweredItem, main_struct: &mut Struct, init: &mut Vec<Stri
     init.extend(
         item.init_properties
             .iter()
-            .map(|(s, i)| format!("{id}.{prop} = \"{init}\";", id = id, prop = s, init = i)),
+            .map(|(s, i)| format!("{id}.{prop} = {init};", id = id, prop = s, init = i)),
     );
 
     for i in &item.children {

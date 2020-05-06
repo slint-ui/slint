@@ -1,0 +1,17 @@
+
+
+SuperSimple = Rectangle {
+    DoesNotExist {
+//  ^error{Unkown type DoesNotExist}
+    }
+
+    DoesNotExist2 {
+//  ^error{Unkown type DoesNotExist2}
+    }
+
+    Rectangle {
+        foo_bar: blue;
+//      ^error{Unkown property foo_bar in Rectangle}
+    }
+}
+

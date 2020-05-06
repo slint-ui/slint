@@ -1,0 +1,17 @@
+
+
+SubElements = Rectangle {
+
+    Rectangle {
+        color: yellow;
+    }
+
+    color: blue;
+
+    Rectangle {
+        color: red;
+    }
+
+
+}
+

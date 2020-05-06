@@ -31,7 +31,11 @@ fn main() -> std::io::Result<()> {
 fn process_file(path: &std::path::Path) -> std::io::Result<bool> {
     let source = std::fs::read_to_string(&path)?;
     let (res, mut diag) = sixtyfps_compiler::parser::parse(&source);
-    sixtyfps_compiler::object_tree::Document::from_node(res, &mut diag);
+    sixtyfps_compiler::object_tree::Document::from_node(
+        res,
+        &mut diag,
+        &sixtyfps_compiler::typeregister::TypeRegister::builtin(),
+    );
 
     //let mut errors = std::collections::HashSet::from_iter(diag.inner.into_iter());
     let mut success = true;

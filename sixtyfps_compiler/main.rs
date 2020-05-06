@@ -6,6 +6,7 @@ mod generator;
 mod lower;
 mod object_tree;
 mod parser;
+mod typeregister;
 
 #[derive(StructOpt)]
 struct Cli {
@@ -18,7 +19,8 @@ fn main() -> std::io::Result<()> {
     let source = std::fs::read_to_string(&args.path)?;
     let (syntax_node, mut diag) = parser::parse(&source);
     //println!("{:#?}", syntax_node);
-    let tree = object_tree::Document::from_node(syntax_node, &mut diag);
+    let tr = typeregister::TypeRegister::builtin();
+    let tree = object_tree::Document::from_node(syntax_node, &mut diag, &tr);
     //println!("{:#?}", tree);
     if !diag.inner.is_empty() {
         let mut codemap = codemap::CodeMap::new();
