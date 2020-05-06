@@ -1,6 +1,6 @@
 # SixtyFPS
 
-This is the monolithique repository of the SixtyFPS project.
+This is the monolithic repository of the SixtyFPS project.
 
 ## What is SixtyFPS
 
@@ -9,10 +9,10 @@ The aim of the project is to be
 
  - **Lightweight**: We aim to provide a runtime that fits in a few MB. Minimize the RAM usage, and also be blazing fast.
  - **Straightforward**: We want to optimize as well for programmer and designer productivity.
-    Making it an agreable experience to work with. We claim to use well thought idiomatic API for each target language.
+    Making it an agreeable experience to work with. We claim to use well thought idiomatic API for each target language.
     Provide well written documentation. And use of modern tools.
  - **Native**: We support many platform. From embedded devices, to desktop, including mobile and web. One should feel at 
-    home on each platfom. Both the user and the developer. The appearence and look and feel should match was is expected of 
+    home on each platform. Both the user and the developer. The appearance and look and feel should match was is expected of 
     an application build for this platform.
     
  `<insert a few screenshot here>`
@@ -48,7 +48,7 @@ Todo
 ## Contributions
 
 Contributions are welcome.
-To contribute to Rust, please see [CONTRIBUTING.md](CONTRIBUTING.md).
+To contribute, please see [CONTRIBUTING.md](CONTRIBUTING.md).
 Contributions are done under a CLA.
 
 ## License
@@ -56,4 +56,4 @@ Contributions are done under a CLA.
 The software is provided under a double license scheme
 
  - **GNU GPLv3**: Open source license ideal for free software
- - **Comertial SixtyFps license**: more details to come.
+ - **Commercial SixtyFps license**: more details to come.
