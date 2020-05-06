@@ -75,7 +75,7 @@ impl GLRenderer {
         attribute vec2 tex_pos;
         uniform mat4 matrix;
         varying highp vec2 frag_tex_pos;
-        void main() {
+        void main() {            
             gl_Position = matrix * vec4(pos, 0.0, 1);
             frag_tex_pos = tex_pos;
         }"#;
@@ -192,6 +192,9 @@ impl GraphicsFrame for GLFrame {
     fn render_primitive(&mut self, primitive: &OpaqueRenderingPrimitive, transform: &Matrix4<f32>) {
         let matrix: [[f32; 4]; 4] = (self.root_matrix * transform).into();
 
+        let draw_params =
+            glium::DrawParameters { blend: glium::Blend::alpha_blending(), ..Default::default() };
+
         match &primitive.0 {
             GLRenderingPrimitive::FillPath { ref vertices, ref indices, style } => {
                 let (r, g, b, a) = match style {
@@ -203,7 +206,7 @@ impl GraphicsFrame for GLFrame {
                 };
 
                 self.glium_frame
-                    .draw(vertices, indices, &self.path_program, &uniforms, &Default::default())
+                    .draw(vertices, indices, &self.path_program, &uniforms, &draw_params)
                     .unwrap();
             }
             GLRenderingPrimitive::Texture { texture, vertices } => {
@@ -215,7 +218,7 @@ impl GraphicsFrame for GLFrame {
                 };
 
                 self.glium_frame
-                    .draw(vertices, &indices, &self.image_program, &uniforms, &Default::default())
+                    .draw(vertices, &indices, &self.image_program, &uniforms, &draw_params)
                     .unwrap();
             }
         }
