@@ -24,11 +24,8 @@ fn main() {
     let wb = glutin::window::WindowBuilder::new();
     let windowed_context =
         glutin::ContextBuilder::new().with_vsync(true).build_windowed(wb, &event_loop).unwrap();
-    let windowed_context = unsafe { windowed_context.make_current().unwrap() };
-    let context =
-        glow::Context::from_loader_function(|s| windowed_context.get_proc_address(s) as *const _);
 
-    let mut renderer = GLRenderer::new(context);
+    let mut renderer = GLRenderer::new(windowed_context);
 
     let mut render_tree = RenderTree::<GLRenderer>::default();
 
@@ -90,6 +87,6 @@ fn main() {
             _ => return,
         }
 
-        render_tree.render(&renderer, root);
+        render_tree.render(&mut renderer, root);
     });
 }

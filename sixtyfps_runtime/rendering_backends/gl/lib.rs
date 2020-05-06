@@ -1,9 +1,9 @@
 use cgmath::Matrix4;
+use glow::{Context as GLContext, HasContext};
 use kurbo::{BezPath, PathEl, Point, Rect};
 use lyon::path::PathEvent;
 use lyon::tessellation::geometry_builder::{BuffersBuilder, VertexBuffers};
 use lyon::tessellation::{FillAttributes, FillOptions, FillTessellator};
-
 use sixtyfps_corelib::graphics::{Color, FillStyle, Frame as GraphicsFrame, GraphicsBackend};
 
 extern crate alloc;
@@ -31,22 +31,81 @@ enum GLRenderingPrimitive {
     Texture {/*vertices: VertexBuffer<ImageVertex>, texture: Texture2d*/},
 }
 
+#[derive(Clone)]
+struct Shader {
+    program: <GLContext as HasContext>::Program,
+}
+
+impl Shader {
+    fn new(gl: &GLContext, vertex_shader_source: &str, fragment_shader_source: &str) -> Shader {
+        let program = unsafe { gl.create_program().expect("Cannot create program") };
+
+        let shader_sources = [
+            (glow::VERTEX_SHADER, vertex_shader_source),
+            (glow::FRAGMENT_SHADER, fragment_shader_source),
+        ];
+
+        let mut shaders = Vec::with_capacity(shader_sources.len());
+
+        for (shader_type, shader_source) in shader_sources.iter() {
+            unsafe {
+                let shader = gl.create_shader(*shader_type).expect("Cannot create shader");
+                gl.shader_source(shader, &shader_source);
+                gl.compile_shader(shader);
+                if !gl.get_shader_compile_status(shader) {
+                    panic!(gl.get_shader_info_log(shader));
+                }
+                gl.attach_shader(program, shader);
+                shaders.push(shader);
+            }
+        }
+
+        unsafe {
+            gl.link_program(program);
+            if !gl.get_program_link_status(program) {
+                panic!(gl.get_program_info_log(program));
+            }
+
+            for shader in shaders {
+                gl.detach_shader(program, shader);
+                gl.delete_shader(shader);
+            }
+        }
+
+        Shader { program }
+    }
+
+    fn drop(&mut self, gl: &GLContext) {
+        unsafe {
+            gl.delete_program(self.program);
+        }
+    }
+}
+
 pub struct GLRenderer {
-    //display: Display,
-    //path_program: Rc<Program>,
-    //image_program: Rc<Program>,
+    windowed_context: Rc<glutin::WindowedContext<glutin::PossiblyCurrent>>,
+    context: Rc<glow::Context>,
+    path_program: Shader, // ### do not use RC<> given the ownership in GLRenderer
+    image_program: Shader,
     fill_tesselator: FillTessellator,
 }
 
 pub struct GLFrame {
-    //glium_frame: GLiumFrame,
-    //path_program: Rc<Program>,
-    //image_program: Rc<Program>,
+    windowed_context: Rc<glutin::WindowedContext<glutin::PossiblyCurrent>>,
+    context: Rc<glow::Context>,
+    path_program: Shader,
+    image_program: Shader,
     root_matrix: cgmath::Matrix4<f32>,
 }
 
 impl GLRenderer {
-    pub fn new(context: glow::Context) -> GLRenderer {
+    pub fn new(windowed_context: glutin::WindowedContext<glutin::NotCurrent>) -> GLRenderer {
+        let windowed_context = unsafe { windowed_context.make_current().unwrap() };
+
+        let context = glow::Context::from_loader_function(|s| {
+            windowed_context.get_proc_address(s) as *const _
+        });
+
         const PATH_VERTEX_SHADER: &str = r#"#version 100
         attribute vec2 pos;
         uniform vec4 vertcolor;
@@ -63,12 +122,7 @@ impl GLRenderer {
             gl_FragColor = fragcolor;
         }"#;
 
-        /*
-        let path_program = Rc::new(
-            glium::Program::from_source(display, PATH_VERTEX_SHADER, PATH_FRAGMENT_SHADER, None)
-                .unwrap(),
-        );
-        */
+        let path_program = Shader::new(&context, PATH_VERTEX_SHADER, PATH_FRAGMENT_SHADER);
 
         const IMAGE_VERTEX_SHADER: &str = r#"#version 100
         attribute vec2 pos;
@@ -87,16 +141,13 @@ impl GLRenderer {
             gl_FragColor = texture2D(tex, frag_tex_pos);
         }"#;
 
-        /*
-        let image_program = Rc::new(
-            glium::Program::from_source(display, IMAGE_VERTEX_SHADER, IMAGE_FRAGMENT_SHADER, None)
-                .unwrap(),
-        );*/
+        let image_program = Shader::new(&context, IMAGE_VERTEX_SHADER, IMAGE_FRAGMENT_SHADER);
 
         GLRenderer {
-            //            display: display.clone(),
-            //            path_program,
-            //            image_program,
+            windowed_context: Rc::new(windowed_context),
+            context: Rc::new(context),
+            path_program: path_program,
+            image_program: image_program,
             fill_tesselator: FillTessellator::new(),
         }
     }
@@ -178,20 +229,27 @@ impl GraphicsBackend for GLRenderer {
         OpaqueRenderingPrimitive(GLRenderingPrimitive::Texture { /*texture, vertices*/ })
     }
 
-    fn new_frame(&self, clear_color: &Color) -> GLFrame {
-        let (w, h) = (0, 0);
+    fn new_frame(&mut self, clear_color: &Color) -> GLFrame {
+        // ### FIXME: make_current
+
+        let size = self.windowed_context.window().inner_size();
+
+        let (r, g, b, a) = clear_color.as_rgba_f32();
+        unsafe {
+            self.context.clear_color(r, g, b, a);
+            self.context.clear(glow::COLOR_BUFFER_BIT);
+        };
         /*
         let (w, h) = self.display.get_framebuffer_dimensions();
         let mut glium_frame = self.display.draw();
         glium_frame.clear(None, Some(clear_color.as_rgba_f32()), false, None, None);
         */
         GLFrame {
-            /*
-            glium_frame,
+            windowed_context: self.windowed_context.clone(),
+            context: self.context.clone(),
             path_program: self.path_program.clone(),
             image_program: self.image_program.clone(),
-            */
-            root_matrix: cgmath::ortho(0.0, w as f32, h as f32, 0.0, -1., 1.0),
+            root_matrix: cgmath::ortho(0.0, size.width as f32, size.height as f32, 0.0, -1., 1.0),
         }
     }
 }
@@ -239,7 +297,7 @@ impl GraphicsFrame for GLFrame {
     }
 
     fn submit(self) {
-        //self.glium_frame.finish().unwrap();
+        self.windowed_context.swap_buffers().unwrap();
     }
 }
 
@@ -339,6 +397,13 @@ impl<'a> Iterator for PathConverter<'a> {
 
 fn point_to_lyon_point(p: &Point) -> lyon::path::math::Point {
     lyon::path::math::Point::new(p.x as f32, p.y as f32)
+}
+
+impl Drop for GLRenderer {
+    fn drop(&mut self) {
+        self.path_program.drop(&self.context);
+        self.image_program.drop(&self.context);
+    }
 }
 
 #[cfg(test)]
