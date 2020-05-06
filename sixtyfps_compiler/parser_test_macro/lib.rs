@@ -92,7 +92,8 @@ pub fn parser_test(_attr: TokenStream, item: TokenStream) -> TokenStream {
             }
             if let Some(TokenTree::Literal(lit)) = attr.next() {
                 let s = lit.to_string();
-                doc += s.trim_matches('"');
+                // trim the quotes
+                doc += &s[1..(s.len() - 1)];
                 doc += "\n";
             } else {
                 break;

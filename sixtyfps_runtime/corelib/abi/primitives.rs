@@ -1,5 +1,3 @@
-
-
 /// FIXME:  more properties
 #[repr(C)]
 pub struct Rectangle {

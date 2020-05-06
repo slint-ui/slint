@@ -15,7 +15,9 @@ pub enum Type {
 }
 
 impl Default for Type {
-    fn default() -> Self { Self::Invalid }
+    fn default() -> Self {
+        Self::Invalid
+    }
 }
 
 #[derive(Debug, Default)]
@@ -40,6 +42,13 @@ impl TypeRegister {
         rectangle.properties.insert("width".to_owned(), Type::Number);
         rectangle.properties.insert("height".to_owned(), Type::Number);
         r.types.insert("Rectangle".to_owned(), Rc::new(rectangle));
+        let mut image = BuiltinElement::default();
+        image.properties.insert("source".to_owned(), Type::Image);
+        image.properties.insert("x".to_owned(), Type::Number);
+        image.properties.insert("y".to_owned(), Type::Number);
+        image.properties.insert("width".to_owned(), Type::Number);
+        image.properties.insert("height".to_owned(), Type::Number);
+        r.types.insert("Image".to_owned(), Rc::new(image));
 
         r
     }

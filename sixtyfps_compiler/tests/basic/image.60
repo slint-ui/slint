@@ -1,0 +1,18 @@
+
+
+SubElements = Rectangle {
+
+    color: blue;
+
+    Image {
+        source: "foo.png";
+    }
+
+
+    Rectangle {
+        color: red;
+    }
+
+
+}
+
