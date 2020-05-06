@@ -1,8 +1,4 @@
 use cgmath::Matrix4;
-use glium::{
-    implement_vertex, uniform, Display, Frame as GLiumFrame, IndexBuffer, Program, Surface,
-    Texture2d, VertexBuffer,
-};
 use kurbo::{BezPath, PathEl, Point, Rect};
 use lyon::path::PathEvent;
 use lyon::tessellation::geometry_builder::{BuffersBuilder, VertexBuffers};
@@ -18,7 +14,7 @@ struct PathVertex {
     pos: [f32; 2],
 }
 
-implement_vertex!(PathVertex, pos);
+//implement_vertex!(PathVertex, pos);
 
 #[derive(Copy, Clone)]
 struct ImageVertex {
@@ -26,29 +22,31 @@ struct ImageVertex {
     tex_pos: [f32; 2],
 }
 
-implement_vertex!(ImageVertex, pos, tex_pos);
+//implement_vertex!(ImageVertex, pos, tex_pos);
 
 enum GLRenderingPrimitive {
-    FillPath { vertices: VertexBuffer<PathVertex>, indices: IndexBuffer<u16>, style: FillStyle },
-    Texture { vertices: VertexBuffer<ImageVertex>, texture: Texture2d },
+    FillPath {
+        /*vertices: VertexBuffer<PathVertex>, indices: IndexBuffer<u16>, */ style: FillStyle,
+    },
+    Texture {/*vertices: VertexBuffer<ImageVertex>, texture: Texture2d*/},
 }
 
 pub struct GLRenderer {
-    display: Display,
-    path_program: Rc<Program>,
-    image_program: Rc<Program>,
+    //display: Display,
+    //path_program: Rc<Program>,
+    //image_program: Rc<Program>,
     fill_tesselator: FillTessellator,
 }
 
 pub struct GLFrame {
-    glium_frame: GLiumFrame,
-    path_program: Rc<Program>,
-    image_program: Rc<Program>,
+    //glium_frame: GLiumFrame,
+    //path_program: Rc<Program>,
+    //image_program: Rc<Program>,
     root_matrix: cgmath::Matrix4<f32>,
 }
 
 impl GLRenderer {
-    pub fn new(display: &Display) -> GLRenderer {
+    pub fn new(context: glow::Context) -> GLRenderer {
         const PATH_VERTEX_SHADER: &str = r#"#version 100
         attribute vec2 pos;
         uniform vec4 vertcolor;
@@ -65,10 +63,12 @@ impl GLRenderer {
             gl_FragColor = fragcolor;
         }"#;
 
+        /*
         let path_program = Rc::new(
             glium::Program::from_source(display, PATH_VERTEX_SHADER, PATH_FRAGMENT_SHADER, None)
                 .unwrap(),
         );
+        */
 
         const IMAGE_VERTEX_SHADER: &str = r#"#version 100
         attribute vec2 pos;
@@ -87,15 +87,16 @@ impl GLRenderer {
             gl_FragColor = texture2D(tex, frag_tex_pos);
         }"#;
 
+        /*
         let image_program = Rc::new(
             glium::Program::from_source(display, IMAGE_VERTEX_SHADER, IMAGE_FRAGMENT_SHADER, None)
                 .unwrap(),
-        );
+        );*/
 
         GLRenderer {
-            display: display.clone(),
-            path_program,
-            image_program,
+            //            display: display.clone(),
+            //            path_program,
+            //            image_program,
             fill_tesselator: FillTessellator::new(),
         }
     }
@@ -112,7 +113,7 @@ impl GraphicsBackend for GLRenderer {
         path: &BezPath,
         style: FillStyle,
     ) -> Self::RenderingPrimitive {
-        let mut geometry = VertexBuffers::new();
+        let mut geometry: VertexBuffers<PathVertex, u16> = VertexBuffers::new();
 
         let fill_opts = FillOptions::default();
         self.fill_tesselator
@@ -128,15 +129,17 @@ impl GraphicsBackend for GLRenderer {
             )
             .unwrap();
 
-        let vertices = VertexBuffer::new(&self.display, &geometry.vertices).unwrap();
-        let indices = IndexBuffer::new(
-            &self.display,
-            glium::index::PrimitiveType::TrianglesList,
-            &geometry.indices,
-        )
-        .unwrap();
+        /*
+                let vertices = VertexBuffer::new(&self.display, &geometry.vertices).unwrap();
+                let indices = IndexBuffer::new(
+                    &self.display,
+                    glium::index::PrimitiveType::TrianglesList,
+                    &geometry.indices,
+                )
+                .unwrap();
+        */
 
-        OpaqueRenderingPrimitive(GLRenderingPrimitive::FillPath { vertices, indices, style })
+        OpaqueRenderingPrimitive(GLRenderingPrimitive::FillPath { /*vertices, indices, */ style, })
     }
 
     fn create_image_primitive(
@@ -145,6 +148,7 @@ impl GraphicsBackend for GLRenderer {
         dest_rect: impl Into<Rect>,
         image: image::ImageBuffer<image::Rgba<u8>, Vec<u8>>,
     ) -> Self::RenderingPrimitive {
+        /*
         let dimensions = image.dimensions();
         let image = glium::texture::RawImage2d::from_raw_rgba(image.into_raw(), dimensions);
         let texture = glium::texture::Texture2d::new(&self.display, image).unwrap();
@@ -170,17 +174,23 @@ impl GraphicsBackend for GLRenderer {
 
         let vertices = glium::VertexBuffer::new(&self.display, &shape).unwrap();
 
-        OpaqueRenderingPrimitive(GLRenderingPrimitive::Texture { texture, vertices })
+        */
+        OpaqueRenderingPrimitive(GLRenderingPrimitive::Texture { /*texture, vertices*/ })
     }
 
     fn new_frame(&self, clear_color: &Color) -> GLFrame {
+        let (w, h) = (0, 0);
+        /*
         let (w, h) = self.display.get_framebuffer_dimensions();
         let mut glium_frame = self.display.draw();
         glium_frame.clear(None, Some(clear_color.as_rgba_f32()), false, None, None);
+        */
         GLFrame {
+            /*
             glium_frame,
             path_program: self.path_program.clone(),
             image_program: self.image_program.clone(),
+            */
             root_matrix: cgmath::ortho(0.0, w as f32, h as f32, 0.0, -1., 1.0),
         }
     }
@@ -192,11 +202,12 @@ impl GraphicsFrame for GLFrame {
     fn render_primitive(&mut self, primitive: &OpaqueRenderingPrimitive, transform: &Matrix4<f32>) {
         let matrix: [[f32; 4]; 4] = (self.root_matrix * transform).into();
 
-        let draw_params =
-            glium::DrawParameters { blend: glium::Blend::alpha_blending(), ..Default::default() };
+        //let draw_params =
+        //    glium::DrawParameters { blend: glium::Blend::alpha_blending(), ..Default::default() };
 
         match &primitive.0 {
-            GLRenderingPrimitive::FillPath { ref vertices, ref indices, style } => {
+            GLRenderingPrimitive::FillPath { /*ref vertices, ref indices, */style } => {
+                /*
                 let (r, g, b, a) = match style {
                     FillStyle::SolidColor(color) => color.as_rgba_f32(),
                 };
@@ -208,8 +219,10 @@ impl GraphicsFrame for GLFrame {
                 self.glium_frame
                     .draw(vertices, indices, &self.path_program, &uniforms, &draw_params)
                     .unwrap();
+                    */
             }
-            GLRenderingPrimitive::Texture { texture, vertices } => {
+            GLRenderingPrimitive::Texture { /*texture, vertices*/ } => {
+                /*
                 let indices = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
 
                 let uniforms = uniform! {
@@ -220,12 +233,13 @@ impl GraphicsFrame for GLFrame {
                 self.glium_frame
                     .draw(vertices, &indices, &self.image_program, &uniforms, &draw_params)
                     .unwrap();
+                    */
             }
         }
     }
 
     fn submit(self) {
-        self.glium_frame.finish().unwrap();
+        //self.glium_frame.finish().unwrap();
     }
 }
 

@@ -1,5 +1,5 @@
 use cgmath::{Matrix4, SquareMatrix, Vector3};
-use glium::glutin;
+use glutin;
 use kurbo::{BezPath, Rect};
 use sixtyfps_corelib::graphics::{Color, FillStyle, GraphicsBackend, RenderTree};
 use sixtyfps_gl_backend::{GLRenderer, OpaqueRenderingPrimitive};
@@ -22,10 +22,13 @@ fn create_rect(
 fn main() {
     let event_loop = glutin::event_loop::EventLoop::new();
     let wb = glutin::window::WindowBuilder::new();
-    let cb = glutin::ContextBuilder::new();
-    let display = glium::Display::new(wb, cb, &event_loop).unwrap();
+    let windowed_context =
+        glutin::ContextBuilder::new().with_vsync(true).build_windowed(wb, &event_loop).unwrap();
+    let windowed_context = unsafe { windowed_context.make_current().unwrap() };
+    let context =
+        glow::Context::from_loader_function(|s| windowed_context.get_proc_address(s) as *const _);
 
-    let mut renderer = GLRenderer::new(&display);
+    let mut renderer = GLRenderer::new(context);
 
     let mut render_tree = RenderTree::<GLRenderer>::default();
 
