@@ -6,4 +6,5 @@ members = [
     'sixtyfps_compiler/parser_test_macro',
     'api/sixtyfps-rs',
     'examples/graphicstest',
+    'helper_crates/const-field-offset',
 ]
