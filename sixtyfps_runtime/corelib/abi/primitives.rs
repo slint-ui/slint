@@ -12,7 +12,7 @@ pub struct Rectangle {
 /// TODO
 #[allow(non_upper_case_globals)]
 #[no_mangle]
-pub static RectangleVTable: crate::datastructures::ItemVTable = crate::datastructures::ItemVTable {
+pub static RectangleVTable: super::datastructures::ItemVTable = super::datastructures::ItemVTable {
     geometry: None,
     render_node_index_offset: isize::MAX,
     rendering_info: None,
