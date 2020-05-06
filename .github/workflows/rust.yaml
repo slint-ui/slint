@@ -28,9 +28,24 @@ jobs:
       with:
         path: target
         key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+    - name: Install latest stable
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: stable
+          override: true
+          components: rustfmt, clippy
     - name: Build
-      run: cargo build --verbose
+      uses: actions-rs/cargo@v1
+      with:
+          command: build
+          args: --verbose
     - name: Check formatting
-      run: cargo fmt -- --check
+      uses: actions-rs/cargo@v1
+      with:
+          command: fmt
+          args: -- --check
     - name: Run tests
-      run: cargo test --verbose
+      uses: actions-rs/cargo@v1
+      with:
+          command: test
+          args: --verbose
