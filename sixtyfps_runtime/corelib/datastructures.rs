@@ -49,14 +49,15 @@ pub struct ItemTreeNode {
 #[repr(C)]
 #[derive(Default)]
 pub struct ItemVTable {
-    // Rectangle: x/y/width/height ==> (path -> vertices/indicies(triangle))
+    /// Rectangle: x/y/width/height ==> (path -> vertices/indicies(triangle))
     pub geometry: Option<fn(*const ItemImpl) -> ()>, // like kurbo::Rect
 
-    // offset in bytes fromthe *const ItemImpl
-    pub render_node_index_offset: Option<usize>,
+    /// offset in bytes fromthe *const ItemImpl.
+    /// isize::MAX  means None
+    pub render_node_index_offset: isize,
     // fn(*const ItemImpl) -> usize,
 
-    // ???
+    /// ???
     pub rendering_info: Option<fn(*const ItemImpl) -> RenderingInfo>,
 
     /// We would need max/min/preferred size, and all layout info
@@ -186,31 +187,14 @@ struct QtButton {
 pub static QT_BUTTON_VTABLE: ItemVTable = ItemVTable {
     rendering_info: render_qt_button,
 };
-
-// Button { text: "hello "}
-const GENERATED : &str = r#"
-#include <qtstyle.h>
-/*
-// generated with cbindgen
-struct QtButton { String text; bool is_pressed };
 */
 
-struct MyGeneratedComponent {
-    QtButton button;
-
-    MyGeneratedComponent() {
-        button.text = "hello"
-    }
-};
-
-ItemTreeNode array[] = {
-    { 0, &QT_BUTTON_VTABLE,  0, 0 }
+/// Run the given component
+#[no_mangle]
+pub extern "C" fn sixtyfps_runtime_run_component(
+    component_type: *const ComponentType,
+    component: *mut ComponentImpl,
+) {
+    println!("Hello from rust! {:?} {:?}", component_type, component);
+    todo!();
 }
-
-main() {
-    MyGeneratedComponent foo;
-sixtyfps_runtime::run(&foo, ComponentType{ nullptr, nullptr, []{return array}  })
-}
-
-"#
-*/

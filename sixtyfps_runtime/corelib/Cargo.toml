@@ -3,6 +3,7 @@ name = "corelib"
 version = "0.1.0"
 authors = ["Sixty FPS <info@sixtyfps.io>"]
 edition = "2018"
+build = "build.rs"
 
 [lib]
 path = "lib.rs"
@@ -13,3 +14,6 @@ path = "lib.rs"
 kurbo = "0.5.11"
 image = "0.23.4"
 cgmath = "0.17.0"
+
+[build-dependencies]
+cbindgen = "0.14.2"
