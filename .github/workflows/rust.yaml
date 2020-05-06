@@ -49,3 +49,8 @@ jobs:
       with:
           command: test
           args: --verbose
+    - name: C++ Test
+      uses: lukka/run-cmake@v2.4
+      with:
+        cmakeListsTxtPath: examples/cpptest/CMakeLists.txt
+
