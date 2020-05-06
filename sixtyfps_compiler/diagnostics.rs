@@ -13,4 +13,8 @@ impl Diagnostics {
     pub fn push_error(&mut self, message: String, offset: usize) {
         self.inner.push(CompilerDiagnostic { message, offset });
     }
+
+    pub fn has_error(&self) -> bool {
+        !self.inner.is_empty()
+    }
 }

@@ -63,7 +63,7 @@ fn process_file(path: &std::path::Path) -> std::io::Result<bool> {
     }
 
     if !diag.inner.is_empty() {
-        println!("{:?}: Unexptected errors: {:?}", path, diag.inner);
+        println!("{:?}: Unexptected errors: {:#?}", path, diag.inner);
     }
 
     Ok(success && diag.inner.is_empty())

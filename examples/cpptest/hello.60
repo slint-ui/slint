@@ -1,6 +1,12 @@
 
 
 SuperSimple = Rectangle {
-    	color: green;
+    color: green;
+    Rectangle {
+        color: yellow;
+    }
+    Rectangle {
+        color: red;
+    }
 }
 

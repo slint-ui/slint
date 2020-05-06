@@ -35,7 +35,7 @@ impl Component {
             id: node.child_text(SyntaxKind::Identifier).unwrap_or_default(),
             root_element: Rc::new(
                 node.child_node(SyntaxKind::Element)
-                    .map_or_else(Default::default, |n| Element::from_node(n, diag)),
+                    .map_or_else(Default::default, |n| Element::from_node(n, "root".into(), diag)),
             ),
         }
     }
@@ -44,14 +44,17 @@ impl Component {
 #[derive(Default, Debug)]
 pub struct Element {
     //     node: SyntaxNode,
+    pub id: String,
     pub base: String,
     pub bindings: HashMap<String, CodeStatement>,
+    pub children: Vec<Rc<Element>>,
 }
 
 impl Element {
-    pub fn from_node(node: SyntaxNode, diag: &mut Diagnostics) -> Self {
+    pub fn from_node(node: SyntaxNode, id: String, diag: &mut Diagnostics) -> Self {
         debug_assert_eq!(node.kind(), SyntaxKind::Element);
         let mut r = Element {
+            id,
             base: node.child_text(SyntaxKind::Identifier).unwrap_or_default(),
             ..Default::default()
         };
@@ -68,6 +71,14 @@ impl Element {
                         name_token.text_range().start().into(),
                     );
                 }
+            }
+        }
+        for se in node.children().filter(|n| n.kind() == SyntaxKind::SubElement) {
+            let id = se.child_text(SyntaxKind::Identifier).unwrap_or_default();
+            if let Some(element_node) = se.child_node(SyntaxKind::Element) {
+                r.children.push(Rc::new(Element::from_node(element_node, id, diag)));
+            } else {
+                assert!(diag.has_error());
             }
         }
         r

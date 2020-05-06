@@ -24,6 +24,8 @@ macro_rules! declare_token_kind {
             //SyntaxKind:
             Document,
             Component,
+            /// Note: This is in fact the same as Component as far as the parser is concerned
+            SubElement,
             Element,
             Binding,
             CodeStatement,
@@ -125,6 +127,20 @@ impl Parser {
 
     pub fn peek_kind(&mut self) -> SyntaxKind {
         self.peek().kind
+    }
+
+    pub fn nth(&mut self, mut n: usize) -> SyntaxKind {
+        let mut c = self.cursor;
+        while n > 0 {
+            n -= 1;
+            c += 1;
+            while c < self.tokens.len()
+                && matches!(self.tokens[c].kind, SyntaxKind::Whitespace | SyntaxKind::Comment)
+            {
+                c += 1;
+            }
+        }
+        self.tokens.get(c).map_or(SyntaxKind::Eof, |x| x.kind)
     }
 
     pub fn consume_ws(&mut self) {

@@ -102,41 +102,94 @@ mod cpp_ast {
     }
 }
 
-pub fn generate(component: &crate::lower::LoweredComponent) -> impl std::fmt::Display {
-    use cpp_ast::*;
+use crate::lower::{LoweredComponent, LoweredItem};
+use cpp_ast::*;
+
+fn handle_item(item: &LoweredItem, main_struct: &mut Struct, init: &mut Vec<String>) {
+    main_struct.members.push(Declaration::Var(Var {
+        ty: format!("sixtyfps::{}", item.native_type.class_name),
+        name: item.id.clone(),
+        ..Default::default()
+    }));
+
+    let id = &item.id;
+    init.extend(
+        item.init_properties
+            .iter()
+            .map(|(s, i)| format!("{id}.{prop} = \"{init}\";", id = id, prop = s, init = i)),
+    );
+
+    for i in &item.children {
+        handle_item(i, main_struct, init)
+    }
+}
+
+struct ItemTreeArrayBuilder<'a> {
+    children_offset: usize,
+    class_name: &'a str,
+}
+
+impl<'a> ItemTreeArrayBuilder<'a> {
+    pub fn build_array(&mut self, component: &LoweredComponent) -> String {
+        self.children_offset = 1;
+        let s = self.visit_item(&component.root_item, self.children_offset, String::new());
+        self.visit_children(&component.root_item, s)
+    }
+
+    fn visit_children(&mut self, item: &LoweredItem, mut acc: String) -> String {
+        for i in &item.children {
+            acc = self.visit_item(i, self.children_offset, acc);
+            self.children_offset += i.children.len();
+        }
+
+        for i in &item.children {
+            acc = self.visit_children(i, acc);
+        }
+
+        acc
+    }
+
+    /// This is the only function which is language dependent
+    /// maybe this should be a callback
+    fn visit_item(&self, item: &LoweredItem, children_offset: usize, acc: String) -> String {
+        format!(
+            "{}{}sixtyfps::ItemTreeNode{{ offsetof({}, {}), &sixtyfps::{}, {}, {}  }}",
+            acc,
+            if acc.is_empty() { "" } else { ", " },
+            self.class_name,
+            item.id,
+            item.native_type.vtable,
+            item.children.len(),
+            children_offset,
+        )
+    }
+}
+
+pub fn generate(component: &LoweredComponent) -> impl std::fmt::Display {
     let mut x = File::default();
 
     x.includes.push("<sixtyfps.h>".into());
 
-    x.declarations.push(Declaration::Struct(Struct {
+    let mut main_struct = Struct { name: component.id.clone(), ..Default::default() };
+
+    let mut init = Vec::new();
+    handle_item(&component.root_item, &mut main_struct, &mut init);
+
+    main_struct.members.push(Declaration::Function(Function {
         name: component.id.clone(),
-        members: vec![
-            Declaration::Var(Var {
-                ty: format!("sixtyfps::{}", component.root_item.native_type.class_name),
-                name: "root".to_owned(),
-                ..Default::default()
-            }),
-            Declaration::Function(Function {
-                name: component.id.clone(),
-                signature: "()".to_owned(),
-                is_constructor: true,
-                statements: component
-                    .root_item
-                    .init_properties
-                    .iter()
-                    .map(|(s, i)| format!("root.{} = \"{}\";", s, i))
-                    .collect(),
-            }),
-        ],
+        signature: "()".to_owned(),
+        is_constructor: true,
+        statements: init,
     }));
 
+    x.declarations.push(Declaration::Struct(main_struct));
+
+    let tree_array = ItemTreeArrayBuilder { children_offset: 0, class_name: &component.id }
+        .build_array(&component);
     x.declarations.push(Declaration::Var(Var {
         ty: "sixtyfps::ItemTreeNode".to_owned(),
         name: format!("{}_children[]", component.id),
-        init: Some(format!(
-            "{{ sixtyfps::ItemTreeNode{{0, &sixtyfps::{}, 0, 0}} }}",
-            component.root_item.native_type.vtable
-        )),
+        init: Some(format!("{{ {} }}", tree_array)),
     }));
 
     x.declarations.push(Declaration::Function(Function {
