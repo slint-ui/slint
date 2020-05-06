@@ -9,13 +9,13 @@ The aim of the project is to be
 
  - **Lightweight**: We aim to provide a runtime that fits in a few MB. Minimize the RAM usage, and also be blazing fast.
  - **Straightforward**: We want to optimize as well for programmer and designer productivity.
-    Making it an agreeable experience to work with. We claim to use well thought idiomatic API for each target language.
+    Making it an enjoyable experience to work with. We claim to use well thought idiomatic API for each target language.
     Provide well written documentation. And use of modern tools.
- - **Native**: We support many platform. From embedded devices, to desktop, including mobile and web. One should feel at 
+ - **Native**: We support many platforms. From embedded devices, to desktop, including mobile and web. One should feel at 
     home on each platform. Both the user and the developer. The appearance and look and feel should match was is expected of 
     an application build for this platform.
     
- `<insert a few screenshot here>`
+ `<insert a few screenshots here>`
  
 ## [SixtyFps.cpp](api/sixtyfps-cpp)
  
@@ -55,5 +55,5 @@ Contributions are done under a CLA.
 
 The software is provided under a double license scheme
 
- - **GNU GPLv3**: Open source license ideal for free software
+ - **GNU GPLv3**: Open source license ideal for free software.
  - **Commercial SixtyFps license**: more details to come.
