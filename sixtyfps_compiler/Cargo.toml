@@ -26,7 +26,7 @@ parser_test_macro = { path = "./parser_test_macro" }
 
 ## FIXME remove
 [[bin]]
-name = "compiler"
+name = "sixtyfps_compiler"
 path = "main.rs"
 test = false
 bench = false

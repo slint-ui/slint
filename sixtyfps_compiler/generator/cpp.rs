@@ -112,7 +112,7 @@ pub fn generate(component: &crate::lower::LoweredComponent) -> impl std::fmt::Di
         name: component.id.clone(),
         members: vec![
             Declaration::Var(Var {
-                ty: component.root_item.native_type.class_name.clone(),
+                ty: format!("sixtyfps::{}", component.root_item.native_type.class_name),
                 name: "root".to_owned(),
                 ..Default::default()
             }),
@@ -134,7 +134,7 @@ pub fn generate(component: &crate::lower::LoweredComponent) -> impl std::fmt::Di
         ty: "sixtyfps::ItemTreeNode".to_owned(),
         name: format!("{}_children[]", component.id),
         init: Some(format!(
-            "{{ sixtyfps::ItemTreeNode{{0, &{}, 0, 0}} }}",
+            "{{ sixtyfps::ItemTreeNode{{0, &sixtyfps::{}, 0, 0}} }}",
             component.root_item.native_type.vtable
         )),
     }));
@@ -145,7 +145,8 @@ pub fn generate(component: &crate::lower::LoweredComponent) -> impl std::fmt::Di
         is_constructor: false,
         statements: vec![
             format!("{} component;", component.id),
-            format!("sixtyfps::run(&component, ComponentType{{ nullptr, nullptr, []{{return &{}_array }}  }});", component.id),
+            format!("static const sixtyfps::ComponentType componentType{{ nullptr, nullptr, [](const sixtyfps::ComponentType*) -> const sixtyfps::ItemTreeNode* {{return {}_children; }}  }};", component.id),
+            format!("sixtyfps::run(&component, &componentType);"),
         ],
     }));
     x
