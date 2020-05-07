@@ -57,7 +57,7 @@ pub trait GraphicsBackend: Sized {
         dest_rect: impl Into<Rect>,
         image: image::ImageBuffer<image::Rgba<u8>, Vec<u8>>,
     ) -> Self::RenderingPrimitive;
-    fn new_frame(&mut self, clear_color: &Color) -> Self::Frame;
+    fn new_frame(&mut self, width: u32, height: u32, clear_color: &Color) -> Self::Frame;
 }
 
 struct RenderNodeData<RenderingPrimitive> {
@@ -230,8 +230,8 @@ where
         self.len
     }
 
-    pub fn render(&self, renderer: &mut Backend, root: usize) {
-        let mut frame = renderer.new_frame(&self.clear_color);
+    pub fn render(&self, renderer: &mut Backend, width: u32, height: u32, root: usize) {
+        let mut frame = renderer.new_frame(width, height, &self.clear_color);
         self.render_node(&mut frame, root, &Matrix4::identity());
         frame.submit();
     }
@@ -292,7 +292,7 @@ mod test {
         ) -> Self::RenderingPrimitive {
             todo!()
         }
-        fn new_frame(&mut self, _clear_color: &Color) -> Self::Frame {
+        fn new_frame(&mut self, _width: u32, _height: u32, _clear_color: &Color) -> Self::Frame {
             todo!()
         }
     }
