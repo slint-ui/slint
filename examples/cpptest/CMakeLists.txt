@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.14)
-project(sixtyfps_cpptest)
+project(sixtyfps_cpptest LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 17)
 
 ### BEGIN This should be moce in some file in api/sixtyfps-cpp/cmake
 
@@ -35,7 +37,7 @@ set_target_properties(sixtyfps PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES
     "${CMAKE_CURRENT_SOURCE_DIR}/../../api/sixtyfps-cpp/include;${_SIXTYFPS_INTERNAL_HEADER}"
   IMPORTED_LOCATION
-    "${_SIXTYFPS_TARGET_DIR}/libcorelib.so")
+    "${_SIXTYFPS_TARGET_DIR}/libcorelib${CMAKE_SHARED_LIBRARY_SUFFIX}")
 
 
 ### END This should be moce in some file in api/sixtyfps-cpp/cmake
