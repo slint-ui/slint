@@ -88,28 +88,38 @@ fn main() {
 
     render_tree.node_at_mut(root).append_child(translated_child_rect);
 
-    #[cfg(not(target_arch = "wasm32"))]
     let image_node = {
-        let mut logo_path = std::env::current_exe().unwrap();
-        logo_path.pop(); // pop off executable file name
-        logo_path.push("..");
-        logo_path.push("..");
-        logo_path.push("examples");
-        logo_path.push("graphicstest");
-        logo_path.push("logo.png");
-        let im = image::open(logo_path.as_path()).unwrap().into_rgba();
-        let source_size = im.dimensions();
+        #[cfg(not(target_arch = "wasm32"))]
+        let image = {
+            let mut logo_path = std::env::current_exe().unwrap();
+            logo_path.pop(); // pop off executable file name
+            logo_path.push("..");
+            logo_path.push("..");
+            logo_path.push("examples");
+            logo_path.push("graphicstest");
+            logo_path.push("logo.png");
+            image::open(logo_path.as_path()).unwrap().into_rgba()
+        };
+
+        #[cfg(target_arch = "wasm32")]
+        let image = {
+            use std::io::Cursor;
+            image::load(Cursor::new(&include_bytes!("../logo.png")[..]), image::ImageFormat::Png)
+                .unwrap()
+                .to_rgba()
+        };
+
+        let source_size = image.dimensions();
 
         let source_rect = Rect::new(0.0, 0.0, source_size.0 as f64, source_size.1 as f64);
         let dest_rect =
             Rect::new(200.0, 200.0, 200. + source_size.0 as f64, 200. + source_size.1 as f64);
 
-        let image_primitive = renderer.create_image_primitive(source_rect, dest_rect, im);
+        let image_primitive = renderer.create_image_primitive(source_rect, dest_rect, image);
 
         render_tree.allocate_index_with_content(Some(image_primitive), Some(Matrix4::identity()))
     };
 
-    #[cfg(not(target_arch = "wasm32"))]
     render_tree.node_at_mut(root).append_child(image_node);
 
     #[cfg(not(target_arch = "wasm32"))]
