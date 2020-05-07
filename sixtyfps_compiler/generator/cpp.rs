@@ -64,22 +64,31 @@ mod cpp_ast {
         /// (...) -> ...
         pub signature: String,
         pub is_constructor: bool,
-        pub statements: Vec<String>,
+        pub is_static: bool,
+        pub statements: Option<Vec<String>>,
     }
 
     impl Display for Function {
         fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
             indent(f)?;
+            if self.is_static {
+                write!(f, "static ")?;
+            }
             if !self.is_constructor {
                 write!(f, "auto ")?;
             }
-            writeln!(f, "{} {} {{", self.name, self.signature)?;
-            for s in &self.statements {
+            write!(f, "{} {}", self.name, self.signature)?;
+            if let Some(st) = &self.statements {
+                writeln!(f, "{{")?;
+                for s in st {
+                    indent(f)?;
+                    writeln!(f, "    {}", s)?;
+                }
                 indent(f)?;
-                writeln!(f, "    {}", s)?;
+                writeln!(f, "}}")
+            } else {
+                writeln!(f, ";")
             }
-            indent(f)?;
-            writeln!(f, "}}")
         }
     }
 
@@ -179,28 +188,52 @@ pub fn generate(component: &LoweredComponent) -> impl std::fmt::Display {
         name: component.id.clone(),
         signature: "()".to_owned(),
         is_constructor: true,
-        statements: init,
+        statements: Some(init),
+        ..Default::default()
+    }));
+
+    main_struct.members.push(Declaration::Function(Function {
+        name: "tree_fn".into(),
+        signature: "(const sixtyfps::ComponentType*) -> const sixtyfps::ItemTreeNode* ".into(),
+        is_static: true,
+        ..Default::default()
+    }));
+
+    main_struct.members.push(Declaration::Var(Var {
+        ty: "static const sixtyfps::ComponentType".to_owned(),
+        name: "component_type".to_owned(),
+        init: None,
     }));
 
     x.declarations.push(Declaration::Struct(main_struct));
 
     let tree_array = ItemTreeArrayBuilder { children_offset: 0, class_name: &component.id }
         .build_array(&component);
+    x.declarations.push(Declaration::Function(Function {
+        name: format!("{}::tree_fn", component.id),
+        signature: "(const sixtyfps::ComponentType*) -> const sixtyfps::ItemTreeNode* ".into(),
+        statements: Some(vec![
+            "static const sixtyfps::ItemTreeNode children[] {".to_owned(),
+            format!("    {} }};", tree_array),
+            "return children;".to_owned(),
+        ]),
+        ..Default::default()
+    }));
+
     x.declarations.push(Declaration::Var(Var {
-        ty: "sixtyfps::ItemTreeNode".to_owned(),
-        name: format!("{}_children[]", component.id),
-        init: Some(format!("{{ {} }}", tree_array)),
+        ty: "const sixtyfps::ComponentType".to_owned(),
+        name: format!("{}::component_type", component.id),
+        init: Some("{ nullptr, sixtyfps::dummy_destory, tree_fn }".to_owned()),
     }));
 
     x.declarations.push(Declaration::Function(Function {
         name: "main".into(),
         signature: "() -> int".to_owned(),
-        is_constructor: false,
-        statements: vec![
-            format!("{} component;", component.id),
-            format!("static const sixtyfps::ComponentType componentType{{ nullptr, nullptr, [](const sixtyfps::ComponentType*) -> const sixtyfps::ItemTreeNode* {{return {}_children; }}  }};", component.id),
-            format!("sixtyfps::run(&component, &componentType);"),
-        ],
+        statements: Some(vec![
+            format!("static {} component;", component.id),
+            format!("sixtyfps::run(&component);"),
+        ]),
+        ..Default::default()
     }));
     x
 }

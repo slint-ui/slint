@@ -1,12 +1,14 @@
+use core::ptr::NonNull;
+
 /// The opaque component type
-type ComponentImpl = ();
+pub struct ComponentImpl;
 
 #[repr(C)]
 pub struct ComponentType {
     /// Allocate an instance of this component
-    create: fn(*const ComponentType) -> *mut ComponentImpl,
+    create: Option<fn(*const ComponentType) -> *mut ComponentImpl>,
 
-    /// destruct this component
+    /// Destruct this component.
     destroy: fn(*const ComponentType, *mut ComponentImpl),
 
     /// Returns an array that represent the item tree
@@ -86,6 +88,29 @@ pub enum RenderingInfo {
 }
 
 type MouseEvent = ();
+
+/* -- Safe wrappers*/
+
+pub struct ComponentUniquePtr {
+    vtable: NonNull<ComponentType>,
+    inner: NonNull<ComponentImpl>,
+}
+impl Drop for ComponentUniquePtr {
+    fn drop(&mut self) {
+        unsafe {
+            let destroy = self.vtable.as_ref().destroy;
+            destroy(self.vtable.as_ptr(), self.inner.as_ptr());
+        }
+    }
+}
+impl ComponentUniquePtr {
+    /// Both pointer must be valid until the call to vtable.destroy
+    /// vtable will is a *const, and inner like a *mut
+    pub unsafe fn new(vtable: NonNull<ComponentType>, inner: NonNull<ComponentImpl>) -> Self {
+        Self { vtable, inner }
+    }
+}
+
 /*
 
 /*
@@ -189,11 +214,15 @@ pub static QT_BUTTON_VTABLE: ItemVTable = ItemVTable {
 */
 
 /// Run the given component
+/// Both pointer must be valid until the call to vtable.destroy
+/// vtable will is a *const, and inner like a *mut
 #[no_mangle]
 pub extern "C" fn sixtyfps_runtime_run_component(
     component_type: *const ComponentType,
-    component: *mut ComponentImpl,
+    component: NonNull<ComponentImpl>,
 ) {
-    println!("Hello from rust! {:?} {:?}", component_type, component);
+    let _component = unsafe {
+        ComponentUniquePtr::new(NonNull::new_unchecked(component_type as *mut _), component)
+    };
     todo!();
 }
