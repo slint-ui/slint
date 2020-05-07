@@ -145,6 +145,7 @@ fn main() {
         }
 
         let size = windowed_context.window().inner_size();
+        // TODO #4: ensure GO context is current -- see if this can be done within the runtime
         render_tree.render(&mut renderer, size.width, size.height, root);
         windowed_context.swap_buffers().unwrap();
     });

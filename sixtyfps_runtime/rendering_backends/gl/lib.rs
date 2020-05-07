@@ -376,8 +376,6 @@ impl GraphicsBackend for GLRenderer {
     }
 
     fn new_frame(&mut self, width: u32, height: u32, clear_color: &Color) -> GLFrame {
-        // ### FIXME: make_current
-
         unsafe {
             self.context.viewport(0, 0, width as i32, height as i32);
 
