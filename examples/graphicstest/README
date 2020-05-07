@@ -1,0 +1,19 @@
+
+To try the WASM build, use these steps:
+
+cargo build --target wasm32-unknown-unknown --bin graphicstest
+cd examples/graphicstest
+mkdir -p generated
+wasm-bindgen ../../target/wasm32-unknown-unknown/debug/graphicstest.wasm --out-dir generated --no-modules
+cp index.html generated/
+
+Then serve for example with
+
+cd generated/
+python -m SimpleHTTPServer
+
+and go to
+
+http://localhost:8000/index.html
+
+
