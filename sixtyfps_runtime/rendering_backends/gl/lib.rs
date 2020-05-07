@@ -123,7 +123,7 @@ impl<VertexType> GLVertexBuffer<VertexType> {
         }
     }
 
-    // ### FIXME: call this function
+    // TODO #3: make sure we release GL resources
     /*
     fn drop(&mut self, gl: &glow::Context) {
         unsafe {
@@ -160,7 +160,7 @@ impl<IndexType> GLIndexBuffer<IndexType> {
         }
     }
 
-    // ### FIXME: call this function
+    // TODO #3: make sure we release GL resources
     /*
     fn drop(&mut self, gl: &glow::Context) {
         unsafe {
@@ -221,7 +221,7 @@ impl GLTexture {
         }
     }
 
-    // ### FIXME: call this function
+    // TODO #3: make sure we release GL resources
     /*
     fn drop(&mut self, gl: &glow::Context) {
         unsafe {
