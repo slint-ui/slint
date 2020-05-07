@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum Type {
     Invalid,
     Component(Rc<crate::object_tree::Component>),
