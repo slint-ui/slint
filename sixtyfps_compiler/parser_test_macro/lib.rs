@@ -1,3 +1,13 @@
+/*! parser_test: a proc macro attribute that generate tests for the parser functions
+
+The parser_test macro will look at the documentation of a function for a
+markdown block delimited by ` ```test` and will feeds each line to the parser
+function, checking that no error are reported, and that everything was consumed
+
+A parser function must have the signature `fn(&mut Parser)`
+
+*/
+
 extern crate proc_macro;
 use core::iter::IntoIterator;
 use core::str::FromStr;

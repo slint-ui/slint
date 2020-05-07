@@ -1,3 +1,5 @@
+/// This module contains some datastructure that helps represent a C++ code.
+/// It is then rendered into an actual C++ text using the Display trait
 mod cpp_ast {
 
     use std::cell::Cell;
@@ -12,6 +14,7 @@ mod cpp_ast {
         })
     }
 
+    ///A full C++ file
     #[derive(Default, Debug)]
     pub struct File {
         pub includes: Vec<String>,
@@ -30,6 +33,7 @@ mod cpp_ast {
         }
     }
 
+    /// Declarations  (top level, or within a struct)
     #[derive(Debug, derive_more::Display)]
     pub enum Declaration {
         Struct(Struct),
@@ -58,13 +62,17 @@ mod cpp_ast {
         }
     }
 
+    /// Function or method
     #[derive(Default, Debug)]
     pub struct Function {
         pub name: String,
-        /// (...) -> ...
+        /// "(...) -> ..."
         pub signature: String,
+        /// The function does not have return type
         pub is_constructor: bool,
         pub is_static: bool,
+        /// The list of statement instead the function.  When None,  this is just a function
+        /// declaration without the definition
         pub statements: Option<Vec<String>>,
     }
 
@@ -92,6 +100,7 @@ mod cpp_ast {
         }
     }
 
+    /// A variable or a member declaration.
     #[derive(Default, Debug)]
     pub struct Var {
         pub ty: String,
@@ -174,6 +183,7 @@ impl<'a> ItemTreeArrayBuilder<'a> {
     }
 }
 
+/// Returns the text of the C++ code produced by the given root component
 pub fn generate(component: &LoweredComponent) -> impl std::fmt::Display {
     let mut x = File::default();
 

@@ -1,15 +1,29 @@
+/*! The sixtyfps language parser
+
+This module is responsible to parse a string onto a syntax tree.
+
+The core of it is the `Parser` class that holds a list of token and
+generates a `rowan::GreenNode`
+
+This module has different sub modules with the actual parser functions
+
+*/
+
 use std::convert::TryFrom;
 
 mod document;
 
+/// Each parser submodule would simply do `use super::prelude::*` to import typically used items
 mod prelude {
-    pub use super::{ParseError, Parser, SyntaxKind};
+    pub use super::{Parser, SyntaxKind};
     #[cfg(test)]
     pub use parser_test_macro::parser_test;
 }
 
 use crate::diagnostics::Diagnostics;
 
+/// This macro is invoked once, to declare all the token and syntax kind.
+/// The purpose of this macro is to declare the token with its regexp at the same place
 macro_rules! declare_token_kind {
     ($($token:ident -> $rx:expr ,)*) => {
         #[repr(u16)]
@@ -69,9 +83,6 @@ pub struct Token {
     offset: usize,
 }
 
-#[derive(Default, Debug, Clone, PartialEq)]
-pub struct ParseError(pub String, pub usize);
-
 pub struct Parser {
     builder: rowan::GreenNodeBuilder<'static>,
     tokens: Vec<Token>,
@@ -79,6 +90,8 @@ pub struct Parser {
     diags: Diagnostics,
 }
 
+/// The return value of `Parser::start_node`. This borrows the parser
+/// and finishes the node on Drop
 #[derive(derive_more::Deref, derive_more::DerefMut)]
 pub struct Node<'a>(&'a mut Parser);
 impl<'a> Drop for Node<'a> {
@@ -88,6 +101,7 @@ impl<'a> Drop for Node<'a> {
 }
 
 impl Parser {
+    /// Constructor that create a parser from the source code
     pub fn new(source: &str) -> Self {
         fn lex(source: &str) -> Vec<Token> {
             lexer()
@@ -109,6 +123,8 @@ impl Parser {
         }
     }
 
+    /// Enter a new node.  The node is going to be finished when
+    /// The return value of this function is drop'ed
     pub fn start_node(&mut self, kind: SyntaxKind) -> Node {
         self.builder.start_node(kind.into());
         Node(self)
@@ -127,10 +143,12 @@ impl Parser {
         self.current_token()
     }
 
+    /// Same as nth(0)
     pub fn peek_kind(&mut self) -> SyntaxKind {
         self.peek().kind
     }
 
+    /// Peek the n'th token, not including whitespaces and comments
     pub fn nth(&mut self, mut n: usize) -> SyntaxKind {
         let mut c = self.cursor;
         while n > 0 {
@@ -145,32 +163,37 @@ impl Parser {
         self.tokens.get(c).map_or(SyntaxKind::Eof, |x| x.kind)
     }
 
+    /// Consume all the whitespace
     pub fn consume_ws(&mut self) {
         while matches!(self.current_token().kind, SyntaxKind::Whitespace | SyntaxKind::Comment) {
             self.consume()
         }
     }
 
+    /// Consume the current token
     pub fn consume(&mut self) {
         let t = self.current_token();
         self.builder.token(t.kind.into(), t.text);
         self.cursor += 1;
     }
 
+    /// Consume the token if it has the right kind, otherwise report a syntax error.
+    /// Returns true if the token was consumed.
     pub fn expect(&mut self, kind: SyntaxKind) -> bool {
         if self.peek_kind() != kind {
-            self.error(format!("Syntax error: expected {:?}", kind)); // FIXME better error
+            self.error(format!("Syntax error: expected {:?}", kind));
             return false;
         }
         self.consume();
         return true;
     }
 
+    /// Reports an error at the current token location
     pub fn error(&mut self, e: impl Into<String>) {
         self.diags.push_error(e.into(), self.current_token().offset);
     }
 
-    /// consume everyting until the token
+    /// consume everyting until reaching a token of this kind
     pub fn until(&mut self, kind: SyntaxKind) {
         // FIXME! match {} () []
         while self.cursor < self.tokens.len() && self.current_token().kind != kind {
@@ -194,8 +217,9 @@ impl rowan::Language for Language {
 
 pub type SyntaxNode = rowan::SyntaxNode<Language>;
 pub type SyntaxToken = rowan::SyntaxToken<Language>;
-//type SyntaxElement = rowan::NodeOrToken<SyntaxNode, SyntaxToken>;
 
+/// Helper functions to easily get the children of a given kind.
+/// This traits is only supposed to be implemented on SyntaxNope
 pub trait SyntaxNodeEx {
     fn child_node(&self, kind: SyntaxKind) -> Option<SyntaxNode>;
     fn child_token(&self, kind: SyntaxKind) -> Option<SyntaxToken>;
@@ -216,6 +240,7 @@ impl SyntaxNodeEx for SyntaxNode {
     }
 }
 
+// Actual parser
 pub fn parse(source: &str) -> (SyntaxNode, Diagnostics) {
     let mut p = Parser::new(source);
     document::parse_document(&mut p);

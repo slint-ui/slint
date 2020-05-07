@@ -1,9 +1,13 @@
+/*!
+ This module contains the intermediate representation of the code in the form of an object tree
+*/
+
 use crate::diagnostics::Diagnostics;
 use crate::parser::{SyntaxKind, SyntaxNode, SyntaxNodeEx};
 use crate::typeregister::TypeRegister;
 use std::collections::HashMap;
 use std::rc::Rc;
-
+/// The full document (a complete file)
 #[derive(Default, Debug)]
 pub struct Document {
     //     node: SyntaxNode,
@@ -22,6 +26,7 @@ impl Document {
     }
 }
 
+/// A component is a type in the language which can be instantiated
 #[derive(Default, Debug)]
 pub struct Component {
     //     node: SyntaxNode,
@@ -43,11 +48,13 @@ impl Component {
     }
 }
 
+/// An Element is an instentation of a Component
 #[derive(Default, Debug)]
 pub struct Element {
     //     node: SyntaxNode,
     pub id: String,
     pub base: String,
+    /// FIXME, should not be Builtin, but a generic Component as well
     pub base_type: Rc<crate::typeregister::BuiltinElement>,
     pub bindings: HashMap<String, CodeStatement>,
     pub children: Vec<Rc<Element>>,
