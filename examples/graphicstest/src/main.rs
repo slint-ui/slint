@@ -1,8 +1,13 @@
 use cgmath::{Matrix4, SquareMatrix, Vector3};
+#[cfg(target_arch = "wasm32")]
+use glow::HasRenderLoop;
+#[cfg(not(target_arch = "wasm32"))]
 use glutin;
 use kurbo::{BezPath, Rect};
 use sixtyfps_corelib::graphics::{Color, FillStyle, GraphicsBackend, RenderTree};
 use sixtyfps_gl_backend::{GLRenderer, OpaqueRenderingPrimitive};
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::*;
 
 fn create_rect(
     renderer: &mut impl GraphicsBackend<RenderingPrimitive = OpaqueRenderingPrimitive>,
@@ -19,13 +24,52 @@ fn create_rect(
     renderer.create_path_fill_primitive(&rect_path, FillStyle::SolidColor(color))
 }
 
-fn main() {
-    let event_loop = glutin::event_loop::EventLoop::new();
-    let wb = glutin::window::WindowBuilder::new();
-    let windowed_context =
-        glutin::ContextBuilder::new().with_vsync(true).build_windowed(wb, &event_loop).unwrap();
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
+pub fn wasm_main() {
+    main();
+}
 
-    let mut renderer = GLRenderer::new(windowed_context);
+fn main() {
+    #[cfg(not(target_arch = "wasm32"))]
+    let (event_loop, windowed_context, gl_context) = {
+        let event_loop = glutin::event_loop::EventLoop::new();
+        let wb = glutin::window::WindowBuilder::new();
+        let windowed_context =
+            glutin::ContextBuilder::new().with_vsync(true).build_windowed(wb, &event_loop).unwrap();
+        let windowed_context = unsafe { windowed_context.make_current().unwrap() };
+
+        let gl_context = glow::Context::from_loader_function(|s| {
+            windowed_context.get_proc_address(s) as *const _
+        });
+
+        (event_loop, windowed_context, gl_context)
+    };
+
+    #[cfg(target_arch = "wasm32")]
+    let (event_loop, windowed_context, gl_context) = {
+        use wasm_bindgen::JsCast;
+        let canvas = web_sys::window()
+            .unwrap()
+            .document()
+            .unwrap()
+            .get_element_by_id("canvas")
+            .unwrap()
+            .dyn_into::<web_sys::HtmlCanvasElement>()
+            .unwrap();
+        let webgl1_context = canvas
+            .get_context("webgl")
+            .unwrap()
+            .unwrap()
+            .dyn_into::<web_sys::WebGlRenderingContext>()
+            .unwrap();
+        (
+            glow::RenderLoop::from_request_animation_frame(),
+            (canvas.width(), canvas.height()),
+            glow::Context::from_webgl1_context(webgl1_context),
+        )
+    };
+
+    let mut renderer = GLRenderer::new(gl_context);
 
     let mut render_tree = RenderTree::<GLRenderer>::default();
 
@@ -44,6 +88,7 @@ fn main() {
 
     render_tree.node_at_mut(root).append_child(translated_child_rect);
 
+    #[cfg(not(target_arch = "wasm32"))]
     let image_node = {
         let mut logo_path = std::env::current_exe().unwrap();
         logo_path.pop(); // pop off executable file name
@@ -64,8 +109,10 @@ fn main() {
         render_tree.allocate_index_with_content(Some(image_primitive), Some(Matrix4::identity()))
     };
 
+    #[cfg(not(target_arch = "wasm32"))]
     render_tree.node_at_mut(root).append_child(image_node);
 
+    #[cfg(not(target_arch = "wasm32"))]
     event_loop.run(move |event, _, control_flow| {
         let next_frame_time =
             std::time::Instant::now() + std::time::Duration::from_nanos(16_666_667);
@@ -87,6 +134,13 @@ fn main() {
             _ => return,
         }
 
-        render_tree.render(&mut renderer, root);
+        let size = windowed_context.window().inner_size();
+        render_tree.render(&mut renderer, size.width, size.height, root);
+        windowed_context.swap_buffers().unwrap();
+    });
+
+    #[cfg(target_arch = "wasm32")]
+    event_loop.run(move |_running: &mut bool| {
+        render_tree.render(&mut renderer, windowed_context.0, windowed_context.1, root);
     });
 }

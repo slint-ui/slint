@@ -83,7 +83,6 @@ impl Shader {
 }
 
 pub struct GLRenderer {
-    windowed_context: Rc<glutin::WindowedContext<glutin::PossiblyCurrent>>,
     context: Rc<glow::Context>,
     path_program: Shader, // ### do not use RC<> given the ownership in GLRenderer
     image_program: Shader,
@@ -91,7 +90,6 @@ pub struct GLRenderer {
 }
 
 pub struct GLFrame {
-    windowed_context: Rc<glutin::WindowedContext<glutin::PossiblyCurrent>>,
     context: Rc<glow::Context>,
     path_program: Shader,
     image_program: Shader,
@@ -99,13 +97,7 @@ pub struct GLFrame {
 }
 
 impl GLRenderer {
-    pub fn new(windowed_context: glutin::WindowedContext<glutin::NotCurrent>) -> GLRenderer {
-        let windowed_context = unsafe { windowed_context.make_current().unwrap() };
-
-        let context = glow::Context::from_loader_function(|s| {
-            windowed_context.get_proc_address(s) as *const _
-        });
-
+    pub fn new(context: glow::Context) -> GLRenderer {
         const PATH_VERTEX_SHADER: &str = r#"#version 100
         attribute vec2 pos;
         uniform vec4 vertcolor;
@@ -144,7 +136,6 @@ impl GLRenderer {
         let image_program = Shader::new(&context, IMAGE_VERTEX_SHADER, IMAGE_FRAGMENT_SHADER);
 
         GLRenderer {
-            windowed_context: Rc::new(windowed_context),
             context: Rc::new(context),
             path_program: path_program,
             image_program: image_program,
@@ -229,10 +220,8 @@ impl GraphicsBackend for GLRenderer {
         OpaqueRenderingPrimitive(GLRenderingPrimitive::Texture { /*texture, vertices*/ })
     }
 
-    fn new_frame(&mut self, clear_color: &Color) -> GLFrame {
+    fn new_frame(&mut self, width: u32, height: u32, clear_color: &Color) -> GLFrame {
         // ### FIXME: make_current
-
-        let size = self.windowed_context.window().inner_size();
 
         let (r, g, b, a) = clear_color.as_rgba_f32();
         unsafe {
@@ -245,11 +234,10 @@ impl GraphicsBackend for GLRenderer {
         glium_frame.clear(None, Some(clear_color.as_rgba_f32()), false, None, None);
         */
         GLFrame {
-            windowed_context: self.windowed_context.clone(),
             context: self.context.clone(),
             path_program: self.path_program.clone(),
             image_program: self.image_program.clone(),
-            root_matrix: cgmath::ortho(0.0, size.width as f32, size.height as f32, 0.0, -1., 1.0),
+            root_matrix: cgmath::ortho(0.0, width as f32, height as f32, 0.0, -1., 1.0),
         }
     }
 }
@@ -296,9 +284,7 @@ impl GraphicsFrame for GLFrame {
         }
     }
 
-    fn submit(self) {
-        self.windowed_context.swap_buffers().unwrap();
-    }
+    fn submit(self) {}
 }
 
 struct PathConverter<'a> {

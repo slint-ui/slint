@@ -12,7 +12,6 @@ path = "lib.rs"
 [dependencies]
 sixtyfps_corelib = { package = "corelib", path = "../../corelib" }
 glow = { version = "0.4.0", features = [ "glutin" ] }
-glutin = { version = "0.24" }
 lyon = { version = "0.15.8" }
 kurbo = "0.5.11"
 image = "0.23.4"
