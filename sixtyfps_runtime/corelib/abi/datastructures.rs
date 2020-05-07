@@ -91,6 +91,46 @@ type MouseEvent = ();
 
 /* -- Safe wrappers*/
 
+/*trait Item {
+    fn geometry(&self) -> ();
+    fn render_node(&self) -> &RenderNode;
+    fn render_node_mut(&mut self) -> &mut RenderNode;
+    fn rendering_info(&self) -> RenderNode;
+}*/
+
+// To be used as &'x Item
+pub struct Item {
+    vtable: NonNull<ItemVTable>,
+    inner: NonNull<ItemImpl>,
+}
+
+impl Item {
+    /// One should create only one instance of item at the time to keep the &mut invariant
+    pub unsafe fn new(vtable: NonNull<ItemVTable>, inner: NonNull<ItemImpl>) -> Self {
+        Self { vtable, inner }
+    }
+
+    pub fn render_node(&self) -> &RenderNode {
+        unsafe {
+            &*((self.inner.as_ptr() as *const u8)
+                .offset(self.vtable.as_ref().render_node_index_offset)
+                as *const RenderNode)
+        }
+    }
+
+    pub fn render_node_mut(&mut self) -> &mut RenderNode {
+        unsafe {
+            &mut *((self.inner.as_ptr() as *mut u8)
+                .offset(self.vtable.as_ref().render_node_index_offset)
+                as *mut RenderNode)
+        }
+    }
+
+    pub fn rendering_info(&self) -> Option<RenderingInfo> {
+        unsafe { self.vtable.as_ref().rendering_info.map(|x| x(self.inner.as_ptr())) }
+    }
+}
+
 pub struct ComponentUniquePtr {
     vtable: NonNull<ComponentType>,
     inner: NonNull<ComponentImpl>,
@@ -108,6 +148,30 @@ impl ComponentUniquePtr {
     /// vtable will is a *const, and inner like a *mut
     pub unsafe fn new(vtable: NonNull<ComponentType>, inner: NonNull<ComponentImpl>) -> Self {
         Self { vtable, inner }
+    }
+
+    pub fn visit_items(&self, mut visitor: impl FnMut(&Item)) {
+        self.visit_internal(&mut visitor, 0)
+    }
+
+    fn visit_internal(&self, visitor: &mut impl FnMut(&Item), index: isize) {
+        let item_tree = unsafe { (self.vtable.as_ref().item_tree)(self.vtable.as_ptr()) };
+        let current_item = unsafe { &*item_tree.offset(index) };
+
+        let item = unsafe {
+            Item::new(
+                NonNull::new_unchecked(current_item.vtable as *mut _),
+                NonNull::new_unchecked(
+                    (self.inner.as_ptr() as *mut u8).offset(current_item.offset) as *mut _,
+                ),
+            )
+        };
+        visitor(&item);
+        for c in
+            current_item.children_index..(current_item.children_index + current_item.chilren_count)
+        {
+            self.visit_internal(visitor, c as isize)
+        }
     }
 }
 
@@ -221,8 +285,11 @@ pub extern "C" fn sixtyfps_runtime_run_component(
     component_type: *const ComponentType,
     component: NonNull<ComponentImpl>,
 ) {
-    let _component = unsafe {
+    let component = unsafe {
         ComponentUniquePtr::new(NonNull::new_unchecked(component_type as *mut _), component)
     };
+    let mut count = 0;
+    component.visit_items(|_item| count += 1);
+    println!("FOUND {} items", count);
     todo!();
 }
