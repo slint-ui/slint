@@ -6,19 +6,19 @@ pub struct ComponentImpl;
 #[repr(C)]
 pub struct ComponentType {
     /// Allocate an instance of this component
-    create: Option<fn(*const ComponentType) -> *mut ComponentImpl>,
+    create: Option<unsafe fn(*const ComponentType) -> *mut ComponentImpl>,
 
     /// Destruct this component.
-    destroy: fn(*const ComponentType, *mut ComponentImpl),
+    destroy: unsafe fn(*const ComponentType, *mut ComponentImpl),
 
     /// Returns an array that represent the item tree
     /// FIXME: dynamic items
-    item_tree: fn(*const ComponentType) -> *const ItemTreeNode,
+    item_tree: unsafe fn(*const ComponentType) -> *const ItemTreeNode,
 }
 
 /// From the ItemTreeNode and a ComponentImpl, you can get a pointer to the instance data
 /// ItemImpl via the offset field.
-type ItemImpl = ();
+pub struct ItemImpl;
 // Example memory representation:
 // offset| type | value
 // 0     | f32 | x
@@ -52,20 +52,20 @@ pub struct ItemTreeNode {
 #[derive(Default)]
 pub struct ItemVTable {
     /// Rectangle: x/y/width/height ==> (path -> vertices/indicies(triangle))
-    pub geometry: Option<fn(*const ItemImpl) -> ()>, // like kurbo::Rect
+    pub geometry: Option<unsafe fn(*const ItemImpl) -> ()>, // like kurbo::Rect
 
     /// offset in bytes fromthe *const ItemImpl.
     /// isize::MAX  means None
     pub render_node_index_offset: isize,
     // fn(*const ItemImpl) -> usize,
     /// ???
-    pub rendering_info: Option<fn(*const ItemImpl) -> RenderingInfo>,
+    pub rendering_info: Option<unsafe fn(*const ItemImpl) -> RenderingInfo>,
 
     /// We would need max/min/preferred size, and all layout info
-    pub layouting_info: Option<fn(*const ItemImpl) -> LayoutInfo>,
+    pub layouting_info: Option<unsafe fn(*const ItemImpl) -> LayoutInfo>,
 
     /// input event
-    pub input_event: Option<fn(*const ItemImpl, MouseEvent)>,
+    pub input_event: Option<unsafe fn(*const ItemImpl, MouseEvent)>,
 }
 
 // given an ItemImpl & ItemVTable
@@ -80,8 +80,11 @@ pub struct LayoutInfo {
 }
 
 #[repr(C)]
+#[derive(Clone, Debug)]
 pub enum RenderingInfo {
     NoContents,
+    Rectangle(f32, f32, f32, f32, u32), // Should be a beret structure
+    Image(&'static str),
     /*Path(Vec<PathElement>),
     Image(OpaqueImageHandle, AspectRatio),
     Text(String)*/
@@ -247,17 +250,6 @@ fn render_rectangle(item: *const ItemImpl) -> RenderingInfo {
     let width = rect.width.get()
 }
 
-//#[derive(SixtyFpsItem)]
-struct Rectangle {
-    base: ItemBase,
-    width: Property<f32>,
-    height: Property<f32>,
-    radius: Property<f32>,
-}
-
-/// fn rect_from_item(item: *const ItemImpl) -> *const Rectangle {
-///  reinterpet_cast<const Rectangle *>(reinterpret_cast<char *>(item) + ... some offset))
-///}
 
 pub static RECTANGLE_VTABLE: ItemVTable = ItemVTable {
     rendering_info: render_rectangle,
@@ -288,8 +280,8 @@ pub extern "C" fn sixtyfps_runtime_run_component(
     let component = unsafe {
         ComponentUniquePtr::new(NonNull::new_unchecked(component_type as *mut _), component)
     };
-    let mut count = 0;
-    component.visit_items(|_item| count += 1);
-    println!("FOUND {} items", count);
+    component.visit_items(|item| {
+        println!("Rendering... {:?}", item.rendering_info());
+    });
     todo!();
 }

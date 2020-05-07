@@ -1,4 +1,6 @@
 
+using str = char; //FIXME: this is just required because of something wrong with &str in cbindgen, but one should not have &str anyway
+
 #include "sixtyfps_internal.h"
 
 namespace sixtyfps {
