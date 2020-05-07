@@ -5,6 +5,8 @@ use lyon::path::PathEvent;
 use lyon::tessellation::geometry_builder::{BuffersBuilder, VertexBuffers};
 use lyon::tessellation::{FillAttributes, FillOptions, FillTessellator};
 use sixtyfps_corelib::graphics::{Color, FillStyle, Frame as GraphicsFrame, GraphicsBackend};
+use std::marker;
+use std::mem;
 
 extern crate alloc;
 use alloc::rc::Rc;
@@ -14,20 +16,14 @@ struct PathVertex {
     pos: [f32; 2],
 }
 
-//implement_vertex!(PathVertex, pos);
-
 #[derive(Copy, Clone)]
 struct ImageVertex {
     pos: [f32; 2],
     tex_pos: [f32; 2],
 }
 
-//implement_vertex!(ImageVertex, pos, tex_pos);
-
 enum GLRenderingPrimitive {
-    FillPath {
-        /*vertices: VertexBuffer<PathVertex>, indices: IndexBuffer<u16>, */ style: FillStyle,
-    },
+    FillPath { geometry: GLGeometry<PathVertex, u16>, style: FillStyle },
     Texture {/*vertices: VertexBuffer<ImageVertex>, texture: Texture2d*/},
 }
 
@@ -75,9 +71,78 @@ impl Shader {
         Shader { program }
     }
 
+    fn use_program(&self, gl: &glow::Context) {
+        unsafe {
+            gl.use_program(Some(self.program));
+        }
+    }
+
     fn drop(&mut self, gl: &GLContext) {
         unsafe {
             gl.delete_program(self.program);
+        }
+    }
+}
+
+struct GLGeometry<VertexType, IndexType> {
+    vertex_buffer_id: <GLContext as HasContext>::Buffer,
+    index_buffer_id: <GLContext as HasContext>::Buffer,
+    triangles: i32,
+    _vertex_marker: marker::PhantomData<VertexType>,
+    _index_marker: marker::PhantomData<IndexType>,
+}
+
+impl<VertexType, IndexType> GLGeometry<VertexType, IndexType> {
+    fn new(gl: &glow::Context, data: VertexBuffers<VertexType, IndexType>) -> Self {
+        let vertex_buffer_id = unsafe { gl.create_buffer().expect("vertex buffer") };
+
+        unsafe {
+            gl.bind_buffer(glow::ARRAY_BUFFER, Some(vertex_buffer_id));
+
+            let byte_len =
+                mem::size_of_val(&data.vertices[0]) * data.vertices.len() / mem::size_of::<u8>();
+            let byte_slice =
+                std::slice::from_raw_parts(data.vertices.as_ptr() as *const u8, byte_len);
+            gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, byte_slice, glow::STATIC_DRAW);
+        }
+
+        let index_buffer_id = unsafe { gl.create_buffer().expect("index buffer") };
+
+        unsafe {
+            gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, Some(index_buffer_id));
+
+            let byte_len =
+                mem::size_of_val(&data.indices[0]) * data.indices.len() / mem::size_of::<u8>();
+            let byte_slice =
+                std::slice::from_raw_parts(data.indices.as_ptr() as *const u8, byte_len);
+            gl.buffer_data_u8_slice(glow::ELEMENT_ARRAY_BUFFER, byte_slice, glow::STATIC_DRAW);
+        }
+
+        Self {
+            vertex_buffer_id,
+            index_buffer_id,
+            triangles: data.indices.len() as i32,
+            _vertex_marker: marker::PhantomData,
+            _index_marker: marker::PhantomData,
+        }
+    }
+
+    fn bind(&self, gl: &glow::Context, vertex_attribute_location: u32) {
+        unsafe {
+            gl.bind_buffer(glow::ARRAY_BUFFER, Some(self.vertex_buffer_id));
+            gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, Some(self.index_buffer_id));
+
+            // TODO: generalize size/data_type
+            gl.vertex_attrib_pointer_f32(vertex_attribute_location, 2, glow::FLOAT, false, 0, 0);
+            gl.enable_vertex_attrib_array(vertex_attribute_location);
+        }
+    }
+
+    // ### FIXME: call this function
+    fn drop(&mut self, gl: &glow::Context) {
+        unsafe {
+            gl.delete_buffer(self.vertex_buffer_id);
+            gl.delete_buffer(self.index_buffer_id);
         }
     }
 }
@@ -98,17 +163,24 @@ pub struct GLFrame {
 
 impl GLRenderer {
     pub fn new(context: glow::Context) -> GLRenderer {
+        unsafe {
+            let vertex_array = context.create_vertex_array().expect("Cannot create vertex array");
+            context.bind_vertex_array(Some(vertex_array));
+        }
+
         const PATH_VERTEX_SHADER: &str = r#"#version 100
         attribute vec2 pos;
         uniform vec4 vertcolor;
         uniform mat4 matrix;
         varying lowp vec4 fragcolor;
+
         void main() {
             gl_Position = matrix * vec4(pos, 0.0, 1);
             fragcolor = vertcolor;
         }"#;
 
         const PATH_FRAGMENT_SHADER: &str = r#"#version 100
+        precision mediump float;
         varying lowp vec4 fragcolor;
         void main() {
             gl_FragColor = fragcolor;
@@ -121,7 +193,7 @@ impl GLRenderer {
         attribute vec2 tex_pos;
         uniform mat4 matrix;
         varying highp vec2 frag_tex_pos;
-        void main() {            
+        void main() {
             gl_Position = matrix * vec4(pos, 0.0, 1);
             frag_tex_pos = tex_pos;
         }"#;
@@ -171,17 +243,9 @@ impl GraphicsBackend for GLRenderer {
             )
             .unwrap();
 
-        /*
-                let vertices = VertexBuffer::new(&self.display, &geometry.vertices).unwrap();
-                let indices = IndexBuffer::new(
-                    &self.display,
-                    glium::index::PrimitiveType::TrianglesList,
-                    &geometry.indices,
-                )
-                .unwrap();
-        */
+        let gl_geometry = GLGeometry::new(&self.context, geometry);
 
-        OpaqueRenderingPrimitive(GLRenderingPrimitive::FillPath { /*vertices, indices, */ style, })
+        OpaqueRenderingPrimitive(GLRenderingPrimitive::FillPath { geometry: gl_geometry, style })
     }
 
     fn create_image_primitive(
@@ -223,16 +287,19 @@ impl GraphicsBackend for GLRenderer {
     fn new_frame(&mut self, width: u32, height: u32, clear_color: &Color) -> GLFrame {
         // ### FIXME: make_current
 
+        unsafe {
+            self.context.viewport(0, 0, width as i32, height as i32);
+
+            self.context.enable(glow::BLEND);
+            self.context.blend_func(glow::ONE, glow::ONE_MINUS_SRC_ALPHA);
+        }
+
         let (r, g, b, a) = clear_color.as_rgba_f32();
         unsafe {
             self.context.clear_color(r, g, b, a);
             self.context.clear(glow::COLOR_BUFFER_BIT);
         };
-        /*
-        let (w, h) = self.display.get_framebuffer_dimensions();
-        let mut glium_frame = self.display.draw();
-        glium_frame.clear(None, Some(clear_color.as_rgba_f32()), false, None, None);
-        */
+
         GLFrame {
             context: self.context.clone(),
             path_program: self.path_program.clone(),
@@ -246,27 +313,64 @@ impl GraphicsFrame for GLFrame {
     type RenderingPrimitive = OpaqueRenderingPrimitive;
 
     fn render_primitive(&mut self, primitive: &OpaqueRenderingPrimitive, transform: &Matrix4<f32>) {
-        let matrix: [[f32; 4]; 4] = (self.root_matrix * transform).into();
-
-        //let draw_params =
-        //    glium::DrawParameters { blend: glium::Blend::alpha_blending(), ..Default::default() };
-
+        let matrix = self.root_matrix * transform;
+        let gl_matrix: [f32; 16] = [
+            matrix.x[0],
+            matrix.x[1],
+            matrix.x[2],
+            matrix.x[3],
+            matrix.y[0],
+            matrix.y[1],
+            matrix.y[2],
+            matrix.y[3],
+            matrix.z[0],
+            matrix.z[1],
+            matrix.z[2],
+            matrix.z[3],
+            matrix.w[0],
+            matrix.w[1],
+            matrix.w[2],
+            matrix.w[3],
+        ];
         match &primitive.0 {
-            GLRenderingPrimitive::FillPath { /*ref vertices, ref indices, */style } => {
-                /*
+            GLRenderingPrimitive::FillPath { geometry, style } => {
+                self.path_program.use_program(&self.context);
+
+                let matrix_location = unsafe {
+                    self.context.get_uniform_location(self.path_program.program, "matrix")
+                };
+                unsafe {
+                    self.context.uniform_matrix_4_f32_slice(matrix_location, false, &gl_matrix)
+                };
+
                 let (r, g, b, a) = match style {
                     FillStyle::SolidColor(color) => color.as_rgba_f32(),
                 };
-                let uniforms = uniform! {
-                    vertcolor: (r, g, b, a),
-                    matrix: matrix
-                };
 
-                self.glium_frame
-                    .draw(vertices, indices, &self.path_program, &uniforms, &draw_params)
-                    .unwrap();
-                    */
+                let color_location = unsafe {
+                    self.context.get_uniform_location(self.path_program.program, "vertcolor")
+                };
+                unsafe { self.context.uniform_4_f32(color_location, r, g, b, a) };
+
+                let vertex_attribute_location = unsafe {
+                    self.context.get_attrib_location(self.path_program.program, "pos").unwrap()
+                };
+                geometry.bind(&self.context, vertex_attribute_location);
+
+                unsafe {
+                    self.context.draw_elements(
+                        glow::TRIANGLE_STRIP,
+                        geometry.triangles,
+                        glow::UNSIGNED_SHORT,
+                        0,
+                    );
+                }
             }
+            _ => {}
+        }
+
+        /*
+
             GLRenderingPrimitive::Texture { /*texture, vertices*/ } => {
                 /*
                 let indices = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
@@ -282,6 +386,7 @@ impl GraphicsFrame for GLFrame {
                     */
             }
         }
+        */
     }
 
     fn submit(self) {}
