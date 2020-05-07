@@ -18,13 +18,13 @@ struct Vertex {
 
 enum GLRenderingPrimitive {
     FillPath {
-        vertices: GLVertexBuffer<Vertex>,
+        vertices: GLArrayBuffer<Vertex>,
         indices: GLIndexBuffer<u16>,
         style: FillStyle,
     },
     Texture {
-        vertices: GLVertexBuffer<Vertex>,
-        texture_vertices: GLVertexBuffer<Vertex>,
+        vertices: GLArrayBuffer<Vertex>,
+        texture_vertices: GLArrayBuffer<Vertex>,
         texture: GLTexture,
     },
 }
@@ -86,13 +86,13 @@ impl Shader {
     }
 }
 
-struct GLVertexBuffer<VertexType> {
+struct GLArrayBuffer<ArrayMemberType> {
     buffer_id: <GLContext as HasContext>::Buffer,
-    _vertex_marker: marker::PhantomData<VertexType>,
+    _type_marker: marker::PhantomData<ArrayMemberType>,
 }
 
-impl<VertexType> GLVertexBuffer<VertexType> {
-    fn new(gl: &glow::Context, data: &[VertexType]) -> Self {
+impl<ArrayMemberType> GLArrayBuffer<ArrayMemberType> {
+    fn new(gl: &glow::Context, data: &[ArrayMemberType]) -> Self {
         let buffer_id = unsafe { gl.create_buffer().expect("vertex buffer") };
 
         unsafe {
@@ -103,17 +103,17 @@ impl<VertexType> GLVertexBuffer<VertexType> {
             gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, byte_slice, glow::STATIC_DRAW);
         }
 
-        Self { buffer_id, _vertex_marker: marker::PhantomData }
+        Self { buffer_id, _type_marker: marker::PhantomData }
     }
 
     fn bind(&self, gl: &glow::Context, attribute_location: u32) {
         unsafe {
             gl.bind_buffer(glow::ARRAY_BUFFER, Some(self.buffer_id));
 
-            // TODO: generalize size/data_type
+            // TODO #5: generalize GL array buffer size/data_type handling beyond f32
             gl.vertex_attrib_pointer_f32(
                 attribute_location,
-                (mem::size_of::<VertexType>() / mem::size_of::<f32>()) as i32,
+                (mem::size_of::<ArrayMemberType>() / mem::size_of::<f32>()) as i32,
                 glow::FLOAT,
                 false,
                 0,
@@ -327,7 +327,7 @@ impl GraphicsBackend for GLRenderer {
             )
             .unwrap();
 
-        let vertices = GLVertexBuffer::new(&self.context, &geometry.vertices);
+        let vertices = GLArrayBuffer::new(&self.context, &geometry.vertices);
         let indices = GLIndexBuffer::new(&self.context, &geometry.indices);
 
         OpaqueRenderingPrimitive(GLRenderingPrimitive::FillPath { vertices, indices, style })
@@ -357,11 +357,11 @@ impl GraphicsBackend for GLRenderer {
         let vertex4 = Vertex { _pos: [rect.x0 as f32, rect.y1 as f32] };
         let tex_vertex4 = Vertex { _pos: [src_left, src_bottom] };
 
-        let vertices = GLVertexBuffer::new(
+        let vertices = GLArrayBuffer::new(
             &self.context,
             &vec![vertex1, vertex2, vertex3, vertex1, vertex3, vertex4],
         );
-        let texture_vertices = GLVertexBuffer::new(
+        let texture_vertices = GLArrayBuffer::new(
             &self.context,
             &vec![tex_vertex1, tex_vertex2, tex_vertex3, tex_vertex1, tex_vertex3, tex_vertex4],
         );
