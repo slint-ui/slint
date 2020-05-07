@@ -3,7 +3,7 @@ extern crate cbindgen;
 use std::env;
 
 fn main() {
-    let include = vec!["Rectangle".to_owned()];
+    let include = vec!["Rectangle".to_owned(), "Image".to_owned()];
 
     let config = cbindgen::Config {
         pragma_once: true,

@@ -117,7 +117,11 @@ impl CodeStatement {
 
         let value = node
             .child_node(SyntaxKind::Expression)
-            .and_then(|x| x.child_text(SyntaxKind::Identifier))
+            .and_then(|x| {
+                x.child_text(SyntaxKind::Identifier)
+                    .or_else(|| x.child_text(SyntaxKind::StringLiteral))
+                    .or_else(|| x.child_text(SyntaxKind::NumberLiteral))
+            })
             .unwrap_or_default();
 
         // FIXME: that's not the place to do this

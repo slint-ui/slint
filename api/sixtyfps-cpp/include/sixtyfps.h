@@ -15,4 +15,6 @@ namespace sixtyfps {
 
     using internal::Rectangle;
     using internal::RectangleVTable;
+    using internal::Image;
+    using internal::ImageVTable;
 }

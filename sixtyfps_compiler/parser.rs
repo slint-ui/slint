@@ -46,7 +46,8 @@ macro_rules! declare_token_kind {
 declare_token_kind! {
     Whitespace -> r"\s+",
     Comment -> r"//.*\n",
-    String -> r#""[^"]*""#, // FIXME: escapes
+    StringLiteral -> r#""[^"]*""#, // FIXME: escapes
+    NumberLiteral -> r"[\d]+(\.[\d]*)?",
     Identifier -> r"[\w]+",
     RBrace -> r"\}",
     LBrace -> r"\{",

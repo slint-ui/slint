@@ -123,12 +123,15 @@ fn parse_code_block(p: &mut Parser) {
 /// ```test
 /// something
 /// "something"
+/// 0.3
+/// 42
 /// ```
 fn parse_expression(p: &mut Parser) {
     let mut p = p.start_node(SyntaxKind::Expression);
     match p.peek_kind() {
         SyntaxKind::Identifier => p.consume(),
-        SyntaxKind::String => p.consume(),
+        SyntaxKind::StringLiteral => p.consume(),
+        SyntaxKind::NumberLiteral => p.consume(),
         _ => p.error("invalid expression"),
     }
 }

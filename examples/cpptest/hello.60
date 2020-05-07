@@ -1,12 +1,24 @@
 
 
 SuperSimple = Rectangle {
-    color: green;
+    color: white;
+
     Rectangle {
-        color: yellow;
+        width: 100;
+        height: 100;
+        color: blue;
     }
     Rectangle {
-        color: red;
+        x: 100;
+        y: 100;
+        width: 100;
+        height: 100;
+        color: green;
+    }
+    Image {
+        x: 200;
+        y: 200;
+        source: "../graphicstest/logo.png";
     }
 }
 
