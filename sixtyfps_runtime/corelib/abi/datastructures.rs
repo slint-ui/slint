@@ -57,8 +57,8 @@ pub struct ItemVTable {
     /// offset in bytes fromthe *const ItemImpl.
     /// isize::MAX  means None
     pub render_node_index_offset: isize,
-    // fn(*const ItemImpl) -> usize,
-    /// ???
+
+    /// Return a rendering info
     pub rendering_info: Option<unsafe fn(*const ItemImpl) -> RenderingInfo>,
 
     /// We would need max/min/preferred size, and all layout info

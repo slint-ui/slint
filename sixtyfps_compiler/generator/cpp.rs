@@ -1,3 +1,6 @@
+/*! module for the C++ code generator
+*/
+
 /// This module contains some datastructure that helps represent a C++ code.
 /// It is then rendered into an actual C++ text using the Display trait
 mod cpp_ast {
@@ -142,6 +145,9 @@ fn handle_item(item: &LoweredItem, main_struct: &mut Struct, init: &mut Vec<Stri
     }
 }
 
+/// Helper struct to build the array of children for the compnent.
+/// FIXME: This is expected to be common with all generators, so it should probably
+/// be moved in the parent module (with the exception of the C++ specific part)
 struct ItemTreeArrayBuilder<'a> {
     children_offset: usize,
     class_name: &'a str,
