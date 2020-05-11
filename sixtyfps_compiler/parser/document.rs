@@ -136,12 +136,15 @@ fn parse_code_statement(p: &mut Parser) {
 #[cfg_attr(test, parser_test)]
 /// ```test
 /// {  }
+/// { expression }
 /// ```
 fn parse_code_block(p: &mut Parser) {
     let mut p = p.start_node(SyntaxKind::CodeBlock);
     p.expect(SyntaxKind::LBrace); // Or assert?
 
-    // FIXME
+    if p.peek_kind() != SyntaxKind::RBrace {
+        parse_expression(&mut *p);
+    }
 
     p.until(SyntaxKind::RBrace);
 }
@@ -152,6 +155,7 @@ fn parse_code_block(p: &mut Parser) {
 /// "something"
 /// 0.3
 /// 42
+/// (something)
 /// ```
 fn parse_expression(p: &mut Parser) {
     let mut p = p.start_node(SyntaxKind::Expression);
@@ -159,6 +163,11 @@ fn parse_expression(p: &mut Parser) {
         SyntaxKind::Identifier => p.consume(),
         SyntaxKind::StringLiteral => p.consume(),
         SyntaxKind::NumberLiteral => p.consume(),
+        SyntaxKind::LParent => {
+            p.consume();
+            parse_expression(&mut *p);
+            p.expect(SyntaxKind::RParent);
+        }
         _ => p.error("invalid expression"),
     }
 }

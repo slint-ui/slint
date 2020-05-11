@@ -64,8 +64,10 @@ declare_token_kind! {
     StringLiteral -> r#""[^"]*""#, // FIXME: escapes
     NumberLiteral -> r"[\d]+(\.[\d]*)?",
     Identifier -> r"[\w]+",
-    RBrace -> r"\}",
     LBrace -> r"\{",
+    RBrace -> r"\}",
+    LParent -> r"\(",
+    RParent -> r"\)",
     Equal -> r"=",
     Colon -> r":",
     Semicolon -> r";",

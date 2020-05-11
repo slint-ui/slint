@@ -129,14 +129,22 @@ impl CodeStatement {
     pub fn from_node(node: SyntaxNode, _diag: &mut Diagnostics) -> Self {
         debug_assert_eq!(node.kind(), SyntaxKind::CodeStatement);
 
+        fn from_expression(x: SyntaxNode) -> String {
+            x.child_node(SyntaxKind::Expression)
+                .map(from_expression)
+                .or_else(|| x.child_text(SyntaxKind::Identifier))
+                .or_else(|| x.child_text(SyntaxKind::StringLiteral))
+                .or_else(|| x.child_text(SyntaxKind::NumberLiteral))
+                .unwrap_or_default()
+        }
+
         let value = node
             .child_node(SyntaxKind::Expression)
-            .and_then(|x| {
-                x.child_text(SyntaxKind::Identifier)
-                    .or_else(|| x.child_text(SyntaxKind::StringLiteral))
-                    .or_else(|| x.child_text(SyntaxKind::NumberLiteral))
+            .or_else(|| {
+                node.child_node(SyntaxKind::CodeBlock)
+                    .and_then(|c| c.child_node(SyntaxKind::Expression))
             })
-            .unwrap_or_default();
+            .map_or(Default::default(), from_expression);
 
         // FIXME: that's not the place to do this
         let value = match &*value {
