@@ -3,6 +3,7 @@ use core::ptr::NonNull;
 use kurbo::BezPath;
 
 pub mod graphics;
+pub mod layout;
 
 pub mod abi {
     pub mod datastructures;
