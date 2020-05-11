@@ -39,6 +39,10 @@ set_target_properties(sixtyfps PROPERTIES
   IMPORTED_LOCATION
     "${_SIXTYFPS_TARGET_DIR}/libcorelib${CMAKE_SHARED_LIBRARY_SUFFIX}")
 
+add_custom_target(ensure_sixtyfps_runtime_up_to_date
+    COMMAND cargo build --lib
+)
+add_dependencies(sixtyfps ensure_sixtyfps_runtime_up_to_date)
 
 ### END This should be moce in some file in api/sixtyfps-cpp/cmake
 
