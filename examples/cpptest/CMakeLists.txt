@@ -41,6 +41,7 @@ set_target_properties(sixtyfps PROPERTIES
 
 add_custom_target(ensure_sixtyfps_runtime_up_to_date
     COMMAND cargo build --lib
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
 )
 add_dependencies(sixtyfps ensure_sixtyfps_runtime_up_to_date)
 
