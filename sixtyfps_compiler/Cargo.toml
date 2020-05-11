@@ -7,7 +7,9 @@ edition = "2018"
 [lib]
 path = "lib.rs"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[features]
+# cpp: code generator for C++ code
+cpp = []
 
 [dependencies]
 m_lexer = "0.0.4" # simple lexer for now
@@ -30,3 +32,5 @@ name = "sixtyfps_compiler"
 path = "main.rs"
 test = false
 bench = false
+required-features = ["cpp"]
+
