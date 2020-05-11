@@ -100,12 +100,19 @@ impl Element {
                 }
             }
         }
-        for se in node.children().filter(|n| n.kind() == SyntaxKind::SubElement) {
-            let id = se.child_text(SyntaxKind::Identifier).unwrap_or_default();
-            if let Some(element_node) = se.child_node(SyntaxKind::Element) {
-                r.children.push(Rc::new(Element::from_node(element_node, id, diag, tr)));
-            } else {
-                assert!(diag.has_error());
+        for se in node.children() {
+            if se.kind() == SyntaxKind::SubElement {
+                let id = se.child_text(SyntaxKind::Identifier).unwrap_or_default();
+                if let Some(element_node) = se.child_node(SyntaxKind::Element) {
+                    r.children.push(Rc::new(Element::from_node(element_node, id, diag, tr)));
+                } else {
+                    assert!(diag.has_error());
+                }
+            } else if se.kind() == SyntaxKind::RepeatedElement {
+                diag.push_error(
+                    "TODO: for not implemented".to_owned(),
+                    se.text_range().start().into(),
+                )
             }
         }
         r

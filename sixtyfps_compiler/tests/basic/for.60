@@ -1,0 +1,20 @@
+
+
+SuperSimple = Rectangle {
+    color: green;
+
+    for xx in zz: Hello {
+//  ^error{TODO: for not implemented}
+        Rectangle {}
+    }
+
+    Image {     
+    }
+
+    for xx in zz: Hello {
+//  ^error{TODO: for not implemented}
+        Rectangle {}
+    }
+
+}
+

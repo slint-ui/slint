@@ -41,6 +41,7 @@ macro_rules! declare_token_kind {
             /// Note: This is in fact the same as Component as far as the parser is concerned
             SubElement,
             Element,
+            RepeatedElement,
             Binding,
             CodeStatement,
             CodeBlock,
@@ -81,6 +82,12 @@ pub struct Token {
     kind: SyntaxKind,
     text: rowan::SmolStr,
     offset: usize,
+}
+
+impl Token {
+    pub fn as_str(&self) -> &str {
+        self.text.as_str()
+    }
 }
 
 pub struct Parser {

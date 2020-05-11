@@ -41,6 +41,12 @@ pub fn parse_element(p: &mut Parser) -> bool {
     p.expect(SyntaxKind::RBrace)
 }
 
+#[cfg_attr(test, parser_test)]
+/// ```test
+/// property1: value; property2: value;
+/// sub = Sub { }
+/// for xx in model: Sub {}
+/// ```
 fn parse_element_content(p: &mut Parser) {
     loop {
         match p.peek_kind() {
@@ -49,6 +55,9 @@ fn parse_element_content(p: &mut Parser) {
             SyntaxKind::Identifier => match p.nth(1) {
                 SyntaxKind::Colon => parse_property_binding(&mut *p),
                 SyntaxKind::Equal | SyntaxKind::LBrace => parse_sub_element(&mut *p),
+                SyntaxKind::Identifier if p.peek().as_str() == "for" => {
+                    parse_repeated_element(&mut *p);
+                }
                 _ => {
                     p.consume();
                     p.error("FIXME");
@@ -75,6 +84,24 @@ fn parse_sub_element(p: &mut Parser) {
         assert!(p.expect(SyntaxKind::Identifier));
         p.expect(SyntaxKind::Equal);
     }
+    parse_element(&mut *p);
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test
+/// for xx in mm: Elem { }
+/// ```
+/// Must consume at least one token
+fn parse_repeated_element(p: &mut Parser) {
+    debug_assert_eq!(p.peek().as_str(), "for");
+    let mut p = p.start_node(SyntaxKind::RepeatedElement);
+    p.consume();
+    if !(p.expect(SyntaxKind::Identifier) && p.peek().as_str() == "in") {
+        return;
+    }
+    p.consume(); // "in"
+    parse_expression(&mut *p);
+    p.expect(SyntaxKind::Colon);
     parse_element(&mut *p);
 }
 
