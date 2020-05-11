@@ -1,11 +1,13 @@
 [package]
-name = "sixtyfps"
+name = "sixtyfps-rs-macro"
 version = "0.1.0"
 authors = ["Sixty FPS <info@sixtyfps.io>"]
 edition = "2018"
 
 [lib]
+proc-macro = true
 path = "lib.rs"
 
 [dependencies]
-sixtyfps-rs-macro= { path = "sixtyfps-rs-macro" }
+quote = "1.0"
+

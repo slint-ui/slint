@@ -1,11 +1,8 @@
 [package]
-name = "sixtyfps"
+name = "rusttest"
 version = "0.1.0"
 authors = ["Sixty FPS <info@sixtyfps.io>"]
 edition = "2018"
 
-[lib]
-path = "lib.rs"
-
 [dependencies]
-sixtyfps-rs-macro= { path = "sixtyfps-rs-macro" }
+sixtyfps = { path = "../../api/sixtyfps-rs" }
