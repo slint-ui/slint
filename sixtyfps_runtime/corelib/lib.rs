@@ -1,5 +1,4 @@
 use cgmath::{Matrix4, SquareMatrix};
-use core::ptr::NonNull;
 use kurbo::BezPath;
 
 pub mod graphics;
@@ -66,21 +65,13 @@ where
 }
 
 pub fn run_component<GraphicsBackend, GraphicsFactoryFunc>(
-    component_type: *const abi::datastructures::ComponentType,
-    component: NonNull<abi::datastructures::ComponentImpl>,
+    component: abi::datastructures::ComponentUniquePtr,
     graphics_backend_factory: GraphicsFactoryFunc,
 ) where
     GraphicsBackend: graphics::GraphicsBackend + 'static,
     GraphicsFactoryFunc:
         FnOnce(&winit::event_loop::EventLoop<()>, winit::window::WindowBuilder) -> GraphicsBackend,
 {
-    let component = unsafe {
-        abi::datastructures::ComponentUniquePtr::new(
-            NonNull::new_unchecked(component_type as *mut _),
-            component,
-        )
-    };
-
     let main_window = MainWindow::new(graphics_backend_factory);
 
     main_window.run_event_loop(move |width, height, renderer| {

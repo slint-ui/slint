@@ -689,7 +689,14 @@ pub extern "C" fn sixtyfps_runtime_run_component_with_gl_renderer(
     component_type: *const ComponentType,
     component: NonNull<ComponentImpl>,
 ) {
-    sixtyfps_corelib::run_component(component_type, component, |event_loop, window_builder| {
+    let component = unsafe {
+        sixtyfps_corelib::abi::datastructures::ComponentUniquePtr::new(
+            NonNull::new_unchecked(component_type as *mut _),
+            component,
+        )
+    };
+
+    sixtyfps_corelib::run_component(component, |event_loop, window_builder| {
         GLRenderer::new(&event_loop, window_builder)
     });
 }
