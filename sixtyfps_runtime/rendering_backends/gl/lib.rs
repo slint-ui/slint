@@ -233,9 +233,14 @@ impl GLTexture {
 
 pub struct GLRenderer {
     context: Rc<glow::Context>,
+    vertex_array_object: <glow::Context as glow::HasContext>::VertexArray,
     path_program: Shader,
     image_program: Shader,
     fill_tesselator: FillTessellator,
+    #[cfg(not(target_arch = "wasm32"))]
+    windowed_context: Option<glutin::WindowedContext<glutin::PossiblyCurrent>>,
+    #[cfg(target_arch = "wasm32")]
+    window: winit::window::Window,
 }
 
 pub struct GLFrame {
@@ -243,13 +248,61 @@ pub struct GLFrame {
     path_program: Shader,
     image_program: Shader,
     root_matrix: cgmath::Matrix4<f32>,
+    #[cfg(not(target_arch = "wasm32"))]
+    windowed_context: glutin::WindowedContext<glutin::PossiblyCurrent>,
 }
 
 impl GLRenderer {
-    pub fn new(context: glow::Context) -> GLRenderer {
+    pub fn new(
+        event_loop: &winit::event_loop::EventLoop<()>,
+        window_builder: winit::window::WindowBuilder,
+    ) -> GLRenderer {
+        #[cfg(not(target_arch = "wasm32"))]
+        let (windowed_context, context) = {
+            let windowed_context = glutin::ContextBuilder::new()
+                .with_vsync(true)
+                .build_windowed(window_builder, &event_loop)
+                .unwrap();
+            let windowed_context = unsafe { windowed_context.make_current().unwrap() };
+
+            let gl_context = glow::Context::from_loader_function(|s| {
+                windowed_context.get_proc_address(s) as *const _
+            });
+
+            (windowed_context, gl_context)
+        };
+
+        #[cfg(target_arch = "wasm32")]
+        let (window, context) = {
+            let canvas = web_sys::window()
+                .unwrap()
+                .document()
+                .unwrap()
+                .get_element_by_id("canvas")
+                .unwrap()
+                .dyn_into::<web_sys::HtmlCanvasElement>()
+                .unwrap();
+
+            use winit::platform::web::WindowBuilderExtWebSys;
+            use winit::platform::web::WindowExtWebSys;
+
+            let window = window_builder.with_canvas(Some(canvas)).build(&event_loop).unwrap();
+
+            use wasm_bindgen::JsCast;
+            let webgl1_context = window
+                .canvas()
+                .get_context("webgl")
+                .unwrap()
+                .unwrap()
+                .dyn_into::<web_sys::WebGlRenderingContext>()
+                .unwrap();
+            (window, glow::Context::from_webgl1_context(webgl1_context))
+        };
+
+        let vertex_array_object =
+            unsafe { context.create_vertex_array().expect("Cannot create vertex array") };
         unsafe {
-            let vertex_array = context.create_vertex_array().expect("Cannot create vertex array");
-            context.bind_vertex_array(Some(vertex_array));
+            context.bind_vertex_array(Some(vertex_array_object));
         }
 
         const PATH_VERTEX_SHADER: &str = r#"#version 100
@@ -293,9 +346,14 @@ impl GLRenderer {
 
         GLRenderer {
             context: Rc::new(context),
+            vertex_array_object,
             path_program,
             image_program,
             fill_tesselator: FillTessellator::new(),
+            #[cfg(not(target_arch = "wasm32"))]
+            windowed_context: Some(windowed_context),
+            #[cfg(target_arch = "wasm32")]
+            window,
         }
     }
 }
@@ -376,6 +434,10 @@ impl GraphicsBackend for GLRenderer {
     }
 
     fn new_frame(&mut self, width: u32, height: u32, clear_color: &Color) -> GLFrame {
+        #[cfg(not(target_arch = "wasm32"))]
+        let current_windowed_context =
+            unsafe { self.windowed_context.take().unwrap().make_current().unwrap() };
+
         unsafe {
             self.context.viewport(0, 0, width as i32, height as i32);
 
@@ -387,6 +449,8 @@ impl GraphicsBackend for GLRenderer {
         unsafe {
             self.context.clear_color(r, g, b, a);
             self.context.clear(glow::COLOR_BUFFER_BIT);
+
+            self.context.bind_vertex_array(Some(self.vertex_array_object));
         };
 
         GLFrame {
@@ -394,7 +458,27 @@ impl GraphicsBackend for GLRenderer {
             path_program: self.path_program.clone(),
             image_program: self.image_program.clone(),
             root_matrix: cgmath::ortho(0.0, width as f32, height as f32, 0.0, -1., 1.0),
+            #[cfg(not(target_arch = "wasm32"))]
+            windowed_context: current_windowed_context,
         }
+    }
+
+    fn present_frame(&mut self, frame: Self::Frame) {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            frame.windowed_context.swap_buffers().unwrap();
+
+            //self.windowed_context =
+            //    Some(unsafe { frame.windowed_context.make_not_current().unwrap() });
+            self.windowed_context = Some(frame.windowed_context);
+        }
+    }
+
+    fn window(&self) -> &winit::window::Window {
+        #[cfg(not(target_arch = "wasm32"))]
+        return self.windowed_context.as_ref().unwrap().window();
+        #[cfg(target_arch = "wasm32")]
+        return &self.window;
     }
 }
 
@@ -488,8 +572,6 @@ impl GraphicsFrame for GLFrame {
             }
         }
     }
-
-    fn submit(self) {}
 }
 
 struct PathConverter<'a> {

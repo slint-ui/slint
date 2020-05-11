@@ -1,6 +1,4 @@
 use cgmath::{Matrix4, SquareMatrix, Vector3};
-#[cfg(not(target_arch = "wasm32"))]
-use glutin;
 use kurbo::{BezPath, Rect};
 use sixtyfps_corelib::graphics::{Color, FillStyle, GraphicsBackend, RenderTree};
 use sixtyfps_gl_backend::{GLRenderer, OpaqueRenderingPrimitive};
@@ -30,49 +28,9 @@ pub fn wasm_main() {
 
 fn main() {
     let event_loop = event_loop::EventLoop::new();
-    let wb = WindowBuilder::new();
+    let window_builder = WindowBuilder::new();
 
-    #[cfg(not(target_arch = "wasm32"))]
-    let (windowed_context, gl_context) = {
-        let windowed_context =
-            glutin::ContextBuilder::new().with_vsync(true).build_windowed(wb, &event_loop).unwrap();
-        let windowed_context = unsafe { windowed_context.make_current().unwrap() };
-
-        let gl_context = glow::Context::from_loader_function(|s| {
-            windowed_context.get_proc_address(s) as *const _
-        });
-
-        (windowed_context, gl_context)
-    };
-
-    #[cfg(target_arch = "wasm32")]
-    let (window, gl_context) = {
-        let canvas = web_sys::window()
-            .unwrap()
-            .document()
-            .unwrap()
-            .get_element_by_id("canvas")
-            .unwrap()
-            .dyn_into::<web_sys::HtmlCanvasElement>()
-            .unwrap();
-
-        use winit::platform::web::WindowBuilderExtWebSys;
-        use winit::platform::web::WindowExtWebSys;
-
-        let window = wb.with_canvas(Some(canvas)).build(&event_loop).unwrap();
-
-        use wasm_bindgen::JsCast;
-        let webgl1_context = window
-            .canvas()
-            .get_context("webgl")
-            .unwrap()
-            .unwrap()
-            .dyn_into::<web_sys::WebGlRenderingContext>()
-            .unwrap();
-        (window, glow::Context::from_webgl1_context(webgl1_context))
-    };
-
-    let mut renderer = GLRenderer::new(gl_context);
+    let mut renderer = GLRenderer::new(&event_loop, window_builder);
 
     let mut render_tree = RenderTree::<GLRenderer>::default();
 
@@ -128,8 +86,7 @@ fn main() {
     event_loop.run(move |event, _, control_flow| {
         *control_flow = event_loop::ControlFlow::Wait;
 
-        #[cfg(not(target_arch = "wasm32"))]
-        let window = windowed_context.window();
+        let window = renderer.window();
 
         match event {
             event::Event::WindowEvent { event: event::WindowEvent::CloseRequested, .. } => {
@@ -139,9 +96,6 @@ fn main() {
                 let size = window.inner_size();
                 // TODO #4: ensure GO context is current -- see if this can be done within the runtime
                 render_tree.render(&mut renderer, size.width, size.height, root);
-
-                #[cfg(not(target_arch = "wasm32"))]
-                windowed_context.swap_buffers().unwrap();
             }
             _ => (),
         }

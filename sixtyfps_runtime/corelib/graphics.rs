@@ -40,7 +40,6 @@ pub enum FillStyle {
 pub trait Frame {
     type RenderingPrimitive;
     fn render_primitive(&mut self, primitive: &Self::RenderingPrimitive, transform: &Matrix4<f32>);
-    fn submit(self);
 }
 
 pub trait GraphicsBackend: Sized {
@@ -58,6 +57,10 @@ pub trait GraphicsBackend: Sized {
         image: image::ImageBuffer<image::Rgba<u8>, Vec<u8>>,
     ) -> Self::RenderingPrimitive;
     fn new_frame(&mut self, width: u32, height: u32, clear_color: &Color) -> Self::Frame;
+
+    fn present_frame(&mut self, frame: Self::Frame);
+
+    fn window(&self) -> &winit::window::Window;
 }
 
 struct RenderNodeData<RenderingPrimitive> {
@@ -233,7 +236,7 @@ where
     pub fn render(&self, renderer: &mut Backend, width: u32, height: u32, root: usize) {
         let mut frame = renderer.new_frame(width, height, &self.clear_color);
         self.render_node(&mut frame, root, &Matrix4::identity());
-        frame.submit();
+        renderer.present_frame(frame);
     }
 
     fn render_node(&self, frame: &mut Backend::Frame, idx: usize, parent_transform: &Matrix4<f32>) {
@@ -260,92 +263,5 @@ where
 
     pub fn set_clear_color(&mut self, clear_color: Color) {
         self.clear_color = clear_color
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    #[derive(Default)]
-    struct TestPrimitive {}
-
-    #[derive(Default)]
-    struct TestBackend {}
-
-    struct TestFrame {}
-
-    impl GraphicsBackend for TestBackend {
-        type RenderingPrimitive = TestPrimitive;
-        type Frame = TestFrame;
-        fn create_path_fill_primitive(
-            &mut self,
-            _path: &BezPath,
-            _style: FillStyle,
-        ) -> Self::RenderingPrimitive {
-            todo!()
-        }
-        fn create_image_primitive(
-            &mut self,
-            _source_rect: impl Into<Rect>,
-            _dest_rect: impl Into<Rect>,
-            _image: image::ImageBuffer<image::Rgba<u8>, Vec<u8>>,
-        ) -> Self::RenderingPrimitive {
-            todo!()
-        }
-        fn new_frame(&mut self, _width: u32, _height: u32, _clear_color: &Color) -> Self::Frame {
-            todo!()
-        }
-    }
-
-    impl Frame for TestFrame {
-        type RenderingPrimitive = TestPrimitive;
-        fn render_primitive(
-            &mut self,
-            _primitive: &Self::RenderingPrimitive,
-            _transform: &Matrix4<f32>,
-        ) {
-            todo!()
-        }
-        fn submit(self) {
-            todo!()
-        }
-    }
-
-    #[test]
-    fn test_empty_tree() {
-        let mut tree = RenderTree::<TestBackend>::default();
-        assert_eq!(tree.len(), 0);
-        let root_idx = {
-            let mut root = tree.allocate_node();
-            {
-                root.set_content(Some(TestPrimitive {}));
-            }
-            root.idx
-        };
-        assert_eq!(tree.len(), 1);
-        tree.free(root_idx);
-        assert_eq!(tree.len(), 0);
-    }
-
-    #[test]
-    fn test_add_remove() {
-        let mut tree = RenderTree::<TestBackend>::default();
-
-        let root_idx = tree.allocate_node().idx;
-        let child1_idx = tree.allocate_node().idx;
-        let child2_idx = tree.allocate_node().idx;
-
-        assert_eq!(root_idx, 0);
-        assert_eq!(child1_idx, 1);
-        assert_eq!(child2_idx, 2);
-
-        tree.free(child1_idx);
-        tree.free(child2_idx);
-
-        let child3_idx = tree.allocate_node().idx;
-        let child4_idx = tree.allocate_node().idx;
-
-        assert_eq!(child3_idx, 2);
-        assert_eq!(child4_idx, 1);
     }
 }
