@@ -1,9 +1,11 @@
 use cgmath::Matrix4;
+use core::ptr::NonNull;
 use glow::{Context as GLContext, HasContext};
 use kurbo::{BezPath, PathEl, Point, Rect};
 use lyon::path::PathEvent;
 use lyon::tessellation::geometry_builder::{BuffersBuilder, VertexBuffers};
 use lyon::tessellation::{FillAttributes, FillOptions, FillTessellator};
+use sixtyfps_corelib::abi::datastructures::{ComponentImpl, ComponentType};
 use sixtyfps_corelib::graphics::{Color, FillStyle, Frame as GraphicsFrame, GraphicsBackend};
 use std::marker;
 use std::mem;
@@ -677,6 +679,19 @@ impl Drop for GLRenderer {
         self.path_program.drop(&self.context);
         self.image_program.drop(&self.context);
     }
+}
+
+/// Run the given component
+/// Both pointer must be valid until the call to vtable.destroy
+/// vtable will is a *const, and inner like a *mut
+#[no_mangle]
+pub extern "C" fn sixtyfps_runtime_run_component_with_gl_renderer(
+    component_type: *const ComponentType,
+    component: NonNull<ComponentImpl>,
+) {
+    sixtyfps_corelib::run_component(component_type, component, |event_loop, window_builder| {
+        GLRenderer::new(&event_loop, window_builder)
+    });
 }
 
 #[cfg(test)]

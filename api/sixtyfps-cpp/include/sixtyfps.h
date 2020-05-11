@@ -4,6 +4,7 @@ using str = char; // FIXME: this is just required because of something wrong
 namespace sixtyfps::internal {
 struct ComponentType;
 } // namespace sixtyfps::internal
+#include "sixtyfps_gl_internal.h"
 #include "sixtyfps_internal.h"
 
 namespace sixtyfps {
@@ -16,7 +17,7 @@ template <typename Component> void run(Component *c) {
   // FIXME! some static assert that the component is indeed a generated
   // component matching the vtable.  In fact, i think the VTable should be a
   // static member of the Component
-  internal::sixtyfps_runtime_run_component(
+  internal::sixtyfps_runtime_run_component_with_gl_renderer(
       &Component::component_type,
       reinterpret_cast<internal::ComponentImpl *>(c));
 }

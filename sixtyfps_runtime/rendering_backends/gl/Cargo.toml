@@ -10,6 +10,9 @@ crate-type = ["lib", "cdylib"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[build-dependencies]
+cbindgen = "0.14.2"
+
 [dependencies]
 sixtyfps_corelib = { package = "corelib", path = "../../corelib" }
 lyon = { version = "0.15.8" }
