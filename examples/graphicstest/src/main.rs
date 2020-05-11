@@ -1,7 +1,6 @@
 use cgmath::{Matrix4, SquareMatrix, Vector3};
 #[cfg(not(target_arch = "wasm32"))]
 use glutin;
-use instant;
 use kurbo::{BezPath, Rect};
 use sixtyfps_corelib::graphics::{Color, FillStyle, GraphicsBackend, RenderTree};
 use sixtyfps_gl_backend::{GLRenderer, OpaqueRenderingPrimitive};
@@ -127,33 +126,24 @@ fn main() {
     render_tree.node_at_mut(root).append_child(image_node);
 
     event_loop.run(move |event, _, control_flow| {
-        let next_frame_time = instant::Instant::now() + std::time::Duration::from_nanos(16_666_667);
-        *control_flow = event_loop::ControlFlow::WaitUntil(next_frame_time);
-
-        match event {
-            event::Event::WindowEvent { event, .. } => match event {
-                event::WindowEvent::CloseRequested => {
-                    *control_flow = event_loop::ControlFlow::Exit;
-                    return;
-                }
-                _ => return,
-            },
-            event::Event::NewEvents(cause) => match cause {
-                event::StartCause::ResumeTimeReached { .. } => (),
-                event::StartCause::Init => (),
-                _ => return,
-            },
-            _ => return,
-        }
+        *control_flow = event_loop::ControlFlow::Wait;
 
         #[cfg(not(target_arch = "wasm32"))]
         let window = windowed_context.window();
 
-        let size = window.inner_size();
-        // TODO #4: ensure GO context is current -- see if this can be done within the runtime
-        render_tree.render(&mut renderer, size.width, size.height, root);
+        match event {
+            event::Event::WindowEvent { event: event::WindowEvent::CloseRequested, .. } => {
+                *control_flow = event_loop::ControlFlow::Exit
+            }
+            event::Event::RedrawRequested(_) => {
+                let size = window.inner_size();
+                // TODO #4: ensure GO context is current -- see if this can be done within the runtime
+                render_tree.render(&mut renderer, size.width, size.height, root);
 
-        #[cfg(not(target_arch = "wasm32"))]
-        windowed_context.swap_buffers().unwrap();
+                #[cfg(not(target_arch = "wasm32"))]
+                windowed_context.swap_buffers().unwrap();
+            }
+            _ => (),
+        }
     });
 }
