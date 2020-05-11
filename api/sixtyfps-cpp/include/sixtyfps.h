@@ -1,6 +1,6 @@
 
 using str = char; //FIXME: this is just required because of something wrong with &str in cbindgen, but one should not have &str anyway
-
+namespace sixtyfps::internal { struct ComponentType; } // Woraround https://github.com/eqrion/cbindgen/issues/43
 #include "sixtyfps_internal.h"
 
 namespace sixtyfps {
@@ -23,4 +23,8 @@ namespace sixtyfps {
     // the component has static lifetime so it does not need to be destroyed
     // FIXME: we probably need some kind of way to dinstinguish static component and these on the heap
     inline void dummy_destory(const ComponentType *, internal::ComponentImpl *) {}
+
+    constexpr inline ItemTreeNode make_item_node(std::intptr_t offset, const internal::ItemVTable *vtable, uint32_t child_count, uint32_t child_index) {
+        return ItemTreeNode{ ItemTreeNode::Tag::Item , { ItemTreeNode::Item_Body{offset, vtable, child_count, child_index} } };
+    }
 }

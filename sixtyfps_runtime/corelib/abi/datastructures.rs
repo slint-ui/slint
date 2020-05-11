@@ -34,18 +34,43 @@ pub struct RenderNode {
     dirty_bit: core::cell::Cell<bool>,
 }
 
+/// The item tree is an array of ItemTreeNode representing a static tree of items
+/// within a component.
 #[repr(C)]
-pub struct ItemTreeNode {
-    /// byte offset where we can find the item (from the *ComponentImpl)
-    offset: isize,
-    /// virtual table of the item
-    vtable: *const ItemVTable,
+pub enum ItemTreeNode {
+    /// Static item
+    Item {
+        /// byte offset where we can find the item (from the *ComponentImpl)
+        offset: isize,
+        /// virtual table of the item
+        vtable: *const ItemVTable,
 
-    /// number of children
-    chilren_count: u32,
+        /// number of children
+        chilren_count: u32,
 
-    /// index of the first children
-    children_index: u32,
+        /// index of the first children within the item tree
+        children_index: u32,
+    },
+    /// A placeholder for many instance of item in their own component which
+    /// are instentiated according to a model.
+    DynamicTree {
+        /// Component vtable.
+        /// This component is going to be instantiated as many time as the model tells
+        component_type: *const ComponentType,
+
+        /// vtable of the model
+        model_type: *const super::model::ModelType,
+
+        /// byte offset of the ModelImpl within the component.
+        /// The model is an instance of the model described by model_type and must be
+        /// stored within the component
+        model_offset: isize,
+
+        /// byte offset of the vector of components within the parent component
+        /// (ComponentVec)
+        /// a ComponentVec must be stored within the component to represent this tree
+        components_holder_offset: isize,
+    },
 }
 
 #[repr(C)]
@@ -159,21 +184,22 @@ impl ComponentUniquePtr {
 
     fn visit_internal(&self, visitor: &mut impl FnMut(&Item), index: isize) {
         let item_tree = unsafe { (self.vtable.as_ref().item_tree)(self.vtable.as_ptr()) };
-        let current_item = unsafe { &*item_tree.offset(index) };
-
-        let item = unsafe {
-            Item::new(
-                NonNull::new_unchecked(current_item.vtable as *mut _),
-                NonNull::new_unchecked(
-                    (self.inner.as_ptr() as *mut u8).offset(current_item.offset) as *mut _,
-                ),
-            )
-        };
-        visitor(&item);
-        for c in
-            current_item.children_index..(current_item.children_index + current_item.chilren_count)
-        {
-            self.visit_internal(visitor, c as isize)
+        match unsafe { &*item_tree.offset(index) } {
+            ItemTreeNode::Item { vtable, offset, children_index, chilren_count } => {
+                let item = unsafe {
+                    Item::new(
+                        NonNull::new_unchecked(*vtable as *mut _),
+                        NonNull::new_unchecked(
+                            (self.inner.as_ptr() as *mut u8).offset(*offset) as *mut _
+                        ),
+                    )
+                };
+                visitor(&item);
+                for c in *children_index..(*children_index + *chilren_count) {
+                    self.visit_internal(visitor, c as isize)
+                }
+            }
+            ItemTreeNode::DynamicTree { .. } => todo!(),
         }
     }
 }

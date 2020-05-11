@@ -177,7 +177,7 @@ impl<'a> ItemTreeArrayBuilder<'a> {
     /// maybe this should be a callback
     fn visit_item(&self, item: &LoweredItem, children_offset: usize, acc: String) -> String {
         format!(
-            "{}{}sixtyfps::ItemTreeNode{{ offsetof({}, {}), &sixtyfps::{}, {}, {}  }}",
+            "{}{}sixtyfps::make_item_node(offsetof({}, {}), &sixtyfps::{}, {}, {})",
             acc,
             if acc.is_empty() { "" } else { ", " },
             self.class_name,

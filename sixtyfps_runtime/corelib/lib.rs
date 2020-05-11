@@ -2,6 +2,7 @@ pub mod graphics;
 
 pub mod abi {
     pub mod datastructures;
+    pub mod model;
     pub mod primitives;
 }
 
