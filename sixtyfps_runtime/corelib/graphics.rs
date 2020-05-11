@@ -10,6 +10,15 @@ pub struct Color {
 }
 
 impl Color {
+    pub const fn from_argb_encoded(encoded: u32) -> Color {
+        Color {
+            red: (encoded >> 16) as u8,
+            green: (encoded >> 8) as u8,
+            blue: encoded as u8,
+            alpha: (encoded >> 24) as u8,
+        }
+    }
+
     pub const fn from_rgba(red: u8, green: u8, blue: u8, alpha: u8) -> Color {
         Color { red, green, blue, alpha }
     }
