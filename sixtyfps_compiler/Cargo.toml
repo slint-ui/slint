@@ -10,6 +10,9 @@ path = "lib.rs"
 [features]
 # cpp: code generator for C++ code
 cpp = []
+# support for proc_macro spans in the token
+proc_macro_span = []
+
 
 [dependencies]
 m_lexer = "0.0.4" # simple lexer for now

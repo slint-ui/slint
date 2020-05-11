@@ -24,5 +24,5 @@ sixtyfps::sixtyfps! {
 }
 
 fn main() {
-    SuperSimple.run();
+    SuperSimple::default().run();
 }

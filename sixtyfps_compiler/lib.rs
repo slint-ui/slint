@@ -10,6 +10,9 @@ source code -> parser -> object_tree -> lower -> generator
 
 */
 
+#[cfg(feature = "proc_macro_span")]
+extern crate proc_macro;
+
 pub mod diagnostics;
 pub mod generator;
 pub mod lower;

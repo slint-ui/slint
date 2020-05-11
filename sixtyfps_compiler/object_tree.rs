@@ -76,7 +76,7 @@ impl Element {
         r.base_type = if let Some(ty) = tr.lookup(&r.base) {
             ty
         } else {
-            diag.push_error(format!("Unkown type {}", r.base), node.text_range().start().into());
+            diag.push_error(format!("Unkown type {}", r.base), node.span());
             return r;
         };
         for b in node.children().filter(|n| n.kind() == SyntaxKind::Binding) {
@@ -88,14 +88,14 @@ impl Element {
             if !r.base_type.properties.contains_key(&name) {
                 diag.push_error(
                     format!("Unkown property {} in {}", name, r.base),
-                    name_token.text_range().start().into(),
+                    crate::diagnostics::Span::new(name_token.text_range().start().into()),
                 );
             }
             if let Some(csn) = b.child_node(SyntaxKind::CodeStatement) {
                 if r.bindings.insert(name, CodeStatement::from_node(csn, diag)).is_some() {
                     diag.push_error(
                         "Duplicated property".into(),
-                        name_token.text_range().start().into(),
+                        crate::diagnostics::Span::new(name_token.text_range().start().into()),
                     );
                 }
             }
@@ -109,10 +109,7 @@ impl Element {
                     assert!(diag.has_error());
                 }
             } else if se.kind() == SyntaxKind::RepeatedElement {
-                diag.push_error(
-                    "TODO: for not implemented".to_owned(),
-                    se.text_range().start().into(),
-                )
+                diag.push_error("TODO: for not implemented".to_owned(), se.span())
             }
         }
         r

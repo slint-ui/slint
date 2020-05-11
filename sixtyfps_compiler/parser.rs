@@ -9,6 +9,8 @@ This module has different sub modules with the actual parser functions
 
 */
 
+use crate::diagnostics::Diagnostics;
+pub use rowan::SmolStr;
 use std::convert::TryFrom;
 
 mod document;
@@ -19,8 +21,6 @@ mod prelude {
     #[cfg(test)]
     pub use parser_test_macro::parser_test;
 }
-
-use crate::diagnostics::Diagnostics;
 
 /// This macro is invoked once, to declare all the token and syntax kind.
 /// The purpose of this macro is to declare the token with its regexp at the same place
@@ -81,9 +81,23 @@ impl From<SyntaxKind> for rowan::SyntaxKind {
 
 #[derive(Clone, Debug)]
 pub struct Token {
-    kind: SyntaxKind,
-    text: rowan::SmolStr,
-    offset: usize,
+    pub kind: SyntaxKind,
+    pub text: SmolStr,
+    pub offset: usize,
+    #[cfg(feature = "proc_macro_span")]
+    pub span: Option<proc_macro::Span>,
+}
+
+impl Default for Token {
+    fn default() -> Self {
+        Token {
+            kind: SyntaxKind::Eof,
+            text: Default::default(),
+            offset: 0,
+            #[cfg(feature = "proc_macro_span")]
+            span: None,
+        }
+    }
 }
 
 impl Token {
@@ -97,6 +111,12 @@ pub struct Parser {
     tokens: Vec<Token>,
     cursor: usize,
     diags: Diagnostics,
+}
+
+impl From<Vec<Token>> for Parser {
+    fn from(tokens: Vec<Token>) -> Self {
+        Self { builder: Default::default(), tokens, cursor: 0, diags: Default::default() }
+    }
 }
 
 /// The return value of `Parser::start_node`. This borrows the parser
@@ -120,16 +140,16 @@ impl Parser {
                     let s: rowan::SmolStr = source[*start_offset..*start_offset + t.len].into();
                     let offset = *start_offset;
                     *start_offset += t.len;
-                    Some(Token { kind: SyntaxKind::try_from(t.kind.0).unwrap(), text: s, offset })
+                    Some(Token {
+                        kind: SyntaxKind::try_from(t.kind.0).unwrap(),
+                        text: s,
+                        offset,
+                        ..Default::default()
+                    })
                 })
                 .collect()
         }
-        Self {
-            builder: Default::default(),
-            tokens: lex(source),
-            cursor: 0,
-            diags: Default::default(),
-        }
+        Self::from(lex(source))
     }
 
     /// Enter a new node.  The node is going to be finished when
@@ -140,11 +160,7 @@ impl Parser {
     }
 
     fn current_token(&self) -> Token {
-        self.tokens.get(self.cursor).cloned().unwrap_or(Token {
-            kind: SyntaxKind::Eof,
-            text: Default::default(),
-            offset: 0,
-        })
+        self.tokens.get(self.cursor).cloned().unwrap_or_default()
     }
 
     pub fn peek(&mut self) -> Token {
@@ -199,7 +215,13 @@ impl Parser {
 
     /// Reports an error at the current token location
     pub fn error(&mut self, e: impl Into<String>) {
-        self.diags.push_error(e.into(), self.current_token().offset);
+        let current_token = self.current_token();
+        let mut span = crate::diagnostics::Span::new(current_token.offset);
+        #[cfg(feature = "proc_macro_span")]
+        {
+            span.span = current_token.span;
+        }
+        self.diags.push_error(e.into(), span);
     }
 
     /// consume everyting until reaching a token of this kind
@@ -233,6 +255,7 @@ pub trait SyntaxNodeEx {
     fn child_node(&self, kind: SyntaxKind) -> Option<SyntaxNode>;
     fn child_token(&self, kind: SyntaxKind) -> Option<SyntaxToken>;
     fn child_text(&self, kind: SyntaxKind) -> Option<String>;
+    fn span(&self) -> crate::diagnostics::Span;
 }
 
 impl SyntaxNodeEx for SyntaxNode {
@@ -247,11 +270,21 @@ impl SyntaxNodeEx for SyntaxNode {
             .find(|n| n.kind() == kind)
             .and_then(|x| x.as_token().map(|x| x.text().to_string()))
     }
+    fn span(&self) -> crate::diagnostics::Span {
+        // FIXME!  this does not work with proc_macro span
+        crate::diagnostics::Span::new(self.text_range().start().into())
+    }
 }
 
 // Actual parser
 pub fn parse(source: &str) -> (SyntaxNode, Diagnostics) {
     let mut p = Parser::new(source);
+    document::parse_document(&mut p);
+    (SyntaxNode::new_root(p.builder.finish()), p.diags)
+}
+
+pub fn parse_tokens(tokens: Vec<Token>) -> (SyntaxNode, Diagnostics) {
+    let mut p = Parser::from(tokens);
     document::parse_document(&mut p);
     (SyntaxNode::new_root(p.builder.finish()), p.diags)
 }

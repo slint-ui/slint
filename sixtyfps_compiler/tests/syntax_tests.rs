@@ -55,7 +55,7 @@ fn process_file(path: &std::path::Path) -> std::io::Result<bool> {
         };
         let offset = source[..line_begin_offset].rfind('\n').unwrap_or(0) + column;
 
-        match diag.inner.iter().position(|e| e.offset == offset && r.is_match(&e.message)) {
+        match diag.inner.iter().position(|e| e.span.offset == offset && r.is_match(&e.message)) {
             Some(idx) => {
                 diag.inner.remove(idx);
             }
