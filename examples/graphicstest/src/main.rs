@@ -1,5 +1,5 @@
 use cgmath::{Matrix4, SquareMatrix, Vector3};
-use kurbo::{BezPath, Rect};
+use lyon::path::{math::Point, math::Rect, math::Size, Path};
 use sixtyfps_corelib::{
     graphics::{Color, FillStyle, GraphicsBackend, RenderTree},
     MainWindow,
@@ -10,17 +10,17 @@ use wasm_bindgen::prelude::*;
 
 fn create_rect(
     renderer: &mut GLRenderer,
-    x0: f64,
-    y0: f64,
+    x0: f32,
+    y0: f32,
     color: Color,
 ) -> OpaqueRenderingPrimitive {
-    let mut rect_path = BezPath::new();
-    rect_path.move_to((x0, y0));
-    rect_path.line_to((x0 + 100.0, y0));
-    rect_path.line_to((x0 + 100.0, y0 + 100.0));
-    rect_path.line_to((x0, y0 + 100.0));
-    rect_path.close_path();
-    renderer.create_path_fill_primitive(&rect_path, FillStyle::SolidColor(color))
+    let mut rect_path = Path::builder();
+    rect_path.move_to(Point::new(x0, y0));
+    rect_path.line_to(Point::new(x0 + 100.0, y0));
+    rect_path.line_to(Point::new(x0 + 100.0, y0 + 100.0));
+    rect_path.line_to(Point::new(x0, y0 + 100.0));
+    rect_path.close();
+    renderer.create_path_fill_primitive(&rect_path.build(), FillStyle::SolidColor(color))
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
@@ -74,9 +74,12 @@ fn main() {
 
         let source_size = image.dimensions();
 
-        let source_rect = Rect::new(0.0, 0.0, source_size.0 as f64, source_size.1 as f64);
-        let dest_rect =
-            Rect::new(200.0, 200.0, 200. + source_size.0 as f64, 200. + source_size.1 as f64);
+        let source_rect =
+            Rect::new(Point::new(0.0, 0.0), Size::new(source_size.0 as f32, source_size.1 as f32));
+        let dest_rect = Rect::new(
+            Point::new(200.0, 200.0),
+            Size::new(source_size.0 as f32, source_size.1 as f32),
+        );
 
         let image_primitive = renderer.create_image_primitive(source_rect, dest_rect, image);
 

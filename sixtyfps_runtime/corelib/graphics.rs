@@ -1,6 +1,6 @@
 extern crate alloc;
 use cgmath::{Matrix4, SquareMatrix};
-use kurbo::{BezPath, Rect};
+use lyon::path::{math::Rect, Path};
 
 pub struct Color {
     red: u8,
@@ -56,7 +56,7 @@ pub trait GraphicsBackend: Sized {
     type Frame: Frame<RenderingPrimitive = Self::RenderingPrimitive>;
     fn create_path_fill_primitive(
         &mut self,
-        path: &BezPath,
+        path: &Path,
         style: FillStyle,
     ) -> Self::RenderingPrimitive;
     fn create_image_primitive(

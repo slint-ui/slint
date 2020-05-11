@@ -1,8 +1,7 @@
 use cgmath::Matrix4;
 use core::ptr::NonNull;
 use glow::{Context as GLContext, HasContext};
-use kurbo::{BezPath, PathEl, Point, Rect};
-use lyon::path::PathEvent;
+use lyon::path::math::Rect;
 use lyon::tessellation::geometry_builder::{BuffersBuilder, VertexBuffers};
 use lyon::tessellation::{FillAttributes, FillOptions, FillTessellator};
 use sixtyfps_corelib::abi::datastructures::{ComponentImpl, ComponentType};
@@ -368,15 +367,15 @@ impl GraphicsBackend for GLRenderer {
 
     fn create_path_fill_primitive(
         &mut self,
-        path: &BezPath,
+        path: &lyon::path::Path,
         style: FillStyle,
     ) -> Self::RenderingPrimitive {
         let mut geometry: VertexBuffers<Vertex, u16> = VertexBuffers::new();
 
         let fill_opts = FillOptions::default();
         self.fill_tesselator
-            .tessellate(
-                PathConverter::new(path),
+            .tessellate_path(
+                path.as_slice(),
                 &fill_opts,
                 &mut BuffersBuilder::new(
                     &mut geometry,
@@ -403,18 +402,18 @@ impl GraphicsBackend for GLRenderer {
         let src_rect = source_rect.into();
         let image_width = image.width() as f32;
         let image_height = image.height() as f32;
-        let src_left = (src_rect.x0 as f32) / image_width;
-        let src_top = (src_rect.y0 as f32) / image_height;
-        let src_right = (src_rect.x1 as f32) / image_width;
-        let src_bottom = (src_rect.y1 as f32) / image_height;
+        let src_left = src_rect.min_x() / image_width;
+        let src_top = src_rect.min_y() / image_height;
+        let src_right = src_rect.max_x() / image_width;
+        let src_bottom = src_rect.max_y() / image_height;
 
-        let vertex1 = Vertex { _pos: [rect.x0 as f32, rect.y0 as f32] };
+        let vertex1 = Vertex { _pos: [rect.min_x(), rect.min_y()] };
         let tex_vertex1 = Vertex { _pos: [src_left, src_top] };
-        let vertex2 = Vertex { _pos: [rect.x1 as f32, rect.y0 as f32] };
+        let vertex2 = Vertex { _pos: [rect.max_x(), rect.min_y()] };
         let tex_vertex2 = Vertex { _pos: [src_right, src_top] };
-        let vertex3 = Vertex { _pos: [rect.x1 as f32, rect.y1 as f32] };
+        let vertex3 = Vertex { _pos: [rect.max_x(), rect.max_y()] };
         let tex_vertex3 = Vertex { _pos: [src_right, src_bottom] };
-        let vertex4 = Vertex { _pos: [rect.x0 as f32, rect.y1 as f32] };
+        let vertex4 = Vertex { _pos: [rect.min_x(), rect.max_y()] };
         let tex_vertex4 = Vertex { _pos: [src_left, src_bottom] };
 
         let vertices = GLArrayBuffer::new(
@@ -574,104 +573,6 @@ impl GraphicsFrame for GLFrame {
             }
         }
     }
-}
-
-struct PathConverter<'a> {
-    first_point: Option<lyon::path::math::Point>,
-    current_point: Option<lyon::path::math::Point>,
-    shape_iter: Box<dyn Iterator<Item = kurbo::PathEl> + 'a>,
-    deferred_begin: Option<PathEvent>,
-    needs_closure: bool,
-}
-
-impl<'a> PathConverter<'a> {
-    fn new(path: &'a BezPath) -> Self {
-        PathConverter {
-            first_point: None,
-            current_point: None,
-            shape_iter: Box::new(path.iter()),
-            deferred_begin: None,
-            needs_closure: false,
-        }
-    }
-}
-
-impl<'a> Iterator for PathConverter<'a> {
-    type Item = PathEvent;
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.deferred_begin.is_some() {
-            return self.deferred_begin.take();
-        }
-
-        let path_el = self.shape_iter.next();
-        match path_el {
-            Some(PathEl::MoveTo(p)) => {
-                let first = self.first_point;
-                let last = self.current_point;
-
-                self.current_point = Some(point_to_lyon_point(&p));
-                let event = Some(PathEvent::Begin { at: self.current_point.unwrap() });
-
-                if self.needs_closure {
-                    self.first_point = self.current_point;
-                    self.needs_closure = false;
-                    self.deferred_begin = event;
-                    Some(PathEvent::End { first: first.unwrap(), last: last.unwrap(), close: true })
-                } else {
-                    if self.first_point.is_none() {
-                        self.first_point = self.current_point;
-                    }
-                    event
-                }
-            }
-            Some(PathEl::LineTo(p)) => {
-                self.needs_closure = true;
-                let from = self.current_point.unwrap();
-                let to = point_to_lyon_point(&p);
-                self.current_point = Some(to);
-                Some(PathEvent::Line { from, to })
-            }
-            Some(PathEl::QuadTo(ctrl, to)) => {
-                self.needs_closure = true;
-
-                let to = point_to_lyon_point(&to);
-                let from = self.current_point.replace(to).unwrap();
-                Some(PathEvent::Quadratic { from, ctrl: point_to_lyon_point(&ctrl), to })
-            }
-            Some(PathEl::CurveTo(ctrl1, ctrl2, to)) => {
-                self.needs_closure = true;
-
-                let to = point_to_lyon_point(&to);
-                let from = self.current_point.replace(to).unwrap();
-                Some(PathEvent::Cubic {
-                    from,
-                    ctrl1: point_to_lyon_point(&ctrl1),
-                    ctrl2: point_to_lyon_point(&ctrl2),
-                    to,
-                })
-            }
-            Some(PathEl::ClosePath) => {
-                self.needs_closure = false;
-                let last = self.current_point.take().unwrap();
-                let first = self.first_point.take().unwrap();
-                Some(PathEvent::End { first, last, close: true })
-            }
-            None => {
-                if self.needs_closure {
-                    self.needs_closure = false;
-                    let last = self.current_point.take().unwrap();
-                    let first = self.first_point.take().unwrap();
-                    Some(PathEvent::End { first, last, close: true })
-                } else {
-                    None
-                }
-            }
-        }
-    }
-}
-
-fn point_to_lyon_point(p: &Point) -> lyon::path::math::Point {
-    lyon::path::math::Point::new(p.x as f32, p.y as f32)
 }
 
 impl Drop for GLRenderer {

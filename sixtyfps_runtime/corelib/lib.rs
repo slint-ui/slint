@@ -1,5 +1,5 @@
 use cgmath::{Matrix4, SquareMatrix};
-use kurbo::BezPath;
+use lyon::math::Point;
 
 pub mod graphics;
 pub mod layout;
@@ -92,19 +92,14 @@ pub fn run_component<GraphicsBackend, GraphicsFactoryFunc>(
                     if width <= 0. || height <= 0. {
                         return;
                     }
-                    // TODO: stop using kurbo
-                    let x = x as f64;
-                    let y = y as f64;
-                    let width = width as f64;
-                    let height = height as f64;
-                    let mut rect_path = BezPath::new();
-                    rect_path.move_to((x, y));
-                    rect_path.line_to((x + width, y));
-                    rect_path.line_to((x + width, y + height));
-                    rect_path.line_to((x, y + height));
-                    rect_path.close_path();
+                    let mut rect_path = lyon::path::Path::builder();
+                    rect_path.move_to(Point::new(x, y));
+                    rect_path.line_to(Point::new(x + width, y));
+                    rect_path.line_to(Point::new(x + width, y + height));
+                    rect_path.line_to(Point::new(x, y + height));
+                    rect_path.close();
                     let primitive = renderer.create_path_fill_primitive(
-                        &rect_path,
+                        &rect_path.build(),
                         graphics::FillStyle::SolidColor(graphics::Color::from_argb_encoded(color)),
                     );
 
