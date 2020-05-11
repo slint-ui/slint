@@ -20,3 +20,4 @@ wasm-bindgen = { version = "0.2" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 glutin = { version = "0.24" }
+winit = "0.22.1"

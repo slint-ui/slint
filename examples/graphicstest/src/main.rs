@@ -8,6 +8,8 @@ use sixtyfps_corelib::graphics::{Color, FillStyle, GraphicsBackend, RenderTree};
 use sixtyfps_gl_backend::{GLRenderer, OpaqueRenderingPrimitive};
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
+#[cfg(not(target_arch = "wasm32"))]
+use winit::{event_loop::EventLoop, window::WindowBuilder};
 
 fn create_rect(
     renderer: &mut impl GraphicsBackend<RenderingPrimitive = OpaqueRenderingPrimitive>,
@@ -32,8 +34,8 @@ pub fn wasm_main() {
 fn main() {
     #[cfg(not(target_arch = "wasm32"))]
     let (event_loop, windowed_context, gl_context) = {
-        let event_loop = glutin::event_loop::EventLoop::new();
-        let wb = glutin::window::WindowBuilder::new();
+        let event_loop = EventLoop::new();
+        let wb = WindowBuilder::new();
         let windowed_context =
             glutin::ContextBuilder::new().with_vsync(true).build_windowed(wb, &event_loop).unwrap();
         let windowed_context = unsafe { windowed_context.make_current().unwrap() };
