@@ -1,13 +1,15 @@
 use cgmath::{Matrix4, SquareMatrix, Vector3};
 use kurbo::{BezPath, Rect};
-use sixtyfps_corelib::graphics::{Color, FillStyle, GraphicsBackend, RenderTree};
+use sixtyfps_corelib::{
+    graphics::{Color, FillStyle, GraphicsBackend, RenderTree},
+    MainWindow,
+};
 use sixtyfps_gl_backend::{GLRenderer, OpaqueRenderingPrimitive};
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
-use winit::{event, event_loop, window::WindowBuilder};
 
 fn create_rect(
-    renderer: &mut impl GraphicsBackend<RenderingPrimitive = OpaqueRenderingPrimitive>,
+    renderer: &mut GLRenderer,
     x0: f64,
     y0: f64,
     color: Color,
@@ -27,10 +29,10 @@ pub fn wasm_main() {
 }
 
 fn main() {
-    let event_loop = event_loop::EventLoop::new();
-    let window_builder = WindowBuilder::new();
+    let mut main_window =
+        MainWindow::new(|event_loop, window_builder| GLRenderer::new(&event_loop, window_builder));
 
-    let mut renderer = GLRenderer::new(&event_loop, window_builder);
+    let mut renderer = &mut main_window.graphics_backend;
 
     let mut render_tree = RenderTree::<GLRenderer>::default();
 
@@ -83,21 +85,7 @@ fn main() {
 
     render_tree.node_at_mut(root).append_child(image_node);
 
-    event_loop.run(move |event, _, control_flow| {
-        *control_flow = event_loop::ControlFlow::Wait;
-
-        let window = renderer.window();
-
-        match event {
-            event::Event::WindowEvent { event: event::WindowEvent::CloseRequested, .. } => {
-                *control_flow = event_loop::ControlFlow::Exit
-            }
-            event::Event::RedrawRequested(_) => {
-                let size = window.inner_size();
-                // TODO #4: ensure GO context is current -- see if this can be done within the runtime
-                render_tree.render(&mut renderer, size.width, size.height, root);
-            }
-            _ => (),
-        }
+    main_window.run_event_loop(move |width, height, mut renderer| {
+        render_tree.render(&mut renderer, width, height, root);
     });
 }
