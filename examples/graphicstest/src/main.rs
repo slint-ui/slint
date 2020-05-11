@@ -9,7 +9,7 @@ use sixtyfps_gl_backend::{GLRenderer, OpaqueRenderingPrimitive};
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 #[cfg(not(target_arch = "wasm32"))]
-use winit::{event_loop::EventLoop, window::WindowBuilder};
+use winit::{event, event_loop, window::WindowBuilder};
 
 fn create_rect(
     renderer: &mut impl GraphicsBackend<RenderingPrimitive = OpaqueRenderingPrimitive>,
@@ -34,7 +34,7 @@ pub fn wasm_main() {
 fn main() {
     #[cfg(not(target_arch = "wasm32"))]
     let (event_loop, windowed_context, gl_context) = {
-        let event_loop = EventLoop::new();
+        let event_loop = event_loop::EventLoop::new();
         let wb = WindowBuilder::new();
         let windowed_context =
             glutin::ContextBuilder::new().with_vsync(true).build_windowed(wb, &event_loop).unwrap();
@@ -128,19 +128,19 @@ fn main() {
     event_loop.run(move |event, _, control_flow| {
         let next_frame_time =
             std::time::Instant::now() + std::time::Duration::from_nanos(16_666_667);
-        *control_flow = glutin::event_loop::ControlFlow::WaitUntil(next_frame_time);
+        *control_flow = event_loop::ControlFlow::WaitUntil(next_frame_time);
 
         match event {
-            glutin::event::Event::WindowEvent { event, .. } => match event {
-                glutin::event::WindowEvent::CloseRequested => {
-                    *control_flow = glutin::event_loop::ControlFlow::Exit;
+            event::Event::WindowEvent { event, .. } => match event {
+                event::WindowEvent::CloseRequested => {
+                    *control_flow = event_loop::ControlFlow::Exit;
                     return;
                 }
                 _ => return,
             },
-            glutin::event::Event::NewEvents(cause) => match cause {
-                glutin::event::StartCause::ResumeTimeReached { .. } => (),
-                glutin::event::StartCause::Init => (),
+            event::Event::NewEvents(cause) => match cause {
+                event::StartCause::ResumeTimeReached { .. } => (),
+                event::StartCause::Init => (),
                 _ => return,
             },
             _ => return,
