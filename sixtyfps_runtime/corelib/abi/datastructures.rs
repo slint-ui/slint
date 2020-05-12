@@ -187,7 +187,7 @@ impl ComponentUniquePtr {
     /// The state parametter returned by the visitor is passed to each children.
     pub fn visit_items<State>(
         &self,
-        mut visitor: impl FnMut(&Item, &State) -> State,
+        mut visitor: impl FnMut(&mut Item, &State) -> State,
         state: State,
     ) {
         self.visit_internal(&mut visitor, 0, &state)
@@ -195,14 +195,14 @@ impl ComponentUniquePtr {
 
     fn visit_internal<State>(
         &self,
-        visitor: &mut impl FnMut(&Item, &State) -> State,
+        visitor: &mut impl FnMut(&mut Item, &State) -> State,
         index: isize,
         state: &State,
     ) {
         let item_tree = unsafe { (self.vtable.as_ref().item_tree)(self.vtable.as_ptr()) };
         match unsafe { &*item_tree.offset(index) } {
             ItemTreeNode::Item { vtable, offset, children_index, chilren_count } => {
-                let item = unsafe {
+                let mut item = unsafe {
                     Item::new(
                         NonNull::new_unchecked(*vtable as *mut _),
                         NonNull::new_unchecked(
@@ -210,7 +210,7 @@ impl ComponentUniquePtr {
                         ),
                     )
                 };
-                let state = visitor(&item, state);
+                let state = visitor(&mut item, state);
                 for c in *children_index..(*children_index + *chilren_count) {
                     self.visit_internal(visitor, c as isize, &state)
                 }
