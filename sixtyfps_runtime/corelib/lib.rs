@@ -41,10 +41,10 @@ where
         Self { graphics_backend, event_loop, rendering_cache: graphics::RenderingCache::default() }
     }
 
-    pub fn run_event_loop<RenderFunction>(self, render_function: RenderFunction)
+    pub fn run_event_loop<RenderFunction>(self, mut render_function: RenderFunction)
     where
         GraphicsBackend: 'static,
-        RenderFunction: Fn(u32, u32, &mut GraphicsBackend, &mut graphics::RenderingCache<GraphicsBackend>)
+        RenderFunction: FnMut(u32, u32, &mut GraphicsBackend, &mut graphics::RenderingCache<GraphicsBackend>)
             + 'static,
     {
         let mut graphics_backend = self.graphics_backend;
@@ -76,7 +76,7 @@ where
 }
 
 pub fn run_component<GraphicsBackend, GraphicsFactoryFunc>(
-    component: abi::datastructures::ComponentUniquePtr,
+    mut component: abi::datastructures::ComponentUniquePtr,
     graphics_backend_factory: GraphicsFactoryFunc,
 ) where
     GraphicsBackend: graphics::GraphicsBackend + 'static,

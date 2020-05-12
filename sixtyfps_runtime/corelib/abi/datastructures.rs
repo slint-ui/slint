@@ -186,7 +186,7 @@ impl ComponentUniquePtr {
     ///
     /// The state parametter returned by the visitor is passed to each children.
     pub fn visit_items<State>(
-        &self,
+        &mut self,
         mut visitor: impl FnMut(&mut Item, &State) -> State,
         state: State,
     ) {
@@ -194,7 +194,7 @@ impl ComponentUniquePtr {
     }
 
     fn visit_internal<State>(
-        &self,
+        &mut self,
         visitor: &mut impl FnMut(&mut Item, &State) -> State,
         index: isize,
         state: &State,
