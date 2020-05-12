@@ -1,4 +1,4 @@
-use cgmath::{Matrix4, SquareMatrix};
+use cgmath::{Matrix4, Vector3};
 use lyon::math::{Point, Vector};
 
 pub mod graphics;
@@ -13,9 +13,13 @@ pub mod abi {
 use abi::datastructures::RenderingInfo;
 use graphics::Frame;
 
-pub struct MainWindow<GraphicsBackend> {
+pub struct MainWindow<GraphicsBackend>
+where
+    GraphicsBackend: graphics::GraphicsBackend,
+{
     pub graphics_backend: GraphicsBackend,
     event_loop: winit::event_loop::EventLoop<()>,
+    pub rendering_cache: graphics::RenderingCache<GraphicsBackend>,
 }
 
 impl<GraphicsBackend> MainWindow<GraphicsBackend>
@@ -34,15 +38,17 @@ where
 
         let graphics_backend = graphics_backend_factory(&event_loop, window_builder);
 
-        Self { graphics_backend, event_loop }
+        Self { graphics_backend, event_loop, rendering_cache: graphics::RenderingCache::default() }
     }
 
     pub fn run_event_loop<RenderFunction>(self, render_function: RenderFunction)
     where
         GraphicsBackend: 'static,
-        RenderFunction: Fn(u32, u32, &mut GraphicsBackend) + 'static,
+        RenderFunction: Fn(u32, u32, &mut GraphicsBackend, &mut graphics::RenderingCache<GraphicsBackend>)
+            + 'static,
     {
         let mut graphics_backend = self.graphics_backend;
+        let mut rendering_cache = self.rendering_cache;
         self.event_loop.run(move |event, _, control_flow| {
             *control_flow = winit::event_loop::ControlFlow::Wait;
 
@@ -56,7 +62,12 @@ where
                 winit::event::Event::RedrawRequested(_) => {
                     let size = window.inner_size();
                     // TODO #4: ensure GO context is current -- see if this can be done within the runtime
-                    render_function(size.width, size.height, &mut graphics_backend);
+                    render_function(
+                        size.width,
+                        size.height,
+                        &mut graphics_backend,
+                        &mut rendering_cache,
+                    );
                 }
                 _ => (),
             }
@@ -72,9 +83,56 @@ pub fn run_component<GraphicsBackend, GraphicsFactoryFunc>(
     GraphicsFactoryFunc:
         FnOnce(&winit::event_loop::EventLoop<()>, winit::window::WindowBuilder) -> GraphicsBackend,
 {
-    let main_window = MainWindow::new(graphics_backend_factory);
+    let mut main_window = MainWindow::new(graphics_backend_factory);
 
-    main_window.run_event_loop(move |width, height, renderer| {
+    let renderer = &mut main_window.graphics_backend;
+    let rendering_cache = &mut main_window.rendering_cache;
+
+    // Generate cached rendering data once
+    component.visit_items(
+        move |item, _| {
+            let item_rendering_info = {
+                match item.rendering_info() {
+                    Some(info) => info,
+                    None => return,
+                }
+            };
+
+            println!("Caching ... {:?}", item_rendering_info);
+
+            let rendering_data = item.cached_rendering_data_mut();
+
+            match item_rendering_info {
+                RenderingInfo::Rectangle(_x, _y, width, height, color) => {
+                    if width <= 0. || height <= 0. {
+                        return;
+                    }
+                    let mut rect_path = lyon::path::Path::builder();
+                    rect_path.move_to(Point::new(0., 0.));
+                    rect_path.line_to(Point::new(width, 0.));
+                    rect_path.line_to(Point::new(width, height));
+                    rect_path.line_to(Point::new(0., height));
+                    rect_path.close();
+                    let primitive = renderer.create_path_fill_primitive(
+                        &rect_path.build(),
+                        graphics::FillStyle::SolidColor(graphics::Color::from_argb_encoded(color)),
+                    );
+
+                    rendering_data.cache_index =
+                        core::cell::Cell::new(rendering_cache.allocate_entry(primitive));
+
+                    rendering_data.dirty_bit = core::cell::Cell::new(false);
+                }
+                _ => {
+                    // Cannot render this yet
+                    rendering_data.dirty_bit = core::cell::Cell::new(true);
+                }
+            }
+        },
+        (),
+    );
+
+    main_window.run_event_loop(move |width, height, renderer, rendering_cache| {
         let mut frame = renderer.new_frame(width, height, &graphics::Color::WHITE);
 
         let offset = Point::default();
@@ -89,36 +147,32 @@ pub fn run_component<GraphicsBackend, GraphicsFactoryFunc>(
                     }
                 };
 
-                println!("Rendering... {:?}", item_rendering_info);
+                if item.cached_rendering_data().dirty_bit.get() {
+                    return offset;
+                }
 
                 match item_rendering_info {
-                    RenderingInfo::Rectangle(x, y, width, height, color) => {
-                        offset += Vector::new(x, y);
-                        if width <= 0. || height <= 0. {
-                            return offset;
-                        }
-                        let mut rect_path = lyon::path::Path::builder();
-                        rect_path.move_to(offset);
-                        rect_path.line_to(Point::new(offset.x + width, offset.y));
-                        rect_path.line_to(Point::new(offset.x + width, offset.y + height));
-                        rect_path.line_to(Point::new(offset.x, offset.y + height));
-                        rect_path.close();
-                        let primitive = renderer.create_path_fill_primitive(
-                            &rect_path.build(),
-                            graphics::FillStyle::SolidColor(graphics::Color::from_argb_encoded(
-                                color,
-                            )),
-                        );
-
-                        frame.render_primitive(&primitive, &Matrix4::identity());
-                    }
+                    RenderingInfo::Rectangle(x, y, ..) => offset += Vector::new(x, y),
                     _ => {}
                 }
+
+                println!(
+                    "Rendering... {:?} from cache {}",
+                    item_rendering_info,
+                    item.cached_rendering_data().cache_index.get()
+                );
+
+                let primitive =
+                    rendering_cache.entry_at(item.cached_rendering_data().cache_index.get());
+                frame.render_primitive(
+                    &primitive,
+                    &Matrix4::from_translation(Vector3::new(offset.x, offset.y, 0.0)),
+                );
+
                 offset
             },
             offset,
         );
-
         renderer.present_frame(frame);
     });
 }

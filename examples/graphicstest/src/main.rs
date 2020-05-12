@@ -1,7 +1,7 @@
 use cgmath::{Matrix4, SquareMatrix};
 use lyon::path::{math::Point, math::Rect, math::Size, Path};
 use sixtyfps_corelib::{
-    graphics::{Color, FillStyle, Frame, GraphicsBackend, RenderingCache},
+    graphics::{Color, FillStyle, Frame, GraphicsBackend},
     MainWindow,
 };
 use sixtyfps_gl_backend::{GLRenderer, OpaqueRenderingPrimitive};
@@ -34,7 +34,7 @@ fn main() {
 
     let mut renderer = &mut main_window.graphics_backend;
 
-    let mut render_cache = RenderingCache::<GLRenderer>::default();
+    let render_cache = &mut main_window.rendering_cache;
 
     let root = {
         let root_rect = create_rect(&mut renderer, 0.0, 0.0, Color::BLUE);
@@ -81,12 +81,12 @@ fn main() {
         render_cache.allocate_entry(image_primitive)
     };
 
-    main_window.run_event_loop(move |width, height, renderer| {
+    main_window.run_event_loop(move |width, height, renderer, rendering_cache| {
         let mut frame = renderer.new_frame(width, height, &Color::WHITE);
 
-        frame.render_primitive(render_cache.entry_at(root), &Matrix4::identity());
-        frame.render_primitive(render_cache.entry_at(child_rect), &Matrix4::identity());
-        frame.render_primitive(render_cache.entry_at(image_node), &Matrix4::identity());
+        frame.render_primitive(rendering_cache.entry_at(root), &Matrix4::identity());
+        frame.render_primitive(rendering_cache.entry_at(child_rect), &Matrix4::identity());
+        frame.render_primitive(rendering_cache.entry_at(image_node), &Matrix4::identity());
 
         renderer.present_frame(frame);
     });
