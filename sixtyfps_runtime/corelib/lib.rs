@@ -62,7 +62,6 @@ where
                 } => *control_flow = winit::event_loop::ControlFlow::Exit,
                 winit::event::Event::RedrawRequested(_) => {
                     let size = window.inner_size();
-                    // TODO #4: ensure GO context is current -- see if this can be done within the runtime
                     render_function(
                         size.width,
                         size.height,
