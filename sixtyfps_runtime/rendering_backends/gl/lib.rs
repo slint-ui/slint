@@ -234,7 +234,6 @@ impl GLTexture {
 
 pub struct GLRenderer {
     context: Rc<glow::Context>,
-    vertex_array_object: <glow::Context as glow::HasContext>::VertexArray,
     path_program: Shader,
     image_program: Shader,
     fill_tesselator: FillTessellator,
@@ -347,7 +346,7 @@ impl GLRenderer {
 
         GLRenderer {
             context: Rc::new(context),
-            vertex_array_object,
+
             path_program,
             image_program,
             fill_tesselator: FillTessellator::new(),
@@ -450,8 +449,6 @@ impl GraphicsBackend for GLRenderer {
         unsafe {
             self.context.clear_color(r, g, b, a);
             self.context.clear(glow::COLOR_BUFFER_BIT);
-
-            self.context.bind_vertex_array(Some(self.vertex_array_object));
         };
 
         GLFrame {
