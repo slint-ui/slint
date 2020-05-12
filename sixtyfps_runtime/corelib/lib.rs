@@ -45,7 +45,7 @@ where
     pub fn run_event_loop<RenderFunction>(self, mut render_function: RenderFunction)
     where
         GraphicsBackend: 'static,
-        RenderFunction: FnMut(u32, u32, &mut GraphicsBackend, &mut graphics::RenderingCache<GraphicsBackend>)
+        RenderFunction: FnMut(&mut GraphicsBackend::Frame, &mut graphics::RenderingCache<GraphicsBackend>)
             + 'static,
     {
         let mut graphics_backend = self.graphics_backend;
@@ -62,12 +62,13 @@ where
                 } => *control_flow = winit::event_loop::ControlFlow::Exit,
                 winit::event::Event::RedrawRequested(_) => {
                     let size = window.inner_size();
-                    render_function(
+                    let mut frame = graphics_backend.new_frame(
                         size.width,
                         size.height,
-                        &mut graphics_backend,
-                        &mut rendering_cache,
+                        &graphics::Color::WHITE,
                     );
+                    render_function(&mut frame, &mut rendering_cache);
+                    graphics_backend.present_frame(frame);
                 }
                 _ => (),
             }
@@ -132,9 +133,7 @@ pub fn run_component<GraphicsBackend, GraphicsFactoryFunc>(
 
     renderer.finish_primitives(rendering_primitives_builder);
 
-    main_window.run_event_loop(move |width, height, renderer, rendering_cache| {
-        let mut frame = renderer.new_frame(width, height, &graphics::Color::WHITE);
-
+    main_window.run_event_loop(move |frame, rendering_cache| {
         let offset = Point::default();
 
         component.visit_items(
@@ -172,7 +171,6 @@ pub fn run_component<GraphicsBackend, GraphicsFactoryFunc>(
             },
             offset,
         );
-        renderer.present_frame(frame);
     });
 }
 

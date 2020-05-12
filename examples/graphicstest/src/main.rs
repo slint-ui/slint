@@ -78,14 +78,10 @@ fn main() {
 
     renderer.finish_primitives(rendering_primitives_builder);
 
-    main_window.run_event_loop(move |width, height, renderer, rendering_cache| {
-        let mut frame = renderer.new_frame(width, height, &Color::WHITE);
-
+    main_window.run_event_loop(move |frame, rendering_cache| {
         frame.render_primitive(rendering_cache.entry_at(root), &Matrix4::identity());
         frame.render_primitive(rendering_cache.entry_at(child_rect), &Matrix4::identity());
         frame.render_primitive(rendering_cache.entry_at(image_node), &Matrix4::identity());
-
-        renderer.present_frame(frame);
     });
 
     //render_cache.free_entry(root);
