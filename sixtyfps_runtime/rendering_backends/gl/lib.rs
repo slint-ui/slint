@@ -5,7 +5,9 @@ use lyon::path::math::Rect;
 use lyon::tessellation::geometry_builder::{BuffersBuilder, VertexBuffers};
 use lyon::tessellation::{FillAttributes, FillOptions, FillTessellator};
 use sixtyfps_corelib::abi::datastructures::{ComponentImpl, ComponentType};
-use sixtyfps_corelib::graphics::{Color, FillStyle, Frame as GraphicsFrame, GraphicsBackend};
+use sixtyfps_corelib::graphics::{
+    Color, FillStyle, Frame as GraphicsFrame, GraphicsBackend, RenderingPrimitivesBuilder,
+};
 use std::marker;
 use std::mem;
 
@@ -236,11 +238,18 @@ pub struct GLRenderer {
     context: Rc<glow::Context>,
     path_program: Shader,
     image_program: Shader,
-    fill_tesselator: FillTessellator,
-    #[cfg(not(target_arch = "wasm32"))]
-    windowed_context: Option<glutin::WindowedContext<glutin::PossiblyCurrent>>,
     #[cfg(target_arch = "wasm32")]
     window: winit::window::Window,
+    #[cfg(not(target_arch = "wasm32"))]
+    windowed_context: Option<glutin::WindowedContext<glutin::NotCurrent>>,
+}
+
+pub struct GLRenderingPrimitivesBuilder {
+    context: Rc<glow::Context>,
+    fill_tesselator: FillTessellator,
+
+    #[cfg(not(target_arch = "wasm32"))]
+    windowed_context: glutin::WindowedContext<glutin::PossiblyCurrent>,
 }
 
 pub struct GLFrame {
@@ -346,14 +355,12 @@ impl GLRenderer {
 
         GLRenderer {
             context: Rc::new(context),
-
             path_program,
             image_program,
-            fill_tesselator: FillTessellator::new(),
-            #[cfg(not(target_arch = "wasm32"))]
-            windowed_context: Some(windowed_context),
             #[cfg(target_arch = "wasm32")]
             window,
+            #[cfg(not(target_arch = "wasm32"))]
+            windowed_context: Some(unsafe { windowed_context.make_not_current().unwrap() }),
         }
     }
 }
@@ -363,6 +370,77 @@ pub struct OpaqueRenderingPrimitive(GLRenderingPrimitive);
 impl GraphicsBackend for GLRenderer {
     type RenderingPrimitive = OpaqueRenderingPrimitive;
     type Frame = GLFrame;
+    type RenderingPrimitivesBuilder = GLRenderingPrimitivesBuilder;
+
+    fn new_rendering_primitives_builder(&mut self) -> Self::RenderingPrimitivesBuilder {
+        #[cfg(not(target_arch = "wasm32"))]
+        let current_windowed_context =
+            unsafe { self.windowed_context.take().unwrap().make_current().unwrap() };
+        GLRenderingPrimitivesBuilder {
+            context: self.context.clone(),
+            fill_tesselator: FillTessellator::new(),
+
+            #[cfg(not(target_arch = "wasm32"))]
+            windowed_context: current_windowed_context,
+        }
+    }
+
+    fn finish_primitives(&mut self, _builder: Self::RenderingPrimitivesBuilder) {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.windowed_context =
+                Some(unsafe { _builder.windowed_context.make_not_current().unwrap() });
+        }
+    }
+
+    fn new_frame(&mut self, width: u32, height: u32, clear_color: &Color) -> GLFrame {
+        #[cfg(not(target_arch = "wasm32"))]
+        let current_windowed_context =
+            unsafe { self.windowed_context.take().unwrap().make_current().unwrap() };
+
+        unsafe {
+            self.context.viewport(0, 0, width as i32, height as i32);
+
+            self.context.enable(glow::BLEND);
+            self.context.blend_func(glow::ONE, glow::ONE_MINUS_SRC_ALPHA);
+        }
+
+        let (r, g, b, a) = clear_color.as_rgba_f32();
+        unsafe {
+            self.context.clear_color(r, g, b, a);
+            self.context.clear(glow::COLOR_BUFFER_BIT);
+        };
+
+        GLFrame {
+            context: self.context.clone(),
+            path_program: self.path_program.clone(),
+            image_program: self.image_program.clone(),
+            root_matrix: cgmath::ortho(0.0, width as f32, height as f32, 0.0, -1., 1.0),
+            #[cfg(not(target_arch = "wasm32"))]
+            windowed_context: current_windowed_context,
+        }
+    }
+
+    fn present_frame(&mut self, _frame: Self::Frame) {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            _frame.windowed_context.swap_buffers().unwrap();
+
+            self.windowed_context =
+                Some(unsafe { _frame.windowed_context.make_not_current().unwrap() });
+        }
+    }
+
+    fn window(&self) -> &winit::window::Window {
+        #[cfg(not(target_arch = "wasm32"))]
+        return self.windowed_context.as_ref().unwrap().window();
+        #[cfg(target_arch = "wasm32")]
+        return &self.window;
+    }
+}
+
+impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
+    type RenderingPrimitive = OpaqueRenderingPrimitive;
 
     fn create_path_fill_primitive(
         &mut self,
@@ -431,52 +509,6 @@ impl GraphicsBackend for GLRenderer {
             texture_vertices,
             texture,
         })
-    }
-
-    fn new_frame(&mut self, width: u32, height: u32, clear_color: &Color) -> GLFrame {
-        #[cfg(not(target_arch = "wasm32"))]
-        let current_windowed_context =
-            unsafe { self.windowed_context.take().unwrap().make_current().unwrap() };
-
-        unsafe {
-            self.context.viewport(0, 0, width as i32, height as i32);
-
-            self.context.enable(glow::BLEND);
-            self.context.blend_func(glow::ONE, glow::ONE_MINUS_SRC_ALPHA);
-        }
-
-        let (r, g, b, a) = clear_color.as_rgba_f32();
-        unsafe {
-            self.context.clear_color(r, g, b, a);
-            self.context.clear(glow::COLOR_BUFFER_BIT);
-        };
-
-        GLFrame {
-            context: self.context.clone(),
-            path_program: self.path_program.clone(),
-            image_program: self.image_program.clone(),
-            root_matrix: cgmath::ortho(0.0, width as f32, height as f32, 0.0, -1., 1.0),
-            #[cfg(not(target_arch = "wasm32"))]
-            windowed_context: current_windowed_context,
-        }
-    }
-
-    fn present_frame(&mut self, _frame: Self::Frame) {
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            _frame.windowed_context.swap_buffers().unwrap();
-
-            //self.windowed_context =
-            //    Some(unsafe { frame.windowed_context.make_not_current().unwrap() });
-            self.windowed_context = Some(_frame.windowed_context);
-        }
-    }
-
-    fn window(&self) -> &winit::window::Window {
-        #[cfg(not(target_arch = "wasm32"))]
-        return self.windowed_context.as_ref().unwrap().window();
-        #[cfg(target_arch = "wasm32")]
-        return &self.window;
     }
 }
 

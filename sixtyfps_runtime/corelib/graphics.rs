@@ -51,9 +51,8 @@ pub trait Frame {
     fn render_primitive(&mut self, primitive: &Self::RenderingPrimitive, transform: &Matrix4<f32>);
 }
 
-pub trait GraphicsBackend: Sized {
+pub trait RenderingPrimitivesBuilder {
     type RenderingPrimitive;
-    type Frame: Frame<RenderingPrimitive = Self::RenderingPrimitive>;
     fn create_path_fill_primitive(
         &mut self,
         path: &Path,
@@ -84,9 +83,19 @@ pub trait GraphicsBackend: Sized {
         rect_path.close();
         self.create_path_fill_primitive(&rect_path.build(), FillStyle::SolidColor(color))
     }
+}
+
+pub trait GraphicsBackend: Sized {
+    type RenderingPrimitive;
+    type Frame: Frame<RenderingPrimitive = Self::RenderingPrimitive>;
+    type RenderingPrimitivesBuilder: RenderingPrimitivesBuilder<
+        RenderingPrimitive = Self::RenderingPrimitive,
+    >;
+
+    fn new_rendering_primitives_builder(&mut self) -> Self::RenderingPrimitivesBuilder;
+    fn finish_primitives(&mut self, builder: Self::RenderingPrimitivesBuilder);
 
     fn new_frame(&mut self, width: u32, height: u32, clear_color: &Color) -> Self::Frame;
-
     fn present_frame(&mut self, frame: Self::Frame);
 
     fn window(&self) -> &winit::window::Window;

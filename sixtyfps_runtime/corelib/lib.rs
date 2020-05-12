@@ -12,6 +12,7 @@ pub mod abi {
 
 use abi::datastructures::RenderingInfo;
 use graphics::Frame;
+use graphics::RenderingPrimitivesBuilder;
 
 pub struct MainWindow<GraphicsBackend>
 where
@@ -88,9 +89,11 @@ pub fn run_component<GraphicsBackend, GraphicsFactoryFunc>(
     let renderer = &mut main_window.graphics_backend;
     let rendering_cache = &mut main_window.rendering_cache;
 
+    let mut rendering_primitives_builder = renderer.new_rendering_primitives_builder();
+
     // Generate cached rendering data once
     component.visit_items_mut(
-        move |item, _| {
+        |item, _| {
             let item_rendering_info = {
                 match item.rendering_info() {
                     Some(info) => info,
@@ -107,7 +110,7 @@ pub fn run_component<GraphicsBackend, GraphicsFactoryFunc>(
                     if width <= 0. || height <= 0. {
                         return;
                     }
-                    let primitive = renderer.create_rect_primitive(
+                    let primitive = rendering_primitives_builder.create_rect_primitive(
                         0.,
                         0.,
                         width,
@@ -127,6 +130,8 @@ pub fn run_component<GraphicsBackend, GraphicsFactoryFunc>(
         },
         (),
     );
+
+    renderer.finish_primitives(rendering_primitives_builder);
 
     main_window.run_event_loop(move |width, height, renderer, rendering_cache| {
         let mut frame = renderer.new_frame(width, height, &graphics::Color::WHITE);
