@@ -464,14 +464,14 @@ impl GraphicsBackend for GLRenderer {
         }
     }
 
-    fn present_frame(&mut self, frame: Self::Frame) {
+    fn present_frame(&mut self, _frame: Self::Frame) {
         #[cfg(not(target_arch = "wasm32"))]
         {
-            frame.windowed_context.swap_buffers().unwrap();
+            _frame.windowed_context.swap_buffers().unwrap();
 
             //self.windowed_context =
             //    Some(unsafe { frame.windowed_context.make_not_current().unwrap() });
-            self.windowed_context = Some(frame.windowed_context);
+            self.windowed_context = Some(_frame.windowed_context);
         }
     }
 
