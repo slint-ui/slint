@@ -1,4 +1,4 @@
-use super::datastructures::{ItemImpl, ItemVTable, RenderNode, RenderingInfo};
+use super::datastructures::{CachedRenderingData, ItemImpl, ItemVTable, RenderingInfo};
 
 /// FIXME:  more properties
 #[repr(C)]
@@ -10,7 +10,7 @@ pub struct Rectangle {
     pub y: f32,
     pub width: f32,
     pub height: f32,
-    pub render_node: RenderNode,
+    pub cached_rendering_data: CachedRenderingData,
 }
 
 unsafe extern "C" fn render_rectangle(i: *const ItemImpl) -> RenderingInfo {
@@ -23,7 +23,7 @@ unsafe extern "C" fn render_rectangle(i: *const ItemImpl) -> RenderingInfo {
 pub static RectangleVTable: ItemVTable = ItemVTable {
     geometry: None,
     // offset_of!(Rectangle, render_node),    is not const on stable rust
-    render_node_index_offset: Rectangle::field_offsets().render_node as isize,
+    cached_rendering_data_offset: Rectangle::field_offsets().cached_rendering_data as isize,
     rendering_info: Some(render_rectangle),
     layouting_info: None,
     input_event: None,
@@ -42,7 +42,7 @@ pub struct Image {
     pub y: f32,
     pub width: f32,
     pub height: f32,
-    pub render_node: super::datastructures::RenderNode,
+    pub cached_rendering_data: super::datastructures::CachedRenderingData,
 }
 
 impl Default for Image {
@@ -53,7 +53,7 @@ impl Default for Image {
             y: 0.,
             width: 0.,
             height: 0.,
-            render_node: Default::default(),
+            cached_rendering_data: Default::default(),
         }
     }
 }
@@ -69,7 +69,7 @@ unsafe extern "C" fn render_image(i: *const ItemImpl) -> RenderingInfo {
 pub static ImageVTable: super::datastructures::ItemVTable = super::datastructures::ItemVTable {
     geometry: None,
     // offset_of!(Rectangle, render_node),    is not const on stable rust
-    render_node_index_offset: Image::field_offsets().render_node as isize,
+    cached_rendering_data_offset: Image::field_offsets().cached_rendering_data as isize,
     rendering_info: Some(render_image),
     layouting_info: None,
     input_event: None,

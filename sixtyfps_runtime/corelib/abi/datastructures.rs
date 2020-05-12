@@ -24,11 +24,11 @@ pub struct ItemImpl;
 // 0     | f32 | x
 // 4     | f32 | y
 // ...
-// 64    | RenderNode | render node index
+// 64    | CachedRenderingData | struct
 
 #[repr(C)]
 #[derive(Default)]
-pub struct RenderNode {
+pub struct CachedRenderingData {
     /// Used and modified by the backend, should be initialized to 0 by the user code
     cache_index: core::cell::Cell<usize>,
     /// Set to true by the user code, and reset to false by the backend
@@ -85,7 +85,7 @@ pub struct ItemVTable {
 
     /// offset in bytes fromthe *const ItemImpl.
     /// isize::MAX  means None
-    pub render_node_index_offset: isize,
+    pub cached_rendering_data_offset: isize,
 
     /// Return a rendering info
     pub rendering_info: Option<unsafe extern "C" fn(*const ItemImpl) -> RenderingInfo>,
@@ -125,9 +125,9 @@ type MouseEvent = ();
 
 /*trait Item {
     fn geometry(&self) -> ();
-    fn render_node(&self) -> &RenderNode;
-    fn render_node_mut(&mut self) -> &mut RenderNode;
-    fn rendering_info(&self) -> RenderNode;
+    fn cached_rendering_data(&self) -> &CachedRenderingData;
+    fn cached_rendering_data_mut(&mut self) -> &mut CachedRenderingData;
+    fn rendering_info(&self) -> CachedRenderingData;
 }*/
 
 // To be used as &'x Item
@@ -142,19 +142,19 @@ impl Item {
         Self { vtable, inner }
     }
 
-    pub fn render_node(&self) -> &RenderNode {
+    pub fn cached_rendering_data(&self) -> &CachedRenderingData {
         unsafe {
             &*((self.inner.as_ptr() as *const u8)
-                .offset(self.vtable.as_ref().render_node_index_offset)
-                as *const RenderNode)
+                .offset(self.vtable.as_ref().cached_rendering_data_offset)
+                as *const CachedRenderingData)
         }
     }
 
-    pub fn render_node_mut(&mut self) -> &mut RenderNode {
+    pub fn cached_rendering_data_mut(&mut self) -> &mut CachedRenderingData {
         unsafe {
             &mut *((self.inner.as_ptr() as *mut u8)
-                .offset(self.vtable.as_ref().render_node_index_offset)
-                as *mut RenderNode)
+                .offset(self.vtable.as_ref().cached_rendering_data_offset)
+                as *mut CachedRenderingData)
         }
     }
 
