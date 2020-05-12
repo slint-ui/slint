@@ -1,7 +1,7 @@
-use cgmath::{Matrix4, SquareMatrix, Vector3};
+use cgmath::{Matrix4, SquareMatrix};
 use lyon::path::{math::Point, math::Rect, math::Size, Path};
 use sixtyfps_corelib::{
-    graphics::{Color, FillStyle, GraphicsBackend, RenderTree},
+    graphics::{Color, FillStyle, Frame, GraphicsBackend, RenderingCache},
     MainWindow,
 };
 use sixtyfps_gl_backend::{GLRenderer, OpaqueRenderingPrimitive};
@@ -34,22 +34,17 @@ fn main() {
 
     let mut renderer = &mut main_window.graphics_backend;
 
-    let mut render_tree = RenderTree::<GLRenderer>::default();
+    let mut render_cache = RenderingCache::<GLRenderer>::default();
 
     let root = {
         let root_rect = create_rect(&mut renderer, 0.0, 0.0, Color::BLUE);
-        render_tree.allocate_index_with_content(Some(root_rect), None)
+        render_cache.allocate_entry(root_rect)
     };
 
-    let translated_child_rect = {
-        let child_rect = create_rect(&mut renderer, 0.0, 0.0, Color::GREEN);
-        render_tree.allocate_index_with_content(
-            Some(child_rect),
-            Some(Matrix4::from_translation(Vector3::new(100., 100., 0.))),
-        )
+    let child_rect = {
+        let child_rect = create_rect(&mut renderer, 100.0, 100.0, Color::GREEN);
+        render_cache.allocate_entry(child_rect)
     };
-
-    render_tree.node_at_mut(root).append_child(translated_child_rect);
 
     let image_node = {
         #[cfg(not(target_arch = "wasm32"))]
@@ -83,12 +78,20 @@ fn main() {
 
         let image_primitive = renderer.create_image_primitive(source_rect, dest_rect, image);
 
-        render_tree.allocate_index_with_content(Some(image_primitive), Some(Matrix4::identity()))
+        render_cache.allocate_entry(image_primitive)
     };
 
-    render_tree.node_at_mut(root).append_child(image_node);
+    main_window.run_event_loop(move |width, height, renderer| {
+        let mut frame = renderer.new_frame(width, height, &Color::WHITE);
 
-    main_window.run_event_loop(move |width, height, mut renderer| {
-        render_tree.render(&mut renderer, width, height, root);
+        frame.render_primitive(render_cache.entry_at(root), &Matrix4::identity());
+        frame.render_primitive(render_cache.entry_at(child_rect), &Matrix4::identity());
+        frame.render_primitive(render_cache.entry_at(image_node), &Matrix4::identity());
+
+        renderer.present_frame(frame);
     });
+
+    //render_cache.free_entry(root);
+    //render_cache.free_entry(child_rect);
+    //render_cache.free_entry(image_node);
 }
