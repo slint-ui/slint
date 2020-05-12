@@ -186,14 +186,48 @@ impl ComponentUniquePtr {
     ///
     /// The state parametter returned by the visitor is passed to each children.
     pub fn visit_items<State>(
-        &mut self,
-        mut visitor: impl FnMut(&mut Item, &State) -> State,
+        &self,
+        mut visitor: impl FnMut(&Item, &State) -> State,
         state: State,
     ) {
         self.visit_internal(&mut visitor, 0, &state)
     }
 
     fn visit_internal<State>(
+        &self,
+        visitor: &mut impl FnMut(&Item, &State) -> State,
+        index: isize,
+        state: &State,
+    ) {
+        let item_tree = unsafe { (self.vtable.as_ref().item_tree)(self.vtable.as_ptr()) };
+        match unsafe { &*item_tree.offset(index) } {
+            ItemTreeNode::Item { vtable, offset, children_index, chilren_count } => {
+                let item = unsafe {
+                    Item::new(
+                        NonNull::new_unchecked(*vtable as *mut _),
+                        NonNull::new_unchecked(
+                            (self.inner.as_ptr() as *mut u8).offset(*offset) as *mut _
+                        ),
+                    )
+                };
+                let state = visitor(&item, state);
+                for c in *children_index..(*children_index + *chilren_count) {
+                    self.visit_internal(visitor, c as isize, &state)
+                }
+            }
+            ItemTreeNode::DynamicTree { .. } => todo!(),
+        }
+    }
+
+    pub fn visit_items_mut<State>(
+        &mut self,
+        mut visitor: impl FnMut(&mut Item, &State) -> State,
+        state: State,
+    ) {
+        self.visit_internal_mut(&mut visitor, 0, &state)
+    }
+
+    fn visit_internal_mut<State>(
         &mut self,
         visitor: &mut impl FnMut(&mut Item, &State) -> State,
         index: isize,
@@ -212,7 +246,7 @@ impl ComponentUniquePtr {
                 };
                 let state = visitor(&mut item, state);
                 for c in *children_index..(*children_index + *chilren_count) {
-                    self.visit_internal(visitor, c as isize, &state)
+                    self.visit_internal_mut(visitor, c as isize, &state)
                 }
             }
             ItemTreeNode::DynamicTree { .. } => todo!(),

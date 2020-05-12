@@ -89,7 +89,7 @@ pub fn run_component<GraphicsBackend, GraphicsFactoryFunc>(
     let rendering_cache = &mut main_window.rendering_cache;
 
     // Generate cached rendering data once
-    component.visit_items(
+    component.visit_items_mut(
         move |item, _| {
             let item_rendering_info = {
                 match item.rendering_info() {
