@@ -134,11 +134,17 @@ fn handle_item(item: &LoweredItem, main_struct: &mut Struct, init: &mut Vec<Stri
     }));
 
     let id = &item.id;
-    init.extend(
-        item.init_properties
-            .iter()
-            .map(|(s, i)| format!("{id}.{prop} = {init};", id = id, prop = s, init = i)),
-    );
+    init.extend(item.init_properties.iter().map(|(s, i)| {
+        let init = match &i {
+            crate::object_tree::Expression::Invalid => "".into(),
+            crate::object_tree::Expression::Identifier(i) => i.clone(),
+            crate::object_tree::Expression::StringLiteral(s) => {
+                format!("\"{}\"", s.escape_default())
+            }
+            crate::object_tree::Expression::NumberLiteral(n) => n.to_string(),
+        };
+        format!("{id}.{prop} = {init};", id = id, prop = s, init = init)
+    }));
 
     for i in &item.children {
         handle_item(i, main_struct, init)

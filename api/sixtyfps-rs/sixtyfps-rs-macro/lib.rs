@@ -1,4 +1,5 @@
 extern crate proc_macro;
+use object_tree::Expression;
 use proc_macro::TokenStream;
 use quote::quote;
 use sixtyfps_compiler::*;
@@ -119,8 +120,13 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
         ));
         for (k, v) in &item.init_properties {
             let k = quote::format_ident!("{}", k);
-            use core::str::FromStr;
-            let v = proc_macro2::TokenStream::from_str(&v).unwrap();
+            let v = match v {
+                Expression::Invalid => quote!(),
+                // That's an error
+                Expression::Identifier(_) => quote!(),
+                Expression::StringLiteral(s) => quote!(#s),
+                Expression::NumberLiteral(n) => quote!(#n),
+            };
             init.push(quote!(self_.#field_name.#k = (#v) as _;));
         }
         item_names.push(field_name);

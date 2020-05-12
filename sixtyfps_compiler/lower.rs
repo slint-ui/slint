@@ -18,7 +18,7 @@ pub struct NativeItemType {
 pub struct LoweredItem {
     pub id: String,
     pub native_type: Rc<NativeItemType>,
-    pub init_properties: HashMap<String, String>,
+    pub init_properties: HashMap<String, crate::object_tree::Expression>,
     pub children: Vec<LoweredItem>,
 }
 
@@ -48,14 +48,27 @@ impl LoweredComponent {
             id = format!("id_{}", count);
         }
         *count += 1;
+
+        let mut init_properties = element.bindings.clone();
+        for (_, e) in &mut init_properties {
+            if let crate::object_tree::Expression::Identifier(x) = e {
+                let value: u32 = match &**x {
+                    "blue" => 0xff0000ff,
+                    "red" => 0xffff0000,
+                    "green" => 0xff00ff00,
+                    "yellow" => 0xffffff00,
+                    "black" => 0xff000000,
+                    "white" => 0xffffffff,
+                    _ => continue,
+                };
+                *e = crate::object_tree::Expression::NumberLiteral(value.into())
+            }
+        }
+
         LoweredItem {
             id,
             native_type,
-            init_properties: element
-                .bindings
-                .iter()
-                .map(|(s, c)| (s.clone(), c.value.clone()))
-                .collect(),
+            init_properties,
             // FIXME: we should only keep element that can be lowered.
             children: element
                 .children

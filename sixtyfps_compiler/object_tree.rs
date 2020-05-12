@@ -5,6 +5,7 @@
 use crate::diagnostics::Diagnostics;
 use crate::parser::{SyntaxKind, SyntaxNode, SyntaxNodeEx};
 use crate::typeregister::TypeRegister;
+use core::str::FromStr;
 use std::collections::HashMap;
 use std::rc::Rc;
 /// The full document (a complete file)
@@ -56,7 +57,7 @@ pub struct Element {
     pub base: String,
     /// FIXME, should not be Builtin, but a generic Component as well
     pub base_type: Rc<crate::typeregister::BuiltinElement>,
-    pub bindings: HashMap<String, CodeStatement>,
+    pub bindings: HashMap<String, Expression>,
     pub children: Vec<Rc<Element>>,
 }
 
@@ -92,7 +93,10 @@ impl Element {
                 );
             }
             if let Some(csn) = b.child_node(SyntaxKind::CodeStatement) {
-                if r.bindings.insert(name, CodeStatement::from_node(csn, diag)).is_some() {
+                if r.bindings
+                    .insert(name, Expression::from_code_statement_node(csn, diag))
+                    .is_some()
+                {
                     diag.push_error(
                         "Duplicated property".into(),
                         crate::diagnostics::Span::new(name_token.text_range().start().into()),
@@ -116,46 +120,58 @@ impl Element {
     }
 }
 
-#[derive(Default, Debug)]
-pub struct CodeStatement {
-    //     node: SyntaxNode,
-    pub value: String,
+#[derive(Debug, Clone)]
+pub enum Expression {
+    Invalid,
+    /// A simple identifier, for example `something`, the .0 is then "something"
+    Identifier(String),
+    /// A string literal. The .0 is the content of the string, without the quotes
+    StringLiteral(String),
+    /// Number
+    NumberLiteral(f64),
 }
 
-impl CodeStatement {
-    pub fn from_node(node: SyntaxNode, _diag: &mut Diagnostics) -> Self {
+impl Expression {
+    pub fn from_code_statement_node(node: SyntaxNode, diag: &mut Diagnostics) -> Self {
         debug_assert_eq!(node.kind(), SyntaxKind::CodeStatement);
 
-        fn from_expression(x: SyntaxNode) -> String {
-            x.child_node(SyntaxKind::Expression)
-                .map(from_expression)
-                .or_else(|| x.child_text(SyntaxKind::Identifier))
-                .or_else(|| x.child_text(SyntaxKind::StringLiteral))
-                .or_else(|| x.child_text(SyntaxKind::NumberLiteral))
-                .unwrap_or_default()
-        }
-
-        let value = node
-            .child_node(SyntaxKind::Expression)
+        node.child_node(SyntaxKind::Expression)
             .or_else(|| {
                 node.child_node(SyntaxKind::CodeBlock)
                     .and_then(|c| c.child_node(SyntaxKind::Expression))
             })
-            .map_or(Default::default(), from_expression);
-
-        // FIXME: that's not the place to do this
-        let value = match &*value {
-            "blue" => "0xff0000ff",
-            "red" => "0xffff0000",
-            "green" => "0xff00ff00",
-            "yellow" => "0xffffff00",
-            "black" => "0xff000000",
-            "white" => "0xffffffff",
-            _ => &value,
-        }
-        .into();
-
-        // FIXME
-        CodeStatement { value }
+            .map_or(Self::Invalid, |n| Self::from_expression_node(n, diag))
     }
+
+    pub fn from_expression_node(node: SyntaxNode, diag: &mut Diagnostics) -> Self {
+        node.child_node(SyntaxKind::Expression)
+            .map(|n| Self::from_expression_node(n, diag))
+            .or_else(|| node.child_text(SyntaxKind::Identifier).map(|s| Self::Identifier(s)))
+            .or_else(|| {
+                node.child_text(SyntaxKind::StringLiteral).map(|s| {
+                    unescape_string(&s).map(Self::StringLiteral).unwrap_or_else(|| {
+                        diag.push_error("Cannot parse string literal".into(), node.span());
+                        Self::Invalid
+                    })
+                })
+            })
+            .or_else(|| {
+                node.child_text(SyntaxKind::NumberLiteral).map(|s| {
+                    f64::from_str(&s).ok().map(Self::NumberLiteral).unwrap_or_else(|| {
+                        diag.push_error("Cannot parse number literal".into(), node.span());
+                        Self::Invalid
+                    })
+                })
+            })
+            .unwrap_or(Self::Invalid)
+    }
+}
+
+fn unescape_string(string: &str) -> Option<String> {
+    if !string.starts_with('"') || !string.ends_with('"') {
+        return None;
+    }
+    let string = &string[1..(string.len() - 1)];
+    // TODO: remove slashes
+    return Some(string.into());
 }
