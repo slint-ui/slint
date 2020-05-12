@@ -1,9 +1,11 @@
 
 using str = char; // FIXME: this is just required because of something wrong
                   // with &str in cbindgen, but one should not have &str anyway
+
 namespace sixtyfps::internal {
+// Workaround https://github.com/eqrion/cbindgen/issues/43
 struct ComponentType;
-} // namespace sixtyfps::internal
+}
 #include "sixtyfps_gl_internal.h"
 #include "sixtyfps_internal.h"
 

@@ -31,9 +31,9 @@ pub fn build_array_helper(
         children_offset: &mut u32,
         visit_item: &mut impl FnMut(&LoweredItem, u32),
     ) {
+        *children_offset += item.children.len() as u32;
         for i in &item.children {
             visit_item(i, *children_offset);
-            *children_offset += i.children.len() as u32;
         }
 
         for i in &item.children {

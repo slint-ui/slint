@@ -1,5 +1,5 @@
 use cgmath::{Matrix4, SquareMatrix};
-use lyon::math::Point;
+use lyon::math::{Point, Vector};
 
 pub mod graphics;
 pub mod layout;
@@ -77,37 +77,47 @@ pub fn run_component<GraphicsBackend, GraphicsFactoryFunc>(
     main_window.run_event_loop(move |width, height, renderer| {
         let mut frame = renderer.new_frame(width, height, &graphics::Color::WHITE);
 
-        component.visit_items(|item| {
-            let item_rendering_info = {
-                match item.rendering_info() {
-                    Some(info) => info,
-                    None => return,
-                }
-            };
+        let offset = Point::default();
 
-            println!("Rendering... {:?}", item_rendering_info);
-
-            match item_rendering_info {
-                RenderingInfo::Rectangle(x, y, width, height, color) => {
-                    if width <= 0. || height <= 0. {
-                        return;
+        component.visit_items(
+            |item, offset| {
+                let mut offset = offset.clone();
+                let item_rendering_info = {
+                    match item.rendering_info() {
+                        Some(info) => info,
+                        None => return offset,
                     }
-                    let mut rect_path = lyon::path::Path::builder();
-                    rect_path.move_to(Point::new(x, y));
-                    rect_path.line_to(Point::new(x + width, y));
-                    rect_path.line_to(Point::new(x + width, y + height));
-                    rect_path.line_to(Point::new(x, y + height));
-                    rect_path.close();
-                    let primitive = renderer.create_path_fill_primitive(
-                        &rect_path.build(),
-                        graphics::FillStyle::SolidColor(graphics::Color::from_argb_encoded(color)),
-                    );
+                };
 
-                    frame.render_primitive(&primitive, &Matrix4::identity());
+                println!("Rendering... {:?}", item_rendering_info);
+
+                match item_rendering_info {
+                    RenderingInfo::Rectangle(x, y, width, height, color) => {
+                        offset += Vector::new(x, y);
+                        if width <= 0. || height <= 0. {
+                            return offset;
+                        }
+                        let mut rect_path = lyon::path::Path::builder();
+                        rect_path.move_to(offset);
+                        rect_path.line_to(Point::new(offset.x + width, offset.y));
+                        rect_path.line_to(Point::new(offset.x + width, offset.y + height));
+                        rect_path.line_to(Point::new(offset.x, offset.y + height));
+                        rect_path.close();
+                        let primitive = renderer.create_path_fill_primitive(
+                            &rect_path.build(),
+                            graphics::FillStyle::SolidColor(graphics::Color::from_argb_encoded(
+                                color,
+                            )),
+                        );
+
+                        frame.render_primitive(&primitive, &Matrix4::identity());
+                    }
+                    _ => {}
                 }
-                _ => {}
-            }
-        });
+                offset
+            },
+            offset,
+        );
 
         renderer.present_frame(frame);
     });

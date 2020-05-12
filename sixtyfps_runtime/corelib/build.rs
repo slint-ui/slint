@@ -3,7 +3,10 @@ extern crate cbindgen;
 use std::env;
 
 fn main() {
-    let include = vec!["Rectangle".to_owned(), "Image".to_owned()];
+    let include = ["Rectangle", "Image", "ComponentType"]
+        .iter()
+        .map(|x| x.to_string())
+        .collect::<Vec<String>>();
 
     let config = cbindgen::Config {
         pragma_once: true,

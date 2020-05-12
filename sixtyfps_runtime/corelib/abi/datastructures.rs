@@ -182,11 +182,23 @@ impl ComponentUniquePtr {
         Self { vtable, inner }
     }
 
-    pub fn visit_items(&self, mut visitor: impl FnMut(&Item)) {
-        self.visit_internal(&mut visitor, 0)
+    /// Visit each items recursively
+    ///
+    /// The state parametter returned by the visitor is passed to each children.
+    pub fn visit_items<State>(
+        &self,
+        mut visitor: impl FnMut(&Item, &State) -> State,
+        state: State,
+    ) {
+        self.visit_internal(&mut visitor, 0, &state)
     }
 
-    fn visit_internal(&self, visitor: &mut impl FnMut(&Item), index: isize) {
+    fn visit_internal<State>(
+        &self,
+        visitor: &mut impl FnMut(&Item, &State) -> State,
+        index: isize,
+        state: &State,
+    ) {
         let item_tree = unsafe { (self.vtable.as_ref().item_tree)(self.vtable.as_ptr()) };
         match unsafe { &*item_tree.offset(index) } {
             ItemTreeNode::Item { vtable, offset, children_index, chilren_count } => {
@@ -198,9 +210,9 @@ impl ComponentUniquePtr {
                         ),
                     )
                 };
-                visitor(&item);
+                let state = visitor(&item, state);
                 for c in *children_index..(*children_index + *chilren_count) {
-                    self.visit_internal(visitor, c as isize)
+                    self.visit_internal(visitor, c as isize, &state)
                 }
             }
             ItemTreeNode::DynamicTree { .. } => todo!(),
@@ -298,20 +310,3 @@ pub static QT_BUTTON_VTABLE: ItemVTable = ItemVTable {
     rendering_info: render_qt_button,
 };
 */
-
-/// Run the given component
-/// Both pointer must be valid until the call to vtable.destroy
-/// vtable will is a *const, and inner like a *mut
-#[no_mangle]
-pub extern "C" fn sixtyfps_runtime_run_component(
-    component_type: *const ComponentType,
-    component: NonNull<ComponentImpl>,
-) {
-    let component = unsafe {
-        ComponentUniquePtr::new(NonNull::new_unchecked(component_type as *mut _), component)
-    };
-    component.visit_items(|item| {
-        println!("Rendering... {:?}", item.rendering_info());
-    });
-    todo!();
-}
