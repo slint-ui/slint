@@ -118,14 +118,13 @@ pub fn run_component<GraphicsBackend, GraphicsFactoryFunc>(
                         graphics::FillStyle::SolidColor(graphics::Color::from_argb_encoded(color)),
                     );
 
-                    rendering_data.cache_index =
-                        core::cell::Cell::new(rendering_cache.allocate_entry(primitive));
+                    rendering_data.cache_index = rendering_cache.allocate_entry(primitive);
 
-                    rendering_data.cache_ok = core::cell::Cell::new(true);
+                    rendering_data.cache_ok = true;
                 }
                 _ => {
                     // Cannot render this yet
-                    rendering_data.cache_ok = core::cell::Cell::new(false);
+                    rendering_data.cache_ok = false;
                 }
             }
         },
@@ -147,7 +146,7 @@ pub fn run_component<GraphicsBackend, GraphicsFactoryFunc>(
                     }
                 };
 
-                if !item.cached_rendering_data().cache_ok.get() {
+                if !item.cached_rendering_data().cache_ok {
                     return offset;
                 }
 
@@ -159,11 +158,10 @@ pub fn run_component<GraphicsBackend, GraphicsFactoryFunc>(
                 println!(
                     "Rendering... {:?} from cache {}",
                     item_rendering_info,
-                    item.cached_rendering_data().cache_index.get()
+                    item.cached_rendering_data().cache_index
                 );
 
-                let primitive =
-                    rendering_cache.entry_at(item.cached_rendering_data().cache_index.get());
+                let primitive = rendering_cache.entry_at(item.cached_rendering_data().cache_index);
                 frame.render_primitive(
                     &primitive,
                     &Matrix4::from_translation(Vector3::new(offset.x, offset.y, 0.0)),
