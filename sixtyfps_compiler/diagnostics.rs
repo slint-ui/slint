@@ -35,6 +35,14 @@ pub struct Diagnostics {
     pub inner: Vec<CompilerDiagnostic>,
 }
 
+impl IntoIterator for Diagnostics {
+    type Item = CompilerDiagnostic;
+    type IntoIter = <Vec<CompilerDiagnostic> as IntoIterator>::IntoIter;
+    fn into_iter(self) -> Self::IntoIter {
+        self.inner.into_iter()
+    }
+}
+
 impl Diagnostics {
     pub fn push_error(&mut self, message: String, span: Span) {
         self.inner.push(CompilerDiagnostic { message, span });
@@ -43,12 +51,36 @@ impl Diagnostics {
     pub fn has_error(&self) -> bool {
         !self.inner.is_empty()
     }
-}
 
-impl IntoIterator for Diagnostics {
-    type Item = CompilerDiagnostic;
-    type IntoIter = <Vec<CompilerDiagnostic> as IntoIterator>::IntoIter;
-    fn into_iter(self) -> Self::IntoIter {
-        self.inner.into_iter()
+    #[cfg(feature = "display-diagnostics")]
+    /// Print the diagnostics on the console
+    pub fn print(self, path: String, source: String) {
+        let mut codemap = codemap::CodeMap::new();
+        let file = codemap.add_file(path, source);
+        let file_span = file.span;
+
+        let diags: Vec<_> = self
+            .inner
+            .into_iter()
+            .map(|CompilerDiagnostic { message, span }| {
+                let s = codemap_diagnostic::SpanLabel {
+                    span: file_span.subspan(span.offset as u64, span.offset as u64),
+                    style: codemap_diagnostic::SpanStyle::Primary,
+                    label: None,
+                };
+                codemap_diagnostic::Diagnostic {
+                    level: codemap_diagnostic::Level::Error,
+                    message,
+                    code: None,
+                    spans: vec![s],
+                }
+            })
+            .collect();
+
+        let mut emitter = codemap_diagnostic::Emitter::stderr(
+            codemap_diagnostic::ColorConfig::Always,
+            Some(&codemap),
+        );
+        emitter.emit(&diags);
     }
 }

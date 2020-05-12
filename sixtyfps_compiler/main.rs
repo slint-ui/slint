@@ -26,33 +26,7 @@ fn main() -> std::io::Result<()> {
     let tree = object_tree::Document::from_node(syntax_node, &mut diag, &tr);
     //println!("{:#?}", tree);
     if !diag.inner.is_empty() {
-        let mut codemap = codemap::CodeMap::new();
-        let file = codemap.add_file(args.path.to_string_lossy().into_owned(), source);
-        let file_span = file.span;
-
-        let diags: Vec<_> = diag
-            .inner
-            .into_iter()
-            .map(|diagnostics::CompilerDiagnostic { message, span }| {
-                let s = codemap_diagnostic::SpanLabel {
-                    span: file_span.subspan(span.offset as u64, span.offset as u64),
-                    style: codemap_diagnostic::SpanStyle::Primary,
-                    label: None,
-                };
-                codemap_diagnostic::Diagnostic {
-                    level: codemap_diagnostic::Level::Error,
-                    message,
-                    code: None,
-                    spans: vec![s],
-                }
-            })
-            .collect();
-
-        let mut emitter = codemap_diagnostic::Emitter::stderr(
-            codemap_diagnostic::ColorConfig::Always,
-            Some(&codemap),
-        );
-        emitter.emit(&diags);
+        diag.print(args.path.to_string_lossy().into_owned(), source);
         std::process::exit(-1);
     }
 

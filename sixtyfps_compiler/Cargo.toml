@@ -12,6 +12,8 @@ path = "lib.rs"
 cpp = []
 # support for proc_macro spans in the token
 proc_macro_span = []
+# Feature to print the diagnostics to the console
+display-diagnostics = ["codemap", "codemap-diagnostic"]
 
 
 [dependencies]
@@ -19,11 +21,11 @@ m_lexer = "0.0.4" # simple lexer for now
 num_enum = "0.4.3"
 rowan = "0.10.0"
 derive_more = "0.99.5"
+codemap-diagnostic = { version = "0.1.1", optional = true }
+codemap = { version = "0.1", optional = true }
 
  # FIXME: remove this: bin should be somewhere else
 structopt = "0.3.14"
-codemap-diagnostic = "0.1.1"
-codemap = "0.1"
 
 [dev-dependencies]
 regex = "1.3.7"
@@ -35,5 +37,5 @@ name = "sixtyfps_compiler"
 path = "main.rs"
 test = false
 bench = false
-required-features = ["cpp"]
+required-features = ["cpp", "display-diagnostics"]
 
