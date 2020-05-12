@@ -30,9 +30,9 @@ fn main() -> std::io::Result<()> {
         let diags: Vec<_> = diag
             .inner
             .into_iter()
-            .map(|diagnostics::CompilerDiagnostic { message, offset }| {
+            .map(|diagnostics::CompilerDiagnostic { message, span }| {
                 let s = codemap_diagnostic::SpanLabel {
-                    span: file_span.subspan(offset as u64, offset as u64),
+                    span: file_span.subspan(span.offset as u64, span.offset as u64),
                     style: codemap_diagnostic::SpanStyle::Primary,
                     label: None,
                 };

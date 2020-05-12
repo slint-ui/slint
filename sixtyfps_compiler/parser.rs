@@ -216,6 +216,7 @@ impl Parser {
     /// Reports an error at the current token location
     pub fn error(&mut self, e: impl Into<String>) {
         let current_token = self.current_token();
+        #[allow(unused_mut)]
         let mut span = crate::diagnostics::Span::new(current_token.offset);
         #[cfg(feature = "proc_macro_span")]
         {
@@ -283,6 +284,7 @@ pub fn parse(source: &str) -> (SyntaxNode, Diagnostics) {
     (SyntaxNode::new_root(p.builder.finish()), p.diags)
 }
 
+#[cfg(feature = "proc_macro_span")]
 pub fn parse_tokens(tokens: Vec<Token>) -> (SyntaxNode, Diagnostics) {
     let mut p = Parser::from(tokens);
     document::parse_document(&mut p);

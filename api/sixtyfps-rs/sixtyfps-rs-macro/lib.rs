@@ -96,8 +96,7 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
         return quote!(#(#diags)*).into();
     }
 
-    let l = lower::LoweredComponent::lower(&*tree.root_component);
-    generator::generate(&l);
+    let _ = lower::LoweredComponent::lower(&*tree.root_component);
 
     quote!(
         #[derive(Default)]
