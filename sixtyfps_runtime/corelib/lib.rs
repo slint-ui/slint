@@ -107,15 +107,12 @@ pub fn run_component<GraphicsBackend, GraphicsFactoryFunc>(
                     if width <= 0. || height <= 0. {
                         return;
                     }
-                    let mut rect_path = lyon::path::Path::builder();
-                    rect_path.move_to(Point::new(0., 0.));
-                    rect_path.line_to(Point::new(width, 0.));
-                    rect_path.line_to(Point::new(width, height));
-                    rect_path.line_to(Point::new(0., height));
-                    rect_path.close();
-                    let primitive = renderer.create_path_fill_primitive(
-                        &rect_path.build(),
-                        graphics::FillStyle::SolidColor(graphics::Color::from_argb_encoded(color)),
+                    let primitive = renderer.create_rect_primitive(
+                        0.,
+                        0.,
+                        width,
+                        height,
+                        graphics::Color::from_argb_encoded(color),
                     );
 
                     rendering_data.cache_index = rendering_cache.allocate_entry(primitive);

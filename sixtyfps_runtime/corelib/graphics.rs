@@ -65,6 +65,26 @@ pub trait GraphicsBackend: Sized {
         dest_rect: impl Into<Rect>,
         image: image::ImageBuffer<image::Rgba<u8>, Vec<u8>>,
     ) -> Self::RenderingPrimitive;
+
+    fn create_rect_primitive(
+        &mut self,
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        color: Color,
+    ) -> Self::RenderingPrimitive {
+        use lyon::math::Point;
+
+        let mut rect_path = Path::builder();
+        rect_path.move_to(Point::new(x, y));
+        rect_path.line_to(Point::new(x + width, y));
+        rect_path.line_to(Point::new(x + width, y + height));
+        rect_path.line_to(Point::new(x, y + height));
+        rect_path.close();
+        self.create_path_fill_primitive(&rect_path.build(), FillStyle::SolidColor(color))
+    }
+
     fn new_frame(&mut self, width: u32, height: u32, clear_color: &Color) -> Self::Frame;
 
     fn present_frame(&mut self, frame: Self::Frame);
