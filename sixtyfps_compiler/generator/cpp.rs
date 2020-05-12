@@ -145,50 +145,6 @@ fn handle_item(item: &LoweredItem, main_struct: &mut Struct, init: &mut Vec<Stri
     }
 }
 
-/// Helper struct to build the array of children for the compnent.
-/// FIXME: This is expected to be common with all generators, so it should probably
-/// be moved in the parent module (with the exception of the C++ specific part)
-struct ItemTreeArrayBuilder<'a> {
-    children_offset: usize,
-    class_name: &'a str,
-}
-
-impl<'a> ItemTreeArrayBuilder<'a> {
-    pub fn build_array(&mut self, component: &LoweredComponent) -> String {
-        self.children_offset = 1;
-        let s = self.visit_item(&component.root_item, self.children_offset, String::new());
-        self.visit_children(&component.root_item, s)
-    }
-
-    fn visit_children(&mut self, item: &LoweredItem, mut acc: String) -> String {
-        for i in &item.children {
-            acc = self.visit_item(i, self.children_offset, acc);
-            self.children_offset += i.children.len();
-        }
-
-        for i in &item.children {
-            acc = self.visit_children(i, acc);
-        }
-
-        acc
-    }
-
-    /// This is the only function which is language dependent
-    /// maybe this should be a callback
-    fn visit_item(&self, item: &LoweredItem, children_offset: usize, acc: String) -> String {
-        format!(
-            "{}{}sixtyfps::make_item_node(offsetof({}, {}), &sixtyfps::{}, {}, {})",
-            acc,
-            if acc.is_empty() { "" } else { ", " },
-            self.class_name,
-            item.id,
-            item.native_type.vtable,
-            item.children.len(),
-            children_offset,
-        )
-    }
-}
-
 /// Returns the text of the C++ code produced by the given root component
 pub fn generate(component: &LoweredComponent) -> impl std::fmt::Display {
     let mut x = File::default();
@@ -223,8 +179,20 @@ pub fn generate(component: &LoweredComponent) -> impl std::fmt::Display {
 
     x.declarations.push(Declaration::Struct(main_struct));
 
-    let tree_array = ItemTreeArrayBuilder { children_offset: 0, class_name: &component.id }
-        .build_array(&component);
+    let mut tree_array = String::new();
+    super::build_array_helper(component, |item: &LoweredItem, children_offset: usize| {
+        tree_array = format!(
+            "{}{}sixtyfps::make_item_node(offsetof({}, {}), &sixtyfps::{}, {}, {})",
+            tree_array,
+            if tree_array.is_empty() { "" } else { ", " },
+            &component.id,
+            item.id,
+            item.native_type.vtable,
+            item.children.len(),
+            children_offset,
+        )
+    });
+
     x.declarations.push(Declaration::Function(Function {
         name: format!("{}::tree_fn", component.id),
         signature: "(const sixtyfps::ComponentType*) -> const sixtyfps::ItemTreeNode* ".into(),
