@@ -284,7 +284,7 @@ pub fn parse(source: &str) -> (SyntaxNode, Diagnostics) {
     (SyntaxNode::new_root(p.builder.finish()), p.diags)
 }
 
-#[cfg(feature = "proc_macro_span")]
+#[allow(dead_code)]
 pub fn parse_tokens(tokens: Vec<Token>) -> (SyntaxNode, Diagnostics) {
     let mut p = Parser::from(tokens);
     document::parse_document(&mut p);
