@@ -31,8 +31,8 @@ pub struct ItemImpl;
 pub struct CachedRenderingData {
     /// Used and modified by the backend, should be initialized to 0 by the user code
     pub(crate) cache_index: core::cell::Cell<usize>,
-    /// Set to true by the user code, and reset to false by the backend
-    pub(crate) dirty_bit: core::cell::Cell<bool>,
+    /// Set to false initially and when changes happen that require updating the cache
+    pub(crate) cache_ok: core::cell::Cell<bool>,
 }
 
 /// The item tree is an array of ItemTreeNode representing a static tree of items

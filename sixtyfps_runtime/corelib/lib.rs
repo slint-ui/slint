@@ -121,11 +121,11 @@ pub fn run_component<GraphicsBackend, GraphicsFactoryFunc>(
                     rendering_data.cache_index =
                         core::cell::Cell::new(rendering_cache.allocate_entry(primitive));
 
-                    rendering_data.dirty_bit = core::cell::Cell::new(false);
+                    rendering_data.cache_ok = core::cell::Cell::new(true);
                 }
                 _ => {
                     // Cannot render this yet
-                    rendering_data.dirty_bit = core::cell::Cell::new(true);
+                    rendering_data.cache_ok = core::cell::Cell::new(false);
                 }
             }
         },
@@ -147,7 +147,7 @@ pub fn run_component<GraphicsBackend, GraphicsFactoryFunc>(
                     }
                 };
 
-                if item.cached_rendering_data().dirty_bit.get() {
+                if !item.cached_rendering_data().cache_ok.get() {
                     return offset;
                 }
 
