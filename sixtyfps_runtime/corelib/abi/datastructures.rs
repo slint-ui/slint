@@ -6,14 +6,14 @@ pub struct ComponentImpl;
 #[repr(C)]
 pub struct ComponentType {
     /// Allocate an instance of this component
-    create: Option<unsafe fn(*const ComponentType) -> *mut ComponentImpl>,
+    pub create: Option<unsafe extern "C" fn(*const ComponentType) -> *mut ComponentImpl>,
 
     /// Destruct this component.
-    destroy: unsafe fn(*const ComponentType, *mut ComponentImpl),
+    pub destroy: unsafe extern "C" fn(*const ComponentType, *mut ComponentImpl),
 
     /// Returns an array that represent the item tree
     /// FIXME: dynamic items
-    item_tree: unsafe fn(*const ComponentType) -> *const ItemTreeNode,
+    pub item_tree: unsafe extern "C" fn(*const ComponentType) -> *const ItemTreeNode,
 }
 
 /// From the ItemTreeNode and a ComponentImpl, you can get a pointer to the instance data
@@ -27,6 +27,7 @@ pub struct ItemImpl;
 // 64    | RenderNode | render node index
 
 #[repr(C)]
+#[derive(Default)]
 pub struct RenderNode {
     /// Used and modified by the backend, should be initialized to 0 by the user code
     cache_index: core::cell::Cell<usize>,
@@ -73,24 +74,27 @@ pub enum ItemTreeNode {
     },
 }
 
+/// It is supposed to be in static array
+unsafe impl Sync for ItemTreeNode {}
+
 #[repr(C)]
 #[derive(Default)]
 pub struct ItemVTable {
     /// Rectangle: x/y/width/height ==> (path -> vertices/indicies(triangle))
-    pub geometry: Option<unsafe fn(*const ItemImpl) -> ()>, // like kurbo::Rect
+    pub geometry: Option<unsafe extern "C" fn(*const ItemImpl) -> ()>, // like kurbo::Rect
 
     /// offset in bytes fromthe *const ItemImpl.
     /// isize::MAX  means None
     pub render_node_index_offset: isize,
 
     /// Return a rendering info
-    pub rendering_info: Option<unsafe fn(*const ItemImpl) -> RenderingInfo>,
+    pub rendering_info: Option<unsafe extern "C" fn(*const ItemImpl) -> RenderingInfo>,
 
     /// We would need max/min/preferred size, and all layout info
-    pub layouting_info: Option<unsafe fn(*const ItemImpl) -> LayoutInfo>,
+    pub layouting_info: Option<unsafe extern "C" fn(*const ItemImpl) -> LayoutInfo>,
 
     /// input event
-    pub input_event: Option<unsafe fn(*const ItemImpl, MouseEvent)>,
+    pub input_event: Option<unsafe extern "C" fn(*const ItemImpl, MouseEvent)>,
 }
 
 // given an ItemImpl & ItemVTable

@@ -9,3 +9,7 @@ path = "lib.rs"
 
 [dependencies]
 sixtyfps-rs-macro= { path = "sixtyfps-rs-macro" }
+const-field-offset = { path = "../../helper_crates/const-field-offset" }
+corelib = { path="../../sixtyfps_runtime/corelib" }
+# FIXME: should be under a feature or somehow done differently
+gl = { path="../../sixtyfps_runtime/rendering_backends/gl" }

@@ -96,16 +96,79 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
         return quote!(#(#diags)*).into();
     }
 
-    let _ = lower::LoweredComponent::lower(&*tree.root_component);
+    let lower = lower::LoweredComponent::lower(&*tree.root_component);
+
+    // FIXME! ideally we would still have the spans available
+    let component_id = quote::format_ident!("{}", lower.id);
+
+    let mut item_tree_array = Vec::new();
+    let mut item_names = Vec::new();
+    let mut item_types = Vec::new();
+    let mut init = Vec::new();
+    generator::build_array_helper(&lower, |item, children_index| {
+        let field_name = quote::format_ident!("{}", item.id);
+        let vtable = quote::format_ident!("{}", item.native_type.vtable);
+        let children_count = item.children.len() as u32;
+        item_tree_array.push(quote!(
+            sixtyfps::re_exports::ItemTreeNode::Item{
+                offset: #component_id::field_offsets().#field_name as isize,
+                vtable: &#vtable as *const _,
+                chilren_count: #children_count,
+                children_index: #children_index,
+             }
+        ));
+        for (k, v) in &item.init_properties {
+            let k = quote::format_ident!("{}", k);
+            use core::str::FromStr;
+            let v = proc_macro2::TokenStream::from_str(&v).unwrap();
+            init.push(quote!(self_.#field_name.#k = (#v) as _;));
+        }
+        item_names.push(field_name);
+        item_types.push(quote::format_ident!("{}", item.native_type.class_name));
+    });
+
+    let item_tree_array_len = item_tree_array.len();
 
     quote!(
-        #[derive(Default)]
-        struct SuperSimple;
-        impl SuperSimple {
-            fn run(&self) {
-                println!("Hello world");
+        #[derive(sixtyfps::re_exports::FieldOffsets)]
+        #[repr(C)]
+        struct #component_id {
+            #(#item_names : sixtyfps::re_exports::#item_types,)*
+        }
+        impl core::default::Default for #component_id {
+            fn default() -> Self {
+                let mut self_ = Self {
+                    #(#item_names : Default::default(),)*
+                };
+                #(#init)*
+                self_
             }
 
+        }
+        impl #component_id{
+            fn run(&mut self) {
+                use sixtyfps::re_exports::*;
+
+                unsafe extern "C" fn create(_: *const ComponentType) -> *mut ComponentImpl {
+                    Box::into_raw(Box::new(#component_id::default())) as *mut ComponentImpl
+                }
+                unsafe extern "C" fn destroy(_: *const ComponentType, i: *mut ComponentImpl) {
+                    // FIXME
+                    println!("FIXME! One should not call destroy on staticly allocated types");
+                    //Box::from_raw(i as *mut #component_id);
+                }
+                unsafe extern "C" fn item_tree(_: *const ComponentType)-> *const ItemTreeNode {
+                    static TREE : [ItemTreeNode; #item_tree_array_len] = [#(#item_tree_array),*];
+                    TREE.as_ptr()
+                }
+
+                static COMPONENT_VTABLE : ComponentType =
+                    ComponentType { create: Some(create), destroy, item_tree };
+                sixtyfps_runtime_run_component_with_gl_renderer(
+                    &COMPONENT_VTABLE as *const _,
+                    core::ptr::NonNull::from(self).cast()
+                );
+            }
         }
     )
     .into()

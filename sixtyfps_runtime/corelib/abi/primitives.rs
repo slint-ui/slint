@@ -2,18 +2,18 @@ use super::datastructures::{ItemImpl, ItemVTable, RenderNode, RenderingInfo};
 
 /// FIXME:  more properties
 #[repr(C)]
-#[derive(const_field_offset::FieldOffsets)]
+#[derive(const_field_offset::FieldOffsets, Default)]
 pub struct Rectangle {
     /// FIXME: make it a color
-    color: u32,
-    x: f32,
-    y: f32,
-    width: f32,
-    height: f32,
-    render_node: RenderNode,
+    pub color: u32,
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+    pub render_node: RenderNode,
 }
 
-unsafe fn render_rectangle(i: *const ItemImpl) -> RenderingInfo {
+unsafe extern "C" fn render_rectangle(i: *const ItemImpl) -> RenderingInfo {
     let r = &*(i as *const Rectangle);
     RenderingInfo::Rectangle(r.x, r.y, r.width, r.height, r.color)
 }
@@ -37,15 +37,28 @@ type c_char = i8;
 #[derive(const_field_offset::FieldOffsets)]
 pub struct Image {
     /// FIXME: make it a image source
-    source: *const c_char,
-    x: f32,
-    y: f32,
-    width: f32,
-    height: f32,
-    render_node: super::datastructures::RenderNode,
+    pub source: *const c_char,
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+    pub render_node: super::datastructures::RenderNode,
 }
 
-unsafe fn render_image(i: *const ItemImpl) -> RenderingInfo {
+impl Default for Image {
+    fn default() -> Self {
+        Image {
+            source: (b"\0").as_ptr() as *const _,
+            x: 0.,
+            y: 0.,
+            width: 0.,
+            height: 0.,
+            render_node: Default::default(),
+        }
+    }
+}
+
+unsafe extern "C" fn render_image(i: *const ItemImpl) -> RenderingInfo {
     let i = &*(i as *const Image);
     RenderingInfo::Image(std::ffi::CStr::from_ptr(i.source).to_str().unwrap())
 }

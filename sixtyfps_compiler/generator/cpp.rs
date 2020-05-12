@@ -180,7 +180,7 @@ pub fn generate(component: &LoweredComponent) -> impl std::fmt::Display {
     x.declarations.push(Declaration::Struct(main_struct));
 
     let mut tree_array = String::new();
-    super::build_array_helper(component, |item: &LoweredItem, children_offset: usize| {
+    super::build_array_helper(component, |item: &LoweredItem, children_offset| {
         tree_array = format!(
             "{}{}sixtyfps::make_item_node(offsetof({}, {}), &sixtyfps::{}, {}, {})",
             tree_array,

@@ -18,9 +18,9 @@ pub fn generate(component: &LoweredComponent) {
 /// Visit each item in order in which they should appear in the children tree array.
 /// The parameter of the visitor are the item, and the first_children_offset
 #[allow(dead_code)]
-fn build_array_helper(
+pub fn build_array_helper(
     component: &LoweredComponent,
-    mut visit_item: impl FnMut(&LoweredItem, usize),
+    mut visit_item: impl FnMut(&LoweredItem, u32),
 ) {
     let mut children_offset = 1;
     visit_item(&component.root_item, children_offset);
@@ -28,12 +28,12 @@ fn build_array_helper(
 
     fn visit_children(
         item: &LoweredItem,
-        children_offset: &mut usize,
-        visit_item: &mut impl FnMut(&LoweredItem, usize),
+        children_offset: &mut u32,
+        visit_item: &mut impl FnMut(&LoweredItem, u32),
     ) {
         for i in &item.children {
             visit_item(i, *children_offset);
-            *children_offset += i.children.len();
+            *children_offset += i.children.len() as u32;
         }
 
         for i in &item.children {
