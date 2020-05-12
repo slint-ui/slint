@@ -66,12 +66,12 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
 
     // Build the output, possibly using quasi-quotation
     let expanded = quote! {
-        struct #field_struct_name {
-            #(#fields : usize,)*
+        pub struct #field_struct_name {
+            #(pub #fields : usize,)*
         }
 
         impl #struct_name {
-            /*pub ??? */ const fn field_offsets() -> #field_struct_name {
+            pub const fn field_offsets() -> #field_struct_name {
                 let mut len = 0usize;
                 #field_struct_name {
                     #( #fields : {

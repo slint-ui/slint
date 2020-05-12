@@ -1,0 +1,20 @@
+[package]
+name = "viewer"
+version = "0.1.0"
+authors = ["Olivier Goffart <ogoffart@sixtyfps.io>"]
+edition = "2018"
+
+
+[dependencies]
+corelib = { path="../../sixtyfps_runtime/corelib" }
+sixtyfps_compiler = { path = "../../sixtyfps_compiler", features = ["display-diagnostics"] }
+# FIXME: make optional and configurable backends
+gl = { path = "../../sixtyfps_runtime/rendering_backends/gl" }
+structopt = "0.3.14"
+codemap-diagnostic = "0.1.1"
+codemap = "0.1"
+
+
+[[bin]]
+name = "viewer"
+path = "main.rs"
