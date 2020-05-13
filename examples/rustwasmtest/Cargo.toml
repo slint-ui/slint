@@ -1,0 +1,21 @@
+[package]
+name = "rustwasmtest"
+version = "0.1.0"
+authors = ["Sixty FPS <info@sixtyfps.io>"]
+edition = "2018"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+sixtyfps = { path = "../../api/sixtyfps-rs" }
+wasm-bindgen = { version = "0.2" }
+web_sys = { version = "0.3", package = "web-sys", features=["console"] }
+
+# The `console_error_panic_hook` crate provides better debugging of panics by
+# logging them with `console.error`. This is great for development, but requires
+# all the `std::fmt` and `std::panicking` infrastructure, so it's only enabled
+# in debug mode.
+[target."cfg(debug_assertions)".dependencies]
+console_error_panic_hook = "0.1.5"
+

@@ -9,5 +9,6 @@ members = [
     'tools/viewer',
     'examples/graphicstest',
     'examples/rusttest',
+    'examples/rustwasmtest',
     'helper_crates/const-field-offset',
 ]
