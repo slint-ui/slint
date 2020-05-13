@@ -113,7 +113,7 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
         let children_count = item.children.len() as u32;
         item_tree_array.push(quote!(
             sixtyfps::re_exports::ItemTreeNode::Item{
-                offset: #component_id::field_offsets().#field_name as isize,
+                offset: #component_id::field_offsets().#field_name.get_byte_offset() as isize,
                 vtable: &#vtable as *const _,
                 chilren_count: #children_count,
                 children_index: #children_index,
@@ -141,6 +141,7 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
     let item_tree_array_len = item_tree_array.len();
 
     quote!(
+        use sixtyfps::re_exports::const_field_offset;
         #[derive(sixtyfps::re_exports::FieldOffsets)]
         #[repr(C)]
         struct #component_id {

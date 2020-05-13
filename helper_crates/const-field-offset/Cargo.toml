@@ -4,14 +4,8 @@ version = "0.1.0"
 authors = ["Sixty FPS <info@sixtyfps.io>"]
 edition = "2018"
 
-[lib]
-proc-macro = true
-
 [dependencies]
-syn = { version = "1.0", features = ["derive"] }
-quote = "1.0"
-proc-macro2 = "1.0"
-
+const-field-offset-macro = { path = "./macro" }
 
 [dev-dependencies]
 memoffset = "0.5.4"

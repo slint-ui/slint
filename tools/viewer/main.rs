@@ -98,17 +98,18 @@ fn main() -> std::io::Result<()> {
 
     // FIXME: thus obviously is unsafe and not great
     let mut rtti = HashMap::new();
+    let offsets = Rectangle::field_offsets();
     rtti.insert(
         "Rectangle",
         RuntimeTypeInfo {
             vtable: &corelib::abi::primitives::RectangleVTable as _,
             construct: construct::<Rectangle>,
             properties: [
-                ("x", (Rectangle::field_offsets().x, set_property::<f32> as _)),
-                ("y", (Rectangle::field_offsets().y, set_property::<f32> as _)),
-                ("width", (Rectangle::field_offsets().width, set_property::<f32> as _)),
-                ("height", (Rectangle::field_offsets().height, set_property::<f32> as _)),
-                ("color", (Rectangle::field_offsets().color, set_property::<u32> as _)),
+                ("x", (offsets.x.get_byte_offset(), set_property::<f32> as _)),
+                ("y", (offsets.y.get_byte_offset(), set_property::<f32> as _)),
+                ("width", (offsets.width.get_byte_offset(), set_property::<f32> as _)),
+                ("height", (offsets.height.get_byte_offset(), set_property::<f32> as _)),
+                ("color", (offsets.color.get_byte_offset(), set_property::<u32> as _)),
             ]
             .iter()
             .cloned()
@@ -116,17 +117,18 @@ fn main() -> std::io::Result<()> {
             size: std::mem::size_of::<Rectangle>(),
         },
     );
+    let offsets = Image::field_offsets();
     rtti.insert(
         "Image",
         RuntimeTypeInfo {
             vtable: &corelib::abi::primitives::ImageVTable as _,
             construct: construct::<Image>,
             properties: [
-                ("x", (Image::field_offsets().x, set_property::<f32> as _)),
-                ("y", (Image::field_offsets().y, set_property::<f32> as _)),
-                ("width", (Image::field_offsets().width, set_property::<f32> as _)),
-                ("height", (Image::field_offsets().height, set_property::<f32> as _)),
-                ("source", (Image::field_offsets().source, set_property::<*const i8> as _)),
+                ("x", (offsets.x.get_byte_offset(), set_property::<f32> as _)),
+                ("y", (offsets.y.get_byte_offset(), set_property::<f32> as _)),
+                ("width", (offsets.width.get_byte_offset(), set_property::<f32> as _)),
+                ("height", (offsets.height.get_byte_offset(), set_property::<f32> as _)),
+                ("source", (offsets.source.get_byte_offset(), set_property::<*const i8> as _)),
             ]
             .iter()
             .cloned()
