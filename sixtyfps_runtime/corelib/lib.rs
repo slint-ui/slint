@@ -1,5 +1,4 @@
-use cgmath::{Matrix4, Vector3};
-use lyon::math::{Point, Vector};
+use cgmath::{Matrix4, SquareMatrix, Vector3};
 
 pub mod graphics;
 pub mod layout;
@@ -134,42 +133,40 @@ pub fn run_component<GraphicsBackend, GraphicsFactoryFunc>(
     renderer.finish_primitives(rendering_primitives_builder);
 
     main_window.run_event_loop(move |frame, rendering_cache| {
-        let offset = Point::default();
+        let transform = Matrix4::identity();
 
         component.visit_items(
-            |item, offset| {
-                let mut offset = offset.clone();
+            |item, transform| {
+                let mut transform = transform.clone();
                 let item_rendering_info = {
                     match item.rendering_info() {
                         Some(info) => info,
-                        None => return offset,
+                        None => return transform,
                     }
                 };
 
-                if !item.cached_rendering_data().cache_ok {
-                    return offset;
-                }
-
                 match item_rendering_info {
-                    RenderingInfo::Rectangle(x, y, ..) => offset += Vector::new(x, y),
+                    RenderingInfo::Rectangle(x, y, ..) => {
+                        transform = transform * Matrix4::from_translation(Vector3::new(x, y, 0.0));
+                    }
                     _ => {}
                 }
 
-                println!(
-                    "Rendering... {:?} from cache {}",
-                    item_rendering_info,
-                    item.cached_rendering_data().cache_index
-                );
+                if item.cached_rendering_data().cache_ok {
+                    println!(
+                        "Rendering... {:?} from cache {}",
+                        item_rendering_info,
+                        item.cached_rendering_data().cache_index
+                    );
 
-                let primitive = rendering_cache.entry_at(item.cached_rendering_data().cache_index);
-                frame.render_primitive(
-                    &primitive,
-                    &Matrix4::from_translation(Vector3::new(offset.x, offset.y, 0.0)),
-                );
+                    let primitive =
+                        rendering_cache.entry_at(item.cached_rendering_data().cache_index);
+                    frame.render_primitive(&primitive, &transform);
+                }
 
-                offset
+                transform
             },
-            offset,
+            transform,
         );
     });
 }
