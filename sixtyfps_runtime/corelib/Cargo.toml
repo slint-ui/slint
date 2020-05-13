@@ -10,7 +10,7 @@ path = "lib.rs"
 crate-type = ["lib", "cdylib"]
 
 [dependencies]
-image = { version = "0.23.4", default-features = false }
+image = { version = "0.23.4", default-features = false, features = [ "png" ] }
 cgmath = "0.17.0"
 const-field-offset = { path = "../../helper_crates/const-field-offset" }
 winit = "0.22.1"

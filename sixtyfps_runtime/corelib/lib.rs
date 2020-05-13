@@ -1,4 +1,5 @@
 use cgmath::{Matrix4, SquareMatrix, Vector3};
+use lyon::math::{Point, Rect, Size};
 
 pub mod graphics;
 pub mod layout;
@@ -121,8 +122,36 @@ pub fn run_component<GraphicsBackend, GraphicsFactoryFunc>(
 
                     rendering_data.cache_ok = true;
                 }
-                _ => {
-                    // Cannot render this yet
+                RenderingInfo::Image(_source) => {
+                    rendering_data.cache_ok = false;
+                    #[cfg(not(target_arch = "wasm32"))]
+                    {
+                        let mut image_path = std::env::current_exe().unwrap();
+                        image_path.pop(); // pop of executable name
+                        image_path.push(_source);
+                        let image = image::open(image_path.as_path()).unwrap().into_rgba();
+                        let source_size = image.dimensions();
+
+                        let source_rect = Rect::new(
+                            Point::new(0.0, 0.0),
+                            Size::new(source_size.0 as f32, source_size.1 as f32),
+                        );
+                        let dest_rect = Rect::new(
+                            Point::new(200.0, 200.0),
+                            Size::new(source_size.0 as f32, source_size.1 as f32),
+                        );
+
+                        let image_primitive = rendering_primitives_builder.create_image_primitive(
+                            source_rect,
+                            dest_rect,
+                            image,
+                        );
+                        rendering_data.cache_index =
+                            rendering_cache.allocate_entry(image_primitive);
+                        rendering_data.cache_ok = true;
+                    }
+                }
+                RenderingInfo::NoContents => {
                     rendering_data.cache_ok = false;
                 }
             }

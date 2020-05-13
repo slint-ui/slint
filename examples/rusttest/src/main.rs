@@ -18,7 +18,7 @@ sixtyfps::sixtyfps! {
         Image {
             x: 200;
             y: 200;
-            source: "../graphicstest/logo.png";
+            source: "../../examples/graphicstest/logo.png";
         }
     }
 }
