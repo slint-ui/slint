@@ -11,4 +11,5 @@ members = [
     'examples/rusttest',
     'examples/rustwasmtest',
     'helper_crates/const-field-offset',
+    'helper_crates/vtable',
 ]
