@@ -177,6 +177,8 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
             }
             // Remove pub, if any
             field.vis = Visibility::Inherited;
+            // FIXME!!!
+            field.vis = Visibility::Public(VisPublic{ pub_token: Default::default() });
 
             let mut wrap_trait_call = None;
             if !has_self {
