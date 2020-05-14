@@ -1,14 +1,15 @@
 [package]
-name = "vtable"
+name = "vtable-macro"
 version = "0.1.0"
 authors = ["Sixty FPS <info@sixtyfps.io>"]
 edition = "2018"
 
 [lib]
+proc-macro = true
+path = "macro.rs"
 
 [dependencies]
 syn = { version = "1.0", features = ["full"] }
 quote = "1.0"
 proc-macro2 = "1.0"
-vtable-macro = { path="./macro" }
 
