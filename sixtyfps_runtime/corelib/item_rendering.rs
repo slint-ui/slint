@@ -71,7 +71,7 @@ pub(crate) fn update_item_rendering_data<Backend: GraphicsBackend>(
 }
 
 pub(crate) fn render_component_items<Backend: GraphicsBackend>(
-    component: &super::abi::datastructures::ComponentUniquePtr,
+    component: &super::abi::datastructures::ComponentBox,
     frame: &mut Backend::Frame,
     rendering_cache: &RenderingCache<Backend>,
 ) {

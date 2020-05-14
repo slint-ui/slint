@@ -156,27 +156,23 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
             }
 
         }
+        impl sixtyfps::re_exports::Component for #component_id {
+            fn item_tree(&self) -> *const sixtyfps::re_exports::ItemTreeNode {
+                use sixtyfps::re_exports::*;
+                static TREE : [ItemTreeNode; #item_tree_array_len] = [#(#item_tree_array),*];
+                TREE.as_ptr()
+            }
+        }
+
         impl #component_id{
             fn run(&mut self) {
                 use sixtyfps::re_exports::*;
-
-                unsafe extern "C" fn create(_: *const ComponentType) -> *mut ComponentImpl {
-                    Box::into_raw(Box::new(#component_id::default())) as *mut ComponentImpl
-                }
-                unsafe extern "C" fn destroy(_: *const ComponentType, i: *mut ComponentImpl) {
-                    // FIXME
-                    println!("FIXME! One should not call destroy on staticly allocated types");
-                    //Box::from_raw(i as *mut #component_id);
-                }
-                unsafe extern "C" fn item_tree(_: *const ComponentType)-> *const ItemTreeNode {
-                    static TREE : [ItemTreeNode; #item_tree_array_len] = [#(#item_tree_array),*];
-                    TREE.as_ptr()
-                }
-
-                static COMPONENT_VTABLE : ComponentType =
-                    ComponentType { create: Some(create), destroy, item_tree };
+                // Would be nice if ComponentVTable::new was const.
+                static COMPONENT_VTABLE : Lazy<ComponentVTable> = Lazy::new(|| {
+                    ComponentVTable::new::<#component_id>()
+                });
                 sixtyfps_runtime_run_component_with_gl_renderer(
-                    &COMPONENT_VTABLE as *const _,
+                    &*COMPONENT_VTABLE as *const ComponentVTable,
                     core::ptr::NonNull::from(self).cast()
                 );
             }

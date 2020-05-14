@@ -620,7 +620,7 @@ pub extern "C" fn sixtyfps_runtime_run_component_with_gl_renderer(
     component: NonNull<ComponentImpl>,
 ) {
     let component = unsafe {
-        sixtyfps_corelib::abi::datastructures::ComponentUniquePtr::new(
+        sixtyfps_corelib::abi::datastructures::ComponentBox::from_raw(
             NonNull::new_unchecked(component_type as *mut _),
             component,
         )

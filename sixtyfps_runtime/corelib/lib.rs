@@ -72,7 +72,7 @@ where
 }
 
 pub fn run_component<GraphicsBackend, GraphicsFactoryFunc>(
-    mut component: abi::datastructures::ComponentUniquePtr,
+    mut component: abi::datastructures::ComponentBox,
     graphics_backend_factory: GraphicsFactoryFunc,
 ) where
     GraphicsBackend: graphics::GraphicsBackend + 'static,

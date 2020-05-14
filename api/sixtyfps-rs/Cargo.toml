@@ -8,6 +8,7 @@ edition = "2018"
 path = "lib.rs"
 
 [dependencies]
+once_cell = "1.4"
 sixtyfps-rs-macro= { path = "sixtyfps-rs-macro" }
 const-field-offset = { path = "../../helper_crates/const-field-offset" }
 corelib = { path="../../sixtyfps_runtime/corelib" }

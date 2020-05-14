@@ -1,4 +1,4 @@
-use corelib::abi::datastructures::{ComponentImpl, ComponentType};
+use corelib::abi::datastructures::{ComponentImpl, ComponentVTable};
 use sixtyfps_compiler::object_tree::Expression;
 use std::collections::HashMap;
 use structopt::StructOpt;

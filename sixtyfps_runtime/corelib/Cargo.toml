@@ -13,6 +13,7 @@ crate-type = ["lib", "cdylib"]
 image = { version = "0.23.4", default-features = false, features = [ "png" ] }
 cgmath = "0.17.0"
 const-field-offset = { path = "../../helper_crates/const-field-offset" }
+vtable = { path = "../../helper_crates/vtable" }
 winit = "0.22.1"
 lyon = { version = "0.15.8" }
 

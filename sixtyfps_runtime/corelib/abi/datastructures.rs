@@ -1,20 +1,19 @@
 use core::ptr::NonNull;
 
-/// The opaque component type
-pub struct ComponentImpl;
-
 #[repr(C)]
-pub struct ComponentType {
-    /// Allocate an instance of this component
-    pub create: Option<unsafe extern "C" fn(*const ComponentType) -> *mut ComponentImpl>,
+#[vtable::vtable]
+pub struct ComponentVTable {
+    // /// Allocate an instance of this component
+    // pub create: Option<unsafe extern "C" fn(*const ComponentType) -> *mut ComponentImpl>,
 
     /// Destruct this component.
-    pub destroy: unsafe extern "C" fn(*const ComponentType, *mut ComponentImpl),
+    pub drop: extern "C" fn(*const ComponentVTable, *mut ComponentImpl),
 
     /// Returns an array that represent the item tree
-    /// FIXME: dynamic items
-    pub item_tree: unsafe extern "C" fn(*const ComponentType) -> *const ItemTreeNode,
+    pub item_tree: extern "C" fn(*const ComponentVTable, *const ComponentImpl) -> *const ItemTreeNode,
 }
+
+pub type ComponentType = ComponentVTable;
 
 /// From the ItemTreeNode and a ComponentImpl, you can get a pointer to the instance data
 /// ItemImpl via the offset field.
@@ -163,24 +162,7 @@ impl Item {
     }
 }
 
-pub struct ComponentUniquePtr {
-    vtable: NonNull<ComponentType>,
-    inner: NonNull<ComponentImpl>,
-}
-impl Drop for ComponentUniquePtr {
-    fn drop(&mut self) {
-        unsafe {
-            let destroy = self.vtable.as_ref().destroy;
-            destroy(self.vtable.as_ptr(), self.inner.as_ptr());
-        }
-    }
-}
-impl ComponentUniquePtr {
-    /// Both pointer must be valid until the call to vtable.destroy
-    /// vtable will is a *const, and inner like a *mut
-    pub unsafe fn new(vtable: NonNull<ComponentType>, inner: NonNull<ComponentImpl>) -> Self {
-        Self { vtable, inner }
-    }
+impl ComponentBox {
 
     /// Visit each items recursively
     ///
@@ -199,14 +181,14 @@ impl ComponentUniquePtr {
         index: isize,
         state: &State,
     ) {
-        let item_tree = unsafe { (self.vtable.as_ref().item_tree)(self.vtable.as_ptr()) };
+        let item_tree = self.item_tree();
         match unsafe { &*item_tree.offset(index) } {
             ItemTreeNode::Item { vtable, offset, children_index, chilren_count } => {
                 let item = unsafe {
                     Item::new(
                         NonNull::new_unchecked(*vtable as *mut _),
                         NonNull::new_unchecked(
-                            (self.inner.as_ptr() as *mut u8).offset(*offset) as *mut _
+                            (self.as_ptr() as *mut u8).offset(*offset) as *mut _
                         ),
                     )
                 };
@@ -233,14 +215,14 @@ impl ComponentUniquePtr {
         index: isize,
         state: &State,
     ) {
-        let item_tree = unsafe { (self.vtable.as_ref().item_tree)(self.vtable.as_ptr()) };
+        let item_tree = self.item_tree();
         match unsafe { &*item_tree.offset(index) } {
             ItemTreeNode::Item { vtable, offset, children_index, chilren_count } => {
                 let mut item = unsafe {
                     Item::new(
                         NonNull::new_unchecked(*vtable as *mut _),
                         NonNull::new_unchecked(
-                            (self.inner.as_ptr() as *mut u8).offset(*offset) as *mut _
+                            (self.as_ptr() as *mut u8).offset(*offset) as *mut _
                         ),
                     )
                 };
