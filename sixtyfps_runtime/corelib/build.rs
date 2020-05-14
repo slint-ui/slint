@@ -26,6 +26,7 @@ fn main() {
     cbindgen::Builder::new()
         .with_config(config)
         .with_crate(crate_dir)
+        .with_header("#include <vtable.h>")
         .generate()
         .expect("Unable to generate bindings")
         .write_to_file(env::var("OUT_DIR").unwrap() + "/sixtyfps_internal.h");
