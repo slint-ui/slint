@@ -18,6 +18,7 @@ sixtyfps_corelib = { package = "corelib", path = "../../corelib" }
 lyon = { version = "0.15.8" }
 image = { version = "0.23.4", default-features = false }
 cgmath = "0.17.0"
+vtable = { path = "../../../helper_crates/vtable" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web_sys = { version = "0.3", package = "web-sys", features=["console"] }

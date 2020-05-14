@@ -72,7 +72,7 @@ where
 }
 
 pub fn run_component<GraphicsBackend, GraphicsFactoryFunc>(
-    mut component: abi::datastructures::ComponentBox,
+    mut component: vtable::VRefMut<'static, crate::abi::datastructures::ComponentVTable>,
     graphics_backend_factory: GraphicsFactoryFunc,
 ) where
     GraphicsBackend: graphics::GraphicsBackend + 'static,
@@ -87,7 +87,8 @@ pub fn run_component<GraphicsBackend, GraphicsFactoryFunc>(
     let mut rendering_primitives_builder = renderer.new_rendering_primitives_builder();
 
     // Generate cached rendering data once
-    component.visit_items_mut(
+    crate::abi::datastructures::visit_items_mut(
+        &mut component,
         |item, _| {
             item_rendering::update_item_rendering_data(
                 item,
@@ -99,16 +100,8 @@ pub fn run_component<GraphicsBackend, GraphicsFactoryFunc>(
     );
 
     renderer.finish_primitives(rendering_primitives_builder);
-
+    let component = vtable::VRef::from(component);
     main_window.run_event_loop(move |frame, rendering_cache| {
-        item_rendering::render_component_items(&component, frame, &rendering_cache);
+        item_rendering::render_component_items(component, frame, &rendering_cache);
     });
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
 }

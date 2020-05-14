@@ -162,6 +162,9 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
                 static TREE : [ItemTreeNode; #item_tree_array_len] = [#(#item_tree_array),*];
                 TREE.as_ptr()
             }
+            fn create() -> Self {
+                Default::default()
+            }
         }
 
         impl #component_id{
@@ -171,9 +174,13 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
                 static COMPONENT_VTABLE : Lazy<ComponentVTable> = Lazy::new(|| {
                     ComponentVTable::new::<#component_id>()
                 });
+
                 sixtyfps_runtime_run_component_with_gl_renderer(
-                    &*COMPONENT_VTABLE as *const ComponentVTable,
-                    core::ptr::NonNull::from(self).cast()
+                    // FIMXE!!!  this does not compile
+                    unsafe { VRefMut::from_inner(
+                        core::ptr::NonNull::new_unchecked(&*COMPONENT_VTABLE as *mut ComponentVTable),
+                        core::ptr::NonNull::from(self).cast()
+                    )}
                 );
             }
         }

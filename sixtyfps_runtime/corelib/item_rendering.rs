@@ -71,13 +71,14 @@ pub(crate) fn update_item_rendering_data<Backend: GraphicsBackend>(
 }
 
 pub(crate) fn render_component_items<Backend: GraphicsBackend>(
-    component: &super::abi::datastructures::ComponentBox,
+    component: vtable::VRef<'_, crate::abi::datastructures::ComponentVTable>,
     frame: &mut Backend::Frame,
     rendering_cache: &RenderingCache<Backend>,
 ) {
     let transform = Matrix4::identity();
 
-    component.visit_items(
+    crate::abi::datastructures::visit_items(
+        component,
         |item, transform| {
             let mut transform = transform.clone();
             let item_rendering_info = {

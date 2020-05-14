@@ -1,10 +1,9 @@
 use cgmath::Matrix4;
-use core::ptr::NonNull;
 use glow::{Context as GLContext, HasContext};
 use lyon::path::math::Rect;
 use lyon::tessellation::geometry_builder::{BuffersBuilder, VertexBuffers};
 use lyon::tessellation::{FillAttributes, FillOptions, FillTessellator};
-use sixtyfps_corelib::abi::datastructures::{ComponentImpl, ComponentType};
+use sixtyfps_corelib::abi::datastructures::ComponentVTable;
 use sixtyfps_corelib::graphics::{
     Color, FillStyle, Frame as GraphicsFrame, GraphicsBackend, RenderingPrimitivesBuilder,
 };
@@ -616,16 +615,8 @@ impl Drop for GLRenderer {
 /// vtable will is a *const, and inner like a *mut
 #[no_mangle]
 pub extern "C" fn sixtyfps_runtime_run_component_with_gl_renderer(
-    component_type: *const ComponentType,
-    component: NonNull<ComponentImpl>,
+    component: vtable::VRefMut<'static, ComponentVTable>,
 ) {
-    let component = unsafe {
-        sixtyfps_corelib::abi::datastructures::ComponentBox::from_raw(
-            NonNull::new_unchecked(component_type as *mut _),
-            component,
-        )
-    };
-
     sixtyfps_corelib::run_component(component, |event_loop, window_builder| {
         GLRenderer::new(&event_loop, window_builder)
     });

@@ -177,7 +177,9 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     let self_ty = &param.ty;
                     let const_or_mut = mutability.map_or_else(|| quote!(const), |x| quote!(#x));
                     call_code = Some(quote!(#call_code <#self_ty>::from_inner(*self),));
-                    self_call = Some(quote!(&#mutability (*(<#self_ty>::inner(&#arg_name).ptr.as_ptr() as *#const_or_mut T)),));
+                    self_call = Some(
+                        quote!(&#mutability (*(<#self_ty>::inner(&#arg_name).ptr.as_ptr() as *#const_or_mut T)),),
+                    );
                     has_self = true;
                     continue;
                 }
@@ -291,10 +293,8 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     sig,
                     block: parse(
                         quote!({
-                            #[allow(unused_parens)]
-                            let vtable = self.vtable;
                             // Safety: this rely on the vtable being valid, and the ptr being a valid instance for this vtable
-                            unsafe {  #wrap_trait_call((vtable.as_ref().#ident)(#call_code)) }
+                            unsafe { (self.vtable.as_ref().#ident)(#call_code) }
                         })
                         .into(),
                     )
@@ -384,8 +384,9 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 type Trait = dyn #trait_name;
                 type VTable = #vtable_name;
                 type TraitObject = #to_name;
-                unsafe fn map_to(to: &Self::TraitObject) -> &Self::Trait { to }
-                unsafe fn map_to_mut(to: &mut Self::TraitObject) -> &mut Self::Trait { to }
+                unsafe fn map_to(from: &Self::TraitObject) -> &Self::Trait { from }
+                unsafe fn map_to_mut(from: &mut Self::TraitObject) -> &mut Self::Trait { from }
+                unsafe fn as_ptr(from: &Self::TraitObject) -> core::ptr::NonNull<u8> { from.ptr.cast() }
             }
 
             #drop_impl
@@ -394,6 +395,6 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
         #[doc(inline)]
         #vis use #module_name::*;
     );
-    println!("{}", result);
+    //println!("{}", result);
     result.into()
 }

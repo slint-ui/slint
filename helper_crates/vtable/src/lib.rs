@@ -1,5 +1,5 @@
 use core::ops::{Deref, DerefMut, Drop};
-//use core::ptr::NonNull;
+use core::ptr::NonNull;
 pub use vtable_macro::vtable;
 
 pub unsafe trait VTableMeta {
@@ -20,6 +20,9 @@ pub unsafe trait VTableMeta {
     unsafe fn map_to(to: &Self::TraitObject) -> &Self::Trait;
     /// Same as map_to, but mutable
     unsafe fn map_to_mut(to: &mut Self::TraitObject) -> &mut Self::Trait;
+
+    /// Return a raw pointer to the inside of the impl
+    unsafe fn as_ptr(from: &Self::TraitObject) -> NonNull<u8>;
 }
 
 pub trait VTableMetaDrop: VTableMeta {
@@ -66,6 +69,9 @@ impl<T: ?Sized + VTableMetaDrop> VBox<T> {
     pub unsafe fn inner(x: &Self) -> T::TraitObject {
         x.inner
     }
+    pub unsafe fn as_ptr(x: &Self) -> NonNull<u8> {
+        T::as_ptr(&x.inner)
+    }
 }
 
 /*
@@ -87,10 +93,19 @@ impl<T: ?Sized + VTableMeta> VBox<T> {
     }*/
 }
 */
-#[derive(Clone, Copy)]
+
 pub struct VRef<'a, T: ?Sized + VTableMeta> {
     inner: T::TraitObject,
     _phantom: core::marker::PhantomData<&'a T::Trait>,
+}
+
+// Need to implement manually otheriwse it is not implemented if T do not implement Copy / Clone
+impl<'a, T: ?Sized + VTableMeta> Copy for VRef<'a, T> {}
+
+impl<'a, T: ?Sized + VTableMeta> Clone for VRef<'a, T> {
+    fn clone(&self) -> Self {
+        Self { inner: self.inner, _phantom: self._phantom }
+    }
 }
 
 impl<'a, T: ?Sized + VTableMeta> Deref for VRef<'a, T> {
@@ -107,6 +122,15 @@ impl<'a, T: ?Sized + VTableMeta> VRef<'a, T> {
     }
     pub unsafe fn inner(x: &Self) -> T::TraitObject {
         x.inner
+    }
+    pub unsafe fn as_ptr(x: &Self) -> NonNull<u8> {
+        T::as_ptr(&x.inner)
+    }
+}
+
+impl<'a, T: ?Sized + VTableMeta> From<VRefMut<'a, T>> for VRef<'a, T> {
+    fn from(v: VRefMut<'a, T>) -> Self {
+        unsafe { VRef::from_inner(VRefMut::inner(&v)) }
     }
 }
 
@@ -136,5 +160,8 @@ impl<'a, T: ?Sized + VTableMeta> VRefMut<'a, T> {
     }
     pub unsafe fn inner(x: &Self) -> T::TraitObject {
         x.inner
+    }
+    pub unsafe fn as_ptr(x: &Self) -> NonNull<u8> {
+        T::as_ptr(&x.inner)
     }
 }

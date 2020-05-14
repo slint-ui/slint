@@ -19,6 +19,7 @@ impl Hello for SomeStruct {
     }
 
     fn foo_mut(&mut self, xx: u32) -> u32 {
+        println!("calling foo_mut {} + {}", self.0, xx);
         self.0 += xx;
         self.0
     }
@@ -42,8 +43,8 @@ fn test() {
     assert_eq!(vt.assoc(), 32);
     let mut bx = vt.construct(89);
     assert_eq!(bx.foo(1), 90);
-    assert_eq!(bx.foo_mut(1), 91);
-    assert_eq!(bx.foo(1), 92);
+    assert_eq!(bx.foo_mut(6), 95);
+    assert_eq!(bx.foo(2), 97);
 }
 
 

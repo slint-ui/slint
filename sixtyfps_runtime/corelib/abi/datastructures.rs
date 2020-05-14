@@ -1,19 +1,18 @@
 use core::ptr::NonNull;
+use vtable::*;
 
+#[vtable]
 #[repr(C)]
-#[vtable::vtable]
 pub struct ComponentVTable {
-    // /// Allocate an instance of this component
-    // pub create: Option<unsafe extern "C" fn(*const ComponentType) -> *mut ComponentImpl>,
+    /// Allocate an instance of this component
+    pub create: extern "C" fn(*const ComponentVTable) -> VBox<ComponentVTable>,
 
     /// Destruct this component.
-    pub drop: extern "C" fn(*const ComponentVTable, *mut ComponentImpl),
+    pub drop: extern "C" fn(VRefMut<ComponentVTable>),
 
     /// Returns an array that represent the item tree
-    pub item_tree: extern "C" fn(*const ComponentVTable, *const ComponentImpl) -> *const ItemTreeNode,
+    pub item_tree: extern "C" fn(VRef<ComponentVTable>) -> *const ItemTreeNode,
 }
-
-pub type ComponentType = ComponentVTable;
 
 /// From the ItemTreeNode and a ComponentImpl, you can get a pointer to the instance data
 /// ItemImpl via the offset field.
@@ -56,7 +55,7 @@ pub enum ItemTreeNode {
     DynamicTree {
         /// Component vtable.
         /// This component is going to be instantiated as many time as the model tells
-        component_type: *const ComponentType,
+        component_type: ComponentType,
 
         /// vtable of the model
         model_type: *const super::model::ModelType,
@@ -162,77 +161,75 @@ impl Item {
     }
 }
 
-impl ComponentBox {
+/// Visit each items recursively
+///
+/// The state parametter returned by the visitor is passed to each children.
+pub fn visit_items<State>(
+    component: VRef<'_, ComponentVTable>,
+    mut visitor: impl FnMut(&Item, &State) -> State,
+    state: State,
+) {
+    visit_internal(component, &mut visitor, 0, &state)
+}
 
-    /// Visit each items recursively
-    ///
-    /// The state parametter returned by the visitor is passed to each children.
-    pub fn visit_items<State>(
-        &self,
-        mut visitor: impl FnMut(&Item, &State) -> State,
-        state: State,
-    ) {
-        self.visit_internal(&mut visitor, 0, &state)
-    }
-
-    fn visit_internal<State>(
-        &self,
-        visitor: &mut impl FnMut(&Item, &State) -> State,
-        index: isize,
-        state: &State,
-    ) {
-        let item_tree = self.item_tree();
-        match unsafe { &*item_tree.offset(index) } {
-            ItemTreeNode::Item { vtable, offset, children_index, chilren_count } => {
-                let item = unsafe {
-                    Item::new(
-                        NonNull::new_unchecked(*vtable as *mut _),
-                        NonNull::new_unchecked(
-                            (self.as_ptr() as *mut u8).offset(*offset) as *mut _
-                        ),
-                    )
-                };
-                let state = visitor(&item, state);
-                for c in *children_index..(*children_index + *chilren_count) {
-                    self.visit_internal(visitor, c as isize, &state)
-                }
+fn visit_internal<State>(
+    component: VRef<'_, ComponentVTable>,
+    visitor: &mut impl FnMut(&Item, &State) -> State,
+    index: isize,
+    state: &State,
+) {
+    let item_tree = component.item_tree();
+    match unsafe { &*item_tree.offset(index) } {
+        ItemTreeNode::Item { vtable, offset, children_index, chilren_count } => {
+            let item = unsafe {
+                Item::new(
+                    NonNull::new_unchecked(*vtable as *mut _),
+                    NonNull::new_unchecked(
+                        (VRef::as_ptr(&component).as_ptr()).offset(*offset) as *mut _,
+                    ),
+                )
+            };
+            let state = visitor(&item, state);
+            for c in *children_index..(*children_index + *chilren_count) {
+                visit_internal(component, visitor, c as isize, &state)
             }
-            ItemTreeNode::DynamicTree { .. } => todo!(),
         }
+        ItemTreeNode::DynamicTree { .. } => todo!(),
     }
+}
 
-    pub fn visit_items_mut<State>(
-        &mut self,
-        mut visitor: impl FnMut(&mut Item, &State) -> State,
-        state: State,
-    ) {
-        self.visit_internal_mut(&mut visitor, 0, &state)
-    }
+pub fn visit_items_mut<State>(
+    component: &mut VRefMut<'_, ComponentVTable>,
+    mut visitor: impl FnMut(&mut Item, &State) -> State,
+    state: State,
+) {
+    visit_internal_mut(component, &mut visitor, 0, &state)
+}
 
-    fn visit_internal_mut<State>(
-        &mut self,
-        visitor: &mut impl FnMut(&mut Item, &State) -> State,
-        index: isize,
-        state: &State,
-    ) {
-        let item_tree = self.item_tree();
-        match unsafe { &*item_tree.offset(index) } {
-            ItemTreeNode::Item { vtable, offset, children_index, chilren_count } => {
-                let mut item = unsafe {
-                    Item::new(
-                        NonNull::new_unchecked(*vtable as *mut _),
-                        NonNull::new_unchecked(
-                            (self.as_ptr() as *mut u8).offset(*offset) as *mut _
-                        ),
-                    )
-                };
-                let state = visitor(&mut item, state);
-                for c in *children_index..(*children_index + *chilren_count) {
-                    self.visit_internal_mut(visitor, c as isize, &state)
-                }
+fn visit_internal_mut<State>(
+    component: &mut VRefMut<'_, ComponentVTable>,
+    visitor: &mut impl FnMut(&mut Item, &State) -> State,
+    index: isize,
+    state: &State,
+) {
+    let item_tree = component.item_tree();
+    match unsafe { &*item_tree.offset(index) } {
+        ItemTreeNode::Item { vtable, offset, children_index, chilren_count } => {
+            let mut item = unsafe {
+                Item::new(
+                    NonNull::new_unchecked(*vtable as *mut _),
+                    NonNull::new_unchecked(
+                        (VRefMut::as_ptr(component).as_ptr() as *mut u8).offset(*offset) as *mut _,
+                    ),
+
+                )
+            };
+            let state = visitor(&mut item, state);
+            for c in *children_index..(*children_index + *chilren_count) {
+                visit_internal_mut(component, visitor, c as isize, &state)
             }
-            ItemTreeNode::DynamicTree { .. } => todo!(),
         }
+        ItemTreeNode::DynamicTree { .. } => todo!(),
     }
 }
 

@@ -20,5 +20,5 @@ pub struct ModelType {
 pub struct ComponentVec {
     /// Should be some kind of smart pointer that deletes the component
     /// Should also be a repr(c) thing with some kind of init method
-    _todo: Vec<*mut super::datastructures::ComponentImpl>,
+    _todo: Vec<*mut dyn super::datastructures::Component>,
 }
