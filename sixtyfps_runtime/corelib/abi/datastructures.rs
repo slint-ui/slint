@@ -55,7 +55,7 @@ pub enum ItemTreeNode {
     DynamicTree {
         /// Component vtable.
         /// This component is going to be instantiated as many time as the model tells
-        component_type: ComponentType,
+        component_type: *const ComponentVTable,
 
         /// vtable of the model
         model_type: *const super::model::ModelType,

@@ -3,7 +3,7 @@ extern crate cbindgen;
 use std::env;
 
 fn main() {
-    let include = ["Rectangle", "Image", "ComponentType"]
+    let include = ["Rectangle", "Image", "ComponentVTable"]
         .iter()
         .map(|x| x.to_string())
         .collect::<Vec<String>>();

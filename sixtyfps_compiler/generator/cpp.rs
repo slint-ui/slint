@@ -172,13 +172,13 @@ pub fn generate(component: &LoweredComponent) -> impl std::fmt::Display {
 
     main_struct.members.push(Declaration::Function(Function {
         name: "tree_fn".into(),
-        signature: "(const sixtyfps::ComponentType*) -> const sixtyfps::ItemTreeNode* ".into(),
+        signature: "(sixtyfps::ComponentRef) -> const sixtyfps::ItemTreeNode* ".into(),
         is_static: true,
         ..Default::default()
     }));
 
     main_struct.members.push(Declaration::Var(Var {
-        ty: "static const sixtyfps::ComponentType".to_owned(),
+        ty: "static const sixtyfps::ComponentVTable".to_owned(),
         name: "component_type".to_owned(),
         init: None,
     }));
@@ -201,7 +201,7 @@ pub fn generate(component: &LoweredComponent) -> impl std::fmt::Display {
 
     x.declarations.push(Declaration::Function(Function {
         name: format!("{}::tree_fn", component.id),
-        signature: "(const sixtyfps::ComponentType*) -> const sixtyfps::ItemTreeNode* ".into(),
+        signature: "(sixtyfps::ComponentRef) -> const sixtyfps::ItemTreeNode* ".into(),
         statements: Some(vec![
             "static const sixtyfps::ItemTreeNode children[] {".to_owned(),
             format!("    {} }};", tree_array),
@@ -211,7 +211,7 @@ pub fn generate(component: &LoweredComponent) -> impl std::fmt::Display {
     }));
 
     x.declarations.push(Declaration::Var(Var {
-        ty: "const sixtyfps::ComponentType".to_owned(),
+        ty: "const sixtyfps::ComponentVTable".to_owned(),
         name: format!("{}::component_type", component.id),
         init: Some("{ nullptr, sixtyfps::dummy_destory, tree_fn }".to_owned()),
     }));
