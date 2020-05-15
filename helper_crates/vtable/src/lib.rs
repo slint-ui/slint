@@ -1,6 +1,6 @@
+use core::marker::PhantomData;
 use core::ops::{Deref, DerefMut, Drop};
 use core::ptr::NonNull;
-use core::marker::PhantomData;
 pub use vtable_macro::*;
 
 pub unsafe trait VTableMeta {
@@ -12,7 +12,6 @@ pub unsafe trait VTableMeta {
     /// That's the trait object that implements the trait.
     /// NOTE: the size must be 2*size_of<usize>
     type TraitObject: Copy;
-
 
     /// That maps from the tait object from the trait iteself
     /// (In other word, return 'to' since 'to' implements trait,
@@ -31,8 +30,6 @@ pub unsafe trait VTableMeta {
 
     /// return a reference to the vtable
     unsafe fn get_vtable(from: &Self::TraitObject) -> &Self::VTable;
-
-
 }
 
 pub trait VTableMetaDrop: VTableMeta {
@@ -83,32 +80,18 @@ impl<T: ?Sized + VTableMetaDrop> VBox<T> {
         T::get_ptr(&x.inner)
     }
     pub unsafe fn from_raw(vtable: NonNull<T::VTable>, ptr: NonNull<u8>) -> Self {
-        Self {inner : T::from_raw(vtable, ptr)}
+        Self { inner: T::from_raw(vtable, ptr) }
     }
     pub fn get_vtable(&self) -> &T::VTable {
         unsafe { T::get_vtable(&self.inner) }
     }
-}
-
-/*
-impl<T: ?Sized + VTableMeta> VBox<T> {
-    /// Construct the box from raw pointer of a vtable and a corresponding pointer
-    pub unsafe fn from_inner(
-        vtable: core::ptr::NonNull<#vtable_name>,
-        ptr: core::ptr::NonNull<#impl_name>,
-    ) -> Self {
-        Self{inner: #to_name{vtable, ptr}}
+    pub fn borrow<'b>(&'b self) -> VRef<'b, T> {
+        unsafe { VRef::from_inner(self.inner) }
     }
-
-    /*pub fn vtable(&self) -> & #vtable_name {
-        unsafe { self.inner.vtable.as_ref() }
-    }*/
-
-   /* pub fn get_ptr(&self) -> *mut #impl_name {
-        self.inner.ptr.get_ptr()
-    }*/
+    pub fn borrow_mut<'b>(&'b mut self) -> VRefMut<'b, T> {
+        unsafe { VRefMut::from_inner(self.inner) }
+    }
 }
-*/
 
 pub struct VRef<'a, T: ?Sized + VTableMeta> {
     inner: T::TraitObject,
@@ -143,7 +126,7 @@ impl<'a, T: ?Sized + VTableMeta> VRef<'a, T> {
         T::get_ptr(&x.inner)
     }
     pub unsafe fn from_raw(vtable: NonNull<T::VTable>, ptr: NonNull<u8>) -> Self {
-        Self {inner : T::from_raw(vtable, ptr), _phantom: PhantomData }
+        Self { inner: T::from_raw(vtable, ptr), _phantom: PhantomData }
     }
     pub fn get_vtable(&self) -> &T::VTable {
         unsafe { T::get_vtable(&self.inner) }
@@ -190,9 +173,12 @@ impl<'a, T: ?Sized + VTableMeta> VRefMut<'a, T> {
         unsafe { VRef::from_inner(VRefMut::inner(&self)) }
     }
     pub unsafe fn from_raw(vtable: NonNull<T::VTable>, ptr: NonNull<u8>) -> Self {
-        Self {inner : T::from_raw(vtable, ptr), _phantom: PhantomData }
+        Self { inner: T::from_raw(vtable, ptr), _phantom: PhantomData }
     }
     pub fn get_vtable(&self) -> &T::VTable {
         unsafe { T::get_vtable(&self.inner) }
     }
 }
+
+#[cfg(doctest)]
+mod compile_fail_tests;

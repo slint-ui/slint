@@ -221,6 +221,11 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 forward_code = Some(quote!(#forward_code #arg_name,));
             }
 
+            if has_self {
+                // Add unsafe: The function are not safe to call unless the self parameter is of the correct type
+                f.unsafety = Some(Default::default());
+            }
+
             // Add extern "C" if it isn't there
             if let Some(a) = &f.abi {
                 if !a.name.as_ref().map(|s| s.value() == "C").unwrap_or(false) {
@@ -462,7 +467,6 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 }
             }
     );
-//     println!("{}", result);
+    //     println!("{}", result);
     result.into()
 }
-
