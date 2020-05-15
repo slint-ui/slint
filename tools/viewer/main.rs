@@ -55,11 +55,11 @@ unsafe fn set_property<T: PropertyWriter>(ptr: *mut u8, e: &Expression) {
     T::write(ptr, e);
 }
 
-unsafe extern "C" fn dummy_destroy(_: ComponentRefMut) {
+extern "C" fn dummy_destroy(_: ComponentRefMut) {
     panic!();
 }
 
-unsafe extern "C" fn dummy_create(_: *const ComponentVTable) -> ComponentBox {
+extern "C" fn dummy_create(_: &ComponentVTable) -> ComponentBox {
     panic!()
 }
 
@@ -69,10 +69,14 @@ struct MyComponentType {
     it: Vec<corelib::abi::datastructures::ItemTreeNode>,
 }
 
-unsafe extern "C" fn item_tree(
+extern "C" fn item_tree(
     r: ComponentRef<'_>,
 ) -> *const corelib::abi::datastructures::ItemTreeNode {
-    (*(ComponentRef::get_vtable(&r) as *const ComponentVTable as *const MyComponentType)).it.as_ptr()
+    // FIXME! unsafe is not correct here, as the ComponentVTable might not be a MyComponentType
+    // (one can safely take a copy of the vtable and call the create function to get a box)
+    unsafe {
+        (*(ComponentRef::get_vtable(&r) as *const ComponentVTable as *const MyComponentType)).it.as_ptr()
+    }
 }
 
 struct RuntimeTypeInfo {

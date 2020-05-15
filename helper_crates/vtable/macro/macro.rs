@@ -221,8 +221,6 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 forward_code = Some(quote!(#forward_code #arg_name,));
             }
 
-            // Add unsafe
-            f.unsafety = Some(Default::default());
             // Add extern "C" if it isn't there
             if let Some(a) = &f.abi {
                 if !a.name.as_ref().map(|s| s.value() == "C").unwrap_or(false) {
@@ -245,7 +243,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                         // Change VBox<VTable> to Self
                         sig.output = parse_str("-> Self").unwrap();
                         wrap_trait_call = Some(quote! {
-                            let wrap_trait_call = |x| {
+                            let wrap_trait_call = |x| unsafe {
                                 // Put the object on the heap and get a pointer to it
                                 let ptr = core::ptr::NonNull::from(Box::leak(Box::new(x)));
                                 VBox::<#vtable_name>::from_raw(vtable, ptr.cast())
@@ -338,11 +336,9 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     #[allow(unused_parens)]
                     #sig_extern {
                         // This is safe since the self must be a instance of our type
-                        unsafe {
-                            #[allow(unused)]
-                            let vtable = core::ptr::NonNull::new_unchecked(_0 as *mut #vtable_name);
-                            #wrap_trait_call(T::#ident(#self_call #forward_code))
-                        }
+                        #[allow(unused)]
+                        let vtable = unsafe { core::ptr::NonNull::from(&*_0) };
+                        #wrap_trait_call(T::#ident(#self_call #forward_code))
                     }
                     #some(#ident::<T>)
                 },));

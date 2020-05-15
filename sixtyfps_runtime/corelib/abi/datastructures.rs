@@ -5,7 +5,7 @@ use vtable::*;
 #[repr(C)]
 pub struct ComponentVTable {
     /// Allocate an instance of this component
-    pub create: extern "C" fn(*const ComponentVTable) -> VBox<ComponentVTable>,
+    pub create: extern "C" fn(&ComponentVTable) -> VBox<ComponentVTable>,
 
     /// Destruct this component.
     pub drop: extern "C" fn(VRefMut<ComponentVTable>),
