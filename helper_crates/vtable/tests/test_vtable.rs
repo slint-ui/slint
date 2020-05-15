@@ -8,6 +8,8 @@ struct HelloVTable {
     assoc: fn(*const HelloVTable) -> isize,
 
     drop: fn(VRefMut<'_, HelloVTable>),
+
+    CONSTANT: usize,
 }
 
 #[derive(Debug)]
@@ -34,6 +36,9 @@ impl Hello for SomeStruct {
         32
     }
 }
+impl HelloConsts for SomeStruct {
+    const CONSTANT: usize = 88;
+}
 
 #[test]
 fn test() {
@@ -41,10 +46,12 @@ fn test() {
     let mut vt = HelloVTable::new::<SomeStruct>();
     let vt = unsafe { HelloType::from_raw(std::ptr::NonNull::from(&mut vt)) };
     assert_eq!(vt.assoc(), 32);
+    assert_eq!(vt.CONSTANT(), 88);
     let mut bx = vt.construct(89);
     assert_eq!(bx.foo(1), 90);
     assert_eq!(bx.foo_mut(6), 95);
     assert_eq!(bx.foo(2), 97);
+    assert_eq!(bx.get_type().CONSTANT(), 88);
 }
 
 

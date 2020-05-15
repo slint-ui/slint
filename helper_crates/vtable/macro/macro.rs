@@ -81,15 +81,15 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
         brace_token: Default::default(),
         items: Default::default(),
     };
+    let mut generated_trait_assoc_const = None;
 
     let mut generated_to_fn_trait = vec![];
     let mut generated_type_assoc_fn = vec![];
     let mut vtable_ctor = vec![];
 
     for field in &mut fields.named {
+        let ident = field.ident.as_ref().unwrap();
         if let Type::BareFn(f) = &mut field.ty {
-            let ident = field.ident.as_ref().unwrap();
-
             let mut sig = Signature {
                 constness: None,
                 asyncness: None,
@@ -264,18 +264,15 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 vis: Visibility::Inherited,
                 defaultness: None,
                 sig: sig.clone(),
-                block: parse(
-                    if has_self {
-                        quote!({
-                            // Safety: this rely on the vtable being valid, and the ptr being a valid instance for this vtable
-                            unsafe { (self.vtable.as_ref().#ident)(#call_code) }
-                        })
-                    } else {
-                        // This should never happen: nobody should be able to access the Trait Object directly.
-                        quote!({ panic!("Calling Sized method on a Trait Object") })
-                    }
-                    .into(),
-                )
+                block: parse2(if has_self {
+                    quote!({
+                        // Safety: this rely on the vtable being valid, and the ptr being a valid instance for this vtable
+                        unsafe { (self.vtable.as_ref().#ident)(#call_code) }
+                    })
+                } else {
+                    // This should never happen: nobody should be able to access the Trait Object directly.
+                    quote!({ panic!("Calling Sized method on a Trait Object") })
+                })
                 .unwrap(),
             });
 
@@ -295,13 +292,10 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     vis: generated_trait.vis.clone(),
                     defaultness: None,
                     sig,
-                    block: parse(
-                        quote!({
-                            // Safety: this rely on the vtable being valid, and the ptr being a valid instance for this vtable
-                            unsafe { (self.vtable.as_ref().#ident)(#call_code) }
-                        })
-                        .into(),
-                    )
+                    block: parse2(quote!({
+                        // Safety: this rely on the vtable being valid, and the ptr being a valid instance for this vtable
+                        unsafe { (self.vtable.as_ref().#ident)(#call_code) }
+                    }))
                     .unwrap(),
                 });
 
@@ -327,17 +321,47 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 },));
             }
         } else {
-            return Error::new(field.span(), "member must only be functions")
-                .to_compile_error()
-                .into();
+            // associated constant
+            let ty = &field.ty;
+
+            let generated_trait_assoc_const =
+                generated_trait_assoc_const.get_or_insert_with(|| ItemTrait {
+                    attrs: vec![],
+                    ident: quote::format_ident!("{}Consts", trait_name),
+                    items: vec![],
+                    ..generated_trait.clone()
+                });
+            generated_trait_assoc_const.items.push(TraitItem::Const(TraitItemConst {
+                attrs: field.attrs.clone(),
+                const_token: Default::default(),
+                ident: ident.clone(),
+                colon_token: Default::default(),
+                ty: ty.clone(),
+                default: None,
+                semi_token: Default::default(),
+            }));
+
+            vtable_ctor.push(quote!(#ident: T::#ident,));
+
+            generated_type_assoc_fn.push(
+                parse2(quote! {
+                    pub fn #ident(&self) -> #ty  {
+                        // Safety: this rely on the vtable being valid, and the ptr being a valid instance for this vtable
+                        unsafe { self.vtable.as_ref().#ident }
+                    }
+                })
+                .unwrap(),
+            );
         };
     }
 
     let vis = input.vis;
     input.vis = Visibility::Public(VisPublic { pub_token: Default::default() });
 
-    /*let (fields_name, fields_type): (Vec<_>, Vec<_>) =
-    fields.named.iter().map(|f| (f.ident.clone().unwrap(), f.ty.clone())).unzip();*/
+    let new_trait_extra = generated_trait_assoc_const.as_ref().map(|x| {
+        let i = &x.ident;
+        quote!(+ #i)
+    });
 
     let result = quote!(
         #[allow(non_snake_case)]
@@ -350,7 +374,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
             impl #vtable_name {
                 // unfortunately cannot be const in stable rust because of the bounds (depends on rfc 2632)
-                pub /*const*/ fn new<T: #trait_name>() -> Self {
+                pub /*const*/ fn new<T: #trait_name #new_trait_extra>() -> Self {
                     Self {
                         #(#vtable_ctor)*
                     }
@@ -358,6 +382,8 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
             }
 
             #generated_trait
+            #generated_trait_assoc_const
+
             struct #impl_name { _private: [u8; 0] }
 
             /// This structure is highly unsafe, as it just has pointers. One could call trait functions
@@ -388,12 +414,20 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 type Trait = dyn #trait_name;
                 type VTable = #vtable_name;
                 type TraitObject = #to_name;
+                type Type = #type_name;
+                #[inline]
                 unsafe fn map_to(from: &Self::TraitObject) -> &Self::Trait { from }
+                #[inline]
                 unsafe fn map_to_mut(from: &mut Self::TraitObject) -> &mut Self::Trait { from }
+                #[inline]
                 unsafe fn get_ptr(from: &Self::TraitObject) -> core::ptr::NonNull<u8> { from.ptr.cast() }
+                #[inline]
                 unsafe fn get_vtable(from: &Self::TraitObject) -> core::ptr::NonNull<Self::VTable> { from.vtable }
+                #[inline]
                 unsafe fn from_raw(vtable: core::ptr::NonNull<Self::VTable>, ptr: core::ptr::NonNull<u8>) -> Self::TraitObject
                 { #to_name { vtable, ptr : ptr.cast() } }
+                #[inline]
+                unsafe fn get_type(from: &Self::TraitObject) -> Self::Type { #type_name::from_raw(from.vtable) }
             }
 
             #drop_impl

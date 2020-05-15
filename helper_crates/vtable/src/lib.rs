@@ -9,9 +9,13 @@ pub unsafe trait VTableMeta {
     /// that's the vtable struct `HelloVTable`
     type VTable;
 
+    /// That's the safe wrapper around a vtable pointer (`HelloType`)
+    type Type;
+
     /// That's the trait object that implements the trait.
     /// NOTE: the size must be 2*size_of<usize>
     type TraitObject: Copy;
+
 
     /// That maps from the tait object from the trait iteself
     /// (In other word, return 'to' since 'to' implements trait,
@@ -29,6 +33,11 @@ pub unsafe trait VTableMeta {
 
     /// Create a trait object from its raw parts
     unsafe fn from_raw(vtable: NonNull<Self::VTable>, ptr: NonNull<u8>) -> Self::TraitObject;
+
+    /// return a safe pointer around the vtable
+    unsafe fn get_type(from: &Self::TraitObject) -> Self::Type;
+
+
 }
 
 pub trait VTableMetaDrop: VTableMeta {
@@ -83,6 +92,9 @@ impl<T: ?Sized + VTableMetaDrop> VBox<T> {
     }
     pub unsafe fn from_raw(vtable: NonNull<T::VTable>, ptr: NonNull<u8>) -> Self {
         Self {inner : T::from_raw(vtable, ptr)}
+    }
+    pub fn get_type(&self) -> T::Type {
+        unsafe { T::get_type(&self.inner) }
     }
 }
 
@@ -144,6 +156,9 @@ impl<'a, T: ?Sized + VTableMeta> VRef<'a, T> {
     pub unsafe fn from_raw(vtable: NonNull<T::VTable>, ptr: NonNull<u8>) -> Self {
         Self {inner : T::from_raw(vtable, ptr), _phantom: PhantomData }
     }
+    pub fn get_type(&self) -> T::Type {
+        unsafe { T::get_type(&self.inner) }
+    }
 }
 
 pub struct VRefMut<'a, T: ?Sized + VTableMeta> {
@@ -190,5 +205,8 @@ impl<'a, T: ?Sized + VTableMeta> VRefMut<'a, T> {
     }
     pub fn into_ref(self) -> VRef<'a, T> {
         unsafe { VRef::from_inner(VRefMut::inner(&self)) }
+    }
+    pub fn get_type(&self) -> T::Type {
+        unsafe { T::get_type(&self.inner) }
     }
 }
