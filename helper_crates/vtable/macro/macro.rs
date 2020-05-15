@@ -53,7 +53,6 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let trait_name = Ident::new(&vtable_name[..vtable_name.len() - 6], input.ident.span());
     let to_name = quote::format_ident!("{}TO", trait_name);
     let impl_name = quote::format_ident!("{}Impl", trait_name);
-    let type_name = quote::format_ident!("{}Type", trait_name);
     let module_name = quote::format_ident!("{}_vtable_mod", trait_name);
     let ref_name = quote::format_ident!("{}Ref", trait_name);
     let refmut_name = quote::format_ident!("{}RefMut", trait_name);
@@ -93,7 +92,33 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
         field.vis = Visibility::Public(VisPublic { pub_token: Default::default() });
 
         let ident = field.ident.as_ref().unwrap();
-        if let Type::BareFn(f) = &mut field.ty {
+        let mut some = None;
+
+        let func_ty = if let Type::BareFn(f) = &mut field.ty {
+            Some(f)
+        } else if let Type::Path(pat) = &mut field.ty {
+            pat.path.segments.last_mut().and_then(|seg| {
+                if seg.ident == "Option" {
+                    some = Some(quote!(Some));
+                    if let PathArguments::AngleBracketed(args) = &mut seg.arguments {
+                        if let Some(GenericArgument::Type(Type::BareFn(f))) = args.args.first_mut()
+                        {
+                            Some(f)
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            })
+        } else {
+            None
+        };
+
+        if let Some(f) = func_ty {
             let mut sig = Signature {
                 constness: None,
                 asyncness: None,
@@ -156,7 +181,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                                     .to_compile_error()
                                     .into();
                                 }
-                                call_code = Some(quote!(self.vtable.as_ptr(),));
+                                call_code = Some(quote!(vtable as _,));
                                 continue;
                             }
                         }
@@ -269,7 +294,14 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 block: parse2(if has_self {
                     quote!({
                         // Safety: this rely on the vtable being valid, and the ptr being a valid instance for this vtable
-                        unsafe { (self.vtable.as_ref().#ident)(#call_code) }
+                        unsafe {
+                            let vtable = self.vtable.as_ref();
+                            if let #some(func) = vtable.#ident {
+                                func (#call_code)
+                            } else {
+                                panic!("Called a not-implemented method")
+                            }
+                        }
                     })
                 } else {
                     // This should never happen: nobody should be able to access the Trait Object directly.
@@ -295,15 +327,16 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     defaultness: None,
                     sig,
                     block: parse2(quote!({
+                        let vtable = self;
                         // Safety: this rely on the vtable being valid, and the ptr being a valid instance for this vtable
-                        unsafe { (self.vtable.as_ref().#ident)(#call_code) }
+                        unsafe { (self.#ident)(#call_code) }
                     }))
                     .unwrap(),
                 });
 
                 vtable_ctor.push(quote!(#ident: {
+                    #[allow(unused_parens)]
                     #sig_extern {
-                        #[allow(unused_parens)]
                         // This is safe since the self must be a instance of our type
                         unsafe {
                             #[allow(unused)]
@@ -311,7 +344,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                             #wrap_trait_call(T::#ident(#self_call #forward_code))
                         }
                     }
-                    #ident::<T>
+                    #some(#ident::<T>)
                 },));
             } else {
                 vtable_ctor.push(quote!(#ident: {
@@ -344,16 +377,6 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
             }));
 
             vtable_ctor.push(quote!(#ident: T::#ident,));
-
-            generated_type_assoc_fn.push(
-                parse2(quote! {
-                    pub fn #ident(&self) -> #ty  {
-                        // Safety: this rely on the vtable being valid, and the ptr being a valid instance for this vtable
-                        unsafe { self.vtable.as_ref().#ident }
-                    }
-                })
-                .unwrap(),
-            );
         };
     }
 
@@ -381,6 +404,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                         #(#vtable_ctor)*
                     }
                 }
+                #(#generated_type_assoc_fn)*
             }
 
             #generated_trait
@@ -401,24 +425,10 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
             }
             impl #trait_name for #to_name { #(#generated_to_fn_trait)* }
 
-            #[repr(transparent)]
-            /// Safe wrapper around a VTable.
-            pub struct #type_name {
-                vtable: core::ptr::NonNull<#vtable_name>
-            }
-            impl #type_name {
-                pub const unsafe fn from_raw(vtable: core::ptr::NonNull<#vtable_name>) -> Self {
-                     Self { vtable }
-                }
-                #(#generated_type_assoc_fn)*
-            }
-            unsafe impl core::marker::Sync for #type_name {}
-
             unsafe impl VTableMeta for #vtable_name {
                 type Trait = dyn #trait_name;
                 type VTable = #vtable_name;
                 type TraitObject = #to_name;
-                type Type = #type_name;
                 #[inline]
                 unsafe fn map_to(from: &Self::TraitObject) -> &Self::Trait { from }
                 #[inline]
@@ -426,12 +436,10 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 #[inline]
                 unsafe fn get_ptr(from: &Self::TraitObject) -> core::ptr::NonNull<u8> { from.ptr.cast() }
                 #[inline]
-                unsafe fn get_vtable(from: &Self::TraitObject) -> core::ptr::NonNull<Self::VTable> { from.vtable }
+                unsafe fn get_vtable(from: &Self::TraitObject) -> &Self::VTable { from.vtable.as_ref() }
                 #[inline]
                 unsafe fn from_raw(vtable: core::ptr::NonNull<Self::VTable>, ptr: core::ptr::NonNull<u8>) -> Self::TraitObject
                 { #to_name { vtable, ptr : ptr.cast() } }
-                #[inline]
-                unsafe fn get_type(from: &Self::TraitObject) -> Self::Type { #type_name::from_raw(from.vtable) }
             }
 
             #drop_impl
@@ -445,13 +453,8 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 ($ty:ty) => {
                     {
                         type T = $ty;
-                        static VTABLE : #vtable_name = #vtable_name {
+                        #vtable_name {
                             #(#vtable_ctor)*
-                        };
-                        unsafe {
-                            <#vtable_name as ::vtable::VTableMeta>::Type::from_raw(
-                                core::ptr::NonNull::new_unchecked(&VTABLE as *const _ as *mut #vtable_name)
-                            )
                         }
                     }
                 }

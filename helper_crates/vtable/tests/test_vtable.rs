@@ -40,18 +40,18 @@ impl HelloConsts for SomeStruct {
     const CONSTANT: usize = 88;
 }
 
-static SOME_STRUCT_TYPE : HelloType = HelloVTable_static!(SomeStruct);
+static SOME_STRUCT_TYPE : HelloVTable = HelloVTable_static!(SomeStruct);
 
 #[test]
 fn test() {
     let vt = &SOME_STRUCT_TYPE;
     assert_eq!(vt.assoc(), 32);
-    assert_eq!(vt.CONSTANT(), 88);
+    assert_eq!(vt.CONSTANT, 88);
     let mut bx = vt.construct(89);
     assert_eq!(bx.foo(1), 90);
     assert_eq!(bx.foo_mut(6), 95);
     assert_eq!(bx.foo(2), 97);
-    assert_eq!(bx.get_type().CONSTANT(), 88);
+    assert_eq!(bx.get_vtable().CONSTANT, 88);
 }
 
 

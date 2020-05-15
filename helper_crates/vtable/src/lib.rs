@@ -9,9 +9,6 @@ pub unsafe trait VTableMeta {
     /// that's the vtable struct `HelloVTable`
     type VTable;
 
-    /// That's the safe wrapper around a vtable pointer (`HelloType`)
-    type Type;
-
     /// That's the trait object that implements the trait.
     /// NOTE: the size must be 2*size_of<usize>
     type TraitObject: Copy;
@@ -28,14 +25,12 @@ pub unsafe trait VTableMeta {
 
     /// Return a raw pointer to the inside of the impl
     unsafe fn get_ptr(from: &Self::TraitObject) -> NonNull<u8>;
-    /// return a raw pointer to the vtable
-    unsafe fn get_vtable(from: &Self::TraitObject) -> NonNull<Self::VTable>;
 
     /// Create a trait object from its raw parts
     unsafe fn from_raw(vtable: NonNull<Self::VTable>, ptr: NonNull<u8>) -> Self::TraitObject;
 
-    /// return a safe pointer around the vtable
-    unsafe fn get_type(from: &Self::TraitObject) -> Self::Type;
+    /// return a reference to the vtable
+    unsafe fn get_vtable(from: &Self::TraitObject) -> &Self::VTable;
 
 
 }
@@ -87,14 +82,11 @@ impl<T: ?Sized + VTableMetaDrop> VBox<T> {
     pub unsafe fn get_ptr(x: &Self) -> NonNull<u8> {
         T::get_ptr(&x.inner)
     }
-    pub unsafe fn get_vtable(x: &Self) -> NonNull<T::VTable> {
-        T::get_vtable(&x.inner)
-    }
     pub unsafe fn from_raw(vtable: NonNull<T::VTable>, ptr: NonNull<u8>) -> Self {
         Self {inner : T::from_raw(vtable, ptr)}
     }
-    pub fn get_type(&self) -> T::Type {
-        unsafe { T::get_type(&self.inner) }
+    pub fn get_vtable(&self) -> &T::VTable {
+        unsafe { T::get_vtable(&self.inner) }
     }
 }
 
@@ -150,14 +142,11 @@ impl<'a, T: ?Sized + VTableMeta> VRef<'a, T> {
     pub unsafe fn get_ptr(x: &Self) -> NonNull<u8> {
         T::get_ptr(&x.inner)
     }
-    pub unsafe fn get_vtable(x: &Self) -> NonNull<T::VTable> {
-        T::get_vtable(&x.inner)
-    }
     pub unsafe fn from_raw(vtable: NonNull<T::VTable>, ptr: NonNull<u8>) -> Self {
         Self {inner : T::from_raw(vtable, ptr), _phantom: PhantomData }
     }
-    pub fn get_type(&self) -> T::Type {
-        unsafe { T::get_type(&self.inner) }
+    pub fn get_vtable(&self) -> &T::VTable {
+        unsafe { T::get_vtable(&self.inner) }
     }
 }
 
@@ -191,12 +180,6 @@ impl<'a, T: ?Sized + VTableMeta> VRefMut<'a, T> {
     pub unsafe fn get_ptr(x: &Self) -> NonNull<u8> {
         T::get_ptr(&x.inner)
     }
-    pub unsafe fn get_vtable(x: &Self) -> NonNull<T::VTable> {
-        T::get_vtable(&x.inner)
-    }
-    pub unsafe fn from_raw(vtable: NonNull<T::VTable>, ptr: NonNull<u8>) -> Self {
-        Self {inner : T::from_raw(vtable, ptr), _phantom: PhantomData }
-    }
     pub fn borrow<'b>(&'b self) -> VRef<'b, T> {
         unsafe { VRef::from_inner(VRefMut::inner(self)) }
     }
@@ -206,7 +189,7 @@ impl<'a, T: ?Sized + VTableMeta> VRefMut<'a, T> {
     pub fn into_ref(self) -> VRef<'a, T> {
         unsafe { VRef::from_inner(VRefMut::inner(&self)) }
     }
-    pub fn get_type(&self) -> T::Type {
-        unsafe { T::get_type(&self.inner) }
+    pub fn get_vtable(&self) -> &T::VTable {
+        unsafe { T::get_vtable(&self.inner) }
     }
 }
