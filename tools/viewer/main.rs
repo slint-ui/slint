@@ -1,4 +1,5 @@
-use corelib::abi::datastructures::{ComponentImpl, ComponentVTable};
+use core::ptr::NonNull;
+use corelib::abi::datastructures::{ComponentBox, ComponentRef, ComponentRefMut, ComponentVTable};
 use sixtyfps_compiler::object_tree::Expression;
 use std::collections::HashMap;
 use structopt::StructOpt;
@@ -54,8 +55,12 @@ unsafe fn set_property<T: PropertyWriter>(ptr: *mut u8, e: &Expression) {
     T::write(ptr, e);
 }
 
-unsafe extern "C" fn dummy_destroy(_: *const ComponentVTable, _: *mut ComponentImpl) {
+unsafe extern "C" fn dummy_destroy(_: ComponentRefMut) {
     panic!();
+}
+
+unsafe extern "C" fn dummy_create(_: *const ComponentVTable) -> ComponentBox {
+    panic!()
 }
 
 #[repr(C)]
@@ -65,10 +70,9 @@ struct MyComponentType {
 }
 
 unsafe extern "C" fn item_tree(
-    c: *const ComponentVTable,
-    i: *const ComponentImpl,
+    r: ComponentRef<'_>,
 ) -> *const corelib::abi::datastructures::ItemTreeNode {
-    (*(c as *const MyComponentType)).it.as_ptr()
+    (*(ComponentRef::get_vtable(&r).as_ptr() as *const MyComponentType)).it.as_ptr()
 }
 
 struct RuntimeTypeInfo {
@@ -149,7 +153,7 @@ fn main() -> std::io::Result<()> {
         current_offset += rt.size;
     });
 
-    let t = ComponentVTable {/* create: None, */ drop: dummy_destroy, item_tree };
+    let t = ComponentVTable { create: dummy_create, drop: dummy_destroy, item_tree };
     let t = MyComponentType { ct: t, it: tree_array };
 
     let mut my_impl = Vec::<u64>::new();
@@ -167,10 +171,11 @@ fn main() -> std::io::Result<()> {
         }
     }
 
-    gl::sixtyfps_runtime_run_component_with_gl_renderer(
-        &t as *const MyComponentType as *const ComponentVTable,
-        std::ptr::NonNull::new(mem).unwrap().cast(),
-    );
+    let component_ref = unsafe {
+        ComponentRefMut::from_raw(NonNull::from(&t).cast(), NonNull::new(mem).unwrap().cast())
+    };
+
+    gl::sixtyfps_runtime_run_component_with_gl_renderer(component_ref);
 
     Ok(())
 }

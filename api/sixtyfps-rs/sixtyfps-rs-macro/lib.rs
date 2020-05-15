@@ -176,9 +176,8 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
                 });
 
                 sixtyfps_runtime_run_component_with_gl_renderer(
-                    // FIMXE!!!  this does not compile
-                    unsafe { VRefMut::from_inner(
-                        core::ptr::NonNull::new_unchecked(&*COMPONENT_VTABLE as *mut ComponentVTable),
+                    unsafe { VRefMut::from_raw(
+                        core::ptr::NonNull::from(&*COMPONENT_VTABLE),
                         core::ptr::NonNull::from(self).cast()
                     )}
                 );

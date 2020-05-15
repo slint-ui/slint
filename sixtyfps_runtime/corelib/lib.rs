@@ -88,7 +88,7 @@ pub fn run_component<GraphicsBackend, GraphicsFactoryFunc>(
 
     // Generate cached rendering data once
     crate::abi::datastructures::visit_items_mut(
-        &mut component,
+        component.borrow_mut(),
         |item, _| {
             item_rendering::update_item_rendering_data(
                 item,
@@ -100,7 +100,7 @@ pub fn run_component<GraphicsBackend, GraphicsFactoryFunc>(
     );
 
     renderer.finish_primitives(rendering_primitives_builder);
-    let component = vtable::VRef::from(component);
+    let component = component.into_ref();
     main_window.run_event_loop(move |frame, rendering_cache| {
         item_rendering::render_component_items(component, frame, &rendering_cache);
     });

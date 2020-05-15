@@ -55,6 +55,10 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let impl_name = quote::format_ident!("{}Impl", trait_name);
     let type_name = quote::format_ident!("{}Type", trait_name);
     let module_name = quote::format_ident!("{}_vtable_mod", trait_name);
+    let ref_name = quote::format_ident!("{}Ref", trait_name);
+    let refmut_name = quote::format_ident!("{}RefMut", trait_name);
+    let box_name = quote::format_ident!("{}Box", trait_name);
+
     let vtable_name = input.ident.clone();
 
     let mut drop_impl = None;
@@ -386,11 +390,17 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 type TraitObject = #to_name;
                 unsafe fn map_to(from: &Self::TraitObject) -> &Self::Trait { from }
                 unsafe fn map_to_mut(from: &mut Self::TraitObject) -> &mut Self::Trait { from }
-                unsafe fn as_ptr(from: &Self::TraitObject) -> core::ptr::NonNull<u8> { from.ptr.cast() }
+                unsafe fn get_ptr(from: &Self::TraitObject) -> core::ptr::NonNull<u8> { from.ptr.cast() }
+                unsafe fn get_vtable(from: &Self::TraitObject) -> core::ptr::NonNull<Self::VTable> { from.vtable }
+                unsafe fn from_raw(vtable: core::ptr::NonNull<Self::VTable>, ptr: core::ptr::NonNull<u8>) -> Self::TraitObject
+                { #to_name { vtable, ptr : ptr.cast() } }
             }
 
             #drop_impl
 
+            pub type #ref_name<'a> = VRef<'a, #vtable_name>;
+            pub type #refmut_name<'a> = VRefMut<'a, #vtable_name>;
+            pub type #box_name = VBox<#vtable_name>;
         }
         #[doc(inline)]
         #vis use #module_name::*;

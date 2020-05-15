@@ -185,7 +185,7 @@ fn visit_internal<State>(
                 Item::new(
                     NonNull::new_unchecked(*vtable as *mut _),
                     NonNull::new_unchecked(
-                        (VRef::as_ptr(&component).as_ptr()).offset(*offset) as *mut _,
+                        (VRef::get_ptr(&component).as_ptr()).offset(*offset) as *mut _,
                     ),
                 )
             };
@@ -199,7 +199,7 @@ fn visit_internal<State>(
 }
 
 pub fn visit_items_mut<State>(
-    component: &mut VRefMut<'_, ComponentVTable>,
+    component: VRefMut<'_, ComponentVTable>,
     mut visitor: impl FnMut(&mut Item, &State) -> State,
     state: State,
 ) {
@@ -207,7 +207,7 @@ pub fn visit_items_mut<State>(
 }
 
 fn visit_internal_mut<State>(
-    component: &mut VRefMut<'_, ComponentVTable>,
+    mut component: VRefMut<'_, ComponentVTable>,
     visitor: &mut impl FnMut(&mut Item, &State) -> State,
     index: isize,
     state: &State,
@@ -219,14 +219,14 @@ fn visit_internal_mut<State>(
                 Item::new(
                     NonNull::new_unchecked(*vtable as *mut _),
                     NonNull::new_unchecked(
-                        (VRefMut::as_ptr(component).as_ptr() as *mut u8).offset(*offset) as *mut _,
+                        (VRefMut::get_ptr(&component).as_ptr() as *mut u8).offset(*offset) as *mut _,
                     ),
 
                 )
             };
             let state = visitor(&mut item, state);
             for c in *children_index..(*children_index + *chilren_count) {
-                visit_internal_mut(component, visitor, c as isize, &state)
+                visit_internal_mut(component.borrow_mut(), visitor, c as isize, &state)
             }
         }
         ItemTreeNode::DynamicTree { .. } => todo!(),
