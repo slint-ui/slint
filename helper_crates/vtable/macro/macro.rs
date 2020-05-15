@@ -58,6 +58,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let ref_name = quote::format_ident!("{}Ref", trait_name);
     let refmut_name = quote::format_ident!("{}RefMut", trait_name);
     let box_name = quote::format_ident!("{}Box", trait_name);
+    let static_vtable_macro_name = quote::format_ident!("{}_static", vtable_name);
 
     let vtable_name = input.ident.clone();
 
@@ -88,6 +89,9 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut vtable_ctor = vec![];
 
     for field in &mut fields.named {
+        // The vtable can only be accessed in unsafe code, so it is ok if all its fields are Public
+        field.vis = Visibility::Public(VisPublic { pub_token: Default::default() });
+
         let ident = field.ident.as_ref().unwrap();
         if let Type::BareFn(f) = &mut field.ty {
             let mut sig = Signature {
@@ -182,7 +186,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     let const_or_mut = mutability.map_or_else(|| quote!(const), |x| quote!(#x));
                     call_code = Some(quote!(#call_code <#self_ty>::from_inner(*self),));
                     self_call = Some(
-                        quote!(&#mutability (*(<#self_ty>::inner(&#arg_name).ptr.as_ptr() as *#const_or_mut T)),),
+                        quote!(&#mutability (*(<#self_ty>::get_ptr(&#arg_name).as_ptr() as *#const_or_mut T)),),
                     );
                     has_self = true;
                     continue;
@@ -202,8 +206,6 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
             } else {
                 f.abi = sig_extern.abi.clone();
             }
-            // The vtable can only be accessed in unsafe code, so it is ok if all its fields are Public
-            field.vis = Visibility::Public(VisPublic { pub_token: Default::default() });
 
             let mut wrap_trait_call = None;
             if !has_self {
@@ -221,7 +223,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                             let wrap_trait_call = |x| {
                                 // Put the object on the heap and get a pointer to it
                                 let ptr = core::ptr::NonNull::from(Box::leak(Box::new(x)));
-                                VBox::<#vtable_name>::from_inner(#to_name { vtable, ptr : ptr.cast() })
+                                VBox::<#vtable_name>::from_raw(vtable, ptr.cast())
                             };
                             wrap_trait_call
                         });
@@ -405,11 +407,13 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 vtable: core::ptr::NonNull<#vtable_name>
             }
             impl #type_name {
-                pub unsafe fn from_raw(vtable: core::ptr::NonNull<#vtable_name>) -> Self {
+                pub const unsafe fn from_raw(vtable: core::ptr::NonNull<#vtable_name>) -> Self {
                      Self { vtable }
                 }
                 #(#generated_type_assoc_fn)*
             }
+            unsafe impl core::marker::Sync for #type_name {}
+
             unsafe impl VTableMeta for #vtable_name {
                 type Trait = dyn #trait_name;
                 type VTable = #vtable_name;
@@ -435,6 +439,24 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
             pub type #ref_name<'a> = VRef<'a, #vtable_name>;
             pub type #refmut_name<'a> = VRefMut<'a, #vtable_name>;
             pub type #box_name = VBox<#vtable_name>;
+
+            #[macro_export]
+            macro_rules! #static_vtable_macro_name {
+                ($ty:ty) => {
+                    {
+                        type T = $ty;
+                        static VTABLE : #vtable_name = #vtable_name {
+                            #(#vtable_ctor)*
+                        };
+                        unsafe {
+                            <#vtable_name as ::vtable::VTableMeta>::Type::from_raw(
+                                core::ptr::NonNull::new_unchecked(&VTABLE as *const _ as *mut #vtable_name)
+                            )
+                        }
+                    }
+                }
+            }
+
         }
         #[doc(inline)]
         #vis use #module_name::*;

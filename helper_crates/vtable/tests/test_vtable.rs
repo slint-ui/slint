@@ -40,11 +40,11 @@ impl HelloConsts for SomeStruct {
     const CONSTANT: usize = 88;
 }
 
+static SOME_STRUCT_TYPE : HelloType = HelloVTable_static!(SomeStruct);
+
 #[test]
 fn test() {
-    //let vt = HelloVTable::new::<SomeStruct>();
-    let mut vt = HelloVTable::new::<SomeStruct>();
-    let vt = unsafe { HelloType::from_raw(std::ptr::NonNull::from(&mut vt)) };
+    let vt = &SOME_STRUCT_TYPE;
     assert_eq!(vt.assoc(), 32);
     assert_eq!(vt.CONSTANT(), 88);
     let mut bx = vt.construct(89);
