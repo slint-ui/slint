@@ -1,4 +1,6 @@
-use super::datastructures::{CachedRenderingData, ItemImpl, ItemVTable, RenderingInfo};
+#![allow(non_upper_case_globals)]
+
+use super::datastructures::{CachedRenderingData, Item, ItemConsts, LayoutInfo, RenderingInfo};
 
 /// FIXME:  more properties
 #[repr(C)]
@@ -13,21 +15,23 @@ pub struct Rectangle {
     pub cached_rendering_data: CachedRenderingData,
 }
 
-unsafe extern "C" fn render_rectangle(i: *const ItemImpl) -> RenderingInfo {
-    let r = &*(i as *const Rectangle);
-    RenderingInfo::Rectangle(r.x, r.y, r.width, r.height, r.color)
+impl Item for Rectangle {
+    fn geometry(&self) {}
+    fn rendering_info(&self) -> RenderingInfo {
+        RenderingInfo::Rectangle(self.x, self.y, self.width, self.height, self.color)
+    }
+
+    fn layouting_info(&self) -> LayoutInfo {
+        todo!()
+    }
+
+    fn input_event(&self, _: super::datastructures::MouseEvent) {}
 }
 
-#[allow(non_upper_case_globals)]
-#[no_mangle]
-pub static RectangleVTable: ItemVTable = ItemVTable {
-    geometry: None,
-    // offset_of!(Rectangle, render_node),    is not const on stable rust
-    cached_rendering_data_offset: Rectangle::field_offsets().cached_rendering_data as isize,
-    rendering_info: Some(render_rectangle),
-    layouting_info: None,
-    input_event: None,
-};
+impl ItemConsts for Rectangle {
+    const cached_rendering_data_offset: isize =
+        Rectangle::field_offsets().cached_rendering_data as isize;
+}
 
 // FIXME: remove  (or use the libc one)
 #[allow(non_camel_case_types)]
@@ -58,19 +62,23 @@ impl Default for Image {
     }
 }
 
-unsafe extern "C" fn render_image(i: *const ItemImpl) -> RenderingInfo {
-    let i = &*(i as *const Image);
-    RenderingInfo::Image(std::ffi::CStr::from_ptr(i.source).to_str().unwrap())
+impl Item for Image {
+    fn geometry(&self) {}
+    fn rendering_info(&self) -> RenderingInfo {
+        unsafe { RenderingInfo::Image(std::ffi::CStr::from_ptr(self.source).to_str().unwrap()) }
+    }
+
+    fn layouting_info(&self) -> LayoutInfo {
+        todo!()
+    }
+
+    fn input_event(&self, _: super::datastructures::MouseEvent) {}
 }
 
-/// TODO
-#[allow(non_upper_case_globals)]
-#[no_mangle]
-pub static ImageVTable: super::datastructures::ItemVTable = super::datastructures::ItemVTable {
-    geometry: None,
-    // offset_of!(Rectangle, render_node),    is not const on stable rust
-    cached_rendering_data_offset: Image::field_offsets().cached_rendering_data as isize,
-    rendering_info: Some(render_image),
-    layouting_info: None,
-    input_event: None,
-};
+impl ItemConsts for Image {
+    const cached_rendering_data_offset: isize =
+        Image::field_offsets().cached_rendering_data as isize;
+}
+
+
+pub use super::datastructures::{ImageVTable, RectangleVTable};

@@ -1,7 +1,7 @@
 use core::ops::{Deref, DerefMut, Drop};
 use core::ptr::NonNull;
 use core::marker::PhantomData;
-pub use vtable_macro::vtable;
+pub use vtable_macro::*;
 
 pub unsafe trait VTableMeta {
     /// that's the rust trait.  (e.g: `Hello`)
@@ -188,6 +188,9 @@ impl<'a, T: ?Sized + VTableMeta> VRefMut<'a, T> {
     }
     pub fn into_ref(self) -> VRef<'a, T> {
         unsafe { VRef::from_inner(VRefMut::inner(&self)) }
+    }
+    pub unsafe fn from_raw(vtable: NonNull<T::VTable>, ptr: NonNull<u8>) -> Self {
+        Self {inner : T::from_raw(vtable, ptr), _phantom: PhantomData }
     }
     pub fn get_vtable(&self) -> &T::VTable {
         unsafe { T::get_vtable(&self.inner) }

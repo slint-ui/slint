@@ -1,23 +1,18 @@
-use super::abi::datastructures::{Item, RenderingInfo};
+use super::abi::datastructures::{ItemRefMut, RenderingInfo};
 use super::graphics::{Color, Frame, GraphicsBackend, RenderingCache, RenderingPrimitivesBuilder};
 use cgmath::{Matrix4, SquareMatrix, Vector3};
 use lyon::math::{Point, Rect, Size};
 
 pub(crate) fn update_item_rendering_data<Backend: GraphicsBackend>(
-    item: &mut Item,
+    mut item: ItemRefMut<'_>,
     rendering_cache: &mut RenderingCache<Backend>,
     rendering_primitives_builder: &mut Backend::RenderingPrimitivesBuilder,
 ) {
-    let item_rendering_info = {
-        match item.rendering_info() {
-            Some(info) => info,
-            None => return,
-        }
-    };
+    let item_rendering_info = item.rendering_info();
 
     println!("Caching ... {:?}", item_rendering_info);
 
-    let rendering_data = item.cached_rendering_data_mut();
+    let rendering_data = super::abi::datastructures::cached_rendering_data_mut(item.borrow_mut());
 
     match item_rendering_info {
         RenderingInfo::Rectangle(_x, _y, width, height, color) => {
@@ -81,12 +76,7 @@ pub(crate) fn render_component_items<Backend: GraphicsBackend>(
         component,
         |item, transform| {
             let mut transform = transform.clone();
-            let item_rendering_info = {
-                match item.rendering_info() {
-                    Some(info) => info,
-                    None => return transform,
-                }
-            };
+            let item_rendering_info = item.rendering_info();
 
             match item_rendering_info {
                 RenderingInfo::Rectangle(x, y, ..) => {
@@ -95,14 +85,14 @@ pub(crate) fn render_component_items<Backend: GraphicsBackend>(
                 _ => {}
             }
 
-            if item.cached_rendering_data().cache_ok {
+            let cached_rendering_data = super::abi::datastructures::cached_rendering_data(item);
+            if cached_rendering_data.cache_ok {
                 println!(
                     "Rendering... {:?} from cache {}",
-                    item_rendering_info,
-                    item.cached_rendering_data().cache_index
+                    item_rendering_info, cached_rendering_data.cache_index
                 );
 
-                let primitive = rendering_cache.entry_at(item.cached_rendering_data().cache_index);
+                let primitive = rendering_cache.entry_at(cached_rendering_data.cache_index);
                 frame.render_primitive(&primitive, &transform);
             }
 

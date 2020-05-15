@@ -47,7 +47,7 @@ impl PropertyWriter for *const i8 {
     }
 }
 
-unsafe fn construct<T: Default>(ptr: *mut corelib::abi::datastructures::ItemImpl) {
+unsafe fn construct<T: Default>(ptr: *mut u8) {
     core::ptr::write(ptr as *mut T, T::default());
 }
 
@@ -72,12 +72,12 @@ struct MyComponentType {
 unsafe extern "C" fn item_tree(
     r: ComponentRef<'_>,
 ) -> *const corelib::abi::datastructures::ItemTreeNode {
-    (*(ComponentRef::get_vtable(&r).as_ptr() as *const MyComponentType)).it.as_ptr()
+    (*(ComponentRef::get_vtable(&r) as *const ComponentVTable as *const MyComponentType)).it.as_ptr()
 }
 
 struct RuntimeTypeInfo {
     vtable: *const corelib::abi::datastructures::ItemVTable,
-    construct: unsafe fn(*mut corelib::abi::datastructures::ItemImpl),
+    construct: unsafe fn(*mut u8),
     properties: HashMap<&'static str, (usize, unsafe fn(*mut u8, &Expression))>,
     size: usize,
 }

@@ -14,16 +14,6 @@ pub struct ComponentVTable {
     pub item_tree: extern "C" fn(VRef<ComponentVTable>) -> *const ItemTreeNode,
 }
 
-/// From the ItemTreeNode and a ComponentImpl, you can get a pointer to the instance data
-/// ItemImpl via the offset field.
-pub struct ItemImpl;
-// Example memory representation:
-// offset| type | value
-// 0     | f32 | x
-// 4     | f32 | y
-// ...
-// 64    | CachedRenderingData | struct
-
 #[repr(C)]
 #[derive(Default)]
 pub struct CachedRenderingData {
@@ -75,24 +65,25 @@ pub enum ItemTreeNode {
 /// It is supposed to be in static array
 unsafe impl Sync for ItemTreeNode {}
 
+#[vtable]
 #[repr(C)]
-#[derive(Default)]
 pub struct ItemVTable {
     /// Rectangle: x/y/width/height ==> (path -> vertices/indicies(triangle))
-    pub geometry: Option<unsafe extern "C" fn(*const ItemImpl) -> ()>, // like kurbo::Rect
+    pub geometry: extern "C" fn(VRef<'_, ItemVTable>) -> (), // like kurbo::Rect
 
     /// offset in bytes fromthe *const ItemImpl.
     /// isize::MAX  means None
+    #[allow(non_upper_case_globals)]
     pub cached_rendering_data_offset: isize,
 
     /// Return a rendering info
-    pub rendering_info: Option<unsafe extern "C" fn(*const ItemImpl) -> RenderingInfo>,
+    pub rendering_info: extern "C" fn(VRef<'_, ItemVTable>) -> RenderingInfo,
 
     /// We would need max/min/preferred size, and all layout info
-    pub layouting_info: Option<unsafe extern "C" fn(*const ItemImpl) -> LayoutInfo>,
+    pub layouting_info: extern "C" fn(VRef<'_, ItemVTable>) -> LayoutInfo,
 
     /// input event
-    pub input_event: Option<unsafe extern "C" fn(*const ItemImpl, MouseEvent)>,
+    pub input_event: extern "C" fn(VRef<'_, ItemVTable>, MouseEvent),
 }
 
 // given an ItemImpl & ItemVTable
@@ -117,7 +108,7 @@ pub enum RenderingInfo {
     Text(String)*/
 }
 
-type MouseEvent = ();
+pub type MouseEvent = ();
 
 /* -- Safe wrappers*/
 
@@ -128,36 +119,17 @@ type MouseEvent = ();
     fn rendering_info(&self) -> CachedRenderingData;
 }*/
 
-// To be used as &'x Item
-pub struct Item {
-    vtable: NonNull<ItemVTable>,
-    inner: NonNull<ItemImpl>,
+pub fn cached_rendering_data(item: VRef<'_, ItemVTable>) -> &CachedRenderingData {
+    unsafe {
+        &*(VRef::get_ptr(&item).as_ptr().offset(item.get_vtable().cached_rendering_data_offset)
+            as *const CachedRenderingData)
+    }
 }
 
-impl Item {
-    /// One should create only one instance of item at the time to keep the &mut invariant
-    pub unsafe fn new(vtable: NonNull<ItemVTable>, inner: NonNull<ItemImpl>) -> Self {
-        Self { vtable, inner }
-    }
-
-    pub fn cached_rendering_data(&self) -> &CachedRenderingData {
-        unsafe {
-            &*((self.inner.as_ptr() as *const u8)
-                .offset(self.vtable.as_ref().cached_rendering_data_offset)
-                as *const CachedRenderingData)
-        }
-    }
-
-    pub fn cached_rendering_data_mut(&mut self) -> &mut CachedRenderingData {
-        unsafe {
-            &mut *((self.inner.as_ptr() as *mut u8)
-                .offset(self.vtable.as_ref().cached_rendering_data_offset)
-                as *mut CachedRenderingData)
-        }
-    }
-
-    pub fn rendering_info(&self) -> Option<RenderingInfo> {
-        unsafe { self.vtable.as_ref().rendering_info.map(|x| x(self.inner.as_ptr())) }
+pub fn cached_rendering_data_mut(item: VRefMut<'_, ItemVTable>) -> &mut CachedRenderingData {
+    unsafe {
+        &mut *(VRefMut::get_ptr(&item).as_ptr().offset(item.get_vtable().cached_rendering_data_offset)
+            as *mut CachedRenderingData)
     }
 }
 
@@ -166,7 +138,7 @@ impl Item {
 /// The state parametter returned by the visitor is passed to each children.
 pub fn visit_items<State>(
     component: VRef<'_, ComponentVTable>,
-    mut visitor: impl FnMut(&Item, &State) -> State,
+    mut visitor: impl FnMut(ItemRef<'_>, &State) -> State,
     state: State,
 ) {
     visit_internal(component, &mut visitor, 0, &state)
@@ -174,7 +146,7 @@ pub fn visit_items<State>(
 
 fn visit_internal<State>(
     component: VRef<'_, ComponentVTable>,
-    visitor: &mut impl FnMut(&Item, &State) -> State,
+    visitor: &mut impl FnMut(ItemRef<'_>, &State) -> State,
     index: isize,
     state: &State,
 ) {
@@ -182,14 +154,14 @@ fn visit_internal<State>(
     match unsafe { &*item_tree.offset(index) } {
         ItemTreeNode::Item { vtable, offset, children_index, chilren_count } => {
             let item = unsafe {
-                Item::new(
+                ItemRef::from_raw(
                     NonNull::new_unchecked(*vtable as *mut _),
                     NonNull::new_unchecked(
-                        (VRef::get_ptr(&component).as_ptr()).offset(*offset) as *mut _,
+                        (VRef::get_ptr(&component).as_ptr()).offset(*offset) as *mut _
                     ),
                 )
             };
-            let state = visitor(&item, state);
+            let state = visitor(item, state);
             for c in *children_index..(*children_index + *chilren_count) {
                 visit_internal(component, visitor, c as isize, &state)
             }
@@ -200,7 +172,7 @@ fn visit_internal<State>(
 
 pub fn visit_items_mut<State>(
     component: VRefMut<'_, ComponentVTable>,
-    mut visitor: impl FnMut(&mut Item, &State) -> State,
+    mut visitor: impl FnMut(ItemRefMut<'_>, &State) -> State,
     state: State,
 ) {
     visit_internal_mut(component, &mut visitor, 0, &state)
@@ -208,7 +180,7 @@ pub fn visit_items_mut<State>(
 
 fn visit_internal_mut<State>(
     mut component: VRefMut<'_, ComponentVTable>,
-    visitor: &mut impl FnMut(&mut Item, &State) -> State,
+    visitor: &mut impl FnMut(ItemRefMut<'_>, &State) -> State,
     index: isize,
     state: &State,
 ) {
@@ -216,15 +188,15 @@ fn visit_internal_mut<State>(
     match unsafe { &*item_tree.offset(index) } {
         ItemTreeNode::Item { vtable, offset, children_index, chilren_count } => {
             let mut item = unsafe {
-                Item::new(
+                ItemRefMut::from_raw(
                     NonNull::new_unchecked(*vtable as *mut _),
                     NonNull::new_unchecked(
-                        (VRefMut::get_ptr(&component).as_ptr() as *mut u8).offset(*offset) as *mut _,
+                        (VRefMut::get_ptr(&component).as_ptr() as *mut u8).offset(*offset)
+                            as *mut _,
                     ),
-
                 )
             };
-            let state = visitor(&mut item, state);
+            let state = visitor(item.borrow_mut(), state);
             for c in *children_index..(*children_index + *chilren_count) {
                 visit_internal_mut(component.borrow_mut(), visitor, c as isize, &state)
             }
@@ -323,3 +295,13 @@ pub static QT_BUTTON_VTABLE: ItemVTable = ItemVTable {
     rendering_info: render_qt_button,
 };
 */
+
+
+
+#[allow(non_upper_case_globals)]
+#[no_mangle]
+pub static RectangleVTable: ItemVTable = ItemVTable_static!(crate::abi::primitives::Rectangle);
+
+#[allow(non_upper_case_globals)]
+#[no_mangle]
+pub static ImageVTable: ItemVTable = ItemVTable_static!(crate::abi::primitives::Image);
