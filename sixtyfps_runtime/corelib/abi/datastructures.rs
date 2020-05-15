@@ -121,14 +121,14 @@ pub type MouseEvent = ();
 
 pub fn cached_rendering_data(item: VRef<'_, ItemVTable>) -> &CachedRenderingData {
     unsafe {
-        &*(VRef::get_ptr(&item).as_ptr().offset(item.get_vtable().cached_rendering_data_offset)
+        &*(item.as_ptr().offset(item.get_vtable().cached_rendering_data_offset)
             as *const CachedRenderingData)
     }
 }
 
 pub fn cached_rendering_data_mut(item: VRefMut<'_, ItemVTable>) -> &mut CachedRenderingData {
     unsafe {
-        &mut *(VRefMut::get_ptr(&item).as_ptr().offset(item.get_vtable().cached_rendering_data_offset)
+        &mut *(item.as_ptr().offset(item.get_vtable().cached_rendering_data_offset)
             as *mut CachedRenderingData)
     }
 }
@@ -156,9 +156,7 @@ fn visit_internal<State>(
             let item = unsafe {
                 ItemRef::from_raw(
                     NonNull::new_unchecked(*vtable as *mut _),
-                    NonNull::new_unchecked(
-                        (VRef::get_ptr(&component).as_ptr()).offset(*offset) as *mut _
-                    ),
+                    NonNull::new_unchecked(component.as_ptr().offset(*offset) as *mut _),
                 )
             };
             let state = visitor(item, state);
@@ -191,8 +189,7 @@ fn visit_internal_mut<State>(
                 ItemRefMut::from_raw(
                     NonNull::new_unchecked(*vtable as *mut _),
                     NonNull::new_unchecked(
-                        (VRefMut::get_ptr(&component).as_ptr() as *mut u8).offset(*offset)
-                            as *mut _,
+                        (component.as_ptr() as *mut u8).offset(*offset) as *mut _
                     ),
                 )
             };
@@ -295,8 +292,6 @@ pub static QT_BUTTON_VTABLE: ItemVTable = ItemVTable {
     rendering_info: render_qt_button,
 };
 */
-
-
 
 #[allow(non_upper_case_globals)]
 #[no_mangle]

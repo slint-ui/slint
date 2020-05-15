@@ -69,14 +69,10 @@ struct MyComponentType {
     it: Vec<corelib::abi::datastructures::ItemTreeNode>,
 }
 
-extern "C" fn item_tree(
-    r: ComponentRef<'_>,
-) -> *const corelib::abi::datastructures::ItemTreeNode {
+extern "C" fn item_tree(r: ComponentRef<'_>) -> *const corelib::abi::datastructures::ItemTreeNode {
     // FIXME! unsafe is not correct here, as the ComponentVTable might not be a MyComponentType
     // (one can safely take a copy of the vtable and call the create function to get a box)
-    unsafe {
-        (*(ComponentRef::get_vtable(&r) as *const ComponentVTable as *const MyComponentType)).it.as_ptr()
-    }
+    unsafe { (*(r.get_vtable() as *const ComponentVTable as *const MyComponentType)).it.as_ptr() }
 }
 
 struct RuntimeTypeInfo {

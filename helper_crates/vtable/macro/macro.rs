@@ -52,7 +52,6 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let trait_name = Ident::new(&vtable_name[..vtable_name.len() - 6], input.ident.span());
     let to_name = quote::format_ident!("{}TO", trait_name);
-    let impl_name = quote::format_ident!("{}Impl", trait_name);
     let module_name = quote::format_ident!("{}_vtable_mod", trait_name);
     let ref_name = quote::format_ident!("{}Ref", trait_name);
     let refmut_name = quote::format_ident!("{}RefMut", trait_name);
@@ -209,10 +208,10 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     }));
                     let self_ty = &param.ty;
                     let const_or_mut = mutability.map_or_else(|| quote!(const), |x| quote!(#x));
-                    call_code = Some(quote!(#call_code <#self_ty>::from_inner(*self),));
-                    self_call = Some(
-                        quote!(&#mutability (*(<#self_ty>::get_ptr(&#arg_name).as_ptr() as *#const_or_mut T)),),
-                    );
+                    call_code =
+                        Some(quote!(#call_code <#self_ty>::from_raw(self.vtable, self.ptr),));
+                    self_call =
+                        Some(quote!(&#mutability (*(#arg_name.as_ptr() as *#const_or_mut T)),));
                     has_self = true;
                     continue;
                 }
@@ -271,10 +270,12 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
                 drop_impl = Some(quote! {
                     impl VTableMetaDrop for #vtable_name {
-                        unsafe fn drop(ptr: #to_name) {
+                        unsafe fn drop(ptr: *mut #to_name) {
                             // Safety: The vtable is valid and inner is a type corresponding to the vtable,
                             // which was allocated such that drop is expected.
-                            unsafe { (ptr.vtable.as_ref().#ident)(VRefMut::from_inner(ptr)) }
+                            unsafe {
+                                let ptr = &*ptr;
+                                (ptr.vtable.as_ref().#ident)(VRefMut::from_raw(ptr.vtable, ptr.ptr)) }
                         }
                     }
 
@@ -291,7 +292,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
             generated_to_fn_trait.push(ImplItemMethod {
                 attrs: vec![],
-                vis: Visibility::Inherited,
+                vis: Visibility::Public(VisPublic { pub_token: Default::default() }),
                 defaultness: None,
                 sig: sig.clone(),
                 block: parse2(if has_self {
@@ -412,36 +413,28 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
             #generated_trait
             #generated_trait_assoc_const
 
-            struct #impl_name { _private: [u8; 0] }
-
-            /// This structure is highly unsafe, as it just has pointers. One could call trait functions
-            /// directly.  However, it should not be possible, in safe code, to construct or to obtain a reference
-            /// to this structure, as it cannot be constructed safely. And none of the safe api allow accessing
-            /// a reference or a copy of this structure
+            /// Invariant, same as vtable::Inner: vtable and ptr has to be valid and ptr an instance macthcin the vtable
             #[doc(hidden)]
-            #[derive(Clone, Copy)]
             #[repr(C)]
             pub struct #to_name {
                 vtable: core::ptr::NonNull<#vtable_name>,
-                ptr: core::ptr::NonNull<#impl_name>,
+                ptr: core::ptr::NonNull<u8>,
             }
-            impl #trait_name for #to_name { #(#generated_to_fn_trait)* }
+            impl #to_name {
+                #(#generated_to_fn_trait)*
+
+                pub fn get_vtable(&self) -> &#vtable_name {
+                    unsafe { self.vtable.as_ref() }
+                }
+
+                pub fn as_ptr(&self) -> *const u8 {
+                    self.ptr.as_ptr()
+                }
+            }
 
             unsafe impl VTableMeta for #vtable_name {
-                type Trait = dyn #trait_name;
                 type VTable = #vtable_name;
-                type TraitObject = #to_name;
-                #[inline]
-                unsafe fn map_to(from: &Self::TraitObject) -> &Self::Trait { from }
-                #[inline]
-                unsafe fn map_to_mut(from: &mut Self::TraitObject) -> &mut Self::Trait { from }
-                #[inline]
-                unsafe fn get_ptr(from: &Self::TraitObject) -> core::ptr::NonNull<u8> { from.ptr.cast() }
-                #[inline]
-                unsafe fn get_vtable(from: &Self::TraitObject) -> &Self::VTable { from.vtable.as_ref() }
-                #[inline]
-                unsafe fn from_raw(vtable: core::ptr::NonNull<Self::VTable>, ptr: core::ptr::NonNull<u8>) -> Self::TraitObject
-                { #to_name { vtable, ptr : ptr.cast() } }
+                type Target = #to_name;
             }
 
             #drop_impl

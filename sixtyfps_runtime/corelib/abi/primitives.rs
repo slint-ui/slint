@@ -80,5 +80,4 @@ impl ItemConsts for Image {
         Image::field_offsets().cached_rendering_data as isize;
 }
 
-
 pub use super::datastructures::{ImageVTable, RectangleVTable};

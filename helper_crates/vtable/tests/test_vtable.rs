@@ -26,7 +26,6 @@ impl Hello for SomeStruct {
         self.0
     }
 
-
     fn construct(init: u32) -> Self {
         println!("calling Construct {}", init);
         Self(init)
@@ -40,7 +39,7 @@ impl HelloConsts for SomeStruct {
     const CONSTANT: usize = 88;
 }
 
-static SOME_STRUCT_TYPE : HelloVTable = HelloVTable_static!(SomeStruct);
+static SOME_STRUCT_TYPE: HelloVTable = HelloVTable_static!(SomeStruct);
 
 #[test]
 fn test() {
@@ -53,5 +52,3 @@ fn test() {
     assert_eq!(bx.foo(2), 97);
     assert_eq!(bx.get_vtable().CONSTANT, 88);
 }
-
-
