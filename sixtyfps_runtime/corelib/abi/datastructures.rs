@@ -293,10 +293,5 @@ pub static QT_BUTTON_VTABLE: ItemVTable = ItemVTable {
 };
 */
 
-#[allow(non_upper_case_globals)]
-#[no_mangle]
-pub static RectangleVTable: ItemVTable = ItemVTable_static!(crate::abi::primitives::Rectangle);
-
-#[allow(non_upper_case_globals)]
-#[no_mangle]
-pub static ImageVTable: ItemVTable = ItemVTable_static!(crate::abi::primitives::Image);
+ItemVTable_static!(crate::abi::primitives::Image);
+ItemVTable_static!(crate::abi::primitives::Rectangle);

@@ -449,17 +449,63 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
         #vis use #module_name::*;
 
         #[macro_export]
+        /// Implements HasStaticVTable<XXXVTable> for the given type
         macro_rules! #static_vtable_macro_name {
-                ($ty:ty) => {
-                    {
+            ($ty:ty) => {
+                unsafe impl ::vtable::HasStaticVTable<#vtable_name> for $ty {
+                    const VTABLE: #vtable_name = {
                         type T = $ty;
                         #vtable_name {
                             #(#vtable_ctor)*
                         }
-                    }
+                    };
                 }
             }
+        }
     );
     //     println!("{}", result);
     result.into()
 }
+/*
+#[proc_macro_attribute]
+pub fn static_vtable(attr: TokenStream, item: TokenStream) -> TokenStream {
+    let mut input = parse_macro_input!(item as ItemStatic);
+
+    let ty = parse_macro_input!(attr as Type);
+
+    let input_ty = &input.ty;
+
+    let vtable_type = if let Type::Path(pat) = &**input_ty {
+        if let Some(seg) = pat.path.segments.last() {
+            seg.ident.clone()
+        } else {
+            return Error::new(proc_macro2::Span::call_site(), "Could not find the VTableType")
+                .to_compile_error()
+                .into();
+        }
+    } else {
+        return Error::new(proc_macro2::Span::call_site(), "Could not find the VTableType")
+            .to_compile_error()
+            .into();
+    };
+
+    if !vtable_type.to_string().ends_with("VTable") {
+        return Error::new(input.ident.span(), "The type does not ends in 'VTable'")
+            .to_compile_error()
+            .into();
+    }
+
+    let mac = quote::format_ident!("{}_static", vtable_type);
+    input.expr =
+        Box::new(parse2(quote!(<#ty as ::vtable::HasStaticVTable<#input_ty>>::VTABLE)).unwrap());
+
+    quote!(
+        #input
+        unsafe impl ::vtable::HasStaticVTable<#input_ty> for #ty
+        {
+            const VTABLE : <#input_ty as ::vtable::VTableMeta>::VTable =  #mac!(#ty);
+        }
+    )
+    .into()
+}
+*/

@@ -39,7 +39,8 @@ impl HelloConsts for SomeStruct {
     const CONSTANT: usize = 88;
 }
 
-static SOME_STRUCT_TYPE: HelloVTable = HelloVTable_static!(SomeStruct);
+HelloVTable_static!(SomeStruct);
+static SOME_STRUCT_TYPE: HelloVTable = SomeStruct::VTABLE;
 
 #[test]
 fn test() {

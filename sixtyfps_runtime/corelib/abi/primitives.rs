@@ -1,6 +1,9 @@
 #![allow(non_upper_case_globals)]
 
-use super::datastructures::{CachedRenderingData, Item, ItemConsts, LayoutInfo, RenderingInfo};
+use super::datastructures::{
+    CachedRenderingData, Item, ItemConsts, ItemVTable, LayoutInfo, RenderingInfo,
+};
+use vtable::HasStaticVTable;
 
 /// FIXME:  more properties
 #[repr(C)]
@@ -80,4 +83,8 @@ impl ItemConsts for Image {
         Image::field_offsets().cached_rendering_data as isize;
 }
 
-pub use super::datastructures::{ImageVTable, RectangleVTable};
+#[no_mangle]
+pub static RectangleVTable: ItemVTable = Image::VTABLE;
+
+#[no_mangle]
+pub static ImageVTable: ItemVTable = Rectangle::VTABLE;

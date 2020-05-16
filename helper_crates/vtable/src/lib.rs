@@ -19,6 +19,16 @@ pub trait VTableMetaDrop: VTableMeta {
     unsafe fn drop(ptr: *mut Self::Target);
 }
 
+/// Allow to associate a VTable to a type.
+pub unsafe trait HasStaticVTable<VT>
+where
+    VT: ?Sized + VTableMeta,
+    VT::VTable: 'static,
+{
+    /// Savety: must be a valid VTable for Self
+    const VTABLE: VT::VTable;
+}
+
 #[derive(Copy, Clone)]
 /// The inner structure of VRef, VRefMut, and VBox.
 ///
