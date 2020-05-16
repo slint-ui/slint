@@ -84,7 +84,7 @@ impl ItemConsts for Image {
 }
 
 #[no_mangle]
-pub static RectangleVTable: ItemVTable = Image::VTABLE;
+pub static RectangleVTable: ItemVTable = Rectangle::VTABLE;
 
 #[no_mangle]
-pub static ImageVTable: ItemVTable = Rectangle::VTABLE;
+pub static ImageVTable: ItemVTable = Image::VTABLE;

@@ -27,6 +27,7 @@ where
 {
     /// Savety: must be a valid VTable for Self
     const VTABLE: VT::VTable;
+    const STATIC_VTABLE: &'static VT::VTable;
 }
 
 #[derive(Copy, Clone)]
@@ -115,6 +116,16 @@ impl<'a, T: ?Sized + VTableMeta> Deref for VRef<'a, T> {
 }
 
 impl<'a, T: ?Sized + VTableMeta> VRef<'a, T> {
+    pub fn new<X: HasStaticVTable<T>>(value: &'a X) -> Self {
+        Self {
+            inner: Inner {
+                vtable: X::STATIC_VTABLE as *const T::VTable as *const u8,
+                ptr: value as *const X as *const u8,
+            },
+            phantom: PhantomData,
+        }
+    }
+
     unsafe fn from_inner(inner: Inner) -> Self {
         Self { inner, phantom: PhantomData }
     }
@@ -145,6 +156,16 @@ impl<'a, T: ?Sized + VTableMeta> DerefMut for VRefMut<'a, T> {
 }
 
 impl<'a, T: ?Sized + VTableMeta> VRefMut<'a, T> {
+    pub fn new<X: HasStaticVTable<T>>(value: &'a mut X) -> Self {
+        Self {
+            inner: Inner {
+                vtable: X::STATIC_VTABLE as *const T::VTable as *const u8,
+                ptr: value as *mut X as *const u8,
+            },
+            phantom: PhantomData,
+        }
+    }
+
     unsafe fn from_inner(inner: Inner) -> Self {
         Self { inner, phantom: PhantomData }
     }

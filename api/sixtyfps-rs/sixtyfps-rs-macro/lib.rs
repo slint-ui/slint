@@ -146,6 +146,7 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
         struct #component_id {
             #(#item_names : sixtyfps::re_exports::#item_types,)*
         }
+
         impl core::default::Default for #component_id {
             fn default() -> Self {
                 let mut self_ = Self {
@@ -168,19 +169,13 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
         }
 
         impl #component_id{
-            fn run(&mut self) {
+            // FIXME: we need a static lifetime for winit run, so this takes the component by value and put it in a leaked box
+            // Ideally we would not need a static lifetime to run the engine. (eg: use run_return function of winit)
+            fn run(self) {
                 use sixtyfps::re_exports::*;
-                // Would be nice if ComponentVTable::new was const.
-                static COMPONENT_VTABLE : Lazy<ComponentVTable> = Lazy::new(|| {
-                    ComponentVTable::new::<#component_id>()
-                });
-
-                sixtyfps_runtime_run_component_with_gl_renderer(
-                    unsafe { VRefMut::from_raw(
-                        core::ptr::NonNull::from(&*COMPONENT_VTABLE),
-                        core::ptr::NonNull::from(self).cast()
-                    )}
-                );
+                sixtyfps::re_exports::ComponentVTable_static!(#component_id);
+                let static_self = Box::leak(Box::new(self));
+                sixtyfps_runtime_run_component_with_gl_renderer(VRefMut::new(static_self));
             }
         }
     )

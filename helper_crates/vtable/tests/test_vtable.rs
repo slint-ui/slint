@@ -56,4 +56,16 @@ fn test() {
     let bx2 = VBox::<HelloVTable>::new(SomeStruct(23));
     assert_eq!(bx2.foo(3), 26);
     assert_eq!(bx2.get_vtable().CONSTANT, 88);
+
+    let mut hello = SomeStruct(44);
+    {
+        let xref = VRef::<HelloVTable>::new(&hello);
+        assert_eq!(xref.foo(0), 44);
+    }
+    {
+        let mut xref = VRefMut::<HelloVTable>::new(&mut hello);
+        assert_eq!(xref.foo_mut(2), 46);
+        let xref2 = xref.borrow();
+        assert_eq!(xref2.foo(1), 47);
+    }
 }
