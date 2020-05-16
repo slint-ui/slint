@@ -12,7 +12,7 @@ pub(crate) fn update_item_rendering_data<Backend: GraphicsBackend>(
 
     println!("Caching ... {:?}", item_rendering_info);
 
-    let rendering_data = super::abi::datastructures::cached_rendering_data_mut(item.borrow_mut());
+    let rendering_data = item.cached_rendering_data_offset_mut();
 
     match item_rendering_info {
         RenderingInfo::Rectangle(_x, _y, width, height, color) => {
@@ -85,7 +85,7 @@ pub(crate) fn render_component_items<Backend: GraphicsBackend>(
                 _ => {}
             }
 
-            let cached_rendering_data = super::abi::datastructures::cached_rendering_data(item);
+            let cached_rendering_data = item.cached_rendering_data_offset();
             if cached_rendering_data.cache_ok {
                 println!(
                     "Rendering... {:?} from cache {}",

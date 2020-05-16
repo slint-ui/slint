@@ -10,25 +10,28 @@ struct HelloVTable {
     drop: fn(VRefMut<'_, HelloVTable>),
 
     CONSTANT: usize,
+
+    #[offset(u32)]
+    SOME_OFFSET: usize,
 }
 
-#[derive(Debug)]
-struct SomeStruct(u32);
+#[derive(Debug, const_field_offset::FieldOffsets)]
+#[repr(C)]
+struct SomeStruct {
+    x: u32,
+}
 impl Hello for SomeStruct {
     fn foo(&self, xx: u32) -> u32 {
-        println!("calling foo {} + {}", self.0, xx);
-        self.0 + xx
+        self.x + xx
     }
 
     fn foo_mut(&mut self, xx: u32) -> u32 {
-        println!("calling foo_mut {} + {}", self.0, xx);
-        self.0 += xx;
-        self.0
+        self.x += xx;
+        self.x
     }
 
     fn construct(init: u32) -> Self {
-        println!("calling Construct {}", init);
-        Self(init)
+        Self { x: init }
     }
 
     fn assoc() -> isize {
@@ -37,6 +40,8 @@ impl Hello for SomeStruct {
 }
 impl HelloConsts for SomeStruct {
     const CONSTANT: usize = 88;
+    const SOME_OFFSET: const_field_offset::FieldOffset<SomeStruct, u32> =
+        SomeStruct::field_offsets().x;
 }
 
 HelloVTable_static!(SomeStruct);
@@ -53,11 +58,12 @@ fn test() {
     assert_eq!(bx.foo(2), 97);
     assert_eq!(bx.get_vtable().CONSTANT, 88);
 
-    let bx2 = VBox::<HelloVTable>::new(SomeStruct(23));
+    let bx2 = VBox::<HelloVTable>::new(SomeStruct { x: 23 });
     assert_eq!(bx2.foo(3), 26);
     assert_eq!(bx2.get_vtable().CONSTANT, 88);
+    assert_eq!(*bx2.SOME_OFFSET(), 23);
 
-    let mut hello = SomeStruct(44);
+    let mut hello = SomeStruct { x: 44 };
     {
         let xref = VRef::<HelloVTable>::new(&hello);
         assert_eq!(xref.foo(0), 44);
@@ -65,7 +71,9 @@ fn test() {
     {
         let mut xref = VRefMut::<HelloVTable>::new(&mut hello);
         assert_eq!(xref.foo_mut(2), 46);
+        assert_eq!(*xref.SOME_OFFSET(), 46);
+        *xref.SOME_OFFSET_mut() = 3;
         let xref2 = xref.borrow();
-        assert_eq!(xref2.foo(1), 47);
+        assert_eq!(xref2.foo(1), 4);
     }
 }

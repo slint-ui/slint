@@ -1,3 +1,4 @@
+pub use const_field_offset::FieldOffset;
 use core::marker::PhantomData;
 use core::ops::{Deref, DerefMut, Drop};
 use core::ptr::NonNull;

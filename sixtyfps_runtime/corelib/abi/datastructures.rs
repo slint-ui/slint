@@ -74,7 +74,8 @@ pub struct ItemVTable {
     /// offset in bytes fromthe *const ItemImpl.
     /// isize::MAX  means None
     #[allow(non_upper_case_globals)]
-    pub cached_rendering_data_offset: isize,
+    #[offset(CachedRenderingData)]
+    pub cached_rendering_data_offset: usize,
 
     /// Return a rendering info
     pub rendering_info: extern "C" fn(VRef<'_, ItemVTable>) -> RenderingInfo,
@@ -111,27 +112,6 @@ pub enum RenderingInfo {
 pub type MouseEvent = ();
 
 /* -- Safe wrappers*/
-
-/*trait Item {
-    fn geometry(&self) -> ();
-    fn cached_rendering_data(&self) -> &CachedRenderingData;
-    fn cached_rendering_data_mut(&mut self) -> &mut CachedRenderingData;
-    fn rendering_info(&self) -> CachedRenderingData;
-}*/
-
-pub fn cached_rendering_data(item: VRef<'_, ItemVTable>) -> &CachedRenderingData {
-    unsafe {
-        &*(item.as_ptr().offset(item.get_vtable().cached_rendering_data_offset)
-            as *const CachedRenderingData)
-    }
-}
-
-pub fn cached_rendering_data_mut(item: VRefMut<'_, ItemVTable>) -> &mut CachedRenderingData {
-    unsafe {
-        &mut *(item.as_ptr().offset(item.get_vtable().cached_rendering_data_offset)
-            as *mut CachedRenderingData)
-    }
-}
 
 /// Visit each items recursively
 ///

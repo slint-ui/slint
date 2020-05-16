@@ -32,8 +32,10 @@ impl Item for Rectangle {
 }
 
 impl ItemConsts for Rectangle {
-    const cached_rendering_data_offset: isize =
-        Rectangle::field_offsets().cached_rendering_data.get_byte_offset() as isize;
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<
+        Rectangle,
+        CachedRenderingData,
+    > = Rectangle::field_offsets().cached_rendering_data;
 }
 
 // FIXME: remove  (or use the libc one)
@@ -79,8 +81,10 @@ impl Item for Image {
 }
 
 impl ItemConsts for Image {
-    const cached_rendering_data_offset: isize =
-        Image::field_offsets().cached_rendering_data.get_byte_offset() as isize;
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<
+        Image,
+        CachedRenderingData,
+    > = Image::field_offsets().cached_rendering_data;
 }
 
 #[no_mangle]
