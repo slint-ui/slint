@@ -52,4 +52,8 @@ fn test() {
     assert_eq!(bx.foo_mut(6), 95);
     assert_eq!(bx.foo(2), 97);
     assert_eq!(bx.get_vtable().CONSTANT, 88);
+
+    let bx2 = VBox::<HelloVTable>::new(SomeStruct(23));
+    assert_eq!(bx2.foo(3), 26);
+    assert_eq!(bx2.get_vtable().CONSTANT, 88);
 }

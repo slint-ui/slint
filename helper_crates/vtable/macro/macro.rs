@@ -277,8 +277,13 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                                 let ptr = &*ptr;
                                 (ptr.vtable.as_ref().#ident)(VRefMut::from_raw(ptr.vtable, ptr.ptr)) }
                         }
+                        fn new_box<X: HasStaticVTable<#vtable_name>>(value: X) -> VBox<#vtable_name> {
+                            // Put the object on the heap and get a pointer to it
+                            let ptr = core::ptr::NonNull::from(Box::leak(Box::new(value)));
+                            unsafe { VBox::from_raw(core::ptr::NonNull::from(&X::VTABLE), ptr.cast()) }
+                        }
                     }
-
+                    pub type #box_name = VBox<#vtable_name>;
                 });
                 continue;
             }
@@ -398,6 +403,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
             #[allow(unused)]
             use super::*;
             use ::vtable::*;
+            use ::std::boxed::Box; // make sure `Box` was not overriden in super
             #input
 
             impl #vtable_name {
@@ -441,7 +447,6 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
             pub type #ref_name<'a> = VRef<'a, #vtable_name>;
             pub type #refmut_name<'a> = VRefMut<'a, #vtable_name>;
-            pub type #box_name = VBox<#vtable_name>;
 
         }
         #[doc(inline)]
@@ -466,46 +471,3 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
     //     println!("{}", result);
     result.into()
 }
-/*
-#[proc_macro_attribute]
-pub fn static_vtable(attr: TokenStream, item: TokenStream) -> TokenStream {
-    let mut input = parse_macro_input!(item as ItemStatic);
-
-    let ty = parse_macro_input!(attr as Type);
-
-    let input_ty = &input.ty;
-
-    let vtable_type = if let Type::Path(pat) = &**input_ty {
-        if let Some(seg) = pat.path.segments.last() {
-            seg.ident.clone()
-        } else {
-            return Error::new(proc_macro2::Span::call_site(), "Could not find the VTableType")
-                .to_compile_error()
-                .into();
-        }
-    } else {
-        return Error::new(proc_macro2::Span::call_site(), "Could not find the VTableType")
-            .to_compile_error()
-            .into();
-    };
-
-    if !vtable_type.to_string().ends_with("VTable") {
-        return Error::new(input.ident.span(), "The type does not ends in 'VTable'")
-            .to_compile_error()
-            .into();
-    }
-
-    let mac = quote::format_ident!("{}_static", vtable_type);
-    input.expr =
-        Box::new(parse2(quote!(<#ty as ::vtable::HasStaticVTable<#input_ty>>::VTABLE)).unwrap());
-
-    quote!(
-        #input
-        unsafe impl ::vtable::HasStaticVTable<#input_ty> for #ty
-        {
-            const VTABLE : <#input_ty as ::vtable::VTableMeta>::VTable =  #mac!(#ty);
-        }
-    )
-    .into()
-}
-*/

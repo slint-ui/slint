@@ -11,19 +11,19 @@ pub unsafe trait VTableMeta {
     type Target;
 
     /// That's the VTable itself (so most likely Self)
-    type VTable;
+    type VTable: 'static;
 }
 
 pub trait VTableMetaDrop: VTableMeta {
     /// Safety: the Target need to be pointing to a valid allocated pointer
     unsafe fn drop(ptr: *mut Self::Target);
+    fn new_box<X: HasStaticVTable<Self>>(value: X) -> VBox<Self>;
 }
 
 /// Allow to associate a VTable to a type.
 pub unsafe trait HasStaticVTable<VT>
 where
     VT: ?Sized + VTableMeta,
-    VT::VTable: 'static,
 {
     /// Savety: must be a valid VTable for Self
     const VTABLE: VT::VTable;
@@ -75,6 +75,10 @@ impl<T: ?Sized + VTableMetaDrop> Drop for VBox<T> {
 }
 
 impl<T: ?Sized + VTableMetaDrop> VBox<T> {
+    pub fn new<X: HasStaticVTable<T>>(value: X) -> Self {
+        T::new_box(value)
+    }
+
     pub unsafe fn from_raw(vtable: NonNull<T::VTable>, ptr: NonNull<u8>) -> Self {
         Self {
             inner: Inner { vtable: vtable.cast().as_ptr(), ptr: ptr.cast().as_ptr() },
