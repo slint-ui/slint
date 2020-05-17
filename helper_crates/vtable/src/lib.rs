@@ -190,5 +190,56 @@ impl<'a, T: ?Sized + VTableMeta> VRefMut<'a, T> {
     }
 }
 
+/// Represent an offset to a field of type mathcing the vtable, within the Base container structure.
+#[repr(C)]
+pub struct VOffset<Base, T: ?Sized + VTableMeta> {
+    vtable: *const T::VTable,
+    /// Safety invariant: the vtable is valid, and the field at the given offset within Base is
+    /// matching with the vtable
+    offset: usize,
+    phantom: PhantomData<*const Base>,
+}
+
+impl<Base, T: ?Sized + VTableMeta> VOffset<Base, T> {
+    #[inline]
+    pub fn apply<'a>(self, x: &'a Base) -> VRef<'a, T> {
+        let ptr = x as *const Base as *const u8;
+        unsafe {
+            VRef::from_raw(
+                NonNull::new_unchecked(self.vtable as *mut _),
+                NonNull::new_unchecked(ptr.add(self.offset) as *mut _),
+            )
+        }
+    }
+
+    #[inline]
+    pub fn apply_mut<'a>(self, x: &'a mut Base) -> VRefMut<'a, T> {
+        let ptr = x as *mut Base as *mut u8;
+        unsafe {
+            VRefMut::from_raw(
+                NonNull::new_unchecked(self.vtable as *mut _),
+                NonNull::new_unchecked(ptr.add(self.offset)),
+            )
+        }
+    }
+
+    pub fn new<X: HasStaticVTable<T>>(o: FieldOffset<Base, X>) -> Self {
+        Self {
+            vtable: X::STATIC_VTABLE as *const T::VTable,
+            offset: o.get_byte_offset(),
+            phantom: PhantomData,
+        }
+    }
+}
+
+// Need to implement manually otheriwse it is not implemented if T do not implement Copy / Clone
+impl<Base, T: ?Sized + VTableMeta> Copy for VOffset<Base, T> {}
+
+impl<Base, T: ?Sized + VTableMeta> Clone for VOffset<Base, T> {
+    fn clone(&self) -> Self {
+        Self { vtable: self.vtable, offset: self.offset, phantom: PhantomData }
+    }
+}
+
 #[cfg(doctest)]
 mod compile_fail_tests;

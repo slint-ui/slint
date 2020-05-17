@@ -18,6 +18,7 @@ struct HelloVTable {
 #[derive(Debug, const_field_offset::FieldOffsets)]
 #[repr(C)]
 struct SomeStruct {
+    e: u8,
     x: u32,
 }
 impl Hello for SomeStruct {
@@ -31,7 +32,7 @@ impl Hello for SomeStruct {
     }
 
     fn construct(init: u32) -> Self {
-        Self { x: init }
+        Self { e: 3, x: init }
     }
 
     fn assoc() -> isize {
@@ -47,6 +48,13 @@ impl HelloConsts for SomeStruct {
 HelloVTable_static!(SomeStruct);
 static SOME_STRUCT_TYPE: HelloVTable = SomeStruct::VTABLE;
 
+#[repr(C)]
+#[derive(const_field_offset::FieldOffsets)]
+struct SomeStructContainer {
+    e: u8,
+    s: SomeStruct,
+}
+
 #[test]
 fn test() {
     let vt = &SOME_STRUCT_TYPE;
@@ -58,12 +66,12 @@ fn test() {
     assert_eq!(bx.foo(2), 97);
     assert_eq!(bx.get_vtable().CONSTANT, 88);
 
-    let bx2 = VBox::<HelloVTable>::new(SomeStruct { x: 23 });
+    let bx2 = VBox::<HelloVTable>::new(SomeStruct { e: 4, x: 23 });
     assert_eq!(bx2.foo(3), 26);
     assert_eq!(bx2.get_vtable().CONSTANT, 88);
     assert_eq!(*bx2.SOME_OFFSET(), 23);
 
-    let mut hello = SomeStruct { x: 44 };
+    let mut hello = SomeStruct { e: 4, x: 44 };
     {
         let xref = VRef::<HelloVTable>::new(&hello);
         assert_eq!(xref.foo(0), 44);
@@ -76,4 +84,11 @@ fn test() {
         let xref2 = xref.borrow();
         assert_eq!(xref2.foo(1), 4);
     }
+
+    let vo =
+        VOffset::<SomeStructContainer, HelloVTable>::new(SomeStructContainer::field_offsets().s);
+    let mut ssc = SomeStructContainer { e: 4, s: SomeStruct { e: 5, x: 32 } };
+    assert_eq!(vo.apply(&ssc).foo(4), 32 + 4);
+    assert_eq!(vo.apply_mut(&mut ssc).foo_mut(4), 32 + 4);
+    assert_eq!(*vo.apply(&ssc).SOME_OFFSET(), 32 + 4);
 }
