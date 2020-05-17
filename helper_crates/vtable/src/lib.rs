@@ -37,6 +37,7 @@ where
 /// Invariant: _vtable and _ptr are valid pointer for the lifetime of the container.
 /// _ptr is an instance of the object represented by _vtable
 #[allow(dead_code)]
+#[repr(C)]
 struct Inner {
     vtable: *const u8,
     ptr: *const u8,
@@ -50,7 +51,7 @@ impl Inner {
     }
 }
 
-#[repr(C)]
+#[repr(transparent)]
 pub struct VBox<T: ?Sized + VTableMetaDrop> {
     inner: Inner,
     phantom: PhantomData<T::Target>,
@@ -95,6 +96,7 @@ impl<T: ?Sized + VTableMetaDrop> VBox<T> {
     }
 }
 
+#[repr(transparent)]
 pub struct VRef<'a, T: ?Sized + VTableMeta> {
     inner: Inner,
     phantom: PhantomData<&'a T::Target>,
@@ -138,6 +140,7 @@ impl<'a, T: ?Sized + VTableMeta> VRef<'a, T> {
     }
 }
 
+#[repr(transparent)]
 pub struct VRefMut<'a, T: ?Sized + VTableMeta> {
     inner: Inner,
     phantom: PhantomData<&'a mut T::Target>,
