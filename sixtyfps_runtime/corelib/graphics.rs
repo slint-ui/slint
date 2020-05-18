@@ -67,8 +67,6 @@ pub trait RenderingPrimitivesBuilder {
 
     fn create_rect_primitive(
         &mut self,
-        x: f32,
-        y: f32,
         width: f32,
         height: f32,
         color: Color,
@@ -76,10 +74,10 @@ pub trait RenderingPrimitivesBuilder {
         use lyon::math::Point;
 
         let mut rect_path = Path::builder();
-        rect_path.move_to(Point::new(x, y));
-        rect_path.line_to(Point::new(x + width, y));
-        rect_path.line_to(Point::new(x + width, y + height));
-        rect_path.line_to(Point::new(x, y + height));
+        rect_path.move_to(Point::new(0., 0.0));
+        rect_path.line_to(Point::new(width, 0.0));
+        rect_path.line_to(Point::new(width, height));
+        rect_path.line_to(Point::new(0.0, height));
         rect_path.close();
         self.create_path_fill_primitive(&rect_path.build(), FillStyle::SolidColor(color))
     }

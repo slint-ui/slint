@@ -1,4 +1,4 @@
-use cgmath::{Matrix4, SquareMatrix};
+use cgmath::{Matrix4, SquareMatrix, Vector3};
 use lyon::path::{math::Point, math::Rect, math::Size};
 use sixtyfps_corelib::{
     graphics::{Color, Frame, GraphicsBackend, RenderingPrimitivesBuilder},
@@ -24,19 +24,13 @@ fn main() {
     let mut rendering_primitives_builder = renderer.new_rendering_primitives_builder();
 
     let root = {
-        let root_rect =
-            rendering_primitives_builder.create_rect_primitive(0.0, 0.0, 100., 100., Color::BLUE);
+        let root_rect = rendering_primitives_builder.create_rect_primitive(100., 100., Color::BLUE);
         render_cache.allocate_entry(root_rect)
     };
 
     let child_rect = {
-        let child_rect = rendering_primitives_builder.create_rect_primitive(
-            100.,
-            100.,
-            100.,
-            100.,
-            Color::GREEN,
-        );
+        let child_rect =
+            rendering_primitives_builder.create_rect_primitive(100., 100., Color::GREEN);
         render_cache.allocate_entry(child_rect)
     };
 
@@ -80,7 +74,10 @@ fn main() {
 
     main_window.run_event_loop(move |frame, rendering_cache| {
         frame.render_primitive(rendering_cache.entry_at(root), &Matrix4::identity());
-        frame.render_primitive(rendering_cache.entry_at(child_rect), &Matrix4::identity());
+        frame.render_primitive(
+            rendering_cache.entry_at(child_rect),
+            &Matrix4::from_translation(Vector3::new(100., 100., 0.)),
+        );
         frame.render_primitive(rendering_cache.entry_at(image_node), &Matrix4::identity());
     });
 

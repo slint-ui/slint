@@ -20,8 +20,6 @@ pub(crate) fn update_item_rendering_data<Backend: GraphicsBackend>(
                 return;
             }
             let primitive = rendering_primitives_builder.create_rect_primitive(
-                0.,
-                0.,
                 width,
                 height,
                 Color::from_argb_encoded(color),
