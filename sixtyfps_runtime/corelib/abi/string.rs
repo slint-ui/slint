@@ -28,6 +28,89 @@ impl SharedString {
             core::str::from_utf8_unchecked(core::slice::from_raw_parts(self.as_ptr(), self.len()))
         }
     }
+
+    /// Append a string to this string
+    ///
+    /// ```
+    /// # use corelib::SharedString;
+    /// let mut hello = SharedString::from("Hello");
+    /// hello.push_str(", ");
+    /// hello.push_str("World");
+    /// hello.push_str("!");
+    /// assert_eq!(hello, "Hello, World!");
+    /// ```
+    pub fn push_str(&mut self, x: &str) {
+        let new_len = self.inner.header.header + x.len();
+        if new_len + 1 < self.inner.slice.len() {
+            let mut arc = servo_arc::Arc::from_thin(self.inner.clone());
+            if let Some(inner) = servo_arc::Arc::get_mut(&mut arc) {
+                unsafe {
+                    core::ptr::copy_nonoverlapping(
+                        x.as_ptr(),
+                        inner.slice.as_mut_ptr().add(inner.header.header) as *mut u8,
+                        x.len(),
+                    );
+                }
+                inner.slice[new_len] = MaybeUninit::new(0);
+                inner.header.header = new_len;
+                return;
+            }
+        }
+        // re-alloc
+
+        struct ReallocIter<'a> {
+            pos: usize,
+            new_alloc: usize,
+            first: &'a [MaybeUninit<u8>],
+            second: &'a [u8],
+        }
+
+        impl<'a> Iterator for ReallocIter<'a> {
+            type Item = MaybeUninit<u8>;
+            fn next(&mut self) -> Option<MaybeUninit<u8>> {
+                let mut pos = self.pos;
+                if pos >= self.new_alloc {
+                    return None;
+                }
+
+                self.pos += 1;
+
+                if pos < self.first.len() {
+                    return Some(self.first[pos]);
+                }
+                pos -= self.first.len();
+                if pos < self.second.len() {
+                    return Some(MaybeUninit::new(self.second[pos]));
+                }
+                pos -= self.second.len();
+                if pos == 0 {
+                    return Some(MaybeUninit::new(0));
+                }
+                // I don't know if the compiler will be smart enough to exit the loop here.
+                // It would be nice if servo_arc::Arc would allow to leave uninitialized memory
+                Some(MaybeUninit::uninit())
+            }
+            fn size_hint(&self) -> (usize, Option<usize>) {
+                (self.new_alloc, Some(self.new_alloc))
+            }
+        }
+        impl<'a> core::iter::ExactSizeIterator for ReallocIter<'a> {}
+
+        let align = core::mem::align_of::<usize>();
+        let new_alloc = new_len + new_len / 2; // add some growing factor
+        let new_alloc = (new_alloc + align) & !(align - 1);
+        let iter = ReallocIter {
+            pos: 0,
+            first: &self.inner.slice[0..self.inner.header.header],
+            second: x.as_bytes(),
+            new_alloc,
+        };
+
+        self.inner = servo_arc::Arc::into_thin(servo_arc::Arc::from_header_and_iter(
+            servo_arc::HeaderWithLength::new(new_len, new_alloc),
+            iter,
+        ));
+    }
 }
 
 impl Deref for SharedString {
