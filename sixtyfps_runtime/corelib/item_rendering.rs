@@ -35,7 +35,7 @@ pub(crate) fn update_item_rendering_data<Backend: GraphicsBackend>(
             {
                 let mut image_path = std::env::current_exe().unwrap();
                 image_path.pop(); // pop of executable name
-                image_path.push(_source);
+                image_path.push(&*_source);
                 let image = image::open(image_path.as_path()).unwrap().into_rgba();
                 let source_size = image.dimensions();
 

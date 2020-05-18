@@ -38,15 +38,11 @@ impl ItemConsts for Rectangle {
     > = Rectangle::field_offsets().cached_rendering_data;
 }
 
-// FIXME: remove  (or use the libc one)
-#[allow(non_camel_case_types)]
-type c_char = i8;
-
 #[repr(C)]
-#[derive(const_field_offset::FieldOffsets)]
+#[derive(const_field_offset::FieldOffsets, Default)]
 pub struct Image {
     /// FIXME: make it a image source
-    pub source: *const c_char,
+    pub source: crate::SharedString,
     pub x: f32,
     pub y: f32,
     pub width: f32,
@@ -54,29 +50,10 @@ pub struct Image {
     pub cached_rendering_data: super::datastructures::CachedRenderingData,
 }
 
-impl Default for Image {
-    fn default() -> Self {
-        Image {
-            source: (b"\0").as_ptr() as *const _,
-            x: 0.,
-            y: 0.,
-            width: 0.,
-            height: 0.,
-            cached_rendering_data: Default::default(),
-        }
-    }
-}
-
 impl Item for Image {
     fn geometry(&self) {}
     fn rendering_info(&self) -> RenderingInfo {
-        unsafe {
-            RenderingInfo::Image(
-                self.x,
-                self.y,
-                std::ffi::CStr::from_ptr(self.source).to_str().unwrap(),
-            )
-        }
+        RenderingInfo::Image(self.x, self.y, self.source.clone())
     }
 
     fn layouting_info(&self) -> LayoutInfo {

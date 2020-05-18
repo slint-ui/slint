@@ -1,7 +1,6 @@
 extern crate proc_macro;
 use object_tree::Expression;
 use proc_macro::TokenStream;
-use proc_macro2::{Literal, TokenTree};
 use quote::quote;
 use sixtyfps_compiler::*;
 
@@ -126,9 +125,7 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
                 // That's an error
                 Expression::Identifier(_) => quote!(),
                 Expression::StringLiteral(s) => {
-                    let c_str: std::ffi::CString = std::ffi::CString::new(s.as_bytes()).unwrap();
-                    let tok = TokenTree::Literal(Literal::byte_string(c_str.as_bytes_with_nul()));
-                    quote!(#tok as *const u8).into()
+                    quote!(sixtyfps::re_exports::SharedString::from(#s))
                 }
                 Expression::NumberLiteral(n) => quote!(#n),
             };

@@ -1,16 +1,9 @@
-
 namespace sixtyfps::internal {
-// FIXME: this is just required because of something wrong
-// with &str in cbindgen, but one should not have &str anyway
-using str = char;
-
 // Workaround https://github.com/eqrion/cbindgen/issues/43
 struct ComponentVTable;
 }
-
-
-#include "sixtyfps_gl_internal.h"
 #include "sixtyfps_internal.h"
+#include "sixtyfps_gl_internal.h"
 
 namespace sixtyfps {
 

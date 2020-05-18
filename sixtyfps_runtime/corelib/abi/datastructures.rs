@@ -103,7 +103,7 @@ pub struct LayoutInfo {
 pub enum RenderingInfo {
     NoContents,
     Rectangle(f32, f32, f32, f32, u32), // Should be a beret structure
-    Image(f32, f32, &'static str),
+    Image(f32, f32, crate::SharedString),
     /*Path(Vec<PathElement>),
     Image(OpaqueImageHandle, AspectRatio),
     Text(String)*/

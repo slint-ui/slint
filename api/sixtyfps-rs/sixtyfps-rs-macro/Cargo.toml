@@ -10,6 +10,5 @@ path = "lib.rs"
 
 [dependencies]
 quote = "1.0"
-proc-macro2 = "1.0"
 sixtyfps_compiler = { path = "../../../sixtyfps_compiler", features = ["proc_macro_span"] }
 

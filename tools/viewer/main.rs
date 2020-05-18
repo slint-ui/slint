@@ -1,5 +1,6 @@
 use core::ptr::NonNull;
 use corelib::abi::datastructures::{ComponentBox, ComponentRef, ComponentRefMut, ComponentVTable};
+use corelib::SharedString;
 use sixtyfps_compiler::object_tree::Expression;
 use std::collections::HashMap;
 use structopt::StructOpt;
@@ -34,16 +35,13 @@ impl PropertyWriter for u32 {
     }
 }
 
-impl PropertyWriter for *const i8 {
+impl PropertyWriter for SharedString {
     unsafe fn write(ptr: *mut u8, value: &Expression) {
         let val: Self = match value {
-            Expression::StringLiteral(v) => {
-                // FIXME that's a leak
-                std::ffi::CString::new(v.as_str()).unwrap().into_raw() as _
-            }
+            Expression::StringLiteral(v) => (**v).into(),
             _ => todo!(),
         };
-        std::ptr::write(ptr as *mut Self, val);
+        *(ptr as *mut Self) = val.clone();
     }
 }
 
@@ -128,7 +126,7 @@ fn main() -> std::io::Result<()> {
                 ("y", (offsets.y.get_byte_offset(), set_property::<f32> as _)),
                 ("width", (offsets.width.get_byte_offset(), set_property::<f32> as _)),
                 ("height", (offsets.height.get_byte_offset(), set_property::<f32> as _)),
-                ("source", (offsets.source.get_byte_offset(), set_property::<*const i8> as _)),
+                ("source", (offsets.source.get_byte_offset(), set_property::<SharedString> as _)),
             ]
             .iter()
             .cloned()

@@ -26,7 +26,7 @@ SuperSimple = Rectangle {
     Image {
         x: 200;
         y: 200;
-        source: "../../../examples/graphicstest/logo.png";
+        source: "../../examples/graphicstest/logo.png";
     }
 }
 
