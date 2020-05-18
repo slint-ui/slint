@@ -23,10 +23,22 @@ pub use const_field_offset_macro::FieldOffsets;
 pub struct FieldOffset<T, U>(
     /// Offset in bytes of the field within the struct
     usize,
-    // ### Changed from Fn to fn to allow const
-    // it is fine to be fariant
-    PhantomData<(*const T, *const U)>,
+    /// ### Changed from Fn to fn to allow const
+    /// Should be fn(T)->U,  but we can't make that work in const context.
+    /// So make it invariant in T instead
+    ///
+    /// ```compile_fail
+    /// use const_field_offset::FieldOffset;
+    /// struct Foo<'a>(&'a str);
+    /// fn test<'a>(foo: &Foo<'a>, of: FieldOffset<Foo<'static>, &'static str>) -> &'static str {
+    ///     let of2 : FieldOffset<Foo<'a>, &'static str> = of; // This must not compile
+    ///     of2.apply(foo)
+    /// }
+    /// ```
+    PhantomData<(*mut T, *const U)>,
 );
+
+unsafe impl<T, U> Send for FieldOffset<T, U> {}
 
 impl<T, U> FieldOffset<T, U> {
     // Use MaybeUninit to get a fake T
