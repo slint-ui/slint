@@ -1,8 +1,10 @@
 use cgmath::Matrix4;
 use glow::{Context as GLContext, HasContext};
+use image::Pixel;
 use lyon::path::math::Rect;
 use lyon::tessellation::geometry_builder::{BuffersBuilder, VertexBuffers};
 use lyon::tessellation::{FillAttributes, FillOptions, FillTessellator};
+use pathfinder_geometry::{transform2d::Transform2F, vector::Vector2F, vector::Vector2I};
 use sixtyfps_corelib::abi::datastructures::ComponentVTable;
 use sixtyfps_corelib::graphics::{
     Color, FillStyle, Frame as GraphicsFrame, GraphicsBackend, RenderingPrimitivesBuilder,
@@ -502,6 +504,104 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
         );
 
         let texture = GLTexture::new(&self.context, image);
+
+        OpaqueRenderingPrimitive(GLRenderingPrimitive::Texture {
+            vertices,
+            texture_vertices,
+            texture,
+        })
+    }
+
+    fn create_glyphs(&mut self, text: &str, _color: &Color) -> Self::RenderingPrimitive {
+        let font = font_kit::source::SystemSource::new()
+            .select_best_match(
+                &[font_kit::family_name::FamilyName::SansSerif],
+                &font_kit::properties::Properties::new(),
+            )
+            .unwrap()
+            .load()
+            .unwrap();
+        let pixel_size: f32 = 48.0 * 72. / 96.;
+
+        let font_metrics = font.metrics();
+
+        let scale_from_font_units = pixel_size / font_metrics.units_per_em as f32;
+
+        let baseline_y = font_metrics.ascent * scale_from_font_units;
+        let hinting = font_kit::hinting::HintingOptions::None;
+        let raster_opts = font_kit::canvas::RasterizationOptions::GrayscaleAa;
+
+        struct Glyph {
+            id: u32,
+            advance: f32,
+        }
+
+        // ### TODO: shape text
+        let glyphs: Vec<Glyph> = text
+            .chars()
+            .map(|ch| {
+                let id = font.glyph_for_char(ch).unwrap();
+                let advance = font.advance(id).unwrap().x() * scale_from_font_units;
+                Glyph { id, advance }
+            })
+            .collect();
+
+        let text_height = (font_metrics.ascent - font_metrics.descent + 1.) * scale_from_font_units;
+        let text_width: f32 = glyphs.iter().map(|glyph| glyph.advance).sum();
+
+        let mut canvas = font_kit::canvas::Canvas::new(
+            Vector2I::new(text_width.ceil() as i32, text_height.ceil() as i32),
+            font_kit::canvas::Format::A8,
+        );
+
+        let mut x = 0.;
+
+        for glyph in glyphs {
+            font.rasterize_glyph(
+                &mut canvas,
+                glyph.id,
+                pixel_size,
+                Transform2F::from_translation(Vector2F::new(x, baseline_y)),
+                hinting,
+                raster_opts,
+            )
+            .unwrap();
+            x += glyph.advance;
+        }
+
+        let glyphs_image =
+            image::ImageBuffer::from_fn(canvas.size.x() as u32, canvas.size.y() as u32, |x, y| {
+                let idx = (x as usize) + (y as usize) * canvas.stride;
+                let alpha = canvas.pixels[idx];
+                image::Rgba::<u8>::from_channels(0, 0, 0, alpha)
+            });
+
+        let image_width = glyphs_image.width() as f32;
+        let image_height = glyphs_image.height() as f32;
+        let src_left = 0.;
+        let src_top = 0.;
+        let src_right = 1.;
+        let src_bottom = 1.;
+
+        let vertex1 = Vertex { _pos: [0., 0.] };
+        let tex_vertex1 = Vertex { _pos: [src_left, src_top] };
+        let vertex2 = Vertex { _pos: [image_width, 0.] };
+        let tex_vertex2 = Vertex { _pos: [src_right, src_top] };
+        let vertex3 = Vertex { _pos: [image_width, image_height] };
+        let tex_vertex3 = Vertex { _pos: [src_right, src_bottom] };
+        let vertex4 = Vertex { _pos: [0., image_height] };
+        let tex_vertex4 = Vertex { _pos: [src_left, src_bottom] };
+
+        let vertices = GLArrayBuffer::new(
+            &self.context,
+            &vec![vertex1, vertex2, vertex3, vertex1, vertex3, vertex4],
+        );
+        let texture_vertices = GLArrayBuffer::new(
+            &self.context,
+            &vec![tex_vertex1, tex_vertex2, tex_vertex3, tex_vertex1, tex_vertex3, tex_vertex4],
+        );
+
+        let texture = GLTexture::new(&self.context, glyphs_image);
 
         OpaqueRenderingPrimitive(GLRenderingPrimitive::Texture {
             vertices,

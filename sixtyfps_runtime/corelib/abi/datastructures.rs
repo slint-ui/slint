@@ -104,9 +104,9 @@ pub enum RenderingInfo {
     NoContents,
     Rectangle(f32, f32, f32, f32, u32), // Should be a beret structure
     Image(f32, f32, crate::SharedString),
+    Text(f32, f32, crate::SharedString, u32),
     /*Path(Vec<PathElement>),
-    Image(OpaqueImageHandle, AspectRatio),
-    Text(String)*/
+    Image(OpaqueImageHandle, AspectRatio)*/
 }
 
 pub type MouseEvent = ();
@@ -275,3 +275,4 @@ pub static QT_BUTTON_VTABLE: ItemVTable = ItemVTable {
 
 ItemVTable_static!(crate::abi::primitives::Image);
 ItemVTable_static!(crate::abi::primitives::Rectangle);
+ItemVTable_static!(crate::abi::primitives::Text);

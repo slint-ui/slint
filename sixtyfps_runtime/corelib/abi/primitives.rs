@@ -70,8 +70,39 @@ impl ItemConsts for Image {
     > = Image::field_offsets().cached_rendering_data;
 }
 
+#[repr(C)]
+#[derive(const_field_offset::FieldOffsets, Default)]
+pub struct Text {
+    pub text: crate::SharedString,
+    pub color: u32,
+    pub x: f32,
+    pub y: f32,
+    pub cached_rendering_data: super::datastructures::CachedRenderingData,
+}
+
+impl Item for Text {
+    fn geometry(&self) {}
+    fn rendering_info(&self) -> RenderingInfo {
+        RenderingInfo::Text(self.x, self.y, self.text.clone(), self.color)
+    }
+
+    fn layouting_info(&self) -> LayoutInfo {
+        todo!()
+    }
+
+    fn input_event(&self, _: super::datastructures::MouseEvent) {}
+}
+
+impl ItemConsts for Text {
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<Text, CachedRenderingData> =
+        Text::field_offsets().cached_rendering_data;
+}
+
 #[no_mangle]
 pub static RectangleVTable: ItemVTable = Rectangle::VTABLE;
 
 #[no_mangle]
 pub static ImageVTable: ItemVTable = Image::VTABLE;
+
+#[no_mangle]
+pub static TextVTable: ItemVTable = Text::VTABLE;

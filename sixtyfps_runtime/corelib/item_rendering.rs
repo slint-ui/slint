@@ -50,6 +50,12 @@ pub(crate) fn update_item_rendering_data<Backend: GraphicsBackend>(
                 rendering_data.cache_ok = true;
             }
         }
+        RenderingInfo::Text(_x, _y, text, color) => {
+            let primitive =
+                rendering_primitives_builder.create_glyphs(&text, &Color::from_argb_encoded(color));
+            rendering_data.cache_index = rendering_cache.allocate_entry(primitive);
+            rendering_data.cache_ok = true;
+        }
         RenderingInfo::NoContents => {
             rendering_data.cache_ok = false;
         }
@@ -72,6 +78,7 @@ pub(crate) fn render_component_items<Backend: GraphicsBackend>(
             if let Some((x, y)) = match item_rendering_info {
                 RenderingInfo::Rectangle(x, y, ..) => Some((x, y)),
                 RenderingInfo::Image(x, y, ..) => Some((x, y)),
+                RenderingInfo::Text(x, y, ..) => Some((x, y)),
                 _ => None,
             } {
                 transform = transform * Matrix4::from_translation(Vector3::new(x, y, 0.0));

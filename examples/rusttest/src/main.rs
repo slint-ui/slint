@@ -20,6 +20,13 @@ sixtyfps::sixtyfps! {
             y: 200;
             source: "../../examples/graphicstest/logo.png";
         }
+
+        Text {
+            x: 200;
+            y: 400;
+            text: "Hello World";
+            color: green;
+        }
     }
 }
 

@@ -50,6 +50,12 @@ impl TypeRegister {
         image.properties.insert("width".to_owned(), Type::Number);
         image.properties.insert("height".to_owned(), Type::Number);
         r.types.insert("Image".to_owned(), Rc::new(image));
+        let mut text = BuiltinElement::default();
+        text.properties.insert("text".to_owned(), Type::String);
+        text.properties.insert("color".to_owned(), Type::Color);
+        text.properties.insert("x".to_owned(), Type::Number);
+        text.properties.insert("y".to_owned(), Type::Number);
+        r.types.insert("Text".to_owned(), Rc::new(text));
 
         r
     }
