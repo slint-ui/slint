@@ -70,7 +70,13 @@ impl Default for Image {
 impl Item for Image {
     fn geometry(&self) {}
     fn rendering_info(&self) -> RenderingInfo {
-        unsafe { RenderingInfo::Image(std::ffi::CStr::from_ptr(self.source).to_str().unwrap()) }
+        unsafe {
+            RenderingInfo::Image(
+                self.x,
+                self.y,
+                std::ffi::CStr::from_ptr(self.source).to_str().unwrap(),
+            )
+        }
     }
 
     fn layouting_info(&self) -> LayoutInfo {

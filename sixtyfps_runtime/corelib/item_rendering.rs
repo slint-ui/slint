@@ -29,7 +29,7 @@ pub(crate) fn update_item_rendering_data<Backend: GraphicsBackend>(
 
             rendering_data.cache_ok = true;
         }
-        RenderingInfo::Image(_source) => {
+        RenderingInfo::Image(_x, _y, _source) => {
             rendering_data.cache_ok = false;
             #[cfg(not(target_arch = "wasm32"))]
             {
@@ -39,20 +39,13 @@ pub(crate) fn update_item_rendering_data<Backend: GraphicsBackend>(
                 let image = image::open(image_path.as_path()).unwrap().into_rgba();
                 let source_size = image.dimensions();
 
-                let source_rect = Rect::new(
+                let rect = Rect::new(
                     Point::new(0.0, 0.0),
                     Size::new(source_size.0 as f32, source_size.1 as f32),
                 );
-                let dest_rect = Rect::new(
-                    Point::new(200.0, 200.0),
-                    Size::new(source_size.0 as f32, source_size.1 as f32),
-                );
 
-                let image_primitive = rendering_primitives_builder.create_image_primitive(
-                    source_rect,
-                    dest_rect,
-                    image,
-                );
+                let image_primitive =
+                    rendering_primitives_builder.create_image_primitive(rect, rect, image);
                 rendering_data.cache_index = rendering_cache.allocate_entry(image_primitive);
                 rendering_data.cache_ok = true;
             }
@@ -76,11 +69,12 @@ pub(crate) fn render_component_items<Backend: GraphicsBackend>(
             let mut transform = transform.clone();
             let item_rendering_info = item.rendering_info();
 
-            match item_rendering_info {
-                RenderingInfo::Rectangle(x, y, ..) => {
-                    transform = transform * Matrix4::from_translation(Vector3::new(x, y, 0.0));
-                }
-                _ => {}
+            if let Some((x, y)) = match item_rendering_info {
+                RenderingInfo::Rectangle(x, y, ..) => Some((x, y)),
+                RenderingInfo::Image(x, y, ..) => Some((x, y)),
+                _ => None,
+            } {
+                transform = transform * Matrix4::from_translation(Vector3::new(x, y, 0.0));
             }
 
             let cached_rendering_data = item.cached_rendering_data_offset();
