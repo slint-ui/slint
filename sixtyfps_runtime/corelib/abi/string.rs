@@ -101,6 +101,43 @@ impl Debug for SharedString {
     }
 }
 
+impl AsRef<str> for SharedString {
+    #[inline]
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
+impl AsRef<std::ffi::CStr> for SharedString {
+    #[inline]
+    fn as_ref(&self) -> &std::ffi::CStr {
+        unsafe {
+            std::ffi::CStr::from_bytes_with_nul_unchecked(core::slice::from_raw_parts(
+                self.as_ptr(),
+                self.len() + 1,
+            ))
+        }
+    }
+}
+
+impl AsRef<[u8]> for SharedString {
+    #[inline]
+    fn as_ref(&self) -> &[u8] {
+        self.as_str().as_bytes()
+    }
+}
+
+impl<T> PartialEq<T> for SharedString
+where
+    T: ?Sized + AsRef<str>,
+{
+    fn eq(&self, other: &T) -> bool {
+        self.as_str() == other.as_ref()
+    }
+}
+
+impl Eq for SharedString {}
+
 /// for cbingen.
 #[allow(non_camel_case_types)]
 type c_char = u8;
@@ -133,4 +170,22 @@ pub unsafe extern "C" fn sixtyfps_shared_string_from_bytes(
 ) {
     let str = core::str::from_utf8_unchecked(core::slice::from_raw_parts(bytes, len));
     core::ptr::write(out, SharedString::from(str));
+}
+
+#[test]
+fn simple_test() {
+    let x = SharedString::from("hello world!");
+    assert_eq!(x, "hello world!");
+    assert_ne!(x, "hello world?");
+    assert_eq!(x, x.clone());
+    assert_eq!("hello world!", x.as_str());
+    let string = String::from("hello world!");
+    assert_eq!(x, string);
+    let def = SharedString::default();
+    assert_eq!(def, SharedString::default());
+    assert_ne!(def, x);
+    assert_eq!(
+        (&x as &dyn AsRef<std::ffi::CStr>).as_ref(),
+        &*std::ffi::CString::new("hello world!").unwrap()
+    );
 }
