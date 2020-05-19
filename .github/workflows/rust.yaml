@@ -50,11 +50,6 @@ jobs:
       with:
           command: test
           args: --verbose
-    - name: WASM Build
-      uses: actions-rs/cargo@v1
-      with:
-          command: build
-          args: --target wasm32-unknown-unknown --verbose
     - name: C++ Test
       uses: lukka/run-cmake@v2.4
       with:
