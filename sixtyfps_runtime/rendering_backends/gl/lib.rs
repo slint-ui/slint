@@ -849,7 +849,7 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
             glyph_texture_vertices
                 .extend_from_slice(&glyph.glyph_allocation.sub_texture.normalized_coordinates);
 
-            // ### TODO: support multi-atlas texture glyph runs
+            // ### TODO: #7 support multi-atlas texture glyph runs
             texture = Some(glyph.glyph_allocation.sub_texture.texture);
 
             x += glyph.advance;
