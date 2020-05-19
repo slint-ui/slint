@@ -23,6 +23,7 @@ fn fill_token_vec(stream: TokenStream, vec: &mut Vec<parser::Token>) {
                     ':' => SyntaxKind::Colon,
                     '=' => SyntaxKind::Equal,
                     ';' => SyntaxKind::Semicolon,
+                    '!' => SyntaxKind::Bang,
                     _ => SyntaxKind::Error,
                 };
                 vec.push(parser::Token {
@@ -83,6 +84,12 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
     fill_token_vec(stream, &mut tokens);
 
     let (syntax_node, mut diag) = parser::parse_tokens(tokens);
+
+    if let Ok(cargo_manifest) = std::env::var("CARGO_MANIFEST_DIR") {
+        diag.current_path = cargo_manifest.into();
+        diag.current_path.push("Cargo.toml");
+    }
+
     //println!("{:#?}", syntax_node);
     let tr = typeregister::TypeRegister::builtin();
     let tree = object_tree::Document::from_node(syntax_node, &mut diag, &tr);

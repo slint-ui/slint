@@ -33,6 +33,7 @@ pub struct CompilerDiagnostic {
 #[derive(Default, Debug)]
 pub struct Diagnostics {
     pub inner: Vec<CompilerDiagnostic>,
+    pub current_path: std::path::PathBuf,
 }
 
 impl IntoIterator for Diagnostics {
@@ -52,11 +53,18 @@ impl Diagnostics {
         !self.inner.is_empty()
     }
 
+    /// Returns the path for a given span
+    ///
+    /// (currently just return the current path)
+    pub fn path(&self, _span: Span) -> &std::path::Path {
+        &*self.current_path
+    }
+
     #[cfg(feature = "display-diagnostics")]
     /// Print the diagnostics on the console
-    pub fn print(self, path: String, source: String) {
+    pub fn print(self, source: String) {
         let mut codemap = codemap::CodeMap::new();
-        let file = codemap.add_file(path, source);
+        let file = codemap.add_file(self.current_path.to_string_lossy().to_string(), source);
         let file_span = file.span;
 
         let diags: Vec<_> = self

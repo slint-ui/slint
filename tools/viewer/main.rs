@@ -85,10 +85,11 @@ fn main() -> std::io::Result<()> {
     let args = Cli::from_args();
     let source = std::fs::read_to_string(&args.path)?;
     let (syntax_node, mut diag) = parser::parse(&source);
+    diag.current_path = args.path;
     let tr = typeregister::TypeRegister::builtin();
     let tree = object_tree::Document::from_node(syntax_node, &mut diag, &tr);
     if !diag.inner.is_empty() {
-        diag.print(args.path.to_string_lossy().into_owned(), source);
+        diag.print(source);
         std::process::exit(-1);
     }
 

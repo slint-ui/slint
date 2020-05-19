@@ -146,6 +146,10 @@ impl Expression {
     pub fn from_expression_node(node: SyntaxNode, diag: &mut Diagnostics) -> Self {
         node.child_node(SyntaxKind::Expression)
             .map(|n| Self::from_expression_node(n, diag))
+            .or_else(|| {
+                node.child_node(SyntaxKind::BangExpression)
+                    .map(|n| Self::from_bang_expresion_node(n, diag))
+            })
             .or_else(|| node.child_text(SyntaxKind::Identifier).map(|s| Self::Identifier(s)))
             .or_else(|| {
                 node.child_text(SyntaxKind::StringLiteral).map(|s| {
@@ -164,6 +168,48 @@ impl Expression {
                 })
             })
             .unwrap_or(Self::Invalid)
+    }
+
+    fn from_bang_expresion_node(node: SyntaxNode, diag: &mut Diagnostics) -> Self {
+        match node.child_text(SyntaxKind::Identifier).as_ref().map(|x| x.as_str()) {
+            None => {
+                debug_assert!(false, "the parser should not allow that");
+                diag.push_error("Missing bang keyword".into(), node.span());
+                return Self::Invalid;
+            }
+            Some("img") => {
+                // FIXME: we probably need a better syntax and make this at another level.
+                let s = match node
+                    .child_node(SyntaxKind::Expression)
+                    .map_or(Self::Invalid, |n| Self::from_expression_node(n, diag))
+                {
+                    Expression::StringLiteral(p) => p,
+                    _ => {
+                        diag.push_error(
+                            "img! Must be followed by a valid path".into(),
+                            node.span(),
+                        );
+                        return Self::Invalid;
+                    }
+                };
+                let path = std::path::Path::new(&s);
+
+                if path.is_absolute() {
+                    return Expression::StringLiteral(s);
+                }
+                let path = diag.path(node.span()).parent().unwrap().join(path);
+                if path.is_absolute() {
+                    return Expression::StringLiteral(path.to_string_lossy().to_string());
+                }
+                Expression::StringLiteral(
+                    std::env::current_dir().unwrap().join(path).to_string_lossy().to_string(),
+                )
+            }
+            Some(x) => {
+                diag.push_error(format!("Unkown bang keyword `{}`", x), node.span());
+                return Self::Invalid;
+            }
+        }
     }
 }
 

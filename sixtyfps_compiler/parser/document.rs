@@ -181,12 +181,12 @@ fn parse_expression(p: &mut Parser) {
 
 #[cfg_attr(test, parser_test)]
 /// ```test
-/// something
-/// "something"
-/// 0.3
-/// 42
-/// (something)
-/// img!"something"
+/// foo!bar
+/// foo!(bar)
+/// foo!("bar")
+/// foo ! "bar"
+/// foo ! plop ! bar
+/// foo ! (plop ! bar)
 /// ```
 fn parse_bang_expression(p: &mut Parser) {
     let mut p = p.start_node(SyntaxKind::BangExpression);
