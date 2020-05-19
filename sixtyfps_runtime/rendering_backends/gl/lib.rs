@@ -39,6 +39,7 @@ enum GLRenderingPrimitive {
         texture_vertices: GLArrayBuffer<Vertex>,
         texture: GLTexture,
         vertex_count: i32,
+        color: Color,
     },
 }
 
@@ -526,6 +527,7 @@ pub struct GLRenderer {
     context: Rc<glow::Context>,
     path_program: Shader,
     image_program: Shader,
+    glyph_program: Shader,
     texture_atlas: Rc<RefCell<TextureAtlas>>,
     font: Rc<RefCell<GLFont>>,
     #[cfg(target_arch = "wasm32")]
@@ -548,6 +550,7 @@ pub struct GLFrame {
     context: Rc<glow::Context>,
     path_program: Shader,
     image_program: Shader,
+    glyph_program: Shader,
     root_matrix: cgmath::Matrix4<f32>,
     #[cfg(not(target_arch = "wasm32"))]
     windowed_context: glutin::WindowedContext<glutin::PossiblyCurrent>,
@@ -645,10 +648,34 @@ impl GLRenderer {
 
         let image_program = Shader::new(&context, IMAGE_VERTEX_SHADER, IMAGE_FRAGMENT_SHADER);
 
+        const GLYPH_VERTEX_SHADER: &str = r#"#version 100
+        attribute vec2 pos;
+        attribute vec2 tex_pos;
+        uniform mat4 matrix;
+        uniform vec4 text_color;
+        varying highp vec2 frag_tex_pos;
+        varying lowp vec4 fragcolor;
+        void main() {
+            gl_Position = matrix * vec4(pos, 0.0, 1);
+            frag_tex_pos = tex_pos;
+            fragcolor = text_color;
+        }"#;
+
+        const GLYPH_FRAGMENT_SHADER: &str = r#"#version 100
+        varying highp vec2 frag_tex_pos;
+        varying lowp vec4 fragcolor;
+        uniform sampler2D tex;
+        void main() {
+            gl_FragColor = fragcolor * texture2D(tex, frag_tex_pos).a;
+        }"#;
+
+        let glyph_program = Shader::new(&context, GLYPH_VERTEX_SHADER, GLYPH_FRAGMENT_SHADER);
+
         GLRenderer {
             context: Rc::new(context),
             path_program,
             image_program,
+            glyph_program,
             texture_atlas: Rc::new(RefCell::new(TextureAtlas::new())),
             font: Rc::new(RefCell::new(GLFont::default())),
             #[cfg(target_arch = "wasm32")]
@@ -711,6 +738,7 @@ impl GraphicsBackend for GLRenderer {
             context: self.context.clone(),
             path_program: self.path_program.clone(),
             image_program: self.image_program.clone(),
+            glyph_program: self.glyph_program.clone(),
             root_matrix: cgmath::ortho(0.0, width as f32, height as f32, 0.0, -1., 1.0),
             #[cfg(not(target_arch = "wasm32"))]
             windowed_context: current_windowed_context,
@@ -794,7 +822,7 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
         })
     }
 
-    fn create_glyphs(&mut self, text: &str, _color: &Color) -> Self::RenderingPrimitive {
+    fn create_glyphs(&mut self, text: &str, color: Color) -> Self::RenderingPrimitive {
         let mut glyph_vertices = vec![];
         let mut glyph_texture_vertices = vec![];
 
@@ -835,6 +863,7 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
             texture_vertices,
             texture: texture.unwrap(),
             vertex_count: glyph_vertices.len() as i32,
+            color,
         })
     }
 }
@@ -932,28 +961,36 @@ impl GraphicsFrame for GLFrame {
                 texture_vertices,
                 texture,
                 vertex_count,
+                color,
             } => {
-                self.image_program.use_program(&self.context);
+                self.glyph_program.use_program(&self.context);
 
                 let matrix_location = unsafe {
-                    self.context.get_uniform_location(self.image_program.program, "matrix")
+                    self.context.get_uniform_location(self.glyph_program.program, "matrix")
                 };
                 unsafe {
                     self.context.uniform_matrix_4_f32_slice(matrix_location, false, &gl_matrix)
                 };
 
+                let (r, g, b, a) = color.as_rgba_f32();
+
+                let color_location = unsafe {
+                    self.context.get_uniform_location(self.glyph_program.program, "text_color")
+                };
+                unsafe { self.context.uniform_4_f32(color_location, r, g, b, a) };
+
                 let texture_location = unsafe {
-                    self.context.get_uniform_location(self.image_program.program, "tex").unwrap()
+                    self.context.get_uniform_location(self.glyph_program.program, "tex").unwrap()
                 };
                 texture.bind_to_location(&self.context, texture_location);
 
                 let vertex_attribute_location = unsafe {
-                    self.context.get_attrib_location(self.image_program.program, "pos").unwrap()
+                    self.context.get_attrib_location(self.glyph_program.program, "pos").unwrap()
                 };
                 vertices.bind(&self.context, vertex_attribute_location);
 
                 let vertex_texture_attribute_location = unsafe {
-                    self.context.get_attrib_location(self.image_program.program, "tex_pos").unwrap()
+                    self.context.get_attrib_location(self.glyph_program.program, "tex_pos").unwrap()
                 };
                 texture_vertices.bind(&self.context, vertex_texture_attribute_location);
 

@@ -52,7 +52,7 @@ pub(crate) fn update_item_rendering_data<Backend: GraphicsBackend>(
         }
         RenderingInfo::Text(_x, _y, text, color) => {
             let primitive =
-                rendering_primitives_builder.create_glyphs(&text, &Color::from_argb_encoded(color));
+                rendering_primitives_builder.create_glyphs(&text, Color::from_argb_encoded(color));
             rendering_data.cache_index = rendering_cache.allocate_entry(primitive);
             rendering_data.cache_ok = true;
         }

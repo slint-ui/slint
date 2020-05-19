@@ -81,7 +81,7 @@ pub trait RenderingPrimitivesBuilder {
         self.create_path_fill_primitive(&rect_path.build(), FillStyle::SolidColor(color))
     }
 
-    fn create_glyphs(&mut self, text: &str, color: &Color) -> Self::RenderingPrimitive;
+    fn create_glyphs(&mut self, text: &str, color: Color) -> Self::RenderingPrimitive;
 }
 
 pub trait GraphicsBackend: Sized {
