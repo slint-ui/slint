@@ -45,7 +45,7 @@ pub(crate) fn update_item_rendering_data<Backend: GraphicsBackend>(
                 );
 
                 let image_primitive =
-                    rendering_primitives_builder.create_image_primitive(rect, rect, image);
+                    rendering_primitives_builder.create_image_primitive(rect, image);
                 rendering_data.cache_index = rendering_cache.allocate_entry(image_primitive);
                 rendering_data.cache_ok = true;
             }

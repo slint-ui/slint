@@ -472,18 +472,14 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
 
     fn create_image_primitive(
         &mut self,
-        source_rect: impl Into<Rect>,
         dest_rect: impl Into<Rect>,
         image: image::ImageBuffer<image::Rgba<u8>, Vec<u8>>,
     ) -> Self::RenderingPrimitive {
         let rect = dest_rect.into();
-        let src_rect = source_rect.into();
-        let image_width = image.width() as f32;
-        let image_height = image.height() as f32;
-        let src_left = src_rect.min_x() / image_width;
-        let src_top = src_rect.min_y() / image_height;
-        let src_right = src_rect.max_x() / image_width;
-        let src_bottom = src_rect.max_y() / image_height;
+        let src_left = 0.;
+        let src_top = 0.;
+        let src_right = 1.;
+        let src_bottom = 1.;
 
         let vertex1 = Vertex { _pos: [rect.min_x(), rect.min_y()] };
         let tex_vertex1 = Vertex { _pos: [src_left, src_top] };

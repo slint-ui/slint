@@ -60,7 +60,6 @@ pub trait RenderingPrimitivesBuilder {
     ) -> Self::RenderingPrimitive;
     fn create_image_primitive(
         &mut self,
-        source_rect: impl Into<Rect>,
         dest_rect: impl Into<Rect>,
         image: image::ImageBuffer<image::Rgba<u8>, Vec<u8>>,
     ) -> Self::RenderingPrimitive;

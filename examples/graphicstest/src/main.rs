@@ -57,15 +57,12 @@ fn main() {
 
         let source_size = image.dimensions();
 
-        let source_rect =
-            Rect::new(Point::new(0.0, 0.0), Size::new(source_size.0 as f32, source_size.1 as f32));
         let dest_rect = Rect::new(
             Point::new(200.0, 200.0),
             Size::new(source_size.0 as f32, source_size.1 as f32),
         );
 
-        let image_primitive =
-            rendering_primitives_builder.create_image_primitive(source_rect, dest_rect, image);
+        let image_primitive = rendering_primitives_builder.create_image_primitive(dest_rect, image);
 
         render_cache.allocate_entry(image_primitive)
     };
