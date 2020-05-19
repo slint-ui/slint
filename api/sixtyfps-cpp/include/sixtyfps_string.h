@@ -1,3 +1,4 @@
+#pragma once
 #include <string_view>
 #include "sixtyfps_string_internal.h"
 

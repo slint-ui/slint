@@ -13,114 +13,238 @@ use std::{
 
 thread_local!(static CURRENT_PROPERTY : RefCell<Option<Rc<dyn PropertyNotify>>> = Default::default());
 
+type Binding = Box<dyn Fn(*mut ())>;
+
 #[derive(Default)]
-struct PropertyImpl<T> {
-    binding: Option<Box<dyn Fn() -> T>>,
+struct PropertyImpl {
+    /// Invariant: Must only be called with a pointer to the binding
+    binding: Option<Binding>,
     dependencies: Vec<Weak<dyn PropertyNotify>>,
+    dirty: bool,
     //updating: bool,
-    value: T,
 }
 
 trait PropertyNotify {
-    fn update_dependencies(self: Rc<Self>);
-    fn update(self: Rc<Self>);
+    fn mark_dirty(self: Rc<Self>);
+    fn notify(self: Rc<Self>);
 }
 
-impl<T: 'static> PropertyNotify for RefCell<PropertyImpl<T>> {
-    fn update_dependencies(self: Rc<Self>) {
+impl PropertyNotify for RefCell<PropertyImpl> {
+    fn mark_dirty(self: Rc<Self>) {
         let mut v = vec![];
         {
             let mut dep = self.borrow_mut();
+            dep.dirty = true;
             std::mem::swap(&mut dep.dependencies, &mut v);
         }
         for d in &v {
             if let Some(d) = d.upgrade() {
-                d.update();
+                d.mark_dirty();
             }
         }
     }
-    fn update(self: Rc<Self>) {
-        let new_val = if let Some(binding) = &self.borrow().binding {
-            //if self.updating.get() {
-            //    panic!("Circular dependency found : {}", self.description());
-            //}
-            //self.updating.set(true);
 
-            let mut old: Option<Rc<dyn PropertyNotify>> = Some(self.clone());
-
-            CURRENT_PROPERTY.with(|cur_dep| {
-                let mut m = cur_dep.borrow_mut();
-                std::mem::swap(m.deref_mut(), &mut old);
-            });
-            let new_val = binding();
-            CURRENT_PROPERTY.with(|cur_dep| {
-                let mut m = cur_dep.borrow_mut();
-                std::mem::swap(m.deref_mut(), &mut old);
-                //somehow ptr_eq does not work as expected despite the pointer are equal
-                //debug_assert!(Rc::ptr_eq(&(self.clone() as Rc<dyn PropertyNotify>), &old.unwrap()));
-            });
-            new_val
-        } else {
-            return;
-        };
-        self.borrow_mut().value = new_val;
-        self.update_dependencies();
+    fn notify(self: Rc<Self>) {
+        CURRENT_PROPERTY.with(|cur_dep| {
+            if let Some(m) = &(*cur_dep.borrow()) {
+                self.borrow_mut().dependencies.push(Rc::downgrade(m));
+            }
+        });
     }
 }
 
+type PropertyHandle = Rc<RefCell<PropertyImpl>>;
 #[repr(C)]
-#[derive(Default, Clone)]
+#[derive(Default)]
 pub struct Property<T: 'static> {
-    inner: Rc<RefCell<PropertyImpl<T>>>,
-    //value: T,
+    inner: PropertyHandle,
+    /// Only access when holding a lock of the inner refcell.
+    value: core::cell::UnsafeCell<T>,
 }
 
 impl<T: Clone + 'static> Property<T> {
     pub fn get(&self) -> T {
-        self.notify();
-        self.inner.borrow().value.clone()
-    }
-
-    fn notify(&self) {
-        CURRENT_PROPERTY.with(|cur_dep| {
-            if let Some(m) = &(*cur_dep.borrow()) {
-                self.inner.borrow_mut().dependencies.push(Rc::downgrade(m));
-            }
-        });
+        self.update();
+        self.inner.clone().notify();
+        let _lock = self.inner.borrow();
+        unsafe { (*(self.value.get() as *const T)).clone() }
     }
 
     pub fn set(&self, t: T) {
-        self.inner.borrow_mut().binding = None;
-        self.inner.borrow_mut().value = t;
-        self.inner.clone().update_dependencies();
+        {
+            let mut lock = self.inner.borrow_mut();
+            lock.binding = None;
+            lock.dirty = false;
+            unsafe { *self.value.get() = t };
+        }
+        self.inner.clone().mark_dirty();
+        self.inner.borrow_mut().dirty = false;
     }
 
-    pub fn set_binding(&self, f: Box<dyn Fn() -> T>) {
-        self.inner.borrow_mut().binding = Some(f);
-        self.inner.clone().update()
+    pub fn set_binding(&self, f: impl (Fn() -> T) + 'static) {
+        let real_binding = move |ptr: *mut ()| {
+            // The binding must be called with a pointer of T
+            unsafe { *(ptr as *mut T) = f() };
+        };
+
+        self.inner.borrow_mut().binding = Some(Box::new(real_binding));
+        self.inner.clone().mark_dirty();
+    }
+
+    fn update(&self) {
+        if !self.inner.borrow().dirty {
+            return;
+        }
+        let mut old: Option<Rc<dyn PropertyNotify>> = Some(self.inner.clone());
+        let mut lock =
+            self.inner.try_borrow_mut().expect("Circular dependency in binding evaluation");
+        if let Some(binding) = &lock.binding {
+            CURRENT_PROPERTY.with(|cur_dep| {
+                let mut m = cur_dep.borrow_mut();
+                std::mem::swap(m.deref_mut(), &mut old);
+            });
+            binding(self.value.get() as *mut _);
+            lock.dirty = false;
+            CURRENT_PROPERTY.with(|cur_dep| {
+                let mut m = cur_dep.borrow_mut();
+                std::mem::swap(m.deref_mut(), &mut old);
+                //somehow ptr_eq does not work as expected despite the pointer are equal
+                //debug_assert!(Rc::ptr_eq(&(self.inner.clone() as Rc<dyn PropertyNotify>), &old.unwrap()));
+            });
+        }
     }
 }
 
 #[test]
 fn properties_simple_test() {
-    let width = Property::<i32>::default();
-    let height = Property::<i32>::default();
-    let area = Property::<i32>::default();
-    area.set_binding(Box::new({
-        let (width, height) = (width.clone(), height.clone());
-        move || width.get() * height.get()
-    }));
-    width.set(4);
-    height.set(8);
-    assert_eq!(width.get(), 4);
-    assert_eq!(height.get(), 8);
-    assert_eq!(area.get(), 4 * 8);
+    #[derive(Default)]
+    struct Component {
+        width: Property<i32>,
+        height: Property<i32>,
+        area: Property<i32>,
+    }
+    let compo = Rc::new(Component::default());
+    let w = Rc::downgrade(&compo);
+    compo.area.set_binding(move || {
+        let compo = w.upgrade().unwrap();
+        compo.width.get() * compo.height.get()
+    });
+    compo.width.set(4);
+    compo.height.set(8);
+    assert_eq!(compo.width.get(), 4);
+    assert_eq!(compo.height.get(), 8);
+    assert_eq!(compo.area.get(), 4 * 8);
 
-    width.set_binding(Box::new({
-        let height = height.clone();
-        move || height.get() * 2
-    }));
-    assert_eq!(width.get(), 8 * 2);
-    assert_eq!(height.get(), 8);
-    assert_eq!(area.get(), 8 * 8 * 2);
+    let w = Rc::downgrade(&compo);
+    compo.width.set_binding(move || {
+        let compo = w.upgrade().unwrap();
+        compo.height.get() * 2
+    });
+    assert_eq!(compo.width.get(), 8 * 2);
+    assert_eq!(compo.height.get(), 8);
+    assert_eq!(compo.area.get(), 8 * 8 * 2);
+}
+
+#[allow(non_camel_case_types)]
+type c_void = ();
+#[repr(C)]
+/// Has the same layout as PropertyHandle
+pub struct PropertyHandleOpaque(*const c_void);
+
+/// Initialize the first pointer of the Property. Does not initialize the content
+#[no_mangle]
+pub unsafe extern "C" fn sixtyfps_property_init(out: *mut PropertyHandleOpaque) {
+    assert_eq!(
+        core::mem::size_of::<PropertyHandle>(),
+        core::mem::size_of::<PropertyHandleOpaque>()
+    );
+    core::ptr::write(out as *mut PropertyHandle, PropertyHandle::default());
+}
+
+/// To be called before accessing the value
+///
+/// (same as Property::update and PopertyImpl::notify)
+#[no_mangle]
+pub unsafe extern "C" fn sixtyfps_property_update(
+    out: *const PropertyHandleOpaque,
+    val: *mut c_void,
+) {
+    let inner = &*(out as *const PropertyHandle);
+
+    if !inner.borrow().dirty {
+        inner.clone().notify();
+        return;
+    }
+    let mut old: Option<Rc<dyn PropertyNotify>> = Some(inner.clone());
+    let mut lock = inner.try_borrow_mut().expect("Circular dependency in binding evaluation");
+    if let Some(binding) = &lock.binding {
+        CURRENT_PROPERTY.with(|cur_dep| {
+            let mut m = cur_dep.borrow_mut();
+            std::mem::swap(m.deref_mut(), &mut old);
+        });
+        binding(val);
+        lock.dirty = false;
+        CURRENT_PROPERTY.with(|cur_dep| {
+            let mut m = cur_dep.borrow_mut();
+            std::mem::swap(m.deref_mut(), &mut old);
+            //somehow ptr_eq does not work as expected despite the pointer are equal
+            //debug_assert!(Rc::ptr_eq(&(inner.clone() as Rc<dyn PropertyNotify>), &old.unwrap()));
+        });
+    }
+    core::mem::drop(lock);
+    inner.clone().notify();
+}
+
+/// Mark the fact that the property was changed and that its binding need to be removed, and
+/// The dependencies marked dirty
+#[no_mangle]
+pub unsafe extern "C" fn sixtyfps_property_set_changed(out: *const PropertyHandleOpaque) {
+    let inner = &*(out as *const PropertyHandle);
+    inner.clone().mark_dirty();
+    inner.borrow_mut().dirty = false;
+    inner.borrow_mut().binding = None;
+}
+
+/// Set a binding
+/// The binding has signature fn(user_data, pointer_to_value)
+///
+/// The current implementation will do usually two memory alocation:
+///  1. the allocation from the calling code to allocate user_data
+///  2. the box allocation within this binding
+/// It might be possible to reduce that by passing something with a
+/// vtable, so there is the need for less memory allocation.  
+#[no_mangle]
+pub unsafe extern "C" fn sixtyfps_property_set_binding(
+    out: *const PropertyHandleOpaque,
+    binding: extern "C" fn(*mut c_void, *mut c_void),
+    user_data: *mut c_void,
+    drop_user_data: Option<extern "C" fn(*mut c_void)>,
+) {
+    let inner = &*(out as *const PropertyHandle);
+
+    struct UserData {
+        user_data: *mut c_void,
+        drop_user_data: Option<extern "C" fn(*mut c_void)>,
+    }
+
+    impl Drop for UserData {
+        fn drop(&mut self) {
+            if let Some(x) = self.drop_user_data {
+                x(self.user_data)
+            }
+        }
+    }
+    let ud = UserData { user_data, drop_user_data };
+
+    let real_binding = move |ptr: *mut ()| {
+        binding(ud.user_data, ptr);
+    };
+    inner.borrow_mut().binding = Some(Box::new(real_binding));
+    inner.clone().mark_dirty();
+}
+
+/// Destroy handle
+#[no_mangle]
+pub unsafe extern "C" fn sixtyfps_property_drop(handle: *mut PropertyHandleOpaque) {
+    core::ptr::read(handle as *mut PropertyHandle);
 }

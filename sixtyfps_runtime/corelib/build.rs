@@ -34,12 +34,21 @@ fn main() {
         .write_to_file(env::var("OUT_DIR").unwrap() + "/sixtyfps_string_internal.h");
 
     cbindgen::Builder::new()
+        .with_config(config.clone())
+        .with_src(format!("{}/abi/properties.rs", crate_dir))
+        //        .with_after_include("namespace sixtyfps { struct SharedString; }")
+        .generate()
+        .expect("Unable to generate bindings")
+        .write_to_file(env::var("OUT_DIR").unwrap() + "/sixtyfps_properties_internal.h");
+
+    cbindgen::Builder::new()
         .with_config(config)
         .with_src(format!("{}/abi/datastructures.rs", crate_dir))
         .with_src(format!("{}/abi/primitives.rs", crate_dir))
         .with_src(format!("{}/abi/model.rs", crate_dir))
         .with_include("vtable.h")
         .with_include("sixtyfps_string.h")
+        .with_include("sixtyfps_properties.h")
         .generate()
         .expect("Unable to generate bindings")
         .write_to_file(env::var("OUT_DIR").unwrap() + "/sixtyfps_internal.h");
