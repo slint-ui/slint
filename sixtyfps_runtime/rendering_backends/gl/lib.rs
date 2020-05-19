@@ -465,7 +465,7 @@ impl GLFont {
 
             let advance = self.font.advance(glyph_id).unwrap().x() * scale_from_font_units;
 
-            // ### TODO: use tight bounding box for glyphs stored in texture atlas
+            // ### TODO: #8 use tight bounding box for glyphs stored in texture atlas
             let glyph_height =
                 (font_metrics.ascent - font_metrics.descent + 1.) * scale_from_font_units;
             let glyph_width = advance;
