@@ -1,0 +1,14 @@
+
+component Inline1 = Rectangle {
+    Rectangle {
+        x: 66;
+    }
+}
+
+SubElements = Rectangle {
+    Inline1 {
+        color: yellow;
+        invalid: yellow;
+//      ^error{Unkown property invalid in Inline1}
+    }
+}

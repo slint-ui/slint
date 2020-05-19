@@ -1,4 +1,5 @@
 //! This module contains the code that lower the tree to the datastructure that that the runtime understand
+use crate::typeregister::Type;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -38,19 +39,24 @@ impl LoweredComponent {
     }
 
     fn lower_item(element: &crate::object_tree::Element, count: &mut usize) -> LoweredItem {
-        // FIXME: lookup base instead of assuming
-        let native_type = Rc::new(NativeItemType {
-            vtable: format!("{}VTable", element.base),
-            class_name: element.base.clone(),
-        });
-        let mut id = element.id.clone();
-        if id.is_empty() {
-            id = format!("id_{}", count);
-        }
+        let id = format!("{}_{}", if element.id.is_empty() { "id" } else { &*element.id }, count);
         *count += 1;
 
-        let mut init_properties = element.bindings.clone();
-        for (_, e) in &mut init_properties {
+        let mut lowered = match &element.base_type {
+            Type::Component(c) => LoweredComponent::lower_item(&*c.root_element, count),
+            Type::Builtin(_) => {
+                // FIXME: that information should be in the BuiltType, i guess
+                let native_type = Rc::new(NativeItemType {
+                    vtable: format!("{}VTable", element.base),
+                    class_name: element.base.clone(),
+                });
+
+                LoweredItem { id, native_type, ..Default::default() }
+            }
+            _ => panic!("Invalid type"),
+        };
+
+        lowered.init_properties.extend(element.bindings.iter().map(|(k, e)| {
             if let crate::object_tree::Expression::Identifier(x) = e {
                 let value: u32 = match &**x {
                     "blue" => 0xff0000ff,
@@ -59,22 +65,16 @@ impl LoweredComponent {
                     "yellow" => 0xffffff00,
                     "black" => 0xff000000,
                     "white" => 0xffffffff,
-                    _ => continue,
+                    _ => return (k.clone(), e.clone()),
                 };
-                *e = crate::object_tree::Expression::NumberLiteral(value.into())
+                (k.clone(), crate::object_tree::Expression::NumberLiteral(value.into()))
+            } else {
+                (k.clone(), e.clone())
             }
-        }
-
-        LoweredItem {
-            id,
-            native_type,
-            init_properties,
-            // FIXME: we should only keep element that can be lowered.
-            children: element
-                .children
-                .iter()
-                .map(|e| LoweredComponent::lower_item(&*e, count))
-                .collect(),
-        }
+        }));
+        lowered
+            .children
+            .extend(element.children.iter().map(|e| LoweredComponent::lower_item(&*e, count)));
+        lowered
     }
 }

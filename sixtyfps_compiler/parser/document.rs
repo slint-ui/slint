@@ -3,23 +3,40 @@ use super::prelude::*;
 #[cfg_attr(test, parser_test)]
 /// ```test
 /// Type = Base { }
-/// Type = Base { prop: value; }
 /// Type = Base { SubElement { } }
+/// component Comp = Base {}  Type = Base {}
 /// ```
 pub fn parse_document(p: &mut Parser) -> bool {
     let mut p = p.start_node(SyntaxKind::Document);
-    let mut p = p.start_node(SyntaxKind::Component);
 
+    loop {
+        if p.peek().as_str() == "component" && p.nth(1) != SyntaxKind::Equal {
+            p.expect(SyntaxKind::Identifier);
+        }
+
+        if !parse_component(&mut *p) {
+            return false;
+        }
+
+        if p.peek_kind() == SyntaxKind::Eof {
+            return true;
+        }
+    }
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test
+/// Type = Base { }
+/// Type = Base { prop: value; }
+/// Type = Base { SubElement { } }
+/// ```
+pub fn parse_component(p: &mut Parser) -> bool {
+    let mut p = p.start_node(SyntaxKind::Component);
     if !(p.expect(SyntaxKind::Identifier) && p.expect(SyntaxKind::Equal)) {
         return false;
     }
 
     if !parse_element(&mut *p) {
-        return false;
-    }
-
-    if p.peek_kind() != SyntaxKind::Eof {
-        p.error("Should be end of file");
         return false;
     }
     true

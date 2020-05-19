@@ -86,8 +86,8 @@ fn main() -> std::io::Result<()> {
     let source = std::fs::read_to_string(&args.path)?;
     let (syntax_node, mut diag) = parser::parse(&source);
     diag.current_path = args.path;
-    let tr = typeregister::TypeRegister::builtin();
-    let tree = object_tree::Document::from_node(syntax_node, &mut diag, &tr);
+    let mut tr = typeregister::TypeRegister::builtin();
+    let tree = object_tree::Document::from_node(syntax_node, &mut diag, &mut tr);
     if !diag.inner.is_empty() {
         diag.print(source);
         std::process::exit(-1);

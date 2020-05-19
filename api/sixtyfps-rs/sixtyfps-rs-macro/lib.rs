@@ -91,8 +91,8 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
     }
 
     //println!("{:#?}", syntax_node);
-    let tr = typeregister::TypeRegister::builtin();
-    let tree = object_tree::Document::from_node(syntax_node, &mut diag, &tr);
+    let mut tr = typeregister::TypeRegister::builtin();
+    let tree = object_tree::Document::from_node(syntax_node, &mut diag, &mut tr);
     //println!("{:#?}", tree);
     if !diag.inner.is_empty() {
         let diags: Vec<_> = diag

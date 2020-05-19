@@ -4,7 +4,7 @@
 
 use crate::diagnostics::Diagnostics;
 use crate::parser::{SyntaxKind, SyntaxNode, SyntaxNodeEx};
-use crate::typeregister::TypeRegister;
+use crate::typeregister::{Type, TypeRegister};
 use core::str::FromStr;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -12,17 +12,29 @@ use std::rc::Rc;
 #[derive(Default, Debug)]
 pub struct Document {
     //     node: SyntaxNode,
+    pub inner_components: Vec<Rc<Component>>,
     pub root_component: Rc<Component>,
 }
 
 impl Document {
-    pub fn from_node(node: SyntaxNode, diag: &mut Diagnostics, tr: &TypeRegister) -> Self {
+    pub fn from_node(node: SyntaxNode, diag: &mut Diagnostics, tr: &mut TypeRegister) -> Self {
         debug_assert_eq!(node.kind(), SyntaxKind::Document);
+
+        let inner_components = node
+            .children()
+            .filter(|n| n.kind() == SyntaxKind::Component)
+            .map(|n| {
+                let compo = Rc::new(Component::from_node(n, diag, tr));
+                tr.add(compo.clone());
+                compo
+            })
+            .collect::<Vec<_>>();
+
         Document {
-            root_component: Rc::new(
-                node.child_node(SyntaxKind::Component)
-                    .map_or_else(Default::default, |n| Component::from_node(n, diag, tr)),
-            ),
+            // FIXME: one should use the `component` hint instead of always returning the last
+            root_component: inner_components.last().cloned().unwrap_or_default(),
+
+            inner_components,
         }
     }
 }
@@ -55,8 +67,7 @@ pub struct Element {
     //     node: SyntaxNode,
     pub id: String,
     pub base: String,
-    /// FIXME, should not be Builtin, but a generic Component as well
-    pub base_type: Rc<crate::typeregister::BuiltinElement>,
+    pub base_type: crate::typeregister::Type,
     pub bindings: HashMap<String, Expression>,
     pub children: Vec<Rc<Element>>,
 }
@@ -74,19 +85,18 @@ impl Element {
             base: node.child_text(SyntaxKind::Identifier).unwrap_or_default(),
             ..Default::default()
         };
-        r.base_type = if let Some(ty) = tr.lookup(&r.base) {
-            ty
-        } else {
+        r.base_type = tr.lookup(&r.base);
+        if !r.base_type.is_object_type() {
             diag.push_error(format!("Unkown type {}", r.base), node.span());
             return r;
-        };
+        }
         for b in node.children().filter(|n| n.kind() == SyntaxKind::Binding) {
             let name_token = match b.child_token(SyntaxKind::Identifier) {
                 Some(x) => x,
                 None => continue,
             };
             let name = name_token.text().to_string();
-            if !r.base_type.properties.contains_key(&name) {
+            if matches!(r.base_type.lookup_property(&name), Type::Invalid) {
                 diag.push_error(
                     format!("Unkown property {} in {}", name, r.base),
                     crate::diagnostics::Span::new(name_token.text_range().start().into()),

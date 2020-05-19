@@ -23,8 +23,8 @@ fn main() -> std::io::Result<()> {
     let (syntax_node, mut diag) = parser::parse(&source);
     diag.current_path = args.path;
     //println!("{:#?}", syntax_node);
-    let tr = typeregister::TypeRegister::builtin();
-    let tree = object_tree::Document::from_node(syntax_node, &mut diag, &tr);
+    let mut tr = typeregister::TypeRegister::builtin();
+    let tree = object_tree::Document::from_node(syntax_node, &mut diag, &mut tr);
     //println!("{:#?}", tree);
     if !diag.inner.is_empty() {
         diag.print(source);
