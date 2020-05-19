@@ -46,6 +46,8 @@ macro_rules! declare_token_kind {
             CodeStatement,
             CodeBlock,
             Expression,
+            /// foo!bar
+            BangExpression,
         }
 
         fn lexer() -> m_lexer::Lexer {
@@ -71,6 +73,7 @@ declare_token_kind! {
     Equal -> r"=",
     Colon -> r":",
     Semicolon -> r";",
+    Bang -> r"!",
 }
 
 impl From<SyntaxKind> for rowan::SyntaxKind {
