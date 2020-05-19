@@ -5,11 +5,15 @@ pub mod abi {
     pub mod datastructures;
     pub mod model;
     pub mod primitives;
+    pub mod properties;
     pub mod string;
 }
 
 #[doc(inline)]
 pub use abi::string::SharedString;
+
+#[doc(inline)]
+pub use abi::properties::Property;
 
 mod item_rendering;
 
