@@ -34,6 +34,12 @@ enum GLRenderingPrimitive {
         texture_vertices: GLArrayBuffer<Vertex>,
         texture: GLTexture,
     },
+    GlyphRun {
+        vertices: GLArrayBuffer<Vertex>,
+        texture_vertices: GLArrayBuffer<Vertex>,
+        texture: GLTexture,
+        vertex_count: i32,
+    },
 }
 
 #[derive(Clone)]
@@ -222,15 +228,6 @@ impl GLTexture {
         Self { texture_id }
     }
 
-    fn new(gl: &glow::Context, image: image::ImageBuffer<image::Rgba<u8>, Vec<u8>>) -> Self {
-        GLTexture::new_with_size_and_data(
-            gl,
-            image.width() as i32,
-            image.height() as i32,
-            Some(&image.into_raw()),
-        )
-    }
-
     fn set_sub_image(
         &mut self,
         gl: &glow::Context,
@@ -417,11 +414,120 @@ impl TextureAtlas {
     }
 }
 
+struct PreRenderedGlyph {
+    glyph_allocation: AtlasAllocation,
+    advance: f32,
+}
+
+struct GLFont {
+    font: font_kit::font::Font,
+    glyphs: std::collections::hash_map::HashMap<u32, PreRenderedGlyph>,
+}
+
+impl Default for GLFont {
+    fn default() -> Self {
+        let font = font_kit::source::SystemSource::new()
+            .select_best_match(
+                &[font_kit::family_name::FamilyName::SansSerif],
+                &font_kit::properties::Properties::new(),
+            )
+            .unwrap()
+            .load()
+            .unwrap();
+        let glyphs = std::collections::hash_map::HashMap::new();
+        Self { font, glyphs }
+    }
+}
+
+impl GLFont {
+    fn layout_glyphs<'a>(
+        &'a mut self,
+        gl: &glow::Context,
+        atlas: &mut TextureAtlas,
+        text: &'a str,
+    ) -> GlyphIter<'a> {
+        let pixel_size: f32 = 48.0 * 72. / 96.;
+
+        let font_metrics = self.font.metrics();
+
+        let scale_from_font_units = pixel_size / font_metrics.units_per_em as f32;
+
+        let baseline_y = font_metrics.ascent * scale_from_font_units;
+        let hinting = font_kit::hinting::HintingOptions::None;
+        let raster_opts = font_kit::canvas::RasterizationOptions::GrayscaleAa;
+
+        text.chars().for_each(|ch| {
+            let glyph_id = self.font.glyph_for_char(ch).unwrap();
+            if self.glyphs.contains_key(&glyph_id) {
+                return;
+            }
+
+            let advance = self.font.advance(glyph_id).unwrap().x() * scale_from_font_units;
+
+            // ### TODO: use tight bounding box
+            let glyph_height =
+                (font_metrics.ascent - font_metrics.descent + 1.) * scale_from_font_units;
+            let glyph_width = advance;
+            let mut canvas = font_kit::canvas::Canvas::new(
+                Vector2I::new(glyph_width.ceil() as i32, glyph_height.ceil() as i32),
+                font_kit::canvas::Format::A8,
+            );
+            self.font
+                .rasterize_glyph(
+                    &mut canvas,
+                    glyph_id,
+                    pixel_size,
+                    Transform2F::from_translation(Vector2F::new(0., baseline_y)),
+                    hinting,
+                    raster_opts,
+                )
+                .unwrap();
+
+            let glyph_image = image::ImageBuffer::from_fn(
+                canvas.size.x() as u32,
+                canvas.size.y() as u32,
+                |x, y| {
+                    let idx = (x as usize) + (y as usize) * canvas.stride;
+                    let alpha = canvas.pixels[idx];
+                    image::Rgba::<u8>::from_channels(0, 0, 0, alpha)
+                },
+            );
+
+            let glyph_allocation = atlas.allocate_image_in_atlas(gl, glyph_image);
+
+            let glyph = PreRenderedGlyph { glyph_allocation, advance };
+
+            self.glyphs.insert(glyph_id, glyph);
+        });
+
+        GlyphIter { gl_font: self, char_it: text.chars() }
+    }
+}
+
+struct GlyphIter<'a> {
+    gl_font: &'a GLFont,
+    char_it: std::str::Chars<'a>,
+}
+
+impl<'a> Iterator for GlyphIter<'a> {
+    type Item = &'a PreRenderedGlyph;
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(ch) = self.char_it.next() {
+            let glyph_id = self.gl_font.font.glyph_for_char(ch).unwrap();
+            let glyph = &self.gl_font.glyphs[&glyph_id];
+            Some(glyph)
+        } else {
+            None
+        }
+    }
+}
+
 pub struct GLRenderer {
     context: Rc<glow::Context>,
     path_program: Shader,
     image_program: Shader,
     texture_atlas: Rc<RefCell<TextureAtlas>>,
+    font: Rc<RefCell<GLFont>>,
     #[cfg(target_arch = "wasm32")]
     window: winit::window::Window,
     #[cfg(not(target_arch = "wasm32"))]
@@ -432,6 +538,7 @@ pub struct GLRenderingPrimitivesBuilder {
     context: Rc<glow::Context>,
     fill_tesselator: FillTessellator,
     texture_atlas: Rc<RefCell<TextureAtlas>>,
+    font: Rc<RefCell<GLFont>>,
 
     #[cfg(not(target_arch = "wasm32"))]
     windowed_context: glutin::WindowedContext<glutin::PossiblyCurrent>,
@@ -543,6 +650,7 @@ impl GLRenderer {
             path_program,
             image_program,
             texture_atlas: Rc::new(RefCell::new(TextureAtlas::new())),
+            font: Rc::new(RefCell::new(GLFont::default())),
             #[cfg(target_arch = "wasm32")]
             window,
             #[cfg(not(target_arch = "wasm32"))]
@@ -566,6 +674,7 @@ impl GraphicsBackend for GLRenderer {
             context: self.context.clone(),
             fill_tesselator: FillTessellator::new(),
             texture_atlas: self.texture_atlas.clone(),
+            font: self.font.clone(),
 
             #[cfg(not(target_arch = "wasm32"))]
             windowed_context: current_windowed_context,
@@ -686,100 +795,46 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
     }
 
     fn create_glyphs(&mut self, text: &str, _color: &Color) -> Self::RenderingPrimitive {
-        let font = font_kit::source::SystemSource::new()
-            .select_best_match(
-                &[font_kit::family_name::FamilyName::SansSerif],
-                &font_kit::properties::Properties::new(),
-            )
-            .unwrap()
-            .load()
-            .unwrap();
-        let pixel_size: f32 = 48.0 * 72. / 96.;
+        let mut glyph_vertices = vec![];
+        let mut glyph_texture_vertices = vec![];
 
-        let font_metrics = font.metrics();
-
-        let scale_from_font_units = pixel_size / font_metrics.units_per_em as f32;
-
-        let baseline_y = font_metrics.ascent * scale_from_font_units;
-        let hinting = font_kit::hinting::HintingOptions::None;
-        let raster_opts = font_kit::canvas::RasterizationOptions::GrayscaleAa;
-
-        struct Glyph {
-            id: u32,
-            advance: f32,
-        }
-
-        // ### TODO: shape text
-        let glyphs: Vec<Glyph> = text
-            .chars()
-            .map(|ch| {
-                let id = font.glyph_for_char(ch).unwrap();
-                let advance = font.advance(id).unwrap().x() * scale_from_font_units;
-                Glyph { id, advance }
-            })
-            .collect();
-
-        let text_height = (font_metrics.ascent - font_metrics.descent + 1.) * scale_from_font_units;
-        let text_width: f32 = glyphs.iter().map(|glyph| glyph.advance).sum();
-
-        let mut canvas = font_kit::canvas::Canvas::new(
-            Vector2I::new(text_width.ceil() as i32, text_height.ceil() as i32),
-            font_kit::canvas::Format::A8,
-        );
+        let mut texture = None;
 
         let mut x = 0.;
+        for glyph in self.font.borrow_mut().layout_glyphs(
+            &self.context,
+            &mut self.texture_atlas.borrow_mut(),
+            text,
+        ) {
+            let glyph_width = glyph.glyph_allocation.sub_texture.texture_coordinates.width() as f32;
+            let glyph_height =
+                glyph.glyph_allocation.sub_texture.texture_coordinates.height() as f32;
 
-        for glyph in glyphs {
-            font.rasterize_glyph(
-                &mut canvas,
-                glyph.id,
-                pixel_size,
-                Transform2F::from_translation(Vector2F::new(x, baseline_y)),
-                hinting,
-                raster_opts,
-            )
-            .unwrap();
+            let vertex1 = Vertex { _pos: [x, 0.] };
+            let vertex2 = Vertex { _pos: [x + glyph_width, 0.] };
+            let vertex3 = Vertex { _pos: [x + glyph_width, glyph_height] };
+            let vertex4 = Vertex { _pos: [x, glyph_height] };
+
+            glyph_vertices
+                .extend_from_slice(&[vertex1, vertex2, vertex3, vertex1, vertex3, vertex4]);
+
+            glyph_texture_vertices
+                .extend_from_slice(&glyph.glyph_allocation.sub_texture.normalized_coordinates);
+
+            // ### TODO: support multi-atlas texture glyph runs
+            texture = Some(glyph.glyph_allocation.sub_texture.texture);
+
             x += glyph.advance;
         }
 
-        let glyphs_image =
-            image::ImageBuffer::from_fn(canvas.size.x() as u32, canvas.size.y() as u32, |x, y| {
-                let idx = (x as usize) + (y as usize) * canvas.stride;
-                let alpha = canvas.pixels[idx];
-                image::Rgba::<u8>::from_channels(0, 0, 0, alpha)
-            });
+        let vertices = GLArrayBuffer::new(&self.context, &glyph_vertices);
+        let texture_vertices = GLArrayBuffer::new(&self.context, &glyph_texture_vertices);
 
-        let image_width = glyphs_image.width() as f32;
-        let image_height = glyphs_image.height() as f32;
-        let src_left = 0.;
-        let src_top = 0.;
-        let src_right = 1.;
-        let src_bottom = 1.;
-
-        let vertex1 = Vertex { _pos: [0., 0.] };
-        let tex_vertex1 = Vertex { _pos: [src_left, src_top] };
-        let vertex2 = Vertex { _pos: [image_width, 0.] };
-        let tex_vertex2 = Vertex { _pos: [src_right, src_top] };
-        let vertex3 = Vertex { _pos: [image_width, image_height] };
-        let tex_vertex3 = Vertex { _pos: [src_right, src_bottom] };
-        let vertex4 = Vertex { _pos: [0., image_height] };
-        let tex_vertex4 = Vertex { _pos: [src_left, src_bottom] };
-
-        let vertices = GLArrayBuffer::new(
-            &self.context,
-            &vec![vertex1, vertex2, vertex3, vertex1, vertex3, vertex4],
-        );
-        let texture_vertices = GLArrayBuffer::new(
-            &self.context,
-            &vec![tex_vertex1, tex_vertex2, tex_vertex3, tex_vertex1, tex_vertex3, tex_vertex4],
-        );
-
-        let texture = GLTexture::new(&self.context, glyphs_image);
-
-        OpaqueRenderingPrimitive(GLRenderingPrimitive::Texture {
+        OpaqueRenderingPrimitive(GLRenderingPrimitive::GlyphRun {
             vertices,
             texture_vertices,
-            texture,
+            texture: texture.unwrap(),
+            vertex_count: glyph_vertices.len() as i32,
         })
     }
 }
@@ -870,6 +925,40 @@ impl GraphicsFrame for GLFrame {
 
                 unsafe {
                     self.context.draw_arrays(glow::TRIANGLES, 0, 6);
+                }
+            }
+            GLRenderingPrimitive::GlyphRun {
+                vertices,
+                texture_vertices,
+                texture,
+                vertex_count,
+            } => {
+                self.image_program.use_program(&self.context);
+
+                let matrix_location = unsafe {
+                    self.context.get_uniform_location(self.image_program.program, "matrix")
+                };
+                unsafe {
+                    self.context.uniform_matrix_4_f32_slice(matrix_location, false, &gl_matrix)
+                };
+
+                let texture_location = unsafe {
+                    self.context.get_uniform_location(self.image_program.program, "tex").unwrap()
+                };
+                texture.bind_to_location(&self.context, texture_location);
+
+                let vertex_attribute_location = unsafe {
+                    self.context.get_attrib_location(self.image_program.program, "pos").unwrap()
+                };
+                vertices.bind(&self.context, vertex_attribute_location);
+
+                let vertex_texture_attribute_location = unsafe {
+                    self.context.get_attrib_location(self.image_program.program, "tex_pos").unwrap()
+                };
+                texture_vertices.bind(&self.context, vertex_texture_attribute_location);
+
+                unsafe {
+                    self.context.draw_arrays(glow::TRIANGLES, 0, *vertex_count);
                 }
             }
         }
