@@ -139,11 +139,11 @@ fn handle_item(item: &LoweredItem, main_struct: &mut Struct, init: &mut Vec<Stri
             crate::object_tree::Expression::Invalid => "".into(),
             crate::object_tree::Expression::Identifier(i) => i.clone(),
             crate::object_tree::Expression::StringLiteral(s) => {
-                format!("\"{}\"", s.escape_default())
+                format!(r#"sixtyfps::SharedString("{}")"#, s.escape_default())
             }
             crate::object_tree::Expression::NumberLiteral(n) => n.to_string(),
         };
-        format!("{id}.{prop} = {init};", id = id, prop = s, init = init)
+        format!("{id}.{prop}.set({init});", id = id, prop = s, init = init)
     }));
 
     for i in &item.children {

@@ -1,6 +1,6 @@
 use core::ptr::NonNull;
 use corelib::abi::datastructures::{ComponentBox, ComponentRef, ComponentRefMut, ComponentVTable};
-use corelib::SharedString;
+use corelib::{Property, SharedString};
 use sixtyfps_compiler::object_tree::Expression;
 use std::collections::HashMap;
 use structopt::StructOpt;
@@ -21,7 +21,7 @@ impl PropertyWriter for f32 {
             Expression::NumberLiteral(v) => *v as _,
             _ => todo!(),
         };
-        std::ptr::write(ptr as *mut Self, val);
+        (*(ptr as *mut Property<Self>)).set(val);
     }
 }
 
@@ -31,7 +31,7 @@ impl PropertyWriter for u32 {
             Expression::NumberLiteral(v) => *v as _,
             _ => todo!(),
         };
-        std::ptr::write(ptr as *mut Self, val);
+        (*(ptr as *mut Property<Self>)).set(val);
     }
 }
 
@@ -41,7 +41,7 @@ impl PropertyWriter for SharedString {
             Expression::StringLiteral(v) => (**v).into(),
             _ => todo!(),
         };
-        *(ptr as *mut Self) = val.clone();
+        (*(ptr as *mut Property<Self>)).set(val.clone());
     }
 }
 

@@ -17,9 +17,10 @@ struct Property
     Property(Property&&) = delete;
     Property &operator=(const Property&) = delete;
 
+    /* Should it be implicit?
     void operator=(const T &value) {
         set(value);
-    }
+    }*/
 
     void set(const T &value) const {
         this->value = value;

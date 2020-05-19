@@ -3,6 +3,7 @@
 use super::datastructures::{
     CachedRenderingData, Item, ItemConsts, ItemVTable, LayoutInfo, RenderingInfo,
 };
+use crate::{Property, SharedString};
 use vtable::HasStaticVTable;
 
 /// FIXME:  more properties
@@ -10,18 +11,24 @@ use vtable::HasStaticVTable;
 #[derive(const_field_offset::FieldOffsets, Default)]
 pub struct Rectangle {
     /// FIXME: make it a color
-    pub color: u32,
-    pub x: f32,
-    pub y: f32,
-    pub width: f32,
-    pub height: f32,
+    pub color: Property<u32>,
+    pub x: Property<f32>,
+    pub y: Property<f32>,
+    pub width: Property<f32>,
+    pub height: Property<f32>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
 impl Item for Rectangle {
     fn geometry(&self) {}
     fn rendering_info(&self) -> RenderingInfo {
-        RenderingInfo::Rectangle(self.x, self.y, self.width, self.height, self.color)
+        RenderingInfo::Rectangle(
+            self.x.get(),
+            self.y.get(),
+            self.width.get(),
+            self.height.get(),
+            self.color.get(),
+        )
     }
 
     fn layouting_info(&self) -> LayoutInfo {
@@ -42,18 +49,18 @@ impl ItemConsts for Rectangle {
 #[derive(const_field_offset::FieldOffsets, Default)]
 pub struct Image {
     /// FIXME: make it a image source
-    pub source: crate::SharedString,
-    pub x: f32,
-    pub y: f32,
-    pub width: f32,
-    pub height: f32,
-    pub cached_rendering_data: super::datastructures::CachedRenderingData,
+    pub source: Property<SharedString>,
+    pub x: Property<f32>,
+    pub y: Property<f32>,
+    pub width: Property<f32>,
+    pub height: Property<f32>,
+    pub cached_rendering_data: CachedRenderingData,
 }
 
 impl Item for Image {
     fn geometry(&self) {}
     fn rendering_info(&self) -> RenderingInfo {
-        RenderingInfo::Image(self.x, self.y, self.source.clone())
+        RenderingInfo::Image(self.x.get(), self.y.get(), self.source.get())
     }
 
     fn layouting_info(&self) -> LayoutInfo {
@@ -73,17 +80,17 @@ impl ItemConsts for Image {
 #[repr(C)]
 #[derive(const_field_offset::FieldOffsets, Default)]
 pub struct Text {
-    pub text: crate::SharedString,
-    pub color: u32,
-    pub x: f32,
-    pub y: f32,
-    pub cached_rendering_data: super::datastructures::CachedRenderingData,
+    pub text: Property<SharedString>,
+    pub color: Property<u32>,
+    pub x: Property<f32>,
+    pub y: Property<f32>,
+    pub cached_rendering_data: CachedRenderingData,
 }
 
 impl Item for Text {
     fn geometry(&self) {}
     fn rendering_info(&self) -> RenderingInfo {
-        RenderingInfo::Text(self.x, self.y, self.text.clone(), self.color)
+        RenderingInfo::Text(self.x.get(), self.y.get(), self.text.get(), self.color.get())
     }
 
     fn layouting_info(&self) -> LayoutInfo {

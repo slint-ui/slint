@@ -129,7 +129,7 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
                 }
                 Expression::NumberLiteral(n) => quote!(#n),
             };
-            init.push(quote!(self_.#field_name.#k = (#v) as _;));
+            init.push(quote!(self_.#field_name.#k.set(#v as _);));
         }
         item_names.push(field_name);
         item_types.push(quote::format_ident!("{}", item.native_type.class_name));
