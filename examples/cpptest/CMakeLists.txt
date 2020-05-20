@@ -21,12 +21,15 @@ function(SIXTYFPS_TARGET_60_SOURCES target)
         get_filename_component(_60_ABSOLUTE ${it} REALPATH BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
         add_custom_command(
-            OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${_60_BASE_NAME}.cpp
-            COMMAND ${SIXTYFPS_COMPILER} ${_60_ABSOLUTE} > ${CMAKE_CURRENT_BINARY_DIR}/${_60_BASE_NAME}.cpp
+            OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${_60_BASE_NAME}.h
+            COMMAND ${SIXTYFPS_COMPILER} ${_60_ABSOLUTE} > ${CMAKE_CURRENT_BINARY_DIR}/${_60_BASE_NAME}.h
             DEPENDS ${_60_ABSOLUTE} ${SIXTYFPS_COMPILER}
             COMMENT "Running sixtyfps_compiler on ${it}")
-        target_sources(${target} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/${_60_BASE_NAME}.cpp)
+        target_sources(${target} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/${_60_BASE_NAME}.h)
+
     endforeach()
+    # FIXME: DO WE NEED THIS HERE?
+    target_include_directories(${target} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 endfunction()
 
 #FIXME: we need sixtyfps_internal.h somewhere else
@@ -58,6 +61,6 @@ target_link_libraries(sixtyfps_gl INTERFACE sixtyfps)
 
 ### END This should be moce in some file in api/sixtyfps-cpp/cmake
 
-add_executable(hello)
+add_executable(hello main.cpp)
 target_link_libraries(hello sixtyfps_gl)
 sixtyfps_target_60_sources(hello hello.60)

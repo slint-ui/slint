@@ -68,8 +68,12 @@ pub struct Element {
     pub id: String,
     pub base: String,
     pub base_type: crate::typeregister::Type,
+    /// Currently contains also the signals. FIXME: should that be changed?
     pub bindings: HashMap<String, Expression>,
     pub children: Vec<Rc<Element>>,
+
+    /// This should probably be in the Component instead
+    pub signals_declaration: Vec<String>,
 }
 
 impl Element {
@@ -102,7 +106,7 @@ impl Element {
                     match prop_type {
                         Type::Invalid => format!("Unkown property {} in {}", name, r.base),
                         Type::Signal => format!("'{}' is a signal. use `=>` to connect", name),
-                        _ => format!("Cannot assig to {} in {}", name, r.base),
+                        _ => format!("Cannot assing to {} in {}", name, r.base),
                     },
                     crate::diagnostics::Span::new(name_token.text_range().start().into()),
                 );
@@ -120,13 +124,8 @@ impl Element {
             }
         }
         for con_node in node.children().filter(|n| n.kind() == SyntaxKind::SignalConnection) {
-            // We need to go reverse to skip the "signal" token
-            let name_token = match con_node
-                .children_with_tokens()
-                .filter(|n| n.kind() == SyntaxKind::Identifier)
-                .last()
-            {
-                Some(x) => x.into_token().unwrap(),
+            let name_token = match con_node.child_token(SyntaxKind::Identifier) {
+                Some(x) => x,
                 None => continue,
             };
             let name = name_token.text().to_string();
@@ -137,7 +136,34 @@ impl Element {
                     crate::diagnostics::Span::new(name_token.text_range().start().into()),
                 );
             }
+            if let Some(csn) = con_node.child_node(SyntaxKind::CodeBlock) {
+                let ex = csn
+                    .child_node(SyntaxKind::Expression)
+                    .map(|en| Expression::from_expression_node(en, diag))
+                    .unwrap_or(Expression::Invalid);
+                if r.bindings.insert(name, ex).is_some() {
+                    diag.push_error(
+                        "Duplicated signal".into(),
+                        crate::diagnostics::Span::new(name_token.text_range().start().into()),
+                    );
+                }
+            }
         }
+
+        for sig_decl in node.children().filter(|n| n.kind() == SyntaxKind::SignalDeclaration) {
+            // We need to go reverse to skip the "signal" token
+            let name_token = match sig_decl
+                .children_with_tokens()
+                .filter(|n| n.kind() == SyntaxKind::Identifier)
+                .last()
+            {
+                Some(x) => x.into_token().unwrap(),
+                None => continue,
+            };
+            let name = name_token.text().to_string();
+            r.signals_declaration.push(name);
+        }
+
         for se in node.children() {
             if se.kind() == SyntaxKind::SubElement {
                 let id = se.child_text(SyntaxKind::Identifier).unwrap_or_default();

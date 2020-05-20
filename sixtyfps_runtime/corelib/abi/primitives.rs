@@ -15,7 +15,8 @@ When adding an item or a property, it needs to be kept in sync with different pl
 #![allow(non_upper_case_globals)]
 
 use super::datastructures::{
-    CachedRenderingData, Item, ItemConsts, ItemVTable, LayoutInfo, Rect, RenderingInfo,
+    CachedRenderingData, ComponentRef, Item, ItemConsts, ItemVTable, LayoutInfo, Rect,
+    RenderingInfo,
 };
 use crate::{Property, SharedString, Signal};
 use vtable::HasStaticVTable;
@@ -50,7 +51,7 @@ impl Item for Rectangle {
         todo!()
     }
 
-    fn input_event(&self, _: super::datastructures::MouseEvent) {}
+    fn input_event(&self, _: super::datastructures::MouseEvent, _: ComponentRef) {}
 }
 
 impl ItemConsts for Rectangle {
@@ -87,7 +88,7 @@ impl Item for Image {
         todo!()
     }
 
-    fn input_event(&self, _: super::datastructures::MouseEvent) {}
+    fn input_event(&self, _: super::datastructures::MouseEvent, _: ComponentRef) {}
 }
 
 impl ItemConsts for Image {
@@ -123,7 +124,7 @@ impl Item for Text {
         todo!()
     }
 
-    fn input_event(&self, _: super::datastructures::MouseEvent) {}
+    fn input_event(&self, _: super::datastructures::MouseEvent, _: ComponentRef) {}
 }
 
 impl ItemConsts for Text {
@@ -160,13 +161,16 @@ impl Item for TouchArea {
         todo!()
     }
 
-    fn input_event(&self, event: super::datastructures::MouseEvent) {
+    fn input_event(&self, event: super::datastructures::MouseEvent, c: ComponentRef) {
         println!("Touch Area Event {:?}", event);
         self.pressed.set(match event.what {
             super::datastructures::MouseEventType::MousePressed => true,
             super::datastructures::MouseEventType::MouseReleased => false,
             super::datastructures::MouseEventType::MouseMoved => return,
         });
+        if matches!(event.what, super::datastructures::MouseEventType::MouseReleased) {
+            self.clicked.emit(c.as_ptr() as _, ())
+        }
     }
 }
 

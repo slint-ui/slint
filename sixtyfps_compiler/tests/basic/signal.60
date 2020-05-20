@@ -13,5 +13,12 @@ SubElements = Rectangle {
 //      ^error{'x' is not a signal in TouchArea}
     }
 
+    TouchArea {
+        clicked => { emit foobar }
+        clicked => { emit foobar }
+//      ^error{Duplicated signal}
+    }
+
+
 }
 

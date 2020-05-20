@@ -145,6 +145,12 @@ fn handle_item(item: &LoweredItem, main_struct: &mut Struct, init: &mut Vec<Stri
         };
         format!("{id}.{prop}.set({init});", id = id, prop = s, init = init)
     }));
+    init.extend(item.connect_signals.iter().map(|(s, fwd)| {
+        format!(
+            "{prop}.set_handler([](const void *root) {{ reinterpret_cast<const {ty}*>(root)->{fwd}.emit(root); }});", 
+            prop = s, fwd = fwd, ty = main_struct.name
+        )
+    }));
 
     for i in &item.children {
         handle_item(i, main_struct, init)
@@ -161,6 +167,10 @@ pub fn generate(component: &LoweredComponent) -> impl std::fmt::Display {
 
     let mut init = Vec::new();
     handle_item(&component.root_item, &mut main_struct, &mut init);
+
+    main_struct.members.extend(component.signals_declarations.iter().map(|s| {
+        Declaration::Var(Var { ty: "sixtyfps::Signal".into(), name: s.clone(), init: None })
+    }));
 
     main_struct.members.push(Declaration::Function(Function {
         name: component.id.clone(),
@@ -216,7 +226,7 @@ pub fn generate(component: &LoweredComponent) -> impl std::fmt::Display {
         init: Some("{ nullptr, sixtyfps::dummy_destory, tree_fn }".to_owned()),
     }));
 
-    x.declarations.push(Declaration::Function(Function {
+    /*x.declarations.push(Declaration::Function(Function {
         name: "main".into(),
         signature: "() -> int".to_owned(),
         statements: Some(vec![
@@ -224,6 +234,6 @@ pub fn generate(component: &LoweredComponent) -> impl std::fmt::Display {
             format!("sixtyfps::run(&component);"),
         ]),
         ..Default::default()
-    }));
+    }));*/
     x
 }

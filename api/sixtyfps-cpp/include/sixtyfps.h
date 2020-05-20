@@ -2,6 +2,7 @@
 namespace sixtyfps::internal {
 // Workaround https://github.com/eqrion/cbindgen/issues/43
 struct ComponentVTable;
+struct ItemVTable;
 }
 #include "sixtyfps_internal.h"
 #include "sixtyfps_gl_internal.h"

@@ -18,7 +18,7 @@ pub fn process_mouse_event(component: ComponentRef<'_>, event: MouseEvent) {
             if geom.contains(event.pos) {
                 let mut event2 = event.clone();
                 event2.pos -= geom.origin.to_vector();
-                item.input_event(event2);
+                item.input_event(event2, component);
             }
 
             geom.origin.to_vector()

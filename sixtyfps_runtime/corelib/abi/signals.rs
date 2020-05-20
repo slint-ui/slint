@@ -5,8 +5,6 @@ TODO: reconsider if we should rename that to `Event`
 but then it should also be renamed everywhere, including in the language grammar
 */
 
-use core::any::Any;
-
 /// A Signal that can be connected to a handler.
 ///
 /// The Arg represents the argument. It should always be a tuple
@@ -15,17 +13,17 @@ use core::any::Any;
 #[repr(C)]
 pub struct Signal<Arg> {
     /// FIXME: Box<dyn> is a fat object and we probaly want to put an erased type in there
-    handler: Option<Box<dyn Fn(&dyn Any, Arg)>>,
+    handler: Option<Box<dyn Fn(*const c_void, Arg)>>,
 }
 
 impl<Arg> Signal<Arg> {
-    pub fn emit(&self, context: &dyn Any, a: Arg) {
+    pub fn emit(&self, context: *const c_void, a: Arg) {
         if let Some(h) = &self.handler {
             h(context, a);
         }
     }
 
-    pub fn set_handler(&mut self, f: impl Fn(&dyn Any, Arg) + 'static) {
+    pub fn set_handler(&mut self, f: impl Fn(*const c_void, Arg) + 'static) {
         self.handler = Some(Box::new(f));
     }
 }
@@ -40,9 +38,11 @@ fn signal_simple_test() {
 
     let mut c = Component::default();
     c.clicked.set_handler(|c, ()| {
-        c.downcast_ref::<Component>().unwrap().pressed.set(true);
+        // FIXME would be nice not to use raw pointer
+        //c.downcast_ref::<Component>().unwrap().pressed.set(true);
+        unsafe { (*(c as *const Component)).pressed.set(true) }
     });
-    c.clicked.emit(&c, ());
+    c.clicked.emit((&c) as *const _ as *const c_void, ());
     assert_eq!(c.pressed.get(), true);
 }
 
@@ -64,8 +64,7 @@ pub unsafe extern "C" fn sixtyfps_signal_init(out: *mut SignalOpaque) {
 #[no_mangle]
 pub unsafe extern "C" fn sixtyfps_signal_emit(sig: *const SignalOpaque, component: *const c_void) {
     let sig = &*(sig as *const Signal<()>);
-    let context = &*component;
-    sig.emit(context, ());
+    sig.emit(component, ());
 }
 
 /// Set signal handler.
@@ -94,12 +93,8 @@ pub unsafe extern "C" fn sixtyfps_signal_set_handler(
     }
     let ud = UserData { user_data, drop_user_data };
 
-    #[repr(C)]
-    struct TraitObject(*const c_void, *const c_void);
-
-    let real_binding = move |compo: &dyn Any, ()| {
-        let to = core::mem::transmute::<&dyn Any, TraitObject>(compo);
-        binding(ud.user_data, to.0);
+    let real_binding = move |compo, ()| {
+        binding(ud.user_data, compo);
     };
     sig.set_handler(real_binding);
 }

@@ -31,11 +31,11 @@ struct Property
     {
         internal::sixtyfps_property_set_binding(
                 &inner,
-                [](const void *user_data, const void *value) {
+                [](void *user_data, const void *value) {
                     *reinterpret_cast<T *>(value) = (*reinterpret_cast<F *>(user_data))();
                 },
                 new F(binding),
-                [](const void *user_data) { delete reinterpret_cast<F *>(user_data); });
+                [](void *user_data) { delete reinterpret_cast<F *>(user_data); });
     }
 
 private:

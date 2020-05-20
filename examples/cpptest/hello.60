@@ -1,5 +1,4 @@
 
-
 component TwoRectangle = Rectangle {
 
     signal clicked;
@@ -14,20 +13,24 @@ component TwoRectangle = Rectangle {
         my_area = TouchArea {
             width: 25;
             height: 25;
-            clicked => { emit root.clicked(); }
+            clicked => { clicked }
         }
 
     }
 }
 
 
-SuperSimple = Rectangle {
+Hello = Rectangle {
+
+    signal foobar;
+
     color: white;
 
     TwoRectangle {
         width: 100;
         height: 100;
         color: blue;
+        clicked => { foobar }
     }
     Rectangle {
         x: 100;

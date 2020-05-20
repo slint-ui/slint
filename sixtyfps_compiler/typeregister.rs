@@ -30,7 +30,13 @@ impl Type {
 
     pub fn lookup_property(&self, name: &str) -> Type {
         match self {
-            Type::Component(c) => c.root_element.base_type.lookup_property(name),
+            Type::Component(c) => {
+                if c.root_element.signals_declaration.iter().any(|x| x == name) {
+                    Type::Signal
+                } else {
+                    c.root_element.base_type.lookup_property(name)
+                }
+            }
             Type::Builtin(b) => b.properties.get(name).cloned().unwrap_or_default(),
             _ => Type::Invalid,
         }
