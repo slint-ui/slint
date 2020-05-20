@@ -141,7 +141,9 @@ pub struct TouchArea {
     pub y: Property<f32>,
     pub width: Property<f32>,
     pub height: Property<f32>,
-    // FIXME: remove this
+    /// FIXME: We should anotate this as an "output" property
+    pub pressed: Property<bool>,
+    /// FIXME: remove this
     pub cached_rendering_data: CachedRenderingData,
 }
 
@@ -158,7 +160,12 @@ impl Item for TouchArea {
     }
 
     fn input_event(&self, event: super::datastructures::MouseEvent) {
-        println!("Touch Area Event {:?}", event)
+        println!("Touch Area Event {:?}", event);
+        self.pressed.set(match event.what {
+            super::datastructures::MouseEventType::MousePressed => true,
+            super::datastructures::MouseEventType::MouseReleased => false,
+            super::datastructures::MouseEventType::MouseMoved => return,
+        });
     }
 }
 

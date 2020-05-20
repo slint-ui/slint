@@ -15,6 +15,7 @@ pub enum Type {
     String,
     Color,
     Image,
+    Bool,
 }
 
 impl Type {
@@ -24,7 +25,7 @@ impl Type {
 
     /// valid type for properties
     pub fn is_property_type(&self) -> bool {
-        matches!(self, Self::Number | Self::String | Self::Color | Self::Image)
+        matches!(self, Self::Number | Self::String | Self::Color | Self::Image | Self::Bool)
     }
 
     pub fn lookup_property(&self, name: &str) -> Type {
@@ -86,6 +87,7 @@ impl TypeRegister {
         touch_area.properties.insert("y".to_owned(), Type::Number);
         touch_area.properties.insert("width".to_owned(), Type::Number);
         touch_area.properties.insert("height".to_owned(), Type::Number);
+        touch_area.properties.insert("pressed".to_owned(), Type::Bool);
         touch_area.properties.insert("clicked".to_owned(), Type::Signal);
         r.types.insert("TouchArea".to_owned(), Type::Builtin(Rc::new(touch_area)));
 

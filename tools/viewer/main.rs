@@ -25,6 +25,12 @@ impl PropertyWriter for f32 {
     }
 }
 
+impl PropertyWriter for bool {
+    unsafe fn write(_ptr: *mut u8, _value: &Expression) {
+        todo!("Boolean expression not implemented")
+    }
+}
+
 impl PropertyWriter for u32 {
     unsafe fn write(ptr: *mut u8, value: &Expression) {
         let val: Self = match value {
@@ -168,6 +174,7 @@ fn main() -> std::io::Result<()> {
                 ("y", (offsets.y.get_byte_offset(), set_property::<f32> as _)),
                 ("width", (offsets.width.get_byte_offset(), set_property::<f32> as _)),
                 ("height", (offsets.height.get_byte_offset(), set_property::<f32> as _)),
+                ("pressed", (offsets.pressed.get_byte_offset(), set_property::<bool> as _)),
             ]
             .iter()
             .cloned()
