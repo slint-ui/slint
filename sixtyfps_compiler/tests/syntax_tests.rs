@@ -31,6 +31,7 @@ fn main() -> std::io::Result<()> {
 fn process_file(path: &std::path::Path) -> std::io::Result<bool> {
     let source = std::fs::read_to_string(&path)?;
     let (res, mut diag) = sixtyfps_compiler::parser::parse(&source);
+    diag.current_path = path.to_path_buf();
     sixtyfps_compiler::object_tree::Document::from_node(
         res,
         &mut diag,
@@ -68,7 +69,12 @@ fn process_file(path: &std::path::Path) -> std::io::Result<bool> {
 
     if !diag.inner.is_empty() {
         println!("{:?}: Unexptected errors: {:#?}", path, diag.inner);
+
+        #[cfg(feature = "display-diagnostics")]
+        diag.print(source);
+
+        success = false;
     }
 
-    Ok(success && diag.inner.is_empty())
+    Ok(success)
 }

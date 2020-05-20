@@ -1,0 +1,10 @@
+
+SubElements = Rectangle {
+    signal foobar;
+
+    TouchArea {
+        clicked => { emit foobar }
+    }
+
+}
+

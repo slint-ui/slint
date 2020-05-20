@@ -64,6 +64,8 @@ pub fn parse_element(p: &mut Parser) -> bool {
 /// property1: value; property2: value;
 /// sub = Sub { }
 /// for xx in model: Sub {}
+/// clicked => {}
+/// signal foobar;
 /// ```
 fn parse_element_content(p: &mut Parser) {
     loop {
@@ -73,8 +75,12 @@ fn parse_element_content(p: &mut Parser) {
             SyntaxKind::Identifier => match p.nth(1) {
                 SyntaxKind::Colon => parse_property_binding(&mut *p),
                 SyntaxKind::Equal | SyntaxKind::LBrace => parse_sub_element(&mut *p),
+                SyntaxKind::FatArrow => parse_signal_connection(&mut *p),
                 SyntaxKind::Identifier if p.peek().as_str() == "for" => {
                     parse_repeated_element(&mut *p);
+                }
+                SyntaxKind::Identifier if p.peek().as_str() == "signal" => {
+                    parse_signal_declaration(&mut *p);
                 }
                 _ => {
                     p.consume();
@@ -165,4 +171,28 @@ fn parse_code_block(p: &mut Parser) {
     }
 
     p.until(SyntaxKind::RBrace);
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test
+/// clicked => {}
+/// ```
+fn parse_signal_connection(p: &mut Parser) {
+    let mut p = p.start_node(SyntaxKind::SignalConnection);
+    p.consume(); // the identifier
+    p.expect(SyntaxKind::FatArrow);
+    parse_code_block(&mut *p);
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test
+/// signal foobar;
+/// ```
+/// Must consume at least one token
+fn parse_signal_declaration(p: &mut Parser) {
+    debug_assert_eq!(p.peek().as_str(), "signal");
+    let mut p = p.start_node(SyntaxKind::SignalDeclaration);
+    p.consume(); // "signal"
+    p.expect(SyntaxKind::Identifier);
+    p.expect(SyntaxKind::Semicolon);
 }
