@@ -76,6 +76,31 @@ impl PathShader {
 
         Self { inner: Shader::new(&gl, PATH_VERTEX_SHADER, PATH_FRAGMENT_SHADER) }
     }
+
+    fn bind(
+        &self,
+        gl: &glow::Context,
+        matrix: &[f32; 16],
+        vertcolor: &[f32; 4],
+        pos: &GLArrayBuffer<Vertex>,
+        indices: &GLIndexBuffer<u16>,
+    ) {
+        self.inner.use_program(&gl);
+
+        let matrix_location = unsafe { gl.get_uniform_location(self.inner.program, "matrix") };
+        unsafe { gl.uniform_matrix_4_f32_slice(matrix_location, false, &matrix) };
+
+        let color_location = unsafe { gl.get_uniform_location(self.inner.program, "vertcolor") };
+        unsafe {
+            gl.uniform_4_f32(color_location, vertcolor[0], vertcolor[1], vertcolor[2], vertcolor[3])
+        };
+
+        let vertex_attribute_location =
+            unsafe { gl.get_attrib_location(self.inner.program, "pos").unwrap() };
+        pos.bind(&gl, vertex_attribute_location);
+
+        indices.bind(&gl);
+    }
 }
 
 #[derive(Clone)]
@@ -103,6 +128,32 @@ impl ImageShader {
         }"#;
 
         Self { inner: Shader::new(&gl, IMAGE_VERTEX_SHADER, IMAGE_FRAGMENT_SHADER) }
+    }
+
+    fn bind(
+        &self,
+        gl: &glow::Context,
+        matrix: &[f32; 16],
+        tex: &GLTexture,
+        pos: &GLArrayBuffer<Vertex>,
+        tex_pos: &GLArrayBuffer<Vertex>,
+    ) {
+        self.inner.use_program(&gl);
+
+        let matrix_location = unsafe { gl.get_uniform_location(self.inner.program, "matrix") };
+        unsafe { gl.uniform_matrix_4_f32_slice(matrix_location, false, &matrix) };
+
+        let texture_location =
+            unsafe { gl.get_uniform_location(self.inner.program, "tex").unwrap() };
+        tex.bind_to_location(&gl, texture_location);
+
+        let vertex_attribute_location =
+            unsafe { gl.get_attrib_location(self.inner.program, "pos").unwrap() };
+        pos.bind(&gl, vertex_attribute_location);
+
+        let vertex_texture_attribute_location =
+            unsafe { gl.get_attrib_location(self.inner.program, "tex_pos").unwrap() };
+        tex_pos.bind(&gl, vertex_texture_attribute_location);
     }
 }
 
@@ -134,6 +185,44 @@ impl GlyphShader {
             gl_FragColor = fragcolor * texture2D(tex, frag_tex_pos).a;
         }"#;
         Self { inner: Shader::new(&gl, GLYPH_VERTEX_SHADER, GLYPH_FRAGMENT_SHADER) }
+    }
+
+    fn bind(
+        &self,
+        gl: &glow::Context,
+        matrix: &[f32; 16],
+        text_color: &[f32; 4],
+        tex: &GLTexture,
+        pos: &GLArrayBuffer<Vertex>,
+        tex_pos: &GLArrayBuffer<Vertex>,
+    ) {
+        self.inner.use_program(&gl);
+
+        let matrix_location = unsafe { gl.get_uniform_location(self.inner.program, "matrix") };
+        unsafe { gl.uniform_matrix_4_f32_slice(matrix_location, false, &matrix) };
+
+        let color_location = unsafe { gl.get_uniform_location(self.inner.program, "text_color") };
+        unsafe {
+            gl.uniform_4_f32(
+                color_location,
+                text_color[0],
+                text_color[1],
+                text_color[2],
+                text_color[3],
+            )
+        };
+
+        let texture_location =
+            unsafe { gl.get_uniform_location(self.inner.program, "tex").unwrap() };
+        tex.bind_to_location(&gl, texture_location);
+
+        let vertex_attribute_location =
+            unsafe { gl.get_attrib_location(self.inner.program, "pos").unwrap() };
+        pos.bind(&gl, vertex_attribute_location);
+
+        let vertex_texture_attribute_location =
+            unsafe { gl.get_attrib_location(self.inner.program, "tex_pos").unwrap() };
+        tex_pos.bind(&gl, vertex_texture_attribute_location);
     }
 }
 
@@ -449,30 +538,11 @@ impl GraphicsFrame for GLFrame {
         ];
         match &primitive.0 {
             GLRenderingPrimitive::FillPath { vertices, indices, style } => {
-                self.path_shader.inner.use_program(&self.context);
-
-                let matrix_location = unsafe {
-                    self.context.get_uniform_location(self.path_shader.inner.program, "matrix")
-                };
-                unsafe {
-                    self.context.uniform_matrix_4_f32_slice(matrix_location, false, &gl_matrix)
-                };
-
                 let (r, g, b, a) = match style {
                     FillStyle::SolidColor(color) => color.as_rgba_f32(),
                 };
 
-                let color_location = unsafe {
-                    self.context.get_uniform_location(self.path_shader.inner.program, "vertcolor")
-                };
-                unsafe { self.context.uniform_4_f32(color_location, r, g, b, a) };
-
-                let vertex_attribute_location = unsafe {
-                    self.context.get_attrib_location(self.path_shader.inner.program, "pos").unwrap()
-                };
-                vertices.bind(&self.context, vertex_attribute_location);
-
-                indices.bind(&self.context);
+                self.path_shader.bind(&self.context, &gl_matrix, &[r, g, b, a], vertices, indices);
 
                 unsafe {
                     self.context.draw_elements(
@@ -484,35 +554,13 @@ impl GraphicsFrame for GLFrame {
                 }
             }
             GLRenderingPrimitive::Texture { vertices, texture_vertices, texture } => {
-                self.image_shader.inner.use_program(&self.context);
-
-                let matrix_location = unsafe {
-                    self.context.get_uniform_location(self.image_shader.inner.program, "matrix")
-                };
-                unsafe {
-                    self.context.uniform_matrix_4_f32_slice(matrix_location, false, &gl_matrix)
-                };
-
-                let texture_location = unsafe {
-                    self.context
-                        .get_uniform_location(self.image_shader.inner.program, "tex")
-                        .unwrap()
-                };
-                texture.bind_to_location(&self.context, texture_location);
-
-                let vertex_attribute_location = unsafe {
-                    self.context
-                        .get_attrib_location(self.image_shader.inner.program, "pos")
-                        .unwrap()
-                };
-                vertices.bind(&self.context, vertex_attribute_location);
-
-                let vertex_texture_attribute_location = unsafe {
-                    self.context
-                        .get_attrib_location(self.image_shader.inner.program, "tex_pos")
-                        .unwrap()
-                };
-                texture_vertices.bind(&self.context, vertex_texture_attribute_location);
+                self.image_shader.bind(
+                    &self.context,
+                    &gl_matrix,
+                    texture,
+                    vertices,
+                    texture_vertices,
+                );
 
                 unsafe {
                     self.context.draw_arrays(glow::TRIANGLES, 0, 6);
@@ -525,42 +573,16 @@ impl GraphicsFrame for GLFrame {
                 vertex_count,
                 color,
             } => {
-                self.glyph_shader.inner.use_program(&self.context);
-
-                let matrix_location = unsafe {
-                    self.context.get_uniform_location(self.glyph_shader.inner.program, "matrix")
-                };
-                unsafe {
-                    self.context.uniform_matrix_4_f32_slice(matrix_location, false, &gl_matrix)
-                };
-
                 let (r, g, b, a) = color.as_rgba_f32();
 
-                let color_location = unsafe {
-                    self.context.get_uniform_location(self.glyph_shader.inner.program, "text_color")
-                };
-                unsafe { self.context.uniform_4_f32(color_location, r, g, b, a) };
-
-                let texture_location = unsafe {
-                    self.context
-                        .get_uniform_location(self.glyph_shader.inner.program, "tex")
-                        .unwrap()
-                };
-                texture.bind_to_location(&self.context, texture_location);
-
-                let vertex_attribute_location = unsafe {
-                    self.context
-                        .get_attrib_location(self.glyph_shader.inner.program, "pos")
-                        .unwrap()
-                };
-                vertices.bind(&self.context, vertex_attribute_location);
-
-                let vertex_texture_attribute_location = unsafe {
-                    self.context
-                        .get_attrib_location(self.glyph_shader.inner.program, "tex_pos")
-                        .unwrap()
-                };
-                texture_vertices.bind(&self.context, vertex_texture_attribute_location);
+                self.glyph_shader.bind(
+                    &self.context,
+                    &gl_matrix,
+                    &[r, g, b, a],
+                    texture,
+                    vertices,
+                    texture_vertices,
+                );
 
                 unsafe {
                     self.context.draw_arrays(glow::TRIANGLES, 0, *vertex_count);
