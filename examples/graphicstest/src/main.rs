@@ -69,14 +69,17 @@ fn main() {
 
     renderer.finish_primitives(rendering_primitives_builder);
 
-    main_window.run_event_loop(move |frame, rendering_cache| {
-        frame.render_primitive(rendering_cache.entry_at(root), &Matrix4::identity());
-        frame.render_primitive(
-            rendering_cache.entry_at(child_rect),
-            &Matrix4::from_translation(Vector3::new(100., 100., 0.)),
-        );
-        frame.render_primitive(rendering_cache.entry_at(image_node), &Matrix4::identity());
-    });
+    main_window.run_event_loop(
+        move |frame, rendering_cache| {
+            frame.render_primitive(rendering_cache.entry_at(root), &Matrix4::identity());
+            frame.render_primitive(
+                rendering_cache.entry_at(child_rect),
+                &Matrix4::from_translation(Vector3::new(100., 100., 0.)),
+            );
+            frame.render_primitive(rendering_cache.entry_at(image_node), &Matrix4::identity());
+        },
+        |_, _| (),
+    );
 
     //render_cache.free_entry(root);
     //render_cache.free_entry(child_rect);

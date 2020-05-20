@@ -16,6 +16,7 @@ const-field-offset = { path = "../../helper_crates/const-field-offset" }
 vtable = { path = "../../helper_crates/vtable" }
 winit = "0.22.1"
 lyon = { version = "0.15.8" }
+euclid = "0.20.11"
 servo_arc = "0.1.1" #we need the Arc::from_header_and_iter
 once_cell = "1.4"
 

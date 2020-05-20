@@ -15,7 +15,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 #![allow(non_upper_case_globals)]
 
 use super::datastructures::{
-    CachedRenderingData, Item, ItemConsts, ItemVTable, LayoutInfo, RenderingInfo,
+    CachedRenderingData, Item, ItemConsts, ItemVTable, LayoutInfo, Rect, RenderingInfo,
 };
 use crate::{Property, SharedString};
 use vtable::HasStaticVTable;
@@ -33,7 +33,9 @@ pub struct Rectangle {
 }
 
 impl Item for Rectangle {
-    fn geometry(&self) {}
+    fn geometry(&self) -> Rect {
+        euclid::rect(self.x.get(), self.y.get(), self.width.get(), self.height.get())
+    }
     fn rendering_info(&self) -> RenderingInfo {
         RenderingInfo::Rectangle(
             self.x.get(),
@@ -74,7 +76,9 @@ pub struct Image {
 }
 
 impl Item for Image {
-    fn geometry(&self) {}
+    fn geometry(&self) -> Rect {
+        euclid::rect(self.x.get(), self.y.get(), self.width.get(), self.height.get())
+    }
     fn rendering_info(&self) -> RenderingInfo {
         RenderingInfo::Image(self.x.get(), self.y.get(), self.source.get())
     }
@@ -107,7 +111,10 @@ pub struct Text {
 }
 
 impl Item for Text {
-    fn geometry(&self) {}
+    // FIXME: width / height.  or maybe it doesn't matter?  (
+    fn geometry(&self) -> Rect {
+        euclid::rect(self.x.get(), self.y.get(), 0., 0.)
+    }
     fn rendering_info(&self) -> RenderingInfo {
         RenderingInfo::Text(self.x.get(), self.y.get(), self.text.get(), self.color.get())
     }
@@ -139,7 +146,9 @@ pub struct TouchArea {
 }
 
 impl Item for TouchArea {
-    fn geometry(&self) {}
+    fn geometry(&self) -> Rect {
+        euclid::rect(self.x.get(), self.y.get(), self.width.get(), self.height.get())
+    }
     fn rendering_info(&self) -> RenderingInfo {
         RenderingInfo::NoContents
     }
@@ -148,7 +157,9 @@ impl Item for TouchArea {
         todo!()
     }
 
-    fn input_event(&self, _: super::datastructures::MouseEvent) {}
+    fn input_event(&self, event: super::datastructures::MouseEvent) {
+        println!("Touch Area Event {:?}", event)
+    }
 }
 
 impl ItemConsts for TouchArea {

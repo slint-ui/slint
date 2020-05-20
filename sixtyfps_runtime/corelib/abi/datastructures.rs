@@ -1,6 +1,27 @@
 use core::ptr::NonNull;
 use vtable::*;
 
+pub type Rect = euclid::default::Rect<f32>;
+pub type Point = euclid::default::Point2D<f32>;
+
+/// Expand Rect so that cbindgen can see it. ( is in fact euclid::default::Rect<f32>)
+#[cfg(cbindgen)]
+#[repr(C)]
+struct Rect {
+    x: f32,
+    y: f32,
+    width: f32,
+    height: f32,
+}
+
+/// Expand Point so that cbindgen can see it. ( is in fact euclid::default::PointD2<f32>)
+#[cfg(cbindgen)]
+#[repr(C)]
+struct Point {
+    x: f32,
+    y: f32,
+}
+
 #[vtable]
 #[repr(C)]
 pub struct ComponentVTable {
@@ -68,8 +89,8 @@ unsafe impl Sync for ItemTreeNode {}
 #[vtable]
 #[repr(C)]
 pub struct ItemVTable {
-    /// Rectangle: x/y/width/height ==> (path -> vertices/indicies(triangle))
-    pub geometry: extern "C" fn(VRef<'_, ItemVTable>) -> (), // like kurbo::Rect
+    ///
+    pub geometry: extern "C" fn(VRef<'_, ItemVTable>) -> Rect,
 
     /// offset in bytes fromthe *const ItemImpl.
     /// isize::MAX  means None
@@ -109,7 +130,20 @@ pub enum RenderingInfo {
     Image(OpaqueImageHandle, AspectRatio)*/
 }
 
-pub type MouseEvent = ();
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub enum MouseEventType {
+    MousePressed,
+    MouseReleased,
+    MouseMoved,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct MouseEvent {
+    pub pos: Point,
+    pub what: MouseEventType,
+}
 
 /* -- Safe wrappers*/
 

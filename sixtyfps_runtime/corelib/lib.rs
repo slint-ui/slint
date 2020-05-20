@@ -1,4 +1,5 @@
 pub mod graphics;
+pub mod input;
 pub mod layout;
 
 pub mod abi {
@@ -45,14 +46,18 @@ where
         Self { graphics_backend, event_loop, rendering_cache: graphics::RenderingCache::default() }
     }
 
-    pub fn run_event_loop<RenderFunction>(self, mut render_function: RenderFunction)
-    where
-        GraphicsBackend: 'static,
-        RenderFunction: FnMut(&mut GraphicsBackend::Frame, &mut graphics::RenderingCache<GraphicsBackend>)
+    pub fn run_event_loop(
+        self,
+        mut render_function: impl FnMut(&mut GraphicsBackend::Frame, &mut graphics::RenderingCache<GraphicsBackend>)
             + 'static,
+        mut input_function: impl FnMut(winit::dpi::PhysicalPosition<f64>, winit::event::ElementState)
+            + 'static,
+    ) where
+        GraphicsBackend: 'static,
     {
         let mut graphics_backend = self.graphics_backend;
         let mut rendering_cache = self.rendering_cache;
+        let mut cursor_pos = winit::dpi::PhysicalPosition::new(0., 0.);
         self.event_loop.run(move |event, _, control_flow| {
             *control_flow = winit::event_loop::ControlFlow::Wait;
 
@@ -73,6 +78,23 @@ where
                     render_function(&mut frame, &mut rendering_cache);
                     graphics_backend.present_frame(frame);
                 }
+                winit::event::Event::WindowEvent {
+                    event: winit::event::WindowEvent::CursorMoved { position, .. },
+                    ..
+                } => {
+                    cursor_pos = position;
+                    // TODO: propagate mouse move?
+                }
+
+                winit::event::Event::WindowEvent {
+                    event: winit::event::WindowEvent::MouseInput { state, .. },
+                    ..
+                } => {
+                    input_function(cursor_pos, state);
+                    // FIXME: remove this, it should be based on actual changes rather than this
+                    window.request_redraw();
+                }
+
                 _ => (),
             }
         });
@@ -109,7 +131,25 @@ pub fn run_component<GraphicsBackend, GraphicsFactoryFunc>(
 
     renderer.finish_primitives(rendering_primitives_builder);
     let component = component.into_ref();
-    main_window.run_event_loop(move |frame, rendering_cache| {
-        item_rendering::render_component_items(component, frame, &rendering_cache);
-    });
+    main_window.run_event_loop(
+        move |frame, rendering_cache| {
+            item_rendering::render_component_items(component, frame, &rendering_cache);
+        },
+        move |pos, state| {
+            input::process_mouse_event(
+                component,
+                crate::abi::datastructures::MouseEvent {
+                    pos: euclid::point2(pos.x as _, pos.y as _),
+                    what: match state {
+                        winit::event::ElementState::Pressed => {
+                            crate::abi::datastructures::MouseEventType::MousePressed
+                        }
+                        winit::event::ElementState::Released => {
+                            crate::abi::datastructures::MouseEventType::MouseReleased
+                        }
+                    },
+                },
+            )
+        },
+    );
 }
