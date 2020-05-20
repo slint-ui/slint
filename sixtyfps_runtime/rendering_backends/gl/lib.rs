@@ -434,11 +434,3 @@ pub extern "C" fn sixtyfps_runtime_run_component_with_gl_renderer(
         GLRenderer::new(&event_loop, window_builder)
     });
 }
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
-}
