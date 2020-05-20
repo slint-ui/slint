@@ -93,10 +93,11 @@ fn main() -> std::io::Result<()> {
         std::process::exit(-1);
     }
 
-    use corelib::abi::primitives::{Image, Rectangle};
+    use corelib::abi::primitives::{Image, Rectangle, Text, TouchArea};
 
     // FIXME: thus obviously is unsafe and not great
     let mut rtti = HashMap::new();
+
     let offsets = Rectangle::field_offsets();
     rtti.insert(
         "Rectangle",
@@ -116,6 +117,7 @@ fn main() -> std::io::Result<()> {
             size: std::mem::size_of::<Rectangle>(),
         },
     );
+
     let offsets = Image::field_offsets();
     rtti.insert(
         "Image",
@@ -135,6 +137,45 @@ fn main() -> std::io::Result<()> {
             size: std::mem::size_of::<Image>(),
         },
     );
+
+    let offsets = Text::field_offsets();
+    rtti.insert(
+        "Text",
+        RuntimeTypeInfo {
+            vtable: &corelib::abi::primitives::ImageVTable as _,
+            construct: construct::<Text>,
+            properties: [
+                ("x", (offsets.x.get_byte_offset(), set_property::<f32> as _)),
+                ("y", (offsets.y.get_byte_offset(), set_property::<f32> as _)),
+                ("text", (offsets.text.get_byte_offset(), set_property::<SharedString> as _)),
+                ("color", (offsets.color.get_byte_offset(), set_property::<u32> as _)),
+            ]
+            .iter()
+            .cloned()
+            .collect(),
+            size: std::mem::size_of::<Text>(),
+        },
+    );
+
+    let offsets = TouchArea::field_offsets();
+    rtti.insert(
+        "TouchArea",
+        RuntimeTypeInfo {
+            vtable: &corelib::abi::primitives::TouchAreaVTable as _,
+            construct: construct::<TouchArea>,
+            properties: [
+                ("x", (offsets.x.get_byte_offset(), set_property::<f32> as _)),
+                ("y", (offsets.y.get_byte_offset(), set_property::<f32> as _)),
+                ("width", (offsets.width.get_byte_offset(), set_property::<f32> as _)),
+                ("height", (offsets.height.get_byte_offset(), set_property::<f32> as _)),
+            ]
+            .iter()
+            .cloned()
+            .collect(),
+            size: std::mem::size_of::<TouchArea>(),
+        },
+    );
+
 
     let l = lower::LoweredComponent::lower(&*tree.root_component);
 

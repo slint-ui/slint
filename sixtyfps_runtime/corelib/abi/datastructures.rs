@@ -273,6 +273,8 @@ pub static QT_BUTTON_VTABLE: ItemVTable = ItemVTable {
 };
 */
 
+// This is here because for some reason (rust bug?) the ItemVTable_static is not accessible in the other modules
 ItemVTable_static!(crate::abi::primitives::Image);
 ItemVTable_static!(crate::abi::primitives::Rectangle);
 ItemVTable_static!(crate::abi::primitives::Text);
+ItemVTable_static!(crate::abi::primitives::TouchArea);

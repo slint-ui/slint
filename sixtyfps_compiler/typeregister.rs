@@ -50,6 +50,7 @@ pub struct TypeRegister {
 impl TypeRegister {
     pub fn builtin() -> Self {
         let mut r = TypeRegister::default();
+
         let mut rectangle = BuiltinElement::default();
         rectangle.properties.insert("color".to_owned(), Type::Color);
         rectangle.properties.insert("x".to_owned(), Type::Number);
@@ -57,6 +58,7 @@ impl TypeRegister {
         rectangle.properties.insert("width".to_owned(), Type::Number);
         rectangle.properties.insert("height".to_owned(), Type::Number);
         r.types.insert("Rectangle".to_owned(), Type::Builtin(Rc::new(rectangle)));
+
         let mut image = BuiltinElement::default();
         image.properties.insert("source".to_owned(), Type::Image);
         image.properties.insert("x".to_owned(), Type::Number);
@@ -64,12 +66,20 @@ impl TypeRegister {
         image.properties.insert("width".to_owned(), Type::Number);
         image.properties.insert("height".to_owned(), Type::Number);
         r.types.insert("Image".to_owned(), Type::Builtin(Rc::new(image)));
+
         let mut text = BuiltinElement::default();
         text.properties.insert("text".to_owned(), Type::String);
         text.properties.insert("color".to_owned(), Type::Color);
         text.properties.insert("x".to_owned(), Type::Number);
         text.properties.insert("y".to_owned(), Type::Number);
         r.types.insert("Text".to_owned(), Type::Builtin(Rc::new(text)));
+
+        let mut touch_area = BuiltinElement::default();
+        touch_area.properties.insert("x".to_owned(), Type::Number);
+        touch_area.properties.insert("y".to_owned(), Type::Number);
+        touch_area.properties.insert("width".to_owned(), Type::Number);
+        touch_area.properties.insert("height".to_owned(), Type::Number);
+        r.types.insert("TouchArea".to_owned(), Type::Builtin(Rc::new(touch_area)));
 
         r
     }

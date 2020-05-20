@@ -27,6 +27,11 @@ using internal::Image;
 using internal::ImageVTable;
 using internal::Rectangle;
 using internal::RectangleVTable;
+using internal::Text;
+using internal::TextVTable;
+using internal::TouchArea;
+using internal::TouchAreaVTable;
+
 
 // the component has static lifetime so it does not need to be destroyed
 // FIXME: we probably need some kind of way to dinstinguish static component and

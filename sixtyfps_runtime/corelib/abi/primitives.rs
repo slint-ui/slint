@@ -1,3 +1,17 @@
+/*!
+This module contains the list of builtin items.
+
+When adding an item or a property, it needs to be kept in sync with different place.
+(This is less than ideal and maybe we can have some automation later)
+
+ - It needs to be changed in this module
+ - The ItemVTable_static at the end of datastructures.rs (new items only)
+ - In the compiler: typeregister.rs
+ - In the vewer: main.rs
+ - For the C++ code (new item only): the build.rs to export the new item, and the `using` declaration in sixtyfps.h
+
+*/
+
 #![allow(non_upper_case_globals)]
 
 use super::datastructures::{
@@ -6,7 +20,6 @@ use super::datastructures::{
 use crate::{Property, SharedString};
 use vtable::HasStaticVTable;
 
-/// FIXME:  more properties
 #[repr(C)]
 #[derive(const_field_offset::FieldOffsets, Default)]
 pub struct Rectangle {
@@ -45,6 +58,9 @@ impl ItemConsts for Rectangle {
     > = Rectangle::field_offsets().cached_rendering_data;
 }
 
+#[no_mangle]
+pub static RectangleVTable: ItemVTable = Rectangle::VTABLE;
+
 #[repr(C)]
 #[derive(const_field_offset::FieldOffsets, Default)]
 pub struct Image {
@@ -77,6 +93,9 @@ impl ItemConsts for Image {
     > = Image::field_offsets().cached_rendering_data;
 }
 
+#[no_mangle]
+pub static ImageVTable: ItemVTable = Image::VTABLE;
+
 #[repr(C)]
 #[derive(const_field_offset::FieldOffsets, Default)]
 pub struct Text {
@@ -106,10 +125,37 @@ impl ItemConsts for Text {
 }
 
 #[no_mangle]
-pub static RectangleVTable: ItemVTable = Rectangle::VTABLE;
-
-#[no_mangle]
-pub static ImageVTable: ItemVTable = Image::VTABLE;
-
-#[no_mangle]
 pub static TextVTable: ItemVTable = Text::VTABLE;
+
+
+#[repr(C)]
+#[derive(const_field_offset::FieldOffsets, Default)]
+pub struct TouchArea {
+    pub x: Property<f32>,
+    pub y: Property<f32>,
+    pub width: Property<f32>,
+    pub height: Property<f32>,
+    // FIXME: remove this
+    pub cached_rendering_data: CachedRenderingData,
+}
+
+impl Item for TouchArea {
+    fn geometry(&self) {}
+    fn rendering_info(&self) -> RenderingInfo {
+        RenderingInfo::NoContents
+    }
+
+    fn layouting_info(&self) -> LayoutInfo {
+        todo!()
+    }
+
+    fn input_event(&self, _: super::datastructures::MouseEvent) {}
+}
+
+impl ItemConsts for TouchArea {
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<TouchArea, CachedRenderingData> =
+        TouchArea::field_offsets().cached_rendering_data;
+}
+
+#[no_mangle]
+pub static TouchAreaVTable: ItemVTable = TouchArea::VTABLE;

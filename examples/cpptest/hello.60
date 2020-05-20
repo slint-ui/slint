@@ -7,6 +7,12 @@ component TwoRectangle = Rectangle {
         width: 25;
         height: 25;
         color: red;
+
+        my_area = TouchArea {
+            width: 25;
+            height: 25;
+        }
+
     }
 }
 
