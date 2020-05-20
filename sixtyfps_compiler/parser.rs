@@ -14,6 +14,7 @@ pub use rowan::SmolStr;
 use std::convert::TryFrom;
 
 mod document;
+mod expressions;
 
 /// Each parser submodule would simply do `use super::prelude::*` to import typically used items
 mod prelude {
