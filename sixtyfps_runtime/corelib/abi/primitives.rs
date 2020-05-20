@@ -17,7 +17,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 use super::datastructures::{
     CachedRenderingData, Item, ItemConsts, ItemVTable, LayoutInfo, Rect, RenderingInfo,
 };
-use crate::{Property, SharedString};
+use crate::{Property, SharedString, Signal};
 use vtable::HasStaticVTable;
 
 #[repr(C)]
@@ -143,6 +143,7 @@ pub struct TouchArea {
     pub height: Property<f32>,
     /// FIXME: We should anotate this as an "output" property
     pub pressed: Property<bool>,
+    pub clicked: Signal<()>,
     /// FIXME: remove this
     pub cached_rendering_data: CachedRenderingData,
 }

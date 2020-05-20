@@ -7,6 +7,7 @@ pub mod abi {
     pub mod model;
     pub mod primitives;
     pub mod properties;
+    pub mod signals;
     pub mod string;
 }
 
@@ -15,6 +16,9 @@ pub use abi::string::SharedString;
 
 #[doc(inline)]
 pub use abi::properties::Property;
+
+#[doc(inline)]
+pub use abi::signals::Signal;
 
 mod item_rendering;
 
