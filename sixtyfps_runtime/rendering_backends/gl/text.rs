@@ -54,8 +54,11 @@ impl GLFont {
             .collect()
     }
 
-    pub fn layout_glyphs<'a>(&'a mut self, glyphs: &'a [u32]) -> GlyphIter<'a> {
-        GlyphIter { gl_font: self, glyph_it: glyphs.iter() }
+    pub fn layout_glyphs<'a, I: std::iter::IntoIterator<Item = u32>>(
+        &'a mut self,
+        glyphs: I,
+    ) -> GlyphIter<'a, I::IntoIter> {
+        GlyphIter { gl_font: self, glyph_it: glyphs.into_iter() }
     }
 
     fn render_glyph(
@@ -104,16 +107,19 @@ impl GLFont {
     }
 }
 
-pub struct GlyphIter<'a> {
+pub struct GlyphIter<'a, GlyphIterator> {
     gl_font: &'a GLFont,
-    glyph_it: std::slice::Iter<'a, u32>,
+    glyph_it: GlyphIterator,
 }
 
-impl<'a> Iterator for GlyphIter<'a> {
+impl<'a, GlyphIterator> Iterator for GlyphIter<'a, GlyphIterator>
+where
+    GlyphIterator: std::iter::Iterator<Item = u32>,
+{
     type Item = &'a PreRenderedGlyph;
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(glyph_id) = self.glyph_it.next() {
-            Some(&self.gl_font.glyphs[glyph_id])
+            Some(&self.gl_font.glyphs[&glyph_id])
         } else {
             None
         }
