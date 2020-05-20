@@ -13,6 +13,8 @@ pub struct PreRenderedGlyph {
 pub struct GLFont {
     font: font_kit::font::Font,
     glyphs: std::collections::hash_map::HashMap<u32, PreRenderedGlyph>,
+    pixel_size: f32,
+    metrics: font_kit::metrics::Metrics,
 }
 
 impl Default for GLFont {
@@ -26,87 +28,92 @@ impl Default for GLFont {
             .load()
             .unwrap();
         let glyphs = std::collections::hash_map::HashMap::new();
-        Self { font, glyphs }
+        let metrics = font.metrics();
+        Self { font, glyphs, pixel_size: 48.0 * 72. / 96., metrics }
     }
 }
 
 impl GLFont {
-    pub fn layout_glyphs<'a>(
-        &'a mut self,
+    pub fn string_to_glyphs(
+        &mut self,
         gl: &glow::Context,
         atlas: &mut TextureAtlas,
-        text: &'a str,
-    ) -> GlyphIter<'a> {
-        let pixel_size: f32 = 48.0 * 72. / 96.;
+        text: &str,
+    ) -> Vec<u32> {
+        text.chars()
+            .map(|ch| {
+                let glyph = self.font.glyph_for_char(ch).unwrap();
 
-        let font_metrics = self.font.metrics();
+                if !self.glyphs.contains_key(&glyph) {
+                    // ensure the glyph is cached
+                    self.glyphs.insert(glyph, self.render_glyph(gl, atlas, glyph));
+                }
 
-        let scale_from_font_units = pixel_size / font_metrics.units_per_em as f32;
+                glyph
+            })
+            .collect()
+    }
 
-        let baseline_y = font_metrics.ascent * scale_from_font_units;
+    pub fn layout_glyphs<'a>(&'a mut self, glyphs: &'a [u32]) -> GlyphIter<'a> {
+        GlyphIter { gl_font: self, glyph_it: glyphs.iter() }
+    }
+
+    fn render_glyph(
+        &self,
+        gl: &glow::Context,
+        atlas: &mut TextureAtlas,
+        glyph_id: u32,
+    ) -> PreRenderedGlyph {
+        let scale_from_font_units = self.pixel_size / self.metrics.units_per_em as f32;
+
+        let advance = self.font.advance(glyph_id).unwrap().x() * scale_from_font_units;
+
+        let baseline_y = self.metrics.ascent * scale_from_font_units;
         let hinting = font_kit::hinting::HintingOptions::None;
         let raster_opts = font_kit::canvas::RasterizationOptions::GrayscaleAa;
 
-        text.chars().for_each(|ch| {
-            let glyph_id = self.font.glyph_for_char(ch).unwrap();
-            if self.glyphs.contains_key(&glyph_id) {
-                return;
-            }
+        // ### TODO: #8 use tight bounding box for glyphs stored in texture atlas
+        let glyph_height =
+            (self.metrics.ascent - self.metrics.descent + 1.) * scale_from_font_units;
+        let glyph_width = advance;
+        let mut canvas = font_kit::canvas::Canvas::new(
+            Vector2I::new(glyph_width.ceil() as i32, glyph_height.ceil() as i32),
+            font_kit::canvas::Format::A8,
+        );
+        self.font
+            .rasterize_glyph(
+                &mut canvas,
+                glyph_id,
+                self.pixel_size,
+                Transform2F::from_translation(Vector2F::new(0., baseline_y)),
+                hinting,
+                raster_opts,
+            )
+            .unwrap();
 
-            let advance = self.font.advance(glyph_id).unwrap().x() * scale_from_font_units;
+        let glyph_image =
+            image::ImageBuffer::from_fn(canvas.size.x() as u32, canvas.size.y() as u32, |x, y| {
+                let idx = (x as usize) + (y as usize) * canvas.stride;
+                let alpha = canvas.pixels[idx];
+                image::Rgba::<u8>::from_channels(0, 0, 0, alpha)
+            });
 
-            // ### TODO: #8 use tight bounding box for glyphs stored in texture atlas
-            let glyph_height =
-                (font_metrics.ascent - font_metrics.descent + 1.) * scale_from_font_units;
-            let glyph_width = advance;
-            let mut canvas = font_kit::canvas::Canvas::new(
-                Vector2I::new(glyph_width.ceil() as i32, glyph_height.ceil() as i32),
-                font_kit::canvas::Format::A8,
-            );
-            self.font
-                .rasterize_glyph(
-                    &mut canvas,
-                    glyph_id,
-                    pixel_size,
-                    Transform2F::from_translation(Vector2F::new(0., baseline_y)),
-                    hinting,
-                    raster_opts,
-                )
-                .unwrap();
+        let glyph_allocation = atlas.allocate_image_in_atlas(gl, glyph_image);
 
-            let glyph_image = image::ImageBuffer::from_fn(
-                canvas.size.x() as u32,
-                canvas.size.y() as u32,
-                |x, y| {
-                    let idx = (x as usize) + (y as usize) * canvas.stride;
-                    let alpha = canvas.pixels[idx];
-                    image::Rgba::<u8>::from_channels(0, 0, 0, alpha)
-                },
-            );
-
-            let glyph_allocation = atlas.allocate_image_in_atlas(gl, glyph_image);
-
-            let glyph = PreRenderedGlyph { glyph_allocation, advance };
-
-            self.glyphs.insert(glyph_id, glyph);
-        });
-
-        GlyphIter { gl_font: self, char_it: text.chars() }
+        PreRenderedGlyph { glyph_allocation, advance }
     }
 }
 
 pub struct GlyphIter<'a> {
     gl_font: &'a GLFont,
-    char_it: std::str::Chars<'a>,
+    glyph_it: std::slice::Iter<'a, u32>,
 }
 
 impl<'a> Iterator for GlyphIter<'a> {
     type Item = &'a PreRenderedGlyph;
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(ch) = self.char_it.next() {
-            let glyph_id = self.gl_font.font.glyph_for_char(ch).unwrap();
-            let glyph = &self.gl_font.glyphs[&glyph_id];
-            Some(glyph)
+        if let Some(glyph_id) = self.glyph_it.next() {
+            Some(&self.gl_font.glyphs[glyph_id])
         } else {
             None
         }

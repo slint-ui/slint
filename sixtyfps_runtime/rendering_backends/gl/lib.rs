@@ -354,12 +354,12 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
 
         let mut texture = None;
 
+        let mut font = self.font.borrow_mut();
+        let glyphs =
+            font.string_to_glyphs(&self.context, &mut self.texture_atlas.borrow_mut(), text);
+
         let mut x = 0.;
-        for glyph in self.font.borrow_mut().layout_glyphs(
-            &self.context,
-            &mut self.texture_atlas.borrow_mut(),
-            text,
-        ) {
+        for glyph in font.layout_glyphs(&glyphs) {
             let glyph_width = glyph.glyph_allocation.sub_texture.texture_coordinates.width() as f32;
             let glyph_height =
                 glyph.glyph_allocation.sub_texture.texture_coordinates.height() as f32;
