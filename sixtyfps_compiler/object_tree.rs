@@ -96,9 +96,14 @@ impl Element {
                 None => continue,
             };
             let name = name_token.text().to_string();
-            if matches!(r.base_type.lookup_property(&name), Type::Invalid) {
+            let prop_type = r.base_type.lookup_property(&name);
+            if !prop_type.is_property_type() {
                 diag.push_error(
-                    format!("Unkown property {} in {}", name, r.base),
+                    match prop_type {
+                        Type::Invalid => format!("Unkown property {} in {}", name, r.base),
+                        Type::Signal => format!("'{}' is a signal. use `=>` to connect", name),
+                        _ => format!("Cannot assig to {} in {}", name, r.base),
+                    },
                     crate::diagnostics::Span::new(name_token.text_range().start().into()),
                 );
             }
@@ -112,6 +117,25 @@ impl Element {
                         crate::diagnostics::Span::new(name_token.text_range().start().into()),
                     );
                 }
+            }
+        }
+        for con_node in node.children().filter(|n| n.kind() == SyntaxKind::SignalConnection) {
+            // We need to go reverse to skip the "signal" token
+            let name_token = match con_node
+                .children_with_tokens()
+                .filter(|n| n.kind() == SyntaxKind::Identifier)
+                .last()
+            {
+                Some(x) => x.into_token().unwrap(),
+                None => continue,
+            };
+            let name = name_token.text().to_string();
+            let prop_type = r.base_type.lookup_property(&name);
+            if !matches!(prop_type, Type::Signal) {
+                diag.push_error(
+                    format!("'{}' is not a signal in {}", name, r.base),
+                    crate::diagnostics::Span::new(name_token.text_range().start().into()),
+                );
             }
         }
         for se in node.children() {

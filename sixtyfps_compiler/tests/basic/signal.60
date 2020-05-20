@@ -6,5 +6,12 @@ SubElements = Rectangle {
         clicked => { emit foobar }
     }
 
+    TouchArea {
+        clicked: 45;
+//      ^error{'clicked' is a signal. Use `=>` to connect}
+        x => {}
+//      ^error{'x' is not a signal in TouchArea}
+    }
+
 }
 

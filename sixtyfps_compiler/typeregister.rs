@@ -8,6 +8,8 @@ pub enum Type {
     Component(Rc<crate::object_tree::Component>),
     Builtin(Rc<BuiltinElement>),
 
+    Signal,
+
     // other property type:
     Number,
     String,
@@ -18,6 +20,11 @@ pub enum Type {
 impl Type {
     pub fn is_object_type(&self) -> bool {
         matches!(self, Self::Component(_) | Self::Builtin(_))
+    }
+
+    /// valid type for properties
+    pub fn is_property_type(&self) -> bool {
+        matches!(self, Self::Number | Self::String | Self::Color | Self::Image)
     }
 
     pub fn lookup_property(&self, name: &str) -> Type {
@@ -79,6 +86,7 @@ impl TypeRegister {
         touch_area.properties.insert("y".to_owned(), Type::Number);
         touch_area.properties.insert("width".to_owned(), Type::Number);
         touch_area.properties.insert("height".to_owned(), Type::Number);
+        touch_area.properties.insert("clicked".to_owned(), Type::Signal);
         r.types.insert("TouchArea".to_owned(), Type::Builtin(Rc::new(touch_area)));
 
         r
