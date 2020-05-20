@@ -127,7 +127,6 @@ impl ItemConsts for Text {
 #[no_mangle]
 pub static TextVTable: ItemVTable = Text::VTABLE;
 
-
 #[repr(C)]
 #[derive(const_field_offset::FieldOffsets, Default)]
 pub struct TouchArea {
@@ -153,8 +152,10 @@ impl Item for TouchArea {
 }
 
 impl ItemConsts for TouchArea {
-    const cached_rendering_data_offset: const_field_offset::FieldOffset<TouchArea, CachedRenderingData> =
-        TouchArea::field_offsets().cached_rendering_data;
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<
+        TouchArea,
+        CachedRenderingData,
+    > = TouchArea::field_offsets().cached_rendering_data;
 }
 
 #[no_mangle]

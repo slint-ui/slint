@@ -9,8 +9,8 @@ struct ComponentVTable;
 namespace sixtyfps {
 
 // Bring opaque structure in scope
-using internal::ItemTreeNode;
 using internal::ComponentVTable;
+using internal::ItemTreeNode;
 using ComponentRef = VRefMut<ComponentVTable>;
 
 template<typename Component>
@@ -20,7 +20,7 @@ void run(Component *c)
     // component matching the vtable.  In fact, i think the VTable should be a
     // static member of the Component
     internal::sixtyfps_runtime_run_component_with_gl_renderer(
-        VRefMut<ComponentVTable> { &Component::component_type, c });
+            VRefMut<ComponentVTable> { &Component::component_type, c });
 }
 
 using internal::Image;
@@ -31,7 +31,6 @@ using internal::Text;
 using internal::TextVTable;
 using internal::TouchArea;
 using internal::TouchAreaVTable;
-
 
 // the component has static lifetime so it does not need to be destroyed
 // FIXME: we probably need some kind of way to dinstinguish static component and
