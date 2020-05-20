@@ -2,7 +2,7 @@ use super::{GLContext, Vertex};
 use glow::HasContext;
 use pathfinder_geometry::{rect::RectI, vector::Vector2I};
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub struct GLTexture {
     texture_id: <GLContext as HasContext>::Texture,
 }

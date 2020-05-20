@@ -1,5 +1,6 @@
 use cgmath::Matrix4;
 use glow::{Context as GLContext, HasContext};
+use itertools::Itertools;
 use lyon::path::math::Rect;
 use lyon::tessellation::geometry_builder::{BuffersBuilder, VertexBuffers};
 use lyon::tessellation::{FillAttributes, FillOptions, FillTessellator};
@@ -295,50 +296,60 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
     }
 
     fn create_glyphs(&mut self, text: &str, color: Color) -> Self::RenderingPrimitive {
-        let mut glyph_vertices = vec![];
-        let mut glyph_texture_vertices = vec![];
-
-        let mut texture = None;
-
         let mut font = self.font.borrow_mut();
         let glyphs =
             font.string_to_glyphs(&self.context, &mut self.texture_atlas.borrow_mut(), text);
 
         let mut x = 0.;
-        for glyph in font.layout_glyphs(glyphs) {
-            let glyph_width = glyph.glyph_allocation.sub_texture.texture_coordinates.width() as f32;
-            let glyph_height =
-                glyph.glyph_allocation.sub_texture.texture_coordinates.height() as f32;
 
-            let vertex1 = Vertex { _pos: [x, 0.] };
-            let vertex2 = Vertex { _pos: [x + glyph_width, 0.] };
-            let vertex3 = Vertex { _pos: [x + glyph_width, glyph_height] };
-            let vertex4 = Vertex { _pos: [x, glyph_height] };
+        let glyph_runs = font
+            .layout_glyphs(glyphs)
+            .map(|cached_glyph| {
+                let glyph_width =
+                    cached_glyph.glyph_allocation.sub_texture.texture_coordinates.width() as f32;
+                let glyph_height =
+                    cached_glyph.glyph_allocation.sub_texture.texture_coordinates.height() as f32;
 
-            glyph_vertices
-                .extend_from_slice(&[vertex1, vertex2, vertex3, vertex1, vertex3, vertex4]);
+                let vertex1 = Vertex { _pos: [x, 0.] };
+                let vertex2 = Vertex { _pos: [x + glyph_width, 0.] };
+                let vertex3 = Vertex { _pos: [x + glyph_width, glyph_height] };
+                let vertex4 = Vertex { _pos: [x, glyph_height] };
 
-            glyph_texture_vertices
-                .extend_from_slice(&glyph.glyph_allocation.sub_texture.normalized_coordinates);
+                let vertices = [vertex1, vertex2, vertex3, vertex1, vertex3, vertex4];
+                let texture_vertices =
+                    cached_glyph.glyph_allocation.sub_texture.normalized_coordinates;
 
-            // ### TODO: #7 support multi-atlas texture glyph runs
-            texture = Some(glyph.glyph_allocation.sub_texture.texture);
+                let texture = cached_glyph.glyph_allocation.sub_texture.texture;
 
-            x += glyph.advance;
-        }
+                x += cached_glyph.advance;
 
-        let vertices = GLArrayBuffer::new(&self.context, &glyph_vertices);
-        let texture_vertices = GLArrayBuffer::new(&self.context, &glyph_texture_vertices);
+                (vertices, texture_vertices, texture)
+            })
+            .group_by(|(_, _, texture)| *texture)
+            .into_iter()
+            .map(|(texture, glyph_it)| {
+                let glyph_count = glyph_it.size_hint().0;
+                let mut vertices: Vec<Vertex> = Vec::with_capacity(glyph_count * 6);
+                let mut texture_vertices: Vec<Vertex> = Vec::with_capacity(glyph_count * 6);
 
-        OpaqueRenderingPrimitive(GLRenderingPrimitive::GlyphRuns {
-            glyph_runs: vec![GlyphRun {
-                vertices,
-                texture_vertices,
-                texture: texture.unwrap(),
-                vertex_count: glyph_vertices.len() as i32,
-            }],
-            color,
-        })
+                for (glyph_vertices, glyph_texture_vertices) in
+                    glyph_it.map(|(vertices, texture_vertices, _)| (vertices, texture_vertices))
+                {
+                    vertices.extend(&glyph_vertices);
+                    texture_vertices.extend(&glyph_texture_vertices);
+                }
+
+                let vertex_count = vertices.len() as i32;
+                GlyphRun {
+                    vertices: GLArrayBuffer::new(&self.context, &vertices),
+                    texture_vertices: GLArrayBuffer::new(&self.context, &texture_vertices),
+                    texture,
+                    vertex_count,
+                }
+            })
+            .collect();
+
+        OpaqueRenderingPrimitive(GLRenderingPrimitive::GlyphRuns { glyph_runs, color })
     }
 }
 
