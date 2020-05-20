@@ -29,6 +29,13 @@ pub(crate) struct Vertex {
     _pos: [f32; 2],
 }
 
+struct GlyphRun {
+    vertices: GLArrayBuffer<Vertex>,
+    texture_vertices: GLArrayBuffer<Vertex>,
+    texture: GLTexture,
+    vertex_count: i32,
+}
+
 enum GLRenderingPrimitive {
     FillPath {
         vertices: GLArrayBuffer<Vertex>,
@@ -40,11 +47,8 @@ enum GLRenderingPrimitive {
         texture_vertices: GLArrayBuffer<Vertex>,
         texture: GLTexture,
     },
-    GlyphRun {
-        vertices: GLArrayBuffer<Vertex>,
-        texture_vertices: GLArrayBuffer<Vertex>,
-        texture: GLTexture,
-        vertex_count: i32,
+    GlyphRuns {
+        glyph_runs: Vec<GlyphRun>,
         color: Color,
     },
 }
@@ -326,11 +330,13 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
         let vertices = GLArrayBuffer::new(&self.context, &glyph_vertices);
         let texture_vertices = GLArrayBuffer::new(&self.context, &glyph_texture_vertices);
 
-        OpaqueRenderingPrimitive(GLRenderingPrimitive::GlyphRun {
-            vertices,
-            texture_vertices,
-            texture: texture.unwrap(),
-            vertex_count: glyph_vertices.len() as i32,
+        OpaqueRenderingPrimitive(GLRenderingPrimitive::GlyphRuns {
+            glyph_runs: vec![GlyphRun {
+                vertices,
+                texture_vertices,
+                texture: texture.unwrap(),
+                vertex_count: glyph_vertices.len() as i32,
+            }],
             color,
         })
     }
@@ -389,26 +395,22 @@ impl GraphicsFrame for GLFrame {
                     self.context.draw_arrays(glow::TRIANGLES, 0, 6);
                 }
             }
-            GLRenderingPrimitive::GlyphRun {
-                vertices,
-                texture_vertices,
-                texture,
-                vertex_count,
-                color,
-            } => {
+            GLRenderingPrimitive::GlyphRuns { glyph_runs, color } => {
                 let (r, g, b, a) = color.as_rgba_f32();
 
-                self.glyph_shader.bind(
-                    &self.context,
-                    &gl_matrix,
-                    &[r, g, b, a],
-                    texture,
-                    vertices,
-                    texture_vertices,
-                );
+                for GlyphRun { vertices, texture_vertices, texture, vertex_count } in glyph_runs {
+                    self.glyph_shader.bind(
+                        &self.context,
+                        &gl_matrix,
+                        &[r, g, b, a],
+                        texture,
+                        vertices,
+                        texture_vertices,
+                    );
 
-                unsafe {
-                    self.context.draw_arrays(glow::TRIANGLES, 0, *vertex_count);
+                    unsafe {
+                        self.context.draw_arrays(glow::TRIANGLES, 0, *vertex_count);
+                    }
                 }
             }
         }
