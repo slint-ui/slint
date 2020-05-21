@@ -83,6 +83,8 @@ impl TypeRegister {
 
         let mut text = BuiltinElement::default();
         text.properties.insert("text".to_owned(), Type::String);
+        text.properties.insert("font_family".to_owned(), Type::String);
+        text.properties.insert("font_pixel_size".to_owned(), Type::Number);
         text.properties.insert("color".to_owned(), Type::Color);
         text.properties.insert("x".to_owned(), Type::Number);
         text.properties.insert("y".to_owned(), Type::Number);

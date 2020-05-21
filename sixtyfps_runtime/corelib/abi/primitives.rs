@@ -105,6 +105,8 @@ pub static ImageVTable: ItemVTable = Image::VTABLE;
 #[derive(const_field_offset::FieldOffsets, Default)]
 pub struct Text {
     pub text: Property<SharedString>,
+    pub font_family: Property<SharedString>,
+    pub font_pixel_size: Property<f32>,
     pub color: Property<u32>,
     pub x: Property<f32>,
     pub y: Property<f32>,
@@ -117,7 +119,14 @@ impl Item for Text {
         euclid::rect(self.x.get(), self.y.get(), 0., 0.)
     }
     fn rendering_info(&self) -> RenderingInfo {
-        RenderingInfo::Text(self.x.get(), self.y.get(), self.text.get(), self.color.get())
+        RenderingInfo::Text(
+            self.x.get(),
+            self.y.get(),
+            self.text.get(),
+            self.font_family.get(),
+            self.font_pixel_size.get(),
+            self.color.get(),
+        )
     }
 
     fn layouting_info(&self) -> LayoutInfo {

@@ -125,7 +125,7 @@ pub enum RenderingInfo {
     NoContents,
     Rectangle(f32, f32, f32, f32, u32), // Should be a beret structure
     Image(f32, f32, crate::SharedString),
-    Text(f32, f32, crate::SharedString, u32),
+    Text(f32, f32, crate::SharedString, crate::SharedString, f32, u32),
     /*Path(Vec<PathElement>),
     Image(OpaqueImageHandle, AspectRatio)*/
 }

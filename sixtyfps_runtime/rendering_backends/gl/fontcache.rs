@@ -76,7 +76,10 @@ impl FontCache {
         };
 
         let handle: FontHandle = font_kit::source::SystemSource::new()
-            .select_best_match(&[family_name], &font_kit::properties::Properties::new())
+            .select_best_match(
+                &[family_name, font_kit::family_name::FamilyName::SansSerif],
+                &font_kit::properties::Properties::new(),
+            )
             .unwrap()
             .into();
 

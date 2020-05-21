@@ -50,12 +50,11 @@ pub(crate) fn update_item_rendering_data<Backend: GraphicsBackend>(
                 rendering_data.cache_ok = true;
             }
         }
-        RenderingInfo::Text(_x, _y, text, color) => {
-            let font_family = "".into();
-            let pixel_size = 48.0 * 72. / 96.;
+        RenderingInfo::Text(_x, _y, text, font_family, font_pixel_size, color) => {
+            let pixel_size = if font_pixel_size != 0. { font_pixel_size } else { 48.0 * 72. / 96. };
             let primitive = rendering_primitives_builder.create_glyphs(
                 &text,
-                font_family,
+                &font_family,
                 pixel_size,
                 Color::from_argb_encoded(color),
             );
