@@ -43,7 +43,7 @@ Hello = Rectangle {
             y: 50.;
             width: 25;
             height: 25;
-            color: red;
+            color: yellow;
         }
     }
     Image {

@@ -22,22 +22,32 @@ pub fn build_array_helper(
     component: &LoweredComponent,
     mut visit_item: impl FnMut(&LoweredItem, u32),
 ) {
-    let mut children_offset = 1;
-    visit_item(&component.root_item, children_offset);
-    visit_children(&component.root_item, &mut children_offset, &mut visit_item);
+    visit_item(&component.root_item, 1);
+    visit_children(&component.root_item, 1, &mut visit_item);
+
+    fn sub_children_count(item: &LoweredItem) -> usize {
+        let mut count = item.children.len();
+        for i in &item.children {
+            count += sub_children_count(i);
+        }
+        count
+    }
 
     fn visit_children(
         item: &LoweredItem,
-        children_offset: &mut u32,
+        children_offset: u32,
         visit_item: &mut impl FnMut(&LoweredItem, u32),
     ) {
-        *children_offset += item.children.len() as u32;
+        let mut offset = children_offset + item.children.len() as u32;
         for i in &item.children {
-            visit_item(i, *children_offset);
+            visit_item(i, offset);
+            offset += sub_children_count(i) as u32;
         }
 
+        let mut offset = children_offset + item.children.len() as u32;
         for i in &item.children {
-            visit_children(i, children_offset, visit_item);
+            visit_children(i, offset, visit_item);
+            offset += sub_children_count(i) as u32;
         }
     }
 }
