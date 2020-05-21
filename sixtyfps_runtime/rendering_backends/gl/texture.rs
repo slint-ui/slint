@@ -138,12 +138,18 @@ impl AtlasTextureAllocation {
 }
 
 struct GLAtlasTexture {
+    index_in_atlases: usize,
     texture: GLTexture,
     allocator: guillotiere::AtlasAllocator,
 }
 
+pub struct AtlasAllocation {
+    atlas_index: usize,
+    pub(crate) sub_texture: AtlasTextureAllocation,
+}
+
 impl GLAtlasTexture {
-    fn new(gl: &glow::Context) -> Self {
+    fn new(gl: &glow::Context, index_in_atlases: usize) -> Self {
         let allocator = guillotiere::AtlasAllocator::new(guillotiere::Size::new(2048, 2048));
         let texture = GLTexture::new_with_size_and_data(
             gl,
@@ -151,21 +157,21 @@ impl GLAtlasTexture {
             allocator.size().height,
             None,
         );
-        Self { texture, allocator }
+        Self { index_in_atlases, texture, allocator }
     }
 
-    fn allocate(
-        &mut self,
-        requested_width: i32,
-        requested_height: i32,
-    ) -> Option<guillotiere::Allocation> {
-        self.allocator.allocate(guillotiere::Size::new(requested_width, requested_height))
+    fn allocate(&mut self, requested_width: i32, requested_height: i32) -> Option<AtlasAllocation> {
+        self.allocator.allocate(guillotiere::Size::new(requested_width, requested_height)).map(
+            |guillotiere_alloc| AtlasAllocation {
+                atlas_index: self.index_in_atlases,
+                sub_texture: AtlasTextureAllocation::new(
+                    self.texture,
+                    &self.allocator,
+                    guillotiere_alloc,
+                ),
+            },
+        )
     }
-}
-
-pub struct AtlasAllocation {
-    atlas_index: usize,
-    pub(crate) sub_texture: AtlasTextureAllocation,
 }
 
 pub struct TextureAtlas {
@@ -183,32 +189,17 @@ impl TextureAtlas {
         requested_width: i32,
         requested_height: i32,
     ) -> AtlasAllocation {
-        for (i, atlas) in self.atlases.iter_mut().enumerate() {
-            if let Some(allocation) = atlas.allocate(requested_width, requested_height) {
-                return AtlasAllocation {
-                    atlas_index: i,
-                    sub_texture: AtlasTextureAllocation::new(
-                        atlas.texture,
-                        &atlas.allocator,
-                        allocation,
-                    ),
-                };
-            }
-        }
-
-        let mut new_atlas = GLAtlasTexture::new(&gl);
-        let atlas_allocation = new_atlas.allocate(requested_width, requested_height).unwrap();
-        let atlas_index = self.atlases.len();
-        let alloc = AtlasAllocation {
-            atlas_index,
-            sub_texture: AtlasTextureAllocation::new(
-                new_atlas.texture,
-                &new_atlas.allocator,
-                atlas_allocation,
-            ),
-        };
-        self.atlases.push(new_atlas);
-        alloc
+        self.atlases
+            .iter_mut()
+            .find_map(|atlas| atlas.allocate(requested_width, requested_height))
+            .unwrap_or_else(|| {
+                let atlas_index = self.atlases.len();
+                let mut new_atlas = GLAtlasTexture::new(&gl, atlas_index);
+                let atlas_allocation =
+                    new_atlas.allocate(requested_width, requested_height).unwrap();
+                self.atlases.push(new_atlas);
+                atlas_allocation
+            })
     }
 
     pub fn allocate_image_in_atlas(
