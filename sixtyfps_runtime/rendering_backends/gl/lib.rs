@@ -23,7 +23,9 @@ mod buffers;
 use buffers::{GLArrayBuffer, GLIndexBuffer};
 
 mod text;
-use text::GLFont;
+
+mod fontcache;
+use fontcache::FontCache;
 
 #[derive(Copy, Clone)]
 pub(crate) struct Vertex {
@@ -60,7 +62,7 @@ pub struct GLRenderer {
     image_shader: ImageShader,
     glyph_shader: GlyphShader,
     texture_atlas: Rc<RefCell<TextureAtlas>>,
-    font: Rc<RefCell<GLFont>>,
+    font_cache: Rc<RefCell<FontCache>>,
     #[cfg(target_arch = "wasm32")]
     window: winit::window::Window,
     #[cfg(not(target_arch = "wasm32"))]
@@ -71,7 +73,7 @@ pub struct GLRenderingPrimitivesBuilder {
     context: Rc<glow::Context>,
     fill_tesselator: FillTessellator,
     texture_atlas: Rc<RefCell<TextureAtlas>>,
-    font: Rc<RefCell<GLFont>>,
+    font_cache: Rc<RefCell<FontCache>>,
 
     #[cfg(not(target_arch = "wasm32"))]
     windowed_context: glutin::WindowedContext<glutin::PossiblyCurrent>,
@@ -150,7 +152,7 @@ impl GLRenderer {
             image_shader,
             glyph_shader,
             texture_atlas: Rc::new(RefCell::new(TextureAtlas::new())),
-            font: Rc::new(RefCell::new(GLFont::default())),
+            font_cache: Rc::new(RefCell::new(FontCache::default())),
             #[cfg(target_arch = "wasm32")]
             window,
             #[cfg(not(target_arch = "wasm32"))]
@@ -174,7 +176,7 @@ impl GraphicsBackend for GLRenderer {
             context: self.context.clone(),
             fill_tesselator: FillTessellator::new(),
             texture_atlas: self.texture_atlas.clone(),
-            font: self.font.clone(),
+            font_cache: self.font_cache.clone(),
 
             #[cfg(not(target_arch = "wasm32"))]
             windowed_context: current_windowed_context,
@@ -295,8 +297,16 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
         })
     }
 
-    fn create_glyphs(&mut self, text: &str, color: Color) -> Self::RenderingPrimitive {
-        let mut font = self.font.borrow_mut();
+    fn create_glyphs(
+        &mut self,
+        text: &str,
+        font_family: &str,
+        pixel_size: f32,
+        color: Color,
+    ) -> Self::RenderingPrimitive {
+        let mut font_cache = self.font_cache.borrow_mut();
+        let font = font_cache.find_font(font_family, pixel_size);
+        let mut font = font.borrow_mut();
         let glyphs =
             font.string_to_glyphs(&self.context, &mut self.texture_atlas.borrow_mut(), text);
 

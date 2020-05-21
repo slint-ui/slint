@@ -51,8 +51,14 @@ pub(crate) fn update_item_rendering_data<Backend: GraphicsBackend>(
             }
         }
         RenderingInfo::Text(_x, _y, text, color) => {
-            let primitive =
-                rendering_primitives_builder.create_glyphs(&text, Color::from_argb_encoded(color));
+            let font_family = "".into();
+            let pixel_size = 48.0 * 72. / 96.;
+            let primitive = rendering_primitives_builder.create_glyphs(
+                &text,
+                font_family,
+                pixel_size,
+                Color::from_argb_encoded(color),
+            );
             rendering_data.cache_index = rendering_cache.allocate_entry(primitive);
             rendering_data.cache_ok = true;
         }

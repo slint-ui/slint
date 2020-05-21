@@ -13,27 +13,17 @@ pub struct PreRenderedGlyph {
 pub struct GLFont {
     font: font_kit::font::Font,
     glyphs: std::collections::hash_map::HashMap<u32, PreRenderedGlyph>,
-    pixel_size: f32,
+    pub pixel_size: f32,
     metrics: font_kit::metrics::Metrics,
 }
 
-impl Default for GLFont {
-    fn default() -> Self {
-        let font = font_kit::source::SystemSource::new()
-            .select_best_match(
-                &[font_kit::family_name::FamilyName::SansSerif],
-                &font_kit::properties::Properties::new(),
-            )
-            .unwrap()
-            .load()
-            .unwrap();
+impl GLFont {
+    pub fn new(font: font_kit::font::Font, pixel_size: f32) -> Self {
         let glyphs = std::collections::hash_map::HashMap::new();
         let metrics = font.metrics();
-        Self { font, glyphs, pixel_size: 48.0 * 72. / 96., metrics }
+        Self { font, glyphs, pixel_size, metrics }
     }
-}
 
-impl GLFont {
     pub fn string_to_glyphs(
         &mut self,
         gl: &glow::Context,
