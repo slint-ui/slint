@@ -20,9 +20,22 @@ component TwoRectangle = Rectangle {
 }
 
 
+component ButtonRectangle = Rectangle {
+    signal clicked;
+    width: 100;
+    height: 75;
+    TouchArea {
+        width: 100;
+        height: 75;
+        clicked => { clicked }
+    }
+}
+
 Hello = Rectangle {
 
     signal foobar;
+    signal plus_clicked;
+    signal minus_clicked;
 
     color: white;
 
@@ -51,5 +64,32 @@ Hello = Rectangle {
         y: 200;
         source: img!"../graphicstest/logo.png";
     }
+
+    ButtonRectangle {
+        color: 4289374890;
+        x: 50;
+        y: 225;
+        clicked => { plus_clicked }
+        Text {
+            x: 50;
+            y: 10;
+            text: "+";
+            color: black;
+        }
+    }
+    counter = Text { x: 100; y: 300; text: "0"; color: black; }
+    ButtonRectangle {
+        color: 4289374890;
+        x: 50;
+        y: 350;
+        clicked => { minus_clicked }
+        Text {
+            x: 50;
+            y: 10;
+            text: "-";
+            color: black;
+        }
+    }
+
 }
 
