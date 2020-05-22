@@ -1,6 +1,8 @@
 extern crate alloc;
 use cgmath::Matrix4;
-use lyon::path::{math::Rect, Path};
+use lyon::path::Path;
+
+use crate::abi::datastructures::Rect;
 
 pub struct Color {
     red: u8,
