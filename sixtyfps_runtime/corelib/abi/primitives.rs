@@ -15,8 +15,8 @@ When adding an item or a property, it needs to be kept in sync with different pl
 #![allow(non_upper_case_globals)]
 
 use super::datastructures::{
-    CachedRenderingData, ComponentRef, Item, ItemConsts, ItemVTable, LayoutInfo, Rect,
-    RenderingInfo,
+    CachedRenderingData, Color, ComponentRef, Item, ItemConsts, ItemVTable, LayoutInfo, Rect,
+    RenderingPrimitive,
 };
 use crate::{Property, SharedString, Signal};
 use vtable::HasStaticVTable;
@@ -37,14 +37,20 @@ impl Item for Rectangle {
     fn geometry(&self) -> Rect {
         euclid::rect(self.x.get(), self.y.get(), self.width.get(), self.height.get())
     }
-    fn rendering_info(&self) -> RenderingInfo {
-        RenderingInfo::Rectangle(
-            self.x.get(),
-            self.y.get(),
-            self.width.get(),
-            self.height.get(),
-            self.color.get(),
-        )
+    fn rendering_primitive(&self) -> RenderingPrimitive {
+        let width = self.width.get();
+        let height = self.height.get();
+        if width > 0. && height > 0. {
+            RenderingPrimitive::Rectangle {
+                x: self.x.get(),
+                y: self.y.get(),
+                width,
+                height,
+                color: Color::from_argb_encoded(self.color.get()),
+            }
+        } else {
+            RenderingPrimitive::NoContents
+        }
     }
 
     fn layouting_info(&self) -> LayoutInfo {
@@ -80,8 +86,8 @@ impl Item for Image {
     fn geometry(&self) -> Rect {
         euclid::rect(self.x.get(), self.y.get(), self.width.get(), self.height.get())
     }
-    fn rendering_info(&self) -> RenderingInfo {
-        RenderingInfo::Image(self.x.get(), self.y.get(), self.source.get())
+    fn rendering_primitive(&self) -> RenderingPrimitive {
+        RenderingPrimitive::Image { x: self.x.get(), y: self.y.get(), source: self.source.get() }
     }
 
     fn layouting_info(&self) -> LayoutInfo {
@@ -118,15 +124,15 @@ impl Item for Text {
     fn geometry(&self) -> Rect {
         euclid::rect(self.x.get(), self.y.get(), 0., 0.)
     }
-    fn rendering_info(&self) -> RenderingInfo {
-        RenderingInfo::Text(
-            self.x.get(),
-            self.y.get(),
-            self.text.get(),
-            self.font_family.get(),
-            self.font_pixel_size.get(),
-            self.color.get(),
-        )
+    fn rendering_primitive(&self) -> RenderingPrimitive {
+        RenderingPrimitive::Text {
+            x: self.x.get(),
+            y: self.y.get(),
+            text: self.text.get(),
+            font_family: self.font_family.get(),
+            font_pixel_size: self.font_pixel_size.get(),
+            color: Color::from_argb_encoded(self.color.get()),
+        }
     }
 
     fn layouting_info(&self) -> LayoutInfo {
@@ -162,8 +168,8 @@ impl Item for TouchArea {
     fn geometry(&self) -> Rect {
         euclid::rect(self.x.get(), self.y.get(), self.width.get(), self.height.get())
     }
-    fn rendering_info(&self) -> RenderingInfo {
-        RenderingInfo::NoContents
+    fn rendering_primitive(&self) -> RenderingPrimitive {
+        RenderingPrimitive::NoContents
     }
 
     fn layouting_info(&self) -> LayoutInfo {

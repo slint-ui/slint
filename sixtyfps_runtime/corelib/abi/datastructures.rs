@@ -115,8 +115,8 @@ pub struct ItemVTable {
     #[offset(CachedRenderingData)]
     pub cached_rendering_data_offset: usize,
 
-    /// Return a rendering info
-    pub rendering_info: extern "C" fn(VRef<'_, ItemVTable>) -> RenderingInfo,
+    /// Return the rendering primitive used to display this item.
+    pub rendering_primitive: extern "C" fn(VRef<'_, ItemVTable>) -> RenderingPrimitive,
 
     /// We would need max/min/preferred size, and all layout info
     pub layouting_info: extern "C" fn(VRef<'_, ItemVTable>) -> LayoutInfo,
@@ -134,23 +134,6 @@ pub struct LayoutInfo {
     min_size: f32,
     //...
     width_offset: isize,
-}
-
-#[repr(C)]
-#[derive(Clone, Debug, PartialEq)]
-pub enum RenderingInfo {
-    NoContents,
-    Rectangle(f32, f32, f32, f32, u32), // Should be a beret structure
-    Image(f32, f32, crate::SharedString),
-    Text(f32, f32, crate::SharedString, crate::SharedString, f32, u32),
-    /*Path(Vec<PathElement>),
-    Image(OpaqueImageHandle, AspectRatio)*/
-}
-
-impl Default for RenderingInfo {
-    fn default() -> Self {
-        RenderingInfo::NoContents
-    }
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
