@@ -4,7 +4,7 @@ The parser_test macro will look at the documentation of a function for a
 markdown block delimited by ` ```test` and will feeds each line to the parser
 function, checking that no error are reported, and that everything was consumed
 
-A parser function must have the signature `fn(&mut Parser)`
+A parser function must have the signature `fn(&mut impl Parser)`
 
 */
 
@@ -45,7 +45,7 @@ fn generate_test(fn_name: &str, doc: &str) -> String {
         tests += &format!(r#"
         #[test] fn parser_test_{fn}_{i}()
         {{
-            let mut p = Parser::new("{source}");
+            let mut p = DefaultParser::new("{source}");
             {fn}(&mut p);
             assert_eq!(p.diags.inner, Vec::new());
             assert_eq!(p.cursor, p.tokens.len());

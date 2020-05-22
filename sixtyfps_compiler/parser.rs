@@ -2,7 +2,7 @@
 
 This module is responsible to parse a string onto a syntax tree.
 
-The core of it is the `Parser` class that holds a list of token and
+The core of it is the `DefaultParser` class that holds a list of token and
 generates a `rowan::GreenNode`
 
 This module has different sub modules with the actual parser functions
@@ -18,7 +18,7 @@ mod expressions;
 
 /// Each parser submodule would simply do `use super::prelude::*` to import typically used items
 mod prelude {
-    pub use super::{Parser, SyntaxKind};
+    pub use super::{DefaultParser, Parser, SyntaxKind};
     #[cfg(test)]
     pub use parser_test_macro::parser_test;
 }
@@ -113,30 +113,94 @@ impl Token {
     }
 }
 
-pub struct Parser {
+mod parser_trait {
+    //! module allowing to keep implementation details of the node private
+    use super::*;
+
+    // Todo: rename DefaultParser
+    pub trait Parser: Sized {
+        /// Enter a new node.  The node is going to be finished when
+        /// The return value of this function is drop'ed
+        ///
+        /// (do not re-implement this function, re-implement
+        /// start_node_impl and finish_node_impl)
+        fn start_node(&mut self, kind: SyntaxKind) -> Node<Self> {
+            self.start_node_impl(kind, NodeToken(()));
+            Node(self)
+        }
+
+        /// Can only be called by Node::drop
+        fn finish_node_impl(&mut self, token: NodeToken);
+        /// Can only be called by Self::start_node
+        fn start_node_impl(&mut self, kind: SyntaxKind, token: NodeToken);
+        fn peek(&mut self) -> Token;
+        /// Peek the n'th token, not including whitespaces and comments
+        fn nth(&mut self, n: usize) -> SyntaxKind;
+        fn consume(&mut self);
+        fn error(&mut self, e: impl Into<String>);
+
+        /// Consume the token if it has the right kind, otherwise report a syntax error.
+        /// Returns true if the token was consumed.
+        fn expect(&mut self, kind: SyntaxKind) -> bool {
+            if self.nth(0) != kind {
+                self.error(format!("Syntax error: expected {:?}", kind));
+                return false;
+            }
+            self.consume();
+            return true;
+        }
+
+        /// consume everyting until reaching a token of this kind
+        fn until(&mut self, kind: SyntaxKind) {
+            // FIXME! match {} () []
+            while {
+                let k = self.nth(0);
+                k != kind && k != SyntaxKind::Eof
+            } {
+                self.consume();
+            }
+            self.expect(kind);
+        }
+    }
+
+    /// A token to proof that start_node_impl and finish_node_impl are only
+    /// called from the Node implementation
+    ///
+    /// Since the constructor is private, it cannot be produced by anything else.
+    pub struct NodeToken(());
+    /// The return value of `DefaultParser::start_node`. This borrows the parser
+    /// and finishes the node on Drop
+    #[derive(derive_more::DerefMut)]
+    pub struct Node<'a, P: Parser>(&'a mut P);
+    impl<'a, P: Parser> Drop for Node<'a, P> {
+        fn drop(&mut self) {
+            self.0.finish_node_impl(NodeToken(()));
+        }
+    }
+    impl<'a, P: Parser> core::ops::Deref for Node<'a, P> {
+        type Target = P;
+        fn deref(&self) -> &Self::Target {
+            self.0
+        }
+    }
+}
+#[doc(inline)]
+pub use parser_trait::*;
+
+pub struct DefaultParser {
     builder: rowan::GreenNodeBuilder<'static>,
     tokens: Vec<Token>,
     cursor: usize,
     diags: Diagnostics,
 }
 
-impl From<Vec<Token>> for Parser {
+impl From<Vec<Token>> for DefaultParser {
     fn from(tokens: Vec<Token>) -> Self {
         Self { builder: Default::default(), tokens, cursor: 0, diags: Default::default() }
     }
 }
 
-/// The return value of `Parser::start_node`. This borrows the parser
-/// and finishes the node on Drop
-#[derive(derive_more::Deref, derive_more::DerefMut)]
-pub struct Node<'a>(&'a mut Parser);
-impl<'a> Drop for Node<'a> {
-    fn drop(&mut self) {
-        self.0.builder.finish_node();
-    }
-}
-
-impl Parser {
+impl DefaultParser {
     /// Constructor that create a parser from the source code
     pub fn new(source: &str) -> Self {
         fn lex(source: &str) -> Vec<Token> {
@@ -159,29 +223,35 @@ impl Parser {
         Self::from(lex(source))
     }
 
-    /// Enter a new node.  The node is going to be finished when
-    /// The return value of this function is drop'ed
-    pub fn start_node(&mut self, kind: SyntaxKind) -> Node {
-        self.builder.start_node(kind.into());
-        Node(self)
-    }
-
     fn current_token(&self) -> Token {
         self.tokens.get(self.cursor).cloned().unwrap_or_default()
     }
 
-    pub fn peek(&mut self) -> Token {
+    /// Consume all the whitespace
+    pub fn consume_ws(&mut self) {
+        while matches!(self.current_token().kind, SyntaxKind::Whitespace | SyntaxKind::Comment) {
+            self.consume()
+        }
+    }
+}
+
+impl Parser for DefaultParser {
+    fn start_node_impl(&mut self, kind: SyntaxKind, _: NodeToken) {
+        self.builder.start_node(kind.into());
+    }
+
+    fn finish_node_impl(&mut self, _: NodeToken) {
+        self.builder.finish_node();
+    }
+
+    fn peek(&mut self) -> Token {
         self.consume_ws();
         self.current_token()
     }
 
-    /// Same as nth(0)
-    pub fn peek_kind(&mut self) -> SyntaxKind {
-        self.peek().kind
-    }
-
     /// Peek the n'th token, not including whitespaces and comments
-    pub fn nth(&mut self, mut n: usize) -> SyntaxKind {
+    fn nth(&mut self, mut n: usize) -> SyntaxKind {
+        self.consume_ws();
         let mut c = self.cursor;
         while n > 0 {
             n -= 1;
@@ -195,33 +265,15 @@ impl Parser {
         self.tokens.get(c).map_or(SyntaxKind::Eof, |x| x.kind)
     }
 
-    /// Consume all the whitespace
-    pub fn consume_ws(&mut self) {
-        while matches!(self.current_token().kind, SyntaxKind::Whitespace | SyntaxKind::Comment) {
-            self.consume()
-        }
-    }
-
     /// Consume the current token
-    pub fn consume(&mut self) {
+    fn consume(&mut self) {
         let t = self.current_token();
         self.builder.token(t.kind.into(), t.text);
         self.cursor += 1;
     }
 
-    /// Consume the token if it has the right kind, otherwise report a syntax error.
-    /// Returns true if the token was consumed.
-    pub fn expect(&mut self, kind: SyntaxKind) -> bool {
-        if self.peek_kind() != kind {
-            self.error(format!("Syntax error: expected {:?}", kind));
-            return false;
-        }
-        self.consume();
-        return true;
-    }
-
     /// Reports an error at the current token location
-    pub fn error(&mut self, e: impl Into<String>) {
+    fn error(&mut self, e: impl Into<String>) {
         let current_token = self.current_token();
         #[allow(unused_mut)]
         let mut span = crate::diagnostics::Span::new(current_token.offset);
@@ -230,15 +282,6 @@ impl Parser {
             span.span = current_token.span;
         }
         self.diags.push_error(e.into(), span);
-    }
-
-    /// consume everyting until reaching a token of this kind
-    pub fn until(&mut self, kind: SyntaxKind) {
-        // FIXME! match {} () []
-        while self.cursor < self.tokens.len() && self.current_token().kind != kind {
-            self.consume();
-        }
-        self.expect(kind);
     }
 }
 
@@ -286,14 +329,14 @@ impl SyntaxNodeEx for SyntaxNode {
 
 // Actual parser
 pub fn parse(source: &str) -> (SyntaxNode, Diagnostics) {
-    let mut p = Parser::new(source);
+    let mut p = DefaultParser::new(source);
     document::parse_document(&mut p);
     (SyntaxNode::new_root(p.builder.finish()), p.diags)
 }
 
 #[allow(dead_code)]
 pub fn parse_tokens(tokens: Vec<Token>) -> (SyntaxNode, Diagnostics) {
-    let mut p = Parser::from(tokens);
+    let mut p = DefaultParser::from(tokens);
     document::parse_document(&mut p);
     (SyntaxNode::new_root(p.builder.finish()), p.diags)
 }

@@ -7,7 +7,7 @@ use super::prelude::*;
 /// Type = Base { SubElement { } }
 /// component Comp = Base {}  Type = Base {}
 /// ```
-pub fn parse_document(p: &mut Parser) -> bool {
+pub fn parse_document(p: &mut impl Parser) -> bool {
     let mut p = p.start_node(SyntaxKind::Document);
 
     loop {
@@ -19,7 +19,7 @@ pub fn parse_document(p: &mut Parser) -> bool {
             return false;
         }
 
-        if p.peek_kind() == SyntaxKind::Eof {
+        if p.nth(0) == SyntaxKind::Eof {
             return true;
         }
     }
@@ -31,7 +31,7 @@ pub fn parse_document(p: &mut Parser) -> bool {
 /// Type = Base { prop: value; }
 /// Type = Base { SubElement { } }
 /// ```
-pub fn parse_component(p: &mut Parser) -> bool {
+pub fn parse_component(p: &mut impl Parser) -> bool {
     let mut p = p.start_node(SyntaxKind::Component);
     if !(p.expect(SyntaxKind::Identifier) && p.expect(SyntaxKind::Equal)) {
         return false;
@@ -48,7 +48,7 @@ pub fn parse_component(p: &mut Parser) -> bool {
 /// Item { }
 /// Item { property: value; SubElement { } }
 /// ```
-pub fn parse_element(p: &mut Parser) -> bool {
+pub fn parse_element(p: &mut impl Parser) -> bool {
     let mut p = p.start_node(SyntaxKind::Element);
     if !(p.expect(SyntaxKind::Identifier) && p.expect(SyntaxKind::LBrace)) {
         return false;
@@ -67,9 +67,9 @@ pub fn parse_element(p: &mut Parser) -> bool {
 /// clicked => {}
 /// signal foobar;
 /// ```
-fn parse_element_content(p: &mut Parser) {
+fn parse_element_content(p: &mut impl Parser) {
     loop {
-        match p.peek_kind() {
+        match p.nth(0) {
             SyntaxKind::RBrace => return,
             SyntaxKind::Eof => return,
             SyntaxKind::Identifier => match p.nth(1) {
@@ -102,7 +102,7 @@ fn parse_element_content(p: &mut Parser) {
 /// Bar { x : y ; }
 /// ```
 /// Must consume at least one token
-fn parse_sub_element(p: &mut Parser) {
+fn parse_sub_element(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::SubElement);
     if p.nth(1) == SyntaxKind::Equal {
         assert!(p.expect(SyntaxKind::Identifier));
@@ -116,7 +116,7 @@ fn parse_sub_element(p: &mut Parser) {
 /// for xx in mm: Elem { }
 /// ```
 /// Must consume at least one token
-fn parse_repeated_element(p: &mut Parser) {
+fn parse_repeated_element(p: &mut impl Parser) {
     debug_assert_eq!(p.peek().as_str(), "for");
     let mut p = p.start_node(SyntaxKind::RepeatedElement);
     p.consume();
@@ -134,7 +134,7 @@ fn parse_repeated_element(p: &mut Parser) {
 /// foo: bar;
 /// foo: {}
 /// ```
-fn parse_property_binding(p: &mut Parser) {
+fn parse_property_binding(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::Binding);
     p.consume();
     p.expect(SyntaxKind::Colon);
@@ -146,9 +146,9 @@ fn parse_property_binding(p: &mut Parser) {
 /// {  }
 /// expression ;
 /// ```
-fn parse_code_statement(p: &mut Parser) {
+fn parse_code_statement(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::CodeStatement);
-    match p.peek_kind() {
+    match p.nth(0) {
         SyntaxKind::LBrace => parse_code_block(&mut *p),
         _ => {
             parse_expression(&mut *p);
@@ -162,11 +162,11 @@ fn parse_code_statement(p: &mut Parser) {
 /// {  }
 /// { expression }
 /// ```
-fn parse_code_block(p: &mut Parser) {
+fn parse_code_block(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::CodeBlock);
     p.expect(SyntaxKind::LBrace); // Or assert?
 
-    if p.peek_kind() != SyntaxKind::RBrace {
+    if p.nth(0) != SyntaxKind::RBrace {
         parse_expression(&mut *p);
     }
 
@@ -177,7 +177,7 @@ fn parse_code_block(p: &mut Parser) {
 /// ```test
 /// clicked => {}
 /// ```
-fn parse_signal_connection(p: &mut Parser) {
+fn parse_signal_connection(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::SignalConnection);
     p.consume(); // the identifier
     p.expect(SyntaxKind::FatArrow);
@@ -189,7 +189,7 @@ fn parse_signal_connection(p: &mut Parser) {
 /// signal foobar;
 /// ```
 /// Must consume at least one token
-fn parse_signal_declaration(p: &mut Parser) {
+fn parse_signal_declaration(p: &mut impl Parser) {
     debug_assert_eq!(p.peek().as_str(), "signal");
     let mut p = p.start_node(SyntaxKind::SignalDeclaration);
     p.consume(); // "signal"

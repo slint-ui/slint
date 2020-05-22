@@ -9,9 +9,9 @@ use super::prelude::*;
 /// (something)
 /// img!"something"
 /// ```
-pub fn parse_expression(p: &mut Parser) {
+pub fn parse_expression(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::Expression);
-    match p.peek_kind() {
+    match p.nth(0) {
         SyntaxKind::Identifier => {
             if p.nth(1) == SyntaxKind::Bang {
                 parse_bang_expression(&mut *p)
@@ -39,7 +39,7 @@ pub fn parse_expression(p: &mut Parser) {
 /// foo ! plop ! bar
 /// foo ! (plop ! bar)
 /// ```
-fn parse_bang_expression(p: &mut Parser) {
+fn parse_bang_expression(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::BangExpression);
     p.expect(SyntaxKind::Identifier); // Or assert?
     p.expect(SyntaxKind::Bang); // Or assert?
