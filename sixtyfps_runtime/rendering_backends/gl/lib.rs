@@ -162,7 +162,7 @@ impl GLRenderer {
 }
 
 pub struct OpaqueRenderingPrimitive {
-    gl_primitive: GLRenderingPrimitive,
+    gl_primitive: Option<GLRenderingPrimitive>,
     rendering_primitive: Option<RenderingPrimitive>,
 }
 
@@ -174,7 +174,7 @@ impl HasRenderingPrimitive for OpaqueRenderingPrimitive {
 
 impl From<GLRenderingPrimitive> for OpaqueRenderingPrimitive {
     fn from(gl_primitive: GLRenderingPrimitive) -> Self {
-        Self { gl_primitive, rendering_primitive: None }
+        Self { gl_primitive: Some(gl_primitive), rendering_primitive: None }
     }
 }
 
@@ -256,11 +256,69 @@ impl GraphicsBackend for GLRenderer {
 impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
     type LowLevelRenderingPrimitive = OpaqueRenderingPrimitive;
 
+    fn create(&mut self, primitive: RenderingPrimitive) -> Self::LowLevelRenderingPrimitive {
+        OpaqueRenderingPrimitive {
+            gl_primitive: match &primitive {
+                RenderingPrimitive::NoContents => None,
+                RenderingPrimitive::Rectangle { x: _, y: _, width, height, color } => {
+                    use lyon::math::Point;
+
+                    let mut rect_path = lyon::path::Path::builder();
+                    rect_path.move_to(Point::new(0., 0.0));
+                    rect_path.line_to(Point::new(*width, 0.0));
+                    rect_path.line_to(Point::new(*width, *height));
+                    rect_path.line_to(Point::new(0.0, *height));
+                    rect_path.close();
+                    Some(self.create_path(&rect_path.build(), FillStyle::SolidColor(*color)))
+                }
+                RenderingPrimitive::Image { x: _, y: _, source } => {
+                    let mut image_path = std::env::current_exe().unwrap();
+                    image_path.pop(); // pop of executable name
+                    image_path.push(&*source.clone());
+                    let image = image::open(image_path.as_path()).unwrap().into_rgba();
+                    Some(self.create_image(image))
+                }
+                RenderingPrimitive::Text {
+                    x: _,
+                    y: _,
+                    text,
+                    font_family,
+                    font_pixel_size,
+                    color,
+                } => Some(self.create_glyph_runs(text, font_family, *font_pixel_size, *color)),
+            },
+            rendering_primitive: Some(primitive),
+        }
+    }
+
     fn create_path_fill_primitive(
         &mut self,
         path: &lyon::path::Path,
         style: FillStyle,
     ) -> Self::LowLevelRenderingPrimitive {
+        self.create_path(path, style).into()
+    }
+
+    fn create_image_primitive(
+        &mut self,
+        image: image::ImageBuffer<image::Rgba<u8>, Vec<u8>>,
+    ) -> Self::LowLevelRenderingPrimitive {
+        self.create_image(image).into()
+    }
+
+    fn create_glyphs(
+        &mut self,
+        text: &str,
+        font_family: &str,
+        pixel_size: f32,
+        color: Color,
+    ) -> Self::LowLevelRenderingPrimitive {
+        self.create_glyph_runs(text, font_family, pixel_size, color).into()
+    }
+}
+
+impl GLRenderingPrimitivesBuilder {
+    fn create_path(&mut self, path: &lyon::path::Path, style: FillStyle) -> GLRenderingPrimitive {
         let mut geometry: VertexBuffers<Vertex, u16> = VertexBuffers::new();
 
         let fill_opts = FillOptions::default();
@@ -283,10 +341,10 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
         GLRenderingPrimitive::FillPath { vertices, indices, style }.into()
     }
 
-    fn create_image_primitive(
+    fn create_image(
         &mut self,
         image: image::ImageBuffer<image::Rgba<u8>, Vec<u8>>,
-    ) -> Self::LowLevelRenderingPrimitive {
+    ) -> GLRenderingPrimitive {
         let source_size = image.dimensions();
         let rect =
             Rect::new(Point::new(0.0, 0.0), Size::new(source_size.0 as f32, source_size.1 as f32));
@@ -311,16 +369,15 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
             texture_vertices,
             texture: atlas_allocation.sub_texture.texture,
         }
-        .into()
     }
 
-    fn create_glyphs(
+    fn create_glyph_runs(
         &mut self,
         text: &str,
         font_family: &str,
         pixel_size: f32,
         color: Color,
-    ) -> Self::LowLevelRenderingPrimitive {
+    ) -> GLRenderingPrimitive {
         let mut font_cache = self.font_cache.borrow_mut();
         let font = font_cache.find_font(font_family, pixel_size);
         let mut font = font.borrow_mut();
@@ -376,7 +433,7 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
             })
             .collect();
 
-        GLRenderingPrimitive::GlyphRuns { glyph_runs, color }.into()
+        GLRenderingPrimitive::GlyphRuns { glyph_runs, color }
     }
 }
 
@@ -403,8 +460,8 @@ impl GraphicsFrame for GLFrame {
             matrix.w[2],
             matrix.w[3],
         ];
-        match &primitive.gl_primitive {
-            GLRenderingPrimitive::FillPath { vertices, indices, style } => {
+        match primitive.gl_primitive.as_ref() {
+            Some(GLRenderingPrimitive::FillPath { vertices, indices, style }) => {
                 let (r, g, b, a) = match style {
                     FillStyle::SolidColor(color) => color.as_rgba_f32(),
                 };
@@ -420,7 +477,7 @@ impl GraphicsFrame for GLFrame {
                     );
                 }
             }
-            GLRenderingPrimitive::Texture { vertices, texture_vertices, texture } => {
+            Some(GLRenderingPrimitive::Texture { vertices, texture_vertices, texture }) => {
                 self.image_shader.bind(
                     &self.context,
                     &gl_matrix,
@@ -433,7 +490,7 @@ impl GraphicsFrame for GLFrame {
                     self.context.draw_arrays(glow::TRIANGLES, 0, 6);
                 }
             }
-            GLRenderingPrimitive::GlyphRuns { glyph_runs, color } => {
+            Some(GLRenderingPrimitive::GlyphRuns { glyph_runs, color }) => {
                 let (r, g, b, a) = color.as_rgba_f32();
 
                 for GlyphRun { vertices, texture_vertices, texture, vertex_count } in glyph_runs {
@@ -451,6 +508,7 @@ impl GraphicsFrame for GLFrame {
                     }
                 }
             }
+            None => (),
         }
     }
 }

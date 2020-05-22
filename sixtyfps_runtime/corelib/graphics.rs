@@ -2,6 +2,7 @@ extern crate alloc;
 use cgmath::Matrix4;
 use lyon::path::Path;
 
+#[derive(Copy, Clone)]
 pub struct Color {
     red: u8,
     green: u8,
@@ -85,6 +86,8 @@ pub trait Frame {
 
 pub trait RenderingPrimitivesBuilder {
     type LowLevelRenderingPrimitive: HasRenderingPrimitive;
+
+    fn create(&mut self, primitive: RenderingPrimitive) -> Self::LowLevelRenderingPrimitive;
 
     fn create_path_fill_primitive(
         &mut self,
