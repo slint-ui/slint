@@ -1,7 +1,7 @@
 extern crate alloc;
 use cgmath::Matrix4;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub struct Color {
     red: u8,
     green: u8,
@@ -46,6 +46,7 @@ pub enum FillStyle {
     SolidColor(Color),
 }
 
+#[derive(PartialEq, Debug)]
 pub enum RenderingPrimitive {
     NoContents,
     Rectangle {

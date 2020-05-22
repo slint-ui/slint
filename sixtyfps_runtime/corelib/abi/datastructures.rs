@@ -36,13 +36,28 @@ pub struct ComponentVTable {
     pub item_tree: extern "C" fn(VRef<ComponentVTable>) -> *const ItemTreeNode,
 }
 
-#[repr(C)]
 #[derive(Default)]
+#[repr(C)]
 pub struct CachedRenderingData {
     /// Used and modified by the backend, should be initialized to 0 by the user code
     pub(crate) cache_index: usize,
     /// Set to false initially and when changes happen that require updating the cache
     pub(crate) cache_ok: bool,
+}
+
+impl CachedRenderingData {
+    pub(crate) fn low_level_rendering_primitive<
+        'a,
+        GraphicsBackend: crate::graphics::GraphicsBackend,
+    >(
+        &self,
+        cache: &'a crate::graphics::RenderingCache<GraphicsBackend>,
+    ) -> Option<&'a GraphicsBackend::LowLevelRenderingPrimitive> {
+        if !self.cache_ok {
+            return None;
+        }
+        Some(cache.entry_at(self.cache_index))
+    }
 }
 
 /// The item tree is an array of ItemTreeNode representing a static tree of items
@@ -122,7 +137,7 @@ pub struct LayoutInfo {
 }
 
 #[repr(C)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum RenderingInfo {
     NoContents,
     Rectangle(f32, f32, f32, f32, u32), // Should be a beret structure
@@ -130,6 +145,12 @@ pub enum RenderingInfo {
     Text(f32, f32, crate::SharedString, crate::SharedString, f32, u32),
     /*Path(Vec<PathElement>),
     Image(OpaqueImageHandle, AspectRatio)*/
+}
+
+impl Default for RenderingInfo {
+    fn default() -> Self {
+        RenderingInfo::NoContents
+    }
 }
 
 #[repr(C)]

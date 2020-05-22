@@ -52,10 +52,22 @@ where
 
     pub fn run_event_loop(
         self,
-        mut render_function: impl FnMut(&mut GraphicsBackend::Frame, &mut graphics::RenderingCache<GraphicsBackend>)
-            + 'static,
-        mut input_function: impl FnMut(winit::dpi::PhysicalPosition<f64>, winit::event::ElementState)
-            + 'static,
+        mut component: vtable::VRefMut<'static, crate::abi::datastructures::ComponentVTable>,
+        mut prepare_rendering_function: impl FnMut(
+                vtable::VRefMut<'_, crate::abi::datastructures::ComponentVTable>,
+                &mut GraphicsBackend::RenderingPrimitivesBuilder,
+                &mut graphics::RenderingCache<GraphicsBackend>,
+            ) + 'static,
+        mut render_function: impl FnMut(
+                vtable::VRef<'_, crate::abi::datastructures::ComponentVTable>,
+                &mut GraphicsBackend::Frame,
+                &mut graphics::RenderingCache<GraphicsBackend>,
+            ) + 'static,
+        mut input_function: impl FnMut(
+                vtable::VRef<'_, crate::abi::datastructures::ComponentVTable>,
+                winit::dpi::PhysicalPosition<f64>,
+                winit::event::ElementState,
+            ) + 'static,
     ) where
         GraphicsBackend: 'static,
     {
@@ -65,21 +77,34 @@ where
         self.event_loop.run(move |event, _, control_flow| {
             *control_flow = winit::event_loop::ControlFlow::Wait;
 
-            let window = graphics_backend.window();
-
             match event {
                 winit::event::Event::WindowEvent {
                     event: winit::event::WindowEvent::CloseRequested,
                     ..
                 } => *control_flow = winit::event_loop::ControlFlow::Exit,
                 winit::event::Event::RedrawRequested(_) => {
+                    {
+                        let mut rendering_primitives_builder =
+                            graphics_backend.new_rendering_primitives_builder();
+
+                        prepare_rendering_function(
+                            component.borrow_mut(),
+                            &mut rendering_primitives_builder,
+                            &mut rendering_cache,
+                        );
+
+                        graphics_backend.finish_primitives(rendering_primitives_builder);
+                    }
+
+                    let window = graphics_backend.window();
+
                     let size = window.inner_size();
                     let mut frame = graphics_backend.new_frame(
                         size.width,
                         size.height,
                         &graphics::Color::WHITE,
                     );
-                    render_function(&mut frame, &mut rendering_cache);
+                    render_function(component.borrow(), &mut frame, &mut rendering_cache);
                     graphics_backend.present_frame(frame);
                 }
                 winit::event::Event::WindowEvent {
@@ -94,7 +119,8 @@ where
                     event: winit::event::WindowEvent::MouseInput { state, .. },
                     ..
                 } => {
-                    input_function(cursor_pos, state);
+                    input_function(component.borrow(), cursor_pos, state);
+                    let window = graphics_backend.window();
                     // FIXME: remove this, it should be based on actual changes rather than this
                     window.request_redraw();
                 }
@@ -106,40 +132,35 @@ where
 }
 
 pub fn run_component<GraphicsBackend, GraphicsFactoryFunc>(
-    mut component: vtable::VRefMut<'static, crate::abi::datastructures::ComponentVTable>,
+    component: vtable::VRefMut<'static, crate::abi::datastructures::ComponentVTable>,
     graphics_backend_factory: GraphicsFactoryFunc,
 ) where
     GraphicsBackend: graphics::GraphicsBackend + 'static,
     GraphicsFactoryFunc:
         FnOnce(&winit::event_loop::EventLoop<()>, winit::window::WindowBuilder) -> GraphicsBackend,
 {
-    let mut main_window = MainWindow::new(graphics_backend_factory);
+    let main_window = MainWindow::new(graphics_backend_factory);
 
-    let renderer = &mut main_window.graphics_backend;
-    let rendering_cache = &mut main_window.rendering_cache;
-
-    let mut rendering_primitives_builder = renderer.new_rendering_primitives_builder();
-
-    // Generate cached rendering data once
-    crate::abi::datastructures::visit_items_mut(
-        component.borrow_mut(),
-        |item, _| {
-            item_rendering::update_item_rendering_data(
-                item,
-                rendering_cache,
-                &mut rendering_primitives_builder,
+    main_window.run_event_loop(
+        component,
+        move |component, mut rendering_primitives_builder, rendering_cache| {
+            // Generate cached rendering data once
+            crate::abi::datastructures::visit_items_mut(
+                component,
+                |item, _| {
+                    item_rendering::update_item_rendering_data(
+                        item,
+                        rendering_cache,
+                        &mut rendering_primitives_builder,
+                    );
+                },
+                (),
             );
         },
-        (),
-    );
-
-    renderer.finish_primitives(rendering_primitives_builder);
-    let component = component.into_ref();
-    main_window.run_event_loop(
-        move |frame, rendering_cache| {
+        move |component, frame, rendering_cache| {
             item_rendering::render_component_items(component, frame, &rendering_cache);
         },
-        move |pos, state| {
+        move |component, pos, state| {
             input::process_mouse_event(
                 component,
                 crate::abi::datastructures::MouseEvent {

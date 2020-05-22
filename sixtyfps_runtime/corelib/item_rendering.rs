@@ -1,6 +1,7 @@
 use super::abi::datastructures::{ItemRefMut, RenderingInfo};
 use super::graphics::{
-    Color, Frame, GraphicsBackend, RenderingCache, RenderingPrimitive, RenderingPrimitivesBuilder,
+    Color, Frame, GraphicsBackend, HasRenderingPrimitive, RenderingCache, RenderingPrimitive,
+    RenderingPrimitivesBuilder,
 };
 use cgmath::{Matrix4, SquareMatrix, Vector3};
 
@@ -11,53 +12,56 @@ pub(crate) fn update_item_rendering_data<Backend: GraphicsBackend>(
 ) {
     let item_rendering_info = item.rendering_info();
 
-    println!("Caching ... {:?}", item_rendering_info);
-
-    let rendering_data = item.cached_rendering_data_offset_mut();
-
-    match &item_rendering_info {
+    let item_rendering_primitive = match &item_rendering_info {
         RenderingInfo::Rectangle(x, y, width, height, color) => {
             if *width > 0. || *height > 0. {
-                let primitive =
-                    rendering_primitives_builder.create(RenderingPrimitive::Rectangle {
-                        x: *x,
-                        y: *y,
-                        width: *width,
-                        height: *height,
-                        color: Color::from_argb_encoded(*color),
-                    });
-
-                rendering_data.cache_index = rendering_cache.allocate_entry(primitive);
-
-                rendering_data.cache_ok = true;
+                RenderingPrimitive::Rectangle {
+                    x: *x,
+                    y: *y,
+                    width: *width,
+                    height: *height,
+                    color: Color::from_argb_encoded(*color),
+                }
+            } else {
+                RenderingPrimitive::NoContents
             }
         }
         RenderingInfo::Image(x, y, source) => {
-            rendering_data.cache_ok = false;
-            #[cfg(not(target_arch = "wasm32"))]
-            {
-                let image_primitive = rendering_primitives_builder
-                    .create(RenderingPrimitive::Image { x: *x, y: *y, source: source.clone() });
-                rendering_data.cache_index = rendering_cache.allocate_entry(image_primitive);
-                rendering_data.cache_ok = true;
-            }
+            RenderingPrimitive::Image { x: *x, y: *y, source: source.clone() }
         }
         RenderingInfo::Text(x, y, text, font_family, font_pixel_size, color) => {
-            let primitive = rendering_primitives_builder.create(RenderingPrimitive::Text {
+            RenderingPrimitive::Text {
                 x: *x,
                 y: *y,
                 text: text.clone(),
                 font_family: font_family.clone(),
                 font_pixel_size: *font_pixel_size,
                 color: Color::from_argb_encoded(*color),
-            });
-            rendering_data.cache_index = rendering_cache.allocate_entry(primitive);
-            rendering_data.cache_ok = true;
+            }
         }
-        RenderingInfo::NoContents => {
-            rendering_data.cache_ok = false;
+        RenderingInfo::NoContents => RenderingPrimitive::NoContents,
+    };
+
+    let rendering_data = item.cached_rendering_data_offset_mut();
+
+    let last_rendering_primitive =
+        rendering_data.low_level_rendering_primitive(&rendering_cache).map(|ll| ll.primitive());
+
+    if let Some(last_rendering_primitive) = last_rendering_primitive {
+        if *last_rendering_primitive == item_rendering_primitive {
+            //println!("Keeping ... {:?}", item_rendering_info);
+            return;
         }
     }
+
+    println!(
+        "Updating rendering primitives for ... {:?} (old data: {:?})",
+        item_rendering_info, last_rendering_primitive
+    );
+
+    rendering_data.cache_index = rendering_cache
+        .allocate_entry(rendering_primitives_builder.create(item_rendering_primitive));
+    rendering_data.cache_ok = true;
 }
 
 pub(crate) fn render_component_items<Backend: GraphicsBackend>(

@@ -1,7 +1,6 @@
 use cgmath::{Matrix4, SquareMatrix, Vector3};
-use sixtyfps_corelib::{
-    graphics::{Color, Frame, GraphicsBackend, RenderingPrimitive, RenderingPrimitivesBuilder},
-    MainWindow,
+use sixtyfps_corelib::graphics::{
+    Color, Frame, GraphicsBackend, RenderingCache, RenderingPrimitive, RenderingPrimitivesBuilder,
 };
 use sixtyfps_gl_backend::GLRenderer;
 #[cfg(target_arch = "wasm32")]
@@ -13,12 +12,12 @@ pub fn wasm_main() {
 }
 
 fn main() {
-    let mut main_window =
-        MainWindow::new(|event_loop, window_builder| GLRenderer::new(&event_loop, window_builder));
+    let event_loop = winit::event_loop::EventLoop::new();
+    let window_builder = winit::window::WindowBuilder::new();
 
-    let renderer = &mut main_window.graphics_backend;
+    let mut renderer = GLRenderer::new(&event_loop, window_builder);
 
-    let render_cache = &mut main_window.rendering_cache;
+    let mut render_cache = RenderingCache::<GLRenderer>::default();
 
     let mut rendering_primitives_builder = renderer.new_rendering_primitives_builder();
 
@@ -64,20 +63,35 @@ fn main() {
 
     renderer.finish_primitives(rendering_primitives_builder);
 
-    main_window.run_event_loop(
-        move |frame, rendering_cache| {
-            frame.render_primitive(rendering_cache.entry_at(root), &Matrix4::identity());
-            frame.render_primitive(
-                rendering_cache.entry_at(child_rect),
-                &Matrix4::from_translation(Vector3::new(100., 100., 0.)),
-            );
-            frame.render_primitive(
-                rendering_cache.entry_at(image_node),
-                &Matrix4::from_translation(Vector3::new(200., 200., 0.)),
-            );
-        },
-        |_, _| (),
-    );
+    event_loop.run(move |event, _, control_flow| {
+        *control_flow = winit::event_loop::ControlFlow::Wait;
+
+        match event {
+            winit::event::Event::WindowEvent {
+                event: winit::event::WindowEvent::CloseRequested,
+                ..
+            } => *control_flow = winit::event_loop::ControlFlow::Exit,
+            winit::event::Event::RedrawRequested(_) => {
+                let window = renderer.window();
+
+                let size = window.inner_size();
+                let mut frame = renderer.new_frame(size.width, size.height, &Color::WHITE);
+
+                frame.render_primitive(render_cache.entry_at(root), &Matrix4::identity());
+                frame.render_primitive(
+                    render_cache.entry_at(child_rect),
+                    &Matrix4::from_translation(Vector3::new(100., 100., 0.)),
+                );
+                frame.render_primitive(
+                    render_cache.entry_at(image_node),
+                    &Matrix4::from_translation(Vector3::new(200., 200., 0.)),
+                );
+
+                renderer.present_frame(frame);
+            }
+            _ => (),
+        }
+    });
 
     //render_cache.free_entry(root);
     //render_cache.free_entry(child_rect);

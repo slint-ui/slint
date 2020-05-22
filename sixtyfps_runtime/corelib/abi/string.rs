@@ -8,6 +8,7 @@ use std::{fmt::Debug, ops::Deref};
 /// It is also ffi-friendly as the buffer always ends with `'\0'`
 /// Internally, this is an implicitly shared type to a null terminated string
 #[derive(Clone)]
+#[repr(C)]
 pub struct SharedString {
     /// Invariant: The usize header is the `len` of the vector, the contained buffer is [MaybeUninit<u8>]
     /// buffer[0..=len] is initialized and valid utf8, and buffer[len] is '\0'
