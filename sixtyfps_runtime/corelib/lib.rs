@@ -22,26 +22,19 @@ pub use abi::signals::Signal;
 
 mod item_rendering;
 
-pub struct MainWindow<GraphicsBackend>
-where
-    GraphicsBackend: graphics::GraphicsBackend,
-{
+pub struct MainWindow<GraphicsBackend: graphics::GraphicsBackend> {
     pub graphics_backend: GraphicsBackend,
     event_loop: winit::event_loop::EventLoop<()>,
     pub rendering_cache: graphics::RenderingCache<GraphicsBackend>,
 }
 
-impl<GraphicsBackend> MainWindow<GraphicsBackend>
-where
-    GraphicsBackend: graphics::GraphicsBackend,
-{
-    pub fn new<FactoryFunc>(graphics_backend_factory: FactoryFunc) -> Self
-    where
-        FactoryFunc: FnOnce(
+impl<GraphicsBackend: graphics::GraphicsBackend> MainWindow<GraphicsBackend> {
+    pub fn new(
+        graphics_backend_factory: impl FnOnce(
             &winit::event_loop::EventLoop<()>,
             winit::window::WindowBuilder,
         ) -> GraphicsBackend,
-    {
+    ) -> Self {
         let event_loop = winit::event_loop::EventLoop::new();
         let window_builder = winit::window::WindowBuilder::new();
 
@@ -131,14 +124,13 @@ where
     }
 }
 
-pub fn run_component<GraphicsBackend, GraphicsFactoryFunc>(
+pub fn run_component<GraphicsBackend: graphics::GraphicsBackend + 'static>(
     component: vtable::VRefMut<'static, crate::abi::datastructures::ComponentVTable>,
-    graphics_backend_factory: GraphicsFactoryFunc,
-) where
-    GraphicsBackend: graphics::GraphicsBackend + 'static,
-    GraphicsFactoryFunc:
-        FnOnce(&winit::event_loop::EventLoop<()>, winit::window::WindowBuilder) -> GraphicsBackend,
-{
+    graphics_backend_factory: impl FnOnce(
+        &winit::event_loop::EventLoop<()>,
+        winit::window::WindowBuilder,
+    ) -> GraphicsBackend,
+) {
     let main_window = MainWindow::new(graphics_backend_factory);
 
     main_window.run_event_loop(

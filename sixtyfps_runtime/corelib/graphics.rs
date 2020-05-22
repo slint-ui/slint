@@ -111,28 +111,19 @@ enum RenderingCacheEntry<RenderingPrimitive> {
     FreeEntry(Option<usize>), // contains next free index if exists
 }
 
-pub struct RenderingCache<Backend>
-where
-    Backend: GraphicsBackend,
-{
+pub struct RenderingCache<Backend: GraphicsBackend> {
     nodes: Vec<RenderingCacheEntry<Backend::LowLevelRenderingPrimitive>>,
     next_free: Option<usize>,
     len: usize,
 }
 
-impl<Backend> Default for RenderingCache<Backend>
-where
-    Backend: GraphicsBackend,
-{
+impl<Backend: GraphicsBackend> Default for RenderingCache<Backend> {
     fn default() -> Self {
         Self { nodes: vec![], next_free: None, len: 0 }
     }
 }
 
-impl<Backend> RenderingCache<Backend>
-where
-    Backend: GraphicsBackend,
-{
+impl<Backend: GraphicsBackend> RenderingCache<Backend> {
     pub fn allocate_entry(&mut self, content: Backend::LowLevelRenderingPrimitive) -> usize {
         let idx = {
             if let Some(free_idx) = self.next_free {
