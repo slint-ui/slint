@@ -285,35 +285,14 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                     font_family,
                     font_pixel_size,
                     color,
-                } => Some(self.create_glyph_runs(text, font_family, *font_pixel_size, *color)),
+                } => {
+                    let pixel_size =
+                        if *font_pixel_size != 0. { *font_pixel_size } else { 48.0 * 72. / 96. };
+                    Some(self.create_glyph_runs(text, font_family, pixel_size, *color))
+                }
             },
             rendering_primitive: Some(primitive),
         }
-    }
-
-    fn create_path_fill_primitive(
-        &mut self,
-        path: &lyon::path::Path,
-        style: FillStyle,
-    ) -> Self::LowLevelRenderingPrimitive {
-        self.create_path(path, style).into()
-    }
-
-    fn create_image_primitive(
-        &mut self,
-        image: image::ImageBuffer<image::Rgba<u8>, Vec<u8>>,
-    ) -> Self::LowLevelRenderingPrimitive {
-        self.create_image(image).into()
-    }
-
-    fn create_glyphs(
-        &mut self,
-        text: &str,
-        font_family: &str,
-        pixel_size: f32,
-        color: Color,
-    ) -> Self::LowLevelRenderingPrimitive {
-        self.create_glyph_runs(text, font_family, pixel_size, color).into()
     }
 }
 

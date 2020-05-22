@@ -1,5 +1,7 @@
 use super::abi::datastructures::{ItemRefMut, RenderingInfo};
-use super::graphics::{Color, Frame, GraphicsBackend, RenderingCache, RenderingPrimitivesBuilder};
+use super::graphics::{
+    Color, Frame, GraphicsBackend, RenderingCache, RenderingPrimitive, RenderingPrimitivesBuilder,
+};
 use cgmath::{Matrix4, SquareMatrix, Vector3};
 
 pub(crate) fn update_item_rendering_data<Backend: GraphicsBackend>(
@@ -13,43 +15,42 @@ pub(crate) fn update_item_rendering_data<Backend: GraphicsBackend>(
 
     let rendering_data = item.cached_rendering_data_offset_mut();
 
-    match item_rendering_info {
-        RenderingInfo::Rectangle(_x, _y, width, height, color) => {
-            if width <= 0. || height <= 0. {
-                return;
+    match &item_rendering_info {
+        RenderingInfo::Rectangle(x, y, width, height, color) => {
+            if *width > 0. || *height > 0. {
+                let primitive =
+                    rendering_primitives_builder.create(RenderingPrimitive::Rectangle {
+                        x: *x,
+                        y: *y,
+                        width: *width,
+                        height: *height,
+                        color: Color::from_argb_encoded(*color),
+                    });
+
+                rendering_data.cache_index = rendering_cache.allocate_entry(primitive);
+
+                rendering_data.cache_ok = true;
             }
-            let primitive = rendering_primitives_builder.create_rect_primitive(
-                width,
-                height,
-                Color::from_argb_encoded(color),
-            );
-
-            rendering_data.cache_index = rendering_cache.allocate_entry(primitive);
-
-            rendering_data.cache_ok = true;
         }
-        RenderingInfo::Image(_x, _y, _source) => {
+        RenderingInfo::Image(x, y, source) => {
             rendering_data.cache_ok = false;
             #[cfg(not(target_arch = "wasm32"))]
             {
-                let mut image_path = std::env::current_exe().unwrap();
-                image_path.pop(); // pop of executable name
-                image_path.push(&*_source);
-                let image = image::open(image_path.as_path()).unwrap().into_rgba();
-
-                let image_primitive = rendering_primitives_builder.create_image_primitive(image);
+                let image_primitive = rendering_primitives_builder
+                    .create(RenderingPrimitive::Image { x: *x, y: *y, source: source.clone() });
                 rendering_data.cache_index = rendering_cache.allocate_entry(image_primitive);
                 rendering_data.cache_ok = true;
             }
         }
-        RenderingInfo::Text(_x, _y, text, font_family, font_pixel_size, color) => {
-            let pixel_size = if font_pixel_size != 0. { font_pixel_size } else { 48.0 * 72. / 96. };
-            let primitive = rendering_primitives_builder.create_glyphs(
-                &text,
-                &font_family,
-                pixel_size,
-                Color::from_argb_encoded(color),
-            );
+        RenderingInfo::Text(x, y, text, font_family, font_pixel_size, color) => {
+            let primitive = rendering_primitives_builder.create(RenderingPrimitive::Text {
+                x: *x,
+                y: *y,
+                text: text.clone(),
+                font_family: font_family.clone(),
+                font_pixel_size: *font_pixel_size,
+                color: Color::from_argb_encoded(*color),
+            });
             rendering_data.cache_index = rendering_cache.allocate_entry(primitive);
             rendering_data.cache_ok = true;
         }

@@ -1,6 +1,5 @@
 extern crate alloc;
 use cgmath::Matrix4;
-use lyon::path::Path;
 
 #[derive(Copy, Clone)]
 pub struct Color {
@@ -88,41 +87,6 @@ pub trait RenderingPrimitivesBuilder {
     type LowLevelRenderingPrimitive: HasRenderingPrimitive;
 
     fn create(&mut self, primitive: RenderingPrimitive) -> Self::LowLevelRenderingPrimitive;
-
-    fn create_path_fill_primitive(
-        &mut self,
-        path: &Path,
-        style: FillStyle,
-    ) -> Self::LowLevelRenderingPrimitive;
-    fn create_image_primitive(
-        &mut self,
-        image: image::ImageBuffer<image::Rgba<u8>, Vec<u8>>,
-    ) -> Self::LowLevelRenderingPrimitive;
-
-    fn create_rect_primitive(
-        &mut self,
-        width: f32,
-        height: f32,
-        color: Color,
-    ) -> Self::LowLevelRenderingPrimitive {
-        use lyon::math::Point;
-
-        let mut rect_path = Path::builder();
-        rect_path.move_to(Point::new(0., 0.0));
-        rect_path.line_to(Point::new(width, 0.0));
-        rect_path.line_to(Point::new(width, height));
-        rect_path.line_to(Point::new(0.0, height));
-        rect_path.close();
-        self.create_path_fill_primitive(&rect_path.build(), FillStyle::SolidColor(color))
-    }
-
-    fn create_glyphs(
-        &mut self,
-        text: &str,
-        font_family: &str,
-        pixel_size: f32,
-        color: Color,
-    ) -> Self::LowLevelRenderingPrimitive;
 }
 
 pub trait GraphicsBackend: Sized {

@@ -1,6 +1,6 @@
 use cgmath::{Matrix4, SquareMatrix, Vector3};
 use sixtyfps_corelib::{
-    graphics::{Color, Frame, GraphicsBackend, RenderingPrimitivesBuilder},
+    graphics::{Color, Frame, GraphicsBackend, RenderingPrimitive, RenderingPrimitivesBuilder},
     MainWindow,
 };
 use sixtyfps_gl_backend::GLRenderer;
@@ -23,38 +23,41 @@ fn main() {
     let mut rendering_primitives_builder = renderer.new_rendering_primitives_builder();
 
     let root = {
-        let root_rect = rendering_primitives_builder.create_rect_primitive(100., 100., Color::BLUE);
+        let root_rect = rendering_primitives_builder.create(RenderingPrimitive::Rectangle {
+            x: 0.,
+            y: 0.,
+            width: 100.,
+            height: 100.,
+            color: Color::BLUE,
+        });
         render_cache.allocate_entry(root_rect)
     };
 
     let child_rect = {
-        let child_rect =
-            rendering_primitives_builder.create_rect_primitive(100., 100., Color::GREEN);
+        let child_rect = rendering_primitives_builder.create(RenderingPrimitive::Rectangle {
+            x: 0.,
+            y: 0.,
+            width: 100.,
+            height: 100.,
+            color: Color::GREEN,
+        });
         render_cache.allocate_entry(child_rect)
     };
 
     let image_node = {
-        #[cfg(not(target_arch = "wasm32"))]
-        let image = {
-            let mut logo_path = std::env::current_exe().unwrap();
-            logo_path.pop(); // pop off executable file name
-            logo_path.push("..");
-            logo_path.push("..");
-            logo_path.push("examples");
-            logo_path.push("graphicstest");
-            logo_path.push("logo.png");
-            image::open(logo_path.as_path()).unwrap().into_rgba()
-        };
+        let mut logo_path = std::env::current_exe().unwrap();
+        logo_path.pop(); // pop off executable file name
+        logo_path.push("..");
+        logo_path.push("..");
+        logo_path.push("examples");
+        logo_path.push("graphicstest");
+        logo_path.push("logo.png");
 
-        #[cfg(target_arch = "wasm32")]
-        let image = {
-            use std::io::Cursor;
-            image::load(Cursor::new(&include_bytes!("../logo.png")[..]), image::ImageFormat::Png)
-                .unwrap()
-                .to_rgba()
-        };
-
-        let image_primitive = rendering_primitives_builder.create_image_primitive(image);
+        let image_primitive = rendering_primitives_builder.create(RenderingPrimitive::Image {
+            x: 0.,
+            y: 0.,
+            source: logo_path.to_str().unwrap().into(),
+        });
 
         render_cache.allocate_entry(image_primitive)
     };
