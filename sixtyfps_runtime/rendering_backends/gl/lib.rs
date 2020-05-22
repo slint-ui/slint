@@ -5,7 +5,8 @@ use lyon::tessellation::geometry_builder::{BuffersBuilder, VertexBuffers};
 use lyon::tessellation::{FillAttributes, FillOptions, FillTessellator};
 use sixtyfps_corelib::abi::datastructures::{ComponentVTable, Point, Rect, Size};
 use sixtyfps_corelib::graphics::{
-    Color, FillStyle, Frame as GraphicsFrame, GraphicsBackend, RenderingPrimitivesBuilder,
+    Color, FillStyle, Frame as GraphicsFrame, GraphicsBackend, HasRenderingPrimitive,
+    RenderingPrimitive, RenderingPrimitivesBuilder,
 };
 use std::cell::RefCell;
 
@@ -160,7 +161,22 @@ impl GLRenderer {
     }
 }
 
-pub struct OpaqueRenderingPrimitive(GLRenderingPrimitive);
+pub struct OpaqueRenderingPrimitive {
+    gl_primitive: GLRenderingPrimitive,
+    rendering_primitive: Option<RenderingPrimitive>,
+}
+
+impl HasRenderingPrimitive for OpaqueRenderingPrimitive {
+    fn primitive(&self) -> Option<&RenderingPrimitive> {
+        self.rendering_primitive.as_ref()
+    }
+}
+
+impl From<GLRenderingPrimitive> for OpaqueRenderingPrimitive {
+    fn from(gl_primitive: GLRenderingPrimitive) -> Self {
+        Self { gl_primitive, rendering_primitive: None }
+    }
+}
 
 impl GraphicsBackend for GLRenderer {
     type LowLevelRenderingPrimitive = OpaqueRenderingPrimitive;
@@ -264,7 +280,7 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
         let vertices = GLArrayBuffer::new(&self.context, &geometry.vertices);
         let indices = GLIndexBuffer::new(&self.context, &geometry.indices);
 
-        OpaqueRenderingPrimitive(GLRenderingPrimitive::FillPath { vertices, indices, style })
+        GLRenderingPrimitive::FillPath { vertices, indices, style }.into()
     }
 
     fn create_image_primitive(
@@ -290,11 +306,12 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
         let texture_vertices =
             GLArrayBuffer::new(&self.context, &atlas_allocation.sub_texture.normalized_coordinates);
 
-        OpaqueRenderingPrimitive(GLRenderingPrimitive::Texture {
+        GLRenderingPrimitive::Texture {
             vertices,
             texture_vertices,
             texture: atlas_allocation.sub_texture.texture,
-        })
+        }
+        .into()
     }
 
     fn create_glyphs(
@@ -359,7 +376,7 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
             })
             .collect();
 
-        OpaqueRenderingPrimitive(GLRenderingPrimitive::GlyphRuns { glyph_runs, color })
+        GLRenderingPrimitive::GlyphRuns { glyph_runs, color }.into()
     }
 }
 
@@ -386,7 +403,7 @@ impl GraphicsFrame for GLFrame {
             matrix.w[2],
             matrix.w[3],
         ];
-        match &primitive.0 {
+        match &primitive.gl_primitive {
             GLRenderingPrimitive::FillPath { vertices, indices, style } => {
                 let (r, g, b, a) = match style {
                     FillStyle::SolidColor(color) => color.as_rgba_f32(),

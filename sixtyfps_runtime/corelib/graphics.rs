@@ -46,8 +46,36 @@ pub enum FillStyle {
     SolidColor(Color),
 }
 
+pub enum RenderingPrimitive {
+    NoContents,
+    Rectangle {
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        color: Color,
+    },
+    Image {
+        x: f32,
+        y: f32,
+        source: crate::SharedString,
+    },
+    Text {
+        x: f32,
+        y: f32,
+        text: crate::SharedString,
+        font_family: crate::SharedString,
+        font_pixel_size: f32,
+        color: Color,
+    },
+}
+
+pub trait HasRenderingPrimitive {
+    fn primitive(&self) -> Option<&RenderingPrimitive>;
+}
+
 pub trait Frame {
-    type LowLevelRenderingPrimitive;
+    type LowLevelRenderingPrimitive: HasRenderingPrimitive;
     fn render_primitive(
         &mut self,
         primitive: &Self::LowLevelRenderingPrimitive,
@@ -56,7 +84,8 @@ pub trait Frame {
 }
 
 pub trait RenderingPrimitivesBuilder {
-    type LowLevelRenderingPrimitive;
+    type LowLevelRenderingPrimitive: HasRenderingPrimitive;
+
     fn create_path_fill_primitive(
         &mut self,
         path: &Path,
@@ -94,7 +123,7 @@ pub trait RenderingPrimitivesBuilder {
 }
 
 pub trait GraphicsBackend: Sized {
-    type LowLevelRenderingPrimitive;
+    type LowLevelRenderingPrimitive: HasRenderingPrimitive;
     type Frame: Frame<LowLevelRenderingPrimitive = Self::LowLevelRenderingPrimitive>;
     type RenderingPrimitivesBuilder: RenderingPrimitivesBuilder<
         LowLevelRenderingPrimitive = Self::LowLevelRenderingPrimitive,
