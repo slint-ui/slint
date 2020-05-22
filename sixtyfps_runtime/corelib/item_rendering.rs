@@ -77,23 +77,16 @@ pub(crate) fn render_component_items<Backend: GraphicsBackend>(
     crate::abi::datastructures::visit_items(
         component,
         |item, transform| {
-            let mut transform = transform.clone();
-            let item_rendering_info = item.rendering_info();
-
-            if let Some((x, y)) = match item_rendering_info {
-                RenderingInfo::Rectangle(x, y, ..) => Some((x, y)),
-                RenderingInfo::Image(x, y, ..) => Some((x, y)),
-                RenderingInfo::Text(x, y, ..) => Some((x, y)),
-                _ => None,
-            } {
-                transform = transform * Matrix4::from_translation(Vector3::new(x, y, 0.0));
-            }
+            let origin = item.geometry().origin;
+            let transform =
+                transform * Matrix4::from_translation(Vector3::new(origin.x, origin.y, 0.));
 
             let cached_rendering_data = item.cached_rendering_data_offset();
             if cached_rendering_data.cache_ok {
                 println!(
                     "Rendering... {:?} from cache {}",
-                    item_rendering_info, cached_rendering_data.cache_index
+                    item.rendering_info(),
+                    cached_rendering_data.cache_index
                 );
 
                 let primitive = rendering_cache.entry_at(cached_rendering_data.cache_index);
