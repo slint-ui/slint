@@ -1,8 +1,5 @@
 /*!
-
-
-
-
+Implementation detail for the vtable crate
 */
 
 extern crate proc_macro;
@@ -28,6 +25,53 @@ fn match_generic_type(ty: &Type, container: &str, containee: &Ident) -> bool {
     false
 }
 
+/**
+This macro need to be applied to a VTable structure
+
+The desing choice is that it is applied to a VTable and not to a trait so that cbindgen
+can see the actual vtable struct.
+
+The struct name of which the macro is applied needs to be ending with "VTable",
+for example, if it is applied to `struct MyTraitVTable`, it will create:
+ - The `MyTrait` trait with all the functions.
+ - The `MyTraitConsts` trait for the associated constants, if any
+ - `MyTraitVTable_static!` macro.
+
+It will also expose type aliases for convinence
+ - `type MyTraitRef<'a> = VRef<'a, MyTraitVTable>`
+ - `type MyTraitRefMut<'a> = VRefMut<'a, MyTraitVTable>`
+ - `type MyTraitBox = VBox<'a, MyTraitVTable>`
+
+It will also implement the `VTableMeta` and `VTableMetaDrop` so that VRef and so on can work,
+allowing to access methods dirrectly from vref.
+
+This macro does the following transformation.
+
+For fields whose type is a function:
+ - The ABI is changed to `extern "C"`
+ - `unsafe` is added to the signature, since it is unsafe to call these function directly from
+  the vtable without having a valid pointer to the actual object. But if the original function was
+  marked unsafe, the unsafety is forwared to the trait.
+ - If a field is called `drop` it is understood that this is the destructor for a VBox
+ - If the first argument of the function is `VRef<MyVTable>`  or `VRefMut<MyVTable>` this is
+   understood as a `&self` or `&mut self` argument in the trait.
+
+For the other fields
+ - They are considered assotiated const of the MyTraitConsts
+ - If they are annotated with he #[offset(FieldType)] attribute, the type of the field must be usize,
+   and the const in the trait will be of type `FieldOffset<Self, FieldType>`
+
+The VRef/VRefMut/VBox structure will dereference to a type which has the following associated items:
+ - The functions from the vtable that have a VRef or VRefMut first parameter for self.
+ - For each offset, a corresponding getter for this field of the same name that return a reference
+   to this field, and also a mutable accessor that ends with `_mut` that returns a mutable reference.
+ - `as_ptr` returns a `*mut u8`
+ - `get_type` Return a reference to the VTable so one can access the associated consts.
+
+The VTable structs gets additional associated items:
+ - Functions without self parameter.
+ - a `new` function that creates a vtable for any type that implements the generated traits.
+*/
 #[proc_macro_attribute]
 pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut input = parse_macro_input!(item as ItemStruct);
