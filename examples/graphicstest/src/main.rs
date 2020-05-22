@@ -1,7 +1,9 @@
 use cgmath::{Matrix4, SquareMatrix, Vector3};
+use sixtyfps_corelib::abi::datastructures::{Color, RenderingPrimitive};
 use sixtyfps_corelib::graphics::{
-    Color, Frame, GraphicsBackend, RenderingCache, RenderingPrimitive, RenderingPrimitivesBuilder,
+    Frame, GraphicsBackend, RenderingCache, RenderingPrimitivesBuilder,
 };
+
 use sixtyfps_gl_backend::GLRenderer;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;

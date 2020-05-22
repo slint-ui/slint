@@ -22,6 +22,7 @@ pub use abi::signals::Signal;
 
 mod item_rendering;
 
+use abi::datastructures::Color;
 pub struct MainWindow<GraphicsBackend: graphics::GraphicsBackend> {
     pub graphics_backend: GraphicsBackend,
     event_loop: winit::event_loop::EventLoop<()>,
@@ -92,11 +93,8 @@ impl<GraphicsBackend: graphics::GraphicsBackend> MainWindow<GraphicsBackend> {
                     let window = graphics_backend.window();
 
                     let size = window.inner_size();
-                    let mut frame = graphics_backend.new_frame(
-                        size.width,
-                        size.height,
-                        &graphics::Color::WHITE,
-                    );
+                    let mut frame =
+                        graphics_backend.new_frame(size.width, size.height, &Color::WHITE);
                     render_function(component.borrow(), &mut frame, &mut rendering_cache);
                     graphics_backend.present_frame(frame);
                 }

@@ -3,10 +3,12 @@ use glow::{Context as GLContext, HasContext};
 use itertools::Itertools;
 use lyon::tessellation::geometry_builder::{BuffersBuilder, VertexBuffers};
 use lyon::tessellation::{FillAttributes, FillOptions, FillTessellator};
-use sixtyfps_corelib::abi::datastructures::{ComponentVTable, Point, Rect, Size};
+use sixtyfps_corelib::abi::datastructures::{
+    Color, ComponentVTable, Point, Rect, RenderingPrimitive, Size,
+};
 use sixtyfps_corelib::graphics::{
-    Color, FillStyle, Frame as GraphicsFrame, GraphicsBackend, HasRenderingPrimitive,
-    RenderingPrimitive, RenderingPrimitivesBuilder,
+    FillStyle, Frame as GraphicsFrame, GraphicsBackend, HasRenderingPrimitive,
+    RenderingPrimitivesBuilder,
 };
 use std::cell::RefCell;
 

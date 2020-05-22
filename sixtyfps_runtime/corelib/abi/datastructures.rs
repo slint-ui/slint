@@ -153,6 +153,74 @@ impl Default for RenderingInfo {
     }
 }
 
+#[derive(Copy, Clone, PartialEq, Debug)]
+#[repr(C)]
+pub struct Color {
+    red: u8,
+    green: u8,
+    blue: u8,
+    alpha: u8,
+}
+
+impl Color {
+    pub const fn from_argb_encoded(encoded: u32) -> Color {
+        Color {
+            red: (encoded >> 16) as u8,
+            green: (encoded >> 8) as u8,
+            blue: encoded as u8,
+            alpha: (encoded >> 24) as u8,
+        }
+    }
+
+    pub const fn from_rgba(red: u8, green: u8, blue: u8, alpha: u8) -> Color {
+        Color { red, green, blue, alpha }
+    }
+    pub const fn from_rgb(red: u8, green: u8, blue: u8) -> Color {
+        Color::from_rgba(red, green, blue, 0xff)
+    }
+
+    pub fn as_rgba_f32(&self) -> (f32, f32, f32, f32) {
+        (
+            (self.red as f32) / 255.0,
+            (self.green as f32) / 255.0,
+            (self.blue as f32) / 255.0,
+            (self.alpha as f32) / 255.0,
+        )
+    }
+
+    pub const BLACK: Color = Color::from_rgb(0, 0, 0);
+    pub const RED: Color = Color::from_rgb(255, 0, 0);
+    pub const GREEN: Color = Color::from_rgb(0, 255, 0);
+    pub const BLUE: Color = Color::from_rgb(0, 0, 255);
+    pub const WHITE: Color = Color::from_rgb(255, 255, 255);
+}
+
+#[derive(PartialEq, Debug)]
+#[repr(C)]
+pub enum RenderingPrimitive {
+    NoContents,
+    Rectangle {
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        color: Color,
+    },
+    Image {
+        x: f32,
+        y: f32,
+        source: crate::SharedString,
+    },
+    Text {
+        x: f32,
+        y: f32,
+        text: crate::SharedString,
+        font_family: crate::SharedString,
+        font_pixel_size: f32,
+        color: Color,
+    },
+}
+
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub enum MouseEventType {

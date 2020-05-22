@@ -1,7 +1,6 @@
-use super::abi::datastructures::{ItemRefMut, RenderingInfo};
+use super::abi::datastructures::{Color, ItemRefMut, RenderingInfo, RenderingPrimitive};
 use super::graphics::{
-    Color, Frame, GraphicsBackend, HasRenderingPrimitive, RenderingCache, RenderingPrimitive,
-    RenderingPrimitivesBuilder,
+    Frame, GraphicsBackend, HasRenderingPrimitive, RenderingCache, RenderingPrimitivesBuilder,
 };
 use cgmath::{Matrix4, SquareMatrix, Vector3};
 
