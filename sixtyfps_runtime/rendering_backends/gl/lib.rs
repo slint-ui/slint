@@ -163,18 +163,12 @@ impl GLRenderer {
 
 pub struct OpaqueRenderingPrimitive {
     gl_primitive: Option<GLRenderingPrimitive>,
-    rendering_primitive: Option<RenderingPrimitive>,
+    rendering_primitive: RenderingPrimitive,
 }
 
 impl HasRenderingPrimitive for OpaqueRenderingPrimitive {
-    fn primitive(&self) -> Option<&RenderingPrimitive> {
-        self.rendering_primitive.as_ref()
-    }
-}
-
-impl From<GLRenderingPrimitive> for OpaqueRenderingPrimitive {
-    fn from(gl_primitive: GLRenderingPrimitive) -> Self {
-        Self { gl_primitive: Some(gl_primitive), rendering_primitive: None }
+    fn primitive(&self) -> &RenderingPrimitive {
+        &self.rendering_primitive
     }
 }
 
@@ -291,7 +285,7 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                     Some(self.create_glyph_runs(text, font_family, pixel_size, *color))
                 }
             },
-            rendering_primitive: Some(primitive),
+            rendering_primitive: primitive,
         }
     }
 }

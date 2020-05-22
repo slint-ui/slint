@@ -71,7 +71,7 @@ pub enum RenderingPrimitive {
 }
 
 pub trait HasRenderingPrimitive {
-    fn primitive(&self) -> Option<&RenderingPrimitive>;
+    fn primitive(&self) -> &RenderingPrimitive;
 }
 
 pub trait Frame {
