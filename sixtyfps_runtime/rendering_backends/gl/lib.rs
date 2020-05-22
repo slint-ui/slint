@@ -163,7 +163,7 @@ impl GLRenderer {
 pub struct OpaqueRenderingPrimitive(GLRenderingPrimitive);
 
 impl GraphicsBackend for GLRenderer {
-    type RenderingPrimitive = OpaqueRenderingPrimitive;
+    type LowLevelRenderingPrimitive = OpaqueRenderingPrimitive;
     type Frame = GLFrame;
     type RenderingPrimitivesBuilder = GLRenderingPrimitivesBuilder;
 
@@ -238,13 +238,13 @@ impl GraphicsBackend for GLRenderer {
 }
 
 impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
-    type RenderingPrimitive = OpaqueRenderingPrimitive;
+    type LowLevelRenderingPrimitive = OpaqueRenderingPrimitive;
 
     fn create_path_fill_primitive(
         &mut self,
         path: &lyon::path::Path,
         style: FillStyle,
-    ) -> Self::RenderingPrimitive {
+    ) -> Self::LowLevelRenderingPrimitive {
         let mut geometry: VertexBuffers<Vertex, u16> = VertexBuffers::new();
 
         let fill_opts = FillOptions::default();
@@ -270,7 +270,7 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
     fn create_image_primitive(
         &mut self,
         image: image::ImageBuffer<image::Rgba<u8>, Vec<u8>>,
-    ) -> Self::RenderingPrimitive {
+    ) -> Self::LowLevelRenderingPrimitive {
         let source_size = image.dimensions();
         let rect =
             Rect::new(Point::new(0.0, 0.0), Size::new(source_size.0 as f32, source_size.1 as f32));
@@ -303,7 +303,7 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
         font_family: &str,
         pixel_size: f32,
         color: Color,
-    ) -> Self::RenderingPrimitive {
+    ) -> Self::LowLevelRenderingPrimitive {
         let mut font_cache = self.font_cache.borrow_mut();
         let font = font_cache.find_font(font_family, pixel_size);
         let mut font = font.borrow_mut();
@@ -364,7 +364,7 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
 }
 
 impl GraphicsFrame for GLFrame {
-    type RenderingPrimitive = OpaqueRenderingPrimitive;
+    type LowLevelRenderingPrimitive = OpaqueRenderingPrimitive;
 
     fn render_primitive(&mut self, primitive: &OpaqueRenderingPrimitive, transform: &Matrix4<f32>) {
         let matrix = self.root_matrix * transform;

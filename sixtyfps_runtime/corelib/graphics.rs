@@ -47,28 +47,32 @@ pub enum FillStyle {
 }
 
 pub trait Frame {
-    type RenderingPrimitive;
-    fn render_primitive(&mut self, primitive: &Self::RenderingPrimitive, transform: &Matrix4<f32>);
+    type LowLevelRenderingPrimitive;
+    fn render_primitive(
+        &mut self,
+        primitive: &Self::LowLevelRenderingPrimitive,
+        transform: &Matrix4<f32>,
+    );
 }
 
 pub trait RenderingPrimitivesBuilder {
-    type RenderingPrimitive;
+    type LowLevelRenderingPrimitive;
     fn create_path_fill_primitive(
         &mut self,
         path: &Path,
         style: FillStyle,
-    ) -> Self::RenderingPrimitive;
+    ) -> Self::LowLevelRenderingPrimitive;
     fn create_image_primitive(
         &mut self,
         image: image::ImageBuffer<image::Rgba<u8>, Vec<u8>>,
-    ) -> Self::RenderingPrimitive;
+    ) -> Self::LowLevelRenderingPrimitive;
 
     fn create_rect_primitive(
         &mut self,
         width: f32,
         height: f32,
         color: Color,
-    ) -> Self::RenderingPrimitive {
+    ) -> Self::LowLevelRenderingPrimitive {
         use lyon::math::Point;
 
         let mut rect_path = Path::builder();
@@ -86,14 +90,14 @@ pub trait RenderingPrimitivesBuilder {
         font_family: &str,
         pixel_size: f32,
         color: Color,
-    ) -> Self::RenderingPrimitive;
+    ) -> Self::LowLevelRenderingPrimitive;
 }
 
 pub trait GraphicsBackend: Sized {
-    type RenderingPrimitive;
-    type Frame: Frame<RenderingPrimitive = Self::RenderingPrimitive>;
+    type LowLevelRenderingPrimitive;
+    type Frame: Frame<LowLevelRenderingPrimitive = Self::LowLevelRenderingPrimitive>;
     type RenderingPrimitivesBuilder: RenderingPrimitivesBuilder<
-        RenderingPrimitive = Self::RenderingPrimitive,
+        LowLevelRenderingPrimitive = Self::LowLevelRenderingPrimitive,
     >;
 
     fn new_rendering_primitives_builder(&mut self) -> Self::RenderingPrimitivesBuilder;
@@ -114,7 +118,7 @@ pub struct RenderingCache<Backend>
 where
     Backend: GraphicsBackend,
 {
-    nodes: Vec<RenderingCacheEntry<Backend::RenderingPrimitive>>,
+    nodes: Vec<RenderingCacheEntry<Backend::LowLevelRenderingPrimitive>>,
     next_free: Option<usize>,
     len: usize,
 }
@@ -132,7 +136,7 @@ impl<Backend> RenderingCache<Backend>
 where
     Backend: GraphicsBackend,
 {
-    pub fn allocate_entry(&mut self, content: Backend::RenderingPrimitive) -> usize {
+    pub fn allocate_entry(&mut self, content: Backend::LowLevelRenderingPrimitive) -> usize {
         let idx = {
             if let Some(free_idx) = self.next_free {
                 let node = &mut self.nodes[free_idx];
@@ -152,14 +156,14 @@ where
         idx
     }
 
-    pub fn entry_at(&self, idx: usize) -> &Backend::RenderingPrimitive {
+    pub fn entry_at(&self, idx: usize) -> &Backend::LowLevelRenderingPrimitive {
         match self.nodes[idx] {
             RenderingCacheEntry::AllocateEntry(ref data) => return data,
             _ => unreachable!(),
         }
     }
 
-    pub fn set_entry_at(&mut self, idx: usize, primitive: Backend::RenderingPrimitive) {
+    pub fn set_entry_at(&mut self, idx: usize, primitive: Backend::LowLevelRenderingPrimitive) {
         match self.nodes[idx] {
             RenderingCacheEntry::AllocateEntry(ref mut data) => *data = primitive,
             _ => unreachable!(),
