@@ -1,5 +1,4 @@
 use cgmath::{Matrix4, SquareMatrix, Vector3};
-use lyon::path::{math::Point, math::Rect, math::Size};
 use sixtyfps_corelib::{
     graphics::{Color, Frame, GraphicsBackend, RenderingPrimitivesBuilder},
     MainWindow,
@@ -55,14 +54,7 @@ fn main() {
                 .to_rgba()
         };
 
-        let source_size = image.dimensions();
-
-        let dest_rect = Rect::new(
-            Point::new(200.0, 200.0),
-            Size::new(source_size.0 as f32, source_size.1 as f32),
-        );
-
-        let image_primitive = rendering_primitives_builder.create_image_primitive(dest_rect, image);
+        let image_primitive = rendering_primitives_builder.create_image_primitive(image);
 
         render_cache.allocate_entry(image_primitive)
     };
@@ -76,7 +68,10 @@ fn main() {
                 rendering_cache.entry_at(child_rect),
                 &Matrix4::from_translation(Vector3::new(100., 100., 0.)),
             );
-            frame.render_primitive(rendering_cache.entry_at(image_node), &Matrix4::identity());
+            frame.render_primitive(
+                rendering_cache.entry_at(image_node),
+                &Matrix4::from_translation(Vector3::new(200., 200., 0.)),
+            );
         },
         |_, _| (),
     );

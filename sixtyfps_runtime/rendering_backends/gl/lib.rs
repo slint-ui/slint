@@ -1,10 +1,9 @@
 use cgmath::Matrix4;
 use glow::{Context as GLContext, HasContext};
 use itertools::Itertools;
-use lyon::path::math::Rect;
 use lyon::tessellation::geometry_builder::{BuffersBuilder, VertexBuffers};
 use lyon::tessellation::{FillAttributes, FillOptions, FillTessellator};
-use sixtyfps_corelib::abi::datastructures::ComponentVTable;
+use sixtyfps_corelib::abi::datastructures::{ComponentVTable, Point, Rect, Size};
 use sixtyfps_corelib::graphics::{
     Color, FillStyle, Frame as GraphicsFrame, GraphicsBackend, RenderingPrimitivesBuilder,
 };
@@ -270,10 +269,11 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
 
     fn create_image_primitive(
         &mut self,
-        dest_rect: impl Into<Rect>,
         image: image::ImageBuffer<image::Rgba<u8>, Vec<u8>>,
     ) -> Self::RenderingPrimitive {
-        let rect = dest_rect.into();
+        let source_size = image.dimensions();
+        let rect =
+            Rect::new(Point::new(0.0, 0.0), Size::new(source_size.0 as f32, source_size.1 as f32));
 
         let vertex1 = Vertex { _pos: [rect.min_x(), rect.min_y()] };
         let vertex2 = Vertex { _pos: [rect.max_x(), rect.min_y()] };

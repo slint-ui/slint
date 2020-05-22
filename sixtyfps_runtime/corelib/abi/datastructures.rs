@@ -3,6 +3,7 @@ use vtable::*;
 
 pub type Rect = euclid::default::Rect<f32>;
 pub type Point = euclid::default::Point2D<f32>;
+pub type Size = euclid::default::Size2D<f32>;
 
 /// Expand Rect so that cbindgen can see it. ( is in fact euclid::default::Rect<f32>)
 #[cfg(cbindgen)]

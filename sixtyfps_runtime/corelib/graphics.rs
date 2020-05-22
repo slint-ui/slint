@@ -2,8 +2,6 @@ extern crate alloc;
 use cgmath::Matrix4;
 use lyon::path::Path;
 
-use crate::abi::datastructures::Rect;
-
 pub struct Color {
     red: u8,
     green: u8,
@@ -62,7 +60,6 @@ pub trait RenderingPrimitivesBuilder {
     ) -> Self::RenderingPrimitive;
     fn create_image_primitive(
         &mut self,
-        dest_rect: impl Into<Rect>,
         image: image::ImageBuffer<image::Rgba<u8>, Vec<u8>>,
     ) -> Self::RenderingPrimitive;
 

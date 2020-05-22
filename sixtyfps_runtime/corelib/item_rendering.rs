@@ -1,7 +1,6 @@
 use super::abi::datastructures::{ItemRefMut, RenderingInfo};
 use super::graphics::{Color, Frame, GraphicsBackend, RenderingCache, RenderingPrimitivesBuilder};
 use cgmath::{Matrix4, SquareMatrix, Vector3};
-use lyon::math::{Point, Rect, Size};
 
 pub(crate) fn update_item_rendering_data<Backend: GraphicsBackend>(
     mut item: ItemRefMut<'_>,
@@ -37,15 +36,8 @@ pub(crate) fn update_item_rendering_data<Backend: GraphicsBackend>(
                 image_path.pop(); // pop of executable name
                 image_path.push(&*_source);
                 let image = image::open(image_path.as_path()).unwrap().into_rgba();
-                let source_size = image.dimensions();
 
-                let rect = Rect::new(
-                    Point::new(0.0, 0.0),
-                    Size::new(source_size.0 as f32, source_size.1 as f32),
-                );
-
-                let image_primitive =
-                    rendering_primitives_builder.create_image_primitive(rect, image);
+                let image_primitive = rendering_primitives_builder.create_image_primitive(image);
                 rendering_data.cache_index = rendering_cache.allocate_entry(image_primitive);
                 rendering_data.cache_ok = true;
             }
