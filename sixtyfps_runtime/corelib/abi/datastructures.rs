@@ -86,6 +86,7 @@ pub enum ItemTreeNode {
 /// It is supposed to be in static array
 unsafe impl Sync for ItemTreeNode {}
 
+/// Items are the nodes in the render tree.
 #[vtable]
 #[repr(C)]
 pub struct ItemVTable {

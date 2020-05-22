@@ -5,6 +5,7 @@ Implementation detail for the vtable crate
 extern crate proc_macro;
 use proc_macro::TokenStream;
 use quote::quote;
+use syn::parse::Parser;
 use syn::spanned::Spanned;
 use syn::*;
 
@@ -124,6 +125,13 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
         brace_token: Default::default(),
         items: Default::default(),
     };
+
+    let additional_doc =
+        format!("\nNote: Was generated from the `#[vtable]` macro on `{}`", vtable_name);
+    generated_trait
+        .attrs
+        .append(&mut Attribute::parse_outer.parse2(quote!(#[doc = #additional_doc])).unwrap());
+
     let mut generated_trait_assoc_const = None;
 
     let mut generated_to_fn_trait = vec![];
@@ -410,7 +418,10 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
             let generated_trait_assoc_const =
                 generated_trait_assoc_const.get_or_insert_with(|| ItemTrait {
-                    attrs: vec![],
+                    attrs: Attribute::parse_outer.parse_str(&format!(
+                        "/** Trait containing the associated constant relative to the the trait {}.\n{} */",
+                        trait_name, additional_doc
+                    )).unwrap(),
                     ident: quote::format_ident!("{}Consts", trait_name),
                     items: vec![],
                     ..generated_trait.clone()
@@ -499,6 +510,28 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
         quote!(+ #i)
     });
 
+    let static_vtable_macro_doc = format!(
+        r"Implements `vtable::HasStaticVTable<{vtable}>` for the given type.
+
+Given a type `MyType` that implements the trait `{trait} {trait_extra}`,
+implement HasStaticVTable for it
+
+```ignore
+    struct Foo {{ ... }}
+    impl {trait} for Foo {{ ... }}
+    {macro}!(Foo);
+    // now VBox::new can be called
+    let vbox = VBox::new(Foo{{ ... }});
+```
+
+        {extra}",
+        vtable = vtable_name,
+        trait = trait_name,
+        trait_extra = new_trait_extra.as_ref().map(|x| x.to_string()).unwrap_or_default(),
+        macro = static_vtable_macro_name,
+        extra = additional_doc,
+    );
+
     let result = quote!(
         #[allow(non_snake_case)]
         #[macro_use]
@@ -559,7 +592,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
         #vis use #module_name::*;
 
         #[macro_export]
-        /// Implements HasStaticVTable<XXXVTable> for the given type
+        #[doc = #static_vtable_macro_doc]
         macro_rules! #static_vtable_macro_name {
             ($ty:ty) => {
                 unsafe impl vtable::HasStaticVTable<#vtable_name> for $ty {
