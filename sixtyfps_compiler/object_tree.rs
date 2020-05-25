@@ -77,7 +77,7 @@ pub struct Element {
 
     /// This should probably be in the Component instead
     pub signals_declaration: Vec<String>,
-    pub property_declarations: Vec<PropertyDeclaration>,
+    pub property_declarations: HashMap<String, Type>,
 }
 
 impl Element {
@@ -103,6 +103,46 @@ impl Element {
             diag.push_error(format!("Unknown type {}", r.base), node.span());
             return r;
         }
+
+        for prop_decl in node.children().filter(|n| n.kind() == SyntaxKind::PropertyDeclaration) {
+            let qualified_type_node = prop_decl
+                .children()
+                .filter(|n| n.kind() == SyntaxKind::QualifiedTypeName)
+                .nth(0)
+                .unwrap();
+            let type_span = qualified_type_node.span();
+            let qualified_type = QualifiedTypeName::from_node(qualified_type_node);
+
+            let prop_type = tr.lookup_qualified(&qualified_type.members);
+
+            match prop_type {
+                Type::Invalid => {
+                    diag.push_error(
+                        format!("unknown property type '{}'", qualified_type.to_string()),
+                        type_span,
+                    );
+                }
+                _ => (),
+            };
+
+            let prop_name_token = match prop_decl
+                .children_with_tokens()
+                .filter(|n| n.kind() == SyntaxKind::Identifier)
+                .last()
+            {
+                Some(x) => x.into_token().unwrap(),
+                None => continue,
+            };
+            let prop_name = prop_name_token.text().to_string();
+
+            if r.property_declarations.insert(prop_name, prop_type).is_some() {
+                diag.push_error(
+                    "Duplicated property declaration".into(),
+                    crate::diagnostics::Span::new(prop_name_token.text_range().start().into()),
+                )
+            }
+        }
+
         for b in node.children().filter(|n| n.kind() == SyntaxKind::Binding) {
             let name_token = match b.child_token(SyntaxKind::Identifier) {
                 Some(x) => x,
@@ -166,10 +206,6 @@ impl Element {
             r.signals_declaration.push(name);
         }
 
-        for prop_decl in node.children().filter(|n| n.kind() == SyntaxKind::PropertyDeclaration) {
-            r.property_declarations.push(PropertyDeclaration::from_node(prop_decl, tr, diag));
-        }
-
         for se in node.children() {
             if se.kind() == SyntaxKind::SubElement {
                 let id = se.child_text(SyntaxKind::Identifier).unwrap_or_default();
@@ -188,41 +224,6 @@ impl Element {
             }
         }
         r
-    }
-}
-
-#[derive(Default, Debug, Clone)]
-pub struct PropertyDeclaration {
-    qualified_type: QualifiedTypeName,
-    property_type: Type,
-    name: String,
-}
-
-impl PropertyDeclaration {
-    pub fn from_node(node: SyntaxNode, tr: &TypeRegister, diag: &mut Diagnostics) -> Self {
-        debug_assert_eq!(node.kind(), SyntaxKind::PropertyDeclaration);
-        let mut d = Self::default();
-
-        let qualified_type_node =
-            node.children().filter(|n| n.kind() == SyntaxKind::QualifiedTypeName).nth(0).unwrap();
-        let type_span = qualified_type_node.span();
-        d.qualified_type = QualifiedTypeName::from_node(qualified_type_node);
-
-        d.property_type = tr.lookup_qualified(&d.qualified_type.members);
-
-        match d.property_type {
-            Type::Invalid => {
-                diag.push_error(
-                    format!("unknown property type '{}'", d.qualified_type.to_string()),
-                    type_span,
-                );
-            }
-            _ => (),
-        };
-
-        d.name = node.child_text(SyntaxKind::Identifier).unwrap();
-
-        d
     }
 }
 
