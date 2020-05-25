@@ -66,6 +66,7 @@ pub fn parse_element(p: &mut impl Parser) -> bool {
 /// for xx in model: Sub {}
 /// clicked => {}
 /// signal foobar;
+/// property<int> width;
 /// ```
 fn parse_element_content(p: &mut impl Parser) {
     loop {
@@ -81,6 +82,9 @@ fn parse_element_content(p: &mut impl Parser) {
                 }
                 SyntaxKind::Identifier if p.peek().as_str() == "signal" => {
                     parse_signal_declaration(&mut *p);
+                }
+                SyntaxKind::LAngle if p.peek().as_str() == "property" => {
+                    parse_property_declaration(&mut *p);
                 }
                 _ => {
                     p.consume();
@@ -216,6 +220,21 @@ fn parse_signal_declaration(p: &mut impl Parser) {
     debug_assert_eq!(p.peek().as_str(), "signal");
     let mut p = p.start_node(SyntaxKind::SignalDeclaration);
     p.consume(); // "signal"
+    p.expect(SyntaxKind::Identifier);
+    p.expect(SyntaxKind::Semicolon);
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test
+/// property<int> foobar;
+/// ```
+fn parse_property_declaration(p: &mut impl Parser) {
+    debug_assert_eq!(p.peek().as_str(), "property");
+    let mut p = p.start_node(SyntaxKind::PropertyDeclaration);
+    p.consume(); // property
+    p.expect(SyntaxKind::LAngle);
+    parse_qualified_type_name(&mut *p);
+    p.expect(SyntaxKind::RAngle);
     p.expect(SyntaxKind::Identifier);
     p.expect(SyntaxKind::Semicolon);
 }

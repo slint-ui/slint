@@ -74,6 +74,7 @@ pub struct Element {
 
     /// This should probably be in the Component instead
     pub signals_declaration: Vec<String>,
+    pub property_declarations: Vec<PropertyDeclaration>,
 }
 
 impl Element {
@@ -169,6 +170,10 @@ impl Element {
             r.signals_declaration.push(name);
         }
 
+        for prop_decl in node.children().filter(|n| n.kind() == SyntaxKind::PropertyDeclaration) {
+            r.property_declarations.push(PropertyDeclaration::from_node(prop_decl));
+        }
+
         for se in node.children() {
             if se.kind() == SyntaxKind::SubElement {
                 let id = se.child_text(SyntaxKind::Identifier).unwrap_or_default();
@@ -182,6 +187,27 @@ impl Element {
             }
         }
         r
+    }
+}
+
+#[derive(Default, Debug, Clone)]
+pub struct PropertyDeclaration {
+    property_type: QualifiedTypeName,
+    name: String,
+}
+
+impl PropertyDeclaration {
+    pub fn from_node(node: SyntaxNode) -> Self {
+        debug_assert_eq!(node.kind(), SyntaxKind::PropertyDeclaration);
+        Self {
+            property_type: QualifiedTypeName::from_node(
+                node.children()
+                    .filter(|n| n.kind() == SyntaxKind::QualifiedTypeName)
+                    .nth(0)
+                    .unwrap(),
+            ),
+            name: node.child_text(SyntaxKind::Identifier).unwrap(),
+        }
     }
 }
 

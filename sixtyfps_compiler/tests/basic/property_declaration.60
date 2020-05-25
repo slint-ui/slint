@@ -1,0 +1,4 @@
+
+Test := Rectangle {
+    property<int> foo;
+}
