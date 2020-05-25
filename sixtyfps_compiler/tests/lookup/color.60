@@ -1,0 +1,19 @@
+
+
+X := Rectangle {
+    Rectangle {
+        color: blue;
+    }
+    Rectangle {
+        color: {blue}
+    }
+
+    Rectangle {
+        color: not_a_color;
+//             ^error{Unkown unqualified identifier 'not_a_color'}
+    }
+
+    Rectangle {
+        color: yellow;
+    }
+}

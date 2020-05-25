@@ -32,11 +32,11 @@ fn process_file(path: &std::path::Path) -> std::io::Result<bool> {
     let source = std::fs::read_to_string(&path)?;
     let (res, mut diag) = sixtyfps_compiler::parser::parse(&source);
     diag.current_path = path.to_path_buf();
-    sixtyfps_compiler::object_tree::Document::from_node(
-        res,
-        &mut diag,
-        &mut sixtyfps_compiler::typeregister::TypeRegister::builtin(),
-    );
+    let mut tr = sixtyfps_compiler::typeregister::TypeRegister::builtin();
+    let doc = sixtyfps_compiler::object_tree::Document::from_node(res, &mut diag, &mut tr);
+    if !diag.has_error() {
+        sixtyfps_compiler::expression_tree::resolve_expressions(&doc, &mut diag, &mut tr);
+    }
 
     //let mut errors = std::collections::HashSet::from_iter(diag.inner.into_iter());
     let mut success = true;
