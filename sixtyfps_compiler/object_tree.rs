@@ -3,7 +3,7 @@
 */
 
 use crate::diagnostics::Diagnostics;
-use crate::expressions::Expression;
+use crate::expression_tree::Expression;
 use crate::parser::{Spanned, SyntaxKind, SyntaxNode, SyntaxNodeEx};
 use crate::typeregister::{Type, TypeRegister};
 use std::cell::RefCell;

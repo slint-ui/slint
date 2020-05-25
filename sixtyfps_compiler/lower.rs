@@ -1,5 +1,5 @@
 //! This module contains the code that lower the tree to the datastructure that that the runtime understand
-use crate::{expressions::Expression, typeregister::Type};
+use crate::{expression_tree::Expression, typeregister::Type};
 use std::collections::HashMap;
 use std::rc::Rc;
 

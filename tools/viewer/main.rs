@@ -1,7 +1,7 @@
 use core::ptr::NonNull;
 use corelib::abi::datastructures::{ComponentBox, ComponentRef, ComponentRefMut, ComponentVTable};
 use corelib::{Property, SharedString};
-use sixtyfps_compiler::expressions::Expression;
+use sixtyfps_compiler::expression_tree::Expression;
 use std::collections::HashMap;
 use structopt::StructOpt;
 
@@ -94,7 +94,7 @@ fn main() -> std::io::Result<()> {
     diag.current_path = args.path;
     let mut tr = typeregister::TypeRegister::builtin();
     let tree = object_tree::Document::from_node(syntax_node, &mut diag, &mut tr);
-    expressions::resolve_expressions(&tree, &mut diag, &mut tr);
+    expression_tree::resolve_expressions(&tree, &mut diag, &mut tr);
     if !diag.inner.is_empty() {
         diag.print(source);
         std::process::exit(-1);

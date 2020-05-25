@@ -135,7 +135,7 @@ fn handle_item(item: &LoweredItem, main_struct: &mut Struct, init: &mut Vec<Stri
 
     let id = &item.id;
     init.extend(item.init_properties.iter().map(|(s, i)| {
-        use crate::expressions::Expression::*;
+        use crate::expression_tree::Expression::*;
         let init = match &i {
             StringLiteral(s) => format!(r#"sixtyfps::SharedString("{}")"#, s.escape_default()),
             NumberLiteral(n) => n.to_string(),
