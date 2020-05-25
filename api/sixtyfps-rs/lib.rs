@@ -4,9 +4,7 @@ pub use sixtyfps_rs_macro::sixtyfps;
 pub mod re_exports {
     pub use const_field_offset::{self, FieldOffsets};
     pub use corelib::abi::datastructures::{Component, ComponentTO, ComponentVTable, ItemTreeNode};
-    pub use corelib::abi::primitives::{
-        Image, ImageVTable, Rectangle, RectangleVTable, Text, TextVTable,
-    };
+    pub use corelib::abi::primitives::*;
     pub use corelib::ComponentVTable_static;
     pub use corelib::SharedString;
     pub use gl::sixtyfps_runtime_run_component_with_gl_renderer;

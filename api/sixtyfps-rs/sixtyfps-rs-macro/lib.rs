@@ -35,7 +35,16 @@ fn fill_token_vec(stream: TokenStream, vec: &mut Vec<parser::Token>) {
                     '!' => SyntaxKind::Bang,
                     '.' => SyntaxKind::Dot,
                     '<' => SyntaxKind::LAngle,
-                    '>' => SyntaxKind::RAngle,
+                    '>' => {
+                        if let Some(last) = vec.last_mut() {
+                            if last.kind == SyntaxKind::Equal {
+                                last.kind = SyntaxKind::FatArrow;
+                                last.text = "=>".into();
+                                continue;
+                            }
+                        }
+                        SyntaxKind::RAngle
+                    }
                     _ => SyntaxKind::Error,
                 };
                 vec.push(parser::Token {
