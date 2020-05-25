@@ -165,7 +165,7 @@ fn parse_property_binding(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::Binding);
     p.consume();
     p.expect(SyntaxKind::Colon);
-    parse_code_statement(&mut *p);
+    parse_binding_expression(&mut *p);
 }
 
 #[cfg_attr(test, parser_test)]
@@ -173,8 +173,8 @@ fn parse_property_binding(p: &mut impl Parser) {
 /// {  }
 /// expression ;
 /// ```
-fn parse_code_statement(p: &mut impl Parser) {
-    let mut p = p.start_node(SyntaxKind::CodeStatement);
+fn parse_binding_expression(p: &mut impl Parser) {
+    let mut p = p.start_node(SyntaxKind::BindingExpression);
     match p.nth(0) {
         SyntaxKind::LBrace => parse_code_block(&mut *p),
         _ => {

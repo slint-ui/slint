@@ -120,7 +120,7 @@ impl Element {
                     crate::diagnostics::Span::new(name_token.text_range().start().into()),
                 );
             }
-            if let Some(csn) = b.child_node(SyntaxKind::CodeStatement) {
+            if let Some(csn) = b.child_node(SyntaxKind::BindingExpression) {
                 if r.bindings.insert(name, Expression::Uncompiled(csn)).is_some() {
                     diag.push_error(
                         "Duplicated property".into(),

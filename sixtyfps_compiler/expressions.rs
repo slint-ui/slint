@@ -41,8 +41,8 @@ pub enum Expression {
 }
 
 impl Expression {
-    fn from_code_statement_node(node: SyntaxNode, ctx: &mut LookupCtx) -> Self {
-        debug_assert_eq!(node.kind(), SyntaxKind::CodeStatement);
+    fn from_binding_expression_node(node: SyntaxNode, ctx: &mut LookupCtx) -> Self {
+        debug_assert_eq!(node.kind(), SyntaxKind::BindingExpression);
 
         node.child_node(SyntaxKind::Expression)
             .or_else(|| {
@@ -191,7 +191,7 @@ pub fn resolve_expressions(doc: &Document, diag: &mut Diagnostics, tr: &mut Type
                         .map(|en| Expression::from_expression_node(en, &mut lookup_ctx))
                         .unwrap_or(Expression::Invalid)
                 } else {
-                    Expression::from_code_statement_node(node.clone(), &mut lookup_ctx)
+                    Expression::from_binding_expression_node(node.clone(), &mut lookup_ctx)
                 };
                 *expr = new_expr;
             }

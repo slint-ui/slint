@@ -47,7 +47,7 @@ macro_rules! declare_token_kind {
             SignalConnection,
             PropertyDeclaration,
             Binding,
-            CodeStatement,
+            BindingExpression, // the right-hand-side of a binding
             CodeBlock,
             Expression,
             QualifiedTypeName, // wraps Identifiers, like Rectangle or SomeModule.SomeType
