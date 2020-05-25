@@ -161,18 +161,6 @@ impl Expression {
             };
         } else if property.is_object_type() {
             todo!("Continue lookling up");
-        } else if matches!(property, Type::Signal) {
-            if let Some(x) = it.next() {
-                ctx.diag.push_error(
-                    "Cannot access fields of signal".into(),
-                    x.into_token().unwrap().span(),
-                )
-            }
-            return Self::SignalReference {
-                component: Rc::downgrade(&ctx.document_root),
-                element: Rc::downgrade(&ctx.document_root.root_element),
-                name: s.to_string(),
-            };
         }
 
         if let Some(elem) = ctx.document_root.find_element_by_id(s) {
@@ -208,6 +196,20 @@ impl Expression {
         if it.next().is_some() {
             ctx.diag.push_error(format!("Cannot access id '{}'", s), node.span());
             return Expression::Invalid;
+        }
+
+        if matches!(ctx.property_type, Type::Signal) {
+            if let Some(x) = it.next() {
+                ctx.diag.push_error(
+                    "Cannot access fields of signal".into(),
+                    x.into_token().unwrap().span(),
+                )
+            }
+            return Self::SignalReference {
+                component: Rc::downgrade(&ctx.document_root),
+                element: Rc::downgrade(&ctx.document_root.root_element),
+                name: s.to_string(),
+            };
         }
 
         if matches!(ctx.property_type, Type::Color) {
