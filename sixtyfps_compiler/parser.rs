@@ -49,6 +49,7 @@ macro_rules! declare_token_kind {
             CodeStatement,
             CodeBlock,
             Expression,
+            QualifiedTypeName, // wraps Identifiers, like Rectangle or SomeModule.SomeType
             /// foo!bar
             BangExpression,
         }
@@ -79,6 +80,7 @@ declare_token_kind! {
     Colon -> r":",
     Semicolon -> r";",
     Bang -> r"!",
+    Dot -> r"\.",
 }
 
 impl From<SyntaxKind> for rowan::SyntaxKind {

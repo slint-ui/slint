@@ -61,7 +61,7 @@ impl LoweredComponent {
                 // FIXME: that information should be in the BuiltType, i guess
                 let native_type = Rc::new(NativeItemType {
                     vtable: format!("{}VTable", element.base),
-                    class_name: element.base.clone(),
+                    class_name: element.base.to_string(),
                 });
 
                 (LoweredItem { id: id.clone(), native_type, ..Default::default() }, true)

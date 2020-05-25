@@ -33,6 +33,7 @@ fn fill_token_vec(stream: TokenStream, vec: &mut Vec<parser::Token>) {
                     }
                     ';' => SyntaxKind::Semicolon,
                     '!' => SyntaxKind::Bang,
+                    '.' => SyntaxKind::Dot,
                     _ => SyntaxKind::Error,
                 };
                 vec.push(parser::Token {

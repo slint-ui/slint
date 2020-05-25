@@ -50,7 +50,7 @@ pub fn parse_component(p: &mut impl Parser) -> bool {
 /// ```
 pub fn parse_element(p: &mut impl Parser) -> bool {
     let mut p = p.start_node(SyntaxKind::Element);
-    if !(p.expect(SyntaxKind::Identifier) && p.expect(SyntaxKind::LBrace)) {
+    if !(parse_qualified_type_name(&mut *p) && p.expect(SyntaxKind::LBrace)) {
         return false;
     }
 
@@ -127,6 +127,29 @@ fn parse_repeated_element(p: &mut impl Parser) {
     parse_expression(&mut *p);
     p.expect(SyntaxKind::Colon);
     parse_element(&mut *p);
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test
+/// Rectangle
+/// MyModule.Rectangle
+/// Deeply.Nested.MyModule.Rectangle
+/// ```
+fn parse_qualified_type_name(p: &mut impl Parser) -> bool {
+    let mut p = p.start_node(SyntaxKind::QualifiedTypeName);
+    if !p.expect(SyntaxKind::Identifier) {
+        return false;
+    }
+
+    loop {
+        if p.nth(0) != SyntaxKind::Dot {
+            break;
+        }
+        p.consume();
+        p.expect(SyntaxKind::Identifier);
+    }
+
+    return true;
 }
 
 #[cfg_attr(test, parser_test)]

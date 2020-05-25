@@ -66,7 +66,7 @@ impl Component {
 pub struct Element {
     //     node: SyntaxNode,
     pub id: String,
-    pub base: String,
+    pub base: QualifiedTypeName,
     pub base_type: crate::typeregister::Type,
     /// Currently contains also the signals. FIXME: should that be changed?
     pub bindings: HashMap<String, Expression>,
@@ -86,10 +86,15 @@ impl Element {
         debug_assert_eq!(node.kind(), SyntaxKind::Element);
         let mut r = Element {
             id,
-            base: node.child_text(SyntaxKind::Identifier).unwrap_or_default(),
+            base: QualifiedTypeName::from_node(
+                node.children()
+                    .filter(|n| n.kind() == SyntaxKind::QualifiedTypeName)
+                    .nth(0)
+                    .unwrap(),
+            ),
             ..Default::default()
         };
-        r.base_type = tr.lookup(&r.base);
+        r.base_type = tr.lookup(&r.base.to_string());
         if !r.base_type.is_object_type() {
             diag.push_error(format!("Unkown type {}", r.base), node.span());
             return r;
@@ -177,6 +182,29 @@ impl Element {
             }
         }
         r
+    }
+}
+
+#[derive(Default, Debug, Clone)]
+pub struct QualifiedTypeName {
+    members: Vec<String>,
+}
+
+impl QualifiedTypeName {
+    pub fn from_node(node: SyntaxNode) -> Self {
+        debug_assert_eq!(node.kind(), SyntaxKind::QualifiedTypeName);
+        let members = node
+            .children_with_tokens()
+            .filter(|n| n.kind() == SyntaxKind::Identifier)
+            .filter_map(|x| x.as_token().map(|x| x.text().to_string()))
+            .collect();
+        Self { members }
+    }
+}
+
+impl std::fmt::Display for QualifiedTypeName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.members.join("."))
     }
 }
 
