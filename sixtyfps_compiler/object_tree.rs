@@ -149,7 +149,7 @@ impl Element {
                 None => continue,
             };
             let name = name_token.text().to_string();
-            let prop_type = r.base_type.lookup_property(&name);
+            let prop_type = r.lookup_property(&name);
             if !prop_type.is_property_type() {
                 diag.push_error(
                     match prop_type {
@@ -224,6 +224,13 @@ impl Element {
             }
         }
         r
+    }
+
+    pub fn lookup_property(&self, name: &str) -> Type {
+        self.property_declarations
+            .get(name)
+            .cloned()
+            .unwrap_or_else(|| self.base_type.lookup_property(name))
     }
 }
 

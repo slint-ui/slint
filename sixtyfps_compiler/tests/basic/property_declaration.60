@@ -1,6 +1,7 @@
 
 Test := Rectangle {
     property<int32> foo;
+    foo: 100;
     property<NonExistent> bar;
 //           ^error{Unknown property type 'NonExistent'}
     property<float32> foo;
