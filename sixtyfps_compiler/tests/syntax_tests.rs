@@ -8,6 +8,15 @@
 
 #[test]
 fn main() -> std::io::Result<()> {
+    if let Some(specific_test) =
+        std::env::args().skip(1).skip_while(|arg| arg.starts_with("--") || arg == "main").next()
+    {
+        let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("tests");
+        path.push(specific_test);
+        assert!(process_file(&path)?);
+        return Ok(());
+    }
     let mut success = true;
     for entry in std::fs::read_dir(format!("{}/tests", env!("CARGO_MANIFEST_DIR")))? {
         let entry = entry?;
