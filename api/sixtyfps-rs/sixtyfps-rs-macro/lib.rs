@@ -1,7 +1,7 @@
 extern crate proc_macro;
-use object_tree::Expression;
 use proc_macro::TokenStream;
 use quote::quote;
+use sixtyfps_compiler::expressions::Expression;
 use sixtyfps_compiler::*;
 
 fn fill_token_vec(stream: TokenStream, vec: &mut Vec<parser::Token>) {
@@ -105,6 +105,7 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
     //println!("{:#?}", syntax_node);
     let mut tr = typeregister::TypeRegister::builtin();
     let tree = object_tree::Document::from_node(syntax_node, &mut diag, &mut tr);
+    expressions::resolve_expressions(&tree, &mut diag, &mut tr);
     //println!("{:#?}", tree);
     if !diag.inner.is_empty() {
         let diags: Vec<_> = diag
@@ -140,7 +141,7 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
         for (k, v) in &item.init_properties {
             let k = quote::format_ident!("{}", k);
             let v = match v {
-                Expression::Invalid => quote!(),
+                Expression::Invalid | Expression::Uncompiled(_) => quote!(),
                 // That's an error
                 Expression::Identifier(_) => quote!(),
                 Expression::StringLiteral(s) => {

@@ -19,7 +19,7 @@ pub struct NativeItemType {
 pub struct LoweredItem {
     pub id: String,
     pub native_type: Rc<NativeItemType>,
-    pub init_properties: HashMap<String, crate::object_tree::Expression>,
+    pub init_properties: HashMap<String, crate::expressions::Expression>,
     /// Right now we only allow forwarding and this connect with the signal in the root
     pub connect_signals: HashMap<String, String>,
     pub children: Vec<LoweredItem>,
@@ -38,7 +38,7 @@ impl LoweredComponent {
         let mut state = LowererState::default();
         LoweredComponent {
             id: component.id.clone(),
-            root_item: LoweredComponent::lower_item(&*component.root_element, &mut state),
+            root_item: LoweredComponent::lower_item(&*component.root_element.borrow(), &mut state),
             signals_declarations: state.signals,
         }
     }
@@ -53,7 +53,7 @@ impl LoweredComponent {
             Type::Component(c) => {
                 let mut current_component_id = id.clone();
                 std::mem::swap(&mut current_component_id, &mut state.current_component_id);
-                let r = LoweredComponent::lower_item(&*c.root_element, state);
+                let r = LoweredComponent::lower_item(&*c.root_element.borrow(), state);
                 std::mem::swap(&mut current_component_id, &mut state.current_component_id);
                 (r, false)
             }
@@ -74,7 +74,7 @@ impl LoweredComponent {
         state.signals.extend(element.signals_declaration.iter().map(format_signal));
 
         for (k, e) in element.bindings.iter() {
-            if let crate::object_tree::Expression::Identifier(x) = e {
+            if let crate::expressions::Expression::Identifier(x) = e {
                 let value: u32 = match &**x {
                     "blue" => 0xff0000ff,
                     "red" => 0xffff0000,
@@ -96,14 +96,14 @@ impl LoweredComponent {
                 };
                 lowered
                     .init_properties
-                    .insert(k.clone(), crate::object_tree::Expression::NumberLiteral(value.into()));
+                    .insert(k.clone(), crate::expressions::Expression::NumberLiteral(value.into()));
             } else {
                 lowered.init_properties.insert(k.clone(), e.clone());
             }
         }
-        lowered
-            .children
-            .extend(element.children.iter().map(|e| LoweredComponent::lower_item(&*e, state)));
+        lowered.children.extend(
+            element.children.iter().map(|e| LoweredComponent::lower_item(&*e.borrow(), state)),
+        );
         lowered
     }
 }

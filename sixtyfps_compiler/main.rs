@@ -5,6 +5,7 @@ use structopt::StructOpt;
 extern crate proc_macro;
 
 mod diagnostics;
+mod expressions;
 mod generator;
 mod lower;
 mod object_tree;
@@ -24,14 +25,16 @@ fn main() -> std::io::Result<()> {
     diag.current_path = args.path;
     //println!("{:#?}", syntax_node);
     let mut tr = typeregister::TypeRegister::builtin();
-    let tree = object_tree::Document::from_node(syntax_node, &mut diag, &mut tr);
-    //println!("{:#?}", tree);
+    let doc = object_tree::Document::from_node(syntax_node, &mut diag, &mut tr);
+    expressions::resolve_expressions(&doc, &mut diag, &mut tr);
+
+    //println!("{:#?}", doc);
     if !diag.inner.is_empty() {
         diag.print(source);
         std::process::exit(-1);
     }
 
-    let l = lower::LoweredComponent::lower(&*tree.root_component);
+    let l = lower::LoweredComponent::lower(&*doc.root_component);
     generator::generate(&l);
     Ok(())
 }

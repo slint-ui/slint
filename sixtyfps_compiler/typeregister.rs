@@ -31,10 +31,10 @@ impl Type {
     pub fn lookup_property(&self, name: &str) -> Type {
         match self {
             Type::Component(c) => {
-                if c.root_element.signals_declaration.iter().any(|x| x == name) {
+                if c.root_element.borrow().signals_declaration.iter().any(|x| x == name) {
                     Type::Signal
                 } else {
-                    c.root_element.base_type.lookup_property(name)
+                    c.root_element.borrow().base_type.lookup_property(name)
                 }
             }
             Type::Builtin(b) => b.properties.get(name).cloned().unwrap_or_default(),
