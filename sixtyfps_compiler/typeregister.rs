@@ -72,7 +72,7 @@ impl TypeRegister {
         r.types.insert("float32".into(), Type::Float32);
         r.types.insert("int32".into(), Type::Int32);
         r.types.insert("string".into(), Type::String);
-        r.types.insert("color".into(), Type::String);
+        r.types.insert("color".into(), Type::Color);
         r.types.insert("image".into(), Type::Image);
         r.types.insert("bool".into(), Type::Bool);
 
