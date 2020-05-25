@@ -77,7 +77,8 @@ Hello := Rectangle {
             color: black;
         }
     }
-    counter := Text { x: 100; y: 300; text: "0"; color: black; }
+    property<int32> counter;
+    counter_label := Text { x: 100; y: 300; text: "0"; color: black; }
     ButtonRectangle {
         color: 4289374890;
         x: 50;

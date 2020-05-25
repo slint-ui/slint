@@ -121,12 +121,35 @@ mod cpp_ast {
             writeln!(f, ";")
         }
     }
+
+    pub trait CppType {
+        fn cpp_type(&self) -> Option<&str>;
+    }
 }
 
 use crate::lower::{LoweredComponent, LoweredItem};
+use crate::typeregister::Type;
 use cpp_ast::*;
 
-fn handle_item(item: &LoweredItem, main_struct: &mut Struct, init: &mut Vec<String>) {
+impl CppType for Type {
+    fn cpp_type(&self) -> Option<&str> {
+        match self {
+            Type::Float32 => Some("float"),
+            Type::Int32 => Some("int"),
+            Type::String => Some("sixtyfps::SharedString"),
+            Type::Color => Some("uint32_t"),
+            Type::Bool => Some("bool"),
+            _ => None,
+        }
+    }
+}
+
+fn handle_item(
+    item: &LoweredItem,
+    global_properties: &Vec<String>,
+    main_struct: &mut Struct,
+    init: &mut Vec<String>,
+) {
     main_struct.members.push(Declaration::Var(Var {
         ty: format!("sixtyfps::{}", item.native_type.class_name),
         name: item.id.clone(),
@@ -135,13 +158,19 @@ fn handle_item(item: &LoweredItem, main_struct: &mut Struct, init: &mut Vec<Stri
 
     let id = &item.id;
     init.extend(item.init_properties.iter().map(|(s, i)| {
+        let cpp_prop = item
+            .property_declarations
+            .get(s)
+            .map(|idx| global_properties[*idx].clone())
+            .unwrap_or_else(|| format!("{id}.{prop}", id = id, prop = s.clone()));
+
         use crate::expression_tree::Expression::*;
         let init = match &i {
             StringLiteral(s) => format!(r#"sixtyfps::SharedString("{}")"#, s.escape_default()),
             NumberLiteral(n) => n.to_string(),
             _ => format!("\n#error: unsupported expression {:?}\n", i),
         };
-        format!("{id}.{prop}.set({init});", id = id, prop = s, init = init)
+        format!("{cpp_prop}.set({init});", cpp_prop = cpp_prop, init = init)
     }));
     init.extend(item.connect_signals.iter().map(|(s, fwd)| {
         format!(
@@ -151,7 +180,7 @@ fn handle_item(item: &LoweredItem, main_struct: &mut Struct, init: &mut Vec<Stri
     }));
 
     for i in &item.children {
-        handle_item(i, main_struct, init)
+        handle_item(i, global_properties, main_struct, init)
     }
 }
 
@@ -163,8 +192,31 @@ pub fn generate(component: &LoweredComponent) -> impl std::fmt::Display {
 
     let mut main_struct = Struct { name: component.id.clone(), ..Default::default() };
 
+    let (declared_property_members, declared_property_vars): (Vec<String>, Vec<Declaration>) =
+        component
+            .property_declarations
+            .iter()
+            .enumerate()
+            .map(|(index, property)| {
+                let cpp_name: String = format!("property_{}_{}", index, property.name_hint).into();
+                (
+                    cpp_name.clone(),
+                    Declaration::Var(Var {
+                        ty: format!(
+                            "sixtyfps::Property<{}>",
+                            property.property_type.cpp_type().expect("cannot convert type to C++")
+                        ),
+                        name: cpp_name,
+                        init: None,
+                    }),
+                )
+            })
+            .unzip();
+
+    main_struct.members.extend(declared_property_vars);
+
     let mut init = Vec::new();
-    handle_item(&component.root_item, &mut main_struct, &mut init);
+    handle_item(&component.root_item, &declared_property_members, &mut main_struct, &mut init);
 
     main_struct.members.extend(component.signals_declarations.iter().map(|s| {
         Declaration::Var(Var { ty: "sixtyfps::Signal".into(), name: s.clone(), init: None })

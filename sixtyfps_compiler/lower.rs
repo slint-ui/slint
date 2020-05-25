@@ -15,6 +15,8 @@ pub struct NativeItemType {
     pub class_name: String,
 }
 
+pub type LoweredPropertyDeclarationIndex = usize;
+
 #[derive(Default, Debug)]
 pub struct LoweredItem {
     pub id: String,
@@ -22,6 +24,7 @@ pub struct LoweredItem {
     pub init_properties: HashMap<String, Expression>,
     /// Right now we only allow forwarding and this connect with the signal in the root
     pub connect_signals: HashMap<String, String>,
+    pub property_declarations: HashMap<String, LoweredPropertyDeclarationIndex>,
     pub children: Vec<LoweredItem>,
 }
 
@@ -31,6 +34,7 @@ pub struct LoweredComponent {
     pub root_item: LoweredItem,
 
     pub signals_declarations: Vec<String>,
+    pub property_declarations: Vec<LoweredPropertyDeclaration>,
 }
 
 impl LoweredComponent {
@@ -40,6 +44,7 @@ impl LoweredComponent {
             id: component.id.clone(),
             root_item: LoweredComponent::lower_item(&*component.root_element.borrow(), &mut state),
             signals_declarations: state.signals,
+            property_declarations: state.property_declarations,
         }
     }
 
@@ -72,6 +77,16 @@ impl LoweredComponent {
         let current_component_id = state.current_component_id.clone();
         let format_signal = |name| format!("{}_{}", current_component_id, name);
         state.signals.extend(element.signals_declaration.iter().map(format_signal));
+
+        for (prop_name, property_type) in element.property_declarations.iter() {
+            let component_global_index = state.property_declarations.len();
+            lowered.property_declarations.insert(prop_name.clone(), component_global_index);
+            state.property_declarations.push(LoweredPropertyDeclaration {
+                property_type: property_type.clone(),
+                name_hint: prop_name.clone(),
+            });
+        }
+
         for (k, e) in element.bindings.iter() {
             if let Expression::SignalReference { name, .. } = e {
                 lowered.connect_signals.insert(
@@ -89,6 +104,12 @@ impl LoweredComponent {
     }
 }
 
+#[derive(Debug)]
+pub struct LoweredPropertyDeclaration {
+    pub property_type: Type,
+    pub name_hint: String,
+}
+
 #[derive(Default)]
 struct LowererState {
     /// The count of item to create the ids
@@ -97,4 +118,5 @@ struct LowererState {
     current_component_id: String,
 
     signals: Vec<String>,
+    property_declarations: Vec<LoweredPropertyDeclaration>,
 }
