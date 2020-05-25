@@ -100,7 +100,7 @@ impl Element {
         };
         r.base_type = tr.lookup(&r.base.to_string());
         if !r.base_type.is_object_type() {
-            diag.push_error(format!("Unkown type {}", r.base), node.span());
+            diag.push_error(format!("Unknown type {}", r.base), node.span());
             return r;
         }
         for b in node.children().filter(|n| n.kind() == SyntaxKind::Binding) {
@@ -113,7 +113,7 @@ impl Element {
             if !prop_type.is_property_type() {
                 diag.push_error(
                     match prop_type {
-                        Type::Invalid => format!("Unkown property {} in {}", name, r.base),
+                        Type::Invalid => format!("Unknown property {} in {}", name, r.base),
                         Type::Signal => format!("'{}' is a signal. use `=>` to connect", name),
                         _ => format!("Cannot assing to {} in {}", name, r.base),
                     },

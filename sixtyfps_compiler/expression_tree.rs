@@ -123,7 +123,7 @@ impl Expression {
                 )
             }
             Some(x) => {
-                ctx.diag.push_error(format!("Unkown bang keyword `{}`", x), node.span());
+                ctx.diag.push_error(format!("Unknown bang keyword `{}`", x), node.span());
                 return Self::Invalid;
             }
         }
@@ -168,7 +168,7 @@ impl Expression {
             }
         }
 
-        ctx.diag.push_error(format!("Unkown unqualified identifier '{}'", s), identifier.span());
+        ctx.diag.push_error(format!("Unknown unqualified identifier '{}'", s), identifier.span());
 
         Self::Invalid
     }
