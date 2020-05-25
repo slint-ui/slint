@@ -11,3 +11,6 @@ pub mod re_exports {
     pub use once_cell::sync::Lazy;
     pub use vtable::{self, *};
 }
+
+#[cfg(doctest)]
+mod compile_fail_tests;

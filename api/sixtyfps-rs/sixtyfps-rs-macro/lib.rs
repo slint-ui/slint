@@ -1,10 +1,11 @@
 extern crate proc_macro;
-use proc_macro::TokenStream;
+use proc_macro::{Spacing, TokenStream};
 use quote::quote;
 use sixtyfps_compiler::expression_tree::Expression;
 use sixtyfps_compiler::*;
 
 fn fill_token_vec(stream: TokenStream, vec: &mut Vec<parser::Token>) {
+    let mut prev_spacing = Spacing::Alone;
     for t in stream {
         use parser::SyntaxKind;
         use proc_macro::TokenTree;
@@ -23,7 +24,7 @@ fn fill_token_vec(stream: TokenStream, vec: &mut Vec<parser::Token>) {
                     ':' => SyntaxKind::Colon,
                     '=' => {
                         if let Some(last) = vec.last_mut() {
-                            if last.kind == SyntaxKind::Colon {
+                            if last.kind == SyntaxKind::Colon && prev_spacing == Spacing::Joint {
                                 last.kind = SyntaxKind::ColonEqual;
                                 last.text = ":=".into();
                                 continue;
@@ -37,7 +38,7 @@ fn fill_token_vec(stream: TokenStream, vec: &mut Vec<parser::Token>) {
                     '<' => SyntaxKind::LAngle,
                     '>' => {
                         if let Some(last) = vec.last_mut() {
-                            if last.kind == SyntaxKind::Equal {
+                            if last.kind == SyntaxKind::Equal && prev_spacing == Spacing::Joint {
                                 last.kind = SyntaxKind::FatArrow;
                                 last.text = "=>".into();
                                 continue;
@@ -47,6 +48,7 @@ fn fill_token_vec(stream: TokenStream, vec: &mut Vec<parser::Token>) {
                     }
                     _ => SyntaxKind::Error,
                 };
+                prev_spacing = p.spacing();
                 vec.push(parser::Token {
                     kind,
                     text: p.to_string().into(),
