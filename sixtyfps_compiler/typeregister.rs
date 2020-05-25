@@ -61,7 +61,6 @@ pub struct BuiltinElement {
 #[derive(Debug, Default)]
 pub struct TypeRegister {
     /// The set of types.
-    /// FIXME: could also be a component
     types: HashMap<String, Type>,
 }
 

@@ -38,6 +38,11 @@ pub enum Expression {
     ///
     /// Note: if we are to separate expression and statement, we probably do not need to have signal reference within expressions
     SignalReference { component: Weak<Component>, element: Weak<RefCell<Element>>, name: String },
+
+    /// Reference to the signal <name> in the <element> within the <Component>
+    ///
+    /// Note: if we are to separate expression and statement, we probably do not need to have signal reference within expressions
+    PropertyReference { component: Weak<Component>, element: Weak<RefCell<Element>>, name: String },
 }
 
 impl Expression {
@@ -131,6 +136,22 @@ impl Expression {
         // Perform the lookup
         let s = identifier.text().as_str();
 
+        let root_type = Type::Component(ctx.document_root.clone());
+        let property = root_type.lookup_property(s);
+        if property.is_property_type() {
+            return Self::PropertyReference {
+                component: Rc::downgrade(&ctx.document_root),
+                element: Rc::downgrade(&ctx.document_root.root_element),
+                name: s.to_string(),
+            };
+        } else if matches!(ctx.property_type, Type::Signal) {
+            return Self::SignalReference {
+                component: Rc::downgrade(&ctx.document_root),
+                element: Rc::downgrade(&ctx.document_root.root_element),
+                name: s.to_string(),
+            };
+        }
+
         if matches!(ctx.property_type, Type::Color) {
             let value: Option<u32> = match s {
                 "blue" => Some(0xff0000ff),
@@ -145,12 +166,6 @@ impl Expression {
                 // FIXME: there should be a ColorLiteral
                 return Self::NumberLiteral(value as f64);
             }
-        } else if matches!(ctx.property_type, Type::Signal) {
-            return Self::SignalReference {
-                component: Rc::downgrade(&ctx.document_root),
-                element: Rc::downgrade(&ctx.document_root.root_element),
-                name: s.to_string(),
-            };
         }
 
         ctx.diag.push_error(format!("Unkown unqualified identifier '{}'", s), identifier.span());
@@ -176,7 +191,11 @@ pub fn resolve_expressions(doc: &Document, diag: &mut Diagnostics, tr: &mut Type
         tr: &mut TypeRegister,
     ) {
         let base = elem.borrow().base_type.clone();
-        for (prop, expr) in &mut elem.borrow_mut().bindings {
+        // We are taking the binding to mutate them, as we cannot keep a borrow of the element
+        // during the creation of the expression (we need to be able to borrow the Element to do lookups)
+        // the `bindings` will be reset later
+        let mut bindings = std::mem::take(&mut elem.borrow_mut().bindings);
+        for (prop, expr) in &mut bindings {
             if let Expression::Uncompiled(node) = expr {
                 let mut lookup_ctx = LookupCtx {
                     tr,
@@ -196,6 +215,7 @@ pub fn resolve_expressions(doc: &Document, diag: &mut Diagnostics, tr: &mut Type
                 *expr = new_expr;
             }
         }
+        elem.borrow_mut().bindings = bindings;
 
         for child in &elem.borrow().children {
             resolve_expressions_in_element_recursively(child, doc, diag, tr);

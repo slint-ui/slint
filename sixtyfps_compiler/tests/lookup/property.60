@@ -1,0 +1,5 @@
+
+X := Rectangle {
+    width: 50;
+    height: width;
+}
