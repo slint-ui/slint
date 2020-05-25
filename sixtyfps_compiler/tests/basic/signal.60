@@ -1,5 +1,5 @@
 
-SubElements = Rectangle {
+SubElements := Rectangle {
     signal foobar;
 
     TouchArea {

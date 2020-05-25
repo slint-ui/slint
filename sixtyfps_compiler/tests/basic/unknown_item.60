@@ -1,6 +1,6 @@
 
 
-SuperSimple = Rectangle {
+SuperSimple := Rectangle {
     DoesNotExist {
 //  ^error{Unkown type DoesNotExist}
     }

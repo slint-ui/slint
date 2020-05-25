@@ -1,11 +1,11 @@
 
-component Inline1 = Rectangle {
+component Inline1 := Rectangle {
     Rectangle {
         x: 66;
     }
 }
 
-SubElements = Rectangle {
+SubElements := Rectangle {
     Inline1 {
         color: yellow;
         invalid: yellow;

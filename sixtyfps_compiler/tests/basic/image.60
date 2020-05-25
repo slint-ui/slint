@@ -1,6 +1,6 @@
 
 
-SubElements = Rectangle {
+SubElements := Rectangle {
 
     color: blue;
 

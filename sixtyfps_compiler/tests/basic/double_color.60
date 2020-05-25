@@ -1,6 +1,6 @@
 
 
-SuperSimple = Rectangle {
+SuperSimple := Rectangle {
     color: green;
     color: red;
 //  ^error{Duplicated property}

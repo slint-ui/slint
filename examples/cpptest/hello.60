@@ -1,5 +1,5 @@
 
-component TwoRectangle = Rectangle {
+component TwoRectangle := Rectangle {
 
     signal clicked;
 
@@ -10,7 +10,7 @@ component TwoRectangle = Rectangle {
         height: 25;
         color: red;
 
-        my_area = TouchArea {
+        my_area := TouchArea {
             width: 25;
             height: 25;
             clicked => { clicked }
@@ -20,7 +20,7 @@ component TwoRectangle = Rectangle {
 }
 
 
-component ButtonRectangle = Rectangle {
+component ButtonRectangle := Rectangle {
     signal clicked;
     width: 100;
     height: 75;
@@ -31,7 +31,7 @@ component ButtonRectangle = Rectangle {
     }
 }
 
-Hello = Rectangle {
+Hello := Rectangle {
 
     signal foobar;
     signal plus_clicked;
@@ -77,7 +77,7 @@ Hello = Rectangle {
             color: black;
         }
     }
-    counter = Text { x: 100; y: 300; text: "0"; color: black; }
+    counter := Text { x: 100; y: 300; text: "0"; color: black; }
     ButtonRectangle {
         color: 4289374890;
         x: 50;

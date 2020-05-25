@@ -1,6 +1,6 @@
 
 
-SuperSimple = Rectangle {
+SuperSimple := Rectangle {
     color: green;
 
     for xx in zz: Hello {
