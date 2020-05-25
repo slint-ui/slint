@@ -1,6 +1,6 @@
 use core::mem::MaybeUninit;
 use servo_arc::ThinArc;
-use std::{fmt::Debug, ops::Deref};
+use std::{fmt::Debug, fmt::Display, ops::Deref};
 
 /// The string type suitable for properties. It is shared meaning passing copies
 /// around will not allocate, and that different properties with the same string
@@ -180,6 +180,12 @@ impl From<&str> for SharedString {
 }
 
 impl Debug for SharedString {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Debug::fmt(self.as_str(), f)
+    }
+}
+
+impl Display for SharedString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         Debug::fmt(self.as_str(), f)
     }

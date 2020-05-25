@@ -149,7 +149,7 @@ fn main() -> std::io::Result<()> {
     rtti.insert(
         "Text",
         RuntimeTypeInfo {
-            vtable: &corelib::abi::primitives::ImageVTable as _,
+            vtable: &corelib::abi::primitives::TextVTable as _,
             construct: construct::<Text>,
             properties: [
                 ("x", (offsets.x.get_byte_offset(), set_property::<f32> as _)),
