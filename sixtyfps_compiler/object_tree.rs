@@ -135,11 +135,20 @@ impl Element {
             };
             let prop_name = prop_name_token.text().to_string();
 
-            if r.property_declarations.insert(prop_name, prop_type).is_some() {
+            if r.property_declarations.insert(prop_name.clone(), prop_type).is_some() {
                 diag.push_error(
                     "Duplicated property declaration".into(),
                     crate::diagnostics::Span::new(prop_name_token.text_range().start().into()),
                 )
+            }
+
+            if let Some(csn) = prop_decl.child_node(SyntaxKind::BindingExpression) {
+                if r.bindings.insert(prop_name, Expression::Uncompiled(csn)).is_some() {
+                    diag.push_error(
+                        "Duplicated property binding".into(),
+                        crate::diagnostics::Span::new(prop_name_token.text_range().start().into()),
+                    );
+                }
             }
         }
 

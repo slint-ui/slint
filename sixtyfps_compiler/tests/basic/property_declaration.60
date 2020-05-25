@@ -6,4 +6,5 @@ Test := Rectangle {
 //           ^error{Unknown property type 'NonExistent'}
     property<float32> foo;
 //                    ^error{Duplicate property declaration 'foo'}
+    property<string> text: "property with binding initializer";
 }

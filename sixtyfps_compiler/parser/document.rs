@@ -227,6 +227,7 @@ fn parse_signal_declaration(p: &mut impl Parser) {
 #[cfg_attr(test, parser_test)]
 /// ```test
 /// property<int> foobar;
+/// property<string> text: "Something";
 /// ```
 fn parse_property_declaration(p: &mut impl Parser) {
     debug_assert_eq!(p.peek().as_str(), "property");
@@ -236,5 +237,11 @@ fn parse_property_declaration(p: &mut impl Parser) {
     parse_qualified_type_name(&mut *p);
     p.expect(SyntaxKind::RAngle);
     p.expect(SyntaxKind::Identifier);
-    p.expect(SyntaxKind::Semicolon);
+
+    if p.nth(0) == SyntaxKind::Colon {
+        p.consume();
+        parse_binding_expression(&mut *p);
+    } else {
+        p.expect(SyntaxKind::Semicolon);
+    }
 }
