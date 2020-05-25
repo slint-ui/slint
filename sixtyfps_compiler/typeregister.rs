@@ -12,6 +12,7 @@ pub enum Type {
 
     // other property type:
     Float32,
+    Int32,
     String,
     Color,
     Image,
@@ -25,7 +26,10 @@ impl Type {
 
     /// valid type for properties
     pub fn is_property_type(&self) -> bool {
-        matches!(self, Self::Float32 | Self::String | Self::Color | Self::Image | Self::Bool)
+        matches!(
+            self,
+            Self::Float32 | Self::Int32 | Self::String | Self::Color | Self::Image | Self::Bool
+        )
     }
 
     pub fn lookup_property(&self, name: &str) -> Type {
@@ -64,6 +68,13 @@ pub struct TypeRegister {
 impl TypeRegister {
     pub fn builtin() -> Self {
         let mut r = TypeRegister::default();
+
+        r.types.insert("float32".into(), Type::Float32);
+        r.types.insert("int32".into(), Type::Int32);
+        r.types.insert("string".into(), Type::String);
+        r.types.insert("color".into(), Type::String);
+        r.types.insert("image".into(), Type::Image);
+        r.types.insert("bool".into(), Type::Bool);
 
         let mut rectangle = BuiltinElement::default();
         rectangle.properties.insert("color".to_owned(), Type::Color);
@@ -104,6 +115,13 @@ impl TypeRegister {
 
     pub fn lookup(&self, name: &str) -> Type {
         self.types.get(name).cloned().unwrap_or_default()
+    }
+
+    pub fn lookup_qualified<Member: AsRef<str>>(&self, qualified: &[Member]) -> Type {
+        if qualified.len() != 1 {
+            return Type::Invalid;
+        }
+        self.lookup(qualified[0].as_ref())
     }
 
     pub fn add(&mut self, comp: Rc<crate::object_tree::Component>) {

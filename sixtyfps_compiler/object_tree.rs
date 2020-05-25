@@ -165,7 +165,7 @@ impl Element {
         }
 
         for prop_decl in node.children().filter(|n| n.kind() == SyntaxKind::PropertyDeclaration) {
-            r.property_declarations.push(PropertyDeclaration::from_node(prop_decl));
+            r.property_declarations.push(PropertyDeclaration::from_node(prop_decl, tr, diag));
         }
 
         for se in node.children() {
@@ -191,22 +191,36 @@ impl Element {
 
 #[derive(Default, Debug, Clone)]
 pub struct PropertyDeclaration {
-    property_type: QualifiedTypeName,
+    qualified_type: QualifiedTypeName,
+    property_type: Type,
     name: String,
 }
 
 impl PropertyDeclaration {
-    pub fn from_node(node: SyntaxNode) -> Self {
+    pub fn from_node(node: SyntaxNode, tr: &TypeRegister, diag: &mut Diagnostics) -> Self {
         debug_assert_eq!(node.kind(), SyntaxKind::PropertyDeclaration);
-        Self {
-            property_type: QualifiedTypeName::from_node(
-                node.children()
-                    .filter(|n| n.kind() == SyntaxKind::QualifiedTypeName)
-                    .nth(0)
-                    .unwrap(),
-            ),
-            name: node.child_text(SyntaxKind::Identifier).unwrap(),
-        }
+        let mut d = Self::default();
+
+        let qualified_type_node =
+            node.children().filter(|n| n.kind() == SyntaxKind::QualifiedTypeName).nth(0).unwrap();
+        let type_span = qualified_type_node.span();
+        d.qualified_type = QualifiedTypeName::from_node(qualified_type_node);
+
+        d.property_type = tr.lookup_qualified(&d.qualified_type.members);
+
+        match d.property_type {
+            Type::Invalid => {
+                diag.push_error(
+                    format!("unknown property type '{}'", d.qualified_type.to_string()),
+                    type_span,
+                );
+            }
+            _ => (),
+        };
+
+        d.name = node.child_text(SyntaxKind::Identifier).unwrap();
+
+        d
     }
 }
 
