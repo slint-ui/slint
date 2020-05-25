@@ -5,7 +5,6 @@ As of know, it just rewrite the exact same as the input, but it can be changed
 
 */
 
-use sixtyfps_compiler::parser::SyntaxKind;
 use sixtyfps_compiler::parser::SyntaxNode;
 use std::io::Write;
 use structopt::StructOpt;
@@ -65,8 +64,5 @@ fn fold_token(
     node: sixtyfps_compiler::parser::SyntaxToken,
     file: &mut impl Write,
 ) -> std::io::Result<()> {
-    match node.kind() {
-        SyntaxKind::Equal => file.write_all(b":="),
-        _ => file.write_all(node.text().as_bytes()),
-    }
+    file.write_all(node.text().as_bytes())
 }
