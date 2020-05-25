@@ -312,7 +312,6 @@ pub trait SyntaxNodeEx {
     fn child_node(&self, kind: SyntaxKind) -> Option<SyntaxNode>;
     fn child_token(&self, kind: SyntaxKind) -> Option<SyntaxToken>;
     fn child_text(&self, kind: SyntaxKind) -> Option<String>;
-    fn span(&self) -> crate::diagnostics::Span;
 }
 
 impl SyntaxNodeEx for SyntaxNode {
@@ -327,6 +326,21 @@ impl SyntaxNodeEx for SyntaxNode {
             .find(|n| n.kind() == kind)
             .and_then(|x| x.as_token().map(|x| x.text().to_string()))
     }
+}
+
+/// Returns a span.  This is implemented for tokens and nodes
+pub trait Spanned {
+    fn span(&self) -> crate::diagnostics::Span;
+}
+
+impl Spanned for SyntaxNode {
+    fn span(&self) -> crate::diagnostics::Span {
+        // FIXME!  this does not work with proc_macro span
+        crate::diagnostics::Span::new(self.text_range().start().into())
+    }
+}
+
+impl Spanned for SyntaxToken {
     fn span(&self) -> crate::diagnostics::Span {
         // FIXME!  this does not work with proc_macro span
         crate::diagnostics::Span::new(self.text_range().start().into())

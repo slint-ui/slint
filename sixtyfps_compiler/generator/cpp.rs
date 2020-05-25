@@ -137,10 +137,9 @@ fn handle_item(item: &LoweredItem, main_struct: &mut Struct, init: &mut Vec<Stri
     init.extend(item.init_properties.iter().map(|(s, i)| {
         use crate::expressions::Expression::*;
         let init = match &i {
-            Invalid | Uncompiled(_) => "".into(),
-            Identifier(i) => i.clone(),
             StringLiteral(s) => format!(r#"sixtyfps::SharedString("{}")"#, s.escape_default()),
             NumberLiteral(n) => n.to_string(),
+            _ => format!("\n#error: unsupported expression {:?}\n", i),
         };
         format!("{id}.{prop}.set({init});", id = id, prop = s, init = init)
     }));

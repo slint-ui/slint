@@ -141,13 +141,11 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
         for (k, v) in &item.init_properties {
             let k = quote::format_ident!("{}", k);
             let v = match v {
-                Expression::Invalid | Expression::Uncompiled(_) => quote!(),
-                // That's an error
-                Expression::Identifier(_) => quote!(),
                 Expression::StringLiteral(s) => {
                     quote!(sixtyfps::re_exports::SharedString::from(#s))
                 }
                 Expression::NumberLiteral(n) => quote!(#n),
+                _ => quote!(compile_error! {"unsupported expression"}),
             };
             init.push(quote!(self_.#field_name.#k.set(#v as _);));
         }

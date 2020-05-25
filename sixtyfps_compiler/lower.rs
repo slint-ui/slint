@@ -1,5 +1,5 @@
 //! This module contains the code that lower the tree to the datastructure that that the runtime understand
-use crate::typeregister::Type;
+use crate::{expressions::Expression, typeregister::Type};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -19,7 +19,7 @@ pub struct NativeItemType {
 pub struct LoweredItem {
     pub id: String,
     pub native_type: Rc<NativeItemType>,
-    pub init_properties: HashMap<String, crate::expressions::Expression>,
+    pub init_properties: HashMap<String, Expression>,
     /// Right now we only allow forwarding and this connect with the signal in the root
     pub connect_signals: HashMap<String, String>,
     pub children: Vec<LoweredItem>,
@@ -72,31 +72,12 @@ impl LoweredComponent {
         let current_component_id = state.current_component_id.clone();
         let format_signal = |name| format!("{}_{}", current_component_id, name);
         state.signals.extend(element.signals_declaration.iter().map(format_signal));
-
         for (k, e) in element.bindings.iter() {
-            if let crate::expressions::Expression::Identifier(x) = e {
-                let value: u32 = match &**x {
-                    "blue" => 0xff0000ff,
-                    "red" => 0xffff0000,
-                    "green" => 0xff00ff00,
-                    "yellow" => 0xffffff00,
-                    "black" => 0xff000000,
-                    "white" => 0xffffffff,
-                    _ => {
-                        lowered.connect_signals.insert(
-                            if is_builtin {
-                                format!("{}.{}", id, k)
-                            } else {
-                                format!("{}_{}", id, k)
-                            },
-                            format_signal(x),
-                        );
-                        continue;
-                    }
-                };
-                lowered
-                    .init_properties
-                    .insert(k.clone(), crate::expressions::Expression::NumberLiteral(value.into()));
+            if let Expression::SignalReference { name, .. } = e {
+                lowered.connect_signals.insert(
+                    if is_builtin { format!("{}.{}", id, k) } else { format!("{}_{}", id, k) },
+                    format_signal(name),
+                );
             } else {
                 lowered.init_properties.insert(k.clone(), e.clone());
             }

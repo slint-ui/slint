@@ -4,7 +4,7 @@
 
 use crate::diagnostics::Diagnostics;
 use crate::expressions::Expression;
-use crate::parser::{SyntaxKind, SyntaxNode, SyntaxNodeEx};
+use crate::parser::{Spanned, SyntaxKind, SyntaxNode, SyntaxNodeEx};
 use crate::typeregister::{Type, TypeRegister};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -65,8 +65,10 @@ impl Component {
 /// An Element is an instentation of a Component
 #[derive(Default, Debug)]
 pub struct Element {
-    //     node: SyntaxNode,
+    /* node: SyntaxNode, */
+    /// The id as named in the original .60 file
     pub id: String,
+    pub lowered_id: String,
     pub base: QualifiedTypeName,
     pub base_type: crate::typeregister::Type,
     /// Currently contains also the signals. FIXME: should that be changed?
