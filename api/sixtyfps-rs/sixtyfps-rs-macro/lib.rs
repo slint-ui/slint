@@ -21,7 +21,16 @@ fn fill_token_vec(stream: TokenStream, vec: &mut Vec<parser::Token>) {
             TokenTree::Punct(p) => {
                 let kind = match p.as_char() {
                     ':' => SyntaxKind::Colon,
-                    '=' => SyntaxKind::Equal,
+                    '=' => {
+                        if let Some(last) = vec.last_mut() {
+                            if last.kind == SyntaxKind::Colon {
+                                last.kind = SyntaxKind::ColonEqual;
+                                last.text = ":=".into();
+                                continue;
+                            }
+                        }
+                        SyntaxKind::Equal
+                    }
                     ';' => SyntaxKind::Semicolon,
                     '!' => SyntaxKind::Bang,
                     _ => SyntaxKind::Error,

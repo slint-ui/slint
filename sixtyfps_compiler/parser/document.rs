@@ -3,15 +3,15 @@ use super::prelude::*;
 
 #[cfg_attr(test, parser_test)]
 /// ```test
-/// Type = Base { }
-/// Type = Base { SubElement { } }
-/// component Comp = Base {}  Type = Base {}
+/// Type := Base { }
+/// Type := Base { SubElement { } }
+/// component Comp := Base {}  Type := Base {}
 /// ```
 pub fn parse_document(p: &mut impl Parser) -> bool {
     let mut p = p.start_node(SyntaxKind::Document);
 
     loop {
-        if p.peek().as_str() == "component" && p.nth(1) != SyntaxKind::Equal {
+        if p.peek().as_str() == "component" && p.nth(1) != SyntaxKind::ColonEqual {
             p.expect(SyntaxKind::Identifier);
         }
 
@@ -27,13 +27,13 @@ pub fn parse_document(p: &mut impl Parser) -> bool {
 
 #[cfg_attr(test, parser_test)]
 /// ```test
-/// Type = Base { }
-/// Type = Base { prop: value; }
-/// Type = Base { SubElement { } }
+/// Type := Base { }
+/// Type := Base { prop: value; }
+/// Type := Base { SubElement { } }
 /// ```
 pub fn parse_component(p: &mut impl Parser) -> bool {
     let mut p = p.start_node(SyntaxKind::Component);
-    if !(p.expect(SyntaxKind::Identifier) && p.expect(SyntaxKind::Equal)) {
+    if !(p.expect(SyntaxKind::Identifier) && p.expect(SyntaxKind::ColonEqual)) {
         return false;
     }
 
@@ -62,7 +62,7 @@ pub fn parse_element(p: &mut impl Parser) -> bool {
 #[cfg_attr(test, parser_test)]
 /// ```test
 /// property1: value; property2: value;
-/// sub = Sub { }
+/// sub := Sub { }
 /// for xx in model: Sub {}
 /// clicked => {}
 /// signal foobar;
@@ -74,7 +74,7 @@ fn parse_element_content(p: &mut impl Parser) {
             SyntaxKind::Eof => return,
             SyntaxKind::Identifier => match p.nth(1) {
                 SyntaxKind::Colon => parse_property_binding(&mut *p),
-                SyntaxKind::Equal | SyntaxKind::LBrace => parse_sub_element(&mut *p),
+                SyntaxKind::ColonEqual | SyntaxKind::LBrace => parse_sub_element(&mut *p),
                 SyntaxKind::FatArrow => parse_signal_connection(&mut *p),
                 SyntaxKind::Identifier if p.peek().as_str() == "for" => {
                     parse_repeated_element(&mut *p);
@@ -98,15 +98,15 @@ fn parse_element_content(p: &mut impl Parser) {
 #[cfg_attr(test, parser_test)]
 /// ```test
 /// Bar {}
-/// foo = Bar {}
+/// foo := Bar {}
 /// Bar { x : y ; }
 /// ```
 /// Must consume at least one token
 fn parse_sub_element(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::SubElement);
-    if p.nth(1) == SyntaxKind::Equal {
+    if p.nth(1) == SyntaxKind::ColonEqual {
         assert!(p.expect(SyntaxKind::Identifier));
-        p.expect(SyntaxKind::Equal);
+        p.expect(SyntaxKind::ColonEqual);
     }
     parse_element(&mut *p);
 }

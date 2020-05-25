@@ -73,6 +73,7 @@ declare_token_kind! {
     RBrace -> r"\}",
     LParent -> r"\(",
     RParent -> r"\)",
+    ColonEqual -> ":=",
     FatArrow -> r"=>",
     Equal -> r"=",
     Colon -> r":",

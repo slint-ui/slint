@@ -1,6 +1,6 @@
 // Using a macro for now.  But there could be others ways to do that
 sixtyfps::sixtyfps! {
-    SuperSimple = Rectangle {
+    SuperSimple := Rectangle {
         color: white;
 
         Rectangle {
