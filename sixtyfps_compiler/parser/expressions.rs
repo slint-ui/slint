@@ -1,3 +1,4 @@
+use super::document::parse_qualified_name;
 use super::prelude::*;
 
 #[cfg_attr(test, parser_test)]
@@ -8,6 +9,7 @@ use super::prelude::*;
 /// 42
 /// (something)
 /// img!"something"
+/// some_id.some_property
 /// ```
 pub fn parse_expression(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::Expression);
@@ -16,7 +18,7 @@ pub fn parse_expression(p: &mut impl Parser) {
             if p.nth(1) == SyntaxKind::Bang {
                 parse_bang_expression(&mut *p)
             } else {
-                p.consume()
+                parse_qualified_name(&mut *p);
             }
         }
         SyntaxKind::StringLiteral => p.consume(),

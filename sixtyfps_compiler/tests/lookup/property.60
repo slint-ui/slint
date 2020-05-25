@@ -2,4 +2,19 @@
 X := Rectangle {
     width: 50;
     height: width;
+
+    foo := Rectangle {
+        width: foo.height;
+    }
+
+    Rectangle {
+        width: foo.height;
+        height: xxx.fff;
+//              ^error{Cannot access id 'xxx'}
+        color: foo.height.blue;
+//                        ^error{Cannot access fields of property}
+        x: foo.blue;
+//             ^error{Cannot access property 'blue'}
+
+    }
 }

@@ -65,8 +65,8 @@ impl Expression {
                     .map(|n| Self::from_bang_expresion_node(n, ctx))
             })
             .or_else(|| {
-                node.child_token(SyntaxKind::Identifier)
-                    .map(|s| Self::from_unqualified_identifier(s, ctx))
+                node.child_node(SyntaxKind::QualifiedName)
+                    .map(|s| Self::from_qualified_name_node(s, ctx))
             })
             .or_else(|| {
                 node.child_text(SyntaxKind::StringLiteral).map(|s| {
@@ -129,27 +129,85 @@ impl Expression {
         }
     }
 
-    fn from_unqualified_identifier(
-        identifier: crate::parser::SyntaxToken,
-        ctx: &mut LookupCtx,
-    ) -> Self {
-        // Perform the lookup
-        let s = identifier.text().as_str();
+    /// Perform the lookup
+    fn from_qualified_name_node(node: SyntaxNode, ctx: &mut LookupCtx) -> Self {
+        debug_assert_eq!(node.kind(), SyntaxKind::QualifiedName);
+
+        let mut it = node.children_with_tokens().filter(|n| n.kind() == SyntaxKind::Identifier);
+
+        let first = if let Some(first) = it.next() {
+            first.into_token().unwrap()
+        } else {
+            // There must be at least one member (parser should ensure that)
+            debug_assert!(ctx.diag.has_error());
+            return Self::Invalid;
+        };
+
+        let s = first.text().as_str();
 
         let root_type = Type::Component(ctx.document_root.clone());
         let property = root_type.lookup_property(s);
         if property.is_property_type() {
+            if let Some(x) = it.next() {
+                ctx.diag.push_error(
+                    "Cannot access fields of property".into(),
+                    x.into_token().unwrap().span(),
+                )
+            }
             return Self::PropertyReference {
                 component: Rc::downgrade(&ctx.document_root),
                 element: Rc::downgrade(&ctx.document_root.root_element),
                 name: s.to_string(),
             };
-        } else if matches!(ctx.property_type, Type::Signal) {
+        } else if property.is_object_type() {
+            todo!("Continue lookling up");
+        } else if matches!(property, Type::Signal) {
+            if let Some(x) = it.next() {
+                ctx.diag.push_error(
+                    "Cannot access fields of signal".into(),
+                    x.into_token().unwrap().span(),
+                )
+            }
             return Self::SignalReference {
                 component: Rc::downgrade(&ctx.document_root),
                 element: Rc::downgrade(&ctx.document_root.root_element),
                 name: s.to_string(),
             };
+        }
+
+        if let Some(elem) = ctx.document_root.find_element_by_id(s) {
+            let prop_name = if let Some(second) = it.next() {
+                second.into_token().unwrap()
+            } else {
+                ctx.diag.push_error("Cannot take reference of an element".into(), node.span());
+                return Self::Invalid;
+            };
+
+            let p = elem.borrow().base_type.lookup_property(prop_name.text().as_str());
+            if p.is_property_type() {
+                if let Some(x) = it.next() {
+                    ctx.diag.push_error(
+                        "Cannot access fields of property".into(),
+                        x.into_token().unwrap().span(),
+                    )
+                }
+                return Self::PropertyReference {
+                    component: Rc::downgrade(&ctx.document_root),
+                    element: Rc::downgrade(&elem),
+                    name: prop_name.text().to_string(),
+                };
+            } else {
+                ctx.diag.push_error(
+                    format!("Cannot access property '{}'", prop_name),
+                    prop_name.span(),
+                );
+                return Self::Invalid;
+            }
+        }
+
+        if it.next().is_some() {
+            ctx.diag.push_error(format!("Cannot access id '{}'", s), node.span());
+            return Expression::Invalid;
         }
 
         if matches!(ctx.property_type, Type::Color) {
@@ -168,7 +226,7 @@ impl Expression {
             }
         }
 
-        ctx.diag.push_error(format!("Unknown unqualified identifier '{}'", s), identifier.span());
+        ctx.diag.push_error(format!("Unknown unqualified identifier '{}'", s), node.span());
 
         Self::Invalid
     }

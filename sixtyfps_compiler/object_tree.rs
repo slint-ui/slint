@@ -60,6 +60,24 @@ impl Component {
             )),
         }
     }
+
+    pub fn find_element_by_id(&self, name: &str) -> Option<Rc<RefCell<Element>>> {
+        pub fn find_element_by_id_recursive(
+            e: &Rc<RefCell<Element>>,
+            name: &str,
+        ) -> Option<Rc<RefCell<Element>>> {
+            if e.borrow().id == name {
+                return Some(e.clone());
+            }
+            for x in &e.borrow().children {
+                if let Some(x) = find_element_by_id_recursive(x, name) {
+                    return Some(x);
+                }
+            }
+            None
+        }
+        find_element_by_id_recursive(&self.root_element, name)
+    }
 }
 
 /// An Element is an instentation of a Component
@@ -91,10 +109,7 @@ impl Element {
         let mut r = Element {
             id,
             base: QualifiedTypeName::from_node(
-                node.children()
-                    .filter(|n| n.kind() == SyntaxKind::QualifiedTypeName)
-                    .nth(0)
-                    .unwrap(),
+                node.children().filter(|n| n.kind() == SyntaxKind::QualifiedName).nth(0).unwrap(),
             ),
             ..Default::default()
         };
@@ -107,7 +122,7 @@ impl Element {
         for prop_decl in node.children().filter(|n| n.kind() == SyntaxKind::PropertyDeclaration) {
             let qualified_type_node = prop_decl
                 .children()
-                .filter(|n| n.kind() == SyntaxKind::QualifiedTypeName)
+                .filter(|n| n.kind() == SyntaxKind::QualifiedName)
                 .nth(0)
                 .unwrap();
             let type_span = qualified_type_node.span();
@@ -250,7 +265,7 @@ pub struct QualifiedTypeName {
 
 impl QualifiedTypeName {
     pub fn from_node(node: SyntaxNode) -> Self {
-        debug_assert_eq!(node.kind(), SyntaxKind::QualifiedTypeName);
+        debug_assert_eq!(node.kind(), SyntaxKind::QualifiedName);
         let members = node
             .children_with_tokens()
             .filter(|n| n.kind() == SyntaxKind::Identifier)

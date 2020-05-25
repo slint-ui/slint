@@ -50,7 +50,7 @@ macro_rules! declare_token_kind {
             BindingExpression, // the right-hand-side of a binding
             CodeBlock,
             Expression,
-            QualifiedTypeName, // wraps Identifiers, like Rectangle or SomeModule.SomeType
+            QualifiedName, // wraps Identifiers, like Rectangle or SomeModule.SomeType
             /// foo!bar
             BangExpression,
         }

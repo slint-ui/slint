@@ -50,7 +50,7 @@ pub fn parse_component(p: &mut impl Parser) -> bool {
 /// ```
 pub fn parse_element(p: &mut impl Parser) -> bool {
     let mut p = p.start_node(SyntaxKind::Element);
-    if !(parse_qualified_type_name(&mut *p) && p.expect(SyntaxKind::LBrace)) {
+    if !(parse_qualified_name(&mut *p) && p.expect(SyntaxKind::LBrace)) {
         return false;
     }
 
@@ -139,8 +139,8 @@ fn parse_repeated_element(p: &mut impl Parser) {
 /// MyModule.Rectangle
 /// Deeply.Nested.MyModule.Rectangle
 /// ```
-fn parse_qualified_type_name(p: &mut impl Parser) -> bool {
-    let mut p = p.start_node(SyntaxKind::QualifiedTypeName);
+pub fn parse_qualified_name(p: &mut impl Parser) -> bool {
+    let mut p = p.start_node(SyntaxKind::QualifiedName);
     if !p.expect(SyntaxKind::Identifier) {
         return false;
     }
@@ -188,6 +188,7 @@ fn parse_binding_expression(p: &mut impl Parser) {
 /// ```test
 /// {  }
 /// { expression }
+/// {  }
 /// ```
 fn parse_code_block(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::CodeBlock);
@@ -234,7 +235,7 @@ fn parse_property_declaration(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::PropertyDeclaration);
     p.consume(); // property
     p.expect(SyntaxKind::LAngle);
-    parse_qualified_type_name(&mut *p);
+    parse_qualified_name(&mut *p);
     p.expect(SyntaxKind::RAngle);
     p.expect(SyntaxKind::Identifier);
 
