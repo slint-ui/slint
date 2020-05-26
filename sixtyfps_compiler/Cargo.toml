@@ -12,6 +12,8 @@ path = "lib.rs"
 cpp = []
 # support for proc_macro spans in the token
 proc_macro_span = []
+# support for diagnostics in proc-proc_macros
+proc_macro_diagnostics = ["quote", "proc-macro2"]
 # Feature to print the diagnostics to the console
 display-diagnostics = ["codemap", "codemap-diagnostic"]
 
@@ -23,6 +25,8 @@ rowan = "0.10.0"
 derive_more = "0.99.5"
 codemap-diagnostic = { version = "0.1.1", optional = true }
 codemap = { version = "0.1", optional = true }
+quote = { version = "1.0", optional = true }
+proc-macro2 = { version = "1.0.17", optional = true }
 
  # FIXME: remove this: bin should be somewhere else
 structopt = "0.3.14"

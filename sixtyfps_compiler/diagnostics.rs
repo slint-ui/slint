@@ -30,7 +30,7 @@ pub struct CompilerDiagnostic {
     pub span: Span,
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct Diagnostics {
     pub inner: Vec<CompilerDiagnostic>,
     pub current_path: std::path::PathBuf,
@@ -102,5 +102,26 @@ impl Diagnostics {
             std::process::exit(-1);
         }
         (self, source)
+    }
+}
+
+#[cfg(feature = "proc_macro_diagnostics")]
+use quote::quote;
+
+#[cfg(feature = "proc_macro_diagnostics")]
+impl quote::ToTokens for Diagnostics {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        let diags: Vec<_> = self
+            .clone()
+            .into_iter()
+            .map(|CompilerDiagnostic { message, span }| {
+                if let Some(span) = span.span {
+                    quote::quote_spanned!(span.into() => compile_error!{ #message })
+                } else {
+                    quote!(compile_error! { #message })
+                }
+            })
+            .collect();
+        quote!(#(#diags)*).to_tokens(tokens);
     }
 }

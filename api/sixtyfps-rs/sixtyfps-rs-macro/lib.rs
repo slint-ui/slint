@@ -1,6 +1,6 @@
 extern crate proc_macro;
 use proc_macro::{Spacing, TokenStream};
-use quote::quote;
+use quote::{quote, ToTokens};
 use sixtyfps_compiler::expression_tree::Expression;
 use sixtyfps_compiler::*;
 
@@ -118,14 +118,8 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
     let tree = object_tree::Document::from_node(syntax_node, &mut diag, &mut tr);
     run_passes(&tree, &mut diag, &mut tr);
     //println!("{:#?}", tree);
-    if !diag.inner.is_empty() {
-        let diags: Vec<_> = diag
-            .into_iter()
-            .map(|diagnostics::CompilerDiagnostic { message, span }| {
-                quote::quote_spanned!(span.span.unwrap().into() => compile_error!{ #message })
-            })
-            .collect();
-        return quote!(#(#diags)*).into();
+    if diag.has_error() {
+        return diag.into_token_stream().into();
     }
 
     let lower = lower::LoweredComponent::lower(&tree.root_component);
