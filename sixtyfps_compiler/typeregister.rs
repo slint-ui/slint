@@ -55,7 +55,16 @@ impl Default for Type {
 
 #[derive(Debug, Default)]
 pub struct BuiltinElement {
+    pub class_name: String,
+    pub vtable_symbol: String,
     pub properties: HashMap<String, Type>,
+}
+
+impl BuiltinElement {
+    pub fn new(class_name: &str) -> Self {
+        let vtable_symbol = format!("{}VTable", class_name);
+        Self { class_name: class_name.into(), vtable_symbol, properties: Default::default() }
+    }
 }
 
 #[derive(Debug, Default)]
@@ -75,7 +84,7 @@ impl TypeRegister {
         r.types.insert("image".into(), Type::Image);
         r.types.insert("bool".into(), Type::Bool);
 
-        let mut rectangle = BuiltinElement::default();
+        let mut rectangle = BuiltinElement::new("Rectangle");
         rectangle.properties.insert("color".to_owned(), Type::Color);
         rectangle.properties.insert("x".to_owned(), Type::Float32);
         rectangle.properties.insert("y".to_owned(), Type::Float32);
@@ -83,7 +92,7 @@ impl TypeRegister {
         rectangle.properties.insert("height".to_owned(), Type::Float32);
         r.types.insert("Rectangle".to_owned(), Type::Builtin(Rc::new(rectangle)));
 
-        let mut image = BuiltinElement::default();
+        let mut image = BuiltinElement::new("Image");
         image.properties.insert("source".to_owned(), Type::Image);
         image.properties.insert("x".to_owned(), Type::Float32);
         image.properties.insert("y".to_owned(), Type::Float32);
@@ -91,7 +100,7 @@ impl TypeRegister {
         image.properties.insert("height".to_owned(), Type::Float32);
         r.types.insert("Image".to_owned(), Type::Builtin(Rc::new(image)));
 
-        let mut text = BuiltinElement::default();
+        let mut text = BuiltinElement::new("Text");
         text.properties.insert("text".to_owned(), Type::String);
         text.properties.insert("font_family".to_owned(), Type::String);
         text.properties.insert("font_pixel_size".to_owned(), Type::Float32);
@@ -100,7 +109,7 @@ impl TypeRegister {
         text.properties.insert("y".to_owned(), Type::Float32);
         r.types.insert("Text".to_owned(), Type::Builtin(Rc::new(text)));
 
-        let mut touch_area = BuiltinElement::default();
+        let mut touch_area = BuiltinElement::new("TouchArea");
         touch_area.properties.insert("x".to_owned(), Type::Float32);
         touch_area.properties.insert("y".to_owned(), Type::Float32);
         touch_area.properties.insert("width".to_owned(), Type::Float32);

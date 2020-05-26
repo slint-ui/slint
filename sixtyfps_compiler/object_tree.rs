@@ -90,10 +90,12 @@ pub struct PropertyDeclaration {
 #[derive(Default, Debug)]
 pub struct Element {
     /* node: SyntaxNode, */
-    /// The id as named in the original .60 file
+    /// The id as named in the original .60 file.
+    ///
+    /// Note that it can only be used for lookup before inlining.
+    /// After inlining there can be duplicated id in the component
     pub id: String,
-    pub lowered_id: String,
-    pub base: QualifiedTypeName,
+    //pub base: QualifiedTypeName,
     pub base_type: crate::typeregister::Type,
     /// Currently contains also the signals. FIXME: should that be changed?
     pub bindings: HashMap<String, Expression>,
@@ -112,15 +114,12 @@ impl Element {
         tr: &TypeRegister,
     ) -> Self {
         debug_assert_eq!(node.kind(), SyntaxKind::Element);
-        let mut r = Element {
-            id,
-            base: QualifiedTypeName::from_node(node.child_node(SyntaxKind::QualifiedName).unwrap()),
-            ..Default::default()
-        };
-        r.base_type = tr.lookup(&r.base.to_string());
+        let base =
+            QualifiedTypeName::from_node(node.child_node(SyntaxKind::QualifiedName).unwrap());
+        let mut r = Element { id, base_type: tr.lookup(&base.to_string()), ..Default::default() };
         if !r.base_type.is_object_type() {
             diag.push_error(
-                format!("Unknown type {}", r.base),
+                format!("Unknown type {}", base),
                 node.child_node(SyntaxKind::QualifiedName).unwrap().span(),
             );
             return r;
@@ -185,9 +184,9 @@ impl Element {
             if !prop_type.is_property_type() {
                 diag.push_error(
                     match prop_type {
-                        Type::Invalid => format!("Unknown property {} in {}", name, r.base),
+                        Type::Invalid => format!("Unknown property {} in {}", name, base),
                         Type::Signal => format!("'{}' is a signal. Use `=>` to connect", name),
-                        _ => format!("Cannot assing to {} in {}", name, r.base),
+                        _ => format!("Cannot assing to {} in {}", name, base),
                     },
                     crate::diagnostics::Span::new(name_token.text_range().start().into()),
                 );
@@ -210,7 +209,7 @@ impl Element {
             let prop_type = r.base_type.lookup_property(&name);
             if !matches!(prop_type, Type::Signal) {
                 diag.push_error(
-                    format!("'{}' is not a signal in {}", name, r.base),
+                    format!("'{}' is not a signal in {}", name, base),
                     crate::diagnostics::Span::new(name_token.text_range().start().into()),
                 );
             }

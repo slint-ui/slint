@@ -184,7 +184,7 @@ fn main() -> std::io::Result<()> {
         },
     );
 
-    let l = lower::LoweredComponent::lower(&*tree.root_component);
+    let l = lower::LoweredComponent::lower(&tree.root_component);
 
     let mut tree_array = vec![];
     let mut current_offset = 0usize;

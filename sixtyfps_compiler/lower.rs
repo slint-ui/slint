@@ -1,5 +1,10 @@
 //! This module contains the code that lower the tree to the datastructure that that the runtime understand
-use crate::{expression_tree::Expression, typeregister::Type};
+use crate::{
+    expression_tree::Expression,
+    object_tree::{Component, Element},
+    typeregister::Type,
+};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -37,46 +42,54 @@ pub struct LoweredComponent {
     pub property_declarations: Vec<LoweredPropertyDeclaration>,
 }
 
+// I guess this should actually be in the generator for the given language?
+fn format_name(name: &str, elem: &Rc<RefCell<Element>>, component: &Rc<Component>) -> String {
+    if Rc::ptr_eq(elem, &component.root_element) {
+        name.to_owned()
+    } else {
+        // FIXME: using the pointer name will not lead to reproducable output
+        format!("{}_{:p}", name, *elem)
+    }
+}
+
 impl LoweredComponent {
-    pub fn lower(component: &crate::object_tree::Component) -> Self {
+    pub fn lower(component: &Rc<Component>) -> Self {
         let mut state = LowererState::default();
+        state.component = component.clone();
         LoweredComponent {
             id: component.id.clone(),
-            root_item: LoweredComponent::lower_item(&*component.root_element.borrow(), &mut state),
+            root_item: LoweredComponent::lower_item(&component.root_element, &mut state),
             signals_declarations: state.signals,
             property_declarations: state.property_declarations,
         }
     }
 
-    fn lower_item(element: &crate::object_tree::Element, state: &mut LowererState) -> LoweredItem {
+    fn lower_item(elem: &Rc<RefCell<Element>>, state: &mut LowererState) -> LoweredItem {
+        let element = elem.borrow();
         state.count += 1;
 
         let id =
             format!("{}_{}", if element.id.is_empty() { "id" } else { &*element.id }, state.count);
 
-        let (mut lowered, is_builtin) = match &element.base_type {
-            Type::Component(c) => {
-                let mut current_component_id = id.clone();
-                std::mem::swap(&mut current_component_id, &mut state.current_component_id);
-                let r = LoweredComponent::lower_item(&*c.root_element.borrow(), state);
-                std::mem::swap(&mut current_component_id, &mut state.current_component_id);
-                (r, false)
+        let mut lowered = match &element.base_type {
+            Type::Component(_) => {
+                panic!("This should not happen because of inlining");
             }
-            Type::Builtin(_) => {
-                // FIXME: that information should be in the BuiltType, i guess
+            Type::Builtin(b) => {
                 let native_type = Rc::new(NativeItemType {
-                    vtable: format!("{}VTable", element.base),
-                    class_name: element.base.to_string(),
+                    vtable: b.vtable_symbol.clone(),
+                    class_name: b.class_name.clone(),
                 });
 
-                (LoweredItem { id: id.clone(), native_type, ..Default::default() }, true)
+                LoweredItem { id: id.clone(), native_type, ..Default::default() }
             }
             _ => panic!("Invalid type"),
         };
 
-        let current_component_id = state.current_component_id.clone();
-        let format_signal = |name| format!("{}_{}", current_component_id, name);
-        state.signals.extend(element.signals_declaration.iter().map(format_signal));
+        let component = state.component.clone();
+        state.signals.extend(
+            element.signals_declaration.iter().map(|name| format_name(name, elem, &component)),
+        );
 
         for (prop_name, property_decl) in element.property_declarations.iter() {
             let component_global_index = state.property_declarations.len();
@@ -89,18 +102,22 @@ impl LoweredComponent {
         }
 
         for (k, e) in element.bindings.iter() {
-            if let Expression::SignalReference { name, .. } = e {
+            if let Expression::SignalReference { name, component, element } = e {
                 lowered.connect_signals.insert(
-                    if is_builtin { format!("{}.{}", id, k) } else { format!("{}_{}", id, k) },
-                    format_signal(name),
+                    if elem.borrow().signals_declaration.contains(k) {
+                        format_name(k, elem, &state.component)
+                    } else {
+                        format!("{}.{}", id, k)
+                    },
+                    format_name(name, &element.upgrade().unwrap(), &component.upgrade().unwrap()),
                 );
             } else {
                 lowered.init_properties.insert(k.clone(), e.clone());
             }
         }
-        lowered.children.extend(
-            element.children.iter().map(|e| LoweredComponent::lower_item(&*e.borrow(), state)),
-        );
+        lowered
+            .children
+            .extend(element.children.iter().map(|e| LoweredComponent::lower_item(&e, state)));
         lowered
     }
 }
@@ -116,9 +133,8 @@ pub struct LoweredPropertyDeclaration {
 struct LowererState {
     /// The count of item to create the ids
     count: usize,
-    /// The ID of the current component
-    current_component_id: String,
 
     signals: Vec<String>,
     property_declarations: Vec<LoweredPropertyDeclaration>,
+    component: Rc<Component>,
 }

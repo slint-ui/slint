@@ -65,7 +65,6 @@ fn process_file(
             let mut count = 1;
             while count > 0 {
                 if let Some(idx2) = source_slice[idx..].find(|c| {
-                    dbg!((c, idx, idx2, count));
                     if c == open {
                         count += 1;
                         true

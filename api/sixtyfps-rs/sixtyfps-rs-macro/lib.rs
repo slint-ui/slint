@@ -128,7 +128,7 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
         return quote!(#(#diags)*).into();
     }
 
-    let lower = lower::LoweredComponent::lower(&*tree.root_component);
+    let lower = lower::LoweredComponent::lower(&tree.root_component);
 
     // FIXME! ideally we would still have the spans available
     let component_id = quote::format_ident!("{}", lower.id);
