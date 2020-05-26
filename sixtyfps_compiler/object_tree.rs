@@ -149,20 +149,18 @@ impl Element {
                 None => continue,
             };
             let prop_name = prop_name_token.text().to_string();
-
-            if r.property_declarations.insert(prop_name.clone(), prop_type).is_some() {
+            if !matches!(r.lookup_property(&prop_name), Type::Invalid) {
                 diag.push_error(
-                    "Duplicated property declaration".into(),
-                    crate::diagnostics::Span::new(prop_name_token.text_range().start().into()),
+                    format!("Cannot override property '{}'", prop_name),
+                    prop_name_token.span(),
                 )
             }
 
+            r.property_declarations.insert(prop_name.clone(), prop_type);
+
             if let Some(csn) = prop_decl.child_node(SyntaxKind::BindingExpression) {
                 if r.bindings.insert(prop_name, Expression::Uncompiled(csn)).is_some() {
-                    diag.push_error(
-                        "Duplicated property binding".into(),
-                        crate::diagnostics::Span::new(prop_name_token.text_range().start().into()),
-                    );
+                    diag.push_error("Duplicated property binding".into(), prop_name_token.span());
                 }
             }
         }
