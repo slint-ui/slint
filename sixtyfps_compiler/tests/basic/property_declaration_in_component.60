@@ -1,0 +1,10 @@
+
+Comp := Rectangle {
+    property<int32> prop;
+}
+
+Test := Rectangle {
+    Comp {
+        prop: 45;
+    }
+}
