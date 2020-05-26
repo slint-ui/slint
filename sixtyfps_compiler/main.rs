@@ -15,7 +15,7 @@ fn main() -> std::io::Result<()> {
     //println!("{:#?}", syntax_node);
     let mut tr = typeregister::TypeRegister::builtin();
     let doc = object_tree::Document::from_node(syntax_node, &mut diag, &mut tr);
-    expression_tree::resolve_expressions(&doc, &mut diag, &mut tr);
+    run_passes(&doc, &mut diag, &mut tr);
 
     //println!("{:#?}", doc);
     if !diag.inner.is_empty() {

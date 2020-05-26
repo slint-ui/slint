@@ -20,3 +20,17 @@ pub mod lower;
 pub mod object_tree;
 pub mod parser;
 pub mod typeregister;
+
+pub mod passes {
+    pub mod inlining;
+    pub mod resolving;
+}
+
+pub fn run_passes(
+    doc: &object_tree::Document,
+    diag: &mut diagnostics::Diagnostics,
+    tr: &mut typeregister::TypeRegister,
+) {
+    passes::resolving::resolve_expressions(doc, diag, tr);
+    passes::inlining::inline(doc);
+}

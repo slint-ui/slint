@@ -94,7 +94,7 @@ fn main() -> std::io::Result<()> {
     diag.current_path = args.path;
     let mut tr = typeregister::TypeRegister::builtin();
     let tree = object_tree::Document::from_node(syntax_node, &mut diag, &mut tr);
-    expression_tree::resolve_expressions(&tree, &mut diag, &mut tr);
+    run_passes(&tree, &mut diag, &mut tr);
     if !diag.inner.is_empty() {
         diag.print(source);
         std::process::exit(-1);

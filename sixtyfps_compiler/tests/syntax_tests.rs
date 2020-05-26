@@ -44,7 +44,7 @@ fn process_file(path: &std::path::Path) -> std::io::Result<bool> {
     let mut tr = sixtyfps_compiler::typeregister::TypeRegister::builtin();
     let doc = sixtyfps_compiler::object_tree::Document::from_node(res, &mut diag, &mut tr);
     if !diag.has_error() {
-        sixtyfps_compiler::expression_tree::resolve_expressions(&doc, &mut diag, &mut tr);
+        sixtyfps_compiler::run_passes(&doc, &mut diag, &mut tr);
     }
 
     //let mut errors = std::collections::HashSet::from_iter(diag.inner.into_iter());
