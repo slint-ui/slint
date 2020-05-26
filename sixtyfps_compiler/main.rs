@@ -1,16 +1,5 @@
-///! FIXME:  remove this
+use sixtyfps_compiler::*;
 use structopt::StructOpt;
-
-#[cfg(feature = "proc_macro_span")]
-extern crate proc_macro;
-
-mod diagnostics;
-mod expression_tree;
-mod generator;
-mod lower;
-mod object_tree;
-mod parser;
-mod typeregister;
 
 #[derive(StructOpt)]
 struct Cli {
