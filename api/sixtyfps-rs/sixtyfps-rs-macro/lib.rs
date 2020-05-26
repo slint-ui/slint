@@ -101,6 +101,27 @@ fn fill_token_vec(stream: TokenStream, vec: &mut Vec<parser::Token>) {
     }
 }
 
+trait RustType {
+    fn rust_type(&self) -> Result<proc_macro2::TokenStream, diagnostics::CompilerDiagnostic>;
+}
+
+impl RustType for sixtyfps_compiler::lower::LoweredPropertyDeclaration {
+    fn rust_type(&self) -> Result<proc_macro2::TokenStream, diagnostics::CompilerDiagnostic> {
+        use sixtyfps_compiler::typeregister::Type;
+        match self.property_type {
+            Type::Int32 => Ok(quote!(i32)),
+            Type::Float32 => Ok(quote!(f32)),
+            Type::String => Ok(quote!(sixtyfps::re_exports::SharedString)),
+            Type::Color => Ok(quote!(u32)),
+            Type::Bool => Ok(quote!(bool)),
+            _ => Err(diagnostics::CompilerDiagnostic {
+                message: "Cannot map property type to Rust".into(),
+                span: self.type_location.clone(),
+            }),
+        }
+    }
+}
+
 #[proc_macro]
 pub fn sixtyfps(stream: TokenStream) -> TokenStream {
     let mut tokens = vec![];
@@ -127,6 +148,23 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
     // FIXME! ideally we would still have the spans available
     let component_id = quote::format_ident!("{}", lower.id);
 
+    let mut declared_property_var_names = vec![];
+    let mut declared_property_vars = vec![];
+    let mut declared_property_types = vec![];
+    for (index, property_decl) in lower.property_declarations.iter().enumerate() {
+        let member_name: String = format!("property_{}_{}", index, property_decl.name_hint).into();
+        declared_property_var_names.push(member_name.clone());
+        declared_property_vars.push(quote::format_ident!("{}", member_name));
+        declared_property_types.push(property_decl.rust_type().unwrap_or_else(|err| {
+            diag.push_compiler_error(err);
+            quote!().into()
+        }));
+    }
+
+    if diag.has_error() {
+        return diag.into_token_stream().into();
+    }
+
     let mut item_tree_array = Vec::new();
     let mut item_names = Vec::new();
     let mut item_types = Vec::new();
@@ -144,7 +182,18 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
              }
         ));
         for (k, v) in &item.init_properties {
-            let k = quote::format_ident!("{}", k);
+            let rust_property = item
+                .property_declarations
+                .get(k)
+                .map(|idx| {
+                    let prop_ident = quote::format_ident!("{}", declared_property_var_names[*idx]);
+                    quote!(#prop_ident)
+                })
+                .unwrap_or_else(|| {
+                    let prop_ident = quote::format_ident!("{}", k);
+                    quote!(#field_name.#prop_ident)
+                });
+
             let v = match v {
                 Expression::StringLiteral(s) => {
                     quote!(sixtyfps::re_exports::SharedString::from(#s))
@@ -152,7 +201,7 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
                 Expression::NumberLiteral(n) => quote!(#n),
                 _ => quote!(compile_error! {"unsupported expression"}),
             };
-            init.push(quote!(self_.#field_name.#k.set(#v as _);));
+            init.push(quote!(self_.#rust_property.set(#v as _);));
         }
         item_names.push(field_name);
         item_types.push(quote::format_ident!("{}", item.native_type.class_name));
@@ -166,12 +215,14 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
         #[repr(C)]
         struct #component_id {
             #(#item_names : sixtyfps::re_exports::#item_types,)*
+            #(#declared_property_vars : sixtyfps::re_exports::Property<#declared_property_types>,)*
         }
 
         impl core::default::Default for #component_id {
             fn default() -> Self {
                 let mut self_ = Self {
                     #(#item_names : Default::default(),)*
+                    #(#declared_property_vars : Default::default(),)*
                 };
                 #(#init)*
                 self_
