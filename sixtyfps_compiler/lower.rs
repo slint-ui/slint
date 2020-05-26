@@ -78,12 +78,13 @@ impl LoweredComponent {
         let format_signal = |name| format!("{}_{}", current_component_id, name);
         state.signals.extend(element.signals_declaration.iter().map(format_signal));
 
-        for (prop_name, property_type) in element.property_declarations.iter() {
+        for (prop_name, property_decl) in element.property_declarations.iter() {
             let component_global_index = state.property_declarations.len();
             lowered.property_declarations.insert(prop_name.clone(), component_global_index);
             state.property_declarations.push(LoweredPropertyDeclaration {
-                property_type: property_type.clone(),
+                property_type: property_decl.property_type.clone(),
                 name_hint: prop_name.clone(),
+                type_location: property_decl.type_location.clone(),
             });
         }
 
@@ -108,6 +109,7 @@ impl LoweredComponent {
 pub struct LoweredPropertyDeclaration {
     pub property_type: Type,
     pub name_hint: String,
+    pub type_location: crate::diagnostics::Span,
 }
 
 #[derive(Default)]

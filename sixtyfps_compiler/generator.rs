@@ -4,15 +4,20 @@ The module responsible for the code generation.
 There is one sub module for every language
 */
 
+use crate::diagnostics::Diagnostics;
 use crate::lower::{LoweredComponent, LoweredItem};
 
 #[cfg(feature = "cpp")]
 mod cpp;
 
-pub fn generate(component: &LoweredComponent) {
+pub fn generate(component: &LoweredComponent, diag: &mut Diagnostics) {
     #![allow(unused_variables)]
     #[cfg(feature = "cpp")]
-    println!("{}", cpp::generate(component));
+    {
+        if let Some(output) = cpp::generate(component, diag) {
+            println!("{}", output);
+        }
+    }
 }
 
 /// Visit each item in order in which they should appear in the children tree array.

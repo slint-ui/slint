@@ -80,6 +80,12 @@ impl Component {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct PropertyDeclaration {
+    pub property_type: Type,
+    pub type_location: crate::diagnostics::Span,
+}
+
 /// An Element is an instentation of a Component
 #[derive(Default, Debug)]
 pub struct Element {
@@ -95,7 +101,7 @@ pub struct Element {
 
     /// This should probably be in the Component instead
     pub signals_declaration: Vec<String>,
-    pub property_declarations: HashMap<String, Type>,
+    pub property_declarations: HashMap<String, PropertyDeclaration>,
 }
 
 impl Element {
@@ -135,7 +141,7 @@ impl Element {
                 Type::Invalid => {
                     diag.push_error(
                         format!("Unknown property type '{}'", qualified_type.to_string()),
-                        type_span,
+                        type_span.clone(),
                     );
                 }
                 _ => (),
@@ -157,7 +163,10 @@ impl Element {
                 )
             }
 
-            r.property_declarations.insert(prop_name.clone(), prop_type);
+            r.property_declarations.insert(
+                prop_name.clone(),
+                PropertyDeclaration { property_type: prop_type, type_location: type_span },
+            );
 
             if let Some(csn) = prop_decl.child_node(SyntaxKind::BindingExpression) {
                 if r.bindings.insert(prop_name, Expression::Uncompiled(csn)).is_some() {
@@ -253,6 +262,7 @@ impl Element {
         self.property_declarations
             .get(name)
             .cloned()
+            .map(|decl| decl.property_type)
             .unwrap_or_else(|| self.base_type.lookup_property(name))
     }
 }

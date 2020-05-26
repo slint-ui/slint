@@ -48,6 +48,9 @@ impl Diagnostics {
     pub fn push_error(&mut self, message: String, span: Span) {
         self.inner.push(CompilerDiagnostic { message, span });
     }
+    pub fn push_compiler_error(&mut self, error: CompilerDiagnostic) {
+        self.inner.push(error);
+    }
 
     pub fn has_error(&self) -> bool {
         !self.inner.is_empty()
@@ -90,5 +93,14 @@ impl Diagnostics {
             Some(&codemap),
         );
         emitter.emit(&diags);
+    }
+
+    #[cfg(feature = "display-diagnostics")]
+    pub fn check_and_exit_on_error(self, source: String) -> (Self, String) {
+        if self.has_error() {
+            self.print(source);
+            std::process::exit(-1);
+        }
+        (self, source)
     }
 }

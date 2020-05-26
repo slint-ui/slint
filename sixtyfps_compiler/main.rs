@@ -17,13 +17,10 @@ fn main() -> std::io::Result<()> {
     let doc = object_tree::Document::from_node(syntax_node, &mut diag, &mut tr);
     run_passes(&doc, &mut diag, &mut tr);
 
-    //println!("{:#?}", doc);
-    if !diag.inner.is_empty() {
-        diag.print(source);
-        std::process::exit(-1);
-    }
+    let (mut diag, source) = diag.check_and_exit_on_error(source);
 
     let l = lower::LoweredComponent::lower(&*doc.root_component);
-    generator::generate(&l);
+    generator::generate(&l, &mut diag);
+    diag.check_and_exit_on_error(source);
     Ok(())
 }

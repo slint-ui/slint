@@ -123,23 +123,27 @@ mod cpp_ast {
     }
 
     pub trait CppType {
-        fn cpp_type(&self) -> Option<&str>;
+        fn cpp_type(&self) -> Result<&str, crate::diagnostics::CompilerDiagnostic>;
     }
 }
 
-use crate::lower::{LoweredComponent, LoweredItem};
+use crate::diagnostics::{CompilerDiagnostic, Diagnostics};
+use crate::lower::{LoweredComponent, LoweredItem, LoweredPropertyDeclaration};
 use crate::typeregister::Type;
 use cpp_ast::*;
 
-impl CppType for Type {
-    fn cpp_type(&self) -> Option<&str> {
-        match self {
-            Type::Float32 => Some("float"),
-            Type::Int32 => Some("int"),
-            Type::String => Some("sixtyfps::SharedString"),
-            Type::Color => Some("uint32_t"),
-            Type::Bool => Some("bool"),
-            _ => None,
+impl CppType for LoweredPropertyDeclaration {
+    fn cpp_type(&self) -> Result<&str, CompilerDiagnostic> {
+        match self.property_type {
+            Type::Float32 => Ok("float"),
+            Type::Int32 => Ok("int"),
+            Type::String => Ok("sixtyfps::SharedString"),
+            Type::Color => Ok("uint32_t"),
+            Type::Bool => Ok("bool"),
+            _ => Err(CompilerDiagnostic {
+                message: "Cannot map property type to C++".into(),
+                span: self.type_location.clone(),
+            }),
         }
     }
 }
@@ -185,33 +189,33 @@ fn handle_item(
 }
 
 /// Returns the text of the C++ code produced by the given root component
-pub fn generate(component: &LoweredComponent) -> impl std::fmt::Display {
+pub fn generate(
+    component: &LoweredComponent,
+    diag: &mut Diagnostics,
+) -> Option<impl std::fmt::Display> {
     let mut x = File::default();
 
     x.includes.push("<sixtyfps.h>".into());
 
     let mut main_struct = Struct { name: component.id.clone(), ..Default::default() };
 
-    let (declared_property_members, declared_property_vars): (Vec<String>, Vec<Declaration>) =
-        component
-            .property_declarations
-            .iter()
-            .enumerate()
-            .map(|(index, property)| {
-                let cpp_name: String = format!("property_{}_{}", index, property.name_hint).into();
-                (
-                    cpp_name.clone(),
-                    Declaration::Var(Var {
-                        ty: format!(
-                            "sixtyfps::Property<{}>",
-                            property.property_type.cpp_type().expect("cannot convert type to C++")
-                        ),
-                        name: cpp_name,
-                        init: None,
-                    }),
-                )
-            })
-            .unzip();
+    let mut declared_property_members = vec![];
+    let mut declared_property_vars = vec![];
+    for (index, property_decl) in component.property_declarations.iter().enumerate() {
+        let cpp_name: String = format!("property_{}_{}", index, property_decl.name_hint).into();
+
+        let cpp_type = property_decl.cpp_type().unwrap_or_else(|err| {
+            diag.push_compiler_error(err);
+            "".into()
+        });
+
+        declared_property_members.push(cpp_name.clone());
+        declared_property_vars.push(Declaration::Var(Var {
+            ty: format!("sixtyfps::Property<{}>", cpp_type),
+            name: cpp_name,
+            init: None,
+        }));
+    }
 
     main_struct.members.extend(declared_property_vars);
 
@@ -285,5 +289,9 @@ pub fn generate(component: &LoweredComponent) -> impl std::fmt::Display {
         ]),
         ..Default::default()
     }));*/
-    x
+    if diag.has_error() {
+        None
+    } else {
+        Some(x)
+    }
 }
