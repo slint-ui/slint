@@ -108,14 +108,15 @@ impl Element {
         debug_assert_eq!(node.kind(), SyntaxKind::Element);
         let mut r = Element {
             id,
-            base: QualifiedTypeName::from_node(
-                node.children().filter(|n| n.kind() == SyntaxKind::QualifiedName).nth(0).unwrap(),
-            ),
+            base: QualifiedTypeName::from_node(node.child_node(SyntaxKind::QualifiedName).unwrap()),
             ..Default::default()
         };
         r.base_type = tr.lookup(&r.base.to_string());
         if !r.base_type.is_object_type() {
-            diag.push_error(format!("Unknown type {}", r.base), node.span());
+            diag.push_error(
+                format!("Unknown type {}", r.base),
+                node.child_node(SyntaxKind::QualifiedName).unwrap().span(),
+            );
             return r;
         }
 
@@ -133,7 +134,7 @@ impl Element {
             match prop_type {
                 Type::Invalid => {
                     diag.push_error(
-                        format!("unknown property type '{}'", qualified_type.to_string()),
+                        format!("Unknown property type '{}'", qualified_type.to_string()),
                         type_span,
                     );
                 }
@@ -176,7 +177,7 @@ impl Element {
                 diag.push_error(
                     match prop_type {
                         Type::Invalid => format!("Unknown property {} in {}", name, r.base),
-                        Type::Signal => format!("'{}' is a signal. use `=>` to connect", name),
+                        Type::Signal => format!("'{}' is a signal. Use `=>` to connect", name),
                         _ => format!("Cannot assing to {} in {}", name, r.base),
                     },
                     crate::diagnostics::Span::new(name_token.text_range().start().into()),

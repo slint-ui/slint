@@ -10,7 +10,7 @@ X := Rectangle {
 
     Rectangle {
         color: not_a_color;
-//             ^error{Unkown unqualified identifier 'not_a_color'}
+//             ^error{Unknown unqualified identifier 'not_a_color'}
     }
 
     Rectangle {

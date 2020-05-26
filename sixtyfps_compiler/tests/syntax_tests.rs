@@ -39,6 +39,10 @@ fn main() -> std::io::Result<()> {
 
 fn process_file(path: &std::path::Path) -> std::io::Result<bool> {
     let source = std::fs::read_to_string(&path)?;
+    process_file_source(path, source, false)
+}
+
+fn process_file_source(path: &std::path::Path, source: String, silent: bool) -> std::io::Result<bool> {
     let (res, mut diag) = sixtyfps_compiler::parser::parse(&source);
     diag.current_path = path.to_path_buf();
     let mut tr = sixtyfps_compiler::typeregister::TypeRegister::builtin();
@@ -55,7 +59,7 @@ fn process_file(path: &std::path::Path) -> std::io::Result<bool> {
     for m in re.captures_iter(&source) {
         let line_begin_offset = m.get(0).unwrap().start();
         let column = m.get(1).unwrap().start() - line_begin_offset;
-        let rx = m.get(1).unwrap().as_str();
+        let rx = m.get(2).unwrap().as_str();
         let r = match regex::Regex::new(&rx) {
             Err(e) => {
                 eprintln!("{:?}: Invalid regexp {:?} : {:?}", path, rx, e);
@@ -71,7 +75,7 @@ fn process_file(path: &std::path::Path) -> std::io::Result<bool> {
             }
             None => {
                 success = false;
-                println!("{:?}: Error not found ad offset {}: {:?}", path, offset, rx);
+                println!("{:?}: Error not found at offset {}: {:?}", path, offset, rx);
             }
         }
     }
@@ -80,10 +84,76 @@ fn process_file(path: &std::path::Path) -> std::io::Result<bool> {
         println!("{:?}: Unexptected errors: {:#?}", path, diag.inner);
 
         #[cfg(feature = "display-diagnostics")]
-        diag.print(source);
+        if !silent {
+            diag.print(source);
+        }
 
         success = false;
     }
 
     Ok(success)
+}
+
+#[test]
+/// Test that this actually fail when it should
+fn self_test() -> std::io::Result<()> {
+    let fake_path = std::path::Path::new("fake.60");
+    let process = |str: &str| process_file_source(&fake_path, str.into(), true);
+
+    // this should succeed
+    assert!(process(
+        r#"
+Foo := Rectangle { x: 0; }
+    "#
+    )?);
+
+    // unless we expected an error
+    assert!(!process(
+        r#"
+Foo := Rectangle { x: 0; }
+//     ^error{i want an error}
+    "#
+    )?);
+
+    // An error should fail
+    assert!(!process(
+        r#"
+Foo := Rectangle foo { x:0; }
+    "#
+    )?);
+
+    // An error with the proper comment should pass
+    assert!(process(
+        r#"
+Foo := Rectangle foo { x:0; }
+//               ^error{expected LBrace}
+    "#
+    )?);
+
+    // But not if it is at the wrong position
+    assert!(!process(
+        r#"
+Foo := Rectangle foo { x:0; }
+//             ^error{expected LBrace}
+    "#
+    )?);
+
+    // or the wrong line
+    assert!(!process(
+        r#"
+Foo := Rectangle foo { x:0; }
+
+//               ^error{expected LBrace}
+    "#
+    )?);
+
+    // or the wrong message
+    assert!(!process(
+        r#"
+Foo := Rectangle foo { x:0; }
+//               ^error{foo_bar}
+    "#
+    )?);
+
+    Ok(())
 }
