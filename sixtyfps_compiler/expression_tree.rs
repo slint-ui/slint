@@ -16,7 +16,7 @@ struct LookupCtx<'a> {
     property_type: Type,
 
     /// document_root
-    document_root: Rc<Component>,
+    component: Rc<Component>,
 
     /// Somewhere to report diagnostics
     diag: &'a mut Diagnostics,
@@ -145,8 +145,7 @@ impl Expression {
 
         let s = first.text().as_str();
 
-        let root_type = Type::Component(ctx.document_root.clone());
-        let property = root_type.lookup_property(s);
+        let property = ctx.component.root_element.borrow().lookup_property(s);
         if property.is_property_type() {
             if let Some(x) = it.next() {
                 ctx.diag.push_error(
@@ -155,15 +154,15 @@ impl Expression {
                 )
             }
             return Self::PropertyReference {
-                component: Rc::downgrade(&ctx.document_root),
-                element: Rc::downgrade(&ctx.document_root.root_element),
+                component: Rc::downgrade(&ctx.component),
+                element: Rc::downgrade(&ctx.component.root_element),
                 name: s.to_string(),
             };
         } else if property.is_object_type() {
             todo!("Continue lookling up");
         }
 
-        if let Some(elem) = ctx.document_root.find_element_by_id(s) {
+        if let Some(elem) = ctx.component.find_element_by_id(s) {
             let prop_name = if let Some(second) = it.next() {
                 second.into_token().unwrap()
             } else {
@@ -171,7 +170,7 @@ impl Expression {
                 return Self::Invalid;
             };
 
-            let p = elem.borrow().base_type.lookup_property(prop_name.text().as_str());
+            let p = elem.borrow().lookup_property(prop_name.text().as_str());
             if p.is_property_type() {
                 if let Some(x) = it.next() {
                     ctx.diag.push_error(
@@ -180,7 +179,7 @@ impl Expression {
                     )
                 }
                 return Self::PropertyReference {
-                    component: Rc::downgrade(&ctx.document_root),
+                    component: Rc::downgrade(&ctx.component),
                     element: Rc::downgrade(&elem),
                     name: prop_name.text().to_string(),
                 };
@@ -206,8 +205,8 @@ impl Expression {
                 )
             }
             return Self::SignalReference {
-                component: Rc::downgrade(&ctx.document_root),
-                element: Rc::downgrade(&ctx.document_root.root_element),
+                component: Rc::downgrade(&ctx.component),
+                element: Rc::downgrade(&ctx.component.root_element),
                 name: s.to_string(),
             };
         }
@@ -246,11 +245,10 @@ fn unescape_string(string: &str) -> Option<String> {
 pub fn resolve_expressions(doc: &Document, diag: &mut Diagnostics, tr: &mut TypeRegister) {
     fn resolve_expressions_in_element_recursively(
         elem: &Rc<RefCell<Element>>,
-        doc: &Document,
+        component: &Rc<Component>,
         diag: &mut Diagnostics,
         tr: &mut TypeRegister,
     ) {
-        let base = elem.borrow().base_type.clone();
         // We are taking the binding to mutate them, as we cannot keep a borrow of the element
         // during the creation of the expression (we need to be able to borrow the Element to do lookups)
         // the `bindings` will be reset later
@@ -259,8 +257,8 @@ pub fn resolve_expressions(doc: &Document, diag: &mut Diagnostics, tr: &mut Type
             if let Expression::Uncompiled(node) = expr {
                 let mut lookup_ctx = LookupCtx {
                     tr,
-                    property_type: base.lookup_property(&*prop),
-                    document_root: doc.root_component.clone(),
+                    property_type: elem.borrow().lookup_property(&*prop),
+                    component: component.clone(),
                     diag,
                 };
 
@@ -278,10 +276,10 @@ pub fn resolve_expressions(doc: &Document, diag: &mut Diagnostics, tr: &mut Type
         elem.borrow_mut().bindings = bindings;
 
         for child in &elem.borrow().children {
-            resolve_expressions_in_element_recursively(child, doc, diag, tr);
+            resolve_expressions_in_element_recursively(child, component, diag, tr);
         }
     }
     for x in &doc.inner_components {
-        resolve_expressions_in_element_recursively(&x.root_element, doc, diag, tr)
+        resolve_expressions_in_element_recursively(&x.root_element, x, diag, tr)
     }
 }

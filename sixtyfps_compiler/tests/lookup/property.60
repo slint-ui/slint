@@ -1,4 +1,18 @@
 
+Comp := Rectangle {
+    property<int32> custom_prop;
+    property<color> color_prop;
+    color_prop: red;
+
+    Rectangle {
+        x: custom_prop;
+        y: nothing;
+//         ^error{Unknown unqualified identifier 'nothing'}
+    }
+
+}
+
+
 X := Rectangle {
     width: 50;
     height: width;
@@ -17,4 +31,11 @@ X := Rectangle {
 //             ^error{Cannot access property 'blue'}
 
     }
+
+    plop := Comp {
+        x: plop.custom_prop;
+        color_prop: yellow;
+    }
+
+
 }

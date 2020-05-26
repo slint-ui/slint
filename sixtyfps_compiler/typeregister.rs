@@ -37,10 +37,8 @@ impl Type {
             Type::Component(c) => {
                 if c.root_element.borrow().signals_declaration.iter().any(|x| x == name) {
                     Type::Signal
-                } else if let Some(t) = c.root_element.borrow().property_declarations.get(name) {
-                    t.clone()
                 } else {
-                    c.root_element.borrow().base_type.lookup_property(name)
+                    c.root_element.borrow().lookup_property(name)
                 }
             }
             Type::Builtin(b) => b.properties.get(name).cloned().unwrap_or_default(),
