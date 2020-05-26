@@ -42,7 +42,11 @@ fn process_file(path: &std::path::Path) -> std::io::Result<bool> {
     process_file_source(path, source, false)
 }
 
-fn process_file_source(path: &std::path::Path, source: String, silent: bool) -> std::io::Result<bool> {
+fn process_file_source(
+    path: &std::path::Path,
+    source: String,
+    silent: bool,
+) -> std::io::Result<bool> {
     let (res, mut diag) = sixtyfps_compiler::parser::parse(&source);
     diag.current_path = path.to_path_buf();
     let mut tr = sixtyfps_compiler::typeregister::TypeRegister::builtin();
@@ -83,8 +87,8 @@ fn process_file_source(path: &std::path::Path, source: String, silent: bool) -> 
     if !diag.inner.is_empty() {
         println!("{:?}: Unexptected errors: {:#?}", path, diag.inner);
 
-        #[cfg(feature = "display-diagnostics")]
         if !silent {
+            #[cfg(feature = "display-diagnostics")]
             diag.print(source);
         }
 
