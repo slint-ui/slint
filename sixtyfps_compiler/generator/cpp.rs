@@ -162,7 +162,7 @@ fn handle_item(
 
     let id = &item.id;
     init.extend(item.bindings.iter().map(|(s, i)| {
-        use crate::expression_tree::{Expression, Expression::*};
+        use crate::expression_tree::Expression;
         match i {
             Expression::SignalReference { component:_, element:_, name } => {
                 let signal_accessor_prefix = if item.signals_declaration.contains(s) {
@@ -183,14 +183,7 @@ fn handle_item(
                     format!("{id}.", id = id.clone())
                 };
 
-                let init = match &i {
-                    StringLiteral(s) => {
-                        format!(r#"sixtyfps::SharedString("{}")"#, s.escape_default())
-                    }
-                    NumberLiteral(n) => n.to_string(),
-                    PropertyReference { name, .. } => format!(r#"{}.get()"#, name),
-                    _ => format!("\n#error: unsupported expression {:?}\n", i),
-                };
+                let init = compile_expression(i);
                 format!(
                     "{accessor_prefix}{cpp_prop}.set({init});",
                     accessor_prefix = accessor_prefix,
@@ -298,18 +291,28 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<impl st
         init: Some("{ nullptr, sixtyfps::dummy_destory, tree_fn }".to_owned()),
     }));
 
-    /*x.declarations.push(Declaration::Function(Function {
-        name: "main".into(),
-        signature: "() -> int".to_owned(),
-        statements: Some(vec![
-            format!("static {} component;", component.id),
-            format!("sixtyfps::run(&component);"),
-        ]),
-        ..Default::default()
-    }));*/
     if diag.has_error() {
         None
     } else {
         Some(x)
+    }
+}
+
+fn compile_expression(e: &crate::expression_tree::Expression) -> String {
+    use crate::expression_tree::Expression::*;
+    match e {
+        StringLiteral(s) => format!(r#"sixtyfps::SharedString("{}")"#, s.escape_default()),
+        NumberLiteral(n) => n.to_string(),
+        PropertyReference { name, .. } => format!(r#"{}.get()"#, name),
+        Cast { from, to } => {
+            let f = compile_expression(&*from);
+            match (from.ty(), to) {
+                (Type::Float32, Type::String) | (Type::Int32, Type::String) => {
+                    format!("sixtyfps::SharedString::from_number({})", f)
+                }
+                _ => f,
+            }
+        }
+        _ => format!("\n#error: unsupported expression {:?}\n", e),
     }
 }

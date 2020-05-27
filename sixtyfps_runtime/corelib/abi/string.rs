@@ -228,6 +228,24 @@ where
 
 impl Eq for SharedString {}
 
+#[test]
+fn simple_test() {
+    let x = SharedString::from("hello world!");
+    assert_eq!(x, "hello world!");
+    assert_ne!(x, "hello world?");
+    assert_eq!(x, x.clone());
+    assert_eq!("hello world!", x.as_str());
+    let string = String::from("hello world!");
+    assert_eq!(x, string);
+    let def = SharedString::default();
+    assert_eq!(def, SharedString::default());
+    assert_ne!(def, x);
+    assert_eq!(
+        (&x as &dyn AsRef<std::ffi::CStr>).as_ref(),
+        &*std::ffi::CString::new("hello world!").unwrap()
+    );
+}
+
 /// for cbingen.
 #[allow(non_camel_case_types)]
 type c_char = u8;
@@ -245,14 +263,14 @@ pub unsafe extern "C" fn sixtyfps_shared_string_drop(ss: *const SharedString) {
 
 #[no_mangle]
 /// Increment the reference count of the string.
-/// the resulting structure must be passed to sixtyfps_shared_string_drop
+/// The resulting structure must be passed to sixtyfps_shared_string_drop
 pub unsafe extern "C" fn sixtyfps_shared_string_clone(out: *mut SharedString, ss: &SharedString) {
     core::ptr::write(out, ss.clone())
 }
 
 #[no_mangle]
 /// Safety: bytes must be a valid utf-8 string of size len wihout null inside.
-/// the resulting structure must be passed to sixtyfps_shared_string_drop
+/// The resulting structure must be passed to sixtyfps_shared_string_drop
 pub unsafe extern "C" fn sixtyfps_shared_string_from_bytes(
     out: *mut SharedString,
     bytes: *const c_char,
@@ -262,20 +280,32 @@ pub unsafe extern "C" fn sixtyfps_shared_string_from_bytes(
     core::ptr::write(out, SharedString::from(str));
 }
 
+/// Create a string from a number.
+/// The resulting structure must be passed to sixtyfps_shared_string_drop
+#[no_mangle]
+pub unsafe extern "C" fn sixtyfps_shared_string_from_number(out: *mut SharedString, n: f64) {
+    // TODO: implement Write for SharedString so this can be done without alocation
+    let str = format!("{}", n);
+    core::ptr::write(out, SharedString::from(str.as_str()));
+}
+
 #[test]
-fn simple_test() {
-    let x = SharedString::from("hello world!");
-    assert_eq!(x, "hello world!");
-    assert_ne!(x, "hello world?");
-    assert_eq!(x, x.clone());
-    assert_eq!("hello world!", x.as_str());
-    let string = String::from("hello world!");
-    assert_eq!(x, string);
-    let def = SharedString::default();
-    assert_eq!(def, SharedString::default());
-    assert_ne!(def, x);
-    assert_eq!(
-        (&x as &dyn AsRef<std::ffi::CStr>).as_ref(),
-        &*std::ffi::CString::new("hello world!").unwrap()
-    );
+fn test_sixtyfps_shared_string_from_number() {
+    unsafe {
+        let mut s = core::mem::MaybeUninit::uninit();
+        sixtyfps_shared_string_from_number(s.as_mut_ptr(), 45.);
+        assert_eq!(s.assume_init(), "45");
+
+        let mut s = core::mem::MaybeUninit::uninit();
+        sixtyfps_shared_string_from_number(s.as_mut_ptr(), 45.12);
+        assert_eq!(s.assume_init(), "45.12");
+
+        let mut s = core::mem::MaybeUninit::uninit();
+        sixtyfps_shared_string_from_number(s.as_mut_ptr(), -1325466.);
+        assert_eq!(s.assume_init(), "-1325466");
+
+        let mut s = core::mem::MaybeUninit::uninit();
+        sixtyfps_shared_string_from_number(s.as_mut_ptr(), -0.);
+        assert_eq!(s.assume_init(), "0");
+    }
 }

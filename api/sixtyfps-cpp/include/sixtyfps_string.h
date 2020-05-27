@@ -31,7 +31,11 @@ struct SharedString
     operator std::string_view() const { return internal::sixtyfps_shared_string_bytes(this); }
     auto data() const -> const char * { return internal::sixtyfps_shared_string_bytes(this); }
 
+    static SharedString from_number(double n) { return SharedString(n); }
+
 private:
+    /// Use SharedString::from_number
+    explicit SharedString(double n) { internal::sixtyfps_shared_string_from_number(this, n); }
     void *inner; // opaque
 };
 }
