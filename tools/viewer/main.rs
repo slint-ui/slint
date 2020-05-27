@@ -2,6 +2,8 @@ use core::ptr::NonNull;
 use corelib::abi::datastructures::{ComponentBox, ComponentRef, ComponentRefMut, ComponentVTable};
 use corelib::{Property, SharedString};
 use sixtyfps_compiler::expression_tree::Expression;
+use sixtyfps_compiler::typeregister::Type;
+use sixtyfps_compiler::*;
 use std::collections::HashMap;
 use structopt::StructOpt;
 
@@ -55,7 +57,7 @@ unsafe fn construct<T: Default>(ptr: *mut u8) {
     core::ptr::write(ptr as *mut T, T::default());
 }
 
-unsafe fn set_property<T: PropertyWriter>(ptr: *mut u8, e: &Expression) {
+unsafe fn set_property<T: PropertyWriter>(ptr: *mut u8, e: &Expression, _ctx: &ComponentImpl) {
     T::write(ptr, e);
 }
 
@@ -65,6 +67,25 @@ extern "C" fn dummy_destroy(_: ComponentRefMut) {
 
 extern "C" fn dummy_create(_: &ComponentVTable) -> ComponentBox {
     panic!()
+}
+
+struct ItemWithinComponent<'a> {
+    offset: usize,
+    rtti: &'a RuntimeTypeInfo,
+    init_properties: HashMap<String, Expression>,
+}
+
+type SetterFn = unsafe fn(*mut u8, &Expression, &ComponentImpl);
+
+struct PropertiesWithinComponent {
+    offset: usize,
+    set: SetterFn,
+    create: unsafe fn(*mut u8),
+}
+struct ComponentImpl<'a> {
+    mem: *mut u8,
+    items: Vec<ItemWithinComponent<'a>>,
+    custom_properties: HashMap<String, PropertiesWithinComponent>,
 }
 
 #[repr(C)]
@@ -82,12 +103,11 @@ extern "C" fn item_tree(r: ComponentRef<'_>) -> *const corelib::abi::datastructu
 struct RuntimeTypeInfo {
     vtable: *const corelib::abi::datastructures::ItemVTable,
     construct: unsafe fn(*mut u8),
-    properties: HashMap<&'static str, (usize, unsafe fn(*mut u8, &Expression))>,
+    properties: HashMap<&'static str, (usize, SetterFn)>,
     size: usize,
 }
 
 fn main() -> std::io::Result<()> {
-    use sixtyfps_compiler::*;
     let args = Cli::from_args();
     let source = std::fs::read_to_string(&args.path)?;
     let (syntax_node, mut diag) = parser::parse(&source);
@@ -198,9 +218,36 @@ fn main() -> std::io::Result<()> {
             children_index: child_offset,
             chilren_count: item.children.len() as _,
         });
-        items_types.push((current_offset, rt, item.init_properties.clone()));
+        items_types.push(ItemWithinComponent {
+            offset: current_offset,
+            rtti: rt,
+            init_properties: item.init_properties.clone(),
+        });
         current_offset += rt.size;
     });
+
+    let mut custom_properties = HashMap::new();
+    for x in &l.property_declarations {
+        fn create_and_set<T: PropertyWriter + Default + 'static>() -> (SetterFn, unsafe fn(*mut u8))
+        {
+            (set_property::<T>, construct::<Property<T>>)
+        }
+        let (set, create) = match x.property_type {
+            Type::Float32 => create_and_set::<f32>(),
+            Type::Int32 => create_and_set::<u32>(),
+            Type::String => create_and_set::<SharedString>(),
+            Type::Color => create_and_set::<u32>(),
+            Type::Image => create_and_set::<SharedString>(),
+            Type::Bool => create_and_set::<bool>(),
+            _ => panic!("bad type"),
+        };
+        custom_properties.insert(
+            x.name_hint.clone(),
+            PropertiesWithinComponent { offset: current_offset, set, create },
+        );
+        // FIXME: get the actual size depending of the type
+        current_offset += 32;
+    }
 
     let t = ComponentVTable { create: dummy_create, drop: dummy_destroy, item_tree };
     let t = MyComponentType { ct: t, it: tree_array };
@@ -209,13 +256,24 @@ fn main() -> std::io::Result<()> {
     my_impl.resize(current_offset / 8 + 1, 0);
     let mem = my_impl.as_mut_ptr() as *mut u8;
 
-    for (offset, rtti, properties) in items_types {
+    for (_, PropertiesWithinComponent { offset, create, .. }) in &custom_properties {
+        unsafe { create(mem.offset(*offset as isize)) };
+    }
+
+    let ctx = ComponentImpl { mem, items: items_types, custom_properties };
+
+    for ItemWithinComponent { offset, rtti, init_properties } in &ctx.items {
         unsafe {
-            let item = mem.offset(offset as isize);
+            let item = mem.offset(*offset as isize);
             (rtti.construct)(item as _);
-            for (prop, expr) in properties {
-                let (o, set) = rtti.properties[&*prop];
-                set(item.offset(o as isize), &expr);
+            for (prop, expr) in init_properties {
+                if let Some((o, set)) = rtti.properties.get(prop.as_str()) {
+                    set(item.offset(*o as isize), &expr, &ctx);
+                } else {
+                    let PropertiesWithinComponent { offset, set, .. } =
+                        ctx.custom_properties[prop.as_str()];
+                    set(item.offset(offset as isize), &expr, &ctx);
+                }
             }
         }
     }
