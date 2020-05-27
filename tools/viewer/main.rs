@@ -7,6 +7,9 @@ use sixtyfps_compiler::*;
 use std::collections::HashMap;
 use structopt::StructOpt;
 
+type SetterFn = unsafe fn(*mut u8, eval::Value);
+type GetterFn = unsafe fn(*mut u8) -> eval::Value;
+
 #[derive(StructOpt)]
 struct Cli {
     #[structopt(name = "path to .60 file", parse(from_os_str))]
@@ -14,42 +17,58 @@ struct Cli {
 }
 
 trait PropertyWriter {
-    unsafe fn write(ptr: *mut u8, value: &Expression);
+    unsafe fn write(ptr: *mut u8, value: eval::Value);
+    unsafe fn read(ptr: *mut u8) -> eval::Value;
 }
 
 impl PropertyWriter for f32 {
-    unsafe fn write(ptr: *mut u8, value: &Expression) {
+    unsafe fn write(ptr: *mut u8, value: eval::Value) {
         let val: Self = match value {
-            Expression::NumberLiteral(v) => *v as _,
+            eval::Value::Number(v) => v as _,
             _ => todo!(),
         };
         (*(ptr as *mut Property<Self>)).set(val);
     }
+    unsafe fn read(ptr: *mut u8) -> eval::Value {
+        let s: Self = (*(ptr as *mut Property<Self>)).get();
+        eval::Value::Number(s as _)
+    }
 }
 
 impl PropertyWriter for bool {
-    unsafe fn write(_ptr: *mut u8, _value: &Expression) {
+    unsafe fn write(_ptr: *mut u8, _value: eval::Value) {
+        todo!("Boolean expression not implemented")
+    }
+    unsafe fn read(_ptr: *mut u8) -> eval::Value {
         todo!("Boolean expression not implemented")
     }
 }
 
 impl PropertyWriter for u32 {
-    unsafe fn write(ptr: *mut u8, value: &Expression) {
+    unsafe fn write(ptr: *mut u8, value: eval::Value) {
         let val: Self = match value {
-            Expression::NumberLiteral(v) => *v as _,
+            eval::Value::Number(v) => v as _,
             _ => todo!(),
         };
         (*(ptr as *mut Property<Self>)).set(val);
     }
+    unsafe fn read(ptr: *mut u8) -> eval::Value {
+        let s: Self = (*(ptr as *mut Property<Self>)).get();
+        eval::Value::Number(s as _)
+    }
 }
 
 impl PropertyWriter for SharedString {
-    unsafe fn write(ptr: *mut u8, value: &Expression) {
+    unsafe fn write(ptr: *mut u8, value: eval::Value) {
         let val: Self = match value {
-            Expression::StringLiteral(v) => (**v).into(),
+            eval::Value::String(v) => v,
             _ => todo!(),
         };
-        (*(ptr as *mut Property<Self>)).set(val.clone());
+        (*(ptr as *mut Property<Self>)).set(val);
+    }
+    unsafe fn read(ptr: *mut u8) -> eval::Value {
+        let s: Self = (*(ptr as *mut Property<Self>)).get();
+        eval::Value::String(s)
     }
 }
 
@@ -57,8 +76,12 @@ unsafe fn construct<T: Default>(ptr: *mut u8) {
     core::ptr::write(ptr as *mut T, T::default());
 }
 
-unsafe fn set_property<T: PropertyWriter>(ptr: *mut u8, e: &Expression, _ctx: &ComponentImpl) {
+unsafe fn set_property<T: PropertyWriter>(ptr: *mut u8, e: eval::Value) {
     T::write(ptr, e);
+}
+
+unsafe fn get_property<T: PropertyWriter>(ptr: *mut u8) -> eval::Value {
+    T::read(ptr)
 }
 
 extern "C" fn dummy_destroy(_: ComponentRefMut) {
@@ -75,16 +98,17 @@ struct ItemWithinComponent<'a> {
     init_properties: HashMap<String, Expression>,
 }
 
-type SetterFn = unsafe fn(*mut u8, &Expression, &ComponentImpl);
+mod eval;
 
 struct PropertiesWithinComponent {
     offset: usize,
     set: SetterFn,
+    get: GetterFn,
     create: unsafe fn(*mut u8),
 }
-struct ComponentImpl<'a> {
+pub struct ComponentImpl<'a> {
     mem: *mut u8,
-    items: Vec<ItemWithinComponent<'a>>,
+    items: HashMap<String, ItemWithinComponent<'a>>,
     custom_properties: HashMap<String, PropertiesWithinComponent>,
 }
 
@@ -103,7 +127,7 @@ extern "C" fn item_tree(r: ComponentRef<'_>) -> *const corelib::abi::datastructu
 struct RuntimeTypeInfo {
     vtable: *const corelib::abi::datastructures::ItemVTable,
     construct: unsafe fn(*mut u8),
-    properties: HashMap<&'static str, (usize, SetterFn)>,
+    properties: HashMap<&'static str, (usize, SetterFn, GetterFn)>,
     size: usize,
 }
 
@@ -132,11 +156,46 @@ fn main() -> std::io::Result<()> {
             vtable: &corelib::abi::primitives::RectangleVTable as _,
             construct: construct::<Rectangle>,
             properties: [
-                ("x", (offsets.x.get_byte_offset(), set_property::<f32> as _)),
-                ("y", (offsets.y.get_byte_offset(), set_property::<f32> as _)),
-                ("width", (offsets.width.get_byte_offset(), set_property::<f32> as _)),
-                ("height", (offsets.height.get_byte_offset(), set_property::<f32> as _)),
-                ("color", (offsets.color.get_byte_offset(), set_property::<u32> as _)),
+                (
+                    "x",
+                    (
+                        offsets.x.get_byte_offset(),
+                        set_property::<f32> as _,
+                        get_property::<f32> as _,
+                    ),
+                ),
+                (
+                    "y",
+                    (
+                        offsets.y.get_byte_offset(),
+                        set_property::<f32> as _,
+                        get_property::<f32> as _,
+                    ),
+                ),
+                (
+                    "width",
+                    (
+                        offsets.width.get_byte_offset(),
+                        set_property::<f32> as _,
+                        get_property::<f32> as _,
+                    ),
+                ),
+                (
+                    "height",
+                    (
+                        offsets.height.get_byte_offset(),
+                        set_property::<f32> as _,
+                        get_property::<f32> as _,
+                    ),
+                ),
+                (
+                    "color",
+                    (
+                        offsets.color.get_byte_offset(),
+                        set_property::<u32> as _,
+                        get_property::<f32> as _,
+                    ),
+                ),
             ]
             .iter()
             .cloned()
@@ -152,11 +211,46 @@ fn main() -> std::io::Result<()> {
             vtable: &corelib::abi::primitives::ImageVTable as _,
             construct: construct::<Image>,
             properties: [
-                ("x", (offsets.x.get_byte_offset(), set_property::<f32> as _)),
-                ("y", (offsets.y.get_byte_offset(), set_property::<f32> as _)),
-                ("width", (offsets.width.get_byte_offset(), set_property::<f32> as _)),
-                ("height", (offsets.height.get_byte_offset(), set_property::<f32> as _)),
-                ("source", (offsets.source.get_byte_offset(), set_property::<SharedString> as _)),
+                (
+                    "x",
+                    (
+                        offsets.x.get_byte_offset(),
+                        set_property::<f32> as _,
+                        get_property::<f32> as _,
+                    ),
+                ),
+                (
+                    "y",
+                    (
+                        offsets.y.get_byte_offset(),
+                        set_property::<f32> as _,
+                        get_property::<f32> as _,
+                    ),
+                ),
+                (
+                    "width",
+                    (
+                        offsets.width.get_byte_offset(),
+                        set_property::<f32> as _,
+                        get_property::<f32> as _,
+                    ),
+                ),
+                (
+                    "height",
+                    (
+                        offsets.height.get_byte_offset(),
+                        set_property::<f32> as _,
+                        get_property::<f32> as _,
+                    ),
+                ),
+                (
+                    "source",
+                    (
+                        offsets.source.get_byte_offset(),
+                        set_property::<SharedString> as _,
+                        get_property::<SharedString> as _,
+                    ),
+                ),
             ]
             .iter()
             .cloned()
@@ -172,10 +266,38 @@ fn main() -> std::io::Result<()> {
             vtable: &corelib::abi::primitives::TextVTable as _,
             construct: construct::<Text>,
             properties: [
-                ("x", (offsets.x.get_byte_offset(), set_property::<f32> as _)),
-                ("y", (offsets.y.get_byte_offset(), set_property::<f32> as _)),
-                ("text", (offsets.text.get_byte_offset(), set_property::<SharedString> as _)),
-                ("color", (offsets.color.get_byte_offset(), set_property::<u32> as _)),
+                (
+                    "x",
+                    (
+                        offsets.x.get_byte_offset(),
+                        set_property::<f32> as _,
+                        get_property::<f32> as _,
+                    ),
+                ),
+                (
+                    "y",
+                    (
+                        offsets.y.get_byte_offset(),
+                        set_property::<f32> as _,
+                        get_property::<f32> as _,
+                    ),
+                ),
+                (
+                    "text",
+                    (
+                        offsets.text.get_byte_offset(),
+                        set_property::<SharedString> as _,
+                        get_property::<SharedString> as _,
+                    ),
+                ),
+                (
+                    "color",
+                    (
+                        offsets.color.get_byte_offset(),
+                        set_property::<u32> as _,
+                        get_property::<f32> as _,
+                    ),
+                ),
             ]
             .iter()
             .cloned()
@@ -191,11 +313,46 @@ fn main() -> std::io::Result<()> {
             vtable: &corelib::abi::primitives::TouchAreaVTable as _,
             construct: construct::<TouchArea>,
             properties: [
-                ("x", (offsets.x.get_byte_offset(), set_property::<f32> as _)),
-                ("y", (offsets.y.get_byte_offset(), set_property::<f32> as _)),
-                ("width", (offsets.width.get_byte_offset(), set_property::<f32> as _)),
-                ("height", (offsets.height.get_byte_offset(), set_property::<f32> as _)),
-                ("pressed", (offsets.pressed.get_byte_offset(), set_property::<bool> as _)),
+                (
+                    "x",
+                    (
+                        offsets.x.get_byte_offset(),
+                        set_property::<f32> as _,
+                        get_property::<f32> as _,
+                    ),
+                ),
+                (
+                    "y",
+                    (
+                        offsets.y.get_byte_offset(),
+                        set_property::<f32> as _,
+                        get_property::<f32> as _,
+                    ),
+                ),
+                (
+                    "width",
+                    (
+                        offsets.width.get_byte_offset(),
+                        set_property::<f32> as _,
+                        get_property::<f32> as _,
+                    ),
+                ),
+                (
+                    "height",
+                    (
+                        offsets.height.get_byte_offset(),
+                        set_property::<f32> as _,
+                        get_property::<f32> as _,
+                    ),
+                ),
+                (
+                    "pressed",
+                    (
+                        offsets.pressed.get_byte_offset(),
+                        set_property::<bool> as _,
+                        get_property::<bool> as _,
+                    ),
+                ),
             ]
             .iter()
             .cloned()
@@ -208,7 +365,7 @@ fn main() -> std::io::Result<()> {
 
     let mut tree_array = vec![];
     let mut current_offset = 0usize;
-    let mut items_types = vec![];
+    let mut items_types = HashMap::new();
 
     generator::build_array_helper(&l, |item, child_offset| {
         let rt = &rtti[&*item.native_type.class_name];
@@ -218,21 +375,24 @@ fn main() -> std::io::Result<()> {
             children_index: child_offset,
             chilren_count: item.children.len() as _,
         });
-        items_types.push(ItemWithinComponent {
-            offset: current_offset,
-            rtti: rt,
-            init_properties: item.init_properties.clone(),
-        });
+        items_types.insert(
+            item.id.clone(),
+            ItemWithinComponent {
+                offset: current_offset,
+                rtti: rt,
+                init_properties: item.init_properties.clone(),
+            },
+        );
         current_offset += rt.size;
     });
 
     let mut custom_properties = HashMap::new();
-    for x in &l.property_declarations {
-        fn create_and_set<T: PropertyWriter + Default + 'static>() -> (SetterFn, unsafe fn(*mut u8))
-        {
-            (set_property::<T>, construct::<Property<T>>)
+    for (name, decl) in &l.property_declarations {
+        fn create_and_set<T: PropertyWriter + Default + 'static>(
+        ) -> (SetterFn, GetterFn, unsafe fn(*mut u8)) {
+            (set_property::<T>, get_property::<T>, construct::<Property<T>>)
         }
-        let (set, create) = match x.property_type {
+        let (set, get, create) = match decl.property_type {
             Type::Float32 => create_and_set::<f32>(),
             Type::Int32 => create_and_set::<u32>(),
             Type::String => create_and_set::<SharedString>(),
@@ -242,8 +402,8 @@ fn main() -> std::io::Result<()> {
             _ => panic!("bad type"),
         };
         custom_properties.insert(
-            x.name_hint.clone(),
-            PropertiesWithinComponent { offset: current_offset, set, create },
+            name.clone(),
+            PropertiesWithinComponent { offset: current_offset, set, get, create },
         );
         // FIXME: get the actual size depending of the type
         current_offset += 32;
@@ -256,23 +416,24 @@ fn main() -> std::io::Result<()> {
     my_impl.resize(current_offset / 8 + 1, 0);
     let mem = my_impl.as_mut_ptr() as *mut u8;
 
-    for (_, PropertiesWithinComponent { offset, create, .. }) in &custom_properties {
+    for PropertiesWithinComponent { offset, create, .. } in custom_properties.values() {
         unsafe { create(mem.offset(*offset as isize)) };
     }
 
     let ctx = ComponentImpl { mem, items: items_types, custom_properties };
 
-    for ItemWithinComponent { offset, rtti, init_properties } in &ctx.items {
+    for ItemWithinComponent { offset, rtti, init_properties } in ctx.items.values() {
         unsafe {
             let item = mem.offset(*offset as isize);
             (rtti.construct)(item as _);
             for (prop, expr) in init_properties {
-                if let Some((o, set)) = rtti.properties.get(prop.as_str()) {
-                    set(item.offset(*o as isize), &expr, &ctx);
+                let v = eval::eval_expression(expr, &ctx);
+                if let Some((o, set, _)) = rtti.properties.get(prop.as_str()) {
+                    set(item.offset(*o as isize), v);
                 } else {
                     let PropertiesWithinComponent { offset, set, .. } =
                         ctx.custom_properties[prop.as_str()];
-                    set(item.offset(offset as isize), &expr, &ctx);
+                    set(item.offset(offset as isize), v);
                 }
             }
         }
