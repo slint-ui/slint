@@ -21,8 +21,9 @@ pub mod object_tree;
 pub mod parser;
 pub mod typeregister;
 
-pub mod passes {
+mod passes {
     pub mod inlining;
+    pub mod move_declarations;
     pub mod resolving;
     pub mod unique_id;
 }
@@ -35,4 +36,5 @@ pub fn run_passes(
     passes::resolving::resolve_expressions(doc, diag, tr);
     passes::inlining::inline(doc);
     passes::unique_id::assign_unique_id(&doc.root_component);
+    passes::move_declarations::move_declarations(&doc.root_component);
 }
