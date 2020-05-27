@@ -1,11 +1,11 @@
 //! This module contains the code that lower the tree to the datastructure that that the runtime understand
 use crate::{
     expression_tree::Expression,
-    object_tree::{Component, Element},
+    object_tree::{Component, Element, PropertyDeclaration},
     typeregister::Type,
 };
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 #[derive(Default, Debug)]
@@ -20,8 +20,6 @@ pub struct NativeItemType {
     pub class_name: String,
 }
 
-pub type LoweredPropertyDeclarationIndex = usize;
-
 #[derive(Default, Debug)]
 pub struct LoweredItem {
     pub id: String,
@@ -29,7 +27,7 @@ pub struct LoweredItem {
     pub init_properties: HashMap<String, Expression>,
     /// Right now we only allow forwarding and this connect with the signal in the root
     pub connect_signals: HashMap<String, String>,
-    pub property_declarations: HashMap<String, LoweredPropertyDeclarationIndex>,
+    pub property_declarations: HashSet<String>,
     pub children: Vec<LoweredItem>,
 }
 
@@ -39,7 +37,7 @@ pub struct LoweredComponent {
     pub root_item: LoweredItem,
 
     pub signals_declarations: Vec<String>,
-    pub property_declarations: Vec<LoweredPropertyDeclaration>,
+    pub property_declarations: HashMap<String, PropertyDeclaration>,
 }
 
 // I guess this should actually be in the generator for the given language?
@@ -60,7 +58,9 @@ impl LoweredComponent {
             id: component.id.clone(),
             root_item: LoweredComponent::lower_item(&component.root_element, &mut state),
             signals_declarations: state.signals,
-            property_declarations: state.property_declarations,
+            property_declarations: core::mem::take(
+                &mut component.root_element.borrow_mut().property_declarations,
+            ),
         }
     }
 
@@ -90,15 +90,7 @@ impl LoweredComponent {
             element.signals_declaration.iter().map(|name| format_name(name, elem, &component)),
         );
 
-        for (prop_name, property_decl) in element.property_declarations.iter() {
-            let component_global_index = state.property_declarations.len();
-            lowered.property_declarations.insert(prop_name.clone(), component_global_index);
-            state.property_declarations.push(LoweredPropertyDeclaration {
-                property_type: property_decl.property_type.clone(),
-                name_hint: prop_name.clone(),
-                type_location: property_decl.type_location.clone(),
-            });
-        }
+        lowered.property_declarations.extend(element.property_declarations.keys().cloned());
 
         for (k, e) in element.bindings.iter() {
             if let Expression::SignalReference { name, component, element } = e {
@@ -121,19 +113,11 @@ impl LoweredComponent {
     }
 }
 
-#[derive(Debug)]
-pub struct LoweredPropertyDeclaration {
-    pub property_type: Type,
-    pub name_hint: String,
-    pub type_location: crate::diagnostics::Span,
-}
-
 #[derive(Default)]
 struct LowererState {
     /// The count of item to create the ids
     count: usize,
 
     signals: Vec<String>,
-    property_declarations: Vec<LoweredPropertyDeclaration>,
     component: Rc<Component>,
 }

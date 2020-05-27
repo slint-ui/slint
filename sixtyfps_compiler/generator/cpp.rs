@@ -128,11 +128,12 @@ mod cpp_ast {
 }
 
 use crate::diagnostics::{CompilerDiagnostic, Diagnostics};
-use crate::lower::{LoweredComponent, LoweredItem, LoweredPropertyDeclaration};
+use crate::lower::{LoweredComponent, LoweredItem};
+use crate::object_tree::PropertyDeclaration;
 use crate::typeregister::Type;
 use cpp_ast::*;
 
-impl CppType for LoweredPropertyDeclaration {
+impl CppType for PropertyDeclaration {
     fn cpp_type(&self) -> Result<&str, CompilerDiagnostic> {
         match self.property_type {
             Type::Float32 => Ok("float"),
@@ -162,11 +163,11 @@ fn handle_item(
 
     let id = &item.id;
     init.extend(item.init_properties.iter().map(|(s, i)| {
-        let cpp_prop = item
-            .property_declarations
-            .get(s)
-            .map(|idx| global_properties[*idx].clone())
-            .unwrap_or_else(|| format!("{id}.{prop}", id = id, prop = s.clone()));
+        let accessor_prefix = if item.property_declarations.contains(s) {
+            String::new()
+        } else {
+            format!("{id}.", id = id.clone())
+        };
 
         use crate::expression_tree::Expression::*;
         let init = match &i {
@@ -175,7 +176,12 @@ fn handle_item(
             PropertyReference { name, .. } => format!(r#"{}.get()"#, name),
             _ => format!("\n#error: unsupported expression {:?}\n", i),
         };
-        format!("{cpp_prop}.set({init});", cpp_prop = cpp_prop, init = init)
+        format!(
+            "{accessor_prefix}{cpp_prop}.set({init});",
+            accessor_prefix = accessor_prefix,
+            cpp_prop = s,
+            init = init
+        )
     }));
     init.extend(item.connect_signals.iter().map(|(s, fwd)| {
         format!(
@@ -202,9 +208,7 @@ pub fn generate(
 
     let mut declared_property_members = vec![];
     let mut declared_property_vars = vec![];
-    for (_index, property_decl) in component.property_declarations.iter().enumerate() {
-        let cpp_name = property_decl.name_hint.clone();
-
+    for (cpp_name, property_decl) in component.property_declarations.iter() {
         let cpp_type = property_decl.cpp_type().unwrap_or_else(|err| {
             diag.push_compiler_error(err);
             "".into()
@@ -213,7 +217,7 @@ pub fn generate(
         declared_property_members.push(cpp_name.clone());
         declared_property_vars.push(Declaration::Var(Var {
             ty: format!("sixtyfps::Property<{}>", cpp_type),
-            name: cpp_name,
+            name: cpp_name.clone(),
             init: None,
         }));
     }

@@ -105,7 +105,7 @@ trait RustType {
     fn rust_type(&self) -> Result<proc_macro2::TokenStream, diagnostics::CompilerDiagnostic>;
 }
 
-impl RustType for sixtyfps_compiler::lower::LoweredPropertyDeclaration {
+impl RustType for sixtyfps_compiler::object_tree::PropertyDeclaration {
     fn rust_type(&self) -> Result<proc_macro2::TokenStream, diagnostics::CompilerDiagnostic> {
         use sixtyfps_compiler::typeregister::Type;
         match self.property_type {
@@ -151,8 +151,8 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
     let mut declared_property_var_names = vec![];
     let mut declared_property_vars = vec![];
     let mut declared_property_types = vec![];
-    for (index, property_decl) in lower.property_declarations.iter().enumerate() {
-        let member_name: String = format!("property_{}_{}", index, property_decl.name_hint).into();
+    for (prop_name, property_decl) in lower.property_declarations.iter() {
+        let member_name = prop_name;
         declared_property_var_names.push(member_name.clone());
         declared_property_vars.push(quote::format_ident!("{}", member_name));
         declared_property_types.push(property_decl.rust_type().unwrap_or_else(|err| {
@@ -182,17 +182,13 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
              }
         ));
         for (k, v) in &item.init_properties {
-            let rust_property = item
-                .property_declarations
-                .get(k)
-                .map(|idx| {
-                    let prop_ident = quote::format_ident!("{}", declared_property_var_names[*idx]);
-                    quote!(#prop_ident)
-                })
-                .unwrap_or_else(|| {
-                    let prop_ident = quote::format_ident!("{}", k);
-                    quote!(#field_name.#prop_ident)
-                });
+            let rust_property_ident = quote::format_ident!("{}", k);
+            let rust_property_accessor_prefix = if item.property_declarations.contains(k) {
+                proc_macro2::TokenStream::new()
+            } else {
+                quote!(#field_name.)
+            };
+            let rust_property = quote!(#rust_property_accessor_prefix#rust_property_ident);
 
             let v = match v {
                 Expression::StringLiteral(s) => {
