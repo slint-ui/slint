@@ -24,6 +24,7 @@ pub mod typeregister;
 pub mod passes {
     pub mod inlining;
     pub mod resolving;
+    pub mod unique_id;
 }
 
 pub fn run_passes(
@@ -33,4 +34,5 @@ pub fn run_passes(
 ) {
     passes::resolving::resolve_expressions(doc, diag, tr);
     passes::inlining::inline(doc);
+    passes::unique_id::assign_unique_id(&doc.root_component);
 }

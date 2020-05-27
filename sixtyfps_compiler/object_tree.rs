@@ -93,7 +93,8 @@ pub struct Element {
     /// The id as named in the original .60 file.
     ///
     /// Note that it can only be used for lookup before inlining.
-    /// After inlining there can be duplicated id in the component
+    /// After inlining there can be duplicated id in the component.
+    /// The id are then re-assigned unique id in the assign_id pass
     pub id: String,
     //pub base: QualifiedTypeName,
     pub base_type: crate::typeregister::Type,

@@ -68,8 +68,7 @@ impl LoweredComponent {
         let element = elem.borrow();
         state.count += 1;
 
-        let id =
-            format!("{}_{}", if element.id.is_empty() { "id" } else { &*element.id }, state.count);
+        let id = element.id.clone();
 
         let mut lowered = match &element.base_type {
             Type::Component(_) => {
