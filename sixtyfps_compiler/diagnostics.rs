@@ -103,12 +103,33 @@ impl Diagnostics {
         }
         (self, source)
     }
+
+    #[cfg(feature = "proc_macro_span")]
+    /// Will convert the diagnostics that only have offsets to the actual span
+    pub fn map_offsets_to_span(&mut self, span_map: &[crate::parser::Token]) {
+        for d in &mut self.inner {
+            if d.span.span.is_none() {
+                //let pos =
+                //span_map.binary_search_by_key(d.span.offset, |x| x.0).unwrap_or_else(|x| x);
+                //d.span.span = span_map.get(pos).as_ref().map(|x| x.1);
+                let mut offset = 0;
+                d.span.span = span_map.iter().find_map(|t| {
+                    if d.span.offset <= offset {
+                        t.span
+                    } else {
+                        offset += t.text.len();
+                        None
+                    }
+                });
+            }
+        }
+    }
 }
 
-#[cfg(feature = "proc_macro_diagnostics")]
+#[cfg(feature = "proc_macro_span")]
 use quote::quote;
 
-#[cfg(feature = "proc_macro_diagnostics")]
+#[cfg(feature = "proc_macro_span")]
 impl quote::ToTokens for Diagnostics {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         let diags: Vec<_> = self

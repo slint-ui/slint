@@ -335,14 +335,12 @@ pub trait Spanned {
 
 impl Spanned for SyntaxNode {
     fn span(&self) -> crate::diagnostics::Span {
-        // FIXME!  this does not work with proc_macro span
         crate::diagnostics::Span::new(self.text_range().start().into())
     }
 }
 
 impl Spanned for SyntaxToken {
     fn span(&self) -> crate::diagnostics::Span {
-        // FIXME!  this does not work with proc_macro span
         crate::diagnostics::Span::new(self.text_range().start().into())
     }
 }

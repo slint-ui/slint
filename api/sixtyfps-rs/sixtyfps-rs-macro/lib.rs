@@ -127,7 +127,7 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
     let mut tokens = vec![];
     fill_token_vec(stream, &mut tokens);
 
-    let (syntax_node, mut diag) = parser::parse_tokens(tokens);
+    let (syntax_node, mut diag) = parser::parse_tokens(tokens.clone());
 
     if let Ok(cargo_manifest) = std::env::var("CARGO_MANIFEST_DIR") {
         diag.current_path = cargo_manifest.into();
@@ -140,6 +140,7 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
     run_passes(&tree, &mut diag, &mut tr);
     //println!("{:#?}", tree);
     if diag.has_error() {
+        diag.map_offsets_to_span(&tokens);
         return diag.into_token_stream().into();
     }
 
@@ -162,6 +163,7 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
     }
 
     if diag.has_error() {
+        diag.map_offsets_to_span(&tokens);
         return diag.into_token_stream().into();
     }
 
