@@ -172,6 +172,7 @@ fn handle_item(
         let init = match &i {
             StringLiteral(s) => format!(r#"sixtyfps::SharedString("{}")"#, s.escape_default()),
             NumberLiteral(n) => n.to_string(),
+            PropertyReference { name, .. } => format!(r#"{}.get()"#, name),
             _ => format!("\n#error: unsupported expression {:?}\n", i),
         };
         format!("{cpp_prop}.set({init});", cpp_prop = cpp_prop, init = init)
@@ -201,8 +202,8 @@ pub fn generate(
 
     let mut declared_property_members = vec![];
     let mut declared_property_vars = vec![];
-    for (index, property_decl) in component.property_declarations.iter().enumerate() {
-        let cpp_name: String = format!("property_{}_{}", index, property_decl.name_hint).into();
+    for (_index, property_decl) in component.property_declarations.iter().enumerate() {
+        let cpp_name = property_decl.name_hint.clone();
 
         let cpp_type = property_decl.cpp_type().unwrap_or_else(|err| {
             diag.push_compiler_error(err);
