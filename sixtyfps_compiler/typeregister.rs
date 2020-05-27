@@ -45,6 +45,14 @@ impl Type {
             _ => Type::Invalid,
         }
     }
+
+    pub fn as_builtin(&self) -> &BuiltinElement {
+        match &self {
+            Type::Builtin(b) => &b,
+            Type::Component(_) => panic!("This should not happen because of inlining"),
+            _ => panic!("invalid type"),
+        }
+    }
 }
 
 impl Default for Type {

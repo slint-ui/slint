@@ -19,8 +19,7 @@ fn main() -> std::io::Result<()> {
 
     let (mut diag, source) = diag.check_and_exit_on_error(source);
 
-    let l = lower::LoweredComponent::lower(&doc.root_component);
-    generator::generate(&l, &mut diag);
+    generator::generate(&doc.root_component, &mut diag);
     diag.check_and_exit_on_error(source);
     Ok(())
 }

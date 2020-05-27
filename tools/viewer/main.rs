@@ -361,14 +361,12 @@ fn main() -> std::io::Result<()> {
         },
     );
 
-    let l = lower::LoweredComponent::lower(&tree.root_component);
-
     let mut tree_array = vec![];
     let mut current_offset = 0usize;
     let mut items_types = HashMap::new();
 
-    generator::build_array_helper(&l, |item, child_offset| {
-        let rt = &rtti[&*item.native_type.class_name];
+    generator::build_array_helper(&tree.root_component, |item, child_offset| {
+        let rt = &rtti[&*item.base_type.as_builtin().class_name];
         tree_array.push(corelib::abi::datastructures::ItemTreeNode::Item {
             offset: current_offset as isize,
             vtable: rt.vtable,
@@ -380,14 +378,14 @@ fn main() -> std::io::Result<()> {
             ItemWithinComponent {
                 offset: current_offset,
                 rtti: rt,
-                init_properties: item.init_properties.clone(),
+                init_properties: item.bindings.clone(),
             },
         );
         current_offset += rt.size;
     });
 
     let mut custom_properties = HashMap::new();
-    for (name, decl) in &l.property_declarations {
+    for (name, decl) in &tree.root_component.root_element.borrow().property_declarations {
         fn create_and_set<T: PropertyWriter + Default + 'static>(
         ) -> (SetterFn, GetterFn, unsafe fn(*mut u8)) {
             (set_property::<T>, get_property::<T>, construct::<Property<T>>)
@@ -427,6 +425,9 @@ fn main() -> std::io::Result<()> {
             let item = mem.offset(*offset as isize);
             (rtti.construct)(item as _);
             for (prop, expr) in init_properties {
+                if matches!(expr, Expression::SignalReference{..}) {
+                    continue;
+                }
                 let v = eval::eval_expression(expr, &ctx);
                 if let Some((o, set, _)) = rtti.properties.get(prop.as_str()) {
                     set(item.offset(*o as isize), v);

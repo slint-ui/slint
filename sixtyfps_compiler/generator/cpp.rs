@@ -128,8 +128,7 @@ mod cpp_ast {
 }
 
 use crate::diagnostics::{CompilerDiagnostic, Diagnostics};
-use crate::lower::{LoweredComponent, LoweredItem};
-use crate::object_tree::PropertyDeclaration;
+use crate::object_tree::{Component, Element, PropertyDeclaration};
 use crate::typeregister::Type;
 use cpp_ast::*;
 
@@ -150,56 +149,65 @@ impl CppType for PropertyDeclaration {
 }
 
 fn handle_item(
-    item: &LoweredItem,
+    item: &Element,
     global_properties: &Vec<String>,
     main_struct: &mut Struct,
     init: &mut Vec<String>,
 ) {
     main_struct.members.push(Declaration::Var(Var {
-        ty: format!("sixtyfps::{}", item.native_type.class_name),
+        ty: format!("sixtyfps::{}", item.base_type.as_builtin().class_name),
         name: item.id.clone(),
         ..Default::default()
     }));
 
     let id = &item.id;
-    init.extend(item.init_properties.iter().map(|(s, i)| {
-        let accessor_prefix = if item.property_declarations.contains(s) {
-            String::new()
-        } else {
-            format!("{id}.", id = id.clone())
-        };
+    init.extend(item.bindings.iter().map(|(s, i)| {
+        use crate::expression_tree::{Expression, Expression::*};
+        match i {
+            Expression::SignalReference { component:_, element:_, name } => {
+                let signal_accessor_prefix = if item.signals_declaration.contains(s) {
+                    String::new()
+                } else {
+                    format!("{id}.", id = id.clone())
+                };
 
-        use crate::expression_tree::Expression::*;
-        let init = match &i {
-            StringLiteral(s) => format!(r#"sixtyfps::SharedString("{}")"#, s.escape_default()),
-            NumberLiteral(n) => n.to_string(),
-            PropertyReference { name, .. } => format!(r#"{}.get()"#, name),
-            _ => format!("\n#error: unsupported expression {:?}\n", i),
-        };
-        format!(
-            "{accessor_prefix}{cpp_prop}.set({init});",
-            accessor_prefix = accessor_prefix,
-            cpp_prop = s,
-            init = init
-        )
-    }));
-    init.extend(item.connect_signals.iter().map(|(s, fwd)| {
-        format!(
-            "{prop}.set_handler([](const void *root) {{ reinterpret_cast<const {ty}*>(root)->{fwd}.emit(root); }});", 
-            prop = s, fwd = fwd, ty = main_struct.name
-        )
+                format!(
+                    "{signal_accessor_prefix}{prop}.set_handler([](const void *root) {{ reinterpret_cast<const {ty}*>(root)->{fwd}.emit(root); }});",
+                    signal_accessor_prefix = signal_accessor_prefix, prop = s, fwd = name.clone(), ty = main_struct.name
+                )
+            }
+            _ => {
+                let accessor_prefix = if item.property_declarations.contains_key(s) {
+                    String::new()
+                } else {
+                    format!("{id}.", id = id.clone())
+                };
+
+                let init = match &i {
+                    StringLiteral(s) => {
+                        format!(r#"sixtyfps::SharedString("{}")"#, s.escape_default())
+                    }
+                    NumberLiteral(n) => n.to_string(),
+                    PropertyReference { name, .. } => format!(r#"{}.get()"#, name),
+                    _ => format!("\n#error: unsupported expression {:?}\n", i),
+                };
+                format!(
+                    "{accessor_prefix}{cpp_prop}.set({init});",
+                    accessor_prefix = accessor_prefix,
+                    cpp_prop = s,
+                    init = init
+                )
+            }
+        }
     }));
 
     for i in &item.children {
-        handle_item(i, global_properties, main_struct, init)
+        handle_item(&i.borrow(), global_properties, main_struct, init)
     }
 }
 
 /// Returns the text of the C++ code produced by the given root component
-pub fn generate(
-    component: &LoweredComponent,
-    diag: &mut Diagnostics,
-) -> Option<impl std::fmt::Display> {
+pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<impl std::fmt::Display> {
     let mut x = File::default();
 
     x.includes.push("<sixtyfps.h>".into());
@@ -208,7 +216,7 @@ pub fn generate(
 
     let mut declared_property_members = vec![];
     let mut declared_property_vars = vec![];
-    for (cpp_name, property_decl) in component.property_declarations.iter() {
+    for (cpp_name, property_decl) in component.root_element.borrow().property_declarations.iter() {
         let cpp_type = property_decl.cpp_type().unwrap_or_else(|err| {
             diag.push_compiler_error(err);
             "".into()
@@ -225,11 +233,16 @@ pub fn generate(
     main_struct.members.extend(declared_property_vars);
 
     let mut init = Vec::new();
-    handle_item(&component.root_item, &declared_property_members, &mut main_struct, &mut init);
+    handle_item(
+        &component.root_element.borrow(),
+        &declared_property_members,
+        &mut main_struct,
+        &mut init,
+    );
 
-    main_struct.members.extend(component.signals_declarations.iter().map(|s| {
-        Declaration::Var(Var { ty: "sixtyfps::Signal".into(), name: s.clone(), init: None })
-    }));
+    main_struct.members.extend(component.root_element.borrow().signals_declaration.iter().map(
+        |s| Declaration::Var(Var { ty: "sixtyfps::Signal".into(), name: s.clone(), init: None }),
+    ));
 
     main_struct.members.push(Declaration::Function(Function {
         name: component.id.clone(),
@@ -255,14 +268,14 @@ pub fn generate(
     x.declarations.push(Declaration::Struct(main_struct));
 
     let mut tree_array = String::new();
-    super::build_array_helper(component, |item: &LoweredItem, children_offset| {
+    super::build_array_helper(component, |item: &Element, children_offset| {
         tree_array = format!(
             "{}{}sixtyfps::make_item_node(offsetof({}, {}), &sixtyfps::{}, {}, {})",
             tree_array,
             if tree_array.is_empty() { "" } else { ", " },
             &component.id,
             item.id,
-            item.native_type.vtable,
+            item.base_type.as_builtin().vtable_symbol,
             item.children.len(),
             children_offset,
         )

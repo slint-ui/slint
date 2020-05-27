@@ -5,12 +5,12 @@ There is one sub module for every language
 */
 
 use crate::diagnostics::Diagnostics;
-use crate::lower::{LoweredComponent, LoweredItem};
+use crate::object_tree::{Component, Element};
 
 #[cfg(feature = "cpp")]
 mod cpp;
 
-pub fn generate(component: &LoweredComponent, diag: &mut Diagnostics) {
+pub fn generate(component: &Component, diag: &mut Diagnostics) {
     #![allow(unused_variables)]
     #[cfg(feature = "cpp")]
     {
@@ -23,36 +23,35 @@ pub fn generate(component: &LoweredComponent, diag: &mut Diagnostics) {
 /// Visit each item in order in which they should appear in the children tree array.
 /// The parameter of the visitor are the item, and the first_children_offset
 #[allow(dead_code)]
-pub fn build_array_helper(
-    component: &LoweredComponent,
-    mut visit_item: impl FnMut(&LoweredItem, u32),
-) {
-    visit_item(&component.root_item, 1);
-    visit_children(&component.root_item, 1, &mut visit_item);
+pub fn build_array_helper(component: &Component, mut visit_item: impl FnMut(&Element, u32)) {
+    visit_item(&component.root_element.borrow(), 1);
+    visit_children(&component.root_element.borrow(), 1, &mut visit_item);
 
-    fn sub_children_count(item: &LoweredItem) -> usize {
+    fn sub_children_count(item: &Element) -> usize {
         let mut count = item.children.len();
         for i in &item.children {
-            count += sub_children_count(i);
+            count += sub_children_count(&i.borrow());
         }
         count
     }
 
     fn visit_children(
-        item: &LoweredItem,
+        item: &Element,
         children_offset: u32,
-        visit_item: &mut impl FnMut(&LoweredItem, u32),
+        visit_item: &mut impl FnMut(&Element, u32),
     ) {
         let mut offset = children_offset + item.children.len() as u32;
         for i in &item.children {
-            visit_item(i, offset);
-            offset += sub_children_count(i) as u32;
+            let child = &i.borrow();
+            visit_item(child, offset);
+            offset += sub_children_count(child) as u32;
         }
 
         let mut offset = children_offset + item.children.len() as u32;
         for i in &item.children {
-            visit_children(i, offset, visit_item);
-            offset += sub_children_count(i) as u32;
+            let child = &i.borrow();
+            visit_children(child, offset, visit_item);
+            offset += sub_children_count(child) as u32;
         }
     }
 }

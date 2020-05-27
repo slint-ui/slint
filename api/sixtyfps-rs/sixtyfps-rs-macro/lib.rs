@@ -143,15 +143,15 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
         return diag.into_token_stream().into();
     }
 
-    let lower = lower::LoweredComponent::lower(&tree.root_component);
-
     // FIXME! ideally we would still have the spans available
-    let component_id = quote::format_ident!("{}", lower.id);
+    let component_id = quote::format_ident!("{}", tree.root_component.id);
 
     let mut declared_property_var_names = vec![];
     let mut declared_property_vars = vec![];
     let mut declared_property_types = vec![];
-    for (prop_name, property_decl) in lower.property_declarations.iter() {
+    for (prop_name, property_decl) in
+        tree.root_component.root_element.borrow().property_declarations.iter()
+    {
         let member_name = prop_name;
         declared_property_var_names.push(member_name.clone());
         declared_property_vars.push(quote::format_ident!("{}", member_name));
@@ -169,9 +169,9 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
     let mut item_names = Vec::new();
     let mut item_types = Vec::new();
     let mut init = Vec::new();
-    generator::build_array_helper(&lower, |item, children_index| {
+    generator::build_array_helper(&tree.root_component, |item, children_index| {
         let field_name = quote::format_ident!("{}", item.id);
-        let vtable = quote::format_ident!("{}", item.native_type.vtable);
+        let vtable = quote::format_ident!("{}", item.base_type.as_builtin().vtable_symbol);
         let children_count = item.children.len() as u32;
         item_tree_array.push(quote!(
             sixtyfps::re_exports::ItemTreeNode::Item{
@@ -181,9 +181,9 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
                 children_index: #children_index,
              }
         ));
-        for (k, v) in &item.init_properties {
+        for (k, v) in &item.bindings {
             let rust_property_ident = quote::format_ident!("{}", k);
-            let rust_property_accessor_prefix = if item.property_declarations.contains(k) {
+            let rust_property_accessor_prefix = if item.property_declarations.contains_key(k) {
                 proc_macro2::TokenStream::new()
             } else {
                 quote!(#field_name.)
@@ -191,6 +191,7 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
             let rust_property = quote!(#rust_property_accessor_prefix#rust_property_ident);
 
             let v = match v {
+                Expression::SignalReference { .. } => continue,
                 Expression::StringLiteral(s) => {
                     quote!(sixtyfps::re_exports::SharedString::from(#s))
                 }
@@ -200,7 +201,7 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
             init.push(quote!(self_.#rust_property.set(#v as _);));
         }
         item_names.push(field_name);
-        item_types.push(quote::format_ident!("{}", item.native_type.class_name));
+        item_types.push(quote::format_ident!("{}", item.base_type.as_builtin().class_name));
     });
 
     let item_tree_array_len = item_tree_array.len();

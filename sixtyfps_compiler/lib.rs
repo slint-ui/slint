@@ -16,7 +16,6 @@ extern crate proc_macro;
 pub mod diagnostics;
 pub mod expression_tree;
 pub mod generator;
-pub mod lower;
 pub mod object_tree;
 pub mod parser;
 pub mod typeregister;
