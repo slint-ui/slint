@@ -30,7 +30,7 @@ impl PropertyWriter for f32 {
         (*(ptr as *mut Property<Self>)).set(val);
     }
     unsafe fn read(ptr: *mut u8) -> eval::Value {
-        let s: Self = (*(ptr as *mut Property<Self>)).get();
+        let s: Self = (*(ptr as *mut Property<Self>)).get(None);
         eval::Value::Number(s as _)
     }
 }
@@ -53,7 +53,7 @@ impl PropertyWriter for u32 {
         (*(ptr as *mut Property<Self>)).set(val);
     }
     unsafe fn read(ptr: *mut u8) -> eval::Value {
-        let s: Self = (*(ptr as *mut Property<Self>)).get();
+        let s: Self = (*(ptr as *mut Property<Self>)).get(None);
         eval::Value::Number(s as _)
     }
 }
@@ -67,7 +67,7 @@ impl PropertyWriter for SharedString {
         (*(ptr as *mut Property<Self>)).set(val);
     }
     unsafe fn read(ptr: *mut u8) -> eval::Value {
-        let s: Self = (*(ptr as *mut Property<Self>)).get();
+        let s: Self = (*(ptr as *mut Property<Self>)).get(None);
         eval::Value::String(s)
     }
 }

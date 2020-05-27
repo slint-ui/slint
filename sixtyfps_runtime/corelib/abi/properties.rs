@@ -53,6 +53,11 @@ impl PropertyNotify for RefCell<PropertyImpl> {
     }
 }
 
+#[repr(C)]
+pub struct EvaluationContext<'a> {
+    pub component: vtable::VRef<'a, crate::abi::datastructures::ComponentVTable>,
+}
+
 type PropertyHandle = Rc<RefCell<PropertyImpl>>;
 #[repr(C)]
 #[derive(Default)]
@@ -63,8 +68,8 @@ pub struct Property<T: 'static> {
 }
 
 impl<T: Clone + 'static> Property<T> {
-    pub fn get(&self) -> T {
-        self.update();
+    pub fn get(&self, context: Option<&EvaluationContext>) -> T {
+        self.update(context);
         self.inner.clone().notify();
         let _lock = self.inner.borrow();
         unsafe { (*(self.value.get() as *const T)).clone() }
@@ -91,7 +96,7 @@ impl<T: Clone + 'static> Property<T> {
         self.inner.clone().mark_dirty();
     }
 
-    fn update(&self) {
+    fn update(&self, _context: Option<&EvaluationContext>) {
         if !self.inner.borrow().dirty {
             return;
         }
@@ -125,24 +130,25 @@ fn properties_simple_test() {
     }
     let compo = Rc::new(Component::default());
     let w = Rc::downgrade(&compo);
+    let ctx = None;
     compo.area.set_binding(move || {
         let compo = w.upgrade().unwrap();
-        compo.width.get() * compo.height.get()
+        compo.width.get(ctx) * compo.height.get(ctx)
     });
     compo.width.set(4);
     compo.height.set(8);
-    assert_eq!(compo.width.get(), 4);
-    assert_eq!(compo.height.get(), 8);
-    assert_eq!(compo.area.get(), 4 * 8);
+    assert_eq!(compo.width.get(ctx), 4);
+    assert_eq!(compo.height.get(ctx), 8);
+    assert_eq!(compo.area.get(ctx), 4 * 8);
 
     let w = Rc::downgrade(&compo);
     compo.width.set_binding(move || {
         let compo = w.upgrade().unwrap();
-        compo.height.get() * 2
+        compo.height.get(ctx) * 2
     });
-    assert_eq!(compo.width.get(), 8 * 2);
-    assert_eq!(compo.height.get(), 8);
-    assert_eq!(compo.area.get(), 8 * 8 * 2);
+    assert_eq!(compo.width.get(ctx), 8 * 2);
+    assert_eq!(compo.height.get(ctx), 8);
+    assert_eq!(compo.area.get(ctx), 8 * 8 * 2);
 }
 
 #[allow(non_camel_case_types)]

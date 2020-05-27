@@ -15,7 +15,7 @@ pub mod abi {
 pub use abi::string::SharedString;
 
 #[doc(inline)]
-pub use abi::properties::Property;
+pub use abi::properties::{EvaluationContext, Property};
 
 #[doc(inline)]
 pub use abi::signals::Signal;
@@ -54,11 +54,13 @@ impl<GraphicsBackend: graphics::GraphicsBackend> MainWindow<GraphicsBackend> {
             ) + 'static,
         mut render_function: impl FnMut(
                 vtable::VRef<'_, crate::abi::datastructures::ComponentVTable>,
+                &EvaluationContext,
                 &mut GraphicsBackend::Frame,
                 &mut graphics::RenderingCache<GraphicsBackend>,
             ) + 'static,
         mut input_function: impl FnMut(
                 vtable::VRef<'_, crate::abi::datastructures::ComponentVTable>,
+                &EvaluationContext,
                 winit::dpi::PhysicalPosition<f64>,
                 winit::event::ElementState,
             ) + 'static,
@@ -93,9 +95,10 @@ impl<GraphicsBackend: graphics::GraphicsBackend> MainWindow<GraphicsBackend> {
                     let window = graphics_backend.window();
 
                     let size = window.inner_size();
+                    let context = EvaluationContext { component: component.borrow() };
                     let mut frame =
                         graphics_backend.new_frame(size.width, size.height, &Color::WHITE);
-                    render_function(component.borrow(), &mut frame, &mut rendering_cache);
+                    render_function(component.borrow(), &context, &mut frame, &mut rendering_cache);
                     graphics_backend.present_frame(frame);
                 }
                 winit::event::Event::WindowEvent {
@@ -110,7 +113,8 @@ impl<GraphicsBackend: graphics::GraphicsBackend> MainWindow<GraphicsBackend> {
                     event: winit::event::WindowEvent::MouseInput { state, .. },
                     ..
                 } => {
-                    input_function(component.borrow(), cursor_pos, state);
+                    let context = EvaluationContext { component: component.borrow() };
+                    input_function(component.borrow(), &context, cursor_pos, state);
                     let window = graphics_backend.window();
                     // FIXME: remove this, it should be based on actual changes rather than this
                     window.request_redraw();
@@ -137,8 +141,10 @@ pub fn run_component<GraphicsBackend: graphics::GraphicsBackend + 'static>(
             // Generate cached rendering data once
             crate::abi::datastructures::visit_items_mut(
                 component,
-                |item, _| {
+                |component, item, _| {
+                    let ctx = EvaluationContext { component: component.borrow() };
                     item_rendering::update_item_rendering_data(
+                        &ctx,
                         item,
                         rendering_cache,
                         &mut rendering_primitives_builder,
@@ -147,12 +153,13 @@ pub fn run_component<GraphicsBackend: graphics::GraphicsBackend + 'static>(
                 (),
             );
         },
-        move |component, frame, rendering_cache| {
-            item_rendering::render_component_items(component, frame, &rendering_cache);
+        move |component, context, frame, rendering_cache| {
+            item_rendering::render_component_items(component, context, frame, &rendering_cache);
         },
-        move |component, pos, state| {
+        move |component, context, pos, state| {
             input::process_mouse_event(
                 component,
+                context,
                 crate::abi::datastructures::MouseEvent {
                     pos: euclid::point2(pos.x as _, pos.y as _),
                     what: match state {

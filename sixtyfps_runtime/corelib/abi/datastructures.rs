@@ -107,7 +107,8 @@ unsafe impl Sync for ItemTreeNode {}
 #[repr(C)]
 pub struct ItemVTable {
     ///
-    pub geometry: extern "C" fn(VRef<'_, ItemVTable>) -> Rect,
+    pub geometry:
+        extern "C" fn(VRef<'_, ItemVTable>, context: Option<&crate::EvaluationContext>) -> Rect,
 
     /// offset in bytes fromthe *const ItemImpl.
     /// isize::MAX  means None
@@ -116,7 +117,10 @@ pub struct ItemVTable {
     pub cached_rendering_data_offset: usize,
 
     /// Return the rendering primitive used to display this item.
-    pub rendering_primitive: extern "C" fn(VRef<'_, ItemVTable>) -> RenderingPrimitive,
+    pub rendering_primitive: extern "C" fn(
+        VRef<'_, ItemVTable>,
+        context: Option<&crate::EvaluationContext>,
+    ) -> RenderingPrimitive,
 
     /// We would need max/min/preferred size, and all layout info
     pub layouting_info: extern "C" fn(VRef<'_, ItemVTable>) -> LayoutInfo,
@@ -258,7 +262,7 @@ fn visit_internal<State>(
 
 pub fn visit_items_mut<State>(
     component: VRefMut<'_, ComponentVTable>,
-    mut visitor: impl FnMut(ItemRefMut<'_>, &State) -> State,
+    mut visitor: impl FnMut(VRefMut<'_, ComponentVTable>, ItemRefMut<'_>, &State) -> State,
     state: State,
 ) {
     visit_internal_mut(component, &mut visitor, 0, &state)
@@ -266,7 +270,7 @@ pub fn visit_items_mut<State>(
 
 fn visit_internal_mut<State>(
     mut component: VRefMut<'_, ComponentVTable>,
-    visitor: &mut impl FnMut(ItemRefMut<'_>, &State) -> State,
+    visitor: &mut impl FnMut(VRefMut<'_, ComponentVTable>, ItemRefMut<'_>, &State) -> State,
     index: isize,
     state: &State,
 ) {
@@ -281,7 +285,7 @@ fn visit_internal_mut<State>(
                     ),
                 )
             };
-            let state = visitor(item.borrow_mut(), state);
+            let state = visitor(component.borrow_mut(), item.borrow_mut(), state);
             for c in *children_index..(*children_index + *chilren_count) {
                 visit_internal_mut(component.borrow_mut(), visitor, c as isize, &state)
             }

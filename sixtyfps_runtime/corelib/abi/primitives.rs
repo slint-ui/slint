@@ -18,7 +18,7 @@ use super::datastructures::{
     CachedRenderingData, Color, ComponentRef, Item, ItemConsts, ItemVTable, LayoutInfo, Rect,
     RenderingPrimitive,
 };
-use crate::{Property, SharedString, Signal};
+use crate::{EvaluationContext, Property, SharedString, Signal};
 use vtable::HasStaticVTable;
 
 #[repr(C)]
@@ -34,19 +34,27 @@ pub struct Rectangle {
 }
 
 impl Item for Rectangle {
-    fn geometry(&self) -> Rect {
-        euclid::rect(self.x.get(), self.y.get(), self.width.get(), self.height.get())
+    fn geometry(&self, context: Option<&EvaluationContext>) -> Rect {
+        euclid::rect(
+            self.x.get(context),
+            self.y.get(context),
+            self.width.get(context),
+            self.height.get(context),
+        )
     }
-    fn rendering_primitive(&self) -> RenderingPrimitive {
-        let width = self.width.get();
-        let height = self.height.get();
+    fn rendering_primitive(
+        &self,
+        context: Option<&crate::EvaluationContext>,
+    ) -> RenderingPrimitive {
+        let width = self.width.get(context);
+        let height = self.height.get(context);
         if width > 0. && height > 0. {
             RenderingPrimitive::Rectangle {
-                x: self.x.get(),
-                y: self.y.get(),
+                x: self.x.get(context),
+                y: self.y.get(context),
                 width,
                 height,
-                color: Color::from_argb_encoded(self.color.get()),
+                color: Color::from_argb_encoded(self.color.get(context)),
             }
         } else {
             RenderingPrimitive::NoContents
@@ -83,11 +91,23 @@ pub struct Image {
 }
 
 impl Item for Image {
-    fn geometry(&self) -> Rect {
-        euclid::rect(self.x.get(), self.y.get(), self.width.get(), self.height.get())
+    fn geometry(&self, context: Option<&crate::EvaluationContext>) -> Rect {
+        euclid::rect(
+            self.x.get(context),
+            self.y.get(context),
+            self.width.get(context),
+            self.height.get(context),
+        )
     }
-    fn rendering_primitive(&self) -> RenderingPrimitive {
-        RenderingPrimitive::Image { x: self.x.get(), y: self.y.get(), source: self.source.get() }
+    fn rendering_primitive(
+        &self,
+        context: Option<&crate::EvaluationContext>,
+    ) -> RenderingPrimitive {
+        RenderingPrimitive::Image {
+            x: self.x.get(context),
+            y: self.y.get(context),
+            source: self.source.get(context),
+        }
     }
 
     fn layouting_info(&self) -> LayoutInfo {
@@ -121,17 +141,20 @@ pub struct Text {
 
 impl Item for Text {
     // FIXME: width / height.  or maybe it doesn't matter?  (
-    fn geometry(&self) -> Rect {
-        euclid::rect(self.x.get(), self.y.get(), 0., 0.)
+    fn geometry(&self, context: Option<&crate::EvaluationContext>) -> Rect {
+        euclid::rect(self.x.get(context), self.y.get(context), 0., 0.)
     }
-    fn rendering_primitive(&self) -> RenderingPrimitive {
+    fn rendering_primitive(
+        &self,
+        context: Option<&crate::EvaluationContext>,
+    ) -> RenderingPrimitive {
         RenderingPrimitive::Text {
-            x: self.x.get(),
-            y: self.y.get(),
-            text: self.text.get(),
-            font_family: self.font_family.get(),
-            font_pixel_size: self.font_pixel_size.get(),
-            color: Color::from_argb_encoded(self.color.get()),
+            x: self.x.get(context),
+            y: self.y.get(context),
+            text: self.text.get(context),
+            font_family: self.font_family.get(context),
+            font_pixel_size: self.font_pixel_size.get(context),
+            color: Color::from_argb_encoded(self.color.get(context)),
         }
     }
 
@@ -165,10 +188,18 @@ pub struct TouchArea {
 }
 
 impl Item for TouchArea {
-    fn geometry(&self) -> Rect {
-        euclid::rect(self.x.get(), self.y.get(), self.width.get(), self.height.get())
+    fn geometry(&self, context: Option<&crate::EvaluationContext>) -> Rect {
+        euclid::rect(
+            self.x.get(context),
+            self.y.get(context),
+            self.width.get(context),
+            self.height.get(context),
+        )
     }
-    fn rendering_primitive(&self) -> RenderingPrimitive {
+    fn rendering_primitive(
+        &self,
+        _context: Option<&crate::EvaluationContext>,
+    ) -> RenderingPrimitive {
         RenderingPrimitive::NoContents
     }
 

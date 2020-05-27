@@ -2,14 +2,16 @@ use super::abi::datastructures::ItemRefMut;
 use super::graphics::{
     Frame, GraphicsBackend, HasRenderingPrimitive, RenderingCache, RenderingPrimitivesBuilder,
 };
+use super::EvaluationContext;
 use cgmath::{Matrix4, SquareMatrix, Vector3};
 
 pub(crate) fn update_item_rendering_data<Backend: GraphicsBackend>(
+    context: &EvaluationContext,
     mut item: ItemRefMut<'_>,
     rendering_cache: &mut RenderingCache<Backend>,
     rendering_primitives_builder: &mut Backend::RenderingPrimitivesBuilder,
 ) {
-    let item_rendering_primitive = item.rendering_primitive();
+    let item_rendering_primitive = item.rendering_primitive(Some(context));
 
     let rendering_data = item.cached_rendering_data_offset_mut();
 
@@ -35,6 +37,7 @@ pub(crate) fn update_item_rendering_data<Backend: GraphicsBackend>(
 
 pub(crate) fn render_component_items<Backend: GraphicsBackend>(
     component: vtable::VRef<'_, crate::abi::datastructures::ComponentVTable>,
+    context: &EvaluationContext,
     frame: &mut Backend::Frame,
     rendering_cache: &RenderingCache<Backend>,
 ) {
@@ -43,7 +46,7 @@ pub(crate) fn render_component_items<Backend: GraphicsBackend>(
     crate::abi::datastructures::visit_items(
         component,
         |item, transform| {
-            let origin = item.geometry().origin;
+            let origin = item.geometry(Some(context)).origin;
             let transform =
                 transform * Matrix4::from_translation(Vector3::new(origin.x, origin.y, 0.));
 
@@ -51,7 +54,7 @@ pub(crate) fn render_component_items<Backend: GraphicsBackend>(
             if cached_rendering_data.cache_ok {
                 println!(
                     "Rendering... {:?} from cache {}",
-                    item.rendering_primitive(),
+                    item.rendering_primitive(Some(context)),
                     cached_rendering_data.cache_index
                 );
 
