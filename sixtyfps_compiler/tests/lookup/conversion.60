@@ -1,0 +1,18 @@
+X := Rectangle {
+
+    t := Text {
+        x: "hello";
+//        ^error{Cannot convert string to float32}
+        text: 45;
+    }
+
+    Text {
+        x: t.text;
+//        ^error{Cannot convert string to float32}
+    }
+
+    Rectangle {
+        color: "blue";
+//            ^error{Cannot convert string to color}
+    }
+}
