@@ -13,7 +13,7 @@ use std::{
 
 thread_local!(static CURRENT_PROPERTY : RefCell<Option<Rc<dyn PropertyNotify>>> = Default::default());
 
-type Binding = Box<dyn Fn(*mut ())>;
+type Binding = Box<dyn Fn(*mut (), Option<&EvaluationContext>)>;
 
 #[derive(Default)]
 struct PropertyImpl {
@@ -86,17 +86,17 @@ impl<T: Clone + 'static> Property<T> {
         self.inner.borrow_mut().dirty = false;
     }
 
-    pub fn set_binding(&self, f: impl (Fn() -> T) + 'static) {
-        let real_binding = move |ptr: *mut ()| {
+    pub fn set_binding(&self, f: impl (Fn(Option<&EvaluationContext>) -> T) + 'static) {
+        let real_binding = move |ptr: *mut (), context: Option<&EvaluationContext>| {
             // The binding must be called with a pointer of T
-            unsafe { *(ptr as *mut T) = f() };
+            unsafe { *(ptr as *mut T) = f(context) };
         };
 
         self.inner.borrow_mut().binding = Some(Box::new(real_binding));
         self.inner.clone().mark_dirty();
     }
 
-    fn update(&self, _context: Option<&EvaluationContext>) {
+    fn update(&self, context: Option<&EvaluationContext>) {
         if !self.inner.borrow().dirty {
             return;
         }
@@ -108,7 +108,7 @@ impl<T: Clone + 'static> Property<T> {
                 let mut m = cur_dep.borrow_mut();
                 std::mem::swap(m.deref_mut(), &mut old);
             });
-            binding(self.value.get() as *mut _);
+            binding(self.value.get() as *mut _, context);
             lock.dirty = false;
             CURRENT_PROPERTY.with(|cur_dep| {
                 let mut m = cur_dep.borrow_mut();
@@ -130,19 +130,19 @@ fn properties_simple_test() {
     }
     let compo = Rc::new(Component::default());
     let w = Rc::downgrade(&compo);
-    let ctx = None;
-    compo.area.set_binding(move || {
+    compo.area.set_binding(move |ctx| {
         let compo = w.upgrade().unwrap();
         compo.width.get(ctx) * compo.height.get(ctx)
     });
     compo.width.set(4);
     compo.height.set(8);
+    let ctx = None;
     assert_eq!(compo.width.get(ctx), 4);
     assert_eq!(compo.height.get(ctx), 8);
     assert_eq!(compo.area.get(ctx), 4 * 8);
 
     let w = Rc::downgrade(&compo);
-    compo.width.set_binding(move || {
+    compo.width.set_binding(move |ctx| {
         let compo = w.upgrade().unwrap();
         compo.height.get(ctx) * 2
     });
@@ -188,7 +188,7 @@ pub unsafe extern "C" fn sixtyfps_property_update(
             let mut m = cur_dep.borrow_mut();
             std::mem::swap(m.deref_mut(), &mut old);
         });
-        binding(val);
+        binding(val, None);
         lock.dirty = false;
         CURRENT_PROPERTY.with(|cur_dep| {
             let mut m = cur_dep.borrow_mut();
@@ -242,7 +242,7 @@ pub unsafe extern "C" fn sixtyfps_property_set_binding(
     }
     let ud = UserData { user_data, drop_user_data };
 
-    let real_binding = move |ptr: *mut ()| {
+    let real_binding = move |ptr: *mut (), _: Option<&EvaluationContext>| {
         binding(ud.user_data, ptr);
     };
     inner.borrow_mut().binding = Some(Box::new(real_binding));
