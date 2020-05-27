@@ -74,7 +74,12 @@ pub fn move_declarations(component: &Rc<Component>) {
 }
 
 fn map_name(e: &Rc<RefCell<Element>>, s: &str) -> String {
-    format!("{}_{}", e.borrow().id, s)
+    let id = &e.borrow().id;
+    if id.is_empty() {
+        s.into()
+    } else {
+        format!("{}_{}", id, s)
+    }
 }
 
 fn fixup_bindings(val: &mut Expression, comp: &Rc<Component>) {
