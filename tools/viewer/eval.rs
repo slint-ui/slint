@@ -1,5 +1,6 @@
 use corelib::SharedString;
 use sixtyfps_compiler::expression_tree::Expression;
+use sixtyfps_compiler::typeregister::Type;
 
 #[derive(Debug)]
 pub enum Value {
@@ -25,6 +26,16 @@ pub fn eval_expression(e: &Expression, ctx: &crate::ComponentImpl) -> Value {
             let item = &ctx.items[element.borrow().id.as_str()];
             let (offset, _set, get) = item.rtti.properties[name.as_str()];
             unsafe { get(ctx.mem.offset(offset as isize)) }
+        }
+        Expression::Cast { from, to } => {
+            let v = eval_expression(&*from, ctx);
+            match (v, to) {
+                (Value::Number(n), Type::Int32) => Value::Number(n.round()),
+                (Value::Number(n), Type::String) => {
+                    Value::String(SharedString::from(format!("{}", n).as_str()))
+                }
+                (v, _) => v,
+            }
         }
     }
 }

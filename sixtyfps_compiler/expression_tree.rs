@@ -1,5 +1,5 @@
 use crate::object_tree::*;
-use crate::parser::SyntaxNode;
+use crate::{parser::SyntaxNode, typeregister::Type};
 use core::cell::RefCell;
 use std::rc::Weak;
 
@@ -24,4 +24,24 @@ pub enum Expression {
     ///
     /// Note: if we are to separate expression and statement, we probably do not need to have signal reference within expressions
     PropertyReference { component: Weak<Component>, element: Weak<RefCell<Element>>, name: String },
+
+    /// Cast an expression to the given type
+    Cast { from: Box<Expression>, to: Type },
+}
+
+impl Expression {
+    /// Return the type of this property
+    pub fn ty(&self) -> Type {
+        match self {
+            Expression::Invalid => Type::Invalid,
+            Expression::Uncompiled(_) => Type::Invalid,
+            Expression::StringLiteral(_) => Type::String,
+            Expression::NumberLiteral(_) => Type::Float32,
+            Expression::SignalReference { .. } => Type::Signal,
+            Expression::PropertyReference { element, name, .. } => {
+                element.upgrade().unwrap().borrow().lookup_property(name)
+            }
+            Expression::Cast { to, .. } => to.clone(),
+        }
+    }
 }

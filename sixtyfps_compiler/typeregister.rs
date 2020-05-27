@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::rc::Rc;
+use std::{fmt::Display, rc::Rc};
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
@@ -17,6 +17,41 @@ pub enum Type {
     Color,
     Image,
     Bool,
+}
+
+impl core::cmp::PartialEq for Type {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Type::Invalid, Type::Invalid) => true,
+            (Type::Component(a), Type::Component(b)) => Rc::ptr_eq(a, b),
+            (Type::Builtin(a), Type::Builtin(b)) => Rc::ptr_eq(a, b),
+            (Type::Signal, Type::Signal) => true,
+            (Type::Float32, Type::Float32) => true,
+            (Type::Int32, Type::Int32) => true,
+            (Type::String, Type::String) => true,
+            (Type::Color, Type::Color) => true,
+            (Type::Image, Type::Image) => true,
+            (Type::Bool, Type::Bool) => true,
+            _ => false,
+        }
+    }
+}
+
+impl Display for Type {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Type::Invalid => write!(f, "<error>"),
+            Type::Component(c) => c.id.fmt(f),
+            Type::Builtin(b) => b.class_name.fmt(f),
+            Type::Signal => write!(f, "signal"),
+            Type::Float32 => write!(f, "float32"),
+            Type::Int32 => write!(f, "int32"),
+            Type::String => write!(f, "string"),
+            Type::Color => write!(f, "color"),
+            Type::Image => write!(f, "image"),
+            Type::Bool => write!(f, "bool"),
+        }
+    }
 }
 
 impl Type {
@@ -53,6 +88,22 @@ impl Type {
             _ => panic!("invalid type"),
         }
     }
+
+    /// Return true if the type can be converted to the other type
+    pub fn can_convert(&self, other: &Self) -> bool {
+        self == other
+            || matches!(
+                (self, other),
+                (Type::Float32, Type::Int32)
+                    | (Type::Float32, Type::String)
+                    | (Type::Int32, Type::Float32)
+                    | (Type::Int32, Type::String)
+                    // FIXME: REMOVE
+                    | (Type::Float32, Type::Color)
+                    | (Type::Int32, Type::Color)
+                    | (Type::String, Type::Image)
+            )
+    }
 }
 
 impl Default for Type {
@@ -85,12 +136,13 @@ impl TypeRegister {
     pub fn builtin() -> Self {
         let mut r = TypeRegister::default();
 
-        r.types.insert("float32".into(), Type::Float32);
-        r.types.insert("int32".into(), Type::Int32);
-        r.types.insert("string".into(), Type::String);
-        r.types.insert("color".into(), Type::Color);
-        r.types.insert("image".into(), Type::Image);
-        r.types.insert("bool".into(), Type::Bool);
+        let mut instert_type = |t: Type| r.types.insert(t.to_string(), t);
+        instert_type(Type::Float32);
+        instert_type(Type::Int32);
+        instert_type(Type::String);
+        instert_type(Type::Color);
+        instert_type(Type::Image);
+        instert_type(Type::Bool);
 
         let mut rectangle = BuiltinElement::new("Rectangle");
         rectangle.properties.insert("color".to_owned(), Type::Color);

@@ -2,6 +2,7 @@ extern crate proc_macro;
 use proc_macro::{Spacing, TokenStream};
 use quote::{quote, ToTokens};
 use sixtyfps_compiler::expression_tree::Expression;
+use sixtyfps_compiler::typeregister::Type;
 use sixtyfps_compiler::*;
 
 fn fill_token_vec(stream: TokenStream, vec: &mut Vec<parser::Token>) {
@@ -107,7 +108,6 @@ trait RustType {
 
 impl RustType for sixtyfps_compiler::object_tree::PropertyDeclaration {
     fn rust_type(&self) -> Result<proc_macro2::TokenStream, diagnostics::CompilerDiagnostic> {
-        use sixtyfps_compiler::typeregister::Type;
         match self.property_type {
             Type::Int32 => Ok(quote!(i32)),
             Type::Float32 => Ok(quote!(f32)),
@@ -190,15 +190,13 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
             };
             let rust_property = quote!(#rust_property_accessor_prefix#rust_property_ident);
 
-            let v = match v {
-                Expression::SignalReference { .. } => continue,
-                Expression::StringLiteral(s) => {
-                    quote!(sixtyfps::re_exports::SharedString::from(#s))
-                }
-                Expression::NumberLiteral(n) => quote!(#n),
-                _ => quote!(compile_error! {"unsupported expression"}),
-            };
-            init.push(quote!(self_.#rust_property.set(#v as _);));
+            let v = compile_expression(v);
+            if v.is_none() {
+                // FIXME: this is because signals are not yet implemented
+                continue;
+            }
+
+            init.push(quote!(self_.#rust_property.set(#v);));
         }
         item_names.push(field_name);
         item_types.push(quote::format_ident!("{}", item.base_type.as_builtin().class_name));
@@ -206,7 +204,7 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
 
     let item_tree_array_len = item_tree_array.len();
 
-    quote!(
+    let result = quote!(
         use sixtyfps::re_exports::const_field_offset;
         #[derive(sixtyfps::re_exports::FieldOffsets)]
         #[repr(C)]
@@ -247,6 +245,25 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
                 sixtyfps_runtime_run_component_with_gl_renderer(VRefMut::new(static_self));
             }
         }
-    )
-    .into()
+    );
+    result.into()
+}
+
+fn compile_expression(e: &Expression) -> Option<proc_macro2::TokenStream> {
+    Some(match e {
+        Expression::StringLiteral(s) => quote!(sixtyfps::re_exports::SharedString::from(#s)),
+        Expression::NumberLiteral(n) => quote!(#n as _),
+        Expression::Cast { from, to } => {
+            let f = compile_expression(&*from)?;
+            match (from.ty(), to) {
+                (Type::Float32, Type::String) | (Type::Int32, Type::String) => {
+                    quote!(sixtyfps::re_exports::SharedString::from(format("{}", #f).to_str()))
+                }
+                _ => f,
+            }
+        }
+        // FIXME: signals!
+        Expression::SignalReference { .. } => return None,
+        _ => quote!(compile_error! {"unsupported expression"}),
+    })
 }

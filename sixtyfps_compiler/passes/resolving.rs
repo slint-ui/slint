@@ -75,13 +75,14 @@ struct LookupCtx<'a> {
 impl Expression {
     fn from_binding_expression_node(node: SyntaxNode, ctx: &mut LookupCtx) -> Self {
         debug_assert_eq!(node.kind(), SyntaxKind::BindingExpression);
-
-        node.child_node(SyntaxKind::Expression)
+        let e = node
+            .child_node(SyntaxKind::Expression)
             .or_else(|| {
                 node.child_node(SyntaxKind::CodeBlock)
                     .and_then(|c| c.child_node(SyntaxKind::Expression))
             })
-            .map_or(Self::Invalid, |n| Self::from_expression_node(n, ctx))
+            .map_or(Self::Invalid, |n| Self::from_expression_node(n, ctx));
+        maybe_convert_to(e, ctx, &node)
     }
 
     fn from_expression_node(node: SyntaxNode, ctx: &mut LookupCtx) -> Self {
@@ -257,6 +258,21 @@ impl Expression {
         ctx.diag.push_error(format!("Unknown unqualified identifier '{}'", s), node.span());
 
         Self::Invalid
+    }
+}
+
+/// Create a conversion node if needed, or throw an error if the type is not matching
+fn maybe_convert_to(e: Expression, ctx: &mut LookupCtx, node: &SyntaxNode) -> Expression {
+    let ty = e.ty();
+    if ty == ctx.property_type {
+        e
+    } else if ty.can_convert(&ctx.property_type) {
+        Expression::Cast { from: Box::new(e), to: ctx.property_type.clone() }
+    } else if ty == Type::Invalid {
+        e
+    } else {
+        ctx.diag.push_error(format!("Cannot convert {} to {}", ty, ctx.property_type), node.span());
+        e
     }
 }
 
