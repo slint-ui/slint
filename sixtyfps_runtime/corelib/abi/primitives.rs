@@ -34,7 +34,7 @@ pub struct Rectangle {
 }
 
 impl Item for Rectangle {
-    fn geometry(&self, context: Option<&EvaluationContext>) -> Rect {
+    fn geometry(&self, context: &EvaluationContext) -> Rect {
         euclid::rect(
             self.x.get(context),
             self.y.get(context),
@@ -42,10 +42,7 @@ impl Item for Rectangle {
             self.height.get(context),
         )
     }
-    fn rendering_primitive(
-        &self,
-        context: Option<&crate::EvaluationContext>,
-    ) -> RenderingPrimitive {
+    fn rendering_primitive(&self, context: &crate::EvaluationContext) -> RenderingPrimitive {
         let width = self.width.get(context);
         let height = self.height.get(context);
         if width > 0. && height > 0. {
@@ -91,7 +88,7 @@ pub struct Image {
 }
 
 impl Item for Image {
-    fn geometry(&self, context: Option<&crate::EvaluationContext>) -> Rect {
+    fn geometry(&self, context: &crate::EvaluationContext) -> Rect {
         euclid::rect(
             self.x.get(context),
             self.y.get(context),
@@ -99,10 +96,7 @@ impl Item for Image {
             self.height.get(context),
         )
     }
-    fn rendering_primitive(
-        &self,
-        context: Option<&crate::EvaluationContext>,
-    ) -> RenderingPrimitive {
+    fn rendering_primitive(&self, context: &crate::EvaluationContext) -> RenderingPrimitive {
         RenderingPrimitive::Image {
             x: self.x.get(context),
             y: self.y.get(context),
@@ -141,13 +135,10 @@ pub struct Text {
 
 impl Item for Text {
     // FIXME: width / height.  or maybe it doesn't matter?  (
-    fn geometry(&self, context: Option<&crate::EvaluationContext>) -> Rect {
+    fn geometry(&self, context: &crate::EvaluationContext) -> Rect {
         euclid::rect(self.x.get(context), self.y.get(context), 0., 0.)
     }
-    fn rendering_primitive(
-        &self,
-        context: Option<&crate::EvaluationContext>,
-    ) -> RenderingPrimitive {
+    fn rendering_primitive(&self, context: &crate::EvaluationContext) -> RenderingPrimitive {
         RenderingPrimitive::Text {
             x: self.x.get(context),
             y: self.y.get(context),
@@ -188,7 +179,7 @@ pub struct TouchArea {
 }
 
 impl Item for TouchArea {
-    fn geometry(&self, context: Option<&crate::EvaluationContext>) -> Rect {
+    fn geometry(&self, context: &crate::EvaluationContext) -> Rect {
         euclid::rect(
             self.x.get(context),
             self.y.get(context),
@@ -196,10 +187,7 @@ impl Item for TouchArea {
             self.height.get(context),
         )
     }
-    fn rendering_primitive(
-        &self,
-        _context: Option<&crate::EvaluationContext>,
-    ) -> RenderingPrimitive {
+    fn rendering_primitive(&self, _context: &crate::EvaluationContext) -> RenderingPrimitive {
         RenderingPrimitive::NoContents
     }
 

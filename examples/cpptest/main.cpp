@@ -10,12 +10,12 @@ int main() {
 
     component.plus_clicked.set_handler([](auto...){
         auto &counter = component.counter;
-        counter.set(counter.get() + 1);
+        counter.set(counter.get(nullptr) + 1);
     });
 
     component.minus_clicked.set_handler([](auto...){
         auto &counter = component.counter;
-        counter.set(counter.get() - 1);
+        counter.set(counter.get(nullptr) - 1);
     });
 
     sixtyfps::run(&component);

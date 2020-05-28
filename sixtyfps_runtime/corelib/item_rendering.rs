@@ -11,7 +11,7 @@ pub(crate) fn update_item_rendering_data<Backend: GraphicsBackend>(
     rendering_cache: &mut RenderingCache<Backend>,
     rendering_primitives_builder: &mut Backend::RenderingPrimitivesBuilder,
 ) {
-    let item_rendering_primitive = item.rendering_primitive(Some(context));
+    let item_rendering_primitive = item.rendering_primitive(context);
 
     let rendering_data = item.cached_rendering_data_offset_mut();
 
@@ -46,7 +46,7 @@ pub(crate) fn render_component_items<Backend: GraphicsBackend>(
     crate::abi::datastructures::visit_items(
         component,
         |item, transform| {
-            let origin = item.geometry(Some(context)).origin;
+            let origin = item.geometry(context).origin;
             let transform =
                 transform * Matrix4::from_translation(Vector3::new(origin.x, origin.y, 0.));
 
@@ -54,7 +54,7 @@ pub(crate) fn render_component_items<Backend: GraphicsBackend>(
             if cached_rendering_data.cache_ok {
                 println!(
                     "Rendering... {:?} from cache {}",
-                    item.rendering_primitive(Some(context)),
+                    item.rendering_primitive(context),
                     cached_rendering_data.cache_index
                 );
 

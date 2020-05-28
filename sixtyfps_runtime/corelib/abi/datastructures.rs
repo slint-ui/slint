@@ -107,8 +107,7 @@ unsafe impl Sync for ItemTreeNode {}
 #[repr(C)]
 pub struct ItemVTable {
     ///
-    pub geometry:
-        extern "C" fn(VRef<'_, ItemVTable>, context: Option<&crate::EvaluationContext>) -> Rect,
+    pub geometry: extern "C" fn(VRef<'_, ItemVTable>, context: &crate::EvaluationContext) -> Rect,
 
     /// offset in bytes fromthe *const ItemImpl.
     /// isize::MAX  means None
@@ -119,7 +118,7 @@ pub struct ItemVTable {
     /// Return the rendering primitive used to display this item.
     pub rendering_primitive: extern "C" fn(
         VRef<'_, ItemVTable>,
-        context: Option<&crate::EvaluationContext>,
+        context: &crate::EvaluationContext,
     ) -> RenderingPrimitive,
 
     /// We would need max/min/preferred size, and all layout info

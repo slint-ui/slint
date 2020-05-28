@@ -270,7 +270,7 @@ fn compile_expression(
         Expression::PropertyReference { component: _, element: _, name } => {
             let name_ident = quote::format_ident!("{}", name);
             quote!(.set_binding(|context| {
-               let _self: &#self_id = context.unwrap().component.downcast().unwrap();
+               let _self: &#self_id = context.component.downcast().unwrap();
                _self.#name_ident.get(context)
             }))
         }

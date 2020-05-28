@@ -20,9 +20,9 @@ struct Property
 
     void set(const T &value) const { this->value = value; }
 
-    const T &get() const
+    const T &get(internal::EvaluationContext *context) const
     {
-        internal::sixtyfps_property_update(&inner, &value);
+        internal::sixtyfps_property_update(&inner, context, &value);
         return value;
     }
 

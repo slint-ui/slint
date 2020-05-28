@@ -17,7 +17,7 @@ pub fn process_mouse_event(
     crate::abi::datastructures::visit_items(
         component,
         |item, offset| {
-            let geom = item.geometry(Some(context));
+            let geom = item.geometry(context);
             let geom = geom.translate(*offset);
 
             if geom.contains(event.pos) {

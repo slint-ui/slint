@@ -303,7 +303,7 @@ fn compile_expression(e: &crate::expression_tree::Expression) -> String {
     match e {
         StringLiteral(s) => format!(r#"sixtyfps::SharedString("{}")"#, s.escape_default()),
         NumberLiteral(n) => n.to_string(),
-        PropertyReference { name, .. } => format!(r#"{}.get()"#, name),
+        PropertyReference { name, .. } => format!(r#"{}.get(nullptr)"#, name),
         Cast { from, to } => {
             let f = compile_expression(&*from);
             match (from.ty(), to) {
