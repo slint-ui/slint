@@ -281,7 +281,7 @@ fn compile_expression(e: &Expression) -> proc_macro2::TokenStream {
             let f = compile_expression(&*from);
             match (from.ty(), to) {
                 (Type::Float32, Type::String) | (Type::Int32, Type::String) => {
-                    quote!(sixtyfps::re_exports::SharedString::from(format("{}", #f).to_str()))
+                    quote!(sixtyfps::re_exports::SharedString::from(format!("{}", #f).as_str()))
                 }
                 _ => f,
             }
