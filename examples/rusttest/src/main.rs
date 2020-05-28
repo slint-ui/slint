@@ -23,6 +23,7 @@ component TwoRectangle := Rectangle {
 
 
 component ButtonRectangle := Rectangle {
+    property<string> button_text;
     signal clicked;
     width: 100;
     height: 75;
@@ -30,6 +31,12 @@ component ButtonRectangle := Rectangle {
         width: 100;
         height: 75;
         clicked => { clicked }
+    }
+    Text {
+        x: 50;
+        y: 10;
+        text: button_text;
+        color: black;
     }
 }
 
@@ -72,12 +79,7 @@ Hello := Rectangle {
         x: 50;
         y: 225;
         clicked => { plus_clicked }
-        Text {
-            x: 50;
-            y: 10;
-            text: "+";
-            color: black;
-        }
+        button_text: "+";
     }
     counter := Text { x: 100; y: 300; text: "0"; color: black; }
     ButtonRectangle {
@@ -85,12 +87,7 @@ Hello := Rectangle {
         x: 50;
         y: 350;
         clicked => { minus_clicked }
-        Text {
-            x: 50;
-            y: 10;
-            text: "-";
-            color: black;
-        }
+        button_text: "-";
     }
 
 }

@@ -192,13 +192,13 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
             };
             let rust_property = quote!(#rust_property_accessor_prefix#rust_property_ident);
 
-            let v = compile_expression(v);
+            let v = compile_expression(v, &component_id);
             if v.is_none() {
                 // FIXME: this is because signals are not yet implemented
                 continue;
             }
 
-            init.push(quote!(self_.#rust_property.set(#v);));
+            init.push(quote!(self_.#rust_property#v;));
         }
         item_names.push(field_name);
         item_types.push(quote::format_ident!("{}", item.base_type.as_builtin().class_name));
@@ -251,18 +251,28 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
     result.into()
 }
 
-fn compile_expression(e: &Expression) -> Option<proc_macro2::TokenStream> {
+fn compile_expression(
+    e: &Expression,
+    self_id: &proc_macro2::Ident,
+) -> Option<proc_macro2::TokenStream> {
     Some(match e {
-        Expression::StringLiteral(s) => quote!(sixtyfps::re_exports::SharedString::from(#s)),
-        Expression::NumberLiteral(n) => quote!(#n as _),
+        Expression::StringLiteral(s) => quote!(.set(sixtyfps::re_exports::SharedString::from(#s))),
+        Expression::NumberLiteral(n) => quote!(.set(#n as _)),
         Expression::Cast { from, to } => {
-            let f = compile_expression(&*from)?;
+            let f = compile_expression(&*from, self_id)?;
             match (from.ty(), to) {
                 (Type::Float32, Type::String) | (Type::Int32, Type::String) => {
-                    quote!(sixtyfps::re_exports::SharedString::from(format("{}", #f).to_str()))
+                    quote!(.set(sixtyfps::re_exports::SharedString::from(format("{}", #f).to_str())))
                 }
                 _ => f,
             }
+        }
+        Expression::PropertyReference { component: _, element: _, name } => {
+            let name_ident = quote::format_ident!("{}", name);
+            quote!(.set_binding(|context| {
+               let _self: &#self_id = context.unwrap().component.downcast().unwrap();
+               _self.#name_ident.get(context)
+            }))
         }
         // FIXME: signals!
         Expression::SignalReference { .. } => return None,
