@@ -1,6 +1,6 @@
 use core::ptr::NonNull;
 use corelib::abi::datastructures::{ComponentBox, ComponentRef, ComponentRefMut, ComponentVTable};
-use corelib::{Property, SharedString};
+use corelib::{EvaluationContext, Property, SharedString};
 use sixtyfps_compiler::expression_tree::Expression;
 use sixtyfps_compiler::typeregister::Type;
 use sixtyfps_compiler::*;
@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use structopt::StructOpt;
 
 type SetterFn = unsafe fn(*mut u8, eval::Value);
-type GetterFn = unsafe fn(*mut u8) -> eval::Value;
+type GetterFn = unsafe fn(*mut u8, &EvaluationContext) -> eval::Value;
 
 #[derive(StructOpt)]
 struct Cli {
@@ -18,7 +18,7 @@ struct Cli {
 
 trait PropertyWriter {
     unsafe fn write(ptr: *mut u8, value: eval::Value);
-    unsafe fn read(ptr: *mut u8) -> eval::Value;
+    unsafe fn read(ptr: *mut u8, context: &EvaluationContext) -> eval::Value;
 }
 
 impl PropertyWriter for f32 {
@@ -29,8 +29,8 @@ impl PropertyWriter for f32 {
         };
         (*(ptr as *mut Property<Self>)).set(val);
     }
-    unsafe fn read(ptr: *mut u8) -> eval::Value {
-        let s: Self = (*(ptr as *mut Property<Self>)).get(None);
+    unsafe fn read(ptr: *mut u8, context: &EvaluationContext) -> eval::Value {
+        let s: Self = (*(ptr as *mut Property<Self>)).get(Some(context));
         eval::Value::Number(s as _)
     }
 }
@@ -39,7 +39,7 @@ impl PropertyWriter for bool {
     unsafe fn write(_ptr: *mut u8, _value: eval::Value) {
         todo!("Boolean expression not implemented")
     }
-    unsafe fn read(_ptr: *mut u8) -> eval::Value {
+    unsafe fn read(_ptr: *mut u8, _context: &EvaluationContext) -> eval::Value {
         todo!("Boolean expression not implemented")
     }
 }
@@ -52,8 +52,8 @@ impl PropertyWriter for u32 {
         };
         (*(ptr as *mut Property<Self>)).set(val);
     }
-    unsafe fn read(ptr: *mut u8) -> eval::Value {
-        let s: Self = (*(ptr as *mut Property<Self>)).get(None);
+    unsafe fn read(ptr: *mut u8, context: &EvaluationContext) -> eval::Value {
+        let s: Self = (*(ptr as *mut Property<Self>)).get(Some(context));
         eval::Value::Number(s as _)
     }
 }
@@ -66,8 +66,8 @@ impl PropertyWriter for SharedString {
         };
         (*(ptr as *mut Property<Self>)).set(val);
     }
-    unsafe fn read(ptr: *mut u8) -> eval::Value {
-        let s: Self = (*(ptr as *mut Property<Self>)).get(None);
+    unsafe fn read(ptr: *mut u8, context: &EvaluationContext) -> eval::Value {
+        let s: Self = (*(ptr as *mut Property<Self>)).get(Some(context));
         eval::Value::String(s)
     }
 }
@@ -80,8 +80,11 @@ unsafe fn set_property<T: PropertyWriter>(ptr: *mut u8, e: eval::Value) {
     T::write(ptr, e);
 }
 
-unsafe fn get_property<T: PropertyWriter>(ptr: *mut u8) -> eval::Value {
-    T::read(ptr)
+unsafe fn get_property<T: PropertyWriter>(
+    ptr: *mut u8,
+    context: &EvaluationContext,
+) -> eval::Value {
+    T::read(ptr, context)
 }
 
 extern "C" fn dummy_destroy(_: ComponentRefMut) {
@@ -420,6 +423,10 @@ fn main() -> std::io::Result<()> {
 
     let ctx = ComponentImpl { mem, items: items_types, custom_properties };
 
+    let component_ref = unsafe {
+        ComponentRefMut::from_raw(NonNull::from(&t).cast(), NonNull::new(mem).unwrap().cast())
+    };
+
     for ItemWithinComponent { offset, rtti, init_properties } in ctx.items.values() {
         unsafe {
             let item = mem.offset(*offset as isize);
@@ -428,7 +435,7 @@ fn main() -> std::io::Result<()> {
                 if matches!(expr, Expression::SignalReference{..}) {
                     continue;
                 }
-                let v = eval::eval_expression(expr, &ctx);
+                let v = eval::eval_expression(expr, &ctx, &component_ref);
                 if let Some((o, set, _)) = rtti.properties.get(prop.as_str()) {
                     set(item.offset(*o as isize), v);
                 } else {
@@ -439,10 +446,6 @@ fn main() -> std::io::Result<()> {
             }
         }
     }
-
-    let component_ref = unsafe {
-        ComponentRefMut::from_raw(NonNull::from(&t).cast(), NonNull::new(mem).unwrap().cast())
-    };
 
     gl::sixtyfps_runtime_run_component_with_gl_renderer(component_ref);
 
