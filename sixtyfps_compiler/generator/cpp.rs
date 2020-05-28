@@ -165,11 +165,11 @@ fn handle_item(item: &Element, main_struct: &mut Struct, init: &mut Vec<String>)
             };
 
             format!(
-                r#"{signal_accessor_prefix}{prop}.set_handler(
+                "{signal_accessor_prefix}{prop}.set_handler(
                     [](const sixtyfps::EvaluationContext *context) {{
                         auto self = reinterpret_cast<const {ty}*>(context->component.instance);
                         {code};
-                    }});"#,
+                    }});",
                 signal_accessor_prefix = signal_accessor_prefix,
                 prop = s,
                 ty = main_struct.name,
@@ -184,9 +184,15 @@ fn handle_item(item: &Element, main_struct: &mut Struct, init: &mut Vec<String>)
 
             let init = compile_expression(i);
             format!(
-                "{accessor_prefix}{cpp_prop}.set({init});",
+                "{accessor_prefix}{cpp_prop}.set_binding(
+                    [](const sixtyfps::EvaluationContext *context) {{
+                        auto self = reinterpret_cast<const {ty}*>(context->component.instance);
+                        return {init};
+                    }}
+                );",
                 accessor_prefix = accessor_prefix,
                 cpp_prop = s,
+                ty = main_struct.name,
                 init = init
             )
         }
@@ -297,7 +303,7 @@ fn compile_expression(e: &crate::expression_tree::Expression) -> String {
             } else {
                 (e.id.as_str(), ".")
             };
-            format!(r#"self->{}{}{}.get(nullptr)"#, elem, dot, name)
+            format!(r#"self->{}{}{}.get(context)"#, elem, dot, name)
         }
         SignalReference { element, name, .. } => {
             let e = element.upgrade().unwrap();

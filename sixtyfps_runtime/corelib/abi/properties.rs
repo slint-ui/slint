@@ -217,7 +217,7 @@ pub unsafe extern "C" fn sixtyfps_property_set_changed(out: *const PropertyHandl
 }
 
 /// Set a binding
-/// The binding has signature fn(user_data, pointer_to_value)
+/// The binding has signature fn(user_data, context, pointer_to_value)
 ///
 /// The current implementation will do usually two memory alocation:
 ///  1. the allocation from the calling code to allocate user_data
@@ -227,7 +227,7 @@ pub unsafe extern "C" fn sixtyfps_property_set_changed(out: *const PropertyHandl
 #[no_mangle]
 pub unsafe extern "C" fn sixtyfps_property_set_binding(
     out: *const PropertyHandleOpaque,
-    binding: extern "C" fn(*mut c_void, *mut c_void),
+    binding: extern "C" fn(*mut c_void, &EvaluationContext, *mut c_void),
     user_data: *mut c_void,
     drop_user_data: Option<extern "C" fn(*mut c_void)>,
 ) {
@@ -247,8 +247,8 @@ pub unsafe extern "C" fn sixtyfps_property_set_binding(
     }
     let ud = UserData { user_data, drop_user_data };
 
-    let real_binding = move |ptr: *mut (), _: &EvaluationContext| {
-        binding(ud.user_data, ptr);
+    let real_binding = move |ptr: *mut (), ctx: &EvaluationContext| {
+        binding(ud.user_data, ctx, ptr);
     };
     inner.borrow_mut().binding = Some(Box::new(real_binding));
     inner.clone().mark_dirty();

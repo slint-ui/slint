@@ -8,14 +8,14 @@ int main() {
         std::cout << "Hello from C++" << std::endl;
     });
 
-    component.plus_clicked.set_handler([](auto...){
+    component.plus_clicked.set_handler([](auto ctx){
         auto &counter = component.counter;
-        counter.set(counter.get(nullptr) + 1);
+        counter.set(counter.get(ctx) + 1);
     });
 
-    component.minus_clicked.set_handler([](auto...){
+    component.minus_clicked.set_handler([](auto ctx){
         auto &counter = component.counter;
-        counter.set(counter.get(nullptr) - 1);
+        counter.set(counter.get(ctx) - 1);
     });
 
     sixtyfps::run(&component);

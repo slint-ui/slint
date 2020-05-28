@@ -20,7 +20,7 @@ struct Property
 
     void set(const T &value) const { this->value = value; }
 
-    const T &get(internal::EvaluationContext *context) const
+    const T &get(const internal::EvaluationContext *context) const
     {
         internal::sixtyfps_property_update(&inner, context, &value);
         return value;
@@ -31,8 +31,8 @@ struct Property
     {
         internal::sixtyfps_property_set_binding(
                 &inner,
-                [](void *user_data, const void *value) {
-                    *reinterpret_cast<T *>(value) = (*reinterpret_cast<F *>(user_data))();
+                [](void *user_data, const internal::EvaluationContext *context, void *value) {
+                    *reinterpret_cast<T *>(value) = (*reinterpret_cast<F *>(user_data))(context);
                 },
                 new F(binding),
                 [](void *user_data) { delete reinterpret_cast<F *>(user_data); });
