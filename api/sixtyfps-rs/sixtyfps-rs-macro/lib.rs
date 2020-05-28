@@ -150,15 +150,16 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
     let mut declared_property_var_names = vec![];
     let mut declared_property_vars = vec![];
     let mut declared_property_types = vec![];
+    let mut declared_signals = vec![];
     for (prop_name, property_decl) in
         tree.root_component.root_element.borrow().property_declarations.iter()
     {
+        let prop_ident = quote::format_ident!("{}", prop_name);
         if property_decl.property_type == Type::Signal {
-            // FIXME: handle signal
+            declared_signals.push(prop_ident);
         } else {
-            let member_name = prop_name;
-            declared_property_var_names.push(member_name.clone());
-            declared_property_vars.push(quote::format_ident!("{}", member_name));
+            declared_property_var_names.push(prop_name.clone());
+            declared_property_vars.push(prop_ident);
             declared_property_types.push(property_decl.rust_type().unwrap_or_else(|err| {
                 diag.push_compiler_error(err);
                 quote!().into()
@@ -228,6 +229,7 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
         struct #component_id {
             #(#item_names : sixtyfps::re_exports::#item_types,)*
             #(#declared_property_vars : sixtyfps::re_exports::Property<#declared_property_types>,)*
+            #(#declared_signals : sixtyfps::re_exports::Signal<()>,)*
         }
 
         impl core::default::Default for #component_id {
@@ -235,6 +237,7 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
                 let mut self_ = Self {
                     #(#item_names : Default::default(),)*
                     #(#declared_property_vars : Default::default(),)*
+                    #(#declared_signals : Default::default(),)*
                 };
                 #(#init)*
                 self_

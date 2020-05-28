@@ -6,6 +6,7 @@ pub mod re_exports {
     pub use corelib::abi::datastructures::{Component, ComponentTO, ComponentVTable, ItemTreeNode};
     pub use corelib::abi::primitives::*;
     pub use corelib::abi::properties::Property;
+    pub use corelib::abi::signals::Signal;
     pub use corelib::ComponentVTable_static;
     pub use corelib::EvaluationContext;
     pub use corelib::SharedString;
