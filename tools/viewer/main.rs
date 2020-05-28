@@ -5,6 +5,7 @@ use sixtyfps_compiler::expression_tree::Expression;
 use sixtyfps_compiler::typeregister::Type;
 use sixtyfps_compiler::*;
 use std::collections::HashMap;
+use std::rc::Rc;
 use structopt::StructOpt;
 
 type SetterFn = unsafe fn(*mut u8, eval::Value);
@@ -95,9 +96,9 @@ extern "C" fn dummy_create(_: &ComponentVTable) -> ComponentBox {
     panic!()
 }
 
-struct ItemWithinComponent<'a> {
+struct ItemWithinComponent {
     offset: usize,
-    rtti: &'a RuntimeTypeInfo,
+    rtti: Rc<RuntimeTypeInfo>,
     init_properties: HashMap<String, Expression>,
 }
 
@@ -109,9 +110,9 @@ struct PropertiesWithinComponent {
     get: GetterFn,
     create: unsafe fn(*mut u8),
 }
-pub struct ComponentImpl<'a> {
+pub struct ComponentImpl {
     mem: *mut u8,
-    items: HashMap<String, ItemWithinComponent<'a>>,
+    items: HashMap<String, ItemWithinComponent>,
     custom_properties: HashMap<String, PropertiesWithinComponent>,
 }
 
@@ -155,7 +156,7 @@ fn main() -> std::io::Result<()> {
     let offsets = Rectangle::field_offsets();
     rtti.insert(
         "Rectangle",
-        RuntimeTypeInfo {
+        Rc::new(RuntimeTypeInfo {
             vtable: &corelib::abi::primitives::RectangleVTable as _,
             construct: construct::<Rectangle>,
             properties: [
@@ -204,13 +205,13 @@ fn main() -> std::io::Result<()> {
             .cloned()
             .collect(),
             size: std::mem::size_of::<Rectangle>(),
-        },
+        }),
     );
 
     let offsets = Image::field_offsets();
     rtti.insert(
         "Image",
-        RuntimeTypeInfo {
+        Rc::new(RuntimeTypeInfo {
             vtable: &corelib::abi::primitives::ImageVTable as _,
             construct: construct::<Image>,
             properties: [
@@ -259,13 +260,13 @@ fn main() -> std::io::Result<()> {
             .cloned()
             .collect(),
             size: std::mem::size_of::<Image>(),
-        },
+        }),
     );
 
     let offsets = Text::field_offsets();
     rtti.insert(
         "Text",
-        RuntimeTypeInfo {
+        Rc::new(RuntimeTypeInfo {
             vtable: &corelib::abi::primitives::TextVTable as _,
             construct: construct::<Text>,
             properties: [
@@ -306,13 +307,13 @@ fn main() -> std::io::Result<()> {
             .cloned()
             .collect(),
             size: std::mem::size_of::<Text>(),
-        },
+        }),
     );
 
     let offsets = TouchArea::field_offsets();
     rtti.insert(
         "TouchArea",
-        RuntimeTypeInfo {
+        Rc::new(RuntimeTypeInfo {
             vtable: &corelib::abi::primitives::TouchAreaVTable as _,
             construct: construct::<TouchArea>,
             properties: [
@@ -361,8 +362,10 @@ fn main() -> std::io::Result<()> {
             .cloned()
             .collect(),
             size: std::mem::size_of::<TouchArea>(),
-        },
+        }),
     );
+
+    let rtti = Rc::new(rtti);
 
     let mut tree_array = vec![];
     let mut current_offset = 0usize;
@@ -380,7 +383,7 @@ fn main() -> std::io::Result<()> {
             item.id.clone(),
             ItemWithinComponent {
                 offset: current_offset,
-                rtti: rt,
+                rtti: rt.clone(),
                 init_properties: item.bindings.clone(),
             },
         );
