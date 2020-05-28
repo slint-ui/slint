@@ -183,18 +183,27 @@ fn handle_item(item: &Element, main_struct: &mut Struct, init: &mut Vec<String>)
             };
 
             let init = compile_expression(i);
-            format!(
-                "{accessor_prefix}{cpp_prop}.set_binding(
-                    [](const sixtyfps::EvaluationContext *context) {{
-                        auto self = reinterpret_cast<const {ty}*>(context->component.instance);
-                        return {init};
-                    }}
-                );",
-                accessor_prefix = accessor_prefix,
-                cpp_prop = s,
-                ty = main_struct.name,
-                init = init
-            )
+            if i.is_constant() {
+                format!(
+                    "{accessor_prefix}{cpp_prop}.set({init});",
+                    accessor_prefix = accessor_prefix,
+                    cpp_prop = s,
+                    init = init
+                )
+            } else {
+                format!(
+                    "{accessor_prefix}{cpp_prop}.set_binding(
+                        [](const sixtyfps::EvaluationContext *context) {{
+                            auto self = reinterpret_cast<const {ty}*>(context->component.instance);
+                            return {init};
+                        }}
+                    );",
+                    accessor_prefix = accessor_prefix,
+                    cpp_prop = s,
+                    ty = main_struct.name,
+                    init = init
+                )
+            }
         }
     }));
 
