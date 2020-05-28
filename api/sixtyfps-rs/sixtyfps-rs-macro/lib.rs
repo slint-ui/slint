@@ -187,7 +187,7 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
                 children_index: #children_index,
              }
         ));
-        for (k, v) in &item.bindings {
+        for (k, binding_expression) in &item.bindings {
             let rust_property_ident = quote::format_ident!("{}", k);
             let rust_property_accessor_prefix = if item.property_declarations.contains_key(k) {
                 proc_macro2::TokenStream::new()
@@ -196,18 +196,24 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
             };
             let rust_property = quote!(#rust_property_accessor_prefix#rust_property_ident);
 
-            let v = compile_expression(v);
+            let v = compile_expression(binding_expression);
             if v.is_none() {
                 // FIXME: this is because signals are not yet implemented
                 continue;
             }
 
-            init.push(quote!(
-                self_.#rust_property.set_binding(|context| {
-                    let _self = context.component.downcast::<#component_id>().unwrap();
-                    #v
-                });
-            ));
+            if binding_expression.is_constant() {
+                init.push(quote!(
+                    self_.#rust_property.set(#v);
+                ));
+            } else {
+                init.push(quote!(
+                    self_.#rust_property.set_binding(|context| {
+                        let _self = context.component.downcast::<#component_id>().unwrap();
+                        #v
+                    });
+                ));
+            }
         }
         item_names.push(field_name);
         item_types.push(quote::format_ident!("{}", item.base_type.as_builtin().class_name));

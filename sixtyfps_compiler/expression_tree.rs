@@ -89,4 +89,18 @@ impl Expression {
             Expression::FunctionCall { function } => visitor(&mut **function),
         }
     }
+
+    pub fn is_constant(&self) -> bool {
+        match self {
+            Expression::Invalid => true,
+            Expression::Uncompiled(_) => false,
+            Expression::StringLiteral(_) => true,
+            Expression::NumberLiteral(_) => true,
+            Expression::SignalReference { .. } => false,
+            Expression::PropertyReference { .. } => false,
+            Expression::Cast { from, .. } => from.is_constant(),
+            Expression::CodeBlock(sub) => sub.len() == 1 && sub.first().unwrap().is_constant(),
+            Expression::FunctionCall { .. } => false,
+        }
+    }
 }
