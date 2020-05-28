@@ -400,6 +400,7 @@ fn main() -> std::io::Result<()> {
             Type::Color => create_and_set::<u32>(),
             Type::Image => create_and_set::<SharedString>(),
             Type::Bool => create_and_set::<bool>(),
+            Type::Signal => continue, // TODO
             _ => panic!("bad type"),
         };
         custom_properties.insert(
@@ -432,8 +433,14 @@ fn main() -> std::io::Result<()> {
             let item = mem.offset(*offset as isize);
             (rtti.construct)(item as _);
             for (prop, expr) in init_properties {
-                if matches!(expr, Expression::SignalReference{..}) {
-                    continue;
+                match expr {
+                    Expression::FunctionCall { function } => {
+                        if matches!(function.ty(), Type::Signal) {
+                            // TODO
+                            continue;
+                        }
+                    }
+                    _ => (),
                 }
                 let v = eval::eval_expression(expr, &ctx, &component_ref);
                 if let Some((o, set, _)) = rtti.properties.get(prop.as_str()) {
