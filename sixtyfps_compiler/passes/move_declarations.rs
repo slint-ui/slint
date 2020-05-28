@@ -6,15 +6,11 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 struct Declarations {
-    signals_declaration: Vec<String>,
     property_declarations: HashMap<String, PropertyDeclaration>,
 }
 impl Declarations {
     fn take_from_element(e: &mut Element) -> Self {
-        Declarations {
-            signals_declaration: core::mem::take(&mut e.signals_declaration),
-            property_declarations: core::mem::take(&mut e.property_declarations),
-        }
+        Declarations { property_declarations: core::mem::take(&mut e.property_declarations) }
     }
 }
 
@@ -31,8 +27,7 @@ pub fn move_declarations(component: &Rc<Component>) {
         let mut new_bindings = HashMap::with_capacity(bindings.len());
         for (k, mut e) in bindings {
             fixup_bindings(&mut e, component);
-            let will_be_moved = elem.borrow().signals_declaration.contains(&k)
-                || elem.borrow().property_declarations.contains_key(&k);
+            let will_be_moved = elem.borrow().property_declarations.contains_key(&k);
             if will_be_moved {
                 new_root_bindings.insert(map_name(elem, k.as_str()), e);
             } else {
@@ -54,8 +49,6 @@ pub fn move_declarations(component: &Rc<Component>) {
     fn move_declarations_recursive(elem: &Rc<RefCell<Element>>, decl: &mut Declarations) {
         for c in &elem.borrow().children {
             let elem_decl = Declarations::take_from_element(&mut *c.borrow_mut());
-            decl.signals_declaration
-                .extend(elem_decl.signals_declaration.into_iter().map(|s| map_name(c, &*s)));
             decl.property_declarations.extend(
                 elem_decl.property_declarations.into_iter().map(|(p, d)| (map_name(c, &*p), d)),
             );
@@ -67,7 +60,6 @@ pub fn move_declarations(component: &Rc<Component>) {
 
     {
         let mut r = component.root_element.borrow_mut();
-        r.signals_declaration = decl.signals_declaration;
         r.property_declarations = decl.property_declarations;
         r.bindings.extend(new_root_bindings.into_iter());
     }
@@ -90,7 +82,7 @@ fn fixup_bindings(val: &mut Expression, comp: &Rc<Component>) {
         Expression::SignalReference { component, element, name } => {
             let e = element.upgrade().unwrap();
             let component = component.upgrade().unwrap();
-            if Rc::ptr_eq(&component, comp) && e.borrow().signals_declaration.contains(name) {
+            if Rc::ptr_eq(&component, comp) && e.borrow().property_declarations.contains_key(name) {
                 *name = map_name(&e, name.as_str());
                 *element = Rc::downgrade(&comp.root_element);
             }

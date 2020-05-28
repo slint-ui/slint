@@ -102,8 +102,6 @@ pub struct Element {
     pub bindings: HashMap<String, Expression>,
     pub children: Vec<Rc<RefCell<Element>>>,
 
-    /// This should probably be in the Component instead
-    pub signals_declaration: Vec<String>,
     pub property_declarations: HashMap<String, PropertyDeclaration>,
 }
 
@@ -235,7 +233,10 @@ impl Element {
                 None => continue,
             };
             let name = name_token.text().to_string();
-            r.signals_declaration.push(name);
+            r.property_declarations.insert(
+                name,
+                PropertyDeclaration { property_type: Type::Signal, type_location: sig_decl.span() },
+            );
         }
 
         for se in node.children() {
@@ -259,9 +260,6 @@ impl Element {
     }
 
     pub fn lookup_property(&self, name: &str) -> Type {
-        if self.signals_declaration.iter().any(|x| x == name) {
-            return Type::Signal;
-        }
         self.property_declarations
             .get(name)
             .cloned()

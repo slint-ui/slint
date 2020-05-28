@@ -148,12 +148,7 @@ impl CppType for PropertyDeclaration {
     }
 }
 
-fn handle_item(
-    item: &Element,
-    global_properties: &Vec<String>,
-    main_struct: &mut Struct,
-    init: &mut Vec<String>,
-) {
+fn handle_item(item: &Element, main_struct: &mut Struct, init: &mut Vec<String>) {
     main_struct.members.push(Declaration::Var(Var {
         ty: format!("sixtyfps::{}", item.base_type.as_builtin().class_name),
         name: item.id.clone(),
@@ -163,7 +158,7 @@ fn handle_item(
     let id = &item.id;
     init.extend(item.bindings.iter().map(|(s, i)| {
         if matches!(item.lookup_property(s.as_str()), Type::Signal) {
-            let signal_accessor_prefix = if item.signals_declaration.contains(s) {
+            let signal_accessor_prefix = if item.property_declarations.contains_key(s) {
                 String::new()
             } else {
                 format!("{id}.", id = id.clone())
@@ -191,7 +186,7 @@ fn handle_item(
     }));
 
     for i in &item.children {
-        handle_item(&i.borrow(), global_properties, main_struct, init)
+        handle_item(&i.borrow(), main_struct, init)
     }
 }
 
@@ -203,35 +198,23 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<impl st
 
     let mut main_struct = Struct { name: component.id.clone(), ..Default::default() };
 
-    let mut declared_property_members = vec![];
-    let mut declared_property_vars = vec![];
-    for (cpp_name, property_decl) in component.root_element.borrow().property_declarations.iter() {
-        let cpp_type = property_decl.cpp_type().unwrap_or_else(|err| {
-            diag.push_compiler_error(err);
-            "".into()
-        });
-
-        declared_property_members.push(cpp_name.clone());
-        declared_property_vars.push(Declaration::Var(Var {
-            ty: format!("sixtyfps::Property<{}>", cpp_type),
-            name: cpp_name.clone(),
-            init: None,
-        }));
-    }
-
-    main_struct.members.extend(declared_property_vars);
+    main_struct.members.extend(component.root_element.borrow().property_declarations.iter().map(
+        |(cpp_name, property_decl)| {
+            let ty = if property_decl.property_type == Type::Signal {
+                "sixtyfps::Signal".into()
+            } else {
+                let cpp_type = property_decl.cpp_type().unwrap_or_else(|err| {
+                    diag.push_compiler_error(err);
+                    "".into()
+                });
+                format!("sixtyfps::Property<{}>", cpp_type)
+            };
+            Declaration::Var(Var { ty, name: cpp_name.clone(), init: None })
+        },
+    ));
 
     let mut init = vec!["auto self = this;".into()];
-    handle_item(
-        &component.root_element.borrow(),
-        &declared_property_members,
-        &mut main_struct,
-        &mut init,
-    );
-
-    main_struct.members.extend(component.root_element.borrow().signals_declaration.iter().map(
-        |s| Declaration::Var(Var { ty: "sixtyfps::Signal".into(), name: s.clone(), init: None }),
-    ));
+    handle_item(&component.root_element.borrow(), &mut main_struct, &mut init);
 
     main_struct.members.push(Declaration::Function(Function {
         name: component.id.clone(),
@@ -312,8 +295,11 @@ fn compile_expression(e: &crate::expression_tree::Expression) -> String {
         SignalReference { element, name, .. } => {
             let e = element.upgrade().unwrap();
             let e = e.borrow();
-            let (elem, dot) =
-                if e.signals_declaration.contains(name) { ("", "") } else { (e.id.as_str(), ".") };
+            let (elem, dot) = if e.property_declarations.contains_key(name) {
+                ("", "")
+            } else {
+                (e.id.as_str(), ".")
+            };
             format!(r#"self->{}{}{}"#, elem, dot, name)
         }
         Cast { from, to } => {

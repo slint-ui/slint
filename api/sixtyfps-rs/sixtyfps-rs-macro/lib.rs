@@ -153,13 +153,17 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
     for (prop_name, property_decl) in
         tree.root_component.root_element.borrow().property_declarations.iter()
     {
-        let member_name = prop_name;
-        declared_property_var_names.push(member_name.clone());
-        declared_property_vars.push(quote::format_ident!("{}", member_name));
-        declared_property_types.push(property_decl.rust_type().unwrap_or_else(|err| {
-            diag.push_compiler_error(err);
-            quote!().into()
-        }));
+        if property_decl.property_type == Type::Signal {
+            // FIXME: handle signal
+        } else {
+            let member_name = prop_name;
+            declared_property_var_names.push(member_name.clone());
+            declared_property_vars.push(quote::format_ident!("{}", member_name));
+            declared_property_types.push(property_decl.rust_type().unwrap_or_else(|err| {
+                diag.push_compiler_error(err);
+                quote!().into()
+            }));
+        }
     }
 
     if diag.has_error() {
