@@ -45,6 +45,7 @@ Hello := Rectangle {
     signal foobar;
     signal plus_clicked;
     signal minus_clicked;
+    property<int32> counter;
 
     color: white;
 
@@ -81,7 +82,7 @@ Hello := Rectangle {
         clicked => { plus_clicked() }
         button_text: "+";
     }
-    counter := Text { x: 100; y: 300; text: "0"; color: black; }
+    counter_label := Text { x: 100; y: 300; text: counter; color: black; }
     ButtonRectangle {
         color: 4289374890;
         x: 50;
@@ -95,5 +96,16 @@ Hello := Rectangle {
 }
 
 fn main() {
-    Hello::default().run();
+    let mut app = Hello::default();
+
+    app.plus_clicked.set_handler(|context, ()| {
+        let app = context.component.downcast::<Hello>().unwrap();
+        app.counter.set(app.counter.get(context) + 1);
+    });
+    app.minus_clicked.set_handler(|context, ()| {
+        let app = context.component.downcast::<Hello>().unwrap();
+        app.counter.set(app.counter.get(context) - 1);
+    });
+
+    app.run();
 }
