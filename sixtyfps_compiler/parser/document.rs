@@ -1,5 +1,6 @@
 use super::expressions::parse_expression;
 use super::prelude::*;
+use super::statements::parse_statement;
 
 #[cfg_attr(test, parser_test)]
 /// ```test
@@ -188,17 +189,27 @@ fn parse_binding_expression(p: &mut impl Parser) {
 /// ```test
 /// {  }
 /// { expression }
-/// {  }
+/// { expression ; expression }
+/// { expression ; expression ; }
+/// { ;;;; }
 /// ```
 fn parse_code_block(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::CodeBlock);
     p.expect(SyntaxKind::LBrace); // Or assert?
 
-    if p.nth(0) != SyntaxKind::RBrace {
-        parse_expression(&mut *p);
+    if p.nth(0) == SyntaxKind::RBrace {
+        p.consume();
+        return;
     }
 
-    p.until(SyntaxKind::RBrace);
+    loop {
+        parse_statement(&mut *p);
+        if p.nth(0) == SyntaxKind::RBrace {
+            p.consume();
+            return;
+        }
+        p.expect(SyntaxKind::Semicolon);
+    }
 }
 
 #[cfg_attr(test, parser_test)]

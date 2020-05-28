@@ -15,6 +15,7 @@ use std::convert::TryFrom;
 
 mod document;
 mod expressions;
+mod statements;
 
 /// Each parser submodule would simply do `use super::prelude::*` to import typically used items
 mod prelude {

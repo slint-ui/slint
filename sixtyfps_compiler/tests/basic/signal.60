@@ -3,7 +3,7 @@ SubElements := Rectangle {
     signal foobar;
 
     TouchArea {
-        clicked => { emit foobar }
+        clicked => { foobar }
     }
 
     TouchArea {
@@ -14,8 +14,8 @@ SubElements := Rectangle {
     }
 
     TouchArea {
-        clicked => { emit foobar }
-        clicked => { emit foobar }
+        clicked => { foobar }
+        clicked => { foobar }
 //      ^error{Duplicated signal}
     }
 
