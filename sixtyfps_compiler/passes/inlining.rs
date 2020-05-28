@@ -74,7 +74,7 @@ fn inline_element(
             .borrow()
             .bindings
             .iter()
-            .map(|(k, val)| (k.clone(), fixup_binding(val, &mapping, root_component))),
+            .map(|(k, val)| (k.clone(), fold_binding(val, &mapping, root_component))),
     );
 
     //core::mem::drop(elem_mut);
@@ -84,7 +84,7 @@ fn inline_element(
             continue; // the root has been processed
         }
         for (_, expr) in &mut e.borrow_mut().bindings {
-            *expr = fixup_binding(expr, &mapping, root_component)
+            fixup_binding(expr, &mapping, root_component)
         }
     }
 }
@@ -113,29 +113,38 @@ fn duplicate_element_with_mapping(
 }
 
 fn fixup_binding(
+    val: &mut Expression,
+    mapping: &HashMap<usize, Rc<RefCell<Element>>>,
+    root_component: &Rc<Component>,
+) {
+    val.visit_mut(|sub| fixup_binding(sub, mapping, root_component));
+    match val {
+        Expression::PropertyReference { component, element, .. } => {
+            *component = Rc::downgrade(root_component);
+            *element = element
+                .upgrade()
+                .and_then(|e| mapping.get(&element_key(&e)))
+                .map(Rc::downgrade)
+                .unwrap();
+        }
+        Expression::SignalReference { component, element, .. } => {
+            *component = Rc::downgrade(root_component);
+            *element = element
+                .upgrade()
+                .and_then(|e| mapping.get(&element_key(&e)))
+                .map(Rc::downgrade)
+                .unwrap();
+        }
+        _ => {}
+    }
+}
+
+fn fold_binding(
     val: &Expression,
     mapping: &HashMap<usize, Rc<RefCell<Element>>>,
     root_component: &Rc<Component>,
 ) -> Expression {
-    match val {
-        Expression::PropertyReference { element, name, .. } => Expression::PropertyReference {
-            component: Rc::downgrade(root_component),
-            element: element
-                .upgrade()
-                .and_then(|e| mapping.get(&element_key(&e)))
-                .map(Rc::downgrade)
-                .unwrap(),
-            name: name.clone(),
-        },
-        Expression::SignalReference { element, name, .. } => Expression::SignalReference {
-            component: Rc::downgrade(root_component),
-            element: element
-                .upgrade()
-                .and_then(|e| mapping.get(&element_key(&e)))
-                .map(Rc::downgrade)
-                .unwrap(),
-            name: name.clone(),
-        },
-        x @ _ => x.clone(),
-    }
+    let mut new_val = val.clone();
+    fixup_binding(&mut new_val, mapping, root_component);
+    new_val
 }

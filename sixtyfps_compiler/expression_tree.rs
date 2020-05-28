@@ -44,4 +44,29 @@ impl Expression {
             Expression::Cast { to, .. } => to.clone(),
         }
     }
+
+    /// Call the visitor for each sub-expression.  (note: this function does not recurse)
+    pub fn visit(&self, mut visitor: impl FnMut(&Self)) {
+        match self {
+            Expression::Invalid => {}
+            Expression::Uncompiled(_) => {}
+            Expression::StringLiteral(_) => {}
+            Expression::NumberLiteral(_) => {}
+            Expression::SignalReference { .. } => {}
+            Expression::PropertyReference { .. } => {}
+            Expression::Cast { from, .. } => visitor(&**from),
+        }
+    }
+
+    pub fn visit_mut(&mut self, mut visitor: impl FnMut(&mut Self)) {
+        match self {
+            Expression::Invalid => {}
+            Expression::Uncompiled(_) => {}
+            Expression::StringLiteral(_) => {}
+            Expression::NumberLiteral(_) => {}
+            Expression::SignalReference { .. } => {}
+            Expression::PropertyReference { .. } => {}
+            Expression::Cast { from, .. } => visitor(&mut **from),
+        }
+    }
 }

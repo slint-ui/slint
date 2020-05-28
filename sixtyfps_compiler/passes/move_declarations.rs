@@ -96,5 +96,6 @@ fn fixup_bindings(val: &mut Expression, comp: &Rc<Component>) {
             }
         }
         _ => {}
-    }
+    };
+    val.visit_mut(|sub| fixup_bindings(sub, comp))
 }
