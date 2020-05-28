@@ -33,6 +33,13 @@ pub enum Expression {
 
     /// A function call
     FunctionCall { function: Box<Expression> },
+
+    SelfAssignement {
+        lhs: Box<Expression>,
+        rhs: Box<Expression>,
+        /// '+', '-', '/', or '*'
+        op: char,
+    },
 }
 
 impl Expression {
@@ -50,6 +57,7 @@ impl Expression {
             Expression::Cast { to, .. } => to.clone(),
             Expression::CodeBlock(sub) => sub.last().map_or(Type::Invalid, |e| e.ty()),
             Expression::FunctionCall { function } => function.ty(),
+            Expression::SelfAssignement { .. } => Type::Invalid,
         }
     }
 
@@ -69,6 +77,10 @@ impl Expression {
                 }
             }
             Expression::FunctionCall { function } => visitor(&**function),
+            Expression::SelfAssignement { lhs, rhs, .. } => {
+                visitor(&**lhs);
+                visitor(&**rhs);
+            }
         }
     }
 
@@ -87,6 +99,10 @@ impl Expression {
                 }
             }
             Expression::FunctionCall { function } => visitor(&mut **function),
+            Expression::SelfAssignement { lhs, rhs, .. } => {
+                visitor(&mut **lhs);
+                visitor(&mut **rhs);
+            }
         }
     }
 
@@ -101,6 +117,7 @@ impl Expression {
             Expression::Cast { from, .. } => from.is_constant(),
             Expression::CodeBlock(sub) => sub.len() == 1 && sub.first().unwrap().is_constant(),
             Expression::FunctionCall { .. } => false,
+            Expression::SelfAssignement { .. } => false,
         }
     }
 }

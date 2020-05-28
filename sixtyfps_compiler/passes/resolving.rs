@@ -134,6 +134,10 @@ impl Expression {
                     }
                 })
             })
+            .or_else(|| {
+                node.child_node(SyntaxKind::SelfAssignament)
+                    .map(|n| Self::from_self_assignement_node(n, ctx))
+            })
             .unwrap_or(Self::Invalid)
     }
 
@@ -290,6 +294,32 @@ impl Expression {
         ctx.diag.push_error(format!("Unknown unqualified identifier '{}'", s), node.span());
 
         Self::Invalid
+    }
+
+    fn from_self_assignement_node(node: SyntaxNode, ctx: &mut LookupCtx) -> Expression {
+        debug_assert_eq!(node.kind(), SyntaxKind::SelfAssignament);
+
+        let mut subs = node
+            .children()
+            .filter(|n| n.kind() == SyntaxKind::Expression)
+            .map(|n| Self::from_expression_node(n, ctx));
+
+        let lhs = subs.next().unwrap_or(Expression::Invalid);
+        let rhs = subs.next().unwrap_or(Expression::Invalid);
+        if !matches!(lhs, Expression::PropertyReference{..}) {
+            ctx.diag
+                .push_error("Self assignement need to be done on a property".into(), node.span());
+        }
+        Expression::SelfAssignement {
+            lhs: Box::new(lhs),
+            rhs: Box::new(rhs),
+            op: None
+                .or(node.child_token(SyntaxKind::PlusEqual).and(Some('+')))
+                .or(node.child_token(SyntaxKind::MinusEqual).and(Some('-')))
+                .or(node.child_token(SyntaxKind::StarEqual).and(Some('*')))
+                .or(node.child_token(SyntaxKind::DivEqual).and(Some('/')))
+                .unwrap_or('_'),
+        }
     }
 }
 

@@ -58,6 +58,8 @@ macro_rules! declare_token_kind {
             BangExpression,
             /// expression()
             FunctionCallExpression,
+            /// expression += expression
+            SelfAssignament
         }
 
         fn lexer() -> m_lexer::Lexer {
@@ -82,7 +84,15 @@ declare_token_kind! {
     RParent -> r"\)",
     LAngle -> r"<",
     RAngle -> r">",
-    ColonEqual -> ":=",
+    Plus -> r"\+",
+    Minus -> r"-",
+    Star -> r"\*",
+    Div -> r"/",
+    PlusEqual -> r"\+=",
+    MinusEqual -> r"-=",
+    StarEqual -> r"\*=",
+    DivEqual -> r"/=",
+    ColonEqual -> r":=",
     FatArrow -> r"=>",
     Equal -> r"=",
     Colon -> r":",

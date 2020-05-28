@@ -131,6 +131,8 @@ use crate::diagnostics::{CompilerDiagnostic, Diagnostics};
 use crate::object_tree::{Component, Element, PropertyDeclaration};
 use crate::typeregister::Type;
 use cpp_ast::*;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 impl CppType for PropertyDeclaration {
     fn cpp_type(&self) -> Result<&str, CompilerDiagnostic> {
@@ -299,30 +301,26 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<impl st
     }
 }
 
+fn access_member(element: &Rc<RefCell<Element>>, name: &str) -> String {
+    let e = element.borrow();
+    if e.property_declarations.contains_key(name) {
+        name.into()
+    } else {
+        format!("{}.{}", e.id.as_str(), name)
+    }
+}
+
 fn compile_expression(e: &crate::expression_tree::Expression) -> String {
     use crate::expression_tree::Expression::*;
     match e {
         StringLiteral(s) => format!(r#"sixtyfps::SharedString("{}")"#, s.escape_default()),
         NumberLiteral(n) => n.to_string(),
-        PropertyReference { element, name, .. } => {
-            let e = element.upgrade().unwrap();
-            let e = e.borrow();
-            let (elem, dot) = if e.property_declarations.contains_key(name) {
-                ("", "")
-            } else {
-                (e.id.as_str(), ".")
-            };
-            format!(r#"self->{}{}{}.get(context)"#, elem, dot, name)
-        }
+        PropertyReference { element, name, .. } => format!(
+            r#"self->{}.get(context)"#,
+            access_member(&element.upgrade().unwrap(), name.as_str())
+        ),
         SignalReference { element, name, .. } => {
-            let e = element.upgrade().unwrap();
-            let e = e.borrow();
-            let (elem, dot) = if e.property_declarations.contains_key(name) {
-                ("", "")
-            } else {
-                (e.id.as_str(), ".")
-            };
-            format!(r#"self->{}{}{}"#, elem, dot, name)
+            format!(r#"self->{}"#, access_member(&element.upgrade().unwrap(), name.as_str()))
         }
         Cast { from, to } => {
             let f = compile_expression(&*from);
@@ -346,6 +344,15 @@ fn compile_expression(e: &crate::expression_tree::Expression) -> String {
                 format!("\n#error the function `{:?}` is not a signal\n", function)
             }
         }
+        SelfAssignement { lhs, rhs, op } => match &**lhs {
+            PropertyReference { element, name, .. } => format!(
+                r#"self->{lhs}.set(self->{lhs}.get(context) {op} {rhs})"#,
+                lhs = access_member(&element.upgrade().unwrap(), name.as_str()),
+                rhs = compile_expression(&*rhs),
+                op = op
+            ),
+            _ => panic!("typechecking should make sure this was a PropertyReference"),
+        },
         Uncompiled(_) => panic!(),
         Invalid => format!("\n#error invalid expression\n"),
     }

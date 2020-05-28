@@ -4,10 +4,25 @@ use super::prelude::*;
 #[cfg_attr(test, parser_test)]
 /// ```test
 /// expression
+/// expression += expression
+/// expression.expression *= 45.2
 /// ```
 pub fn parse_statement(p: &mut impl Parser) {
     if matches!(p.nth(0), SyntaxKind::Semicolon | SyntaxKind::RBrace) {
         return;
     }
+    let checkpoint = p.checkpoint();
     parse_expression(p);
+    if matches!(
+        p.nth(0),
+        SyntaxKind::MinusEqual
+            | SyntaxKind::PlusEqual
+            | SyntaxKind::StarEqual
+            | SyntaxKind::DivEqual
+    ) {
+        let mut p = p.start_node_at(checkpoint.clone(), SyntaxKind::Expression);
+        let mut p = p.start_node_at(checkpoint, SyntaxKind::SelfAssignament);
+        p.consume();
+        parse_expression(&mut *p);
+    }
 }

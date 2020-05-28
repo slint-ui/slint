@@ -79,7 +79,7 @@ Hello := Rectangle {
         color: 4289374890;
         x: 50;
         y: 225;
-        clicked => { plus_clicked() }
+        clicked => { counter += 1 }
         button_text: "+";
     }
     counter_label := Text { x: 100; y: 300; text: counter; color: black; }

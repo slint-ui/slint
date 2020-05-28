@@ -51,5 +51,40 @@ pub fn eval_expression(
             v
         }
         Expression::FunctionCall { .. } => todo!("function call"),
+        Expression::SelfAssignement { lhs, rhs, op } => match &**lhs {
+            Expression::PropertyReference { component, element, name, .. } => {
+                let eval = |lhs| {
+                    let rhs = eval_expression(&**rhs, ctx, component_ref);
+                    match (lhs, rhs, op) {
+                        (Value::Number(a), Value::Number(b), '+') => Value::Number(a + b),
+                        (Value::Number(a), Value::Number(b), '-') => Value::Number(a + b),
+                        (Value::Number(a), Value::Number(b), '/') => Value::Number(a + b),
+                        (Value::Number(a), Value::Number(b), '*') => Value::Number(a + b),
+                        (lhs, rhs, op) => panic!("unsupported {:?} {} {:?}", lhs, op, rhs),
+                    }
+                };
+
+                let eval_context = EvaluationContext { component: component_ref.borrow() };
+                let component = component.upgrade().unwrap();
+                let element = element.upgrade().unwrap();
+                if element.borrow().id == component.root_element.borrow().id {
+                    if let Some(x) = ctx.custom_properties.get(name) {
+                        unsafe {
+                            let p = ctx.mem.offset(x.offset as isize);
+                            (x.set)(p, eval((x.get)(p, &eval_context)));
+                        }
+                        return Value::Void;
+                    }
+                };
+                let item = &ctx.items[element.borrow().id.as_str()];
+                let (offset, set, get) = item.rtti.properties[name.as_str()];
+                unsafe {
+                    let p = ctx.mem.offset(offset as isize);
+                    set(p, eval(get(p, &eval_context)));
+                }
+                Value::Void
+            }
+            _ => panic!("typechecking should make sure this was a PropertyReference"),
+        },
     }
 }

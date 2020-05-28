@@ -75,7 +75,7 @@ Hello := Rectangle {
         color: 4289374890;
         x: 50;
         y: 225;
-        clicked => { plus_clicked() }
+        clicked => { counter += 1 }
         button_text: "+";
     }
     property<int32> counter;

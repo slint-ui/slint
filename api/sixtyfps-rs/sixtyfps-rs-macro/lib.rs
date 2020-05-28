@@ -1,9 +1,12 @@
 extern crate proc_macro;
+use object_tree::Element;
 use proc_macro::{Spacing, TokenStream};
 use quote::{quote, ToTokens};
 use sixtyfps_compiler::expression_tree::Expression;
 use sixtyfps_compiler::typeregister::Type;
 use sixtyfps_compiler::*;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 fn fill_token_vec(stream: TokenStream, vec: &mut Vec<parser::Token>) {
     let mut prev_spacing = Spacing::Alone;
@@ -30,12 +33,36 @@ fn fill_token_vec(stream: TokenStream, vec: &mut Vec<parser::Token>) {
                                 last.text = ":=".into();
                                 continue;
                             }
+                            if last.kind == SyntaxKind::Plus && prev_spacing == Spacing::Joint {
+                                last.kind = SyntaxKind::PlusEqual;
+                                last.text = "+=".into();
+                                continue;
+                            }
+                            if last.kind == SyntaxKind::Minus && prev_spacing == Spacing::Joint {
+                                last.kind = SyntaxKind::MinusEqual;
+                                last.text = "-=".into();
+                                continue;
+                            }
+                            if last.kind == SyntaxKind::Div && prev_spacing == Spacing::Joint {
+                                last.kind = SyntaxKind::DivEqual;
+                                last.text = "/=".into();
+                                continue;
+                            }
+                            if last.kind == SyntaxKind::Star && prev_spacing == Spacing::Joint {
+                                last.kind = SyntaxKind::StarEqual;
+                                last.text = "*=".into();
+                                continue;
+                            }
                         }
                         SyntaxKind::Equal
                     }
                     ';' => SyntaxKind::Semicolon,
                     '!' => SyntaxKind::Bang,
                     '.' => SyntaxKind::Dot,
+                    '+' => SyntaxKind::Plus,
+                    '-' => SyntaxKind::Minus,
+                    '*' => SyntaxKind::Star,
+                    '/' => SyntaxKind::Div,
                     '<' => SyntaxKind::LAngle,
                     '>' => {
                         if let Some(last) = vec.last_mut() {
@@ -273,6 +300,17 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
     result.into()
 }
 
+fn access_member(element: &Rc<RefCell<Element>>, name: &str) -> proc_macro2::TokenStream {
+    let e = element.borrow();
+    let name_ident = quote::format_ident!("{}", name);
+    if e.property_declarations.contains_key(name) {
+        quote!(#name_ident)
+    } else {
+        let elem_ident = quote::format_ident!("{}", e.id);
+        quote!(#elem_ident.#name_ident )
+    }
+}
+
 fn compile_expression(e: &Expression) -> proc_macro2::TokenStream {
     match e {
         Expression::StringLiteral(s) => quote!(sixtyfps::re_exports::SharedString::from(#s)),
@@ -287,29 +325,16 @@ fn compile_expression(e: &Expression) -> proc_macro2::TokenStream {
             }
         }
         Expression::PropertyReference { component: _, element, name } => {
-            let name_ident = quote::format_ident!("{}", name);
-            let e = element.upgrade().unwrap();
-            if !e.borrow().property_declarations.contains_key(name) {
-                let elem_ident = quote::format_ident!("{}", e.borrow().id);
-                quote!(_self.#elem_ident.#name_ident.get(context))
-            } else {
-                quote!(_self.#name_ident.get(context))
-            }
+            let access = access_member(&element.upgrade().unwrap(), name.as_str());
+            quote!(_self.#access.get(context))
         }
         Expression::CodeBlock(sub) => {
             let map = sub.iter().map(|e| compile_expression(e));
             quote!({ #(#map);* })
         }
-        // FIXME: signals!
         Expression::SignalReference { element, name, .. } => {
-            let name_ident = quote::format_ident!("{}", name);
-            let e = element.upgrade().unwrap();
-            if !e.borrow().property_declarations.contains_key(name) {
-                let elem_ident = quote::format_ident!("{}", e.borrow().id);
-                quote!(_self.#elem_ident.#name_ident)
-            } else {
-                quote!(_self.#name_ident)
-            }
+            let access = access_member(&element.upgrade().unwrap(), name.as_str());
+            quote!(_self.#access)
         }
         Expression::FunctionCall { function } => {
             if matches!(function.ty(), Type::Signal) {
@@ -320,6 +345,15 @@ fn compile_expression(e: &Expression) -> proc_macro2::TokenStream {
                 quote!(compile_error! {#error})
             }
         }
+        Expression::SelfAssignement { lhs, rhs, op } => match &**lhs {
+            Expression::PropertyReference { element, name, .. } => {
+                let lhs = access_member(&element.upgrade().unwrap(), name.as_str());
+                let rhs = compile_expression(&*rhs);
+                let op = proc_macro2::Punct::new(*op, proc_macro2::Spacing::Alone);
+                quote!( _self.#lhs.set(_self.#lhs.get(context) #op &(#rhs) ))
+            }
+            _ => panic!("typechecking should make sure this was a PropertyReference"),
+        },
         _ => {
             let error = format!("unsupported expression {:?}", e);
             quote!(compile_error! {#error})
