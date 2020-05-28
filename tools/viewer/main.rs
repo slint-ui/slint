@@ -445,10 +445,10 @@ fn main() -> std::io::Result<()> {
                 let v = eval::eval_expression(expr, &ctx, &component_ref);
                 if let Some((o, set, _)) = rtti.properties.get(prop.as_str()) {
                     set(item.offset(*o as isize), v);
-                } else {
-                    let PropertiesWithinComponent { offset, set, .. } =
-                        ctx.custom_properties[prop.as_str()];
-                    set(item.offset(offset as isize), v);
+                } else if let Some(PropertiesWithinComponent { offset, set, .. }) =
+                    ctx.custom_properties.get(prop.as_str())
+                {
+                    set(item.offset(*offset as isize), v);
                 }
             }
         }
