@@ -18,7 +18,10 @@ struct Property
         set(value);
     }*/
 
-    void set(const T &value) const { this->value = value; }
+    void set(const T &value) const {
+        this->value = value;
+        internal::sixtyfps_property_set_changed(&inner);
+    }
 
     const T &get(const internal::EvaluationContext *context) const
     {
