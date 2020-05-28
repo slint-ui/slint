@@ -47,13 +47,17 @@ macro_rules! declare_token_kind {
             SignalDeclaration,
             SignalConnection,
             PropertyDeclaration,
+            /// wraps Identifiers, like Rectangle or SomeModule.SomeType
+            QualifiedName,
             Binding,
-            BindingExpression, // the right-hand-side of a binding
+            /// the right-hand-side of a binding
+            BindingExpression,
             CodeBlock,
             Expression,
-            QualifiedName, // wraps Identifiers, like Rectangle or SomeModule.SomeType
             /// foo!bar
             BangExpression,
+            /// expression()
+            FunctionCallExpression,
         }
 
         fn lexer() -> m_lexer::Lexer {
@@ -124,22 +128,36 @@ mod parser_trait {
     //! module allowing to keep implementation details of the node private
     use super::*;
 
-    // Todo: rename DefaultParser
     pub trait Parser: Sized {
+        type Checkpoint: Clone;
+
         /// Enter a new node.  The node is going to be finished when
         /// The return value of this function is drop'ed
         ///
         /// (do not re-implement this function, re-implement
         /// start_node_impl and finish_node_impl)
+        #[must_use = "The node will be finished when it is dropped"]
         fn start_node(&mut self, kind: SyntaxKind) -> Node<Self> {
-            self.start_node_impl(kind, NodeToken(()));
+            self.start_node_impl(kind, None, NodeToken(()));
+            Node(self)
+        }
+        #[must_use = "use start_node_at to use this checkpoint"]
+        fn checkpoint(&mut self) -> Self::Checkpoint;
+        #[must_use = "The node will be finished when it is dropped"]
+        fn start_node_at(&mut self, checkpoint: Self::Checkpoint, kind: SyntaxKind) -> Node<Self> {
+            self.start_node_impl(kind, Some(checkpoint), NodeToken(()));
             Node(self)
         }
 
         /// Can only be called by Node::drop
         fn finish_node_impl(&mut self, token: NodeToken);
         /// Can only be called by Self::start_node
-        fn start_node_impl(&mut self, kind: SyntaxKind, token: NodeToken);
+        fn start_node_impl(
+            &mut self,
+            kind: SyntaxKind,
+            checkpoint: Option<Self::Checkpoint>,
+            token: NodeToken,
+        );
         fn peek(&mut self) -> Token;
         /// Peek the n'th token, not including whitespaces and comments
         fn nth(&mut self, n: usize) -> SyntaxKind;
@@ -243,8 +261,16 @@ impl DefaultParser {
 }
 
 impl Parser for DefaultParser {
-    fn start_node_impl(&mut self, kind: SyntaxKind, _: NodeToken) {
-        self.builder.start_node(kind.into());
+    fn start_node_impl(
+        &mut self,
+        kind: SyntaxKind,
+        checkpoint: Option<Self::Checkpoint>,
+        _: NodeToken,
+    ) {
+        match checkpoint {
+            None => self.builder.start_node(kind.into()),
+            Some(cp) => self.builder.start_node_at(cp, kind.into()),
+        }
     }
 
     fn finish_node_impl(&mut self, _: NodeToken) {
@@ -289,6 +315,11 @@ impl Parser for DefaultParser {
             span.span = current_token.span;
         }
         self.diags.push_error(e.into(), span);
+    }
+
+    type Checkpoint = rowan::Checkpoint;
+    fn checkpoint(&mut self) -> Self::Checkpoint {
+        self.builder.checkpoint()
     }
 }
 

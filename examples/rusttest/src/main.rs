@@ -15,7 +15,7 @@ component TwoRectangle := Rectangle {
         my_area := TouchArea {
             width: 25;
             height: 25;
-            clicked => { clicked }
+            clicked => { root.clicked() }
         }
 
     }
@@ -30,7 +30,7 @@ component ButtonRectangle := Rectangle {
     TouchArea {
         width: 100;
         height: 75;
-        clicked => { clicked }
+        clicked => { root.clicked() }
     }
     Text {
         x: 50;
@@ -52,7 +52,7 @@ Hello := Rectangle {
         width: 100;
         height: 100;
         color: blue;
-        clicked => { foobar }
+        clicked => { foobar() }
     }
     Rectangle {
         x: 100;
@@ -78,7 +78,7 @@ Hello := Rectangle {
         color: 4289374890;
         x: 50;
         y: 225;
-        clicked => { plus_clicked }
+        clicked => { plus_clicked() }
         button_text: "+";
     }
     counter := Text { x: 100; y: 300; text: "0"; color: black; }
@@ -86,7 +86,7 @@ Hello := Rectangle {
         color: 4289374890;
         x: 50;
         y: 350;
-        clicked => { minus_clicked }
+        clicked => { minus_clicked() }
         button_text: "-";
     }
 

@@ -259,6 +259,9 @@ impl Element {
     }
 
     pub fn lookup_property(&self, name: &str) -> Type {
+        if self.signals_declaration.iter().any(|x| x == name) {
+            return Type::Signal;
+        }
         self.property_declarations
             .get(name)
             .cloned()

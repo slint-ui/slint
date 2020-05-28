@@ -10,9 +10,11 @@ use super::prelude::*;
 /// (something)
 /// img!"something"
 /// some_id.some_property
+/// function_call()
 /// ```
 pub fn parse_expression(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::Expression);
+    let checkpoint = p.checkpoint();
     match p.nth(0) {
         SyntaxKind::Identifier => {
             if p.nth(1) == SyntaxKind::Bang {
@@ -28,7 +30,23 @@ pub fn parse_expression(p: &mut impl Parser) {
             parse_expression(&mut *p);
             p.expect(SyntaxKind::RParent);
         }
-        _ => p.error("invalid expression"),
+        _ => {
+            p.error("invalid expression");
+            return;
+        }
+    }
+
+    match p.nth(0) {
+        SyntaxKind::LParent => {
+            {
+                let _ = p.start_node_at(checkpoint.clone(), SyntaxKind::Expression);
+            }
+            let mut p = p.start_node_at(checkpoint, SyntaxKind::FunctionCallExpression);
+
+            p.consume();
+            p.expect(SyntaxKind::RParent);
+        }
+        _ => {}
     }
 }
 

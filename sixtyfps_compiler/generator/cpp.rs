@@ -162,35 +162,31 @@ fn handle_item(
 
     let id = &item.id;
     init.extend(item.bindings.iter().map(|(s, i)| {
-        use crate::expression_tree::Expression;
-        match i {
-            Expression::SignalReference { component:_, element:_, name } => {
-                let signal_accessor_prefix = if item.signals_declaration.contains(s) {
-                    String::new()
-                } else {
-                    format!("{id}.", id = id.clone())
-                };
+        if matches!(item.lookup_property(s.as_str()), Type::Signal) {
+            let signal_accessor_prefix = if item.signals_declaration.contains(s) {
+                String::new()
+            } else {
+                format!("{id}.", id = id.clone())
+            };
 
-                format!(
-                    "{signal_accessor_prefix}{prop}.set_handler([](const void *root) {{ reinterpret_cast<const {ty}*>(root)->{fwd}.emit(root); }});",
-                    signal_accessor_prefix = signal_accessor_prefix, prop = s, fwd = name.clone(), ty = main_struct.name
-                )
-            }
-            _ => {
-                let accessor_prefix = if item.property_declarations.contains_key(s) {
-                    String::new()
-                } else {
-                    format!("{id}.", id = id.clone())
-                };
+            format!(
+                "{signal_accessor_prefix}{prop}.set_handler([](const void *self_) {{ auto self = reinterpret_cast<const {ty}*>(self_); {code}; }});",
+                signal_accessor_prefix = signal_accessor_prefix, prop = s, ty = main_struct.name, code = compile_expression(i)
+            )
+        } else {
+            let accessor_prefix = if item.property_declarations.contains_key(s) {
+                String::new()
+            } else {
+                format!("{id}.", id = id.clone())
+            };
 
-                let init = compile_expression(i);
-                format!(
-                    "{accessor_prefix}{cpp_prop}.set({init});",
-                    accessor_prefix = accessor_prefix,
-                    cpp_prop = s,
-                    init = init
-                )
-            }
+            let init = compile_expression(i);
+            format!(
+                "{accessor_prefix}{cpp_prop}.set({init});",
+                accessor_prefix = accessor_prefix,
+                cpp_prop = s,
+                init = init
+            )
         }
     }));
 
@@ -225,7 +221,7 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<impl st
 
     main_struct.members.extend(declared_property_vars);
 
-    let mut init = Vec::new();
+    let mut init = vec!["auto self = this;".into()];
     handle_item(
         &component.root_element.borrow(),
         &declared_property_members,
@@ -303,7 +299,23 @@ fn compile_expression(e: &crate::expression_tree::Expression) -> String {
     match e {
         StringLiteral(s) => format!(r#"sixtyfps::SharedString("{}")"#, s.escape_default()),
         NumberLiteral(n) => n.to_string(),
-        PropertyReference { name, .. } => format!(r#"{}.get(nullptr)"#, name),
+        PropertyReference { element, name, .. } => {
+            let e = element.upgrade().unwrap();
+            let e = e.borrow();
+            let (elem, dot) = if e.property_declarations.contains_key(name) {
+                ("", "")
+            } else {
+                (e.id.as_str(), ".")
+            };
+            format!(r#"self->{}{}{}.get(nullptr)"#, elem, dot, name)
+        }
+        SignalReference { element, name, .. } => {
+            let e = element.upgrade().unwrap();
+            let e = e.borrow();
+            let (elem, dot) =
+                if e.signals_declaration.contains(name) { ("", "") } else { (e.id.as_str(), ".") };
+            format!(r#"self->{}{}{}"#, elem, dot, name)
+        }
         Cast { from, to } => {
             let f = compile_expression(&*from);
             match (from.ty(), to) {
@@ -313,6 +325,20 @@ fn compile_expression(e: &crate::expression_tree::Expression) -> String {
                 _ => f,
             }
         }
-        _ => format!("\n#error: unsupported expression {:?}\n", e),
+        CodeBlock(sub) => {
+            let mut x = sub.iter().map(|e| compile_expression(e)).collect::<Vec<_>>();
+            x.last_mut().map(|s| *s = format!("return {};", s));
+
+            format!("[&]{{ {} }}()", x.join(";"))
+        }
+        FunctionCall { function } => {
+            if matches!(function.ty(), Type::Signal) {
+                format!("{}.emit(self_)", compile_expression(&*function))
+            } else {
+                format!("\n#error the function `{:?}` is not a signal\n", function)
+            }
+        }
+        Uncompiled(_) => panic!(),
+        Invalid => format!("\n#error invalid expression\n"),
     }
 }

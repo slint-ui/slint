@@ -27,6 +27,12 @@ pub enum Expression {
 
     /// Cast an expression to the given type
     Cast { from: Box<Expression>, to: Type },
+
+    /// a code block with different expression
+    CodeBlock(Vec<Expression>),
+
+    /// A function call
+    FunctionCall { function: Box<Expression> },
 }
 
 impl Expression {
@@ -42,6 +48,8 @@ impl Expression {
                 element.upgrade().unwrap().borrow().lookup_property(name)
             }
             Expression::Cast { to, .. } => to.clone(),
+            Expression::CodeBlock(sub) => sub.last().map_or(Type::Invalid, |e| e.ty()),
+            Expression::FunctionCall { function } => function.ty(),
         }
     }
 
@@ -55,6 +63,12 @@ impl Expression {
             Expression::SignalReference { .. } => {}
             Expression::PropertyReference { .. } => {}
             Expression::Cast { from, .. } => visitor(&**from),
+            Expression::CodeBlock(sub) => {
+                for e in sub {
+                    visitor(e)
+                }
+            }
+            Expression::FunctionCall { function } => visitor(&**function),
         }
     }
 
@@ -67,6 +81,12 @@ impl Expression {
             Expression::SignalReference { .. } => {}
             Expression::PropertyReference { .. } => {}
             Expression::Cast { from, .. } => visitor(&mut **from),
+            Expression::CodeBlock(sub) => {
+                for e in sub {
+                    visitor(e)
+                }
+            }
+            Expression::FunctionCall { function } => visitor(&mut **function),
         }
     }
 }

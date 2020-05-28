@@ -77,15 +77,26 @@ impl Expression {
         debug_assert_eq!(node.kind(), SyntaxKind::BindingExpression);
         let e = node
             .child_node(SyntaxKind::Expression)
+            .map(|n| Self::from_expression_node(n, ctx))
             .or_else(|| {
-                node.child_node(SyntaxKind::CodeBlock)
-                    .and_then(|c| c.child_node(SyntaxKind::Expression))
+                node.child_node(SyntaxKind::CodeBlock).map(|c| Self::from_codeblock_node(c, ctx))
             })
-            .map_or(Self::Invalid, |n| Self::from_expression_node(n, ctx));
+            .unwrap_or(Self::Invalid);
         maybe_convert_to(e, ctx, &node)
     }
 
+    fn from_codeblock_node(node: SyntaxNode, ctx: &mut LookupCtx) -> Expression {
+        debug_assert_eq!(node.kind(), SyntaxKind::CodeBlock);
+        Expression::CodeBlock(
+            node.children()
+                .filter(|n| n.kind() == SyntaxKind::Expression)
+                .map(|n| Self::from_expression_node(n, ctx))
+                .collect(),
+        )
+    }
+
     fn from_expression_node(node: SyntaxNode, ctx: &mut LookupCtx) -> Self {
+        debug_assert_eq!(node.kind(), SyntaxKind::Expression);
         node.child_node(SyntaxKind::Expression)
             .map(|n| Self::from_expression_node(n, ctx))
             .or_else(|| {
@@ -110,6 +121,17 @@ impl Expression {
                         ctx.diag.push_error("Cannot parse number literal".into(), node.span());
                         Self::Invalid
                     })
+                })
+            })
+            .or_else(|| {
+                node.child_node(SyntaxKind::FunctionCallExpression).map(|n| {
+                    Expression::FunctionCall {
+                        function: Box::new(
+                            n.child_node(SyntaxKind::Expression)
+                                .map(|n| Self::from_expression_node(n, ctx))
+                                .unwrap_or(Expression::Invalid),
+                        ),
+                    }
                 })
             })
             .unwrap_or(Self::Invalid)
@@ -186,6 +208,18 @@ impl Expression {
                 element: Rc::downgrade(&ctx.component.root_element),
                 name: s.to_string(),
             };
+        } else if matches!(property, Type::Signal) {
+            if let Some(x) = it.next() {
+                ctx.diag.push_error(
+                    "Cannot access fields of signal".into(),
+                    x.into_token().unwrap().span(),
+                )
+            }
+            return Self::SignalReference {
+                component: Rc::downgrade(&ctx.component),
+                element: Rc::downgrade(&ctx.component.root_element),
+                name: s.to_string(),
+            };
         } else if property.is_object_type() {
             todo!("Continue lookling up");
         }
@@ -211,6 +245,18 @@ impl Expression {
                     element: Rc::downgrade(&elem),
                     name: prop_name.text().to_string(),
                 };
+            } else if matches!(p, Type::Signal) {
+                if let Some(x) = it.next() {
+                    ctx.diag.push_error(
+                        "Cannot access fields of signal".into(),
+                        x.into_token().unwrap().span(),
+                    )
+                }
+                return Self::SignalReference {
+                    component: Rc::downgrade(&ctx.component),
+                    element: Rc::downgrade(&elem),
+                    name: prop_name.to_string(),
+                };
             } else {
                 ctx.diag.push_error(
                     format!("Cannot access property '{}'", prop_name),
@@ -223,20 +269,6 @@ impl Expression {
         if it.next().is_some() {
             ctx.diag.push_error(format!("Cannot access id '{}'", s), node.span());
             return Expression::Invalid;
-        }
-
-        if matches!(ctx.property_type, Type::Signal) {
-            if let Some(x) = it.next() {
-                ctx.diag.push_error(
-                    "Cannot access fields of signal".into(),
-                    x.into_token().unwrap().span(),
-                )
-            }
-            return Self::SignalReference {
-                component: Rc::downgrade(&ctx.component),
-                element: Rc::downgrade(&ctx.component.root_element),
-                name: s.to_string(),
-            };
         }
 
         if matches!(ctx.property_type, Type::Color) {

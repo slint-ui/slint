@@ -4,6 +4,7 @@ use sixtyfps_compiler::typeregister::Type;
 
 #[derive(Debug)]
 pub enum Value {
+    Void,
     Number(f64),
     String(SharedString),
 }
@@ -42,5 +43,13 @@ pub fn eval_expression(
                 (v, _) => v,
             }
         }
+        Expression::CodeBlock(sub) => {
+            let mut v = Value::Void;
+            for e in sub {
+                v = eval_expression(e, ctx, component_ref);
+            }
+            v
+        }
+        Expression::FunctionCall { .. } => todo!("function call"),
     }
 }
