@@ -24,6 +24,7 @@ void run(Component *c)
             VRefMut<ComponentVTable> { &Component::component_type, c });
 }
 
+using internal::EvaluationContext;
 using internal::Image;
 using internal::ImageVTable;
 using internal::Rectangle;

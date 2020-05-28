@@ -23,7 +23,7 @@ pub fn process_mouse_event(
             if geom.contains(event.pos) {
                 let mut event2 = event.clone();
                 event2.pos -= geom.origin.to_vector();
-                item.input_event(event2, component);
+                item.input_event(event2, &crate::EvaluationContext { component });
             }
 
             geom.origin.to_vector()

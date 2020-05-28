@@ -125,7 +125,7 @@ pub struct ItemVTable {
     pub layouting_info: extern "C" fn(VRef<'_, ItemVTable>) -> LayoutInfo,
 
     /// input event
-    pub input_event: extern "C" fn(VRef<'_, ItemVTable>, MouseEvent, VRef<'_, ComponentVTable>),
+    pub input_event: extern "C" fn(VRef<'_, ItemVTable>, MouseEvent, &crate::EvaluationContext),
 }
 
 // given an ItemImpl & ItemVTable

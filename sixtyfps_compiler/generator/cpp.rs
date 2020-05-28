@@ -165,8 +165,15 @@ fn handle_item(item: &Element, main_struct: &mut Struct, init: &mut Vec<String>)
             };
 
             format!(
-                "{signal_accessor_prefix}{prop}.set_handler([](const void *self_) {{ auto self = reinterpret_cast<const {ty}*>(self_); {code}; }});",
-                signal_accessor_prefix = signal_accessor_prefix, prop = s, ty = main_struct.name, code = compile_expression(i)
+                r#"{signal_accessor_prefix}{prop}.set_handler(
+                    [](const sixtyfps::EvaluationContext *context) {{
+                        auto self = reinterpret_cast<const {ty}*>(context->component.instance);
+                        {code};
+                    }});"#,
+                signal_accessor_prefix = signal_accessor_prefix,
+                prop = s,
+                ty = main_struct.name,
+                code = compile_expression(i)
             )
         } else {
             let accessor_prefix = if item.property_declarations.contains_key(s) {
@@ -319,7 +326,7 @@ fn compile_expression(e: &crate::expression_tree::Expression) -> String {
         }
         FunctionCall { function } => {
             if matches!(function.ty(), Type::Signal) {
-                format!("{}.emit(self_)", compile_expression(&*function))
+                format!("{}.emit(context)", compile_expression(&*function))
             } else {
                 format!("\n#error the function `{:?}` is not a signal\n", function)
             }

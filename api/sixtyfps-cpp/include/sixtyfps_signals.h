@@ -18,14 +18,16 @@ struct Signal
     {
         internal::sixtyfps_signal_set_handler(
                 &inner,
-                [](void *user_data, const void *value) {
+                [](void *user_data, const internal::EvaluationContext *value) {
                     (*reinterpret_cast<F *>(user_data))(value);
                 },
-                new F(binding),
-                [](void *user_data) { delete reinterpret_cast<F *>(user_data); });
+                new F(binding), [](void *user_data) { delete reinterpret_cast<F *>(user_data); });
     }
 
-    void emit(const void *data) const { internal::sixtyfps_signal_emit(&inner, data); }
+    void emit(const internal::EvaluationContext *context) const
+    {
+        internal::sixtyfps_signal_emit(&inner, context);
+    }
 
 private:
     internal::SignalOpaque inner;

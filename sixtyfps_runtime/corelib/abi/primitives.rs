@@ -15,8 +15,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 #![allow(non_upper_case_globals)]
 
 use super::datastructures::{
-    CachedRenderingData, Color, ComponentRef, Item, ItemConsts, ItemVTable, LayoutInfo, Rect,
-    RenderingPrimitive,
+    CachedRenderingData, Color, Item, ItemConsts, ItemVTable, LayoutInfo, Rect, RenderingPrimitive,
 };
 use crate::{EvaluationContext, Property, SharedString, Signal};
 use vtable::HasStaticVTable;
@@ -62,7 +61,7 @@ impl Item for Rectangle {
         todo!()
     }
 
-    fn input_event(&self, _: super::datastructures::MouseEvent, _: ComponentRef) {}
+    fn input_event(&self, _: super::datastructures::MouseEvent, _: &crate::EvaluationContext) {}
 }
 
 impl ItemConsts for Rectangle {
@@ -108,7 +107,7 @@ impl Item for Image {
         todo!()
     }
 
-    fn input_event(&self, _: super::datastructures::MouseEvent, _: ComponentRef) {}
+    fn input_event(&self, _: super::datastructures::MouseEvent, _: &crate::EvaluationContext) {}
 }
 
 impl ItemConsts for Image {
@@ -153,7 +152,7 @@ impl Item for Text {
         todo!()
     }
 
-    fn input_event(&self, _: super::datastructures::MouseEvent, _: ComponentRef) {}
+    fn input_event(&self, _: super::datastructures::MouseEvent, _: &crate::EvaluationContext) {}
 }
 
 impl ItemConsts for Text {
@@ -195,7 +194,11 @@ impl Item for TouchArea {
         todo!()
     }
 
-    fn input_event(&self, event: super::datastructures::MouseEvent, c: ComponentRef) {
+    fn input_event(
+        &self,
+        event: super::datastructures::MouseEvent,
+        context: &crate::EvaluationContext,
+    ) {
         println!("Touch Area Event {:?}", event);
         self.pressed.set(match event.what {
             super::datastructures::MouseEventType::MousePressed => true,
@@ -203,7 +206,7 @@ impl Item for TouchArea {
             super::datastructures::MouseEventType::MouseMoved => return,
         });
         if matches!(event.what, super::datastructures::MouseEventType::MouseReleased) {
-            self.clicked.emit(c.as_ptr() as _, ())
+            self.clicked.emit(context, ())
         }
     }
 }
