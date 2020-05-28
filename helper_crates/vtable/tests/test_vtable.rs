@@ -55,6 +55,37 @@ struct SomeStructContainer {
     s: SomeStruct,
 }
 
+#[derive(Debug, const_field_offset::FieldOffsets, Default)]
+#[repr(C)]
+struct AnotherStruct {
+    s: String,
+    foo: u32,
+}
+impl Hello for AnotherStruct {
+    fn foo(&self, xx: u32) -> u32 {
+        self.s.len() as u32 + xx
+    }
+
+    fn foo_mut(&mut self, xx: u32) -> u32 {
+        self.foo(xx)
+    }
+
+    fn construct(init: u32) -> Self {
+        Self { s: "123".into(), foo: init }
+    }
+
+    fn assoc() -> isize {
+        999
+    }
+}
+impl HelloConsts for AnotherStruct {
+    const CONSTANT: usize = 99;
+    const SOME_OFFSET: const_field_offset::FieldOffset<AnotherStruct, u32> =
+        AnotherStruct::field_offsets().foo;
+}
+
+HelloVTable_static!(AnotherStruct);
+
 #[test]
 fn test() {
     let vt = &SOME_STRUCT_TYPE;
@@ -91,4 +122,17 @@ fn test() {
     assert_eq!(vo.apply(&ssc).foo(4), 32 + 4);
     assert_eq!(vo.apply_mut(&mut ssc).foo_mut(4), 32 + 4);
     assert_eq!(*vo.apply(&ssc).SOME_OFFSET(), 32 + 4);
+}
+
+#[test]
+fn test2() {
+    let mut ss = SomeStruct::construct(44);
+    let mut vrss = VRefMut::<HelloVTable>::new(&mut ss);
+    assert_eq!(vrss.downcast::<SomeStruct>().unwrap().foo_mut(4), 44 + 4);
+    assert!(vrss.downcast::<AnotherStruct>().is_none());
+
+    let as_ = AnotherStruct::default();
+    let vras = VRef::<HelloVTable>::new(&as_);
+    assert_eq!(vras.downcast::<AnotherStruct>().unwrap().foo(4), 4);
+    assert!(vras.downcast::<SomeStruct>().is_none());
 }

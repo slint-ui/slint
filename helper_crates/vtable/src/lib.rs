@@ -234,6 +234,16 @@ impl<'a, T: ?Sized + VTableMeta> VRef<'a, T> {
             phantom: PhantomData,
         }
     }
+
+    /// Return to a reference of the given type if the type is actually matching
+    pub fn downcast<X: HasStaticVTable<T>>(&self) -> Option<&X> {
+        if self.inner.vtable == X::STATIC_VTABLE as *const _ as *const u8 {
+            // Safety: We just checked that the vtable fits
+            unsafe { Some(&*(self.inner.ptr as *const X)) }
+        } else {
+            None
+        }
+    }
 }
 
 /// `VRefMut<'a MyTraitVTable>` can be thought as a `&'a mut dyn MyTrait`
@@ -298,6 +308,16 @@ impl<'a, T: ?Sized + VTableMeta> VRefMut<'a, T> {
     /// Create a VRef with the same lifetime as the original lifetime
     pub fn into_ref(self) -> VRef<'a, T> {
         unsafe { VRef::from_inner(self.inner) }
+    }
+
+    /// Return to a reference of the given type if the type is actually matching
+    pub fn downcast<X: HasStaticVTable<T>>(&mut self) -> Option<&mut X> {
+        if self.inner.vtable == X::STATIC_VTABLE as *const _ as *const u8 {
+            // Safety: We just checked that the vtable fits
+            unsafe { Some(&mut *(self.inner.ptr as *mut X)) }
+        } else {
+            None
+        }
     }
 }
 
