@@ -196,24 +196,28 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
                 quote!(#field_name.)
             };
             let rust_property = quote!(#rust_property_accessor_prefix#rust_property_ident);
+            let tokens_for_expression = compile_expression(binding_expression);
 
-            let v = compile_expression(binding_expression);
-            if v.is_none() {
-                // FIXME: this is because signals are not yet implemented
-                continue;
-            }
-
-            if binding_expression.is_constant() {
+            if matches!(item.lookup_property(k.as_str()), Type::Signal) {
                 init.push(quote!(
-                    self_.#rust_property.set(#v);
-                ));
-            } else {
-                init.push(quote!(
-                    self_.#rust_property.set_binding(|context| {
+                    self_.#rust_property.set_handler(|context, ()| {
                         let _self = context.component.downcast::<#component_id>().unwrap();
-                        #v
+                        #tokens_for_expression;
                     });
                 ));
+            } else {
+                if binding_expression.is_constant() {
+                    init.push(quote!(
+                        self_.#rust_property.set(#tokens_for_expression);
+                    ));
+                } else {
+                    init.push(quote!(
+                        self_.#rust_property.set_binding(|context| {
+                            let _self = context.component.downcast::<#component_id>().unwrap();
+                            #tokens_for_expression
+                        });
+                    ));
+                }
             }
         }
         item_names.push(field_name);
@@ -269,12 +273,12 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
     result.into()
 }
 
-fn compile_expression(e: &Expression) -> Option<proc_macro2::TokenStream> {
-    Some(match e {
+fn compile_expression(e: &Expression) -> proc_macro2::TokenStream {
+    match e {
         Expression::StringLiteral(s) => quote!(sixtyfps::re_exports::SharedString::from(#s)),
         Expression::NumberLiteral(n) => quote!(#n as _),
         Expression::Cast { from, to } => {
-            let f = compile_expression(&*from)?;
+            let f = compile_expression(&*from);
             match (from.ty(), to) {
                 (Type::Float32, Type::String) | (Type::Int32, Type::String) => {
                     quote!(sixtyfps::re_exports::SharedString::from(format("{}", #f).to_str()))
@@ -293,19 +297,32 @@ fn compile_expression(e: &Expression) -> Option<proc_macro2::TokenStream> {
             }
         }
         Expression::CodeBlock(sub) => {
-            if sub.iter().map(|e| compile_expression(e)).any(|e| e.is_none()) {
-                // fixme: Remove!
-                return None;
-            }
             let map = sub.iter().map(|e| compile_expression(e));
             quote!({ #(#map);* })
         }
         // FIXME: signals!
-        Expression::SignalReference { .. } => return None,
-        Expression::FunctionCall { .. } => return None,
+        Expression::SignalReference { element, name, .. } => {
+            let name_ident = quote::format_ident!("{}", name);
+            let e = element.upgrade().unwrap();
+            if !e.borrow().property_declarations.contains_key(name) {
+                let elem_ident = quote::format_ident!("{}", e.borrow().id);
+                quote!(_self.#elem_ident.#name_ident)
+            } else {
+                quote!(_self.#name_ident)
+            }
+        }
+        Expression::FunctionCall { function } => {
+            if matches!(function.ty(), Type::Signal) {
+                let base = compile_expression(function);
+                quote!(#base.emit(&context, ()))
+            } else {
+                let error = format!("the function {:?} is not a signal", e);
+                quote!(compile_error! {#error})
+            }
+        }
         _ => {
             let error = format!("unsupported expression {:?}", e);
             quote!(compile_error! {#error})
         }
-    })
+    }
 }
