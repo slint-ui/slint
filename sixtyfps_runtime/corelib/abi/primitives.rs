@@ -17,11 +17,13 @@ When adding an item or a property, it needs to be kept in sync with different pl
 use super::datastructures::{
     CachedRenderingData, Color, Item, ItemConsts, ItemVTable, LayoutInfo, Rect, RenderingPrimitive,
 };
+use crate::rtti::*;
 use crate::{EvaluationContext, Property, SharedString, Signal};
+use corelib_macro::*;
 use vtable::HasStaticVTable;
 
 #[repr(C)]
-#[derive(const_field_offset::FieldOffsets, Default)]
+#[derive(const_field_offset::FieldOffsets, Default, BuiltinItem)]
 pub struct Rectangle {
     /// FIXME: make it a color
     pub color: Property<u32>,
@@ -75,7 +77,7 @@ impl ItemConsts for Rectangle {
 pub static RectangleVTable: ItemVTable = Rectangle::VTABLE;
 
 #[repr(C)]
-#[derive(const_field_offset::FieldOffsets, Default)]
+#[derive(const_field_offset::FieldOffsets, Default, BuiltinItem)]
 pub struct Image {
     /// FIXME: make it a image source
     pub source: Property<SharedString>,
@@ -121,7 +123,7 @@ impl ItemConsts for Image {
 pub static ImageVTable: ItemVTable = Image::VTABLE;
 
 #[repr(C)]
-#[derive(const_field_offset::FieldOffsets, Default)]
+#[derive(const_field_offset::FieldOffsets, Default, BuiltinItem)]
 pub struct Text {
     pub text: Property<SharedString>,
     pub font_family: Property<SharedString>,
@@ -164,7 +166,7 @@ impl ItemConsts for Text {
 pub static TextVTable: ItemVTable = Text::VTABLE;
 
 #[repr(C)]
-#[derive(const_field_offset::FieldOffsets, Default)]
+#[derive(const_field_offset::FieldOffsets, Default, BuiltinItem)]
 pub struct TouchArea {
     pub x: Property<f32>,
     pub y: Property<f32>,

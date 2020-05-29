@@ -11,6 +11,9 @@ pub mod abi {
     pub mod string;
 }
 
+//#[cfg(feature = "rtti")]
+pub mod rtti;
+
 #[doc(inline)]
 pub use abi::string::SharedString;
 

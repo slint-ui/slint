@@ -1,13 +1,63 @@
-use corelib::{abi::datastructures::ComponentRefMut, EvaluationContext, SharedString};
+use corelib::{
+    abi::datastructures::{ComponentRefMut, ItemRef},
+    EvaluationContext, SharedString,
+};
 use sixtyfps_compiler::expression_tree::Expression;
 use sixtyfps_compiler::typeregister::Type;
+use std::convert::{TryFrom, TryInto};
+pub trait ErasedPropertyInfo {
+    fn get(&self, item: ItemRef, context: &EvaluationContext) -> Value;
+    fn set(&self, item: ItemRef, value: Value);
+}
 
-#[derive(Debug)]
+impl<Item: vtable::HasStaticVTable<corelib::abi::datastructures::ItemVTable>> ErasedPropertyInfo
+    for &'static dyn corelib::rtti::PropertyInfo<Item, Value>
+{
+    fn get(&self, item: ItemRef, context: &EvaluationContext) -> Value {
+        (*self).get(item.downcast().unwrap(), context).unwrap()
+    }
+    fn set(&self, item: ItemRef, value: Value) {
+        (*self).set(item.downcast().unwrap(), value).unwrap()
+    }
+}
+
+//impl ErasedPropertyInfo for
+
+#[derive(Debug, Clone)]
 pub enum Value {
     Void,
     Number(f64),
     String(SharedString),
+    Bool(bool),
 }
+
+impl corelib::rtti::ValueType for Value {}
+macro_rules! declare_value_conversion {
+    ( $value:ident => [$($ty:ty),*] ) => {
+        $(
+            impl TryFrom<$ty> for Value {
+                type Error = ();
+                fn try_from(v: $ty) -> Result<Self, ()> {
+                    //Ok(Value::$value(v.try_into().map_err(|_|())?))
+                    Ok(Value::$value(v as _))
+                }
+            }
+            impl TryInto<$ty> for Value {
+                type Error = ();
+                fn try_into(self) -> Result<$ty, ()> {
+                    match self {
+                        //Self::$value(x) => x.try_into().map_err(|_|()),
+                        Self::$value(x) => Ok(x as _),
+                        _ => Err(())
+                    }
+                }
+            }
+        )*
+    };
+}
+declare_value_conversion!(Number => [u32, u64, i32, i64, f32, f64] );
+declare_value_conversion!(String => [SharedString] );
+declare_value_conversion!(Bool => [bool] );
 
 pub fn eval_expression(
     e: &Expression,
@@ -29,9 +79,9 @@ pub fn eval_expression(
                     return unsafe { (x.get)(ctx.mem.offset(x.offset as isize), &eval_context) };
                 }
             };
-            let item = &ctx.items[element.borrow().id.as_str()];
-            let (offset, _set, get) = item.rtti.properties[name.as_str()];
-            unsafe { get(ctx.mem.offset(offset as isize), &eval_context) }
+            let item_info = &ctx.items[element.borrow().id.as_str()];
+            let item = unsafe { item_info.item_from_component(ctx.mem) };
+            item_info.rtti.properties[name.as_str()].get(item, &eval_context)
         }
         Expression::Cast { from, to } => {
             let v = eval_expression(&*from, ctx, component_ref);
@@ -76,12 +126,10 @@ pub fn eval_expression(
                         return Value::Void;
                     }
                 };
-                let item = &ctx.items[element.borrow().id.as_str()];
-                let (offset, set, get) = item.rtti.properties[name.as_str()];
-                unsafe {
-                    let p = ctx.mem.offset(offset as isize);
-                    set(p, eval(get(p, &eval_context)));
-                }
+                let item_info = &ctx.items[element.borrow().id.as_str()];
+                let item = unsafe { item_info.item_from_component(ctx.mem) };
+                let p = &item_info.rtti.properties[name.as_str()];
+                p.set(item, eval(p.get(item, &eval_context)));
                 Value::Void
             }
             _ => panic!("typechecking should make sure this was a PropertyReference"),

@@ -1,5 +1,7 @@
 use core::ptr::NonNull;
-use corelib::abi::datastructures::{ComponentBox, ComponentRef, ComponentRefMut, ComponentVTable};
+use corelib::abi::datastructures::{
+    ComponentBox, ComponentRef, ComponentRefMut, ComponentVTable, ItemVTable,
+};
 use corelib::{EvaluationContext, Property, SharedString};
 use sixtyfps_compiler::expression_tree::Expression;
 use sixtyfps_compiler::typeregister::Type;
@@ -102,6 +104,15 @@ struct ItemWithinComponent {
     init_properties: HashMap<String, Expression>,
 }
 
+impl ItemWithinComponent {
+    unsafe fn item_from_component(&self, mem: *const u8) -> vtable::VRef<ItemVTable> {
+        vtable::VRef::from_raw(
+            NonNull::from(self.rtti.vtable),
+            NonNull::new(mem.add(self.offset) as _).unwrap(),
+        )
+    }
+}
+
 mod eval;
 
 struct PropertiesWithinComponent {
@@ -129,10 +140,27 @@ extern "C" fn item_tree(r: ComponentRef<'_>) -> *const corelib::abi::datastructu
 }
 
 struct RuntimeTypeInfo {
-    vtable: *const corelib::abi::datastructures::ItemVTable,
+    vtable: &'static ItemVTable,
     construct: unsafe fn(*mut u8),
-    properties: HashMap<&'static str, (usize, SetterFn, GetterFn)>,
+    properties: HashMap<&'static str, Box<dyn eval::ErasedPropertyInfo>>,
     size: usize,
+}
+
+fn rtti_for<
+    T: 'static + Default + corelib::rtti::BuiltinItem + vtable::HasStaticVTable<ItemVTable>,
+>() -> (&'static str, Rc<RuntimeTypeInfo>) {
+    (
+        T::name(),
+        Rc::new(RuntimeTypeInfo {
+            vtable: T::STATIC_VTABLE,
+            construct: construct::<T>,
+            properties: T::properties()
+                .into_iter()
+                .map(|(k, v)| (k, Box::new(v) as Box<dyn eval::ErasedPropertyInfo>))
+                .collect(),
+            size: core::mem::size_of::<T>(),
+        }),
+    )
 }
 
 fn main() -> std::io::Result<()> {
@@ -148,222 +176,20 @@ fn main() -> std::io::Result<()> {
         std::process::exit(-1);
     }
 
-    use corelib::abi::primitives::{Image, Rectangle, Text, TouchArea};
-
-    // FIXME: thus obviously is unsafe and not great
     let mut rtti = HashMap::new();
-
-    let offsets = Rectangle::field_offsets();
-    rtti.insert(
-        "Rectangle",
-        Rc::new(RuntimeTypeInfo {
-            vtable: &corelib::abi::primitives::RectangleVTable as _,
-            construct: construct::<Rectangle>,
-            properties: [
-                (
-                    "x",
-                    (
-                        offsets.x.get_byte_offset(),
-                        set_property::<f32> as _,
-                        get_property::<f32> as _,
-                    ),
-                ),
-                (
-                    "y",
-                    (
-                        offsets.y.get_byte_offset(),
-                        set_property::<f32> as _,
-                        get_property::<f32> as _,
-                    ),
-                ),
-                (
-                    "width",
-                    (
-                        offsets.width.get_byte_offset(),
-                        set_property::<f32> as _,
-                        get_property::<f32> as _,
-                    ),
-                ),
-                (
-                    "height",
-                    (
-                        offsets.height.get_byte_offset(),
-                        set_property::<f32> as _,
-                        get_property::<f32> as _,
-                    ),
-                ),
-                (
-                    "color",
-                    (
-                        offsets.color.get_byte_offset(),
-                        set_property::<u32> as _,
-                        get_property::<f32> as _,
-                    ),
-                ),
+    {
+        use corelib::abi::primitives::*;
+        rtti.extend(
+            [
+                rtti_for::<Image>(),
+                rtti_for::<Text>(),
+                rtti_for::<Rectangle>(),
+                rtti_for::<TouchArea>(),
             ]
             .iter()
-            .cloned()
-            .collect(),
-            size: std::mem::size_of::<Rectangle>(),
-        }),
-    );
-
-    let offsets = Image::field_offsets();
-    rtti.insert(
-        "Image",
-        Rc::new(RuntimeTypeInfo {
-            vtable: &corelib::abi::primitives::ImageVTable as _,
-            construct: construct::<Image>,
-            properties: [
-                (
-                    "x",
-                    (
-                        offsets.x.get_byte_offset(),
-                        set_property::<f32> as _,
-                        get_property::<f32> as _,
-                    ),
-                ),
-                (
-                    "y",
-                    (
-                        offsets.y.get_byte_offset(),
-                        set_property::<f32> as _,
-                        get_property::<f32> as _,
-                    ),
-                ),
-                (
-                    "width",
-                    (
-                        offsets.width.get_byte_offset(),
-                        set_property::<f32> as _,
-                        get_property::<f32> as _,
-                    ),
-                ),
-                (
-                    "height",
-                    (
-                        offsets.height.get_byte_offset(),
-                        set_property::<f32> as _,
-                        get_property::<f32> as _,
-                    ),
-                ),
-                (
-                    "source",
-                    (
-                        offsets.source.get_byte_offset(),
-                        set_property::<SharedString> as _,
-                        get_property::<SharedString> as _,
-                    ),
-                ),
-            ]
-            .iter()
-            .cloned()
-            .collect(),
-            size: std::mem::size_of::<Image>(),
-        }),
-    );
-
-    let offsets = Text::field_offsets();
-    rtti.insert(
-        "Text",
-        Rc::new(RuntimeTypeInfo {
-            vtable: &corelib::abi::primitives::TextVTable as _,
-            construct: construct::<Text>,
-            properties: [
-                (
-                    "x",
-                    (
-                        offsets.x.get_byte_offset(),
-                        set_property::<f32> as _,
-                        get_property::<f32> as _,
-                    ),
-                ),
-                (
-                    "y",
-                    (
-                        offsets.y.get_byte_offset(),
-                        set_property::<f32> as _,
-                        get_property::<f32> as _,
-                    ),
-                ),
-                (
-                    "text",
-                    (
-                        offsets.text.get_byte_offset(),
-                        set_property::<SharedString> as _,
-                        get_property::<SharedString> as _,
-                    ),
-                ),
-                (
-                    "color",
-                    (
-                        offsets.color.get_byte_offset(),
-                        set_property::<u32> as _,
-                        get_property::<f32> as _,
-                    ),
-                ),
-            ]
-            .iter()
-            .cloned()
-            .collect(),
-            size: std::mem::size_of::<Text>(),
-        }),
-    );
-
-    let offsets = TouchArea::field_offsets();
-    rtti.insert(
-        "TouchArea",
-        Rc::new(RuntimeTypeInfo {
-            vtable: &corelib::abi::primitives::TouchAreaVTable as _,
-            construct: construct::<TouchArea>,
-            properties: [
-                (
-                    "x",
-                    (
-                        offsets.x.get_byte_offset(),
-                        set_property::<f32> as _,
-                        get_property::<f32> as _,
-                    ),
-                ),
-                (
-                    "y",
-                    (
-                        offsets.y.get_byte_offset(),
-                        set_property::<f32> as _,
-                        get_property::<f32> as _,
-                    ),
-                ),
-                (
-                    "width",
-                    (
-                        offsets.width.get_byte_offset(),
-                        set_property::<f32> as _,
-                        get_property::<f32> as _,
-                    ),
-                ),
-                (
-                    "height",
-                    (
-                        offsets.height.get_byte_offset(),
-                        set_property::<f32> as _,
-                        get_property::<f32> as _,
-                    ),
-                ),
-                (
-                    "pressed",
-                    (
-                        offsets.pressed.get_byte_offset(),
-                        set_property::<bool> as _,
-                        get_property::<bool> as _,
-                    ),
-                ),
-            ]
-            .iter()
-            .cloned()
-            .collect(),
-            size: std::mem::size_of::<TouchArea>(),
-        }),
-    );
+            .cloned(),
+        );
+    }
 
     let rtti = Rc::new(rtti);
 
@@ -431,11 +257,11 @@ fn main() -> std::io::Result<()> {
         ComponentRefMut::from_raw(NonNull::from(&t).cast(), NonNull::new(mem).unwrap().cast())
     };
 
-    for ItemWithinComponent { offset, rtti, init_properties } in ctx.items.values() {
+    for item_within_component in ctx.items.values() {
         unsafe {
-            let item = mem.offset(*offset as isize);
-            (rtti.construct)(item as _);
-            for (prop, expr) in init_properties {
+            let item = item_within_component.item_from_component(mem);
+            (item_within_component.rtti.construct)(item.as_ptr() as _);
+            for (prop, expr) in &item_within_component.init_properties {
                 match expr {
                     Expression::FunctionCall { function } => {
                         if matches!(function.ty(), Type::Signal) {
@@ -446,12 +272,12 @@ fn main() -> std::io::Result<()> {
                     _ => (),
                 }
                 let v = eval::eval_expression(expr, &ctx, &component_ref);
-                if let Some((o, set, _)) = rtti.properties.get(prop.as_str()) {
-                    set(item.offset(*o as isize), v);
+                if let Some(prop_rtti) = item_within_component.rtti.properties.get(prop.as_str()) {
+                    prop_rtti.set(item, v);
                 } else if let Some(PropertiesWithinComponent { offset, set, .. }) =
                     ctx.custom_properties.get(prop.as_str())
                 {
-                    set(item.offset(*offset as isize), v);
+                    set(item.as_ptr().add(*offset) as _, v);
                 }
             }
         }
