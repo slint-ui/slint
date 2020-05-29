@@ -12,14 +12,19 @@ use std::rc::Rc;
 #[cfg(feature = "cpp")]
 mod cpp;
 
-pub fn generate(component: &Component, diag: &mut Diagnostics) {
+pub fn generate(
+    destination: &mut impl std::io::Write,
+    component: &Component,
+    diag: &mut Diagnostics,
+) -> std::io::Result<()> {
     #![allow(unused_variables)]
     #[cfg(feature = "cpp")]
     {
         if let Some(output) = cpp::generate(component, diag) {
-            println!("{}", output);
+            write!(destination, "{}", output)?;
         }
     }
+    Ok(())
 }
 
 /// Visit each item in order in which they should appear in the children tree array.

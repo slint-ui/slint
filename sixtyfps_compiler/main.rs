@@ -19,7 +19,7 @@ fn main() -> std::io::Result<()> {
 
     let (mut diag, source) = diag.check_and_exit_on_error(source);
 
-    generator::generate(&doc.root_component, &mut diag);
+    generator::generate(&mut std::io::stdout(), &doc.root_component, &mut diag)?;
     diag.check_and_exit_on_error(source);
     Ok(())
 }

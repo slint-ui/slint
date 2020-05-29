@@ -1,0 +1,15 @@
+[package]
+name = "driver"
+version = "0.1.0"
+authors = ["Sixty FPS <info@sixtyfps.io>"]
+edition = "2018"
+
+[[bin]]
+path = "main.rs"
+name = "test_driver"
+
+[dependencies]
+sixtyfps = { path = "../../api/sixtyfps-rs" }
+sixtyfps_compiler = { path = "../../sixtyfps_compiler", features = ["cpp", "display-diagnostics"] }
+cc = "1.0.54"
+tempfile = "3"
