@@ -1,13 +1,11 @@
-use corelib::{
-    abi::datastructures::{ComponentRefMut, ItemRef},
-    EvaluationContext, SharedString,
-};
+use corelib::{abi::datastructures::ItemRef, EvaluationContext, SharedString};
 use sixtyfps_compiler::expression_tree::Expression;
 use sixtyfps_compiler::typeregister::Type;
 use std::convert::{TryFrom, TryInto};
 pub trait ErasedPropertyInfo {
     fn get(&self, item: ItemRef, context: &EvaluationContext) -> Value;
     fn set(&self, item: ItemRef, value: Value);
+    fn set_binding(&self, item: ItemRef, binding: Box<dyn Fn(&crate::EvaluationContext) -> Value>);
 }
 
 impl<Item: vtable::HasStaticVTable<corelib::abi::datastructures::ItemVTable>> ErasedPropertyInfo
@@ -18,6 +16,9 @@ impl<Item: vtable::HasStaticVTable<corelib::abi::datastructures::ItemVTable>> Er
     }
     fn set(&self, item: ItemRef, value: Value) {
         (*self).set(item.downcast().unwrap(), value).unwrap()
+    }
+    fn set_binding(&self, item: ItemRef, binding: Box<dyn Fn(&EvaluationContext) -> Value>) {
+        (*self).set_binding(item.downcast().unwrap(), binding);
     }
 }
 
@@ -62,7 +63,7 @@ declare_value_conversion!(Bool => [bool] );
 pub fn eval_expression(
     e: &Expression,
     ctx: &crate::ComponentImpl,
-    component_ref: &ComponentRefMut,
+    eval_context: &corelib::EvaluationContext,
 ) -> Value {
     match e {
         Expression::Invalid => panic!("invalid expression while evaluating"),
@@ -71,7 +72,6 @@ pub fn eval_expression(
         Expression::NumberLiteral(n) => Value::Number(*n),
         Expression::SignalReference { .. } => panic!("signal in expression"),
         Expression::PropertyReference { component, element, name } => {
-            let eval_context = EvaluationContext { component: component_ref.borrow() };
             let component = component.upgrade().unwrap();
             let element = element.upgrade().unwrap();
             if element.borrow().id == component.root_element.borrow().id {
@@ -84,7 +84,7 @@ pub fn eval_expression(
             item_info.rtti.properties[name.as_str()].get(item, &eval_context)
         }
         Expression::Cast { from, to } => {
-            let v = eval_expression(&*from, ctx, component_ref);
+            let v = eval_expression(&*from, ctx, eval_context);
             match (v, to) {
                 (Value::Number(n), Type::Int32) => Value::Number(n.round()),
                 (Value::Number(n), Type::String) => {
@@ -96,7 +96,7 @@ pub fn eval_expression(
         Expression::CodeBlock(sub) => {
             let mut v = Value::Void;
             for e in sub {
-                v = eval_expression(e, ctx, component_ref);
+                v = eval_expression(e, ctx, eval_context);
             }
             v
         }
@@ -104,7 +104,7 @@ pub fn eval_expression(
         Expression::SelfAssignement { lhs, rhs, op } => match &**lhs {
             Expression::PropertyReference { component, element, name, .. } => {
                 let eval = |lhs| {
-                    let rhs = eval_expression(&**rhs, ctx, component_ref);
+                    let rhs = eval_expression(&**rhs, ctx, eval_context);
                     match (lhs, rhs, op) {
                         (Value::Number(a), Value::Number(b), '+') => Value::Number(a + b),
                         (Value::Number(a), Value::Number(b), '-') => Value::Number(a + b),
@@ -114,7 +114,6 @@ pub fn eval_expression(
                     }
                 };
 
-                let eval_context = EvaluationContext { component: component_ref.borrow() };
                 let component = component.upgrade().unwrap();
                 let element = element.upgrade().unwrap();
                 if element.borrow().id == component.root_element.borrow().id {

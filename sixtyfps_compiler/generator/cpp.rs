@@ -264,7 +264,8 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<impl st
     x.declarations.push(Declaration::Struct(main_struct));
 
     let mut tree_array = String::new();
-    super::build_array_helper(component, |item: &Element, children_offset| {
+    super::build_array_helper(component, |item, children_offset| {
+        let item = item.borrow();
         tree_array = format!(
             "{}{}sixtyfps::make_item_node(offsetof({}, {}), &sixtyfps::{}, {}, {})",
             tree_array,

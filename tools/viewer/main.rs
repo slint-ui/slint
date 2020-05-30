@@ -1,9 +1,10 @@
+use core::cell::RefCell;
 use core::ptr::NonNull;
 use corelib::abi::datastructures::{
     ComponentBox, ComponentRef, ComponentRefMut, ComponentVTable, ItemVTable,
 };
 use corelib::{EvaluationContext, Property, SharedString};
-use sixtyfps_compiler::expression_tree::Expression;
+use object_tree::Element;
 use sixtyfps_compiler::typeregister::Type;
 use sixtyfps_compiler::*;
 use std::collections::HashMap;
@@ -101,7 +102,7 @@ extern "C" fn dummy_create(_: &ComponentVTable) -> ComponentBox {
 struct ItemWithinComponent {
     offset: usize,
     rtti: Rc<RuntimeTypeInfo>,
-    init_properties: HashMap<String, Expression>,
+    item: Rc<RefCell<Element>>,
 }
 
 impl ItemWithinComponent {
@@ -197,7 +198,8 @@ fn main() -> std::io::Result<()> {
     let mut current_offset = 0usize;
     let mut items_types = HashMap::new();
 
-    generator::build_array_helper(&tree.root_component, |item, child_offset| {
+    generator::build_array_helper(&tree.root_component, |rc_item, child_offset| {
+        let item = rc_item.borrow();
         let rt = &rtti[&*item.base_type.as_builtin().class_name];
         tree_array.push(corelib::abi::datastructures::ItemTreeNode::Item {
             offset: current_offset as isize,
@@ -207,11 +209,7 @@ fn main() -> std::io::Result<()> {
         });
         items_types.insert(
             item.id.clone(),
-            ItemWithinComponent {
-                offset: current_offset,
-                rtti: rt.clone(),
-                init_properties: item.bindings.clone(),
-            },
+            ItemWithinComponent { offset: current_offset, rtti: rt.clone(), item: rc_item.clone() },
         );
         current_offset += rt.size;
     });
@@ -251,36 +249,46 @@ fn main() -> std::io::Result<()> {
         unsafe { create(mem.offset(*offset as isize)) };
     }
 
-    let ctx = ComponentImpl { mem, items: items_types, custom_properties };
+    let ctx = Rc::new(ComponentImpl { mem, items: items_types, custom_properties });
 
     let component_ref = unsafe {
         ComponentRefMut::from_raw(NonNull::from(&t).cast(), NonNull::new(mem).unwrap().cast())
     };
+    let eval_context = EvaluationContext { component: component_ref.borrow() };
 
     for item_within_component in ctx.items.values() {
         unsafe {
             let item = item_within_component.item_from_component(mem);
             (item_within_component.rtti.construct)(item.as_ptr() as _);
-            for (prop, expr) in &item_within_component.init_properties {
-                match expr {
-                    Expression::FunctionCall { function } => {
-                        if matches!(function.ty(), Type::Signal) {
-                            // TODO
-                            continue;
-                        }
-                    }
-                    _ => (),
-                }
-                let v = eval::eval_expression(expr, &ctx, &component_ref);
-                if let Some(prop_rtti) = item_within_component.rtti.properties.get(prop.as_str()) {
-                    prop_rtti.set(item, v);
-                } else if let Some(PropertiesWithinComponent { offset, set, .. }) =
-                    ctx.custom_properties.get(prop.as_str())
-                {
-                    set(item.as_ptr().add(*offset) as _, v);
+            let elem = item_within_component.item.borrow();
+            for (prop, expr) in &elem.bindings {
+                let ty = elem.lookup_property(prop.as_str());
+                if ty == Type::Signal {
+                    println!("FIXME: signal not yet implemented")
                 } else {
-                    //FIXME! currently signals are not handled
-                    //panic!("unkown property {}", prop);
+                    if let Some(prop_rtti) =
+                        item_within_component.rtti.properties.get(prop.as_str())
+                    {
+                        if expr.is_constant() {
+                            prop_rtti.set(item, eval::eval_expression(expr, &*ctx, &eval_context));
+                        } else {
+                            let expr = expr.clone();
+                            let ctx = ctx.clone();
+                            prop_rtti.set_binding(
+                                item,
+                                Box::new(move |eval_context| {
+                                    eval::eval_expression(&expr, &*ctx, eval_context)
+                                }),
+                            );
+                        }
+                    } else if let Some(PropertiesWithinComponent { offset, set, .. }) =
+                        ctx.custom_properties.get(prop.as_str())
+                    {
+                        let v = eval::eval_expression(expr, &*ctx, &eval_context);
+                        set(item.as_ptr().add(*offset) as _, v);
+                    } else {
+                        panic!("unkown property {}", prop);
+                    }
                 }
             }
         }

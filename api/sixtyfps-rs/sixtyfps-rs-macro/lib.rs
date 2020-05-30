@@ -204,6 +204,7 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
     let mut item_types = Vec::new();
     let mut init = Vec::new();
     generator::build_array_helper(&tree.root_component, |item, children_index| {
+        let item = item.borrow();
         let field_name = quote::format_ident!("{}", item.id);
         let vtable = quote::format_ident!("{}", item.base_type.as_builtin().vtable_symbol);
         let children_count = item.children.len() as u32;
