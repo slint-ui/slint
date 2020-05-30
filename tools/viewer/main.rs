@@ -3,6 +3,7 @@ use core::ptr::NonNull;
 use corelib::abi::datastructures::{
     ComponentBox, ComponentRef, ComponentRefMut, ComponentVTable, ItemVTable,
 };
+use corelib::rtti::PropertyInfo;
 use corelib::{EvaluationContext, Property, SharedString};
 use object_tree::Element;
 use sixtyfps_compiler::typeregister::Type;
@@ -11,84 +12,14 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use structopt::StructOpt;
 
-type SetterFn = unsafe fn(*mut u8, eval::Value);
-type GetterFn = unsafe fn(*mut u8, &EvaluationContext) -> eval::Value;
-
 #[derive(StructOpt)]
 struct Cli {
     #[structopt(name = "path to .60 file", parse(from_os_str))]
     path: std::path::PathBuf,
 }
 
-trait PropertyWriter {
-    unsafe fn write(ptr: *mut u8, value: eval::Value);
-    unsafe fn read(ptr: *mut u8, context: &EvaluationContext) -> eval::Value;
-}
-
-impl PropertyWriter for f32 {
-    unsafe fn write(ptr: *mut u8, value: eval::Value) {
-        let val: Self = match value {
-            eval::Value::Number(v) => v as _,
-            _ => todo!(),
-        };
-        (*(ptr as *mut Property<Self>)).set(val);
-    }
-    unsafe fn read(ptr: *mut u8, context: &EvaluationContext) -> eval::Value {
-        let s: Self = (*(ptr as *mut Property<Self>)).get(context);
-        eval::Value::Number(s as _)
-    }
-}
-
-impl PropertyWriter for bool {
-    unsafe fn write(_ptr: *mut u8, _value: eval::Value) {
-        todo!("Boolean expression not implemented")
-    }
-    unsafe fn read(_ptr: *mut u8, _context: &EvaluationContext) -> eval::Value {
-        todo!("Boolean expression not implemented")
-    }
-}
-
-impl PropertyWriter for u32 {
-    unsafe fn write(ptr: *mut u8, value: eval::Value) {
-        let val: Self = match value {
-            eval::Value::Number(v) => v as _,
-            _ => todo!(),
-        };
-        (*(ptr as *mut Property<Self>)).set(val);
-    }
-    unsafe fn read(ptr: *mut u8, context: &EvaluationContext) -> eval::Value {
-        let s: Self = (*(ptr as *mut Property<Self>)).get(context);
-        eval::Value::Number(s as _)
-    }
-}
-
-impl PropertyWriter for SharedString {
-    unsafe fn write(ptr: *mut u8, value: eval::Value) {
-        let val: Self = match value {
-            eval::Value::String(v) => v,
-            _ => todo!(),
-        };
-        (*(ptr as *mut Property<Self>)).set(val);
-    }
-    unsafe fn read(ptr: *mut u8, context: &EvaluationContext) -> eval::Value {
-        let s: Self = (*(ptr as *mut Property<Self>)).get(context);
-        eval::Value::String(s)
-    }
-}
-
 unsafe fn construct<T: Default>(ptr: *mut u8) {
     core::ptr::write(ptr as *mut T, T::default());
-}
-
-unsafe fn set_property<T: PropertyWriter>(ptr: *mut u8, e: eval::Value) {
-    T::write(ptr, e);
-}
-
-unsafe fn get_property<T: PropertyWriter>(
-    ptr: *mut u8,
-    context: &EvaluationContext,
-) -> eval::Value {
-    T::read(ptr, context)
 }
 
 extern "C" fn dummy_destroy(_: ComponentRefMut) {
@@ -102,7 +33,7 @@ extern "C" fn dummy_create(_: &ComponentVTable) -> ComponentBox {
 struct ItemWithinComponent {
     offset: usize,
     rtti: Rc<RuntimeTypeInfo>,
-    item: Rc<RefCell<Element>>,
+    elem: Rc<RefCell<Element>>,
 }
 
 impl ItemWithinComponent {
@@ -118,8 +49,7 @@ mod eval;
 
 struct PropertiesWithinComponent {
     offset: usize,
-    set: SetterFn,
-    get: GetterFn,
+    prop: Box<dyn PropertyInfo<u8, eval::Value>>,
     create: unsafe fn(*mut u8),
 }
 pub struct ComponentImpl {
@@ -209,18 +139,26 @@ fn main() -> std::io::Result<()> {
         });
         items_types.insert(
             item.id.clone(),
-            ItemWithinComponent { offset: current_offset, rtti: rt.clone(), item: rc_item.clone() },
+            ItemWithinComponent { offset: current_offset, rtti: rt.clone(), elem: rc_item.clone() },
         );
         current_offset += rt.size;
     });
 
     let mut custom_properties = HashMap::new();
     for (name, decl) in &tree.root_component.root_element.borrow().property_declarations {
-        fn create_and_set<T: PropertyWriter + Default + 'static>(
-        ) -> (SetterFn, GetterFn, unsafe fn(*mut u8)) {
-            (set_property::<T>, get_property::<T>, construct::<Property<T>>)
+        fn create_and_set<T: Clone + Default + 'static>(
+        ) -> (Box<dyn PropertyInfo<u8, eval::Value>>, unsafe fn(*mut u8))
+        where
+            T: std::convert::TryInto<eval::Value>,
+            eval::Value: std::convert::TryInto<T>,
+        {
+            // Fixme: using u8 in PropertyInfo<> is not sound, we would need to materialize a type for out component
+            (
+                Box::new(unsafe { vtable::FieldOffset::<u8, Property<T>>::new_from_offset(0) }),
+                construct::<Property<T>>,
+            )
         }
-        let (set, get, create) = match decl.property_type {
+        let (prop, create) = match decl.property_type {
             Type::Float32 => create_and_set::<f32>(),
             Type::Int32 => create_and_set::<u32>(),
             Type::String => create_and_set::<SharedString>(),
@@ -232,7 +170,7 @@ fn main() -> std::io::Result<()> {
         };
         custom_properties.insert(
             name.clone(),
-            PropertiesWithinComponent { offset: current_offset, set, get, create },
+            PropertiesWithinComponent { offset: current_offset, prop, create },
         );
         // FIXME: get the actual size depending of the type
         current_offset += 32;
@@ -260,7 +198,7 @@ fn main() -> std::io::Result<()> {
         unsafe {
             let item = item_within_component.item_from_component(mem);
             (item_within_component.rtti.construct)(item.as_ptr() as _);
-            let elem = item_within_component.item.borrow();
+            let elem = item_within_component.elem.borrow();
             for (prop, expr) in &elem.bindings {
                 let ty = elem.lookup_property(prop.as_str());
                 if ty == Type::Signal {
@@ -281,11 +219,22 @@ fn main() -> std::io::Result<()> {
                                 }),
                             );
                         }
-                    } else if let Some(PropertiesWithinComponent { offset, set, .. }) =
+                    } else if let Some(PropertiesWithinComponent { offset, prop, .. }) =
                         ctx.custom_properties.get(prop.as_str())
                     {
-                        let v = eval::eval_expression(expr, &*ctx, &eval_context);
-                        set(item.as_ptr().add(*offset) as _, v);
+                        if expr.is_constant() {
+                            let v = eval::eval_expression(expr, &*ctx, &eval_context);
+                            prop.set(&*item.as_ptr().add(*offset), v).unwrap();
+                        } else {
+                            let expr = expr.clone();
+                            let ctx = ctx.clone();
+                            prop.set_binding(
+                                &*item.as_ptr().add(*offset),
+                                Box::new(move |eval_context| {
+                                    eval::eval_expression(&expr, &*ctx, eval_context)
+                                }),
+                            );
+                        }
                     } else {
                         panic!("unkown property {}", prop);
                     }

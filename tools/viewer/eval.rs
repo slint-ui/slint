@@ -2,6 +2,7 @@ use corelib::{abi::datastructures::ItemRef, EvaluationContext, SharedString};
 use sixtyfps_compiler::expression_tree::Expression;
 use sixtyfps_compiler::typeregister::Type;
 use std::convert::{TryFrom, TryInto};
+
 pub trait ErasedPropertyInfo {
     fn get(&self, item: ItemRef, context: &EvaluationContext) -> Value;
     fn set(&self, item: ItemRef, value: Value);
@@ -76,7 +77,9 @@ pub fn eval_expression(
             let element = element.upgrade().unwrap();
             if element.borrow().id == component.root_element.borrow().id {
                 if let Some(x) = ctx.custom_properties.get(name) {
-                    return unsafe { (x.get)(ctx.mem.offset(x.offset as isize), &eval_context) };
+                    return unsafe {
+                        x.prop.get(&*ctx.mem.offset(x.offset as isize), &eval_context).unwrap()
+                    };
                 }
             };
             let item_info = &ctx.items[element.borrow().id.as_str()];
@@ -119,8 +122,8 @@ pub fn eval_expression(
                 if element.borrow().id == component.root_element.borrow().id {
                     if let Some(x) = ctx.custom_properties.get(name) {
                         unsafe {
-                            let p = ctx.mem.offset(x.offset as isize);
-                            (x.set)(p, eval((x.get)(p, &eval_context)));
+                            let p = &*ctx.mem.offset(x.offset as isize);
+                            x.prop.set(p, eval(x.prop.get(p, &eval_context).unwrap())).unwrap();
                         }
                         return Value::Void;
                     }
