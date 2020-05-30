@@ -19,9 +19,9 @@ mod m1 {
         fn foo(&self) -> u32 { (self.0 + 3) as _ }
         fn create() -> Self { R(8) }
     }
-    MyVTable_static!(S);
-    MyVTable_static!(R);
-    let x = S::VTABLE.create();
+    MyVTable_static!(static S_VT for S);
+    MyVTable_static!(static R_VT for R);
+    let x = S_VT.create();
     ```
     */
     #[cfg(doctest)]
@@ -47,9 +47,9 @@ mod m1 {
         fn foo(&self) -> u32 { (self.0 + 3) as _ }
         fn create() -> Self { R(8) }
     }
-    MyVTable_static!(S);
-    MyVTable_static!(R);
-    let x = S::VTABLE.create();
+    MyVTable_static!(static S_VT for S);
+    MyVTable_static!(static R_VT for R);
+    let x = S_VT.create();
     //unsafe     // must compile when unsafe
     { (R_VT.foo)(x.borrow()); }
     ```

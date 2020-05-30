@@ -15,15 +15,15 @@ When adding an item or a property, it needs to be kept in sync with different pl
 #![allow(non_upper_case_globals)]
 
 use super::datastructures::{
-    CachedRenderingData, Color, Item, ItemConsts, ItemVTable, LayoutInfo, Rect, RenderingPrimitive,
+    CachedRenderingData, Color, Item, ItemConsts, LayoutInfo, Rect, RenderingPrimitive,
 };
 use crate::rtti::*;
 use crate::{EvaluationContext, Property, SharedString, Signal};
+use const_field_offset::{FieldOffset, FieldOffsets};
 use corelib_macro::*;
-use vtable::HasStaticVTable;
 
 #[repr(C)]
-#[derive(const_field_offset::FieldOffsets, Default, BuiltinItem)]
+#[derive(FieldOffsets, Default, BuiltinItem)]
 pub struct Rectangle {
     /// FIXME: make it a color
     pub color: Property<u32>,
@@ -73,11 +73,10 @@ impl ItemConsts for Rectangle {
     > = Rectangle::field_offsets().cached_rendering_data;
 }
 
-#[no_mangle]
-pub static RectangleVTable: ItemVTable = Rectangle::VTABLE;
+pub use crate::abi::datastructures::RectangleVTable;
 
 #[repr(C)]
-#[derive(const_field_offset::FieldOffsets, Default, BuiltinItem)]
+#[derive(FieldOffsets, Default, BuiltinItem)]
 pub struct Image {
     /// FIXME: make it a image source
     pub source: Property<SharedString>,
@@ -119,11 +118,10 @@ impl ItemConsts for Image {
     > = Image::field_offsets().cached_rendering_data;
 }
 
-#[no_mangle]
-pub static ImageVTable: ItemVTable = Image::VTABLE;
+pub use crate::abi::datastructures::ImageVTable;
 
 #[repr(C)]
-#[derive(const_field_offset::FieldOffsets, Default, BuiltinItem)]
+#[derive(FieldOffsets, Default, BuiltinItem)]
 pub struct Text {
     pub text: Property<SharedString>,
     pub font_family: Property<SharedString>,
@@ -162,11 +160,10 @@ impl ItemConsts for Text {
         Text::field_offsets().cached_rendering_data;
 }
 
-#[no_mangle]
-pub static TextVTable: ItemVTable = Text::VTABLE;
+pub use crate::abi::datastructures::TextVTable;
 
 #[repr(C)]
-#[derive(const_field_offset::FieldOffsets, Default, BuiltinItem)]
+#[derive(FieldOffsets, Default, BuiltinItem)]
 pub struct TouchArea {
     pub x: Property<f32>,
     pub y: Property<f32>,
@@ -219,6 +216,4 @@ impl ItemConsts for TouchArea {
         CachedRenderingData,
     > = TouchArea::field_offsets().cached_rendering_data;
 }
-
-#[no_mangle]
-pub static TouchAreaVTable: ItemVTable = TouchArea::VTABLE;
+pub use crate::abi::datastructures::TouchAreaVTable;

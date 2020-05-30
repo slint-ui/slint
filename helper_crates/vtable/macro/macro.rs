@@ -332,7 +332,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                         fn new_box<X: HasStaticVTable<#vtable_name>>(value: X) -> VBox<#vtable_name> {
                             // Put the object on the heap and get a pointer to it
                             let ptr = core::ptr::NonNull::from(Box::leak(Box::new(value)));
-                            unsafe { VBox::from_raw(core::ptr::NonNull::from(X::STATIC_VTABLE), ptr.cast()) }
+                            unsafe { VBox::from_raw(core::ptr::NonNull::from(X::static_vtable()), ptr.cast()) }
                         }
                     }
                     pub type #box_name = VBox<#vtable_name>;
@@ -511,15 +511,16 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
     });
 
     let static_vtable_macro_doc = format!(
-        r"Implements `vtable::HasStaticVTable<{vtable}>` for the given type.
+        r"Instentiate a static {vtable} for a given type and implements `vtable::HasStaticVTable<{vtable}>` for it.
 
 Given a type `MyType` that implements the trait `{trait} {trait_extra}`,
-implement HasStaticVTable for it
+create a static variable of type {vtable},
+and implements HasStaticVTable for it.
 
 ```ignore
     struct Foo {{ ... }}
     impl {trait} for Foo {{ ... }}
-    {macro}!(Foo);
+    {macro}!(static FOO_VTABLE for Foo);
     // now VBox::new can be called
     let vbox = VBox::new(Foo{{ ... }});
 ```
@@ -594,16 +595,18 @@ implement HasStaticVTable for it
         #[macro_export]
         #[doc = #static_vtable_macro_doc]
         macro_rules! #static_vtable_macro_name {
-            ($ty:ty) => {
+            ($(#[$meta:meta])* $vis:vis static $ident:ident for $ty:ty) => {
+                $(#[$meta])* $vis static $ident : #vtable_name = {
+                    use vtable::*;
+                    type T = $ty;
+                    #vtable_name {
+                        #(#vtable_ctor)*
+                    }
+                };
                 unsafe impl vtable::HasStaticVTable<#vtable_name> for $ty {
-                    const VTABLE: #vtable_name = {
-                        use vtable::*;
-                        type T = $ty;
-                        #vtable_name {
-                            #(#vtable_ctor)*
-                        }
-                    };
-                    const STATIC_VTABLE : &'static #vtable_name = &Self::VTABLE;
+                    fn static_vtable() -> &'static #vtable_name {
+                        &$ident
+                    }
                 }
             }
         }

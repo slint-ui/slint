@@ -39,7 +39,7 @@ impl Animal for Dog {
 }
 
 // the vtable macro also exposed a macro to create a vtable
-AnimalVTable_static!(Dog);
+AnimalVTable_static!(static DOG_VT for Dog);
 
 // with that, it is possible to instentiate a VBox
 let animal_box = VBox::<AnimalVTable>::new(Dog(42));
@@ -93,9 +93,7 @@ where
     VT: ?Sized + VTableMeta,
 {
     /// Safety: must be a valid VTable for Self
-    const VTABLE: VT::VTable;
-    /// Reference to Self::VTABLE
-    const STATIC_VTABLE: &'static VT::VTable;
+    fn static_vtable() -> &'static VT::VTable;
 }
 
 #[derive(Copy, Clone)]
@@ -216,7 +214,7 @@ impl<'a, T: ?Sized + VTableMeta> VRef<'a, T> {
     pub fn new<X: HasStaticVTable<T>>(value: &'a X) -> Self {
         Self {
             inner: Inner {
-                vtable: X::STATIC_VTABLE as *const T::VTable as *const u8,
+                vtable: X::static_vtable() as *const T::VTable as *const u8,
                 ptr: value as *const X as *const u8,
             },
             phantom: PhantomData,
@@ -237,7 +235,7 @@ impl<'a, T: ?Sized + VTableMeta> VRef<'a, T> {
 
     /// Return to a reference of the given type if the type is actually matching
     pub fn downcast<X: HasStaticVTable<T>>(&self) -> Option<&X> {
-        if self.inner.vtable == X::STATIC_VTABLE as *const _ as *const u8 {
+        if self.inner.vtable == X::static_vtable() as *const _ as *const u8 {
             // Safety: We just checked that the vtable fits
             unsafe { Some(&*(self.inner.ptr as *const X)) }
         } else {
@@ -276,7 +274,7 @@ impl<'a, T: ?Sized + VTableMeta> VRefMut<'a, T> {
     pub fn new<X: HasStaticVTable<T>>(value: &'a mut X) -> Self {
         Self {
             inner: Inner {
-                vtable: X::STATIC_VTABLE as *const T::VTable as *const u8,
+                vtable: X::static_vtable() as *const T::VTable as *const u8,
                 ptr: value as *mut X as *const u8,
             },
             phantom: PhantomData,
@@ -312,7 +310,7 @@ impl<'a, T: ?Sized + VTableMeta> VRefMut<'a, T> {
 
     /// Return to a reference of the given type if the type is actually matching
     pub fn downcast<X: HasStaticVTable<T>>(&mut self) -> Option<&mut X> {
-        if self.inner.vtable == X::STATIC_VTABLE as *const _ as *const u8 {
+        if self.inner.vtable == X::static_vtable() as *const _ as *const u8 {
             // Safety: We just checked that the vtable fits
             unsafe { Some(&mut *(self.inner.ptr as *mut X)) }
         } else {
@@ -356,7 +354,7 @@ impl<Base, T: ?Sized + VTableMeta> VOffset<Base, T> {
 
     pub fn new<X: HasStaticVTable<T>>(o: FieldOffset<Base, X>) -> Self {
         Self {
-            vtable: X::STATIC_VTABLE as *const T::VTable,
+            vtable: X::static_vtable() as *const T::VTable,
             offset: o.get_byte_offset(),
             phantom: PhantomData,
         }

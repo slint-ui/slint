@@ -291,7 +291,7 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
             // Ideally we would not need a static lifetime to run the engine. (eg: use run_return function of winit)
             fn run(self) {
                 use sixtyfps::re_exports::*;
-                sixtyfps::re_exports::ComponentVTable_static!(#component_id);
+                sixtyfps::re_exports::ComponentVTable_static!(static VT for #component_id);
                 let static_self = Box::leak(Box::new(self));
                 sixtyfps_runtime_run_component_with_gl_renderer(VRefMut::new(static_self));
             }

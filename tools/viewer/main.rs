@@ -152,7 +152,7 @@ fn rtti_for<
     (
         T::name(),
         Rc::new(RuntimeTypeInfo {
-            vtable: T::STATIC_VTABLE,
+            vtable: T::static_vtable(),
             construct: construct::<T>,
             properties: T::properties()
                 .into_iter()
@@ -278,6 +278,9 @@ fn main() -> std::io::Result<()> {
                     ctx.custom_properties.get(prop.as_str())
                 {
                     set(item.as_ptr().add(*offset) as _, v);
+                } else {
+                    //FIXME! currently signals are not handled
+                    //panic!("unkown property {}", prop);
                 }
             }
         }

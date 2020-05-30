@@ -9,6 +9,13 @@ struct ItemVTable;
 
 namespace sixtyfps {
 
+extern "C" {
+extern const internal::ItemVTable RectangleVTable;
+extern const internal::ItemVTable TextVTable;
+extern const internal::ItemVTable TouchAreaVTable;
+extern const internal::ItemVTable ImageVTable;
+}
+
 // Bring opaque structure in scope
 using internal::ComponentVTable;
 using internal::ItemTreeNode;
@@ -26,13 +33,9 @@ void run(Component *c)
 
 using internal::EvaluationContext;
 using internal::Image;
-using internal::ImageVTable;
 using internal::Rectangle;
-using internal::RectangleVTable;
 using internal::Text;
-using internal::TextVTable;
 using internal::TouchArea;
-using internal::TouchAreaVTable;
 
 // the component has static lifetime so it does not need to be destroyed
 // FIXME: we probably need some kind of way to dinstinguish static component and

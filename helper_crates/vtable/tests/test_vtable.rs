@@ -45,8 +45,7 @@ impl HelloConsts for SomeStruct {
         SomeStruct::field_offsets().x;
 }
 
-HelloVTable_static!(SomeStruct);
-static SOME_STRUCT_TYPE: HelloVTable = SomeStruct::VTABLE;
+HelloVTable_static!(static SOME_STRUCT_TYPE for SomeStruct);
 
 #[repr(C)]
 #[derive(const_field_offset::FieldOffsets)]
@@ -84,7 +83,7 @@ impl HelloConsts for AnotherStruct {
         AnotherStruct::field_offsets().foo;
 }
 
-HelloVTable_static!(AnotherStruct);
+HelloVTable_static!(static ANOTHERSTRUCT_VTABLE for AnotherStruct);
 
 #[test]
 fn test() {
