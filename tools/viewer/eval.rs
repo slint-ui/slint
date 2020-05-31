@@ -23,8 +23,6 @@ impl<Item: vtable::HasStaticVTable<corelib::abi::datastructures::ItemVTable>> Er
     }
 }
 
-//impl ErasedPropertyInfo for
-
 #[derive(Debug, Clone)]
 pub enum Value {
     Void,
@@ -103,7 +101,27 @@ pub fn eval_expression(
             }
             v
         }
-        Expression::FunctionCall { .. } => todo!("function call"),
+        Expression::FunctionCall { function, .. } => {
+            if let Expression::SignalReference { component: _, element, name } = &**function {
+                let element = element.upgrade().unwrap();
+                let item_info = &ctx.items[element.borrow().id.as_str()];
+                let item = unsafe { item_info.item_from_component(ctx.mem) };
+                let signal = unsafe {
+                    &mut *(item_info
+                        .rtti
+                        .signals
+                        .get(name.as_str())
+                        .map(|o| item.as_ptr().add(*o) as *mut u8)
+                        .or_else(|| ctx.custom_signals.get(name.as_str()).map(|o| ctx.mem.add(*o)))
+                        .unwrap_or_else(|| panic!("unkown signal {}", name))
+                        as *mut corelib::Signal<()>)
+                };
+                signal.emit(eval_context, ());
+                Value::Void
+            } else {
+                panic!("call of something not a signal")
+            }
+        }
         Expression::SelfAssignement { lhs, rhs, op } => match &**lhs {
             Expression::PropertyReference { component, element, name, .. } => {
                 let eval = |lhs| {

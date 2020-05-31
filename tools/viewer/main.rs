@@ -56,6 +56,8 @@ pub struct ComponentImpl {
     mem: *mut u8,
     items: HashMap<String, ItemWithinComponent>,
     custom_properties: HashMap<String, PropertiesWithinComponent>,
+    /// the usize is the offset within `mem` to the Signal<()>
+    custom_signals: HashMap<String, usize>,
 }
 
 #[repr(C)]
@@ -74,6 +76,9 @@ struct RuntimeTypeInfo {
     vtable: &'static ItemVTable,
     construct: unsafe fn(*mut u8),
     properties: HashMap<&'static str, Box<dyn eval::ErasedPropertyInfo>>,
+    /// The uszie is an offset within this item to the Signal.
+    /// Ideally, we would need a vtable::VFieldOffset<ItemVTable, corelib::Signal<()>>
+    signals: HashMap<&'static str, usize>,
     size: usize,
 }
 
@@ -89,6 +94,7 @@ fn rtti_for<
                 .into_iter()
                 .map(|(k, v)| (k, Box::new(v) as Box<dyn eval::ErasedPropertyInfo>))
                 .collect(),
+            signals: T::signals().into_iter().map(|(k, v)| (k, v.get_byte_offset())).collect(),
             size: core::mem::size_of::<T>(),
         }),
     )
@@ -145,6 +151,7 @@ fn main() -> std::io::Result<()> {
     });
 
     let mut custom_properties = HashMap::new();
+    let mut custom_signals = HashMap::new();
     for (name, decl) in &tree.root_component.root_element.borrow().property_declarations {
         fn create_and_set<T: Clone + Default + 'static>(
         ) -> (Box<dyn PropertyInfo<u8, eval::Value>>, unsafe fn(*mut u8))
@@ -165,7 +172,11 @@ fn main() -> std::io::Result<()> {
             Type::Color => create_and_set::<u32>(),
             Type::Image => create_and_set::<SharedString>(),
             Type::Bool => create_and_set::<bool>(),
-            Type::Signal => continue, // TODO
+            Type::Signal => {
+                custom_signals.insert(name.clone(), current_offset);
+                current_offset += core::mem::size_of::<corelib::Signal<()>>();
+                continue;
+            }
             _ => panic!("bad type"),
         };
         custom_properties.insert(
@@ -186,8 +197,11 @@ fn main() -> std::io::Result<()> {
     for PropertiesWithinComponent { offset, create, .. } in custom_properties.values() {
         unsafe { create(mem.offset(*offset as isize)) };
     }
+    for offset in custom_signals.values() {
+        unsafe { construct::<corelib::Signal<()>>(mem.offset(*offset as isize)) };
+    }
 
-    let ctx = Rc::new(ComponentImpl { mem, items: items_types, custom_properties });
+    let ctx = Rc::new(ComponentImpl { mem, items: items_types, custom_properties, custom_signals });
 
     let component_ref = unsafe {
         ComponentRefMut::from_raw(NonNull::from(&t).cast(), NonNull::new(mem).unwrap().cast())
@@ -202,7 +216,19 @@ fn main() -> std::io::Result<()> {
             for (prop, expr) in &elem.bindings {
                 let ty = elem.lookup_property(prop.as_str());
                 if ty == Type::Signal {
-                    println!("FIXME: signal not yet implemented")
+                    let signal = &mut *(item_within_component
+                        .rtti
+                        .signals
+                        .get(prop.as_str())
+                        .map(|o| item.as_ptr().add(*o) as *mut u8)
+                        .or_else(|| ctx.custom_signals.get(prop.as_str()).map(|o| mem.add(*o)))
+                        .unwrap_or_else(|| panic!("unkown signal {}", prop))
+                        as *mut corelib::Signal<()>);
+                    let expr = expr.clone();
+                    let ctx = ctx.clone();
+                    signal.set_handler(move |eval_context, _| {
+                        eval::eval_expression(&expr, &*ctx, &eval_context);
+                    })
                 } else {
                     if let Some(prop_rtti) =
                         item_within_component.rtti.properties.get(prop.as_str())

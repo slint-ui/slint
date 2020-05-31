@@ -4,18 +4,7 @@
 */
 
 use const_field_offset::FieldOffset;
-use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
-
-/*
-pub struct TypeInfo {
-    /// required allignement
-    align: usize,
-    /// Size in byte of the type
-    size: usize,
-    construct_in_place: Option<unsafe fn(*mut u8)>,
-    drop_in_place: Option<unsafe fn(*mut u8)>,
-}*/
 
 macro_rules! declare_ValueType {
     ($($ty:ty),*) => {
@@ -50,8 +39,8 @@ where
     }
 }
 
-pub trait BuiltinItem {
+pub trait BuiltinItem: Sized {
     fn name() -> &'static str;
-    fn properties<Value: ValueType>(
-    ) -> HashMap<&'static str, &'static dyn PropertyInfo<Self, Value>>;
+    fn properties<Value: ValueType>() -> Vec<(&'static str, &'static dyn PropertyInfo<Self, Value>)>;
+    fn signals() -> Vec<(&'static str, FieldOffset<Self, crate::Signal<()>>)>;
 }

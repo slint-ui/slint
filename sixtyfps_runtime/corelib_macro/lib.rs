@@ -29,6 +29,9 @@ pub fn builtin_item(input: TokenStream) -> TokenStream {
         .map(|f| (f.ident.as_ref().unwrap(), &f.ty))
         .unzip();
 
+    let signal_field_names =
+        fields.iter().filter(|f| is_signal(&f.ty)).map(|f| f.ident.as_ref().unwrap());
+
     let item_name = &input.ident;
 
     quote!(
@@ -37,12 +40,17 @@ pub fn builtin_item(input: TokenStream) -> TokenStream {
             fn name() -> &'static str {
                 stringify!(#item_name)
             }
-            fn properties<Value: ValueType>() -> std::collections::HashMap<&'static str, &'static dyn PropertyInfo<Self, Value>> {
-                [#( {
+            fn properties<Value: ValueType>() -> Vec<(&'static str, &'static dyn PropertyInfo<Self, Value>)> {
+                vec![#( {
                     const O : FieldOffset<#item_name, #prop_field_types> =
                         #item_name::field_offsets().#prop_field_names;
                     (stringify!(#prop_field_names), &O as &'static dyn PropertyInfo<Self, Value> )
-                } ),*].iter().cloned().collect()
+                } ),*]
+            }
+            fn signals() -> Vec<(&'static str, FieldOffset<Self, crate::Signal<()>>)> {
+                vec![#(
+                    (stringify!(#signal_field_names),#item_name::field_offsets().#signal_field_names)
+                ),*]
             }
         }
     )
@@ -51,4 +59,7 @@ pub fn builtin_item(input: TokenStream) -> TokenStream {
 
 fn is_property(ty: &syn::Type) -> bool {
     quote!(#ty).to_string().starts_with("Property <")
+}
+fn is_signal(ty: &syn::Type) -> bool {
+    quote!(#ty).to_string().starts_with("Signal <")
 }
