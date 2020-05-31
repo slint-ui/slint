@@ -513,6 +513,13 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let static_vtable_macro_doc = format!(
         r"Instentiate a static {vtable} for a given type and implements `vtable::HasStaticVTable<{vtable}>` for it.
 
+```ignore
+// The preview above is misleading because of rust-lang/rust#45939, so it is reproctuced bellow
+macro_rules! {macro} {{
+    ($(#[$meta:meta])* $vis:vis static $ident:ident for $ty:ty) => {{ ... }}
+}}
+```
+
 Given a type `MyType` that implements the trait `{trait} {trait_extra}`,
 create a static variable of type {vtable},
 and implements HasStaticVTable for it.
