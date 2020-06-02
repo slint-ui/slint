@@ -8,7 +8,7 @@ edition = "2018"
 [dependencies]
 corelib = { path="../../sixtyfps_runtime/corelib" }
 vtable = { path="../../helper_crates/vtable" }
-sixtyfps_compiler = { path = "../../sixtyfps_compiler", features = ["display-diagnostics"] }
+interpreter = { path = "../../sixtyfps_runtime/interpreter" }
 # FIXME: make optional and configurable backends
 gl = { path = "../../sixtyfps_runtime/rendering_backends/gl" }
 structopt = "0.3.14"

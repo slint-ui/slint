@@ -74,13 +74,13 @@ pub fn eval_expression(
             let component = component.upgrade().unwrap();
             let element = element.upgrade().unwrap();
             if element.borrow().id == component.root_element.borrow().id {
-                if let Some(x) = ctx.custom_properties.get(name) {
+                if let Some(x) = ctx.component_type.custom_properties.get(name) {
                     return unsafe {
                         x.prop.get(&*ctx.mem.offset(x.offset as isize), &eval_context).unwrap()
                     };
                 }
             };
-            let item_info = &ctx.items[element.borrow().id.as_str()];
+            let item_info = &ctx.component_type.items[element.borrow().id.as_str()];
             let item = unsafe { item_info.item_from_component(ctx.mem) };
             item_info.rtti.properties[name.as_str()].get(item, &eval_context)
         }
@@ -104,7 +104,7 @@ pub fn eval_expression(
         Expression::FunctionCall { function, .. } => {
             if let Expression::SignalReference { component: _, element, name } = &**function {
                 let element = element.upgrade().unwrap();
-                let item_info = &ctx.items[element.borrow().id.as_str()];
+                let item_info = &ctx.component_type.items[element.borrow().id.as_str()];
                 let item = unsafe { item_info.item_from_component(ctx.mem) };
                 let signal = unsafe {
                     &mut *(item_info
@@ -112,7 +112,12 @@ pub fn eval_expression(
                         .signals
                         .get(name.as_str())
                         .map(|o| item.as_ptr().add(*o) as *mut u8)
-                        .or_else(|| ctx.custom_signals.get(name.as_str()).map(|o| ctx.mem.add(*o)))
+                        .or_else(|| {
+                            ctx.component_type
+                                .custom_signals
+                                .get(name.as_str())
+                                .map(|o| ctx.mem.add(*o))
+                        })
                         .unwrap_or_else(|| panic!("unkown signal {}", name))
                         as *mut corelib::Signal<()>)
                 };
@@ -138,7 +143,7 @@ pub fn eval_expression(
                 let component = component.upgrade().unwrap();
                 let element = element.upgrade().unwrap();
                 if element.borrow().id == component.root_element.borrow().id {
-                    if let Some(x) = ctx.custom_properties.get(name) {
+                    if let Some(x) = ctx.component_type.custom_properties.get(name) {
                         unsafe {
                             let p = &*ctx.mem.offset(x.offset as isize);
                             x.prop.set(p, eval(x.prop.get(p, &eval_context).unwrap())).unwrap();
@@ -146,7 +151,7 @@ pub fn eval_expression(
                         return Value::Void;
                     }
                 };
-                let item_info = &ctx.items[element.borrow().id.as_str()];
+                let item_info = &ctx.component_type.items[element.borrow().id.as_str()];
                 let item = unsafe { item_info.item_from_component(ctx.mem) };
                 let p = &item_info.rtti.properties[name.as_str()];
                 p.set(item, eval(p.get(item, &eval_context)));

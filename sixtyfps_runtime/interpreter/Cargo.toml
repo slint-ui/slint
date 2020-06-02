@@ -1,0 +1,14 @@
+[package]
+name = "interpreter"
+version = "0.1.0"
+authors = ["Sixty FPS <info@sixtyfps.io>"]
+edition = "2018"
+
+[lib]
+path = "lib.rs"
+
+[dependencies]
+corelib = { path="../corelib" }
+vtable = { path="../../helper_crates/vtable" }
+sixtyfps_compiler = { path = "../../sixtyfps_compiler", features = ["display-diagnostics"] }
+
