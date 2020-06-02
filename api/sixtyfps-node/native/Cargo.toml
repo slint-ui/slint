@@ -1,0 +1,24 @@
+[package]
+name = "sixtyfps-node"
+version = "0.1.0"
+authors = ["Sixty FPS <info@sixtyfps.io>"]
+edition = "2018"
+build = "build.rs"
+# This is not meant to be used as a library from crate.io
+publish = false
+
+[lib]
+path = "lib.rs"
+crate-type = ["cdylib"]
+name = "sixtyfps_node_native"
+
+[dependencies]
+once_cell = "1.4"
+interpreter = { path="../../../sixtyfps_runtime/interpreter" }
+gl = { path="../../../sixtyfps_runtime/rendering_backends/gl" }
+neon = "0.4"
+
+[build-dependencies]
+neon-build = "0.4"
+
+

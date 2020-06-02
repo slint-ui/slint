@@ -18,7 +18,6 @@ component TwoRectangle := Rectangle {
     }
 }
 
-
 component ButtonRectangle := Rectangle {
     property<string> button_text;
     signal clicked;

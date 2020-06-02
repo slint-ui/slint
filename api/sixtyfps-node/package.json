@@ -1,0 +1,11 @@
+{
+    "name": "sixtyfps",
+    "version": "0.1.0",
+    "main": "lib/index.js",
+    "dependencies": {
+        "neon-cli": "^0.4"
+    },
+    "scripts": {
+        "install": "neon build --release"
+    }
+}
