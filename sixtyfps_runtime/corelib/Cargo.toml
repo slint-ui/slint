@@ -7,7 +7,6 @@ build = "build.rs"
 
 [lib]
 path = "lib.rs"
-crate-type = ["lib", "cdylib"]
 
 
 [features]

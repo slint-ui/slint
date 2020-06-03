@@ -32,15 +32,15 @@ function(SIXTYFPS_TARGET_60_SOURCES target)
     target_include_directories(${target} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 endfunction()
 
-#FIXME: we need sixtyfps_internal.h somewhere else
-file(GLOB _SIXTYFPS_INTERNAL_HEADER "${_SIXTYFPS_TARGET_DIR}/build/corelib-*/out")
-
 add_library(sixtyfps SHARED IMPORTED)
 set_target_properties(sixtyfps PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES
-    "${CMAKE_CURRENT_SOURCE_DIR}/../../api/sixtyfps-cpp/include;${_SIXTYFPS_INTERNAL_HEADER}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../api/sixtyfps-cpp/include;${_SIXTYFPS_TARGET_DIR}/include"
   IMPORTED_LOCATION
-    "${_SIXTYFPS_TARGET_DIR}/libcorelib${CMAKE_SHARED_LIBRARY_SUFFIX}")
+    "${_SIXTYFPS_TARGET_DIR}/libgl${CMAKE_STATIC_LIBRARY_SUFFIX}")
+
+#FIXME: remove this once we automate cmake target generation.
+target_link_libraries(sixtyfps INTERFACE -lfontconfig -lfreetype -lexpat -lfreetype -ldl -ldl -lutil -ldl -lutil -ldl -lrt -lpthread -lgcc_s -lc -lm -lrt -lpthread -lutil -lutil)
 
 add_custom_target(ensure_sixtyfps_runtime_up_to_date
     COMMAND cargo build --lib
@@ -48,19 +48,8 @@ add_custom_target(ensure_sixtyfps_runtime_up_to_date
 )
 add_dependencies(sixtyfps ensure_sixtyfps_runtime_up_to_date)
 
-file(GLOB _SIXTYFPS_GL_INTERNAL_HEADER "${_SIXTYFPS_TARGET_DIR}/build/gl-*/out")
-
-add_library(sixtyfps_gl SHARED IMPORTED)
-set_target_properties(sixtyfps_gl PROPERTIES
-  INTERFACE_INCLUDE_DIRECTORIES
-    "${_SIXTYFPS_GL_INTERNAL_HEADER}"
-  IMPORTED_LOCATION
-    "${_SIXTYFPS_TARGET_DIR}/libgl${CMAKE_SHARED_LIBRARY_SUFFIX}")
-
-target_link_libraries(sixtyfps_gl INTERFACE sixtyfps)
-
 ### END This should be moce in some file in api/sixtyfps-cpp/cmake
 
 add_executable(hello main.cpp)
-target_link_libraries(hello sixtyfps_gl)
+target_link_libraries(hello sixtyfps)
 sixtyfps_target_60_sources(hello hello.60)

@@ -1,6 +1,7 @@
 extern crate cbindgen;
 
 use std::env;
+use std::path::PathBuf;
 
 fn main() {
     let config = cbindgen::Config {
@@ -17,6 +18,14 @@ fn main() {
         ..Default::default()
     };
 
+    let mut include_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
+    include_dir.pop();
+    include_dir.pop();
+    include_dir.pop(); // target/{debug|release}/build/package/out/ -> target/{debug|release}
+    include_dir.push("include");
+
+    std::fs::create_dir_all(include_dir.clone()).unwrap();
+
     let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     cbindgen::Builder::new()
         .with_config(config)
@@ -24,5 +33,5 @@ fn main() {
         .with_header("#include <sixtyfps_internal.h>")
         .generate()
         .expect("Unable to generate bindings")
-        .write_to_file(env::var("OUT_DIR").unwrap() + "/sixtyfps_gl_internal.h");
+        .write_to_file(include_dir.join("sixtyfps_gl_internal.h"));
 }

@@ -1,6 +1,7 @@
 extern crate cbindgen;
 
 use std::env;
+use std::path::PathBuf;
 
 fn main() {
     let include = ["Rectangle", "Image", "TouchArea", "Text", "ComponentVTable"]
@@ -24,6 +25,14 @@ fn main() {
         ..Default::default()
     };
 
+    let mut include_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
+    include_dir.pop();
+    include_dir.pop();
+    include_dir.pop(); // target/{debug|release}/build/package/out/ -> target/{debug|release}
+    include_dir.push("include");
+
+    std::fs::create_dir_all(include_dir.clone()).unwrap();
+
     let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     cbindgen::Builder::new()
         .with_config(config.clone())
@@ -31,21 +40,21 @@ fn main() {
         .with_after_include("namespace sixtyfps { struct SharedString; }")
         .generate()
         .expect("Unable to generate bindings")
-        .write_to_file(env::var("OUT_DIR").unwrap() + "/sixtyfps_string_internal.h");
+        .write_to_file(include_dir.join("sixtyfps_string_internal.h"));
 
     cbindgen::Builder::new()
         .with_config(config.clone())
         .with_src(format!("{}/abi/properties.rs", crate_dir))
         .generate()
         .expect("Unable to generate bindings")
-        .write_to_file(env::var("OUT_DIR").unwrap() + "/sixtyfps_properties_internal.h");
+        .write_to_file(include_dir.join("sixtyfps_properties_internal.h"));
 
     cbindgen::Builder::new()
         .with_config(config.clone())
         .with_src(format!("{}/abi/signals.rs", crate_dir))
         .generate()
         .expect("Unable to generate bindings")
-        .write_to_file(env::var("OUT_DIR").unwrap() + "/sixtyfps_signals_internal.h");
+        .write_to_file(include_dir.join("sixtyfps_signals_internal.h"));
 
     cbindgen::Builder::new()
         .with_config(config)
@@ -58,5 +67,5 @@ fn main() {
         .with_include("sixtyfps_signals.h")
         .generate()
         .expect("Unable to generate bindings")
-        .write_to_file(env::var("OUT_DIR").unwrap() + "/sixtyfps_internal.h");
+        .write_to_file(include_dir.join("sixtyfps_internal.h"));
 }
