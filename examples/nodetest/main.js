@@ -7,7 +7,8 @@ require("sixtyfps");
 //import * as myModule from "../cpptest/hello.60";
 let hello = require("../cpptest/hello.60");
 
-hello.show();
+let x = new hello.Hello({ counter: 55 });
+x.show();
 
 
 

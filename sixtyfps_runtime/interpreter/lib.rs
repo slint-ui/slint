@@ -8,7 +8,7 @@ pub use eval::Value;
 
 use corelib::abi::datastructures::{ComponentBox, ComponentRef, ComponentRefMut};
 pub(crate) use dynamic_component::ComponentImpl;
-use std::rc::Rc;
+use std::{collections::HashMap, rc::Rc};
 
 impl ComponentDescription {
     /// The name of this Component as written in the .60 file
@@ -17,7 +17,7 @@ impl ComponentDescription {
     }
 
     /// List of publicly declared properties or signal
-    pub fn properties(&self) -> Vec<(String, sixtyfps_compiler::typeregister::Type)> {
+    pub fn properties(&self) -> HashMap<String, sixtyfps_compiler::typeregister::Type> {
         self.original
             .root_component
             .root_element
