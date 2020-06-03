@@ -1,0 +1,8 @@
+[package]
+name = "xtask"
+version = "0.1.0"
+authors = ["Sixty FPS <info@sixtyfps.io>"]
+edition = "2018"
+
+[dependencies]
+structopt = "0.3.14"
