@@ -179,6 +179,13 @@ impl<T: ?Sized + VTableMetaDrop> VBox<T> {
     pub fn borrow_mut<'b>(&'b mut self) -> VRefMut<'b, T> {
         unsafe { VRefMut::from_inner(self.inner) }
     }
+
+    /// Leaks the content of the box.
+    pub fn leak(self) -> VRefMut<'static, T> {
+        let inner = self.inner;
+        core::mem::forget(self);
+        unsafe { VRefMut::from_inner(inner) }
+    }
 }
 
 /// `VRef<'a MyTraitVTable>` can be thought as a `&'a dyn MyTrait`

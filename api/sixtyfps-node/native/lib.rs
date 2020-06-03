@@ -20,7 +20,9 @@ fn load(mut cx: FunctionContext) -> JsResult<JsValue> {
 }
 
 fn show(ct: std::rc::Rc<interpreter::MyComponentType>) {
-    interpreter::instentiate(ct, |x| gl::sixtyfps_runtime_run_component_with_gl_renderer(x))
+    let component = interpreter::instentiate(ct);
+    // FIXME: leak (that's because we somehow need a static life time)
+    gl::sixtyfps_runtime_run_component_with_gl_renderer(component.leak())
 }
 
 declare_types! {

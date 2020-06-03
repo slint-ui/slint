@@ -1,8 +1,6 @@
 use core::cell::RefCell;
 use core::ptr::NonNull;
-use corelib::abi::datastructures::{
-    ComponentBox, ComponentRef, ComponentRefMut, ComponentVTable, ItemVTable,
-};
+use corelib::abi::datastructures::{ComponentBox, ComponentRef, ComponentVTable, ItemVTable};
 use corelib::rtti::PropertyInfo;
 use corelib::{EvaluationContext, Property, SharedString};
 use object_tree::Element;
@@ -13,14 +11,6 @@ use std::rc::Rc;
 
 mod dynamic_type;
 mod eval;
-
-extern "C" fn dummy_destroy(_: ComponentRefMut) {
-    panic!();
-}
-
-extern "C" fn dummy_create(_: &ComponentVTable) -> ComponentBox {
-    panic!()
-}
 
 struct ItemWithinComponent {
     offset: usize,
@@ -178,7 +168,7 @@ pub fn load(
         );
     }
 
-    let t = ComponentVTable { create: dummy_create, drop: dummy_destroy, item_tree };
+    let t = ComponentVTable { create: component_create, drop: component_destroy, item_tree };
     let t = MyComponentType {
         ct: t,
         dynamic_type: builder.build(),
@@ -192,23 +182,30 @@ pub fn load(
     Ok(Rc::new(t))
 }
 
-/// FIXME: return a handle to the component instead of taking a callback
-pub fn instentiate<T>(
-    component_type: Rc<MyComponentType>,
-    run: impl FnOnce(vtable::VRefMut<'static, ComponentVTable>) -> T,
-) -> T {
+/// Safety: Can only be called for ComponentVTable which are in `MyComponentType`
+unsafe extern "C" fn component_create(s: &ComponentVTable) -> ComponentBox {
+    // This is safe because we have an instance of ComponentVTable which is the first field of MyComponentType
+    // And the only way to get a MyComponentType is through the load function which returns a Rc
+    let component_type =
+        Rc::<MyComponentType>::from_raw(s as *const ComponentVTable as *const MyComponentType);
+    // We need to increment the ref-count, as from_raw doesn't do that.
+    std::mem::forget(component_type.clone());
+    instentiate(component_type)
+}
+
+pub fn instentiate(component_type: Rc<MyComponentType>) -> ComponentBox {
     let instance = component_type.dynamic_type.clone().create_instance();
     let mem = instance as *mut u8;
 
-    let ctx = Rc::new(ComponentImpl { mem, component_type });
+    let ctx = Rc::new(ComponentImpl { mem, component_type: component_type.clone() });
 
-    let component_ref = unsafe {
-        ComponentRefMut::from_raw(
+    let component_box = unsafe {
+        ComponentBox::from_raw(
             NonNull::from(&ctx.component_type.ct).cast(),
             NonNull::new(mem).unwrap().cast(),
         )
     };
-    let eval_context = EvaluationContext { component: component_ref.borrow() };
+    let eval_context = EvaluationContext { component: component_box.borrow() };
 
     for item_within_component in ctx.component_type.items.values() {
         unsafe {
@@ -275,7 +272,16 @@ pub fn instentiate<T>(
         }
     }
 
-    let ret = run(component_ref);
-    unsafe { dynamic_type::TypeInfo::delete_instance(instance) };
-    ret
+    // The destructor of ComponentBox will take care of reducing the count
+    Rc::into_raw(component_type);
+    component_box
+}
+
+unsafe extern "C" fn component_destroy(component_ref: vtable::VRefMut<ComponentVTable>) {
+    // Take the reference count that the instentiate function leaked
+    let _vtable_rc = Rc::<MyComponentType>::from_raw(component_ref.get_vtable()
+        as *const ComponentVTable
+        as *const MyComponentType);
+
+    dynamic_type::TypeInfo::delete_instance(component_ref.as_ptr() as *mut dynamic_type::Instance);
 }

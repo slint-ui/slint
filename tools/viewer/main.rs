@@ -17,6 +17,7 @@ fn main() -> std::io::Result<()> {
         }
     };
 
-    interpreter::instentiate(c, |x| gl::sixtyfps_runtime_run_component_with_gl_renderer(x));
+    let component = interpreter::instentiate(c);
+    gl::sixtyfps_runtime_run_component_with_gl_renderer(component.leak());
     Ok(())
 }
