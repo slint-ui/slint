@@ -1,6 +1,6 @@
 use neon::prelude::*;
 
-struct WrappedComponentType(Option<std::rc::Rc<interpreter::MyComponentType>>);
+struct WrappedComponentType(Option<std::rc::Rc<interpreter::ComponentDescription>>);
 
 fn load(mut cx: FunctionContext) -> JsResult<JsValue> {
     let path = cx.argument::<JsString>(0)?.value();
@@ -19,7 +19,7 @@ fn load(mut cx: FunctionContext) -> JsResult<JsValue> {
     Ok(obj.as_value(&mut cx))
 }
 
-fn show(ct: std::rc::Rc<interpreter::MyComponentType>) {
+fn show(ct: std::rc::Rc<interpreter::ComponentDescription>) {
     let component = interpreter::instentiate(ct);
     // FIXME: leak (that's because we somehow need a static life time)
     gl::sixtyfps_runtime_run_component_with_gl_renderer(component.leak())

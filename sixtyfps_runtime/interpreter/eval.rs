@@ -6,7 +6,7 @@ use std::convert::{TryFrom, TryInto};
 pub trait ErasedPropertyInfo {
     fn get(&self, item: ItemRef, context: &EvaluationContext) -> Value;
     fn set(&self, item: ItemRef, value: Value);
-    fn set_binding(&self, item: ItemRef, binding: Box<dyn Fn(&crate::EvaluationContext) -> Value>);
+    fn set_binding(&self, item: ItemRef, binding: Box<dyn Fn(&EvaluationContext) -> Value>);
 }
 
 impl<Item: vtable::HasStaticVTable<corelib::abi::datastructures::ItemVTable>> ErasedPropertyInfo
