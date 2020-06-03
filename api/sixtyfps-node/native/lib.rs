@@ -1,6 +1,7 @@
 use neon::prelude::*;
 
 struct WrappedComponentType(Option<std::rc::Rc<interpreter::ComponentDescription>>);
+struct WrappedComponentBox(Option<corelib::abi::datastructures::ComponentBox>);
 
 fn load(mut cx: FunctionContext) -> JsResult<JsValue> {
     let path = cx.argument::<JsString>(0)?.value();
@@ -19,10 +20,17 @@ fn load(mut cx: FunctionContext) -> JsResult<JsValue> {
     Ok(obj.as_value(&mut cx))
 }
 
-fn show(ct: std::rc::Rc<interpreter::ComponentDescription>) {
-    let component = interpreter::instentiate(ct);
-    // FIXME: leak (that's because we somehow need a static life time)
-    gl::sixtyfps_runtime_run_component_with_gl_renderer(component.leak())
+fn create<'cx>(
+    cx: &mut CallContext<'cx, impl neon::object::This>,
+    component_type: std::rc::Rc<interpreter::ComponentDescription>,
+) -> JsResult<'cx, JsValue> {
+    let component = component_type.create();
+
+    //component_type.set_property(component, name, value);
+
+    let mut obj = SixtyFpsComponent::new::<_, JsValue, _>(cx, std::iter::empty())?;
+    cx.borrow_mut(&mut obj, |mut obj| obj.0 = Some(component));
+    Ok(obj.as_value(cx))
 }
 
 declare_types! {
@@ -30,13 +38,26 @@ declare_types! {
         init(_) {
             Ok(WrappedComponentType(None))
         }
-        method show(mut cx) {
+        method create(mut cx) {
             let this = cx.this();
             let ct = cx.borrow(&this, |x| x.0.clone());
             let ct = ct.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
-            show(ct);
-            Ok(cx.undefined().as_value(&mut cx))
+            create(&mut cx, ct)
+        }
+    }
 
+    class SixtyFpsComponent for WrappedComponentBox {
+        init(_) {
+            Ok(WrappedComponentBox(None))
+        }
+        method show(mut cx) {
+            let mut this = cx.this();
+            // FIXME: is take() here the right choice?
+            let component = cx.borrow_mut(&mut this, |mut x| x.0.take());
+            let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            gl::sixtyfps_runtime_run_component_with_gl_renderer(component.leak());
+            // FIXME: leak (that's because we somehow need a static life time)
+            Ok(JsUndefined::new().as_value(&mut cx))
         }
     }
 }

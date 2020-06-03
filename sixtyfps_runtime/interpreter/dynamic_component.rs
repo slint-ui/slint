@@ -37,7 +37,7 @@ pub struct ComponentImpl {
 
 #[repr(C)]
 pub struct MyComponentType {
-    ct: ComponentVTable,
+    pub(crate) ct: ComponentVTable,
     dynamic_type: Rc<dynamic_type::TypeInfo>,
     it: Vec<corelib::abi::datastructures::ItemTreeNode>,
     pub(crate) items: HashMap<String, ItemWithinComponent>,
