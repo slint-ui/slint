@@ -11,9 +11,8 @@ use sixtyfps_compiler::*;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-unsafe fn construct<T: Default>(ptr: *mut u8) {
-    core::ptr::write(ptr as *mut T, T::default());
-}
+mod dynamic_type;
+mod eval;
 
 extern "C" fn dummy_destroy(_: ComponentRefMut) {
     panic!();
@@ -38,12 +37,9 @@ impl ItemWithinComponent {
     }
 }
 
-mod eval;
-
 struct PropertiesWithinComponent {
     offset: usize,
     prop: Box<dyn PropertyInfo<u8, eval::Value>>,
-    create: unsafe fn(*mut u8),
 }
 pub struct ComponentImpl {
     mem: *mut u8,
@@ -53,8 +49,8 @@ pub struct ComponentImpl {
 #[repr(C)]
 pub struct MyComponentType {
     ct: ComponentVTable,
+    dynamic_type: Rc<dynamic_type::TypeInfo>,
     it: Vec<corelib::abi::datastructures::ItemTreeNode>,
-    size: usize,
     items: HashMap<String, ItemWithinComponent>,
     custom_properties: HashMap<String, PropertiesWithinComponent>,
     /// the usize is the offset within `mem` to the Signal<()>
@@ -71,12 +67,11 @@ extern "C" fn item_tree(r: ComponentRef<'_>) -> *const corelib::abi::datastructu
 
 struct RuntimeTypeInfo {
     vtable: &'static ItemVTable,
-    construct: unsafe fn(*mut u8),
+    type_info: dynamic_type::StaticTypeInfo,
     properties: HashMap<&'static str, Box<dyn eval::ErasedPropertyInfo>>,
     /// The uszie is an offset within this item to the Signal.
     /// Ideally, we would need a vtable::VFieldOffset<ItemVTable, corelib::Signal<()>>
     signals: HashMap<&'static str, usize>,
-    size: usize,
 }
 
 fn rtti_for<
@@ -86,13 +81,12 @@ fn rtti_for<
         T::name(),
         Rc::new(RuntimeTypeInfo {
             vtable: T::static_vtable(),
-            construct: construct::<T>,
+            type_info: dynamic_type::StaticTypeInfo::new::<T>(),
             properties: T::properties()
                 .into_iter()
                 .map(|(k, v)| (k, Box::new(v) as Box<dyn eval::ErasedPropertyInfo>))
                 .collect(),
             signals: T::signals().into_iter().map(|(k, v)| (k, v.get_byte_offset())).collect(),
-            size: core::mem::size_of::<T>(),
         }),
     )
 }
@@ -127,34 +121,33 @@ pub fn load(
             .cloned(),
         );
     }
-
     let rtti = Rc::new(rtti);
 
     let mut tree_array = vec![];
-    let mut current_offset = 0usize;
     let mut items_types = HashMap::new();
+    let mut builder = dynamic_type::TypeBuilder::new();
 
     generator::build_array_helper(&tree.root_component, |rc_item, child_offset| {
         let item = rc_item.borrow();
         let rt = &rtti[&*item.base_type.as_builtin().class_name];
+        let offset = builder.add_field(rt.type_info);
         tree_array.push(corelib::abi::datastructures::ItemTreeNode::Item {
-            offset: current_offset as isize,
+            offset: offset as isize,
             vtable: rt.vtable,
             children_index: child_offset,
             chilren_count: item.children.len() as _,
         });
         items_types.insert(
             item.id.clone(),
-            ItemWithinComponent { offset: current_offset, rtti: rt.clone(), elem: rc_item.clone() },
+            ItemWithinComponent { offset, rtti: rt.clone(), elem: rc_item.clone() },
         );
-        current_offset += rt.size;
     });
 
     let mut custom_properties = HashMap::new();
     let mut custom_signals = HashMap::new();
     for (name, decl) in &tree.root_component.root_element.borrow().property_declarations {
-        fn create_and_set<T: Clone + Default + 'static>(
-        ) -> (Box<dyn PropertyInfo<u8, eval::Value>>, unsafe fn(*mut u8))
+        fn property_info<T: Clone + Default + 'static>(
+        ) -> (Box<dyn PropertyInfo<u8, eval::Value>>, dynamic_type::StaticTypeInfo)
         where
             T: std::convert::TryInto<eval::Value>,
             eval::Value: std::convert::TryInto<T>,
@@ -162,36 +155,34 @@ pub fn load(
             // Fixme: using u8 in PropertyInfo<> is not sound, we would need to materialize a type for out component
             (
                 Box::new(unsafe { vtable::FieldOffset::<u8, Property<T>>::new_from_offset(0) }),
-                construct::<Property<T>>,
+                dynamic_type::StaticTypeInfo::new::<Property<T>>(),
             )
         }
-        let (prop, create) = match decl.property_type {
-            Type::Float32 => create_and_set::<f32>(),
-            Type::Int32 => create_and_set::<u32>(),
-            Type::String => create_and_set::<SharedString>(),
-            Type::Color => create_and_set::<u32>(),
-            Type::Image => create_and_set::<SharedString>(),
-            Type::Bool => create_and_set::<bool>(),
+        let (prop, type_info) = match decl.property_type {
+            Type::Float32 => property_info::<f32>(),
+            Type::Int32 => property_info::<u32>(),
+            Type::String => property_info::<SharedString>(),
+            Type::Color => property_info::<u32>(),
+            Type::Image => property_info::<SharedString>(),
+            Type::Bool => property_info::<bool>(),
             Type::Signal => {
-                custom_signals.insert(name.clone(), current_offset);
-                current_offset += core::mem::size_of::<corelib::Signal<()>>();
+                custom_signals
+                    .insert(name.clone(), builder.add_field_type::<corelib::Signal<()>>());
                 continue;
             }
             _ => panic!("bad type"),
         };
         custom_properties.insert(
             name.clone(),
-            PropertiesWithinComponent { offset: current_offset, prop, create },
+            PropertiesWithinComponent { offset: builder.add_field(type_info), prop },
         );
-        // FIXME: get the actual size depending of the type
-        current_offset += 32;
     }
 
     let t = ComponentVTable { create: dummy_create, drop: dummy_destroy, item_tree };
     let t = MyComponentType {
         ct: t,
+        dynamic_type: builder.build(),
         it: tree_array,
-        size: current_offset,
         items: items_types,
         custom_properties,
         custom_signals,
@@ -206,18 +197,8 @@ pub fn instentiate<T>(
     component_type: Rc<MyComponentType>,
     run: impl FnOnce(vtable::VRefMut<'static, ComponentVTable>) -> T,
 ) -> T {
-    let mut my_impl = Vec::<u64>::new();
-    my_impl.resize(component_type.size / 8 + 1, 0);
-    let mem = my_impl.as_mut_ptr() as *mut u8;
-
-    for PropertiesWithinComponent { offset, create, .. } in
-        component_type.custom_properties.values()
-    {
-        unsafe { create(mem.offset(*offset as isize)) };
-    }
-    for offset in component_type.custom_signals.values() {
-        unsafe { construct::<corelib::Signal<()>>(mem.offset(*offset as isize)) };
-    }
+    let instance = component_type.dynamic_type.clone().create_instance();
+    let mem = instance as *mut u8;
 
     let ctx = Rc::new(ComponentImpl { mem, component_type });
 
@@ -232,7 +213,6 @@ pub fn instentiate<T>(
     for item_within_component in ctx.component_type.items.values() {
         unsafe {
             let item = item_within_component.item_from_component(mem);
-            (item_within_component.rtti.construct)(item.as_ptr() as _);
             let elem = item_within_component.elem.borrow();
             for (prop, expr) in &elem.bindings {
                 let ty = elem.lookup_property(prop.as_str());
@@ -276,12 +256,12 @@ pub fn instentiate<T>(
                     {
                         if expr.is_constant() {
                             let v = eval::eval_expression(expr, &*ctx, &eval_context);
-                            prop.set(&*item.as_ptr().add(*offset), v).unwrap();
+                            prop.set(&*mem.add(*offset), v).unwrap();
                         } else {
                             let expr = expr.clone();
                             let ctx = ctx.clone();
                             prop.set_binding(
-                                &*item.as_ptr().add(*offset),
+                                &*mem.add(*offset),
                                 Box::new(move |eval_context| {
                                     eval::eval_expression(&expr, &*ctx, eval_context)
                                 }),
@@ -295,5 +275,7 @@ pub fn instentiate<T>(
         }
     }
 
-    run(component_ref)
+    let ret = run(component_ref);
+    unsafe { dynamic_type::TypeInfo::delete_instance(instance) };
+    ret
 }
