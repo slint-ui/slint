@@ -3,11 +3,15 @@ use corelib::abi::datastructures::ComponentBox;
 use neon::prelude::*;
 use sixtyfps_compiler::typeregister::Type;
 
+mod persistent_context;
+
 struct WrappedComponentType(Option<std::rc::Rc<interpreter::ComponentDescription>>);
 struct WrappedComponentBox(Option<ComponentBox>);
 
-// We need to do some gymnastic with closures to pass the ExecuteContext with the right lifetime
-scoped_tls_hkt::scoped_thread_local!(static GLOBAL_CONTEXT: for <'a> &'a dyn Fn(&dyn Fn(&mut ExecuteContext)));
+/// We need to do some gymnastic with closures to pass the ExecuteContext with the right lifetime
+type GlobalContextCallback = dyn for<'b> Fn(&mut ExecuteContext<'b>, &persistent_context::PersistentContext<'b>);
+scoped_tls_hkt::scoped_thread_local!(static GLOBAL_CONTEXT: 
+    for <'a> &'a dyn Fn(&GlobalContextCallback));
 
 /// Load a .60 files.
 ///
@@ -36,6 +40,7 @@ fn create<'cx>(
     component_type: std::rc::Rc<interpreter::ComponentDescription>,
 ) -> JsResult<'cx, JsValue> {
     let mut component = component_type.clone().create();
+    let persistent_context = persistent_context::PersistentContext::new(cx);
 
     if let Some(args) = cx.argument_opt(0).and_then(|arg| arg.downcast::<JsObject>().ok()) {
         let properties = component_type.properties();
@@ -50,21 +55,25 @@ fn create<'cx>(
                 })?
                 .clone();
             if ty == Type::Signal {
-                let fun = value.downcast_or_throw::<JsFunction, _>(cx)?;
-                let fun = (*fun).clone();
+                let _fun = value.downcast_or_throw::<JsFunction, _>(cx)?;
+                let fun_idx = persistent_context.allocate(cx, value);
                 component_type
                     .set_signal_handler(
                         component.borrow_mut(),
                         prop_name.as_str(),
                         Box::new(move |_eval_ctx, ()| {
                             GLOBAL_CONTEXT.with(|cx_fn| {
-                                cx_fn(&|cx| {
-                                    fun.call::<_, _, JsValue, _>(
-                                        cx,
-                                        JsUndefined::new(),
-                                        std::iter::empty(),
-                                    )
-                                    .unwrap();
+                                cx_fn(& move |cx, presistent_context| {
+                                    presistent_context
+                                        .get(cx, fun_idx)
+                                        .unwrap()
+                                        .downcast::<JsFunction>()
+                                        .unwrap()
+                                        .call::<_, _, JsValue, _>(
+                                            cx,
+                                            JsUndefined::new(),
+                                            std::iter::empty(),
+                                        ).unwrap();
                                 })
                             })
                         }),
@@ -80,6 +89,7 @@ fn create<'cx>(
     }
 
     let mut obj = SixtyFpsComponent::new::<_, JsValue, _>(cx, std::iter::empty())?;
+    persistent_context.save_to_object(cx, obj.downcast().unwrap());
     cx.borrow_mut(&mut obj, |mut obj| obj.0 = Some(component));
     Ok(obj.as_value(cx))
 }
@@ -107,10 +117,11 @@ fn to_eval_value<'a>(
 fn show<'cx>(
     cx: &mut CallContext<'cx, impl neon::object::This>,
     component: ComponentBox,
+    presistent_context: persistent_context::PersistentContext<'cx>,
 ) -> JsResult<'cx, JsUndefined> {
     cx.execute_scoped(|cx| {
         let cx = RefCell::new(cx);
-        let cx_fn = move |callback: &dyn Fn(&mut ExecuteContext)| callback(&mut *cx.borrow_mut());
+        let cx_fn = move |callback: &GlobalContextCallback| { callback(&mut *cx.borrow_mut(), &presistent_context) };
         GLOBAL_CONTEXT.set(&&cx_fn, || {
             // FIXME: leak (that's because we somehow need a static life time)
             gl::sixtyfps_runtime_run_component_with_gl_renderer(component.leak());
@@ -148,7 +159,8 @@ declare_types! {
             // FIXME: is take() here the right choice?
             let component = cx.borrow_mut(&mut this, |mut x| x.0.take());
             let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
-            show(&mut cx, component)?;
+            let persistent_context = persistent_context::PersistentContext::from_object(&mut cx, this.downcast().unwrap())?;
+            show(&mut cx, component, persistent_context)?;
             Ok(JsUndefined::new().as_value(&mut cx))
         }
     }
