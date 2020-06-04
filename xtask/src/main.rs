@@ -36,59 +36,48 @@ fn root_dir() -> Result<PathBuf, Box<dyn Error>> {
     Ok(root)
 }
 
-fn grep_for_prefixed_cargo_output<'a>(prefix: &str, lines: &'a str) -> Option<&'a str> {
-    lines.lines().find_map(|line| {
-        if line.starts_with(prefix) {
-            Some(line[prefix.len()..].trim())
-        } else {
-            None
-        }
-    })
-}
-
-fn check_process_output(
-    cmd: &Command,
-    output: std::process::Output,
-) -> Result<std::process::Output, Box<dyn Error>> {
-    if !output.status.success() {
-        Err(format!("Error running: {:?}\nstderr: {}\n", cmd, String::from_utf8(output.stderr)?)
-            .into())
-    } else {
-        Ok(output)
-    }
-}
-
 fn cargo() -> Command {
     Command::new(std::env::var("CARGO").unwrap_or("cargo".into()))
-}
-
-#[derive(Debug)]
-struct NativeLibrary {
-    name: String,
-    filename: PathBuf,
-    native_library_dependencies: String,
 }
 
 impl CMakeCommand {
     fn collect_native_libraries(
         &self,
         build_params: &[&str],
-    ) -> Result<(Option<PathBuf>, Vec<NativeLibrary>), Box<dyn Error>> {
+    ) -> Result<(Option<PathBuf>, Vec<PathBuf>, Vec<String>), Box<dyn Error>> {
+        use cargo_metadata::diagnostic::DiagnosticLevel;
         use cargo_metadata::Message;
 
-        let mut result = vec![];
+        let mut library_artifacts: Vec<PathBuf> = vec![];
+        let mut native_library_dependencies: Vec<String> = vec![];
 
         let mut target_dir = None;
 
-        let mut params = vec!["build", "--lib", "--message-format=json"];
+        let mut params =
+            vec!["build", "-p", "sixtyfps_rendering_backend_gl", "--message-format=json"];
         params.extend(build_params);
 
-        let mut cmd = cargo().args(&params).stdout(std::process::Stdio::piped()).spawn().unwrap();
+        let mut cmd = cargo()
+            .args(&params)
+            .stdout(std::process::Stdio::piped())
+            .env("RUSTFLAGS", "--print=native-static-libs")
+            .spawn()
+            .unwrap();
 
         let reader = std::io::BufReader::new(cmd.stdout.take().unwrap());
 
         for message in cargo_metadata::Message::parse_stream(reader) {
             match message.unwrap() {
+                Message::CompilerMessage(msg) => {
+                    let message = msg.message;
+                    const NATIVE_LIBS_PREFIX: &str = "native-static-libs:";
+                    if matches!(message.level, DiagnosticLevel::Note)
+                        && message.message.starts_with(NATIVE_LIBS_PREFIX)
+                    {
+                        let native_libs = message.message[NATIVE_LIBS_PREFIX.len()..].trim();
+                        native_library_dependencies.push(native_libs.into());
+                    }
+                }
                 Message::CompilerArtifact(ref artifact) => {
                     if let Some(native_lib_filename) =
                         artifact.filenames.iter().find_map(|filename| {
@@ -114,12 +103,7 @@ impl CMakeCommand {
                             target_dir = Some(native_lib_dir.clone());
                         }
 
-                        result.push(NativeLibrary {
-                            name: artifact.target.name.clone(),
-                            filename: native_lib_filename.clone(),
-                            native_library_dependencies: self
-                                .libraries_needed_for_runtime_linkage(&artifact.target.name)?,
-                        });
+                        library_artifacts.push(native_lib_filename.clone());
                     }
                 }
                 _ => (),
@@ -128,25 +112,7 @@ impl CMakeCommand {
 
         cmd.wait()?;
 
-        Ok((target_dir, result))
-    }
-
-    fn libraries_needed_for_runtime_linkage(
-        &self,
-        package: &str,
-    ) -> Result<String, Box<dyn Error>> {
-        let mut cmd = cargo();
-        cmd.args(&["rustc", "-p", package, "--", "--print=native-static-libs"]);
-        let output = cmd.output()?;
-        let output = check_process_output(&cmd, output)?;
-
-        let native_libs_output = String::from_utf8(output.stderr).unwrap();
-
-        let libraries =
-            grep_for_prefixed_cargo_output("note: native-static-libs:", &native_libs_output)
-                .ok_or_else(|| "Cannot find native-static-libs prefixed output")?;
-
-        Ok(libraries.into())
+        Ok((target_dir, library_artifacts, native_library_dependencies))
     }
 
     fn build_cmake(&self) -> Result<(), Box<dyn Error>> {
@@ -164,9 +130,10 @@ impl CMakeCommand {
             params.push(&target_triplet);
         }
 
-        let (output_dir, native_libs) = self.collect_native_libraries(&params)?;
+        let (output_dir, library_artifacts, native_library_dependencies) =
+            self.collect_native_libraries(&params)?;
 
-        if native_libs.is_empty() {
+        if library_artifacts.is_empty() {
             return Err("Could not detect any native libraries in the build output".into());
         }
 
@@ -175,21 +142,15 @@ impl CMakeCommand {
 
         let mut libs_list = String::from("-DSIXTYFPS_INTERNAL_LIBS=");
         libs_list.push_str(
-            &native_libs
+            &library_artifacts
                 .iter()
-                .map(|lib| lib.filename.display().to_string())
+                .map(|lib| lib.display().to_string())
                 .collect::<Vec<String>>()
                 .join(";"),
         );
 
         let mut external_libs_list = String::from("-DSIXTYFPS_EXTERNAL_LIBS=");
-        external_libs_list.push_str(
-            &native_libs
-                .iter()
-                .map(|lib| lib.native_library_dependencies.clone())
-                .collect::<Vec<String>>()
-                .join(" "),
-        );
+        external_libs_list.push_str(&native_library_dependencies.join(" "));
 
         let source_dir = root_dir()?.join("api/sixtyfps-cpp/cmake");
         let binary_dir = output_dir;
