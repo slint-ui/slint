@@ -13,6 +13,8 @@ pub struct CMakeCommand {
     verbose: bool,
     #[structopt(long)]
     prefix: Option<String>,
+    #[structopt(long)]
+    install: bool,
 }
 
 #[derive(Debug, StructOpt)]
@@ -222,12 +224,30 @@ impl CMakeCommand {
             .into());
         }
 
-        let cmake_build_status =
-            std::process::Command::new("cmake").arg("--build").arg(binary_dir).spawn()?.wait()?;
+        let cmake_build_status = std::process::Command::new("cmake")
+            .arg("--build")
+            .arg(binary_dir.clone())
+            .spawn()?
+            .wait()?;
         if !cmake_build_status.success() {
             return Err(
                 format!("CMake build exited with code {:?}", cmake_build_status.code()).into()
             );
+        }
+
+        if self.install {
+            let cmake_install_status = std::process::Command::new("cmake")
+                .arg("--install")
+                .arg(binary_dir)
+                .spawn()?
+                .wait()?;
+            if !cmake_install_status.success() {
+                return Err(format!(
+                    "CMake build exited with code {:?}",
+                    cmake_install_status.code()
+                )
+                .into());
+            }
         }
 
         Ok(())
