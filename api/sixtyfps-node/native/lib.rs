@@ -1,12 +1,13 @@
 use core::cell::RefCell;
-use corelib::abi::datastructures::ComponentBox;
+use corelib::abi::datastructures::{ComponentBox, ComponentRef};
 use neon::prelude::*;
 use sixtyfps_compiler::typeregister::Type;
+use std::rc::Rc;
 
 mod persistent_context;
 
-struct WrappedComponentType(Option<std::rc::Rc<interpreter::ComponentDescription>>);
-struct WrappedComponentBox(Option<ComponentBox>);
+struct WrappedComponentType(Option<Rc<interpreter::ComponentDescription>>);
+struct WrappedComponentBox(Option<(Rc<ComponentBox>, Rc<interpreter::ComponentDescription>)>);
 
 /// We need to do some gymnastic with closures to pass the ExecuteContext with the right lifetime
 type GlobalContextCallback =
@@ -38,7 +39,7 @@ fn load(mut cx: FunctionContext) -> JsResult<JsValue> {
 
 fn create<'cx>(
     cx: &mut CallContext<'cx, impl neon::object::This>,
-    component_type: std::rc::Rc<interpreter::ComponentDescription>,
+    component_type: Rc<interpreter::ComponentDescription>,
 ) -> JsResult<'cx, JsValue> {
     let mut component = component_type.clone().create();
     let persistent_context = persistent_context::PersistentContext::new(cx);
@@ -92,14 +93,14 @@ fn create<'cx>(
 
     let mut obj = SixtyFpsComponent::new::<_, JsValue, _>(cx, std::iter::empty())?;
     persistent_context.save_to_object(cx, obj.downcast().unwrap());
-    cx.borrow_mut(&mut obj, |mut obj| obj.0 = Some(component));
+    cx.borrow_mut(&mut obj, |mut obj| obj.0 = Some((Rc::new(component), component_type)));
     Ok(obj.as_value(cx))
 }
 
-fn to_eval_value<'a>(
+fn to_eval_value<'cx>(
     val: Handle<JsValue>,
     ty: sixtyfps_compiler::typeregister::Type,
-    cx: &mut impl Context<'a>,
+    cx: &mut impl Context<'cx>,
 ) -> NeonResult<interpreter::Value> {
     use interpreter::Value;
     match ty {
@@ -116,9 +117,19 @@ fn to_eval_value<'a>(
     }
 }
 
+fn to_js_value<'cx>(val: interpreter::Value, cx: &mut impl Context<'cx>) -> Handle<'cx, JsValue> {
+    use interpreter::Value;
+    match val {
+        Value::Void => JsUndefined::new().as_value(cx),
+        Value::Number(n) => JsNumber::new(cx, n).as_value(cx),
+        Value::String(s) => JsString::new(cx, s.as_str()).as_value(cx),
+        Value::Bool(b) => JsBoolean::new(cx, b).as_value(cx),
+    }
+}
+
 fn show<'cx>(
     cx: &mut CallContext<'cx, impl neon::object::This>,
-    component: ComponentBox,
+    component: ComponentRef,
     presistent_context: persistent_context::PersistentContext<'cx>,
 ) -> JsResult<'cx, JsUndefined> {
     cx.execute_scoped(|cx| {
@@ -128,7 +139,7 @@ fn show<'cx>(
         };
         GLOBAL_CONTEXT.set(&&cx_fn, || {
             sixtyfps_rendering_backend_gl::sixtyfps_runtime_run_component_with_gl_renderer(
-                component.borrow(),
+                component,
             );
         })
     });
@@ -153,6 +164,18 @@ declare_types! {
             let ct = ct.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
             Ok(cx.string(ct.id()).as_value(&mut cx))
         }
+        method properties(mut cx) {
+            let this = cx.this();
+            let ct = cx.borrow(&this, |x| x.0.clone());
+            let ct = ct.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            let properties = ct.properties();
+            let array = JsArray::new(&mut cx, properties.len() as u32);
+            for (i, (p, _)) in properties.iter().enumerate() {
+                let prop_name = JsString::new(&mut cx, p);
+                array.set(&mut cx, i as u32, prop_name)?;
+            }
+            Ok(array.as_value(&mut cx))
+        }
     }
 
     class SixtyFpsComponent for WrappedComponentBox {
@@ -161,11 +184,42 @@ declare_types! {
         }
         method show(mut cx) {
             let mut this = cx.this();
-            // FIXME: is take() here the right choice?
-            let component = cx.borrow_mut(&mut this, |mut x| x.0.take());
-            let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            let component = cx.borrow(&mut this, |x| x.0.clone());
+            let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?.0;
             let persistent_context = persistent_context::PersistentContext::from_object(&mut cx, this.downcast().unwrap())?;
-            show(&mut cx, component, persistent_context)?;
+            show(&mut cx, component.borrow(), persistent_context)?;
+            Ok(JsUndefined::new().as_value(&mut cx))
+        }
+        method get_property(mut cx) {
+            let prop_name = cx.argument::<JsString>(0)?.value();
+            let this = cx.this();
+            let lock = cx.lock();
+            let x = this.borrow(&lock).0.clone();
+            let (component, component_ty) = x.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            let value = component_ty
+                .get_property(component.borrow(), prop_name.as_str())
+                .or_else(|_| cx.throw_error(format!("Cannot read property")))?;
+            Ok(to_js_value(value, &mut cx))
+        }
+        method set_property(mut cx) {
+            let prop_name = cx.argument::<JsString>(0)?.value();
+            let this = cx.this();
+            let lock = cx.lock();
+            let x = this.borrow(&lock).0.clone();
+            let (component, component_ty) = x.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            let ty = component_ty.properties()
+                .get(&prop_name)
+                .ok_or(())
+                .or_else(|()| {
+                    cx.throw_error(format!("Property {} not found in the component", prop_name))
+                })?
+                .clone();
+
+            let value = to_eval_value(cx.argument::<JsValue>(1)?, ty, &mut cx)?;
+            component_ty
+                .set_property(component.borrow(), prop_name.as_str(), value)
+                .or_else(|_| cx.throw_error(format!("Cannot assign property")))?;
+
             Ok(JsUndefined::new().as_value(&mut cx))
         }
     }

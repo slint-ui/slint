@@ -59,6 +59,15 @@ impl ComponentDescription {
         Ok(())
     }
 
+    pub fn get_property(&self, component: ComponentRef, name: &str) -> Result<Value, ()> {
+        if !core::ptr::eq((&self.ct) as *const _, component.get_vtable() as *const _) {
+            return Err(());
+        }
+        let x = self.custom_properties.get(name).ok_or(())?;
+        let eval_context = corelib::EvaluationContext { component };
+        unsafe { x.prop.get(&*component.as_ptr().add(x.offset), &eval_context) }
+    }
+
     pub fn set_signal_handler(
         &self,
         component: ComponentRefMut,

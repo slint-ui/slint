@@ -8,6 +8,6 @@ let hello = require("../cpptest/hello.60");
 
 let x = new hello.Hello({
     counter : 55,
-    minus_clicked : (function() { console.log("Clicked!") }),
+    minus_clicked: (function () { console.log("Clicked!"); x.counter--; }),
 });
 x.show();
