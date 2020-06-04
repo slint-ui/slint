@@ -32,7 +32,7 @@ function(SIXTYFPS_TARGET_60_SOURCES target)
     target_include_directories(${target} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 endfunction()
 
-find_package(SixtyFPS REQUIRED)
+find_package(SixtyFPS REQUIRED HINTS ${_SIXTYFPS_TARGET_DIR})
 
 ### END This should be moce in some file in api/sixtyfps-cpp/cmake
 

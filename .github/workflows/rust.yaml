@@ -50,8 +50,9 @@ jobs:
       with:
           command: test
           args: --verbose
+    - name: Prepare cmake module
+      run: cargo xtask cmake --prefix $HOME/sixtyfps_install --install
     - name: C++ Test
       uses: lukka/run-cmake@v2.4
       with:
         cmakeListsTxtPath: examples/cpptest/CMakeLists.txt
-
