@@ -28,7 +28,11 @@ struct SharedString
         internal::sixtyfps_shared_string_from_bytes(this, s.data(), s.size());
         return *this;
     }
-    SharedString &operator=(SharedString &&other) { std::swap(inner, other.inner); return *this; }
+    SharedString &operator=(SharedString &&other)
+    {
+        std::swap(inner, other.inner);
+        return *this;
+    }
 
     operator std::string_view() const { return internal::sixtyfps_shared_string_bytes(this); }
     auto data() const -> const char * { return internal::sixtyfps_shared_string_bytes(this); }

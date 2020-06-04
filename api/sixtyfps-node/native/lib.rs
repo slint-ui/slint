@@ -9,7 +9,8 @@ struct WrappedComponentType(Option<std::rc::Rc<interpreter::ComponentDescription
 struct WrappedComponentBox(Option<ComponentBox>);
 
 /// We need to do some gymnastic with closures to pass the ExecuteContext with the right lifetime
-type GlobalContextCallback = dyn for<'b> Fn(&mut ExecuteContext<'b>, &persistent_context::PersistentContext<'b>);
+type GlobalContextCallback =
+    dyn for<'b> Fn(&mut ExecuteContext<'b>, &persistent_context::PersistentContext<'b>);
 scoped_tls_hkt::scoped_thread_local!(static GLOBAL_CONTEXT: 
     for <'a> &'a dyn Fn(&GlobalContextCallback));
 
@@ -63,7 +64,7 @@ fn create<'cx>(
                         prop_name.as_str(),
                         Box::new(move |_eval_ctx, ()| {
                             GLOBAL_CONTEXT.with(|cx_fn| {
-                                cx_fn(& move |cx, presistent_context| {
+                                cx_fn(&move |cx, presistent_context| {
                                     presistent_context
                                         .get(cx, fun_idx)
                                         .unwrap()
@@ -73,7 +74,8 @@ fn create<'cx>(
                                             cx,
                                             JsUndefined::new(),
                                             std::iter::empty(),
-                                        ).unwrap();
+                                        )
+                                        .unwrap();
                                 })
                             })
                         }),
@@ -121,7 +123,9 @@ fn show<'cx>(
 ) -> JsResult<'cx, JsUndefined> {
     cx.execute_scoped(|cx| {
         let cx = RefCell::new(cx);
-        let cx_fn = move |callback: &GlobalContextCallback| { callback(&mut *cx.borrow_mut(), &presistent_context) };
+        let cx_fn = move |callback: &GlobalContextCallback| {
+            callback(&mut *cx.borrow_mut(), &presistent_context)
+        };
         GLOBAL_CONTEXT.set(&&cx_fn, || {
             gl::sixtyfps_runtime_run_component_with_gl_renderer(component.borrow());
         })
