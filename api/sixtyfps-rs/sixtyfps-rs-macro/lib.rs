@@ -288,13 +288,10 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
         }
 
         impl #component_id{
-            // FIXME: we need a static lifetime for winit run, so this takes the component by value and put it in a leaked box
-            // Ideally we would not need a static lifetime to run the engine. (eg: use run_return function of winit)
-            fn run(self) {
+            fn run(mut self) {
                 use sixtyfps::re_exports::*;
                 sixtyfps::re_exports::ComponentVTable_static!(static VT for #component_id);
-                let static_self = Box::leak(Box::new(self));
-                sixtyfps_runtime_run_component_with_gl_renderer(VRefMut::new(static_self));
+                sixtyfps_runtime_run_component_with_gl_renderer(VRefMut::new(&mut self));
             }
         }
     );

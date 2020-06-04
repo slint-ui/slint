@@ -26,6 +26,7 @@ pub use abi::signals::Signal;
 mod item_rendering;
 
 use abi::datastructures::Color;
+use winit::platform::desktop::EventLoopExtDesktop;
 pub struct MainWindow<GraphicsBackend: graphics::GraphicsBackend> {
     pub graphics_backend: GraphicsBackend,
     event_loop: winit::event_loop::EventLoop<()>,
@@ -48,8 +49,8 @@ impl<GraphicsBackend: graphics::GraphicsBackend> MainWindow<GraphicsBackend> {
     }
 
     pub fn run_event_loop(
-        self,
-        mut component: vtable::VRefMut<'static, crate::abi::datastructures::ComponentVTable>,
+        mut self,
+        mut component: vtable::VRefMut<crate::abi::datastructures::ComponentVTable>,
         mut prepare_rendering_function: impl FnMut(
                 vtable::VRefMut<'_, crate::abi::datastructures::ComponentVTable>,
                 &mut GraphicsBackend::RenderingPrimitivesBuilder,
@@ -73,7 +74,7 @@ impl<GraphicsBackend: graphics::GraphicsBackend> MainWindow<GraphicsBackend> {
         let mut graphics_backend = self.graphics_backend;
         let mut rendering_cache = self.rendering_cache;
         let mut cursor_pos = winit::dpi::PhysicalPosition::new(0., 0.);
-        self.event_loop.run(move |event, _, control_flow| {
+        self.event_loop.run_return(move |event, _, control_flow| {
             *control_flow = winit::event_loop::ControlFlow::Wait;
 
             match event {
@@ -130,7 +131,7 @@ impl<GraphicsBackend: graphics::GraphicsBackend> MainWindow<GraphicsBackend> {
 }
 
 pub fn run_component<GraphicsBackend: graphics::GraphicsBackend + 'static>(
-    component: vtable::VRefMut<'static, crate::abi::datastructures::ComponentVTable>,
+    component: vtable::VRefMut<crate::abi::datastructures::ComponentVTable>,
     graphics_backend_factory: impl FnOnce(
         &winit::event_loop::EventLoop<()>,
         winit::window::WindowBuilder,

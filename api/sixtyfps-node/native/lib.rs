@@ -116,15 +116,14 @@ fn to_eval_value<'a>(
 
 fn show<'cx>(
     cx: &mut CallContext<'cx, impl neon::object::This>,
-    component: ComponentBox,
+    mut component: ComponentBox,
     presistent_context: persistent_context::PersistentContext<'cx>,
 ) -> JsResult<'cx, JsUndefined> {
     cx.execute_scoped(|cx| {
         let cx = RefCell::new(cx);
         let cx_fn = move |callback: &GlobalContextCallback| { callback(&mut *cx.borrow_mut(), &presistent_context) };
         GLOBAL_CONTEXT.set(&&cx_fn, || {
-            // FIXME: leak (that's because we somehow need a static life time)
-            gl::sixtyfps_runtime_run_component_with_gl_renderer(component.leak());
+            gl::sixtyfps_runtime_run_component_with_gl_renderer(component.borrow_mut());
         })
     });
 

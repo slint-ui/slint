@@ -17,7 +17,7 @@ fn main() -> std::io::Result<()> {
         }
     };
 
-    let component = c.create();
-    gl::sixtyfps_runtime_run_component_with_gl_renderer(component.leak());
+    let mut component = c.create();
+    gl::sixtyfps_runtime_run_component_with_gl_renderer(component.borrow_mut());
     Ok(())
 }

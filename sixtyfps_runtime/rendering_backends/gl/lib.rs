@@ -501,7 +501,7 @@ impl Drop for GLRenderer {
 /// vtable will is a *const, and inner like a *mut
 #[no_mangle]
 pub extern "C" fn sixtyfps_runtime_run_component_with_gl_renderer(
-    component: vtable::VRefMut<'static, ComponentVTable>,
+    component: vtable::VRefMut<ComponentVTable>,
 ) {
     sixtyfps_corelib::run_component(component, |event_loop, window_builder| {
         GLRenderer::new(&event_loop, window_builder)
