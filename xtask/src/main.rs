@@ -11,6 +11,8 @@ pub struct CMakeCommand {
     target: Option<String>,
     #[structopt(long)]
     verbose: bool,
+    #[structopt(long)]
+    prefix: Option<String>,
 }
 
 #[derive(Debug, StructOpt)]
@@ -194,6 +196,12 @@ impl CMakeCommand {
 
         if self.verbose {
             cmd.arg("--trace-expand");
+        }
+
+        if let Some(prefix) = &self.prefix {
+            let mut prefix_option = String::from("-DCMAKE_INSTALL_PREFIX=");
+            prefix_option.push_str(prefix);
+            cmd.arg(prefix_option);
         }
 
         let cmake_configure_status = cmd
