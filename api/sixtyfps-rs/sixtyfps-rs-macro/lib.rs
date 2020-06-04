@@ -288,10 +288,10 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
         }
 
         impl #component_id{
-            fn run(mut self) {
+            fn run(self) {
                 use sixtyfps::re_exports::*;
                 sixtyfps::re_exports::ComponentVTable_static!(static VT for #component_id);
-                sixtyfps_runtime_run_component_with_gl_renderer(VRefMut::new(&mut self));
+                sixtyfps_runtime_run_component_with_gl_renderer(VRef::new(&self));
             }
         }
     );

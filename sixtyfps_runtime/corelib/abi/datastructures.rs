@@ -1,4 +1,5 @@
 use core::ptr::NonNull;
+use std::cell::Cell;
 use vtable::*;
 
 pub type Rect = euclid::default::Rect<f32>;
@@ -40,9 +41,9 @@ pub struct ComponentVTable {
 #[repr(C)]
 pub struct CachedRenderingData {
     /// Used and modified by the backend, should be initialized to 0 by the user code
-    pub(crate) cache_index: usize,
+    pub(crate) cache_index: Cell<usize>,
     /// Set to false initially and when changes happen that require updating the cache
-    pub(crate) cache_ok: bool,
+    pub(crate) cache_ok: Cell<bool>,
 }
 
 impl CachedRenderingData {
@@ -53,10 +54,10 @@ impl CachedRenderingData {
         &self,
         cache: &'a crate::graphics::RenderingCache<GraphicsBackend>,
     ) -> Option<&'a GraphicsBackend::LowLevelRenderingPrimitive> {
-        if !self.cache_ok {
+        if !self.cache_ok.get() {
             return None;
         }
-        Some(cache.entry_at(self.cache_index))
+        Some(cache.entry_at(self.cache_index.get()))
     }
 }
 

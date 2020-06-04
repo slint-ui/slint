@@ -50,9 +50,9 @@ impl<GraphicsBackend: graphics::GraphicsBackend> MainWindow<GraphicsBackend> {
 
     pub fn run_event_loop(
         mut self,
-        mut component: vtable::VRefMut<crate::abi::datastructures::ComponentVTable>,
+        component: vtable::VRef<crate::abi::datastructures::ComponentVTable>,
         mut prepare_rendering_function: impl FnMut(
-                vtable::VRefMut<'_, crate::abi::datastructures::ComponentVTable>,
+                vtable::VRef<'_, crate::abi::datastructures::ComponentVTable>,
                 &mut GraphicsBackend::RenderingPrimitivesBuilder,
                 &mut graphics::RenderingCache<GraphicsBackend>,
             ) + 'static,
@@ -88,7 +88,7 @@ impl<GraphicsBackend: graphics::GraphicsBackend> MainWindow<GraphicsBackend> {
                             graphics_backend.new_rendering_primitives_builder();
 
                         prepare_rendering_function(
-                            component.borrow_mut(),
+                            component,
                             &mut rendering_primitives_builder,
                             &mut rendering_cache,
                         );
@@ -99,10 +99,10 @@ impl<GraphicsBackend: graphics::GraphicsBackend> MainWindow<GraphicsBackend> {
                     let window = graphics_backend.window();
 
                     let size = window.inner_size();
-                    let context = EvaluationContext { component: component.borrow() };
+                    let context = EvaluationContext { component: component };
                     let mut frame =
                         graphics_backend.new_frame(size.width, size.height, &Color::WHITE);
-                    render_function(component.borrow(), &context, &mut frame, &mut rendering_cache);
+                    render_function(component, &context, &mut frame, &mut rendering_cache);
                     graphics_backend.present_frame(frame);
                 }
                 winit::event::Event::WindowEvent {
@@ -117,8 +117,8 @@ impl<GraphicsBackend: graphics::GraphicsBackend> MainWindow<GraphicsBackend> {
                     event: winit::event::WindowEvent::MouseInput { state, .. },
                     ..
                 } => {
-                    let context = EvaluationContext { component: component.borrow() };
-                    input_function(component.borrow(), &context, cursor_pos, state);
+                    let context = EvaluationContext { component };
+                    input_function(component, &context, cursor_pos, state);
                     let window = graphics_backend.window();
                     // FIXME: remove this, it should be based on actual changes rather than this
                     window.request_redraw();
@@ -131,7 +131,7 @@ impl<GraphicsBackend: graphics::GraphicsBackend> MainWindow<GraphicsBackend> {
 }
 
 pub fn run_component<GraphicsBackend: graphics::GraphicsBackend + 'static>(
-    component: vtable::VRefMut<crate::abi::datastructures::ComponentVTable>,
+    component: vtable::VRef<crate::abi::datastructures::ComponentVTable>,
     graphics_backend_factory: impl FnOnce(
         &winit::event_loop::EventLoop<()>,
         winit::window::WindowBuilder,
@@ -143,10 +143,10 @@ pub fn run_component<GraphicsBackend: graphics::GraphicsBackend + 'static>(
         component,
         move |component, mut rendering_primitives_builder, rendering_cache| {
             // Generate cached rendering data once
-            crate::abi::datastructures::visit_items_mut(
+            crate::abi::datastructures::visit_items(
                 component,
-                |component, item, _| {
-                    let ctx = EvaluationContext { component: component.borrow() };
+                |item, _| {
+                    let ctx = EvaluationContext { component };
                     item_rendering::update_item_rendering_data(
                         &ctx,
                         item,
