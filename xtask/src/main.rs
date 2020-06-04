@@ -40,6 +40,28 @@ fn cargo() -> Command {
     Command::new(std::env::var("CARGO").unwrap_or("cargo".into()))
 }
 
+fn run_cargo(
+    sub_command: &str,
+    params: &[&str],
+    mut message_handler: impl FnMut(&cargo_metadata::Message) -> Result<(), Box<dyn Error>>,
+) -> Result<std::process::ExitStatus, Box<dyn Error>> {
+    let mut cmd = cargo()
+        .arg(sub_command)
+        .arg("--message-format=json")
+        .args(params)
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+
+    let reader = std::io::BufReader::new(cmd.stdout.take().unwrap());
+
+    for message in cargo_metadata::Message::parse_stream(reader) {
+        message_handler(&message.unwrap())?;
+    }
+
+    Ok(cmd.wait()?)
+}
+
 impl CMakeCommand {
     fn collect_native_libraries(
         &self,
@@ -49,35 +71,14 @@ impl CMakeCommand {
         use cargo_metadata::Message;
 
         let mut library_artifacts: Vec<PathBuf> = vec![];
-        let mut native_library_dependencies: Vec<String> = vec![];
 
         let mut target_dir = None;
 
-        let mut params =
-            vec!["build", "-p", "sixtyfps_rendering_backend_gl", "--message-format=json"];
+        let mut params = vec!["-p", "sixtyfps_rendering_backend_gl"];
         params.extend(build_params);
 
-        let mut cmd = cargo()
-            .args(&params)
-            .stdout(std::process::Stdio::piped())
-            .env("RUSTFLAGS", "--print=native-static-libs")
-            .spawn()
-            .unwrap();
-
-        let reader = std::io::BufReader::new(cmd.stdout.take().unwrap());
-
-        for message in cargo_metadata::Message::parse_stream(reader) {
-            match message.unwrap() {
-                Message::CompilerMessage(msg) => {
-                    let message = msg.message;
-                    const NATIVE_LIBS_PREFIX: &str = "native-static-libs:";
-                    if matches!(message.level, DiagnosticLevel::Note)
-                        && message.message.starts_with(NATIVE_LIBS_PREFIX)
-                    {
-                        let native_libs = message.message[NATIVE_LIBS_PREFIX.len()..].trim();
-                        native_library_dependencies.push(native_libs.into());
-                    }
-                }
+        run_cargo("build", &params, |message| {
+            match message {
                 Message::CompilerArtifact(ref artifact) => {
                     if let Some(native_lib_filename) =
                         artifact.filenames.iter().find_map(|filename| {
@@ -108,9 +109,31 @@ impl CMakeCommand {
                 }
                 _ => (),
             }
-        }
+            Ok(())
+        })?;
 
-        cmd.wait()?;
+        let mut native_library_dependencies: Vec<String> = vec![];
+
+        let mut libs_params = vec!["-p", "sixtyfps_rendering_backend_gl"];
+        libs_params.extend(build_params);
+        libs_params.extend(["--", "--print=native-static-libs"].iter());
+
+        run_cargo("rustc", &libs_params, |message| {
+            match message {
+                Message::CompilerMessage(msg) => {
+                    let message = &msg.message;
+                    const NATIVE_LIBS_PREFIX: &str = "native-static-libs:";
+                    if matches!(message.level, DiagnosticLevel::Note)
+                        && message.message.starts_with(NATIVE_LIBS_PREFIX)
+                    {
+                        let native_libs = message.message[NATIVE_LIBS_PREFIX.len()..].trim();
+                        native_library_dependencies.push(native_libs.into());
+                    }
+                }
+                _ => (),
+            }
+            Ok(())
+        })?;
 
         Ok((target_dir, library_artifacts, native_library_dependencies))
     }
