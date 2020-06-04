@@ -1,5 +1,4 @@
-// Run with
-// npm install ../../api/sixtyfps-node && node main.js
+#!/usr/bin/env node
 
 // import "sixtyfps";
 require("sixtyfps");
@@ -7,7 +6,7 @@ require("sixtyfps");
 let hello = require("../cpptest/hello.60");
 
 let x = new hello.Hello({
-    counter : 55,
+    counter: 55,
     minus_clicked: (function () { console.log("Clicked!"); x.counter--; }),
 });
 x.show();
