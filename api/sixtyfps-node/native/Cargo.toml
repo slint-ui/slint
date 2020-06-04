@@ -18,7 +18,8 @@ sixtyfps_compiler = { path="../../../sixtyfps_compiler" }
 interpreter = { path="../../../sixtyfps_runtime/interpreter" }
 corelib = { path="../../../sixtyfps_runtime/corelib" }
 gl = { path="../../../sixtyfps_runtime/rendering_backends/gl" }
-neon = "0.4"
+neon = { version = "0.4" }
+scoped-tls-hkt = "0.1"
 
 [build-dependencies]
 neon-build = "0.4"

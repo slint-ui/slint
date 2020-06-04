@@ -59,7 +59,7 @@ impl ComponentDescription {
         Ok(())
     }
 
-    pub fn set_signal(
+    pub fn set_signal_handler(
         &self,
         component: ComponentRefMut,
         name: &str,

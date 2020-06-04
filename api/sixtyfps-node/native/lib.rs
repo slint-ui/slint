@@ -1,7 +1,13 @@
+use core::cell::RefCell;
+use corelib::abi::datastructures::ComponentBox;
 use neon::prelude::*;
+use sixtyfps_compiler::typeregister::Type;
 
 struct WrappedComponentType(Option<std::rc::Rc<interpreter::ComponentDescription>>);
-struct WrappedComponentBox(Option<corelib::abi::datastructures::ComponentBox>);
+struct WrappedComponentBox(Option<ComponentBox>);
+
+// We need to do some gymnastic with closures to pass the ExecuteContext with the right lifetime
+scoped_tls_hkt::scoped_thread_local!(static GLOBAL_CONTEXT: for <'a> &'a dyn Fn(&dyn Fn(&mut ExecuteContext)));
 
 /// Load a .60 files.
 ///
@@ -29,12 +35,13 @@ fn create<'cx>(
     cx: &mut CallContext<'cx, impl neon::object::This>,
     component_type: std::rc::Rc<interpreter::ComponentDescription>,
 ) -> JsResult<'cx, JsValue> {
-    let component = component_type.clone().create();
+    let mut component = component_type.clone().create();
 
     if let Some(args) = cx.argument_opt(0).and_then(|arg| arg.downcast::<JsObject>().ok()) {
         let properties = component_type.properties();
         for x in args.get_own_property_names(cx)?.to_vec(cx)? {
             let prop_name = x.to_string(cx)?.value();
+            let value = args.get(cx, x)?;
             let ty = properties
                 .get(&prop_name)
                 .ok_or(())
@@ -42,11 +49,33 @@ fn create<'cx>(
                     cx.throw_error(format!("Property {} not found in the component", prop_name))
                 })?
                 .clone();
-            let value = args.get(cx, x)?;
-            let value = to_eval_value(value, ty, cx)?;
-            component_type
-                .set_property(component.borrow(), prop_name.as_str(), value)
-                .or_else(|_| cx.throw_error(format!("Cannot assign property")))?;
+            if ty == Type::Signal {
+                let fun = value.downcast_or_throw::<JsFunction, _>(cx)?;
+                let fun = (*fun).clone();
+                component_type
+                    .set_signal_handler(
+                        component.borrow_mut(),
+                        prop_name.as_str(),
+                        Box::new(move |_eval_ctx, ()| {
+                            GLOBAL_CONTEXT.with(|cx_fn| {
+                                cx_fn(&|cx| {
+                                    fun.call::<_, _, JsValue, _>(
+                                        cx,
+                                        JsUndefined::new(),
+                                        std::iter::empty(),
+                                    )
+                                    .unwrap();
+                                })
+                            })
+                        }),
+                    )
+                    .or_else(|_| cx.throw_error(format!("Cannot set signal")))?;
+            } else {
+                let value = to_eval_value(value, ty, cx)?;
+                component_type
+                    .set_property(component.borrow(), prop_name.as_str(), value)
+                    .or_else(|_| cx.throw_error(format!("Cannot assign property")))?;
+            }
         }
     }
 
@@ -61,7 +90,6 @@ fn to_eval_value<'a>(
     cx: &mut impl Context<'a>,
 ) -> NeonResult<interpreter::Value> {
     use interpreter::Value;
-    use sixtyfps_compiler::typeregister::Type;
     match ty {
         Type::Invalid | Type::Component(_) | Type::Builtin(_) | Type::Signal => {
             cx.throw_error("Cannot convert to a Sixtyfps property value")
@@ -74,6 +102,22 @@ fn to_eval_value<'a>(
         Type::Image => todo!(),
         Type::Bool => Ok(Value::Bool(val.downcast_or_throw::<JsBoolean, _>(cx)?.value())),
     }
+}
+
+fn show<'cx>(
+    cx: &mut CallContext<'cx, impl neon::object::This>,
+    component: ComponentBox,
+) -> JsResult<'cx, JsUndefined> {
+    cx.execute_scoped(|cx| {
+        let cx = RefCell::new(cx);
+        let cx_fn = move |callback: &dyn Fn(&mut ExecuteContext)| callback(&mut *cx.borrow_mut());
+        GLOBAL_CONTEXT.set(&&cx_fn, || {
+            // FIXME: leak (that's because we somehow need a static life time)
+            gl::sixtyfps_runtime_run_component_with_gl_renderer(component.leak());
+        })
+    });
+
+    Ok(JsUndefined::new())
 }
 
 declare_types! {
@@ -104,8 +148,7 @@ declare_types! {
             // FIXME: is take() here the right choice?
             let component = cx.borrow_mut(&mut this, |mut x| x.0.take());
             let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
-            gl::sixtyfps_runtime_run_component_with_gl_renderer(component.leak());
-            // FIXME: leak (that's because we somehow need a static life time)
+            show(&mut cx, component)?;
             Ok(JsUndefined::new().as_value(&mut cx))
         }
     }
