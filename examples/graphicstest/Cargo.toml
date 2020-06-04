@@ -8,7 +8,7 @@ edition = "2018"
 
 [dependencies]
 sixtyfps_corelib = { package = "corelib", path = "../../sixtyfps_runtime/corelib" }
-sixtyfps_gl_backend = { package = "gl", path = "../../sixtyfps_runtime/rendering_backends/gl" }
+sixtyfps_rendering_backend_gl = { path = "../../sixtyfps_runtime/rendering_backends/gl" }
 image = { version = "0.23.4", default-features = false, features = [ "png" ] }
 cgmath = "0.17.0"
 winit = "0.22.1"

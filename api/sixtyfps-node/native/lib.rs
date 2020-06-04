@@ -127,7 +127,9 @@ fn show<'cx>(
             callback(&mut *cx.borrow_mut(), &presistent_context)
         };
         GLOBAL_CONTEXT.set(&&cx_fn, || {
-            gl::sixtyfps_runtime_run_component_with_gl_renderer(component.borrow());
+            sixtyfps_rendering_backend_gl::sixtyfps_runtime_run_component_with_gl_renderer(
+                component.borrow(),
+            );
         })
     });
 

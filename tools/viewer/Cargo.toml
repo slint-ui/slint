@@ -10,7 +10,7 @@ corelib = { path="../../sixtyfps_runtime/corelib" }
 vtable = { path="../../helper_crates/vtable" }
 interpreter = { path = "../../sixtyfps_runtime/interpreter" }
 # FIXME: make optional and configurable backends
-gl = { path = "../../sixtyfps_runtime/rendering_backends/gl" }
+sixtyfps_rendering_backend_gl = { path = "../../sixtyfps_runtime/rendering_backends/gl" }
 structopt = "0.3.14"
 codemap-diagnostic = "0.1.1"
 codemap = "0.1"

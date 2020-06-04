@@ -1,5 +1,5 @@
 [package]
-name = "gl"
+name = "sixtyfps_rendering_backend_gl"
 version = "0.1.0"
 authors = ["Sixty FPS <info@sixtyfps.io>"]
 edition = "2018"

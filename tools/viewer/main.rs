@@ -18,6 +18,8 @@ fn main() -> std::io::Result<()> {
     };
 
     let component = c.create();
-    gl::sixtyfps_runtime_run_component_with_gl_renderer(component.borrow());
+    sixtyfps_rendering_backend_gl::sixtyfps_runtime_run_component_with_gl_renderer(
+        component.borrow(),
+    );
     Ok(())
 }

@@ -10,8 +10,8 @@ pub mod re_exports {
     pub use corelib::ComponentVTable_static;
     pub use corelib::EvaluationContext;
     pub use corelib::SharedString;
-    pub use gl::sixtyfps_runtime_run_component_with_gl_renderer;
     pub use once_cell::sync::Lazy;
+    pub use sixtyfps_rendering_backend_gl::sixtyfps_runtime_run_component_with_gl_renderer;
     pub use vtable::{self, *};
 }
 

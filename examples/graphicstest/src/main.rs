@@ -4,7 +4,7 @@ use sixtyfps_corelib::graphics::{
     Frame, GraphicsBackend, RenderingCache, RenderingPrimitivesBuilder,
 };
 
-use sixtyfps_gl_backend::GLRenderer;
+use sixtyfps_rendering_backend_gl::GLRenderer;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
