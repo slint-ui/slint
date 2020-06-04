@@ -56,3 +56,6 @@ jobs:
       uses: lukka/run-cmake@v2.4
       with:
         cmakeListsTxtPath: examples/cpptest/CMakeLists.txt
+        buildWithCMakeArgs: '-DCMAKE_FIND_DEBUG_MODE=true --trace-expand'
+      env:
+          CMAKE_PREFIX_PATH: $HOME/sixtyfps_install
