@@ -44,28 +44,41 @@ fn main() -> std::io::Result<()> {
         let test_function_name =
             testcase.relative_path.with_extension("").to_string_lossy().replace("/", "_");
 
+        let testcase = format!(
+            r#"&test_driver_lib::TestCase{{
+                    absolute_path: std::path::PathBuf::from("{absolute_path}"),
+                    relative_path: std::path::PathBuf::from("{relative_path}"),
+            }}"#,
+            absolute_path = testcase.absolute_path.to_string_lossy(),
+            relative_path = testcase.relative_path.to_string_lossy(),
+        );
+
         write!(
             tests_file,
             r#"
             #[test]
             fn test_cpp_{function_name}() {{
-                cpp::test(&test_driver_lib::TestCase{{
-                    absolute_path: std::path::PathBuf::from("{absolute_path}"),
-                    relative_path: std::path::PathBuf::from("{relative_path}"),
-                }}).unwrap();
+                cpp::test({testcase}).unwrap();
             }}
 
             #[test]
             fn test_interpreter_{function_name}() {{
-                interpreter::test(&test_driver_lib::TestCase{{
-                    absolute_path: std::path::PathBuf::from("{absolute_path}"),
-                    relative_path: std::path::PathBuf::from("{relative_path}"),
-                }}).unwrap();
+                interpreter::test({testcase}).unwrap();
             }}
+
+            #[test]
+            fn test_rustmacro_{function_name}() {{
+                rust::test_macro({testcase}).unwrap();
+            }}
+
+            #[test]
+            fn test_rustbuildrs_{function_name}() {{
+                rust::test_buildrs({testcase}).unwrap();
+            }}
+
         "#,
             function_name = test_function_name,
-            absolute_path = testcase.absolute_path.to_string_lossy(),
-            relative_path = testcase.relative_path.to_string_lossy(),
+            testcase = testcase,
         )?;
     }
 
