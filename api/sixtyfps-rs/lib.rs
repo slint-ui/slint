@@ -16,11 +16,11 @@ This is the simpler way, just put the
 
 ```rust
 sixtyfps::sixtyfps!{
-    HelloWolrd := Text { text: "hello world"; }
+    HelloWorld := Text { text: "hello world"; }
 }
 fn main() {
 #   return; // Don't run a window in an example
-    HelloWolrd::default().run()
+    HelloWorld::default().run()
 }
 ```
 
@@ -56,7 +56,7 @@ Then in your main file
 ```ignore
 sixtyfps::include_modules!();
 fn main() {
-    HelloWolrd::default().run()
+    HelloWorld::default().run()
 }
 ```
 */
