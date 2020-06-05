@@ -22,5 +22,6 @@ members = [
     'helper_crates/vtable/macro',
     'xtask',
     'tests/driver',
-    'tests/driver_lib'
+    'tests/driver_lib',
+    'tests/rustdriver'
 ]

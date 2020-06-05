@@ -42,7 +42,7 @@ fn main() -> std::io::Result<()> {
         });
 
         let test_function_name =
-            testcase.relative_path.with_extension("").to_string_lossy().replace("/", "_");
+            testcase.relative_path.file_stem().unwrap().to_string_lossy().replace("/", "_");
 
         write!(
             tests_file,
