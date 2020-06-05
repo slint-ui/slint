@@ -91,7 +91,11 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
 
     compiler_command.args(&*NATIVE_LIBRARY_DEPENDENCIES);
 
-    let _output = compiler_command.output()?;
+    let output = compiler_command.output()?;
+    print!("{}", String::from_utf8_lossy(output.stderr.as_ref()));
+    if !output.status.success() {
+        return Err("C++ Compilation error (see stdout)".to_owned().into());
+    }
 
     std::process::Command::new(binary_path.clone())
         .spawn()
