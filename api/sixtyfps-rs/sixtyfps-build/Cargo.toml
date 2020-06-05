@@ -1,0 +1,12 @@
+[package]
+name = "sixtyfps-build"
+version = "0.1.0"
+authors = ["Sixty FPS <info@sixtyfps.io>"]
+edition = "2018"
+
+[lib]
+path = "lib.rs"
+
+[dependencies]
+sixtyfps_compilerlib = { path = "../../../sixtyfps_compiler", features = ["rust", "display-diagnostics"] }
+thiserror = "1"

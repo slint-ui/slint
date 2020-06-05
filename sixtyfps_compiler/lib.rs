@@ -1,7 +1,11 @@
 /*!
-# The SixtyFPS compiler
+# The SixtyFPS compiler library
 
-The different modules tage the source code and transform into data structures
+**NOTE:** This library is an internal crate for the SixtyFPS project.
+This crate should not be used directly by application using SixtyFPS.
+You should use the `sixtyfps` crate instead
+
+The different modules take the source code and transform into data structures
 according to the following schema
 
 ```text

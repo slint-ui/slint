@@ -1,3 +1,11 @@
+/*!
+# SixtyFPS interpreter library
+
+**NOTE:** This library is an internal crate for the SixtyFPS project.
+This crate should not be used directly by application using SixtyFPS.
+You should use the `sixtyfps` crate instead
+*/
+
 mod dynamic_component;
 mod dynamic_type;
 mod eval;

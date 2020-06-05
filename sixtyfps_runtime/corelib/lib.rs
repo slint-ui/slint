@@ -1,3 +1,12 @@
+/*!
+
+# SixtyFPS runtime library
+
+**NOTE:** This library is an internal crate for the SixtyFPS project.
+This crate should not be used directly by application using SixtyFPS.
+You should use the `sixtyfps` crate instead
+*/
+
 pub mod graphics;
 pub mod input;
 pub mod layout;
