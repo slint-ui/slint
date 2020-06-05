@@ -25,8 +25,10 @@ pub fn collect_test_cases() -> std::io::Result<Vec<TestCase>> {
 mod cpp;
 
 fn main() -> Result<(), Box<dyn Error>> {
+    let cpp_driver = cpp::Driver::new();
+
     for testcase in collect_test_cases()? {
-        cpp::test(&testcase)?;
+        cpp_driver.test(&testcase)?;
     }
 
     Ok(())
