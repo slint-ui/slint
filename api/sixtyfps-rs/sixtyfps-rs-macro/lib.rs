@@ -131,7 +131,7 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
 
     let (syntax_node, mut diag) = parser::parse_tokens(tokens.clone());
 
-    if let Ok(cargo_manifest) = std::env::var("CARGO_MANIFEST_DIR") {
+    if let Some(cargo_manifest) = std::env::var_os("CARGO_MANIFEST_DIR") {
         diag.current_path = cargo_manifest.into();
         diag.current_path.push("Cargo.toml");
     }

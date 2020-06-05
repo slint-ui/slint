@@ -31,7 +31,7 @@ pub struct ApplicationArguments {
 }
 
 fn root_dir() -> Result<PathBuf, Box<dyn Error>> {
-    let mut root = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").map_err(|_| "Cannot determine root directory - CARGO_MANIFEST_DIR is not set -- you can only run xtask via cargo")?);
+    let mut root = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").ok_or_else(|| "Cannot determine root directory - CARGO_MANIFEST_DIR is not set -- you can only run xtask via cargo")?);
     root.pop(); // $root/xtask -> $root
     Ok(root)
 }

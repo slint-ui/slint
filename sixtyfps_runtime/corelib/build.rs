@@ -25,7 +25,7 @@ fn main() {
         ..Default::default()
     };
 
-    let mut include_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
+    let mut include_dir = PathBuf::from(env::var_os("OUT_DIR").unwrap());
     include_dir.pop();
     include_dir.pop();
     include_dir.pop(); // target/{debug|release}/build/package/out/ -> target/{debug|release}
@@ -33,10 +33,10 @@ fn main() {
 
     std::fs::create_dir_all(include_dir.clone()).unwrap();
 
-    let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+    let crate_dir = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").unwrap());
     cbindgen::Builder::new()
         .with_config(config.clone())
-        .with_src(format!("{}/abi/string.rs", crate_dir))
+        .with_src(crate_dir.join("abi/string.rs"))
         .with_after_include("namespace sixtyfps { struct SharedString; }")
         .generate()
         .expect("Unable to generate bindings")
@@ -44,23 +44,23 @@ fn main() {
 
     cbindgen::Builder::new()
         .with_config(config.clone())
-        .with_src(format!("{}/abi/properties.rs", crate_dir))
+        .with_src(crate_dir.join("abi/properties.rs"))
         .generate()
         .expect("Unable to generate bindings")
         .write_to_file(include_dir.join("sixtyfps_properties_internal.h"));
 
     cbindgen::Builder::new()
         .with_config(config.clone())
-        .with_src(format!("{}/abi/signals.rs", crate_dir))
+        .with_src(crate_dir.join("abi/signals.rs"))
         .generate()
         .expect("Unable to generate bindings")
         .write_to_file(include_dir.join("sixtyfps_signals_internal.h"));
 
     cbindgen::Builder::new()
         .with_config(config)
-        .with_src(format!("{}/abi/datastructures.rs", crate_dir))
-        .with_src(format!("{}/abi/primitives.rs", crate_dir))
-        .with_src(format!("{}/abi/model.rs", crate_dir))
+        .with_src(crate_dir.join("abi/datastructures.rs"))
+        .with_src(crate_dir.join("abi/primitives.rs"))
+        .with_src(crate_dir.join("abi/model.rs"))
         .with_include("vtable.h")
         .with_include("sixtyfps_string.h")
         .with_include("sixtyfps_properties.h")

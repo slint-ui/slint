@@ -18,7 +18,7 @@ fn main() {
         ..Default::default()
     };
 
-    let mut include_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
+    let mut include_dir = PathBuf::from(env::var_os("OUT_DIR").unwrap());
     include_dir.pop();
     include_dir.pop();
     include_dir.pop(); // target/{debug|release}/build/package/out/ -> target/{debug|release}
@@ -26,7 +26,7 @@ fn main() {
 
     std::fs::create_dir_all(include_dir.clone()).unwrap();
 
-    let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+    let crate_dir = env::var_os("CARGO_MANIFEST_DIR").unwrap();
     cbindgen::Builder::new()
         .with_config(config)
         .with_crate(crate_dir)
