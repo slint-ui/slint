@@ -4,7 +4,8 @@ use std::error::Error;
 use std::io::Write;
 
 lazy_static! {
-    static ref NATIVE_LIBRARY_DEPENDENCIES: Vec<String> =
+    static ref NATIVE_LIBRARY_DEPENDENCIES: Vec<String> = {
+        println!("Calling into cargo to figure out the list of native library dependencies...");
         test_driver_lib::native_library_dependencies(
             env!("CARGO"),
             &[],
@@ -13,7 +14,8 @@ lazy_static! {
         .unwrap()
         .split(" ")
         .map(String::from)
-        .collect();
+        .collect()
+    };
 }
 
 pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> {
