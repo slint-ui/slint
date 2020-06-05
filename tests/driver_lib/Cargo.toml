@@ -1,0 +1,11 @@
+[package]
+name = "test_driver_lib"
+version = "0.1.0"
+authors = ["Sixty FPS <info@sixtyfps.io>"]
+edition = "2018"
+
+[lib]
+path = "lib.rs"
+
+[dependencies]
+cargo_metadata = "0.10.0"

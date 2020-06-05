@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::path::PathBuf;
-use std::process::Command;
 use structopt::StructOpt;
+use test_driver_lib::{native_library_dependencies, run_cargo};
 
 #[derive(Debug, StructOpt)]
 pub struct CMakeCommand {
@@ -36,38 +36,15 @@ fn root_dir() -> Result<PathBuf, Box<dyn Error>> {
     Ok(root)
 }
 
-fn cargo() -> Command {
-    Command::new(std::env::var("CARGO").unwrap_or("cargo".into()))
-}
-
-fn run_cargo(
-    sub_command: &str,
-    params: &[&str],
-    mut message_handler: impl FnMut(&cargo_metadata::Message) -> Result<(), Box<dyn Error>>,
-) -> Result<std::process::ExitStatus, Box<dyn Error>> {
-    let mut cmd = cargo()
-        .arg(sub_command)
-        .arg("--message-format=json")
-        .args(params)
-        .stdout(std::process::Stdio::piped())
-        .spawn()
-        .unwrap();
-
-    let reader = std::io::BufReader::new(cmd.stdout.take().unwrap());
-
-    for message in cargo_metadata::Message::parse_stream(reader) {
-        message_handler(&message.unwrap())?;
-    }
-
-    Ok(cmd.wait()?)
+fn cargo() -> String {
+    std::env::var("CARGO").unwrap_or("cargo".into())
 }
 
 impl CMakeCommand {
     fn collect_native_libraries(
         &self,
         build_params: &[&str],
-    ) -> Result<(Option<PathBuf>, Vec<PathBuf>, Vec<String>), Box<dyn Error>> {
-        use cargo_metadata::diagnostic::DiagnosticLevel;
+    ) -> Result<(Option<PathBuf>, Vec<PathBuf>, String), Box<dyn Error>> {
         use cargo_metadata::Message;
 
         let mut library_artifacts: Vec<PathBuf> = vec![];
@@ -77,7 +54,7 @@ impl CMakeCommand {
         let mut params = vec!["-p", "sixtyfps_rendering_backend_gl"];
         params.extend(build_params);
 
-        run_cargo("build", &params, |message| {
+        run_cargo(&cargo(), "build", &params, |message| {
             match message {
                 Message::CompilerArtifact(ref artifact) => {
                     if let Some(native_lib_filename) =
@@ -112,28 +89,8 @@ impl CMakeCommand {
             Ok(())
         })?;
 
-        let mut native_library_dependencies: Vec<String> = vec![];
-
-        let mut libs_params = vec!["-p", "sixtyfps_rendering_backend_gl"];
-        libs_params.extend(build_params);
-        libs_params.extend(["--", "--print=native-static-libs"].iter());
-
-        run_cargo("rustc", &libs_params, |message| {
-            match message {
-                Message::CompilerMessage(msg) => {
-                    let message = &msg.message;
-                    const NATIVE_LIBS_PREFIX: &str = "native-static-libs:";
-                    if matches!(message.level, DiagnosticLevel::Note)
-                        && message.message.starts_with(NATIVE_LIBS_PREFIX)
-                    {
-                        let native_libs = message.message[NATIVE_LIBS_PREFIX.len()..].trim();
-                        native_library_dependencies.push(native_libs.into());
-                    }
-                }
-                _ => (),
-            }
-            Ok(())
-        })?;
+        let native_library_dependencies =
+            native_library_dependencies(&cargo(), build_params, "sixtyfps_rendering_backend_gl")?;
 
         Ok((target_dir, library_artifacts, native_library_dependencies))
     }
@@ -173,7 +130,7 @@ impl CMakeCommand {
         );
 
         let mut external_libs_list = String::from("-DSIXTYFPS_EXTERNAL_LIBS=");
-        external_libs_list.push_str(&native_library_dependencies.join(" "));
+        external_libs_list.push_str(&native_library_dependencies);
 
         let source_dir = root_dir()?.join("api/sixtyfps-cpp/cmake");
         let binary_dir = output_dir;

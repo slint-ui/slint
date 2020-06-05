@@ -7,3 +7,4 @@ edition = "2018"
 [dependencies]
 structopt = "0.3.14"
 cargo_metadata = "0.10.0"
+test_driver_lib = { path = "../tests/driver_lib" }

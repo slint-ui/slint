@@ -6,6 +6,9 @@ fn main() {
     println!("cargo:rustc-env=HOST={}", std::env::var("HOST").unwrap());
     println!("cargo:rustc-env=OPT_LEVEL={}", std::env::var("OPT_LEVEL").unwrap());
 
+    // Variables that we need.
+    println!("cargo:rustc-env=CARGO={}", std::env::var("CARGO").unwrap());
+
     let mut generated_include_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     generated_include_dir.pop();
     generated_include_dir.pop();

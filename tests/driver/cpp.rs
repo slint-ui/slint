@@ -7,13 +7,14 @@ pub struct Driver {
 }
 
 impl Driver {
-    pub fn new() -> Driver {
-        Self {
-            native_library_dependencies: "-ldl -pthread -lrt -lm -lfreetype -lfontconfig"
-                .split(" ")
-                .map(String::from)
-                .collect(),
-        }
+    pub fn new() -> Result<Driver, Box<dyn Error>> {
+        let deps = test_driver_lib::native_library_dependencies(
+            env!("CARGO"),
+            &[],
+            "sixtyfps_rendering_backend_gl",
+        )?;
+
+        Ok(Self { native_library_dependencies: deps.split(" ").map(String::from).collect() })
     }
 
     pub fn test(&self, testcase: &super::TestCase) -> Result<(), Box<dyn Error>> {
@@ -40,8 +41,13 @@ impl Driver {
 
         let mut cpp_file = tempfile::Builder::new().suffix(".cpp").tempfile()?;
 
-        // ### How to ensure that the file was written to disk? If we call cpp_file.close() it will also remove the file :(
-        cpp_file.write(&generated_cpp)?;
+        cpp_file
+            .write(&generated_cpp)
+            .map_err(|err| format!("Error writing generated code: {}", err))?;
+        cpp_file
+            .as_file()
+            .sync_all()
+            .map_err(|err| format!("Error flushing generated code to disk: {}", err))?;
 
         let compiler = cc::Build::new()
             .cargo_metadata(false)
@@ -53,23 +59,31 @@ impl Driver {
             .include(env!("CPP_API_HEADERS_PATH"))
             .try_get_compiler()?;
 
-        let mut command = compiler.to_command();
+        let mut compiler_command = compiler.to_command();
 
-        let binary = tempfile::NamedTempFile::new()?;
+        let binary_path = cpp_file.path().with_extension(std::env::consts::EXE_EXTENSION);
 
-        command.arg("-o").arg(binary.path()).arg(cpp_file.path());
+        let keep_temp_files = std::env::var("KEEP_TEMP_FILES").is_ok();
+
+        let _binary_deletion_guard = scopeguard::guard(binary_path.clone(), |path| {
+            if !keep_temp_files {
+                std::fs::remove_file(path).unwrap_or(());
+            }
+        });
+
+        compiler_command.arg("-o").arg(binary_path.clone()).arg(cpp_file.path());
 
         if compiler.is_like_clang() || compiler.is_like_gnu() {
-            command.arg("-std=c++17");
-            command.arg(concat!("-L", env!("CPP_LIB_PATH")));
-            command.arg("-lsixtyfps_rendering_backend_gl");
+            compiler_command.arg("-std=c++17");
+            compiler_command.arg(concat!("-L", env!("CPP_LIB_PATH")));
+            compiler_command.arg("-lsixtyfps_rendering_backend_gl");
         }
 
-        command.args(&self.native_library_dependencies);
+        compiler_command.args(&self.native_library_dependencies);
 
-        let _output = command.output()?;
+        let _output = compiler_command.output()?;
 
-        std::process::Command::new(binary.path())
+        std::process::Command::new(binary_path.clone())
             .spawn()
             .map_err(|err| format!("Error launching testcase binary: {}", err))?
             .wait()
@@ -84,15 +98,14 @@ impl Driver {
                 }
             })?;
 
-        if std::env::var("KEEP_TEMP_FILES").is_ok() {
+        if keep_temp_files {
             println!(
                 "Left temporary files behind for {} : source {} binary {}",
                 testcase.path.display(),
                 cpp_file.path().display(),
-                binary.path().display()
+                binary_path.display()
             );
             cpp_file.keep()?;
-            binary.keep()?;
         }
 
         Ok(())
