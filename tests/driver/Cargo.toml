@@ -9,7 +9,7 @@ path = "main.rs"
 name = "test_driver"
 
 [dependencies]
-sixtyfps_compilerlib = { path = "../../sixtyfps_compiler", features = ["cpp", "rust", "display-diagnostics"] }
+sixtyfps_compilerlib = { path = "../../sixtyfps_compiler", features = ["cpp", "display-diagnostics"] }
 sixtyfps_interpreter = { path = "../../sixtyfps_runtime/interpreter", package = "interpreter" }
 cc = "1.0.54"
 tempfile = "3"

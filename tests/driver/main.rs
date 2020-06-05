@@ -2,8 +2,6 @@
 mod cpp;
 #[cfg(test)]
 mod interpreter;
-#[cfg(test)]
-mod rust;
 
 include!(env!("TEST_FUNCTIONS"));
 
