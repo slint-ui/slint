@@ -8,10 +8,13 @@ edition = "2018"
 path = "lib.rs"
 
 [features]
-# cpp: code generator for C++ code
+# Generators
 cpp = []
-# support for proc_macro spans in the token
+rust = ["quote", "proc-macro2"]
+
+# Support for proc_macro spans in the token (only useful for use within a proc macro)
 proc_macro_span = ["quote", "proc-macro2"]
+
 # Feature to print the diagnostics to the console
 display-diagnostics = ["codemap", "codemap-diagnostic"]
 

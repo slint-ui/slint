@@ -12,6 +12,9 @@ use std::rc::Rc;
 #[cfg(feature = "cpp")]
 mod cpp;
 
+#[cfg(feature = "rust")]
+pub mod rust;
+
 pub fn generate(
     destination: &mut impl std::io::Write,
     component: &Component,
