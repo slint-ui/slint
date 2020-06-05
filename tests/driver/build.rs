@@ -57,6 +57,14 @@ fn main() -> std::io::Result<()> {
                     relative_path: std::path::PathBuf::from("{relative_path}"),
                 }}).unwrap();
             }}
+
+            #[test]
+            fn test_interpreter_{function_name}() {{
+                interpreter::test(&test_driver_lib::TestCase{{
+                    absolute_path: std::path::PathBuf::from("{absolute_path}"),
+                    relative_path: std::path::PathBuf::from("{relative_path}"),
+                }}).unwrap();
+            }}
         "#,
             function_name = test_function_name,
             absolute_path = testcase.absolute_path.to_string_lossy(),

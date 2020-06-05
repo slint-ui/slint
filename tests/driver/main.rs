@@ -1,5 +1,7 @@
 #[cfg(test)]
 mod cpp;
+#[cfg(test)]
+mod interpreter;
 
 include!(env!("TEST_FUNCTIONS"));
 
