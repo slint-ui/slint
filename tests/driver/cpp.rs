@@ -75,7 +75,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
 
     let keep_temp_files = std::env::var("KEEP_TEMP_FILES").is_ok();
 
-    let _binary_deletion_guard = scopeguard::guard(binary_path.clone(), |path| {
+    let binary_path = scopeguard::guard(binary_path, |path| {
         if !keep_temp_files {
             std::fs::remove_file(path).unwrap_or(());
         }
