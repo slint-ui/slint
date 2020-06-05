@@ -1,6 +1,6 @@
 use corelib::{abi::datastructures::ItemRef, EvaluationContext, SharedString};
-use sixtyfps_compiler::expression_tree::Expression;
-use sixtyfps_compiler::typeregister::Type;
+use sixtyfps_compilerlib::expression_tree::Expression;
+use sixtyfps_compilerlib::typeregister::Type;
 use std::convert::{TryFrom, TryInto};
 
 pub trait ErasedPropertyInfo {

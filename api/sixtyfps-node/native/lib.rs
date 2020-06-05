@@ -1,7 +1,7 @@
 use core::cell::RefCell;
 use corelib::abi::datastructures::{ComponentBox, ComponentRef};
 use neon::prelude::*;
-use sixtyfps_compiler::typeregister::Type;
+use sixtyfps_compilerlib::typeregister::Type;
 use std::rc::Rc;
 
 mod persistent_context;
@@ -99,7 +99,7 @@ fn create<'cx>(
 
 fn to_eval_value<'cx>(
     val: Handle<JsValue>,
-    ty: sixtyfps_compiler::typeregister::Type,
+    ty: sixtyfps_compilerlib::typeregister::Type,
     cx: &mut impl Context<'cx>,
 ) -> NeonResult<interpreter::Value> {
     use interpreter::Value;

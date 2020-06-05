@@ -5,7 +5,7 @@ As of know, it just rewrite the exact same as the input, but it can be changed
 
 */
 
-use sixtyfps_compiler::parser::SyntaxNode;
+use sixtyfps_compilerlib::parser::SyntaxNode;
 use std::io::Write;
 use structopt::StructOpt;
 
@@ -83,7 +83,7 @@ fn process_file(
             let code = &source_slice[..idx - 1];
             source_slice = &source_slice[idx - 1..];
 
-            let (syntax_node, diag) = sixtyfps_compiler::parser::parse(&code);
+            let (syntax_node, diag) = sixtyfps_compilerlib::parser::parse(&code);
             if diag.has_error() {
                 diag.print(code.into());
             }
@@ -92,7 +92,7 @@ fn process_file(
         return file.write_all(source_slice.as_bytes());
     }
 
-    let (syntax_node, mut diag) = sixtyfps_compiler::parser::parse(&source);
+    let (syntax_node, mut diag) = sixtyfps_compilerlib::parser::parse(&source);
     if diag.has_error() {
         diag.current_path = path;
         diag.print(source);
@@ -117,7 +117,7 @@ fn fold_node(_node: &SyntaxNode, _file: &mut impl Write) -> std::io::Result<()> 
 }
 
 fn fold_token(
-    node: sixtyfps_compiler::parser::SyntaxToken,
+    node: sixtyfps_compilerlib::parser::SyntaxToken,
     file: &mut impl Write,
 ) -> std::io::Result<()> {
     file.write_all(node.text().as_bytes())

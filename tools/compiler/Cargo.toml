@@ -1,0 +1,13 @@
+[package]
+name = "sixtyfps_compiler"
+version = "0.1.0"
+authors = ["Sixty FPS <info@sixtyfps.io>"]
+edition = "2018"
+
+[[bin]]
+name = "sixtyfps_compiler"
+path = "main.rs"
+
+[dependencies]
+sixtyfps_compilerlib = {path = "../../sixtyfps_compiler", features = ["display-diagnostics", "cpp"]}
+structopt = "0.3.14"

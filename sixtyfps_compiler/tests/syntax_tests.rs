@@ -47,12 +47,12 @@ fn process_file_source(
     source: String,
     silent: bool,
 ) -> std::io::Result<bool> {
-    let (res, mut diag) = sixtyfps_compiler::parser::parse(&source);
+    let (res, mut diag) = sixtyfps_compilerlib::parser::parse(&source);
     diag.current_path = path.to_path_buf();
-    let mut tr = sixtyfps_compiler::typeregister::TypeRegister::builtin();
-    let doc = sixtyfps_compiler::object_tree::Document::from_node(res, &mut diag, &mut tr);
+    let mut tr = sixtyfps_compilerlib::typeregister::TypeRegister::builtin();
+    let doc = sixtyfps_compilerlib::object_tree::Document::from_node(res, &mut diag, &mut tr);
     if !diag.has_error() {
-        sixtyfps_compiler::run_passes(&doc, &mut diag, &mut tr);
+        sixtyfps_compilerlib::run_passes(&doc, &mut diag, &mut tr);
     }
 
     //let mut errors = std::collections::HashSet::from_iter(diag.inner.into_iter());

@@ -17,7 +17,7 @@ impl ComponentDescription {
     }
 
     /// List of publicly declared properties or signal
-    pub fn properties(&self) -> HashMap<String, sixtyfps_compiler::typeregister::Type> {
+    pub fn properties(&self) -> HashMap<String, sixtyfps_compilerlib::typeregister::Type> {
         self.original
             .root_component
             .root_element

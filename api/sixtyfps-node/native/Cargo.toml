@@ -14,7 +14,7 @@ name = "sixtyfps_node_native"
 
 [dependencies]
 once_cell = "1.4"
-sixtyfps_compiler = { path="../../../sixtyfps_compiler" }
+sixtyfps_compilerlib = { path="../../../sixtyfps_compiler" }
 interpreter = { path="../../../sixtyfps_runtime/interpreter" }
 corelib = { path="../../../sixtyfps_runtime/corelib" }
 sixtyfps_rendering_backend_gl = { path="../../../sixtyfps_runtime/rendering_backends/gl" }

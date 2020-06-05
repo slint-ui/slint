@@ -2,9 +2,9 @@ extern crate proc_macro;
 use object_tree::Element;
 use proc_macro::{Spacing, TokenStream};
 use quote::{quote, ToTokens};
-use sixtyfps_compiler::expression_tree::Expression;
-use sixtyfps_compiler::typeregister::Type;
-use sixtyfps_compiler::*;
+use sixtyfps_compilerlib::expression_tree::Expression;
+use sixtyfps_compilerlib::typeregister::Type;
+use sixtyfps_compilerlib::*;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -133,7 +133,7 @@ trait RustType {
     fn rust_type(&self) -> Result<proc_macro2::TokenStream, diagnostics::CompilerDiagnostic>;
 }
 
-impl RustType for sixtyfps_compiler::object_tree::PropertyDeclaration {
+impl RustType for sixtyfps_compilerlib::object_tree::PropertyDeclaration {
     fn rust_type(&self) -> Result<proc_macro2::TokenStream, diagnostics::CompilerDiagnostic> {
         match self.property_type {
             Type::Int32 => Ok(quote!(i32)),

@@ -6,8 +6,8 @@ use corelib::abi::datastructures::{ComponentBox, ComponentRef, ComponentVTable, 
 use corelib::rtti::PropertyInfo;
 use corelib::{EvaluationContext, Property, SharedString};
 use object_tree::Element;
-use sixtyfps_compiler::typeregister::Type;
-use sixtyfps_compiler::*;
+use sixtyfps_compilerlib::typeregister::Type;
+use sixtyfps_compilerlib::*;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -83,7 +83,7 @@ fn rtti_for<
 pub fn load(
     source: &str,
     path: &std::path::Path,
-) -> Result<Rc<MyComponentType>, sixtyfps_compiler::diagnostics::Diagnostics> {
+) -> Result<Rc<MyComponentType>, sixtyfps_compilerlib::diagnostics::Diagnostics> {
     let (syntax_node, mut diag) = parser::parse(&source);
     diag.current_path = path.into();
     let mut tr = typeregister::TypeRegister::builtin();

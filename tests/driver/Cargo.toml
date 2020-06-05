@@ -10,6 +10,6 @@ name = "test_driver"
 
 [dependencies]
 sixtyfps = { path = "../../api/sixtyfps-rs" }
-sixtyfps_compiler = { path = "../../sixtyfps_compiler", features = ["cpp", "display-diagnostics"] }
+sixtyfps_compilerlib = { path = "../../sixtyfps_compiler", features = ["cpp", "display-diagnostics"] }
 cc = "1.0.54"
 tempfile = "3"

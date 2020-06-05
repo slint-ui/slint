@@ -1,4 +1,4 @@
-use sixtyfps_compiler::*;
+use sixtyfps_compilerlib::*;
 use structopt::StructOpt;
 
 #[derive(StructOpt)]
