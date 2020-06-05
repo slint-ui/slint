@@ -1,6 +1,7 @@
+use std::io::Write;
 use std::path::PathBuf;
 
-fn main() {
+fn main() -> std::io::Result<()> {
     // Variables that cc.rs needs.
     println!("cargo:rustc-env=TARGET={}", std::env::var("TARGET").unwrap());
     println!("cargo:rustc-env=HOST={}", std::env::var("HOST").unwrap());
@@ -26,4 +27,36 @@ fn main() {
     api_includes = api_includes.join("api/sixtyfps-cpp/include");
 
     println!("cargo:rustc-env=CPP_API_HEADERS_PATH={}", api_includes.display());
+
+    let tests_file_path =
+        std::path::Path::new(&std::env::var_os("OUT_DIR").unwrap()).join("test_functions.rs");
+
+    let mut tests_file = std::fs::File::create(&tests_file_path)?;
+
+    for testcase in test_driver_lib::collect_test_cases()? {
+        println!("cargo:rerun-if-changed={}", testcase.absolute_path.to_string_lossy());
+
+        let test_function_name =
+            testcase.relative_path.with_extension("").to_string_lossy().replace("/", "_");
+
+        write!(
+            tests_file,
+            r#"
+            #[test]
+            fn test_cpp_{function_name}() {{
+                cpp::test(&test_driver_lib::TestCase{{
+                    absolute_path: std::path::PathBuf::from("{absolute_path}"),
+                    relative_path: std::path::PathBuf::from("{relative_path}"),
+                }}).unwrap();
+            }}
+        "#,
+            function_name = test_function_name,
+            absolute_path = testcase.absolute_path.to_string_lossy(),
+            relative_path = testcase.relative_path.to_string_lossy(),
+        )?;
+    }
+
+    println!("cargo:rustc-env=TEST_FUNCTIONS={}", tests_file_path.to_string_lossy());
+
+    Ok(())
 }

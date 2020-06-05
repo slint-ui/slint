@@ -59,20 +59,24 @@ pub fn native_library_dependencies(
 }
 
 pub struct TestCase {
-    pub source: String,
-    pub path: std::path::PathBuf,
+    pub absolute_path: std::path::PathBuf,
+    pub relative_path: std::path::PathBuf,
 }
 
 pub fn collect_test_cases() -> std::io::Result<Vec<TestCase>> {
     let mut results = vec![];
 
-    for entry in std::fs::read_dir(format!("{}/../cases", env!("CARGO_MANIFEST_DIR")))? {
+    let case_root_dir = format!("{}/../cases", env!("CARGO_MANIFEST_DIR"));
+
+    for entry in std::fs::read_dir(case_root_dir.clone())? {
         let entry = entry?;
-        let path = entry.path();
-        if let Some(ext) = path.extension() {
+        let absolute_path = entry.path();
+        if let Some(ext) = absolute_path.extension() {
             if ext == "60" {
-                let source = std::fs::read_to_string(&path)?;
-                results.push(TestCase { source, path });
+                let relative_path =
+                    std::path::PathBuf::from(absolute_path.strip_prefix(&case_root_dir).unwrap());
+
+                results.push(TestCase { absolute_path, relative_path });
             }
         }
     }

@@ -1,13 +1,8 @@
-use std::error::Error;
-
+#[cfg(test)]
 mod cpp;
 
-fn main() -> Result<(), Box<dyn Error>> {
-    let cpp_driver = cpp::Driver::new()?;
+include!(env!("TEST_FUNCTIONS"));
 
-    for testcase in test_driver_lib::collect_test_cases()? {
-        cpp_driver.test(&testcase)?;
-    }
-
-    Ok(())
+fn main() {
+    println!("Nothing to see here, please run me through cargo test :)");
 }
