@@ -1,7 +1,7 @@
 use std::error::Error;
 
 pub fn test(testcase: &super::TestCase) -> Result<(), Box<dyn Error>> {
-    use sixtyfps_compiler::*;
+    use sixtyfps_compilerlib::*;
 
     let (syntax_node, mut diag) = parser::parse(&testcase.source);
     diag.current_path = testcase.path.clone();
