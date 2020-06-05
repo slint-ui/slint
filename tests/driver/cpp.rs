@@ -27,12 +27,19 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     let doc = object_tree::Document::from_node(syntax_node, &mut diag, &mut tr);
     run_passes(&doc, &mut diag, &mut tr);
 
-    let (mut diag, source) = diag.check_and_exit_on_error(source.clone());
+    if diag.has_error() {
+        let vec = diag.inner.iter().map(|d| d.message.clone()).collect::<Vec<String>>();
+        return Err(vec.join("\n").into());
+    }
 
     let mut generated_cpp: Vec<u8> = Vec::new();
 
     generator::generate(&mut generated_cpp, &doc.root_component, &mut diag)?;
-    diag.check_and_exit_on_error(source);
+
+    if diag.has_error() {
+        let vec = diag.inner.iter().map(|d| d.message.clone()).collect::<Vec<String>>();
+        return Err(vec.join("\n").into());
+    }
 
     write!(
         &mut generated_cpp,
