@@ -17,7 +17,7 @@ impl Driver {
         Ok(Self { native_library_dependencies: deps.split(" ").map(String::from).collect() })
     }
 
-    pub fn test(&self, testcase: &super::TestCase) -> Result<(), Box<dyn Error>> {
+    pub fn test(&self, testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> {
         let (syntax_node, mut diag) = parser::parse(&testcase.source);
         diag.current_path = testcase.path.clone();
         let mut tr = typeregister::TypeRegister::builtin();
