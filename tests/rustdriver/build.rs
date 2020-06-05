@@ -15,19 +15,15 @@ fn main() -> std::io::Result<()> {
 
         let module_name =
             testcase.relative_path.file_stem().unwrap().to_string_lossy().replace("/", "_");
+        write!(generated_file, "#[path=\"{0}.rs\"] mod {0};\n", module_name)?;
 
         let mut input = std::fs::File::open(&testcase.absolute_path)?;
-
-        write!(
-            generated_file,
-            "\nmod {testcase} {{
-                sixtyfps::sixtyfps!{{
-            ",
-            testcase = module_name,
+        let mut output = std::fs::File::create(
+            Path::new(&std::env::var_os("OUT_DIR").unwrap()).join(format!("{}.rs", module_name)),
         )?;
-        std::io::copy(&mut input, &mut generated_file)?;
-
-        generated_file.write_all(b"\n    }\n}\n")?;
+        output.write_all(b"sixtyfps::sixtyfps!{\n")?;
+        std::io::copy(&mut input, &mut output)?;
+        output.write_all(b"}\n#[test] fn test() { /* TODO */ }\n")?
     }
 
     test_dirs.iter().for_each(|dir| {
