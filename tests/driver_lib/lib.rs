@@ -35,7 +35,6 @@ pub fn native_library_dependencies(
 
     let mut libs_params = vec!["-p", package];
     libs_params.extend(build_params);
-    libs_params.extend(["--", "--print=native-static-libs"].iter());
 
     run_cargo(cargo_command, "rustc", &libs_params, |message| {
         match message {
