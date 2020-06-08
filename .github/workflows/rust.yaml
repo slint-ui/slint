@@ -50,6 +50,11 @@ jobs:
       with:
           command: test
           args: --verbose
+    - name: WASM Build
+      uses: actions-rs/cargo@v1
+      with:
+          command: build
+          args: --target wasm32-unknown-unknown --verbose
     - name: Prepare cmake module
       run: cargo xtask cmake --prefix $HOME/sixtyfps_install --install
     - name: C++ Test
