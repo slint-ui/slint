@@ -25,3 +25,7 @@ members = [
     'tests/driver_lib',
     'tests/rustdriver'
 ]
+
+# Needed to work around wasm32-unknown-emscripten toolchain aborting on cdylib crates
+[patch.crates-io]
+instant = { git = "https://github.com/sixtyfpsui/instant" }
