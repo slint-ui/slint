@@ -1,0 +1,21 @@
+// comment
+
+// line comment
+SuperSimple := Rectangle {
+    /* block comment */
+    color: green;
+
+    //comment
+
+    /* block comment
+       on several 
+       lines
+    */
+    color: /* . */ blue;
+//  ^error{Duplicated property}
+}
+
+/* another comment 
+here*/
+
+// this is a comment

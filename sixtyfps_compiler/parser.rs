@@ -74,7 +74,7 @@ macro_rules! declare_token_kind {
 }
 declare_token_kind! {
     Whitespace -> r"\s+",
-    Comment -> r"//.*\n",
+    Comment -> r"//.*\n|(?sU)/\*.*\*/", // FIXME: comments within comments
     StringLiteral -> r#""[^"]*""#, // FIXME: escapes
     NumberLiteral -> r"[\d]+(\.[\d]*)?",
     Identifier -> r"[\w]+",
