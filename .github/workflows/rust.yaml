@@ -54,7 +54,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
           command: build
-          args: --target wasm32-unknown-unknown --verbose
+          args: --target wasm32-unknown-unknown --verbose -p rustwasmtest
     - name: Prepare cmake module
       run: cargo xtask cmake --prefix $HOME/sixtyfps_install --install
     - name: C++ Test
