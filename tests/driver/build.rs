@@ -33,8 +33,6 @@ fn main() -> std::io::Result<()> {
     let mut test_dirs = std::collections::HashSet::new();
 
     for testcase in test_driver_lib::collect_test_cases()? {
-        println!("cargo:rerun-if-changed={}", testcase.absolute_path.to_string_lossy());
-
         test_dirs.insert({
             let mut dir = testcase.absolute_path.clone();
             dir.pop();
@@ -58,6 +56,14 @@ fn main() -> std::io::Result<()> {
             #[test]
             fn test_interpreter_{function_name}() {{
                 interpreter::test(&test_driver_lib::TestCase{{
+                    absolute_path: std::path::PathBuf::from("{absolute_path}"),
+                    relative_path: std::path::PathBuf::from("{relative_path}"),
+                }}).unwrap();
+            }}
+
+            #[test]
+            fn test_nodejs_{function_name}() {{
+                nodejs::test(&test_driver_lib::TestCase{{
                     absolute_path: std::path::PathBuf::from("{absolute_path}"),
                     relative_path: std::path::PathBuf::from("{relative_path}"),
                 }}).unwrap();

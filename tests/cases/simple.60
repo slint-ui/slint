@@ -11,4 +11,8 @@ TestCase instance;
 TestCase::default();
 ```
 
+```js
+var x = new sixtyfps.TestCase({});
+```
+
 */

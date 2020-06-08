@@ -2,6 +2,8 @@
 mod cpp;
 #[cfg(test)]
 mod interpreter;
+#[cfg(test)]
+mod nodejs;
 
 include!(env!("TEST_FUNCTIONS"));
 
