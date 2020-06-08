@@ -29,7 +29,7 @@ fn main() {
             y: 0.,
             width: 100.,
             height: 100.,
-            color: Color::BLUE,
+            color: Color::from_rgb(0, 0, 255),
         });
         render_cache.allocate_entry(root_rect)
     };
@@ -40,7 +40,7 @@ fn main() {
             y: 0.,
             width: 100.,
             height: 100.,
-            color: Color::GREEN,
+            color: Color::from_rgb(0, 255, 0),
         });
         render_cache.allocate_entry(child_rect)
     };

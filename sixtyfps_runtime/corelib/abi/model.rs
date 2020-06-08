@@ -1,3 +1,5 @@
+//! Models
+
 /// Opaque type of a model, represented bith a ModelType
 pub struct ModelImpl;
 

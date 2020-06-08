@@ -1,9 +1,14 @@
+//! This module contains the basic datastructures that are exposed to the C API
+
 use core::ptr::NonNull;
 use std::cell::Cell;
 use vtable::*;
 
+/// 2D Rectangle
 pub type Rect = euclid::default::Rect<f32>;
+/// 2D Point
 pub type Point = euclid::default::Point2D<f32>;
+/// 2D Size
 pub type Size = euclid::default::Size2D<f32>;
 
 /// Expand Rect so that cbindgen can see it. ( is in fact euclid::default::Rect<f32>)
@@ -24,6 +29,7 @@ struct Point {
     y: f32,
 }
 
+/// A Component is representing an unit that is allocated together
 #[vtable]
 #[repr(C)]
 pub struct ComponentVTable {
@@ -37,6 +43,8 @@ pub struct ComponentVTable {
     pub item_tree: extern "C" fn(VRef<ComponentVTable>) -> *const ItemTreeNode,
 }
 
+/// This structure must be present in items that are Rendered and contains information.
+/// Used by the backend.
 #[derive(Default)]
 #[repr(C)]
 pub struct CachedRenderingData {
@@ -107,7 +115,7 @@ unsafe impl Sync for ItemTreeNode {}
 #[vtable]
 #[repr(C)]
 pub struct ItemVTable {
-    ///
+    /// Returns the geometry of this item (relative to its parent item)
     pub geometry: extern "C" fn(VRef<'_, ItemVTable>, context: &crate::EvaluationContext) -> Rect,
 
     /// offset in bytes fromthe *const ItemImpl.
@@ -145,6 +153,7 @@ impl Default for LayoutInfo {
     }
 }
 
+/// RGBA color
 #[derive(Copy, Clone, PartialEq, Debug)]
 #[repr(C)]
 pub struct Color {
@@ -155,6 +164,7 @@ pub struct Color {
 }
 
 impl Color {
+    /// Construct a color from an integer encoded as `0xAARRGGBB`
     pub const fn from_argb_encoded(encoded: u32) -> Color {
         Color {
             red: (encoded >> 16) as u8,
@@ -164,13 +174,16 @@ impl Color {
         }
     }
 
+    /// Construct a color from its RGBA components as u8
     pub const fn from_rgba(red: u8, green: u8, blue: u8, alpha: u8) -> Color {
         Color { red, green, blue, alpha }
     }
+    /// Construct a color from its RGB components as u8
     pub const fn from_rgb(red: u8, green: u8, blue: u8) -> Color {
         Color::from_rgba(red, green, blue, 0xff)
     }
 
+    /// Returns `(red, green, blue, alpha)` encoded as f32
     pub fn as_rgba_f32(&self) -> (f32, f32, f32, f32) {
         (
             (self.red as f32) / 255.0,
@@ -180,20 +193,23 @@ impl Color {
         )
     }
 
+    /// Returns `(red, green, blue, alpha)` encoded as u8
     pub fn as_rgba_u8(&self) -> (u8, u8, u8, u8) {
         (self.red, self.green, self.blue, self.alpha)
     }
 
+    /// A constant for the black color
     pub const BLACK: Color = Color::from_rgb(0, 0, 0);
-    pub const RED: Color = Color::from_rgb(255, 0, 0);
-    pub const GREEN: Color = Color::from_rgb(0, 255, 0);
-    pub const BLUE: Color = Color::from_rgb(0, 0, 255);
+    /// A constant for the white color
     pub const WHITE: Color = Color::from_rgb(255, 255, 255);
 }
 
+/// Each item return a RenderingPrimitive to the backend with information about what to draw.
 #[derive(PartialEq, Debug)]
 #[repr(C)]
+#[allow(missing_docs)]
 pub enum RenderingPrimitive {
+    /// There is nothing to draw
     NoContents,
     Rectangle {
         x: f32,
@@ -217,22 +233,27 @@ pub enum RenderingPrimitive {
     },
 }
 
+/// The type of a MouseEvent
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub enum MouseEventType {
+    /// The mouse was pressed
     MousePressed,
+    /// The mouse was relased
     MouseReleased,
+    /// The mouse position has changed
     MouseMoved,
 }
 
+/// Structur representing a mouse event
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub struct MouseEvent {
+    /// The position of the cursor
     pub pos: Point,
+    /// The action performed (pressed/released/moced)
     pub what: MouseEventType,
 }
-
-/* -- Safe wrappers*/
 
 /// Visit each items recursively
 ///
@@ -269,6 +290,9 @@ fn visit_internal<State>(
     }
 }
 
+/// Same as `visit_items`, but over mutable items.
+///
+/// The visitor also accept a re-borrow of the component given in imput
 pub fn visit_items_mut<State>(
     component: VRefMut<'_, ComponentVTable>,
     mut visitor: impl FnMut(VRefMut<'_, ComponentVTable>, ItemRefMut<'_>, &State) -> State,
@@ -303,99 +327,25 @@ fn visit_internal_mut<State>(
     }
 }
 
-/*
-
-/*
-Button { visible: false; text: "foo"}
-
- -> ProxyWithVisibility<NativeItem>
-
-// Qt style selected:
-fn render_button(item: *const ItemImpl) -> RenderingInfo {
-    let button = reinterpret_cast<&Button>(button)
-    let text = b.text();
-    let isPressed = b.isPressed();
-    // ...
-    let image = qt_render_button(width, height, isPressed, text)
-
-    return RenderingInfo::Image(image)
-}
-
-// Basic style selected:
-
- -> Rectangle / Text
-
- fn render_rectangle(item: *const ItemImpl) -> RenderingInfo {
-     let rect = reinterpret_cast<&Rectangle>(item)
-     ...
-     return RenderingInfo::Path(rect_path)
- }
-
- fn render_text(item: *const ItemImpl) -> RenderInfo {
-
- }
-
-*/
-
-// in corelib/primitives.rs
-
-bitflags! {
-    enum ItemExtensions {
-        HasVisibility,
-        HasOpacity
-    }
-}
-
-struct ItemBase {
-extensions: ItemExtensions,
-x: Property<f32>,
-y: Property<f32>,
-// visible, opacity, ?
-extraData: Vec<...>
-}
-
-impl ItemBase {
-    pub fn is_visible(&self) -> bool {
-        if self.extensions & HasVisibility {
-            return self.extraData
-        } else {
-            return true;
-        }
-    }
-}
-
-#[derive(SixtyFpsItem)]
-/// ```
-/// width: f32
-/// height: f32
-/// ```
-fn render_rectangle(item: *const ItemImpl) -> RenderingInfo {
-    //let width = property_at_offset(item, 1);
-    let rect : &Rectnalge = unsafe { std::mem::transmute(item) };
-    let width = rect.width.get()
-}
-
-
-pub static RECTANGLE_VTABLE: ItemVTable = ItemVTable {
-    rendering_info: render_rectangle,
-}
-
-// in styles/qt.rs
-
-//#[derive(SixtyFpsItem)]
-struct QtButton {
-    text: String,
-    is_pressed: bool,
-}
-
-
-pub static QT_BUTTON_VTABLE: ItemVTable = ItemVTable {
-    rendering_info: render_qt_button,
-};
-*/
-
 // This is here because for some reason (rust bug?) the ItemVTable_static is not accessible in the other modules
-ItemVTable_static!(#[no_mangle]pub static ImageVTable for crate::abi::primitives::Image);
-ItemVTable_static!(#[no_mangle]pub static RectangleVTable for crate::abi::primitives::Rectangle);
-ItemVTable_static!(#[no_mangle]pub static TextVTable for crate::abi::primitives::Text);
-ItemVTable_static!(#[no_mangle]pub static TouchAreaVTable for crate::abi::primitives::TouchArea);
+
+ItemVTable_static! {
+    /// The VTable for `Image`
+    #[no_mangle]
+    pub static ImageVTable for crate::abi::primitives::Image
+}
+ItemVTable_static! {
+    /// The VTable for `Rectangle`
+    #[no_mangle]
+    pub static RectangleVTable for crate::abi::primitives::Rectangle
+}
+ItemVTable_static! {
+    /// The VTable for `Text`
+    #[no_mangle]
+    pub static TextVTable for crate::abi::primitives::Text
+}
+ItemVTable_static! {
+    /// The VTable for `TouchArea`
+    #[no_mangle]
+    pub static TouchAreaVTable for crate::abi::primitives::TouchArea
+}

@@ -86,14 +86,14 @@ pub fn collect_test_cases() -> std::io::Result<Vec<TestCase>> {
 }
 
 /// A test functions looks something like
-/// ```.60
+/// ````text
 /// /*
 ///   ```cpp
 ///   TestCase instance;
 ///   assert(instance.x.get() == 0);
 ///   ```
 /// */
-/// ```
+/// ````
 pub struct TestFunction<'a> {
     /// In the example above: `cpp`
     pub language_id: &'a str,

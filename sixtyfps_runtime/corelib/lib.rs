@@ -11,7 +11,9 @@ pub mod graphics;
 pub mod input;
 pub mod layout;
 
+/// Things that are exposed to the C ABI
 pub mod abi {
+    #![warn(missing_docs)]
     pub mod datastructures;
     pub mod model;
     pub mod primitives;

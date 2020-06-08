@@ -333,6 +333,8 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                             unsafe { VBox::from_raw(core::ptr::NonNull::from(X::static_vtable()), ptr.cast()) }
                         }
                     }
+                    /// Convinience alias to a `vtable::VBox`.
+                    #[doc = #additional_doc]
                     pub type #box_name = VBox<#vtable_name>;
                 });
                 continue;
@@ -346,7 +348,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
             }));
 
             generated_to_fn_trait.push(ImplItemMethod {
-                attrs: vec![],
+                attrs: field.attrs.clone(),
                 vis: Visibility::Public(VisPublic { pub_token: Default::default() }),
                 defaultness: None,
                 sig: sig.clone(),
@@ -381,7 +383,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 );
                 sig.output = sig_extern.output.clone();
                 generated_type_assoc_fn.push(ImplItemMethod {
-                    attrs: vec![],
+                    attrs: field.attrs.clone(),
                     vis: generated_trait.vis.clone(),
                     defaultness: None,
                     sig,
@@ -459,9 +461,12 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
                 vtable_ctor.push(quote!(#ident: T::#ident.get_byte_offset(),));
 
+                let attrs = &field.attrs;
+
                 let vis = &field.vis;
                 generated_to_fn_trait.push(
                     parse2(quote! {
+                        #(#attrs)*
                         #vis fn #ident(&self) -> &#member_type {
                             unsafe {
                                 &*(self.ptr.as_ptr().add(self.vtable.as_ref().#ident) as *const #member_type)
@@ -473,6 +478,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 let ident_mut = quote::format_ident!("{}_mut", ident);
                 generated_to_fn_trait.push(
                     parse2(quote! {
+                        #(#attrs)*
                         #vis fn #ident_mut(&mut self) -> &mut #member_type {
                             unsafe {
                                 &mut *(self.ptr.as_ptr().add(self.vtable.as_ref().#ident) as *mut #member_type)
@@ -552,6 +558,7 @@ and implements HasStaticVTable for it.
 
             impl #vtable_name {
                 // unfortunately cannot be const in stable rust because of the bounds (depends on rfc 2632)
+                /// Create a vtable suitable for a given type implementing the trait.
                 pub /*const*/ fn new<T: #trait_name #new_trait_extra>() -> Self {
                     Self {
                         #(#vtable_ctor)*
@@ -573,10 +580,12 @@ and implements HasStaticVTable for it.
             impl #to_name {
                 #(#generated_to_fn_trait)*
 
+                /// Returns a reference to the VTable
                 pub fn get_vtable(&self) -> &#vtable_name {
                     unsafe { self.vtable.as_ref() }
                 }
 
+                /// Return a raw pointer to the object
                 pub fn as_ptr(&self) -> *const u8 {
                     self.ptr.as_ptr()
                 }
@@ -589,7 +598,11 @@ and implements HasStaticVTable for it.
 
             #drop_impl
 
+            /// Convinience alias to a `vtable::VRef`.
+            #[doc = #additional_doc]
             pub type #ref_name<'a> = VRef<'a, #vtable_name>;
+            /// Convinience alias to a `vtable::VRefMut`.
+            #[doc = #additional_doc]
             pub type #refmut_name<'a> = VRefMut<'a, #vtable_name>;
 
         }

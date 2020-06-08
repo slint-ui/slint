@@ -1,3 +1,4 @@
+//! module for the SharedString and related things
 use core::mem::MaybeUninit;
 use servo_arc::ThinArc;
 use std::{fmt::Debug, fmt::Display, ops::Deref};
@@ -20,10 +21,12 @@ impl SharedString {
         self.inner.slice.as_ptr() as *const u8
     }
 
+    /// Size of the string, in bytes
     pub fn len(&self) -> usize {
         self.inner.header.header
     }
 
+    /// Return a slice to the string
     pub fn as_str(&self) -> &str {
         unsafe {
             core::str::from_utf8_unchecked(core::slice::from_raw_parts(self.as_ptr(), self.len()))
@@ -251,6 +254,10 @@ fn simple_test() {
 type c_char = u8;
 
 #[no_mangle]
+/// Returns a nul-reminated pointer for this string.
+/// The returned value is owned by the string, and should not be used after any
+/// mutable function have been called on the string, and must not be free'ed.
+
 pub extern "C" fn sixtyfps_shared_string_bytes(ss: &SharedString) -> *const c_char {
     ss.as_ptr()
 }

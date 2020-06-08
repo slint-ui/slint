@@ -66,13 +66,23 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
 
     let crate_ = quote!(const_field_offset);
 
+    let doc = format!(
+        "Helper struct containing the offsets of the fields of the struct `{}`",
+        struct_name
+    );
+
     // Build the output, possibly using quasi-quotation
     let expanded = quote! {
+        #[doc = #doc]
+        ///
+        /// Generated from the derive macro `const-field-offset::FieldOffsets`
+        #[allow(missing_docs)]
         pub struct #field_struct_name {
             #(#vis #fields : #crate_::FieldOffset<#struct_name, #types>,)*
         }
 
         impl #struct_name {
+            /// Return a struct containing the offset of for the fields of this struct
             pub const fn field_offsets() -> #field_struct_name {
                 let mut len = 0usize;
                 #field_struct_name {

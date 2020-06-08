@@ -66,8 +66,8 @@ pub use vtable_macro::*;
 /// Safety: The Target object need to be implemented correctly.
 pub unsafe trait VTableMeta {
     /// That's the trait object that implements the functions
-    /// NOTE: the size must be 2*size_of::<usize>
-    /// and a repr(C) with (vtable, ptr) so it has the same layout as
+    /// NOTE: the size must be `2*size_of::<usize>`
+    /// and a `repr(C)` with `(vtable, ptr)` so it has the same layout as
     /// the inner and VBox/VRef/VRefMut
     type Target;
 

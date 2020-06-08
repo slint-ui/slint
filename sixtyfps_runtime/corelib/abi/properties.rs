@@ -53,12 +53,25 @@ impl PropertyNotify for RefCell<PropertyImpl> {
     }
 }
 
+/// This structure contains what is required for the property engine to evaluate properties
+///
+/// One must pass it to the getter of the property, or emit of signals, and it can
+/// be accessed from the bindings
 #[repr(C)]
 pub struct EvaluationContext<'a> {
+    /// The component which contains the Property or the Signal
     pub component: vtable::VRef<'a, crate::abi::datastructures::ComponentVTable>,
 }
 
 type PropertyHandle = Rc<RefCell<PropertyImpl>>;
+/// A Property that allow binding that track changes
+///
+/// Property van have be assigned value, or bindings.
+/// When a binding is assigned, it is lazily evaluated on demand
+/// when calling `get()`.
+/// When accessing another property from a binding evaluation,
+/// a dependency will be registered, such that when the property
+/// change, the binding will automatically be updated
 #[repr(C)]
 #[derive(Default)]
 pub struct Property<T: 'static> {
@@ -68,6 +81,15 @@ pub struct Property<T: 'static> {
 }
 
 impl<T: Clone + 'static> Property<T> {
+    /// Get the value of the property
+    ///
+    /// This may evaluate the binding if there is a binding and it is dirty
+    ///
+    /// If the function is called directly or indirectly from a binding evaluation
+    /// of another Property, a dependency will be registered.
+    ///
+    /// The context must be the constext matching the Component which contains this
+    /// property
     pub fn get(&self, context: &EvaluationContext) -> T {
         self.update(context);
         self.inner.clone().notify();
@@ -75,6 +97,10 @@ impl<T: Clone + 'static> Property<T> {
         unsafe { (*(self.value.get() as *const T)).clone() }
     }
 
+    /// Change the value of this property
+    ///
+    /// If other properties have binding depending of this property, these properties will
+    /// be marked as dirty.
     pub fn set(&self, t: T) {
         {
             let mut lock = self.inner.borrow_mut();
@@ -86,6 +112,13 @@ impl<T: Clone + 'static> Property<T> {
         self.inner.borrow_mut().dirty = false;
     }
 
+    /// Set a binding to this property.
+    ///
+    /// Binding are evaluated lazily from calling get, and the return value of the binding
+    /// is the new value.
+    ///
+    /// If other properties have binding depending of this property, these properties will
+    /// be marked as dirty.
     pub fn set_binding(&self, f: impl (Fn(&EvaluationContext) -> T) + 'static) {
         let real_binding = move |ptr: *mut (), context: &EvaluationContext| {
             // The binding must be called with a pointer of T
@@ -96,6 +129,7 @@ impl<T: Clone + 'static> Property<T> {
         self.inner.clone().mark_dirty();
     }
 
+    /// Call the binding if the property is dirty to update the stored value
     fn update(&self, context: &EvaluationContext) {
         if !self.inner.borrow().dirty {
             return;

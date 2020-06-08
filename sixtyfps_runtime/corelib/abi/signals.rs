@@ -19,12 +19,18 @@ pub struct Signal<Arg> {
 }
 
 impl<Arg> Signal<Arg> {
+    /// Emit the signal with the given argument.
+    ///
+    /// The constext must be a context corresponding to the component in which the signal is contained.
     pub fn emit(&self, context: &EvaluationContext, a: Arg) {
         if let Some(h) = &self.handler {
             h(context, a);
         }
     }
 
+    /// Set an handler to be called when the signal is emited
+    ///
+    /// There can only be one single handler per signal.
     pub fn set_handler(&mut self, f: impl Fn(&EvaluationContext, Arg) + 'static) {
         self.handler = Some(Box::new(f));
     }

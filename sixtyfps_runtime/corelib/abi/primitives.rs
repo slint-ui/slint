@@ -13,6 +13,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 */
 
 #![allow(non_upper_case_globals)]
+#![allow(missing_docs)] // because documenting each property of items is redundent
 
 use super::datastructures::{
     CachedRenderingData, Color, Item, ItemConsts, LayoutInfo, Rect, RenderingPrimitive,
@@ -24,6 +25,7 @@ use corelib_macro::*;
 
 #[repr(C)]
 #[derive(FieldOffsets, Default, BuiltinItem)]
+/// The implementation of the `Rectangle` element
 pub struct Rectangle {
     /// FIXME: make it a color
     pub color: Property<u32>,
@@ -77,6 +79,7 @@ pub use crate::abi::datastructures::RectangleVTable;
 
 #[repr(C)]
 #[derive(FieldOffsets, Default, BuiltinItem)]
+/// The implementation of the `Image` element
 pub struct Image {
     /// FIXME: make it a image source
     pub source: Property<SharedString>,
@@ -120,6 +123,7 @@ impl ItemConsts for Image {
 
 pub use crate::abi::datastructures::ImageVTable;
 
+/// The implementation of the `Text` element
 #[repr(C)]
 #[derive(FieldOffsets, Default, BuiltinItem)]
 pub struct Text {
@@ -162,6 +166,7 @@ impl ItemConsts for Text {
 
 pub use crate::abi::datastructures::TextVTable;
 
+/// The implementation of the `TouchArea` element
 #[repr(C)]
 #[derive(FieldOffsets, Default, BuiltinItem)]
 pub struct TouchArea {
