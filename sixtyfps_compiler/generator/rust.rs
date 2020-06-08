@@ -126,6 +126,7 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<TokenSt
 
         impl core::default::Default for #component_id {
             fn default() -> Self {
+                #![allow(unused_braces)] // The generated code may contain unused braces
                 let mut self_ = Self {
                     #(#item_names : Default::default(),)*
                     #(#declared_property_vars : Default::default(),)*

@@ -62,7 +62,12 @@ pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
     }
 
     let output_file_path = Path::new(&env::var_os("OUT_DIR").ok_or(CompileError::NotRunViaCargo)?)
-        .join(path.file_name().map(Path::new).unwrap_or(Path::new("sixtyfps_out.rs")));
+        .join(
+            path.file_stem()
+                .map(Path::new)
+                .unwrap_or(Path::new("sixtyfps_out"))
+                .with_extension("rs"),
+        );
 
     let mut file = std::fs::File::create(&output_file_path).map_err(CompileError::SaveError)?;
     let generated = generator::rust::generate(&doc.root_component, &mut diag).ok_or_else(|| {
