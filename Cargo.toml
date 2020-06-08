@@ -25,3 +25,7 @@ members = [
     'tests/driver_lib',
     'tests/rustdriver'
 ]
+
+# Needed for texImage2D support with backing canvas element.
+[patch.crates-io]
+glow = { git = "https://github.com/tronical/glow" }

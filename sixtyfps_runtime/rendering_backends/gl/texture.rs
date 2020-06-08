@@ -73,12 +73,12 @@ impl GLTexture {
     pub fn bind_to_location(
         &self,
         gl: &glow::Context,
-        texture_location: <glow::Context as glow::HasContext>::UniformLocation,
+        texture_location: &<glow::Context as glow::HasContext>::UniformLocation,
     ) {
         unsafe {
             gl.active_texture(glow::TEXTURE0);
             gl.bind_texture(glow::TEXTURE_2D, Some(self.texture_id));
-            gl.uniform_1_i32(Some(texture_location), 0);
+            gl.uniform_1_i32(Some(&texture_location), 0);
         }
     }
 

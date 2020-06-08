@@ -112,10 +112,10 @@ impl PathShader {
         self.inner.use_program(&gl);
 
         unsafe {
-            gl.uniform_matrix_4_f32_slice(Some(self.matrix_location), false, &matrix);
+            gl.uniform_matrix_4_f32_slice(Some(&self.matrix_location), false, matrix);
 
             gl.uniform_4_f32(
-                Some(self.vertcolor_location),
+                Some(&self.vertcolor_location),
                 vertcolor[0],
                 vertcolor[1],
                 vertcolor[2],
@@ -182,9 +182,9 @@ impl ImageShader {
     ) {
         self.inner.use_program(&gl);
 
-        unsafe { gl.uniform_matrix_4_f32_slice(Some(self.matrix_location), false, &matrix) };
+        unsafe { gl.uniform_matrix_4_f32_slice(Some(&self.matrix_location), false, matrix) };
 
-        tex.bind_to_location(&gl, self.tex_location);
+        tex.bind_to_location(&gl, &self.tex_location);
 
         pos.bind(&gl, self.pos_location);
 
@@ -262,10 +262,10 @@ impl GlyphShader {
         self.inner.use_program(&gl);
 
         unsafe {
-            gl.uniform_matrix_4_f32_slice(Some(self.matrix_location), false, &matrix);
+            gl.uniform_matrix_4_f32_slice(Some(&self.matrix_location), false, matrix);
 
             gl.uniform_4_f32(
-                Some(self.text_color_location),
+                Some(&self.text_color_location),
                 text_color[0],
                 text_color[1],
                 text_color[2],
@@ -273,7 +273,7 @@ impl GlyphShader {
             )
         };
 
-        tex.bind_to_location(&gl, self.tex_location);
+        tex.bind_to_location(&gl, &self.tex_location);
 
         pos.bind(&gl, self.pos_location);
 
