@@ -27,6 +27,8 @@ once_cell = "1.4"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 scoped-tls-hkt = "0.1"
+
+[target.wasm32-unknown-emscripten.dependencies]
 winit = { version = "0.22.1", features = [ "stdweb" ] }
 
 [build-dependencies]
