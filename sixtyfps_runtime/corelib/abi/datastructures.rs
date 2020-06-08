@@ -175,6 +175,10 @@ impl Color {
         )
     }
 
+    pub fn as_rgba_u8(&self) -> (u8, u8, u8, u8) {
+        (self.red, self.green, self.blue, self.alpha)
+    }
+
     pub const BLACK: Color = Color::from_rgb(0, 0, 0);
     pub const RED: Color = Color::from_rgb(255, 0, 0);
     pub const GREEN: Color = Color::from_rgb(0, 255, 0);

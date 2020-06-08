@@ -1,5 +1,6 @@
 use cgmath::Matrix4;
 use glow::{Context as GLContext, HasContext};
+#[cfg(not(target_arch = "wasm32"))]
 use itertools::Itertools;
 use lyon::tessellation::geometry_builder::{BuffersBuilder, VertexBuffers};
 use lyon::tessellation::{FillAttributes, FillOptions, FillTessellator};
@@ -19,14 +20,20 @@ mod texture;
 use texture::{GLTexture, TextureAtlas};
 
 mod shader;
-use shader::{GlyphShader, ImageShader, PathShader};
+use shader::{ImageShader, PathShader};
+
+#[cfg(not(target_arch = "wasm32"))]
+use shader::GlyphShader;
 
 mod buffers;
 use buffers::{GLArrayBuffer, GLIndexBuffer};
 
+#[cfg(not(target_arch = "wasm32"))]
 mod text;
 
+#[cfg(not(target_arch = "wasm32"))]
 mod fontcache;
+#[cfg(not(target_arch = "wasm32"))]
 use fontcache::FontCache;
 
 #[derive(Copy, Clone)]
@@ -34,6 +41,7 @@ pub(crate) struct Vertex {
     _pos: [f32; 2],
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 struct GlyphRun {
     vertices: GLArrayBuffer<Vertex>,
     texture_vertices: GLArrayBuffer<Vertex>,
@@ -52,6 +60,7 @@ enum GLRenderingPrimitive {
         texture_vertices: GLArrayBuffer<Vertex>,
         texture: GLTexture,
     },
+    #[cfg(not(target_arch = "wasm32"))]
     GlyphRuns {
         glyph_runs: Vec<GlyphRun>,
         color: Color,
@@ -62,8 +71,10 @@ pub struct GLRenderer {
     context: Rc<glow::Context>,
     path_shader: PathShader,
     image_shader: ImageShader,
+    #[cfg(not(target_arch = "wasm32"))]
     glyph_shader: GlyphShader,
     texture_atlas: Rc<RefCell<TextureAtlas>>,
+    #[cfg(not(target_arch = "wasm32"))]
     font_cache: Rc<RefCell<FontCache>>,
     #[cfg(target_arch = "wasm32")]
     window: winit::window::Window,
@@ -75,6 +86,7 @@ pub struct GLRenderingPrimitivesBuilder {
     context: Rc<glow::Context>,
     fill_tesselator: FillTessellator,
     texture_atlas: Rc<RefCell<TextureAtlas>>,
+    #[cfg(not(target_arch = "wasm32"))]
     font_cache: Rc<RefCell<FontCache>>,
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -85,6 +97,7 @@ pub struct GLFrame {
     context: Rc<glow::Context>,
     path_shader: PathShader,
     image_shader: ImageShader,
+    #[cfg(not(target_arch = "wasm32"))]
     glyph_shader: GlyphShader,
     root_matrix: cgmath::Matrix4<f32>,
     #[cfg(not(target_arch = "wasm32"))]
@@ -146,14 +159,17 @@ impl GLRenderer {
 
         let path_shader = PathShader::new(&context);
         let image_shader = ImageShader::new(&context);
+        #[cfg(not(target_arch = "wasm32"))]
         let glyph_shader = GlyphShader::new(&context);
 
         GLRenderer {
             context: Rc::new(context),
             path_shader,
             image_shader,
+            #[cfg(not(target_arch = "wasm32"))]
             glyph_shader,
             texture_atlas: Rc::new(RefCell::new(TextureAtlas::new())),
+            #[cfg(not(target_arch = "wasm32"))]
             font_cache: Rc::new(RefCell::new(FontCache::default())),
             #[cfg(target_arch = "wasm32")]
             window,
@@ -187,6 +203,7 @@ impl GraphicsBackend for GLRenderer {
             context: self.context.clone(),
             fill_tesselator: FillTessellator::new(),
             texture_atlas: self.texture_atlas.clone(),
+            #[cfg(not(target_arch = "wasm32"))]
             font_cache: self.font_cache.clone(),
 
             #[cfg(not(target_arch = "wasm32"))]
@@ -224,6 +241,7 @@ impl GraphicsBackend for GLRenderer {
             context: self.context.clone(),
             path_shader: self.path_shader.clone(),
             image_shader: self.image_shader.clone(),
+            #[cfg(not(target_arch = "wasm32"))]
             glyph_shader: self.glyph_shader.clone(),
             root_matrix: cgmath::ortho(0.0, width as f32, height as f32, 0.0, -1., 1.0),
             #[cfg(not(target_arch = "wasm32"))]
@@ -346,6 +364,7 @@ impl GLRenderingPrimitivesBuilder {
         }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     fn create_glyph_runs(
         &mut self,
         text: &str,
@@ -410,6 +429,86 @@ impl GLRenderingPrimitivesBuilder {
 
         GLRenderingPrimitive::GlyphRuns { glyph_runs, color }
     }
+
+    #[cfg(target_arch = "wasm32")]
+    fn create_glyph_runs(
+        &mut self,
+        text: &str,
+        font_family: &str,
+        pixel_size: f32,
+        color: Color,
+    ) -> GLRenderingPrimitive {
+        let text_canvas = web_sys::window()
+            .unwrap()
+            .document()
+            .unwrap()
+            .create_element("canvas")
+            .unwrap()
+            .dyn_into::<web_sys::HtmlCanvasElement>()
+            .unwrap();
+
+        use wasm_bindgen::JsCast;
+        let canvas_context = text_canvas
+            .get_context("2d")
+            .unwrap()
+            .unwrap()
+            .dyn_into::<web_sys::CanvasRenderingContext2d>()
+            .unwrap();
+
+        canvas_context.set_font(&format!("{}px \"{}\"", pixel_size, font_family));
+
+        let text_metrics = canvas_context.measure_text(text).unwrap();
+
+        text_canvas.set_width(text_metrics.width() as _);
+        text_canvas.set_height(pixel_size as _);
+        text_canvas.style().set_property("width", &format!("{}px", text_metrics.width())).unwrap();
+        text_canvas.style().set_property("height", &format!("{}px", pixel_size)).unwrap();
+
+        // Re-apply after resize :(
+        canvas_context.set_font(&format!("{}px \"{}\"", pixel_size, font_family));
+
+        canvas_context.set_text_align("center");
+        canvas_context.set_text_baseline("middle");
+        canvas_context.set_fill_style(&wasm_bindgen::JsValue::from_str("transparent"));
+        canvas_context.fill_rect(0., 0., text_canvas.width() as _, text_canvas.height() as _);
+
+        let (r, g, b, a) = color.as_rgba_u8();
+        canvas_context.set_fill_style(&wasm_bindgen::JsValue::from_str(&format!(
+            "rgba({}, {}, {}, {})",
+            r, g, b, a
+        )));
+        canvas_context
+            .fill_text(text, (text_canvas.width() / 2) as _, (text_canvas.height() / 2) as _)
+            .unwrap();
+
+        let texture = GLTexture::new_from_canvas(&self.context, &text_canvas);
+
+        let rect = Rect::new(
+            Point::new(0.0, 0.0),
+            Size::new(text_canvas.width() as f32, text_canvas.height() as f32),
+        );
+
+        let vertex1 = Vertex { _pos: [rect.min_x(), rect.min_y()] };
+        let vertex2 = Vertex { _pos: [rect.max_x(), rect.min_y()] };
+        let vertex3 = Vertex { _pos: [rect.max_x(), rect.max_y()] };
+        let vertex4 = Vertex { _pos: [rect.min_x(), rect.max_y()] };
+
+        let tex_vertex1 = Vertex { _pos: [0., 0.] };
+        let tex_vertex2 = Vertex { _pos: [1., 0.] };
+        let tex_vertex3 = Vertex { _pos: [1., 1.] };
+        let tex_vertex4 = Vertex { _pos: [0., 1.] };
+
+        let normalized_coordinates: [Vertex; 6] =
+            [tex_vertex1, tex_vertex2, tex_vertex3, tex_vertex1, tex_vertex3, tex_vertex4];
+
+        let vertices = GLArrayBuffer::new(
+            &self.context,
+            &vec![vertex1, vertex2, vertex3, vertex1, vertex3, vertex4],
+        );
+        let texture_vertices = GLArrayBuffer::new(&self.context, &normalized_coordinates);
+
+        GLRenderingPrimitive::Texture { vertices, texture_vertices, texture }
+    }
 }
 
 impl GraphicsFrame for GLFrame {
@@ -465,6 +564,7 @@ impl GraphicsFrame for GLFrame {
                     self.context.draw_arrays(glow::TRIANGLES, 0, 6);
                 }
             }
+            #[cfg(not(target_arch = "wasm32"))]
             Some(GLRenderingPrimitive::GlyphRuns { glyph_runs, color }) => {
                 let (r, g, b, a) = color.as_rgba_f32();
 
@@ -492,6 +592,7 @@ impl Drop for GLRenderer {
     fn drop(&mut self) {
         self.path_shader.drop(&self.context);
         self.image_shader.drop(&self.context);
+        #[cfg(not(target_arch = "wasm32"))]
         self.glyph_shader.drop(&self.context);
     }
 }

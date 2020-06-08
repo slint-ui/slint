@@ -196,6 +196,7 @@ impl ImageShader {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 #[derive(Clone)]
 pub(crate) struct GlyphShader {
     inner: Shader,
@@ -206,6 +207,7 @@ pub(crate) struct GlyphShader {
     tex_pos_location: u32,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl GlyphShader {
     pub fn new(gl: &glow::Context) -> Self {
         const GLYPH_VERTEX_SHADER: &str = r#"#version 100
@@ -250,6 +252,7 @@ impl GlyphShader {
         }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn bind(
         &self,
         gl: &glow::Context,

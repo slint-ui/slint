@@ -47,6 +47,38 @@ impl GLTexture {
         Self { texture_id }
     }
 
+    #[cfg(target_arch = "wasm32")]
+    pub fn new_from_canvas(gl: &glow::Context, canvas: &web_sys::HtmlCanvasElement) -> Self {
+        let texture_id = unsafe { gl.create_texture().unwrap() };
+
+        unsafe {
+            gl.bind_texture(glow::TEXTURE_2D, Some(texture_id));
+
+            gl.tex_parameter_i32(
+                glow::TEXTURE_2D,
+                glow::TEXTURE_WRAP_S,
+                glow::CLAMP_TO_EDGE as i32,
+            );
+            gl.tex_parameter_i32(
+                glow::TEXTURE_2D,
+                glow::TEXTURE_WRAP_T,
+                glow::CLAMP_TO_EDGE as i32,
+            );
+            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MIN_FILTER, glow::LINEAR as i32);
+
+            gl.tex_image_2d_with_html_canvas(
+                glow::TEXTURE_2D,
+                0,
+                glow::RGBA as i32,
+                glow::RGBA,
+                glow::UNSIGNED_BYTE,
+                canvas,
+            )
+        }
+
+        Self { texture_id }
+    }
+
     fn set_sub_image(
         &mut self,
         gl: &glow::Context,

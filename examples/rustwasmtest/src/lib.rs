@@ -18,10 +18,12 @@ sixtyfps::sixtyfps! {
             height: {100}
             color: green;
         }
-        Image {
-            x: 200;
+        Text {
+            text: "Hello World";
+            x: 100;
             y: 200;
-            source: "../../examples/graphicstest/logo.png";
+            color: black;
+            font_pixel_size: 48;
         }
     }
 }
