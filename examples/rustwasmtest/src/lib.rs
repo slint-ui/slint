@@ -3,13 +3,57 @@ use wasm_bindgen::prelude::*;
 
 // Using a macro for now.  But there could be others ways to do that
 sixtyfps::sixtyfps! {
-    SuperSimple := Rectangle {
-        color: white;
+    component TwoRectangle := Rectangle {
+
+        signal clicked;
 
         Rectangle {
+            x: 50;
+            y: 50.;
+            width: 25;
+            height: 25;
+            color: red;
+
+            my_area := TouchArea {
+                width: 25;
+                height: 25;
+                clicked => { root.clicked() }
+            }
+
+        }
+    }
+
+
+    component ButtonRectangle := Rectangle {
+        property<string> button_text;
+        signal clicked;
+        width: 100;
+        height: 75;
+        TouchArea {
+            width: 100;
+            height: 75;
+            clicked => { root.clicked() }
+        }
+        Text {
+            x: 50;
+            y: 10;
+            text: button_text;
+            color: black;
+        }
+    }
+
+    Hello := Rectangle {
+
+        signal foobar;
+        property<int32> counter;
+
+        color: white;
+
+        TwoRectangle {
             width: 100;
             height: 100;
             color: blue;
+            clicked => { foobar() }
         }
         Rectangle {
             x: 100;
@@ -17,15 +61,33 @@ sixtyfps::sixtyfps! {
             width: (100);
             height: {100}
             color: green;
+            Rectangle {
+                x: 50;
+                y: 50.;
+                width: 25;
+                height: 25;
+                color: yellow;
+            }
         }
-        Text {
-            text: "Hello World";
-            x: 100;
-            y: 200;
-            color: black;
-            font_pixel_size: 48;
+
+        ButtonRectangle {
+            color: 4289374890;
+            x: 50;
+            y: 225;
+            clicked => { counter += 1 }
+            button_text: "+";
         }
+        counter_label := Text { x: 100; y: 300; text: counter; color: black; }
+        ButtonRectangle {
+            color: 4289374890;
+            x: 50;
+            y: 350;
+            clicked => { counter -= 1 }
+            button_text: "-";
+        }
+
     }
+
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
@@ -35,5 +97,5 @@ pub fn wasm_main() {
     #[cfg(debug_assertions)]
     console_error_panic_hook::set_once();
 
-    SuperSimple::default().run();
+    Hello::default().run();
 }
