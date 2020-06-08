@@ -129,15 +129,20 @@ pub struct ItemVTable {
     pub input_event: extern "C" fn(VRef<'_, ItemVTable>, MouseEvent, &crate::EvaluationContext),
 }
 
-// given an ItemImpl & ItemVTable
-// (1) Identify that the item *is* a rectangle or has everything a rectangle would have
-// (2) change the width
-
+/// The constraint that applies to an item
 #[repr(C)]
+#[derive(Clone)]
 pub struct LayoutInfo {
-    min_size: f32,
-    //...
-    width_offset: isize,
+    min_width: f32,
+    max_width: f32,
+    min_height: f32,
+    max_height: f32,
+}
+
+impl Default for LayoutInfo {
+    fn default() -> Self {
+        LayoutInfo { min_width: 0., max_width: f32::MAX, min_height: 0., max_height: f32::MAX }
+    }
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
