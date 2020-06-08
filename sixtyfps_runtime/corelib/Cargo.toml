@@ -25,5 +25,8 @@ euclid = "0.20.11"
 servo_arc = "0.1.1" #we need the Arc::from_header_and_iter
 once_cell = "1.4"
 
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+scoped-tls-hkt = "0.1"
+
 [build-dependencies]
 cbindgen = "0.14.2"

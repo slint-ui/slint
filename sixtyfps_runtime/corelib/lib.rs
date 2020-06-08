@@ -35,6 +35,7 @@ pub use abi::signals::Signal;
 mod item_rendering;
 
 use abi::datastructures::Color;
+#[cfg(not(target_arch = "wasm32"))]
 use winit::platform::desktop::EventLoopExtDesktop;
 pub struct MainWindow<GraphicsBackend: graphics::GraphicsBackend> {
     pub graphics_backend: GraphicsBackend,
@@ -57,6 +58,7 @@ impl<GraphicsBackend: graphics::GraphicsBackend> MainWindow<GraphicsBackend> {
         Self { graphics_backend, event_loop, rendering_cache: graphics::RenderingCache::default() }
     }
 
+    #[allow(unused_mut)] // mut need changes for wasm
     pub fn run_event_loop(
         mut self,
         component: vtable::VRef<crate::abi::datastructures::ComponentVTable>,
@@ -80,11 +82,16 @@ impl<GraphicsBackend: graphics::GraphicsBackend> MainWindow<GraphicsBackend> {
     ) where
         GraphicsBackend: 'static,
     {
+        use winit::event::Event;
+        use winit::event_loop::{ControlFlow, EventLoopWindowTarget};
+
         let mut graphics_backend = self.graphics_backend;
         let mut rendering_cache = self.rendering_cache;
         let mut cursor_pos = winit::dpi::PhysicalPosition::new(0., 0.);
-        self.event_loop.run_return(move |event, _, control_flow| {
-            *control_flow = winit::event_loop::ControlFlow::Wait;
+        let mut run_fn = move |event: Event<()>,
+                               _: &EventLoopWindowTarget<()>,
+                               control_flow: &mut ControlFlow| {
+            *control_flow = ControlFlow::Wait;
 
             match event {
                 winit::event::Event::WindowEvent {
@@ -135,7 +142,24 @@ impl<GraphicsBackend: graphics::GraphicsBackend> MainWindow<GraphicsBackend> {
 
                 _ => (),
             }
-        });
+        };
+
+        #[cfg(not(target_arch = "wasm32"))]
+        self.event_loop.run_return(run_fn);
+        #[cfg(target_arch = "wasm32")]
+        {
+            // Since wasm does not have a run_return function that takes a non-static closure,
+            // we use this hack to work that around
+            scoped_tls_hkt::scoped_thread_local!(static mut RUN_FN_TLS: for <'a> &'a mut dyn FnMut(
+                Event<'_, ()>,
+                &EventLoopWindowTarget<()>,
+                &mut ControlFlow,
+            ));
+            let event_loop = self.event_loop;
+            RUN_FN_TLS.set(&mut run_fn, move || {
+                event_loop.run(|e, t, cf| RUN_FN_TLS.with(|mut run_fn| run_fn(e, t, cf)))
+            });
+        }
     }
 }
 
