@@ -17,13 +17,25 @@ fn main() -> std::io::Result<()> {
             testcase.relative_path.file_stem().unwrap().to_string_lossy().replace("/", "_");
         write!(generated_file, "#[path=\"{0}.rs\"] mod {0};\n", module_name)?;
 
-        let mut input = std::fs::File::open(&testcase.absolute_path)?;
+        let source = std::fs::read_to_string(&testcase.absolute_path)?;
         let mut output = std::fs::File::create(
             Path::new(&std::env::var_os("OUT_DIR").unwrap()).join(format!("{}.rs", module_name)),
         )?;
         output.write_all(b"sixtyfps::sixtyfps!{\n")?;
-        std::io::copy(&mut input, &mut output)?;
-        output.write_all(b"}\n#[test] fn test() { /* TODO */ }\n")?
+        output.write_all(source.as_bytes())?;
+        output.write_all(b"}\n")?;
+
+        for (i, x) in test_driver_lib::extract_test_functions(&source)
+            .filter(|x| x.language_id == "rust")
+            .enumerate()
+        {
+            write!(
+                output,
+                "#[test] fn t_{}() -> Result<(), Box<dyn std::error::Error>> {{\n    {}\n    Ok(()) }}",
+                i,
+                x.source.replace('\n', "    ")
+            )?;
+        }
     }
 
     test_dirs.iter().for_each(|dir| {

@@ -1,3 +1,14 @@
 TestCase := Rectangle {
 
 }
+
+/*
+```cpp
+TestCase instance;
+```
+
+```rust
+TestCase::default();
+```
+
+*/

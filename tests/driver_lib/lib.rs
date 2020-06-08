@@ -1,5 +1,6 @@
 use cargo_metadata::diagnostic::DiagnosticLevel;
 use cargo_metadata::Message;
+use regex::Regex;
 use std::error::Error;
 use std::process::Command;
 
@@ -62,6 +63,7 @@ pub struct TestCase {
     pub relative_path: std::path::PathBuf,
 }
 
+/// Returns a list of all the `.60` files in the `tests/cases` subfolders.
 pub fn collect_test_cases() -> std::io::Result<Vec<TestCase>> {
     let mut results = vec![];
 
@@ -81,4 +83,57 @@ pub fn collect_test_cases() -> std::io::Result<Vec<TestCase>> {
     }
 
     Ok(results)
+}
+
+/// A test functions looks something like
+/// ```.60
+/// /*
+///   ```cpp
+///   TestCase instance;
+///   assert(instance.x.get() == 0);
+///   ```
+/// */
+/// ```
+pub struct TestFunction<'a> {
+    /// In the example above: `cpp`
+    pub language_id: &'a str,
+    /// The content of the test function
+    pub source: &'a str,
+}
+
+/// Extract the test functions from
+pub fn extract_test_functions(source: &str) -> impl Iterator<Item = TestFunction<'_>> {
+    lazy_static::lazy_static! {
+        static ref RX: Regex = Regex::new(r"(?sU)\n```([a-z]+)\n(.+)\n```\n").unwrap();
+    }
+    RX.captures_iter(source).map(|mat| TestFunction {
+        language_id: mat.get(1).unwrap().as_str(),
+        source: mat.get(2).unwrap().as_str(),
+    })
+}
+
+#[test]
+fn test_extract_test_functions() {
+    let source = r"
+/*
+```cpp
+auto xx = 0;
+auto yy = 0;
+```
+
+```rust
+let xx = 0;
+let yy = 0;
+```
+*/
+";
+    let mut r = extract_test_functions(source);
+
+    let r1 = r.next().unwrap();
+    assert_eq!(r1.language_id, "cpp");
+    assert_eq!(r1.source, "auto xx = 0;\nauto yy = 0;");
+
+    let r2 = r.next().unwrap();
+    assert_eq!(r2.language_id, "rust");
+    assert_eq!(r2.source, "let xx = 0;\nlet yy = 0;");
 }

@@ -41,11 +41,11 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         return Err(vec.join("\n").into());
     }
 
-    write!(
-        &mut generated_cpp,
-        "int main() {{ static {} component; return 0; }}",
-        &doc.root_component.id
-    )?;
+    generated_cpp.write_all(b"int main() {\n")?;
+    for x in test_driver_lib::extract_test_functions(&source).filter(|x| x.language_id == "cpp") {
+        write!(generated_cpp, "  {{\n    {}\n  }}\n", x.source.replace("\n", "\n    "))?;
+    }
+    generated_cpp.write_all(b"}\n")?;
 
     //println!("CODE: {}", String::from_utf8(generated_cpp.clone())?);
 
