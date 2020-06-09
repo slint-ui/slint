@@ -5,12 +5,6 @@
 This crate should not be used directly by application using SixtyFPS.
 You should use the `sixtyfps` crate instead
 
-The different modules take the source code and transform into data structures
-according to the following schema
-
-```text
-source code -> parser -> object_tree -> lower -> generator
-```
 
 */
 
@@ -26,6 +20,7 @@ pub mod typeregister;
 
 mod passes {
     pub mod inlining;
+    pub mod lower_layout;
     pub mod move_declarations;
     pub mod resolving;
     pub mod unique_id;
@@ -38,6 +33,7 @@ pub fn run_passes(
 ) {
     passes::resolving::resolve_expressions(doc, diag, tr);
     passes::inlining::inline(doc);
+    passes::lower_layout::lower_layouts(&doc.root_component, diag);
     passes::unique_id::assign_unique_id(&doc.root_component);
     passes::move_declarations::move_declarations(&doc.root_component);
 }

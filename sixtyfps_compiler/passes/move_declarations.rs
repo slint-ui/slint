@@ -1,6 +1,6 @@
 //! This pass moves all declaration of properties or signal to the root
 
-use crate::{expression_tree::Expression, object_tree::*};
+use crate::{expression_tree::Expression, object_tree::*, typeregister::Type};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -15,6 +15,8 @@ impl Declarations {
 }
 
 pub fn move_declarations(component: &Rc<Component>) {
+    simplify_optimized_items(component.optimized_elements.borrow().as_slice());
+
     let mut decl = Declarations::take_from_element(&mut *component.root_element.borrow_mut());
 
     fn fixup_bindings_recursive(
@@ -34,9 +36,6 @@ pub fn move_declarations(component: &Rc<Component>) {
                 new_bindings.insert(k, e);
             }
         }
-        //bindings.retain(|name, e| true);
-        //component.root_element.borrow_mut().bindings.extend(bindings.)
-
         elem.borrow_mut().bindings = new_bindings;
         for c in &elem.borrow().children {
             fixup_bindings_recursive(c, component, new_root_bindings)
@@ -63,6 +62,11 @@ pub fn move_declarations(component: &Rc<Component>) {
         r.property_declarations = decl.property_declarations;
         r.bindings.extend(new_root_bindings.into_iter());
     }
+
+    // By now, the optimized item should be unused
+    #[cfg(debug_assertions)]
+    assert_optized_item_unused(component.optimized_elements.borrow().as_slice());
+    core::mem::take(&mut *component.optimized_elements.borrow_mut());
 }
 
 fn map_name(e: &Rc<RefCell<Element>>, s: &str) -> String {
@@ -90,4 +94,59 @@ fn fixup_bindings(val: &mut Expression, comp: &Rc<Component>) {
         _ => {}
     };
     val.visit_mut(|sub| fixup_bindings(sub, comp))
+}
+
+/// Optimized item are not used for the fact that they are items, but their properties
+/// might still be used.  So we must pretend all the properties are declared in the
+/// item itself so the move_declaration pass can move the delcaration in the component root
+fn simplify_optimized_items(items: &[Rc<RefCell<Element>>]) {
+    for elem in items {
+        let mut base_type_it = core::mem::take(&mut elem.borrow_mut().base_type);
+        loop {
+            base_type_it = match base_type_it {
+                Type::Component(c) => {
+                    elem.borrow_mut().property_declarations.extend(
+                        c.root_element
+                            .borrow()
+                            .property_declarations
+                            .iter()
+                            .map(|(k, v)| (k.clone(), v.clone())),
+                    );
+                    todo!(
+                        "Move the bindings from the component as well.
+                        But this actually should not happen because of inlining"
+                    );
+                    #[allow(unreachable_code)]
+                    c.root_element.borrow().base_type.clone()
+                }
+                Type::Builtin(c) => {
+                    // This assume that all properties of builtin items are fine with the default value
+                    elem.borrow_mut().property_declarations.extend(c.properties.iter().map(
+                        |(k, v)| {
+                            (
+                                k.clone(),
+                                PropertyDeclaration {
+                                    property_type: v.clone(),
+                                    ..Default::default()
+                                },
+                            )
+                        },
+                    ));
+                    Type::Invalid
+                }
+                _ => break,
+            }
+        }
+        simplify_optimized_items(elem.borrow().children.as_slice())
+    }
+}
+
+/// Check there are no longer references to optimized items
+#[cfg(debug_assertions)]
+fn assert_optized_item_unused(items: &[Rc<RefCell<Element>>]) {
+    for e in items {
+        assert_eq!(Rc::strong_count(e), 1);
+        assert_eq!(Rc::weak_count(e), 0);
+        assert_optized_item_unused(e.borrow().children.as_slice())
+    }
 }

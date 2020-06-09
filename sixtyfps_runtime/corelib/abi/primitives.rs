@@ -62,7 +62,7 @@ impl Item for Rectangle {
     }
 
     fn layouting_info(&self) -> LayoutInfo {
-        todo!()
+        Default::default()
     }
 
     fn input_event(&self, _: super::datastructures::MouseEvent, _: &crate::EvaluationContext) {}
@@ -108,7 +108,8 @@ impl Item for Image {
     }
 
     fn layouting_info(&self) -> LayoutInfo {
-        todo!()
+        // FIXME: should we use the image size here
+        Default::default()
     }
 
     fn input_event(&self, _: super::datastructures::MouseEvent, _: &crate::EvaluationContext) {}

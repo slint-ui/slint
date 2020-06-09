@@ -172,6 +172,17 @@ impl TypeRegister {
         touch_area.properties.insert("clicked".to_owned(), Type::Signal);
         r.types.insert("TouchArea".to_owned(), Type::Builtin(Rc::new(touch_area)));
 
+        let mut grid_layout = BuiltinElement::new("GridLayout");
+        grid_layout.properties.insert("x".to_owned(), Type::Float32);
+        grid_layout.properties.insert("y".to_owned(), Type::Float32);
+        grid_layout.properties.insert("width".to_owned(), Type::Float32);
+        grid_layout.properties.insert("height".to_owned(), Type::Float32);
+        r.types.insert("GridLayout".to_owned(), Type::Builtin(Rc::new(grid_layout)));
+
+        // Row can only be in a GridLayout
+        let row = BuiltinElement::new("Row");
+        r.types.insert("Row".to_owned(), Type::Builtin(Rc::new(row)));
+
         r
     }
 

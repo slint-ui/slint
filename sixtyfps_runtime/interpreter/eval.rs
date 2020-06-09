@@ -133,9 +133,9 @@ pub fn eval_expression(
                     let rhs = eval_expression(&**rhs, ctx, eval_context);
                     match (lhs, rhs, op) {
                         (Value::Number(a), Value::Number(b), '+') => Value::Number(a + b),
-                        (Value::Number(a), Value::Number(b), '-') => Value::Number(a + b),
-                        (Value::Number(a), Value::Number(b), '/') => Value::Number(a + b),
-                        (Value::Number(a), Value::Number(b), '*') => Value::Number(a + b),
+                        (Value::Number(a), Value::Number(b), '-') => Value::Number(a - b),
+                        (Value::Number(a), Value::Number(b), '/') => Value::Number(a / b),
+                        (Value::Number(a), Value::Number(b), '*') => Value::Number(a * b),
                         (lhs, rhs, op) => panic!("unsupported {:?} {} {:?}", lhs, op, rhs),
                     }
                 };

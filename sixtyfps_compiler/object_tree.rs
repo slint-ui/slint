@@ -46,6 +46,10 @@ pub struct Component {
     //     node: SyntaxNode,
     pub id: String,
     pub root_element: Rc<RefCell<Element>>,
+
+    /// List of elements that are not attached to the root anymore because they have been
+    /// optimized away, but their properties may still be in use
+    pub optimized_elements: RefCell<Vec<Rc<RefCell<Element>>>>,
 }
 
 impl Component {
@@ -58,6 +62,7 @@ impl Component {
                     Element::from_node(n, "root".into(), diag, tr)
                 }),
             )),
+            ..Default::default()
         }
     }
 
@@ -80,7 +85,7 @@ impl Component {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct PropertyDeclaration {
     pub property_type: Type,
     pub type_location: crate::diagnostics::Span,
