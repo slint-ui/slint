@@ -53,7 +53,15 @@ pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
 
     let mut tr = typeregister::TypeRegister::builtin();
     let doc = object_tree::Document::from_node(syntax_node, &mut diag, &mut tr);
-    run_passes(&doc, &mut diag, &mut tr);
+    let mut compiler_config = CompilerConfiguration::default();
+
+    if let Some(target) = env::var("TARGET").ok() {
+        if target == "wasm32-unknown-unknown" {
+            compiler_config.embed_resources = true;
+        }
+    };
+
+    run_passes(&doc, &mut diag, &mut tr, &compiler_config);
 
     if diag.has_error() {
         let vec = diag.inner.iter().map(|d| d.message.clone()).collect();

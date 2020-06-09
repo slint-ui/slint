@@ -7,6 +7,10 @@ namespace sixtyfps {
 
 union ResourceData {
     SharedString absolute_file_path;
+    struct {
+        void *ptr;
+        size_t len;
+    } slice;
 
     ResourceData() { }
     ~ResourceData() { }

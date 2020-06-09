@@ -1,3 +1,3 @@
 fn main() {
-    sixtyfps_build::compile("src/hello.60").unwrap();
+    sixtyfps_build::compile("../cpptest/hello.60").unwrap();
 }

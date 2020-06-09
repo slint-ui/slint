@@ -50,6 +50,11 @@ pub struct Component {
     /// List of elements that are not attached to the root anymore because they have been
     /// optimized away, but their properties may still be in use
     pub optimized_elements: RefCell<Vec<Rc<RefCell<Element>>>>,
+
+    /// Map of resources to embed in the generated binary, indexed by their absolute path on
+    /// disk on the build system and valued by a unique integer id, that can be used by the
+    /// generator for symbol generation.
+    pub embedded_file_resources: RefCell<HashMap<String, usize>>,
 }
 
 impl Component {

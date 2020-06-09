@@ -15,7 +15,8 @@ fn main() -> std::io::Result<()> {
     //println!("{:#?}", syntax_node);
     let mut tr = typeregister::TypeRegister::builtin();
     let doc = object_tree::Document::from_node(syntax_node, &mut diag, &mut tr);
-    run_passes(&doc, &mut diag, &mut tr);
+    let compiler_config = CompilerConfiguration::default();
+    run_passes(&doc, &mut diag, &mut tr, &compiler_config);
 
     let (mut diag, source) = diag.check_and_exit_on_error(source);
 

@@ -84,7 +84,7 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<TokenSt
                 quote!(#field_name.)
             };
             let rust_property = quote!(#rust_property_accessor_prefix#rust_property_ident);
-            let tokens_for_expression = compile_expression(binding_expression);
+            let tokens_for_expression = compile_expression(binding_expression, &component);
 
             if matches!(item.lookup_property(k.as_str()), Type::Signal) {
                 init.push(quote!(
@@ -114,7 +114,19 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<TokenSt
 
     let item_tree_array_len = item_tree_array.len();
 
+    let resource_symbols: Vec<proc_macro2::TokenStream> = component
+        .embedded_file_resources
+        .borrow()
+        .iter()
+        .map(|(path, id)| {
+            let symbol = quote::format_ident!("SFPS_EMBEDDED_RESOURCE_{}", id);
+            quote!(const #symbol: &'static [u8] = std::include_bytes!(#path);)
+        })
+        .collect();
+
     Some(quote!(
+        #(#resource_symbols)*
+
         use sixtyfps::re_exports::const_field_offset;
         #[derive(sixtyfps::re_exports::FieldOffsets)]
         #[repr(C)]
@@ -169,12 +181,12 @@ fn access_member(element: &Rc<RefCell<Element>>, name: &str) -> TokenStream {
     }
 }
 
-fn compile_expression(e: &Expression) -> TokenStream {
+fn compile_expression(e: &Expression, component: &Component) -> TokenStream {
     match e {
         Expression::StringLiteral(s) => quote!(sixtyfps::re_exports::SharedString::from(#s)),
         Expression::NumberLiteral(n) => quote!(#n as _),
         Expression::Cast { from, to } => {
-            let f = compile_expression(&*from);
+            let f = compile_expression(&*from, &component);
             match (from.ty(), to) {
                 (Type::Float32, Type::String) | (Type::Int32, Type::String) => {
                     quote!(sixtyfps::re_exports::SharedString::from(format!("{}", #f).as_str()))
@@ -187,7 +199,7 @@ fn compile_expression(e: &Expression) -> TokenStream {
             quote!(_self.#access.get(context))
         }
         Expression::CodeBlock(sub) => {
-            let map = sub.iter().map(|e| compile_expression(e));
+            let map = sub.iter().map(|e| compile_expression(e, &component));
             quote!({ #(#map);* })
         }
         Expression::SignalReference { element, name, .. } => {
@@ -196,7 +208,7 @@ fn compile_expression(e: &Expression) -> TokenStream {
         }
         Expression::FunctionCall { function } => {
             if matches!(function.ty(), Type::Signal) {
-                let base = compile_expression(function);
+                let base = compile_expression(function, &component);
                 quote!(#base.emit(&context, ()))
             } else {
                 let error = format!("the function {:?} is not a signal", e);
@@ -206,14 +218,19 @@ fn compile_expression(e: &Expression) -> TokenStream {
         Expression::SelfAssignement { lhs, rhs, op } => match &**lhs {
             Expression::PropertyReference { element, name, .. } => {
                 let lhs = access_member(&element.upgrade().unwrap(), name.as_str());
-                let rhs = compile_expression(&*rhs);
+                let rhs = compile_expression(&*rhs, &component);
                 let op = proc_macro2::Punct::new(*op, proc_macro2::Spacing::Alone);
                 quote!( _self.#lhs.set(_self.#lhs.get(context) #op &(#rhs) ))
             }
             _ => panic!("typechecking should make sure this was a PropertyReference"),
         },
         Expression::ResourceReference { absolute_source_path } => {
-            quote!(sixtyfps::re_exports::Resource::AbsoluteFilePath(sixtyfps::re_exports::SharedString::from(#absolute_source_path)))
+            if let Some(id) = component.embedded_file_resources.borrow().get(absolute_source_path) {
+                let symbol = quote::format_ident!("SFPS_EMBEDDED_RESOURCE_{}", id);
+                quote!(sixtyfps::re_exports::Resource::EmbeddedData{ptr: #symbol.as_ptr(), len: #symbol.len()})
+            } else {
+                quote!(sixtyfps::re_exports::Resource::AbsoluteFilePath(sixtyfps::re_exports::SharedString::from(#absolute_source_path)))
+            }
         }
         _ => {
             let error = format!("unsupported expression {:?}", e);

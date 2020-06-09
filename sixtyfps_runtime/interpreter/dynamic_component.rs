@@ -92,7 +92,8 @@ pub fn load(
     if !diag.inner.is_empty() {
         return Err(diag);
     }
-    run_passes(&tree, &mut diag, &mut tr);
+    let compiler_config = CompilerConfiguration::default();
+    run_passes(&tree, &mut diag, &mut tr, &compiler_config);
     if !diag.inner.is_empty() {
         return Err(diag);
     }

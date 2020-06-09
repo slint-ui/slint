@@ -19,6 +19,7 @@ pub mod parser;
 pub mod typeregister;
 
 mod passes {
+    pub mod collect_resources;
     pub mod inlining;
     pub mod lower_layout;
     pub mod move_declarations;
@@ -26,14 +27,23 @@ mod passes {
     pub mod unique_id;
 }
 
+#[derive(Default)]
+pub struct CompilerConfiguration {
+    pub embed_resources: bool,
+}
+
 pub fn run_passes(
     doc: &object_tree::Document,
     diag: &mut diagnostics::Diagnostics,
     tr: &mut typeregister::TypeRegister,
+    compiler_config: &CompilerConfiguration,
 ) {
     passes::resolving::resolve_expressions(doc, diag, tr);
     passes::inlining::inline(doc);
     passes::lower_layout::lower_layouts(&doc.root_component, diag);
     passes::unique_id::assign_unique_id(&doc.root_component);
     passes::move_declarations::move_declarations(&doc.root_component);
+    if compiler_config.embed_resources {
+        passes::collect_resources::collect_resources(&doc.root_component);
+    }
 }

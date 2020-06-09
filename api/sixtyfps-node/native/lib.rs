@@ -127,6 +127,7 @@ fn to_js_value<'cx>(val: interpreter::Value, cx: &mut impl Context<'cx>) -> Hand
         Value::Resource(r) => match r {
             Resource::None => JsUndefined::new().as_value(cx),
             Resource::AbsoluteFilePath(path) => JsString::new(cx, path.as_str()).as_value(cx),
+            Resource::EmbeddedData { .. } => JsNull::new().as_value(cx), // TODO: maybe pass around node buffers?
         },
     }
 }

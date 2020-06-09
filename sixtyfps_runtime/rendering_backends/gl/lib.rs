@@ -314,6 +314,11 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                             let image = image::open(image_path.as_path()).unwrap().into_rgba();
                             Some(self.create_image(image))
                         }
+                        Resource::EmbeddedData { ptr, len } => {
+                            let image_slice = unsafe { std::slice::from_raw_parts(*ptr, *len) };
+                            let image = image::load_from_memory(image_slice).unwrap().to_rgba();
+                            Some(self.create_image(image))
+                        }
                         Resource::None => None,
                     }
                 }

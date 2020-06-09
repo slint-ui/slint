@@ -208,12 +208,19 @@ impl Color {
 /// system or embedded in the resulting binary. Or they might be URLs to a web server and a downloaded
 /// is necessary before they can be used.
 #[derive(Clone, PartialEq, Debug)]
-#[repr(C)]
+#[repr(u8)]
 pub enum Resource {
     /// A resource that does not represent any data.
     None,
     /// A resource that points to a file in the file system
     AbsoluteFilePath(crate::SharedString),
+    /// A resource that is embedded in the program and accessible via pointer
+    EmbeddedData {
+        /// raw pointer to the read-only data
+        ptr: *const u8,
+        /// size of the embedded data
+        len: usize,
+    },
 }
 
 impl Default for Resource {
