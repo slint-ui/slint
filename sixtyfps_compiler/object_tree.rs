@@ -108,6 +108,9 @@ pub struct Element {
     pub children: Vec<Rc<RefCell<Element>>>,
 
     pub property_declarations: HashMap<String, PropertyDeclaration>,
+
+    /// The AST node, if available
+    pub node: Option<SyntaxNode>,
 }
 
 impl Element {
@@ -120,7 +123,12 @@ impl Element {
         debug_assert_eq!(node.kind(), SyntaxKind::Element);
         let base =
             QualifiedTypeName::from_node(node.child_node(SyntaxKind::QualifiedName).unwrap());
-        let mut r = Element { id, base_type: tr.lookup(&base.to_string()), ..Default::default() };
+        let mut r = Element {
+            id,
+            base_type: tr.lookup(&base.to_string()),
+            node: Some(node.clone()),
+            ..Default::default()
+        };
         if !r.base_type.is_object_type() {
             diag.push_error(
                 format!("Unknown type {}", base),
@@ -270,6 +278,11 @@ impl Element {
             .cloned()
             .map(|decl| decl.property_type)
             .unwrap_or_else(|| self.base_type.lookup_property(name))
+    }
+
+    /// Return the Span of this element in the AST for error reporting
+    pub fn span(&self) -> crate::diagnostics::Span {
+        self.node.as_ref().map(|n| n.span()).unwrap_or_default()
     }
 }
 

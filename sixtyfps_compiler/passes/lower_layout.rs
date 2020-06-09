@@ -13,9 +13,6 @@ pub fn lower_layouts(component: &Rc<Component>, diag: &mut Diagnostics) {
         component: &Rc<Component>,
         diag: &mut Diagnostics,
     ) {
-        for e in &elem.borrow().children {
-            lower_layouts_recursively(e, component, diag)
-        }
         let mut elem = elem.borrow_mut();
         let new_children = Vec::with_capacity(elem.children.len());
         let old_children = std::mem::replace(&mut elem.children, new_children);
@@ -23,18 +20,42 @@ pub fn lower_layouts(component: &Rc<Component>, diag: &mut Diagnostics) {
         for child in old_children {
             let is_layout =
                 if let crate::typeregister::Type::Builtin(be) = &child.borrow().base_type {
-                    be.class_name == "GridLayout" || be.class_name == "Row"
+                    if be.class_name == "Row" {
+                        diag.push_error(
+                            "Row can only be within a GridLayout element".to_owned(),
+                            child.borrow().span(),
+                        )
+                    }
+                    be.class_name == "GridLayout"
                 } else {
                     false
                 };
 
             if is_layout {
-                elem.children.append(&mut child.borrow_mut().children);
+                let child_children = std::mem::take(&mut child.borrow_mut().children);
+                for cc in child_children {
+                    let is_row =
+                        if let crate::typeregister::Type::Builtin(be) = &cc.borrow().base_type {
+                            be.class_name == "Row"
+                        } else {
+                            false
+                        };
+                    if is_row {
+                        // TODO: add the constraints
+                        elem.children.append(&mut cc.borrow_mut().children);
+                    } else {
+                        // TODO: add the constraints
+                        elem.children.push(cc);
+                    }
+                }
                 component.optimized_elements.borrow_mut().push(child);
                 continue;
             } else {
                 elem.children.push(child);
             }
+        }
+        for e in &elem.children {
+            lower_layouts_recursively(e, component, diag)
         }
     }
     lower_layouts_recursively(&component.root_element, component, diag)

@@ -103,6 +103,7 @@ fn duplicate_element_with_mapping(
             .iter()
             .map(|x| duplicate_element_with_mapping(x, mapping))
             .collect(),
+        node: elem.node.clone(),
     }));
     mapping.insert(element_key(element), new.clone());
     new
