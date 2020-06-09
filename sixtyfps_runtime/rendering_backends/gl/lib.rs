@@ -36,6 +36,34 @@ mod fontcache;
 #[cfg(not(target_arch = "wasm32"))]
 use fontcache::FontCache;
 
+#[cfg(not(target_arch = "wasm32"))]
+struct PlatformData {
+    font_cache: FontCache,
+    glyph_shader: GlyphShader,
+}
+
+#[cfg(target_arch = "wasm32")]
+struct PlatformData {}
+
+impl PlatformData {
+    #[cfg(not(target_arch = "wasm32"))]
+    fn new(context: &glow::Context) -> Self {
+        Self { font_cache: FontCache::default(), glyph_shader: GlyphShader::new(&context) }
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn new(_context: &glow::Context) -> Self {
+        Self {}
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn drop(&mut self, _context: &glow::Context) {}
+    #[cfg(not(target_arch = "wasm32"))]
+    fn drop(&mut self, context: &glow::Context) {
+        self.glyph_shader.drop(&context);
+    }
+}
+
 #[derive(Copy, Clone)]
 pub(crate) struct Vertex {
     _pos: [f32; 2],
@@ -71,11 +99,8 @@ pub struct GLRenderer {
     context: Rc<glow::Context>,
     path_shader: PathShader,
     image_shader: ImageShader,
-    #[cfg(not(target_arch = "wasm32"))]
-    glyph_shader: GlyphShader,
+    platform_data: Rc<RefCell<PlatformData>>,
     texture_atlas: Rc<RefCell<TextureAtlas>>,
-    #[cfg(not(target_arch = "wasm32"))]
-    font_cache: Rc<RefCell<FontCache>>,
     #[cfg(target_arch = "wasm32")]
     window: winit::window::Window,
     #[cfg(not(target_arch = "wasm32"))]
@@ -87,7 +112,7 @@ pub struct GLRenderingPrimitivesBuilder {
     fill_tesselator: FillTessellator,
     texture_atlas: Rc<RefCell<TextureAtlas>>,
     #[cfg(not(target_arch = "wasm32"))]
-    font_cache: Rc<RefCell<FontCache>>,
+    platform_data: Rc<RefCell<PlatformData>>,
 
     #[cfg(not(target_arch = "wasm32"))]
     windowed_context: glutin::WindowedContext<glutin::PossiblyCurrent>,
@@ -98,7 +123,7 @@ pub struct GLFrame {
     path_shader: PathShader,
     image_shader: ImageShader,
     #[cfg(not(target_arch = "wasm32"))]
-    glyph_shader: GlyphShader,
+    platform_data: Rc<RefCell<PlatformData>>,
     root_matrix: cgmath::Matrix4<f32>,
     #[cfg(not(target_arch = "wasm32"))]
     windowed_context: glutin::WindowedContext<glutin::PossiblyCurrent>,
@@ -159,18 +184,14 @@ impl GLRenderer {
 
         let path_shader = PathShader::new(&context);
         let image_shader = ImageShader::new(&context);
-        #[cfg(not(target_arch = "wasm32"))]
-        let glyph_shader = GlyphShader::new(&context);
+        let platform_data = Rc::new(RefCell::new(PlatformData::new(&context)));
 
         GLRenderer {
             context: Rc::new(context),
             path_shader,
             image_shader,
-            #[cfg(not(target_arch = "wasm32"))]
-            glyph_shader,
+            platform_data,
             texture_atlas: Rc::new(RefCell::new(TextureAtlas::new())),
-            #[cfg(not(target_arch = "wasm32"))]
-            font_cache: Rc::new(RefCell::new(FontCache::default())),
             #[cfg(target_arch = "wasm32")]
             window,
             #[cfg(not(target_arch = "wasm32"))]
@@ -204,7 +225,7 @@ impl GraphicsBackend for GLRenderer {
             fill_tesselator: FillTessellator::new(),
             texture_atlas: self.texture_atlas.clone(),
             #[cfg(not(target_arch = "wasm32"))]
-            font_cache: self.font_cache.clone(),
+            platform_data: self.platform_data.clone(),
 
             #[cfg(not(target_arch = "wasm32"))]
             windowed_context: current_windowed_context,
@@ -242,7 +263,7 @@ impl GraphicsBackend for GLRenderer {
             path_shader: self.path_shader.clone(),
             image_shader: self.image_shader.clone(),
             #[cfg(not(target_arch = "wasm32"))]
-            glyph_shader: self.glyph_shader.clone(),
+            platform_data: self.platform_data.clone(),
             root_matrix: cgmath::ortho(0.0, width as f32, height as f32, 0.0, -1., 1.0),
             #[cfg(not(target_arch = "wasm32"))]
             windowed_context: current_windowed_context,
@@ -258,7 +279,6 @@ impl GraphicsBackend for GLRenderer {
                 Some(unsafe { _frame.windowed_context.make_not_current().unwrap() });
         }
     }
-
     fn window(&self) -> &winit::window::Window {
         #[cfg(not(target_arch = "wasm32"))]
         return self.windowed_context.as_ref().unwrap().window();
@@ -372,7 +392,8 @@ impl GLRenderingPrimitivesBuilder {
         pixel_size: f32,
         color: Color,
     ) -> GLRenderingPrimitive {
-        let mut font_cache = self.font_cache.borrow_mut();
+        let mut pd = self.platform_data.borrow_mut();
+        let font_cache = &mut pd.font_cache;
         let font = font_cache.find_font(font_family, pixel_size);
         let mut font = font.borrow_mut();
         let glyphs =
@@ -569,7 +590,7 @@ impl GraphicsFrame for GLFrame {
                 let (r, g, b, a) = color.as_rgba_f32();
 
                 for GlyphRun { vertices, texture_vertices, texture, vertex_count } in glyph_runs {
-                    self.glyph_shader.bind(
+                    self.platform_data.borrow().glyph_shader.bind(
                         &self.context,
                         &gl_matrix,
                         &[r, g, b, a],
@@ -592,8 +613,7 @@ impl Drop for GLRenderer {
     fn drop(&mut self) {
         self.path_shader.drop(&self.context);
         self.image_shader.drop(&self.context);
-        #[cfg(not(target_arch = "wasm32"))]
-        self.glyph_shader.drop(&self.context);
+        self.platform_data.borrow_mut().drop(&self.context);
     }
 }
 
