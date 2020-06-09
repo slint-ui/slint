@@ -52,7 +52,8 @@ fn process_file_source(
     let mut tr = sixtyfps_compilerlib::typeregister::TypeRegister::builtin();
     let doc = sixtyfps_compilerlib::object_tree::Document::from_node(res, &mut diag, &mut tr);
     if !diag.has_error() {
-        sixtyfps_compilerlib::run_passes(&doc, &mut diag, &mut tr);
+        let compiler_config = sixtyfps_compilerlib::CompilerConfiguration::default();
+        sixtyfps_compilerlib::run_passes(&doc, &mut diag, &mut tr, &compiler_config);
     }
 
     //let mut errors = std::collections::HashSet::from_iter(diag.inner.into_iter());
