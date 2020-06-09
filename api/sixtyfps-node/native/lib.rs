@@ -1,7 +1,7 @@
 use core::cell::RefCell;
-use corelib::abi::datastructures::{ComponentBox, ComponentRef};
 use neon::prelude::*;
 use sixtyfps_compilerlib::typeregister::Type;
+use sixtyfps_corelib::abi::datastructures::{ComponentBox, ComponentRef};
 use std::rc::Rc;
 
 mod persistent_context;

@@ -36,7 +36,7 @@ impl SharedString {
     /// Append a string to this string
     ///
     /// ```
-    /// # use corelib::SharedString;
+    /// # use sixtyfps_corelib::SharedString;
     /// let mut hello = SharedString::from("Hello");
     /// hello.push_str(", ");
     /// hello.push_str("World");

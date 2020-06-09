@@ -6,7 +6,7 @@ edition = "2018"
 
 
 [dependencies]
-corelib = { path="../../sixtyfps_runtime/corelib" }
+sixtyfps_corelib = { path="../../sixtyfps_runtime/corelib" }
 vtable = { path="../../helper_crates/vtable" }
 interpreter = { path = "../../sixtyfps_runtime/interpreter" }
 # FIXME: make optional and configurable backends

@@ -69,14 +69,16 @@ pub use sixtyfps_rs_macro::sixtyfps;
 #[doc(hidden)]
 pub mod re_exports {
     pub use const_field_offset::{self, FieldOffsets};
-    pub use corelib::abi::datastructures::{Component, ComponentTO, ComponentVTable, ItemTreeNode};
-    pub use corelib::abi::primitives::*;
-    pub use corelib::abi::properties::Property;
-    pub use corelib::abi::signals::Signal;
-    pub use corelib::ComponentVTable_static;
-    pub use corelib::EvaluationContext;
-    pub use corelib::SharedString;
     pub use once_cell::sync::Lazy;
+    pub use sixtyfps_corelib::abi::datastructures::{
+        Component, ComponentTO, ComponentVTable, ItemTreeNode,
+    };
+    pub use sixtyfps_corelib::abi::primitives::*;
+    pub use sixtyfps_corelib::abi::properties::Property;
+    pub use sixtyfps_corelib::abi::signals::Signal;
+    pub use sixtyfps_corelib::ComponentVTable_static;
+    pub use sixtyfps_corelib::EvaluationContext;
+    pub use sixtyfps_corelib::SharedString;
     pub use sixtyfps_rendering_backend_gl::sixtyfps_runtime_run_component_with_gl_renderer;
     pub use vtable::{self, *};
 }

@@ -2,12 +2,14 @@ use crate::{dynamic_type, eval};
 
 use core::cell::RefCell;
 use core::ptr::NonNull;
-use corelib::abi::datastructures::{ComponentBox, ComponentRef, ComponentVTable, ItemVTable};
-use corelib::rtti::PropertyInfo;
-use corelib::{EvaluationContext, Property, SharedString};
 use object_tree::Element;
 use sixtyfps_compilerlib::typeregister::Type;
 use sixtyfps_compilerlib::*;
+use sixtyfps_corelib::abi::datastructures::{
+    ComponentBox, ComponentRef, ComponentVTable, ItemTreeNode, ItemVTable,
+};
+use sixtyfps_corelib::rtti::PropertyInfo;
+use sixtyfps_corelib::{rtti, EvaluationContext, Property, SharedString, Signal};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -39,7 +41,7 @@ pub struct ComponentImpl {
 pub struct MyComponentType {
     pub(crate) ct: ComponentVTable,
     dynamic_type: Rc<dynamic_type::TypeInfo>,
-    it: Vec<corelib::abi::datastructures::ItemTreeNode>,
+    it: Vec<ItemTreeNode>,
     pub(crate) items: HashMap<String, ItemWithinComponent>,
     pub(crate) custom_properties: HashMap<String, PropertiesWithinComponent>,
     /// the usize is the offset within `mem` to the Signal<()>
@@ -48,7 +50,7 @@ pub struct MyComponentType {
     pub(crate) original: object_tree::Document,
 }
 
-extern "C" fn item_tree(r: ComponentRef<'_>) -> *const corelib::abi::datastructures::ItemTreeNode {
+extern "C" fn item_tree(r: ComponentRef<'_>) -> *const ItemTreeNode {
     // FIXME! unsafe is not correct here, as the ComponentVTable might not be a MyComponentType
     // (one can safely take a copy of the vtable and call the create function to get a box)
     unsafe { (*(r.get_vtable() as *const ComponentVTable as *const MyComponentType)).it.as_ptr() }
@@ -63,9 +65,8 @@ pub(crate) struct RuntimeTypeInfo {
     pub(crate) signals: HashMap<&'static str, usize>,
 }
 
-fn rtti_for<
-    T: 'static + Default + corelib::rtti::BuiltinItem + vtable::HasStaticVTable<ItemVTable>,
->() -> (&'static str, Rc<RuntimeTypeInfo>) {
+fn rtti_for<T: 'static + Default + rtti::BuiltinItem + vtable::HasStaticVTable<ItemVTable>>(
+) -> (&'static str, Rc<RuntimeTypeInfo>) {
     (
         T::name(),
         Rc::new(RuntimeTypeInfo {
@@ -98,7 +99,7 @@ pub fn load(
 
     let mut rtti = HashMap::new();
     {
-        use corelib::abi::primitives::*;
+        use sixtyfps_corelib::abi::primitives::*;
         rtti.extend(
             [
                 rtti_for::<Image>(),
@@ -120,7 +121,7 @@ pub fn load(
         let item = rc_item.borrow();
         let rt = &rtti[&*item.base_type.as_builtin().class_name];
         let offset = builder.add_field(rt.type_info);
-        tree_array.push(corelib::abi::datastructures::ItemTreeNode::Item {
+        tree_array.push(ItemTreeNode::Item {
             offset: offset as isize,
             vtable: rt.vtable,
             children_index: child_offset,
@@ -155,8 +156,7 @@ pub fn load(
             Type::Image => property_info::<SharedString>(),
             Type::Bool => property_info::<bool>(),
             Type::Signal => {
-                custom_signals
-                    .insert(name.clone(), builder.add_field_type::<corelib::Signal<()>>());
+                custom_signals.insert(name.clone(), builder.add_field_type::<Signal<()>>());
                 continue;
             }
             _ => panic!("bad type"),
@@ -225,7 +225,7 @@ pub fn instentiate(component_type: Rc<MyComponentType>) -> ComponentBox {
                                 .map(|o| mem.add(*o))
                         })
                         .unwrap_or_else(|| panic!("unkown signal {}", prop))
-                        as *mut corelib::Signal<()>);
+                        as *mut Signal<()>);
                     let expr = expr.clone();
                     let ctx = ctx.clone();
                     signal.set_handler(move |eval_context, _| {
