@@ -12,3 +12,6 @@ sixtyfps = { path = "../../api/sixtyfps-rs" }
 wasm-bindgen = { version = "0.2" }
 web_sys = { version = "0.3", package = "web-sys", features=["console"] }
 console_error_panic_hook = "0.1.5"
+
+[build-dependencies]
+sixtyfps-build = { path = "../../api/sixtyfps-rs/sixtyfps-build" }
