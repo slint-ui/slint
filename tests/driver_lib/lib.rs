@@ -1,5 +1,5 @@
 use cargo_metadata::diagnostic::DiagnosticLevel;
-use cargo_metadata::Message;
+pub use cargo_metadata::Message;
 use regex::Regex;
 use std::error::Error;
 use std::process::Command;
@@ -8,7 +8,7 @@ pub fn run_cargo(
     cargo_command: &str,
     sub_command: &str,
     params: &[&str],
-    mut message_handler: impl FnMut(&cargo_metadata::Message) -> Result<(), Box<dyn Error>>,
+    mut message_handler: impl FnMut(&Message) -> Result<(), Box<dyn Error>>,
 ) -> Result<std::process::ExitStatus, Box<dyn Error>> {
     let mut cmd = Command::new(cargo_command)
         .arg(sub_command)
