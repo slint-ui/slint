@@ -1,22 +1,6 @@
-use lazy_static::lazy_static;
 use sixtyfps_compilerlib::*;
 use std::error::Error;
 use std::io::Write;
-
-lazy_static! {
-    static ref NATIVE_LIBRARY_DEPENDENCIES: Vec<String> = {
-        println!("Calling into cargo to figure out the list of native library dependencies...");
-        test_driver_lib::native_library_dependencies(
-            env!("CARGO"),
-            &[],
-            "sixtyfps_rendering_backend_gl",
-        )
-        .unwrap()
-        .split(" ")
-        .map(String::from)
-        .collect()
-    };
-}
 
 pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> {
     let source = std::fs::read_to_string(&testcase.absolute_path)?;
@@ -88,8 +72,6 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         compiler_command.arg(concat!("-L", env!("CPP_LIB_PATH")));
         compiler_command.arg("-lsixtyfps_rendering_backend_gl");
     }
-
-    compiler_command.args(&*NATIVE_LIBRARY_DEPENDENCIES);
 
     let output = compiler_command.output()?;
     print!("{}", String::from_utf8_lossy(output.stderr.as_ref()));

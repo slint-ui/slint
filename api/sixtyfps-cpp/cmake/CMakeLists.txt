@@ -7,7 +7,7 @@ add_library(SixtyFPS INTERFACE)
 foreach(lib_path IN LISTS SIXTYFPS_INTERNAL_LIBS)
     get_filename_component(lib_name "${lib_path}" NAME_WE)
 
-    add_library(${lib_name} STATIC IMPORTED)
+    add_library(${lib_name} SHARED IMPORTED)
     set_property(TARGET ${lib_name} PROPERTY IMPORTED_LOCATION "${lib_path}")
 
     target_link_libraries(SixtyFPS INTERFACE ${lib_name})

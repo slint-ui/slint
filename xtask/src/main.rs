@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::path::PathBuf;
 use structopt::StructOpt;
-use test_driver_lib::{native_library_dependencies, run_cargo};
+use test_driver_lib::run_cargo;
 
 #[derive(Debug, StructOpt)]
 pub struct CMakeCommand {
@@ -44,23 +44,31 @@ impl CMakeCommand {
     fn collect_native_libraries(
         &self,
         build_params: &[&str],
-    ) -> Result<(Option<PathBuf>, Vec<PathBuf>, String), Box<dyn Error>> {
+    ) -> Result<(Option<PathBuf>, Vec<PathBuf>), Box<dyn Error>> {
         use cargo_metadata::Message;
 
         let mut library_artifacts: Vec<PathBuf> = vec![];
 
         let mut target_dir = None;
 
-        let mut params = vec!["-p", "sixtyfps_rendering_backend_gl"];
+        let mut params = vec!["-p", "corelib", "-p", "sixtyfps_rendering_backend_gl"];
         params.extend(build_params);
+
+        let mut first_lib: PathBuf = PathBuf::new();
 
         run_cargo(&cargo(), "build", &params, |message| {
             match message {
                 Message::CompilerArtifact(ref artifact) => {
+                    if artifact.target.name != "sixtyfps_rendering_backend_gl"
+                        && artifact.target.name != "corelib"
+                    {
+                        return Ok(());
+                    }
+
                     if let Some(native_lib_filename) =
                         artifact.filenames.iter().find_map(|filename| {
                             if let Some(ext) = filename.extension() {
-                                if ext == "a" || ext == "lib" {
+                                if ext == "so" || ext == "dylib" || ext == "dll" {
                                     Some(filename)
                                 } else {
                                     None
@@ -75,10 +83,11 @@ impl CMakeCommand {
 
                         if let Some(previously_found_target_dir) = &target_dir {
                             if native_lib_dir != *previously_found_target_dir {
-                                return Err(format!("Unexpected artifact location found: Expected directory {:?} but found artifact in {:?}", previously_found_target_dir, native_lib_dir).into());
+                                return Err(format!("Unexpected artifact location found: Expected directory {:?} from {} but found artifact {} in {:?}", previously_found_target_dir, first_lib.display(), native_lib_filename.display(), native_lib_dir).into());
                             }
                         } else {
                             target_dir = Some(native_lib_dir.clone());
+                            first_lib = native_lib_filename.clone();
                         }
 
                         library_artifacts.push(native_lib_filename.clone());
@@ -89,10 +98,7 @@ impl CMakeCommand {
             Ok(())
         })?;
 
-        let native_library_dependencies =
-            native_library_dependencies(&cargo(), build_params, "sixtyfps_rendering_backend_gl")?;
-
-        Ok((target_dir, library_artifacts, native_library_dependencies))
+        Ok((target_dir, library_artifacts))
     }
 
     fn build_cmake(&self) -> Result<(), Box<dyn Error>> {
@@ -110,8 +116,7 @@ impl CMakeCommand {
             params.push(&target_triplet);
         }
 
-        let (output_dir, library_artifacts, native_library_dependencies) =
-            self.collect_native_libraries(&params)?;
+        let (output_dir, library_artifacts) = self.collect_native_libraries(&params)?;
 
         if library_artifacts.is_empty() {
             return Err("Could not detect any native libraries in the build output".into());
@@ -128,9 +133,6 @@ impl CMakeCommand {
                 .collect::<Vec<String>>()
                 .join(";"),
         );
-
-        let mut external_libs_list = String::from("-DSIXTYFPS_EXTERNAL_LIBS=");
-        external_libs_list.push_str(&native_library_dependencies);
 
         let source_dir = root_dir()?.join("api/sixtyfps-cpp/cmake");
         let binary_dir = output_dir;
@@ -149,7 +151,6 @@ impl CMakeCommand {
 
         let cmake_configure_status = cmd
             .arg(libs_list)
-            .arg(external_libs_list)
             .arg("-S")
             .arg(source_dir)
             .arg("-B")

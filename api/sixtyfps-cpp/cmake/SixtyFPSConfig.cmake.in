@@ -9,8 +9,8 @@ if(_IMPORT_PREFIX STREQUAL "/")
 endif()
 
 foreach(internal_lib IN ITEMS @internal_libs@)
-    add_library(${internal_lib} STATIC IMPORTED)
-    set(fn "${internal_lib}${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    add_library(${internal_lib} SHARED IMPORTED)
+    set(fn "${internal_lib}${CMAKE_SHARED_LIBRARY_SUFFIX}")
     # Don't look in lib when we're inside a cargo tree, as cargo doesn't use a lib/ sub-dir.
     if(EXISTS "${_IMPORT_PREFIX}/${fn}")
     else()
