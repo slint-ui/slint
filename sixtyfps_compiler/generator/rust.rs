@@ -212,6 +212,9 @@ fn compile_expression(e: &Expression) -> TokenStream {
             }
             _ => panic!("typechecking should make sure this was a PropertyReference"),
         },
+        Expression::ResourceReference { absolute_source_path } => {
+            quote!(sixtyfps::re_exports::Resource::AbsoluteFilePath(sixtyfps::re_exports::SharedString::from(#absolute_source_path)))
+        }
         _ => {
             let error = format!("unsupported expression {:?}", e);
             quote!(compile_error! {#error})

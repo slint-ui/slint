@@ -5,7 +5,7 @@ use itertools::Itertools;
 use lyon::tessellation::geometry_builder::{BuffersBuilder, VertexBuffers};
 use lyon::tessellation::{FillAttributes, FillOptions, FillTessellator};
 use sixtyfps_corelib::abi::datastructures::{
-    Color, ComponentVTable, Point, Rect, RenderingPrimitive, Size,
+    Color, ComponentVTable, Point, Rect, RenderingPrimitive, Resource, Size,
 };
 use sixtyfps_corelib::graphics::{
     FillStyle, Frame as GraphicsFrame, GraphicsBackend, HasRenderingPrimitive,
@@ -306,11 +306,16 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                     Some(self.create_path(&rect_path.build(), FillStyle::SolidColor(*color)))
                 }
                 RenderingPrimitive::Image { x: _, y: _, source } => {
-                    let mut image_path = std::env::current_exe().unwrap();
-                    image_path.pop(); // pop of executable name
-                    image_path.push(&*source.clone());
-                    let image = image::open(image_path.as_path()).unwrap().into_rgba();
-                    Some(self.create_image(image))
+                    match source {
+                        Resource::AbsoluteFilePath(path) => {
+                            let mut image_path = std::env::current_exe().unwrap();
+                            image_path.pop(); // pop of executable name
+                            image_path.push(&*path.clone());
+                            let image = image::open(image_path.as_path()).unwrap().into_rgba();
+                            Some(self.create_image(image))
+                        }
+                        Resource::None => None,
+                    }
                 }
                 RenderingPrimitive::Text {
                     x: _,

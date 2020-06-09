@@ -11,7 +11,7 @@ macro_rules! declare_ValueType {
         pub trait ValueType: 'static $(+ TryInto<$ty> + TryFrom<$ty>)* {}
     };
 }
-declare_ValueType![bool, u32, u64, i32, i64, f32, f64, crate::SharedString];
+declare_ValueType![bool, u32, u64, i32, i64, f32, f64, crate::SharedString, crate::Resource];
 
 pub trait PropertyInfo<Item, Value> {
     fn get(&self, item: &Item, context: &crate::EvaluationContext) -> Result<Value, ()>;

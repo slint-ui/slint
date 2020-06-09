@@ -5,7 +5,7 @@ SubElements := Rectangle {
     color: blue;
 
     Image {
-        source: "foo.png";
+        source: img!"foo.png";
     }
 
 

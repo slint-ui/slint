@@ -16,7 +16,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 #![allow(missing_docs)] // because documenting each property of items is redundent
 
 use super::datastructures::{
-    CachedRenderingData, Color, Item, ItemConsts, LayoutInfo, Rect, RenderingPrimitive,
+    CachedRenderingData, Color, Item, ItemConsts, LayoutInfo, Rect, RenderingPrimitive, Resource,
 };
 use crate::rtti::*;
 use crate::{EvaluationContext, Property, SharedString, Signal};
@@ -81,8 +81,7 @@ pub use crate::abi::datastructures::RectangleVTable;
 #[derive(FieldOffsets, Default, BuiltinItem)]
 /// The implementation of the `Image` element
 pub struct Image {
-    /// FIXME: make it a image source
-    pub source: Property<SharedString>,
+    pub source: Property<Resource>,
     pub x: Property<f32>,
     pub y: Property<f32>,
     pub width: Property<f32>,

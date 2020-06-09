@@ -1,5 +1,5 @@
 use cgmath::{Matrix4, SquareMatrix, Vector3};
-use sixtyfps_corelib::abi::datastructures::{Color, RenderingPrimitive};
+use sixtyfps_corelib::abi::datastructures::{Color, RenderingPrimitive, Resource};
 use sixtyfps_corelib::graphics::{
     Frame, GraphicsBackend, RenderingCache, RenderingPrimitivesBuilder,
 };
@@ -57,7 +57,7 @@ fn main() {
         let image_primitive = rendering_primitives_builder.create(RenderingPrimitive::Image {
             x: 0.,
             y: 0.,
-            source: logo_path.to_str().unwrap().into(),
+            source: Resource::AbsoluteFilePath(logo_path.to_str().unwrap().into()),
         });
 
         render_cache.allocate_entry(image_primitive)

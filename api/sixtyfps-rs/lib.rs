@@ -78,6 +78,7 @@ pub mod re_exports {
     pub use sixtyfps_corelib::abi::signals::Signal;
     pub use sixtyfps_corelib::ComponentVTable_static;
     pub use sixtyfps_corelib::EvaluationContext;
+    pub use sixtyfps_corelib::Resource;
     pub use sixtyfps_corelib::SharedString;
     pub use sixtyfps_rendering_backend_gl::sixtyfps_runtime_run_component_with_gl_renderer;
     pub use vtable::{self, *};

@@ -1,7 +1,7 @@
 use core::cell::RefCell;
 use neon::prelude::*;
 use sixtyfps_compilerlib::typeregister::Type;
-use sixtyfps_corelib::abi::datastructures::{ComponentBox, ComponentRef};
+use sixtyfps_corelib::abi::datastructures::{ComponentBox, ComponentRef, Resource};
 use std::rc::Rc;
 
 mod persistent_context;
@@ -112,7 +112,7 @@ fn to_eval_value<'cx>(
         }
         Type::String => Ok(Value::String(val.to_string(cx)?.value().as_str().into())),
         Type::Color => todo!(),
-        Type::Image => todo!(),
+        Type::Resource => Ok(Value::String(val.to_string(cx)?.value().as_str().into())),
         Type::Bool => Ok(Value::Bool(val.downcast_or_throw::<JsBoolean, _>(cx)?.value())),
     }
 }
@@ -124,6 +124,10 @@ fn to_js_value<'cx>(val: interpreter::Value, cx: &mut impl Context<'cx>) -> Hand
         Value::Number(n) => JsNumber::new(cx, n).as_value(cx),
         Value::String(s) => JsString::new(cx, s.as_str()).as_value(cx),
         Value::Bool(b) => JsBoolean::new(cx, b).as_value(cx),
+        Value::Resource(r) => match r {
+            Resource::None => JsUndefined::new().as_value(cx),
+            Resource::AbsoluteFilePath(path) => JsString::new(cx, path.as_str()).as_value(cx),
+        },
     }
 }
 

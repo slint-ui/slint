@@ -6,7 +6,7 @@ use object_tree::Element;
 use sixtyfps_compilerlib::typeregister::Type;
 use sixtyfps_compilerlib::*;
 use sixtyfps_corelib::abi::datastructures::{
-    ComponentBox, ComponentRef, ComponentVTable, ItemTreeNode, ItemVTable,
+    ComponentBox, ComponentRef, ComponentVTable, ItemTreeNode, ItemVTable, Resource,
 };
 use sixtyfps_corelib::rtti::PropertyInfo;
 use sixtyfps_corelib::{rtti, EvaluationContext, Property, SharedString, Signal};
@@ -153,7 +153,7 @@ pub fn load(
             Type::Int32 => property_info::<u32>(),
             Type::String => property_info::<SharedString>(),
             Type::Color => property_info::<u32>(),
-            Type::Image => property_info::<SharedString>(),
+            Type::Resource => property_info::<Resource>(),
             Type::Bool => property_info::<bool>(),
             Type::Signal => {
                 custom_signals.insert(name.clone(), builder.add_field_type::<Signal<()>>());

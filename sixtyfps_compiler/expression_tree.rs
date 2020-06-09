@@ -18,27 +18,44 @@ pub enum Expression {
     /// Reference to the signal <name> in the <element> within the <Component>
     ///
     /// Note: if we are to separate expression and statement, we probably do not need to have signal reference within expressions
-    SignalReference { component: Weak<Component>, element: Weak<RefCell<Element>>, name: String },
+    SignalReference {
+        component: Weak<Component>,
+        element: Weak<RefCell<Element>>,
+        name: String,
+    },
 
     /// Reference to the signal <name> in the <element> within the <Component>
     ///
     /// Note: if we are to separate expression and statement, we probably do not need to have signal reference within expressions
-    PropertyReference { component: Weak<Component>, element: Weak<RefCell<Element>>, name: String },
+    PropertyReference {
+        component: Weak<Component>,
+        element: Weak<RefCell<Element>>,
+        name: String,
+    },
 
     /// Cast an expression to the given type
-    Cast { from: Box<Expression>, to: Type },
+    Cast {
+        from: Box<Expression>,
+        to: Type,
+    },
 
     /// a code block with different expression
     CodeBlock(Vec<Expression>),
 
     /// A function call
-    FunctionCall { function: Box<Expression> },
+    FunctionCall {
+        function: Box<Expression>,
+    },
 
     SelfAssignement {
         lhs: Box<Expression>,
         rhs: Box<Expression>,
         /// '+', '-', '/', or '*'
         op: char,
+    },
+
+    ResourceReference {
+        absolute_source_path: String,
     },
 }
 
@@ -58,6 +75,7 @@ impl Expression {
             Expression::CodeBlock(sub) => sub.last().map_or(Type::Invalid, |e| e.ty()),
             Expression::FunctionCall { function } => function.ty(),
             Expression::SelfAssignement { .. } => Type::Invalid,
+            Expression::ResourceReference { .. } => Type::Resource,
         }
     }
 
@@ -81,6 +99,7 @@ impl Expression {
                 visitor(&**lhs);
                 visitor(&**rhs);
             }
+            Expression::ResourceReference { .. } => {}
         }
     }
 
@@ -103,6 +122,7 @@ impl Expression {
                 visitor(&mut **lhs);
                 visitor(&mut **rhs);
             }
+            Expression::ResourceReference { .. } => {}
         }
     }
 
@@ -118,6 +138,7 @@ impl Expression {
             Expression::CodeBlock(sub) => sub.len() == 1 && sub.first().unwrap().is_constant(),
             Expression::FunctionCall { .. } => false,
             Expression::SelfAssignement { .. } => false,
+            Expression::ResourceReference { .. } => true,
         }
     }
 }

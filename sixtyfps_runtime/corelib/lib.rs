@@ -29,6 +29,9 @@ pub mod rtti;
 pub use abi::string::SharedString;
 
 #[doc(inline)]
+pub use abi::datastructures::Resource;
+
+#[doc(inline)]
 pub use abi::properties::{EvaluationContext, Property};
 
 #[doc(inline)]

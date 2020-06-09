@@ -15,7 +15,7 @@ pub enum Type {
     Int32,
     String,
     Color,
-    Image,
+    Resource,
     Bool,
 }
 
@@ -30,7 +30,7 @@ impl core::cmp::PartialEq for Type {
             (Type::Int32, Type::Int32) => true,
             (Type::String, Type::String) => true,
             (Type::Color, Type::Color) => true,
-            (Type::Image, Type::Image) => true,
+            (Type::Resource, Type::Resource) => true,
             (Type::Bool, Type::Bool) => true,
             _ => false,
         }
@@ -48,7 +48,7 @@ impl Display for Type {
             Type::Int32 => write!(f, "int32"),
             Type::String => write!(f, "string"),
             Type::Color => write!(f, "color"),
-            Type::Image => write!(f, "image"),
+            Type::Resource => write!(f, "resource"),
             Type::Bool => write!(f, "bool"),
         }
     }
@@ -63,7 +63,7 @@ impl Type {
     pub fn is_property_type(&self) -> bool {
         matches!(
             self,
-            Self::Float32 | Self::Int32 | Self::String | Self::Color | Self::Image | Self::Bool
+            Self::Float32 | Self::Int32 | Self::String | Self::Color | Self::Resource | Self::Bool
         )
     }
 
@@ -95,7 +95,6 @@ impl Type {
                     // FIXME: REMOVE
                     | (Type::Float32, Type::Color)
                     | (Type::Int32, Type::Color)
-                    | (Type::String, Type::Image)
             )
     }
 }
@@ -135,7 +134,7 @@ impl TypeRegister {
         instert_type(Type::Int32);
         instert_type(Type::String);
         instert_type(Type::Color);
-        instert_type(Type::Image);
+        instert_type(Type::Resource);
         instert_type(Type::Bool);
 
         let mut rectangle = BuiltinElement::new("Rectangle");
@@ -147,7 +146,7 @@ impl TypeRegister {
         r.types.insert("Rectangle".to_owned(), Type::Builtin(Rc::new(rectangle)));
 
         let mut image = BuiltinElement::new("Image");
-        image.properties.insert("source".to_owned(), Type::Image);
+        image.properties.insert("source".to_owned(), Type::Resource);
         image.properties.insert("x".to_owned(), Type::Float32);
         image.properties.insert("y".to_owned(), Type::Float32);
         image.properties.insert("width".to_owned(), Type::Float32);

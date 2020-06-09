@@ -1,7 +1,7 @@
 use sixtyfps_compilerlib::expression_tree::Expression;
 use sixtyfps_compilerlib::typeregister::Type;
 use sixtyfps_corelib as corelib;
-use sixtyfps_corelib::{abi::datastructures::ItemRef, EvaluationContext, SharedString};
+use sixtyfps_corelib::{abi::datastructures::ItemRef, EvaluationContext, Resource, SharedString};
 use std::convert::{TryFrom, TryInto};
 
 pub trait ErasedPropertyInfo {
@@ -30,6 +30,7 @@ pub enum Value {
     Number(f64),
     String(SharedString),
     Bool(bool),
+    Resource(Resource),
 }
 
 impl corelib::rtti::ValueType for Value {}
@@ -59,6 +60,7 @@ macro_rules! declare_value_conversion {
 declare_value_conversion!(Number => [u32, u64, i32, i64, f32, f64] );
 declare_value_conversion!(String => [SharedString] );
 declare_value_conversion!(Bool => [bool] );
+declare_value_conversion!(Resource => [Resource] );
 
 pub fn eval_expression(
     e: &Expression,
@@ -160,5 +162,8 @@ pub fn eval_expression(
             }
             _ => panic!("typechecking should make sure this was a PropertyReference"),
         },
+        Expression::ResourceReference { absolute_source_path } => {
+            Value::Resource(Resource::AbsoluteFilePath(absolute_source_path.as_str().into()))
+        }
     }
 }

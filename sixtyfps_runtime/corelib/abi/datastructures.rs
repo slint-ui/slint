@@ -204,6 +204,24 @@ impl Color {
     pub const WHITE: Color = Color::from_rgb(255, 255, 255);
 }
 
+/// A resource is a reference to binary data, for example images. They can be accessible on the file
+/// system or embedded in the resulting binary. Or they might be URLs to a web server and a downloaded
+/// is necessary before they can be used.
+#[derive(Clone, PartialEq, Debug)]
+#[repr(C)]
+pub enum Resource {
+    /// A resource that does not represent any data.
+    None,
+    /// A resource that points to a file in the file system
+    AbsoluteFilePath(crate::SharedString),
+}
+
+impl Default for Resource {
+    fn default() -> Self {
+        Resource::None
+    }
+}
+
 /// Each item return a RenderingPrimitive to the backend with information about what to draw.
 #[derive(PartialEq, Debug)]
 #[repr(C)]
@@ -221,7 +239,7 @@ pub enum RenderingPrimitive {
     Image {
         x: f32,
         y: f32,
-        source: crate::SharedString,
+        source: crate::Resource,
     },
     Text {
         x: f32,

@@ -163,18 +163,27 @@ impl Expression {
                         return Self::Invalid;
                     }
                 };
-                let path = std::path::Path::new(&s);
 
-                if path.is_absolute() {
-                    return Expression::StringLiteral(s);
-                }
-                let path = ctx.diag.path(node.span()).parent().unwrap().join(path);
-                if path.is_absolute() {
-                    return Expression::StringLiteral(path.to_string_lossy().to_string());
-                }
-                Expression::StringLiteral(
-                    std::env::current_dir().unwrap().join(path).to_string_lossy().to_string(),
-                )
+                let absolute_source_path = {
+                    let path = std::path::Path::new(&s);
+
+                    if path.is_absolute() {
+                        s
+                    } else {
+                        let path = ctx.diag.path(node.span()).parent().unwrap().join(path);
+                        if path.is_absolute() {
+                            path.to_string_lossy().to_string()
+                        } else {
+                            std::env::current_dir()
+                                .unwrap()
+                                .join(path)
+                                .to_string_lossy()
+                                .to_string()
+                        }
+                    }
+                };
+
+                Expression::ResourceReference { absolute_source_path }
             }
             Some(x) => {
                 ctx.diag.push_error(format!("Unknown bang keyword `{}`", x), node.span());

@@ -9,7 +9,8 @@ fn main() {
         .map(|x| x.to_string())
         .collect::<Vec<String>>();
 
-    let exclude = ["SharedString"].iter().map(|x| x.to_string()).collect::<Vec<String>>();
+    let exclude =
+        ["SharedString", "Resource"].iter().map(|x| x.to_string()).collect::<Vec<String>>();
 
     let config = cbindgen::Config {
         pragma_once: true,
@@ -56,6 +57,23 @@ fn main() {
         .expect("Unable to generate bindings")
         .write_to_file(include_dir.join("sixtyfps_signals_internal.h"));
 
+    let mut resource_config = config.clone();
+    resource_config.export.include = ["Resource"].iter().map(|s| s.to_string()).collect();
+    resource_config.enumeration = cbindgen::EnumConfig {
+        derive_tagged_enum_copy_assignment: true,
+        derive_tagged_enum_copy_constructor: true,
+        derive_tagged_enum_destructor: true,
+        ..Default::default()
+    };
+    resource_config.namespaces = Some(vec!["sixtyfps".into(), "internal".into(), "types".into()]);
+    resource_config.export.exclude.clear();
+    cbindgen::Builder::new()
+        .with_config(resource_config)
+        .with_src(crate_dir.join("abi/datastructures.rs"))
+        .generate()
+        .expect("Unable to generate bindings")
+        .write_to_file(include_dir.join("sixtyfps_resource_internal.h"));
+
     cbindgen::Builder::new()
         .with_config(config)
         .with_src(crate_dir.join("abi/datastructures.rs"))
@@ -65,6 +83,7 @@ fn main() {
         .with_include("sixtyfps_string.h")
         .with_include("sixtyfps_properties.h")
         .with_include("sixtyfps_signals.h")
+        .with_include("sixtyfps_resource.h")
         .generate()
         .expect("Unable to generate bindings")
         .write_to_file(include_dir.join("sixtyfps_internal.h"));

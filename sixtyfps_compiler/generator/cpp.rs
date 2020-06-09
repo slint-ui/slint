@@ -354,6 +354,9 @@ fn compile_expression(e: &crate::expression_tree::Expression) -> String {
             ),
             _ => panic!("typechecking should make sure this was a PropertyReference"),
         },
+        ResourceReference { absolute_source_path } => {
+            format!(r#"sixtyfps::Resource(sixtyfps::SharedString("{}"))"#, absolute_source_path)
+        }
         Uncompiled(_) => panic!(),
         Invalid => format!("\n#error invalid expression\n"),
     }
