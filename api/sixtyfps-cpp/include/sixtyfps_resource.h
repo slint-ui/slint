@@ -5,65 +5,31 @@
 
 namespace sixtyfps {
 
-union ResourceData {
-    SharedString absolute_file_path;
-    struct {
-        void *ptr;
-        size_t len;
-    } slice;
-
-    ResourceData() { }
-    ~ResourceData() { }
-};
-
 struct Resource
 {
 public:
     using Tag = internal::types::Resource::Tag;
 
-    Resource() : tag(Tag::None) { }
-    Resource(const SharedString &file_path) : tag(Tag::AbsoluteFilePath)
+    Resource() : data(create()) { }
+    Resource(const SharedString &file_path) : data(create())
     {
-        new (&data.absolute_file_path) SharedString(file_path);
-    }
-    Resource(const Resource &other) : tag(other.tag)
-    {
-        switch (tag) {
-        case Tag::None:
-            break;
-        case Tag::AbsoluteFilePath:
-            new (&data.absolute_file_path) SharedString(other.data.absolute_file_path);
-        }
-    }
-    ~Resource() { destroy(); }
-    Resource &operator=(const Resource &other)
-    {
-        if (this == &other)
-            return *this;
-        destroy();
-        tag = other.tag;
-        switch (tag) {
-        case Tag::None:
-            break;
-        case Tag::AbsoluteFilePath:
-            new (&data.absolute_file_path) SharedString(other.data.absolute_file_path);
-        }
-        return *this;
+        ::new (&data.embedded_data)
+                internal::types::Resource::AbsoluteFilePath_Body { Tag::AbsoluteFilePath,
+                                                                   file_path };
     }
 
 private:
-    void destroy()
-    {
-        switch (tag) {
-        case Tag::None:
-            break;
-        case Tag::AbsoluteFilePath:
-            data.absolute_file_path.~SharedString();
-        }
-    }
+    internal::types::Resource data;
 
-    Tag tag;
-    ResourceData data;
+    static internal::types::Resource create()
+    {
+        union U {
+            U() { data.tag = Tag::None; }
+            internal::types::Resource data;
+            ~U() { }
+        } u;
+        return u.data;
+    }
 };
 
 }
