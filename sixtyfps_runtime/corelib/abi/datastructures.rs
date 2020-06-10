@@ -215,12 +215,7 @@ pub enum Resource {
     /// A resource that points to a file in the file system
     AbsoluteFilePath(crate::SharedString),
     /// A resource that is embedded in the program and accessible via pointer
-    EmbeddedData {
-        /// raw pointer to the read-only data
-        ptr: *const u8,
-        /// size of the embedded data
-        len: usize,
-    },
+    EmbeddedData(super::slice::Slice<'static, u8>),
 }
 
 impl Default for Resource {

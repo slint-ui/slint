@@ -19,6 +19,7 @@ pub mod abi {
     pub mod primitives;
     pub mod properties;
     pub mod signals;
+    pub mod slice;
     pub mod string;
 }
 

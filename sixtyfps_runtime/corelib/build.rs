@@ -74,6 +74,7 @@ fn main() {
     cbindgen::Builder::new()
         .with_config(resource_config)
         .with_src(crate_dir.join("abi/datastructures.rs"))
+        .with_src(crate_dir.join("abi/slice.rs"))
         .generate()
         .expect("Unable to generate bindings")
         .write_to_file(include_dir.join("sixtyfps_resource_internal.h"));
