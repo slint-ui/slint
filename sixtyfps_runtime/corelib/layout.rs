@@ -119,17 +119,20 @@ pub struct GridLayoutData<'a> {
     pub height: Coord,
     pub x: Coord,
     pub y: Coord,
-    pub cells: Slice<'a, Slice<'a, Option<GridLayoutCellData<'a>>>>,
+    pub cells: Slice<'a, Slice<'a, GridLayoutCellData<'a>>>,
 }
 
 #[repr(C)]
+#[derive(Default)]
 pub struct GridLayoutCellData<'a> {
-    pub x: &'a Property<Coord>,
-    pub y: &'a Property<Coord>,
-    pub height: &'a Property<Coord>,
-    pub width: &'a Property<Coord>,
+    pub x: Option<&'a Property<Coord>>,
+    pub y: Option<&'a Property<Coord>>,
+    pub width: Option<&'a Property<Coord>>,
+    pub height: Option<&'a Property<Coord>>,
 }
 
+/// FIXME: rename with sixstyfps prefix
+#[no_mangle]
 pub extern "C" fn solve_grid_layout(data: &GridLayoutData) {
     let map = |c: &Constraint| internal::LayoutData {
         min: c.min,
@@ -146,12 +149,10 @@ pub extern "C" fn solve_grid_layout(data: &GridLayoutData) {
     internal::layout_items(&mut col_layout_data, data.x, data.width);
     for (row_data, row) in row_layout_data.iter().zip(data.cells.iter()) {
         for (col_data, cell) in col_layout_data.iter().zip(row.iter()) {
-            if let Some(cell) = cell {
-                cell.x.set(col_data.pos);
-                cell.width.set(col_data.size);
-                cell.y.set(row_data.pos);
-                cell.height.set(row_data.size);
-            }
+            cell.x.map(|p| p.set(col_data.pos));
+            cell.width.map(|p| p.set(col_data.size));
+            cell.y.map(|p| p.set(row_data.pos));
+            cell.height.map(|p| p.set(row_data.size));
         }
     }
 }

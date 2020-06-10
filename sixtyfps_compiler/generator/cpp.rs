@@ -215,6 +215,8 @@ fn handle_item(item: &Element, main_struct: &mut Struct, init: &mut Vec<String>)
 pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<impl std::fmt::Display> {
     let mut x = File::default();
 
+    x.includes.push("<array>".into());
+    x.includes.push("<limits>".into());
     x.includes.push("<sixtyfps.h>".into());
 
     let mut main_struct = Struct { name: component.id.clone(), ..Default::default() };
@@ -257,6 +259,14 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<impl st
         ..Default::default()
     }));
 
+    main_struct.members.push(Declaration::Function(Function {
+        name: "compute_layout".into(),
+        signature: "(sixtyfps::ComponentRef component) -> void".into(),
+        is_static: true,
+        statements: Some(compute_layout(component)),
+        ..Default::default()
+    }));
+
     main_struct.members.push(Declaration::Var(Var {
         ty: "static const sixtyfps::ComponentVTable".to_owned(),
         name: "component_type".to_owned(),
@@ -294,7 +304,9 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<impl st
     x.declarations.push(Declaration::Var(Var {
         ty: "const sixtyfps::ComponentVTable".to_owned(),
         name: format!("{}::component_type", component.id),
-        init: Some("{ nullptr, sixtyfps::dummy_destory, tree_fn }".to_owned()),
+        init: Some(
+            "{ nullptr, sixtyfps::dummy_destory, tree_fn, nullptr, compute_layout }".to_owned(),
+        ),
     }));
 
     if diag.has_error() {
@@ -374,4 +386,69 @@ fn compile_expression(e: &crate::expression_tree::Expression) -> String {
         Uncompiled(_) => panic!(),
         Invalid => format!("\n#error invalid expression\n"),
     }
+}
+
+fn compute_layout(component: &Component) -> Vec<String> {
+    let mut res = vec![];
+
+    res.push(format!(
+        "auto self = reinterpret_cast<const {ty}*>(component.instance);",
+        ty = component.id
+    ));
+    res.push("sixtyfps::EvaluationContext context{component};".to_owned());
+    for grid in component.layout_constraints.borrow().0.iter() {
+        res.push("{".to_owned());
+        res.push(format!("    std::array<sixtyfps::Constraint, {}> row_constr;", grid.row_count()));
+        res.push(format!("    std::array<sixtyfps::Constraint, {}> col_constr;", grid.col_count()));
+        res.push(
+            "    row_constr.fill(sixtyfps::Constraint{0., std::numeric_limits<float>::max()});"
+                .to_owned(),
+        );
+        res.push(
+            "    col_constr.fill(sixtyfps::Constraint{0., std::numeric_limits<float>::max()});"
+                .to_owned(),
+        );
+        res.push("    sixtyfps::GridLayoutCellData grid_data[] = {".to_owned());
+        let mut row_info = vec![];
+        let mut count = 0;
+        for row in &grid.elems {
+            row_info.push(format!("{{ &grid_data[{}], {} }}", count, row.len()));
+            for cell in row {
+                if let Some(cell) = cell {
+                    let p = |n: &str| {
+                        if cell.borrow().lookup_property(n) == Type::Float32 {
+                            format!("&self->{}.{}", cell.borrow().id, n)
+                        } else {
+                            "nullptr".to_owned()
+                        }
+                    };
+                    res.push(format!(
+                        "        {{ {}, {}, {}, {} }},",
+                        p("x"),
+                        p("y"),
+                        p("width"),
+                        p("height")
+                    ));
+                } else {
+                    res.push("        {},".into());
+                }
+                count += 1;
+            }
+        }
+        res.push("    };".to_owned());
+        res.push("    sixtyfps::Slice<sixtyfps::GridLayoutCellData> cells[] = {".to_owned());
+        res.push(format!("        {} }};", row_info.join(", ")));
+        res.push("    sixtyfps::GridLayoutData grid { ".into());
+        // FIXME: add auto conversion from std::array* to Slice
+        res.push("        { row_constr.data(), row_constr.size() },".to_owned());
+        res.push("        { col_constr.data(), col_constr.size() },".to_owned());
+        res.push(format!("        self->{}.width.get(&context),", grid.within.borrow().id));
+        res.push(format!("        self->{}.height.get(&context),", grid.within.borrow().id));
+        res.push("        0., 0.,".to_owned());
+        res.push("        {cells, std::size(cells)}".to_owned());
+        res.push("    };".to_owned());
+        res.push("    sixtyfps::solve_grid_layout(&grid);".to_owned());
+        res.push("}".to_owned());
+    }
+    res
 }

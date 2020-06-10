@@ -50,4 +50,12 @@ constexpr inline ItemTreeNode make_item_node(std::intptr_t offset,
                           { ItemTreeNode::Item_Body { offset, vtable, child_count,
                                                       child_index } } };
 }
+
+// layouts:
+using internal::Slice;
+using internal::solve_grid_layout;
+using internal::GridLayoutCellData;
+using internal::GridLayoutData;
+using internal::Constraint;
+
 } // namespace sixtyfps

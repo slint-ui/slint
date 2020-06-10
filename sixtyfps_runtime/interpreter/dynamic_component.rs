@@ -338,34 +338,29 @@ unsafe extern "C" fn compute_layout(component: ComponentRef) {
         row_constraint.resize_with(it.row_count(), Default::default);
         col_constraint.resize_with(it.col_count(), Default::default);
 
-        // Fixme: i guess we should use Option in the layout data
-        let dummy = Property::<f32>::default();
-
         let cells_v = it
             .elems
             .iter()
             .map(|x| {
                 x.iter()
                     .map(|y| {
-                        y.as_ref().map(|elem| {
-                            let info = &component_type.items[elem.borrow().id.as_str()];
-                            let get_prop = |name| {
-                                info.rtti
-                                    .properties
-                                    .get(name)
-                                    .map(|p| {
+                        y.as_ref()
+                            .map(|elem| {
+                                let info = &component_type.items[elem.borrow().id.as_str()];
+                                let get_prop = |name| {
+                                    info.rtti.properties.get(name).map(|p| {
                                         &*(component.as_ptr().add(info.offset).add(p.offset())
                                             as *const Property<f32>)
                                     })
-                                    .unwrap_or(&dummy)
-                            };
-                            GridLayoutCellData {
-                                x: get_prop("x"),
-                                y: get_prop("y"),
-                                width: get_prop("width"),
-                                height: get_prop("height"),
-                            }
-                        })
+                                };
+                                GridLayoutCellData {
+                                    x: get_prop("x"),
+                                    y: get_prop("y"),
+                                    width: get_prop("width"),
+                                    height: get_prop("height"),
+                                }
+                            })
+                            .unwrap_or_default()
                     })
                     .collect::<Vec<_>>()
             })

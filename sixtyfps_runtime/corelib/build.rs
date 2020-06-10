@@ -4,7 +4,7 @@ use std::env;
 use std::path::PathBuf;
 
 fn main() {
-    let include = ["Rectangle", "Image", "TouchArea", "Text", "ComponentVTable"]
+    let include = ["Rectangle", "Image", "TouchArea", "Text", "ComponentVTable", "Slice"]
         .iter()
         .map(|x| x.to_string())
         .collect::<Vec<String>>();
@@ -38,6 +38,7 @@ fn main() {
     cbindgen::Builder::new()
         .with_config(config.clone())
         .with_src(crate_dir.join("abi/string.rs"))
+        .with_src(crate_dir.join("abi/slice.rs"))
         .with_after_include("namespace sixtyfps { struct SharedString; }")
         .generate()
         .expect("Unable to generate bindings")
@@ -74,7 +75,6 @@ fn main() {
     cbindgen::Builder::new()
         .with_config(resource_config)
         .with_src(crate_dir.join("abi/datastructures.rs"))
-        .with_src(crate_dir.join("abi/slice.rs"))
         .generate()
         .expect("Unable to generate bindings")
         .write_to_file(include_dir.join("sixtyfps_resource_internal.h"));
@@ -84,6 +84,7 @@ fn main() {
         .with_src(crate_dir.join("abi/datastructures.rs"))
         .with_src(crate_dir.join("abi/primitives.rs"))
         .with_src(crate_dir.join("abi/model.rs"))
+        .with_src(crate_dir.join("layout.rs")) // FIXME: move in ABI?
         .with_include("vtable.h")
         .with_include("sixtyfps_string.h")
         .with_include("sixtyfps_properties.h")

@@ -273,23 +273,23 @@ fn compute_layout(component: &Component) -> TokenStream {
                                 let p = |n: &str| {
                                     if elem.borrow().lookup_property(n) == Type::Float32 {
                                         let n = quote::format_ident!("{}", n);
-                                        quote! {&self.#e.#n}
+                                        quote! {Some(&self.#e.#n)}
                                     } else {
-                                        quote! {&dummy}
+                                        quote! {None}
                                     }
                                 };
                                 let width = p("width");
                                 let height = p("height");
                                 let x = p("x");
                                 let y = p("y");
-                                quote!(Some(GridLayoutCellData {
+                                quote!(GridLayoutCellData {
                                     x: #x,
                                     y: #y,
                                     width: #width,
                                     height: #height,
-                                }))
+                                })
                             })
-                            .unwrap_or_else(|| quote!(None))
+                            .unwrap_or_else(|| quote!(GridLayoutCellData::default()))
                     })
                     .collect::<Vec<_>>()
             })
