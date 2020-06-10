@@ -105,6 +105,9 @@ impl<GraphicsBackend: graphics::GraphicsBackend> MainWindow<GraphicsBackend> {
                     ..
                 } => *control_flow = winit::event_loop::ControlFlow::Exit,
                 winit::event::Event::RedrawRequested(_) => {
+                    // FIXME: we should do that only if some property change
+                    component.compute_layout();
+
                     {
                         let mut rendering_primitives_builder =
                             graphics_backend.new_rendering_primitives_builder();
@@ -124,8 +127,6 @@ impl<GraphicsBackend: graphics::GraphicsBackend> MainWindow<GraphicsBackend> {
                     let context = EvaluationContext { component: component };
                     let mut frame =
                         graphics_backend.new_frame(size.width, size.height, &Color::WHITE);
-                    // FIXME: we should do that only if some property change
-                    component.compute_layout();
                     render_function(component, &context, &mut frame, &mut rendering_cache);
                     graphics_backend.present_frame(frame);
                 }

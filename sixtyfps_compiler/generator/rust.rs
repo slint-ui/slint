@@ -124,6 +124,8 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<TokenSt
         })
         .collect();
 
+    let layouts = compute_layout(component);
+
     Some(quote!(
         #(#resource_symbols)*
 
@@ -158,11 +160,8 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<TokenSt
             fn create() -> Self {
                 Default::default()
             }
-            fn layout_info(&self) -> sixtyfps::re_exports::LayoutInfo {
-                todo!("Implement in rust.rs")
-            }
-            fn compute_layout(&self) { todo!("Implement in rust.rs") }
 
+            #layouts
         }
 
         impl #component_id{
@@ -252,6 +251,74 @@ fn compile_expression(e: &Expression, component: &Component) -> TokenStream {
         _ => {
             let error = format!("unsupported expression {:?}", e);
             quote!(compile_error! {#error})
+        }
+    }
+}
+
+fn compute_layout(component: &Component) -> TokenStream {
+    let mut layouts = vec![];
+    for x in component.layout_constraints.borrow().0.iter() {
+        let within = quote::format_ident!("{}", x.within.borrow().id);
+        let row_constraint = vec![quote!(Constraint::default()); x.row_count()];
+        let col_constraint = vec![quote!(Constraint::default()); x.col_count()];
+        let cells = x
+            .elems
+            .iter()
+            .map(|x| {
+                x.iter()
+                    .map(|y| {
+                        y.as_ref()
+                            .map(|elem| {
+                                let e = quote::format_ident!("{}", elem.borrow().id);
+                                let p = |n: &str| {
+                                    if elem.borrow().lookup_property(n) == Type::Float32 {
+                                        let n = quote::format_ident!("{}", n);
+                                        quote! {&self.#e.#n}
+                                    } else {
+                                        quote! {&dummy}
+                                    }
+                                };
+                                let width = p("width");
+                                let height = p("height");
+                                let x = p("x");
+                                let y = p("y");
+                                quote!(Some(GridLayoutCellData {
+                                    x: #x,
+                                    y: #y,
+                                    width: #width,
+                                    height: #height,
+                                }))
+                            })
+                            .unwrap_or_else(|| quote!(None))
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+
+        layouts.push(quote! {
+            solve_grid_layout(&GridLayoutData {
+                row_constraint: Slice::from_slice(&[#(#row_constraint),*]),
+                col_constraint: Slice::from_slice(&[#(#col_constraint),*]),
+                width: self.#within.width.get(&eval_context),
+                height: self.#within.height.get(&eval_context),
+                x: 0.,
+                y: 0.,
+                cells: Slice::from_slice(&[#( Slice::from_slice(&[#( #cells ),*])),*]),
+            });
+        });
+    }
+
+    quote! {
+        fn layout_info(&self) -> sixtyfps::re_exports::LayoutInfo {
+                todo!("Implement in rust.rs")
+        }
+        fn compute_layout(&self) {
+            #![allow(unused)]
+            use sixtyfps::re_exports::*;
+            let eval_context = EvaluationContext{ component: ComponentRef::new(self) };
+            let dummy = Property::<f32>::default();
+
+            #(#layouts)*
         }
     }
 }

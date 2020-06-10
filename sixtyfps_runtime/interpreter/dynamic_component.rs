@@ -335,9 +335,8 @@ unsafe extern "C" fn compute_layout(component: ComponentRef) {
         let mut col_constraint = vec![];
         //let mut cells = vec![];
 
-        row_constraint.resize_with(it.elems.len(), Default::default);
-        col_constraint
-            .resize_with(it.elems.iter().map(|x| x.len()).max().unwrap_or(0), Default::default);
+        row_constraint.resize_with(it.row_count(), Default::default);
+        col_constraint.resize_with(it.col_count(), Default::default);
 
         // Fixme: i guess we should use Option in the layout data
         let dummy = Property::<f32>::default();
@@ -386,8 +385,8 @@ unsafe extern "C" fn compute_layout(component: ComponentRef) {
             col_constraint: Slice::from(col_constraint.as_slice()),
             width: within_prop("width"),
             height: within_prop("height"),
-            x: within_prop("x"),
-            y: within_prop("y"),
+            x: 0.,
+            y: 0.,
             cells: Slice::from(cells.as_slice()),
         });
     }

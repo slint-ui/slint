@@ -71,11 +71,15 @@ pub mod re_exports {
     pub use const_field_offset::{self, FieldOffsets};
     pub use once_cell::sync::Lazy;
     pub use sixtyfps_corelib::abi::datastructures::{
-        Component, ComponentTO, ComponentVTable, ItemTreeNode, LayoutInfo,
+        Component, ComponentRef, ComponentTO, ComponentVTable, ItemTreeNode, LayoutInfo,
     };
     pub use sixtyfps_corelib::abi::primitives::*;
     pub use sixtyfps_corelib::abi::properties::Property;
     pub use sixtyfps_corelib::abi::signals::Signal;
+    pub use sixtyfps_corelib::abi::slice::Slice;
+    pub use sixtyfps_corelib::layout::{
+        solve_grid_layout, Constraint, GridLayoutCellData, GridLayoutData,
+    };
     pub use sixtyfps_corelib::ComponentVTable_static;
     pub use sixtyfps_corelib::EvaluationContext;
     pub use sixtyfps_corelib::Resource;

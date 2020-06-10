@@ -84,7 +84,7 @@ pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
         CompileError::CompileError(vec)
     })?;
     write!(file, "{}", generated).map_err(CompileError::SaveError)?;
-    println!("cargo:rerun-if-changed={}", path.to_string_lossy());
-    println!("cargo:rustc-env=SIXTYFPS_INCLUDE_GENERATED={}", output_file_path.to_string_lossy());
+    println!("cargo:rerun-if-changed={}", path.display());
+    println!("cargo:rustc-env=SIXTYFPS_INCLUDE_GENERATED={}", output_file_path.display());
     Ok(())
 }

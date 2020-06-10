@@ -17,3 +17,12 @@ pub struct GridLayout {
     /// This is like a matrix of elements.
     pub elems: Vec<Vec<Option<Rc<RefCell<Element>>>>>,
 }
+
+impl GridLayout {
+    pub fn col_count(&self) -> usize {
+        self.elems.iter().map(|x| x.len()).max().unwrap_or(0)
+    }
+    pub fn row_count(&self) -> usize {
+        self.elems.len()
+    }
+}
