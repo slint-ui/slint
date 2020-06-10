@@ -64,6 +64,7 @@ fn main() {
         derive_tagged_enum_copy_constructor: true,
         derive_tagged_enum_destructor: true,
         derive_helper_methods: true,
+        private_default_tagged_enum_constructor: true,
         ..Default::default()
     };
     // Put the "Recources" in a deeper "types" namespace, so the use of "Resource" in internal
