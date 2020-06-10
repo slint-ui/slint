@@ -257,7 +257,6 @@ type c_char = u8;
 /// Returns a nul-reminated pointer for this string.
 /// The returned value is owned by the string, and should not be used after any
 /// mutable function have been called on the string, and must not be free'ed.
-
 pub extern "C" fn sixtyfps_shared_string_bytes(ss: &SharedString) -> *const c_char {
     ss.as_ptr()
 }

@@ -72,6 +72,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         compiler_command.arg("-std=c++17");
         compiler_command.arg(concat!("-L", env!("CPP_LIB_PATH")));
         compiler_command.arg("-lsixtyfps_rendering_backend_gl");
+        compiler_command.arg("-lsixtyfps_corelib");
     }
 
     let output = compiler_command.output()?;
