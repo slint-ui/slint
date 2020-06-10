@@ -345,7 +345,7 @@ fn compile_expression(e: &crate::expression_tree::Expression) -> String {
                 format!("\n#error the function `{:?}` is not a signal\n", function)
             }
         }
-        SelfAssignement { lhs, rhs, op } => match &**lhs {
+        SelfAssignment { lhs, rhs, op } => match &**lhs {
             PropertyReference { element, name, .. } => format!(
                 r#"self->{lhs}.set(self->{lhs}.get(context) {op} {rhs})"#,
                 lhs = access_member(&element.upgrade().unwrap(), name.as_str()),

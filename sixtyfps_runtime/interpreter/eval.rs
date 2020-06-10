@@ -145,7 +145,7 @@ pub fn eval_expression(
                 panic!("call of something not a signal")
             }
         }
-        Expression::SelfAssignement { lhs, rhs, op } => match &**lhs {
+        Expression::SelfAssignment { lhs, rhs, op } => match &**lhs {
             Expression::PropertyReference { component, element, name, .. } => {
                 let eval = |lhs| {
                     let rhs = eval_expression(&**rhs, ctx, eval_context);

@@ -319,7 +319,7 @@ impl Expression {
             ctx.diag
                 .push_error("Self assignement need to be done on a property".into(), node.span());
         }
-        Expression::SelfAssignement {
+        Expression::SelfAssignment {
             lhs: Box::new(lhs),
             rhs: Box::new(rhs),
             op: None

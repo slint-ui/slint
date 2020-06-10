@@ -215,7 +215,7 @@ fn compile_expression(e: &Expression, component: &Component) -> TokenStream {
                 quote!(compile_error! {#error})
             }
         }
-        Expression::SelfAssignement { lhs, rhs, op } => match &**lhs {
+        Expression::SelfAssignment { lhs, rhs, op } => match &**lhs {
             Expression::PropertyReference { element, name, .. } => {
                 let lhs = access_member(&element.upgrade().unwrap(), name.as_str());
                 let rhs = compile_expression(&*rhs, &component);
