@@ -135,7 +135,7 @@ impl Expression {
                 })
             })
             .or_else(|| {
-                node.child_node(SyntaxKind::SelfAssignament)
+                node.child_node(SyntaxKind::SelfAssignment)
                     .map(|n| Self::from_self_assignement_node(n, ctx))
             })
             .unwrap_or(Self::Invalid)
@@ -306,7 +306,7 @@ impl Expression {
     }
 
     fn from_self_assignement_node(node: SyntaxNode, ctx: &mut LookupCtx) -> Expression {
-        debug_assert_eq!(node.kind(), SyntaxKind::SelfAssignament);
+        debug_assert_eq!(node.kind(), SyntaxKind::SelfAssignment);
 
         let mut subs = node
             .children()

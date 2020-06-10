@@ -59,7 +59,7 @@ macro_rules! declare_token_kind {
             /// expression()
             FunctionCallExpression,
             /// expression += expression
-            SelfAssignament
+            SelfAssignment
         }
 
         fn lexer() -> m_lexer::Lexer {

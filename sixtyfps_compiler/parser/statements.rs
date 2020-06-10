@@ -21,7 +21,7 @@ pub fn parse_statement(p: &mut impl Parser) {
             | SyntaxKind::DivEqual
     ) {
         let mut p = p.start_node_at(checkpoint.clone(), SyntaxKind::Expression);
-        let mut p = p.start_node_at(checkpoint, SyntaxKind::SelfAssignament);
+        let mut p = p.start_node_at(checkpoint, SyntaxKind::SelfAssignment);
         p.consume();
         parse_expression(&mut *p);
     }
