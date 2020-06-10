@@ -32,6 +32,10 @@ pub fn lower_layouts(component: &Rc<Component>, diag: &mut Diagnostics) {
                 };
 
             if is_layout {
+                let mut grid = GridLayout::default();
+                let mut row = 0;
+                let mut col = 0;
+
                 let child_children = std::mem::take(&mut child.borrow_mut().children);
                 for cc in child_children {
                     let is_row =
@@ -41,11 +45,19 @@ pub fn lower_layouts(component: &Rc<Component>, diag: &mut Diagnostics) {
                             false
                         };
                     if is_row {
-                        // TODO: add the constraints
+                        if col > 0 {
+                            row += 1;
+                            col = 0;
+                        }
+                        for x in &cc.borrow().children {
+                            grid.add_element(x.clone(), row, col, diag);
+                            col += 1;
+                        }
                         elem.children.append(&mut cc.borrow_mut().children);
                     } else {
-                        // TODO: add the constraints
+                        grid.add_element(cc.clone(), row, col, diag);
                         elem.children.push(cc);
+                        col += 1;
                     }
                 }
                 component.optimized_elements.borrow_mut().push(child);
@@ -59,4 +71,35 @@ pub fn lower_layouts(component: &Rc<Component>, diag: &mut Diagnostics) {
         }
     }
     lower_layouts_recursively(&component.root_element, component, diag)
+}
+
+/// Internal representation of a grid layout
+#[derive(Default)]
+struct GridLayout {
+    /// This is like a matrix of elements.
+    elems: Vec<Vec<Option<Rc<RefCell<Element>>>>>,
+}
+
+impl GridLayout {
+    fn add_element(
+        &mut self,
+        elem: Rc<RefCell<Element>>,
+        row: usize,
+        col: usize,
+        diag: &mut Diagnostics,
+    ) {
+        fn index_checked<T: Default>(vec: &mut Vec<T>, idx: usize) -> &mut T {
+            if vec.len() <= idx {
+                vec.resize_with(idx + 1, T::default)
+            }
+            &mut vec[idx]
+        };
+
+        let row_vec = index_checked(&mut self.elems, row);
+        let cell = index_checked(row_vec, col);
+        if cell.is_some() {
+            diag.push_error(format!("Multiple elements in the same cell"), elem.borrow().span())
+        }
+        *cell = Some(elem)
+    }
 }
