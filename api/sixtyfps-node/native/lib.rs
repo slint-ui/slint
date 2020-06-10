@@ -7,12 +7,14 @@ use std::rc::Rc;
 mod persistent_context;
 
 struct WrappedComponentType(Option<Rc<sixtyfps_interpreter::ComponentDescription>>);
-struct WrappedComponentBox(Option<(Rc<ComponentBox>, Rc<sixtyfps_interpreter::ComponentDescription>)>);
+struct WrappedComponentBox(
+    Option<(Rc<ComponentBox>, Rc<sixtyfps_interpreter::ComponentDescription>)>,
+);
 
 /// We need to do some gymnastic with closures to pass the ExecuteContext with the right lifetime
 type GlobalContextCallback =
     dyn for<'b> Fn(&mut ExecuteContext<'b>, &persistent_context::PersistentContext<'b>);
-scoped_tls_hkt::scoped_thread_local!(static GLOBAL_CONTEXT: 
+scoped_tls_hkt::scoped_thread_local!(static GLOBAL_CONTEXT:
     for <'a> &'a dyn Fn(&GlobalContextCallback));
 
 /// Load a .60 files.
@@ -117,7 +119,10 @@ fn to_eval_value<'cx>(
     }
 }
 
-fn to_js_value<'cx>(val: sixtyfps_interpreter::Value, cx: &mut impl Context<'cx>) -> Handle<'cx, JsValue> {
+fn to_js_value<'cx>(
+    val: sixtyfps_interpreter::Value,
+    cx: &mut impl Context<'cx>,
+) -> Handle<'cx, JsValue> {
     use sixtyfps_interpreter::Value;
     match val {
         Value::Void => JsUndefined::new().as_value(cx),
