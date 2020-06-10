@@ -11,7 +11,7 @@ pub fn collect_resources(component: &Rc<Component>) {
 
         let bindings = &elem.borrow().bindings;
         for e in bindings.values() {
-            fn collect_resources(e: &Expression, component: &Rc<Component>) {
+            fn collect_resources_from_expression(e: &Expression, component: &Rc<Component>) {
                 match e {
                     Expression::ResourceReference { absolute_source_path } => {
                         let mut resources = component.embedded_file_resources.borrow_mut();
@@ -21,9 +21,9 @@ pub fn collect_resources(component: &Rc<Component>) {
                     _ => {}
                 };
 
-                e.visit(|e| collect_resources(e, component));
+                e.visit(|e| collect_resources_from_expression(e, component));
             }
-            collect_resources(&e, component);
+            collect_resources_from_expression(&e, component);
         }
     }
     collect_resources_recursively(&component.root_element, component)
