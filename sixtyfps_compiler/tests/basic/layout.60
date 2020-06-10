@@ -1,0 +1,19 @@
+
+X := Rectangle {
+
+    lay := GridLayout {
+        property<string> foo: "hello";
+        Row {
+            Text { text: lay.foo; }
+            Text {}
+        }
+        Row {Text {}}
+        Text{
+            Row {}
+//          ^error{Row can only be within a GridLayout element}
+        }
+    }
+
+
+
+}

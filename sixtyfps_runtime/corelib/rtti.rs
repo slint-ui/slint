@@ -17,6 +17,10 @@ pub trait PropertyInfo<Item, Value> {
     fn get(&self, item: &Item, context: &crate::EvaluationContext) -> Result<Value, ()>;
     fn set(&self, item: &Item, value: Value) -> Result<(), ()>;
     fn set_binding(&self, item: &Item, binding: Box<dyn Fn(&crate::EvaluationContext) -> Value>);
+
+    /// The offset of the property in the item.
+    /// The use of this is unsafe
+    fn offset(&self) -> usize;
 }
 
 impl<Item, T: Clone, Value: 'static> PropertyInfo<Item, Value>
@@ -36,6 +40,9 @@ where
         self.apply(item).set_binding(move |context| {
             binding(context).try_into().map_err(|_| ()).expect("binding was of the wrong type")
         });
+    }
+    fn offset(&self) -> usize {
+        self.get_byte_offset()
     }
 }
 

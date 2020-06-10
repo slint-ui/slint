@@ -71,7 +71,7 @@ pub mod re_exports {
     pub use const_field_offset::{self, FieldOffsets};
     pub use once_cell::sync::Lazy;
     pub use sixtyfps_corelib::abi::datastructures::{
-        Component, ComponentTO, ComponentVTable, ItemTreeNode,
+        Component, ComponentTO, ComponentVTable, ItemTreeNode, LayoutInfo,
     };
     pub use sixtyfps_corelib::abi::primitives::*;
     pub use sixtyfps_corelib::abi::properties::Property;

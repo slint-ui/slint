@@ -8,6 +8,7 @@ pub trait ErasedPropertyInfo {
     fn get(&self, item: ItemRef, context: &EvaluationContext) -> Value;
     fn set(&self, item: ItemRef, value: Value);
     fn set_binding(&self, item: ItemRef, binding: Box<dyn Fn(&EvaluationContext) -> Value>);
+    fn offset(&self) -> usize;
 }
 
 impl<Item: vtable::HasStaticVTable<corelib::abi::datastructures::ItemVTable>> ErasedPropertyInfo
@@ -21,6 +22,9 @@ impl<Item: vtable::HasStaticVTable<corelib::abi::datastructures::ItemVTable>> Er
     }
     fn set_binding(&self, item: ItemRef, binding: Box<dyn Fn(&EvaluationContext) -> Value>) {
         (*self).set_binding(item.downcast().unwrap(), binding);
+    }
+    fn offset(&self) -> usize {
+        (*self).offset()
     }
 }
 

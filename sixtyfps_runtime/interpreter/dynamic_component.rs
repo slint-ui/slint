@@ -1,6 +1,7 @@
 use crate::{dynamic_type, eval};
 
 use core::cell::RefCell;
+use core::convert::TryInto;
 use core::ptr::NonNull;
 use object_tree::Element;
 use sixtyfps_compilerlib::typeregister::Type;
@@ -8,6 +9,7 @@ use sixtyfps_compilerlib::*;
 use sixtyfps_corelib::abi::datastructures::{
     ComponentBox, ComponentRef, ComponentVTable, ItemTreeNode, ItemVTable, Resource,
 };
+use sixtyfps_corelib::abi::slice::Slice;
 use sixtyfps_corelib::rtti::PropertyInfo;
 use sixtyfps_corelib::{rtti, EvaluationContext, Property, SharedString, Signal};
 use std::collections::HashMap;
@@ -188,7 +190,19 @@ pub fn load(
         );
     }
 
-    let t = ComponentVTable { create: component_create, drop: component_destroy, item_tree };
+    extern "C" fn layout_info(
+        _: ComponentRef,
+    ) -> sixtyfps_corelib::abi::datastructures::LayoutInfo {
+        todo!()
+    }
+
+    let t = ComponentVTable {
+        create: component_create,
+        drop: component_destroy,
+        item_tree,
+        layout_info,
+        compute_layout,
+    };
     let t = ComponentDescription {
         ct: t,
         dynamic_type: builder.build(),
@@ -305,4 +319,76 @@ unsafe extern "C" fn component_destroy(component_ref: vtable::VRefMut<ComponentV
         as *const ComponentDescription);
 
     dynamic_type::TypeInfo::delete_instance(component_ref.as_ptr() as *mut dynamic_type::Instance);
+}
+
+unsafe extern "C" fn compute_layout(component: ComponentRef) {
+    // This is fine since we can only be called with a component that with our vtable which is a ComponentDescription
+    let component_type =
+        &*(component.get_vtable() as *const ComponentVTable as *const ComponentDescription);
+
+    let eval_context = EvaluationContext { component };
+
+    for it in &component_type.original.root_component.layout_constraints.borrow().0 {
+        use sixtyfps_corelib::layout::*;
+
+        let mut row_constraint = vec![];
+        let mut col_constraint = vec![];
+        //let mut cells = vec![];
+
+        row_constraint.resize_with(it.elems.len(), Default::default);
+        col_constraint
+            .resize_with(it.elems.iter().map(|x| x.len()).max().unwrap_or(0), Default::default);
+
+        // Fixme: i guess we should use Option in the layout data
+        let dummy = Property::<f32>::default();
+
+        let cells_v = it
+            .elems
+            .iter()
+            .map(|x| {
+                x.iter()
+                    .map(|y| {
+                        y.as_ref().map(|elem| {
+                            let info = &component_type.items[elem.borrow().id.as_str()];
+                            let get_prop = |name| {
+                                info.rtti
+                                    .properties
+                                    .get(name)
+                                    .map(|p| {
+                                        &*(component.as_ptr().add(info.offset).add(p.offset())
+                                            as *const Property<f32>)
+                                    })
+                                    .unwrap_or(&dummy)
+                            };
+                            GridLayoutCellData {
+                                x: get_prop("x"),
+                                y: get_prop("y"),
+                                width: get_prop("width"),
+                                height: get_prop("height"),
+                            }
+                        })
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+        let cells = cells_v.iter().map(|x| x.as_slice().into()).collect::<Vec<Slice<_>>>();
+
+        let within_info = &component_type.items[it.within.borrow().id.as_str()];
+        let within_prop = |name| {
+            within_info.rtti.properties[name]
+                .get(within_info.item_from_component(component.as_ptr()), &eval_context)
+                .try_into()
+                .unwrap()
+        };
+
+        solve_grid_layout(&GridLayoutData {
+            row_constraint: Slice::from(row_constraint.as_slice()),
+            col_constraint: Slice::from(col_constraint.as_slice()),
+            width: within_prop("width"),
+            height: within_prop("height"),
+            x: within_prop("x"),
+            y: within_prop("y"),
+            cells: Slice::from(cells.as_slice()),
+        });
+    }
 }

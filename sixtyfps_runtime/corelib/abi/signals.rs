@@ -50,6 +50,12 @@ fn signal_simple_test() {
         fn item_tree(&self) -> *const crate::abi::datastructures::ItemTreeNode {
             core::ptr::null()
         }
+        fn layout_info(&self) -> crate::abi::datastructures::LayoutInfo {
+            unimplemented!()
+        }
+        fn compute_layout(&self) {
+            unimplemented!()
+        }
     }
     use crate::abi::datastructures::ComponentVTable;
     let mut c = Component::default();

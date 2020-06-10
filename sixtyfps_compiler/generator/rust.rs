@@ -158,6 +158,11 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<TokenSt
             fn create() -> Self {
                 Default::default()
             }
+            fn layout_info(&self) -> sixtyfps::re_exports::LayoutInfo {
+                todo!("Implement in rust.rs")
+            }
+            fn compute_layout(&self) { todo!("Implement in rust.rs") }
+
         }
 
         impl #component_id{

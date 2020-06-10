@@ -41,12 +41,12 @@ pub struct ComponentVTable {
 
     /// Returns an array that represent the item tree
     pub item_tree: extern "C" fn(VRef<ComponentVTable>) -> *const ItemTreeNode,
-    /*
+
     /// Returns the layout info for this component
     pub layout_info: extern "C" fn(VRef<ComponentVTable>) -> LayoutInfo,
 
     /// Will compute the layout of
-    pub compute_layout: extern "C" fn(VRef<ComponentVTable>),*/
+    pub compute_layout: extern "C" fn(VRef<ComponentVTable>),
 }
 
 /// This structure must be present in items that are Rendered and contains information.

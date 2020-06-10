@@ -2,6 +2,7 @@
 
 use crate::diagnostics::Diagnostics;
 
+use crate::layout::*;
 use crate::object_tree::*;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -9,11 +10,11 @@ use std::rc::Rc;
 /// Currently this just removes the layout from the tree
 pub fn lower_layouts(component: &Rc<Component>, diag: &mut Diagnostics) {
     fn lower_layouts_recursively(
-        elem: &Rc<RefCell<Element>>,
+        elem_: &Rc<RefCell<Element>>,
         component: &Rc<Component>,
         diag: &mut Diagnostics,
     ) {
-        let mut elem = elem.borrow_mut();
+        let mut elem = elem_.borrow_mut();
         let new_children = Vec::with_capacity(elem.children.len());
         let old_children = std::mem::replace(&mut elem.children, new_children);
 
@@ -32,7 +33,7 @@ pub fn lower_layouts(component: &Rc<Component>, diag: &mut Diagnostics) {
                 };
 
             if is_layout {
-                let mut grid = GridLayout::default();
+                let mut grid = GridLayout { within: elem_.clone(), elems: Default::default() };
                 let mut row = 0;
                 let mut col = 0;
 
@@ -61,6 +62,7 @@ pub fn lower_layouts(component: &Rc<Component>, diag: &mut Diagnostics) {
                     }
                 }
                 component.optimized_elements.borrow_mut().push(child);
+                component.layout_constraints.borrow_mut().0.push(grid);
                 continue;
             } else {
                 elem.children.push(child);
@@ -71,13 +73,6 @@ pub fn lower_layouts(component: &Rc<Component>, diag: &mut Diagnostics) {
         }
     }
     lower_layouts_recursively(&component.root_element, component, diag)
-}
-
-/// Internal representation of a grid layout
-#[derive(Default)]
-struct GridLayout {
-    /// This is like a matrix of elements.
-    elems: Vec<Vec<Option<Rc<RefCell<Element>>>>>,
 }
 
 impl GridLayout {

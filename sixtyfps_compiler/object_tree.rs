@@ -57,7 +57,7 @@ pub struct Component {
     pub embedded_file_resources: RefCell<HashMap<String, usize>>,
 
     /// LayoutConstraints
-    pub layout_constraints: RefCell<LayoutConstraints>,
+    pub layout_constraints: RefCell<crate::layout::LayoutConstraints>,
 }
 
 impl Component {
@@ -314,13 +314,4 @@ impl std::fmt::Display for QualifiedTypeName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.members.join("."))
     }
-}
-
-#[derive(Default, Clone, Debug)]
-pub struct LayoutConstraints(Vec<LayoutConstraint>);
-
-#[derive(Default, Clone, Debug)]
-struct LayoutConstraint {
-    // Element, property name
-    terms: Vec<(Rc<RefCell<Element>>, String)>,
 }
