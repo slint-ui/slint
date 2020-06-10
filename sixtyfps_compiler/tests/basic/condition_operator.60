@@ -1,0 +1,8 @@
+SuperSimple := Rectangle {
+    color: area.pressed ? green : blue;
+//         ^error{TODO: conditional expression not implemented}
+
+    area := TouchArea {
+    }
+}
+

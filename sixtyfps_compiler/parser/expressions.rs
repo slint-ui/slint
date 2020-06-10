@@ -11,6 +11,9 @@ use super::prelude::*;
 /// img!"something"
 /// some_id.some_property
 /// function_call()
+/// cond ? first : second
+/// call_cond() ? first : second
+/// (nested()) ? (ok) : (other.ko)
 /// ```
 pub fn parse_expression(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::Expression);
@@ -41,12 +44,26 @@ pub fn parse_expression(p: &mut impl Parser) {
             {
                 let _ = p.start_node_at(checkpoint.clone(), SyntaxKind::Expression);
             }
-            let mut p = p.start_node_at(checkpoint, SyntaxKind::FunctionCallExpression);
+            let mut p = p.start_node_at(checkpoint.clone(), SyntaxKind::FunctionCallExpression);
 
             p.consume();
             p.expect(SyntaxKind::RParent);
         }
         _ => {}
+    }
+
+    match p.nth(0) {
+        SyntaxKind::Question => {
+            {
+                let _ = p.start_node_at(checkpoint.clone(), SyntaxKind::Expression);
+            }
+            let mut p = p.start_node_at(checkpoint.clone(), SyntaxKind::ConditionalExpression);
+            p.consume();
+            parse_expression(&mut *p);
+            p.expect(SyntaxKind::Colon);
+            parse_expression(&mut *p);
+        }
+        _ => (),
     }
 }
 

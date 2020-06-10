@@ -59,7 +59,9 @@ macro_rules! declare_token_kind {
             /// expression()
             FunctionCallExpression,
             /// expression += expression
-            SelfAssignment
+            SelfAssignment,
+            /// condition ? first : second
+            ConditionalExpression
         }
 
         fn lexer() -> m_lexer::Lexer {
@@ -99,6 +101,7 @@ declare_token_kind! {
     Semicolon -> r";",
     Bang -> r"!",
     Dot -> r"\.",
+    Question -> r"\?",
 }
 
 impl From<SyntaxKind> for rowan::SyntaxKind {

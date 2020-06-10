@@ -138,6 +138,15 @@ impl Expression {
                 node.child_node(SyntaxKind::SelfAssignment)
                     .map(|n| Self::from_self_assignement_node(n, ctx))
             })
+            .or_else(|| {
+                node.child_node(SyntaxKind::ConditionalExpression).map(|n| {
+                    ctx.diag.push_error(
+                        "TODO: conditional expression not implemented".to_owned(),
+                        n.span(),
+                    );
+                    return Self::Invalid;
+                })
+            })
             .unwrap_or(Self::Invalid)
     }
 
