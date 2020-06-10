@@ -180,5 +180,12 @@ pub fn eval_expression(
         Expression::ResourceReference { absolute_source_path } => {
             Value::Resource(Resource::AbsoluteFilePath(absolute_source_path.as_str().into()))
         }
+        Expression::Condition { condition, true_expr, false_expr } => {
+            match eval_expression(&**condition, ctx, eval_context).try_into() as Result<bool, _> {
+                Ok(true) => eval_expression(&**true_expr, ctx, eval_context),
+                Ok(false) => eval_expression(&**false_expr, ctx, eval_context),
+                _ => panic!("conditional expression did not evaluate to boolean"),
+            }
+        }
     }
 }

@@ -27,7 +27,7 @@ component ButtonRectangle := Rectangle {
     signal clicked;
     width: 100;
     height: 75;
-    TouchArea {
+    button_area := TouchArea {
         width: 100;
         height: 75;
         clicked => { root.clicked() }
@@ -38,6 +38,7 @@ component ButtonRectangle := Rectangle {
         text: button_text;
         color: black;
     }
+    color: { button_area.pressed ? red : green; }
 }
 
 Hello := Rectangle {

@@ -232,6 +232,18 @@ fn compile_expression(e: &Expression, component: &Component) -> TokenStream {
                 quote!(sixtyfps::re_exports::Resource::AbsoluteFilePath(sixtyfps::re_exports::SharedString::from(#absolute_source_path)))
             }
         }
+        Expression::Condition { condition, true_expr, false_expr } => {
+            let condition_code = compile_expression(&*condition, component);
+            let true_code = compile_expression(&*true_expr, component);
+            let false_code = compile_expression(&*false_expr, component);
+            quote!(
+                if #condition_code {
+                    #true_code
+                } else {
+                    #false_code
+                }
+            )
+        }
         _ => {
             let error = format!("unsupported expression {:?}", e);
             quote!(compile_error! {#error})

@@ -20,10 +20,12 @@ component TwoRectangle := Rectangle {
 
 component ButtonRectangle := Rectangle {
     property<string> button_text;
+    property<color> button_color;
     signal clicked;
     width: 100;
     height: 75;
-    TouchArea {
+    color: button_area.pressed ? red : button_color;
+    button_area := TouchArea {
         width: 100;
         height: 75;
         clicked => { root.clicked() }
@@ -71,7 +73,7 @@ Hello := Rectangle {
     }
 
     ButtonRectangle {
-        color: 4289374890;
+        button_color: 4289374890;
         x: 50;
         y: 225;
         clicked => { counter += 1 }
@@ -80,7 +82,7 @@ Hello := Rectangle {
     property<int32> counter;
     counter_label := Text { x: 100; y: 300; text: counter; color: black; }
     ButtonRectangle {
-        color: 4289374890;
+        button_color: 4289374890;
         x: 50;
         y: 350;
         clicked => { minus_clicked() }

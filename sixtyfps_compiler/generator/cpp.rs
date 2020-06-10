@@ -123,29 +123,26 @@ mod cpp_ast {
     }
 
     pub trait CppType {
-        fn cpp_type(&self) -> Result<&str, crate::diagnostics::CompilerDiagnostic>;
+        fn cpp_type(&self) -> Option<&str>;
     }
 }
 
 use crate::diagnostics::{CompilerDiagnostic, Diagnostics};
-use crate::object_tree::{Component, Element, PropertyDeclaration};
+use crate::object_tree::{Component, Element};
 use crate::typeregister::Type;
 use cpp_ast::*;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-impl CppType for PropertyDeclaration {
-    fn cpp_type(&self) -> Result<&str, CompilerDiagnostic> {
-        match self.property_type {
-            Type::Float32 => Ok("float"),
-            Type::Int32 => Ok("int"),
-            Type::String => Ok("sixtyfps::SharedString"),
-            Type::Color => Ok("uint32_t"),
-            Type::Bool => Ok("bool"),
-            _ => Err(CompilerDiagnostic {
-                message: "Cannot map property type to C++".into(),
-                span: self.type_location.clone(),
-            }),
+impl CppType for Type {
+    fn cpp_type(&self) -> Option<&str> {
+        match self {
+            Type::Float32 => Some("float"),
+            Type::Int32 => Some("int"),
+            Type::String => Some("sixtyfps::SharedString"),
+            Type::Color => Some("uint32_t"),
+            Type::Bool => Some("bool"),
+            _ => None,
         }
     }
 }
@@ -227,7 +224,12 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<impl st
             let ty = if property_decl.property_type == Type::Signal {
                 "sixtyfps::Signal".into()
             } else {
-                let cpp_type = property_decl.cpp_type().unwrap_or_else(|err| {
+                let cpp_type = property_decl.property_type.cpp_type().unwrap_or_else(|| {
+                    let err = CompilerDiagnostic {
+                        message: "Cannot map property type to C++".into(),
+                        span: property_decl.type_location.clone(),
+                    };
+
                     diag.push_compiler_error(err);
                     "".into()
                 });
@@ -356,6 +358,18 @@ fn compile_expression(e: &crate::expression_tree::Expression) -> String {
         },
         ResourceReference { absolute_source_path } => {
             format!(r#"sixtyfps::Resource(sixtyfps::SharedString("{}"))"#, absolute_source_path)
+        }
+        Condition { condition, true_expr, false_expr } => {
+            let cond_code = compile_expression(condition);
+            let true_code = compile_expression(true_expr);
+            let false_code = compile_expression(false_expr);
+            format!(
+                r#"[&]() -> {} {{ if ({}) {{ return {}; }} else {{ return {}; }}}}()"#,
+                true_expr.ty().cpp_type().unwrap(),
+                cond_code,
+                true_code,
+                false_code
+            )
         }
         Uncompiled(_) => panic!(),
         Invalid => format!("\n#error invalid expression\n"),

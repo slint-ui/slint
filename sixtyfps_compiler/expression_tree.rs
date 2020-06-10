@@ -57,6 +57,12 @@ pub enum Expression {
     ResourceReference {
         absolute_source_path: String,
     },
+
+    Condition {
+        condition: Box<Expression>,
+        true_expr: Box<Expression>,
+        false_expr: Box<Expression>,
+    },
 }
 
 impl Expression {
@@ -76,6 +82,15 @@ impl Expression {
             Expression::FunctionCall { function } => function.ty(),
             Expression::SelfAssignment { .. } => Type::Invalid,
             Expression::ResourceReference { .. } => Type::Resource,
+            Expression::Condition { condition: _, true_expr, false_expr } => {
+                let true_type = true_expr.ty();
+                let false_type = false_expr.ty();
+                if true_type == false_type {
+                    true_type
+                } else {
+                    Type::Invalid
+                }
+            }
         }
     }
 
@@ -100,6 +115,11 @@ impl Expression {
                 visitor(&**rhs);
             }
             Expression::ResourceReference { .. } => {}
+            Expression::Condition { condition, true_expr, false_expr } => {
+                visitor(&**condition);
+                visitor(&**true_expr);
+                visitor(&**false_expr);
+            }
         }
     }
 
@@ -123,6 +143,11 @@ impl Expression {
                 visitor(&mut **rhs);
             }
             Expression::ResourceReference { .. } => {}
+            Expression::Condition { condition, true_expr, false_expr } => {
+                visitor(&mut **condition);
+                visitor(&mut **true_expr);
+                visitor(&mut **false_expr);
+            }
         }
     }
 
@@ -139,6 +164,7 @@ impl Expression {
             Expression::FunctionCall { .. } => false,
             Expression::SelfAssignment { .. } => false,
             Expression::ResourceReference { .. } => true,
+            Expression::Condition { .. } => false,
         }
     }
 }

@@ -140,11 +140,19 @@ impl Expression {
             })
             .or_else(|| {
                 node.child_node(SyntaxKind::ConditionalExpression).map(|n| {
-                    ctx.diag.push_error(
-                        "TODO: conditional expression not implemented".to_owned(),
-                        n.span(),
-                    );
-                    return Self::Invalid;
+                    let mut expr_it = n.children().filter(|n| n.kind() == SyntaxKind::Expression);
+                    let condition =
+                        expr_it.next().map(|n| Self::from_expression_node(n, ctx)).unwrap();
+                    let true_expr =
+                        expr_it.next().map(|n| Self::from_expression_node(n, ctx)).unwrap();
+                    let false_expr =
+                        expr_it.next().map(|n| Self::from_expression_node(n, ctx)).unwrap();
+
+                    Expression::Condition {
+                        condition: Box::new(condition),
+                        true_expr: Box::new(true_expr),
+                        false_expr: Box::new(false_expr),
+                    }
                 })
             })
             .unwrap_or(Self::Invalid)
