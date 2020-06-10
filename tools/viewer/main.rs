@@ -9,7 +9,7 @@ struct Cli {
 fn main() -> std::io::Result<()> {
     let args = Cli::from_args();
     let source = std::fs::read_to_string(&args.path)?;
-    let c = match interpreter::load(source.as_str(), &args.path) {
+    let c = match sixtyfps_interpreter::load(source.as_str(), &args.path) {
         Ok(c) => c,
         Err(diag) => {
             diag.print(source);

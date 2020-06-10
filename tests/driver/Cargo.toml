@@ -3,14 +3,15 @@ name = "driver"
 version = "0.1.0"
 authors = ["Sixty FPS <info@sixtyfps.io>"]
 edition = "2018"
+publish = false
 
 [[bin]]
 path = "main.rs"
 name = "test_driver"
 
-[dependencies]
+[dev-dependencies]
 sixtyfps_compilerlib = { path = "../../sixtyfps_compiler", features = ["cpp", "display-diagnostics"] }
-sixtyfps_interpreter = { path = "../../sixtyfps_runtime/interpreter", package = "interpreter" }
+sixtyfps_interpreter = { path = "../../sixtyfps_runtime/interpreter" }
 cc = "1.0.54"
 tempfile = "3"
 scopeguard = "1.1.0"

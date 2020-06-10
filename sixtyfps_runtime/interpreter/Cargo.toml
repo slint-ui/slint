@@ -1,5 +1,5 @@
 [package]
-name = "interpreter"
+name = "sixtyfps_interpreter"
 version = "0.1.0"
 authors = ["Sixty FPS <info@sixtyfps.io>"]
 edition = "2018"

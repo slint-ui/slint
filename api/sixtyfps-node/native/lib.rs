@@ -6,8 +6,8 @@ use std::rc::Rc;
 
 mod persistent_context;
 
-struct WrappedComponentType(Option<Rc<interpreter::ComponentDescription>>);
-struct WrappedComponentBox(Option<(Rc<ComponentBox>, Rc<interpreter::ComponentDescription>)>);
+struct WrappedComponentType(Option<Rc<sixtyfps_interpreter::ComponentDescription>>);
+struct WrappedComponentBox(Option<(Rc<ComponentBox>, Rc<sixtyfps_interpreter::ComponentDescription>)>);
 
 /// We need to do some gymnastic with closures to pass the ExecuteContext with the right lifetime
 type GlobalContextCallback =
@@ -24,7 +24,7 @@ fn load(mut cx: FunctionContext) -> JsResult<JsValue> {
     let path = cx.argument::<JsString>(0)?.value();
     let path = std::path::Path::new(path.as_str());
     let source = std::fs::read_to_string(&path).or_else(|e| cx.throw_error(e.to_string()))?;
-    let c = match interpreter::load(source.as_str(), &path) {
+    let c = match sixtyfps_interpreter::load(source.as_str(), &path) {
         Ok(c) => c,
         Err(diag) => {
             diag.print(source);
@@ -39,7 +39,7 @@ fn load(mut cx: FunctionContext) -> JsResult<JsValue> {
 
 fn create<'cx>(
     cx: &mut CallContext<'cx, impl neon::object::This>,
-    component_type: Rc<interpreter::ComponentDescription>,
+    component_type: Rc<sixtyfps_interpreter::ComponentDescription>,
 ) -> JsResult<'cx, JsValue> {
     let mut component = component_type.clone().create();
     let persistent_context = persistent_context::PersistentContext::new(cx);
@@ -101,8 +101,8 @@ fn to_eval_value<'cx>(
     val: Handle<JsValue>,
     ty: sixtyfps_compilerlib::typeregister::Type,
     cx: &mut impl Context<'cx>,
-) -> NeonResult<interpreter::Value> {
-    use interpreter::Value;
+) -> NeonResult<sixtyfps_interpreter::Value> {
+    use sixtyfps_interpreter::Value;
     match ty {
         Type::Invalid | Type::Component(_) | Type::Builtin(_) | Type::Signal => {
             cx.throw_error("Cannot convert to a Sixtyfps property value")
@@ -117,8 +117,8 @@ fn to_eval_value<'cx>(
     }
 }
 
-fn to_js_value<'cx>(val: interpreter::Value, cx: &mut impl Context<'cx>) -> Handle<'cx, JsValue> {
-    use interpreter::Value;
+fn to_js_value<'cx>(val: sixtyfps_interpreter::Value, cx: &mut impl Context<'cx>) -> Handle<'cx, JsValue> {
+    use sixtyfps_interpreter::Value;
     match val {
         Value::Void => JsUndefined::new().as_value(cx),
         Value::Number(n) => JsNumber::new(cx, n).as_value(cx),
