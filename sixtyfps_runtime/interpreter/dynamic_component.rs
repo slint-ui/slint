@@ -15,7 +15,7 @@ use std::rc::Rc;
 
 pub(crate) struct ItemWithinComponent {
     offset: usize,
-    pub(crate) rtti: Rc<RuntimeTypeInfo>,
+    pub(crate) rtti: Rc<ItemRTTI>,
     elem: Rc<RefCell<Element>>,
 }
 
@@ -32,13 +32,27 @@ pub(crate) struct PropertiesWithinComponent {
     pub(crate) offset: usize,
     pub(crate) prop: Box<dyn PropertyInfo<u8, eval::Value>>,
 }
+
+/// A wrapper around a pointer to a Component, and its description.
+///
+/// Safety: the `mem` member must be a component instantiated with the description of
+/// this document.
+///
+/// It is similar to ComponentBox, but instead of a ComponentVTable pointer, we
+/// have direct access to the ComponentDescription, so we do not have to cast
 pub struct ComponentImpl {
     pub(crate) mem: *mut u8,
-    pub(crate) component_type: Rc<MyComponentType>,
+    pub(crate) component_type: Rc<ComponentDescription>,
 }
 
+/// ComponentDescription is a representation of a component suitable for interpretation
+///
+/// It contains information about how to create and destroy the Component.
+/// Its first member is the ComponentVTable for this component, since it is a `#[repr(C)]`
+/// structure, it is valid to cast a pointer to the ComponentVTable back to a
+/// ComponentDescription to access the extra field that are needed at runtime
 #[repr(C)]
-pub struct MyComponentType {
+pub struct ComponentDescription {
     pub(crate) ct: ComponentVTable,
     dynamic_type: Rc<dynamic_type::TypeInfo>,
     it: Vec<ItemTreeNode>,
@@ -53,10 +67,13 @@ pub struct MyComponentType {
 extern "C" fn item_tree(r: ComponentRef<'_>) -> *const ItemTreeNode {
     // FIXME! unsafe is not correct here, as the ComponentVTable might not be a MyComponentType
     // (one can safely take a copy of the vtable and call the create function to get a box)
-    unsafe { (*(r.get_vtable() as *const ComponentVTable as *const MyComponentType)).it.as_ptr() }
+    unsafe {
+        (*(r.get_vtable() as *const ComponentVTable as *const ComponentDescription)).it.as_ptr()
+    }
 }
 
-pub(crate) struct RuntimeTypeInfo {
+/// Information attached to a builtin item
+pub(crate) struct ItemRTTI {
     vtable: &'static ItemVTable,
     type_info: dynamic_type::StaticTypeInfo,
     pub(crate) properties: HashMap<&'static str, Box<dyn eval::ErasedPropertyInfo>>,
@@ -66,10 +83,10 @@ pub(crate) struct RuntimeTypeInfo {
 }
 
 fn rtti_for<T: 'static + Default + rtti::BuiltinItem + vtable::HasStaticVTable<ItemVTable>>(
-) -> (&'static str, Rc<RuntimeTypeInfo>) {
+) -> (&'static str, Rc<ItemRTTI>) {
     (
         T::name(),
-        Rc::new(RuntimeTypeInfo {
+        Rc::new(ItemRTTI {
             vtable: T::static_vtable(),
             type_info: dynamic_type::StaticTypeInfo::new::<T>(),
             properties: T::properties()
@@ -81,10 +98,13 @@ fn rtti_for<T: 'static + Default + rtti::BuiltinItem + vtable::HasStaticVTable<I
     )
 }
 
+/// Create a ComponentDescription from a source.
+/// The path corresponding to the source need to be passed as well (path is used for diagnostics
+/// and loading relative assets)
 pub fn load(
     source: &str,
     path: &std::path::Path,
-) -> Result<Rc<MyComponentType>, sixtyfps_compilerlib::diagnostics::Diagnostics> {
+) -> Result<Rc<ComponentDescription>, sixtyfps_compilerlib::diagnostics::Diagnostics> {
     let (syntax_node, mut diag) = parser::parse(&source);
     diag.current_path = path.into();
     let mut tr = typeregister::TypeRegister::builtin();
@@ -169,7 +189,7 @@ pub fn load(
     }
 
     let t = ComponentVTable { create: component_create, drop: component_destroy, item_tree };
-    let t = MyComponentType {
+    let t = ComponentDescription {
         ct: t,
         dynamic_type: builder.build(),
         it: tree_array,
@@ -186,14 +206,15 @@ pub fn load(
 unsafe extern "C" fn component_create(s: &ComponentVTable) -> ComponentBox {
     // This is safe because we have an instance of ComponentVTable which is the first field of MyComponentType
     // And the only way to get a MyComponentType is through the load function which returns a Rc
-    let component_type =
-        Rc::<MyComponentType>::from_raw(s as *const ComponentVTable as *const MyComponentType);
+    let component_type = Rc::<ComponentDescription>::from_raw(
+        s as *const ComponentVTable as *const ComponentDescription,
+    );
     // We need to increment the ref-count, as from_raw doesn't do that.
     std::mem::forget(component_type.clone());
     instentiate(component_type)
 }
 
-pub fn instentiate(component_type: Rc<MyComponentType>) -> ComponentBox {
+pub fn instentiate(component_type: Rc<ComponentDescription>) -> ComponentBox {
     let instance = component_type.dynamic_type.clone().create_instance();
     let mem = instance as *mut u8;
 
@@ -279,9 +300,9 @@ pub fn instentiate(component_type: Rc<MyComponentType>) -> ComponentBox {
 
 unsafe extern "C" fn component_destroy(component_ref: vtable::VRefMut<ComponentVTable>) {
     // Take the reference count that the instentiate function leaked
-    let _vtable_rc = Rc::<MyComponentType>::from_raw(component_ref.get_vtable()
+    let _vtable_rc = Rc::<ComponentDescription>::from_raw(component_ref.get_vtable()
         as *const ComponentVTable
-        as *const MyComponentType);
+        as *const ComponentDescription);
 
     dynamic_type::TypeInfo::delete_instance(component_ref.as_ptr() as *mut dynamic_type::Instance);
 }

@@ -11,7 +11,7 @@ mod dynamic_type;
 mod eval;
 
 pub use dynamic_component::load;
-pub use dynamic_component::MyComponentType as ComponentDescription;
+pub use dynamic_component::ComponentDescription;
 pub use eval::Value;
 
 pub(crate) use dynamic_component::ComponentImpl;
@@ -39,10 +39,15 @@ impl ComponentDescription {
             .collect()
     }
 
+    /// Instantiate a runtime component from this ComponentDescription
     pub fn create(self: Rc<Self>) -> ComponentBox {
         dynamic_component::instentiate(self)
     }
 
+    /// Set a value to property.
+    ///
+    /// Returns an error if the component is not an instance corresponding to this ComponentDescription,
+    /// or if the property with this name does not exist in this component
     pub fn set_property(
         &self,
         component: ComponentRef,
@@ -56,6 +61,10 @@ impl ComponentDescription {
         unsafe { x.prop.set(&*component.as_ptr().add(x.offset), value) }
     }
 
+    /// Set a binding to a property
+    ///
+    /// Returns an error if the component is not an instance corresponding to this ComponentDescription,
+    /// or if the property with this name does not exist in this component
     pub fn set_binding(
         &self,
         component: ComponentRef,
@@ -70,6 +79,10 @@ impl ComponentDescription {
         Ok(())
     }
 
+    /// Return the value of a property
+    ///
+    /// Returns an error if the component is not an instance corresponding to this ComponentDescription,
+    /// or if a signal with this name does not exist in this component
     pub fn get_property(&self, component: ComponentRef, name: &str) -> Result<Value, ()> {
         if !core::ptr::eq((&self.ct) as *const _, component.get_vtable() as *const _) {
             return Err(());
@@ -79,6 +92,10 @@ impl ComponentDescription {
         unsafe { x.prop.get(&*component.as_ptr().add(x.offset), &eval_context) }
     }
 
+    /// Sets an handler for a signal
+    ///
+    /// Returns an error if the component is not an instance corresponding to this ComponentDescription,
+    /// or if the property wit this name does not exist in this dociment
     pub fn set_signal_handler(
         &self,
         component: ComponentRefMut,

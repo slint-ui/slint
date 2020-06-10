@@ -1,5 +1,7 @@
 /*!
  This module create dynamic types
+
+ The main entry point for this module is the TypeBuilder
 */
 
 use core::alloc::Layout;
@@ -12,31 +14,52 @@ unsafe fn drop_fn<T>(ptr: *mut u8) {
     core::ptr::read(ptr as *const T);
 }
 
+/// Information for type that can be added to a dynamic type.
+///
+/// Let the builder know how to construct and build these fields
 #[derive(Copy, Clone)]
 pub struct StaticTypeInfo {
+    /// Invariant: this function must be safe to call on a uninitialized memory matching `mem_layout`.
+    /// Can only be None if the field is meant to be initialized by another mean (e.g, the type pointer
+    /// allocated at the begining of the type)
     construct: Option<unsafe fn(*mut u8)>,
+    /// Invariant: this function must be safe to call on an instance created by the `construct` function.
+    /// If None, the type does not need drop.
     drop: Option<unsafe fn(*mut u8)>,
+    /// Memory latout of the type
     mem_layout: Layout,
 }
 
 impl StaticTypeInfo {
+    /// Returns a StaticTypeInfo suitable for the type `T`
     pub fn new<T: Default>() -> StaticTypeInfo {
         let drop = if core::mem::needs_drop::<T>() { Some(drop_fn::<T> as _) } else { None };
         StaticTypeInfo { construct: Some(construct_fn::<T>), drop, mem_layout: Layout::new::<T>() }
     }
 }
 
+/// Internal structure representing a field within a dynamic type
 struct FieldInfo {
     construct: Option<unsafe fn(*mut u8)>,
     drop: Option<unsafe fn(*mut u8)>,
     offset: usize,
 }
 
+/// A TypeInfo represents the metadata required to create and drop dynamic type
+///
+/// It needs to be built with the TypeBuilder.
 pub struct TypeInfo {
     mem_layout: core::alloc::Layout,
+    /// Invariant: each field must represent a valid field within the `mem_layout`
+    /// and the construct and drop function must be valid so that each field can
+    /// be constructed and droped correctly.
+    /// The first FieldInfo must be related to the `Rc<TypeInfo>` member at the beginning
     fields: Vec<FieldInfo>,
 }
 
+/// A builder for a dynamic type.
+///
+/// Call `add_field()` for each type, and then `build()` to return a TypeInfo
 pub struct TypeBuilder {
     /// max alignement in byte of the types
     align: usize,
@@ -57,10 +80,15 @@ impl TypeBuilder {
         s
     }
 
+    /// Convinience to call add_field with the StaticTypeInfo for a field
     pub fn add_field_type<T: Default>(&mut self) -> usize {
         self.add_field(StaticTypeInfo::new::<T>())
     }
 
+    /// Add a field in this dynamic type.
+    ///
+    /// Returns the offset, in bytes, of the added field in within the dinamic type.
+    /// This takes care of alignment of the types.
     pub fn add_field(&mut self, ty: StaticTypeInfo) -> usize {
         let align = ty.mem_layout.align();
         let len_rounded_up = self.size.wrapping_add(align).wrapping_sub(1) & !align.wrapping_sub(1);
@@ -85,7 +113,12 @@ impl TypeBuilder {
 }
 
 impl TypeInfo {
+    /// Create an instance of this type.
+    ///
+    /// The instance will be allocated on the heap.
+    /// The instance must be freed with `delete_instance`
     pub fn create_instance(self: Rc<Self>) -> *mut Instance {
+        // Safety: the TypeInfo invariant means that the constructor can be called
         unsafe {
             let mem = std::alloc::alloc(self.mem_layout);
             std::ptr::write(mem as *mut Rc<_>, self.clone());
@@ -98,6 +131,9 @@ impl TypeInfo {
         }
     }
 
+    /// Drop and free the memory of this instance
+    ///
+    /// Saferty, the instance must have been created by `TypeInfo::create_instance`
     pub unsafe fn delete_instance(instance: *mut Instance) {
         let type_info = (*instance).type_info.clone();
         let mem = instance as *mut u8;
@@ -110,6 +146,7 @@ impl TypeInfo {
     }
 }
 
+/// Opaque type that represents something created with `TypeInfo::create_instance`
 #[repr(C)]
 pub struct Instance {
     type_info: Rc<TypeInfo>,

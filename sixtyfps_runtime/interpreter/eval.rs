@@ -25,15 +25,29 @@ impl<Item: vtable::HasStaticVTable<corelib::abi::datastructures::ItemVTable>> Er
 }
 
 #[derive(Debug, Clone)]
+/// This is a dynamically typed Value used in the interpreter, it need to be able
+/// to be converted from and to anything that can be stored in a Property
 pub enum Value {
+    /// There is nothing in this value. That's the default.
+    /// For example, a function that do not return a result would return a Value::Void
     Void,
+    /// An i32 or a float
     Number(f64),
+    /// String
     String(SharedString),
+    /// Bool
     Bool(bool),
+    /// A resource (typically an image)
     Resource(Resource),
 }
 
 impl corelib::rtti::ValueType for Value {}
+
+/// Helper macro to implement the TryFrom / TryInto for Value
+///
+/// For example
+/// `declare_value_conversion!(Number => [u32, u64, i32, i64, f32, f64] );`
+/// means that Value::Number can be converted to / from each of the said rust types
 macro_rules! declare_value_conversion {
     ( $value:ident => [$($ty:ty),*] ) => {
         $(
@@ -62,6 +76,7 @@ declare_value_conversion!(String => [SharedString] );
 declare_value_conversion!(Bool => [bool] );
 declare_value_conversion!(Resource => [Resource] );
 
+/// Evaluate an expression and return a Value as the result of this expression
 pub fn eval_expression(
     e: &Expression,
     ctx: &crate::ComponentImpl,
