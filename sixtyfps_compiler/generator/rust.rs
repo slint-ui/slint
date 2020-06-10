@@ -227,7 +227,7 @@ fn compile_expression(e: &Expression, component: &Component) -> TokenStream {
         Expression::ResourceReference { absolute_source_path } => {
             if let Some(id) = component.embedded_file_resources.borrow().get(absolute_source_path) {
                 let symbol = quote::format_ident!("SFPS_EMBEDDED_RESOURCE_{}", id);
-                quote!(sixtyfps::re_exports::Resource::EmbeddedData{ptr: #symbol.as_ptr(), len: #symbol.len()})
+                quote!(sixtyfps::re_exports::Resource::EmbeddedData(#symbol.into()))
             } else {
                 quote!(sixtyfps::re_exports::Resource::AbsoluteFilePath(sixtyfps::re_exports::SharedString::from(#absolute_source_path)))
             }
