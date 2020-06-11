@@ -84,7 +84,7 @@ Hello := Rectangle {
         GridLayout {
             Row {
                 ButtonRectangle {
-                    button_color: 4289374890;
+                    button_color: #888;
                     clicked => { counter += 1 }
                     button_text: "+";
                 }
@@ -94,7 +94,7 @@ Hello := Rectangle {
             }
             Row {
                 ButtonRectangle {
-                    button_color: 4289374890;
+                    button_color: #888;
                     clicked => { minus_clicked() }
                     button_text: "-";
                 }

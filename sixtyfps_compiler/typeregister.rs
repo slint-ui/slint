@@ -92,9 +92,6 @@ impl Type {
                     | (Type::Float32, Type::String)
                     | (Type::Int32, Type::Float32)
                     | (Type::Int32, Type::String)
-                    // FIXME: REMOVE
-                    | (Type::Float32, Type::Color)
-                    | (Type::Int32, Type::Color)
             )
     }
 }

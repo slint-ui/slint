@@ -11,6 +11,12 @@ fn fill_token_vec(stream: TokenStream, vec: &mut Vec<parser::Token>) {
 
         match t {
             TokenTree::Ident(i) => {
+                if let Some(last) = vec.last_mut() {
+                    if last.kind == SyntaxKind::ColorLiteral && last.text.len() == 1 {
+                        last.text = format!("#{}", i).into();
+                        continue;
+                    }
+                }
                 vec.push(parser::Token {
                     kind: SyntaxKind::Identifier,
                     text: i.to_string().into(),
@@ -69,6 +75,7 @@ fn fill_token_vec(stream: TokenStream, vec: &mut Vec<parser::Token>) {
                         }
                         SyntaxKind::RAngle
                     }
+                    '#' => SyntaxKind::ColorLiteral,
                     '?' => SyntaxKind::Question,
                     _ => SyntaxKind::Error,
                 };
@@ -87,6 +94,12 @@ fn fill_token_vec(stream: TokenStream, vec: &mut Vec<parser::Token>) {
                 let kind = if f == '"' {
                     SyntaxKind::StringLiteral
                 } else if f.is_digit(10) {
+                    if let Some(last) = vec.last_mut() {
+                        if last.kind == SyntaxKind::ColorLiteral && last.text.len() == 1 {
+                            last.text = format!("#{}", s).into();
+                            continue;
+                        }
+                    }
                     SyntaxKind::NumberLiteral
                 } else {
                     SyntaxKind::Error

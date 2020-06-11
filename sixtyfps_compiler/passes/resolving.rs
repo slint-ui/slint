@@ -123,6 +123,19 @@ impl Expression {
                 })
             })
             .or_else(|| {
+                node.child_text(SyntaxKind::ColorLiteral).map(|s| {
+                    parse_color_literal(&s)
+                        .map(|i| Expression::Cast {
+                            from: Box::new(Expression::NumberLiteral(i as _)),
+                            to: Type::Color,
+                        })
+                        .unwrap_or_else(|| {
+                            ctx.diag.push_error("Invalid color literal".into(), node.span());
+                            Self::Invalid
+                        })
+                })
+            })
+            .or_else(|| {
                 node.child_node(SyntaxKind::FunctionCallExpression).map(|n| {
                     Expression::FunctionCall {
                         function: Box::new(
@@ -267,7 +280,8 @@ impl Expression {
                     ctx.diag.push_error(
                         "Cannot access fields of property".into(),
                         x.into_token().unwrap().span(),
-                    )
+                    );
+                    return Self::Invalid;
                 }
                 return Self::PropertyReference {
                     component: Rc::downgrade(&ctx.component),
@@ -311,8 +325,10 @@ impl Expression {
                 _ => None,
             };
             if let Some(value) = value {
-                // FIXME: there should be a ColorLiteral
-                return Self::NumberLiteral(value as f64);
+                return Expression::Cast {
+                    from: Box::new(Expression::NumberLiteral(value as f64)),
+                    to: Type::Color,
+                };
             }
         }
 
@@ -346,6 +362,58 @@ impl Expression {
                 .unwrap_or('_'),
         }
     }
+}
+
+fn parse_color_literal(s: &str) -> Option<u32> {
+    if !s.starts_with("#") {
+        return None;
+    }
+    if !s.is_ascii() {
+        return None;
+    }
+    let s = &s[1..];
+    let (r, g, b, a) = match s.len() {
+        3 => (
+            u8::from_str_radix(&s[0..=0], 16).ok()? * 0x11,
+            u8::from_str_radix(&s[1..=1], 16).ok()? * 0x11,
+            u8::from_str_radix(&s[2..=2], 16).ok()? * 0x11,
+            255u8,
+        ),
+        4 => (
+            u8::from_str_radix(&s[0..=0], 16).ok()? * 0x11,
+            u8::from_str_radix(&s[1..=1], 16).ok()? * 0x11,
+            u8::from_str_radix(&s[2..=2], 16).ok()? * 0x11,
+            u8::from_str_radix(&s[3..=3], 16).ok()? * 0x11,
+        ),
+        6 => (
+            u8::from_str_radix(&s[0..2], 16).ok()?,
+            u8::from_str_radix(&s[2..4], 16).ok()?,
+            u8::from_str_radix(&s[4..6], 16).ok()?,
+            255u8,
+        ),
+        8 => (
+            u8::from_str_radix(&s[0..2], 16).ok()?,
+            u8::from_str_radix(&s[2..4], 16).ok()?,
+            u8::from_str_radix(&s[4..6], 16).ok()?,
+            u8::from_str_radix(&s[6..8], 16).ok()?,
+        ),
+        _ => return None,
+    };
+    Some((a as u32) << 24 | (r as u32) << 16 | (g as u32) << 8 | (b as u32) << 0)
+}
+
+#[test]
+fn test_parse_color_literal() {
+    assert_eq!(parse_color_literal("#abc"), Some(0xffaabbcc));
+    assert_eq!(parse_color_literal("#ABC"), Some(0xffaabbcc));
+    assert_eq!(parse_color_literal("#AbC"), Some(0xffaabbcc));
+    assert_eq!(parse_color_literal("#AbCd"), Some(0xddaabbcc));
+    assert_eq!(parse_color_literal("#01234567"), Some(0x67012345));
+    assert_eq!(parse_color_literal("#012345"), Some(0xff012345));
+    assert_eq!(parse_color_literal("_01234567"), None);
+    assert_eq!(parse_color_literal("→↓←"), None);
+    assert_eq!(parse_color_literal("#→↓←"), None);
+    assert_eq!(parse_color_literal("#1234567890"), None);
 }
 
 fn unescape_string(string: &str) -> Option<String> {

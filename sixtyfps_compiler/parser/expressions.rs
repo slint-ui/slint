@@ -7,6 +7,7 @@ use super::prelude::*;
 /// "something"
 /// 0.3
 /// 42
+/// #aabbcc
 /// (something)
 /// img!"something"
 /// some_id.some_property
@@ -28,6 +29,7 @@ pub fn parse_expression(p: &mut impl Parser) {
         }
         SyntaxKind::StringLiteral => p.consume(),
         SyntaxKind::NumberLiteral => p.consume(),
+        SyntaxKind::ColorLiteral => p.consume(),
         SyntaxKind::LParent => {
             p.consume();
             parse_expression(&mut *p);

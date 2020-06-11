@@ -77,7 +77,7 @@ Hello := Rectangle {
     }
 
     ButtonRectangle {
-        color: 4289374890;
+        color: #8a8;
         x: 50;
         y: 225;
         clicked => { counter += 1 }
@@ -85,7 +85,7 @@ Hello := Rectangle {
     }
     counter_label := Text { x: 100; y: 300; text: counter; color: black; }
     ButtonRectangle {
-        color: 4289374890;
+        color: #aa8;
         x: 50;
         y: 350;
         clicked => { minus_clicked() }

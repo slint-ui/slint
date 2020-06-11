@@ -16,4 +16,18 @@ X := Rectangle {
     Rectangle {
         color: yellow;
     }
+
+    Rectangle {
+        color: #blue;
+//             ^error{Invalid color literal}
+        x: #0;
+//         ^error{Invalid color literal}
+        y: #0000000000;
+//         ^error{Invalid color literal}
+        property<color> a: #abq;
+//                         ^error{Invalid color literal}
+
+        property<color> b: 123;
+//                        ^error{Cannot convert float32 to color}
+    }
 }

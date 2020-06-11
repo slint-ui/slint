@@ -1,0 +1,55 @@
+Test := Rectangle {
+    property<color> b1: blue;
+    property<color> b2: #00f;
+    property<color> b3: #0000ff;
+    property<color> b4: #00ff;
+    property<color> b5: #0000ffff;
+    property<color> r1: red;
+    property<color> r2: #f00;
+    property<color> r3: #ff0000;
+    property<color> r4: #f00f;
+    property<color> r5: #ff0000ff;
+}
+
+/*
+```cpp
+Test t;
+assert(t.get_r1() == t.get_r2());
+assert(t.get_r1() == t.get_r3());
+assert(t.get_r1() == t.get_r4());
+assert(t.get_r1() == t.get_r5());
+assert(t.get_b1() == t.get_b2());
+assert(t.get_b1() == t.get_b3());
+assert(t.get_b1() == t.get_b4());
+assert(t.get_b1() == t.get_b5());
+assert(t.get_b1() != t.get_r5());
+```
+
+
+```rust
+let t = Test::default();
+assert_eq!(t.get_r1(), t.get_r2());
+assert_eq!(t.get_r1(), t.get_r3());
+assert_eq!(t.get_r1(), t.get_r4());
+assert_eq!(t.get_r1(), t.get_r5());
+assert_eq!(t.get_b1(), t.get_b2());
+assert_eq!(t.get_b1(), t.get_b3());
+assert_eq!(t.get_b1(), t.get_b4());
+assert_eq!(t.get_b1(), t.get_b5());
+assert_ne!(t.get_b1(), t.get_r5());
+```
+
+```js
+var t = new sixtyfps.Test({});
+assert(t.r1 == t.r2);
+assert(t.r1 == t.r3);
+assert(t.r1 == t.r4);
+assert(t.r1 == t.r5);
+assert(t.b1 == t.b2);
+assert(t.b1 == t.b3);
+assert(t.b1 == t.b4);
+assert(t.b1 == t.b5);
+assert(t.b1 != t.r5);
+```
+*/
+
