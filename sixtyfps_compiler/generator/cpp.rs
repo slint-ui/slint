@@ -221,6 +221,20 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<impl st
 
     for (cpp_name, property_decl) in component.root_element.borrow().property_declarations.iter() {
         let ty = if property_decl.property_type == Type::Signal {
+            if property_decl.expose_in_public_api {
+                let signal_emitter: Vec<String> = vec![
+                    "auto context = sixtyfps::internal::EvaluationContext{ VRefMut<sixtyfps::ComponentVTable> { &component_type, this } };".into(),
+                    format!("{}.emit(&context);", cpp_name)
+                    ];
+
+                main_struct.members.push(Declaration::Function(Function {
+                    name: format!("emit_{}", cpp_name),
+                    signature: "()".into(),
+                    statements: Some(signal_emitter),
+                    ..Default::default()
+                }));
+            }
+
             "sixtyfps::Signal".into()
         } else {
             let cpp_type = property_decl.property_type.cpp_type().unwrap_or_else(|| {

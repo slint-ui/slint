@@ -216,13 +216,28 @@ impl Element {
                 );
             }
         }
+
+        for sig_decl in node.SignalDeclaration() {
+            let name_token =
+                sig_decl.DeclaredIdentifier().child_token(SyntaxKind::Identifier).unwrap();
+            let name = name_token.text().to_string();
+            r.property_declarations.insert(
+                name,
+                PropertyDeclaration {
+                    property_type: Type::Signal,
+                    type_location: sig_decl.span(),
+                    ..Default::default()
+                },
+            );
+        }
+
         for con_node in node.SignalConnection() {
             let name_token = match con_node.child_token(SyntaxKind::Identifier) {
                 Some(x) => x,
                 None => continue,
             };
             let name = name_token.text().to_string();
-            let prop_type = r.base_type.lookup_property(&name);
+            let prop_type = r.lookup_property(&name);
             if !matches!(prop_type, Type::Signal) {
                 diag.push_error(
                     format!("'{}' is not a signal in {}", name, base),
@@ -238,20 +253,6 @@ impl Element {
                     crate::diagnostics::Span::new(name_token.text_range().start().into()),
                 );
             }
-        }
-
-        for sig_decl in node.SignalDeclaration() {
-            let name_token =
-                sig_decl.DeclaredIdentifier().child_token(SyntaxKind::Identifier).unwrap();
-            let name = name_token.text().to_string();
-            r.property_declarations.insert(
-                name,
-                PropertyDeclaration {
-                    property_type: Type::Signal,
-                    type_location: sig_decl.span(),
-                    ..Default::default()
-                },
-            );
         }
 
         for se in node.children() {

@@ -1,0 +1,31 @@
+TestCase := Rectangle {
+    signal test_signal;
+    property<int32> signal_emission_count;
+    test_signal => { signal_emission_count += 1; }
+}
+/*
+```cpp
+TestCase instance;
+instance.set_signal_emission_count(0);
+assert(instance.get_signal_emission_count() == 0);
+instance.emit_test_signal();
+assert(instance.get_signal_emission_count() == 1);
+```
+
+
+```rust
+let instance = TestCase::default();
+instance.set_signal_emission_count(0);
+assert_eq!(instance.get_signal_emission_count(), 0);
+instance.emit_test_signal();
+assert_eq!(instance.get_signal_emission_count(), 1);
+```
+
+```not-working-yet:js
+var instance = new sixtyfps.TestCase({});
+instance.signal_emission_count = 0;
+assert.equal(instance.signal_emission_count, 0);
+instance.test_signal();
+assert.equal(instance.signal_emission_count, 1);
+```
+*/
