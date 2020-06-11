@@ -17,6 +17,7 @@ pub fn move_declarations(component: &Rc<Component>) {
     simplify_optimized_items(component.optimized_elements.borrow().as_slice());
 
     let mut decl = Declarations::take_from_element(&mut *component.root_element.borrow_mut());
+    decl.property_declarations.values_mut().for_each(|d| d.expose_in_public_api = true);
 
     fn fixup_bindings_recursive(
         elem: &ElementRc,

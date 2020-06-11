@@ -94,6 +94,7 @@ impl Component {
 pub struct PropertyDeclaration {
     pub property_type: Type,
     pub type_location: crate::diagnostics::Span,
+    pub expose_in_public_api: bool,
 }
 
 /// An Element is an instentation of a Component
@@ -182,7 +183,11 @@ impl Element {
 
             r.property_declarations.insert(
                 prop_name.clone(),
-                PropertyDeclaration { property_type: prop_type, type_location: type_span },
+                PropertyDeclaration {
+                    property_type: prop_type,
+                    type_location: type_span,
+                    ..Default::default()
+                },
             );
 
             if let Some(csn) = prop_decl.child_node(SyntaxKind::BindingExpression) {
@@ -254,7 +259,11 @@ impl Element {
             let name = name_token.text().to_string();
             r.property_declarations.insert(
                 name,
-                PropertyDeclaration { property_type: Type::Signal, type_location: sig_decl.span() },
+                PropertyDeclaration {
+                    property_type: Type::Signal,
+                    type_location: sig_decl.span(),
+                    ..Default::default()
+                },
             );
         }
 

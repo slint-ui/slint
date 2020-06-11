@@ -219,25 +219,47 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<impl st
 
     let mut main_struct = Struct { name: component.id.clone(), ..Default::default() };
 
-    main_struct.members.extend(component.root_element.borrow().property_declarations.iter().map(
-        |(cpp_name, property_decl)| {
-            let ty = if property_decl.property_type == Type::Signal {
-                "sixtyfps::Signal".into()
-            } else {
-                let cpp_type = property_decl.property_type.cpp_type().unwrap_or_else(|| {
-                    let err = CompilerDiagnostic {
-                        message: "Cannot map property type to C++".into(),
-                        span: property_decl.type_location.clone(),
-                    };
+    for (cpp_name, property_decl) in component.root_element.borrow().property_declarations.iter() {
+        let ty = if property_decl.property_type == Type::Signal {
+            "sixtyfps::Signal".into()
+        } else {
+            let cpp_type = property_decl.property_type.cpp_type().unwrap_or_else(|| {
+                let err = CompilerDiagnostic {
+                    message: "Cannot map property type to C++".into(),
+                    span: property_decl.type_location.clone(),
+                };
 
-                    diag.push_compiler_error(err);
-                    "".into()
-                });
-                format!("sixtyfps::Property<{}>", cpp_type)
-            };
-            Declaration::Var(Var { ty, name: cpp_name.clone(), init: None })
-        },
-    ));
+                diag.push_compiler_error(err);
+                "".into()
+            });
+
+            if property_decl.expose_in_public_api {
+                let prop_getter: Vec<String> = vec![
+                    "auto context = sixtyfps::internal::EvaluationContext{ VRefMut<sixtyfps::ComponentVTable> { &component_type, this } };".into(),
+                    format!("return {}.get(&context);", cpp_name)
+                ];
+
+                main_struct.members.push(Declaration::Function(Function {
+                    name: format!("get_{}", cpp_name),
+                    signature: format!("() -> {}", cpp_type),
+                    statements: Some(prop_getter),
+                    ..Default::default()
+                }));
+
+                let prop_setter: Vec<String> = vec![format!("{}.set(value);", cpp_name)];
+
+                main_struct.members.push(Declaration::Function(Function {
+                    name: format!("set_{}", cpp_name),
+                    signature: format!("(const {} &value)", cpp_type),
+                    statements: Some(prop_setter),
+                    ..Default::default()
+                }));
+            }
+
+            format!("sixtyfps::Property<{}>", cpp_type)
+        };
+        main_struct.members.push(Declaration::Var(Var { ty, name: cpp_name.clone(), init: None }));
+    }
 
     let mut init = vec!["auto self = this;".into()];
     handle_item(&component.root_element.borrow(), &mut main_struct, &mut init);
