@@ -36,17 +36,43 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<TokenSt
     let mut declared_property_vars = vec![];
     let mut declared_property_types = vec![];
     let mut declared_signals = vec![];
+    let mut property_accessors: Vec<TokenStream> = vec![];
     for (prop_name, property_decl) in component.root_element.borrow().property_declarations.iter() {
         let prop_ident = quote::format_ident!("{}", prop_name);
         if property_decl.property_type == Type::Signal {
             declared_signals.push(prop_ident);
         } else {
             declared_property_var_names.push(prop_name.clone());
-            declared_property_vars.push(prop_ident);
-            declared_property_types.push(property_decl.rust_type().unwrap_or_else(|err| {
+            declared_property_vars.push(prop_ident.clone());
+            let rust_property_type = property_decl.rust_type().unwrap_or_else(|err| {
                 diag.push_compiler_error(err);
                 quote!().into()
-            }));
+            });
+            declared_property_types.push(rust_property_type.clone());
+
+            if property_decl.expose_in_public_api {
+                let getter_ident = quote::format_ident!("get_{}", prop_name);
+                let setter_ident = quote::format_ident!("set_{}", prop_name);
+
+                property_accessors.push(
+                    quote!(
+                        fn #getter_ident(&self) -> #rust_property_type {
+                            let eval_context = sixtyfps::re_exports::EvaluationContext{ component: sixtyfps::re_exports::ComponentRef::new(self) };
+                            self.#prop_ident.get(&eval_context)
+                        }
+                    )
+                    .into(),
+                );
+
+                property_accessors.push(
+                    quote!(
+                        fn #setter_ident(&self, value: #rust_property_type) {
+                            self.#prop_ident.set(value)
+                        }
+                    )
+                    .into(),
+                );
+            }
         }
     }
 
@@ -168,6 +194,8 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<TokenSt
                 sixtyfps::re_exports::ComponentVTable_static!(static VT for #component_id);
                 sixtyfps_runtime_run_component_with_gl_renderer(VRef::new(&self));
             }
+
+            #(#property_accessors)*
         }
     ))
 }

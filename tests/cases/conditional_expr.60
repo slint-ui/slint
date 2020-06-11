@@ -10,4 +10,13 @@ assert(instance.get_test_value() == 1);
 instance.set_condition(false);
 assert(instance.get_test_value() == 2);
 ```
+
+
+```rust
+let instance = TestCase::default();
+instance.set_condition(true);
+assert_eq!(instance.get_test_value(), 1);
+instance.set_condition(false);
+assert_eq!(instance.get_test_value(), 2);
+```
 */
