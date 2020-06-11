@@ -165,6 +165,8 @@ declare_syntax! {
         RParent -> r"\)",
         LAngle -> r"<",
         RAngle -> r">",
+        LBracket -> r"\[",
+        RBracket -> r"\]",
         Plus -> r"\+",
         Minus -> r"-",
         Star -> r"\*",
@@ -189,7 +191,8 @@ declare_syntax! {
         /// Note: This is in fact the same as Component as far as the parser is concerned
         SubElement -> [ Element ],
         Element -> [ QualifiedName, *PropertyDeclaration, *Binding, *SignalConnection, *SignalDeclaration, *SubElement, *RepeatedElement ],
-        RepeatedElement -> [ Expression , Element],
+        RepeatedElement -> [ ?RepeatedIndex, Expression , Element],
+        RepeatedIndex -> [],
         SignalDeclaration -> [],
         SignalConnection -> [ CodeBlock ],
         PropertyDeclaration-> [ QualifiedName , ?BindingExpression ],
@@ -289,8 +292,16 @@ mod parser_trait {
         /// Consume the token if it has the right kind, otherwise report a syntax error.
         /// Returns true if the token was consumed.
         fn expect(&mut self, kind: SyntaxKind) -> bool {
-            if self.nth(0) != kind {
+            if !self.test(kind) {
                 self.error(format!("Syntax error: expected {:?}", kind));
+                return false;
+            }
+            return true;
+        }
+
+        /// If the token if of this type, consume it and return true, otherwise return false
+        fn test(&mut self, kind: SyntaxKind) -> bool {
+            if self.nth(0) != kind {
                 return false;
             }
             self.consume();

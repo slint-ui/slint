@@ -3,18 +3,23 @@
 SuperSimple := Rectangle {
     color: green;
 
+    for
+//  ^error{TODO: for not implemented}
+        xx Text {}
+//         ^error{Invalid 'for' syntax: there should be a 'in' token}
+
+
     for xx in zz: Hello {
 //  ^error{TODO: for not implemented}
         Rectangle {}
     }
 
-    Image {     
+    Image {
     }
 
     for xx in zz: Hello {
 //  ^error{TODO: for not implemented}
         Rectangle {}
     }
-
 }
 

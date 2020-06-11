@@ -119,13 +119,24 @@ fn parse_sub_element(p: &mut impl Parser) {
 #[cfg_attr(test, parser_test)]
 /// ```test,RepeatedElement
 /// for xx in mm: Elem { }
+/// for [idx] in mm: Elem { }
+/// for xx [idx] in foo.bar: Elem { }
+/// for in cond ? blah : blah: E {}
 /// ```
 /// Must consume at least one token
 fn parse_repeated_element(p: &mut impl Parser) {
     debug_assert_eq!(p.peek().as_str(), "for");
     let mut p = p.start_node(SyntaxKind::RepeatedElement);
-    p.consume();
-    if !(p.expect(SyntaxKind::Identifier) && p.peek().as_str() == "in") {
+    p.consume(); // "for"
+    p.test(SyntaxKind::Identifier);
+    if p.nth(0) == SyntaxKind::LBracket {
+        let mut p = p.start_node(SyntaxKind::RepeatedIndex);
+        p.expect(SyntaxKind::LBracket);
+        p.expect(SyntaxKind::Identifier);
+        p.expect(SyntaxKind::RBracket);
+    }
+    if p.peek().as_str() != "in" {
+        p.error("Invalid 'for' syntax: there should be a 'in' token");
         return;
     }
     p.consume(); // "in"

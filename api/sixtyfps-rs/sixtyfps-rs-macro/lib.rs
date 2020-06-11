@@ -104,7 +104,7 @@ fn fill_token_vec(stream: TokenStream, vec: &mut Vec<parser::Token>) {
                 let (l, r, sl, sr) = match g.delimiter() {
                     Parenthesis => (LParent, RParent, "(", ")"),
                     Brace => (LBrace, RBrace, "{", "}"),
-                    Bracket => todo!(),
+                    Bracket => (LBracket, RBracket, "[", "]"),
                     None => todo!(),
                 };
                 vec.push(parser::Token {
