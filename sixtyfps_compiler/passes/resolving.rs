@@ -82,7 +82,7 @@ impl Expression {
                 node.child_node(SyntaxKind::CodeBlock).map(|c| Self::from_codeblock_node(c, ctx))
             })
             .unwrap_or(Self::Invalid);
-        maybe_convert_to(e, ctx, &node)
+        e.maybe_convert_to(ctx.property_type.clone(), &node, &mut ctx.diag)
     }
 
     fn from_codeblock_node(node: SyntaxNode, ctx: &mut LookupCtx) -> Expression {
@@ -346,21 +346,6 @@ impl Expression {
                 .or(node.child_token(SyntaxKind::DivEqual).and(Some('/')))
                 .unwrap_or('_'),
         }
-    }
-}
-
-/// Create a conversion node if needed, or throw an error if the type is not matching
-fn maybe_convert_to(e: Expression, ctx: &mut LookupCtx, node: &SyntaxNode) -> Expression {
-    let ty = e.ty();
-    if ty == ctx.property_type {
-        e
-    } else if ty.can_convert(&ctx.property_type) {
-        Expression::Cast { from: Box::new(e), to: ctx.property_type.clone() }
-    } else if ty == Type::Invalid {
-        e
-    } else {
-        ctx.diag.push_error(format!("Cannot convert {} to {}", ty, ctx.property_type), node.span());
-        e
     }
 }
 

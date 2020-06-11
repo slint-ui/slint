@@ -377,7 +377,7 @@ fn compile_expression(e: &crate::expression_tree::Expression) -> String {
             let false_code = compile_expression(false_expr);
             format!(
                 r#"[&]() -> {} {{ if ({}) {{ return {}; }} else {{ return {}; }}}}()"#,
-                true_expr.ty().cpp_type().unwrap(),
+                e.ty().cpp_type().unwrap(),
                 cond_code,
                 true_code,
                 false_code

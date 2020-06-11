@@ -1,5 +1,5 @@
 use crate::object_tree::*;
-use crate::{parser::SyntaxNode, typeregister::Type};
+use crate::{diagnostics::Diagnostics, parser::Spanned, parser::SyntaxNode, typeregister::Type};
 use core::cell::RefCell;
 use std::rc::Weak;
 
@@ -165,6 +165,50 @@ impl Expression {
             Expression::SelfAssignment { .. } => false,
             Expression::ResourceReference { .. } => true,
             Expression::Condition { .. } => false,
+        }
+    }
+
+    pub fn cast_boxed(self: Box<Self>, target_type: Type) -> Box<Expression> {
+        Box::new(Expression::Cast { from: self, to: target_type })
+    }
+
+    /// Create a conversion node if needed, or throw an error if the type is not matching
+    pub fn maybe_convert_to(
+        self,
+        target_type: Type,
+        node: &SyntaxNode,
+        diag: &mut Diagnostics,
+    ) -> Expression {
+        match self {
+            Expression::Condition { condition, true_expr, false_expr } => {
+                let true_expr = if true_expr.ty() != target_type {
+                    true_expr.cast_boxed(target_type.clone())
+                } else {
+                    true_expr
+                };
+                let false_expr = if false_expr.ty() != target_type {
+                    false_expr.cast_boxed(target_type)
+                } else {
+                    false_expr
+                };
+                Expression::Condition { condition, true_expr, false_expr }
+            }
+            _ => {
+                let ty = self.ty();
+                if ty == target_type {
+                    self
+                } else if ty.can_convert(&target_type) {
+                    Expression::Cast { from: Box::new(self), to: target_type }
+                } else if ty == Type::Invalid {
+                    self
+                } else {
+                    diag.push_error(
+                        format!("Cannot convert {} to {}", ty, target_type),
+                        node.span(),
+                    );
+                    self
+                }
+            }
         }
     }
 }

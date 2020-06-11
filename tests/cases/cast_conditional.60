@@ -1,0 +1,5 @@
+Test := Rectangle {
+    property<bool> condition;
+    property<color> extra_color;
+    color: condition ? root.extra_color : 4289374890;
+}
