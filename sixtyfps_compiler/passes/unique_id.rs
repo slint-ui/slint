@@ -3,11 +3,10 @@
 //! It currently does so by adding a number to the existing id
 
 use crate::object_tree::*;
-use std::cell::RefCell;
 use std::rc::Rc;
 
 pub fn assign_unique_id(component: &Rc<Component>) {
-    fn assign_unique_id_recursive(elem: &Rc<RefCell<Element>>, count: &mut usize) {
+    fn assign_unique_id_recursive(elem: &ElementRc, count: &mut usize) {
         *count += 1;
         {
             let mut elem_mut = elem.borrow_mut();

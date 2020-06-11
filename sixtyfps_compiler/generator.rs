@@ -5,9 +5,7 @@ There is one sub module for every language
 */
 
 use crate::diagnostics::Diagnostics;
-use crate::object_tree::{Component, Element};
-use core::cell::RefCell;
-use std::rc::Rc;
+use crate::object_tree::{Component, Element, ElementRc};
 
 #[cfg(feature = "cpp")]
 mod cpp;
@@ -33,10 +31,7 @@ pub fn generate(
 /// Visit each item in order in which they should appear in the children tree array.
 /// The parameter of the visitor are the item, and the first_children_offset
 #[allow(dead_code)]
-pub fn build_array_helper(
-    component: &Component,
-    mut visit_item: impl FnMut(&Rc<RefCell<Element>>, u32),
-) {
+pub fn build_array_helper(component: &Component, mut visit_item: impl FnMut(&ElementRc, u32)) {
     visit_item(&component.root_element, 1);
     visit_children(&component.root_element.borrow(), 1, &mut visit_item);
 
@@ -51,7 +46,7 @@ pub fn build_array_helper(
     fn visit_children(
         item: &Element,
         children_offset: u32,
-        visit_item: &mut impl FnMut(&Rc<RefCell<Element>>, u32),
+        visit_item: &mut impl FnMut(&ElementRc, u32),
     ) {
         let mut offset = children_offset + item.children.len() as u32;
         for i in &item.children {

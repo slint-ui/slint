@@ -128,11 +128,9 @@ mod cpp_ast {
 }
 
 use crate::diagnostics::{CompilerDiagnostic, Diagnostics};
-use crate::object_tree::{Component, Element};
+use crate::object_tree::{Component, Element, ElementRc};
 use crate::typeregister::Type;
 use cpp_ast::*;
-use std::cell::RefCell;
-use std::rc::Rc;
 
 impl CppType for Type {
     fn cpp_type(&self) -> Option<&str> {
@@ -316,7 +314,7 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<impl st
     }
 }
 
-fn access_member(element: &Rc<RefCell<Element>>, name: &str) -> String {
+fn access_member(element: &ElementRc, name: &str) -> String {
     let e = element.borrow();
     if e.property_declarations.contains_key(name) {
         name.into()

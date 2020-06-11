@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 pub fn inline(doc: &Document) {
-    fn inline_elements_recursively(elem: &Rc<RefCell<Element>>, component: &Rc<Component>) {
+    fn inline_elements_recursively(elem: &ElementRc, component: &Rc<Component>) {
         let base = elem.borrow().base_type.clone();
         if let Type::Component(c) = base {
             // First, make sure that the component itself is properly inlined
@@ -26,12 +26,12 @@ fn clone_tuple<U: Clone, V: Clone>((u, v): (&U, &V)) -> (U, V) {
     (u.clone(), v.clone())
 }
 
-fn element_key(e: &Rc<RefCell<Element>>) -> usize {
+fn element_key(e: &ElementRc) -> usize {
     &**e as *const RefCell<Element> as usize
 }
 
 fn inline_element(
-    elem: &Rc<RefCell<Element>>,
+    elem: &ElementRc,
     inlined_component: &Rc<Component>,
     root_component: &Rc<Component>,
 ) {
@@ -88,9 +88,9 @@ fn inline_element(
 
 // Duplicate the element elem and all its children. And fill the mapping to point from the old to the new
 fn duplicate_element_with_mapping(
-    element: &Rc<RefCell<Element>>,
-    mapping: &mut HashMap<usize, Rc<RefCell<Element>>>,
-) -> Rc<RefCell<Element>> {
+    element: &ElementRc,
+    mapping: &mut HashMap<usize, ElementRc>,
+) -> ElementRc {
     let elem = element.borrow();
     let new = Rc::new(RefCell::new(Element {
         base_type: elem.base_type.clone(),
@@ -111,7 +111,7 @@ fn duplicate_element_with_mapping(
 
 fn fixup_binding(
     val: &mut Expression,
-    mapping: &HashMap<usize, Rc<RefCell<Element>>>,
+    mapping: &HashMap<usize, ElementRc>,
     root_component: &Rc<Component>,
 ) {
     val.visit_mut(|sub| fixup_binding(sub, mapping, root_component));
@@ -138,7 +138,7 @@ fn fixup_binding(
 
 fn fold_binding(
     val: &Expression,
-    mapping: &HashMap<usize, Rc<RefCell<Element>>>,
+    mapping: &HashMap<usize, ElementRc>,
     root_component: &Rc<Component>,
 ) -> Expression {
     let mut new_val = val.clone();

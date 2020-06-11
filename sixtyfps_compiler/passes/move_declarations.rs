@@ -1,7 +1,6 @@
 //! This pass moves all declaration of properties or signal to the root
 
 use crate::{expression_tree::Expression, object_tree::*, typeregister::Type};
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -20,7 +19,7 @@ pub fn move_declarations(component: &Rc<Component>) {
     let mut decl = Declarations::take_from_element(&mut *component.root_element.borrow_mut());
 
     fn fixup_bindings_recursive(
-        elem: &Rc<RefCell<Element>>,
+        elem: &ElementRc,
         component: &Rc<Component>,
         new_root_bindings: &mut HashMap<String, Expression>,
     ) {
@@ -45,7 +44,7 @@ pub fn move_declarations(component: &Rc<Component>) {
     let mut new_root_bindings = HashMap::new();
     fixup_bindings_recursive(&component.root_element, component, &mut new_root_bindings);
 
-    fn move_declarations_recursive(elem: &Rc<RefCell<Element>>, decl: &mut Declarations) {
+    fn move_declarations_recursive(elem: &ElementRc, decl: &mut Declarations) {
         for c in &elem.borrow().children {
             let elem_decl = Declarations::take_from_element(&mut *c.borrow_mut());
             decl.property_declarations.extend(
@@ -69,7 +68,7 @@ pub fn move_declarations(component: &Rc<Component>) {
     core::mem::take(&mut *component.optimized_elements.borrow_mut());
 }
 
-fn map_name(e: &Rc<RefCell<Element>>, s: &str) -> String {
+fn map_name(e: &ElementRc, s: &str) -> String {
     format!("{}_{}", e.borrow().id, s)
 }
 
@@ -99,7 +98,7 @@ fn fixup_bindings(val: &mut Expression, comp: &Rc<Component>) {
 /// Optimized item are not used for the fact that they are items, but their properties
 /// might still be used.  So we must pretend all the properties are declared in the
 /// item itself so the move_declaration pass can move the delcaration in the component root
-fn simplify_optimized_items(items: &[Rc<RefCell<Element>>]) {
+fn simplify_optimized_items(items: &[ElementRc]) {
     for elem in items {
         let mut base_type_it = core::mem::take(&mut elem.borrow_mut().base_type);
         loop {
@@ -143,7 +142,7 @@ fn simplify_optimized_items(items: &[Rc<RefCell<Element>>]) {
 
 /// Check there are no longer references to optimized items
 #[cfg(debug_assertions)]
-fn assert_optized_item_unused(items: &[Rc<RefCell<Element>>]) {
+fn assert_optized_item_unused(items: &[ElementRc]) {
     for e in items {
         assert_eq!(Rc::strong_count(e), 1);
         assert_eq!(Rc::weak_count(e), 0);

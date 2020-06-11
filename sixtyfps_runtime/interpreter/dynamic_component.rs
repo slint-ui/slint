@@ -1,9 +1,8 @@
 use crate::{dynamic_type, eval};
 
-use core::cell::RefCell;
 use core::convert::TryInto;
 use core::ptr::NonNull;
-use object_tree::Element;
+use object_tree::ElementRc;
 use sixtyfps_compilerlib::typeregister::Type;
 use sixtyfps_compilerlib::*;
 use sixtyfps_corelib::abi::datastructures::{
@@ -18,7 +17,7 @@ use std::rc::Rc;
 pub(crate) struct ItemWithinComponent {
     offset: usize,
     pub(crate) rtti: Rc<ItemRTTI>,
-    elem: Rc<RefCell<Element>>,
+    elem: ElementRc,
 }
 
 impl ItemWithinComponent {

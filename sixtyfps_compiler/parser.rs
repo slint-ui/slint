@@ -189,7 +189,7 @@ declare_syntax! {
         /// Note: This is in fact the same as Component as far as the parser is concerned
         SubElement -> [ Element ],
         Element -> [ QualifiedName, *PropertyDeclaration, *Binding, *SignalConnection, *SignalDeclaration, *SubElement, *RepeatedElement ],
-        RepeatedElement -> _,
+        RepeatedElement -> [ Expression , Element],
         SignalDeclaration -> [],
         SignalConnection -> [ CodeBlock ],
         PropertyDeclaration-> [ QualifiedName , ?BindingExpression ],

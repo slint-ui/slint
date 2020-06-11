@@ -4,13 +4,12 @@ use crate::diagnostics::Diagnostics;
 
 use crate::layout::*;
 use crate::object_tree::*;
-use std::cell::RefCell;
 use std::rc::Rc;
 
 /// Currently this just removes the layout from the tree
 pub fn lower_layouts(component: &Rc<Component>, diag: &mut Diagnostics) {
     fn lower_layouts_recursively(
-        elem_: &Rc<RefCell<Element>>,
+        elem_: &ElementRc,
         component: &Rc<Component>,
         diag: &mut Diagnostics,
     ) {
@@ -76,13 +75,7 @@ pub fn lower_layouts(component: &Rc<Component>, diag: &mut Diagnostics) {
 }
 
 impl GridLayout {
-    fn add_element(
-        &mut self,
-        elem: Rc<RefCell<Element>>,
-        row: usize,
-        col: usize,
-        diag: &mut Diagnostics,
-    ) {
+    fn add_element(&mut self, elem: ElementRc, row: usize, col: usize, diag: &mut Diagnostics) {
         fn index_checked<T: Default>(vec: &mut Vec<T>, idx: usize) -> &mut T {
             if vec.len() <= idx {
                 vec.resize_with(idx + 1, T::default)

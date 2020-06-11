@@ -45,11 +45,11 @@ impl Document {
 pub struct Component {
     //     node: SyntaxNode,
     pub id: String,
-    pub root_element: Rc<RefCell<Element>>,
+    pub root_element: ElementRc,
 
     /// List of elements that are not attached to the root anymore because they have been
     /// optimized away, but their properties may still be in use
-    pub optimized_elements: RefCell<Vec<Rc<RefCell<Element>>>>,
+    pub optimized_elements: RefCell<Vec<ElementRc>>,
 
     /// Map of resources to embed in the generated binary, indexed by their absolute path on
     /// disk on the build system and valued by a unique integer id, that can be used by the
@@ -74,11 +74,8 @@ impl Component {
         }
     }
 
-    pub fn find_element_by_id(&self, name: &str) -> Option<Rc<RefCell<Element>>> {
-        pub fn find_element_by_id_recursive(
-            e: &Rc<RefCell<Element>>,
-            name: &str,
-        ) -> Option<Rc<RefCell<Element>>> {
+    pub fn find_element_by_id(&self, name: &str) -> Option<ElementRc> {
+        pub fn find_element_by_id_recursive(e: &ElementRc, name: &str) -> Option<ElementRc> {
             if e.borrow().id == name {
                 return Some(e.clone());
             }
@@ -112,13 +109,15 @@ pub struct Element {
     pub base_type: crate::typeregister::Type,
     /// Currently contains also the signals. FIXME: should that be changed?
     pub bindings: HashMap<String, Expression>,
-    pub children: Vec<Rc<RefCell<Element>>>,
+    pub children: Vec<ElementRc>,
 
     pub property_declarations: HashMap<String, PropertyDeclaration>,
 
     /// The AST node, if available
     pub node: Option<SyntaxNode>,
 }
+
+pub type ElementRc = Rc<RefCell<Element>>;
 
 impl Element {
     pub fn from_node(

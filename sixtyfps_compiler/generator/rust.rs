@@ -3,12 +3,10 @@
 
 use crate::diagnostics::{CompilerDiagnostic, Diagnostics};
 use crate::expression_tree::Expression;
-use crate::object_tree::{Component, Element, PropertyDeclaration};
+use crate::object_tree::{Component, ElementRc, PropertyDeclaration};
 use crate::typeregister::Type;
 use proc_macro2::TokenStream;
 use quote::quote;
-use std::cell::RefCell;
-use std::rc::Rc;
 
 trait RustType {
     fn rust_type(&self) -> Result<proc_macro2::TokenStream, CompilerDiagnostic>;
@@ -174,7 +172,7 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<TokenSt
     ))
 }
 
-fn access_member(element: &Rc<RefCell<Element>>, name: &str) -> TokenStream {
+fn access_member(element: &ElementRc, name: &str) -> TokenStream {
     let e = element.borrow();
     let name_ident = quote::format_ident!("{}", name);
     if e.property_declarations.contains_key(name) {

@@ -11,12 +11,11 @@ use crate::object_tree::*;
 use crate::parser::{Spanned, SyntaxKind, SyntaxNode, SyntaxNodeEx};
 use crate::typeregister::{Type, TypeRegister};
 use core::str::FromStr;
-use std::cell::RefCell;
 use std::rc::Rc;
 
 pub fn resolve_expressions(doc: &Document, diag: &mut Diagnostics, tr: &mut TypeRegister) {
     fn resolve_expressions_in_element_recursively(
-        elem: &Rc<RefCell<Element>>,
+        elem: &ElementRc,
         component: &Rc<Component>,
         diag: &mut Diagnostics,
         tr: &mut TypeRegister,
