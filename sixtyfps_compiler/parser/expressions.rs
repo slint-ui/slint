@@ -2,7 +2,7 @@ use super::document::parse_qualified_name;
 use super::prelude::*;
 
 #[cfg_attr(test, parser_test)]
-/// ```test
+/// ```test,Expression
 /// something
 /// "something"
 /// 0.3
@@ -68,7 +68,7 @@ pub fn parse_expression(p: &mut impl Parser) {
 }
 
 #[cfg_attr(test, parser_test)]
-/// ```test
+/// ```test,BangExpression
 /// foo!bar
 /// foo!(bar)
 /// foo!("bar")

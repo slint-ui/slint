@@ -25,16 +25,33 @@ fn generate_test(fn_name: &str, doc: &str) -> String {
     if doc.is_empty() {
         return error("doc comments not found");
     }
+    let mut kind = None;
     let idx = match doc.find("```test\n") {
-        Some(idx) => idx,
-        None => return error("test not found"),
+        Some(idx) => idx + 8,
+        None => match doc.find("```test,") {
+            None => return error("test not found"),
+            Some(idx) => match doc[idx..].find("\n") {
+                None => return error("test not found"),
+                Some(newline) => {
+                    kind = Some(&doc[idx + 8..idx + newline]);
+                    idx + newline + 1
+                }
+            },
+        },
     };
-    let doc = &doc[(idx + 8)..];
+    let doc = &doc[(idx)..];
     let idx = match doc.find("```\n") {
         Some(idx) => idx,
         None => return error("end of test not found"),
     };
     let doc = &doc[..idx];
+
+    let verify = match kind {
+        None => String::new(),
+        Some(kind) => {
+            format!("syntax_nodes::{}::verify(SyntaxNode::new_root(p.builder.finish()));", kind)
+        }
+    };
 
     let mut tests = String::new();
     for (i, line) in doc.split("\n").enumerate() {
@@ -49,8 +66,9 @@ fn generate_test(fn_name: &str, doc: &str) -> String {
             {fn}(&mut p);
             assert_eq!(p.diags.inner, Vec::new());
             assert_eq!(p.cursor, p.tokens.len());
+            {verify}
         }}
-        "#, fn = fn_name, i = i, source = line)
+        "#, fn = fn_name, i = i, source = line, verify = verify)
     }
     tests
 }

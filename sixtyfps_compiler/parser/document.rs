@@ -3,7 +3,7 @@ use super::prelude::*;
 use super::statements::parse_statement;
 
 #[cfg_attr(test, parser_test)]
-/// ```test
+/// ```test,Document
 /// Type := Base { }
 /// Type := Base { SubElement { } }
 /// component Comp := Base {}  Type := Base {}
@@ -27,7 +27,7 @@ pub fn parse_document(p: &mut impl Parser) -> bool {
 }
 
 #[cfg_attr(test, parser_test)]
-/// ```test
+/// ```test,Component
 /// Type := Base { }
 /// Type := Base { prop: value; }
 /// Type := Base { SubElement { } }
@@ -45,7 +45,7 @@ pub fn parse_component(p: &mut impl Parser) -> bool {
 }
 
 #[cfg_attr(test, parser_test)]
-/// ```test
+/// ```test,Element
 /// Item { }
 /// Item { property: value; SubElement { } }
 /// ```
@@ -101,7 +101,7 @@ fn parse_element_content(p: &mut impl Parser) {
 }
 
 #[cfg_attr(test, parser_test)]
-/// ```test
+/// ```test,SubElement
 /// Bar {}
 /// foo := Bar {}
 /// Bar { x : y ; }
@@ -117,7 +117,7 @@ fn parse_sub_element(p: &mut impl Parser) {
 }
 
 #[cfg_attr(test, parser_test)]
-/// ```test
+/// ```test,RepeatedElement
 /// for xx in mm: Elem { }
 /// ```
 /// Must consume at least one token
@@ -135,7 +135,7 @@ fn parse_repeated_element(p: &mut impl Parser) {
 }
 
 #[cfg_attr(test, parser_test)]
-/// ```test
+/// ```test,QualifiedName
 /// Rectangle
 /// MyModule.Rectangle
 /// Deeply.Nested.MyModule.Rectangle
@@ -158,7 +158,7 @@ pub fn parse_qualified_name(p: &mut impl Parser) -> bool {
 }
 
 #[cfg_attr(test, parser_test)]
-/// ```test
+/// ```test,Binding
 /// foo: bar;
 /// foo: {}
 /// ```
@@ -170,7 +170,7 @@ fn parse_property_binding(p: &mut impl Parser) {
 }
 
 #[cfg_attr(test, parser_test)]
-/// ```test
+/// ```test,BindingExpression
 /// {  }
 /// expression ;
 /// ```
@@ -186,7 +186,7 @@ fn parse_binding_expression(p: &mut impl Parser) {
 }
 
 #[cfg_attr(test, parser_test)]
-/// ```test
+/// ```test,CodeBlock
 /// {  }
 /// { expression }
 /// { expression ; expression }
@@ -213,7 +213,7 @@ fn parse_code_block(p: &mut impl Parser) {
 }
 
 #[cfg_attr(test, parser_test)]
-/// ```test
+/// ```test,SignalConnection
 /// clicked => {}
 /// ```
 fn parse_signal_connection(p: &mut impl Parser) {
@@ -224,7 +224,7 @@ fn parse_signal_connection(p: &mut impl Parser) {
 }
 
 #[cfg_attr(test, parser_test)]
-/// ```test
+/// ```test,SignalDeclaration
 /// signal foobar;
 /// ```
 /// Must consume at least one token
@@ -237,7 +237,7 @@ fn parse_signal_declaration(p: &mut impl Parser) {
 }
 
 #[cfg_attr(test, parser_test)]
-/// ```test
+/// ```test,PropertyDeclaration
 /// property<int> foobar;
 /// property<string> text: "Something";
 /// ```

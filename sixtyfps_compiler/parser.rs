@@ -19,49 +19,110 @@ mod statements;
 
 /// Each parser submodule would simply do `use super::prelude::*` to import typically used items
 mod prelude {
+    #[cfg(test)]
+    pub use super::{syntax_nodes, SyntaxNode, SyntaxNodeVerify};
     pub use super::{DefaultParser, Parser, SyntaxKind};
     #[cfg(test)]
     pub use parser_test_macro::parser_test;
 }
 
+#[cfg(test)]
+pub trait SyntaxNodeVerify {
+    /// The SyntaxKind corresponding to this type
+    const KIND: SyntaxKind;
+    /// Asserts that the node is of the given SyntaxKind and that it has the expected children
+    /// Panic if this is not the case
+    fn verify(node: SyntaxNode) {
+        assert_eq!(node.kind(), Self::KIND)
+    }
+}
+
+/// Check that a node has the assumed children
+#[cfg(test)]
+macro_rules! verify_node {
+    // nothing to verify
+    ($node:ident, _) => {};
+    // Some combination of children
+    ($node:ident, [ $($t1:tt $($t2:ident)?),* ]) => {
+        // Check that every children is there
+        $(verify_node!(@check_has_children $node, $t1 $($t2)* );)*
+
+        // check that there are not too many nodes
+        for c in $node.children() {
+            assert!(
+                false $(|| c.kind() == verify_node!(@extract_kind $t1 $($t2)*))*,
+                format!("Node is none of [{}]\n{:?}", stringify!($($t1 $($t2)*),*) ,c));
+        }
+
+        // recurse
+        $(
+            for _c in $node.children().filter(|n| n.kind() == verify_node!(@extract_kind $t1 $($t2)*)) {
+                <verify_node!(@extract_type $t1 $($t2)*)>::verify(_c)
+            }
+        )*
+    };
+
+    // Any number of this kind.
+    (@check_has_children $node:ident, * $kind:ident) => {};
+    // 1 or 0
+    (@check_has_children $node:ident, ? $kind:ident) => {
+        let count = $node.children_with_tokens().filter(|n| n.kind() == SyntaxKind::$kind).count();
+        assert!(count <= 1, "Expecting one or zero sub-node of type {}, found {}\n{:?}", stringify!($kind), count, $node);
+    };
+    // Exactly one
+    (@check_has_children $node:ident, $kind:ident) => {
+        let count = $node.children_with_tokens().filter(|n| n.kind() == SyntaxKind::$kind).count();
+        assert_eq!(count, 1, "Expecting exactly one sub-node of type {}\n{:?}", stringify!($kind), $node);
+    };
+    // Exact number
+    (@check_has_children $node:ident, $count:literal $kind:ident) => {
+        let count = $node.children_with_tokens().filter(|n| n.kind() == SyntaxKind::$kind).count();
+        assert_eq!(count, $count, "Expecting {} sub-node of type {}, found {}\n{:?}", $count, stringify!($kind), count, $node);
+    };
+
+    (@extract_kind * $kind:ident) => {SyntaxKind::$kind};
+    (@extract_kind ? $kind:ident) => {SyntaxKind::$kind};
+    (@extract_kind $count:literal $kind:ident) => {SyntaxKind::$kind};
+    (@extract_kind $kind:ident) => {SyntaxKind::$kind};
+
+    (@extract_type * $kind:ident) => {$crate::parser::syntax_nodes::$kind};
+    (@extract_type ? $kind:ident) => {$crate::parser::syntax_nodes::$kind};
+    (@extract_type $count:literal $kind:ident) => {$crate::parser::syntax_nodes::$kind};
+    (@extract_type $kind:ident) => {$crate::parser::syntax_nodes::$kind};
+
+}
+
 /// This macro is invoked once, to declare all the token and syntax kind.
-/// The purpose of this macro is to declare the token with its regexp at the same place
-macro_rules! declare_token_kind {
-    ($($token:ident -> $rx:expr ,)*) => {
+/// The purpose of this macro is to declare the token with its regexp at the same place,
+/// and the nodes with their contents.
+macro_rules! declare_syntax {
+    ({
+        $($token:ident -> $rx:expr ,)*
+     }
+     {
+        $( $(#[$attr:meta])*  $nodekind:ident -> $children:tt ,)*
+    })
+    => {
         #[repr(u16)]
         #[derive(Debug, Copy, Clone, Eq, PartialEq, num_enum::IntoPrimitive, num_enum::TryFromPrimitive)]
         pub enum SyntaxKind {
             Error,
             Eof,
 
-            // Token:
-            $($token,)*
+            // Tokens:
+            $(
+                /// Token matching this regexp:
+                /// ```text
+                #[doc = $rx]
+                /// ```
+                $token,
+            )*
 
-            //SyntaxKind:
-            Document,
-            Component,
-            /// Note: This is in fact the same as Component as far as the parser is concerned
-            SubElement,
-            Element,
-            RepeatedElement,
-            SignalDeclaration,
-            SignalConnection,
-            PropertyDeclaration,
-            /// wraps Identifiers, like Rectangle or SomeModule.SomeType
-            QualifiedName,
-            Binding,
-            /// the right-hand-side of a binding
-            BindingExpression,
-            CodeBlock,
-            Expression,
-            /// foo!bar
-            BangExpression,
-            /// expression()
-            FunctionCallExpression,
-            /// expression += expression
-            SelfAssignment,
-            /// condition ? first : second
-            ConditionalExpression
+            // Nodes:
+            $(
+                $(#[$attr])*
+                $nodekind,
+            )*
         }
 
         fn lexer() -> m_lexer::Lexer {
@@ -72,36 +133,84 @@ macro_rules! declare_token_kind {
                 ])
                 .build()
         }
+
+        #[cfg(test)]
+        pub mod syntax_nodes {
+            use super::*;
+            $(
+                pub struct $nodekind;
+                impl SyntaxNodeVerify for $nodekind {
+                    const KIND: SyntaxKind = SyntaxKind::$nodekind;
+                    fn verify(node: SyntaxNode) {
+                        assert_eq!(node.kind(), Self::KIND);
+                        verify_node!(node, $children);
+                    }
+                }
+            )*
+        }
     }
 }
-declare_token_kind! {
-    Whitespace -> r"\s+",
-    Comment -> r"//.*\n|(?sU)/\*.*\*/", // FIXME: comments within comments
-    StringLiteral -> r#""[^"]*""#, // FIXME: escapes
-    NumberLiteral -> r"[\d]+(\.[\d]*)?",
-    Identifier -> r"[\w]+",
-    LBrace -> r"\{",
-    RBrace -> r"\}",
-    LParent -> r"\(",
-    RParent -> r"\)",
-    LAngle -> r"<",
-    RAngle -> r">",
-    Plus -> r"\+",
-    Minus -> r"-",
-    Star -> r"\*",
-    Div -> r"/",
-    PlusEqual -> r"\+=",
-    MinusEqual -> r"-=",
-    StarEqual -> r"\*=",
-    DivEqual -> r"/=",
-    ColonEqual -> r":=",
-    FatArrow -> r"=>",
-    Equal -> r"=",
-    Colon -> r":",
-    Semicolon -> r";",
-    Bang -> r"!",
-    Dot -> r"\.",
-    Question -> r"\?",
+declare_syntax! {
+    // Tokens.
+    // WARNING: when changing this, do not forget to update the tokenizer in the sixtyfps-rs-macro crate!
+    {
+        Whitespace -> r"\s+",
+        Comment -> r"//.*\n|(?sU)/\*.*\*/", // FIXME: comments within comments
+        StringLiteral -> r#""[^"]*""#, // FIXME: escapes
+        NumberLiteral -> r"[\d]+(\.[\d]*)?",
+        Identifier -> r"[\w]+",
+        LBrace -> r"\{",
+        RBrace -> r"\}",
+        LParent -> r"\(",
+        RParent -> r"\)",
+        LAngle -> r"<",
+        RAngle -> r">",
+        Plus -> r"\+",
+        Minus -> r"-",
+        Star -> r"\*",
+        Div -> r"/",
+        PlusEqual -> r"\+=",
+        MinusEqual -> r"-=",
+        StarEqual -> r"\*=",
+        DivEqual -> r"/=",
+        ColonEqual -> r":=",
+        FatArrow -> r"=>",
+        Equal -> r"=",
+        Colon -> r":",
+        Semicolon -> r";",
+        Bang -> r"!",
+        Dot -> r"\.",
+        Question -> r"\?",
+    }
+    // syntax kind
+    {
+        Document -> [ *Component ],
+        Component -> [ Element ],
+        /// Note: This is in fact the same as Component as far as the parser is concerned
+        SubElement -> [ Element ],
+        Element -> [ QualifiedName, *PropertyDeclaration, *Binding, *SignalConnection, *SignalDeclaration, *SubElement, *RepeatedElement ],
+        RepeatedElement -> _,
+        SignalDeclaration -> [],
+        SignalConnection -> [ CodeBlock ],
+        PropertyDeclaration-> [ QualifiedName , ?BindingExpression ],
+        /// wraps Identifiers, like Rectangle or SomeModule.SomeType
+        QualifiedName-> [],
+        Binding-> [ BindingExpression ],
+        /// the right-hand-side of a binding
+        // Fixme: the test should be a or
+        BindingExpression-> [ ?CodeBlock, ?Expression ],
+        CodeBlock-> [ *Expression ],
+        // FIXME: the test should test that as alternative rather than several of them (but it can also be a literal)
+        Expression-> [ ?Expression, ?BangExpression, ?FunctionCallExpression, ?SelfAssignment, ?ConditionalExpression, ?QualifiedName],
+        /// `foo!bar`
+        BangExpression -> [Expression],
+        /// expression()
+        FunctionCallExpression -> [Expression],
+        /// `expression += expression`
+        SelfAssignment -> [2 Expression],
+        /// `condition ? first : second`
+        ConditionalExpression -> [3 Expression],
+    }
 }
 
 impl From<SyntaxKind> for rowan::SyntaxKind {
