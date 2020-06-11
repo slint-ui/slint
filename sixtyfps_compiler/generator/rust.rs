@@ -56,6 +56,7 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<TokenSt
 
                 property_accessors.push(
                     quote!(
+                        #[allow(dead_code)]
                         fn #getter_ident(&self) -> #rust_property_type {
                             let eval_context = sixtyfps::re_exports::EvaluationContext{ component: sixtyfps::re_exports::ComponentRef::new(self) };
                             self.#prop_ident.get(&eval_context)
@@ -66,6 +67,7 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<TokenSt
 
                 property_accessors.push(
                     quote!(
+                        #[allow(dead_code)]
                         fn #setter_ident(&self, value: #rust_property_type) {
                             self.#prop_ident.set(value)
                         }
