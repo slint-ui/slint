@@ -19,4 +19,12 @@ assert_eq!(instance.get_test_value(), 1);
 instance.set_condition(false);
 assert_eq!(instance.get_test_value(), 2);
 ```
+
+```js
+var instance = new sixtyfps.TestCase({});
+instance.condition = true;
+assert.equal(instance.test_value, 1);
+instance.condition = false;
+assert.equal(instance.test_value, 2);
+```
 */
