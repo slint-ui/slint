@@ -165,14 +165,12 @@ impl Element {
                 _ => (),
             };
 
-            let prop_name_token = match prop_decl
-                .children_with_tokens()
-                .filter(|n| n.kind() == SyntaxKind::Identifier)
-                .last()
-            {
-                Some(x) => x.into_token().unwrap(),
-                None => continue,
-            };
+            let prop_name_token = prop_decl
+                .child_node(SyntaxKind::DeclaredIdentifier)
+                .unwrap()
+                .child_token(SyntaxKind::Identifier)
+                .unwrap();
+
             let prop_name = prop_name_token.text().to_string();
             if !matches!(r.lookup_property(&prop_name), Type::Invalid) {
                 diag.push_error(
@@ -247,15 +245,11 @@ impl Element {
         }
 
         for sig_decl in node.children().filter(|n| n.kind() == SyntaxKind::SignalDeclaration) {
-            // We need to go reverse to skip the "signal" token
-            let name_token = match sig_decl
-                .children_with_tokens()
-                .filter(|n| n.kind() == SyntaxKind::Identifier)
-                .last()
-            {
-                Some(x) => x.into_token().unwrap(),
-                None => continue,
-            };
+            let name_token = sig_decl
+                .child_node(SyntaxKind::DeclaredIdentifier)
+                .unwrap()
+                .child_token(SyntaxKind::Identifier)
+                .unwrap();
             let name = name_token.text().to_string();
             r.property_declarations.insert(
                 name,

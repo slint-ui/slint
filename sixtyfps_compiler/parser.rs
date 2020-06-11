@@ -191,13 +191,15 @@ declare_syntax! {
         /// Note: This is in fact the same as Component as far as the parser is concerned
         SubElement -> [ Element ],
         Element -> [ QualifiedName, *PropertyDeclaration, *Binding, *SignalConnection, *SignalDeclaration, *SubElement, *RepeatedElement ],
-        RepeatedElement -> [ ?RepeatedIndex, Expression , Element],
+        RepeatedElement -> [ ?DeclaredIdentifier, ?RepeatedIndex, Expression , Element],
         RepeatedIndex -> [],
-        SignalDeclaration -> [],
+        SignalDeclaration -> [ DeclaredIdentifier ],
         SignalConnection -> [ CodeBlock ],
-        PropertyDeclaration-> [ QualifiedName , ?BindingExpression ],
-        /// wraps Identifiers, like Rectangle or SomeModule.SomeType
+        PropertyDeclaration-> [ QualifiedName , DeclaredIdentifier, ?BindingExpression ],
+        /// wraps Identifiers, like `Rectangle` or `SomeModule.SomeType`
         QualifiedName-> [],
+        /// Wraps single identifier (to disambiguate when there are other identifiar in the production)
+        DeclaredIdentifier -> [],
         Binding-> [ BindingExpression ],
         /// the right-hand-side of a binding
         // Fixme: the test should be a or

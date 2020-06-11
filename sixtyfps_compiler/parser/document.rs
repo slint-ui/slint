@@ -121,7 +121,6 @@ fn parse_sub_element(p: &mut impl Parser) {
 /// for xx in mm: Elem { }
 /// for [idx] in mm: Elem { }
 /// for xx [idx] in foo.bar: Elem { }
-/// for in cond ? blah : blah: E {}
 /// ```
 /// Must consume at least one token
 fn parse_repeated_element(p: &mut impl Parser) {
@@ -243,7 +242,10 @@ fn parse_signal_declaration(p: &mut impl Parser) {
     debug_assert_eq!(p.peek().as_str(), "signal");
     let mut p = p.start_node(SyntaxKind::SignalDeclaration);
     p.consume(); // "signal"
-    p.expect(SyntaxKind::Identifier);
+    {
+        let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
+        p.expect(SyntaxKind::Identifier);
+    }
     p.expect(SyntaxKind::Semicolon);
 }
 
@@ -259,8 +261,10 @@ fn parse_property_declaration(p: &mut impl Parser) {
     p.expect(SyntaxKind::LAngle);
     parse_qualified_name(&mut *p);
     p.expect(SyntaxKind::RAngle);
-    p.expect(SyntaxKind::Identifier);
-
+    {
+        let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
+        p.expect(SyntaxKind::Identifier);
+    }
     if p.nth(0) == SyntaxKind::Colon {
         p.consume();
         parse_binding_expression(&mut *p);
