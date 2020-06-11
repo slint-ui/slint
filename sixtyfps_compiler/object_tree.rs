@@ -4,7 +4,7 @@
 
 use crate::diagnostics::Diagnostics;
 use crate::expression_tree::Expression;
-use crate::parser::{Spanned, SyntaxKind, SyntaxNode, SyntaxNodeEx};
+use crate::parser::{syntax_nodes, Spanned, SyntaxKind, SyntaxNodeEx};
 use crate::typeregister::{Type, TypeRegister};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -18,12 +18,14 @@ pub struct Document {
 }
 
 impl Document {
-    pub fn from_node(node: SyntaxNode, diag: &mut Diagnostics, tr: &mut TypeRegister) -> Self {
+    pub fn from_node(
+        node: syntax_nodes::Document,
+        diag: &mut Diagnostics,
+        tr: &mut TypeRegister,
+    ) -> Self {
         debug_assert_eq!(node.kind(), SyntaxKind::Document);
-
         let inner_components = node
-            .children()
-            .filter(|n| n.kind() == SyntaxKind::Component)
+            .Component()
             .map(|n| {
                 let compo = Rc::new(Component::from_node(n, diag, tr));
                 tr.add(compo.clone());
@@ -61,15 +63,19 @@ pub struct Component {
 }
 
 impl Component {
-    pub fn from_node(node: SyntaxNode, diag: &mut Diagnostics, tr: &TypeRegister) -> Self {
-        debug_assert_eq!(node.kind(), SyntaxKind::Component);
+    pub fn from_node(
+        node: syntax_nodes::Component,
+        diag: &mut Diagnostics,
+        tr: &TypeRegister,
+    ) -> Self {
         Component {
             id: node.child_text(SyntaxKind::Identifier).unwrap_or_default(),
-            root_element: Rc::new(RefCell::new(
-                node.child_node(SyntaxKind::Element).map_or_else(Default::default, |n| {
-                    Element::from_node(n, "root".into(), diag, tr)
-                }),
-            )),
+            root_element: Rc::new(RefCell::new(Element::from_node(
+                node.Element(),
+                "root".into(),
+                diag,
+                tr,
+            ))),
             ..Default::default()
         }
     }
@@ -115,21 +121,19 @@ pub struct Element {
     pub property_declarations: HashMap<String, PropertyDeclaration>,
 
     /// The AST node, if available
-    pub node: Option<SyntaxNode>,
+    pub node: Option<syntax_nodes::Element>,
 }
 
 pub type ElementRc = Rc<RefCell<Element>>;
 
 impl Element {
     pub fn from_node(
-        node: SyntaxNode,
+        node: syntax_nodes::Element,
         id: String,
         diag: &mut Diagnostics,
         tr: &TypeRegister,
     ) -> Self {
-        debug_assert_eq!(node.kind(), SyntaxKind::Element);
-        let base =
-            QualifiedTypeName::from_node(node.child_node(SyntaxKind::QualifiedName).unwrap());
+        let base = QualifiedTypeName::from_node(node.QualifiedName());
         let mut r = Element {
             id,
             base_type: tr.lookup(&base.to_string()),
@@ -137,19 +141,12 @@ impl Element {
             ..Default::default()
         };
         if !r.base_type.is_object_type() {
-            diag.push_error(
-                format!("Unknown type {}", base),
-                node.child_node(SyntaxKind::QualifiedName).unwrap().span(),
-            );
+            diag.push_error(format!("Unknown type {}", base), node.QualifiedName().span());
             return r;
         }
 
-        for prop_decl in node.children().filter(|n| n.kind() == SyntaxKind::PropertyDeclaration) {
-            let qualified_type_node = prop_decl
-                .children()
-                .filter(|n| n.kind() == SyntaxKind::QualifiedName)
-                .nth(0)
-                .unwrap();
+        for prop_decl in node.PropertyDeclaration() {
+            let qualified_type_node = prop_decl.QualifiedName();
             let type_span = qualified_type_node.span();
             let qualified_type = QualifiedTypeName::from_node(qualified_type_node);
 
@@ -165,11 +162,8 @@ impl Element {
                 _ => (),
             };
 
-            let prop_name_token = prop_decl
-                .child_node(SyntaxKind::DeclaredIdentifier)
-                .unwrap()
-                .child_token(SyntaxKind::Identifier)
-                .unwrap();
+            let prop_name_token =
+                prop_decl.DeclaredIdentifier().child_token(SyntaxKind::Identifier).unwrap();
 
             let prop_name = prop_name_token.text().to_string();
             if !matches!(r.lookup_property(&prop_name), Type::Invalid) {
@@ -188,14 +182,14 @@ impl Element {
                 },
             );
 
-            if let Some(csn) = prop_decl.child_node(SyntaxKind::BindingExpression) {
-                if r.bindings.insert(prop_name, Expression::Uncompiled(csn)).is_some() {
+            if let Some(csn) = prop_decl.BindingExpression() {
+                if r.bindings.insert(prop_name, Expression::Uncompiled(csn.into())).is_some() {
                     diag.push_error("Duplicated property binding".into(), prop_name_token.span());
                 }
             }
         }
 
-        for b in node.children().filter(|n| n.kind() == SyntaxKind::Binding) {
+        for b in node.Binding() {
             let name_token = match b.child_token(SyntaxKind::Identifier) {
                 Some(x) => x,
                 None => continue,
@@ -212,16 +206,17 @@ impl Element {
                     crate::diagnostics::Span::new(name_token.text_range().start().into()),
                 );
             }
-            if let Some(csn) = b.child_node(SyntaxKind::BindingExpression) {
-                if r.bindings.insert(name, Expression::Uncompiled(csn)).is_some() {
-                    diag.push_error(
-                        "Duplicated property binding".into(),
-                        crate::diagnostics::Span::new(name_token.text_range().start().into()),
-                    );
-                }
+            if r.bindings
+                .insert(name, Expression::Uncompiled(b.BindingExpression().into()))
+                .is_some()
+            {
+                diag.push_error(
+                    "Duplicated property binding".into(),
+                    crate::diagnostics::Span::new(name_token.text_range().start().into()),
+                );
             }
         }
-        for con_node in node.children().filter(|n| n.kind() == SyntaxKind::SignalConnection) {
+        for con_node in node.SignalConnection() {
             let name_token = match con_node.child_token(SyntaxKind::Identifier) {
                 Some(x) => x,
                 None => continue,
@@ -234,22 +229,20 @@ impl Element {
                     crate::diagnostics::Span::new(name_token.text_range().start().into()),
                 );
             }
-            if let Some(csn) = con_node.child_node(SyntaxKind::CodeBlock) {
-                if r.bindings.insert(name, Expression::Uncompiled(csn)).is_some() {
-                    diag.push_error(
-                        "Duplicated signal".into(),
-                        crate::diagnostics::Span::new(name_token.text_range().start().into()),
-                    );
-                }
+            if r.bindings
+                .insert(name, Expression::Uncompiled(con_node.CodeBlock().into()))
+                .is_some()
+            {
+                diag.push_error(
+                    "Duplicated signal".into(),
+                    crate::diagnostics::Span::new(name_token.text_range().start().into()),
+                );
             }
         }
 
-        for sig_decl in node.children().filter(|n| n.kind() == SyntaxKind::SignalDeclaration) {
-            let name_token = sig_decl
-                .child_node(SyntaxKind::DeclaredIdentifier)
-                .unwrap()
-                .child_token(SyntaxKind::Identifier)
-                .unwrap();
+        for sig_decl in node.SignalDeclaration() {
+            let name_token =
+                sig_decl.DeclaredIdentifier().child_token(SyntaxKind::Identifier).unwrap();
             let name = name_token.text().to_string();
             r.property_declarations.insert(
                 name,
@@ -266,7 +259,7 @@ impl Element {
                 let id = se.child_text(SyntaxKind::Identifier).unwrap_or_default();
                 if let Some(element_node) = se.child_node(SyntaxKind::Element) {
                     r.children.push(Rc::new(RefCell::new(Element::from_node(
-                        element_node,
+                        element_node.into(),
                         id,
                         diag,
                         tr,
@@ -301,7 +294,7 @@ pub struct QualifiedTypeName {
 }
 
 impl QualifiedTypeName {
-    pub fn from_node(node: SyntaxNode) -> Self {
+    pub fn from_node(node: syntax_nodes::QualifiedName) -> Self {
         debug_assert_eq!(node.kind(), SyntaxKind::QualifiedName);
         let members = node
             .children_with_tokens()

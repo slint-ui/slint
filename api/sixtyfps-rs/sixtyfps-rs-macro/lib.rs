@@ -139,7 +139,7 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
 
     //println!("{:#?}", syntax_node);
     let mut tr = typeregister::TypeRegister::builtin();
-    let tree = object_tree::Document::from_node(syntax_node, &mut diag, &mut tr);
+    let tree = object_tree::Document::from_node(syntax_node.into(), &mut diag, &mut tr);
     let compiler_config = CompilerConfiguration::default();
     run_passes(&tree, &mut diag, &mut tr, &compiler_config);
     //println!("{:#?}", tree);

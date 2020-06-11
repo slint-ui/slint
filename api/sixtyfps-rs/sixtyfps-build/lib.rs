@@ -52,7 +52,7 @@ pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
     }
 
     let mut tr = typeregister::TypeRegister::builtin();
-    let doc = object_tree::Document::from_node(syntax_node, &mut diag, &mut tr);
+    let doc = object_tree::Document::from_node(syntax_node.into(), &mut diag, &mut tr);
     let mut compiler_config = CompilerConfiguration::default();
 
     if let Some(target) = env::var("TARGET").ok() {

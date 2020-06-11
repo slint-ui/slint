@@ -1,5 +1,6 @@
 use crate::object_tree::*;
-use crate::{diagnostics::Diagnostics, parser::Spanned, parser::SyntaxNode, typeregister::Type};
+use crate::parser::{Spanned, SyntaxNode};
+use crate::{diagnostics::Diagnostics, typeregister::Type};
 use core::cell::RefCell;
 use std::rc::Weak;
 

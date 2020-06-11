@@ -89,6 +89,55 @@ macro_rules! verify_node {
     (@extract_type ? $kind:ident) => {$crate::parser::syntax_nodes::$kind};
     (@extract_type $count:literal $kind:ident) => {$crate::parser::syntax_nodes::$kind};
     (@extract_type $kind:ident) => {$crate::parser::syntax_nodes::$kind};
+}
+
+macro_rules! node_accessors {
+    // nothing
+    (_) => {};
+    // Some combination of children
+    ([ $($t1:tt $($t2:ident)?),* ]) => {
+        $(node_accessors!{@ $t1 $($t2)*} )*
+    };
+
+    (@ * $kind:ident) => {
+        #[allow(non_snake_case)]
+        pub fn $kind(&self) -> impl Iterator<Item = $kind> {
+            self.0.children().filter(|n| n.kind() ==SyntaxKind::$kind).map(Into::into)
+        }
+    };
+    (@ ? $kind:ident) => {
+        #[allow(non_snake_case)]
+        pub fn $kind(&self) -> Option<$kind> {
+            self.0.child_node(SyntaxKind::$kind).map(Into::into)
+        }
+    };
+    (@ 2 $kind:ident) => {
+        #[allow(non_snake_case)]
+        pub fn $kind(&self) -> ($kind, $kind) {
+            let mut it = self.0.children().filter(|n| n.kind() == SyntaxKind::$kind);
+            let a = it.next().unwrap();
+            let b = it.next().unwrap();
+            debug_assert!(it.next().is_none());
+            (a.into(), b.into())
+        }
+    };
+    (@ 3 $kind:ident) => {
+        #[allow(non_snake_case)]
+        pub fn $kind(&self) -> ($kind, $kind, $kind) {
+            let mut it = self.0.children().filter(|n| n.kind() == SyntaxKind::$kind);
+            let a = it.next().unwrap();
+            let b = it.next().unwrap();
+            let c = it.next().unwrap();
+            debug_assert!(it.next().is_none());
+            (a.into(), b.into(), c.into())
+        }
+    };
+    (@ $kind:ident) => {
+        #[allow(non_snake_case)]
+        pub fn $kind(&self) -> $kind {
+            self.0.child_node(SyntaxKind::$kind).unwrap().into()
+        }
+    };
 
 }
 
@@ -134,17 +183,22 @@ macro_rules! declare_syntax {
                 .build()
         }
 
-        #[cfg(test)]
         pub mod syntax_nodes {
             use super::*;
+            use derive_more::*;
             $(
-                pub struct $nodekind;
+                #[derive(Debug, Clone, From, Deref, DerefMut, Into)]
+                pub struct $nodekind(pub SyntaxNode);
+                #[cfg(test)]
                 impl SyntaxNodeVerify for $nodekind {
                     const KIND: SyntaxKind = SyntaxKind::$nodekind;
                     fn verify(node: SyntaxNode) {
                         assert_eq!(node.kind(), Self::KIND);
                         verify_node!(node, $children);
                     }
+                }
+                impl $nodekind {
+                    node_accessors!{$children}
                 }
             )*
         }

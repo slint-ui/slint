@@ -14,7 +14,7 @@ fn main() -> std::io::Result<()> {
     diag.current_path = args.path;
     //println!("{:#?}", syntax_node);
     let mut tr = typeregister::TypeRegister::builtin();
-    let doc = object_tree::Document::from_node(syntax_node, &mut diag, &mut tr);
+    let doc = object_tree::Document::from_node(syntax_node.into(), &mut diag, &mut tr);
     let compiler_config = CompilerConfiguration::default();
     run_passes(&doc, &mut diag, &mut tr, &compiler_config);
 

@@ -109,7 +109,7 @@ pub fn load(
     let (syntax_node, mut diag) = parser::parse(&source);
     diag.current_path = path.into();
     let mut tr = typeregister::TypeRegister::builtin();
-    let tree = object_tree::Document::from_node(syntax_node, &mut diag, &mut tr);
+    let tree = object_tree::Document::from_node(syntax_node.into(), &mut diag, &mut tr);
     if !diag.inner.is_empty() {
         return Err(diag);
     }
