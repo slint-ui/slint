@@ -47,9 +47,7 @@ fn signal_simple_test() {
         fn create() -> Self {
             Default::default()
         }
-        fn item_tree(&self) -> *const crate::abi::datastructures::ItemTreeNode {
-            core::ptr::null()
-        }
+        fn visit_children_item(&self, _: isize, _: crate::abi::datastructures::ItemVisitorRefMut) {}
         fn layout_info(&self) -> crate::abi::datastructures::LayoutInfo {
             unimplemented!()
         }

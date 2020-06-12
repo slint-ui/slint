@@ -39,8 +39,11 @@ pub struct ComponentVTable {
     /// Destruct this component.
     pub drop: extern "C" fn(VRefMut<ComponentVTable>),
 
-    /// Returns an array that represent the item tree
-    pub item_tree: extern "C" fn(VRef<ComponentVTable>) -> *const ItemTreeNode,
+    /// Visit the children of the item at index `index`.
+    /// Note that the root item is at index 0, so passing 0 would visit the item under root (the children of root).
+    /// If you want to visit the root item, you need to pass -1 as an index
+    pub visit_children_item:
+        extern "C" fn(VRef<ComponentVTable>, index: isize, visitor: VRefMut<ItemVisitorVTable>),
 
     /// Returns the layout info for this component
     pub layout_info: extern "C" fn(VRef<ComponentVTable>) -> LayoutInfo,
@@ -289,7 +292,7 @@ pub fn visit_items<State>(
     mut visitor: impl FnMut(ItemRef<'_>, &State) -> State,
     state: State,
 ) {
-    visit_internal(component, &mut visitor, 0, &state)
+    visit_internal(component, &mut visitor, -1, &state)
 }
 
 fn visit_internal<State>(
@@ -298,59 +301,50 @@ fn visit_internal<State>(
     index: isize,
     state: &State,
 ) {
-    let item_tree = component.item_tree();
-    match unsafe { &*item_tree.offset(index) } {
-        ItemTreeNode::Item { vtable, offset, children_index, chilren_count } => {
-            let item = unsafe {
-                ItemRef::from_raw(
-                    NonNull::new_unchecked(*vtable as *mut _),
-                    NonNull::new_unchecked(component.as_ptr().offset(*offset) as *mut _),
-                )
-            };
-            let state = visitor(item, state);
-            for c in *children_index..(*children_index + *chilren_count) {
-                visit_internal(component, visitor, c as isize, &state)
-            }
-        }
-        ItemTreeNode::DynamicTree { .. } => todo!(),
+    let mut actual_visitor =
+        |component: VRef<ComponentVTable>, index: isize, item: VRef<ItemVTable>| {
+            let s = visitor(item, state);
+            visit_internal(component, visitor, index, &s);
+        };
+    fn get_vt<T: ItemVisitor>(_: &mut T) -> ItemVisitorVTable {
+        ItemVisitorVTable::new::<T>()
     }
+    let vtable = get_vt(&mut actual_visitor);
+    //FIXME: must find a way to safely create VRef even for non-static vtable
+    let v =
+        unsafe { VRefMut::from_raw(NonNull::from(&vtable), NonNull::from(&actual_visitor).cast()) };
+    component.visit_children_item(index, v);
 }
 
-/// Same as `visit_items`, but over mutable items.
-///
-/// The visitor also accept a re-borrow of the component given in imput
-pub fn visit_items_mut<State>(
-    component: VRefMut<'_, ComponentVTable>,
-    mut visitor: impl FnMut(VRefMut<'_, ComponentVTable>, ItemRefMut<'_>, &State) -> State,
-    state: State,
-) {
-    visit_internal_mut(component, &mut visitor, 0, &state)
-}
-
-fn visit_internal_mut<State>(
-    mut component: VRefMut<'_, ComponentVTable>,
-    visitor: &mut impl FnMut(VRefMut<'_, ComponentVTable>, ItemRefMut<'_>, &State) -> State,
+/// FIXME: this is just a layer to keep compatibility with the olde ItemTreeNode array, but there are better way to implement the visitor
+pub unsafe fn visit_item_tree(
+    component: ComponentRef,
+    item_tree: &[ItemTreeNode],
     index: isize,
-    state: &State,
+    mut visitor: ItemVisitorRefMut,
 ) {
-    let item_tree = component.item_tree();
-    match unsafe { &*item_tree.offset(index) } {
+    let mut visit_at_index = |idx: usize| match &item_tree[idx] {
         ItemTreeNode::Item { vtable, offset, children_index, chilren_count } => {
-            let mut item = unsafe {
-                ItemRefMut::from_raw(
-                    NonNull::new_unchecked(*vtable as *mut _),
-                    NonNull::new_unchecked(
-                        (component.as_ptr() as *mut u8).offset(*offset) as *mut _
-                    ),
-                )
-            };
-            let state = visitor(component.borrow_mut(), item.borrow_mut(), state);
-            for c in *children_index..(*children_index + *chilren_count) {
-                visit_internal_mut(component.borrow_mut(), visitor, c as isize, &state)
-            }
+            let item = ItemRef::from_raw(
+                NonNull::new_unchecked(*vtable as *mut _),
+                NonNull::new_unchecked(component.as_ptr().offset(*offset) as *mut _),
+            );
+            visitor.visit_item(component, idx as isize, item);
         }
-        ItemTreeNode::DynamicTree { .. } => todo!(),
-    }
+        _ => panic!(),
+    };
+    if index == -1 {
+        visit_at_index(0);
+    } else {
+        match &item_tree[index as usize] {
+            ItemTreeNode::Item { vtable, offset, children_index, chilren_count } => {
+                for c in *children_index..(*children_index + *chilren_count) {
+                    visit_at_index(c as usize);
+                }
+            }
+            ItemTreeNode::DynamicTree { .. } => todo!(),
+        };
+    };
 }
 
 // This is here because for some reason (rust bug?) the ItemVTable_static is not accessible in the other modules
@@ -374,4 +368,35 @@ ItemVTable_static! {
     /// The VTable for `TouchArea`
     #[no_mangle]
     pub static TouchAreaVTable for crate::abi::primitives::TouchArea
+}
+
+#[repr(C)]
+#[vtable]
+/// Object to be passed in visit_item_children method of the Component.
+pub struct ItemVisitorVTable {
+    /// Called for each children of the visited item
+    ///
+    /// The `component` parameter is the component in which the item live which might not be the same
+    /// as the parent's component.
+    /// `index` is to be used again in the visit_item_children function of the Component (the one passed as parameter)
+    /// and `item` is a reference to the item itself
+    visit_item: fn(
+        VRefMut<ItemVisitorVTable>,
+        component: VRef<ComponentVTable>,
+        index: isize,
+        item: VRef<ItemVTable>,
+    ),
+    /// Destructor
+    drop: fn(VRefMut<ItemVisitorVTable>),
+}
+
+impl<T: FnMut(VRef<ComponentVTable>, isize, VRef<ItemVTable>)> ItemVisitor for T {
+    fn visit_item(
+        &mut self,
+        component: VRef<ComponentVTable>,
+        index: isize,
+        item: VRef<ItemVTable>,
+    ) {
+        self(component, index, item)
+    }
 }

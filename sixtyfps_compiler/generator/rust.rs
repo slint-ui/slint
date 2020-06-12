@@ -192,10 +192,10 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<TokenSt
 
         }
         impl sixtyfps::re_exports::Component for #component_id {
-            fn item_tree(&self) -> *const sixtyfps::re_exports::ItemTreeNode {
+            fn visit_children_item(&self, index: isize, visitor: sixtyfps::re_exports::ItemVisitorRefMut) {
                 use sixtyfps::re_exports::*;
                 static TREE : [ItemTreeNode; #item_tree_array_len] = [#(#item_tree_array),*];
-                TREE.as_ptr()
+                unsafe { visit_item_tree(VRef::new(self), &TREE, index, visitor) };
             }
             fn create() -> Self {
                 Default::default()

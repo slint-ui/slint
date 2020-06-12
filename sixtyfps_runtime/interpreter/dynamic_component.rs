@@ -6,7 +6,8 @@ use object_tree::ElementRc;
 use sixtyfps_compilerlib::typeregister::Type;
 use sixtyfps_compilerlib::*;
 use sixtyfps_corelib::abi::datastructures::{
-    ComponentBox, ComponentRef, ComponentVTable, ItemTreeNode, ItemVTable, Resource,
+    ComponentBox, ComponentRef, ComponentVTable, ItemTreeNode, ItemVTable, ItemVisitorRefMut,
+    Resource,
 };
 use sixtyfps_corelib::abi::slice::Slice;
 use sixtyfps_corelib::rtti::PropertyInfo;
@@ -65,12 +66,11 @@ pub struct ComponentDescription {
     pub(crate) original: object_tree::Document,
 }
 
-extern "C" fn item_tree(r: ComponentRef<'_>) -> *const ItemTreeNode {
-    // FIXME! unsafe is not correct here, as the ComponentVTable might not be a MyComponentType
-    // (one can safely take a copy of the vtable and call the create function to get a box)
-    unsafe {
-        (*(r.get_vtable() as *const ComponentVTable as *const ComponentDescription)).it.as_ptr()
-    }
+unsafe extern "C" fn visit_children_item(this: ComponentRef, index: isize, v: ItemVisitorRefMut) {
+    let component_type =
+        &*(this.get_vtable() as *const ComponentVTable as *const ComponentDescription);
+    let item_tree = &component_type.it;
+    sixtyfps_corelib::abi::datastructures::visit_item_tree(this, item_tree, index, v);
 }
 
 /// Information attached to a builtin item
@@ -198,7 +198,7 @@ pub fn load(
     let t = ComponentVTable {
         create: component_create,
         drop: component_destroy,
-        item_tree,
+        visit_children_item,
         layout_info,
         compute_layout,
     };
