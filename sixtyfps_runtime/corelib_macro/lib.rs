@@ -35,7 +35,7 @@ pub fn builtin_item(input: TokenStream) -> TokenStream {
     let item_name = &input.ident;
 
     quote!(
-        //#[cfg(feature = "rtti")]
+        #[cfg(feature = "rtti")]
         impl BuiltinItem for #item_name {
             fn name() -> &'static str {
                 stringify!(#item_name)

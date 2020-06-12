@@ -18,6 +18,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 use super::datastructures::{
     CachedRenderingData, Color, Item, ItemConsts, LayoutInfo, Rect, RenderingPrimitive, Resource,
 };
+#[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::{EvaluationContext, Property, SharedString, Signal};
 use const_field_offset::{FieldOffset, FieldOffsets};

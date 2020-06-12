@@ -12,6 +12,9 @@ pub mod input;
 pub mod item_tree;
 pub mod layout;
 
+#[cfg(feature = "rtti")]
+pub mod rtti;
+
 /// Things that are exposed to the C ABI
 pub mod abi {
     #![warn(missing_docs)]
@@ -23,9 +26,6 @@ pub mod abi {
     pub mod slice;
     pub mod string;
 }
-
-//#[cfg(feature = "rtti")]
-pub mod rtti;
 
 #[doc(inline)]
 pub use abi::string::SharedString;
