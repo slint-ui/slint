@@ -64,6 +64,8 @@ pub use vtable_macro::*;
 /// Internal trait that is implemented by the `#[vtable]` macro.
 ///
 /// Safety: The Target object need to be implemented correctly.
+/// And there should be a VTable::VTable::new<T> funciton that returns a
+/// VTable  suitable for the type T
 pub unsafe trait VTableMeta {
     /// That's the trait object that implements the functions
     /// NOTE: the size must be `2*size_of::<usize>`
@@ -324,6 +326,80 @@ impl<'a, T: ?Sized + VTableMeta> VRefMut<'a, T> {
             None
         }
     }
+}
+
+/** Create a `VRef` or a `VRefMut` suitable for an instance that implements the trait
+
+When possible, `VRef::new` or `VRefMut::new` should be preferred, as they use a static vtable.
+But when using the generated `XxxVTable_static!` macro is not possible, this can be used.
+Note that the `downcast` will not work with references created with this macro
+
+```
+use vtable::*;
+#[vtable]
+struct MyVTable { /* ... */ }
+struct Something { /* ... */};
+impl My for Something {};
+
+let mut s = Something { /* ... */};
+// declare a my_vref variable for the said VTable
+new_vref!(let my_vref : VRef<MyVTable> for My = &s);
+
+// same but mutable
+new_vref!(let mut my_vref_m : VRefMut<MyVTable> for My = &mut s);
+
+```
+*/
+#[macro_export]
+macro_rules! new_vref {
+    (let $ident:ident : VRef<$vtable:ty> for $trait_:path = $e:expr) => {
+        // ensure that the type of the expression is correct
+        let vtable = {
+            use $crate::VTableMeta;
+            fn get_vt<X: $trait_>(_: &X) -> <$vtable as VTableMeta>::VTable {
+                <$vtable as VTableMeta>::VTable::new::<X>()
+            }
+            get_vt($e)
+        };
+
+        let $ident = {
+            use $crate::VTableMeta;
+            fn create<'a, X: $trait_>(
+                vtable: &'a <$vtable as VTableMeta>::VTable,
+                val: &'a X,
+            ) -> $crate::VRef<'a, <$vtable as VTableMeta>::VTable> {
+                use ::core::ptr::NonNull;
+                // Safety: we constructed the vtable such that it fits for the value
+                unsafe { $crate::VRef::from_raw(NonNull::from(vtable), NonNull::from(val).cast()) }
+            }
+            create(&vtable, $e)
+        };
+    };
+    (let mut $ident:ident : VRefMut<$vtable:ty> for $trait_:path = $e:expr) => {
+        // ensure that the type of the expression is correct
+        let vtable = {
+            use $crate::VTableMeta;
+            fn get_vt<X: $trait_>(_: &X) -> <$vtable as VTableMeta>::VTable {
+                <$vtable as VTableMeta>::VTable::new::<X>()
+            }
+            get_vt($e)
+        };
+
+        let mut $ident = {
+            use $crate::VTableMeta;
+            fn create<'a, X: $trait_>(
+                vtable: &'a <$vtable as VTableMeta>::VTable,
+                val: &'a mut X,
+            ) -> $crate::VRefMut<'a, <$vtable as VTableMeta>::VTable> {
+                use ::core::ptr::NonNull;
+                // Safety: we constructed the vtable such that it fits for the value
+                unsafe {
+                    $crate::VRefMut::from_raw(NonNull::from(vtable), NonNull::from(val).cast())
+                }
+            }
+            create(&vtable, $e)
+        };
+    };
 }
 
 /// Represent an offset to a field of type mathcing the vtable, within the Base container structure.

@@ -135,3 +135,25 @@ fn test2() {
     assert_eq!(vras.downcast::<AnotherStruct>().unwrap().foo(4), 4);
     assert!(vras.downcast::<SomeStruct>().is_none());
 }
+
+#[test]
+fn test3() {
+    #[vtable]
+    struct XxxVTable {
+        ret_int: fn(VRef<XxxVTable>) -> i32,
+    }
+    struct Plop(i32);
+    impl Xxx for Plop {
+        fn ret_int(&self) -> i32 {
+            return self.0;
+        }
+    }
+
+    let p = Plop(11);
+    new_vref!(let re : VRef<XxxVTable> for Xxx = &p);
+    assert_eq!(re.ret_int(), 11);
+
+    let mut p = Plop(55);
+    new_vref!(let mut re_mut : VRefMut<XxxVTable> for Xxx = &mut p);
+    assert_eq!(re_mut.ret_int(), 55);
+}

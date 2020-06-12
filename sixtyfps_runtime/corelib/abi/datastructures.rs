@@ -307,14 +307,8 @@ fn visit_internal<State>(
             let s = visitor(item, state);
             visit_internal(component, visitor, index, &s);
         };
-    fn get_vt<T: ItemVisitor>(_: &mut T) -> ItemVisitorVTable {
-        ItemVisitorVTable::new::<T>()
-    }
-    let vtable = get_vt(&mut actual_visitor);
-    //FIXME: must find a way to safely create VRef even for non-static vtable
-    let v =
-        unsafe { VRefMut::from_raw(NonNull::from(&vtable), NonNull::from(&actual_visitor).cast()) };
-    component.visit_children_item(index, v);
+    vtable::new_vref!(let mut actual_visitor : VRefMut<ItemVisitorVTable> for ItemVisitor = &mut actual_visitor);
+    component.visit_children_item(index, actual_visitor);
 }
 
 /// FIXME: this is just a layer to keep compatibility with the olde ItemTreeNode array, but there are better way to implement the visitor
