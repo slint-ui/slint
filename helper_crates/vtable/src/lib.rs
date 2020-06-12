@@ -405,7 +405,7 @@ macro_rules! new_vref {
 /// Represent an offset to a field of type mathcing the vtable, within the Base container structure.
 #[repr(C)]
 pub struct VOffset<Base, T: ?Sized + VTableMeta> {
-    vtable: *const T::VTable,
+    vtable: &'static T::VTable,
     /// Safety invariant: the vtable is valid, and the field at the given offset within Base is
     /// matching with the vtable
     offset: usize,
@@ -418,7 +418,7 @@ impl<Base, T: ?Sized + VTableMeta> VOffset<Base, T> {
         let ptr = x as *const Base as *const u8;
         unsafe {
             VRef::from_raw(
-                NonNull::new_unchecked(self.vtable as *mut _),
+                NonNull::from(self.vtable),
                 NonNull::new_unchecked(ptr.add(self.offset) as *mut _),
             )
         }
@@ -429,18 +429,21 @@ impl<Base, T: ?Sized + VTableMeta> VOffset<Base, T> {
         let ptr = x as *mut Base as *mut u8;
         unsafe {
             VRefMut::from_raw(
-                NonNull::new_unchecked(self.vtable as *mut _),
+                NonNull::from(self.vtable),
                 NonNull::new_unchecked(ptr.add(self.offset)),
             )
         }
     }
 
     pub fn new<X: HasStaticVTable<T>>(o: FieldOffset<Base, X>) -> Self {
-        Self {
-            vtable: X::static_vtable() as *const T::VTable,
-            offset: o.get_byte_offset(),
-            phantom: PhantomData,
-        }
+        Self { vtable: X::static_vtable(), offset: o.get_byte_offset(), phantom: PhantomData }
+    }
+
+    /// Create a new VOffset from raw data
+    ///
+    /// Safety: there must be a field that matches the vtable at offset T in base
+    pub unsafe fn from_raw(vtable: &'static T::VTable, offset: usize) -> Self {
+        Self { vtable, offset, phantom: PhantomData }
     }
 }
 

@@ -9,6 +9,7 @@ You should use the `sixtyfps` crate instead
 
 pub mod graphics;
 pub mod input;
+pub mod item_tree;
 pub mod layout;
 
 /// Things that are exposed to the C ABI
@@ -185,7 +186,7 @@ pub fn run_component<GraphicsBackend: graphics::GraphicsBackend + 'static>(
         component,
         move |component, mut rendering_primitives_builder, rendering_cache| {
             // Generate cached rendering data once
-            crate::abi::datastructures::visit_items(
+            crate::item_tree::visit_items(
                 component,
                 |item, _| {
                     let ctx = EvaluationContext { component };

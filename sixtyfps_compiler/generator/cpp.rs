@@ -328,9 +328,9 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<impl st
         name: format!("{}::visit_children", component.id),
         signature: "(sixtyfps::ComponentRef component, intptr_t index, sixtyfps::ItemVisitorRefMut visitor) -> void".into(),
         statements: Some(vec![
-            "static const sixtyfps::ItemTreeNode children[] {".to_owned(),
+            "static const sixtyfps::ItemTreeNode<uint8_t> children[] {".to_owned(),
             format!("    {} }};", tree_array),
-            "return sixtyfps::visit_item_tree(component, { const_cast<sixtyfps::ItemTreeNode*>(children), std::size(children)}, index, visitor);".to_owned(),
+            "return sixtyfps::sixtyfps_visit_item_tree(component, { const_cast<sixtyfps::ItemTreeNode<uint8_t>*>(children), std::size(children)}, index, visitor);".to_owned(),
         ]),
         ..Default::default()
     }));

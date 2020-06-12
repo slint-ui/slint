@@ -106,12 +106,10 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<TokenSt
     super::build_array_helper(component, |item, children_index| {
         let item = item.borrow();
         let field_name = quote::format_ident!("{}", item.id);
-        let vtable = quote::format_ident!("{}", item.base_type.as_builtin().vtable_symbol);
         let children_count = item.children.len() as u32;
         item_tree_array.push(quote!(
             sixtyfps::re_exports::ItemTreeNode::Item{
-                offset: #component_id::field_offsets().#field_name.get_byte_offset() as isize,
-                vtable: &#vtable as *const _,
+                item: VOffset::new(#component_id::field_offsets().#field_name),
                 chilren_count: #children_count,
                 children_index: #children_index,
              }
@@ -151,8 +149,6 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<TokenSt
         item_names.push(field_name);
         item_types.push(quote::format_ident!("{}", item.base_type.as_builtin().class_name));
     });
-
-    let item_tree_array_len = item_tree_array.len();
 
     let resource_symbols: Vec<proc_macro2::TokenStream> = component
         .embedded_file_resources
@@ -194,8 +190,8 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<TokenSt
         impl sixtyfps::re_exports::Component for #component_id {
             fn visit_children_item(&self, index: isize, visitor: sixtyfps::re_exports::ItemVisitorRefMut) {
                 use sixtyfps::re_exports::*;
-                static TREE : [ItemTreeNode; #item_tree_array_len] = [#(#item_tree_array),*];
-                unsafe { visit_item_tree(VRef::new(self), Slice::from_slice(&TREE), index, visitor) };
+                let tree = &[#(#item_tree_array),*];
+                sixtyfps::re_exports::visit_item_tree(self, VRef::new(self), tree, index, visitor);
             }
             fn create() -> Self {
                 Default::default()

@@ -1,7 +1,6 @@
 //! This module contains the basic datastructures that are exposed to the C API
 
 use super::slice::Slice;
-use core::ptr::NonNull;
 use std::cell::Cell;
 use vtable::*;
 
@@ -82,13 +81,11 @@ impl CachedRenderingData {
 /// The item tree is an array of ItemTreeNode representing a static tree of items
 /// within a component.
 #[repr(C)]
-pub enum ItemTreeNode {
+pub enum ItemTreeNode<T> {
     /// Static item
     Item {
         /// byte offset where we can find the item (from the *ComponentImpl)
-        offset: isize,
-        /// virtual table of the item
-        vtable: *const ItemVTable,
+        item: vtable::VOffset<T, ItemVTable>,
 
         /// number of children
         chilren_count: u32,
@@ -117,9 +114,6 @@ pub enum ItemTreeNode {
         components_holder_offset: isize,
     },
 }
-
-/// It is supposed to be in static array
-unsafe impl Sync for ItemTreeNode {}
 
 /// Items are the nodes in the render tree.
 #[vtable]
@@ -285,87 +279,6 @@ pub struct MouseEvent {
     pub what: MouseEventType,
 }
 
-/// Visit each items recursively
-///
-/// The state parametter returned by the visitor is passed to each children.
-pub fn visit_items<State>(
-    component: VRef<'_, ComponentVTable>,
-    mut visitor: impl FnMut(ItemRef<'_>, &State) -> State,
-    state: State,
-) {
-    visit_internal(component, &mut visitor, -1, &state)
-}
-
-fn visit_internal<State>(
-    component: VRef<'_, ComponentVTable>,
-    visitor: &mut impl FnMut(ItemRef<'_>, &State) -> State,
-    index: isize,
-    state: &State,
-) {
-    let mut actual_visitor =
-        |component: VRef<ComponentVTable>, index: isize, item: VRef<ItemVTable>| {
-            let s = visitor(item, state);
-            visit_internal(component, visitor, index, &s);
-        };
-    vtable::new_vref!(let mut actual_visitor : VRefMut<ItemVisitorVTable> for ItemVisitor = &mut actual_visitor);
-    component.visit_children_item(index, actual_visitor);
-}
-
-/// FIXME: this is just a layer to keep compatibility with the olde ItemTreeNode array, but there are better way to implement the visitor
-#[no_mangle]
-pub unsafe extern "C" fn visit_item_tree(
-    component: VRef<ComponentVTable>,
-    item_tree: Slice<ItemTreeNode>,
-    index: isize,
-    mut visitor: VRefMut<ItemVisitorVTable>,
-) {
-    let mut visit_at_index = |idx: usize| match &item_tree[idx] {
-        ItemTreeNode::Item { vtable, offset, .. } => {
-            let item = ItemRef::from_raw(
-                NonNull::new_unchecked(*vtable as *mut _),
-                NonNull::new_unchecked(component.as_ptr().offset(*offset) as *mut _),
-            );
-            visitor.visit_item(component, idx as isize, item);
-        }
-        _ => panic!(),
-    };
-    if index == -1 {
-        visit_at_index(0);
-    } else {
-        match &item_tree[index as usize] {
-            ItemTreeNode::Item { children_index, chilren_count, .. } => {
-                for c in *children_index..(*children_index + *chilren_count) {
-                    visit_at_index(c as usize);
-                }
-            }
-            ItemTreeNode::DynamicTree { .. } => todo!(),
-        };
-    };
-}
-
-// This is here because for some reason (rust bug?) the ItemVTable_static is not accessible in the other modules
-
-ItemVTable_static! {
-    /// The VTable for `Image`
-    #[no_mangle]
-    pub static ImageVTable for crate::abi::primitives::Image
-}
-ItemVTable_static! {
-    /// The VTable for `Rectangle`
-    #[no_mangle]
-    pub static RectangleVTable for crate::abi::primitives::Rectangle
-}
-ItemVTable_static! {
-    /// The VTable for `Text`
-    #[no_mangle]
-    pub static TextVTable for crate::abi::primitives::Text
-}
-ItemVTable_static! {
-    /// The VTable for `TouchArea`
-    #[no_mangle]
-    pub static TouchAreaVTable for crate::abi::primitives::TouchArea
-}
-
 #[repr(C)]
 #[vtable]
 /// Object to be passed in visit_item_children method of the Component.
@@ -395,4 +308,46 @@ impl<T: FnMut(VRef<ComponentVTable>, isize, VRef<ItemVTable>)> ItemVisitor for T
     ) {
         self(component, index, item)
     }
+}
+
+/// Expose `crate::item_tree::visit_item_tree` to C++
+///
+/// Safety: Assume a correct implementation of the item_tree array
+#[no_mangle]
+pub unsafe extern "C" fn sixtyfps_visit_item_tree(
+    component: VRef<ComponentVTable>,
+    item_tree: Slice<ItemTreeNode<u8>>,
+    index: isize,
+    visitor: VRefMut<ItemVisitorVTable>,
+) {
+    crate::item_tree::visit_item_tree(
+        &*(component.as_ptr() as *const u8),
+        component,
+        item_tree.as_slice(),
+        index,
+        visitor,
+    )
+}
+
+// This is here because for some reason (rust bug?) the ItemVTable_static is not accessible in the other modules
+
+ItemVTable_static! {
+    /// The VTable for `Image`
+    #[no_mangle]
+    pub static ImageVTable for crate::abi::primitives::Image
+}
+ItemVTable_static! {
+    /// The VTable for `Rectangle`
+    #[no_mangle]
+    pub static RectangleVTable for crate::abi::primitives::Rectangle
+}
+ItemVTable_static! {
+    /// The VTable for `Text`
+    #[no_mangle]
+    pub static TextVTable for crate::abi::primitives::Text
+}
+ItemVTable_static! {
+    /// The VTable for `TouchArea`
+    #[no_mangle]
+    pub static TouchAreaVTable for crate::abi::primitives::TouchArea
 }

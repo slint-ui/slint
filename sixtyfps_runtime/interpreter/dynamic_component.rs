@@ -2,6 +2,7 @@ use crate::{dynamic_type, eval};
 
 use core::convert::TryInto;
 use core::ptr::NonNull;
+use dynamic_type::Instance;
 use object_tree::ElementRc;
 use sixtyfps_compilerlib::typeregister::Type;
 use sixtyfps_compilerlib::*;
@@ -57,7 +58,7 @@ pub struct ComponentImpl {
 pub struct ComponentDescription {
     pub(crate) ct: ComponentVTable,
     dynamic_type: Rc<dynamic_type::TypeInfo>,
-    it: Vec<ItemTreeNode>,
+    it: Vec<ItemTreeNode<crate::dynamic_type::Instance>>,
     pub(crate) items: HashMap<String, ItemWithinComponent>,
     pub(crate) custom_properties: HashMap<String, PropertiesWithinComponent>,
     /// the usize is the offset within `mem` to the Signal<()>
@@ -66,12 +67,17 @@ pub struct ComponentDescription {
     pub(crate) original: object_tree::Document,
 }
 
-unsafe extern "C" fn visit_children_item(this: ComponentRef, index: isize, v: ItemVisitorRefMut) {
+unsafe extern "C" fn visit_children_item(
+    component: ComponentRef,
+    index: isize,
+    v: ItemVisitorRefMut,
+) {
     let component_type =
-        &*(this.get_vtable() as *const ComponentVTable as *const ComponentDescription);
+        &*(component.get_vtable() as *const ComponentVTable as *const ComponentDescription);
     let item_tree = &component_type.it;
-    sixtyfps_corelib::abi::datastructures::visit_item_tree(
-        this,
+    sixtyfps_corelib::item_tree::visit_item_tree(
+        &*(component.as_ptr() as *const Instance),
+        component,
         item_tree.as_slice().into(),
         index,
         v,
@@ -149,8 +155,7 @@ pub fn load(
         let rt = &rtti[&*item.base_type.as_builtin().class_name];
         let offset = builder.add_field(rt.type_info);
         tree_array.push(ItemTreeNode::Item {
-            offset: offset as isize,
-            vtable: rt.vtable,
+            item: unsafe { vtable::VOffset::from_raw(rt.vtable, offset) },
             children_index: child_offset,
             chilren_count: item.children.len() as _,
         });

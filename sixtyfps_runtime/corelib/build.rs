@@ -60,7 +60,7 @@ fn main() {
 
     let mut resource_config = config.clone();
     resource_config.export.include = vec!["Resource".into()];
-    resource_config.export.exclude = vec!["visit_item_tree".into()];
+    resource_config.export.exclude = vec!["sixtyfps_visit_item_tree".into()];
     resource_config.enumeration = cbindgen::EnumConfig {
         derive_tagged_enum_copy_assignment: true,
         derive_tagged_enum_copy_constructor: true,

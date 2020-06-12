@@ -14,7 +14,7 @@ pub fn process_mouse_event(
 ) {
     let offset = Vector2D::new(0., 0.);
 
-    crate::abi::datastructures::visit_items(
+    crate::item_tree::visit_items(
         component,
         |item, offset| {
             let geom = item.geometry(context);

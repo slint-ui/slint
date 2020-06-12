@@ -75,6 +75,7 @@ pub mod re_exports {
     pub use sixtyfps_corelib::abi::properties::Property;
     pub use sixtyfps_corelib::abi::signals::Signal;
     pub use sixtyfps_corelib::abi::slice::Slice;
+    pub use sixtyfps_corelib::item_tree::visit_item_tree;
     pub use sixtyfps_corelib::layout::{
         solve_grid_layout, Constraint, GridLayoutCellData, GridLayoutData,
     };

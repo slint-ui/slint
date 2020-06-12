@@ -45,7 +45,7 @@ pub(crate) fn render_component_items<Backend: GraphicsBackend>(
 ) {
     let transform = Matrix4::identity();
 
-    crate::abi::datastructures::visit_items(
+    crate::item_tree::visit_items(
         component,
         |item, transform| {
             let origin = item.geometry(context).origin;

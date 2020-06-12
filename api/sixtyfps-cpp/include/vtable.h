@@ -26,3 +26,10 @@ struct VRef {
     const void *instance;
 };
 */
+
+template<typename Base, typename T>
+struct VOffset
+{
+    const T *vtable;
+    uintptr_t offset;
+};

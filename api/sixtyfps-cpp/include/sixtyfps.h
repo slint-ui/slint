@@ -43,17 +43,16 @@ using internal::TouchArea;
 // these on the heap
 inline void dummy_destory(ComponentRef) { }
 
-constexpr inline ItemTreeNode make_item_node(std::intptr_t offset,
+constexpr inline ItemTreeNode<uint8_t> make_item_node(std::uintptr_t offset,
                                              const internal::ItemVTable *vtable,
                                              uint32_t child_count, uint32_t child_index)
 {
-    return ItemTreeNode { ItemTreeNode::Tag::Item,
-                          { ItemTreeNode::Item_Body { offset, vtable, child_count,
+    return ItemTreeNode<uint8_t> { ItemTreeNode<uint8_t>::Tag::Item,
+                          { ItemTreeNode<uint8_t>::Item_Body { {vtable, offset}, child_count,
                                                       child_index } } };
 }
 
-// FIXME: this should have a better name
-using internal::visit_item_tree;
+using internal::sixtyfps_visit_item_tree;
 
 // layouts:
 using internal::Slice;
