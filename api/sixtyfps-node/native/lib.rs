@@ -180,9 +180,25 @@ declare_types! {
             let ct = ct.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
             let properties = ct.properties();
             let array = JsArray::new(&mut cx, properties.len() as u32);
-            for (i, (p, _)) in properties.iter().enumerate() {
+            let mut len: u32 = 0;
+            for (p, _) in properties.iter().filter(|(_, prop_type)| prop_type.is_property_type()) {
                 let prop_name = JsString::new(&mut cx, p);
-                array.set(&mut cx, i as u32, prop_name)?;
+                array.set(&mut cx, len, prop_name)?;
+                len = len + 1;
+            }
+            Ok(array.as_value(&mut cx))
+        }
+        method signals(mut cx) {
+            let this = cx.this();
+            let ct = cx.borrow(&this, |x| x.0.clone());
+            let ct = ct.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            let properties = ct.properties();
+            let array = JsArray::new(&mut cx, properties.len() as u32);
+            let mut len: u32 = 0;
+            for (p, _) in properties.iter().filter(|(_, prop_type)| **prop_type == Type::Signal) {
+                let prop_name = JsString::new(&mut cx, p);
+                array.set(&mut cx, len, prop_name)?;
+                len = len + 1;
             }
             Ok(array.as_value(&mut cx))
         }
@@ -229,6 +245,26 @@ declare_types! {
             component_ty
                 .set_property(component.borrow(), prop_name.as_str(), value)
                 .or_else(|_| cx.throw_error(format!("Cannot assign property")))?;
+
+            Ok(JsUndefined::new().as_value(&mut cx))
+        }
+        method emit_signal(mut cx) {
+            let signal_name = cx.argument::<JsString>(0)?.value();
+            let this = cx.this();
+            let lock = cx.lock();
+            let x = this.borrow(&lock).0.clone();
+            let (component, component_ty) = x.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            let ty = component_ty.properties()
+                .get(&signal_name)
+                .ok_or(())
+                .or_else(|()| {
+                    cx.throw_error(format!("Signal {} not found in the component", signal_name))
+                })?
+                .clone();
+
+            component_ty
+                .emit_signal(component.borrow(), signal_name.as_str())
+                .or_else(|_| cx.throw_error(format!("Cannot emit signal")))?;
 
             Ok(JsUndefined::new().as_value(&mut cx))
         }

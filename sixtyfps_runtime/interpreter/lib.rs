@@ -95,7 +95,7 @@ impl ComponentDescription {
     /// Sets an handler for a signal
     ///
     /// Returns an error if the component is not an instance corresponding to this ComponentDescription,
-    /// or if the property wit this name does not exist in this dociment
+    /// or if the property with this name does not exist in this component
     pub fn set_signal_handler(
         &self,
         component: ComponentRefMut,
@@ -108,6 +108,21 @@ impl ComponentDescription {
         let x = self.custom_signals.get(name).ok_or(())?;
         let sig = unsafe { &mut *(component.as_ptr().add(*x) as *mut Signal<()>) };
         sig.set_handler(handler);
+        Ok(())
+    }
+
+    /// Emits the specified signal
+    ///
+    /// Returns an error if the component is not an instance corresponding to this ComponentDescription,
+    /// or if the signal with this name does not exist in this component
+    pub fn emit_signal(&self, component: ComponentRef, name: &str) -> Result<(), ()> {
+        if !core::ptr::eq((&self.ct) as *const _, component.get_vtable() as *const _) {
+            return Err(());
+        }
+        let x = self.custom_signals.get(name).ok_or(())?;
+        let sig = unsafe { &mut *(component.as_ptr().add(*x) as *mut Signal<()>) };
+        let eval_context = EvaluationContext { component };
+        sig.emit(&eval_context, ());
         Ok(())
     }
 }

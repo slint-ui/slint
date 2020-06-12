@@ -24,6 +24,12 @@ require.extensions['.60'] =
                     enumerable: true,
                 })
             });
+            c.signals().forEach(x => {
+                Object.defineProperty(ret, x, {
+                    get() { return function () { comp.emit_signal(x); } },
+                    enumerable: true,
+                })
+            });
             return ret;
         }
     }

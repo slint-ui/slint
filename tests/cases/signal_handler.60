@@ -21,7 +21,7 @@ instance.emit_test_signal();
 assert_eq!(instance.get_signal_emission_count(), 1);
 ```
 
-```not-working-yet:js
+```js
 var instance = new sixtyfps.TestCase({});
 instance.signal_emission_count = 0;
 assert.equal(instance.signal_emission_count, 0);
