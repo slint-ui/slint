@@ -1,0 +1,17 @@
+SuperSimple := Rectangle {
+    TouchArea {
+        clicked => { root.x += 1; }
+    }
+    TouchArea {
+        clicked => { x += 1; }
+    }
+    TouchArea {
+        clicked => { 12 += 1; }
+//                   ^error{Self assignement need to be done on a property}
+    }
+    TouchArea {
+        clicked => { x += "string"; }
+//                       ^error{Cannot convert string to float32}
+    }
+}
+

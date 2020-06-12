@@ -136,13 +136,13 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<TokenSt
             } else {
                 if binding_expression.is_constant() {
                     init.push(quote!(
-                        self_.#rust_property.set(#tokens_for_expression);
+                        self_.#rust_property.set((#tokens_for_expression) as _);
                     ));
                 } else {
                     init.push(quote!(
                         self_.#rust_property.set_binding(|context| {
                             let _self = context.component.downcast::<#component_id>().unwrap();
-                            #tokens_for_expression
+                            (#tokens_for_expression) as _
                         });
                     ));
                 }
@@ -230,7 +230,7 @@ fn access_member(element: &ElementRc, name: &str) -> TokenStream {
 fn compile_expression(e: &Expression, component: &Component) -> TokenStream {
     match e {
         Expression::StringLiteral(s) => quote!(sixtyfps::re_exports::SharedString::from(#s)),
-        Expression::NumberLiteral(n) => quote!(#n as _),
+        Expression::NumberLiteral(n) => quote!(#n),
         Expression::Cast { from, to } => {
             let f = compile_expression(&*from, &component);
             match (from.ty(), to) {
@@ -266,7 +266,7 @@ fn compile_expression(e: &Expression, component: &Component) -> TokenStream {
                 let lhs = access_member(&element.upgrade().unwrap(), name.as_str());
                 let rhs = compile_expression(&*rhs, &component);
                 let op = proc_macro2::Punct::new(*op, proc_macro2::Spacing::Alone);
-                quote!( _self.#lhs.set(_self.#lhs.get(context) #op &(#rhs) ))
+                quote!( _self.#lhs.set(_self.#lhs.get(context) #op &((#rhs) as _) ))
             }
             _ => panic!("typechecking should make sure this was a PropertyReference"),
         },
@@ -286,7 +286,7 @@ fn compile_expression(e: &Expression, component: &Component) -> TokenStream {
                 if #condition_code {
                     #true_code
                 } else {
-                    #false_code
+                    (#false_code) as _
                 }
             )
         }

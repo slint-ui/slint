@@ -11,6 +11,7 @@ struct SharedString
     {
         internal::sixtyfps_shared_string_from_bytes(this, s.data(), s.size());
     }
+    SharedString(const char *s) : SharedString(std::string_view(s)) { }
     SharedString(const SharedString &other)
     {
         internal::sixtyfps_shared_string_clone(this, &other);
@@ -38,6 +39,15 @@ struct SharedString
     auto data() const -> const char * { return internal::sixtyfps_shared_string_bytes(this); }
 
     static SharedString from_number(double n) { return SharedString(n); }
+
+    friend bool operator==(const SharedString &a, const SharedString &b)
+    {
+        return std::string_view(a) == std::string_view(b);
+    }
+    friend bool operator!=(const SharedString &a, const SharedString &b)
+    {
+        return std::string_view(a) != std::string_view(b);
+    }
 
 private:
     /// Use SharedString::from_number

@@ -1,5 +1,42 @@
-Test := Rectangle {
+TestCase := Rectangle {
     property<bool> condition;
     property<color> extra_color;
-    color: condition ? root.extra_color : 4289374890;
+    color: condition ? root.extra_color : red;
+    property<string> s1 : condition ? "abc" : 123;
+    property<string> s2 : condition ? 123 : "abc";
+
 }
+
+
+/*
+```cpp
+TestCase instance;
+instance.set_condition(true);
+assert(instance.get_s1() == "abc");
+assert(instance.get_s2() == "123");
+instance.set_condition(false);
+assert(instance.get_s2() == "abc");
+assert(instance.get_s1() == "123");
+```
+
+
+```rust
+let instance = TestCase::default();
+instance.set_condition(true);
+assert_eq!(instance.get_s1(), "abc");
+assert_eq!(instance.get_s2(), "123");
+instance.set_condition(false);
+assert_eq!(instance.get_s2(), "abc");
+assert_eq!(instance.get_s1(), "123");
+```
+
+```js
+var instance = new sixtyfps.TestCase({});
+instance.condition = true;
+assert.equal(instance.s1, "abc");
+assert.equal(instance.s2, "123");
+instance.condition = false;
+assert.equal(instance.s1, "123");
+assert.equal(instance.s2, "abc");
+```
+*/

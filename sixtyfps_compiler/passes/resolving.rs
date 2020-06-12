@@ -8,7 +8,7 @@
 use crate::diagnostics::Diagnostics;
 use crate::expression_tree::*;
 use crate::object_tree::*;
-use crate::parser::{Spanned, SyntaxKind, SyntaxNode, SyntaxNodeEx};
+use crate::parser::{syntax_nodes, Spanned, SyntaxKind, SyntaxNode, SyntaxNodeEx};
 use crate::typeregister::{Type, TypeRegister};
 use core::str::FromStr;
 use std::rc::Rc;
@@ -148,24 +148,11 @@ impl Expression {
             })
             .or_else(|| {
                 node.child_node(SyntaxKind::SelfAssignment)
-                    .map(|n| Self::from_self_assignement_node(n, ctx))
+                    .map(|n| Self::from_self_assignement_node(n.into(), ctx))
             })
             .or_else(|| {
-                node.child_node(SyntaxKind::ConditionalExpression).map(|n| {
-                    let mut expr_it = n.children().filter(|n| n.kind() == SyntaxKind::Expression);
-                    let condition =
-                        expr_it.next().map(|n| Self::from_expression_node(n, ctx)).unwrap();
-                    let true_expr =
-                        expr_it.next().map(|n| Self::from_expression_node(n, ctx)).unwrap();
-                    let false_expr =
-                        expr_it.next().map(|n| Self::from_expression_node(n, ctx)).unwrap();
-
-                    Expression::Condition {
-                        condition: Box::new(condition),
-                        true_expr: Box::new(true_expr),
-                        false_expr: Box::new(false_expr),
-                    }
-                })
+                node.child_node(SyntaxKind::ConditionalExpression)
+                    .map(|n| Self::from_conditional_expression_node(n.into(), ctx))
             })
             .unwrap_or(Self::Invalid)
     }
@@ -337,20 +324,21 @@ impl Expression {
         Self::Invalid
     }
 
-    fn from_self_assignement_node(node: SyntaxNode, ctx: &mut LookupCtx) -> Expression {
-        debug_assert_eq!(node.kind(), SyntaxKind::SelfAssignment);
-
-        let mut subs = node
-            .children()
-            .filter(|n| n.kind() == SyntaxKind::Expression)
-            .map(|n| Self::from_expression_node(n, ctx));
-
-        let lhs = subs.next().unwrap_or(Expression::Invalid);
-        let rhs = subs.next().unwrap_or(Expression::Invalid);
+    fn from_self_assignement_node(
+        node: syntax_nodes::SelfAssignment,
+        ctx: &mut LookupCtx,
+    ) -> Expression {
+        let (lhs_n, rhs_n) = node.Expression();
+        let lhs = Self::from_expression_node(lhs_n.into(), ctx);
         if !matches!(lhs, Expression::PropertyReference{..}) {
             ctx.diag
                 .push_error("Self assignement need to be done on a property".into(), node.span());
         }
+        let rhs = Self::from_expression_node(rhs_n.clone().into(), ctx).maybe_convert_to(
+            lhs.ty(),
+            &rhs_n.into(),
+            &mut ctx.diag,
+        );
         Expression::SelfAssignment {
             lhs: Box::new(lhs),
             rhs: Box::new(rhs),
@@ -360,6 +348,33 @@ impl Expression {
                 .or(node.child_token(SyntaxKind::StarEqual).and(Some('*')))
                 .or(node.child_token(SyntaxKind::DivEqual).and(Some('/')))
                 .unwrap_or('_'),
+        }
+    }
+
+    fn from_conditional_expression_node(
+        node: syntax_nodes::ConditionalExpression,
+        ctx: &mut LookupCtx,
+    ) -> Expression {
+        let (condition_n, true_expr_n, false_expr_n) = node.Expression();
+        // FIXME: we should we add bool to the context
+        let condition = Self::from_expression_node(condition_n.clone().into(), ctx)
+            .maybe_convert_to(Type::Bool, &condition_n.into(), &mut ctx.diag);
+        let mut true_expr = Self::from_expression_node(true_expr_n.clone().into(), ctx);
+        let mut false_expr = Self::from_expression_node(false_expr_n.clone().into(), ctx);
+        let (true_ty, false_ty) = (true_expr.ty(), false_expr.ty());
+        if true_ty != false_ty {
+            if false_ty.can_convert(&true_ty) {
+                false_expr =
+                    false_expr.maybe_convert_to(true_ty, &false_expr_n.into(), &mut ctx.diag);
+            } else {
+                true_expr =
+                    true_expr.maybe_convert_to(false_ty, &true_expr_n.into(), &mut ctx.diag);
+            }
+        }
+        Expression::Condition {
+            condition: Box::new(condition),
+            true_expr: Box::new(true_expr),
+            false_expr: Box::new(false_expr),
         }
     }
 }
