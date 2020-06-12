@@ -9,6 +9,8 @@ You should use the `sixtyfps` crate instead
 
 #![deny(unsafe_code)]
 
+/// The animation system
+pub mod animations;
 pub mod graphics;
 pub mod input;
 pub mod item_tree;
