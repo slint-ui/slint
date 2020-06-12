@@ -6,20 +6,18 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 pub fn inline(doc: &Document) {
-    fn inline_elements_recursively(elem: &ElementRc, component: &Rc<Component>) {
-        let base = elem.borrow().base_type.clone();
-        if let Type::Component(c) = base {
-            // First, make sure that the component itself is properly inlined
-            inline_elements_recursively(&c.root_element, &c);
-            // Inline this component.
-            inline_element(elem, &c, component);
-        }
-
-        for child in &elem.borrow().children {
-            inline_elements_recursively(child, component);
-        }
+    fn inline_components_recursively(component: &Rc<Component>) {
+        recurse_elem(&component.root_element, &mut |elem| {
+            let base = elem.borrow().base_type.clone();
+            if let Type::Component(c) = base {
+                // First, make sure that the component itself is properly inlined
+                inline_components_recursively(&c);
+                // Inline this component.
+                inline_element(elem, &c, component);
+            }
+        })
     }
-    inline_elements_recursively(&doc.root_component.root_element, &doc.root_component)
+    inline_components_recursively(&doc.root_component)
 }
 
 fn clone_tuple<U: Clone, V: Clone>((u, v): (&U, &V)) -> (U, V) {
@@ -88,25 +86,30 @@ fn inline_element(
 
 // Duplicate the element elem and all its children. And fill the mapping to point from the old to the new
 fn duplicate_element_with_mapping(
-    element: &ElementRc,
+    sub: &SubElement,
     mapping: &mut HashMap<usize, ElementRc>,
-) -> ElementRc {
-    let elem = element.borrow();
-    let new = Rc::new(RefCell::new(Element {
-        base_type: elem.base_type.clone(),
-        id: elem.id.clone(),
-        property_declarations: elem.property_declarations.clone(),
-        // We will do the mapping of the binding later
-        bindings: elem.bindings.clone(),
-        children: elem
-            .children
-            .iter()
-            .map(|x| duplicate_element_with_mapping(x, mapping))
-            .collect(),
-        node: elem.node.clone(),
-    }));
-    mapping.insert(element_key(element), new.clone());
-    new
+) -> SubElement {
+    match sub {
+        SubElement::Element(element) => {
+            let elem = element.borrow();
+            let new = Rc::new(RefCell::new(Element {
+                base_type: elem.base_type.clone(),
+                id: elem.id.clone(),
+                property_declarations: elem.property_declarations.clone(),
+                // We will do the mapping of the binding later
+                bindings: elem.bindings.clone(),
+                children: elem
+                    .children
+                    .iter()
+                    .map(|x| duplicate_element_with_mapping(x, mapping))
+                    .collect(),
+                node: elem.node.clone(),
+            }));
+            mapping.insert(element_key(element), new.clone());
+            SubElement::Element(new)
+        }
+        SubElement::RepeatedElement(_) => todo!(),
+    }
 }
 
 fn fixup_binding(

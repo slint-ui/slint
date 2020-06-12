@@ -14,44 +14,34 @@ use core::str::FromStr;
 use std::rc::Rc;
 
 pub fn resolve_expressions(doc: &Document, diag: &mut Diagnostics, tr: &mut TypeRegister) {
-    fn resolve_expressions_in_element_recursively(
-        elem: &ElementRc,
-        component: &Rc<Component>,
-        diag: &mut Diagnostics,
-        tr: &mut TypeRegister,
-    ) {
-        // We are taking the binding to mutate them, as we cannot keep a borrow of the element
-        // during the creation of the expression (we need to be able to borrow the Element to do lookups)
-        // the `bindings` will be reset later
-        let mut bindings = std::mem::take(&mut elem.borrow_mut().bindings);
-        for (prop, expr) in &mut bindings {
-            if let Expression::Uncompiled(node) = expr {
-                let mut lookup_ctx = LookupCtx {
-                    tr,
-                    property_type: elem.borrow().lookup_property(&*prop),
-                    component: component.clone(),
-                    diag,
-                };
+    for component in &doc.inner_components {
+        recurse_elem(&component.root_element, &mut |elem| {
+            // We are taking the binding to mutate them, as we cannot keep a borrow of the element
+            // during the creation of the expression (we need to be able to borrow the Element to do lookups)
+            // the `bindings` will be reset later
+            let mut bindings = std::mem::take(&mut elem.borrow_mut().bindings);
+            for (prop, expr) in &mut bindings {
+                if let Expression::Uncompiled(node) = expr {
+                    let mut lookup_ctx = LookupCtx {
+                        tr,
+                        property_type: elem.borrow().lookup_property(&*prop),
+                        component: component.clone(),
+                        diag,
+                    };
 
-                let new_expr = if matches!(lookup_ctx.property_type, Type::Signal) {
-                    //FIXME: proper signal suport (node is a codeblock)
-                    node.child_node(SyntaxKind::Expression)
-                        .map(|en| Expression::from_expression_node(en, &mut lookup_ctx))
-                        .unwrap_or(Expression::Invalid)
-                } else {
-                    Expression::from_binding_expression_node(node.clone(), &mut lookup_ctx)
-                };
-                *expr = new_expr;
+                    let new_expr = if matches!(lookup_ctx.property_type, Type::Signal) {
+                        //FIXME: proper signal suport (node is a codeblock)
+                        node.child_node(SyntaxKind::Expression)
+                            .map(|en| Expression::from_expression_node(en, &mut lookup_ctx))
+                            .unwrap_or(Expression::Invalid)
+                    } else {
+                        Expression::from_binding_expression_node(node.clone(), &mut lookup_ctx)
+                    };
+                    *expr = new_expr;
+                }
             }
-        }
-        elem.borrow_mut().bindings = bindings;
-
-        for child in &elem.borrow().children {
-            resolve_expressions_in_element_recursively(child, component, diag, tr);
-        }
-    }
-    for x in &doc.inner_components {
-        resolve_expressions_in_element_recursively(&x.root_element, x, diag, tr)
+            elem.borrow_mut().bindings = bindings;
+        })
     }
 }
 

@@ -8,70 +8,74 @@ use std::rc::Rc;
 
 /// Currently this just removes the layout from the tree
 pub fn lower_layouts(component: &Rc<Component>, diag: &mut Diagnostics) {
-    fn lower_layouts_recursively(
-        elem_: &ElementRc,
-        component: &Rc<Component>,
-        diag: &mut Diagnostics,
-    ) {
+    recurse_elem(&component.root_element, &mut |elem_| {
         let mut elem = elem_.borrow_mut();
         let new_children = Vec::with_capacity(elem.children.len());
         let old_children = std::mem::replace(&mut elem.children, new_children);
 
-        for child in old_children {
-            let is_layout =
-                if let crate::typeregister::Type::Builtin(be) = &child.borrow().base_type {
-                    if be.class_name == "Row" {
-                        diag.push_error(
-                            "Row can only be within a GridLayout element".to_owned(),
-                            child.borrow().span(),
-                        )
-                    }
-                    be.class_name == "GridLayout"
-                } else {
-                    false
-                };
-
-            if is_layout {
-                let mut grid = GridLayout { within: elem_.clone(), elems: Default::default() };
-                let mut row = 0;
-                let mut col = 0;
-
-                let child_children = std::mem::take(&mut child.borrow_mut().children);
-                for cc in child_children {
-                    let is_row =
-                        if let crate::typeregister::Type::Builtin(be) = &cc.borrow().base_type {
-                            be.class_name == "Row"
-                        } else {
-                            false
-                        };
-                    if is_row {
-                        if col > 0 {
-                            row += 1;
-                            col = 0;
+        for child_ in old_children {
+            if let SubElement::Element(child) = &child_ {
+                let is_layout =
+                    if let crate::typeregister::Type::Builtin(be) = &child.borrow().base_type {
+                        if be.class_name == "Row" {
+                            diag.push_error(
+                                "Row can only be within a GridLayout element".to_owned(),
+                                child.borrow().span(),
+                            )
                         }
-                        for x in &cc.borrow().children {
-                            grid.add_element(x.clone(), row, col, diag);
-                            col += 1;
-                        }
-                        elem.children.append(&mut cc.borrow_mut().children);
+                        be.class_name == "GridLayout"
                     } else {
-                        grid.add_element(cc.clone(), row, col, diag);
-                        elem.children.push(cc);
-                        col += 1;
+                        false
+                    };
+
+                if is_layout {
+                    let mut grid = GridLayout { within: elem_.clone(), elems: Default::default() };
+                    let mut row = 0;
+                    let mut col = 0;
+
+                    let child_children = std::mem::take(&mut child.borrow_mut().children);
+                    for cc_ in child_children {
+                        if let SubElement::Element(cc) = &cc_ {
+                            let is_row = if let crate::typeregister::Type::Builtin(be) =
+                                &cc.borrow().base_type
+                            {
+                                be.class_name == "Row"
+                            } else {
+                                false
+                            };
+                            if is_row {
+                                if col > 0 {
+                                    row += 1;
+                                    col = 0;
+                                }
+                                for x in &cc.borrow().children {
+                                    if let SubElement::Element(x) = x {
+                                        grid.add_element(x.clone(), row, col, diag);
+                                        col += 1;
+                                    } else {
+                                        todo!("Handle repeater here (2x)")
+                                    }
+                                }
+                                elem.children.append(&mut cc.borrow_mut().children);
+                                component.optimized_elements.borrow_mut().push(cc.clone());
+                            } else {
+                                grid.add_element(cc.clone(), row, col, diag);
+                                elem.children.push(cc_);
+                                col += 1;
+                            }
+                        } else {
+                            todo!("Handle repeater here (2x)")
+                        }
                     }
+                    component.optimized_elements.borrow_mut().push(child.clone());
+                    component.layout_constraints.borrow_mut().0.push(grid);
+                    continue;
+                } else {
+                    elem.children.push(child_);
                 }
-                component.optimized_elements.borrow_mut().push(child);
-                component.layout_constraints.borrow_mut().0.push(grid);
-                continue;
-            } else {
-                elem.children.push(child);
             }
         }
-        for e in &elem.children {
-            lower_layouts_recursively(e, component, diag)
-        }
-    }
-    lower_layouts_recursively(&component.root_element, component, diag)
+    });
 }
 
 impl GridLayout {

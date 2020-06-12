@@ -128,7 +128,7 @@ mod cpp_ast {
 }
 
 use crate::diagnostics::{CompilerDiagnostic, Diagnostics};
-use crate::object_tree::{Component, Element, ElementRc};
+use crate::object_tree::{Component, Element, ElementRc, SubElement};
 use crate::typeregister::Type;
 use cpp_ast::*;
 
@@ -205,7 +205,10 @@ fn handle_item(item: &Element, main_struct: &mut Struct, init: &mut Vec<String>)
     }));
 
     for i in &item.children {
-        handle_item(&i.borrow(), main_struct, init)
+        match i {
+            SubElement::Element(i) => handle_item(&i.borrow(), main_struct, init),
+            SubElement::RepeatedElement(_) => todo!(),
+        }
     }
 }
 
@@ -310,18 +313,21 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<impl st
     x.declarations.push(Declaration::Struct(main_struct));
 
     let mut tree_array = String::new();
-    super::build_array_helper(component, |item, children_offset| {
-        let item = item.borrow();
-        tree_array = format!(
-            "{}{}sixtyfps::make_item_node(offsetof({}, {}), &sixtyfps::{}, {}, {})",
-            tree_array,
-            if tree_array.is_empty() { "" } else { ", " },
-            &component.id,
-            item.id,
-            item.base_type.as_builtin().vtable_symbol,
-            item.children.len(),
-            children_offset,
-        )
+    super::build_array_helper(component, |item, children_offset| match item {
+        SubElement::Element(item) => {
+            let item = item.borrow();
+            tree_array = format!(
+                "{}{}sixtyfps::make_item_node(offsetof({}, {}), &sixtyfps::{}, {}, {})",
+                tree_array,
+                if tree_array.is_empty() { "" } else { ", " },
+                &component.id,
+                item.id,
+                item.base_type.as_builtin().vtable_symbol,
+                item.children.len(),
+                children_offset,
+            )
+        }
+        SubElement::RepeatedElement(_) => todo!(),
     });
 
     x.declarations.push(Declaration::Function(Function {

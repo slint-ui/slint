@@ -86,8 +86,10 @@ impl Component {
                 return Some(e.clone());
             }
             for x in &e.borrow().children {
-                if let Some(x) = find_element_by_id_recursive(x, name) {
-                    return Some(x);
+                if let SubElement::Element(x) = x {
+                    if let Some(x) = find_element_by_id_recursive(x, name) {
+                        return Some(x);
+                    }
                 }
             }
             None
@@ -116,7 +118,7 @@ pub struct Element {
     pub base_type: crate::typeregister::Type,
     /// Currently contains also the signals. FIXME: should that be changed?
     pub bindings: HashMap<String, Expression>,
-    pub children: Vec<ElementRc>,
+    pub children: Vec<SubElement>,
 
     pub property_declarations: HashMap<String, PropertyDeclaration>,
 
@@ -259,11 +261,8 @@ impl Element {
             if se.kind() == SyntaxKind::SubElement {
                 let id = se.child_text(SyntaxKind::Identifier).unwrap_or_default();
                 if let Some(element_node) = se.child_node(SyntaxKind::Element) {
-                    r.children.push(Rc::new(RefCell::new(Element::from_node(
-                        element_node.into(),
-                        id,
-                        diag,
-                        tr,
+                    r.children.push(SubElement::Element(Rc::new(RefCell::new(
+                        Element::from_node(element_node.into(), id, diag, tr),
                     ))));
                 } else {
                     assert!(diag.has_error());
@@ -309,5 +308,25 @@ impl QualifiedTypeName {
 impl std::fmt::Display for QualifiedTypeName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.members.join("."))
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct RepeatedElement {}
+
+#[derive(Debug, Clone)]
+pub enum SubElement {
+    Element(ElementRc),
+    RepeatedElement(Box<RepeatedElement>),
+}
+
+/// Call the visitor for each children of the element recursively, starting with the element itself
+pub fn recurse_elem(elem: &ElementRc, vis: &mut impl FnMut(&ElementRc)) {
+    vis(elem);
+    for sub in &elem.borrow().children {
+        match sub {
+            SubElement::Element(e) => recurse_elem(e, vis),
+            SubElement::RepeatedElement(_) => {}
+        }
     }
 }

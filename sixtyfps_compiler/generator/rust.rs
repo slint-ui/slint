@@ -3,7 +3,7 @@
 
 use crate::diagnostics::{CompilerDiagnostic, Diagnostics};
 use crate::expression_tree::Expression;
-use crate::object_tree::{Component, ElementRc, PropertyDeclaration};
+use crate::object_tree::{Component, ElementRc, PropertyDeclaration, SubElement};
 use crate::typeregister::Type;
 use proc_macro2::TokenStream;
 use quote::quote;
@@ -103,51 +103,54 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<TokenSt
     let mut item_names = Vec::new();
     let mut item_types = Vec::new();
     let mut init = Vec::new();
-    super::build_array_helper(component, |item, children_index| {
-        let item = item.borrow();
-        let field_name = quote::format_ident!("{}", item.id);
-        let children_count = item.children.len() as u32;
-        item_tree_array.push(quote!(
-            sixtyfps::re_exports::ItemTreeNode::Item{
-                item: VOffset::new(#component_id::field_offsets().#field_name),
-                chilren_count: #children_count,
-                children_index: #children_index,
-             }
-        ));
-        for (k, binding_expression) in &item.bindings {
-            let rust_property_ident = quote::format_ident!("{}", k);
-            let rust_property_accessor_prefix = if item.property_declarations.contains_key(k) {
-                proc_macro2::TokenStream::new()
-            } else {
-                quote!(#field_name.)
-            };
-            let rust_property = quote!(#rust_property_accessor_prefix#rust_property_ident);
-            let tokens_for_expression = compile_expression(binding_expression, &component);
-
-            if matches!(item.lookup_property(k.as_str()), Type::Signal) {
-                init.push(quote!(
-                    self_.#rust_property.set_handler(|context, ()| {
-                        let _self = context.component.downcast::<#component_id>().unwrap();
-                        #tokens_for_expression;
-                    });
-                ));
-            } else {
-                if binding_expression.is_constant() {
-                    init.push(quote!(
-                        self_.#rust_property.set((#tokens_for_expression) as _);
-                    ));
+    super::build_array_helper(component, |item, children_index| match item {
+        SubElement::Element(item) => {
+            let item = item.borrow();
+            let field_name = quote::format_ident!("{}", item.id);
+            let children_count = item.children.len() as u32;
+            item_tree_array.push(quote!(
+                sixtyfps::re_exports::ItemTreeNode::Item{
+                    item: VOffset::new(#component_id::field_offsets().#field_name),
+                    chilren_count: #children_count,
+                    children_index: #children_index,
+                 }
+            ));
+            for (k, binding_expression) in &item.bindings {
+                let rust_property_ident = quote::format_ident!("{}", k);
+                let rust_property_accessor_prefix = if item.property_declarations.contains_key(k) {
+                    proc_macro2::TokenStream::new()
                 } else {
+                    quote!(#field_name.)
+                };
+                let rust_property = quote!(#rust_property_accessor_prefix#rust_property_ident);
+                let tokens_for_expression = compile_expression(binding_expression, &component);
+
+                if matches!(item.lookup_property(k.as_str()), Type::Signal) {
                     init.push(quote!(
-                        self_.#rust_property.set_binding(|context| {
+                        self_.#rust_property.set_handler(|context, ()| {
                             let _self = context.component.downcast::<#component_id>().unwrap();
-                            (#tokens_for_expression) as _
+                            #tokens_for_expression;
                         });
                     ));
+                } else {
+                    if binding_expression.is_constant() {
+                        init.push(quote!(
+                            self_.#rust_property.set((#tokens_for_expression) as _);
+                        ));
+                    } else {
+                        init.push(quote!(
+                            self_.#rust_property.set_binding(|context| {
+                                let _self = context.component.downcast::<#component_id>().unwrap();
+                                (#tokens_for_expression) as _
+                            });
+                        ));
+                    }
                 }
             }
+            item_names.push(field_name);
+            item_types.push(quote::format_ident!("{}", item.base_type.as_builtin().class_name));
         }
-        item_names.push(field_name);
-        item_types.push(quote::format_ident!("{}", item.base_type.as_builtin().class_name));
+        _ => todo!(),
     });
 
     let resource_symbols: Vec<proc_macro2::TokenStream> = component
