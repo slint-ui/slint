@@ -27,5 +27,9 @@ instance.signal_emission_count = 0;
 assert.equal(instance.signal_emission_count, 0);
 instance.test_signal();
 assert.equal(instance.signal_emission_count, 1);
+let x = instance.test_signal;
+assert.equal(instance.signal_emission_count, 1);
+x()
+assert.equal(instance.signal_emission_count, 2);
 ```
 */

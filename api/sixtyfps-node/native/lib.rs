@@ -254,14 +254,6 @@ declare_types! {
             let lock = cx.lock();
             let x = this.borrow(&lock).0.clone();
             let (component, component_ty) = x.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
-            let ty = component_ty.properties()
-                .get(&signal_name)
-                .ok_or(())
-                .or_else(|()| {
-                    cx.throw_error(format!("Signal {} not found in the component", signal_name))
-                })?
-                .clone();
-
             component_ty
                 .emit_signal(component.borrow(), signal_name.as_str())
                 .or_else(|_| cx.throw_error(format!("Cannot emit signal")))?;
