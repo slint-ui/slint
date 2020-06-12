@@ -59,7 +59,8 @@ fn main() {
         .write_to_file(include_dir.join("sixtyfps_signals_internal.h"));
 
     let mut resource_config = config.clone();
-    resource_config.export.include = ["Resource"].iter().map(|s| s.to_string()).collect();
+    resource_config.export.include = vec!["Resource".into()];
+    resource_config.export.exclude = vec!["visit_item_tree".into()];
     resource_config.enumeration = cbindgen::EnumConfig {
         derive_tagged_enum_copy_assignment: true,
         derive_tagged_enum_copy_constructor: true,
@@ -71,7 +72,6 @@ fn main() {
     // Put the "Recources" in a deeper "types" namespace, so the use of "Resource" in internal
     // uses the public `sixtyfps::Resource` type
     resource_config.namespaces = Some(vec!["sixtyfps".into(), "internal".into(), "types".into()]);
-    resource_config.export.exclude.clear();
     cbindgen::Builder::new()
         .with_config(resource_config)
         .with_src(crate_dir.join("abi/datastructures.rs"))

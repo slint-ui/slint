@@ -1,5 +1,6 @@
 //! This module contains the basic datastructures that are exposed to the C API
 
+use super::slice::Slice;
 use core::ptr::NonNull;
 use std::cell::Cell;
 use vtable::*;
@@ -317,14 +318,15 @@ fn visit_internal<State>(
 }
 
 /// FIXME: this is just a layer to keep compatibility with the olde ItemTreeNode array, but there are better way to implement the visitor
-pub unsafe fn visit_item_tree(
-    component: ComponentRef,
-    item_tree: &[ItemTreeNode],
+#[no_mangle]
+pub unsafe extern "C" fn visit_item_tree(
+    component: VRef<ComponentVTable>,
+    item_tree: Slice<ItemTreeNode>,
     index: isize,
-    mut visitor: ItemVisitorRefMut,
+    mut visitor: VRefMut<ItemVisitorVTable>,
 ) {
     let mut visit_at_index = |idx: usize| match &item_tree[idx] {
-        ItemTreeNode::Item { vtable, offset, children_index, chilren_count } => {
+        ItemTreeNode::Item { vtable, offset, .. } => {
             let item = ItemRef::from_raw(
                 NonNull::new_unchecked(*vtable as *mut _),
                 NonNull::new_unchecked(component.as_ptr().offset(*offset) as *mut _),
@@ -337,7 +339,7 @@ pub unsafe fn visit_item_tree(
         visit_at_index(0);
     } else {
         match &item_tree[index as usize] {
-            ItemTreeNode::Item { vtable, offset, children_index, chilren_count } => {
+            ItemTreeNode::Item { children_index, chilren_count, .. } => {
                 for c in *children_index..(*children_index + *chilren_count) {
                     visit_at_index(c as usize);
                 }

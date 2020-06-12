@@ -163,8 +163,8 @@ fn handle_item(item: &Element, main_struct: &mut Struct, init: &mut Vec<String>)
 
             format!(
                 "{signal_accessor_prefix}{prop}.set_handler(
-                    [](const sixtyfps::EvaluationContext *context) {{
-                        auto self = reinterpret_cast<const {ty}*>(context->component.instance);
+                    []([[maybe_unused]] const sixtyfps::EvaluationContext *context) {{
+                        [[maybe_unused]] auto self = reinterpret_cast<const {ty}*>(context->component.instance);
                         {code};
                     }});",
                 signal_accessor_prefix = signal_accessor_prefix,
@@ -190,8 +190,8 @@ fn handle_item(item: &Element, main_struct: &mut Struct, init: &mut Vec<String>)
             } else {
                 format!(
                     "{accessor_prefix}{cpp_prop}.set_binding(
-                        [](const sixtyfps::EvaluationContext *context) {{
-                            auto self = reinterpret_cast<const {ty}*>(context->component.instance);
+                        []([[maybe_unused]] const sixtyfps::EvaluationContext *context) {{
+                            [[maybe_unused]] auto self = reinterpret_cast<const {ty}*>(context->component.instance);
                             return {init};
                         }}
                     );",
@@ -223,7 +223,7 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<impl st
         let ty = if property_decl.property_type == Type::Signal {
             if property_decl.expose_in_public_api {
                 let signal_emitter: Vec<String> = vec![
-                    "auto context = sixtyfps::internal::EvaluationContext{ VRefMut<sixtyfps::ComponentVTable> { &component_type, this } };".into(),
+                    "[[maybe_unused]] auto context = sixtyfps::internal::EvaluationContext{ VRefMut<sixtyfps::ComponentVTable> { &component_type, this } };".into(),
                     format!("{}.emit(&context);", cpp_name)
                     ];
 
@@ -275,7 +275,7 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<impl st
         main_struct.members.push(Declaration::Var(Var { ty, name: cpp_name.clone(), init: None }));
     }
 
-    let mut init = vec!["auto self = this;".into()];
+    let mut init = vec!["[[maybe_unused]] auto self = this;".into()];
     handle_item(&component.root_element.borrow(), &mut main_struct, &mut init);
 
     main_struct.members.push(Declaration::Function(Function {
@@ -287,8 +287,8 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<impl st
     }));
 
     main_struct.members.push(Declaration::Function(Function {
-        name: "tree_fn".into(),
-        signature: "(sixtyfps::ComponentRef) -> const sixtyfps::ItemTreeNode* ".into(),
+        name: "visit_children".into(),
+        signature: "(sixtyfps::ComponentRef, intptr_t, sixtyfps::ItemVisitorRefMut) -> void".into(),
         is_static: true,
         ..Default::default()
     }));
@@ -325,12 +325,12 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<impl st
     });
 
     x.declarations.push(Declaration::Function(Function {
-        name: format!("{}::tree_fn", component.id),
-        signature: "(sixtyfps::ComponentRef) -> const sixtyfps::ItemTreeNode* ".into(),
+        name: format!("{}::visit_children", component.id),
+        signature: "(sixtyfps::ComponentRef component, intptr_t index, sixtyfps::ItemVisitorRefMut visitor) -> void".into(),
         statements: Some(vec![
             "static const sixtyfps::ItemTreeNode children[] {".to_owned(),
             format!("    {} }};", tree_array),
-            "return children;".to_owned(),
+            "return sixtyfps::visit_item_tree(component, { const_cast<sixtyfps::ItemTreeNode*>(children), std::size(children)}, index, visitor);".to_owned(),
         ]),
         ..Default::default()
     }));
@@ -339,7 +339,8 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<impl st
         ty: "const sixtyfps::ComponentVTable".to_owned(),
         name: format!("{}::component_type", component.id),
         init: Some(
-            "{ nullptr, sixtyfps::dummy_destory, tree_fn, nullptr, compute_layout }".to_owned(),
+            "{ nullptr, sixtyfps::dummy_destory, visit_children, nullptr, compute_layout }"
+                .to_owned(),
         ),
     }));
 
@@ -426,10 +427,10 @@ fn compute_layout(component: &Component) -> Vec<String> {
     let mut res = vec![];
 
     res.push(format!(
-        "auto self = reinterpret_cast<const {ty}*>(component.instance);",
+        "[[maybe_unused]] auto self = reinterpret_cast<const {ty}*>(component.instance);",
         ty = component.id
     ));
-    res.push("sixtyfps::EvaluationContext context{component};".to_owned());
+    res.push("[[maybe_unused]] sixtyfps::EvaluationContext context{component};".to_owned());
     for grid in component.layout_constraints.borrow().0.iter() {
         res.push("{".to_owned());
         res.push(format!("    std::array<sixtyfps::Constraint, {}> row_constr;", grid.row_count()));

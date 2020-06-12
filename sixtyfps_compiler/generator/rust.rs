@@ -195,7 +195,7 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<TokenSt
             fn visit_children_item(&self, index: isize, visitor: sixtyfps::re_exports::ItemVisitorRefMut) {
                 use sixtyfps::re_exports::*;
                 static TREE : [ItemTreeNode; #item_tree_array_len] = [#(#item_tree_array),*];
-                unsafe { visit_item_tree(VRef::new(self), &TREE, index, visitor) };
+                unsafe { visit_item_tree(VRef::new(self), Slice::from_slice(&TREE), index, visitor) };
             }
             fn create() -> Self {
                 Default::default()

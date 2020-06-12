@@ -19,7 +19,8 @@ extern const internal::ItemVTable ImageVTable;
 // Bring opaque structure in scope
 using internal::ComponentVTable;
 using internal::ItemTreeNode;
-using ComponentRef = VRefMut<ComponentVTable>;
+using ComponentRef = VRef<ComponentVTable>;
+using ItemVisitorRefMut = VRefMut<internal::ItemVisitorVTable>;
 
 template<typename Component>
 void run(Component *c)
@@ -50,6 +51,9 @@ constexpr inline ItemTreeNode make_item_node(std::intptr_t offset,
                           { ItemTreeNode::Item_Body { offset, vtable, child_count,
                                                       child_index } } };
 }
+
+// FIXME: this should have a better name
+using internal::visit_item_tree;
 
 // layouts:
 using internal::Slice;

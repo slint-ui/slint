@@ -70,7 +70,12 @@ unsafe extern "C" fn visit_children_item(this: ComponentRef, index: isize, v: It
     let component_type =
         &*(this.get_vtable() as *const ComponentVTable as *const ComponentDescription);
     let item_tree = &component_type.it;
-    sixtyfps_corelib::abi::datastructures::visit_item_tree(this, item_tree, index, v);
+    sixtyfps_corelib::abi::datastructures::visit_item_tree(
+        this,
+        item_tree.as_slice().into(),
+        index,
+        v,
+    );
 }
 
 /// Information attached to a builtin item
