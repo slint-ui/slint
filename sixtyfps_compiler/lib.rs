@@ -5,8 +5,10 @@
 This crate should not be used directly by application using SixtyFPS.
 You should use the `sixtyfps` crate instead
 
-
 */
+
+// It would be nice to keep the compiler free of unsafe code
+#![deny(unsafe_code)]
 
 #[cfg(feature = "proc_macro_span")]
 extern crate proc_macro;

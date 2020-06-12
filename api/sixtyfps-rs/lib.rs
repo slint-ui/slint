@@ -62,6 +62,7 @@ fn main() {
 */
 
 #![warn(missing_docs)]
+#![deny(unsafe_code)]
 
 pub use sixtyfps_rs_macro::sixtyfps;
 

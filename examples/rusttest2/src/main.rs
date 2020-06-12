@@ -1,3 +1,5 @@
+#![deny(unsafe_code)]
+
 sixtyfps::include_modules!();
 
 fn main() {
@@ -11,6 +13,5 @@ fn main() {
         let app = context.component.downcast::<Hello>().unwrap();
         app.counter.set(app.counter.get(context) - 1);
     });
-
     app.run();
 }

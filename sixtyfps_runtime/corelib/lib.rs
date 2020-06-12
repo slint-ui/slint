@@ -7,6 +7,8 @@ This crate should not be used directly by application using SixtyFPS.
 You should use the `sixtyfps` crate instead
 */
 
+#![deny(unsafe_code)]
+
 pub mod graphics;
 pub mod input;
 pub mod item_tree;
@@ -18,6 +20,8 @@ pub mod rtti;
 /// Things that are exposed to the C ABI
 pub mod abi {
     #![warn(missing_docs)]
+    // We need to allow unsafe functions because of FFI
+    #![allow(unsafe_code)]
     pub mod datastructures;
     pub mod model;
     pub mod primitives;
