@@ -3,7 +3,7 @@
 
 use crate::diagnostics::{CompilerDiagnostic, Diagnostics};
 use crate::expression_tree::Expression;
-use crate::object_tree::{Component, ElementRc, PropertyDeclaration, SubElement};
+use crate::object_tree::{Component, ElementRc, PropertyDeclaration};
 use crate::typeregister::Type;
 use proc_macro2::TokenStream;
 use quote::quote;
@@ -103,9 +103,9 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<TokenSt
     let mut item_names = Vec::new();
     let mut item_types = Vec::new();
     let mut init = Vec::new();
-    super::build_array_helper(component, |item, children_index| match item {
-        SubElement::Element(item) => {
-            let item = item.borrow();
+    super::build_array_helper(component, |item, children_index| {
+        let item = item.borrow();
+        if item.repeated.is_none() {
             let field_name = quote::format_ident!("{}", item.id);
             let children_count = item.children.len() as u32;
             item_tree_array.push(quote!(
@@ -149,8 +149,9 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<TokenSt
             }
             item_names.push(field_name);
             item_types.push(quote::format_ident!("{}", item.base_type.as_builtin().class_name));
+        } else {
+            todo!()
         }
-        _ => todo!(),
     });
 
     let resource_symbols: Vec<proc_macro2::TokenStream> = component

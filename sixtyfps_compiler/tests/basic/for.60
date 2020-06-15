@@ -14,7 +14,7 @@ SuperSimple := Rectangle {
     Image {
     }
 
-    for xx in zz: Hello {
+    for xx[idx] in zz: Hello {
         Rectangle {}
     }
 }

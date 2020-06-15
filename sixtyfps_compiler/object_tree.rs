@@ -86,7 +86,7 @@ impl Component {
                 return Some(e.clone());
             }
             for x in &e.borrow().children {
-                if let SubElement::Element(x) = x {
+                if x.borrow().repeated.is_none() {
                     if let Some(x) = find_element_by_id_recursive(x, name) {
                         return Some(x);
                     }
@@ -118,12 +118,23 @@ pub struct Element {
     pub base_type: crate::typeregister::Type,
     /// Currently contains also the signals. FIXME: should that be changed?
     pub bindings: HashMap<String, Expression>,
-    pub children: Vec<SubElement>,
+    pub children: Vec<ElementRc>,
 
     pub property_declarations: HashMap<String, PropertyDeclaration>,
 
+    /// Tis element is part of a `for <xxx> in <model>:
+    pub repeated: Option<RepeatedElementInfo>,
+
     /// The AST node, if available
     pub node: Option<syntax_nodes::Element>,
+}
+
+#[derive(Debug, Clone)]
+/// If the parent element is a repeated element, this has information about the models
+pub struct RepeatedElementInfo {
+    pub model: Expression,
+    pub model_data_id: String,
+    pub index_id: String,
 }
 
 pub type ElementRc = Rc<RefCell<Element>>;
@@ -261,21 +272,42 @@ impl Element {
             if se.kind() == SyntaxKind::SubElement {
                 let id = se.child_text(SyntaxKind::Identifier).unwrap_or_default();
                 if let Some(element_node) = se.child_node(SyntaxKind::Element) {
-                    r.children.push(SubElement::Element(Rc::new(RefCell::new(
-                        Element::from_node(element_node.into(), id, diag, tr),
+                    r.children.push(Rc::new(RefCell::new(Element::from_node(
+                        element_node.into(),
+                        id,
+                        diag,
+                        tr,
                     ))));
                 } else {
                     assert!(diag.has_error());
                 }
             } else if se.kind() == SyntaxKind::RepeatedElement {
-                r.children.push(SubElement::RepeatedElement(Box::new(RepeatedElement::from_node(
+                r.children.push(Rc::new(RefCell::new(Element::from_repeated_node(
                     se.into(),
                     diag,
                     tr,
-                ))))
+                ))));
             }
         }
         r
+    }
+
+    fn from_repeated_node(
+        node: syntax_nodes::RepeatedElement,
+        diag: &mut Diagnostics,
+        tr: &TypeRegister,
+    ) -> Self {
+        let rei = RepeatedElementInfo {
+            model: Expression::Uncompiled(node.Expression().into()),
+            model_data_id: node
+                .DeclaredIdentifier()
+                .and_then(|n| n.child_text(SyntaxKind::Identifier))
+                .unwrap_or_default(),
+            index_id: node.child_text(SyntaxKind::Identifier).unwrap_or_default(),
+        };
+        let mut e = Element::from_node(node.Element(), String::new(), diag, tr);
+        e.repeated = Some(rei);
+        e
     }
 
     pub fn lookup_property(&self, name: &str) -> Type {
@@ -315,50 +347,10 @@ impl std::fmt::Display for QualifiedTypeName {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct RepeatedElement {
-    model: Expression,
-    model_data_id: String,
-    index_id: String,
-    element: ElementRc,
-}
-
-impl RepeatedElement {
-    pub fn from_node(
-        node: syntax_nodes::RepeatedElement,
-        diag: &mut Diagnostics,
-        tr: &TypeRegister,
-    ) -> Self {
-        RepeatedElement {
-            model: Expression::Uncompiled(node.Expression().into()),
-            model_data_id: node
-                .DeclaredIdentifier()
-                .and_then(|n| n.child_text(SyntaxKind::Identifier))
-                .unwrap_or_default(),
-            index_id: node.child_text(SyntaxKind::Identifier).unwrap_or_default(),
-            element: Rc::new(RefCell::new(Element::from_node(
-                node.Element(),
-                String::new(),
-                diag,
-                tr,
-            ))),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum SubElement {
-    Element(ElementRc),
-    RepeatedElement(Box<RepeatedElement>),
-}
-
 /// Call the visitor for each children of the element recursively, starting with the element itself
 pub fn recurse_elem(elem: &ElementRc, vis: &mut impl FnMut(&ElementRc)) {
     vis(elem);
     for sub in &elem.borrow().children {
-        match sub {
-            SubElement::Element(e) => recurse_elem(e, vis),
-            SubElement::RepeatedElement(_) => {}
-        }
+        recurse_elem(sub, vis);
     }
 }

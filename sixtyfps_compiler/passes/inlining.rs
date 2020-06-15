@@ -79,37 +79,36 @@ fn inline_element(
             continue; // the root has been processed
         }
         for (_, expr) in &mut e.borrow_mut().bindings {
-            fixup_binding(expr, &mapping, root_component)
+            fixup_binding(expr, &mapping, root_component);
+        }
+        if let Some(ref mut r) = &mut e.borrow_mut().repeated {
+            fixup_binding(&mut r.model, &mapping, root_component);
         }
     }
 }
 
 // Duplicate the element elem and all its children. And fill the mapping to point from the old to the new
 fn duplicate_element_with_mapping(
-    sub: &SubElement,
+    element: &ElementRc,
     mapping: &mut HashMap<usize, ElementRc>,
-) -> SubElement {
-    match sub {
-        SubElement::Element(element) => {
-            let elem = element.borrow();
-            let new = Rc::new(RefCell::new(Element {
-                base_type: elem.base_type.clone(),
-                id: elem.id.clone(),
-                property_declarations: elem.property_declarations.clone(),
-                // We will do the mapping of the binding later
-                bindings: elem.bindings.clone(),
-                children: elem
-                    .children
-                    .iter()
-                    .map(|x| duplicate_element_with_mapping(x, mapping))
-                    .collect(),
-                node: elem.node.clone(),
-            }));
-            mapping.insert(element_key(element), new.clone());
-            SubElement::Element(new)
-        }
-        SubElement::RepeatedElement(_) => todo!(),
-    }
+) -> ElementRc {
+    let elem = element.borrow();
+    let new = Rc::new(RefCell::new(Element {
+        base_type: elem.base_type.clone(),
+        id: elem.id.clone(),
+        property_declarations: elem.property_declarations.clone(),
+        // We will do the mapping of the binding later
+        bindings: elem.bindings.clone(),
+        children: elem
+            .children
+            .iter()
+            .map(|x| duplicate_element_with_mapping(x, mapping))
+            .collect(),
+        repeated: elem.repeated.clone(),
+        node: elem.node.clone(),
+    }));
+    mapping.insert(element_key(element), new.clone());
+    new
 }
 
 fn fixup_binding(

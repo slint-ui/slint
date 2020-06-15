@@ -128,7 +128,7 @@ mod cpp_ast {
 }
 
 use crate::diagnostics::{CompilerDiagnostic, Diagnostics};
-use crate::object_tree::{Component, Element, ElementRc, SubElement};
+use crate::object_tree::{Component, Element, ElementRc};
 use crate::typeregister::Type;
 use cpp_ast::*;
 
@@ -205,10 +205,7 @@ fn handle_item(item: &Element, main_struct: &mut Struct, init: &mut Vec<String>)
     }));
 
     for i in &item.children {
-        match i {
-            SubElement::Element(i) => handle_item(&i.borrow(), main_struct, init),
-            SubElement::RepeatedElement(_) => todo!(),
-        }
+        handle_item(&i.borrow(), main_struct, init);
     }
 }
 
@@ -313,9 +310,9 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<impl st
     x.declarations.push(Declaration::Struct(main_struct));
 
     let mut tree_array = String::new();
-    super::build_array_helper(component, |item, children_offset| match item {
-        SubElement::Element(item) => {
-            let item = item.borrow();
+    super::build_array_helper(component, |item, children_offset| {
+        let item = item.borrow();
+        if item.repeated.is_none() {
             tree_array = format!(
                 "{}{}sixtyfps::make_item_node(offsetof({}, {}), &sixtyfps::{}, {}, {})",
                 tree_array,
@@ -326,8 +323,9 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<impl st
                 item.children.len(),
                 children_offset,
             )
+        } else {
+            todo!()
         }
-        SubElement::RepeatedElement(_) => todo!(),
     });
 
     x.declarations.push(Declaration::Function(Function {

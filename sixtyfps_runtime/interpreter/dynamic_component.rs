@@ -3,7 +3,7 @@ use crate::{dynamic_type, eval};
 use core::convert::TryInto;
 use core::ptr::NonNull;
 use dynamic_type::Instance;
-use object_tree::{ElementRc, SubElement};
+use object_tree::ElementRc;
 use sixtyfps_compilerlib::typeregister::Type;
 use sixtyfps_compilerlib::*;
 use sixtyfps_corelib::abi::datastructures::{
@@ -150,22 +150,22 @@ pub fn load(
     let mut items_types = HashMap::new();
     let mut builder = dynamic_type::TypeBuilder::new();
 
-    generator::build_array_helper(&tree.root_component, |sub, child_offset| match sub {
-        SubElement::Element(rc_item) => {
-            let item = rc_item.borrow();
-            let rt = &rtti[&*item.base_type.as_builtin().class_name];
-            let offset = builder.add_field(rt.type_info);
-            tree_array.push(ItemTreeNode::Item {
-                item: unsafe { vtable::VOffset::from_raw(rt.vtable, offset) },
-                children_index: child_offset,
-                chilren_count: item.children.len() as _,
-            });
-            items_types.insert(
-                item.id.clone(),
-                ItemWithinComponent { offset, rtti: rt.clone(), elem: rc_item.clone() },
-            );
+    generator::build_array_helper(&tree.root_component, |rc_item, child_offset| {
+        let item = rc_item.borrow();
+        if item.repeated.is_some() {
+            todo!()
         }
-        SubElement::RepeatedElement(_) => todo!(),
+        let rt = &rtti[&*item.base_type.as_builtin().class_name];
+        let offset = builder.add_field(rt.type_info);
+        tree_array.push(ItemTreeNode::Item {
+            item: unsafe { vtable::VOffset::from_raw(rt.vtable, offset) },
+            children_index: child_offset,
+            chilren_count: item.children.len() as _,
+        });
+        items_types.insert(
+            item.id.clone(),
+            ItemWithinComponent { offset, rtti: rt.clone(), elem: rc_item.clone() },
+        );
     });
 
     let mut custom_properties = HashMap::new();
