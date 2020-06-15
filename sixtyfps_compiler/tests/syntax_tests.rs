@@ -39,7 +39,10 @@ fn main() -> std::io::Result<()> {
 
 fn process_file(path: &std::path::Path) -> std::io::Result<bool> {
     let source = std::fs::read_to_string(&path)?;
-    process_file_source(path, source, false)
+    std::panic::catch_unwind(|| process_file_source(path, source, false)).unwrap_or_else(|err| {
+        println!("Panic while processing {}: {:?}", path.display(), err);
+        Ok(false)
+    })
 }
 
 fn process_file_source(
