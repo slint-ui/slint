@@ -53,17 +53,19 @@ fn process_file_source(
     let (res, mut diag) = sixtyfps_compilerlib::parser::parse(&source);
     diag.current_path = path.to_path_buf();
     let mut tr = sixtyfps_compilerlib::typeregister::TypeRegister::builtin();
-    let doc =
-        sixtyfps_compilerlib::object_tree::Document::from_node(res.into(), &mut diag, &mut tr);
     if !diag.has_error() {
-        let compiler_config = sixtyfps_compilerlib::CompilerConfiguration::default();
-        sixtyfps_compilerlib::run_passes(&doc, &mut diag, &mut tr, &compiler_config);
+        let doc =
+            sixtyfps_compilerlib::object_tree::Document::from_node(res.into(), &mut diag, &mut tr);
+        if !diag.has_error() {
+            let compiler_config = sixtyfps_compilerlib::CompilerConfiguration::default();
+            sixtyfps_compilerlib::run_passes(&doc, &mut diag, &mut tr, &compiler_config);
+        }
     }
 
     //let mut errors = std::collections::HashSet::from_iter(diag.inner.into_iter());
     let mut success = true;
 
-    // Find expexted errors in the file.
+    // Find expected errors in the file.
     let re = regex::Regex::new(r"\n *//[^\n]*(\^)error\{([^\n}]*)\}\n").unwrap();
     for m in re.captures_iter(&source) {
         let line_begin_offset = m.get(0).unwrap().start();
