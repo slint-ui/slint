@@ -205,10 +205,10 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<TokenSt
         }
 
         impl #component_id{
-            fn run(self) {
+            fn run(&self) {
                 use sixtyfps::re_exports::*;
                 sixtyfps::re_exports::ComponentVTable_static!(static VT for #component_id);
-                sixtyfps_runtime_run_component_with_gl_renderer(VRef::new(&self));
+                sixtyfps_runtime_run_component_with_gl_renderer(VRef::new(self));
             }
 
             #(#property_and_signal_accessors)*
