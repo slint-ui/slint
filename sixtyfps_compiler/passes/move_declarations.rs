@@ -34,6 +34,9 @@ pub fn move_declarations(component: &Rc<Component>) {
             }
         }
         elem.borrow_mut().bindings = new_bindings;
+        if let Some(r) = &mut elem.borrow_mut().repeated {
+            fixup_bindings(&mut r.model, component);
+        }
     });
 
     recurse_elem(&component.root_element, &mut |elem| {

@@ -38,6 +38,10 @@ fn inline_element(
         format!("{:?}", elem.borrow().base_type),
         format!("{:?}", Type::Component(inlined_component.clone()))
     );
+    debug_assert!(
+        inlined_component.root_element.borrow().repeated.is_none(),
+        "root element of a component cannot be repeated"
+    );
 
     let mut elem_mut = elem.borrow_mut();
     elem_mut.base_type = inlined_component.root_element.borrow().base_type.clone();

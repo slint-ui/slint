@@ -41,6 +41,20 @@ pub fn resolve_expressions(doc: &Document, diag: &mut Diagnostics, tr: &mut Type
                 }
             }
             elem.borrow_mut().bindings = bindings;
+            let mut repeated = elem.borrow_mut().repeated.take();
+            if let Some(r) = &mut repeated {
+                if let Expression::Uncompiled(node) = &mut r.model {
+                    let mut lookup_ctx = LookupCtx {
+                        tr,
+                        property_type: Type::Invalid, // FIXME: that should be a model
+                        component: component.clone(),
+                        diag,
+                    };
+                    r.model =
+                        Expression::from_binding_expression_node(node.clone(), &mut lookup_ctx)
+                }
+            }
+            elem.borrow_mut().repeated = repeated;
         })
     }
 }
