@@ -185,7 +185,7 @@ pub fn load(
         }
         let (prop, type_info) = match decl.property_type {
             Type::Float32 => property_info::<f32>(),
-            Type::Int32 => property_info::<u32>(),
+            Type::Int32 => property_info::<i32>(),
             Type::String => property_info::<SharedString>(),
             Type::Color => property_info::<u32>(),
             Type::Resource => property_info::<Resource>(),
