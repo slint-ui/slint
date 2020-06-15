@@ -1,4 +1,4 @@
-use sixtyfps_compilerlib::expression_tree::Expression;
+use sixtyfps_compilerlib::expression_tree::{Expression, NamedReference};
 use sixtyfps_compilerlib::typeregister::Type;
 use sixtyfps_corelib as corelib;
 use sixtyfps_corelib::{abi::datastructures::ItemRef, EvaluationContext, Resource, SharedString};
@@ -92,17 +92,19 @@ pub fn eval_expression(
         Expression::StringLiteral(s) => Value::String(s.as_str().into()),
         Expression::NumberLiteral(n) => Value::Number(*n),
         Expression::SignalReference { .. } => panic!("signal in expression"),
-        Expression::PropertyReference { component, element, name } => {
-            let component = component.upgrade().unwrap();
+        Expression::PropertyReference(NamedReference { element, name }) => {
             let element = element.upgrade().unwrap();
-            if element.borrow().id == component.root_element.borrow().id {
+            let element = element.borrow();
+            if element.id == element.enclosing_component.upgrade().unwrap().root_element.borrow().id
+            {
                 if let Some(x) = ctx.component_type.custom_properties.get(name) {
                     return unsafe {
                         x.prop.get(&*ctx.mem.offset(x.offset as isize), &eval_context).unwrap()
                     };
                 }
             };
-            let item_info = &ctx.component_type.items[element.borrow().id.as_str()];
+            let item_info = &ctx.component_type.items[element.id.as_str()];
+            core::mem::drop(element);
             let item = unsafe { item_info.item_from_component(ctx.mem) };
             item_info.rtti.properties[name.as_str()].get(item, &eval_context)
         }
@@ -124,7 +126,7 @@ pub fn eval_expression(
             v
         }
         Expression::FunctionCall { function, .. } => {
-            if let Expression::SignalReference { component: _, element, name } = &**function {
+            if let Expression::SignalReference(NamedReference { element, name }) = &**function {
                 let element = element.upgrade().unwrap();
                 let item_info = &ctx.component_type.items[element.borrow().id.as_str()];
                 let item = unsafe { item_info.item_from_component(ctx.mem) };
@@ -150,7 +152,7 @@ pub fn eval_expression(
             }
         }
         Expression::SelfAssignment { lhs, rhs, op } => match &**lhs {
-            Expression::PropertyReference { component, element, name, .. } => {
+            Expression::PropertyReference(NamedReference { element, name }) => {
                 let eval = |lhs| {
                     let rhs = eval_expression(&**rhs, ctx, eval_context);
                     match (lhs, rhs, op) {
@@ -162,8 +164,8 @@ pub fn eval_expression(
                     }
                 };
 
-                let component = component.upgrade().unwrap();
                 let element = element.upgrade().unwrap();
+                let component = element.borrow().enclosing_component.upgrade().unwrap();
                 if element.borrow().id == component.root_element.borrow().id {
                     if let Some(x) = ctx.component_type.custom_properties.get(name) {
                         unsafe {

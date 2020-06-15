@@ -1,6 +1,10 @@
 //! This pass moves all declaration of properties or signal to the root
 
-use crate::{expression_tree::Expression, object_tree::*, typeregister::Type};
+use crate::{
+    expression_tree::{Expression, NamedReference},
+    object_tree::*,
+    typeregister::Type,
+};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -64,17 +68,10 @@ fn map_name(e: &ElementRc, s: &str) -> String {
 
 fn fixup_bindings(val: &mut Expression, comp: &Rc<Component>) {
     match val {
-        Expression::PropertyReference { component, element, name } => {
+        Expression::PropertyReference(NamedReference { element, name })
+        | Expression::SignalReference(NamedReference { element, name }) => {
             let e = element.upgrade().unwrap();
-            let component = component.upgrade().unwrap();
-            if Rc::ptr_eq(&component, comp) && e.borrow().property_declarations.contains_key(name) {
-                *name = map_name(&e, name.as_str());
-                *element = Rc::downgrade(&comp.root_element);
-            }
-        }
-        Expression::SignalReference { component, element, name } => {
-            let e = element.upgrade().unwrap();
-            let component = component.upgrade().unwrap();
+            let component = e.borrow().enclosing_component.upgrade().unwrap();
             if Rc::ptr_eq(&component, comp) && e.borrow().property_declarations.contains_key(name) {
                 *name = map_name(&e, name.as_str());
                 *element = Rc::downgrade(&comp.root_element);

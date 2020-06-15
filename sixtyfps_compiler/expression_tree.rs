@@ -4,6 +4,13 @@ use crate::{diagnostics::Diagnostics, typeregister::Type};
 use core::cell::RefCell;
 use std::rc::Weak;
 
+/// Reference to a property or signal of a given name within an element.
+#[derive(Debug, Clone)]
+pub struct NamedReference {
+    pub element: Weak<RefCell<Element>>,
+    pub name: String,
+}
+
 /// The Expression is hold by properties, so it should not hold any strong references to node from the object_tree
 #[derive(Debug, Clone)]
 pub enum Expression {
@@ -16,23 +23,13 @@ pub enum Expression {
     /// Number
     NumberLiteral(f64),
 
-    /// Reference to the signal <name> in the <element> within the <Component>
+    /// Reference to the signal <name> in the <element>
     ///
     /// Note: if we are to separate expression and statement, we probably do not need to have signal reference within expressions
-    SignalReference {
-        component: Weak<Component>,
-        element: Weak<RefCell<Element>>,
-        name: String,
-    },
+    SignalReference(NamedReference),
 
-    /// Reference to the signal <name> in the <element> within the <Component>
-    ///
-    /// Note: if we are to separate expression and statement, we probably do not need to have signal reference within expressions
-    PropertyReference {
-        component: Weak<Component>,
-        element: Weak<RefCell<Element>>,
-        name: String,
-    },
+    /// Reference to the signal <name> in the <element>
+    PropertyReference(NamedReference),
 
     /// Cast an expression to the given type
     Cast {
@@ -75,7 +72,7 @@ impl Expression {
             Expression::StringLiteral(_) => Type::String,
             Expression::NumberLiteral(_) => Type::Float32,
             Expression::SignalReference { .. } => Type::Signal,
-            Expression::PropertyReference { element, name, .. } => {
+            Expression::PropertyReference(NamedReference { element, name }) => {
                 element.upgrade().unwrap().borrow().lookup_property(name)
             }
             Expression::Cast { to, .. } => to.clone(),

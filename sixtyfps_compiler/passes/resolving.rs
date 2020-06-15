@@ -236,11 +236,10 @@ impl Expression {
                     x.into_token().unwrap().span(),
                 )
             }
-            return Self::PropertyReference {
-                component: Rc::downgrade(&ctx.component),
+            return Self::PropertyReference(NamedReference {
                 element: Rc::downgrade(&ctx.component.root_element),
                 name: s.to_string(),
-            };
+            });
         } else if matches!(property, Type::Signal) {
             if let Some(x) = it.next() {
                 ctx.diag.push_error(
@@ -248,11 +247,10 @@ impl Expression {
                     x.into_token().unwrap().span(),
                 )
             }
-            return Self::SignalReference {
-                component: Rc::downgrade(&ctx.component),
+            return Self::SignalReference(NamedReference {
                 element: Rc::downgrade(&ctx.component.root_element),
                 name: s.to_string(),
-            };
+            });
         } else if property.is_object_type() {
             todo!("Continue lookling up");
         }
@@ -274,11 +272,10 @@ impl Expression {
                     );
                     return Self::Invalid;
                 }
-                return Self::PropertyReference {
-                    component: Rc::downgrade(&ctx.component),
+                return Self::PropertyReference(NamedReference {
                     element: Rc::downgrade(&elem),
                     name: prop_name.text().to_string(),
-                };
+                });
             } else if matches!(p, Type::Signal) {
                 if let Some(x) = it.next() {
                     ctx.diag.push_error(
@@ -286,11 +283,10 @@ impl Expression {
                         x.into_token().unwrap().span(),
                     )
                 }
-                return Self::SignalReference {
-                    component: Rc::downgrade(&ctx.component),
+                return Self::SignalReference(NamedReference {
                     element: Rc::downgrade(&elem),
                     name: prop_name.to_string(),
-                };
+                });
             } else {
                 ctx.diag.push_error(
                     format!("Cannot access property '{}'", prop_name),

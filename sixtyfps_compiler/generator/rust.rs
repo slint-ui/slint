@@ -2,7 +2,7 @@
 */
 
 use crate::diagnostics::{CompilerDiagnostic, Diagnostics};
-use crate::expression_tree::Expression;
+use crate::expression_tree::{Expression, NamedReference};
 use crate::object_tree::{Component, ElementRc, PropertyDeclaration};
 use crate::typeregister::Type;
 use proc_macro2::TokenStream;
@@ -240,7 +240,7 @@ fn compile_expression(e: &Expression, component: &Component) -> TokenStream {
                 _ => f,
             }
         }
-        Expression::PropertyReference { component: _, element, name } => {
+        Expression::PropertyReference(NamedReference { element, name }) => {
             let access = access_member(&element.upgrade().unwrap(), name.as_str());
             quote!(_self.#access.get(context))
         }
@@ -248,7 +248,7 @@ fn compile_expression(e: &Expression, component: &Component) -> TokenStream {
             let map = sub.iter().map(|e| compile_expression(e, &component));
             quote!({ #(#map);* })
         }
-        Expression::SignalReference { element, name, .. } => {
+        Expression::SignalReference(NamedReference { element, name, .. }) => {
             let access = access_member(&element.upgrade().unwrap(), name.as_str());
             quote!(_self.#access)
         }
@@ -262,7 +262,7 @@ fn compile_expression(e: &Expression, component: &Component) -> TokenStream {
             }
         }
         Expression::SelfAssignment { lhs, rhs, op } => match &**lhs {
-            Expression::PropertyReference { element, name, .. } => {
+            Expression::PropertyReference(NamedReference { element, name }) => {
                 let lhs = access_member(&element.upgrade().unwrap(), name.as_str());
                 let rhs = compile_expression(&*rhs, &component);
                 let op = proc_macro2::Punct::new(*op, proc_macro2::Spacing::Alone);

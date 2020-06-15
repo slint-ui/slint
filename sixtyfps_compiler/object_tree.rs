@@ -8,7 +8,7 @@ use crate::parser::{syntax_nodes, Spanned, SyntaxKind, SyntaxNodeEx};
 use crate::typeregister::{Type, TypeRegister};
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 /// The full document (a complete file)
 #[derive(Default, Debug)]
 pub struct Document {
@@ -27,7 +27,7 @@ impl Document {
         let inner_components = node
             .Component()
             .map(|n| {
-                let compo = Rc::new(Component::from_node(n, diag, tr));
+                let compo = Component::from_node(n, diag, tr);
                 tr.add(compo.clone());
                 compo
             })
@@ -67,8 +67,8 @@ impl Component {
         node: syntax_nodes::Component,
         diag: &mut Diagnostics,
         tr: &TypeRegister,
-    ) -> Self {
-        Component {
+    ) -> Rc<Self> {
+        let c = Rc::new(Component {
             id: node.child_text(SyntaxKind::Identifier).unwrap_or_default(),
             root_element: Rc::new(RefCell::new(Element::from_node(
                 node.Element(),
@@ -77,7 +77,10 @@ impl Component {
                 tr,
             ))),
             ..Default::default()
-        }
+        });
+        let weak = Rc::downgrade(&c);
+        recurse_elem(&c.root_element, &mut |e| e.borrow_mut().enclosing_component = weak.clone());
+        c
     }
 
     pub fn find_element_by_id(&self, name: &str) -> Option<ElementRc> {
@@ -86,10 +89,8 @@ impl Component {
                 return Some(e.clone());
             }
             for x in &e.borrow().children {
-                if x.borrow().repeated.is_none() {
-                    if let Some(x) = find_element_by_id_recursive(x, name) {
-                        return Some(x);
-                    }
+                if let Some(x) = find_element_by_id_recursive(x, name) {
+                    return Some(x);
                 }
             }
             None
@@ -119,6 +120,8 @@ pub struct Element {
     /// Currently contains also the signals. FIXME: should that be changed?
     pub bindings: HashMap<String, Expression>,
     pub children: Vec<ElementRc>,
+    /// The component which contains this element.
+    pub enclosing_component: Weak<Component>,
 
     pub property_declarations: HashMap<String, PropertyDeclaration>,
 

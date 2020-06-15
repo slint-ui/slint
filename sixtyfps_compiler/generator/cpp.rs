@@ -366,16 +366,18 @@ fn access_member(element: &ElementRc, name: &str) -> String {
 
 fn compile_expression(e: &crate::expression_tree::Expression) -> String {
     use crate::expression_tree::Expression::*;
+    use crate::expression_tree::NamedReference;
     match e {
         StringLiteral(s) => format!(r#"sixtyfps::SharedString("{}")"#, s.escape_default()),
         NumberLiteral(n) => n.to_string(),
-        PropertyReference { element, name, .. } => format!(
+        PropertyReference(NamedReference { element, name }) => format!(
             r#"self->{}.get(context)"#,
             access_member(&element.upgrade().unwrap(), name.as_str())
         ),
-        SignalReference { element, name, .. } => {
+        SignalReference(NamedReference { element, name }) => {
             format!(r#"self->{}"#, access_member(&element.upgrade().unwrap(), name.as_str()))
         }
+
         Cast { from, to } => {
             let f = compile_expression(&*from);
             match (from.ty(), to) {
@@ -399,7 +401,7 @@ fn compile_expression(e: &crate::expression_tree::Expression) -> String {
             }
         }
         SelfAssignment { lhs, rhs, op } => match &**lhs {
-            PropertyReference { element, name, .. } => format!(
+            PropertyReference(NamedReference { element, name }) => format!(
                 r#"self->{lhs}.set(self->{lhs}.get(context) {op} {rhs})"#,
                 lhs = access_member(&element.upgrade().unwrap(), name.as_str()),
                 rhs = compile_expression(&*rhs),

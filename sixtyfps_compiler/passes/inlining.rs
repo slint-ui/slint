@@ -1,6 +1,10 @@
 //! Inline each object_tree::Component within the main Component
 
-use crate::{expression_tree::Expression, object_tree::*, typeregister::Type};
+use crate::{
+    expression_tree::{Expression, NamedReference},
+    object_tree::*,
+    typeregister::Type,
+};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -62,7 +66,7 @@ fn inline_element(
             .borrow()
             .children
             .iter()
-            .map(|x| duplicate_element_with_mapping(x, &mut mapping)),
+            .map(|x| duplicate_element_with_mapping(x, &mut mapping, root_component)),
     );
     new_children.append(&mut elem_mut.children);
     elem_mut.children = new_children;
@@ -95,6 +99,7 @@ fn inline_element(
 fn duplicate_element_with_mapping(
     element: &ElementRc,
     mapping: &mut HashMap<usize, ElementRc>,
+    root_component: &Rc<Component>,
 ) -> ElementRc {
     let elem = element.borrow();
     let new = Rc::new(RefCell::new(Element {
@@ -106,10 +111,11 @@ fn duplicate_element_with_mapping(
         children: elem
             .children
             .iter()
-            .map(|x| duplicate_element_with_mapping(x, mapping))
+            .map(|x| duplicate_element_with_mapping(x, mapping, root_component))
             .collect(),
         repeated: elem.repeated.clone(),
         node: elem.node.clone(),
+        enclosing_component: Rc::downgrade(root_component),
     }));
     mapping.insert(element_key(element), new.clone());
     new
@@ -122,16 +128,14 @@ fn fixup_binding(
 ) {
     val.visit_mut(|sub| fixup_binding(sub, mapping, root_component));
     match val {
-        Expression::PropertyReference { component, element, .. } => {
-            *component = Rc::downgrade(root_component);
+        Expression::PropertyReference(NamedReference { element, .. }) => {
             *element = element
                 .upgrade()
                 .and_then(|e| mapping.get(&element_key(&e)))
                 .map(Rc::downgrade)
                 .unwrap();
         }
-        Expression::SignalReference { component, element, .. } => {
-            *component = Rc::downgrade(root_component);
+        Expression::SignalReference(NamedReference { element, .. }) => {
             *element = element
                 .upgrade()
                 .and_then(|e| mapping.get(&element_key(&e)))
