@@ -3,14 +3,11 @@
 SuperSimple := Rectangle {
     color: green;
 
-    for
-//  ^error{TODO: for not implemented}
-        xx Text {}
+    for xx Text {}
 //         ^error{Invalid 'for' syntax: there should be a 'in' token}
 
 
     for xx in zz: Hello {
-//  ^error{TODO: for not implemented}
         Rectangle {}
     }
 
@@ -18,7 +15,6 @@ SuperSimple := Rectangle {
     }
 
     for xx in zz: Hello {
-//  ^error{TODO: for not implemented}
         Rectangle {}
     }
 }

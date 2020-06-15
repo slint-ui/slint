@@ -268,7 +268,11 @@ impl Element {
                     assert!(diag.has_error());
                 }
             } else if se.kind() == SyntaxKind::RepeatedElement {
-                diag.push_error("TODO: for not implemented".to_owned(), se.span())
+                r.children.push(SubElement::RepeatedElement(Box::new(RepeatedElement::from_node(
+                    se.into(),
+                    diag,
+                    tr,
+                ))))
             }
         }
         r
@@ -312,7 +316,35 @@ impl std::fmt::Display for QualifiedTypeName {
 }
 
 #[derive(Debug, Clone)]
-pub struct RepeatedElement {}
+pub struct RepeatedElement {
+    model: Expression,
+    model_data_id: String,
+    index_id: String,
+    element: ElementRc,
+}
+
+impl RepeatedElement {
+    pub fn from_node(
+        node: syntax_nodes::RepeatedElement,
+        diag: &mut Diagnostics,
+        tr: &TypeRegister,
+    ) -> Self {
+        RepeatedElement {
+            model: Expression::Uncompiled(node.Expression().into()),
+            model_data_id: node
+                .DeclaredIdentifier()
+                .and_then(|n| n.child_text(SyntaxKind::Identifier))
+                .unwrap_or_default(),
+            index_id: node.child_text(SyntaxKind::Identifier).unwrap_or_default(),
+            element: Rc::new(RefCell::new(Element::from_node(
+                node.Element(),
+                String::new(),
+                diag,
+                tr,
+            ))),
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum SubElement {
