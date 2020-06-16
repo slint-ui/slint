@@ -169,8 +169,8 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<TokenSt
     Some(quote!(
         #(#resource_symbols)*
 
-        use sixtyfps::re_exports::const_field_offset;
         #[derive(sixtyfps::re_exports::FieldOffsets)]
+        #[const_field_offset(sixtyfps::re_exports::const_field_offset)]
         #[repr(C)]
         struct #component_id {
             #(#item_names : sixtyfps::re_exports::#item_types,)*

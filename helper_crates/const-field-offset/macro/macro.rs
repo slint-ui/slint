@@ -26,15 +26,31 @@ original struct.
 
 Only work with named #[repr(C)] structures.
 
+## Attributes
+
+It is possible to specify the crate name using the `const_field_offset` attribute.
+
+```rust
+// suppose you re-export the const_field_offset create from a different module
+mod xxx { pub use const_field_offset as cfo; }
+#[repr(C)]
+#[derive(xxx::cfo::FieldOffsets)]
+#[const_field_offset(xxx::cfo)]
+struct Foo {
+    field_1 : u8,
+    field_2 : u32,
+}
+```
+
 */
 
 extern crate proc_macro;
 
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, DeriveInput};
+use syn::{parse_macro_input, spanned::Spanned, DeriveInput};
 
-#[proc_macro_derive(FieldOffsets)]
+#[proc_macro_derive(FieldOffsets, attributes(const_field_offset))]
 pub fn const_field_offset(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
@@ -64,7 +80,34 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
         return TokenStream::from(quote! {compile_error!("Only work for struct")});
     };
 
-    let crate_ = quote!(const_field_offset);
+    let crate_ = input
+        .attrs
+        .iter()
+        .find(|a| a.path.get_ident().map_or(false, |i| i == "const_field_offset"))
+        .map(|a| {
+            a.tokens
+                .clone()
+                .into_iter()
+                .next()
+                .and_then(|tt| match tt {
+                    proc_macro2::TokenTree::Group(g) => {
+                        if g.delimiter() == proc_macro2::Delimiter::Parenthesis {
+                            Some(g.stream())
+                        } else {
+                            None
+                        }
+                    }
+                    _ => None,
+                })
+                .ok_or_else(|| {
+                    syn::Error::new(a.span(), "The argument must be a path to the crate")
+                })
+        })
+        .unwrap_or_else(|| Ok(quote!(const_field_offset)));
+    let crate_ = match crate_ {
+        Ok(crate_) => crate_,
+        Err(e) => return e.to_compile_error().into(),
+    };
 
     let doc = format!(
         "Helper struct containing the offsets of the fields of the struct `{}`",
