@@ -51,6 +51,17 @@ use abi::datastructures::Color;
 #[cfg(not(target_arch = "wasm32"))]
 use winit::platform::desktop::EventLoopExtDesktop;
 
+trait GenericWindow {
+    fn draw(&mut self, component: vtable::VRef<crate::abi::datastructures::ComponentVTable>);
+    fn process_mouse_input(
+        &mut self,
+        pos: winit::dpi::PhysicalPosition<f64>,
+        state: winit::event::ElementState,
+        component: vtable::VRef<crate::abi::datastructures::ComponentVTable>,
+    );
+    fn window_handle(&self) -> &winit::window::Window;
+}
+
 pub struct MainWindow<GraphicsBackend: graphics::GraphicsBackend> {
     pub graphics_backend: GraphicsBackend,
     pub rendering_cache: graphics::RenderingCache<GraphicsBackend>,
@@ -72,81 +83,95 @@ impl<GraphicsBackend: graphics::GraphicsBackend> MainWindow<GraphicsBackend> {
     }
 }
 
+impl<GraphicsBackend: graphics::GraphicsBackend> GenericWindow for MainWindow<GraphicsBackend> {
+    fn draw(&mut self, component: vtable::VRef<abi::datastructures::ComponentVTable>) {
+        // FIXME: we should do that only if some property change
+        component.compute_layout();
+
+        {
+            let mut rendering_primitives_builder =
+                self.graphics_backend.new_rendering_primitives_builder();
+
+            prepare_rendering(
+                component,
+                &mut rendering_primitives_builder,
+                &mut self.rendering_cache,
+            );
+
+            self.graphics_backend.finish_primitives(rendering_primitives_builder);
+        }
+
+        let window = self.graphics_backend.window();
+
+        let size = window.inner_size();
+        let context = EvaluationContext { component: component };
+        let mut frame = self.graphics_backend.new_frame(size.width, size.height, &Color::WHITE);
+        item_rendering::render_component_items(
+            component,
+            &context,
+            &mut frame,
+            &mut self.rendering_cache,
+        );
+        self.graphics_backend.present_frame(frame);
+    }
+    fn process_mouse_input(
+        &mut self,
+        pos: winit::dpi::PhysicalPosition<f64>,
+        state: winit::event::ElementState,
+        component: vtable::VRef<abi::datastructures::ComponentVTable>,
+    ) {
+        let context = EvaluationContext { component };
+        process_input(component, &context, pos, state);
+    }
+    fn window_handle(&self) -> &winit::window::Window {
+        self.graphics_backend.window()
+    }
+}
+
 #[allow(unused_mut)] // mut need changes for wasm
-pub fn run_event_loop<GraphicsBackend: graphics::GraphicsBackend>(
-    mut main_window: &mut MainWindow<GraphicsBackend>,
+fn run_event_loop(
+    mut main_window: &mut impl GenericWindow,
     mut event_loop: winit::event_loop::EventLoop<()>,
     component: vtable::VRef<crate::abi::datastructures::ComponentVTable>,
-) where
-    GraphicsBackend: 'static,
-{
+) {
     use winit::event::Event;
     use winit::event_loop::{ControlFlow, EventLoopWindowTarget};
 
     let mut cursor_pos = winit::dpi::PhysicalPosition::new(0., 0.);
-    let mut run_fn = move |event: Event<()>,
-                           _: &EventLoopWindowTarget<()>,
-                           control_flow: &mut ControlFlow| {
-        *control_flow = ControlFlow::Wait;
+    let mut run_fn =
+        move |event: Event<()>, _: &EventLoopWindowTarget<()>, control_flow: &mut ControlFlow| {
+            *control_flow = ControlFlow::Wait;
 
-        match event {
-            winit::event::Event::WindowEvent {
-                event: winit::event::WindowEvent::CloseRequested,
-                ..
-            } => *control_flow = winit::event_loop::ControlFlow::Exit,
-            winit::event::Event::RedrawRequested(_) => {
-                // FIXME: we should do that only if some property change
-                component.compute_layout();
-
-                {
-                    let mut rendering_primitives_builder =
-                        main_window.graphics_backend.new_rendering_primitives_builder();
-
-                    prepare_rendering(
-                        component,
-                        &mut rendering_primitives_builder,
-                        &mut main_window.rendering_cache,
-                    );
-
-                    main_window.graphics_backend.finish_primitives(rendering_primitives_builder);
+            match event {
+                winit::event::Event::WindowEvent {
+                    event: winit::event::WindowEvent::CloseRequested,
+                    ..
+                } => *control_flow = winit::event_loop::ControlFlow::Exit,
+                winit::event::Event::RedrawRequested(_) => {
+                    main_window.draw(component);
+                }
+                winit::event::Event::WindowEvent {
+                    event: winit::event::WindowEvent::CursorMoved { position, .. },
+                    ..
+                } => {
+                    cursor_pos = position;
+                    // TODO: propagate mouse move?
                 }
 
-                let window = main_window.graphics_backend.window();
+                winit::event::Event::WindowEvent {
+                    event: winit::event::WindowEvent::MouseInput { state, .. },
+                    ..
+                } => {
+                    main_window.process_mouse_input(cursor_pos, state, component);
 
-                let size = window.inner_size();
-                let context = EvaluationContext { component: component };
-                let mut frame =
-                    main_window.graphics_backend.new_frame(size.width, size.height, &Color::WHITE);
-                item_rendering::render_component_items(
-                    component,
-                    &context,
-                    &mut frame,
-                    &mut main_window.rendering_cache,
-                );
-                main_window.graphics_backend.present_frame(frame);
-            }
-            winit::event::Event::WindowEvent {
-                event: winit::event::WindowEvent::CursorMoved { position, .. },
-                ..
-            } => {
-                cursor_pos = position;
-                // TODO: propagate mouse move?
-            }
+                    let window = main_window.window_handle();
+                    // FIXME: remove this, it should be based on actual changes rather than this
+                    window.request_redraw();
+                }
 
-            winit::event::Event::WindowEvent {
-                event: winit::event::WindowEvent::MouseInput { state, .. },
-                ..
-            } => {
-                let context = EvaluationContext { component };
-                process_input(component, &context, cursor_pos, state);
-                let window = main_window.graphics_backend.window();
-                // FIXME: remove this, it should be based on actual changes rather than this
-                window.request_redraw();
+                _ => (),
             }
-
-            _ => (),
-        }
-    };
+        };
 
     #[cfg(not(target_arch = "wasm32"))]
     event_loop.run_return(run_fn);
