@@ -43,8 +43,9 @@ component ButtonRectangle := Rectangle {
 
 Hello := Rectangle {
 
-    for x in 8: Rectangle {
+    for x[idx] in 8: Rectangle {
         color: #8005;
+        x: idx;
         width: 75;
         height: 75;
         Rectangle {

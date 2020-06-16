@@ -42,12 +42,16 @@ impl Document {
     }
 }
 
-/// A component is a type in the language which can be instantiated
+/// A component is a type in the language which can be instantiated,
+/// Or is materialized for repeated expression.
 #[derive(Default, Debug)]
 pub struct Component {
     //     node: SyntaxNode,
     pub id: String,
     pub root_element: ElementRc,
+
+    /// The parent element within the parent component if this component represents a repeated element
+    pub parent_element: Weak<RefCell<Element>>,
 
     /// List of elements that are not attached to the root anymore because they have been
     /// optimized away, but their properties may still be in use
@@ -293,7 +297,10 @@ impl Element {
                 .DeclaredIdentifier()
                 .and_then(|n| n.child_text(SyntaxKind::Identifier))
                 .unwrap_or_default(),
-            index_id: node.child_text(SyntaxKind::Identifier).unwrap_or_default(),
+            index_id: node
+                .RepeatedIndex()
+                .and_then(|r| r.child_text(SyntaxKind::Identifier))
+                .unwrap_or_default(),
         };
         let mut e = Element::from_node(node.Element(), String::new(), diag, tr);
         e.repeated = Some(rei);

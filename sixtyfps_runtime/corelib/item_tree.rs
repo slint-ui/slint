@@ -7,7 +7,7 @@ use crate::abi::datastructures::{
 /// The state parametter returned by the visitor is passed to each children.
 pub fn visit_items<State>(
     component: ComponentRef,
-    mut visitor: impl FnMut(ItemRef<'_>, &State) -> State,
+    mut visitor: impl FnMut(ComponentRef, ItemRef, &State) -> State,
     state: State,
 ) {
     visit_internal(component, &mut visitor, -1, &state)
@@ -15,12 +15,12 @@ pub fn visit_items<State>(
 
 fn visit_internal<State>(
     component: ComponentRef,
-    visitor: &mut impl FnMut(ItemRef<'_>, &State) -> State,
+    visitor: &mut impl FnMut(ComponentRef, ItemRef, &State) -> State,
     index: isize,
     state: &State,
 ) {
     let mut actual_visitor = |component: ComponentRef, index: isize, item: ItemRef| {
-        let s = visitor(item, state);
+        let s = visitor(component, item, state);
         visit_internal(component, visitor, index, &s);
     };
     vtable::new_vref!(let mut actual_visitor : VRefMut<ItemVisitorVTable> for ItemVisitor = &mut actual_visitor);

@@ -12,7 +12,7 @@ TestCase := Rectangle {
             color: #f005;
             width: 25;
             height: 25;
-        //    x: idx;
+            x: idx;
             y: 25;
         }
     }

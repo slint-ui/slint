@@ -12,6 +12,7 @@ pub fn create_repeater_components(component: &Rc<Component>, _diag: &mut Diagnos
         if elem.borrow().repeated.is_none() {
             return;
         }
+        let parent_element = Rc::downgrade(elem);
         let mut elem = elem.borrow_mut();
 
         let comp = Rc::new(Component {
@@ -25,7 +26,8 @@ pub fn create_repeater_components(component: &Rc<Component>, _diag: &mut Diagnos
                 node: elem.node.clone(),
                 enclosing_component: Default::default(),
             })),
-            ..Default::default()
+            parent_element,
+            ..Component::default()
         });
 
         let weak = Rc::downgrade(&comp);

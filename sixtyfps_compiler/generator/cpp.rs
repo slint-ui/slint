@@ -382,6 +382,7 @@ fn compile_expression(e: &crate::expression_tree::Expression) -> String {
         SignalReference(NamedReference { element, name }) => {
             format!(r#"self->{}"#, access_member(&element.upgrade().unwrap(), name.as_str()))
         }
+        RepeaterIndexReference { .. } => format!("\n#error NOT IMPLEMENTED\n"),
 
         Cast { from, to } => {
             let f = compile_expression(&*from);

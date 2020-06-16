@@ -158,7 +158,7 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow
             // Generate cached rendering data once
             crate::item_tree::visit_items(
                 component,
-                |item, _| {
+                |component, item, _| {
                     let ctx = crate::EvaluationContext { component };
                     crate::item_rendering::update_item_rendering_data(
                         &ctx,
@@ -176,7 +176,6 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow
         let window = this.graphics_backend.as_ref().unwrap().window();
 
         let size = window.inner_size();
-        let context = crate::EvaluationContext { component: component };
         let mut frame = this.graphics_backend.as_mut().unwrap().new_frame(
             size.width,
             size.height,
@@ -184,7 +183,6 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow
         );
         crate::item_rendering::render_component_items(
             component,
-            &context,
             &mut frame,
             &mut this.rendering_cache,
         );
@@ -196,10 +194,8 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow
         state: winit::event::ElementState,
         component: vtable::VRef<crate::abi::datastructures::ComponentVTable>,
     ) {
-        let context = crate::EvaluationContext { component };
         crate::input::process_mouse_event(
             component,
-            &context,
             crate::abi::datastructures::MouseEvent {
                 pos: euclid::point2(pos.x as _, pos.y as _),
                 what: match state {

@@ -7,14 +7,16 @@ Hello := Rectangle {
     property<int32> count: 5;
 
     for foo[idx] in count: Rectangle {
+        x: idx;
         ccc := Text {
-           // x: idx;
+            x: idx;
             text: aaa.text;
         }
     }
 
     for gre[mem] in err: Rectangle {
                   //^error{Unknown unqualified identifier 'err'}
+        x: mem;
         ddd := Text { text: ccc.text; }
         //                  ^error{Cannot access id 'ccc'}
     }

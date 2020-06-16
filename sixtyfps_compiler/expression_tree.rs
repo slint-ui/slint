@@ -31,6 +31,14 @@ pub enum Expression {
     /// Reference to the signal <name> in the <element>
     PropertyReference(NamedReference),
 
+    /// Reference to the index variable of a repeater
+    ///
+    /// Example: `idx`  in `for xxx[idx] in ...`.   The element is the reference to the
+    /// element that is repeated
+    RepeaterIndexReference {
+        element: Weak<RefCell<Element>>,
+    },
+
     /// Cast an expression to the given type
     Cast {
         from: Box<Expression>,
@@ -75,6 +83,7 @@ impl Expression {
             Expression::PropertyReference(NamedReference { element, name }) => {
                 element.upgrade().unwrap().borrow().lookup_property(name)
             }
+            Expression::RepeaterIndexReference { .. } => Type::Int32,
             Expression::Cast { to, .. } => to.clone(),
             Expression::CodeBlock(sub) => sub.last().map_or(Type::Invalid, |e| e.ty()),
             Expression::FunctionCall { function } => function.ty(),
@@ -101,6 +110,7 @@ impl Expression {
             Expression::NumberLiteral(_) => {}
             Expression::SignalReference { .. } => {}
             Expression::PropertyReference { .. } => {}
+            Expression::RepeaterIndexReference { .. } => {}
             Expression::Cast { from, .. } => visitor(&**from),
             Expression::CodeBlock(sub) => {
                 for e in sub {
@@ -129,6 +139,7 @@ impl Expression {
             Expression::NumberLiteral(_) => {}
             Expression::SignalReference { .. } => {}
             Expression::PropertyReference { .. } => {}
+            Expression::RepeaterIndexReference { .. } => {}
             Expression::Cast { from, .. } => visitor(&mut **from),
             Expression::CodeBlock(sub) => {
                 for e in sub {
@@ -157,6 +168,7 @@ impl Expression {
             Expression::NumberLiteral(_) => true,
             Expression::SignalReference { .. } => false,
             Expression::PropertyReference { .. } => false,
+            Expression::RepeaterIndexReference { .. } => false,
             Expression::Cast { from, .. } => from.is_constant(),
             Expression::CodeBlock(sub) => sub.len() == 1 && sub.first().unwrap().is_constant(),
             Expression::FunctionCall { .. } => false,

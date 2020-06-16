@@ -39,7 +39,6 @@ pub(crate) fn update_item_rendering_data<Backend: GraphicsBackend>(
 
 pub(crate) fn render_component_items<Backend: GraphicsBackend>(
     component: vtable::VRef<'_, crate::abi::datastructures::ComponentVTable>,
-    context: &EvaluationContext,
     frame: &mut Backend::Frame,
     rendering_cache: &RenderingCache<Backend>,
 ) {
@@ -47,8 +46,8 @@ pub(crate) fn render_component_items<Backend: GraphicsBackend>(
 
     crate::item_tree::visit_items(
         component,
-        |item, transform| {
-            let origin = item.geometry(context).origin;
+        |component, item, transform| {
+            let origin = item.geometry(&EvaluationContext { component }).origin;
             let transform =
                 transform * Matrix4::from_translation(Vector3::new(origin.x, origin.y, 0.));
 

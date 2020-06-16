@@ -22,6 +22,11 @@ pub fn resolve_expressions(doc: &Document, diag: &mut Diagnostics, tr: &mut Type
         let scope = ComponentScope(vec![component.root_element.clone()]);
 
         recurse_elem(&component.root_element, &scope, &mut |elem, scope| {
+            let mut scope = scope.clone();
+            if elem.borrow().repeated.is_some() {
+                scope.0.push(elem.clone())
+            }
+
             // We are taking the binding to mutate them, as we cannot keep a borrow of the element
             // during the creation of the expression (we need to be able to borrow the Element to do lookups)
             // the `bindings` will be reset later
@@ -62,12 +67,7 @@ pub fn resolve_expressions(doc: &Document, diag: &mut Diagnostics, tr: &mut Type
                 }
             }
             elem.borrow_mut().repeated = repeated;
-
-            let mut scope = scope.clone();
-            if elem.borrow().repeated.is_some() {
-                scope.0.push(elem.clone())
-            }
-            scope.clone()
+            scope
         })
     }
 }
@@ -259,9 +259,9 @@ impl Expression {
             return Self::Invalid;
         };
 
-        let s = first.text().as_str();
+        let first_str = first.text().as_str();
 
-        let property = ctx.component.root_element.borrow().lookup_property(s);
+        let property = ctx.component.root_element.borrow().lookup_property(first_str);
         if property.is_property_type() {
             if let Some(x) = it.next() {
                 ctx.diag.push_error(
@@ -271,7 +271,7 @@ impl Expression {
             }
             return Self::PropertyReference(NamedReference {
                 element: Rc::downgrade(&ctx.component.root_element),
-                name: s.to_string(),
+                name: first_str.to_string(),
             });
         } else if matches!(property, Type::Signal) {
             if let Some(x) = it.next() {
@@ -282,13 +282,13 @@ impl Expression {
             }
             return Self::SignalReference(NamedReference {
                 element: Rc::downgrade(&ctx.component.root_element),
-                name: s.to_string(),
+                name: first_str.to_string(),
             });
         } else if property.is_object_type() {
             todo!("Continue lookling up");
         }
 
-        if let Some(elem) = find_element_by_id(ctx.component_scope, s) {
+        if let Some(elem) = find_element_by_id(ctx.component_scope, first_str) {
             let prop_name = if let Some(second) = it.next() {
                 second.into_token().unwrap()
             } else {
@@ -329,13 +329,24 @@ impl Expression {
             }
         }
 
+        // Try to lookup an index or model property
+        for scope in ctx.component_scope.iter().rev() {
+            if let Some(repeated) = &scope.borrow().repeated {
+                if first_str == repeated.index_id {
+                    return Expression::RepeaterIndexReference { element: Rc::downgrade(scope) };
+                } else if first_str == repeated.model_data_id {
+                    todo!();
+                }
+            }
+        }
+
         if it.next().is_some() {
-            ctx.diag.push_error(format!("Cannot access id '{}'", s), node.span());
+            ctx.diag.push_error(format!("Cannot access id '{}'", first_str), node.span());
             return Expression::Invalid;
         }
 
         if matches!(ctx.property_type, Type::Color) {
-            let value: Option<u32> = match s {
+            let value: Option<u32> = match first_str {
                 "blue" => Some(0xff0000ff),
                 "red" => Some(0xffff0000),
                 "green" => Some(0xff00ff00),
@@ -352,7 +363,7 @@ impl Expression {
             }
         }
 
-        ctx.diag.push_error(format!("Unknown unqualified identifier '{}'", s), node.span());
+        ctx.diag.push_error(format!("Unknown unqualified identifier '{}'", first_str), node.span());
 
         Self::Invalid
     }

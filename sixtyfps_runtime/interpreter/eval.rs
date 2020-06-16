@@ -108,6 +108,7 @@ pub fn eval_expression(
             let item = unsafe { item_info.item_from_component(ctx.mem) };
             item_info.rtti.properties[name.as_str()].get(item, &eval_context)
         }
+        Expression::RepeaterIndexReference { .. } => todo!(),
         Expression::Cast { from, to } => {
             let v = eval_expression(&*from, ctx, eval_context);
             match (v, to) {

@@ -7,6 +7,7 @@ use crate::object_tree::{Component, ElementRc, PropertyDeclaration};
 use crate::typeregister::Type;
 use proc_macro2::TokenStream;
 use quote::quote;
+use std::rc::Rc;
 
 trait RustType {
     fn rust_type(&self) -> Result<proc_macro2::TokenStream, CompilerDiagnostic>;
@@ -31,7 +32,7 @@ impl RustType for PropertyDeclaration {
 /// Generate the rust code for the given component.
 ///
 /// Fill the diagnostic in case of error.
-pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<TokenStream> {
+pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<TokenStream> {
     let mut extra_components = vec![];
     let mut declared_property_var_names = vec![];
     let mut declared_property_vars = vec![];
@@ -123,8 +124,8 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<TokenSt
             extra_components.push(quote! {
                 impl sixtyfps::re_exports::RepeatedComponent for #rep_component_id {
                     type Data = (); // FIXME
-                    fn update(&self, _index: usize, _data: &Self::Data) {
-                        // FIXME()
+                    fn update(&self, index: usize, _data: &Self::Data) {
+                        self.index.set(index);
                     }
                 }
             });
@@ -207,6 +208,11 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<TokenSt
 
     let layouts = compute_layout(component);
 
+    let mut index = vec![];
+    if let Some(_parent_element) = component.parent_element.upgrade() {
+        index.push(quote!(index));
+    }
+
     Some(quote!(
         #(#resource_symbols)*
 
@@ -214,6 +220,7 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<TokenSt
         #[const_field_offset(sixtyfps::re_exports::const_field_offset)]
         #[repr(C)]
         struct #component_id {
+            #(#index : sixtyfps::re_exports::Property<usize>,)*
             #(#item_names : sixtyfps::re_exports::#item_types,)*
             #(#declared_property_vars : sixtyfps::re_exports::Property<#declared_property_types>,)*
             #(#declared_signals : sixtyfps::re_exports::Signal<()>,)*
@@ -224,6 +231,7 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<TokenSt
             fn default() -> Self {
                 #![allow(unused_braces)] // The generated code may contain unused braces
                 let mut self_ = Self {
+                    #(#index : Default::default(),)*
                     #(#item_names : Default::default(),)*
                     #(#declared_property_vars : Default::default(),)*
                     #(#declared_signals : Default::default(),)*
@@ -288,7 +296,7 @@ fn access_member(element: &ElementRc, name: &str) -> TokenStream {
     }
 }
 
-fn compile_expression(e: &Expression, component: &Component) -> TokenStream {
+fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream {
     match e {
         Expression::StringLiteral(s) => quote!(sixtyfps::re_exports::SharedString::from(#s)),
         Expression::NumberLiteral(n) => quote!(#n),
@@ -304,6 +312,13 @@ fn compile_expression(e: &Expression, component: &Component) -> TokenStream {
         Expression::PropertyReference(NamedReference { element, name }) => {
             let access = access_member(&element.upgrade().unwrap(), name.as_str());
             quote!(_self.#access.get(context))
+        }
+        Expression::RepeaterIndexReference { element } => {
+            if element.upgrade().unwrap().borrow().base_type == Type::Component(component.clone()) {
+                quote!({ _self.index.get(context) })
+            } else {
+                todo!();
+            }
         }
         Expression::CodeBlock(sub) => {
             let map = sub.iter().map(|e| compile_expression(e, &component));
@@ -351,7 +366,7 @@ fn compile_expression(e: &Expression, component: &Component) -> TokenStream {
                 }
             )
         }
-        _ => {
+        Expression::Invalid | Expression::Uncompiled(_) => {
             let error = format!("unsupported expression {:?}", e);
             quote!(compile_error! {#error})
         }
