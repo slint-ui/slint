@@ -52,7 +52,7 @@ use abi::datastructures::Color;
 use winit::platform::desktop::EventLoopExtDesktop;
 
 use std::cell::RefCell;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 trait GenericWindow {
     fn draw(self: Rc<Self>, component: vtable::VRef<crate::abi::datastructures::ComponentVTable>);
@@ -63,6 +63,10 @@ trait GenericWindow {
         component: vtable::VRef<crate::abi::datastructures::ComponentVTable>,
     );
     fn window_handle(&self) -> std::cell::Ref<'_, winit::window::Window>;
+}
+
+thread_local! {
+    static ALL_WINDOWS: RefCell<std::collections::HashMap<winit::window::WindowId, Weak<dyn GenericWindow>>> = RefCell::new(std::collections::HashMap::new());
 }
 
 pub struct MainWindow<GraphicsBackend: graphics::GraphicsBackend> {
@@ -83,6 +87,10 @@ impl<GraphicsBackend: graphics::GraphicsBackend> MainWindow<GraphicsBackend> {
         let graphics_backend = graphics_backend_factory(&event_loop, window_builder);
 
         Self { graphics_backend, rendering_cache: graphics::RenderingCache::default() }
+    }
+
+    pub fn id(&self) -> winit::window::WindowId {
+        self.graphics_backend.window().id()
     }
 }
 
@@ -138,7 +146,6 @@ impl<GraphicsBackend: graphics::GraphicsBackend> GenericWindow
 
 #[allow(unused_mut)] // mut need changes for wasm
 fn run_event_loop(
-    mut main_window: Rc<dyn GenericWindow>,
     mut event_loop: winit::event_loop::EventLoop<()>,
     component: vtable::VRef<crate::abi::datastructures::ComponentVTable>,
 ) {
@@ -148,8 +155,6 @@ fn run_event_loop(
     let mut cursor_pos = winit::dpi::PhysicalPosition::new(0., 0.);
     let mut run_fn =
         move |event: Event<()>, _: &EventLoopWindowTarget<()>, control_flow: &mut ControlFlow| {
-            let mut main_window = main_window.clone();
-
             *control_flow = ControlFlow::Wait;
 
             match event {
@@ -157,8 +162,14 @@ fn run_event_loop(
                     event: winit::event::WindowEvent::CloseRequested,
                     ..
                 } => *control_flow = winit::event_loop::ControlFlow::Exit,
-                winit::event::Event::RedrawRequested(_) => {
-                    main_window.draw(component);
+                winit::event::Event::RedrawRequested(id) => {
+                    ALL_WINDOWS.with(|windows| {
+                        if let Some(Some(window)) =
+                            windows.borrow().get(&id).map(|weakref| weakref.upgrade())
+                        {
+                            window.clone().draw(component);
+                        }
+                    });
                 }
                 winit::event::Event::WindowEvent {
                     event: winit::event::WindowEvent::CursorMoved { position, .. },
@@ -169,14 +180,20 @@ fn run_event_loop(
                 }
 
                 winit::event::Event::WindowEvent {
+                    ref window_id,
                     event: winit::event::WindowEvent::MouseInput { state, .. },
                     ..
                 } => {
-                    main_window.clone().process_mouse_input(cursor_pos, state, component);
-
-                    let window = main_window.window_handle();
-                    // FIXME: remove this, it should be based on actual changes rather than this
-                    window.request_redraw();
+                    ALL_WINDOWS.with(|windows| {
+                        if let Some(Some(window)) =
+                            windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
+                        {
+                            window.clone().process_mouse_input(cursor_pos, state, component);
+                            let window = window.window_handle();
+                            // FIXME: remove this, it should be based on actual changes rather than this
+                            window.request_redraw();
+                        }
+                    });
                 }
 
                 _ => (),
@@ -209,7 +226,14 @@ pub fn run_component<GraphicsBackend: graphics::GraphicsBackend + 'static>(
     let event_loop = winit::event_loop::EventLoop::new();
     let main_window = Rc::new(RefCell::new(MainWindow::new(&event_loop, graphics_backend_factory)));
 
-    run_event_loop(main_window, event_loop, component);
+    ALL_WINDOWS.with(|windows| {
+        windows.borrow_mut().insert(
+            main_window.borrow().id(),
+            Rc::downgrade(&(main_window.clone() as Rc<dyn GenericWindow>)),
+        )
+    });
+
+    run_event_loop(event_loop, component);
 }
 
 fn prepare_rendering<GraphicsBackend: graphics::GraphicsBackend>(
