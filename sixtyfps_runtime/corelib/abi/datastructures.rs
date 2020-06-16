@@ -96,22 +96,8 @@ pub enum ItemTreeNode<T> {
     /// A placeholder for many instance of item in their own component which
     /// are instentiated according to a model.
     DynamicTree {
-        /// Component vtable.
-        /// This component is going to be instantiated as many time as the model tells
-        component_type: *const ComponentVTable,
-
-        /// vtable of the model
-        model_type: *const super::model::ModelType,
-
-        /// byte offset of the ModelImpl within the component.
-        /// The model is an instance of the model described by model_type and must be
-        /// stored within the component
-        model_offset: isize,
-
-        /// byte offset of the vector of components within the parent component
-        /// (ComponentVec)
-        /// a ComponentVec must be stored within the component to represent this tree
-        components_holder_offset: isize,
+        /// the undex which is passed in the visit_dynamic callback.
+        index: usize,
     },
 }
 
@@ -320,12 +306,16 @@ pub unsafe extern "C" fn sixtyfps_visit_item_tree(
     index: isize,
     visitor: VRefMut<ItemVisitorVTable>,
 ) {
+    fn visit_dynamic(_base: &u8, _visitor: vtable::VRefMut<ItemVisitorVTable>, _dyn_index: usize) {
+        todo!()
+    }
     crate::item_tree::visit_item_tree(
         &*(component.as_ptr() as *const u8),
         component,
         item_tree.as_slice(),
         index,
         visitor,
+        visit_dynamic,
     )
 }
 

@@ -32,6 +32,7 @@ impl RustType for PropertyDeclaration {
 ///
 /// Fill the diagnostic in case of error.
 pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<TokenStream> {
+    let mut extra_components = vec![];
     let mut declared_property_var_names = vec![];
     let mut declared_property_vars = vec![];
     let mut declared_property_types = vec![];
@@ -96,16 +97,58 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<TokenSt
         return None;
     }
 
-    // Fixme! Ideally we would still have the spans available
-    let component_id = quote::format_ident!("{}", component.id);
+    let component_id = component_id(component);
 
     let mut item_tree_array = Vec::new();
     let mut item_names = Vec::new();
     let mut item_types = Vec::new();
+    let mut repeated_element_names = Vec::new();
+    let mut repeated_element_components = Vec::new();
+    let mut repeated_visit_branch = Vec::new();
     let mut init = Vec::new();
     super::build_array_helper(component, |item, children_index| {
         let item = item.borrow();
-        if item.repeated.is_none() {
+        if let Some(repeated) = &item.repeated {
+            let base_component = match &item.base_type {
+                Type::Component(c) => c,
+                _ => panic!("should be a component because of the repeater_component pass"),
+            };
+
+            let repeater_index = repeated_element_names.len();
+
+            let repeater_id = quote::format_ident!("repeater_{}", repeater_index);
+            let rep_component_id = self::component_id(&*base_component);
+
+            extra_components.push(generate(&*base_component, diag).unwrap_or_default());
+            extra_components.push(quote! {
+                impl sixtyfps::re_exports::RepeatedComponent for #rep_component_id {
+                    type Data = (); // FIXME
+                    fn update(&self, _index: usize, _data: &Self::Data) {
+                        // FIXME()
+                    }
+                }
+            });
+
+            assert!(
+                repeated.model.is_constant()
+                    && matches!(repeated.model.ty(), Type::Int32 | Type::Float32),
+                "TODO: currently model can only be integers"
+            );
+            let count = compile_expression(&repeated.model, component);
+            init.push(quote!(self_.#repeater_id.update_model(&[() ; (#count) as usize ]);));
+
+            item_tree_array.push(quote!(
+                sixtyfps::re_exports::ItemTreeNode::DynamicTree {
+                    index: #repeater_index,
+                }
+            ));
+            repeated_visit_branch.push(quote!(
+                #repeater_index => base.#repeater_id.visit(visitor),
+            ));
+
+            repeated_element_names.push(repeater_id);
+            repeated_element_components.push(rep_component_id);
+        } else {
             let field_name = quote::format_ident!("{}", item.id);
             let children_count = item.children.len() as u32;
             item_tree_array.push(quote!(
@@ -113,7 +156,7 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<TokenSt
                     item: VOffset::new(#component_id::field_offsets().#field_name),
                     chilren_count: #children_count,
                     children_index: #children_index,
-                 }
+                }
             ));
             for (k, binding_expression) in &item.bindings {
                 let rust_property_ident = quote::format_ident!("{}", k);
@@ -149,8 +192,6 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<TokenSt
             }
             item_names.push(field_name);
             item_types.push(quote::format_ident!("{}", item.base_type.as_builtin().class_name));
-        } else {
-            todo!()
         }
     });
 
@@ -176,6 +217,7 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<TokenSt
             #(#item_names : sixtyfps::re_exports::#item_types,)*
             #(#declared_property_vars : sixtyfps::re_exports::Property<#declared_property_types>,)*
             #(#declared_signals : sixtyfps::re_exports::Signal<()>,)*
+            #(#repeated_element_names : sixtyfps::re_exports::Repeater<#repeated_element_components>,)*
         }
 
         impl core::default::Default for #component_id {
@@ -185,6 +227,7 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<TokenSt
                     #(#item_names : Default::default(),)*
                     #(#declared_property_vars : Default::default(),)*
                     #(#declared_signals : Default::default(),)*
+                    #(#repeated_element_names : Default::default(),)*
                 };
                 #(#init)*
                 self_
@@ -195,7 +238,13 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<TokenSt
             fn visit_children_item(&self, index: isize, visitor: sixtyfps::re_exports::ItemVisitorRefMut) {
                 use sixtyfps::re_exports::*;
                 let tree = &[#(#item_tree_array),*];
-                sixtyfps::re_exports::visit_item_tree(self, VRef::new(self), tree, index, visitor);
+                sixtyfps::re_exports::visit_item_tree(self, VRef::new(self), tree, index, visitor, visit_dynamic);
+                fn visit_dynamic(base: &#component_id, visitor: ItemVisitorRefMut, dyn_index: usize) {
+                    match dyn_index {
+                        #(#repeated_visit_branch)*
+                        _ => panic!("invalid dyn_index {}", dyn_index),
+                    }
+                }
             }
             fn create() -> Self {
                 Default::default()
@@ -213,7 +262,18 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<TokenSt
 
             #(#property_and_signal_accessors)*
         }
+
+        #(#extra_components)*
     ))
+}
+
+/// Return an identifier suitable for this component
+fn component_id(component: &Component) -> proc_macro2::Ident {
+    if component.id.is_empty() {
+        quote::format_ident!("{}", component.root_element.borrow().id)
+    } else {
+        quote::format_ident!("{}", component.id)
+    }
 }
 
 fn access_member(element: &ElementRc, name: &str) -> TokenStream {

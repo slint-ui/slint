@@ -81,7 +81,11 @@ unsafe extern "C" fn visit_children_item(
         item_tree.as_slice().into(),
         index,
         v,
+        visit_dynamic,
     );
+    fn visit_dynamic(base: &Instance, visitor: ItemVisitorRefMut, dyn_index: usize) {
+        todo!()
+    }
 }
 
 /// Information attached to a builtin item
@@ -153,7 +157,8 @@ pub fn load(
     generator::build_array_helper(&tree.root_component, |rc_item, child_offset| {
         let item = rc_item.borrow();
         if item.repeated.is_some() {
-            todo!()
+            println!("FIXME: implement for");
+            return;
         }
         let rt = &rtti[&*item.base_type.as_builtin().class_name];
         let offset = builder.add_field(rt.type_info);

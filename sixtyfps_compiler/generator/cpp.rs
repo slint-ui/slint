@@ -146,6 +146,11 @@ impl CppType for Type {
 }
 
 fn handle_item(item: &Element, main_struct: &mut Struct, init: &mut Vec<String>) {
+    if item.repeated.is_some() {
+        println!("FIXME: implement for");
+        return;
+    }
+
     main_struct.members.push(Declaration::Var(Var {
         ty: format!("sixtyfps::{}", item.base_type.as_builtin().class_name),
         name: item.id.clone(),
@@ -324,7 +329,7 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<impl st
                 children_offset,
             )
         } else {
-            todo!()
+            println!("FIXME: implement for")
         }
     });
 

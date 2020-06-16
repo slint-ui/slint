@@ -50,8 +50,7 @@ pub fn resolve_expressions(doc: &Document, diag: &mut Diagnostics, tr: &mut Type
                         component: component.clone(),
                         diag,
                     };
-                    r.model =
-                        Expression::from_binding_expression_node(node.clone(), &mut lookup_ctx)
+                    r.model = Expression::from_expression_node(node.clone(), &mut lookup_ctx)
                 }
             }
             elem.borrow_mut().repeated = repeated;

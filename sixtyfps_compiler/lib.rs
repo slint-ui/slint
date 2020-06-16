@@ -26,6 +26,7 @@ mod passes {
     pub mod inlining;
     pub mod lower_layout;
     pub mod move_declarations;
+    pub mod repeater_component;
     pub mod resolving;
     pub mod unique_id;
 }
@@ -45,8 +46,9 @@ pub fn run_passes(
     passes::inlining::inline(doc);
     passes::lower_layout::lower_layouts(&doc.root_component, diag);
     passes::unique_id::assign_unique_id(&doc.root_component);
-    passes::move_declarations::move_declarations(&doc.root_component);
     if compiler_config.embed_resources {
         passes::collect_resources::collect_resources(&doc.root_component);
     }
+    passes::repeater_component::create_repeater_components(&doc.root_component, diag);
+    passes::move_declarations::move_declarations(&doc.root_component);
 }

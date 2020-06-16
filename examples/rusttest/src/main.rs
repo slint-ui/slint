@@ -38,10 +38,24 @@ component ButtonRectangle := Rectangle {
         text: button_text;
         color: black;
     }
-    color: { button_area.pressed ? red : green; }
+    color: { button_area.pressed ? red : #5898; }
 }
 
 Hello := Rectangle {
+
+    for x in 8: Rectangle {
+        color: #8005;
+        width: 75;
+        height: 75;
+        Rectangle {
+            color: #00f5;
+            width: 25;
+            height: 25;
+            x: 25;
+            y: 25;
+        }
+    }
+
 
     signal foobar;
     signal plus_clicked;
@@ -50,12 +64,7 @@ Hello := Rectangle {
 
     color: white;
 
-    TwoRectangle {
-        width: 100;
-        height: 100;
-        color: blue;
-        clicked => { foobar() }
-    }
+
     Rectangle {
         x: 100;
         y: 100;
@@ -77,7 +86,7 @@ Hello := Rectangle {
     }
 
     ButtonRectangle {
-        color: #8a8;
+        color: blue;
         x: 50;
         y: 225;
         clicked => { counter += 1 }
@@ -85,7 +94,7 @@ Hello := Rectangle {
     }
     counter_label := Text { x: 100; y: 300; text: counter; color: black; }
     ButtonRectangle {
-        color: #aa8;
+        color: yellow;
         x: 50;
         y: 350;
         clicked => { minus_clicked() }

@@ -34,12 +34,13 @@ pub fn visit_item_tree<Base>(
     item_tree: &[ItemTreeNode<Base>],
     index: isize,
     mut visitor: vtable::VRefMut<ItemVisitorVTable>,
+    visit_dynamic: fn(base: &Base, visitor: vtable::VRefMut<ItemVisitorVTable>, dyn_index: usize),
 ) {
     let mut visit_at_index = |idx: usize| match &item_tree[idx] {
         ItemTreeNode::Item { item, .. } => {
             visitor.visit_item(component, idx as isize, item.apply(base));
         }
-        _ => todo!(),
+        ItemTreeNode::DynamicTree { index } => visit_dynamic(base, visitor.borrow_mut(), *index),
     };
     if index == -1 {
         visit_at_index(0);

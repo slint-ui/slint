@@ -15,7 +15,7 @@ fn main() -> std::io::Result<()> {
 
         let module_name =
             testcase.relative_path.file_stem().unwrap().to_string_lossy().replace("/", "_");
-        write!(generated_file, "#[path=\"{0}.rs\"] mod {0};\n", module_name)?;
+        write!(generated_file, "#[path=\"{0}.rs\"] mod r#{0};\n", module_name)?;
 
         let source = std::fs::read_to_string(&testcase.absolute_path)?;
         let mut output = std::fs::File::create(
