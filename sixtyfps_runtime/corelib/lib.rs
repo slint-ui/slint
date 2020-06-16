@@ -53,28 +53,28 @@ use winit::platform::desktop::EventLoopExtDesktop;
 
 pub struct MainWindow<GraphicsBackend: graphics::GraphicsBackend> {
     pub graphics_backend: GraphicsBackend,
-    event_loop: winit::event_loop::EventLoop<()>,
     pub rendering_cache: graphics::RenderingCache<GraphicsBackend>,
 }
 
 impl<GraphicsBackend: graphics::GraphicsBackend> MainWindow<GraphicsBackend> {
     pub fn new(
+        event_loop: &winit::event_loop::EventLoop<()>,
         graphics_backend_factory: impl FnOnce(
             &winit::event_loop::EventLoop<()>,
             winit::window::WindowBuilder,
         ) -> GraphicsBackend,
     ) -> Self {
-        let event_loop = winit::event_loop::EventLoop::new();
         let window_builder = winit::window::WindowBuilder::new();
 
         let graphics_backend = graphics_backend_factory(&event_loop, window_builder);
 
-        Self { graphics_backend, event_loop, rendering_cache: graphics::RenderingCache::default() }
+        Self { graphics_backend, rendering_cache: graphics::RenderingCache::default() }
     }
 
     #[allow(unused_mut)] // mut need changes for wasm
     pub fn run_event_loop(
         mut self,
+        mut event_loop: winit::event_loop::EventLoop<()>,
         component: vtable::VRef<crate::abi::datastructures::ComponentVTable>,
     ) where
         GraphicsBackend: 'static,
@@ -82,8 +82,6 @@ impl<GraphicsBackend: graphics::GraphicsBackend> MainWindow<GraphicsBackend> {
         use winit::event::Event;
         use winit::event_loop::{ControlFlow, EventLoopWindowTarget};
 
-        let mut graphics_backend = self.graphics_backend;
-        let mut rendering_cache = self.rendering_cache;
         let mut cursor_pos = winit::dpi::PhysicalPosition::new(0., 0.);
         let mut run_fn = move |event: Event<()>,
                                _: &EventLoopWindowTarget<()>,
@@ -101,30 +99,30 @@ impl<GraphicsBackend: graphics::GraphicsBackend> MainWindow<GraphicsBackend> {
 
                     {
                         let mut rendering_primitives_builder =
-                            graphics_backend.new_rendering_primitives_builder();
+                            self.graphics_backend.new_rendering_primitives_builder();
 
                         prepare_rendering(
                             component,
                             &mut rendering_primitives_builder,
-                            &mut rendering_cache,
+                            &mut self.rendering_cache,
                         );
 
-                        graphics_backend.finish_primitives(rendering_primitives_builder);
+                        self.graphics_backend.finish_primitives(rendering_primitives_builder);
                     }
 
-                    let window = graphics_backend.window();
+                    let window = self.graphics_backend.window();
 
                     let size = window.inner_size();
                     let context = EvaluationContext { component: component };
                     let mut frame =
-                        graphics_backend.new_frame(size.width, size.height, &Color::WHITE);
+                        self.graphics_backend.new_frame(size.width, size.height, &Color::WHITE);
                     item_rendering::render_component_items(
                         component,
                         &context,
                         &mut frame,
-                        &mut rendering_cache,
+                        &mut self.rendering_cache,
                     );
-                    graphics_backend.present_frame(frame);
+                    self.graphics_backend.present_frame(frame);
                 }
                 winit::event::Event::WindowEvent {
                     event: winit::event::WindowEvent::CursorMoved { position, .. },
@@ -140,7 +138,7 @@ impl<GraphicsBackend: graphics::GraphicsBackend> MainWindow<GraphicsBackend> {
                 } => {
                     let context = EvaluationContext { component };
                     process_input(component, &context, cursor_pos, state);
-                    let window = graphics_backend.window();
+                    let window = self.graphics_backend.window();
                     // FIXME: remove this, it should be based on actual changes rather than this
                     window.request_redraw();
                 }
@@ -150,7 +148,7 @@ impl<GraphicsBackend: graphics::GraphicsBackend> MainWindow<GraphicsBackend> {
         };
 
         #[cfg(not(target_arch = "wasm32"))]
-        self.event_loop.run_return(run_fn);
+        event_loop.run_return(run_fn);
         #[cfg(target_arch = "wasm32")]
         {
             // Since wasm does not have a run_return function that takes a non-static closure,
@@ -160,7 +158,6 @@ impl<GraphicsBackend: graphics::GraphicsBackend> MainWindow<GraphicsBackend> {
                 &EventLoopWindowTarget<()>,
                 &mut ControlFlow,
             ));
-            let event_loop = self.event_loop;
             RUN_FN_TLS.set(&mut run_fn, move || {
                 event_loop.run(|e, t, cf| RUN_FN_TLS.with(|mut run_fn| run_fn(e, t, cf)))
             });
@@ -175,9 +172,10 @@ pub fn run_component<GraphicsBackend: graphics::GraphicsBackend + 'static>(
         winit::window::WindowBuilder,
     ) -> GraphicsBackend,
 ) {
-    let main_window = MainWindow::new(graphics_backend_factory);
+    let event_loop = winit::event_loop::EventLoop::new();
+    let main_window = MainWindow::new(&event_loop, graphics_backend_factory);
 
-    main_window.run_event_loop(component);
+    main_window.run_event_loop(event_loop, component);
 }
 
 fn prepare_rendering<GraphicsBackend: graphics::GraphicsBackend>(
