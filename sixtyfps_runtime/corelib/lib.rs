@@ -118,34 +118,42 @@ impl<GraphicsBackend: graphics::GraphicsBackend> GenericWindow
         // FIXME: we should do that only if some property change
         component.compute_layout();
 
-        let mut main_window = self.borrow_mut();
+        let mut this = self.borrow_mut();
 
         {
             let mut rendering_primitives_builder =
-                main_window.graphics_backend.new_rendering_primitives_builder();
+                this.graphics_backend.new_rendering_primitives_builder();
 
-            prepare_rendering(
+            // Generate cached rendering data once
+            crate::item_tree::visit_items(
                 component,
-                &mut rendering_primitives_builder,
-                &mut main_window.rendering_cache,
+                |item, _| {
+                    let ctx = EvaluationContext { component };
+                    item_rendering::update_item_rendering_data(
+                        &ctx,
+                        item,
+                        &mut this.rendering_cache,
+                        &mut rendering_primitives_builder,
+                    );
+                },
+                (),
             );
 
-            main_window.graphics_backend.finish_primitives(rendering_primitives_builder);
+            this.graphics_backend.finish_primitives(rendering_primitives_builder);
         }
 
-        let window = main_window.graphics_backend.window();
+        let window = this.graphics_backend.window();
 
         let size = window.inner_size();
         let context = EvaluationContext { component: component };
-        let mut frame =
-            main_window.graphics_backend.new_frame(size.width, size.height, &Color::WHITE);
+        let mut frame = this.graphics_backend.new_frame(size.width, size.height, &Color::WHITE);
         item_rendering::render_component_items(
             component,
             &context,
             &mut frame,
-            &mut main_window.rendering_cache,
+            &mut this.rendering_cache,
         );
-        main_window.graphics_backend.present_frame(frame);
+        this.graphics_backend.present_frame(frame);
     }
     fn process_mouse_input(
         self: Rc<Self>,
@@ -154,7 +162,21 @@ impl<GraphicsBackend: graphics::GraphicsBackend> GenericWindow
         component: vtable::VRef<abi::datastructures::ComponentVTable>,
     ) {
         let context = EvaluationContext { component };
-        process_input(component, &context, pos, state);
+        input::process_mouse_event(
+            component,
+            &context,
+            crate::abi::datastructures::MouseEvent {
+                pos: euclid::point2(pos.x as _, pos.y as _),
+                what: match state {
+                    winit::event::ElementState::Pressed => {
+                        crate::abi::datastructures::MouseEventType::MousePressed
+                    }
+                    winit::event::ElementState::Released => {
+                        crate::abi::datastructures::MouseEventType::MouseReleased
+                    }
+                },
+            },
+        );
     }
     fn window_handle(&self) -> std::cell::Ref<'_, winit::window::Window> {
         std::cell::Ref::map(self.borrow(), |mw| mw.graphics_backend.window())
@@ -244,48 +266,4 @@ pub fn run_component<GraphicsBackend: graphics::GraphicsBackend + 'static>(
     let _main_window = MainWindow::new(&event_loop, graphics_backend_factory);
 
     run_event_loop(event_loop, component);
-}
-
-fn prepare_rendering<GraphicsBackend: graphics::GraphicsBackend>(
-    component: vtable::VRef<'_, crate::abi::datastructures::ComponentVTable>,
-    mut rendering_primitives_builder: &mut GraphicsBackend::RenderingPrimitivesBuilder,
-    rendering_cache: &mut graphics::RenderingCache<GraphicsBackend>,
-) {
-    // Generate cached rendering data once
-    crate::item_tree::visit_items(
-        component,
-        |item, _| {
-            let ctx = EvaluationContext { component };
-            item_rendering::update_item_rendering_data(
-                &ctx,
-                item,
-                rendering_cache,
-                &mut rendering_primitives_builder,
-            );
-        },
-        (),
-    );
-}
-
-fn process_input(
-    component: vtable::VRef<'_, crate::abi::datastructures::ComponentVTable>,
-    context: &EvaluationContext,
-    pos: winit::dpi::PhysicalPosition<f64>,
-    state: winit::event::ElementState,
-) {
-    input::process_mouse_event(
-        component,
-        context,
-        crate::abi::datastructures::MouseEvent {
-            pos: euclid::point2(pos.x as _, pos.y as _),
-            what: match state {
-                winit::event::ElementState::Pressed => {
-                    crate::abi::datastructures::MouseEventType::MousePressed
-                }
-                winit::event::ElementState::Released => {
-                    crate::abi::datastructures::MouseEventType::MouseReleased
-                }
-            },
-        },
-    );
 }
