@@ -74,23 +74,40 @@ pub struct MainWindow<GraphicsBackend: graphics::GraphicsBackend> {
     pub rendering_cache: graphics::RenderingCache<GraphicsBackend>,
 }
 
-impl<GraphicsBackend: graphics::GraphicsBackend> MainWindow<GraphicsBackend> {
+impl<GraphicsBackend: graphics::GraphicsBackend + 'static> MainWindow<GraphicsBackend> {
     pub fn new(
         event_loop: &winit::event_loop::EventLoop<()>,
         graphics_backend_factory: impl FnOnce(
             &winit::event_loop::EventLoop<()>,
             winit::window::WindowBuilder,
         ) -> GraphicsBackend,
-    ) -> Self {
+    ) -> Rc<RefCell<Self>> {
         let window_builder = winit::window::WindowBuilder::new();
 
-        let graphics_backend = graphics_backend_factory(&event_loop, window_builder);
+        let this = Rc::new(RefCell::new(Self {
+            graphics_backend: graphics_backend_factory(&event_loop, window_builder),
+            rendering_cache: graphics::RenderingCache::default(),
+        }));
 
-        Self { graphics_backend, rendering_cache: graphics::RenderingCache::default() }
+        ALL_WINDOWS.with(|windows| {
+            windows
+                .borrow_mut()
+                .insert(this.borrow().id(), Rc::downgrade(&(this.clone() as Rc<dyn GenericWindow>)))
+        });
+
+        this
     }
 
     pub fn id(&self) -> winit::window::WindowId {
         self.graphics_backend.window().id()
+    }
+}
+
+impl<GraphicsBackend: graphics::GraphicsBackend> Drop for MainWindow<GraphicsBackend> {
+    fn drop(&mut self) {
+        ALL_WINDOWS.with(|windows| {
+            windows.borrow_mut().remove(&self.graphics_backend.window().id());
+        });
     }
 }
 
@@ -224,14 +241,7 @@ pub fn run_component<GraphicsBackend: graphics::GraphicsBackend + 'static>(
     ) -> GraphicsBackend,
 ) {
     let event_loop = winit::event_loop::EventLoop::new();
-    let main_window = Rc::new(RefCell::new(MainWindow::new(&event_loop, graphics_backend_factory)));
-
-    ALL_WINDOWS.with(|windows| {
-        windows.borrow_mut().insert(
-            main_window.borrow().id(),
-            Rc::downgrade(&(main_window.clone() as Rc<dyn GenericWindow>)),
-        )
-    });
+    let _main_window = MainWindow::new(&event_loop, graphics_backend_factory);
 
     run_event_loop(event_loop, component);
 }
