@@ -1,6 +1,7 @@
 use sixtyfps_compilerlib::*;
 use std::error::Error;
 use std::io::Write;
+use std::ops::Deref;
 
 pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> {
     let source = std::fs::read_to_string(&testcase.absolute_path)?;
@@ -82,20 +83,23 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         return Err("C++ Compilation error (see stdout)".to_owned().into());
     }
 
-    std::process::Command::new(binary_path.clone())
+    let output = std::process::Command::new(binary_path.deref())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
         .spawn()
         .map_err(|err| format!("Error launching testcase binary: {}", err))?
-        .wait()
-        .map_err(|err| format!("Test case could not be run: {}", err))
-        .and_then(|status| {
-            if status.success() {
-                Ok(())
-            } else if let Some(exit_code) = status.code() {
-                Err(format!("Test case exited with non-zero code: {}", exit_code))
-            } else {
-                Err("Test case exited by signal".into())
-            }
-        })?;
+        .wait_with_output()
+        .map_err(|err| format!("Test case could not be run: {}", err))?;
+
+    if !output.status.success() {
+        print!("{}", String::from_utf8_lossy(output.stdout.as_ref()));
+        print!("{}", String::from_utf8_lossy(output.stderr.as_ref()));
+        if let Some(exit_code) = output.status.code() {
+            return Err(format!("Test case exited with non-zero code: {}", exit_code).into());
+        } else {
+            return Err("Test case exited by signal".into());
+        }
+    }
 
     if keep_temp_files {
         println!(

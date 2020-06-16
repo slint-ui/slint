@@ -1,14 +1,21 @@
 TestCase := Rectangle {
     property<bool> condition;
     property<int32> test_value: condition ? 1 : 2;
+    property<bool> condition2;
+    property<int32> test_value2: condition ? condition2 ? 1 : 2 : condition2 ? 3 : 4;
+
 }
 /*
 ```cpp
 TestCase instance;
 instance.set_condition(true);
 assert(instance.get_test_value() == 1);
+assert(instance.get_test_value2() == 2);
 instance.set_condition(false);
 assert(instance.get_test_value() == 2);
+assert(instance.get_test_value2() == 4);
+instance.set_condition2(true);
+assert(instance.get_test_value2() == 3);
 ```
 
 
@@ -16,8 +23,12 @@ assert(instance.get_test_value() == 2);
 let instance = TestCase::default();
 instance.set_condition(true);
 assert_eq!(instance.get_test_value(), 1);
+assert_eq!(instance.get_test_value2(), 2);
 instance.set_condition(false);
 assert_eq!(instance.get_test_value(), 2);
+assert_eq!(instance.get_test_value2(), 4);
+instance.set_condition2(true);
+assert_eq!(instance.get_test_value2(), 3);
 ```
 
 ```js

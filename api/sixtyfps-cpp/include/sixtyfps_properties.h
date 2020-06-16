@@ -43,6 +43,6 @@ struct Property
 
 private:
     internal::PropertyHandleOpaque inner;
-    mutable T value;
+    mutable T value{};
 };
 }
