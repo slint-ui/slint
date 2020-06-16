@@ -1,6 +1,8 @@
 extern crate alloc;
 use crate::abi::datastructures::{Color, RenderingPrimitive};
 use cgmath::Matrix4;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 pub enum FillStyle {
     SolidColor(Color),
@@ -101,5 +103,143 @@ impl<Backend: GraphicsBackend> RenderingCache<Backend> {
 
     pub fn len(&self) -> usize {
         self.len
+    }
+}
+
+pub struct GraphicsWindow<Backend: GraphicsBackend + 'static> {
+    graphics_backend_factory:
+        Box<dyn Fn(&winit::event_loop::EventLoop<()>, winit::window::WindowBuilder) -> Backend>,
+    graphics_backend: Option<Backend>,
+    rendering_cache: RenderingCache<Backend>,
+}
+
+impl<Backend: GraphicsBackend + 'static> GraphicsWindow<Backend> {
+    pub fn new(
+        graphics_backend_factory: impl Fn(&winit::event_loop::EventLoop<()>, winit::window::WindowBuilder) -> Backend
+            + 'static,
+    ) -> Rc<RefCell<Self>> {
+        let this = Rc::new(RefCell::new(Self {
+            graphics_backend_factory: Box::new(graphics_backend_factory),
+            graphics_backend: None,
+            rendering_cache: RenderingCache::default(),
+        }));
+
+        this
+    }
+
+    pub fn id(&self) -> Option<winit::window::WindowId> {
+        self.graphics_backend.as_ref().map(|backend| backend.window().id())
+    }
+}
+
+impl<Backend: GraphicsBackend> Drop for GraphicsWindow<Backend> {
+    fn drop(&mut self) {
+        if let Some(backend) = self.graphics_backend.as_ref() {
+            crate::eventloop::ALL_WINDOWS.with(|windows| {
+                windows.borrow_mut().remove(&backend.window().id());
+            });
+        }
+    }
+}
+
+impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow
+    for RefCell<GraphicsWindow<Backend>>
+{
+    fn draw(&self, component: vtable::VRef<crate::abi::datastructures::ComponentVTable>) {
+        // FIXME: we should do that only if some property change
+        component.compute_layout();
+
+        let mut this = self.borrow_mut();
+
+        {
+            let mut rendering_primitives_builder =
+                this.graphics_backend.as_mut().unwrap().new_rendering_primitives_builder();
+
+            // Generate cached rendering data once
+            crate::item_tree::visit_items(
+                component,
+                |item, _| {
+                    let ctx = crate::EvaluationContext { component };
+                    crate::item_rendering::update_item_rendering_data(
+                        &ctx,
+                        item,
+                        &mut this.rendering_cache,
+                        &mut rendering_primitives_builder,
+                    );
+                },
+                (),
+            );
+
+            this.graphics_backend.as_mut().unwrap().finish_primitives(rendering_primitives_builder);
+        }
+
+        let window = this.graphics_backend.as_ref().unwrap().window();
+
+        let size = window.inner_size();
+        let context = crate::EvaluationContext { component: component };
+        let mut frame = this.graphics_backend.as_mut().unwrap().new_frame(
+            size.width,
+            size.height,
+            &Color::WHITE,
+        );
+        crate::item_rendering::render_component_items(
+            component,
+            &context,
+            &mut frame,
+            &mut this.rendering_cache,
+        );
+        this.graphics_backend.as_mut().unwrap().present_frame(frame);
+    }
+    fn process_mouse_input(
+        &self,
+        pos: winit::dpi::PhysicalPosition<f64>,
+        state: winit::event::ElementState,
+        component: vtable::VRef<crate::abi::datastructures::ComponentVTable>,
+    ) {
+        let context = crate::EvaluationContext { component };
+        crate::input::process_mouse_event(
+            component,
+            &context,
+            crate::abi::datastructures::MouseEvent {
+                pos: euclid::point2(pos.x as _, pos.y as _),
+                what: match state {
+                    winit::event::ElementState::Pressed => {
+                        crate::abi::datastructures::MouseEventType::MousePressed
+                    }
+                    winit::event::ElementState::Released => {
+                        crate::abi::datastructures::MouseEventType::MouseReleased
+                    }
+                },
+            },
+        );
+    }
+    fn window_handle(&self) -> std::cell::Ref<winit::window::Window> {
+        std::cell::Ref::map(self.borrow(), |mw| mw.graphics_backend.as_ref().unwrap().window())
+    }
+    fn map_window(self: Rc<Self>, event_loop: &winit::event_loop::EventLoop<()>) {
+        if self.borrow().graphics_backend.is_some() {
+            return;
+        }
+
+        let id = {
+            let window_builder = winit::window::WindowBuilder::new();
+
+            let mut this = self.borrow_mut();
+            let factory = this.graphics_backend_factory.as_mut();
+            let backend = factory(&event_loop, window_builder);
+
+            let window_id = backend.window().id();
+
+            this.graphics_backend = Some(backend);
+
+            window_id
+        };
+
+        crate::eventloop::ALL_WINDOWS.with(|windows| {
+            windows.borrow_mut().insert(
+                id,
+                Rc::downgrade(&(self.clone() as Rc<dyn crate::eventloop::GenericWindow>)),
+            )
+        });
     }
 }
