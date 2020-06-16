@@ -50,6 +50,7 @@ mod item_rendering;
 use abi::datastructures::Color;
 #[cfg(not(target_arch = "wasm32"))]
 use winit::platform::desktop::EventLoopExtDesktop;
+
 pub struct MainWindow<GraphicsBackend: graphics::GraphicsBackend> {
     pub graphics_backend: GraphicsBackend,
     event_loop: winit::event_loop::EventLoop<()>,
@@ -75,23 +76,6 @@ impl<GraphicsBackend: graphics::GraphicsBackend> MainWindow<GraphicsBackend> {
     pub fn run_event_loop(
         mut self,
         component: vtable::VRef<crate::abi::datastructures::ComponentVTable>,
-        mut prepare_rendering_function: impl FnMut(
-                vtable::VRef<'_, crate::abi::datastructures::ComponentVTable>,
-                &mut GraphicsBackend::RenderingPrimitivesBuilder,
-                &mut graphics::RenderingCache<GraphicsBackend>,
-            ) + 'static,
-        mut render_function: impl FnMut(
-                vtable::VRef<'_, crate::abi::datastructures::ComponentVTable>,
-                &EvaluationContext,
-                &mut GraphicsBackend::Frame,
-                &mut graphics::RenderingCache<GraphicsBackend>,
-            ) + 'static,
-        mut input_function: impl FnMut(
-                vtable::VRef<'_, crate::abi::datastructures::ComponentVTable>,
-                &EvaluationContext,
-                winit::dpi::PhysicalPosition<f64>,
-                winit::event::ElementState,
-            ) + 'static,
     ) where
         GraphicsBackend: 'static,
     {
@@ -119,7 +103,7 @@ impl<GraphicsBackend: graphics::GraphicsBackend> MainWindow<GraphicsBackend> {
                         let mut rendering_primitives_builder =
                             graphics_backend.new_rendering_primitives_builder();
 
-                        prepare_rendering_function(
+                        prepare_rendering(
                             component,
                             &mut rendering_primitives_builder,
                             &mut rendering_cache,
@@ -134,7 +118,12 @@ impl<GraphicsBackend: graphics::GraphicsBackend> MainWindow<GraphicsBackend> {
                     let context = EvaluationContext { component: component };
                     let mut frame =
                         graphics_backend.new_frame(size.width, size.height, &Color::WHITE);
-                    render_function(component, &context, &mut frame, &mut rendering_cache);
+                    item_rendering::render_component_items(
+                        component,
+                        &context,
+                        &mut frame,
+                        &mut rendering_cache,
+                    );
                     graphics_backend.present_frame(frame);
                 }
                 winit::event::Event::WindowEvent {
@@ -150,7 +139,7 @@ impl<GraphicsBackend: graphics::GraphicsBackend> MainWindow<GraphicsBackend> {
                     ..
                 } => {
                     let context = EvaluationContext { component };
-                    input_function(component, &context, cursor_pos, state);
+                    process_input(component, &context, cursor_pos, state);
                     let window = graphics_backend.window();
                     // FIXME: remove this, it should be based on actual changes rather than this
                     window.request_redraw();
@@ -188,43 +177,49 @@ pub fn run_component<GraphicsBackend: graphics::GraphicsBackend + 'static>(
 ) {
     let main_window = MainWindow::new(graphics_backend_factory);
 
-    main_window.run_event_loop(
+    main_window.run_event_loop(component);
+}
+
+fn prepare_rendering<GraphicsBackend: graphics::GraphicsBackend>(
+    component: vtable::VRef<'_, crate::abi::datastructures::ComponentVTable>,
+    mut rendering_primitives_builder: &mut GraphicsBackend::RenderingPrimitivesBuilder,
+    rendering_cache: &mut graphics::RenderingCache<GraphicsBackend>,
+) {
+    // Generate cached rendering data once
+    crate::item_tree::visit_items(
         component,
-        move |component, mut rendering_primitives_builder, rendering_cache| {
-            // Generate cached rendering data once
-            crate::item_tree::visit_items(
-                component,
-                |item, _| {
-                    let ctx = EvaluationContext { component };
-                    item_rendering::update_item_rendering_data(
-                        &ctx,
-                        item,
-                        rendering_cache,
-                        &mut rendering_primitives_builder,
-                    );
-                },
-                (),
+        |item, _| {
+            let ctx = EvaluationContext { component };
+            item_rendering::update_item_rendering_data(
+                &ctx,
+                item,
+                rendering_cache,
+                &mut rendering_primitives_builder,
             );
         },
-        move |component, context, frame, rendering_cache| {
-            item_rendering::render_component_items(component, context, frame, &rendering_cache);
-        },
-        move |component, context, pos, state| {
-            input::process_mouse_event(
-                component,
-                context,
-                crate::abi::datastructures::MouseEvent {
-                    pos: euclid::point2(pos.x as _, pos.y as _),
-                    what: match state {
-                        winit::event::ElementState::Pressed => {
-                            crate::abi::datastructures::MouseEventType::MousePressed
-                        }
-                        winit::event::ElementState::Released => {
-                            crate::abi::datastructures::MouseEventType::MouseReleased
-                        }
-                    },
-                },
-            )
+        (),
+    );
+}
+
+fn process_input(
+    component: vtable::VRef<'_, crate::abi::datastructures::ComponentVTable>,
+    context: &EvaluationContext,
+    pos: winit::dpi::PhysicalPosition<f64>,
+    state: winit::event::ElementState,
+) {
+    input::process_mouse_event(
+        component,
+        context,
+        crate::abi::datastructures::MouseEvent {
+            pos: euclid::point2(pos.x as _, pos.y as _),
+            what: match state {
+                winit::event::ElementState::Pressed => {
+                    crate::abi::datastructures::MouseEventType::MousePressed
+                }
+                winit::event::ElementState::Released => {
+                    crate::abi::datastructures::MouseEventType::MouseReleased
+                }
+            },
         },
     );
 }
