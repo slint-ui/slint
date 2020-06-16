@@ -63,51 +63,47 @@ trait GenericWindow {
         component: vtable::VRef<crate::abi::datastructures::ComponentVTable>,
     );
     fn window_handle(&self) -> std::cell::Ref<'_, winit::window::Window>;
+    fn map_window(self: Rc<Self>, event_loop: &winit::event_loop::EventLoop<()>);
 }
 
 thread_local! {
     static ALL_WINDOWS: RefCell<std::collections::HashMap<winit::window::WindowId, Weak<dyn GenericWindow>>> = RefCell::new(std::collections::HashMap::new());
 }
 
-pub struct MainWindow<GraphicsBackend: graphics::GraphicsBackend> {
-    pub graphics_backend: GraphicsBackend,
-    pub rendering_cache: graphics::RenderingCache<GraphicsBackend>,
+pub struct MainWindow<GraphicsBackend: graphics::GraphicsBackend + 'static> {
+    graphics_backend_factory: Box<
+        dyn Fn(&winit::event_loop::EventLoop<()>, winit::window::WindowBuilder) -> GraphicsBackend,
+    >,
+    graphics_backend: Option<GraphicsBackend>,
+    rendering_cache: graphics::RenderingCache<GraphicsBackend>,
 }
 
 impl<GraphicsBackend: graphics::GraphicsBackend + 'static> MainWindow<GraphicsBackend> {
     pub fn new(
-        event_loop: &winit::event_loop::EventLoop<()>,
-        graphics_backend_factory: impl FnOnce(
-            &winit::event_loop::EventLoop<()>,
-            winit::window::WindowBuilder,
-        ) -> GraphicsBackend,
+        graphics_backend_factory: impl Fn(&winit::event_loop::EventLoop<()>, winit::window::WindowBuilder) -> GraphicsBackend
+            + 'static,
     ) -> Rc<RefCell<Self>> {
-        let window_builder = winit::window::WindowBuilder::new();
-
         let this = Rc::new(RefCell::new(Self {
-            graphics_backend: graphics_backend_factory(&event_loop, window_builder),
+            graphics_backend_factory: Box::new(graphics_backend_factory),
+            graphics_backend: None,
             rendering_cache: graphics::RenderingCache::default(),
         }));
-
-        ALL_WINDOWS.with(|windows| {
-            windows
-                .borrow_mut()
-                .insert(this.borrow().id(), Rc::downgrade(&(this.clone() as Rc<dyn GenericWindow>)))
-        });
 
         this
     }
 
-    pub fn id(&self) -> winit::window::WindowId {
-        self.graphics_backend.window().id()
+    pub fn id(&self) -> Option<winit::window::WindowId> {
+        self.graphics_backend.as_ref().map(|backend| backend.window().id())
     }
 }
 
 impl<GraphicsBackend: graphics::GraphicsBackend> Drop for MainWindow<GraphicsBackend> {
     fn drop(&mut self) {
-        ALL_WINDOWS.with(|windows| {
-            windows.borrow_mut().remove(&self.graphics_backend.window().id());
-        });
+        if let Some(backend) = self.graphics_backend.as_ref() {
+            ALL_WINDOWS.with(|windows| {
+                windows.borrow_mut().remove(&backend.window().id());
+            });
+        }
     }
 }
 
@@ -122,7 +118,7 @@ impl<GraphicsBackend: graphics::GraphicsBackend> GenericWindow
 
         {
             let mut rendering_primitives_builder =
-                this.graphics_backend.new_rendering_primitives_builder();
+                this.graphics_backend.as_mut().unwrap().new_rendering_primitives_builder();
 
             // Generate cached rendering data once
             crate::item_tree::visit_items(
@@ -139,21 +135,25 @@ impl<GraphicsBackend: graphics::GraphicsBackend> GenericWindow
                 (),
             );
 
-            this.graphics_backend.finish_primitives(rendering_primitives_builder);
+            this.graphics_backend.as_mut().unwrap().finish_primitives(rendering_primitives_builder);
         }
 
-        let window = this.graphics_backend.window();
+        let window = this.graphics_backend.as_ref().unwrap().window();
 
         let size = window.inner_size();
         let context = EvaluationContext { component: component };
-        let mut frame = this.graphics_backend.new_frame(size.width, size.height, &Color::WHITE);
+        let mut frame = this.graphics_backend.as_mut().unwrap().new_frame(
+            size.width,
+            size.height,
+            &Color::WHITE,
+        );
         item_rendering::render_component_items(
             component,
             &context,
             &mut frame,
             &mut this.rendering_cache,
         );
-        this.graphics_backend.present_frame(frame);
+        this.graphics_backend.as_mut().unwrap().present_frame(frame);
     }
     fn process_mouse_input(
         &self,
@@ -178,8 +178,31 @@ impl<GraphicsBackend: graphics::GraphicsBackend> GenericWindow
             },
         );
     }
-    fn window_handle(&self) -> std::cell::Ref<'_, winit::window::Window> {
-        std::cell::Ref::map(self.borrow(), |mw| mw.graphics_backend.window())
+    fn window_handle(&self) -> std::cell::Ref<winit::window::Window> {
+        std::cell::Ref::map(self.borrow(), |mw| mw.graphics_backend.as_ref().unwrap().window())
+    }
+    fn map_window(self: Rc<Self>, event_loop: &winit::event_loop::EventLoop<()>) {
+        if self.borrow().graphics_backend.is_some() {
+            return;
+        }
+
+        let id = {
+            let window_builder = winit::window::WindowBuilder::new();
+
+            let mut this = self.borrow_mut();
+            let factory = this.graphics_backend_factory.as_mut();
+            let backend = factory(&event_loop, window_builder);
+
+            let window_id = backend.window().id();
+
+            this.graphics_backend = Some(backend);
+
+            window_id
+        };
+
+        ALL_WINDOWS.with(|windows| {
+            windows.borrow_mut().insert(id, Rc::downgrade(&(self.clone() as Rc<dyn GenericWindow>)))
+        });
     }
 }
 
@@ -257,13 +280,13 @@ fn run_event_loop(
 }
 pub fn run_component<GraphicsBackend: graphics::GraphicsBackend + 'static>(
     component: vtable::VRef<crate::abi::datastructures::ComponentVTable>,
-    graphics_backend_factory: impl FnOnce(
-        &winit::event_loop::EventLoop<()>,
-        winit::window::WindowBuilder,
-    ) -> GraphicsBackend,
+    graphics_backend_factory: impl Fn(&winit::event_loop::EventLoop<()>, winit::window::WindowBuilder) -> GraphicsBackend
+        + 'static,
 ) {
+    let main_window = MainWindow::new(graphics_backend_factory);
+
     let event_loop = winit::event_loop::EventLoop::new();
-    let _main_window = MainWindow::new(&event_loop, graphics_backend_factory);
+    main_window.clone().map_window(&event_loop);
 
     run_event_loop(event_loop, component);
 }
