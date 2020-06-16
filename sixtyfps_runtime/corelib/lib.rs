@@ -55,9 +55,9 @@ use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
 trait GenericWindow {
-    fn draw(self: Rc<Self>, component: vtable::VRef<crate::abi::datastructures::ComponentVTable>);
+    fn draw(&self, component: vtable::VRef<crate::abi::datastructures::ComponentVTable>);
     fn process_mouse_input(
-        self: Rc<Self>,
+        &self,
         pos: winit::dpi::PhysicalPosition<f64>,
         state: winit::event::ElementState,
         component: vtable::VRef<crate::abi::datastructures::ComponentVTable>,
@@ -114,7 +114,7 @@ impl<GraphicsBackend: graphics::GraphicsBackend> Drop for MainWindow<GraphicsBac
 impl<GraphicsBackend: graphics::GraphicsBackend> GenericWindow
     for RefCell<MainWindow<GraphicsBackend>>
 {
-    fn draw(self: Rc<Self>, component: vtable::VRef<abi::datastructures::ComponentVTable>) {
+    fn draw(&self, component: vtable::VRef<abi::datastructures::ComponentVTable>) {
         // FIXME: we should do that only if some property change
         component.compute_layout();
 
@@ -156,7 +156,7 @@ impl<GraphicsBackend: graphics::GraphicsBackend> GenericWindow
         this.graphics_backend.present_frame(frame);
     }
     fn process_mouse_input(
-        self: Rc<Self>,
+        &self,
         pos: winit::dpi::PhysicalPosition<f64>,
         state: winit::event::ElementState,
         component: vtable::VRef<abi::datastructures::ComponentVTable>,
@@ -206,7 +206,7 @@ fn run_event_loop(
                         if let Some(Some(window)) =
                             windows.borrow().get(&id).map(|weakref| weakref.upgrade())
                         {
-                            window.clone().draw(component);
+                            window.draw(component);
                         }
                     });
                 }
@@ -227,7 +227,7 @@ fn run_event_loop(
                         if let Some(Some(window)) =
                             windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
                         {
-                            window.clone().process_mouse_input(cursor_pos, state, component);
+                            window.process_mouse_input(cursor_pos, state, component);
                             let window = window.window_handle();
                             // FIXME: remove this, it should be based on actual changes rather than this
                             window.request_redraw();
