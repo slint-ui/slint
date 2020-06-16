@@ -239,6 +239,7 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<TokenSt
                 use sixtyfps::re_exports::*;
                 let tree = &[#(#item_tree_array),*];
                 sixtyfps::re_exports::visit_item_tree(self, VRef::new(self), tree, index, visitor, visit_dynamic);
+                #[allow(unused)]
                 fn visit_dynamic(base: &#component_id, visitor: ItemVisitorRefMut, dyn_index: usize) {
                     match dyn_index {
                         #(#repeated_visit_branch)*

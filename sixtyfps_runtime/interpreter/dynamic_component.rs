@@ -83,7 +83,7 @@ unsafe extern "C" fn visit_children_item(
         v,
         visit_dynamic,
     );
-    fn visit_dynamic(base: &Instance, visitor: ItemVisitorRefMut, dyn_index: usize) {
+    fn visit_dynamic(_base: &Instance, _visitor: ItemVisitorRefMut, _dyn_index: usize) {
         todo!()
     }
 }
