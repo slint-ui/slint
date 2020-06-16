@@ -11,7 +11,7 @@ use std::rc::Rc;
 
 pub fn inline(doc: &Document) {
     fn inline_components_recursively(component: &Rc<Component>) {
-        recurse_elem(&component.root_element, &mut |elem| {
+        recurse_elem(&component.root_element, &(), &mut |elem, _| {
             let base = elem.borrow().base_type.clone();
             if let Type::Component(c) = base {
                 // First, make sure that the component itself is properly inlined

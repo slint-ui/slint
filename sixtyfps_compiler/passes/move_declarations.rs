@@ -24,7 +24,7 @@ pub fn move_declarations(component: &Rc<Component>) {
     decl.property_declarations.values_mut().for_each(|d| d.expose_in_public_api = true);
 
     let mut new_root_bindings = HashMap::new();
-    recurse_elem(&component.root_element, &mut |elem| {
+    recurse_elem(&component.root_element, &(), &mut |elem, _| {
         // take the bindings so we do nt keep the borrow_mut of the element
         let bindings = core::mem::take(&mut elem.borrow_mut().bindings);
         let mut new_bindings = HashMap::with_capacity(bindings.len());
@@ -43,7 +43,7 @@ pub fn move_declarations(component: &Rc<Component>) {
         }
     });
 
-    recurse_elem(&component.root_element, &mut |elem| {
+    recurse_elem(&component.root_element, &(), &mut |elem, _| {
         let elem_decl = Declarations::take_from_element(&mut *elem.borrow_mut());
         decl.property_declarations.extend(
             elem_decl.property_declarations.into_iter().map(|(p, d)| (map_name(elem, &*p), d)),
@@ -87,7 +87,7 @@ fn fixup_bindings(val: &mut Expression, comp: &Rc<Component>) {
 /// item itself so the move_declaration pass can move the delcaration in the component root
 fn simplify_optimized_items(items: &[ElementRc]) {
     for elem in items {
-        recurse_elem(elem, &mut |elem| {
+        recurse_elem(elem, &(), &mut |elem, _| {
             let mut base_type_it = core::mem::take(&mut elem.borrow_mut().base_type);
             loop {
                 base_type_it = match base_type_it {
@@ -132,7 +132,7 @@ fn simplify_optimized_items(items: &[ElementRc]) {
 #[cfg(debug_assertions)]
 fn assert_optized_item_unused(items: &[ElementRc]) {
     for e in items {
-        recurse_elem(e, &mut |e| {
+        recurse_elem(e, &(), &mut |e, _| {
             assert_eq!(Rc::strong_count(e), 1);
             assert_eq!(Rc::weak_count(e), 0);
         });

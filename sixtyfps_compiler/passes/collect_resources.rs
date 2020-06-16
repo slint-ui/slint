@@ -3,7 +3,7 @@ use crate::object_tree::*;
 use std::rc::Rc;
 
 pub fn collect_resources(component: &Rc<Component>) {
-    recurse_elem(&component.root_element, &mut |elem| {
+    recurse_elem(&component.root_element, &(), &mut |elem, _| {
         let bindings = &elem.borrow().bindings;
         for e in bindings.values() {
             collect_resources_from_expression(&e, component);

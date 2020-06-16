@@ -79,23 +79,10 @@ impl Component {
             ..Default::default()
         });
         let weak = Rc::downgrade(&c);
-        recurse_elem(&c.root_element, &mut |e| e.borrow_mut().enclosing_component = weak.clone());
+        recurse_elem(&c.root_element, &(), &mut |e, _| {
+            e.borrow_mut().enclosing_component = weak.clone()
+        });
         c
-    }
-
-    pub fn find_element_by_id(&self, name: &str) -> Option<ElementRc> {
-        pub fn find_element_by_id_recursive(e: &ElementRc, name: &str) -> Option<ElementRc> {
-            if e.borrow().id == name {
-                return Some(e.clone());
-            }
-            for x in &e.borrow().children {
-                if let Some(x) = find_element_by_id_recursive(x, name) {
-                    return Some(x);
-                }
-            }
-            None
-        }
-        find_element_by_id_recursive(&self.root_element, name)
     }
 }
 
@@ -351,9 +338,15 @@ impl std::fmt::Display for QualifiedTypeName {
 }
 
 /// Call the visitor for each children of the element recursively, starting with the element itself
-pub fn recurse_elem(elem: &ElementRc, vis: &mut impl FnMut(&ElementRc)) {
-    vis(elem);
+///
+/// The state returned by the visitor is passed to the children
+pub fn recurse_elem<State>(
+    elem: &ElementRc,
+    state: &State,
+    vis: &mut impl FnMut(&ElementRc, &State) -> State,
+) {
+    let state = vis(elem, state);
     for sub in &elem.borrow().children {
-        recurse_elem(sub, vis);
+        recurse_elem(sub, &state, vis);
     }
 }

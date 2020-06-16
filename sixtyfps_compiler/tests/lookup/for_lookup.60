@@ -1,0 +1,24 @@
+Hello := Rectangle {
+
+    aaa := Text{ text: "aaa";
+        bbb := Text{ text: "bbb"; }
+    }
+
+    property<int32> count: 5;
+
+    for foo[idx] in count: Rectangle {
+        ccc := Text {
+           // x: idx;
+            text: aaa.text;
+        }
+    }
+
+    for gre[mem] in err: Rectangle {
+                  //^error{Unknown unqualified identifier 'err'}
+        ddd := Text { text: ccc.text; }
+        //                  ^error{Cannot access id 'ccc'}
+    }
+
+    Text { text: ccc.text; }
+    //           ^error{Cannot access id 'ccc'}
+}

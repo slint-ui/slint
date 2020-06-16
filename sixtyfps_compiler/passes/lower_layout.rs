@@ -8,7 +8,7 @@ use std::rc::Rc;
 
 /// Currently this just removes the layout from the tree
 pub fn lower_layouts(component: &Rc<Component>, diag: &mut Diagnostics) {
-    recurse_elem(&component.root_element, &mut |elem_| {
+    recurse_elem(&component.root_element, &(), &mut |elem_, _| {
         let mut elem = elem_.borrow_mut();
         let new_children = Vec::with_capacity(elem.children.len());
         let old_children = std::mem::replace(&mut elem.children, new_children);

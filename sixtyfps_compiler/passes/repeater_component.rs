@@ -8,7 +8,7 @@ use crate::{object_tree::*, typeregister::Type};
 use std::{cell::RefCell, rc::Rc};
 
 pub fn create_repeater_components(component: &Rc<Component>, _diag: &mut Diagnostics) {
-    recurse_elem(&component.root_element, &mut |elem| {
+    recurse_elem(&component.root_element, &(), &mut |elem, _| {
         if elem.borrow().repeated.is_none() {
             return;
         }
@@ -29,7 +29,7 @@ pub fn create_repeater_components(component: &Rc<Component>, _diag: &mut Diagnos
         });
 
         let weak = Rc::downgrade(&comp);
-        recurse_elem(&comp.root_element, &mut |e| {
+        recurse_elem(&comp.root_element, &(), &mut |e, _| {
             e.borrow_mut().enclosing_component = weak.clone()
         });
         elem.base_type = Type::Component(comp);

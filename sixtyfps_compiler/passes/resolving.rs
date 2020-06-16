@@ -15,7 +15,13 @@ use std::rc::Rc;
 
 pub fn resolve_expressions(doc: &Document, diag: &mut Diagnostics, tr: &mut TypeRegister) {
     for component in &doc.inner_components {
-        recurse_elem(&component.root_element, &mut |elem| {
+        /// This represeresent a scope for the Component, where Component is the repeated component, but
+        /// does not represent a component in the .60 file
+        #[derive(Clone)]
+        struct ComponentScope(Vec<ElementRc>);
+        let scope = ComponentScope(vec![component.root_element.clone()]);
+
+        recurse_elem(&component.root_element, &scope, &mut |elem, scope| {
             // We are taking the binding to mutate them, as we cannot keep a borrow of the element
             // during the creation of the expression (we need to be able to borrow the Element to do lookups)
             // the `bindings` will be reset later
@@ -26,6 +32,7 @@ pub fn resolve_expressions(doc: &Document, diag: &mut Diagnostics, tr: &mut Type
                         tr,
                         property_type: elem.borrow().lookup_property(&*prop),
                         component: component.clone(),
+                        component_scope: &scope.0,
                         diag,
                     };
 
@@ -48,12 +55,19 @@ pub fn resolve_expressions(doc: &Document, diag: &mut Diagnostics, tr: &mut Type
                         tr,
                         property_type: Type::Invalid, // FIXME: that should be a model
                         component: component.clone(),
+                        component_scope: &scope.0,
                         diag,
                     };
                     r.model = Expression::from_expression_node(node.clone(), &mut lookup_ctx)
                 }
             }
             elem.borrow_mut().repeated = repeated;
+
+            let mut scope = scope.clone();
+            if elem.borrow().repeated.is_some() {
+                scope.0.push(elem.clone())
+            }
+            scope.clone()
         })
     }
 }
@@ -70,8 +84,28 @@ struct LookupCtx<'a> {
     /// document_root
     component: Rc<Component>,
 
+    /// Here is the stack in which id applies
+    component_scope: &'a [ElementRc],
+
     /// Somewhere to report diagnostics
     diag: &'a mut Diagnostics,
+}
+
+fn find_element_by_id(roots: &[ElementRc], name: &str) -> Option<ElementRc> {
+    for e in roots.iter().rev() {
+        if e.borrow().id == name {
+            return Some(e.clone());
+        }
+        for x in &e.borrow().children {
+            if x.borrow().repeated.is_some() {
+                continue;
+            }
+            if let Some(x) = find_element_by_id(&[x.clone()], name) {
+                return Some(x);
+            }
+        }
+    }
+    None
 }
 
 impl Expression {
@@ -254,7 +288,7 @@ impl Expression {
             todo!("Continue lookling up");
         }
 
-        if let Some(elem) = ctx.component.find_element_by_id(s) {
+        if let Some(elem) = find_element_by_id(ctx.component_scope, s) {
             let prop_name = if let Some(second) = it.next() {
                 second.into_token().unwrap()
             } else {
