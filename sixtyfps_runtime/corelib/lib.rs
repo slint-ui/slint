@@ -51,15 +51,18 @@ use abi::datastructures::Color;
 #[cfg(not(target_arch = "wasm32"))]
 use winit::platform::desktop::EventLoopExtDesktop;
 
+use std::cell::RefCell;
+use std::rc::Rc;
+
 trait GenericWindow {
-    fn draw(&mut self, component: vtable::VRef<crate::abi::datastructures::ComponentVTable>);
+    fn draw(self: Rc<Self>, component: vtable::VRef<crate::abi::datastructures::ComponentVTable>);
     fn process_mouse_input(
-        &mut self,
+        self: Rc<Self>,
         pos: winit::dpi::PhysicalPosition<f64>,
         state: winit::event::ElementState,
         component: vtable::VRef<crate::abi::datastructures::ComponentVTable>,
     );
-    fn window_handle(&self) -> &winit::window::Window;
+    fn window_handle(&self) -> std::cell::Ref<'_, winit::window::Window>;
 }
 
 pub struct MainWindow<GraphicsBackend: graphics::GraphicsBackend> {
@@ -83,39 +86,44 @@ impl<GraphicsBackend: graphics::GraphicsBackend> MainWindow<GraphicsBackend> {
     }
 }
 
-impl<GraphicsBackend: graphics::GraphicsBackend> GenericWindow for MainWindow<GraphicsBackend> {
-    fn draw(&mut self, component: vtable::VRef<abi::datastructures::ComponentVTable>) {
+impl<GraphicsBackend: graphics::GraphicsBackend> GenericWindow
+    for RefCell<MainWindow<GraphicsBackend>>
+{
+    fn draw(self: Rc<Self>, component: vtable::VRef<abi::datastructures::ComponentVTable>) {
         // FIXME: we should do that only if some property change
         component.compute_layout();
 
+        let mut main_window = self.borrow_mut();
+
         {
             let mut rendering_primitives_builder =
-                self.graphics_backend.new_rendering_primitives_builder();
+                main_window.graphics_backend.new_rendering_primitives_builder();
 
             prepare_rendering(
                 component,
                 &mut rendering_primitives_builder,
-                &mut self.rendering_cache,
+                &mut main_window.rendering_cache,
             );
 
-            self.graphics_backend.finish_primitives(rendering_primitives_builder);
+            main_window.graphics_backend.finish_primitives(rendering_primitives_builder);
         }
 
-        let window = self.graphics_backend.window();
+        let window = main_window.graphics_backend.window();
 
         let size = window.inner_size();
         let context = EvaluationContext { component: component };
-        let mut frame = self.graphics_backend.new_frame(size.width, size.height, &Color::WHITE);
+        let mut frame =
+            main_window.graphics_backend.new_frame(size.width, size.height, &Color::WHITE);
         item_rendering::render_component_items(
             component,
             &context,
             &mut frame,
-            &mut self.rendering_cache,
+            &mut main_window.rendering_cache,
         );
-        self.graphics_backend.present_frame(frame);
+        main_window.graphics_backend.present_frame(frame);
     }
     fn process_mouse_input(
-        &mut self,
+        self: Rc<Self>,
         pos: winit::dpi::PhysicalPosition<f64>,
         state: winit::event::ElementState,
         component: vtable::VRef<abi::datastructures::ComponentVTable>,
@@ -123,14 +131,14 @@ impl<GraphicsBackend: graphics::GraphicsBackend> GenericWindow for MainWindow<Gr
         let context = EvaluationContext { component };
         process_input(component, &context, pos, state);
     }
-    fn window_handle(&self) -> &winit::window::Window {
-        self.graphics_backend.window()
+    fn window_handle(&self) -> std::cell::Ref<'_, winit::window::Window> {
+        std::cell::Ref::map(self.borrow(), |mw| mw.graphics_backend.window())
     }
 }
 
 #[allow(unused_mut)] // mut need changes for wasm
 fn run_event_loop(
-    mut main_window: &mut impl GenericWindow,
+    mut main_window: Rc<dyn GenericWindow>,
     mut event_loop: winit::event_loop::EventLoop<()>,
     component: vtable::VRef<crate::abi::datastructures::ComponentVTable>,
 ) {
@@ -140,6 +148,8 @@ fn run_event_loop(
     let mut cursor_pos = winit::dpi::PhysicalPosition::new(0., 0.);
     let mut run_fn =
         move |event: Event<()>, _: &EventLoopWindowTarget<()>, control_flow: &mut ControlFlow| {
+            let mut main_window = main_window.clone();
+
             *control_flow = ControlFlow::Wait;
 
             match event {
@@ -162,7 +172,7 @@ fn run_event_loop(
                     event: winit::event::WindowEvent::MouseInput { state, .. },
                     ..
                 } => {
-                    main_window.process_mouse_input(cursor_pos, state, component);
+                    main_window.clone().process_mouse_input(cursor_pos, state, component);
 
                     let window = main_window.window_handle();
                     // FIXME: remove this, it should be based on actual changes rather than this
@@ -197,9 +207,9 @@ pub fn run_component<GraphicsBackend: graphics::GraphicsBackend + 'static>(
     ) -> GraphicsBackend,
 ) {
     let event_loop = winit::event_loop::EventLoop::new();
-    let mut main_window = MainWindow::new(&event_loop, graphics_backend_factory);
+    let main_window = Rc::new(RefCell::new(MainWindow::new(&event_loop, graphics_backend_factory)));
 
-    run_event_loop(&mut main_window, event_loop, component);
+    run_event_loop(main_window, event_loop, component);
 }
 
 fn prepare_rendering<GraphicsBackend: graphics::GraphicsBackend>(
