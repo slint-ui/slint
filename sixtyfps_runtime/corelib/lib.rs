@@ -45,32 +45,15 @@ pub use abi::properties::{EvaluationContext, Property};
 #[doc(inline)]
 pub use abi::signals::Signal;
 
+mod eventloop;
 mod item_rendering;
 
 use abi::datastructures::Color;
-#[cfg(not(target_arch = "wasm32"))]
-use winit::platform::desktop::EventLoopExtDesktop;
 
 use std::cell::RefCell;
-use std::rc::{Rc, Weak};
+use std::rc::Rc;
 
-trait GenericWindow {
-    fn draw(&self, component: vtable::VRef<crate::abi::datastructures::ComponentVTable>);
-    fn process_mouse_input(
-        &self,
-        pos: winit::dpi::PhysicalPosition<f64>,
-        state: winit::event::ElementState,
-        component: vtable::VRef<crate::abi::datastructures::ComponentVTable>,
-    );
-    fn window_handle(&self) -> std::cell::Ref<'_, winit::window::Window>;
-    fn map_window(self: Rc<Self>, event_loop: &winit::event_loop::EventLoop<()>);
-}
-
-thread_local! {
-    static ALL_WINDOWS: RefCell<std::collections::HashMap<winit::window::WindowId, Weak<dyn GenericWindow>>> = RefCell::new(std::collections::HashMap::new());
-}
-
-pub struct MainWindow<GraphicsBackend: graphics::GraphicsBackend + 'static> {
+pub struct GraphicsWindow<GraphicsBackend: graphics::GraphicsBackend + 'static> {
     graphics_backend_factory: Box<
         dyn Fn(&winit::event_loop::EventLoop<()>, winit::window::WindowBuilder) -> GraphicsBackend,
     >,
@@ -78,7 +61,7 @@ pub struct MainWindow<GraphicsBackend: graphics::GraphicsBackend + 'static> {
     rendering_cache: graphics::RenderingCache<GraphicsBackend>,
 }
 
-impl<GraphicsBackend: graphics::GraphicsBackend + 'static> MainWindow<GraphicsBackend> {
+impl<GraphicsBackend: graphics::GraphicsBackend + 'static> GraphicsWindow<GraphicsBackend> {
     pub fn new(
         graphics_backend_factory: impl Fn(&winit::event_loop::EventLoop<()>, winit::window::WindowBuilder) -> GraphicsBackend
             + 'static,
@@ -97,18 +80,18 @@ impl<GraphicsBackend: graphics::GraphicsBackend + 'static> MainWindow<GraphicsBa
     }
 }
 
-impl<GraphicsBackend: graphics::GraphicsBackend> Drop for MainWindow<GraphicsBackend> {
+impl<GraphicsBackend: graphics::GraphicsBackend> Drop for GraphicsWindow<GraphicsBackend> {
     fn drop(&mut self) {
         if let Some(backend) = self.graphics_backend.as_ref() {
-            ALL_WINDOWS.with(|windows| {
+            eventloop::ALL_WINDOWS.with(|windows| {
                 windows.borrow_mut().remove(&backend.window().id());
             });
         }
     }
 }
 
-impl<GraphicsBackend: graphics::GraphicsBackend> GenericWindow
-    for RefCell<MainWindow<GraphicsBackend>>
+impl<GraphicsBackend: graphics::GraphicsBackend> eventloop::GenericWindow
+    for RefCell<GraphicsWindow<GraphicsBackend>>
 {
     fn draw(&self, component: vtable::VRef<abi::datastructures::ComponentVTable>) {
         // FIXME: we should do that only if some property change
@@ -200,93 +183,25 @@ impl<GraphicsBackend: graphics::GraphicsBackend> GenericWindow
             window_id
         };
 
-        ALL_WINDOWS.with(|windows| {
-            windows.borrow_mut().insert(id, Rc::downgrade(&(self.clone() as Rc<dyn GenericWindow>)))
+        eventloop::ALL_WINDOWS.with(|windows| {
+            windows
+                .borrow_mut()
+                .insert(id, Rc::downgrade(&(self.clone() as Rc<dyn eventloop::GenericWindow>)))
         });
     }
 }
 
-#[allow(unused_mut)] // mut need changes for wasm
-fn run_event_loop(
-    mut event_loop: winit::event_loop::EventLoop<()>,
-    component: vtable::VRef<crate::abi::datastructures::ComponentVTable>,
-) {
-    use winit::event::Event;
-    use winit::event_loop::{ControlFlow, EventLoopWindowTarget};
-
-    let mut cursor_pos = winit::dpi::PhysicalPosition::new(0., 0.);
-    let mut run_fn =
-        move |event: Event<()>, _: &EventLoopWindowTarget<()>, control_flow: &mut ControlFlow| {
-            *control_flow = ControlFlow::Wait;
-
-            match event {
-                winit::event::Event::WindowEvent {
-                    event: winit::event::WindowEvent::CloseRequested,
-                    ..
-                } => *control_flow = winit::event_loop::ControlFlow::Exit,
-                winit::event::Event::RedrawRequested(id) => {
-                    ALL_WINDOWS.with(|windows| {
-                        if let Some(Some(window)) =
-                            windows.borrow().get(&id).map(|weakref| weakref.upgrade())
-                        {
-                            window.draw(component);
-                        }
-                    });
-                }
-                winit::event::Event::WindowEvent {
-                    event: winit::event::WindowEvent::CursorMoved { position, .. },
-                    ..
-                } => {
-                    cursor_pos = position;
-                    // TODO: propagate mouse move?
-                }
-
-                winit::event::Event::WindowEvent {
-                    ref window_id,
-                    event: winit::event::WindowEvent::MouseInput { state, .. },
-                    ..
-                } => {
-                    ALL_WINDOWS.with(|windows| {
-                        if let Some(Some(window)) =
-                            windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
-                        {
-                            window.process_mouse_input(cursor_pos, state, component);
-                            let window = window.window_handle();
-                            // FIXME: remove this, it should be based on actual changes rather than this
-                            window.request_redraw();
-                        }
-                    });
-                }
-
-                _ => (),
-            }
-        };
-
-    #[cfg(not(target_arch = "wasm32"))]
-    event_loop.run_return(run_fn);
-    #[cfg(target_arch = "wasm32")]
-    {
-        // Since wasm does not have a run_return function that takes a non-static closure,
-        // we use this hack to work that around
-        scoped_tls_hkt::scoped_thread_local!(static mut RUN_FN_TLS: for <'a> &'a mut dyn FnMut(
-            Event<'_, ()>,
-            &EventLoopWindowTarget<()>,
-            &mut ControlFlow,
-        ));
-        RUN_FN_TLS.set(&mut run_fn, move || {
-            event_loop.run(|e, t, cf| RUN_FN_TLS.with(|mut run_fn| run_fn(e, t, cf)))
-        });
-    }
-}
 pub fn run_component<GraphicsBackend: graphics::GraphicsBackend + 'static>(
     component: vtable::VRef<crate::abi::datastructures::ComponentVTable>,
     graphics_backend_factory: impl Fn(&winit::event_loop::EventLoop<()>, winit::window::WindowBuilder) -> GraphicsBackend
         + 'static,
 ) {
-    let main_window = MainWindow::new(graphics_backend_factory);
+    use eventloop::GenericWindow;
+
+    let window = GraphicsWindow::new(graphics_backend_factory);
 
     let event_loop = winit::event_loop::EventLoop::new();
-    main_window.clone().map_window(&event_loop);
+    window.clone().map_window(&event_loop);
 
-    run_event_loop(event_loop, component);
+    eventloop::run(event_loop, component);
 }
