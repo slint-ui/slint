@@ -575,7 +575,7 @@ impl GraphicsFrame for GLFrame {
 
                 unsafe {
                     self.context.draw_elements(
-                        glow::TRIANGLE_STRIP,
+                        glow::TRIANGLES,
                         indices.len,
                         glow::UNSIGNED_SHORT,
                         0,
