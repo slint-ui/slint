@@ -15,8 +15,20 @@ use super::prelude::*;
 /// cond ? first : second
 /// call_cond() ? first : second
 /// (nested()) ? (ok) : (other.ko)
+/// 4 + 4
+/// 4 + 8 * 7 / 5 + 3 - 7 - 7 * 8
 /// ```
 pub fn parse_expression(p: &mut impl Parser) {
+    parse_expression_helper(p, 0)
+}
+
+/// precedence:
+/// 0. base
+/// 1. `+ -`
+/// 2. `* /`
+/// 3. bang
+/// 4. call
+fn parse_expression_helper(p: &mut impl Parser, precedence: usize) {
     let mut p = p.start_node(SyntaxKind::Expression);
     let checkpoint = p.checkpoint();
     match p.nth(0) {
@@ -54,6 +66,32 @@ pub fn parse_expression(p: &mut impl Parser) {
         _ => {}
     }
 
+    if precedence >= 3 {
+        return;
+    }
+
+    while matches!(p.nth(0), SyntaxKind::Star | SyntaxKind::Div) {
+        {
+            let _ = p.start_node_at(checkpoint.clone(), SyntaxKind::Expression);
+        }
+        let mut p = p.start_node_at(checkpoint.clone(), SyntaxKind::BinaryExpression);
+        p.consume();
+        parse_expression_helper(&mut *p, 3);
+    }
+
+    if precedence >= 2 {
+        return;
+    }
+
+    while matches!(p.nth(0), SyntaxKind::Plus | SyntaxKind::Minus) {
+        {
+            let _ = p.start_node_at(checkpoint.clone(), SyntaxKind::Expression);
+        }
+        let mut p = p.start_node_at(checkpoint.clone(), SyntaxKind::BinaryExpression);
+        p.consume();
+        parse_expression_helper(&mut *p, 2);
+    }
+
     match p.nth(0) {
         SyntaxKind::Question => {
             {
@@ -82,5 +120,5 @@ fn parse_bang_expression(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::BangExpression);
     p.expect(SyntaxKind::Identifier); // Or assert?
     p.expect(SyntaxKind::Bang); // Or assert?
-    parse_expression(&mut *p);
+    parse_expression_helper(&mut *p, 3);
 }

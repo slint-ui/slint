@@ -261,7 +261,8 @@ declare_syntax! {
         BindingExpression-> [ ?CodeBlock, ?Expression ],
         CodeBlock-> [ *Expression ],
         // FIXME: the test should test that as alternative rather than several of them (but it can also be a literal)
-        Expression-> [ ?Expression, ?BangExpression, ?FunctionCallExpression, ?SelfAssignment, ?ConditionalExpression, ?QualifiedName],
+        Expression-> [ ?Expression, ?BangExpression, ?FunctionCallExpression, ?SelfAssignment,
+                       ?ConditionalExpression, ?QualifiedName, ?BinaryExpression],
         /// `foo!bar`
         BangExpression -> [Expression],
         /// expression()
@@ -270,6 +271,8 @@ declare_syntax! {
         SelfAssignment -> [2 Expression],
         /// `condition ? first : second`
         ConditionalExpression -> [3 Expression],
+        /// `expr + expr`
+        BinaryExpression -> [2 Expression],
     }
 }
 

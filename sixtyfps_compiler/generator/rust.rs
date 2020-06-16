@@ -346,6 +346,12 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
             }
             _ => panic!("typechecking should make sure this was a PropertyReference"),
         },
+        Expression::BinaryExpression { lhs, rhs, op } => {
+            let lhs = compile_expression(&*lhs, &component);
+            let rhs = compile_expression(&*rhs, &component);
+            let op = proc_macro2::Punct::new(*op, proc_macro2::Spacing::Alone);
+            quote!( ((#lhs as f64) #op (#rhs as f64)) )
+        }
         Expression::ResourceReference { absolute_source_path } => {
             if let Some(id) = component.embedded_file_resources.borrow().get(absolute_source_path) {
                 let symbol = quote::format_ident!("SFPS_EMBEDDED_RESOURCE_{}", id);

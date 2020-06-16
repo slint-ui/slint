@@ -60,6 +60,13 @@ pub enum Expression {
         op: char,
     },
 
+    BinaryExpression {
+        lhs: Box<Expression>,
+        rhs: Box<Expression>,
+        /// '+', '-', '/', or '*'
+        op: char,
+    },
+
     ResourceReference {
         absolute_source_path: String,
     },
@@ -98,6 +105,7 @@ impl Expression {
                     Type::Invalid
                 }
             }
+            Expression::BinaryExpression { lhs, .. } => lhs.ty(),
         }
     }
 
@@ -128,6 +136,10 @@ impl Expression {
                 visitor(&**true_expr);
                 visitor(&**false_expr);
             }
+            Expression::BinaryExpression { lhs, rhs, .. } => {
+                visitor(&**lhs);
+                visitor(&**rhs);
+            }
         }
     }
 
@@ -157,6 +169,10 @@ impl Expression {
                 visitor(&mut **true_expr);
                 visitor(&mut **false_expr);
             }
+            Expression::BinaryExpression { lhs, rhs, .. } => {
+                visitor(&mut **lhs);
+                visitor(&mut **rhs);
+            }
         }
     }
 
@@ -175,6 +191,7 @@ impl Expression {
             Expression::SelfAssignment { .. } => false,
             Expression::ResourceReference { .. } => true,
             Expression::Condition { .. } => false,
+            Expression::BinaryExpression { lhs, rhs, .. } => lhs.is_constant() && rhs.is_constant(),
         }
     }
 

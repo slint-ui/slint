@@ -415,6 +415,12 @@ fn compile_expression(e: &crate::expression_tree::Expression) -> String {
             ),
             _ => panic!("typechecking should make sure this was a PropertyReference"),
         },
+        BinaryExpression { lhs, rhs, op } => format!(
+            "({lhs} {op} {rhs})",
+            lhs = compile_expression(&*lhs),
+            rhs = compile_expression(&*rhs),
+            op = op,
+        ),
         ResourceReference { absolute_source_path } => {
             format!(r#"sixtyfps::Resource(sixtyfps::SharedString("{}"))"#, absolute_source_path)
         }

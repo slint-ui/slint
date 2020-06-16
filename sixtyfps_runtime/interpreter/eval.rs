@@ -184,6 +184,18 @@ pub fn eval_expression(
             }
             _ => panic!("typechecking should make sure this was a PropertyReference"),
         },
+        Expression::BinaryExpression { lhs, rhs, op } => {
+            let lhs = eval_expression(&**lhs, ctx, eval_context);
+            let rhs = eval_expression(&**rhs, ctx, eval_context);
+
+            match (lhs, rhs, op) {
+                (Value::Number(a), Value::Number(b), '+') => Value::Number(a + b),
+                (Value::Number(a), Value::Number(b), '-') => Value::Number(a - b),
+                (Value::Number(a), Value::Number(b), '/') => Value::Number(a / b),
+                (Value::Number(a), Value::Number(b), '*') => Value::Number(a * b),
+                (lhs, rhs, op) => panic!("unsupported {:?} {} {:?}", lhs, op, rhs),
+            }
+        }
         Expression::ResourceReference { absolute_source_path } => {
             Value::Resource(Resource::AbsoluteFilePath(absolute_source_path.as_str().into()))
         }

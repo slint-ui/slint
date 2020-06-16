@@ -188,6 +188,10 @@ impl Expression {
                     .map(|n| Self::from_self_assignement_node(n.into(), ctx))
             })
             .or_else(|| {
+                node.child_node(SyntaxKind::BinaryExpression)
+                    .map(|n| Self::from_binary_expression_node(n.into(), ctx))
+            })
+            .or_else(|| {
                 node.child_node(SyntaxKind::ConditionalExpression)
                     .map(|n| Self::from_conditional_expression_node(n.into(), ctx))
             })
@@ -391,6 +395,34 @@ impl Expression {
                 .or(node.child_token(SyntaxKind::MinusEqual).and(Some('-')))
                 .or(node.child_token(SyntaxKind::StarEqual).and(Some('*')))
                 .or(node.child_token(SyntaxKind::DivEqual).and(Some('/')))
+                .unwrap_or('_'),
+        }
+    }
+
+    fn from_binary_expression_node(
+        node: syntax_nodes::BinaryExpression,
+        ctx: &mut LookupCtx,
+    ) -> Expression {
+        let (lhs_n, rhs_n) = node.Expression();
+        let mut lhs = Self::from_expression_node(lhs_n.clone().into(), ctx);
+        let mut rhs = Self::from_expression_node(rhs_n.clone().into(), ctx);
+
+        let (lhs_ty, rhs_ty) = (lhs.ty(), rhs.ty());
+        if lhs_ty != rhs_ty {
+            if rhs_ty.can_convert(&lhs_ty) {
+                rhs = rhs.maybe_convert_to(lhs_ty, &rhs_n.into(), &mut ctx.diag);
+            } else {
+                lhs = lhs.maybe_convert_to(rhs_ty, &lhs_n.into(), &mut ctx.diag);
+            }
+        }
+        Expression::BinaryExpression {
+            lhs: Box::new(lhs),
+            rhs: Box::new(rhs),
+            op: None
+                .or(node.child_token(SyntaxKind::Plus).and(Some('+')))
+                .or(node.child_token(SyntaxKind::Minus).and(Some('-')))
+                .or(node.child_token(SyntaxKind::Star).and(Some('*')))
+                .or(node.child_token(SyntaxKind::Div).and(Some('/')))
                 .unwrap_or('_'),
         }
     }
