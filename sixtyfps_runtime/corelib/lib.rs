@@ -45,12 +45,12 @@ pub use abi::properties::{EvaluationContext, Property};
 #[doc(inline)]
 pub use abi::signals::Signal;
 
-mod eventloop;
+pub mod eventloop;
 mod item_rendering;
 
 pub fn run_component<GraphicsBackend: graphics::GraphicsBackend + 'static>(
     component: vtable::VRef<crate::abi::datastructures::ComponentVTable>,
-    graphics_backend_factory: impl Fn(&winit::event_loop::EventLoop<()>, winit::window::WindowBuilder) -> GraphicsBackend
+    graphics_backend_factory: impl Fn(&eventloop::EventLoop, winit::window::WindowBuilder) -> GraphicsBackend
         + 'static,
 ) {
     use eventloop::GenericWindow;

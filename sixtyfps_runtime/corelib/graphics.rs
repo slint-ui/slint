@@ -108,14 +108,14 @@ impl<Backend: GraphicsBackend> RenderingCache<Backend> {
 
 pub struct GraphicsWindow<Backend: GraphicsBackend + 'static> {
     graphics_backend_factory:
-        Box<dyn Fn(&winit::event_loop::EventLoop<()>, winit::window::WindowBuilder) -> Backend>,
+        Box<dyn Fn(&crate::eventloop::EventLoop, winit::window::WindowBuilder) -> Backend>,
     graphics_backend: Option<Backend>,
     rendering_cache: RenderingCache<Backend>,
 }
 
 impl<Backend: GraphicsBackend + 'static> GraphicsWindow<Backend> {
     pub fn new(
-        graphics_backend_factory: impl Fn(&winit::event_loop::EventLoop<()>, winit::window::WindowBuilder) -> Backend
+        graphics_backend_factory: impl Fn(&crate::eventloop::EventLoop, winit::window::WindowBuilder) -> Backend
             + 'static,
     ) -> Rc<RefCell<Self>> {
         let this = Rc::new(RefCell::new(Self {
@@ -222,7 +222,7 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow
 
             let mut this = self.borrow_mut();
             let factory = this.graphics_backend_factory.as_mut();
-            let backend = factory(&event_loop.0, window_builder);
+            let backend = factory(&event_loop, window_builder);
 
             let window_id = backend.window().id();
 

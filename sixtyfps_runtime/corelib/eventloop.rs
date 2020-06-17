@@ -20,11 +20,13 @@ thread_local! {
     pub(crate) static ALL_WINDOWS: RefCell<std::collections::HashMap<winit::window::WindowId, Weak<dyn GenericWindow>>> = RefCell::new(std::collections::HashMap::new());
 }
 
-pub struct EventLoop(pub(crate) winit::event_loop::EventLoop<()>);
+pub struct EventLoop {
+    winit_loop: winit::event_loop::EventLoop<()>,
+}
 
 impl EventLoop {
     pub fn new() -> Self {
-        Self(winit::event_loop::EventLoop::new())
+        Self { winit_loop: winit::event_loop::EventLoop::new() }
     }
 
     #[allow(unused_mut)] // mut need changes for wasm
@@ -82,7 +84,7 @@ impl EventLoop {
         };
 
         #[cfg(not(target_arch = "wasm32"))]
-        self.0.run_return(run_fn);
+        self.winit_loop.run_return(run_fn);
         #[cfg(target_arch = "wasm32")]
         {
             // Since wasm does not have a run_return function that takes a non-static closure,
@@ -93,8 +95,12 @@ impl EventLoop {
                 &mut ControlFlow,
             ));
             RUN_FN_TLS.set(&mut run_fn, move || {
-                self.0.run(|e, t, cf| RUN_FN_TLS.with(|mut run_fn| run_fn(e, t, cf)))
+                self.winit_loop.run(|e, t, cf| RUN_FN_TLS.with(|mut run_fn| run_fn(e, t, cf)))
             });
         }
+    }
+
+    pub fn get_winit_event_loop(&self) -> &winit::event_loop::EventLoop<()> {
+        &self.winit_loop
     }
 }

@@ -635,6 +635,6 @@ pub extern "C" fn sixtyfps_runtime_run_component_with_gl_renderer(
     component: vtable::VRef<ComponentVTable>,
 ) {
     sixtyfps_corelib::run_component(component, |event_loop, window_builder| {
-        GLRenderer::new(&event_loop, window_builder)
+        GLRenderer::new(&event_loop.get_winit_event_loop(), window_builder)
     });
 }
