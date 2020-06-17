@@ -257,7 +257,7 @@ pub unsafe extern "C" fn sixtyfps_property_set_changed(out: *const PropertyHandl
 ///  1. the allocation from the calling code to allocate user_data
 ///  2. the box allocation within this binding
 /// It might be possible to reduce that by passing something with a
-/// vtable, so there is the need for less memory allocation.  
+/// vtable, so there is the need for less memory allocation.
 #[no_mangle]
 pub unsafe extern "C" fn sixtyfps_property_set_binding(
     out: *const PropertyHandleOpaque,

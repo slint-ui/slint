@@ -7,8 +7,6 @@ build = "build.rs"
 
 [lib]
 path = "lib.rs"
-crate-type = [ "lib", "cdylib" ]
-
 
 [features]
 # Allow the vewer to query at runtime information about item types

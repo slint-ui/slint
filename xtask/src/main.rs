@@ -51,7 +51,7 @@ impl CMakeCommand {
 
         let mut target_dir = None;
 
-        let mut params = vec!["-p", "sixtyfps_corelib", "-p", "sixtyfps_rendering_backend_gl"];
+        let mut params = vec!["-p", "sixtyfps_rendering_backend_gl"];
         params.extend(build_params);
 
         let mut first_lib: PathBuf = PathBuf::new();
@@ -59,9 +59,7 @@ impl CMakeCommand {
         run_cargo(&cargo(), "build", &params, |message| {
             match message {
                 Message::CompilerArtifact(ref artifact) => {
-                    if artifact.target.name != "sixtyfps_rendering_backend_gl"
-                        && artifact.target.name != "sixtyfps_corelib"
-                    {
+                    if artifact.target.name != "sixtyfps_rendering_backend_gl" {
                         return Ok(());
                     }
 
