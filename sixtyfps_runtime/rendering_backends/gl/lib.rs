@@ -5,10 +5,10 @@ use itertools::Itertools;
 use lyon::tessellation::geometry_builder::{BuffersBuilder, VertexBuffers};
 use lyon::tessellation::{FillAttributes, FillOptions, FillTessellator};
 use sixtyfps_corelib::abi::datastructures::{
-    Color, ComponentVTable, Point, Rect, RenderingPrimitive, Resource, Size,
+    Color, ComponentVTable, ComponentWindow, Point, Rect, RenderingPrimitive, Resource, Size,
 };
 use sixtyfps_corelib::graphics::{
-    FillStyle, Frame as GraphicsFrame, GraphicsBackend, HasRenderingPrimitive,
+    FillStyle, Frame as GraphicsFrame, GraphicsBackend, GraphicsWindow, HasRenderingPrimitive,
     RenderingPrimitivesBuilder,
 };
 use std::cell::RefCell;
@@ -637,4 +637,10 @@ pub extern "C" fn sixtyfps_runtime_run_component_with_gl_renderer(
     sixtyfps_corelib::run_component(component, |event_loop, window_builder| {
         GLRenderer::new(&event_loop.get_winit_event_loop(), window_builder)
     });
+}
+
+pub fn create_gl_window() -> ComponentWindow {
+    ComponentWindow::new(GraphicsWindow::new(|event_loop, window_builder| {
+        GLRenderer::new(&event_loop.get_winit_event_loop(), window_builder)
+    }))
 }

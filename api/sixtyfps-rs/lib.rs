@@ -85,8 +85,12 @@ pub mod re_exports {
     pub use sixtyfps_corelib::EvaluationContext;
     pub use sixtyfps_corelib::Resource;
     pub use sixtyfps_corelib::SharedString;
-    pub use sixtyfps_rendering_backend_gl::sixtyfps_runtime_run_component_with_gl_renderer;
     pub use vtable::{self, *};
+}
+
+/// Creates a new window to render components in.
+pub fn create_window() -> re_exports::ComponentWindow {
+    sixtyfps_rendering_backend_gl::create_gl_window()
 }
 
 #[cfg(doctest)]

@@ -215,7 +215,8 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
         property_and_signal_accessors.push(quote! {
             fn run(&self) {
                 use sixtyfps::re_exports::*;
-                sixtyfps_runtime_run_component_with_gl_renderer(VRef::new(self));
+                let window = sixtyfps::create_window();
+                window.run(VRef::new(self));
             }
         });
     };

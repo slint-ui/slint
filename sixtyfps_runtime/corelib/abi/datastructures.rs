@@ -265,6 +265,25 @@ pub struct MouseEvent {
     pub what: MouseEventType,
 }
 
+/// The ComponentWindow is the (rust) facing public type that can render the items
+/// of components to the screen.
+pub struct ComponentWindow(std::rc::Rc<dyn crate::eventloop::GenericWindow>);
+
+impl ComponentWindow {
+    /// Creates a new instance of a CompomentWindow based on the given window implementation. Only used
+    /// internally.
+    pub fn new(window_impl: std::rc::Rc<dyn crate::eventloop::GenericWindow>) -> Self {
+        Self(window_impl)
+    }
+    /// Spins an event loop and renders the items of the provided component in this window.
+    pub fn run(&self, component: VRef<ComponentVTable>) {
+        let event_loop = crate::eventloop::EventLoop::new();
+        self.0.clone().map_window(&event_loop);
+
+        event_loop.run(component);
+    }
+}
+
 #[repr(C)]
 #[vtable]
 /// Object to be passed in visit_item_children method of the Component.

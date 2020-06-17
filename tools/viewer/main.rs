@@ -17,9 +17,8 @@ fn main() -> std::io::Result<()> {
         }
     };
 
+    let window = sixtyfps_rendering_backend_gl::create_gl_window();
     let component = c.create();
-    sixtyfps_rendering_backend_gl::sixtyfps_runtime_run_component_with_gl_renderer(
-        component.borrow(),
-    );
+    window.run(component.borrow());
     Ok(())
 }
