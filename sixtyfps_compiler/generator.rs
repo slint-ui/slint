@@ -6,6 +6,7 @@ There is one sub module for every language
 
 use crate::diagnostics::Diagnostics;
 use crate::object_tree::{Component, ElementRc};
+use std::rc::Rc;
 
 #[cfg(feature = "cpp")]
 mod cpp;
@@ -15,7 +16,7 @@ pub mod rust;
 
 pub fn generate(
     destination: &mut impl std::io::Write,
-    component: &Component,
+    component: &Rc<Component>,
     diag: &mut Diagnostics,
 ) -> std::io::Result<()> {
     #![allow(unused_variables)]

@@ -131,6 +131,7 @@ use crate::diagnostics::{CompilerDiagnostic, Diagnostics};
 use crate::object_tree::{Component, Element, ElementRc};
 use crate::typeregister::Type;
 use cpp_ast::*;
+use std::rc::Rc;
 
 impl CppType for Type {
     fn cpp_type(&self) -> Option<&str> {
@@ -215,14 +216,27 @@ fn handle_item(item: &Element, main_struct: &mut Struct, init: &mut Vec<String>)
 }
 
 /// Returns the text of the C++ code produced by the given root component
-pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<impl std::fmt::Display> {
-    let mut x = File::default();
+pub fn generate(
+    component: &Rc<Component>,
+    diag: &mut Diagnostics,
+) -> Option<impl std::fmt::Display> {
+    let mut file = File::default();
 
-    x.includes.push("<array>".into());
-    x.includes.push("<limits>".into());
-    x.includes.push("<sixtyfps.h>".into());
+    file.includes.push("<array>".into());
+    file.includes.push("<limits>".into());
+    file.includes.push("<sixtyfps.h>".into());
 
-    let mut main_struct = Struct { name: component.id.clone(), ..Default::default() };
+    generate_component(&mut file, component, diag);
+
+    if diag.has_error() {
+        None
+    } else {
+        Some(file)
+    }
+}
+
+fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Diagnostics) {
+    let mut component_struct = Struct { name: component.id.clone(), ..Default::default() };
 
     for (cpp_name, property_decl) in component.root_element.borrow().property_declarations.iter() {
         let ty = if property_decl.property_type == Type::Signal {
@@ -232,7 +246,7 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<impl st
                     format!("{}.emit(&context);", cpp_name)
                     ];
 
-                main_struct.members.push(Declaration::Function(Function {
+                component_struct.members.push(Declaration::Function(Function {
                     name: format!("emit_{}", cpp_name),
                     signature: "()".into(),
                     statements: Some(signal_emitter),
@@ -258,7 +272,7 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<impl st
                     format!("return {}.get(&context);", cpp_name)
                 ];
 
-                main_struct.members.push(Declaration::Function(Function {
+                component_struct.members.push(Declaration::Function(Function {
                     name: format!("get_{}", cpp_name),
                     signature: format!("() -> {}", cpp_type),
                     statements: Some(prop_getter),
@@ -267,7 +281,7 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<impl st
 
                 let prop_setter: Vec<String> = vec![format!("{}.set(value);", cpp_name)];
 
-                main_struct.members.push(Declaration::Function(Function {
+                component_struct.members.push(Declaration::Function(Function {
                     name: format!("set_{}", cpp_name),
                     signature: format!("(const {} &value)", cpp_type),
                     statements: Some(prop_setter),
@@ -277,13 +291,17 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<impl st
 
             format!("sixtyfps::Property<{}>", cpp_type)
         };
-        main_struct.members.push(Declaration::Var(Var { ty, name: cpp_name.clone(), init: None }));
+        component_struct.members.push(Declaration::Var(Var {
+            ty,
+            name: cpp_name.clone(),
+            init: None,
+        }));
     }
 
     let mut init = vec!["[[maybe_unused]] auto self = this;".into()];
-    handle_item(&component.root_element.borrow(), &mut main_struct, &mut init);
+    handle_item(&component.root_element.borrow(), &mut component_struct, &mut init);
 
-    main_struct.members.push(Declaration::Function(Function {
+    component_struct.members.push(Declaration::Function(Function {
         name: component.id.clone(),
         signature: "()".to_owned(),
         is_constructor: true,
@@ -291,14 +309,14 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<impl st
         ..Default::default()
     }));
 
-    main_struct.members.push(Declaration::Function(Function {
+    component_struct.members.push(Declaration::Function(Function {
         name: "visit_children".into(),
         signature: "(sixtyfps::ComponentRef, intptr_t, sixtyfps::ItemVisitorRefMut) -> void".into(),
         is_static: true,
         ..Default::default()
     }));
 
-    main_struct.members.push(Declaration::Function(Function {
+    component_struct.members.push(Declaration::Function(Function {
         name: "compute_layout".into(),
         signature: "(sixtyfps::ComponentRef component) -> void".into(),
         is_static: true,
@@ -306,13 +324,13 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<impl st
         ..Default::default()
     }));
 
-    main_struct.members.push(Declaration::Var(Var {
+    component_struct.members.push(Declaration::Var(Var {
         ty: "static const sixtyfps::ComponentVTable".to_owned(),
         name: "component_type".to_owned(),
         init: None,
     }));
 
-    x.declarations.push(Declaration::Struct(main_struct));
+    file.declarations.push(Declaration::Struct(component_struct));
 
     let mut tree_array = String::new();
     super::build_array_helper(component, |item, children_offset| {
@@ -333,7 +351,7 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<impl st
         }
     });
 
-    x.declarations.push(Declaration::Function(Function {
+    file.declarations.push(Declaration::Function(Function {
         name: format!("{}::visit_children", component.id),
         signature: "(sixtyfps::ComponentRef component, intptr_t index, sixtyfps::ItemVisitorRefMut visitor) -> void".into(),
         statements: Some(vec![
@@ -344,7 +362,7 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<impl st
         ..Default::default()
     }));
 
-    x.declarations.push(Declaration::Var(Var {
+    file.declarations.push(Declaration::Var(Var {
         ty: "const sixtyfps::ComponentVTable".to_owned(),
         name: format!("{}::component_type", component.id),
         init: Some(
@@ -352,12 +370,6 @@ pub fn generate(component: &Component, diag: &mut Diagnostics) -> Option<impl st
                 .to_owned(),
         ),
     }));
-
-    if diag.has_error() {
-        None
-    } else {
-        Some(x)
-    }
 }
 
 fn access_member(element: &ElementRc, name: &str) -> String {
