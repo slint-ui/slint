@@ -24,13 +24,12 @@ use std::{collections::HashMap, rc::Rc};
 impl ComponentDescription {
     /// The name of this Component as written in the .60 file
     pub fn id(&self) -> &str {
-        self.original.root_component.id.as_str()
+        self.original.id.as_str()
     }
 
     /// List of publicly declared properties or signal
     pub fn properties(&self) -> HashMap<String, sixtyfps_compilerlib::typeregister::Type> {
         self.original
-            .root_component
             .root_element
             .borrow()
             .property_declarations

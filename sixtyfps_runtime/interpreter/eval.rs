@@ -75,7 +75,7 @@ macro_rules! declare_value_conversion {
         )*
     };
 }
-declare_value_conversion!(Number => [u32, u64, i32, i64, f32, f64] );
+declare_value_conversion!(Number => [u32, u64, i32, i64, f32, f64, usize, isize] );
 declare_value_conversion!(String => [SharedString] );
 declare_value_conversion!(Bool => [bool] );
 declare_value_conversion!(Resource => [Resource] );
@@ -108,7 +108,16 @@ pub fn eval_expression(
             let item = unsafe { item_info.item_from_component(ctx.mem) };
             item_info.rtti.properties[name.as_str()].get(item, &eval_context)
         }
-        Expression::RepeaterIndexReference { .. } => todo!(),
+        Expression::RepeaterIndexReference { element } => {
+            if element.upgrade().unwrap().borrow().base_type
+                == Type::Component(ctx.component_type.original.clone())
+            {
+                let x = &ctx.component_type.custom_properties["index"];
+                unsafe { x.prop.get(&*ctx.mem.offset(x.offset as isize), &eval_context).unwrap() }
+            } else {
+                todo!();
+            }
+        }
         Expression::Cast { from, to } => {
             let v = eval_expression(&*from, ctx, eval_context);
             match (v, to) {

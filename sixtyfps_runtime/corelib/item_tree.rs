@@ -31,6 +31,10 @@ fn visit_internal<State>(
 ///
 /// The dynamic visitor is called for the dynamic nodes, its signature is
 /// `fn(base: &Base, visitor: vtable::VRefMut<ItemVisitorVTable>, dyn_index: usize)`
+///
+/// FIXME: the design of this use lots of indirection and stack frame in recursive functions
+/// Need to check if the compiler is able to optimize away some of it.
+/// Possibly we should generate code that directly call the visitor instead
 pub fn visit_item_tree<Base>(
     base: &Base,
     component: ComponentRef,

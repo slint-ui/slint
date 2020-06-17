@@ -36,6 +36,17 @@ pub(crate) struct PropertiesWithinComponent {
     pub(crate) prop: Box<dyn PropertyInfo<u8, eval::Value>>,
 }
 
+pub(crate) struct RepeaterWithinComponent {
+    /// The component description of the items to repeat
+    pub(crate) component_to_repeat: Rc<ComponentDescription>,
+    /// Offsets of the `Vec<ComponentBox>`
+    pub(crate) offset: usize,
+    /// The model
+    pub(crate) model: expression_tree::Expression,
+}
+
+type RepeaterVec = Vec<ComponentBox>;
+
 /// A wrapper around a pointer to a Component, and its description.
 ///
 /// Safety: the `mem` member must be a component instantiated with the description of
@@ -63,8 +74,10 @@ pub struct ComponentDescription {
     pub(crate) custom_properties: HashMap<String, PropertiesWithinComponent>,
     /// the usize is the offset within `mem` to the Signal<()>
     pub(crate) custom_signals: HashMap<String, usize>,
+    /// The repeaters
+    pub(crate) repeater: Vec<RepeaterWithinComponent>,
     /// Keep the Rc alive
-    pub(crate) original: object_tree::Document,
+    pub(crate) original: Rc<object_tree::Component>,
 }
 
 unsafe extern "C" fn visit_children_item(
@@ -81,11 +94,14 @@ unsafe extern "C" fn visit_children_item(
         item_tree.as_slice().into(),
         index,
         v,
-        visit_dynamic,
+        |_, mut visitor, index| {
+            let rep_in_comp = &component_type.repeater[index];
+            let vec = &*(component.as_ptr().add(rep_in_comp.offset) as *const RepeaterVec);
+            for x in vec {
+                x.visit_children_item(-1, visitor.borrow_mut());
+            }
+        },
     );
-    fn visit_dynamic(_base: &Instance, _visitor: ItemVisitorRefMut, _dyn_index: usize) {
-        todo!()
-    }
 }
 
 /// Information attached to a builtin item
@@ -133,7 +149,13 @@ pub fn load(
     if !diag.inner.is_empty() {
         return Err(diag);
     }
+    Ok(generate_component(&tree.root_component, &mut diag))
+}
 
+fn generate_component(
+    root_component: &Rc<object_tree::Component>,
+    diag: &mut diagnostics::Diagnostics,
+) -> Rc<ComponentDescription> {
     let mut rtti = HashMap::new();
     {
         use sixtyfps_corelib::abi::primitives::*;
@@ -154,40 +176,51 @@ pub fn load(
     let mut items_types = HashMap::new();
     let mut builder = dynamic_type::TypeBuilder::new();
 
-    generator::build_array_helper(&tree.root_component, |rc_item, child_offset| {
+    let mut repeater = vec![];
+
+    generator::build_array_helper(root_component, |rc_item, child_offset| {
         let item = rc_item.borrow();
-        if item.repeated.is_some() {
-            println!("FIXME: implement for");
-            return;
+        if let Some(repeated) = &item.repeated {
+            tree_array.push(ItemTreeNode::DynamicTree { index: repeater.len() });
+            let base_component = match &item.base_type {
+                Type::Component(c) => c,
+                _ => panic!("should be a component because of the repeater_component pass"),
+            };
+            repeater.push(RepeaterWithinComponent {
+                component_to_repeat: generate_component(base_component, diag),
+                offset: builder.add_field_type::<RepeaterVec>(),
+                model: repeated.model.clone(),
+            });
+        } else {
+            let rt = &rtti[&*item.base_type.as_builtin().class_name];
+            let offset = builder.add_field(rt.type_info);
+            tree_array.push(ItemTreeNode::Item {
+                item: unsafe { vtable::VOffset::from_raw(rt.vtable, offset) },
+                children_index: child_offset,
+                chilren_count: item.children.len() as _,
+            });
+            items_types.insert(
+                item.id.clone(),
+                ItemWithinComponent { offset, rtti: rt.clone(), elem: rc_item.clone() },
+            );
         }
-        let rt = &rtti[&*item.base_type.as_builtin().class_name];
-        let offset = builder.add_field(rt.type_info);
-        tree_array.push(ItemTreeNode::Item {
-            item: unsafe { vtable::VOffset::from_raw(rt.vtable, offset) },
-            children_index: child_offset,
-            chilren_count: item.children.len() as _,
-        });
-        items_types.insert(
-            item.id.clone(),
-            ItemWithinComponent { offset, rtti: rt.clone(), elem: rc_item.clone() },
-        );
     });
 
     let mut custom_properties = HashMap::new();
     let mut custom_signals = HashMap::new();
-    for (name, decl) in &tree.root_component.root_element.borrow().property_declarations {
-        fn property_info<T: Clone + Default + 'static>(
-        ) -> (Box<dyn PropertyInfo<u8, eval::Value>>, dynamic_type::StaticTypeInfo)
-        where
-            T: std::convert::TryInto<eval::Value>,
-            eval::Value: std::convert::TryInto<T>,
-        {
-            // Fixme: using u8 in PropertyInfo<> is not sound, we would need to materialize a type for out component
-            (
-                Box::new(unsafe { vtable::FieldOffset::<u8, Property<T>>::new_from_offset(0) }),
-                dynamic_type::StaticTypeInfo::new::<Property<T>>(),
-            )
-        }
+    fn property_info<T: Clone + Default + 'static>(
+    ) -> (Box<dyn PropertyInfo<u8, eval::Value>>, dynamic_type::StaticTypeInfo)
+    where
+        T: std::convert::TryInto<eval::Value>,
+        eval::Value: std::convert::TryInto<T>,
+    {
+        // Fixme: using u8 in PropertyInfo<> is not sound, we would need to materialize a type for out component
+        (
+            Box::new(unsafe { vtable::FieldOffset::<u8, Property<T>>::new_from_offset(0) }),
+            dynamic_type::StaticTypeInfo::new::<Property<T>>(),
+        )
+    }
+    for (name, decl) in &root_component.root_element.borrow().property_declarations {
         let (prop, type_info) = match decl.property_type {
             Type::Float32 => property_info::<f32>(),
             Type::Int32 => property_info::<i32>(),
@@ -203,6 +236,13 @@ pub fn load(
         };
         custom_properties.insert(
             name.clone(),
+            PropertiesWithinComponent { offset: builder.add_field(type_info), prop },
+        );
+    }
+    if root_component.parent_element.upgrade().is_some() {
+        let (prop, type_info) = property_info::<u32>();
+        custom_properties.insert(
+            "index".into(),
             PropertiesWithinComponent { offset: builder.add_field(type_info), prop },
         );
     }
@@ -227,10 +267,11 @@ pub fn load(
         items: items_types,
         custom_properties,
         custom_signals,
-        original: tree,
+        original: root_component.clone(),
+        repeater,
     };
 
-    Ok(Rc::new(t))
+    Rc::new(t)
 }
 
 /// Safety: Can only be called for ComponentVTable which are in `MyComponentType`
@@ -324,6 +365,20 @@ pub fn instentiate(component_type: Rc<ComponentDescription>) -> ComponentBox {
         }
     }
 
+    for rep_in_comp in &ctx.component_type.repeater {
+        let vec = unsafe { &mut *(mem.add(rep_in_comp.offset) as *mut RepeaterVec) };
+        let count = eval::eval_expression(&rep_in_comp.model, &*ctx, &eval_context)
+            .try_into()
+            .expect("Currently only integer model are allowed");
+        vec.resize_with(count, || instentiate(rep_in_comp.component_to_repeat.clone()));
+        for (i, x) in vec.iter().enumerate() {
+            rep_in_comp
+                .component_to_repeat
+                .set_property(x.borrow(), "index", i.try_into().unwrap())
+                .unwrap();
+        }
+    }
+
     // The destructor of ComponentBox will take care of reducing the count
     Rc::into_raw(component_type);
     component_box
@@ -345,7 +400,7 @@ unsafe extern "C" fn compute_layout(component: ComponentRef) {
 
     let eval_context = EvaluationContext { component };
 
-    for it in &component_type.original.root_component.layout_constraints.borrow().0 {
+    for it in &component_type.original.layout_constraints.borrow().0 {
         use sixtyfps_corelib::layout::*;
 
         let mut row_constraint = vec![];
