@@ -158,6 +158,7 @@ pub extern "C" fn solve_grid_layout(data: &GridLayoutData) {
 }
 
 /// Somehow this is required for the extern "C" things to be exported in a dependent dynlib
+#[doc(hidden)]
 pub fn dummy() {
     #[derive(Clone)]
     struct Foo;
