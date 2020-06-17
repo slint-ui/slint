@@ -14,7 +14,6 @@ pub trait GenericWindow {
     );
     fn window_handle(&self) -> std::cell::Ref<'_, winit::window::Window>;
     fn map_window(self: Rc<Self>, event_loop: &EventLoop);
-    fn request_redraw(&self);
 }
 
 thread_local! {
@@ -23,15 +22,11 @@ thread_local! {
 
 pub struct EventLoop {
     winit_loop: winit::event_loop::EventLoop<()>,
-    animation_driver: crate::animations::AnimationDriver,
 }
 
 impl EventLoop {
     pub fn new() -> Self {
-        Self {
-            winit_loop: winit::event_loop::EventLoop::new(),
-            animation_driver: crate::animations::AnimationDriver::default(),
-        }
+        Self { winit_loop: winit::event_loop::EventLoop::new() }
     }
 
     #[allow(unused_mut)] // mut need changes for wasm
@@ -39,13 +34,12 @@ impl EventLoop {
         use winit::event::Event;
         use winit::event_loop::{ControlFlow, EventLoopWindowTarget};
 
-        let animation_driver = self.animation_driver;
-
         let mut cursor_pos = winit::dpi::PhysicalPosition::new(0., 0.);
         let mut run_fn = move |event: Event<()>,
                                _: &EventLoopWindowTarget<()>,
                                control_flow: &mut ControlFlow| {
             *control_flow = ControlFlow::Wait;
+
             match event {
                 winit::event::Event::WindowEvent {
                     event: winit::event::WindowEvent::CloseRequested,
@@ -86,17 +80,6 @@ impl EventLoop {
                 }
 
                 _ => (),
-            }
-            if animation_driver.has_active_animations() {
-                *control_flow = ControlFlow::Poll;
-                println!("Scheduling a redraw due to active animations");
-                ALL_WINDOWS.with(|windows| {
-                    windows.borrow().values().for_each(|window| {
-                        if let Some(window) = window.upgrade() {
-                            window.request_redraw();
-                        }
-                    })
-                })
             }
         };
 
