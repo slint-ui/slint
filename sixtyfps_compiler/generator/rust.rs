@@ -443,7 +443,7 @@ fn compute_layout(component: &Component) -> TokenStream {
 
     quote! {
         fn layout_info(&self) -> sixtyfps::re_exports::LayoutInfo {
-                todo!("Implement in rust.rs")
+            todo!("Implement in rust.rs")
         }
         fn compute_layout(&self) {
             #![allow(unused)]

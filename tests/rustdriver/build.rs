@@ -33,7 +33,7 @@ fn main() -> std::io::Result<()> {
                 output,
                 "#[test] fn t_{}() -> Result<(), Box<dyn std::error::Error>> {{\n    {}\n    Ok(()) }}",
                 i,
-                x.source.replace('\n', "    ")
+                x.source.replace('\n', "\n    ")
             )?;
         }
     }
