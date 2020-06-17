@@ -119,7 +119,7 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
         #[doc = #doc]
         ///
         /// Generated from the derive macro `const-field-offset::FieldOffsets`
-        #[allow(missing_docs)]
+        #[allow(missing_docs, non_camel_case_types)]
         pub struct #field_struct_name {
             #(#vis #fields : #crate_::FieldOffset<#struct_name, #types>,)*
         }

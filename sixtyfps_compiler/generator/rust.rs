@@ -211,7 +211,14 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
     let mut index = vec![];
     if let Some(_parent_element) = component.parent_element.upgrade() {
         index.push(quote!(index));
-    }
+    } else {
+        property_and_signal_accessors.push(quote! {
+            fn run(&self) {
+                use sixtyfps::re_exports::*;
+                sixtyfps_runtime_run_component_with_gl_renderer(VRef::new(self));
+            }
+        });
+    };
 
     Some(quote!(
         #(#resource_symbols)*
@@ -230,6 +237,9 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
         impl core::default::Default for #component_id {
             fn default() -> Self {
                 #![allow(unused_braces)] // The generated code may contain unused braces
+                use sixtyfps::re_exports::*;
+                ComponentVTable_static!(static VT for #component_id);
+                #[allow(unused_mut)]
                 let mut self_ = Self {
                     #(#index : Default::default(),)*
                     #(#item_names : Default::default(),)*
@@ -263,12 +273,6 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
         }
 
         impl #component_id{
-            fn run(&self) {
-                use sixtyfps::re_exports::*;
-                sixtyfps::re_exports::ComponentVTable_static!(static VT for #component_id);
-                sixtyfps_runtime_run_component_with_gl_renderer(VRef::new(self));
-            }
-
             #(#property_and_signal_accessors)*
         }
 
@@ -279,7 +283,12 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
 /// Return an identifier suitable for this component
 fn component_id(component: &Component) -> proc_macro2::Ident {
     if component.id.is_empty() {
-        quote::format_ident!("{}", component.root_element.borrow().id)
+        let s = &component.root_element.borrow().id;
+        // Capitalize first leter:
+        let mut it = s.chars();
+        let id =
+            it.next().map(|c| c.to_ascii_uppercase()).into_iter().chain(it).collect::<String>();
+        quote::format_ident!("{}", id)
     } else {
         quote::format_ident!("{}", component.id)
     }
