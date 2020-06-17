@@ -1,4 +1,8 @@
 #pragma once
+
+#include <vector>
+#include <memory>
+
 namespace sixtyfps::internal {
 // Workaround https://github.com/eqrion/cbindgen/issues/43
 struct ComponentVTable;
@@ -47,9 +51,14 @@ constexpr inline ItemTreeNode<uint8_t> make_item_node(std::uintptr_t offset,
                                              const internal::ItemVTable *vtable,
                                              uint32_t child_count, uint32_t child_index)
 {
-    return ItemTreeNode<uint8_t> { ItemTreeNode<uint8_t>::Tag::Item,
-                          { ItemTreeNode<uint8_t>::Item_Body { {vtable, offset}, child_count,
-                                                      child_index } } };
+    return ItemTreeNode<uint8_t> { ItemTreeNode<uint8_t>::Item_Body {
+        ItemTreeNode<uint8_t>::Tag::Item, {vtable, offset}, child_count, child_index } };
+}
+
+constexpr inline ItemTreeNode<uint8_t> make_dyn_node(std::uintptr_t offset)
+{
+    return ItemTreeNode<uint8_t> { ItemTreeNode<uint8_t>::DynamicTree_Body {
+        ItemTreeNode<uint8_t>::Tag::DynamicTree, offset } };
 }
 
 using internal::sixtyfps_visit_item_tree;
@@ -60,5 +69,30 @@ using internal::solve_grid_layout;
 using internal::GridLayoutCellData;
 using internal::GridLayoutData;
 using internal::Constraint;
+
+// models
+
+template<typename C>
+struct Repeater {
+    std::vector<std::unique_ptr<C>> data;
+
+    // FIXME: use array_view (aka Slice)
+    void update_model(void *, int count) {
+        data.clear();
+        for (auto i = 0; i < count; ++i) {
+            auto x = std::make_unique<C>();
+            x->update_data(i, nullptr);
+            data.push_back(std::move(x));
+        }
+    }
+
+    void visit(ItemVisitorRefMut visitor) const {
+        for (const auto &x : data) {
+            VRef<ComponentVTable> ref{&C::component_type, x.get()};
+            ref.vtable->visit_children_item(ref, -1, visitor);
+        }
+    }
+};
+
 
 } // namespace sixtyfps

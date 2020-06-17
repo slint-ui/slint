@@ -80,7 +80,7 @@ impl CachedRenderingData {
 
 /// The item tree is an array of ItemTreeNode representing a static tree of items
 /// within a component.
-#[repr(C)]
+#[repr(u8)]
 pub enum ItemTreeNode<T> {
     /// Static item
     Item {
@@ -305,17 +305,19 @@ pub unsafe extern "C" fn sixtyfps_visit_item_tree(
     item_tree: Slice<ItemTreeNode<u8>>,
     index: isize,
     visitor: VRefMut<ItemVisitorVTable>,
+    visit_dynamic: extern "C" fn(
+        base: &u8,
+        visitor: vtable::VRefMut<ItemVisitorVTable>,
+        dyn_index: usize,
+    ),
 ) {
-    fn visit_dynamic(_base: &u8, _visitor: vtable::VRefMut<ItemVisitorVTable>, _dyn_index: usize) {
-        todo!()
-    }
     crate::item_tree::visit_item_tree(
         &*(component.as_ptr() as *const u8),
         component,
         item_tree.as_slice(),
         index,
         visitor,
-        visit_dynamic,
+        |a, b, c| visit_dynamic(a, b, c),
     )
 }
 

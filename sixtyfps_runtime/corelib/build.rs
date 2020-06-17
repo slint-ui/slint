@@ -12,7 +12,7 @@ fn main() {
     let exclude =
         ["SharedString", "Resource"].iter().map(|x| x.to_string()).collect::<Vec<String>>();
 
-    let config = cbindgen::Config {
+    let mut config = cbindgen::Config {
         pragma_once: true,
         include_version: true,
         namespaces: Some(vec!["sixtyfps".into(), "internal".into()]),
@@ -47,16 +47,10 @@ fn main() {
     cbindgen::Builder::new()
         .with_config(config.clone())
         .with_src(crate_dir.join("abi/properties.rs"))
-        .generate()
-        .expect("Unable to generate bindings")
-        .write_to_file(include_dir.join("sixtyfps_properties_internal.h"));
-
-    cbindgen::Builder::new()
-        .with_config(config.clone())
         .with_src(crate_dir.join("abi/signals.rs"))
         .generate()
         .expect("Unable to generate bindings")
-        .write_to_file(include_dir.join("sixtyfps_signals_internal.h"));
+        .write_to_file(include_dir.join("sixtyfps_properties_internal.h"));
 
     let mut resource_config = config.clone();
     resource_config.export.include = vec!["Resource".into()];
@@ -79,6 +73,12 @@ fn main() {
         .expect("Unable to generate bindings")
         .write_to_file(include_dir.join("sixtyfps_resource_internal.h"));
 
+    config.export.body.insert(
+        "ItemTreeNode".to_owned(),
+        "    constexpr ItemTreeNode(Item_Body x) : item {x} {}
+    constexpr ItemTreeNode(DynamicTree_Body x) : dynamic_tree{x} {}"
+            .to_owned(),
+    );
     cbindgen::Builder::new()
         .with_config(config)
         .with_src(crate_dir.join("abi/datastructures.rs"))

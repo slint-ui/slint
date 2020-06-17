@@ -128,7 +128,7 @@ mod cpp_ast {
 }
 
 use crate::diagnostics::{CompilerDiagnostic, Diagnostics};
-use crate::object_tree::{Component, Element, ElementRc};
+use crate::object_tree::{Component, Element, ElementRc, RepeatedElementInfo};
 use crate::typeregister::Type;
 use cpp_ast::*;
 use std::rc::Rc;
@@ -147,11 +147,6 @@ impl CppType for Type {
 }
 
 fn handle_item(item: &Element, main_struct: &mut Struct, init: &mut Vec<String>) {
-    if item.repeated.is_some() {
-        println!("FIXME: implement for");
-        return;
-    }
-
     main_struct.members.push(Declaration::Var(Var {
         ty: format!("sixtyfps::{}", item.base_type.as_builtin().class_name),
         name: item.id.clone(),
@@ -176,7 +171,7 @@ fn handle_item(item: &Element, main_struct: &mut Struct, init: &mut Vec<String>)
                 signal_accessor_prefix = signal_accessor_prefix,
                 prop = s,
                 ty = main_struct.name,
-                code = compile_expression(i)
+                code = compile_expression(i, &item.enclosing_component.upgrade().unwrap())
             )
         } else {
             let accessor_prefix = if item.property_declarations.contains_key(s) {
@@ -185,7 +180,7 @@ fn handle_item(item: &Element, main_struct: &mut Struct, init: &mut Vec<String>)
                 format!("{id}.", id = id.clone())
             };
 
-            let init = compile_expression(i);
+            let init = compile_expression(i, &item.enclosing_component.upgrade().unwrap());
             if i.is_constant() {
                 format!(
                     "{accessor_prefix}{cpp_prop}.set({init});",
@@ -209,10 +204,33 @@ fn handle_item(item: &Element, main_struct: &mut Struct, init: &mut Vec<String>)
             }
         }
     }));
+}
 
-    for i in &item.children {
-        handle_item(&i.borrow(), main_struct, init);
-    }
+fn handle_repeater(
+    repeated: &RepeatedElementInfo,
+    base_component: &Rc<Component>,
+    repeater_count: i32,
+    component_struct: &mut Struct,
+    init: &mut Vec<String>,
+) {
+    let repeater_id = format!("repeater_{}", repeater_count);
+    assert!(
+        repeated.model.is_constant() && matches!(repeated.model.ty(), Type::Int32 | Type::Float32),
+        "TODO: currently model can only be integers"
+    );
+    // FIXME: that's not the right component for this expression but that's ok because it is a constant for now
+    let count = compile_expression(&repeated.model, &base_component);
+    init.push(format!(
+        "self->{repeater_id}.update_model(nullptr, {count});",
+        repeater_id = repeater_id,
+        count = count
+    ));
+
+    component_struct.members.push(Declaration::Var(Var {
+        ty: format!("sixtyfps::Repeater<{}>", component_id(base_component)),
+        name: repeater_id,
+        init: None,
+    }));
 }
 
 /// Returns the text of the C++ code produced by the given root component
@@ -236,11 +254,14 @@ pub fn generate(
 }
 
 fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Diagnostics) {
-    let mut component_struct = Struct { name: component.id.clone(), ..Default::default() };
+    let component_id = component_id(component);
+    let mut component_struct = Struct { name: component_id.clone(), ..Default::default() };
+
+    let is_root = component.parent_element.upgrade().is_none();
 
     for (cpp_name, property_decl) in component.root_element.borrow().property_declarations.iter() {
         let ty = if property_decl.property_type == Type::Signal {
-            if property_decl.expose_in_public_api {
+            if property_decl.expose_in_public_api && is_root {
                 let signal_emitter: Vec<String> = vec![
                     "[[maybe_unused]] auto context = sixtyfps::internal::EvaluationContext{ VRefMut<sixtyfps::ComponentVTable> { &component_type, this } };".into(),
                     format!("{}.emit(&context);", cpp_name)
@@ -266,7 +287,7 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Dia
                 "".into()
             });
 
-            if property_decl.expose_in_public_api {
+            if property_decl.expose_in_public_api && is_root {
                 let prop_getter: Vec<String> = vec![
                     "auto context = sixtyfps::internal::EvaluationContext{ VRefMut<sixtyfps::ComponentVTable> { &component_type, this } };".into(),
                     format!("return {}.get(&context);", cpp_name)
@@ -298,11 +319,62 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Dia
         }));
     }
 
+    if !is_root {
+        component_struct.members.push(Declaration::Var(Var {
+            ty: "sixtyfps::Property<int>".into(),
+            name: "index".into(),
+            init: None,
+        }));
+        component_struct.members.push(Declaration::Function(Function {
+            name: "update_data".into(),
+            signature: "(int i, void*) -> void".into(),
+            statements: Some(vec!["index.set(i);".into()]),
+            ..Function::default()
+        }));
+    }
+
     let mut init = vec!["[[maybe_unused]] auto self = this;".into()];
-    handle_item(&component.root_element.borrow(), &mut component_struct, &mut init);
+    let mut tree_array = String::new();
+    let mut repeater_count = 0;
+    super::build_array_helper(component, |item, children_offset| {
+        let item = item.borrow();
+        if let Some(repeated) = &item.repeated {
+            tree_array = format!(
+                "{}{}sixtyfps::make_dyn_node({})",
+                tree_array,
+                if tree_array.is_empty() { "" } else { ", " },
+                repeater_count,
+            );
+            let base_component = match &item.base_type {
+                Type::Component(c) => c,
+                _ => panic!("should be a component because of the repeater_component pass"),
+            };
+            generate_component(file, base_component, diag);
+            handle_repeater(
+                repeated,
+                base_component,
+                repeater_count,
+                &mut component_struct,
+                &mut init,
+            );
+            repeater_count += 1;
+        } else {
+            tree_array = format!(
+                "{}{}sixtyfps::make_item_node(offsetof({}, {}), &sixtyfps::{}, {}, {})",
+                tree_array,
+                if tree_array.is_empty() { "" } else { ", " },
+                &component_id,
+                item.id,
+                item.base_type.as_builtin().vtable_symbol,
+                item.children.len(),
+                children_offset,
+            );
+            handle_item(&*item, &mut component_struct, &mut init);
+        }
+    });
 
     component_struct.members.push(Declaration::Function(Function {
-        name: component.id.clone(),
+        name: component_id.clone(),
         signature: "()".to_owned(),
         is_constructor: true,
         statements: Some(init),
@@ -332,44 +404,38 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Dia
 
     file.declarations.push(Declaration::Struct(component_struct));
 
-    let mut tree_array = String::new();
-    super::build_array_helper(component, |item, children_offset| {
-        let item = item.borrow();
-        if item.repeated.is_none() {
-            tree_array = format!(
-                "{}{}sixtyfps::make_item_node(offsetof({}, {}), &sixtyfps::{}, {}, {})",
-                tree_array,
-                if tree_array.is_empty() { "" } else { ", " },
-                &component.id,
-                item.id,
-                item.base_type.as_builtin().vtable_symbol,
-                item.children.len(),
-                children_offset,
-            )
-        } else {
-            println!("FIXME: implement for")
-        }
-    });
-
     file.declarations.push(Declaration::Function(Function {
-        name: format!("{}::visit_children", component.id),
+        name: format!("{}::visit_children", component_id),
         signature: "(sixtyfps::ComponentRef component, intptr_t index, sixtyfps::ItemVisitorRefMut visitor) -> void".into(),
         statements: Some(vec![
             "static const sixtyfps::ItemTreeNode<uint8_t> children[] {".to_owned(),
             format!("    {} }};", tree_array),
-            "return sixtyfps::sixtyfps_visit_item_tree(component, { const_cast<sixtyfps::ItemTreeNode<uint8_t>*>(children), std::size(children)}, index, visitor);".to_owned(),
+            "static const auto dyn_visit = [] (const uint8_t *base, sixtyfps::ItemVisitorRefMut visitor, uintptr_t dyn_index) {".to_owned(),
+            format!("    [[maybe_unused]] auto self = reinterpret_cast<const {}*>(base);", component_id),
+            format!("    switch(dyn_index) {{ {} }}\n  }};", (0..repeater_count).map(|i| {
+                format!("\n        case {i}: self->repeater_{i}.visit(visitor) ;", i=i)
+            }).collect::<Vec<_>>().join("")),
+            "return sixtyfps::sixtyfps_visit_item_tree(component, { const_cast<sixtyfps::ItemTreeNode<uint8_t>*>(children), std::size(children)}, index, visitor, dyn_visit);".to_owned(),
         ]),
         ..Default::default()
     }));
 
     file.declarations.push(Declaration::Var(Var {
         ty: "const sixtyfps::ComponentVTable".to_owned(),
-        name: format!("{}::component_type", component.id),
+        name: format!("{}::component_type", component_id),
         init: Some(
             "{ nullptr, sixtyfps::dummy_destory, visit_children, nullptr, compute_layout }"
                 .to_owned(),
         ),
     }));
+}
+
+fn component_id(component: &Rc<Component>) -> String {
+    if component.id.is_empty() {
+        format!("Component_{}", component.root_element.borrow().id)
+    } else {
+        component.id.clone()
+    }
 }
 
 fn access_member(element: &ElementRc, name: &str) -> String {
@@ -381,7 +447,7 @@ fn access_member(element: &ElementRc, name: &str) -> String {
     }
 }
 
-fn compile_expression(e: &crate::expression_tree::Expression) -> String {
+fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Component>) -> String {
     use crate::expression_tree::Expression::*;
     use crate::expression_tree::NamedReference;
     match e {
@@ -394,10 +460,15 @@ fn compile_expression(e: &crate::expression_tree::Expression) -> String {
         SignalReference(NamedReference { element, name }) => {
             format!(r#"self->{}"#, access_member(&element.upgrade().unwrap(), name.as_str()))
         }
-        RepeaterIndexReference { .. } => format!("\n#error NOT IMPLEMENTED\n"),
-
+        RepeaterIndexReference { element } => {
+            if element.upgrade().unwrap().borrow().base_type == Type::Component(component.clone()) {
+                "self->index.get(context)".to_owned()
+            } else {
+                todo!();
+            }
+        }
         Cast { from, to } => {
-            let f = compile_expression(&*from);
+            let f = compile_expression(&*from, component);
             match (from.ty(), to) {
                 (Type::Float32, Type::String) | (Type::Int32, Type::String) => {
                     format!("sixtyfps::SharedString::from_number({})", f)
@@ -406,14 +477,14 @@ fn compile_expression(e: &crate::expression_tree::Expression) -> String {
             }
         }
         CodeBlock(sub) => {
-            let mut x = sub.iter().map(|e| compile_expression(e)).collect::<Vec<_>>();
+            let mut x = sub.iter().map(|e| compile_expression(e, component)).collect::<Vec<_>>();
             x.last_mut().map(|s| *s = format!("return {};", s));
 
             format!("[&]{{ {} }}()", x.join(";"))
         }
         FunctionCall { function } => {
             if matches!(function.ty(), Type::Signal) {
-                format!("{}.emit(context)", compile_expression(&*function))
+                format!("{}.emit(context)", compile_expression(&*function, component))
             } else {
                 format!("\n#error the function `{:?}` is not a signal\n", function)
             }
@@ -422,24 +493,24 @@ fn compile_expression(e: &crate::expression_tree::Expression) -> String {
             PropertyReference(NamedReference { element, name }) => format!(
                 r#"self->{lhs}.set(self->{lhs}.get(context) {op} {rhs})"#,
                 lhs = access_member(&element.upgrade().unwrap(), name.as_str()),
-                rhs = compile_expression(&*rhs),
+                rhs = compile_expression(&*rhs, component),
                 op = op
             ),
             _ => panic!("typechecking should make sure this was a PropertyReference"),
         },
         BinaryExpression { lhs, rhs, op } => format!(
             "({lhs} {op} {rhs})",
-            lhs = compile_expression(&*lhs),
-            rhs = compile_expression(&*rhs),
+            lhs = compile_expression(&*lhs, component),
+            rhs = compile_expression(&*rhs, component),
             op = op,
         ),
         ResourceReference { absolute_source_path } => {
             format!(r#"sixtyfps::Resource(sixtyfps::SharedString("{}"))"#, absolute_source_path)
         }
         Condition { condition, true_expr, false_expr } => {
-            let cond_code = compile_expression(condition);
-            let true_code = compile_expression(true_expr);
-            let false_code = compile_expression(false_expr);
+            let cond_code = compile_expression(condition, component);
+            let true_code = compile_expression(true_expr, component);
+            let false_code = compile_expression(false_expr, component);
             format!(
                 r#"[&]() -> {} {{ if ({}) {{ return {}; }} else {{ return {}; }}}}()"#,
                 e.ty().cpp_type().unwrap(),
@@ -453,12 +524,12 @@ fn compile_expression(e: &crate::expression_tree::Expression) -> String {
     }
 }
 
-fn compute_layout(component: &Component) -> Vec<String> {
+fn compute_layout(component: &Rc<Component>) -> Vec<String> {
     let mut res = vec![];
 
     res.push(format!(
         "[[maybe_unused]] auto self = reinterpret_cast<const {ty}*>(component.instance);",
-        ty = component.id
+        ty = component_id(component)
     ));
     res.push("[[maybe_unused]] sixtyfps::EvaluationContext context{component};".to_owned());
     for grid in component.layout_constraints.borrow().0.iter() {

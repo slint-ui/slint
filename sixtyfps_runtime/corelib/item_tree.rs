@@ -28,13 +28,16 @@ fn visit_internal<State>(
 }
 
 /// Visit the children within an array of ItemTreeNode
+///
+/// The dynamic visitor is called for the dynamic nodes, its signature is
+/// `fn(base: &Base, visitor: vtable::VRefMut<ItemVisitorVTable>, dyn_index: usize)`
 pub fn visit_item_tree<Base>(
     base: &Base,
     component: ComponentRef,
     item_tree: &[ItemTreeNode<Base>],
     index: isize,
     mut visitor: vtable::VRefMut<ItemVisitorVTable>,
-    visit_dynamic: fn(base: &Base, visitor: vtable::VRefMut<ItemVisitorVTable>, dyn_index: usize),
+    visit_dynamic: impl Fn(&Base, vtable::VRefMut<ItemVisitorVTable>, usize),
 ) {
     let mut visit_at_index = |idx: usize| match &item_tree[idx] {
         ItemTreeNode::Item { item, .. } => {

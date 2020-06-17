@@ -1,6 +1,6 @@
 #pragma once
 #include <string_view>
-#include "sixtyfps_signals_internal.h"
+#include "sixtyfps_properties_internal.h"
 
 namespace sixtyfps {
 
