@@ -60,5 +60,5 @@ pub fn run_component<GraphicsBackend: graphics::GraphicsBackend + 'static>(
     let event_loop = eventloop::EventLoop::new();
     window.clone().map_window(&event_loop);
 
-    eventloop::run(event_loop, component);
+    event_loop.run(component);
 }

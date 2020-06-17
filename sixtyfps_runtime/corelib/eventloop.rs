@@ -4,14 +4,6 @@ use std::rc::{Rc, Weak};
 #[cfg(not(target_arch = "wasm32"))]
 use winit::platform::desktop::EventLoopExtDesktop;
 
-pub struct EventLoop(pub(crate) winit::event_loop::EventLoop<()>);
-
-impl EventLoop {
-    pub fn new() -> Self {
-        Self(winit::event_loop::EventLoop::new())
-    }
-}
-
 pub trait GenericWindow {
     fn draw(&self, component: vtable::VRef<crate::abi::datastructures::ComponentVTable>);
     fn process_mouse_input(
@@ -28,17 +20,22 @@ thread_local! {
     pub(crate) static ALL_WINDOWS: RefCell<std::collections::HashMap<winit::window::WindowId, Weak<dyn GenericWindow>>> = RefCell::new(std::collections::HashMap::new());
 }
 
-#[allow(unused_mut)] // mut need changes for wasm
-pub fn run(
-    mut event_loop: EventLoop,
-    component: vtable::VRef<crate::abi::datastructures::ComponentVTable>,
-) {
-    use winit::event::Event;
-    use winit::event_loop::{ControlFlow, EventLoopWindowTarget};
+pub struct EventLoop(pub(crate) winit::event_loop::EventLoop<()>);
 
-    let mut cursor_pos = winit::dpi::PhysicalPosition::new(0., 0.);
-    let mut run_fn =
-        move |event: Event<()>, _: &EventLoopWindowTarget<()>, control_flow: &mut ControlFlow| {
+impl EventLoop {
+    pub fn new() -> Self {
+        Self(winit::event_loop::EventLoop::new())
+    }
+
+    #[allow(unused_mut)] // mut need changes for wasm
+    pub fn run(mut self, component: vtable::VRef<crate::abi::datastructures::ComponentVTable>) {
+        use winit::event::Event;
+        use winit::event_loop::{ControlFlow, EventLoopWindowTarget};
+
+        let mut cursor_pos = winit::dpi::PhysicalPosition::new(0., 0.);
+        let mut run_fn = move |event: Event<()>,
+                               _: &EventLoopWindowTarget<()>,
+                               control_flow: &mut ControlFlow| {
             *control_flow = ControlFlow::Wait;
 
             match event {
@@ -84,19 +81,20 @@ pub fn run(
             }
         };
 
-    #[cfg(not(target_arch = "wasm32"))]
-    event_loop.0.run_return(run_fn);
-    #[cfg(target_arch = "wasm32")]
-    {
-        // Since wasm does not have a run_return function that takes a non-static closure,
-        // we use this hack to work that around
-        scoped_tls_hkt::scoped_thread_local!(static mut RUN_FN_TLS: for <'a> &'a mut dyn FnMut(
-            Event<'_, ()>,
-            &EventLoopWindowTarget<()>,
-            &mut ControlFlow,
-        ));
-        RUN_FN_TLS.set(&mut run_fn, move || {
-            event_loop.0.run(|e, t, cf| RUN_FN_TLS.with(|mut run_fn| run_fn(e, t, cf)))
-        });
+        #[cfg(not(target_arch = "wasm32"))]
+        self.0.run_return(run_fn);
+        #[cfg(target_arch = "wasm32")]
+        {
+            // Since wasm does not have a run_return function that takes a non-static closure,
+            // we use this hack to work that around
+            scoped_tls_hkt::scoped_thread_local!(static mut RUN_FN_TLS: for <'a> &'a mut dyn FnMut(
+                Event<'_, ()>,
+                &EventLoopWindowTarget<()>,
+                &mut ControlFlow,
+            ));
+            RUN_FN_TLS.set(&mut run_fn, move || {
+                self.0.run(|e, t, cf| RUN_FN_TLS.with(|mut run_fn| run_fn(e, t, cf)))
+            });
+        }
     }
 }
