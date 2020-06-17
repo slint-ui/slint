@@ -24,8 +24,13 @@ struct PropertyImpl {
     //updating: bool,
 }
 
-trait PropertyNotify {
+/// PropertyNotify is the interface that allows keeping track of dependencies between
+/// property bindings.
+    /// mark_dirty() is called to notify a property that its binding may need to be re-evaluated
+    /// because one of its dependencies may have changed.
     fn mark_dirty(self: Rc<Self>);
+    /// notify() is called to register the property (self) with the currently (thread-local) evaluating
+    /// property binding.
     fn notify(self: Rc<Self>);
 }
 
