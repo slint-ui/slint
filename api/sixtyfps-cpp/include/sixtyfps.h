@@ -26,15 +26,24 @@ using internal::ItemTreeNode;
 using ComponentRef = VRef<ComponentVTable>;
 using ItemVisitorRefMut = VRefMut<internal::ItemVisitorVTable>;
 
-template<typename Component>
-void run(Component *c)
+struct ComponentWindow
 {
-    // FIXME! some static assert that the component is indeed a generated
-    // component matching the vtable.  In fact, i think the VTable should be a
-    // static member of the Component
-    internal::sixtyfps_runtime_run_component_with_gl_renderer(
+    ComponentWindow() { internal::sixtyfps_component_window_gl_renderer_init(&inner); }
+    ~ComponentWindow() { internal::sixtyfps_component_window_drop(&inner); }
+    ComponentWindow(const ComponentWindow &) = delete;
+    ComponentWindow(ComponentWindow &&) = delete;
+    ComponentWindow &operator=(const ComponentWindow &) = delete;
+
+    template<typename Component>
+    void run(Component *c)
+    {
+        sixtyfps_component_window_run(&inner,
             VRefMut<ComponentVTable> { &Component::component_type, c });
-}
+    }
+
+private:
+    internal::ComponentWindowOpaque inner;
+};
 
 using internal::EvaluationContext;
 using internal::Image;

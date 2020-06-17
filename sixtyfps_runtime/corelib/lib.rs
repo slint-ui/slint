@@ -47,18 +47,3 @@ pub use abi::signals::Signal;
 
 pub mod eventloop;
 mod item_rendering;
-
-pub fn run_component<GraphicsBackend: graphics::GraphicsBackend + 'static>(
-    component: vtable::VRef<crate::abi::datastructures::ComponentVTable>,
-    graphics_backend_factory: impl Fn(&eventloop::EventLoop, winit::window::WindowBuilder) -> GraphicsBackend
-        + 'static,
-) {
-    use eventloop::GenericWindow;
-
-    let window = graphics::GraphicsWindow::new(graphics_backend_factory);
-
-    let event_loop = eventloop::EventLoop::new();
-    window.clone().map_window(&event_loop);
-
-    event_loop.run(component);
-}

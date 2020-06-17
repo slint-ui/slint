@@ -17,5 +17,6 @@ int main()
         counter.set(counter.get(ctx) - 1);
     });
 
-    sixtyfps::run(&component);
+    sixtyfps::ComponentWindow window;
+    window.run(&component);
 }

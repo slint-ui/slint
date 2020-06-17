@@ -4,10 +4,18 @@ use std::env;
 use std::path::PathBuf;
 
 fn main() {
-    let include = ["Rectangle", "Image", "TouchArea", "Text", "ComponentVTable", "Slice"]
-        .iter()
-        .map(|x| x.to_string())
-        .collect::<Vec<String>>();
+    let include = [
+        "Rectangle",
+        "Image",
+        "TouchArea",
+        "Text",
+        "ComponentVTable",
+        "Slice",
+        "ComponentWindowOpaque",
+    ]
+    .iter()
+    .map(|x| x.to_string())
+    .collect::<Vec<String>>();
 
     let exclude =
         ["SharedString", "Resource"].iter().map(|x| x.to_string()).collect::<Vec<String>>();
@@ -54,7 +62,11 @@ fn main() {
 
     let mut resource_config = config.clone();
     resource_config.export.include = vec!["Resource".into()];
-    resource_config.export.exclude = vec!["sixtyfps_visit_item_tree".into()];
+    resource_config.export.exclude = vec![
+        "sixtyfps_visit_item_tree".into(),
+        "sixtyfps_component_window_drop".into(),
+        "sixtyfps_component_window_run".into(),
+    ];
     resource_config.enumeration = cbindgen::EnumConfig {
         derive_tagged_enum_copy_assignment: true,
         derive_tagged_enum_copy_constructor: true,

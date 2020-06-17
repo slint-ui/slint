@@ -135,9 +135,7 @@ impl<Backend: GraphicsBackend + 'static> GraphicsWindow<Backend> {
 impl<Backend: GraphicsBackend> Drop for GraphicsWindow<Backend> {
     fn drop(&mut self) {
         if let Some(backend) = self.graphics_backend.as_ref() {
-            crate::eventloop::ALL_WINDOWS.with(|windows| {
-                windows.borrow_mut().remove(&backend.window().id());
-            });
+            crate::eventloop::unregister_window(backend.window().id());
         }
     }
 }
@@ -231,11 +229,9 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow
             window_id
         };
 
-        crate::eventloop::ALL_WINDOWS.with(|windows| {
-            windows.borrow_mut().insert(
-                id,
-                Rc::downgrade(&(self.clone() as Rc<dyn crate::eventloop::GenericWindow>)),
-            )
-        });
+        crate::eventloop::register_window(
+            id,
+            self.clone() as Rc<dyn crate::eventloop::GenericWindow>,
+        );
     }
 }

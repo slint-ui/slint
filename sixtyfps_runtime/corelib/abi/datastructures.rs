@@ -267,6 +267,8 @@ pub struct MouseEvent {
 
 /// The ComponentWindow is the (rust) facing public type that can render the items
 /// of components to the screen.
+#[repr(C)]
+#[derive(Clone)]
 pub struct ComponentWindow(std::rc::Rc<dyn crate::eventloop::GenericWindow>);
 
 impl ComponentWindow {
@@ -282,6 +284,34 @@ impl ComponentWindow {
 
         event_loop.run(component);
     }
+}
+
+#[allow(non_camel_case_types)]
+type c_void = ();
+
+/// Same layout as ComponentWindow (fat pointer)
+#[repr(C)]
+pub struct ComponentWindowOpaque(*const c_void, *const c_void);
+
+/// Releases the reference to the component window held by handle.
+#[no_mangle]
+pub unsafe extern "C" fn sixtyfps_component_window_drop(handle: *mut ComponentWindowOpaque) {
+    println!("sixtyfps_component_window_drop()");
+    assert_eq!(
+        core::mem::size_of::<ComponentWindow>(),
+        core::mem::size_of::<ComponentWindowOpaque>()
+    );
+    core::ptr::read(handle as *mut ComponentWindow);
+}
+
+/// Spins an event loop and renders the items of the provided component in this window.
+#[no_mangle]
+pub unsafe extern "C" fn sixtyfps_component_window_run(
+    handle: *mut ComponentWindowOpaque,
+    component: vtable::VRef<ComponentVTable>,
+) {
+    let window = &*(handle as *const ComponentWindow);
+    window.run(component);
 }
 
 #[repr(C)]

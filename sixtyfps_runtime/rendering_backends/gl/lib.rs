@@ -5,7 +5,7 @@ use itertools::Itertools;
 use lyon::tessellation::geometry_builder::{BuffersBuilder, VertexBuffers};
 use lyon::tessellation::{FillAttributes, FillOptions, FillTessellator};
 use sixtyfps_corelib::abi::datastructures::{
-    Color, ComponentVTable, ComponentWindow, Point, Rect, RenderingPrimitive, Resource, Size,
+    Color, ComponentWindow, ComponentWindowOpaque, Point, Rect, RenderingPrimitive, Resource, Size,
 };
 use sixtyfps_corelib::graphics::{
     FillStyle, Frame as GraphicsFrame, GraphicsBackend, GraphicsWindow, HasRenderingPrimitive,
@@ -627,16 +627,15 @@ impl Drop for GLRenderer {
     }
 }
 
-/// Run the given component
-/// Both pointer must be valid until the call to vtable.destroy
-/// vtable will is a *const, and inner like a *mut
 #[no_mangle]
-pub extern "C" fn sixtyfps_runtime_run_component_with_gl_renderer(
-    component: vtable::VRef<ComponentVTable>,
+pub unsafe extern "C" fn sixtyfps_component_window_gl_renderer_init(
+    out: *mut ComponentWindowOpaque,
 ) {
-    sixtyfps_corelib::run_component(component, |event_loop, window_builder| {
-        GLRenderer::new(&event_loop.get_winit_event_loop(), window_builder)
-    });
+    assert_eq!(
+        core::mem::size_of::<ComponentWindow>(),
+        core::mem::size_of::<ComponentWindowOpaque>()
+    );
+    core::ptr::write(out as *mut ComponentWindow, create_gl_window());
 }
 
 pub fn create_gl_window() -> ComponentWindow {

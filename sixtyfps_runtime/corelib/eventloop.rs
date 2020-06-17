@@ -17,7 +17,19 @@ pub trait GenericWindow {
 }
 
 thread_local! {
-    pub(crate) static ALL_WINDOWS: RefCell<std::collections::HashMap<winit::window::WindowId, Weak<dyn GenericWindow>>> = RefCell::new(std::collections::HashMap::new());
+    static ALL_WINDOWS: RefCell<std::collections::HashMap<winit::window::WindowId, Weak<dyn GenericWindow>>> = RefCell::new(std::collections::HashMap::new());
+}
+
+pub(crate) fn register_window(id: winit::window::WindowId, window: Rc<dyn GenericWindow>) {
+    ALL_WINDOWS.with(|windows| {
+        windows.borrow_mut().insert(id, Rc::downgrade(&window));
+    })
+}
+
+pub(crate) fn unregister_window(id: winit::window::WindowId) {
+    ALL_WINDOWS.with(|windows| {
+        windows.borrow_mut().remove(&id);
+    })
 }
 
 pub struct EventLoop {
@@ -28,7 +40,6 @@ impl EventLoop {
     pub fn new() -> Self {
         Self { winit_loop: winit::event_loop::EventLoop::new() }
     }
-
     #[allow(unused_mut)] // mut need changes for wasm
     pub fn run(mut self, component: vtable::VRef<crate::abi::datastructures::ComponentVTable>) {
         use winit::event::Event;
