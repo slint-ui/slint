@@ -16,6 +16,25 @@ thread_local!(static CURRENT_BINDING : RefCell<Option<Rc<dyn PropertyNotify>>> =
 
 trait Binding {
     fn evaluate(self: Rc<Self>, value_ptr: *mut (), context: &EvaluationContext);
+    /// When a new value is set on a property that has a binding, this function returns false
+    /// if the binding wants to remain active. By default bindings are replaced when
+    /// a new value is set on a property.
+    fn allow_replace_binding_with_value(self: Rc<Self>, _value: *const ()) -> bool {
+        return true;
+    }
+
+    /// When a new binding is set on a property that has a binding, this function returns false
+    /// if the binding wants to remain active. By default bindings are replaced when a
+    /// new binding is set a on property.
+    fn allow_replace_binding_with_binding(self: Rc<Self>, _binding: Rc<dyn Binding>) -> bool {
+        return true;
+    }
+
+    /// This function is used to notify the binding that one of the dependencies was changed
+    /// and therefore this binding may evaluate to a different value, too.
+    fn mark_dirty(self: Rc<Self>, _reason: DirtyReason) {}
+
+    fn set_notify_callback(self: Rc<Self>, _callback: Rc<dyn PropertyNotify>) {}
 }
 
 #[derive(Default)]
@@ -27,28 +46,39 @@ struct PropertyImpl {
     //updating: bool,
 }
 
+/// DirtyReason is used to convey to a dependency the reason for the request to
+/// mark itself as dirty.
+enum DirtyReason {
+    /// The dependency shall be considered dirty because a property's value or
+    /// subsequent dependency has changed.
+    ValueOrDependencyHasChanged,
+}
+
 /// PropertyNotify is the interface that allows keeping track of dependencies between
 /// property bindings.
 trait PropertyNotify {
     /// mark_dirty() is called to notify a property that its binding may need to be re-evaluated
     /// because one of its dependencies may have changed.
-    fn mark_dirty(self: Rc<Self>);
+    fn mark_dirty(self: Rc<Self>, reason: DirtyReason);
     /// notify() is called to register the currently (thread-local) evaluating binding as a
     /// dependency for this property (self).
     fn register_current_binding_as_dependency(self: Rc<Self>);
 }
 
 impl PropertyNotify for RefCell<PropertyImpl> {
-    fn mark_dirty(self: Rc<Self>) {
+    fn mark_dirty(self: Rc<Self>, reason: DirtyReason) {
         let mut v = vec![];
         {
             let mut dep = self.borrow_mut();
             dep.dirty = true;
+            if let Some(binding) = &dep.binding {
+                binding.clone().mark_dirty(reason);
+            }
             std::mem::swap(&mut dep.dependencies, &mut v);
         }
         for d in &v {
             if let Some(d) = d.upgrade() {
-                d.mark_dirty();
+                d.mark_dirty(DirtyReason::ValueOrDependencyHasChanged);
             }
         }
     }
@@ -131,21 +161,28 @@ impl<T: Clone + 'static> Property<T> {
     /// be marked as dirty.
     pub fn set(&self, t: T) {
         {
+            let maybe_binding = self.inner.borrow().binding.as_ref().map(|binding| binding.clone());
+            if let Some(existing_binding) = maybe_binding {
+                if !existing_binding.allow_replace_binding_with_value((&t) as *const T as *const ())
+                {
+                    return;
+                }
+            }
             let mut lock = self.inner.borrow_mut();
             lock.binding = None;
             lock.dirty = false;
             unsafe { *self.value.get() = t };
         }
-        self.inner.clone().mark_dirty();
+        self.inner.clone().mark_dirty(DirtyReason::ValueOrDependencyHasChanged);
         self.inner.borrow_mut().dirty = false;
     }
 
     /// Set a binding to this property.
     ///
-    /// Binding are evaluated lazily from calling get, and the return value of the binding
+    /// Bindings are evaluated lazily from calling get, and the return value of the binding
     /// is the new value.
     ///
-    /// If other properties have binding depending of this property, these properties will
+    /// If other properties have bindings depending of this property, these properties will
     /// be marked as dirty.
     pub fn set_binding(&self, f: impl (Fn(&EvaluationContext) -> T) + 'static) {
         struct BindingFunction {
@@ -165,8 +202,29 @@ impl<T: Clone + 'static> Property<T> {
 
         let binding_object = Rc::new(BindingFunction { function: Box::new(real_binding) });
 
-        self.inner.borrow_mut().binding = Some(binding_object);
-        self.inner.clone().mark_dirty();
+        let maybe_binding = self.inner.borrow().binding.as_ref().map(|binding| binding.clone());
+        if let Some(existing_binding) = maybe_binding {
+            if !existing_binding.allow_replace_binding_with_binding(binding_object.clone()) {
+                return;
+            }
+        }
+
+        self.set_binding_object(binding_object);
+    }
+
+    /// Set a binding object to this property.
+    ///
+    /// Bindings are evaluated lazily from calling get, and the return value of the binding
+    /// is the new value.
+    ///
+    /// If other properties have bindings depending of this property, these properties will
+    /// be marked as dirty.
+    fn set_binding_object(&self, binding_object: Rc<dyn Binding>) -> Option<Rc<dyn Binding>> {
+        binding_object.clone().set_notify_callback(self.inner.clone());
+        let old_binding =
+            std::mem::replace(&mut self.inner.borrow_mut().binding, Some(binding_object));
+        self.inner.clone().mark_dirty(DirtyReason::ValueOrDependencyHasChanged);
+        old_binding
     }
 
     /// Call the binding if the property is dirty to update the stored value
@@ -283,7 +341,7 @@ pub unsafe extern "C" fn sixtyfps_property_update(
 #[no_mangle]
 pub unsafe extern "C" fn sixtyfps_property_set_changed(out: *const PropertyHandleOpaque) {
     let inner = &*(out as *const PropertyHandle);
-    inner.clone().mark_dirty();
+    inner.clone().mark_dirty(DirtyReason::ValueOrDependencyHasChanged);
     inner.borrow_mut().dirty = false;
     inner.borrow_mut().binding = None;
 }
@@ -329,7 +387,7 @@ pub unsafe extern "C" fn sixtyfps_property_set_binding(
         Rc::new(CFunctionBinding { binding_function: binding, user_data, drop_user_data });
 
     inner.borrow_mut().binding = Some(binding);
-    inner.clone().mark_dirty();
+    inner.clone().mark_dirty(DirtyReason::ValueOrDependencyHasChanged);
 }
 
 /// Destroy handle
