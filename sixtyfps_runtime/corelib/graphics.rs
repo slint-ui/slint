@@ -212,7 +212,7 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow
     fn window_handle(&self) -> std::cell::Ref<winit::window::Window> {
         std::cell::Ref::map(self.borrow(), |mw| mw.graphics_backend.as_ref().unwrap().window())
     }
-    fn map_window(self: Rc<Self>, event_loop: &winit::event_loop::EventLoop<()>) {
+    fn map_window(self: Rc<Self>, event_loop: &crate::eventloop::EventLoop) {
         if self.borrow().graphics_backend.is_some() {
             return;
         }
@@ -222,7 +222,7 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow
 
             let mut this = self.borrow_mut();
             let factory = this.graphics_backend_factory.as_mut();
-            let backend = factory(&event_loop, window_builder);
+            let backend = factory(&event_loop.0, window_builder);
 
             let window_id = backend.window().id();
 

@@ -4,6 +4,14 @@ use std::rc::{Rc, Weak};
 #[cfg(not(target_arch = "wasm32"))]
 use winit::platform::desktop::EventLoopExtDesktop;
 
+pub struct EventLoop(pub(crate) winit::event_loop::EventLoop<()>);
+
+impl EventLoop {
+    pub fn new() -> Self {
+        Self(winit::event_loop::EventLoop::new())
+    }
+}
+
 pub trait GenericWindow {
     fn draw(&self, component: vtable::VRef<crate::abi::datastructures::ComponentVTable>);
     fn process_mouse_input(
@@ -13,7 +21,7 @@ pub trait GenericWindow {
         component: vtable::VRef<crate::abi::datastructures::ComponentVTable>,
     );
     fn window_handle(&self) -> std::cell::Ref<'_, winit::window::Window>;
-    fn map_window(self: Rc<Self>, event_loop: &winit::event_loop::EventLoop<()>);
+    fn map_window(self: Rc<Self>, event_loop: &EventLoop);
 }
 
 thread_local! {
@@ -22,7 +30,7 @@ thread_local! {
 
 #[allow(unused_mut)] // mut need changes for wasm
 pub fn run(
-    mut event_loop: winit::event_loop::EventLoop<()>,
+    mut event_loop: EventLoop,
     component: vtable::VRef<crate::abi::datastructures::ComponentVTable>,
 ) {
     use winit::event::Event;
@@ -77,7 +85,7 @@ pub fn run(
         };
 
     #[cfg(not(target_arch = "wasm32"))]
-    event_loop.run_return(run_fn);
+    event_loop.0.run_return(run_fn);
     #[cfg(target_arch = "wasm32")]
     {
         // Since wasm does not have a run_return function that takes a non-static closure,
@@ -88,7 +96,7 @@ pub fn run(
             &mut ControlFlow,
         ));
         RUN_FN_TLS.set(&mut run_fn, move || {
-            event_loop.run(|e, t, cf| RUN_FN_TLS.with(|mut run_fn| run_fn(e, t, cf)))
+            event_loop.0.run(|e, t, cf| RUN_FN_TLS.with(|mut run_fn| run_fn(e, t, cf)))
         });
     }
 }
