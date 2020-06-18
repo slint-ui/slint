@@ -113,7 +113,7 @@ fn to_eval_value<'cx>(
             Ok(Value::Number(val.downcast_or_throw::<JsNumber, _>(cx)?.value()))
         }
         Type::String => Ok(Value::String(val.to_string(cx)?.value().as_str().into())),
-        Type::Color => todo!(),
+        Type::Color | Type::Array(_) | Type::Object(_) => todo!(),
         Type::Resource => Ok(Value::String(val.to_string(cx)?.value().as_str().into())),
         Type::Bool => Ok(Value::Bool(val.downcast_or_throw::<JsBoolean, _>(cx)?.value())),
     }

@@ -519,6 +519,7 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
                 false_code
             )
         }
+        Object { .. } | Array { .. } => todo!(),
         Uncompiled(_) => panic!(),
         Invalid => format!("\n#error invalid expression\n"),
     }

@@ -1,0 +1,9 @@
+H := Rectangle {
+    x: {foo: "42"};
+//    ^error{Cannot convert \{ foo: string,. to float32}
+    y: [ 45, 45, 45, 45 ];
+//    ^error{Cannot convert \[float32\] to float32}
+    color: [ { a: 45, b: 55, }, {a: 44, b: 54},];
+//        ^error{Cannot convert \[\{ a: float32,b: float32,.\] to color}
+
+}

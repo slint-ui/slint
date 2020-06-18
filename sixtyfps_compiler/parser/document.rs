@@ -183,15 +183,17 @@ fn parse_property_binding(p: &mut impl Parser) {
 /// ```test,BindingExpression
 /// {  }
 /// expression ;
+/// {expression }
+/// {object: 42};
 /// ```
 fn parse_binding_expression(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::BindingExpression);
-    match p.nth(0) {
-        SyntaxKind::LBrace => parse_code_block(&mut *p),
-        _ => {
-            parse_expression(&mut *p);
-            p.expect(SyntaxKind::Semicolon);
-        }
+    if p.nth(0) == SyntaxKind::LBrace && p.nth(2) != SyntaxKind::Colon {
+        parse_code_block(&mut *p);
+        p.test(SyntaxKind::Semicolon);
+    } else {
+        parse_expression(&mut *p);
+        p.expect(SyntaxKind::Semicolon);
     }
 }
 
@@ -207,19 +209,13 @@ fn parse_code_block(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::CodeBlock);
     p.expect(SyntaxKind::LBrace); // Or assert?
 
-    if p.nth(0) == SyntaxKind::RBrace {
-        p.consume();
-        return;
-    }
-
-    loop {
+    while p.nth(0) != SyntaxKind::RBrace {
         parse_statement(&mut *p);
-        if p.nth(0) == SyntaxKind::RBrace {
-            p.consume();
-            return;
+        if !p.test(SyntaxKind::Semicolon) {
+            break;
         }
-        p.expect(SyntaxKind::Semicolon);
     }
+    p.expect(SyntaxKind::RBrace);
 }
 
 #[cfg_attr(test, parser_test)]

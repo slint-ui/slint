@@ -215,5 +215,6 @@ pub fn eval_expression(
                 _ => panic!("conditional expression did not evaluate to boolean"),
             }
         }
+        Expression::Array { .. } | Expression::Object { .. } => todo!(),
     }
 }

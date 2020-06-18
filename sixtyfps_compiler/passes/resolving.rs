@@ -11,7 +11,7 @@ use crate::object_tree::*;
 use crate::parser::{syntax_nodes, Spanned, SyntaxKind, SyntaxNode, SyntaxNodeEx};
 use crate::typeregister::{Type, TypeRegister};
 use core::str::FromStr;
-use std::rc::Rc;
+use std::{collections::HashMap, rc::Rc};
 
 pub fn resolve_expressions(doc: &Document, diag: &mut Diagnostics, tr: &mut TypeRegister) {
     for component in &doc.inner_components {
@@ -44,7 +44,7 @@ pub fn resolve_expressions(doc: &Document, diag: &mut Diagnostics, tr: &mut Type
                     let new_expr = if matches!(lookup_ctx.property_type, Type::Signal) {
                         //FIXME: proper signal suport (node is a codeblock)
                         node.child_node(SyntaxKind::Expression)
-                            .map(|en| Expression::from_expression_node(en, &mut lookup_ctx))
+                            .map(|en| Expression::from_expression_node(en.into(), &mut lookup_ctx))
                             .unwrap_or(Expression::Invalid)
                     } else {
                         Expression::from_binding_expression_node(node.clone(), &mut lookup_ctx)
@@ -63,7 +63,7 @@ pub fn resolve_expressions(doc: &Document, diag: &mut Diagnostics, tr: &mut Type
                         component_scope: &scope.0,
                         diag,
                     };
-                    r.model = Expression::from_expression_node(node.clone(), &mut lookup_ctx)
+                    r.model = Expression::from_expression_node(node.clone().into(), &mut lookup_ctx)
                 }
             }
             elem.borrow_mut().repeated = repeated;
@@ -113,7 +113,7 @@ impl Expression {
         debug_assert_eq!(node.kind(), SyntaxKind::BindingExpression);
         let e = node
             .child_node(SyntaxKind::Expression)
-            .map(|n| Self::from_expression_node(n, ctx))
+            .map(|n| Self::from_expression_node(n.into(), ctx))
             .or_else(|| {
                 node.child_node(SyntaxKind::CodeBlock).map(|c| Self::from_codeblock_node(c, ctx))
             })
@@ -126,23 +126,18 @@ impl Expression {
         Expression::CodeBlock(
             node.children()
                 .filter(|n| n.kind() == SyntaxKind::Expression)
-                .map(|n| Self::from_expression_node(n, ctx))
+                .map(|n| Self::from_expression_node(n.into(), ctx))
                 .collect(),
         )
     }
 
-    fn from_expression_node(node: SyntaxNode, ctx: &mut LookupCtx) -> Self {
-        debug_assert_eq!(node.kind(), SyntaxKind::Expression);
-        node.child_node(SyntaxKind::Expression)
+    fn from_expression_node(node: syntax_nodes::Expression, ctx: &mut LookupCtx) -> Self {
+        node.Expression()
             .map(|n| Self::from_expression_node(n, ctx))
             .or_else(|| {
-                node.child_node(SyntaxKind::BangExpression)
-                    .map(|n| Self::from_bang_expresion_node(n, ctx))
+                node.BangExpression().map(|n| Self::from_bang_expresion_node(n.into(), ctx))
             })
-            .or_else(|| {
-                node.child_node(SyntaxKind::QualifiedName)
-                    .map(|s| Self::from_qualified_name_node(s, ctx))
-            })
+            .or_else(|| node.QualifiedName().map(|s| Self::from_qualified_name_node(s.into(), ctx)))
             .or_else(|| {
                 node.child_text(SyntaxKind::StringLiteral).map(|s| {
                     unescape_string(&s).map(Self::StringLiteral).unwrap_or_else(|| {
@@ -173,28 +168,21 @@ impl Expression {
                 })
             })
             .or_else(|| {
-                node.child_node(SyntaxKind::FunctionCallExpression).map(|n| {
-                    Expression::FunctionCall {
-                        function: Box::new(
-                            n.child_node(SyntaxKind::Expression)
-                                .map(|n| Self::from_expression_node(n, ctx))
-                                .unwrap_or(Expression::Invalid),
-                        ),
-                    }
+                node.FunctionCallExpression().map(|n| Expression::FunctionCall {
+                    function: Box::new(
+                        n.child_node(SyntaxKind::Expression)
+                            .map(|n| Self::from_expression_node(n.into(), ctx))
+                            .unwrap_or(Expression::Invalid),
+                    ),
                 })
             })
+            .or_else(|| node.SelfAssignment().map(|n| Self::from_self_assignement_node(n, ctx)))
+            .or_else(|| node.BinaryExpression().map(|n| Self::from_binary_expression_node(n, ctx)))
             .or_else(|| {
-                node.child_node(SyntaxKind::SelfAssignment)
-                    .map(|n| Self::from_self_assignement_node(n.into(), ctx))
+                node.ConditionalExpression().map(|n| Self::from_conditional_expression_node(n, ctx))
             })
-            .or_else(|| {
-                node.child_node(SyntaxKind::BinaryExpression)
-                    .map(|n| Self::from_binary_expression_node(n.into(), ctx))
-            })
-            .or_else(|| {
-                node.child_node(SyntaxKind::ConditionalExpression)
-                    .map(|n| Self::from_conditional_expression_node(n.into(), ctx))
-            })
+            .or_else(|| node.ObjectLiteral().map(|n| Self::from_object_literal_node(n, ctx)))
+            .or_else(|| node.Array().map(|n| Self::from_array_node(n, ctx)))
             .unwrap_or(Self::Invalid)
     }
 
@@ -209,7 +197,7 @@ impl Expression {
                 // FIXME: we probably need a better syntax and make this at another level.
                 let s = match node
                     .child_node(SyntaxKind::Expression)
-                    .map_or(Self::Invalid, |n| Self::from_expression_node(n, ctx))
+                    .map_or(Self::Invalid, |n| Self::from_expression_node(n.into(), ctx))
                 {
                     Expression::StringLiteral(p) => p,
                     _ => {
@@ -452,6 +440,43 @@ impl Expression {
             true_expr: Box::new(true_expr),
             false_expr: Box::new(false_expr),
         }
+    }
+
+    fn from_object_literal_node(
+        node: syntax_nodes::ObjectLiteral,
+        ctx: &mut LookupCtx,
+    ) -> Expression {
+        let values: HashMap<String, Expression> = node
+            .ObjectMember()
+            .map(|n| {
+                (
+                    n.child_text(SyntaxKind::Identifier).unwrap_or_default(),
+                    Expression::from_expression_node(n.Expression(), ctx),
+                )
+            })
+            .collect();
+        let ty = Type::Object(values.iter().map(|(k, v)| (k.clone(), v.ty())).collect());
+        Expression::Object { ty, values }
+    }
+
+    fn from_array_node(node: syntax_nodes::Array, ctx: &mut LookupCtx) -> Expression {
+        let mut values: Vec<Expression> =
+            node.Expression().map(|e| Expression::from_expression_node(e, ctx)).collect();
+
+        // FIXME: what's the type of an empty array ?
+        // Also, be smarter about finding a common type
+        let element_ty = values.first().map_or(Type::Invalid, |e| e.ty());
+
+        let n = node.into();
+        for e in values.iter_mut() {
+            *e = core::mem::replace(e, Expression::Invalid).maybe_convert_to(
+                element_ty.clone(),
+                &n,
+                ctx.diag,
+            );
+        }
+
+        Expression::Array { element_ty, values }
     }
 }
 

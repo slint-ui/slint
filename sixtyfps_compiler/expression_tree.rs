@@ -2,7 +2,7 @@ use crate::object_tree::*;
 use crate::parser::{Spanned, SyntaxNode};
 use crate::{diagnostics::Diagnostics, typeregister::Type};
 use core::cell::RefCell;
-use std::rc::Weak;
+use std::{collections::HashMap, rc::Weak};
 
 /// Reference to a property or signal of a given name within an element.
 #[derive(Debug, Clone)]
@@ -76,6 +76,15 @@ pub enum Expression {
         true_expr: Box<Expression>,
         false_expr: Box<Expression>,
     },
+
+    Array {
+        element_ty: Type,
+        values: Vec<Expression>,
+    },
+    Object {
+        ty: Type,
+        values: HashMap<String, Expression>,
+    },
 }
 
 impl Expression {
@@ -106,6 +115,8 @@ impl Expression {
                 }
             }
             Expression::BinaryExpression { lhs, .. } => lhs.ty(),
+            Expression::Array { element_ty, .. } => Type::Array(Box::new(element_ty.clone())),
+            Expression::Object { ty, .. } => ty.clone(),
         }
     }
 
@@ -140,6 +151,16 @@ impl Expression {
                 visitor(&**lhs);
                 visitor(&**rhs);
             }
+            Expression::Array { values, .. } => {
+                for x in values {
+                    visitor(x);
+                }
+            }
+            Expression::Object { values, .. } => {
+                for (_, x) in values {
+                    visitor(x);
+                }
+            }
         }
     }
 
@@ -173,6 +194,16 @@ impl Expression {
                 visitor(&mut **lhs);
                 visitor(&mut **rhs);
             }
+            Expression::Array { values, .. } => {
+                for x in values {
+                    visitor(x);
+                }
+            }
+            Expression::Object { values, .. } => {
+                for (_, x) in values {
+                    visitor(x);
+                }
+            }
         }
     }
 
@@ -192,6 +223,8 @@ impl Expression {
             Expression::ResourceReference { .. } => true,
             Expression::Condition { .. } => false,
             Expression::BinaryExpression { lhs, rhs, .. } => lhs.is_constant() && rhs.is_constant(),
+            Expression::Array { values, .. } => values.iter().all(Expression::is_constant),
+            Expression::Object { values, .. } => values.iter().all(|(_, v)| v.is_constant()),
         }
     }
 

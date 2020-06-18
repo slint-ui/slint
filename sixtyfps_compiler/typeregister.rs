@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::{fmt::Display, rc::Rc};
 
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub enum Type {
     Invalid,
     Component(Rc<crate::object_tree::Component>),
@@ -17,6 +16,8 @@ pub enum Type {
     Color,
     Resource,
     Bool,
+    Array(Box<Type>),
+    Object(HashMap<String, Type>),
 }
 
 impl core::cmp::PartialEq for Type {
@@ -32,6 +33,8 @@ impl core::cmp::PartialEq for Type {
             (Type::Color, Type::Color) => true,
             (Type::Resource, Type::Resource) => true,
             (Type::Bool, Type::Bool) => true,
+            (Type::Array(a), Type::Array(b)) => a == b,
+            (Type::Object(a), Type::Object(b)) => a == b,
             _ => false,
         }
     }
@@ -50,6 +53,14 @@ impl Display for Type {
             Type::Color => write!(f, "color"),
             Type::Resource => write!(f, "resource"),
             Type::Bool => write!(f, "bool"),
+            Type::Array(t) => write!(f, "[{}]", t),
+            Type::Object(t) => {
+                write!(f, "{{ ")?;
+                for (k, v) in t {
+                    write!(f, "{}: {},", k, v)?;
+                }
+                write!(f, "}}")
+            }
         }
     }
 }

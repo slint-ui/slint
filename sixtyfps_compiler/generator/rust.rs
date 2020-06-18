@@ -386,6 +386,7 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
             let error = format!("unsupported expression {:?}", e);
             quote!(compile_error! {#error})
         }
+        Expression::Array { .. } | Expression::Object { .. } => todo!(),
     }
 }
 
