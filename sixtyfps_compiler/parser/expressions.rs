@@ -17,6 +17,8 @@ use super::prelude::*;
 /// (nested()) ? (ok) : (other.ko)
 /// 4 + 4
 /// 4 + 8 * 7 / 5 + 3 - 7 - 7 * 8
+/// [array]
+/// {object:42}
 /// ```
 pub fn parse_expression(p: &mut impl Parser) {
     parse_expression_helper(p, 0)
@@ -47,9 +49,9 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: usize) {
             parse_expression(&mut *p);
             p.expect(SyntaxKind::RParent);
         }
-        SyntaxKind::LBracket => {
-            parse_array(&mut *p);
-        }
+        SyntaxKind::LBracket => parse_array(&mut *p),
+        SyntaxKind::LBrace => parse_object_notation(&mut *p),
+
         _ => {
             p.error("invalid expression");
             return;
@@ -144,4 +146,27 @@ fn parse_array(p: &mut impl Parser) {
         }
     }
     p.expect(SyntaxKind::RBracket);
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,ObjectLiteral
+/// {}
+/// {a:b}
+/// { a: "foo" , }
+/// {a:b, c: 4 + 4, d: [a,] }
+/// ```
+fn parse_object_notation(p: &mut impl Parser) {
+    let mut p = p.start_node(SyntaxKind::ObjectLiteral);
+    p.expect(SyntaxKind::LBrace);
+
+    while p.nth(0) != SyntaxKind::RBrace {
+        let mut p = p.start_node(SyntaxKind::ObjectMember);
+        p.expect(SyntaxKind::Identifier);
+        p.expect(SyntaxKind::Colon);
+        parse_expression(&mut *p);
+        if !p.test(SyntaxKind::Comma) {
+            break;
+        }
+    }
+    p.expect(SyntaxKind::RBrace);
 }

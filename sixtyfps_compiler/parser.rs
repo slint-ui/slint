@@ -263,7 +263,7 @@ declare_syntax! {
         CodeBlock-> [ *Expression ],
         // FIXME: the test should test that as alternative rather than several of them (but it can also be a literal)
         Expression-> [ ?Expression, ?BangExpression, ?FunctionCallExpression, ?SelfAssignment,
-                       ?ConditionalExpression, ?QualifiedName, ?BinaryExpression, ?Array],
+                       ?ConditionalExpression, ?QualifiedName, ?BinaryExpression, ?Array, ?ObjectLiteral],
         /// `foo!bar`
         BangExpression -> [Expression],
         /// expression()
@@ -276,6 +276,10 @@ declare_syntax! {
         BinaryExpression -> [2 Expression],
         /// `[ ... ]`
         Array -> [ *Expression ],
+        /// `{ foo: bar }`
+        ObjectLiteral -> [ *ObjectMember ],
+        /// `foo: bar` inside an ObjectLiteral
+        ObjectMember -> [ Expression ],
     }
 }
 
