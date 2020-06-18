@@ -16,6 +16,13 @@ The aim of the project is to be
     an application build for this platform.
     
  `<insert a few screenshots here>`
+
+## Documentation
+
+SixtyFPS can be used from different frontend languages. Refer to the README of these direcory for
+actual user documentation.
+
+The docs folder contains [build instructions](docs/building.md) and [internal developer docs](docs/development.md).
  
 ## [SixtyFps.cpp](api/sixtyfps-cpp)
  
@@ -37,9 +44,7 @@ HelloWorld = Window {
 }
 ```
 
-### [The compiler](...)
-
-### [The runtime library](...)
+Check out the [language reference](docs/langref.md)
 
 ## Examples / Demo
 
