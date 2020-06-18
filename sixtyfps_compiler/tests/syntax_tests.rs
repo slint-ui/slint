@@ -66,7 +66,7 @@ fn process_file_source(
     let mut success = true;
 
     // Find expected errors in the file.
-    let re = regex::Regex::new(r"\n *//[^\n]*(\^)error\{([^\n}]*)\}\n").unwrap();
+    let re = regex::Regex::new(r"\n *//[^\n]*(\^)error\{([^\n]*)\}\n").unwrap();
     for m in re.captures_iter(&source) {
         let line_begin_offset = m.get(0).unwrap().start();
         let column = m.get(1).unwrap().start() - line_begin_offset;

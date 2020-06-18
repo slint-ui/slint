@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::{fmt::Display, rc::Rc};
 
 #[derive(Debug, Clone)]
@@ -17,7 +17,7 @@ pub enum Type {
     Resource,
     Bool,
     Array(Box<Type>),
-    Object(HashMap<String, Type>),
+    Object(BTreeMap<String, Type>),
 }
 
 impl core::cmp::PartialEq for Type {
