@@ -1,6 +1,6 @@
 # SixtyFPS development guide
 
-The build instructions are in the [build.md](./build.md) file
+The build instructions are in the [building.md](./building.md) file
 
 ## Repository structures
 
