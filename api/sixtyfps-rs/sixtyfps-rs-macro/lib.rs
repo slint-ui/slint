@@ -77,6 +77,7 @@ fn fill_token_vec(stream: TokenStream, vec: &mut Vec<parser::Token>) {
                     }
                     '#' => SyntaxKind::ColorLiteral,
                     '?' => SyntaxKind::Question,
+                    ',' => SyntaxKind::Comma,
                     _ => SyntaxKind::Error,
                 };
                 prev_spacing = p.spacing();

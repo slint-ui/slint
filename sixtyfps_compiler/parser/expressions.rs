@@ -47,6 +47,9 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: usize) {
             parse_expression(&mut *p);
             p.expect(SyntaxKind::RParent);
         }
+        SyntaxKind::LBracket => {
+            parse_array(&mut *p);
+        }
         _ => {
             p.error("invalid expression");
             return;
@@ -121,4 +124,24 @@ fn parse_bang_expression(p: &mut impl Parser) {
     p.expect(SyntaxKind::Identifier); // Or assert?
     p.expect(SyntaxKind::Bang); // Or assert?
     parse_expression_helper(&mut *p, 3);
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,Array
+/// [ a, b, c , d]
+/// []
+/// [a,]
+/// [ [], [] ]
+/// ```
+fn parse_array(p: &mut impl Parser) {
+    let mut p = p.start_node(SyntaxKind::Array);
+    p.expect(SyntaxKind::LBracket);
+
+    while p.nth(0) != SyntaxKind::RBracket {
+        parse_expression(&mut *p);
+        if !p.test(SyntaxKind::Comma) {
+            break;
+        }
+    }
+    p.expect(SyntaxKind::RBracket);
 }

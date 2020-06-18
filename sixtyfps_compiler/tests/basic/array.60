@@ -1,0 +1,4 @@
+Test := Window {
+    a: [,];
+//      ^error{invalid expression}
+}
