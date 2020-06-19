@@ -64,6 +64,7 @@ pub fn resolve_expressions(doc: &Document, diag: &mut Diagnostics, tr: &mut Type
                         diag,
                     };
                     r.model = Expression::from_expression_node(node.clone().into(), &mut lookup_ctx)
+                        .maybe_convert_to(Type::Model, node, diag)
                 }
             }
             elem.borrow_mut().repeated = repeated;

@@ -125,6 +125,10 @@ pub fn eval_expression(
                 (Value::Number(n), Type::String) => {
                     Value::String(SharedString::from(format!("{}", n).as_str()))
                 }
+                (Value::Number(n), Type::Model) => Value::Number(n),
+                (_, Type::Model) => {
+                    todo!();
+                }
                 (v, _) => v,
             }
         }

@@ -23,4 +23,12 @@ Hello := Rectangle {
 
     Text { text: ccc.text; }
     //           ^error{Cannot access id 'ccc'}
+
+    for aaa in aaa.text: Rectangle {
+//            ^error{Cannot convert string to model}
+    }
+
+    for plop in [1,2,3,4]: Rectangle {
+       // x: plop
+    }
 }

@@ -141,6 +141,7 @@ impl CppType for Type {
             Type::String => Some("sixtyfps::SharedString"),
             Type::Color => Some("uint32_t"),
             Type::Bool => Some("bool"),
+            Type::Model => Some("std::shared_ptr<sixtyfps::Model>"),
             _ => None,
         }
     }
@@ -214,16 +215,13 @@ fn handle_repeater(
     init: &mut Vec<String>,
 ) {
     let repeater_id = format!("repeater_{}", repeater_count);
-    assert!(
-        repeated.model.is_constant() && matches!(repeated.model.ty(), Type::Int32 | Type::Float32),
-        "TODO: currently model can only be integers"
-    );
+    assert!(repeated.model.is_constant(), "TODO: currently model can only be constant");
     // FIXME: that's not the right component for this expression but that's ok because it is a constant for now
-    let count = compile_expression(&repeated.model, &base_component);
+    let model = compile_expression(&repeated.model, &base_component);
     init.push(format!(
-        "self->{repeater_id}.update_model(nullptr, {count});",
+        "self->{repeater_id}.update_model({model}.get());",
         repeater_id = repeater_id,
-        count = count
+        model = model
     ));
 
     component_struct.members.push(Declaration::Var(Var {
@@ -410,7 +408,7 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Dia
         statements: Some(vec![
             "static const sixtyfps::ItemTreeNode<uint8_t> children[] {".to_owned(),
             format!("    {} }};", tree_array),
-            "static const auto dyn_visit = [] (const uint8_t *base, sixtyfps::ItemVisitorRefMut visitor, uintptr_t dyn_index) {".to_owned(),
+            "static const auto dyn_visit = [] (const uint8_t *base, [[maybe_unused]] sixtyfps::ItemVisitorRefMut visitor, uintptr_t dyn_index) {".to_owned(),
             format!("    [[maybe_unused]] auto self = reinterpret_cast<const {}*>(base);", component_id),
             format!("    switch(dyn_index) {{ {} }}\n  }};", (0..repeater_count).map(|i| {
                 format!("\n        case {i}: self->repeater_{i}.visit(visitor) ;", i=i)
@@ -473,6 +471,10 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
                 (Type::Float32, Type::String) | (Type::Int32, Type::String) => {
                     format!("sixtyfps::SharedString::from_number({})", f)
                 }
+                (Type::Float32, Type::Model) | (Type::Int32, Type::Model) => {
+                    format!("std::make_shared<sixtyfps::IntModel>({})", f)
+                }
+                (_, Type::Model) => "\n#error TODO: Model currently must be an integer\n".into(),
                 _ => f,
             }
         }

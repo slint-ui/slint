@@ -81,16 +81,48 @@ using internal::Constraint;
 
 // models
 
+struct Model {
+    virtual ~Model() = default;
+    Model() = default;
+    Model(const Model &) = delete;
+    Model &operator=(const Model &) = delete;
+    virtual int count() const = 0;
+    virtual void *get(int i) const = 0;
+};
+
+template<int Count, typename ModelData>
+struct ArrayModel : Model {
+    std::array<ModelData, Count> data;
+    int count() const override {
+        return Count;
+    }
+    void *get(int i) {
+        return &data[i];
+    }
+};
+
+struct IntModel : Model {
+    IntModel(int d) : data(d) {}
+    int data;
+    int count() const override {
+        return data;
+    }
+    void * get(int) const override {
+        return nullptr;
+    }
+};
+
+
 template<typename C>
 struct Repeater {
     std::vector<std::unique_ptr<C>> data;
 
-    // FIXME: use array_view (aka Slice)
-    void update_model(void *, int count) {
+    void update_model(Model *model) {
         data.clear();
+        auto count = model->count();
         for (auto i = 0; i < count; ++i) {
             auto x = std::make_unique<C>();
-            x->update_data(i, nullptr);
+            x->update_data(i, model->get(i));
             data.push_back(std::move(x));
         }
     }

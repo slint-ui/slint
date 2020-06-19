@@ -9,13 +9,15 @@ pub enum Type {
 
     Signal,
 
-    // other property type:
+    // Other property types:
     Float32,
     Int32,
     String,
     Color,
     Resource,
     Bool,
+    Model,
+
     Array(Box<Type>),
     Object(BTreeMap<String, Type>),
 }
@@ -53,6 +55,7 @@ impl Display for Type {
             Type::Color => write!(f, "color"),
             Type::Resource => write!(f, "resource"),
             Type::Bool => write!(f, "bool"),
+            Type::Model => write!(f, "model"),
             Type::Array(t) => write!(f, "[{}]", t),
             Type::Object(t) => {
                 write!(f, "{{ ")?;
@@ -74,7 +77,13 @@ impl Type {
     pub fn is_property_type(&self) -> bool {
         matches!(
             self,
-            Self::Float32 | Self::Int32 | Self::String | Self::Color | Self::Resource | Self::Bool
+            Self::Float32
+                | Self::Int32
+                | Self::String
+                | Self::Color
+                | Self::Resource
+                | Self::Bool
+                | Self::Model
         )
     }
 
@@ -103,6 +112,9 @@ impl Type {
                     | (Type::Float32, Type::String)
                     | (Type::Int32, Type::Float32)
                     | (Type::Int32, Type::String)
+                    | (Type::Array(_), Type::Model)
+                    | (Type::Float32, Type::Model)
+                    | (Type::Int32, Type::Model)
             )
     }
 }
@@ -144,6 +156,7 @@ impl TypeRegister {
         instert_type(Type::Color);
         instert_type(Type::Resource);
         instert_type(Type::Bool);
+        instert_type(Type::Model);
 
         let mut rectangle = BuiltinElement::new("Rectangle");
         rectangle.properties.insert("color".to_owned(), Type::Color);

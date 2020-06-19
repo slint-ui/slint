@@ -130,11 +130,7 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
                 }
             });
 
-            assert!(
-                repeated.model.is_constant()
-                    && matches!(repeated.model.ty(), Type::Int32 | Type::Float32),
-                "TODO: currently model can only be integers"
-            );
+            assert!(repeated.model.is_constant(), "TODO: currently model can only be const");
             let count = compile_expression(&repeated.model, component);
             init.push(quote!(self_.#repeater_id.update_model(&[() ; (#count) as usize ]);));
 
@@ -315,6 +311,10 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
             match (from.ty(), to) {
                 (Type::Float32, Type::String) | (Type::Int32, Type::String) => {
                     quote!(sixtyfps::re_exports::SharedString::from(format!("{}", #f).as_str()))
+                }
+                (Type::Float32, Type::Model) | (Type::Int32, Type::Model) => f,
+                (_, Type::Model) => {
+                    quote!(compile_error! {"TODO: currently the model must be int"})
                 }
                 _ => f,
             }
