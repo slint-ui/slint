@@ -66,13 +66,15 @@ fn main() {
 
 pub use sixtyfps_rs_macro::sixtyfps;
 
+pub(crate) mod repeater;
+
 /// internal re_exports used by the macro generated
 #[doc(hidden)]
 pub mod re_exports {
+    pub use crate::repeater::*;
     pub use const_field_offset::{self, FieldOffsets};
     pub use once_cell::sync::Lazy;
     pub use sixtyfps_corelib::abi::datastructures::*;
-    pub use sixtyfps_corelib::abi::model::*;
     pub use sixtyfps_corelib::abi::primitives::*;
     pub use sixtyfps_corelib::abi::properties::Property;
     pub use sixtyfps_corelib::abi::signals::Signal;
