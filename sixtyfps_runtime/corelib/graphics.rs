@@ -234,4 +234,10 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow
             self.clone() as Rc<dyn crate::eventloop::GenericWindow>,
         );
     }
+
+    fn request_redraw(&self) {
+        if let Some(backend) = self.borrow().graphics_backend.as_ref() {
+            backend.window().request_redraw();
+        }
+    }
 }
