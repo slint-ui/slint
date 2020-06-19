@@ -325,7 +325,7 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Dia
         }));
         component_struct.members.push(Declaration::Function(Function {
             name: "update_data".into(),
-            signature: "(int i, void*) -> void".into(),
+            signature: "(int i, const void*) -> void".into(),
             statements: Some(vec!["index.set(i);".into()]),
             ..Function::default()
         }));
@@ -461,6 +461,13 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
         RepeaterIndexReference { element } => {
             if element.upgrade().unwrap().borrow().base_type == Type::Component(component.clone()) {
                 "self->index.get(context)".to_owned()
+            } else {
+                todo!();
+            }
+        }
+        RepeaterModelReference { element } => {
+            if element.upgrade().unwrap().borrow().base_type == Type::Component(component.clone()) {
+                "self->model_data.get(context)".to_owned()
             } else {
                 todo!();
             }

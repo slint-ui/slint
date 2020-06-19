@@ -39,6 +39,14 @@ pub enum Expression {
         element: Weak<RefCell<Element>>,
     },
 
+    /// Reference to the model variable of a repeater
+    ///
+    /// Example: `xxx`  in `for xxx[idx] in ...`.   The element is the reference to the
+    /// element that is repeated
+    RepeaterModelReference {
+        element: Weak<RefCell<Element>>,
+    },
+
     /// Cast an expression to the given type
     Cast {
         from: Box<Expression>,
@@ -100,6 +108,24 @@ impl Expression {
                 element.upgrade().unwrap().borrow().lookup_property(name)
             }
             Expression::RepeaterIndexReference { .. } => Type::Int32,
+            Expression::RepeaterModelReference { element } => {
+                if let Expression::Cast { from, .. } = element
+                    .upgrade()
+                    .unwrap()
+                    .borrow()
+                    .repeated
+                    .as_ref()
+                    .map_or(&Expression::Invalid, |e| &e.model)
+                {
+                    match from.ty() {
+                        Type::Float32 | Type::Int32 => Type::Int32,
+                        Type::Array(elem) => *elem,
+                        _ => Type::Invalid,
+                    }
+                } else {
+                    Type::Invalid
+                }
+            }
             Expression::Cast { to, .. } => to.clone(),
             Expression::CodeBlock(sub) => sub.last().map_or(Type::Invalid, |e| e.ty()),
             Expression::FunctionCall { function } => function.ty(),
@@ -130,6 +156,7 @@ impl Expression {
             Expression::SignalReference { .. } => {}
             Expression::PropertyReference { .. } => {}
             Expression::RepeaterIndexReference { .. } => {}
+            Expression::RepeaterModelReference { .. } => {}
             Expression::Cast { from, .. } => visitor(&**from),
             Expression::CodeBlock(sub) => {
                 for e in sub {
@@ -173,6 +200,7 @@ impl Expression {
             Expression::SignalReference { .. } => {}
             Expression::PropertyReference { .. } => {}
             Expression::RepeaterIndexReference { .. } => {}
+            Expression::RepeaterModelReference { .. } => {}
             Expression::Cast { from, .. } => visitor(&mut **from),
             Expression::CodeBlock(sub) => {
                 for e in sub {
@@ -216,6 +244,7 @@ impl Expression {
             Expression::SignalReference { .. } => false,
             Expression::PropertyReference { .. } => false,
             Expression::RepeaterIndexReference { .. } => false,
+            Expression::RepeaterModelReference { .. } => false,
             Expression::Cast { from, .. } => from.is_constant(),
             Expression::CodeBlock(sub) => sub.len() == 1 && sub.first().unwrap().is_constant(),
             Expression::FunctionCall { .. } => false,

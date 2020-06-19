@@ -127,7 +127,10 @@ fn parse_repeated_element(p: &mut impl Parser) {
     debug_assert_eq!(p.peek().as_str(), "for");
     let mut p = p.start_node(SyntaxKind::RepeatedElement);
     p.consume(); // "for"
-    p.test(SyntaxKind::Identifier);
+    if p.nth(0) == SyntaxKind::Identifier {
+        let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
+        p.expect(SyntaxKind::Identifier);
+    }
     if p.nth(0) == SyntaxKind::LBracket {
         let mut p = p.start_node(SyntaxKind::RepeatedIndex);
         p.expect(SyntaxKind::LBracket);

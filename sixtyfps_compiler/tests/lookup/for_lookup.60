@@ -11,6 +11,7 @@ Hello := Rectangle {
         ccc := Text {
             x: idx;
             text: aaa.text;
+            y: foo;
         }
     }
 
@@ -29,6 +30,10 @@ Hello := Rectangle {
     }
 
     for plop in [1,2,3,4]: Rectangle {
-       // x: plop
+        x: plop;
+        Rectangle {
+            color: plop;
+//                ^error{Cannot convert float32 to color}
+        }
     }
 }

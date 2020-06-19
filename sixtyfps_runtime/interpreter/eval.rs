@@ -118,6 +118,16 @@ pub fn eval_expression(
                 todo!();
             }
         }
+        Expression::RepeaterModelReference { element } => {
+            if element.upgrade().unwrap().borrow().base_type
+                == Type::Component(ctx.component_type.original.clone())
+            {
+                let x = &ctx.component_type.custom_properties["model_data"];
+                unsafe { x.prop.get(&*ctx.mem.offset(x.offset as isize), &eval_context).unwrap() }
+            } else {
+                todo!();
+            }
+        }
         Expression::Cast { from, to } => {
             let v = eval_expression(&*from, ctx, eval_context);
             match (v, to) {

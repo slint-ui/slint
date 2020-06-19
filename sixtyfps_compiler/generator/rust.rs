@@ -330,6 +330,13 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                 todo!();
             }
         }
+        Expression::RepeaterModelReference { element } => {
+            if element.upgrade().unwrap().borrow().base_type == Type::Component(component.clone()) {
+                quote!({ _self.model_data.get(context) })
+            } else {
+                todo!();
+            }
+        }
         Expression::CodeBlock(sub) => {
             let map = sub.iter().map(|e| compile_expression(e, &component));
             quote!({ #(#map);* })

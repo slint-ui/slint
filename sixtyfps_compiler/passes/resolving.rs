@@ -328,7 +328,7 @@ impl Expression {
                 if first_str == repeated.index_id {
                     return Expression::RepeaterIndexReference { element: Rc::downgrade(scope) };
                 } else if first_str == repeated.model_data_id {
-                    todo!();
+                    return Expression::RepeaterModelReference { element: Rc::downgrade(scope) };
                 }
             }
         }
