@@ -81,7 +81,8 @@ using internal::Constraint;
 
 // models
 
-struct Model {
+struct Model
+{
     virtual ~Model() = default;
     Model() = default;
     Model(const Model &) = delete;
@@ -91,36 +92,32 @@ struct Model {
 };
 
 template<int Count, typename ModelData>
-struct ArrayModel : Model {
+struct ArrayModel : Model
+{
     std::array<ModelData, Count> data;
-    template<typename... A>ArrayModel(A &&...a)
-      : data{std::forward<A>(a)...} {}
-    ArrayModel(int x)  {}
-    int count() const override {
-        return Count;
+    template<typename... A>
+    ArrayModel(A &&... a) : data { std::forward<A>(a)... }
+    {
     }
-    const void *get(int i) const override {
-        return &data[i];
-    }
+    ArrayModel(int x) { }
+    int count() const override { return Count; }
+    const void *get(int i) const override { return &data[i]; }
 };
 
-struct IntModel : Model {
-    IntModel(int d) : data(d) {}
+struct IntModel : Model
+{
+    IntModel(int d) : data(d) { }
     int data;
-    int count() const override {
-        return data;
-    }
-    const void *get(int) const override {
-        return &data;
-    }
+    int count() const override { return data; }
+    const void *get(int) const override { return &data; }
 };
-
 
 template<typename C>
 struct Repeater {
     std::vector<std::unique_ptr<C>> data;
 
-    void update_model(Model *model) {
+    void update_model(Model *model)
+    {
         data.clear();
         auto count = model->count();
         for (auto i = 0; i < count; ++i) {
@@ -140,4 +137,3 @@ struct Repeater {
 
 
 } // namespace sixtyfps
-
