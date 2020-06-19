@@ -4,7 +4,7 @@ pub trait RepeatedComponent: sixtyfps_corelib::abi::datastructures::Component {
     type Data;
 
     /// Update this component at the given index and the given data
-    fn update(&self, index: usize, data: &Self::Data);
+    fn update(&self, index: usize, data: Self::Data);
 }
 
 /// This field is put in a component when using the `for` syntax
@@ -19,9 +19,12 @@ where
     C: RepeatedComponent<Data = Data>,
 {
     /// Called when the model is changed
-    pub fn update_model(&mut self, data: &[Data]) {
+    pub fn update_model<'a>(&mut self, data: impl Iterator<Item = Data>)
+    where
+        Data: 'a,
+    {
         self.components.clear();
-        for (i, d) in data.iter().enumerate() {
+        for (i, d) in data.enumerate() {
             let c = C::create();
             c.update(i, d);
             self.components.push(Box::new(c));

@@ -122,9 +122,9 @@ fn to_eval_value<'cx>(
 fn to_js_value<'cx>(
     val: sixtyfps_interpreter::Value,
     cx: &mut impl Context<'cx>,
-) -> Handle<'cx, JsValue> {
+) -> NeonResult<Handle<'cx, JsValue>> {
     use sixtyfps_interpreter::Value;
-    match val {
+    Ok(match val {
         Value::Void => JsUndefined::new().as_value(cx),
         Value::Number(n) => JsNumber::new(cx, n).as_value(cx),
         Value::String(s) => JsString::new(cx, s.as_str()).as_value(cx),
@@ -134,7 +134,15 @@ fn to_js_value<'cx>(
             Resource::AbsoluteFilePath(path) => JsString::new(cx, path.as_str()).as_value(cx),
             Resource::EmbeddedData { .. } => JsNull::new().as_value(cx), // TODO: maybe pass around node buffers?
         },
-    }
+        Value::Array(a) => {
+            let js_array = JsArray::new(cx, a.len() as _);
+            for (i, e) in a.into_iter().enumerate() {
+                let v = to_js_value(e, cx)?;
+                js_array.set(cx, i as u32, v)?;
+            }
+            js_array.as_value(cx)
+        }
+    })
 }
 
 fn show<'cx>(
@@ -224,7 +232,7 @@ declare_types! {
             let value = component_ty
                 .get_property(component.borrow(), prop_name.as_str())
                 .or_else(|_| cx.throw_error(format!("Cannot read property")))?;
-            Ok(to_js_value(value, &mut cx))
+            to_js_value(value, &mut cx)
         }
         method set_property(mut cx) {
             let prop_name = cx.argument::<JsString>(0)?.value();

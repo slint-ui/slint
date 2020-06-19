@@ -36,4 +36,9 @@ Hello := Rectangle {
 //                ^error{Cannot convert float32 to color}
         }
     }
+
+    for pp[idx] in [1,3,2]: Rectangle {
+        x: idx;
+        y: 25 * pp;
+    }
 }

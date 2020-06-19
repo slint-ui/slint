@@ -245,6 +245,12 @@ fn generate_component(
             "index".into(),
             PropertiesWithinComponent { offset: builder.add_field(type_info), prop },
         );
+        // FIXME: make it a property for the correct type instead of being generic
+        let (prop, type_info) = property_info::<eval::Value>();
+        custom_properties.insert(
+            "model_data".into(),
+            PropertiesWithinComponent { offset: builder.add_field(type_info), prop },
+        );
     }
 
     extern "C" fn layout_info(
@@ -298,6 +304,10 @@ pub fn instentiate(component_type: Rc<ComponentDescription>) -> ComponentBox {
             NonNull::new(mem).unwrap().cast(),
         )
     };
+
+    // The destructor of ComponentBox will take care of reducing the count
+    Rc::into_raw(component_type);
+
     let eval_context = EvaluationContext { component: component_box.borrow() };
 
     for item_within_component in ctx.component_type.items.values() {
@@ -367,20 +377,39 @@ pub fn instentiate(component_type: Rc<ComponentDescription>) -> ComponentBox {
 
     for rep_in_comp in &ctx.component_type.repeater {
         let vec = unsafe { &mut *(mem.add(rep_in_comp.offset) as *mut RepeaterVec) };
-        let count = eval::eval_expression(&rep_in_comp.model, &*ctx, &eval_context)
-            .try_into()
-            .expect("Currently only integer model are allowed");
-        vec.resize_with(count, || instentiate(rep_in_comp.component_to_repeat.clone()));
-        for (i, x) in vec.iter().enumerate() {
-            rep_in_comp
-                .component_to_repeat
-                .set_property(x.borrow(), "index", i.try_into().unwrap())
-                .unwrap();
+        match eval::eval_expression(&rep_in_comp.model, &*ctx, &eval_context) {
+            crate::Value::Number(count) => {
+                vec.resize_with(count.round() as usize, || {
+                    instentiate(rep_in_comp.component_to_repeat.clone())
+                });
+                for (i, x) in vec.iter().enumerate() {
+                    rep_in_comp
+                        .component_to_repeat
+                        .set_property(x.borrow(), "index", i.try_into().unwrap())
+                        .unwrap();
+                    rep_in_comp
+                        .component_to_repeat
+                        .set_property(x.borrow(), "model_data", i.try_into().unwrap())
+                        .unwrap();
+                }
+            }
+            crate::Value::Array(a) => {
+                vec.resize_with(a.len(), || instentiate(rep_in_comp.component_to_repeat.clone()));
+                for (i, (x, val)) in vec.iter().zip(a.into_iter()).enumerate() {
+                    rep_in_comp
+                        .component_to_repeat
+                        .set_property(x.borrow(), "index", i.try_into().unwrap())
+                        .unwrap();
+                    rep_in_comp
+                        .component_to_repeat
+                        .set_property(x.borrow(), "model_data", val)
+                        .unwrap();
+                }
+            }
+            _ => panic!("Unsupported model"),
         }
     }
 
-    // The destructor of ComponentBox will take care of reducing the count
-    Rc::into_raw(component_type);
     component_box
 }
 

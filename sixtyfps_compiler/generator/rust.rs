@@ -3,29 +3,27 @@
 
 use crate::diagnostics::{CompilerDiagnostic, Diagnostics};
 use crate::expression_tree::{Expression, NamedReference};
-use crate::object_tree::{Component, ElementRc, PropertyDeclaration};
+use crate::object_tree::{Component, ElementRc};
+use crate::parser::Spanned;
 use crate::typeregister::Type;
 use proc_macro2::TokenStream;
 use quote::quote;
 use std::rc::Rc;
 
-trait RustType {
-    fn rust_type(&self) -> Result<proc_macro2::TokenStream, CompilerDiagnostic>;
-}
-
-impl RustType for PropertyDeclaration {
-    fn rust_type(&self) -> Result<proc_macro2::TokenStream, CompilerDiagnostic> {
-        match self.property_type {
-            Type::Int32 => Ok(quote!(i32)),
-            Type::Float32 => Ok(quote!(f32)),
-            Type::String => Ok(quote!(sixtyfps::re_exports::SharedString)),
-            Type::Color => Ok(quote!(u32)),
-            Type::Bool => Ok(quote!(bool)),
-            _ => Err(CompilerDiagnostic {
-                message: "Cannot map property type to Rust".into(),
-                span: self.type_location.clone(),
-            }),
-        }
+fn rust_type(
+    ty: &Type,
+    span: &crate::diagnostics::Span,
+) -> Result<proc_macro2::TokenStream, CompilerDiagnostic> {
+    match ty {
+        Type::Int32 => Ok(quote!(i32)),
+        Type::Float32 => Ok(quote!(f32)),
+        Type::String => Ok(quote!(sixtyfps::re_exports::SharedString)),
+        Type::Color => Ok(quote!(u32)),
+        Type::Bool => Ok(quote!(bool)),
+        _ => Err(CompilerDiagnostic {
+            message: "Cannot map property type to Rust".into(),
+            span: span.clone(),
+        }),
     }
 }
 
@@ -34,7 +32,6 @@ impl RustType for PropertyDeclaration {
 /// Fill the diagnostic in case of error.
 pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<TokenStream> {
     let mut extra_components = vec![];
-    let mut declared_property_var_names = vec![];
     let mut declared_property_vars = vec![];
     let mut declared_property_types = vec![];
     let mut declared_signals = vec![];
@@ -58,12 +55,13 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
                 );
             }
         } else {
-            declared_property_var_names.push(prop_name.clone());
             declared_property_vars.push(prop_ident.clone());
-            let rust_property_type = property_decl.rust_type().unwrap_or_else(|err| {
-                diag.push_compiler_error(err);
-                quote!().into()
-            });
+            let rust_property_type =
+                rust_type(&property_decl.property_type, &property_decl.type_location)
+                    .unwrap_or_else(|err| {
+                        diag.push_compiler_error(err);
+                        quote!().into()
+                    });
             declared_property_types.push(rust_property_type.clone());
 
             if property_decl.expose_in_public_api {
@@ -107,8 +105,8 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
     let mut repeated_element_components = Vec::new();
     let mut repeated_visit_branch = Vec::new();
     let mut init = Vec::new();
-    super::build_array_helper(component, |item, children_index| {
-        let item = item.borrow();
+    super::build_array_helper(component, |item_rc, children_index| {
+        let item = item_rc.borrow();
         if let Some(repeated) = &item.repeated {
             let base_component = match &item.base_type {
                 Type::Component(c) => c,
@@ -116,6 +114,14 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
             };
 
             let repeater_index = repeated_element_names.len();
+            let data_type = rust_type(
+                &Expression::RepeaterModelReference { element: Rc::downgrade(item_rc) }.ty(),
+                &item.node.as_ref().map_or_else(Default::default, |n| n.span()),
+            )
+            .unwrap_or_else(|err| {
+                diag.push_compiler_error(err);
+                quote!().into()
+            });
 
             let repeater_id = quote::format_ident!("repeater_{}", repeater_index);
             let rep_component_id = self::component_id(&*base_component);
@@ -123,16 +129,19 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
             extra_components.push(generate(&*base_component, diag).unwrap_or_default());
             extra_components.push(quote! {
                 impl sixtyfps::re_exports::RepeatedComponent for #rep_component_id {
-                    type Data = (); // FIXME
-                    fn update(&self, index: usize, _data: &Self::Data) {
+                    type Data = #data_type;
+                    fn update(&self, index: usize, data: Self::Data) {
                         self.index.set(index);
+                        self.model_data.set(data)
                     }
                 }
             });
 
             assert!(repeated.model.is_constant(), "TODO: currently model can only be const");
-            let count = compile_expression(&repeated.model, component);
-            init.push(quote!(self_.#repeater_id.update_model(&[() ; (#count) as usize ]);));
+            let model = compile_expression(&repeated.model, component);
+            init.push(quote! {
+                self_.#repeater_id.update_model(#model);
+            });
 
             item_tree_array.push(quote!(
                 sixtyfps::re_exports::ItemTreeNode::DynamicTree {
@@ -204,9 +213,21 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
 
     let layouts = compute_layout(component);
 
-    let mut index = vec![];
-    if let Some(_parent_element) = component.parent_element.upgrade() {
-        index.push(quote!(index));
+    if let Some(parent_element) = component.parent_element.upgrade() {
+        declared_property_vars.push(quote::format_ident!("index"));
+        declared_property_types.push(quote!(usize));
+        declared_property_vars.push(quote::format_ident!("model_data"));
+        declared_property_types.push(
+            rust_type(
+                &Expression::RepeaterModelReference { element: component.parent_element.clone() }
+                    .ty(),
+                &parent_element.borrow().node.as_ref().map_or_else(Default::default, |n| n.span()),
+            )
+            .unwrap_or_else(|err| {
+                diag.push_compiler_error(err);
+                quote!().into()
+            }),
+        );
     } else {
         property_and_signal_accessors.push(quote! {
             fn run(&self) {
@@ -224,7 +245,6 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
         #[const_field_offset(sixtyfps::re_exports::const_field_offset)]
         #[repr(C)]
         struct #component_id {
-            #(#index : sixtyfps::re_exports::Property<usize>,)*
             #(#item_names : sixtyfps::re_exports::#item_types,)*
             #(#declared_property_vars : sixtyfps::re_exports::Property<#declared_property_types>,)*
             #(#declared_signals : sixtyfps::re_exports::Signal<()>,)*
@@ -233,12 +253,10 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
 
         impl core::default::Default for #component_id {
             fn default() -> Self {
-                #![allow(unused_braces)] // The generated code may contain unused braces
+                #![allow(unused)]
                 use sixtyfps::re_exports::*;
                 ComponentVTable_static!(static VT for #component_id);
-                #[allow(unused_mut)]
                 let mut self_ = Self {
-                    #(#index : Default::default(),)*
                     #(#item_names : Default::default(),)*
                     #(#declared_property_vars : Default::default(),)*
                     #(#declared_signals : Default::default(),)*
@@ -312,10 +330,8 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                 (Type::Float32, Type::String) | (Type::Int32, Type::String) => {
                     quote!(sixtyfps::re_exports::SharedString::from(format!("{}", #f).as_str()))
                 }
-                (Type::Float32, Type::Model) | (Type::Int32, Type::Model) => f,
-                (_, Type::Model) => {
-                    quote!(compile_error! {"TODO: currently the model must be int"})
-                }
+                (Type::Float32, Type::Model) | (Type::Int32, Type::Model) => quote!((0..#f as i32)),
+                (Type::Array(_), Type::Model) => quote!(#f.iter().cloned()),
                 _ => f,
             }
         }
@@ -393,7 +409,12 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
             let error = format!("unsupported expression {:?}", e);
             quote!(compile_error! {#error})
         }
-        Expression::Array { .. } | Expression::Object { .. } => todo!(),
+        Expression::Array { values, .. } => {
+            //let rust_element_ty = rust_type(&element_ty, &Default::default());
+            let val = values.iter().map(|e| compile_expression(e, component));
+            quote!([#(#val as _),*])
+        }
+        Expression::Object { .. } => todo!("Object"),
     }
 }
 

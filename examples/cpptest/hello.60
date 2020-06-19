@@ -46,9 +46,10 @@ Hello := Rectangle {
 
     color: white;
 
-    for x[idx] in 8: Rectangle {
+    for hello[idx] in [3, 0, 1, 4]: Rectangle {
         color: #8005;
         x: idx * 100;
+        y: hello * 100;
         width: 75;
         height: 75;
         Rectangle {

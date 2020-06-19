@@ -437,7 +437,7 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Dia
             "static const auto dyn_visit = [] (const uint8_t *base, [[maybe_unused]] sixtyfps::ItemVisitorRefMut visitor, uintptr_t dyn_index) {".to_owned(),
             format!("    [[maybe_unused]] auto self = reinterpret_cast<const {}*>(base);", component_id),
             format!("    switch(dyn_index) {{ {} }}\n  }};", (0..repeater_count).map(|i| {
-                format!("\n        case {i}: self->repeater_{i}.visit(visitor) ;", i=i)
+                format!("\n        case {i}: self->repeater_{i}.visit(visitor); break;", i=i)
             }).collect::<Vec<_>>().join("")),
             "return sixtyfps::sixtyfps_visit_item_tree(component, { const_cast<sixtyfps::ItemTreeNode<uint8_t>*>(children), std::size(children)}, index, visitor, dyn_visit);".to_owned(),
         ]),

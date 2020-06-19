@@ -29,7 +29,24 @@ pub fn resolve_expressions(doc: &Document, diag: &mut Diagnostics, tr: &mut Type
 
             // We are taking the binding to mutate them, as we cannot keep a borrow of the element
             // during the creation of the expression (we need to be able to borrow the Element to do lookups)
-            // the `bindings` will be reset later
+            // the `repeated` and `bindings` will be reset later
+
+            let mut repeated = elem.borrow_mut().repeated.take();
+            if let Some(r) = &mut repeated {
+                if let Expression::Uncompiled(node) = &mut r.model {
+                    let mut lookup_ctx = LookupCtx {
+                        tr,
+                        property_type: Type::Invalid, // FIXME: that should be a model
+                        component: component.clone(),
+                        component_scope: &scope.0,
+                        diag,
+                    };
+                    r.model = Expression::from_expression_node(node.clone().into(), &mut lookup_ctx)
+                        .maybe_convert_to(Type::Model, node, diag)
+                }
+            }
+            elem.borrow_mut().repeated = repeated;
+
             let mut bindings = std::mem::take(&mut elem.borrow_mut().bindings);
             for (prop, expr) in &mut bindings {
                 if let Expression::Uncompiled(node) = expr {
@@ -53,21 +70,6 @@ pub fn resolve_expressions(doc: &Document, diag: &mut Diagnostics, tr: &mut Type
                 }
             }
             elem.borrow_mut().bindings = bindings;
-            let mut repeated = elem.borrow_mut().repeated.take();
-            if let Some(r) = &mut repeated {
-                if let Expression::Uncompiled(node) = &mut r.model {
-                    let mut lookup_ctx = LookupCtx {
-                        tr,
-                        property_type: Type::Invalid, // FIXME: that should be a model
-                        component: component.clone(),
-                        component_scope: &scope.0,
-                        diag,
-                    };
-                    r.model = Expression::from_expression_node(node.clone().into(), &mut lookup_ctx)
-                        .maybe_convert_to(Type::Model, node, diag)
-                }
-            }
-            elem.borrow_mut().repeated = repeated;
             scope
         })
     }

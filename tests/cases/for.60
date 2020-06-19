@@ -4,16 +4,20 @@ TestCase := Rectangle {
     height: 100;
     color: white;
 
-   for x[idx] in 5: Rectangle {
-        color: #0005;
-        width: 100;
-        height: 100;
+   for pp[idx] in 5: Rectangle {
         Rectangle {
-            color: #f005;
-            width: 25;
-            height: 25;
-            x: idx;
-            y: 25;
+            x: 2 * idx;
+            y: 200 * pp;
         }
+    }
+
+    for pp[idx] in [1,3,2]: Rectangle {
+        x: idx;
+        y: 25 * pp;
+    }
+
+    for pp[idx] in ["1","3","2"]: Rectangle {
+        x: idx;
+        Text { text: pp; }
     }
 }

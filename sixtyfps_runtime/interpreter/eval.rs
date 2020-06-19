@@ -43,6 +43,14 @@ pub enum Value {
     Bool(bool),
     /// A resource (typically an image)
     Resource(Resource),
+    /// An Array
+    Array(Vec<Value>),
+}
+
+impl Default for Value {
+    fn default() -> Self {
+        Value::Void
+    }
 }
 
 impl corelib::rtti::ValueType for Value {}
@@ -135,10 +143,6 @@ pub fn eval_expression(
                 (Value::Number(n), Type::String) => {
                     Value::String(SharedString::from(format!("{}", n).as_str()))
                 }
-                (Value::Number(n), Type::Model) => Value::Number(n),
-                (_, Type::Model) => {
-                    todo!();
-                }
                 (v, _) => v,
             }
         }
@@ -229,6 +233,9 @@ pub fn eval_expression(
                 _ => panic!("conditional expression did not evaluate to boolean"),
             }
         }
-        Expression::Array { .. } | Expression::Object { .. } => todo!(),
+        Expression::Array { values, .. } => {
+            Value::Array(values.iter().map(|e| eval_expression(e, ctx, eval_context)).collect())
+        }
+        Expression::Object { .. } => todo!(),
     }
 }
