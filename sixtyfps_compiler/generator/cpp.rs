@@ -129,6 +129,7 @@ mod cpp_ast {
 
 use crate::diagnostics::{CompilerDiagnostic, Diagnostics};
 use crate::object_tree::{Component, Element, ElementRc, RepeatedElementInfo};
+use crate::parser::Spanned;
 use crate::typeregister::Type;
 use cpp_ast::*;
 use std::rc::Rc;
@@ -323,10 +324,35 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Dia
             name: "index".into(),
             init: None,
         }));
+        let cpp_model_data_type = crate::expression_tree::Expression::RepeaterModelReference {
+            element: component.parent_element.clone(),
+        }
+        .ty()
+        .cpp_type()
+        .unwrap_or_else(|| {
+            diag.push_compiler_error(CompilerDiagnostic {
+                message: "Cannot map property type to C++".into(),
+                span: component
+                    .parent_element
+                    .upgrade()
+                    .and_then(|e| e.borrow().node.as_ref().map(|n| n.span()))
+                    .unwrap_or_default(),
+            });
+            ""
+        })
+        .to_owned();
+        component_struct.members.push(Declaration::Var(Var {
+            ty: format!("sixtyfps::Property<{}>", cpp_model_data_type),
+            name: "model_data".into(),
+            init: None,
+        }));
         component_struct.members.push(Declaration::Function(Function {
             name: "update_data".into(),
-            signature: "(int i, const void*) -> void".into(),
-            statements: Some(vec!["index.set(i);".into()]),
+            signature: "(int i, const void *data) -> void".into(),
+            statements: Some(vec![
+                "index.set(i);".into(),
+                format!("model_data.set(*reinterpret_cast<{} const*>(data));", cpp_model_data_type),
+            ]),
             ..Function::default()
         }));
     }
@@ -481,7 +507,7 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
                 (Type::Float32, Type::Model) | (Type::Int32, Type::Model) => {
                     format!("std::make_shared<sixtyfps::IntModel>({})", f)
                 }
-                (_, Type::Model) => "\n#error TODO: Model currently must be an integer\n".into(),
+                (Type::Array(_), Type::Model) => f,
                 _ => f,
             }
         }
@@ -528,7 +554,17 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
                 false_code
             )
         }
-        Object { .. } | Array { .. } => todo!(),
+        Array { element_ty, values } => format!(
+            "std::make_shared<sixtyfps::ArrayModel<{count},{ty}>>({val})",
+            count = values.len(),
+            ty = element_ty.cpp_type().unwrap_or("FIXME: report error"),
+            val = values
+                .iter()
+                .map(|e| compile_expression(e, component))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
+        Object { .. } => todo!(),
         Uncompiled(_) => panic!(),
         Invalid => format!("\n#error invalid expression\n"),
     }

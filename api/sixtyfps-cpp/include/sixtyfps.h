@@ -93,10 +93,13 @@ struct Model {
 template<int Count, typename ModelData>
 struct ArrayModel : Model {
     std::array<ModelData, Count> data;
+    template<typename... A>ArrayModel(A &&...a)
+      : data{std::forward<A>(a)...} {}
+    ArrayModel(int x)  {}
     int count() const override {
         return Count;
     }
-    const void *get(int i) {
+    const void *get(int i) const override {
         return &data[i];
     }
 };
@@ -137,3 +140,4 @@ struct Repeater {
 
 
 } // namespace sixtyfps
+
