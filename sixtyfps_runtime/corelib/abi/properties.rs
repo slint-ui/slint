@@ -13,12 +13,14 @@ use std::{
 
 thread_local!(static CURRENT_PROPERTY : RefCell<Option<Rc<dyn PropertyNotify>>> = Default::default());
 
-type Binding = Box<dyn Fn(*mut (), &EvaluationContext)>;
+trait Binding {
+    fn evaluate(self: Rc<Self>, value_ptr: *mut (), context: &EvaluationContext);
+}
 
 #[derive(Default)]
 struct PropertyImpl {
     /// Invariant: Must only be called with a pointer to the binding
-    binding: Option<Binding>,
+    binding: Option<Rc<dyn Binding>>,
     dependencies: Vec<Weak<dyn PropertyNotify>>,
     dirty: bool,
     //updating: bool,
@@ -126,12 +128,24 @@ impl<T: Clone + 'static> Property<T> {
     /// If other properties have binding depending of this property, these properties will
     /// be marked as dirty.
     pub fn set_binding(&self, f: impl (Fn(&EvaluationContext) -> T) + 'static) {
+        struct BindingFunction {
+            function: Box<dyn Fn(*mut (), &EvaluationContext)>,
+        }
+
+        impl Binding for BindingFunction {
+            fn evaluate(self: Rc<Self>, value_ptr: *mut (), context: &EvaluationContext) {
+                (self.function)(value_ptr, context)
+            }
+        }
+
         let real_binding = move |ptr: *mut (), context: &EvaluationContext| {
             // The binding must be called with a pointer of T
             unsafe { *(ptr as *mut T) = f(context) };
         };
 
-        self.inner.borrow_mut().binding = Some(Box::new(real_binding));
+        let binding_object = Rc::new(BindingFunction { function: Box::new(real_binding) });
+
+        self.inner.borrow_mut().binding = Some(binding_object);
         self.inner.clone().mark_dirty();
     }
 
@@ -148,7 +162,7 @@ impl<T: Clone + 'static> Property<T> {
                 let mut m = cur_dep.borrow_mut();
                 std::mem::swap(m.deref_mut(), &mut old);
             });
-            binding(self.value.get() as *mut _, context);
+            binding.clone().evaluate(self.value.get() as *mut _, context);
             lock.dirty = false;
             CURRENT_PROPERTY.with(|cur_dep| {
                 let mut m = cur_dep.borrow_mut();
@@ -233,7 +247,7 @@ pub unsafe extern "C" fn sixtyfps_property_update(
             let mut m = cur_dep.borrow_mut();
             std::mem::swap(m.deref_mut(), &mut old);
         });
-        binding(val, &*context);
+        binding.clone().evaluate(val, &*context);
         lock.dirty = false;
         CURRENT_PROPERTY.with(|cur_dep| {
             let mut m = cur_dep.borrow_mut();
@@ -273,24 +287,30 @@ pub unsafe extern "C" fn sixtyfps_property_set_binding(
 ) {
     let inner = &*(out as *const PropertyHandle);
 
-    struct UserData {
+    struct CFunctionBinding {
+        binding_function: extern "C" fn(*mut c_void, &EvaluationContext, *mut c_void),
         user_data: *mut c_void,
         drop_user_data: Option<extern "C" fn(*mut c_void)>,
     }
 
-    impl Drop for UserData {
+    impl Drop for CFunctionBinding {
         fn drop(&mut self) {
             if let Some(x) = self.drop_user_data {
                 x(self.user_data)
             }
         }
     }
-    let ud = UserData { user_data, drop_user_data };
 
-    let real_binding = move |ptr: *mut (), ctx: &EvaluationContext| {
-        binding(ud.user_data, ctx, ptr);
-    };
-    inner.borrow_mut().binding = Some(Box::new(real_binding));
+    impl Binding for CFunctionBinding {
+        fn evaluate(self: Rc<Self>, value_ptr: *mut (), context: &EvaluationContext) {
+            (self.binding_function)(self.user_data, context, value_ptr);
+        }
+    }
+
+    let binding =
+        Rc::new(CFunctionBinding { binding_function: binding, user_data, drop_user_data });
+
+    inner.borrow_mut().binding = Some(binding);
     inner.clone().mark_dirty();
 }
 
