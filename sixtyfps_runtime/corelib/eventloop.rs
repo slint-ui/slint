@@ -64,6 +64,8 @@ impl EventLoop {
                     ..
                 } => *control_flow = winit::event_loop::ControlFlow::Exit,
                 winit::event::Event::RedrawRequested(id) => {
+                    animation_driver.borrow_mut().update_animations(std::time::Instant::now());
+
                     ALL_WINDOWS.with(|windows| {
                         if let Some(Some(window)) =
                             windows.borrow().get(&id).map(|weakref| weakref.upgrade())
@@ -100,9 +102,11 @@ impl EventLoop {
                 _ => (),
             }
 
-            if animation_driver.borrow().has_active_animations() {
+            if *control_flow != winit::event_loop::ControlFlow::Exit
+                && animation_driver.borrow().has_active_animations()
+            {
                 *control_flow = ControlFlow::Poll;
-                println!("Scheduling a redraw due to active animations");
+                //println!("Scheduling a redraw due to active animations");
                 ALL_WINDOWS.with(|windows| {
                     windows.borrow().values().for_each(|window| {
                         if let Some(window) = window.upgrade() {
