@@ -244,10 +244,13 @@ impl Expression {
     fn from_qualified_name_node(node: SyntaxNode, ctx: &mut LookupCtx) -> Self {
         debug_assert_eq!(node.kind(), SyntaxKind::QualifiedName);
 
-        let mut it = node.children_with_tokens().filter(|n| n.kind() == SyntaxKind::Identifier);
+        let mut it = node
+            .children_with_tokens()
+            .filter(|n| n.kind() == SyntaxKind::Identifier)
+            .filter_map(|n| n.into_token());
 
         let first = if let Some(first) = it.next() {
-            first.into_token().unwrap()
+            first
         } else {
             // There must be at least one member (parser should ensure that)
             debug_assert!(ctx.diag.has_error());
@@ -258,22 +261,14 @@ impl Expression {
 
         let property = ctx.component.root_element.borrow().lookup_property(first_str);
         if property.is_property_type() {
-            if let Some(x) = it.next() {
-                ctx.diag.push_error(
-                    "Cannot access fields of property".into(),
-                    x.into_token().unwrap().span(),
-                )
-            }
-            return Self::PropertyReference(NamedReference {
+            let prop = Self::PropertyReference(NamedReference {
                 element: Rc::downgrade(&ctx.component.root_element),
                 name: first_str.to_string(),
             });
+            return maybe_lookup_object(prop, it, ctx);
         } else if matches!(property, Type::Signal) {
             if let Some(x) = it.next() {
-                ctx.diag.push_error(
-                    "Cannot access fields of signal".into(),
-                    x.into_token().unwrap().span(),
-                )
+                ctx.diag.push_error("Cannot access fields of signal".into(), x.span())
             }
             return Self::SignalReference(NamedReference {
                 element: Rc::downgrade(&ctx.component.root_element),
@@ -285,7 +280,7 @@ impl Expression {
 
         if let Some(elem) = find_element_by_id(ctx.component_scope, first_str) {
             let prop_name = if let Some(second) = it.next() {
-                second.into_token().unwrap()
+                second
             } else {
                 ctx.diag.push_error("Cannot take reference of an element".into(), node.span());
                 return Self::Invalid;
@@ -293,23 +288,14 @@ impl Expression {
 
             let p = elem.borrow().lookup_property(prop_name.text().as_str());
             if p.is_property_type() {
-                if let Some(x) = it.next() {
-                    ctx.diag.push_error(
-                        "Cannot access fields of property".into(),
-                        x.into_token().unwrap().span(),
-                    );
-                    return Self::Invalid;
-                }
-                return Self::PropertyReference(NamedReference {
+                let prop = Self::PropertyReference(NamedReference {
                     element: Rc::downgrade(&elem),
                     name: prop_name.text().to_string(),
                 });
+                return maybe_lookup_object(prop, it, ctx);
             } else if matches!(p, Type::Signal) {
                 if let Some(x) = it.next() {
-                    ctx.diag.push_error(
-                        "Cannot access fields of signal".into(),
-                        x.into_token().unwrap().span(),
-                    )
+                    ctx.diag.push_error("Cannot access fields of signal".into(), x.span())
                 }
                 return Self::SignalReference(NamedReference {
                     element: Rc::downgrade(&elem),
@@ -330,7 +316,8 @@ impl Expression {
                 if first_str == repeated.index_id {
                     return Expression::RepeaterIndexReference { element: Rc::downgrade(scope) };
                 } else if first_str == repeated.model_data_id {
-                    return Expression::RepeaterModelReference { element: Rc::downgrade(scope) };
+                    let base = Expression::RepeaterModelReference { element: Rc::downgrade(scope) };
+                    return maybe_lookup_object(base, it, ctx);
                 }
             }
         }
@@ -481,6 +468,33 @@ impl Expression {
 
         Expression::Array { element_ty, values }
     }
+}
+
+fn maybe_lookup_object(
+    mut base: Expression,
+    mut it: impl Iterator<Item = crate::parser::SyntaxToken>,
+    ctx: &mut LookupCtx,
+) -> Expression {
+    while let Some(next) = it.next() {
+        match base.ty() {
+            Type::Object(obj) => {
+                if obj.get(next.text().as_str()).is_some() {
+                    base = Expression::ObjectAccess {
+                        base: Box::new(std::mem::replace(&mut base, Expression::Invalid)),
+                        name: next.to_string(),
+                    }
+                } else {
+                    ctx.diag.push_error("Cannot access this field".into(), next.span());
+                    return Expression::Invalid;
+                }
+            }
+            _ => {
+                ctx.diag.push_error("Cannot access fields of property".into(), next.span());
+                return Expression::Invalid;
+            }
+        }
+    }
+    base
 }
 
 fn parse_color_literal(s: &str) -> Option<u32> {

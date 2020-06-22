@@ -554,6 +554,7 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
                 todo!();
             }
         }
+        ObjectAccess { .. } => todo!(),
         Cast { from, to } => {
             let f = compile_expression(&*from, component);
             match (from.ty(), to) {

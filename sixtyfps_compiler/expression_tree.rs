@@ -47,6 +47,13 @@ pub enum Expression {
         element: Weak<RefCell<Element>>,
     },
 
+    /// Access to a field of the given name within a object.
+    ObjectAccess {
+        /// This expression should have Type::Object type
+        base: Box<Expression>,
+        name: String,
+    },
+
     /// Cast an expression to the given type
     Cast {
         from: Box<Expression>,
@@ -126,6 +133,13 @@ impl Expression {
                     Type::Invalid
                 }
             }
+            Expression::ObjectAccess { base, name } => {
+                if let Type::Object(o) = base.ty() {
+                    o.get(name.as_str()).unwrap_or(&Type::Invalid).clone()
+                } else {
+                    Type::Invalid
+                }
+            }
             Expression::Cast { to, .. } => to.clone(),
             Expression::CodeBlock(sub) => sub.last().map_or(Type::Invalid, |e| e.ty()),
             Expression::FunctionCall { function } => function.ty(),
@@ -155,6 +169,7 @@ impl Expression {
             Expression::NumberLiteral(_) => {}
             Expression::SignalReference { .. } => {}
             Expression::PropertyReference { .. } => {}
+            Expression::ObjectAccess { base, .. } => visitor(&**base),
             Expression::RepeaterIndexReference { .. } => {}
             Expression::RepeaterModelReference { .. } => {}
             Expression::Cast { from, .. } => visitor(&**from),
@@ -199,6 +214,7 @@ impl Expression {
             Expression::NumberLiteral(_) => {}
             Expression::SignalReference { .. } => {}
             Expression::PropertyReference { .. } => {}
+            Expression::ObjectAccess { base, .. } => visitor(&mut **base),
             Expression::RepeaterIndexReference { .. } => {}
             Expression::RepeaterModelReference { .. } => {}
             Expression::Cast { from, .. } => visitor(&mut **from),
@@ -245,6 +261,7 @@ impl Expression {
             Expression::PropertyReference { .. } => false,
             Expression::RepeaterIndexReference { .. } => false,
             Expression::RepeaterModelReference { .. } => false,
+            Expression::ObjectAccess { base, .. } => base.is_constant(),
             Expression::Cast { from, .. } => from.is_constant(),
             Expression::CodeBlock(sub) => sub.len() == 1 && sub.first().unwrap().is_constant(),
             Expression::FunctionCall { .. } => false,

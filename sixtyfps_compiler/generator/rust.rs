@@ -388,6 +388,7 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                 todo!();
             }
         }
+        Expression::ObjectAccess { .. } => todo!(),
         Expression::CodeBlock(sub) => {
             let map = sub.iter().map(|e| compile_expression(e, &component));
             quote!({ #(#map);* })

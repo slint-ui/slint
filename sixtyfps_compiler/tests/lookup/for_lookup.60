@@ -41,4 +41,20 @@ Hello := Rectangle {
         x: idx;
         y: 25 * pp;
     }
+
+    for pp[idx] in [{a: 1, b: "P"},{a: 2, b: "Q"}]: Text {
+        x: pp.a;
+        text: pp.b;
+        y: pp.b;
+//        ^error{Cannot convert string to float32}
+        property<int32> ggg: pp;
+//                          ^error{Cannot convert \{ a: float32,b: string,\} to int32}
+    }
+
+
+    for pp[idx] in [{a: 1, b: "P"},{a: 2}]: Text {
+//                 ^error{Cannot convert \{ a: float32,\} to \{ a: float32,b: string,\}}
+        text: pp.b;
+    }
+
 }

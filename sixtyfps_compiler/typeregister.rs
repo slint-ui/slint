@@ -84,6 +84,7 @@ impl Type {
                 | Self::Resource
                 | Self::Bool
                 | Self::Model
+                | Self::Object(_)
         )
     }
 

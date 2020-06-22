@@ -143,6 +143,7 @@ pub fn eval_expression(
                 todo!();
             }
         }
+        Expression::ObjectAccess { .. } => todo!(),
         Expression::Cast { from, to } => {
             let v = eval_expression(&*from, ctx, eval_context);
             match (v, to) {
