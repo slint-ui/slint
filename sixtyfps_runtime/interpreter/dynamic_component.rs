@@ -496,3 +496,10 @@ unsafe extern "C" fn compute_layout(component: ComponentRef, eval_context: &Eval
         });
     }
 }
+
+/// Get the component description from a ComponentRef
+///
+/// Safety: the component must have been created by the interpreter
+pub unsafe fn get_component_type<'a>(component: ComponentRef<'a>) -> &'a ComponentDescription {
+    &*(component.get_vtable() as *const ComponentVTable as *const ComponentDescription)
+}

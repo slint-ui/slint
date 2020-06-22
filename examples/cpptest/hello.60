@@ -46,6 +46,8 @@ Hello := Rectangle {
 
     color: white;
 
+    property<color> top_color: #00f5;
+
     for hello[idx] in [3, 0, 1, 4]: Rectangle {
         color: #8005;
         x: idx * 100;
@@ -53,7 +55,7 @@ Hello := Rectangle {
         width: 75;
         height: 75;
         Rectangle {
-            color: #00f5;
+            color: top_color;
             width: 25;
             height: 25;
             x: 25;

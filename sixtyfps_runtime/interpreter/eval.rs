@@ -1,8 +1,11 @@
 use sixtyfps_compilerlib::expression_tree::{Expression, NamedReference};
-use sixtyfps_compilerlib::typeregister::Type;
+use sixtyfps_compilerlib::{object_tree::ElementRc, typeregister::Type};
 use sixtyfps_corelib as corelib;
 use sixtyfps_corelib::{abi::datastructures::ItemRef, EvaluationContext, Resource, SharedString};
-use std::convert::{TryFrom, TryInto};
+use std::{
+    convert::{TryFrom, TryInto},
+    rc::Rc,
+};
 
 pub trait ErasedPropertyInfo {
     fn get(&self, item: ItemRef, context: &EvaluationContext) -> Value;
@@ -102,18 +105,22 @@ pub fn eval_expression(
         Expression::SignalReference { .. } => panic!("signal in expression"),
         Expression::PropertyReference(NamedReference { element, name }) => {
             let element = element.upgrade().unwrap();
+            let (component_mem, component_type, eval_context) =
+                enclosing_component_for_element(&element, eval_context);
             let element = element.borrow();
             if element.id == element.enclosing_component.upgrade().unwrap().root_element.borrow().id
             {
-                if let Some(x) = ctx.component_type.custom_properties.get(name) {
+                if let Some(x) = component_type.custom_properties.get(name) {
                     return unsafe {
-                        x.prop.get(&*ctx.mem.offset(x.offset as isize), &eval_context).unwrap()
+                        x.prop
+                            .get(&*component_mem.offset(x.offset as isize), &eval_context)
+                            .unwrap()
                     };
                 }
             };
-            let item_info = &ctx.component_type.items[element.id.as_str()];
+            let item_info = &component_type.items[element.id.as_str()];
             core::mem::drop(element);
-            let item = unsafe { item_info.item_from_component(ctx.mem) };
+            let item = unsafe { item_info.item_from_component(component_mem) };
             item_info.rtti.properties[name.as_str()].get(item, &eval_context)
         }
         Expression::RepeaterIndexReference { element } => {
@@ -156,19 +163,22 @@ pub fn eval_expression(
         Expression::FunctionCall { function, .. } => {
             if let Expression::SignalReference(NamedReference { element, name }) = &**function {
                 let element = element.upgrade().unwrap();
-                let item_info = &ctx.component_type.items[element.borrow().id.as_str()];
-                let item = unsafe { item_info.item_from_component(ctx.mem) };
+                let (component_mem, component_type, eval_context) =
+                    enclosing_component_for_element(&element, eval_context);
+
+                let item_info = &component_type.items[element.borrow().id.as_str()];
+                let item = unsafe { item_info.item_from_component(component_mem) };
                 let signal = unsafe {
                     &mut *(item_info
                         .rtti
                         .signals
                         .get(name.as_str())
-                        .map(|o| item.as_ptr().add(*o) as *mut u8)
+                        .map(|o| item.as_ptr().add(*o) as *const u8)
                         .or_else(|| {
-                            ctx.component_type
+                            component_type
                                 .custom_signals
                                 .get(name.as_str())
-                                .map(|o| ctx.mem.add(*o))
+                                .map(|o| component_mem.add(*o))
                         })
                         .unwrap_or_else(|| panic!("unkown signal {}", name))
                         as *mut corelib::Signal<()>)
@@ -193,18 +203,21 @@ pub fn eval_expression(
                 };
 
                 let element = element.upgrade().unwrap();
+                let (component_mem, component_type, eval_context) =
+                    enclosing_component_for_element(&element, eval_context);
+
                 let component = element.borrow().enclosing_component.upgrade().unwrap();
                 if element.borrow().id == component.root_element.borrow().id {
-                    if let Some(x) = ctx.component_type.custom_properties.get(name) {
+                    if let Some(x) = component_type.custom_properties.get(name) {
                         unsafe {
-                            let p = &*ctx.mem.offset(x.offset as isize);
+                            let p = &*component_mem.offset(x.offset as isize);
                             x.prop.set(p, eval(x.prop.get(p, &eval_context).unwrap())).unwrap();
                         }
                         return Value::Void;
                     }
                 };
-                let item_info = &ctx.component_type.items[element.borrow().id.as_str()];
-                let item = unsafe { item_info.item_from_component(ctx.mem) };
+                let item_info = &component_type.items[element.borrow().id.as_str()];
+                let item = unsafe { item_info.item_from_component(component_mem) };
                 let p = &item_info.rtti.properties[name.as_str()];
                 p.set(item, eval(p.get(item, &eval_context)));
                 Value::Void
@@ -237,5 +250,23 @@ pub fn eval_expression(
             Value::Array(values.iter().map(|e| eval_expression(e, ctx, eval_context)).collect())
         }
         Expression::Object { .. } => todo!(),
+    }
+}
+
+fn enclosing_component_for_element<'a>(
+    element: &ElementRc,
+    eval_context: &'a corelib::EvaluationContext<'a>,
+) -> (*const u8, &'a crate::ComponentDescription, &'a corelib::EvaluationContext<'a>) {
+    let component_type =
+        unsafe { crate::dynamic_component::get_component_type(eval_context.component) };
+    if Rc::ptr_eq(
+        &element.borrow().enclosing_component.upgrade().unwrap(),
+        &component_type.original,
+    ) {
+        let mem = eval_context.component.as_ptr();
+        (mem, component_type, eval_context)
+    } else {
+        debug_assert!(component_type.original.parent_element.upgrade().is_some());
+        enclosing_component_for_element(element, eval_context.parent_context.unwrap())
     }
 }
