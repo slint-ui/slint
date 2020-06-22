@@ -20,6 +20,11 @@ fn rust_type(
         Type::String => Ok(quote!(sixtyfps::re_exports::SharedString)),
         Type::Color => Ok(quote!(u32)),
         Type::Bool => Ok(quote!(bool)),
+        Type::Object(o) => {
+            let elem = o.values().map(|v| rust_type(v, span)).collect::<Result<Vec<_>, _>>()?;
+            // This will produce a tuple
+            Ok(quote!((#(#elem,)*)))
+        }
         _ => Err(CompilerDiagnostic {
             message: "Cannot map property type to Rust".into(),
             span: span.clone(),
@@ -388,7 +393,18 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                 todo!();
             }
         }
-        Expression::ObjectAccess { .. } => todo!(),
+        Expression::ObjectAccess { base, name } => {
+            let index = if let Type::Object(ty) = base.ty() {
+                ty.keys()
+                    .position(|k| k == name)
+                    .expect("Expression::ObjectAccess: Cannot find a key in an object")
+            } else {
+                panic!("Expression::ObjectAccess's base expression is not an Object type")
+            };
+            let index = proc_macro2::Literal::usize_unsuffixed(index);
+            let base_e = compile_expression(base, component);
+            quote!((#base_e).#index )
+        }
         Expression::CodeBlock(sub) => {
             let map = sub.iter().map(|e| compile_expression(e, &component));
             quote!({ #(#map);* })
@@ -459,7 +475,21 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
             let val = values.iter().map(|e| compile_expression(e, component));
             quote!([#(#val as _),*])
         }
-        Expression::Object { .. } => todo!("Object"),
+        Expression::Object { ty, values } => {
+            if let Type::Object(ty) = ty {
+                let elem = ty.iter().map(|(k, t)| {
+                    values.get(k).map(|e| {
+                        let ce = compile_expression(e, component);
+                        let t = rust_type(t, &Default::default()).unwrap_or_default();
+                        quote!(#ce as #t)
+                    })
+                });
+                // This will produce a tuple
+                quote!((#(#elem,)*))
+            } else {
+                panic!("Expression::Object is not a Type::Object")
+            }
+        }
     }
 }
 
