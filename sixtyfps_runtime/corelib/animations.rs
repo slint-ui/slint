@@ -23,33 +23,36 @@ pub trait Animated {
     /// Called by the animation system to notify the animation about the progress, represented by
     /// a value between 0 (start) and 1 (end).
     fn update_animation_state(self: Rc<Self>, state: AnimationState);
+    /// Called by the animation system to query the duration the animation is supposed to take.
+    fn duration(self: Rc<Self>) -> Duration;
 }
 
 #[derive(Clone)]
 /// The Animation structure holds everything needed to describe an animation.
-pub struct Animation {
-    /// The duration of the animation.
-    pub duration: Duration,
+struct InternalAnimation {
     /// The current state of the animation.
     state: InternalAnimationState,
     advance_callback: Weak<dyn Animated>,
 }
 
-impl Animation {
+impl InternalAnimation {
     /// Creates a new animation with the specified duration and the advance_callback that'll be called
     /// as time passes.
-    pub fn new(duration: Duration, advance_callback: Weak<dyn Animated>) -> Self {
-        Self { duration, state: InternalAnimationState::Stopped, advance_callback }
+    pub fn new(advance_callback: Weak<dyn Animated>) -> Self {
+        Self {
+            state: InternalAnimationState::ReadyToRun { time_elapsed: Duration::default() },
+            advance_callback,
+        }
     }
 }
 
 enum InternalAnimationEntry {
-    Allocated(RefCell<Animation>),
+    Allocated(RefCell<InternalAnimation>),
     Free { next_free_idx: Option<usize> },
 }
 
 impl InternalAnimationEntry {
-    fn as_animation<'a>(&'a self) -> &'a RefCell<Animation> {
+    fn as_animation<'a>(&'a self) -> &'a RefCell<InternalAnimation> {
         match self {
             InternalAnimationEntry::Allocated(ref anim) => {
                 return anim;
@@ -133,21 +136,18 @@ impl AnimationDriver {
                 InternalAnimationState::ReadyToRun { .. } => unreachable!(),
                 InternalAnimationState::Running { start_time } => {
                     let time_progress = new_tick.duration_since(start_time).as_millis() as f32;
-                    let progress = time_progress / (animation.duration.as_millis() as f32);
                     if let Some(cb) = animation.advance_callback.upgrade() {
-                        cb.update_animation_state(AnimationState::Running {
+                        let progress = time_progress / (cb.clone().duration().as_millis() as f32);
+                        cb.clone().update_animation_state(AnimationState::Running {
                             progress: progress.min(1.),
                         });
-                    }
-
-                    if progress >= 1. {
-                        if let Some(cb) = animation.advance_callback.upgrade() {
+                        if progress >= 1. {
                             cb.update_animation_state(AnimationState::Stopped);
-                        }
 
-                        self.set_animation_state(i, InternalAnimationState::Stopped);
-                    } else {
-                        need_new_animation_frame = true;
+                            self.set_animation_state(i, InternalAnimationState::Stopped);
+                        } else {
+                            need_new_animation_frame = true;
+                        }
                     }
                 }
                 InternalAnimationState::ReadyToPause { start_time } => {
@@ -174,9 +174,8 @@ impl AnimationDriver {
     }
 
     /// Start a new animation and returns a handle for it.
-    pub fn start_animation(&mut self, mut new_animation: Animation) -> AnimationHandle {
-        new_animation.state =
-            InternalAnimationState::ReadyToRun { time_elapsed: Duration::default() };
+    pub fn start_animation(&mut self, animation_callback: Weak<dyn Animated>) -> AnimationHandle {
+        let animation = InternalAnimation::new(animation_callback);
 
         let idx = {
             if let Some(free_idx) = self.next_free {
@@ -186,11 +185,10 @@ impl AnimationDriver {
                 } else {
                     unreachable!();
                 }
-                *entry = InternalAnimationEntry::Allocated(RefCell::new(new_animation));
+                *entry = InternalAnimationEntry::Allocated(RefCell::new(animation));
                 free_idx
             } else {
-                self.animations
-                    .push(InternalAnimationEntry::Allocated(RefCell::new(new_animation)));
+                self.animations.push(InternalAnimationEntry::Allocated(RefCell::new(animation)));
                 self.animations.len() - 1
             }
         };
@@ -232,7 +230,8 @@ impl AnimationDriver {
     }
 
     /// Returns a temporary reference to the animation behind the given handle.
-    pub fn get_animation<'a>(&'a self, handle: AnimationHandle) -> &'a RefCell<Animation> {
+    #[cfg(test)]
+    fn get_animation<'a>(&'a self, handle: AnimationHandle) -> &'a RefCell<InternalAnimation> {
         match self.animations[handle.0] {
             InternalAnimationEntry::Allocated(ref anim) => {
                 return anim;
@@ -263,11 +262,15 @@ mod test {
     #[derive(Default)]
     struct RecordingAnimation {
         reported_states: Vec<AnimationState>,
+        duration: std::time::Duration,
     }
 
     impl Animated for RefCell<RecordingAnimation> {
         fn update_animation_state(self: Rc<Self>, state: AnimationState) {
             self.borrow_mut().reported_states.push(state)
+        }
+        fn duration(self: Rc<Self>) -> Duration {
+            self.borrow().duration
         }
     }
 
@@ -275,14 +278,15 @@ mod test {
     fn test_animation_driver() {
         let mut driver = AnimationDriver::default();
 
-        let test_animation = Rc::new(RefCell::new(RecordingAnimation::default()));
+        let test_animation = Rc::new(RefCell::new(RecordingAnimation {
+            duration: Duration::from_secs(10),
+            ..Default::default()
+        }));
 
         assert!(!driver.has_active_animations());
 
-        let handle = driver.start_animation(Animation::new(
-            Duration::from_secs(10),
-            Rc::downgrade(&(test_animation.clone() as Rc<dyn Animated>)),
-        ));
+        let handle =
+            driver.start_animation(Rc::downgrade(&(test_animation.clone() as Rc<dyn Animated>)));
 
         assert!(
             matches!(driver.get_animation(handle).borrow().state, InternalAnimationState::ReadyToRun{..})
@@ -352,12 +356,13 @@ mod test {
     fn pause_animation() {
         let mut driver = AnimationDriver::default();
 
-        let test_animation = Rc::new(RefCell::new(RecordingAnimation::default()));
+        let test_animation = Rc::new(RefCell::new(RecordingAnimation {
+            duration: Duration::from_secs(10),
+            ..Default::default()
+        }));
 
-        let handle = driver.start_animation(Animation::new(
-            Duration::from_secs(10),
-            Rc::downgrade(&(test_animation.clone() as Rc<dyn Animated>)),
-        ));
+        let handle =
+            driver.start_animation(Rc::downgrade(&(test_animation.clone() as Rc<dyn Animated>)));
 
         let mut test_time = std::time::Instant::now();
 
@@ -423,6 +428,7 @@ mod test {
         pause_on_next_progress_update: bool,
         driver: Rc<RefCell<AnimationDriver>>,
         handle: Option<AnimationHandle>,
+        duration: std::time::Duration,
     }
 
     impl Animated for RefCell<SelfPausingAnimation> {
@@ -434,20 +440,27 @@ mod test {
                 }
             }
         }
+        fn duration(self: Rc<Self>) -> Duration {
+            self.borrow().duration
+        }
     }
 
     #[test]
     fn test_self_pausing_animation() {
         let driver = Rc::new(RefCell::new(AnimationDriver::default()));
 
-        let anim = Rc::new(RefCell::new(SelfPausingAnimation::default()));
+        let anim = Rc::new(RefCell::new(SelfPausingAnimation {
+            duration: Duration::from_secs(10),
+            ..Default::default()
+        }));
         let handle = {
             let a = &mut anim.borrow_mut();
             a.driver = driver.clone();
-            a.handle = Some(driver.borrow_mut().start_animation(Animation::new(
-                Duration::from_secs(10),
-                Rc::downgrade(&(anim.clone() as Rc<dyn Animated>)),
-            )));
+            a.handle = Some(
+                driver
+                    .borrow_mut()
+                    .start_animation(Rc::downgrade(&(anim.clone() as Rc<dyn Animated>))),
+            );
             a.handle.unwrap()
         };
 
