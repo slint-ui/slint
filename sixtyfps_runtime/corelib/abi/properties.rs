@@ -12,7 +12,7 @@ use std::{
     rc::{Rc, Weak},
 };
 
-thread_local!(static CURRENT_PROPERTY : RefCell<Option<Rc<dyn PropertyNotify>>> = Default::default());
+thread_local!(static CURRENT_BINDING : RefCell<Option<Rc<dyn PropertyNotify>>> = Default::default());
 
 trait Binding {
     fn evaluate(self: Rc<Self>, value_ptr: *mut (), context: &EvaluationContext);
@@ -33,9 +33,9 @@ trait PropertyNotify {
     /// mark_dirty() is called to notify a property that its binding may need to be re-evaluated
     /// because one of its dependencies may have changed.
     fn mark_dirty(self: Rc<Self>);
-    /// notify() is called to register the property (self) with the currently (thread-local) evaluating
-    /// property binding.
-    fn notify(self: Rc<Self>);
+    /// notify() is called to register the currently (thread-local) evaluating binding as a
+    /// dependency for this property (self).
+    fn register_current_binding_as_dependency(self: Rc<Self>);
 }
 
 impl PropertyNotify for RefCell<PropertyImpl> {
@@ -53,8 +53,8 @@ impl PropertyNotify for RefCell<PropertyImpl> {
         }
     }
 
-    fn notify(self: Rc<Self>) {
-        CURRENT_PROPERTY.with(|cur_dep| {
+    fn register_current_binding_as_dependency(self: Rc<Self>) {
+        CURRENT_BINDING.with(|cur_dep| {
             if let Some(m) = &(*cur_dep.borrow()) {
                 self.borrow_mut().dependencies.push(Rc::downgrade(m));
             }
@@ -120,7 +120,7 @@ impl<T: Clone + 'static> Property<T> {
     /// property
     pub fn get(&self, context: &EvaluationContext) -> T {
         self.update(context);
-        self.inner.clone().notify();
+        self.inner.clone().register_current_binding_as_dependency();
         let _lock = self.inner.borrow();
         unsafe { (*(self.value.get() as *const T)).clone() }
     }
@@ -178,13 +178,13 @@ impl<T: Clone + 'static> Property<T> {
         let mut lock =
             self.inner.try_borrow_mut().expect("Circular dependency in binding evaluation");
         if let Some(binding) = &lock.binding {
-            CURRENT_PROPERTY.with(|cur_dep| {
+            CURRENT_BINDING.with(|cur_dep| {
                 let mut m = cur_dep.borrow_mut();
                 std::mem::swap(m.deref_mut(), &mut old);
             });
             binding.clone().evaluate(self.value.get() as *mut _, context);
             lock.dirty = false;
-            CURRENT_PROPERTY.with(|cur_dep| {
+            CURRENT_BINDING.with(|cur_dep| {
                 let mut m = cur_dep.borrow_mut();
                 std::mem::swap(m.deref_mut(), &mut old);
                 //somehow ptr_eq does not work as expected despite the pointer are equal
@@ -255,19 +255,19 @@ pub unsafe extern "C" fn sixtyfps_property_update(
     let inner = &*(out as *const PropertyHandle);
 
     if !inner.borrow().dirty {
-        inner.clone().notify();
+        inner.clone().register_current_binding_as_dependency();
         return;
     }
     let mut old: Option<Rc<dyn PropertyNotify>> = Some(inner.clone());
     let mut lock = inner.try_borrow_mut().expect("Circular dependency in binding evaluation");
     if let Some(binding) = &lock.binding {
-        CURRENT_PROPERTY.with(|cur_dep| {
+        CURRENT_BINDING.with(|cur_dep| {
             let mut m = cur_dep.borrow_mut();
             std::mem::swap(m.deref_mut(), &mut old);
         });
         binding.clone().evaluate(val, &*context);
         lock.dirty = false;
-        CURRENT_PROPERTY.with(|cur_dep| {
+        CURRENT_BINDING.with(|cur_dep| {
             let mut m = cur_dep.borrow_mut();
             std::mem::swap(m.deref_mut(), &mut old);
             //somehow ptr_eq does not work as expected despite the pointer are equal
@@ -275,7 +275,7 @@ pub unsafe extern "C" fn sixtyfps_property_update(
         });
     }
     core::mem::drop(lock);
-    inner.clone().notify();
+    inner.clone().register_current_binding_as_dependency();
 }
 
 /// Mark the fact that the property was changed and that its binding need to be removed, and
