@@ -145,6 +145,14 @@ fn to_js_value<'cx>(
             }
             js_array.as_value(cx)
         }
+        Value::Object(o) => {
+            let js_object = JsObject::new(cx);
+            for (k, e) in o.into_iter() {
+                let v = to_js_value(e, cx)?;
+                js_object.set(cx, k.as_str(), v)?;
+            }
+            js_object.as_value(cx)
+        }
     })
 }
 

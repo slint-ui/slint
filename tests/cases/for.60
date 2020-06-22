@@ -24,4 +24,10 @@ TestCase := Rectangle {
         x: idx;
         Text { text: pp; }
     }
+
+    for pp in [{a: 12, b: "aa", c: {a: #00f}}, {a: 13, b: "cc", c: { a: #f00}}]: Text {
+        x: pp.a;
+        text: pp.b;
+        color: pp.c.a;
+    }
 }

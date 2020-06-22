@@ -3,6 +3,7 @@ use sixtyfps_compilerlib::{object_tree::ElementRc, typeregister::Type};
 use sixtyfps_corelib as corelib;
 use sixtyfps_corelib::{abi::datastructures::ItemRef, EvaluationContext, Resource, SharedString};
 use std::{
+    collections::HashMap,
     convert::{TryFrom, TryInto},
     rc::Rc,
 };
@@ -48,6 +49,8 @@ pub enum Value {
     Resource(Resource),
     /// An Array
     Array(Vec<Value>),
+    /// An object
+    Object(HashMap<String, Value>),
 }
 
 impl Default for Value {
@@ -90,6 +93,7 @@ declare_value_conversion!(Number => [u32, u64, i32, i64, f32, f64, usize, isize]
 declare_value_conversion!(String => [SharedString] );
 declare_value_conversion!(Bool => [bool] );
 declare_value_conversion!(Resource => [Resource] );
+declare_value_conversion!(Object => [HashMap<String, Value>] );
 
 /// Evaluate an expression and return a Value as the result of this expression
 pub fn eval_expression(
@@ -143,7 +147,13 @@ pub fn eval_expression(
                 todo!();
             }
         }
-        Expression::ObjectAccess { .. } => todo!(),
+        Expression::ObjectAccess { base, name } => {
+            if let Value::Object(mut o) = eval_expression(base, ctx, eval_context) {
+                o.remove(name).unwrap_or(Value::Void)
+            } else {
+                Value::Void
+            }
+        }
         Expression::Cast { from, to } => {
             let v = eval_expression(&*from, ctx, eval_context);
             match (v, to) {
@@ -250,7 +260,12 @@ pub fn eval_expression(
         Expression::Array { values, .. } => {
             Value::Array(values.iter().map(|e| eval_expression(e, ctx, eval_context)).collect())
         }
-        Expression::Object { .. } => todo!(),
+        Expression::Object { values, .. } => Value::Object(
+            values
+                .iter()
+                .map(|(k, v)| (k.clone(), eval_expression(v, ctx, eval_context)))
+                .collect(),
+        ),
     }
 }
 
