@@ -48,10 +48,15 @@ Hello := Rectangle {
 
     property<color> top_color: #00f5;
 
-    for hello[idx] in [3, 0, 1, 4]: Rectangle {
-        color: #8005;
+    for hello[idx] in [
+        {a: 3, color: #a55},
+        {a: 0, color: #aa5},
+        {a: 1, color: #a5a},
+        {a: 4, color: #55a}
+    ]: Rectangle {
+        color: hello.color;
         x: idx * 100;
-        y: hello * 100;
+        y: hello.a * 100;
         width: 75;
         height: 75;
         Rectangle {

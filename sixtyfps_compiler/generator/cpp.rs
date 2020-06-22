@@ -123,7 +123,7 @@ mod cpp_ast {
     }
 
     pub trait CppType {
-        fn cpp_type(&self) -> Option<&str>;
+        fn cpp_type(&self) -> Option<String>;
     }
 }
 
@@ -135,14 +135,19 @@ use cpp_ast::*;
 use std::rc::Rc;
 
 impl CppType for Type {
-    fn cpp_type(&self) -> Option<&str> {
+    fn cpp_type(&self) -> Option<String> {
         match self {
-            Type::Float32 => Some("float"),
-            Type::Int32 => Some("int"),
-            Type::String => Some("sixtyfps::SharedString"),
-            Type::Color => Some("uint32_t"),
-            Type::Bool => Some("bool"),
-            Type::Model => Some("std::shared_ptr<sixtyfps::Model>"),
+            Type::Float32 => Some("float".to_owned()),
+            Type::Int32 => Some("int".to_owned()),
+            Type::String => Some("sixtyfps::SharedString".to_owned()),
+            Type::Color => Some("uint32_t".to_owned()),
+            Type::Bool => Some("bool".to_owned()),
+            Type::Model => Some("std::shared_ptr<sixtyfps::Model>".to_owned()),
+            Type::Object(o) => {
+                let elem = o.values().map(|v| v.cpp_type()).collect::<Option<Vec<_>>>()?;
+                // This will produce a tuple
+                Some(format!("std::tuple<{}>", elem.join(", ")))
+            }
             _ => None,
         }
     }
@@ -338,7 +343,7 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Dia
                     .and_then(|e| e.borrow().node.as_ref().map(|n| n.span()))
                     .unwrap_or_default(),
             });
-            ""
+            String::default()
         })
         .to_owned();
         component_struct.members.push(Declaration::Var(Var {
@@ -554,7 +559,16 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
                 todo!();
             }
         }
-        ObjectAccess { .. } => todo!(),
+        ObjectAccess { base, name } => {
+            let index = if let Type::Object(ty) = base.ty() {
+                ty.keys()
+                    .position(|k| k == name)
+                    .expect("Expression::ObjectAccess: Cannot find a key in an object")
+            } else {
+                panic!("Expression::ObjectAccess's base expression is not an Object type")
+            };
+            format!("std::get<{}>({})", index, compile_expression(base, component))
+        }
         Cast { from, to } => {
             let f = compile_expression(&*from, component);
             match (from.ty(), to) {
@@ -624,14 +638,29 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
         Array { element_ty, values } => format!(
             "std::make_shared<sixtyfps::ArrayModel<{count},{ty}>>({val})",
             count = values.len(),
-            ty = element_ty.cpp_type().unwrap_or("FIXME: report error"),
+            ty = element_ty.cpp_type().unwrap_or_else(|| "FIXME: report error".to_owned()),
             val = values
                 .iter()
                 .map(|e| compile_expression(e, component))
                 .collect::<Vec<_>>()
                 .join(", ")
         ),
-        Object { .. } => todo!(),
+        Object { ty, values } => {
+            if let Type::Object(ty) = ty {
+                let elem = ty
+                    .keys()
+                    .map(|k| {
+                        values
+                            .get(k)
+                            .map(|e| compile_expression(e, component))
+                            .unwrap_or_else(|| "(Error: missing member in object)".to_owned())
+                    })
+                    .collect::<Vec<String>>();
+                format!("std::make_tuple({})", elem.join(", "))
+            } else {
+                panic!("Expression::Object is not a Type::Object")
+            }
+        }
         Uncompiled(_) => panic!(),
         Invalid => format!("\n#error invalid expression\n"),
     }
