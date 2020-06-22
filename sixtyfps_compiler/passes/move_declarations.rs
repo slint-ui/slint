@@ -25,6 +25,19 @@ pub fn move_declarations(component: &Rc<Component>) {
 
     let mut new_root_bindings = HashMap::new();
     recurse_elem(&component.root_element, &(), &mut |elem, _| {
+        if elem.borrow().repeated.is_some() {
+            if let Type::Component(base) = &elem.borrow().base_type {
+                move_declarations(base);
+            } else {
+                panic!("Repeated element should have a component as base because of the repeater_component.rs pass")
+            }
+            debug_assert!(
+                elem.borrow().property_declarations.is_empty() && elem.borrow().children.is_empty(),
+                "Repeated element should be empty because of the repeater_component.rs pass"
+            );
+            return;
+        }
+
         // take the bindings so we do nt keep the borrow_mut of the element
         let bindings = core::mem::take(&mut elem.borrow_mut().bindings);
         let mut new_bindings = HashMap::with_capacity(bindings.len());
