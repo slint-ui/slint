@@ -40,7 +40,7 @@ impl ComponentDescription {
 
     /// Instantiate a runtime component from this ComponentDescription
     pub fn create(self: Rc<Self>) -> ComponentBox {
-        dynamic_component::instentiate(self)
+        dynamic_component::instentiate(self, None)
     }
 
     /// Set a value to property.
@@ -82,13 +82,12 @@ impl ComponentDescription {
     ///
     /// Returns an error if the component is not an instance corresponding to this ComponentDescription,
     /// or if a signal with this name does not exist in this component
-    pub fn get_property(&self, component: ComponentRef, name: &str) -> Result<Value, ()> {
-        if !core::ptr::eq((&self.ct) as *const _, component.get_vtable() as *const _) {
+    pub fn get_property(&self, eval_context: &EvaluationContext, name: &str) -> Result<Value, ()> {
+        if !core::ptr::eq((&self.ct) as *const _, eval_context.component.get_vtable() as *const _) {
             return Err(());
         }
         let x = self.custom_properties.get(name).ok_or(())?;
-        let eval_context = EvaluationContext { component };
-        unsafe { x.prop.get(&*component.as_ptr().add(x.offset), &eval_context) }
+        unsafe { x.prop.get(&*eval_context.component.as_ptr().add(x.offset), eval_context) }
     }
 
     /// Sets an handler for a signal
@@ -114,14 +113,14 @@ impl ComponentDescription {
     ///
     /// Returns an error if the component is not an instance corresponding to this ComponentDescription,
     /// or if the signal with this name does not exist in this component
-    pub fn emit_signal(&self, component: ComponentRef, name: &str) -> Result<(), ()> {
+    pub fn emit_signal(&self, eval_context: &EvaluationContext, name: &str) -> Result<(), ()> {
+        let component = eval_context.component;
         if !core::ptr::eq((&self.ct) as *const _, component.get_vtable() as *const _) {
             return Err(());
         }
         let x = self.custom_signals.get(name).ok_or(())?;
         let sig = unsafe { &mut *(component.as_ptr().add(*x) as *mut Signal<()>) };
-        let eval_context = EvaluationContext { component };
-        sig.emit(&eval_context, ());
+        sig.emit(eval_context, ());
         Ok(())
     }
 }

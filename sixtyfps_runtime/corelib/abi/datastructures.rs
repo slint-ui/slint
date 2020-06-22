@@ -1,6 +1,7 @@
 //! This module contains the basic datastructures that are exposed to the C API
 
 use super::slice::Slice;
+use crate::EvaluationContext;
 use std::cell::Cell;
 use vtable::*;
 
@@ -49,7 +50,7 @@ pub struct ComponentVTable {
     pub layout_info: extern "C" fn(VRef<ComponentVTable>) -> LayoutInfo,
 
     /// Will compute the layout of
-    pub compute_layout: extern "C" fn(VRef<ComponentVTable>),
+    pub compute_layout: extern "C" fn(VRef<ComponentVTable>, eval_context: &EvaluationContext),
 }
 
 /// This structure must be present in items that are Rendered and contains information.

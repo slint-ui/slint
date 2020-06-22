@@ -289,10 +289,13 @@ unsafe extern "C" fn component_create(s: &ComponentVTable) -> ComponentBox {
     );
     // We need to increment the ref-count, as from_raw doesn't do that.
     std::mem::forget(component_type.clone());
-    instentiate(component_type)
+    instentiate(component_type, None)
 }
 
-pub fn instentiate(component_type: Rc<ComponentDescription>) -> ComponentBox {
+pub fn instentiate(
+    component_type: Rc<ComponentDescription>,
+    parent_ctx: Option<&EvaluationContext>,
+) -> ComponentBox {
     let instance = component_type.dynamic_type.clone().create_instance();
     let mem = instance as *mut u8;
 
@@ -308,7 +311,11 @@ pub fn instentiate(component_type: Rc<ComponentDescription>) -> ComponentBox {
     // The destructor of ComponentBox will take care of reducing the count
     Rc::into_raw(component_type);
 
-    let eval_context = EvaluationContext { component: component_box.borrow() };
+    let eval_context = if let Some(parent) = parent_ctx {
+        parent.child_context(component_box.borrow())
+    } else {
+        EvaluationContext::for_root_component(component_box.borrow())
+    };
 
     for item_within_component in ctx.component_type.items.values() {
         unsafe {
@@ -380,7 +387,7 @@ pub fn instentiate(component_type: Rc<ComponentDescription>) -> ComponentBox {
         match eval::eval_expression(&rep_in_comp.model, &*ctx, &eval_context) {
             crate::Value::Number(count) => {
                 vec.resize_with(count.round() as usize, || {
-                    instentiate(rep_in_comp.component_to_repeat.clone())
+                    instentiate(rep_in_comp.component_to_repeat.clone(), Some(&eval_context))
                 });
                 for (i, x) in vec.iter().enumerate() {
                     rep_in_comp
@@ -394,7 +401,9 @@ pub fn instentiate(component_type: Rc<ComponentDescription>) -> ComponentBox {
                 }
             }
             crate::Value::Array(a) => {
-                vec.resize_with(a.len(), || instentiate(rep_in_comp.component_to_repeat.clone()));
+                vec.resize_with(a.len(), || {
+                    instentiate(rep_in_comp.component_to_repeat.clone(), Some(&eval_context))
+                });
                 for (i, (x, val)) in vec.iter().zip(a.into_iter()).enumerate() {
                     rep_in_comp
                         .component_to_repeat
@@ -422,12 +431,12 @@ unsafe extern "C" fn component_destroy(component_ref: vtable::VRefMut<ComponentV
     dynamic_type::TypeInfo::delete_instance(component_ref.as_ptr() as *mut dynamic_type::Instance);
 }
 
-unsafe extern "C" fn compute_layout(component: ComponentRef) {
+unsafe extern "C" fn compute_layout(component: ComponentRef, eval_context: &EvaluationContext) {
+    debug_assert!(component.as_ptr() == eval_context.component.as_ptr());
+
     // This is fine since we can only be called with a component that with our vtable which is a ComponentDescription
     let component_type =
         &*(component.get_vtable() as *const ComponentVTable as *const ComponentDescription);
-
-    let eval_context = EvaluationContext { component };
 
     for it in &component_type.original.layout_constraints.borrow().0 {
         use sixtyfps_corelib::layout::*;

@@ -11,7 +11,7 @@ TestCase := Rectangle {
             x: 2 * idx;
             y: 200 * pp;
             width: s.within;
-            //height: root.top_level;
+            height: root.top_level;
         }
     }
 

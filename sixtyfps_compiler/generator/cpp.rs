@@ -226,7 +226,7 @@ fn handle_repeater(
     ));
 
     component_struct.members.push(Declaration::Var(Var {
-        ty: format!("sixtyfps::Repeater<{}>", component_id(base_component)),
+        ty: format!("sixtyfps::Repeater<struct {}>", component_id(base_component)),
         name: repeater_id,
         init: None,
     }));
@@ -262,7 +262,7 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Dia
         let ty = if property_decl.property_type == Type::Signal {
             if property_decl.expose_in_public_api && is_root {
                 let signal_emitter: Vec<String> = vec![
-                    "[[maybe_unused]] auto context = sixtyfps::internal::EvaluationContext{ VRefMut<sixtyfps::ComponentVTable> { &component_type, this } };".into(),
+                    "[[maybe_unused]] auto context = sixtyfps::evaluation_context_for_root_component(this);".into(),
                     format!("{}.emit(&context);", cpp_name)
                     ];
 
@@ -288,7 +288,7 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Dia
 
             if property_decl.expose_in_public_api && is_root {
                 let prop_getter: Vec<String> = vec![
-                    "auto context = sixtyfps::internal::EvaluationContext{ VRefMut<sixtyfps::ComponentVTable> { &component_type, this } };".into(),
+                    "[[maybe_unused]] auto context = sixtyfps::evaluation_context_for_root_component(this);".into(),
                     format!("return {}.get(&context);", cpp_name)
                 ];
 
@@ -401,7 +401,7 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Dia
         name: component_id.clone(),
         signature: "()".to_owned(),
         is_constructor: true,
-        statements: Some(init),
+        statements: None,
         ..Default::default()
     }));
 
@@ -414,7 +414,9 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Dia
 
     component_struct.members.push(Declaration::Function(Function {
         name: "compute_layout".into(),
-        signature: "(sixtyfps::ComponentRef component) -> void".into(),
+        signature:
+            "(sixtyfps::ComponentRef component, [[maybe_unused]] const sixtyfps::EvaluationContext *context) -> void"
+                .into(),
         is_static: true,
         statements: Some(compute_layout(component)),
         ..Default::default()
@@ -426,9 +428,18 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Dia
         init: None,
     }));
 
-    file.declarations.push(Declaration::Struct(component_struct));
+    let mut declarations = vec![];
+    declarations.push(Declaration::Struct(component_struct));
 
-    file.declarations.push(Declaration::Function(Function {
+    declarations.push(Declaration::Function(Function {
+        name: format!("{0}::{0}", component_id),
+        signature: "()".to_owned(),
+        is_constructor: true,
+        statements: Some(init),
+        ..Default::default()
+    }));
+
+    declarations.push(Declaration::Function(Function {
         name: format!("{}::visit_children", component_id),
         signature: "(sixtyfps::ComponentRef component, intptr_t index, sixtyfps::ItemVisitorRefMut visitor) -> void".into(),
         statements: Some(vec![
@@ -444,7 +455,7 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Dia
         ..Default::default()
     }));
 
-    file.declarations.push(Declaration::Var(Var {
+    declarations.push(Declaration::Var(Var {
         ty: "const sixtyfps::ComponentVTable".to_owned(),
         name: format!("{}::component_type", component_id),
         init: Some(
@@ -452,6 +463,9 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Dia
                 .to_owned(),
         ),
     }));
+
+    declarations.append(&mut file.declarations);
+    file.declarations = declarations;
 }
 
 fn component_id(component: &Rc<Component>) -> String {
@@ -462,12 +476,41 @@ fn component_id(component: &Rc<Component>) -> String {
     }
 }
 
-fn access_member(element: &ElementRc, name: &str) -> String {
+/// Returns the code that can access the given property or signal from the context (but without the set or get)
+///
+/// to be used like:
+/// ```ignore
+/// let (access, context) = access_member(...)
+/// format!("context.{access}.get({context})", ...)
+/// ```
+fn access_member(
+    element: &ElementRc,
+    name: &str,
+    component: &Rc<Component>,
+    context: &str,
+    component_cpp: &str,
+) -> (String, String) {
     let e = element.borrow();
-    if e.property_declarations.contains_key(name) {
-        name.into()
+    let enclosing_component = e.enclosing_component.upgrade().unwrap();
+    if Rc::ptr_eq(component, &enclosing_component) {
+        let e = element.borrow();
+        if e.property_declarations.contains_key(name) {
+            (format!("{}->{}", component_cpp, name), context.into())
+        } else {
+            (format!("{}->{}.{}", component_cpp, e.id.as_str(), name), context.into())
+        }
     } else {
-        format!("{}.{}", e.id.as_str(), name)
+        access_member(
+            element,
+            name,
+            &enclosing_component,
+            &format!("{}->parent_context", context),
+            &format!(
+                "reinterpret_cast<{} const *>({}->parent_context->component.instance)",
+                component_id(&enclosing_component),
+                context
+            ),
+        )
     }
 }
 
@@ -477,12 +520,25 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
     match e {
         StringLiteral(s) => format!(r#"sixtyfps::SharedString("{}")"#, s.escape_default()),
         NumberLiteral(n) => n.to_string(),
-        PropertyReference(NamedReference { element, name }) => format!(
-            r#"self->{}.get(context)"#,
-            access_member(&element.upgrade().unwrap(), name.as_str())
-        ),
+        PropertyReference(NamedReference { element, name }) => {
+            let (access, context) = access_member(
+                &element.upgrade().unwrap(),
+                name.as_str(),
+                component,
+                "context",
+                "self",
+            );
+            format!(r#"{}.get({})"#, access, context)
+        }
         SignalReference(NamedReference { element, name }) => {
-            format!(r#"self->{}"#, access_member(&element.upgrade().unwrap(), name.as_str()))
+            let (access, context) = access_member(
+                &element.upgrade().unwrap(),
+                name.as_str(),
+                component,
+                "context",
+                "self",
+            );
+            format!(r#"{}.emit({})"#, access, context)
         }
         RepeaterIndexReference { element } => {
             if element.upgrade().unwrap().borrow().base_type == Type::Component(component.clone()) {
@@ -519,18 +575,28 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
         }
         FunctionCall { function } => {
             if matches!(function.ty(), Type::Signal) {
-                format!("{}.emit(context)", compile_expression(&*function, component))
+                compile_expression(&*function, component)
             } else {
                 format!("\n#error the function `{:?}` is not a signal\n", function)
             }
         }
         SelfAssignment { lhs, rhs, op } => match &**lhs {
-            PropertyReference(NamedReference { element, name }) => format!(
-                r#"self->{lhs}.set(self->{lhs}.get(context) {op} {rhs})"#,
-                lhs = access_member(&element.upgrade().unwrap(), name.as_str()),
-                rhs = compile_expression(&*rhs, component),
-                op = op
-            ),
+            PropertyReference(NamedReference { element, name }) => {
+                let (access, context) = access_member(
+                    &element.upgrade().unwrap(),
+                    name.as_str(),
+                    component,
+                    "context",
+                    "self",
+                );
+                format!(
+                    r#"{lhs}.set({lhs}.get({context}) {op} {rhs})"#,
+                    lhs = access,
+                    rhs = compile_expression(&*rhs, component),
+                    op = op,
+                    context = context
+                )
+            }
             _ => panic!("typechecking should make sure this was a PropertyReference"),
         },
         BinaryExpression { lhs, rhs, op } => format!(
@@ -577,7 +643,6 @@ fn compute_layout(component: &Rc<Component>) -> Vec<String> {
         "[[maybe_unused]] auto self = reinterpret_cast<const {ty}*>(component.instance);",
         ty = component_id(component)
     ));
-    res.push("[[maybe_unused]] sixtyfps::EvaluationContext context{component};".to_owned());
     for grid in component.layout_constraints.borrow().0.iter() {
         res.push("{".to_owned());
         res.push(format!("    std::array<sixtyfps::Constraint, {}> row_constr;", grid.row_count()));
@@ -624,8 +689,8 @@ fn compute_layout(component: &Rc<Component>) -> Vec<String> {
         // FIXME: add auto conversion from std::array* to Slice
         res.push("        { row_constr.data(), row_constr.size() },".to_owned());
         res.push("        { col_constr.data(), col_constr.size() },".to_owned());
-        res.push(format!("        self->{}.width.get(&context),", grid.within.borrow().id));
-        res.push(format!("        self->{}.height.get(&context),", grid.within.borrow().id));
+        res.push(format!("        self->{}.width.get(context),", grid.within.borrow().id));
+        res.push(format!("        self->{}.height.get(context),", grid.within.borrow().id));
         res.push("        0., 0.,".to_owned());
         res.push("        {cells, std::size(cells)}".to_owned());
         res.push("    };".to_owned());

@@ -21,7 +21,7 @@ use super::datastructures::{
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::{EvaluationContext, Property, SharedString, Signal};
-use const_field_offset::{FieldOffset, FieldOffsets};
+use const_field_offset::FieldOffsets;
 use corelib_macro::*;
 
 #[repr(C)]

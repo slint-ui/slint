@@ -5,6 +5,7 @@
     thin dst container, and intrusive linked list
 */
 
+use crate::abi::datastructures::ComponentRef;
 use std::cell::RefCell;
 use std::{
     ops::DerefMut,
@@ -69,6 +70,25 @@ impl PropertyNotify for RefCell<PropertyImpl> {
 pub struct EvaluationContext<'a> {
     /// The component which contains the Property or the Signal
     pub component: vtable::VRef<'a, crate::abi::datastructures::ComponentVTable>,
+
+    /// The context of the parent component
+    pub parent_context: Option<&'a EvaluationContext<'a>>,
+}
+
+impl<'a> EvaluationContext<'a> {
+    /// Create a new context related to the root component
+    ///
+    /// The component need to be a root component, otherwise fetching properties
+    /// might panic.
+    pub fn for_root_component(component: ComponentRef<'a>) -> Self {
+        Self { component, parent_context: None }
+    }
+
+    /// Create a context for a child component of a component within the current
+    /// context.
+    pub fn child_context(&'a self, child: ComponentRef<'a>) -> Self {
+        Self { component: child, parent_context: Some(self) }
+    }
 }
 
 type PropertyHandle = Rc<RefCell<PropertyImpl>>;
@@ -182,11 +202,9 @@ fn properties_simple_test() {
         height: Property<i32>,
         area: Property<i32>,
     }
-    let dummy_eval_context = EvaluationContext {
-        component: unsafe {
-            vtable::VRef::from_raw(core::ptr::NonNull::dangling(), core::ptr::NonNull::dangling())
-        },
-    };
+    let dummy_eval_context = EvaluationContext::for_root_component(unsafe {
+        vtable::VRef::from_raw(core::ptr::NonNull::dangling(), core::ptr::NonNull::dangling())
+    });
     let compo = Rc::new(Component::default());
     let w = Rc::downgrade(&compo);
     compo.area.set_binding(move |ctx| {

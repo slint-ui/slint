@@ -46,8 +46,8 @@ pub(crate) fn render_component_items<Backend: GraphicsBackend>(
 
     crate::item_tree::visit_items(
         component,
-        |component, item, transform| {
-            let origin = item.geometry(&EvaluationContext { component }).origin;
+        |context, item, transform| {
+            let origin = item.geometry(context).origin;
             let transform =
                 transform * Matrix4::from_translation(Vector3::new(origin.x, origin.y, 0.));
 

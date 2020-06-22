@@ -72,6 +72,14 @@ constexpr inline ItemTreeNode<uint8_t> make_dyn_node(std::uintptr_t offset)
 
 using internal::sixtyfps_visit_item_tree;
 
+template<typename Component>
+EvaluationContext evaluation_context_for_root_component(Component *component) {
+    return EvaluationContext{
+        VRef<ComponentVTable> { &Component::component_type, component},
+        nullptr,
+    };
+}
+
 // layouts:
 using internal::Slice;
 using internal::solve_grid_layout;

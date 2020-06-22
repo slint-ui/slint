@@ -47,7 +47,9 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
                     quote!(
                         #[allow(dead_code)]
                         fn #emitter_ident(&self) {
-                            let eval_context = sixtyfps::re_exports::EvaluationContext{ component: sixtyfps::re_exports::ComponentRef::new(self) };
+                            let eval_context = sixtyfps::re_exports::EvaluationContext::for_root_component(
+                                    sixtyfps::re_exports::ComponentRef::new(self)
+                                );
                             self.#prop_ident.emit(&eval_context, ())
                         }
                     )
@@ -72,7 +74,9 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
                     quote!(
                         #[allow(dead_code)]
                         fn #getter_ident(&self) -> #rust_property_type {
-                            let eval_context = sixtyfps::re_exports::EvaluationContext{ component: sixtyfps::re_exports::ComponentRef::new(self) };
+                            let eval_context = sixtyfps::re_exports::EvaluationContext::for_root_component(
+                                   sixtyfps::re_exports::ComponentRef::new(self)
+                                );
                             self.#prop_ident.get(&eval_context)
                         }
                     )
@@ -309,14 +313,40 @@ fn component_id(component: &Component) -> proc_macro2::Ident {
     }
 }
 
-fn access_member(element: &ElementRc, name: &str) -> TokenStream {
+/// Returns the code that can access the given property or signal from the context (but without the set or get)
+///
+/// to be used like:
+/// ```ignore
+/// let (access, context) = access_member(...)
+/// quote!(context.#access.get(#context))
+/// ```
+fn access_member(
+    element: &ElementRc,
+    name: &str,
+    component: &Rc<Component>,
+    context: TokenStream,
+) -> (TokenStream, TokenStream) {
     let e = element.borrow();
-    let name_ident = quote::format_ident!("{}", name);
-    if e.property_declarations.contains_key(name) {
-        quote!(#name_ident)
+
+    let enclosing_component = e.enclosing_component.upgrade().unwrap();
+    let component_id = component_id(&enclosing_component);
+    if Rc::ptr_eq(component, &enclosing_component) {
+        let name_ident = quote::format_ident!("{}", name);
+        let comp = quote!(component.downcast::<#component_id>().unwrap());
+        if e.property_declarations.contains_key(name) {
+            (quote!(#comp.#name_ident), context)
+        } else {
+            let elem_ident = quote::format_ident!("{}", e.id);
+            (quote!(#comp.#elem_ident.#name_ident), context)
+        }
     } else {
-        let elem_ident = quote::format_ident!("{}", e.id);
-        quote!(#elem_ident.#name_ident )
+        let (access, new_context) = access_member(
+            element,
+            name,
+            &enclosing_component,
+            quote!(#context.parent_context.unwrap()),
+        );
+        (quote!(parent_context.unwrap().#access), new_context)
     }
 }
 
@@ -336,8 +366,13 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
             }
         }
         Expression::PropertyReference(NamedReference { element, name }) => {
-            let access = access_member(&element.upgrade().unwrap(), name.as_str());
-            quote!(_self.#access.get(context))
+            let (access, context) = access_member(
+                &element.upgrade().unwrap(),
+                name.as_str(),
+                component,
+                quote!(context),
+            );
+            quote!(context.#access.get(#context))
         }
         Expression::RepeaterIndexReference { element } => {
             if element.upgrade().unwrap().borrow().base_type == Type::Component(component.clone()) {
@@ -358,13 +393,17 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
             quote!({ #(#map);* })
         }
         Expression::SignalReference(NamedReference { element, name, .. }) => {
-            let access = access_member(&element.upgrade().unwrap(), name.as_str());
-            quote!(_self.#access)
+            let (access, context) = access_member(
+                &element.upgrade().unwrap(),
+                name.as_str(),
+                component,
+                quote!(context),
+            );
+            quote!(context.#access.emit(#context, ()))
         }
         Expression::FunctionCall { function } => {
             if matches!(function.ty(), Type::Signal) {
-                let base = compile_expression(function, &component);
-                quote!(#base.emit(&context, ()))
+                compile_expression(function, &component)
             } else {
                 let error = format!("the function {:?} is not a signal", e);
                 quote!(compile_error! {#error})
@@ -372,10 +411,15 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
         }
         Expression::SelfAssignment { lhs, rhs, op } => match &**lhs {
             Expression::PropertyReference(NamedReference { element, name }) => {
-                let lhs = access_member(&element.upgrade().unwrap(), name.as_str());
+                let (lhs, context) = access_member(
+                    &element.upgrade().unwrap(),
+                    name.as_str(),
+                    component,
+                    quote!(context),
+                );
                 let rhs = compile_expression(&*rhs, &component);
                 let op = proc_macro2::Punct::new(*op, proc_macro2::Spacing::Alone);
-                quote!( _self.#lhs.set(_self.#lhs.get(context) #op &((#rhs) as _) ))
+                quote!( context.#lhs.set(context.#lhs.get(#context) #op &((#rhs) as _) ))
             }
             _ => panic!("typechecking should make sure this was a PropertyReference"),
         },
@@ -462,8 +506,8 @@ fn compute_layout(component: &Component) -> TokenStream {
             solve_grid_layout(&GridLayoutData {
                 row_constraint: Slice::from_slice(&[#(#row_constraint),*]),
                 col_constraint: Slice::from_slice(&[#(#col_constraint),*]),
-                width: self.#within.width.get(&eval_context),
-                height: self.#within.height.get(&eval_context),
+                width: self.#within.width.get(eval_context),
+                height: self.#within.height.get(eval_context),
                 x: 0.,
                 y: 0.,
                 cells: Slice::from_slice(&[#( Slice::from_slice(&[#( #cells ),*])),*]),
@@ -475,10 +519,9 @@ fn compute_layout(component: &Component) -> TokenStream {
         fn layout_info(&self) -> sixtyfps::re_exports::LayoutInfo {
             todo!("Implement in rust.rs")
         }
-        fn compute_layout(&self) {
+        fn compute_layout(&self, eval_context: &sixtyfps::re_exports::EvaluationContext) {
             #![allow(unused)]
             use sixtyfps::re_exports::*;
-            let eval_context = EvaluationContext{ component: ComponentRef::new(self) };
             let dummy = Property::<f32>::default();
 
             #(#layouts)*

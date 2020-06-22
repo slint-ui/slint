@@ -1,7 +1,10 @@
 use core::cell::RefCell;
 use neon::prelude::*;
 use sixtyfps_compilerlib::typeregister::Type;
-use sixtyfps_corelib::abi::datastructures::{ComponentBox, ComponentRef, Resource};
+use sixtyfps_corelib::{
+    abi::datastructures::{ComponentBox, ComponentRef, Resource},
+    EvaluationContext,
+};
 use std::rc::Rc;
 
 mod persistent_context;
@@ -230,7 +233,7 @@ declare_types! {
             let x = this.borrow(&lock).0.clone();
             let (component, component_ty) = x.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
             let value = component_ty
-                .get_property(component.borrow(), prop_name.as_str())
+                .get_property(&EvaluationContext::for_root_component(component.borrow()), prop_name.as_str())
                 .or_else(|_| cx.throw_error(format!("Cannot read property")))?;
             to_js_value(value, &mut cx)
         }
@@ -262,7 +265,7 @@ declare_types! {
             let x = this.borrow(&lock).0.clone();
             let (component, component_ty) = x.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
             component_ty
-                .emit_signal(component.borrow(), signal_name.as_str())
+                .emit_signal(&EvaluationContext::for_root_component(component.borrow()), signal_name.as_str())
                 .or_else(|_| cx.throw_error(format!("Cannot emit signal")))?;
 
             Ok(JsUndefined::new().as_value(&mut cx))

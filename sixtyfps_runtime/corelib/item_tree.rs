@@ -1,30 +1,38 @@
 use crate::abi::datastructures::{
     ComponentRef, ItemRef, ItemTreeNode, ItemVisitor, ItemVisitorVTable,
 };
+use crate::EvaluationContext;
 
 /// Visit each items recursively
 ///
 /// The state parametter returned by the visitor is passed to each children.
 pub fn visit_items<State>(
     component: ComponentRef,
-    mut visitor: impl FnMut(ComponentRef, ItemRef, &State) -> State,
+    mut visitor: impl FnMut(&EvaluationContext, ItemRef, &State) -> State,
     state: State,
 ) {
-    visit_internal(component, &mut visitor, -1, &state)
+    let context = EvaluationContext::for_root_component(component);
+    visit_internal(&context, &mut visitor, -1, &state)
 }
 
 fn visit_internal<State>(
-    component: ComponentRef,
-    visitor: &mut impl FnMut(ComponentRef, ItemRef, &State) -> State,
+    context: &EvaluationContext,
+    visitor: &mut impl FnMut(&EvaluationContext, ItemRef, &State) -> State,
     index: isize,
     state: &State,
 ) {
     let mut actual_visitor = |component: ComponentRef, index: isize, item: ItemRef| {
-        let s = visitor(component, item, state);
-        visit_internal(component, visitor, index, &s);
+        if component.as_ptr() == context.component.as_ptr() {
+            let s = visitor(context, item, state);
+            visit_internal(context, visitor, index, &s);
+        } else {
+            let context = context.child_context(component);
+            let s = visitor(&context, item, state);
+            visit_internal(&context, visitor, index, &s);
+        }
     };
     vtable::new_vref!(let mut actual_visitor : VRefMut<ItemVisitorVTable> for ItemVisitor = &mut actual_visitor);
-    component.visit_children_item(index, actual_visitor);
+    context.component.visit_children_item(index, actual_visitor);
 }
 
 /// Visit the children within an array of ItemTreeNode

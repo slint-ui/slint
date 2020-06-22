@@ -51,7 +51,7 @@ fn signal_simple_test() {
         fn layout_info(&self) -> crate::abi::datastructures::LayoutInfo {
             unimplemented!()
         }
-        fn compute_layout(&self) {
+        fn compute_layout(&self, _: &crate::EvaluationContext) {
             unimplemented!()
         }
     }
@@ -61,14 +61,12 @@ fn signal_simple_test() {
         (*(c.component.as_ptr() as *const Component)).pressed.set(true)
     });
     let vtable = ComponentVTable::new::<Component>();
-    let ctx = super::properties::EvaluationContext {
-        component: unsafe {
-            vtable::VRef::from_raw(
-                core::ptr::NonNull::from(&vtable),
-                core::ptr::NonNull::from(&c).cast(),
-            )
-        },
-    };
+    let ctx = super::properties::EvaluationContext::for_root_component(unsafe {
+        vtable::VRef::from_raw(
+            core::ptr::NonNull::from(&vtable),
+            core::ptr::NonNull::from(&c).cast(),
+        )
+    });
     c.clicked.emit(&ctx, ());
     assert_eq!(c.pressed.get(), true);
 }

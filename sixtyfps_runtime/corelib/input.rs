@@ -4,7 +4,6 @@ TODO: Keyboard events
 */
 
 use crate::abi::datastructures::{ComponentRef, MouseEvent};
-use crate::EvaluationContext;
 use euclid::default::Vector2D;
 
 pub fn process_mouse_event(component: ComponentRef<'_>, event: MouseEvent) {
@@ -12,9 +11,7 @@ pub fn process_mouse_event(component: ComponentRef<'_>, event: MouseEvent) {
 
     crate::item_tree::visit_items(
         component,
-        |component, item, offset| {
-            let context = &EvaluationContext { component };
-
+        |context, item, offset| {
             let geom = item.geometry(context);
             let geom = geom.translate(*offset);
 

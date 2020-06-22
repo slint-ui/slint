@@ -3,7 +3,7 @@
  property so that the viewer can handle them
 */
 
-use const_field_offset::FieldOffset;
+pub use const_field_offset::FieldOffset;
 use std::convert::{TryFrom, TryInto};
 
 macro_rules! declare_ValueType {
