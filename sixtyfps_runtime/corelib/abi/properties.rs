@@ -14,19 +14,19 @@ use std::{
 
 thread_local!(static CURRENT_BINDING : RefCell<Option<Rc<dyn PropertyNotify>>> = Default::default());
 
-trait Binding {
-    fn evaluate(self: Rc<Self>, value_ptr: *mut (), context: &EvaluationContext);
+trait Binding<T> {
+    fn evaluate(self: Rc<Self>, value: &mut T, context: &EvaluationContext);
     /// When a new value is set on a property that has a binding, this function returns false
     /// if the binding wants to remain active. By default bindings are replaced when
     /// a new value is set on a property.
-    fn allow_replace_binding_with_value(self: Rc<Self>, _value: *const ()) -> bool {
+    fn allow_replace_binding_with_value(self: Rc<Self>, _value: &T) -> bool {
         return true;
     }
 
     /// When a new binding is set on a property that has a binding, this function returns false
     /// if the binding wants to remain active. By default bindings are replaced when a
     /// new binding is set a on property.
-    fn allow_replace_binding_with_binding(self: Rc<Self>, _binding: Rc<dyn Binding>) -> bool {
+    fn allow_replace_binding_with_binding(self: Rc<Self>, _binding: Rc<dyn Binding<T>>) -> bool {
         return true;
     }
 
@@ -38,9 +38,9 @@ trait Binding {
 }
 
 #[derive(Default)]
-struct PropertyImpl {
+struct PropertyImpl<T> {
     /// Invariant: Must only be called with a pointer to the binding
-    binding: Option<Rc<dyn Binding>>,
+    binding: Option<Rc<dyn Binding<T>>>,
     dependencies: Vec<Weak<dyn PropertyNotify>>,
     dirty: bool,
     //updating: bool,
@@ -65,7 +65,7 @@ trait PropertyNotify {
     fn register_current_binding_as_dependency(self: Rc<Self>);
 }
 
-impl PropertyNotify for RefCell<PropertyImpl> {
+impl<T> PropertyNotify for RefCell<PropertyImpl<T>> {
     fn mark_dirty(self: Rc<Self>, reason: DirtyReason) {
         let mut v = vec![];
         {
@@ -121,7 +121,7 @@ impl<'a> EvaluationContext<'a> {
     }
 }
 
-type PropertyHandle = Rc<RefCell<PropertyImpl>>;
+type PropertyHandle<T> = Rc<RefCell<PropertyImpl<T>>>;
 /// A Property that allow binding that track changes
 ///
 /// Property van have be assigned value, or bindings.
@@ -133,7 +133,7 @@ type PropertyHandle = Rc<RefCell<PropertyImpl>>;
 #[repr(C)]
 #[derive(Default)]
 pub struct Property<T: 'static> {
-    inner: PropertyHandle,
+    inner: PropertyHandle<T>,
     /// Only access when holding a lock of the inner refcell.
     value: core::cell::UnsafeCell<T>,
 }
@@ -163,8 +163,7 @@ impl<T: Clone + 'static> Property<T> {
         {
             let maybe_binding = self.inner.borrow().binding.as_ref().map(|binding| binding.clone());
             if let Some(existing_binding) = maybe_binding {
-                if !existing_binding.allow_replace_binding_with_value((&t) as *const T as *const ())
-                {
+                if !existing_binding.allow_replace_binding_with_value(&t) {
                     return;
                 }
             }
@@ -185,22 +184,19 @@ impl<T: Clone + 'static> Property<T> {
     /// If other properties have bindings depending of this property, these properties will
     /// be marked as dirty.
     pub fn set_binding(&self, f: impl (Fn(&EvaluationContext) -> T) + 'static) {
-        struct BindingFunction {
-            function: Box<dyn Fn(*mut (), &EvaluationContext)>,
+        struct BindingFunction<F> {
+            function: F,
         }
 
-        impl Binding for BindingFunction {
-            fn evaluate(self: Rc<Self>, value_ptr: *mut (), context: &EvaluationContext) {
+        impl<T, F: Fn(&mut T, &EvaluationContext)> Binding<T> for BindingFunction<F> {
+            fn evaluate(self: Rc<Self>, value_ptr: &mut T, context: &EvaluationContext) {
                 (self.function)(value_ptr, context)
             }
         }
 
-        let real_binding = move |ptr: *mut (), context: &EvaluationContext| {
-            // The binding must be called with a pointer of T
-            unsafe { *(ptr as *mut T) = f(context) };
-        };
+        let real_binding = move |ptr: &mut T, context: &EvaluationContext| *ptr = f(context);
 
-        let binding_object = Rc::new(BindingFunction { function: Box::new(real_binding) });
+        let binding_object = Rc::new(BindingFunction { function: real_binding });
 
         let maybe_binding = self.inner.borrow().binding.as_ref().map(|binding| binding.clone());
         if let Some(existing_binding) = maybe_binding {
@@ -219,7 +215,7 @@ impl<T: Clone + 'static> Property<T> {
     ///
     /// If other properties have bindings depending of this property, these properties will
     /// be marked as dirty.
-    fn set_binding_object(&self, binding_object: Rc<dyn Binding>) -> Option<Rc<dyn Binding>> {
+    fn set_binding_object(&self, binding_object: Rc<dyn Binding<T>>) -> Option<Rc<dyn Binding<T>>> {
         binding_object.clone().set_notify_callback(self.inner.clone());
         let old_binding =
             std::mem::replace(&mut self.inner.borrow_mut().binding, Some(binding_object));
@@ -240,7 +236,10 @@ impl<T: Clone + 'static> Property<T> {
                 let mut m = cur_dep.borrow_mut();
                 std::mem::swap(m.deref_mut(), &mut old);
             });
-            binding.clone().evaluate(self.value.get() as *mut _, context);
+            unsafe {
+                // It is safe to take a mutable reference to the value because we hold `lock`
+                binding.clone().evaluate(&mut *self.value.get(), context);
+            }
             lock.dirty = false;
             CURRENT_BINDING.with(|cur_dep| {
                 let mut m = cur_dep.borrow_mut();
@@ -295,10 +294,11 @@ pub struct PropertyHandleOpaque(*const c_void);
 #[no_mangle]
 pub unsafe extern "C" fn sixtyfps_property_init(out: *mut PropertyHandleOpaque) {
     assert_eq!(
-        core::mem::size_of::<PropertyHandle>(),
+        core::mem::size_of::<PropertyHandle<()>>(),
         core::mem::size_of::<PropertyHandleOpaque>()
     );
-    core::ptr::write(out as *mut PropertyHandle, PropertyHandle::default());
+    // This assume that PropertyHandle<()> has the same layout as PropertyHandle<T> ∀T
+    core::ptr::write(out as *mut PropertyHandle<()>, PropertyHandle::default());
 }
 
 /// To be called before accessing the value
@@ -310,7 +310,7 @@ pub unsafe extern "C" fn sixtyfps_property_update(
     context: *const EvaluationContext,
     val: *mut c_void,
 ) {
-    let inner = &*(out as *const PropertyHandle);
+    let inner = &*(out as *const PropertyHandle<()>);
 
     if !inner.borrow().dirty {
         inner.clone().register_current_binding_as_dependency();
@@ -323,7 +323,7 @@ pub unsafe extern "C" fn sixtyfps_property_update(
             let mut m = cur_dep.borrow_mut();
             std::mem::swap(m.deref_mut(), &mut old);
         });
-        binding.clone().evaluate(val, &*context);
+        binding.clone().evaluate(&mut *val, &*context);
         lock.dirty = false;
         CURRENT_BINDING.with(|cur_dep| {
             let mut m = cur_dep.borrow_mut();
@@ -340,7 +340,7 @@ pub unsafe extern "C" fn sixtyfps_property_update(
 /// The dependencies marked dirty
 #[no_mangle]
 pub unsafe extern "C" fn sixtyfps_property_set_changed(out: *const PropertyHandleOpaque) {
-    let inner = &*(out as *const PropertyHandle);
+    let inner = &*(out as *const PropertyHandle<()>);
     inner.clone().mark_dirty(DirtyReason::ValueOrDependencyHasChanged);
     inner.borrow_mut().dirty = false;
     inner.borrow_mut().binding = None;
@@ -361,7 +361,7 @@ pub unsafe extern "C" fn sixtyfps_property_set_binding(
     user_data: *mut c_void,
     drop_user_data: Option<extern "C" fn(*mut c_void)>,
 ) {
-    let inner = &*(out as *const PropertyHandle);
+    let inner = &*(out as *const PropertyHandle<()>);
 
     struct CFunctionBinding {
         binding_function: extern "C" fn(*mut c_void, &EvaluationContext, *mut c_void),
@@ -377,8 +377,8 @@ pub unsafe extern "C" fn sixtyfps_property_set_binding(
         }
     }
 
-    impl Binding for CFunctionBinding {
-        fn evaluate(self: Rc<Self>, value_ptr: *mut (), context: &EvaluationContext) {
+    impl Binding<()> for CFunctionBinding {
+        fn evaluate(self: Rc<Self>, value_ptr: &mut (), context: &EvaluationContext) {
             (self.binding_function)(self.user_data, context, value_ptr);
         }
     }
@@ -393,5 +393,5 @@ pub unsafe extern "C" fn sixtyfps_property_set_binding(
 /// Destroy handle
 #[no_mangle]
 pub unsafe extern "C" fn sixtyfps_property_drop(handle: *mut PropertyHandleOpaque) {
-    core::ptr::read(handle as *mut PropertyHandle);
+    core::ptr::read(handle as *mut PropertyHandle<()>);
 }
