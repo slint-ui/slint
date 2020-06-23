@@ -50,6 +50,10 @@ enum DirtyReason {
     /// The dependency shall be considered dirty because a property's value or
     /// subsequent dependency has changed.
     ValueOrDependencyHasChanged,
+    /// The dependency shall be considered dirty because a property's binding
+    /// has actively changed. This is typically used by animations to trigger
+    /// a change.
+    BindingHasChanged,
 }
 
 /// PropertyNotify is the interface that allows keeping track of dependencies between
@@ -405,4 +409,301 @@ pub unsafe extern "C" fn sixtyfps_property_set_binding(
 #[no_mangle]
 pub unsafe extern "C" fn sixtyfps_property_drop(handle: *mut PropertyHandleOpaque) {
     core::ptr::read(handle as *mut PropertyHandle<()>);
+}
+
+/// InterpolatedPropertyValue is a trait used to enable properties to be used with
+/// animations that interpolate values. The basic requirement is the ability to apply
+/// a progress that's typically between 0 and 1 to a range.
+pub trait InterpolatedPropertyValue:
+    PartialEq + Clone + Copy + std::fmt::Display + Default + 'static
+{
+    /// Returns the interpolated value between self and target_value according to the
+    /// progress parameter t that's usually between 0 and 1. With certain animation
+    /// easing curves it may over- or undershoot though.
+    fn interpolate(self, target_value: Self, t: f32) -> Self;
+}
+
+impl InterpolatedPropertyValue for f32 {
+    fn interpolate(self, target_value: Self, t: f32) -> Self {
+        self + t * (target_value - self)
+    }
+}
+
+impl InterpolatedPropertyValue for i32 {
+    fn interpolate(self, target_value: Self, t: f32) -> Self {
+        self + (t * (target_value - self) as f32) as i32
+    }
+}
+
+#[derive(Default)]
+/// PropertyAnimation provides a linear animation of values of a property, when they are changed
+/// through bindings or direct set() calls.
+pub struct PropertyAnimation<T: InterpolatedPropertyValue> {
+    dirty: bool,
+    current_property_value: T,
+    current_animated_value: Option<T>,
+    from_value: T,
+    to_value: T,
+    notify: Option<Weak<dyn PropertyNotify>>,
+    binding: Option<Rc<dyn Binding<T>>>,
+    animation_driver: Weak<RefCell<crate::animations::AnimationDriver>>,
+    animation_handle: Option<crate::animations::AnimationHandle>,
+    duration: std::time::Duration,
+}
+
+impl<T: InterpolatedPropertyValue> crate::abi::properties::Binding<T>
+    for RefCell<PropertyAnimation<T>>
+{
+    fn evaluate(self: Rc<Self>, value: &mut T, context: &crate::EvaluationContext) {
+        let mut this = self.borrow_mut();
+        if this.dirty {
+            if let Some(binding) = &this.binding {
+                let mut new_value = this.to_value;
+                binding.clone().evaluate(&mut new_value, context);
+                this.current_property_value = new_value;
+            }
+            this.dirty = false;
+
+            if this.current_animated_value.is_none() {
+                this.from_value = this.current_property_value;
+                this.to_value = this.current_property_value;
+                this.current_animated_value = Some(this.current_property_value);
+            } else if this.current_property_value != this.current_animated_value.unwrap() {
+                if let Some(driver) = this.animation_driver.upgrade() {
+                    match this.animation_handle {
+                        Some(handle) => driver.borrow_mut().restart_animation(handle),
+                        None => {
+                            this.animation_handle =
+                                Some(driver.borrow_mut().start_animation(Rc::downgrade(
+                                    &(self.clone() as Rc<dyn crate::animations::Animated>),
+                                )));
+                        }
+                    }
+                }
+
+                this.from_value = this.current_animated_value.unwrap();
+                this.to_value = this.current_property_value;
+                println!("new from {} to {}", this.from_value, this.to_value);
+            }
+        }
+
+        *value = this.current_animated_value.unwrap_or_default();
+    }
+    fn allow_replace_binding_with_value(self: Rc<Self>, value: &T) -> bool {
+        let mut this = self.borrow_mut();
+        this.current_property_value = *value;
+        this.dirty = true;
+
+        if let Some(notifier) =
+            this.notify.as_ref().and_then(|notifier_weak| notifier_weak.upgrade())
+        {
+            notifier.mark_dirty(DirtyReason::BindingHasChanged);
+        }
+
+        return false;
+    }
+
+    fn allow_replace_binding_with_binding(self: Rc<Self>, binding: Rc<dyn Binding<T>>) -> bool {
+        let mut this = self.borrow_mut();
+        this.binding = Some(binding);
+        this.dirty = true;
+
+        if let Some(notifier) =
+            this.notify.as_ref().and_then(|notifier_weak| notifier_weak.upgrade())
+        {
+            notifier.mark_dirty(DirtyReason::BindingHasChanged);
+        }
+
+        return false;
+    }
+
+    fn mark_dirty(self: Rc<Self>, reason: DirtyReason) {
+        if matches!(reason, DirtyReason::ValueOrDependencyHasChanged) {
+            self.borrow_mut().dirty = true;
+        }
+    }
+
+    fn set_notify_callback(self: Rc<Self>, notifier: Rc<dyn PropertyNotify>) {
+        self.borrow_mut().notify = Some(Rc::downgrade(&notifier));
+    }
+}
+
+impl<T: InterpolatedPropertyValue> crate::animations::Animated for RefCell<PropertyAnimation<T>> {
+    fn update_animation_state(self: Rc<Self>, state: crate::animations::AnimationState) {
+        use crate::animations::*;
+        // This shouldn't really happen... the animation should only be started if we have a valid animated value
+        // to begin with.
+        if self.borrow().current_animated_value.is_none() {
+            return;
+        }
+
+        match state {
+            AnimationState::Started => {}
+            AnimationState::Running { progress } => {
+                //println!("progress {}", progress * 100.);
+                {
+                    let mut this = self.borrow_mut();
+                    this.current_animated_value =
+                        Some(this.from_value.interpolate(this.to_value, progress))
+                }
+                if let Some(notify) =
+                    &self.borrow().notify.as_ref().and_then(|weak_notify| weak_notify.upgrade())
+                {
+                    notify.clone().mark_dirty(DirtyReason::BindingHasChanged);
+                }
+            }
+            AnimationState::Stopped => {}
+        }
+    }
+    fn duration(self: Rc<Self>) -> std::time::Duration {
+        self.borrow().duration
+    }
+}
+
+impl<T: InterpolatedPropertyValue> PropertyAnimation<T> {
+    /// Create a new property animation with the specified duration. At the moment animations must be
+    /// tied to an event loop at construction time.
+    pub fn new(duration: std::time::Duration) -> Self {
+        Self {
+            animation_driver: crate::animations::CURRENT_ANIMATION_DRIVER
+                .with(|driver| Rc::downgrade(&driver.clone())),
+            duration,
+            ..Default::default()
+        }
+    }
+
+    /// Associates the given animation with the specified properties, so that value changes applied to
+    /// that property - whether directly through value setting or via associated bindings - can be animated
+    /// according to the animation's specification.
+    pub fn install(animation: Rc<RefCell<PropertyAnimation<T>>>, property: &Property<T>) {
+        animation.borrow_mut().binding = property.set_binding_object(animation.clone());
+    }
+}
+
+/* ### FIXME: This is needed but doesn't compile
+impl<T: InterpolatedPropertyValue> Drop for PropertyAnimation<T> {
+    fn drop(&mut self) {
+        if let Some((driver, handle)) = self
+            .animation_handle
+            .and_then(|handle| self.animation_driver.upgrade().map(|driver| (driver, handle)))
+        {
+            driver.borrow_mut().free_animation(handle)
+        }
+    }
+}
+*/
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::animations::*;
+
+    #[derive(Default)]
+    struct Component {
+        width: Property<i32>,
+        width_times_two: Property<i32>,
+        feed_property: Property<i32>, // used by binding to feed values into width
+    }
+
+    #[test]
+    fn properties_test_animation_triggered_by_set() {
+        let dummy_eval_context = EvaluationContext {
+            component: unsafe {
+                vtable::VRef::from_raw(
+                    core::ptr::NonNull::dangling(),
+                    core::ptr::NonNull::dangling(),
+                )
+            },
+            parent_context: None,
+        };
+        let compo = Rc::new(test::Component::default());
+
+        let w = Rc::downgrade(&compo);
+        compo.width_times_two.set_binding(move |context| {
+            let compo = w.upgrade().unwrap();
+            compo.width.get(context) * 2
+        });
+
+        let test_animation_driver = Rc::new(RefCell::new(AnimationDriver::default()));
+
+        let animation = Rc::new(RefCell::new(PropertyAnimation {
+            animation_driver: Rc::downgrade(&test_animation_driver.clone()),
+            ..Default::default()
+        }));
+
+        PropertyAnimation::install(animation.clone(), &compo.width);
+
+        compo.width.set(100);
+        assert_eq!(compo.width.get(&dummy_eval_context), 100);
+        assert_eq!(compo.width_times_two.get(&dummy_eval_context), 200);
+
+        compo.width.set(200);
+        assert_eq!(compo.width.get(&dummy_eval_context), 100);
+        assert_eq!(compo.width_times_two.get(&dummy_eval_context), 200);
+        assert_eq!(animation.borrow().from_value, 100);
+        assert_eq!(animation.borrow().to_value, 200);
+
+        animation.clone().update_animation_state(AnimationState::Running { progress: 0.5 });
+        assert_eq!(compo.width.get(&dummy_eval_context), 150);
+        assert_eq!(compo.width_times_two.get(&dummy_eval_context), 300);
+
+        animation.clone().update_animation_state(AnimationState::Running { progress: 1.0 });
+        assert_eq!(compo.width.get(&dummy_eval_context), 200);
+        assert_eq!(compo.width_times_two.get(&dummy_eval_context), 400);
+    }
+
+    #[test]
+    fn properties_test_animation_triggered_by_binding() {
+        let dummy_eval_context = EvaluationContext {
+            component: unsafe {
+                vtable::VRef::from_raw(
+                    core::ptr::NonNull::dangling(),
+                    core::ptr::NonNull::dangling(),
+                )
+            },
+            parent_context: None,
+        };
+        let compo = Rc::new(test::Component::default());
+
+        let w = Rc::downgrade(&compo);
+        compo.width_times_two.set_binding(move |context| {
+            let compo = w.upgrade().unwrap();
+            compo.width.get(context) * 2
+        });
+
+        let w = Rc::downgrade(&compo);
+        compo.width.set_binding(move |context| {
+            let compo = w.upgrade().unwrap();
+            compo.feed_property.get(context)
+        });
+
+        let test_animation_driver = Rc::new(RefCell::new(AnimationDriver::default()));
+
+        let animation = Rc::new(RefCell::new(PropertyAnimation {
+            animation_driver: Rc::downgrade(&test_animation_driver.clone()),
+            ..Default::default()
+        }));
+
+        PropertyAnimation::install(animation.clone(), &compo.width);
+
+        compo.feed_property.set(100);
+        assert_eq!(compo.width.get(&dummy_eval_context), 100);
+        assert_eq!(compo.width_times_two.get(&dummy_eval_context), 200);
+
+        compo.feed_property.set(200);
+        assert_eq!(compo.width.get(&dummy_eval_context), 100);
+        assert_eq!(compo.width_times_two.get(&dummy_eval_context), 200);
+
+        animation.clone().update_animation_state(AnimationState::Running { progress: 0.5 });
+
+        assert_eq!(compo.width.get(&dummy_eval_context), 150);
+        assert_eq!(compo.width_times_two.get(&dummy_eval_context), 300);
+        assert_eq!(animation.borrow().from_value, 100);
+        assert_eq!(animation.borrow().to_value, 200);
+
+        animation.clone().update_animation_state(AnimationState::Running { progress: 1.0 });
+
+        assert_eq!(compo.width.get(&dummy_eval_context), 200);
+        assert_eq!(compo.width_times_two.get(&dummy_eval_context), 400);
+    }
 }

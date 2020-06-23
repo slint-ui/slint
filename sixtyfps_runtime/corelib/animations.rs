@@ -229,6 +229,14 @@ impl AnimationDriver {
         self.active_animations.set(true);
     }
 
+    /// Restarts the animation specified by the handle. The progress is set back to zero.
+    pub fn restart_animation(&self, handle: AnimationHandle) {
+        let animation = self.animations[handle.0].as_animation();
+        animation.borrow_mut().state =
+            InternalAnimationState::ReadyToRun { time_elapsed: Duration::default() };
+        self.active_animations.set(true);
+    }
+
     /// Returns a temporary reference to the animation behind the given handle.
     #[cfg(test)]
     fn get_animation<'a>(&'a self, handle: AnimationHandle) -> &'a RefCell<InternalAnimation> {
