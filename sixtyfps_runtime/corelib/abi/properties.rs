@@ -483,7 +483,6 @@ impl<T: InterpolatedPropertyValue> crate::abi::properties::Binding<T>
 
                 this.from_value = this.current_animated_value.unwrap();
                 this.to_value = this.current_property_value;
-                println!("new from {} to {}", this.from_value, this.to_value);
             }
         }
 
