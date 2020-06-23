@@ -446,7 +446,6 @@ pub struct PropertyAnimation<T: InterpolatedPropertyValue> {
     to_value: T,
     notify: Option<Weak<dyn PropertyNotify>>,
     binding: Option<Rc<dyn Binding<T>>>,
-    animation_driver: Weak<RefCell<crate::animations::AnimationDriver>>,
     animation_handle: Option<crate::animations::AnimationHandle>,
     duration: std::time::Duration,
 }
@@ -469,15 +468,14 @@ impl<T: InterpolatedPropertyValue> crate::abi::properties::Binding<T>
                 this.to_value = this.current_property_value;
                 this.current_animated_value = Some(this.current_property_value);
             } else if this.current_property_value != this.current_animated_value.unwrap() {
-                if let Some(driver) = this.animation_driver.upgrade() {
-                    match this.animation_handle {
-                        Some(handle) => driver.borrow_mut().restart_animation(handle),
-                        None => {
-                            this.animation_handle =
-                                Some(driver.borrow_mut().start_animation(Rc::downgrade(
-                                    &(self.clone() as Rc<dyn crate::animations::Animated>),
-                                )));
-                        }
+                let driver =
+                    crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| driver.clone());
+                match this.animation_handle {
+                    Some(handle) => driver.borrow_mut().restart_animation(handle),
+                    None => {
+                        this.animation_handle = Some(driver.borrow_mut().start_animation(
+                            Rc::downgrade(&(self.clone() as Rc<dyn crate::animations::Animated>)),
+                        ));
                     }
                 }
 
@@ -563,12 +561,7 @@ impl<T: InterpolatedPropertyValue> PropertyAnimation<T> {
     /// Create a new property animation with the specified duration. At the moment animations must be
     /// tied to an event loop at construction time.
     pub fn new(duration: std::time::Duration) -> Self {
-        Self {
-            animation_driver: crate::animations::CURRENT_ANIMATION_DRIVER
-                .with(|driver| Rc::downgrade(&driver.clone())),
-            duration,
-            ..Default::default()
-        }
+        Self { duration, ..Default::default() }
     }
 
     /// Associates the given animation with the specified properties, so that value changes applied to
@@ -623,12 +616,7 @@ mod test {
             compo.width.get(context) * 2
         });
 
-        let test_animation_driver = Rc::new(RefCell::new(AnimationDriver::default()));
-
-        let animation = Rc::new(RefCell::new(PropertyAnimation {
-            animation_driver: Rc::downgrade(&test_animation_driver.clone()),
-            ..Default::default()
-        }));
+        let animation = Rc::new(RefCell::new(PropertyAnimation::default()));
 
         PropertyAnimation::install(animation.clone(), &compo.width);
 
@@ -676,12 +664,7 @@ mod test {
             compo.feed_property.get(context)
         });
 
-        let test_animation_driver = Rc::new(RefCell::new(AnimationDriver::default()));
-
-        let animation = Rc::new(RefCell::new(PropertyAnimation {
-            animation_driver: Rc::downgrade(&test_animation_driver.clone()),
-            ..Default::default()
-        }));
+        let animation = Rc::new(RefCell::new(PropertyAnimation::default()));
 
         PropertyAnimation::install(animation.clone(), &compo.width);
 
