@@ -558,10 +558,9 @@ impl<T: InterpolatedPropertyValue> crate::animations::Animated for RefCell<Prope
 }
 
 impl<T: InterpolatedPropertyValue> PropertyAnimation<T> {
-    /// Create a new property animation with the specified duration. At the moment animations must be
-    /// tied to an event loop at construction time.
-    pub fn new(duration: std::time::Duration) -> Self {
-        Self { duration, ..Default::default() }
+    /// Sets the duration of the animation.
+    pub fn set_duration(&mut self, duration: std::time::Duration) {
+        self.duration = duration;
     }
 
     /// Associates the given animation with the specified properties, so that value changes applied to
@@ -572,18 +571,14 @@ impl<T: InterpolatedPropertyValue> PropertyAnimation<T> {
     }
 }
 
-/* ### FIXME: This is needed but doesn't compile
 impl<T: InterpolatedPropertyValue> Drop for PropertyAnimation<T> {
     fn drop(&mut self) {
-        if let Some((driver, handle)) = self
-            .animation_handle
-            .and_then(|handle| self.animation_driver.upgrade().map(|driver| (driver, handle)))
-        {
-            driver.borrow_mut().free_animation(handle)
+        if let Some(handle) = self.animation_handle {
+            crate::animations::CURRENT_ANIMATION_DRIVER
+                .with(|driver| driver.borrow_mut().free_animation(handle));
         }
     }
 }
-*/
 
 #[cfg(test)]
 mod test {
