@@ -34,23 +34,17 @@ pub(crate) fn unregister_window(id: winit::window::WindowId) {
 }
 
 pub struct EventLoop {
-    animation_driver: Rc<RefCell<crate::animations::AnimationDriver>>,
     winit_loop: winit::event_loop::EventLoop<()>,
 }
 
 impl EventLoop {
     pub fn new() -> Self {
-        Self {
-            animation_driver: Rc::new(RefCell::new(crate::animations::AnimationDriver::default())),
-            winit_loop: winit::event_loop::EventLoop::new(),
-        }
+        Self { winit_loop: winit::event_loop::EventLoop::new() }
     }
     #[allow(unused_mut)] // mut need changes for wasm
     pub fn run(mut self, component: vtable::VRef<crate::abi::datastructures::ComponentVTable>) {
         use winit::event::Event;
         use winit::event_loop::{ControlFlow, EventLoopWindowTarget};
-
-        let animation_driver = self.animation_driver.clone();
 
         let mut cursor_pos = winit::dpi::PhysicalPosition::new(0., 0.);
         let mut run_fn = move |event: Event<()>,
@@ -64,7 +58,9 @@ impl EventLoop {
                     ..
                 } => *control_flow = winit::event_loop::ControlFlow::Exit,
                 winit::event::Event::RedrawRequested(id) => {
-                    animation_driver.borrow_mut().update_animations(std::time::Instant::now());
+                    crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
+                        driver.borrow_mut().update_animations(std::time::Instant::now());
+                    });
 
                     ALL_WINDOWS.with(|windows| {
                         if let Some(Some(window)) =
@@ -102,16 +98,19 @@ impl EventLoop {
                 _ => (),
             }
 
-            if *control_flow != winit::event_loop::ControlFlow::Exit
-                && animation_driver.borrow().has_active_animations()
-            {
-                *control_flow = ControlFlow::Poll;
-                //println!("Scheduling a redraw due to active animations");
-                ALL_WINDOWS.with(|windows| {
-                    windows.borrow().values().for_each(|window| {
-                        if let Some(window) = window.upgrade() {
-                            window.request_redraw();
-                        }
+            if *control_flow != winit::event_loop::ControlFlow::Exit {
+                crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
+                    if !driver.borrow_mut().has_active_animations() {
+                        return;
+                    }
+                    *control_flow = ControlFlow::Poll;
+                    //println!("Scheduling a redraw due to active animations");
+                    ALL_WINDOWS.with(|windows| {
+                        windows.borrow().values().for_each(|window| {
+                            if let Some(window) = window.upgrade() {
+                                window.request_redraw();
+                            }
+                        })
                     })
                 })
             }

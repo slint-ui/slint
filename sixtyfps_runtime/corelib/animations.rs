@@ -253,6 +253,8 @@ impl AnimationDriver {
     }
 }
 
+thread_local!(pub(crate) static CURRENT_ANIMATION_DRIVER : Rc<RefCell<AnimationDriver>> = Default::default());
+
 #[cfg(test)]
 mod test {
     use super::*;
