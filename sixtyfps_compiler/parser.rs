@@ -246,12 +246,13 @@ declare_syntax! {
         Component -> [ Element ],
         /// Note: This is in fact the same as Component as far as the parser is concerned
         SubElement -> [ Element ],
-        Element -> [ QualifiedName, *PropertyDeclaration, *Binding, *SignalConnection, *SignalDeclaration, *SubElement, *RepeatedElement ],
+        Element -> [ QualifiedName, *PropertyDeclaration, *Binding, *SignalConnection, *SignalDeclaration, *SubElement, *RepeatedElement, *PropertyAnimation ],
         RepeatedElement -> [ ?DeclaredIdentifier, ?RepeatedIndex, Expression , Element],
         RepeatedIndex -> [],
         SignalDeclaration -> [ DeclaredIdentifier ],
         SignalConnection -> [ CodeBlock ],
         PropertyDeclaration-> [ QualifiedName , DeclaredIdentifier, ?BindingExpression ],
+        PropertyAnimation-> [ DeclaredIdentifier, *Binding ],
         /// wraps Identifiers, like `Rectangle` or `SomeModule.SomeType`
         QualifiedName-> [],
         /// Wraps single identifier (to disambiguate when there are other identifiar in the production)

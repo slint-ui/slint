@@ -68,6 +68,7 @@ pub fn parse_element(p: &mut impl Parser) -> bool {
 /// clicked => {}
 /// signal foobar;
 /// property<int> width;
+/// animate someProp { }
 /// ```
 fn parse_element_content(p: &mut impl Parser) {
     loop {
@@ -86,6 +87,9 @@ fn parse_element_content(p: &mut impl Parser) {
                 }
                 SyntaxKind::LAngle if p.peek().as_str() == "property" => {
                     parse_property_declaration(&mut *p);
+                }
+                SyntaxKind::Identifier if p.peek().as_str() == "animate" => {
+                    parse_property_animation(&mut *p);
                 }
                 _ => {
                     p.consume();
@@ -269,5 +273,41 @@ fn parse_property_declaration(p: &mut impl Parser) {
         parse_binding_expression(&mut *p);
     } else {
         p.expect(SyntaxKind::Semicolon);
+    }
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,PropertyAnimation
+/// animate x { duration: 1000; }
+/// ```
+fn parse_property_animation(p: &mut impl Parser) {
+    debug_assert_eq!(p.peek().as_str(), "animate");
+    let mut p = p.start_node(SyntaxKind::PropertyAnimation);
+    p.consume(); // animate
+    {
+        let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
+        p.expect(SyntaxKind::Identifier);
+    }
+    p.expect(SyntaxKind::LBrace);
+
+    loop {
+        match p.nth(0) {
+            SyntaxKind::RBrace => {
+                p.consume();
+                return;
+            }
+            SyntaxKind::Eof => return,
+            SyntaxKind::Identifier => match p.nth(1) {
+                SyntaxKind::Colon => parse_property_binding(&mut *p),
+                _ => {
+                    p.consume();
+                    p.error("Only bindings are allowed in animations");
+                }
+            },
+            _ => {
+                p.consume();
+                p.error("Only bindings are allowed in animations");
+            }
+        }
     }
 }
