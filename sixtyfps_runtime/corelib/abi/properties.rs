@@ -6,11 +6,9 @@
 */
 
 use crate::abi::datastructures::ComponentRef;
-use std::cell::RefCell;
-use std::{
-    ops::DerefMut,
-    rc::{Rc, Weak},
-};
+use core::cell::*;
+use core::ops::DerefMut;
+use std::rc::{Rc, Weak};
 
 thread_local!(static CURRENT_BINDING : RefCell<Option<Rc<dyn PropertyNotify>>> = Default::default());
 
@@ -135,7 +133,24 @@ type PropertyHandle<T> = Rc<RefCell<PropertyImpl<T>>>;
 pub struct Property<T: 'static> {
     inner: PropertyHandle<T>,
     /// Only access when holding a lock of the inner refcell.
-    value: core::cell::UnsafeCell<T>,
+    /// (so only through Property::borrow and Property::try_borrow_mut)
+    value: UnsafeCell<T>,
+}
+
+impl<T> Property<T> {
+    /// Borrow both `inner` and `value`
+    fn try_borrow(&self) -> Result<(Ref<PropertyImpl<T>>, Ref<T>), BorrowError> {
+        let lock = self.inner.try_borrow()?;
+        // Safety: we use the same locking rules for `inner` and `value`
+        Ok(Ref::map_split(lock, |r| unsafe { (r, &*self.value.get()) }))
+    }
+
+    /// Borrow both `inner` and `value` as mutable
+    fn try_borrow_mut(&self) -> Result<(RefMut<PropertyImpl<T>>, RefMut<T>), BorrowMutError> {
+        let lock = self.inner.try_borrow_mut()?;
+        // Safety: we use the same locking rules for `inner` and `value`
+        Ok(RefMut::map_split(lock, |r| unsafe { (r, &mut *self.value.get()) }))
+    }
 }
 
 impl<T: Clone + 'static> Property<T> {
@@ -151,8 +166,7 @@ impl<T: Clone + 'static> Property<T> {
     pub fn get(&self, context: &EvaluationContext) -> T {
         self.update(context);
         self.inner.clone().register_current_binding_as_dependency();
-        let _lock = self.inner.borrow();
-        unsafe { (*(self.value.get() as *const T)).clone() }
+        self.try_borrow().expect("Binding loop detected").1.clone()
     }
 
     /// Change the value of this property
@@ -167,10 +181,10 @@ impl<T: Clone + 'static> Property<T> {
                     return;
                 }
             }
-            let mut lock = self.inner.borrow_mut();
+            let (mut lock, mut value) = self.try_borrow_mut().expect("Binding loop detected");
             lock.binding = None;
             lock.dirty = false;
-            unsafe { *self.value.get() = t };
+            *value = t;
         }
         self.inner.clone().mark_dirty(DirtyReason::ValueOrDependencyHasChanged);
         self.inner.borrow_mut().dirty = false;
@@ -229,17 +243,14 @@ impl<T: Clone + 'static> Property<T> {
             return;
         }
         let mut old: Option<Rc<dyn PropertyNotify>> = Some(self.inner.clone());
-        let mut lock =
-            self.inner.try_borrow_mut().expect("Circular dependency in binding evaluation");
+        let (mut lock, mut value) =
+            self.try_borrow_mut().expect("Circular dependency in binding evaluation");
         if let Some(binding) = &lock.binding {
             CURRENT_BINDING.with(|cur_dep| {
                 let mut m = cur_dep.borrow_mut();
                 std::mem::swap(m.deref_mut(), &mut old);
             });
-            unsafe {
-                // It is safe to take a mutable reference to the value because we hold `lock`
-                binding.clone().evaluate(&mut *self.value.get(), context);
-            }
+            binding.clone().evaluate(value.deref_mut(), context);
             lock.dirty = false;
             CURRENT_BINDING.with(|cur_dep| {
                 let mut m = cur_dep.borrow_mut();
