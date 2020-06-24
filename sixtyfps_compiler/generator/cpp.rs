@@ -635,16 +635,23 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
                 false_code
             )
         }
-        Array { element_ty, values } => format!(
-            "std::make_shared<sixtyfps::ArrayModel<{count},{ty}>>({val})",
-            count = values.len(),
-            ty = element_ty.cpp_type().unwrap_or_else(|| "FIXME: report error".to_owned()),
-            val = values
-                .iter()
-                .map(|e| compile_expression(e, component))
-                .collect::<Vec<_>>()
-                .join(", ")
-        ),
+        Array { element_ty, values } => {
+            let ty = element_ty.cpp_type().unwrap_or_else(|| "FIXME: report error".to_owned());
+            format!(
+                "std::make_shared<sixtyfps::ArrayModel<{count},{ty}>>({val})",
+                count = values.len(),
+                ty = ty,
+                val = values
+                    .iter()
+                    .map(|e| format!(
+                        "{ty} ( {expr} )",
+                        expr = compile_expression(e, component),
+                        ty = ty,
+                    ))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+        }
         Object { ty, values } => {
             if let Type::Object(ty) = ty {
                 let elem = ty
