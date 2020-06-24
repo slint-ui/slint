@@ -23,9 +23,9 @@ pub use const_field_offset_macro::FieldOffsets;
 pub struct FieldOffset<T, U>(
     /// Offset in bytes of the field within the struct
     usize,
-    /// ### Changed from Fn to fn to allow const
-    /// Should be fn(T)->U,  but we can't make that work in const context.
-    /// So make it invariant in T instead
+    /// ### Changed from Fn in order to allow const.
+    /// Should be fn(T)->U,  but we can't make that work in const context,
+    /// so use the PhantomData2 indirection
     ///
     /// ```compile_fail
     /// use const_field_offset::FieldOffset;
@@ -35,8 +35,28 @@ pub struct FieldOffset<T, U>(
     ///     of2.apply(foo)
     /// }
     /// ```
-    PhantomData<(*mut T, *const U)>,
+    /// that should compile
+    /// ```
+    /// use const_field_offset::FieldOffset;
+    /// struct Foo<'a>(&'a str, &'static str);
+    /// fn test<'a>(foo: &'a Foo<'static>, of: FieldOffset<Foo, &'static str>) -> &'a str {
+    ///     let of2 : FieldOffset<Foo<'static>, &'static str> = of;
+    ///     of.apply(foo)
+    /// }
+    /// fn test2(foo: &Foo<'static>, of: FieldOffset<Foo, &'static str>) -> &'static str {
+    ///     let of2 : FieldOffset<Foo<'static>, &'static str> = of;
+    ///     of.apply(foo)
+    /// }
+    /// fn test3<'a>(foo: &'a Foo, of: FieldOffset<Foo<'a>, &'a str>) -> &'a str {
+    ///     of.apply(foo)
+    /// }
+    /// ```
+    PhantomData<(PhantomContra<T>, *const U)>,
 );
+
+/// `fn` cannot appear dirrectly in a type that need to be const.
+/// Workaround that with an indiretion
+struct PhantomContra<T>(fn(T));
 
 unsafe impl<T, U> Send for FieldOffset<T, U> {}
 
