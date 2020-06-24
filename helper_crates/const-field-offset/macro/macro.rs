@@ -54,15 +54,37 @@ use syn::{parse_macro_input, spanned::Spanned, DeriveInput};
 pub fn const_field_offset(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
-    if !input.attrs.iter().any(|a| {
+    let mut has_repr_c = false;
+    for a in &input.attrs {
         if let Some(i) = a.path.get_ident() {
-            i == "repr" && a.tokens.to_string() == "(C)"
+            if i == "repr" {
+                match a.tokens.to_string().as_str() {
+                    "(C)" => has_repr_c = true,
+                    "(packed)" => {
+                        return TokenStream::from(quote!(
+                            compile_error! {"FieldOffsets does not work on #[repr(packed)]"}
+                        ))
+                    }
+                    _ => (),
+                }
+            }
+        }
+    }
+    if !has_repr_c {
+        return TokenStream::from(
+            quote! {compile_error!{"FieldOffsets inly work if the structure repr(C)"}},
+        );
+    }
+
+    if input.attrs.iter().any(|a| {
+        if let Some(i) = a.path.get_ident() {
+            i == "repr" && a.tokens.to_string() == "(packed)"
         } else {
             false
         }
     }) {
-        return TokenStream::from(quote! {compile_error!{"Only work if repr(C)"}});
-    };
+        return TokenStream::from(quote! {compile_error!{"Does not work if "}});
+    }
 
     let struct_name = input.ident;
     let field_struct_name = quote::format_ident!("{}FieldsOffsets", struct_name);
@@ -145,3 +167,29 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
     // Hand the output tokens back to the compiler
     TokenStream::from(expanded)
 }
+
+/**
+```compile_fail
+use const_field_offset::*;
+#[derive(FieldOffsets)]
+struct Foo {
+    x: u32,
+}
+```
+*/
+#[cfg(doctest)]
+const _NO_REPR_C: u32 = 0;
+
+/**
+```compile_fail
+use const_field_offset::*;
+#[derive(FieldOffsets)]
+#[repr(C)]
+#[repr(packed)]
+struct Foo {
+    x: u32,
+}
+```
+*/
+#[cfg(doctest)]
+const _REPR_PACKED: u32 = 0;
