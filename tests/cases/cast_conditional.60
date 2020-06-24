@@ -21,7 +21,8 @@ assert(instance.get_s1() == "123");
 
 
 ```rust
-let instance = TestCase::default();
+let instance = Box::pin(TestCase::default());
+let instance = instance.as_ref();
 instance.set_condition(true);
 assert_eq!(instance.get_s1(), "abc");
 assert_eq!(instance.get_s2(), "123");

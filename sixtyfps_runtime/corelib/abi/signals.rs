@@ -38,22 +38,23 @@ impl<Arg> Signal<Arg> {
 
 #[test]
 fn signal_simple_test() {
+    use std::pin::Pin;
     #[derive(Default)]
     struct Component {
         pressed: core::cell::Cell<bool>,
         clicked: Signal<()>,
     }
     impl crate::abi::datastructures::Component for Component {
-        fn create() -> Self {
-            Default::default()
+        fn visit_children_item(
+            self: Pin<&Self>,
+            _: isize,
+            _: crate::abi::datastructures::ItemVisitorRefMut,
+        ) {
         }
-        fn visit_children_item(&self, _: isize, _: crate::abi::datastructures::ItemVisitorRefMut) {}
-        fn layout_info(&self) -> crate::abi::datastructures::LayoutInfo {
+        fn layout_info(self: Pin<&Self>) -> crate::abi::datastructures::LayoutInfo {
             unimplemented!()
         }
-        fn compute_layout(&self, _: &crate::EvaluationContext) {
-            unimplemented!()
-        }
+        fn compute_layout(self: Pin<&Self>, _: &crate::EvaluationContext) {}
     }
     use crate::abi::datastructures::ComponentVTable;
     let mut c = Component::default();
@@ -62,10 +63,10 @@ fn signal_simple_test() {
     });
     let vtable = ComponentVTable::new::<Component>();
     let ctx = super::properties::EvaluationContext::for_root_component(unsafe {
-        vtable::VRef::from_raw(
+        Pin::new_unchecked(vtable::VRef::from_raw(
             core::ptr::NonNull::from(&vtable),
             core::ptr::NonNull::from(&c).cast(),
-        )
+        ))
     });
     c.clicked.emit(&ctx, ());
     assert_eq!(c.pressed.get(), true);

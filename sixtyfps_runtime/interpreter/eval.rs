@@ -98,7 +98,7 @@ declare_value_conversion!(Object => [HashMap<String, Value>] );
 /// Evaluate an expression and return a Value as the result of this expression
 pub fn eval_expression(
     e: &Expression,
-    ctx: &crate::ComponentImpl,
+    component_type: &crate::ComponentDescription,
     eval_context: &corelib::EvaluationContext,
 ) -> Value {
     match e {
@@ -129,33 +129,47 @@ pub fn eval_expression(
         }
         Expression::RepeaterIndexReference { element } => {
             if element.upgrade().unwrap().borrow().base_type
-                == Type::Component(ctx.component_type.original.clone())
+                == Type::Component(component_type.original.clone())
             {
-                let x = &ctx.component_type.custom_properties["index"];
-                unsafe { x.prop.get(&*ctx.mem.offset(x.offset as isize), &eval_context).unwrap() }
+                let x = &component_type.custom_properties["index"];
+                unsafe {
+                    x.prop
+                        .get(
+                            &*eval_context.component.as_ptr().offset(x.offset as isize),
+                            &eval_context,
+                        )
+                        .unwrap()
+                }
             } else {
                 todo!();
             }
         }
         Expression::RepeaterModelReference { element } => {
             if element.upgrade().unwrap().borrow().base_type
-                == Type::Component(ctx.component_type.original.clone())
+                == Type::Component(component_type.original.clone())
             {
-                let x = &ctx.component_type.custom_properties["model_data"];
-                unsafe { x.prop.get(&*ctx.mem.offset(x.offset as isize), &eval_context).unwrap() }
+                let x = &component_type.custom_properties["model_data"];
+                unsafe {
+                    x.prop
+                        .get(
+                            &*eval_context.component.as_ptr().offset(x.offset as isize),
+                            &eval_context,
+                        )
+                        .unwrap()
+                }
             } else {
                 todo!();
             }
         }
         Expression::ObjectAccess { base, name } => {
-            if let Value::Object(mut o) = eval_expression(base, ctx, eval_context) {
+            if let Value::Object(mut o) = eval_expression(base, component_type, eval_context) {
                 o.remove(name).unwrap_or(Value::Void)
             } else {
                 Value::Void
             }
         }
         Expression::Cast { from, to } => {
-            let v = eval_expression(&*from, ctx, eval_context);
+            let v = eval_expression(&*from, component_type, eval_context);
             match (v, to) {
                 (Value::Number(n), Type::Int32) => Value::Number(n.round()),
                 (Value::Number(n), Type::String) => {
@@ -167,7 +181,7 @@ pub fn eval_expression(
         Expression::CodeBlock(sub) => {
             let mut v = Value::Void;
             for e in sub {
-                v = eval_expression(e, ctx, eval_context);
+                v = eval_expression(e, component_type, eval_context);
             }
             v
         }
@@ -203,7 +217,7 @@ pub fn eval_expression(
         Expression::SelfAssignment { lhs, rhs, op } => match &**lhs {
             Expression::PropertyReference(NamedReference { element, name }) => {
                 let eval = |lhs| {
-                    let rhs = eval_expression(&**rhs, ctx, eval_context);
+                    let rhs = eval_expression(&**rhs, component_type, eval_context);
                     match (lhs, rhs, op) {
                         (Value::Number(a), Value::Number(b), '+') => Value::Number(a + b),
                         (Value::Number(a), Value::Number(b), '-') => Value::Number(a - b),
@@ -236,8 +250,8 @@ pub fn eval_expression(
             _ => panic!("typechecking should make sure this was a PropertyReference"),
         },
         Expression::BinaryExpression { lhs, rhs, op } => {
-            let lhs = eval_expression(&**lhs, ctx, eval_context);
-            let rhs = eval_expression(&**rhs, ctx, eval_context);
+            let lhs = eval_expression(&**lhs, component_type, eval_context);
+            let rhs = eval_expression(&**rhs, component_type, eval_context);
 
             match (lhs, rhs, op) {
                 (Value::Number(a), Value::Number(b), '+') => Value::Number(a + b),
@@ -251,19 +265,21 @@ pub fn eval_expression(
             Value::Resource(Resource::AbsoluteFilePath(absolute_source_path.as_str().into()))
         }
         Expression::Condition { condition, true_expr, false_expr } => {
-            match eval_expression(&**condition, ctx, eval_context).try_into() as Result<bool, _> {
-                Ok(true) => eval_expression(&**true_expr, ctx, eval_context),
-                Ok(false) => eval_expression(&**false_expr, ctx, eval_context),
+            match eval_expression(&**condition, component_type, eval_context).try_into()
+                as Result<bool, _>
+            {
+                Ok(true) => eval_expression(&**true_expr, component_type, eval_context),
+                Ok(false) => eval_expression(&**false_expr, component_type, eval_context),
                 _ => panic!("conditional expression did not evaluate to boolean"),
             }
         }
-        Expression::Array { values, .. } => {
-            Value::Array(values.iter().map(|e| eval_expression(e, ctx, eval_context)).collect())
-        }
+        Expression::Array { values, .. } => Value::Array(
+            values.iter().map(|e| eval_expression(e, component_type, eval_context)).collect(),
+        ),
         Expression::Object { values, .. } => Value::Object(
             values
                 .iter()
-                .map(|(k, v)| (k.clone(), eval_expression(v, ctx, eval_context)))
+                .map(|(k, v)| (k.clone(), eval_expression(v, component_type, eval_context)))
                 .collect(),
         ),
     }

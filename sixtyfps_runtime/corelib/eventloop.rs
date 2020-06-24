@@ -5,12 +5,12 @@ use std::rc::{Rc, Weak};
 use winit::platform::desktop::EventLoopExtDesktop;
 
 pub trait GenericWindow {
-    fn draw(&self, component: vtable::VRef<crate::abi::datastructures::ComponentVTable>);
+    fn draw(&self, component: core::pin::Pin<crate::abi::datastructures::ComponentRef>);
     fn process_mouse_input(
         &self,
         pos: winit::dpi::PhysicalPosition<f64>,
         state: winit::event::ElementState,
-        component: vtable::VRef<crate::abi::datastructures::ComponentVTable>,
+        component: core::pin::Pin<crate::abi::datastructures::ComponentRef>,
     );
     fn window_handle(&self) -> std::cell::Ref<'_, winit::window::Window>;
     fn map_window(self: Rc<Self>, event_loop: &EventLoop);
@@ -42,7 +42,7 @@ impl EventLoop {
         Self { winit_loop: winit::event_loop::EventLoop::new() }
     }
     #[allow(unused_mut)] // mut need changes for wasm
-    pub fn run(mut self, component: vtable::VRef<crate::abi::datastructures::ComponentVTable>) {
+    pub fn run(mut self, component: core::pin::Pin<crate::abi::datastructures::ComponentRef>) {
         use winit::event::Event;
         use winit::event_loop::{ControlFlow, EventLoopWindowTarget};
 

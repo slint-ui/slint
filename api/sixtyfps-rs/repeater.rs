@@ -1,5 +1,5 @@
 /// Component that can be instantiated by a repeater.
-pub trait RepeatedComponent: sixtyfps_corelib::abi::datastructures::Component {
+pub trait RepeatedComponent: sixtyfps_corelib::abi::datastructures::Component + Default {
     /// The data corresponding to the model
     type Data;
 
@@ -11,7 +11,7 @@ pub trait RepeatedComponent: sixtyfps_corelib::abi::datastructures::Component {
 /// It helps instantiating the components `C`
 #[derive(Default)]
 pub struct Repeater<C> {
-    components: Vec<Box<C>>,
+    components: Vec<core::pin::Pin<Box<C>>>,
 }
 
 impl<Data, C> Repeater<C>
@@ -25,16 +25,16 @@ where
     {
         self.components.clear();
         for (i, d) in data.enumerate() {
-            let c = C::create();
+            let c = C::default();
             c.update(i, d);
-            self.components.push(Box::new(c));
+            self.components.push(Box::pin(c));
         }
     }
 
     /// Call the visitor for each component
     pub fn visit(&self, mut visitor: sixtyfps_corelib::abi::datastructures::ItemVisitorRefMut) {
         for c in &self.components {
-            c.visit_children_item(-1, visitor.borrow_mut());
+            c.as_ref().visit_children_item(-1, visitor.borrow_mut());
         }
     }
 }

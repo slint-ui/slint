@@ -38,7 +38,7 @@ pub(crate) fn update_item_rendering_data<Backend: GraphicsBackend>(
 }
 
 pub(crate) fn render_component_items<Backend: GraphicsBackend>(
-    component: vtable::VRef<'_, crate::abi::datastructures::ComponentVTable>,
+    component: crate::ComponentRefPin,
     frame: &mut Backend::Frame,
     rendering_cache: &RenderingCache<Backend>,
 ) {

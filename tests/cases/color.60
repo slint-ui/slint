@@ -27,7 +27,8 @@ assert(t.get_b1() != t.get_r5());
 
 
 ```rust
-let t = Test::default();
+let t = Box::pin(Test::default());
+let t = t.as_ref();
 assert_eq!(t.get_r1(), t.get_r2());
 assert_eq!(t.get_r1(), t.get_r3());
 assert_eq!(t.get_r1(), t.get_r4());

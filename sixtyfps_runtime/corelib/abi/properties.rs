@@ -5,7 +5,7 @@
     thin dst container, and intrusive linked list
 */
 
-use crate::abi::datastructures::ComponentRef;
+use crate::ComponentRefPin;
 use core::cell::*;
 use core::ops::DerefMut;
 use std::rc::{Rc, Weak};
@@ -101,7 +101,7 @@ impl<T> PropertyNotify for RefCell<PropertyImpl<T>> {
 #[repr(C)]
 pub struct EvaluationContext<'a> {
     /// The component which contains the Property or the Signal
-    pub component: vtable::VRef<'a, crate::abi::datastructures::ComponentVTable>,
+    pub component: core::pin::Pin<vtable::VRef<'a, crate::abi::datastructures::ComponentVTable>>,
 
     /// The context of the parent component
     pub parent_context: Option<&'a EvaluationContext<'a>>,
@@ -112,14 +112,23 @@ impl<'a> EvaluationContext<'a> {
     ///
     /// The component need to be a root component, otherwise fetching properties
     /// might panic.
-    pub fn for_root_component(component: ComponentRef<'a>) -> Self {
+    pub fn for_root_component(component: ComponentRefPin<'a>) -> Self {
         Self { component, parent_context: None }
     }
 
     /// Create a context for a child component of a component within the current
     /// context.
-    pub fn child_context(&'a self, child: ComponentRef<'a>) -> Self {
+    pub fn child_context(&'a self, child: ComponentRefPin<'a>) -> Self {
         Self { component: child, parent_context: Some(self) }
+    }
+
+    /// Attempt to cast the component to the given type
+    pub fn get_component<
+        T: vtable::HasStaticVTable<crate::abi::datastructures::ComponentVTable>,
+    >(
+        &'a self,
+    ) -> Option<core::pin::Pin<&'a T>> {
+        vtable::VRef::downcast_pin(self.component)
     }
 }
 
@@ -275,7 +284,10 @@ fn properties_simple_test() {
         area: Property<i32>,
     }
     let dummy_eval_context = EvaluationContext::for_root_component(unsafe {
-        vtable::VRef::from_raw(core::ptr::NonNull::dangling(), core::ptr::NonNull::dangling())
+        core::pin::Pin::new_unchecked(vtable::VRef::from_raw(
+            core::ptr::NonNull::dangling(),
+            core::ptr::NonNull::dangling(),
+        ))
     });
     let compo = Rc::new(Component::default());
     let w = Rc::downgrade(&compo);
@@ -596,10 +608,10 @@ mod test {
     fn properties_test_animation_triggered_by_set() {
         let dummy_eval_context = EvaluationContext {
             component: unsafe {
-                vtable::VRef::from_raw(
+                core::pin::Pin::new_unchecked(vtable::VRef::from_raw(
                     core::ptr::NonNull::dangling(),
                     core::ptr::NonNull::dangling(),
-                )
+                ))
             },
             parent_context: None,
         };
@@ -638,10 +650,10 @@ mod test {
     fn properties_test_animation_triggered_by_binding() {
         let dummy_eval_context = EvaluationContext {
             component: unsafe {
-                vtable::VRef::from_raw(
+                core::pin::Pin::new_unchecked(vtable::VRef::from_raw(
                     core::ptr::NonNull::dangling(),
                     core::ptr::NonNull::dangling(),
-                )
+                ))
             },
             parent_context: None,
         };

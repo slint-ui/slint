@@ -143,9 +143,9 @@ impl<Backend: GraphicsBackend> Drop for GraphicsWindow<Backend> {
 impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow
     for RefCell<GraphicsWindow<Backend>>
 {
-    fn draw(&self, component: vtable::VRef<crate::abi::datastructures::ComponentVTable>) {
+    fn draw(&self, component: crate::ComponentRefPin) {
         // FIXME: we should do that only if some property change
-        component.compute_layout(&crate::EvaluationContext::for_root_component(component));
+        component.as_ref().compute_layout(&crate::EvaluationContext::for_root_component(component));
 
         let mut this = self.borrow_mut();
 
@@ -189,7 +189,7 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow
         &self,
         pos: winit::dpi::PhysicalPosition<f64>,
         state: winit::event::ElementState,
-        component: vtable::VRef<crate::abi::datastructures::ComponentVTable>,
+        component: crate::ComponentRefPin,
     ) {
         crate::input::process_mouse_event(
             component,

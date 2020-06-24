@@ -117,7 +117,7 @@ impl TypeInfo {
     ///
     /// The instance will be allocated on the heap.
     /// The instance must be freed with `delete_instance`
-    pub fn create_instance(self: Rc<Self>) -> *mut Instance {
+    pub fn create_instance(self: Rc<Self>) -> InstanceBox {
         // Safety: the TypeInfo invariant means that the constructor can be called
         unsafe {
             let mem = std::alloc::alloc(self.mem_layout);
@@ -127,14 +127,14 @@ impl TypeInfo {
                     ctor(mem.add(f.offset));
                 }
             }
-            mem as *mut Instance
+            InstanceBox(core::ptr::NonNull::new_unchecked(mem as *mut Instance))
         }
     }
 
     /// Drop and free the memory of this instance
     ///
     /// Saferty, the instance must have been created by `TypeInfo::create_instance`
-    pub unsafe fn delete_instance(instance: *mut Instance) {
+    unsafe fn delete_instance(instance: *mut Instance) {
         let type_info = (*instance).type_info.clone();
         let mem = instance as *mut u8;
         for f in &type_info.fields {
@@ -151,4 +151,20 @@ impl TypeInfo {
 pub struct Instance {
     type_info: Rc<TypeInfo>,
     _opaque: [u8; 0],
+}
+
+/// A pointer to an Instance that automaticaly frees the memory after use
+pub struct InstanceBox(core::ptr::NonNull<Instance>);
+
+impl InstanceBox {
+    // return a pointer to the instance
+    pub fn as_ptr(&self) -> core::ptr::NonNull<Instance> {
+        self.0
+    }
+}
+
+impl Drop for InstanceBox {
+    fn drop(&mut self) {
+        unsafe { TypeInfo::delete_instance(self.0.as_mut()) }
+    }
 }

@@ -463,10 +463,7 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Dia
     declarations.push(Declaration::Var(Var {
         ty: "const sixtyfps::ComponentVTable".to_owned(),
         name: format!("{}::component_type", component_id),
-        init: Some(
-            "{ nullptr, sixtyfps::dummy_destory, visit_children, nullptr, compute_layout }"
-                .to_owned(),
-        ),
+        init: Some("{ visit_children, nullptr, compute_layout }".to_owned()),
     }));
 
     declarations.append(&mut file.declarations);

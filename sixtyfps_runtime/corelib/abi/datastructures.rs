@@ -2,6 +2,7 @@
 
 use super::slice::Slice;
 use crate::EvaluationContext;
+use core::pin::Pin;
 use std::cell::Cell;
 use vtable::*;
 
@@ -34,23 +35,21 @@ struct Point {
 #[vtable]
 #[repr(C)]
 pub struct ComponentVTable {
-    /// Allocate an instance of this component
-    pub create: extern "C" fn(&ComponentVTable) -> VBox<ComponentVTable>,
-
-    /// Destruct this component.
-    pub drop: extern "C" fn(VRefMut<ComponentVTable>),
-
     /// Visit the children of the item at index `index`.
     /// Note that the root item is at index 0, so passing 0 would visit the item under root (the children of root).
     /// If you want to visit the root item, you need to pass -1 as an index
-    pub visit_children_item:
-        extern "C" fn(VRef<ComponentVTable>, index: isize, visitor: VRefMut<ItemVisitorVTable>),
+    pub visit_children_item: extern "C" fn(
+        core::pin::Pin<VRef<ComponentVTable>>,
+        index: isize,
+        visitor: VRefMut<ItemVisitorVTable>,
+    ),
 
     /// Returns the layout info for this component
-    pub layout_info: extern "C" fn(VRef<ComponentVTable>) -> LayoutInfo,
+    pub layout_info: extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>) -> LayoutInfo,
 
     /// Will compute the layout of
-    pub compute_layout: extern "C" fn(VRef<ComponentVTable>, eval_context: &EvaluationContext),
+    pub compute_layout:
+        extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>, eval_context: &EvaluationContext),
 }
 
 /// This structure must be present in items that are Rendered and contains information.
@@ -279,7 +278,7 @@ impl ComponentWindow {
         Self(window_impl)
     }
     /// Spins an event loop and renders the items of the provided component in this window.
-    pub fn run(&self, component: VRef<ComponentVTable>) {
+    pub fn run(&self, component: Pin<VRef<ComponentVTable>>) {
         let event_loop = crate::eventloop::EventLoop::new();
         self.0.clone().map_window(&event_loop);
 
@@ -309,7 +308,7 @@ pub unsafe extern "C" fn sixtyfps_component_window_drop(handle: *mut ComponentWi
 #[no_mangle]
 pub unsafe extern "C" fn sixtyfps_component_window_run(
     handle: *mut ComponentWindowOpaque,
-    component: vtable::VRef<ComponentVTable>,
+    component: Pin<VRef<ComponentVTable>>,
 ) {
     let window = &*(handle as *const ComponentWindow);
     window.run(component);
@@ -327,7 +326,7 @@ pub struct ItemVisitorVTable {
     /// and `item` is a reference to the item itself
     visit_item: fn(
         VRefMut<ItemVisitorVTable>,
-        component: VRef<ComponentVTable>,
+        component: Pin<VRef<ComponentVTable>>,
         index: isize,
         item: VRef<ItemVTable>,
     ),
@@ -335,10 +334,10 @@ pub struct ItemVisitorVTable {
     drop: fn(VRefMut<ItemVisitorVTable>),
 }
 
-impl<T: FnMut(VRef<ComponentVTable>, isize, VRef<ItemVTable>)> ItemVisitor for T {
+impl<T: FnMut(crate::ComponentRefPin, isize, VRef<ItemVTable>)> ItemVisitor for T {
     fn visit_item(
         &mut self,
-        component: VRef<ComponentVTable>,
+        component: crate::ComponentRefPin,
         index: isize,
         item: VRef<ItemVTable>,
     ) {
@@ -351,7 +350,7 @@ impl<T: FnMut(VRef<ComponentVTable>, isize, VRef<ItemVTable>)> ItemVisitor for T
 /// Safety: Assume a correct implementation of the item_tree array
 #[no_mangle]
 pub unsafe extern "C" fn sixtyfps_visit_item_tree(
-    component: VRef<ComponentVTable>,
+    component: Pin<VRef<ComponentVTable>>,
     item_tree: Slice<ItemTreeNode<u8>>,
     index: isize,
     visitor: VRefMut<ItemVisitorVTable>,

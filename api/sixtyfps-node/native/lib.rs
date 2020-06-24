@@ -1,18 +1,15 @@
 use core::cell::RefCell;
 use neon::prelude::*;
 use sixtyfps_compilerlib::typeregister::Type;
-use sixtyfps_corelib::{
-    abi::datastructures::{ComponentBox, ComponentRef, Resource},
-    EvaluationContext,
-};
+use sixtyfps_corelib::abi::datastructures::Resource;
+use sixtyfps_corelib::{ComponentRefPin, EvaluationContext};
+
 use std::rc::Rc;
 
 mod persistent_context;
 
 struct WrappedComponentType(Option<Rc<sixtyfps_interpreter::ComponentDescription>>);
-struct WrappedComponentBox(
-    Option<(Rc<ComponentBox>, Rc<sixtyfps_interpreter::ComponentDescription>)>,
-);
+struct WrappedComponentBox(Option<Rc<sixtyfps_interpreter::ComponentBox>>);
 
 /// We need to do some gymnastic with closures to pass the ExecuteContext with the right lifetime
 type GlobalContextCallback =
@@ -98,7 +95,7 @@ fn create<'cx>(
 
     let mut obj = SixtyFpsComponent::new::<_, JsValue, _>(cx, std::iter::empty())?;
     persistent_context.save_to_object(cx, obj.downcast().unwrap());
-    cx.borrow_mut(&mut obj, |mut obj| obj.0 = Some((Rc::new(component), component_type)));
+    cx.borrow_mut(&mut obj, |mut obj| obj.0 = Some(Rc::new(component)));
     Ok(obj.as_value(cx))
 }
 
@@ -158,7 +155,7 @@ fn to_js_value<'cx>(
 
 fn show<'cx>(
     cx: &mut CallContext<'cx, impl neon::object::This>,
-    component: ComponentRef,
+    component: ComponentRefPin,
     presistent_context: persistent_context::PersistentContext<'cx>,
 ) -> JsResult<'cx, JsUndefined> {
     cx.execute_scoped(|cx| {
@@ -229,7 +226,7 @@ declare_types! {
         method show(mut cx) {
             let mut this = cx.this();
             let component = cx.borrow(&mut this, |x| x.0.clone());
-            let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?.0;
+            let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
             let persistent_context = persistent_context::PersistentContext::from_object(&mut cx, this.downcast().unwrap())?;
             show(&mut cx, component.borrow(), persistent_context)?;
             Ok(JsUndefined::new().as_value(&mut cx))
@@ -239,8 +236,8 @@ declare_types! {
             let this = cx.this();
             let lock = cx.lock();
             let x = this.borrow(&lock).0.clone();
-            let (component, component_ty) = x.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
-            let value = component_ty
+            let component = x.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            let value = component.description()
                 .get_property(&EvaluationContext::for_root_component(component.borrow()), prop_name.as_str())
                 .or_else(|_| cx.throw_error(format!("Cannot read property")))?;
             to_js_value(value, &mut cx)
@@ -250,8 +247,8 @@ declare_types! {
             let this = cx.this();
             let lock = cx.lock();
             let x = this.borrow(&lock).0.clone();
-            let (component, component_ty) = x.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
-            let ty = component_ty.properties()
+            let component  = x.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            let ty = component.description().properties()
                 .get(&prop_name)
                 .ok_or(())
                 .or_else(|()| {
@@ -260,7 +257,7 @@ declare_types! {
                 .clone();
 
             let value = to_eval_value(cx.argument::<JsValue>(1)?, ty, &mut cx)?;
-            component_ty
+            component.description()
                 .set_property(component.borrow(), prop_name.as_str(), value)
                 .or_else(|_| cx.throw_error(format!("Cannot assign property")))?;
 
@@ -271,8 +268,8 @@ declare_types! {
             let this = cx.this();
             let lock = cx.lock();
             let x = this.borrow(&lock).0.clone();
-            let (component, component_ty) = x.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
-            component_ty
+            let component = x.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            component.description()
                 .emit_signal(&EvaluationContext::for_root_component(component.borrow()), signal_name.as_str())
                 .or_else(|_| cx.throw_error(format!("Cannot emit signal")))?;
 

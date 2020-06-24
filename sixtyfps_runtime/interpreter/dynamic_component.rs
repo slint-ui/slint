@@ -2,19 +2,50 @@ use crate::{dynamic_type, eval};
 
 use core::convert::TryInto;
 use core::ptr::NonNull;
-use dynamic_type::Instance;
+use dynamic_type::{Instance, InstanceBox};
 use object_tree::ElementRc;
 use sixtyfps_compilerlib::typeregister::Type;
 use sixtyfps_compilerlib::*;
 use sixtyfps_corelib::abi::datastructures::{
-    ComponentBox, ComponentRef, ComponentVTable, ItemTreeNode, ItemVTable, ItemVisitorRefMut,
-    Resource,
+    ComponentVTable, ItemTreeNode, ItemVTable, ItemVisitorRefMut, Resource,
 };
 use sixtyfps_corelib::abi::slice::Slice;
 use sixtyfps_corelib::rtti::PropertyInfo;
+use sixtyfps_corelib::ComponentRefPin;
 use sixtyfps_corelib::{rtti, EvaluationContext, Property, SharedString, Signal};
 use std::collections::HashMap;
-use std::rc::Rc;
+use std::{pin::Pin, rc::Rc};
+
+pub struct ComponentBox {
+    instance: InstanceBox,
+    component_type: Rc<ComponentDescription>,
+}
+
+impl ComponentBox {
+    /// Borrow this component as a `Pin<ComponentRef>`
+    pub fn borrow(&self) -> ComponentRefPin {
+        unsafe {
+            Pin::new_unchecked(vtable::VRef::from_raw(
+                NonNull::from(&self.component_type.ct).cast(),
+                self.instance.as_ptr().cast(),
+            ))
+        }
+    }
+
+    /// Borrow this component as a `Pin<ComponentRefMut>`
+    pub fn borrow_mut(&mut self) -> Pin<sixtyfps_corelib::abi::datastructures::ComponentRefMut> {
+        unsafe {
+            Pin::new_unchecked(vtable::VRefMut::from_raw(
+                NonNull::from(&self.component_type.ct).cast(),
+                self.instance.as_ptr().cast(),
+            ))
+        }
+    }
+
+    pub fn description(&self) -> Rc<ComponentDescription> {
+        return self.component_type.clone();
+    }
+}
 
 pub(crate) struct ItemWithinComponent {
     offset: usize,
@@ -47,18 +78,6 @@ pub(crate) struct RepeaterWithinComponent {
 
 type RepeaterVec = Vec<ComponentBox>;
 
-/// A wrapper around a pointer to a Component, and its description.
-///
-/// Safety: the `mem` member must be a component instantiated with the description of
-/// this document.
-///
-/// It is similar to ComponentBox, but instead of a ComponentVTable pointer, we
-/// have direct access to the ComponentDescription, so we do not have to cast
-pub struct ComponentImpl {
-    pub(crate) mem: *mut u8,
-    pub(crate) component_type: Rc<ComponentDescription>,
-}
-
 /// ComponentDescription is a representation of a component suitable for interpretation
 ///
 /// It contains information about how to create and destroy the Component.
@@ -81,7 +100,7 @@ pub struct ComponentDescription {
 }
 
 unsafe extern "C" fn visit_children_item(
-    component: ComponentRef,
+    component: ComponentRefPin,
     index: isize,
     v: ItemVisitorRefMut,
 ) {
@@ -98,7 +117,7 @@ unsafe extern "C" fn visit_children_item(
             let rep_in_comp = &component_type.repeater[index];
             let vec = &*(component.as_ptr().add(rep_in_comp.offset) as *const RepeaterVec);
             for x in vec {
-                x.visit_children_item(-1, visitor.borrow_mut());
+                x.borrow().as_ref().visit_children_item(-1, visitor.borrow_mut());
             }
         },
     );
@@ -254,18 +273,12 @@ fn generate_component(
     }
 
     extern "C" fn layout_info(
-        _: ComponentRef,
+        _: ComponentRefPin,
     ) -> sixtyfps_corelib::abi::datastructures::LayoutInfo {
         todo!()
     }
 
-    let t = ComponentVTable {
-        create: component_create,
-        drop: component_destroy,
-        visit_children_item,
-        layout_info,
-        compute_layout,
-    };
+    let t = ComponentVTable { visit_children_item, layout_info, compute_layout };
     let t = ComponentDescription {
         ct: t,
         dynamic_type: builder.build(),
@@ -280,36 +293,13 @@ fn generate_component(
     Rc::new(t)
 }
 
-/// Safety: Can only be called for ComponentVTable which are in `MyComponentType`
-unsafe extern "C" fn component_create(s: &ComponentVTable) -> ComponentBox {
-    // This is safe because we have an instance of ComponentVTable which is the first field of MyComponentType
-    // And the only way to get a MyComponentType is through the load function which returns a Rc
-    let component_type = Rc::<ComponentDescription>::from_raw(
-        s as *const ComponentVTable as *const ComponentDescription,
-    );
-    // We need to increment the ref-count, as from_raw doesn't do that.
-    std::mem::forget(component_type.clone());
-    instentiate(component_type, None)
-}
-
 pub fn instentiate(
     component_type: Rc<ComponentDescription>,
     parent_ctx: Option<&EvaluationContext>,
 ) -> ComponentBox {
     let instance = component_type.dynamic_type.clone().create_instance();
-    let mem = instance as *mut u8;
-
-    let ctx = Rc::new(ComponentImpl { mem, component_type: component_type.clone() });
-
-    let component_box = unsafe {
-        ComponentBox::from_raw(
-            NonNull::from(&ctx.component_type.ct).cast(),
-            NonNull::new(mem).unwrap().cast(),
-        )
-    };
-
-    // The destructor of ComponentBox will take care of reducing the count
-    Rc::into_raw(component_type);
+    let mem = instance.as_ptr().as_ptr() as *mut u8;
+    let component_box = ComponentBox { instance, component_type: component_type.clone() };
 
     let eval_context = if let Some(parent) = parent_ctx {
         parent.child_context(component_box.borrow())
@@ -317,7 +307,7 @@ pub fn instentiate(
         EvaluationContext::for_root_component(component_box.borrow())
     };
 
-    for item_within_component in ctx.component_type.items.values() {
+    for item_within_component in component_type.items.values() {
         unsafe {
             let item = item_within_component.item_from_component(mem);
             let elem = item_within_component.elem.borrow();
@@ -330,47 +320,47 @@ pub fn instentiate(
                         .get(prop.as_str())
                         .map(|o| item.as_ptr().add(*o) as *mut u8)
                         .or_else(|| {
-                            ctx.component_type
-                                .custom_signals
-                                .get(prop.as_str())
-                                .map(|o| mem.add(*o))
+                            component_type.custom_signals.get(prop.as_str()).map(|o| mem.add(*o))
                         })
                         .unwrap_or_else(|| panic!("unkown signal {}", prop))
                         as *mut Signal<()>);
                     let expr = expr.clone();
-                    let ctx = ctx.clone();
+                    let component_type = component_type.clone();
                     signal.set_handler(move |eval_context, _| {
-                        eval::eval_expression(&expr, &*ctx, &eval_context);
+                        eval::eval_expression(&expr, &*component_type, &eval_context);
                     })
                 } else {
                     if let Some(prop_rtti) =
                         item_within_component.rtti.properties.get(prop.as_str())
                     {
                         if expr.is_constant() {
-                            prop_rtti.set(item, eval::eval_expression(expr, &*ctx, &eval_context));
+                            prop_rtti.set(
+                                item,
+                                eval::eval_expression(expr, &*component_type, &eval_context),
+                            );
                         } else {
                             let expr = expr.clone();
-                            let ctx = ctx.clone();
+                            let component_type = component_type.clone();
                             prop_rtti.set_binding(
                                 item,
                                 Box::new(move |eval_context| {
-                                    eval::eval_expression(&expr, &*ctx, eval_context)
+                                    eval::eval_expression(&expr, &*component_type, eval_context)
                                 }),
                             );
                         }
                     } else if let Some(PropertiesWithinComponent { offset, prop, .. }) =
-                        ctx.component_type.custom_properties.get(prop.as_str())
+                        component_type.custom_properties.get(prop.as_str())
                     {
                         if expr.is_constant() {
-                            let v = eval::eval_expression(expr, &*ctx, &eval_context);
+                            let v = eval::eval_expression(expr, &*component_type, &eval_context);
                             prop.set(&*mem.add(*offset), v).unwrap();
                         } else {
                             let expr = expr.clone();
-                            let ctx = ctx.clone();
+                            let component_type = component_type.clone();
                             prop.set_binding(
                                 &*mem.add(*offset),
                                 Box::new(move |eval_context| {
-                                    eval::eval_expression(&expr, &*ctx, eval_context)
+                                    eval::eval_expression(&expr, &*component_type, eval_context)
                                 }),
                             );
                         }
@@ -382,9 +372,9 @@ pub fn instentiate(
         }
     }
 
-    for rep_in_comp in &ctx.component_type.repeater {
+    for rep_in_comp in &component_type.repeater {
         let vec = unsafe { &mut *(mem.add(rep_in_comp.offset) as *mut RepeaterVec) };
-        match eval::eval_expression(&rep_in_comp.model, &*ctx, &eval_context) {
+        match eval::eval_expression(&rep_in_comp.model, &*component_type, &eval_context) {
             crate::Value::Number(count) => {
                 vec.resize_with(count.round() as usize, || {
                     instentiate(rep_in_comp.component_to_repeat.clone(), Some(&eval_context))
@@ -422,16 +412,7 @@ pub fn instentiate(
     component_box
 }
 
-unsafe extern "C" fn component_destroy(component_ref: vtable::VRefMut<ComponentVTable>) {
-    // Take the reference count that the instentiate function leaked
-    let _vtable_rc = Rc::<ComponentDescription>::from_raw(component_ref.get_vtable()
-        as *const ComponentVTable
-        as *const ComponentDescription);
-
-    dynamic_type::TypeInfo::delete_instance(component_ref.as_ptr() as *mut dynamic_type::Instance);
-}
-
-unsafe extern "C" fn compute_layout(component: ComponentRef, eval_context: &EvaluationContext) {
+unsafe extern "C" fn compute_layout(component: ComponentRefPin, eval_context: &EvaluationContext) {
     debug_assert!(component.as_ptr() == eval_context.component.as_ptr());
 
     // This is fine since we can only be called with a component that with our vtable which is a ComponentDescription
@@ -500,6 +481,7 @@ unsafe extern "C" fn compute_layout(component: ComponentRef, eval_context: &Eval
 /// Get the component description from a ComponentRef
 ///
 /// Safety: the component must have been created by the interpreter
-pub unsafe fn get_component_type<'a>(component: ComponentRef<'a>) -> &'a ComponentDescription {
-    &*(component.get_vtable() as *const ComponentVTable as *const ComponentDescription)
+pub unsafe fn get_component_type<'a>(component: ComponentRefPin<'a>) -> &'a ComponentDescription {
+    &*(Pin::into_inner_unchecked(component).get_vtable() as *const ComponentVTable
+        as *const ComponentDescription)
 }

@@ -51,11 +51,6 @@ using internal::Rectangle;
 using internal::Text;
 using internal::TouchArea;
 
-// the component has static lifetime so it does not need to be destroyed
-// FIXME: we probably need some kind of way to dinstinguish static component and
-// these on the heap
-inline void dummy_destory(ComponentRef) { }
-
 constexpr inline ItemTreeNode<uint8_t> make_item_node(std::uintptr_t offset,
                                              const internal::ItemVTable *vtable,
                                              uint32_t child_count, uint32_t child_index)

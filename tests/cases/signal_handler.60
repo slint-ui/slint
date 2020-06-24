@@ -14,7 +14,8 @@ assert(instance.get_signal_emission_count() == 1);
 
 
 ```rust
-let instance = TestCase::default();
+let instance = Box::pin(TestCase::default());
+let instance = instance.as_ref();
 instance.set_signal_emission_count(0);
 assert_eq!(instance.get_signal_emission_count(), 0);
 instance.emit_test_signal();

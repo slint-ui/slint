@@ -74,6 +74,7 @@ pub mod re_exports {
     pub use crate::repeater::*;
     pub use const_field_offset::{self, FieldOffsets};
     pub use once_cell::sync::Lazy;
+    pub use pin_utils::pin_mut;
     pub use sixtyfps_corelib::abi::datastructures::*;
     pub use sixtyfps_corelib::abi::primitives::*;
     pub use sixtyfps_corelib::abi::properties::Property;

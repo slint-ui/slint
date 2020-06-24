@@ -14,12 +14,10 @@ pub use dynamic_component::load;
 pub use dynamic_component::ComponentDescription;
 pub use eval::Value;
 
-pub(crate) use dynamic_component::ComponentImpl;
-use sixtyfps_corelib::{
-    abi::datastructures::{ComponentBox, ComponentRef, ComponentRefMut},
-    EvaluationContext, Signal,
-};
-use std::{collections::HashMap, rc::Rc};
+pub use dynamic_component::ComponentBox;
+use sixtyfps_corelib::abi::datastructures::{ComponentRef, ComponentRefMut};
+use sixtyfps_corelib::{ComponentRefPin, EvaluationContext, Signal};
+use std::{collections::HashMap, pin::Pin, rc::Rc};
 
 impl ComponentDescription {
     /// The name of this Component as written in the .60 file
@@ -49,7 +47,7 @@ impl ComponentDescription {
     /// or if the property with this name does not exist in this component
     pub fn set_property(
         &self,
-        component: ComponentRef,
+        component: ComponentRefPin,
         name: &str,
         value: Value,
     ) -> Result<(), ()> {
@@ -96,7 +94,7 @@ impl ComponentDescription {
     /// or if the property with this name does not exist in this component
     pub fn set_signal_handler(
         &self,
-        component: ComponentRefMut,
+        component: Pin<ComponentRefMut>,
         name: &str,
         handler: Box<dyn Fn(&EvaluationContext, ())>,
     ) -> Result<(), ()> {

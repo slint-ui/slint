@@ -57,7 +57,7 @@ that `cbindgen` can see the actual vtable.
 pub use const_field_offset::FieldOffset;
 use core::marker::PhantomData;
 use core::ops::{Deref, DerefMut, Drop};
-use core::ptr::NonNull;
+use core::{pin::Pin, ptr::NonNull};
 #[doc(inline)]
 pub use vtable_macro::*;
 
@@ -230,6 +230,20 @@ impl<'a, T: ?Sized + VTableMeta> VRef<'a, T> {
         }
     }
 
+    /// Create a new Pin<VRef<_>> from a pinned reference. This is similar to `VRef::new`
+    pub fn new_pin<X: HasStaticVTable<T>>(value: core::pin::Pin<&'a X>) -> Pin<Self> {
+        // Since Value is pinned, this means it is safe to construct a Pin
+        unsafe {
+            Pin::new_unchecked(Self {
+                inner: Inner {
+                    vtable: X::static_vtable() as *const T::VTable as *const u8,
+                    ptr: value.get_ref() as *const X as *const u8,
+                },
+                phantom: PhantomData,
+            })
+        }
+    }
+
     unsafe fn from_inner(inner: Inner) -> Self {
         Self { inner, phantom: PhantomData }
     }
@@ -247,6 +261,17 @@ impl<'a, T: ?Sized + VTableMeta> VRef<'a, T> {
         if self.inner.vtable == X::static_vtable() as *const _ as *const u8 {
             // Safety: We just checked that the vtable fits
             unsafe { Some(&*(self.inner.ptr as *const X)) }
+        } else {
+            None
+        }
+    }
+
+    /// Return to a reference of the given type if the type is actually matching
+    pub fn downcast_pin<X: HasStaticVTable<T>>(this: Pin<Self>) -> Option<Pin<&'a X>> {
+        let inner = unsafe { Pin::into_inner_unchecked(this).inner };
+        if inner.vtable == X::static_vtable() as *const _ as *const u8 {
+            // Safety: We just checked that the vtable fits
+            unsafe { Some(Pin::new_unchecked(&*(inner.ptr as *const X))) }
         } else {
             None
         }

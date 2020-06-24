@@ -45,5 +45,8 @@ pub use abi::properties::{EvaluationContext, Property};
 #[doc(inline)]
 pub use abi::signals::Signal;
 
+/// Type alias to the commonly use `Pin<VRef<ComponentVTable>>>`
+pub type ComponentRefPin<'a> = core::pin::Pin<abi::datastructures::ComponentRef<'a>>;
+
 pub mod eventloop;
 mod item_rendering;

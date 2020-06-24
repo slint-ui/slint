@@ -13,6 +13,9 @@ using VRef = VRefMut<T>;
 template<typename T>
 using VBox = VRefMut<T>;
 
+template<typename T>
+using Pin = T;
+
 /*
 template<typename T>
 struct VBox {

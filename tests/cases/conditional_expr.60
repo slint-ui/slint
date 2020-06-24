@@ -20,7 +20,8 @@ assert(instance.get_test_value2() == 3);
 
 
 ```rust
-let instance = TestCase::default();
+let instance = Box::pin(TestCase::default());
+let instance = instance.as_ref();
 instance.set_condition(true);
 assert_eq!(instance.get_test_value(), 1);
 assert_eq!(instance.get_test_value2(), 2);

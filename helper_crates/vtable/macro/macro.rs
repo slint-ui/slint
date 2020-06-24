@@ -26,6 +26,23 @@ fn match_generic_type(ty: &Type, container: &str, containee: &Ident) -> bool {
     false
 }
 
+/// Returns Some(type) if the type is `Pin<type>`
+fn is_pin<'a>(ty: &'a Type) -> Option<&'a Type> {
+    if let Type::Path(pat) = ty {
+        if let Some(seg) = pat.path.segments.last() {
+            if seg.ident != "Pin" {
+                return None;
+            }
+            if let PathArguments::AngleBracketed(args) = &seg.arguments {
+                if let Some(GenericArgument::Type(t)) = args.args.last() {
+                    return Some(t);
+                }
+            }
+        }
+    }
+    None
+}
+
 /**
 This macro need to be applied to a VTable structure
 
@@ -56,6 +73,8 @@ For fields whose type is a function:
  - If a field is called `drop` it is understood that this is the destructor for a VBox
  - If the first argument of the function is `VRef<MyVTable>`  or `VRefMut<MyVTable>` this is
    understood as a `&self` or `&mut self` argument in the trait.
+ - Similarily, if it is a `Pin<VRef<MyVTable>>` or `Pin<VRefMut<MyVTable>>`, self is mapped
+   to `Pin<Self>` or `Pin<&Self>`
 
 For the other fields
  - They are considered assotiated const of the MyTraitConsts
@@ -239,10 +258,15 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     }
                 }
 
+                let (is_pin, self_ty) = match is_pin(&param.ty) {
+                    Some(t) => (true, t),
+                    None => (false, &param.ty),
+                };
+
                 // check for self
-                if let (true, mutability) = if match_generic_type(&param.ty, "VRef", &vtable_name) {
+                if let (true, mutability) = if match_generic_type(self_ty, "VRef", &vtable_name) {
                     (true, None)
-                } else if match_generic_type(&param.ty, "VRefMut", &vtable_name) {
+                } else if match_generic_type(self_ty, "VRefMut", &vtable_name) {
                     (true, Some(Default::default()))
                 } else {
                     (false, None)
@@ -252,19 +276,36 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                             .to_compile_error()
                             .into();
                     }
-                    sig.inputs.push(FnArg::Receiver(Receiver {
-                        attrs: param.attrs.clone(),
-                        reference: Some(Default::default()),
-                        mutability,
-                        self_token: Default::default(),
-                    }));
-                    let self_ty = &param.ty;
+
                     let const_or_mut = mutability.map_or_else(|| quote!(const), |x| quote!(#x));
-                    call_code =
-                        Some(quote!(#call_code <#self_ty>::from_raw(self.vtable, self.ptr),));
-                    self_call =
-                        Some(quote!(&#mutability (*(#arg_name.as_ptr() as *#const_or_mut T)),));
                     has_self = true;
+                    if !is_pin {
+                        sig.inputs.push(FnArg::Receiver(Receiver {
+                            attrs: param.attrs.clone(),
+                            reference: Some(Default::default()),
+                            mutability,
+                            self_token: Default::default(),
+                        }));
+                        call_code =
+                            Some(quote!(#call_code <#self_ty>::from_raw(self.vtable, self.ptr),));
+                        self_call =
+                            Some(quote!(&#mutability (*(#arg_name.as_ptr() as *#const_or_mut T)),));
+                    } else {
+                        // Pinned
+                        sig.inputs.push(FnArg::Typed(PatType {
+                            attrs: param.attrs.clone(),
+                            pat: Box::new(parse2(quote!(self)).unwrap()),
+                            colon_token: Default::default(),
+                            ty: parse2(quote!(core::pin::Pin<& #mutability Self>)).unwrap(),
+                        }));
+
+                        call_code = Some(
+                            quote!(#call_code core::pin::Pin::new_unchecked(<#self_ty>::from_raw(self.vtable, self.ptr)),),
+                        );
+                        self_call = Some(
+                            quote!(core::pin::Pin::new_unchecked(&#mutability (*(#arg_name.as_ptr() as *#const_or_mut T))),),
+                        );
+                    }
                     continue;
                 }
                 sig.inputs.push(typed_arg);
