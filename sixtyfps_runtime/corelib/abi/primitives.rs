@@ -226,7 +226,7 @@ pub use crate::abi::datastructures::TouchAreaVTable;
 
 /// The implementation of the `PropertyAnimation` element
 #[repr(C)]
-#[derive(FieldOffsets, Default, BuiltinItem)]
+#[derive(FieldOffsets, Default, BuiltinItem, Clone)]
 pub struct PropertyAnimation {
     pub duration: i32,
 }
