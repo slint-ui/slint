@@ -1,6 +1,20 @@
 /*!
-
 This crate allow to get the offset of a field of a structure in a const or static context.
+
+To be used re-exported from the `const_field_offset` crate
+
+*/
+extern crate proc_macro;
+
+use proc_macro::TokenStream;
+use quote::quote;
+use syn::{parse_macro_input, spanned::Spanned, DeriveInput};
+
+/**
+
+The macro FieldOffsets adds a `const fn field_offsets()` associated function to the struct, that
+returns an object which has fields with the same name as the fields of the original struct,
+each field is of type `const_field_offset::FieldOffset`
 
 ```rust
 use const_field_offset::FieldOffsets;
@@ -18,17 +32,14 @@ assert_eq!(FOO, 4);
 // const FOO : usize = memofsets::offsetof!(Foo, field_2);
 ```
 
-The macro FieldOffsets adds a `const fn field_offsets()` associated function to the struct, that
-returns an object which has a bunch of usize fields with the same name as the fields of the
-original struct.
-
 ## limitations
 
 Only work with named #[repr(C)] structures.
 
 ## Attributes
 
-It is possible to specify the crate name using the `const_field_offset` attribute.
+In case the `const-field-offset` crate is re-exported, it is possible to
+specify the crate name using the `const_field_offset` attribute.
 
 ```rust
 // suppose you re-export the const_field_offset create from a different module
@@ -43,13 +54,6 @@ struct Foo {
 ```
 
 */
-
-extern crate proc_macro;
-
-use proc_macro::TokenStream;
-use quote::quote;
-use syn::{parse_macro_input, spanned::Spanned, DeriveInput};
-
 #[proc_macro_derive(FieldOffsets, attributes(const_field_offset))]
 pub fn const_field_offset(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
