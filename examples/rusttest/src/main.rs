@@ -24,6 +24,7 @@ component TwoRectangle := Rectangle {
 
 component ButtonRectangle := Rectangle {
     property<string> button_text;
+    property<bool> pressed: button_area.pressed;
     signal clicked;
     width: 100;
     height: 75;
@@ -39,6 +40,9 @@ component ButtonRectangle := Rectangle {
         color: black;
     }
     color: { button_area.pressed ? red : #5898; }
+    animate x {
+        duration: 200;
+    }
 }
 
 Hello := Rectangle {
@@ -86,17 +90,17 @@ Hello := Rectangle {
         source: img!"../graphicstest/logo.png";
     }
 
-    ButtonRectangle {
+    plus_button := ButtonRectangle {
         color: blue;
-        x: 50;
+        x: { plus_button.pressed ? 100 : 50; }
         y: 225;
         clicked => { counter += 1 }
         button_text: "+";
     }
     counter_label := Text { x: 100; y: 300; text: counter; color: black; }
-    ButtonRectangle {
+    minus_button := ButtonRectangle {
         color: yellow;
-        x: 50;
+        x: { minus_button.pressed ? 100 : 50; }
         y: 350;
         clicked => { minus_clicked() }
         button_text: "-";
