@@ -192,15 +192,29 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
                     ));
                 } else {
                     if binding_expression.is_constant() {
+                        let setter = property_set_value_tokens(
+                            component,
+                            &item_rc,
+                            k,
+                            quote!((#tokens_for_expression) as _),
+                        );
                         init.push(quote!(
-                            self_.#rust_property.set((#tokens_for_expression) as _);
+                            self_.#rust_property.#setter;
                         ));
                     } else {
+                        let setter = property_set_binding_tokens(
+                            component,
+                            &item_rc,
+                            k,
+                            quote!(
+                                |context| {
+                                    let _self = context.get_component::<#component_id>().unwrap();
+                                    (#tokens_for_expression) as _
+                                }
+                            ),
+                        );
                         init.push(quote!(
-                            self_.#rust_property.set_binding(|context| {
-                                let _self = context.get_component::<#component_id>().unwrap();
-                                (#tokens_for_expression) as _
-                            });
+                            self_.#rust_property.#setter;
                         ));
                     }
                 }
@@ -314,6 +328,57 @@ fn component_id(component: &Component) -> proc_macro2::Ident {
         quote::format_ident!("{}", id)
     } else {
         quote::format_ident!("{}", component.id)
+    }
+}
+
+fn property_animation_tokens(
+    component: &Rc<Component>,
+    element: &ElementRc,
+    property_name: &str,
+) -> Option<TokenStream> {
+    if let Some(animation) = element.borrow().property_animations.get(property_name) {
+        let bindings: Vec<TokenStream> = animation
+            .borrow()
+            .bindings
+            .iter()
+            .map(|(prop, initializer)| {
+                let prop_ident = quote::format_ident!("{}", prop);
+                let initializer = compile_expression(initializer, component);
+                quote!(#prop_ident: #initializer as _)
+            })
+            .collect();
+
+        Some(quote!(&sixtyfps::re_exports::PropertyAnimation{#(#bindings)*, ..Default::default()}))
+    } else {
+        None
+    }
+}
+
+fn property_set_value_tokens(
+    component: &Rc<Component>,
+    element: &ElementRc,
+    property_name: &str,
+    value_tokens: TokenStream,
+) -> TokenStream {
+    if let Some(animation_tokens) = property_animation_tokens(component, element, property_name) {
+        quote!(set_animated_value(#value_tokens, &sixtyfps::re_exports::EvaluationContext::for_root_component(
+            sixtyfps::re_exports::ComponentRef::new_pin(self_)
+        ), #animation_tokens))
+    } else {
+        quote!(set(#value_tokens))
+    }
+}
+
+fn property_set_binding_tokens(
+    component: &Rc<Component>,
+    element: &ElementRc,
+    property_name: &str,
+    binding_tokens: TokenStream,
+) -> TokenStream {
+    if let Some(animation_tokens) = property_animation_tokens(component, element, property_name) {
+        quote!(set_animated_binding(#binding_tokens, #animation_tokens))
+    } else {
+        quote!(set_binding(#binding_tokens))
     }
 }
 

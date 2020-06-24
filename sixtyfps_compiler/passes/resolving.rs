@@ -21,6 +21,38 @@ pub fn resolve_expressions(doc: &Document, diag: &mut Diagnostics, tr: &mut Type
         struct ComponentScope(Vec<ElementRc>);
         let scope = ComponentScope(vec![component.root_element.clone()]);
 
+        fn resolve_bindings(
+            mut bindings: HashMap<String, Expression>,
+            component: &Rc<Component>,
+            elem: &ElementRc,
+            scope: &ComponentScope,
+            diag: &mut Diagnostics,
+            tr: &mut TypeRegister,
+        ) -> HashMap<String, Expression> {
+            for (prop, expr) in &mut bindings {
+                if let Expression::Uncompiled(node) = expr {
+                    let mut lookup_ctx = LookupCtx {
+                        tr,
+                        property_type: elem.borrow().lookup_property(&*prop),
+                        component: component.clone(),
+                        component_scope: &scope.0,
+                        diag,
+                    };
+
+                    let new_expr = if matches!(lookup_ctx.property_type, Type::Signal) {
+                        //FIXME: proper signal suport (node is a codeblock)
+                        node.child_node(SyntaxKind::Expression)
+                            .map(|en| Expression::from_expression_node(en.into(), &mut lookup_ctx))
+                            .unwrap_or(Expression::Invalid)
+                    } else {
+                        Expression::from_binding_expression_node(node.clone(), &mut lookup_ctx)
+                    };
+                    *expr = new_expr;
+                }
+            }
+            bindings
+        }
+
         recurse_elem(&component.root_element, &scope, &mut |elem, scope| {
             let mut scope = scope.clone();
             if elem.borrow().repeated.is_some() {
@@ -47,29 +79,19 @@ pub fn resolve_expressions(doc: &Document, diag: &mut Diagnostics, tr: &mut Type
             }
             elem.borrow_mut().repeated = repeated;
 
-            let mut bindings = std::mem::take(&mut elem.borrow_mut().bindings);
-            for (prop, expr) in &mut bindings {
-                if let Expression::Uncompiled(node) = expr {
-                    let mut lookup_ctx = LookupCtx {
-                        tr,
-                        property_type: elem.borrow().lookup_property(&*prop),
-                        component: component.clone(),
-                        component_scope: &scope.0,
-                        diag,
-                    };
+            let bindings = std::mem::take(&mut elem.borrow_mut().bindings);
+            elem.borrow_mut().bindings =
+                resolve_bindings(bindings, component, elem, &scope, diag, tr);
 
-                    let new_expr = if matches!(lookup_ctx.property_type, Type::Signal) {
-                        //FIXME: proper signal suport (node is a codeblock)
-                        node.child_node(SyntaxKind::Expression)
-                            .map(|en| Expression::from_expression_node(en.into(), &mut lookup_ctx))
-                            .unwrap_or(Expression::Invalid)
-                    } else {
-                        Expression::from_binding_expression_node(node.clone(), &mut lookup_ctx)
-                    };
-                    *expr = new_expr;
-                }
+            let mut property_animations =
+                std::mem::take(&mut elem.borrow_mut().property_animations);
+            for anim_elem in &mut property_animations.values_mut() {
+                let bindings = std::mem::take(&mut anim_elem.borrow_mut().bindings);
+                anim_elem.borrow_mut().bindings =
+                    resolve_bindings(bindings, component, anim_elem, &scope, diag, tr);
             }
-            elem.borrow_mut().bindings = bindings;
+            elem.borrow_mut().property_animations = property_animations;
+
             scope
         })
     }
