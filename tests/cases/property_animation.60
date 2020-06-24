@@ -1,0 +1,5 @@
+TestCase := Rectangle {
+    animate x {
+        duration: 1000;
+    }
+}

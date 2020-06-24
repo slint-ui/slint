@@ -116,6 +116,8 @@ pub struct Element {
 
     pub property_declarations: HashMap<String, PropertyDeclaration>,
 
+    pub property_animations: HashMap<String, ElementRc>,
+
     /// Tis element is part of a `for <xxx> in <model>:
     pub repeated: Option<RepeatedElementInfo>,
 
@@ -196,33 +198,7 @@ impl Element {
             }
         }
 
-        for b in node.Binding() {
-            let name_token = match b.child_token(SyntaxKind::Identifier) {
-                Some(x) => x,
-                None => continue,
-            };
-            let name = name_token.text().to_string();
-            let prop_type = r.lookup_property(&name);
-            if !prop_type.is_property_type() {
-                diag.push_error(
-                    match prop_type {
-                        Type::Invalid => format!("Unknown property {} in {}", name, base),
-                        Type::Signal => format!("'{}' is a signal. Use `=>` to connect", name),
-                        _ => format!("Cannot assing to {} in {}", name, base),
-                    },
-                    crate::diagnostics::Span::new(name_token.text_range().start().into()),
-                );
-            }
-            if r.bindings
-                .insert(name, Expression::Uncompiled(b.BindingExpression().into()))
-                .is_some()
-            {
-                diag.push_error(
-                    "Duplicated property binding".into(),
-                    crate::diagnostics::Span::new(name_token.text_range().start().into()),
-                );
-            }
-        }
+        r.parse_bindings(&base, node.Binding(), diag);
 
         for sig_decl in node.SignalDeclaration() {
             let name_token =
@@ -259,6 +235,39 @@ impl Element {
                     "Duplicated signal".into(),
                     crate::diagnostics::Span::new(name_token.text_range().start().into()),
                 );
+            }
+        }
+
+        for anim in node.PropertyAnimation() {
+            let prop_name_token =
+                anim.DeclaredIdentifier().child_token(SyntaxKind::Identifier).unwrap();
+
+            let prop_name = prop_name_token.text().to_string();
+            let prop_type = r.lookup_property(&prop_name);
+
+            let anim_type = tr.property_animation_type_for_property(prop_type);
+            if !matches!(anim_type, Type::Builtin(..)) {
+                diag.push_error(
+                    format!("'{}' is not an animatable property", prop_name),
+                    prop_name_token.span(),
+                )
+            } else {
+                let base =
+                    QualifiedTypeName { members: vec![anim_type.as_builtin().class_name.clone()] };
+                let mut anim_element = Element {
+                    id: "".into(),
+                    base_type: anim_type,
+                    node: None,
+                    ..Default::default()
+                };
+                anim_element.parse_bindings(&base, anim.Binding(), diag);
+                let anim_element = Rc::new(RefCell::new(anim_element));
+                if r.property_animations.insert(prop_name, anim_element.clone()).is_some() {
+                    diag.push_error(
+                        "Duplicated animation".into(),
+                        crate::diagnostics::Span::new(prop_name_token.text_range().start().into()),
+                    )
+                }
             }
         }
 
@@ -318,6 +327,42 @@ impl Element {
     /// Return the Span of this element in the AST for error reporting
     pub fn span(&self) -> crate::diagnostics::Span {
         self.node.as_ref().map(|n| n.span()).unwrap_or_default()
+    }
+
+    fn parse_bindings(
+        &mut self,
+        base: &QualifiedTypeName,
+        bindings: impl Iterator<Item = syntax_nodes::Binding>,
+        diag: &mut Diagnostics,
+    ) {
+        for b in bindings {
+            let name_token = match b.child_token(SyntaxKind::Identifier) {
+                Some(x) => x,
+                None => continue,
+            };
+            let name = name_token.text().to_string();
+            let prop_type = self.lookup_property(&name);
+            if !prop_type.is_property_type() {
+                diag.push_error(
+                    match prop_type {
+                        Type::Invalid => format!("Unknown property {} in {}", name, base),
+                        Type::Signal => format!("'{}' is a signal. Use `=>` to connect", name),
+                        _ => format!("Cannot assing to {} in {}", name, base),
+                    },
+                    crate::diagnostics::Span::new(name_token.text_range().start().into()),
+                );
+            }
+            if self
+                .bindings
+                .insert(name, Expression::Uncompiled(b.BindingExpression().into()))
+                .is_some()
+            {
+                diag.push_error(
+                    "Duplicated property binding".into(),
+                    crate::diagnostics::Span::new(name_token.text_range().start().into()),
+                );
+            }
+        }
     }
 }
 

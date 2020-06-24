@@ -52,6 +52,9 @@ fn inline_element(
     elem_mut.property_declarations.extend(
         inlined_component.root_element.borrow().property_declarations.iter().map(clone_tuple),
     );
+    elem_mut.property_animations.extend(
+        inlined_component.root_element.borrow().property_animations.iter().map(clone_tuple),
+    );
 
     // Map the old element to the new
     let mut mapping = HashMap::new();
@@ -106,6 +109,7 @@ fn duplicate_element_with_mapping(
         base_type: elem.base_type.clone(),
         id: elem.id.clone(),
         property_declarations: elem.property_declarations.clone(),
+        property_animations: elem.property_animations.clone(),
         // We will do the mapping of the binding later
         bindings: elem.bindings.clone(),
         children: elem

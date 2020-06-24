@@ -1,0 +1,10 @@
+TestCase := Rectangle {
+    animate x {
+        duration: 1000;
+    }
+    animate y {
+        x: 0;
+//      ^error{Unknown property x in PropertyAnimation}
+    }
+}
+

@@ -1,0 +1,23 @@
+
+
+SuperSimple := Rectangle {
+
+    animate x {
+        duration: 1000;
+    }
+
+    animate x {
+//          ^error{Duplicated animation}
+        duration: 1000;
+    }
+
+    animate y {
+        nonexistent: 42;
+//      ^error{Unknown property nonexistent}
+    }
+
+    animate text {
+//          ^error{'text' is not an animatable property}
+    }
+}
+

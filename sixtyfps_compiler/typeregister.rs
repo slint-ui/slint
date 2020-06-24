@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::{fmt::Display, rc::Rc};
 
 #[derive(Debug, Clone)]
@@ -126,7 +126,7 @@ impl Default for Type {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct BuiltinElement {
     pub class_name: String,
     pub vtable_symbol: String,
@@ -144,6 +144,8 @@ impl BuiltinElement {
 pub struct TypeRegister {
     /// The set of types.
     types: HashMap<String, Type>,
+    supported_property_animation_types: HashSet<String>,
+    property_animation_type: Type,
 }
 
 impl TypeRegister {
@@ -200,6 +202,13 @@ impl TypeRegister {
         let row = BuiltinElement::new("Row");
         r.types.insert("Row".to_owned(), Type::Builtin(Rc::new(row)));
 
+        let mut property_animation =
+            BuiltinElement { class_name: "PropertyAnimation".into(), ..Default::default() };
+        property_animation.properties.insert("duration".to_owned(), Type::Int32);
+        r.property_animation_type = Type::Builtin(Rc::new(property_animation));
+        r.supported_property_animation_types.insert(Type::Float32.to_string());
+        r.supported_property_animation_types.insert(Type::Int32.to_string());
+
         r
     }
 
@@ -216,5 +225,13 @@ impl TypeRegister {
 
     pub fn add(&mut self, comp: Rc<crate::object_tree::Component>) {
         self.types.insert(comp.id.clone(), Type::Component(comp));
+    }
+
+    pub fn property_animation_type_for_property(&self, property_type: Type) -> Type {
+        if self.supported_property_animation_types.contains(&property_type.to_string()) {
+            self.property_animation_type.clone()
+        } else {
+            Type::Invalid
+        }
     }
 }

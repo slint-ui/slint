@@ -223,3 +223,10 @@ impl ItemConsts for TouchArea {
     > = TouchArea::field_offsets().cached_rendering_data;
 }
 pub use crate::abi::datastructures::TouchAreaVTable;
+
+/// The implementation of the `PropertyAnimation` element
+#[repr(C)]
+#[derive(FieldOffsets, Default, BuiltinItem)]
+pub struct PropertyAnimation {
+    pub duration: i32,
+}

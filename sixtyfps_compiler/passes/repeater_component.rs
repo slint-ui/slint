@@ -22,6 +22,7 @@ pub fn create_repeater_components(component: &Rc<Component>, _diag: &mut Diagnos
                 bindings: std::mem::take(&mut elem.bindings),
                 children: std::mem::take(&mut elem.children),
                 property_declarations: std::mem::take(&mut elem.property_declarations),
+                property_animations: std::mem::take(&mut elem.property_animations),
                 repeated: None,
                 node: elem.node.clone(),
                 enclosing_component: Default::default(),
