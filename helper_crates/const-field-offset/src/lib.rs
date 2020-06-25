@@ -5,22 +5,33 @@ The changes include:
  - Only the FieldOffset structure was imported, not the macros
  - re-export of the FieldOffsets derive macro
  - add const in most method
+ - Add a PinFlag flag
 
-(there is a `//###` comment in front of each change)
+(there is a `//###` comment in front of some change)
 
 */
 
-use std::fmt;
-use std::marker::PhantomData;
-use std::mem;
-use std::ops::Add;
+//### added no_std  (because we can)
+#![no_std]
+
+#[cfg(test)]
+extern crate alloc;
+
+use core::fmt;
+use core::marker::PhantomData;
+use core::mem;
+use core::ops::Add;
+use core::pin::Pin;
 
 #[doc(inline)]
 pub use const_field_offset_macro::FieldOffsets;
 
 /// Represents a pointer to a field of type `U` within the type `T`
+///
+/// The `Flag` parameter can be set to `AllowPin` to enable the projection
+/// from Pin<&T> to Pin<&U>
 #[repr(transparent)]
-pub struct FieldOffset<T, U>(
+pub struct FieldOffset<T, U, PinFlag = NotPinnedFlag>(
     /// Offset in bytes of the field within the struct
     usize,
     /// ### Changed from Fn in order to allow const.
@@ -51,16 +62,23 @@ pub struct FieldOffset<T, U>(
     ///     of.apply(foo)
     /// }
     /// ```
-    PhantomData<(PhantomContra<T>, *const U)>,
+    PhantomData<(PhantomContra<T>, *const U, PinFlag)>,
 );
+
+/// Type that can be used in the `Flag` parameter of `FieldOffset` to specify that
+/// This projection is valid on Pin types.
+/// See documentation of `FieldOffset::new_from_offset_pinned`
+pub enum PinnedFlag {}
+
+/// Type that can be used in the `Flag` parameter of `FieldOffset` to specify that
+/// This projection is valid on Pin types.
+type NotPinnedFlag = ();
 
 /// `fn` cannot appear dirrectly in a type that need to be const.
 /// Workaround that with an indiretion
 struct PhantomContra<T>(fn(T));
 
-unsafe impl<T, U> Send for FieldOffset<T, U> {}
-
-impl<T, U> FieldOffset<T, U> {
+impl<T, U> FieldOffset<T, U, NotPinnedFlag> {
     // Use MaybeUninit to get a fake T
     #[cfg(fieldoffset_maybe_uninit)]
     #[inline]
@@ -118,9 +136,10 @@ impl<T, U> FieldOffset<T, U> {
 
         FieldOffset(offset, PhantomData)
     }
+}
 
-    // Methods for applying the pointer to member
-
+// Methods for applying the pointer to member
+impl<T, U, Flag> FieldOffset<T, U, Flag> {
     /// Apply the field offset to a native pointer.
     #[inline]
     pub fn apply_ptr(self, x: *const T) -> *const U {
@@ -213,6 +232,50 @@ impl<T, U> FieldOffset<T, U> {
     pub unsafe fn unapply_mut<'a>(self, x: &'a mut U) -> &'a mut T {
         &mut *self.unapply_ptr_mut(x)
     }
+
+    /// Convert this offset to an offset that is allowed to go from `Pin<&T>`
+    /// to `Pin<&U>`
+    ///
+    /// # Safety
+    ///
+    /// The Pin safety rules for projection must be respected. These rules are
+    /// explained in the
+    /// [Pin documentation](https://doc.rust-lang.org/stable/std/pin/index.html#pinning-is-structural-for-field)
+    pub const unsafe fn as_pinned_projection(self) -> FieldOffset<T, U, PinnedFlag> {
+        FieldOffset::new_from_offset_pinned(self.get_byte_offset())
+    }
+}
+
+impl<T, U> FieldOffset<T, U, PinnedFlag> {
+    /// Construct a field offset directly from a byte offset, which can be projected from
+    /// a pinned.
+    ///
+    /// # Safety
+    ///
+    /// In addition to the safety rules of FieldOffset::new_from_offset, the projection
+    /// from `Pin<&T>` to `Pin<&U>` must also be allowed. The rules are explained in the
+    /// [Pin documentation](https://doc.rust-lang.org/stable/std/pin/index.html#pinning-is-structural-for-field)
+    #[inline]
+    pub const unsafe fn new_from_offset_pinned(offset: usize) -> Self {
+        FieldOffset(offset, PhantomData)
+    }
+
+    /// Apply the field offset to a reference.
+    #[inline]
+    pub fn apply_pin<'a>(self, x: Pin<&'a T>) -> Pin<&'a U> {
+        unsafe { x.map_unchecked(|x| self.apply(x)) }
+    }
+    /// Apply the field offset to a mutable reference.
+    #[inline]
+    pub fn apply_pin_mut<'a>(self, x: Pin<&'a mut T>) -> Pin<&'a mut U> {
+        unsafe { x.map_unchecked_mut(|x| self.apply_mut(x)) }
+    }
+}
+
+impl<T, U> From<FieldOffset<T, U, PinnedFlag>> for FieldOffset<T, U> {
+    fn from(other: FieldOffset<T, U, PinnedFlag>) -> Self {
+        unsafe { Self::new_from_offset(other.get_byte_offset()) }
+    }
 }
 
 /// Allow chaining pointer-to-members.
@@ -223,22 +286,42 @@ impl<T, U> FieldOffset<T, U> {
 /// The requirements on the generic type parameters ensure this is a safe operation.
 impl<T, U, V> Add<FieldOffset<U, V>> for FieldOffset<T, U> {
     type Output = FieldOffset<T, V>;
-
     #[inline]
     fn add(self, other: FieldOffset<U, V>) -> FieldOffset<T, V> {
         FieldOffset(self.0 + other.0, PhantomData)
     }
 }
+impl<T, U, V> Add<FieldOffset<U, V, PinnedFlag>> for FieldOffset<T, U, PinnedFlag> {
+    type Output = FieldOffset<T, V, PinnedFlag>;
+    #[inline]
+    fn add(self, other: FieldOffset<U, V, PinnedFlag>) -> FieldOffset<T, V, PinnedFlag> {
+        FieldOffset(self.0 + other.0, PhantomData)
+    }
+}
+impl<T, U, V> Add<FieldOffset<U, V>> for FieldOffset<T, U, PinnedFlag> {
+    type Output = FieldOffset<T, V>;
+    #[inline]
+    fn add(self, other: FieldOffset<U, V>) -> FieldOffset<T, V> {
+        FieldOffset(self.0 + other.0, PhantomData)
+    }
+}
+impl<T, U, V> Add<FieldOffset<U, V, PinnedFlag>> for FieldOffset<T, U> {
+    type Output = FieldOffset<T, V>;
+    #[inline]
+    fn add(self, other: FieldOffset<U, V, PinnedFlag>) -> FieldOffset<T, V> {
+        FieldOffset(self.0 + other.0, PhantomData)
+    }
+}
 
 /// The debug implementation prints the byte offset of the field in hexadecimal.
-impl<T, U> fmt::Debug for FieldOffset<T, U> {
+impl<T, U, Flag> fmt::Debug for FieldOffset<T, U, Flag> {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         write!(f, "FieldOffset({:#x})", self.0)
     }
 }
 
-impl<T, U> Copy for FieldOffset<T, U> {}
-impl<T, U> Clone for FieldOffset<T, U> {
+impl<T, U, Flag> Copy for FieldOffset<T, U, Flag> {}
+impl<T, U, Flag> Clone for FieldOffset<T, U, Flag> {
     fn clone(&self) -> Self {
         *self
     }
@@ -302,5 +385,24 @@ mod tests {
             *y = 42.0;
         }
         assert!(x.y.b == 42.0);
+    }
+
+    #[test]
+    fn test_pin() {
+        use ::alloc::boxed::Box;
+        // Get a pointer to `b` within `Foo`
+        let foo_b = Foo::field_offsets().b;
+        let foo_b_pin = unsafe { foo_b.as_pinned_projection() };
+        let foo = Box::pin(Foo { a: 21, b: 22.0, c: true });
+        let pb: Pin<&f64> = foo_b_pin.apply_pin(foo.as_ref());
+        assert!(*pb == 22.0);
+
+        let mut x = Box::pin(Bar { x: 0, y: Foo { a: 1, b: 52.0, c: false } });
+        let bar_y_b = Bar::field_offsets().y + foo_b_pin;
+        assert!(*bar_y_b.apply(&*x) == 52.0);
+
+        let bar_y_pin = unsafe { Bar::field_offsets().y.as_pinned_projection() };
+        *(bar_y_pin + foo_b_pin).apply_pin_mut(x.as_mut()) = 12.;
+        assert!(x.y.b == 12.0);
     }
 }
