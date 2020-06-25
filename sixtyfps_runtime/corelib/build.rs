@@ -12,6 +12,7 @@ fn main() {
         "ComponentVTable",
         "Slice",
         "ComponentWindowOpaque",
+        "PropertyAnimation",
     ]
     .iter()
     .map(|x| x.to_string())

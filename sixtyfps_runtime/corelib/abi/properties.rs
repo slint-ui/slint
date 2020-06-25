@@ -399,6 +399,34 @@ pub unsafe extern "C" fn sixtyfps_property_set_changed(out: *const PropertyHandl
     inner.borrow_mut().binding = None;
 }
 
+fn make_c_function_binding<T: 'static>(
+    binding: extern "C" fn(*mut c_void, &EvaluationContext, *mut T),
+    user_data: *mut c_void,
+    drop_user_data: Option<extern "C" fn(*mut c_void)>,
+) -> Rc<dyn Binding<T>> {
+    struct CFunctionBinding<T> {
+        binding_function: extern "C" fn(*mut c_void, &EvaluationContext, *mut T),
+        user_data: *mut c_void,
+        drop_user_data: Option<extern "C" fn(*mut c_void)>,
+    }
+
+    impl<T> Drop for CFunctionBinding<T> {
+        fn drop(&mut self) {
+            if let Some(x) = self.drop_user_data {
+                x(self.user_data)
+            }
+        }
+    }
+
+    impl<T> Binding<T> for CFunctionBinding<T> {
+        fn evaluate(self: Rc<Self>, value_ptr: &mut T, context: &EvaluationContext) {
+            (self.binding_function)(self.user_data, context, value_ptr);
+        }
+    }
+
+    Rc::new(CFunctionBinding { binding_function: binding, user_data, drop_user_data })
+}
+
 /// Set a binding
 /// The binding has signature fn(user_data, context, pointer_to_value)
 ///
@@ -416,28 +444,7 @@ pub unsafe extern "C" fn sixtyfps_property_set_binding(
 ) {
     let inner = &*(out as *const PropertyHandle<()>);
 
-    struct CFunctionBinding {
-        binding_function: extern "C" fn(*mut c_void, &EvaluationContext, *mut c_void),
-        user_data: *mut c_void,
-        drop_user_data: Option<extern "C" fn(*mut c_void)>,
-    }
-
-    impl Drop for CFunctionBinding {
-        fn drop(&mut self) {
-            if let Some(x) = self.drop_user_data {
-                x(self.user_data)
-            }
-        }
-    }
-
-    impl Binding<()> for CFunctionBinding {
-        fn evaluate(self: Rc<Self>, value_ptr: &mut (), context: &EvaluationContext) {
-            (self.binding_function)(self.user_data, context, value_ptr);
-        }
-    }
-
-    let binding =
-        Rc::new(CFunctionBinding { binding_function: binding, user_data, drop_user_data });
+    let binding = make_c_function_binding(binding, user_data, drop_user_data);
 
     inner.borrow_mut().binding = Some(binding);
     inner.clone().mark_dirty(DirtyReason::ValueOrDependencyHasChanged);
@@ -624,6 +631,82 @@ impl<T: InterpolatedPropertyValue> Drop for PropertyAnimationBinding<T> {
                 .with(|driver| driver.borrow_mut().free_animation(handle));
         }
     }
+}
+
+/// Internal function to set up a property animation to the specified target value for an integer property.
+#[no_mangle]
+pub unsafe extern "C" fn sixtyfps_property_set_animated_value_int(
+    out: *const PropertyHandleOpaque,
+    value: i32,
+    animation_data: &crate::abi::primitives::PropertyAnimation,
+) {
+    let inner = &*(out as *const PropertyHandle<i32>);
+    let animation = Rc::new(RefCell::new(PropertyAnimationBinding::new_with_value(
+        value,
+        animation_data,
+        inner.clone(),
+    )));
+
+    PropertyImpl::set_binding(inner.clone(), Some(animation.clone()));
+}
+
+/// Internal function to set up a property animation to the specified target value for a float property.
+#[no_mangle]
+pub unsafe extern "C" fn sixtyfps_property_set_animated_value_float(
+    out: *const PropertyHandleOpaque,
+    value: f32,
+    animation_data: &crate::abi::primitives::PropertyAnimation,
+) {
+    let inner = &*(out as *const PropertyHandle<f32>);
+    let animation = Rc::new(RefCell::new(PropertyAnimationBinding::new_with_value(
+        value,
+        animation_data,
+        inner.clone(),
+    )));
+
+    PropertyImpl::set_binding(inner.clone(), Some(animation.clone()));
+}
+
+/// Internal function to set up a property animation between values produced by the specified binding for an integer property.
+#[no_mangle]
+pub unsafe extern "C" fn sixtyfps_property_set_animated_binding_int(
+    out: *const PropertyHandleOpaque,
+    binding: extern "C" fn(*mut c_void, &EvaluationContext, *mut i32),
+    user_data: *mut c_void,
+    drop_user_data: Option<extern "C" fn(*mut c_void)>,
+    animation_data: &crate::abi::primitives::PropertyAnimation,
+) {
+    let inner = &*(out as *const PropertyHandle<i32>);
+
+    let binding = make_c_function_binding(binding, user_data, drop_user_data);
+
+    let animation = Rc::new(RefCell::new(PropertyAnimationBinding::new_with_binding(
+        binding,
+        animation_data,
+        inner.clone(),
+    )));
+    PropertyImpl::set_binding(inner.clone(), Some(animation.clone()));
+}
+
+/// Internal function to set up a property animation between values produced by the specified binding for a float property.
+#[no_mangle]
+pub unsafe extern "C" fn sixtyfps_property_set_animated_binding_float(
+    out: *const PropertyHandleOpaque,
+    binding: extern "C" fn(*mut c_void, &EvaluationContext, *mut f32),
+    user_data: *mut c_void,
+    drop_user_data: Option<extern "C" fn(*mut c_void)>,
+    animation_data: &crate::abi::primitives::PropertyAnimation,
+) {
+    let inner = &*(out as *const PropertyHandle<f32>);
+
+    let binding = make_c_function_binding(binding, user_data, drop_user_data);
+
+    let animation = Rc::new(RefCell::new(PropertyAnimationBinding::new_with_binding(
+        binding,
+        animation_data,
+        inner.clone(),
+    )));
+    PropertyImpl::set_binding(inner.clone(), Some(animation.clone()));
 }
 
 #[cfg(test)]

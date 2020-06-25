@@ -153,6 +153,68 @@ impl CppType for Type {
     }
 }
 
+fn property_animation_code(
+    component: &Rc<Component>,
+    element: &Element,
+    property_name: &str,
+) -> Option<String> {
+    if let Some(animation) = element.property_animations.get(property_name) {
+        let bindings: Vec<String> = animation
+            .borrow()
+            .bindings
+            .iter()
+            .map(|(prop, initializer)| {
+                let initializer = compile_expression(initializer, component);
+                format!("animation.{} = {};", prop, initializer)
+            })
+            .collect();
+
+        Some(format!(
+            r#"[](){{
+            sixtyfps::internal::PropertyAnimation animation{{}};
+            {}
+            return animation;
+        }}()"#,
+            bindings.join("\n")
+        ))
+    } else {
+        None
+    }
+}
+fn property_set_value_code(
+    component: &Rc<Component>,
+    element: &Element,
+    property_name: &str,
+    value_expr: String,
+) -> String {
+    if let Some(animation_code) = property_animation_code(component, element, property_name) {
+        format!(
+            "set_animated_value({value}, {animation})",
+            value = value_expr,
+            animation = animation_code
+        )
+    } else {
+        format!("set({})", value_expr)
+    }
+}
+
+fn property_set_binding_code(
+    component: &Rc<Component>,
+    element: &Element,
+    property_name: &str,
+    binding_expr: String,
+) -> String {
+    if let Some(animation_code) = property_animation_code(component, element, property_name) {
+        format!(
+            "set_animated_binding({binding}, {animation})",
+            binding = binding_expr,
+            animation = animation_code
+        )
+    } else {
+        format!("set_binding({})", binding_expr)
+    }
+}
+
 fn handle_item(item: &Element, main_struct: &mut Struct, init: &mut Vec<String>) {
     main_struct.members.push(Declaration::Var(Var {
         ty: format!("sixtyfps::{}", item.base_type.as_builtin().class_name),
@@ -187,26 +249,34 @@ fn handle_item(item: &Element, main_struct: &mut Struct, init: &mut Vec<String>)
                 format!("{id}.", id = id.clone())
             };
 
-            let init = compile_expression(i, &item.enclosing_component.upgrade().unwrap());
+            let component = &item.enclosing_component.upgrade().unwrap();
+
+            let init = compile_expression(i, component);
             if i.is_constant() {
+                let setter = property_set_value_code(&component, item, s,  init);
                 format!(
-                    "{accessor_prefix}{cpp_prop}.set({init});",
+                    "{accessor_prefix}{cpp_prop}.{setter};",
                     accessor_prefix = accessor_prefix,
                     cpp_prop = s,
-                    init = init
+                    setter = setter
                 )
             } else {
-                format!(
-                    "{accessor_prefix}{cpp_prop}.set_binding(
-                        []([[maybe_unused]] const sixtyfps::EvaluationContext *context) {{
+                let binding_code = format!(
+                    "[]([[maybe_unused]] const sixtyfps::EvaluationContext *context) {{
                             [[maybe_unused]] auto self = reinterpret_cast<const {ty}*>(context->component.instance);
                             return {init};
-                        }}
-                    );",
-                    accessor_prefix = accessor_prefix,
-                    cpp_prop = s,
+                        }}",
                     ty = main_struct.name,
                     init = init
+                );
+
+                let binding_setter = property_set_binding_code(component, item, s, binding_code);
+
+                format!(
+                    "{accessor_prefix}{cpp_prop}.{binding_setter};",
+                    accessor_prefix = accessor_prefix,
+                    cpp_prop = s,
+                    binding_setter = binding_setter,
                 )
             }
         }
