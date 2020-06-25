@@ -192,6 +192,11 @@ impl<T: Clone + 'static> Property<T> {
     /// If other properties have bindings depending of this property, these properties will
     /// be marked as dirty.
     pub fn set_binding(&self, f: impl (Fn(&EvaluationContext) -> T) + 'static) {
+        let binding_object = Property::make_binding(f);
+        self.set_binding_object(binding_object);
+    }
+
+    fn make_binding(f: impl (Fn(&EvaluationContext) -> T) + 'static) -> Rc<dyn Binding<T>> {
         struct BindingFunction<F> {
             function: F,
         }
@@ -204,8 +209,7 @@ impl<T: Clone + 'static> Property<T> {
 
         let real_binding = move |ptr: &mut T, context: &EvaluationContext| *ptr = f(context);
 
-        let binding_object = Rc::new(BindingFunction { function: real_binding });
-        self.set_binding_object(binding_object);
+        Rc::new(BindingFunction { function: real_binding })
     }
 
     /// Set a binding object to this property.
@@ -262,9 +266,9 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
         f: impl (Fn(&EvaluationContext) -> T) + 'static,
         animation_data: &crate::abi::primitives::PropertyAnimation,
     ) -> Rc<RefCell<PropertyAnimation<T>>> {
-        self.set_binding(f);
-        let animation = Rc::new(RefCell::new(PropertyAnimation::new(animation_data)));
-        animation.borrow_mut().binding = self.set_binding_object(animation.clone());
+        let animation =
+            Rc::new(RefCell::new(PropertyAnimation::new_with_binding(f, animation_data)));
+        self.set_binding_object(animation.clone());
         animation
     }
 
@@ -279,8 +283,8 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
         value: T,
         animation_data: &crate::abi::primitives::PropertyAnimation,
     ) -> Rc<RefCell<PropertyAnimation<T>>> {
-        let animation = Rc::new(RefCell::new(PropertyAnimation::new(animation_data)));
-        animation.borrow_mut().current_property_value = value;
+        let animation =
+            Rc::new(RefCell::new(PropertyAnimation::new_with_value(value, animation_data)));
         self.set_binding_object(animation.clone());
         animation
     }
@@ -556,10 +560,25 @@ impl<T: InterpolatedPropertyValue> crate::animations::Animated for RefCell<Prope
 }
 
 impl<T: InterpolatedPropertyValue> PropertyAnimation<T> {
-    /// Sets the duration of the animation.
-    pub fn new(animation_data: &crate::abi::primitives::PropertyAnimation) -> Self {
+    /// Creates a new property animation that is set up to animate to the specified target value.
+    pub fn new_with_value(
+        target_value: T,
+        animation_data: &crate::abi::primitives::PropertyAnimation,
+    ) -> Self {
         let mut this: PropertyAnimation<T> = Default::default();
         this.details = animation_data.clone();
+        this.current_property_value = target_value;
+        this
+    }
+    /// Creates a new property animation that is set up to animate between the values produced
+    /// by the give binding function.
+    pub fn new_with_binding(
+        binding_function: impl (Fn(&EvaluationContext) -> T) + 'static,
+        animation_data: &crate::abi::primitives::PropertyAnimation,
+    ) -> Self {
+        let mut this: PropertyAnimation<T> = Default::default();
+        this.details = animation_data.clone();
+        this.binding = Some(Property::make_binding(binding_function));
         this
     }
 }
