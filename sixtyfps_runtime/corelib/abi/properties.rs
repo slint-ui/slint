@@ -20,8 +20,6 @@ trait Binding<T> {
     /// and therefore this binding may evaluate to a different value, too.
     fn mark_dirty(self: Rc<Self>, _reason: DirtyReason) {}
 
-    fn set_notify_callback(self: Rc<Self>, _callback: Rc<dyn PropertyNotify>) {}
-
     /// This function allows the property to query the binding if it is still needed. This is
     /// primarily used for value animation bindings to indicate that they are no longer needed.
     fn keep_alive(self: Rc<Self>) -> bool {
@@ -40,7 +38,7 @@ struct PropertyImpl<T> {
 
 /// DirtyReason is used to convey to a dependency the reason for the request to
 /// mark itself as dirty.
-enum DirtyReason {
+pub enum DirtyReason {
     /// The dependency shall be considered dirty because a property's value or
     /// subsequent dependency has changed.
     ValueOrDependencyHasChanged,
@@ -52,7 +50,7 @@ enum DirtyReason {
 
 /// PropertyNotify is the interface that allows keeping track of dependencies between
 /// property bindings.
-trait PropertyNotify {
+pub trait PropertyNotify {
     /// mark_dirty() is called to notify a property that its binding may need to be re-evaluated
     /// because one of its dependencies may have changed.
     fn mark_dirty(self: Rc<Self>, reason: DirtyReason);
@@ -85,6 +83,13 @@ impl<T> PropertyNotify for RefCell<PropertyImpl<T>> {
                 self.borrow_mut().dependencies.push(Rc::downgrade(m));
             }
         });
+    }
+}
+
+impl<T> PropertyImpl<T> {
+    fn set_binding(imp: Rc<RefCell<Self>>, binding: Option<Rc<dyn Binding<T>>>) {
+        imp.borrow_mut().binding = binding;
+        imp.clone().mark_dirty(DirtyReason::ValueOrDependencyHasChanged);
     }
 }
 
@@ -200,7 +205,7 @@ impl<T: Clone + 'static> Property<T> {
     /// be marked as dirty.
     pub fn set_binding(&self, f: impl (Fn(&EvaluationContext) -> T) + 'static) {
         let binding_object = Property::make_binding(f);
-        self.set_binding_object(binding_object);
+        PropertyImpl::set_binding(self.inner.clone(), Some(binding_object));
     }
 
     fn make_binding(f: impl (Fn(&EvaluationContext) -> T) + 'static) -> Rc<dyn Binding<T>> {
@@ -217,21 +222,6 @@ impl<T: Clone + 'static> Property<T> {
         let real_binding = move |ptr: &mut T, context: &EvaluationContext| *ptr = f(context);
 
         Rc::new(BindingFunction { function: real_binding })
-    }
-
-    /// Set a binding object to this property.
-    ///
-    /// Bindings are evaluated lazily from calling get, and the return value of the binding
-    /// is the new value.
-    ///
-    /// If other properties have bindings depending of this property, these properties will
-    /// be marked as dirty.
-    fn set_binding_object(&self, binding_object: Rc<dyn Binding<T>>) -> Option<Rc<dyn Binding<T>>> {
-        binding_object.clone().set_notify_callback(self.inner.clone());
-        let old_binding =
-            std::mem::replace(&mut self.inner.borrow_mut().binding, Some(binding_object));
-        self.inner.clone().mark_dirty(DirtyReason::ValueOrDependencyHasChanged);
-        old_binding
     }
 
     /// Call the binding if the property is dirty to update the stored value
@@ -278,9 +268,12 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
         f: impl (Fn(&EvaluationContext) -> T) + 'static,
         animation_data: &PropertyAnimation,
     ) -> Rc<RefCell<PropertyAnimationBinding<T>>> {
-        let animation =
-            Rc::new(RefCell::new(PropertyAnimationBinding::new_with_binding(f, animation_data)));
-        self.set_binding_object(animation.clone());
+        let animation = Rc::new(RefCell::new(PropertyAnimationBinding::new_with_binding(
+            f,
+            animation_data,
+            self.inner.clone(),
+        )));
+        PropertyImpl::set_binding(self.inner.clone(), Some(animation.clone()));
         animation
     }
 
@@ -295,9 +288,12 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
         value: T,
         animation_data: &PropertyAnimation,
     ) -> Rc<RefCell<PropertyAnimationBinding<T>>> {
-        let animation =
-            Rc::new(RefCell::new(PropertyAnimationBinding::new_with_value(value, animation_data)));
-        self.set_binding_object(animation.clone());
+        let animation = Rc::new(RefCell::new(PropertyAnimationBinding::new_with_value(
+            value,
+            animation_data,
+            self.inner.clone(),
+        )));
+        PropertyImpl::set_binding(self.inner.clone(), Some(animation.clone()));
         animation
     }
 }
@@ -535,10 +531,6 @@ impl<T: InterpolatedPropertyValue> crate::abi::properties::Binding<T>
         }
     }
 
-    fn set_notify_callback(self: Rc<Self>, notifier: Rc<dyn PropertyNotify>) {
-        self.borrow_mut().notify = Some(Rc::downgrade(&notifier));
-    }
-
     fn keep_alive(self: Rc<Self>) -> bool {
         return self.borrow().keep_alive;
     }
@@ -597,11 +589,13 @@ impl<T: InterpolatedPropertyValue> PropertyAnimationBinding<T> {
     pub fn new_with_value(
         target_value: T,
         animation_data: &crate::abi::primitives::PropertyAnimation,
+        notifier: Rc<dyn PropertyNotify>,
     ) -> Self {
         let mut this: PropertyAnimationBinding<T> = Default::default();
         this.keep_alive = true;
         this.details = animation_data.clone();
         this.current_property_value = target_value;
+        this.notify = Some(Rc::downgrade(&notifier));
         this
     }
     /// Creates a new property animation that is set up to animate between the values produced
@@ -609,11 +603,13 @@ impl<T: InterpolatedPropertyValue> PropertyAnimationBinding<T> {
     pub fn new_with_binding(
         binding_function: impl (Fn(&EvaluationContext) -> T) + 'static,
         animation_data: &crate::abi::primitives::PropertyAnimation,
+        notifier: Rc<dyn PropertyNotify>,
     ) -> Self {
         let mut this: PropertyAnimationBinding<T> = Default::default();
         this.keep_alive = true;
         this.details = animation_data.clone();
         this.binding = Some(Property::make_binding(binding_function));
+        this.notify = Some(Rc::downgrade(&notifier));
         this
     }
 }
