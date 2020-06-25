@@ -149,6 +149,7 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
         (
             Some(quote! {
                 /// Make sure that Drop is not implemented
+                #[allow(non_camel_case_types)]
                 trait #drop_trait_ident {}
                 impl<T: ::core::ops::Drop> #drop_trait_ident for T {}
                 impl #drop_trait_ident for #struct_name {}

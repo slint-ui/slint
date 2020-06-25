@@ -235,7 +235,9 @@ fn generate_component(
     {
         // Fixme: using u8 in PropertyInfo<> is not sound, we would need to materialize a type for out component
         (
-            Box::new(unsafe { vtable::FieldOffset::<u8, Property<T>>::new_from_offset(0) }),
+            Box::new(unsafe {
+                vtable::FieldOffset::<u8, Property<T>, _>::new_from_offset_pinned(0)
+            }),
             dynamic_type::StaticTypeInfo::new::<Property<T>>(),
         )
     }

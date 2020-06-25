@@ -3,7 +3,7 @@
  property so that the viewer can handle them
 */
 
-pub use const_field_offset::FieldOffset;
+pub type FieldOffset<T, U> = const_field_offset::FieldOffset<T, U, const_field_offset::PinnedFlag>;
 use std::convert::{TryFrom, TryInto};
 
 macro_rules! declare_ValueType {

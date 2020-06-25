@@ -30,7 +30,9 @@ struct VRef {
 };
 */
 
-template<typename Base, typename T>
+struct PinnedFlag;
+
+template<typename Base, typename T, typename Flag = void>
 struct VOffset
 {
     const T *vtable;

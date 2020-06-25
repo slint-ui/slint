@@ -72,7 +72,7 @@ pub enum PinnedFlag {}
 
 /// Type that can be used in the `Flag` parameter of `FieldOffset` to specify that
 /// This projection is valid on Pin types.
-type NotPinnedFlag = ();
+pub type NotPinnedFlag = ();
 
 /// `fn` cannot appear dirrectly in a type that need to be const.
 /// Workaround that with an indiretion
@@ -243,6 +243,11 @@ impl<T, U, Flag> FieldOffset<T, U, Flag> {
     /// [Pin documentation](https://doc.rust-lang.org/stable/std/pin/index.html#pinning-is-structural-for-field)
     pub const unsafe fn as_pinned_projection(self) -> FieldOffset<T, U, PinnedFlag> {
         FieldOffset::new_from_offset_pinned(self.get_byte_offset())
+    }
+
+    /// Remove the PinnedFlag
+    pub const fn as_unpinned_projection(self) -> FieldOffset<T, U> {
+        unsafe { FieldOffset::new_from_offset(self.get_byte_offset()) }
     }
 }
 

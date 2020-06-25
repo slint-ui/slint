@@ -54,7 +54,7 @@ that `cbindgen` can see the actual vtable.
 
 */
 
-pub use const_field_offset::FieldOffset;
+pub use const_field_offset::*;
 use core::marker::PhantomData;
 use core::ops::{Deref, DerefMut, Drop};
 use core::{pin::Pin, ptr::NonNull};
@@ -429,15 +429,15 @@ macro_rules! new_vref {
 
 /// Represent an offset to a field of type mathcing the vtable, within the Base container structure.
 #[repr(C)]
-pub struct VOffset<Base, T: ?Sized + VTableMeta> {
+pub struct VOffset<Base, T: ?Sized + VTableMeta, PinFlag = NotPinnedFlag> {
     vtable: &'static T::VTable,
     /// Safety invariant: the vtable is valid, and the field at the given offset within Base is
     /// matching with the vtable
     offset: usize,
-    phantom: PhantomData<*const Base>,
+    phantom: PhantomData<FieldOffset<Base, (), PinFlag>>,
 }
 
-impl<Base, T: ?Sized + VTableMeta> VOffset<Base, T> {
+impl<Base, T: ?Sized + VTableMeta, Flag> VOffset<Base, T, Flag> {
     #[inline]
     pub fn apply<'a>(self, x: &'a Base) -> VRef<'a, T> {
         let ptr = x as *const Base as *const u8;
@@ -460,7 +460,7 @@ impl<Base, T: ?Sized + VTableMeta> VOffset<Base, T> {
         }
     }
 
-    pub fn new<X: HasStaticVTable<T>>(o: FieldOffset<Base, X>) -> Self {
+    pub fn new<X: HasStaticVTable<T>>(o: FieldOffset<Base, X, Flag>) -> Self {
         Self { vtable: X::static_vtable(), offset: o.get_byte_offset(), phantom: PhantomData }
     }
 
@@ -473,9 +473,9 @@ impl<Base, T: ?Sized + VTableMeta> VOffset<Base, T> {
 }
 
 // Need to implement manually otheriwse it is not implemented if T do not implement Copy / Clone
-impl<Base, T: ?Sized + VTableMeta> Copy for VOffset<Base, T> {}
+impl<Base, T: ?Sized + VTableMeta, Flag> Copy for VOffset<Base, T, Flag> {}
 
-impl<Base, T: ?Sized + VTableMeta> Clone for VOffset<Base, T> {
+impl<Base, T: ?Sized + VTableMeta, Flag> Clone for VOffset<Base, T, Flag> {
     fn clone(&self) -> Self {
         Self { vtable: self.vtable, offset: self.offset, phantom: PhantomData }
     }

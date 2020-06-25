@@ -269,6 +269,7 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
         #[derive(sixtyfps::re_exports::FieldOffsets)]
         #[const_field_offset(sixtyfps::re_exports::const_field_offset)]
         #[repr(C)]
+        #[pin]
         struct #component_id {
             #(#item_names : sixtyfps::re_exports::#item_types,)*
             #(#declared_property_vars : sixtyfps::re_exports::Property<#declared_property_types>,)*

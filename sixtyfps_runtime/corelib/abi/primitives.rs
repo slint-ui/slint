@@ -26,6 +26,7 @@ use corelib_macro::*;
 
 #[repr(C)]
 #[derive(FieldOffsets, Default, BuiltinItem)]
+#[pin]
 /// The implementation of the `Rectangle` element
 pub struct Rectangle {
     /// FIXME: make it a color
@@ -73,13 +74,14 @@ impl ItemConsts for Rectangle {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         Rectangle,
         CachedRenderingData,
-    > = Rectangle::field_offsets().cached_rendering_data;
+    > = Rectangle::field_offsets().cached_rendering_data.as_unpinned_projection();
 }
 
 pub use crate::abi::datastructures::RectangleVTable;
 
 #[repr(C)]
 #[derive(FieldOffsets, Default, BuiltinItem)]
+#[pin]
 /// The implementation of the `Image` element
 pub struct Image {
     pub source: Property<Resource>,
@@ -119,7 +121,7 @@ impl ItemConsts for Image {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         Image,
         CachedRenderingData,
-    > = Image::field_offsets().cached_rendering_data;
+    > = Image::field_offsets().cached_rendering_data.as_unpinned_projection();
 }
 
 pub use crate::abi::datastructures::ImageVTable;
@@ -127,6 +129,7 @@ pub use crate::abi::datastructures::ImageVTable;
 /// The implementation of the `Text` element
 #[repr(C)]
 #[derive(FieldOffsets, Default, BuiltinItem)]
+#[pin]
 pub struct Text {
     pub text: Property<SharedString>,
     pub font_family: Property<SharedString>,
@@ -162,7 +165,7 @@ impl Item for Text {
 
 impl ItemConsts for Text {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Text, CachedRenderingData> =
-        Text::field_offsets().cached_rendering_data;
+        Text::field_offsets().cached_rendering_data.as_unpinned_projection();
 }
 
 pub use crate::abi::datastructures::TextVTable;
@@ -170,6 +173,7 @@ pub use crate::abi::datastructures::TextVTable;
 /// The implementation of the `TouchArea` element
 #[repr(C)]
 #[derive(FieldOffsets, Default, BuiltinItem)]
+#[pin]
 pub struct TouchArea {
     pub x: Property<f32>,
     pub y: Property<f32>,
@@ -220,13 +224,14 @@ impl ItemConsts for TouchArea {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         TouchArea,
         CachedRenderingData,
-    > = TouchArea::field_offsets().cached_rendering_data;
+    > = TouchArea::field_offsets().cached_rendering_data.as_unpinned_projection();
 }
 pub use crate::abi::datastructures::TouchAreaVTable;
 
 /// The implementation of the `PropertyAnimation` element
 #[repr(C)]
 #[derive(FieldOffsets, Default, BuiltinItem, Clone)]
+#[pin]
 pub struct PropertyAnimation {
     pub duration: i32,
 }
