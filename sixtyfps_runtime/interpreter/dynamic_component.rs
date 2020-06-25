@@ -3,12 +3,13 @@ use crate::{dynamic_type, eval};
 use core::convert::TryInto;
 use core::ptr::NonNull;
 use dynamic_type::{Instance, InstanceBox};
-use object_tree::ElementRc;
+use object_tree::{Element, ElementRc};
 use sixtyfps_compilerlib::typeregister::Type;
 use sixtyfps_compilerlib::*;
 use sixtyfps_corelib::abi::datastructures::{
     ComponentVTable, ItemTreeNode, ItemVTable, ItemVisitorRefMut, Resource,
 };
+use sixtyfps_corelib::abi::primitives::PropertyAnimation;
 use sixtyfps_corelib::abi::slice::Slice;
 use sixtyfps_corelib::rtti::PropertyInfo;
 use sixtyfps_corelib::ComponentRefPin;
@@ -295,6 +296,32 @@ fn generate_component(
     Rc::new(t)
 }
 
+fn animation_for_property(
+    component_type: Rc<ComponentDescription>,
+    eval_context: &EvaluationContext,
+    element: &Element,
+    property_name: &String,
+) -> Option<PropertyAnimation> {
+    match element.property_animations.get(property_name) {
+        Some(anim_elem) => {
+            let mut animation = PropertyAnimation::default();
+            for (name, expr) in &anim_elem.borrow().bindings {
+                match name.as_str() {
+                    "duration" => {
+                        animation.duration =
+                            eval::eval_expression(&expr, &*component_type, &eval_context)
+                                .try_into()
+                                .unwrap()
+                    }
+                    _ => (),
+                }
+            }
+            Some(animation)
+        }
+        None => None,
+    }
+}
+
 pub fn instantiate(
     component_type: Rc<ComponentDescription>,
     parent_ctx: Option<&EvaluationContext>,
@@ -336,19 +363,69 @@ pub fn instantiate(
                         item_within_component.rtti.properties.get(prop.as_str())
                     {
                         if expr.is_constant() {
-                            prop_rtti.set(
-                                item,
-                                eval::eval_expression(expr, &*component_type, &eval_context),
-                            );
+                            match &animation_for_property(
+                                component_type.clone(),
+                                &eval_context,
+                                &elem,
+                                prop,
+                            ) {
+                                Some(animation) => {
+                                    prop_rtti.set_animated_value(
+                                        item,
+                                        eval::eval_expression(
+                                            expr,
+                                            &*component_type,
+                                            &eval_context,
+                                        ),
+                                        animation,
+                                    );
+                                }
+                                None => {
+                                    prop_rtti.set(
+                                        item,
+                                        eval::eval_expression(
+                                            expr,
+                                            &*component_type,
+                                            &eval_context,
+                                        ),
+                                    );
+                                }
+                            };
                         } else {
                             let expr = expr.clone();
                             let component_type = component_type.clone();
-                            prop_rtti.set_binding(
-                                item,
-                                Box::new(move |eval_context| {
-                                    eval::eval_expression(&expr, &*component_type, eval_context)
-                                }),
-                            );
+                            match &animation_for_property(
+                                component_type.clone(),
+                                &eval_context,
+                                &elem,
+                                prop,
+                            ) {
+                                Some(animation) => {
+                                    prop_rtti.set_animated_binding(
+                                        item,
+                                        Box::new(move |eval_context| {
+                                            eval::eval_expression(
+                                                &expr,
+                                                &*component_type,
+                                                eval_context,
+                                            )
+                                        }),
+                                        animation,
+                                    );
+                                }
+                                None => {
+                                    prop_rtti.set_binding(
+                                        item,
+                                        Box::new(move |eval_context| {
+                                            eval::eval_expression(
+                                                &expr,
+                                                &*component_type,
+                                                eval_context,
+                                            )
+                                        }),
+                                    );
+                                }
+                            }
                         }
                     } else if let Some(PropertiesWithinComponent { offset, prop, .. }) =
                         component_type.custom_properties.get(prop.as_str())

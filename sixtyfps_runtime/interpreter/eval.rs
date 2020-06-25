@@ -1,7 +1,10 @@
 use sixtyfps_compilerlib::expression_tree::{Expression, NamedReference};
 use sixtyfps_compilerlib::{object_tree::ElementRc, typeregister::Type};
 use sixtyfps_corelib as corelib;
-use sixtyfps_corelib::{abi::datastructures::ItemRef, EvaluationContext, Resource, SharedString};
+use sixtyfps_corelib::{
+    abi::datastructures::ItemRef, abi::primitives::PropertyAnimation, EvaluationContext, Resource,
+    SharedString,
+};
 use std::{
     collections::HashMap,
     convert::{TryFrom, TryInto},
@@ -13,10 +16,17 @@ pub trait ErasedPropertyInfo {
     fn set(&self, item: ItemRef, value: Value);
     fn set_binding(&self, item: ItemRef, binding: Box<dyn Fn(&EvaluationContext) -> Value>);
     fn offset(&self) -> usize;
+    fn set_animated_value(&self, item: ItemRef, value: Value, animation: &PropertyAnimation);
+    fn set_animated_binding(
+        &self,
+        item: ItemRef,
+        binding: Box<dyn Fn(&EvaluationContext) -> Value>,
+        animation: &PropertyAnimation,
+    );
 }
 
 impl<Item: vtable::HasStaticVTable<corelib::abi::datastructures::ItemVTable>> ErasedPropertyInfo
-    for &'static dyn corelib::rtti::PropertyInfo<Item, Value>
+    for corelib::rtti::PropertyInfoOption<'static, Item, Value>
 {
     fn get(&self, item: ItemRef, context: &EvaluationContext) -> Value {
         (*self).get(item.downcast().unwrap(), context).unwrap()
@@ -29,6 +39,17 @@ impl<Item: vtable::HasStaticVTable<corelib::abi::datastructures::ItemVTable>> Er
     }
     fn offset(&self) -> usize {
         (*self).offset()
+    }
+    fn set_animated_value(&self, item: ItemRef, value: Value, animation: &PropertyAnimation) {
+        (*self).set_animated_value(item.downcast().unwrap(), value, animation).unwrap()
+    }
+    fn set_animated_binding(
+        &self,
+        item: ItemRef,
+        binding: Box<dyn Fn(&EvaluationContext) -> Value>,
+        animation: &PropertyAnimation,
+    ) {
+        (*self).set_animated_binding(item.downcast().unwrap(), binding, animation);
     }
 }
 
