@@ -414,72 +414,67 @@ mod tests {
     }
 }
 
-pub trait ConstFieldOffset<T, U>: Copy {
+pub trait ConstFieldOffset: Copy {
+    /// The type of the container
+    type Container;
+    /// The type of the field
+    type Field;
+
     /// Can be PinnedFlag or NotPinnedFlag
     type PinFlag;
 
-    const OFFSET: FieldOffset<T, U, Self::PinFlag>;
+    const OFFSET: FieldOffset<Self::Container, Self::Field, Self::PinFlag>;
 
-    fn as_field_offset(self) -> FieldOffset<T, U, Self::PinFlag> {
+    fn as_field_offset(self) -> FieldOffset<Self::Container, Self::Field, Self::PinFlag> {
         Self::OFFSET
     }
     fn get_byte_offset(self) -> usize {
         Self::OFFSET.get_byte_offset()
     }
-    fn apply(self, x: &T) -> &U {
+    fn apply(self, x: &Self::Container) -> &Self::Field {
         Self::OFFSET.apply(x)
     }
-    fn apply_mut(self, x: &mut T) -> &mut U {
+    fn apply_mut(self, x: &mut Self::Container) -> &mut Self::Field {
         Self::OFFSET.apply_mut(x)
     }
 
-    fn apply_pin<'a>(self, x: Pin<&'a T>) -> Pin<&'a U>
+    fn apply_pin<'a>(self, x: Pin<&'a Self::Container>) -> Pin<&'a Self::Field>
     where
-        Self: ConstFieldOffset<T, U, PinFlag = PinnedFlag>,
+        Self: ConstFieldOffset<PinFlag = PinnedFlag>,
     {
         Self::OFFSET.apply_pin(x)
     }
-    fn apply_pin_mut<'a>(self, x: Pin<&'a mut T>) -> Pin<&'a mut U>
+    fn apply_pin_mut<'a>(self, x: Pin<&'a mut Self::Container>) -> Pin<&'a mut Self::Field>
     where
-        Self: ConstFieldOffset<T, U, PinFlag = PinnedFlag>,
+        Self: ConstFieldOffset<PinFlag = PinnedFlag>,
     {
         Self::OFFSET.apply_pin_mut(x)
     }
 }
 
-pub struct ConstFieldOffsetSum<T, U, V, A: ConstFieldOffset<T, U>, B: ConstFieldOffset<U, V>>(
-    A,
-    B,
-    PhantomData<(FieldOffset<T, U>, FieldOffset<U, V>)>,
-);
+#[derive(Copy, Clone)]
+pub struct ConstFieldOffsetSum<A: ConstFieldOffset, B: ConstFieldOffset>(pub A, pub B);
 
-impl<T, U, V, A: ConstFieldOffset<T, U>, B: ConstFieldOffset<U, V>>
-    ConstFieldOffsetSum<T, U, V, A, B>
-{
-    pub fn new(a: A, b: B) -> Self {
-        Self(a, b, PhantomData)
-    }
-}
-
-impl<T, U, V, A: ConstFieldOffset<T, U>, B: ConstFieldOffset<U, V>> Copy
-    for ConstFieldOffsetSum<T, U, V, A, B>
-{
-}
-
-impl<T, U, V, A: ConstFieldOffset<T, U>, B: ConstFieldOffset<U, V>> Clone
-    for ConstFieldOffsetSum<T, U, V, A, B>
-{
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-
-impl<T, U, V, A: ConstFieldOffset<T, U>, B: ConstFieldOffset<U, V>> ConstFieldOffset<T, V>
-    for ConstFieldOffsetSum<T, U, V, A, B>
+impl<A: ConstFieldOffset, B: ConstFieldOffset> ConstFieldOffset for ConstFieldOffsetSum<A, B>
 where
+    A: ConstFieldOffset<Field = B::Container>,
     (A::PinFlag, B::PinFlag): internal::CombineFlag,
 {
+    type Container = A::Container;
+    type Field = B::Field;
     type PinFlag = <(A::PinFlag, B::PinFlag) as internal::CombineFlag>::Output;
-    const OFFSET: FieldOffset<T, V, Self::PinFlag> =
+    const OFFSET: FieldOffset<Self::Container, Self::Field, Self::PinFlag> =
         FieldOffset(A::OFFSET.get_byte_offset() + B::OFFSET.get_byte_offset(), PhantomData);
+}
+
+impl<A: ConstFieldOffset, B: ConstFieldOffset, Other> ::core::ops::Add<Other>
+    for ConstFieldOffsetSum<A, B>
+where
+    Self: ConstFieldOffset,
+    Other: ConstFieldOffset<Container = <Self as ConstFieldOffset>::Field>,
+{
+    type Output = ConstFieldOffsetSum<Self, Other>;
+    fn add(self, other: Other) -> Self::Output {
+        ConstFieldOffsetSum(self, other)
+    }
 }

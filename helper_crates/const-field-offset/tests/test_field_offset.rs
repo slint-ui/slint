@@ -18,6 +18,12 @@ struct MyStruct2 {
     v: u32,
 }
 
+#[derive(FieldOffsets)]
+#[repr(C)]
+struct MyStruct3 {
+    ms2: MyStruct2,
+}
+
 const XX_CONST: usize = MyStruct2::field_offsets().xx.get_byte_offset();
 static D_STATIC: usize = MyStruct::field_offsets().d.get_byte_offset();
 
@@ -41,6 +47,16 @@ fn test() {
     assert_eq!(offset_of!(MyStruct2, xx), MyStruct2_field_offsets::xx.get_byte_offset());
     assert_eq!(offset_of!(MyStruct2, v), MyStruct2_field_offsets::v.get_byte_offset());
     assert_eq!(offset_of!(MyStruct2, k), MyStruct2_field_offsets::k.get_byte_offset());
+
+    assert_eq!(core::mem::size_of::<MyStruct_field_offsets::c>(), 0);
+
+    let d_in_ms2 = MyStruct2_field_offsets::xx + MyStruct_field_offsets::d;
+    assert_eq!(offset_of!(MyStruct2, xx) + offset_of!(MyStruct, d), d_in_ms2.get_byte_offset());
+    assert_eq!(core::mem::size_of_val(&d_in_ms2), 0);
+
+    let a = MyStruct3_field_offsets::ms2 + d_in_ms2;
+    let b = MyStruct3_field_offsets::ms2 + MyStruct2_field_offsets::xx + MyStruct_field_offsets::d;
+    assert_eq!(a.get_byte_offset(), b.get_byte_offset());
 }
 
 #[derive(FieldOffsets)]

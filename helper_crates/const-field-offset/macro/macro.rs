@@ -32,6 +32,22 @@ assert_eq!(FOO, 4);
 // const FOO : usize = memofsets::offsetof!(Foo, field_2);
 ```
 
+In addition, the macro laso create a module `{ClassName}_field_offsets` which contains
+zero-sized type that implement the `const_field_offset::ConstFieldOffset` trait
+
+```rust
+use const_field_offset::{FieldOffsets, FieldOffset, ConstFieldOffset};
+#[repr(C)]
+#[derive(FieldOffsets)]
+struct Foo {
+    field_1 : u8,
+    field_2 : u32,
+}
+
+const FOO : FieldOffset<Foo, u32> = Foo_field_offsets::field_2::OFFSET;
+assert_eq!(FOO.get_byte_offset(), 4);
+```
+
 ## limitations
 
 Only work with named #[repr(C)] structures.
@@ -152,21 +168,6 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
         Visibility::Inherited => quote!(pub(super)),
     });
 
-    /*let mut offset = quote!(0);
-    let mut offsets = vec![];
-    for ty in &types {
-        let len_rounded_up = quote! {
-            let len = #offset;
-            let align = ::core::mem::align_of::<#ty>();
-            let len_rounded_up  = len.wrapping_add(align).wrapping_sub(1) & !align.wrapping_sub(1);
-        };
-        offsets.push(quote! { { #len_rounded_up  len_rounded_up } });
-        offset = quote!({
-            #len_rounded_up
-            len_rounded_up + ::core::mem::size_of::<#ty>();
-        });
-    }*/
-
     let doc = format!(
         "Helper struct containing the offsets of the fields of the struct `{}`",
         struct_name
@@ -232,7 +233,9 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
             )*
         }
         #(
-            impl #crate_::ConstFieldOffset<#struct_name, #types> for #module_name::#fields {
+            impl #crate_::ConstFieldOffset for #module_name::#fields {
+                type Container = #struct_name;
+                type Field = #types;
                 type PinFlag = #pin_flag;
                 const OFFSET : #crate_::FieldOffset<#struct_name, #types, Self::PinFlag>
                     = #struct_name::field_offsets().#fields;
@@ -242,13 +245,14 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
                     #struct_name::field_offsets().#fields
                 }
             }
-            /*impl<Other : #crate_::ConstFieldOffset<#types, >> ::core::ops::Add<Other> for #module_name::#fields {
+            impl<Other> ::core::ops::Add<Other> for #module_name::#fields
+                where Other : #crate_::ConstFieldOffset<Container = #types>
+            {
                 type Output = #crate_::ConstFieldOffsetSum<Self, Other>;
-                #[inline]
                 fn add(self, other: Other) -> Self::Output {
-                    #crate_::ConstFieldOffsetSum::new(self, other)
+                    #crate_::ConstFieldOffsetSum(self, other)
                 }
-            }*/
+            }
         )*
     };
 
