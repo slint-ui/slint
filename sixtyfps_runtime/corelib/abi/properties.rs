@@ -14,19 +14,6 @@ thread_local!(static CURRENT_BINDING : RefCell<Option<Rc<dyn PropertyNotify>>> =
 
 trait Binding<T> {
     fn evaluate(self: Rc<Self>, value: &mut T, context: &EvaluationContext);
-    /// When a new value is set on a property that has a binding, this function returns false
-    /// if the binding wants to remain active. By default bindings are replaced when
-    /// a new value is set on a property.
-    fn allow_replace_binding_with_value(self: Rc<Self>, _value: &T) -> bool {
-        return true;
-    }
-
-    /// When a new binding is set on a property that has a binding, this function returns false
-    /// if the binding wants to remain active. By default bindings are replaced when a
-    /// new binding is set a on property.
-    fn allow_replace_binding_with_binding(self: Rc<Self>, _binding: Rc<dyn Binding<T>>) -> bool {
-        return true;
-    }
 
     /// This function is used to notify the binding that one of the dependencies was changed
     /// and therefore this binding may evaluate to a different value, too.
@@ -188,12 +175,6 @@ impl<T: Clone + 'static> Property<T> {
     /// be marked as dirty.
     pub fn set(&self, t: T) {
         {
-            let maybe_binding = self.inner.borrow().binding.as_ref().map(|binding| binding.clone());
-            if let Some(existing_binding) = maybe_binding {
-                if !existing_binding.allow_replace_binding_with_value(&t) {
-                    return;
-                }
-            }
             let (mut lock, mut value) = self.try_borrow_mut().expect("Binding loop detected");
             lock.binding = None;
             lock.dirty = false;
@@ -224,14 +205,6 @@ impl<T: Clone + 'static> Property<T> {
         let real_binding = move |ptr: &mut T, context: &EvaluationContext| *ptr = f(context);
 
         let binding_object = Rc::new(BindingFunction { function: real_binding });
-
-        let maybe_binding = self.inner.borrow().binding.as_ref().map(|binding| binding.clone());
-        if let Some(existing_binding) = maybe_binding {
-            if !existing_binding.allow_replace_binding_with_binding(binding_object.clone()) {
-                return;
-            }
-        }
-
         self.set_binding_object(binding_object);
     }
 
@@ -537,33 +510,6 @@ impl<T: InterpolatedPropertyValue> crate::abi::properties::Binding<T>
         }
 
         *value = this.current_animated_value.unwrap_or_default();
-    }
-    fn allow_replace_binding_with_value(self: Rc<Self>, value: &T) -> bool {
-        let mut this = self.borrow_mut();
-        this.current_property_value = *value;
-        this.dirty = true;
-
-        if let Some(notifier) =
-            this.notify.as_ref().and_then(|notifier_weak| notifier_weak.upgrade())
-        {
-            notifier.mark_dirty(DirtyReason::BindingHasChanged);
-        }
-
-        return false;
-    }
-
-    fn allow_replace_binding_with_binding(self: Rc<Self>, binding: Rc<dyn Binding<T>>) -> bool {
-        let mut this = self.borrow_mut();
-        this.binding = Some(binding);
-        this.dirty = true;
-
-        if let Some(notifier) =
-            this.notify.as_ref().and_then(|notifier_weak| notifier_weak.upgrade())
-        {
-            notifier.mark_dirty(DirtyReason::BindingHasChanged);
-        }
-
-        return false;
     }
 
     fn mark_dirty(self: Rc<Self>, reason: DirtyReason) {
