@@ -13,7 +13,10 @@ use std::rc::{Rc, Weak};
 
 thread_local!(static CURRENT_BINDING : RefCell<Option<Rc<dyn PropertyNotify>>> = Default::default());
 
-trait Binding<T> {
+/// A binding trait object can be used to dynamically produces values for a property.
+pub trait Binding<T> {
+    /// This function is called by the property to evaluate the binding and produce a new value. The
+    /// previous property value is provided in the value parameter.
     fn evaluate(self: Rc<Self>, value: &mut T, context: &EvaluationContext);
 
     /// This function is used to notify the binding that one of the dependencies was changed
@@ -269,7 +272,7 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
         animation_data: &PropertyAnimation,
     ) -> Rc<RefCell<PropertyAnimationBinding<T>>> {
         let animation = Rc::new(RefCell::new(PropertyAnimationBinding::new_with_binding(
-            f,
+            Property::make_binding(f),
             animation_data,
             self.inner.clone(),
         )));
@@ -601,14 +604,14 @@ impl<T: InterpolatedPropertyValue> PropertyAnimationBinding<T> {
     /// Creates a new property animation that is set up to animate between the values produced
     /// by the give binding function.
     pub fn new_with_binding(
-        binding_function: impl (Fn(&EvaluationContext) -> T) + 'static,
+        binding: Rc<dyn Binding<T>>,
         animation_data: &crate::abi::primitives::PropertyAnimation,
         notifier: Rc<dyn PropertyNotify>,
     ) -> Self {
         let mut this: PropertyAnimationBinding<T> = Default::default();
         this.keep_alive = true;
         this.details = animation_data.clone();
-        this.binding = Some(Property::make_binding(binding_function));
+        this.binding = Some(binding);
         this.notify = Some(Rc::downgrade(&notifier));
         this
     }
