@@ -361,9 +361,7 @@ fn property_set_value_tokens(
     value_tokens: TokenStream,
 ) -> TokenStream {
     if let Some(animation_tokens) = property_animation_tokens(component, element, property_name) {
-        quote!(set_animated_value(#value_tokens, &sixtyfps::re_exports::EvaluationContext::for_root_component(
-            sixtyfps::re_exports::ComponentRef::new_pin(self_)
-        ), #animation_tokens))
+        quote!(set_animated_value(#value_tokens, #animation_tokens))
     } else {
         quote!(set(#value_tokens))
     }

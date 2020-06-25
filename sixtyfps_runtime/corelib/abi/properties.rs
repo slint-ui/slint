@@ -304,19 +304,11 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
     pub fn set_animated_value(
         &self,
         value: T,
-        context: &EvaluationContext,
-
         animation_data: &crate::abi::primitives::PropertyAnimation,
     ) -> Rc<RefCell<PropertyAnimation<T>>> {
-        // FIXME: Dance around the fact that PropertyAnimation right now merely acts on the state of the property.
-        // This should be changed to follow the animate-now! pattern of this function.
-        let old_value = self.get(&context);
         let animation = Rc::new(RefCell::new(PropertyAnimation::new(animation_data)));
-        animation.borrow_mut().current_property_value = self.get(&context);
+        animation.borrow_mut().current_property_value = value;
         self.set_binding_object(animation.clone());
-        self.set(old_value);
-        self.get(&context);
-        self.set(value);
         animation
     }
 }
@@ -518,6 +510,8 @@ impl<T: InterpolatedPropertyValue> crate::abi::properties::Binding<T>
                 let mut new_value = this.to_value;
                 binding.clone().evaluate(&mut new_value, context);
                 this.current_property_value = new_value;
+            } else if this.current_animated_value.is_none() {
+                this.current_animated_value = Some(*value);
             }
             this.dirty = false;
 
@@ -670,8 +664,7 @@ mod test {
         assert_eq!(compo.width.get(&dummy_eval_context), 100);
         assert_eq!(compo.width_times_two.get(&dummy_eval_context), 200);
 
-        let animation =
-            compo.width.set_animated_value(200, &dummy_eval_context, &animation_details);
+        let animation = compo.width.set_animated_value(200, &animation_details);
         assert_eq!(compo.width.get(&dummy_eval_context), 100);
         assert_eq!(compo.width_times_two.get(&dummy_eval_context), 200);
         assert_eq!(animation.borrow().from_value, 100);
