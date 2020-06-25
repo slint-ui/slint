@@ -67,7 +67,7 @@ Hello := Rectangle {
     Image {
         x: 200;
         y: 200;
-        source: img!"../graphicstest/logo.png";
+        source: img!"../../examples/graphicstest/logo.png";
     }
 
     ButtonRectangle {
