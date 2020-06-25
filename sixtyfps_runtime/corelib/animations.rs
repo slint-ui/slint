@@ -114,7 +114,13 @@ impl AnimationDriver {
         let mut i: usize = 0;
         while i < self.animations.len() {
             {
-                let animation = &self.animations[i].as_animation().borrow().clone();
+                let animation = match &self.animations[i] {
+                    InternalAnimationEntry::Allocated(animation) => animation.borrow().clone(),
+                    InternalAnimationEntry::Free { .. } => {
+                        i += 1;
+                        continue;
+                    }
+                };
                 match animation.state {
                     InternalAnimationState::ReadyToRun { time_elapsed } => {
                         self.set_animation_state(
