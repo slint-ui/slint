@@ -23,16 +23,30 @@ component ButtonRectangle := Rectangle {
     signal clicked;
     width: 100;
     height: 75;
-    TouchArea {
-        width: 100;
-        height: 75;
-        clicked => { root.clicked() }
-    }
-    Text {
-        x: 50;
-        y: 10;
-        text: button_text;
-        color: black;
+
+    inner := Rectangle {
+        color: root.color;
+        area := TouchArea {
+            width: inner.width;
+            height: inner.height;
+            clicked => { root.clicked() }
+        }
+        Text {
+            animate x { duration: 500; }
+            animate y { duration: 500; }
+            x: { area.pressed ? 60 : 50; }
+            y: { area.pressed ? 20 : 10; }
+            text: button_text;
+            color: black;
+        }
+        animate x { duration: 500; }
+        animate y { duration: 500; }
+        animate width { duration: 500; }
+        animate height { duration: 500; }
+        x: { area.pressed ? 0-10 : 0 }
+        y: { area.pressed ? 0-10 : 0; }
+        width: { area.pressed ? (root.width + 20) : root.width; }
+        height: { area.pressed ? (root.height + 20) : root.height; }
     }
 }
 
