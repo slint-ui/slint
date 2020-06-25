@@ -106,7 +106,8 @@ pub enum ItemTreeNode<T> {
 #[repr(C)]
 pub struct ItemVTable {
     /// Returns the geometry of this item (relative to its parent item)
-    pub geometry: extern "C" fn(VRef<'_, ItemVTable>, context: &crate::EvaluationContext) -> Rect,
+    pub geometry:
+        extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, context: &crate::EvaluationContext) -> Rect,
 
     /// offset in bytes fromthe *const ItemImpl.
     /// isize::MAX  means None
@@ -116,15 +117,16 @@ pub struct ItemVTable {
 
     /// Return the rendering primitive used to display this item.
     pub rendering_primitive: extern "C" fn(
-        VRef<'_, ItemVTable>,
+        core::pin::Pin<VRef<ItemVTable>>,
         context: &crate::EvaluationContext,
     ) -> RenderingPrimitive,
 
     /// We would need max/min/preferred size, and all layout info
-    pub layouting_info: extern "C" fn(VRef<'_, ItemVTable>) -> LayoutInfo,
+    pub layouting_info: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>) -> LayoutInfo,
 
     /// input event
-    pub input_event: extern "C" fn(VRef<'_, ItemVTable>, MouseEvent, &crate::EvaluationContext),
+    pub input_event:
+        extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, MouseEvent, &crate::EvaluationContext),
 }
 
 /// The constraint that applies to an item
@@ -328,19 +330,14 @@ pub struct ItemVisitorVTable {
         VRefMut<ItemVisitorVTable>,
         component: Pin<VRef<ComponentVTable>>,
         index: isize,
-        item: VRef<ItemVTable>,
+        item: Pin<VRef<ItemVTable>>,
     ),
     /// Destructor
     drop: fn(VRefMut<ItemVisitorVTable>),
 }
 
-impl<T: FnMut(crate::ComponentRefPin, isize, VRef<ItemVTable>)> ItemVisitor for T {
-    fn visit_item(
-        &mut self,
-        component: crate::ComponentRefPin,
-        index: isize,
-        item: VRef<ItemVTable>,
-    ) {
+impl<T: FnMut(crate::ComponentRefPin, isize, Pin<ItemRef>)> ItemVisitor for T {
+    fn visit_item(&mut self, component: crate::ComponentRefPin, index: isize, item: Pin<ItemRef>) {
         self(component, index, item)
     }
 }
@@ -361,12 +358,12 @@ pub unsafe extern "C" fn sixtyfps_visit_item_tree(
     ),
 ) {
     crate::item_tree::visit_item_tree(
-        &*(component.as_ptr() as *const u8),
+        Pin::new_unchecked(&*(component.as_ptr() as *const u8)),
         component,
         item_tree.as_slice(),
         index,
         visitor,
-        |a, b, c| visit_dynamic(a, b, c),
+        |a, b, c| visit_dynamic(a.get_ref(), b, c),
     )
 }
 

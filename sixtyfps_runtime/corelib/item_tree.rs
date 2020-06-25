@@ -1,13 +1,14 @@
 use crate::abi::datastructures::{ItemRef, ItemTreeNode, ItemVisitor, ItemVisitorVTable};
 use crate::ComponentRefPin;
 use crate::EvaluationContext;
+use core::pin::Pin;
 
 /// Visit each items recursively
 ///
 /// The state parametter returned by the visitor is passed to each children.
 pub fn visit_items<State>(
     component: ComponentRefPin,
-    mut visitor: impl FnMut(&EvaluationContext, ItemRef, &State) -> State,
+    mut visitor: impl FnMut(&EvaluationContext, Pin<ItemRef>, &State) -> State,
     state: State,
 ) {
     let context = EvaluationContext::for_root_component(component);
@@ -16,11 +17,11 @@ pub fn visit_items<State>(
 
 fn visit_internal<State>(
     context: &EvaluationContext,
-    visitor: &mut impl FnMut(&EvaluationContext, ItemRef, &State) -> State,
+    visitor: &mut impl FnMut(&EvaluationContext, Pin<ItemRef>, &State) -> State,
     index: isize,
     state: &State,
 ) {
-    let mut actual_visitor = |component: ComponentRefPin, index: isize, item: ItemRef| {
+    let mut actual_visitor = |component: ComponentRefPin, index: isize, item: Pin<ItemRef>| {
         if component.as_ptr() == context.component.as_ptr() {
             let s = visitor(context, item, state);
             visit_internal(context, visitor, index, &s);
@@ -43,16 +44,16 @@ fn visit_internal<State>(
 /// Need to check if the compiler is able to optimize away some of it.
 /// Possibly we should generate code that directly call the visitor instead
 pub fn visit_item_tree<Base>(
-    base: &Base,
+    base: Pin<&Base>,
     component: ComponentRefPin,
     item_tree: &[ItemTreeNode<Base>],
     index: isize,
     mut visitor: vtable::VRefMut<ItemVisitorVTable>,
-    visit_dynamic: impl Fn(&Base, vtable::VRefMut<ItemVisitorVTable>, usize),
+    visit_dynamic: impl Fn(Pin<&Base>, vtable::VRefMut<ItemVisitorVTable>, usize),
 ) {
     let mut visit_at_index = |idx: usize| match &item_tree[idx] {
         ItemTreeNode::Item { item, .. } => {
-            visitor.visit_item(component, idx as isize, item.apply(base));
+            visitor.visit_item(component, idx as isize, item.apply_pin(base));
         }
         ItemTreeNode::DynamicTree { index } => visit_dynamic(base, visitor.borrow_mut(), *index),
     };

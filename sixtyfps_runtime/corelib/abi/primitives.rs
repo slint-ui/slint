@@ -22,6 +22,7 @@ use super::datastructures::{
 use crate::rtti::*;
 use crate::{EvaluationContext, Property, SharedString, Signal};
 use const_field_offset::FieldOffsets;
+use core::pin::Pin;
 use corelib_macro::*;
 
 #[repr(C)]
@@ -39,7 +40,7 @@ pub struct Rectangle {
 }
 
 impl Item for Rectangle {
-    fn geometry(&self, context: &EvaluationContext) -> Rect {
+    fn geometry(self: Pin<&Self>, context: &EvaluationContext) -> Rect {
         euclid::rect(
             self.x.get(context),
             self.y.get(context),
@@ -47,7 +48,10 @@ impl Item for Rectangle {
             self.height.get(context),
         )
     }
-    fn rendering_primitive(&self, context: &crate::EvaluationContext) -> RenderingPrimitive {
+    fn rendering_primitive(
+        self: Pin<&Self>,
+        context: &crate::EvaluationContext,
+    ) -> RenderingPrimitive {
         let width = self.width.get(context);
         let height = self.height.get(context);
         if width > 0. && height > 0. {
@@ -63,11 +67,16 @@ impl Item for Rectangle {
         }
     }
 
-    fn layouting_info(&self) -> LayoutInfo {
+    fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
         Default::default()
     }
 
-    fn input_event(&self, _: super::datastructures::MouseEvent, _: &crate::EvaluationContext) {}
+    fn input_event(
+        self: Pin<&Self>,
+        _: super::datastructures::MouseEvent,
+        _: &crate::EvaluationContext,
+    ) {
+    }
 }
 
 impl ItemConsts for Rectangle {
@@ -93,7 +102,7 @@ pub struct Image {
 }
 
 impl Item for Image {
-    fn geometry(&self, context: &crate::EvaluationContext) -> Rect {
+    fn geometry(self: Pin<&Self>, context: &crate::EvaluationContext) -> Rect {
         euclid::rect(
             self.x.get(context),
             self.y.get(context),
@@ -101,7 +110,10 @@ impl Item for Image {
             self.height.get(context),
         )
     }
-    fn rendering_primitive(&self, context: &crate::EvaluationContext) -> RenderingPrimitive {
+    fn rendering_primitive(
+        self: Pin<&Self>,
+        context: &crate::EvaluationContext,
+    ) -> RenderingPrimitive {
         RenderingPrimitive::Image {
             x: self.x.get(context),
             y: self.y.get(context),
@@ -109,12 +121,17 @@ impl Item for Image {
         }
     }
 
-    fn layouting_info(&self) -> LayoutInfo {
+    fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
         // FIXME: should we use the image size here
         Default::default()
     }
 
-    fn input_event(&self, _: super::datastructures::MouseEvent, _: &crate::EvaluationContext) {}
+    fn input_event(
+        self: Pin<&Self>,
+        _: super::datastructures::MouseEvent,
+        _: &crate::EvaluationContext,
+    ) {
+    }
 }
 
 impl ItemConsts for Image {
@@ -142,10 +159,13 @@ pub struct Text {
 
 impl Item for Text {
     // FIXME: width / height.  or maybe it doesn't matter?  (
-    fn geometry(&self, context: &crate::EvaluationContext) -> Rect {
+    fn geometry(self: Pin<&Self>, context: &crate::EvaluationContext) -> Rect {
         euclid::rect(self.x.get(context), self.y.get(context), 0., 0.)
     }
-    fn rendering_primitive(&self, context: &crate::EvaluationContext) -> RenderingPrimitive {
+    fn rendering_primitive(
+        self: Pin<&Self>,
+        context: &crate::EvaluationContext,
+    ) -> RenderingPrimitive {
         RenderingPrimitive::Text {
             x: self.x.get(context),
             y: self.y.get(context),
@@ -156,11 +176,16 @@ impl Item for Text {
         }
     }
 
-    fn layouting_info(&self) -> LayoutInfo {
+    fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
         todo!()
     }
 
-    fn input_event(&self, _: super::datastructures::MouseEvent, _: &crate::EvaluationContext) {}
+    fn input_event(
+        self: Pin<&Self>,
+        _: super::datastructures::MouseEvent,
+        _: &crate::EvaluationContext,
+    ) {
+    }
 }
 
 impl ItemConsts for Text {
@@ -187,7 +212,7 @@ pub struct TouchArea {
 }
 
 impl Item for TouchArea {
-    fn geometry(&self, context: &crate::EvaluationContext) -> Rect {
+    fn geometry(self: Pin<&Self>, context: &crate::EvaluationContext) -> Rect {
         euclid::rect(
             self.x.get(context),
             self.y.get(context),
@@ -195,16 +220,19 @@ impl Item for TouchArea {
             self.height.get(context),
         )
     }
-    fn rendering_primitive(&self, _context: &crate::EvaluationContext) -> RenderingPrimitive {
+    fn rendering_primitive(
+        self: Pin<&Self>,
+        _context: &crate::EvaluationContext,
+    ) -> RenderingPrimitive {
         RenderingPrimitive::NoContents
     }
 
-    fn layouting_info(&self) -> LayoutInfo {
+    fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
         todo!()
     }
 
     fn input_event(
-        &self,
+        self: Pin<&Self>,
         event: super::datastructures::MouseEvent,
         context: &crate::EvaluationContext,
     ) {

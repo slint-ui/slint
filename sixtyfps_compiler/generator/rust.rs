@@ -277,7 +277,7 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
             #(#repeated_element_names : sixtyfps::re_exports::Repeater<#repeated_element_components>,)*
         }
 
-        impl core::default::Default for #component_id {
+        impl ::core::default::Default for #component_id {
             fn default() -> Self {
                 #![allow(unused)]
                 use sixtyfps::re_exports::*;
@@ -294,12 +294,12 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
 
         }
         impl sixtyfps::re_exports::Component for #component_id {
-            fn visit_children_item(self: core::pin::Pin<&Self>, index: isize, visitor: sixtyfps::re_exports::ItemVisitorRefMut) {
+            fn visit_children_item(self: ::core::pin::Pin<&Self>, index: isize, visitor: sixtyfps::re_exports::ItemVisitorRefMut) {
                 use sixtyfps::re_exports::*;
                 let tree = &[#(#item_tree_array),*];
-                sixtyfps::re_exports::visit_item_tree(self.get_ref(), VRef::new_pin(self), tree, index, visitor, visit_dynamic);
+                sixtyfps::re_exports::visit_item_tree(self, VRef::new_pin(self), tree, index, visitor, visit_dynamic);
                 #[allow(unused)]
-                fn visit_dynamic(base: &#component_id, visitor: ItemVisitorRefMut, dyn_index: usize) {
+                fn visit_dynamic(base: ::core::pin::Pin<&#component_id>, visitor: ItemVisitorRefMut, dyn_index: usize) {
                     match dyn_index {
                         #(#repeated_visit_branch)*
                         _ => panic!("invalid dyn_index {}", dyn_index),
@@ -604,10 +604,10 @@ fn compute_layout(component: &Component) -> TokenStream {
     }
 
     quote! {
-        fn layout_info(self: core::pin::Pin<&Self>) -> sixtyfps::re_exports::LayoutInfo {
+        fn layout_info(self: ::core::pin::Pin<&Self>) -> sixtyfps::re_exports::LayoutInfo {
             todo!("Implement in rust.rs")
         }
-        fn compute_layout(self: core::pin::Pin<&Self>, eval_context: &sixtyfps::re_exports::EvaluationContext) {
+        fn compute_layout(self: ::core::pin::Pin<&Self>, eval_context: &sixtyfps::re_exports::EvaluationContext) {
             #![allow(unused)]
             use sixtyfps::re_exports::*;
             let dummy = Property::<f32>::default();

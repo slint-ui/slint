@@ -13,13 +13,13 @@ pub fn process_mouse_event(component: ComponentRefPin, event: MouseEvent) {
     crate::item_tree::visit_items(
         component,
         |context, item, offset| {
-            let geom = item.geometry(context);
+            let geom = item.as_ref().geometry(context);
             let geom = geom.translate(*offset);
 
             if geom.contains(event.pos) {
                 let mut event2 = event.clone();
                 event2.pos -= geom.origin.to_vector();
-                item.input_event(event2, context);
+                item.as_ref().input_event(event2, context);
             }
 
             geom.origin.to_vector()

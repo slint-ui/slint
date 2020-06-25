@@ -108,7 +108,7 @@ unsafe extern "C" fn visit_children_item(
         &*(component.get_vtable() as *const ComponentVTable as *const ComponentDescription);
     let item_tree = &component_type.it;
     sixtyfps_corelib::item_tree::visit_item_tree(
-        &*(component.as_ptr() as *const Instance),
+        Pin::new_unchecked(&*(component.as_ptr() as *const Instance)),
         component,
         item_tree.as_slice().into(),
         index,

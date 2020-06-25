@@ -472,6 +472,18 @@ impl<Base, T: ?Sized + VTableMeta, Flag> VOffset<Base, T, Flag> {
     }
 }
 
+impl<Base, T: ?Sized + VTableMeta> VOffset<Base, T, PinnedFlag> {
+    pub fn apply_pin<'a>(self, x: Pin<&'a Base>) -> Pin<VRef<'a, T>> {
+        let ptr = x.get_ref() as *const Base as *mut u8;
+        unsafe {
+            Pin::new_unchecked(VRef::from_raw(
+                NonNull::from(self.vtable),
+                NonNull::new_unchecked(ptr.add(self.offset)),
+            ))
+        }
+    }
+}
+
 // Need to implement manually otheriwse it is not implemented if T do not implement Copy / Clone
 impl<Base, T: ?Sized + VTableMeta, Flag> Copy for VOffset<Base, T, Flag> {}
 
