@@ -5,6 +5,7 @@
     thin dst container, and intrusive linked list
 */
 
+use crate::abi::primitives::PropertyAnimation;
 use crate::ComponentRefPin;
 use core::cell::*;
 use core::ops::DerefMut;
@@ -268,34 +269,34 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
     ///
     /// Bindings are evaluated lazily from calling get, and the return value of the binding
     /// is the new value. Any new values reported by the binding are animated (interpolated) according to the
-    /// parameters described by the PropertyAnimationData object.
+    /// parameters described by the PropertyAnimation object.
     ///
     /// If other properties have bindings depending of this property, these properties will
     /// be marked as dirty.
     pub fn set_animated_binding(
         &self,
         f: impl (Fn(&EvaluationContext) -> T) + 'static,
-        animation_data: &crate::abi::primitives::PropertyAnimation,
-    ) -> Rc<RefCell<PropertyAnimation<T>>> {
+        animation_data: &PropertyAnimation,
+    ) -> Rc<RefCell<PropertyAnimationBinding<T>>> {
         let animation =
-            Rc::new(RefCell::new(PropertyAnimation::new_with_binding(f, animation_data)));
+            Rc::new(RefCell::new(PropertyAnimationBinding::new_with_binding(f, animation_data)));
         self.set_binding_object(animation.clone());
         animation
     }
 
     /// Change the value of this property, by animating (interpolating) from the current property's value
     /// to the specified parameter value. The animation is done according to the parameters described by
-    /// the PropertyAnimationData object.
+    /// the PropertyAnimation object.
     ///
     /// If other properties have binding depending of this property, these properties will
     /// be marked as dirty.
     pub fn set_animated_value(
         &self,
         value: T,
-        animation_data: &crate::abi::primitives::PropertyAnimation,
-    ) -> Rc<RefCell<PropertyAnimation<T>>> {
+        animation_data: &PropertyAnimation,
+    ) -> Rc<RefCell<PropertyAnimationBinding<T>>> {
         let animation =
-            Rc::new(RefCell::new(PropertyAnimation::new_with_value(value, animation_data)));
+            Rc::new(RefCell::new(PropertyAnimationBinding::new_with_value(value, animation_data)));
         self.set_binding_object(animation.clone());
         animation
     }
@@ -474,9 +475,9 @@ impl InterpolatedPropertyValue for i32 {
 }
 
 #[derive(Default)]
-/// PropertyAnimation provides a linear animation of values of a property, when they are changed
+/// PropertyAnimationBinding provides a linear animation of values of a property, when they are changed
 /// through bindings or direct set() calls.
-pub struct PropertyAnimation<T: InterpolatedPropertyValue> {
+pub struct PropertyAnimationBinding<T: InterpolatedPropertyValue> {
     dirty: bool,
     current_property_value: T,
     current_animated_value: Option<T>,
@@ -490,7 +491,7 @@ pub struct PropertyAnimation<T: InterpolatedPropertyValue> {
 }
 
 impl<T: InterpolatedPropertyValue> crate::abi::properties::Binding<T>
-    for RefCell<PropertyAnimation<T>>
+    for RefCell<PropertyAnimationBinding<T>>
 {
     fn evaluate(self: Rc<Self>, value: &mut T, context: &crate::EvaluationContext) {
         let mut this = self.borrow_mut();
@@ -543,7 +544,9 @@ impl<T: InterpolatedPropertyValue> crate::abi::properties::Binding<T>
     }
 }
 
-impl<T: InterpolatedPropertyValue> crate::animations::Animated for RefCell<PropertyAnimation<T>> {
+impl<T: InterpolatedPropertyValue> crate::animations::Animated
+    for RefCell<PropertyAnimationBinding<T>>
+{
     fn update_animation_state(self: Rc<Self>, state: crate::animations::AnimationState) {
         use crate::animations::*;
         // This shouldn't really happen... the animation should only be started if we have a valid animated value
@@ -589,13 +592,13 @@ impl<T: InterpolatedPropertyValue> crate::animations::Animated for RefCell<Prope
     }
 }
 
-impl<T: InterpolatedPropertyValue> PropertyAnimation<T> {
+impl<T: InterpolatedPropertyValue> PropertyAnimationBinding<T> {
     /// Creates a new property animation that is set up to animate to the specified target value.
     pub fn new_with_value(
         target_value: T,
         animation_data: &crate::abi::primitives::PropertyAnimation,
     ) -> Self {
-        let mut this: PropertyAnimation<T> = Default::default();
+        let mut this: PropertyAnimationBinding<T> = Default::default();
         this.keep_alive = true;
         this.details = animation_data.clone();
         this.current_property_value = target_value;
@@ -607,7 +610,7 @@ impl<T: InterpolatedPropertyValue> PropertyAnimation<T> {
         binding_function: impl (Fn(&EvaluationContext) -> T) + 'static,
         animation_data: &crate::abi::primitives::PropertyAnimation,
     ) -> Self {
-        let mut this: PropertyAnimation<T> = Default::default();
+        let mut this: PropertyAnimationBinding<T> = Default::default();
         this.keep_alive = true;
         this.details = animation_data.clone();
         this.binding = Some(Property::make_binding(binding_function));
@@ -615,7 +618,7 @@ impl<T: InterpolatedPropertyValue> PropertyAnimation<T> {
     }
 }
 
-impl<T: InterpolatedPropertyValue> Drop for PropertyAnimation<T> {
+impl<T: InterpolatedPropertyValue> Drop for PropertyAnimationBinding<T> {
     fn drop(&mut self) {
         if let Some(handle) = self.animation_handle {
             crate::animations::CURRENT_ANIMATION_DRIVER
@@ -627,6 +630,7 @@ impl<T: InterpolatedPropertyValue> Drop for PropertyAnimation<T> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::abi::primitives::PropertyAnimation;
     use crate::animations::*;
 
     #[derive(Default)]
@@ -655,7 +659,7 @@ mod test {
             compo.width.get(context) * 2
         });
 
-        let animation_details = crate::abi::primitives::PropertyAnimation { duration: 10000 };
+        let animation_details = PropertyAnimation { duration: 10000 };
 
         compo.width.set(100);
         assert_eq!(compo.width.get(&dummy_eval_context), 100);
@@ -703,7 +707,7 @@ mod test {
 
         let w = Rc::downgrade(&compo);
 
-        let animation_details = crate::abi::primitives::PropertyAnimation { duration: 10000 };
+        let animation_details = PropertyAnimation { duration: 10000 };
 
         let animation = compo.width.set_animated_binding(
             move |context| {
