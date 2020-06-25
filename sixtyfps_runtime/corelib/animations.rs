@@ -2,7 +2,7 @@
 
 use std::cell::{Cell, RefCell};
 use std::rc::{Rc, Weak};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 /// The AnimationState describes the state reported to the Animated entity when it changes.
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -74,11 +74,11 @@ enum InternalAnimationState {
     /// The animation is currently running.
     Running {
         /// start_time is the tick when the animation was actually started.
-        start_time: Instant,
+        start_time: instant::Instant,
     },
     ReadyToPause {
         /// start_time is the tick when the animation was actually started.
-        start_time: Instant,
+        start_time: instant::Instant,
     },
     /// The animation is paused. It was previously running.
     Paused {
@@ -108,7 +108,7 @@ pub struct AnimationHandle(usize);
 impl AnimationDriver {
     /// Iterates through all animations based on the new time tick and updates their state. This should be called by
     /// the windowing system driver for every frame.
-    pub fn update_animations(&self, new_tick: Instant) {
+    pub fn update_animations(&self, new_tick: instant::Instant) {
         self.active_animations.set(false);
         let mut need_new_animation_frame = false;
         let mut i: usize = 0;

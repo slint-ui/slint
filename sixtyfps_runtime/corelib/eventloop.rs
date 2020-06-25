@@ -59,7 +59,7 @@ impl EventLoop {
                 } => *control_flow = winit::event_loop::ControlFlow::Exit,
                 winit::event::Event::RedrawRequested(id) => {
                     crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
-                        driver.borrow_mut().update_animations(std::time::Instant::now());
+                        driver.borrow_mut().update_animations(instant::Instant::now());
                     });
 
                     ALL_WINDOWS.with(|windows| {
