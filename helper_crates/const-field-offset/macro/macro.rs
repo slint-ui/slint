@@ -8,7 +8,7 @@ extern crate proc_macro;
 
 use proc_macro::TokenStream;
 use quote::{format_ident, quote, quote_spanned};
-use syn::{parse_macro_input, spanned::Spanned, DeriveInput};
+use syn::{parse_macro_input, spanned::Spanned, DeriveInput, VisRestricted, Visibility};
 
 /**
 
@@ -124,6 +124,8 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
     let struct_name = input.ident;
     let field_struct_name = quote::format_ident!("{}FieldsOffsets", struct_name);
 
+    let module_name = quote::format_ident!("{}_field_offsets", struct_name);
+
     let (fields, types, vis) = if let syn::Data::Struct(s) = &input.data {
         if let syn::Fields::Named(n) = &s.fields {
             let (f, tv): (Vec<_>, Vec<_>) =
@@ -137,13 +139,41 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
         return TokenStream::from(quote! {compile_error!("Only work for struct")});
     };
 
+    let in_mod_vis = vis.iter().map(|vis| match vis {
+        Visibility::Public(_) => quote! {#vis},
+        Visibility::Crate(_) => quote! {#vis},
+        Visibility::Restricted(VisRestricted { pub_token, path, .. }) => {
+            if quote!(#path).to_string().starts_with("super") {
+                quote!(#pub_token(in super::#path))
+            } else {
+                quote!(#vis)
+            }
+        }
+        Visibility::Inherited => quote!(pub(super)),
+    });
+
+    /*let mut offset = quote!(0);
+    let mut offsets = vec![];
+    for ty in &types {
+        let len_rounded_up = quote! {
+            let len = #offset;
+            let align = ::core::mem::align_of::<#ty>();
+            let len_rounded_up  = len.wrapping_add(align).wrapping_sub(1) & !align.wrapping_sub(1);
+        };
+        offsets.push(quote! { { #len_rounded_up  len_rounded_up } });
+        offset = quote!({
+            #len_rounded_up
+            len_rounded_up + ::core::mem::size_of::<#ty>();
+        });
+    }*/
+
     let doc = format!(
         "Helper struct containing the offsets of the fields of the struct `{}`",
         struct_name
     );
 
     let (ensure_pin_safe, pin_flag, new_from_offset) = if !pin {
-        (None, None, quote!(new_from_offset))
+        (None, quote!(#crate_::NotPinnedFlag), quote!(new_from_offset))
     } else {
         let drop_trait_ident = format_ident!("{}MustNotImplDrop", struct_name);
         (
@@ -161,7 +191,7 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
                 );
                 impl<'__dummy_lifetime> Unpin for #struct_name where __MustNotImplUnpin<'__dummy_lifetime> : Unpin {};
             }),
-            Some(quote!(#crate_::PinnedFlag)),
+            quote!(#crate_::PinnedFlag),
             quote!(new_from_offset_pinned),
         )
     };
@@ -192,6 +222,34 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
                 }
             }
         }
+
+        #[allow(non_camel_case_types)]
+        #[allow(non_snake_case)]
+        pub mod #module_name {
+            #(
+                #[derive(Clone, Copy, Default)]
+                #in_mod_vis struct #fields;
+            )*
+        }
+        #(
+            impl #crate_::ConstFieldOffset<#struct_name, #types> for #module_name::#fields {
+                type PinFlag = #pin_flag;
+                const OFFSET : #crate_::FieldOffset<#struct_name, #types, Self::PinFlag>
+                    = #struct_name::field_offsets().#fields;
+            }
+            impl ::core::convert::Into<#crate_::FieldOffset<#struct_name, #types, #pin_flag>> for #module_name::#fields {
+                fn into(self) -> #crate_::FieldOffset<#struct_name, #types, #pin_flag> {
+                    #struct_name::field_offsets().#fields
+                }
+            }
+            /*impl<Other : #crate_::ConstFieldOffset<#types, >> ::core::ops::Add<Other> for #module_name::#fields {
+                type Output = #crate_::ConstFieldOffsetSum<Self, Other>;
+                #[inline]
+                fn add(self, other: Other) -> Self::Output {
+                    #crate_::ConstFieldOffsetSum::new(self, other)
+                }
+            }*/
+        )*
     };
 
     // Hand the output tokens back to the compiler

@@ -72,7 +72,27 @@ pub enum PinnedFlag {}
 
 /// Type that can be used in the `Flag` parameter of `FieldOffset` to specify that
 /// This projection is valid on Pin types.
-pub type NotPinnedFlag = ();
+pub enum NotPinnedFlag {}
+
+#[doc(hidden)]
+mod internal {
+    use super::*;
+    pub trait CombineFlag {
+        type Output;
+    }
+    impl CombineFlag for (PinnedFlag, PinnedFlag) {
+        type Output = PinnedFlag;
+    }
+    impl CombineFlag for (NotPinnedFlag, PinnedFlag) {
+        type Output = NotPinnedFlag;
+    }
+    impl CombineFlag for (PinnedFlag, NotPinnedFlag) {
+        type Output = NotPinnedFlag;
+    }
+    impl CombineFlag for (NotPinnedFlag, NotPinnedFlag) {
+        type Output = NotPinnedFlag;
+    }
+}
 
 /// `fn` cannot appear dirrectly in a type that need to be const.
 /// Workaround that with an indiretion
@@ -289,31 +309,13 @@ impl<T, U> From<FieldOffset<T, U, PinnedFlag>> for FieldOffset<T, U> {
 /// field offset, then applying the second field offset.
 ///
 /// The requirements on the generic type parameters ensure this is a safe operation.
-impl<T, U, V> Add<FieldOffset<U, V>> for FieldOffset<T, U> {
-    type Output = FieldOffset<T, V>;
+impl<T, U, V, F1, F2> Add<FieldOffset<U, V, F1>> for FieldOffset<T, U, F2>
+where
+    (F1, F2): internal::CombineFlag,
+{
+    type Output = FieldOffset<T, V, <(F1, F2) as internal::CombineFlag>::Output>;
     #[inline]
-    fn add(self, other: FieldOffset<U, V>) -> FieldOffset<T, V> {
-        FieldOffset(self.0 + other.0, PhantomData)
-    }
-}
-impl<T, U, V> Add<FieldOffset<U, V, PinnedFlag>> for FieldOffset<T, U, PinnedFlag> {
-    type Output = FieldOffset<T, V, PinnedFlag>;
-    #[inline]
-    fn add(self, other: FieldOffset<U, V, PinnedFlag>) -> FieldOffset<T, V, PinnedFlag> {
-        FieldOffset(self.0 + other.0, PhantomData)
-    }
-}
-impl<T, U, V> Add<FieldOffset<U, V>> for FieldOffset<T, U, PinnedFlag> {
-    type Output = FieldOffset<T, V>;
-    #[inline]
-    fn add(self, other: FieldOffset<U, V>) -> FieldOffset<T, V> {
-        FieldOffset(self.0 + other.0, PhantomData)
-    }
-}
-impl<T, U, V> Add<FieldOffset<U, V, PinnedFlag>> for FieldOffset<T, U> {
-    type Output = FieldOffset<T, V>;
-    #[inline]
-    fn add(self, other: FieldOffset<U, V, PinnedFlag>) -> FieldOffset<T, V> {
+    fn add(self, other: FieldOffset<U, V, F1>) -> Self::Output {
         FieldOffset(self.0 + other.0, PhantomData)
     }
 }
@@ -410,4 +412,74 @@ mod tests {
         *(bar_y_pin + foo_b_pin).apply_pin_mut(x.as_mut()) = 12.;
         assert!(x.y.b == 12.0);
     }
+}
+
+pub trait ConstFieldOffset<T, U>: Copy {
+    /// Can be PinnedFlag or NotPinnedFlag
+    type PinFlag;
+
+    const OFFSET: FieldOffset<T, U, Self::PinFlag>;
+
+    fn as_field_offset(self) -> FieldOffset<T, U, Self::PinFlag> {
+        Self::OFFSET
+    }
+    fn get_byte_offset(self) -> usize {
+        Self::OFFSET.get_byte_offset()
+    }
+    fn apply(self, x: &T) -> &U {
+        Self::OFFSET.apply(x)
+    }
+    fn apply_mut(self, x: &mut T) -> &mut U {
+        Self::OFFSET.apply_mut(x)
+    }
+
+    fn apply_pin<'a>(self, x: Pin<&'a T>) -> Pin<&'a U>
+    where
+        Self: ConstFieldOffset<T, U, PinFlag = PinnedFlag>,
+    {
+        Self::OFFSET.apply_pin(x)
+    }
+    fn apply_pin_mut<'a>(self, x: Pin<&'a mut T>) -> Pin<&'a mut U>
+    where
+        Self: ConstFieldOffset<T, U, PinFlag = PinnedFlag>,
+    {
+        Self::OFFSET.apply_pin_mut(x)
+    }
+}
+
+pub struct ConstFieldOffsetSum<T, U, V, A: ConstFieldOffset<T, U>, B: ConstFieldOffset<U, V>>(
+    A,
+    B,
+    PhantomData<(FieldOffset<T, U>, FieldOffset<U, V>)>,
+);
+
+impl<T, U, V, A: ConstFieldOffset<T, U>, B: ConstFieldOffset<U, V>>
+    ConstFieldOffsetSum<T, U, V, A, B>
+{
+    pub fn new(a: A, b: B) -> Self {
+        Self(a, b, PhantomData)
+    }
+}
+
+impl<T, U, V, A: ConstFieldOffset<T, U>, B: ConstFieldOffset<U, V>> Copy
+    for ConstFieldOffsetSum<T, U, V, A, B>
+{
+}
+
+impl<T, U, V, A: ConstFieldOffset<T, U>, B: ConstFieldOffset<U, V>> Clone
+    for ConstFieldOffsetSum<T, U, V, A, B>
+{
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<T, U, V, A: ConstFieldOffset<T, U>, B: ConstFieldOffset<U, V>> ConstFieldOffset<T, V>
+    for ConstFieldOffsetSum<T, U, V, A, B>
+where
+    (A::PinFlag, B::PinFlag): internal::CombineFlag,
+{
+    type PinFlag = <(A::PinFlag, B::PinFlag) as internal::CombineFlag>::Output;
+    const OFFSET: FieldOffset<T, V, Self::PinFlag> =
+        FieldOffset(A::OFFSET.get_byte_offset() + B::OFFSET.get_byte_offset(), PhantomData);
 }

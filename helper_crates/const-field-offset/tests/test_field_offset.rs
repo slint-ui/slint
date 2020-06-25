@@ -1,4 +1,4 @@
-use const_field_offset::FieldOffsets;
+use const_field_offset::*;
 use memoffset::offset_of;
 
 #[derive(FieldOffsets)]
@@ -33,6 +33,14 @@ fn test() {
 
     assert_eq!(XX_CONST, offset_of!(MyStruct2, xx));
     assert_eq!(D_STATIC, offset_of!(MyStruct, d));
+
+    assert_eq!(offset_of!(MyStruct, a), MyStruct_field_offsets::a.get_byte_offset());
+    assert_eq!(offset_of!(MyStruct, b), MyStruct_field_offsets::b.get_byte_offset());
+    assert_eq!(offset_of!(MyStruct, c), MyStruct_field_offsets::c.get_byte_offset());
+    assert_eq!(offset_of!(MyStruct, d), MyStruct_field_offsets::d.get_byte_offset());
+    assert_eq!(offset_of!(MyStruct2, xx), MyStruct2_field_offsets::xx.get_byte_offset());
+    assert_eq!(offset_of!(MyStruct2, v), MyStruct2_field_offsets::v.get_byte_offset());
+    assert_eq!(offset_of!(MyStruct2, k), MyStruct2_field_offsets::k.get_byte_offset());
 }
 
 #[derive(FieldOffsets)]
