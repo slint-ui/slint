@@ -20,6 +20,12 @@ trait Binding<T> {
     fn mark_dirty(self: Rc<Self>, _reason: DirtyReason) {}
 
     fn set_notify_callback(self: Rc<Self>, _callback: Rc<dyn PropertyNotify>) {}
+
+    /// This function allows the property to query the binding if it is still needed. This is
+    /// primarily used for value animation bindings to indicate that they are no longer needed.
+    fn keep_alive(self: Rc<Self>) -> bool {
+        return true;
+    }
 }
 
 #[derive(Default)]
@@ -235,12 +241,14 @@ impl<T: Clone + 'static> Property<T> {
         let mut old: Option<Rc<dyn PropertyNotify>> = Some(self.inner.clone());
         let (mut lock, mut value) =
             self.try_borrow_mut().expect("Circular dependency in binding evaluation");
+        let mut keep_binding_alive = true;
         if let Some(binding) = &lock.binding {
             CURRENT_BINDING.with(|cur_dep| {
                 let mut m = cur_dep.borrow_mut();
                 std::mem::swap(m.deref_mut(), &mut old);
             });
             binding.clone().evaluate(value.deref_mut(), context);
+            keep_binding_alive = binding.clone().keep_alive();
             lock.dirty = false;
             CURRENT_BINDING.with(|cur_dep| {
                 let mut m = cur_dep.borrow_mut();
@@ -248,6 +256,9 @@ impl<T: Clone + 'static> Property<T> {
                 //somehow ptr_eq does not work as expected despite the pointer are equal
                 //debug_assert!(Rc::ptr_eq(&(self.inner.clone() as Rc<dyn PropertyNotify>), &old.unwrap()));
             });
+        }
+        if !keep_binding_alive {
+            lock.binding = None;
         }
     }
 }
@@ -475,6 +486,7 @@ pub struct PropertyAnimation<T: InterpolatedPropertyValue> {
     binding: Option<Rc<dyn Binding<T>>>,
     animation_handle: Option<crate::animations::AnimationHandle>,
     details: crate::abi::primitives::PropertyAnimation,
+    keep_alive: bool,
 }
 
 impl<T: InterpolatedPropertyValue> crate::abi::properties::Binding<T>
@@ -525,6 +537,10 @@ impl<T: InterpolatedPropertyValue> crate::abi::properties::Binding<T>
     fn set_notify_callback(self: Rc<Self>, notifier: Rc<dyn PropertyNotify>) {
         self.borrow_mut().notify = Some(Rc::downgrade(&notifier));
     }
+
+    fn keep_alive(self: Rc<Self>) -> bool {
+        return self.borrow().keep_alive;
+    }
 }
 
 impl<T: InterpolatedPropertyValue> crate::animations::Animated for RefCell<PropertyAnimation<T>> {
@@ -551,7 +567,21 @@ impl<T: InterpolatedPropertyValue> crate::animations::Animated for RefCell<Prope
                     notify.clone().mark_dirty(DirtyReason::BindingHasChanged);
                 }
             }
-            AnimationState::Stopped => {}
+            AnimationState::Stopped => {
+                {
+                    let mut this = self.borrow_mut();
+                    // When animating merely by value, then we might as well indicate to the property that we're no longer
+                    // needed.
+                    if this.binding.is_none() {
+                        this.keep_alive = false;
+                    }
+                }
+                if let Some(notify) =
+                    &self.borrow().notify.as_ref().and_then(|weak_notify| weak_notify.upgrade())
+                {
+                    notify.clone().mark_dirty(DirtyReason::BindingHasChanged);
+                }
+            }
         }
     }
     fn duration(self: Rc<Self>) -> std::time::Duration {
@@ -566,6 +596,7 @@ impl<T: InterpolatedPropertyValue> PropertyAnimation<T> {
         animation_data: &crate::abi::primitives::PropertyAnimation,
     ) -> Self {
         let mut this: PropertyAnimation<T> = Default::default();
+        this.keep_alive = true;
         this.details = animation_data.clone();
         this.current_property_value = target_value;
         this
@@ -577,6 +608,7 @@ impl<T: InterpolatedPropertyValue> PropertyAnimation<T> {
         animation_data: &crate::abi::primitives::PropertyAnimation,
     ) -> Self {
         let mut this: PropertyAnimation<T> = Default::default();
+        this.keep_alive = true;
         this.details = animation_data.clone();
         this.binding = Some(Property::make_binding(binding_function));
         this
@@ -642,6 +674,12 @@ mod test {
         animation.clone().update_animation_state(AnimationState::Running { progress: 1.0 });
         assert_eq!(compo.width.get(&dummy_eval_context), 200);
         assert_eq!(compo.width_times_two.get(&dummy_eval_context), 400);
+
+        animation.clone().update_animation_state(AnimationState::Stopped);
+        assert_eq!(compo.width.get(&dummy_eval_context), 200);
+        assert_eq!(compo.width_times_two.get(&dummy_eval_context), 400);
+
+        assert_eq!(Rc::strong_count(&animation), 1);
     }
 
     #[test]
