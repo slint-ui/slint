@@ -556,7 +556,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
     });
 
     let static_vtable_macro_doc = format!(
-        r"Instentiate a static {vtable} for a given type and implements `vtable::HasStaticVTable<{vtable}>` for it.
+        r"Instantiate a static {vtable} for a given type and implements `vtable::HasStaticVTable<{vtable}>` for it.
 
 ```ignore
 // The preview above is misleading because of rust-lang/rust#45939, so it is reproctuced bellow

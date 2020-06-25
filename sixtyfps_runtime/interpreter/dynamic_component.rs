@@ -295,7 +295,7 @@ fn generate_component(
     Rc::new(t)
 }
 
-pub fn instentiate(
+pub fn instantiate(
     component_type: Rc<ComponentDescription>,
     parent_ctx: Option<&EvaluationContext>,
 ) -> ComponentBox {
@@ -379,7 +379,7 @@ pub fn instentiate(
         match eval::eval_expression(&rep_in_comp.model, &*component_type, &eval_context) {
             crate::Value::Number(count) => {
                 vec.resize_with(count.round() as usize, || {
-                    instentiate(rep_in_comp.component_to_repeat.clone(), Some(&eval_context))
+                    instantiate(rep_in_comp.component_to_repeat.clone(), Some(&eval_context))
                 });
                 for (i, x) in vec.iter().enumerate() {
                     rep_in_comp
@@ -394,7 +394,7 @@ pub fn instentiate(
             }
             crate::Value::Array(a) => {
                 vec.resize_with(a.len(), || {
-                    instentiate(rep_in_comp.component_to_repeat.clone(), Some(&eval_context))
+                    instantiate(rep_in_comp.component_to_repeat.clone(), Some(&eval_context))
                 });
                 for (i, (x, val)) in vec.iter().zip(a.into_iter()).enumerate() {
                     rep_in_comp

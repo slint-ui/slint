@@ -38,7 +38,7 @@ impl ComponentDescription {
 
     /// Instantiate a runtime component from this ComponentDescription
     pub fn create(self: Rc<Self>) -> ComponentBox {
-        dynamic_component::instentiate(self, None)
+        dynamic_component::instantiate(self, None)
     }
 
     /// Set a value to property.

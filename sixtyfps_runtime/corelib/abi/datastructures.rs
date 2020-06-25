@@ -94,7 +94,7 @@ pub enum ItemTreeNode<T> {
         children_index: u32,
     },
     /// A placeholder for many instance of item in their own component which
-    /// are instentiated according to a model.
+    /// are instantiated according to a model.
     DynamicTree {
         /// the undex which is passed in the visit_dynamic callback.
         index: usize,

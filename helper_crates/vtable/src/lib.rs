@@ -41,7 +41,7 @@ impl Animal for Dog {
 // the vtable macro also exposed a macro to create a vtable
 AnimalVTable_static!(static DOG_VT for Dog);
 
-// with that, it is possible to instentiate a VBox
+// with that, it is possible to instantiate a VBox
 let animal_box = VBox::<AnimalVTable>::new(Dog(42));
 assert_eq!(animal_box.make_noise(2), 42 * 2);
 ```
