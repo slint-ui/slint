@@ -55,11 +55,14 @@ pub(crate) struct ItemWithinComponent {
 }
 
 impl ItemWithinComponent {
-    pub(crate) unsafe fn item_from_component(&self, mem: *const u8) -> vtable::VRef<ItemVTable> {
-        vtable::VRef::from_raw(
+    pub(crate) unsafe fn item_from_component(
+        &self,
+        mem: *const u8,
+    ) -> Pin<vtable::VRef<ItemVTable>> {
+        Pin::new_unchecked(vtable::VRef::from_raw(
             NonNull::from(self.rtti.vtable),
             NonNull::new(mem.add(self.offset) as _).unwrap(),
-        )
+        ))
     }
 }
 
@@ -432,12 +435,12 @@ pub fn instantiate(
                     {
                         if expr.is_constant() {
                             let v = eval::eval_expression(expr, &*component_type, &eval_context);
-                            prop.set(&*mem.add(*offset), v).unwrap();
+                            prop.set(Pin::new_unchecked(&*mem.add(*offset)), v).unwrap();
                         } else {
                             let expr = expr.clone();
                             let component_type = component_type.clone();
                             prop.set_binding(
-                                &*mem.add(*offset),
+                                Pin::new_unchecked(&*mem.add(*offset)),
                                 Box::new(move |eval_context| {
                                     eval::eval_expression(&expr, &*component_type, eval_context)
                                 }),

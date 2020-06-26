@@ -1,3 +1,5 @@
+use core::convert::{TryFrom, TryInto};
+use core::pin::Pin;
 use sixtyfps_compilerlib::expression_tree::{Expression, NamedReference};
 use sixtyfps_compilerlib::{object_tree::ElementRc, typeregister::Type};
 use sixtyfps_corelib as corelib;
@@ -5,21 +7,17 @@ use sixtyfps_corelib::{
     abi::datastructures::ItemRef, abi::primitives::PropertyAnimation, EvaluationContext, Resource,
     SharedString,
 };
-use std::{
-    collections::HashMap,
-    convert::{TryFrom, TryInto},
-    rc::Rc,
-};
+use std::{collections::HashMap, rc::Rc};
 
 pub trait ErasedPropertyInfo {
-    fn get(&self, item: ItemRef, context: &EvaluationContext) -> Value;
-    fn set(&self, item: ItemRef, value: Value);
-    fn set_binding(&self, item: ItemRef, binding: Box<dyn Fn(&EvaluationContext) -> Value>);
+    fn get(&self, item: Pin<ItemRef>, context: &EvaluationContext) -> Value;
+    fn set(&self, item: Pin<ItemRef>, value: Value);
+    fn set_binding(&self, item: Pin<ItemRef>, binding: Box<dyn Fn(&EvaluationContext) -> Value>);
     fn offset(&self) -> usize;
-    fn set_animated_value(&self, item: ItemRef, value: Value, animation: &PropertyAnimation);
+    fn set_animated_value(&self, item: Pin<ItemRef>, value: Value, animation: &PropertyAnimation);
     fn set_animated_binding(
         &self,
-        item: ItemRef,
+        item: Pin<ItemRef>,
         binding: Box<dyn Fn(&EvaluationContext) -> Value>,
         animation: &PropertyAnimation,
     );
@@ -28,28 +26,30 @@ pub trait ErasedPropertyInfo {
 impl<Item: vtable::HasStaticVTable<corelib::abi::datastructures::ItemVTable>> ErasedPropertyInfo
     for &'static dyn corelib::rtti::PropertyInfo<Item, Value>
 {
-    fn get(&self, item: ItemRef, context: &EvaluationContext) -> Value {
-        (*self).get(item.downcast().unwrap(), context).unwrap()
+    fn get(&self, item: Pin<ItemRef>, context: &EvaluationContext) -> Value {
+        (*self).get(ItemRef::downcast_pin(item).unwrap(), context).unwrap()
     }
-    fn set(&self, item: ItemRef, value: Value) {
-        (*self).set(item.downcast().unwrap(), value).unwrap()
+    fn set(&self, item: Pin<ItemRef>, value: Value) {
+        (*self).set(ItemRef::downcast_pin(item).unwrap(), value).unwrap()
     }
-    fn set_binding(&self, item: ItemRef, binding: Box<dyn Fn(&EvaluationContext) -> Value>) {
-        (*self).set_binding(item.downcast().unwrap(), binding);
+    fn set_binding(&self, item: Pin<ItemRef>, binding: Box<dyn Fn(&EvaluationContext) -> Value>) {
+        (*self).set_binding(ItemRef::downcast_pin(item).unwrap(), binding);
     }
     fn offset(&self) -> usize {
         (*self).offset()
     }
-    fn set_animated_value(&self, item: ItemRef, value: Value, animation: &PropertyAnimation) {
-        (*self).set_animated_value(item.downcast().unwrap(), value, animation).unwrap()
+    fn set_animated_value(&self, item: Pin<ItemRef>, value: Value, animation: &PropertyAnimation) {
+        (*self).set_animated_value(ItemRef::downcast_pin(item).unwrap(), value, animation).unwrap()
     }
     fn set_animated_binding(
         &self,
-        item: ItemRef,
+        item: Pin<ItemRef>,
         binding: Box<dyn Fn(&EvaluationContext) -> Value>,
         animation: &PropertyAnimation,
     ) {
-        (*self).set_animated_binding(item.downcast().unwrap(), binding, animation).unwrap();
+        (*self)
+            .set_animated_binding(ItemRef::downcast_pin(item).unwrap(), binding, animation)
+            .unwrap();
     }
 }
 
@@ -138,7 +138,7 @@ pub fn eval_expression(
                 if let Some(x) = component_type.custom_properties.get(name) {
                     return unsafe {
                         x.prop
-                            .get(&*component_mem.offset(x.offset as isize), &eval_context)
+                            .get(Pin::new_unchecked(&*component_mem.add(x.offset)), &eval_context)
                             .unwrap()
                     };
                 }
@@ -156,7 +156,7 @@ pub fn eval_expression(
                 unsafe {
                     x.prop
                         .get(
-                            &*eval_context.component.as_ptr().offset(x.offset as isize),
+                            Pin::new_unchecked(&*eval_context.component.as_ptr().add(x.offset)),
                             &eval_context,
                         )
                         .unwrap()
@@ -173,7 +173,7 @@ pub fn eval_expression(
                 unsafe {
                     x.prop
                         .get(
-                            &*eval_context.component.as_ptr().offset(x.offset as isize),
+                            Pin::new_unchecked(&*eval_context.component.as_ptr().add(x.offset)),
                             &eval_context,
                         )
                         .unwrap()
@@ -256,7 +256,7 @@ pub fn eval_expression(
                 if element.borrow().id == component.root_element.borrow().id {
                     if let Some(x) = component_type.custom_properties.get(name) {
                         unsafe {
-                            let p = &*component_mem.offset(x.offset as isize);
+                            let p = Pin::new_unchecked(&*component_mem.add(x.offset));
                             x.prop.set(p, eval(x.prop.get(p, &eval_context).unwrap())).unwrap();
                         }
                         return Value::Void;

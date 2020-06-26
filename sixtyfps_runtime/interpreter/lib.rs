@@ -55,7 +55,7 @@ impl ComponentDescription {
             return Err(());
         }
         let x = self.custom_properties.get(name).ok_or(())?;
-        unsafe { x.prop.set(&*component.as_ptr().add(x.offset), value) }
+        unsafe { x.prop.set(Pin::new_unchecked(&*component.as_ptr().add(x.offset)), value) }
     }
 
     /// Set a binding to a property
@@ -72,7 +72,9 @@ impl ComponentDescription {
             return Err(());
         }
         let x = self.custom_properties.get(name).ok_or(())?;
-        unsafe { x.prop.set_binding(&*component.as_ptr().add(x.offset), binding) };
+        unsafe {
+            x.prop.set_binding(Pin::new_unchecked(&*component.as_ptr().add(x.offset)), binding)
+        };
         Ok(())
     }
 
@@ -85,7 +87,12 @@ impl ComponentDescription {
             return Err(());
         }
         let x = self.custom_properties.get(name).ok_or(())?;
-        unsafe { x.prop.get(&*eval_context.component.as_ptr().add(x.offset), eval_context) }
+        unsafe {
+            x.prop.get(
+                Pin::new_unchecked(&*eval_context.component.as_ptr().add(x.offset)),
+                eval_context,
+            )
+        }
     }
 
     /// Sets an handler for a signal
