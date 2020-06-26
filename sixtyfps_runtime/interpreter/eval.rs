@@ -11,16 +11,14 @@ use std::{collections::HashMap, rc::Rc};
 
 pub trait ErasedPropertyInfo {
     fn get(&self, item: Pin<ItemRef>, context: &EvaluationContext) -> Value;
-    fn set(&self, item: Pin<ItemRef>, value: Value);
-    fn set_binding(&self, item: Pin<ItemRef>, binding: Box<dyn Fn(&EvaluationContext) -> Value>);
-    fn offset(&self) -> usize;
-    fn set_animated_value(&self, item: Pin<ItemRef>, value: Value, animation: &PropertyAnimation);
-    fn set_animated_binding(
+    fn set(&self, item: Pin<ItemRef>, value: Value, animation: Option<PropertyAnimation>);
+    fn set_binding(
         &self,
         item: Pin<ItemRef>,
         binding: Box<dyn Fn(&EvaluationContext) -> Value>,
-        animation: &PropertyAnimation,
+        animation: Option<PropertyAnimation>,
     );
+    fn offset(&self) -> usize;
 }
 
 impl<Item: vtable::HasStaticVTable<corelib::abi::datastructures::ItemVTable>> ErasedPropertyInfo
@@ -29,27 +27,19 @@ impl<Item: vtable::HasStaticVTable<corelib::abi::datastructures::ItemVTable>> Er
     fn get(&self, item: Pin<ItemRef>, context: &EvaluationContext) -> Value {
         (*self).get(ItemRef::downcast_pin(item).unwrap(), context).unwrap()
     }
-    fn set(&self, item: Pin<ItemRef>, value: Value) {
-        (*self).set(ItemRef::downcast_pin(item).unwrap(), value).unwrap()
+    fn set(&self, item: Pin<ItemRef>, value: Value, animation: Option<PropertyAnimation>) {
+        (*self).set(ItemRef::downcast_pin(item).unwrap(), value, animation).unwrap()
     }
-    fn set_binding(&self, item: Pin<ItemRef>, binding: Box<dyn Fn(&EvaluationContext) -> Value>) {
-        (*self).set_binding(ItemRef::downcast_pin(item).unwrap(), binding);
-    }
-    fn offset(&self) -> usize {
-        (*self).offset()
-    }
-    fn set_animated_value(&self, item: Pin<ItemRef>, value: Value, animation: &PropertyAnimation) {
-        (*self).set_animated_value(ItemRef::downcast_pin(item).unwrap(), value, animation).unwrap()
-    }
-    fn set_animated_binding(
+    fn set_binding(
         &self,
         item: Pin<ItemRef>,
         binding: Box<dyn Fn(&EvaluationContext) -> Value>,
-        animation: &PropertyAnimation,
+        animation: Option<PropertyAnimation>,
     ) {
-        (*self)
-            .set_animated_binding(ItemRef::downcast_pin(item).unwrap(), binding, animation)
-            .unwrap();
+        (*self).set_binding(ItemRef::downcast_pin(item).unwrap(), binding, animation).unwrap();
+    }
+    fn offset(&self) -> usize {
+        (*self).offset()
     }
 }
 
@@ -257,7 +247,9 @@ pub fn eval_expression(
                     if let Some(x) = component_type.custom_properties.get(name) {
                         unsafe {
                             let p = Pin::new_unchecked(&*component_mem.add(x.offset));
-                            x.prop.set(p, eval(x.prop.get(p, &eval_context).unwrap())).unwrap();
+                            x.prop
+                                .set(p, eval(x.prop.get(p, &eval_context).unwrap()), None)
+                                .unwrap();
                         }
                         return Value::Void;
                     }
@@ -265,7 +257,7 @@ pub fn eval_expression(
                 let item_info = &component_type.items[element.borrow().id.as_str()];
                 let item = unsafe { item_info.item_from_component(component_mem) };
                 let p = &item_info.rtti.properties[name.as_str()];
-                p.set(item, eval(p.get(item, &eval_context)));
+                p.set(item, eval(p.get(item, &eval_context)), None);
                 Value::Void
             }
             _ => panic!("typechecking should make sure this was a PropertyReference"),

@@ -55,7 +55,7 @@ impl ComponentDescription {
             return Err(());
         }
         let x = self.custom_properties.get(name).ok_or(())?;
-        unsafe { x.prop.set(Pin::new_unchecked(&*component.as_ptr().add(x.offset)), value) }
+        unsafe { x.prop.set(Pin::new_unchecked(&*component.as_ptr().add(x.offset)), value, None) }
     }
 
     /// Set a binding to a property
@@ -73,7 +73,9 @@ impl ComponentDescription {
         }
         let x = self.custom_properties.get(name).ok_or(())?;
         unsafe {
-            x.prop.set_binding(Pin::new_unchecked(&*component.as_ptr().add(x.offset)), binding)
+            x.prop
+                .set_binding(Pin::new_unchecked(&*component.as_ptr().add(x.offset)), binding, None)
+                .unwrap()
         };
         Ok(())
     }

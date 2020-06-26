@@ -361,77 +361,37 @@ pub fn instantiate(
                     if let Some(prop_rtti) =
                         item_within_component.rtti.properties.get(prop.as_str())
                     {
+                        let maybe_animation = animation_for_property(
+                            component_type.clone(),
+                            &eval_context,
+                            &elem,
+                            prop,
+                        );
+
                         if expr.is_constant() {
-                            match &animation_for_property(
-                                component_type.clone(),
-                                &eval_context,
-                                &elem,
-                                prop,
-                            ) {
-                                Some(animation) => {
-                                    prop_rtti.set_animated_value(
-                                        item,
-                                        eval::eval_expression(
-                                            expr,
-                                            &*component_type,
-                                            &eval_context,
-                                        ),
-                                        animation,
-                                    );
-                                }
-                                None => {
-                                    prop_rtti.set(
-                                        item,
-                                        eval::eval_expression(
-                                            expr,
-                                            &*component_type,
-                                            &eval_context,
-                                        ),
-                                    );
-                                }
-                            };
+                            prop_rtti.set(
+                                item,
+                                eval::eval_expression(expr, &*component_type, &eval_context),
+                                maybe_animation,
+                            );
                         } else {
                             let expr = expr.clone();
                             let component_type = component_type.clone();
-                            match &animation_for_property(
-                                component_type.clone(),
-                                &eval_context,
-                                &elem,
-                                prop,
-                            ) {
-                                Some(animation) => {
-                                    prop_rtti.set_animated_binding(
-                                        item,
-                                        Box::new(move |eval_context| {
-                                            eval::eval_expression(
-                                                &expr,
-                                                &*component_type,
-                                                eval_context,
-                                            )
-                                        }),
-                                        animation,
-                                    );
-                                }
-                                None => {
-                                    prop_rtti.set_binding(
-                                        item,
-                                        Box::new(move |eval_context| {
-                                            eval::eval_expression(
-                                                &expr,
-                                                &*component_type,
-                                                eval_context,
-                                            )
-                                        }),
-                                    );
-                                }
-                            }
+
+                            prop_rtti.set_binding(
+                                item,
+                                Box::new(move |eval_context| {
+                                    eval::eval_expression(&expr, &*component_type, eval_context)
+                                }),
+                                maybe_animation,
+                            );
                         }
                     } else if let Some(PropertiesWithinComponent { offset, prop, .. }) =
                         component_type.custom_properties.get(prop.as_str())
                     {
                         if expr.is_constant() {
                             let v = eval::eval_expression(expr, &*component_type, &eval_context);
-                            prop.set(Pin::new_unchecked(&*mem.add(*offset)), v).unwrap();
+                            prop.set(Pin::new_unchecked(&*mem.add(*offset)), v, None).unwrap();
                         } else {
                             let expr = expr.clone();
                             let component_type = component_type.clone();
@@ -440,7 +400,9 @@ pub fn instantiate(
                                 Box::new(move |eval_context| {
                                     eval::eval_expression(&expr, &*component_type, eval_context)
                                 }),
-                            );
+                                None,
+                            )
+                            .unwrap();
                         }
                     } else {
                         panic!("unkown property {}", prop);
