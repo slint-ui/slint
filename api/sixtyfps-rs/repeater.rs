@@ -1,5 +1,7 @@
+use core::cell::RefCell;
+
 /// Component that can be instantiated by a repeater.
-pub trait RepeatedComponent: sixtyfps_corelib::abi::datastructures::Component + Default {
+pub trait RepeatedComponent: sixtyfps_corelib::abi::datastructures::Component {
     /// The data corresponding to the model
     type Data;
 
@@ -11,7 +13,7 @@ pub trait RepeatedComponent: sixtyfps_corelib::abi::datastructures::Component + 
 /// It helps instantiating the components `C`
 #[derive(Default)]
 pub struct Repeater<C> {
-    components: Vec<core::pin::Pin<Box<C>>>,
+    components: RefCell<Vec<core::pin::Pin<Box<C>>>>,
 }
 
 impl<Data, C> Repeater<C>
@@ -19,21 +21,21 @@ where
     C: RepeatedComponent<Data = Data>,
 {
     /// Called when the model is changed
-    pub fn update_model<'a>(&mut self, data: impl Iterator<Item = Data>)
+    pub fn update_model<'a>(&self, data: impl Iterator<Item = Data>, init: impl Fn() -> C)
     where
         Data: 'a,
     {
-        self.components.clear();
+        self.components.borrow_mut().clear();
         for (i, d) in data.enumerate() {
-            let c = C::default();
+            let c = init();
             c.update(i, d);
-            self.components.push(Box::pin(c));
+            self.components.borrow_mut().push(Box::pin(c));
         }
     }
 
     /// Call the visitor for each component
     pub fn visit(&self, mut visitor: sixtyfps_corelib::abi::datastructures::ItemVisitorRefMut) {
-        for c in &self.components {
+        for c in self.components.borrow().iter() {
             c.as_ref().visit_children_item(-1, visitor.borrow_mut());
         }
     }

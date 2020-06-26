@@ -114,6 +114,7 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
     let mut repeated_element_components = Vec::new();
     let mut repeated_visit_branch = Vec::new();
     let mut init = Vec::new();
+    let mut init_repeaters = Vec::new();
     super::build_array_helper(component, |item_rc, children_index| {
         let item = item_rc.borrow();
         if let Some(repeated) = &item.repeated {
@@ -148,8 +149,12 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
 
             assert!(repeated.model.is_constant(), "TODO: currently model can only be const");
             let model = compile_expression(&repeated.model, component);
-            init.push(quote! {
-                self_.#repeater_id.update_model(#model);
+            init_repeaters.push(quote! {
+                self_pined.#repeater_id.update_model(#model, || {
+                    let mut new_comp = #rep_component_id::default();
+                    new_comp.parent = self_pined.self_weak.get().unwrap().clone();
+                    new_comp
+                });
             });
 
             item_tree_array.push(quote!(
@@ -230,12 +235,13 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
         .iter()
         .map(|(path, id)| {
             let symbol = quote::format_ident!("SFPS_EMBEDDED_RESOURCE_{}", id);
-            quote!(const #symbol: &'static [u8] = std::include_bytes!(#path);)
+            quote!(const #symbol: &'static [u8] = ::core::include_bytes!(#path);)
         })
         .collect();
 
     let layouts = compute_layout(component);
 
+    let mut parent_component_type = None;
     if let Some(parent_element) = component.parent_element.upgrade() {
         declared_property_vars.push(quote::format_ident!("index"));
         declared_property_types.push(quote!(usize));
@@ -251,17 +257,27 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
                 quote!().into()
             }),
         );
+
+        parent_component_type = Some(self::component_id(
+            &parent_element.borrow().enclosing_component.upgrade().unwrap(),
+        ));
     } else {
         property_and_signal_accessors.push(quote! {
             fn run(self) {
                 use sixtyfps::re_exports::*;
                 let window = sixtyfps::create_window();
-                let self_pined = self;
-                pin_mut!(self_pined);
+                let self_pined = Rc::pin(self);
+                self_pined.self_weak.set(WeakPin::downgrade(self_pined.clone()))
+                    .map_err(|_|())
+                    .expect("Can only be pinned once");
+                #(#init_repeaters)*
                 window.run(VRef::new_pin(self_pined.as_ref()));
             }
         });
     };
+
+    // Trick so we can use `#()` as a `if let Some` in `quote!`
+    let parent_component_type = parent_component_type.iter().collect::<Vec<_>>();
 
     Some(quote!(
         #(#resource_symbols)*
@@ -275,6 +291,8 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
             #(#declared_property_vars : sixtyfps::re_exports::Property<#declared_property_types>,)*
             #(#declared_signals : sixtyfps::re_exports::Signal<()>,)*
             #(#repeated_element_names : sixtyfps::re_exports::Repeater<#repeated_element_components>,)*
+            self_weak: sixtyfps::re_exports::OnceCell<sixtyfps::re_exports::WeakPin<#component_id>>,
+            #(parent : sixtyfps::re_exports::WeakPin<#parent_component_type>,)*
         }
 
         impl ::core::default::Default for #component_id {
@@ -283,10 +301,12 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
                 use sixtyfps::re_exports::*;
                 ComponentVTable_static!(static VT for #component_id);
                 let mut self_ = Self {
-                    #(#item_names : Default::default(),)*
-                    #(#declared_property_vars : Default::default(),)*
-                    #(#declared_signals : Default::default(),)*
-                    #(#repeated_element_names : Default::default(),)*
+                    #(#item_names : ::core::default::Default::default(),)*
+                    #(#declared_property_vars : ::core::default::Default::default(),)*
+                    #(#declared_signals : ::core::default::Default::default(),)*
+                    #(#repeated_element_names : ::core::default::Default::default(),)*
+                    self_weak : ::core::default::Default::default(),
+                    #(parent : sixtyfps::re_exports::WeakPin::<#parent_component_type>::default(),)*
                 };
                 #(#init)*
                 self_
@@ -349,7 +369,10 @@ fn property_animation_tokens(
             })
             .collect();
 
-        Some(quote!(&sixtyfps::re_exports::PropertyAnimation{#(#bindings)*, ..Default::default()}))
+        Some(quote!(&sixtyfps::re_exports::PropertyAnimation{
+            #(#bindings)*,
+            ..::core::default::Default::default()
+        }))
     } else {
         None
     }
@@ -393,28 +416,34 @@ fn access_member(
     name: &str,
     component: &Rc<Component>,
     context: TokenStream,
+    component_rust: TokenStream,
 ) -> (TokenStream, TokenStream) {
     let e = element.borrow();
 
     let enclosing_component = e.enclosing_component.upgrade().unwrap();
-    let component_id = component_id(&enclosing_component);
     if Rc::ptr_eq(component, &enclosing_component) {
+        let component_id = component_id(&enclosing_component);
         let name_ident = quote::format_ident!("{}", name);
-        let comp = quote!(#context.get_component::<#component_id>().unwrap());
         if e.property_declarations.contains_key(name) {
-            (quote!(#component_id::field_offsets().#name_ident.apply_pin(#comp)), context)
+            (quote!(#component_id::field_offsets().#name_ident.apply_pin(#component_rust)), context)
         } else {
             let elem_ident = quote::format_ident!("{}", e.id);
             let elem_ty = quote::format_ident!("{}", e.base_type.as_builtin().class_name);
             (
                 quote!((#component_id::field_offsets().#elem_ident + #elem_ty::field_offsets().#name_ident)
-                    .apply_pin(#comp)
+                    .apply_pin(#component_rust)
                 ),
                 context,
             )
         }
     } else {
-        access_member(element, name, &enclosing_component, quote!(#context.parent_context.unwrap()))
+        access_member(
+            element,
+            name,
+            &enclosing_component,
+            quote!(#context.parent_context.unwrap()),
+            quote!(#component_rust.parent.upgrade().unwrap().as_ref()),
+        )
     }
 }
 
@@ -439,6 +468,7 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                 name.as_str(),
                 component,
                 quote!(context),
+                quote!(_self),
             );
             quote!(#access.get(#context))
         }
@@ -480,6 +510,7 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                 name.as_str(),
                 component,
                 quote!(context),
+                quote!(_self),
             );
             quote!(#access.emit(#context, ()))
         }
@@ -498,6 +529,7 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                     name.as_str(),
                     component,
                     quote!(context),
+                    quote!(_self),
                 );
                 let rhs = compile_expression(&*rhs, &component);
                 let op = proc_macro2::Punct::new(*op, proc_macro2::Spacing::Alone);

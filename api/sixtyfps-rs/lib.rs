@@ -73,8 +73,7 @@ pub(crate) mod repeater;
 pub mod re_exports {
     pub use crate::repeater::*;
     pub use const_field_offset::{self, FieldOffsets};
-    pub use once_cell::sync::Lazy;
-    pub use pin_utils::pin_mut;
+    pub use once_cell::unsync::OnceCell;
     pub use sixtyfps_corelib::abi::datastructures::*;
     pub use sixtyfps_corelib::abi::primitives::*;
     pub use sixtyfps_corelib::abi::properties::Property;
@@ -89,6 +88,7 @@ pub mod re_exports {
     pub use sixtyfps_corelib::Resource;
     pub use sixtyfps_corelib::SharedString;
     pub use vtable::{self, *};
+    pub use weak_pin::rc::*;
 }
 
 /// Creates a new window to render components in.
