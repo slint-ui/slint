@@ -95,6 +95,7 @@ pub struct ComponentDescription {
     it: Vec<ItemTreeNode<crate::dynamic_type::Instance>>,
     pub(crate) items: HashMap<String, ItemWithinComponent>,
     pub(crate) custom_properties: HashMap<String, PropertiesWithinComponent>,
+    pub(crate) custom_property_animations: HashMap<String, ElementRc>,
     /// the usize is the offset within `mem` to the Signal<()>
     pub(crate) custom_signals: HashMap<String, usize>,
     /// The repeaters
@@ -245,10 +246,28 @@ fn generate_component(
             dynamic_type::StaticTypeInfo::new::<Property<T>>(),
         )
     }
+    fn animated_property_info<
+        T: Clone + Default + sixtyfps_corelib::abi::properties::InterpolatedPropertyValue + 'static,
+    >() -> (Box<dyn PropertyInfo<u8, eval::Value>>, dynamic_type::StaticTypeInfo)
+    where
+        T: std::convert::TryInto<eval::Value>,
+        eval::Value: std::convert::TryInto<T>,
+    {
+        // Fixme: using u8 in PropertyInfo<> is not sound, we would need to materialize a type for out component
+        (
+            Box::new(unsafe {
+                rtti::MaybeAnimatedPropertyInfoWrapper(
+                    vtable::FieldOffset::<u8, Property<T>, _>::new_from_offset_pinned(0),
+                )
+            }),
+            dynamic_type::StaticTypeInfo::new::<Property<T>>(),
+        )
+    }
+
     for (name, decl) in &root_component.root_element.borrow().property_declarations {
         let (prop, type_info) = match decl.property_type {
-            Type::Float32 => property_info::<f32>(),
-            Type::Int32 => property_info::<i32>(),
+            Type::Float32 => animated_property_info::<f32>(),
+            Type::Int32 => animated_property_info::<i32>(),
             Type::String => property_info::<SharedString>(),
             Type::Color => property_info::<u32>(),
             Type::Resource => property_info::<Resource>(),
@@ -291,6 +310,11 @@ fn generate_component(
         it: tree_array,
         items: items_types,
         custom_properties,
+        custom_property_animations: root_component
+            .root_element
+            .borrow()
+            .property_animations
+            .clone(),
         custom_signals,
         original: root_component.clone(),
         repeater,
@@ -302,10 +326,10 @@ fn generate_component(
 fn animation_for_property(
     component_type: Rc<ComponentDescription>,
     eval_context: &EvaluationContext,
-    element: &Element,
+    all_animations: &HashMap<String, ElementRc>,
     property_name: &String,
 ) -> Option<PropertyAnimation> {
-    match element.property_animations.get(property_name) {
+    match all_animations.get(property_name) {
         Some(anim_elem) => {
             use sixtyfps_corelib::rtti::BuiltinItem;
             let mut animation = PropertyAnimation::default();
@@ -319,6 +343,20 @@ fn animation_for_property(
         }
         None => None,
     }
+}
+
+fn animation_for_element_property(
+    component_type: Rc<ComponentDescription>,
+    eval_context: &EvaluationContext,
+    element: &Element,
+    property_name: &String,
+) -> Option<PropertyAnimation> {
+    animation_for_property(
+        component_type,
+        eval_context,
+        &element.property_animations,
+        property_name,
+    )
 }
 
 pub fn instantiate(
@@ -361,7 +399,7 @@ pub fn instantiate(
                     if let Some(prop_rtti) =
                         item_within_component.rtti.properties.get(prop.as_str())
                     {
-                        let maybe_animation = animation_for_property(
+                        let maybe_animation = animation_for_element_property(
                             component_type.clone(),
                             &eval_context,
                             &elem,
@@ -386,23 +424,34 @@ pub fn instantiate(
                                 maybe_animation,
                             );
                         }
-                    } else if let Some(PropertiesWithinComponent { offset, prop, .. }) =
-                        component_type.custom_properties.get(prop.as_str())
+                    } else if let Some(PropertiesWithinComponent {
+                        offset, prop: prop_info, ..
+                    }) = component_type.custom_properties.get(prop.as_str())
                     {
+                        let maybe_animation = animation_for_property(
+                            component_type.clone(),
+                            &eval_context,
+                            &component_type.custom_property_animations,
+                            prop,
+                        );
+
                         if expr.is_constant() {
                             let v = eval::eval_expression(expr, &*component_type, &eval_context);
-                            prop.set(Pin::new_unchecked(&*mem.add(*offset)), v, None).unwrap();
+                            prop_info
+                                .set(Pin::new_unchecked(&*mem.add(*offset)), v, maybe_animation)
+                                .unwrap();
                         } else {
                             let expr = expr.clone();
                             let component_type = component_type.clone();
-                            prop.set_binding(
-                                Pin::new_unchecked(&*mem.add(*offset)),
-                                Box::new(move |eval_context| {
-                                    eval::eval_expression(&expr, &*component_type, eval_context)
-                                }),
-                                None,
-                            )
-                            .unwrap();
+                            prop_info
+                                .set_binding(
+                                    Pin::new_unchecked(&*mem.add(*offset)),
+                                    Box::new(move |eval_context| {
+                                        eval::eval_expression(&expr, &*component_type, eval_context)
+                                    }),
+                                    maybe_animation,
+                                )
+                                .unwrap();
                         }
                     } else {
                         panic!("unkown property {}", prop);
