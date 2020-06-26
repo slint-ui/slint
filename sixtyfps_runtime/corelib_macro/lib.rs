@@ -7,7 +7,7 @@ extern crate proc_macro;
 use proc_macro::TokenStream;
 use quote::quote;
 
-#[proc_macro_derive(BuiltinItem)]
+#[proc_macro_derive(BuiltinItem, attributes(rtti_field))]
 pub fn builtin_item(input: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(input as syn::DeriveInput);
 
@@ -29,6 +29,28 @@ pub fn builtin_item(input: TokenStream) -> TokenStream {
         .map(|f| (f.ident.as_ref().unwrap(), &f.ty))
         .unzip();
 
+    let (plain_field_names, plain_field_types): (Vec<_>, Vec<_>) = fields
+        .iter()
+        .filter(|f| {
+            f.attrs
+                .iter()
+                .find(|attr| {
+                    attr.parse_meta()
+                        .ok()
+                        .map(|meta| match meta {
+                            syn::Meta::Path(path) => path
+                                .get_ident()
+                                .map(|ident| ident.to_string() == "rtti_field")
+                                .unwrap_or(false),
+                            _ => false,
+                        })
+                        .unwrap_or(false)
+                })
+                .is_some()
+        })
+        .map(|f| (f.ident.as_ref().unwrap(), &f.ty))
+        .unzip();
+
     let signal_field_names =
         fields.iter().filter(|f| is_signal(&f.ty)).map(|f| f.ident.as_ref().unwrap());
 
@@ -45,6 +67,13 @@ pub fn builtin_item(input: TokenStream) -> TokenStream {
                     const O : MaybeAnimatedPropertyInfoWrapper<#item_name, #prop_field_types> =
                         MaybeAnimatedPropertyInfoWrapper(#item_name::field_offsets().#prop_field_names);
                     (stringify!(#prop_field_names), (&O).as_property_info())
+                } ),*]
+            }
+            fn fields<Value: ValueType>() -> Vec<(&'static str, &'static dyn FieldInfo<Self, Value>)> {
+                vec![#( {
+                    const O : FieldOffset<#item_name, #plain_field_types> =
+                        #item_name::field_offsets().#plain_field_names;
+                    (stringify!(#plain_field_names), &O as &'static dyn FieldInfo<Self, Value> )
                 } ),*]
             }
             fn signals() -> Vec<(&'static str, FieldOffset<Self, crate::Signal<()>>)> {

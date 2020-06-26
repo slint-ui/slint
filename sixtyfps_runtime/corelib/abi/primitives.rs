@@ -270,5 +270,6 @@ pub use crate::abi::datastructures::TouchAreaVTable;
 #[derive(FieldOffsets, Default, BuiltinItem, Clone)]
 #[pin]
 pub struct PropertyAnimation {
+    #[rtti_field]
     pub duration: i32,
 }

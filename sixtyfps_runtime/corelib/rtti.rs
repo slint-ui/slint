@@ -146,8 +146,24 @@ where
     }
 }
 
+pub trait FieldInfo<Item, Value> {
+    fn set_field(&self, item: &mut Item, value: Value) -> Result<(), ()>;
+}
+
+impl<Item, T, Value: 'static> FieldInfo<Item, Value> for FieldOffset<Item, T>
+where
+    Value: TryInto<T>,
+    T: TryInto<Value>,
+{
+    fn set_field(&self, item: &mut Item, value: Value) -> Result<(), ()> {
+        *self.apply_mut(item) = value.try_into().map_err(|_| ())?;
+        Ok(())
+    }
+}
+
 pub trait BuiltinItem: Sized {
     fn name() -> &'static str;
     fn properties<Value: ValueType>() -> Vec<(&'static str, &'static dyn PropertyInfo<Self, Value>)>;
+    fn fields<Value: ValueType>() -> Vec<(&'static str, &'static dyn FieldInfo<Self, Value>)>;
     fn signals() -> Vec<(&'static str, FieldOffset<Self, crate::Signal<()>>)>;
 }

@@ -307,16 +307,12 @@ fn animation_for_property(
 ) -> Option<PropertyAnimation> {
     match element.property_animations.get(property_name) {
         Some(anim_elem) => {
+            use sixtyfps_corelib::rtti::BuiltinItem;
             let mut animation = PropertyAnimation::default();
-            for (name, expr) in &anim_elem.borrow().bindings {
-                match name.as_str() {
-                    "duration" => {
-                        animation.duration =
-                            eval::eval_expression(&expr, &*component_type, &eval_context)
-                                .try_into()
-                                .unwrap()
-                    }
-                    _ => (),
+            for (prop, info) in PropertyAnimation::fields::<eval::Value>().into_iter() {
+                if let Some(binding) = &anim_elem.borrow().bindings.get(prop) {
+                    let value = eval::eval_expression(&binding, &*component_type, &eval_context);
+                    info.set_field(&mut animation, value).unwrap();
                 }
             }
             Some(animation)
