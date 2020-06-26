@@ -150,6 +150,7 @@ fn to_js_value<'cx>(
             }
             js_object.as_value(cx)
         }
+        Value::Color(c) => JsNumber::new(cx, c.as_argb_encoded()).as_value(cx),
     })
 }
 

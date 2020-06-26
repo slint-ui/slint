@@ -146,7 +146,7 @@ impl Default for LayoutInfo {
 }
 
 /// RGBA color
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Debug, Default)]
 #[repr(C)]
 pub struct Color {
     red: u8,
@@ -190,10 +190,24 @@ impl Color {
         (self.red, self.green, self.blue, self.alpha)
     }
 
+    /// Returns `(alpha, red, green, blue)` encoded as u32
+    pub fn as_argb_encoded(&self) -> u32 {
+        ((self.red as u32) << 16)
+            | ((self.green as u32) << 8)
+            | (self.blue as u32)
+            | ((self.alpha as u32) << 24)
+    }
+
     /// A constant for the black color
     pub const BLACK: Color = Color::from_rgb(0, 0, 0);
     /// A constant for the white color
     pub const WHITE: Color = Color::from_rgb(255, 255, 255);
+}
+
+impl From<u32> for Color {
+    fn from(encoded: u32) -> Self {
+        Color::from_argb_encoded(encoded)
+    }
 }
 
 /// A resource is a reference to binary data, for example images. They can be accessible on the file

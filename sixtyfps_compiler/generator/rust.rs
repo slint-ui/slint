@@ -18,7 +18,7 @@ fn rust_type(
         Type::Int32 => Ok(quote!(i32)),
         Type::Float32 => Ok(quote!(f32)),
         Type::String => Ok(quote!(sixtyfps::re_exports::SharedString)),
-        Type::Color => Ok(quote!(u32)),
+        Type::Color => Ok(quote!(sixtyfps::re_exports::Color)),
         Type::Bool => Ok(quote!(bool)),
         Type::Object(o) => {
             let elem = o.values().map(|v| rust_type(v, span)).collect::<Result<Vec<_>, _>>()?;
@@ -459,6 +459,9 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                 }
                 (Type::Float32, Type::Model) | (Type::Int32, Type::Model) => quote!((0..#f as i32)),
                 (Type::Array(_), Type::Model) => quote!(#f.iter().cloned()),
+                (Type::Float32, Type::Color) => {
+                    quote!(sixtyfps::re_exports::Color::from(#f as u32))
+                }
                 _ => f,
             }
         }

@@ -83,6 +83,7 @@ pub mod re_exports {
     pub use sixtyfps_corelib::layout::{
         solve_grid_layout, Constraint, GridLayoutCellData, GridLayoutData,
     };
+    pub use sixtyfps_corelib::Color;
     pub use sixtyfps_corelib::ComponentVTable_static;
     pub use sixtyfps_corelib::EvaluationContext;
     pub use sixtyfps_corelib::Resource;

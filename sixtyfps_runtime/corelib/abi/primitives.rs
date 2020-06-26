@@ -30,8 +30,7 @@ use corelib_macro::*;
 #[pin]
 /// The implementation of the `Rectangle` element
 pub struct Rectangle {
-    /// FIXME: make it a color
-    pub color: Property<u32>,
+    pub color: Property<Color>,
     pub x: Property<f32>,
     pub y: Property<f32>,
     pub width: Property<f32>,
@@ -60,9 +59,7 @@ impl Item for Rectangle {
                 y: Self::field_offsets().y.apply_pin(self).get(context),
                 width,
                 height,
-                color: Color::from_argb_encoded(
-                    Self::field_offsets().color.apply_pin(self).get(context),
-                ),
+                color: Self::field_offsets().color.apply_pin(self).get(context),
             }
         } else {
             RenderingPrimitive::NoContents
@@ -153,7 +150,7 @@ pub struct Text {
     pub text: Property<SharedString>,
     pub font_family: Property<SharedString>,
     pub font_pixel_size: Property<f32>,
-    pub color: Property<u32>,
+    pub color: Property<Color>,
     pub x: Property<f32>,
     pub y: Property<f32>,
     pub cached_rendering_data: CachedRenderingData,
@@ -179,9 +176,7 @@ impl Item for Text {
             text: Self::field_offsets().text.apply_pin(self).get(context),
             font_family: Self::field_offsets().font_family.apply_pin(self).get(context),
             font_pixel_size: Self::field_offsets().font_pixel_size.apply_pin(self).get(context),
-            color: Color::from_argb_encoded(
-                Self::field_offsets().color.apply_pin(self).get(context),
-            ),
+            color: Self::field_offsets().color.apply_pin(self).get(context),
         }
     }
 

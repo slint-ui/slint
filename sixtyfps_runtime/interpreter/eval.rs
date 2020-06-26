@@ -4,8 +4,8 @@ use sixtyfps_compilerlib::expression_tree::{Expression, NamedReference};
 use sixtyfps_compilerlib::{object_tree::ElementRc, typeregister::Type};
 use sixtyfps_corelib as corelib;
 use sixtyfps_corelib::{
-    abi::datastructures::ItemRef, abi::primitives::PropertyAnimation, EvaluationContext, Resource,
-    SharedString,
+    abi::datastructures::ItemRef, abi::primitives::PropertyAnimation, Color, EvaluationContext,
+    Resource, SharedString,
 };
 use std::{collections::HashMap, rc::Rc};
 
@@ -62,6 +62,8 @@ pub enum Value {
     Array(Vec<Value>),
     /// An object
     Object(HashMap<String, Value>),
+    /// A color
+    Color(Color),
 }
 
 impl Default for Value {
@@ -105,6 +107,7 @@ declare_value_conversion!(String => [SharedString] );
 declare_value_conversion!(Bool => [bool] );
 declare_value_conversion!(Resource => [Resource] );
 declare_value_conversion!(Object => [HashMap<String, Value>] );
+declare_value_conversion!(Color => [Color] );
 
 /// Evaluate an expression and return a Value as the result of this expression
 pub fn eval_expression(
@@ -186,6 +189,7 @@ pub fn eval_expression(
                 (Value::Number(n), Type::String) => {
                     Value::String(SharedString::from(format!("{}", n).as_str()))
                 }
+                (Value::Number(n), Type::Color) => Value::Color(Color::from(n as u32)),
                 (v, _) => v,
             }
         }

@@ -13,7 +13,7 @@ use sixtyfps_corelib::abi::primitives::PropertyAnimation;
 use sixtyfps_corelib::abi::slice::Slice;
 use sixtyfps_corelib::rtti::PropertyInfo;
 use sixtyfps_corelib::ComponentRefPin;
-use sixtyfps_corelib::{rtti, EvaluationContext, Property, SharedString, Signal};
+use sixtyfps_corelib::{rtti, Color, EvaluationContext, Property, SharedString, Signal};
 use std::collections::HashMap;
 use std::{pin::Pin, rc::Rc};
 
@@ -269,7 +269,7 @@ fn generate_component(
             Type::Float32 => animated_property_info::<f32>(),
             Type::Int32 => animated_property_info::<i32>(),
             Type::String => property_info::<SharedString>(),
-            Type::Color => property_info::<u32>(),
+            Type::Color => property_info::<Color>(),
             Type::Resource => property_info::<Resource>(),
             Type::Bool => property_info::<bool>(),
             Type::Signal => {
