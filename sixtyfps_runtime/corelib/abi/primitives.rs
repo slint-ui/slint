@@ -52,7 +52,7 @@ impl Item for Rectangle {
         self: Pin<&Self>,
         context: &crate::EvaluationContext,
     ) -> RenderingPrimitive {
-        let width = Self::field_offsets().x.apply_pin(self).get(context);
+        let width = Self::field_offsets().width.apply_pin(self).get(context);
         let height = Self::field_offsets().height.apply_pin(self).get(context);
         if width > 0. && height > 0. {
             RenderingPrimitive::Rectangle {
