@@ -26,7 +26,7 @@ pub trait ErasedPropertyInfo {
 }
 
 impl<Item: vtable::HasStaticVTable<corelib::abi::datastructures::ItemVTable>> ErasedPropertyInfo
-    for corelib::rtti::PropertyInfoOption<'static, Item, Value>
+    for &'static dyn corelib::rtti::PropertyInfo<Item, Value>
 {
     fn get(&self, item: ItemRef, context: &EvaluationContext) -> Value {
         (*self).get(item.downcast().unwrap(), context).unwrap()
@@ -49,7 +49,7 @@ impl<Item: vtable::HasStaticVTable<corelib::abi::datastructures::ItemVTable>> Er
         binding: Box<dyn Fn(&EvaluationContext) -> Value>,
         animation: &PropertyAnimation,
     ) {
-        (*self).set_animated_binding(item.downcast().unwrap(), binding, animation);
+        (*self).set_animated_binding(item.downcast().unwrap(), binding, animation).unwrap();
     }
 }
 

@@ -13,82 +13,11 @@ macro_rules! declare_ValueType {
 }
 declare_ValueType![bool, u32, u64, i32, i64, f32, f64, crate::SharedString, crate::Resource];
 
-pub enum PropertyInfoOption<'a, Item, Value> {
-    SimpleProperty(&'a dyn PropertyInfo<Item, Value>),
-    AnimatedProperty(&'a dyn AnimatedPropertyInfo<Item, Value>),
-}
-
-impl<'a, Item, Value> PropertyInfoOption<'a, Item, Value> {
-    pub fn get(&self, item: &Item, context: &crate::EvaluationContext) -> Result<Value, ()> {
-        match self {
-            PropertyInfoOption::SimpleProperty(pi) => pi.get(item, context),
-            PropertyInfoOption::AnimatedProperty(pi) => pi.get(item, context),
-        }
-    }
-    pub fn set(&self, item: &Item, value: Value) -> Result<(), ()> {
-        match self {
-            PropertyInfoOption::SimpleProperty(pi) => pi.set(item, value),
-            PropertyInfoOption::AnimatedProperty(pi) => pi.set(item, value),
-        }
-    }
-    pub fn set_binding(
-        &self,
-        item: &Item,
-        binding: Box<dyn Fn(&crate::EvaluationContext) -> Value>,
-    ) {
-        match self {
-            PropertyInfoOption::SimpleProperty(pi) => pi.set_binding(item, binding),
-            PropertyInfoOption::AnimatedProperty(pi) => pi.set_binding(item, binding),
-        }
-    }
-    pub fn set_animated_value(
-        &self,
-        item: &Item,
-        value: Value,
-        animation: &crate::abi::primitives::PropertyAnimation,
-    ) -> Result<(), ()> {
-        match self {
-            PropertyInfoOption::SimpleProperty(_) => Err(()),
-            PropertyInfoOption::AnimatedProperty(pi) => {
-                pi.set_animated_value(item, value, animation)
-            }
-        }
-    }
-    pub fn set_animated_binding(
-        &self,
-        item: &Item,
-        binding: Box<dyn Fn(&crate::EvaluationContext) -> Value>,
-        animation: &crate::abi::primitives::PropertyAnimation,
-    ) -> bool {
-        match self {
-            PropertyInfoOption::SimpleProperty(_) => false,
-            PropertyInfoOption::AnimatedProperty(pi) => {
-                pi.set_animated_binding(item, binding, animation);
-                true
-            }
-        }
-    }
-    /// The offset of the property in the item.
-    /// The use of this is unsafe
-    pub fn offset(&self) -> usize {
-        match self {
-            PropertyInfoOption::SimpleProperty(pi) => pi.offset(),
-            PropertyInfoOption::AnimatedProperty(pi) => pi.offset(),
-        }
-    }
-}
-
 pub trait PropertyInfo<Item, Value> {
     fn get(&self, item: &Item, context: &crate::EvaluationContext) -> Result<Value, ()>;
     fn set(&self, item: &Item, value: Value) -> Result<(), ()>;
     fn set_binding(&self, item: &Item, binding: Box<dyn Fn(&crate::EvaluationContext) -> Value>);
 
-    /// The offset of the property in the item.
-    /// The use of this is unsafe
-    fn offset(&self) -> usize;
-}
-
-pub trait AnimatedPropertyInfo<Item, Value>: PropertyInfo<Item, Value> {
     fn set_animated_value(
         &self,
         item: &Item,
@@ -100,7 +29,20 @@ pub trait AnimatedPropertyInfo<Item, Value>: PropertyInfo<Item, Value> {
         item: &Item,
         binding: Box<dyn Fn(&crate::EvaluationContext) -> Value>,
         animation: &crate::abi::primitives::PropertyAnimation,
-    );
+    ) -> Result<(), ()>;
+
+    /// The offset of the property in the item.
+    /// The use of this is unsafe
+    fn offset(&self) -> usize;
+
+    /// Returns self. This is just a trick to get auto-deref specialization of
+    /// MaybeAnimatedPropertyInfoWrapper working.
+    fn as_property_info(&'static self) -> &'static dyn PropertyInfo<Item, Value>
+    where
+        Self: Sized,
+    {
+        self
+    }
 }
 
 impl<Item, T: Clone, Value: 'static> PropertyInfo<Item, Value>
@@ -121,18 +63,48 @@ where
             binding(context).try_into().map_err(|_| ()).expect("binding was of the wrong type")
         });
     }
+    fn set_animated_value(
+        &self,
+        _item: &Item,
+        _value: Value,
+        _animation: &crate::abi::primitives::PropertyAnimation,
+    ) -> Result<(), ()> {
+        Err(())
+    }
+    fn set_animated_binding(
+        &self,
+        _item: &Item,
+        _binding: Box<dyn Fn(&crate::EvaluationContext) -> Value>,
+        _animation: &crate::abi::primitives::PropertyAnimation,
+    ) -> Result<(), ()> {
+        Err(())
+    }
     fn offset(&self) -> usize {
         self.get_byte_offset()
     }
 }
 
-impl<Item, T: Clone, Value: 'static> AnimatedPropertyInfo<Item, Value>
-    for FieldOffset<Item, crate::Property<T>>
+/// Wraper for a field offset that optonally implement PropertyInfo and uses
+/// the auto deref specialization trick
+#[derive(derive_more::Deref)]
+pub struct MaybeAnimatedPropertyInfoWrapper<T, U>(pub FieldOffset<T, U>);
+
+impl<Item, T: Clone, Value: 'static> PropertyInfo<Item, Value>
+    for MaybeAnimatedPropertyInfoWrapper<Item, crate::Property<T>>
 where
     Value: TryInto<T>,
     T: TryInto<Value>,
     T: crate::abi::properties::InterpolatedPropertyValue,
 {
+    fn get(&self, item: &Item, context: &crate::EvaluationContext) -> Result<Value, ()> {
+        self.0.get(item, context)
+    }
+    fn set(&self, item: &Item, value: Value) -> Result<(), ()> {
+        self.0.set(item, value)
+    }
+    fn set_binding(&self, item: &Item, binding: Box<dyn Fn(&crate::EvaluationContext) -> Value>) {
+        self.0.set_binding(item, binding)
+    }
     fn set_animated_value(
         &self,
         item: &Item,
@@ -147,19 +119,22 @@ where
         item: &Item,
         binding: Box<dyn Fn(&crate::EvaluationContext) -> Value>,
         animation: &crate::abi::primitives::PropertyAnimation,
-    ) {
+    ) -> Result<(), ()> {
         self.apply(item).set_animated_binding(
             move |context| {
                 binding(context).try_into().map_err(|_| ()).expect("binding was of the wrong type")
             },
             animation,
         );
+        Ok(())
+    }
+    fn offset(&self) -> usize {
+        self.get_byte_offset()
     }
 }
 
 pub trait BuiltinItem: Sized {
     fn name() -> &'static str;
-    fn properties<Value: ValueType>(
-    ) -> Vec<(&'static str, PropertyInfoOption<'static, Self, Value>)>;
+    fn properties<Value: ValueType>() -> Vec<(&'static str, &'static dyn PropertyInfo<Self, Value>)>;
     fn signals() -> Vec<(&'static str, FieldOffset<Self, crate::Signal<()>>)>;
 }
