@@ -9,6 +9,7 @@ use crate::abi::primitives::PropertyAnimation;
 use crate::ComponentRefPin;
 use core::cell::*;
 use core::ops::DerefMut;
+use core::pin::Pin;
 use std::rc::{Rc, Weak};
 
 thread_local!(static CURRENT_BINDING : RefCell<Option<Rc<dyn PropertyNotify>>> = Default::default());
@@ -178,7 +179,7 @@ impl<T: Clone + 'static> Property<T> {
     ///
     /// The context must be the constext matching the Component which contains this
     /// property
-    pub fn get(&self, context: &EvaluationContext) -> T {
+    pub fn get(self: Pin<&Self>, context: &EvaluationContext) -> T {
         self.update(context);
         self.inner.clone().register_current_binding_as_dependency();
         self.try_borrow().expect("Binding loop detected").1.clone()
@@ -303,6 +304,10 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
 
 #[test]
 fn properties_simple_test() {
+    fn g(prop: &Property<i32>, ctx: &EvaluationContext) -> i32 {
+        unsafe { Pin::new_unchecked(prop).get(ctx) }
+    }
+
     #[derive(Default)]
     struct Component {
         width: Property<i32>,
@@ -319,22 +324,22 @@ fn properties_simple_test() {
     let w = Rc::downgrade(&compo);
     compo.area.set_binding(move |ctx| {
         let compo = w.upgrade().unwrap();
-        compo.width.get(ctx) * compo.height.get(ctx)
+        g(&compo.width, ctx) * g(&compo.height, ctx)
     });
     compo.width.set(4);
     compo.height.set(8);
-    assert_eq!(compo.width.get(&dummy_eval_context), 4);
-    assert_eq!(compo.height.get(&dummy_eval_context), 8);
-    assert_eq!(compo.area.get(&dummy_eval_context), 4 * 8);
+    assert_eq!(g(&compo.width, &dummy_eval_context), 4);
+    assert_eq!(g(&compo.height, &dummy_eval_context), 8);
+    assert_eq!(g(&compo.area, &dummy_eval_context), 4 * 8);
 
     let w = Rc::downgrade(&compo);
     compo.width.set_binding(move |ctx| {
         let compo = w.upgrade().unwrap();
-        compo.height.get(ctx) * 2
+        g(&compo.height, ctx) * 2
     });
-    assert_eq!(compo.width.get(&dummy_eval_context), 8 * 2);
-    assert_eq!(compo.height.get(&dummy_eval_context), 8);
-    assert_eq!(compo.area.get(&dummy_eval_context), 8 * 8 * 2);
+    assert_eq!(g(&compo.width, &dummy_eval_context), 8 * 2);
+    assert_eq!(g(&compo.height, &dummy_eval_context), 8);
+    assert_eq!(g(&compo.area, &dummy_eval_context), 8 * 8 * 2);
 }
 
 #[allow(non_camel_case_types)]
@@ -724,6 +729,9 @@ mod test {
 
     #[test]
     fn properties_test_animation_triggered_by_set() {
+        fn g(prop: &Property<i32>, ctx: &EvaluationContext) -> i32 {
+            unsafe { Pin::new_unchecked(prop).get(ctx) }
+        }
         let dummy_eval_context = EvaluationContext {
             component: unsafe {
                 core::pin::Pin::new_unchecked(vtable::VRef::from_raw(
@@ -738,38 +746,41 @@ mod test {
         let w = Rc::downgrade(&compo);
         compo.width_times_two.set_binding(move |context| {
             let compo = w.upgrade().unwrap();
-            compo.width.get(context) * 2
+            g(&compo.width, context) * 2
         });
 
         let animation_details = PropertyAnimation { duration: 10000 };
 
         compo.width.set(100);
-        assert_eq!(compo.width.get(&dummy_eval_context), 100);
-        assert_eq!(compo.width_times_two.get(&dummy_eval_context), 200);
+        assert_eq!(g(&compo.width, &dummy_eval_context), 100);
+        assert_eq!(g(&compo.width_times_two, &dummy_eval_context), 200);
 
         let animation = compo.width.set_animated_value(200, &animation_details);
-        assert_eq!(compo.width.get(&dummy_eval_context), 100);
-        assert_eq!(compo.width_times_two.get(&dummy_eval_context), 200);
+        assert_eq!(g(&compo.width, &dummy_eval_context), 100);
+        assert_eq!(g(&compo.width_times_two, &dummy_eval_context), 200);
         assert_eq!(animation.borrow().from_value, 100);
         assert_eq!(animation.borrow().to_value, 200);
 
         animation.clone().update_animation_state(AnimationState::Running { progress: 0.5 });
-        assert_eq!(compo.width.get(&dummy_eval_context), 150);
-        assert_eq!(compo.width_times_two.get(&dummy_eval_context), 300);
+        assert_eq!(g(&compo.width, &dummy_eval_context), 150);
+        assert_eq!(g(&compo.width_times_two, &dummy_eval_context), 300);
 
         animation.clone().update_animation_state(AnimationState::Running { progress: 1.0 });
-        assert_eq!(compo.width.get(&dummy_eval_context), 200);
-        assert_eq!(compo.width_times_two.get(&dummy_eval_context), 400);
+        assert_eq!(g(&compo.width, &dummy_eval_context), 200);
+        assert_eq!(g(&compo.width_times_two, &dummy_eval_context), 400);
 
         animation.clone().update_animation_state(AnimationState::Stopped);
-        assert_eq!(compo.width.get(&dummy_eval_context), 200);
-        assert_eq!(compo.width_times_two.get(&dummy_eval_context), 400);
+        assert_eq!(g(&compo.width, &dummy_eval_context), 200);
+        assert_eq!(g(&compo.width_times_two, &dummy_eval_context), 400);
 
         assert_eq!(Rc::strong_count(&animation), 1);
     }
 
     #[test]
     fn properties_test_animation_triggered_by_binding() {
+        fn g(prop: &Property<i32>, ctx: &EvaluationContext) -> i32 {
+            unsafe { Pin::new_unchecked(prop).get(ctx) }
+        }
         let dummy_eval_context = EvaluationContext {
             component: unsafe {
                 core::pin::Pin::new_unchecked(vtable::VRef::from_raw(
@@ -784,7 +795,7 @@ mod test {
         let w = Rc::downgrade(&compo);
         compo.width_times_two.set_binding(move |context| {
             let compo = w.upgrade().unwrap();
-            compo.width.get(context) * 2
+            g(&compo.width, context) * 2
         });
 
         let w = Rc::downgrade(&compo);
@@ -794,29 +805,29 @@ mod test {
         let animation = compo.width.set_animated_binding(
             move |context| {
                 let compo = w.upgrade().unwrap();
-                compo.feed_property.get(context)
+                g(&compo.feed_property, context)
             },
             &animation_details,
         );
 
         compo.feed_property.set(100);
-        assert_eq!(compo.width.get(&dummy_eval_context), 100);
-        assert_eq!(compo.width_times_two.get(&dummy_eval_context), 200);
+        assert_eq!(g(&compo.width, &dummy_eval_context), 100);
+        assert_eq!(g(&compo.width_times_two, &dummy_eval_context), 200);
 
         compo.feed_property.set(200);
-        assert_eq!(compo.width.get(&dummy_eval_context), 100);
-        assert_eq!(compo.width_times_two.get(&dummy_eval_context), 200);
+        assert_eq!(g(&compo.width, &dummy_eval_context), 100);
+        assert_eq!(g(&compo.width_times_two, &dummy_eval_context), 200);
 
         animation.clone().update_animation_state(AnimationState::Running { progress: 0.5 });
 
-        assert_eq!(compo.width.get(&dummy_eval_context), 150);
-        assert_eq!(compo.width_times_two.get(&dummy_eval_context), 300);
+        assert_eq!(g(&compo.width, &dummy_eval_context), 150);
+        assert_eq!(g(&compo.width_times_two, &dummy_eval_context), 300);
         assert_eq!(animation.borrow().from_value, 100);
         assert_eq!(animation.borrow().to_value, 200);
 
         animation.clone().update_animation_state(AnimationState::Running { progress: 1.0 });
 
-        assert_eq!(compo.width.get(&dummy_eval_context), 200);
-        assert_eq!(compo.width_times_two.get(&dummy_eval_context), 400);
+        assert_eq!(g(&compo.width, &dummy_eval_context), 200);
+        assert_eq!(g(&compo.width_times_two, &dummy_eval_context), 400);
     }
 }

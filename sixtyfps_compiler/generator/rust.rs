@@ -55,7 +55,7 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
                             let eval_context = sixtyfps::re_exports::EvaluationContext::for_root_component(
                                     sixtyfps::re_exports::ComponentRef::new_pin(self)
                                 );
-                            self.#prop_ident.emit(&eval_context, ())
+                            Self::field_offsets().#prop_ident.apply_pin(self).emit(&eval_context, ())
                         }
                     )
                     .into(),
@@ -82,7 +82,7 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
                             let eval_context = sixtyfps::re_exports::EvaluationContext::for_root_component(
                                    sixtyfps::re_exports::ComponentRef::new_pin(self)
                                 );
-                            self.#prop_ident.get(&eval_context)
+                            Self::field_offsets().#prop_ident.apply_pin(self).get(&eval_context)
                         }
                     )
                     .into(),
@@ -92,7 +92,7 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
                     quote!(
                         #[allow(dead_code)]
                         fn #setter_ident(&self, value: #rust_property_type) {
-                            self.#prop_ident.set(value)
+                            Self::field_offsets().#prop_ident.apply(self).set(value)
                         }
                     )
                     .into(),
@@ -402,10 +402,16 @@ fn access_member(
         let name_ident = quote::format_ident!("{}", name);
         let comp = quote!(#context.get_component::<#component_id>().unwrap());
         if e.property_declarations.contains_key(name) {
-            (quote!(#comp.#name_ident), context)
+            (quote!(#component_id::field_offsets().#name_ident.apply_pin(#comp)), context)
         } else {
             let elem_ident = quote::format_ident!("{}", e.id);
-            (quote!(#comp.#elem_ident.#name_ident), context)
+            let elem_ty = quote::format_ident!("{}", e.base_type.as_builtin().class_name);
+            (
+                quote!((#component_id::field_offsets().#elem_ident + #elem_ty::field_offsets().#name_ident)
+                    .apply_pin(#comp)
+                ),
+                context,
+            )
         }
     } else {
         access_member(element, name, &enclosing_component, quote!(#context.parent_context.unwrap()))
@@ -438,14 +444,16 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
         }
         Expression::RepeaterIndexReference { element } => {
             if element.upgrade().unwrap().borrow().base_type == Type::Component(component.clone()) {
-                quote!({ _self.index.get(context) })
+                let component_id = component_id(&component);
+                quote!({ #component_id::field_offsets().index.apply_pin(_self).get(context) })
             } else {
                 todo!();
             }
         }
         Expression::RepeaterModelReference { element } => {
             if element.upgrade().unwrap().borrow().base_type == Type::Component(component.clone()) {
-                quote!({ _self.model_data.get(context) })
+                let component_id = component_id(&component);
+                quote!({ #component_id::field_offsets().model_data.apply_pin(_self).get(context) })
             } else {
                 todo!();
             }
@@ -554,6 +562,8 @@ fn compute_layout(component: &Component) -> TokenStream {
     let mut layouts = vec![];
     for x in component.layout_constraints.borrow().0.iter() {
         let within = quote::format_ident!("{}", x.within.borrow().id);
+        let within_ty =
+            quote::format_ident!("{}", x.within.borrow().base_type.as_builtin().class_name);
         let row_constraint = vec![quote!(Constraint::default()); x.row_count()];
         let col_constraint = vec![quote!(Constraint::default()); x.col_count()];
         let cells = x
@@ -594,8 +604,10 @@ fn compute_layout(component: &Component) -> TokenStream {
             solve_grid_layout(&GridLayoutData {
                 row_constraint: Slice::from_slice(&[#(#row_constraint),*]),
                 col_constraint: Slice::from_slice(&[#(#col_constraint),*]),
-                width: self.#within.width.get(eval_context),
-                height: self.#within.height.get(eval_context),
+                width: (Self::field_offsets().#within + #within_ty::field_offsets().width)
+                    .apply_pin(self).get(eval_context),
+                height: (Self::field_offsets().#within + #within_ty::field_offsets().height)
+                    .apply_pin(self).get(eval_context),
                 x: 0.,
                 y: 0.,
                 cells: Slice::from_slice(&[#( Slice::from_slice(&[#( #cells ),*])),*]),

@@ -42,25 +42,27 @@ pub struct Rectangle {
 impl Item for Rectangle {
     fn geometry(self: Pin<&Self>, context: &EvaluationContext) -> Rect {
         euclid::rect(
-            self.x.get(context),
-            self.y.get(context),
-            self.width.get(context),
-            self.height.get(context),
+            Self::field_offsets().x.apply_pin(self).get(context),
+            Self::field_offsets().y.apply_pin(self).get(context),
+            Self::field_offsets().width.apply_pin(self).get(context),
+            Self::field_offsets().height.apply_pin(self).get(context),
         )
     }
     fn rendering_primitive(
         self: Pin<&Self>,
         context: &crate::EvaluationContext,
     ) -> RenderingPrimitive {
-        let width = self.width.get(context);
-        let height = self.height.get(context);
+        let width = Self::field_offsets().x.apply_pin(self).get(context);
+        let height = Self::field_offsets().height.apply_pin(self).get(context);
         if width > 0. && height > 0. {
             RenderingPrimitive::Rectangle {
-                x: self.x.get(context),
-                y: self.y.get(context),
+                x: Self::field_offsets().x.apply_pin(self).get(context),
+                y: Self::field_offsets().y.apply_pin(self).get(context),
                 width,
                 height,
-                color: Color::from_argb_encoded(self.color.get(context)),
+                color: Color::from_argb_encoded(
+                    Self::field_offsets().color.apply_pin(self).get(context),
+                ),
             }
         } else {
             RenderingPrimitive::NoContents
@@ -104,10 +106,10 @@ pub struct Image {
 impl Item for Image {
     fn geometry(self: Pin<&Self>, context: &crate::EvaluationContext) -> Rect {
         euclid::rect(
-            self.x.get(context),
-            self.y.get(context),
-            self.width.get(context),
-            self.height.get(context),
+            Self::field_offsets().x.apply_pin(self).get(context),
+            Self::field_offsets().y.apply_pin(self).get(context),
+            Self::field_offsets().width.apply_pin(self).get(context),
+            Self::field_offsets().height.apply_pin(self).get(context),
         )
     }
     fn rendering_primitive(
@@ -115,9 +117,9 @@ impl Item for Image {
         context: &crate::EvaluationContext,
     ) -> RenderingPrimitive {
         RenderingPrimitive::Image {
-            x: self.x.get(context),
-            y: self.y.get(context),
-            source: self.source.get(context),
+            x: Self::field_offsets().x.apply_pin(self).get(context),
+            y: Self::field_offsets().y.apply_pin(self).get(context),
+            source: Self::field_offsets().source.apply_pin(self).get(context),
         }
     }
 
@@ -160,19 +162,26 @@ pub struct Text {
 impl Item for Text {
     // FIXME: width / height.  or maybe it doesn't matter?  (
     fn geometry(self: Pin<&Self>, context: &crate::EvaluationContext) -> Rect {
-        euclid::rect(self.x.get(context), self.y.get(context), 0., 0.)
+        euclid::rect(
+            Self::field_offsets().x.apply_pin(self).get(context),
+            Self::field_offsets().y.apply_pin(self).get(context),
+            0.,
+            0.,
+        )
     }
     fn rendering_primitive(
         self: Pin<&Self>,
         context: &crate::EvaluationContext,
     ) -> RenderingPrimitive {
         RenderingPrimitive::Text {
-            x: self.x.get(context),
-            y: self.y.get(context),
-            text: self.text.get(context),
-            font_family: self.font_family.get(context),
-            font_pixel_size: self.font_pixel_size.get(context),
-            color: Color::from_argb_encoded(self.color.get(context)),
+            x: Self::field_offsets().x.apply_pin(self).get(context),
+            y: Self::field_offsets().y.apply_pin(self).get(context),
+            text: Self::field_offsets().text.apply_pin(self).get(context),
+            font_family: Self::field_offsets().font_family.apply_pin(self).get(context),
+            font_pixel_size: Self::field_offsets().font_pixel_size.apply_pin(self).get(context),
+            color: Color::from_argb_encoded(
+                Self::field_offsets().color.apply_pin(self).get(context),
+            ),
         }
     }
 
@@ -214,10 +223,10 @@ pub struct TouchArea {
 impl Item for TouchArea {
     fn geometry(self: Pin<&Self>, context: &crate::EvaluationContext) -> Rect {
         euclid::rect(
-            self.x.get(context),
-            self.y.get(context),
-            self.width.get(context),
-            self.height.get(context),
+            Self::field_offsets().x.apply_pin(self).get(context),
+            Self::field_offsets().y.apply_pin(self).get(context),
+            Self::field_offsets().width.apply_pin(self).get(context),
+            Self::field_offsets().height.apply_pin(self).get(context),
         )
     }
     fn rendering_primitive(
@@ -237,13 +246,13 @@ impl Item for TouchArea {
         context: &crate::EvaluationContext,
     ) {
         println!("Touch Area Event {:?}", event);
-        self.pressed.set(match event.what {
+        Self::field_offsets().pressed.apply_pin(self).set(match event.what {
             super::datastructures::MouseEventType::MousePressed => true,
             super::datastructures::MouseEventType::MouseReleased => false,
             super::datastructures::MouseEventType::MouseMoved => return,
         });
         if matches!(event.what, super::datastructures::MouseEventType::MouseReleased) {
-            self.clicked.emit(context, ())
+            Self::field_offsets().clicked.apply_pin(self).emit(context, ())
         }
     }
 }
