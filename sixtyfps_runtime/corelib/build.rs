@@ -18,8 +18,10 @@ fn main() {
     .map(|x| x.to_string())
     .collect::<Vec<String>>();
 
-    let exclude =
-        ["SharedString", "Resource"].iter().map(|x| x.to_string()).collect::<Vec<String>>();
+    let exclude = ["SharedString", "Resource", "Color"]
+        .iter()
+        .map(|x| x.to_string())
+        .collect::<Vec<String>>();
 
     let mut config = cbindgen::Config {
         pragma_once: true,
@@ -86,6 +88,24 @@ fn main() {
         .expect("Unable to generate bindings")
         .write_to_file(include_dir.join("sixtyfps_resource_internal.h"));
 
+    let mut color_config = config.clone();
+    color_config.export.include = vec!["Color".into()];
+    color_config.export.exclude = vec![
+        "sixtyfps_visit_item_tree".into(),
+        "sixtyfps_component_window_drop".into(),
+        "sixtyfps_component_window_run".into(),
+    ];
+
+    // Put the "Recources" in a deeper "types" namespace, so the use of "Resource" in internal
+    // uses the public `sixtyfps::Resource` type
+    color_config.namespaces = Some(vec!["sixtyfps".into(), "internal".into(), "types".into()]);
+    cbindgen::Builder::new()
+        .with_config(color_config)
+        .with_src(crate_dir.join("abi/datastructures.rs"))
+        .generate()
+        .expect("Unable to generate bindings")
+        .write_to_file(include_dir.join("sixtyfps_color_internal.h"));
+
     config.export.body.insert(
         "ItemTreeNode".to_owned(),
         "    constexpr ItemTreeNode(Item_Body x) : item {x} {}
@@ -103,6 +123,7 @@ fn main() {
         .with_include("sixtyfps_properties.h")
         .with_include("sixtyfps_signals.h")
         .with_include("sixtyfps_resource.h")
+        .with_include("sixtyfps_color.h")
         .generate()
         .expect("Unable to generate bindings")
         .write_to_file(include_dir.join("sixtyfps_internal.h"));

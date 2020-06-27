@@ -140,7 +140,7 @@ impl CppType for Type {
             Type::Float32 => Some("float".to_owned()),
             Type::Int32 => Some("int".to_owned()),
             Type::String => Some("sixtyfps::SharedString".to_owned()),
-            Type::Color => Some("sixtyfps::internal::Color".to_owned()),
+            Type::Color => Some("sixtyfps::Color".to_owned()),
             Type::Bool => Some("bool".to_owned()),
             Type::Model => Some("std::shared_ptr<sixtyfps::Model>".to_owned()),
             Type::Object(o) => {
@@ -646,14 +646,7 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
                     format!("std::make_shared<sixtyfps::IntModel>({})", f)
                 }
                 (Type::Array(_), Type::Model) => f,
-                (Type::Float32, Type::Color) => {
-                    let val = f.parse::<u32>().unwrap();
-                    let red = (val >> 16) as u8;
-                    let green = (val >> 8) as u8;
-                    let blue = val as u8;
-                    let alpha = (val >> 24) as u8;
-                    format!("sixtyfps::internal::Color{{{}, {}, {}, {}}}", red, green, blue, alpha)
-                }
+                (Type::Float32, Type::Color) => format!("sixtyfps::Color({})", f),
                 _ => f,
             }
         }
