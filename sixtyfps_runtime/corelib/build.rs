@@ -97,8 +97,8 @@ fn main() {
         "sixtyfps_component_window_run".into(),
     ];
 
-    // Put the "Recources" in a deeper "types" namespace, so the use of "Resource" in internal
-    // uses the public `sixtyfps::Resource` type
+    // Put the "Color" in a deeper "types" namespace, so the use of "Color" in internal
+    // uses the public `sixtyfps::Color` type
     color_config.namespaces = Some(vec!["sixtyfps".into(), "internal".into(), "types".into()]);
     cbindgen::Builder::new()
         .with_config(color_config)
