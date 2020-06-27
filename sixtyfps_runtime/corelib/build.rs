@@ -59,6 +59,7 @@ fn main() {
         .with_config(config.clone())
         .with_src(crate_dir.join("abi/properties.rs"))
         .with_src(crate_dir.join("abi/signals.rs"))
+        .with_after_include("namespace sixtyfps { struct Color; }")
         .generate()
         .expect("Unable to generate bindings")
         .write_to_file(include_dir.join("sixtyfps_properties_internal.h"));

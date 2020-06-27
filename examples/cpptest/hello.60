@@ -25,6 +25,7 @@ component ButtonRectangle := Rectangle {
     width: 100;
     height: 75;
     color: button_area.pressed ? red : button_color;
+    animate color { duration: 200; }
     button_area := TouchArea {
         width: root.width;
         height: root.height;

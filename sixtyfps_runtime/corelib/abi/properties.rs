@@ -5,6 +5,7 @@
     thin dst container, and intrusive linked list
 */
 
+use crate::abi::datastructures::Color;
 use crate::abi::primitives::PropertyAnimation;
 use crate::ComponentRefPin;
 use core::cell::*;
@@ -485,6 +486,12 @@ impl InterpolatedPropertyValue for i32 {
     }
 }
 
+impl InterpolatedPropertyValue for u8 {
+    fn interpolate(self, target_value: Self, t: f32) -> Self {
+        ((self as f32) + (t * ((target_value as f32) - (self as f32)))).min(255.).max(0.) as u8
+    }
+}
+
 #[derive(Default)]
 /// PropertyAnimationBinding provides a linear animation of values of a property, when they are changed
 /// through bindings or direct set() calls.
@@ -672,6 +679,23 @@ pub unsafe extern "C" fn sixtyfps_property_set_animated_value_float(
     PropertyImpl::set_binding(inner.clone(), Some(animation.clone()));
 }
 
+/// Internal function to set up a property animation to the specified target value for a color property.
+#[no_mangle]
+pub unsafe extern "C" fn sixtyfps_property_set_animated_value_color(
+    out: *const PropertyHandleOpaque,
+    value: &Color,
+    animation_data: &crate::abi::primitives::PropertyAnimation,
+) {
+    let inner = &*(out as *const PropertyHandle<Color>);
+    let animation = Rc::new(RefCell::new(PropertyAnimationBinding::new_with_value(
+        *value,
+        animation_data,
+        inner.clone(),
+    )));
+
+    PropertyImpl::set_binding(inner.clone(), Some(animation.clone()));
+}
+
 /// Internal function to set up a property animation between values produced by the specified binding for an integer property.
 #[no_mangle]
 pub unsafe extern "C" fn sixtyfps_property_set_animated_binding_int(
@@ -703,6 +727,27 @@ pub unsafe extern "C" fn sixtyfps_property_set_animated_binding_float(
     animation_data: &crate::abi::primitives::PropertyAnimation,
 ) {
     let inner = &*(out as *const PropertyHandle<f32>);
+
+    let binding = make_c_function_binding(binding, user_data, drop_user_data);
+
+    let animation = Rc::new(RefCell::new(PropertyAnimationBinding::new_with_binding(
+        binding,
+        animation_data,
+        inner.clone(),
+    )));
+    PropertyImpl::set_binding(inner.clone(), Some(animation.clone()));
+}
+
+/// Internal function to set up a property animation between values produced by the specified binding for a color property.
+#[no_mangle]
+pub unsafe extern "C" fn sixtyfps_property_set_animated_binding_color(
+    out: *const PropertyHandleOpaque,
+    binding: extern "C" fn(*mut c_void, &EvaluationContext, *mut Color),
+    user_data: *mut c_void,
+    drop_user_data: Option<extern "C" fn(*mut c_void)>,
+    animation_data: &crate::abi::primitives::PropertyAnimation,
+) {
+    let inner = &*(out as *const PropertyHandle<Color>);
 
     let binding = make_c_function_binding(binding, user_data, drop_user_data);
 

@@ -210,6 +210,23 @@ impl From<u32> for Color {
     }
 }
 
+impl crate::abi::properties::InterpolatedPropertyValue for Color {
+    fn interpolate(self, target_value: Self, t: f32) -> Self {
+        Self {
+            red: self.red.interpolate(target_value.red, t),
+            green: self.green.interpolate(target_value.green, t),
+            blue: self.blue.interpolate(target_value.blue, t),
+            alpha: self.alpha.interpolate(target_value.alpha, t),
+        }
+    }
+}
+
+impl std::fmt::Display for Color {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "argb({}, {}, {}, {})", self.alpha, self.red, self.green, self.blue)
+    }
+}
+
 /// A resource is a reference to binary data, for example images. They can be accessible on the file
 /// system or embedded in the resulting binary. Or they might be URLs to a web server and a downloaded
 /// is necessary before they can be used.

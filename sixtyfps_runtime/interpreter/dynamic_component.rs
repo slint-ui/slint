@@ -269,7 +269,7 @@ fn generate_component(
             Type::Float32 => animated_property_info::<f32>(),
             Type::Int32 => animated_property_info::<i32>(),
             Type::String => property_info::<SharedString>(),
-            Type::Color => property_info::<Color>(),
+            Type::Color => animated_property_info::<Color>(),
             Type::Resource => property_info::<Resource>(),
             Type::Bool => property_info::<bool>(),
             Type::Signal => {

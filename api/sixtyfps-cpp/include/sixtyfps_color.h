@@ -1,6 +1,7 @@
 #pragma once
 
 #include "sixtyfps_color_internal.h"
+#include "sixtyfps_properties.h"
 
 #include <stdint.h>
 
@@ -29,5 +30,26 @@ public:
 private:
     internal::types::Color inner;
 };
+
+template<>
+void Property<Color>::set_animated_value(const Color &value,
+                                         const internal::PropertyAnimation &animation_data)
+{
+    internal::sixtyfps_property_set_animated_value_color(&inner, &value, &animation_data);
+}
+
+template<>
+template<typename F>
+void Property<Color>::set_animated_binding(F binding,
+                                           const internal::PropertyAnimation &animation_data)
+{
+    internal::sixtyfps_property_set_animated_binding_color(
+            &inner,
+            [](void *user_data, const internal::EvaluationContext *context, Color *value) {
+                *reinterpret_cast<Color *>(value) = (*reinterpret_cast<F *>(user_data))(context);
+            },
+            new F(binding), [](void *user_data) { delete reinterpret_cast<F *>(user_data); },
+            &animation_data);
+}
 
 }

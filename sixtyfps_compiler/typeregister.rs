@@ -208,6 +208,7 @@ impl TypeRegister {
         r.property_animation_type = Type::Builtin(Rc::new(property_animation));
         r.supported_property_animation_types.insert(Type::Float32.to_string());
         r.supported_property_animation_types.insert(Type::Int32.to_string());
+        r.supported_property_animation_types.insert(Type::Color.to_string());
 
         r
     }
