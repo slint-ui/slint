@@ -12,7 +12,9 @@ lazy_static::lazy_static! {
                 }
                 assert!(res.as_os_str().is_empty(), "There must be only one target with name 'sixtyfps_node_native'");
                 res = artifact.filenames[0].clone();
-            };
+            } else if let Message::CompilerMessage(cm) = message {
+                println!("{}", cm);
+            }
             Ok(())
         }).expect("Could not run cargo build to extract native node plugin path");
         assert!(!res.as_os_str().is_empty(), "Did not find the native nodejs lib (sixtyfps_node_native)");
