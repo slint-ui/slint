@@ -295,7 +295,7 @@ fn handle_repeater(
     // FIXME: that's not the right component for this expression but that's ok because it is a constant for now
     let model = compile_expression(&repeated.model, &base_component);
     init.push(format!(
-        "self->{repeater_id}.update_model({model}.get());",
+        "self->{repeater_id}.update_model({model}.get(), self);",
         repeater_id = repeater_id,
         model = model
     ));
@@ -420,6 +420,23 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Dia
             ty: format!("sixtyfps::Property<{}>", cpp_model_data_type),
             name: "model_data".into(),
             init: None,
+        }));
+        component_struct.members.push(Declaration::Var(Var {
+            ty: format!(
+                "{}*",
+                self::component_id(
+                    &component
+                        .parent_element
+                        .upgrade()
+                        .unwrap()
+                        .borrow()
+                        .enclosing_component
+                        .upgrade()
+                        .unwrap()
+                )
+            ),
+            name: "parent".into(),
+            init: Some("nullptr".to_owned()),
         }));
         component_struct.members.push(Declaration::Function(Function {
             name: "update_data".into(),
@@ -577,11 +594,7 @@ fn access_member(
             name,
             &enclosing_component,
             &format!("{}->parent_context", context),
-            &format!(
-                "reinterpret_cast<{} const *>({}->parent_context->component.instance)",
-                component_id(&enclosing_component),
-                context
-            ),
+            &format!("{}->parent", component_cpp),
         )
     }
 }

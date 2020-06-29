@@ -119,12 +119,14 @@ template<typename C>
 struct Repeater {
     std::vector<std::unique_ptr<C>> data;
 
-    void update_model(Model *model)
+    template<typename Parent>
+    void update_model(Model *model, Parent *parent)
     {
         data.clear();
         auto count = model->count();
         for (auto i = 0; i < count; ++i) {
             auto x = std::make_unique<C>();
+            x->parent = parent;
             x->update_data(i, model->get(i));
             data.push_back(std::move(x));
         }
