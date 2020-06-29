@@ -123,6 +123,10 @@ pub enum Expression {
         ty: Type,
         values: HashMap<String, Expression>,
     },
+
+    PathElements {
+        elements: Vec<PathElement>,
+    },
 }
 
 impl Expression {
@@ -187,6 +191,7 @@ impl Expression {
             Expression::UnaryOp { sub, .. } => sub.ty(),
             Expression::Array { element_ty, .. } => Type::Array(Box::new(element_ty.clone())),
             Expression::Object { ty, .. } => ty.clone(),
+            Expression::PathElements { .. } => Type::PathElements,
         }
     }
 
@@ -232,6 +237,16 @@ impl Expression {
             Expression::Object { values, .. } => {
                 for (_, x) in values {
                     visitor(x);
+                }
+            }
+            Expression::PathElements { elements } => {
+                for element in elements {
+                    match element {
+                        PathElement::LineTo { x, y } => {
+                            visitor(x);
+                            visitor(y);
+                        }
+                    }
                 }
             }
         }
@@ -280,6 +295,16 @@ impl Expression {
                     visitor(x);
                 }
             }
+            Expression::PathElements { elements } => {
+                for element in elements {
+                    match element {
+                        PathElement::LineTo { x, y } => {
+                            visitor(x);
+                            visitor(y);
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -304,6 +329,7 @@ impl Expression {
             Expression::UnaryOp { sub, .. } => sub.is_constant(),
             Expression::Array { values, .. } => values.iter().all(Expression::is_constant),
             Expression::Object { values, .. } => values.iter().all(|(_, v)| v.is_constant()),
+            Expression::PathElements { .. } => true,
         }
     }
 
@@ -326,4 +352,9 @@ impl Expression {
             self
         }
     }
+}
+
+#[derive(Debug, Clone)]
+pub enum PathElement {
+    LineTo { x: Box<Expression>, y: Box<Expression> },
 }

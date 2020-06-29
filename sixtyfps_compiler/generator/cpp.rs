@@ -763,6 +763,28 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
                 panic!("Expression::Object is not a Type::Object")
             }
         }
+        PathElements { elements } => {
+            let converted_elements: Vec<String> = elements
+                .iter()
+                .map(|element| match element {
+                    crate::expression_tree::PathElement::LineTo { x, y } => format!(
+                        "sixtyfps::PathElement::LineTo({}, {})",
+                        compile_expression(x, component),
+                        compile_expression(y, component)
+                    ),
+                })
+                .collect();
+            format!(
+                r#"[](){{
+                    sixtyfps::PathElement elements[{}] = {{
+                        {}
+                    }};
+                    return sixtyfps::PathElements(&elements[0], sizeof(elements) / sizeof(elements[0]));
+                }}()"#,
+                converted_elements.len(),
+                converted_elements.join(",")
+            )
+        }
         Uncompiled(_) => panic!(),
         Invalid => format!("\n#error invalid expression\n"),
     }

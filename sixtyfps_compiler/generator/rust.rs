@@ -615,6 +615,24 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                 panic!("Expression::Object is not a Type::Object")
             }
         }
+        Expression::PathElements { elements } => {
+            let converted_elements: Vec<TokenStream> = elements
+                .iter()
+                .map(|element| match element {
+                    crate::expression_tree::PathElement::LineTo { x, y } => {
+                        let x = compile_expression(x, component);
+                        let y = compile_expression(y, component);
+                        quote!(PathElement::LineTo { x: #x as _, y: #y as _})
+                    }
+                })
+                .collect();
+            quote!({
+                const PD : &'static [sixtyfps::re_exports::PathElement] = &[
+                    #(#converted_elements),*
+                ];
+                sixtyfps::re_exports::PathElements::StaticElements(PD.into())
+            })
+        }
     }
 }
 

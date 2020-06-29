@@ -107,6 +107,21 @@ Hello := Rectangle {
         button_text: "-";
     }
 
+
+    Path {
+        x: 100;
+        y: 300;
+        fill_color: green;
+        LineTo {
+            x: 100;
+            y: 50;
+        }
+        LineTo {
+            x: 0;
+            y: 100;
+        }
+    }
+
 }
 
 }

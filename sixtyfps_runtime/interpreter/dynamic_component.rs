@@ -188,6 +188,7 @@ fn generate_component(
                 rtti_for::<Text>(),
                 rtti_for::<Rectangle>(),
                 rtti_for::<TouchArea>(),
+                rtti_for::<Path>(),
             ]
             .iter()
             .cloned(),

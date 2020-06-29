@@ -1,6 +1,6 @@
 use core::convert::{TryFrom, TryInto};
 use core::pin::Pin;
-use sixtyfps_compilerlib::expression_tree::{Expression, NamedReference};
+use sixtyfps_compilerlib::expression_tree::{Expression, NamedReference, PathElement};
 use sixtyfps_compilerlib::{object_tree::ElementRc, typeregister::Type};
 use sixtyfps_corelib as corelib;
 use sixtyfps_corelib::{
@@ -319,6 +319,24 @@ pub fn eval_expression(
                 .map(|(k, v)| (k.clone(), eval_expression(v, component_type, eval_context)))
                 .collect(),
         ),
+        Expression::PathElements { elements } => {
+            Value::PathElements(PathElements::SharedElements(sixtyfps_corelib::SharedArray::<
+                sixtyfps_corelib::abi::datastructures::PathElement,
+            >::from_iter(
+                elements.iter().map(|element| match element {
+                    PathElement::LineTo { x, y } => {
+                        sixtyfps_corelib::abi::datastructures::PathElement::LineTo {
+                            x: eval_expression(&x, component_type, eval_context)
+                                .try_into()
+                                .unwrap(),
+                            y: eval_expression(&y, component_type, eval_context)
+                                .try_into()
+                                .unwrap(),
+                        }
+                    }
+                }),
+            )))
+        }
     }
 }
 

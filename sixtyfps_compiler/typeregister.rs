@@ -17,6 +17,7 @@ pub enum Type {
     Resource,
     Bool,
     Model,
+    PathElements,
 
     Array(Box<Type>),
     Object(BTreeMap<String, Type>),
@@ -37,6 +38,7 @@ impl core::cmp::PartialEq for Type {
             (Type::Bool, Type::Bool) => true,
             (Type::Array(a), Type::Array(b)) => a == b,
             (Type::Object(a), Type::Object(b)) => a == b,
+            (Type::PathElements, Type::PathElements) => true,
             _ => false,
         }
     }
@@ -64,6 +66,7 @@ impl Display for Type {
                 }
                 write!(f, "}}")
             }
+            Type::PathElements => write!(f, "pathelements"),
         }
     }
 }
@@ -272,6 +275,7 @@ impl TypeRegister {
         let mut path = BuiltinElement::new("Path");
         path.properties.insert("x".to_owned(), Type::Float32);
         path.properties.insert("y".to_owned(), Type::Float32);
+        path.properties.insert("fill_color".to_owned(), Type::Color);
         path.disallow_global_types_as_child_elements = true;
 
         let mut line_to = BuiltinElement::new("LineTo");

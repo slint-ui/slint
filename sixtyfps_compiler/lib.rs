@@ -23,6 +23,7 @@ pub mod typeregister;
 
 mod passes {
     pub mod collect_resources;
+    pub mod compile_paths;
     pub mod inlining;
     pub mod lower_layout;
     pub mod move_declarations;
@@ -45,6 +46,7 @@ pub fn run_passes(
     passes::resolving::resolve_expressions(doc, diag, tr);
     passes::inlining::inline(doc);
     passes::lower_layout::lower_layouts(&doc.root_component, diag);
+    passes::compile_paths::compile_paths(&doc.root_component);
     passes::unique_id::assign_unique_id(&doc.root_component);
     if compiler_config.embed_resources {
         passes::collect_resources::collect_resources(&doc.root_component);

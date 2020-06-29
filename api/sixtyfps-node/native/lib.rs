@@ -106,9 +106,12 @@ fn to_eval_value<'cx>(
 ) -> NeonResult<sixtyfps_interpreter::Value> {
     use sixtyfps_interpreter::Value;
     match ty {
-        Type::Invalid | Type::Component(_) | Type::Builtin(_) | Type::Model | Type::Signal => {
-            cx.throw_error("Cannot convert to a Sixtyfps property value")
-        }
+        Type::Invalid
+        | Type::Component(_)
+        | Type::Builtin(_)
+        | Type::Model
+        | Type::Signal
+        | Type::PathElements => cx.throw_error("Cannot convert to a Sixtyfps property value"),
         Type::Float32 | Type::Int32 => {
             Ok(Value::Number(val.downcast_or_throw::<JsNumber, _>(cx)?.value()))
         }
