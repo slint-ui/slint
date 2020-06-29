@@ -304,6 +304,7 @@ impl Element {
             } else if se.kind() == SyntaxKind::ConditionalElement {
                 r.children.push(Rc::new(RefCell::new(Element::from_conditional_node(
                     se.into(),
+                    r.base_type.clone(),
                     diag,
                     tr,
                 ))));
@@ -330,13 +331,14 @@ impl Element {
                 .unwrap_or_default(),
             is_conditional_element: false,
         };
-        let mut e = Element::from_node(node.Element(), String::new(), diag, tr);
+        let mut e = Element::from_node(node.Element(), String::new(), parent_type, diag, tr);
         e.repeated = Some(rei);
         e
     }
 
     fn from_conditional_node(
         node: syntax_nodes::ConditionalElement,
+        parent_type: Type,
         diag: &mut Diagnostics,
         tr: &TypeRegister,
     ) -> Self {
