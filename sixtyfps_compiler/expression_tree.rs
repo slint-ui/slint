@@ -11,6 +11,23 @@ pub struct NamedReference {
     pub name: String,
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum OperatorClass {
+    ComparisonOp,
+    LogicalOp,
+    ArithmeticOp,
+}
+
+/// the class of for this (binary) operation
+pub fn operator_class(op: char) -> OperatorClass {
+    match op {
+        '=' | '!' | '<' | '>' | '≤' | '≥' => OperatorClass::ComparisonOp,
+        '&' | '|' => OperatorClass::LogicalOp,
+        '+' | '-' | '/' | '*' => OperatorClass::ArithmeticOp,
+        _ => panic!("Invalid operator {:?}", op),
+    }
+}
+
 /// The Expression is hold by properties, so it should not hold any strong references to node from the object_tree
 #[derive(Debug, Clone)]
 pub enum Expression {
@@ -78,7 +95,13 @@ pub enum Expression {
     BinaryExpression {
         lhs: Box<Expression>,
         rhs: Box<Expression>,
-        /// '+', '-', '/', or '*'
+        /// '+', '-', '/', '*', '=', '!', '<', '>', '≤', '≥', '&', '|'
+        op: char,
+    },
+
+    UnaryOp {
+        sub: Box<Expression>,
+        /// '+', '-', '!'
         op: char,
     },
 
@@ -154,7 +177,14 @@ impl Expression {
                     Type::Invalid
                 }
             }
-            Expression::BinaryExpression { lhs, .. } => lhs.ty(),
+            Expression::BinaryExpression { op, .. } => {
+                if operator_class(*op) == OperatorClass::ArithmeticOp {
+                    Type::Float32
+                } else {
+                    Type::Bool
+                }
+            }
+            Expression::UnaryOp { sub, .. } => sub.ty(),
             Expression::Array { element_ty, .. } => Type::Array(Box::new(element_ty.clone())),
             Expression::Object { ty, .. } => ty.clone(),
         }
@@ -193,6 +223,7 @@ impl Expression {
                 visitor(&**lhs);
                 visitor(&**rhs);
             }
+            Expression::UnaryOp { sub, .. } => visitor(&**sub),
             Expression::Array { values, .. } => {
                 for x in values {
                     visitor(x);
@@ -238,6 +269,7 @@ impl Expression {
                 visitor(&mut **lhs);
                 visitor(&mut **rhs);
             }
+            Expression::UnaryOp { sub, .. } => visitor(&mut **sub),
             Expression::Array { values, .. } => {
                 for x in values {
                     visitor(x);
@@ -269,6 +301,7 @@ impl Expression {
             Expression::ResourceReference { .. } => true,
             Expression::Condition { .. } => false,
             Expression::BinaryExpression { lhs, rhs, .. } => lhs.is_constant() && rhs.is_constant(),
+            Expression::UnaryOp { sub, .. } => sub.is_constant(),
             Expression::Array { values, .. } => values.iter().all(Expression::is_constant),
             Expression::Object { values, .. } => values.iter().all(|(_, v)| v.is_constant()),
         }

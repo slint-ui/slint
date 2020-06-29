@@ -72,6 +72,26 @@ fn fill_token_vec(stream: TokenStream, vec: &mut Vec<parser::Token>) {
                     '#' => SyntaxKind::ColorLiteral,
                     '?' => SyntaxKind::Question,
                     ',' => SyntaxKind::Comma,
+                    '&' => {
+                        // Since the '&' alone does not exist or cannot be part of any other token that &&
+                        // just consider it as '&&' and skip the joint ones.  FIXME. do that properly
+                        if let Some(last) = vec.last_mut() {
+                            if last.kind == SyntaxKind::AndAnd && prev_spacing == Spacing::Joint {
+                                continue;
+                            }
+                        }
+                        SyntaxKind::AndAnd
+                    }
+                    '|' => {
+                        // Since the '|' alone does not exist or cannot be part of any other token that ||
+                        // just consider it as '||' and skip the joint ones.  FIXME. do that properly
+                        if let Some(last) = vec.last_mut() {
+                            if last.kind == SyntaxKind::OrOr && prev_spacing == Spacing::Joint {
+                                continue;
+                            }
+                        }
+                        SyntaxKind::OrOr
+                    }
                     _ => SyntaxKind::Error,
                 };
                 prev_spacing = p.spacing();

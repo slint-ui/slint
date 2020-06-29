@@ -695,12 +695,26 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
             }
             _ => panic!("typechecking should make sure this was a PropertyReference"),
         },
-        BinaryExpression { lhs, rhs, op } => format!(
-            "({lhs} {op} {rhs})",
-            lhs = compile_expression(&*lhs, component),
-            rhs = compile_expression(&*rhs, component),
-            op = op,
-        ),
+        BinaryExpression { lhs, rhs, op } => {
+            let mut buffer = [0; 3];
+            format!(
+                "({lhs} {op} {rhs})",
+                lhs = compile_expression(&*lhs, component),
+                rhs = compile_expression(&*rhs, component),
+                op = match op {
+                    '=' => "==",
+                    '!' => "!=",
+                    '≤' => "<=",
+                    '≥' => ">=",
+                    '&' => "&&",
+                    '|' => "||",
+                    _ => op.encode_utf8(&mut buffer),
+                },
+            )
+        }
+        UnaryOp { sub, op } => {
+            format!("({op} {sub})", sub = compile_expression(&*sub, component), op = op,)
+        }
         ResourceReference { absolute_source_path } => {
             format!(r#"sixtyfps::Resource(sixtyfps::SharedString("{}"))"#, absolute_source_path)
         }

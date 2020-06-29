@@ -2,7 +2,7 @@
 */
 
 use crate::diagnostics::{CompilerDiagnostic, Diagnostics};
-use crate::expression_tree::{Expression, NamedReference};
+use crate::expression_tree::{Expression, NamedReference, OperatorClass};
 use crate::object_tree::{Component, ElementRc};
 use crate::parser::Spanned;
 use crate::typeregister::Type;
@@ -541,10 +541,35 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
             _ => panic!("typechecking should make sure this was a PropertyReference"),
         },
         Expression::BinaryExpression { lhs, rhs, op } => {
+            let conv = match crate::expression_tree::operator_class(*op) {
+                OperatorClass::ArithmeticOp => Some(quote!(as f64)),
+                OperatorClass::ComparisonOp if matches!(lhs.ty(), Type::Int32 | Type::Float32) => {
+                    Some(quote!(as f64))
+                }
+                _ => None,
+            };
             let lhs = compile_expression(&*lhs, &component);
             let rhs = compile_expression(&*rhs, &component);
+
+            let op = match op {
+                '=' => quote!(==),
+                '!' => quote!(!=),
+                '≤' => quote!(<=),
+                '≥' => quote!(>=),
+                '&' => quote!(&&),
+                '|' => quote!(||),
+                _ => proc_macro2::TokenTree::Punct(proc_macro2::Punct::new(
+                    *op,
+                    proc_macro2::Spacing::Alone,
+                ))
+                .into(),
+            };
+            quote!( ((#lhs #conv ) #op (#rhs #conv )) )
+        }
+        Expression::UnaryOp { sub, op } => {
+            let sub = compile_expression(&*sub, &component);
             let op = proc_macro2::Punct::new(*op, proc_macro2::Spacing::Alone);
-            quote!( ((#lhs as f64) #op (#rhs as f64)) )
+            quote!( #op #sub )
         }
         Expression::ResourceReference { absolute_source_path } => {
             if let Some(id) = component.embedded_file_resources.borrow().get(absolute_source_path) {

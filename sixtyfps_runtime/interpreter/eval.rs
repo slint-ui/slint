@@ -43,7 +43,7 @@ impl<Item: vtable::HasStaticVTable<corelib::abi::datastructures::ItemVTable>> Er
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 /// This is a dynamically typed Value used in the interpreter, it need to be able
 /// to be converted from and to anything that can be stored in a Property
 pub enum Value {
@@ -270,12 +270,29 @@ pub fn eval_expression(
             let lhs = eval_expression(&**lhs, component_type, eval_context);
             let rhs = eval_expression(&**rhs, component_type, eval_context);
 
-            match (lhs, rhs, op) {
-                (Value::Number(a), Value::Number(b), '+') => Value::Number(a + b),
-                (Value::Number(a), Value::Number(b), '-') => Value::Number(a - b),
-                (Value::Number(a), Value::Number(b), '/') => Value::Number(a / b),
-                (Value::Number(a), Value::Number(b), '*') => Value::Number(a * b),
-                (lhs, rhs, op) => panic!("unsupported {:?} {} {:?}", lhs, op, rhs),
+            match (op, lhs, rhs) {
+                ('+', Value::Number(a), Value::Number(b)) => Value::Number(a + b),
+                ('-', Value::Number(a), Value::Number(b)) => Value::Number(a - b),
+                ('/', Value::Number(a), Value::Number(b)) => Value::Number(a / b),
+                ('*', Value::Number(a), Value::Number(b)) => Value::Number(a * b),
+                ('<', Value::Number(a), Value::Number(b)) => Value::Bool(a < b),
+                ('>', Value::Number(a), Value::Number(b)) => Value::Bool(a > b),
+                ('≤', Value::Number(a), Value::Number(b)) => Value::Bool(a <= b),
+                ('≥', Value::Number(a), Value::Number(b)) => Value::Bool(a >= b),
+                ('=', a, b) => Value::Bool(a == b),
+                ('!', a, b) => Value::Bool(a != b),
+                ('&', Value::Bool(a), Value::Bool(b)) => Value::Bool(a && b),
+                ('|', Value::Bool(a), Value::Bool(b)) => Value::Bool(a || b),
+                (op, lhs, rhs) => panic!("unsupported {:?} {} {:?}", lhs, op, rhs),
+            }
+        }
+        Expression::UnaryOp { sub, op } => {
+            let sub = eval_expression(&**sub, component_type, eval_context);
+            match (sub, op) {
+                (Value::Number(a), '+') => Value::Number(a),
+                (Value::Number(a), '-') => Value::Number(-a),
+                (Value::Bool(a), '!') => Value::Bool(!a),
+                (sub, op) => panic!("unsupported {} {:?}", op, sub),
             }
         }
         Expression::ResourceReference { absolute_source_path } => {

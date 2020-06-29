@@ -206,6 +206,9 @@ impl Expression {
             .or_else(|| node.SelfAssignment().map(|n| Self::from_self_assignement_node(n, ctx)))
             .or_else(|| node.BinaryExpression().map(|n| Self::from_binary_expression_node(n, ctx)))
             .or_else(|| {
+                node.UnaryOpExpression().map(|n| Self::from_unaryop_expression_node(n, ctx))
+            })
+            .or_else(|| {
                 node.ConditionalExpression().map(|n| Self::from_conditional_expression_node(n, ctx))
             })
             .or_else(|| node.ObjectLiteral().map(|n| Self::from_object_literal_node(n, ctx)))
@@ -405,32 +408,57 @@ impl Expression {
         node: syntax_nodes::BinaryExpression,
         ctx: &mut LookupCtx,
     ) -> Expression {
-        let (lhs_n, rhs_n) = node.Expression();
-        let mut lhs = Self::from_expression_node(lhs_n.clone().into(), ctx);
-        let mut rhs = Self::from_expression_node(rhs_n.clone().into(), ctx);
+        let op = None
+            .or(node.child_token(SyntaxKind::Plus).and(Some('+')))
+            .or(node.child_token(SyntaxKind::Minus).and(Some('-')))
+            .or(node.child_token(SyntaxKind::Star).and(Some('*')))
+            .or(node.child_token(SyntaxKind::Div).and(Some('/')))
+            .or(node.child_token(SyntaxKind::LessEqual).and(Some('≤')))
+            .or(node.child_token(SyntaxKind::GreaterEqual).and(Some('≥')))
+            .or(node.child_token(SyntaxKind::LAngle).and(Some('<')))
+            .or(node.child_token(SyntaxKind::RAngle).and(Some('>')))
+            .or(node.child_token(SyntaxKind::EqualEqual).and(Some('=')))
+            .or(node.child_token(SyntaxKind::NotEqual).and(Some('!')))
+            .or(node.child_token(SyntaxKind::AndAnd).and(Some('&')))
+            .or(node.child_token(SyntaxKind::OrOr).and(Some('|')))
+            .unwrap_or('_');
 
-        let (lhs_ty, rhs_ty) = (lhs.ty(), rhs.ty());
-        if lhs_ty != rhs_ty {
-            if rhs_ty.can_convert(&lhs_ty) {
-                rhs = rhs.maybe_convert_to(lhs_ty, &rhs_n.into(), &mut ctx.diag);
-            } else {
-                lhs = lhs.maybe_convert_to(rhs_ty, &lhs_n.into(), &mut ctx.diag);
+        let (lhs_n, rhs_n) = node.Expression();
+        let lhs = Self::from_expression_node(lhs_n.clone().into(), ctx);
+        let rhs = Self::from_expression_node(rhs_n.clone().into(), ctx);
+
+        let expected_ty = match operator_class(op) {
+            OperatorClass::ComparisonOp => {
+                let (lhs_ty, rhs_ty) = (lhs.ty(), rhs.ty());
+                if rhs_ty.can_convert(&lhs_ty) {
+                    lhs_ty
+                } else {
+                    rhs_ty
+                }
             }
-        }
+            OperatorClass::LogicalOp => Type::Bool,
+            OperatorClass::ArithmeticOp => Type::Float32,
+        };
         Expression::BinaryExpression {
-            lhs: Box::new(lhs),
-            rhs: Box::new(rhs),
+            lhs: Box::new(lhs.maybe_convert_to(expected_ty.clone(), &lhs_n, &mut ctx.diag)),
+            rhs: Box::new(rhs.maybe_convert_to(expected_ty, &rhs_n, &mut ctx.diag)),
+            op,
+        }
+    }
+
+    fn from_unaryop_expression_node(
+        node: syntax_nodes::UnaryOpExpression,
+        ctx: &mut LookupCtx,
+    ) -> Expression {
+        let exp_n = node.Expression();
+        let exp = Self::from_expression_node(exp_n.clone().into(), ctx);
+
+        Expression::UnaryOp {
+            sub: Box::new(exp),
             op: None
                 .or(node.child_token(SyntaxKind::Plus).and(Some('+')))
                 .or(node.child_token(SyntaxKind::Minus).and(Some('-')))
-                .or(node.child_token(SyntaxKind::Star).and(Some('*')))
-                .or(node.child_token(SyntaxKind::Div).and(Some('/')))
-                .or(node.child_token(SyntaxKind::LessEqual).and(Some('≤')))
-                .or(node.child_token(SyntaxKind::GreaterEqual).and(Some('≥')))
-                .or(node.child_token(SyntaxKind::LAngle).and(Some('<')))
-                .or(node.child_token(SyntaxKind::RAngle).and(Some('>')))
-                .or(node.child_token(SyntaxKind::EqualEqual).and(Some('=')))
-                .or(node.child_token(SyntaxKind::NotEqual).and(Some('!')))
+                .or(node.child_token(SyntaxKind::Bang).and(Some('!')))
                 .unwrap_or('_'),
         }
     }

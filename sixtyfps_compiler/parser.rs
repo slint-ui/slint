@@ -236,6 +236,8 @@ declare_syntax! {
         NotEqual -> r"!=",
         ColonEqual -> r":=",
         FatArrow -> r"=>",
+        OrOr -> r"\|\|",
+        AndAnd -> r"&&",
         Equal -> r"=",
         Colon -> r":",
         Comma -> r",",
@@ -269,7 +271,8 @@ declare_syntax! {
         CodeBlock-> [ *Expression ],
         // FIXME: the test should test that as alternative rather than several of them (but it can also be a literal)
         Expression-> [ ?Expression, ?BangExpression, ?FunctionCallExpression, ?SelfAssignment,
-                       ?ConditionalExpression, ?QualifiedName, ?BinaryExpression, ?Array, ?ObjectLiteral],
+                       ?ConditionalExpression, ?QualifiedName, ?BinaryExpression, ?Array, ?ObjectLiteral,
+                       ?UnaryOpExpression],
         /// `foo!bar`
         BangExpression -> [Expression],
         /// expression()
@@ -280,6 +283,8 @@ declare_syntax! {
         ConditionalExpression -> [3 Expression],
         /// `expr + expr`
         BinaryExpression -> [2 Expression],
+        /// `- expr`
+        UnaryOpExpression -> [Expression],
         /// `[ ... ]`
         Array -> [ *Expression ],
         /// `{ foo: bar }`

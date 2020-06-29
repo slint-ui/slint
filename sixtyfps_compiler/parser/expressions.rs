@@ -17,6 +17,7 @@ use super::prelude::*;
 /// (nested()) ? (ok) : (other.ko)
 /// 4 + 4
 /// 4 + 8 * 7 / 5 + 3 - 7 - 7 * 8
+/// aa == cc && bb && (xxx || fff) && 3 + aaa == bbb
 /// [array]
 /// {object:42}
 /// ```
@@ -29,12 +30,15 @@ pub fn parse_expression(p: &mut impl Parser) {
 enum OperatorPrecedence {
     /// ` ?: `
     Default,
+    /// `||`, `&&`
+    Logical,
     /// `==` `!=` `>=` `<=` `<` `>`
     Equality,
     /// `+ -`
     Add,
     /// `* /`
     Mul,
+    Unary,
     Bang,
 }
 
@@ -59,7 +63,21 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) 
         }
         SyntaxKind::LBracket => parse_array(&mut *p),
         SyntaxKind::LBrace => parse_object_notation(&mut *p),
-
+        SyntaxKind::Plus => {
+            let mut p = p.start_node(SyntaxKind::UnaryOpExpression);
+            p.consume();
+            parse_expression_helper(&mut *p, OperatorPrecedence::Unary);
+        }
+        SyntaxKind::Minus => {
+            let mut p = p.start_node(SyntaxKind::UnaryOpExpression);
+            p.consume();
+            parse_expression_helper(&mut *p, OperatorPrecedence::Unary);
+        }
+        SyntaxKind::Bang => {
+            let mut p = p.start_node(SyntaxKind::UnaryOpExpression);
+            p.consume();
+            parse_expression_helper(&mut *p, OperatorPrecedence::Unary);
+        }
         _ => {
             p.error("invalid expression");
             return;
@@ -109,7 +127,7 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) 
         return;
     }
 
-    while matches!(
+    if matches!(
         p.nth(0),
         SyntaxKind::LessEqual
             | SyntaxKind::GreaterEqual
@@ -120,7 +138,6 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) 
     ) {
         if precedence == OperatorPrecedence::Equality {
             p.error("Use parentheses to disambiguate equality expression on the same level");
-            return;
         }
 
         {
@@ -129,6 +146,29 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) 
         let mut p = p.start_node_at(checkpoint.clone(), SyntaxKind::BinaryExpression);
         p.consume();
         parse_expression_helper(&mut *p, OperatorPrecedence::Equality);
+    }
+
+    if precedence >= OperatorPrecedence::Logical {
+        return;
+    }
+
+    let mut prev_logical_op = None;
+    while matches!(p.nth(0), SyntaxKind::AndAnd | SyntaxKind::OrOr) {
+        if let Some(prev) = prev_logical_op {
+            if prev != p.nth(0) {
+                p.error("Use parentheses to disambiguate between && and ||");
+                prev_logical_op = None;
+            }
+        } else {
+            prev_logical_op = Some(p.nth(0));
+        }
+
+        {
+            let _ = p.start_node_at(checkpoint.clone(), SyntaxKind::Expression);
+        }
+        let mut p = p.start_node_at(checkpoint.clone(), SyntaxKind::BinaryExpression);
+        p.consume();
+        parse_expression_helper(&mut *p, OperatorPrecedence::Logical);
     }
 
     match p.nth(0) {
