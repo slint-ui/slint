@@ -22,7 +22,8 @@ declare_ValueType![
     f64,
     crate::SharedString,
     crate::Resource,
-    crate::Color
+    crate::Color,
+    crate::PathElements
 ];
 
 pub trait PropertyInfo<Item, Value> {

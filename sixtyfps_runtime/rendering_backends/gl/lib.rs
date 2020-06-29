@@ -5,7 +5,8 @@ use itertools::Itertools;
 use lyon::tessellation::geometry_builder::{BuffersBuilder, VertexBuffers};
 use lyon::tessellation::{FillAttributes, FillOptions, FillTessellator};
 use sixtyfps_corelib::abi::datastructures::{
-    Color, ComponentWindow, ComponentWindowOpaque, Point, Rect, RenderingPrimitive, Resource, Size,
+    Color, ComponentWindow, ComponentWindowOpaque, PathElement, Point, Rect, RenderingPrimitive,
+    Resource, Size,
 };
 use sixtyfps_corelib::graphics::{
     FillStyle, Frame as GraphicsFrame, GraphicsBackend, GraphicsWindow, HasRenderingPrimitive,
@@ -334,6 +335,62 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                         if *font_pixel_size != 0. { *font_pixel_size } else { 48.0 * 72. / 96. };
                     Some(self.create_glyph_runs(text, font_family, pixel_size, *color))
                 }
+                RenderingPrimitive::Path { x: _, y: _, elements, fill_color } => {
+                    use lyon::math::Point;
+                    use lyon::path::PathEvent;
+
+                    struct PathEventGenerator<'a> {
+                        iter: std::slice::Iter<'a, PathElement>,
+                        first: Point,
+                        last: Point,
+                        needs_end: bool,
+                        injected_event: Option<PathEvent>,
+                    }
+
+                    impl<'a> std::iter::Iterator for PathEventGenerator<'a> {
+                        type Item = PathEvent;
+                        fn next(&mut self) -> Option<Self::Item> {
+                            if self.injected_event.is_some() {
+                                return self.injected_event.take();
+                            }
+
+                            let next = self.iter.next();
+                            match next {
+                                Some(PathElement::LineTo { x, y }) => {
+                                    self.needs_end = true;
+                                    let from = self.last;
+                                    let to = Point::new(*x, *y);
+
+                                    self.last = to;
+
+                                    Some(PathEvent::Line { from, to })
+                                }
+                                None => {
+                                    if self.needs_end {
+                                        self.needs_end = false;
+                                        Some(PathEvent::End {
+                                            last: self.last,
+                                            first: self.first,
+                                            close: true,
+                                        })
+                                    } else {
+                                        None
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    let it = PathEventGenerator {
+                        iter: elements.iter(),
+                        first: Point::default(),
+                        last: Point::default(),
+                        needs_end: false,
+                        injected_event: Some(PathEvent::Begin { at: Point::default() }),
+                    };
+
+                    Some(self.create_path(it, FillStyle::SolidColor(*fill_color)))
+                }
             },
             rendering_primitive: primitive,
         }
@@ -341,13 +398,17 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
 }
 
 impl GLRenderingPrimitivesBuilder {
-    fn create_path(&mut self, path: &lyon::path::Path, style: FillStyle) -> GLRenderingPrimitive {
+    fn create_path(
+        &mut self,
+        path: impl IntoIterator<Item = lyon::path::PathEvent>,
+        style: FillStyle,
+    ) -> GLRenderingPrimitive {
         let mut geometry: VertexBuffers<Vertex, u16> = VertexBuffers::new();
 
         let fill_opts = FillOptions::default();
         self.fill_tesselator
-            .tessellate_path(
-                path.as_slice(),
+            .tessellate(
+                path,
                 &fill_opts,
                 &mut BuffersBuilder::new(
                     &mut geometry,

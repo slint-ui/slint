@@ -9,6 +9,7 @@ fn main() {
         "Image",
         "TouchArea",
         "Text",
+        "Path",
         "ComponentVTable",
         "Slice",
         "ComponentWindowOpaque",
@@ -18,10 +19,18 @@ fn main() {
     .map(|x| x.to_string())
     .collect::<Vec<String>>();
 
-    let exclude = ["SharedString", "SharedArray", "Resource", "Color"]
-        .iter()
-        .map(|x| x.to_string())
-        .collect::<Vec<String>>();
+    let exclude = [
+        "SharedString",
+        "SharedArray",
+        "Resource",
+        "Color",
+        "PathElements",
+        "PathElement",
+        "sixtyfps_new_path_elements",
+    ]
+    .iter()
+    .map(|x| x.to_string())
+    .collect::<Vec<String>>();
 
     let mut config = cbindgen::Config {
         pragma_once: true,
@@ -72,48 +81,48 @@ fn main() {
         .expect("Unable to generate bindings")
         .write_to_file(include_dir.join("sixtyfps_properties_internal.h"));
 
-    let mut resource_config = config.clone();
-    resource_config.export.include = vec!["Resource".into()];
-    resource_config.export.exclude = vec![
-        "sixtyfps_visit_item_tree".into(),
-        "sixtyfps_component_window_drop".into(),
-        "sixtyfps_component_window_run".into(),
-    ];
-    resource_config.enumeration = cbindgen::EnumConfig {
-        derive_tagged_enum_copy_assignment: true,
-        derive_tagged_enum_copy_constructor: true,
-        derive_tagged_enum_destructor: true,
-        derive_helper_methods: true,
-        private_default_tagged_enum_constructor: true,
-        ..Default::default()
-    };
-    // Put the "Recources" in a deeper "types" namespace, so the use of "Resource" in internal
-    // uses the public `sixtyfps::Resource` type
-    resource_config.namespaces = Some(vec!["sixtyfps".into(), "internal".into(), "types".into()]);
-    cbindgen::Builder::new()
-        .with_config(resource_config)
-        .with_src(crate_dir.join("abi/datastructures.rs"))
-        .generate()
-        .expect("Unable to generate bindings")
-        .write_to_file(include_dir.join("sixtyfps_resource_internal.h"));
+    for (rust_types, internal_header) in [
+        (vec!["Resource"], "sixtyfps_resource_internal.h"),
+        (vec!["Color"], "sixtyfps_color_internal"),
+        (
+            vec!["PathElements", "PathElement", "sixtyfps_new_path_elements"],
+            "sixtyfps_pathelements_internal.h",
+        ),
+    ]
+    .iter()
+    {
+        let mut special_config = config.clone();
+        special_config.export.include = rust_types.iter().map(|s| s.to_string()).collect();
+        special_config.export.exclude = [
+            "sixtyfps_visit_item_tree",
+            "sixtyfps_component_window_drop",
+            "sixtyfps_component_window_run",
+            "sixtyfps_new_path_elements",
+        ]
+        .iter()
+        .filter(|exclusion| rust_types.iter().find(|inclusion| inclusion == exclusion).is_none())
+        .map(|s| s.to_string())
+        .collect();
 
-    let mut color_config = config.clone();
-    color_config.export.include = vec!["Color".into()];
-    color_config.export.exclude = vec![
-        "sixtyfps_visit_item_tree".into(),
-        "sixtyfps_component_window_drop".into(),
-        "sixtyfps_component_window_run".into(),
-    ];
-
-    // Put the "Color" in a deeper "types" namespace, so the use of "Color" in internal
-    // uses the public `sixtyfps::Color` type
-    color_config.namespaces = Some(vec!["sixtyfps".into(), "internal".into(), "types".into()]);
-    cbindgen::Builder::new()
-        .with_config(color_config)
-        .with_src(crate_dir.join("abi/datastructures.rs"))
-        .generate()
-        .expect("Unable to generate bindings")
-        .write_to_file(include_dir.join("sixtyfps_color_internal.h"));
+        special_config.enumeration = cbindgen::EnumConfig {
+            derive_tagged_enum_copy_assignment: true,
+            derive_tagged_enum_copy_constructor: true,
+            derive_tagged_enum_destructor: true,
+            derive_helper_methods: true,
+            private_default_tagged_enum_constructor: true,
+            ..Default::default()
+        };
+        // Put the rust type in a deeper "types" namespace, so the use of same type in for example generated
+        // Property<> fields uses the public `sixtyfps::Blah` type
+        special_config.namespaces =
+            Some(vec!["sixtyfps".into(), "internal".into(), "types".into()]);
+        cbindgen::Builder::new()
+            .with_config(special_config)
+            .with_src(crate_dir.join("abi/datastructures.rs"))
+            .generate()
+            .expect("Unable to generate bindings")
+            .write_to_file(include_dir.join(internal_header));
+    }
 
     config.export.body.insert(
         "ItemTreeNode".to_owned(),
@@ -134,6 +143,7 @@ fn main() {
         .with_include("sixtyfps_signals.h")
         .with_include("sixtyfps_resource.h")
         .with_include("sixtyfps_color.h")
+        .with_include("sixtyfps_pathelements.h")
         .generate()
         .expect("Unable to generate bindings")
         .write_to_file(include_dir.join("sixtyfps_internal.h"));

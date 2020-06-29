@@ -1,5 +1,7 @@
 use cgmath::{Matrix4, SquareMatrix, Vector3};
-use sixtyfps_corelib::abi::datastructures::{Color, RenderingPrimitive, Resource};
+use sixtyfps_corelib::abi::datastructures::{
+    Color, PathElement, PathElements, RenderingPrimitive, Resource,
+};
 use sixtyfps_corelib::graphics::{
     Frame, GraphicsBackend, RenderingCache, RenderingPrimitivesBuilder,
 };
@@ -63,6 +65,18 @@ fn main() {
         render_cache.allocate_entry(image_primitive)
     };
 
+    const TRIANGLE_PATH: &'static [PathElement] =
+        &[PathElement::LineTo { x: 100., y: 50. }, PathElement::LineTo { x: 0., y: 100. }];
+    let path_node = {
+        let path_primitive = rendering_primitives_builder.create(RenderingPrimitive::Path {
+            x: 50.,
+            y: 300.,
+            elements: PathElements::StaticElements(TRIANGLE_PATH.into()),
+            fill_color: Color::from_rgb(0, 128, 255),
+        });
+        render_cache.allocate_entry(path_primitive)
+    };
+
     renderer.finish_primitives(rendering_primitives_builder);
 
     event_loop.run(move |event, _, control_flow| {
@@ -87,6 +101,10 @@ fn main() {
                 frame.render_primitive(
                     render_cache.entry_at(image_node),
                     &Matrix4::from_translation(Vector3::new(200., 200., 0.)),
+                );
+                frame.render_primitive(
+                    render_cache.entry_at(path_node),
+                    &Matrix4::from_translation(Vector3::new(20., 200., 0.)),
                 );
 
                 renderer.present_frame(frame);

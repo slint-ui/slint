@@ -1,7 +1,7 @@
 use core::cell::RefCell;
 use neon::prelude::*;
 use sixtyfps_compilerlib::typeregister::Type;
-use sixtyfps_corelib::abi::datastructures::Resource;
+use sixtyfps_corelib::abi::datastructures::{PathElement, Resource};
 use sixtyfps_corelib::{ComponentRefPin, EvaluationContext};
 
 use std::rc::Rc;
@@ -151,6 +151,28 @@ fn to_js_value<'cx>(
             js_object.as_value(cx)
         }
         Value::Color(c) => JsNumber::new(cx, c.as_argb_encoded()).as_value(cx),
+        Value::PathElements(elements) => {
+            let elements = elements.as_slice();
+            let js_array = JsArray::new(cx, elements.len() as _);
+            for (i, element) in elements.into_iter().enumerate() {
+                let element_object = JsObject::new(cx);
+
+                match element {
+                    PathElement::LineTo { x, y } => {
+                        let x = JsNumber::new(cx, *x);
+                        let x = x.as_value(cx);
+                        element_object.set(cx, "x", x)?;
+
+                        let y = JsNumber::new(cx, *y);
+                        let y = y.as_value(cx);
+                        element_object.set(cx, "y", y)?;
+                    }
+                }
+
+                js_array.set(cx, i as u32, element_object)?;
+            }
+            js_array.as_value(cx)
+        }
     })
 }
 

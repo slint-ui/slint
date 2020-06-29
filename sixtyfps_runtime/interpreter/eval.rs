@@ -5,7 +5,7 @@ use sixtyfps_compilerlib::{object_tree::ElementRc, typeregister::Type};
 use sixtyfps_corelib as corelib;
 use sixtyfps_corelib::{
     abi::datastructures::ItemRef, abi::primitives::PropertyAnimation, Color, EvaluationContext,
-    Resource, SharedString,
+    PathElements, Resource, SharedString,
 };
 use std::{collections::HashMap, rc::Rc};
 
@@ -64,6 +64,8 @@ pub enum Value {
     Object(HashMap<String, Value>),
     /// A color
     Color(Color),
+    /// The elements of a path
+    PathElements(PathElements),
 }
 
 impl Default for Value {
@@ -108,6 +110,7 @@ declare_value_conversion!(Bool => [bool] );
 declare_value_conversion!(Resource => [Resource] );
 declare_value_conversion!(Object => [HashMap<String, Value>] );
 declare_value_conversion!(Color => [Color] );
+declare_value_conversion!(PathElements => [PathElements]);
 
 /// Evaluate an expression and return a Value as the result of this expression
 pub fn eval_expression(

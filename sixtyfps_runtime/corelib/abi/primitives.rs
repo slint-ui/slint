@@ -16,7 +16,8 @@ When adding an item or a property, it needs to be kept in sync with different pl
 #![allow(missing_docs)] // because documenting each property of items is redundent
 
 use super::datastructures::{
-    CachedRenderingData, Color, Item, ItemConsts, LayoutInfo, Rect, RenderingPrimitive, Resource,
+    CachedRenderingData, Color, Item, ItemConsts, LayoutInfo, PathElements, Rect,
+    RenderingPrimitive, Resource,
 };
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
@@ -259,6 +260,58 @@ impl ItemConsts for TouchArea {
     > = TouchArea::field_offsets().cached_rendering_data.as_unpinned_projection();
 }
 pub use crate::abi::datastructures::TouchAreaVTable;
+
+/// The implementation of the `Path` element
+#[repr(C)]
+#[derive(FieldOffsets, Default, BuiltinItem)]
+#[pin]
+pub struct Path {
+    pub x: Property<f32>,
+    pub y: Property<f32>,
+    pub elements: Property<PathElements>,
+    pub fill_color: Property<Color>,
+    pub cached_rendering_data: CachedRenderingData,
+}
+
+impl Item for Path {
+    fn geometry(self: Pin<&Self>, context: &crate::EvaluationContext) -> Rect {
+        euclid::rect(
+            Self::field_offsets().x.apply_pin(self).get(context),
+            Self::field_offsets().y.apply_pin(self).get(context),
+            0.,
+            0.,
+        )
+    }
+    fn rendering_primitive(
+        self: Pin<&Self>,
+        context: &crate::EvaluationContext,
+    ) -> RenderingPrimitive {
+        RenderingPrimitive::Path {
+            x: Self::field_offsets().x.apply_pin(self).get(context),
+            y: Self::field_offsets().y.apply_pin(self).get(context),
+            elements: Self::field_offsets().elements.apply_pin(self).get(context),
+            fill_color: Self::field_offsets().fill_color.apply_pin(self).get(context),
+        }
+    }
+
+    fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
+        todo!()
+    }
+
+    fn input_event(
+        self: Pin<&Self>,
+        _: super::datastructures::MouseEvent,
+        _: &crate::EvaluationContext,
+    ) {
+    }
+}
+
+impl ItemConsts for Path {
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<Path, CachedRenderingData> =
+        Path::field_offsets().cached_rendering_data.as_unpinned_projection();
+}
+
+pub use crate::abi::datastructures::PathVTable;
 
 /// The implementation of the `PropertyAnimation` element
 #[repr(C)]

@@ -18,6 +18,7 @@ extern const internal::ItemVTable RectangleVTable;
 extern const internal::ItemVTable TextVTable;
 extern const internal::ItemVTable TouchAreaVTable;
 extern const internal::ItemVTable ImageVTable;
+extern const internal::ItemVTable PathVTable;
 }
 
 // Bring opaque structure in scope
@@ -47,6 +48,7 @@ private:
 
 using internal::EvaluationContext;
 using internal::Image;
+using internal::Path;
 using internal::Rectangle;
 using internal::Text;
 using internal::TouchArea;

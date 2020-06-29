@@ -247,6 +247,69 @@ impl Default for Resource {
     }
 }
 
+#[repr(C)]
+#[derive(Clone, Debug, PartialEq)]
+/// PathElement describes a single element on a path, such as move-to, line-to, etc.
+pub enum PathElement {
+    /// Line to describes the event of moving the cursor on the path to the specified location
+    /// along a straight line.
+    LineTo {
+        /// The x coordinate where the line should go to.
+        x: f32,
+        /// The y coordinate where the line should go to.
+        y: f32,
+    },
+}
+
+#[repr(C)]
+#[derive(Clone, Debug, PartialEq)]
+/// PathElements holds the elements of a path.
+pub enum PathElements {
+    /// None is the variant of PathData when the path has no elements.
+    None,
+    /// StaticData is used to make PathData refer a static memory of elements.
+    StaticElements(super::slice::Slice<'static, PathElement>),
+    /// SharedElements is used to make PathElements from shared arrays of elements.
+    SharedElements(crate::SharedArray<PathElement>),
+}
+
+impl Default for PathElements {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
+impl PathElements {
+    /// Returns a slice of the elements.
+    pub fn as_slice(&self) -> &[PathElement] {
+        match self {
+            PathElements::None => &[],
+            PathElements::StaticElements(elements) => elements.as_slice(),
+            PathElements::SharedElements(elements) => elements.as_slice(),
+        }
+    }
+
+    /// Returns an iterator over all elements.
+    pub fn iter(&self) -> std::slice::Iter<PathElement> {
+        match self {
+            PathElements::None => [].iter(),
+            PathElements::StaticElements(elements) => elements.as_slice().iter(),
+            PathElements::SharedElements(elements) => elements.as_slice().iter(),
+        }
+    }
+}
+
+#[no_mangle]
+/// This function is used for the low-level C++ interface to allocate the backing vector for a shared path element array.
+pub unsafe extern "C" fn sixtyfps_new_path_elements(
+    out: *mut c_void,
+    first_element: *const PathElement,
+    count: usize,
+) {
+    let arr = crate::SharedArray::from(std::slice::from_raw_parts(first_element, count));
+    core::ptr::write(out as *mut crate::SharedArray<PathElement>, arr.clone());
+}
+
 /// Each item return a RenderingPrimitive to the backend with information about what to draw.
 #[derive(PartialEq, Debug)]
 #[repr(C)]
@@ -273,6 +336,12 @@ pub enum RenderingPrimitive {
         font_family: crate::SharedString,
         font_pixel_size: f32,
         color: Color,
+    },
+    Path {
+        x: f32,
+        y: f32,
+        elements: crate::PathElements,
+        fill_color: Color,
     },
 }
 
@@ -419,4 +488,9 @@ ItemVTable_static! {
     /// The VTable for `TouchArea`
     #[no_mangle]
     pub static TouchAreaVTable for crate::abi::primitives::TouchArea
+}
+ItemVTable_static! {
+    /// The VTable for `Path`
+    #[no_mangle]
+    pub static PathVTable for crate::abi::primitives::Path
 }
