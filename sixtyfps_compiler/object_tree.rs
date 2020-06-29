@@ -131,6 +131,10 @@ pub struct RepeatedElementInfo {
     pub model: Expression,
     pub model_data_id: String,
     pub index_id: String,
+    /// A conditional element is just a for whose model is a bolean expression
+    ///
+    /// When this is true, the model is of type bolean instead of Model
+    pub is_conditional_element: bool,
 }
 
 pub type ElementRc = Rc<RefCell<Element>>;
@@ -290,6 +294,12 @@ impl Element {
                     diag,
                     tr,
                 ))));
+            } else if se.kind() == SyntaxKind::ConditionalElement {
+                r.children.push(Rc::new(RefCell::new(Element::from_conditional_node(
+                    se.into(),
+                    diag,
+                    tr,
+                ))));
             }
         }
         r
@@ -310,6 +320,23 @@ impl Element {
                 .RepeatedIndex()
                 .and_then(|r| r.child_text(SyntaxKind::Identifier))
                 .unwrap_or_default(),
+            is_conditional_element: false,
+        };
+        let mut e = Element::from_node(node.Element(), String::new(), diag, tr);
+        e.repeated = Some(rei);
+        e
+    }
+
+    fn from_conditional_node(
+        node: syntax_nodes::ConditionalElement,
+        diag: &mut Diagnostics,
+        tr: &TypeRegister,
+    ) -> Self {
+        let rei = RepeatedElementInfo {
+            model: Expression::Uncompiled(node.Expression().into()),
+            model_data_id: String::new(),
+            index_id: String::new(),
+            is_conditional_element: true,
         };
         let mut e = Element::from_node(node.Element(), String::new(), diag, tr);
         e.repeated = Some(rei);

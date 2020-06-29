@@ -249,6 +249,7 @@ declare_syntax! {
         Element -> [ QualifiedName, *PropertyDeclaration, *Binding, *SignalConnection, *SignalDeclaration, *SubElement, *RepeatedElement, *PropertyAnimation ],
         RepeatedElement -> [ ?DeclaredIdentifier, ?RepeatedIndex, Expression , Element],
         RepeatedIndex -> [],
+        ConditionalElement -> [ Expression , Element],
         SignalDeclaration -> [ DeclaredIdentifier ],
         SignalConnection -> [ CodeBlock ],
         PropertyDeclaration-> [ QualifiedName , DeclaredIdentifier, ?BindingExpression ],

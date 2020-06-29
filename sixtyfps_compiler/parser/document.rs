@@ -65,6 +65,7 @@ pub fn parse_element(p: &mut impl Parser) -> bool {
 /// property1: value; property2: value;
 /// sub := Sub { }
 /// for xx in model: Sub {}
+/// if (condition) : Sub {}
 /// clicked => {}
 /// signal foobar;
 /// property<int> width;
@@ -85,11 +86,14 @@ fn parse_element_content(p: &mut impl Parser) {
                 SyntaxKind::Identifier if p.peek().as_str() == "signal" => {
                     parse_signal_declaration(&mut *p);
                 }
+                SyntaxKind::Identifier if p.peek().as_str() == "animate" => {
+                    parse_property_animation(&mut *p);
+                }
                 SyntaxKind::LAngle if p.peek().as_str() == "property" => {
                     parse_property_declaration(&mut *p);
                 }
-                SyntaxKind::Identifier if p.peek().as_str() == "animate" => {
-                    parse_property_animation(&mut *p);
+                SyntaxKind::LParent if p.peek().as_str() == "if" => {
+                    parse_if_element(&mut *p);
                 }
                 _ => {
                     p.consume();
@@ -148,6 +152,25 @@ fn parse_repeated_element(p: &mut impl Parser) {
     p.consume(); // "in"
     parse_expression(&mut *p);
     p.expect(SyntaxKind::Colon);
+    parse_element(&mut *p);
+}
+
+/// ```test,ConditionalElement
+/// if (condition) : Elem { }
+/// if (foo ? bar : xx) : Elem { foo:bar; Elem {}}
+/// ```
+/// Must consume at least one token
+fn parse_if_element(p: &mut impl Parser) {
+    debug_assert_eq!(p.peek().as_str(), "if");
+    let mut p = p.start_node(SyntaxKind::ConditionalElement);
+    p.consume(); // "if"
+    if !p.expect(SyntaxKind::LParent) {
+        return;
+    }
+    parse_expression(&mut *p);
+    if !p.expect(SyntaxKind::RParent) || !p.expect(SyntaxKind::Colon) {
+        return;
+    }
     parse_element(&mut *p);
 }
 

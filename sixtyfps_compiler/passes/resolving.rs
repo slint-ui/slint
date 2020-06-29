@@ -73,8 +73,10 @@ pub fn resolve_expressions(doc: &Document, diag: &mut Diagnostics, tr: &mut Type
                         component_scope: &scope.0,
                         diag,
                     };
+                    let model_type =
+                        if r.is_conditional_element { Type::Bool } else { Type::Model };
                     r.model = Expression::from_expression_node(node.clone().into(), &mut lookup_ctx)
-                        .maybe_convert_to(Type::Model, node, diag)
+                        .maybe_convert_to(model_type, node, diag)
                 }
             }
             elem.borrow_mut().repeated = repeated;
