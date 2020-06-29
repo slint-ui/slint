@@ -95,7 +95,6 @@ pub struct ComponentDescription {
     it: Vec<ItemTreeNode<crate::dynamic_type::Instance>>,
     pub(crate) items: HashMap<String, ItemWithinComponent>,
     pub(crate) custom_properties: HashMap<String, PropertiesWithinComponent>,
-    pub(crate) custom_property_animations: HashMap<String, ElementRc>,
     /// the usize is the offset within `mem` to the Signal<()>
     pub(crate) custom_signals: HashMap<String, usize>,
     /// The repeaters
@@ -310,11 +309,6 @@ fn generate_component(
         it: tree_array,
         items: items_types,
         custom_properties,
-        custom_property_animations: root_component
-            .root_element
-            .borrow()
-            .property_animations
-            .clone(),
         custom_signals,
         original: root_component.clone(),
         repeater,
@@ -431,7 +425,7 @@ pub fn instantiate(
                         let maybe_animation = animation_for_property(
                             component_type.clone(),
                             &eval_context,
-                            &component_type.custom_property_animations,
+                            &component_type.original.root_element.borrow().property_animations,
                             prop,
                         );
 
