@@ -77,6 +77,7 @@ impl Component {
             root_element: Rc::new(RefCell::new(Element::from_node(
                 node.Element(),
                 "root".into(),
+                Type::Invalid,
                 diag,
                 tr,
             ))),
@@ -143,20 +144,24 @@ impl Element {
     pub fn from_node(
         node: syntax_nodes::Element,
         id: String,
+        parent_type: Type,
         diag: &mut Diagnostics,
         tr: &TypeRegister,
     ) -> Self {
         let base = QualifiedTypeName::from_node(node.QualifiedName());
         let mut r = Element {
             id,
-            base_type: tr.lookup(&base.to_string()),
+            base_type: match parent_type.lookup_type_for_child_element(&base.to_string(), tr) {
+                Ok(ty) => ty,
+                Err(err) => {
+                    diag.push_error(err, node.QualifiedName().span());
+                    return Element::default();
+                }
+            },
             node: Some(node.clone()),
             ..Default::default()
         };
-        if !r.base_type.is_object_type() {
-            diag.push_error(format!("Unknown type {}", base), node.QualifiedName().span());
-            return r;
-        }
+        assert!(r.base_type.is_object_type());
 
         for prop_decl in node.PropertyDeclaration() {
             let qualified_type_node = prop_decl.QualifiedName();
@@ -282,6 +287,7 @@ impl Element {
                     r.children.push(Rc::new(RefCell::new(Element::from_node(
                         element_node.into(),
                         id,
+                        r.base_type.clone(),
                         diag,
                         tr,
                     ))));
@@ -291,6 +297,7 @@ impl Element {
             } else if se.kind() == SyntaxKind::RepeatedElement {
                 r.children.push(Rc::new(RefCell::new(Element::from_repeated_node(
                     se.into(),
+                    r.base_type.clone(),
                     diag,
                     tr,
                 ))));
@@ -307,6 +314,7 @@ impl Element {
 
     fn from_repeated_node(
         node: syntax_nodes::RepeatedElement,
+        parent_type: Type,
         diag: &mut Diagnostics,
         tr: &TypeRegister,
     ) -> Self {
@@ -338,7 +346,7 @@ impl Element {
             index_id: String::new(),
             is_conditional_element: true,
         };
-        let mut e = Element::from_node(node.Element(), String::new(), diag, tr);
+        let mut e = Element::from_node(node.Element(), String::new(), parent_type, diag, tr);
         e.repeated = Some(rei);
         e
     }

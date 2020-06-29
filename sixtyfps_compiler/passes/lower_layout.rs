@@ -16,12 +16,7 @@ pub fn lower_layouts(component: &Rc<Component>, diag: &mut Diagnostics) {
         for child in old_children {
             let is_layout =
                 if let crate::typeregister::Type::Builtin(be) = &child.borrow().base_type {
-                    if be.class_name == "Row" {
-                        diag.push_error(
-                            "Row can only be within a GridLayout element".to_owned(),
-                            child.borrow().span(),
-                        )
-                    }
+                    assert!(be.class_name != "Row"); // Caught at element lookup time
                     be.class_name == "GridLayout"
                 } else {
                     false

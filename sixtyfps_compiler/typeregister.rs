@@ -96,6 +96,29 @@ impl Type {
         }
     }
 
+    pub fn lookup_type_for_child_element(
+        &self,
+        name: &str,
+        tr: &TypeRegister,
+    ) -> Result<Type, String> {
+        match self {
+            Type::Component(component) => {
+                return component
+                    .root_element
+                    .borrow()
+                    .base_type
+                    .lookup_type_for_child_element(name, tr)
+            }
+            Type::Builtin(builtin) => {
+                if let Some(child_type) = builtin.additional_accepted_child_types.get(name) {
+                    return Ok(child_type.clone());
+                }
+            }
+            _ => {}
+        };
+        tr.lookup_element(name)
+    }
+
     pub fn as_builtin(&self) -> &BuiltinElement {
         match &self {
             Type::Builtin(b) => &b,
@@ -118,6 +141,26 @@ impl Type {
                     | (Type::Int32, Type::Model)
             )
     }
+
+    fn collect_contextual_types(
+        &self,
+        context_restricted_types: &mut HashMap<String, HashSet<String>>,
+    ) {
+        let builtin = match self {
+            Type::Builtin(ty) => ty,
+            _ => return,
+        };
+        for (accepted_child_type_name, accepted_child_type) in
+            builtin.additional_accepted_child_types.iter()
+        {
+            context_restricted_types
+                .entry(accepted_child_type_name.clone())
+                .or_default()
+                .insert(builtin.class_name.clone());
+
+            accepted_child_type.collect_contextual_types(context_restricted_types);
+        }
+    }
 }
 
 impl Default for Type {
@@ -131,12 +174,18 @@ pub struct BuiltinElement {
     pub class_name: String,
     pub vtable_symbol: String,
     pub properties: HashMap<String, Type>,
+    pub additional_accepted_child_types: HashMap<String, Type>,
 }
 
 impl BuiltinElement {
     pub fn new(class_name: &str) -> Self {
         let vtable_symbol = format!("{}VTable", class_name);
-        Self { class_name: class_name.into(), vtable_symbol, properties: Default::default() }
+        Self {
+            class_name: class_name.into(),
+            vtable_symbol,
+            properties: Default::default(),
+            ..Default::default()
+        }
     }
 }
 
@@ -146,6 +195,9 @@ pub struct TypeRegister {
     types: HashMap<String, Type>,
     supported_property_animation_types: HashSet<String>,
     property_animation_type: Type,
+    /// Map from a context restricted type to the list of contexts (parent type) it is allowed in. This is
+    /// used to construct helpful error messages, such as "Row can only be within a GridLayout element".
+    context_restricted_types: HashMap<String, HashSet<String>>,
 }
 
 impl TypeRegister {
@@ -195,12 +247,15 @@ impl TypeRegister {
         touch_area.properties.insert("clicked".to_owned(), Type::Signal);
         r.types.insert("TouchArea".to_owned(), Type::Builtin(Rc::new(touch_area)));
 
-        let grid_layout = BuiltinElement::new("GridLayout");
-        r.types.insert("GridLayout".to_owned(), Type::Builtin(Rc::new(grid_layout)));
+        let mut grid_layout = BuiltinElement::new("GridLayout");
 
         // Row can only be in a GridLayout
         let row = BuiltinElement::new("Row");
-        r.types.insert("Row".to_owned(), Type::Builtin(Rc::new(row)));
+        grid_layout
+            .additional_accepted_child_types
+            .insert("Row".to_owned(), Type::Builtin(Rc::new(row)));
+
+        r.types.insert("GridLayout".to_owned(), Type::Builtin(Rc::new(grid_layout)));
 
         let mut property_animation =
             BuiltinElement { class_name: "PropertyAnimation".into(), ..Default::default() };
@@ -210,11 +265,46 @@ impl TypeRegister {
         r.supported_property_animation_types.insert(Type::Int32.to_string());
         r.supported_property_animation_types.insert(Type::Color.to_string());
 
+        let mut context_restricted_types = HashMap::new();
+        r.types.values().for_each(|ty| ty.collect_contextual_types(&mut context_restricted_types));
+        r.context_restricted_types = context_restricted_types;
+
         r
     }
 
     pub fn lookup(&self, name: &str) -> Type {
         self.types.get(name).cloned().unwrap_or_default()
+    }
+
+    pub fn lookup_element(&self, name: &str) -> Result<Type, String> {
+        self.types.get(name).cloned().ok_or_else(|| {
+            if let Some(permitted_parent_types) = self.context_restricted_types.get(name) {
+                if permitted_parent_types.len() == 1 {
+                    format!(
+                        "{} can only be within a {} element",
+                        name,
+                        permitted_parent_types.iter().next().unwrap()
+                    )
+                    .to_owned()
+                } else {
+                    let mut elements = permitted_parent_types.iter().fold(
+                        String::new(),
+                        |mut elements, typename| {
+                            elements.push_str(typename);
+                            elements.push_str(" ,");
+                            elements
+                        },
+                    );
+                    elements.pop();
+                    elements.pop();
+
+                    format!("{} can only be within the following elements: {}", name, elements)
+                        .to_owned()
+                }
+            } else {
+                format!("Unknown type {}", name)
+            }
+        })
     }
 
     pub fn lookup_qualified<Member: AsRef<str>>(&self, qualified: &[Member]) -> Type {
