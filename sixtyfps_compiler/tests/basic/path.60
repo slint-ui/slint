@@ -1,0 +1,15 @@
+
+
+TestCase := Rectangle {
+    Path {
+        LineTo { x: 100; y: 0; }
+        LineTo { x: 100; y: 0; }
+        LineTo { x: 100; y: 0; }
+        Rectangle {}
+//      ^error{Rectangle is not allowed within Path. Only LineTo  are valid children}
+    }
+
+    LineTo { x: 100; y: 0; }
+//  ^error{LineTo can only be within a Path element}
+}
+

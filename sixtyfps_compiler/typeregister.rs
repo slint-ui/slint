@@ -113,6 +113,17 @@ impl Type {
                 if let Some(child_type) = builtin.additional_accepted_child_types.get(name) {
                     return Ok(child_type.clone());
                 }
+                if builtin.disallow_global_types_as_child_elements {
+                    return Err(format!(
+                        "{} is not allowed within {}. Only {} are valid children",
+                        name,
+                        builtin.class_name,
+                        builtin
+                            .additional_accepted_child_types
+                            .keys()
+                            .fold(String::new(), |children, ty| children + ty + " ")
+                    ));
+                }
             }
             _ => {}
         };
@@ -175,6 +186,7 @@ pub struct BuiltinElement {
     pub vtable_symbol: String,
     pub properties: HashMap<String, Type>,
     pub additional_accepted_child_types: HashMap<String, Type>,
+    pub disallow_global_types_as_child_elements: bool,
 }
 
 impl BuiltinElement {
@@ -256,6 +268,19 @@ impl TypeRegister {
             .insert("Row".to_owned(), Type::Builtin(Rc::new(row)));
 
         r.types.insert("GridLayout".to_owned(), Type::Builtin(Rc::new(grid_layout)));
+
+        let mut path = BuiltinElement::new("Path");
+        path.properties.insert("x".to_owned(), Type::Float32);
+        path.properties.insert("y".to_owned(), Type::Float32);
+        path.disallow_global_types_as_child_elements = true;
+
+        let mut line_to = BuiltinElement::new("LineTo");
+        line_to.properties.insert("x".to_owned(), Type::Float32);
+        line_to.properties.insert("y".to_owned(), Type::Float32);
+        path.additional_accepted_child_types
+            .insert("LineTo".to_owned(), Type::Builtin(Rc::new(line_to)));
+
+        r.types.insert("Path".to_owned(), Type::Builtin(Rc::new(path)));
 
         let mut property_animation =
             BuiltinElement { class_name: "PropertyAnimation".into(), ..Default::default() };
