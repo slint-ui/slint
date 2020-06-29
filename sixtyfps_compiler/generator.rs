@@ -27,7 +27,7 @@ impl OutputFormat {
         match path.extension().and_then(|ext| ext.to_str()) {
             #[cfg(feature = "cpp")]
             Some("cpp") | Some("cxx") | Some("h") | Some("hpp") => Some(Self::Cpp),
-            #[cfg(feature = "cpp")]
+            #[cfg(feature = "rust")]
             Some("rs") => Some(Self::Rust),
             _ => None,
         }
@@ -38,7 +38,9 @@ impl std::str::FromStr for OutputFormat {
     type Err = String;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
+            #[cfg(feature = "cpp")]
             "cpp" => Ok(Self::Cpp),
+            #[cfg(feature = "rust")]
             "rust" => Ok(Self::Rust),
             _ => Err(format!("Unknown outpout format {}", s)),
         }
@@ -52,6 +54,7 @@ pub fn generate(
     diag: &mut Diagnostics,
 ) -> std::io::Result<()> {
     #![allow(unused_variables)]
+    #![allow(unreachable_code)]
     match format {
         #[cfg(feature = "cpp")]
         OutputFormat::Cpp => {

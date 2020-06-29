@@ -15,6 +15,7 @@ lazy_static::lazy_static! {
             };
             Ok(())
         }).expect("Could not run cargo build to extract native node plugin path");
+        assert!(!res.as_os_str().is_empty(), "Did not find the native nodejs lib (sixtyfps_node_native)");
         res
     };
 }
