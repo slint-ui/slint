@@ -20,7 +20,12 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
 
     let mut generated_cpp: Vec<u8> = Vec::new();
 
-    generator::generate(&mut generated_cpp, &doc.root_component, &mut diag)?;
+    generator::generate(
+        generator::OutputFormat::Cpp,
+        &mut generated_cpp,
+        &doc.root_component,
+        &mut diag,
+    )?;
 
     if diag.has_error() {
         let vec = diag.inner.iter().map(|d| d.message.clone()).collect::<Vec<String>>();

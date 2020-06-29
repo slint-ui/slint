@@ -14,16 +14,56 @@ mod cpp;
 #[cfg(feature = "rust")]
 pub mod rust;
 
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum OutputFormat {
+    #[cfg(feature = "cpp")]
+    Cpp,
+    #[cfg(feature = "rust")]
+    Rust,
+}
+
+impl OutputFormat {
+    pub fn guess_from_extension(path: &std::path::Path) -> Option<Self> {
+        match path.extension().and_then(|ext| ext.to_str()) {
+            #[cfg(feature = "cpp")]
+            Some("cpp") | Some("cxx") | Some("h") | Some("hpp") => Some(Self::Cpp),
+            #[cfg(feature = "cpp")]
+            Some("rs") => Some(Self::Rust),
+            _ => None,
+        }
+    }
+}
+
+impl std::str::FromStr for OutputFormat {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "cpp" => Ok(Self::Cpp),
+            "rust" => Ok(Self::Rust),
+            _ => Err(format!("Unknown outpout format {}", s)),
+        }
+    }
+}
+
 pub fn generate(
+    format: OutputFormat,
     destination: &mut impl std::io::Write,
     component: &Rc<Component>,
     diag: &mut Diagnostics,
 ) -> std::io::Result<()> {
     #![allow(unused_variables)]
-    #[cfg(feature = "cpp")]
-    {
-        if let Some(output) = cpp::generate(component, diag) {
-            write!(destination, "{}", output)?;
+    match format {
+        #[cfg(feature = "cpp")]
+        OutputFormat::Cpp => {
+            if let Some(output) = cpp::generate(component, diag) {
+                write!(destination, "{}", output)?;
+            }
+        }
+        #[cfg(feature = "rust")]
+        OutputFormat::Rust => {
+            if let Some(output) = rust::generate(component, diag) {
+                write!(destination, "{}", output)?;
+            }
         }
     }
     Ok(())
