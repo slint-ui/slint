@@ -1,0 +1,12 @@
+SuperSimple := Rectangle {
+    property<bool> zz: aa > bb == cc
+//                             ^error{Use parentheses to disambiguate equality expression on the same level}
+                < dd;
+//              ^error{Use parentheses to disambiguate equality expression on the same level}
+
+    property<bool> yy: aa <= bb <= cc;
+//                              ^error{Use parentheses to disambiguate equality expression on the same level}
+    property<bool> xx: aa<bb>(d);
+//                          ^error{Use parentheses to disambiguate equality expression on the same level}
+}
+

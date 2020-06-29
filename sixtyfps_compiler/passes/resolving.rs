@@ -425,6 +425,12 @@ impl Expression {
                 .or(node.child_token(SyntaxKind::Minus).and(Some('-')))
                 .or(node.child_token(SyntaxKind::Star).and(Some('*')))
                 .or(node.child_token(SyntaxKind::Div).and(Some('/')))
+                .or(node.child_token(SyntaxKind::LessEqual).and(Some('≤')))
+                .or(node.child_token(SyntaxKind::GreaterEqual).and(Some('≥')))
+                .or(node.child_token(SyntaxKind::LAngle).and(Some('<')))
+                .or(node.child_token(SyntaxKind::RAngle).and(Some('>')))
+                .or(node.child_token(SyntaxKind::EqualEqual).and(Some('=')))
+                .or(node.child_token(SyntaxKind::NotEqual).and(Some('!')))
                 .unwrap_or('_'),
         }
     }

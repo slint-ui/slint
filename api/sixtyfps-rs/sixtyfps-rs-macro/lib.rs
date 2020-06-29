@@ -29,30 +29,24 @@ fn fill_token_vec(stream: TokenStream, vec: &mut Vec<parser::Token>) {
                     ':' => SyntaxKind::Colon,
                     '=' => {
                         if let Some(last) = vec.last_mut() {
-                            if last.kind == SyntaxKind::Colon && prev_spacing == Spacing::Joint {
-                                last.kind = SyntaxKind::ColonEqual;
-                                last.text = ":=".into();
-                                continue;
-                            }
-                            if last.kind == SyntaxKind::Plus && prev_spacing == Spacing::Joint {
-                                last.kind = SyntaxKind::PlusEqual;
-                                last.text = "+=".into();
-                                continue;
-                            }
-                            if last.kind == SyntaxKind::Minus && prev_spacing == Spacing::Joint {
-                                last.kind = SyntaxKind::MinusEqual;
-                                last.text = "-=".into();
-                                continue;
-                            }
-                            if last.kind == SyntaxKind::Div && prev_spacing == Spacing::Joint {
-                                last.kind = SyntaxKind::DivEqual;
-                                last.text = "/=".into();
-                                continue;
-                            }
-                            if last.kind == SyntaxKind::Star && prev_spacing == Spacing::Joint {
-                                last.kind = SyntaxKind::StarEqual;
-                                last.text = "*=".into();
-                                continue;
+                            let kt = match last.kind {
+                                SyntaxKind::Star => Some((SyntaxKind::StarEqual, "*=")),
+                                SyntaxKind::Colon => Some((SyntaxKind::ColonEqual, ":=")),
+                                SyntaxKind::Plus => Some((SyntaxKind::PlusEqual, "+=")),
+                                SyntaxKind::Minus => Some((SyntaxKind::MinusEqual, "-=")),
+                                SyntaxKind::Div => Some((SyntaxKind::DivEqual, "/=")),
+                                SyntaxKind::LAngle => Some((SyntaxKind::LessEqual, "<=")),
+                                SyntaxKind::RAngle => Some((SyntaxKind::GreaterEqual, ">=")),
+                                SyntaxKind::Equal => Some((SyntaxKind::EqualEqual, "==")),
+                                SyntaxKind::Bang => Some((SyntaxKind::NotEqual, "!=")),
+                                _ => None,
+                            };
+                            if let Some((k, t)) = kt {
+                                if prev_spacing == Spacing::Joint {
+                                    last.kind = k;
+                                    last.text = t.into();
+                                    continue;
+                                }
                             }
                         }
                         SyntaxKind::Equal

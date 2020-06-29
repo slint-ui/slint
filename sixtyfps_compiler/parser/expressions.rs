@@ -21,16 +21,24 @@ use super::prelude::*;
 /// {object:42}
 /// ```
 pub fn parse_expression(p: &mut impl Parser) {
-    parse_expression_helper(p, 0)
+    parse_expression_helper(p, OperatorPrecedence::Default)
 }
 
-/// precedence:
-/// 0. base
-/// 1. `+ -`
-/// 2. `* /`
-/// 3. bang
-/// 4. call
-fn parse_expression_helper(p: &mut impl Parser, precedence: usize) {
+#[derive(Eq, PartialEq, Ord, PartialOrd)]
+#[repr(u8)]
+enum OperatorPrecedence {
+    /// ` ?: `
+    Default,
+    /// `==` `!=` `>=` `<=` `<` `>`
+    Equality,
+    /// `+ -`
+    Add,
+    /// `* /`
+    Mul,
+    Bang,
+}
+
+fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) {
     let mut p = p.start_node(SyntaxKind::Expression);
     let checkpoint = p.checkpoint();
     match p.nth(0) {
@@ -71,7 +79,7 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: usize) {
         _ => {}
     }
 
-    if precedence >= 3 {
+    if precedence >= OperatorPrecedence::Mul {
         return;
     }
 
@@ -81,10 +89,10 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: usize) {
         }
         let mut p = p.start_node_at(checkpoint.clone(), SyntaxKind::BinaryExpression);
         p.consume();
-        parse_expression_helper(&mut *p, 3);
+        parse_expression_helper(&mut *p, OperatorPrecedence::Mul);
     }
 
-    if precedence >= 2 {
+    if precedence >= OperatorPrecedence::Add {
         return;
     }
 
@@ -94,7 +102,33 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: usize) {
         }
         let mut p = p.start_node_at(checkpoint.clone(), SyntaxKind::BinaryExpression);
         p.consume();
-        parse_expression_helper(&mut *p, 2);
+        parse_expression_helper(&mut *p, OperatorPrecedence::Add);
+    }
+
+    if precedence > OperatorPrecedence::Equality {
+        return;
+    }
+
+    while matches!(
+        p.nth(0),
+        SyntaxKind::LessEqual
+            | SyntaxKind::GreaterEqual
+            | SyntaxKind::EqualEqual
+            | SyntaxKind::NotEqual
+            | SyntaxKind::LAngle
+            | SyntaxKind::RAngle
+    ) {
+        if precedence == OperatorPrecedence::Equality {
+            p.error("Use parentheses to disambiguate equality expression on the same level");
+            return;
+        }
+
+        {
+            let _ = p.start_node_at(checkpoint.clone(), SyntaxKind::Expression);
+        }
+        let mut p = p.start_node_at(checkpoint.clone(), SyntaxKind::BinaryExpression);
+        p.consume();
+        parse_expression_helper(&mut *p, OperatorPrecedence::Equality);
     }
 
     match p.nth(0) {
@@ -125,7 +159,7 @@ fn parse_bang_expression(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::BangExpression);
     p.expect(SyntaxKind::Identifier); // Or assert?
     p.expect(SyntaxKind::Bang); // Or assert?
-    parse_expression_helper(&mut *p, 3);
+    parse_expression_helper(&mut *p, OperatorPrecedence::Bang);
 }
 
 #[cfg_attr(test, parser_test)]
