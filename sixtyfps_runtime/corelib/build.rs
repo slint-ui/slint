@@ -18,7 +18,7 @@ fn main() {
     .map(|x| x.to_string())
     .collect::<Vec<String>>();
 
-    let exclude = ["SharedString", "Resource", "Color"]
+    let exclude = ["SharedString", "SharedArray", "Resource", "Color"]
         .iter()
         .map(|x| x.to_string())
         .collect::<Vec<String>>();
@@ -54,6 +54,14 @@ fn main() {
         .generate()
         .expect("Unable to generate bindings")
         .write_to_file(include_dir.join("sixtyfps_string_internal.h"));
+
+    cbindgen::Builder::new()
+        .with_config(config.clone())
+        .with_src(crate_dir.join("abi/sharedarray.rs"))
+        .with_after_include("namespace sixtyfps { template<typename T> struct SharedArray; }")
+        .generate()
+        .expect("Unable to generate bindings")
+        .write_to_file(include_dir.join("sixtyfps_sharedarray_internal.h"));
 
     cbindgen::Builder::new()
         .with_config(config.clone())
@@ -121,6 +129,7 @@ fn main() {
         .with_src(crate_dir.join("layout.rs")) // FIXME: move in ABI?
         .with_include("vtable.h")
         .with_include("sixtyfps_string.h")
+        .with_include("sixtyfps_sharedarray.h")
         .with_include("sixtyfps_properties.h")
         .with_include("sixtyfps_signals.h")
         .with_include("sixtyfps_resource.h")

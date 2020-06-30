@@ -28,6 +28,7 @@ pub mod abi {
     pub mod model;
     pub mod primitives;
     pub mod properties;
+    pub mod sharedarray;
     pub mod signals;
     pub mod slice;
     pub mod string;
@@ -35,6 +36,9 @@ pub mod abi {
 
 #[doc(inline)]
 pub use abi::string::SharedString;
+
+#[doc(inline)]
+pub use abi::sharedarray::SharedArray;
 
 #[doc(inline)]
 pub use abi::datastructures::Resource;
