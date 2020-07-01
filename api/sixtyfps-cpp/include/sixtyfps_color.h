@@ -32,10 +32,10 @@ private:
 };
 
 template<>
-void Property<Color>::set_animated_value(const Color &value,
+void Property<Color>::set_animated_value(const Color &new_value,
                                          const internal::PropertyAnimation &animation_data)
 {
-    internal::sixtyfps_property_set_animated_value_color(&inner, &value, &animation_data);
+    internal::sixtyfps_property_set_animated_value_color(&inner, value, new_value, &animation_data);
 }
 
 template<>

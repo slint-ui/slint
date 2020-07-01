@@ -83,6 +83,9 @@ impl EventLoop {
                     event: winit::event::WindowEvent::MouseInput { state, .. },
                     ..
                 } => {
+                    crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
+                        driver.borrow_mut().update_animations(instant::Instant::now());
+                    });
                     ALL_WINDOWS.with(|windows| {
                         if let Some(Some(window)) =
                             windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())

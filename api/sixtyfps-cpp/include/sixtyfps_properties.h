@@ -59,17 +59,17 @@ private:
 };
 
 template<>
-void Property<int32_t>::set_animated_value(const int32_t &value,
+void Property<int32_t>::set_animated_value(const int32_t &new_value,
                                            const internal::PropertyAnimation &animation_data)
 {
-    internal::sixtyfps_property_set_animated_value_int(&inner, value, &animation_data);
+    internal::sixtyfps_property_set_animated_value_int(&inner, value, new_value, &animation_data);
 }
 
 template<>
-void Property<float>::set_animated_value(const float &value,
+void Property<float>::set_animated_value(const float &new_value,
                                          const internal::PropertyAnimation &animation_data)
 {
-    internal::sixtyfps_property_set_animated_value_float(&inner, value, &animation_data);
+    internal::sixtyfps_property_set_animated_value_float(&inner, value, new_value, &animation_data);
 }
 
 template<>

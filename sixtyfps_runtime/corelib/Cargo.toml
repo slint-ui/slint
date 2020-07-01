@@ -32,3 +32,6 @@ instant = { version = "0.1", features = [ "wasm-bindgen", "now" ] }
 
 [build-dependencies]
 cbindgen = "0.14.2"
+
+[dev-dependencies]
+weak-pin = { path = "../../helper_crates/weak-pin" }

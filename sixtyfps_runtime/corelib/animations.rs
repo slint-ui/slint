@@ -91,13 +91,26 @@ enum InternalAnimationState {
 }
 
 /// The AnimationDriver
-#[derive(Default)]
 pub struct AnimationDriver {
     animations: Vec<InternalAnimationEntry>,
     next_free: Option<usize>,
     len: usize,
     /// Indicate whether there are any active animations that require a future call to update_animations.
     active_animations: Cell<bool>,
+
+    global_instant: core::pin::Pin<Box<crate::Property<instant::Instant>>>,
+}
+
+impl Default for AnimationDriver {
+    fn default() -> Self {
+        AnimationDriver {
+            animations: vec![],
+            next_free: None,
+            len: 0,
+            active_animations: Cell::default(),
+            global_instant: Box::pin(crate::Property::new(instant::Instant::now())),
+        }
+    }
 }
 
 /// The AnimationHandle can be used to refer to an animation after it's been started, in order to
@@ -112,6 +125,7 @@ impl AnimationDriver {
         self.active_animations.set(false);
         let mut need_new_animation_frame = false;
         let mut i: usize = 0;
+        self.global_instant.as_ref().set(new_tick);
         while i < self.animations.len() {
             {
                 let animation = match &self.animations[i] {
@@ -177,6 +191,11 @@ impl AnimationDriver {
     /// if a new animation frame is required or not. Returns false otherwise.
     pub fn has_active_animations(&self) -> bool {
         self.active_animations.get()
+    }
+
+    /// Tell the driver that there are active animations
+    pub fn set_has_active_animations(&self) {
+        self.active_animations.set(true);
     }
 
     /// Start a new animation and returns a handle for it.
@@ -265,9 +284,25 @@ impl AnimationDriver {
         let anim = self.animations[index].as_animation();
         anim.borrow_mut().state = new_state;
     }
+
+    /// The current instant that is to be used for animation
+    /// using this function register the current binding as a dependency
+    pub fn current_tick(&self) -> instant::Instant {
+        // FIXME! we need to get rid of the contect there
+        #[allow(unsafe_code)]
+        let dummy_eval_context = crate::EvaluationContext::for_root_component(unsafe {
+            core::pin::Pin::new_unchecked(vtable::VRef::from_raw(
+                core::ptr::NonNull::dangling(),
+                core::ptr::NonNull::dangling(),
+            ))
+        });
+        self.global_instant.as_ref().get(&dummy_eval_context)
+    }
 }
 
-thread_local!(pub(crate) static CURRENT_ANIMATION_DRIVER : Rc<RefCell<AnimationDriver>> = Default::default());
+thread_local!(pub(crate) static CURRENT_ANIMATION_DRIVER : Rc<RefCell<AnimationDriver>> =
+   Default::default()
+);
 
 #[cfg(test)]
 mod test {
