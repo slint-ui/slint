@@ -83,7 +83,7 @@ fn main() {
 
     for (rust_types, internal_header) in [
         (vec!["Resource"], "sixtyfps_resource_internal.h"),
-        (vec!["Color"], "sixtyfps_color_internal"),
+        (vec!["Color"], "sixtyfps_color_internal.h"),
         (
             vec!["PathElements", "PathElement", "sixtyfps_new_path_elements"],
             "sixtyfps_pathelements_internal.h",
