@@ -106,25 +106,47 @@ impl<'a> EvaluationContext<'a> {
     }
 }
 
+/// The return value of a binding
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+enum BindingResult {
+    /// The binding is a normal binding, and we keep it to re-evaluate it ince it is dirty
+    KeepBinding,
+    /// The value of the property is now constant after the binding was evaluated, so
+    /// the binding can be removed.
+    RemoveBinding,
+}
+
 struct BindingVTable {
     drop: unsafe fn(_self: *mut BindingHolder),
-    evaluate: unsafe fn(_self: *mut BindingHolder, value: *mut (), context: &EvaluationContext),
+    evaluate: unsafe fn(
+        _self: *mut BindingHolder,
+        value: *mut (),
+        context: &EvaluationContext,
+    ) -> BindingResult,
     mark_dirty: unsafe fn(_self: *const BindingHolder),
 }
 
 /// A binding trait object can be used to dynamically produces values for a property.
-pub trait BindingCallable {
+trait BindingCallable {
     /// This function is called by the property to evaluate the binding and produce a new value. The
     /// previous property value is provided in the value parameter.
-    unsafe fn evaluate(self: Pin<&Self>, value: *mut (), context: &EvaluationContext);
+    unsafe fn evaluate(
+        self: Pin<&Self>,
+        value: *mut (),
+        context: &EvaluationContext,
+    ) -> BindingResult;
 
     /// This function is used to notify the binding that one of the dependencies was changed
     /// and therefore this binding may evaluate to a different value, too.
     fn mark_dirty(self: Pin<&Self>) {}
 }
 
-impl<F: Fn(*mut (), &EvaluationContext)> BindingCallable for F {
-    unsafe fn evaluate(self: Pin<&Self>, value: *mut (), context: &EvaluationContext) {
+impl<F: Fn(*mut (), &EvaluationContext) -> BindingResult> BindingCallable for F {
+    unsafe fn evaluate(
+        self: Pin<&Self>,
+        value: *mut (),
+        context: &EvaluationContext,
+    ) -> BindingResult {
         self(value, context)
     }
 }
@@ -162,12 +184,12 @@ fn alloc_binding_holder<B: BindingCallable + 'static>(binding: B) -> *mut Bindin
         _self: *mut BindingHolder,
         value: *mut (),
         context: &EvaluationContext,
-    ) {
+    ) -> BindingResult {
         let pinned_holder = Pin::new_unchecked(&mut *_self);
         CURRENT_BINDING.set(pinned_holder, || {
             Pin::new_unchecked(&((*(_self as *mut BindingHolder<B>)).binding))
                 .evaluate(value, context)
-        });
+        })
     }
 
     /// Safety: _self must be a pointer to a `BindingHolder<B>`
@@ -370,20 +392,27 @@ impl PropertyHandle {
     // `value` is the content of the unsafe cell and will be only dereferenced if the
     // handle is not locked. (Upholding the requirements of UnsafeCell)
     unsafe fn update<T>(&self, value: *mut T, context: &EvaluationContext) {
-        self.access(|binding| {
+        let remove = self.access(|binding| {
             if let Some(mut binding) = binding {
                 if binding.dirty.get() {
                     // clear all the nodes so that we can start from scratch
                     binding.dep_nodes = single_linked_list_pin::SingleLinkedListPinHead::default();
-                    (binding.vtable.evaluate)(
+                    let r = (binding.vtable.evaluate)(
                         binding.as_mut().get_unchecked_mut() as *mut BindingHolder,
                         value as *mut (),
                         context,
                     );
                     binding.dirty.set(false);
+                    if r == BindingResult::RemoveBinding {
+                        return true;
+                    }
                 }
             }
+            false
         });
+        if remove {
+            self.remove_binding()
+        }
     }
 
     /// Register this property as a dependency to the current binding being evaluated
@@ -512,7 +541,8 @@ impl<T: Clone> Property<T> {
     //FIXME pub fn set_binding(self: Pin<&Self>, f: impl (Fn(&EvaluationContext) -> T) + 'static) {
     pub fn set_binding(&self, f: impl (Fn(&EvaluationContext) -> T) + 'static) {
         self.handle.set_binding(move |val: *mut (), context: &EvaluationContext| unsafe {
-            *(val as *mut T) = f(context)
+            *(val as *mut T) = f(context);
+            BindingResult::KeepBinding
         });
         self.handle.mark_dirty();
     }
@@ -528,9 +558,16 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
     pub fn set_animated_value(&self, value: T, animation_data: &PropertyAnimation) {
         // FIXME if the current value is a dirty binding, we must run it, but we do not have the context
         let d = PropertyValueAnimationData::new(self.get_internal(), value, animation_data.clone());
-        self.set_binding(move |_| {
+        self.handle.set_binding(move |val: *mut (), _context: &EvaluationContext| unsafe {
             let (value, finished) = d.compute_interpolated_value();
-            value
+            *(val as *mut T) = value;
+            if finished {
+                BindingResult::RemoveBinding
+            } else {
+                crate::animations::CURRENT_ANIMATION_DRIVER
+                    .with(|driver| driver.borrow().set_has_active_animations());
+                BindingResult::KeepBinding
+            }
         });
     }
 
@@ -545,7 +582,8 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
             original_binding: PropertyHandle {
                 handle: Cell::new(
                     (alloc_binding_holder(move |val: *mut (), context: &EvaluationContext| unsafe {
-                        *(val as *mut T) = f(context)
+                        *(val as *mut T) = f(context);
+                        BindingResult::KeepBinding
                     }) as usize)
                         | 0b10,
                 ),
@@ -604,7 +642,11 @@ struct AnimatedBindingCallable<T> {
 }
 
 impl<T: InterpolatedPropertyValue> BindingCallable for AnimatedBindingCallable<T> {
-    unsafe fn evaluate(self: Pin<&Self>, value: *mut (), context: &EvaluationContext) {
+    unsafe fn evaluate(
+        self: Pin<&Self>,
+        value: *mut (),
+        context: &EvaluationContext,
+    ) -> BindingResult {
         self.original_binding.register_as_dependency_to_current_binding();
         match self.state.get() {
             AnimatedBindingState::Animating => {
@@ -636,7 +678,8 @@ impl<T: InterpolatedPropertyValue> BindingCallable for AnimatedBindingCallable<T
                         .with(|driver| driver.borrow().set_has_active_animations());
                 }
             }
-        }
+        };
+        BindingResult::KeepBinding
     }
     fn mark_dirty(self: Pin<&Self>) {
         if self.state.get() == AnimatedBindingState::ShouldStart {
@@ -730,7 +773,7 @@ fn make_c_function_binding(
     binding: extern "C" fn(*mut c_void, &EvaluationContext, *mut c_void),
     user_data: *mut c_void,
     drop_user_data: Option<extern "C" fn(*mut c_void)>,
-) -> impl Fn(*mut (), &EvaluationContext) {
+) -> impl Fn(*mut (), &EvaluationContext) -> BindingResult {
     struct CFunctionBinding<T> {
         binding_function: extern "C" fn(*mut c_void, &EvaluationContext, *mut T),
         user_data: *mut c_void,
@@ -749,6 +792,7 @@ fn make_c_function_binding(
 
     move |value_ptr, context| {
         (b.binding_function)(b.user_data, context, value_ptr);
+        BindingResult::KeepBinding
     }
 }
 
@@ -822,6 +866,13 @@ fn c_set_animated_value<T: InterpolatedPropertyValue>(
         let (value, finished) = d.compute_interpolated_value();
         unsafe {
             *(val as *mut T) = value;
+        }
+        if finished {
+            BindingResult::RemoveBinding
+        } else {
+            crate::animations::CURRENT_ANIMATION_DRIVER
+                .with(|driver| driver.borrow().set_has_active_animations());
+            BindingResult::KeepBinding
         }
     });
 }
@@ -928,7 +979,6 @@ pub unsafe extern "C" fn sixtyfps_property_set_animated_binding_color(
 mod animation_tests {
     use super::*;
     use crate::abi::primitives::PropertyAnimation;
-    use crate::animations::*;
     use std::rc::Rc;
 
     #[derive(Default)]
@@ -976,18 +1026,21 @@ mod animation_tests {
         assert_eq!(g(&compo.width_times_two, &dummy_eval_context), 200);
 
         crate::animations::CURRENT_ANIMATION_DRIVER
-            .with(|driver| driver.borrow().set_current_tick(start_time + DURATION / 2));
+            .with(|driver| driver.borrow().update_animations(start_time + DURATION / 2));
         assert_eq!(g(&compo.width, &dummy_eval_context), 150);
         assert_eq!(g(&compo.width_times_two, &dummy_eval_context), 300);
 
         crate::animations::CURRENT_ANIMATION_DRIVER
-            .with(|driver| driver.borrow().set_current_tick(start_time + DURATION));
+            .with(|driver| driver.borrow().update_animations(start_time + DURATION));
         assert_eq!(g(&compo.width, &dummy_eval_context), 200);
         assert_eq!(g(&compo.width_times_two, &dummy_eval_context), 400);
         crate::animations::CURRENT_ANIMATION_DRIVER
-            .with(|driver| driver.borrow().set_current_tick(start_time + DURATION * 2));
+            .with(|driver| driver.borrow().update_animations(start_time + DURATION * 2));
         assert_eq!(g(&compo.width, &dummy_eval_context), 200);
         assert_eq!(g(&compo.width_times_two, &dummy_eval_context), 400);
+
+        // the binding should be removed
+        compo.width.handle.access(|binding| assert!(binding.is_none()));
     }
 
     #[test]
@@ -1035,13 +1088,13 @@ mod animation_tests {
         assert_eq!(g(&compo.width_times_two, &dummy_eval_context), 200);
 
         crate::animations::CURRENT_ANIMATION_DRIVER
-            .with(|driver| driver.borrow().set_current_tick(start_time + DURATION / 2));
+            .with(|driver| driver.borrow().update_animations(start_time + DURATION / 2));
 
         assert_eq!(g(&compo.width, &dummy_eval_context), 150);
         assert_eq!(g(&compo.width_times_two, &dummy_eval_context), 300);
 
         crate::animations::CURRENT_ANIMATION_DRIVER
-            .with(|driver| driver.borrow().set_current_tick(start_time + DURATION));
+            .with(|driver| driver.borrow().update_animations(start_time + DURATION));
 
         assert_eq!(g(&compo.width, &dummy_eval_context), 200);
         assert_eq!(g(&compo.width_times_two, &dummy_eval_context), 400);
