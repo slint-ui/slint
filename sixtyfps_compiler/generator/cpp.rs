@@ -767,11 +767,9 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
             let converted_elements: Vec<String> = elements
                 .iter()
                 .map(|element| match element {
-                    crate::expression_tree::PathElement::LineTo { x, y } => format!(
-                        "sixtyfps::PathElement::LineTo({}, {})",
-                        compile_expression(x, component),
-                        compile_expression(y, component)
-                    ),
+                    crate::expression_tree::PathElement::LineTo { x, y } => {
+                        format!("sixtyfps::PathElement::LineTo({}, {})", x, y)
+                    }
                 })
                 .collect();
             format!(

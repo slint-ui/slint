@@ -239,16 +239,7 @@ impl Expression {
                     visitor(x);
                 }
             }
-            Expression::PathElements { elements } => {
-                for element in elements {
-                    match element {
-                        PathElement::LineTo { x, y } => {
-                            visitor(x);
-                            visitor(y);
-                        }
-                    }
-                }
-            }
+            Expression::PathElements { .. } => {}
         }
     }
 
@@ -295,16 +286,7 @@ impl Expression {
                     visitor(x);
                 }
             }
-            Expression::PathElements { elements } => {
-                for element in elements {
-                    match element {
-                        PathElement::LineTo { x, y } => {
-                            visitor(x);
-                            visitor(y);
-                        }
-                    }
-                }
-            }
+            Expression::PathElements { .. } => {}
         }
     }
 
@@ -356,5 +338,5 @@ impl Expression {
 
 #[derive(Debug, Clone)]
 pub enum PathElement {
-    LineTo { x: Box<Expression>, y: Box<Expression> },
+    LineTo { x: f32, y: f32 },
 }

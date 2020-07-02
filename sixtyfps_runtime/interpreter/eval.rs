@@ -325,14 +325,7 @@ pub fn eval_expression(
             >::from_iter(
                 elements.iter().map(|element| match element {
                     PathElement::LineTo { x, y } => {
-                        sixtyfps_corelib::abi::datastructures::PathElement::LineTo {
-                            x: eval_expression(&x, component_type, eval_context)
-                                .try_into()
-                                .unwrap(),
-                            y: eval_expression(&y, component_type, eval_context)
-                                .try_into()
-                                .unwrap(),
-                        }
+                        sixtyfps_corelib::abi::datastructures::PathElement::LineTo { x: *x, y: *y }
                     }
                 }),
             )))
