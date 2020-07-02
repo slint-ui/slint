@@ -565,7 +565,7 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
                 BindingResult::RemoveBinding
             } else {
                 crate::animations::CURRENT_ANIMATION_DRIVER
-                    .with(|driver| driver.borrow().set_has_active_animations());
+                    .with(|driver| driver.set_has_active_animations());
                 BindingResult::KeepBinding
             }
         });
@@ -608,15 +608,15 @@ struct PropertyValueAnimationData<T> {
 
 impl<T: InterpolatedPropertyValue> PropertyValueAnimationData<T> {
     fn new(from_value: T, to_value: T, details: crate::abi::primitives::PropertyAnimation) -> Self {
-        let start_time = crate::animations::CURRENT_ANIMATION_DRIVER
-            .with(|driver| driver.borrow().current_tick());
+        let start_time =
+            crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| driver.current_tick());
 
         Self { from_value, to_value, details, start_time }
     }
 
     fn compute_interpolated_value(&self) -> (T, bool) {
-        let new_tick = crate::animations::CURRENT_ANIMATION_DRIVER
-            .with(|driver| driver.borrow().current_tick());
+        let new_tick =
+            crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| driver.current_tick());
         let time_progress = new_tick.duration_since(self.start_time).as_millis();
         if time_progress >= self.details.duration as _ {
             return (self.to_value.clone(), true);
@@ -656,7 +656,7 @@ impl<T: InterpolatedPropertyValue> BindingCallable for AnimatedBindingCallable<T
                     self.state.set(AnimatedBindingState::NotAnimating)
                 } else {
                     crate::animations::CURRENT_ANIMATION_DRIVER
-                        .with(|driver| driver.borrow().set_has_active_animations());
+                        .with(|driver| driver.set_has_active_animations());
                 }
             }
             AnimatedBindingState::NotAnimating => {
@@ -675,7 +675,7 @@ impl<T: InterpolatedPropertyValue> BindingCallable for AnimatedBindingCallable<T
                     self.state.set(AnimatedBindingState::NotAnimating)
                 } else {
                     crate::animations::CURRENT_ANIMATION_DRIVER
-                        .with(|driver| driver.borrow().set_has_active_animations());
+                        .with(|driver| driver.set_has_active_animations());
                 }
             }
         };
@@ -689,8 +689,7 @@ impl<T: InterpolatedPropertyValue> BindingCallable for AnimatedBindingCallable<T
         if original_dirty {
             self.state.set(AnimatedBindingState::ShouldStart);
             self.animation_data.borrow_mut().start_time =
-                crate::animations::CURRENT_ANIMATION_DRIVER
-                    .with(|driver| driver.borrow().current_tick());
+                crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| driver.current_tick());
         }
     }
 }
@@ -871,7 +870,7 @@ fn c_set_animated_value<T: InterpolatedPropertyValue>(
             BindingResult::RemoveBinding
         } else {
             crate::animations::CURRENT_ANIMATION_DRIVER
-                .with(|driver| driver.borrow().set_has_active_animations());
+                .with(|driver| driver.set_has_active_animations());
             BindingResult::KeepBinding
         }
     });
@@ -1018,24 +1017,24 @@ mod animation_tests {
         assert_eq!(g(&compo.width, &dummy_eval_context), 100);
         assert_eq!(g(&compo.width_times_two, &dummy_eval_context), 200);
 
-        let start_time = crate::animations::CURRENT_ANIMATION_DRIVER
-            .with(|driver| driver.borrow().current_tick());
+        let start_time =
+            crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| driver.current_tick());
 
         compo.width.set_animated_value(200, &animation_details);
         assert_eq!(g(&compo.width, &dummy_eval_context), 100);
         assert_eq!(g(&compo.width_times_two, &dummy_eval_context), 200);
 
         crate::animations::CURRENT_ANIMATION_DRIVER
-            .with(|driver| driver.borrow().update_animations(start_time + DURATION / 2));
+            .with(|driver| driver.update_animations(start_time + DURATION / 2));
         assert_eq!(g(&compo.width, &dummy_eval_context), 150);
         assert_eq!(g(&compo.width_times_two, &dummy_eval_context), 300);
 
         crate::animations::CURRENT_ANIMATION_DRIVER
-            .with(|driver| driver.borrow().update_animations(start_time + DURATION));
+            .with(|driver| driver.update_animations(start_time + DURATION));
         assert_eq!(g(&compo.width, &dummy_eval_context), 200);
         assert_eq!(g(&compo.width_times_two, &dummy_eval_context), 400);
         crate::animations::CURRENT_ANIMATION_DRIVER
-            .with(|driver| driver.borrow().update_animations(start_time + DURATION * 2));
+            .with(|driver| driver.update_animations(start_time + DURATION * 2));
         assert_eq!(g(&compo.width, &dummy_eval_context), 200);
         assert_eq!(g(&compo.width_times_two, &dummy_eval_context), 400);
 
@@ -1065,8 +1064,8 @@ mod animation_tests {
             g(&compo.width, context) * 2
         });
 
-        let start_time = crate::animations::CURRENT_ANIMATION_DRIVER
-            .with(|driver| driver.borrow().current_tick());
+        let start_time =
+            crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| driver.current_tick());
 
         let animation_details = PropertyAnimation { duration: DURATION.as_millis() as _ };
 
@@ -1088,13 +1087,13 @@ mod animation_tests {
         assert_eq!(g(&compo.width_times_two, &dummy_eval_context), 200);
 
         crate::animations::CURRENT_ANIMATION_DRIVER
-            .with(|driver| driver.borrow().update_animations(start_time + DURATION / 2));
+            .with(|driver| driver.update_animations(start_time + DURATION / 2));
 
         assert_eq!(g(&compo.width, &dummy_eval_context), 150);
         assert_eq!(g(&compo.width_times_two, &dummy_eval_context), 300);
 
         crate::animations::CURRENT_ANIMATION_DRIVER
-            .with(|driver| driver.borrow().update_animations(start_time + DURATION));
+            .with(|driver| driver.update_animations(start_time + DURATION));
 
         assert_eq!(g(&compo.width, &dummy_eval_context), 200);
         assert_eq!(g(&compo.width_times_two, &dummy_eval_context), 400);

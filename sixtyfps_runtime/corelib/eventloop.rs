@@ -59,7 +59,7 @@ impl EventLoop {
                 } => *control_flow = winit::event_loop::ControlFlow::Exit,
                 winit::event::Event::RedrawRequested(id) => {
                     crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
-                        driver.borrow_mut().update_animations(instant::Instant::now());
+                        driver.update_animations(instant::Instant::now());
                     });
 
                     ALL_WINDOWS.with(|windows| {
@@ -84,7 +84,7 @@ impl EventLoop {
                     ..
                 } => {
                     crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
-                        driver.borrow_mut().update_animations(instant::Instant::now());
+                        driver.update_animations(instant::Instant::now());
                     });
                     ALL_WINDOWS.with(|windows| {
                         if let Some(Some(window)) =
@@ -103,7 +103,7 @@ impl EventLoop {
 
             if *control_flow != winit::event_loop::ControlFlow::Exit {
                 crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
-                    if !driver.borrow_mut().has_active_animations() {
+                    if !driver.has_active_animations() {
                         return;
                     }
                     *control_flow = ControlFlow::Poll;
