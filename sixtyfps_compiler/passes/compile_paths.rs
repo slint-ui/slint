@@ -10,7 +10,7 @@ use crate::expression_tree::*;
 use crate::object_tree::*;
 use std::rc::Rc;
 
-pub fn compile_paths(component: &Rc<Component> , diag: &mut Diagnostics) {
+pub fn compile_paths(component: &Rc<Component>, diag: &mut Diagnostics) {
     recurse_elem(&component.root_element, &(), &mut |elem_, _| {
         let is_path = if let crate::typeregister::Type::Builtin(be) = &elem_.borrow().base_type {
             assert!(be.class_name != "Row"); // Caught at element lookup time
@@ -35,7 +35,10 @@ pub fn compile_paths(component: &Rc<Component> , diag: &mut Diagnostics) {
                     Some(Expression::NumberLiteral(n)) => *n as f32,
                     None => 0.,
                     _ => {
-                        diag.push_error(format!("Property {} needs to be a numeric literal", name), child.span());
+                        diag.push_error(
+                            format!("Property {} needs to be a numeric literal", name),
+                            child.span(),
+                        );
                         0.
                     }
                 };
