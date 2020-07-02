@@ -398,7 +398,6 @@ pub struct ComponentWindowOpaque(*const c_void, *const c_void);
 /// Releases the reference to the component window held by handle.
 #[no_mangle]
 pub unsafe extern "C" fn sixtyfps_component_window_drop(handle: *mut ComponentWindowOpaque) {
-    println!("sixtyfps_component_window_drop()");
     assert_eq!(
         core::mem::size_of::<ComponentWindow>(),
         core::mem::size_of::<ComponentWindowOpaque>()
