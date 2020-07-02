@@ -291,9 +291,6 @@ impl DependencyNode {
 
     fn remove(&self) {
         self.debug_assert_valid();
-        if self.prev.get().is_null() {
-            return;
-        }
         unsafe {
             if let Some(prev) = self.prev.get().as_ref() {
                 prev.set(self.next.get());
