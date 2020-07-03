@@ -354,6 +354,24 @@ fn animation_for_element_property(
     )
 }
 
+fn populate_model(
+    vec: &mut Vec<ComponentBox>,
+    rep_in_comp: &RepeaterWithinComponent,
+    eval_context: &EvaluationContext,
+    model: impl Iterator<Item = eval::Value> + ExactSizeIterator,
+) {
+    vec.resize_with(model.size_hint().1.unwrap(), || {
+        instantiate(rep_in_comp.component_to_repeat.clone(), Some(eval_context))
+    });
+    for (i, (x, val)) in vec.iter().zip(model).enumerate() {
+        rep_in_comp
+            .component_to_repeat
+            .set_property(x.borrow(), "index", i.try_into().unwrap())
+            .unwrap();
+        rep_in_comp.component_to_repeat.set_property(x.borrow(), "model_data", val).unwrap();
+    }
+}
+
 pub fn instantiate(
     component_type: Rc<ComponentDescription>,
     parent_ctx: Option<&EvaluationContext>,
@@ -459,36 +477,21 @@ pub fn instantiate(
     for rep_in_comp in &component_type.repeater {
         let vec = unsafe { &mut *(mem.add(rep_in_comp.offset) as *mut RepeaterVec) };
         match eval::eval_expression(&rep_in_comp.model, &*component_type, &eval_context) {
-            crate::Value::Number(count) => {
-                vec.resize_with(count.round() as usize, || {
-                    instantiate(rep_in_comp.component_to_repeat.clone(), Some(&eval_context))
-                });
-                for (i, x) in vec.iter().enumerate() {
-                    rep_in_comp
-                        .component_to_repeat
-                        .set_property(x.borrow(), "index", i.try_into().unwrap())
-                        .unwrap();
-                    rep_in_comp
-                        .component_to_repeat
-                        .set_property(x.borrow(), "model_data", i.try_into().unwrap())
-                        .unwrap();
-                }
-            }
+            crate::Value::Number(count) => populate_model(
+                vec,
+                rep_in_comp,
+                &eval_context,
+                (0..count as i32).into_iter().map(|v| crate::Value::Number(v as f64)),
+            ),
             crate::Value::Array(a) => {
-                vec.resize_with(a.len(), || {
-                    instantiate(rep_in_comp.component_to_repeat.clone(), Some(&eval_context))
-                });
-                for (i, (x, val)) in vec.iter().zip(a.into_iter()).enumerate() {
-                    rep_in_comp
-                        .component_to_repeat
-                        .set_property(x.borrow(), "index", i.try_into().unwrap())
-                        .unwrap();
-                    rep_in_comp
-                        .component_to_repeat
-                        .set_property(x.borrow(), "model_data", val)
-                        .unwrap();
-                }
+                populate_model(vec, rep_in_comp, &eval_context, a.into_iter())
             }
+            crate::Value::Bool(b) => populate_model(
+                vec,
+                rep_in_comp,
+                &eval_context,
+                (if b { Some(crate::Value::Void) } else { None }).into_iter(),
+            ),
             _ => panic!("Unsupported model"),
         }
     }

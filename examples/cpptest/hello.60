@@ -60,7 +60,7 @@ Hello := Rectangle {
         y: hello.a * 100;
         width: 75;
         height: 75;
-        Rectangle {
+        if (counter > 3) : Rectangle {
             color: top_color;
             width: 25;
             height: 25;
