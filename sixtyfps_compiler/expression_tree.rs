@@ -329,7 +329,9 @@ impl Expression {
             Expression::UnaryOp { sub, .. } => sub.is_constant(),
             Expression::Array { values, .. } => values.iter().all(Expression::is_constant),
             Expression::Object { values, .. } => values.iter().all(|(_, v)| v.is_constant()),
-            Expression::PathElements { .. } => true,
+            Expression::PathElements { elements } => elements.iter().all(|element| match element {
+                PathElement::LineTo { x, y } => x.is_constant() && y.is_constant(),
+            }),
         }
     }
 
