@@ -100,4 +100,28 @@ void Property<float>::set_animated_binding(F binding,
             &animation_data);
 }
 
-}
+struct PropertyListenerScope
+{
+    PropertyListenerScope() { internal::sixtyfps_property_listener_scope_init(&inner); }
+    ~PropertyListenerScope() { internal::sixtyfps_property_listener_scope_drop(&inner); }
+    PropertyListenerScope(const PropertyListenerScope &) = delete;
+    PropertyListenerScope &operator=(const PropertyListenerScope &) = delete;
+
+    bool is_dirty() const {
+        return internal::sixtyfps_property_listener_scope_is_dirty(&inner);
+    }
+
+    template<typename F>
+    bool evaluate(F &f) const {
+        return internal::sixtyfps_property_listener_scope_evaluate(
+            &inner,
+            [](void *f){ (*reinterpret_cast<F*>(f))(); },
+            &f
+                                                            );
+    }
+
+private:
+    internal::PropertyListenerOpaque inner;
+};
+
+} // namespace sixtyfps

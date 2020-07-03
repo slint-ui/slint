@@ -78,6 +78,9 @@ type c_void = ();
 /// Has the same layout as Signal<()>
 pub struct SignalOpaque(*const c_void, *const c_void);
 
+static_assertions::assert_eq_align!(SignalOpaque, Signal<()>);
+static_assertions::assert_eq_size!(SignalOpaque, Signal<()>);
+
 /// Initialize the signal.
 /// sixtyfps_signal_drop must be called.
 #[no_mangle]

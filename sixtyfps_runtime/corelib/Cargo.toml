@@ -26,6 +26,7 @@ once_cell = "1.4"
 instant = { version = "0.1", features = [ "now" ] }
 derive_more = "0.99.5"
 scoped-tls-hkt = "0.1"
+static_assertions = "1.1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 instant = { version = "0.1", features = [ "wasm-bindgen", "now" ] }

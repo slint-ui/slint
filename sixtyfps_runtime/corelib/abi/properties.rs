@@ -62,7 +62,7 @@ mod single_linked_list_pin {
 }
 
 use core::cell::{Cell, RefCell, UnsafeCell};
-use core::pin::Pin;
+use core::{marker::PhantomPinned, pin::Pin};
 
 use crate::abi::datastructures::Color;
 use crate::abi::primitives::PropertyAnimation;
@@ -151,14 +151,7 @@ impl<F: Fn(*mut (), &EvaluationContext) -> BindingResult> BindingCallable for F 
     }
 }
 
-scoped_tls_hkt::scoped_thread_local!(static mut CURRENT_BINDING : for<'a> Pin<&'a mut BindingHolder>);
-
-impl<'a, 'b: 'a> scoped_tls_hkt::ReborrowMut<'a> for Pin<&'b mut BindingHolder> {
-    type Result = Pin<&'a mut BindingHolder>;
-    fn reborrow_mut(&'a mut self) -> Self::Result {
-        self.as_mut()
-    }
-}
+scoped_tls_hkt::scoped_thread_local!(static CURRENT_BINDING : for<'a> Pin<&'a BindingHolder>);
 
 #[repr(C)]
 struct BindingHolder<B = ()> {
@@ -166,9 +159,11 @@ struct BindingHolder<B = ()> {
     dependencies: Cell<usize>,
     /// The binding own the nodes used in the dependencies lists of the properties
     /// From which we depend.
-    dep_nodes: single_linked_list_pin::SingleLinkedListPinHead<DependencyNode>,
+    dep_nodes: RefCell<single_linked_list_pin::SingleLinkedListPinHead<DependencyNode>>,
     vtable: &'static BindingVTable,
+    /// The binding is dirty and need to be re_evaluated
     dirty: Cell<bool>,
+    pinned: PhantomPinned,
     binding: B,
 }
 
@@ -185,7 +180,7 @@ fn alloc_binding_holder<B: BindingCallable + 'static>(binding: B) -> *mut Bindin
         value: *mut (),
         context: &EvaluationContext,
     ) -> BindingResult {
-        let pinned_holder = Pin::new_unchecked(&mut *_self);
+        let pinned_holder = Pin::new_unchecked(&*_self);
         CURRENT_BINDING.set(pinned_holder, || {
             Pin::new_unchecked(&((*(_self as *mut BindingHolder<B>)).binding))
                 .evaluate(value, context)
@@ -213,6 +208,7 @@ fn alloc_binding_holder<B: BindingCallable + 'static>(binding: B) -> *mut Bindin
         dep_nodes: Default::default(),
         vtable: <B as HasBindingVTable>::VT,
         dirty: Cell::new(true), // starts dirty so it evaluates the property when used
+        pinned: PhantomPinned,
         binding,
     };
     Box::into_raw(Box::new(holder)) as *mut BindingHolder
@@ -393,7 +389,7 @@ impl PropertyHandle {
             if let Some(mut binding) = binding {
                 if binding.dirty.get() {
                     // clear all the nodes so that we can start from scratch
-                    binding.dep_nodes = single_linked_list_pin::SingleLinkedListPinHead::default();
+                    *binding.dep_nodes.borrow_mut() = Default::default();
                     let r = (binding.vtable.evaluate)(
                         binding.as_mut().get_unchecked_mut() as *mut BindingHolder,
                         value as *mut (),
@@ -415,10 +411,9 @@ impl PropertyHandle {
     /// Register this property as a dependency to the current binding being evaluated
     fn register_as_dependency_to_current_binding(&self) {
         if CURRENT_BINDING.is_set() {
-            CURRENT_BINDING.with(|mut cur_binding| {
-                let node = DependencyNode::for_binding(cur_binding.as_mut().as_ref());
-                let mut dep_nodes =
-                    unsafe { cur_binding.as_mut().map_unchecked_mut(|x| &mut x.dep_nodes) };
+            CURRENT_BINDING.with(|cur_binding| {
+                let node = DependencyNode::for_binding(cur_binding);
+                let mut dep_nodes = cur_binding.dep_nodes.borrow_mut();
                 let node = dep_nodes.push_front(node);
                 unsafe {
                     DependencyListHead::append(self.dependencies(), node.get_ref() as *const _)
@@ -470,27 +465,19 @@ pub struct Property<T> {
     handle: PropertyHandle,
     /// This is only safe to access when the lock flag is not set on the handle.
     value: UnsafeCell<T>,
-    pinned: core::marker::PhantomPinned,
+    pinned: PhantomPinned,
 }
 
 impl<T: Default> Default for Property<T> {
     fn default() -> Self {
-        Self {
-            handle: Default::default(),
-            value: Default::default(),
-            pinned: core::marker::PhantomPinned,
-        }
+        Self { handle: Default::default(), value: Default::default(), pinned: PhantomPinned }
     }
 }
 
 impl<T: Clone> Property<T> {
     /// Create a new property with this value
     pub fn new(value: T) -> Self {
-        Self {
-            handle: Default::default(),
-            value: UnsafeCell::new(value),
-            pinned: core::marker::PhantomPinned,
-        }
+        Self { handle: Default::default(), value: UnsafeCell::new(value), pinned: PhantomPinned }
     }
 
     /// Get the value of the property
@@ -1095,4 +1082,124 @@ mod animation_tests {
         assert_eq!(g(&compo.width, &dummy_eval_context), 200);
         assert_eq!(g(&compo.width_times_two, &dummy_eval_context), 400);
     }
+}
+
+/// This structure allow to run a closure that queries properties, and can report
+/// if any property we accessed have become dirty
+pub struct PropertyListenerScope {
+    holder: BindingHolder<()>,
+}
+
+impl Default for PropertyListenerScope {
+    fn default() -> Self {
+        static VT: &'static BindingVTable = &BindingVTable {
+            drop: |_| (),
+            evaluate: |_, _, _| BindingResult::KeepBinding,
+            mark_dirty: |_| (),
+        };
+
+        let holder = BindingHolder {
+            dependencies: Cell::new(0),
+            dep_nodes: Default::default(),
+            vtable: VT,
+            dirty: Cell::new(true), // starts dirty so it evaluates the property when used
+            pinned: PhantomPinned,
+            binding: (),
+        };
+        Self { holder }
+    }
+}
+
+impl PropertyListenerScope {
+    /// Any of the properties accessed during the last evaluation of the closure called
+    /// from the last call to evaluate is pottentially dirty.
+    pub fn is_dirty(&self) -> bool {
+        self.holder.dirty.get()
+    }
+
+    /// Evaluate the function, and record any property accessed whithin this function.
+    pub fn evaluate<R>(self: Pin<&Self>, f: impl FnOnce() -> R) -> R {
+        // clear all the nodes so that we can start from scratch
+        *self.holder.dep_nodes.borrow_mut() = Default::default();
+        // Safety: it is safe to project the holder as we don't implement drop or unpin
+        let pinned_holder = unsafe { self.map_unchecked(|s| &s.holder) };
+        let r = CURRENT_BINDING.set(pinned_holder, f);
+        self.holder.dirty.set(false);
+        r
+    }
+}
+
+#[test]
+fn test_property_listener_scope() {
+    let scope = Box::pin(PropertyListenerScope::default());
+    let prop1 = Box::pin(Property::new(42));
+    assert!(scope.is_dirty()); // It is dirty at the beginning
+    let dummy_eval_context = EvaluationContext {
+        component: unsafe {
+            core::pin::Pin::new_unchecked(vtable::VRef::from_raw(
+                core::ptr::NonNull::dangling(),
+                core::ptr::NonNull::dangling(),
+            ))
+        },
+        parent_context: None,
+    };
+    let r = scope.as_ref().evaluate(|| prop1.as_ref().get(&dummy_eval_context));
+    assert_eq!(r, 42);
+    assert!(!scope.is_dirty()); // It is no longer dirty
+    prop1.as_ref().set(88);
+    assert!(scope.is_dirty()); // now dirty for prop1 changed.
+    let r = scope.as_ref().evaluate(|| prop1.as_ref().get(&dummy_eval_context) + 1);
+    assert_eq!(r, 89);
+    assert!(!scope.is_dirty());
+    let r = scope.as_ref().evaluate(|| 12);
+    assert_eq!(r, 12);
+    assert!(!scope.is_dirty());
+    prop1.as_ref().set(1);
+    assert!(!scope.is_dirty());
+}
+
+#[repr(C)]
+/// Opaque type representing the PropertyListenerScope
+pub struct PropertyListenerOpaque {
+    dependencies: usize,
+    dep_nodes: [usize; 2],
+    vtable: usize,
+    dirty: bool,
+}
+
+static_assertions::assert_eq_align!(PropertyListenerOpaque, PropertyListenerScope);
+static_assertions::assert_eq_size!(PropertyListenerOpaque, PropertyListenerScope);
+
+/// Initialize the first pointer of the PropertyListenerScope.
+/// `out` is assumed to be uninitialized
+/// sixtyfps_property_listener_scope_drop need to be called after that
+#[no_mangle]
+pub unsafe extern "C" fn sixtyfps_property_listener_scope_init(out: *mut PropertyListenerOpaque) {
+    core::ptr::write(out as *mut PropertyListenerScope, PropertyListenerScope::default());
+}
+
+/// Call the callback with the user data. Any properties access within the callback will be registered.
+#[no_mangle]
+pub unsafe extern "C" fn sixtyfps_property_listener_scope_evaluate(
+    handle: *const PropertyListenerOpaque,
+    callback: extern "C" fn(user_data: *mut c_void),
+    user_data: *mut c_void,
+) {
+    Pin::new_unchecked(&*(handle as *const PropertyListenerScope)).evaluate(|| callback(user_data))
+}
+
+/// Query if the property listener is dirty
+#[no_mangle]
+pub unsafe extern "C" fn sixtyfps_property_listener_scope_is_dirty(
+    handle: *const PropertyListenerOpaque,
+) -> bool {
+    (*(handle as *const PropertyListenerScope)).is_dirty()
+}
+
+/// Destroy handle
+#[no_mangle]
+pub unsafe extern "C" fn sixtyfps_property_listener_scope_drop(
+    handle: *mut PropertyListenerOpaque,
+) {
+    core::ptr::read(handle as *mut PropertyListenerScope);
 }
