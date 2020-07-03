@@ -495,7 +495,14 @@ fn access_member(
         access_member(
             element,
             name,
-            &enclosing_component,
+            &component
+                .parent_element
+                .upgrade()
+                .unwrap()
+                .borrow()
+                .enclosing_component
+                .upgrade()
+                .unwrap(),
             quote!(#context.parent_context.unwrap()),
             quote!(#component_rust.parent.upgrade().unwrap().as_ref()),
         )

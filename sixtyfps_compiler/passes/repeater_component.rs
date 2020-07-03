@@ -35,6 +35,7 @@ pub fn create_repeater_components(component: &Rc<Component>, _diag: &mut Diagnos
         recurse_elem(&comp.root_element, &(), &mut |e, _| {
             e.borrow_mut().enclosing_component = weak.clone()
         });
+        create_repeater_components(&comp, _diag);
         elem.base_type = Type::Component(comp);
     });
 }

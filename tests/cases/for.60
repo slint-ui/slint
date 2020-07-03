@@ -12,6 +12,9 @@ TestCase := Rectangle {
             y: 200 * pp;
             width: s.within;
             height: root.top_level;
+            for nested in [1] : Rectangle {
+                x : s.width + root.top_level + nested;
+            }
         }
     }
 

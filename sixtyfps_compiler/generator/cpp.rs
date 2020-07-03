@@ -592,7 +592,14 @@ fn access_member(
         access_member(
             element,
             name,
-            &enclosing_component,
+            &component
+                .parent_element
+                .upgrade()
+                .unwrap()
+                .borrow()
+                .enclosing_component
+                .upgrade()
+                .unwrap(),
             &format!("{}->parent_context", context),
             &format!("{}->parent", component_cpp),
         )
