@@ -286,19 +286,54 @@ fn handle_item(item: &Element, main_struct: &mut Struct, init: &mut Vec<String>)
 fn handle_repeater(
     repeated: &RepeatedElementInfo,
     base_component: &Rc<Component>,
+    parent_component: &Rc<Component>,
     repeater_count: i32,
     component_struct: &mut Struct,
     init: &mut Vec<String>,
+    children_repeater_cases: &mut Vec<String>,
 ) {
     let repeater_id = format!("repeater_{}", repeater_count);
-    assert!(repeated.model.is_constant(), "TODO: currently model can only be constant");
-    // FIXME: that's not the right component for this expression but that's ok because it is a constant for now
-    let model = compile_expression(&repeated.model, &base_component);
-    init.push(format!(
-        "self->{repeater_id}.update_model({model}.get(), self);",
-        repeater_id = repeater_id,
-        model = model
-    ));
+
+    let model = compile_expression(&repeated.model, parent_component);
+    let model = if !repeated.is_conditional_element {
+        format!("{}.get()", model)
+    } else {
+        // bool converts to int
+        // FIXME: don't do a heap allocation here
+        format!("std::make_shared<sixtyfps::IntModel>({}).get()", model)
+    };
+
+    if repeated.model.is_constant() {
+        children_repeater_cases.push(format!(
+            "\n        case {i}: self->repeater_{i}.visit(visitor); break;",
+            i = repeater_count
+        ));
+        init.push(format!(
+            "self->{repeater_id}.update_model({model}, self);",
+            repeater_id = repeater_id,
+            model = model,
+        ));
+    } else {
+        let model_id = format!("model_{}", repeater_count);
+        component_struct.members.push(Declaration::Var(Var {
+            ty: "sixtyfps::PropertyListenerScope".to_owned(),
+            name: model_id,
+            init: None,
+        }));
+        children_repeater_cases.push(format!(
+            "\n        case {i}: {{
+                if (self->model_{i}.is_dirty()) {{
+                    self->model_{i}.evaluate([&] {{
+                        self->repeater_{i}.update_model({model}, self);
+                    }});
+                }}
+                self->repeater_{i}.visit(visitor);
+                break;
+            }}",
+            i = repeater_count,
+            model = model,
+        ));
+    }
 
     component_struct.members.push(Declaration::Var(Var {
         ty: format!("sixtyfps::Repeater<struct {}>", component_id(base_component)),
@@ -394,36 +429,48 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Dia
     }
 
     if !is_root {
-        component_struct.members.push(Declaration::Var(Var {
-            ty: "sixtyfps::Property<int>".into(),
-            name: "index".into(),
-            init: None,
-        }));
-        let cpp_model_data_type = crate::expression_tree::Expression::RepeaterModelReference {
-            element: component.parent_element.clone(),
+        let parent_element = component.parent_element.upgrade().unwrap();
+
+        let mut update_statements = vec![];
+
+        if !parent_element.borrow().repeated.as_ref().map_or(false, |r| r.is_conditional_element) {
+            component_struct.members.push(Declaration::Var(Var {
+                ty: "sixtyfps::Property<int>".into(),
+                name: "index".into(),
+                init: None,
+            }));
+            let cpp_model_data_type = crate::expression_tree::Expression::RepeaterModelReference {
+                element: component.parent_element.clone(),
+            }
+            .ty()
+            .cpp_type()
+            .unwrap_or_else(|| {
+                diag.push_compiler_error(CompilerDiagnostic {
+                    message: "Cannot map property type to C++".into(),
+                    span: parent_element
+                        .borrow()
+                        .node
+                        .as_ref()
+                        .map(|n| n.span())
+                        .unwrap_or_default(),
+                });
+                String::default()
+            })
+            .to_owned();
+            component_struct.members.push(Declaration::Var(Var {
+                ty: format!("sixtyfps::Property<{}>", cpp_model_data_type),
+                name: "model_data".into(),
+                init: None,
+            }));
+
+            update_statements = vec![
+                "index.set(i);".into(),
+                format!("model_data.set(*reinterpret_cast<{} const*>(data));", cpp_model_data_type),
+            ];
         }
-        .ty()
-        .cpp_type()
-        .unwrap_or_else(|| {
-            diag.push_compiler_error(CompilerDiagnostic {
-                message: "Cannot map property type to C++".into(),
-                span: component
-                    .parent_element
-                    .upgrade()
-                    .and_then(|e| e.borrow().node.as_ref().map(|n| n.span()))
-                    .unwrap_or_default(),
-            });
-            String::default()
-        })
-        .to_owned();
-        component_struct.members.push(Declaration::Var(Var {
-            ty: format!("sixtyfps::Property<{}>", cpp_model_data_type),
-            name: "model_data".into(),
-            init: None,
-        }));
         component_struct.members.push(Declaration::Var(Var {
             ty: format!(
-                "{}*",
+                "{} const *",
                 self::component_id(
                     &component
                         .parent_element
@@ -440,16 +487,14 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Dia
         }));
         component_struct.members.push(Declaration::Function(Function {
             name: "update_data".into(),
-            signature: "(int i, const void *data) -> void".into(),
-            statements: Some(vec![
-                "index.set(i);".into(),
-                format!("model_data.set(*reinterpret_cast<{} const*>(data));", cpp_model_data_type),
-            ]),
+            signature: "([[maybe_unused]] int i, [[maybe_unused]] const void *data) -> void".into(),
+            statements: Some(update_statements),
             ..Function::default()
         }));
     }
 
     let mut init = vec!["[[maybe_unused]] auto self = this;".into()];
+    let mut children_visitor_case = vec![];
     let mut tree_array = String::new();
     let mut repeater_count = 0;
     super::build_array_helper(component, |item, children_offset| {
@@ -469,9 +514,11 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Dia
             handle_repeater(
                 repeated,
                 base_component,
+                component,
                 repeater_count,
                 &mut component_struct,
                 &mut init,
+                &mut children_visitor_case,
             );
             repeater_count += 1;
         } else {
@@ -539,9 +586,10 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Dia
             format!("    {} }};", tree_array),
             "static const auto dyn_visit = [] (const uint8_t *base, [[maybe_unused]] sixtyfps::ItemVisitorRefMut visitor, uintptr_t dyn_index) {".to_owned(),
             format!("    [[maybe_unused]] auto self = reinterpret_cast<const {}*>(base);", component_id),
-            format!("    switch(dyn_index) {{ {} }}\n  }};", (0..repeater_count).map(|i| {
-                format!("\n        case {i}: self->repeater_{i}.visit(visitor); break;", i=i)
-            }).collect::<Vec<_>>().join("")),
+            // Fixme: this is not the root component
+            "auto context_ = sixtyfps::evaluation_context_for_root_component(self);".into(),
+            "[[maybe_unused]] auto context = &context_;".into(),
+            format!("    switch(dyn_index) {{ {} }}\n  }};", children_visitor_case.join("")),
             "return sixtyfps::sixtyfps_visit_item_tree(component, { const_cast<sixtyfps::ItemTreeNode<uint8_t>*>(children), std::size(children)}, index, visitor, dyn_visit);".to_owned(),
         ]),
         ..Default::default()

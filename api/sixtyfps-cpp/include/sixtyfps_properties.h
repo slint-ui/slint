@@ -112,12 +112,12 @@ struct PropertyListenerScope
     }
 
     template<typename F>
-    bool evaluate(F &f) const {
-        return internal::sixtyfps_property_listener_scope_evaluate(
+    void evaluate(const F &f) const {
+        internal::sixtyfps_property_listener_scope_evaluate(
             &inner,
-            [](void *f){ (*reinterpret_cast<F*>(f))(); },
-            &f
-                                                            );
+            [](void *f){ (*reinterpret_cast<const F*>(f))(); },
+            const_cast<F*>(&f)
+        );
     }
 
 private:

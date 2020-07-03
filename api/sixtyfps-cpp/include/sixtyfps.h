@@ -70,9 +70,9 @@ constexpr inline ItemTreeNode<uint8_t> make_dyn_node(std::uintptr_t offset)
 using internal::sixtyfps_visit_item_tree;
 
 template<typename Component>
-EvaluationContext evaluation_context_for_root_component(Component *component) {
+EvaluationContext evaluation_context_for_root_component(const Component *component) {
     return EvaluationContext{
-        VRef<ComponentVTable> { &Component::component_type, component},
+        VRef<ComponentVTable> { &Component::component_type, const_cast<Component *>(component)},
         nullptr,
     };
 }
@@ -122,8 +122,9 @@ struct Repeater {
     std::vector<std::unique_ptr<C>> data;
 
     template<typename Parent>
-    void update_model(Model *model, Parent *parent)
+    void update_model(Model *model, const Parent *parent) const
     {
+        auto &data = const_cast<Repeater*>(this)->data;
         data.clear();
         auto count = model->count();
         for (auto i = 0; i < count; ++i) {
