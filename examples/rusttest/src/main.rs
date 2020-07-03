@@ -48,7 +48,7 @@ component ButtonRectangle := Rectangle {
 
 Hello := Rectangle {
 
-    for x[idx] in 8: Rectangle {
+    for x[idx] in counter: Rectangle {
         color: #8005;
         x: idx * 100;
         width: 75;
@@ -66,12 +66,11 @@ Hello := Rectangle {
     signal foobar;
     signal plus_clicked;
     signal minus_clicked;
-    property<int32> counter;
+    property<int32> counter : 3;
 
     color: white;
 
-
-    Rectangle {
+    if (counter <= 4) :  Rectangle {
         x: 100;
         y: 100;
         width: (100);

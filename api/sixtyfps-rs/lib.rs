@@ -76,7 +76,7 @@ pub mod re_exports {
     pub use once_cell::unsync::OnceCell;
     pub use sixtyfps_corelib::abi::datastructures::*;
     pub use sixtyfps_corelib::abi::primitives::*;
-    pub use sixtyfps_corelib::abi::properties::Property;
+    pub use sixtyfps_corelib::abi::properties::{Property, PropertyListenerScope};
     pub use sixtyfps_corelib::abi::signals::Signal;
     pub use sixtyfps_corelib::abi::slice::Slice;
     pub use sixtyfps_corelib::item_tree::visit_item_tree;

@@ -112,6 +112,7 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
     let mut item_types = Vec::new();
     let mut repeated_element_names = Vec::new();
     let mut repeated_element_components = Vec::new();
+    let mut repeated_dynmodel_names = Vec::new();
     let mut repeated_visit_branch = Vec::new();
     let mut init = Vec::new();
     let mut init_repeaters = Vec::new();
@@ -124,46 +125,86 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
             };
 
             let repeater_index = repeated_element_names.len();
-            let data_type = rust_type(
-                &Expression::RepeaterModelReference { element: Rc::downgrade(item_rc) }.ty(),
-                &item.node.as_ref().map_or_else(Default::default, |n| n.span()),
-            )
-            .unwrap_or_else(|err| {
-                diag.push_compiler_error(err);
-                quote!().into()
-            });
-
             let repeater_id = quote::format_ident!("repeater_{}", repeater_index);
             let rep_component_id = self::component_id(&*base_component);
 
-            extra_components.push(generate(&*base_component, diag).unwrap_or_default());
-            extra_components.push(quote! {
-                impl sixtyfps::re_exports::RepeatedComponent for #rep_component_id {
-                    type Data = #data_type;
-                    fn update(&self, index: usize, data: Self::Data) {
-                        self.index.set(index);
-                        self.model_data.set(data)
+            extra_components.push(generate(&*base_component, diag).unwrap_or_else(|| {
+                assert!(diag.has_error());
+                Default::default()
+            }));
+            extra_components.push(if repeated.is_conditional_element {
+                quote! {
+                     impl sixtyfps::re_exports::RepeatedComponent for #rep_component_id {
+                        type Data = ();
+                        fn update(&self, _: usize, _: Self::Data) { }
+                    }
+                }
+            } else {
+                let data_type = rust_type(
+                    &Expression::RepeaterModelReference { element: Rc::downgrade(item_rc) }.ty(),
+                    &item.node.as_ref().map_or_else(Default::default, |n| n.span()),
+                )
+                .unwrap_or_else(|err| {
+                    diag.push_compiler_error(err);
+                    quote!().into()
+                });
+
+                quote! {
+                    impl sixtyfps::re_exports::RepeatedComponent for #rep_component_id {
+                        type Data = #data_type;
+                        fn update(&self, index: usize, data: Self::Data) {
+                            self.index.set(index);
+                            self.model_data.set(data)
+                        }
                     }
                 }
             });
 
-            assert!(repeated.model.is_constant(), "TODO: currently model can only be const");
-            let model = compile_expression(&repeated.model, component);
-            init_repeaters.push(quote! {
-                self_pined.#repeater_id.update_model(#model, || {
-                    let mut new_comp = #rep_component_id::default();
-                    new_comp.parent = self_pined.self_weak.get().unwrap().clone();
-                    new_comp
+            let mut model = compile_expression(&repeated.model, component);
+            if repeated.is_conditional_element {
+                model = quote!((if #model {Some(())} else {None}).iter().cloned())
+            }
+
+            if repeated.model.is_constant() {
+                init_repeaters.push(quote! {
+                    self_pined.#repeater_id.update_model(#model, || {
+                        let mut new_comp = #rep_component_id::default();
+                        new_comp.parent = self_pined.self_weak.get().unwrap().clone();
+                        new_comp
+                    });
                 });
-            });
+                repeated_visit_branch.push(quote!(
+                    #repeater_index => self_pined.#repeater_id.visit(visitor),
+                ));
+            } else {
+                let model_name = quote::format_ident!("model_{}", repeater_index);
+                repeated_visit_branch.push(quote!(
+                    #repeater_index => {
+                        if self_pined.#model_name.is_dirty() {
+                            #component_id::field_offsets().#model_name.apply_pin(self_pined).evaluate(|| {
+                                let _self = self_pined.clone();
+                                // FIXME: this should not be the root_component  (but that's fine as we no longer access the parent)
+                                let context = sixtyfps::re_exports::EvaluationContext::for_root_component(
+                                    sixtyfps::re_exports::ComponentRef::new_pin(_self)
+                                );
+                                let context = &context;
+                                self_pined.#repeater_id.update_model(#model, || {
+                                    let mut new_comp = #rep_component_id::default();
+                                    new_comp.parent = self_pined.self_weak.get().unwrap().clone();
+                                    new_comp
+                                });
+                            });
+                        }
+                        self_pined.#repeater_id.visit(visitor)
+                    }
+                ));
+                repeated_dynmodel_names.push(model_name);
+            }
 
             item_tree_array.push(quote!(
                 sixtyfps::re_exports::ItemTreeNode::DynamicTree {
                     index: #repeater_index,
                 }
-            ));
-            repeated_visit_branch.push(quote!(
-                #repeater_index => base.#repeater_id.visit(visitor),
             ));
 
             repeated_element_names.push(repeater_id);
@@ -243,20 +284,28 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
 
     let mut parent_component_type = None;
     if let Some(parent_element) = component.parent_element.upgrade() {
-        declared_property_vars.push(quote::format_ident!("index"));
-        declared_property_types.push(quote!(usize));
-        declared_property_vars.push(quote::format_ident!("model_data"));
-        declared_property_types.push(
-            rust_type(
-                &Expression::RepeaterModelReference { element: component.parent_element.clone() }
+        if !parent_element.borrow().repeated.as_ref().map_or(false, |r| r.is_conditional_element) {
+            declared_property_vars.push(quote::format_ident!("index"));
+            declared_property_types.push(quote!(usize));
+            declared_property_vars.push(quote::format_ident!("model_data"));
+            declared_property_types.push(
+                rust_type(
+                    &Expression::RepeaterModelReference {
+                        element: component.parent_element.clone(),
+                    }
                     .ty(),
-                &parent_element.borrow().node.as_ref().map_or_else(Default::default, |n| n.span()),
-            )
-            .unwrap_or_else(|err| {
-                diag.push_compiler_error(err);
-                quote!().into()
-            }),
-        );
+                    &parent_element
+                        .borrow()
+                        .node
+                        .as_ref()
+                        .map_or_else(Default::default, |n| n.span()),
+                )
+                .unwrap_or_else(|err| {
+                    diag.push_compiler_error(err);
+                    quote!().into()
+                }),
+            );
+        }
 
         parent_component_type = Some(self::component_id(
             &parent_element.borrow().enclosing_component.upgrade().unwrap(),
@@ -279,6 +328,10 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
     // Trick so we can use `#()` as a `if let Some` in `quote!`
     let parent_component_type = parent_component_type.iter().collect::<Vec<_>>();
 
+    if diag.has_error() {
+        return None;
+    }
+
     Some(quote!(
         #(#resource_symbols)*
 
@@ -291,6 +344,7 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
             #(#declared_property_vars : sixtyfps::re_exports::Property<#declared_property_types>,)*
             #(#declared_signals : sixtyfps::re_exports::Signal<()>,)*
             #(#repeated_element_names : sixtyfps::re_exports::Repeater<#repeated_element_components>,)*
+            #(#repeated_dynmodel_names : sixtyfps::re_exports::PropertyListenerScope,)*
             self_weak: sixtyfps::re_exports::OnceCell<sixtyfps::re_exports::WeakPin<#component_id>>,
             #(parent : sixtyfps::re_exports::WeakPin<#parent_component_type>,)*
         }
@@ -305,6 +359,7 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
                     #(#declared_property_vars : ::core::default::Default::default(),)*
                     #(#declared_signals : ::core::default::Default::default(),)*
                     #(#repeated_element_names : ::core::default::Default::default(),)*
+                    #(#repeated_dynmodel_names : ::core::default::Default::default(),)*
                     self_weak : ::core::default::Default::default(),
                     #(parent : sixtyfps::re_exports::WeakPin::<#parent_component_type>::default(),)*
                 };
@@ -319,7 +374,7 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
                 let tree = &[#(#item_tree_array),*];
                 sixtyfps::re_exports::visit_item_tree(self, VRef::new_pin(self), tree, index, visitor, visit_dynamic);
                 #[allow(unused)]
-                fn visit_dynamic(base: ::core::pin::Pin<&#component_id>, visitor: ItemVisitorRefMut, dyn_index: usize) {
+                fn visit_dynamic(self_pined: ::core::pin::Pin<&#component_id>, visitor: ItemVisitorRefMut, dyn_index: usize) {
                     match dyn_index {
                         #(#repeated_visit_branch)*
                         _ => panic!("invalid dyn_index {}", dyn_index),
