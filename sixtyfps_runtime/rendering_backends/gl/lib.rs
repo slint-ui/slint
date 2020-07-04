@@ -337,59 +337,22 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                 }
                 RenderingPrimitive::Path { x: _, y: _, elements, fill_color } => {
                     use lyon::math::Point;
-                    use lyon::path::PathEvent;
+                    use lyon::path::builder::{Build, FlatPathBuilder};
 
-                    struct PathEventGenerator<'a> {
-                        iter: std::slice::Iter<'a, PathElement>,
-                        first: Point,
-                        last: Point,
-                        needs_end: bool,
-                        injected_event: Option<PathEvent>,
-                    }
-
-                    impl<'a> std::iter::Iterator for PathEventGenerator<'a> {
-                        type Item = PathEvent;
-                        fn next(&mut self) -> Option<Self::Item> {
-                            if self.injected_event.is_some() {
-                                return self.injected_event.take();
-                            }
-
-                            let next = self.iter.next();
-                            match next {
-                                Some(PathElement::LineTo { x, y }) => {
-                                    self.needs_end = true;
-                                    let from = self.last;
-                                    let to = Point::new(*x, *y);
-
-                                    self.last = to;
-
-                                    Some(PathEvent::Line { from, to })
-                                }
-                                None => {
-                                    if self.needs_end {
-                                        self.needs_end = false;
-                                        Some(PathEvent::End {
-                                            last: self.last,
-                                            first: self.first,
-                                            close: true,
-                                        })
-                                    } else {
-                                        None
-                                    }
-                                }
+                    let mut path_builder = lyon::path::Path::builder().with_svg();
+                    for element in elements.iter() {
+                        match element {
+                            PathElement::LineTo { x, y } => {
+                                path_builder.line_to(Point::new(*x, *y))
                             }
                         }
                     }
 
-                    let it = PathEventGenerator {
-                        iter: elements.iter(),
-                        first: Point::default(),
-                        last: Point::default(),
-                        needs_end: false,
-                        injected_event: Some(PathEvent::Begin { at: Point::default() }),
-                    };
+                    path_builder.close();
 
-                    Some(self.create_path(it, FillStyle::SolidColor(*fill_color)))
+                    Some(
+                        self.create_path(&path_builder.build(), FillStyle::SolidColor(*fill_color)),
+                    )
                 }
             },
             rendering_primitive: primitive,
