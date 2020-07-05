@@ -830,7 +830,7 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
                 })
                 .collect();
             format!(
-                r#"[](){{
+                r#"[&](){{
                     sixtyfps::PathElement elements[{}] = {{
                         {}
                     }};

@@ -688,12 +688,10 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                     }
                 })
                 .collect();
-            quote!({
-                const PD : &'static [sixtyfps::re_exports::PathElement] = &[
-                    #(#converted_elements),*
-                ];
-                sixtyfps::re_exports::PathElements::StaticElements(PD.into())
-            })
+
+            quote!(sixtyfps::re_exports::PathElements::SharedElements(
+                sixtyfps::re_exports::SharedArray::<sixtyfps::re_exports::PathElement>::from(&[#(#converted_elements),*])
+            ))
         }
     }
 }

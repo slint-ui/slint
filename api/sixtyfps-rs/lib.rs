@@ -87,6 +87,7 @@ pub mod re_exports {
     pub use sixtyfps_corelib::ComponentVTable_static;
     pub use sixtyfps_corelib::EvaluationContext;
     pub use sixtyfps_corelib::Resource;
+    pub use sixtyfps_corelib::SharedArray;
     pub use sixtyfps_corelib::SharedString;
     pub use vtable::{self, *};
     pub use weak_pin::rc::*;
