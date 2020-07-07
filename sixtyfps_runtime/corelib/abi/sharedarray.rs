@@ -15,25 +15,27 @@ struct PaddingFillingIter<'a, U> {
     iter: &'a mut dyn Iterator<Item = MaybeUninit<U>>,
     pos: usize,
     len: usize,
+    padding_elements: usize,
 }
 
 impl<'a, U> PaddingFillingIter<'a, U> {
     fn new(len: usize, iter: &'a mut dyn Iterator<Item = MaybeUninit<U>>) -> Self {
-        Self { iter, pos: 0, len }
-    }
+        let alignment = core::mem::align_of::<usize>();
+        let mut padding_elements = if len == 0 { 1 } else { 0 }; // ThinArc can't deal with empty arrays, so add padding for empty arrays.
 
-    fn padded_length(&self) -> usize {
-        // add some padding at the end since the size of the inner will anyway have to be padded
-        let align = core::mem::align_of::<usize>() / core::mem::size_of::<U>();
-        if self.len > 0 {
-            if align > 0 {
-                (self.len + align - 1) & !(align - 1)
-            } else {
-                self.len
+        // Add padding to ensure that the size in bytes is a multiple of the pointer alignment. This can mean different
+        // increments depending on whether sizeof(U) is less or greater than align_of(usize).
+        loop {
+            let size_in_bytes = (len + padding_elements) * core::mem::size_of::<U>();
+            let byte_aligned_size = (size_in_bytes + alignment - 1) & !(alignment - 1);
+            let padding_bytes = byte_aligned_size - size_in_bytes;
+            if padding_bytes == 0 {
+                break;
             }
-        } else {
-            align
+            padding_elements += 1;
         }
+
+        Self { iter, pos: 0, len, padding_elements }
     }
 }
 
@@ -44,14 +46,14 @@ impl<'a, U: Clone> Iterator for PaddingFillingIter<'a, U> {
         self.pos += 1;
         if pos < self.len {
             self.iter.next()
-        } else if pos < self.padded_length() {
+        } else if pos < self.len + self.padding_elements {
             Some(MaybeUninit::uninit())
         } else {
             None
         }
     }
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let l = self.padded_length() - self.pos;
+        let l = self.len + self.padding_elements;
         (l, Some(l))
     }
 }
@@ -80,7 +82,7 @@ impl<T: Clone> SharedArray<T> {
 
         SharedArray {
             inner: servo_arc::Arc::into_thin(servo_arc::Arc::from_header_and_iter(
-                servo_arc::HeaderWithLength::new(len, iter.padded_length()),
+                servo_arc::HeaderWithLength::new(len, iter.size_hint().0),
                 iter,
             )),
         }
@@ -109,7 +111,7 @@ impl<T: Clone + Copy + Default + Sized + 'static> StaticNull for T {
             let iter = PaddingFillingIter::new(len, null_iter);
 
             servo_arc::Arc::into_thin(servo_arc::Arc::from_header_and_iter(
-                servo_arc::HeaderWithLength::new(len, iter.padded_length()),
+                servo_arc::HeaderWithLength::new(len, iter.size_hint().0),
                 iter,
             ))
         });
