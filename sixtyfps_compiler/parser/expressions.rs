@@ -49,6 +49,12 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) 
         SyntaxKind::Identifier => {
             if p.nth(1) == SyntaxKind::Bang {
                 parse_bang_expression(&mut *p)
+            } else if p.peek().as_str() == "true" {
+                let mut p = p.start_node(SyntaxKind::TrueLiteral);
+                p.consume();
+            } else if p.peek().as_str() == "false" {
+                let mut p = p.start_node(SyntaxKind::FalseLiteral);
+                p.consume();
             } else {
                 parse_qualified_name(&mut *p);
             }

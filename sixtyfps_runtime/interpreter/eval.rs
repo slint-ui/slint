@@ -125,6 +125,7 @@ pub fn eval_expression(
         Expression::Uncompiled(_) => panic!("uncompiled expression while evaluating"),
         Expression::StringLiteral(s) => Value::String(s.as_str().into()),
         Expression::NumberLiteral(n) => Value::Number(*n),
+        Expression::BoolLiteral(b) => Value::Bool(*b),
         Expression::SignalReference { .. } => panic!("signal in expression"),
         Expression::PropertyReference(NamedReference { element, name }) => {
             let element = element.upgrade().unwrap();

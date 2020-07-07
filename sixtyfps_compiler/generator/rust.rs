@@ -513,6 +513,7 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
     match e {
         Expression::StringLiteral(s) => quote!(sixtyfps::re_exports::SharedString::from(#s)),
         Expression::NumberLiteral(n) => quote!(#n),
+        Expression::BoolLiteral(b) => quote!(#b),
         Expression::Cast { from, to } => {
             let f = compile_expression(&*from, &component);
             match (from.ty(), to) {

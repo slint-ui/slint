@@ -213,6 +213,8 @@ impl Expression {
             })
             .or_else(|| node.ObjectLiteral().map(|n| Self::from_object_literal_node(n, ctx)))
             .or_else(|| node.Array().map(|n| Self::from_array_node(n, ctx)))
+            .or_else(|| node.TrueLiteral().map(|_| Expression::BoolLiteral(true)))
+            .or_else(|| node.FalseLiteral().map(|_| Expression::BoolLiteral(false)))
             .unwrap_or(Self::Invalid)
     }
 

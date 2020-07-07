@@ -674,6 +674,7 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
     match e {
         StringLiteral(s) => format!(r#"sixtyfps::SharedString("{}")"#, s.escape_default()),
         NumberLiteral(n) => n.to_string(),
+        BoolLiteral(b) => b.to_string(),
         PropertyReference(NamedReference { element, name }) => {
             let (access, context) = access_member(
                 &element.upgrade().unwrap(),

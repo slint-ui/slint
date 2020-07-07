@@ -43,6 +43,8 @@ pub enum Expression {
     StringLiteral(String),
     /// Number
     NumberLiteral(f64),
+    ///
+    BoolLiteral(bool),
 
     /// Reference to the signal <name> in the <element>
     ///
@@ -141,6 +143,7 @@ impl Expression {
             Expression::Uncompiled(_) => Type::Invalid,
             Expression::StringLiteral(_) => Type::String,
             Expression::NumberLiteral(_) => Type::Float32,
+            Expression::BoolLiteral(_) => Type::Bool,
             Expression::SignalReference { .. } => Type::Signal,
             Expression::PropertyReference(NamedReference { element, name }) => {
                 element.upgrade().unwrap().borrow().lookup_property(name)
@@ -206,6 +209,7 @@ impl Expression {
             Expression::Uncompiled(_) => {}
             Expression::StringLiteral(_) => {}
             Expression::NumberLiteral(_) => {}
+            Expression::BoolLiteral(_) => {}
             Expression::SignalReference { .. } => {}
             Expression::PropertyReference { .. } => {}
             Expression::ObjectAccess { base, .. } => visitor(&**base),
@@ -257,6 +261,7 @@ impl Expression {
             Expression::Uncompiled(_) => {}
             Expression::StringLiteral(_) => {}
             Expression::NumberLiteral(_) => {}
+            Expression::BoolLiteral(_) => {}
             Expression::SignalReference { .. } => {}
             Expression::PropertyReference { .. } => {}
             Expression::ObjectAccess { base, .. } => visitor(&mut **base),
@@ -308,6 +313,7 @@ impl Expression {
             Expression::Uncompiled(_) => false,
             Expression::StringLiteral(_) => true,
             Expression::NumberLiteral(_) => true,
+            Expression::BoolLiteral(_) => true,
             Expression::SignalReference { .. } => false,
             Expression::PropertyReference { .. } => false,
             Expression::RepeaterIndexReference { .. } => false,
