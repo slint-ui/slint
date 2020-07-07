@@ -1,12 +1,13 @@
 use core::convert::{TryFrom, TryInto};
 use core::pin::Pin;
-use sixtyfps_compilerlib::expression_tree::{Expression, NamedReference, PathElement};
+use sixtyfps_compilerlib::expression_tree::{
+    Expression, NamedReference, PathElement as ExprPathElement,
+};
 use sixtyfps_compilerlib::{object_tree::ElementRc, typeregister::Type};
 use sixtyfps_corelib as corelib;
 use sixtyfps_corelib::{
-    abi::datastructures::ItemRef, abi::datastructures::PathLineTo,
-    abi::primitives::PropertyAnimation, Color, EvaluationContext, PathElements, Resource,
-    SharedString,
+    abi::datastructures::ItemRef, abi::primitives::PropertyAnimation, Color, EvaluationContext,
+    PathElements, Resource, SharedString,
 };
 use std::{collections::HashMap, rc::Rc};
 
@@ -324,18 +325,9 @@ pub fn eval_expression(
             Value::PathElements(PathElements::SharedElements(sixtyfps_corelib::SharedArray::<
                 sixtyfps_corelib::abi::datastructures::PathElement,
             >::from_iter(
-                elements.iter().map(|element| match element {
-                    PathElement::LineTo { x, y } => {
-                        sixtyfps_corelib::abi::datastructures::PathElement::LineTo(PathLineTo {
-                            x: eval_expression(&x, component_type, eval_context)
-                                .try_into()
-                                .unwrap(),
-                            y: eval_expression(&y, component_type, eval_context)
-                                .try_into()
-                                .unwrap(),
-                        })
-                    }
-                }),
+                elements
+                    .iter()
+                    .map(|element| convert_path_element(element, component_type, eval_context)),
             )))
         }
     }
@@ -356,5 +348,38 @@ fn enclosing_component_for_element<'a>(
     } else {
         debug_assert!(component_type.original.parent_element.upgrade().is_some());
         enclosing_component_for_element(element, eval_context.parent_context.unwrap())
+    }
+}
+
+pub fn new_struct_with_bindings<
+    ElementType: 'static + Default + sixtyfps_corelib::rtti::BuiltinItem,
+>(
+    bindings: &HashMap<String, Expression>,
+    component_type: &crate::ComponentDescription,
+    eval_context: &corelib::EvaluationContext,
+) -> ElementType {
+    let mut element = ElementType::default();
+    for (prop, info) in ElementType::fields::<Value>().into_iter() {
+        if let Some(binding) = &bindings.get(prop) {
+            let value = eval_expression(&binding, &*component_type, &eval_context);
+            info.set_field(&mut element, value).unwrap();
+        }
+    }
+    element
+}
+
+fn convert_path_element(
+    expr_element: &ExprPathElement,
+    component_type: &crate::ComponentDescription,
+    eval_context: &corelib::EvaluationContext,
+) -> sixtyfps_corelib::abi::datastructures::PathElement {
+    match expr_element.element_type.class_name.as_str() {
+        "LineTo" => sixtyfps_corelib::abi::datastructures::PathElement::LineTo(
+            new_struct_with_bindings(&expr_element.bindings, component_type, eval_context),
+        ),
+        _ => panic!(
+            "Cannot create unsupported path element {}",
+            expr_element.element_type.class_name
+        ),
     }
 }

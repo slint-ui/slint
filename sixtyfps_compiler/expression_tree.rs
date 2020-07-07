@@ -1,8 +1,12 @@
 use crate::object_tree::*;
 use crate::parser::{Spanned, SyntaxNode};
+use crate::typeregister::BuiltinElement;
 use crate::{diagnostics::Diagnostics, typeregister::Type};
 use core::cell::RefCell;
-use std::{collections::HashMap, rc::Weak};
+use std::{
+    collections::HashMap,
+    rc::{Rc, Weak},
+};
 
 /// Reference to a property or signal of a given name within an element.
 #[derive(Debug, Clone)]
@@ -241,12 +245,7 @@ impl Expression {
             }
             Expression::PathElements { elements } => {
                 for element in elements {
-                    match element {
-                        PathElement::LineTo { x, y } => {
-                            visitor(x);
-                            visitor(y);
-                        }
-                    }
+                    element.bindings.values().for_each(|binding| visitor(binding))
                 }
             }
         }
@@ -297,12 +296,7 @@ impl Expression {
             }
             Expression::PathElements { elements } => {
                 for element in elements {
-                    match element {
-                        PathElement::LineTo { x, y } => {
-                            visitor(x);
-                            visitor(y);
-                        }
-                    }
+                    element.bindings.values_mut().for_each(|binding| visitor(binding))
                 }
             }
         }
@@ -329,9 +323,9 @@ impl Expression {
             Expression::UnaryOp { sub, .. } => sub.is_constant(),
             Expression::Array { values, .. } => values.iter().all(Expression::is_constant),
             Expression::Object { values, .. } => values.iter().all(|(_, v)| v.is_constant()),
-            Expression::PathElements { elements } => elements.iter().all(|element| match element {
-                PathElement::LineTo { x, y } => x.is_constant() && y.is_constant(),
-            }),
+            Expression::PathElements { elements } => {
+                elements.iter().all(|element| element.bindings.values().all(|v| v.is_constant()))
+            }
         }
     }
 
@@ -357,6 +351,7 @@ impl Expression {
 }
 
 #[derive(Debug, Clone)]
-pub enum PathElement {
-    LineTo { x: Box<Expression>, y: Box<Expression> },
+pub struct PathElement {
+    pub element_type: Rc<BuiltinElement>,
+    pub bindings: HashMap<String, Expression>,
 }

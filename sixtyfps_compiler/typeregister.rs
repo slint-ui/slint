@@ -190,6 +190,8 @@ pub struct BuiltinElement {
     pub properties: HashMap<String, Type>,
     pub additional_accepted_child_types: HashMap<String, Type>,
     pub disallow_global_types_as_child_elements: bool,
+    pub cpp_type: Option<String>,
+    pub rust_type_constructor: Option<String>,
 }
 
 impl BuiltinElement {
@@ -281,6 +283,9 @@ impl TypeRegister {
         let mut line_to = BuiltinElement::new("LineTo");
         line_to.properties.insert("x".to_owned(), Type::Float32);
         line_to.properties.insert("y".to_owned(), Type::Float32);
+        line_to.rust_type_constructor =
+            Some("sixtyfps::re_exports::PathElement::LineTo(PathLineTo{{}})".into());
+        line_to.cpp_type = Some("sixtyfps::PathLineTo".into());
         path.additional_accepted_child_types
             .insert("LineTo".to_owned(), Type::Builtin(Rc::new(line_to)));
 

@@ -680,12 +680,36 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
         Expression::PathElements { elements } => {
             let converted_elements: Vec<TokenStream> = elements
                 .iter()
-                .map(|element| match element {
-                    crate::expression_tree::PathElement::LineTo { x, y } => {
-                        let x = compile_expression(x, component);
-                        let y = compile_expression(y, component);
-                        quote!(PathElement::LineTo(PathLineTo { x: #x as _, y: #y as _} ))
+                .map(|element| {
+                    let mut bindings = element
+                        .bindings
+                        .iter()
+                        .map(|(property, expr)| {
+                            let prop_ident = quote::format_ident!("{}", property);
+                            let binding_expr = compile_expression(expr, component);
+
+                            quote!(#prop_ident: #binding_expr as _).to_string()
+                        })
+                        .collect::<Vec<String>>();
+
+                    if bindings.len() < element.element_type.properties.len() {
+                        bindings.push("..Default::default()".into())
                     }
+
+                    let bindings = bindings.join(",");
+
+                    let ctor_format_string = element
+                        .element_type
+                        .rust_type_constructor
+                        .as_ref()
+                        .expect(
+                        "Unexpected error in type registry: path element is lacking rust type name",
+                    );
+
+                    ctor_format_string
+                        .replace("{}", &bindings)
+                        .parse()
+                        .expect("Error parsing rust path element constructor")
                 })
                 .collect();
 

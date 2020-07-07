@@ -128,10 +128,12 @@ mod cpp_ast {
 }
 
 use crate::diagnostics::{CompilerDiagnostic, Diagnostics};
+use crate::expression_tree::Expression;
 use crate::object_tree::{Component, Element, ElementRc, RepeatedElementInfo};
 use crate::parser::Spanned;
 use crate::typeregister::Type;
 use cpp_ast::*;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 impl CppType for Type {
@@ -148,9 +150,34 @@ impl CppType for Type {
                 // This will produce a tuple
                 Some(format!("std::tuple<{}>", elem.join(", ")))
             }
+            Type::Builtin(elem) => elem.cpp_type.clone(),
             _ => None,
         }
     }
+}
+
+fn new_struct_with_bindings(
+    type_name: &str,
+    bindings: &HashMap<String, Expression>,
+    component: &Rc<Component>,
+) -> String {
+    let bindings_initialization: Vec<String> = bindings
+        .iter()
+        .map(|(prop, initializer)| {
+            let initializer = compile_expression(initializer, component);
+            format!("var.{} = {};", prop, initializer)
+        })
+        .collect();
+
+    format!(
+        r#"[&](){{
+            {} var{{}};
+            {}
+            return var;
+        }}()"#,
+        type_name,
+        bindings_initialization.join("\n")
+    )
 }
 
 fn property_animation_code(
@@ -159,23 +186,10 @@ fn property_animation_code(
     property_name: &str,
 ) -> Option<String> {
     if let Some(animation) = element.property_animations.get(property_name) {
-        let bindings: Vec<String> = animation
-            .borrow()
-            .bindings
-            .iter()
-            .map(|(prop, initializer)| {
-                let initializer = compile_expression(initializer, component);
-                format!("animation.{} = {};", prop, initializer)
-            })
-            .collect();
-
-        Some(format!(
-            r#"[](){{
-            sixtyfps::internal::PropertyAnimation animation{{}};
-            {}
-            return animation;
-        }}()"#,
-            bindings.join("\n")
+        Some(new_struct_with_bindings(
+            "sixtyfps::internal::PropertyAnimation",
+            &animation.borrow().bindings,
+            component,
         ))
     } else {
         None
@@ -821,12 +835,13 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
         PathElements { elements } => {
             let converted_elements: Vec<String> = elements
                 .iter()
-                .map(|element| match element {
-                    crate::expression_tree::PathElement::LineTo { x, y } => format!(
-                        "sixtyfps::PathElement::LineTo(sixtyfps::PathLineTo{{{}, {}}})",
-                        compile_expression(x, component),
-                        compile_expression(y, component)
-                    ),
+                .map(|element| {
+                    let element_initializer = new_struct_with_bindings(
+                        element.element_type.cpp_type.as_ref().expect("Unexpected error in type registry: path element is lacking C++ type name"),
+                        &element.bindings,
+                        component
+                    );
+                    format!("sixtyfps::PathElement::{}({})", element.element_type.class_name, element_initializer)
                 })
                 .collect();
             format!(
