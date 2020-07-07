@@ -1,7 +1,7 @@
 use core::cell::RefCell;
 use neon::prelude::*;
 use sixtyfps_compilerlib::typeregister::Type;
-use sixtyfps_corelib::abi::datastructures::{PathElement, PathLineTo, Resource};
+use sixtyfps_corelib::abi::datastructures::{PathArcTo, PathElement, PathLineTo, Resource};
 use sixtyfps_corelib::{ComponentRefPin, EvaluationContext};
 
 use std::rc::Rc;
@@ -122,6 +122,30 @@ fn to_eval_value<'cx>(
     }
 }
 
+fn set_float_property<'cx>(
+    cx: &mut impl Context<'cx>,
+    object: &Handle<JsObject>,
+    name: &str,
+    value: f32,
+) -> NeonResult<()> {
+    let value = JsNumber::new(cx, value);
+    let value = value.as_value(cx);
+    object.set(cx, name, value)?;
+    Ok(())
+}
+
+fn set_bool_property<'cx>(
+    cx: &mut impl Context<'cx>,
+    object: &Handle<JsObject>,
+    name: &str,
+    value: bool,
+) -> NeonResult<()> {
+    let value = JsBoolean::new(cx, value);
+    let value = value.as_value(cx);
+    object.set(cx, name, value)?;
+    Ok(())
+}
+
 fn to_js_value<'cx>(
     val: sixtyfps_interpreter::Value,
     cx: &mut impl Context<'cx>,
@@ -162,13 +186,28 @@ fn to_js_value<'cx>(
 
                 match element {
                     PathElement::LineTo(PathLineTo { x, y }) => {
-                        let x = JsNumber::new(cx, *x);
-                        let x = x.as_value(cx);
-                        element_object.set(cx, "x", x)?;
+                        set_float_property(cx, &element_object, "x", *x)?;
+                        set_float_property(cx, &element_object, "y", *y)?;
+                    }
+                    PathElement::ArcTo(PathArcTo {
+                        x,
+                        y,
+                        radius_x,
+                        radius_y,
+                        x_rotation,
+                        large_arc,
+                        sweep,
+                    }) => {
+                        set_float_property(cx, &element_object, "x", *x)?;
+                        set_float_property(cx, &element_object, "y", *y)?;
 
-                        let y = JsNumber::new(cx, *y);
-                        let y = y.as_value(cx);
-                        element_object.set(cx, "y", y)?;
+                        set_float_property(cx, &element_object, "radius_x", *radius_x)?;
+                        set_float_property(cx, &element_object, "radius_y", *radius_y)?;
+
+                        set_float_property(cx, &element_object, "x_rotation", *x_rotation)?;
+
+                        set_bool_property(cx, &element_object, "large_arc", *large_arc)?;
+                        set_bool_property(cx, &element_object, "sweep", *sweep)?;
                     }
                 }
 

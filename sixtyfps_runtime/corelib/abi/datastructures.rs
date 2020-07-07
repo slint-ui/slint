@@ -267,11 +267,43 @@ pub struct PathLineTo {
 }
 
 #[repr(C)]
+#[derive(FieldOffsets, Default, BuiltinItem, Clone, Debug, PartialEq)]
+#[pin]
+/// PathArcTo describes the event of moving the cursor on the path across an arc to the specified
+/// x/y coordinates, with the specified x/y radius and additional properties.
+pub struct PathArcTo {
+    #[rtti_field]
+    /// The x coordinate where the arc should end up.
+    pub x: f32,
+    #[rtti_field]
+    /// The y coordinate where the arc should end up.
+    pub y: f32,
+    #[rtti_field]
+    /// The radius on the x-axis of the arc.
+    pub radius_x: f32,
+    #[rtti_field]
+    /// The radius on the y-axis of the arc.
+    pub radius_y: f32,
+    #[rtti_field]
+    /// The rotation along the x-axis of the arc in degress.
+    pub x_rotation: f32,
+    #[rtti_field]
+    /// large_arc indicates whether to take the long or the shorter path to complete the arc.
+    pub large_arc: bool,
+    #[rtti_field]
+    /// sweep indicates the direction of the arc. If true, a clockwise direction is chosen,
+    /// otherwise counter-clockwise.
+    pub sweep: bool,
+}
+
+#[repr(C)]
 #[derive(Clone, Debug, PartialEq)]
 /// PathElement describes a single element on a path, such as move-to, line-to, etc.
 pub enum PathElement {
     /// The LineTo variant describes a line.
     LineTo(PathLineTo),
+    /// The PathArcTo variant describes an arc.
+    ArcTo(PathArcTo),
 }
 
 #[repr(C)]

@@ -289,6 +289,20 @@ impl TypeRegister {
         path.additional_accepted_child_types
             .insert("LineTo".to_owned(), Type::Builtin(Rc::new(line_to)));
 
+        let mut arc_to = BuiltinElement::new("ArcTo");
+        arc_to.properties.insert("x".to_owned(), Type::Float32);
+        arc_to.properties.insert("y".to_owned(), Type::Float32);
+        arc_to.properties.insert("radius_x".to_owned(), Type::Float32);
+        arc_to.properties.insert("radius_y".to_owned(), Type::Float32);
+        arc_to.properties.insert("x_rotation".to_owned(), Type::Float32);
+        arc_to.properties.insert("large_arc".to_owned(), Type::Bool);
+        arc_to.properties.insert("sweep".to_owned(), Type::Bool);
+        arc_to.rust_type_constructor =
+            Some("sixtyfps::re_exports::PathElement::ArcTo(PathArcTo{{}})".into());
+        arc_to.cpp_type = Some("sixtyfps::PathArcTo".into());
+        path.additional_accepted_child_types
+            .insert("ArcTo".to_owned(), Type::Builtin(Rc::new(arc_to)));
+
         r.types.insert("Path".to_owned(), Type::Builtin(Rc::new(path)));
 
         let mut property_animation =

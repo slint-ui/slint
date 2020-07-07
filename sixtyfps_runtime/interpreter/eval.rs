@@ -377,6 +377,9 @@ fn convert_path_element(
         "LineTo" => sixtyfps_corelib::abi::datastructures::PathElement::LineTo(
             new_struct_with_bindings(&expr_element.bindings, component_type, eval_context),
         ),
+        "ArcTo" => sixtyfps_corelib::abi::datastructures::PathElement::ArcTo(
+            new_struct_with_bindings(&expr_element.bindings, component_type, eval_context),
+        ),
         _ => panic!(
             "Cannot create unsupported path element {}",
             expr_element.element_type.class_name

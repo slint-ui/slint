@@ -114,6 +114,13 @@ Hello := Rectangle {
             x: 0;
             y: 100;
         }
+
+        ArcTo {
+            x: 0;
+            y: 0;
+            radius_x: 10;
+            radius_y: 10;
+        }
     }
 }
 

@@ -5,7 +5,7 @@ use itertools::Itertools;
 use lyon::tessellation::geometry_builder::{BuffersBuilder, VertexBuffers};
 use lyon::tessellation::{FillAttributes, FillOptions, FillTessellator};
 use sixtyfps_corelib::abi::datastructures::{
-    Color, ComponentWindow, ComponentWindowOpaque, PathElement, PathLineTo, Point, Rect,
+    Color, ComponentWindow, ComponentWindowOpaque, PathArcTo, PathElement, PathLineTo, Point, Rect,
     RenderingPrimitive, Resource, Size,
 };
 use sixtyfps_corelib::graphics::{
@@ -336,8 +336,11 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                     Some(self.create_glyph_runs(text, font_family, pixel_size, *color))
                 }
                 RenderingPrimitive::Path { x: _, y: _, elements, fill_color } => {
-                    use lyon::math::Point;
-                    use lyon::path::builder::{Build, FlatPathBuilder};
+                    use lyon::math::{Angle, Point, Vector};
+                    use lyon::path::{
+                        builder::{Build, FlatPathBuilder, SvgBuilder},
+                        ArcFlags,
+                    };
 
                     let mut path_builder = lyon::path::Path::builder().with_svg();
                     for element in elements.iter() {
@@ -345,6 +348,20 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                             PathElement::LineTo(PathLineTo { x, y }) => {
                                 path_builder.line_to(Point::new(*x, *y))
                             }
+                            PathElement::ArcTo(PathArcTo {
+                                x,
+                                y,
+                                radius_x,
+                                radius_y,
+                                x_rotation,
+                                large_arc,
+                                sweep,
+                            }) => path_builder.arc_to(
+                                Vector::new(*radius_x, *radius_y),
+                                Angle::degrees(*x_rotation),
+                                ArcFlags { large_arc: *large_arc, sweep: *sweep },
+                                Point::new(*x, *y),
+                            ),
                         }
                     }
 

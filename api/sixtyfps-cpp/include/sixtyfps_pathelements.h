@@ -5,6 +5,7 @@
 
 namespace sixtyfps {
 
+using internal::types::PathArcTo;
 using internal::types::PathElement;
 using internal::types::PathLineTo;
 
