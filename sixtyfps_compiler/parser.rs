@@ -272,7 +272,7 @@ declare_syntax! {
         // FIXME: the test should test that as alternative rather than several of them (but it can also be a literal)
         Expression-> [ ?Expression, ?BangExpression, ?FunctionCallExpression, ?SelfAssignment,
                        ?ConditionalExpression, ?QualifiedName, ?BinaryExpression, ?Array, ?ObjectLiteral,
-                       ?UnaryOpExpression, ?TrueLiteral, ?FalseLiteral],
+                       ?UnaryOpExpression],
         /// `foo!bar`
         BangExpression -> [Expression],
         /// expression()
@@ -291,10 +291,6 @@ declare_syntax! {
         ObjectLiteral -> [ *ObjectMember ],
         /// `foo: bar` inside an ObjectLiteral
         ObjectMember -> [ Expression ],
-        /// ...true...
-        TrueLiteral -> [],
-        /// ...false...
-        FalseLiteral -> [],
     }
 }
 
