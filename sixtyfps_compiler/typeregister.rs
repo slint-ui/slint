@@ -117,14 +117,15 @@ impl Type {
                     return Ok(child_type.clone());
                 }
                 if builtin.disallow_global_types_as_child_elements {
+                    let mut valid_children: Vec<_> =
+                        builtin.additional_accepted_child_types.keys().cloned().collect();
+                    valid_children.sort();
+
                     return Err(format!(
                         "{} is not allowed within {}. Only {} are valid children",
                         name,
                         builtin.class_name,
-                        builtin
-                            .additional_accepted_child_types
-                            .keys()
-                            .fold(String::new(), |children, ty| children + ty + " ")
+                        valid_children.join(" ")
                     ));
                 }
             }
