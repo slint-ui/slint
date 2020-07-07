@@ -5,8 +5,8 @@ use itertools::Itertools;
 use lyon::tessellation::geometry_builder::{BuffersBuilder, VertexBuffers};
 use lyon::tessellation::{FillAttributes, FillOptions, FillTessellator};
 use sixtyfps_corelib::abi::datastructures::{
-    Color, ComponentWindow, ComponentWindowOpaque, PathElement, Point, Rect, RenderingPrimitive,
-    Resource, Size,
+    Color, ComponentWindow, ComponentWindowOpaque, PathElement, PathLineTo, Point, Rect,
+    RenderingPrimitive, Resource, Size,
 };
 use sixtyfps_corelib::graphics::{
     FillStyle, Frame as GraphicsFrame, GraphicsBackend, GraphicsWindow, HasRenderingPrimitive,
@@ -342,7 +342,7 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                     let mut path_builder = lyon::path::Path::builder().with_svg();
                     for element in elements.iter() {
                         match element {
-                            PathElement::LineTo { x, y } => {
+                            PathElement::LineTo(PathLineTo { x, y }) => {
                                 path_builder.line_to(Point::new(*x, *y))
                             }
                         }

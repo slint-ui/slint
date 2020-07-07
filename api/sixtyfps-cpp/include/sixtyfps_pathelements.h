@@ -6,6 +6,7 @@
 namespace sixtyfps {
 
 using internal::types::PathElement;
+using internal::types::PathLineTo;
 
 struct PathElements
 {

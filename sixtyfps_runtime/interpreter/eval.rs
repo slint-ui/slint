@@ -4,8 +4,9 @@ use sixtyfps_compilerlib::expression_tree::{Expression, NamedReference, PathElem
 use sixtyfps_compilerlib::{object_tree::ElementRc, typeregister::Type};
 use sixtyfps_corelib as corelib;
 use sixtyfps_corelib::{
-    abi::datastructures::ItemRef, abi::primitives::PropertyAnimation, Color, EvaluationContext,
-    PathElements, Resource, SharedString,
+    abi::datastructures::ItemRef, abi::datastructures::PathLineTo,
+    abi::primitives::PropertyAnimation, Color, EvaluationContext, PathElements, Resource,
+    SharedString,
 };
 use std::{collections::HashMap, rc::Rc};
 
@@ -325,14 +326,14 @@ pub fn eval_expression(
             >::from_iter(
                 elements.iter().map(|element| match element {
                     PathElement::LineTo { x, y } => {
-                        sixtyfps_corelib::abi::datastructures::PathElement::LineTo {
+                        sixtyfps_corelib::abi::datastructures::PathElement::LineTo(PathLineTo {
                             x: eval_expression(&x, component_type, eval_context)
                                 .try_into()
                                 .unwrap(),
                             y: eval_expression(&y, component_type, eval_context)
                                 .try_into()
                                 .unwrap(),
-                        }
+                        })
                     }
                 }),
             )))

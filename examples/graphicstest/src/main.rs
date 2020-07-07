@@ -1,6 +1,6 @@
 use cgmath::{Matrix4, SquareMatrix, Vector3};
 use sixtyfps_corelib::abi::datastructures::{
-    Color, PathElement, PathElements, RenderingPrimitive, Resource,
+    Color, PathElement, PathElements, PathLineTo, RenderingPrimitive, Resource,
 };
 use sixtyfps_corelib::graphics::{
     Frame, GraphicsBackend, RenderingCache, RenderingPrimitivesBuilder,
@@ -65,8 +65,10 @@ fn main() {
         render_cache.allocate_entry(image_primitive)
     };
 
-    const TRIANGLE_PATH: &'static [PathElement] =
-        &[PathElement::LineTo { x: 100., y: 50. }, PathElement::LineTo { x: 0., y: 100. }];
+    const TRIANGLE_PATH: &'static [PathElement] = &[
+        PathElement::LineTo(PathLineTo { x: 100., y: 50. }),
+        PathElement::LineTo(PathLineTo { x: 0., y: 100. }),
+    ];
     let path_node = {
         let path_primitive = rendering_primitives_builder.create(RenderingPrimitive::Path {
             x: 50.,

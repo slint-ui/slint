@@ -6,6 +6,11 @@ use core::pin::Pin;
 use std::cell::Cell;
 use vtable::*;
 
+#[cfg(feature = "rtti")]
+use crate::rtti::{BuiltinItem, FieldInfo, FieldOffset, PropertyInfo, ValueType};
+use const_field_offset::FieldOffsets;
+use corelib_macro::*;
+
 /// 2D Rectangle
 pub type Rect = euclid::default::Rect<f32>;
 /// 2D Point
@@ -248,17 +253,25 @@ impl Default for Resource {
 }
 
 #[repr(C)]
+#[derive(FieldOffsets, Default, BuiltinItem, Clone, Debug, PartialEq)]
+#[pin]
+/// PathLineTo describes the event of moving the cursor on the path to the specified location
+/// along a straight line.
+pub struct PathLineTo {
+    #[rtti_field]
+    /// The x coordinate where the line should go to.
+    pub x: f32,
+    #[rtti_field]
+    /// The y coordinate where the line should go to.
+    pub y: f32,
+}
+
+#[repr(C)]
 #[derive(Clone, Debug, PartialEq)]
 /// PathElement describes a single element on a path, such as move-to, line-to, etc.
 pub enum PathElement {
-    /// Line to describes the event of moving the cursor on the path to the specified location
-    /// along a straight line.
-    LineTo {
-        /// The x coordinate where the line should go to.
-        x: f32,
-        /// The y coordinate where the line should go to.
-        y: f32,
-    },
+    /// The LineTo variant describes a line.
+    LineTo(PathLineTo),
 }
 
 #[repr(C)]

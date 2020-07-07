@@ -684,7 +684,7 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                     crate::expression_tree::PathElement::LineTo { x, y } => {
                         let x = compile_expression(x, component);
                         let y = compile_expression(y, component);
-                        quote!(PathElement::LineTo { x: #x as _, y: #y as _})
+                        quote!(PathElement::LineTo(PathLineTo { x: #x as _, y: #y as _} ))
                     }
                 })
                 .collect();

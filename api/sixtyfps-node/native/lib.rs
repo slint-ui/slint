@@ -1,7 +1,7 @@
 use core::cell::RefCell;
 use neon::prelude::*;
 use sixtyfps_compilerlib::typeregister::Type;
-use sixtyfps_corelib::abi::datastructures::{PathElement, Resource};
+use sixtyfps_corelib::abi::datastructures::{PathElement, PathLineTo, Resource};
 use sixtyfps_corelib::{ComponentRefPin, EvaluationContext};
 
 use std::rc::Rc;
@@ -161,7 +161,7 @@ fn to_js_value<'cx>(
                 let element_object = JsObject::new(cx);
 
                 match element {
-                    PathElement::LineTo { x, y } => {
+                    PathElement::LineTo(PathLineTo { x, y }) => {
                         let x = JsNumber::new(cx, *x);
                         let x = x.as_value(cx);
                         element_object.set(cx, "x", x)?;
