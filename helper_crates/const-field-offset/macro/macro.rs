@@ -226,6 +226,7 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
 
         #[allow(non_camel_case_types)]
         #[allow(non_snake_case)]
+        #[allow(missing_docs)]
         pub mod #module_name {
             #(
                 #[derive(Clone, Copy, Default)]
