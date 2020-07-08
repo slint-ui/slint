@@ -348,7 +348,7 @@ impl TypeRegister {
                         name,
                         elements.join(", ")
                     )
-                        .to_owned()
+                    .to_owned()
                 }
             } else {
                 format!("Unknown type {}", name)
