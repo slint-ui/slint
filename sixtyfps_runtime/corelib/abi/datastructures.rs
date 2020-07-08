@@ -342,6 +342,56 @@ impl PathElements {
             PathElements::SharedElements(elements) => elements.as_slice().iter(),
         }
     }
+
+    /// Builds the path composed of lines and bezier curves from the primitive path elements.
+    pub fn build_path(&self) -> lyon::path::Path {
+        use lyon::geom::SvgArc;
+        use lyon::math::{Angle, Point, Vector};
+        use lyon::path::{
+            builder::{Build, FlatPathBuilder, SvgBuilder},
+            ArcFlags,
+        };
+
+        let mut path_builder = lyon::path::Path::builder().with_svg();
+        for element in self.iter() {
+            match element {
+                PathElement::LineTo(PathLineTo { x, y }) => {
+                    path_builder.line_to(Point::new(*x, *y))
+                }
+                PathElement::ArcTo(PathArcTo {
+                    x,
+                    y,
+                    radius_x,
+                    radius_y,
+                    x_rotation,
+                    large_arc,
+                    sweep,
+                }) => {
+                    let radii = Vector::new(*radius_x, *radius_y);
+                    let x_rotation = Angle::degrees(*x_rotation);
+                    let flags = ArcFlags { large_arc: *large_arc, sweep: *sweep };
+                    let to = Point::new(*x, *y);
+
+                    let svg_arc = SvgArc {
+                        from: path_builder.current_position(),
+                        radii,
+                        x_rotation,
+                        flags,
+                        to,
+                    };
+
+                    if svg_arc.is_straight_line() {
+                        path_builder.line_to(to);
+                    } else {
+                        path_builder.arc_to(radii, x_rotation, flags, to)
+                    }
+                }
+            }
+        }
+
+        path_builder.close();
+        path_builder.build()
+    }
 }
 
 #[no_mangle]

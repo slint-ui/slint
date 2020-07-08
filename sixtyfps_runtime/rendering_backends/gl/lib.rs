@@ -5,8 +5,7 @@ use itertools::Itertools;
 use lyon::tessellation::geometry_builder::{BuffersBuilder, VertexBuffers};
 use lyon::tessellation::{FillAttributes, FillOptions, FillTessellator};
 use sixtyfps_corelib::abi::datastructures::{
-    Color, ComponentWindow, ComponentWindowOpaque, PathArcTo, PathElement, PathLineTo, Point, Rect,
-    RenderingPrimitive, Resource, Size,
+    Color, ComponentWindow, ComponentWindowOpaque, Point, Rect, RenderingPrimitive, Resource, Size,
 };
 use sixtyfps_corelib::graphics::{
     FillStyle, Frame as GraphicsFrame, GraphicsBackend, GraphicsWindow, HasRenderingPrimitive,
@@ -335,55 +334,8 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                         if *font_pixel_size != 0. { *font_pixel_size } else { 48.0 * 72. / 96. };
                     Some(self.create_glyph_runs(text, font_family, pixel_size, *color))
                 }
-                RenderingPrimitive::Path { x: _, y: _, elements, fill_color } => {
-                    use lyon::geom::SvgArc;
-                    use lyon::math::{Angle, Point, Vector};
-                    use lyon::path::{
-                        builder::{Build, FlatPathBuilder, SvgBuilder},
-                        ArcFlags,
-                    };
-
-                    let mut path_builder = lyon::path::Path::builder().with_svg();
-                    for element in elements.iter() {
-                        match element {
-                            PathElement::LineTo(PathLineTo { x, y }) => {
-                                path_builder.line_to(Point::new(*x, *y))
-                            }
-                            PathElement::ArcTo(PathArcTo {
-                                x,
-                                y,
-                                radius_x,
-                                radius_y,
-                                x_rotation,
-                                large_arc,
-                                sweep,
-                            }) => {
-                                let radii = Vector::new(*radius_x, *radius_y);
-                                let x_rotation = Angle::degrees(*x_rotation);
-                                let flags = ArcFlags { large_arc: *large_arc, sweep: *sweep };
-                                let to = Point::new(*x, *y);
-
-                                let svg_arc = SvgArc {
-                                    from: path_builder.current_position(),
-                                    radii,
-                                    x_rotation,
-                                    flags,
-                                    to,
-                                };
-
-                                if svg_arc.is_straight_line() {
-                                    path_builder.line_to(to);
-                                } else {
-                                    path_builder.arc_to(radii, x_rotation, flags, to)
-                                }
-                            }
-                        }
-                    }
-
-                    path_builder.close();
-
-                    self.create_path(&path_builder.build(), FillStyle::SolidColor(*fill_color))
-                }
+                RenderingPrimitive::Path { x: _, y: _, elements, fill_color } => self
+                    .create_path(elements.build_path().iter(), FillStyle::SolidColor(*fill_color)),
             },
             rendering_primitive: primitive,
         }
