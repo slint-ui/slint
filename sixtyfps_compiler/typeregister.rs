@@ -341,18 +341,13 @@ impl TypeRegister {
                     )
                     .to_owned()
                 } else {
-                    let mut elements = permitted_parent_types.iter().fold(
-                        String::new(),
-                        |mut elements, typename| {
-                            elements.push_str(typename);
-                            elements.push_str(" ,");
-                            elements
-                        },
-                    );
-                    elements.pop();
-                    elements.pop();
-
-                    format!("{} can only be within the following elements: {}", name, elements)
+                    let mut elements = permitted_parent_types.iter().cloned().collect::<Vec<_>>();
+                    elements.sort();
+                    format!(
+                        "{} can only be within the following elements: {}",
+                        name,
+                        elements.join(", ")
+                    )
                         .to_owned()
                 }
             } else {
