@@ -157,6 +157,74 @@ pub extern "C" fn solve_grid_layout(data: &GridLayoutData) {
     }
 }
 
+#[repr(C)]
+pub struct PathLayoutData<'a> {
+    pub elements: &'a crate::abi::datastructures::PathElements,
+    pub items: Slice<'a, PathLayoutItemData<'a>>,
+}
+
+#[repr(C)]
+#[derive(Default)]
+pub struct PathLayoutItemData<'a> {
+    pub x: Option<&'a Property<Coord>>,
+    pub y: Option<&'a Property<Coord>>,
+}
+
+/// FIXME: rename with sixstyfps prefix
+#[no_mangle]
+pub extern "C" fn solve_path_layout(data: &PathLayoutData) {
+    use lyon::geom::*;
+    use lyon::path::iterator::PathIterator;
+
+    let path = data.elements.build_path();
+
+    let tolerance = 0.01;
+
+    let segment_lengths: Vec<Coord> = path
+        .iter()
+        .bezier_segments()
+        .map(|segment| match segment {
+            BezierSegment::Linear(line_segment) => line_segment.length(),
+            BezierSegment::Quadratic(quadratic_segment) => {
+                quadratic_segment.approximate_length(tolerance)
+            }
+            BezierSegment::Cubic(cubic_segment) => cubic_segment.approximate_length(tolerance),
+        })
+        .collect();
+
+    let path_length: Coord = segment_lengths.iter().sum();
+
+    let mut i = 0;
+    let mut next_t: f32 = 0.;
+    let mut current_length: f32 = 0.;
+    for (seg_idx, segment) in path.iter().bezier_segments().enumerate() {
+        let seg_len = segment_lengths[seg_idx];
+        let seg_start = current_length;
+        current_length += seg_len;
+
+        let seg_end_t = (seg_start + seg_len) / path_length;
+
+        while next_t < seg_end_t {
+            let local_t = next_t - (seg_start / path_length);
+
+            let item_pos = segment.sample(local_t);
+            data.items[i].x.map(|prop| prop.set(item_pos.x));
+            data.items[i].y.map(|prop| prop.set(item_pos.y));
+
+            i += 1;
+            if i >= data.items.len() {
+                break;
+            }
+
+            next_t = (i as f32) / (data.items.len() as f32);
+        }
+
+        if i >= data.items.len() {
+            break;
+        }
+    }
+}
+
 /// Somehow this is required for the extern "C" things to be exported in a dependent dynlib
 #[doc(hidden)]
 pub fn dummy() {
