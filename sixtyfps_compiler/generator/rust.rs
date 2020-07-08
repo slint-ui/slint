@@ -167,35 +167,35 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
 
             if repeated.model.is_constant() {
                 init_repeaters.push(quote! {
-                    self_pined.#repeater_id.update_model(#model, || {
+                    self_pinned.#repeater_id.update_model(#model, || {
                         let mut new_comp = #rep_component_id::default();
-                        new_comp.parent = self_pined.self_weak.get().unwrap().clone();
+                        new_comp.parent = self_pinned.self_weak.get().unwrap().clone();
                         new_comp
                     });
                 });
                 repeated_visit_branch.push(quote!(
-                    #repeater_index => self_pined.#repeater_id.visit(visitor),
+                    #repeater_index => self_pinned.#repeater_id.visit(visitor),
                 ));
             } else {
                 let model_name = quote::format_ident!("model_{}", repeater_index);
                 repeated_visit_branch.push(quote!(
                     #repeater_index => {
-                        if self_pined.#model_name.is_dirty() {
-                            #component_id::field_offsets().#model_name.apply_pin(self_pined).evaluate(|| {
-                                let _self = self_pined.clone();
+                        if self_pinned.#model_name.is_dirty() {
+                            #component_id::field_offsets().#model_name.apply_pin(self_pinned).evaluate(|| {
+                                let _self = self_pinned.clone();
                                 // FIXME: this should not be the root_component  (but that's fine as we no longer access the parent)
                                 let context = sixtyfps::re_exports::EvaluationContext::for_root_component(
                                     sixtyfps::re_exports::ComponentRef::new_pin(_self)
                                 );
                                 let context = &context;
-                                self_pined.#repeater_id.update_model(#model, || {
+                                self_pinned.#repeater_id.update_model(#model, || {
                                     let mut new_comp = #rep_component_id::default();
-                                    new_comp.parent = self_pined.self_weak.get().unwrap().clone();
+                                    new_comp.parent = self_pinned.self_weak.get().unwrap().clone();
                                     new_comp
                                 });
                             });
                         }
-                        self_pined.#repeater_id.visit(visitor)
+                        self_pinned.#repeater_id.visit(visitor)
                     }
                 ));
                 repeated_dynmodel_names.push(model_name);
@@ -315,12 +315,12 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
             fn run(self) {
                 use sixtyfps::re_exports::*;
                 let window = sixtyfps::create_window();
-                let self_pined = Rc::pin(self);
-                self_pined.self_weak.set(WeakPin::downgrade(self_pined.clone()))
+                let self_pinned = Rc::pin(self);
+                self_pinned.self_weak.set(WeakPin::downgrade(self_pinned.clone()))
                     .map_err(|_|())
                     .expect("Can only be pinned once");
                 #(#init_repeaters)*
-                window.run(VRef::new_pin(self_pined.as_ref()));
+                window.run(VRef::new_pin(self_pinned.as_ref()));
             }
         });
     };
@@ -374,7 +374,7 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
                 let tree = &[#(#item_tree_array),*];
                 sixtyfps::re_exports::visit_item_tree(self, VRef::new_pin(self), tree, index, visitor, visit_dynamic);
                 #[allow(unused)]
-                fn visit_dynamic(self_pined: ::core::pin::Pin<&#component_id>, visitor: ItemVisitorRefMut, dyn_index: usize) {
+                fn visit_dynamic(self_pinned: ::core::pin::Pin<&#component_id>, visitor: ItemVisitorRefMut, dyn_index: usize) {
                     match dyn_index {
                         #(#repeated_visit_branch)*
                         _ => panic!("invalid dyn_index {}", dyn_index),
