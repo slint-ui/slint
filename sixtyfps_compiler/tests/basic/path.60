@@ -10,6 +10,6 @@ TestCase := Rectangle {
     }
 
     LineTo { x: 100; y: 0; }
-//  ^error{LineTo can only be within a Path element}
+//  ^error{LineTo can only be within the following elements: Path, PathLayout}
 }
 

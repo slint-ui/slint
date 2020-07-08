@@ -317,6 +317,17 @@ impl TypeRegister {
 
         r.types.insert("Path".to_owned(), Type::Builtin(Rc::new(path)));
 
+        let mut path_layout = BuiltinElement::new("PathLayout");
+        path_layout.properties.insert("x".to_owned(), Type::Float32);
+        path_layout.properties.insert("y".to_owned(), Type::Float32);
+        path_layout.properties.insert("commands".to_owned(), Type::String);
+        path_elements.iter().for_each(|elem| {
+            path_layout
+                .additional_accepted_child_types
+                .insert(elem.class_name.clone(), Type::Builtin(elem.clone()));
+        });
+        r.types.insert("PathLayout".to_owned(), Type::Builtin(Rc::new(path_layout)));
+
         let mut property_animation =
             BuiltinElement { class_name: "PropertyAnimation".into(), ..Default::default() };
         property_animation.properties.insert("duration".to_owned(), Type::Int32);
