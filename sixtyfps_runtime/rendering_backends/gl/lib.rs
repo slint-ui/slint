@@ -304,7 +304,7 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                     rect_path.line_to(Point::new(*width, *height));
                     rect_path.line_to(Point::new(0.0, *height));
                     rect_path.close();
-                    Some(self.create_path(&rect_path.build(), FillStyle::SolidColor(*color)))
+                    self.create_path(&rect_path.build(), FillStyle::SolidColor(*color))
                 }
                 RenderingPrimitive::Image { x: _, y: _, source } => {
                     match source {
@@ -336,6 +336,7 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                     Some(self.create_glyph_runs(text, font_family, pixel_size, *color))
                 }
                 RenderingPrimitive::Path { x: _, y: _, elements, fill_color } => {
+                    use lyon::geom::SvgArc;
                     use lyon::math::{Angle, Point, Vector};
                     use lyon::path::{
                         builder::{Build, FlatPathBuilder, SvgBuilder},
@@ -356,20 +357,32 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                                 x_rotation,
                                 large_arc,
                                 sweep,
-                            }) => path_builder.arc_to(
-                                Vector::new(*radius_x, *radius_y),
-                                Angle::degrees(*x_rotation),
-                                ArcFlags { large_arc: *large_arc, sweep: *sweep },
-                                Point::new(*x, *y),
-                            ),
+                            }) => {
+                                let radii = Vector::new(*radius_x, *radius_y);
+                                let x_rotation = Angle::degrees(*x_rotation);
+                                let flags = ArcFlags { large_arc: *large_arc, sweep: *sweep };
+                                let to = Point::new(*x, *y);
+
+                                let svg_arc = SvgArc {
+                                    from: path_builder.current_position(),
+                                    radii,
+                                    x_rotation,
+                                    flags,
+                                    to,
+                                };
+
+                                if svg_arc.is_straight_line() {
+                                    path_builder.line_to(to);
+                                } else {
+                                    path_builder.arc_to(radii, x_rotation, flags, to)
+                                }
+                            }
                         }
                     }
 
                     path_builder.close();
 
-                    Some(
-                        self.create_path(&path_builder.build(), FillStyle::SolidColor(*fill_color)),
-                    )
+                    self.create_path(&path_builder.build(), FillStyle::SolidColor(*fill_color))
                 }
             },
             rendering_primitive: primitive,
@@ -382,7 +395,7 @@ impl GLRenderingPrimitivesBuilder {
         &mut self,
         path: impl IntoIterator<Item = lyon::path::PathEvent>,
         style: FillStyle,
-    ) -> GLRenderingPrimitive {
+    ) -> Option<GLRenderingPrimitive> {
         let mut geometry: VertexBuffers<Vertex, u16> = VertexBuffers::new();
 
         let fill_opts = FillOptions::default();
@@ -399,10 +412,14 @@ impl GLRenderingPrimitivesBuilder {
             )
             .unwrap();
 
+        if geometry.vertices.len() == 0 || geometry.indices.len() == 0 {
+            return None;
+        }
+
         let vertices = GLArrayBuffer::new(&self.context, &geometry.vertices);
         let indices = GLIndexBuffer::new(&self.context, &geometry.indices);
 
-        GLRenderingPrimitive::FillPath { vertices, indices, style }.into()
+        Some(GLRenderingPrimitive::FillPath { vertices, indices, style }.into())
     }
 
     fn create_image(
