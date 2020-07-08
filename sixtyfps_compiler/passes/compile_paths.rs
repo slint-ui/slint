@@ -18,24 +18,29 @@ pub fn compile_paths(
 ) {
     let path_type = tr.lookup("Path");
     let path_type = path_type.as_builtin();
+    let pathlayout_type = tr.lookup("PathLayout");
+    let pathlayout_type = pathlayout_type.as_builtin();
 
     recurse_elem(&component.root_element, &(), &mut |elem_, _| {
-        let is_path = if let crate::typeregister::Type::Builtin(be) = &elem_.borrow().base_type {
-            be.class_name == path_type.class_name
-        } else {
-            false
+        let accepted_type = match &elem_.borrow().base_type {
+            crate::typeregister::Type::Builtin(be) if be.class_name == path_type.class_name => {
+                path_type
+            }
+            crate::typeregister::Type::Builtin(be)
+                if be.class_name == pathlayout_type.class_name =>
+            {
+                pathlayout_type
+            }
+            _ => return,
         };
-        if !is_path {
-            return;
-        }
+
+        let element_types = &accepted_type.additional_accepted_child_types;
 
         let mut elem = elem_.borrow_mut();
 
         let path_data = if let Some(commands_expr) = elem.bindings.remove("commands") {
             if let Some(path_child) = elem.children.iter().find(|child| {
-                path_type
-                    .additional_accepted_child_types
-                    .contains_key(&child.borrow().base_type.as_builtin().class_name)
+                element_types.contains_key(&child.borrow().base_type.as_builtin().class_name)
             }) {
                 diag.push_error(
                     "Path elements cannot be mixed with the use of the SVG commands property."
@@ -75,9 +80,7 @@ pub fn compile_paths(
                         let mut child = child.borrow_mut();
                         let element_name = &child.base_type.as_builtin().class_name;
 
-                        if let Some(path_element) =
-                            path_type.additional_accepted_child_types.get(element_name)
-                        {
+                        if let Some(path_element) = element_types.get(element_name) {
                             let element_type = match path_element {
                                 Type::Builtin(b) => b.clone(),
                                 _ => panic!(
