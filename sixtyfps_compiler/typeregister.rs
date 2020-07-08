@@ -281,28 +281,33 @@ impl TypeRegister {
         path.properties.insert("fill_color".to_owned(), Type::Color);
         path.disallow_global_types_as_child_elements = true;
 
-        let mut line_to = BuiltinElement::new("LineTo");
-        line_to.properties.insert("x".to_owned(), Type::Float32);
-        line_to.properties.insert("y".to_owned(), Type::Float32);
-        line_to.rust_type_constructor =
-            Some("sixtyfps::re_exports::PathElement::LineTo(PathLineTo{{}})".into());
-        line_to.cpp_type = Some("sixtyfps::PathLineTo".into());
-        path.additional_accepted_child_types
-            .insert("LineTo".to_owned(), Type::Builtin(Rc::new(line_to)));
+        let path_elements = {
+            let mut line_to = BuiltinElement::new("LineTo");
+            line_to.properties.insert("x".to_owned(), Type::Float32);
+            line_to.properties.insert("y".to_owned(), Type::Float32);
+            line_to.rust_type_constructor =
+                Some("sixtyfps::re_exports::PathElement::LineTo(PathLineTo{{}})".into());
+            line_to.cpp_type = Some("sixtyfps::PathLineTo".into());
 
-        let mut arc_to = BuiltinElement::new("ArcTo");
-        arc_to.properties.insert("x".to_owned(), Type::Float32);
-        arc_to.properties.insert("y".to_owned(), Type::Float32);
-        arc_to.properties.insert("radius_x".to_owned(), Type::Float32);
-        arc_to.properties.insert("radius_y".to_owned(), Type::Float32);
-        arc_to.properties.insert("x_rotation".to_owned(), Type::Float32);
-        arc_to.properties.insert("large_arc".to_owned(), Type::Bool);
-        arc_to.properties.insert("sweep".to_owned(), Type::Bool);
-        arc_to.rust_type_constructor =
-            Some("sixtyfps::re_exports::PathElement::ArcTo(PathArcTo{{}})".into());
-        arc_to.cpp_type = Some("sixtyfps::PathArcTo".into());
-        path.additional_accepted_child_types
-            .insert("ArcTo".to_owned(), Type::Builtin(Rc::new(arc_to)));
+            let mut arc_to = BuiltinElement::new("ArcTo");
+            arc_to.properties.insert("x".to_owned(), Type::Float32);
+            arc_to.properties.insert("y".to_owned(), Type::Float32);
+            arc_to.properties.insert("radius_x".to_owned(), Type::Float32);
+            arc_to.properties.insert("radius_y".to_owned(), Type::Float32);
+            arc_to.properties.insert("x_rotation".to_owned(), Type::Float32);
+            arc_to.properties.insert("large_arc".to_owned(), Type::Bool);
+            arc_to.properties.insert("sweep".to_owned(), Type::Bool);
+            arc_to.rust_type_constructor =
+                Some("sixtyfps::re_exports::PathElement::ArcTo(PathArcTo{{}})".into());
+            arc_to.cpp_type = Some("sixtyfps::PathArcTo".into());
+
+            [Rc::new(line_to), Rc::new(arc_to)]
+        };
+
+        path_elements.iter().for_each(|elem| {
+            path.additional_accepted_child_types
+                .insert(elem.class_name.clone(), Type::Builtin(elem.clone()));
+        });
 
         r.types.insert("Path".to_owned(), Type::Builtin(Rc::new(path)));
 
