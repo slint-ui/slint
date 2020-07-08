@@ -88,7 +88,7 @@ impl GLTexture {
     ) {
         unsafe {
             gl.bind_texture(glow::TEXTURE_2D, Some(self.texture_id));
-            gl.tex_sub_image_2d_u8_slice(
+            gl.tex_sub_image_2d(
                 glow::TEXTURE_2D,
                 0,
                 x,
@@ -97,7 +97,7 @@ impl GLTexture {
                 image.height() as i32,
                 glow::RGBA,
                 glow::UNSIGNED_BYTE,
-                Some(&image.into_raw()),
+                glow::PixelUnpackData::Slice(&image.into_raw()),
             );
         }
     }
