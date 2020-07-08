@@ -1,9 +1,13 @@
 //! Datastructures used to represent layouts in the compiler
 
+use crate::expression_tree::Path;
 use crate::object_tree::ElementRc;
 
 #[derive(Default, Debug)]
-pub struct LayoutConstraints(pub Vec<GridLayout>);
+pub struct LayoutConstraints {
+    pub grids: Vec<GridLayout>,
+    pub paths: Vec<PathLayout>,
+}
 
 /// Internal representation of a grid layout
 #[derive(Debug)]
@@ -23,4 +27,11 @@ impl GridLayout {
     pub fn row_count(&self) -> usize {
         self.elems.len()
     }
+}
+
+/// Internal representation of a path layout
+#[derive(Debug)]
+pub struct PathLayout {
+    pub path: Path,
+    pub elements: Vec<ElementRc>,
 }

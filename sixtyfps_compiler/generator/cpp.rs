@@ -833,50 +833,7 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
                 panic!("Expression::Object is not a Type::Object")
             }
         }
-        PathElements { elements } => match elements {
-            crate::expression_tree::Path::Elements(elements) => {
-                let converted_elements: Vec<String> = elements
-                    .iter()
-                    .map(|element| {
-                        let element_initializer = element
-                            .element_type
-                            .cpp_type
-                            .as_ref()
-                            .map(|cpp_type| {
-                                new_struct_with_bindings(&cpp_type, &element.bindings, component)
-                            })
-                            .unwrap_or_default();
-                        format!(
-                            "sixtyfps::PathElement::{}({})",
-                            element.element_type.class_name, element_initializer
-                        )
-                    })
-                    .collect();
-                format!(
-                    r#"[&](){{
-                    sixtyfps::PathElement elements[{}] = {{
-                        {}
-                    }};
-                    return sixtyfps::PathElements(&elements[0], sizeof(elements) / sizeof(elements[0]));
-                }}()"#,
-                    converted_elements.len(),
-                    converted_elements.join(",")
-                )
-            }
-            crate::expression_tree::Path::Events(events) => {
-                let converted_elements: Vec<String> = compile_path_events(events);
-                format!(
-                    r#"[&](){{
-                    sixtyfps::PathEvent events[{}] = {{
-                        {}
-                    }};
-                    return sixtyfps::PathElements(&events[0], sizeof(events) / sizeof(events[0]));
-                }}()"#,
-                    converted_elements.len(),
-                    converted_elements.join(",")
-                )
-            }
-        },
+        PathElements { elements } => compile_path(elements, component),
         Uncompiled(_) => panic!(),
         Invalid => format!("\n#error invalid expression\n"),
     }
@@ -889,7 +846,7 @@ fn compute_layout(component: &Rc<Component>) -> Vec<String> {
         "[[maybe_unused]] auto self = reinterpret_cast<const {ty}*>(component.instance);",
         ty = component_id(component)
     ));
-    for grid in component.layout_constraints.borrow().0.iter() {
+    for grid in component.layout_constraints.borrow().grids.iter() {
         res.push("{".to_owned());
         res.push(format!("    std::array<sixtyfps::Constraint, {}> row_constr;", grid.row_count()));
         res.push(format!("    std::array<sixtyfps::Constraint, {}> col_constr;", grid.col_count()));
@@ -943,6 +900,33 @@ fn compute_layout(component: &Rc<Component>) -> Vec<String> {
         res.push("    sixtyfps::solve_grid_layout(&grid);".to_owned());
         res.push("}".to_owned());
     }
+
+    for path_layout in component.layout_constraints.borrow().paths.iter() {
+        res.push("{".to_owned());
+
+        res.push("    sixtyfps::PathLayoutItemData items[] = {".to_owned());
+        for item in &path_layout.elements {
+            let p = |n: &str| {
+                if item.borrow().lookup_property(n) == Type::Float32 {
+                    format!("&self->{}.{}", item.borrow().id, n)
+                } else {
+                    "nullptr".to_owned()
+                }
+            };
+            res.push(format!("        {{ {}, {} }},", p("x"), p("y")));
+        }
+        res.push("    };".to_owned());
+
+        res.push(format!("    auto path = {};", compile_path(&path_layout.path, component)));
+
+        res.push("    sixtyfps::PathLayoutData pl { ".into());
+        res.push("        &path,".to_owned());
+        res.push("        {items, std::size(items)}".to_owned());
+        res.push("    };".to_owned());
+        res.push("    sixtyfps::solve_path_layout(&pl);".to_owned());
+        res.push("}".to_owned());
+    }
+
     res
 }
 
@@ -961,6 +945,53 @@ fn new_path_event(event_name: &str, fields: &[(&str, String)]) -> String {
         event_name,
         fields_initialization.join("\n")
     )
+}
+
+fn compile_path(path: &crate::expression_tree::Path, component: &Rc<Component>) -> String {
+    match path {
+        crate::expression_tree::Path::Elements(elements) => {
+            let converted_elements: Vec<String> = elements
+                .iter()
+                .map(|element| {
+                    let element_initializer = element
+                        .element_type
+                        .cpp_type
+                        .as_ref()
+                        .map(|cpp_type| {
+                            new_struct_with_bindings(&cpp_type, &element.bindings, component)
+                        })
+                        .unwrap_or_default();
+                    format!(
+                        "sixtyfps::PathElement::{}({})",
+                        element.element_type.class_name, element_initializer
+                    )
+                })
+                .collect();
+            format!(
+                r#"[&](){{
+                sixtyfps::PathElement elements[{}] = {{
+                    {}
+                }};
+                return sixtyfps::PathElements(&elements[0], sizeof(elements) / sizeof(elements[0]));
+            }}()"#,
+                converted_elements.len(),
+                converted_elements.join(",")
+            )
+        }
+        crate::expression_tree::Path::Events(events) => {
+            let converted_elements: Vec<String> = compile_path_events(events);
+            format!(
+                r#"[&](){{
+                sixtyfps::PathEvent events[{}] = {{
+                    {}
+                }};
+                return sixtyfps::PathElements(&events[0], sizeof(events) / sizeof(events[0]));
+            }}()"#,
+                converted_elements.len(),
+                converted_elements.join(",")
+            )
+        }
+    }
 }
 
 fn compile_path_events(events: &crate::expression_tree::PathEvents) -> Vec<String> {

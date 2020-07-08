@@ -71,31 +71,29 @@ pub fn compile_paths(
                 }
             }
         } else {
-            let mut children = std::mem::take(&mut elem.children);
+            let new_children = Vec::with_capacity(elem.children.len());
+            let old_children = std::mem::replace(&mut elem.children, new_children);
 
-            crate::expression_tree::Path::Elements(
-                children
-                    .iter_mut()
-                    .filter_map(|child| {
-                        let mut child = child.borrow_mut();
-                        let element_name = &child.base_type.as_builtin().class_name;
+            let mut path_data = Vec::new();
 
-                        if let Some(path_element) = element_types.get(element_name) {
-                            let element_type = match path_element {
-                                Type::Builtin(b) => b.clone(),
-                                _ => panic!(
+            for child in old_children {
+                let element_name = &child.borrow().base_type.as_builtin().class_name.clone();
+
+                if let Some(path_element) = element_types.get(element_name) {
+                    let element_type = match path_element {
+                        Type::Builtin(b) => b.clone(),
+                        _ => panic!(
                             "Incorrect type registry -- expected built-in type for path element {}",
                             element_name
                         ),
-                            };
-                            let bindings = std::mem::take(&mut child.bindings);
-                            Some(PathElement { element_type, bindings })
-                        } else {
-                            None
-                        }
-                    })
-                    .collect(),
-            )
+                    };
+                    let bindings = std::mem::take(&mut child.borrow_mut().bindings);
+                    path_data.push(PathElement { element_type, bindings });
+                } else {
+                    elem.children.push(child);
+                }
+            }
+            crate::expression_tree::Path::Elements(path_data)
         };
 
         elem.bindings.insert("elements".into(), Expression::PathElements { elements: path_data });

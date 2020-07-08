@@ -78,11 +78,14 @@ EvaluationContext evaluation_context_for_root_component(const Component *compone
 }
 
 // layouts:
-using internal::Slice;
-using internal::solve_grid_layout;
+using internal::Constraint;
 using internal::GridLayoutCellData;
 using internal::GridLayoutData;
-using internal::Constraint;
+using internal::PathLayoutData;
+using internal::PathLayoutItemData;
+using internal::Slice;
+using internal::solve_grid_layout;
+using internal::solve_path_layout;
 
 // models
 

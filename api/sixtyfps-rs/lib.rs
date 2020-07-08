@@ -81,7 +81,8 @@ pub mod re_exports {
     pub use sixtyfps_corelib::abi::slice::Slice;
     pub use sixtyfps_corelib::item_tree::visit_item_tree;
     pub use sixtyfps_corelib::layout::{
-        solve_grid_layout, Constraint, GridLayoutCellData, GridLayoutData,
+        solve_grid_layout, solve_path_layout, Constraint, GridLayoutCellData, GridLayoutData,
+        PathLayoutData, PathLayoutItemData,
     };
     pub use sixtyfps_corelib::Color;
     pub use sixtyfps_corelib::ComponentVTable_static;

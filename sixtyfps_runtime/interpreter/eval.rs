@@ -323,22 +323,7 @@ pub fn eval_expression(
                 .collect(),
         ),
         Expression::PathElements { elements } => {
-            match elements {
-                ExprPath::Elements(elements) => Value::PathElements(PathElements::SharedElements(
-                    sixtyfps_corelib::SharedArray::<
-                        sixtyfps_corelib::abi::datastructures::PathElement,
-                    >::from_iter(elements.iter().map(|element| {
-                        convert_path_element(element, component_type, eval_context)
-                    })),
-                )),
-                ExprPath::Events(events) => {
-                    Value::PathElements(PathElements::PathEvents(sixtyfps_corelib::SharedArray::<
-                        sixtyfps_corelib::abi::datastructures::PathEvent,
-                    >::from_iter(
-                        events.iter().map(|event| event.into()),
-                    )))
-                }
-            }
+            Value::PathElements(convert_path(elements, component_type, eval_context))
         }
     }
 }
@@ -376,6 +361,29 @@ pub fn new_struct_with_bindings<
         }
     }
     element
+}
+
+pub fn convert_path(
+    path: &ExprPath,
+    component_type: &crate::ComponentDescription,
+    eval_context: &corelib::EvaluationContext,
+) -> sixtyfps_corelib::abi::datastructures::PathElements {
+    match path {
+        ExprPath::Elements(elements) => {
+            PathElements::SharedElements(sixtyfps_corelib::SharedArray::<
+                sixtyfps_corelib::abi::datastructures::PathElement,
+            >::from_iter(
+                elements
+                    .iter()
+                    .map(|element| convert_path_element(element, component_type, eval_context)),
+            ))
+        }
+        ExprPath::Events(events) => PathElements::PathEvents(sixtyfps_corelib::SharedArray::<
+            sixtyfps_corelib::abi::datastructures::PathEvent,
+        >::from_iter(
+            events.iter().map(|event| event.into()),
+        )),
+    }
 }
 
 fn convert_path_element(

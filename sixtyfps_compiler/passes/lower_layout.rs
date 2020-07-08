@@ -2,6 +2,7 @@
 
 use crate::diagnostics::Diagnostics;
 
+use crate::expression_tree::*;
 use crate::layout::*;
 use crate::object_tree::*;
 use std::rc::Rc;
@@ -14,7 +15,7 @@ pub fn lower_layouts(component: &Rc<Component>, diag: &mut Diagnostics) {
         let old_children = std::mem::replace(&mut elem.children, new_children);
 
         for child in old_children {
-            let is_layout =
+            let is_grid_layout =
                 if let crate::typeregister::Type::Builtin(be) = &child.borrow().base_type {
                     assert!(be.class_name != "Row"); // Caught at element lookup time
                     be.class_name == "GridLayout"
@@ -22,7 +23,14 @@ pub fn lower_layouts(component: &Rc<Component>, diag: &mut Diagnostics) {
                     false
                 };
 
-            if is_layout {
+            let is_path_layout =
+                if let crate::typeregister::Type::Builtin(be) = &child.borrow().base_type {
+                    be.class_name == "PathLayout"
+                } else {
+                    false
+                };
+
+            if is_grid_layout {
                 let mut grid = GridLayout { within: elem_.clone(), elems: Default::default() };
                 let mut row = 0;
                 let mut col = 0;
@@ -53,7 +61,26 @@ pub fn lower_layouts(component: &Rc<Component>, diag: &mut Diagnostics) {
                     }
                 }
                 component.optimized_elements.borrow_mut().push(child.clone());
-                component.layout_constraints.borrow_mut().0.push(grid);
+                component.layout_constraints.borrow_mut().grids.push(grid);
+                continue;
+            } else if is_path_layout {
+                let layout_elem = child;
+                let layout_children = std::mem::take(&mut layout_elem.borrow_mut().children);
+                elem.children.extend(layout_children.iter().cloned());
+                component.optimized_elements.borrow_mut().push(layout_elem.clone());
+                let path_elements_expr = match layout_elem.borrow_mut().bindings.remove("elements")
+                {
+                    Some(Expression::PathElements { elements }) => elements,
+                    _ => {
+                        diag.push_error("Internal error: elements binding in PathLayout does not contain path elements expression".into(), layout_elem.borrow().span());
+                        return;
+                    }
+                };
+                component
+                    .layout_constraints
+                    .borrow_mut()
+                    .paths
+                    .push(PathLayout { elements: layout_children, path: path_elements_expr });
                 continue;
             } else {
                 elem.children.push(child);

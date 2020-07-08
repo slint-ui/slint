@@ -2,7 +2,7 @@
 */
 
 use crate::diagnostics::{CompilerDiagnostic, Diagnostics};
-use crate::expression_tree::{Expression, NamedReference, OperatorClass};
+use crate::expression_tree::{Expression, NamedReference, OperatorClass, Path};
 use crate::object_tree::{Component, ElementRc};
 use crate::parser::Spanned;
 use crate::typeregister::Type;
@@ -678,58 +678,13 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                 panic!("Expression::Object is not a Type::Object")
             }
         }
-        Expression::PathElements { elements } => match elements {
-            crate::expression_tree::Path::Elements(elements) => {
-                let converted_elements: Vec<TokenStream> = elements
-                    .iter()
-                    .map(|element| {
-                        let mut bindings = element
-                            .bindings
-                            .iter()
-                            .map(|(property, expr)| {
-                                let prop_ident = quote::format_ident!("{}", property);
-                                let binding_expr = compile_expression(expr, component);
-
-                                quote!(#prop_ident: #binding_expr as _).to_string()
-                            })
-                            .collect::<Vec<String>>();
-
-                        if bindings.len() < element.element_type.properties.len() {
-                            bindings.push("..Default::default()".into())
-                        }
-
-                        let bindings = bindings.join(",");
-
-                        let ctor_format_string = element
-                        .element_type
-                        .rust_type_constructor
-                        .as_ref()
-                        .expect(
-                        "Unexpected error in type registry: path element is lacking rust type name",
-                    );
-
-                        ctor_format_string
-                            .replace("{}", &bindings)
-                            .parse()
-                            .expect("Error parsing rust path element constructor")
-                    })
-                    .collect();
-
-                quote!(sixtyfps::re_exports::PathElements::SharedElements(
-                    sixtyfps::re_exports::SharedArray::<sixtyfps::re_exports::PathElement>::from(&[#(#converted_elements),*])
-                ))
-            }
-            crate::expression_tree::Path::Events(events) => {
-                let events = compile_path_events(events);
-                quote!(sixtyfps::re_exports::PathElements::PathEvents(#events))
-            }
-        },
+        Expression::PathElements { elements } => compile_path(elements, component),
     }
 }
 
-fn compute_layout(component: &Component) -> TokenStream {
+fn compute_layout(component: &Rc<Component>) -> TokenStream {
     let mut layouts = vec![];
-    for x in component.layout_constraints.borrow().0.iter() {
+    for x in component.layout_constraints.borrow().grids.iter() {
         let within = quote::format_ident!("{}", x.within.borrow().id);
         let within_ty =
             quote::format_ident!("{}", x.within.borrow().base_type.as_builtin().class_name);
@@ -780,6 +735,39 @@ fn compute_layout(component: &Component) -> TokenStream {
                 x: 0.,
                 y: 0.,
                 cells: Slice::from_slice(&[#( Slice::from_slice(&[#( #cells ),*])),*]),
+            });
+        });
+    }
+
+    for path_layout in component.layout_constraints.borrow().paths.iter() {
+        let items = path_layout
+            .elements
+            .iter()
+            .map(|elem| {
+                let e = quote::format_ident!("{}", elem.borrow().id);
+                let p = |n: &str| {
+                    if elem.borrow().lookup_property(n) == Type::Float32 {
+                        let n = quote::format_ident!("{}", n);
+                        quote! {Some(&self.#e.#n)}
+                    } else {
+                        quote! {None}
+                    }
+                };
+                let x = p("x");
+                let y = p("y");
+                quote!(PathLayoutItemData {
+                    x: #x,
+                    y: #y,
+                })
+            })
+            .collect::<Vec<_>>();
+
+        let path = compile_path(&path_layout.path, &component);
+
+        layouts.push(quote! {
+            solve_path_layout(&PathLayoutData {
+                items: Slice::from_slice(&[#( #items ),*]),
+                elements: &#path,
             });
         });
     }
@@ -847,4 +835,53 @@ fn compile_path_events(events: &crate::expression_tree::PathEvents) -> TokenStre
             .collect();
 
     quote!(sixtyfps::re_exports::SharedArray::<sixtyfps::re_exports::PathEvent>::from(&[#(#converted_events),*]))
+}
+
+fn compile_path(path: &Path, component: &Rc<Component>) -> TokenStream {
+    match path {
+        Path::Elements(elements) => {
+            let converted_elements: Vec<TokenStream> = elements
+                .iter()
+                .map(|element| {
+                    let mut bindings = element
+                        .bindings
+                        .iter()
+                        .map(|(property, expr)| {
+                            let prop_ident = quote::format_ident!("{}", property);
+                            let binding_expr = compile_expression(expr, component);
+
+                            quote!(#prop_ident: #binding_expr as _).to_string()
+                        })
+                        .collect::<Vec<String>>();
+
+                    if bindings.len() < element.element_type.properties.len() {
+                        bindings.push("..Default::default()".into())
+                    }
+
+                    let bindings = bindings.join(",");
+
+                    let ctor_format_string = element
+                        .element_type
+                        .rust_type_constructor
+                        .as_ref()
+                        .expect(
+                        "Unexpected error in type registry: path element is lacking rust type name",
+                    );
+
+                    ctor_format_string
+                        .replace("{}", &bindings)
+                        .parse()
+                        .expect("Error parsing rust path element constructor")
+                })
+                .collect();
+
+            quote!(sixtyfps::re_exports::PathElements::SharedElements(
+                sixtyfps::re_exports::SharedArray::<sixtyfps::re_exports::PathElement>::from(&[#(#converted_elements),*])
+            ))
+        }
+        Path::Events(events) => {
+            let events = compile_path_events(events);
+            quote!(sixtyfps::re_exports::PathElements::PathEvents(#events))
+        }
+    }
 }

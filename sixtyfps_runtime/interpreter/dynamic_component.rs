@@ -500,7 +500,7 @@ unsafe extern "C" fn compute_layout(component: ComponentRefPin, eval_context: &E
     let component_type =
         &*(component.get_vtable() as *const ComponentVTable as *const ComponentDescription);
 
-    for it in &component_type.original.layout_constraints.borrow().0 {
+    for it in &component_type.original.layout_constraints.borrow().grids {
         use sixtyfps_corelib::layout::*;
 
         let mut row_constraint = vec![];
@@ -555,6 +555,32 @@ unsafe extern "C" fn compute_layout(component: ComponentRefPin, eval_context: &E
             x: 0.,
             y: 0.,
             cells: Slice::from(cells.as_slice()),
+        });
+    }
+
+    for it in &component_type.original.layout_constraints.borrow().paths {
+        use sixtyfps_corelib::layout::*;
+
+        let items = it
+            .elements
+            .iter()
+            .map(|elem| {
+                let info = &component_type.items[elem.borrow().id.as_str()];
+                let get_prop = |name| {
+                    info.rtti.properties.get(name).map(|p| {
+                        &*(component.as_ptr().add(info.offset).add(p.offset())
+                            as *const Property<f32>)
+                    })
+                };
+                PathLayoutItemData { x: get_prop("x"), y: get_prop("y") }
+            })
+            .collect::<Vec<_>>();
+
+        let path_elements = eval::convert_path(&it.path, component_type, eval_context);
+
+        solve_path_layout(&PathLayoutData {
+            items: Slice::from(items.as_slice()),
+            elements: &path_elements,
         });
     }
 }
