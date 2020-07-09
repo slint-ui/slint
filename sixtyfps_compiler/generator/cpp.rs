@@ -921,7 +921,8 @@ fn compute_layout(component: &Rc<Component>) -> Vec<String> {
 
         res.push("    sixtyfps::PathLayoutData pl { ".into());
         res.push("        &path,".to_owned());
-        res.push("        {items, std::size(items)}".to_owned());
+        res.push("        {items, std::size(items)},".to_owned());
+        res.push("        0, 0".to_owned());
         res.push("    };".to_owned());
         res.push("    sixtyfps::solve_path_layout(&pl);".to_owned());
         res.push("}".to_owned());

@@ -581,6 +581,8 @@ unsafe extern "C" fn compute_layout(component: ComponentRefPin, eval_context: &E
         solve_path_layout(&PathLayoutData {
             items: Slice::from(items.as_slice()),
             elements: &path_elements,
+            x: 0.,
+            y: 0.,
         });
     }
 }

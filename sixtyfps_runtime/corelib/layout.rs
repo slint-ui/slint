@@ -161,6 +161,8 @@ pub extern "C" fn solve_grid_layout(data: &GridLayoutData) {
 pub struct PathLayoutData<'a> {
     pub elements: &'a crate::abi::datastructures::PathElements,
     pub items: Slice<'a, PathLayoutItemData<'a>>,
+    pub x: Coord,
+    pub y: Coord,
 }
 
 #[repr(C)]
@@ -208,8 +210,8 @@ pub extern "C" fn solve_path_layout(data: &PathLayoutData) {
             let local_t = next_t - (seg_start / path_length);
 
             let item_pos = segment.sample(local_t);
-            data.items[i].x.map(|prop| prop.set(item_pos.x));
-            data.items[i].y.map(|prop| prop.set(item_pos.y));
+            data.items[i].x.map(|prop| prop.set(item_pos.x + data.x));
+            data.items[i].y.map(|prop| prop.set(item_pos.y + data.y));
 
             i += 1;
             if i >= data.items.len() {

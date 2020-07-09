@@ -768,6 +768,8 @@ fn compute_layout(component: &Rc<Component>) -> TokenStream {
             solve_path_layout(&PathLayoutData {
                 items: Slice::from_slice(&[#( #items ),*]),
                 elements: &#path,
+                x: 0.,
+                y: 0.,
             });
         });
     }
