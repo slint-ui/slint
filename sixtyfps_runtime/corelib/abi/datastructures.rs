@@ -467,6 +467,46 @@ impl From<&PathEvent> for lyon::path::Event<lyon::math::Point, lyon::math::Point
     }
 }
 
+impl From<&lyon::path::Event<lyon::math::Point, lyon::math::Point>> for PathEvent {
+    fn from(event: &lyon::path::Event<lyon::math::Point, lyon::math::Point>) -> Self {
+        use lyon::path::Event;
+        match event {
+            Event::Begin { at } => PathEvent::Begin(PathEventBegin { x: at.x, y: at.y }),
+            Event::Line { from, to } => PathEvent::Line(PathEventLine {
+                from_x: from.x,
+                from_y: from.y,
+                to_x: to.x,
+                to_y: to.y,
+            }),
+            Event::Quadratic { from, ctrl, to } => PathEvent::Quadratic(PathEventQuadratic {
+                from_x: from.x,
+                from_y: from.y,
+                control_x: ctrl.x,
+                control_y: ctrl.y,
+                to_x: to.x,
+                to_y: to.y,
+            }),
+            Event::Cubic { from, ctrl1, ctrl2, to } => PathEvent::Cubic(PathEventCubic {
+                from_x: from.x,
+                from_y: from.y,
+                control1_x: ctrl1.x,
+                control1_y: ctrl1.y,
+                control2_x: ctrl2.x,
+                control2_y: ctrl2.y,
+                to_x: to.x,
+                to_y: to.y,
+            }),
+            Event::End { last, first, close } => PathEvent::End(PathEventEnd {
+                first_x: first.x,
+                first_y: first.y,
+                last_x: last.x,
+                last_y: last.y,
+                close: *close,
+            }),
+        }
+    }
+}
+
 #[repr(C)]
 #[derive(Clone, Debug, PartialEq)]
 /// PathElements holds the elements of a path.
@@ -570,6 +610,17 @@ pub unsafe extern "C" fn sixtyfps_new_path_elements(
 ) {
     let arr = crate::SharedArray::from(std::slice::from_raw_parts(first_element, count));
     core::ptr::write(out as *mut crate::SharedArray<PathElement>, arr.clone());
+}
+
+#[no_mangle]
+/// This function is used for the low-level C++ interface to allocate the backing vector for a shared path event array.
+pub unsafe extern "C" fn sixtyfps_new_path_events(
+    out: *mut c_void,
+    first_event: *const PathEvent,
+    count: usize,
+) {
+    let arr = crate::SharedArray::from(std::slice::from_raw_parts(first_event, count));
+    core::ptr::write(out as *mut crate::SharedArray<PathEvent>, arr.clone());
 }
 
 /// Each item return a RenderingPrimitive to the backend with information about what to draw.

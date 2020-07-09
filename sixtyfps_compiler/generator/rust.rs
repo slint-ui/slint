@@ -678,28 +678,29 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                 panic!("Expression::Object is not a Type::Object")
             }
         }
-        Expression::PathElements { elements } => {
-            let converted_elements: Vec<TokenStream> = elements
-                .iter()
-                .map(|element| {
-                    let mut bindings = element
-                        .bindings
-                        .iter()
-                        .map(|(property, expr)| {
-                            let prop_ident = quote::format_ident!("{}", property);
-                            let binding_expr = compile_expression(expr, component);
+        Expression::PathElements { elements } => match elements {
+            crate::expression_tree::Path::Elements(elements) => {
+                let converted_elements: Vec<TokenStream> = elements
+                    .iter()
+                    .map(|element| {
+                        let mut bindings = element
+                            .bindings
+                            .iter()
+                            .map(|(property, expr)| {
+                                let prop_ident = quote::format_ident!("{}", property);
+                                let binding_expr = compile_expression(expr, component);
 
-                            quote!(#prop_ident: #binding_expr as _).to_string()
-                        })
-                        .collect::<Vec<String>>();
+                                quote!(#prop_ident: #binding_expr as _).to_string()
+                            })
+                            .collect::<Vec<String>>();
 
-                    if bindings.len() < element.element_type.properties.len() {
-                        bindings.push("..Default::default()".into())
-                    }
+                        if bindings.len() < element.element_type.properties.len() {
+                            bindings.push("..Default::default()".into())
+                        }
 
-                    let bindings = bindings.join(",");
+                        let bindings = bindings.join(",");
 
-                    let ctor_format_string = element
+                        let ctor_format_string = element
                         .element_type
                         .rust_type_constructor
                         .as_ref()
@@ -707,17 +708,22 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                         "Unexpected error in type registry: path element is lacking rust type name",
                     );
 
-                    ctor_format_string
-                        .replace("{}", &bindings)
-                        .parse()
-                        .expect("Error parsing rust path element constructor")
-                })
-                .collect();
+                        ctor_format_string
+                            .replace("{}", &bindings)
+                            .parse()
+                            .expect("Error parsing rust path element constructor")
+                    })
+                    .collect();
 
-            quote!(sixtyfps::re_exports::PathElements::SharedElements(
-                sixtyfps::re_exports::SharedArray::<sixtyfps::re_exports::PathElement>::from(&[#(#converted_elements),*])
-            ))
-        }
+                quote!(sixtyfps::re_exports::PathElements::SharedElements(
+                    sixtyfps::re_exports::SharedArray::<sixtyfps::re_exports::PathElement>::from(&[#(#converted_elements),*])
+                ))
+            }
+            crate::expression_tree::Path::Events(events) => {
+                let events = compile_path_events(events);
+                quote!(sixtyfps::re_exports::PathElements::PathEvents(#events))
+            }
+        },
     }
 }
 
@@ -790,4 +796,55 @@ fn compute_layout(component: &Component) -> TokenStream {
             #(#layouts)*
         }
     }
+}
+
+fn compile_path_events(events: &crate::expression_tree::PathEvents) -> TokenStream {
+    use lyon::path::Event;
+
+    let converted_events: Vec<proc_macro2::TokenStream> = events
+            .iter()
+            .map(|event| match event {
+                Event::Begin { at } => {
+                    let x = at.x;
+                    let y = at.y;
+                    quote!(sixtyfps::re_exports::PathEvent::Begin(sixtyfps::re_exports::PathEventBegin{x: #x, y: #y}))
+                }
+                Event::Line { from, to } => {
+                    let from_x = from.x;
+                    let from_y = from.y;
+                    let to_x = to.x;
+                    let to_y = to.y;
+                    quote!(sixtyfps::re_exports::PathEvent::Line(sixtyfps::re_exports::PathEventLine{from_x: #from_x, from_y: #from_y, to_x: #to_x, to_y: #to_y}))
+                }
+                Event::Quadratic { from, ctrl, to } => {
+                    let from_x = from.x;
+                    let from_y = from.y;
+                    let control_x = ctrl.x;
+                    let control_y = ctrl.y;
+                    let to_x = to.x;
+                    let to_y = to.y;
+                    quote!(sixtyfps::re_exports::PathEvent::Quadratic(sixtyfps::re_exports::PathEventQuadratic{from_x: #from_x, from_y: #from_y, control_x: #control_x, control_y: #control_y, to_x: #to_x, to_y: #to_y}))                    
+                }
+                Event::Cubic { from, ctrl1, ctrl2, to } => {
+                    let from_x = from.x;
+                    let from_y = from.y;
+                    let control1_x = ctrl1.x;
+                    let control1_y = ctrl1.y;
+                    let control2_x = ctrl2.x;
+                    let control2_y = ctrl2.y;
+                    let to_x = to.x;
+                    let to_y = to.y;
+                    quote!(sixtyfps::re_exports::PathEvent::Cubic(sixtyfps::re_exports::PathEventCubic{from_x: #from_x, from_y: #from_y, control1_x: #control1_x, control1_y: #control1_y, control2_x: #control2_x, control2_y: #control2_y, to_x: #to_x, to_y: #to_y}))                    
+                }
+                Event::End { last, first, close } => {
+                    let first_x = first.x;
+                    let first_y = first.y;
+                    let last_x = last.x;
+                    let last_y = last.y;
+                    quote!(sixtyfps::re_exports::PathEvent::End(sixtyfps::re_exports::PathEventEnd{first_x: #first_x, first_y: #first_y, last_x: #last_x, last_y: #last_y, close: #close}))
+                }
+            })
+            .collect();
+
+    quote!(sixtyfps::re_exports::SharedArray::<sixtyfps::re_exports::PathEvent>::from(&[#(#converted_events),*]))
 }

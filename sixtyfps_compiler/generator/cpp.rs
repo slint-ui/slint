@@ -833,35 +833,50 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
                 panic!("Expression::Object is not a Type::Object")
             }
         }
-        PathElements { elements } => {
-            let converted_elements: Vec<String> = elements
-                .iter()
-                .map(|element| {
-                    let element_initializer = element
-                        .element_type
-                        .cpp_type
-                        .as_ref()
-                        .map(|cpp_type| {
-                            new_struct_with_bindings(&cpp_type, &element.bindings, component)
-                        })
-                        .unwrap_or_default();
-                    format!(
-                        "sixtyfps::PathElement::{}({})",
-                        element.element_type.class_name, element_initializer
-                    )
-                })
-                .collect();
-            format!(
-                r#"[&](){{
+        PathElements { elements } => match elements {
+            crate::expression_tree::Path::Elements(elements) => {
+                let converted_elements: Vec<String> = elements
+                    .iter()
+                    .map(|element| {
+                        let element_initializer = element
+                            .element_type
+                            .cpp_type
+                            .as_ref()
+                            .map(|cpp_type| {
+                                new_struct_with_bindings(&cpp_type, &element.bindings, component)
+                            })
+                            .unwrap_or_default();
+                        format!(
+                            "sixtyfps::PathElement::{}({})",
+                            element.element_type.class_name, element_initializer
+                        )
+                    })
+                    .collect();
+                format!(
+                    r#"[&](){{
                     sixtyfps::PathElement elements[{}] = {{
                         {}
                     }};
                     return sixtyfps::PathElements(&elements[0], sizeof(elements) / sizeof(elements[0]));
                 }}()"#,
-                converted_elements.len(),
-                converted_elements.join(",")
-            )
-        }
+                    converted_elements.len(),
+                    converted_elements.join(",")
+                )
+            }
+            crate::expression_tree::Path::Events(events) => {
+                let converted_elements: Vec<String> = compile_path_events(events);
+                format!(
+                    r#"[&](){{
+                    sixtyfps::PathEvent events[{}] = {{
+                        {}
+                    }};
+                    return sixtyfps::PathElements(&events[0], sizeof(events) / sizeof(events[0]));
+                }}()"#,
+                    converted_elements.len(),
+                    converted_elements.join(",")
+                )
+            }
+        },
         Uncompiled(_) => panic!(),
         Invalid => format!("\n#error invalid expression\n"),
     }
@@ -929,4 +944,93 @@ fn compute_layout(component: &Rc<Component>) -> Vec<String> {
         res.push("}".to_owned());
     }
     res
+}
+
+fn new_path_event(event_name: &str, fields: &[(&str, String)]) -> String {
+    let fields_initialization: Vec<String> = fields
+        .iter()
+        .map(|(prop, initializer)| format!("var.{} = {};", prop, initializer))
+        .collect();
+
+    format!(
+        r#"[&](){{
+            {} var{{}};
+            {}
+            return var;
+        }}()"#,
+        event_name,
+        fields_initialization.join("\n")
+    )
+}
+
+fn compile_path_events(events: &crate::expression_tree::PathEvents) -> Vec<String> {
+    use lyon::path::Event;
+
+    events
+        .iter()
+        .map(|event| match event {
+            Event::Begin { at } => format!(
+                "sixtyfps::PathEvent::Begin({})",
+                new_path_event(
+                    "sixtyfps::PathEventBegin",
+                    &[("x", at.x.to_string()), ("y", at.y.to_string())]
+                )
+            ),
+            Event::Line { from, to } => format!(
+                "sixtyfps::PathEvent::Line({})",
+                new_path_event(
+                    "sixtyfps::PathEventLine",
+                    &[
+                        ("from_x", from.x.to_string()),
+                        ("from_y", from.y.to_string()),
+                        ("to_x", to.x.to_string()),
+                        ("to_y", to.y.to_string())
+                    ]
+                )
+            ),
+            Event::Quadratic { from, ctrl, to } => format!(
+                "sixtyfps::PathEvent::Quadratic({})",
+                new_path_event(
+                    "sixtyfps::PathEventQuadratic",
+                    &[
+                        ("from_x", from.x.to_string()),
+                        ("from_y", from.y.to_string()),
+                        ("control_x", ctrl.x.to_string()),
+                        ("control_y", ctrl.y.to_string()),
+                        ("to_x", to.x.to_string()),
+                        ("to_y", to.y.to_string())
+                    ]
+                )
+            ),
+            Event::Cubic { from, ctrl1, ctrl2, to } => format!(
+                "sixtyfps::PathEvent::Cubic({})",
+                new_path_event(
+                    "sixtyfps::PathEventCubic",
+                    &[
+                        ("from_x", from.x.to_string()),
+                        ("from_y", from.y.to_string()),
+                        ("control1_x", ctrl1.x.to_string()),
+                        ("control1_y", ctrl1.y.to_string()),
+                        ("control2_x", ctrl2.x.to_string()),
+                        ("control2_y", ctrl2.y.to_string()),
+                        ("to_x", to.x.to_string()),
+                        ("to_y", to.y.to_string())
+                    ]
+                )
+            ),
+            Event::End { last, first, close } => format!(
+                "sixtyfps::PathEvent::End({})",
+                new_path_event(
+                    "sixtyfps::PathEventEnd",
+                    &[
+                        ("first_x", first.x.to_string()),
+                        ("first_y", first.y.to_string()),
+                        ("last_x", last.x.to_string()),
+                        ("last_y", last.y.to_string()),
+                        ("close", close.to_string())
+                    ]
+                )
+            ),
+        })
+        .collect()
 }

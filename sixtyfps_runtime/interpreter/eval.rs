@@ -1,7 +1,7 @@
 use core::convert::{TryFrom, TryInto};
 use core::pin::Pin;
 use sixtyfps_compilerlib::expression_tree::{
-    Expression, NamedReference, PathElement as ExprPathElement,
+    Expression, NamedReference, Path as ExprPath, PathElement as ExprPathElement,
 };
 use sixtyfps_compilerlib::{object_tree::ElementRc, typeregister::Type};
 use sixtyfps_corelib as corelib;
@@ -323,13 +323,22 @@ pub fn eval_expression(
                 .collect(),
         ),
         Expression::PathElements { elements } => {
-            Value::PathElements(PathElements::SharedElements(sixtyfps_corelib::SharedArray::<
-                sixtyfps_corelib::abi::datastructures::PathElement,
-            >::from_iter(
-                elements
-                    .iter()
-                    .map(|element| convert_path_element(element, component_type, eval_context)),
-            )))
+            match elements {
+                ExprPath::Elements(elements) => Value::PathElements(PathElements::SharedElements(
+                    sixtyfps_corelib::SharedArray::<
+                        sixtyfps_corelib::abi::datastructures::PathElement,
+                    >::from_iter(elements.iter().map(|element| {
+                        convert_path_element(element, component_type, eval_context)
+                    })),
+                )),
+                ExprPath::Events(events) => {
+                    Value::PathElements(PathElements::PathEvents(sixtyfps_corelib::SharedArray::<
+                        sixtyfps_corelib::abi::datastructures::PathEvent,
+                    >::from_iter(
+                        events.iter().map(|event| event.into()),
+                    )))
+                }
+            }
         }
     }
 }

@@ -131,7 +131,7 @@ pub enum Expression {
     },
 
     PathElements {
-        elements: Vec<PathElement>,
+        elements: Path,
     },
 }
 
@@ -248,8 +248,10 @@ impl Expression {
                 }
             }
             Expression::PathElements { elements } => {
-                for element in elements {
-                    element.bindings.values().for_each(|binding| visitor(binding))
+                if let Path::Elements(elements) = elements {
+                    for element in elements {
+                        element.bindings.values().for_each(|binding| visitor(binding))
+                    }
                 }
             }
         }
@@ -300,8 +302,10 @@ impl Expression {
                 }
             }
             Expression::PathElements { elements } => {
-                for element in elements {
-                    element.bindings.values_mut().for_each(|binding| visitor(binding))
+                if let Path::Elements(elements) = elements {
+                    for element in elements {
+                        element.bindings.values_mut().for_each(|binding| visitor(binding))
+                    }
                 }
             }
         }
@@ -330,7 +334,13 @@ impl Expression {
             Expression::Array { values, .. } => values.iter().all(Expression::is_constant),
             Expression::Object { values, .. } => values.iter().all(|(_, v)| v.is_constant()),
             Expression::PathElements { elements } => {
-                elements.iter().all(|element| element.bindings.values().all(|v| v.is_constant()))
+                if let Path::Elements(elements) = elements {
+                    elements
+                        .iter()
+                        .all(|element| element.bindings.values().all(|v| v.is_constant()))
+                } else {
+                    true
+                }
             }
         }
     }
@@ -354,6 +364,14 @@ impl Expression {
             self
         }
     }
+}
+
+pub type PathEvents = Vec<lyon::path::Event<lyon::math::Point, lyon::math::Point>>;
+
+#[derive(Debug, Clone)]
+pub enum Path {
+    Elements(Vec<PathElement>),
+    Events(PathEvents),
 }
 
 #[derive(Debug, Clone)]

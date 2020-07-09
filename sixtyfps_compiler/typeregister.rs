@@ -281,6 +281,7 @@ impl TypeRegister {
         path.properties.insert("fill_color".to_owned(), Type::Color);
         path.properties.insert("stroke_color".to_owned(), Type::Color);
         path.properties.insert("stroke_width".to_owned(), Type::Float32);
+        path.properties.insert("commands".to_owned(), Type::String);
         path.disallow_global_types_as_child_elements = true;
 
         let path_elements = {

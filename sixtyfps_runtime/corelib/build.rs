@@ -27,6 +27,7 @@ fn main() {
         "PathElements",
         "PathElement",
         "sixtyfps_new_path_elements",
+        "sixtyfps_new_path_events",
     ]
     .iter()
     .map(|x| x.to_string())
@@ -85,7 +86,12 @@ fn main() {
         (vec!["Resource"], "sixtyfps_resource_internal.h"),
         (vec!["Color"], "sixtyfps_color_internal.h"),
         (
-            vec!["PathElements", "PathElement", "sixtyfps_new_path_elements"],
+            vec![
+                "PathElements",
+                "PathElement",
+                "sixtyfps_new_path_elements",
+                "sixtyfps_new_path_events",
+            ],
             "sixtyfps_pathelements_internal.h",
         ),
     ]
@@ -98,6 +104,7 @@ fn main() {
             "sixtyfps_component_window_drop",
             "sixtyfps_component_window_run",
             "sixtyfps_new_path_elements",
+            "sixtyfps_new_path_events",
         ]
         .iter()
         .filter(|exclusion| rust_types.iter().find(|inclusion| inclusion == exclusion).is_none())
