@@ -11,6 +11,7 @@ use sixtyfps_corelib::graphics::{
     FillStyle, Frame as GraphicsFrame, GraphicsBackend, GraphicsWindow, HasRenderingPrimitive,
     RenderingPrimitivesBuilder,
 };
+use smallvec::{smallvec, SmallVec};
 use std::cell::RefCell;
 
 extern crate alloc;
@@ -200,8 +201,10 @@ impl GLRenderer {
     }
 }
 
+type GLRenderingPrimitives = SmallVec<[GLRenderingPrimitive; 1]>;
+
 pub struct OpaqueRenderingPrimitive {
-    gl_primitive: Option<GLRenderingPrimitive>,
+    gl_primitives: GLRenderingPrimitives,
     rendering_primitive: RenderingPrimitive,
 }
 
@@ -292,8 +295,8 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
 
     fn create(&mut self, primitive: RenderingPrimitive) -> Self::LowLevelRenderingPrimitive {
         OpaqueRenderingPrimitive {
-            gl_primitive: match &primitive {
-                RenderingPrimitive::NoContents => None,
+            gl_primitives: match &primitive {
+                RenderingPrimitive::NoContents => smallvec::SmallVec::new(),
                 RenderingPrimitive::Rectangle { x: _, y: _, width, height, color } => {
                     use lyon::math::Point;
 
@@ -312,14 +315,14 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                             image_path.pop(); // pop of executable name
                             image_path.push(&*path.clone());
                             let image = image::open(image_path.as_path()).unwrap().into_rgba();
-                            Some(self.create_image(image))
+                            smallvec![self.create_image(image)]
                         }
                         Resource::EmbeddedData(slice) => {
                             let image_slice = slice.as_slice();
                             let image = image::load_from_memory(image_slice).unwrap().to_rgba();
-                            Some(self.create_image(image))
+                            smallvec![self.create_image(image)]
                         }
-                        Resource::None => None,
+                        Resource::None => SmallVec::new(),
                     }
                 }
                 RenderingPrimitive::Text {
@@ -332,7 +335,7 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                 } => {
                     let pixel_size =
                         if *font_pixel_size != 0. { *font_pixel_size } else { 48.0 * 72. / 96. };
-                    Some(self.create_glyph_runs(text, font_family, pixel_size, *color))
+                    smallvec![self.create_glyph_runs(text, font_family, pixel_size, *color)]
                 }
                 RenderingPrimitive::Path { x: _, y: _, elements, fill_color } => self
                     .create_path(elements.build_path().iter(), FillStyle::SolidColor(*fill_color)),
@@ -347,7 +350,7 @@ impl GLRenderingPrimitivesBuilder {
         &mut self,
         path: impl IntoIterator<Item = lyon::path::PathEvent>,
         style: FillStyle,
-    ) -> Option<GLRenderingPrimitive> {
+    ) -> GLRenderingPrimitives {
         let mut geometry: VertexBuffers<Vertex, u16> = VertexBuffers::new();
 
         let fill_opts = FillOptions::default();
@@ -365,13 +368,13 @@ impl GLRenderingPrimitivesBuilder {
             .unwrap();
 
         if geometry.vertices.len() == 0 || geometry.indices.len() == 0 {
-            return None;
+            return SmallVec::new();
         }
 
         let vertices = GLArrayBuffer::new(&self.context, &geometry.vertices);
         let indices = GLIndexBuffer::new(&self.context, &geometry.indices);
 
-        Some(GLRenderingPrimitive::FillPath { vertices, indices, style }.into())
+        smallvec![GLRenderingPrimitive::FillPath { vertices, indices, style }.into()]
     }
 
     fn create_image(
@@ -575,8 +578,8 @@ impl GraphicsFrame for GLFrame {
             matrix.w[2],
             matrix.w[3],
         ];
-        match primitive.gl_primitive.as_ref() {
-            Some(GLRenderingPrimitive::FillPath { vertices, indices, style }) => {
+        primitive.gl_primitives.iter().for_each(|gl_primitive| match gl_primitive {
+            GLRenderingPrimitive::FillPath { vertices, indices, style } => {
                 let (r, g, b, a) = match style {
                     FillStyle::SolidColor(color) => color.as_rgba_f32(),
                 };
@@ -592,7 +595,7 @@ impl GraphicsFrame for GLFrame {
                     );
                 }
             }
-            Some(GLRenderingPrimitive::Texture { vertices, texture_vertices, texture }) => {
+            GLRenderingPrimitive::Texture { vertices, texture_vertices, texture } => {
                 self.image_shader.bind(
                     &self.context,
                     &gl_matrix,
@@ -606,7 +609,7 @@ impl GraphicsFrame for GLFrame {
                 }
             }
             #[cfg(not(target_arch = "wasm32"))]
-            Some(GLRenderingPrimitive::GlyphRuns { glyph_runs, color }) => {
+            GLRenderingPrimitive::GlyphRuns { glyph_runs, color } => {
                 let (r, g, b, a) = color.as_rgba_f32();
 
                 for GlyphRun { vertices, texture_vertices, texture, vertex_count } in glyph_runs {
@@ -624,8 +627,7 @@ impl GraphicsFrame for GLFrame {
                     }
                 }
             }
-            None => (),
-        }
+        });
     }
 }
 
