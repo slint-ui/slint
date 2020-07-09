@@ -75,6 +75,8 @@ fn main() {
             y: 300.,
             elements: PathElements::StaticElements(TRIANGLE_PATH.into()),
             fill_color: Color::from_rgb(0, 128, 255),
+            stroke_color: Color::BLACK,
+            stroke_width: 2.0,
         });
         render_cache.allocate_entry(path_primitive)
     };

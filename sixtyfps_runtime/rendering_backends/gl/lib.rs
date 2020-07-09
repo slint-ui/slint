@@ -3,7 +3,10 @@ use glow::{Context as GLContext, HasContext};
 #[cfg(not(target_arch = "wasm32"))]
 use itertools::Itertools;
 use lyon::tessellation::geometry_builder::{BuffersBuilder, VertexBuffers};
-use lyon::tessellation::{FillAttributes, FillOptions, FillTessellator};
+use lyon::tessellation::{
+    FillAttributes, FillOptions, FillTessellator, StrokeAttributes, StrokeOptions,
+    StrokeTessellator,
+};
 use sixtyfps_corelib::abi::datastructures::{
     Color, ComponentWindow, ComponentWindowOpaque, Point, Rect, RenderingPrimitive, Resource, Size,
 };
@@ -111,6 +114,7 @@ pub struct GLRenderer {
 pub struct GLRenderingPrimitivesBuilder {
     context: Rc<glow::Context>,
     fill_tesselator: FillTessellator,
+    stroke_tesselator: StrokeTessellator,
     texture_atlas: Rc<RefCell<TextureAtlas>>,
     #[cfg(not(target_arch = "wasm32"))]
     platform_data: Rc<RefCell<PlatformData>>,
@@ -226,6 +230,7 @@ impl GraphicsBackend for GLRenderer {
         GLRenderingPrimitivesBuilder {
             context: self.context.clone(),
             fill_tesselator: FillTessellator::new(),
+            stroke_tesselator: StrokeTessellator::new(),
             texture_atlas: self.texture_atlas.clone(),
             #[cfg(not(target_arch = "wasm32"))]
             platform_data: self.platform_data.clone(),
@@ -306,7 +311,9 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                     rect_path.line_to(Point::new(*width, *height));
                     rect_path.line_to(Point::new(0.0, *height));
                     rect_path.close();
-                    self.create_path(&rect_path.build(), FillStyle::SolidColor(*color))
+                    self.fill_path(&rect_path.build(), FillStyle::SolidColor(*color))
+                        .into_iter()
+                        .collect()
                 }
                 RenderingPrimitive::Image { x: _, y: _, source } => {
                     match source {
@@ -337,8 +344,39 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                         if *font_pixel_size != 0. { *font_pixel_size } else { 48.0 * 72. / 96. };
                     smallvec![self.create_glyph_runs(text, font_family, pixel_size, *color)]
                 }
-                RenderingPrimitive::Path { x: _, y: _, elements, fill_color } => self
-                    .create_path(elements.build_path().iter(), FillStyle::SolidColor(*fill_color)),
+                RenderingPrimitive::Path {
+                    x: _,
+                    y: _,
+                    elements,
+                    fill_color,
+                    stroke_color,
+                    stroke_width,
+                } => {
+                    let mut primitives = SmallVec::new();
+
+                    if *fill_color != Color::TRANSPARENT {
+                        primitives.extend(
+                            self.fill_path(
+                                elements.build_path().iter(),
+                                FillStyle::SolidColor(*fill_color),
+                            )
+                            .into_iter(),
+                        );
+                    }
+
+                    if *stroke_color != Color::TRANSPARENT {
+                        primitives.extend(
+                            self.stroke_path(
+                                elements.build_path().iter(),
+                                *stroke_color,
+                                *stroke_width,
+                            )
+                            .into_iter(),
+                        );
+                    }
+
+                    primitives
+                }
             },
             rendering_primitive: primitive,
         }
@@ -346,11 +384,11 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
 }
 
 impl GLRenderingPrimitivesBuilder {
-    fn create_path(
+    fn fill_path(
         &mut self,
         path: impl IntoIterator<Item = lyon::path::PathEvent>,
         style: FillStyle,
-    ) -> GLRenderingPrimitives {
+    ) -> Option<GLRenderingPrimitive> {
         let mut geometry: VertexBuffers<Vertex, u16> = VertexBuffers::new();
 
         let fill_opts = FillOptions::default();
@@ -368,13 +406,53 @@ impl GLRenderingPrimitivesBuilder {
             .unwrap();
 
         if geometry.vertices.len() == 0 || geometry.indices.len() == 0 {
-            return SmallVec::new();
+            return None;
         }
 
         let vertices = GLArrayBuffer::new(&self.context, &geometry.vertices);
         let indices = GLIndexBuffer::new(&self.context, &geometry.indices);
 
-        smallvec![GLRenderingPrimitive::FillPath { vertices, indices, style }.into()]
+        Some(GLRenderingPrimitive::FillPath { vertices, indices, style }.into())
+    }
+
+    fn stroke_path(
+        &mut self,
+        path: impl IntoIterator<Item = lyon::path::PathEvent>,
+        stroke_color: Color,
+        stroke_width: f32,
+    ) -> Option<GLRenderingPrimitive> {
+        let mut geometry: VertexBuffers<Vertex, u16> = VertexBuffers::new();
+
+        let stroke_opts = StrokeOptions::DEFAULT.with_line_width(stroke_width);
+
+        self.stroke_tesselator
+            .tessellate(
+                path,
+                &stroke_opts,
+                &mut BuffersBuilder::new(
+                    &mut geometry,
+                    |pos: lyon::math::Point, _: StrokeAttributes| Vertex {
+                        _pos: [pos.x as f32, pos.y as f32],
+                    },
+                ),
+            )
+            .unwrap();
+
+        if geometry.vertices.len() == 0 || geometry.indices.len() == 0 {
+            return None;
+        }
+
+        let vertices = GLArrayBuffer::new(&self.context, &geometry.vertices);
+        let indices = GLIndexBuffer::new(&self.context, &geometry.indices);
+
+        Some(
+            GLRenderingPrimitive::FillPath {
+                vertices,
+                indices,
+                style: FillStyle::SolidColor(stroke_color),
+            }
+            .into(),
+        )
     }
 
     fn create_image(

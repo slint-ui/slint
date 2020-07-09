@@ -207,6 +207,8 @@ impl Color {
     pub const BLACK: Color = Color::from_rgb(0, 0, 0);
     /// A constant for the white color
     pub const WHITE: Color = Color::from_rgb(255, 255, 255);
+    /// A constant for the transparent color
+    pub const TRANSPARENT: Color = Color::from_rgba(0, 0, 0, 0);
 }
 
 impl From<u32> for Color {
@@ -428,6 +430,8 @@ pub enum RenderingPrimitive {
         y: f32,
         elements: crate::PathElements,
         fill_color: Color,
+        stroke_color: Color,
+        stroke_width: f32,
     },
 }
 

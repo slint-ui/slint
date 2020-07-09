@@ -270,6 +270,8 @@ pub struct Path {
     pub y: Property<f32>,
     pub elements: Property<PathElements>,
     pub fill_color: Property<Color>,
+    pub stroke_color: Property<Color>,
+    pub stroke_width: Property<f32>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
@@ -291,6 +293,8 @@ impl Item for Path {
             y: Self::field_offsets().y.apply_pin(self).get(context),
             elements: Self::field_offsets().elements.apply_pin(self).get(context),
             fill_color: Self::field_offsets().fill_color.apply_pin(self).get(context),
+            stroke_color: Self::field_offsets().stroke_color.apply_pin(self).get(context),
+            stroke_width: Self::field_offsets().stroke_width.apply_pin(self).get(context),
         }
     }
 

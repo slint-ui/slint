@@ -106,6 +106,9 @@ Hello := Rectangle {
         x: 100;
         y: 300;
         fill_color: green;
+        stroke_color: black;
+        stroke_width: 2.0;
+
         LineTo {
             x: 100;
             y: 50;
