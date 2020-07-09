@@ -973,7 +973,7 @@ fn compile_path(path: &crate::expression_tree::Path, component: &Rc<Component>) 
                 sixtyfps::PathElement elements[{}] = {{
                     {}
                 }};
-                return sixtyfps::PathElements(&elements[0], sizeof(elements) / sizeof(elements[0]));
+                return sixtyfps::PathElements(&elements[0], std::size(elements));
             }}()"#,
                 converted_elements.len(),
                 converted_elements.join(",")
@@ -986,7 +986,7 @@ fn compile_path(path: &crate::expression_tree::Path, component: &Rc<Component>) 
                 sixtyfps::PathEvent events[{}] = {{
                     {}
                 }};
-                return sixtyfps::PathElements(&events[0], sizeof(events) / sizeof(events[0]));
+                return sixtyfps::PathElements(&events[0], std::size(events));
             }}()"#,
                 converted_elements.len(),
                 converted_elements.join(",")
