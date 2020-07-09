@@ -179,9 +179,9 @@ fn to_js_value<'cx>(
         }
         Value::Color(c) => JsNumber::new(cx, c.as_argb_encoded()).as_value(cx),
         Value::PathElements(elements) => {
-            let elements = elements.as_slice();
-            let js_array = JsArray::new(cx, elements.len() as _);
-            for (i, element) in elements.into_iter().enumerate() {
+            let elements_iter = elements.iter();
+            let js_array = JsArray::new(cx, elements_iter.len() as _);
+            for (i, element) in elements_iter.enumerate() {
                 let element_object = JsObject::new(cx);
 
                 match element {

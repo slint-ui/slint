@@ -325,15 +325,6 @@ impl Default for PathElements {
 }
 
 impl PathElements {
-    /// Returns a slice of the elements.
-    pub fn as_slice(&self) -> &[PathElement] {
-        match self {
-            PathElements::None => &[],
-            PathElements::StaticElements(elements) => elements.as_slice(),
-            PathElements::SharedElements(elements) => elements.as_slice(),
-        }
-    }
-
     /// Returns an iterator over all elements.
     pub fn iter(&self) -> std::slice::Iter<PathElement> {
         match self {
