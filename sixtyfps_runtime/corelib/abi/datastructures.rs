@@ -311,6 +311,163 @@ pub enum PathElement {
 }
 
 #[repr(C)]
+#[derive(FieldOffsets, Default, BuiltinItem, Clone, Debug, PartialEq)]
+#[pin]
+/// PathEventBegin is the event to indicate the start of a path.
+pub struct PathEventBegin {
+    #[rtti_field]
+    /// The x coordinate of the start of the path.
+    pub x: f32,
+    #[rtti_field]
+    /// The y coordinate of the start of the path.
+    pub y: f32,
+}
+
+#[repr(C)]
+#[derive(FieldOffsets, Default, BuiltinItem, Clone, Debug, PartialEq)]
+#[pin]
+/// PathEventLine is the event of traversing across a straight line on the path.
+pub struct PathEventLine {
+    #[rtti_field]
+    /// The starting x coordinate of the line.
+    pub from_x: f32,
+    #[rtti_field]
+    /// The starting y coordinate of the line.
+    pub from_y: f32,
+    #[rtti_field]
+    /// The ending x coordinate of the line.
+    pub to_x: f32,
+    #[rtti_field]
+    /// The ending y coordinate of the line.
+    pub to_y: f32,
+}
+
+#[repr(C)]
+#[derive(FieldOffsets, Default, BuiltinItem, Clone, Debug, PartialEq)]
+#[pin]
+/// PathEventQuadratic describes the event of traversing across a quadratic bezier curve on the path.
+pub struct PathEventQuadratic {
+    #[rtti_field]
+    /// The starting x coordinate of the curve.
+    pub from_x: f32,
+    #[rtti_field]
+    /// The starting y coordinate of the curve.
+    pub from_y: f32,
+    #[rtti_field]
+    /// The x coordiante of the control point of the curve.
+    pub control_x: f32,
+    #[rtti_field]
+    /// The y coordiante of the control point of the curve.
+    pub control_y: f32,
+    #[rtti_field]
+    /// The ending x coordinate of the curve.
+    pub to_x: f32,
+    #[rtti_field]
+    /// The ending y coordinate of the curve.
+    pub to_y: f32,
+}
+
+#[repr(C)]
+#[derive(FieldOffsets, Default, BuiltinItem, Clone, Debug, PartialEq)]
+#[pin]
+/// PathEventCubic describes the event of traversing across a cubic bezier curve on the path.
+pub struct PathEventCubic {
+    #[rtti_field]
+    /// The starting x coordinate of the curve.
+    pub from_x: f32,
+    #[rtti_field]
+    /// The starting y coordinate of the curve.
+    pub from_y: f32,
+    #[rtti_field]
+    /// The x coordiante of the first control point of the curve.
+    pub control1_x: f32,
+    #[rtti_field]
+    /// The y coordiante of the first control point of the curve.
+    pub control1_y: f32,
+    #[rtti_field]
+    /// The x coordiante of the second control point of the curve.
+    pub control2_x: f32,
+    #[rtti_field]
+    /// The y coordiante of the second control point of the curve.
+    pub control2_y: f32,
+    #[rtti_field]
+    /// The ending x coordinate of the curve.
+    pub to_x: f32,
+    #[rtti_field]
+    /// The ending y coordinate of the curve.
+    pub to_y: f32,
+}
+
+#[repr(C)]
+#[derive(FieldOffsets, Default, BuiltinItem, Clone, Debug, PartialEq)]
+#[pin]
+/// PathEventEnd describes the event of reaching the end of the path.
+pub struct PathEventEnd {
+    #[rtti_field]
+    /// The x coordinate of the first point on the path.
+    pub first_x: f32,
+    #[rtti_field]
+    /// The y coordinate of the first point on the path.
+    pub first_y: f32,
+    #[rtti_field]
+    /// The x coordinate of the last point on the path.
+    pub last_x: f32,
+    #[rtti_field]
+    /// The y coordinate of the last point on the path.
+    pub last_y: f32,
+    #[rtti_field]
+    /// The close attributes indicates wether the path should be closed to the starting point or not.
+    pub close: bool,
+}
+
+#[repr(C)]
+#[derive(Clone, Debug, PartialEq)]
+/// PathEvent is a low-level data structure describing the composition of a path. Typically it is
+/// generated at compile time from a higher-level description, such as SVG commands.
+pub enum PathEvent {
+    /// The beginning of the path.
+    Begin(PathEventBegin),
+    /// A straight line on the path.
+    Line(PathEventLine),
+    /// A quadratic bezier curve on the path.
+    Quadratic(PathEventQuadratic),
+    /// A cubic bezier curve on the path.
+    Cubic(PathEventCubic),
+    /// The end of the path.
+    End(PathEventEnd),
+}
+
+impl From<&PathEvent> for lyon::path::Event<lyon::math::Point, lyon::math::Point> {
+    fn from(event: &PathEvent) -> Self {
+        use lyon::math::Point;
+        use lyon::path::Event;
+        match event {
+            PathEvent::Begin(begin) => Event::Begin { at: Point::new(begin.x, begin.y) },
+            PathEvent::Line(line) => Event::Line {
+                from: Point::new(line.from_x, line.from_y),
+                to: Point::new(line.to_x, line.to_y),
+            },
+            PathEvent::Quadratic(curve) => Event::Quadratic {
+                from: Point::new(curve.from_x, curve.from_y),
+                ctrl: Point::new(curve.control_x, curve.control_y),
+                to: Point::new(curve.to_x, curve.to_y),
+            },
+            PathEvent::Cubic(curve) => Event::Cubic {
+                from: Point::new(curve.from_x, curve.from_y),
+                ctrl1: Point::new(curve.control1_x, curve.control1_y),
+                ctrl2: Point::new(curve.control2_x, curve.control2_y),
+                to: Point::new(curve.to_x, curve.to_y),
+            },
+            PathEvent::End(end) => Event::End {
+                first: Point::new(end.first_x, end.first_y),
+                last: Point::new(end.last_x, end.last_y),
+                close: end.close,
+            },
+        }
+    }
+}
+
+#[repr(C)]
 #[derive(Clone, Debug, PartialEq)]
 /// PathElements holds the elements of a path.
 pub enum PathElements {
@@ -320,6 +477,8 @@ pub enum PathElements {
     StaticElements(super::slice::Slice<'static, PathElement>),
     /// SharedElements is used to make PathElements from shared arrays of elements.
     SharedElements(crate::SharedArray<PathElement>),
+    /// PathEvents describe the elements of the path as a series of low-level events.
+    PathEvents(crate::SharedArray<PathEvent>),
 }
 
 impl Default for PathElements {
@@ -329,12 +488,22 @@ impl Default for PathElements {
 }
 
 impl PathElements {
-    /// Returns an iterator over all elements.
-    pub fn iter(&self) -> std::slice::Iter<PathElement> {
+    /// Returns an iterator over all elements unless the elements are represented as low-level events.
+    /// If there are no elements, an empty iterator is returned.
+    pub fn element_iter(&self) -> Option<std::slice::Iter<PathElement>> {
         match self {
-            PathElements::None => [].iter(),
-            PathElements::StaticElements(elements) => elements.as_slice().iter(),
-            PathElements::SharedElements(elements) => elements.as_slice().iter(),
+            PathElements::None => Some([].iter()),
+            PathElements::StaticElements(elements) => Some(elements.as_slice().iter()),
+            PathElements::SharedElements(elements) => Some(elements.as_slice().iter()),
+            PathElements::PathEvents(..) => None,
+        }
+    }
+
+    /// Returns an iterator over all events if the elements are represented as low-level events.
+    pub fn events_iter(&self) -> Option<std::slice::Iter<PathEvent>> {
+        match self {
+            PathElements::PathEvents(events) => Some(events.as_slice().iter()),
+            _ => None,
         }
     }
 
@@ -343,48 +512,51 @@ impl PathElements {
         use lyon::geom::SvgArc;
         use lyon::math::{Angle, Point, Vector};
         use lyon::path::{
-            builder::{Build, FlatPathBuilder, SvgBuilder},
+            builder::{Build, FlatPathBuilder, PathBuilder, SvgBuilder},
             ArcFlags,
         };
 
         let mut path_builder = lyon::path::Path::builder().with_svg();
-        for element in self.iter() {
-            match element {
-                PathElement::LineTo(PathLineTo { x, y }) => {
-                    path_builder.line_to(Point::new(*x, *y))
-                }
-                PathElement::ArcTo(PathArcTo {
-                    x,
-                    y,
-                    radius_x,
-                    radius_y,
-                    x_rotation,
-                    large_arc,
-                    sweep,
-                }) => {
-                    let radii = Vector::new(*radius_x, *radius_y);
-                    let x_rotation = Angle::degrees(*x_rotation);
-                    let flags = ArcFlags { large_arc: *large_arc, sweep: *sweep };
-                    let to = Point::new(*x, *y);
-
-                    let svg_arc = SvgArc {
-                        from: path_builder.current_position(),
-                        radii,
-                        x_rotation,
-                        flags,
-                        to,
-                    };
-
-                    if svg_arc.is_straight_line() {
-                        path_builder.line_to(to);
-                    } else {
-                        path_builder.arc_to(radii, x_rotation, flags, to)
+        if let Some(events_iter) = self.events_iter() {
+            events_iter.for_each(|evt| path_builder.path_event(evt.into()))
+        } else {
+            for element in self.element_iter().unwrap() {
+                match element {
+                    PathElement::LineTo(PathLineTo { x, y }) => {
+                        path_builder.line_to(Point::new(*x, *y))
                     }
+                    PathElement::ArcTo(PathArcTo {
+                        x,
+                        y,
+                        radius_x,
+                        radius_y,
+                        x_rotation,
+                        large_arc,
+                        sweep,
+                    }) => {
+                        let radii = Vector::new(*radius_x, *radius_y);
+                        let x_rotation = Angle::degrees(*x_rotation);
+                        let flags = ArcFlags { large_arc: *large_arc, sweep: *sweep };
+                        let to = Point::new(*x, *y);
+
+                        let svg_arc = SvgArc {
+                            from: path_builder.current_position(),
+                            radii,
+                            x_rotation,
+                            flags,
+                            to,
+                        };
+
+                        if svg_arc.is_straight_line() {
+                            path_builder.line_to(to);
+                        } else {
+                            path_builder.arc_to(radii, x_rotation, flags, to)
+                        }
+                    }
+                    PathElement::Close => path_builder.close(),
                 }
-                PathElement::Close => path_builder.close(),
             }
         }
-
         path_builder.build()
     }
 }
