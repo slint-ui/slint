@@ -119,6 +119,7 @@ Hello := Rectangle {
             x: 0;
             y: 100;
         }
+        Close {}
     }
 
 }

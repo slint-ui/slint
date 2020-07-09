@@ -837,12 +837,18 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
             let converted_elements: Vec<String> = elements
                 .iter()
                 .map(|element| {
-                    let element_initializer = new_struct_with_bindings(
-                        element.element_type.cpp_type.as_ref().expect("Unexpected error in type registry: path element is lacking C++ type name"),
-                        &element.bindings,
-                        component
-                    );
-                    format!("sixtyfps::PathElement::{}({})", element.element_type.class_name, element_initializer)
+                    let element_initializer = element
+                        .element_type
+                        .cpp_type
+                        .as_ref()
+                        .map(|cpp_type| {
+                            new_struct_with_bindings(&cpp_type, &element.bindings, component)
+                        })
+                        .unwrap_or_default();
+                    format!(
+                        "sixtyfps::PathElement::{}({})",
+                        element.element_type.class_name, element_initializer
+                    )
                 })
                 .collect();
             format!(

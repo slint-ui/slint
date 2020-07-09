@@ -306,6 +306,8 @@ pub enum PathElement {
     LineTo(PathLineTo),
     /// The PathArcTo variant describes an arc.
     ArcTo(PathArcTo),
+    /// Indicates that the path should be closed now by connecting to the starting point.
+    Close,
 }
 
 #[repr(C)]
@@ -379,10 +381,10 @@ impl PathElements {
                         path_builder.arc_to(radii, x_rotation, flags, to)
                     }
                 }
+                PathElement::Close => path_builder.close(),
             }
         }
 
-        path_builder.close();
         path_builder.build()
     }
 }

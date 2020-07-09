@@ -303,7 +303,10 @@ impl TypeRegister {
                 Some("sixtyfps::re_exports::PathElement::ArcTo(PathArcTo{{}})".into());
             arc_to.cpp_type = Some("sixtyfps::PathArcTo".into());
 
-            [Rc::new(line_to), Rc::new(arc_to)]
+            let mut close = BuiltinElement::new("Close");
+            close.rust_type_constructor = Some("sixtyfps::re_exports::PathElement::Close".into());
+
+            [Rc::new(line_to), Rc::new(arc_to), Rc::new(close)]
         };
 
         path_elements.iter().for_each(|elem| {

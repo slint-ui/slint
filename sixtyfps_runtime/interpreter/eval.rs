@@ -381,6 +381,7 @@ fn convert_path_element(
         "ArcTo" => sixtyfps_corelib::abi::datastructures::PathElement::ArcTo(
             new_struct_with_bindings(&expr_element.bindings, component_type, eval_context),
         ),
+        "Close" => sixtyfps_corelib::abi::datastructures::PathElement::Close,
         _ => panic!(
             "Cannot create unsupported path element {}",
             expr_element.element_type.class_name
