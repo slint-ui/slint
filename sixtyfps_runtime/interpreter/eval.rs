@@ -6,8 +6,9 @@ use sixtyfps_compilerlib::expression_tree::{
 use sixtyfps_compilerlib::{object_tree::ElementRc, typeregister::Type};
 use sixtyfps_corelib as corelib;
 use sixtyfps_corelib::{
-    abi::datastructures::ItemRef, abi::primitives::PropertyAnimation, Color, EvaluationContext,
-    PathElements, Resource, SharedString,
+    abi::datastructures::ItemRef, abi::datastructures::PathElement,
+    abi::primitives::PropertyAnimation, Color, EvaluationContext, PathElements, Resource,
+    SharedArray, SharedString,
 };
 use std::{collections::HashMap, rc::Rc};
 
@@ -363,26 +364,71 @@ pub fn new_struct_with_bindings<
     element
 }
 
+fn convert_from_lyon_path<'a>(
+    it: impl IntoIterator<Item = &'a lyon::path::Event<lyon::math::Point, lyon::math::Point>>,
+) -> PathElements {
+    use lyon::path::Event;
+    use sixtyfps_corelib::abi::datastructures::PathEvent;
+
+    let mut coordinates = Vec::new();
+
+    let events = it
+        .into_iter()
+        .map(|event| match event {
+            Event::Begin { at } => {
+                coordinates.push(at);
+                PathEvent::Begin
+            }
+            Event::Line { from, to } => {
+                coordinates.push(from);
+                coordinates.push(to);
+                PathEvent::Line
+            }
+            Event::Quadratic { from, ctrl, to } => {
+                coordinates.push(from);
+                coordinates.push(ctrl);
+                coordinates.push(to);
+                PathEvent::Quadratic
+            }
+            Event::Cubic { from, ctrl1, ctrl2, to } => {
+                coordinates.push(from);
+                coordinates.push(ctrl1);
+                coordinates.push(ctrl2);
+                coordinates.push(to);
+                PathEvent::Cubic
+            }
+            Event::End { last, first, close } => {
+                debug_assert_eq!(coordinates.first(), Some(&first));
+                debug_assert_eq!(coordinates.last(), Some(&last));
+                if *close {
+                    PathEvent::EndClosed
+                } else {
+                    PathEvent::EndOpen
+                }
+            }
+        })
+        .collect::<Vec<_>>();
+
+    PathElements::PathEvents(
+        SharedArray::from(&events),
+        SharedArray::from_iter(coordinates.into_iter().cloned()),
+    )
+}
+
 pub fn convert_path(
     path: &ExprPath,
     component_type: &crate::ComponentDescription,
     eval_context: &corelib::EvaluationContext,
-) -> sixtyfps_corelib::abi::datastructures::PathElements {
+) -> PathElements {
     match path {
         ExprPath::Elements(elements) => {
-            PathElements::SharedElements(sixtyfps_corelib::SharedArray::<
-                sixtyfps_corelib::abi::datastructures::PathElement,
-            >::from_iter(
+            PathElements::SharedElements(SharedArray::<PathElement>::from_iter(
                 elements
                     .iter()
                     .map(|element| convert_path_element(element, component_type, eval_context)),
             ))
         }
-        ExprPath::Events(events) => PathElements::PathEvents(sixtyfps_corelib::SharedArray::<
-            sixtyfps_corelib::abi::datastructures::PathEvent,
-        >::from_iter(
-            events.iter().map(|event| event.into()),
-        )),
+        ExprPath::Events(events) => convert_from_lyon_path(events.iter()),
     }
 }
 
@@ -390,15 +436,19 @@ fn convert_path_element(
     expr_element: &ExprPathElement,
     component_type: &crate::ComponentDescription,
     eval_context: &corelib::EvaluationContext,
-) -> sixtyfps_corelib::abi::datastructures::PathElement {
+) -> PathElement {
     match expr_element.element_type.class_name.as_str() {
-        "LineTo" => sixtyfps_corelib::abi::datastructures::PathElement::LineTo(
-            new_struct_with_bindings(&expr_element.bindings, component_type, eval_context),
-        ),
-        "ArcTo" => sixtyfps_corelib::abi::datastructures::PathElement::ArcTo(
-            new_struct_with_bindings(&expr_element.bindings, component_type, eval_context),
-        ),
-        "Close" => sixtyfps_corelib::abi::datastructures::PathElement::Close,
+        "LineTo" => PathElement::LineTo(new_struct_with_bindings(
+            &expr_element.bindings,
+            component_type,
+            eval_context,
+        )),
+        "ArcTo" => PathElement::ArcTo(new_struct_with_bindings(
+            &expr_element.bindings,
+            component_type,
+            eval_context,
+        )),
+        "Close" => PathElement::Close,
         _ => panic!(
             "Cannot create unsupported path element {}",
             expr_element.element_type.class_name

@@ -8,12 +8,8 @@ namespace sixtyfps {
 using internal::types::PathArcTo;
 using internal::types::PathElement;
 using internal::types::PathEvent;
-using internal::types::PathEventBegin;
-using internal::types::PathEventCubic;
-using internal::types::PathEventEnd;
-using internal::types::PathEventLine;
-using internal::types::PathEventQuadratic;
 using internal::types::PathLineTo;
+using internal::types::Point;
 
 struct PathElements
 {
@@ -26,8 +22,9 @@ public:
     {
     }
 
-    PathElements(const PathEvent *firstEvent, size_t count)
-        : data(Data::PathEvents(events_from_array(firstEvent, count)))
+    PathElements(const PathEvent *firstEvent, size_t event_count, const Point *firstCoordinate,
+                 size_t coordinate_count)
+        : data(events_from_array(firstEvent, event_count, firstCoordinate, coordinate_count))
     {
     }
 
@@ -40,11 +37,16 @@ private:
         return tmp;
     }
 
-    static SharedArray<PathEvent> events_from_array(const PathEvent *firstEvent, size_t count)
+    static internal::types::PathElements events_from_array(const PathEvent *firstEvent,
+                                                           size_t event_count,
+                                                           const Point *firstCoordinate,
+                                                           size_t coordinate_count)
     {
-        SharedArray<PathEvent> tmp;
-        sixtyfps_new_path_events(&tmp, firstEvent, count);
-        return tmp;
+        SharedArray<PathEvent> events;
+        SharedArray<Point> coordinates;
+        sixtyfps_new_path_events(&events, &coordinates, firstEvent, event_count, firstCoordinate,
+                                 coordinate_count);
+        return Data::PathEvents(events, coordinates);
     }
 
     using Data = internal::types::PathElements;

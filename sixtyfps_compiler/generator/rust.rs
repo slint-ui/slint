@@ -791,52 +791,56 @@ fn compute_layout(component: &Rc<Component>) -> TokenStream {
 fn compile_path_events(events: &crate::expression_tree::PathEvents) -> TokenStream {
     use lyon::path::Event;
 
-    let converted_events: Vec<proc_macro2::TokenStream> = events
-            .iter()
-            .map(|event| match event {
-                Event::Begin { at } => {
-                    let x = at.x;
-                    let y = at.y;
-                    quote!(sixtyfps::re_exports::PathEvent::Begin(sixtyfps::re_exports::PathEventBegin{x: #x, y: #y}))
-                }
-                Event::Line { from, to } => {
-                    let from_x = from.x;
-                    let from_y = from.y;
-                    let to_x = to.x;
-                    let to_y = to.y;
-                    quote!(sixtyfps::re_exports::PathEvent::Line(sixtyfps::re_exports::PathEventLine{from_x: #from_x, from_y: #from_y, to_x: #to_x, to_y: #to_y}))
-                }
-                Event::Quadratic { from, ctrl, to } => {
-                    let from_x = from.x;
-                    let from_y = from.y;
-                    let control_x = ctrl.x;
-                    let control_y = ctrl.y;
-                    let to_x = to.x;
-                    let to_y = to.y;
-                    quote!(sixtyfps::re_exports::PathEvent::Quadratic(sixtyfps::re_exports::PathEventQuadratic{from_x: #from_x, from_y: #from_y, control_x: #control_x, control_y: #control_y, to_x: #to_x, to_y: #to_y}))                    
-                }
-                Event::Cubic { from, ctrl1, ctrl2, to } => {
-                    let from_x = from.x;
-                    let from_y = from.y;
-                    let control1_x = ctrl1.x;
-                    let control1_y = ctrl1.y;
-                    let control2_x = ctrl2.x;
-                    let control2_y = ctrl2.y;
-                    let to_x = to.x;
-                    let to_y = to.y;
-                    quote!(sixtyfps::re_exports::PathEvent::Cubic(sixtyfps::re_exports::PathEventCubic{from_x: #from_x, from_y: #from_y, control1_x: #control1_x, control1_y: #control1_y, control2_x: #control2_x, control2_y: #control2_y, to_x: #to_x, to_y: #to_y}))                    
-                }
-                Event::End { last, first, close } => {
-                    let first_x = first.x;
-                    let first_y = first.y;
-                    let last_x = last.x;
-                    let last_y = last.y;
-                    quote!(sixtyfps::re_exports::PathEvent::End(sixtyfps::re_exports::PathEventEnd{first_x: #first_x, first_y: #first_y, last_x: #last_x, last_y: #last_y, close: #close}))
-                }
-            })
-            .collect();
+    let mut coordinates = Vec::new();
 
-    quote!(sixtyfps::re_exports::SharedArray::<sixtyfps::re_exports::PathEvent>::from(&[#(#converted_events),*]))
+    let converted_events: Vec<proc_macro2::TokenStream> = events
+        .iter()
+        .map(|event| match event {
+            Event::Begin { at } => {
+                coordinates.push(at);
+                quote!(sixtyfps::re_exports::PathEvent::Begin)
+            }
+            Event::Line { from, to } => {
+                coordinates.push(from);
+                coordinates.push(to);
+                quote!(sixtyfps::re_exports::PathEvent::Line)
+            }
+            Event::Quadratic { from, ctrl, to } => {
+                coordinates.push(from);
+                coordinates.push(ctrl);
+                coordinates.push(to);
+                quote!(sixtyfps::re_exports::PathEvent::Quadratic)
+            }
+            Event::Cubic { from, ctrl1, ctrl2, to } => {
+                coordinates.push(from);
+                coordinates.push(ctrl1);
+                coordinates.push(ctrl2);
+                coordinates.push(to);
+                quote!(sixtyfps::re_exports::PathEvent::Cubic)
+            }
+            Event::End { last, first, close } => {
+                debug_assert_eq!(coordinates.first(), Some(&first));
+                debug_assert_eq!(coordinates.last(), Some(&last));
+                if *close {
+                    quote!(sixtyfps::re_exports::PathEvent::EndClosed)
+                } else {
+                    quote!(sixtyfps::re_exports::PathEvent::EndOpen)
+                }
+            }
+        })
+        .collect();
+
+    let coordinates: Vec<TokenStream> = coordinates
+        .into_iter()
+        .map(|pt| {
+            let x = pt.x;
+            let y = pt.y;
+            quote!(sixtyfps::re_exports::Point::new(#x, #y))
+        })
+        .collect();
+
+    quote!(sixtyfps::re_exports::SharedArray::<sixtyfps::re_exports::PathEvent>::from(&[#(#converted_events),*]),
+           sixtyfps::re_exports::SharedArray::<sixtyfps::re_exports::Point>::from(&[#(#coordinates),*]))
 }
 
 fn compile_path(path: &Path, component: &Rc<Component>) -> TokenStream {

@@ -426,86 +426,67 @@ pub struct PathEventEnd {
 /// generated at compile time from a higher-level description, such as SVG commands.
 pub enum PathEvent {
     /// The beginning of the path.
-    Begin(PathEventBegin),
+    Begin,
     /// A straight line on the path.
-    Line(PathEventLine),
+    Line,
     /// A quadratic bezier curve on the path.
-    Quadratic(PathEventQuadratic),
+    Quadratic,
     /// A cubic bezier curve on the path.
-    Cubic(PathEventCubic),
-    /// The end of the path.
-    End(PathEventEnd),
+    Cubic,
+    /// The end of the path that remains open.
+    EndOpen,
+    /// The end of a path that is closed.
+    EndClosed,
 }
 
-impl From<&PathEvent> for lyon::path::Event<lyon::math::Point, lyon::math::Point> {
-    fn from(event: &PathEvent) -> Self {
-        use lyon::math::Point;
+struct ToLyonPathEventIterator<'a> {
+    events_it: std::slice::Iter<'a, PathEvent>,
+    coordinates_it: std::slice::Iter<'a, Point>,
+    first: Option<&'a Point>,
+    last: Option<&'a Point>,
+}
+
+impl<'a> Iterator for ToLyonPathEventIterator<'a> {
+    type Item = lyon::path::Event<lyon::math::Point, lyon::math::Point>;
+    fn next(&mut self) -> Option<Self::Item> {
         use lyon::path::Event;
-        match event {
-            PathEvent::Begin(begin) => Event::Begin { at: Point::new(begin.x, begin.y) },
-            PathEvent::Line(line) => Event::Line {
-                from: Point::new(line.from_x, line.from_y),
-                to: Point::new(line.to_x, line.to_y),
+
+        self.events_it.next().map(|event| match event {
+            PathEvent::Begin => Event::Begin { at: self.coordinates_it.next().unwrap().clone() },
+            PathEvent::Line => Event::Line {
+                from: self.coordinates_it.next().unwrap().clone(),
+                to: self.coordinates_it.next().unwrap().clone(),
             },
-            PathEvent::Quadratic(curve) => Event::Quadratic {
-                from: Point::new(curve.from_x, curve.from_y),
-                ctrl: Point::new(curve.control_x, curve.control_y),
-                to: Point::new(curve.to_x, curve.to_y),
+            PathEvent::Quadratic => Event::Quadratic {
+                from: self.coordinates_it.next().unwrap().clone(),
+                ctrl: self.coordinates_it.next().unwrap().clone(),
+                to: self.coordinates_it.next().unwrap().clone(),
             },
-            PathEvent::Cubic(curve) => Event::Cubic {
-                from: Point::new(curve.from_x, curve.from_y),
-                ctrl1: Point::new(curve.control1_x, curve.control1_y),
-                ctrl2: Point::new(curve.control2_x, curve.control2_y),
-                to: Point::new(curve.to_x, curve.to_y),
+            PathEvent::Cubic => Event::Cubic {
+                from: self.coordinates_it.next().unwrap().clone(),
+                ctrl1: self.coordinates_it.next().unwrap().clone(),
+                ctrl2: self.coordinates_it.next().unwrap().clone(),
+                to: self.coordinates_it.next().unwrap().clone(),
             },
-            PathEvent::End(end) => Event::End {
-                first: Point::new(end.first_x, end.first_y),
-                last: Point::new(end.last_x, end.last_y),
-                close: end.close,
+            PathEvent::EndOpen => Event::End {
+                first: self.first.unwrap().clone(),
+                last: self.last.unwrap().clone(),
+                close: false,
             },
-        }
+            PathEvent::EndClosed => Event::End {
+                first: self.first.unwrap().clone(),
+                last: self.last.unwrap().clone(),
+                close: true,
+            },
+        })
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.events_it.size_hint()
     }
 }
 
-impl From<&lyon::path::Event<lyon::math::Point, lyon::math::Point>> for PathEvent {
-    fn from(event: &lyon::path::Event<lyon::math::Point, lyon::math::Point>) -> Self {
-        use lyon::path::Event;
-        match event {
-            Event::Begin { at } => PathEvent::Begin(PathEventBegin { x: at.x, y: at.y }),
-            Event::Line { from, to } => PathEvent::Line(PathEventLine {
-                from_x: from.x,
-                from_y: from.y,
-                to_x: to.x,
-                to_y: to.y,
-            }),
-            Event::Quadratic { from, ctrl, to } => PathEvent::Quadratic(PathEventQuadratic {
-                from_x: from.x,
-                from_y: from.y,
-                control_x: ctrl.x,
-                control_y: ctrl.y,
-                to_x: to.x,
-                to_y: to.y,
-            }),
-            Event::Cubic { from, ctrl1, ctrl2, to } => PathEvent::Cubic(PathEventCubic {
-                from_x: from.x,
-                from_y: from.y,
-                control1_x: ctrl1.x,
-                control1_y: ctrl1.y,
-                control2_x: ctrl2.x,
-                control2_y: ctrl2.y,
-                to_x: to.x,
-                to_y: to.y,
-            }),
-            Event::End { last, first, close } => PathEvent::End(PathEventEnd {
-                first_x: first.x,
-                first_y: first.y,
-                last_x: last.x,
-                last_y: last.y,
-                close: *close,
-            }),
-        }
-    }
-}
+impl<'a> ExactSizeIterator for ToLyonPathEventIterator<'a> {}
 
 #[repr(C)]
 #[derive(Clone, Debug, PartialEq)]
@@ -518,7 +499,7 @@ pub enum PathElements {
     /// SharedElements is used to make PathElements from shared arrays of elements.
     SharedElements(crate::SharedArray<PathElement>),
     /// PathEvents describe the elements of the path as a series of low-level events.
-    PathEvents(crate::SharedArray<PathEvent>),
+    PathEvents(crate::SharedArray<PathEvent>, crate::SharedArray<Point>),
 }
 
 impl Default for PathElements {
@@ -540,9 +521,14 @@ impl PathElements {
     }
 
     /// Returns an iterator over all events if the elements are represented as low-level events.
-    pub fn events_iter(&self) -> Option<std::slice::Iter<PathEvent>> {
-        match self {
-            PathElements::PathEvents(events) => Some(events.as_slice().iter()),
+    fn events_iter(&self) -> Option<ToLyonPathEventIterator> {
+        match &self {
+            PathElements::PathEvents(events, coordinates) => Some(ToLyonPathEventIterator {
+                events_it: events.iter(),
+                coordinates_it: coordinates.iter(),
+                first: coordinates.first(),
+                last: coordinates.last(),
+            }),
             _ => None,
         }
     }
@@ -615,12 +601,18 @@ pub unsafe extern "C" fn sixtyfps_new_path_elements(
 #[no_mangle]
 /// This function is used for the low-level C++ interface to allocate the backing vector for a shared path event array.
 pub unsafe extern "C" fn sixtyfps_new_path_events(
-    out: *mut c_void,
+    out_events: *mut c_void,
+    out_coordinates: *mut c_void,
     first_event: *const PathEvent,
-    count: usize,
+    event_count: usize,
+    first_coordinate: *const Point,
+    coordinate_count: usize,
 ) {
-    let arr = crate::SharedArray::from(std::slice::from_raw_parts(first_event, count));
-    core::ptr::write(out as *mut crate::SharedArray<PathEvent>, arr.clone());
+    let events = crate::SharedArray::from(std::slice::from_raw_parts(first_event, event_count));
+    core::ptr::write(out_events as *mut crate::SharedArray<PathEvent>, events.clone());
+    let coordinates =
+        crate::SharedArray::from(std::slice::from_raw_parts(first_coordinate, coordinate_count));
+    core::ptr::write(out_coordinates as *mut crate::SharedArray<Point>, coordinates.clone());
 }
 
 /// Each item return a RenderingPrimitive to the backend with information about what to draw.

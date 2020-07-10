@@ -1,10 +1,7 @@
 use core::cell::RefCell;
 use neon::prelude::*;
 use sixtyfps_compilerlib::typeregister::Type;
-use sixtyfps_corelib::abi::datastructures::{
-    PathArcTo, PathElement, PathEvent, PathEventBegin, PathEventCubic, PathEventEnd, PathEventLine,
-    PathEventQuadratic, PathLineTo, Resource,
-};
+use sixtyfps_corelib::abi::datastructures::{PathArcTo, PathElement, PathLineTo, Resource};
 use sixtyfps_corelib::{ComponentRefPin, EvaluationContext};
 
 use std::rc::Rc;
@@ -235,79 +232,7 @@ fn to_js_value<'cx>(
                 }
                 js_array.as_value(cx)
             } else {
-                let events_iter = elements.events_iter().unwrap();
-                let js_array = JsArray::new(cx, events_iter.len() as _);
-                for (i, event) in events_iter.enumerate() {
-                    let element_object = JsObject::new(cx);
-
-                    match event {
-                        PathEvent::Begin(PathEventBegin { x, y }) => {
-                            set_string_property(cx, &element_object, "type", "event_begin")?;
-                            set_float_property(cx, &element_object, "x", *x)?;
-                            set_float_property(cx, &element_object, "y", *y)?;
-                        }
-                        PathEvent::Line(PathEventLine { from_x, from_y, to_x, to_y }) => {
-                            set_string_property(cx, &element_object, "type", "event_line")?;
-                            set_float_property(cx, &element_object, "from_x", *from_x)?;
-                            set_float_property(cx, &element_object, "from_y", *from_y)?;
-                            set_float_property(cx, &element_object, "to_x", *to_x)?;
-                            set_float_property(cx, &element_object, "to_y", *to_y)?;
-                        }
-                        PathEvent::Quadratic(PathEventQuadratic {
-                            from_x,
-                            from_y,
-                            control_x,
-                            control_y,
-                            to_x,
-                            to_y,
-                        }) => {
-                            set_string_property(cx, &element_object, "type", "event_quadratic")?;
-                            set_float_property(cx, &element_object, "from_x", *from_x)?;
-                            set_float_property(cx, &element_object, "from_y", *from_y)?;
-                            set_float_property(cx, &element_object, "control_x", *control_x)?;
-                            set_float_property(cx, &element_object, "control_y", *control_y)?;
-                            set_float_property(cx, &element_object, "to_x", *to_x)?;
-                            set_float_property(cx, &element_object, "to_y", *to_y)?;
-                        }
-                        PathEvent::Cubic(PathEventCubic {
-                            from_x,
-                            from_y,
-                            control1_x,
-                            control1_y,
-                            control2_x,
-                            control2_y,
-                            to_x,
-                            to_y,
-                        }) => {
-                            set_string_property(cx, &element_object, "type", "event_cubic")?;
-                            set_float_property(cx, &element_object, "from_x", *from_x)?;
-                            set_float_property(cx, &element_object, "from_y", *from_y)?;
-                            set_float_property(cx, &element_object, "control1_x", *control1_x)?;
-                            set_float_property(cx, &element_object, "control1_y", *control1_y)?;
-                            set_float_property(cx, &element_object, "control2_x", *control2_x)?;
-                            set_float_property(cx, &element_object, "control2_y", *control2_y)?;
-                            set_float_property(cx, &element_object, "to_x", *to_x)?;
-                            set_float_property(cx, &element_object, "to_y", *to_y)?;
-                        }
-                        PathEvent::End(PathEventEnd {
-                            first_x,
-                            first_y,
-                            last_x,
-                            last_y,
-                            close,
-                        }) => {
-                            set_string_property(cx, &element_object, "type", "event_end")?;
-                            set_float_property(cx, &element_object, "first_x", *first_x)?;
-                            set_float_property(cx, &element_object, "first_y", *first_y)?;
-                            set_float_property(cx, &element_object, "last_x", *last_x)?;
-                            set_float_property(cx, &element_object, "last_y", *last_y)?;
-                            set_bool_property(cx, &element_object, "close", *close)?;
-                        }
-                    }
-
-                    js_array.set(cx, i as u32, element_object)?;
-                }
-                js_array.as_value(cx)
+                todo!()
             }
         }
     })

@@ -931,23 +931,6 @@ fn compute_layout(component: &Rc<Component>) -> Vec<String> {
     res
 }
 
-fn new_path_event(event_name: &str, fields: &[(&str, String)]) -> String {
-    let fields_initialization: Vec<String> = fields
-        .iter()
-        .map(|(prop, initializer)| format!("var.{} = {};", prop, initializer))
-        .collect();
-
-    format!(
-        r#"[&](){{
-            {} var{{}};
-            {}
-            return var;
-        }}()"#,
-        event_name,
-        fields_initialization.join("\n")
-    )
-}
-
 fn compile_path(path: &crate::expression_tree::Path, component: &Rc<Component>) -> String {
     match path {
         crate::expression_tree::Path::Elements(elements) => {
@@ -980,89 +963,73 @@ fn compile_path(path: &crate::expression_tree::Path, component: &Rc<Component>) 
             )
         }
         crate::expression_tree::Path::Events(events) => {
-            let converted_elements: Vec<String> = compile_path_events(events);
+            let (converted_events, converted_coordinates) = compile_path_events(events);
             format!(
                 r#"[&](){{
                 sixtyfps::PathEvent events[{}] = {{
                     {}
                 }};
-                return sixtyfps::PathElements(&events[0], std::size(events));
+                sixtyfps::Point coordinates[{}] = {{
+                    {}
+                }};
+                return sixtyfps::PathElements(&events[0], std::size(events), &coordinates[0], std::size(coordinates));
             }}()"#,
-                converted_elements.len(),
-                converted_elements.join(",")
+                converted_events.len(),
+                converted_events.join(","),
+                converted_coordinates.len(),
+                converted_coordinates.join(",")
             )
         }
     }
 }
 
-fn compile_path_events(events: &crate::expression_tree::PathEvents) -> Vec<String> {
+fn compile_path_events(events: &crate::expression_tree::PathEvents) -> (Vec<String>, Vec<String>) {
     use lyon::path::Event;
 
-    events
+    let mut coordinates = Vec::new();
+
+    let events = events
         .iter()
         .map(|event| match event {
-            Event::Begin { at } => format!(
-                "sixtyfps::PathEvent::Begin({})",
-                new_path_event(
-                    "sixtyfps::PathEventBegin",
-                    &[("x", at.x.to_string()), ("y", at.y.to_string())]
-                )
-            ),
-            Event::Line { from, to } => format!(
-                "sixtyfps::PathEvent::Line({})",
-                new_path_event(
-                    "sixtyfps::PathEventLine",
-                    &[
-                        ("from_x", from.x.to_string()),
-                        ("from_y", from.y.to_string()),
-                        ("to_x", to.x.to_string()),
-                        ("to_y", to.y.to_string())
-                    ]
-                )
-            ),
-            Event::Quadratic { from, ctrl, to } => format!(
-                "sixtyfps::PathEvent::Quadratic({})",
-                new_path_event(
-                    "sixtyfps::PathEventQuadratic",
-                    &[
-                        ("from_x", from.x.to_string()),
-                        ("from_y", from.y.to_string()),
-                        ("control_x", ctrl.x.to_string()),
-                        ("control_y", ctrl.y.to_string()),
-                        ("to_x", to.x.to_string()),
-                        ("to_y", to.y.to_string())
-                    ]
-                )
-            ),
-            Event::Cubic { from, ctrl1, ctrl2, to } => format!(
-                "sixtyfps::PathEvent::Cubic({})",
-                new_path_event(
-                    "sixtyfps::PathEventCubic",
-                    &[
-                        ("from_x", from.x.to_string()),
-                        ("from_y", from.y.to_string()),
-                        ("control1_x", ctrl1.x.to_string()),
-                        ("control1_y", ctrl1.y.to_string()),
-                        ("control2_x", ctrl2.x.to_string()),
-                        ("control2_y", ctrl2.y.to_string()),
-                        ("to_x", to.x.to_string()),
-                        ("to_y", to.y.to_string())
-                    ]
-                )
-            ),
-            Event::End { last, first, close } => format!(
-                "sixtyfps::PathEvent::End({})",
-                new_path_event(
-                    "sixtyfps::PathEventEnd",
-                    &[
-                        ("first_x", first.x.to_string()),
-                        ("first_y", first.y.to_string()),
-                        ("last_x", last.x.to_string()),
-                        ("last_y", last.y.to_string()),
-                        ("close", close.to_string())
-                    ]
-                )
-            ),
+            Event::Begin { at } => {
+                coordinates.push(at);
+                "sixtyfps::PathEvent::Begin"
+            }
+            Event::Line { from, to } => {
+                coordinates.push(from);
+                coordinates.push(to);
+                "sixtyfps::PathEvent::Line"
+            }
+            Event::Quadratic { from, ctrl, to } => {
+                coordinates.push(from);
+                coordinates.push(ctrl);
+                coordinates.push(to);
+                "sixtyfps::PathEvent::Quadratic"
+            }
+            Event::Cubic { from, ctrl1, ctrl2, to } => {
+                coordinates.push(from);
+                coordinates.push(ctrl1);
+                coordinates.push(ctrl2);
+                coordinates.push(to);
+                "sixtyfps::PathEvent::Cubic"
+            }
+            Event::End { last, first, close } => {
+                debug_assert_eq!(coordinates.first(), Some(&first));
+                debug_assert_eq!(coordinates.last(), Some(&last));
+                if *close {
+                    "sixtyfps::PathEvent::EndClosed"
+                } else {
+                    "sixtyfps::PathEvent::EndOpen"
+                }
+            }
         })
-        .collect()
+        .map(String::from)
+        .collect();
+
+    let coordinates = coordinates
+        .into_iter()
+        .map(|pt| format!("sixtyfps::Point{{{}, {}}}", pt.x, pt.y))
+        .collect();
+
+    (events, coordinates)
 }
