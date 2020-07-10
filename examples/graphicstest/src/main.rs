@@ -5,6 +5,7 @@ use sixtyfps_corelib::abi::datastructures::{
 use sixtyfps_corelib::graphics::{
     Frame, GraphicsBackend, RenderingCache, RenderingPrimitivesBuilder,
 };
+use sixtyfps_corelib::SharedArray;
 
 use sixtyfps_rendering_backend_gl::GLRenderer;
 #[cfg(target_arch = "wasm32")]
@@ -73,7 +74,7 @@ fn main() {
         let path_primitive = rendering_primitives_builder.create(RenderingPrimitive::Path {
             x: 50.,
             y: 300.,
-            elements: PathElements::StaticElements(TRIANGLE_PATH.into()),
+            elements: PathElements::SharedElements(SharedArray::from(TRIANGLE_PATH)),
             fill_color: Color::from_rgb(0, 128, 255),
             stroke_color: Color::BLACK,
             stroke_width: 2.0,

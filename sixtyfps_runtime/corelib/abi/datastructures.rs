@@ -494,8 +494,6 @@ impl<'a> ExactSizeIterator for ToLyonPathEventIterator<'a> {}
 pub enum PathElements {
     /// None is the variant of PathData when the path has no elements.
     None,
-    /// StaticData is used to make PathData refer a static memory of elements.
-    StaticElements(super::slice::Slice<'static, PathElement>),
     /// SharedElements is used to make PathElements from shared arrays of elements.
     SharedElements(crate::SharedArray<PathElement>),
     /// PathEvents describe the elements of the path as a series of low-level events.
@@ -514,7 +512,6 @@ impl PathElements {
     pub fn element_iter(&self) -> Option<std::slice::Iter<PathElement>> {
         match self {
             PathElements::None => Some([].iter()),
-            PathElements::StaticElements(elements) => Some(elements.as_slice().iter()),
             PathElements::SharedElements(elements) => Some(elements.as_slice().iter()),
             PathElements::PathEvents(..) => None,
         }
