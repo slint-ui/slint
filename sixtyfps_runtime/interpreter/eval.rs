@@ -409,7 +409,7 @@ fn convert_from_lyon_path<'a>(
         })
         .collect::<Vec<_>>();
 
-    PathData::PathEvents(
+    PathData::Events(
         SharedArray::from(&events),
         SharedArray::from_iter(coordinates.into_iter().cloned()),
     )
@@ -421,13 +421,11 @@ pub fn convert_path(
     eval_context: &corelib::EvaluationContext,
 ) -> PathData {
     match path {
-        ExprPath::Elements(elements) => {
-            PathData::SharedElements(SharedArray::<PathElement>::from_iter(
-                elements
-                    .iter()
-                    .map(|element| convert_path_element(element, component_type, eval_context)),
-            ))
-        }
+        ExprPath::Elements(elements) => PathData::Elements(SharedArray::<PathElement>::from_iter(
+            elements
+                .iter()
+                .map(|element| convert_path_element(element, component_type, eval_context)),
+        )),
         ExprPath::Events(events) => convert_from_lyon_path(events.iter()),
     }
 }

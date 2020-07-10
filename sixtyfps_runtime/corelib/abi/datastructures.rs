@@ -385,10 +385,11 @@ impl<'a> ExactSizeIterator for ToLyonPathEventIterator<'a> {}
 pub enum PathData {
     /// None is the variant when the path is empty.
     None,
-    /// SharedElements is used to make a Path from shared arrays of elements.
-    SharedElements(crate::SharedArray<PathElement>),
-    /// PathEvents describe the elements of the path as a series of low-level events.
-    PathEvents(crate::SharedArray<PathEvent>, crate::SharedArray<Point>),
+    /// The Elements variant is used to make a Path from shared arrays of elements.
+    Elements(crate::SharedArray<PathElement>),
+    /// The Events variant describes the path as a series of low-level events and
+    /// associated coordinates.
+    Events(crate::SharedArray<PathEvent>, crate::SharedArray<Point>),
 }
 
 impl Default for PathData {
@@ -403,15 +404,15 @@ impl PathData {
     pub fn element_iter(&self) -> Option<std::slice::Iter<PathElement>> {
         match self {
             PathData::None => Some([].iter()),
-            PathData::SharedElements(elements) => Some(elements.as_slice().iter()),
-            PathData::PathEvents(..) => None,
+            PathData::Elements(elements) => Some(elements.as_slice().iter()),
+            PathData::Events(..) => None,
         }
     }
 
     /// Returns an iterator over all events if the elements are represented as low-level events.
     fn events_iter(&self) -> Option<ToLyonPathEventIterator> {
         match &self {
-            PathData::PathEvents(events, coordinates) => Some(ToLyonPathEventIterator {
+            PathData::Events(events, coordinates) => Some(ToLyonPathEventIterator {
                 events_it: events.iter(),
                 coordinates_it: coordinates.iter(),
                 first: coordinates.first(),

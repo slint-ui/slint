@@ -18,7 +18,7 @@ public:
 
     PathData() : data(Data::None()) { }
     PathData(const PathElement *firstElement, size_t count)
-        : data(Data::SharedElements(elements_from_array(firstElement, count)))
+        : data(Data::Elements(elements_from_array(firstElement, count)))
     {
     }
 
@@ -46,7 +46,7 @@ private:
         SharedArray<Point> coordinates;
         sixtyfps_new_path_events(&events, &coordinates, firstEvent, event_count, firstCoordinate,
                                  coordinate_count);
-        return Data::PathEvents(events, coordinates);
+        return Data::Events(events, coordinates);
     }
 
     using Data = internal::types::PathData;

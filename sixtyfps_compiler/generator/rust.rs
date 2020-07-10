@@ -881,13 +881,13 @@ fn compile_path(path: &Path, component: &Rc<Component>) -> TokenStream {
                 })
                 .collect();
 
-            quote!(sixtyfps::re_exports::PathData::SharedElements(
+            quote!(sixtyfps::re_exports::PathData::Elements(
                 sixtyfps::re_exports::SharedArray::<sixtyfps::re_exports::PathElement>::from(&[#(#converted_elements),*])
             ))
         }
         Path::Events(events) => {
             let events = compile_path_events(events);
-            quote!(sixtyfps::re_exports::PathData::PathEvents(#events))
+            quote!(sixtyfps::re_exports::PathData::Events(#events))
         }
     }
 }
