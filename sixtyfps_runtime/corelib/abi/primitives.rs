@@ -16,8 +16,8 @@ When adding an item or a property, it needs to be kept in sync with different pl
 #![allow(missing_docs)] // because documenting each property of items is redundent
 
 use super::datastructures::{
-    CachedRenderingData, Color, Item, ItemConsts, LayoutInfo, PathElements, Rect,
-    RenderingPrimitive, Resource,
+    CachedRenderingData, Color, Item, ItemConsts, LayoutInfo, PathData, Rect, RenderingPrimitive,
+    Resource,
 };
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
@@ -268,7 +268,7 @@ pub use crate::abi::datastructures::TouchAreaVTable;
 pub struct Path {
     pub x: Property<f32>,
     pub y: Property<f32>,
-    pub elements: Property<PathElements>,
+    pub elements: Property<PathData>,
     pub fill_color: Property<Color>,
     pub stroke_color: Property<Color>,
     pub stroke_width: Property<f32>,

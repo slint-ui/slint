@@ -956,7 +956,7 @@ fn compile_path(path: &crate::expression_tree::Path, component: &Rc<Component>) 
                 sixtyfps::PathElement elements[{}] = {{
                     {}
                 }};
-                return sixtyfps::PathElements(&elements[0], std::size(elements));
+                return sixtyfps::PathData(&elements[0], std::size(elements));
             }}()"#,
                 converted_elements.len(),
                 converted_elements.join(",")
@@ -972,7 +972,7 @@ fn compile_path(path: &crate::expression_tree::Path, component: &Rc<Component>) 
                 sixtyfps::Point coordinates[{}] = {{
                     {}
                 }};
-                return sixtyfps::PathElements(&events[0], std::size(events), &coordinates[0], std::size(coordinates));
+                return sixtyfps::PathData(&events[0], std::size(events), &coordinates[0], std::size(coordinates));
             }}()"#,
                 converted_events.len(),
                 converted_events.join(","),

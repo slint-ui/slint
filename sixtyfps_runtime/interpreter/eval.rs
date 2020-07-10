@@ -7,8 +7,8 @@ use sixtyfps_compilerlib::{object_tree::ElementRc, typeregister::Type};
 use sixtyfps_corelib as corelib;
 use sixtyfps_corelib::{
     abi::datastructures::ItemRef, abi::datastructures::PathElement,
-    abi::primitives::PropertyAnimation, Color, EvaluationContext, PathElements, Resource,
-    SharedArray, SharedString,
+    abi::primitives::PropertyAnimation, Color, EvaluationContext, PathData, Resource, SharedArray,
+    SharedString,
 };
 use std::{collections::HashMap, rc::Rc};
 
@@ -68,7 +68,7 @@ pub enum Value {
     /// A color
     Color(Color),
     /// The elements of a path
-    PathElements(PathElements),
+    PathElements(PathData),
 }
 
 impl Default for Value {
@@ -113,7 +113,7 @@ declare_value_conversion!(Bool => [bool] );
 declare_value_conversion!(Resource => [Resource] );
 declare_value_conversion!(Object => [HashMap<String, Value>] );
 declare_value_conversion!(Color => [Color] );
-declare_value_conversion!(PathElements => [PathElements]);
+declare_value_conversion!(PathElements => [PathData]);
 
 /// Evaluate an expression and return a Value as the result of this expression
 pub fn eval_expression(
@@ -366,7 +366,7 @@ pub fn new_struct_with_bindings<
 
 fn convert_from_lyon_path<'a>(
     it: impl IntoIterator<Item = &'a lyon::path::Event<lyon::math::Point, lyon::math::Point>>,
-) -> PathElements {
+) -> PathData {
     use lyon::path::Event;
     use sixtyfps_corelib::abi::datastructures::PathEvent;
 
@@ -409,7 +409,7 @@ fn convert_from_lyon_path<'a>(
         })
         .collect::<Vec<_>>();
 
-    PathElements::PathEvents(
+    PathData::PathEvents(
         SharedArray::from(&events),
         SharedArray::from_iter(coordinates.into_iter().cloned()),
     )
@@ -419,10 +419,10 @@ pub fn convert_path(
     path: &ExprPath,
     component_type: &crate::ComponentDescription,
     eval_context: &corelib::EvaluationContext,
-) -> PathElements {
+) -> PathData {
     match path {
         ExprPath::Elements(elements) => {
-            PathElements::SharedElements(SharedArray::<PathElement>::from_iter(
+            PathData::SharedElements(SharedArray::<PathElement>::from_iter(
                 elements
                     .iter()
                     .map(|element| convert_path_element(element, component_type, eval_context)),

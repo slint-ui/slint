@@ -23,7 +23,7 @@ declare_ValueType![
     crate::SharedString,
     crate::Resource,
     crate::Color,
-    crate::PathElements
+    crate::PathData
 ];
 
 pub trait PropertyInfo<Item, Value> {

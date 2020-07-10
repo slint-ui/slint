@@ -490,37 +490,38 @@ impl<'a> ExactSizeIterator for ToLyonPathEventIterator<'a> {}
 
 #[repr(C)]
 #[derive(Clone, Debug, PartialEq)]
-/// PathElements holds the elements of a path.
-pub enum PathElements {
-    /// None is the variant of PathData when the path has no elements.
+/// PathData represents a path described by either high-level elements or low-level
+/// events and coordinates.
+pub enum PathData {
+    /// None is the variant when the path is empty.
     None,
-    /// SharedElements is used to make PathElements from shared arrays of elements.
+    /// SharedElements is used to make a Path from shared arrays of elements.
     SharedElements(crate::SharedArray<PathElement>),
     /// PathEvents describe the elements of the path as a series of low-level events.
     PathEvents(crate::SharedArray<PathEvent>, crate::SharedArray<Point>),
 }
 
-impl Default for PathElements {
+impl Default for PathData {
     fn default() -> Self {
         Self::None
     }
 }
 
-impl PathElements {
+impl PathData {
     /// Returns an iterator over all elements unless the elements are represented as low-level events.
     /// If there are no elements, an empty iterator is returned.
     pub fn element_iter(&self) -> Option<std::slice::Iter<PathElement>> {
         match self {
-            PathElements::None => Some([].iter()),
-            PathElements::SharedElements(elements) => Some(elements.as_slice().iter()),
-            PathElements::PathEvents(..) => None,
+            PathData::None => Some([].iter()),
+            PathData::SharedElements(elements) => Some(elements.as_slice().iter()),
+            PathData::PathEvents(..) => None,
         }
     }
 
     /// Returns an iterator over all events if the elements are represented as low-level events.
     fn events_iter(&self) -> Option<ToLyonPathEventIterator> {
         match &self {
-            PathElements::PathEvents(events, coordinates) => Some(ToLyonPathEventIterator {
+            PathData::PathEvents(events, coordinates) => Some(ToLyonPathEventIterator {
                 events_it: events.iter(),
                 coordinates_it: coordinates.iter(),
                 first: coordinates.first(),
@@ -642,7 +643,7 @@ pub enum RenderingPrimitive {
     Path {
         x: f32,
         y: f32,
-        elements: crate::PathElements,
+        elements: crate::PathData,
         fill_color: Color,
         stroke_color: Color,
         stroke_width: f32,

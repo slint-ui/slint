@@ -1,7 +1,7 @@
 #pragma once
 #include <initializer_list>
 #include <string_view>
-#include "sixtyfps_pathelements_internal.h"
+#include "sixtyfps_pathdata_internal.h"
 
 namespace sixtyfps {
 
@@ -11,19 +11,19 @@ using internal::types::PathEvent;
 using internal::types::PathLineTo;
 using internal::types::Point;
 
-struct PathElements
+struct PathData
 {
 public:
-    using Tag = internal::types::PathElements::Tag;
+    using Tag = internal::types::PathData::Tag;
 
-    PathElements() : data(Data::None()) { }
-    PathElements(const PathElement *firstElement, size_t count)
+    PathData() : data(Data::None()) { }
+    PathData(const PathElement *firstElement, size_t count)
         : data(Data::SharedElements(elements_from_array(firstElement, count)))
     {
     }
 
-    PathElements(const PathEvent *firstEvent, size_t event_count, const Point *firstCoordinate,
-                 size_t coordinate_count)
+    PathData(const PathEvent *firstEvent, size_t event_count, const Point *firstCoordinate,
+             size_t coordinate_count)
         : data(events_from_array(firstEvent, event_count, firstCoordinate, coordinate_count))
     {
     }
@@ -37,10 +37,10 @@ private:
         return tmp;
     }
 
-    static internal::types::PathElements events_from_array(const PathEvent *firstEvent,
-                                                           size_t event_count,
-                                                           const Point *firstCoordinate,
-                                                           size_t coordinate_count)
+    static internal::types::PathData events_from_array(const PathEvent *firstEvent,
+                                                       size_t event_count,
+                                                       const Point *firstCoordinate,
+                                                       size_t coordinate_count)
     {
         SharedArray<PathEvent> events;
         SharedArray<Point> coordinates;
@@ -49,7 +49,7 @@ private:
         return Data::PathEvents(events, coordinates);
     }
 
-    using Data = internal::types::PathElements;
+    using Data = internal::types::PathData;
     Data data;
 };
 

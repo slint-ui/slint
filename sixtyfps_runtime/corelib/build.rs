@@ -24,7 +24,7 @@ fn main() {
         "SharedArray",
         "Resource",
         "Color",
-        "PathElements",
+        "PathData",
         "PathElement",
         "sixtyfps_new_path_elements",
         "sixtyfps_new_path_events",
@@ -87,12 +87,12 @@ fn main() {
         (vec!["Color"], "sixtyfps_color_internal.h"),
         (
             vec![
-                "PathElements",
+                "PathData",
                 "PathElement",
                 "sixtyfps_new_path_elements",
                 "sixtyfps_new_path_events",
             ],
-            "sixtyfps_pathelements_internal.h",
+            "sixtyfps_pathdata_internal.h",
         ),
     ]
     .iter()
@@ -150,7 +150,7 @@ fn main() {
         .with_include("sixtyfps_signals.h")
         .with_include("sixtyfps_resource.h")
         .with_include("sixtyfps_color.h")
-        .with_include("sixtyfps_pathelements.h")
+        .with_include("sixtyfps_pathdata.h")
         .generate()
         .expect("Unable to generate bindings")
         .write_to_file(include_dir.join("sixtyfps_internal.h"));

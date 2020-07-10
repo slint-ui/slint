@@ -159,7 +159,7 @@ pub extern "C" fn solve_grid_layout(data: &GridLayoutData) {
 
 #[repr(C)]
 pub struct PathLayoutData<'a> {
-    pub elements: &'a crate::abi::datastructures::PathElements,
+    pub elements: &'a crate::abi::datastructures::PathData,
     pub items: Slice<'a, PathLayoutItemData<'a>>,
     pub x: Coord,
     pub y: Coord,
