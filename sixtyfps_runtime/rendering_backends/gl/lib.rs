@@ -354,18 +354,19 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                 } => {
                     let mut primitives = SmallVec::new();
 
-                    let path = elements.build_path();
+                    let path_iter = elements.iter();
 
                     if *fill_color != Color::TRANSPARENT {
                         primitives.extend(
-                            self.fill_path(path.iter(), FillStyle::SolidColor(*fill_color))
+                            self.fill_path(path_iter.iter(), FillStyle::SolidColor(*fill_color))
                                 .into_iter(),
                         );
                     }
 
                     if *stroke_color != Color::TRANSPARENT {
                         primitives.extend(
-                            self.stroke_path(path.iter(), *stroke_color, *stroke_width).into_iter(),
+                            self.stroke_path(path_iter.iter(), *stroke_color, *stroke_width)
+                                .into_iter(),
                         );
                     }
 

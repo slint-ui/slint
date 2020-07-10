@@ -178,11 +178,11 @@ pub extern "C" fn solve_path_layout(data: &PathLayoutData) {
     use lyon::geom::*;
     use lyon::path::iterator::PathIterator;
 
-    let path = data.elements.build_path();
+    let path_iter = data.elements.iter();
 
     let tolerance = 0.01;
 
-    let segment_lengths: Vec<Coord> = path
+    let segment_lengths: Vec<Coord> = path_iter
         .iter()
         .bezier_segments()
         .map(|segment| match segment {
@@ -199,7 +199,7 @@ pub extern "C" fn solve_path_layout(data: &PathLayoutData) {
     let mut i = 0;
     let mut next_t: f32 = 0.;
     let mut current_length: f32 = 0.;
-    for (seg_idx, segment) in path.iter().bezier_segments().enumerate() {
+    for (seg_idx, segment) in path_iter.iter().bezier_segments().enumerate() {
         let seg_len = segment_lengths[seg_idx];
         let seg_start = current_length;
         current_length += seg_len;

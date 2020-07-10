@@ -378,6 +378,38 @@ impl<'a> Iterator for ToLyonPathEventIterator<'a> {
 
 impl<'a> ExactSizeIterator for ToLyonPathEventIterator<'a> {}
 
+/// LyonPathIterator is a data structure that acts as starting point for iterating
+/// through the low-level events of a path. If the path was constructed from said
+/// events, then it is a very thin abstraction. If the path was created from higher-level
+/// elements, then an intermediate lyon path is required/built.
+pub struct LyonPathIterator<'a> {
+    it: LyonPathIteratorVariant<'a>,
+}
+enum LyonPathIteratorVariant<'a> {
+    FromPath(lyon::path::Path),
+    FromEvents(&'a crate::SharedArray<PathEvent>, &'a crate::SharedArray<Point>),
+}
+
+impl<'a> LyonPathIterator<'a> {
+    /// Create a new iterator for path traversal.
+    pub fn iter(
+        &'a self,
+    ) -> Box<dyn Iterator<Item = lyon::path::Event<lyon::math::Point, lyon::math::Point>> + 'a>
+    {
+        match &self.it {
+            LyonPathIteratorVariant::FromPath(path) => Box::new(path.iter()),
+            LyonPathIteratorVariant::FromEvents(events, coordinates) => {
+                Box::new(ToLyonPathEventIterator {
+                    events_it: events.iter(),
+                    coordinates_it: coordinates.iter(),
+                    first: coordinates.first(),
+                    last: coordinates.last(),
+                })
+            }
+        }
+    }
+}
+
 #[repr(C)]
 #[derive(Clone, Debug, PartialEq)]
 /// PathData represents a path described by either high-level elements or low-level
@@ -399,79 +431,67 @@ impl Default for PathData {
 }
 
 impl PathData {
-    /// Returns an iterator over all elements unless the elements are represented as low-level events.
-    /// If there are no elements, an empty iterator is returned.
-    pub fn element_iter(&self) -> Option<std::slice::Iter<PathElement>> {
-        match self {
-            PathData::None => Some([].iter()),
-            PathData::Elements(elements) => Some(elements.as_slice().iter()),
-            PathData::Events(..) => None,
+    /// This function returns an iterator that allows traversing the path by means of lyon events.
+    pub fn iter(&self) -> LyonPathIterator {
+        LyonPathIterator {
+            it: match self {
+                PathData::None => LyonPathIteratorVariant::FromPath(lyon::path::Path::new()),
+                PathData::Elements(elements) => LyonPathIteratorVariant::FromPath(
+                    PathData::build_path(elements.as_slice().iter()),
+                ),
+                PathData::Events(events, coordinates) => {
+                    LyonPathIteratorVariant::FromEvents(events, coordinates)
+                }
+            },
         }
     }
 
-    /// Returns an iterator over all events if the elements are represented as low-level events.
-    fn events_iter(&self) -> Option<ToLyonPathEventIterator> {
-        match &self {
-            PathData::Events(events, coordinates) => Some(ToLyonPathEventIterator {
-                events_it: events.iter(),
-                coordinates_it: coordinates.iter(),
-                first: coordinates.first(),
-                last: coordinates.last(),
-            }),
-            _ => None,
-        }
-    }
-
-    /// Builds the path composed of lines and bezier curves from the primitive path elements.
-    pub fn build_path(&self) -> lyon::path::Path {
+    fn build_path(element_it: std::slice::Iter<PathElement>) -> lyon::path::Path {
         use lyon::geom::SvgArc;
         use lyon::math::{Angle, Point, Vector};
         use lyon::path::{
-            builder::{Build, FlatPathBuilder, PathBuilder, SvgBuilder},
+            builder::{Build, FlatPathBuilder, SvgBuilder},
             ArcFlags,
         };
 
         let mut path_builder = lyon::path::Path::builder().with_svg();
-        if let Some(events_iter) = self.events_iter() {
-            events_iter.for_each(|evt| path_builder.path_event(evt.into()))
-        } else {
-            for element in self.element_iter().unwrap() {
-                match element {
-                    PathElement::LineTo(PathLineTo { x, y }) => {
-                        path_builder.line_to(Point::new(*x, *y))
-                    }
-                    PathElement::ArcTo(PathArcTo {
-                        x,
-                        y,
-                        radius_x,
-                        radius_y,
-                        x_rotation,
-                        large_arc,
-                        sweep,
-                    }) => {
-                        let radii = Vector::new(*radius_x, *radius_y);
-                        let x_rotation = Angle::degrees(*x_rotation);
-                        let flags = ArcFlags { large_arc: *large_arc, sweep: *sweep };
-                        let to = Point::new(*x, *y);
-
-                        let svg_arc = SvgArc {
-                            from: path_builder.current_position(),
-                            radii,
-                            x_rotation,
-                            flags,
-                            to,
-                        };
-
-                        if svg_arc.is_straight_line() {
-                            path_builder.line_to(to);
-                        } else {
-                            path_builder.arc_to(radii, x_rotation, flags, to)
-                        }
-                    }
-                    PathElement::Close => path_builder.close(),
+        for element in element_it {
+            match element {
+                PathElement::LineTo(PathLineTo { x, y }) => {
+                    path_builder.line_to(Point::new(*x, *y))
                 }
+                PathElement::ArcTo(PathArcTo {
+                    x,
+                    y,
+                    radius_x,
+                    radius_y,
+                    x_rotation,
+                    large_arc,
+                    sweep,
+                }) => {
+                    let radii = Vector::new(*radius_x, *radius_y);
+                    let x_rotation = Angle::degrees(*x_rotation);
+                    let flags = ArcFlags { large_arc: *large_arc, sweep: *sweep };
+                    let to = Point::new(*x, *y);
+
+                    let svg_arc = SvgArc {
+                        from: path_builder.current_position(),
+                        radii,
+                        x_rotation,
+                        flags,
+                        to,
+                    };
+
+                    if svg_arc.is_straight_line() {
+                        path_builder.line_to(to);
+                    } else {
+                        path_builder.arc_to(radii, x_rotation, flags, to)
+                    }
+                }
+                PathElement::Close => path_builder.close(),
             }
         }
+
         path_builder.build()
     }
 }

@@ -1,7 +1,7 @@
 use core::cell::RefCell;
 use neon::prelude::*;
 use sixtyfps_compilerlib::typeregister::Type;
-use sixtyfps_corelib::abi::datastructures::{PathArcTo, PathElement, PathLineTo, Resource};
+use sixtyfps_corelib::abi::datastructures::Resource;
 use sixtyfps_corelib::{ComponentRefPin, EvaluationContext};
 
 use std::rc::Rc;
@@ -122,42 +122,6 @@ fn to_eval_value<'cx>(
     }
 }
 
-fn set_float_property<'cx>(
-    cx: &mut impl Context<'cx>,
-    object: &Handle<JsObject>,
-    name: &str,
-    value: f32,
-) -> NeonResult<()> {
-    let value = JsNumber::new(cx, value);
-    let value = value.as_value(cx);
-    object.set(cx, name, value)?;
-    Ok(())
-}
-
-fn set_bool_property<'cx>(
-    cx: &mut impl Context<'cx>,
-    object: &Handle<JsObject>,
-    name: &str,
-    value: bool,
-) -> NeonResult<()> {
-    let value = JsBoolean::new(cx, value);
-    let value = value.as_value(cx);
-    object.set(cx, name, value)?;
-    Ok(())
-}
-
-fn set_string_property<'cx>(
-    cx: &mut impl Context<'cx>,
-    object: &Handle<JsObject>,
-    name: &str,
-    value: &str,
-) -> NeonResult<()> {
-    let value = JsString::new(cx, value);
-    let value = value.as_value(cx);
-    object.set(cx, name, value)?;
-    Ok(())
-}
-
 fn to_js_value<'cx>(
     val: sixtyfps_interpreter::Value,
     cx: &mut impl Context<'cx>,
@@ -190,51 +154,7 @@ fn to_js_value<'cx>(
             js_object.as_value(cx)
         }
         Value::Color(c) => JsNumber::new(cx, c.as_argb_encoded()).as_value(cx),
-        Value::PathElements(elements) => {
-            if let Some(elements_iter) = elements.element_iter() {
-                let js_array = JsArray::new(cx, elements_iter.len() as _);
-                for (i, element) in elements_iter.enumerate() {
-                    let element_object = JsObject::new(cx);
-
-                    match element {
-                        PathElement::LineTo(PathLineTo { x, y }) => {
-                            set_string_property(cx, &element_object, "type", "line_to")?;
-                            set_float_property(cx, &element_object, "x", *x)?;
-                            set_float_property(cx, &element_object, "y", *y)?;
-                        }
-                        PathElement::ArcTo(PathArcTo {
-                            x,
-                            y,
-                            radius_x,
-                            radius_y,
-                            x_rotation,
-                            large_arc,
-                            sweep,
-                        }) => {
-                            set_string_property(cx, &element_object, "type", "arc_to")?;
-                            set_float_property(cx, &element_object, "x", *x)?;
-                            set_float_property(cx, &element_object, "y", *y)?;
-
-                            set_float_property(cx, &element_object, "radius_x", *radius_x)?;
-                            set_float_property(cx, &element_object, "radius_y", *radius_y)?;
-
-                            set_float_property(cx, &element_object, "x_rotation", *x_rotation)?;
-
-                            set_bool_property(cx, &element_object, "large_arc", *large_arc)?;
-                            set_bool_property(cx, &element_object, "sweep", *sweep)?;
-                        }
-                        PathElement::Close => {
-                            set_string_property(cx, &element_object, "type", "close")?;
-                        }
-                    }
-
-                    js_array.set(cx, i as u32, element_object)?;
-                }
-                js_array.as_value(cx)
-            } else {
-                todo!()
-            }
-        }
+        Value::PathElements(_) => todo!(),
     })
 }
 
