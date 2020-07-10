@@ -1,12 +1,16 @@
 TestCase := Rectangle {
 
     Path {
+        x: 300;
+        y: 300;
         commands: "M 100 300 Q 150 50 250 150 C 250 300 300 300 300 450 A 50 50 0 1 0 450 450 L 550 300";
         stroke_color: black;
         stroke_width: 2;
     }
 
     PathLayout {
+        x: 300;
+        y: 300;
         commands: "M 100 300 Q 150 50 250 150 C 250 300 300 300 300 450 A 50 50 0 1 0 450 450 L 550 300";
 
         Text {

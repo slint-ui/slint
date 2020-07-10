@@ -22,6 +22,15 @@ pub mod parser;
 pub mod typeregister;
 
 mod passes {
+    // Trait for the purpose of applying modifications to Expressions that are stored in various
+    // data structures.
+    pub trait ExpressionFieldsVisitor {
+        fn visit_expressions(
+            &mut self,
+            visitor: impl FnMut(&mut super::expression_tree::Expression),
+        );
+    }
+
     pub mod collect_resources;
     pub mod compile_paths;
     pub mod inlining;
@@ -46,8 +55,8 @@ pub fn run_passes(
     passes::resolving::resolve_expressions(doc, diag, tr);
     passes::inlining::inline(doc);
     passes::compile_paths::compile_paths(&doc.root_component, tr, diag);
-    passes::lower_layout::lower_layouts(&doc.root_component, diag);
     passes::unique_id::assign_unique_id(&doc.root_component);
+    passes::lower_layout::lower_layouts(&doc.root_component, diag);
     if compiler_config.embed_resources {
         passes::collect_resources::collect_resources(&doc.root_component);
     }

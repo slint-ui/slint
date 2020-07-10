@@ -3,6 +3,7 @@
 use crate::{
     expression_tree::{Expression, NamedReference},
     object_tree::*,
+    passes::ExpressionFieldsVisitor,
     typeregister::Type,
 };
 use std::collections::HashMap;
@@ -74,6 +75,7 @@ pub fn move_declarations(component: &Rc<Component>) {
 
     component.optimized_elements.borrow().iter().for_each(|e| move_bindings_and_animations(e));
 
+    component.layout_constraints.borrow_mut().visit_expressions(|e| fixup_bindings(e, component));
 
     let move_properties = &mut |elem: &ElementRc| {
         let elem_decl = Declarations::take_from_element(&mut *elem.borrow_mut());

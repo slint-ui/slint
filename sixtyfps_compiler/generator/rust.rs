@@ -729,9 +729,9 @@ fn compute_layout(component: &Rc<Component>) -> TokenStream {
                 row_constraint: Slice::from_slice(&[#(#row_constraint),*]),
                 col_constraint: Slice::from_slice(&[#(#col_constraint),*]),
                 width: (Self::field_offsets().#within + #within_ty::field_offsets().width)
-                    .apply_pin(self).get(eval_context),
+                    .apply_pin(self).get(context),
                 height: (Self::field_offsets().#within + #within_ty::field_offsets().height)
-                    .apply_pin(self).get(eval_context),
+                    .apply_pin(self).get(context),
                 x: 0.,
                 y: 0.,
                 cells: Slice::from_slice(&[#( Slice::from_slice(&[#( #cells ),*])),*]),
@@ -764,12 +764,15 @@ fn compute_layout(component: &Rc<Component>) -> TokenStream {
 
         let path = compile_path(&path_layout.path, &component);
 
+        let x_pos = compile_expression(&*path_layout.x_reference, &component);
+        let y_pos = compile_expression(&*path_layout.y_reference, &component);
+
         layouts.push(quote! {
             solve_path_layout(&PathLayoutData {
                 items: Slice::from_slice(&[#( #items ),*]),
                 elements: &#path,
-                x: 0.,
-                y: 0.,
+                x: #x_pos,
+                y: #y_pos,
             });
         });
     }
@@ -778,10 +781,11 @@ fn compute_layout(component: &Rc<Component>) -> TokenStream {
         fn layout_info(self: ::core::pin::Pin<&Self>) -> sixtyfps::re_exports::LayoutInfo {
             todo!("Implement in rust.rs")
         }
-        fn compute_layout(self: ::core::pin::Pin<&Self>, eval_context: &sixtyfps::re_exports::EvaluationContext) {
+        fn compute_layout(self: ::core::pin::Pin<&Self>, context: &sixtyfps::re_exports::EvaluationContext) {
             #![allow(unused)]
             use sixtyfps::re_exports::*;
             let dummy = Property::<f32>::default();
+            let _self = self;
 
             #(#layouts)*
         }

@@ -1,7 +1,6 @@
 //! Passe that compute the layout constraint
 
 use crate::diagnostics::Diagnostics;
-
 use crate::expression_tree::*;
 use crate::layout::*;
 use crate::object_tree::*;
@@ -76,11 +75,22 @@ pub fn lower_layouts(component: &Rc<Component>, diag: &mut Diagnostics) {
                         return;
                     }
                 };
-                component
-                    .layout_constraints
-                    .borrow_mut()
-                    .paths
-                    .push(PathLayout { elements: layout_children, path: path_elements_expr });
+
+                let x_reference = Box::new(Expression::PropertyReference(NamedReference {
+                    element: Rc::downgrade(&layout_elem),
+                    name: "x".into(),
+                }));
+                let y_reference = Box::new(Expression::PropertyReference(NamedReference {
+                    element: Rc::downgrade(&layout_elem),
+                    name: "y".into(),
+                }));
+
+                component.layout_constraints.borrow_mut().paths.push(PathLayout {
+                    elements: layout_children,
+                    path: path_elements_expr,
+                    x_reference,
+                    y_reference,
+                });
                 continue;
             } else {
                 elem.children.push(child);

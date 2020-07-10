@@ -635,11 +635,19 @@ unsafe extern "C" fn compute_layout(component: ComponentRefPin, eval_context: &E
 
         let path_elements = eval::convert_path(&it.path, component_type, eval_context);
 
+        let x = eval::eval_expression(&it.x_reference, &component_type, eval_context)
+            .try_into()
+            .unwrap_or_default();
+
+        let y = eval::eval_expression(&it.y_reference, &component_type, eval_context)
+            .try_into()
+            .unwrap_or_default();
+
         solve_path_layout(&PathLayoutData {
             items: Slice::from(items.as_slice()),
             elements: &path_elements,
-            x: 0.,
-            y: 0.,
+            x,
+            y,
         });
     }
 }
