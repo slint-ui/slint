@@ -46,7 +46,6 @@ private:
     internal::ComponentWindowOpaque inner;
 };
 
-using internal::EvaluationContext;
 using internal::Image;
 using internal::Path;
 using internal::Rectangle;
@@ -68,14 +67,6 @@ constexpr inline ItemTreeNode<uint8_t> make_dyn_node(std::uintptr_t offset)
 }
 
 using internal::sixtyfps_visit_item_tree;
-
-template<typename Component>
-EvaluationContext evaluation_context_for_root_component(const Component *component) {
-    return EvaluationContext{
-        VRef<ComponentVTable> { &Component::component_type, const_cast<Component *>(component)},
-        nullptr,
-    };
-}
 
 // layouts:
 using internal::Constraint;

@@ -1,7 +1,6 @@
 //! This module contains the basic datastructures that are exposed to the C API
 
 use super::slice::Slice;
-use crate::EvaluationContext;
 use core::pin::Pin;
 use std::cell::Cell;
 use vtable::*;
@@ -53,8 +52,7 @@ pub struct ComponentVTable {
     pub layout_info: extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>) -> LayoutInfo,
 
     /// Will compute the layout of
-    pub compute_layout:
-        extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>, eval_context: &EvaluationContext),
+    pub compute_layout: extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>),
 }
 
 /// This structure must be present in items that are Rendered and contains information.
@@ -111,8 +109,7 @@ pub enum ItemTreeNode<T> {
 #[repr(C)]
 pub struct ItemVTable {
     /// Returns the geometry of this item (relative to its parent item)
-    pub geometry:
-        extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, context: &crate::EvaluationContext) -> Rect,
+    pub geometry: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>) -> Rect,
 
     /// offset in bytes fromthe *const ItemImpl.
     /// isize::MAX  means None
@@ -121,17 +118,13 @@ pub struct ItemVTable {
     pub cached_rendering_data_offset: usize,
 
     /// Return the rendering primitive used to display this item.
-    pub rendering_primitive: extern "C" fn(
-        core::pin::Pin<VRef<ItemVTable>>,
-        context: &crate::EvaluationContext,
-    ) -> RenderingPrimitive,
+    pub rendering_primitive: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>) -> RenderingPrimitive,
 
     /// We would need max/min/preferred size, and all layout info
     pub layouting_info: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>) -> LayoutInfo,
 
     /// input event
-    pub input_event:
-        extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, MouseEvent, &crate::EvaluationContext),
+    pub input_event: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, MouseEvent),
 }
 
 /// The constraint that applies to an item

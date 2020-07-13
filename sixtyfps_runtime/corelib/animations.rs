@@ -39,15 +39,7 @@ impl AnimationDriver {
     /// The current instant that is to be used for animation
     /// using this function register the current binding as a dependency
     pub fn current_tick(&self) -> instant::Instant {
-        // FIXME! we need to get rid of the contect there
-        #[allow(unsafe_code)]
-        let dummy_eval_context = crate::EvaluationContext::for_root_component(unsafe {
-            core::pin::Pin::new_unchecked(vtable::VRef::from_raw(
-                core::ptr::NonNull::dangling(),
-                core::ptr::NonNull::dangling(),
-            ))
-        });
-        self.global_instant.as_ref().get(&dummy_eval_context)
+        self.global_instant.as_ref().get()
     }
 }
 

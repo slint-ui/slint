@@ -31,9 +31,9 @@ struct Property
         internal::sixtyfps_property_set_changed(&inner);
     }
 
-    const T &get(const internal::EvaluationContext *context) const
+    const T &get() const
     {
-        internal::sixtyfps_property_update(&inner, context, &value);
+        internal::sixtyfps_property_update(&inner, &value);
         return value;
     }
 
@@ -42,8 +42,8 @@ struct Property
     {
         internal::sixtyfps_property_set_binding(
                 &inner,
-                [](void *user_data, const internal::EvaluationContext *context, void *value) {
-                    *reinterpret_cast<T *>(value) = (*reinterpret_cast<F *>(user_data))(context);
+                [](void *user_data, void *value) {
+                    *reinterpret_cast<T *>(value) = (*reinterpret_cast<F *>(user_data))();
                 },
                 new F(binding), [](void *user_data) { delete reinterpret_cast<F *>(user_data); });
     }
@@ -79,8 +79,8 @@ void Property<int32_t>::set_animated_binding(F binding,
 {
     internal::sixtyfps_property_set_animated_binding_int(
             &inner,
-            [](void *user_data, const internal::EvaluationContext *context, int32_t *value) {
-                *reinterpret_cast<int32_t *>(value) = (*reinterpret_cast<F *>(user_data))(context);
+            [](void *user_data,  int32_t *value) {
+                *reinterpret_cast<int32_t *>(value) = (*reinterpret_cast<F *>(user_data))();
             },
             new F(binding), [](void *user_data) { delete reinterpret_cast<F *>(user_data); },
             &animation_data);
@@ -93,8 +93,8 @@ void Property<float>::set_animated_binding(F binding,
 {
     internal::sixtyfps_property_set_animated_binding_float(
             &inner,
-            [](void *user_data, const internal::EvaluationContext *context, float *value) {
-                *reinterpret_cast<float *>(value) = (*reinterpret_cast<F *>(user_data))(context);
+            [](void *user_data, float *value) {
+                *reinterpret_cast<float *>(value) = (*reinterpret_cast<F *>(user_data))();
             },
             new F(binding), [](void *user_data) { delete reinterpret_cast<F *>(user_data); },
             &animation_data);

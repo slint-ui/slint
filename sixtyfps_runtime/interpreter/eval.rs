@@ -7,18 +7,18 @@ use sixtyfps_compilerlib::{object_tree::ElementRc, typeregister::Type};
 use sixtyfps_corelib as corelib;
 use sixtyfps_corelib::{
     abi::datastructures::ItemRef, abi::datastructures::PathElement,
-    abi::primitives::PropertyAnimation, Color, EvaluationContext, PathData, Resource, SharedArray,
+    abi::primitives::PropertyAnimation, Color, ComponentRefPin, PathData, Resource, SharedArray,
     SharedString,
 };
 use std::{collections::HashMap, rc::Rc};
 
 pub trait ErasedPropertyInfo {
-    fn get(&self, item: Pin<ItemRef>, context: &EvaluationContext) -> Value;
+    fn get(&self, item: Pin<ItemRef>) -> Value;
     fn set(&self, item: Pin<ItemRef>, value: Value, animation: Option<PropertyAnimation>);
     fn set_binding(
         &self,
         item: Pin<ItemRef>,
-        binding: Box<dyn Fn(&EvaluationContext) -> Value>,
+        binding: Box<dyn Fn() -> Value>,
         animation: Option<PropertyAnimation>,
     );
     fn offset(&self) -> usize;
@@ -27,8 +27,8 @@ pub trait ErasedPropertyInfo {
 impl<Item: vtable::HasStaticVTable<corelib::abi::datastructures::ItemVTable>> ErasedPropertyInfo
     for &'static dyn corelib::rtti::PropertyInfo<Item, Value>
 {
-    fn get(&self, item: Pin<ItemRef>, context: &EvaluationContext) -> Value {
-        (*self).get(ItemRef::downcast_pin(item).unwrap(), context).unwrap()
+    fn get(&self, item: Pin<ItemRef>) -> Value {
+        (*self).get(ItemRef::downcast_pin(item).unwrap()).unwrap()
     }
     fn set(&self, item: Pin<ItemRef>, value: Value, animation: Option<PropertyAnimation>) {
         (*self).set(ItemRef::downcast_pin(item).unwrap(), value, animation).unwrap()
@@ -36,7 +36,7 @@ impl<Item: vtable::HasStaticVTable<corelib::abi::datastructures::ItemVTable>> Er
     fn set_binding(
         &self,
         item: Pin<ItemRef>,
-        binding: Box<dyn Fn(&EvaluationContext) -> Value>,
+        binding: Box<dyn Fn() -> Value>,
         animation: Option<PropertyAnimation>,
     ) {
         (*self).set_binding(ItemRef::downcast_pin(item).unwrap(), binding, animation).unwrap();
@@ -119,7 +119,7 @@ declare_value_conversion!(PathElements => [PathData]);
 pub fn eval_expression(
     e: &Expression,
     component_type: &crate::ComponentDescription,
-    eval_context: &corelib::EvaluationContext,
+    component_ref: ComponentRefPin,
 ) -> Value {
     match e {
         Expression::Invalid => panic!("invalid expression while evaluating"),
@@ -130,23 +130,21 @@ pub fn eval_expression(
         Expression::SignalReference { .. } => panic!("signal in expression"),
         Expression::PropertyReference(NamedReference { element, name }) => {
             let element = element.upgrade().unwrap();
-            let (component_mem, component_type, eval_context) =
-                enclosing_component_for_element(&element, component_type, eval_context);
+            let (component_mem, component_type, _) =
+                enclosing_component_for_element(&element, component_type, component_ref);
             let element = element.borrow();
             if element.id == element.enclosing_component.upgrade().unwrap().root_element.borrow().id
             {
                 if let Some(x) = component_type.custom_properties.get(name) {
                     return unsafe {
-                        x.prop
-                            .get(Pin::new_unchecked(&*component_mem.add(x.offset)), &eval_context)
-                            .unwrap()
+                        x.prop.get(Pin::new_unchecked(&*component_mem.add(x.offset))).unwrap()
                     };
                 }
             };
             let item_info = &component_type.items[element.id.as_str()];
             core::mem::drop(element);
             let item = unsafe { item_info.item_from_component(component_mem) };
-            item_info.rtti.properties[name.as_str()].get(item, &eval_context)
+            item_info.rtti.properties[name.as_str()].get(item)
         }
         Expression::RepeaterIndexReference { element } => {
             if element.upgrade().unwrap().borrow().base_type
@@ -154,12 +152,7 @@ pub fn eval_expression(
             {
                 let x = &component_type.custom_properties["index"];
                 unsafe {
-                    x.prop
-                        .get(
-                            Pin::new_unchecked(&*eval_context.component.as_ptr().add(x.offset)),
-                            &eval_context,
-                        )
-                        .unwrap()
+                    x.prop.get(Pin::new_unchecked(&*component_ref.as_ptr().add(x.offset))).unwrap()
                 }
             } else {
                 todo!();
@@ -171,26 +164,21 @@ pub fn eval_expression(
             {
                 let x = &component_type.custom_properties["model_data"];
                 unsafe {
-                    x.prop
-                        .get(
-                            Pin::new_unchecked(&*eval_context.component.as_ptr().add(x.offset)),
-                            &eval_context,
-                        )
-                        .unwrap()
+                    x.prop.get(Pin::new_unchecked(&*component_ref.as_ptr().add(x.offset))).unwrap()
                 }
             } else {
                 todo!();
             }
         }
         Expression::ObjectAccess { base, name } => {
-            if let Value::Object(mut o) = eval_expression(base, component_type, eval_context) {
+            if let Value::Object(mut o) = eval_expression(base, component_type, component_ref) {
                 o.remove(name).unwrap_or(Value::Void)
             } else {
                 Value::Void
             }
         }
         Expression::Cast { from, to } => {
-            let v = eval_expression(&*from, component_type, eval_context);
+            let v = eval_expression(&*from, component_type, component_ref);
             match (v, to) {
                 (Value::Number(n), Type::Int32) => Value::Number(n.round()),
                 (Value::Number(n), Type::String) => {
@@ -203,15 +191,15 @@ pub fn eval_expression(
         Expression::CodeBlock(sub) => {
             let mut v = Value::Void;
             for e in sub {
-                v = eval_expression(e, component_type, eval_context);
+                v = eval_expression(e, component_type, component_ref);
             }
             v
         }
         Expression::FunctionCall { function, .. } => {
             if let Expression::SignalReference(NamedReference { element, name }) = &**function {
                 let element = element.upgrade().unwrap();
-                let (component_mem, component_type, eval_context) =
-                    enclosing_component_for_element(&element, component_type, eval_context);
+                let (component_mem, component_type, _) =
+                    enclosing_component_for_element(&element, component_type, component_ref);
 
                 let item_info = &component_type.items[element.borrow().id.as_str()];
                 let item = unsafe { item_info.item_from_component(component_mem) };
@@ -230,7 +218,7 @@ pub fn eval_expression(
                         .unwrap_or_else(|| panic!("unkown signal {}", name))
                         as *mut corelib::Signal<()>)
                 };
-                signal.emit(&eval_context, ());
+                signal.emit(());
                 Value::Void
             } else {
                 panic!("call of something not a signal")
@@ -239,7 +227,7 @@ pub fn eval_expression(
         Expression::SelfAssignment { lhs, rhs, op } => match &**lhs {
             Expression::PropertyReference(NamedReference { element, name }) => {
                 let eval = |lhs| {
-                    let rhs = eval_expression(&**rhs, component_type, eval_context);
+                    let rhs = eval_expression(&**rhs, component_type, component_ref);
                     match (lhs, rhs, op) {
                         (Value::Number(a), Value::Number(b), '+') => Value::Number(a + b),
                         (Value::Number(a), Value::Number(b), '-') => Value::Number(a - b),
@@ -250,17 +238,15 @@ pub fn eval_expression(
                 };
 
                 let element = element.upgrade().unwrap();
-                let (component_mem, component_type, eval_context) =
-                    enclosing_component_for_element(&element, component_type, eval_context);
+                let (component_mem, component_type, _) =
+                    enclosing_component_for_element(&element, component_type, component_ref);
 
                 let component = element.borrow().enclosing_component.upgrade().unwrap();
                 if element.borrow().id == component.root_element.borrow().id {
                     if let Some(x) = component_type.custom_properties.get(name) {
                         unsafe {
                             let p = Pin::new_unchecked(&*component_mem.add(x.offset));
-                            x.prop
-                                .set(p, eval(x.prop.get(p, &eval_context).unwrap()), None)
-                                .unwrap();
+                            x.prop.set(p, eval(x.prop.get(p).unwrap()), None).unwrap();
                         }
                         return Value::Void;
                     }
@@ -268,14 +254,14 @@ pub fn eval_expression(
                 let item_info = &component_type.items[element.borrow().id.as_str()];
                 let item = unsafe { item_info.item_from_component(component_mem) };
                 let p = &item_info.rtti.properties[name.as_str()];
-                p.set(item, eval(p.get(item, &eval_context)), None);
+                p.set(item, eval(p.get(item)), None);
                 Value::Void
             }
             _ => panic!("typechecking should make sure this was a PropertyReference"),
         },
         Expression::BinaryExpression { lhs, rhs, op } => {
-            let lhs = eval_expression(&**lhs, component_type, eval_context);
-            let rhs = eval_expression(&**rhs, component_type, eval_context);
+            let lhs = eval_expression(&**lhs, component_type, component_ref);
+            let rhs = eval_expression(&**rhs, component_type, component_ref);
 
             match (op, lhs, rhs) {
                 ('+', Value::Number(a), Value::Number(b)) => Value::Number(a + b),
@@ -294,7 +280,7 @@ pub fn eval_expression(
             }
         }
         Expression::UnaryOp { sub, op } => {
-            let sub = eval_expression(&**sub, component_type, eval_context);
+            let sub = eval_expression(&**sub, component_type, component_ref);
             match (sub, op) {
                 (Value::Number(a), '+') => Value::Number(a),
                 (Value::Number(a), '-') => Value::Number(-a),
@@ -306,25 +292,25 @@ pub fn eval_expression(
             Value::Resource(Resource::AbsoluteFilePath(absolute_source_path.as_str().into()))
         }
         Expression::Condition { condition, true_expr, false_expr } => {
-            match eval_expression(&**condition, component_type, eval_context).try_into()
+            match eval_expression(&**condition, component_type, component_ref).try_into()
                 as Result<bool, _>
             {
-                Ok(true) => eval_expression(&**true_expr, component_type, eval_context),
-                Ok(false) => eval_expression(&**false_expr, component_type, eval_context),
+                Ok(true) => eval_expression(&**true_expr, component_type, component_ref),
+                Ok(false) => eval_expression(&**false_expr, component_type, component_ref),
                 _ => panic!("conditional expression did not evaluate to boolean"),
             }
         }
         Expression::Array { values, .. } => Value::Array(
-            values.iter().map(|e| eval_expression(e, component_type, eval_context)).collect(),
+            values.iter().map(|e| eval_expression(e, component_type, component_ref)).collect(),
         ),
         Expression::Object { values, .. } => Value::Object(
             values
                 .iter()
-                .map(|(k, v)| (k.clone(), eval_expression(v, component_type, eval_context)))
+                .map(|(k, v)| (k.clone(), eval_expression(v, component_type, component_ref)))
                 .collect(),
         ),
         Expression::PathElements { elements } => {
-            Value::PathElements(convert_path(elements, component_type, eval_context))
+            Value::PathElements(convert_path(elements, component_type, component_ref))
         }
     }
 }
@@ -332,16 +318,16 @@ pub fn eval_expression(
 fn enclosing_component_for_element<'a>(
     element: &ElementRc,
     component_type: &'a crate::ComponentDescription,
-    eval_context: &corelib::EvaluationContext<'a>,
-) -> (*const u8, &'a crate::ComponentDescription, corelib::EvaluationContext<'a>) {
+    component_ref: ComponentRefPin<'a>,
+) -> (*const u8, &'a crate::ComponentDescription, ComponentRefPin<'a>) {
     if Rc::ptr_eq(
         &element.borrow().enclosing_component.upgrade().unwrap(),
         &component_type.original,
     ) {
-        let mem = eval_context.component.as_ptr();
-        (mem, component_type, EvaluationContext::for_root_component(eval_context.component))
+        let mem = component_ref.as_ptr();
+        (mem, component_type, component_ref)
     } else {
-        let mem = eval_context.component.as_ptr();
+        let mem = component_ref.as_ptr();
         let parent_component = unsafe {
             *(mem.add(component_type.parent_component_offset.unwrap())
                 as *const Option<corelib::ComponentRefPin>)
@@ -349,11 +335,7 @@ fn enclosing_component_for_element<'a>(
         .unwrap();
         let parent_component_type =
             unsafe { crate::dynamic_component::get_component_type(parent_component) };
-        enclosing_component_for_element(
-            element,
-            parent_component_type,
-            &EvaluationContext::for_root_component(parent_component),
-        )
+        enclosing_component_for_element(element, parent_component_type, parent_component)
     }
 }
 
@@ -362,12 +344,12 @@ pub fn new_struct_with_bindings<
 >(
     bindings: &HashMap<String, Expression>,
     component_type: &crate::ComponentDescription,
-    eval_context: &corelib::EvaluationContext,
+    component_ref: ComponentRefPin,
 ) -> ElementType {
     let mut element = ElementType::default();
     for (prop, info) in ElementType::fields::<Value>().into_iter() {
         if let Some(binding) = &bindings.get(prop) {
-            let value = eval_expression(&binding, &*component_type, &eval_context);
+            let value = eval_expression(&binding, &*component_type, component_ref);
             info.set_field(&mut element, value).unwrap();
         }
     }
@@ -428,7 +410,7 @@ fn convert_from_lyon_path<'a>(
 pub fn convert_path(
     path: &ExprPath,
     component_type: &crate::ComponentDescription,
-    eval_context: &corelib::EvaluationContext,
+    eval_context: ComponentRefPin,
 ) -> PathData {
     match path {
         ExprPath::Elements(elements) => PathData::Elements(SharedArray::<PathElement>::from_iter(
@@ -443,7 +425,7 @@ pub fn convert_path(
 fn convert_path_element(
     expr_element: &ExprPathElement,
     component_type: &crate::ComponentDescription,
-    eval_context: &corelib::EvaluationContext,
+    eval_context: ComponentRefPin,
 ) -> PathElement {
     match expr_element.element_type.class_name.as_str() {
         "LineTo" => PathElement::LineTo(new_struct_with_bindings(

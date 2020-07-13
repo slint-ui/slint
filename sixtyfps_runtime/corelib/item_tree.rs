@@ -1,6 +1,5 @@
 use crate::abi::datastructures::{ItemRef, ItemTreeNode, ItemVisitor, ItemVisitorVTable};
 use crate::ComponentRefPin;
-use crate::EvaluationContext;
 use core::pin::Pin;
 
 /// Visit each items recursively
@@ -8,31 +7,24 @@ use core::pin::Pin;
 /// The state parametter returned by the visitor is passed to each children.
 pub fn visit_items<State>(
     component: ComponentRefPin,
-    mut visitor: impl FnMut(&EvaluationContext, Pin<ItemRef>, &State) -> State,
+    mut visitor: impl FnMut(ComponentRefPin, Pin<ItemRef>, &State) -> State,
     state: State,
 ) {
-    let context = EvaluationContext::for_root_component(component);
-    visit_internal(&context, &mut visitor, -1, &state)
+    visit_internal(component, &mut visitor, -1, &state)
 }
 
 fn visit_internal<State>(
-    context: &EvaluationContext,
-    visitor: &mut impl FnMut(&EvaluationContext, Pin<ItemRef>, &State) -> State,
+    component: ComponentRefPin,
+    visitor: &mut impl FnMut(ComponentRefPin, Pin<ItemRef>, &State) -> State,
     index: isize,
     state: &State,
 ) {
     let mut actual_visitor = |component: ComponentRefPin, index: isize, item: Pin<ItemRef>| {
-        if component.as_ptr() == context.component.as_ptr() {
-            let s = visitor(context, item, state);
-            visit_internal(context, visitor, index, &s);
-        } else {
-            let context = context.child_context(component);
-            let s = visitor(&context, item, state);
-            visit_internal(&context, visitor, index, &s);
-        }
+        let s = visitor(component, item, state);
+        visit_internal(component, visitor, index, &s);
     };
     vtable::new_vref!(let mut actual_visitor : VRefMut<ItemVisitorVTable> for ItemVisitor = &mut actual_visitor);
-    context.component.as_ref().visit_children_item(index, actual_visitor);
+    component.as_ref().visit_children_item(index, actual_visitor);
 }
 
 /// Visit the children within an array of ItemTreeNode

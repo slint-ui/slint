@@ -13,7 +13,7 @@ use sixtyfps_corelib::abi::primitives::PropertyAnimation;
 use sixtyfps_corelib::abi::{properties::PropertyListenerScope, slice::Slice};
 use sixtyfps_corelib::rtti::PropertyInfo;
 use sixtyfps_corelib::ComponentRefPin;
-use sixtyfps_corelib::{rtti, Color, EvaluationContext, Property, SharedString, Signal};
+use sixtyfps_corelib::{rtti, Color, Property, SharedString, Signal};
 use std::collections::HashMap;
 use std::{pin::Pin, rc::Rc};
 
@@ -129,28 +129,24 @@ unsafe extern "C" fn visit_children_item(
                     &*(component.as_ptr().add(listener_offset) as *const PropertyListenerScope),
                 );
                 if listener.is_dirty() {
-                    let eval_context = EvaluationContext::for_root_component(component);
                     listener.evaluate(|| {
-                        match eval::eval_expression(
-                            &rep_in_comp.model,
-                            &*component_type,
-                            &eval_context,
-                        ) {
+                        match eval::eval_expression(&rep_in_comp.model, &*component_type, component)
+                        {
                             crate::Value::Number(count) => populate_model(
                                 vec,
                                 rep_in_comp,
-                                &eval_context,
+                                component,
                                 (0..count as i32)
                                     .into_iter()
                                     .map(|v| crate::Value::Number(v as f64)),
                             ),
                             crate::Value::Array(a) => {
-                                populate_model(vec, rep_in_comp, &eval_context, a.into_iter())
+                                populate_model(vec, rep_in_comp, component, a.into_iter())
                             }
                             crate::Value::Bool(b) => populate_model(
                                 vec,
                                 rep_in_comp,
-                                &eval_context,
+                                component,
                                 (if b { Some(crate::Value::Void) } else { None }).into_iter(),
                             ),
                             _ => panic!("Unsupported model"),
@@ -370,7 +366,7 @@ fn generate_component(
 
 fn animation_for_property(
     component_type: Rc<ComponentDescription>,
-    eval_context: &EvaluationContext,
+    eval_context: ComponentRefPin,
     all_animations: &HashMap<String, ElementRc>,
     property_name: &String,
 ) -> Option<PropertyAnimation> {
@@ -386,7 +382,7 @@ fn animation_for_property(
 
 fn animation_for_element_property(
     component_type: Rc<ComponentDescription>,
-    eval_context: &EvaluationContext,
+    eval_context: ComponentRefPin,
     element: &Element,
     property_name: &String,
 ) -> Option<PropertyAnimation> {
@@ -401,11 +397,11 @@ fn animation_for_element_property(
 fn populate_model(
     vec: &mut Vec<ComponentBox>,
     rep_in_comp: &RepeaterWithinComponent,
-    eval_context: &EvaluationContext,
+    component: ComponentRefPin,
     model: impl Iterator<Item = eval::Value> + ExactSizeIterator,
 ) {
     vec.resize_with(model.size_hint().1.unwrap(), || {
-        instantiate(rep_in_comp.component_to_repeat.clone(), Some(eval_context))
+        instantiate(rep_in_comp.component_to_repeat.clone(), Some(component))
     });
     for (i, (x, val)) in vec.iter().zip(model).enumerate() {
         rep_in_comp
@@ -418,20 +414,17 @@ fn populate_model(
 
 pub fn instantiate(
     component_type: Rc<ComponentDescription>,
-    parent_ctx: Option<&EvaluationContext>,
+    parent_ctx: Option<ComponentRefPin>,
 ) -> ComponentBox {
     let instance = component_type.dynamic_type.clone().create_instance();
     let mem = instance.as_ptr().as_ptr() as *mut u8;
     let component_box = ComponentBox { instance, component_type: component_type.clone() };
 
-    let eval_context = if let Some(parent) = parent_ctx {
+    if let Some(parent) = parent_ctx {
         unsafe {
             *(mem.add(component_type.parent_component_offset.unwrap())
-                as *mut Option<ComponentRefPin>) = Some(parent.component);
+                as *mut Option<ComponentRefPin>) = Some(parent);
         }
-        parent.child_context(component_box.borrow())
-    } else {
-        EvaluationContext::for_root_component(component_box.borrow())
     };
 
     for item_within_component in component_type.items.values() {
@@ -453,8 +446,13 @@ pub fn instantiate(
                         as *mut Signal<()>);
                     let expr = expr.clone();
                     let component_type = component_type.clone();
-                    signal.set_handler(move |eval_context, _| {
-                        eval::eval_expression(&expr, &*component_type, &eval_context);
+                    let instance = component_box.instance.as_ptr();
+                    signal.set_handler(move |_| {
+                        let c = Pin::new_unchecked(vtable::VRef::from_raw(
+                            NonNull::from(&component_type.ct).cast(),
+                            instance.cast(),
+                        ));
+                        eval::eval_expression(&expr, &*component_type, c);
                     })
                 } else {
                     if let Some(prop_rtti) =
@@ -462,7 +460,7 @@ pub fn instantiate(
                     {
                         let maybe_animation = animation_for_element_property(
                             component_type.clone(),
-                            &eval_context,
+                            component_box.borrow(),
                             &elem,
                             prop,
                         );
@@ -470,17 +468,26 @@ pub fn instantiate(
                         if expr.is_constant() {
                             prop_rtti.set(
                                 item,
-                                eval::eval_expression(expr, &*component_type, &eval_context),
+                                eval::eval_expression(
+                                    expr,
+                                    &*component_type,
+                                    component_box.borrow(),
+                                ),
                                 maybe_animation,
                             );
                         } else {
                             let expr = expr.clone();
                             let component_type = component_type.clone();
+                            let instance = component_box.instance.as_ptr();
 
                             prop_rtti.set_binding(
                                 item,
-                                Box::new(move |eval_context| {
-                                    eval::eval_expression(&expr, &*component_type, eval_context)
+                                Box::new(move || {
+                                    let c = Pin::new_unchecked(vtable::VRef::from_raw(
+                                        NonNull::from(&component_type.ct).cast(),
+                                        instance.cast(),
+                                    ));
+                                    eval::eval_expression(&expr, &*component_type, c)
                                 }),
                                 maybe_animation,
                             );
@@ -491,24 +498,33 @@ pub fn instantiate(
                     {
                         let maybe_animation = animation_for_property(
                             component_type.clone(),
-                            &eval_context,
+                            component_box.borrow(),
                             &component_type.original.root_element.borrow().property_animations,
                             prop,
                         );
 
                         if expr.is_constant() {
-                            let v = eval::eval_expression(expr, &*component_type, &eval_context);
+                            let v = eval::eval_expression(
+                                expr,
+                                &*component_type,
+                                component_box.borrow(),
+                            );
                             prop_info
                                 .set(Pin::new_unchecked(&*mem.add(*offset)), v, maybe_animation)
                                 .unwrap();
                         } else {
                             let expr = expr.clone();
                             let component_type = component_type.clone();
+                            let instance = component_box.instance.as_ptr();
                             prop_info
                                 .set_binding(
                                     Pin::new_unchecked(&*mem.add(*offset)),
-                                    Box::new(move |eval_context| {
-                                        eval::eval_expression(&expr, &*component_type, eval_context)
+                                    Box::new(move || {
+                                        let c = Pin::new_unchecked(vtable::VRef::from_raw(
+                                            NonNull::from(&component_type.ct).cast(),
+                                            instance.cast(),
+                                        ));
+                                        eval::eval_expression(&expr, &*component_type, c)
                                     }),
                                     maybe_animation,
                                 )
@@ -527,20 +543,20 @@ pub fn instantiate(
             continue;
         }
         let vec = unsafe { &mut *(mem.add(rep_in_comp.offset) as *mut RepeaterVec) };
-        match eval::eval_expression(&rep_in_comp.model, &*component_type, &eval_context) {
+        match eval::eval_expression(&rep_in_comp.model, &*component_type, component_box.borrow()) {
             crate::Value::Number(count) => populate_model(
                 vec,
                 rep_in_comp,
-                &eval_context,
+                component_box.borrow(),
                 (0..count as i32).into_iter().map(|v| crate::Value::Number(v as f64)),
             ),
             crate::Value::Array(a) => {
-                populate_model(vec, rep_in_comp, &eval_context, a.into_iter())
+                populate_model(vec, rep_in_comp, component_box.borrow(), a.into_iter())
             }
             crate::Value::Bool(b) => populate_model(
                 vec,
                 rep_in_comp,
-                &eval_context,
+                component_box.borrow(),
                 (if b { Some(crate::Value::Void) } else { None }).into_iter(),
             ),
             _ => panic!("Unsupported model"),
@@ -550,17 +566,13 @@ pub fn instantiate(
     component_box
 }
 
-unsafe extern "C" fn compute_layout(component: ComponentRefPin, eval_context: &EvaluationContext) {
-    debug_assert!(component.as_ptr() == eval_context.component.as_ptr());
-
+unsafe extern "C" fn compute_layout(component: ComponentRefPin) {
     // This is fine since we can only be called with a component that with our vtable which is a ComponentDescription
     let component_type =
         &*(component.get_vtable() as *const ComponentVTable as *const ComponentDescription);
 
     let resolve_prop_ref = |prop_ref: &expression_tree::Expression| {
-        eval::eval_expression(&prop_ref, &component_type, eval_context)
-            .try_into()
-            .unwrap_or_default()
+        eval::eval_expression(&prop_ref, &component_type, component).try_into().unwrap_or_default()
     };
 
     for it in &component_type.original.layout_constraints.borrow().grids {
@@ -605,7 +617,7 @@ unsafe extern "C" fn compute_layout(component: ComponentRefPin, eval_context: &E
         let within_info = &component_type.items[it.within.borrow().id.as_str()];
         let within_prop = |name| {
             within_info.rtti.properties[name]
-                .get(within_info.item_from_component(component.as_ptr()), &eval_context)
+                .get(within_info.item_from_component(component.as_ptr()))
                 .try_into()
                 .unwrap()
         };
@@ -639,7 +651,7 @@ unsafe extern "C" fn compute_layout(component: ComponentRefPin, eval_context: &E
             })
             .collect::<Vec<_>>();
 
-        let path_elements = eval::convert_path(&it.path, component_type, eval_context);
+        let path_elements = eval::convert_path(&it.path, component_type, component);
 
         solve_path_layout(&PathLayoutData {
             items: Slice::from(items.as_slice()),

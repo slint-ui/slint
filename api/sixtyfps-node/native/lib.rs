@@ -2,7 +2,7 @@ use core::cell::RefCell;
 use neon::prelude::*;
 use sixtyfps_compilerlib::typeregister::Type;
 use sixtyfps_corelib::abi::datastructures::Resource;
-use sixtyfps_corelib::{ComponentRefPin, EvaluationContext};
+use sixtyfps_corelib::ComponentRefPin;
 
 use std::rc::Rc;
 
@@ -65,7 +65,7 @@ fn create<'cx>(
                     .set_signal_handler(
                         component.borrow_mut(),
                         prop_name.as_str(),
-                        Box::new(move |_eval_ctx, ()| {
+                        Box::new(move |()| {
                             GLOBAL_CONTEXT.with(|cx_fn| {
                                 cx_fn(&move |cx, presistent_context| {
                                     presistent_context
@@ -243,7 +243,7 @@ declare_types! {
             let x = this.borrow(&lock).0.clone();
             let component = x.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
             let value = component.description()
-                .get_property(&EvaluationContext::for_root_component(component.borrow()), prop_name.as_str())
+                .get_property(component.borrow(), prop_name.as_str())
                 .or_else(|_| cx.throw_error(format!("Cannot read property")))?;
             to_js_value(value, &mut cx)
         }
@@ -275,7 +275,7 @@ declare_types! {
             let x = this.borrow(&lock).0.clone();
             let component = x.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
             component.description()
-                .emit_signal(&EvaluationContext::for_root_component(component.borrow()), signal_name.as_str())
+                .emit_signal(component.borrow(), signal_name.as_str())
                 .or_else(|_| cx.throw_error(format!("Cannot emit signal")))?;
 
             Ok(JsUndefined::new().as_value(&mut cx))

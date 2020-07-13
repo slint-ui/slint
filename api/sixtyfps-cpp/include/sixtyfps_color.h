@@ -45,8 +45,8 @@ void Property<Color>::set_animated_binding(F binding,
 {
     internal::sixtyfps_property_set_animated_binding_color(
             &inner,
-            [](void *user_data, const internal::EvaluationContext *context, Color *value) {
-                *reinterpret_cast<Color *>(value) = (*reinterpret_cast<F *>(user_data))(context);
+            [](void *user_data, Color *value) {
+                *reinterpret_cast<Color *>(value) = (*reinterpret_cast<F *>(user_data))();
             },
             new F(binding), [](void *user_data) { delete reinterpret_cast<F *>(user_data); },
             &animation_data);

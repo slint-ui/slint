@@ -27,7 +27,7 @@ declare_ValueType![
 ];
 
 pub trait PropertyInfo<Item, Value> {
-    fn get(&self, item: Pin<&Item>, context: &crate::EvaluationContext) -> Result<Value, ()>;
+    fn get(&self, item: Pin<&Item>) -> Result<Value, ()>;
     fn set(
         &self,
         item: Pin<&Item>,
@@ -37,7 +37,7 @@ pub trait PropertyInfo<Item, Value> {
     fn set_binding(
         &self,
         item: Pin<&Item>,
-        binding: Box<dyn Fn(&crate::EvaluationContext) -> Value>,
+        binding: Box<dyn Fn() -> Value>,
         animation: Option<crate::abi::primitives::PropertyAnimation>,
     ) -> Result<(), ()>;
 
@@ -61,8 +61,8 @@ where
     Value: TryInto<T>,
     T: TryInto<Value>,
 {
-    fn get(&self, item: Pin<&Item>, context: &crate::EvaluationContext) -> Result<Value, ()> {
-        self.apply_pin(item).get(context).try_into().map_err(|_| ())
+    fn get(&self, item: Pin<&Item>) -> Result<Value, ()> {
+        self.apply_pin(item).get().try_into().map_err(|_| ())
     }
     fn set(
         &self,
@@ -80,14 +80,14 @@ where
     fn set_binding(
         &self,
         item: Pin<&Item>,
-        binding: Box<dyn Fn(&crate::EvaluationContext) -> Value>,
+        binding: Box<dyn Fn() -> Value>,
         animation: Option<crate::abi::primitives::PropertyAnimation>,
     ) -> Result<(), ()> {
         if animation.is_some() {
             Err(())
         } else {
-            self.apply_pin(item).set_binding(move |context| {
-                binding(context).try_into().map_err(|_| ()).expect("binding was of the wrong type")
+            self.apply_pin(item).set_binding(move || {
+                binding().try_into().map_err(|_| ()).expect("binding was of the wrong type")
             });
             Ok(())
         }
@@ -109,8 +109,8 @@ where
     T: TryInto<Value>,
     T: crate::abi::properties::InterpolatedPropertyValue,
 {
-    fn get(&self, item: Pin<&Item>, context: &crate::EvaluationContext) -> Result<Value, ()> {
-        self.0.get(item, context)
+    fn get(&self, item: Pin<&Item>) -> Result<Value, ()> {
+        self.0.get(item)
     }
     fn set(
         &self,
@@ -128,16 +128,13 @@ where
     fn set_binding(
         &self,
         item: Pin<&Item>,
-        binding: Box<dyn Fn(&crate::EvaluationContext) -> Value>,
+        binding: Box<dyn Fn() -> Value>,
         animation: Option<crate::abi::primitives::PropertyAnimation>,
     ) -> Result<(), ()> {
         if let Some(animation) = &animation {
             self.apply_pin(item).set_animated_binding(
-                move |context| {
-                    binding(context)
-                        .try_into()
-                        .map_err(|_| ())
-                        .expect("binding was of the wrong type")
+                move || {
+                    binding().try_into().map_err(|_| ()).expect("binding was of the wrong type")
                 },
                 animation,
             );

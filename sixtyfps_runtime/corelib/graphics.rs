@@ -145,7 +145,7 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow
 {
     fn draw(&self, component: crate::ComponentRefPin) {
         // FIXME: we should do that only if some property change
-        component.as_ref().compute_layout(&crate::EvaluationContext::for_root_component(component));
+        component.as_ref().compute_layout();
 
         let mut this = self.borrow_mut();
 
@@ -156,9 +156,8 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow
             // Generate cached rendering data once
             crate::item_tree::visit_items(
                 component,
-                |ctx, item, _| {
+                |_, item, _| {
                     crate::item_rendering::update_item_rendering_data(
-                        ctx,
                         item,
                         &mut this.rendering_cache,
                         &mut rendering_primitives_builder,

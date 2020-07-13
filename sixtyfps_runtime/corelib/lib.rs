@@ -44,7 +44,7 @@ pub use abi::sharedarray::SharedArray;
 pub use abi::datastructures::Resource;
 
 #[doc(inline)]
-pub use abi::properties::{EvaluationContext, Property};
+pub use abi::properties::Property;
 
 #[doc(inline)]
 pub use abi::signals::Signal;

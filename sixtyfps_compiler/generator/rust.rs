@@ -52,10 +52,7 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
                     quote!(
                         #[allow(dead_code)]
                         fn #emitter_ident(self: ::core::pin::Pin<&Self>) {
-                            let eval_context = sixtyfps::re_exports::EvaluationContext::for_root_component(
-                                    sixtyfps::re_exports::ComponentRef::new_pin(self)
-                                );
-                            Self::field_offsets().#prop_ident.apply_pin(self).emit(&eval_context, ())
+                            Self::field_offsets().#prop_ident.apply_pin(self).emit(())
                         }
                     )
                     .into(),
@@ -79,10 +76,7 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
                     quote!(
                         #[allow(dead_code)]
                         fn #getter_ident(self: ::core::pin::Pin<&Self>) -> #rust_property_type {
-                            let eval_context = sixtyfps::re_exports::EvaluationContext::for_root_component(
-                                   sixtyfps::re_exports::ComponentRef::new_pin(self)
-                                );
-                            Self::field_offsets().#prop_ident.apply_pin(self).get(&eval_context)
+                            Self::field_offsets().#prop_ident.apply_pin(self).get()
                         }
                     )
                     .into(),
@@ -180,11 +174,6 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
                         if self_pinned.#model_name.is_dirty() {
                             #component_id::field_offsets().#model_name.apply_pin(self_pinned).evaluate(|| {
                                 let _self = self_pinned.clone();
-                                // FIXME: this should not be the root_component  (but that's fine as we no longer access the parent)
-                                let context = sixtyfps::re_exports::EvaluationContext::for_root_component(
-                                    sixtyfps::re_exports::ComponentRef::new_pin(_self)
-                                );
-                                let context = &context;
                                 self_pinned.#repeater_id.update_model(#model, || {
                                     #rep_component_id::new(self_pinned.self_weak.get().unwrap().clone())
                                 });
@@ -226,9 +215,13 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
 
                 if matches!(item.lookup_property(k.as_str()), Type::Signal) {
                     init.push(quote!(
-                        self_pinned.#rust_property.set_handler(|context, ()| {
-                            let _self = context.get_component::<#component_id>().unwrap();
-                            #tokens_for_expression;
+                        self_pinned.#rust_property.set_handler({
+                            let self_weak = sixtyfps::re_exports::WeakPin::downgrade(self_pinned.clone());
+                            move |()| {
+                                let self_pinned = self_weak.upgrade().unwrap();
+                                let _self = self_pinned.as_ref();
+                                #tokens_for_expression;
+                            }
                         });
                     ));
                 } else {
@@ -246,7 +239,7 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
                             k,
                             quote!({
                                 let self_weak = sixtyfps::re_exports::WeakPin::downgrade(self_pinned.clone());
-                                move |context| {
+                                move || {
                                     let self_pinned = self_weak.upgrade().unwrap();
                                     let _self = self_pinned.as_ref();
                                     (#tokens_for_expression) as _
@@ -450,20 +443,19 @@ fn property_set_binding_tokens(
     }
 }
 
-/// Returns the code that can access the given property or signal from the context (but without the set or get)
+/// Returns the code that can access the given property or signal (but without the set or get)
 ///
 /// to be used like:
 /// ```ignore
-/// let (access, context) = access_member(...)
-/// quote!(#access.get(#context))
+/// let access = access_member(...)
+/// quote!(#access.get())
 /// ```
 fn access_member(
     element: &ElementRc,
     name: &str,
     component: &Rc<Component>,
-    context: TokenStream,
     component_rust: TokenStream,
-) -> (TokenStream, TokenStream) {
+) -> TokenStream {
     let e = element.borrow();
 
     let enclosing_component = e.enclosing_component.upgrade().unwrap();
@@ -471,15 +463,13 @@ fn access_member(
         let component_id = component_id(&enclosing_component);
         let name_ident = quote::format_ident!("{}", name);
         if e.property_declarations.contains_key(name) {
-            (quote!(#component_id::field_offsets().#name_ident.apply_pin(#component_rust)), context)
+            quote!(#component_id::field_offsets().#name_ident.apply_pin(#component_rust))
         } else {
             let elem_ident = quote::format_ident!("{}", e.id);
             let elem_ty = quote::format_ident!("{}", e.base_type.as_builtin().class_name);
-            (
-                quote!((#component_id::field_offsets().#elem_ident + #elem_ty::field_offsets().#name_ident)
-                    .apply_pin(#component_rust)
-                ),
-                context,
+
+            quote!((#component_id::field_offsets().#elem_ident + #elem_ty::field_offsets().#name_ident)
+                .apply_pin(#component_rust)
             )
         }
     } else {
@@ -494,7 +484,6 @@ fn access_member(
                 .enclosing_component
                 .upgrade()
                 .unwrap(),
-            quote!((&sixtyfps::re_exports::EvaluationContext::for_root_component(#context.component))),
             quote!(#component_rust.parent.upgrade().unwrap().as_ref()),
         )
     }
@@ -520,19 +509,14 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
             }
         }
         Expression::PropertyReference(NamedReference { element, name }) => {
-            let (access, context) = access_member(
-                &element.upgrade().unwrap(),
-                name.as_str(),
-                component,
-                quote!(context),
-                quote!(_self),
-            );
-            quote!(#access.get(#context))
+            let access =
+                access_member(&element.upgrade().unwrap(), name.as_str(), component, quote!(_self));
+            quote!(#access.get())
         }
         Expression::RepeaterIndexReference { element } => {
             if element.upgrade().unwrap().borrow().base_type == Type::Component(component.clone()) {
                 let component_id = component_id(&component);
-                quote!({ #component_id::field_offsets().index.apply_pin(_self).get(context) })
+                quote!({ #component_id::field_offsets().index.apply_pin(_self).get() })
             } else {
                 todo!();
             }
@@ -540,7 +524,7 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
         Expression::RepeaterModelReference { element } => {
             if element.upgrade().unwrap().borrow().base_type == Type::Component(component.clone()) {
                 let component_id = component_id(&component);
-                quote!({ #component_id::field_offsets().model_data.apply_pin(_self).get(context) })
+                quote!({ #component_id::field_offsets().model_data.apply_pin(_self).get() })
             } else {
                 todo!();
             }
@@ -562,14 +546,9 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
             quote!({ #(#map);* })
         }
         Expression::SignalReference(NamedReference { element, name, .. }) => {
-            let (access, context) = access_member(
-                &element.upgrade().unwrap(),
-                name.as_str(),
-                component,
-                quote!(context),
-                quote!(_self),
-            );
-            quote!(#access.emit(#context, ()))
+            let access =
+                access_member(&element.upgrade().unwrap(), name.as_str(), component, quote!(_self));
+            quote!(#access.emit(()))
         }
         Expression::FunctionCall { function } => {
             if matches!(function.ty(), Type::Signal) {
@@ -581,16 +560,15 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
         }
         Expression::SelfAssignment { lhs, rhs, op } => match &**lhs {
             Expression::PropertyReference(NamedReference { element, name }) => {
-                let (lhs, context) = access_member(
+                let lhs = access_member(
                     &element.upgrade().unwrap(),
                     name.as_str(),
                     component,
-                    quote!(context),
                     quote!(_self),
                 );
                 let rhs = compile_expression(&*rhs, &component);
                 let op = proc_macro2::Punct::new(*op, proc_macro2::Spacing::Alone);
-                quote!( #lhs.set(#lhs.get(#context) #op &((#rhs) as _) ))
+                quote!( #lhs.set(#lhs.get() #op &((#rhs) as _) ))
             }
             _ => panic!("typechecking should make sure this was a PropertyReference"),
         },
@@ -725,9 +703,9 @@ fn compute_layout(component: &Rc<Component>) -> TokenStream {
                 row_constraint: Slice::from_slice(&[#(#row_constraint),*]),
                 col_constraint: Slice::from_slice(&[#(#col_constraint),*]),
                 width: (Self::field_offsets().#within + #within_ty::field_offsets().width)
-                    .apply_pin(self).get(context),
+                    .apply_pin(self).get(),
                 height: (Self::field_offsets().#within + #within_ty::field_offsets().height)
-                    .apply_pin(self).get(context),
+                    .apply_pin(self).get(),
                 x: #x_pos,
                 y: #y_pos,
                 cells: Slice::from_slice(&[#( Slice::from_slice(&[#( #cells ),*])),*]),
@@ -781,7 +759,7 @@ fn compute_layout(component: &Rc<Component>) -> TokenStream {
         fn layout_info(self: ::core::pin::Pin<&Self>) -> sixtyfps::re_exports::LayoutInfo {
             todo!("Implement in rust.rs")
         }
-        fn compute_layout(self: ::core::pin::Pin<&Self>, context: &sixtyfps::re_exports::EvaluationContext) {
+        fn compute_layout(self: ::core::pin::Pin<&Self>) {
             #![allow(unused)]
             use sixtyfps::re_exports::*;
             let dummy = Property::<f32>::default();

@@ -21,7 +21,7 @@ use super::datastructures::{
 };
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
-use crate::{EvaluationContext, Property, SharedString, Signal};
+use crate::{Property, SharedString, Signal};
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use corelib_macro::*;
@@ -40,27 +40,24 @@ pub struct Rectangle {
 }
 
 impl Item for Rectangle {
-    fn geometry(self: Pin<&Self>, context: &EvaluationContext) -> Rect {
+    fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(
-            Self::field_offsets().x.apply_pin(self).get(context),
-            Self::field_offsets().y.apply_pin(self).get(context),
-            Self::field_offsets().width.apply_pin(self).get(context),
-            Self::field_offsets().height.apply_pin(self).get(context),
+            Self::field_offsets().x.apply_pin(self).get(),
+            Self::field_offsets().y.apply_pin(self).get(),
+            Self::field_offsets().width.apply_pin(self).get(),
+            Self::field_offsets().height.apply_pin(self).get(),
         )
     }
-    fn rendering_primitive(
-        self: Pin<&Self>,
-        context: &crate::EvaluationContext,
-    ) -> RenderingPrimitive {
-        let width = Self::field_offsets().width.apply_pin(self).get(context);
-        let height = Self::field_offsets().height.apply_pin(self).get(context);
+    fn rendering_primitive(self: Pin<&Self>) -> RenderingPrimitive {
+        let width = Self::field_offsets().width.apply_pin(self).get();
+        let height = Self::field_offsets().height.apply_pin(self).get();
         if width > 0. && height > 0. {
             RenderingPrimitive::Rectangle {
-                x: Self::field_offsets().x.apply_pin(self).get(context),
-                y: Self::field_offsets().y.apply_pin(self).get(context),
+                x: Self::field_offsets().x.apply_pin(self).get(),
+                y: Self::field_offsets().y.apply_pin(self).get(),
                 width,
                 height,
-                color: Self::field_offsets().color.apply_pin(self).get(context),
+                color: Self::field_offsets().color.apply_pin(self).get(),
             }
         } else {
             RenderingPrimitive::NoContents
@@ -71,12 +68,7 @@ impl Item for Rectangle {
         Default::default()
     }
 
-    fn input_event(
-        self: Pin<&Self>,
-        _: super::datastructures::MouseEvent,
-        _: &crate::EvaluationContext,
-    ) {
-    }
+    fn input_event(self: Pin<&Self>, _: super::datastructures::MouseEvent) {}
 }
 
 impl ItemConsts for Rectangle {
@@ -102,22 +94,19 @@ pub struct Image {
 }
 
 impl Item for Image {
-    fn geometry(self: Pin<&Self>, context: &crate::EvaluationContext) -> Rect {
+    fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(
-            Self::field_offsets().x.apply_pin(self).get(context),
-            Self::field_offsets().y.apply_pin(self).get(context),
-            Self::field_offsets().width.apply_pin(self).get(context),
-            Self::field_offsets().height.apply_pin(self).get(context),
+            Self::field_offsets().x.apply_pin(self).get(),
+            Self::field_offsets().y.apply_pin(self).get(),
+            Self::field_offsets().width.apply_pin(self).get(),
+            Self::field_offsets().height.apply_pin(self).get(),
         )
     }
-    fn rendering_primitive(
-        self: Pin<&Self>,
-        context: &crate::EvaluationContext,
-    ) -> RenderingPrimitive {
+    fn rendering_primitive(self: Pin<&Self>) -> RenderingPrimitive {
         RenderingPrimitive::Image {
-            x: Self::field_offsets().x.apply_pin(self).get(context),
-            y: Self::field_offsets().y.apply_pin(self).get(context),
-            source: Self::field_offsets().source.apply_pin(self).get(context),
+            x: Self::field_offsets().x.apply_pin(self).get(),
+            y: Self::field_offsets().y.apply_pin(self).get(),
+            source: Self::field_offsets().source.apply_pin(self).get(),
         }
     }
 
@@ -126,12 +115,7 @@ impl Item for Image {
         Default::default()
     }
 
-    fn input_event(
-        self: Pin<&Self>,
-        _: super::datastructures::MouseEvent,
-        _: &crate::EvaluationContext,
-    ) {
-    }
+    fn input_event(self: Pin<&Self>, _: super::datastructures::MouseEvent) {}
 }
 
 impl ItemConsts for Image {
@@ -159,25 +143,22 @@ pub struct Text {
 
 impl Item for Text {
     // FIXME: width / height.  or maybe it doesn't matter?  (
-    fn geometry(self: Pin<&Self>, context: &crate::EvaluationContext) -> Rect {
+    fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(
-            Self::field_offsets().x.apply_pin(self).get(context),
-            Self::field_offsets().y.apply_pin(self).get(context),
+            Self::field_offsets().x.apply_pin(self).get(),
+            Self::field_offsets().y.apply_pin(self).get(),
             0.,
             0.,
         )
     }
-    fn rendering_primitive(
-        self: Pin<&Self>,
-        context: &crate::EvaluationContext,
-    ) -> RenderingPrimitive {
+    fn rendering_primitive(self: Pin<&Self>) -> RenderingPrimitive {
         RenderingPrimitive::Text {
-            x: Self::field_offsets().x.apply_pin(self).get(context),
-            y: Self::field_offsets().y.apply_pin(self).get(context),
-            text: Self::field_offsets().text.apply_pin(self).get(context),
-            font_family: Self::field_offsets().font_family.apply_pin(self).get(context),
-            font_pixel_size: Self::field_offsets().font_pixel_size.apply_pin(self).get(context),
-            color: Self::field_offsets().color.apply_pin(self).get(context),
+            x: Self::field_offsets().x.apply_pin(self).get(),
+            y: Self::field_offsets().y.apply_pin(self).get(),
+            text: Self::field_offsets().text.apply_pin(self).get(),
+            font_family: Self::field_offsets().font_family.apply_pin(self).get(),
+            font_pixel_size: Self::field_offsets().font_pixel_size.apply_pin(self).get(),
+            color: Self::field_offsets().color.apply_pin(self).get(),
         }
     }
 
@@ -185,12 +166,7 @@ impl Item for Text {
         todo!()
     }
 
-    fn input_event(
-        self: Pin<&Self>,
-        _: super::datastructures::MouseEvent,
-        _: &crate::EvaluationContext,
-    ) {
-    }
+    fn input_event(self: Pin<&Self>, _: super::datastructures::MouseEvent) {}
 }
 
 impl ItemConsts for Text {
@@ -217,18 +193,15 @@ pub struct TouchArea {
 }
 
 impl Item for TouchArea {
-    fn geometry(self: Pin<&Self>, context: &crate::EvaluationContext) -> Rect {
+    fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(
-            Self::field_offsets().x.apply_pin(self).get(context),
-            Self::field_offsets().y.apply_pin(self).get(context),
-            Self::field_offsets().width.apply_pin(self).get(context),
-            Self::field_offsets().height.apply_pin(self).get(context),
+            Self::field_offsets().x.apply_pin(self).get(),
+            Self::field_offsets().y.apply_pin(self).get(),
+            Self::field_offsets().width.apply_pin(self).get(),
+            Self::field_offsets().height.apply_pin(self).get(),
         )
     }
-    fn rendering_primitive(
-        self: Pin<&Self>,
-        _context: &crate::EvaluationContext,
-    ) -> RenderingPrimitive {
+    fn rendering_primitive(self: Pin<&Self>) -> RenderingPrimitive {
         RenderingPrimitive::NoContents
     }
 
@@ -236,11 +209,7 @@ impl Item for TouchArea {
         todo!()
     }
 
-    fn input_event(
-        self: Pin<&Self>,
-        event: super::datastructures::MouseEvent,
-        context: &crate::EvaluationContext,
-    ) {
+    fn input_event(self: Pin<&Self>, event: super::datastructures::MouseEvent) {
         println!("Touch Area Event {:?}", event);
         Self::field_offsets().pressed.apply_pin(self).set(match event.what {
             super::datastructures::MouseEventType::MousePressed => true,
@@ -248,7 +217,7 @@ impl Item for TouchArea {
             super::datastructures::MouseEventType::MouseMoved => return,
         });
         if matches!(event.what, super::datastructures::MouseEventType::MouseReleased) {
-            Self::field_offsets().clicked.apply_pin(self).emit(context, ())
+            Self::field_offsets().clicked.apply_pin(self).emit(())
         }
     }
 }
@@ -278,27 +247,24 @@ pub struct Path {
 }
 
 impl Item for Path {
-    fn geometry(self: Pin<&Self>, context: &crate::EvaluationContext) -> Rect {
+    fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(
-            Self::field_offsets().x.apply_pin(self).get(context),
-            Self::field_offsets().y.apply_pin(self).get(context),
+            Self::field_offsets().x.apply_pin(self).get(),
+            Self::field_offsets().y.apply_pin(self).get(),
             0.,
             0.,
         )
     }
-    fn rendering_primitive(
-        self: Pin<&Self>,
-        context: &crate::EvaluationContext,
-    ) -> RenderingPrimitive {
+    fn rendering_primitive(self: Pin<&Self>) -> RenderingPrimitive {
         RenderingPrimitive::Path {
-            x: Self::field_offsets().x.apply_pin(self).get(context),
-            y: Self::field_offsets().y.apply_pin(self).get(context),
-            width: Self::field_offsets().width.apply_pin(self).get(context),
-            height: Self::field_offsets().height.apply_pin(self).get(context),
-            elements: Self::field_offsets().elements.apply_pin(self).get(context),
-            fill_color: Self::field_offsets().fill_color.apply_pin(self).get(context),
-            stroke_color: Self::field_offsets().stroke_color.apply_pin(self).get(context),
-            stroke_width: Self::field_offsets().stroke_width.apply_pin(self).get(context),
+            x: Self::field_offsets().x.apply_pin(self).get(),
+            y: Self::field_offsets().y.apply_pin(self).get(),
+            width: Self::field_offsets().width.apply_pin(self).get(),
+            height: Self::field_offsets().height.apply_pin(self).get(),
+            elements: Self::field_offsets().elements.apply_pin(self).get(),
+            fill_color: Self::field_offsets().fill_color.apply_pin(self).get(),
+            stroke_color: Self::field_offsets().stroke_color.apply_pin(self).get(),
+            stroke_width: Self::field_offsets().stroke_width.apply_pin(self).get(),
         }
     }
 
@@ -306,12 +272,7 @@ impl Item for Path {
         todo!()
     }
 
-    fn input_event(
-        self: Pin<&Self>,
-        _: super::datastructures::MouseEvent,
-        _: &crate::EvaluationContext,
-    ) {
-    }
+    fn input_event(self: Pin<&Self>, _: super::datastructures::MouseEvent) {}
 }
 
 impl ItemConsts for Path {
