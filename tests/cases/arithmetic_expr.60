@@ -18,7 +18,7 @@ assert(instance.get_t4() == 3 + - 5 - 8 - -9 * - - - 120);
 
 
 ```rust
-let instance = Box::pin(TestCase::default());
+let instance = TestCase::new();
 let instance = instance.as_ref();
 assert_eq!(instance.get_t1(), 4 + 3 * 2 + 2 - 50 - 2);
 assert_eq!(instance.get_t2(), 500 / 2 * 30 - 1);

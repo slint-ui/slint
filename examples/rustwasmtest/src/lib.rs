@@ -10,5 +10,5 @@ pub fn wasm_main() {
     #[cfg(debug_assertions)]
     console_error_panic_hook::set_once();
 
-    Hello::default().run();
+    Hello::new().run();
 }

@@ -11,7 +11,7 @@ assert(!instance.get_falsevar());
 
 
 ```rust
-let instance = Box::pin(TestCase::default());
+let instance = TestCase::new();
 let instance = instance.as_ref();
 assert!(instance.get_truevar(), 1);
 assert!(!instance.get_falsevar(), 1);

@@ -115,7 +115,6 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
     let mut repeated_dynmodel_names = Vec::new();
     let mut repeated_visit_branch = Vec::new();
     let mut init = Vec::new();
-    let mut init_repeaters = Vec::new();
     super::build_array_helper(component, |item_rc, children_index| {
         let item = item_rc.borrow();
         if let Some(repeated) = &item.repeated {
@@ -166,11 +165,9 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
             }
 
             if repeated.model.is_constant() {
-                init_repeaters.push(quote! {
+                init.push(quote! {
                     self_pinned.#repeater_id.update_model(#model, || {
-                        let mut new_comp = #rep_component_id::default();
-                        new_comp.parent = self_pinned.self_weak.get().unwrap().clone();
-                        new_comp
+                        #rep_component_id::new(self_pinned.self_weak.get().unwrap().clone())
                     });
                 });
                 repeated_visit_branch.push(quote!(
@@ -189,9 +186,7 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
                                 );
                                 let context = &context;
                                 self_pinned.#repeater_id.update_model(#model, || {
-                                    let mut new_comp = #rep_component_id::default();
-                                    new_comp.parent = self_pinned.self_weak.get().unwrap().clone();
-                                    new_comp
+                                    #rep_component_id::new(self_pinned.self_weak.get().unwrap().clone())
                                 });
                             });
                         }
@@ -231,38 +226,37 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
 
                 if matches!(item.lookup_property(k.as_str()), Type::Signal) {
                     init.push(quote!(
-                        self_.#rust_property.set_handler(|context, ()| {
+                        self_pinned.#rust_property.set_handler(|context, ()| {
                             let _self = context.get_component::<#component_id>().unwrap();
                             #tokens_for_expression;
                         });
                     ));
                 } else {
-                    if binding_expression.is_constant() {
-                        let setter = property_set_value_tokens(
+                    let setter = if binding_expression.is_constant() {
+                        property_set_value_tokens(
                             component,
                             &item_rc,
                             k,
                             quote!((#tokens_for_expression) as _),
-                        );
-                        init.push(quote!(
-                            self_.#rust_property.#setter;
-                        ));
+                        )
                     } else {
-                        let setter = property_set_binding_tokens(
+                        property_set_binding_tokens(
                             component,
                             &item_rc,
                             k,
-                            quote!(
-                                |context| {
-                                    let _self = context.get_component::<#component_id>().unwrap();
+                            quote!({
+                                let self_weak = sixtyfps::re_exports::WeakPin::downgrade(self_pinned.clone());
+                                move |context| {
+                                    let self_pinned = self_weak.upgrade().unwrap();
+                                    let _self = self_pinned.as_ref();
                                     (#tokens_for_expression) as _
                                 }
-                            ),
-                        );
-                        init.push(quote!(
-                            self_.#rust_property.#setter;
-                        ));
-                    }
+                            }),
+                        )
+                    };
+                    init.push(quote!(
+                        self_pinned.#rust_property.#setter;
+                    ));
                 }
             }
             item_names.push(field_name);
@@ -312,15 +306,10 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
         ));
     } else {
         property_and_signal_accessors.push(quote! {
-            fn run(self) {
+            fn run(self : core::pin::Pin<std::rc::Rc<Self>>) {
                 use sixtyfps::re_exports::*;
                 let window = sixtyfps::create_window();
-                let self_pinned = Rc::pin(self);
-                self_pinned.self_weak.set(WeakPin::downgrade(self_pinned.clone()))
-                    .map_err(|_|())
-                    .expect("Can only be pinned once");
-                #(#init_repeaters)*
-                window.run(VRef::new_pin(self_pinned.as_ref()));
+                window.run(VRef::new_pin(self.as_ref()));
             }
         });
     };
@@ -349,25 +338,6 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
             #(parent : sixtyfps::re_exports::WeakPin<#parent_component_type>,)*
         }
 
-        impl ::core::default::Default for #component_id {
-            fn default() -> Self {
-                #![allow(unused)]
-                use sixtyfps::re_exports::*;
-                ComponentVTable_static!(static VT for #component_id);
-                let mut self_ = Self {
-                    #(#item_names : ::core::default::Default::default(),)*
-                    #(#declared_property_vars : ::core::default::Default::default(),)*
-                    #(#declared_signals : ::core::default::Default::default(),)*
-                    #(#repeated_element_names : ::core::default::Default::default(),)*
-                    #(#repeated_dynmodel_names : ::core::default::Default::default(),)*
-                    self_weak : ::core::default::Default::default(),
-                    #(parent : sixtyfps::re_exports::WeakPin::<#parent_component_type>::default(),)*
-                };
-                #(#init)*
-                self_
-            }
-
-        }
         impl sixtyfps::re_exports::Component for #component_id {
             fn visit_children_item(self: ::core::pin::Pin<&Self>, index: isize, visitor: sixtyfps::re_exports::ItemVisitorRefMut) {
                 use sixtyfps::re_exports::*;
@@ -386,6 +356,27 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
         }
 
         impl #component_id{
+            fn new(#(parent: sixtyfps::re_exports::WeakPin::<#parent_component_type>)*)
+                -> core::pin::Pin<std::rc::Rc<Self>>
+            {
+                #![allow(unused)]
+                use sixtyfps::re_exports::*;
+                ComponentVTable_static!(static VT for #component_id);
+                let mut self_ = Self {
+                    #(#item_names : ::core::default::Default::default(),)*
+                    #(#declared_property_vars : ::core::default::Default::default(),)*
+                    #(#declared_signals : ::core::default::Default::default(),)*
+                    #(#repeated_element_names : ::core::default::Default::default(),)*
+                    #(#repeated_dynmodel_names : ::core::default::Default::default(),)*
+                    self_weak : ::core::default::Default::default(),
+                    #(parent : parent as sixtyfps::re_exports::WeakPin::<#parent_component_type>,)*
+                };
+                let self_pinned = std::rc::Rc::pin(self_);
+                self_pinned.self_weak.set(WeakPin::downgrade(self_pinned.clone())).map_err(|_|())
+                    .expect("Can only be pinned once");
+                #(#init)*
+                self_pinned
+            }
             #(#property_and_signal_accessors)*
         }
 

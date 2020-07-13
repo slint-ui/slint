@@ -6,6 +6,7 @@ but then it should also be renamed everywhere, including in the language grammar
 */
 
 use super::properties::EvaluationContext;
+use core::cell::Cell;
 
 /// A Signal that can be connected to a handler.
 ///
@@ -15,7 +16,7 @@ use super::properties::EvaluationContext;
 #[repr(C)]
 pub struct Signal<Arg> {
     /// FIXME: Box<dyn> is a fat object and we probaly want to put an erased type in there
-    handler: Option<Box<dyn Fn(&EvaluationContext, Arg)>>,
+    handler: Cell<Option<Box<dyn Fn(&EvaluationContext, Arg)>>>,
 }
 
 impl<Arg> Signal<Arg> {
@@ -23,16 +24,18 @@ impl<Arg> Signal<Arg> {
     ///
     /// The constext must be a context corresponding to the component in which the signal is contained.
     pub fn emit(&self, context: &EvaluationContext, a: Arg) {
-        if let Some(h) = &self.handler {
+        if let Some(h) = self.handler.take() {
             h(context, a);
+            assert!(self.handler.take().is_none(), "Signal Handler set while emitted");
+            self.handler.set(Some(h))
         }
     }
 
     /// Set an handler to be called when the signal is emited
     ///
     /// There can only be one single handler per signal.
-    pub fn set_handler(&mut self, f: impl Fn(&EvaluationContext, Arg) + 'static) {
-        self.handler = Some(Box::new(f));
+    pub fn set_handler(&self, f: impl Fn(&EvaluationContext, Arg) + 'static) {
+        self.handler.set(Some(Box::new(f)));
     }
 }
 
@@ -57,7 +60,7 @@ fn signal_simple_test() {
         fn compute_layout(self: Pin<&Self>, _: &crate::EvaluationContext) {}
     }
     use crate::abi::datastructures::ComponentVTable;
-    let mut c = Component::default();
+    let c = Component::default();
     c.clicked.set_handler(|c, ()| unsafe {
         (*(c.component.as_ptr() as *const Component)).pressed.set(true)
     });

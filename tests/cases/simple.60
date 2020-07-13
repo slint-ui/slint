@@ -8,7 +8,7 @@ TestCase instance;
 ```
 
 ```rust
-TestCase::default();
+TestCase::new();
 ```
 
 ```js

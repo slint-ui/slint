@@ -20,7 +20,7 @@ sixtyfps::sixtyfps!{
 }
 fn main() {
 #   return; // Don't run a window in an example
-    HelloWorld::default().run()
+    HelloWorld::new().run()
 }
 ```
 
@@ -56,7 +56,7 @@ Then in your main file
 ```ignore
 sixtyfps::include_modules!();
 fn main() {
-    HelloWorld::default().run()
+    HelloWorld::new().run()
 }
 ```
 */

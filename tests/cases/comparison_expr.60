@@ -58,7 +58,7 @@ assert(instance.get_t6() == true);
 
 
 ```rust
-let instance = Box::pin(TestCase::default());
+let instance = TestCase::new();
 let instance = instance.as_ref();
 
 assert_eq!(instance.get_t1(), true);

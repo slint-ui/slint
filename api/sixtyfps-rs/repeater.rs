@@ -1,4 +1,6 @@
 use core::cell::RefCell;
+use core::pin::Pin;
+use std::rc::Rc;
 
 /// Component that can be instantiated by a repeater.
 pub trait RepeatedComponent: sixtyfps_corelib::abi::datastructures::Component {
@@ -11,9 +13,14 @@ pub trait RepeatedComponent: sixtyfps_corelib::abi::datastructures::Component {
 
 /// This field is put in a component when using the `for` syntax
 /// It helps instantiating the components `C`
-#[derive(Default)]
 pub struct Repeater<C> {
-    components: RefCell<Vec<core::pin::Pin<Box<C>>>>,
+    components: RefCell<Vec<Pin<Rc<C>>>>,
+}
+
+impl<C> Default for Repeater<C> {
+    fn default() -> Self {
+        Repeater { components: Default::default() }
+    }
 }
 
 impl<Data, C> Repeater<C>
@@ -21,7 +28,7 @@ where
     C: RepeatedComponent<Data = Data>,
 {
     /// Called when the model is changed
-    pub fn update_model<'a>(&self, data: impl Iterator<Item = Data>, init: impl Fn() -> C)
+    pub fn update_model<'a>(&self, data: impl Iterator<Item = Data>, init: impl Fn() -> Pin<Rc<C>>)
     where
         Data: 'a,
     {
@@ -29,7 +36,7 @@ where
         for (i, d) in data.enumerate() {
             let c = init();
             c.update(i, d);
-            self.components.borrow_mut().push(Box::pin(c));
+            self.components.borrow_mut().push(c);
         }
     }
 
