@@ -25,7 +25,8 @@ pub fn move_declarations(component: &Rc<Component>) {
 
     let mut new_root_bindings = HashMap::new();
     let mut new_root_property_animations = HashMap::new();
-    recurse_elem(&component.root_element, &(), &mut |elem, _| {
+
+    let move_bindings_and_animations = &mut |elem: &ElementRc| {
         if elem.borrow().repeated.is_some() {
             if let Type::Component(base) = &elem.borrow().base_type {
                 move_declarations(base);
@@ -67,14 +68,23 @@ pub fn move_declarations(component: &Rc<Component>) {
             }
         }
         elem.borrow_mut().property_animations = new_property_animations;
-    });
+    };
 
-    recurse_elem(&component.root_element, &(), &mut |elem, _| {
+    recurse_elem(&component.root_element, &(), &mut |e, _| move_bindings_and_animations(e));
+
+    component.optimized_elements.borrow().iter().for_each(|e| move_bindings_and_animations(e));
+
+
+    let move_properties = &mut |elem: &ElementRc| {
         let elem_decl = Declarations::take_from_element(&mut *elem.borrow_mut());
         decl.property_declarations.extend(
             elem_decl.property_declarations.into_iter().map(|(p, d)| (map_name(elem, &*p), d)),
         );
-    });
+    };
+
+    recurse_elem(&component.root_element, &(), &mut |elem, _| move_properties(elem));
+
+    component.optimized_elements.borrow().iter().for_each(|e| move_properties(e));
 
     {
         let mut r = component.root_element.borrow_mut();
