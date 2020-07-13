@@ -503,7 +503,7 @@ fn access_member(
                 .enclosing_component
                 .upgrade()
                 .unwrap(),
-            quote!(#context.parent_context.unwrap()),
+            quote!((&sixtyfps::re_exports::EvaluationContext::for_root_component(#context.component))),
             quote!(#component_rust.parent.upgrade().unwrap().as_ref()),
         )
     }

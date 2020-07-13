@@ -131,7 +131,7 @@ pub fn eval_expression(
         Expression::PropertyReference(NamedReference { element, name }) => {
             let element = element.upgrade().unwrap();
             let (component_mem, component_type, eval_context) =
-                enclosing_component_for_element(&element, eval_context);
+                enclosing_component_for_element(&element, component_type, eval_context);
             let element = element.borrow();
             if element.id == element.enclosing_component.upgrade().unwrap().root_element.borrow().id
             {
@@ -211,7 +211,7 @@ pub fn eval_expression(
             if let Expression::SignalReference(NamedReference { element, name }) = &**function {
                 let element = element.upgrade().unwrap();
                 let (component_mem, component_type, eval_context) =
-                    enclosing_component_for_element(&element, eval_context);
+                    enclosing_component_for_element(&element, component_type, eval_context);
 
                 let item_info = &component_type.items[element.borrow().id.as_str()];
                 let item = unsafe { item_info.item_from_component(component_mem) };
@@ -230,7 +230,7 @@ pub fn eval_expression(
                         .unwrap_or_else(|| panic!("unkown signal {}", name))
                         as *mut corelib::Signal<()>)
                 };
-                signal.emit(eval_context, ());
+                signal.emit(&eval_context, ());
                 Value::Void
             } else {
                 panic!("call of something not a signal")
@@ -251,7 +251,7 @@ pub fn eval_expression(
 
                 let element = element.upgrade().unwrap();
                 let (component_mem, component_type, eval_context) =
-                    enclosing_component_for_element(&element, eval_context);
+                    enclosing_component_for_element(&element, component_type, eval_context);
 
                 let component = element.borrow().enclosing_component.upgrade().unwrap();
                 if element.borrow().id == component.root_element.borrow().id {
@@ -331,19 +331,29 @@ pub fn eval_expression(
 
 fn enclosing_component_for_element<'a>(
     element: &ElementRc,
-    eval_context: &'a corelib::EvaluationContext<'a>,
-) -> (*const u8, &'a crate::ComponentDescription, &'a corelib::EvaluationContext<'a>) {
-    let component_type =
-        unsafe { crate::dynamic_component::get_component_type(eval_context.component) };
+    component_type: &'a crate::ComponentDescription,
+    eval_context: &corelib::EvaluationContext<'a>,
+) -> (*const u8, &'a crate::ComponentDescription, corelib::EvaluationContext<'a>) {
     if Rc::ptr_eq(
         &element.borrow().enclosing_component.upgrade().unwrap(),
         &component_type.original,
     ) {
         let mem = eval_context.component.as_ptr();
-        (mem, component_type, eval_context)
+        (mem, component_type, EvaluationContext::for_root_component(eval_context.component))
     } else {
-        debug_assert!(component_type.original.parent_element.upgrade().is_some());
-        enclosing_component_for_element(element, eval_context.parent_context.unwrap())
+        let mem = eval_context.component.as_ptr();
+        let parent_component = unsafe {
+            *(mem.add(component_type.parent_component_offset.unwrap())
+                as *const Option<corelib::ComponentRefPin>)
+        }
+        .unwrap();
+        let parent_component_type =
+            unsafe { crate::dynamic_component::get_component_type(parent_component) };
+        enclosing_component_for_element(
+            element,
+            parent_component_type,
+            &EvaluationContext::for_root_component(parent_component),
+        )
     }
 }
 

@@ -101,6 +101,8 @@ pub struct ComponentDescription {
     pub(crate) custom_signals: HashMap<String, usize>,
     /// The repeaters
     pub(crate) repeater: Vec<RepeaterWithinComponent>,
+    /// Offset to a Option<ComponentPinRef>
+    pub(crate) parent_component_offset: Option<usize>,
     /// Keep the Rc alive
     pub(crate) original: Rc<object_tree::Component>,
 }
@@ -338,6 +340,12 @@ fn generate_component(
         );
     }
 
+    let parent_component_offset = if root_component.parent_element.upgrade().is_some() {
+        Some(builder.add_field_type::<Option<ComponentRefPin>>())
+    } else {
+        None
+    };
+
     extern "C" fn layout_info(
         _: ComponentRefPin,
     ) -> sixtyfps_corelib::abi::datastructures::LayoutInfo {
@@ -354,6 +362,7 @@ fn generate_component(
         custom_signals,
         original: root_component.clone(),
         repeater,
+        parent_component_offset,
     };
 
     Rc::new(t)
@@ -416,6 +425,10 @@ pub fn instantiate(
     let component_box = ComponentBox { instance, component_type: component_type.clone() };
 
     let eval_context = if let Some(parent) = parent_ctx {
+        unsafe {
+            *(mem.add(component_type.parent_component_offset.unwrap())
+                as *mut Option<ComponentRefPin>) = Some(parent.component);
+        }
         parent.child_context(component_box.borrow())
     } else {
         EvaluationContext::for_root_component(component_box.borrow())
