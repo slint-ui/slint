@@ -10,7 +10,7 @@ use sixtyfps_corelib::abi::datastructures::{
     ComponentVTable, ItemTreeNode, ItemVTable, ItemVisitorRefMut, Resource,
 };
 use sixtyfps_corelib::abi::primitives::PropertyAnimation;
-use sixtyfps_corelib::abi::slice::Slice;
+use sixtyfps_corelib::abi::{properties::PropertyListenerScope, slice::Slice};
 use sixtyfps_corelib::rtti::PropertyInfo;
 use sixtyfps_corelib::ComponentRefPin;
 use sixtyfps_corelib::{rtti, Color, EvaluationContext, Property, SharedString, Signal};
@@ -74,10 +74,12 @@ pub(crate) struct PropertiesWithinComponent {
 pub(crate) struct RepeaterWithinComponent {
     /// The component description of the items to repeat
     pub(crate) component_to_repeat: Rc<ComponentDescription>,
-    /// Offsets of the `Vec<ComponentBox>`
+    /// Offset of the `Vec<ComponentBox>`
     pub(crate) offset: usize,
     /// The model
     pub(crate) model: expression_tree::Expression,
+    /// Offset of the PropertyListenerScope
+    listener: Option<usize>,
 }
 
 type RepeaterVec = Vec<ComponentBox>;
@@ -119,7 +121,41 @@ unsafe extern "C" fn visit_children_item(
         v,
         |_, mut visitor, index| {
             let rep_in_comp = &component_type.repeater[index];
-            let vec = &*(component.as_ptr().add(rep_in_comp.offset) as *const RepeaterVec);
+            let vec = &mut *(component.as_ptr().add(rep_in_comp.offset) as *mut RepeaterVec);
+            if let Some(listener_offset) = rep_in_comp.listener {
+                let listener = Pin::new_unchecked(
+                    &*(component.as_ptr().add(listener_offset) as *const PropertyListenerScope),
+                );
+                if listener.is_dirty() {
+                    let eval_context = EvaluationContext::for_root_component(component);
+                    listener.evaluate(|| {
+                        match eval::eval_expression(
+                            &rep_in_comp.model,
+                            &*component_type,
+                            &eval_context,
+                        ) {
+                            crate::Value::Number(count) => populate_model(
+                                vec,
+                                rep_in_comp,
+                                &eval_context,
+                                (0..count as i32)
+                                    .into_iter()
+                                    .map(|v| crate::Value::Number(v as f64)),
+                            ),
+                            crate::Value::Array(a) => {
+                                populate_model(vec, rep_in_comp, &eval_context, a.into_iter())
+                            }
+                            crate::Value::Bool(b) => populate_model(
+                                vec,
+                                rep_in_comp,
+                                &eval_context,
+                                (if b { Some(crate::Value::Void) } else { None }).into_iter(),
+                            ),
+                            _ => panic!("Unsupported model"),
+                        }
+                    });
+                }
+            }
             for x in vec {
                 x.borrow().as_ref().visit_children_item(-1, visitor.borrow_mut());
             }
@@ -214,6 +250,11 @@ fn generate_component(
                 component_to_repeat: generate_component(base_component, diag),
                 offset: builder.add_field_type::<RepeaterVec>(),
                 model: repeated.model.clone(),
+                listener: if repeated.model.is_constant() {
+                    None
+                } else {
+                    Some(builder.add_field_type::<PropertyListenerScope>())
+                },
             });
         } else {
             let rt = &rtti[&*item.base_type.as_builtin().class_name];
@@ -469,6 +510,9 @@ pub fn instantiate(
     }
 
     for rep_in_comp in &component_type.repeater {
+        if !rep_in_comp.model.is_constant() {
+            continue;
+        }
         let vec = unsafe { &mut *(mem.add(rep_in_comp.offset) as *mut RepeaterVec) };
         match eval::eval_expression(&rep_in_comp.model, &*component_type, &eval_context) {
             crate::Value::Number(count) => populate_model(
