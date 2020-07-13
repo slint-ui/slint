@@ -182,7 +182,7 @@ pub extern "C" fn solve_path_layout(data: &PathLayoutData) {
 
     let path_iter = data.elements.iter().fitted(data.width, data.height);
 
-    let tolerance = 0.01;
+    let tolerance = lyon::tessellation::StrokeOptions::DEFAULT_TOLERANCE;
 
     let segment_lengths: Vec<Coord> = path_iter
         .iter()
