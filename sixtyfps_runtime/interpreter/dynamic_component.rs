@@ -604,13 +604,21 @@ unsafe extern "C" fn compute_layout(component: ComponentRefPin, eval_context: &E
                 .unwrap()
         };
 
+        let x = eval::eval_expression(&it.x_reference, &component_type, eval_context)
+            .try_into()
+            .unwrap_or_default();
+
+        let y = eval::eval_expression(&it.y_reference, &component_type, eval_context)
+            .try_into()
+            .unwrap_or_default();
+
         solve_grid_layout(&GridLayoutData {
             row_constraint: Slice::from(row_constraint.as_slice()),
             col_constraint: Slice::from(col_constraint.as_slice()),
             width: within_prop("width"),
             height: within_prop("height"),
-            x: 0.,
-            y: 0.,
+            x,
+            y,
             cells: Slice::from(cells.as_slice()),
         });
     }

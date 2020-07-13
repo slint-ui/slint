@@ -266,6 +266,8 @@ impl TypeRegister {
         r.types.insert("TouchArea".to_owned(), Type::Builtin(Rc::new(touch_area)));
 
         let mut grid_layout = BuiltinElement::new("GridLayout");
+        grid_layout.properties.insert("x".to_owned(), Type::Float32);
+        grid_layout.properties.insert("y".to_owned(), Type::Float32);
 
         // Row can only be in a GridLayout
         let row = BuiltinElement::new("Row");

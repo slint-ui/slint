@@ -888,13 +888,15 @@ fn compute_layout(component: &Rc<Component>) -> Vec<String> {
         res.push("    };".to_owned());
         res.push("    sixtyfps::Slice<sixtyfps::GridLayoutCellData> cells[] = {".to_owned());
         res.push(format!("        {} }};", row_info.join(", ")));
+        res.push(format!("    auto x = {};", compile_expression(&grid.x_reference, component)));
+        res.push(format!("    auto y = {};", compile_expression(&grid.y_reference, component)));
         res.push("    sixtyfps::GridLayoutData grid { ".into());
         // FIXME: add auto conversion from std::array* to Slice
         res.push("        { row_constr.data(), row_constr.size() },".to_owned());
         res.push("        { col_constr.data(), col_constr.size() },".to_owned());
         res.push(format!("        self->{}.width.get(context),", grid.within.borrow().id));
         res.push(format!("        self->{}.height.get(context),", grid.within.borrow().id));
-        res.push("        0., 0.,".to_owned());
+        res.push("        x, y,".to_owned());
         res.push("        {cells, std::size(cells)}".to_owned());
         res.push("    };".to_owned());
         res.push("    sixtyfps::solve_grid_layout(&grid);".to_owned());

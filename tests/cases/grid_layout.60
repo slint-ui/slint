@@ -1,0 +1,27 @@
+TestCase := Rectangle {
+    width: 300;
+    height: 300;
+
+    GridLayout {
+        x: 100;
+        y: 100;
+
+        Row {
+            Rectangle {
+                color: red;
+            
+            }
+        }
+
+        Row {
+            Rectangle {
+                color: green;
+            }
+        }
+    }
+
+    Text {
+        text: "This test should be above the two rectangles below";
+        color: black;
+    }
+}

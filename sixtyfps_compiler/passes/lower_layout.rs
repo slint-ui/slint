@@ -29,8 +29,28 @@ pub fn lower_layouts(component: &Rc<Component>, diag: &mut Diagnostics) {
                     false
                 };
 
+            let (x_reference, y_reference) = if is_grid_layout || is_path_layout {
+                (
+                    Box::new(Expression::PropertyReference(NamedReference {
+                        element: Rc::downgrade(&child),
+                        name: "x".into(),
+                    })),
+                    Box::new(Expression::PropertyReference(NamedReference {
+                        element: Rc::downgrade(&child),
+                        name: "y".into(),
+                    })),
+                )
+            } else {
+                (Box::new(Expression::Invalid), Box::new(Expression::Invalid))
+            };
+
             if is_grid_layout {
-                let mut grid = GridLayout { within: elem_.clone(), elems: Default::default() };
+                let mut grid = GridLayout {
+                    within: elem_.clone(),
+                    elems: Default::default(),
+                    x_reference,
+                    y_reference,
+                };
                 let mut row = 0;
                 let mut col = 0;
 
@@ -75,15 +95,6 @@ pub fn lower_layouts(component: &Rc<Component>, diag: &mut Diagnostics) {
                         return;
                     }
                 };
-
-                let x_reference = Box::new(Expression::PropertyReference(NamedReference {
-                    element: Rc::downgrade(&layout_elem),
-                    name: "x".into(),
-                }));
-                let y_reference = Box::new(Expression::PropertyReference(NamedReference {
-                    element: Rc::downgrade(&layout_elem),
-                    name: "y".into(),
-                }));
 
                 component.layout_constraints.borrow_mut().paths.push(PathLayout {
                     elements: layout_children,

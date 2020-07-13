@@ -12,7 +12,8 @@ pub struct LayoutConstraints {
 
 impl ExpressionFieldsVisitor for LayoutConstraints {
     fn visit_expressions(&mut self, mut visitor: impl FnMut(&mut Expression)) {
-        self.paths.iter_mut().for_each(|l| l.visit_expressions(&mut visitor))
+        self.grids.iter_mut().for_each(|l| l.visit_expressions(&mut visitor));
+        self.paths.iter_mut().for_each(|l| l.visit_expressions(&mut visitor));
     }
 }
 
@@ -25,6 +26,8 @@ pub struct GridLayout {
     pub within: ElementRc,
     /// This is like a matrix of elements.
     pub elems: Vec<Vec<Option<ElementRc>>>,
+    pub x_reference: Box<Expression>,
+    pub y_reference: Box<Expression>,
 }
 
 impl GridLayout {
@@ -33,6 +36,13 @@ impl GridLayout {
     }
     pub fn row_count(&self) -> usize {
         self.elems.len()
+    }
+}
+
+impl ExpressionFieldsVisitor for GridLayout {
+    fn visit_expressions(&mut self, mut visitor: impl FnMut(&mut Expression)) {
+        visitor(&mut self.x_reference);
+        visitor(&mut self.y_reference);
     }
 }
 

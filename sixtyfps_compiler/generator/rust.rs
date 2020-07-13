@@ -684,13 +684,15 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
 
 fn compute_layout(component: &Rc<Component>) -> TokenStream {
     let mut layouts = vec![];
-    for x in component.layout_constraints.borrow().grids.iter() {
-        let within = quote::format_ident!("{}", x.within.borrow().id);
-        let within_ty =
-            quote::format_ident!("{}", x.within.borrow().base_type.as_builtin().class_name);
-        let row_constraint = vec![quote!(Constraint::default()); x.row_count()];
-        let col_constraint = vec![quote!(Constraint::default()); x.col_count()];
-        let cells = x
+    for grid_layout in component.layout_constraints.borrow().grids.iter() {
+        let within = quote::format_ident!("{}", grid_layout.within.borrow().id);
+        let within_ty = quote::format_ident!(
+            "{}",
+            grid_layout.within.borrow().base_type.as_builtin().class_name
+        );
+        let row_constraint = vec![quote!(Constraint::default()); grid_layout.row_count()];
+        let col_constraint = vec![quote!(Constraint::default()); grid_layout.col_count()];
+        let cells = grid_layout
             .elems
             .iter()
             .map(|x| {
@@ -724,6 +726,9 @@ fn compute_layout(component: &Rc<Component>) -> TokenStream {
             })
             .collect::<Vec<_>>();
 
+        let x_pos = compile_expression(&*grid_layout.x_reference, &component);
+        let y_pos = compile_expression(&*grid_layout.y_reference, &component);
+
         layouts.push(quote! {
             solve_grid_layout(&GridLayoutData {
                 row_constraint: Slice::from_slice(&[#(#row_constraint),*]),
@@ -732,8 +737,8 @@ fn compute_layout(component: &Rc<Component>) -> TokenStream {
                     .apply_pin(self).get(context),
                 height: (Self::field_offsets().#within + #within_ty::field_offsets().height)
                     .apply_pin(self).get(context),
-                x: 0.,
-                y: 0.,
+                x: #x_pos,
+                y: #y_pos,
                 cells: Slice::from_slice(&[#( Slice::from_slice(&[#( #cells ),*])),*]),
             });
         });
