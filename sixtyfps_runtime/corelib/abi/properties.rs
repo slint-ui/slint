@@ -121,6 +121,7 @@ struct BindingVTable {
     evaluate: unsafe fn(
         _self: *mut BindingHolder,
         value: *mut (),
+        property_handle: Pin<&PropertyHandle>,
         context: &EvaluationContext,
     ) -> BindingResult,
     mark_dirty: unsafe fn(_self: *const BindingHolder),
@@ -133,6 +134,7 @@ trait BindingCallable {
     unsafe fn evaluate(
         self: Pin<&Self>,
         value: *mut (),
+        property_handle: Pin<&PropertyHandle>,
         context: &EvaluationContext,
     ) -> BindingResult;
 
@@ -141,13 +143,16 @@ trait BindingCallable {
     fn mark_dirty(self: Pin<&Self>) {}
 }
 
-impl<F: Fn(*mut (), &EvaluationContext) -> BindingResult> BindingCallable for F {
+impl<F: Fn(*mut (), Pin<&PropertyHandle>, &EvaluationContext) -> BindingResult> BindingCallable
+    for F
+{
     unsafe fn evaluate(
         self: Pin<&Self>,
         value: *mut (),
+        property_handle: Pin<&PropertyHandle>,
         context: &EvaluationContext,
     ) -> BindingResult {
-        self(value, context)
+        self(value, property_handle, context)
     }
 }
 
@@ -178,12 +183,16 @@ fn alloc_binding_holder<B: BindingCallable + 'static>(binding: B) -> *mut Bindin
     unsafe fn evaluate<B: BindingCallable>(
         _self: *mut BindingHolder,
         value: *mut (),
+        property_handle: Pin<&PropertyHandle>,
         context: &EvaluationContext,
     ) -> BindingResult {
         let pinned_holder = Pin::new_unchecked(&*_self);
         CURRENT_BINDING.set(pinned_holder, || {
-            Pin::new_unchecked(&((*(_self as *mut BindingHolder<B>)).binding))
-                .evaluate(value, context)
+            Pin::new_unchecked(&((*(_self as *mut BindingHolder<B>)).binding)).evaluate(
+                value,
+                property_handle,
+                context,
+            )
         })
     }
 
@@ -384,7 +393,15 @@ impl PropertyHandle {
 
     // `value` is the content of the unsafe cell and will be only dereferenced if the
     // handle is not locked. (Upholding the requirements of UnsafeCell)
-    unsafe fn update<T>(&self, value: *mut T, context: &EvaluationContext) {
+    //
+    // The `property_handle` is usually the same as self, but might not be if the binding is hold
+    // by an animation, in which case the property_handle is pointing to the actual property instead
+    unsafe fn update<T>(
+        &self,
+        property_handle: Pin<&Self>,
+        value: *mut T,
+        context: &EvaluationContext,
+    ) {
         let remove = self.access(|binding| {
             if let Some(mut binding) = binding {
                 if binding.dirty.get() {
@@ -393,6 +410,7 @@ impl PropertyHandle {
                     let r = (binding.vtable.evaluate)(
                         binding.as_mut().get_unchecked_mut() as *mut BindingHolder,
                         value as *mut (),
+                        property_handle,
                         context,
                     );
                     binding.dirty.set(false);
@@ -475,6 +493,12 @@ impl<T: Default> Default for Property<T> {
 }
 
 impl<T: Clone> Property<T> {
+    fn handle(self: Pin<&Self>) -> Pin<&PropertyHandle> {
+        // Safety: it is allowed to project Pin because we do not implement Drop or Unpin,
+        // and never move the handle
+        unsafe { self.map_unchecked(|s| &s.handle) }
+    }
+
     /// Create a new property with this value
     pub fn new(value: T) -> Self {
         Self { handle: Default::default(), value: UnsafeCell::new(value), pinned: PhantomPinned }
@@ -490,7 +514,7 @@ impl<T: Clone> Property<T> {
     /// Panics if this property is get while evaluating its own binding or
     /// cloning the value.
     pub fn get(self: Pin<&Self>, context: &EvaluationContext) -> T {
-        unsafe { self.handle.update(self.value.get(), context) };
+        unsafe { self.handle().update(self.handle(), self.value.get(), context) };
         self.handle.register_as_dependency_to_current_binding();
         self.get_internal()
     }
@@ -524,10 +548,12 @@ impl<T: Clone> Property<T> {
     /// be marked as dirty.
     //FIXME pub fn set_binding(self: Pin<&Self>, f: impl (Fn(&EvaluationContext) -> T) + 'static) {
     pub fn set_binding(&self, f: impl (Fn(&EvaluationContext) -> T) + 'static) {
-        self.handle.set_binding(move |val: *mut (), context: &EvaluationContext| unsafe {
-            *(val as *mut T) = f(context);
-            BindingResult::KeepBinding
-        });
+        self.handle.set_binding(
+            move |val: *mut (), _: Pin<&PropertyHandle>, context: &EvaluationContext| unsafe {
+                *(val as *mut T) = f(context);
+                BindingResult::KeepBinding
+            },
+        );
         self.handle.mark_dirty();
     }
 }
@@ -542,17 +568,19 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
     pub fn set_animated_value(&self, value: T, animation_data: &PropertyAnimation) {
         // FIXME if the current value is a dirty binding, we must run it, but we do not have the context
         let d = PropertyValueAnimationData::new(self.get_internal(), value, animation_data.clone());
-        self.handle.set_binding(move |val: *mut (), _context: &EvaluationContext| unsafe {
-            let (value, finished) = d.compute_interpolated_value();
-            *(val as *mut T) = value;
-            if finished {
-                BindingResult::RemoveBinding
-            } else {
-                crate::animations::CURRENT_ANIMATION_DRIVER
-                    .with(|driver| driver.set_has_active_animations());
-                BindingResult::KeepBinding
-            }
-        });
+        self.handle.set_binding(
+            move |val: *mut (), _: Pin<&PropertyHandle>, _context: &EvaluationContext| unsafe {
+                let (value, finished) = d.compute_interpolated_value();
+                *(val as *mut T) = value;
+                if finished {
+                    BindingResult::RemoveBinding
+                } else {
+                    crate::animations::CURRENT_ANIMATION_DRIVER
+                        .with(|driver| driver.set_has_active_animations());
+                    BindingResult::KeepBinding
+                }
+            },
+        );
     }
 
     /// Set a binding to this property.
@@ -565,10 +593,14 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
         self.handle.set_binding(AnimatedBindingCallable::<T> {
             original_binding: PropertyHandle {
                 handle: Cell::new(
-                    (alloc_binding_holder(move |val: *mut (), context: &EvaluationContext| unsafe {
-                        *(val as *mut T) = f(context);
-                        BindingResult::KeepBinding
-                    }) as usize)
+                    (alloc_binding_holder(
+                        move |val: *mut (),
+                              _: Pin<&PropertyHandle>,
+                              context: &EvaluationContext| unsafe {
+                            *(val as *mut T) = f(context);
+                            BindingResult::KeepBinding
+                        },
+                    ) as usize)
                         | 0b10,
                 ),
             },
@@ -581,6 +613,34 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
         });
         self.handle.mark_dirty();
     }
+}
+
+/// Set a binding to a property within a container with an offset known at compile time.
+///
+/// This allow to have binding that do not capture anything.
+pub fn set_relative_binding<T, C>(
+    c: Pin<&C>,
+    prop: impl const_field_offset::ConstFieldOffset<
+            Container = C,
+            Field = Property<T>,
+            PinFlag = const_field_offset::PinnedFlag,
+        > + 'static,
+    binding: impl Fn(Pin<&C>) -> T + 'static,
+) {
+    let actual_prop = prop.apply_pin(c);
+    actual_prop.handle.set_binding(
+        move |val: *mut (), prop_handle: Pin<&PropertyHandle>, _context: &EvaluationContext| unsafe {
+            // Safety: Property is #repr(C) and the handle is the first field
+            let handle = const_field_offset::FieldOffset::<Property<T>, PropertyHandle, _>::new_from_offset_pinned(0);
+            // Safety: the binding will only be called with the property actual_property which is pinned within the container c.
+            // since the binding is static, there is no way it could capture a mutable reference to the container or anything within it.
+            let result = binding((prop.as_field_offset() + handle).unapply_pin(prop_handle));
+            // Safety: val must point to a value of type T
+            *(val as *mut T) = result;
+            BindingResult::KeepBinding
+        },
+    );
+    actual_prop.handle.mark_dirty();
 }
 
 struct PropertyValueAnimationData<T> {
@@ -629,6 +689,7 @@ impl<T: InterpolatedPropertyValue> BindingCallable for AnimatedBindingCallable<T
     unsafe fn evaluate(
         self: Pin<&Self>,
         value: *mut (),
+        property_handle: Pin<&PropertyHandle>,
         context: &EvaluationContext,
     ) -> BindingResult {
         self.original_binding.register_as_dependency_to_current_binding();
@@ -644,15 +705,18 @@ impl<T: InterpolatedPropertyValue> BindingCallable for AnimatedBindingCallable<T
                 }
             }
             AnimatedBindingState::NotAnimating => {
-                self.original_binding.update(value, context);
+                self.original_binding.update(property_handle, value, context);
             }
             AnimatedBindingState::ShouldStart => {
                 let value = &mut *(value as *mut T);
                 self.state.set(AnimatedBindingState::Animating);
                 let mut animation_data = self.animation_data.borrow_mut();
                 animation_data.from_value = value.clone();
-                self.original_binding
-                    .update((&mut animation_data.to_value) as *mut T as *mut (), context);
+                self.original_binding.update(
+                    property_handle,
+                    (&mut animation_data.to_value) as *mut T as *mut (),
+                    context,
+                );
                 let (val, finished) = animation_data.compute_interpolated_value();
                 *value = val;
                 if finished {
@@ -722,7 +786,7 @@ fn properties_simple_test() {
 
 #[allow(non_camel_case_types)]
 type c_void = ();
-#[repr(C)]
+#[repr(transparent)]
 /// Has the same layout as PropertyHandle
 pub struct PropertyHandleOpaque(PropertyHandle);
 
@@ -740,7 +804,7 @@ pub unsafe extern "C" fn sixtyfps_property_update(
     context: &EvaluationContext,
     val: *mut c_void,
 ) {
-    handle.0.update(val, context);
+    handle.0.update(Pin::new_unchecked(&handle.0), val, context);
     handle.0.register_as_dependency_to_current_binding();
 }
 
@@ -756,7 +820,7 @@ fn make_c_function_binding(
     binding: extern "C" fn(*mut c_void, &EvaluationContext, *mut c_void),
     user_data: *mut c_void,
     drop_user_data: Option<extern "C" fn(*mut c_void)>,
-) -> impl Fn(*mut (), &EvaluationContext) -> BindingResult {
+) -> impl Fn(*mut (), Pin<&PropertyHandle>, &EvaluationContext) -> BindingResult {
     struct CFunctionBinding<T> {
         binding_function: extern "C" fn(*mut c_void, &EvaluationContext, *mut T),
         user_data: *mut c_void,
@@ -773,7 +837,7 @@ fn make_c_function_binding(
 
     let b = CFunctionBinding { binding_function: binding, user_data, drop_user_data };
 
-    move |value_ptr, context| {
+    move |value_ptr, _, context| {
         (b.binding_function)(b.user_data, context, value_ptr);
         BindingResult::KeepBinding
     }
@@ -845,7 +909,7 @@ fn c_set_animated_value<T: InterpolatedPropertyValue>(
     animation_data: &crate::abi::primitives::PropertyAnimation,
 ) {
     let d = PropertyValueAnimationData::new(from, to, animation_data.clone());
-    handle.0.set_binding(move |val: *mut (), _: &EvaluationContext| {
+    handle.0.set_binding(move |val: *mut (), _: Pin<&PropertyHandle>, _: &EvaluationContext| {
         let (value, finished) = d.compute_interpolated_value();
         unsafe {
             *(val as *mut T) = value;
@@ -1094,7 +1158,7 @@ impl Default for PropertyListenerScope {
     fn default() -> Self {
         static VT: &'static BindingVTable = &BindingVTable {
             drop: |_| (),
-            evaluate: |_, _, _| BindingResult::KeepBinding,
+            evaluate: |_, _, _, _| BindingResult::KeepBinding,
             mark_dirty: |_| (),
         };
 

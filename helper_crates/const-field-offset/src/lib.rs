@@ -295,6 +295,23 @@ impl<T, U> FieldOffset<T, U, PinnedFlag> {
     pub fn apply_pin_mut<'a>(self, x: Pin<&'a mut T>) -> Pin<&'a mut U> {
         unsafe { x.map_unchecked_mut(|x| self.apply_mut(x)) }
     }
+
+    /// Unapply the field offset to a reference.
+    ///
+    /// # Safety
+    ///
+    /// *Warning: very unsafe!*
+    ///
+    /// This applies a negative offset to a reference. If the safety
+    /// implications of this are not already clear to you, then *do
+    /// not* use this method. Also be aware that Rust has stronger
+    /// aliasing rules than other languages, so this method may cause UB
+    /// even if the resulting reference points to a valid location, due
+    /// to the presence of other live references.
+    #[inline]
+    pub unsafe fn unapply_pin<'a>(self, x: Pin<&'a U>) -> Pin<&'a T> {
+        x.map_unchecked(|x| self.unapply(x))
+    }
 }
 
 impl<T, U> From<FieldOffset<T, U, PinnedFlag>> for FieldOffset<T, U> {
