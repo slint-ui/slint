@@ -1,0 +1,20 @@
+
+TestCase := Rectangle {
+    width: 100;
+    height: 100;
+    color: white;
+    property<int32> top_level: 42;
+
+    property<bool> cond1;
+    property<bool> cond2;
+    property<bool> cond3;
+
+    if (cond1) : Rectangle {
+        color: root.color;
+        property<int32> xx: root.top_level;
+    }
+
+    if (cond1 ? cond2 : cond3) : Rectangle {
+
+    }
+}
