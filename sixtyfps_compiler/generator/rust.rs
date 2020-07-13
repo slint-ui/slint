@@ -771,6 +771,8 @@ fn compute_layout(component: &Rc<Component>) -> TokenStream {
 
         let x_pos = compile_expression(&*path_layout.x_reference, &component);
         let y_pos = compile_expression(&*path_layout.y_reference, &component);
+        let width = compile_expression(&*path_layout.width_reference, &component);
+        let height = compile_expression(&*path_layout.width_reference, &component);
 
         layouts.push(quote! {
             solve_path_layout(&PathLayoutData {
@@ -778,6 +780,8 @@ fn compute_layout(component: &Rc<Component>) -> TokenStream {
                 elements: &#path,
                 x: #x_pos,
                 y: #y_pos,
+                width: #width,
+                height: #height,
             });
         });
     }

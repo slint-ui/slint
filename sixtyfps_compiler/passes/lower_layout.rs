@@ -29,17 +29,16 @@ pub fn lower_layouts(component: &Rc<Component>, diag: &mut Diagnostics) {
                     false
                 };
 
+            let ref_child = child.clone();
+            let prop_ref = move |name: &'static str| {
+                Box::new(Expression::PropertyReference(NamedReference {
+                    element: Rc::downgrade(&ref_child),
+                    name: name.into(),
+                }))
+            };
+
             let (x_reference, y_reference) = if is_grid_layout || is_path_layout {
-                (
-                    Box::new(Expression::PropertyReference(NamedReference {
-                        element: Rc::downgrade(&child),
-                        name: "x".into(),
-                    })),
-                    Box::new(Expression::PropertyReference(NamedReference {
-                        element: Rc::downgrade(&child),
-                        name: "y".into(),
-                    })),
-                )
+                (prop_ref("x"), prop_ref("y"))
             } else {
                 (Box::new(Expression::Invalid), Box::new(Expression::Invalid))
             };
@@ -101,6 +100,8 @@ pub fn lower_layouts(component: &Rc<Component>, diag: &mut Diagnostics) {
                     path: path_elements_expr,
                     x_reference,
                     y_reference,
+                    width_reference: prop_ref("width"),
+                    height_reference: prop_ref("height"),
                 });
                 continue;
             } else {

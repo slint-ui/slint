@@ -163,6 +163,8 @@ pub struct PathLayoutData<'a> {
     pub items: Slice<'a, PathLayoutItemData<'a>>,
     pub x: Coord,
     pub y: Coord,
+    pub width: Coord,
+    pub height: Coord,
 }
 
 #[repr(C)]
@@ -178,7 +180,7 @@ pub extern "C" fn solve_path_layout(data: &PathLayoutData) {
     use lyon::geom::*;
     use lyon::path::iterator::PathIterator;
 
-    let path_iter = data.elements.iter();
+    let path_iter = data.elements.iter().fitted(data.width, data.height);
 
     let tolerance = 0.01;
 

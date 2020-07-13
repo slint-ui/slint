@@ -929,11 +929,19 @@ fn compute_layout(component: &Rc<Component>) -> Vec<String> {
             "    auto y = {};",
             compile_expression(&path_layout.y_reference, component)
         ));
+        res.push(format!(
+            "    auto width = {};",
+            compile_expression(&path_layout.width_reference, component)
+        ));
+        res.push(format!(
+            "    auto height = {};",
+            compile_expression(&path_layout.height_reference, component)
+        ));
 
         res.push("    sixtyfps::PathLayoutData pl { ".into());
         res.push("        &path,".to_owned());
         res.push("        {items, std::size(items)},".to_owned());
-        res.push("        x, y".to_owned());
+        res.push("        x, y, width, height".to_owned());
         res.push("    };".to_owned());
         res.push("    sixtyfps::solve_path_layout(&pl);".to_owned());
         res.push("}".to_owned());

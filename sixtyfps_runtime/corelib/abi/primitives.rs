@@ -268,6 +268,8 @@ pub use crate::abi::datastructures::TouchAreaVTable;
 pub struct Path {
     pub x: Property<f32>,
     pub y: Property<f32>,
+    pub width: Property<f32>,
+    pub height: Property<f32>,
     pub elements: Property<PathData>,
     pub fill_color: Property<Color>,
     pub stroke_color: Property<Color>,
@@ -291,6 +293,8 @@ impl Item for Path {
         RenderingPrimitive::Path {
             x: Self::field_offsets().x.apply_pin(self).get(context),
             y: Self::field_offsets().y.apply_pin(self).get(context),
+            width: Self::field_offsets().width.apply_pin(self).get(context),
+            height: Self::field_offsets().height.apply_pin(self).get(context),
             elements: Self::field_offsets().elements.apply_pin(self).get(context),
             fill_color: Self::field_offsets().fill_color.apply_pin(self).get(context),
             stroke_color: Self::field_offsets().stroke_color.apply_pin(self).get(context),

@@ -53,11 +53,15 @@ pub struct PathLayout {
     pub elements: Vec<ElementRc>,
     pub x_reference: Box<Expression>,
     pub y_reference: Box<Expression>,
+    pub width_reference: Box<Expression>,
+    pub height_reference: Box<Expression>,
 }
 
 impl ExpressionFieldsVisitor for PathLayout {
     fn visit_expressions(&mut self, mut visitor: impl FnMut(&mut Expression)) {
         visitor(&mut self.x_reference);
         visitor(&mut self.y_reference);
+        visitor(&mut self.width_reference);
+        visitor(&mut self.height_reference);
     }
 }

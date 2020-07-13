@@ -347,6 +347,8 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                 RenderingPrimitive::Path {
                     x: _,
                     y: _,
+                    width,
+                    height,
                     elements,
                     fill_color,
                     stroke_color,
@@ -354,7 +356,7 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                 } => {
                     let mut primitives = SmallVec::new();
 
-                    let path_iter = elements.iter();
+                    let path_iter = elements.iter().fitted(*width, *height);
 
                     if *fill_color != Color::TRANSPARENT {
                         primitives.extend(

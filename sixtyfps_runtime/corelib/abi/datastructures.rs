@@ -378,13 +378,38 @@ impl<'a> Iterator for ToLyonPathEventIterator<'a> {
 
 impl<'a> ExactSizeIterator for ToLyonPathEventIterator<'a> {}
 
+struct TransformedLyonPathIterator<EventIt> {
+    it: EventIt,
+    transform: lyon::math::Transform,
+}
+
+impl<EventIt: Iterator<Item = lyon::path::Event<lyon::math::Point, lyon::math::Point>>> Iterator
+    for TransformedLyonPathIterator<EventIt>
+{
+    type Item = lyon::path::Event<lyon::math::Point, lyon::math::Point>;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.it.next().map(|ev| ev.transformed(&self.transform))
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.it.size_hint()
+    }
+}
+
+impl<EventIt: Iterator<Item = lyon::path::Event<lyon::math::Point, lyon::math::Point>>>
+    ExactSizeIterator for TransformedLyonPathIterator<EventIt>
+{
+}
+
 /// LyonPathIterator is a data structure that acts as starting point for iterating
 /// through the low-level events of a path. If the path was constructed from said
 /// events, then it is a very thin abstraction. If the path was created from higher-level
 /// elements, then an intermediate lyon path is required/built.
 pub struct LyonPathIterator<'a> {
     it: LyonPathIteratorVariant<'a>,
+    transform: Option<lyon::math::Transform>,
 }
+
 enum LyonPathIteratorVariant<'a> {
     FromPath(lyon::path::Path),
     FromEvents(&'a crate::SharedArray<PathEvent>, &'a crate::SharedArray<Point>),
@@ -397,15 +422,40 @@ impl<'a> LyonPathIterator<'a> {
     ) -> Box<dyn Iterator<Item = lyon::path::Event<lyon::math::Point, lyon::math::Point>> + 'a>
     {
         match &self.it {
-            LyonPathIteratorVariant::FromPath(path) => Box::new(path.iter()),
+            LyonPathIteratorVariant::FromPath(path) => self.apply_transform(path.iter()),
             LyonPathIteratorVariant::FromEvents(events, coordinates) => {
-                Box::new(ToLyonPathEventIterator {
+                Box::new(self.apply_transform(ToLyonPathEventIterator {
                     events_it: events.iter(),
                     coordinates_it: coordinates.iter(),
                     first: coordinates.first(),
                     last: coordinates.last(),
-                })
+                }))
             }
+        }
+    }
+
+    /// This function changes the iterator to be one that applies a transformation to make the path fit into the specified bounds.
+    pub fn fitted(mut self, width: f32, height: f32) -> LyonPathIterator<'a> {
+        if width > 0. || height > 0. {
+            let br = lyon::algorithms::aabb::bounding_rect(self.iter());
+            self.transform = Some(lyon::algorithms::fit::fit_rectangle(
+                &br,
+                &Rect::from_size(Size::new(width, height)),
+                lyon::algorithms::fit::FitStyle::Min,
+            ));
+        }
+
+        self
+    }
+
+    fn apply_transform(
+        &'a self,
+        event_it: impl Iterator<Item = lyon::path::Event<lyon::math::Point, lyon::math::Point>> + 'a,
+    ) -> Box<dyn Iterator<Item = lyon::path::Event<lyon::math::Point, lyon::math::Point>> + 'a>
+    {
+        match self.transform {
+            Some(transform) => Box::new(TransformedLyonPathIterator { it: event_it, transform }),
+            None => Box::new(event_it),
         }
     }
 }
@@ -443,6 +493,7 @@ impl PathData {
                     LyonPathIteratorVariant::FromEvents(events, coordinates)
                 }
             },
+            transform: None,
         }
     }
 
@@ -554,6 +605,8 @@ pub enum RenderingPrimitive {
     Path {
         x: f32,
         y: f32,
+        width: f32,
+        height: f32,
         elements: crate::PathData,
         fill_color: Color,
         stroke_color: Color,

@@ -74,6 +74,8 @@ fn main() {
         let path_primitive = rendering_primitives_builder.create(RenderingPrimitive::Path {
             x: 50.,
             y: 300.,
+            width: 0.,
+            height: 0.,
             elements: PathData::Elements(SharedArray::from(TRIANGLE_PATH)),
             fill_color: Color::from_rgb(0, 128, 255),
             stroke_color: Color::BLACK,

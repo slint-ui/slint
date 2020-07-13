@@ -557,6 +557,12 @@ unsafe extern "C" fn compute_layout(component: ComponentRefPin, eval_context: &E
     let component_type =
         &*(component.get_vtable() as *const ComponentVTable as *const ComponentDescription);
 
+    let resolve_prop_ref = |prop_ref: &expression_tree::Expression| {
+        eval::eval_expression(&prop_ref, &component_type, eval_context)
+            .try_into()
+            .unwrap_or_default()
+    };
+
     for it in &component_type.original.layout_constraints.borrow().grids {
         use sixtyfps_corelib::layout::*;
 
@@ -604,21 +610,13 @@ unsafe extern "C" fn compute_layout(component: ComponentRefPin, eval_context: &E
                 .unwrap()
         };
 
-        let x = eval::eval_expression(&it.x_reference, &component_type, eval_context)
-            .try_into()
-            .unwrap_or_default();
-
-        let y = eval::eval_expression(&it.y_reference, &component_type, eval_context)
-            .try_into()
-            .unwrap_or_default();
-
         solve_grid_layout(&GridLayoutData {
             row_constraint: Slice::from(row_constraint.as_slice()),
             col_constraint: Slice::from(col_constraint.as_slice()),
             width: within_prop("width"),
             height: within_prop("height"),
-            x,
-            y,
+            x: resolve_prop_ref(&it.x_reference),
+            y: resolve_prop_ref(&it.y_reference),
             cells: Slice::from(cells.as_slice()),
         });
     }
@@ -643,19 +641,13 @@ unsafe extern "C" fn compute_layout(component: ComponentRefPin, eval_context: &E
 
         let path_elements = eval::convert_path(&it.path, component_type, eval_context);
 
-        let x = eval::eval_expression(&it.x_reference, &component_type, eval_context)
-            .try_into()
-            .unwrap_or_default();
-
-        let y = eval::eval_expression(&it.y_reference, &component_type, eval_context)
-            .try_into()
-            .unwrap_or_default();
-
         solve_path_layout(&PathLayoutData {
             items: Slice::from(items.as_slice()),
             elements: &path_elements,
-            x,
-            y,
+            x: resolve_prop_ref(&it.x_reference),
+            y: resolve_prop_ref(&it.y_reference),
+            width: resolve_prop_ref(&it.width_reference),
+            height: resolve_prop_ref(&it.height_reference),
         });
     }
 }
