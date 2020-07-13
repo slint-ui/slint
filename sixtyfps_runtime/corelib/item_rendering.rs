@@ -25,11 +25,6 @@ pub(crate) fn update_item_rendering_data<Backend: GraphicsBackend>(
         }
     }
 
-    println!(
-        "Updating rendering primitives for ... {:?} (old data: {:?})",
-        item_rendering_primitive, last_rendering_primitive
-    );
-
     rendering_data.cache_index.set(
         rendering_cache
             .allocate_entry(rendering_primitives_builder.create(item_rendering_primitive)),
