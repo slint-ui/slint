@@ -922,10 +922,15 @@ fn compute_layout(component: &Rc<Component>) -> Vec<String> {
             compile_expression(&path_layout.height_reference, component)
         ));
 
+        res.push(format!(
+            "    auto offset = {};",
+            compile_expression(&path_layout.offset_reference, component)
+        ));
+
         res.push("    sixtyfps::PathLayoutData pl { ".into());
         res.push("        &path,".to_owned());
         res.push("        {items, std::size(items)},".to_owned());
-        res.push("        x, y, width, height".to_owned());
+        res.push("        x, y, width, height, offset".to_owned());
         res.push("    };".to_owned());
         res.push("    sixtyfps::solve_path_layout(&pl);".to_owned());
         res.push("}".to_owned());

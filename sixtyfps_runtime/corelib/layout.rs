@@ -165,6 +165,7 @@ pub struct PathLayoutData<'a> {
     pub y: Coord,
     pub width: Coord,
     pub height: Coord,
+    pub offset: f32,
 }
 
 #[repr(C)]
@@ -199,36 +200,40 @@ pub extern "C" fn solve_path_layout(data: &PathLayoutData) {
         .collect();
 
     let path_length: Coord = segment_lengths.iter().sum();
+    let item_distance = 1. / (data.items.len() as f32);
 
     let mut i = 0;
-    let mut next_t: f32 = 0.;
-    let mut current_length: f32 = 0.;
-    for (seg_idx, segment) in path_iter.iter().bezier_segments().enumerate() {
-        let seg_len = segment_lengths[seg_idx];
-        let seg_start = current_length;
-        current_length += seg_len;
+    let mut next_t: f32 = data.offset;
+    while i < data.items.len() {
+        let mut current_length: f32 = 0.;
+        next_t %= 1.;
 
-        let seg_end_t = (seg_start + seg_len) / path_length;
+        for (seg_idx, segment) in path_iter.iter().bezier_segments().enumerate() {
+            let seg_len = segment_lengths[seg_idx];
+            let seg_start = current_length;
+            current_length += seg_len;
 
-        while next_t < seg_end_t {
-            let local_t = ((next_t * path_length) - seg_start) / seg_len;
+            let seg_end_t = (seg_start + seg_len) / path_length;
 
-            let item_pos = segment.sample(local_t);
-            let center_x_offset = data.items[i].width / 2.;
-            let center_y_offset = data.items[i].height / 2.;
-            data.items[i].x.map(|prop| prop.set(item_pos.x - center_x_offset + data.x));
-            data.items[i].y.map(|prop| prop.set(item_pos.y - center_y_offset + data.y));
+            while next_t < seg_end_t {
+                let local_t = ((next_t * path_length) - seg_start) / seg_len;
 
-            i += 1;
-            if i >= data.items.len() {
-                break;
+                let item_pos = segment.sample(local_t);
+                let center_x_offset = data.items[i].width / 2.;
+                let center_y_offset = data.items[i].height / 2.;
+                data.items[i].x.map(|prop| prop.set(item_pos.x - center_x_offset + data.x));
+                data.items[i].y.map(|prop| prop.set(item_pos.y - center_y_offset + data.y));
+
+                next_t += item_distance;
+                i += 1;
+                if i >= data.items.len() {
+                    break;
+                }
             }
 
-            next_t = (i as f32) / (data.items.len() as f32);
-        }
-
-        if i >= data.items.len() {
-            break;
+            if i >= data.items.len() || next_t > 1. {
+                break;
+            }
         }
     }
 }

@@ -102,6 +102,7 @@ pub fn lower_layouts(component: &Rc<Component>, diag: &mut Diagnostics) {
                     y_reference,
                     width_reference: prop_ref("width"),
                     height_reference: prop_ref("height"),
+                    offset_reference: prop_ref("offset"),
                 });
                 continue;
             } else {

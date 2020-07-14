@@ -671,6 +671,7 @@ unsafe extern "C" fn compute_layout(component: ComponentRefPin) {
             y: resolve_prop_ref(&it.y_reference),
             width: resolve_prop_ref(&it.width_reference),
             height: resolve_prop_ref(&it.height_reference),
+            offset: resolve_prop_ref(&it.offset_reference),
         });
     }
 }

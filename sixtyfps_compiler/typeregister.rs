@@ -327,6 +327,7 @@ impl TypeRegister {
         path_layout.properties.insert("width".to_owned(), Type::Float32);
         path_layout.properties.insert("height".to_owned(), Type::Float32);
         path_layout.properties.insert("commands".to_owned(), Type::String);
+        path_layout.properties.insert("offset".to_owned(), Type::Float32);
         path_elements.iter().for_each(|elem| {
             path_layout
                 .additional_accepted_child_types

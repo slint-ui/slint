@@ -55,6 +55,7 @@ pub struct PathLayout {
     pub y_reference: Box<Expression>,
     pub width_reference: Box<Expression>,
     pub height_reference: Box<Expression>,
+    pub offset_reference: Box<Expression>,
 }
 
 impl ExpressionFieldsVisitor for PathLayout {
@@ -63,5 +64,6 @@ impl ExpressionFieldsVisitor for PathLayout {
         visitor(&mut self.y_reference);
         visitor(&mut self.width_reference);
         visitor(&mut self.height_reference);
+        visitor(&mut self.offset_reference);
     }
 }
