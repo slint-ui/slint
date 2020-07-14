@@ -16,6 +16,7 @@ TestCase := Rectangle {
 
         animate offset {
             duration: 1000ms;
+            loop_count: 4;
         }
 
         Text {

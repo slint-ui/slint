@@ -410,7 +410,7 @@ fn property_animation_tokens(
             .collect();
 
         Some(quote!(&sixtyfps::re_exports::PropertyAnimation{
-            #(#bindings)*,
+            #(#bindings, )*
             ..::core::default::Default::default()
         }))
     } else {
