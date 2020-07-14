@@ -289,4 +289,6 @@ pub use crate::abi::datastructures::PathVTable;
 pub struct PropertyAnimation {
     #[rtti_field]
     pub duration: i32,
+    #[rtti_field]
+    pub loop_count: i32,
 }

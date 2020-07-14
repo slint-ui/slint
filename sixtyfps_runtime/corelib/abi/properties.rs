@@ -487,9 +487,13 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
     /// be marked as dirty.
     pub fn set_animated_value(&self, value: T, animation_data: &PropertyAnimation) {
         // FIXME if the current value is a dirty binding, we must run it, but we do not have the context
-        let d = PropertyValueAnimationData::new(self.get_internal(), value, animation_data.clone());
+        let d = RefCell::new(PropertyValueAnimationData::new(
+            self.get_internal(),
+            value,
+            animation_data.clone(),
+        ));
         self.handle.set_binding(move |val: *mut ()| unsafe {
-            let (value, finished) = d.compute_interpolated_value();
+            let (value, finished) = d.borrow_mut().compute_interpolated_value();
             *(val as *mut T) = value;
             if finished {
                 BindingResult::RemoveBinding
@@ -534,6 +538,7 @@ struct PropertyValueAnimationData<T> {
     to_value: T,
     details: crate::abi::primitives::PropertyAnimation,
     start_time: instant::Instant,
+    loop_iteration: i32,
 }
 
 impl<T: InterpolatedPropertyValue> PropertyValueAnimationData<T> {
@@ -541,15 +546,22 @@ impl<T: InterpolatedPropertyValue> PropertyValueAnimationData<T> {
         let start_time =
             crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| driver.current_tick());
 
-        Self { from_value, to_value, details, start_time }
+        Self { from_value, to_value, details, start_time, loop_iteration: 0 }
     }
 
-    fn compute_interpolated_value(&self) -> (T, bool) {
+    fn compute_interpolated_value(&mut self) -> (T, bool) {
+        let duration = self.details.duration as u128;
         let new_tick =
             crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| driver.current_tick());
-        let time_progress = new_tick.duration_since(self.start_time).as_millis();
-        if time_progress >= self.details.duration as _ {
-            return (self.to_value.clone(), true);
+        let mut time_progress = new_tick.duration_since(self.start_time).as_millis();
+        if time_progress >= duration {
+            if self.loop_iteration < self.details.loop_count || self.details.loop_count < 0 {
+                self.loop_iteration += (time_progress / duration) as i32;
+                time_progress = time_progress % duration;
+                self.start_time = new_tick - std::time::Duration::from_millis(time_progress as u64);
+            } else {
+                return (self.to_value.clone(), true);
+            }
         }
         let progress = time_progress as f32 / self.details.duration as f32;
         assert!(progress <= 1.);
@@ -576,7 +588,7 @@ impl<T: InterpolatedPropertyValue> BindingCallable for AnimatedBindingCallable<T
         self.original_binding.register_as_dependency_to_current_binding();
         match self.state.get() {
             AnimatedBindingState::Animating => {
-                let (val, finished) = self.animation_data.borrow().compute_interpolated_value();
+                let (val, finished) = self.animation_data.borrow_mut().compute_interpolated_value();
                 *(value as *mut T) = val;
                 if finished {
                     self.state.set(AnimatedBindingState::NotAnimating)
@@ -771,9 +783,9 @@ fn c_set_animated_value<T: InterpolatedPropertyValue>(
     to: T,
     animation_data: &crate::abi::primitives::PropertyAnimation,
 ) {
-    let d = PropertyValueAnimationData::new(from, to, animation_data.clone());
+    let d = RefCell::new(PropertyValueAnimationData::new(from, to, animation_data.clone()));
     handle.0.set_binding(move |val: *mut ()| {
-        let (value, finished) = d.compute_interpolated_value();
+        let (value, finished) = d.borrow_mut().compute_interpolated_value();
         unsafe {
             *(val as *mut T) = value;
         }
@@ -898,48 +910,57 @@ mod animation_tests {
         feed_property: Property<i32>, // used by binding to feed values into width
     }
 
+    impl Component {
+        fn new_test_component() -> Rc<Self> {
+            let compo = Rc::new(Component::default());
+            let w = Rc::downgrade(&compo);
+            compo.width_times_two.set_binding(move || {
+                let compo = w.upgrade().unwrap();
+                get_prop_value(&compo.width) * 2
+            });
+
+            compo
+        }
+    }
+
     const DURATION: instant::Duration = instant::Duration::from_millis(10000);
+
+    // Helper just for testing
+    fn get_prop_value<T: Clone>(prop: &Property<T>) -> T {
+        unsafe { Pin::new_unchecked(prop).get() }
+    }
 
     #[test]
     fn properties_test_animation_triggered_by_set() {
-        fn g(prop: &Property<i32>) -> i32 {
-            unsafe { Pin::new_unchecked(prop).get() }
-        }
+        let compo = Component::new_test_component();
 
-        let compo = Rc::new(Component::default());
-
-        let w = Rc::downgrade(&compo);
-        compo.width_times_two.set_binding(move || {
-            let compo = w.upgrade().unwrap();
-            g(&compo.width) * 2
-        });
-
-        let animation_details = PropertyAnimation { duration: DURATION.as_millis() as _ };
+        let animation_details =
+            PropertyAnimation { duration: DURATION.as_millis() as _, loop_count: 0 };
 
         compo.width.set(100);
-        assert_eq!(g(&compo.width), 100);
-        assert_eq!(g(&compo.width_times_two), 200);
+        assert_eq!(get_prop_value(&compo.width), 100);
+        assert_eq!(get_prop_value(&compo.width_times_two), 200);
 
         let start_time =
             crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| driver.current_tick());
 
         compo.width.set_animated_value(200, &animation_details);
-        assert_eq!(g(&compo.width), 100);
-        assert_eq!(g(&compo.width_times_two), 200);
+        assert_eq!(get_prop_value(&compo.width), 100);
+        assert_eq!(get_prop_value(&compo.width_times_two), 200);
 
         crate::animations::CURRENT_ANIMATION_DRIVER
             .with(|driver| driver.update_animations(start_time + DURATION / 2));
-        assert_eq!(g(&compo.width), 150);
-        assert_eq!(g(&compo.width_times_two), 300);
+        assert_eq!(get_prop_value(&compo.width), 150);
+        assert_eq!(get_prop_value(&compo.width_times_two), 300);
 
         crate::animations::CURRENT_ANIMATION_DRIVER
             .with(|driver| driver.update_animations(start_time + DURATION));
-        assert_eq!(g(&compo.width), 200);
-        assert_eq!(g(&compo.width_times_two), 400);
+        assert_eq!(get_prop_value(&compo.width), 200);
+        assert_eq!(get_prop_value(&compo.width_times_two), 400);
         crate::animations::CURRENT_ANIMATION_DRIVER
             .with(|driver| driver.update_animations(start_time + DURATION * 2));
-        assert_eq!(g(&compo.width), 200);
-        assert_eq!(g(&compo.width_times_two), 400);
+        assert_eq!(get_prop_value(&compo.width), 200);
+        assert_eq!(get_prop_value(&compo.width_times_two), 400);
 
         // the binding should be removed
         compo.width.handle.access(|binding| assert!(binding.is_none()));
@@ -947,50 +968,116 @@ mod animation_tests {
 
     #[test]
     fn properties_test_animation_triggered_by_binding() {
-        fn g(prop: &Property<i32>) -> i32 {
-            unsafe { Pin::new_unchecked(prop).get() }
-        }
-        let compo = Rc::new(Component::default());
-
-        let w = Rc::downgrade(&compo);
-        compo.width_times_two.set_binding(move || {
-            let compo = w.upgrade().unwrap();
-            g(&compo.width) * 2
-        });
+        let compo = Component::new_test_component();
 
         let start_time =
             crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| driver.current_tick());
 
-        let animation_details = PropertyAnimation { duration: DURATION.as_millis() as _ };
+        let animation_details =
+            PropertyAnimation { duration: DURATION.as_millis() as _, loop_count: 0 };
 
         let w = Rc::downgrade(&compo);
         compo.width.set_animated_binding(
             move || {
                 let compo = w.upgrade().unwrap();
-                g(&compo.feed_property)
+                get_prop_value(&compo.feed_property)
             },
             &animation_details,
         );
 
         compo.feed_property.set(100);
-        assert_eq!(g(&compo.width), 100);
-        assert_eq!(g(&compo.width_times_two), 200);
+        assert_eq!(get_prop_value(&compo.width), 100);
+        assert_eq!(get_prop_value(&compo.width_times_two), 200);
 
         compo.feed_property.set(200);
-        assert_eq!(g(&compo.width), 100);
-        assert_eq!(g(&compo.width_times_two), 200);
+        assert_eq!(get_prop_value(&compo.width), 100);
+        assert_eq!(get_prop_value(&compo.width_times_two), 200);
 
         crate::animations::CURRENT_ANIMATION_DRIVER
             .with(|driver| driver.update_animations(start_time + DURATION / 2));
 
-        assert_eq!(g(&compo.width), 150);
-        assert_eq!(g(&compo.width_times_two), 300);
+        assert_eq!(get_prop_value(&compo.width), 150);
+        assert_eq!(get_prop_value(&compo.width_times_two), 300);
 
         crate::animations::CURRENT_ANIMATION_DRIVER
             .with(|driver| driver.update_animations(start_time + DURATION));
 
-        assert_eq!(g(&compo.width), 200);
-        assert_eq!(g(&compo.width_times_two), 400);
+        assert_eq!(get_prop_value(&compo.width), 200);
+        assert_eq!(get_prop_value(&compo.width_times_two), 400);
+    }
+
+    #[test]
+    fn test_loop() {
+        let compo = Component::new_test_component();
+
+        let animation_details =
+            PropertyAnimation { duration: DURATION.as_millis() as _, loop_count: 2 };
+
+        compo.width.set(100);
+
+        let start_time =
+            crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| driver.current_tick());
+
+        compo.width.set_animated_value(200, &animation_details);
+        assert_eq!(get_prop_value(&compo.width), 100);
+
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.update_animations(start_time + DURATION / 2));
+        assert_eq!(get_prop_value(&compo.width), 150);
+
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.update_animations(start_time + DURATION));
+        assert_eq!(get_prop_value(&compo.width), 100);
+
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.update_animations(start_time + DURATION + DURATION / 2));
+        assert_eq!(get_prop_value(&compo.width), 150);
+
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.update_animations(start_time + DURATION * 2));
+        assert_eq!(get_prop_value(&compo.width), 100);
+
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.update_animations(start_time + DURATION * 2 + DURATION / 2));
+        assert_eq!(get_prop_value(&compo.width), 150);
+
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.update_animations(start_time + DURATION * 3));
+        assert_eq!(get_prop_value(&compo.width), 200);
+
+        // the binding should be removed
+        compo.width.handle.access(|binding| assert!(binding.is_none()));
+    }
+
+    #[test]
+    fn test_loop_overshoot() {
+        let compo = Component::new_test_component();
+
+        let animation_details =
+            PropertyAnimation { duration: DURATION.as_millis() as _, loop_count: 2 };
+
+        compo.width.set(100);
+
+        let start_time =
+            crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| driver.current_tick());
+
+        compo.width.set_animated_value(200, &animation_details);
+        assert_eq!(get_prop_value(&compo.width), 100);
+
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.update_animations(start_time + DURATION / 2));
+        assert_eq!(get_prop_value(&compo.width), 150);
+
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.update_animations(start_time + DURATION * 2 + DURATION / 2));
+        assert_eq!(get_prop_value(&compo.width), 150);
+
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.update_animations(start_time + DURATION * 3));
+        assert_eq!(get_prop_value(&compo.width), 200);
+
+        // the binding should be removed
+        compo.width.handle.access(|binding| assert!(binding.is_none()));
     }
 }
 

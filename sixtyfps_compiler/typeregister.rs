@@ -337,6 +337,7 @@ impl TypeRegister {
         let mut property_animation =
             BuiltinElement { class_name: "PropertyAnimation".into(), ..Default::default() };
         property_animation.properties.insert("duration".to_owned(), Type::Int32);
+        property_animation.properties.insert("loop_count".to_owned(), Type::Int32);
         r.property_animation_type = Type::Builtin(Rc::new(property_animation));
         r.supported_property_animation_types.insert(Type::Float32.to_string());
         r.supported_property_animation_types.insert(Type::Int32.to_string());
