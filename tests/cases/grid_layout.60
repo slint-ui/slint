@@ -1,10 +1,10 @@
 TestCase := Rectangle {
-    width: 300;
-    height: 300;
+    width: 300px;
+    height: 300px;
 
     GridLayout {
-        x: 100;
-        y: 100;
+        x: 100px;
+        y: 100px;
 
         Row {
             Rectangle {

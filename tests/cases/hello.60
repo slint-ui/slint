@@ -4,15 +4,15 @@ component TwoRectangle := Rectangle {
     signal clicked;
 
     Rectangle {
-        x: 50;
-        y: 50.;
-        width: 25;
-        height: 25;
+        x: 50px;
+        y: 50.0px;
+        width: 25px;
+        height: 25px;
         color: red;
 
         my_area := TouchArea {
-            width: 25;
-            height: 25;
+            width: 25px;
+            height: 25px;
             clicked => { root.clicked() }
         }
     }
@@ -21,8 +21,8 @@ component TwoRectangle := Rectangle {
 component ButtonRectangle := Rectangle {
     property<string> button_text;
     signal clicked;
-    width: 100;
-    height: 75;
+    width: 100px;
+    height: 75px;
 
     inner := Rectangle {
         color: { area.pressed ? green : root.color };
@@ -35,8 +35,8 @@ component ButtonRectangle := Rectangle {
         Text {
             animate x { duration: 500ms; }
             animate y { duration: 500ms; }
-            x: { area.pressed ? 60 : 50; }
-            y: { area.pressed ? 20 : 10; }
+            x: { area.pressed ? 60px : 50px; }
+            y: { area.pressed ? 20px : 10px; }
             text: button_text;
             color: black;
         }
@@ -44,10 +44,10 @@ component ButtonRectangle := Rectangle {
         animate y { duration: 500ms; }
         animate width { duration: 500ms; }
         animate height { duration: 500ms; }
-        x: { area.pressed ? 0-10 : 0 }
-        y: { area.pressed ? 0-10 : 0; }
-        width: { area.pressed ? (root.width + 20) : root.width; }
-        height: { area.pressed ? (root.height + 20) : root.height; }
+        x: { area.pressed ? 0px-10px : 0px }
+        y: { area.pressed ? 0px-10px : 0px; }
+        width: { area.pressed ? (root.width + 20px) : root.width; }
+        height: { area.pressed ? (root.height + 20px) : root.height; }
     }
 }
 
@@ -60,51 +60,51 @@ Hello := Rectangle {
     color: white;
 
     TwoRectangle {
-        width: 100;
-        height: 100;
+        width: 100px;
+        height: 100px;
         color: blue;
         clicked => { foobar() }
     }
     Rectangle {
-        x: 100;
-        y: 100;
-        width: (100);
-        height: {100}
+        x: 100px;
+        y: 100px;
+        width: (100px);
+        height: {100px}
         color: green;
         Rectangle {
-            x: 50;
-            y: 50.;
-            width: 25;
-            height: 25;
+            x: 50px;
+            y: 50.0px;
+            width: 25px;
+            height: 25px;
             color: yellow;
         }
     }
     Image {
-        x: 200;
-        y: 200;
+        x: 200px;
+        y: 200px;
         source: img!"../../examples/graphicstest/logo.png";
     }
 
     ButtonRectangle {
         color: #888;
-        x: 50;
-        y: 225;
-        clicked => { counter += 1 }
+        x: 50px;
+        y: 225px;
+        clicked => { counter += 1px }
         button_text: "+";
     }
     property<int32> counter;
-    counter_label := Text { x: 100; y: 300; text: counter; color: black; }
+    counter_label := Text { x: 100px; y: 300px; text: counter; color: black; }
     ButtonRectangle {
         color: #888;
-        x: 50;
-        y: 350;
+        x: 50px;
+        y: 350px;
         clicked => { minus_clicked() }
         button_text: "-";
     }
 
      Path {
-        x: 100;
-        y: 300;
+        x: 100px;
+        y: 300px;
         fill_color: green;
         stroke_color: black;
         stroke_width: 2.0;
@@ -130,8 +130,8 @@ Hello := Rectangle {
 
     Path {
         commands: "M 100 300 Q 150 50 250 150 C 250 300 300 300 300 450 A 50 50 0 1 0 450 450 L 550 300";
-        x: 100;
-        y: 500;
+        x: 100px;
+        y: 500px;
         stroke_color: black;
         stroke_width: 2.0;
     }

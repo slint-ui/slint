@@ -8,12 +8,12 @@ X := Rectangle {
             text: item.name;
         }
         
-        x: 50;
-        y: 50;
+        x: 50px;
+        y: 50px;
 
         LineTo {
-            x: 300;
-            y: 300;
+            x: 300px;
+            y: 300px;
         }
     }
 

@@ -1,7 +1,7 @@
 Hello := Rectangle {
 
-    width: 100;
-    height: 100;
+    width: 100px;
+    height: 100px;
     color: white;
     property<int32> top_level: 42;
 

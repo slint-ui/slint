@@ -1,18 +1,18 @@
 
 TestCase := Rectangle {
-    width: 100;
-    height: 100;
+    width: 100px;
+    height: 100px;
     color: white;
     property<int32> top_level: 42;
 
    for pp[idx] in 5: Rectangle {
         s := Rectangle {
             property<int32> within: 88;
-            x: 2 * idx;
-            y: 200 * pp;
+            x: 2px * idx;
+            y: 200px * pp;
             width: s.within;
             height: root.top_level;
-            for nested in [1] : Rectangle {
+            for nested in [1px] : Rectangle {
                 x : s.width + root.top_level + nested;
             }
         }
@@ -20,7 +20,7 @@ TestCase := Rectangle {
 
     for pp[idx] in [1,3,2]: Rectangle {
         x: idx;
-        y: 25 * pp;
+        y: 25px * pp;
     }
 
     for pp[idx] in ["1","3","2"]: Rectangle {

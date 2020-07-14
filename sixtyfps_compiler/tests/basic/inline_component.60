@@ -1,7 +1,7 @@
 
 component Inline1 := Rectangle {
     Rectangle {
-        x: 66;
+        x: 66px;
     }
 }
 

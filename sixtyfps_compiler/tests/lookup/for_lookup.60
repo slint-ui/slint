@@ -39,10 +39,10 @@ Hello := Rectangle {
 
     for pp[idx] in [1,3,2]: Rectangle {
         x: idx;
-        y: 25 * pp;
+        y: 25px * pp;
     }
 
-    for pp[idx] in [{a: 1, b: "P"},{a: 2, b: "Q"}]: Text {
+    for pp[idx] in [{a: 1px, b: "P"},{a: 2px, b: "Q"}]: Text {
         x: pp.a;
         text: pp.b;
         y: pp.b;
