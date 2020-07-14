@@ -20,6 +20,7 @@ fn rust_type(
         Type::String => Ok(quote!(sixtyfps::re_exports::SharedString)),
         Type::Color => Ok(quote!(sixtyfps::re_exports::Color)),
         Type::Duration => Ok(quote!(i64)),
+        Type::Length => Ok(quote!(f32)),
         Type::Bool => Ok(quote!(bool)),
         Type::Object(o) => {
             let elem = o.values().map(|v| rust_type(v, span)).collect::<Result<Vec<_>, _>>()?;

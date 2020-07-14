@@ -2,13 +2,13 @@ X := Rectangle {
 
     t := Text {
         x: "hello";
-//        ^error{Cannot convert string to float32}
+//        ^error{Cannot convert string to length}
         text: 45;
     }
 
     Text {
         x: t.text;
-//        ^error{Cannot convert string to float32}
+//        ^error{Cannot convert string to length}
     }
 
     Rectangle {

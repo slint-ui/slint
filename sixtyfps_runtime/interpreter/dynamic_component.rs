@@ -310,6 +310,7 @@ fn generate_component(
             Type::String => property_info::<SharedString>(),
             Type::Color => animated_property_info::<Color>(),
             Type::Duration => animated_property_info::<i64>(),
+            Type::Length => animated_property_info::<f32>(),
             Type::Resource => property_info::<Resource>(),
             Type::Bool => property_info::<bool>(),
             Type::Signal => {

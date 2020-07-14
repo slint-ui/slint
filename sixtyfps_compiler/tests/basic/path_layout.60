@@ -7,13 +7,13 @@ X := Rectangle {
         ] : Text {
             text: item.name;
         }
-        
+
         x: 50px;
         y: 50px;
 
         LineTo {
-            x: 300px;
-            y: 300px;
+            x: 300;
+            y: 300;
         }
     }
 

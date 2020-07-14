@@ -3,7 +3,7 @@ Hello := Rectangle {
     width: 100px;
     height: 100px;
     color: white;
-    property<int32> top_level: 42;
+    property<length> top_level: 42px;
 
     property<bool> cond1;
     property<bool> cond2;
@@ -11,7 +11,7 @@ Hello := Rectangle {
 
     if (cond1) : Rectangle {
         color: root.color;
-        property<int32> xx: root.top_level;
+        property<length> xx: root.top_level;
     }
 
     if (cond1 ? cond2 : cond3) : Rectangle {
@@ -19,7 +19,7 @@ Hello := Rectangle {
     }
 
     if (width) : Rectangle {
-//      ^error{Cannot convert float32 to bool}
+//      ^error{Cannot convert length to bool}
 
     }
 }

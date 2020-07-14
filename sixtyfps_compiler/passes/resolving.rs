@@ -475,6 +475,36 @@ impl Expression {
                         op,
                     }
                 }
+                ('+', Type::Length, _) => Type::Length,
+                ('-', Type::Length, _) => Type::Length,
+                ('*', Type::Length, _) => {
+                    return Expression::BinaryExpression {
+                        lhs: Box::new(lhs),
+                        rhs: Box::new(rhs.maybe_convert_to(Type::Float32, &lhs_n, &mut ctx.diag)),
+                        op,
+                    }
+                }
+                ('*', _, Type::Length) => {
+                    return Expression::BinaryExpression {
+                        lhs: Box::new(lhs.maybe_convert_to(Type::Float32, &lhs_n, &mut ctx.diag)),
+                        rhs: Box::new(rhs),
+                        op,
+                    }
+                }
+                ('/', Type::Length, Type::Length) => {
+                    return Expression::BinaryExpression {
+                        lhs: Box::new(lhs),
+                        rhs: Box::new(rhs),
+                        op,
+                    }
+                }
+                ('/', Type::Length, _) => {
+                    return Expression::BinaryExpression {
+                        lhs: Box::new(lhs),
+                        rhs: Box::new(rhs.maybe_convert_to(Type::Float32, &lhs_n, &mut ctx.diag)),
+                        op,
+                    }
+                }
                 _ => Type::Float32,
             },
         };

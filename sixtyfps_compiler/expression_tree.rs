@@ -82,7 +82,7 @@ declare_units! {
     // Lenghts or Coord
 
     /// Physical pixels
-    Px = "px" -> Float32,
+    Px = "px" -> Length,
     /// Logical pixels
     Lx = "lx" -> Float32,
     /// Centimeters
@@ -274,6 +274,12 @@ impl Expression {
                         ('*', _, Type::Duration) => Type::Duration,
                         ('/', Type::Duration, Type::Duration) => Type::Float32,
                         ('/', Type::Duration, _) => Type::Duration,
+                        ('+', Type::Length, Type::Length) => Type::Length,
+                        ('-', Type::Length, Type::Length) => Type::Length,
+                        ('*', Type::Length, _) => Type::Length,
+                        ('*', _, Type::Length) => Type::Length,
+                        ('/', Type::Length, Type::Length) => Type::Float32,
+                        ('/', Type::Length, _) => Type::Length,
                         _ => Type::Float32,
                     }
                 } else {

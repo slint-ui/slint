@@ -7,17 +7,17 @@ Hello := Rectangle {
     property<int32> count: 5;
 
     for foo[idx] in count: Rectangle {
-        x: idx;
+        x: idx * 1px;
         ccc := Text {
-            x: idx;
+            x: idx * 1px;
             text: aaa.text;
-            y: foo;
+            y: foo * 1px;
         }
     }
 
     for gre[mem] in err: Rectangle {
                   //^error{Unknown unqualified identifier 'err'}
-        x: mem;
+        x: mem * 1px;
         ddd := Text { text: ccc.text; }
         //                  ^error{Cannot access id 'ccc'}
     }
@@ -30,7 +30,7 @@ Hello := Rectangle {
     }
 
     for plop in [1,2,3,4]: Rectangle {
-        x: plop;
+        x: plop * 1px;
         Rectangle {
             color: plop;
 //                ^error{Cannot convert float32 to color}
@@ -38,7 +38,7 @@ Hello := Rectangle {
     }
 
     for pp[idx] in [1,3,2]: Rectangle {
-        x: idx;
+        x: idx * 1px;
         y: 25px * pp;
     }
 
@@ -46,9 +46,9 @@ Hello := Rectangle {
         x: pp.a;
         text: pp.b;
         y: pp.b;
-//        ^error{Cannot convert string to float32}
+//        ^error{Cannot convert string to length}
         property<int32> ggg: pp;
-//                          ^error{Cannot convert \{ a: float32,b: string,\} to int32}
+//                          ^error{Cannot convert \{ a: length,b: string,\} to int32}
     }
 
 

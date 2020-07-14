@@ -15,6 +15,7 @@ pub enum Type {
     String,
     Color,
     Duration,
+    Length,
     Resource,
     Bool,
     Model,
@@ -36,6 +37,7 @@ impl core::cmp::PartialEq for Type {
             (Type::String, Type::String) => true,
             (Type::Color, Type::Color) => true,
             (Type::Duration, Type::Duration) => true,
+            (Type::Length, Type::Length) => true,
             (Type::Resource, Type::Resource) => true,
             (Type::Bool, Type::Bool) => true,
             (Type::Array(a), Type::Array(b)) => a == b,
@@ -58,6 +60,7 @@ impl Display for Type {
             Type::Int32 => write!(f, "int32"),
             Type::String => write!(f, "string"),
             Type::Duration => write!(f, "duration"),
+            Type::Length => write!(f, "length"),
             Type::Color => write!(f, "color"),
             Type::Resource => write!(f, "resource"),
             Type::Bool => write!(f, "bool"),
@@ -89,6 +92,7 @@ impl Type {
                 | Self::String
                 | Self::Color
                 | Self::Duration
+                | Self::Length
                 | Self::Resource
                 | Self::Bool
                 | Self::Model
@@ -231,6 +235,7 @@ impl TypeRegister {
         insert_type(Type::Float32);
         insert_type(Type::Int32);
         insert_type(Type::String);
+        insert_type(Type::Length);
         insert_type(Type::Color);
         insert_type(Type::Duration);
         insert_type(Type::Resource);
@@ -239,41 +244,41 @@ impl TypeRegister {
 
         let mut rectangle = BuiltinElement::new("Rectangle");
         rectangle.properties.insert("color".to_owned(), Type::Color);
-        rectangle.properties.insert("x".to_owned(), Type::Float32);
-        rectangle.properties.insert("y".to_owned(), Type::Float32);
-        rectangle.properties.insert("width".to_owned(), Type::Float32);
-        rectangle.properties.insert("height".to_owned(), Type::Float32);
+        rectangle.properties.insert("x".to_owned(), Type::Length);
+        rectangle.properties.insert("y".to_owned(), Type::Length);
+        rectangle.properties.insert("width".to_owned(), Type::Length);
+        rectangle.properties.insert("height".to_owned(), Type::Length);
         r.types.insert("Rectangle".to_owned(), Type::Builtin(Rc::new(rectangle)));
 
         let mut image = BuiltinElement::new("Image");
         image.properties.insert("source".to_owned(), Type::Resource);
-        image.properties.insert("x".to_owned(), Type::Float32);
-        image.properties.insert("y".to_owned(), Type::Float32);
-        image.properties.insert("width".to_owned(), Type::Float32);
-        image.properties.insert("height".to_owned(), Type::Float32);
+        image.properties.insert("x".to_owned(), Type::Length);
+        image.properties.insert("y".to_owned(), Type::Length);
+        image.properties.insert("width".to_owned(), Type::Length);
+        image.properties.insert("height".to_owned(), Type::Length);
         r.types.insert("Image".to_owned(), Type::Builtin(Rc::new(image)));
 
         let mut text = BuiltinElement::new("Text");
         text.properties.insert("text".to_owned(), Type::String);
         text.properties.insert("font_family".to_owned(), Type::String);
-        text.properties.insert("font_pixel_size".to_owned(), Type::Float32);
+        text.properties.insert("font_pixel_size".to_owned(), Type::Length);
         text.properties.insert("color".to_owned(), Type::Color);
-        text.properties.insert("x".to_owned(), Type::Float32);
-        text.properties.insert("y".to_owned(), Type::Float32);
+        text.properties.insert("x".to_owned(), Type::Length);
+        text.properties.insert("y".to_owned(), Type::Length);
         r.types.insert("Text".to_owned(), Type::Builtin(Rc::new(text)));
 
         let mut touch_area = BuiltinElement::new("TouchArea");
-        touch_area.properties.insert("x".to_owned(), Type::Float32);
-        touch_area.properties.insert("y".to_owned(), Type::Float32);
-        touch_area.properties.insert("width".to_owned(), Type::Float32);
-        touch_area.properties.insert("height".to_owned(), Type::Float32);
+        touch_area.properties.insert("x".to_owned(), Type::Length);
+        touch_area.properties.insert("y".to_owned(), Type::Length);
+        touch_area.properties.insert("width".to_owned(), Type::Length);
+        touch_area.properties.insert("height".to_owned(), Type::Length);
         touch_area.properties.insert("pressed".to_owned(), Type::Bool);
         touch_area.properties.insert("clicked".to_owned(), Type::Signal);
         r.types.insert("TouchArea".to_owned(), Type::Builtin(Rc::new(touch_area)));
 
         let mut grid_layout = BuiltinElement::new("GridLayout");
-        grid_layout.properties.insert("x".to_owned(), Type::Float32);
-        grid_layout.properties.insert("y".to_owned(), Type::Float32);
+        grid_layout.properties.insert("x".to_owned(), Type::Length);
+        grid_layout.properties.insert("y".to_owned(), Type::Length);
 
         // Row can only be in a GridLayout
         let row = BuiltinElement::new("Row");
@@ -284,10 +289,10 @@ impl TypeRegister {
         r.types.insert("GridLayout".to_owned(), Type::Builtin(Rc::new(grid_layout)));
 
         let mut path = BuiltinElement::new("Path");
-        path.properties.insert("x".to_owned(), Type::Float32);
-        path.properties.insert("y".to_owned(), Type::Float32);
-        path.properties.insert("width".to_owned(), Type::Float32);
-        path.properties.insert("height".to_owned(), Type::Float32);
+        path.properties.insert("x".to_owned(), Type::Length);
+        path.properties.insert("y".to_owned(), Type::Length);
+        path.properties.insert("width".to_owned(), Type::Length);
+        path.properties.insert("height".to_owned(), Type::Length);
         path.properties.insert("fill_color".to_owned(), Type::Color);
         path.properties.insert("stroke_color".to_owned(), Type::Color);
         path.properties.insert("stroke_width".to_owned(), Type::Float32);
@@ -328,10 +333,10 @@ impl TypeRegister {
         r.types.insert("Path".to_owned(), Type::Builtin(Rc::new(path)));
 
         let mut path_layout = BuiltinElement::new("PathLayout");
-        path_layout.properties.insert("x".to_owned(), Type::Float32);
-        path_layout.properties.insert("y".to_owned(), Type::Float32);
-        path_layout.properties.insert("width".to_owned(), Type::Float32);
-        path_layout.properties.insert("height".to_owned(), Type::Float32);
+        path_layout.properties.insert("x".to_owned(), Type::Length);
+        path_layout.properties.insert("y".to_owned(), Type::Length);
+        path_layout.properties.insert("width".to_owned(), Type::Length);
+        path_layout.properties.insert("height".to_owned(), Type::Length);
         path_layout.properties.insert("commands".to_owned(), Type::String);
         path_layout.properties.insert("offset".to_owned(), Type::Float32);
         path_elements.iter().for_each(|elem| {
@@ -349,6 +354,7 @@ impl TypeRegister {
         r.supported_property_animation_types.insert(Type::Float32.to_string());
         r.supported_property_animation_types.insert(Type::Int32.to_string());
         r.supported_property_animation_types.insert(Type::Color.to_string());
+        r.supported_property_animation_types.insert(Type::Length.to_string());
 
         let mut context_restricted_types = HashMap::new();
         r.types.values().for_each(|ty| ty.collect_contextual_types(&mut context_restricted_types));

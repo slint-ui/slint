@@ -144,6 +144,7 @@ impl CppType for Type {
             Type::String => Some("sixtyfps::SharedString".to_owned()),
             Type::Color => Some("sixtyfps::Color".to_owned()),
             Type::Duration => Some("std::int64_t".to_owned()),
+            Type::Length => Some("float".to_owned()),
             Type::Bool => Some("bool".to_owned()),
             Type::Model => Some("std::shared_ptr<sixtyfps::Model>".to_owned()),
             Type::Object(o) => {

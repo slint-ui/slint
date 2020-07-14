@@ -11,7 +11,7 @@ SuperSimple := Rectangle {
     }
     TouchArea {
         clicked => { x += "string"; }
-//                       ^error{Cannot convert string to float32}
+//                       ^error{Cannot convert string to length}
     }
 }
 

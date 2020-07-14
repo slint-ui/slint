@@ -1,6 +1,6 @@
 
 Comp := Rectangle {
-    property<int32> custom_prop;
+    property<length> custom_prop;
     property<color> color_prop;
     color_prop: red;
 

@@ -114,14 +114,14 @@ fn self_test() -> std::io::Result<()> {
     // this should succeed
     assert!(process(
         r#"
-Foo := Rectangle { x: 0; }
+Foo := Rectangle { x: 0px; }
     "#
     )?);
 
     // unless we expected an error
     assert!(!process(
         r#"
-Foo := Rectangle { x: 0; }
+Foo := Rectangle { x: 0px; }
 //     ^error{i want an error}
     "#
     )?);
@@ -129,14 +129,14 @@ Foo := Rectangle { x: 0; }
     // An error should fail
     assert!(!process(
         r#"
-Foo := Rectangle foo { x:0; }
+Foo := Rectangle foo { x:0px; }
     "#
     )?);
 
     // An error with the proper comment should pass
     assert!(process(
         r#"
-Foo := Rectangle foo { x:0; }
+Foo := Rectangle foo { x:0px; }
 //               ^error{expected LBrace}
     "#
     )?);
@@ -144,7 +144,7 @@ Foo := Rectangle foo { x:0; }
     // But not if it is at the wrong position
     assert!(!process(
         r#"
-Foo := Rectangle foo { x:0; }
+Foo := Rectangle foo { x:0px; }
 //             ^error{expected LBrace}
     "#
     )?);
@@ -152,7 +152,7 @@ Foo := Rectangle foo { x:0; }
     // or the wrong line
     assert!(!process(
         r#"
-Foo := Rectangle foo { x:0; }
+Foo := Rectangle foo { x:0px; }
 
 //               ^error{expected LBrace}
     "#
@@ -161,7 +161,7 @@ Foo := Rectangle foo { x:0; }
     // or the wrong message
     assert!(!process(
         r#"
-Foo := Rectangle foo { x:0; }
+Foo := Rectangle foo { x:0px; }
 //               ^error{foo_bar}
     "#
     )?);
