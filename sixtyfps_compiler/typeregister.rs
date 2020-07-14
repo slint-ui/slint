@@ -227,15 +227,15 @@ impl TypeRegister {
     pub fn builtin() -> Self {
         let mut r = TypeRegister::default();
 
-        let mut instert_type = |t: Type| r.types.insert(t.to_string(), t);
-        instert_type(Type::Float32);
-        instert_type(Type::Int32);
-        instert_type(Type::String);
-        instert_type(Type::Color);
-        instert_type(Type::Duration);
-        instert_type(Type::Resource);
-        instert_type(Type::Bool);
-        instert_type(Type::Model);
+        let mut insert_type = |t: Type| r.types.insert(t.to_string(), t);
+        insert_type(Type::Float32);
+        insert_type(Type::Int32);
+        insert_type(Type::String);
+        insert_type(Type::Color);
+        insert_type(Type::Duration);
+        insert_type(Type::Resource);
+        insert_type(Type::Bool);
+        insert_type(Type::Model);
 
         let mut rectangle = BuiltinElement::new("Rectangle");
         rectangle.properties.insert("color".to_owned(), Type::Color);
