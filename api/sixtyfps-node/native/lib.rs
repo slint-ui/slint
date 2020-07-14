@@ -1,7 +1,7 @@
 use core::cell::RefCell;
 use neon::prelude::*;
 use sixtyfps_compilerlib::typeregister::Type;
-use sixtyfps_corelib::abi::datastructures::Resource;
+use sixtyfps_corelib::abi::datastructures::{Resource, WindowProperties};
 use sixtyfps_corelib::ComponentRefPin;
 
 use std::rc::Rc;
@@ -161,6 +161,7 @@ fn to_js_value<'cx>(
 fn show<'cx>(
     cx: &mut CallContext<'cx, impl neon::object::This>,
     component: ComponentRefPin,
+    window_props: &WindowProperties,
     presistent_context: persistent_context::PersistentContext<'cx>,
 ) -> JsResult<'cx, JsUndefined> {
     cx.execute_scoped(|cx| {
@@ -170,7 +171,7 @@ fn show<'cx>(
         };
         GLOBAL_CONTEXT.set(&&cx_fn, || {
             let window = sixtyfps_rendering_backend_gl::create_gl_window();
-            window.run(component);
+            window.run(component, window_props);
         })
     });
 
@@ -233,7 +234,8 @@ declare_types! {
             let component = cx.borrow(&mut this, |x| x.0.clone());
             let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
             let persistent_context = persistent_context::PersistentContext::from_object(&mut cx, this.downcast().unwrap())?;
-            show(&mut cx, component.borrow(), persistent_context)?;
+            let props = WindowProperties{width: None, height: None};
+            show(&mut cx, component.borrow(), &props, persistent_context)?;
             Ok(JsUndefined::new().as_value(&mut cx))
         }
         method get_property(mut cx) {

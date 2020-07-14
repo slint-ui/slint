@@ -38,8 +38,9 @@ struct ComponentWindow
     template<typename Component>
     void run(Component *c)
     {
-        sixtyfps_component_window_run(&inner,
-            VRefMut<ComponentVTable> { &Component::component_type, c });
+        internal::WindowProperties props { nullptr, nullptr };
+        sixtyfps_component_window_run(
+                &inner, VRefMut<ComponentVTable> { &Component::component_type, c }, &props);
     }
 
 private:
@@ -53,17 +54,17 @@ using internal::Text;
 using internal::TouchArea;
 
 constexpr inline ItemTreeNode<uint8_t> make_item_node(std::uintptr_t offset,
-                                             const internal::ItemVTable *vtable,
-                                             uint32_t child_count, uint32_t child_index)
+                                                      const internal::ItemVTable *vtable,
+                                                      uint32_t child_count, uint32_t child_index)
 {
     return ItemTreeNode<uint8_t> { ItemTreeNode<uint8_t>::Item_Body {
-        ItemTreeNode<uint8_t>::Tag::Item, {vtable, offset}, child_count, child_index } };
+            ItemTreeNode<uint8_t>::Tag::Item, { vtable, offset }, child_count, child_index } };
 }
 
 constexpr inline ItemTreeNode<uint8_t> make_dyn_node(std::uintptr_t offset)
 {
     return ItemTreeNode<uint8_t> { ItemTreeNode<uint8_t>::DynamicTree_Body {
-        ItemTreeNode<uint8_t>::Tag::DynamicTree, offset } };
+            ItemTreeNode<uint8_t>::Tag::DynamicTree, offset } };
 }
 
 using internal::sixtyfps_visit_item_tree;
@@ -112,13 +113,14 @@ struct IntModel : Model
 };
 
 template<typename C>
-struct Repeater {
+struct Repeater
+{
     std::vector<std::unique_ptr<C>> data;
 
     template<typename Parent>
     void update_model(Model *model, const Parent *parent) const
     {
-        auto &data = const_cast<Repeater*>(this)->data;
+        auto &data = const_cast<Repeater *>(this)->data;
         data.clear();
         auto count = model->count();
         for (auto i = 0; i < count; ++i) {
@@ -129,13 +131,13 @@ struct Repeater {
         }
     }
 
-    void visit(ItemVisitorRefMut visitor) const {
+    void visit(ItemVisitorRefMut visitor) const
+    {
         for (const auto &x : data) {
-            VRef<ComponentVTable> ref{&C::component_type, x.get()};
+            VRef<ComponentVTable> ref { &C::component_type, x.get() };
             ref.vtable->visit_children_item(ref, -1, visitor);
         }
     }
 };
-
 
 } // namespace sixtyfps

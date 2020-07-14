@@ -7,7 +7,7 @@ use object_tree::{Element, ElementRc};
 use sixtyfps_compilerlib::typeregister::Type;
 use sixtyfps_compilerlib::*;
 use sixtyfps_corelib::abi::datastructures::{
-    ComponentVTable, ItemTreeNode, ItemVTable, ItemVisitorRefMut, Resource,
+    ComponentVTable, ItemTreeNode, ItemVTable, ItemVisitorRefMut, Resource, WindowProperties,
 };
 use sixtyfps_corelib::abi::primitives::PropertyAnimation;
 use sixtyfps_corelib::abi::{properties::PropertyListenerScope, slice::Slice};
@@ -45,6 +45,23 @@ impl ComponentBox {
 
     pub fn description(&self) -> Rc<ComponentDescription> {
         return self.component_type.clone();
+    }
+
+    pub fn window_properties<'a>(&'a self) -> WindowProperties<'a> {
+        let component = self.borrow();
+        let component_type = unsafe {
+            &*(component.get_vtable() as *const ComponentVTable as *const ComponentDescription)
+        };
+
+        let info = &component_type.items[component_type.original.root_element.borrow().id.as_str()];
+
+        let get_prop = |name| {
+            info.rtti.properties.get(name).map(|p| unsafe {
+                &*(component.as_ptr().add(info.offset).add(p.offset()) as *const Property<f32>)
+            })
+        };
+
+        WindowProperties { width: get_prop("width"), height: get_prop("height") }
     }
 }
 

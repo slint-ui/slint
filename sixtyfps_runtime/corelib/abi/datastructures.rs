@@ -629,6 +629,19 @@ pub struct MouseEvent {
     pub what: MouseEventType,
 }
 
+#[repr(C)]
+#[derive(Default)]
+/// WindowProperties is used to pass the references to properties of the instantiated
+/// component that the run-time will keep up-to-date.
+pub struct WindowProperties<'a> {
+    /// A reference to the property that is supposed to be kept up-to-date with the width
+    /// of the window.
+    pub width: Option<&'a crate::Property<f32>>,
+    /// A reference to the property that is supposed to be kept up-to-date with the height
+    /// of the window.
+    pub height: Option<&'a crate::Property<f32>>,
+}
+
 /// The ComponentWindow is the (rust) facing public type that can render the items
 /// of components to the screen.
 #[repr(C)]
@@ -642,11 +655,11 @@ impl ComponentWindow {
         Self(window_impl)
     }
     /// Spins an event loop and renders the items of the provided component in this window.
-    pub fn run(&self, component: Pin<VRef<ComponentVTable>>) {
+    pub fn run(&self, component: Pin<VRef<ComponentVTable>>, props: &WindowProperties) {
         let event_loop = crate::eventloop::EventLoop::new();
         self.0.clone().map_window(&event_loop);
 
-        event_loop.run(component);
+        event_loop.run(component, &props);
     }
 }
 
@@ -672,9 +685,11 @@ pub unsafe extern "C" fn sixtyfps_component_window_drop(handle: *mut ComponentWi
 pub unsafe extern "C" fn sixtyfps_component_window_run(
     handle: *mut ComponentWindowOpaque,
     component: Pin<VRef<ComponentVTable>>,
+    window_props: *mut WindowProperties,
 ) {
     let window = &*(handle as *const ComponentWindow);
-    window.run(component);
+    let window_props = &*(window_props as *const WindowProperties);
+    window.run(component, &window_props);
 }
 
 #[repr(C)]

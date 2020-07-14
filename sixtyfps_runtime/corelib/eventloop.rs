@@ -42,7 +42,11 @@ impl EventLoop {
         Self { winit_loop: winit::event_loop::EventLoop::new() }
     }
     #[allow(unused_mut)] // mut need changes for wasm
-    pub fn run(mut self, component: core::pin::Pin<crate::abi::datastructures::ComponentRef>) {
+    pub fn run(
+        mut self,
+        component: core::pin::Pin<crate::abi::datastructures::ComponentRef>,
+        window_properties: &crate::abi::datastructures::WindowProperties,
+    ) {
         use winit::event::Event;
         use winit::event_loop::{ControlFlow, EventLoopWindowTarget};
 
@@ -76,6 +80,17 @@ impl EventLoop {
                 } => {
                     cursor_pos = position;
                     // TODO: propagate mouse move?
+                }
+                winit::event::Event::WindowEvent {
+                    event: winit::event::WindowEvent::Resized(size),
+                    ..
+                } => {
+                    if let Some(width_property) = window_properties.width {
+                        width_property.set(size.width as f32)
+                    }
+                    if let Some(height_property) = window_properties.height {
+                        height_property.set(size.height as f32)
+                    }
                 }
 
                 winit::event::Event::WindowEvent {

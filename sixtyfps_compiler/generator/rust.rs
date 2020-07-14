@@ -308,7 +308,8 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
             fn run(self : core::pin::Pin<std::rc::Rc<Self>>) {
                 use sixtyfps::re_exports::*;
                 let window = sixtyfps::create_window();
-                window.run(VRef::new_pin(self.as_ref()));
+                let window_props = WindowProperties {width: None, height: None};
+                window.run(VRef::new_pin(self.as_ref()), &window_props);
             }
         });
     };
