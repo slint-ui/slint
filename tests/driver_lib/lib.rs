@@ -35,7 +35,8 @@ pub struct TestCase {
 pub fn collect_test_cases() -> std::io::Result<Vec<TestCase>> {
     let mut results = vec![];
 
-    let case_root_dir = format!("{}/../cases", env!("CARGO_MANIFEST_DIR"));
+    let case_root_dir: std::path::PathBuf =
+        [env!("CARGO_MANIFEST_DIR"), "..", "cases"].iter().collect();
 
     for entry in std::fs::read_dir(case_root_dir.clone())? {
         let entry = entry?;
