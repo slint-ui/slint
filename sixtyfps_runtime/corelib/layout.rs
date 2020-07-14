@@ -211,7 +211,7 @@ pub extern "C" fn solve_path_layout(data: &PathLayoutData) {
         let seg_end_t = (seg_start + seg_len) / path_length;
 
         while next_t < seg_end_t {
-            let local_t = next_t - (seg_start / path_length);
+            let local_t = ((next_t * path_length) - seg_start) / seg_len;
 
             let item_pos = segment.sample(local_t);
             let center_x_offset = data.items[i].width / 2.;
