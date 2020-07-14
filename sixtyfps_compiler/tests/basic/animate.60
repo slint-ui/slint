@@ -3,12 +3,12 @@
 SuperSimple := Rectangle {
 
     animate x {
-        duration: 1000;
+        duration: 1000ms;
     }
 
     animate x {
 //          ^error{Duplicated animation}
-        duration: 1000;
+        duration: 1000ms;
     }
 
     animate y {

@@ -2,24 +2,24 @@
 component Btn := Rectangle {
     property<string> button_text;
     signal clicked;
-    width: 100;
-    height: 75;
+    width: 100pt;
+    height: 75pt;
     TouchArea {
-        width: 100;
-        height: 75;
+        width: 100pt;
+        height: 75pt;
         clicked => { root.clicked() }
     }
     Text {
-        x: 50;
-        y: 10;
+        x: 50pt;
+        y: 10pt;
         text: button_text;
         color: black;
     }
 }
 
 PlusMinus := Rectangle {
-    width: 100;
-    height: 300;
+    width: 100pt;
+    height: 300pt;
     color: white;
 
     property<int32> counter;

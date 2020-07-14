@@ -7,6 +7,7 @@ use super::prelude::*;
 /// "something"
 /// 0.3
 /// 42
+/// 42px
 /// #aabbcc
 /// (something)
 /// img!"something"
@@ -17,6 +18,7 @@ use super::prelude::*;
 /// (nested()) ? (ok) : (other.ko)
 /// 4 + 4
 /// 4 + 8 * 7 / 5 + 3 - 7 - 7 * 8
+/// -0.3px + 0.3px - 3.pt+3pt
 /// aa == cc && bb && (xxx || fff) && 3 + aaa == bbb
 /// [array]
 /// {object:42}

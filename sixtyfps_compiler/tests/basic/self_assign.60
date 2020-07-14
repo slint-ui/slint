@@ -1,9 +1,9 @@
 SuperSimple := Rectangle {
     TouchArea {
-        clicked => { root.x += 1; }
+        clicked => { root.x += 1px; }
     }
     TouchArea {
-        clicked => { x += 1; }
+        clicked => { x += 1px; }
     }
     TouchArea {
         clicked => { 12 += 1; }

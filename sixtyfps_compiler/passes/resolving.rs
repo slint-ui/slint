@@ -10,7 +10,6 @@ use crate::expression_tree::*;
 use crate::object_tree::*;
 use crate::parser::{syntax_nodes, Spanned, SyntaxKind, SyntaxNode, SyntaxNodeEx};
 use crate::typeregister::{Type, TypeRegister};
-use core::str::FromStr;
 use std::{collections::HashMap, rc::Rc};
 
 pub fn resolve_expressions(doc: &Document, diag: &mut Diagnostics, tr: &mut TypeRegister) {
@@ -174,18 +173,19 @@ impl Expression {
                 })
             })
             .or_else(|| {
-                node.child_text(SyntaxKind::NumberLiteral).map(|s| {
-                    f64::from_str(&s).ok().map(Self::NumberLiteral).unwrap_or_else(|| {
-                        ctx.diag.push_error("Cannot parse number literal".into(), node.span());
-                        Self::Invalid
+                node.child_text(SyntaxKind::NumberLiteral)
+                    .map(parse_number_literal)
+                    .transpose()
+                    .unwrap_or_else(|e| {
+                        ctx.diag.push_error(e, node.span());
+                        Some(Self::Invalid)
                     })
-                })
             })
             .or_else(|| {
                 node.child_text(SyntaxKind::ColorLiteral).map(|s| {
                     parse_color_literal(&s)
                         .map(|i| Expression::Cast {
-                            from: Box::new(Expression::NumberLiteral(i as _)),
+                            from: Box::new(Expression::NumberLiteral(i as _, Unit::None)),
                             to: Type::Color,
                         })
                         .unwrap_or_else(|| {
@@ -372,7 +372,7 @@ impl Expression {
             };
             if let Some(value) = value {
                 return Expression::Cast {
-                    from: Box::new(Expression::NumberLiteral(value as f64)),
+                    from: Box::new(Expression::NumberLiteral(value as f64, Unit::None)),
                     to: Type::Color,
                 };
             }
@@ -620,4 +620,41 @@ fn unescape_string(string: &str) -> Option<String> {
     let string = &string[1..(string.len() - 1)];
     // TODO: remove slashes
     return Some(string.into());
+}
+
+fn parse_number_literal(s: String) -> Result<Expression, String> {
+    let bytes = s.as_bytes();
+    let mut end = 0;
+    while end < bytes.len() && matches!(bytes[end], b'0'..=b'9' | b'.') {
+        end += 1;
+    }
+    let val = s[..end].parse().map_err(|_| "Cannot parse number literal".to_owned())?;
+    let unit = s[end..].parse().map_err(|_| "Invalid unit".to_owned())?;
+    Ok(Expression::NumberLiteral(val, unit))
+}
+
+#[test]
+fn test_parse_number_literal() {
+    fn doit(s: &str) -> Result<(f64, Unit), String> {
+        parse_number_literal(s.into()).map(|e| match e {
+            Expression::NumberLiteral(a, b) => (a, b),
+            _ => panic!(),
+        })
+    }
+
+    assert_eq!(doit("10"), Ok((10., Unit::None)));
+    assert_eq!(doit("10px"), Ok((10., Unit::Px)));
+    assert_eq!(doit("10.0px"), Ok((10., Unit::Px)));
+    assert_eq!(doit("10.0"), Ok((10., Unit::None)));
+    assert_eq!(doit("1.1px"), Ok((1.1, Unit::Px)));
+    assert_eq!(doit("10.10"), Ok((10.10, Unit::None)));
+    assert_eq!(doit("10000000"), Ok((10000000., Unit::None)));
+    assert_eq!(doit("10000001px"), Ok((10000001., Unit::Px)));
+
+    let wrong_unit = Err("Invalid unit".to_owned());
+    let cannot_parse = Err("Cannot parse number literal".to_owned());
+    assert_eq!(doit("10000001 px"), wrong_unit);
+    assert_eq!(doit("12.10.12px"), cannot_parse);
+    assert_eq!(doit("12.12oo"), wrong_unit);
+    assert_eq!(doit("12.12€"), wrong_unit);
 }

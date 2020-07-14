@@ -14,7 +14,7 @@ Comp := Rectangle {
 
 
 X := Rectangle {
-    width: 50;
+    width: 50px;
     height: width;
 
     foo := Rectangle {

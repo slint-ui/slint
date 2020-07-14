@@ -32,6 +32,67 @@ pub fn operator_class(op: char) -> OperatorClass {
     }
 }
 
+macro_rules! declare_units {
+    ($( $(#[$m:meta])* $ident:ident = $string:literal,)*) => {
+        /// The units that can be used after numbers in the language
+        #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+        pub enum Unit {
+            $($(#[$m])* $ident,)*
+        }
+
+        impl std::fmt::Display for Unit {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                match self {
+                    $(Self::$ident => write!(f, $string), )*
+                }
+            }
+        }
+
+        impl std::str::FromStr for Unit {
+            type Err = ();
+            fn from_str(s: &str) -> Result<Self, Self::Err> {
+                match s {
+                    $($string => Ok(Self::$ident), )*
+                    _ => Err(())
+                }
+            }
+        }
+    };
+}
+
+declare_units! {
+    /// No unit was given
+    None = "",
+
+    // Lenghts or Coord
+
+    /// Physical pixels
+    Px = "px",
+    /// Logical pixels
+    Lx = "lx",
+    /// Centimeters
+    Cm = "cm",
+    /// Milimeters
+    Mm = "mm",
+    /// inches
+    In = "in",
+    /// Points
+    Pt = "pt",
+
+    // durations
+
+    /// Seconds
+    S = "s",
+    /// Milliseconds
+    Ms = "ms",
+}
+
+impl Default for Unit {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
 /// The Expression is hold by properties, so it should not hold any strong references to node from the object_tree
 #[derive(Debug, Clone)]
 pub enum Expression {
@@ -42,7 +103,7 @@ pub enum Expression {
     /// A string literal. The .0 is the content of the string, without the quotes
     StringLiteral(String),
     /// Number
-    NumberLiteral(f64),
+    NumberLiteral(f64, Unit),
     ///
     BoolLiteral(bool),
 
@@ -142,7 +203,7 @@ impl Expression {
             Expression::Invalid => Type::Invalid,
             Expression::Uncompiled(_) => Type::Invalid,
             Expression::StringLiteral(_) => Type::String,
-            Expression::NumberLiteral(_) => Type::Float32,
+            Expression::NumberLiteral(_, _) => Type::Float32,
             Expression::BoolLiteral(_) => Type::Bool,
             Expression::SignalReference { .. } => Type::Signal,
             Expression::PropertyReference(NamedReference { element, name }) => {
@@ -208,7 +269,7 @@ impl Expression {
             Expression::Invalid => {}
             Expression::Uncompiled(_) => {}
             Expression::StringLiteral(_) => {}
-            Expression::NumberLiteral(_) => {}
+            Expression::NumberLiteral(_, _) => {}
             Expression::BoolLiteral(_) => {}
             Expression::SignalReference { .. } => {}
             Expression::PropertyReference { .. } => {}
@@ -262,7 +323,7 @@ impl Expression {
             Expression::Invalid => {}
             Expression::Uncompiled(_) => {}
             Expression::StringLiteral(_) => {}
-            Expression::NumberLiteral(_) => {}
+            Expression::NumberLiteral(_, _) => {}
             Expression::BoolLiteral(_) => {}
             Expression::SignalReference { .. } => {}
             Expression::PropertyReference { .. } => {}
@@ -316,7 +377,7 @@ impl Expression {
             Expression::Invalid => true,
             Expression::Uncompiled(_) => false,
             Expression::StringLiteral(_) => true,
-            Expression::NumberLiteral(_) => true,
+            Expression::NumberLiteral(_, _) => true,
             Expression::BoolLiteral(_) => true,
             Expression::SignalReference { .. } => false,
             Expression::PropertyReference { .. } => false,

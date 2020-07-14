@@ -659,7 +659,7 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
     use crate::expression_tree::NamedReference;
     match e {
         StringLiteral(s) => format!(r#"sixtyfps::SharedString("{}")"#, s.escape_default()),
-        NumberLiteral(n) => n.to_string(),
+        NumberLiteral(n, _) => n.to_string(),
         BoolLiteral(b) => b.to_string(),
         PropertyReference(NamedReference { element, name }) => {
             let access =

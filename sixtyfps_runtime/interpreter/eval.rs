@@ -125,7 +125,7 @@ pub fn eval_expression(
         Expression::Invalid => panic!("invalid expression while evaluating"),
         Expression::Uncompiled(_) => panic!("uncompiled expression while evaluating"),
         Expression::StringLiteral(s) => Value::String(s.as_str().into()),
-        Expression::NumberLiteral(n) => Value::Number(*n),
+        Expression::NumberLiteral(n, _) => Value::Number(*n),
         Expression::BoolLiteral(b) => Value::Bool(*b),
         Expression::SignalReference { .. } => panic!("signal in expression"),
         Expression::PropertyReference(NamedReference { element, name }) => {
