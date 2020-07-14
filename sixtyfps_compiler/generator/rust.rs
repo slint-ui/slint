@@ -719,7 +719,7 @@ fn compute_layout(component: &Rc<Component>) -> TokenStream {
             .iter()
             .map(|elem| {
                 let e = quote::format_ident!("{}", elem.borrow().id);
-                let p = |n: &str| {
+                let prop_ref = |n: &str| {
                     if elem.borrow().lookup_property(n) == Type::Float32 {
                         let n = quote::format_ident!("{}", n);
                         quote! {Some(&self.#e.#n)}
@@ -727,11 +727,23 @@ fn compute_layout(component: &Rc<Component>) -> TokenStream {
                         quote! {None}
                     }
                 };
-                let x = p("x");
-                let y = p("y");
+                let prop_value = |n: &str| {
+                    if elem.borrow().lookup_property(n) == Type::Float32 {
+                        let accessor = access_member(&elem, n, component, quote!(self));
+                        quote!(#accessor.get())
+                    } else {
+                        quote! {0.}
+                    }
+                };
+                let x = prop_ref("x");
+                let y = prop_ref("y");
+                let width = prop_value("width");
+                let height = prop_value("height");
                 quote!(PathLayoutItemData {
                     x: #x,
                     y: #y,
+                    width: #width,
+                    height: #height,
                 })
             })
             .collect::<Vec<_>>();

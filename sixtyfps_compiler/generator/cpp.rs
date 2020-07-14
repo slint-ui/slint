@@ -878,14 +878,28 @@ fn compute_layout(component: &Rc<Component>) -> Vec<String> {
 
         res.push("    sixtyfps::PathLayoutItemData items[] = {".to_owned());
         for item in &path_layout.elements {
-            let p = |n: &str| {
+            let prop_ref = |n: &str| {
                 if item.borrow().lookup_property(n) == Type::Float32 {
                     format!("&self->{}.{}", item.borrow().id, n)
                 } else {
                     "nullptr".to_owned()
                 }
             };
-            res.push(format!("        {{ {}, {} }},", p("x"), p("y")));
+            let prop_value = |n: &str| {
+                if item.borrow().lookup_property(n) == Type::Float32 {
+                    let value_accessor = access_member(&item, n, component, "self");
+                    format!("{}.get()", value_accessor)
+                } else {
+                    "0.".into()
+                }
+            };
+            res.push(format!(
+                "        {{ {}, {}, {}, {} }},",
+                prop_ref("x"),
+                prop_ref("y"),
+                prop_value("width"),
+                prop_value("height")
+            ));
         }
         res.push("    };".to_owned());
 

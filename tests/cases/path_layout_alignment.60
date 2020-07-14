@@ -1,0 +1,33 @@
+TestCase := Rectangle {
+    width: 500;
+    height: 500;
+
+    Text {
+        text: "The red rectangle should be centered horizontally on the green line";
+        color: black;
+    }
+
+    Path {
+        x: 250;
+        y: 100;
+        width: root.width;
+        height: root.height;
+        commands: "M 100 0 L 100 250 ";
+        stroke_color: green;
+        stroke_width: 2;
+    }
+
+    PathLayout {
+        x: 250;
+        y: 100;
+        width: root.width;
+        height: root.height;
+        commands: "M 100 0 L 100 250 ";
+
+        Rectangle {
+            color: red;
+            width: 50;
+            height: 50;
+        }
+    }
+}

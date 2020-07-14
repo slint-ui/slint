@@ -640,14 +640,25 @@ unsafe extern "C" fn compute_layout(component: ComponentRefPin) {
             .elements
             .iter()
             .map(|elem| {
-                let info = &component_type.items[elem.borrow().id.as_str()];
+                let item_info = &component_type.items[elem.borrow().id.as_str()];
+
                 let get_prop = |name| {
-                    info.rtti.properties.get(name).map(|p| {
-                        &*(component.as_ptr().add(info.offset).add(p.offset())
+                    item_info.rtti.properties.get(name).map(|p| {
+                        &*(component.as_ptr().add(item_info.offset).add(p.offset())
                             as *const Property<f32>)
                     })
                 };
-                PathLayoutItemData { x: get_prop("x"), y: get_prop("y") }
+
+                let item = item_info.item_from_component(component.as_ptr());
+                let get_prop_value = |name| {
+                    item_info.rtti.properties.get(name).map(|p| p.get(item)).unwrap_or_default()
+                };
+                PathLayoutItemData {
+                    x: get_prop("x"),
+                    y: get_prop("y"),
+                    width: get_prop_value("width").try_into().unwrap_or_default(),
+                    height: get_prop_value("height").try_into().unwrap_or_default(),
+                }
             })
             .collect::<Vec<_>>();
 

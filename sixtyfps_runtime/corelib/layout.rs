@@ -172,6 +172,8 @@ pub struct PathLayoutData<'a> {
 pub struct PathLayoutItemData<'a> {
     pub x: Option<&'a Property<Coord>>,
     pub y: Option<&'a Property<Coord>>,
+    pub width: Coord,
+    pub height: Coord,
 }
 
 /// FIXME: rename with sixstyfps prefix
@@ -212,8 +214,10 @@ pub extern "C" fn solve_path_layout(data: &PathLayoutData) {
             let local_t = next_t - (seg_start / path_length);
 
             let item_pos = segment.sample(local_t);
-            data.items[i].x.map(|prop| prop.set(item_pos.x + data.x));
-            data.items[i].y.map(|prop| prop.set(item_pos.y + data.y));
+            let center_x_offset = data.items[i].width / 2.;
+            let center_y_offset = data.items[i].height / 2.;
+            data.items[i].x.map(|prop| prop.set(item_pos.x - center_x_offset + data.x));
+            data.items[i].y.map(|prop| prop.set(item_pos.y - center_y_offset + data.y));
 
             i += 1;
             if i >= data.items.len() {
