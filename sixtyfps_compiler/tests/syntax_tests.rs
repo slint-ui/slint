@@ -7,7 +7,7 @@
 //! ```
 
 #[test]
-fn main() -> std::io::Result<()> {
+fn syntax_tests() -> std::io::Result<()> {
     if let Some(specific_test) =
         std::env::args().skip(1).skip_while(|arg| arg.starts_with("--") || arg == "main").next()
     {

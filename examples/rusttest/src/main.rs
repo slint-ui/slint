@@ -40,9 +40,9 @@ component ButtonRectangle := Rectangle {
         color: black;
     }
     color: { button_area.pressed ? red : #5898; }
-    animate color { duration: 500; }
+    animate color { duration: 500ms; }
     animate x {
-        duration: 200;
+        duration: 200ms;
     }
 }
 

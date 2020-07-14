@@ -14,6 +14,7 @@ pub enum Type {
     Int32,
     String,
     Color,
+    Duration,
     Resource,
     Bool,
     Model,
@@ -34,10 +35,12 @@ impl core::cmp::PartialEq for Type {
             (Type::Int32, Type::Int32) => true,
             (Type::String, Type::String) => true,
             (Type::Color, Type::Color) => true,
+            (Type::Duration, Type::Duration) => true,
             (Type::Resource, Type::Resource) => true,
             (Type::Bool, Type::Bool) => true,
             (Type::Array(a), Type::Array(b)) => a == b,
             (Type::Object(a), Type::Object(b)) => a == b,
+            (Type::Model, Type::Model) => true,
             (Type::PathElements, Type::PathElements) => true,
             _ => false,
         }
@@ -54,6 +57,7 @@ impl Display for Type {
             Type::Float32 => write!(f, "float32"),
             Type::Int32 => write!(f, "int32"),
             Type::String => write!(f, "string"),
+            Type::Duration => write!(f, "duration"),
             Type::Color => write!(f, "color"),
             Type::Resource => write!(f, "resource"),
             Type::Bool => write!(f, "bool"),
@@ -84,6 +88,7 @@ impl Type {
                 | Self::Int32
                 | Self::String
                 | Self::Color
+                | Self::Duration
                 | Self::Resource
                 | Self::Bool
                 | Self::Model
@@ -227,6 +232,7 @@ impl TypeRegister {
         instert_type(Type::Int32);
         instert_type(Type::String);
         instert_type(Type::Color);
+        instert_type(Type::Duration);
         instert_type(Type::Resource);
         instert_type(Type::Bool);
         instert_type(Type::Model);
@@ -337,7 +343,7 @@ impl TypeRegister {
 
         let mut property_animation =
             BuiltinElement { class_name: "PropertyAnimation".into(), ..Default::default() };
-        property_animation.properties.insert("duration".to_owned(), Type::Int32);
+        property_animation.properties.insert("duration".to_owned(), Type::Duration);
         property_animation.properties.insert("loop_count".to_owned(), Type::Int32);
         r.property_animation_type = Type::Builtin(Rc::new(property_animation));
         r.supported_property_animation_types.insert(Type::Float32.to_string());

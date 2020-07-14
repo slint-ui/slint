@@ -1,5 +1,5 @@
 TestCase := Rectangle {
     animate x {
-        duration: 1000;
+        duration: 1000ms;
     }
 }

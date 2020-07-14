@@ -19,6 +19,7 @@ fn rust_type(
         Type::Float32 => Ok(quote!(f32)),
         Type::String => Ok(quote!(sixtyfps::re_exports::SharedString)),
         Type::Color => Ok(quote!(sixtyfps::re_exports::Color)),
+        Type::Duration => Ok(quote!(i64)),
         Type::Bool => Ok(quote!(bool)),
         Type::Object(o) => {
             let elem = o.values().map(|v| rust_type(v, span)).collect::<Result<Vec<_>, _>>()?;
@@ -492,7 +493,10 @@ fn access_member(
 fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream {
     match e {
         Expression::StringLiteral(s) => quote!(sixtyfps::re_exports::SharedString::from(#s)),
-        Expression::NumberLiteral(n, _) => quote!(#n),
+        Expression::NumberLiteral(n, unit) => {
+            let n = unit.normalize(*n);
+            quote!(#n)
+        }
         Expression::BoolLiteral(b) => quote!(#b),
         Expression::Cast { from, to } => {
             let f = compile_expression(&*from, &component);

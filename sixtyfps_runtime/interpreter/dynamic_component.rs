@@ -309,6 +309,7 @@ fn generate_component(
             Type::Int32 => animated_property_info::<i32>(),
             Type::String => property_info::<SharedString>(),
             Type::Color => animated_property_info::<Color>(),
+            Type::Duration => animated_property_info::<i64>(),
             Type::Resource => property_info::<Resource>(),
             Type::Bool => property_info::<bool>(),
             Type::Signal => {

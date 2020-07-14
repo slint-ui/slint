@@ -143,6 +143,7 @@ impl CppType for Type {
             Type::Int32 => Some("int".to_owned()),
             Type::String => Some("sixtyfps::SharedString".to_owned()),
             Type::Color => Some("sixtyfps::Color".to_owned()),
+            Type::Duration => Some("std::int64_t".to_owned()),
             Type::Bool => Some("bool".to_owned()),
             Type::Model => Some("std::shared_ptr<sixtyfps::Model>".to_owned()),
             Type::Object(o) => {
@@ -659,7 +660,7 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
     use crate::expression_tree::NamedReference;
     match e {
         StringLiteral(s) => format!(r#"sixtyfps::SharedString("{}")"#, s.escape_default()),
-        NumberLiteral(n, _) => n.to_string(),
+        NumberLiteral(n, unit) => unit.normalize(*n).to_string(),
         BoolLiteral(b) => b.to_string(),
         PropertyReference(NamedReference { element, name }) => {
             let access =

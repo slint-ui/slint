@@ -33,7 +33,7 @@ pub fn operator_class(op: char) -> OperatorClass {
 }
 
 macro_rules! declare_units {
-    ($( $(#[$m:meta])* $ident:ident = $string:literal,)*) => {
+    ($( $(#[$m:meta])* $ident:ident = $string:literal -> $ty:ident $(* $factor:literal)? ,)*) => {
         /// The units that can be used after numbers in the language
         #[derive(Debug, Clone, Copy, PartialEq, Eq)]
         pub enum Unit {
@@ -57,34 +57,49 @@ macro_rules! declare_units {
                 }
             }
         }
+
+        impl Unit {
+            pub fn ty(self) -> Type {
+                match self {
+                    $(Self::$ident => Type::$ty, )*
+                }
+            }
+
+            pub fn normalize(self, x: f64) -> f64 {
+                match self {
+                    $(Self::$ident => x $(* $factor as f64)?, )*
+                }
+            }
+
+        }
     };
 }
 
 declare_units! {
     /// No unit was given
-    None = "",
+    None = "" -> Float32,
 
     // Lenghts or Coord
 
     /// Physical pixels
-    Px = "px",
+    Px = "px" -> Float32,
     /// Logical pixels
-    Lx = "lx",
+    Lx = "lx" -> Float32,
     /// Centimeters
-    Cm = "cm",
+    Cm = "cm" -> Float32,
     /// Milimeters
-    Mm = "mm",
+    Mm = "mm" -> Float32,
     /// inches
-    In = "in",
+    In = "in" -> Float32,
     /// Points
-    Pt = "pt",
+    Pt = "pt" -> Float32,
 
     // durations
 
     /// Seconds
-    S = "s",
+    S = "s" -> Duration * 1000,
     /// Milliseconds
-    Ms = "ms",
+    Ms = "ms" -> Duration,
 }
 
 impl Default for Unit {
@@ -203,7 +218,7 @@ impl Expression {
             Expression::Invalid => Type::Invalid,
             Expression::Uncompiled(_) => Type::Invalid,
             Expression::StringLiteral(_) => Type::String,
-            Expression::NumberLiteral(_, _) => Type::Float32,
+            Expression::NumberLiteral(_, unit) => unit.ty(),
             Expression::BoolLiteral(_) => Type::Bool,
             Expression::SignalReference { .. } => Type::Signal,
             Expression::PropertyReference(NamedReference { element, name }) => {
@@ -249,9 +264,18 @@ impl Expression {
                     Type::Invalid
                 }
             }
-            Expression::BinaryExpression { op, .. } => {
+            Expression::BinaryExpression { op, lhs, rhs } => {
                 if operator_class(*op) == OperatorClass::ArithmeticOp {
-                    Type::Float32
+                    match (*op, lhs.ty(), rhs.ty()) {
+                        // TODO: make this unit propgagation more general
+                        ('+', Type::Duration, Type::Duration) => Type::Duration,
+                        ('-', Type::Duration, Type::Duration) => Type::Duration,
+                        ('*', Type::Duration, _) => Type::Duration,
+                        ('*', _, Type::Duration) => Type::Duration,
+                        ('/', Type::Duration, Type::Duration) => Type::Float32,
+                        ('/', Type::Duration, _) => Type::Duration,
+                        _ => Type::Float32,
+                    }
                 } else {
                     Type::Bool
                 }

@@ -443,7 +443,40 @@ impl Expression {
                 }
             }
             OperatorClass::LogicalOp => Type::Bool,
-            OperatorClass::ArithmeticOp => Type::Float32,
+            OperatorClass::ArithmeticOp => match (op, lhs.ty(), rhs.ty()) {
+                // TODO: make this unit propgagation more general
+                ('+', Type::Duration, _) => Type::Duration,
+                ('-', Type::Duration, _) => Type::Duration,
+                ('*', Type::Duration, _) => {
+                    return Expression::BinaryExpression {
+                        lhs: Box::new(lhs),
+                        rhs: Box::new(rhs.maybe_convert_to(Type::Float32, &lhs_n, &mut ctx.diag)),
+                        op,
+                    }
+                }
+                ('*', _, Type::Duration) => {
+                    return Expression::BinaryExpression {
+                        lhs: Box::new(lhs.maybe_convert_to(Type::Float32, &lhs_n, &mut ctx.diag)),
+                        rhs: Box::new(rhs),
+                        op,
+                    }
+                }
+                ('/', Type::Duration, Type::Duration) => {
+                    return Expression::BinaryExpression {
+                        lhs: Box::new(lhs),
+                        rhs: Box::new(rhs),
+                        op,
+                    }
+                }
+                ('/', Type::Duration, _) => {
+                    return Expression::BinaryExpression {
+                        lhs: Box::new(lhs),
+                        rhs: Box::new(rhs.maybe_convert_to(Type::Float32, &lhs_n, &mut ctx.diag)),
+                        op,
+                    }
+                }
+                _ => Type::Float32,
+            },
         };
         Expression::BinaryExpression {
             lhs: Box::new(lhs.maybe_convert_to(expected_ty.clone(), &lhs_n, &mut ctx.diag)),

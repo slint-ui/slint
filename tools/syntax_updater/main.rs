@@ -1,11 +1,16 @@
-/*!
-Tool to change the syntax or reformat a .60 file
+//!
+//! Tool to change the syntax or reformat a .60 file
+//!
+//! As of know, it just rewrite the exact same as the input, but it can be changed
+//!
+//! This is how it can be used:
+//!
+//! ````shell
+//! cargo run --bin syntax_updater -- -i  **/*.60
+//! cargo run --bin syntax_updater -- -i  **/*.rs
+//! ````
 
-As of know, it just rewrite the exact same as the input, but it can be changed
-
-*/
-
-use sixtyfps_compilerlib::parser::SyntaxNode;
+use sixtyfps_compilerlib::parser::{SyntaxKind, SyntaxNode, SyntaxNodeEx};
 use std::io::Write;
 use structopt::StructOpt;
 
@@ -84,41 +89,72 @@ fn process_file(
             source_slice = &source_slice[idx - 1..];
 
             let (syntax_node, diag) = sixtyfps_compilerlib::parser::parse(&code);
+            let len = syntax_node.text_range().end().into();
+            visit_node(syntax_node, &mut file, &mut State::default())?;
             if diag.has_error() {
+                file.write_all(&code.as_bytes()[len..])?;
                 diag.print(code.into());
             }
-            visit_node(syntax_node, &mut file)?
         }
         return file.write_all(source_slice.as_bytes());
     }
 
     let (syntax_node, mut diag) = sixtyfps_compilerlib::parser::parse(&source);
+    let len = syntax_node.text_range().end().into();
+    visit_node(syntax_node, &mut file, &mut State::default())?;
     if diag.has_error() {
+        file.write_all(&source.as_bytes()[len..])?;
         diag.current_path = path;
-        diag.print(source);
+        diag.print(source.into());
     }
-
-    visit_node(syntax_node, &mut file)
+    Ok(())
 }
 
-fn visit_node(node: SyntaxNode, file: &mut impl Write) -> std::io::Result<()> {
-    fold_node(&node, file)?;
+#[derive(Default, Clone)]
+struct State {
+    property_name: Option<String>,
+}
+
+fn visit_node(node: SyntaxNode, file: &mut impl Write, state: &mut State) -> std::io::Result<()> {
+    match node.kind() {
+        SyntaxKind::PropertyDeclaration => {
+            state.property_name = node.child_text(SyntaxKind::DeclaredIdentifier)
+        }
+        SyntaxKind::Binding => state.property_name = node.child_text(SyntaxKind::Identifier),
+        SyntaxKind::SignalDeclaration => {
+            state.property_name = node.child_text(SyntaxKind::Identifier)
+        }
+        _ => (),
+    }
+
+    fold_node(&node, file, state)?;
     for n in node.children_with_tokens() {
         match n {
-            rowan::NodeOrToken::Node(n) => visit_node(n, file)?,
-            rowan::NodeOrToken::Token(t) => fold_token(t, file)?,
+            rowan::NodeOrToken::Node(n) => visit_node(n, file, state)?,
+            rowan::NodeOrToken::Token(t) => fold_token(t, file, state)?,
         };
     }
     Ok(())
 }
 
-fn fold_node(_node: &SyntaxNode, _file: &mut impl Write) -> std::io::Result<()> {
+fn fold_node(
+    _node: &SyntaxNode,
+    _file: &mut impl Write,
+    _state: &mut State,
+) -> std::io::Result<()> {
     Ok(())
 }
 
 fn fold_token(
     node: sixtyfps_compilerlib::parser::SyntaxToken,
     file: &mut impl Write,
+    #[allow(unused)] state: &mut State,
 ) -> std::io::Result<()> {
+    /* Example: this adds the "ms" prefix to the number within a "duration" binding
+    if state.property_name == Some("duration".into()) && node.kind() == SyntaxKind::NumberLiteral {
+        if !node.text().ends_with("s") {
+            return write!(file, "{}ms", node.text());
+        }
+    }*/
     file.write_all(node.text().as_bytes())
 }

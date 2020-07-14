@@ -1,0 +1,22 @@
+SuperSimple := Rectangle {
+    property<duration> p1: 3s + 1ms;
+    property<int32> p2: 3s + 1;
+//                          ^error{Cannot convert float32 to duration}
+    property<int32> p3: 3s - 1;
+//                          ^error{Cannot convert float32 to duration}
+    property<int32> p4: 3 / 1ms;
+//                         ^error{Cannot convert duration to float32}
+
+    property<duration> p5: 3ms * 1;
+    property<duration> p6: 3ms * 1s;
+//                         ^error{Cannot convert duration to float32}
+
+    property<int32> p7: "hello" * 1;
+//                      ^error{Cannot convert string to float32}
+
+    property<int32> p8: 1 + "hello" + 1;
+//                         ^error{Cannot convert string to float32}
+
+
+}
+
