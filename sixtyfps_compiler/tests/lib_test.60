@@ -1,0 +1,4 @@
+
+HiddenInternalType := Rectangle {}
+
+PublicType := HiddenInternalType {}

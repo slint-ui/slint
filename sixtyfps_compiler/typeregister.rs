@@ -434,6 +434,24 @@ impl TypeRegister {
         self.types.insert(comp.id.clone(), Type::Component(comp));
     }
 
+    pub fn add_type_from_source<P: AsRef<std::path::Path>>(
+        &mut self,
+        path: P,
+    ) -> std::io::Result<()> {
+        let source = std::fs::read_to_string(&path)?;
+        let (syntax_node, mut diag) = crate::parser::parse(&source);
+        diag.current_path = path.as_ref().to_path_buf();
+
+        diag.check_errors(source.clone())?;
+
+        // For the time being .60 files added to a type registry cannot depend on other .60 files.
+        let tr = TypeRegister::builtin();
+        let doc = crate::object_tree::Document::from_node(syntax_node.into(), &mut diag, &tr);
+        diag.check_errors(source)?;
+        self.add(doc.root_component);
+        Ok(())
+    }
+
     pub fn property_animation_type_for_property(&self, property_type: Type) -> Type {
         if self.supported_property_animation_types.contains(&property_type.to_string()) {
             self.property_animation_type.clone()
@@ -444,4 +462,19 @@ impl TypeRegister {
                 .unwrap_or_default()
         }
     }
+}
+
+#[test]
+fn test_extend_registry_from_source() {
+    let global_types = TypeRegister::builtin();
+    let mut local_types = TypeRegister::new(&global_types);
+
+    let test_source_path: std::path::PathBuf =
+        [env!("CARGO_MANIFEST_DIR"), "tests", "lib_test.60"].iter().collect();
+
+    let result = local_types.add_type_from_source(test_source_path);
+    assert!(result.is_ok());
+
+    assert_ne!(local_types.lookup("PublicType"), Type::Invalid);
+    assert_eq!(local_types.lookup("HiddenInternalType"), Type::Invalid);
 }

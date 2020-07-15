@@ -96,12 +96,69 @@ impl Diagnostics {
     }
 
     #[cfg(feature = "display-diagnostics")]
+    /// Print into a string
+    pub fn diagnostics_as_string(&self, source: String) -> String {
+        let mut codemap = codemap::CodeMap::new();
+        let file =
+            codemap.add_file(self.current_path.to_string_lossy().to_string(), source.clone());
+        let file_span = file.span;
+
+        let diags: Vec<_> = self
+            .inner
+            .iter()
+            .map(|CompilerDiagnostic { message, span }| {
+                let s = codemap_diagnostic::SpanLabel {
+                    span: file_span.subspan(span.offset as u64, span.offset as u64),
+                    style: codemap_diagnostic::SpanStyle::Primary,
+                    label: None,
+                };
+                codemap_diagnostic::Diagnostic {
+                    level: codemap_diagnostic::Level::Error,
+                    message: message.clone(),
+                    code: None,
+                    spans: vec![s],
+                }
+            })
+            .collect();
+
+        let mut output = Vec::new();
+        {
+            let mut emitter = codemap_diagnostic::Emitter::vec(&mut output, Some(&codemap));
+            emitter.emit(&diags);
+        }
+
+        String::from_utf8(output).expect(&format!(
+            "There were errors compiling {} but they did not result in valid utf-8 diagnostics!",
+            source
+        ))
+    }
+
+    #[cfg(feature = "display-diagnostics")]
     pub fn check_and_exit_on_error(self, source: String) -> (Self, String) {
         if self.has_error() {
             self.print(source);
             std::process::exit(-1);
         }
         (self, source)
+    }
+
+    pub fn check_errors(&self, _source: String) -> std::io::Result<()> {
+        if !self.has_error() {
+            return Ok(());
+        }
+        #[cfg(feature = "display-diagnostics")]
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            self.diagnostics_as_string(_source),
+        ));
+        #[cfg(not(feature = "display-diagnostics"))]
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!(
+                "Error compiling {} but diagnostics were disabled in the compiler",
+                self.current_path.to_string_lossy()
+            ),
+        ));
     }
 
     #[cfg(feature = "proc_macro_span")]
