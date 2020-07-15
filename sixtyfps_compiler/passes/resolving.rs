@@ -12,7 +12,7 @@ use crate::parser::{syntax_nodes, Spanned, SyntaxKind, SyntaxNode, SyntaxNodeEx}
 use crate::typeregister::{Type, TypeRegister};
 use std::{collections::HashMap, rc::Rc};
 
-pub fn resolve_expressions(doc: &Document, diag: &mut Diagnostics, tr: &mut TypeRegister) {
+pub fn resolve_expressions(doc: &Document, diag: &mut Diagnostics, tr: &TypeRegister) {
     for component in &doc.inner_components {
         /// This represeresent a scope for the Component, where Component is the repeated component, but
         /// does not represent a component in the .60 file
@@ -26,7 +26,7 @@ pub fn resolve_expressions(doc: &Document, diag: &mut Diagnostics, tr: &mut Type
             elem: &ElementRc,
             scope: &ComponentScope,
             diag: &mut Diagnostics,
-            tr: &mut TypeRegister,
+            tr: &TypeRegister,
         ) -> HashMap<String, Expression> {
             for (prop, expr) in &mut bindings {
                 if let Expression::Uncompiled(node) = expr {

@@ -13,7 +13,7 @@ use std::rc::Rc;
 
 pub fn compile_paths(
     component: &Rc<Component>,
-    tr: &mut crate::typeregister::TypeRegister,
+    tr: &crate::typeregister::TypeRegister,
     diag: &mut Diagnostics,
 ) {
     let path_type = tr.lookup("Path");

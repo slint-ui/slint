@@ -49,7 +49,7 @@ pub struct CompilerConfiguration {
 pub fn run_passes(
     doc: &object_tree::Document,
     diag: &mut diagnostics::Diagnostics,
-    tr: &mut typeregister::TypeRegister,
+    tr: &typeregister::TypeRegister,
     compiler_config: &CompilerConfiguration,
 ) {
     passes::resolving::resolve_expressions(doc, diag, tr);
