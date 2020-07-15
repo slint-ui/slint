@@ -19,6 +19,9 @@ struct Property
     Property(const Property &) = delete;
     Property(Property &&) = delete;
     Property &operator=(const Property &) = delete;
+    explicit Property(const T &value) : value(value) {
+        internal::sixtyfps_property_init(&inner);
+    }
 
     /* Should it be implicit?
     void operator=(const T &value) {

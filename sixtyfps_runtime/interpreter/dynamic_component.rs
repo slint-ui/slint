@@ -337,6 +337,12 @@ fn generate_component(
             "model_data".into(),
             PropertiesWithinComponent { offset: builder.add_field(type_info), prop },
         );
+    } else {
+        let (prop, type_info) = property_info::<f32>();
+        custom_properties.insert(
+            "dpi".into(),
+            PropertiesWithinComponent { offset: builder.add_field(type_info), prop },
+        );
     }
 
     let parent_component_offset = if root_component.parent_element.upgrade().is_some() {
@@ -428,7 +434,11 @@ pub fn instantiate(
             *(mem.add(component_type.parent_component_offset.unwrap())
                 as *mut Option<ComponentRefPin>) = Some(parent);
         }
-    };
+    } else {
+        component_type
+            .set_property(component_box.borrow(), "dpi", crate::Value::Number(1.))
+            .unwrap();
+    }
 
     for item_within_component in component_type.items.values() {
         unsafe {

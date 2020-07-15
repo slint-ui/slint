@@ -382,6 +382,7 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Dia
     let mut component_struct = Struct { name: component_id.clone(), ..Default::default() };
 
     let is_root = component.parent_element.upgrade().is_none();
+    let mut init = vec!["[[maybe_unused]] auto self = this;".into()];
 
     for (cpp_name, property_decl) in component.root_element.borrow().property_declarations.iter() {
         let ty = if property_decl.property_type == Type::Signal {
@@ -500,9 +501,15 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Dia
             statements: Some(update_statements),
             ..Function::default()
         }));
+    } else {
+        component_struct.members.push(Declaration::Var(Var {
+            ty: "sixtyfps::Property<float>".into(),
+            name: "dpi".into(),
+            ..Var::default()
+        }));
+        init.push("self->dpi.set(1.);".to_owned());
     }
 
-    let mut init = vec!["[[maybe_unused]] auto self = this;".into()];
     let mut children_visitor_case = vec![];
     let mut tree_array = String::new();
     let mut repeater_count = 0;
@@ -657,6 +664,17 @@ fn access_member(
     }
 }
 
+/// Return an expression that gets the DPI property
+fn dpi_expression(component: &Rc<Component>) -> String {
+    let mut root_component = component.clone();
+    let mut component_cpp = "self".to_owned();
+    while let Some(p) = root_component.parent_element.upgrade() {
+        root_component = p.borrow().enclosing_component.upgrade().unwrap();
+        component_cpp = format!("{}->parent", component_cpp);
+    }
+    format!("{}->dpi.get()", component_cpp)
+}
+
 fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Component>) -> String {
     use crate::expression_tree::Expression::*;
     use crate::expression_tree::NamedReference;
@@ -709,6 +727,12 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
                 }
                 (Type::Array(_), Type::Model) => f,
                 (Type::Float32, Type::Color) => format!("sixtyfps::Color({})", f),
+                (Type::LogicalLength, Type::Length) => {
+                    format!("({} * {})", f, dpi_expression(component))
+                }
+                (Type::Length, Type::LogicalLength) => {
+                    format!("({} / {})", f, dpi_expression(component))
+                }
                 _ => f,
             }
         }

@@ -185,6 +185,12 @@ pub fn eval_expression(
                     Value::String(SharedString::from(format!("{}", n).as_str()))
                 }
                 (Value::Number(n), Type::Color) => Value::Color(Color::from(n as u32)),
+                (Value::Number(n), Type::Length) => {
+                    Value::Number(n * dpi_value(component_type, component_ref))
+                }
+                (Value::Number(n), Type::LogicalLength) => {
+                    Value::Number(n / dpi_value(component_type, component_ref))
+                }
                 (v, _) => v,
             }
         }
@@ -312,6 +318,24 @@ pub fn eval_expression(
         Expression::PathElements { elements } => {
             Value::PathElements(convert_path(elements, component_type, component_ref))
         }
+    }
+}
+
+fn dpi_value(component_type: &crate::ComponentDescription, component_ref: ComponentRefPin) -> f64 {
+    if let Some(parent_offset) = component_type.parent_component_offset {
+        let mem = component_ref.as_ptr();
+        let parent_component =
+            unsafe { *(mem.add(parent_offset) as *const Option<corelib::ComponentRefPin>) }
+                .unwrap();
+        let parent_component_type =
+            unsafe { crate::dynamic_component::get_component_type(parent_component) };
+        dpi_value(parent_component_type, parent_component)
+    } else {
+        let x = &component_type.custom_properties["dpi"];
+        let val = unsafe {
+            x.prop.get(Pin::new_unchecked(&*component_ref.as_ptr().add(x.offset))).unwrap()
+        };
+        val.try_into().unwrap()
     }
 }
 
