@@ -64,6 +64,7 @@ impl Diagnostics {
         &*self.current_path
     }
 
+    #[cfg(feature = "display-diagnostics")]
     fn emit_diagnostics<'a, Output>(
         self,
         output: &'a mut Output,
