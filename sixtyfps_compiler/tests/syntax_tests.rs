@@ -50,7 +50,7 @@ fn process_file_source(
     source: String,
     silent: bool,
 ) -> std::io::Result<bool> {
-    let (res, mut diag) = sixtyfps_compilerlib::parser::parse(&source);
+    let (res, mut diag) = sixtyfps_compilerlib::parser::parse(source.clone());
     diag.current_path = path.to_path_buf();
     let tr = sixtyfps_compilerlib::typeregister::TypeRegister::builtin();
     if !diag.has_error() {
@@ -96,7 +96,7 @@ fn process_file_source(
 
         if !silent {
             #[cfg(feature = "display-diagnostics")]
-            diag.print(source);
+            diag.print();
         }
 
         success = false;

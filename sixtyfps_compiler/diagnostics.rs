@@ -34,6 +34,7 @@ pub struct CompilerDiagnostic {
 pub struct Diagnostics {
     pub inner: Vec<CompilerDiagnostic>,
     pub current_path: std::path::PathBuf,
+    pub source: Option<String>,
 }
 
 impl IntoIterator for Diagnostics {
@@ -65,9 +66,12 @@ impl Diagnostics {
 
     #[cfg(feature = "display-diagnostics")]
     /// Print the diagnostics on the console
-    pub fn print(self, source: String) {
+    pub fn print(self) {
         let mut codemap = codemap::CodeMap::new();
-        let file = codemap.add_file(self.current_path.to_string_lossy().to_string(), source);
+        let file = codemap.add_file(
+            self.current_path.to_string_lossy().to_string(),
+            self.source.unwrap_or_default(),
+        );
         let file_span = file.span;
 
         let diags: Vec<_> = self
@@ -97,10 +101,12 @@ impl Diagnostics {
 
     #[cfg(feature = "display-diagnostics")]
     /// Print into a string
-    pub fn diagnostics_as_string(&self, source: String) -> String {
+    pub fn diagnostics_as_string(self) -> String {
         let mut codemap = codemap::CodeMap::new();
-        let file =
-            codemap.add_file(self.current_path.to_string_lossy().to_string(), source.clone());
+        let file = codemap.add_file(
+            self.current_path.to_string_lossy().to_string(),
+            self.source.unwrap_or_default(),
+        );
         let file_span = file.span;
 
         let diags: Vec<_> = self
@@ -129,28 +135,25 @@ impl Diagnostics {
 
         String::from_utf8(output).expect(&format!(
             "There were errors compiling {} but they did not result in valid utf-8 diagnostics!",
-            source
+            file.name()
         ))
     }
 
     #[cfg(feature = "display-diagnostics")]
-    pub fn check_and_exit_on_error(self, source: String) -> (Self, String) {
+    pub fn check_and_exit_on_error(self) -> Self {
         if self.has_error() {
-            self.print(source);
+            self.print();
             std::process::exit(-1);
         }
-        (self, source)
+        self
     }
 
-    pub fn check_errors(&self, _source: String) -> std::io::Result<()> {
+    pub fn check_errors(self) -> std::io::Result<Self> {
         if !self.has_error() {
-            return Ok(());
+            return Ok(self);
         }
         #[cfg(feature = "display-diagnostics")]
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            self.diagnostics_as_string(_source),
-        ));
+        return Err(std::io::Error::new(std::io::ErrorKind::Other, self.diagnostics_as_string()));
         #[cfg(not(feature = "display-diagnostics"))]
         return Err(std::io::Error::new(
             std::io::ErrorKind::Other,

@@ -14,7 +14,7 @@ struct Cli {
 fn main() -> std::io::Result<()> {
     let args = Cli::from_args();
     let source = std::fs::read_to_string(&args.path)?;
-    let (syntax_node, mut diag) = parser::parse(&source);
+    let (syntax_node, mut diag) = parser::parse(source);
     diag.current_path = args.path;
     //println!("{:#?}", syntax_node);
     let tr = typeregister::TypeRegister::builtin();
@@ -22,9 +22,9 @@ fn main() -> std::io::Result<()> {
     let compiler_config = CompilerConfiguration::default();
     run_passes(&doc, &mut diag, &compiler_config);
 
-    let (mut diag, source) = diag.check_and_exit_on_error(source);
+    let mut diag = diag.check_and_exit_on_error();
 
     generator::generate(args.format, &mut std::io::stdout(), &doc.root_component, &mut diag)?;
-    diag.check_and_exit_on_error(source);
+    diag.check_and_exit_on_error();
     Ok(())
 }

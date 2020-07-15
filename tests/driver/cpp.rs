@@ -6,7 +6,7 @@ use std::ops::Deref;
 pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> {
     let source = std::fs::read_to_string(&testcase.absolute_path)?;
 
-    let (syntax_node, mut diag) = parser::parse(&source);
+    let (syntax_node, mut diag) = parser::parse(source.clone());
     diag.current_path = testcase.absolute_path.clone();
     let tr = typeregister::TypeRegister::builtin();
     let doc = object_tree::Document::from_node(syntax_node.into(), &mut diag, &tr);

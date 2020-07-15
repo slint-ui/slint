@@ -26,10 +26,10 @@ fn load(mut cx: FunctionContext) -> JsResult<JsValue> {
     let path = cx.argument::<JsString>(0)?.value();
     let path = std::path::Path::new(path.as_str());
     let source = std::fs::read_to_string(&path).or_else(|e| cx.throw_error(e.to_string()))?;
-    let c = match sixtyfps_interpreter::load(source.as_str(), &path) {
+    let c = match sixtyfps_interpreter::load(source, &path) {
         Ok(c) => c,
         Err(diag) => {
-            diag.print(source);
+            diag.print();
             return cx.throw_error("Compilation error");
         }
     };

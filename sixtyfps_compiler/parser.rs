@@ -438,7 +438,7 @@ impl From<Vec<Token>> for DefaultParser {
 
 impl DefaultParser {
     /// Constructor that create a parser from the source code
-    pub fn new(source: &str) -> Self {
+    pub fn new(source: String) -> Self {
         fn lex(source: &str) -> Vec<Token> {
             lexer()
                 .tokenize(source)
@@ -456,7 +456,9 @@ impl DefaultParser {
                 })
                 .collect()
         }
-        Self::from(lex(source))
+        let mut parser = Self::from(lex(&source));
+        parser.diags.source = Some(source);
+        parser
     }
 
     fn current_token(&self) -> Token {
@@ -589,7 +591,7 @@ impl Spanned for SyntaxToken {
 }
 
 // Actual parser
-pub fn parse(source: &str) -> (SyntaxNode, Diagnostics) {
+pub fn parse(source: String) -> (SyntaxNode, Diagnostics) {
     let mut p = DefaultParser::new(source);
     document::parse_document(&mut p);
     (SyntaxNode::new_root(p.builder.finish()), p.diags)

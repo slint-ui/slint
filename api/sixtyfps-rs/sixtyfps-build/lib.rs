@@ -42,12 +42,12 @@ pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
         .join(path.as_ref());
 
     let source = std::fs::read_to_string(&path).map_err(CompileError::LoadError)?;
-    let (syntax_node, mut diag) = parser::parse(&source);
+    let (syntax_node, mut diag) = parser::parse(source);
     diag.current_path = path.clone();
 
     if diag.has_error() {
         let vec = diag.inner.iter().map(|d| d.message.clone()).collect();
-        diag.print(source);
+        diag.print();
         return Err(CompileError::CompileError(vec));
     }
 
@@ -65,7 +65,7 @@ pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
 
     if diag.has_error() {
         let vec = diag.inner.iter().map(|d| d.message.clone()).collect();
-        diag.print(source);
+        diag.print();
         return Err(CompileError::CompileError(vec));
     }
 
@@ -80,7 +80,7 @@ pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
     let mut file = std::fs::File::create(&output_file_path).map_err(CompileError::SaveError)?;
     let generated = generator::rust::generate(&doc.root_component, &mut diag).ok_or_else(|| {
         let vec = diag.inner.iter().map(|d| d.message.clone()).collect();
-        diag.print(source);
+        diag.print();
         CompileError::CompileError(vec)
     })?;
     write!(file, "{}", generated).map_err(CompileError::SaveError)?;

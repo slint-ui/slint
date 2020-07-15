@@ -191,10 +191,10 @@ fn rtti_for<T: 'static + Default + rtti::BuiltinItem + vtable::HasStaticVTable<I
 /// The path corresponding to the source need to be passed as well (path is used for diagnostics
 /// and loading relative assets)
 pub fn load(
-    source: &str,
+    source: String,
     path: &std::path::Path,
 ) -> Result<Rc<ComponentDescription>, sixtyfps_compilerlib::diagnostics::Diagnostics> {
-    let (syntax_node, mut diag) = parser::parse(&source);
+    let (syntax_node, mut diag) = parser::parse(source);
     diag.current_path = path.into();
     let tr = typeregister::TypeRegister::builtin();
     let tree = object_tree::Document::from_node(syntax_node.into(), &mut diag, &tr);

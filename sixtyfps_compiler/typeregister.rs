@@ -439,15 +439,15 @@ impl TypeRegister {
         path: P,
     ) -> std::io::Result<()> {
         let source = std::fs::read_to_string(&path)?;
-        let (syntax_node, mut diag) = crate::parser::parse(&source);
+        let (syntax_node, mut diag) = crate::parser::parse(source);
         diag.current_path = path.as_ref().to_path_buf();
 
-        diag.check_errors(source.clone())?;
+        let mut diag = diag.check_errors()?;
 
         // For the time being .60 files added to a type registry cannot depend on other .60 files.
         let tr = TypeRegister::builtin();
         let doc = crate::object_tree::Document::from_node(syntax_node.into(), &mut diag, &tr);
-        diag.check_errors(source)?;
+        diag.check_errors()?;
         self.add(doc.root_component);
         Ok(())
     }

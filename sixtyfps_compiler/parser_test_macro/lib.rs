@@ -62,7 +62,7 @@ fn generate_test(fn_name: &str, doc: &str) -> String {
         tests += &format!(r#"
         #[test] fn parser_test_{fn}_{i}()
         {{
-            let mut p = DefaultParser::new("{source}");
+            let mut p = DefaultParser::new("{source}".to_owned());
             {fn}(&mut p);
             assert_eq!(p.diags.inner, Vec::new());
             assert_eq!(p.cursor, p.tokens.len());
