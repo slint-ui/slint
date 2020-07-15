@@ -591,10 +591,21 @@ impl Spanned for SyntaxToken {
 }
 
 // Actual parser
-pub fn parse(source: String) -> (SyntaxNode, Diagnostics) {
+pub fn parse(source: String, path: Option<&std::path::Path>) -> (SyntaxNode, Diagnostics) {
     let mut p = DefaultParser::new(source);
     document::parse_document(&mut p);
+    if let Some(path) = path {
+        p.diags.current_path = path.to_path_buf();
+    }
     (SyntaxNode::new_root(p.builder.finish()), p.diags)
+}
+
+pub fn parse_file<P: AsRef<std::path::Path>>(
+    path: P,
+) -> std::io::Result<(SyntaxNode, Diagnostics)> {
+    let source = std::fs::read_to_string(&path)?;
+
+    Ok(parse(source, Some(path.as_ref())))
 }
 
 #[allow(dead_code)]

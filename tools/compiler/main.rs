@@ -13,9 +13,7 @@ struct Cli {
 
 fn main() -> std::io::Result<()> {
     let args = Cli::from_args();
-    let source = std::fs::read_to_string(&args.path)?;
-    let (syntax_node, mut diag) = parser::parse(source);
-    diag.current_path = args.path;
+    let (syntax_node, mut diag) = parser::parse_file(&args.path)?;
     //println!("{:#?}", syntax_node);
     let tr = typeregister::TypeRegister::builtin();
     let doc = object_tree::Document::from_node(syntax_node.into(), &mut diag, &tr);

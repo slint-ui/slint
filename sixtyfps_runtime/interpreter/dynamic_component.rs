@@ -223,8 +223,7 @@ pub fn load(
     source: String,
     path: &std::path::Path,
 ) -> Result<Rc<ComponentDescription>, sixtyfps_compilerlib::diagnostics::Diagnostics> {
-    let (syntax_node, mut diag) = parser::parse(source);
-    diag.current_path = path.into();
+    let (syntax_node, mut diag) = parser::parse(source, Some(path));
     let tr = typeregister::TypeRegister::builtin();
     let tree = object_tree::Document::from_node(syntax_node.into(), &mut diag, &tr);
     if !diag.inner.is_empty() {

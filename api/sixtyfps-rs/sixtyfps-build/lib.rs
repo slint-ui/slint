@@ -41,9 +41,7 @@ pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
     let path = Path::new(&env::var_os("CARGO_MANIFEST_DIR").ok_or(CompileError::NotRunViaCargo)?)
         .join(path.as_ref());
 
-    let source = std::fs::read_to_string(&path).map_err(CompileError::LoadError)?;
-    let (syntax_node, mut diag) = parser::parse(source);
-    diag.current_path = path.clone();
+    let (syntax_node, mut diag) = parser::parse_file(&path).map_err(CompileError::LoadError)?;
 
     if diag.has_error() {
         let vec = diag.inner.iter().map(|d| d.message.clone()).collect();

@@ -438,9 +438,7 @@ impl TypeRegister {
         &mut self,
         path: P,
     ) -> std::io::Result<()> {
-        let source = std::fs::read_to_string(&path)?;
-        let (syntax_node, mut diag) = crate::parser::parse(source);
-        diag.current_path = path.as_ref().to_path_buf();
+        let (syntax_node, diag) = crate::parser::parse_file(&path)?;
 
         let mut diag = diag.check_errors()?;
 

@@ -88,7 +88,7 @@ fn process_file(
             let code = &source_slice[..idx - 1];
             source_slice = &source_slice[idx - 1..];
 
-            let (syntax_node, diag) = sixtyfps_compilerlib::parser::parse(code.to_owned());
+            let (syntax_node, diag) = sixtyfps_compilerlib::parser::parse(code.to_owned(), None);
             let len = syntax_node.text_range().end().into();
             visit_node(syntax_node, &mut file, &mut State::default())?;
             if diag.has_error() {
@@ -99,12 +99,11 @@ fn process_file(
         return file.write_all(source_slice.as_bytes());
     }
 
-    let (syntax_node, mut diag) = sixtyfps_compilerlib::parser::parse(source.clone());
+    let (syntax_node, diag) = sixtyfps_compilerlib::parser::parse(source.clone(), Some(&path));
     let len = syntax_node.text_range().end().into();
     visit_node(syntax_node, &mut file, &mut State::default())?;
     if diag.has_error() {
         file.write_all(&source.as_bytes()[len..])?;
-        diag.current_path = path;
         diag.print();
     }
     Ok(())
