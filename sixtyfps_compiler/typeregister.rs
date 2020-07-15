@@ -452,6 +452,25 @@ impl TypeRegister {
         Ok(())
     }
 
+    pub fn new_from_library<P: AsRef<std::path::Path>>(
+        directory: P,
+        parent_registry: &Rc<TypeRegister>,
+    ) -> std::io::Result<Rc<TypeRegister>> {
+        let mut result =
+            TypeRegister { parent_registry: Some(parent_registry.clone()), ..Default::default() };
+
+        for entry in std::fs::read_dir(directory)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_file() && path.extension().unwrap_or_default() == std::ffi::OsStr::new("60")
+            {
+                result.add_type_from_source(path)?;
+            }
+        }
+
+        Ok(Rc::new(result))
+    }
+
     pub fn property_animation_type_for_property(&self, property_type: Type) -> Type {
         if self.supported_property_animation_types.contains(&property_type.to_string()) {
             self.property_animation_type.clone()
@@ -474,6 +493,23 @@ fn test_extend_registry_from_source() {
 
     let result = local_types.add_type_from_source(test_source_path);
     assert!(result.is_ok());
+
+    assert_ne!(local_types.lookup("PublicType"), Type::Invalid);
+    assert_eq!(local_types.lookup("HiddenInternalType"), Type::Invalid);
+}
+
+#[test]
+fn test_registry_from_library() {
+    let global_types = TypeRegister::builtin();
+
+    let test_source_path: std::path::PathBuf =
+        [env!("CARGO_MANIFEST_DIR"), "tests"].iter().collect();
+
+    let result = TypeRegister::new_from_library(test_source_path, &global_types);
+
+    assert!(result.is_ok());
+
+    let local_types = result.unwrap();
 
     assert_ne!(local_types.lookup("PublicType"), Type::Invalid);
     assert_eq!(local_types.lookup("HiddenInternalType"), Type::Invalid);
