@@ -65,7 +65,15 @@ impl ComponentBox {
             }
         };
 
-        WindowProperties { width: get_prop("width"), height: get_prop("height") }
+        WindowProperties {
+            width: get_prop("width"),
+            height: get_prop("height"),
+            /// Safety: there must be a dpi property of type f32 as it is added by us for top level window
+            dpi: Some(unsafe {
+                &*(component.as_ptr().add(component_type.custom_properties["dpi"].offset)
+                    as *const Property<f32>)
+            }),
+        }
     }
 }
 

@@ -12,7 +12,7 @@ component TwoRectangle := Rectangle {
 
         my_area := TouchArea {
             width: 25px;
-            height: 25px;
+            height: 25lx;
             clicked => { root.clicked() }
         }
     }
@@ -22,8 +22,8 @@ component ButtonRectangle := Rectangle {
     property<string> button_text;
     property<color> button_color;
     signal clicked;
-    width: 100px;
-    height: 75px;
+    width: 100lx;
+    height: 75lx;
     color: button_area.pressed ? red : button_color;
     animate color { duration: 200ms; }
     button_area := TouchArea {

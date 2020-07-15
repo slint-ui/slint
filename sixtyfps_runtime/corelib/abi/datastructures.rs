@@ -640,6 +640,10 @@ pub struct WindowProperties<'a> {
     /// A reference to the property that is supposed to be kept up-to-date with the height
     /// of the window.
     pub height: Option<&'a crate::Property<f32>>,
+
+    /// A reference to the property that is supposed to be kept up-to-date with the current
+    /// screen dpi
+    pub dpi: Option<&'a crate::Property<f32>>,
 }
 
 /// The ComponentWindow is the (rust) facing public type that can render the items

@@ -83,6 +83,31 @@ impl EventLoop {
                 }
                 winit::event::Event::WindowEvent {
                     event: winit::event::WindowEvent::Resized(size),
+                    window_id,
+                } => {
+                    if let Some(width_property) = window_properties.width {
+                        width_property.set(size.width as f32)
+                    }
+                    if let Some(height_property) = window_properties.height {
+                        height_property.set(size.height as f32)
+                    }
+                    if let Some(dpi_property) = window_properties.dpi {
+                        ALL_WINDOWS.with(|windows| {
+                            if let Some(Some(window)) =
+                                windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
+                            {
+                                let window = window.window_handle();
+                                dpi_property.set(window.scale_factor() as f32)
+                            }
+                        });
+                    }
+                }
+                winit::event::Event::WindowEvent {
+                    event:
+                        winit::event::WindowEvent::ScaleFactorChanged {
+                            scale_factor,
+                            new_inner_size: size,
+                        },
                     ..
                 } => {
                     if let Some(width_property) = window_properties.width {
@@ -90,6 +115,9 @@ impl EventLoop {
                     }
                     if let Some(height_property) = window_properties.height {
                         height_property.set(size.height as f32)
+                    }
+                    if let Some(dpi_property) = window_properties.dpi {
+                        dpi_property.set(scale_factor as f32)
                     }
                 }
 

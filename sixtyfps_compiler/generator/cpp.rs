@@ -522,7 +522,7 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Dia
             name: "window_properties".into(),
             signature: "() -> sixtyfps::WindowProperties".into(),
             statements: Some(vec![format!(
-                "return {{ {} , {} }};",
+                "return {{ {} , {}, &this->dpi }};",
                 window_props("width"),
                 window_props("height")
             )]),
