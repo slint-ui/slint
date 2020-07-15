@@ -301,6 +301,9 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
             &parent_element.borrow().enclosing_component.upgrade().unwrap(),
         ));
     } else {
+        declared_property_vars.push(quote::format_ident!("dpi"));
+        declared_property_types.push(quote!(f32));
+        init.push(quote!(self_pinned.dpi.set(1.0);));
         property_and_signal_accessors.push(quote! {
             fn run(self : core::pin::Pin<std::rc::Rc<Self>>) {
                 use sixtyfps::re_exports::*;
@@ -492,6 +495,18 @@ fn access_member(
     }
 }
 
+/// Return an expression that gets the DPI property
+fn dpi_expression(component: &Rc<Component>) -> TokenStream {
+    let mut root_component = component.clone();
+    let mut component_rust = quote!(_self);
+    while let Some(p) = root_component.parent_element.upgrade() {
+        root_component = p.borrow().enclosing_component.upgrade().unwrap();
+        component_rust = quote!(#component_rust.parent.upgrade().unwrap().as_ref());
+    }
+    let component_id = component_id(&root_component);
+    quote!(#component_id::field_offsets().dpi.apply_pin(#component_rust).get())
+}
+
 fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream {
     match e {
         Expression::StringLiteral(s) => quote!(sixtyfps::re_exports::SharedString::from(#s)),
@@ -510,6 +525,14 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                 (Type::Array(_), Type::Model) => quote!(#f.iter().cloned()),
                 (Type::Float32, Type::Color) => {
                     quote!(sixtyfps::re_exports::Color::from(#f as u32))
+                }
+                (Type::LogicalLength, Type::Length) => {
+                    let dpi_expression = dpi_expression(component);
+                    quote!((#f as f64) * #dpi_expression as f64)
+                }
+                (Type::Length, Type::LogicalLength) => {
+                    let dpi_expression = dpi_expression(component);
+                    quote!((#f as f64) / #dpi_expression as f64)
                 }
                 _ => f,
             }

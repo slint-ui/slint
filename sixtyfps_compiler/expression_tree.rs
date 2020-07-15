@@ -414,7 +414,9 @@ impl Expression {
             Expression::RepeaterIndexReference { .. } => false,
             Expression::RepeaterModelReference { .. } => false,
             Expression::ObjectAccess { base, .. } => base.is_constant(),
-            Expression::Cast { from, .. } => from.is_constant(),
+            Expression::Cast { from, to } => {
+                from.is_constant() && !matches!(to, Type::Length | Type::LogicalLength)
+            }
             Expression::CodeBlock(sub) => sub.len() == 1 && sub.first().unwrap().is_constant(),
             Expression::FunctionCall { .. } => false,
             Expression::SelfAssignment { .. } => false,
