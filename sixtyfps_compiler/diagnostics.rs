@@ -64,9 +64,14 @@ impl Diagnostics {
         &*self.current_path
     }
 
-    #[cfg(feature = "display-diagnostics")]
-    /// Print the diagnostics on the console
-    pub fn print(self) {
+    fn emit_diagnostics<'a, Output>(
+        self,
+        output: &'a mut Output,
+        emitter_factory: impl for<'b> FnOnce(
+            &'b mut Output,
+            Option<&'b codemap::CodeMap>,
+        ) -> codemap_diagnostic::Emitter<'b>,
+    ) {
         let mut codemap = codemap::CodeMap::new();
         let file = codemap.add_file(
             self.current_path.to_string_lossy().to_string(),
@@ -92,50 +97,29 @@ impl Diagnostics {
             })
             .collect();
 
-        let mut emitter = codemap_diagnostic::Emitter::stderr(
-            codemap_diagnostic::ColorConfig::Always,
-            Some(&codemap),
-        );
+        let mut emitter = emitter_factory(output, Some(&codemap));
         emitter.emit(&diags);
+    }
+
+    #[cfg(feature = "display-diagnostics")]
+    /// Print the diagnostics on the console
+    pub fn print(self) {
+        self.emit_diagnostics(&mut (), |_, codemap| {
+            codemap_diagnostic::Emitter::stderr(codemap_diagnostic::ColorConfig::Always, codemap)
+        });
     }
 
     #[cfg(feature = "display-diagnostics")]
     /// Print into a string
     pub fn diagnostics_as_string(self) -> String {
-        let mut codemap = codemap::CodeMap::new();
-        let file = codemap.add_file(
-            self.current_path.to_string_lossy().to_string(),
-            self.source.unwrap_or_default(),
-        );
-        let file_span = file.span;
-
-        let diags: Vec<_> = self
-            .inner
-            .iter()
-            .map(|CompilerDiagnostic { message, span }| {
-                let s = codemap_diagnostic::SpanLabel {
-                    span: file_span.subspan(span.offset as u64, span.offset as u64),
-                    style: codemap_diagnostic::SpanStyle::Primary,
-                    label: None,
-                };
-                codemap_diagnostic::Diagnostic {
-                    level: codemap_diagnostic::Level::Error,
-                    message: message.clone(),
-                    code: None,
-                    spans: vec![s],
-                }
-            })
-            .collect();
-
         let mut output = Vec::new();
-        {
-            let mut emitter = codemap_diagnostic::Emitter::vec(&mut output, Some(&codemap));
-            emitter.emit(&diags);
-        }
+        self.emit_diagnostics(&mut output, |output, codemap| {
+            codemap_diagnostic::Emitter::vec(output, codemap)
+        });
 
         String::from_utf8(output).expect(&format!(
-            "There were errors compiling {} but they did not result in valid utf-8 diagnostics!",
-            file.name()
+            "Internal error: There were errors during compilation but they did not result in valid utf-8 diagnostics!"
+
         ))
     }
 
