@@ -53,7 +53,7 @@ pub fn run_passes(
 ) {
     passes::resolving::resolve_expressions(doc, diag);
     passes::inlining::inline(doc);
-    passes::compile_paths::compile_paths(&doc.root_component, doc.types(), diag);
+    passes::compile_paths::compile_paths(&doc.root_component, &doc.local_registry, diag);
     passes::unique_id::assign_unique_id(&doc.root_component);
     passes::lower_layout::lower_layouts(&doc.root_component, diag);
     if compiler_config.embed_resources {

@@ -46,10 +46,6 @@ impl Document {
             local_registry,
         }
     }
-
-    pub fn types(&self) -> &TypeRegister {
-        &self.local_registry
-    }
 }
 
 /// A component is a type in the language which can be instantiated,
