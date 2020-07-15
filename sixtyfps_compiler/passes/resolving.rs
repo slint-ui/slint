@@ -9,7 +9,7 @@ use crate::diagnostics::Diagnostics;
 use crate::expression_tree::*;
 use crate::object_tree::*;
 use crate::parser::{syntax_nodes, Spanned, SyntaxKind, SyntaxNode, SyntaxNodeEx};
-use crate::typeregister::{Type, TypeRegister};
+use crate::typeregister::Type;
 use std::{collections::HashMap, rc::Rc};
 
 pub fn resolve_expressions(doc: &Document, diag: &mut Diagnostics) {
@@ -26,12 +26,10 @@ pub fn resolve_expressions(doc: &Document, diag: &mut Diagnostics) {
             elem: &ElementRc,
             scope: &ComponentScope,
             diag: &mut Diagnostics,
-            tr: &TypeRegister,
         ) -> HashMap<String, Expression> {
             for (prop, expr) in &mut bindings {
                 if let Expression::Uncompiled(node) = expr {
                     let mut lookup_ctx = LookupCtx {
-                        tr,
                         property_type: elem.borrow().lookup_property(&*prop),
                         component: component.clone(),
                         component_scope: &scope.0,
@@ -66,7 +64,6 @@ pub fn resolve_expressions(doc: &Document, diag: &mut Diagnostics) {
             if let Some(r) = &mut repeated {
                 if let Expression::Uncompiled(node) = &mut r.model {
                     let mut lookup_ctx = LookupCtx {
-                        tr: doc.types(),
                         property_type: Type::Invalid, // FIXME: that should be a model
                         component: component.clone(),
                         component_scope: &scope.0,
@@ -81,15 +78,14 @@ pub fn resolve_expressions(doc: &Document, diag: &mut Diagnostics) {
             elem.borrow_mut().repeated = repeated;
 
             let bindings = std::mem::take(&mut elem.borrow_mut().bindings);
-            elem.borrow_mut().bindings =
-                resolve_bindings(bindings, component, elem, &scope, diag, doc.types());
+            elem.borrow_mut().bindings = resolve_bindings(bindings, component, elem, &scope, diag);
 
             let mut property_animations =
                 std::mem::take(&mut elem.borrow_mut().property_animations);
             for anim_elem in &mut property_animations.values_mut() {
                 let bindings = std::mem::take(&mut anim_elem.borrow_mut().bindings);
                 anim_elem.borrow_mut().bindings =
-                    resolve_bindings(bindings, component, anim_elem, &scope, diag, doc.types());
+                    resolve_bindings(bindings, component, anim_elem, &scope, diag);
             }
             elem.borrow_mut().property_animations = property_animations;
 
@@ -100,9 +96,6 @@ pub fn resolve_expressions(doc: &Document, diag: &mut Diagnostics) {
 
 /// Contains information which allow to lookup identifier in expressions
 struct LookupCtx<'a> {
-    #[allow(dead_code)]
-    /// The type register
-    tr: &'a TypeRegister,
     /// the type of the property for which this expression refers.
     /// (some property come in the scope)
     property_type: Type,
