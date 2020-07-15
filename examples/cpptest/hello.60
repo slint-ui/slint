@@ -132,5 +132,7 @@ Hello := Rectangle {
         stroke_color: black;
         stroke_width: 2.0;
     }
+
+    Text { text: (root.width / 1px); color: black; }
 }
 

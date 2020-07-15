@@ -26,6 +26,7 @@ using internal::ComponentVTable;
 using internal::ItemTreeNode;
 using ComponentRef = VRef<ComponentVTable>;
 using ItemVisitorRefMut = VRefMut<internal::ItemVisitorVTable>;
+using internal::WindowProperties;
 
 struct ComponentWindow
 {
@@ -38,7 +39,7 @@ struct ComponentWindow
     template<typename Component>
     void run(Component *c)
     {
-        internal::WindowProperties props { nullptr, nullptr };
+        auto props = c->window_properties();
         sixtyfps_component_window_run(
                 &inner, VRefMut<ComponentVTable> { &Component::component_type, c }, &props);
     }

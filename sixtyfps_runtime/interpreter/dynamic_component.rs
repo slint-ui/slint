@@ -56,9 +56,13 @@ impl ComponentBox {
         let info = &component_type.items[component_type.original.root_element.borrow().id.as_str()];
 
         let get_prop = |name| {
-            info.rtti.properties.get(name).map(|p| unsafe {
-                &*(component.as_ptr().add(info.offset).add(p.offset()) as *const Property<f32>)
-            })
+            if info.elem.borrow().lookup_property(name) != Type::Length {
+                None
+            } else {
+                info.rtti.properties.get(name).map(|p| unsafe {
+                    &*(component.as_ptr().add(info.offset).add(p.offset()) as *const Property<f32>)
+                })
+            }
         };
 
         WindowProperties { width: get_prop("width"), height: get_prop("height") }

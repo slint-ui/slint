@@ -304,11 +304,24 @@ pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<Tok
         declared_property_vars.push(quote::format_ident!("dpi"));
         declared_property_types.push(quote!(f32));
         init.push(quote!(self_pinned.dpi.set(1.0);));
+        let window_props = |name| {
+            let root_elem = component.root_element.borrow();
+
+            if root_elem.lookup_property(name) == Type::Length {
+                let root_item_name = quote::format_ident!("{}", root_elem.id);
+                let name = quote::format_ident!("{}", name);
+                quote!(Some(&self.#root_item_name.#name))
+            } else {
+                quote!(None)
+            }
+        };
+        let width_prop = window_props("width");
+        let height_prop = window_props("height");
         property_and_signal_accessors.push(quote! {
             fn run(self : core::pin::Pin<std::rc::Rc<Self>>) {
                 use sixtyfps::re_exports::*;
                 let window = sixtyfps::create_window();
-                let window_props = WindowProperties {width: None, height: None};
+                let window_props = WindowProperties {width: #width_prop, height: #height_prop};
                 window.run(VRef::new_pin(self.as_ref()), &window_props);
             }
         });

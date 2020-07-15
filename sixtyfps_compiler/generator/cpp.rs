@@ -508,6 +508,26 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Dia
             ..Var::default()
         }));
         init.push("self->dpi.set(1.);".to_owned());
+
+        let window_props = |name| {
+            let root_elem = component.root_element.borrow();
+
+            if root_elem.lookup_property(name) == Type::Length {
+                format!("&this->{}.{}", root_elem.id, name)
+            } else {
+                "nullptr".to_owned()
+            }
+        };
+        component_struct.members.push(Declaration::Function(Function {
+            name: "window_properties".into(),
+            signature: "() -> sixtyfps::WindowProperties".into(),
+            statements: Some(vec![format!(
+                "return {{ {} , {} }};",
+                window_props("width"),
+                window_props("height")
+            )]),
+            ..Default::default()
+        }));
     }
 
     let mut children_visitor_case = vec![];
