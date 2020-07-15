@@ -443,70 +443,60 @@ impl Expression {
                 }
             }
             OperatorClass::LogicalOp => Type::Bool,
-            OperatorClass::ArithmeticOp => match (op, lhs.ty(), rhs.ty()) {
-                // TODO: make this unit propgagation more general
-                ('+', Type::Duration, _) => Type::Duration,
-                ('-', Type::Duration, _) => Type::Duration,
-                ('*', Type::Duration, _) => {
-                    return Expression::BinaryExpression {
-                        lhs: Box::new(lhs),
-                        rhs: Box::new(rhs.maybe_convert_to(Type::Float32, &lhs_n, &mut ctx.diag)),
-                        op,
-                    }
+            OperatorClass::ArithmeticOp => {
+                macro_rules! unit_operations {
+                    ($($unit:ident)*) => {
+                        match (op, lhs.ty(), rhs.ty()) {
+                            $(
+                                ('+', Type::$unit, _) => Type::$unit,
+                                ('-', Type::$unit, _) => Type::$unit,
+                                ('*', Type::$unit, _) => {
+                                    return Expression::BinaryExpression {
+                                        lhs: Box::new(lhs),
+                                        rhs: Box::new(rhs.maybe_convert_to(
+                                            Type::Float32,
+                                            &lhs_n,
+                                            &mut ctx.diag,
+                                        )),
+                                        op,
+                                    }
+                                }
+                                ('*', _, Type::$unit) => {
+                                    return Expression::BinaryExpression {
+                                        lhs: Box::new(lhs.maybe_convert_to(
+                                            Type::Float32,
+                                            &lhs_n,
+                                            &mut ctx.diag,
+                                        )),
+                                        rhs: Box::new(rhs),
+                                        op,
+                                    }
+                                }
+                                ('/', Type::$unit, Type::$unit) => {
+                                    return Expression::BinaryExpression {
+                                        lhs: Box::new(lhs),
+                                        rhs: Box::new(rhs),
+                                        op,
+                                    }
+                                }
+                                ('/', Type::$unit, _) => {
+                                    return Expression::BinaryExpression {
+                                        lhs: Box::new(lhs),
+                                        rhs: Box::new(rhs.maybe_convert_to(
+                                            Type::Float32,
+                                            &lhs_n,
+                                            &mut ctx.diag,
+                                        )),
+                                        op,
+                                    }
+                                }
+                            )*
+                            _ => Type::Float32,
+                        }
+                    };
                 }
-                ('*', _, Type::Duration) => {
-                    return Expression::BinaryExpression {
-                        lhs: Box::new(lhs.maybe_convert_to(Type::Float32, &lhs_n, &mut ctx.diag)),
-                        rhs: Box::new(rhs),
-                        op,
-                    }
-                }
-                ('/', Type::Duration, Type::Duration) => {
-                    return Expression::BinaryExpression {
-                        lhs: Box::new(lhs),
-                        rhs: Box::new(rhs),
-                        op,
-                    }
-                }
-                ('/', Type::Duration, _) => {
-                    return Expression::BinaryExpression {
-                        lhs: Box::new(lhs),
-                        rhs: Box::new(rhs.maybe_convert_to(Type::Float32, &lhs_n, &mut ctx.diag)),
-                        op,
-                    }
-                }
-                ('+', Type::Length, _) => Type::Length,
-                ('-', Type::Length, _) => Type::Length,
-                ('*', Type::Length, _) => {
-                    return Expression::BinaryExpression {
-                        lhs: Box::new(lhs),
-                        rhs: Box::new(rhs.maybe_convert_to(Type::Float32, &lhs_n, &mut ctx.diag)),
-                        op,
-                    }
-                }
-                ('*', _, Type::Length) => {
-                    return Expression::BinaryExpression {
-                        lhs: Box::new(lhs.maybe_convert_to(Type::Float32, &lhs_n, &mut ctx.diag)),
-                        rhs: Box::new(rhs),
-                        op,
-                    }
-                }
-                ('/', Type::Length, Type::Length) => {
-                    return Expression::BinaryExpression {
-                        lhs: Box::new(lhs),
-                        rhs: Box::new(rhs),
-                        op,
-                    }
-                }
-                ('/', Type::Length, _) => {
-                    return Expression::BinaryExpression {
-                        lhs: Box::new(lhs),
-                        rhs: Box::new(rhs.maybe_convert_to(Type::Float32, &lhs_n, &mut ctx.diag)),
-                        op,
-                    }
-                }
-                _ => Type::Float32,
-            },
+                unit_operations!(Duration Length LogicalLength)
+            }
         };
         Expression::BinaryExpression {
             lhs: Box::new(lhs.maybe_convert_to(expected_ty.clone(), &lhs_n, &mut ctx.diag)),

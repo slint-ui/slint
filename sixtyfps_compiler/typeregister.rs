@@ -16,6 +16,7 @@ pub enum Type {
     Color,
     Duration,
     Length,
+    LogicalLength,
     Resource,
     Bool,
     Model,
@@ -38,6 +39,7 @@ impl core::cmp::PartialEq for Type {
             (Type::Color, Type::Color) => true,
             (Type::Duration, Type::Duration) => true,
             (Type::Length, Type::Length) => true,
+            (Type::LogicalLength, Type::LogicalLength) => true,
             (Type::Resource, Type::Resource) => true,
             (Type::Bool, Type::Bool) => true,
             (Type::Array(a), Type::Array(b)) => a == b,
@@ -61,6 +63,7 @@ impl Display for Type {
             Type::String => write!(f, "string"),
             Type::Duration => write!(f, "duration"),
             Type::Length => write!(f, "length"),
+            Type::LogicalLength => write!(f, "logical_length"),
             Type::Color => write!(f, "color"),
             Type::Resource => write!(f, "resource"),
             Type::Bool => write!(f, "bool"),
@@ -93,6 +96,7 @@ impl Type {
                 | Self::Color
                 | Self::Duration
                 | Self::Length
+                | Self::LogicalLength
                 | Self::Resource
                 | Self::Bool
                 | Self::Model
@@ -163,6 +167,8 @@ impl Type {
                     | (Type::Array(_), Type::Model)
                     | (Type::Float32, Type::Model)
                     | (Type::Int32, Type::Model)
+                    | (Type::Length, Type::LogicalLength)
+                    | (Type::LogicalLength, Type::Length)
             )
     }
 
@@ -236,6 +242,7 @@ impl TypeRegister {
         insert_type(Type::Int32);
         insert_type(Type::String);
         insert_type(Type::Length);
+        insert_type(Type::LogicalLength);
         insert_type(Type::Color);
         insert_type(Type::Duration);
         insert_type(Type::Resource);
@@ -355,6 +362,7 @@ impl TypeRegister {
         r.supported_property_animation_types.insert(Type::Int32.to_string());
         r.supported_property_animation_types.insert(Type::Color.to_string());
         r.supported_property_animation_types.insert(Type::Length.to_string());
+        r.supported_property_animation_types.insert(Type::LogicalLength.to_string());
 
         let mut context_restricted_types = HashMap::new();
         r.types.values().for_each(|ty| ty.collect_contextual_types(&mut context_restricted_types));

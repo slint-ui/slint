@@ -59,9 +59,9 @@ The elements can have properties
 ```60
 Example := Rectangle {
     // Simple expression: ends with a semi colon
-    width: 42;
+    width: 42px;
     // or a code block
-    height: { 42 }
+    height: { 42px }
 }
 ```
 
@@ -89,7 +89,7 @@ Example := Rectangle {
     property<int32> my_property;
 
     // This access the property
-    width: root.my_property * 20;
+    width: root.my_property * 20px;
 
 }
 ```
@@ -103,7 +103,25 @@ If one change the `my_property`, the width will be updated automatically.
  - `float32`
  - `string`
  - `color`
+ - `length`
+ - `logical_length`
+ - `duration`
  - FIXME: more
+
+`int32` and `float32` are the types for the numbers, they correspond to the equivalent in the target language
+
+`string` are implicitly shared.
+
+`length` is the type for the x, y, width and height coordinate. This is an amount of physical pixels. To convert from
+an integer to a length unit, one can simply multiply by `1px`.  Or to convert from a length to a float32, one can divide
+by `1px`.
+`logical_length` correspond to literal like `1lx`, `1pt`, `1in`, `1mm`, or `1cm`.
+It can be converted to and from length provided the binding is run in a context where there
+is an access to the pixel ratio.
+
+`duration` is a type for the duration of animation, it is represented by the amount of milisecond. But in the language
+they correspond to the number like `1ms` or `1s`
+
 
 ## Expressions
 

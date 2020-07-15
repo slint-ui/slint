@@ -33,7 +33,7 @@ pub fn operator_class(op: char) -> OperatorClass {
 }
 
 macro_rules! declare_units {
-    ($( $(#[$m:meta])* $ident:ident = $string:literal -> $ty:ident $(* $factor:literal)? ,)*) => {
+    ($( $(#[$m:meta])* $ident:ident = $string:literal -> $ty:ident $(* $factor:expr)? ,)*) => {
         /// The units that can be used after numbers in the language
         #[derive(Debug, Clone, Copy, PartialEq, Eq)]
         pub enum Unit {
@@ -84,15 +84,15 @@ declare_units! {
     /// Physical pixels
     Px = "px" -> Length,
     /// Logical pixels
-    Lx = "lx" -> Float32,
+    Lx = "lx" -> LogicalLength,
     /// Centimeters
-    Cm = "cm" -> Float32,
+    Cm = "cm" -> LogicalLength * 37.8,
     /// Milimeters
-    Mm = "mm" -> Float32,
+    Mm = "mm" -> LogicalLength * 3.78,
     /// inches
-    In = "in" -> Float32,
+    In = "in" -> LogicalLength * 96,
     /// Points
-    Pt = "pt" -> Float32,
+    Pt = "pt" -> LogicalLength * 96/72,
 
     // durations
 
@@ -266,22 +266,22 @@ impl Expression {
             }
             Expression::BinaryExpression { op, lhs, rhs } => {
                 if operator_class(*op) == OperatorClass::ArithmeticOp {
-                    match (*op, lhs.ty(), rhs.ty()) {
-                        // TODO: make this unit propgagation more general
-                        ('+', Type::Duration, Type::Duration) => Type::Duration,
-                        ('-', Type::Duration, Type::Duration) => Type::Duration,
-                        ('*', Type::Duration, _) => Type::Duration,
-                        ('*', _, Type::Duration) => Type::Duration,
-                        ('/', Type::Duration, Type::Duration) => Type::Float32,
-                        ('/', Type::Duration, _) => Type::Duration,
-                        ('+', Type::Length, Type::Length) => Type::Length,
-                        ('-', Type::Length, Type::Length) => Type::Length,
-                        ('*', Type::Length, _) => Type::Length,
-                        ('*', _, Type::Length) => Type::Length,
-                        ('/', Type::Length, Type::Length) => Type::Float32,
-                        ('/', Type::Length, _) => Type::Length,
-                        _ => Type::Float32,
+                    macro_rules! unit_operations {
+                        ($($unit:ident)*) => {
+                            match (*op, lhs.ty(), rhs.ty()) {
+                                $(
+                                    ('+', Type::$unit, Type::$unit) => Type::$unit,
+                                    ('-', Type::$unit, Type::$unit) => Type::$unit,
+                                    ('*', Type::$unit, _) => Type::$unit,
+                                    ('*', _, Type::$unit) => Type::$unit,
+                                    ('/', Type::$unit, Type::$unit) => Type::Float32,
+                                    ('/', Type::$unit, _) => Type::$unit,
+                                )*
+                                _ => Type::Float32,
+                            }
+                        }
                     }
+                    unit_operations!(Duration Length LogicalLength)
                 } else {
                     Type::Bool
                 }
