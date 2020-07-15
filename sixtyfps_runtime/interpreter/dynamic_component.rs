@@ -196,13 +196,13 @@ pub fn load(
 ) -> Result<Rc<ComponentDescription>, sixtyfps_compilerlib::diagnostics::Diagnostics> {
     let (syntax_node, mut diag) = parser::parse(&source);
     diag.current_path = path.into();
-    let mut tr = typeregister::TypeRegister::builtin();
-    let tree = object_tree::Document::from_node(syntax_node.into(), &mut diag, &mut tr);
+    let tr = typeregister::TypeRegister::builtin();
+    let tree = object_tree::Document::from_node(syntax_node.into(), &mut diag, &tr);
     if !diag.inner.is_empty() {
         return Err(diag);
     }
     let compiler_config = CompilerConfiguration::default();
-    run_passes(&tree, &mut diag, &mut tr, &compiler_config);
+    run_passes(&tree, &mut diag, &compiler_config);
     if !diag.inner.is_empty() {
         return Err(diag);
     }

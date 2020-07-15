@@ -49,12 +49,11 @@ pub struct CompilerConfiguration {
 pub fn run_passes(
     doc: &object_tree::Document,
     diag: &mut diagnostics::Diagnostics,
-    tr: &typeregister::TypeRegister,
     compiler_config: &CompilerConfiguration,
 ) {
-    passes::resolving::resolve_expressions(doc, diag, tr);
+    passes::resolving::resolve_expressions(doc, diag);
     passes::inlining::inline(doc);
-    passes::compile_paths::compile_paths(&doc.root_component, tr, diag);
+    passes::compile_paths::compile_paths(&doc.root_component, doc.types(), diag);
     passes::unique_id::assign_unique_id(&doc.root_component);
     passes::lower_layout::lower_layouts(&doc.root_component, diag);
     if compiler_config.embed_resources {

@@ -231,10 +231,11 @@ pub struct TypeRegister {
     /// Map from a context restricted type to the list of contexts (parent type) it is allowed in. This is
     /// used to construct helpful error messages, such as "Row can only be within a GridLayout element".
     context_restricted_types: HashMap<String, HashSet<String>>,
+    parent_registry: Option<Rc<TypeRegister>>,
 }
 
 impl TypeRegister {
-    pub fn builtin() -> Self {
+    pub fn builtin() -> Rc<Self> {
         let mut r = TypeRegister::default();
 
         let mut insert_type = |t: Type| r.types.insert(t.to_string(), t);
@@ -368,16 +369,37 @@ impl TypeRegister {
         r.types.values().for_each(|ty| ty.collect_contextual_types(&mut context_restricted_types));
         r.context_restricted_types = context_restricted_types;
 
-        r
+        Rc::new(r)
+    }
+
+    pub fn new(parent: &Rc<TypeRegister>) -> Self {
+        Self { parent_registry: Some(parent.clone()), ..Default::default() }
     }
 
     pub fn lookup(&self, name: &str) -> Type {
-        self.types.get(name).cloned().unwrap_or_default()
+        self.types
+            .get(name)
+            .cloned()
+            .or_else(|| self.parent_registry.as_ref().map(|r| r.lookup(name)))
+            .unwrap_or_default()
+    }
+
+    fn lookup_element_as_result<'a>(
+        &'a self,
+        name: &str,
+    ) -> Result<Type, &'a HashMap<String, HashSet<String>>> {
+        match self.types.get(name).cloned() {
+            Some(ty) => Ok(ty),
+            None => match &self.parent_registry {
+                Some(r) => r.lookup_element_as_result(name),
+                None => Err(&self.context_restricted_types),
+            },
+        }
     }
 
     pub fn lookup_element(&self, name: &str) -> Result<Type, String> {
-        self.types.get(name).cloned().ok_or_else(|| {
-            if let Some(permitted_parent_types) = self.context_restricted_types.get(name) {
+        self.lookup_element_as_result(name).map_err(|context_restricted_types| {
+            if let Some(permitted_parent_types) = context_restricted_types.get(name) {
                 if permitted_parent_types.len() == 1 {
                     format!(
                         "{} can only be within a {} element",
@@ -416,7 +438,10 @@ impl TypeRegister {
         if self.supported_property_animation_types.contains(&property_type.to_string()) {
             self.property_animation_type.clone()
         } else {
-            Type::Invalid
+            self.parent_registry
+                .as_ref()
+                .map(|registry| registry.property_animation_type_for_property(property_type))
+                .unwrap_or_default()
         }
     }
 }

@@ -8,10 +8,10 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
 
     let (syntax_node, mut diag) = parser::parse(&source);
     diag.current_path = testcase.absolute_path.clone();
-    let mut tr = typeregister::TypeRegister::builtin();
-    let doc = object_tree::Document::from_node(syntax_node.into(), &mut diag, &mut tr);
+    let tr = typeregister::TypeRegister::builtin();
+    let doc = object_tree::Document::from_node(syntax_node.into(), &mut diag, &tr);
     let compiler_config = CompilerConfiguration::default();
-    run_passes(&doc, &mut diag, &mut tr, &compiler_config);
+    run_passes(&doc, &mut diag, &compiler_config);
 
     if diag.has_error() {
         let vec = diag.inner.iter().map(|d| d.message.clone()).collect::<Vec<String>>();

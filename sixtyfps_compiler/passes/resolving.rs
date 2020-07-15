@@ -12,7 +12,7 @@ use crate::parser::{syntax_nodes, Spanned, SyntaxKind, SyntaxNode, SyntaxNodeEx}
 use crate::typeregister::{Type, TypeRegister};
 use std::{collections::HashMap, rc::Rc};
 
-pub fn resolve_expressions(doc: &Document, diag: &mut Diagnostics, tr: &TypeRegister) {
+pub fn resolve_expressions(doc: &Document, diag: &mut Diagnostics) {
     for component in &doc.inner_components {
         /// This represeresent a scope for the Component, where Component is the repeated component, but
         /// does not represent a component in the .60 file
@@ -66,7 +66,7 @@ pub fn resolve_expressions(doc: &Document, diag: &mut Diagnostics, tr: &TypeRegi
             if let Some(r) = &mut repeated {
                 if let Expression::Uncompiled(node) = &mut r.model {
                     let mut lookup_ctx = LookupCtx {
-                        tr,
+                        tr: doc.types(),
                         property_type: Type::Invalid, // FIXME: that should be a model
                         component: component.clone(),
                         component_scope: &scope.0,
@@ -82,14 +82,14 @@ pub fn resolve_expressions(doc: &Document, diag: &mut Diagnostics, tr: &TypeRegi
 
             let bindings = std::mem::take(&mut elem.borrow_mut().bindings);
             elem.borrow_mut().bindings =
-                resolve_bindings(bindings, component, elem, &scope, diag, tr);
+                resolve_bindings(bindings, component, elem, &scope, diag, doc.types());
 
             let mut property_animations =
                 std::mem::take(&mut elem.borrow_mut().property_animations);
             for anim_elem in &mut property_animations.values_mut() {
                 let bindings = std::mem::take(&mut anim_elem.borrow_mut().bindings);
                 anim_elem.borrow_mut().bindings =
-                    resolve_bindings(bindings, component, anim_elem, &scope, diag, tr);
+                    resolve_bindings(bindings, component, anim_elem, &scope, diag, doc.types());
             }
             elem.borrow_mut().property_animations = property_animations;
 

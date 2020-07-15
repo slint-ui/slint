@@ -15,20 +15,24 @@ pub struct Document {
     //     node: SyntaxNode,
     pub inner_components: Vec<Rc<Component>>,
     pub root_component: Rc<Component>,
+    pub local_registry: TypeRegister,
 }
 
 impl Document {
     pub fn from_node(
         node: syntax_nodes::Document,
         diag: &mut Diagnostics,
-        tr: &mut TypeRegister,
+        parent_registry: &Rc<TypeRegister>,
     ) -> Self {
         debug_assert_eq!(node.kind(), SyntaxKind::Document);
+
+        let mut local_registry = TypeRegister::new(parent_registry);
+
         let inner_components = node
             .Component()
             .map(|n| {
-                let compo = Component::from_node(n, diag, tr);
-                tr.add(compo.clone());
+                let compo = Component::from_node(n, diag, &local_registry);
+                local_registry.add(compo.clone());
                 compo
             })
             .collect::<Vec<_>>();
@@ -38,7 +42,13 @@ impl Document {
             root_component: inner_components.last().cloned().unwrap_or_default(),
 
             inner_components,
+
+            local_registry,
         }
+    }
+
+    pub fn types(&self) -> &TypeRegister {
+        &self.local_registry
     }
 }
 
