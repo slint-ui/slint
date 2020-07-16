@@ -1,3 +1,5 @@
+use crate::diagnostics::Diagnostics;
+use crate::FileLoadError;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::{fmt::Display, rc::Rc};
 
@@ -434,39 +436,49 @@ impl TypeRegister {
         self.types.insert(comp.id.clone(), Type::Component(comp));
     }
 
+    /// Loads the .60 file and adds it to the type registry. An error is returned if there were I/O problems,
+    /// otherwise the diagnostics collected during the parsing are returned.
     pub fn add_type_from_source<P: AsRef<std::path::Path>>(
         &mut self,
         path: P,
-    ) -> std::io::Result<()> {
+    ) -> std::io::Result<Diagnostics> {
         let (syntax_node, diag) = crate::parser::parse_file(&path)?;
-
-        let diag = diag.check_errors()?;
 
         // For the time being .60 files added to a type registry cannot depend on other .60 files.
         let (doc, diag) = crate::compile_syntax_node(syntax_node, diag);
 
-        diag.check_errors()?;
-        self.add(doc.root_component);
-        Ok(())
-    }
-
-    pub fn new_from_library<P: AsRef<std::path::Path>>(
-        directory: P,
-        parent_registry: &Rc<TypeRegister>,
-    ) -> std::io::Result<Rc<TypeRegister>> {
-        let mut result =
-            TypeRegister { parent_registry: Some(parent_registry.clone()), ..Default::default() };
-
-        for entry in std::fs::read_dir(directory)? {
-            let entry = entry?;
-            let path = entry.path();
-            if path.is_file() && path.extension().unwrap_or_default() == std::ffi::OsStr::new("60")
-            {
-                result.add_type_from_source(path)?;
-            }
+        if !doc.root_component.id.is_empty() {
+            self.add(doc.root_component);
         }
 
-        Ok(Rc::new(result))
+        Ok(diag)
+    }
+
+    /// Adds all .60 files from the specified directory to the type registry. For each file a result is
+    /// included in the returned vector that either contains the diagnostics encountered during the parsing
+    /// (if any) or an I/O error if it occured. If there was a problem reading the directory, then an I/O error
+    /// is returned.
+    pub fn add_from_directory<P: AsRef<std::path::Path>>(
+        &mut self,
+        directory: P,
+    ) -> std::io::Result<Vec<Result<Diagnostics, FileLoadError>>> {
+        Ok(std::fs::read_dir(directory)?
+            .filter_map(Result::ok)
+            .filter_map(|entry| {
+                let path = entry.path();
+                if path.is_file()
+                    && path.extension().unwrap_or_default() == std::ffi::OsStr::new("60")
+                {
+                    Some(path)
+                } else {
+                    None
+                }
+            })
+            .map(|path| {
+                self.add_type_from_source(&path)
+                    .map_err(|ioerr| FileLoadError { path, source: ioerr })
+            })
+            .collect())
     }
 
     pub fn property_animation_type_for_property(&self, property_type: Type) -> Type {
@@ -503,11 +515,14 @@ fn test_registry_from_library() {
     let test_source_path: std::path::PathBuf =
         [env!("CARGO_MANIFEST_DIR"), "tests"].iter().collect();
 
-    let result = TypeRegister::new_from_library(test_source_path, &global_types);
+    let mut local_types = TypeRegister::new(&global_types);
+    let result = local_types.add_from_directory(test_source_path);
 
     assert!(result.is_ok());
-
-    let local_types = result.unwrap();
+    let file_load_status_list = result.unwrap();
+    assert_eq!(file_load_status_list.len(), 1);
+    assert!(file_load_status_list[0].is_ok());
+    assert!(!file_load_status_list[0].as_ref().unwrap().has_error());
 
     assert_ne!(local_types.lookup("PublicType"), Type::Invalid);
     assert_eq!(local_types.lookup("HiddenInternalType"), Type::Invalid);

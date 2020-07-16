@@ -30,7 +30,7 @@ pub struct CompilerDiagnostic {
     pub span: Span,
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct Diagnostics {
     pub inner: Vec<CompilerDiagnostic>,
     pub current_path: std::path::PathBuf,
@@ -131,22 +131,6 @@ impl Diagnostics {
             std::process::exit(-1);
         }
         self
-    }
-
-    pub fn check_errors(self) -> std::io::Result<Self> {
-        if !self.has_error() {
-            return Ok(self);
-        }
-        #[cfg(feature = "display-diagnostics")]
-        return Err(std::io::Error::new(std::io::ErrorKind::Other, self.diagnostics_as_string()));
-        #[cfg(not(feature = "display-diagnostics"))]
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            format!(
-                "Error compiling {} but diagnostics were disabled in the compiler",
-                self.current_path.to_string_lossy()
-            ),
-        ));
     }
 
     #[cfg(feature = "proc_macro_span")]
