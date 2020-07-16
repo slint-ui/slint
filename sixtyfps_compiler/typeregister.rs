@@ -508,10 +508,12 @@ fn test_extend_registry_from_source() {
         let result = crate::parser::parse_file(path);
         assert!(result.is_ok());
 
-        let (syntax_node, diag) = result.unwrap();
+        let (syntax_node, mut diag) = result.unwrap();
 
         assert!(!diag.has_error());
-        let (_, diag) = crate::compile_syntax_node(syntax_node, diag);
+
+        crate::object_tree::Document::from_node(syntax_node.into(), &mut diag, &local_types);
+
         assert!(diag.has_error());
         assert_eq!(diag.inner.first().unwrap().to_string(), "Unknown type PublicType");
     }
