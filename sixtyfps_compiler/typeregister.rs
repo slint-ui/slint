@@ -498,14 +498,37 @@ fn test_extend_registry_from_source() {
     let global_types = TypeRegister::builtin();
     let mut local_types = TypeRegister::new(&global_types);
 
-    let test_source_path: std::path::PathBuf =
-        [env!("CARGO_MANIFEST_DIR"), "tests", "lib_test.60"].iter().collect();
+    let mut test_source_path: std::path::PathBuf =
+        [env!("CARGO_MANIFEST_DIR"), "tests", "test_file"].iter().collect();
 
-    let result = local_types.add_type_from_source(test_source_path);
+    // First try to load a file that depends on another, but that hasn't been loaded yet.
+    {
+        let mut path = test_source_path.clone();
+        path.set_file_name("lib_test2.60");
+        let result = crate::parser::parse_file(path);
+        assert!(result.is_ok());
+
+        let (syntax_node, diag) = result.unwrap();
+
+        assert!(!diag.has_error());
+        let (_, diag) = crate::compile_syntax_node(syntax_node, diag);
+        assert!(diag.has_error());
+        assert_eq!(diag.inner.first().unwrap().message, "Unknown type PublicType");
+    }
+
+    test_source_path.set_file_name("lib_test.60");
+    let result = local_types.add_type_from_source(&test_source_path);
     assert!(result.is_ok());
 
     assert_ne!(local_types.lookup("PublicType"), Type::Invalid);
     assert_eq!(local_types.lookup("HiddenInternalType"), Type::Invalid);
+
+    // Now try again.
+    test_source_path.set_file_name("lib_test2.60");
+    let result = local_types.add_type_from_source(&test_source_path);
+    assert!(result.is_ok());
+
+    assert_ne!(local_types.lookup("SecondPublicType"), Type::Invalid);
 }
 
 #[test]
