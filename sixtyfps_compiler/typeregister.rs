@@ -235,7 +235,7 @@ pub struct TypeRegister {
 }
 
 impl TypeRegister {
-    pub fn builtin() -> Rc<Self> {
+    pub(crate) fn builtin() -> Rc<Self> {
         let mut r = TypeRegister::default();
 
         let mut insert_type = |t: Type| r.types.insert(t.to_string(), t);
@@ -440,11 +440,11 @@ impl TypeRegister {
     ) -> std::io::Result<()> {
         let (syntax_node, diag) = crate::parser::parse_file(&path)?;
 
-        let mut diag = diag.check_errors()?;
+        let diag = diag.check_errors()?;
 
         // For the time being .60 files added to a type registry cannot depend on other .60 files.
-        let tr = TypeRegister::builtin();
-        let doc = crate::object_tree::Document::from_node(syntax_node.into(), &mut diag, &tr);
+        let (doc, diag) = crate::compile_syntax_node(syntax_node, diag);
+
         diag.check_errors()?;
         self.add(doc.root_component);
         Ok(())

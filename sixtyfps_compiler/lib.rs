@@ -42,8 +42,22 @@ mod passes {
 }
 
 #[derive(Default)]
+/// CompilationConfiguration allows configuring different aspects of the compiler.
 pub struct CompilerConfiguration {
+    /// Indicate whether to embed resources such as images in the generated output or whether
+    /// to retain references to the resources on the file system.
     pub embed_resources: bool,
+}
+
+pub fn compile_syntax_node<DocNode: Into<parser::syntax_nodes::Document>>(
+    doc_node: DocNode,
+    mut diagnostics: diagnostics::Diagnostics,
+) -> (object_tree::Document, diagnostics::Diagnostics) {
+    let type_registry = typeregister::TypeRegister::builtin();
+    let doc =
+        crate::object_tree::Document::from_node(doc_node.into(), &mut diagnostics, &type_registry);
+
+    (doc, diagnostics)
 }
 
 pub fn run_passes(

@@ -50,18 +50,19 @@ fn process_file_source(
     source: String,
     silent: bool,
 ) -> std::io::Result<bool> {
-    let (res, mut diag) = sixtyfps_compilerlib::parser::parse(source.clone(), Some(path));
-    let tr = sixtyfps_compilerlib::typeregister::TypeRegister::builtin();
-    if !diag.has_error() {
-        let doc =
-            sixtyfps_compilerlib::object_tree::Document::from_node(res.into(), &mut diag, &tr);
-        if !diag.has_error() {
+    let (res, parse_diagnostics) = sixtyfps_compilerlib::parser::parse(source.clone(), Some(path));
+    let mut compile_diagnostics = if !parse_diagnostics.has_error() {
+        let (doc, mut document_diagnostics) =
+            sixtyfps_compilerlib::compile_syntax_node(res, parse_diagnostics);
+        if !document_diagnostics.has_error() {
             let compiler_config = sixtyfps_compilerlib::CompilerConfiguration::default();
-            sixtyfps_compilerlib::run_passes(&doc, &mut diag, &compiler_config);
+            sixtyfps_compilerlib::run_passes(&doc, &mut document_diagnostics, &compiler_config);
         }
-    }
+        document_diagnostics
+    } else {
+        parse_diagnostics
+    };
 
-    //let mut errors = std::collections::HashSet::from_iter(diag.inner.into_iter());
     let mut success = true;
 
     // Find expected errors in the file.
@@ -79,9 +80,13 @@ fn process_file_source(
         };
         let offset = source[..line_begin_offset].rfind('\n').unwrap_or(0) + column;
 
-        match diag.inner.iter().position(|e| e.span.offset == offset && r.is_match(&e.message)) {
+        match compile_diagnostics
+            .inner
+            .iter()
+            .position(|e| e.span.offset == offset && r.is_match(&e.message))
+        {
             Some(idx) => {
-                diag.inner.remove(idx);
+                compile_diagnostics.inner.remove(idx);
             }
             None => {
                 success = false;
@@ -90,12 +95,12 @@ fn process_file_source(
         }
     }
 
-    if !diag.inner.is_empty() {
-        println!("{:?}: Unexptected errors: {:#?}", path, diag.inner);
+    if !compile_diagnostics.inner.is_empty() {
+        println!("{:?}: Unexptected errors: {:#?}", path, compile_diagnostics.inner);
 
         if !silent {
             #[cfg(feature = "display-diagnostics")]
-            diag.print();
+            compile_diagnostics.print();
         }
 
         success = false;

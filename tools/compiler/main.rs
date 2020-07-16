@@ -13,10 +13,9 @@ struct Cli {
 
 fn main() -> std::io::Result<()> {
     let args = Cli::from_args();
-    let (syntax_node, mut diag) = parser::parse_file(&args.path)?;
+    let (syntax_node, diag) = parser::parse_file(&args.path)?;
     //println!("{:#?}", syntax_node);
-    let tr = typeregister::TypeRegister::builtin();
-    let doc = object_tree::Document::from_node(syntax_node.into(), &mut diag, &tr);
+    let (doc, mut diag) = compile_syntax_node(syntax_node, diag);
     let compiler_config = CompilerConfiguration::default();
     run_passes(&doc, &mut diag, &compiler_config);
 
