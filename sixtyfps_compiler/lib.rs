@@ -13,6 +13,8 @@ You should use the `sixtyfps` crate instead
 #[cfg(feature = "proc_macro_span")]
 extern crate proc_macro;
 
+use std::{cell::RefCell, rc::Rc};
+
 pub mod diagnostics;
 pub mod expression_tree;
 pub mod generator;
@@ -43,10 +45,12 @@ mod passes {
 
 #[derive(Default)]
 /// CompilationConfiguration allows configuring different aspects of the compiler.
-pub struct CompilerConfiguration {
+pub struct CompilerConfiguration<'a> {
     /// Indicate whether to embed resources such as images in the generated output or whether
     /// to retain references to the resources on the file system.
     pub embed_resources: bool,
+    /// The compiler will look in these paths for components used in the file to compile.
+    pub include_paths: &'a [&'a std::path::Path],
 }
 
 pub fn compile_syntax_node<DocNode: Into<parser::syntax_nodes::Document>>(
@@ -54,13 +58,30 @@ pub fn compile_syntax_node<DocNode: Into<parser::syntax_nodes::Document>>(
     mut diagnostics: diagnostics::FileDiagnostics,
     compiler_config: &CompilerConfiguration,
 ) -> (object_tree::Document, diagnostics::BuildDiagnostics) {
-    let type_registry = typeregister::TypeRegister::builtin();
+    let mut all_diagnostics = diagnostics::BuildDiagnostics::default();
+
+    let global_type_registry = typeregister::TypeRegister::builtin();
+    let type_registry = if !compiler_config.include_paths.is_empty() {
+        let library = Rc::new(RefCell::new(typeregister::TypeRegister::new(&global_type_registry)));
+
+        all_diagnostics.extend(
+            compiler_config
+                .include_paths
+                .iter()
+                .map(|path| typeregister::TypeRegister::add_from_directory(&library, path))
+                .filter_map(Result::ok)
+                .flatten(),
+        );
+
+        library
+    } else {
+        global_type_registry
+    };
     let doc =
         crate::object_tree::Document::from_node(doc_node.into(), &mut diagnostics, &type_registry);
 
     run_passes(&doc, &mut diagnostics, compiler_config);
 
-    let mut all_diagnostics = diagnostics::BuildDiagnostics::default();
     all_diagnostics.add(diagnostics);
 
     (doc, all_diagnostics)
