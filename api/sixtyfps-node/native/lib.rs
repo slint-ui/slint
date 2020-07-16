@@ -234,8 +234,7 @@ declare_types! {
             let component = cx.borrow(&mut this, |x| x.0.clone());
             let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
             let persistent_context = persistent_context::PersistentContext::from_object(&mut cx, this.downcast().unwrap())?;
-            let props = WindowProperties{width: None, height: None, dpi: None};
-            show(&mut cx, component.borrow(), &props, persistent_context)?;
+            show(&mut cx, component.borrow(), &component.window_properties(), persistent_context)?;
             Ok(JsUndefined::new().as_value(&mut cx))
         }
         method get_property(mut cx) {
