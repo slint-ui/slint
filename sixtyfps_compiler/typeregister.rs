@@ -1,7 +1,7 @@
 use crate::diagnostics::Diagnostics;
 use crate::FileLoadError;
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::{fmt::Display, rc::Rc};
+use std::{cell::RefCell, fmt::Display, rc::Rc};
 
 #[derive(Debug, Clone)]
 pub enum Type {
@@ -233,11 +233,11 @@ pub struct TypeRegister {
     /// Map from a context restricted type to the list of contexts (parent type) it is allowed in. This is
     /// used to construct helpful error messages, such as "Row can only be within a GridLayout element".
     context_restricted_types: HashMap<String, HashSet<String>>,
-    parent_registry: Option<Rc<TypeRegister>>,
+    parent_registry: Option<Rc<RefCell<TypeRegister>>>,
 }
 
 impl TypeRegister {
-    pub(crate) fn builtin() -> Rc<Self> {
+    pub(crate) fn builtin() -> Rc<RefCell<Self>> {
         let mut r = TypeRegister::default();
 
         let mut insert_type = |t: Type| r.types.insert(t.to_string(), t);
@@ -371,10 +371,10 @@ impl TypeRegister {
         r.types.values().for_each(|ty| ty.collect_contextual_types(&mut context_restricted_types));
         r.context_restricted_types = context_restricted_types;
 
-        Rc::new(r)
+        Rc::new(RefCell::new(r))
     }
 
-    pub fn new(parent: &Rc<TypeRegister>) -> Self {
+    pub fn new(parent: &Rc<RefCell<TypeRegister>>) -> Self {
         Self { parent_registry: Some(parent.clone()), ..Default::default() }
     }
 
@@ -382,19 +382,19 @@ impl TypeRegister {
         self.types
             .get(name)
             .cloned()
-            .or_else(|| self.parent_registry.as_ref().map(|r| r.lookup(name)))
+            .or_else(|| self.parent_registry.as_ref().map(|r| r.borrow().lookup(name)))
             .unwrap_or_default()
     }
 
-    fn lookup_element_as_result<'a>(
-        &'a self,
+    fn lookup_element_as_result(
+        &self,
         name: &str,
-    ) -> Result<Type, &'a HashMap<String, HashSet<String>>> {
+    ) -> Result<Type, HashMap<String, HashSet<String>>> {
         match self.types.get(name).cloned() {
             Some(ty) => Ok(ty),
             None => match &self.parent_registry {
-                Some(r) => r.lookup_element_as_result(name),
-                None => Err(&self.context_restricted_types),
+                Some(r) => r.borrow().lookup_element_as_result(name),
+                None => Err(self.context_restricted_types.clone()),
             },
         }
     }
@@ -439,7 +439,7 @@ impl TypeRegister {
     /// Loads the .60 file and adds it to the type registry. An error is returned if there were I/O problems,
     /// otherwise the diagnostics collected during the parsing are returned.
     pub fn add_type_from_source<P: AsRef<std::path::Path>>(
-        &mut self,
+        registry: &Rc<RefCell<Self>>,
         path: P,
     ) -> std::io::Result<Diagnostics> {
         let (syntax_node, diag) = crate::parser::parse_file(&path)?;
@@ -448,7 +448,7 @@ impl TypeRegister {
         let (doc, diag) = crate::compile_syntax_node(syntax_node, diag);
 
         if !doc.root_component.id.is_empty() {
-            self.add(doc.root_component);
+            registry.borrow_mut().add(doc.root_component);
         }
 
         Ok(diag)
@@ -459,7 +459,7 @@ impl TypeRegister {
     /// (if any) or an I/O error if it occured. If there was a problem reading the directory, then an I/O error
     /// is returned.
     pub fn add_from_directory<P: AsRef<std::path::Path>>(
-        &mut self,
+        registry: &Rc<RefCell<Self>>,
         directory: P,
     ) -> std::io::Result<Vec<Result<Diagnostics, FileLoadError>>> {
         Ok(std::fs::read_dir(directory)?
@@ -475,7 +475,7 @@ impl TypeRegister {
                 }
             })
             .map(|path| {
-                self.add_type_from_source(&path)
+                TypeRegister::add_type_from_source(registry, &path)
                     .map_err(|ioerr| FileLoadError { path, source: ioerr })
             })
             .collect())
@@ -487,7 +487,9 @@ impl TypeRegister {
         } else {
             self.parent_registry
                 .as_ref()
-                .map(|registry| registry.property_animation_type_for_property(property_type))
+                .map(|registry| {
+                    registry.borrow().property_animation_type_for_property(property_type)
+                })
                 .unwrap_or_default()
         }
     }
@@ -496,7 +498,7 @@ impl TypeRegister {
 #[test]
 fn test_extend_registry_from_source() {
     let global_types = TypeRegister::builtin();
-    let mut local_types = TypeRegister::new(&global_types);
+    let local_types = Rc::new(RefCell::new(TypeRegister::new(&global_types)));
 
     let mut test_source_path: std::path::PathBuf =
         [env!("CARGO_MANIFEST_DIR"), "tests", "test_file"].iter().collect();
@@ -517,18 +519,18 @@ fn test_extend_registry_from_source() {
     }
 
     test_source_path.set_file_name("lib_test.60");
-    let result = local_types.add_type_from_source(&test_source_path);
+    let result = TypeRegister::add_type_from_source(&local_types, &test_source_path);
     assert!(result.is_ok());
 
-    assert_ne!(local_types.lookup("PublicType"), Type::Invalid);
-    assert_eq!(local_types.lookup("HiddenInternalType"), Type::Invalid);
+    assert_ne!(local_types.borrow().lookup("PublicType"), Type::Invalid);
+    assert_eq!(local_types.borrow().lookup("HiddenInternalType"), Type::Invalid);
 
     // Now try again.
     test_source_path.set_file_name("lib_test2.60");
-    let result = local_types.add_type_from_source(&test_source_path);
+    let result = TypeRegister::add_type_from_source(&local_types, &test_source_path);
     assert!(result.is_ok());
 
-    assert_ne!(local_types.lookup("SecondPublicType"), Type::Invalid);
+    assert_ne!(local_types.borrow().lookup("SecondPublicType"), Type::Invalid);
 }
 
 #[test]
@@ -538,15 +540,13 @@ fn test_registry_from_library() {
     let test_source_path: std::path::PathBuf =
         [env!("CARGO_MANIFEST_DIR"), "tests"].iter().collect();
 
-    let mut local_types = TypeRegister::new(&global_types);
-    let result = local_types.add_from_directory(test_source_path);
+    let local_types = Rc::new(RefCell::new(TypeRegister::new(&global_types)));
+    let result = TypeRegister::add_from_directory(&local_types, test_source_path);
 
     assert!(result.is_ok());
     let file_load_status_list = result.unwrap();
-    assert_eq!(file_load_status_list.len(), 1);
-    assert!(file_load_status_list[0].is_ok());
-    assert!(!file_load_status_list[0].as_ref().unwrap().has_error());
+    assert_eq!(file_load_status_list.len(), 2);
 
-    assert_ne!(local_types.lookup("PublicType"), Type::Invalid);
-    assert_eq!(local_types.lookup("HiddenInternalType"), Type::Invalid);
+    assert_ne!(local_types.borrow().lookup("PublicType"), Type::Invalid);
+    assert_eq!(local_types.borrow().lookup("HiddenInternalType"), Type::Invalid);
 }

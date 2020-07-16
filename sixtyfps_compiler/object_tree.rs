@@ -22,7 +22,7 @@ impl Document {
     pub fn from_node(
         node: syntax_nodes::Document,
         diag: &mut Diagnostics,
-        parent_registry: &Rc<TypeRegister>,
+        parent_registry: &Rc<RefCell<TypeRegister>>,
     ) -> Self {
         debug_assert_eq!(node.kind(), SyntaxKind::Document);
 
