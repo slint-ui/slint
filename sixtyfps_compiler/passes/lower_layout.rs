@@ -79,7 +79,9 @@ pub fn lower_layouts(component: &Rc<Component>, diag: &mut Diagnostics) {
                     }
                 }
                 component.optimized_elements.borrow_mut().push(child.clone());
-                component.layout_constraints.borrow_mut().grids.push(grid);
+                if !grid.elems.is_empty() {
+                    component.layout_constraints.borrow_mut().grids.push(grid);
+                }
                 continue;
             } else if is_path_layout {
                 let layout_elem = child;
@@ -94,6 +96,10 @@ pub fn lower_layouts(component: &Rc<Component>, diag: &mut Diagnostics) {
                         return;
                     }
                 };
+
+                if layout_children.is_empty() {
+                    continue;
+                }
 
                 component.layout_constraints.borrow_mut().paths.push(PathLayout {
                     elements: layout_children,

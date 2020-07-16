@@ -29,4 +29,81 @@ TestCase := Rectangle {
         }
 
     }
+
+    PathLayout {
+        commands: "M 0 0 L 100 100";
+        item1 := Rectangle {
+            width: 2px;
+            height: 2px;
+            color: red;
+        }
+        item2 := Rectangle {
+            width: 2px;
+            height: 2px;
+            color: blue;
+        }
+        item3 := Rectangle {
+            width: 2px;
+            height: 2px;
+            color: green;
+        }
+    }
+    property <bool> test1 : item1.x == item1.y && item2.x == item2.y && item3.x == item3.y;
+    property <bool> test2 : item1.x < item2.x + 20px && item2.x < item3.x + 20px;
+    property <bool> test3 : item1.x == -1px;
+    property <bool> test4 : item3.x == 99px;
+
+    // No items should not crash
+    PathLayout {
+        commands: "M 0 0 L 100 100";
+    }
+
+    // Single Item is in the middle
+    PathLayout {
+        commands: "M 0 0 L 100 100";
+        single_item := Rectangle {
+            width: 2px;
+            height: 2px;
+            color: yellow;
+        }
+    }
+    property <bool> test5 : single_item.x == item2.x && single_item.y == item2.y;
+
 }
+
+/*
+
+```cpp
+TestCase instance;
+TestCase::compute_layout({&TestCase::component_type, &instance });
+assert(instance.get_test1());
+assert(instance.get_test2());
+assert(instance.get_test3());
+assert(instance.get_test4());
+assert(instance.get_test5());
+```
+
+
+```rust
+let instance = TestCase::new();
+let instance = instance.as_ref();
+use sixtyfps::re_exports::Component;
+instance.compute_layout();
+assert!(instance.get_test1());
+assert!(instance.get_test2());
+assert!(instance.get_test3());
+assert!(instance.get_test4());
+assert!(instance.get_test5());
+```
+
+```js
+var instance = new sixtyfps.TestCase({});
+assert(instance.test1);
+// FIXME : cannot be tested because the layout is not computed
+//assert(instance.test2);
+//assert(instance.test3);
+//assert(instance.test4);
+assert(instance.test5);
+```
+
+*/

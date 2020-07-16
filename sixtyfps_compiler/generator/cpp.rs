@@ -882,7 +882,7 @@ fn compute_layout(component: &Rc<Component>) -> Vec<String> {
             for cell in row {
                 if let Some(cell) = cell {
                     let p = |n: &str| {
-                        if cell.borrow().lookup_property(n) == Type::Float32 {
+                        if cell.borrow().lookup_property(n) == Type::Length {
                             format!("&self->{}.{}", cell.borrow().id, n)
                         } else {
                             "nullptr".to_owned()
@@ -925,14 +925,14 @@ fn compute_layout(component: &Rc<Component>) -> Vec<String> {
         res.push("    sixtyfps::PathLayoutItemData items[] = {".to_owned());
         for item in &path_layout.elements {
             let prop_ref = |n: &str| {
-                if item.borrow().lookup_property(n) == Type::Float32 {
+                if item.borrow().lookup_property(n) == Type::Length {
                     format!("&self->{}.{}", item.borrow().id, n)
                 } else {
                     "nullptr".to_owned()
                 }
             };
             let prop_value = |n: &str| {
-                if item.borrow().lookup_property(n) == Type::Float32 {
+                if item.borrow().lookup_property(n) == Type::Length {
                     let value_accessor = access_member(&item, n, component, "self");
                     format!("{}.get()", value_accessor)
                 } else {

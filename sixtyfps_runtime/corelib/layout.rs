@@ -200,11 +200,15 @@ pub extern "C" fn solve_path_layout(data: &PathLayoutData) {
         .collect();
 
     let path_length: Coord = segment_lengths.iter().sum();
-    let item_distance = 1. / (data.items.len() as f32);
+    // the max(2) is there to put the item in the middle when there is a single item
+    let item_distance = 1. / ((data.items.len() - 1) as f32).max(2.);
 
     let mut i = 0;
     let mut next_t: f32 = data.offset;
-    while i < data.items.len() {
+    if data.items.len() == 1 {
+        next_t += item_distance;
+    }
+    'main_loop: while i < data.items.len() {
         let mut current_length: f32 = 0.;
         next_t %= 1.;
 
@@ -215,7 +219,7 @@ pub extern "C" fn solve_path_layout(data: &PathLayoutData) {
 
             let seg_end_t = (seg_start + seg_len) / path_length;
 
-            while next_t < seg_end_t {
+            while next_t <= seg_end_t {
                 let local_t = ((next_t * path_length) - seg_start) / seg_len;
 
                 let item_pos = segment.sample(local_t);
@@ -224,14 +228,14 @@ pub extern "C" fn solve_path_layout(data: &PathLayoutData) {
                 data.items[i].x.map(|prop| prop.set(item_pos.x - center_x_offset + data.x));
                 data.items[i].y.map(|prop| prop.set(item_pos.y - center_y_offset + data.y));
 
-                next_t += item_distance;
                 i += 1;
+                next_t += item_distance;
                 if i >= data.items.len() {
-                    break;
+                    break 'main_loop;
                 }
             }
 
-            if i >= data.items.len() || next_t > 1. {
+            if next_t > 1. {
                 break;
             }
         }

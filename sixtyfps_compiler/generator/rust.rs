@@ -723,7 +723,7 @@ fn compute_layout(component: &Rc<Component>) -> TokenStream {
                             .map(|elem| {
                                 let e = quote::format_ident!("{}", elem.borrow().id);
                                 let p = |n: &str| {
-                                    if elem.borrow().lookup_property(n) == Type::Float32 {
+                                    if elem.borrow().lookup_property(n) == Type::Length {
                                         let n = quote::format_ident!("{}", n);
                                         quote! {Some(&self.#e.#n)}
                                     } else {
@@ -772,7 +772,7 @@ fn compute_layout(component: &Rc<Component>) -> TokenStream {
             .map(|elem| {
                 let e = quote::format_ident!("{}", elem.borrow().id);
                 let prop_ref = |n: &str| {
-                    if elem.borrow().lookup_property(n) == Type::Float32 {
+                    if elem.borrow().lookup_property(n) == Type::Length {
                         let n = quote::format_ident!("{}", n);
                         quote! {Some(&self.#e.#n)}
                     } else {
@@ -780,7 +780,7 @@ fn compute_layout(component: &Rc<Component>) -> TokenStream {
                     }
                 };
                 let prop_value = |n: &str| {
-                    if elem.borrow().lookup_property(n) == Type::Float32 {
+                    if elem.borrow().lookup_property(n) == Type::Length {
                         let accessor = access_member(&elem, n, component, quote!(self));
                         quote!(#accessor.get())
                     } else {
