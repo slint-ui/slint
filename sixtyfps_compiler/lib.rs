@@ -58,8 +58,8 @@ pub struct CompilerConfiguration {
 
 pub fn compile_syntax_node<DocNode: Into<parser::syntax_nodes::Document>>(
     doc_node: DocNode,
-    mut diagnostics: diagnostics::Diagnostics,
-) -> (object_tree::Document, diagnostics::Diagnostics) {
+    mut diagnostics: diagnostics::FileDiagnostics,
+) -> (object_tree::Document, diagnostics::FileDiagnostics) {
     let type_registry = typeregister::TypeRegister::builtin();
     let doc =
         crate::object_tree::Document::from_node(doc_node.into(), &mut diagnostics, &type_registry);
@@ -69,7 +69,7 @@ pub fn compile_syntax_node<DocNode: Into<parser::syntax_nodes::Document>>(
 
 pub fn run_passes(
     doc: &object_tree::Document,
-    diag: &mut diagnostics::Diagnostics,
+    diag: &mut diagnostics::FileDiagnostics,
     compiler_config: &CompilerConfiguration,
 ) {
     passes::resolving::resolve_expressions(doc, diag);

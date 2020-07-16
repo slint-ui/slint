@@ -1,4 +1,4 @@
-use crate::diagnostics::Diagnostics;
+use crate::diagnostics::FileDiagnostics;
 use crate::FileLoadError;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::{cell::RefCell, fmt::Display, rc::Rc};
@@ -441,7 +441,7 @@ impl TypeRegister {
     pub fn add_type_from_source<P: AsRef<std::path::Path>>(
         registry: &Rc<RefCell<Self>>,
         path: P,
-    ) -> std::io::Result<Diagnostics> {
+    ) -> std::io::Result<FileDiagnostics> {
         let (syntax_node, mut diag) = crate::parser::parse_file(&path)?;
 
         let doc = crate::object_tree::Document::from_node(syntax_node.into(), &mut diag, &registry);
@@ -460,7 +460,7 @@ impl TypeRegister {
     pub fn add_from_directory<P: AsRef<std::path::Path>>(
         registry: &Rc<RefCell<Self>>,
         directory: P,
-    ) -> std::io::Result<Vec<Result<Diagnostics, FileLoadError>>> {
+    ) -> std::io::Result<Vec<Result<FileDiagnostics, FileLoadError>>> {
         Ok(std::fs::read_dir(directory)?
             .filter_map(Result::ok)
             .filter_map(|entry| {

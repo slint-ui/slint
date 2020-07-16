@@ -1,7 +1,7 @@
 /*! module for the Rust code generator
 */
 
-use crate::diagnostics::{CompilerDiagnostic, Diagnostics};
+use crate::diagnostics::{CompilerDiagnostic, FileDiagnostics};
 use crate::expression_tree::{Expression, NamedReference, OperatorClass, Path};
 use crate::object_tree::{Component, ElementRc};
 use crate::parser::Spanned;
@@ -38,7 +38,7 @@ fn rust_type(
 /// Generate the rust code for the given component.
 ///
 /// Fill the diagnostic in case of error.
-pub fn generate(component: &Rc<Component>, diag: &mut Diagnostics) -> Option<TokenStream> {
+pub fn generate(component: &Rc<Component>, diag: &mut FileDiagnostics) -> Option<TokenStream> {
     let mut extra_components = vec![];
     let mut declared_property_vars = vec![];
     let mut declared_property_types = vec![];

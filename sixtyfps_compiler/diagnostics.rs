@@ -37,13 +37,13 @@ impl ToString for CompilerDiagnostic {
 }
 
 #[derive(Default, Debug)]
-pub struct Diagnostics {
+pub struct FileDiagnostics {
     pub inner: Vec<CompilerDiagnostic>,
     pub current_path: std::path::PathBuf,
     pub source: Option<String>,
 }
 
-impl IntoIterator for Diagnostics {
+impl IntoIterator for FileDiagnostics {
     type Item = CompilerDiagnostic;
     type IntoIter = <Vec<CompilerDiagnostic> as IntoIterator>::IntoIter;
     fn into_iter(self) -> Self::IntoIter {
@@ -51,7 +51,7 @@ impl IntoIterator for Diagnostics {
     }
 }
 
-impl Diagnostics {
+impl FileDiagnostics {
     pub fn push_error(&mut self, message: String, span: Span) {
         self.inner.push(CompilerDiagnostic { message, span });
     }
@@ -165,7 +165,7 @@ impl Diagnostics {
 use quote::quote;
 
 #[cfg(feature = "proc_macro_span")]
-impl quote::ToTokens for Diagnostics {
+impl quote::ToTokens for FileDiagnostics {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         let diags: Vec<_> = self
             .inner

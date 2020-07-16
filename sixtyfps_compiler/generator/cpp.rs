@@ -127,7 +127,7 @@ mod cpp_ast {
     }
 }
 
-use crate::diagnostics::{CompilerDiagnostic, Diagnostics};
+use crate::diagnostics::{CompilerDiagnostic, FileDiagnostics};
 use crate::expression_tree::Expression;
 use crate::object_tree::{Component, Element, ElementRc, RepeatedElementInfo};
 use crate::parser::Spanned;
@@ -360,7 +360,7 @@ fn handle_repeater(
 /// Returns the text of the C++ code produced by the given root component
 pub fn generate(
     component: &Rc<Component>,
-    diag: &mut Diagnostics,
+    diag: &mut FileDiagnostics,
 ) -> Option<impl std::fmt::Display> {
     let mut file = File::default();
 
@@ -377,7 +377,7 @@ pub fn generate(
     }
 }
 
-fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Diagnostics) {
+fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut FileDiagnostics) {
     let component_id = component_id(component);
     let mut component_struct = Struct { name: component_id.clone(), ..Default::default() };
 

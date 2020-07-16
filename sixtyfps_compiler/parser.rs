@@ -9,7 +9,7 @@ This module has different sub modules with the actual parser functions
 
 */
 
-use crate::diagnostics::Diagnostics;
+use crate::diagnostics::FileDiagnostics;
 pub use rowan::SmolStr;
 use std::convert::TryFrom;
 
@@ -427,7 +427,7 @@ pub struct DefaultParser {
     builder: rowan::GreenNodeBuilder<'static>,
     tokens: Vec<Token>,
     cursor: usize,
-    diags: Diagnostics,
+    diags: FileDiagnostics,
 }
 
 impl From<Vec<Token>> for DefaultParser {
@@ -591,7 +591,7 @@ impl Spanned for SyntaxToken {
 }
 
 // Actual parser
-pub fn parse(source: String, path: Option<&std::path::Path>) -> (SyntaxNode, Diagnostics) {
+pub fn parse(source: String, path: Option<&std::path::Path>) -> (SyntaxNode, FileDiagnostics) {
     let mut p = DefaultParser::new(source);
     document::parse_document(&mut p);
     if let Some(path) = path {
@@ -602,14 +602,14 @@ pub fn parse(source: String, path: Option<&std::path::Path>) -> (SyntaxNode, Dia
 
 pub fn parse_file<P: AsRef<std::path::Path>>(
     path: P,
-) -> std::io::Result<(SyntaxNode, Diagnostics)> {
+) -> std::io::Result<(SyntaxNode, FileDiagnostics)> {
     let source = std::fs::read_to_string(&path)?;
 
     Ok(parse(source, Some(path.as_ref())))
 }
 
 #[allow(dead_code)]
-pub fn parse_tokens(tokens: Vec<Token>) -> (SyntaxNode, Diagnostics) {
+pub fn parse_tokens(tokens: Vec<Token>) -> (SyntaxNode, FileDiagnostics) {
     let mut p = DefaultParser::from(tokens);
     document::parse_document(&mut p);
     (SyntaxNode::new_root(p.builder.finish()), p.diags)

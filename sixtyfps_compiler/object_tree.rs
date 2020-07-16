@@ -2,7 +2,7 @@
  This module contains the intermediate representation of the code in the form of an object tree
 */
 
-use crate::diagnostics::Diagnostics;
+use crate::diagnostics::FileDiagnostics;
 use crate::expression_tree::Expression;
 use crate::parser::{syntax_nodes, Spanned, SyntaxKind, SyntaxNodeEx};
 use crate::typeregister::{Type, TypeRegister};
@@ -21,7 +21,7 @@ pub struct Document {
 impl Document {
     pub fn from_node(
         node: syntax_nodes::Document,
-        diag: &mut Diagnostics,
+        diag: &mut FileDiagnostics,
         parent_registry: &Rc<RefCell<TypeRegister>>,
     ) -> Self {
         debug_assert_eq!(node.kind(), SyntaxKind::Document);
@@ -75,7 +75,7 @@ pub struct Component {
 impl Component {
     pub fn from_node(
         node: syntax_nodes::Component,
-        diag: &mut Diagnostics,
+        diag: &mut FileDiagnostics,
         tr: &TypeRegister,
     ) -> Rc<Self> {
         let c = Rc::new(Component {
@@ -151,7 +151,7 @@ impl Element {
         node: syntax_nodes::Element,
         id: String,
         parent_type: Type,
-        diag: &mut Diagnostics,
+        diag: &mut FileDiagnostics,
         tr: &TypeRegister,
     ) -> Self {
         let base = QualifiedTypeName::from_node(node.QualifiedName());
@@ -322,7 +322,7 @@ impl Element {
     fn from_repeated_node(
         node: syntax_nodes::RepeatedElement,
         parent_type: Type,
-        diag: &mut Diagnostics,
+        diag: &mut FileDiagnostics,
         tr: &TypeRegister,
     ) -> Self {
         let rei = RepeatedElementInfo {
@@ -345,7 +345,7 @@ impl Element {
     fn from_conditional_node(
         node: syntax_nodes::ConditionalElement,
         parent_type: Type,
-        diag: &mut Diagnostics,
+        diag: &mut FileDiagnostics,
         tr: &TypeRegister,
     ) -> Self {
         let rei = RepeatedElementInfo {
@@ -376,7 +376,7 @@ impl Element {
         &mut self,
         base: &QualifiedTypeName,
         bindings: impl Iterator<Item = syntax_nodes::Binding>,
-        diag: &mut Diagnostics,
+        diag: &mut FileDiagnostics,
     ) {
         for b in bindings {
             let name_token = match b.child_token(SyntaxKind::Identifier) {

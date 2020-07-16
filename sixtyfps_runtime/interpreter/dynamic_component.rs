@@ -222,7 +222,7 @@ fn rtti_for<T: 'static + Default + rtti::BuiltinItem + vtable::HasStaticVTable<I
 pub fn load(
     source: String,
     path: &std::path::Path,
-) -> Result<Rc<ComponentDescription>, sixtyfps_compilerlib::diagnostics::Diagnostics> {
+) -> Result<Rc<ComponentDescription>, sixtyfps_compilerlib::diagnostics::FileDiagnostics> {
     let (syntax_node, diag) = parser::parse(source, Some(path));
     let (tree, mut diag) = compile_syntax_node(syntax_node, diag);
     if !diag.inner.is_empty() {
@@ -238,7 +238,7 @@ pub fn load(
 
 fn generate_component(
     root_component: &Rc<object_tree::Component>,
-    diag: &mut diagnostics::Diagnostics,
+    diag: &mut diagnostics::FileDiagnostics,
 ) -> Rc<ComponentDescription> {
     let mut rtti = HashMap::new();
     {

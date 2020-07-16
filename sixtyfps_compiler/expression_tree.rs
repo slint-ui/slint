@@ -1,7 +1,7 @@
 use crate::object_tree::*;
 use crate::parser::{Spanned, SyntaxNode};
 use crate::typeregister::BuiltinElement;
-use crate::{diagnostics::Diagnostics, typeregister::Type};
+use crate::{diagnostics::FileDiagnostics, typeregister::Type};
 use core::cell::RefCell;
 use std::{
     collections::HashMap,
@@ -445,7 +445,7 @@ impl Expression {
         self,
         target_type: Type,
         node: &SyntaxNode,
-        diag: &mut Diagnostics,
+        diag: &mut FileDiagnostics,
     ) -> Expression {
         let ty = self.ty();
         if ty == target_type {

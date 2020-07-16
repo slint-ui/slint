@@ -5,14 +5,14 @@
 //!
 //! Most of the code for the resolving actualy lies in the expression_tree module
 
-use crate::diagnostics::Diagnostics;
+use crate::diagnostics::FileDiagnostics;
 use crate::expression_tree::*;
 use crate::object_tree::*;
 use crate::parser::{syntax_nodes, Spanned, SyntaxKind, SyntaxNode, SyntaxNodeEx};
 use crate::typeregister::Type;
 use std::{collections::HashMap, rc::Rc};
 
-pub fn resolve_expressions(doc: &Document, diag: &mut Diagnostics) {
+pub fn resolve_expressions(doc: &Document, diag: &mut FileDiagnostics) {
     for component in &doc.inner_components {
         /// This represeresent a scope for the Component, where Component is the repeated component, but
         /// does not represent a component in the .60 file
@@ -25,7 +25,7 @@ pub fn resolve_expressions(doc: &Document, diag: &mut Diagnostics) {
             component: &Rc<Component>,
             elem: &ElementRc,
             scope: &ComponentScope,
-            diag: &mut Diagnostics,
+            diag: &mut FileDiagnostics,
         ) -> HashMap<String, Expression> {
             for (prop, expr) in &mut bindings {
                 if let Expression::Uncompiled(node) = expr {
@@ -107,7 +107,7 @@ struct LookupCtx<'a> {
     component_scope: &'a [ElementRc],
 
     /// Somewhere to report diagnostics
-    diag: &'a mut Diagnostics,
+    diag: &'a mut FileDiagnostics,
 }
 
 fn find_element_by_id(roots: &[ElementRc], name: &str) -> Option<ElementRc> {

@@ -4,7 +4,7 @@ The module responsible for the code generation.
 There is one sub module for every language
 */
 
-use crate::diagnostics::Diagnostics;
+use crate::diagnostics::FileDiagnostics;
 use crate::object_tree::{Component, ElementRc};
 use std::rc::Rc;
 
@@ -51,7 +51,7 @@ pub fn generate(
     format: OutputFormat,
     destination: &mut impl std::io::Write,
     component: &Rc<Component>,
-    diag: &mut Diagnostics,
+    diag: &mut FileDiagnostics,
 ) -> std::io::Result<()> {
     #![allow(unused_variables)]
     #![allow(unreachable_code)]
