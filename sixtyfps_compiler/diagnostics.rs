@@ -24,13 +24,13 @@ impl From<proc_macro::Span> for Span {
     }
 }
 
-#[derive(Default, Debug, PartialEq)]
+#[derive(Default, Debug)]
 pub struct CompilerDiagnostic {
     pub message: String,
     pub span: Span,
 }
 
-#[derive(Default, Debug, PartialEq)]
+#[derive(Default, Debug)]
 pub struct Diagnostics {
     pub inner: Vec<CompilerDiagnostic>,
     pub current_path: std::path::PathBuf,

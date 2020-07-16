@@ -64,7 +64,7 @@ fn generate_test(fn_name: &str, doc: &str) -> String {
         {{
             let mut p = DefaultParser::new("{source}".to_owned());
             {fn}(&mut p);
-            assert_eq!(p.diags.inner, Vec::new());
+            assert!(p.diags.inner.is_empty());
             assert_eq!(p.cursor, p.tokens.len());
             {verify}
         }}
