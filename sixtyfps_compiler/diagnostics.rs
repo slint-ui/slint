@@ -24,13 +24,13 @@ impl From<proc_macro::Span> for Span {
     }
 }
 
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(Default, Debug, PartialEq)]
 pub struct CompilerDiagnostic {
     pub message: String,
     pub span: Span,
 }
 
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(Default, Debug, PartialEq)]
 pub struct Diagnostics {
     pub inner: Vec<CompilerDiagnostic>,
     pub current_path: std::path::PathBuf,
@@ -162,8 +162,8 @@ use quote::quote;
 impl quote::ToTokens for Diagnostics {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         let diags: Vec<_> = self
-            .clone()
-            .into_iter()
+            .inner
+            .iter()
             .map(|CompilerDiagnostic { message, span }| {
                 if let Some(span) = span.span {
                     quote::quote_spanned!(span.into() => compile_error!{ #message })
