@@ -109,6 +109,7 @@ If one change the `my_property`, the width will be updated automatically.
  - FIXME: more
 
 `int32` and `float32` are the types for the numbers, they correspond to the equivalent in the target language
+A number can end with '%', so for example `30%` is the same as `0.30`
 
 `string` are implicitly shared.
 

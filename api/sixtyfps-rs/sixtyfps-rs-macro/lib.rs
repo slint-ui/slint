@@ -92,6 +92,16 @@ fn fill_token_vec(stream: TokenStream, vec: &mut Vec<parser::Token>) {
                         }
                         SyntaxKind::OrOr
                     }
+                    '%' => {
+                        // % can only exist after number literal
+                        if let Some(last) = vec.last_mut() {
+                            if last.kind == SyntaxKind::NumberLiteral {
+                                last.text = format!("{}%", last.text).into();
+                                continue;
+                            }
+                        }
+                        SyntaxKind::Error
+                    }
                     _ => SyntaxKind::Error,
                 };
                 prev_spacing = p.spacing();

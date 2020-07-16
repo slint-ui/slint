@@ -211,7 +211,7 @@ declare_syntax! {
         Whitespace -> r"\s+",
         Comment -> r"//.*\n|(?sU)/\*.*\*/", // FIXME: comments within comments
         StringLiteral -> r#""[^"]*""#, // FIXME: escapes
-        NumberLiteral -> r"[\d]+(\.[\d]*)?[\w]*",
+        NumberLiteral -> r"[\d]+(\.[\d]*)?[\w]*%?",
         ColorLiteral -> r"#[\w]+",
         Identifier -> r"[\w]+",
         LBrace -> r"\{",

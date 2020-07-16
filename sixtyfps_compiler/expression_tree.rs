@@ -78,6 +78,8 @@ macro_rules! declare_units {
 declare_units! {
     /// No unit was given
     None = "" -> Float32,
+    ///
+    Percent = "%" -> Float32 * 0.01,
 
     // Lenghts or Coord
 
