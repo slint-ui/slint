@@ -1,5 +1,4 @@
 use crate::diagnostics::FileDiagnostics;
-use crate::FileLoadError;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::{cell::RefCell, fmt::Display, rc::Rc};
 
@@ -460,7 +459,7 @@ impl TypeRegister {
     pub fn add_from_directory<P: AsRef<std::path::Path>>(
         registry: &Rc<RefCell<Self>>,
         directory: P,
-    ) -> std::io::Result<Vec<Result<FileDiagnostics, FileLoadError>>> {
+    ) -> std::io::Result<Vec<FileDiagnostics>> {
         Ok(std::fs::read_dir(directory)?
             .filter_map(Result::ok)
             .filter_map(|entry| {
@@ -475,7 +474,7 @@ impl TypeRegister {
             })
             .map(|path| {
                 TypeRegister::add_type_from_source(registry, &path)
-                    .map_err(|ioerr| FileLoadError { path, source: ioerr })
+                    .unwrap_or_else(|ioerr| FileDiagnostics::new_from_error(path, ioerr))
             })
             .collect())
     }

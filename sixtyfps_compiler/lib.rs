@@ -41,13 +41,6 @@ mod passes {
     pub mod unique_id;
 }
 
-#[derive(thiserror::Error, Debug)]
-#[error("Error loading {path} from disk: {source}")]
-pub struct FileLoadError {
-    path: std::path::PathBuf,
-    source: std::io::Error,
-}
-
 #[derive(Default)]
 /// CompilationConfiguration allows configuring different aspects of the compiler.
 pub struct CompilerConfiguration {

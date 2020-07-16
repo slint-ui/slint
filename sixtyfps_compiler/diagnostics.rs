@@ -24,28 +24,31 @@ impl From<proc_macro::Span> for Span {
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(thiserror::Error, Default, Debug)]
+#[error("{message}")]
 pub struct CompilerDiagnostic {
     pub message: String,
     pub span: Span,
 }
 
-impl ToString for CompilerDiagnostic {
-    fn to_string(&self) -> String {
-        self.message.clone()
-    }
+#[derive(thiserror::Error, Debug)]
+pub enum Diagnostic {
+    #[error(transparent)]
+    FileLoadError(#[from] std::io::Error),
+    #[error(transparent)]
+    CompilerDiagnostic(#[from] CompilerDiagnostic),
 }
 
 #[derive(Default, Debug)]
 pub struct FileDiagnostics {
-    pub inner: Vec<CompilerDiagnostic>,
+    pub inner: Vec<Diagnostic>,
     pub current_path: std::path::PathBuf,
     pub source: Option<String>,
 }
 
 impl IntoIterator for FileDiagnostics {
-    type Item = CompilerDiagnostic;
-    type IntoIter = <Vec<CompilerDiagnostic> as IntoIterator>::IntoIter;
+    type Item = Diagnostic;
+    type IntoIter = <Vec<Diagnostic> as IntoIterator>::IntoIter;
     fn into_iter(self) -> Self::IntoIter {
         self.inner.into_iter()
     }
@@ -53,10 +56,10 @@ impl IntoIterator for FileDiagnostics {
 
 impl FileDiagnostics {
     pub fn push_error(&mut self, message: String, span: Span) {
-        self.inner.push(CompilerDiagnostic { message, span });
+        self.inner.push(CompilerDiagnostic { message, span }.into());
     }
     pub fn push_compiler_error(&mut self, error: CompilerDiagnostic) {
-        self.inner.push(error);
+        self.inner.push(error.into());
     }
 
     pub fn has_error(&self) -> bool {
@@ -89,18 +92,26 @@ impl FileDiagnostics {
         let diags: Vec<_> = self
             .inner
             .into_iter()
-            .map(|CompilerDiagnostic { message, span }| {
-                let s = codemap_diagnostic::SpanLabel {
-                    span: file_span.subspan(span.offset as u64, span.offset as u64),
-                    style: codemap_diagnostic::SpanStyle::Primary,
-                    label: None,
-                };
-                codemap_diagnostic::Diagnostic {
-                    level: codemap_diagnostic::Level::Error,
-                    message,
-                    code: None,
-                    spans: vec![s],
+            .map(|diagnostic| match diagnostic {
+                Diagnostic::CompilerDiagnostic(CompilerDiagnostic { message, span }) => {
+                    let s = codemap_diagnostic::SpanLabel {
+                        span: file_span.subspan(span.offset as u64, span.offset as u64),
+                        style: codemap_diagnostic::SpanStyle::Primary,
+                        label: None,
+                    };
+                    codemap_diagnostic::Diagnostic {
+                        level: codemap_diagnostic::Level::Error,
+                        message,
+                        code: None,
+                        spans: vec![s],
+                    }
                 }
+                Diagnostic::FileLoadError(err) => codemap_diagnostic::Diagnostic {
+                    level: codemap_diagnostic::Level::Error,
+                    message: err.to_string(),
+                    code: None,
+                    spans: vec![],
+                },
             })
             .collect();
 
@@ -143,21 +154,27 @@ impl FileDiagnostics {
     /// Will convert the diagnostics that only have offsets to the actual span
     pub fn map_offsets_to_span(&mut self, span_map: &[crate::parser::Token]) {
         for d in &mut self.inner {
-            if d.span.span.is_none() {
-                //let pos =
-                //span_map.binary_search_by_key(d.span.offset, |x| x.0).unwrap_or_else(|x| x);
-                //d.span.span = span_map.get(pos).as_ref().map(|x| x.1);
-                let mut offset = 0;
-                d.span.span = span_map.iter().find_map(|t| {
-                    if d.span.offset <= offset {
-                        t.span
-                    } else {
-                        offset += t.text.len();
-                        None
-                    }
-                });
+            if let Diagnostic::CompilerDiagnostic(d) = d {
+                if d.span.span.is_none() {
+                    //let pos =
+                    //span_map.binary_search_by_key(d.span.offset, |x| x.0).unwrap_or_else(|x| x);
+                    //d.span.span = span_map.get(pos).as_ref().map(|x| x.1);
+                    let mut offset = 0;
+                    d.span.span = span_map.iter().find_map(|t| {
+                        if d.span.offset <= offset {
+                            t.span
+                        } else {
+                            offset += t.text.len();
+                            None
+                        }
+                    });
+                }
             }
         }
+    }
+
+    pub fn new_from_error(path: std::path::PathBuf, err: std::io::Error) -> Self {
+        Self { inner: vec![err.into()], current_path: path, source: None }
     }
 }
 
@@ -170,6 +187,10 @@ impl quote::ToTokens for FileDiagnostics {
         let diags: Vec<_> = self
             .inner
             .iter()
+            .filter_map(|diag| match diag {
+                Diagnostic::CompilerDiagnostic(compiler_diag) => Some(compiler_diag),
+                _ => None,
+            })
             .map(|CompilerDiagnostic { message, span }| {
                 if let Some(span) = span.span {
                     quote::quote_spanned!(span.into() => compile_error!{ #message })

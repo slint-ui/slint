@@ -80,11 +80,12 @@ fn process_file_source(
         };
         let offset = source[..line_begin_offset].rfind('\n').unwrap_or(0) + column;
 
-        match compile_diagnostics
-            .inner
-            .iter()
-            .position(|e| e.span.offset == offset && r.is_match(&e.message))
-        {
+        match compile_diagnostics.inner.iter().position(|e| match e {
+            sixtyfps_compilerlib::diagnostics::Diagnostic::FileLoadError(_) => false,
+            sixtyfps_compilerlib::diagnostics::Diagnostic::CompilerDiagnostic(e) => {
+                e.span.offset == offset && r.is_match(&e.message)
+            }
+        }) {
             Some(idx) => {
                 compile_diagnostics.inner.remove(idx);
             }
