@@ -514,7 +514,7 @@ fn test_extend_registry_from_source() {
         assert!(!diag.has_error());
         let (_, diag) = crate::compile_syntax_node(syntax_node, diag);
         assert!(diag.has_error());
-        assert_eq!(diag.inner.first().unwrap().message, "Unknown type PublicType");
+        assert_eq!(diag.inner.first().unwrap().to_string(), "Unknown type PublicType");
     }
 
     test_source_path.set_file_name("lib_test.60");

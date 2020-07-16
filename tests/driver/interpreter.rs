@@ -6,7 +6,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     let component = match sixtyfps_interpreter::load(source, &testcase.absolute_path) {
         Ok(c) => c,
         Err(diag) => {
-            let vec = diag.inner.iter().map(|d| d.message.clone()).collect::<Vec<String>>();
+            let vec = diag.inner.iter().map(|d| d.to_string()).collect::<Vec<String>>();
             diag.print();
             return Err(vec.join("\n").into());
         }

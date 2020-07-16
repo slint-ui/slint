@@ -12,7 +12,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     run_passes(&doc, &mut diag, &compiler_config);
 
     if diag.has_error() {
-        let vec = diag.inner.iter().map(|d| d.message.clone()).collect::<Vec<String>>();
+        let vec = diag.inner.iter().map(|d| d.to_string()).collect::<Vec<String>>();
         return Err(vec.join("\n").into());
     }
 
@@ -26,7 +26,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     )?;
 
     if diag.has_error() {
-        let vec = diag.inner.iter().map(|d| d.message.clone()).collect::<Vec<String>>();
+        let vec = diag.inner.iter().map(|d| d.to_string()).collect::<Vec<String>>();
         return Err(vec.join("\n").into());
     }
 

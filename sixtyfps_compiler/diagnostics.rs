@@ -30,6 +30,12 @@ pub struct CompilerDiagnostic {
     pub span: Span,
 }
 
+impl ToString for CompilerDiagnostic {
+    fn to_string(&self) -> String {
+        self.message.clone()
+    }
+}
+
 #[derive(Default, Debug)]
 pub struct Diagnostics {
     pub inner: Vec<CompilerDiagnostic>,
