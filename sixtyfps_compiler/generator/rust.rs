@@ -618,7 +618,16 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
         Expression::BinaryExpression { lhs, rhs, op } => {
             let conv = match crate::expression_tree::operator_class(*op) {
                 OperatorClass::ArithmeticOp => Some(quote!(as f64)),
-                OperatorClass::ComparisonOp if matches!(lhs.ty(), Type::Int32 | Type::Float32) => {
+                OperatorClass::ComparisonOp
+                    if matches!(
+                        lhs.ty(),
+                        Type::Int32
+                            | Type::Float32
+                            | Type::Duration
+                            | Type::Length
+                            | Type::LogicalLength
+                    ) =>
+                {
                     Some(quote!(as f64))
                 }
                 _ => None,

@@ -8,6 +8,8 @@ TestCase := Rectangle {
     property<logical_length> ll2: 12lx;
     property<logical_length> ll3: 100px + 12lx;
     property<logical_length> ll4: 120 * 1px;
+
+    property<bool> value: l1 == 10px + 2px;
 }
 
 
@@ -26,6 +28,8 @@ assert(instance.get_ll2() * ratio == 12. * ratio);
 assert(instance.get_ll3() * ratio == 100. + 12. * ratio);
 assert(instance.get_ll4() * ratio == 120.);
 
+assert(instance.get_value());
+
 ratio = 2.;
 instance.dpi.set(ratio);
 assert(instance.get_l1() == 12.);
@@ -37,6 +41,8 @@ assert(instance.get_ll1() * ratio == 12.);
 assert(instance.get_ll2() * ratio == 12. * ratio);
 assert(instance.get_ll3() * ratio == 100. + 12. * ratio);
 assert(instance.get_ll4() * ratio == 120.);
+
+assert(instance.get_value());
 ```
 
 
@@ -54,6 +60,8 @@ assert_eq!(instance.get_ll2() * ratio, 12. * ratio);
 assert_eq!(instance.get_ll3() * ratio, 100. + 12. * ratio);
 assert_eq!(instance.get_ll4() * ratio, 120.);
 
+assert!(instance.get_value());
+
 let ratio = 2.;
 instance.dpi.set(ratio);
 assert_eq!(instance.get_l1(), 12.);
@@ -65,6 +73,8 @@ assert_eq!(instance.get_ll1() * ratio, 12.);
 assert_eq!(instance.get_ll2() * ratio, 12. * ratio);
 assert_eq!(instance.get_ll3() * ratio, 100. + 12. * ratio);
 assert_eq!(instance.get_ll4() * ratio, 120.);
+
+assert!(instance.get_value());
 ```
 
 ```js
@@ -80,6 +90,8 @@ assert.equal(instance.ll1 * ratio, 12.);
 assert.equal(instance.ll2 * ratio, 12. * ratio);
 assert.equal(instance.ll3 * ratio, 100. + 12. * ratio);
 assert.equal(instance.ll4 * ratio, 120.);
+
+assert(instance.value);
 ```
 
 */

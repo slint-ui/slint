@@ -419,8 +419,7 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Dia
                     ..Default::default()
                 }));
 
-                let prop_setter: Vec<String> = vec![format!("{}.set(value);", cpp_name)];
-
+                let prop_setter: Vec<String> = vec![format!("this->{}.set(value);", cpp_name)];
                 component_struct.members.push(Declaration::Function(Function {
                     name: format!("set_{}", cpp_name),
                     signature: format!("(const {} &value)", cpp_type),
