@@ -442,10 +442,9 @@ impl TypeRegister {
         registry: &Rc<RefCell<Self>>,
         path: P,
     ) -> std::io::Result<Diagnostics> {
-        let (syntax_node, diag) = crate::parser::parse_file(&path)?;
+        let (syntax_node, mut diag) = crate::parser::parse_file(&path)?;
 
-        // For the time being .60 files added to a type registry cannot depend on other .60 files.
-        let (doc, diag) = crate::compile_syntax_node(syntax_node, diag);
+        let doc = crate::object_tree::Document::from_node(syntax_node.into(), &mut diag, &registry);
 
         if !doc.root_component.id.is_empty() {
             registry.borrow_mut().add(doc.root_component);
@@ -529,6 +528,9 @@ fn test_extend_registry_from_source() {
     test_source_path.set_file_name("lib_test2.60");
     let result = TypeRegister::add_type_from_source(&local_types, &test_source_path);
     assert!(result.is_ok());
+
+    let diagnostics = result.unwrap();
+    assert!(!diagnostics.has_error());
 
     assert_ne!(local_types.borrow().lookup("SecondPublicType"), Type::Invalid);
 }
