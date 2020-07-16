@@ -7,9 +7,8 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     let source = std::fs::read_to_string(&testcase.absolute_path)?;
 
     let (syntax_node, diag) = parser::parse(source.clone(), Some(&testcase.absolute_path));
-    let (doc, mut diag) = compile_syntax_node(syntax_node, diag);
     let compiler_config = CompilerConfiguration::default();
-    run_passes(&doc, &mut diag, &compiler_config);
+    let (doc, mut diag) = compile_syntax_node(syntax_node, diag, &compiler_config);
 
     if diag.has_error() {
         let vec = diag.inner.iter().map(|d| d.to_string()).collect::<Vec<String>>();

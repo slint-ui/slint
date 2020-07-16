@@ -236,7 +236,7 @@ pub struct TypeRegister {
 }
 
 impl TypeRegister {
-    pub(crate) fn builtin() -> Rc<RefCell<Self>> {
+    pub fn builtin() -> Rc<RefCell<Self>> {
         let mut r = TypeRegister::default();
 
         let mut insert_type = |t: Type| r.types.insert(t.to_string(), t);

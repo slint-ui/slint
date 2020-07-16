@@ -224,12 +224,8 @@ pub fn load(
     path: &std::path::Path,
 ) -> Result<Rc<ComponentDescription>, sixtyfps_compilerlib::diagnostics::FileDiagnostics> {
     let (syntax_node, diag) = parser::parse(source, Some(path));
-    let (tree, mut diag) = compile_syntax_node(syntax_node, diag);
-    if !diag.inner.is_empty() {
-        return Err(diag);
-    }
     let compiler_config = CompilerConfiguration::default();
-    run_passes(&tree, &mut diag, &compiler_config);
+    let (tree, mut diag) = compile_syntax_node(syntax_node, diag, &compiler_config);
     if !diag.inner.is_empty() {
         return Err(diag);
     }

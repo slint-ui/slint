@@ -49,8 +49,6 @@ pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
         return Err(CompileError::CompileError(vec));
     }
 
-    let (doc, mut diag) = compile_syntax_node(syntax_node, diag);
-
     let mut compiler_config = CompilerConfiguration::default();
 
     if let Some(target) = env::var("TARGET").ok() {
@@ -59,7 +57,7 @@ pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
         }
     };
 
-    run_passes(&doc, &mut diag, &compiler_config);
+    let (doc, mut diag) = compile_syntax_node(syntax_node, diag, &compiler_config);
 
     if diag.has_error() {
         let vec = diag.inner.iter().map(|d| d.to_string()).collect();

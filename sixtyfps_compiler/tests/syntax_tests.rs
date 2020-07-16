@@ -50,15 +50,21 @@ fn process_file_source(
     source: String,
     silent: bool,
 ) -> std::io::Result<bool> {
-    let (res, parse_diagnostics) = sixtyfps_compilerlib::parser::parse(source.clone(), Some(path));
+    let (res, mut parse_diagnostics) =
+        sixtyfps_compilerlib::parser::parse(source.clone(), Some(path));
     let mut compile_diagnostics = if !parse_diagnostics.has_error() {
-        let (doc, mut document_diagnostics) =
-            sixtyfps_compilerlib::compile_syntax_node(res, parse_diagnostics);
-        if !document_diagnostics.has_error() {
+        let type_registry = sixtyfps_compilerlib::typeregister::TypeRegister::builtin();
+        let doc = sixtyfps_compilerlib::object_tree::Document::from_node(
+            res.into(),
+            &mut parse_diagnostics,
+            &type_registry,
+        );
+
+        if !parse_diagnostics.has_error() {
             let compiler_config = sixtyfps_compilerlib::CompilerConfiguration::default();
-            sixtyfps_compilerlib::run_passes(&doc, &mut document_diagnostics, &compiler_config);
+            sixtyfps_compilerlib::run_passes(&doc, &mut parse_diagnostics, &compiler_config);
         }
-        document_diagnostics
+        parse_diagnostics
     } else {
         parse_diagnostics
     };
