@@ -137,6 +137,10 @@ fn main() {
     constexpr ItemTreeNode(DynamicTree_Body x) : dynamic_tree{x} {}"
             .to_owned(),
     );
+    config.export.body.insert(
+        "CachedRenderingData".to_owned(),
+        "    constexpr CachedRenderingData() : cache_index{}, cache_ok{} {}".to_owned(),
+    );
     cbindgen::Builder::new()
         .with_config(config)
         .with_src(crate_dir.join("abi/datastructures.rs"))

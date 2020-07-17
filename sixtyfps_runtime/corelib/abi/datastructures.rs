@@ -57,7 +57,7 @@ pub struct ComponentVTable {
 
 /// This structure must be present in items that are Rendered and contains information.
 /// Used by the backend.
-#[derive(Default)]
+#[derive(Default, Debug)]
 #[repr(C)]
 pub struct CachedRenderingData {
     /// Used and modified by the backend, should be initialized to 0 by the user code
