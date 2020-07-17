@@ -68,7 +68,17 @@ pub fn compile_syntax_node<DocNode: Into<parser::syntax_nodes::Document>>(
             compiler_config
                 .include_paths
                 .iter()
-                .map(|path| typeregister::TypeRegister::add_from_directory(&library, path))
+                .map(|path| {
+                    let path = if path.is_relative() {
+                        let mut abs_path = diagnostics.current_path.clone();
+                        abs_path.pop();
+                        abs_path.push(path);
+                        abs_path
+                    } else {
+                        path.clone()
+                    };
+                    typeregister::TypeRegister::add_from_directory(&library, path)
+                })
                 .filter_map(Result::ok)
                 .flatten(),
         );
