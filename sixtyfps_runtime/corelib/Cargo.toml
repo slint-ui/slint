@@ -21,7 +21,7 @@ corelib_macro = { path = "../corelib_macro" }
 winit = "0.22.1"
 lyon = { version = "0.15.8" }
 euclid = "0.20.11"
-servo_arc = "0.1.1" #we need the Arc::from_header_and_iter
+triomphe = "0.1.1"
 once_cell = "1.4"
 instant = { version = "0.1", features = [ "now" ] }
 derive_more = "0.99.5"

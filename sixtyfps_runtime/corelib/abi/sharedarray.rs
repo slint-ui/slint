@@ -1,7 +1,7 @@
 //! module for the SharedArray and related things
 use core::mem::MaybeUninit;
-use servo_arc::ThinArc;
 use std::{fmt::Debug, fmt::Display, ops::Deref};
+use triomphe::{Arc, HeaderWithLength, ThinArc};
 
 #[derive(Clone)]
 #[repr(C)]
@@ -81,8 +81,8 @@ impl<T: Clone> SharedArray<T> {
         let iter = PaddingFillingIter::new(len, item_iter);
 
         SharedArray {
-            inner: servo_arc::Arc::into_thin(servo_arc::Arc::from_header_and_iter(
-                servo_arc::HeaderWithLength::new(len, iter.size_hint().0),
+            inner: Arc::into_thin(Arc::from_header_and_iter(
+                HeaderWithLength::new(len, iter.size_hint().0),
                 iter,
             )),
         }
@@ -110,8 +110,8 @@ impl<T: Clone + Copy + Default + Sized + 'static> StaticNull for T {
             let null_iter = &mut std::iter::empty();
             let iter = PaddingFillingIter::new(len, null_iter);
 
-            servo_arc::Arc::into_thin(servo_arc::Arc::from_header_and_iter(
-                servo_arc::HeaderWithLength::new(len, iter.size_hint().0),
+            Arc::into_thin(Arc::from_header_and_iter(
+                HeaderWithLength::new(len, iter.size_hint().0),
                 iter,
             ))
         });

@@ -1,7 +1,7 @@
 //! module for the SharedString and related things
 use core::mem::MaybeUninit;
-use servo_arc::ThinArc;
 use std::{fmt::Debug, fmt::Display, ops::Deref};
+use triomphe::{Arc, HeaderWithLength, ThinArc};
 
 /// The string type suitable for properties. It is shared meaning passing copies
 /// around will not allocate, and that different properties with the same string
@@ -46,8 +46,8 @@ impl SharedString {
     pub fn push_str(&mut self, x: &str) {
         let new_len = self.inner.header.header + x.len();
         if new_len + 1 < self.inner.slice.len() {
-            let mut arc = servo_arc::Arc::from_thin(self.inner.clone());
-            if let Some(inner) = servo_arc::Arc::get_mut(&mut arc) {
+            let mut arc = Arc::from_thin(self.inner.clone());
+            if let Some(inner) = Arc::get_mut(&mut arc) {
                 unsafe {
                     core::ptr::copy_nonoverlapping(
                         x.as_ptr(),
@@ -91,7 +91,7 @@ impl SharedString {
                     return Some(MaybeUninit::new(0));
                 }
                 // I don't know if the compiler will be smart enough to exit the loop here.
-                // It would be nice if servo_arc::Arc would allow to leave uninitialized memory
+                // It would be nice if triomphe::Arc would allow to leave uninitialized memory
                 Some(MaybeUninit::uninit())
             }
             fn size_hint(&self) -> (usize, Option<usize>) {
@@ -110,8 +110,8 @@ impl SharedString {
             new_alloc,
         };
 
-        self.inner = servo_arc::Arc::into_thin(servo_arc::Arc::from_header_and_iter(
-            servo_arc::HeaderWithLength::new(new_len, new_alloc),
+        self.inner = Arc::into_thin(Arc::from_header_and_iter(
+            HeaderWithLength::new(new_len, new_alloc),
             iter,
         ));
     }
@@ -129,8 +129,8 @@ impl Default for SharedString {
         // Unfortunately, the Arc constructor is not const, so we must use a Lazy static for that
         static NULL: once_cell::sync::Lazy<ThinArc<usize, MaybeUninit<u8>>> =
             once_cell::sync::Lazy::new(|| {
-                servo_arc::Arc::into_thin(servo_arc::Arc::from_header_and_iter(
-                    servo_arc::HeaderWithLength::new(0, core::mem::align_of::<usize>()),
+                Arc::into_thin(Arc::from_header_and_iter(
+                    HeaderWithLength::new(0, core::mem::align_of::<usize>()),
                     [MaybeUninit::new(0); core::mem::align_of::<usize>()].iter().cloned(),
                 ))
             });
@@ -174,8 +174,8 @@ impl From<&str> for SharedString {
         let iter = AddNullIter { str: value.as_bytes(), pos: 0 };
 
         SharedString {
-            inner: servo_arc::Arc::into_thin(servo_arc::Arc::from_header_and_iter(
-                servo_arc::HeaderWithLength::new(value.len(), iter.size_hint().0),
+            inner: Arc::into_thin(Arc::from_header_and_iter(
+                HeaderWithLength::new(value.len(), iter.size_hint().0),
                 iter,
             )),
         }
