@@ -29,6 +29,52 @@ pub enum CompileError {
     SaveError(std::io::Error),
 }
 
+struct CodeFormatter<Sink> {
+    indentation: usize,
+    in_string: bool,
+    sink: Sink,
+}
+
+impl<Sink: Write> Write for CodeFormatter<Sink> {
+    fn write(&mut self, mut s: &[u8]) -> std::io::Result<usize> {
+        let len = s.len();
+        while let Some(idx) = s.iter().position(|c| match c {
+            b'{' if !self.in_string => {
+                self.indentation += 1;
+                true
+            }
+            b'}' if !self.in_string => {
+                self.indentation -= 1;
+                true
+            }
+            b';' if !self.in_string => true,
+            b'"' if !self.in_string => {
+                self.in_string = true;
+                false
+            }
+            b'"' if self.in_string => {
+                // FIXME! escape character
+                self.in_string = false;
+                false
+            }
+            _ => false,
+        }) {
+            let idx = idx + 1;
+            self.sink.write_all(&s[..idx])?;
+            self.sink.write_all(b"\n")?;
+            for _ in 0..self.indentation {
+                self.sink.write_all(b"    ")?;
+            }
+            s = &s[idx..];
+        }
+        self.sink.write_all(s)?;
+        Ok(len)
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.sink.flush()
+    }
+}
+
 /// Compile the `.60` file and generate rust code for it.
 ///
 /// The path is relative to the `CARGO_MANIFEST_DIR`.
@@ -73,13 +119,14 @@ pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
                 .with_extension("rs"),
         );
 
-    let mut file = std::fs::File::create(&output_file_path).map_err(CompileError::SaveError)?;
+    let file = std::fs::File::create(&output_file_path).map_err(CompileError::SaveError)?;
+    let mut code_formater = CodeFormatter { indentation: 0, in_string: false, sink: file };
     let generated = generator::rust::generate(&doc.root_component, &mut diag).ok_or_else(|| {
         let vec = diag.to_string_vec();
         diag.print();
         CompileError::CompileError(vec)
     })?;
-    write!(file, "{}", generated).map_err(CompileError::SaveError)?;
+    write!(code_formater, "{}", generated).map_err(CompileError::SaveError)?;
     println!("cargo:rerun-if-changed={}", path.display());
     println!("cargo:rustc-env=SIXTYFPS_INCLUDE_GENERATED={}", output_file_path.display());
     Ok(())
