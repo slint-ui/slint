@@ -515,7 +515,7 @@ fn test_extend_registry_from_source() {
         crate::object_tree::Document::from_node(syntax_node.into(), &mut diag, &local_types);
 
         assert!(diag.has_error());
-        assert_eq!(diag.inner.first().unwrap().to_string(), "Unknown type PublicType");
+        assert_eq!(diag.to_string_vec().first().unwrap().to_string(), "Unknown type PublicType");
     }
 
     test_source_path.set_file_name("lib_test.60");

@@ -226,7 +226,7 @@ pub fn load(
     let (syntax_node, diag) = parser::parse(source, Some(path));
     let compiler_config = CompilerConfiguration::default();
     let (tree, mut diag) = compile_syntax_node(syntax_node, diag, &compiler_config);
-    if !diag.inner.is_empty() {
+    if diag.has_error() {
         return Err(diag);
     }
     Ok(generate_component(&tree.root_component, &mut diag))

@@ -11,7 +11,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     let (doc, mut diag) = compile_syntax_node(syntax_node, diag, &compiler_config);
 
     if diag.has_error() {
-        let vec = diag.inner.iter().map(|d| d.to_string()).collect::<Vec<String>>();
+        let vec = diag.to_string_vec();
         return Err(vec.join("\n").into());
     }
 
@@ -25,7 +25,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     )?;
 
     if diag.has_error() {
-        let vec = diag.inner.iter().map(|d| d.to_string()).collect::<Vec<String>>();
+        let vec = diag.to_string_vec();
         return Err(vec.join("\n").into());
     }
 

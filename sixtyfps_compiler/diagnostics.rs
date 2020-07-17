@@ -173,6 +173,10 @@ impl FileDiagnostics {
         }
     }
 
+    pub fn to_string_vec(&self) -> Vec<String> {
+        self.inner.iter().map(|d| d.to_string()).collect()
+    }
+
     pub fn new_from_error(path: std::path::PathBuf, err: std::io::Error) -> Self {
         Self { inner: vec![err.into()], current_path: path, source: None }
     }
