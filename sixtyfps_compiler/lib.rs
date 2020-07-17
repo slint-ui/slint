@@ -50,7 +50,7 @@ pub struct CompilerConfiguration<'a> {
     /// to retain references to the resources on the file system.
     pub embed_resources: bool,
     /// The compiler will look in these paths for components used in the file to compile.
-    pub include_paths: &'a [&'a std::path::Path],
+    pub include_paths: &'a [std::path::PathBuf],
 }
 
 pub fn compile_syntax_node<DocNode: Into<parser::syntax_nodes::Document>>(

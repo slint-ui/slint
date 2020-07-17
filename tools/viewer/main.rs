@@ -2,6 +2,9 @@ use structopt::StructOpt;
 
 #[derive(StructOpt)]
 struct Cli {
+    #[structopt(short = "I", name = "include path for other .60 files", number_of_values = 1)]
+    include_paths: Vec<std::path::PathBuf>,
+
     #[structopt(name = "path to .60 file", parse(from_os_str))]
     path: std::path::PathBuf,
 }
@@ -9,7 +12,7 @@ struct Cli {
 fn main() -> std::io::Result<()> {
     let args = Cli::from_args();
     let source = std::fs::read_to_string(&args.path)?;
-    let c = match sixtyfps_interpreter::load(source, &args.path) {
+    let c = match sixtyfps_interpreter::load(source, &args.path, &args.include_paths) {
         Ok(c) => c,
         Err(diag) => {
             diag.print();
