@@ -183,6 +183,10 @@ pub extern "C" fn solve_path_layout(data: &PathLayoutData) {
     use lyon::geom::*;
     use lyon::path::iterator::PathIterator;
 
+    if data.items.is_empty() {
+        return;
+    }
+
     let path_iter = data.elements.iter().fitted(data.width, data.height);
 
     let tolerance = lyon::tessellation::StrokeOptions::DEFAULT_TOLERANCE;

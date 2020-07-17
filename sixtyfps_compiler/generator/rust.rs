@@ -115,13 +115,9 @@ pub fn generate(component: &Rc<Component>, diag: &mut BuildDiagnostics) -> Optio
     super::build_array_helper(component, |item_rc, children_index| {
         let item = item_rc.borrow();
         if let Some(repeated) = &item.repeated {
-            let base_component = match &item.base_type {
-                Type::Component(c) => c,
-                _ => panic!("should be a component because of the repeater_component pass"),
-            };
-
+            let base_component = item.base_type.as_component();
             let repeater_index = repeated_element_names.len();
-            let repeater_id = quote::format_ident!("repeater_{}", repeater_index);
+            let repeater_id = quote::format_ident!("repeater_{}", item.id);
             let rep_component_id = self::component_id(&*base_component);
 
             extra_components.push(generate(&*base_component, diag).unwrap_or_else(|| {
@@ -766,22 +762,24 @@ fn compute_layout(component: &Rc<Component>) -> TokenStream {
     }
 
     for path_layout in component.layout_constraints.borrow().paths.iter() {
-        let items = path_layout
-            .elements
-            .iter()
-            .map(|elem| {
-                let e = quote::format_ident!("{}", elem.borrow().id);
+        let path_layout_item_data =
+            |elem: &ElementRc, elem_rs: TokenStream, component_rust: TokenStream| {
                 let prop_ref = |n: &str| {
                     if elem.borrow().lookup_property(n) == Type::Length {
                         let n = quote::format_ident!("{}", n);
-                        quote! {Some(&self.#e.#n)}
+                        quote! {Some(& #elem_rs.#n)}
                     } else {
                         quote! {None}
                     }
                 };
                 let prop_value = |n: &str| {
                     if elem.borrow().lookup_property(n) == Type::Length {
-                        let accessor = access_member(&elem, n, component, quote!(self));
+                        let accessor = access_member(
+                            &elem,
+                            n,
+                            &elem.borrow().enclosing_component.upgrade().unwrap(),
+                            component_rust.clone(),
+                        );
                         quote!(#accessor.get())
                     } else {
                         quote! {0.}
@@ -797,8 +795,56 @@ fn compute_layout(component: &Rc<Component>) -> TokenStream {
                     width: #width,
                     height: #height,
                 })
-            })
-            .collect::<Vec<_>>();
+            };
+        let path_layout_item_data_for_elem = |elem: &ElementRc| {
+            let e = quote::format_ident!("{}", elem.borrow().id);
+            path_layout_item_data(elem, quote!(self.#e), quote!(self))
+        };
+
+        let is_static_array =
+            path_layout.elements.iter().all(|elem| elem.borrow().repeated.is_none());
+
+        let slice = if is_static_array {
+            let items = path_layout.elements.iter().map(path_layout_item_data_for_elem);
+            quote!( Slice::from_slice(&[#( #items ),*]) )
+        } else {
+            let mut fixed_count = 0usize;
+            let mut repeated_count = quote!();
+            let mut push_code = quote!();
+            for elem in &path_layout.elements {
+                if elem.borrow().repeated.is_some() {
+                    let repeater_id = quote::format_ident!("repeater_{}", elem.borrow().id);
+                    repeated_count = quote!(#repeated_count + self.#repeater_id.len());
+                    let root_element = elem.borrow().base_type.as_component().root_element.clone();
+                    let root_id = quote::format_ident!("{}", root_element.borrow().id);
+                    let e = path_layout_item_data(
+                        &root_element,
+                        quote!(sub_comp.#root_id),
+                        quote!(sub_comp.as_ref()),
+                    );
+                    push_code = quote! {
+                        #push_code
+                        let internal_vec = self.#repeater_id.borrow_item_vec();
+                        for sub_comp in &*internal_vec {
+                            items_vec.push(#e)
+                        }
+                    }
+                } else {
+                    fixed_count += 1;
+                    let e = path_layout_item_data_for_elem(elem);
+                    push_code = quote! {
+                        #push_code
+                        items_vec.push(#e);
+                    }
+                }
+            }
+
+            layouts.push(quote! {
+                let mut items_vec = Vec::with_capacity(#fixed_count #repeated_count);
+                #push_code
+            });
+            quote!(Slice::from_slice(items_vec.as_slice()))
+        };
 
         let path = compile_path(&path_layout.path, &component);
 
@@ -810,7 +856,7 @@ fn compute_layout(component: &Rc<Component>) -> TokenStream {
 
         layouts.push(quote! {
             solve_path_layout(&PathLayoutData {
-                items: Slice::from_slice(&[#( #items ),*]),
+                items: #slice,
                 elements: &#path,
                 x: #x_pos,
                 y: #y_pos,

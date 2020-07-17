@@ -128,8 +128,10 @@ pub struct ComponentDescription {
     pub(crate) custom_properties: HashMap<String, PropertiesWithinComponent>,
     /// the usize is the offset within `mem` to the Signal<()>
     pub(crate) custom_signals: HashMap<String, usize>,
-    /// The repeaters
+    /// The repeaters.
     pub(crate) repeater: Vec<RepeaterWithinComponent>,
+    /// Map the Element::id of the repeater to the index in the `repeater` vec
+    pub repeater_names: HashMap<String, usize>,
     /// Offset to a Option<ComponentPinRef>
     pub(crate) parent_component_offset: Option<usize>,
     /// Keep the Rc alive
@@ -255,15 +257,14 @@ fn generate_component(root_component: &Rc<object_tree::Component>) -> Rc<Compone
     let mut builder = dynamic_type::TypeBuilder::new();
 
     let mut repeater = vec![];
+    let mut repeater_names = HashMap::new();
 
     generator::build_array_helper(root_component, |rc_item, child_offset| {
         let item = rc_item.borrow();
         if let Some(repeated) = &item.repeated {
             tree_array.push(ItemTreeNode::DynamicTree { index: repeater.len() });
-            let base_component = match &item.base_type {
-                Type::Component(c) => c,
-                _ => panic!("should be a component because of the repeater_component pass"),
-            };
+            let base_component = item.base_type.as_component();
+            repeater_names.insert(item.id.clone(), repeater.len());
             repeater.push(RepeaterWithinComponent {
                 component_to_repeat: generate_component(base_component),
                 offset: builder.add_field_type::<RepeaterVec>(),
@@ -387,6 +388,7 @@ fn generate_component(root_component: &Rc<object_tree::Component>) -> Rc<Compone
         custom_signals,
         original: root_component.clone(),
         repeater,
+        repeater_names,
         parent_component_offset,
     };
 
@@ -669,12 +671,12 @@ unsafe extern "C" fn compute_layout(component: ComponentRefPin) {
     for it in &component_type.original.layout_constraints.borrow().paths {
         use sixtyfps_corelib::layout::*;
 
-        let items = it
-            .elements
-            .iter()
-            .map(|elem| {
+        let mut items = vec![];
+        for elem in &it.elements {
+            let mut push_layout_data = |elem: &ElementRc, component: ComponentRefPin| {
+                let component_type = &*(component.get_vtable() as *const ComponentVTable
+                    as *const ComponentDescription);
                 let item_info = &component_type.items[elem.borrow().id.as_str()];
-
                 let get_prop = |name| {
                     item_info.rtti.properties.get(name).map(|p| {
                         &*(component.as_ptr().add(item_info.offset).add(p.offset())
@@ -686,14 +688,29 @@ unsafe extern "C" fn compute_layout(component: ComponentRefPin) {
                 let get_prop_value = |name| {
                     item_info.rtti.properties.get(name).map(|p| p.get(item)).unwrap_or_default()
                 };
-                PathLayoutItemData {
+                items.push(PathLayoutItemData {
                     x: get_prop("x"),
                     y: get_prop("y"),
                     width: get_prop_value("width").try_into().unwrap_or_default(),
                     height: get_prop_value("height").try_into().unwrap_or_default(),
+                });
+            };
+
+            if elem.borrow().repeated.is_none() {
+                push_layout_data(elem, component)
+            } else {
+                let rep_index = component_type.repeater_names[elem.borrow().id.as_str()];
+                let rep_in_comp = &component_type.repeater[rep_index];
+                let vec = &mut *(component.as_ptr().add(rep_in_comp.offset) as *mut RepeaterVec);
+
+                for sub_comp in vec {
+                    push_layout_data(
+                        &elem.borrow().base_type.as_component().root_element,
+                        sub_comp.borrow(),
+                    )
                 }
-            })
-            .collect::<Vec<_>>();
+            }
+        }
 
         let path_elements = eval::convert_path(&it.path, component_type, component);
 

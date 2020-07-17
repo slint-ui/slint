@@ -148,11 +148,20 @@ impl Type {
         tr.lookup_element(name)
     }
 
+    /// Assume this is a builtin type, panic if it isn't
     pub fn as_builtin(&self) -> &BuiltinElement {
-        match &self {
+        match self {
             Type::Builtin(b) => &b,
             Type::Component(_) => panic!("This should not happen because of inlining"),
             _ => panic!("invalid type"),
+        }
+    }
+
+    /// Assime it is a Component, panic if it isn't
+    pub fn as_component(&self) -> &Rc<crate::object_tree::Component> {
+        match self {
+            Type::Component(c) => c,
+            _ => panic!("should be a component because of the repeater_component pass"),
         }
     }
 

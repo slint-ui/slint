@@ -48,17 +48,32 @@ component ButtonRectangle := Rectangle {
 
 Hello := Rectangle {
 
-    for x[idx] in counter: Rectangle {
-        color: #8005;
-        x: idx * 100px;
-        width: 75px;
-        height: 75px;
-        Rectangle {
-            color: #00f5;
-            width: 25px;
-            height: 25px;
-            x: 25px;
-            y: 25px;
+
+    PathLayout {
+        x: 100px;
+        y: 300px;
+        LineTo {
+            x: 100;
+            y: 50;
+        }
+        LineTo {
+            x: 0;
+            y: 100;
+        }
+        Close {}
+
+        for x[idx] in counter: Rectangle {
+            color: #8005;
+            x: idx * 100px;
+            width: 75px;
+            height: 75px;
+            Rectangle {
+                color: #00f5;
+                width: 25px;
+                height: 25px;
+                x: 25px;
+                y: 25px;
+            }
         }
     }
 

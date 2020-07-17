@@ -46,4 +46,14 @@ where
             c.as_ref().visit_children_item(-1, visitor.borrow_mut());
         }
     }
+
+    /// Return the amount of item currently in the component
+    pub fn len(&self) -> usize {
+        self.components.borrow().len()
+    }
+
+    /// Borrow the internal vector
+    pub fn borrow_item_vec(&self) -> core::cell::Ref<Vec<Pin<Rc<C>>>> {
+        self.components.borrow()
+    }
 }

@@ -85,6 +85,8 @@ mod cpp_ast {
             if self.is_static {
                 write!(f, "static ")?;
             }
+            // all functions are inlines because we are in a header
+            write!(f, "inline ")?;
             if !self.is_constructor {
                 write!(f, "auto ")?;
             }
@@ -307,7 +309,8 @@ fn handle_repeater(
     init: &mut Vec<String>,
     children_repeater_cases: &mut Vec<String>,
 ) {
-    let repeater_id = format!("repeater_{}", repeater_count);
+    let repeater_id =
+        format!("repeater_{}", base_component.parent_element.upgrade().unwrap().borrow().id);
 
     let model = compile_expression(&repeated.model, parent_component);
     let model = if !repeated.is_conditional_element {
@@ -320,7 +323,8 @@ fn handle_repeater(
 
     if repeated.model.is_constant() {
         children_repeater_cases.push(format!(
-            "\n        case {i}: self->repeater_{i}.visit(visitor); break;",
+            "\n        case {i}: self->{id}.visit(visitor); break;",
+            id = repeater_id,
             i = repeater_count
         ));
         init.push(format!(
@@ -339,12 +343,13 @@ fn handle_repeater(
             "\n        case {i}: {{
                 if (self->model_{i}.is_dirty()) {{
                     self->model_{i}.evaluate([&] {{
-                        self->repeater_{i}.update_model({model}, self);
+                        self->{id}.update_model({model}, self);
                     }});
                 }}
-                self->repeater_{i}.visit(visitor);
+                self->{id}.visit(visitor);
                 break;
             }}",
+            id = repeater_id,
             i = repeater_count,
             model = model,
         ));
@@ -544,10 +549,7 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Bui
                 if tree_array.is_empty() { "" } else { ", " },
                 repeater_count,
             );
-            let base_component = match &item.base_type {
-                Type::Component(c) => c,
-                _ => panic!("should be a component because of the repeater_component pass"),
-            };
+            let base_component = item.base_type.as_component();
             generate_component(file, base_component, diag);
             handle_repeater(
                 repeated,
@@ -593,7 +595,6 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Bui
         name: "compute_layout".into(),
         signature: "(sixtyfps::ComponentRef component) -> void".into(),
         is_static: true,
-        statements: Some(compute_layout(component)),
         ..Default::default()
     }));
 
@@ -636,6 +637,14 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Bui
     }));
 
     declarations.append(&mut file.declarations);
+
+    declarations.push(Declaration::Function(Function {
+        name: format!("{}::compute_layout", component_id),
+        signature: "(sixtyfps::ComponentRef component) -> void".into(),
+        statements: Some(compute_layout(component)),
+        ..Default::default()
+    }));
+
     file.declarations = declarations;
 }
 
@@ -925,32 +934,75 @@ fn compute_layout(component: &Rc<Component>) -> Vec<String> {
     for path_layout in component.layout_constraints.borrow().paths.iter() {
         res.push("{".to_owned());
 
-        res.push("    sixtyfps::PathLayoutItemData items[] = {".to_owned());
-        for item in &path_layout.elements {
+        let path_layout_item_data = |elem: &ElementRc, elem_cpp: &str, component_cpp: &str| {
             let prop_ref = |n: &str| {
-                if item.borrow().lookup_property(n) == Type::Length {
-                    format!("&self->{}.{}", item.borrow().id, n)
+                if elem.borrow().lookup_property(n) == Type::Length {
+                    format!("&{}.{}", elem_cpp, n)
                 } else {
                     "nullptr".to_owned()
                 }
             };
             let prop_value = |n: &str| {
-                if item.borrow().lookup_property(n) == Type::Length {
-                    let value_accessor = access_member(&item, n, component, "self");
+                if elem.borrow().lookup_property(n) == Type::Length {
+                    let value_accessor = access_member(
+                        &elem,
+                        n,
+                        &elem.borrow().enclosing_component.upgrade().unwrap(),
+                        component_cpp,
+                    );
                     format!("{}.get()", value_accessor)
                 } else {
                     "0.".into()
                 }
             };
-            res.push(format!(
-                "        {{ {}, {}, {}, {} }},",
+            format!(
+                "{{ {}, {}, {}, {} }}",
                 prop_ref("x"),
                 prop_ref("y"),
                 prop_value("width"),
                 prop_value("height")
-            ));
-        }
-        res.push("    };".to_owned());
+            )
+        };
+        let path_layout_item_data_for_elem = |elem: &ElementRc| {
+            path_layout_item_data(elem, &format!("self->{}", elem.borrow().id), "self")
+        };
+
+        let is_static_array =
+            path_layout.elements.iter().all(|elem| elem.borrow().repeated.is_none());
+
+        let slice = if is_static_array {
+            res.push("    sixtyfps::PathLayoutItemData items[] = {".to_owned());
+            for elem in &path_layout.elements {
+                res.push(format!("        {},", path_layout_item_data_for_elem(elem)));
+            }
+            res.push("    };".to_owned());
+            "        {items, std::size(items)},".to_owned()
+        } else {
+            res.push("    std::vector<sixtyfps::PathLayoutItemData> items;".to_owned());
+            for elem in &path_layout.elements {
+                if elem.borrow().repeated.is_some() {
+                    let root_element = elem.borrow().base_type.as_component().root_element.clone();
+                    res.push(format!(
+                        "    for (auto &&sub_comp : self->repeater_{}.data)",
+                        elem.borrow().id
+                    ));
+                    res.push(format!(
+                        "         items.push_back({});",
+                        path_layout_item_data(
+                            &root_element,
+                            &format!("sub_comp->{}", root_element.borrow().id),
+                            "sub_comp",
+                        )
+                    ));
+                } else {
+                    res.push(format!(
+                        "     items.push_back({});",
+                        path_layout_item_data_for_elem(elem)
+                    ));
+                }
+            }
+            "        {items.data(), std::size(items)},".to_owned()
+        };
 
         res.push(format!("    auto path = {};", compile_path(&path_layout.path, component)));
 
@@ -978,7 +1030,7 @@ fn compute_layout(component: &Rc<Component>) -> Vec<String> {
 
         res.push("    sixtyfps::PathLayoutData pl { ".into());
         res.push("        &path,".to_owned());
-        res.push("        {items, std::size(items)},".to_owned());
+        res.push(slice);
         res.push("        x, y, width, height, offset".to_owned());
         res.push("    };".to_owned());
         res.push("    sixtyfps::solve_path_layout(&pl);".to_owned());
