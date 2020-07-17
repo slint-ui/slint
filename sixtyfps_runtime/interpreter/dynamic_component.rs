@@ -225,17 +225,14 @@ pub fn load(
 ) -> Result<Rc<ComponentDescription>, sixtyfps_compilerlib::diagnostics::FileDiagnostics> {
     let (syntax_node, diag) = parser::parse(source, Some(path));
     let compiler_config = CompilerConfiguration::default();
-    let (tree, mut diag) = compile_syntax_node(syntax_node, diag, &compiler_config);
+    let (tree, diag) = compile_syntax_node(syntax_node, diag, &compiler_config);
     if diag.has_error() {
         return Err(diag);
     }
-    Ok(generate_component(&tree.root_component, &mut diag))
+    Ok(generate_component(&tree.root_component))
 }
 
-fn generate_component(
-    root_component: &Rc<object_tree::Component>,
-    diag: &mut diagnostics::FileDiagnostics,
-) -> Rc<ComponentDescription> {
+fn generate_component(root_component: &Rc<object_tree::Component>) -> Rc<ComponentDescription> {
     let mut rtti = HashMap::new();
     {
         use sixtyfps_corelib::abi::primitives::*;
@@ -268,7 +265,7 @@ fn generate_component(
                 _ => panic!("should be a component because of the repeater_component pass"),
             };
             repeater.push(RepeaterWithinComponent {
-                component_to_repeat: generate_component(base_component, diag),
+                component_to_repeat: generate_component(base_component),
                 offset: builder.add_field_type::<RepeaterVec>(),
                 model: repeated.model.clone(),
                 listener: if repeated.model.is_constant() {
