@@ -248,6 +248,7 @@ impl BuildDiagnostics {
             .chain(self.internal_errors.into_iter())
     }
 
+    #[cfg(feature = "proc_macro_span")]
     fn iter_mut(&mut self) -> impl Iterator<Item = &mut FileDiagnostics> {
         self.per_input_file_diagnostics.values_mut().chain(self.internal_errors.iter_mut())
     }
