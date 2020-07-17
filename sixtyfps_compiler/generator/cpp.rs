@@ -127,7 +127,7 @@ mod cpp_ast {
     }
 }
 
-use crate::diagnostics::{CompilerDiagnostic, FileDiagnostics};
+use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic};
 use crate::expression_tree::Expression;
 use crate::object_tree::{Component, Element, ElementRc, RepeatedElementInfo};
 use crate::parser::Spanned;
@@ -360,7 +360,7 @@ fn handle_repeater(
 /// Returns the text of the C++ code produced by the given root component
 pub fn generate(
     component: &Rc<Component>,
-    diag: &mut FileDiagnostics,
+    diag: &mut BuildDiagnostics,
 ) -> Option<impl std::fmt::Display> {
     let mut file = File::default();
 
@@ -377,7 +377,7 @@ pub fn generate(
     }
 }
 
-fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut FileDiagnostics) {
+fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut BuildDiagnostics) {
     let component_id = component_id(component);
     let mut component_struct = Struct { name: component_id.clone(), ..Default::default() };
 
@@ -405,7 +405,7 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Fil
                     span: property_decl.type_location.clone(),
                 };
 
-                diag.push_compiler_error(err);
+                diag.push_internal_error(err.into());
                 "".into()
             });
 
@@ -454,15 +454,18 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Fil
             .ty()
             .cpp_type()
             .unwrap_or_else(|| {
-                diag.push_compiler_error(CompilerDiagnostic {
-                    message: "Cannot map property type to C++".into(),
-                    span: parent_element
-                        .borrow()
-                        .node
-                        .as_ref()
-                        .map(|n| n.span())
-                        .unwrap_or_default(),
-                });
+                diag.push_internal_error(
+                    CompilerDiagnostic {
+                        message: "Cannot map property type to C++".into(),
+                        span: parent_element
+                            .borrow()
+                            .node
+                            .as_ref()
+                            .map(|n| n.span())
+                            .unwrap_or_default(),
+                    }
+                    .into(),
+                );
                 String::default()
             })
             .to_owned();

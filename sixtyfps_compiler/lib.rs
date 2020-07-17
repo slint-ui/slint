@@ -53,14 +53,17 @@ pub fn compile_syntax_node<DocNode: Into<parser::syntax_nodes::Document>>(
     doc_node: DocNode,
     mut diagnostics: diagnostics::FileDiagnostics,
     compiler_config: &CompilerConfiguration,
-) -> (object_tree::Document, diagnostics::FileDiagnostics) {
+) -> (object_tree::Document, diagnostics::BuildDiagnostics) {
     let type_registry = typeregister::TypeRegister::builtin();
     let doc =
         crate::object_tree::Document::from_node(doc_node.into(), &mut diagnostics, &type_registry);
 
     run_passes(&doc, &mut diagnostics, compiler_config);
 
-    (doc, diagnostics)
+    let mut all_diagnostics = diagnostics::BuildDiagnostics::default();
+    all_diagnostics.add(diagnostics);
+
+    (doc, all_diagnostics)
 }
 
 pub fn run_passes(

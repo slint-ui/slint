@@ -222,7 +222,7 @@ fn rtti_for<T: 'static + Default + rtti::BuiltinItem + vtable::HasStaticVTable<I
 pub fn load(
     source: String,
     path: &std::path::Path,
-) -> Result<Rc<ComponentDescription>, sixtyfps_compilerlib::diagnostics::FileDiagnostics> {
+) -> Result<Rc<ComponentDescription>, sixtyfps_compilerlib::diagnostics::BuildDiagnostics> {
     let (syntax_node, diag) = parser::parse(source, Some(path));
     let compiler_config = CompilerConfiguration::default();
     let (tree, diag) = compile_syntax_node(syntax_node, diag, &compiler_config);

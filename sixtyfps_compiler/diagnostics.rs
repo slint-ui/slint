@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+use std::path::PathBuf;
+
 #[derive(Debug, Clone, Default)]
 pub struct Span {
     pub offset: usize,
@@ -204,5 +207,88 @@ impl quote::ToTokens for FileDiagnostics {
             })
             .collect();
         quote!(#(#diags)*).to_tokens(tokens);
+    }
+}
+
+#[derive(Default)]
+pub struct BuildDiagnostics {
+    per_input_file_diagnostics: HashMap<PathBuf, FileDiagnostics>,
+    internal_errors: Option<FileDiagnostics>,
+}
+
+impl BuildDiagnostics {
+    pub fn add(&mut self, diagnostics: FileDiagnostics) {
+        match self.per_input_file_diagnostics.get_mut(&diagnostics.current_path) {
+            Some(existing_diags) => existing_diags.inner.extend(diagnostics.inner),
+            None => {
+                self.per_input_file_diagnostics
+                    .insert(diagnostics.current_path.clone(), diagnostics);
+            }
+        }
+    }
+
+    pub fn push_internal_error(&mut self, err: Diagnostic) {
+        self.internal_errors
+            .get_or_insert_with(|| FileDiagnostics {
+                current_path: "[internal error]".into(),
+                ..Default::default()
+            })
+            .inner
+            .push(err)
+    }
+
+    fn iter(&self) -> impl Iterator<Item = &FileDiagnostics> {
+        self.per_input_file_diagnostics.values().chain(self.internal_errors.iter())
+    }
+
+    fn into_iter(self) -> impl Iterator<Item = FileDiagnostics> {
+        self.per_input_file_diagnostics
+            .into_iter()
+            .map(|(_, diag)| diag)
+            .chain(self.internal_errors.into_iter())
+    }
+
+    fn iter_mut(&mut self) -> impl Iterator<Item = &mut FileDiagnostics> {
+        self.per_input_file_diagnostics.values_mut().chain(self.internal_errors.iter_mut())
+    }
+
+    pub fn has_error(&self) -> bool {
+        self.iter().any(|diag| diag.has_error())
+    }
+
+    pub fn to_string_vec(&self) -> Vec<String> {
+        self.iter()
+            .flat_map(|diag| {
+                diag.to_string_vec()
+                    .iter()
+                    .map(|err| format!("{}: {}", diag.current_path.to_string_lossy(), err))
+                    .collect::<Vec<_>>()
+            })
+            .collect()
+    }
+
+    pub fn print(self) {
+        self.into_iter().for_each(|diag| diag.print());
+    }
+
+    #[cfg(feature = "display-diagnostics")]
+    pub fn check_and_exit_on_error(self) -> Self {
+        if self.has_error() {
+            self.print();
+            std::process::exit(-1);
+        }
+        self
+    }
+
+    #[cfg(feature = "proc_macro_span")]
+    pub fn map_offsets_to_span(&mut self, span_map: &[crate::parser::Token]) {
+        self.iter_mut().for_each(|diag| diag.map_offsets_to_span(span_map))
+    }
+}
+
+#[cfg(feature = "proc_macro_span")]
+impl quote::ToTokens for BuildDiagnostics {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        self.iter().for_each(|diag| diag.to_tokens(tokens))
     }
 }

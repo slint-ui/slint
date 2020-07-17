@@ -1,7 +1,7 @@
 /*! module for the Rust code generator
 */
 
-use crate::diagnostics::{CompilerDiagnostic, FileDiagnostics};
+use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic};
 use crate::expression_tree::{Expression, NamedReference, OperatorClass, Path};
 use crate::object_tree::{Component, ElementRc};
 use crate::parser::Spanned;
@@ -38,7 +38,7 @@ fn rust_type(
 /// Generate the rust code for the given component.
 ///
 /// Fill the diagnostic in case of error.
-pub fn generate(component: &Rc<Component>, diag: &mut FileDiagnostics) -> Option<TokenStream> {
+pub fn generate(component: &Rc<Component>, diag: &mut BuildDiagnostics) -> Option<TokenStream> {
     let mut extra_components = vec![];
     let mut declared_property_vars = vec![];
     let mut declared_property_types = vec![];
@@ -66,7 +66,7 @@ pub fn generate(component: &Rc<Component>, diag: &mut FileDiagnostics) -> Option
             let rust_property_type =
                 rust_type(&property_decl.property_type, &property_decl.type_location)
                     .unwrap_or_else(|err| {
-                        diag.push_compiler_error(err);
+                        diag.push_internal_error(err.into());
                         quote!().into()
                     });
             declared_property_types.push(rust_property_type.clone());
@@ -141,7 +141,7 @@ pub fn generate(component: &Rc<Component>, diag: &mut FileDiagnostics) -> Option
                     &item.node.as_ref().map_or_else(Default::default, |n| n.span()),
                 )
                 .unwrap_or_else(|err| {
-                    diag.push_compiler_error(err);
+                    diag.push_internal_error(err.into());
                     quote!().into()
                 });
 
@@ -291,7 +291,7 @@ pub fn generate(component: &Rc<Component>, diag: &mut FileDiagnostics) -> Option
                         .map_or_else(Default::default, |n| n.span()),
                 )
                 .unwrap_or_else(|err| {
-                    diag.push_compiler_error(err);
+                    diag.push_internal_error(err.into());
                     quote!().into()
                 }),
             );
