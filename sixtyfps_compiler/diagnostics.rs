@@ -267,6 +267,7 @@ impl BuildDiagnostics {
             .collect()
     }
 
+    #[cfg(feature = "display-diagnostics")]
     pub fn print(self) {
         self.into_iter().for_each(|diag| diag.print());
     }
