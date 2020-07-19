@@ -73,6 +73,14 @@ fn main() -> std::io::Result<()> {
             absolute_path = testcase.absolute_path.to_string_lossy(),
             relative_path = testcase.relative_path.to_string_lossy(),
         )?;
+
+        let source = std::fs::read_to_string(&testcase.absolute_path)?;
+        for path in test_driver_lib::extract_include_paths(&source) {
+            let mut abs_path = testcase.absolute_path.clone();
+            abs_path.pop();
+            abs_path.push(path);
+            println!("cargo:rerun-if-changed={}", abs_path.to_string_lossy());
+        }
     }
 
     test_dirs.iter().for_each(|dir| {

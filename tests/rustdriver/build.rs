@@ -34,6 +34,7 @@ fn main() -> std::io::Result<()> {
             output.write_all(b"#[include_path=\"")?;
             output.write_all(abs_path.to_string_lossy().as_bytes())?;
             output.write_all(b"\"]")?;
+            println!("cargo:rerun-if-changed={}", abs_path.to_string_lossy());
         }
 
         output.write_all(b"\n")?;
