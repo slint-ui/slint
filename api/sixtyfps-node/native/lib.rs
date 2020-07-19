@@ -25,8 +25,14 @@ scoped_tls_hkt::scoped_thread_local!(static GLOBAL_CONTEXT:
 fn load(mut cx: FunctionContext) -> JsResult<JsValue> {
     let path = cx.argument::<JsString>(0)?.value();
     let path = std::path::Path::new(path.as_str());
+    let include_paths = match std::env::var_os("SIXTYFPS_INCLUDE_PATH") {
+        Some(paths) => {
+            std::env::split_paths(&paths).filter(|path| !path.as_os_str().is_empty()).collect()
+        }
+        None => vec![],
+    };
     let source = std::fs::read_to_string(&path).or_else(|e| cx.throw_error(e.to_string()))?;
-    let c = match sixtyfps_interpreter::load(source, &path, &[]) {
+    let c = match sixtyfps_interpreter::load(source, &path, &include_paths) {
         Ok(c) => c,
         Err(diag) => {
             diag.print();
