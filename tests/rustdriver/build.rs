@@ -21,7 +21,22 @@ fn main() -> std::io::Result<()> {
         let mut output = std::fs::File::create(
             Path::new(&std::env::var_os("OUT_DIR").unwrap()).join(format!("{}.rs", module_name)),
         )?;
-        output.write_all(b"sixtyfps::sixtyfps!{\n")?;
+
+        let include_paths = test_driver_lib::extract_include_paths(&source);
+
+        output.write_all(b"sixtyfps::sixtyfps!{")?;
+
+        for path in include_paths {
+            let mut abs_path = testcase.absolute_path.clone();
+            abs_path.pop();
+            abs_path.push(path);
+
+            output.write_all(b"#[include_path=\"")?;
+            output.write_all(abs_path.to_string_lossy().as_bytes())?;
+            output.write_all(b"\"]")?;
+        }
+
+        output.write_all(b"\n")?;
         output.write_all(source.as_bytes())?;
         output.write_all(b"}\n")?;
 

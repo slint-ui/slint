@@ -106,3 +106,25 @@ let yy = 0;
     assert_eq!(r2.language_id, "rust");
     assert_eq!(r2.source, "let xx = 0;\nlet yy = 0;");
 }
+
+/// Extract extra include paths from a comment in the source if present.
+pub fn extract_include_paths(source: &str) -> impl Iterator<Item = &'_ str> {
+    lazy_static::lazy_static! {
+        static ref RX: Regex = Regex::new(r"//include_path:\s*(.+)\s*\n").unwrap();
+    }
+    RX.captures_iter(source).map(|mat| mat.get(1).unwrap().as_str())
+}
+
+#[test]
+fn test_extract_include_paths() {
+    assert!(extract_include_paths("something").next().is_none());
+
+    let source = r"
+    //include_path: ../first
+    //include_path: ../second
+    Blah {}
+";
+
+    let r = extract_include_paths(source).collect::<Vec<_>>();
+    assert_eq!(r, ["../first", "../second"]);
+}
