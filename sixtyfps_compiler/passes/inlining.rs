@@ -80,20 +80,35 @@ fn inline_element(
             .borrow()
             .bindings
             .iter()
-            .map(|(k, val)| (k.clone(), fold_binding(val, &mapping, root_component))),
+            .map(|(k, val)| (k.clone(), fold_binding(val, &mapping))),
     );
 
     //core::mem::drop(elem_mut);
 
+    // Now fixup all binding and reference
     for (key, e) in &mapping {
         if *key == element_key(&inlined_component.root_element) {
             continue; // the root has been processed
         }
         for (_, expr) in &mut e.borrow_mut().bindings {
-            fixup_binding(expr, &mapping, root_component);
+            fixup_binding(expr, &mapping);
         }
         if let Some(ref mut r) = &mut e.borrow_mut().repeated {
-            fixup_binding(&mut r.model, &mapping, root_component);
+            fixup_binding(&mut r.model, &mapping);
+        }
+        for s in &mut e.borrow_mut().states {
+            if let Some(cond) = s.condition.as_mut() {
+                fixup_binding(cond, &mapping)
+            }
+            for (r, e) in &mut s.property_changes {
+                fixup_reference(r, &mapping);
+                fixup_binding(e, &mapping);
+            }
+        }
+        for t in &mut e.borrow_mut().transitions {
+            for (r, _) in &mut t.property_animations {
+                fixup_reference(r, &mapping)
+            }
         }
     }
 }
@@ -109,8 +124,12 @@ fn duplicate_element_with_mapping(
         base_type: elem.base_type.clone(),
         id: elem.id.clone(),
         property_declarations: elem.property_declarations.clone(),
-        property_animations: elem.property_animations.clone(),
-        // We will do the mapping of the binding later
+        property_animations: elem
+            .property_animations
+            .iter()
+            .map(|(k, v)| (k.clone(), duplicate_element_with_mapping(v, mapping, root_component)))
+            .collect(),
+        // We will do the fixup of the bindings later
         bindings: elem.bindings.clone(),
         children: elem
             .children
@@ -120,42 +139,54 @@ fn duplicate_element_with_mapping(
         repeated: elem.repeated.clone(),
         node: elem.node.clone(),
         enclosing_component: Rc::downgrade(root_component),
+        states: elem.states.clone(),
+        transitions: elem
+            .transitions
+            .iter()
+            .map(|t| duplicate_transition(t, mapping, root_component))
+            .collect(),
     }));
     mapping.insert(element_key(element), new.clone());
     new
 }
 
-fn fixup_binding(
-    val: &mut Expression,
+fn fixup_reference(
+    NamedReference { element, .. }: &mut NamedReference,
     mapping: &HashMap<usize, ElementRc>,
-    root_component: &Rc<Component>,
 ) {
-    val.visit_mut(|sub| fixup_binding(sub, mapping, root_component));
+    *element =
+        element.upgrade().and_then(|e| mapping.get(&element_key(&e))).map(Rc::downgrade).unwrap();
+}
+
+fn fixup_binding(val: &mut Expression, mapping: &HashMap<usize, ElementRc>) {
+    val.visit_mut(|sub| fixup_binding(sub, mapping));
     match val {
-        Expression::PropertyReference(NamedReference { element, .. }) => {
-            *element = element
-                .upgrade()
-                .and_then(|e| mapping.get(&element_key(&e)))
-                .map(Rc::downgrade)
-                .unwrap();
-        }
-        Expression::SignalReference(NamedReference { element, .. }) => {
-            *element = element
-                .upgrade()
-                .and_then(|e| mapping.get(&element_key(&e)))
-                .map(Rc::downgrade)
-                .unwrap();
-        }
+        Expression::PropertyReference(r) => fixup_reference(r, mapping),
+        Expression::SignalReference(r) => fixup_reference(r, mapping),
         _ => {}
     }
 }
 
-fn fold_binding(
-    val: &Expression,
-    mapping: &HashMap<usize, ElementRc>,
-    root_component: &Rc<Component>,
-) -> Expression {
+fn fold_binding(val: &Expression, mapping: &HashMap<usize, ElementRc>) -> Expression {
     let mut new_val = val.clone();
-    fixup_binding(&mut new_val, mapping, root_component);
+    fixup_binding(&mut new_val, mapping);
     new_val
+}
+
+fn duplicate_transition(
+    t: &Transition,
+    mapping: &mut HashMap<usize, Rc<RefCell<Element>>>,
+    root_component: &Rc<Component>,
+) -> Transition {
+    Transition {
+        is_out: t.is_out,
+        state_id: t.state_id.clone(),
+        property_animations: t
+            .property_animations
+            .iter()
+            .map(|(r, anim)| {
+                (r.clone(), duplicate_element_with_mapping(anim, mapping, root_component))
+            })
+            .collect(),
+    }
 }

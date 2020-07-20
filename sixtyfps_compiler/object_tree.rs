@@ -3,7 +3,7 @@
 */
 
 use crate::diagnostics::FileDiagnostics;
-use crate::expression_tree::Expression;
+use crate::expression_tree::{Expression, NamedReference};
 use crate::parser::{syntax_nodes, Spanned, SyntaxKind, SyntaxNodeEx};
 use crate::typeregister::{Type, TypeRegister};
 use std::cell::RefCell;
@@ -80,13 +80,13 @@ impl Component {
     ) -> Rc<Self> {
         let c = Rc::new(Component {
             id: node.child_text(SyntaxKind::Identifier).unwrap_or_default(),
-            root_element: Rc::new(RefCell::new(Element::from_node(
+            root_element: Element::from_node(
                 node.Element(),
                 "root".into(),
                 Type::Invalid,
                 diag,
                 tr,
-            ))),
+            ),
             ..Default::default()
         });
         let weak = Rc::downgrade(&c);
@@ -128,6 +128,9 @@ pub struct Element {
     /// Tis element is part of a `for <xxx> in <model>:
     pub repeated: Option<RepeatedElementInfo>,
 
+    pub states: Vec<State>,
+    pub transitions: Vec<Transition>,
+
     /// The AST node, if available
     pub node: Option<syntax_nodes::Element>,
 }
@@ -153,7 +156,7 @@ impl Element {
         parent_type: Type,
         diag: &mut FileDiagnostics,
         tr: &TypeRegister,
-    ) -> Self {
+    ) -> ElementRc {
         let base = QualifiedTypeName::from_node(node.QualifiedName());
         let mut r = Element {
             id,
@@ -161,7 +164,7 @@ impl Element {
                 Ok(ty) => ty,
                 Err(err) => {
                     diag.push_error(err, node.QualifiedName().span());
-                    return Element::default();
+                    return ElementRc::default();
                 }
             },
             node: Some(node.clone()),
@@ -290,32 +293,80 @@ impl Element {
             if se.kind() == SyntaxKind::SubElement {
                 let id = se.child_text(SyntaxKind::Identifier).unwrap_or_default();
                 if let Some(element_node) = se.child_node(SyntaxKind::Element) {
-                    r.children.push(Rc::new(RefCell::new(Element::from_node(
+                    r.children.push(Element::from_node(
                         element_node.into(),
                         id,
                         r.base_type.clone(),
                         diag,
                         tr,
-                    ))));
+                    ));
                 } else {
                     assert!(diag.has_error());
                 }
             } else if se.kind() == SyntaxKind::RepeatedElement {
-                r.children.push(Rc::new(RefCell::new(Element::from_repeated_node(
+                r.children.push(Element::from_repeated_node(
                     se.into(),
                     r.base_type.clone(),
                     diag,
                     tr,
-                ))));
+                ));
             } else if se.kind() == SyntaxKind::ConditionalElement {
-                r.children.push(Rc::new(RefCell::new(Element::from_conditional_node(
+                r.children.push(Element::from_conditional_node(
                     se.into(),
                     r.base_type.clone(),
                     diag,
                     tr,
-                ))));
+                ));
             }
         }
+
+        let r = ElementRc::new(RefCell::new(r));
+
+        for state in node.States().flat_map(|s| s.State()) {
+            let s = State {
+                id: state
+                    .DeclaredIdentifier()
+                    .child_text(SyntaxKind::Identifier)
+                    .unwrap_or_default(),
+                condition: state.Expression().map(|e| Expression::Uncompiled(e.into())),
+                property_changes: state
+                    .StatePropertyChange()
+                    .map(|s| {
+                        let ne = lookup_property_from_qualified_name(s.QualifiedName(), &r, diag);
+                        (ne, Expression::Uncompiled(s.BindingExpression().into()))
+                    })
+                    .collect(),
+            };
+            r.borrow_mut().states.push(s);
+        }
+
+        for trs in node.Transitions().flat_map(|s| s.Transition()) {
+            let trans = Transition {
+                is_out: trs.child_text(SyntaxKind::Identifier).unwrap_or_default() == "out",
+                state_id: trs
+                    .DeclaredIdentifier()
+                    .child_text(SyntaxKind::Identifier)
+                    .unwrap_or_default(),
+                property_animations: trs
+                    .PropertyAnimation()
+                    .map(|pa| {
+                        // TODO: do that properly
+                        (
+                            NamedReference {
+                                element: Rc::downgrade(&r),
+                                name: pa
+                                    .DeclaredIdentifier()
+                                    .child_text(SyntaxKind::Identifier)
+                                    .unwrap_or_default(),
+                            },
+                            Default::default(),
+                        )
+                    })
+                    .collect(),
+            };
+            r.borrow_mut().transitions.push(trans);
+        }
+
         r
     }
 
@@ -324,7 +375,7 @@ impl Element {
         parent_type: Type,
         diag: &mut FileDiagnostics,
         tr: &TypeRegister,
-    ) -> Self {
+    ) -> ElementRc {
         let rei = RepeatedElementInfo {
             model: Expression::Uncompiled(node.Expression().into()),
             model_data_id: node
@@ -337,8 +388,8 @@ impl Element {
                 .unwrap_or_default(),
             is_conditional_element: false,
         };
-        let mut e = Element::from_node(node.Element(), String::new(), parent_type, diag, tr);
-        e.repeated = Some(rei);
+        let e = Element::from_node(node.Element(), String::new(), parent_type, diag, tr);
+        e.borrow_mut().repeated = Some(rei);
         e
     }
 
@@ -347,15 +398,15 @@ impl Element {
         parent_type: Type,
         diag: &mut FileDiagnostics,
         tr: &TypeRegister,
-    ) -> Self {
+    ) -> ElementRc {
         let rei = RepeatedElementInfo {
             model: Expression::Uncompiled(node.Expression().into()),
             model_data_id: String::new(),
             index_id: String::new(),
             is_conditional_element: true,
         };
-        let mut e = Element::from_node(node.Element(), String::new(), parent_type, diag, tr);
-        e.repeated = Some(rei);
+        let e = Element::from_node(node.Element(), String::new(), parent_type, diag, tr);
+        e.borrow_mut().repeated = Some(rei);
         e
     }
 
@@ -432,6 +483,59 @@ impl std::fmt::Display for QualifiedTypeName {
     }
 }
 
+/// Return a NamedReference, if the reference is invalid, there will be a diagnostic
+fn lookup_property_from_qualified_name(
+    node: syntax_nodes::QualifiedName,
+    r: &Rc<RefCell<Element>>,
+    diag: &mut FileDiagnostics,
+) -> NamedReference {
+    let qualname = QualifiedTypeName::from_node(node.clone());
+    match qualname.members.as_slice() {
+        [prop_name] => {
+            if !r.borrow().lookup_property(prop_name.as_ref()).is_property_type() {
+                diag.push_error(format!("'{}' is not a valid property", qualname), node.span());
+            }
+            NamedReference { element: Rc::downgrade(&r), name: String::default() }
+        }
+        [elem_id, prop_name] => {
+            let element = if let Some(element) = find_element_by_id(&r, elem_id.as_ref()) {
+                if !element.borrow().lookup_property(prop_name.as_ref()).is_property_type() {
+                    diag.push_error(
+                        format!("'{}' not found in '{}'", prop_name, elem_id),
+                        node.span(),
+                    );
+                }
+                Rc::downgrade(&element)
+            } else {
+                diag.push_error(format!("'{}' is not a valid element id", elem_id), node.span());
+                Weak::new()
+            };
+            NamedReference { element, name: prop_name.clone() }
+        }
+        _ => {
+            diag.push_error(format!("'{}' is not a valid property", qualname), node.span());
+            NamedReference { element: Default::default(), name: String::default() }
+        }
+    }
+}
+
+/// FIXME: this is duplicated the resolving pass. Also, we should use a hash table
+fn find_element_by_id(e: &ElementRc, name: &str) -> Option<ElementRc> {
+    if e.borrow().id == name {
+        return Some(e.clone());
+    }
+    for x in &e.borrow().children {
+        if x.borrow().repeated.is_some() {
+            continue;
+        }
+        if let Some(x) = find_element_by_id(x, name) {
+            return Some(x);
+        }
+    }
+
+    None
+}
+
 /// Call the visitor for each children of the element recursively, starting with the element itself
 ///
 /// The state returned by the visitor is passed to the children
@@ -444,4 +548,19 @@ pub fn recurse_elem<State>(
     for sub in &elem.borrow().children {
         recurse_elem(sub, &state, vis);
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct State {
+    pub id: String,
+    pub condition: Option<Expression>,
+    pub property_changes: Vec<(NamedReference, Expression)>,
+}
+
+#[derive(Debug)]
+pub struct Transition {
+    /// false for 'to', true for 'out'
+    pub is_out: bool,
+    pub state_id: String,
+    pub property_animations: Vec<(NamedReference, ElementRc)>,
 }

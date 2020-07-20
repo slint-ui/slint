@@ -24,6 +24,8 @@ pub fn create_repeater_components(component: &Rc<Component>) {
                 repeated: None,
                 node: elem.node.clone(),
                 enclosing_component: Default::default(),
+                states: Default::default(),
+                transitions: Default::default(),
             })),
             parent_element,
             ..Component::default()
