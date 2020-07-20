@@ -10,10 +10,48 @@ use crate::expression_tree::*;
 use crate::object_tree::*;
 use crate::parser::{syntax_nodes, Spanned, SyntaxKind, SyntaxNode, SyntaxNodeEx};
 use crate::typeregister::Type;
+use by_address::ByAddress;
 use std::{collections::HashMap, rc::Rc};
 
+#[derive(Default)]
+struct ComponentCollection {
+    component_types: HashMap<ByAddress<Rc<Component>>, Rc<Component>>,
+}
+
+impl ComponentCollection {
+    fn add_document(&mut self, doc: &Document) {
+        doc.inner_components.iter().for_each(|component| self.add_component(component));
+    }
+    fn add_component(&mut self, component: &Rc<Component>) {
+        match self.component_types.entry(ByAddress(component.clone())) {
+            std::collections::hash_map::Entry::Occupied(_) => return,
+            std::collections::hash_map::Entry::Vacant(ve) => {
+                ve.insert(component.clone());
+                self.add_types_used_in_components(component);
+            }
+        };
+    }
+    fn add_types_used_in_components(&mut self, component: &Rc<Component>) {
+        recurse_elem(&component.root_element, &(), &mut |element: &ElementRc, _| {
+            self.add_type(&element.borrow().base_type);
+            // ### traverse more
+        });
+    }
+    fn add_type(&mut self, ty: &Type) {
+        if let Type::Component(component) = ty {
+            self.add_component(component);
+        }
+    }
+
+    fn iter(&self) -> impl Iterator<Item = &Rc<Component>> {
+        self.component_types.values()
+    }
+}
+
 pub fn resolve_expressions(doc: &Document, diag: &mut FileDiagnostics) {
-    for component in &doc.inner_components {
+    let mut all_components = ComponentCollection::default();
+    all_components.add_document(&doc);
+    for component in all_components.iter() {
         /// This represeresent a scope for the Component, where Component is the repeated component, but
         /// does not represent a component in the .60 file
         #[derive(Clone)]

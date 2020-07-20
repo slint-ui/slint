@@ -30,6 +30,7 @@ quote = { version = "1.0", optional = true }
 proc-macro2 = { version = "1.0.17", optional = true }
 lyon = { version = "0.15.8", features = ["svg"] }
 thiserror = "1"
+by_address = "1.0.4"
 
 
 [dev-dependencies]

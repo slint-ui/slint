@@ -1,3 +1,9 @@
 
 TestButton := Rectangle {
+    property<string> button_text;
+    Text {
+        x: 10px;
+        y: 10px;
+        text: root.button_text;
+    }
 }
