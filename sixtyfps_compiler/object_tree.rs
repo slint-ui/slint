@@ -245,19 +245,13 @@ impl Element {
             let name = name_token.text().to_string();
             let prop_type = r.lookup_property(&name);
             if !matches!(prop_type, Type::Signal) {
-                diag.push_error_with_span(
-                    format!("'{}' is not a signal in {}", name, base),
-                    crate::diagnostics::Span::new(name_token.text_range().start().into()),
-                );
+                diag.push_error(format!("'{}' is not a signal in {}", name, base), &name_token);
             }
             if r.bindings
                 .insert(name, Expression::Uncompiled(con_node.CodeBlock().into()))
                 .is_some()
             {
-                diag.push_error_with_span(
-                    "Duplicated signal".into(),
-                    crate::diagnostics::Span::new(name_token.text_range().start().into()),
-                );
+                diag.push_error("Duplicated signal".into(), &name_token);
             }
         }
 
@@ -286,10 +280,7 @@ impl Element {
                 anim_element.parse_bindings(&base, anim.Binding(), diag);
                 let anim_element = Rc::new(RefCell::new(anim_element));
                 if r.property_animations.insert(prop_name, anim_element.clone()).is_some() {
-                    diag.push_error_with_span(
-                        "Duplicated animation".into(),
-                        crate::diagnostics::Span::new(prop_name_token.text_range().start().into()),
-                    )
+                    diag.push_error("Duplicated animation".into(), &prop_name_token)
                 }
             }
         }
@@ -442,13 +433,13 @@ impl Element {
             let name = name_token.text().to_string();
             let prop_type = self.lookup_property(&name);
             if !prop_type.is_property_type() {
-                diag.push_error_with_span(
+                diag.push_error(
                     match prop_type {
                         Type::Invalid => format!("Unknown property {} in {}", name, base),
                         Type::Signal => format!("'{}' is a signal. Use `=>` to connect", name),
                         _ => format!("Cannot assing to {} in {}", name, base),
                     },
-                    crate::diagnostics::Span::new(name_token.text_range().start().into()),
+                    &name_token,
                 );
             }
             if self
@@ -456,10 +447,7 @@ impl Element {
                 .insert(name, Expression::Uncompiled(b.BindingExpression().into()))
                 .is_some()
             {
-                diag.push_error_with_span(
-                    "Duplicated property binding".into(),
-                    crate::diagnostics::Span::new(name_token.text_range().start().into()),
-                );
+                diag.push_error("Duplicated property binding".into(), &name_token);
             }
         }
     }
