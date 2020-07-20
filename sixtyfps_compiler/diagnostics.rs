@@ -81,7 +81,7 @@ impl FileDiagnostics {
     /// Returns the path for a given span
     ///
     /// (currently just return the current path)
-    pub fn path(&self, _span: Span) -> &std::path::Path {
+    pub fn path(&self, _span: &impl Spanned) -> &std::path::Path {
         &*self.current_path
     }
 

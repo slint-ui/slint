@@ -5,7 +5,7 @@
 //!
 //! Most of the code for the resolving actualy lies in the expression_tree module
 
-use crate::diagnostics::{FileDiagnostics, Spanned};
+use crate::diagnostics::FileDiagnostics;
 use crate::expression_tree::*;
 use crate::object_tree::*;
 use crate::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxNodeEx};
@@ -275,7 +275,7 @@ impl Expression {
                     if path.is_absolute() {
                         s
                     } else {
-                        let path = ctx.diag.path(node.span()).parent().unwrap().join(path);
+                        let path = ctx.diag.path(&node).parent().unwrap().join(path);
                         if path.is_absolute() {
                             path.to_string_lossy().to_string()
                         } else {
