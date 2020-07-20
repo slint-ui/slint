@@ -5,6 +5,7 @@ use crate::{
     object_tree::*,
     typeregister::Type,
 };
+use by_address::ByAddress;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -28,8 +29,8 @@ fn clone_tuple<U: Clone, V: Clone>((u, v): (&U, &V)) -> (U, V) {
     (u.clone(), v.clone())
 }
 
-fn element_key(e: &ElementRc) -> usize {
-    &**e as *const RefCell<Element> as usize
+fn element_key(e: ElementRc) -> ByAddress<ElementRc> {
+    ByAddress(e)
 }
 
 fn inline_element(
@@ -58,7 +59,7 @@ fn inline_element(
 
     // Map the old element to the new
     let mut mapping = HashMap::new();
-    mapping.insert(element_key(&inlined_component.root_element), elem.clone());
+    mapping.insert(element_key(inlined_component.root_element.clone()), elem.clone());
 
     let mut new_children = vec![];
     new_children
@@ -87,7 +88,7 @@ fn inline_element(
 
     // Now fixup all binding and reference
     for (key, e) in &mapping {
-        if *key == element_key(&inlined_component.root_element) {
+        if *key == element_key(inlined_component.root_element.clone()) {
             continue; // the root has been processed
         }
         for (_, expr) in &mut e.borrow_mut().bindings {
@@ -116,7 +117,7 @@ fn inline_element(
 // Duplicate the element elem and all its children. And fill the mapping to point from the old to the new
 fn duplicate_element_with_mapping(
     element: &ElementRc,
-    mapping: &mut HashMap<usize, ElementRc>,
+    mapping: &mut HashMap<ByAddress<ElementRc>, ElementRc>,
     root_component: &Rc<Component>,
 ) -> ElementRc {
     let elem = element.borrow();
@@ -146,19 +147,22 @@ fn duplicate_element_with_mapping(
             .map(|t| duplicate_transition(t, mapping, root_component))
             .collect(),
     }));
-    mapping.insert(element_key(element), new.clone());
+    mapping.insert(element_key(element.clone()), new.clone());
     new
 }
 
 fn fixup_reference(
     NamedReference { element, .. }: &mut NamedReference,
-    mapping: &HashMap<usize, ElementRc>,
+    mapping: &HashMap<ByAddress<ElementRc>, ElementRc>,
 ) {
-    *element =
-        element.upgrade().and_then(|e| mapping.get(&element_key(&e))).map(Rc::downgrade).unwrap();
+    *element = element
+        .upgrade()
+        .and_then(|e| mapping.get(&element_key(e.clone())))
+        .map(Rc::downgrade)
+        .unwrap();
 }
 
-fn fixup_binding(val: &mut Expression, mapping: &HashMap<usize, ElementRc>) {
+fn fixup_binding(val: &mut Expression, mapping: &HashMap<ByAddress<ElementRc>, ElementRc>) {
     val.visit_mut(|sub| fixup_binding(sub, mapping));
     match val {
         Expression::PropertyReference(r) => fixup_reference(r, mapping),
@@ -167,7 +171,10 @@ fn fixup_binding(val: &mut Expression, mapping: &HashMap<usize, ElementRc>) {
     }
 }
 
-fn fold_binding(val: &Expression, mapping: &HashMap<usize, ElementRc>) -> Expression {
+fn fold_binding(
+    val: &Expression,
+    mapping: &HashMap<ByAddress<ElementRc>, ElementRc>,
+) -> Expression {
     let mut new_val = val.clone();
     fixup_binding(&mut new_val, mapping);
     new_val
@@ -175,7 +182,7 @@ fn fold_binding(val: &Expression, mapping: &HashMap<usize, ElementRc>) -> Expres
 
 fn duplicate_transition(
     t: &Transition,
-    mapping: &mut HashMap<usize, Rc<RefCell<Element>>>,
+    mapping: &mut HashMap<ByAddress<ElementRc>, Rc<RefCell<Element>>>,
     root_component: &Rc<Component>,
 ) -> Transition {
     Transition {
