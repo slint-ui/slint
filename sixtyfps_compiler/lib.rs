@@ -70,7 +70,7 @@ pub fn compile_syntax_node<DocNode: Into<parser::syntax_nodes::Document>>(
                 .iter()
                 .map(|path| {
                     let path = if path.is_relative() {
-                        let mut abs_path = diagnostics.current_path.clone();
+                        let mut abs_path = diagnostics.current_path.as_ref().clone();
                         abs_path.pop();
                         abs_path.push(path);
                         abs_path

@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::rc::Rc;
 
 #[derive(Debug, Clone, Default)]
 pub struct Span {
@@ -45,7 +46,7 @@ pub enum Diagnostic {
 #[derive(Default, Debug)]
 pub struct FileDiagnostics {
     pub inner: Vec<Diagnostic>,
-    pub current_path: std::path::PathBuf,
+    pub current_path: Rc<std::path::PathBuf>,
     pub source: Option<String>,
 }
 
@@ -181,7 +182,7 @@ impl FileDiagnostics {
     }
 
     pub fn new_from_error(path: std::path::PathBuf, err: std::io::Error) -> Self {
-        Self { inner: vec![err.into()], current_path: path, source: None }
+        Self { inner: vec![err.into()], current_path: Rc::new(path), source: None }
     }
 }
 
@@ -212,7 +213,7 @@ impl quote::ToTokens for FileDiagnostics {
 
 #[derive(Default)]
 pub struct BuildDiagnostics {
-    per_input_file_diagnostics: HashMap<PathBuf, FileDiagnostics>,
+    per_input_file_diagnostics: HashMap<Rc<PathBuf>, FileDiagnostics>,
     internal_errors: Option<FileDiagnostics>,
 }
 
@@ -230,7 +231,7 @@ impl BuildDiagnostics {
     pub fn push_internal_error(&mut self, err: Diagnostic) {
         self.internal_errors
             .get_or_insert_with(|| FileDiagnostics {
-                current_path: "[internal error]".into(),
+                current_path: Rc::new("[internal error]".into()),
                 ..Default::default()
             })
             .inner

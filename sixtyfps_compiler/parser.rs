@@ -607,7 +607,7 @@ pub fn parse(source: String, path: Option<&std::path::Path>) -> (SyntaxNode, Fil
     let mut p = DefaultParser::new(source);
     document::parse_document(&mut p);
     if let Some(path) = path {
-        p.diags.current_path = path.to_path_buf();
+        p.diags.current_path = std::rc::Rc::new(path.to_path_buf());
     }
     (SyntaxNode::new_root(p.builder.finish()), p.diags)
 }
