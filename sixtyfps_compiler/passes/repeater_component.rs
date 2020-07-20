@@ -2,12 +2,10 @@
 Make sure that the Repeated expression are just components without any chilodren
  */
 
-use crate::diagnostics::FileDiagnostics;
-
 use crate::{object_tree::*, typeregister::Type};
 use std::{cell::RefCell, rc::Rc};
 
-pub fn create_repeater_components(component: &Rc<Component>, _diag: &mut FileDiagnostics) {
+pub fn create_repeater_components(component: &Rc<Component>) {
     recurse_elem(&component.root_element, &(), &mut |elem, _| {
         if elem.borrow().repeated.is_none() {
             return;
@@ -35,7 +33,7 @@ pub fn create_repeater_components(component: &Rc<Component>, _diag: &mut FileDia
         recurse_elem(&comp.root_element, &(), &mut |e, _| {
             e.borrow_mut().enclosing_component = weak.clone()
         });
-        create_repeater_components(&comp, _diag);
+        create_repeater_components(&comp);
         elem.base_type = Type::Component(comp);
     });
 }

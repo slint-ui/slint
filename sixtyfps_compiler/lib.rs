@@ -110,6 +110,6 @@ pub fn run_passes(
     if compiler_config.embed_resources {
         passes::collect_resources::collect_resources(&doc.root_component);
     }
-    passes::repeater_component::create_repeater_components(&doc.root_component, diag);
+    passes::repeater_component::create_repeater_components(&doc.root_component);
     passes::move_declarations::move_declarations(&doc.root_component);
 }
