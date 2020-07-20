@@ -95,6 +95,12 @@ fn parse_element_content(p: &mut impl Parser) {
                 SyntaxKind::LParent if p.peek().as_str() == "if" => {
                     parse_if_element(&mut *p);
                 }
+                SyntaxKind::LBracket if p.peek().as_str() == "states" => {
+                    parse_states(&mut *p);
+                }
+                SyntaxKind::LBracket if p.peek().as_str() == "transitions" => {
+                    parse_transitions(&mut *p);
+                }
                 _ => {
                     p.consume();
                     p.error("FIXME");
@@ -155,6 +161,7 @@ fn parse_repeated_element(p: &mut impl Parser) {
     parse_element(&mut *p);
 }
 
+#[cfg_attr(test, parser_test)]
 /// ```test,ConditionalElement
 /// if (condition) : Elem { }
 /// if (foo ? bar : xx) : Elem { foo:bar; Elem {}}
@@ -330,6 +337,114 @@ fn parse_property_animation(p: &mut impl Parser) {
             _ => {
                 p.consume();
                 p.error("Only bindings are allowed in animations");
+            }
+        }
+    }
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,States
+/// states []
+/// states [ foo when bar : { x:y; } another_state : { x:z; }]
+/// ```
+fn parse_states(p: &mut impl Parser) {
+    debug_assert_eq!(p.peek().as_str(), "states");
+    let mut p = p.start_node(SyntaxKind::States);
+    p.consume(); // "states"
+    p.expect(SyntaxKind::LBracket);
+    while parse_state(&mut *p) {}
+    p.expect(SyntaxKind::RBracket);
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,State
+/// foo : { x: 1px + 2px; aaa.y: {1px + 2px} }
+/// foo when bar == 1:  { color: blue; foo.color: red;   }
+/// ```
+fn parse_state(p: &mut impl Parser) -> bool {
+    if p.nth(0) != SyntaxKind::Identifier {
+        return false;
+    }
+    let mut p = p.start_node(SyntaxKind::State);
+    {
+        let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
+        p.expect(SyntaxKind::Identifier);
+    }
+    if p.peek().as_str() == "when" {
+        p.consume();
+        parse_expression(&mut *p)
+    }
+    p.expect(SyntaxKind::Colon);
+    if !p.expect(SyntaxKind::LBrace) {
+        return false;
+    }
+
+    loop {
+        match p.nth(0) {
+            SyntaxKind::RBrace => {
+                p.consume();
+                return true;
+            }
+            SyntaxKind::Eof => return false,
+            _ => {
+                let mut p = p.start_node(SyntaxKind::StatePropertyChange);
+                parse_qualified_name(&mut *p);
+                p.expect(SyntaxKind::Colon);
+                parse_binding_expression(&mut *p);
+            }
+        }
+    }
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,Transitions
+/// transitions []
+/// transitions [to checked: {animate x { duration: 88ms; }} out checked: {animate x { duration: 88ms; }}]
+/// ```
+fn parse_transitions(p: &mut impl Parser) {
+    debug_assert_eq!(p.peek().as_str(), "transitions");
+    let mut p = p.start_node(SyntaxKind::Transitions);
+    p.consume(); // "transitions"
+    p.expect(SyntaxKind::LBracket);
+    while p.nth(0) != SyntaxKind::RBracket && parse_transition(&mut *p) {}
+    p.expect(SyntaxKind::RBracket);
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,Transition
+/// to pressed : {}
+/// to pressed: { animate x { duration: 88ms; } }
+/// out pressed: { animate x { duration: 88ms; } }
+/// ```
+fn parse_transition(p: &mut impl Parser) -> bool {
+    if !matches!(p.peek().as_str(), "to" | "out") {
+        p.error("Expected 'to' or 'out' to declare a transition");
+        return false;
+    }
+    let mut p = p.start_node(SyntaxKind::Transition);
+    p.consume(); // "to" or "out"
+    {
+        let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
+        p.expect(SyntaxKind::Identifier);
+    }
+    p.expect(SyntaxKind::Colon);
+    if !p.expect(SyntaxKind::LBrace) {
+        return false;
+    }
+
+    loop {
+        match p.nth(0) {
+            SyntaxKind::RBrace => {
+                p.consume();
+                return true;
+            }
+            SyntaxKind::Eof => return false,
+            SyntaxKind::Identifier if p.peek().as_str() == "animate" => {
+                parse_property_animation(&mut *p);
+            }
+            _ => {
+                p.consume();
+                p.error("Expected 'animate'");
             }
         }
     }

@@ -252,7 +252,9 @@ declare_syntax! {
         Component -> [ Element ],
         /// Note: This is in fact the same as Component as far as the parser is concerned
         SubElement -> [ Element ],
-        Element -> [ QualifiedName, *PropertyDeclaration, *Binding, *SignalConnection, *SignalDeclaration, *SubElement, *RepeatedElement, *PropertyAnimation ],
+        Element -> [ QualifiedName, *PropertyDeclaration, *Binding, *SignalConnection,
+                     *SignalDeclaration, *SubElement, *RepeatedElement, *PropertyAnimation,
+                     *States, *Transitions ],
         RepeatedElement -> [ ?DeclaredIdentifier, ?RepeatedIndex, Expression , Element],
         RepeatedIndex -> [],
         ConditionalElement -> [ Expression , Element],
@@ -291,6 +293,16 @@ declare_syntax! {
         ObjectLiteral -> [ *ObjectMember ],
         /// `foo: bar` inside an ObjectLiteral
         ObjectMember -> [ Expression ],
+        /// `states: [...]`
+        States -> [*State],
+        /// The DeclaredIdentifier is the state name. The Expression, if any, is the condition.
+        State -> [DeclaredIdentifier, ?Expression, *StatePropertyChange],
+        /// binding within a state
+        StatePropertyChange -> [ QualifiedName, BindingExpression ],
+        /// `transitions: [...]`
+        Transitions -> [*Transition],
+        /// There is an idientfier "to" or "out", the DeclaredIdentifier is the state name
+        Transition -> [DeclaredIdentifier, *PropertyAnimation],
     }
 }
 
