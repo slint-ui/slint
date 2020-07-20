@@ -256,31 +256,35 @@ impl Element {
         }
 
         for anim in node.PropertyAnimation() {
-            let prop_name_token =
-                anim.DeclaredIdentifier().child_token(SyntaxKind::Identifier).unwrap();
-
-            let prop_name = prop_name_token.text().to_string();
-            let prop_type = r.lookup_property(&prop_name);
-
-            let anim_type = tr.property_animation_type_for_property(prop_type);
-            if !matches!(anim_type, Type::Builtin(..)) {
+            if let Some(star) = anim.child_token(SyntaxKind::Star) {
                 diag.push_error(
-                    format!("'{}' is not an animatable property", prop_name),
-                    &prop_name_token,
+                    "catch-all property is only allowed within transitions".into(),
+                    &star,
                 )
-            } else {
-                let base =
-                    QualifiedTypeName { members: vec![anim_type.as_builtin().class_name.clone()] };
-                let mut anim_element = Element {
-                    id: "".into(),
-                    base_type: anim_type,
-                    node: None,
-                    ..Default::default()
-                };
-                anim_element.parse_bindings(&base, anim.Binding(), diag);
-                let anim_element = Rc::new(RefCell::new(anim_element));
-                if r.property_animations.insert(prop_name, anim_element.clone()).is_some() {
-                    diag.push_error("Duplicated animation".into(), &prop_name_token)
+            };
+            for prop_name_token in anim.QualifiedName() {
+                match QualifiedTypeName::from_node(prop_name_token.clone()).members.as_slice() {
+                    [prop_name] => {
+                        let prop_type = r.lookup_property(&prop_name);
+                        if let Some(anim_element) = animation_element_from_node(
+                            &anim,
+                            &prop_name_token,
+                            prop_type,
+                            diag,
+                            tr,
+                        ) {
+                            if r.property_animations
+                                .insert(prop_name.clone(), anim_element)
+                                .is_some()
+                            {
+                                diag.push_error("Duplicated animation".into(), &prop_name_token)
+                            }
+                        }
+                    }
+                    _ => diag.push_error(
+                        "Can only refer to property in the current element".into(),
+                        &prop_name_token,
+                    ),
                 }
             }
         }
@@ -328,7 +332,8 @@ impl Element {
                 property_changes: state
                     .StatePropertyChange()
                     .map(|s| {
-                        let ne = lookup_property_from_qualified_name(s.QualifiedName(), &r, diag);
+                        let (ne, _) =
+                            lookup_property_from_qualified_name(s.QualifiedName(), &r, diag);
                         (ne, Expression::Uncompiled(s.BindingExpression().into()))
                     })
                     .collect(),
@@ -337,6 +342,9 @@ impl Element {
         }
 
         for trs in node.Transitions().flat_map(|s| s.Transition()) {
+            if let Some(star) = trs.child_token(SyntaxKind::Star) {
+                diag.push_error("TODO: catch-all not yet implemented".into(), &star);
+            };
             let trans = Transition {
                 is_out: trs.child_text(SyntaxKind::Identifier).unwrap_or_default() == "out",
                 state_id: trs
@@ -345,18 +353,12 @@ impl Element {
                     .unwrap_or_default(),
                 property_animations: trs
                     .PropertyAnimation()
-                    .map(|pa| {
-                        // TODO: do that properly
-                        (
-                            NamedReference {
-                                element: Rc::downgrade(&r),
-                                name: pa
-                                    .DeclaredIdentifier()
-                                    .child_text(SyntaxKind::Identifier)
-                                    .unwrap_or_default(),
-                            },
-                            Default::default(),
-                        )
+                    .flat_map(|pa| pa.QualifiedName().map(move |qn| (pa.clone(), qn)))
+                    .filter_map(|(pa, qn)| {
+                        let (ne, prop_type) =
+                            lookup_property_from_qualified_name(qn.clone(), &r, diag);
+                        animation_element_from_node(&pa, &qn, prop_type, diag, tr)
+                            .map(|anim_element| (ne, anim_element))
                     })
                     .collect(),
             };
@@ -453,6 +455,33 @@ impl Element {
     }
 }
 
+fn animation_element_from_node(
+    anim: &syntax_nodes::PropertyAnimation,
+    prop_name: &syntax_nodes::QualifiedName,
+    prop_type: Type,
+    diag: &mut FileDiagnostics,
+    tr: &TypeRegister,
+) -> Option<ElementRc> {
+    if prop_type == Type::Invalid {
+        debug_assert!(diag.has_error()); // Error should have been reported already
+        return None;
+    }
+    let anim_type = tr.property_animation_type_for_property(prop_type);
+    if !matches!(anim_type, Type::Builtin(..)) {
+        diag.push_error(
+            format!("'{}' is not an animatable property", prop_name.text().to_string().trim()),
+            prop_name,
+        );
+        None
+    } else {
+        let base = QualifiedTypeName { members: vec![anim_type.as_builtin().class_name.clone()] };
+        let mut anim_element =
+            Element { id: "".into(), base_type: anim_type, node: None, ..Default::default() };
+        anim_element.parse_bindings(&base, anim.Binding(), diag);
+        Some(Rc::new(RefCell::new(anim_element)))
+    }
+}
+
 #[derive(Default, Debug, Clone)]
 pub struct QualifiedTypeName {
     members: Vec<String>,
@@ -481,30 +510,32 @@ fn lookup_property_from_qualified_name(
     node: syntax_nodes::QualifiedName,
     r: &Rc<RefCell<Element>>,
     diag: &mut FileDiagnostics,
-) -> NamedReference {
+) -> (NamedReference, Type) {
     let qualname = QualifiedTypeName::from_node(node.clone());
     match qualname.members.as_slice() {
         [prop_name] => {
-            if !r.borrow().lookup_property(prop_name.as_ref()).is_property_type() {
+            let ty = r.borrow().lookup_property(prop_name.as_ref());
+            if !ty.is_property_type() {
                 diag.push_error(format!("'{}' is not a valid property", qualname), &node);
             }
-            NamedReference { element: Rc::downgrade(&r), name: String::default() }
+            (NamedReference { element: Rc::downgrade(&r), name: String::default() }, ty)
         }
         [elem_id, prop_name] => {
-            let element = if let Some(element) = find_element_by_id(&r, elem_id.as_ref()) {
-                if !element.borrow().lookup_property(prop_name.as_ref()).is_property_type() {
+            let (element, ty) = if let Some(element) = find_element_by_id(&r, elem_id.as_ref()) {
+                let ty = element.borrow().lookup_property(prop_name.as_ref());
+                if !ty.is_property_type() {
                     diag.push_error(format!("'{}' not found in '{}'", prop_name, elem_id), &node);
                 }
-                Rc::downgrade(&element)
+                (Rc::downgrade(&element), ty)
             } else {
                 diag.push_error(format!("'{}' is not a valid element id", elem_id), &node);
-                Weak::new()
+                (Weak::new(), Type::Invalid)
             };
-            NamedReference { element, name: prop_name.clone() }
+            (NamedReference { element, name: prop_name.clone() }, ty)
         }
         _ => {
             diag.push_error(format!("'{}' is not a valid property", qualname), &node);
-            NamedReference { element: Default::default(), name: String::default() }
+            (NamedReference { element: Default::default(), name: String::default() }, Type::Invalid)
         }
     }
 }

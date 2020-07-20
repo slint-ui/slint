@@ -70,6 +70,7 @@ pub fn parse_element(p: &mut impl Parser) -> bool {
 /// signal foobar;
 /// property<int> width;
 /// animate someProp { }
+/// animate * { }
 /// ```
 fn parse_element_content(p: &mut impl Parser) {
     loop {
@@ -86,7 +87,7 @@ fn parse_element_content(p: &mut impl Parser) {
                 SyntaxKind::Identifier if p.peek().as_str() == "signal" => {
                     parse_signal_declaration(&mut *p);
                 }
-                SyntaxKind::Identifier if p.peek().as_str() == "animate" => {
+                SyntaxKind::Identifier | SyntaxKind::Star if p.peek().as_str() == "animate" => {
                     parse_property_animation(&mut *p);
                 }
                 SyntaxKind::LAngle if p.peek().as_str() == "property" => {
@@ -309,15 +310,22 @@ fn parse_property_declaration(p: &mut impl Parser) {
 #[cfg_attr(test, parser_test)]
 /// ```test,PropertyAnimation
 /// animate x { duration: 1000; }
+/// animate x, foo.y {  }
+/// animate * {  }
 /// ```
 fn parse_property_animation(p: &mut impl Parser) {
     debug_assert_eq!(p.peek().as_str(), "animate");
     let mut p = p.start_node(SyntaxKind::PropertyAnimation);
     p.consume(); // animate
-    {
-        let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
-        p.expect(SyntaxKind::Identifier);
-    }
+    if p.nth(0) == SyntaxKind::Star {
+        p.consume();
+    } else {
+        parse_qualified_name(&mut *p);
+        while p.nth(0) == SyntaxKind::Comma {
+            p.consume();
+            parse_qualified_name(&mut *p);
+        }
+    };
     p.expect(SyntaxKind::LBrace);
 
     loop {

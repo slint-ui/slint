@@ -266,8 +266,10 @@ declare_syntax! {
         ConditionalElement -> [ Expression , Element],
         SignalDeclaration -> [ DeclaredIdentifier ],
         SignalConnection -> [ CodeBlock ],
+        /// Declaration of a propery. QualifiedName is the type.
         PropertyDeclaration-> [ QualifiedName , DeclaredIdentifier, ?BindingExpression ],
-        PropertyAnimation-> [ DeclaredIdentifier, *Binding ],
+        /// QualifiedName are the properties name
+        PropertyAnimation-> [ *QualifiedName, *Binding ],
         /// wraps Identifiers, like `Rectangle` or `SomeModule.SomeType`
         QualifiedName-> [],
         /// Wraps single identifier (to disambiguate when there are other identifiar in the production)
