@@ -11,11 +11,12 @@ use crate::object_tree::*;
 use crate::parser::{syntax_nodes, Spanned, SyntaxKind, SyntaxNode, SyntaxNodeEx};
 use crate::typeregister::Type;
 use by_address::ByAddress;
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, collections::HashSet, rc::Rc};
 
 #[derive(Default)]
+/// Helper type to trace through a document and locate all the used components.
 struct ComponentCollection {
-    component_types: HashMap<ByAddress<Rc<Component>>, Rc<Component>>,
+    components_used: HashSet<ByAddress<Rc<Component>>>,
 }
 
 impl ComponentCollection {
@@ -23,10 +24,11 @@ impl ComponentCollection {
         doc.inner_components.iter().for_each(|component| self.add_component(component));
     }
     fn add_component(&mut self, component: &Rc<Component>) {
-        match self.component_types.entry(ByAddress(component.clone())) {
-            std::collections::hash_map::Entry::Occupied(_) => return,
-            std::collections::hash_map::Entry::Vacant(ve) => {
-                ve.insert(component.clone());
+        let component_key = ByAddress(component.clone());
+        match self.components_used.get(&component_key) {
+            Some(_) => return,
+            None => {
+                self.components_used.insert(component_key);
                 self.add_types_used_in_components(component);
             }
         };
@@ -44,7 +46,7 @@ impl ComponentCollection {
     }
 
     fn iter(&self) -> impl Iterator<Item = &Rc<Component>> {
-        self.component_types.values()
+        self.components_used.iter().map(|byaddr_key| &**byaddr_key)
     }
 }
 
