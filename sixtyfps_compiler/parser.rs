@@ -602,6 +602,12 @@ impl Spanned for SyntaxToken {
     }
 }
 
+impl Spanned for Option<SyntaxNode> {
+    fn span(&self) -> crate::diagnostics::Span {
+        self.as_ref().map(|n| n.span()).unwrap_or_default()
+    }
+}
+
 // Actual parser
 pub fn parse(source: String, path: Option<&std::path::Path>) -> (SyntaxNode, FileDiagnostics) {
     let mut p = DefaultParser::new(source);

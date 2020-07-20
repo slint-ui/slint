@@ -64,7 +64,7 @@ pub fn generate(component: &Rc<Component>, diag: &mut BuildDiagnostics) -> Optio
         } else {
             declared_property_vars.push(prop_ident.clone());
             let rust_property_type =
-                rust_type(&property_decl.property_type, &property_decl.type_location)
+                rust_type(&property_decl.property_type, &property_decl.type_node.span())
                     .unwrap_or_else(|err| {
                         diag.push_internal_error(err.into());
                         quote!().into()

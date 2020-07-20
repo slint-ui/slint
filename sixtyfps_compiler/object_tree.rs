@@ -4,7 +4,7 @@
 
 use crate::diagnostics::FileDiagnostics;
 use crate::expression_tree::{Expression, NamedReference};
-use crate::parser::{syntax_nodes, Spanned, SyntaxKind, SyntaxNodeEx};
+use crate::parser::{syntax_nodes, Spanned, SyntaxKind, SyntaxNode, SyntaxNodeEx};
 use crate::typeregister::{Type, TypeRegister};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -100,7 +100,7 @@ impl Component {
 #[derive(Clone, Debug, Default)]
 pub struct PropertyDeclaration {
     pub property_type: Type,
-    pub type_location: crate::diagnostics::Span,
+    pub type_node: Option<SyntaxNode>,
     pub expose_in_public_api: bool,
 }
 
@@ -175,7 +175,7 @@ impl Element {
         for prop_decl in node.PropertyDeclaration() {
             let qualified_type_node = prop_decl.QualifiedName();
             let type_span = qualified_type_node.span();
-            let qualified_type = QualifiedTypeName::from_node(qualified_type_node);
+            let qualified_type = QualifiedTypeName::from_node(qualified_type_node.clone());
 
             let prop_type = tr.lookup_qualified(&qualified_type.members);
 
@@ -204,7 +204,7 @@ impl Element {
                 prop_name.clone(),
                 PropertyDeclaration {
                     property_type: prop_type,
-                    type_location: type_span,
+                    type_node: Some(qualified_type_node.into()),
                     ..Default::default()
                 },
             );
@@ -226,7 +226,7 @@ impl Element {
                 name,
                 PropertyDeclaration {
                     property_type: Type::Signal,
-                    type_location: sig_decl.span(),
+                    type_node: Some(sig_decl.into()),
                     ..Default::default()
                 },
             );

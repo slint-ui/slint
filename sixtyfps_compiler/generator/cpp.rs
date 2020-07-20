@@ -407,7 +407,7 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Bui
             let cpp_type = property_decl.property_type.cpp_type().unwrap_or_else(|| {
                 let err = CompilerDiagnostic {
                     message: "Cannot map property type to C++".into(),
-                    span: property_decl.type_location.clone(),
+                    span: property_decl.type_node.span(),
                 };
 
                 diag.push_internal_error(err.into());
