@@ -129,10 +129,9 @@ mod cpp_ast {
     }
 }
 
-use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic};
+use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic, Spanned};
 use crate::expression_tree::Expression;
 use crate::object_tree::{Component, Element, ElementRc, RepeatedElementInfo};
-use crate::parser::Spanned;
 use crate::typeregister::Type;
 use cpp_ast::*;
 use std::collections::HashMap;

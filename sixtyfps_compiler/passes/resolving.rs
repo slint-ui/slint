@@ -5,10 +5,10 @@
 //!
 //! Most of the code for the resolving actualy lies in the expression_tree module
 
-use crate::diagnostics::FileDiagnostics;
+use crate::diagnostics::{FileDiagnostics, Spanned};
 use crate::expression_tree::*;
 use crate::object_tree::*;
-use crate::parser::{syntax_nodes, Spanned, SyntaxKind, SyntaxNode, SyntaxNodeEx};
+use crate::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxNodeEx};
 use crate::typeregister::Type;
 use by_address::ByAddress;
 use std::{collections::HashMap, collections::HashSet, rc::Rc};
@@ -200,7 +200,7 @@ impl Expression {
             .or_else(|| {
                 node.child_text(SyntaxKind::StringLiteral).map(|s| {
                     unescape_string(&s).map(Self::StringLiteral).unwrap_or_else(|| {
-                        ctx.diag.push_error("Cannot parse string literal".into(), node.span());
+                        ctx.diag.push_error("Cannot parse string literal".into(), &node);
                         Self::Invalid
                     })
                 })
@@ -210,7 +210,7 @@ impl Expression {
                     .map(parse_number_literal)
                     .transpose()
                     .unwrap_or_else(|e| {
-                        ctx.diag.push_error(e, node.span());
+                        ctx.diag.push_error(e, &node);
                         Some(Self::Invalid)
                     })
             })
@@ -222,7 +222,7 @@ impl Expression {
                             to: Type::Color,
                         })
                         .unwrap_or_else(|| {
-                            ctx.diag.push_error("Invalid color literal".into(), node.span());
+                            ctx.diag.push_error("Invalid color literal".into(), &node);
                             Self::Invalid
                         })
                 })
@@ -253,7 +253,7 @@ impl Expression {
         match node.child_text(SyntaxKind::Identifier).as_ref().map(|x| x.as_str()) {
             None => {
                 debug_assert!(false, "the parser should not allow that");
-                ctx.diag.push_error("Missing bang keyword".into(), node.span());
+                ctx.diag.push_error("Missing bang keyword".into(), &node);
                 return Self::Invalid;
             }
             Some("img") => {
@@ -264,10 +264,7 @@ impl Expression {
                 {
                     Expression::StringLiteral(p) => p,
                     _ => {
-                        ctx.diag.push_error(
-                            "img! Must be followed by a valid path".into(),
-                            node.span(),
-                        );
+                        ctx.diag.push_error("img! Must be followed by a valid path".into(), &node);
                         return Self::Invalid;
                     }
                 };
@@ -294,7 +291,7 @@ impl Expression {
                 Expression::ResourceReference { absolute_source_path }
             }
             Some(x) => {
-                ctx.diag.push_error(format!("Unknown bang keyword `{}`", x), node.span());
+                ctx.diag.push_error(format!("Unknown bang keyword `{}`", x), &node);
                 return Self::Invalid;
             }
         }
@@ -334,7 +331,7 @@ impl Expression {
             return maybe_lookup_object(prop, it, ctx);
         } else if matches!(property, Type::Signal) {
             if let Some(x) = it.next() {
-                ctx.diag.push_error("Cannot access fields of signal".into(), x.span())
+                ctx.diag.push_error("Cannot access fields of signal".into(), &x)
             }
             return Self::SignalReference(NamedReference {
                 element: Rc::downgrade(&ctx.component.root_element),
@@ -348,7 +345,7 @@ impl Expression {
             let prop_name = if let Some(second) = it.next() {
                 second
             } else {
-                ctx.diag.push_error("Cannot take reference of an element".into(), node.span());
+                ctx.diag.push_error("Cannot take reference of an element".into(), &node);
                 return Self::Invalid;
             };
 
@@ -361,17 +358,14 @@ impl Expression {
                 return maybe_lookup_object(prop, it, ctx);
             } else if matches!(p, Type::Signal) {
                 if let Some(x) = it.next() {
-                    ctx.diag.push_error("Cannot access fields of signal".into(), x.span())
+                    ctx.diag.push_error("Cannot access fields of signal".into(), &x)
                 }
                 return Self::SignalReference(NamedReference {
                     element: Rc::downgrade(&elem),
                     name: prop_name.to_string(),
                 });
             } else {
-                ctx.diag.push_error(
-                    format!("Cannot access property '{}'", prop_name),
-                    prop_name.span(),
-                );
+                ctx.diag.push_error(format!("Cannot access property '{}'", prop_name), &prop_name);
                 return Self::Invalid;
             }
         }
@@ -389,7 +383,7 @@ impl Expression {
         }
 
         if it.next().is_some() {
-            ctx.diag.push_error(format!("Cannot access id '{}'", first_str), node.span());
+            ctx.diag.push_error(format!("Cannot access id '{}'", first_str), &node);
             return Expression::Invalid;
         }
 
@@ -411,7 +405,7 @@ impl Expression {
             }
         }
 
-        ctx.diag.push_error(format!("Unknown unqualified identifier '{}'", first_str), node.span());
+        ctx.diag.push_error(format!("Unknown unqualified identifier '{}'", first_str), &node);
 
         Self::Invalid
     }
@@ -423,8 +417,7 @@ impl Expression {
         let (lhs_n, rhs_n) = node.Expression();
         let lhs = Self::from_expression_node(lhs_n.into(), ctx);
         if !matches!(lhs, Expression::PropertyReference{..}) {
-            ctx.diag
-                .push_error("Self assignement need to be done on a property".into(), node.span());
+            ctx.diag.push_error("Self assignement need to be done on a property".into(), &node);
         }
         let rhs = Self::from_expression_node(rhs_n.clone().into(), ctx).maybe_convert_to(
             lhs.ty(),
@@ -634,12 +627,12 @@ fn maybe_lookup_object(
                         name: next.to_string(),
                     }
                 } else {
-                    ctx.diag.push_error("Cannot access this field".into(), next.span());
+                    ctx.diag.push_error("Cannot access this field".into(), &next);
                     return Expression::Invalid;
                 }
             }
             _ => {
-                ctx.diag.push_error("Cannot access fields of property".into(), next.span());
+                ctx.diag.push_error("Cannot access fields of property".into(), &next);
                 return Expression::Invalid;
             }
         }

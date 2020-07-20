@@ -2,9 +2,9 @@
  This module contains the intermediate representation of the code in the form of an object tree
 */
 
-use crate::diagnostics::FileDiagnostics;
+use crate::diagnostics::{FileDiagnostics, Spanned};
 use crate::expression_tree::{Expression, NamedReference};
-use crate::parser::{syntax_nodes, Spanned, SyntaxKind, SyntaxNode, SyntaxNodeEx};
+use crate::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxNodeEx};
 use crate::typeregister::{Type, TypeRegister};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -135,6 +135,12 @@ pub struct Element {
     pub node: Option<syntax_nodes::Element>,
 }
 
+impl Spanned for Element {
+    fn span(&self) -> crate::diagnostics::Span {
+        self.node.as_ref().map(|n| n.span()).unwrap_or_default()
+    }
+}
+
 #[derive(Debug, Clone)]
 /// If the parent element is a repeated element, this has information about the models
 pub struct RepeatedElementInfo {
@@ -163,7 +169,7 @@ impl Element {
             base_type: match parent_type.lookup_type_for_child_element(&base.to_string(), tr) {
                 Ok(ty) => ty,
                 Err(err) => {
-                    diag.push_error(err, node.QualifiedName().span());
+                    diag.push_error(err, &node.QualifiedName());
                     return ElementRc::default();
                 }
             },
@@ -174,7 +180,6 @@ impl Element {
 
         for prop_decl in node.PropertyDeclaration() {
             let qualified_type_node = prop_decl.QualifiedName();
-            let type_span = qualified_type_node.span();
             let qualified_type = QualifiedTypeName::from_node(qualified_type_node.clone());
 
             let prop_type = tr.lookup_qualified(&qualified_type.members);
@@ -183,7 +188,7 @@ impl Element {
                 Type::Invalid => {
                     diag.push_error(
                         format!("Unknown property type '{}'", qualified_type.to_string()),
-                        type_span.clone(),
+                        &qualified_type_node,
                     );
                 }
                 _ => (),
@@ -196,7 +201,7 @@ impl Element {
             if !matches!(r.lookup_property(&prop_name), Type::Invalid) {
                 diag.push_error(
                     format!("Cannot override property '{}'", prop_name),
-                    prop_name_token.span(),
+                    &prop_name_token,
                 )
             }
 
@@ -211,7 +216,7 @@ impl Element {
 
             if let Some(csn) = prop_decl.BindingExpression() {
                 if r.bindings.insert(prop_name, Expression::Uncompiled(csn.into())).is_some() {
-                    diag.push_error("Duplicated property binding".into(), prop_name_token.span());
+                    diag.push_error("Duplicated property binding".into(), &prop_name_token);
                 }
             }
         }
@@ -240,7 +245,7 @@ impl Element {
             let name = name_token.text().to_string();
             let prop_type = r.lookup_property(&name);
             if !matches!(prop_type, Type::Signal) {
-                diag.push_error(
+                diag.push_error_with_span(
                     format!("'{}' is not a signal in {}", name, base),
                     crate::diagnostics::Span::new(name_token.text_range().start().into()),
                 );
@@ -249,7 +254,7 @@ impl Element {
                 .insert(name, Expression::Uncompiled(con_node.CodeBlock().into()))
                 .is_some()
             {
-                diag.push_error(
+                diag.push_error_with_span(
                     "Duplicated signal".into(),
                     crate::diagnostics::Span::new(name_token.text_range().start().into()),
                 );
@@ -267,7 +272,7 @@ impl Element {
             if !matches!(anim_type, Type::Builtin(..)) {
                 diag.push_error(
                     format!("'{}' is not an animatable property", prop_name),
-                    prop_name_token.span(),
+                    &prop_name_token,
                 )
             } else {
                 let base =
@@ -281,7 +286,7 @@ impl Element {
                 anim_element.parse_bindings(&base, anim.Binding(), diag);
                 let anim_element = Rc::new(RefCell::new(anim_element));
                 if r.property_animations.insert(prop_name, anim_element.clone()).is_some() {
-                    diag.push_error(
+                    diag.push_error_with_span(
                         "Duplicated animation".into(),
                         crate::diagnostics::Span::new(prop_name_token.text_range().start().into()),
                     )
@@ -437,7 +442,7 @@ impl Element {
             let name = name_token.text().to_string();
             let prop_type = self.lookup_property(&name);
             if !prop_type.is_property_type() {
-                diag.push_error(
+                diag.push_error_with_span(
                     match prop_type {
                         Type::Invalid => format!("Unknown property {} in {}", name, base),
                         Type::Signal => format!("'{}' is a signal. Use `=>` to connect", name),
@@ -451,7 +456,7 @@ impl Element {
                 .insert(name, Expression::Uncompiled(b.BindingExpression().into()))
                 .is_some()
             {
-                diag.push_error(
+                diag.push_error_with_span(
                     "Duplicated property binding".into(),
                     crate::diagnostics::Span::new(name_token.text_range().start().into()),
                 );
@@ -493,27 +498,24 @@ fn lookup_property_from_qualified_name(
     match qualname.members.as_slice() {
         [prop_name] => {
             if !r.borrow().lookup_property(prop_name.as_ref()).is_property_type() {
-                diag.push_error(format!("'{}' is not a valid property", qualname), node.span());
+                diag.push_error(format!("'{}' is not a valid property", qualname), &node);
             }
             NamedReference { element: Rc::downgrade(&r), name: String::default() }
         }
         [elem_id, prop_name] => {
             let element = if let Some(element) = find_element_by_id(&r, elem_id.as_ref()) {
                 if !element.borrow().lookup_property(prop_name.as_ref()).is_property_type() {
-                    diag.push_error(
-                        format!("'{}' not found in '{}'", prop_name, elem_id),
-                        node.span(),
-                    );
+                    diag.push_error(format!("'{}' not found in '{}'", prop_name, elem_id), &node);
                 }
                 Rc::downgrade(&element)
             } else {
-                diag.push_error(format!("'{}' is not a valid element id", elem_id), node.span());
+                diag.push_error(format!("'{}' is not a valid element id", elem_id), &node);
                 Weak::new()
             };
             NamedReference { element, name: prop_name.clone() }
         }
         _ => {
-            diag.push_error(format!("'{}' is not a valid property", qualname), node.span());
+            diag.push_error(format!("'{}' is not a valid property", qualname), &node);
             NamedReference { element: Default::default(), name: String::default() }
         }
     }

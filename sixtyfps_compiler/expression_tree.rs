@@ -1,5 +1,5 @@
 use crate::object_tree::*;
-use crate::parser::{Spanned, SyntaxNode};
+use crate::parser::SyntaxNode;
 use crate::typeregister::BuiltinElement;
 use crate::{diagnostics::FileDiagnostics, typeregister::Type};
 use core::cell::RefCell;
@@ -455,7 +455,7 @@ impl Expression {
         } else if ty == Type::Invalid {
             self
         } else {
-            diag.push_error(format!("Cannot convert {} to {}", ty, target_type), node.span());
+            diag.push_error(format!("Cannot convert {} to {}", ty, target_type), node);
             self
         }
     }

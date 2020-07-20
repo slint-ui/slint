@@ -92,7 +92,7 @@ pub fn lower_layouts(component: &Rc<Component>, diag: &mut FileDiagnostics) {
                 {
                     Some(Expression::PathElements { elements }) => elements,
                     _ => {
-                        diag.push_error("Internal error: elements binding in PathLayout does not contain path elements expression".into(), layout_elem.borrow().span());
+                        diag.push_error("Internal error: elements binding in PathLayout does not contain path elements expression".into(), &*layout_elem.borrow());
                         return;
                     }
                 };
@@ -130,7 +130,7 @@ impl GridLayout {
         let row_vec = index_checked(&mut self.elems, row);
         let cell = index_checked(row_vec, col);
         if cell.is_some() {
-            diag.push_error(format!("Multiple elements in the same cell"), elem.borrow().span())
+            diag.push_error(format!("Multiple elements in the same cell"), &*elem.borrow())
         }
         *cell = Some(elem)
     }

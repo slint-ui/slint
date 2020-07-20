@@ -9,7 +9,7 @@ This module has different sub modules with the actual parser functions
 
 */
 
-use crate::diagnostics::FileDiagnostics;
+use crate::diagnostics::{FileDiagnostics, Spanned};
 pub use rowan::SmolStr;
 use std::convert::TryFrom;
 
@@ -199,6 +199,12 @@ macro_rules! declare_syntax {
                 }
                 impl $nodekind {
                     node_accessors!{$children}
+                }
+
+                impl Spanned for $nodekind {
+                    fn span(&self) -> crate::diagnostics::Span {
+                        self.0.span()
+                    }
                 }
             )*
         }
@@ -539,7 +545,7 @@ impl Parser for DefaultParser {
         {
             span.span = current_token.span;
         }
-        self.diags.push_error(e.into(), span);
+        self.diags.push_error_with_span(e.into(), span);
     }
 
     type Checkpoint = rowan::Checkpoint;
@@ -583,11 +589,6 @@ impl SyntaxNodeEx for SyntaxNode {
             .find(|n| n.kind() == kind)
             .and_then(|x| x.as_token().map(|x| x.text().to_string()))
     }
-}
-
-/// Returns a span.  This is implemented for tokens and nodes
-pub trait Spanned {
-    fn span(&self) -> crate::diagnostics::Span;
 }
 
 impl Spanned for SyntaxNode {

@@ -1,10 +1,9 @@
 /*! module for the Rust code generator
 */
 
-use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic};
+use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic, Spanned};
 use crate::expression_tree::{Expression, NamedReference, OperatorClass, Path};
 use crate::object_tree::{Component, ElementRc};
-use crate::parser::Spanned;
 use crate::typeregister::Type;
 use proc_macro2::TokenStream;
 use quote::quote;

@@ -28,6 +28,11 @@ impl From<proc_macro::Span> for Span {
     }
 }
 
+/// Returns a span.  This is implemented for tokens and nodes
+pub trait Spanned {
+    fn span(&self) -> crate::diagnostics::Span;
+}
+
 #[derive(thiserror::Error, Default, Debug)]
 #[error("{message}")]
 pub struct CompilerDiagnostic {
@@ -59,8 +64,11 @@ impl IntoIterator for FileDiagnostics {
 }
 
 impl FileDiagnostics {
-    pub fn push_error(&mut self, message: String, span: Span) {
+    pub fn push_error_with_span(&mut self, message: String, span: Span) {
         self.inner.push(CompilerDiagnostic { message, span }.into());
+    }
+    pub fn push_error(&mut self, message: String, source: &impl Spanned) {
+        self.push_error_with_span(message, source.span());
     }
     pub fn push_compiler_error(&mut self, error: CompilerDiagnostic) {
         self.inner.push(error.into());

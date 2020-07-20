@@ -45,7 +45,7 @@ pub fn compile_paths(
                 diag.push_error(
                     "Path elements cannot be mixed with the use of the SVG commands property."
                         .into(),
-                    path_child.borrow().span(),
+                    &*path_child.borrow(),
                 );
                 return;
             }
@@ -55,7 +55,7 @@ pub fn compile_paths(
                 _ => {
                     diag.push_error(
                         "The commands property only accepts string literals.".into(),
-                        elem.span(),
+                        &*elem,
                     );
                     return;
                 }
@@ -66,7 +66,7 @@ pub fn compile_paths(
             match path {
                 Ok(path) => Path::Events(path.into_iter().collect()),
                 Err(err) => {
-                    diag.push_error(format!("Error parsing SVG commands: {:?}", err), elem.span());
+                    diag.push_error(format!("Error parsing SVG commands: {:?}", err), &*elem);
                     return;
                 }
             }
