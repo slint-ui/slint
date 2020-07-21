@@ -52,6 +52,7 @@ fn process_file_source(
 ) -> std::io::Result<bool> {
     let (res, mut parse_diagnostics) =
         sixtyfps_compilerlib::parser::parse(source.clone(), Some(path));
+    let mut build_diags = sixtyfps_compilerlib::diagnostics::BuildDiagnostics::default();
     let mut compile_diagnostics = if !parse_diagnostics.has_error() {
         let type_registry = sixtyfps_compilerlib::typeregister::TypeRegister::builtin();
         let doc = sixtyfps_compilerlib::object_tree::Document::from_node(
@@ -61,13 +62,19 @@ fn process_file_source(
         );
 
         if !parse_diagnostics.has_error() {
+            build_diags.add(parse_diagnostics);
             let compiler_config = sixtyfps_compilerlib::CompilerConfiguration::default();
-            sixtyfps_compilerlib::run_passes(&doc, &mut parse_diagnostics, &compiler_config);
+            sixtyfps_compilerlib::run_passes(&doc, &mut build_diags, &compiler_config);
+            build_diags.into_iter().collect()
+        } else {
+            vec![parse_diagnostics]
         }
-        parse_diagnostics
     } else {
-        parse_diagnostics
+        vec![parse_diagnostics]
     };
+
+    assert_eq!(compile_diagnostics.len(), 1);
+    let mut compile_diagnostics = compile_diagnostics.remove(0);
 
     let mut success = true;
 

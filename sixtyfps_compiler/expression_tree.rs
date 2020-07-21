@@ -2,7 +2,7 @@ use crate::object_tree::*;
 use crate::parser::SyntaxNodeWithSourceFile;
 use crate::typeregister::BuiltinElement;
 use crate::{
-    diagnostics::{FileDiagnostics, Spanned},
+    diagnostics::{BuildDiagnostics, SpannedWithSourceFile},
     typeregister::Type,
 };
 use core::cell::RefCell;
@@ -447,8 +447,8 @@ impl Expression {
     pub fn maybe_convert_to(
         self,
         target_type: Type,
-        node: &impl Spanned,
-        diag: &mut FileDiagnostics,
+        node: &impl SpannedWithSourceFile,
+        diag: &mut BuildDiagnostics,
     ) -> Expression {
         let ty = self.ty();
         if ty == target_type {

@@ -2,7 +2,7 @@
  This module contains the intermediate representation of the code in the form of an object tree
 */
 
-use crate::diagnostics::{FileDiagnostics, Spanned};
+use crate::diagnostics::{FileDiagnostics, Spanned, SpannedWithSourceFile};
 use crate::expression_tree::{Expression, NamedReference};
 use crate::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxNodeWithSourceFile};
 use crate::typeregister::{Type, TypeRegister};
@@ -140,6 +140,12 @@ pub struct Element {
 impl Spanned for Element {
     fn span(&self) -> crate::diagnostics::Span {
         self.node.as_ref().map(|n| n.span()).unwrap_or_default()
+    }
+}
+
+impl SpannedWithSourceFile for Element {
+    fn source_file(&self) -> Option<&Rc<std::path::PathBuf>> {
+        self.node.as_ref().map(|n| &n.0.source_file)
     }
 }
 

@@ -9,7 +9,7 @@ This module has different sub modules with the actual parser functions
 
 */
 
-use crate::diagnostics::{FileDiagnostics, SourceFile, Spanned};
+use crate::diagnostics::{FileDiagnostics, SourceFile, Spanned, SpannedWithSourceFile};
 pub use rowan::SmolStr;
 use std::convert::TryFrom;
 
@@ -204,6 +204,12 @@ macro_rules! declare_syntax {
                 impl Spanned for $nodekind {
                     fn span(&self) -> crate::diagnostics::Span {
                         self.0.span()
+                    }
+                }
+
+                impl SpannedWithSourceFile for $nodekind {
+                    fn source_file(&self) -> Option<&SourceFile> {
+                        self.0.source_file()
                     }
                 }
             )*
@@ -703,6 +709,12 @@ impl Spanned for SyntaxNodeWithSourceFile {
     }
 }
 
+impl SpannedWithSourceFile for SyntaxNodeWithSourceFile {
+    fn source_file(&self) -> Option<&SourceFile> {
+        Some(&self.source_file)
+    }
+}
+
 impl Spanned for Option<SyntaxNodeWithSourceFile> {
     fn span(&self) -> crate::diagnostics::Span {
         self.as_ref().map(|n| n.span()).unwrap_or_default()
@@ -712,6 +724,12 @@ impl Spanned for Option<SyntaxNodeWithSourceFile> {
 impl Spanned for SyntaxTokenWithSourceFile {
     fn span(&self) -> crate::diagnostics::Span {
         self.token.span()
+    }
+}
+
+impl SpannedWithSourceFile for SyntaxTokenWithSourceFile {
+    fn source_file(&self) -> Option<&SourceFile> {
+        Some(&self.source_file)
     }
 }
 

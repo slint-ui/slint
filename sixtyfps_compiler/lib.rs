@@ -58,13 +58,13 @@ pub fn compile_syntax_node(
     mut diagnostics: diagnostics::FileDiagnostics,
     compiler_config: &CompilerConfiguration,
 ) -> (object_tree::Document, diagnostics::BuildDiagnostics) {
-    let mut all_diagnostics = diagnostics::BuildDiagnostics::default();
+    let mut build_diagnostics = diagnostics::BuildDiagnostics::default();
 
     let global_type_registry = typeregister::TypeRegister::builtin();
     let type_registry = if !compiler_config.include_paths.is_empty() {
         let library = Rc::new(RefCell::new(typeregister::TypeRegister::new(&global_type_registry)));
 
-        all_diagnostics.extend(
+        build_diagnostics.extend(
             compiler_config
                 .include_paths
                 .iter()
@@ -89,16 +89,16 @@ pub fn compile_syntax_node(
     };
     let doc = crate::object_tree::Document::from_node(doc_node, &mut diagnostics, &type_registry);
 
-    run_passes(&doc, &mut diagnostics, compiler_config);
+    build_diagnostics.add(diagnostics);
 
-    all_diagnostics.add(diagnostics);
+    run_passes(&doc, &mut build_diagnostics, compiler_config);
 
-    (doc, all_diagnostics)
+    (doc, build_diagnostics)
 }
 
 pub fn run_passes(
     doc: &object_tree::Document,
-    diag: &mut diagnostics::FileDiagnostics,
+    diag: &mut diagnostics::BuildDiagnostics,
     compiler_config: &CompilerConfiguration,
 ) {
     passes::resolving::resolve_expressions(doc, diag);

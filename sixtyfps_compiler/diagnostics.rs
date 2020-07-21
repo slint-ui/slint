@@ -35,6 +35,10 @@ pub trait Spanned {
 
 pub type SourceFile = Rc<PathBuf>;
 
+pub trait SpannedWithSourceFile: Spanned {
+    fn source_file(&self) -> Option<&SourceFile>;
+}
+
 #[derive(thiserror::Error, Default, Debug)]
 #[error("{message}")]
 pub struct CompilerDiagnostic {
@@ -78,13 +82,6 @@ impl FileDiagnostics {
 
     pub fn has_error(&self) -> bool {
         !self.inner.is_empty()
-    }
-
-    /// Returns the path for a given span
-    ///
-    /// (currently just return the current path)
-    pub fn path(&self, _span: &impl Spanned) -> &std::path::Path {
-        &*self.current_path
     }
 
     #[cfg(feature = "display-diagnostics")]
@@ -238,6 +235,22 @@ impl BuildDiagnostics {
         }
     }
 
+    pub fn push_error(&mut self, message: String, source: &impl SpannedWithSourceFile) {
+        match source.source_file() {
+            Some(source_file) => self
+                .per_input_file_diagnostics
+                .entry(source_file.clone())
+                .or_insert_with(|| FileDiagnostics {
+                    current_path: source_file.clone(),
+                    ..Default::default()
+                })
+                .push_error(message, source),
+            None => {
+                self.push_internal_error(CompilerDiagnostic { message, span: source.span() }.into())
+            }
+        }
+    }
+
     pub fn push_internal_error(&mut self, err: Diagnostic) {
         self.internal_errors
             .get_or_insert_with(|| FileDiagnostics {
@@ -252,7 +265,7 @@ impl BuildDiagnostics {
         self.per_input_file_diagnostics.values().chain(self.internal_errors.iter())
     }
 
-    fn into_iter(self) -> impl Iterator<Item = FileDiagnostics> {
+    pub fn into_iter(self) -> impl Iterator<Item = FileDiagnostics> {
         self.per_input_file_diagnostics
             .into_iter()
             .map(|(_, diag)| diag)

@@ -1,4 +1,4 @@
-use crate::diagnostics::FileDiagnostics;
+use crate::diagnostics::BuildDiagnostics;
 /// This pass converts the verbose markup used for paths, such as
 ///    Path {
 ///        LineTo { ... } ArcTo { ... }
@@ -14,7 +14,7 @@ use std::rc::Rc;
 pub fn compile_paths(
     component: &Rc<Component>,
     tr: &crate::typeregister::TypeRegister,
-    diag: &mut FileDiagnostics,
+    diag: &mut BuildDiagnostics,
 ) {
     let path_type = tr.lookup("Path");
     let path_type = path_type.as_builtin();

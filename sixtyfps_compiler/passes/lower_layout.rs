@@ -1,13 +1,13 @@
 //! Passe that compute the layout constraint
 
-use crate::diagnostics::FileDiagnostics;
+use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::*;
 use crate::layout::*;
 use crate::object_tree::*;
 use std::rc::Rc;
 
 /// Currently this just removes the layout from the tree
-pub fn lower_layouts(component: &Rc<Component>, diag: &mut FileDiagnostics) {
+pub fn lower_layouts(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
     recurse_elem(&component.root_element, &(), &mut |elem_, _| {
         let mut elem = elem_.borrow_mut();
         let new_children = Vec::with_capacity(elem.children.len());
@@ -119,7 +119,13 @@ pub fn lower_layouts(component: &Rc<Component>, diag: &mut FileDiagnostics) {
 }
 
 impl GridLayout {
-    fn add_element(&mut self, elem: ElementRc, row: usize, col: usize, diag: &mut FileDiagnostics) {
+    fn add_element(
+        &mut self,
+        elem: ElementRc,
+        row: usize,
+        col: usize,
+        diag: &mut BuildDiagnostics,
+    ) {
         fn index_checked<T: Default>(vec: &mut Vec<T>, idx: usize) -> &mut T {
             if vec.len() <= idx {
                 vec.resize_with(idx + 1, T::default)

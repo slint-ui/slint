@@ -5,7 +5,7 @@
 //!
 //! Most of the code for the resolving actualy lies in the expression_tree module
 
-use crate::diagnostics::FileDiagnostics;
+use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::*;
 use crate::object_tree::*;
 use crate::parser::{syntax_nodes, SyntaxKind, SyntaxNodeWithSourceFile};
@@ -50,7 +50,7 @@ impl ComponentCollection {
     }
 }
 
-pub fn resolve_expressions(doc: &Document, diag: &mut FileDiagnostics) {
+pub fn resolve_expressions(doc: &Document, diag: &mut BuildDiagnostics) {
     let mut all_components = ComponentCollection::default();
     all_components.add_document(&doc);
     for component in all_components.iter() {
@@ -65,7 +65,7 @@ pub fn resolve_expressions(doc: &Document, diag: &mut FileDiagnostics) {
             component: &Rc<Component>,
             elem: &ElementRc,
             scope: &ComponentScope,
-            diag: &mut FileDiagnostics,
+            diag: &mut BuildDiagnostics,
         ) -> HashMap<String, Expression> {
             for (prop, expr) in &mut bindings {
                 if let Expression::Uncompiled(node) = expr {
@@ -147,7 +147,7 @@ struct LookupCtx<'a> {
     component_scope: &'a [ElementRc],
 
     /// Somewhere to report diagnostics
-    diag: &'a mut FileDiagnostics,
+    diag: &'a mut BuildDiagnostics,
 }
 
 fn find_element_by_id(roots: &[ElementRc], name: &str) -> Option<ElementRc> {
@@ -275,7 +275,7 @@ impl Expression {
                     if path.is_absolute() {
                         s
                     } else {
-                        let path = ctx.diag.path(&node).parent().unwrap().join(path);
+                        let path = node.source_file.parent().unwrap().join(path);
                         if path.is_absolute() {
                             path.to_string_lossy().to_string()
                         } else {
