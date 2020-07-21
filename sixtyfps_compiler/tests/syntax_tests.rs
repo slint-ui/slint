@@ -55,7 +55,7 @@ fn process_file_source(
     let mut compile_diagnostics = if !parse_diagnostics.has_error() {
         let type_registry = sixtyfps_compilerlib::typeregister::TypeRegister::builtin();
         let doc = sixtyfps_compilerlib::object_tree::Document::from_node(
-            res.into(),
+            res,
             &mut parse_diagnostics,
             &type_registry,
         );

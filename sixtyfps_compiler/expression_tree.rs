@@ -1,5 +1,5 @@
 use crate::object_tree::*;
-use crate::parser::SyntaxNode;
+use crate::parser::SyntaxNodeWithSourceFile;
 use crate::typeregister::BuiltinElement;
 use crate::{
     diagnostics::{FileDiagnostics, Spanned},
@@ -119,7 +119,7 @@ pub enum Expression {
     /// Something went wrong (and an error will be reported)
     Invalid,
     /// We haven't done the lookup yet
-    Uncompiled(SyntaxNode),
+    Uncompiled(SyntaxNodeWithSourceFile),
     /// A string literal. The .0 is the content of the string, without the quotes
     StringLiteral(String),
     /// Number

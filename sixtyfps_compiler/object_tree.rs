@@ -4,7 +4,7 @@
 
 use crate::diagnostics::{FileDiagnostics, Spanned};
 use crate::expression_tree::{Expression, NamedReference};
-use crate::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxNodeEx};
+use crate::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxNodeWithSourceFile};
 use crate::typeregister::{Type, TypeRegister};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -20,11 +20,13 @@ pub struct Document {
 
 impl Document {
     pub fn from_node(
-        node: syntax_nodes::Document,
+        node: SyntaxNode,
         diag: &mut FileDiagnostics,
         parent_registry: &Rc<RefCell<TypeRegister>>,
     ) -> Self {
         debug_assert_eq!(node.kind(), SyntaxKind::Document);
+        let node: syntax_nodes::Document =
+            SyntaxNodeWithSourceFile { node, source_file: diag.current_path.clone() }.into();
 
         let mut local_registry = TypeRegister::new(parent_registry);
 
@@ -100,7 +102,7 @@ impl Component {
 #[derive(Clone, Debug, Default)]
 pub struct PropertyDeclaration {
     pub property_type: Type,
-    pub type_node: Option<SyntaxNode>,
+    pub type_node: Option<SyntaxNodeWithSourceFile>,
     pub expose_in_public_api: bool,
 }
 

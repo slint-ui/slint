@@ -33,6 +33,8 @@ pub trait Spanned {
     fn span(&self) -> crate::diagnostics::Span;
 }
 
+pub type SourceFile = Rc<PathBuf>;
+
 #[derive(thiserror::Error, Default, Debug)]
 #[error("{message}")]
 pub struct CompilerDiagnostic {
@@ -51,7 +53,7 @@ pub enum Diagnostic {
 #[derive(Default, Debug)]
 pub struct FileDiagnostics {
     pub inner: Vec<Diagnostic>,
-    pub current_path: Rc<std::path::PathBuf>,
+    pub current_path: SourceFile,
     pub source: Option<String>,
 }
 
@@ -221,7 +223,7 @@ impl quote::ToTokens for FileDiagnostics {
 
 #[derive(Default)]
 pub struct BuildDiagnostics {
-    per_input_file_diagnostics: HashMap<Rc<PathBuf>, FileDiagnostics>,
+    per_input_file_diagnostics: HashMap<SourceFile, FileDiagnostics>,
     internal_errors: Option<FileDiagnostics>,
 }
 

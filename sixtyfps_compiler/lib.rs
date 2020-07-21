@@ -53,8 +53,8 @@ pub struct CompilerConfiguration<'a> {
     pub include_paths: &'a [std::path::PathBuf],
 }
 
-pub fn compile_syntax_node<DocNode: Into<parser::syntax_nodes::Document>>(
-    doc_node: DocNode,
+pub fn compile_syntax_node(
+    doc_node: parser::SyntaxNode,
     mut diagnostics: diagnostics::FileDiagnostics,
     compiler_config: &CompilerConfiguration,
 ) -> (object_tree::Document, diagnostics::BuildDiagnostics) {
@@ -87,8 +87,7 @@ pub fn compile_syntax_node<DocNode: Into<parser::syntax_nodes::Document>>(
     } else {
         global_type_registry
     };
-    let doc =
-        crate::object_tree::Document::from_node(doc_node.into(), &mut diagnostics, &type_registry);
+    let doc = crate::object_tree::Document::from_node(doc_node, &mut diagnostics, &type_registry);
 
     run_passes(&doc, &mut diagnostics, compiler_config);
 

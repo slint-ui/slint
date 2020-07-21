@@ -452,7 +452,7 @@ impl TypeRegister {
     ) -> std::io::Result<FileDiagnostics> {
         let (syntax_node, mut diag) = crate::parser::parse_file(&path)?;
 
-        let doc = crate::object_tree::Document::from_node(syntax_node.into(), &mut diag, &registry);
+        let doc = crate::object_tree::Document::from_node(syntax_node, &mut diag, &registry);
 
         if !doc.root_component.id.is_empty() {
             registry.borrow_mut().add(doc.root_component);
@@ -521,7 +521,7 @@ fn test_extend_registry_from_source() {
 
         assert!(!diag.has_error());
 
-        crate::object_tree::Document::from_node(syntax_node.into(), &mut diag, &local_types);
+        crate::object_tree::Document::from_node(syntax_node, &mut diag, &local_types);
 
         assert!(diag.has_error());
         assert_eq!(diag.to_string_vec().first().unwrap().to_string(), "Unknown type PublicType");

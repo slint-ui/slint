@@ -8,7 +8,7 @@
 use crate::diagnostics::FileDiagnostics;
 use crate::expression_tree::*;
 use crate::object_tree::*;
-use crate::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxNodeEx};
+use crate::parser::{syntax_nodes, SyntaxKind, SyntaxNodeWithSourceFile};
 use crate::typeregister::Type;
 use by_address::ByAddress;
 use std::{collections::HashMap, collections::HashSet, rc::Rc};
@@ -168,7 +168,7 @@ fn find_element_by_id(roots: &[ElementRc], name: &str) -> Option<ElementRc> {
 }
 
 impl Expression {
-    fn from_binding_expression_node(node: SyntaxNode, ctx: &mut LookupCtx) -> Self {
+    fn from_binding_expression_node(node: SyntaxNodeWithSourceFile, ctx: &mut LookupCtx) -> Self {
         debug_assert_eq!(node.kind(), SyntaxKind::BindingExpression);
         let e = node
             .child_node(SyntaxKind::Expression)
@@ -180,7 +180,7 @@ impl Expression {
         e.maybe_convert_to(ctx.property_type.clone(), &node, &mut ctx.diag)
     }
 
-    fn from_codeblock_node(node: SyntaxNode, ctx: &mut LookupCtx) -> Expression {
+    fn from_codeblock_node(node: SyntaxNodeWithSourceFile, ctx: &mut LookupCtx) -> Expression {
         debug_assert_eq!(node.kind(), SyntaxKind::CodeBlock);
         Expression::CodeBlock(
             node.children()
@@ -249,7 +249,7 @@ impl Expression {
             .unwrap_or(Self::Invalid)
     }
 
-    fn from_bang_expresion_node(node: SyntaxNode, ctx: &mut LookupCtx) -> Self {
+    fn from_bang_expresion_node(node: SyntaxNodeWithSourceFile, ctx: &mut LookupCtx) -> Self {
         match node.child_text(SyntaxKind::Identifier).as_ref().map(|x| x.as_str()) {
             None => {
                 debug_assert!(false, "the parser should not allow that");
@@ -298,7 +298,7 @@ impl Expression {
     }
 
     /// Perform the lookup
-    fn from_qualified_name_node(node: SyntaxNode, ctx: &mut LookupCtx) -> Self {
+    fn from_qualified_name_node(node: SyntaxNodeWithSourceFile, ctx: &mut LookupCtx) -> Self {
         debug_assert_eq!(node.kind(), SyntaxKind::QualifiedName);
 
         let mut it = node
@@ -612,7 +612,7 @@ impl Expression {
 
 fn maybe_lookup_object(
     mut base: Expression,
-    mut it: impl Iterator<Item = crate::parser::SyntaxToken>,
+    mut it: impl Iterator<Item = crate::parser::SyntaxTokenWithSourceFile>,
     ctx: &mut LookupCtx,
 ) -> Expression {
     while let Some(next) = it.next() {
