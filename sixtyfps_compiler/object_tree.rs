@@ -582,7 +582,8 @@ pub fn visit_element_expressions(elem: &ElementRc, mut vis: impl FnMut(&mut Expr
         vis(expr);
     }
     elem.borrow_mut().bindings = bindings;
-    if let Some(mut r) = std::mem::take(&mut elem.borrow_mut().repeated) {
+    let repeated = std::mem::take(&mut elem.borrow_mut().repeated);
+    if let Some(mut r) = repeated {
         vis(&mut r.model);
         elem.borrow_mut().repeated = Some(r)
     }
