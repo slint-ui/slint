@@ -23,16 +23,16 @@ TestCase := Rectangle {
 
     transitions [
         to pressed: {
-            animate * { duration: 88ms }
+            animate * { duration: 88ms; }
             animate color { duration: 88ms; }
         }
         out pressed: {
             animate color, foo.x { duration: 300ms; }
-///                        ^error{'foo' is not a valid element id}
+///                       ^error{'foo' is not a valid element id}
             //pause: 20ms;
             animate border { duration: 120ms; }
             animate color, text.text { duration: 300ms; }
-///                        ^error{'text.text' is not an animatable property}
+///                       ^error{'text.text' is not an animatable property}
 
         }
     ]

@@ -357,6 +357,10 @@ impl Element {
                     .filter_map(|(pa, qn)| {
                         let (ne, prop_type) =
                             lookup_property_from_qualified_name(qn.clone(), &r, diag);
+                        if prop_type == Type::Invalid {
+                            debug_assert!(diag.has_error()); // Error should have been reported already
+                            return None;
+                        }
                         animation_element_from_node(&pa, &qn, prop_type, diag, tr)
                             .map(|anim_element| (ne, anim_element))
                     })
@@ -462,10 +466,6 @@ fn animation_element_from_node(
     diag: &mut FileDiagnostics,
     tr: &TypeRegister,
 ) -> Option<ElementRc> {
-    if prop_type == Type::Invalid {
-        debug_assert!(diag.has_error()); // Error should have been reported already
-        return None;
-    }
     let anim_type = tr.property_animation_type_for_property(prop_type);
     if !matches!(anim_type, Type::Builtin(..)) {
         diag.push_error(
