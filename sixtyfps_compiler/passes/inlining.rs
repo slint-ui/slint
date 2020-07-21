@@ -1,10 +1,6 @@
 //! Inline each object_tree::Component within the main Component
 
-use crate::{
-    expression_tree::{Expression, NamedReference},
-    object_tree::*,
-    typeregister::Type,
-};
+use crate::{expression_tree::NamedReference, object_tree::*, typeregister::Type};
 use by_address::ByAddress;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -81,36 +77,14 @@ fn inline_element(
             .borrow()
             .bindings
             .iter()
-            .map(|(k, val)| (k.clone(), fold_binding(val, &mapping))),
+            .map(|(k, val)| (k.clone(), val.clone())),
     );
 
-    //core::mem::drop(elem_mut);
+    core::mem::drop(elem_mut);
 
     // Now fixup all binding and reference
-    for (key, e) in &mapping {
-        if *key == element_key(inlined_component.root_element.clone()) {
-            continue; // the root has been processed
-        }
-        for (_, expr) in &mut e.borrow_mut().bindings {
-            fixup_binding(expr, &mapping);
-        }
-        if let Some(ref mut r) = &mut e.borrow_mut().repeated {
-            fixup_binding(&mut r.model, &mapping);
-        }
-        for s in &mut e.borrow_mut().states {
-            if let Some(cond) = s.condition.as_mut() {
-                fixup_binding(cond, &mapping)
-            }
-            for (r, e) in &mut s.property_changes {
-                fixup_reference(r, &mapping);
-                fixup_binding(e, &mapping);
-            }
-        }
-        for t in &mut e.borrow_mut().transitions {
-            for (r, _) in &mut t.property_animations {
-                fixup_reference(r, &mapping)
-            }
-        }
+    for (_, e) in &mapping {
+        visit_all_named_references(e, |nr| fixup_reference(nr, &mapping));
     }
 }
 
@@ -155,29 +129,9 @@ fn fixup_reference(
     NamedReference { element, .. }: &mut NamedReference,
     mapping: &HashMap<ByAddress<ElementRc>, ElementRc>,
 ) {
-    *element = element
-        .upgrade()
-        .and_then(|e| mapping.get(&element_key(e.clone())))
-        .map(Rc::downgrade)
-        .unwrap();
-}
-
-fn fixup_binding(val: &mut Expression, mapping: &HashMap<ByAddress<ElementRc>, ElementRc>) {
-    val.visit_mut(|sub| fixup_binding(sub, mapping));
-    match val {
-        Expression::PropertyReference(r) => fixup_reference(r, mapping),
-        Expression::SignalReference(r) => fixup_reference(r, mapping),
-        _ => {}
+    if let Some(e) = element.upgrade().and_then(|e| mapping.get(&element_key(e.clone()))) {
+        *element = Rc::downgrade(e);
     }
-}
-
-fn fold_binding(
-    val: &Expression,
-    mapping: &HashMap<ByAddress<ElementRc>, ElementRc>,
-) -> Expression {
-    let mut new_val = val.clone();
-    fixup_binding(&mut new_val, mapping);
-    new_val
 }
 
 fn duplicate_transition(

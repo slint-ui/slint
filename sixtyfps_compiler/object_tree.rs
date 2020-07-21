@@ -571,6 +571,58 @@ pub fn recurse_elem<State>(
     }
 }
 
+/// This visit the binding attached to this element, but does not recurse in children elements
+/// Also does not recurse within the expressions.
+///
+/// This code will temporarily move the bindings or states member so it can call the visitor without
+/// maintaining a borrow on the RefCell.
+pub fn visit_element_expressions(elem: &ElementRc, mut vis: impl FnMut(&mut Expression)) {
+    let mut bindings = std::mem::take(&mut elem.borrow_mut().bindings);
+    for (_, expr) in &mut bindings {
+        vis(expr);
+    }
+    elem.borrow_mut().bindings = bindings;
+    if let Some(mut r) = std::mem::take(&mut elem.borrow_mut().repeated) {
+        vis(&mut r.model);
+        elem.borrow_mut().repeated = Some(r)
+    }
+    let mut states = std::mem::take(&mut elem.borrow_mut().states);
+    for s in &mut states {
+        if let Some(cond) = s.condition.as_mut() {
+            vis(cond)
+        }
+        for (_, e) in &mut s.property_changes {
+            vis(e);
+        }
+    }
+    elem.borrow_mut().states = states;
+}
+
+pub fn visit_all_named_references(elem: &ElementRc, mut vis: impl FnMut(&mut NamedReference)) {
+    fn recurse_expression(expr: &mut Expression, vis: &mut impl FnMut(&mut NamedReference)) {
+        expr.visit_mut(|sub| recurse_expression(sub, vis));
+        match expr {
+            Expression::PropertyReference(r) | Expression::SignalReference(r) => vis(r),
+            _ => {}
+        }
+    }
+    visit_element_expressions(elem, |expr| recurse_expression(expr, &mut vis));
+    let mut states = std::mem::take(&mut elem.borrow_mut().states);
+    for s in &mut states {
+        for (r, _) in &mut s.property_changes {
+            vis(r);
+        }
+    }
+    elem.borrow_mut().states = states;
+    let mut transitions = std::mem::take(&mut elem.borrow_mut().transitions);
+    for t in &mut transitions {
+        for (r, _) in &mut t.property_animations {
+            vis(r)
+        }
+    }
+    elem.borrow_mut().transitions = transitions;
+}
+
 #[derive(Debug, Clone)]
 pub struct State {
     pub id: String,
