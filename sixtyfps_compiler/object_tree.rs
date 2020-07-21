@@ -528,7 +528,7 @@ fn lookup_property_from_qualified_name(
             if !ty.is_property_type() {
                 diag.push_error(format!("'{}' is not a valid property", qualname), &node);
             }
-            (NamedReference { element: Rc::downgrade(&r), name: String::default() }, ty)
+            (NamedReference { element: Rc::downgrade(&r), name: prop_name.clone() }, ty)
         }
         [elem_id, prop_name] => {
             let (element, ty) = if let Some(element) = find_element_by_id(&r, elem_id.as_ref()) {
