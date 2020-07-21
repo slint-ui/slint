@@ -3,6 +3,7 @@ name = "sixtyfps_compilerlib"
 version = "0.1.0"
 authors = ["Sixty FPS <info@sixtyfps.io>"]
 edition = "2018"
+build = "build.rs"
 
 [lib]
 path = "lib.rs"

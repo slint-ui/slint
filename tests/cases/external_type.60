@@ -1,2 +1,5 @@
 //include_path: ../helper_components
-TestCase := TestButton {}
+TestCase := Rectangle {
+    TestButton {} // from external file
+    Button {} // from standard library
+}

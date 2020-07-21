@@ -448,6 +448,24 @@ impl TypeRegister {
     /// otherwise the diagnostics collected during the parsing are returned.
     pub fn add_type_from_source<P: AsRef<std::path::Path>>(
         registry: &Rc<RefCell<Self>>,
+        source: String,
+        path: P,
+    ) -> FileDiagnostics {
+        let (syntax_node, mut diag) = crate::parser::parse(source, Some(path.as_ref()));
+
+        let doc = crate::object_tree::Document::from_node(syntax_node, &mut diag, &registry);
+
+        if !doc.root_component.id.is_empty() {
+            registry.borrow_mut().add(doc.root_component);
+        }
+
+        diag
+    }
+
+    /// Loads the .60 file and adds it to the type registry. An error is returned if there were I/O problems,
+    /// otherwise the diagnostics collected during the parsing are returned.
+    pub fn add_type_from_path<P: AsRef<std::path::Path>>(
+        registry: &Rc<RefCell<Self>>,
         path: P,
     ) -> std::io::Result<FileDiagnostics> {
         let (syntax_node, mut diag) = crate::parser::parse_file(&path)?;
@@ -482,7 +500,7 @@ impl TypeRegister {
                 }
             })
             .map(|path| {
-                TypeRegister::add_type_from_source(registry, &path)
+                TypeRegister::add_type_from_path(registry, &path)
                     .unwrap_or_else(|ioerr| FileDiagnostics::new_from_error(path, ioerr))
             })
             .collect())
@@ -528,7 +546,7 @@ fn test_extend_registry_from_source() {
     }
 
     test_source_path.set_file_name("lib_test.60");
-    let result = TypeRegister::add_type_from_source(&local_types, &test_source_path);
+    let result = TypeRegister::add_type_from_path(&local_types, &test_source_path);
     assert!(result.is_ok());
 
     assert_ne!(local_types.borrow().lookup("PublicType"), Type::Invalid);
@@ -536,7 +554,7 @@ fn test_extend_registry_from_source() {
 
     // Now try again.
     test_source_path.set_file_name("lib_test2.60");
-    let result = TypeRegister::add_type_from_source(&local_types, &test_source_path);
+    let result = TypeRegister::add_type_from_path(&local_types, &test_source_path);
     assert!(result.is_ok());
 
     let diagnostics = result.unwrap();

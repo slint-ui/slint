@@ -61,9 +61,18 @@ pub fn compile_syntax_node(
     let mut build_diagnostics = diagnostics::BuildDiagnostics::default();
 
     let global_type_registry = typeregister::TypeRegister::builtin();
-    let type_registry = if !compiler_config.include_paths.is_empty() {
-        let library = Rc::new(RefCell::new(typeregister::TypeRegister::new(&global_type_registry)));
+    let type_registry =
+        Rc::new(RefCell::new(typeregister::TypeRegister::new(&global_type_registry)));
 
+    for (path, source) in library::widget_library() {
+        build_diagnostics.add(typeregister::TypeRegister::add_type_from_source(
+            &type_registry,
+            source.to_string(),
+            &path,
+        ));
+    }
+
+    if !compiler_config.include_paths.is_empty() {
         build_diagnostics.extend(
             compiler_config
                 .include_paths
@@ -77,16 +86,13 @@ pub fn compile_syntax_node(
                     } else {
                         path.clone()
                     };
-                    typeregister::TypeRegister::add_from_directory(&library, path)
+                    typeregister::TypeRegister::add_from_directory(&type_registry, path)
                 })
                 .filter_map(Result::ok)
                 .flatten(),
         );
-
-        library
-    } else {
-        global_type_registry
     };
+
     let doc = crate::object_tree::Document::from_node(doc_node, &mut diagnostics, &type_registry);
 
     build_diagnostics.add(diagnostics);
@@ -111,4 +117,8 @@ pub fn run_passes(
     }
     passes::repeater_component::create_repeater_components(&doc.root_component);
     passes::move_declarations::move_declarations(&doc.root_component);
+}
+
+mod library {
+    include!(env!("SIXTYFPS_WIDGETS_LIBRARY"));
 }
