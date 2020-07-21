@@ -1,5 +1,5 @@
 
-TestButton := Rectangle {
+TestButtonImpl := Rectangle {
     property<string> button_text;
     Text {
         x: 10px;
@@ -7,3 +7,4 @@ TestButton := Rectangle {
         text: root.button_text;
     }
 }
+export { TestButtonImpl as TestButton }

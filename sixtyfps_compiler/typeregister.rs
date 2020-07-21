@@ -444,6 +444,12 @@ impl TypeRegister {
         self.types.insert(comp.id.clone(), Type::Component(comp));
     }
 
+    pub fn add_exports(&mut self, doc: &crate::object_tree::Document) {
+        for (name, component) in doc.exports().into_iter() {
+            self.types.insert(name, Type::Component(component));
+        }
+    }
+
     /// Loads the .60 file and adds it to the type registry. An error is returned if there were I/O problems,
     /// otherwise the diagnostics collected during the parsing are returned.
     pub fn add_type_from_source<P: AsRef<std::path::Path>>(
@@ -455,9 +461,7 @@ impl TypeRegister {
 
         let doc = crate::object_tree::Document::from_node(syntax_node, &mut diag, &registry);
 
-        if !doc.root_component.id.is_empty() {
-            registry.borrow_mut().add(doc.root_component);
-        }
+        registry.borrow_mut().add_exports(&doc);
 
         diag
     }
@@ -472,9 +476,7 @@ impl TypeRegister {
 
         let doc = crate::object_tree::Document::from_node(syntax_node, &mut diag, &registry);
 
-        if !doc.root_component.id.is_empty() {
-            registry.borrow_mut().add(doc.root_component);
-        }
+        registry.borrow_mut().add_exports(&doc);
 
         Ok(diag)
     }

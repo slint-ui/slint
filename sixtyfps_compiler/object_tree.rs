@@ -17,6 +17,7 @@ pub struct Document {
     pub inner_components: Vec<Rc<Component>>,
     pub root_component: Rc<Component>,
     pub local_registry: TypeRegister,
+    exports: Exports,
 }
 
 impl Document {
@@ -40,6 +41,8 @@ impl Document {
             })
             .collect::<Vec<_>>();
 
+        let exports = Exports::from_node(node.ExportsList(), &inner_components, diag);
+
         Document {
             // FIXME: one should use the `component` hint instead of always returning the last
             root_component: inner_components.last().cloned().unwrap_or_default(),
@@ -47,7 +50,25 @@ impl Document {
             inner_components,
 
             local_registry,
+
+            exports,
         }
+    }
+
+    pub fn exports(&self) -> Vec<(String, Rc<Component>)> {
+        self.exports
+            .iter()
+            .map(|export| {
+                (
+                    export.exported_name.clone(),
+                    self.find_component_by_id(&export.internal_name).unwrap(),
+                )
+            })
+            .collect()
+    }
+
+    fn find_component_by_id(&self, name: &str) -> Option<Rc<Component>> {
+        self.inner_components.iter().find(|c| c.id == name).cloned()
     }
 }
 
@@ -661,4 +682,59 @@ pub struct Transition {
     pub is_out: bool,
     pub state_id: String,
     pub property_animations: Vec<(NamedReference, ElementRc)>,
+}
+
+#[derive(Debug, Clone)]
+pub struct NamedExport {
+    pub internal_name: String,
+    pub exported_name: String,
+}
+
+#[derive(Default, Debug, derive_more::Deref)]
+pub struct Exports(Vec<NamedExport>);
+
+impl Exports {
+    pub fn from_node(
+        exports: impl Iterator<Item = syntax_nodes::ExportsList>,
+        inner_components: &Vec<Rc<Component>>,
+        diag: &mut FileDiagnostics,
+    ) -> Self {
+        let mut exports = exports
+            .flat_map(|exports| exports.ExportSpecifier())
+            .filter_map(|export_specifier| {
+                let internal_name =
+                    match export_specifier.ExportIdentifier().child_text(SyntaxKind::Identifier) {
+                        Some(name) => name,
+                        _ => {
+                            diag.push_error(
+                                "Missing internal name for export".to_owned(),
+                                &export_specifier.ExportIdentifier(),
+                            );
+                            return None;
+                        }
+                    };
+                let exported_name = match export_specifier.ExportName() {
+                    Some(ident) => match ident.child_text(SyntaxKind::Identifier) {
+                        Some(name) => name,
+                        None => {
+                            diag.push_error("Missing external name for export".to_owned(), &ident);
+                            return None;
+                        }
+                    },
+                    None => internal_name.clone(),
+                };
+                Some(NamedExport { internal_name, exported_name })
+            })
+            .collect::<Vec<_>>();
+
+        if exports.is_empty() {
+            let internal_name = inner_components.last().cloned().unwrap_or_default().id.clone();
+            exports.push(NamedExport {
+                internal_name: internal_name.clone(),
+                exported_name: internal_name,
+            })
+        }
+
+        Self(exports)
+    }
 }

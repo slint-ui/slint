@@ -260,7 +260,7 @@ declare_syntax! {
     }
     // syntax kind
     {
-        Document -> [ *Component ],
+        Document -> [ *Component, *ExportsList ],
         Component -> [ Element ],
         /// Note: This is in fact the same as Component as far as the parser is concerned
         SubElement -> [ Element ],
@@ -317,6 +317,13 @@ declare_syntax! {
         Transitions -> [*Transition],
         /// There is an idientfier "to" or "out", the DeclaredIdentifier is the state name
         Transition -> [DeclaredIdentifier, *PropertyAnimation],
+        /// Export a set of declared components by name
+        ExportsList -> [ *ExportSpecifier ],
+        /// Declare the first identifier to be exported, either under its name or instead
+        /// under the name of the second identifier.
+        ExportSpecifier -> [ ExportIdentifier, ?ExportName ],
+        ExportIdentifier -> [],
+        ExportName -> [],
     }
 }
 

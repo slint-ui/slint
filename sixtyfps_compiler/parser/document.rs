@@ -7,17 +7,24 @@ use super::statements::parse_statement;
 /// Type := Base { }
 /// Type := Base { SubElement { } }
 /// component Comp := Base {}  Type := Base {}
+/// Type := Base {} export { Type }
 /// ```
 pub fn parse_document(p: &mut impl Parser) -> bool {
     let mut p = p.start_node(SyntaxKind::Document);
 
     loop {
-        if p.peek().as_str() == "component" && p.nth(1) != SyntaxKind::ColonEqual {
-            p.expect(SyntaxKind::Identifier);
-        }
+        if p.peek().as_str() == "export" {
+            if !parse_export(&mut *p) {
+                return false;
+            }
+        } else {
+            if p.peek().as_str() == "component" && p.nth(1) != SyntaxKind::ColonEqual {
+                p.expect(SyntaxKind::Identifier);
+            }
 
-        if !parse_component(&mut *p) {
-            return false;
+            if !parse_component(&mut *p) {
+                return false;
+            }
         }
 
         if p.nth(0) == SyntaxKind::Eof {
@@ -456,4 +463,60 @@ fn parse_transition(p: &mut impl Parser) -> bool {
             }
         }
     }
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,ExportsList
+/// export { Type }
+/// export { Type, AnotherType }
+/// export { Type as Foo, AnotherType }
+/// ```
+fn parse_export(p: &mut impl Parser) -> bool {
+    debug_assert_eq!(p.peek().as_str(), "export");
+    let mut p = p.start_node(SyntaxKind::ExportsList);
+    p.consume(); // "export"
+    if !p.expect(SyntaxKind::LBrace) {
+        return false;
+    }
+    loop {
+        parse_export_specifier(&mut *p);
+        match p.nth(0) {
+            SyntaxKind::RBrace => {
+                p.consume();
+                return true;
+            }
+            SyntaxKind::Eof => return false,
+            SyntaxKind::Comma => {
+                p.consume();
+            }
+            _ => {
+                p.consume();
+                p.error("Expected comma")
+            }
+        }
+    }
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,ExportSpecifier
+/// Type
+/// Type as Something
+/// ```
+fn parse_export_specifier(p: &mut impl Parser) -> bool {
+    let mut p = p.start_node(SyntaxKind::ExportSpecifier);
+    {
+        let mut p = p.start_node(SyntaxKind::ExportIdentifier);
+        if !p.expect(SyntaxKind::Identifier) {
+            return false;
+        }
+    }
+    if p.peek().as_str() == "as" {
+        p.consume();
+        let mut p = p.start_node(SyntaxKind::ExportName);
+        if !p.expect(SyntaxKind::Identifier) {
+            return false;
+        }
+    }
+
+    return true;
 }

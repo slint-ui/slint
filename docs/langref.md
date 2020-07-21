@@ -202,5 +202,37 @@ Example := Rectangle {
 ```
 
 
+## Modules
 
+Components declared in a .60 file can be shared with components in other .60 files, by means of exporting and importing them.
+By default, everything declared in a .60 file is private, but it can be made accessible from the outside using the export
+keyword:
 
+```60
+ButtonHelper := Rectangle { 
+    // ...
+}
+
+Button := Rectangle {
+    // ...
+    ButtonHelper {
+        // ...
+    }
+}
+
+export { Button }
+```
+
+In the above example, ```Button``` is usable from other .60 files, but ```ButtonHelper``` isn't.
+
+It's also possible to change the name just for the purpose of exporting, without affecting its internal use:
+
+```60
+Button := Rectangle {
+    // ...
+}
+
+export { Button as ColorButton }
+```
+
+In the above example, ```Button``` is not accessible from the outside, but instead it is available under the name ```ColorButton```.
