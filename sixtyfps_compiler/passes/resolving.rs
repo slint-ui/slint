@@ -50,45 +50,48 @@ impl ComponentCollection {
     }
 }
 
+/// This represeresent a scope for the Component, where Component is the repeated component, but
+/// does not represent a component in the .60 file
+#[derive(Clone)]
+struct ComponentScope(Vec<ElementRc>);
+
+fn resolve_expression(
+    expr: &mut Expression,
+    property_type: Type,
+    component: &Rc<Component>,
+    scope: &ComponentScope,
+    diag: &mut BuildDiagnostics,
+) {
+    if let Expression::Uncompiled(node) = expr {
+        let mut lookup_ctx = LookupCtx {
+            property_type,
+            component: component.clone(),
+            component_scope: &scope.0,
+            diag,
+        };
+
+        let new_expr =
+            if matches!(lookup_ctx.property_type, Type::Signal) {
+                //FIXME: proper signal suport (node is a codeblock)
+                node.child_node(SyntaxKind::Expression)
+                    .map(|en| Expression::from_expression_node(en.into(), &mut lookup_ctx))
+                    .unwrap_or(Expression::Invalid)
+            } else if node.kind() == SyntaxKind::Expression {
+                //FIXME again: this happen for non-binding expression (i.e: model)
+                Expression::from_expression_node(node.clone().into(), &mut lookup_ctx)
+                    .maybe_convert_to(lookup_ctx.property_type, node, diag)
+            } else {
+                Expression::from_binding_expression_node(node.clone(), &mut lookup_ctx)
+            };
+        *expr = new_expr;
+    }
+}
+
 pub fn resolve_expressions(doc: &Document, diag: &mut BuildDiagnostics) {
     let mut all_components = ComponentCollection::default();
     all_components.add_document(&doc);
     for component in all_components.iter() {
-        /// This represeresent a scope for the Component, where Component is the repeated component, but
-        /// does not represent a component in the .60 file
-        #[derive(Clone)]
-        struct ComponentScope(Vec<ElementRc>);
         let scope = ComponentScope(vec![component.root_element.clone()]);
-
-        fn resolve_bindings(
-            mut bindings: HashMap<String, Expression>,
-            component: &Rc<Component>,
-            elem: &ElementRc,
-            scope: &ComponentScope,
-            diag: &mut BuildDiagnostics,
-        ) -> HashMap<String, Expression> {
-            for (prop, expr) in &mut bindings {
-                if let Expression::Uncompiled(node) = expr {
-                    let mut lookup_ctx = LookupCtx {
-                        property_type: elem.borrow().lookup_property(&*prop),
-                        component: component.clone(),
-                        component_scope: &scope.0,
-                        diag,
-                    };
-
-                    let new_expr = if matches!(lookup_ctx.property_type, Type::Signal) {
-                        //FIXME: proper signal suport (node is a codeblock)
-                        node.child_node(SyntaxKind::Expression)
-                            .map(|en| Expression::from_expression_node(en.into(), &mut lookup_ctx))
-                            .unwrap_or(Expression::Invalid)
-                    } else {
-                        Expression::from_binding_expression_node(node.clone(), &mut lookup_ctx)
-                    };
-                    *expr = new_expr;
-                }
-            }
-            bindings
-        }
 
         recurse_elem(&component.root_element, &scope, &mut |elem, scope| {
             let mut scope = scope.clone();
@@ -96,39 +99,9 @@ pub fn resolve_expressions(doc: &Document, diag: &mut BuildDiagnostics) {
                 scope.0.push(elem.clone())
             }
 
-            // We are taking the binding to mutate them, as we cannot keep a borrow of the element
-            // during the creation of the expression (we need to be able to borrow the Element to do lookups)
-            // the `repeated` and `bindings` will be reset later
-
-            let mut repeated = elem.borrow_mut().repeated.take();
-            if let Some(r) = &mut repeated {
-                if let Expression::Uncompiled(node) = &mut r.model {
-                    let mut lookup_ctx = LookupCtx {
-                        property_type: Type::Invalid, // FIXME: that should be a model
-                        component: component.clone(),
-                        component_scope: &scope.0,
-                        diag,
-                    };
-                    let model_type =
-                        if r.is_conditional_element { Type::Bool } else { Type::Model };
-                    r.model = Expression::from_expression_node(node.clone().into(), &mut lookup_ctx)
-                        .maybe_convert_to(model_type, node, diag)
-                }
-            }
-            elem.borrow_mut().repeated = repeated;
-
-            let bindings = std::mem::take(&mut elem.borrow_mut().bindings);
-            elem.borrow_mut().bindings = resolve_bindings(bindings, component, elem, &scope, diag);
-
-            let mut property_animations =
-                std::mem::take(&mut elem.borrow_mut().property_animations);
-            for anim_elem in &mut property_animations.values_mut() {
-                let bindings = std::mem::take(&mut anim_elem.borrow_mut().bindings);
-                anim_elem.borrow_mut().bindings =
-                    resolve_bindings(bindings, component, anim_elem, &scope, diag);
-            }
-            elem.borrow_mut().property_animations = property_animations;
-
+            visit_element_expressions(elem, |expr, property_type| {
+                resolve_expression(expr, property_type(), component, &scope, diag)
+            });
             scope
         })
     }

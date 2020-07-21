@@ -216,6 +216,12 @@ pub enum Expression {
     },
 }
 
+impl Default for Expression {
+    fn default() -> Self {
+        Expression::Invalid
+    }
+}
+
 impl Expression {
     /// Return the type of this property
     pub fn ty(&self) -> Type {
@@ -460,6 +466,40 @@ impl Expression {
         } else {
             diag.push_error(format!("Cannot convert {} to {}", ty, target_type), node);
             self
+        }
+    }
+
+    /// Return the default value for the given type
+    pub fn default_value_for_type(ty: &Type) -> Expression {
+        match ty {
+            Type::Invalid | Type::Component(_) | Type::Builtin(_) | Type::Signal => {
+                Expression::Invalid
+            }
+            Type::Float32 => Expression::NumberLiteral(0., Unit::None),
+            Type::Int32 => Expression::NumberLiteral(0., Unit::None),
+            Type::String => Expression::StringLiteral(String::new()),
+            Type::Color => Expression::Cast {
+                from: Box::new(Expression::NumberLiteral(0., Unit::None)),
+                to: Type::Color,
+            },
+            Type::Duration => Expression::NumberLiteral(0., Unit::Ms),
+            Type::Length => Expression::NumberLiteral(0., Unit::Px),
+            Type::LogicalLength => Expression::NumberLiteral(0., Unit::Lx),
+            // FIXME: Is that correct?
+            Type::Resource => Expression::ResourceReference { absolute_source_path: String::new() },
+            Type::Bool => Expression::BoolLiteral(false),
+            Type::Model => Expression::Invalid,
+            Type::PathElements => Expression::PathElements { elements: Path::Elements(vec![]) },
+            Type::Array(element_ty) => {
+                Expression::Array { element_ty: (**element_ty).clone(), values: vec![] }
+            }
+            Type::Object(map) => Expression::Object {
+                ty: ty.clone(),
+                values: map
+                    .into_iter()
+                    .map(|(k, v)| (k.clone(), Expression::default_value_for_type(v)))
+                    .collect(),
+            },
         }
     }
 }

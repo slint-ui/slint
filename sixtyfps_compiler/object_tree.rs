@@ -9,6 +9,7 @@ use crate::typeregister::{Type, TypeRegister};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
+
 /// The full document (a complete file)
 #[derive(Default, Debug)]
 pub struct Document {
@@ -420,6 +421,7 @@ impl Element {
         e
     }
 
+    /// Return the type of a property in this element or its base
     pub fn lookup_property(&self, name: &str) -> Type {
         self.property_declarations
             .get(name)
@@ -584,27 +586,41 @@ pub fn recurse_elem<State>(
 ///
 /// This code will temporarily move the bindings or states member so it can call the visitor without
 /// maintaining a borrow on the RefCell.
-pub fn visit_element_expressions(elem: &ElementRc, mut vis: impl FnMut(&mut Expression)) {
-    let mut bindings = std::mem::take(&mut elem.borrow_mut().bindings);
-    for (_, expr) in &mut bindings {
-        vis(expr);
-    }
-    elem.borrow_mut().bindings = bindings;
+pub fn visit_element_expressions(
+    elem: &ElementRc,
+    mut vis: impl FnMut(&mut Expression, &dyn Fn() -> Type),
+) {
     let repeated = std::mem::take(&mut elem.borrow_mut().repeated);
     if let Some(mut r) = repeated {
-        vis(&mut r.model);
+        let is_conditional_element = r.is_conditional_element;
+        vis(&mut r.model, &|| if is_conditional_element { Type::Bool } else { Type::Model });
         elem.borrow_mut().repeated = Some(r)
     }
+    let mut bindings = std::mem::take(&mut elem.borrow_mut().bindings);
+    for (name, expr) in &mut bindings {
+        vis(expr, &|| elem.borrow().lookup_property(name));
+    }
+    elem.borrow_mut().bindings = bindings;
     let mut states = std::mem::take(&mut elem.borrow_mut().states);
     for s in &mut states {
         if let Some(cond) = s.condition.as_mut() {
-            vis(cond)
+            vis(cond, &|| Type::Bool)
         }
-        for (_, e) in &mut s.property_changes {
-            vis(e);
+        for (ne, e) in &mut s.property_changes {
+            vis(e, &|| ne.element.upgrade().unwrap().borrow().lookup_property(ne.name.as_ref()));
         }
     }
     elem.borrow_mut().states = states;
+
+    let property_animations = std::mem::take(&mut elem.borrow_mut().property_animations);
+    for anim_elem in property_animations.values() {
+        let mut bindings = std::mem::take(&mut anim_elem.borrow_mut().bindings);
+        for (name, expr) in &mut bindings {
+            vis(expr, &|| anim_elem.borrow().lookup_property(name));
+        }
+        anim_elem.borrow_mut().bindings = bindings;
+    }
+    elem.borrow_mut().property_animations = property_animations;
 }
 
 pub fn visit_all_named_references(elem: &ElementRc, mut vis: impl FnMut(&mut NamedReference)) {
@@ -615,7 +631,7 @@ pub fn visit_all_named_references(elem: &ElementRc, mut vis: impl FnMut(&mut Nam
             _ => {}
         }
     }
-    visit_element_expressions(elem, |expr| recurse_expression(expr, &mut vis));
+    visit_element_expressions(elem, |expr, _| recurse_expression(expr, &mut vis));
     let mut states = std::mem::take(&mut elem.borrow_mut().states);
     for s in &mut states {
         for (r, _) in &mut s.property_changes {

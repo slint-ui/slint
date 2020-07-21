@@ -37,6 +37,7 @@ mod passes {
     pub mod compile_paths;
     pub mod inlining;
     pub mod lower_layout;
+    pub mod lower_states;
     pub mod move_declarations;
     pub mod repeater_component;
     pub mod resolving;
@@ -115,6 +116,7 @@ pub fn run_passes(
     if compiler_config.embed_resources {
         passes::collect_resources::collect_resources(&doc.root_component);
     }
+    passes::lower_states::lower_states(&doc.root_component, diag);
     passes::repeater_component::create_repeater_components(&doc.root_component);
     passes::move_declarations::move_declarations(&doc.root_component);
 }

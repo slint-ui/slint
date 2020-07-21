@@ -1,0 +1,56 @@
+ TestCase := Rectangle {
+    property<int32> top_level: 4;
+    property<int32> active_index: 0;
+    property<int32> some_prop: 5;
+    text1 := Text {
+        text: "hello";
+        property<int32> foo: 85 + top_level;
+    }
+
+    states [
+        xxx when active_index == 1 : {
+            text1.text: "world";
+            text1.foo: 3 + 2 * top_level;
+//            some_prop: 8;  // FIXME this is not working
+        }
+        yyy when active_index == 2 : {
+            text1.foo: 9;
+        }
+    ]
+
+    property<int32> text1_foo: text1.foo;
+
+}
+
+
+/*
+```cpp
+TestCase instance;
+assert(instance.get_text1_foo() == 85 + 4);
+instance.set_active_index(1);
+assert(instance.get_text1_foo() == 3 + 2 * 4);
+instance.set_top_level(1);
+assert(instance.get_text1_foo() == 3 + 2);
+```
+
+
+```rust
+let instance = TestCase::new();
+let instance = instance.as_ref();
+assert_eq!(instance.get_text1_foo(), 85 + 4);
+instance.set_active_index(1);
+assert_eq!(instance.get_text1_foo(), 3 + 2 * 4);
+instance.set_top_level(1);
+assert_eq!(instance.get_text1_foo(), 3 + 2);
+
+```
+
+```js
+var instance = new sixtyfps.TestCase({});
+assert.equal(instance.text1_foo, 85 + 4);
+instance.active_index = 1;
+assert.equal(instance.text1_foo, 3 + 2 * 4);
+instance.top_level = 1;
+assert.equal(instance.text1_foo, 3 + 2);
+```
+*/

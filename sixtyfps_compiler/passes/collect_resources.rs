@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 pub fn collect_resources(component: &Rc<Component>) {
     recurse_elem(&component.root_element, &(), &mut |elem, _| {
-        visit_element_expressions(elem, |e| collect_resources_from_expression(e, component));
+        visit_element_expressions(elem, |e, _| collect_resources_from_expression(e, component));
     })
 }
 
