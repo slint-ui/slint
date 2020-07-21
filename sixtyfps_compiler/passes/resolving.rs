@@ -421,7 +421,7 @@ impl Expression {
         }
         let rhs = Self::from_expression_node(rhs_n.clone().into(), ctx).maybe_convert_to(
             lhs.ty(),
-            &rhs_n.into(),
+            &rhs_n,
             &mut ctx.diag,
         );
         Expression::SelfAssignment {
@@ -555,17 +555,15 @@ impl Expression {
         let (condition_n, true_expr_n, false_expr_n) = node.Expression();
         // FIXME: we should we add bool to the context
         let condition = Self::from_expression_node(condition_n.clone().into(), ctx)
-            .maybe_convert_to(Type::Bool, &condition_n.into(), &mut ctx.diag);
+            .maybe_convert_to(Type::Bool, &condition_n, &mut ctx.diag);
         let mut true_expr = Self::from_expression_node(true_expr_n.clone().into(), ctx);
         let mut false_expr = Self::from_expression_node(false_expr_n.clone().into(), ctx);
         let (true_ty, false_ty) = (true_expr.ty(), false_expr.ty());
         if true_ty != false_ty {
             if false_ty.can_convert(&true_ty) {
-                false_expr =
-                    false_expr.maybe_convert_to(true_ty, &false_expr_n.into(), &mut ctx.diag);
+                false_expr = false_expr.maybe_convert_to(true_ty, &false_expr_n, &mut ctx.diag);
             } else {
-                true_expr =
-                    true_expr.maybe_convert_to(false_ty, &true_expr_n.into(), &mut ctx.diag);
+                true_expr = true_expr.maybe_convert_to(false_ty, &true_expr_n, &mut ctx.diag);
             }
         }
         Expression::Condition {
@@ -600,11 +598,10 @@ impl Expression {
         // Also, be smarter about finding a common type
         let element_ty = values.first().map_or(Type::Invalid, |e| e.ty());
 
-        let n = node.into();
         for e in values.iter_mut() {
             *e = core::mem::replace(e, Expression::Invalid).maybe_convert_to(
                 element_ty.clone(),
-                &n,
+                &node,
                 ctx.diag,
             );
         }

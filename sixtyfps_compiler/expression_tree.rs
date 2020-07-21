@@ -1,7 +1,10 @@
 use crate::object_tree::*;
 use crate::parser::SyntaxNode;
 use crate::typeregister::BuiltinElement;
-use crate::{diagnostics::FileDiagnostics, typeregister::Type};
+use crate::{
+    diagnostics::{FileDiagnostics, Spanned},
+    typeregister::Type,
+};
 use core::cell::RefCell;
 use std::{
     collections::HashMap,
@@ -444,7 +447,7 @@ impl Expression {
     pub fn maybe_convert_to(
         self,
         target_type: Type,
-        node: &SyntaxNode,
+        node: &impl Spanned,
         diag: &mut FileDiagnostics,
     ) -> Expression {
         let ty = self.ty();
