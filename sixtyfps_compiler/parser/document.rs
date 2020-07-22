@@ -539,7 +539,6 @@ fn parse_import_specifier(p: &mut impl Parser) -> bool {
     debug_assert_eq!(p.peek().as_str(), "import");
     let mut p = p.start_node(SyntaxKind::ImportSpecifier);
     p.consume(); // "import"
-    p.expect(SyntaxKind::LBrace);
     if !parse_import_identifier_list(&mut *p) {
         return false;
     }
@@ -547,14 +546,11 @@ fn parse_import_specifier(p: &mut impl Parser) -> bool {
         p.error("Expected from keyword for import statement");
         return false;
     }
-    if !p.test(SyntaxKind::Identifier) {
+    if !p.expect(SyntaxKind::Identifier) {
         return false;
     }
-    {
-        let mut p = p.start_node(SyntaxKind::ImportUri);
-        if !p.test(SyntaxKind::StringLiteral) {
-            return false;
-        }
+    if !p.expect(SyntaxKind::StringLiteral) {
+        return false;
     }
     p.expect(SyntaxKind::Semicolon)
 }
@@ -563,14 +559,20 @@ fn parse_import_specifier(p: &mut impl Parser) -> bool {
 /// ```test,ImportIdentifierList
 /// { Type1 }
 /// { Type2, Type3 }
+/// { }
 /// ```
 fn parse_import_identifier_list(p: &mut impl Parser) -> bool {
     let mut p = p.start_node(SyntaxKind::ImportIdentifierList);
-    p.consume(); // LBrace
+    if !p.expect(SyntaxKind::LBrace) {
+        return false;
+    }
+    if p.test(SyntaxKind::RBrace) {
+        return true;
+    }
     loop {
         {
             let mut p = p.start_node(SyntaxKind::ImportIdentifier);
-            if !p.test(SyntaxKind::Identifier) {
+            if !p.expect(SyntaxKind::Identifier) {
                 return false;
             }
         }

@@ -324,13 +324,10 @@ declare_syntax! {
         ExportSpecifier -> [ ExportIdentifier, ?ExportName ],
         ExportIdentifier -> [],
         ExportName -> [],
-        // import { foo, bar, baz } from "blah";
-        ImportSpecifier -> [ ImportIdentifierList, ImportUri ],
-        // { foo, bar, baz }
+        // import { foo, bar, baz } from "blah"; The import uri is stored as string literal.
+        ImportSpecifier -> [ ImportIdentifierList ],
         ImportIdentifierList -> [ *ImportIdentifier ],
         ImportIdentifier -> [],
-        // A string literal, such as "../path/to/module.60"
-        ImportUri -> [],
     }
 }
 
