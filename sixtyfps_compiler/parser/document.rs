@@ -8,22 +8,31 @@ use super::statements::parse_statement;
 /// Type := Base { SubElement { } }
 /// component Comp := Base {}  Type := Base {}
 /// Type := Base {} export { Type }
+/// import { Base } from "somewhere"; Type := Base {}
 /// ```
 pub fn parse_document(p: &mut impl Parser) -> bool {
     let mut p = p.start_node(SyntaxKind::Document);
 
     loop {
-        if p.peek().as_str() == "export" {
-            if !parse_export(&mut *p) {
-                return false;
+        match p.peek().as_str() {
+            "export" => {
+                if !parse_export(&mut *p) {
+                    return false;
+                }
             }
-        } else {
-            if p.peek().as_str() == "component" && p.nth(1) != SyntaxKind::ColonEqual {
-                p.expect(SyntaxKind::Identifier);
+            "import" => {
+                if !parse_import_specifier(&mut *p) {
+                    return false;
+                }
             }
+            _ => {
+                if p.peek().as_str() == "component" && p.nth(1) != SyntaxKind::ColonEqual {
+                    p.expect(SyntaxKind::Identifier);
+                }
 
-            if !parse_component(&mut *p) {
-                return false;
+                if !parse_component(&mut *p) {
+                    return false;
+                }
             }
         }
 
@@ -520,4 +529,64 @@ fn parse_export_specifier(p: &mut impl Parser) -> bool {
     }
 
     return true;
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,ImportSpecifier
+/// import { Type1, Type2 } from "somewhere";
+/// ```
+fn parse_import_specifier(p: &mut impl Parser) -> bool {
+    debug_assert_eq!(p.peek().as_str(), "import");
+    let mut p = p.start_node(SyntaxKind::ImportSpecifier);
+    p.consume(); // "import"
+    p.expect(SyntaxKind::LBrace);
+    if !parse_import_identifier_list(&mut *p) {
+        return false;
+    }
+    if p.peek().as_str() != "from" {
+        p.error("Expected from keyword for import statement");
+        return false;
+    }
+    if !p.test(SyntaxKind::Identifier) {
+        return false;
+    }
+    {
+        let mut p = p.start_node(SyntaxKind::ImportUri);
+        if !p.test(SyntaxKind::StringLiteral) {
+            return false;
+        }
+    }
+    p.expect(SyntaxKind::Semicolon)
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,ImportIdentifierList
+/// { Type1 }
+/// { Type2, Type3 }
+/// ```
+fn parse_import_identifier_list(p: &mut impl Parser) -> bool {
+    let mut p = p.start_node(SyntaxKind::ImportIdentifierList);
+    p.consume(); // LBrace
+    loop {
+        {
+            let mut p = p.start_node(SyntaxKind::ImportIdentifier);
+            if !p.test(SyntaxKind::Identifier) {
+                return false;
+            }
+        }
+        match p.nth(0) {
+            SyntaxKind::RBrace => {
+                p.consume();
+                return true;
+            }
+            SyntaxKind::Eof => return false,
+            SyntaxKind::Comma => {
+                p.consume();
+            }
+            _ => {
+                p.consume();
+                p.error("Expected comma")
+            }
+        }
+    }
 }

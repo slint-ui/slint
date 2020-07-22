@@ -260,7 +260,7 @@ declare_syntax! {
     }
     // syntax kind
     {
-        Document -> [ *Component, *ExportsList ],
+        Document -> [ *Component, *ExportsList, *ImportSpecifier ],
         Component -> [ Element ],
         /// Note: This is in fact the same as Component as far as the parser is concerned
         SubElement -> [ Element ],
@@ -324,6 +324,13 @@ declare_syntax! {
         ExportSpecifier -> [ ExportIdentifier, ?ExportName ],
         ExportIdentifier -> [],
         ExportName -> [],
+        // import { foo, bar, baz } from "blah";
+        ImportSpecifier -> [ ImportIdentifierList, ImportUri ],
+        // { foo, bar, baz }
+        ImportIdentifierList -> [ *ImportIdentifier ],
+        ImportIdentifier -> [],
+        // A string literal, such as "../path/to/module.60"
+        ImportUri -> [],
     }
 }
 
