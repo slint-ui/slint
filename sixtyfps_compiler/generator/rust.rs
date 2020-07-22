@@ -695,6 +695,15 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
             }
         }
         Expression::PathElements { elements } => compile_path(elements, component),
+        Expression::StoreLocalVariable { name, value } => {
+            let value = compile_expression(value, component);
+            let name = quote::format_ident!("{}", name);
+            quote!(let #name = #value;)
+        }
+        Expression::ReadLocalVariable { name, .. } => {
+            let name = quote::format_ident!("{}", name);
+            quote!(#name)
+        }
     }
 }
 

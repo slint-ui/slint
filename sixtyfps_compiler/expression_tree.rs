@@ -6,16 +6,30 @@ use crate::{
     typeregister::Type,
 };
 use core::cell::RefCell;
-use std::{
-    collections::HashMap,
-    rc::{Rc, Weak},
-};
+use std::collections::HashMap;
+use std::hash::Hash;
+use std::rc::{Rc, Weak};
 
 /// Reference to a property or signal of a given name within an element.
 #[derive(Debug, Clone)]
 pub struct NamedReference {
     pub element: Weak<RefCell<Element>>,
     pub name: String,
+}
+
+impl Eq for NamedReference {}
+
+impl PartialEq for NamedReference {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name && Weak::ptr_eq(&self.element, &other.element)
+    }
+}
+
+impl Hash for NamedReference {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+        self.element.as_ptr().hash(state);
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -149,6 +163,19 @@ pub enum Expression {
     /// element that is repeated
     RepeaterModelReference {
         element: Weak<RefCell<Element>>,
+    },
+
+    /// Should be directly within a CodeBlock expression, and store the value of the expression in a local variable
+    StoreLocalVariable {
+        name: String,
+        value: Box<Expression>,
+    },
+
+    /// a reference to the local variable with the given name. The type system should ensure that a variable has been stored
+    /// with this name and this type before in one of the statement of an enclosing codeblock
+    ReadLocalVariable {
+        name: String,
+        ty: Type,
     },
 
     /// Access to a field of the given name within a object.
@@ -301,6 +328,8 @@ impl Expression {
             Expression::Array { element_ty, .. } => Type::Array(Box::new(element_ty.clone())),
             Expression::Object { ty, .. } => ty.clone(),
             Expression::PathElements { .. } => Type::PathElements,
+            Expression::StoreLocalVariable { .. } => Type::Invalid,
+            Expression::ReadLocalVariable { ty, .. } => ty.clone(),
         }
     }
 
@@ -356,6 +385,8 @@ impl Expression {
                     }
                 }
             }
+            Expression::StoreLocalVariable { value, .. } => visitor(&**value),
+            Expression::ReadLocalVariable { .. } => {}
         }
     }
 
@@ -410,6 +441,8 @@ impl Expression {
                     }
                 }
             }
+            Expression::StoreLocalVariable { value, .. } => visitor(&mut **value),
+            Expression::ReadLocalVariable { .. } => {}
         }
     }
 
@@ -446,6 +479,8 @@ impl Expression {
                     true
                 }
             }
+            Expression::StoreLocalVariable { .. } => false,
+            Expression::ReadLocalVariable { .. } => false,
         }
     }
 

@@ -736,6 +736,10 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
                 todo!();
             }
         }
+        StoreLocalVariable { name, value } => {
+            format!("auto {} = {};", name, compile_expression(value, component))
+        }
+        ReadLocalVariable { name, .. } => name.clone(),
         ObjectAccess { base, name } => {
             let index = if let Type::Object(ty) = base.ty() {
                 ty.keys()

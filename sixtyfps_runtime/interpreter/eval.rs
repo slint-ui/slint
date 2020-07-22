@@ -115,11 +115,18 @@ declare_value_conversion!(Object => [HashMap<String, Value>] );
 declare_value_conversion!(Color => [Color] );
 declare_value_conversion!(PathElements => [PathData]);
 
+/// The local variable needed for binding evaluation
+#[derive(Default)]
+pub struct EvalLocalContext {
+    local_variables: HashMap<String, Value>,
+}
+
 /// Evaluate an expression and return a Value as the result of this expression
 pub fn eval_expression(
     e: &Expression,
     component_type: &crate::ComponentDescription,
     component_ref: ComponentRefPin,
+    local_context: &mut EvalLocalContext,
 ) -> Value {
     match e {
         Expression::Invalid => panic!("invalid expression while evaluating"),
@@ -171,14 +178,16 @@ pub fn eval_expression(
             }
         }
         Expression::ObjectAccess { base, name } => {
-            if let Value::Object(mut o) = eval_expression(base, component_type, component_ref) {
+            if let Value::Object(mut o) =
+                eval_expression(base, component_type, component_ref, local_context)
+            {
                 o.remove(name).unwrap_or(Value::Void)
             } else {
                 Value::Void
             }
         }
         Expression::Cast { from, to } => {
-            let v = eval_expression(&*from, component_type, component_ref);
+            let v = eval_expression(&*from, component_type, component_ref, local_context);
             match (v, to) {
                 (Value::Number(n), Type::Int32) => Value::Number(n.round()),
                 (Value::Number(n), Type::String) => {
@@ -197,7 +206,7 @@ pub fn eval_expression(
         Expression::CodeBlock(sub) => {
             let mut v = Value::Void;
             for e in sub {
-                v = eval_expression(e, component_type, component_ref);
+                v = eval_expression(e, component_type, component_ref, local_context);
             }
             v
         }
@@ -232,8 +241,8 @@ pub fn eval_expression(
         }
         Expression::SelfAssignment { lhs, rhs, op } => match &**lhs {
             Expression::PropertyReference(NamedReference { element, name }) => {
-                let eval = |lhs| {
-                    let rhs = eval_expression(&**rhs, component_type, component_ref);
+                let mut eval = |lhs| {
+                    let rhs = eval_expression(&**rhs, component_type, component_ref, local_context);
                     match (lhs, rhs, op) {
                         (Value::Number(a), Value::Number(b), '+') => Value::Number(a + b),
                         (Value::Number(a), Value::Number(b), '-') => Value::Number(a - b),
@@ -266,8 +275,8 @@ pub fn eval_expression(
             _ => panic!("typechecking should make sure this was a PropertyReference"),
         },
         Expression::BinaryExpression { lhs, rhs, op } => {
-            let lhs = eval_expression(&**lhs, component_type, component_ref);
-            let rhs = eval_expression(&**rhs, component_type, component_ref);
+            let lhs = eval_expression(&**lhs, component_type, component_ref, local_context);
+            let rhs = eval_expression(&**rhs, component_type, component_ref, local_context);
 
             match (op, lhs, rhs) {
                 ('+', Value::Number(a), Value::Number(b)) => Value::Number(a + b),
@@ -286,7 +295,7 @@ pub fn eval_expression(
             }
         }
         Expression::UnaryOp { sub, op } => {
-            let sub = eval_expression(&**sub, component_type, component_ref);
+            let sub = eval_expression(&**sub, component_type, component_ref, local_context);
             match (sub, op) {
                 (Value::Number(a), '+') => Value::Number(a),
                 (Value::Number(a), '-') => Value::Number(-a),
@@ -298,25 +307,45 @@ pub fn eval_expression(
             Value::Resource(Resource::AbsoluteFilePath(absolute_source_path.as_str().into()))
         }
         Expression::Condition { condition, true_expr, false_expr } => {
-            match eval_expression(&**condition, component_type, component_ref).try_into()
-                as Result<bool, _>
+            match eval_expression(&**condition, component_type, component_ref, local_context)
+                .try_into() as Result<bool, _>
             {
-                Ok(true) => eval_expression(&**true_expr, component_type, component_ref),
-                Ok(false) => eval_expression(&**false_expr, component_type, component_ref),
+                Ok(true) => {
+                    eval_expression(&**true_expr, component_type, component_ref, local_context)
+                }
+                Ok(false) => {
+                    eval_expression(&**false_expr, component_type, component_ref, local_context)
+                }
                 _ => panic!("conditional expression did not evaluate to boolean"),
             }
         }
         Expression::Array { values, .. } => Value::Array(
-            values.iter().map(|e| eval_expression(e, component_type, component_ref)).collect(),
+            values
+                .iter()
+                .map(|e| eval_expression(e, component_type, component_ref, local_context))
+                .collect(),
         ),
         Expression::Object { values, .. } => Value::Object(
             values
                 .iter()
-                .map(|(k, v)| (k.clone(), eval_expression(v, component_type, component_ref)))
+                .map(|(k, v)| {
+                    (k.clone(), eval_expression(v, component_type, component_ref, local_context))
+                })
                 .collect(),
         ),
-        Expression::PathElements { elements } => {
-            Value::PathElements(convert_path(elements, component_type, component_ref))
+        Expression::PathElements { elements } => Value::PathElements(convert_path(
+            elements,
+            component_type,
+            component_ref,
+            local_context,
+        )),
+        Expression::StoreLocalVariable { name, value } => {
+            let value = eval_expression(value, component_type, component_ref, local_context);
+            local_context.local_variables.insert(name.clone(), value);
+            Value::Void
+        }
+        Expression::ReadLocalVariable { name, .. } => {
+            local_context.local_variables.get(name).unwrap().clone()
         }
     }
 }
@@ -369,11 +398,12 @@ pub fn new_struct_with_bindings<
     bindings: &HashMap<String, Expression>,
     component_type: &crate::ComponentDescription,
     component_ref: ComponentRefPin,
+    local_context: &mut EvalLocalContext,
 ) -> ElementType {
     let mut element = ElementType::default();
     for (prop, info) in ElementType::fields::<Value>().into_iter() {
         if let Some(binding) = &bindings.get(prop) {
-            let value = eval_expression(&binding, &*component_type, component_ref);
+            let value = eval_expression(&binding, &*component_type, component_ref, local_context);
             info.set_field(&mut element, value).unwrap();
         }
     }
@@ -434,13 +464,14 @@ fn convert_from_lyon_path<'a>(
 pub fn convert_path(
     path: &ExprPath,
     component_type: &crate::ComponentDescription,
-    eval_context: ComponentRefPin,
+    component_ref: ComponentRefPin,
+    local_context: &mut EvalLocalContext,
 ) -> PathData {
     match path {
         ExprPath::Elements(elements) => PathData::Elements(SharedArray::<PathElement>::from_iter(
-            elements
-                .iter()
-                .map(|element| convert_path_element(element, component_type, eval_context)),
+            elements.iter().map(|element| {
+                convert_path_element(element, component_type, component_ref, local_context)
+            }),
         )),
         ExprPath::Events(events) => convert_from_lyon_path(events.iter()),
     }
@@ -449,18 +480,21 @@ pub fn convert_path(
 fn convert_path_element(
     expr_element: &ExprPathElement,
     component_type: &crate::ComponentDescription,
-    eval_context: ComponentRefPin,
+    component_ref: ComponentRefPin,
+    local_context: &mut EvalLocalContext,
 ) -> PathElement {
     match expr_element.element_type.class_name.as_str() {
         "LineTo" => PathElement::LineTo(new_struct_with_bindings(
             &expr_element.bindings,
             component_type,
-            eval_context,
+            component_ref,
+            local_context,
         )),
         "ArcTo" => PathElement::ArcTo(new_struct_with_bindings(
             &expr_element.bindings,
             component_type,
-            eval_context,
+            component_ref,
+            local_context,
         )),
         "Close" => PathElement::Close,
         _ => panic!(

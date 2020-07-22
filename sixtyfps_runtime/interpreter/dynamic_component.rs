@@ -161,8 +161,12 @@ unsafe extern "C" fn visit_children_item(
                 );
                 if listener.is_dirty() {
                     listener.evaluate(|| {
-                        match eval::eval_expression(&rep_in_comp.model, &*component_type, component)
-                        {
+                        match eval::eval_expression(
+                            &rep_in_comp.model,
+                            &*component_type,
+                            component,
+                            &mut Default::default(),
+                        ) {
                             crate::Value::Number(count) => populate_model(
                                 vec,
                                 rep_in_comp,
@@ -398,7 +402,7 @@ fn generate_component(root_component: &Rc<object_tree::Component>) -> Rc<Compone
 
 fn animation_for_property(
     component_type: Rc<ComponentDescription>,
-    eval_context: ComponentRefPin,
+    component_ref: ComponentRefPin,
     all_animations: &HashMap<String, ElementRc>,
     property_name: &String,
 ) -> Option<PropertyAnimation> {
@@ -406,7 +410,8 @@ fn animation_for_property(
         Some(anim_elem) => Some(eval::new_struct_with_bindings(
             &anim_elem.borrow().bindings,
             &*component_type,
-            eval_context,
+            component_ref,
+            &mut Default::default(),
         )),
         None => None,
     }
@@ -488,7 +493,7 @@ pub fn instantiate(
                             NonNull::from(&component_type.ct).cast(),
                             instance.cast(),
                         ));
-                        eval::eval_expression(&expr, &*component_type, c);
+                        eval::eval_expression(&expr, &*component_type, c, &mut Default::default());
                     })
                 } else {
                     if let Some(prop_rtti) =
@@ -508,6 +513,7 @@ pub fn instantiate(
                                     expr,
                                     &*component_type,
                                     component_box.borrow(),
+                                    &mut Default::default(),
                                 ),
                                 maybe_animation,
                             );
@@ -523,7 +529,12 @@ pub fn instantiate(
                                         NonNull::from(&component_type.ct).cast(),
                                         instance.cast(),
                                     ));
-                                    eval::eval_expression(&expr, &*component_type, c)
+                                    eval::eval_expression(
+                                        &expr,
+                                        &*component_type,
+                                        c,
+                                        &mut Default::default(),
+                                    )
                                 }),
                                 maybe_animation,
                             );
@@ -544,6 +555,7 @@ pub fn instantiate(
                                 expr,
                                 &*component_type,
                                 component_box.borrow(),
+                                &mut Default::default(),
                             );
                             prop_info
                                 .set(Pin::new_unchecked(&*mem.add(*offset)), v, maybe_animation)
@@ -560,7 +572,12 @@ pub fn instantiate(
                                             NonNull::from(&component_type.ct).cast(),
                                             instance.cast(),
                                         ));
-                                        eval::eval_expression(&expr, &*component_type, c)
+                                        eval::eval_expression(
+                                            &expr,
+                                            &*component_type,
+                                            c,
+                                            &mut Default::default(),
+                                        )
                                     }),
                                     maybe_animation,
                                 )
@@ -579,7 +596,12 @@ pub fn instantiate(
             continue;
         }
         let vec = unsafe { &mut *(mem.add(rep_in_comp.offset) as *mut RepeaterVec) };
-        match eval::eval_expression(&rep_in_comp.model, &*component_type, component_box.borrow()) {
+        match eval::eval_expression(
+            &rep_in_comp.model,
+            &*component_type,
+            component_box.borrow(),
+            &mut Default::default(),
+        ) {
             crate::Value::Number(count) => populate_model(
                 vec,
                 rep_in_comp,
@@ -608,7 +630,9 @@ unsafe extern "C" fn compute_layout(component: ComponentRefPin) {
         &*(component.get_vtable() as *const ComponentVTable as *const ComponentDescription);
 
     let resolve_prop_ref = |prop_ref: &expression_tree::Expression| {
-        eval::eval_expression(&prop_ref, &component_type, component).try_into().unwrap_or_default()
+        eval::eval_expression(&prop_ref, &component_type, component, &mut Default::default())
+            .try_into()
+            .unwrap_or_default()
     };
 
     for it in &component_type.original.layout_constraints.borrow().grids {
@@ -713,7 +737,8 @@ unsafe extern "C" fn compute_layout(component: ComponentRefPin) {
             }
         }
 
-        let path_elements = eval::convert_path(&it.path, component_type, component);
+        let path_elements =
+            eval::convert_path(&it.path, component_type, component, &mut Default::default());
 
         solve_path_layout(&PathLayoutData {
             items: Slice::from(items.as_slice()),

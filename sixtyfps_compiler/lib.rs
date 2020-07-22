@@ -35,6 +35,7 @@ mod passes {
 
     pub mod collect_resources;
     pub mod compile_paths;
+    pub mod deduplicate_property_read;
     pub mod inlining;
     pub mod lower_layout;
     pub mod lower_states;
@@ -117,6 +118,7 @@ pub fn run_passes(
         passes::collect_resources::collect_resources(&doc.root_component);
     }
     passes::lower_states::lower_states(&doc.root_component, diag);
+    passes::deduplicate_property_read::deduplicate_property_read(&doc.root_component);
     passes::repeater_component::create_repeater_components(&doc.root_component);
     passes::move_declarations::move_declarations(&doc.root_component);
 }
