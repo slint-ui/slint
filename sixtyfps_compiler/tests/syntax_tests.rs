@@ -18,7 +18,7 @@ fn syntax_tests() -> std::io::Result<()> {
         return Ok(());
     }
     let mut success = true;
-    for entry in std::fs::read_dir(format!("{}/tests", env!("CARGO_MANIFEST_DIR")))? {
+    for entry in std::fs::read_dir(format!("{}/tests/syntax", env!("CARGO_MANIFEST_DIR")))? {
         let entry = entry?;
         let path = entry.path();
         if path.is_dir() {
