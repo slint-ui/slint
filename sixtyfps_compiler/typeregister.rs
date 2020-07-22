@@ -441,7 +441,11 @@ impl TypeRegister {
     }
 
     pub fn add(&mut self, comp: Rc<crate::object_tree::Component>) {
-        self.types.insert(comp.id.clone(), Type::Component(comp));
+        self.add_with_name(comp.id.clone(), comp);
+    }
+
+    pub fn add_with_name(&mut self, name: String, comp: Rc<crate::object_tree::Component>) {
+        self.types.insert(name, Type::Component(comp));
     }
 
     pub fn add_exports(&mut self, doc: &crate::object_tree::Document) {
@@ -528,7 +532,7 @@ fn test_extend_registry_from_source() {
     let local_types = Rc::new(RefCell::new(TypeRegister::new(&global_types)));
 
     let mut test_source_path: std::path::PathBuf =
-        [env!("CARGO_MANIFEST_DIR"), "tests", "typeloader", "test_file"].iter().collect();
+        [env!("CARGO_MANIFEST_DIR"), "tests", "typeregistry", "test_file"].iter().collect();
 
     // First try to load a file that depends on another, but that hasn't been loaded yet.
     {
@@ -570,7 +574,7 @@ fn test_registry_from_library() {
     let global_types = TypeRegister::builtin();
 
     let test_source_path: std::path::PathBuf =
-        [env!("CARGO_MANIFEST_DIR"), "tests", "typeloader"].iter().collect();
+        [env!("CARGO_MANIFEST_DIR"), "tests", "typeregistry"].iter().collect();
 
     let local_types = Rc::new(RefCell::new(TypeRegister::new(&global_types)));
     let result = TypeRegister::add_from_directory(&local_types, test_source_path);

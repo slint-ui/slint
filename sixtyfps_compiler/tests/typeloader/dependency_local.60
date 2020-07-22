@@ -1,0 +1,4 @@
+
+import { AnotherType } from "./incpath/dependency_from_incpath.60";
+
+export SubType := AnotherType {}

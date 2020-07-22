@@ -330,3 +330,15 @@ export Button := Rectangle {
     // ...
 }
 ```
+
+Similarly, components exported from other files can be accessed by importing them:
+
+```60
+import { Button } from "./button.60";
+
+App := Rectangle {
+    // ...
+    Button {
+        // ...
+    }
+}

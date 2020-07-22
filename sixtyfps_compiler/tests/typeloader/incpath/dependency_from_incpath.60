@@ -1,0 +1,3 @@
+import { SomeRect } from "./local_helper_type.60";
+
+export AnotherType := SomeRect {}

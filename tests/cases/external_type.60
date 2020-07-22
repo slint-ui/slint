@@ -1,4 +1,6 @@
 //include_path: ../helper_components
+import { TestButton } from "test_button.60";
+import { ColorButton } from "../helper_components/test_button.60";
 TestCase := Rectangle {
     TestButton {} // from external file
     ColorButton {} // from external file

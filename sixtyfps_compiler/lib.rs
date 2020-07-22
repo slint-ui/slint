@@ -21,6 +21,7 @@ pub mod generator;
 pub mod layout;
 pub mod object_tree;
 pub mod parser;
+pub mod typeloader;
 pub mod typeregister;
 
 mod passes {
@@ -66,6 +67,17 @@ pub fn compile_syntax_node(
     let type_registry =
         Rc::new(RefCell::new(typeregister::TypeRegister::new(&global_type_registry)));
 
+    let doc_node: parser::syntax_nodes::Document = doc_node.into();
+
+    if doc_node.source_file.is_some() {
+        typeloader::load_dependencies_recursively(
+            &doc_node,
+            &mut diagnostics,
+            &type_registry,
+            &compiler_config,
+        );
+    }
+
     for (path, source) in library::widget_library() {
         build_diagnostics.add(typeregister::TypeRegister::add_type_from_source(
             &type_registry,
@@ -74,29 +86,7 @@ pub fn compile_syntax_node(
         ));
     }
 
-    if !compiler_config.include_paths.is_empty() {
-        build_diagnostics.extend(
-            compiler_config
-                .include_paths
-                .iter()
-                .map(|path| {
-                    let path = if path.is_relative() {
-                        let mut abs_path = diagnostics.current_path.as_ref().clone();
-                        abs_path.pop();
-                        abs_path.push(path);
-                        abs_path
-                    } else {
-                        path.clone()
-                    };
-                    typeregister::TypeRegister::add_from_directory(&type_registry, path)
-                })
-                .filter_map(Result::ok)
-                .flatten(),
-        );
-    };
-
-    let doc =
-        crate::object_tree::Document::from_node(doc_node.into(), &mut diagnostics, &type_registry);
+    let doc = crate::object_tree::Document::from_node(doc_node, &mut diagnostics, &type_registry);
 
     build_diagnostics.add(diagnostics);
 

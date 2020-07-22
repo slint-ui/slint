@@ -1,0 +1,7 @@
+import { SubType } from "./dependency_local.60";
+import { AnotherType } from "dependency_from_incpath.60";
+
+export Main := Rectangle {
+    SubType {}
+    AnotherType {}
+}
