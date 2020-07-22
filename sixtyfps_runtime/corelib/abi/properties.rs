@@ -396,6 +396,18 @@ unsafe fn mark_dependencies_dirty(deps: *mut DependencyListHead) {
     }
 }
 
+/// Types that can be set as bindings for a Property<T>
+pub trait Binding<T> {
+    /// Evaluate the binding and return the new value
+    fn evaluate(self: &Self, old_value: &T) -> T;
+}
+
+impl<T, F: Fn() -> T> Binding<T> for F {
+    fn evaluate(self: &Self, _value: &T) -> T {
+        self()
+    }
+}
+
 /// A Property that allow binding that track changes
 ///
 /// Property van have be assigned value, or bindings.
@@ -468,10 +480,28 @@ impl<T: Clone> Property<T> {
     ///
     /// If other properties have bindings depending of this property, these properties will
     /// be marked as dirty.
-    //FIXME pub fn set_binding(self: Pin<&Self>, f: impl (Fn() -> T) + 'static) {
-    pub fn set_binding(&self, f: impl (Fn() -> T) + 'static) {
+    ///
+    /// Clausures of type `Fn()->T` implements Binding<T> and can be used as a binding
+    ///
+    /// ## Example
+    /// ```
+    /// use std::rc::Rc;
+    /// use sixtyfps_corelib::Property;
+    /// let prop1 = Rc::pin(Property::new(100));
+    /// let prop2 = Rc::pin(Property::<i32>::default());
+    /// prop2.as_ref().set_binding({
+    ///     let prop1 = prop1.clone(); // in order to move it into the closure.
+    ///     move || { prop1.as_ref().get() + 30 }
+    /// });
+    /// assert_eq!(prop2.as_ref().get(), 130);
+    /// prop1.set(200);
+    /// assert_eq!(prop2.as_ref().get(), 230);
+    /// ```
+    //FIXME pub fn set_binding(self: Pin<&Self>, f: impl Binding<T> + 'static) {
+    pub fn set_binding(&self, binding: impl Binding<T> + 'static) {
         self.handle.set_binding(move |val: *mut ()| unsafe {
-            *(val as *mut T) = f();
+            let val = &mut *(val as *mut T);
+            *val = binding.evaluate(val);
             BindingResult::KeepBinding
         });
         self.handle.mark_dirty();
