@@ -453,6 +453,32 @@ impl<T: Clone> Property<T> {
         self.get_internal()
     }
 
+    /// Same as get() but without registering a dependency
+    ///
+    /// This allow to optimize bindings that know that they might not need to
+    /// re_evaluate themself when the property change or that have registered
+    /// the dependency in another way.
+    ///
+    /// ## Example
+    /// ```
+    /// use std::rc::Rc;
+    /// use sixtyfps_corelib::Property;
+    /// let prop1 = Rc::pin(Property::new(100));
+    /// let prop2 = Rc::pin(Property::<i32>::default());
+    /// prop2.as_ref().set_binding({
+    ///     let prop1 = prop1.clone(); // in order to move it into the closure.
+    ///     move || { prop1.as_ref().get_without_registering_dependency() + 30 }
+    /// });
+    /// assert_eq!(prop2.as_ref().get(), 130);
+    /// prop1.set(200);
+    /// // changing prop1 do not affect the prop2 binding because no dependency was registered
+    /// assert_eq!(prop2.as_ref().get(), 130);
+    /// ```
+    pub fn get_without_registering_dependency(self: Pin<&Self>) -> T {
+        unsafe { self.handle.update(self.value.get()) };
+        self.get_internal()
+    }
+
     /// Get the value without registering any dependencies or executing any binding
     fn get_internal(&self) -> T {
         self.handle.access(|_| {
@@ -495,6 +521,7 @@ impl<T: Clone> Property<T> {
     /// });
     /// assert_eq!(prop2.as_ref().get(), 130);
     /// prop1.set(200);
+    /// // A change in prop1 forced the binding on prop2 to re_evaluate
     /// assert_eq!(prop2.as_ref().get(), 230);
     /// ```
     //FIXME pub fn set_binding(self: Pin<&Self>, f: impl Binding<T> + 'static) {
