@@ -201,6 +201,92 @@ Example := Rectangle {
 }
 ```
 
+## Animations
+
+Simple animation that animates a property can be declared with `animate` like so:
+
+```60
+Example := Rectangle {
+    property<bool> pressed;
+    color: pressed ? blue : red;
+    animate color {
+        duration: 100ms;
+    }
+}
+```
+
+This will aniate the color property for 100ms when it changes.
+
+Animation can be configured with the following parameter:
+ * `duration`: the amount of time it takes for the animation to complete
+ * `loop_count`: FIXME
+
+It is also possible to animate sevaral properties with the same animation:
+
+```60
+animate x, y { duration: 100ms; }
+```
+is the same as
+```60
+animate x { duration: 100ms; }
+animate y { duration: 100ms; }
+```
+
+## States
+
+The `states` statement alow to declare states like so:
+
+```60
+Example := Rectangle {
+    text := Text { text: "hello" }
+    property<bool> pressed;
+    property<bool> enabled;
+
+    states [
+        disabled when !enabled : {
+            color: gray; // same as root.color: gray;
+            text.color: white;
+        }
+        down when pressed : {
+            color: blue;
+        }
+    ]
+}
+```
+
+In that example, when the `enabled` property is set to false, the `disabled` state will be entered
+This will change the color of the Rectangle and of the Text.
+
+### Transitions
+
+Complex animation can be declared on state transitions:
+
+```60
+Example := Rectangle {
+    text := Text { text: "hello" }
+    property<bool> pressed;
+    property<bool> enabled;
+
+    states [
+        disabled when !enabled : {
+            color: gray; // same as root.color: gray;
+            text.color: white;
+        }
+        down when pressed : {
+            color: blue;
+        }
+    ]
+
+    transitions [
+        to down {
+            animate color { duration: 300ms }
+        }
+        out disabled {
+            animate * { duration: 800ms }
+        }
+    ]
+}
+```
 
 ## Modules
 
