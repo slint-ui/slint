@@ -318,7 +318,7 @@ declare_syntax! {
         /// There is an idientfier "to" or "out", the DeclaredIdentifier is the state name
         Transition -> [DeclaredIdentifier, *PropertyAnimation],
         /// Export a set of declared components by name
-        ExportsList -> [ *ExportSpecifier ],
+        ExportsList -> [ *ExportSpecifier, *Component ],
         /// Declare the first identifier to be exported, either under its name or instead
         /// under the name of the second identifier.
         ExportSpecifier -> [ ExportIdentifier, ?ExportName ],

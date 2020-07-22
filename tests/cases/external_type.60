@@ -1,5 +1,6 @@
 //include_path: ../helper_components
 TestCase := Rectangle {
     TestButton {} // from external file
+    ColorButton {} // from external file
     Button {} // from standard library
 }

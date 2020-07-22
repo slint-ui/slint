@@ -34,6 +34,7 @@ impl Document {
 
         let inner_components = node
             .Component()
+            .chain(node.ExportsList().flat_map(|export| export.Component()))
             .map(|n| {
                 let compo = Component::from_node(n, diag, &local_registry);
                 local_registry.add(compo.clone());
@@ -41,7 +42,7 @@ impl Document {
             })
             .collect::<Vec<_>>();
 
-        let exports = Exports::from_node(node.ExportsList(), &inner_components, diag);
+        let exports = Exports::from_node(&node, &inner_components, diag);
 
         Document {
             // FIXME: one should use the `component` hint instead of always returning the last
@@ -695,11 +696,12 @@ pub struct Exports(Vec<NamedExport>);
 
 impl Exports {
     pub fn from_node(
-        exports: impl Iterator<Item = syntax_nodes::ExportsList>,
+        doc: &syntax_nodes::Document,
         inner_components: &Vec<Rc<Component>>,
         diag: &mut FileDiagnostics,
     ) -> Self {
-        let mut exports = exports
+        let mut exports = doc
+            .ExportsList()
             .flat_map(|exports| exports.ExportSpecifier())
             .filter_map(|export_specifier| {
                 let internal_name =
@@ -726,6 +728,22 @@ impl Exports {
                 Some(NamedExport { internal_name, exported_name })
             })
             .collect::<Vec<_>>();
+
+        exports.extend(doc.ExportsList().flat_map(|exports| exports.Component()).filter_map(
+            |component| {
+                let name = match component.child_text(SyntaxKind::Identifier) {
+                    Some(name) => name,
+                    None => {
+                        diag.push_error(
+                            "Cannot export component without name".to_owned(),
+                            &component,
+                        );
+                        return None;
+                    }
+                };
+                Some(NamedExport { internal_name: name.clone(), exported_name: name })
+            },
+        ));
 
         if exports.is_empty() {
             let internal_name = inner_components.last().cloned().unwrap_or_default().id.clone();

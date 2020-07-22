@@ -8,3 +8,7 @@ TestButtonImpl := Rectangle {
     }
 }
 export { TestButtonImpl as TestButton }
+
+export ColorButton := TestButtonImpl {
+    property<color> button_color;
+}

@@ -236,3 +236,11 @@ export { Button as ColorButton }
 ```
 
 In the above example, ```Button``` is not accessible from the outside, but instead it is available under the name ```ColorButton```.
+
+For convenience, a third way of exporting a component is to declare it exported right away:
+
+```60
+export Button := Rectangle {
+    // ...
+}
+```

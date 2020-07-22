@@ -475,25 +475,26 @@ fn parse_export(p: &mut impl Parser) -> bool {
     debug_assert_eq!(p.peek().as_str(), "export");
     let mut p = p.start_node(SyntaxKind::ExportsList);
     p.consume(); // "export"
-    if !p.expect(SyntaxKind::LBrace) {
-        return false;
-    }
-    loop {
-        parse_export_specifier(&mut *p);
-        match p.nth(0) {
-            SyntaxKind::RBrace => {
-                p.consume();
-                return true;
-            }
-            SyntaxKind::Eof => return false,
-            SyntaxKind::Comma => {
-                p.consume();
-            }
-            _ => {
-                p.consume();
-                p.error("Expected comma")
+    if p.test(SyntaxKind::LBrace) {
+        loop {
+            parse_export_specifier(&mut *p);
+            match p.nth(0) {
+                SyntaxKind::RBrace => {
+                    p.consume();
+                    return true;
+                }
+                SyntaxKind::Eof => return false,
+                SyntaxKind::Comma => {
+                    p.consume();
+                }
+                _ => {
+                    p.consume();
+                    p.error("Expected comma")
+                }
             }
         }
+    } else {
+        return parse_component(&mut *p);
     }
 }
 
