@@ -4,7 +4,7 @@
 
 use crate::diagnostics::{FileDiagnostics, Spanned, SpannedWithSourceFile};
 use crate::expression_tree::{Expression, NamedReference};
-use crate::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxNodeWithSourceFile};
+use crate::parser::{syntax_nodes, SyntaxKind, SyntaxNodeWithSourceFile};
 use crate::typeregister::{Type, TypeRegister};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -22,13 +22,12 @@ pub struct Document {
 
 impl Document {
     pub fn from_node(
-        node: SyntaxNode,
+        node: SyntaxNodeWithSourceFile,
         diag: &mut FileDiagnostics,
         parent_registry: &Rc<RefCell<TypeRegister>>,
     ) -> Self {
         debug_assert_eq!(node.kind(), SyntaxKind::Document);
-        let node: syntax_nodes::Document =
-            SyntaxNodeWithSourceFile { node, source_file: diag.current_path.clone() }.into();
+        let node: syntax_nodes::Document = node.into();
 
         let mut local_registry = TypeRegister::new(parent_registry);
 
@@ -168,7 +167,7 @@ impl Spanned for Element {
 
 impl SpannedWithSourceFile for Element {
     fn source_file(&self) -> Option<&Rc<std::path::PathBuf>> {
-        self.node.as_ref().map(|n| &n.0.source_file)
+        self.node.as_ref().map(|n| n.0.source_file.as_ref()).flatten()
     }
 }
 

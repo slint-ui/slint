@@ -55,7 +55,7 @@ pub struct CompilerConfiguration<'a> {
 }
 
 pub fn compile_syntax_node(
-    doc_node: parser::SyntaxNode,
+    doc_node: parser::SyntaxNodeWithSourceFile,
     mut diagnostics: diagnostics::FileDiagnostics,
     compiler_config: &CompilerConfiguration,
 ) -> (object_tree::Document, diagnostics::BuildDiagnostics) {

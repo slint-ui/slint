@@ -248,7 +248,8 @@ impl Expression {
                     if path.is_absolute() {
                         s
                     } else {
-                        let path = node.source_file.parent().unwrap().join(path);
+                        let path =
+                            node.source_file.unwrap_or_default().parent().unwrap().join(path);
                         if path.is_absolute() {
                             path.to_string_lossy().to_string()
                         } else {

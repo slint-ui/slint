@@ -625,14 +625,14 @@ impl Spanned for SyntaxToken {
 #[derive(Debug, Clone)]
 pub struct SyntaxNodeWithSourceFile {
     pub node: SyntaxNode,
-    pub source_file: SourceFile,
+    pub source_file: Option<SourceFile>,
 }
 
 #[derive(Debug, Clone, derive_more::Deref)]
 pub struct SyntaxTokenWithSourceFile {
     #[deref]
     pub token: SyntaxToken,
-    pub source_file: SourceFile,
+    pub source_file: Option<SourceFile>,
 }
 
 impl std::fmt::Display for SyntaxTokenWithSourceFile {
@@ -684,7 +684,7 @@ impl SyntaxNodeWithSourceFile {
 
 pub struct NodeOrTokenWithSourceFile {
     node_or_token: rowan::NodeOrToken<SyntaxNode, SyntaxToken>,
-    source_file: SourceFile,
+    source_file: Option<SourceFile>,
 }
 
 impl NodeOrTokenWithSourceFile {
@@ -722,7 +722,7 @@ impl Spanned for SyntaxNodeWithSourceFile {
 
 impl SpannedWithSourceFile for SyntaxNodeWithSourceFile {
     fn source_file(&self) -> Option<&SourceFile> {
-        Some(&self.source_file)
+        self.source_file.as_ref()
     }
 }
 
@@ -740,23 +740,32 @@ impl Spanned for SyntaxTokenWithSourceFile {
 
 impl SpannedWithSourceFile for SyntaxTokenWithSourceFile {
     fn source_file(&self) -> Option<&SourceFile> {
-        Some(&self.source_file)
+        self.source_file.as_ref()
     }
 }
 
 // Actual parser
-pub fn parse(source: String, path: Option<&std::path::Path>) -> (SyntaxNode, FileDiagnostics) {
+pub fn parse(
+    source: String,
+    path: Option<&std::path::Path>,
+) -> (SyntaxNodeWithSourceFile, FileDiagnostics) {
     let mut p = DefaultParser::new(source);
     document::parse_document(&mut p);
-    if let Some(path) = path {
+    let source_file = if let Some(path) = path {
         p.diags.current_path = std::rc::Rc::new(path.to_path_buf());
-    }
-    (SyntaxNode::new_root(p.builder.finish()), p.diags)
+        Some(p.diags.current_path.clone())
+    } else {
+        None
+    };
+    (
+        SyntaxNodeWithSourceFile { node: SyntaxNode::new_root(p.builder.finish()), source_file },
+        p.diags,
+    )
 }
 
 pub fn parse_file<P: AsRef<std::path::Path>>(
     path: P,
-) -> std::io::Result<(SyntaxNode, FileDiagnostics)> {
+) -> std::io::Result<(SyntaxNodeWithSourceFile, FileDiagnostics)> {
     let source = std::fs::read_to_string(&path)?;
 
     Ok(parse(source, Some(path.as_ref())))
