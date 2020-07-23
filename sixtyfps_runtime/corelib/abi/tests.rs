@@ -12,14 +12,3 @@ pub extern "C" fn sixtyfps_test_ellapse_time(time_in_ms: u64) {
         driver.update_animations(tick)
     })
 }
-
-/// Somehow this is required for the extern "C" things to be exported in a dependent dynlib
-#[doc(hidden)]
-pub fn dummy() {
-    #[derive(Clone)]
-    struct Foo;
-    foo(Foo);
-    fn foo(f: impl Clone) {
-        let _ = f.clone();
-    }
-}

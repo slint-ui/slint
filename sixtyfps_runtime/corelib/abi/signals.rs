@@ -112,14 +112,3 @@ pub unsafe extern "C" fn sixtyfps_signal_set_handler(
 pub unsafe extern "C" fn sixtyfps_signal_drop(handle: *mut SignalOpaque) {
     core::ptr::read(handle as *mut Signal<()>);
 }
-
-/// Somehow this is required for the extern "C" things to be exported in a dependent dynlib
-#[doc(hidden)]
-pub fn dummy() {
-    #[derive(Clone)]
-    struct Foo;
-    foo(Foo);
-    fn foo(f: impl Clone) {
-        let _ = f.clone();
-    }
-}

@@ -730,3 +730,10 @@ pub fn create_gl_window() -> ComponentWindow {
         GLRenderer::new(&event_loop.get_winit_event_loop(), window_builder)
     }))
 }
+
+
+#[doc(hidden)]
+#[cold]
+pub fn use_modules() {
+    sixtyfps_corelib::use_modules();
+}
