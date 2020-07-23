@@ -22,12 +22,11 @@ pub struct Document {
 
 impl Document {
     pub fn from_node(
-        node: SyntaxNodeWithSourceFile,
+        node: syntax_nodes::Document,
         diag: &mut FileDiagnostics,
         parent_registry: &Rc<RefCell<TypeRegister>>,
     ) -> Self {
         debug_assert_eq!(node.kind(), SyntaxKind::Document);
-        let node: syntax_nodes::Document = node.into();
 
         let mut local_registry = TypeRegister::new(parent_registry);
 

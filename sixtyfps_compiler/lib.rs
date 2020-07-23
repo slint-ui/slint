@@ -95,7 +95,8 @@ pub fn compile_syntax_node(
         );
     };
 
-    let doc = crate::object_tree::Document::from_node(doc_node, &mut diagnostics, &type_registry);
+    let doc =
+        crate::object_tree::Document::from_node(doc_node.into(), &mut diagnostics, &type_registry);
 
     build_diagnostics.add(diagnostics);
 
