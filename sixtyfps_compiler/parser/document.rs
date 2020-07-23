@@ -560,6 +560,7 @@ fn parse_import_specifier(p: &mut impl Parser) -> bool {
 /// { Type1 }
 /// { Type2, Type3 }
 /// { }
+/// { Type as Alias1, Type as AnotherAlias }
 /// ```
 fn parse_import_identifier_list(p: &mut impl Parser) -> bool {
     let mut p = p.start_node(SyntaxKind::ImportIdentifierList);
@@ -570,12 +571,7 @@ fn parse_import_identifier_list(p: &mut impl Parser) -> bool {
         return true;
     }
     loop {
-        {
-            let mut p = p.start_node(SyntaxKind::ImportIdentifier);
-            if !p.expect(SyntaxKind::Identifier) {
-                return false;
-            }
-        }
+        parse_import_identifier(&mut *p);
         match p.nth(0) {
             SyntaxKind::RBrace => {
                 p.consume();
@@ -591,4 +587,27 @@ fn parse_import_identifier_list(p: &mut impl Parser) -> bool {
             }
         }
     }
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,ImportIdentifier
+/// Type
+/// Type as Alias1
+/// ```
+fn parse_import_identifier(p: &mut impl Parser) -> bool {
+    let mut p = p.start_node(SyntaxKind::ImportIdentifier);
+    {
+        let mut p = p.start_node(SyntaxKind::ExternalName);
+        if !p.expect(SyntaxKind::Identifier) {
+            return false;
+        }
+    }
+    if p.nth(0) == SyntaxKind::Identifier && p.peek().as_str() == "as" {
+        p.consume();
+        let mut p = p.start_node(SyntaxKind::InternalName);
+        if !p.expect(SyntaxKind::Identifier) {
+            return false;
+        }
+    }
+    return true;
 }

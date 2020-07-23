@@ -327,7 +327,10 @@ declare_syntax! {
         // import { foo, bar, baz } from "blah"; The import uri is stored as string literal.
         ImportSpecifier -> [ ImportIdentifierList ],
         ImportIdentifierList -> [ *ImportIdentifier ],
-        ImportIdentifier -> [],
+        // { foo as bar } or just { foo }
+        ImportIdentifier -> [ ExternalName, ?InternalName ],
+        ExternalName -> [],
+        InternalName -> [],
     }
 }
 

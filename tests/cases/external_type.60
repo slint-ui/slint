@@ -1,8 +1,8 @@
 //include_path: ../helper_components
-import { TestButton } from "test_button.60";
+import { TestButton as RealButton } from "test_button.60";
 import { ColorButton } from "../helper_components/test_button.60";
 TestCase := Rectangle {
-    TestButton {} // from external file
+    RealButton {} // aliased from external file
     ColorButton {} // from external file
     Button {} // from standard library
 }

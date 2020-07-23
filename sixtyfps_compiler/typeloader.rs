@@ -55,7 +55,7 @@ fn load_dependency(
 
     for import_name in imported_types.type_names {
         let imported_type = exports.iter().find_map(|(export_name, component)| {
-            if import_name == *export_name {
+            if import_name.external_name == *export_name {
                 Some(component.clone())
             } else {
                 None
@@ -68,7 +68,7 @@ fn load_dependency(
                 importer_diagnostics.push_error(
                     format!(
                         "No exported type called {} found in {}",
-                        import_name,
+                        import_name.external_name,
                         dependency_diagnostics.current_path.to_string_lossy()
                     ),
                     &imported_types.import_token,
@@ -77,12 +77,18 @@ fn load_dependency(
             }
         };
 
-        registry_to_populate.borrow_mut().add_with_name(import_name, imported_type);
+        registry_to_populate.borrow_mut().add_with_name(import_name.internal_name, imported_type);
     }
+}
+struct ImportedName {
+    // name of export to match in the other file
+    pub external_name: String,
+    // name to be used locally
+    pub internal_name: String,
 }
 
 struct ImportedTypes {
-    pub type_names: Vec<String>,
+    pub type_names: Vec<ImportedName>,
     pub import_token: SyntaxTokenWithSourceFile,
 }
 
@@ -103,7 +109,17 @@ fn collect_dependencies(
             let type_names = import
                 .ImportIdentifierList()
                 .ImportIdentifier()
-                .map(|importident| importident.text().to_string().trim().to_string())
+                .map(|importident| {
+                    let external_name =
+                        importident.ExternalName().text().to_string().trim().to_string();
+
+                    let internal_name = match importident.InternalName() {
+                        Some(name_ident) => name_ident.text().to_string().trim().to_string(),
+                        None => external_name.clone(),
+                    };
+
+                    ImportedName { internal_name, external_name }
+                })
                 .collect();
 
             let import_uri = import.child_token(SyntaxKind::StringLiteral).expect(

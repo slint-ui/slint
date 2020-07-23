@@ -342,3 +342,17 @@ App := Rectangle {
         // ...
     }
 }
+
+In the event that two files export a type under the same then, then you have the option
+of assigning a different name at import type:
+
+```60
+import { Button } from "./button.60";
+import { Button as CoolButton } from "../other_theme/button.60";
+
+App := Rectangle {
+    // ...
+    CoolButton {} // from cool_button.60
+    Button {} // from button.60
+}
+```
