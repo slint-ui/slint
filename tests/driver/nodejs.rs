@@ -37,7 +37,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         main_js,
         r#"
                 const assert = require('assert').strict;
-                require("{sixtyfpspath}");
+                let sixtyfpslib = require("{sixtyfpspath}");
                 let sixtyfps = require("{path}");
         "#,
         sixtyfpspath = sixtyfpspath.to_string_lossy(),

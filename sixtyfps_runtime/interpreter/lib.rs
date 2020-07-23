@@ -55,7 +55,19 @@ impl ComponentDescription {
             return Err(());
         }
         let x = self.custom_properties.get(name).ok_or(())?;
-        unsafe { x.prop.set(Pin::new_unchecked(&*component.as_ptr().add(x.offset)), value, None) }
+        let maybe_animation = dynamic_component::animation_for_property(
+            self,
+            component,
+            &self.original.root_element.borrow().property_animations,
+            name,
+        );
+        unsafe {
+            x.prop.set(
+                Pin::new_unchecked(&*component.as_ptr().add(x.offset)),
+                value,
+                maybe_animation,
+            )
+        }
     }
 
     /// Set a binding to a property

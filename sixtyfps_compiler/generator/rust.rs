@@ -84,11 +84,17 @@ pub fn generate(component: &Rc<Component>, diag: &mut BuildDiagnostics) -> Optio
                     .into(),
                 );
 
+                let set_value = property_set_value_tokens(
+                    component,
+                    &component.root_element,
+                    prop_name,
+                    quote!(value),
+                );
                 property_and_signal_accessors.push(
                     quote!(
                         #[allow(dead_code)]
                         fn #setter_ident(&self, value: #rust_property_type) {
-                            Self::field_offsets().#prop_ident.apply(self).set(value)
+                            Self::field_offsets().#prop_ident.apply(self).#set_value
                         }
                     )
                     .into(),
@@ -224,12 +230,7 @@ pub fn generate(component: &Rc<Component>, diag: &mut BuildDiagnostics) -> Optio
                     ));
                 } else {
                     let setter = if binding_expression.is_constant() {
-                        property_set_value_tokens(
-                            component,
-                            &item_rc,
-                            k,
-                            quote!((#tokens_for_expression) as _),
-                        )
+                        quote!(set((#tokens_for_expression) as _))
                     } else {
                         property_set_binding_tokens(
                             component,

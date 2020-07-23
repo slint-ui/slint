@@ -400,16 +400,16 @@ fn generate_component(root_component: &Rc<object_tree::Component>) -> Rc<Compone
     Rc::new(t)
 }
 
-fn animation_for_property(
-    component_type: Rc<ComponentDescription>,
+pub fn animation_for_property(
+    component_type: &ComponentDescription,
     component_ref: ComponentRefPin,
     all_animations: &HashMap<String, ElementRc>,
-    property_name: &String,
+    property_name: &str,
 ) -> Option<PropertyAnimation> {
     match all_animations.get(property_name) {
         Some(anim_elem) => Some(eval::new_struct_with_bindings(
             &anim_elem.borrow().bindings,
-            &*component_type,
+            component_type,
             component_ref,
             &mut Default::default(),
         )),
@@ -421,10 +421,10 @@ fn animation_for_element_property(
     component_type: Rc<ComponentDescription>,
     eval_context: ComponentRefPin,
     element: &Element,
-    property_name: &String,
+    property_name: &str,
 ) -> Option<PropertyAnimation> {
     animation_for_property(
-        component_type,
+        &component_type,
         eval_context,
         &element.property_animations,
         property_name,
@@ -544,7 +544,7 @@ pub fn instantiate(
                     }) = component_type.custom_properties.get(prop.as_str())
                     {
                         let maybe_animation = animation_for_property(
-                            component_type.clone(),
+                            &component_type,
                             component_box.borrow(),
                             &component_type.original.root_element.borrow().property_animations,
                             prop,
@@ -557,9 +557,7 @@ pub fn instantiate(
                                 component_box.borrow(),
                                 &mut Default::default(),
                             );
-                            prop_info
-                                .set(Pin::new_unchecked(&*mem.add(*offset)), v, maybe_animation)
-                                .unwrap();
+                            prop_info.set(Pin::new_unchecked(&*mem.add(*offset)), v, None).unwrap();
                         } else {
                             let expr = expr.clone();
                             let component_type = component_type.clone();

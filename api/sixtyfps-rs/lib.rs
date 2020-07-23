@@ -98,8 +98,10 @@ pub fn create_window() -> re_exports::ComponentWindow {
     sixtyfps_rendering_backend_gl::create_gl_window()
 }
 
-#[cfg(doctest)]
-mod compile_fail_tests;
+/// This module contains functions usefull for unit tests
+pub mod testing {
+    pub use sixtyfps_corelib::abi::tests::sixtyfps_test_ellapse_time as ellapse_time;
+}
 
 /// Include the code generated with the sixtyfps-build crate from the build script
 #[macro_export]
@@ -108,3 +110,6 @@ macro_rules! include_modules {
         include!(env!("SIXTYFPS_INCLUDE_GENERATED"));
     };
 }
+
+#[cfg(doctest)]
+mod compile_fail_tests;

@@ -203,7 +203,7 @@ fn property_set_value_code(
     component: &Rc<Component>,
     element: &Element,
     property_name: &str,
-    value_expr: String,
+    value_expr: &str,
 ) -> String {
     if let Some(animation_code) = property_animation_code(component, element, property_name) {
         format!(
@@ -270,12 +270,11 @@ fn handle_item(item: &Element, main_struct: &mut Struct, init: &mut Vec<String>)
 
             let init = compile_expression(i, component);
             if i.is_constant() {
-                let setter = property_set_value_code(&component, item, s, init);
                 format!(
-                    "{accessor_prefix}{cpp_prop}.{setter};",
+                    "{accessor_prefix}{cpp_prop}.set({init});",
                     accessor_prefix = accessor_prefix,
                     cpp_prop = s,
-                    setter = setter
+                    init = init
                 )
             } else {
                 let binding_code = format!(
@@ -423,7 +422,16 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Bui
                     ..Default::default()
                 }));
 
-                let prop_setter: Vec<String> = vec![format!("this->{}.set(value);", cpp_name)];
+                let prop_setter: Vec<String> = vec![format!(
+                    "this->{}.{};",
+                    cpp_name,
+                    property_set_value_code(
+                        &component,
+                        &*component.root_element.borrow(),
+                        cpp_name,
+                        "value"
+                    )
+                )];
                 component_struct.members.push(Declaration::Function(Function {
                     name: format!("set_{}", cpp_name),
                     signature: format!("(const {} &value)", cpp_type),

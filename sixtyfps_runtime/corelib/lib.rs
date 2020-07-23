@@ -32,6 +32,7 @@ pub mod abi {
     pub mod signals;
     pub mod slice;
     pub mod string;
+    pub mod tests;
 }
 
 #[doc(inline)]

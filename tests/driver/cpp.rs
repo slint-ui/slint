@@ -34,7 +34,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     }
 
     generated_cpp.write_all(
-        b"#ifdef NDEBUG\n#undef NDEBUG\n#endif\n#include <assert.h>\n#include <cmath>\n#include <iostream>\n",
+        b"#ifdef NDEBUG\n#undef NDEBUG\n#endif\n#include <assert.h>\n#include <cmath>\n#include <iostream>\n#include <sixtyfps_testing.h>\n",
     )?;
     generated_cpp.write_all(b"int main() {\n")?;
     for x in test_driver_lib::extract_test_functions(&source).filter(|x| x.language_id == "cpp") {
