@@ -22,14 +22,17 @@ fn main() -> std::io::Result<()> {
         .collect();
 
     let mut file = std::fs::File::create(&output_file_path)?;
-    write!(file, "pub fn widget_library() -> &'static [(&'static str, &'static str)] {{ &[")?;
+    write!(
+        file,
+        "use crate::typeloader::VirtualFile; pub fn widget_library() -> &'static [&'static VirtualFile<'static>] {{ &["
+    )?;
     write!(
         file,
         "{}",
         library_files
             .iter()
             .map(|file| format!(
-                "(\"{}\" ,include_str!(\"{}\"))",
+                "&VirtualFile {{path: \"{}\" , contents: include_str!(\"{}\")}}",
                 file.file_name().unwrap().to_string_lossy(),
                 file.display()
             ))

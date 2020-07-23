@@ -1,4 +1,3 @@
-use crate::diagnostics::FileDiagnostics;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::{cell::RefCell, fmt::Display, rc::Rc};
 
@@ -448,70 +447,6 @@ impl TypeRegister {
         self.types.insert(name, Type::Component(comp));
     }
 
-    pub fn add_exports(&mut self, doc: &crate::object_tree::Document) {
-        for (name, component) in doc.exports().into_iter() {
-            self.types.insert(name, Type::Component(component));
-        }
-    }
-
-    /// Loads the .60 file and adds it to the type registry. An error is returned if there were I/O problems,
-    /// otherwise the diagnostics collected during the parsing are returned.
-    pub fn add_type_from_source<P: AsRef<std::path::Path>>(
-        registry: &Rc<RefCell<Self>>,
-        source: String,
-        path: P,
-    ) -> FileDiagnostics {
-        let (syntax_node, mut diag) = crate::parser::parse(source, Some(path.as_ref()));
-
-        let doc = crate::object_tree::Document::from_node(syntax_node.into(), &mut diag, &registry);
-
-        registry.borrow_mut().add_exports(&doc);
-
-        diag
-    }
-
-    /// Loads the .60 file and adds it to the type registry. An error is returned if there were I/O problems,
-    /// otherwise the diagnostics collected during the parsing are returned.
-    pub fn add_type_from_path<P: AsRef<std::path::Path>>(
-        registry: &Rc<RefCell<Self>>,
-        path: P,
-    ) -> std::io::Result<FileDiagnostics> {
-        let (syntax_node, mut diag) = crate::parser::parse_file(&path)?;
-
-        let doc = crate::object_tree::Document::from_node(syntax_node.into(), &mut diag, &registry);
-
-        registry.borrow_mut().add_exports(&doc);
-
-        Ok(diag)
-    }
-
-    /// Adds all .60 files from the specified directory to the type registry. For each file a result is
-    /// included in the returned vector that either contains the diagnostics encountered during the parsing
-    /// (if any) or an I/O error if it occured. If there was a problem reading the directory, then an I/O error
-    /// is returned.
-    pub fn add_from_directory<P: AsRef<std::path::Path>>(
-        registry: &Rc<RefCell<Self>>,
-        directory: P,
-    ) -> std::io::Result<Vec<FileDiagnostics>> {
-        Ok(std::fs::read_dir(directory)?
-            .filter_map(Result::ok)
-            .filter_map(|entry| {
-                let path = entry.path();
-                if path.is_file()
-                    && path.extension().unwrap_or_default() == std::ffi::OsStr::new("60")
-                {
-                    Some(path)
-                } else {
-                    None
-                }
-            })
-            .map(|path| {
-                TypeRegister::add_type_from_path(registry, &path)
-                    .unwrap_or_else(|ioerr| FileDiagnostics::new_from_error(path, ioerr))
-            })
-            .collect())
-    }
-
     pub fn property_animation_type_for_property(&self, property_type: Type) -> Type {
         if self.supported_property_animation_types.contains(&property_type.to_string()) {
             self.property_animation_type.clone()
@@ -524,65 +459,4 @@ impl TypeRegister {
                 .unwrap_or_default()
         }
     }
-}
-
-#[test]
-fn test_extend_registry_from_source() {
-    let global_types = TypeRegister::builtin();
-    let local_types = Rc::new(RefCell::new(TypeRegister::new(&global_types)));
-
-    let mut test_source_path: std::path::PathBuf =
-        [env!("CARGO_MANIFEST_DIR"), "tests", "typeregistry", "test_file"].iter().collect();
-
-    // First try to load a file that depends on another, but that hasn't been loaded yet.
-    {
-        let mut path = test_source_path.clone();
-        path.set_file_name("lib_test2.60");
-        let result = crate::parser::parse_file(path);
-        assert!(result.is_ok());
-
-        let (syntax_node, mut diag) = result.unwrap();
-
-        assert!(!diag.has_error());
-
-        crate::object_tree::Document::from_node(syntax_node.into(), &mut diag, &local_types);
-
-        assert!(diag.has_error());
-        assert_eq!(diag.to_string_vec().first().unwrap().to_string(), "Unknown type PublicType");
-    }
-
-    test_source_path.set_file_name("lib_test.60");
-    let result = TypeRegister::add_type_from_path(&local_types, &test_source_path);
-    assert!(result.is_ok());
-
-    assert_ne!(local_types.borrow().lookup("PublicType"), Type::Invalid);
-    assert_eq!(local_types.borrow().lookup("HiddenInternalType"), Type::Invalid);
-
-    // Now try again.
-    test_source_path.set_file_name("lib_test2.60");
-    let result = TypeRegister::add_type_from_path(&local_types, &test_source_path);
-    assert!(result.is_ok());
-
-    let diagnostics = result.unwrap();
-    assert!(!diagnostics.has_error());
-
-    assert_ne!(local_types.borrow().lookup("SecondPublicType"), Type::Invalid);
-}
-
-#[test]
-fn test_registry_from_library() {
-    let global_types = TypeRegister::builtin();
-
-    let test_source_path: std::path::PathBuf =
-        [env!("CARGO_MANIFEST_DIR"), "tests", "typeregistry"].iter().collect();
-
-    let local_types = Rc::new(RefCell::new(TypeRegister::new(&global_types)));
-    let result = TypeRegister::add_from_directory(&local_types, test_source_path);
-
-    assert!(result.is_ok());
-    let file_load_status_list = result.unwrap();
-    assert_eq!(file_load_status_list.len(), 2);
-
-    assert_ne!(local_types.borrow().lookup("PublicType"), Type::Invalid);
-    assert_eq!(local_types.borrow().lookup("HiddenInternalType"), Type::Invalid);
 }

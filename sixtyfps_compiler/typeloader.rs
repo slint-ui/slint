@@ -9,35 +9,80 @@ use crate::parser::{syntax_nodes::Document, SyntaxKind, SyntaxTokenWithSourceFil
 use crate::typeregister::TypeRegister;
 use crate::CompilerConfiguration;
 
-pub fn load_dependencies_recursively(
+pub struct OpenFile<'a> {
+    pub path: PathBuf,
+    pub file: Box<dyn Read + 'a>,
+}
+
+pub trait DirectoryAccess<'a> {
+    fn try_open(&self, file_path: String) -> Option<OpenFile<'a>>;
+}
+
+impl<'a> DirectoryAccess<'a> for PathBuf {
+    fn try_open(&self, file_path: String) -> Option<OpenFile<'a>> {
+        let mut candidate = (*self).clone();
+        candidate.push(file_path);
+
+        std::fs::File::open(&candidate)
+            .ok()
+            .map(|f| OpenFile { path: candidate, file: Box::new(f) as Box<dyn Read> })
+    }
+}
+
+pub struct VirtualFile<'a> {
+    pub path: &'a str,
+    pub contents: &'a str,
+}
+
+pub type VirtualDirectory<'a> = [&'a VirtualFile<'a>];
+
+impl<'a> DirectoryAccess<'a> for &'a VirtualDirectory<'a> {
+    fn try_open(&self, file_path: String) -> Option<OpenFile<'a>> {
+        self.iter().find_map(|virtual_file| {
+            if virtual_file.path != file_path {
+                return None;
+            }
+            Some(OpenFile {
+                path: file_path.clone().into(),
+                file: Box::new(std::io::Cursor::new(virtual_file.contents.as_bytes())),
+            })
+        })
+    }
+}
+
+pub fn load_dependencies_recursively<'a>(
     doc: &Document,
     mut diagnostics: &mut FileDiagnostics,
     registry: &Rc<RefCell<TypeRegister>>,
     compiler_config: &CompilerConfiguration,
+    builtin_library: Option<&'a VirtualDirectory<'a>>,
 ) {
-    let dependencies = collect_dependencies(&doc, &mut diagnostics, compiler_config);
+    let dependencies =
+        collect_dependencies(&doc, &mut diagnostics, compiler_config, builtin_library);
     for (dependency_path, imported_types) in dependencies {
-        load_dependency(dependency_path, imported_types, &registry, diagnostics, compiler_config);
+        load_dependency(
+            dependency_path,
+            imported_types,
+            &registry,
+            diagnostics,
+            compiler_config,
+            builtin_library,
+        );
     }
 }
 
-fn load_dependency(
+fn load_dependency<'a>(
     path: PathBuf,
     imported_types: ImportedTypes,
     registry_to_populate: &Rc<RefCell<TypeRegister>>,
     importer_diagnostics: &mut FileDiagnostics,
     compiler_config: &CompilerConfiguration,
+    builtin_library: Option<&'a VirtualDirectory<'a>>,
 ) {
-    let (dependency_doc, mut dependency_diagnostics) = match crate::parser::parse_file(&*path) {
-        Ok((node, diag)) => (node.into(), diag),
-        Err(err) => {
-            importer_diagnostics.push_error(
-                format!("Error loading {} from disk for import: {}", path.to_string_lossy(), err),
-                &imported_types.import_token,
-            );
-            return;
-        }
-    };
+    let (dependency_doc, mut dependency_diagnostics) =
+        crate::parser::parse(imported_types.source_code, Some(&path));
+
+    let dependency_doc: Document = dependency_doc.into();
 
     let dependency_registry = Rc::new(RefCell::new(TypeRegister::new(&registry_to_populate)));
     load_dependencies_recursively(
@@ -45,6 +90,7 @@ fn load_dependency(
         &mut dependency_diagnostics,
         &dependency_registry,
         compiler_config,
+        builtin_library,
     );
 
     let doc = crate::object_tree::Document::from_node(
@@ -97,16 +143,17 @@ struct ImportedTypes {
 
 type DependenciesByFile = BTreeMap<PathBuf, ImportedTypes>;
 
-fn collect_dependencies(
+fn collect_dependencies<'a>(
     doc: &Document,
     doc_diagnostics: &mut FileDiagnostics,
     compiler_config: &CompilerConfiguration,
+    builtin_library: Option<&'a VirtualDirectory<'a>>,
 ) -> DependenciesByFile {
     // The directory of the current file is the first in the list of include directories.
     let mut current_directory = doc.source_file.as_ref().unwrap().clone().as_ref().clone();
     current_directory.pop();
 
-    let open_file_from_include_paths = |file_path| {
+    let open_file_from_include_paths = |file_path: String| {
         [current_directory.clone()]
             .iter()
             .chain(compiler_config.include_paths.iter())
@@ -119,15 +166,8 @@ fn collect_dependencies(
                     include_path.clone()
                 }
             })
-            .find_map(|include_dir| {
-                let mut candidate = include_dir.clone();
-                candidate.push(&file_path);
-
-                match std::fs::File::open(&candidate) {
-                    Ok(f) => Some((candidate, f)),
-                    Err(_) => None,
-                }
-            })
+            .find_map(|include_dir| include_dir.try_open(file_path.clone()))
+            .or_else(|| builtin_library.and_then(|lib| lib.try_open(file_path.clone())))
     };
 
     let mut dependencies = DependenciesByFile::new();
@@ -143,17 +183,16 @@ fn collect_dependencies(
             continue;
         }
 
-        if let Some((dependency_file_path, mut dependency_file)) =
-            open_file_from_include_paths(path_to_import.clone())
-        {
-            let dependency_entry = match dependencies.entry(dependency_file_path.clone()) {
+        let import_path = path_to_import.to_string();
+        if let Some(mut dependency_file) = open_file_from_include_paths(import_path) {
+            let dependency_entry = match dependencies.entry(dependency_file.path.clone()) {
                 std::collections::btree_map::Entry::Vacant(vacant_entry) => {
                     let mut source_code = String::new();
-                    if dependency_file.read_to_string(&mut source_code).is_err() {
+                    if dependency_file.file.read_to_string(&mut source_code).is_err() {
                         doc_diagnostics.push_error(
                             format!(
                                 "Error reading requested import {}",
-                                dependency_file_path.to_string_lossy()
+                                dependency_file.path.to_string_lossy()
                             ),
                             &import_uri,
                         );
@@ -216,7 +255,7 @@ fn test_dependency_loading() {
 
     let registry = Rc::new(RefCell::new(TypeRegister::new(&TypeRegister::builtin())));
 
-    load_dependencies_recursively(&doc_node, &mut test_diags, &registry, &compiler_config);
+    load_dependencies_recursively(&doc_node, &mut test_diags, &registry, &compiler_config, None);
 
     assert!(!test_diags.has_error());
 }

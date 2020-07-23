@@ -75,15 +75,8 @@ pub fn compile_syntax_node(
             &mut diagnostics,
             &type_registry,
             &compiler_config,
+            Some(library::widget_library()),
         );
-    }
-
-    for (path, source) in library::widget_library() {
-        build_diagnostics.add(typeregister::TypeRegister::add_type_from_source(
-            &type_registry,
-            source.to_string(),
-            &path,
-        ));
     }
 
     let doc = crate::object_tree::Document::from_node(doc_node, &mut diagnostics, &type_registry);
