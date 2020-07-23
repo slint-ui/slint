@@ -4,7 +4,7 @@ use std::io::Read;
 use std::path::PathBuf;
 use std::rc::Rc;
 
-use crate::diagnostics::FileDiagnostics;
+use crate::diagnostics::{BuildDiagnostics, FileDiagnostics, SourceFile};
 use crate::parser::{syntax_nodes::Document, SyntaxKind, SyntaxTokenWithSourceFile};
 use crate::typeregister::TypeRegister;
 use crate::CompilerConfiguration;
@@ -56,6 +56,7 @@ pub fn load_dependencies_recursively<'a>(
     registry: &Rc<RefCell<TypeRegister>>,
     compiler_config: &CompilerConfiguration,
     builtin_library: Option<&'a VirtualDirectory<'a>>,
+    build_diagnostics: &mut BuildDiagnostics,
 ) {
     let dependencies =
         collect_dependencies(&doc, &mut diagnostics, compiler_config, builtin_library);
@@ -67,6 +68,7 @@ pub fn load_dependencies_recursively<'a>(
             diagnostics,
             compiler_config,
             builtin_library,
+            build_diagnostics,
         );
     }
 }
@@ -78,9 +80,12 @@ fn load_dependency<'a>(
     importer_diagnostics: &mut FileDiagnostics,
     compiler_config: &CompilerConfiguration,
     builtin_library: Option<&'a VirtualDirectory<'a>>,
+    build_diagnostics: &mut BuildDiagnostics,
 ) {
     let (dependency_doc, mut dependency_diagnostics) =
         crate::parser::parse(imported_types.source_code, Some(&path));
+
+    dependency_diagnostics.current_path = SourceFile::new(path);
 
     let dependency_doc: Document = dependency_doc.into();
 
@@ -91,6 +96,7 @@ fn load_dependency<'a>(
         &dependency_registry,
         compiler_config,
         builtin_library,
+        build_diagnostics,
     );
 
     let doc = crate::object_tree::Document::from_node(
@@ -127,6 +133,8 @@ fn load_dependency<'a>(
 
         registry_to_populate.borrow_mut().add_with_name(import_name.internal_name, imported_type);
     }
+
+    build_diagnostics.add(dependency_diagnostics);
 }
 struct ImportedName {
     // name of export to match in the other file
@@ -255,7 +263,17 @@ fn test_dependency_loading() {
 
     let registry = Rc::new(RefCell::new(TypeRegister::new(&TypeRegister::builtin())));
 
-    load_dependencies_recursively(&doc_node, &mut test_diags, &registry, &compiler_config, None);
+    let mut build_diagnostics = BuildDiagnostics::default();
+
+    load_dependencies_recursively(
+        &doc_node,
+        &mut test_diags,
+        &registry,
+        &compiler_config,
+        None,
+        &mut build_diagnostics,
+    );
 
     assert!(!test_diags.has_error());
+    assert!(!build_diagnostics.has_error());
 }

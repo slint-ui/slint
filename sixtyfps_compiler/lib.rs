@@ -76,6 +76,7 @@ pub fn compile_syntax_node(
             &type_registry,
             &compiler_config,
             Some(library::widget_library()),
+            &mut build_diagnostics,
         );
     }
 
