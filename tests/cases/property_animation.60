@@ -43,6 +43,15 @@ assert_eq!(instance.get_binding_dep(), 150);
 sixtyfps::testing::ellapse_time(100);
 assert_eq!(instance.get_hello(), 60);
 assert_eq!(instance.get_binding_dep(), 150);
+
+// Changing the value and waiting should have effect without
+// querying the value (because te dirty event should cause the animation to start)
+instance.set_condition(true);
+instance.set_hello(30);
+sixtyfps::testing::ellapse_time(600);
+assert_eq!(instance.get_hello(), 45);
+assert_eq!(instance.get_binding_dep(), 125);
+
 ```
 
 
@@ -70,9 +79,15 @@ assert(instance.get_binding_dep() == 150);
 sixtyfps::testing::ellapse_time(100);
 assert(instance.get_hello() == 60);
 assert(instance.get_binding_dep() == 150);
+
+// Changing the value and waiting should have effect without
+// querying the value (because te dirty event should cause the animation to start)
+instance.set_condition(true);
+instance.set_hello(30);
+sixtyfps::testing::ellapse_time(600);
+assert(instance.get_hello() == 45);
+assert(instance.get_binding_dep() == 125);
 ```
-
-
 
 ```js
 var instance = new sixtyfps.TestCase({});
@@ -95,5 +110,14 @@ assert.equal(instance.binding_dep, 150);
 sixtyfpslib.test_ellapse_time(100);
 assert.equal(instance.hello, 60);
 assert.equal(instance.binding_dep, 150);
+
+// Changing the value and waiting should have effect without
+// querying the value (because te dirty event should cause the animation to start)
+instance.condition = true;
+instance.hello = 30;
+sixtyfpslib.test_ellapse_time(600);
+assert.equal(instance.hello, 45);
+assert.equal(instance.binding_dep, 125);
+
 ```
 */
