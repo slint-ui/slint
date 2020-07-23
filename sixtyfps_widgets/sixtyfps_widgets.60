@@ -1,2 +1,17 @@
 
-export Button := Rectangle {}
+export Button := Rectangle {
+    signal clicked;
+    property<string> text;
+    property<bool> pressed: touch_area.pressed; // FIXME: accessing this property doesn't work yet
+
+    Text {
+        text: root.text;
+        color: black;
+    }
+
+    touch_area := TouchArea {
+        width: root.width;
+        height: root.height;
+        clicked => { root.clicked() }
+    }
+}
