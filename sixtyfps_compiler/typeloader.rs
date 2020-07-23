@@ -1,8 +1,10 @@
 use std::cell::RefCell;
 use std::collections::BTreeMap;
+use std::io::Read;
+use std::path::PathBuf;
 use std::rc::Rc;
 
-use crate::diagnostics::{FileDiagnostics, SourceFile};
+use crate::diagnostics::FileDiagnostics;
 use crate::parser::{syntax_nodes::Document, SyntaxKind, SyntaxTokenWithSourceFile};
 use crate::typeregister::TypeRegister;
 use crate::CompilerConfiguration;
@@ -20,7 +22,7 @@ pub fn load_dependencies_recursively(
 }
 
 fn load_dependency(
-    path: SourceFile,
+    path: PathBuf,
     imported_types: ImportedTypes,
     registry_to_populate: &Rc<RefCell<TypeRegister>>,
     importer_diagnostics: &mut FileDiagnostics,
@@ -90,9 +92,10 @@ struct ImportedName {
 struct ImportedTypes {
     pub type_names: Vec<ImportedName>,
     pub import_token: SyntaxTokenWithSourceFile,
+    pub source_code: String,
 }
 
-type DependenciesByFile = BTreeMap<SourceFile, ImportedTypes>;
+type DependenciesByFile = BTreeMap<PathBuf, ImportedTypes>;
 
 fn collect_dependencies(
     doc: &Document,
@@ -103,13 +106,72 @@ fn collect_dependencies(
     let mut current_directory = doc.source_file.as_ref().unwrap().clone().as_ref().clone();
     current_directory.pop();
 
-    let imports = doc
-        .ImportSpecifier()
-        .filter_map(|import| {
-            let type_names = import
-                .ImportIdentifierList()
-                .ImportIdentifier()
-                .map(|importident| {
+    let open_file_from_include_paths = |file_path| {
+        [current_directory.clone()]
+            .iter()
+            .chain(compiler_config.include_paths.iter())
+            .map(|include_path| {
+                if include_path.is_relative() {
+                    let mut abs_path = current_directory.clone();
+                    abs_path.push(include_path);
+                    abs_path
+                } else {
+                    include_path.clone()
+                }
+            })
+            .find_map(|include_dir| {
+                let mut candidate = include_dir.clone();
+                candidate.push(&file_path);
+
+                match std::fs::File::open(&candidate) {
+                    Ok(f) => Some((candidate, f)),
+                    Err(_) => None,
+                }
+            })
+    };
+
+    let mut dependencies = DependenciesByFile::new();
+
+    for import in doc.ImportSpecifier() {
+        let import_uri = import
+            .child_token(SyntaxKind::StringLiteral)
+            .expect("Internal error: missing import uri literal, this is a parsing/grammar bug");
+        let path_to_import = import_uri.text().to_string();
+        let path_to_import = path_to_import.trim_matches('\"').to_string();
+        if path_to_import.is_empty() {
+            doc_diagnostics.push_error("Unexpected empty import url".to_owned(), &import_uri);
+            continue;
+        }
+
+        if let Some((dependency_file_path, mut dependency_file)) =
+            open_file_from_include_paths(path_to_import.clone())
+        {
+            let dependency_entry = match dependencies.entry(dependency_file_path.clone()) {
+                std::collections::btree_map::Entry::Vacant(vacant_entry) => {
+                    let mut source_code = String::new();
+                    if dependency_file.read_to_string(&mut source_code).is_err() {
+                        doc_diagnostics.push_error(
+                            format!(
+                                "Error reading requested import {}",
+                                dependency_file_path.to_string_lossy()
+                            ),
+                            &import_uri,
+                        );
+                        break;
+                    }
+                    vacant_entry.insert(ImportedTypes {
+                        type_names: vec![],
+                        import_token: import_uri,
+                        source_code,
+                    })
+                }
+                std::collections::btree_map::Entry::Occupied(existing_entry) => {
+                    existing_entry.into_mut()
+                }
+            };
+
+            dependency_entry.type_names.extend(
+                import.ImportIdentifierList().ImportIdentifier().map(|importident| {
                     let external_name =
                         importident.ExternalName().text().to_string().trim().to_string();
 
@@ -119,67 +181,17 @@ fn collect_dependencies(
                     };
 
                     ImportedName { internal_name, external_name }
-                })
-                .collect();
-
-            let import_uri = import.child_token(SyntaxKind::StringLiteral).expect(
-                "Internal error: missing import uri literal, this is a parsing/grammar bug",
+                }),
             );
-            let path_to_import = import_uri.text().to_string();
-            let path_to_import = path_to_import.trim_matches('\"');
-            if path_to_import.is_empty() {
-                doc_diagnostics.push_error("Unexpected empty import url".to_owned(), &import_uri);
-                return None;
-            }
-
-            let file_to_load = [current_directory.clone()]
-                .iter()
-                .chain(compiler_config.include_paths.iter())
-                .map(|include_path| {
-                    if include_path.is_relative() {
-                        let mut abs_path = current_directory.clone();
-                        abs_path.push(include_path);
-                        abs_path
-                    } else {
-                        include_path.clone()
-                    }
-                })
-                .find_map(|include_dir| {
-                    let mut candidate = include_dir.clone();
-                    candidate.push(&path_to_import);
-                    if candidate.exists() && candidate.is_file() {
-                        Some(SourceFile::new(candidate))
-                    } else {
-                        None
-                    }
-                });
-
-            if let Some(file_to_load) = file_to_load {
-                Some((file_to_load, ImportedTypes { type_names, import_token: import_uri.clone() }))
-            } else {
-                doc_diagnostics.push_error(
-                    format!(
-                        "Cannot find requested import {} in the include search path",
-                        path_to_import
-                    ),
-                    &import_uri,
-                );
-                None
-            }
-        })
-        .collect::<Vec<_>>();
-
-    let mut dependencies = DependenciesByFile::new();
-
-    for (file_to_load, imported_types) in imports.into_iter() {
-        let type_names = imported_types.type_names;
-        let import_token = imported_types.import_token;
-
-        dependencies
-            .entry(file_to_load)
-            .or_insert_with(|| ImportedTypes { import_token, type_names: Vec::new() })
-            .type_names
-            .extend(type_names.into_iter());
+        } else {
+            doc_diagnostics.push_error(
+                format!(
+                    "Cannot find requested import {} in the include search path",
+                    path_to_import
+                ),
+                &import_uri,
+            );
+        }
     }
 
     dependencies
