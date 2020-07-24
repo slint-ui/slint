@@ -351,6 +351,11 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                             let image = image::load_from_memory(image_slice).unwrap().to_rgba();
                             smallvec![self.create_image(image)]
                         }
+                        Resource::EmbeddedDataOwned(data) => {
+                            let image_slice = data.as_slice();
+                            let image = image::load_from_memory(image_slice).unwrap().to_rgba();
+                            smallvec![self.create_image(image)]
+                        }
                         Resource::None => SmallVec::new(),
                     }
                 }

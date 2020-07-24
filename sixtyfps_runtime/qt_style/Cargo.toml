@@ -1,0 +1,26 @@
+[package]
+name = "sixtyfps_qt_style"
+version = "0.1.0"
+authors = ["Sixty FPS <info@sixtyfps.io>"]
+edition = "2018"
+
+[lib]
+path = "lib.rs"
+
+[features]
+# Allow the vewer to query at runtime information about item types
+rtti = ['sixtyfps_corelib/rtti']
+
+
+[build-dependencies]
+cbindgen = "0.14.2"
+cpp_build = "0.5.5"
+
+[dependencies]
+const-field-offset = { path = "../../helper_crates/const-field-offset" }
+vtable = { path = "../../helper_crates/vtable" }
+corelib_macro = { path = "../corelib_macro" }
+sixtyfps_corelib = { path = "../corelib" }
+cpp = "0.5.5"
+euclid = "0.20.11"
+

@@ -143,7 +143,9 @@ fn to_js_value<'cx>(
         Value::Resource(r) => match r {
             Resource::None => JsUndefined::new().as_value(cx),
             Resource::AbsoluteFilePath(path) => JsString::new(cx, path.as_str()).as_value(cx),
-            Resource::EmbeddedData { .. } => JsNull::new().as_value(cx), // TODO: maybe pass around node buffers?
+            Resource::EmbeddedData { .. } | Resource::EmbeddedDataOwned { .. } => {
+                JsNull::new().as_value(cx)
+            } // TODO: maybe pass around node buffers?
         },
         Value::Array(a) => {
             let js_array = JsArray::new(cx, a.len() as _);

@@ -239,6 +239,8 @@ pub enum Resource {
     AbsoluteFilePath(crate::SharedString),
     /// A resource that is embedded in the program and accessible via pointer
     EmbeddedData(super::slice::Slice<'static, u8>),
+    /// Same as EmbeddedData, but the array is owned and not 'static
+    EmbeddedDataOwned(super::sharedarray::SharedArray<u8>),
 }
 
 impl Default for Resource {
