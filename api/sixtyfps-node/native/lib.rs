@@ -116,6 +116,7 @@ fn to_eval_value<'cx>(
         | Type::Void
         | Type::Component(_)
         | Type::Builtin(_)
+        | Type::Native(_)
         | Type::Model
         | Type::Signal
         | Type::PathElements => cx.throw_error("Cannot convert to a Sixtyfps property value"),

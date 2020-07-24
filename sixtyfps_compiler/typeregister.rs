@@ -9,6 +9,7 @@ pub enum Type {
     Void,
     Component(Rc<crate::object_tree::Component>),
     Builtin(Rc<BuiltinElement>),
+    Native(Rc<NativeClass>),
 
     Signal,
 
@@ -36,6 +37,7 @@ impl core::cmp::PartialEq for Type {
             (Type::Void, Type::Void) => true,
             (Type::Component(a), Type::Component(b)) => Rc::ptr_eq(a, b),
             (Type::Builtin(a), Type::Builtin(b)) => Rc::ptr_eq(a, b),
+            (Type::Native(a), Type::Native(b)) => Rc::ptr_eq(a, b),
             (Type::Signal, Type::Signal) => true,
             (Type::Float32, Type::Float32) => true,
             (Type::Int32, Type::Int32) => true,
@@ -62,6 +64,7 @@ impl Display for Type {
             Type::Void => write!(f, "void"),
             Type::Component(c) => c.id.fmt(f),
             Type::Builtin(b) => b.native_class.class_name.fmt(f),
+            Type::Native(b) => b.class_name.fmt(f),
             Type::Signal => write!(f, "signal"),
             Type::Float32 => write!(f, "float32"),
             Type::Int32 => write!(f, "int32"),
@@ -113,6 +116,7 @@ impl Type {
         match self {
             Type::Component(c) => c.root_element.borrow().lookup_property(name),
             Type::Builtin(b) => b.properties.get(name).cloned().unwrap_or_default(),
+            Type::Native(n) => n.lookup_property(name).unwrap_or_default(),
             _ => Type::Invalid,
         }
     }
@@ -157,6 +161,17 @@ impl Type {
         match self {
             Type::Builtin(b) => &b,
             Type::Component(_) => panic!("This should not happen because of inlining"),
+            _ => panic!("invalid type"),
+        }
+    }
+
+    /// Assume this is a builtin type, panic if it isn't
+    pub fn as_native(&self) -> &NativeClass {
+        match self {
+            Type::Native(b) => &b,
+            Type::Component(_) => {
+                panic!("This should not happen because of native class resolution")
+            }
             _ => panic!("invalid type"),
         }
     }
@@ -234,6 +249,15 @@ impl NativeClass {
         }
     }
 
+    pub fn new_with_properties(
+        class_name: &str,
+        properties: impl IntoIterator<Item = (String, Type)>,
+    ) -> Self {
+        let mut class = Self::new(class_name);
+        class.properties = properties.into_iter().collect();
+        class
+    }
+
     pub fn property_count(&self) -> usize {
         self.properties.len() + self.parent.clone().map(|p| p.property_count()).unwrap_or_default()
     }
@@ -247,6 +271,47 @@ impl NativeClass {
         if let Some(parent_class) = &self.parent {
             parent_class.clone().visit_class_hierarchy(visitor)
         }
+    }
+
+    pub fn lookup_property(&self, name: &str) -> Option<Type> {
+        if let Some(ty) = self.properties.get(name) {
+            Some(ty.clone())
+        } else if let Some(parent_class) = &self.parent {
+            parent_class.lookup_property(name)
+        } else {
+            None
+        }
+    }
+
+    fn lookup_property_distance(self: Rc<Self>, name: &str) -> (usize, Rc<Self>) {
+        let mut distance = 0;
+        let mut class = self.clone();
+        loop {
+            if class.properties.contains_key(name) {
+                return (distance, class);
+            }
+            distance += 1;
+            class = class.parent.as_ref().unwrap().clone();
+        }
+    }
+
+    pub fn select_minimal_class_based_on_property_usage<'a>(
+        self: Rc<Self>,
+        properties_used: impl Iterator<Item = &'a String>,
+    ) -> Rc<Self> {
+        let (_min_distance, minimal_class) = properties_used.fold(
+            (std::usize::MAX, self.clone()),
+            |(current_distance, current_class), prop_name| {
+                let (prop_distance, prop_class) = self.clone().lookup_property_distance(&prop_name);
+
+                if prop_distance < current_distance {
+                    (prop_distance, prop_class)
+                } else {
+                    (current_distance, current_class)
+                }
+            },
+        );
+        minimal_class
     }
 }
 
@@ -305,10 +370,6 @@ impl TypeRegister {
         rectangle.properties.insert("width".to_owned(), Type::Length);
         rectangle.properties.insert("height".to_owned(), Type::Length);
         let rectangle = Rc::new(rectangle);
-        r.types.insert(
-            "Rectangle".to_owned(),
-            Type::Builtin(Rc::new(BuiltinElement::new(rectangle.clone()))),
-        );
 
         let mut border_rectangle = NativeClass::new("BorderRectangle");
         border_rectangle.parent = Some(rectangle.clone());
@@ -318,7 +379,7 @@ impl TypeRegister {
         let border_rectangle = Rc::new(border_rectangle);
 
         r.types.insert(
-            "BorderRectangle".to_owned(),
+            "Rectangle".to_owned(),
             Type::Builtin(Rc::new(BuiltinElement::new(border_rectangle))),
         );
 
@@ -530,4 +591,37 @@ impl TypeRegister {
                 .unwrap_or_default()
         }
     }
+}
+
+#[test]
+fn test_select_minimal_class_based_on_property_usage() {
+    let first = Rc::new(NativeClass::new_with_properties(
+        "first_class",
+        [("first_prop".to_owned(), Type::Int32)].iter().cloned(),
+    ));
+
+    let mut second = NativeClass::new_with_properties(
+        "second_class",
+        [("second_prop".to_owned(), Type::Int32)].iter().cloned(),
+    );
+    second.parent = Some(first.clone());
+    let second = Rc::new(second);
+
+    let reduce_to_first = second
+        .clone()
+        .select_minimal_class_based_on_property_usage(["first_prop".to_owned()].iter());
+
+    assert_eq!(reduce_to_first.class_name, first.class_name);
+
+    let reduce_to_second = second
+        .clone()
+        .select_minimal_class_based_on_property_usage(["second_prop".to_owned()].iter());
+
+    assert_eq!(reduce_to_second.class_name, second.class_name);
+
+    let reduce_to_second = second.clone().select_minimal_class_based_on_property_usage(
+        ["first_prop".to_owned(), "second_prop".to_owned()].iter(),
+    );
+
+    assert_eq!(reduce_to_second.class_name, second.class_name);
 }

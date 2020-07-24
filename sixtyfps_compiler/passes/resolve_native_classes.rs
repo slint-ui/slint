@@ -1,0 +1,37 @@
+//! After inlining and moving declarations, all Element::base_type should be Type::BuiltinElement. This pass resolves them
+//  to NativeClass and picking a variant that only contains the used properties.
+
+use crate::object_tree::{recurse_elem, Component};
+use crate::typeregister::Type;
+
+pub fn resolve_native_classes(component: &Component) {
+    recurse_elem(&component.root_element, &(), &mut |elem, _| {
+        let new_native_class = {
+            let elem = elem.borrow();
+
+            let base_type = match &elem.base_type {
+                Type::Component(comp) => {
+                    // Components at this point must be for example repeaters. Recurse.
+                    resolve_native_classes(&comp);
+                    return;
+                }
+                Type::Builtin(b) => b,
+                _ => panic!("This should not happen because of inlining"),
+            };
+
+            let native_properties_used = elem.bindings.keys().filter(|k| {
+                if elem.property_declarations.contains_key(*k) {
+                    return false;
+                }
+
+                base_type.as_ref().properties.get(*k).is_some()
+            });
+
+            let current_native_class = elem.base_type.as_builtin().native_class.clone();
+            current_native_class
+                .select_minimal_class_based_on_property_usage(native_properties_used)
+        };
+
+        elem.borrow_mut().base_type = Type::Native(new_native_class);
+    })
+}

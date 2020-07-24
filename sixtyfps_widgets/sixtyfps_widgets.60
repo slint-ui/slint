@@ -1,5 +1,5 @@
 
-export Button := BorderRectangle {
+export Button := Rectangle {
     signal clicked;
     property<string> text;
     property<bool> pressed: touch_area.pressed; // FIXME: accessing this property doesn't work yet
@@ -28,7 +28,7 @@ export CheckBox := Rectangle {
     property <bool> checked;
 
     // the check box iteself
-    indicator := BorderRectangle {
+    indicator := Rectangle {
         height: root.height;
         width: root.height * 2;
         border_width: 2lx;
@@ -37,7 +37,7 @@ export CheckBox := Rectangle {
         color: root.checked ? #eee : #eee;
         animate x, color { duration: 200ms; }
 
-        bubble := BorderRectangle {
+        bubble := Rectangle {
             width: root.height - 8lx;
             height: bubble.width;
             border_radius: bubble.height / 2;

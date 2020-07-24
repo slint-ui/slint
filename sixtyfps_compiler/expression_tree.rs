@@ -508,9 +508,12 @@ impl Expression {
     /// Return the default value for the given type
     pub fn default_value_for_type(ty: &Type) -> Expression {
         match ty {
-            Type::Invalid | Type::Component(_) | Type::Builtin(_) | Type::Signal | Type::Void => {
-                Expression::Invalid
-            }
+            Type::Invalid
+            | Type::Component(_)
+            | Type::Builtin(_)
+            | Type::Native(_)
+            | Type::Signal
+            | Type::Void => Expression::Invalid,
             Type::Float32 => Expression::NumberLiteral(0., Unit::None),
             Type::Int32 => Expression::NumberLiteral(0., Unit::None),
             Type::String => Expression::StringLiteral(String::new()),

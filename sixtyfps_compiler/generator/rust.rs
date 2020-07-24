@@ -252,10 +252,7 @@ pub fn generate(component: &Rc<Component>, diag: &mut BuildDiagnostics) -> Optio
                 }
             }
             item_names.push(field_name);
-            item_types.push(quote::format_ident!(
-                "{}",
-                item.base_type.as_builtin().native_class.class_name
-            ));
+            item_types.push(quote::format_ident!("{}", item.base_type.as_native().class_name));
         }
     });
 
@@ -485,8 +482,7 @@ fn access_member(
             quote!(#component_id::field_offsets().#name_ident.apply_pin(#component_rust))
         } else {
             let elem_ident = quote::format_ident!("{}", e.id);
-            let elem_ty =
-                quote::format_ident!("{}", e.base_type.as_builtin().native_class.class_name);
+            let elem_ty = quote::format_ident!("{}", e.base_type.as_native().class_name);
 
             quote!((#component_id::field_offsets().#elem_ident + #elem_ty::field_offsets().#name_ident)
                 .apply_pin(#component_rust)
@@ -722,7 +718,7 @@ fn compute_layout(component: &Rc<Component>) -> TokenStream {
         let within = quote::format_ident!("{}", grid_layout.within.borrow().id);
         let within_ty = quote::format_ident!(
             "{}",
-            grid_layout.within.borrow().base_type.as_builtin().native_class.class_name
+            grid_layout.within.borrow().base_type.as_native().class_name
         );
         let row_constraint = vec![quote!(Constraint::default()); grid_layout.row_count()];
         let col_constraint = vec![quote!(Constraint::default()); grid_layout.col_count()];

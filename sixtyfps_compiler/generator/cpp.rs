@@ -235,7 +235,7 @@ fn property_set_binding_code(
 
 fn handle_item(item: &Element, main_struct: &mut Struct, init: &mut Vec<String>) {
     main_struct.members.push(Declaration::Var(Var {
-        ty: format!("sixtyfps::{}", item.base_type.as_builtin().native_class.class_name),
+        ty: format!("sixtyfps::{}", item.base_type.as_native().class_name),
         name: item.id.clone(),
         ..Default::default()
     }));
@@ -575,7 +575,7 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Bui
                 if tree_array.is_empty() { "" } else { ", " },
                 &component_id,
                 item.id,
-                item.base_type.as_builtin().native_class.vtable_symbol,
+                item.base_type.as_native().vtable_symbol,
                 item.children.len(),
                 children_offset,
             );

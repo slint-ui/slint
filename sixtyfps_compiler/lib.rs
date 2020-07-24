@@ -42,6 +42,7 @@ mod passes {
     pub mod lower_states;
     pub mod move_declarations;
     pub mod repeater_component;
+    pub mod resolve_native_classes;
     pub mod resolving;
     pub mod unique_id;
 }
@@ -106,6 +107,7 @@ pub fn run_passes(
     passes::deduplicate_property_read::deduplicate_property_read(&doc.root_component);
     passes::repeater_component::create_repeater_components(&doc.root_component);
     passes::move_declarations::move_declarations(&doc.root_component);
+    passes::resolve_native_classes::resolve_native_classes(&doc.root_component);
 }
 
 mod library {
