@@ -18,6 +18,9 @@ impl QImage {
             return core::slice::from_raw_parts(data, len);
         }
     }
+    pub fn size(&self) -> QSize {
+        cpp!(unsafe [self as "const QImage*"] -> QSize as "QSize" { return self->size(); })
+    }
 }
 
 cpp_class!(

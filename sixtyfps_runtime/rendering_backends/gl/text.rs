@@ -91,7 +91,15 @@ impl GLFont {
                 image::Rgba::<u8>::from_channels(0, 0, 0, alpha)
             });
 
-        let glyph_allocation = atlas.allocate_image_in_atlas(gl, glyph_image);
+        let glyph_allocation = atlas.allocate_image_in_atlas(
+            gl,
+            image::ImageBuffer::<_, &[u8]>::from_raw(
+                glyph_image.width(),
+                glyph_image.height(),
+                &glyph_image,
+            )
+            .unwrap(),
+        );
 
         PreRenderedGlyph { glyph_allocation, advance }
     }

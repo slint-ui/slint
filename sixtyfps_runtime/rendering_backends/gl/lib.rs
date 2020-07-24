@@ -344,16 +344,32 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                             image_path.pop(); // pop of executable name
                             image_path.push(&*path.clone());
                             let image = image::open(image_path.as_path()).unwrap().into_rgba();
+                            let image = image::ImageBuffer::<image::Rgba<u8>, &[u8]>::from_raw(
+                                image.width(),
+                                image.height(),
+                                &image,
+                            )
+                            .unwrap();
                             smallvec![self.create_image(image)]
                         }
                         Resource::EmbeddedData(slice) => {
                             let image_slice = slice.as_slice();
                             let image = image::load_from_memory(image_slice).unwrap().to_rgba();
+                            let image = image::ImageBuffer::<image::Rgba<u8>, &[u8]>::from_raw(
+                                image.width(),
+                                image.height(),
+                                &image,
+                            )
+                            .unwrap();
                             smallvec![self.create_image(image)]
                         }
-                        Resource::EmbeddedDataOwned(data) => {
-                            let image_slice = data.as_slice();
-                            let image = image::load_from_memory(image_slice).unwrap().to_rgba();
+                        Resource::EmbeddedDataOwned { width, height, data } => {
+                            let image = image::ImageBuffer::<image::Rgba<u8>, &[u8]>::from_raw(
+                                *width,
+                                *height,
+                                data.as_slice(),
+                            )
+                            .unwrap();
                             smallvec![self.create_image(image)]
                         }
                         Resource::None => SmallVec::new(),
@@ -553,7 +569,7 @@ impl GLRenderingPrimitivesBuilder {
 
     fn create_image(
         &mut self,
-        image: image::ImageBuffer<image::Rgba<u8>, Vec<u8>>,
+        image: image::ImageBuffer<image::Rgba<u8>, &[u8]>,
     ) -> GLRenderingPrimitive {
         let source_size = image.dimensions();
         let rect =

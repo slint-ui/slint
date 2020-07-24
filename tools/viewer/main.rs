@@ -7,12 +7,27 @@ struct Cli {
 
     #[structopt(name = "path to .60 file", parse(from_os_str))]
     path: std::path::PathBuf,
+
+    /// The style name (empty, or 'qt')
+    #[structopt(long, name = "style name", default_value)]
+    style: String,
 }
 
 fn main() -> std::io::Result<()> {
     let args = Cli::from_args();
     let source = std::fs::read_to_string(&args.path)?;
-    let c = match sixtyfps_interpreter::load(source, &args.path, &args.include_paths) {
+
+    let mut include_paths = args.include_paths;
+    if args.style == "qt" {
+        // FIXME: that's not how it should work
+        include_paths.push(
+            [env!("CARGO_MANIFEST_DIR"), "..", "..", "sixtyfps_runtime", "qt_style"]
+                .iter()
+                .collect(),
+        );
+    }
+
+    let c = match sixtyfps_interpreter::load(source, &args.path, &include_paths) {
         Ok(c) => c,
         Err(diag) => {
             diag.print();

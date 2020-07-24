@@ -84,7 +84,7 @@ impl GLTexture {
         gl: &glow::Context,
         x: i32,
         y: i32,
-        image: image::ImageBuffer<image::Rgba<u8>, Vec<u8>>,
+        image: image::ImageBuffer<image::Rgba<u8>, &[u8]>,
     ) {
         unsafe {
             gl.bind_texture(glow::TEXTURE_2D, Some(self.texture_id));
@@ -237,7 +237,7 @@ impl TextureAtlas {
     pub fn allocate_image_in_atlas(
         &mut self,
         gl: &glow::Context,
-        image: image::ImageBuffer<image::Rgba<u8>, Vec<u8>>,
+        image: image::ImageBuffer<image::Rgba<u8>, &[u8]>,
     ) -> AtlasAllocation {
         let requested_width = image.width() as i32;
         let requested_height = image.height() as i32;

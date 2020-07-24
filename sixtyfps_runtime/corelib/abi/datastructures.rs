@@ -238,9 +238,11 @@ pub enum Resource {
     /// A resource that points to a file in the file system
     AbsoluteFilePath(crate::SharedString),
     /// A resource that is embedded in the program and accessible via pointer
+    /// The format is the same as in a file
     EmbeddedData(super::slice::Slice<'static, u8>),
-    /// Same as EmbeddedData, but the array is owned and not 'static
-    EmbeddedDataOwned(super::sharedarray::SharedArray<u8>),
+    /// Raw ARGB
+    #[allow(missing_docs)]
+    EmbeddedDataOwned { width: u32, height: u32, data: super::sharedarray::SharedArray<u8> },
 }
 
 impl Default for Resource {

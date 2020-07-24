@@ -510,6 +510,32 @@ impl TypeRegister {
         r.types.values().for_each(|ty| ty.collect_contextual_types(&mut context_restricted_types));
         r.context_restricted_types = context_restricted_types;
 
+        // FIXME: should this be auto generated or placed somewhere else
+        let mut qt_style_button = NativeClass::new("QtStyleButton");
+        qt_style_button.properties.insert("x".to_owned(), Type::Length);
+        qt_style_button.properties.insert("y".to_owned(), Type::Length);
+        qt_style_button.properties.insert("width".to_owned(), Type::Length);
+        qt_style_button.properties.insert("height".to_owned(), Type::Length);
+        qt_style_button.properties.insert("text".to_owned(), Type::String);
+        qt_style_button.properties.insert("pressed".to_owned(), Type::Bool);
+        qt_style_button.properties.insert("clicked".to_owned(), Type::Signal);
+        r.types.insert(
+            "QtStyleButton".to_owned(),
+            Type::Builtin(Rc::new(BuiltinElement::new(Rc::new(qt_style_button)))),
+        );
+        let mut qt_style_checkbox = NativeClass::new("QtStyleCheckBox");
+        qt_style_checkbox.properties.insert("x".to_owned(), Type::Length);
+        qt_style_checkbox.properties.insert("y".to_owned(), Type::Length);
+        qt_style_checkbox.properties.insert("width".to_owned(), Type::Length);
+        qt_style_checkbox.properties.insert("height".to_owned(), Type::Length);
+        qt_style_checkbox.properties.insert("text".to_owned(), Type::String);
+        qt_style_checkbox.properties.insert("checked".to_owned(), Type::Bool);
+        qt_style_checkbox.properties.insert("toggled".to_owned(), Type::Signal);
+        r.types.insert(
+            "QtStyleCheckBox".to_owned(),
+            Type::Builtin(Rc::new(BuiltinElement::new(Rc::new(qt_style_checkbox)))),
+        );
+
         Rc::new(RefCell::new(r))
     }
 

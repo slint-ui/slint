@@ -4,14 +4,23 @@ use core::pin::Pin;
 use corelib_macro::*;
 use cpp::cpp;
 use sixtyfps_corelib::abi::datastructures::{
-    CachedRenderingData, Item, ItemConsts, LayoutInfo, MouseEvent, MouseEventType, Rect,
-    RenderingPrimitive, Resource,
+    CachedRenderingData, Item, ItemConsts, ItemVTable, LayoutInfo, MouseEvent, MouseEventType,
+    Rect, RenderingPrimitive, Resource,
 };
 #[cfg(feature = "rtti")]
 use sixtyfps_corelib::rtti::*;
-use sixtyfps_corelib::{Property, SharedString, Signal};
+use sixtyfps_corelib::{ItemVTable_static, Property, SharedString, Signal};
 
 mod qttypes;
+
+fn to_resource(image: qttypes::QImage) -> Resource {
+    let size = image.size();
+    Resource::EmbeddedDataOwned {
+        width: size.width,
+        height: size.height,
+        data: sixtyfps_corelib::abi::sharedarray::SharedArray::from(image.data()),
+    }
+}
 
 cpp! {{
     #include <QtWidgets/QApplication>
@@ -68,6 +77,7 @@ impl Item for QtStyleButton {
         ] -> qttypes::QImage as "QImage" {
             ensure_initialized();
             QImage img(size, QImage::Format_ARGB32);
+            img.fill(Qt::transparent);
             // Note: i wonder if it would be possible to paint directly in the cairo context
             QPainter p(&img);
             QStyleOptionButton option;
@@ -78,10 +88,11 @@ impl Item for QtStyleButton {
             qApp->style()->drawControl(QStyle::CE_PushButton, &option, &p, nullptr);
             return img;
         });
-        let source = Resource::EmbeddedDataOwned(
-            sixtyfps_corelib::abi::sharedarray::SharedArray::from(img.data()),
-        );
-        RenderingPrimitive::Image { x: 0., y: 0., source }
+        RenderingPrimitive::Image {
+            x: Self::field_offsets().x.apply_pin(self).get(),
+            y: Self::field_offsets().y.apply_pin(self).get(),
+            source: to_resource(img),
+        }
     }
 
     fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
@@ -101,19 +112,86 @@ impl Item for QtStyleButton {
 }
 
 impl ItemConsts for QtStyleButton {
-    const cached_rendering_data_offset: const_field_offset::FieldOffset<
-        QtStyleButton,
-        CachedRenderingData,
-    > = QtStyleButton::field_offsets().cached_rendering_data.as_unpinned_projection();
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
+        Self::field_offsets().cached_rendering_data.as_unpinned_projection();
 }
 
-/*
+ItemVTable_static! { #[no_mangle] pub static QtStyleButtonVTable for QtStyleButton }
+
 #[repr(C)]
 #[derive(FieldOffsets, Default, BuiltinItem)]
 #[pin]
 pub struct QtStyleCheckBox {
+    pub x: Property<f32>,
+    pub y: Property<f32>,
+    pub width: Property<f32>,
+    pub height: Property<f32>,
     pub toggled: Signal<()>,
     pub text: Property<SharedString>,
     pub checked: Property<bool>,
+    pub cached_rendering_data: CachedRenderingData,
 }
-*/
+
+impl Item for QtStyleCheckBox {
+    fn geometry(self: Pin<&Self>) -> Rect {
+        euclid::rect(
+            Self::field_offsets().x.apply_pin(self).get(),
+            Self::field_offsets().y.apply_pin(self).get(),
+            Self::field_offsets().width.apply_pin(self).get(),
+            Self::field_offsets().height.apply_pin(self).get(),
+        )
+    }
+    fn rendering_primitive(self: Pin<&Self>) -> RenderingPrimitive {
+        let checked: bool = Self::field_offsets().checked.apply_pin(self).get();
+        let text: qttypes::QString =
+            Self::field_offsets().text.apply_pin(self).get().as_str().into();
+        let size: qttypes::QSize = qttypes::QSize {
+            width: Self::field_offsets().width.apply_pin(self).get() as _,
+            height: Self::field_offsets().height.apply_pin(self).get() as _,
+        };
+
+        let img = cpp!(unsafe [
+            text as "QString",
+            size as "QSize",
+            checked as "bool"
+        ] -> qttypes::QImage as "QImage" {
+            ensure_initialized();
+            QImage img(size, QImage::Format_ARGB32);
+            img.fill(Qt::transparent);
+            // Note: i wonder if it would be possible to paint directly in the cairo context
+            QPainter p(&img);
+            QStyleOptionButton option;
+            option.text = std::move(text);
+            option.rect = QRect(img.rect());
+            option.state |= checked ? QStyle::State_On : QStyle::State_Off;
+            qApp->style()->drawControl(QStyle::CE_CheckBox, &option, &p, nullptr);
+            return img;
+        });
+        RenderingPrimitive::Image {
+            x: Self::field_offsets().x.apply_pin(self).get(),
+            y: Self::field_offsets().y.apply_pin(self).get(),
+            source: to_resource(img),
+        }
+    }
+
+    fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
+        todo!()
+    }
+
+    fn input_event(self: Pin<&Self>, event: MouseEvent) {
+        if matches!(event.what, MouseEventType::MouseReleased) {
+            Self::field_offsets()
+                .checked
+                .apply_pin(self)
+                .set(!Self::field_offsets().checked.apply_pin(self).get());
+            Self::field_offsets().toggled.apply_pin(self).emit(())
+        }
+    }
+}
+
+impl ItemConsts for QtStyleCheckBox {
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
+        Self::field_offsets().cached_rendering_data.as_unpinned_projection();
+}
+
+ItemVTable_static! { #[no_mangle] pub static QtStyleCheckBoxVTable for QtStyleCheckBox }
