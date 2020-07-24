@@ -41,7 +41,6 @@ export CheckBox := Rectangle {
             width: root.height - 8lx;
             height: bubble.width;
             border_radius: bubble.height / 2;
-            border_width: 1lx;
             y: 4lx;
             x: root.checked ? 4lx : indicator.width - bubble.width - 4lx;
             color: root.checked ? #aea : #eaa;

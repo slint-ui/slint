@@ -322,10 +322,8 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
 
                     let rect = Rect::new(Point::default(), Size::new(*width, *height));
 
-                    let fill_radius = if *border_width > 0. { *border_radius } else { 0. };
-
                     let mut primitives: SmallVec<_> =
-                        self.fill_rectangle(&rect, fill_radius, *color).into_iter().collect();
+                        self.fill_rectangle(&rect, *border_radius, *color).into_iter().collect();
 
                     if *border_width > 0. {
                         let stroke = self.stroke_rectangle(
