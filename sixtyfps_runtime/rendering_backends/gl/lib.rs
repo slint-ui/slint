@@ -306,7 +306,7 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                     use lyon::math::Point;
 
                     let rect = Rect::new(Point::default(), Size::new(*width, *height));
-                    self.fill_rectangle(&rect, *color).into_iter().collect()
+                    self.fill_rectangle(&rect, 0., *color).into_iter().collect()
                 }
                 RenderingPrimitive::BorderRectangle {
                     x: _,
@@ -322,8 +322,10 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
 
                     let rect = Rect::new(Point::default(), Size::new(*width, *height));
 
+                    let fill_radius = if *border_width > 0. { *border_radius } else { 0. };
+
                     let mut primitives: SmallVec<_> =
-                        self.fill_rectangle(&rect, *color).into_iter().collect();
+                        self.fill_rectangle(&rect, fill_radius, *color).into_iter().collect();
 
                     if *border_width > 0. {
                         let stroke = self.stroke_rectangle(
@@ -468,19 +470,39 @@ impl GLRenderingPrimitivesBuilder {
         self.fill_path_from_geometry(&geometry, FillStyle::SolidColor(stroke_color))
     }
 
-    fn fill_rectangle(&mut self, rect: &Rect, color: Color) -> Option<GLRenderingPrimitive> {
+    fn fill_rectangle(
+        &mut self,
+        rect: &Rect,
+        radius: f32,
+        color: Color,
+    ) -> Option<GLRenderingPrimitive> {
         let mut geometry: VertexBuffers<Vertex, u16> = VertexBuffers::new();
 
         let mut geometry_builder = BuffersBuilder::new(&mut geometry, |pos: lyon::math::Point| {
             Vertex { _pos: [pos.x as f32, pos.y as f32] }
         });
 
-        lyon::tessellation::basic_shapes::fill_rectangle(
-            rect,
-            &lyon::tessellation::FillOptions::DEFAULT,
-            &mut geometry_builder,
-        )
-        .unwrap();
+        if radius > 0. {
+            lyon::tessellation::basic_shapes::fill_rounded_rectangle(
+                rect,
+                &lyon::tessellation::basic_shapes::BorderRadii {
+                    top_left: radius,
+                    top_right: radius,
+                    bottom_left: radius,
+                    bottom_right: radius,
+                },
+                &lyon::tessellation::FillOptions::DEFAULT,
+                &mut geometry_builder,
+            )
+            .unwrap();
+        } else {
+            lyon::tessellation::basic_shapes::fill_rectangle(
+                rect,
+                &lyon::tessellation::FillOptions::DEFAULT,
+                &mut geometry_builder,
+            )
+            .unwrap();
+        }
 
         self.fill_path_from_geometry(&geometry, FillStyle::SolidColor(color))
     }
