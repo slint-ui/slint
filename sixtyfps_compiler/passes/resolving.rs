@@ -70,19 +70,26 @@ fn resolve_expression(
             diag,
         };
 
-        let new_expr =
-            if matches!(lookup_ctx.property_type, Type::Signal) {
+        let new_expr = match node.kind() {
+            SyntaxKind::CodeBlock => {
                 //FIXME: proper signal suport (node is a codeblock)
                 node.child_node(SyntaxKind::Expression)
                     .map(|en| Expression::from_expression_node(en.into(), &mut lookup_ctx))
                     .unwrap_or(Expression::Invalid)
-            } else if node.kind() == SyntaxKind::Expression {
+            }
+            SyntaxKind::Expression => {
                 //FIXME again: this happen for non-binding expression (i.e: model)
                 Expression::from_expression_node(node.clone().into(), &mut lookup_ctx)
                     .maybe_convert_to(lookup_ctx.property_type, node, diag)
-            } else {
+            }
+            SyntaxKind::BindingExpression => {
                 Expression::from_binding_expression_node(node.clone(), &mut lookup_ctx)
-            };
+            }
+            _ => {
+                debug_assert!(diag.has_error());
+                Expression::Invalid
+            }
+        };
         *expr = new_expr;
     }
 }

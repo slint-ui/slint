@@ -19,6 +19,11 @@ SubElements := Rectangle {
 //      ^error{Duplicated signal}
     }
 
+    does_not_exist => {
+//  ^error{'does_not_exist' is not a signal in Rectangle}
+        root.does_not_exist();
+    }
+
 
 }
 
