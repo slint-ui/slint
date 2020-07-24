@@ -581,6 +581,9 @@ pub enum RenderingPrimitive {
         width: f32,
         height: f32,
         color: Color,
+        border_width: f32,
+        border_radius: f32,
+        border_color: Color,
     },
     Image {
         x: f32,

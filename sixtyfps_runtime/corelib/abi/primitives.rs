@@ -36,6 +36,9 @@ pub struct Rectangle {
     pub y: Property<f32>,
     pub width: Property<f32>,
     pub height: Property<f32>,
+    pub border_width: Property<f32>,
+    pub border_radius: Property<f32>,
+    pub border_color: Property<Color>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
@@ -58,6 +61,9 @@ impl Item for Rectangle {
                 width,
                 height,
                 color: Self::field_offsets().color.apply_pin(self).get(),
+                border_width: Self::field_offsets().border_width.apply_pin(self).get(),
+                border_radius: Self::field_offsets().border_radius.apply_pin(self).get(),
+                border_color: Self::field_offsets().border_color.apply_pin(self).get(),
             }
         } else {
             RenderingPrimitive::NoContents

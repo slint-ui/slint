@@ -33,6 +33,9 @@ fn main() {
             width: 100.,
             height: 100.,
             color: Color::from_rgb(0, 0, 255),
+            border_width: 0.,
+            border_radius: 0.,
+            border_color: Color::BLACK,
         });
         render_cache.allocate_entry(root_rect)
     };
@@ -44,6 +47,9 @@ fn main() {
             width: 100.,
             height: 100.,
             color: Color::from_rgb(0, 255, 0),
+            border_width: 0.,
+            border_radius: 0.,
+            border_color: Color::BLACK,
         });
         render_cache.allocate_entry(child_rect)
     };

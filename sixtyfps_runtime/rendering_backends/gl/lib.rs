@@ -302,8 +302,19 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
         OpaqueRenderingPrimitive {
             gl_primitives: match &primitive {
                 RenderingPrimitive::NoContents => smallvec::SmallVec::new(),
-                RenderingPrimitive::Rectangle { x: _, y: _, width, height, color } => {
+                RenderingPrimitive::Rectangle {
+                    x: _,
+                    y: _,
+                    width,
+                    height,
+                    color,
+                    border_width,
+                    border_radius,
+                    border_color,
+                } => {
                     use lyon::math::Point;
+
+                    let mut primitives = SmallVec::new();
 
                     let mut rect_path = lyon::path::Path::builder();
                     rect_path.move_to(Point::new(0., 0.0));
@@ -311,9 +322,22 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                     rect_path.line_to(Point::new(*width, *height));
                     rect_path.line_to(Point::new(0.0, *height));
                     rect_path.close();
-                    self.fill_path(&rect_path.build(), FillStyle::SolidColor(*color))
-                        .into_iter()
-                        .collect()
+                    let fill = self
+                        .fill_path(&rect_path.build(), FillStyle::SolidColor(*color))
+                        .into_iter();
+                    primitives.extend(fill);
+
+                    if *border_width > 0. {
+                        let stroke = self.stroke_rectangle(
+                            &Rect::new(Point::default(), Size::new(*width, *height)),
+                            *border_color,
+                            *border_width,
+                            *border_radius,
+                        );
+                        primitives.extend(stroke);
+                    }
+
+                    primitives
                 }
                 RenderingPrimitive::Image { x: _, y: _, source } => {
                     match source {
@@ -434,6 +458,61 @@ impl GLRenderingPrimitivesBuilder {
                 ),
             )
             .unwrap();
+
+        if geometry.vertices.len() == 0 || geometry.indices.len() == 0 {
+            return None;
+        }
+
+        let vertices = GLArrayBuffer::new(&self.context, &geometry.vertices);
+        let indices = GLIndexBuffer::new(&self.context, &geometry.indices);
+
+        Some(
+            GLRenderingPrimitive::FillPath {
+                vertices,
+                indices,
+                style: FillStyle::SolidColor(stroke_color),
+            }
+            .into(),
+        )
+    }
+
+    fn stroke_rectangle(
+        &mut self,
+        rect: &Rect,
+        stroke_color: Color,
+        stroke_width: f32,
+        radius: f32,
+    ) -> Option<GLRenderingPrimitive> {
+        let mut geometry: VertexBuffers<Vertex, u16> = VertexBuffers::new();
+
+        let stroke_opts = StrokeOptions::DEFAULT.with_line_width(stroke_width);
+
+        let mut geometry_builder =
+            BuffersBuilder::new(&mut geometry, |pos: lyon::math::Point, _: StrokeAttributes| {
+                Vertex { _pos: [pos.x as f32, pos.y as f32] }
+            });
+
+        if radius > 0. {
+            lyon::tessellation::basic_shapes::stroke_rounded_rectangle(
+                rect,
+                &lyon::tessellation::basic_shapes::BorderRadii {
+                    top_left: radius,
+                    top_right: radius,
+                    bottom_left: radius,
+                    bottom_right: radius,
+                },
+                &stroke_opts,
+                &mut geometry_builder,
+            )
+            .unwrap();
+        } else {
+            lyon::tessellation::basic_shapes::stroke_rectangle(
+                rect,
+                &stroke_opts,
+                &mut geometry_builder,
+            )
+            .unwrap();
+        }
 
         if geometry.vertices.len() == 0 || geometry.indices.len() == 0 {
             return None;

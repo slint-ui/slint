@@ -4,14 +4,20 @@ export Button := Rectangle {
     property<string> text;
     property<bool> pressed: touch_area.pressed; // FIXME: accessing this property doesn't work yet
 
+    border_width: 2lx;
+    border_radius: 10lx;
+    border_color: black;
+
     Text {
         text: root.text;
         color: black;
     }
 
     touch_area := TouchArea {
-        width: root.width;
-        height: root.height;
+        x: root.border_radius;
+        y: root.border_radius;
+        width: root.width - root.border_radius;
+        height: root.height - root.border_radius;
         clicked => { root.clicked() }
     }
 }

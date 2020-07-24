@@ -265,6 +265,9 @@ impl TypeRegister {
         rectangle.properties.insert("y".to_owned(), Type::Length);
         rectangle.properties.insert("width".to_owned(), Type::Length);
         rectangle.properties.insert("height".to_owned(), Type::Length);
+        rectangle.properties.insert("border_width".to_owned(), Type::Length);
+        rectangle.properties.insert("border_radius".to_owned(), Type::Length);
+        rectangle.properties.insert("border_color".to_owned(), Type::Color);
         r.types.insert("Rectangle".to_owned(), Type::Builtin(Rc::new(rectangle)));
 
         let mut image = BuiltinElement::new("Image");
