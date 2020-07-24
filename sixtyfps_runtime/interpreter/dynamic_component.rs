@@ -248,6 +248,7 @@ fn generate_component(root_component: &Rc<object_tree::Component>) -> Rc<Compone
                 rtti_for::<Image>(),
                 rtti_for::<Text>(),
                 rtti_for::<Rectangle>(),
+                rtti_for::<BorderRectangle>(),
                 rtti_for::<TouchArea>(),
                 rtti_for::<Path>(),
             ]
