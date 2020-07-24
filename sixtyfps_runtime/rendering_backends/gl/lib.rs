@@ -16,7 +16,6 @@ use sixtyfps_corelib::graphics::{
 };
 use smallvec::{smallvec, SmallVec};
 use std::cell::RefCell;
-use std::iter::FromIterator;
 
 extern crate alloc;
 use alloc::rc::Rc;
@@ -307,7 +306,7 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                     use lyon::math::Point;
 
                     let rect = Rect::new(Point::default(), Size::new(*width, *height));
-                    SmallVec::from_iter(self.fill_rectangle(&rect, *color).into_iter())
+                    self.fill_rectangle(&rect, *color).into_iter().collect()
                 }
                 RenderingPrimitive::BorderRectangle {
                     x: _,
@@ -323,9 +322,8 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
 
                     let rect = Rect::new(Point::default(), Size::new(*width, *height));
 
-                    let mut primitives = SmallVec::new();
-
-                    primitives.extend(self.fill_rectangle(&rect, *color).into_iter());
+                    let mut primitives: SmallVec<_> =
+                        self.fill_rectangle(&rect, *color).into_iter().collect();
 
                     if *border_width > 0. {
                         let stroke = self.stroke_rectangle(
