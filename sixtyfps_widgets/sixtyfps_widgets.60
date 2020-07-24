@@ -2,7 +2,7 @@
 export Button := Rectangle {
     signal clicked;
     property<string> text;
-    property<bool> pressed: touch_area.pressed; // FIXME: accessing this property doesn't work yet
+    property<bool> pressed: touch_area.pressed;
 
     border_width: 2lx;
     border_radius: 10lx;
