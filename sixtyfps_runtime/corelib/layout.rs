@@ -245,4 +245,3 @@ pub extern "C" fn solve_path_layout(data: &PathLayoutData) {
         }
     }
 }
-

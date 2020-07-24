@@ -731,7 +731,6 @@ pub fn create_gl_window() -> ComponentWindow {
     }))
 }
 
-
 #[doc(hidden)]
 #[cold]
 pub fn use_modules() {
