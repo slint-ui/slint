@@ -405,6 +405,21 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
 }
 
 impl GLRenderingPrimitivesBuilder {
+    fn fill_path_from_geometry(
+        &self,
+        geometry: &VertexBuffers<Vertex, u16>,
+        style: FillStyle,
+    ) -> Option<GLRenderingPrimitive> {
+        if geometry.vertices.len() == 0 || geometry.indices.len() == 0 {
+            return None;
+        }
+
+        let vertices = GLArrayBuffer::new(&self.context, &geometry.vertices);
+        let indices = GLIndexBuffer::new(&self.context, &geometry.indices);
+
+        Some(GLRenderingPrimitive::FillPath { vertices, indices, style }.into())
+    }
+
     fn fill_path(
         &mut self,
         path: impl IntoIterator<Item = lyon::path::PathEvent>,
@@ -426,14 +441,7 @@ impl GLRenderingPrimitivesBuilder {
             )
             .unwrap();
 
-        if geometry.vertices.len() == 0 || geometry.indices.len() == 0 {
-            return None;
-        }
-
-        let vertices = GLArrayBuffer::new(&self.context, &geometry.vertices);
-        let indices = GLIndexBuffer::new(&self.context, &geometry.indices);
-
-        Some(GLRenderingPrimitive::FillPath { vertices, indices, style }.into())
+        self.fill_path_from_geometry(&geometry, style)
     }
 
     fn stroke_path(
@@ -459,21 +467,7 @@ impl GLRenderingPrimitivesBuilder {
             )
             .unwrap();
 
-        if geometry.vertices.len() == 0 || geometry.indices.len() == 0 {
-            return None;
-        }
-
-        let vertices = GLArrayBuffer::new(&self.context, &geometry.vertices);
-        let indices = GLIndexBuffer::new(&self.context, &geometry.indices);
-
-        Some(
-            GLRenderingPrimitive::FillPath {
-                vertices,
-                indices,
-                style: FillStyle::SolidColor(stroke_color),
-            }
-            .into(),
-        )
+        self.fill_path_from_geometry(&geometry, FillStyle::SolidColor(stroke_color))
     }
 
     fn stroke_rectangle(
@@ -514,21 +508,7 @@ impl GLRenderingPrimitivesBuilder {
             .unwrap();
         }
 
-        if geometry.vertices.len() == 0 || geometry.indices.len() == 0 {
-            return None;
-        }
-
-        let vertices = GLArrayBuffer::new(&self.context, &geometry.vertices);
-        let indices = GLIndexBuffer::new(&self.context, &geometry.indices);
-
-        Some(
-            GLRenderingPrimitive::FillPath {
-                vertices,
-                indices,
-                style: FillStyle::SolidColor(stroke_color),
-            }
-            .into(),
-        )
+        self.fill_path_from_geometry(&geometry, FillStyle::SolidColor(stroke_color))
     }
 
     fn create_image(
