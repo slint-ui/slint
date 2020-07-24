@@ -504,7 +504,9 @@ fn animation_element_from_node(
         );
         None
     } else {
-        let base = QualifiedTypeName { members: vec![anim_type.as_builtin().class_name.clone()] };
+        let base = QualifiedTypeName {
+            members: vec![anim_type.as_builtin().native_class.class_name.clone()],
+        };
         let mut anim_element =
             Element { id: "".into(), base_type: anim_type, node: None, ..Default::default() };
         anim_element.parse_bindings(&base, anim.Binding(), diag);

@@ -484,7 +484,7 @@ fn convert_path_element(
     component_ref: ComponentRefPin,
     local_context: &mut EvalLocalContext,
 ) -> PathElement {
-    match expr_element.element_type.class_name.as_str() {
+    match expr_element.element_type.native_class.class_name.as_str() {
         "LineTo" => PathElement::LineTo(new_struct_with_bindings(
             &expr_element.bindings,
             component_type,
@@ -500,7 +500,7 @@ fn convert_path_element(
         "Close" => PathElement::Close,
         _ => panic!(
             "Cannot create unsupported path element {}",
-            expr_element.element_type.class_name
+            expr_element.element_type.native_class.class_name
         ),
     }
 }

@@ -154,7 +154,7 @@ impl CppType for Type {
                 // This will produce a tuple
                 Some(format!("std::tuple<{}>", elem.join(", ")))
             }
-            Type::Builtin(elem) => elem.cpp_type.clone(),
+            Type::Builtin(elem) => elem.native_class.cpp_type.clone(),
             _ => None,
         }
     }
@@ -235,7 +235,7 @@ fn property_set_binding_code(
 
 fn handle_item(item: &Element, main_struct: &mut Struct, init: &mut Vec<String>) {
     main_struct.members.push(Declaration::Var(Var {
-        ty: format!("sixtyfps::{}", item.base_type.as_builtin().class_name),
+        ty: format!("sixtyfps::{}", item.base_type.as_builtin().native_class.class_name),
         name: item.id.clone(),
         ..Default::default()
     }));
@@ -575,7 +575,7 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Bui
                 if tree_array.is_empty() { "" } else { ", " },
                 &component_id,
                 item.id,
-                item.base_type.as_builtin().vtable_symbol,
+                item.base_type.as_builtin().native_class.vtable_symbol,
                 item.children.len(),
                 children_offset,
             );
@@ -1064,6 +1064,7 @@ fn compile_path(path: &crate::expression_tree::Path, component: &Rc<Component>) 
                 .map(|element| {
                     let element_initializer = element
                         .element_type
+                        .native_class
                         .cpp_type
                         .as_ref()
                         .map(|cpp_type| {
@@ -1072,7 +1073,7 @@ fn compile_path(path: &crate::expression_tree::Path, component: &Rc<Component>) 
                         .unwrap_or_default();
                     format!(
                         "sixtyfps::PathElement::{}({})",
-                        element.element_type.class_name, element_initializer
+                        element.element_type.native_class.class_name, element_initializer
                     )
                 })
                 .collect();

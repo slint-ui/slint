@@ -16,15 +16,15 @@ pub fn lower_layouts(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
         for child in old_children {
             let is_grid_layout =
                 if let crate::typeregister::Type::Builtin(be) = &child.borrow().base_type {
-                    assert!(be.class_name != "Row"); // Caught at element lookup time
-                    be.class_name == "GridLayout"
+                    assert!(be.native_class.class_name != "Row"); // Caught at element lookup time
+                    be.native_class.class_name == "GridLayout"
                 } else {
                     false
                 };
 
             let is_path_layout =
                 if let crate::typeregister::Type::Builtin(be) = &child.borrow().base_type {
-                    be.class_name == "PathLayout"
+                    be.native_class.class_name == "PathLayout"
                 } else {
                     false
                 };
@@ -57,7 +57,7 @@ pub fn lower_layouts(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
                 for cc in child_children {
                     let is_row =
                         if let crate::typeregister::Type::Builtin(be) = &cc.borrow().base_type {
-                            be.class_name == "Row"
+                            be.native_class.class_name == "Row"
                         } else {
                             false
                         };

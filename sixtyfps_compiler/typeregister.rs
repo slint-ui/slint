@@ -61,7 +61,7 @@ impl Display for Type {
             Type::Invalid => write!(f, "<error>"),
             Type::Void => write!(f, "void"),
             Type::Component(c) => c.id.fmt(f),
-            Type::Builtin(b) => b.class_name.fmt(f),
+            Type::Builtin(b) => b.native_class.class_name.fmt(f),
             Type::Signal => write!(f, "signal"),
             Type::Float32 => write!(f, "float32"),
             Type::Int32 => write!(f, "int32"),
@@ -142,7 +142,7 @@ impl Type {
                     return Err(format!(
                         "{} is not allowed within {}. Only {} are valid children",
                         name,
-                        builtin.class_name,
+                        builtin.native_class.class_name,
                         valid_children.join(" ")
                     ));
                 }
@@ -200,7 +200,7 @@ impl Type {
             context_restricted_types
                 .entry(accepted_child_type_name.clone())
                 .or_default()
-                .insert(builtin.class_name.clone());
+                .insert(builtin.native_class.class_name.clone());
 
             accepted_child_type.collect_contextual_types(context_restricted_types);
         }
@@ -214,17 +214,16 @@ impl Default for Type {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct BuiltinElement {
+pub struct NativeClass {
+    pub parent: Option<Rc<NativeClass>>,
     pub class_name: String,
     pub vtable_symbol: String,
     pub properties: HashMap<String, Type>,
-    pub additional_accepted_child_types: HashMap<String, Type>,
-    pub disallow_global_types_as_child_elements: bool,
     pub cpp_type: Option<String>,
     pub rust_type_constructor: Option<String>,
 }
 
-impl BuiltinElement {
+impl NativeClass {
     pub fn new(class_name: &str) -> Self {
         let vtable_symbol = format!("{}VTable", class_name);
         Self {
@@ -233,6 +232,41 @@ impl BuiltinElement {
             properties: Default::default(),
             ..Default::default()
         }
+    }
+
+    pub fn property_count(&self) -> usize {
+        self.properties.len() + self.parent.clone().map(|p| p.property_count()).unwrap_or_default()
+    }
+
+    pub fn local_property_iter(&self) -> impl Iterator<Item = (&String, &Type)> {
+        self.properties.iter()
+    }
+
+    pub fn visit_class_hierarchy(self: Rc<Self>, mut visitor: impl FnMut(&Rc<Self>)) {
+        visitor(&self);
+        if let Some(parent_class) = &self.parent {
+            parent_class.clone().visit_class_hierarchy(visitor)
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct BuiltinElement {
+    pub native_class: Rc<NativeClass>,
+    pub properties: HashMap<String, Type>,
+    pub additional_accepted_child_types: HashMap<String, Type>,
+    pub disallow_global_types_as_child_elements: bool,
+}
+
+impl BuiltinElement {
+    pub fn new(native_class: Rc<NativeClass>) -> Self {
+        let mut properties = HashMap::new();
+        native_class.clone().visit_class_hierarchy(|class| {
+            for (prop_name, prop_type) in class.local_property_iter() {
+                properties.insert(prop_name.clone(), prop_type.clone());
+            }
+        });
+        Self { native_class, properties, ..Default::default() }
     }
 }
 
@@ -264,108 +298,129 @@ impl TypeRegister {
         insert_type(Type::Bool);
         insert_type(Type::Model);
 
-        let mut rectangle = BuiltinElement::new("Rectangle");
+        let mut rectangle = NativeClass::new("Rectangle");
         rectangle.properties.insert("color".to_owned(), Type::Color);
         rectangle.properties.insert("x".to_owned(), Type::Length);
         rectangle.properties.insert("y".to_owned(), Type::Length);
         rectangle.properties.insert("width".to_owned(), Type::Length);
         rectangle.properties.insert("height".to_owned(), Type::Length);
-        r.types.insert("Rectangle".to_owned(), Type::Builtin(Rc::new(rectangle)));
+        let rectangle = Rc::new(rectangle);
+        r.types.insert(
+            "Rectangle".to_owned(),
+            Type::Builtin(Rc::new(BuiltinElement::new(rectangle.clone()))),
+        );
 
-        let mut border_rectangle = BuiltinElement::new("BorderRectangle");
-        border_rectangle.properties.insert("color".to_owned(), Type::Color);
-        border_rectangle.properties.insert("x".to_owned(), Type::Length);
-        border_rectangle.properties.insert("y".to_owned(), Type::Length);
-        border_rectangle.properties.insert("width".to_owned(), Type::Length);
-        border_rectangle.properties.insert("height".to_owned(), Type::Length);
+        let mut border_rectangle = NativeClass::new("BorderRectangle");
+        border_rectangle.parent = Some(rectangle.clone());
         border_rectangle.properties.insert("border_width".to_owned(), Type::Length);
         border_rectangle.properties.insert("border_radius".to_owned(), Type::Length);
         border_rectangle.properties.insert("border_color".to_owned(), Type::Color);
-        r.types.insert("BorderRectangle".to_owned(), Type::Builtin(Rc::new(border_rectangle)));
+        let border_rectangle = Rc::new(border_rectangle);
 
-        let mut image = BuiltinElement::new("Image");
+        r.types.insert(
+            "BorderRectangle".to_owned(),
+            Type::Builtin(Rc::new(BuiltinElement::new(border_rectangle))),
+        );
+
+        let mut image = NativeClass::new("Image");
         image.properties.insert("source".to_owned(), Type::Resource);
         image.properties.insert("x".to_owned(), Type::Length);
         image.properties.insert("y".to_owned(), Type::Length);
         image.properties.insert("width".to_owned(), Type::Length);
         image.properties.insert("height".to_owned(), Type::Length);
-        r.types.insert("Image".to_owned(), Type::Builtin(Rc::new(image)));
+        let image = Rc::new(image);
+        r.types.insert("Image".to_owned(), Type::Builtin(Rc::new(BuiltinElement::new(image))));
 
-        let mut text = BuiltinElement::new("Text");
+        let mut text = NativeClass::new("Text");
         text.properties.insert("text".to_owned(), Type::String);
         text.properties.insert("font_family".to_owned(), Type::String);
         text.properties.insert("font_pixel_size".to_owned(), Type::Length);
         text.properties.insert("color".to_owned(), Type::Color);
         text.properties.insert("x".to_owned(), Type::Length);
         text.properties.insert("y".to_owned(), Type::Length);
-        r.types.insert("Text".to_owned(), Type::Builtin(Rc::new(text)));
+        let text = Rc::new(text);
+        r.types.insert("Text".to_owned(), Type::Builtin(Rc::new(BuiltinElement::new(text))));
 
-        let mut touch_area = BuiltinElement::new("TouchArea");
+        let mut touch_area = NativeClass::new("TouchArea");
         touch_area.properties.insert("x".to_owned(), Type::Length);
         touch_area.properties.insert("y".to_owned(), Type::Length);
         touch_area.properties.insert("width".to_owned(), Type::Length);
         touch_area.properties.insert("height".to_owned(), Type::Length);
         touch_area.properties.insert("pressed".to_owned(), Type::Bool);
         touch_area.properties.insert("clicked".to_owned(), Type::Signal);
-        r.types.insert("TouchArea".to_owned(), Type::Builtin(Rc::new(touch_area)));
+        let touch_area = Rc::new(touch_area);
+        r.types.insert(
+            "TouchArea".to_owned(),
+            Type::Builtin(Rc::new(BuiltinElement::new(touch_area))),
+        );
 
-        let mut grid_layout = BuiltinElement::new("GridLayout");
+        let mut grid_layout = BuiltinElement::new(Rc::new(NativeClass::new("GridLayout")));
         grid_layout.properties.insert("x".to_owned(), Type::Length);
         grid_layout.properties.insert("y".to_owned(), Type::Length);
 
         // Row can only be in a GridLayout
-        let row = BuiltinElement::new("Row");
+        let row = BuiltinElement::new(Rc::new(NativeClass::new("Row")));
         grid_layout
             .additional_accepted_child_types
             .insert("Row".to_owned(), Type::Builtin(Rc::new(row)));
 
         r.types.insert("GridLayout".to_owned(), Type::Builtin(Rc::new(grid_layout)));
 
-        let mut path = BuiltinElement::new("Path");
-        path.properties.insert("x".to_owned(), Type::Length);
-        path.properties.insert("y".to_owned(), Type::Length);
-        path.properties.insert("width".to_owned(), Type::Length);
-        path.properties.insert("height".to_owned(), Type::Length);
-        path.properties.insert("fill_color".to_owned(), Type::Color);
-        path.properties.insert("stroke_color".to_owned(), Type::Color);
-        path.properties.insert("stroke_width".to_owned(), Type::Float32);
-        path.properties.insert("commands".to_owned(), Type::String);
-        path.disallow_global_types_as_child_elements = true;
+        let mut path_class = NativeClass::new("Path");
+        path_class.properties.insert("x".to_owned(), Type::Length);
+        path_class.properties.insert("y".to_owned(), Type::Length);
+        path_class.properties.insert("width".to_owned(), Type::Length);
+        path_class.properties.insert("height".to_owned(), Type::Length);
+        path_class.properties.insert("fill_color".to_owned(), Type::Color);
+        path_class.properties.insert("stroke_color".to_owned(), Type::Color);
+        path_class.properties.insert("stroke_width".to_owned(), Type::Float32);
+        let path = Rc::new(path_class);
+        let mut path_elem = BuiltinElement::new(path);
+        path_elem.properties.insert("commands".to_owned(), Type::String);
+        path_elem.disallow_global_types_as_child_elements = true;
 
         let path_elements = {
-            let mut line_to = BuiltinElement::new("LineTo");
-            line_to.properties.insert("x".to_owned(), Type::Float32);
-            line_to.properties.insert("y".to_owned(), Type::Float32);
-            line_to.rust_type_constructor =
+            let mut line_to_class = NativeClass::new("LineTo");
+            line_to_class.properties.insert("x".to_owned(), Type::Float32);
+            line_to_class.properties.insert("y".to_owned(), Type::Float32);
+            line_to_class.rust_type_constructor =
                 Some("sixtyfps::re_exports::PathElement::LineTo(PathLineTo{{}})".into());
-            line_to.cpp_type = Some("sixtyfps::PathLineTo".into());
+            line_to_class.cpp_type = Some("sixtyfps::PathLineTo".into());
+            let line_to_class = Rc::new(line_to_class);
+            let line_to = BuiltinElement::new(line_to_class);
 
-            let mut arc_to = BuiltinElement::new("ArcTo");
-            arc_to.properties.insert("x".to_owned(), Type::Float32);
-            arc_to.properties.insert("y".to_owned(), Type::Float32);
-            arc_to.properties.insert("radius_x".to_owned(), Type::Float32);
-            arc_to.properties.insert("radius_y".to_owned(), Type::Float32);
-            arc_to.properties.insert("x_rotation".to_owned(), Type::Float32);
-            arc_to.properties.insert("large_arc".to_owned(), Type::Bool);
-            arc_to.properties.insert("sweep".to_owned(), Type::Bool);
-            arc_to.rust_type_constructor =
+            let mut arc_to_class = NativeClass::new("ArcTo");
+            arc_to_class.properties.insert("x".to_owned(), Type::Float32);
+            arc_to_class.properties.insert("y".to_owned(), Type::Float32);
+            arc_to_class.properties.insert("radius_x".to_owned(), Type::Float32);
+            arc_to_class.properties.insert("radius_y".to_owned(), Type::Float32);
+            arc_to_class.properties.insert("x_rotation".to_owned(), Type::Float32);
+            arc_to_class.properties.insert("large_arc".to_owned(), Type::Bool);
+            arc_to_class.properties.insert("sweep".to_owned(), Type::Bool);
+            arc_to_class.rust_type_constructor =
                 Some("sixtyfps::re_exports::PathElement::ArcTo(PathArcTo{{}})".into());
-            arc_to.cpp_type = Some("sixtyfps::PathArcTo".into());
+            arc_to_class.cpp_type = Some("sixtyfps::PathArcTo".into());
+            let arc_to_class = Rc::new(arc_to_class);
+            let arc_to = BuiltinElement::new(arc_to_class);
 
-            let mut close = BuiltinElement::new("Close");
-            close.rust_type_constructor = Some("sixtyfps::re_exports::PathElement::Close".into());
+            let mut close_class = NativeClass::new("Close");
+            close_class.rust_type_constructor =
+                Some("sixtyfps::re_exports::PathElement::Close".into());
+            let close_class = Rc::new(close_class);
+            let close = BuiltinElement::new(close_class);
 
             [Rc::new(line_to), Rc::new(arc_to), Rc::new(close)]
         };
 
         path_elements.iter().for_each(|elem| {
-            path.additional_accepted_child_types
-                .insert(elem.class_name.clone(), Type::Builtin(elem.clone()));
+            path_elem
+                .additional_accepted_child_types
+                .insert(elem.native_class.class_name.clone(), Type::Builtin(elem.clone()));
         });
 
-        r.types.insert("Path".to_owned(), Type::Builtin(Rc::new(path)));
+        r.types.insert("Path".to_owned(), Type::Builtin(Rc::new(path_elem)));
 
-        let mut path_layout = BuiltinElement::new("PathLayout");
+        let mut path_layout = BuiltinElement::new(Rc::new(NativeClass::new("PathLayout")));
         path_layout.properties.insert("x".to_owned(), Type::Length);
         path_layout.properties.insert("y".to_owned(), Type::Length);
         path_layout.properties.insert("width".to_owned(), Type::Length);
@@ -375,15 +430,15 @@ impl TypeRegister {
         path_elements.iter().for_each(|elem| {
             path_layout
                 .additional_accepted_child_types
-                .insert(elem.class_name.clone(), Type::Builtin(elem.clone()));
+                .insert(elem.native_class.class_name.clone(), Type::Builtin(elem.clone()));
         });
         r.types.insert("PathLayout".to_owned(), Type::Builtin(Rc::new(path_layout)));
 
-        let mut property_animation =
-            BuiltinElement { class_name: "PropertyAnimation".into(), ..Default::default() };
+        let mut property_animation = NativeClass::new("PropertyAnimation");
         property_animation.properties.insert("duration".to_owned(), Type::Duration);
         property_animation.properties.insert("loop_count".to_owned(), Type::Int32);
-        r.property_animation_type = Type::Builtin(Rc::new(property_animation));
+        let property_animation = Rc::new(property_animation);
+        r.property_animation_type = Type::Builtin(Rc::new(BuiltinElement::new(property_animation)));
         r.supported_property_animation_types.insert(Type::Float32.to_string());
         r.supported_property_animation_types.insert(Type::Int32.to_string());
         r.supported_property_animation_types.insert(Type::Color.to_string());

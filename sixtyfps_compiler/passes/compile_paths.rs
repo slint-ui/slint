@@ -23,11 +23,13 @@ pub fn compile_paths(
 
     recurse_elem(&component.root_element, &(), &mut |elem_, _| {
         let accepted_type = match &elem_.borrow().base_type {
-            crate::typeregister::Type::Builtin(be) if be.class_name == path_type.class_name => {
+            crate::typeregister::Type::Builtin(be)
+                if be.native_class.class_name == path_type.native_class.class_name =>
+            {
                 path_type
             }
             crate::typeregister::Type::Builtin(be)
-                if be.class_name == pathlayout_type.class_name =>
+                if be.native_class.class_name == pathlayout_type.native_class.class_name =>
             {
                 pathlayout_type
             }
@@ -40,7 +42,8 @@ pub fn compile_paths(
 
         let path_data = if let Some(commands_expr) = elem.bindings.remove("commands") {
             if let Some(path_child) = elem.children.iter().find(|child| {
-                element_types.contains_key(&child.borrow().base_type.as_builtin().class_name)
+                element_types
+                    .contains_key(&child.borrow().base_type.as_builtin().native_class.class_name)
             }) {
                 diag.push_error(
                     "Path elements cannot be mixed with the use of the SVG commands property."
@@ -77,7 +80,8 @@ pub fn compile_paths(
             let mut path_data = Vec::new();
 
             for child in old_children {
-                let element_name = &child.borrow().base_type.as_builtin().class_name.clone();
+                let element_name =
+                    &child.borrow().base_type.as_builtin().native_class.class_name.clone();
 
                 if let Some(path_element) = element_types.get(element_name) {
                     let element_type = match path_element {
