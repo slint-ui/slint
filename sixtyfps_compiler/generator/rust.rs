@@ -606,8 +606,12 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                     quote!(_self),
                 );
                 let rhs = compile_expression(&*rhs, &component);
-                let op = proc_macro2::Punct::new(*op, proc_macro2::Spacing::Alone);
-                quote!( #lhs.set(#lhs.get() #op &((#rhs) as _) ))
+                if *op == '=' {
+                    quote!( #lhs.set((#rhs) as _) )
+                } else {
+                    let op = proc_macro2::Punct::new(*op, proc_macro2::Spacing::Alone);
+                    quote!( #lhs.set(#lhs.get() #op &((#rhs) as _) ))
+                }
             }
             _ => panic!("typechecking should make sure this was a PropertyReference"),
         },

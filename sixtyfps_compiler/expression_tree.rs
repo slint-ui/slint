@@ -199,10 +199,11 @@ pub enum Expression {
         function: Box<Expression>,
     },
 
+    /// A SelfAssignment or an Assignment.  When op is '=' this is a signel assignment.
     SelfAssignment {
         lhs: Box<Expression>,
         rhs: Box<Expression>,
-        /// '+', '-', '/', or '*'
+        /// '+', '-', '/', '*', or '='
         op: char,
     },
 

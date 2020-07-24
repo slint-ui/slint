@@ -1,7 +1,9 @@
 TestCase := Rectangle {
     signal test_signal;
+    signal test_signal2;
     property<int32> signal_emission_count;
     test_signal => { signal_emission_count += 1; }
+    test_signal2 => { signal_emission_count = 88; }
 }
 /*
 ```cpp
@@ -10,6 +12,11 @@ instance.set_signal_emission_count(0);
 assert(instance.get_signal_emission_count() == 0);
 instance.emit_test_signal();
 assert(instance.get_signal_emission_count() == 1);
+instance.emit_test_signal();
+assert(instance.get_signal_emission_count() == 2);
+instance.emit_test_signal2();
+assert(instance.get_signal_emission_count() == 88);
+
 ```
 
 
@@ -20,6 +27,10 @@ instance.set_signal_emission_count(0);
 assert_eq!(instance.get_signal_emission_count(), 0);
 instance.emit_test_signal();
 assert_eq!(instance.get_signal_emission_count(), 1);
+instance.emit_test_signal();
+assert_eq!(instance.get_signal_emission_count(), 2);
+instance.emit_test_signal2();
+assert_eq!(instance.get_signal_emission_count(), 88);
 ```
 
 ```js
@@ -32,5 +43,7 @@ let x = instance.test_signal;
 assert.equal(instance.signal_emission_count, 1);
 x()
 assert.equal(instance.signal_emission_count, 2);
+instance.test_signal2();
+assert.equal(instance.signal_emission_count, 88);
 ```
 */

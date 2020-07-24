@@ -795,12 +795,17 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
             PropertyReference(NamedReference { element, name }) => {
                 let access =
                     access_member(&element.upgrade().unwrap(), name.as_str(), component, "self");
-                format!(
-                    r#"{lhs}.set({lhs}.get() {op} {rhs})"#,
-                    lhs = access,
-                    rhs = compile_expression(&*rhs, component),
-                    op = op,
-                )
+                let rhs = compile_expression(&*rhs, component);
+                if *op == '=' {
+                    format!(r#"{lhs}.set({rhs})"#, lhs = access, rhs = rhs)
+                } else {
+                    format!(
+                        r#"{lhs}.set({lhs}.get() {op} {rhs})"#,
+                        lhs = access,
+                        rhs = rhs,
+                        op = op,
+                    )
+                }
             }
             _ => panic!("typechecking should make sure this was a PropertyReference"),
         },

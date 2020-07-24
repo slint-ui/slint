@@ -244,6 +244,7 @@ pub fn eval_expression(
                 let mut eval = |lhs| {
                     let rhs = eval_expression(&**rhs, component_type, component_ref, local_context);
                     match (lhs, rhs, op) {
+                        (_, rhs, '=') => rhs,
                         (Value::Number(a), Value::Number(b), '+') => Value::Number(a + b),
                         (Value::Number(a), Value::Number(b), '-') => Value::Number(a - b),
                         (Value::Number(a), Value::Number(b), '/') => Value::Number(a / b),
