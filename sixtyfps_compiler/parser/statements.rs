@@ -6,6 +6,7 @@ use super::prelude::*;
 /// expression
 /// expression += expression
 /// expression.expression *= 45.2
+/// expression = "hello"
 /// ```
 pub fn parse_statement(p: &mut impl Parser) {
     if matches!(p.nth(0), SyntaxKind::Semicolon | SyntaxKind::RBrace) {
@@ -19,6 +20,7 @@ pub fn parse_statement(p: &mut impl Parser) {
             | SyntaxKind::PlusEqual
             | SyntaxKind::StarEqual
             | SyntaxKind::DivEqual
+            | SyntaxKind::Equal
     ) {
         let mut p = p.start_node_at(checkpoint.clone(), SyntaxKind::Expression);
         let mut p = p.start_node_at(checkpoint, SyntaxKind::SelfAssignment);

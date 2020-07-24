@@ -289,9 +289,9 @@ impl Expression {
                 }
             }
             Expression::Cast { to, .. } => to.clone(),
-            Expression::CodeBlock(sub) => sub.last().map_or(Type::Invalid, |e| e.ty()),
+            Expression::CodeBlock(sub) => sub.last().map_or(Type::Void, |e| e.ty()),
             Expression::FunctionCall { function } => function.ty(),
-            Expression::SelfAssignment { .. } => Type::Invalid,
+            Expression::SelfAssignment { .. } => Type::Void,
             Expression::ResourceReference { .. } => Type::Resource,
             Expression::Condition { condition: _, true_expr, false_expr } => {
                 let true_type = true_expr.ty();
@@ -328,7 +328,7 @@ impl Expression {
             Expression::Array { element_ty, .. } => Type::Array(Box::new(element_ty.clone())),
             Expression::Object { ty, .. } => ty.clone(),
             Expression::PathElements { .. } => Type::PathElements,
-            Expression::StoreLocalVariable { .. } => Type::Invalid,
+            Expression::StoreLocalVariable { .. } => Type::Void,
             Expression::ReadLocalVariable { ty, .. } => ty.clone(),
         }
     }
@@ -496,7 +496,7 @@ impl Expression {
             self
         } else if ty.can_convert(&target_type) {
             Expression::Cast { from: Box::new(self), to: target_type }
-        } else if ty == Type::Invalid {
+        } else if ty == Type::Invalid || target_type == Type::Invalid {
             self
         } else {
             diag.push_error(format!("Cannot convert {} to {}", ty, target_type), node);
@@ -507,7 +507,7 @@ impl Expression {
     /// Return the default value for the given type
     pub fn default_value_for_type(ty: &Type) -> Expression {
         match ty {
-            Type::Invalid | Type::Component(_) | Type::Builtin(_) | Type::Signal => {
+            Type::Invalid | Type::Component(_) | Type::Builtin(_) | Type::Signal | Type::Void => {
                 Expression::Invalid
             }
             Type::Float32 => Expression::NumberLiteral(0., Unit::None),

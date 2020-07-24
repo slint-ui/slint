@@ -113,6 +113,7 @@ fn to_eval_value<'cx>(
     use sixtyfps_interpreter::Value;
     match ty {
         Type::Invalid
+        | Type::Void
         | Type::Component(_)
         | Type::Builtin(_)
         | Type::Model

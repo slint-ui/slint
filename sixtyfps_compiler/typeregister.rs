@@ -3,7 +3,10 @@ use std::{cell::RefCell, fmt::Display, rc::Rc};
 
 #[derive(Debug, Clone)]
 pub enum Type {
+    /// Correspond to an uninitialized type, or an error
     Invalid,
+    /// The type of an expression that return nothing
+    Void,
     Component(Rc<crate::object_tree::Component>),
     Builtin(Rc<BuiltinElement>),
 
@@ -30,6 +33,7 @@ impl core::cmp::PartialEq for Type {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Type::Invalid, Type::Invalid) => true,
+            (Type::Void, Type::Void) => true,
             (Type::Component(a), Type::Component(b)) => Rc::ptr_eq(a, b),
             (Type::Builtin(a), Type::Builtin(b)) => Rc::ptr_eq(a, b),
             (Type::Signal, Type::Signal) => true,
@@ -55,6 +59,7 @@ impl Display for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Type::Invalid => write!(f, "<error>"),
+            Type::Void => write!(f, "void"),
             Type::Component(c) => c.id.fmt(f),
             Type::Builtin(b) => b.class_name.fmt(f),
             Type::Signal => write!(f, "signal"),

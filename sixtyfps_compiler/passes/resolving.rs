@@ -390,24 +390,28 @@ impl Expression {
     ) -> Expression {
         let (lhs_n, rhs_n) = node.Expression();
         let lhs = Self::from_expression_node(lhs_n.into(), ctx);
-        if !matches!(lhs, Expression::PropertyReference{..}) {
-            ctx.diag.push_error("Self assignement need to be done on a property".into(), &node);
+        let op = None
+            .or(node.child_token(SyntaxKind::PlusEqual).and(Some('+')))
+            .or(node.child_token(SyntaxKind::MinusEqual).and(Some('-')))
+            .or(node.child_token(SyntaxKind::StarEqual).and(Some('*')))
+            .or(node.child_token(SyntaxKind::DivEqual).and(Some('/')))
+            .or(node.child_token(SyntaxKind::Equal).and(Some('=')))
+            .unwrap_or('_');
+        if !matches!(lhs, Expression::PropertyReference{..}) && lhs.ty() != Type::Invalid {
+            ctx.diag.push_error(
+                format!(
+                    "{} need to be done on a property",
+                    if op == '=' { "Assignement" } else { "Self assignement" }
+                ),
+                &node,
+            );
         }
         let rhs = Self::from_expression_node(rhs_n.clone().into(), ctx).maybe_convert_to(
             lhs.ty(),
             &rhs_n,
             &mut ctx.diag,
         );
-        Expression::SelfAssignment {
-            lhs: Box::new(lhs),
-            rhs: Box::new(rhs),
-            op: None
-                .or(node.child_token(SyntaxKind::PlusEqual).and(Some('+')))
-                .or(node.child_token(SyntaxKind::MinusEqual).and(Some('-')))
-                .or(node.child_token(SyntaxKind::StarEqual).and(Some('*')))
-                .or(node.child_token(SyntaxKind::DivEqual).and(Some('/')))
-                .unwrap_or('_'),
-        }
+        Expression::SelfAssignment { lhs: Box::new(lhs), rhs: Box::new(rhs), op }
     }
 
     fn from_binary_expression_node(
