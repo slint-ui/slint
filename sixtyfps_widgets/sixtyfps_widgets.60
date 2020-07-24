@@ -21,3 +21,46 @@ export Button := BorderRectangle {
         clicked => { root.clicked() }
     }
 }
+
+export CheckBox := Rectangle {
+    signal toggled;
+    property <string> text;
+    property <bool> checked;
+
+    // the check box iteself
+    indicator := BorderRectangle {
+        height: root.height;
+        width: root.height * 2;
+        border_width: 2lx;
+        border_radius: root.height / 2;
+        border_color: black;
+        color: root.checked ? #eee : #eee;
+        animate x, color { duration: 200ms; }
+
+        bubble := BorderRectangle {
+            width: root.height - 8lx;
+            height: bubble.width;
+            border_radius: bubble.height / 2;
+            y: 4lx;
+            x: root.checked ? 4lx : indicator.width - bubble.width - 4lx;
+            color: root.checked ? #aea : #eaa;
+            animate x, color { duration: 200ms; }
+        }
+    }
+
+    Text {
+        x: indicator.width + 2lx;
+        text: root.text;
+        color: black;
+    }
+
+    touch_area := TouchArea {
+        width: root.width;
+        height: root.height;
+        clicked => {
+            root.checked = !root.checked;
+            root.toggled();
+        }
+    }
+
+}

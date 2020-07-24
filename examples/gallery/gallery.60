@@ -1,8 +1,15 @@
-import { Button } from "sixtyfps_widgets.60";
+import { Button, CheckBox } from "sixtyfps_widgets.60";
 
 App := Rectangle {
     gallery_button := Button {
         text: gallery_button.pressed ? "Button (pressed)" : "Button (not pressed)";
+        width: 200lx;
+        height: 50lx;
+    }
+
+    CheckBox {
+        y: 75lx;
+        text: "A CheckBox";
         width: 200lx;
         height: 50lx;
     }
