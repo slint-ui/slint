@@ -41,6 +41,8 @@ pub fn move_declarations(component: &Rc<Component>) {
             return;
         }
 
+        visit_all_named_references(elem, |nr| fixup_reference(nr, component));
+
         // take the bindings so we do nt keep the borrow_mut of the element
         let bindings = core::mem::take(&mut elem.borrow_mut().bindings);
         let mut new_bindings = HashMap::with_capacity(bindings.len());
@@ -65,8 +67,6 @@ pub fn move_declarations(component: &Rc<Component>) {
             }
         }
         elem.borrow_mut().property_animations = new_property_animations;
-
-        visit_all_named_references(elem, |nr| fixup_reference(nr, component));
     };
 
     recurse_elem(&component.root_element, &(), &mut |e, _| move_bindings_and_animations(e));
