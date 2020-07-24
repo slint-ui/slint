@@ -15,6 +15,7 @@ namespace sixtyfps {
 
 extern "C" {
 extern const internal::ItemVTable RectangleVTable;
+extern const internal::ItemVTable BorderRectangleVTable;
 extern const internal::ItemVTable TextVTable;
 extern const internal::ItemVTable TouchAreaVTable;
 extern const internal::ItemVTable ImageVTable;
@@ -48,6 +49,7 @@ private:
     internal::ComponentWindowOpaque inner;
 };
 
+using internal::BorderRectangle;
 using internal::Image;
 using internal::Path;
 using internal::Rectangle;

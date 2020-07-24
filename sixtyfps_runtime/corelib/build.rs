@@ -6,6 +6,7 @@ use std::path::PathBuf;
 fn main() {
     let include = [
         "Rectangle",
+        "BorderRectangle",
         "Image",
         "TouchArea",
         "Text",
