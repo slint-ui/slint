@@ -265,10 +265,18 @@ impl TypeRegister {
         rectangle.properties.insert("y".to_owned(), Type::Length);
         rectangle.properties.insert("width".to_owned(), Type::Length);
         rectangle.properties.insert("height".to_owned(), Type::Length);
-        rectangle.properties.insert("border_width".to_owned(), Type::Length);
-        rectangle.properties.insert("border_radius".to_owned(), Type::Length);
-        rectangle.properties.insert("border_color".to_owned(), Type::Color);
         r.types.insert("Rectangle".to_owned(), Type::Builtin(Rc::new(rectangle)));
+
+        let mut border_rectangle = BuiltinElement::new("BorderRectangle");
+        border_rectangle.properties.insert("color".to_owned(), Type::Color);
+        border_rectangle.properties.insert("x".to_owned(), Type::Length);
+        border_rectangle.properties.insert("y".to_owned(), Type::Length);
+        border_rectangle.properties.insert("width".to_owned(), Type::Length);
+        border_rectangle.properties.insert("height".to_owned(), Type::Length);
+        border_rectangle.properties.insert("border_width".to_owned(), Type::Length);
+        border_rectangle.properties.insert("border_radius".to_owned(), Type::Length);
+        border_rectangle.properties.insert("border_color".to_owned(), Type::Color);
+        r.types.insert("BorderRectangle".to_owned(), Type::Builtin(Rc::new(border_rectangle)));
 
         let mut image = BuiltinElement::new("Image");
         image.properties.insert("source".to_owned(), Type::Resource);

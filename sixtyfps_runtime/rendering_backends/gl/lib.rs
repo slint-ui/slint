@@ -16,6 +16,7 @@ use sixtyfps_corelib::graphics::{
 };
 use smallvec::{smallvec, SmallVec};
 use std::cell::RefCell;
+use std::iter::FromIterator;
 
 extern crate alloc;
 use alloc::rc::Rc;
@@ -302,7 +303,13 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
         OpaqueRenderingPrimitive {
             gl_primitives: match &primitive {
                 RenderingPrimitive::NoContents => smallvec::SmallVec::new(),
-                RenderingPrimitive::Rectangle {
+                RenderingPrimitive::Rectangle { x: _, y: _, width, height, color } => {
+                    use lyon::math::Point;
+
+                    let rect = Rect::new(Point::default(), Size::new(*width, *height));
+                    SmallVec::from_iter(self.fill_rectangle(&rect, *color).into_iter())
+                }
+                RenderingPrimitive::BorderRectangle {
                     x: _,
                     y: _,
                     width,
@@ -314,18 +321,11 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                 } => {
                     use lyon::math::Point;
 
+                    let rect = Rect::new(Point::default(), Size::new(*width, *height));
+
                     let mut primitives = SmallVec::new();
 
-                    let mut rect_path = lyon::path::Path::builder();
-                    rect_path.move_to(Point::new(0., 0.0));
-                    rect_path.line_to(Point::new(*width, 0.0));
-                    rect_path.line_to(Point::new(*width, *height));
-                    rect_path.line_to(Point::new(0.0, *height));
-                    rect_path.close();
-                    let fill = self
-                        .fill_path(&rect_path.build(), FillStyle::SolidColor(*color))
-                        .into_iter();
-                    primitives.extend(fill);
+                    primitives.extend(self.fill_rectangle(&rect, *color).into_iter());
 
                     if *border_width > 0. {
                         let stroke = self.stroke_rectangle(
@@ -468,6 +468,23 @@ impl GLRenderingPrimitivesBuilder {
             .unwrap();
 
         self.fill_path_from_geometry(&geometry, FillStyle::SolidColor(stroke_color))
+    }
+
+    fn fill_rectangle(&mut self, rect: &Rect, color: Color) -> Option<GLRenderingPrimitive> {
+        let mut geometry: VertexBuffers<Vertex, u16> = VertexBuffers::new();
+
+        let mut geometry_builder = BuffersBuilder::new(&mut geometry, |pos: lyon::math::Point| {
+            Vertex { _pos: [pos.x as f32, pos.y as f32] }
+        });
+
+        lyon::tessellation::basic_shapes::fill_rectangle(
+            rect,
+            &lyon::tessellation::FillOptions::DEFAULT,
+            &mut geometry_builder,
+        )
+        .unwrap();
+
+        self.fill_path_from_geometry(&geometry, FillStyle::SolidColor(color))
     }
 
     fn stroke_rectangle(

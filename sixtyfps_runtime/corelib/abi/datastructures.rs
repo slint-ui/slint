@@ -581,6 +581,13 @@ pub enum RenderingPrimitive {
         width: f32,
         height: f32,
         color: Color,
+    },
+    BorderRectangle {
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        color: Color,
         border_width: f32,
         border_radius: f32,
         border_color: Color,
@@ -761,6 +768,11 @@ ItemVTable_static! {
     /// The VTable for `Rectangle`
     #[no_mangle]
     pub static RectangleVTable for crate::abi::primitives::Rectangle
+}
+ItemVTable_static! {
+    /// The VTable for `BorderRectangle`
+    #[no_mangle]
+    pub static BorderRectangleVTable for crate::abi::primitives::BorderRectangle
 }
 ItemVTable_static! {
     /// The VTable for `Text`

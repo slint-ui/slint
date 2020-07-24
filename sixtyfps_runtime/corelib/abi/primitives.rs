@@ -36,9 +36,6 @@ pub struct Rectangle {
     pub y: Property<f32>,
     pub width: Property<f32>,
     pub height: Property<f32>,
-    pub border_width: Property<f32>,
-    pub border_radius: Property<f32>,
-    pub border_color: Property<Color>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
@@ -61,9 +58,6 @@ impl Item for Rectangle {
                 width,
                 height,
                 color: Self::field_offsets().color.apply_pin(self).get(),
-                border_width: Self::field_offsets().border_width.apply_pin(self).get(),
-                border_radius: Self::field_offsets().border_radius.apply_pin(self).get(),
-                border_color: Self::field_offsets().border_color.apply_pin(self).get(),
             }
         } else {
             RenderingPrimitive::NoContents
@@ -85,6 +79,66 @@ impl ItemConsts for Rectangle {
 }
 
 pub use crate::abi::datastructures::RectangleVTable;
+
+#[repr(C)]
+#[derive(FieldOffsets, Default, BuiltinItem)]
+#[pin]
+/// The implementation of the `BorderRectangle` element
+pub struct BorderRectangle {
+    pub color: Property<Color>,
+    pub x: Property<f32>,
+    pub y: Property<f32>,
+    pub width: Property<f32>,
+    pub height: Property<f32>,
+    pub border_width: Property<f32>,
+    pub border_radius: Property<f32>,
+    pub border_color: Property<Color>,
+    pub cached_rendering_data: CachedRenderingData,
+}
+
+impl Item for BorderRectangle {
+    fn geometry(self: Pin<&Self>) -> Rect {
+        euclid::rect(
+            Self::field_offsets().x.apply_pin(self).get(),
+            Self::field_offsets().y.apply_pin(self).get(),
+            Self::field_offsets().width.apply_pin(self).get(),
+            Self::field_offsets().height.apply_pin(self).get(),
+        )
+    }
+    fn rendering_primitive(self: Pin<&Self>) -> RenderingPrimitive {
+        let width = Self::field_offsets().width.apply_pin(self).get();
+        let height = Self::field_offsets().height.apply_pin(self).get();
+        if width > 0. && height > 0. {
+            RenderingPrimitive::BorderRectangle {
+                x: Self::field_offsets().x.apply_pin(self).get(),
+                y: Self::field_offsets().y.apply_pin(self).get(),
+                width,
+                height,
+                color: Self::field_offsets().color.apply_pin(self).get(),
+                border_width: Self::field_offsets().border_width.apply_pin(self).get(),
+                border_radius: Self::field_offsets().border_radius.apply_pin(self).get(),
+                border_color: Self::field_offsets().border_color.apply_pin(self).get(),
+            }
+        } else {
+            RenderingPrimitive::NoContents
+        }
+    }
+
+    fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
+        Default::default()
+    }
+
+    fn input_event(self: Pin<&Self>, _: super::datastructures::MouseEvent) {}
+}
+
+impl ItemConsts for BorderRectangle {
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<
+        BorderRectangle,
+        CachedRenderingData,
+    > = BorderRectangle::field_offsets().cached_rendering_data.as_unpinned_projection();
+}
+
+pub use crate::abi::datastructures::BorderRectangleVTable;
 
 #[repr(C)]
 #[derive(FieldOffsets, Default, BuiltinItem)]
