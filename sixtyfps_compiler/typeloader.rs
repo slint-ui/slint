@@ -5,7 +5,10 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 use crate::diagnostics::{BuildDiagnostics, FileDiagnostics, SourceFile};
-use crate::parser::{syntax_nodes::Document, SyntaxKind, SyntaxTokenWithSourceFile};
+use crate::parser::{
+    syntax_nodes::{Document, ImportSpecifier},
+    SyntaxKind, SyntaxTokenWithSourceFile,
+};
 use crate::typeregister::TypeRegister;
 use crate::CompilerConfiguration;
 
@@ -136,11 +139,26 @@ fn load_dependency<'a>(
 
     build_diagnostics.add(dependency_diagnostics);
 }
-struct ImportedName {
+pub struct ImportedName {
     // name of export to match in the other file
     pub external_name: String,
     // name to be used locally
     pub internal_name: String,
+}
+
+impl ImportedName {
+    pub fn extract_imported_names(import: &ImportSpecifier) -> impl Iterator<Item = ImportedName> {
+        import.ImportIdentifierList().ImportIdentifier().map(|importident| {
+            let external_name = importident.ExternalName().text().to_string().trim().to_string();
+
+            let internal_name = match importident.InternalName() {
+                Some(name_ident) => name_ident.text().to_string().trim().to_string(),
+                None => external_name.clone(),
+            };
+
+            ImportedName { internal_name, external_name }
+        })
+    }
 }
 
 struct ImportedTypes {
@@ -217,19 +235,7 @@ fn collect_dependencies<'a>(
                 }
             };
 
-            dependency_entry.type_names.extend(
-                import.ImportIdentifierList().ImportIdentifier().map(|importident| {
-                    let external_name =
-                        importident.ExternalName().text().to_string().trim().to_string();
-
-                    let internal_name = match importident.InternalName() {
-                        Some(name_ident) => name_ident.text().to_string().trim().to_string(),
-                        None => external_name.clone(),
-                    };
-
-                    ImportedName { internal_name, external_name }
-                }),
-            );
+            dependency_entry.type_names.extend(ImportedName::extract_imported_names(&import));
         } else {
             doc_diagnostics.push_error(
                 format!(

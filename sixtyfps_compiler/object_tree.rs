@@ -40,7 +40,7 @@ impl Document {
             })
             .collect::<Vec<_>>();
 
-        let exports = Exports::from_node(&node, &inner_components, diag);
+        let exports = Exports::from_node(&node, &inner_components, &parent_registry, diag);
 
         Document {
             // FIXME: one should use the `component` hint instead of always returning the last
@@ -54,20 +54,8 @@ impl Document {
         }
     }
 
-    pub fn exports(&self) -> Vec<(String, Rc<Component>)> {
-        self.exports
-            .iter()
-            .map(|export| {
-                (
-                    export.exported_name.clone(),
-                    self.find_component_by_id(&export.internal_name).unwrap(),
-                )
-            })
-            .collect()
-    }
-
-    fn find_component_by_id(&self, name: &str) -> Option<Rc<Component>> {
-        self.inner_components.iter().find(|c| c.id == name).cloned()
+    pub fn exports(&self) -> &Vec<(String, Rc<Component>)> {
+        &self.exports.0
     }
 }
 
@@ -692,12 +680,13 @@ pub struct NamedExport {
 }
 
 #[derive(Default, Debug, derive_more::Deref)]
-pub struct Exports(Vec<NamedExport>);
+pub struct Exports(Vec<(String, Rc<Component>)>);
 
 impl Exports {
     pub fn from_node(
         doc: &syntax_nodes::Document,
         inner_components: &Vec<Rc<Component>>,
+        type_registry: &Rc<RefCell<TypeRegister>>,
         diag: &mut FileDiagnostics,
     ) -> Self {
         let mut exports = doc
@@ -753,6 +742,47 @@ impl Exports {
             })
         }
 
-        Self(exports)
+        let imported_names = doc
+            .ImportSpecifier()
+            .map(|import| crate::typeloader::ImportedName::extract_imported_names(&import))
+            .flatten()
+            .collect::<Vec<_>>();
+
+        let resolve_export_to_inner_component_or_import = |export: &NamedExport| {
+            if let Some(local_comp) = inner_components.iter().find(|c| c.id == export.internal_name)
+            {
+                local_comp.clone()
+            } else {
+                imported_names
+                    .iter()
+                    .find_map(|import| {
+                        if import.internal_name == export.internal_name {
+                            Some(
+                                type_registry
+                                    .borrow()
+                                    .lookup_element(&import.internal_name)
+                                    .unwrap()
+                                    .as_component()
+                                    .clone(),
+                            )
+                        } else {
+                            None
+                        }
+                    })
+                    .unwrap()
+            }
+        };
+
+        Self(
+            exports
+                .iter()
+                .map(|export| {
+                    (
+                        export.exported_name.clone(),
+                        resolve_export_to_inner_component_or_import(export),
+                    )
+                })
+                .collect(),
+        )
     }
 }

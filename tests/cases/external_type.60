@@ -2,8 +2,10 @@
 import { TestButton as RealButton } from "test_button.60";
 import { ColorButton } from "../helper_components/test_button.60";
 import { Button } from "sixtyfps_widgets.60";
+import { TestButton as ReExportedButton } from "re_export.60";
 TestCase := Rectangle {
     RealButton {} // aliased from external file
     ColorButton {} // from external file
+    ReExportedButton {} // from external file re-exported
     Button {} // from standard library
 }
