@@ -19,6 +19,7 @@ members = [
     'examples/rusttest2',
     'examples/rustwasmtest',
     'examples/gallery',
+    'examples/gallery/wasm',
     'helper_crates/const-field-offset',
     'helper_crates/vtable',
     'helper_crates/vtable/macro',
