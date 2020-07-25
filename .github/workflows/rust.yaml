@@ -8,6 +8,8 @@ on:
 
 jobs:
   build:
+    env:
+      LD_LIBRARY_PATH: ../Qt/lib
 
     runs-on: ubuntu-latest
 
