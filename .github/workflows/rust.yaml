@@ -9,7 +9,7 @@ on:
 jobs:
   build:
     env:
-      LD_LIBRARY_PATH: $PWD/../Qt/5.12.9/gcc_64/lib
+      LD_LIBRARY_PATH: /home/runner/work/sixtyfps/Qt/5.12.9/gcc_64/lib
 
     runs-on: ubuntu-latest
 
@@ -30,8 +30,6 @@ jobs:
       with:
         path: ~/.cargo/registry
         key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.toml') }}
-    - name: XXX
-      run: ls $PWD/../Qt/5.12.9/gcc_64/lib; echo $LD_LIBRARY_PATH; echo $PATH;
     - name: Cache cargo index
       uses: actions/cache@v2
       with:
