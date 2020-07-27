@@ -9,4 +9,7 @@ Test := Rectangle {
     property<string> text: "property with binding initializer";
     property<int32> x;
 //                  ^error{Cannot override property 'x'}
+
+    property<string> colspan;
+//                   ^error{Cannot override property 'colspan'}
 }

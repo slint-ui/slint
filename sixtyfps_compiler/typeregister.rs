@@ -115,7 +115,13 @@ impl Type {
     pub fn lookup_property(&self, name: &str) -> Type {
         match self {
             Type::Component(c) => c.root_element.borrow().lookup_property(name),
-            Type::Builtin(b) => b.properties.get(name).cloned().unwrap_or_default(),
+            Type::Builtin(b) => b.properties.get(name).cloned().unwrap_or_else(|| {
+                if b.is_non_item_type {
+                    Type::Invalid
+                } else {
+                    reserved_property(name)
+                }
+            }),
             Type::Native(n) => n.lookup_property(name).unwrap_or_default(),
             _ => Type::Invalid,
         }
@@ -321,6 +327,8 @@ pub struct BuiltinElement {
     pub properties: HashMap<String, Type>,
     pub additional_accepted_child_types: HashMap<String, Type>,
     pub disallow_global_types_as_child_elements: bool,
+    /// Non-item type do not have reserved properties (x/width/rowspan/...) added to them  (eg: PropertyAnimation)
+    pub is_non_item_type: bool,
 }
 
 impl BuiltinElement {
@@ -333,6 +341,40 @@ impl BuiltinElement {
         });
         Self { native_class, properties, ..Default::default() }
     }
+}
+
+/// reserved property injected in every item
+pub fn reserved_property(name: &str) -> Type {
+    for (p, t) in [
+        ("x", Type::Length),
+        ("y", Type::Length),
+        ("width", Type::Length),
+        ("height", Type::Length),
+        ("minimum_width", Type::Length),
+        ("minimum_height", Type::Length),
+        ("maximum_width", Type::Length),
+        ("maximum_height", Type::Length),
+        ("padding", Type::Length),
+        ("padding_left", Type::Length),
+        ("padding_right", Type::Length),
+        ("padding_top", Type::Length),
+        ("padding_bottom", Type::Length),
+        ("clip", Type::Bool),
+        ("opacity", Type::Float32),
+        ("visible", Type::Bool),
+        ("enabled", Type::Bool),
+        ("col", Type::Int32),
+        ("row", Type::Int32),
+        ("colspan", Type::Int32),
+        ("rowspan", Type::Int32),
+    ]
+    .iter()
+    {
+        if *p == name {
+            return t.clone();
+        }
+    }
+    Type::Invalid
 }
 
 #[derive(Debug, Default)]
@@ -420,7 +462,8 @@ impl TypeRegister {
         grid_layout.properties.insert("y".to_owned(), Type::Length);
 
         // Row can only be in a GridLayout
-        let row = BuiltinElement::new(Rc::new(NativeClass::new("Row")));
+        let mut row = BuiltinElement::new(Rc::new(NativeClass::new("Row")));
+        row.is_non_item_type = true;
         grid_layout
             .additional_accepted_child_types
             .insert("Row".to_owned(), Type::Builtin(Rc::new(row)));
@@ -448,7 +491,8 @@ impl TypeRegister {
                 Some("sixtyfps::re_exports::PathElement::LineTo(PathLineTo{{}})".into());
             line_to_class.cpp_type = Some("sixtyfps::PathLineTo".into());
             let line_to_class = Rc::new(line_to_class);
-            let line_to = BuiltinElement::new(line_to_class);
+            let mut line_to = BuiltinElement::new(line_to_class);
+            line_to.is_non_item_type = true;
 
             let mut arc_to_class = NativeClass::new("ArcTo");
             arc_to_class.properties.insert("x".to_owned(), Type::Float32);
@@ -462,13 +506,15 @@ impl TypeRegister {
                 Some("sixtyfps::re_exports::PathElement::ArcTo(PathArcTo{{}})".into());
             arc_to_class.cpp_type = Some("sixtyfps::PathArcTo".into());
             let arc_to_class = Rc::new(arc_to_class);
-            let arc_to = BuiltinElement::new(arc_to_class);
+            let mut arc_to = BuiltinElement::new(arc_to_class);
+            arc_to.is_non_item_type = true;
 
             let mut close_class = NativeClass::new("Close");
             close_class.rust_type_constructor =
                 Some("sixtyfps::re_exports::PathElement::Close".into());
             let close_class = Rc::new(close_class);
-            let close = BuiltinElement::new(close_class);
+            let mut close = BuiltinElement::new(close_class);
+            close.is_non_item_type = true;
 
             [Rc::new(line_to), Rc::new(arc_to), Rc::new(close)]
         };
@@ -498,8 +544,9 @@ impl TypeRegister {
         let mut property_animation = NativeClass::new("PropertyAnimation");
         property_animation.properties.insert("duration".to_owned(), Type::Duration);
         property_animation.properties.insert("loop_count".to_owned(), Type::Int32);
-        let property_animation = Rc::new(property_animation);
-        r.property_animation_type = Type::Builtin(Rc::new(BuiltinElement::new(property_animation)));
+        let mut property_animation = BuiltinElement::new(Rc::new(property_animation));
+        property_animation.is_non_item_type = true;
+        r.property_animation_type = Type::Builtin(Rc::new(property_animation));
         r.supported_property_animation_types.insert(Type::Float32.to_string());
         r.supported_property_animation_types.insert(Type::Int32.to_string());
         r.supported_property_animation_types.insert(Type::Color.to_string());

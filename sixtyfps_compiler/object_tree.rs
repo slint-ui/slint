@@ -112,6 +112,7 @@ impl Component {
 pub struct PropertyDeclaration {
     pub property_type: Type,
     pub type_node: Option<SyntaxNodeWithSourceFile>,
+    /// Tells if getter and setter will be added to expose in the native language API
     pub expose_in_public_api: bool,
 }
 

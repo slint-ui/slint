@@ -9,7 +9,7 @@ TestCase := Rectangle {
         Row {
             Rectangle {
                 color: red;
-            
+                rowspan: 1;
             }
         }
 

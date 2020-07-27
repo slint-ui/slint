@@ -40,6 +40,7 @@ mod passes {
     pub mod inlining;
     pub mod lower_layout;
     pub mod lower_states;
+    pub mod materialize_fake_properties;
     pub mod move_declarations;
     pub mod repeater_component;
     pub mod resolve_native_classes;
@@ -99,6 +100,7 @@ pub fn run_passes(
     passes::inlining::inline(doc);
     passes::compile_paths::compile_paths(&doc.root_component, &doc.local_registry, diag);
     passes::unique_id::assign_unique_id(&doc.root_component);
+    passes::materialize_fake_properties::materialize_fake_properties(&doc.root_component);
     passes::lower_layout::lower_layouts(&doc.root_component, diag);
     if compiler_config.embed_resources {
         passes::collect_resources::collect_resources(&doc.root_component);
