@@ -129,12 +129,16 @@ pub struct ItemVTable {
 
 /// The constraint that applies to an item
 #[repr(C)]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct LayoutInfo {
-    min_width: f32,
-    max_width: f32,
-    min_height: f32,
-    max_height: f32,
+    /// The minimum width for the item.
+    pub min_width: f32,
+    /// The maximum width for the item.
+    pub max_width: f32,
+    /// The minimum height for the item.
+    pub min_height: f32,
+    /// The maximum height for the item.
+    pub max_height: f32,
 }
 
 impl Default for LayoutInfo {

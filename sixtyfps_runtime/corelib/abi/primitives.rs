@@ -223,7 +223,21 @@ impl Item for Text {
     }
 
     fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
-        todo!()
+        let font_family = Self::field_offsets().font_family.apply_pin(self).get();
+        let font_pixel_size = Self::field_offsets().font_pixel_size.apply_pin(self).get();
+        let text = Self::field_offsets().text.apply_pin(self).get();
+
+        crate::font::FONT_CACHE.with(|fc| {
+            let font = fc.borrow_mut().find_font(&font_family, font_pixel_size);
+            let width = font.text_width(&text);
+            let height = font.font_height();
+            LayoutInfo {
+                min_width: width,
+                max_width: width,
+                min_height: height,
+                max_height: height,
+            }
+        })
     }
 
     fn input_event(self: Pin<&Self>, _: super::datastructures::MouseEvent) {}

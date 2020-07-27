@@ -30,6 +30,11 @@ static_assertions = "1.1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 instant = { version = "0.1", features = [ "wasm-bindgen", "now" ] }
+web_sys = { version = "0.3", package = "web-sys", features=["console", "CanvasRenderingContext2d", "TextMetrics"] }
+wasm-bindgen = { version = "0.2" }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+font-kit = "0.7.0"
 
 [build-dependencies]
 cbindgen = "0.14.2"
