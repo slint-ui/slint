@@ -34,7 +34,7 @@ web_sys = { version = "0.3", package = "web-sys", features=["console", "CanvasRe
 wasm-bindgen = { version = "0.2" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-font-kit = "0.7.0"
+font-kit = "0.8"
 pathfinder_geometry = "0.5.1"
 
 [build-dependencies]
