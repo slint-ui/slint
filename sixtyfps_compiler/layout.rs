@@ -4,16 +4,27 @@ use crate::expression_tree::{Expression, Path};
 use crate::object_tree::ElementRc;
 use crate::passes::ExpressionFieldsVisitor;
 
-#[derive(Default, Debug)]
-pub struct LayoutConstraints {
-    pub grids: Vec<GridLayout>,
-    pub paths: Vec<PathLayout>,
+#[derive(Debug, derive_more::From)]
+pub enum Layout {
+    GridLayout(GridLayout),
+    PathLayout(PathLayout),
 }
+
+impl ExpressionFieldsVisitor for Layout {
+    fn visit_expressions(&mut self, visitor: impl FnMut(&mut Expression)) {
+        match self {
+            Layout::GridLayout(grid) => grid.visit_expressions(visitor),
+            Layout::PathLayout(path) => path.visit_expressions(visitor),
+        }
+    }
+}
+
+#[derive(Default, Debug, derive_more::Deref, derive_more::DerefMut)]
+pub struct LayoutConstraints(Vec<Layout>);
 
 impl ExpressionFieldsVisitor for LayoutConstraints {
     fn visit_expressions(&mut self, mut visitor: impl FnMut(&mut Expression)) {
-        self.grids.iter_mut().for_each(|l| l.visit_expressions(&mut visitor));
-        self.paths.iter_mut().for_each(|l| l.visit_expressions(&mut visitor));
+        self.0.iter_mut().for_each(|l| l.visit_expressions(&mut visitor));
     }
 }
 

@@ -80,7 +80,7 @@ pub fn lower_layouts(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
                 }
                 component.optimized_elements.borrow_mut().push(child.clone());
                 if !grid.elems.is_empty() {
-                    component.layout_constraints.borrow_mut().grids.push(grid);
+                    component.layout_constraints.borrow_mut().push(grid.into());
                 }
                 continue;
             } else if is_path_layout {
@@ -104,15 +104,19 @@ pub fn lower_layouts(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
                     continue;
                 }
 
-                component.layout_constraints.borrow_mut().paths.push(PathLayout {
-                    elements: layout_children,
-                    path: path_elements_expr,
-                    x_reference,
-                    y_reference,
-                    width_reference: prop_ref("width"),
-                    height_reference: prop_ref("height"),
-                    offset_reference: prop_ref("offset"),
-                });
+                component.layout_constraints.borrow_mut().push(
+                    PathLayout {
+                        elements: layout_children,
+                        path: path_elements_expr,
+                        x_reference,
+                        y_reference,
+                        width_reference: prop_ref("width"),
+                        height_reference: prop_ref("height"),
+                        offset_reference: prop_ref("offset"),
+                    }
+                    .into(),
+                );
+
                 continue;
             } else {
                 check_no_layout_properties(&child, diag);

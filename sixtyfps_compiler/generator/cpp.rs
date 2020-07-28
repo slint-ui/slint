@@ -131,6 +131,7 @@ mod cpp_ast {
 
 use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic, Spanned};
 use crate::expression_tree::{EasingCurve, Expression, ExpressionSpanned};
+use crate::layout::Layout;
 use crate::object_tree::{Component, Element, ElementRc, RepeatedElementInfo};
 use crate::typeregister::Type;
 use cpp_ast::*;
@@ -896,144 +897,146 @@ fn compute_layout(component: &Rc<Component>) -> Vec<String> {
         "[[maybe_unused]] auto self = reinterpret_cast<const {ty}*>(component.instance);",
         ty = component_id(component)
     ));
-    for grid in component.layout_constraints.borrow().grids.iter() {
-        res.push("{".to_owned());
-        res.push("    sixtyfps::GridLayoutCellData grid_data[] = {".to_owned());
-        for cell in &grid.elems {
-            let p = |n: &str| {
-                if cell.item.borrow().lookup_property(n) == Type::Length {
-                    format!("&self->{}.{}", cell.item.borrow().id, n)
-                } else {
-                    "nullptr".to_owned()
-                }
-            };
-            res.push(format!(
-                "        {{ {c}, {r}, {cs}, {rs}, sixtyfps::{vt}.layouting_info({{&sixtyfps::{vt}, const_cast<sixtyfps::{ty}*>(&self->{id})}}), {x}, {y}, {w}, {h} }},",
-                c = cell.col, r = cell.row, cs = cell.colspan, rs =cell.rowspan,
-                vt = cell.item.borrow().base_type.as_native().vtable_symbol,
-                ty = cell.item.borrow().base_type.as_native().class_name,
-                id = cell.item.borrow().id,
-                x = p("x"), y = p("y"), w = p("width"), h = p("height")
-            ));
-        }
-        res.push("    };".to_owned());
-        res.push(format!("    auto x = {};", compile_expression(&grid.x_reference, component)));
-        res.push(format!("    auto y = {};", compile_expression(&grid.y_reference, component)));
-        res.push("    sixtyfps::GridLayoutData grid { ".into());
-        res.push(format!("        self->{}.width.get(),", grid.within.borrow().id));
-        res.push(format!("        self->{}.height.get(),", grid.within.borrow().id));
-        res.push("        x, y,".to_owned());
-        res.push("        {grid_data, std::size(grid_data)}".to_owned());
-        res.push("    };".to_owned());
-        res.push("    sixtyfps::solve_grid_layout(&grid);".to_owned());
-        res.push("}".to_owned());
-    }
-
-    for path_layout in component.layout_constraints.borrow().paths.iter() {
-        res.push("{".to_owned());
-
-        let path_layout_item_data = |elem: &ElementRc, elem_cpp: &str, component_cpp: &str| {
-            let prop_ref = |n: &str| {
-                if elem.borrow().lookup_property(n) == Type::Length {
-                    format!("&{}.{}", elem_cpp, n)
-                } else {
-                    "nullptr".to_owned()
-                }
-            };
-            let prop_value = |n: &str| {
-                if elem.borrow().lookup_property(n) == Type::Length {
-                    let value_accessor = access_member(
-                        &elem,
-                        n,
-                        &elem.borrow().enclosing_component.upgrade().unwrap(),
-                        component_cpp,
-                    );
-                    format!("{}.get()", value_accessor)
-                } else {
-                    "0.".into()
-                }
-            };
-            format!(
-                "{{ {}, {}, {}, {} }}",
-                prop_ref("x"),
-                prop_ref("y"),
-                prop_value("width"),
-                prop_value("height")
-            )
-        };
-        let path_layout_item_data_for_elem = |elem: &ElementRc| {
-            path_layout_item_data(elem, &format!("self->{}", elem.borrow().id), "self")
-        };
-
-        let is_static_array =
-            path_layout.elements.iter().all(|elem| elem.borrow().repeated.is_none());
-
-        let slice = if is_static_array {
-            res.push("    sixtyfps::PathLayoutItemData items[] = {".to_owned());
-            for elem in &path_layout.elements {
-                res.push(format!("        {},", path_layout_item_data_for_elem(elem)));
+    component.layout_constraints.borrow().iter().for_each(|layout| match &layout {
+        Layout::GridLayout(grid) => {
+            res.push("{".to_owned());
+            res.push("    sixtyfps::GridLayoutCellData grid_data[] = {".to_owned());
+            for cell in &grid.elems {
+                let p = |n: &str| {
+                    if cell.item.borrow().lookup_property(n) == Type::Length {
+                        format!("&self->{}.{}", cell.item.borrow().id, n)
+                    } else {
+                        "nullptr".to_owned()
+                    }
+                };
+                res.push(format!(
+                    "        {{ {c}, {r}, {cs}, {rs}, sixtyfps::{vt}.layouting_info({{&sixtyfps::{vt}, const_cast<sixtyfps::{ty}*>(&self->{id})}}), {x}, {y}, {w}, {h} }},",
+                    c = cell.col, r = cell.row, cs = cell.colspan, rs =cell.rowspan,
+                    vt = cell.item.borrow().base_type.as_native().vtable_symbol,
+                    ty = cell.item.borrow().base_type.as_native().class_name,
+                    id = cell.item.borrow().id,
+                    x = p("x"), y = p("y"), w = p("width"), h = p("height")
+                ));
             }
             res.push("    };".to_owned());
-            "        {items, std::size(items)},".to_owned()
-        } else {
-            res.push("    std::vector<sixtyfps::PathLayoutItemData> items;".to_owned());
-            for elem in &path_layout.elements {
-                if elem.borrow().repeated.is_some() {
-                    let root_element = elem.borrow().base_type.as_component().root_element.clone();
-                    res.push(format!(
-                        "    for (auto &&sub_comp : self->repeater_{}.data)",
-                        elem.borrow().id
-                    ));
-                    res.push(format!(
-                        "         items.push_back({});",
-                        path_layout_item_data(
-                            &root_element,
-                            &format!("sub_comp->{}", root_element.borrow().id),
-                            "sub_comp",
-                        )
-                    ));
-                } else {
-                    res.push(format!(
-                        "     items.push_back({});",
-                        path_layout_item_data_for_elem(elem)
-                    ));
+            res.push(format!("    auto x = {};", compile_expression(&grid.x_reference, component)));
+            res.push(format!("    auto y = {};", compile_expression(&grid.y_reference, component)));
+            res.push("    sixtyfps::GridLayoutData grid { ".into());
+            res.push(format!("        self->{}.width.get(),", grid.within.borrow().id));
+            res.push(format!("        self->{}.height.get(),", grid.within.borrow().id));
+            res.push("        x, y,".to_owned());
+            res.push("        {grid_data, std::size(grid_data)}".to_owned());
+            res.push("    };".to_owned());
+            res.push("    sixtyfps::solve_grid_layout(&grid);".to_owned());
+            res.push("}".to_owned());
+
+        },
+        Layout::PathLayout(path_layout) => {
+            res.push("{".to_owned());
+
+            let path_layout_item_data = |elem: &ElementRc, elem_cpp: &str, component_cpp: &str| {
+                let prop_ref = |n: &str| {
+                    if elem.borrow().lookup_property(n) == Type::Length {
+                        format!("&{}.{}", elem_cpp, n)
+                    } else {
+                        "nullptr".to_owned()
+                    }
+                };
+                let prop_value = |n: &str| {
+                    if elem.borrow().lookup_property(n) == Type::Length {
+                        let value_accessor = access_member(
+                            &elem,
+                            n,
+                            &elem.borrow().enclosing_component.upgrade().unwrap(),
+                            component_cpp,
+                        );
+                        format!("{}.get()", value_accessor)
+                    } else {
+                        "0.".into()
+                    }
+                };
+                format!(
+                    "{{ {}, {}, {}, {} }}",
+                    prop_ref("x"),
+                    prop_ref("y"),
+                    prop_value("width"),
+                    prop_value("height")
+                )
+            };
+            let path_layout_item_data_for_elem = |elem: &ElementRc| {
+                path_layout_item_data(elem, &format!("self->{}", elem.borrow().id), "self")
+            };
+
+            let is_static_array =
+                path_layout.elements.iter().all(|elem| elem.borrow().repeated.is_none());
+
+            let slice = if is_static_array {
+                res.push("    sixtyfps::PathLayoutItemData items[] = {".to_owned());
+                for elem in &path_layout.elements {
+                    res.push(format!("        {},", path_layout_item_data_for_elem(elem)));
                 }
-            }
-            "        {items.data(), std::size(items)},".to_owned()
-        };
+                res.push("    };".to_owned());
+                "        {items, std::size(items)},".to_owned()
+            } else {
+                res.push("    std::vector<sixtyfps::PathLayoutItemData> items;".to_owned());
+                for elem in &path_layout.elements {
+                    if elem.borrow().repeated.is_some() {
+                        let root_element = elem.borrow().base_type.as_component().root_element.clone();
+                        res.push(format!(
+                            "    for (auto &&sub_comp : self->repeater_{}.data)",
+                            elem.borrow().id
+                        ));
+                        res.push(format!(
+                            "         items.push_back({});",
+                            path_layout_item_data(
+                                &root_element,
+                                &format!("sub_comp->{}", root_element.borrow().id),
+                                "sub_comp",
+                            )
+                        ));
+                    } else {
+                        res.push(format!(
+                            "     items.push_back({});",
+                            path_layout_item_data_for_elem(elem)
+                        ));
+                    }
+                }
+                "        {items.data(), std::size(items)},".to_owned()
+            };
 
-        res.push(format!("    auto path = {};", compile_path(&path_layout.path, component)));
+            res.push(format!("    auto path = {};", compile_path(&path_layout.path, component)));
 
-        res.push(format!(
-            "    auto x = {};",
-            compile_expression(&path_layout.x_reference, component)
-        ));
-        res.push(format!(
-            "    auto y = {};",
-            compile_expression(&path_layout.y_reference, component)
-        ));
-        res.push(format!(
-            "    auto width = {};",
-            compile_expression(&path_layout.width_reference, component)
-        ));
-        res.push(format!(
-            "    auto height = {};",
-            compile_expression(&path_layout.height_reference, component)
-        ));
+            res.push(format!(
+                "    auto x = {};",
+                compile_expression(&path_layout.x_reference, component)
+            ));
+            res.push(format!(
+                "    auto y = {};",
+                compile_expression(&path_layout.y_reference, component)
+            ));
+            res.push(format!(
+                "    auto width = {};",
+                compile_expression(&path_layout.width_reference, component)
+            ));
+            res.push(format!(
+                "    auto height = {};",
+                compile_expression(&path_layout.height_reference, component)
+            ));
 
-        res.push(format!(
-            "    auto offset = {};",
-            compile_expression(&path_layout.offset_reference, component)
-        ));
+            res.push(format!(
+                "    auto offset = {};",
+                compile_expression(&path_layout.offset_reference, component)
+            ));
 
-        res.push("    sixtyfps::PathLayoutData pl { ".into());
-        res.push("        &path,".to_owned());
-        res.push(slice);
-        res.push("        x, y, width, height, offset".to_owned());
-        res.push("    };".to_owned());
-        res.push("    sixtyfps::solve_path_layout(&pl);".to_owned());
-        res.push("}".to_owned());
-    }
+            res.push("    sixtyfps::PathLayoutData pl { ".into());
+            res.push("        &path,".to_owned());
+            res.push(slice);
+            res.push("        x, y, width, height, offset".to_owned());
+            res.push("    };".to_owned());
+            res.push("    sixtyfps::solve_path_layout(&pl);".to_owned());
+            res.push("}".to_owned());
+        },
+    });
 
     res
 }

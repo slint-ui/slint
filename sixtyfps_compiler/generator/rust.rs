@@ -4,7 +4,7 @@
 use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic, Spanned};
 use crate::expression_tree::{EasingCurve, Expression, NamedReference, OperatorClass, Path};
 use crate::object_tree::{Component, ElementRc};
-use crate::typeregister::Type;
+use crate::{layout::Layout, typeregister::Type};
 use proc_macro2::TokenStream;
 use quote::quote;
 use std::rc::Rc;
@@ -720,161 +720,163 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
 
 fn compute_layout(component: &Rc<Component>) -> TokenStream {
     let mut layouts = vec![];
-    for grid_layout in component.layout_constraints.borrow().grids.iter() {
-        let within = quote::format_ident!("{}", grid_layout.within.borrow().id);
-        let within_ty = quote::format_ident!(
-            "{}",
-            grid_layout.within.borrow().base_type.as_native().class_name
-        );
-        let cells = grid_layout.elems.iter().map(|cell| {
-            let e = quote::format_ident!("{}", cell.item.borrow().id);
-            let p = |n: &str| {
-                if cell.item.borrow().lookup_property(n) == Type::Length {
-                    let n = quote::format_ident!("{}", n);
-                    quote! {Some(&self.#e.#n)}
-                } else {
-                    quote! {None}
-                }
-            };
-            let width = p("width");
-            let height = p("height");
-            let x = p("x");
-            let y = p("y");
-            let (col, row, colspan, rowspan) = (cell.col, cell.row, cell.colspan, cell.rowspan);
-            quote!(GridLayoutCellData {
-                x: #x,
-                y: #y,
-                width: #width,
-                height: #height,
-                col: #col,
-                row: #row,
-                colspan: #colspan,
-                rowspan: #rowspan,
-                constraint: Self::field_offsets().#e.apply_pin(self).layouting_info(),
-            })
-        });
-
-        let x_pos = compile_expression(&*grid_layout.x_reference, &component);
-        let y_pos = compile_expression(&*grid_layout.y_reference, &component);
-
-        layouts.push(quote! {
-            solve_grid_layout(&GridLayoutData {
-                width: (Self::field_offsets().#within + #within_ty::field_offsets().width)
-                    .apply_pin(self).get(),
-                height: (Self::field_offsets().#within + #within_ty::field_offsets().height)
-                    .apply_pin(self).get(),
-                x: #x_pos,
-                y: #y_pos,
-                cells: Slice::from_slice(&[#( #cells ),*]),
-            });
-        });
-    }
-
-    for path_layout in component.layout_constraints.borrow().paths.iter() {
-        let path_layout_item_data =
-            |elem: &ElementRc, elem_rs: TokenStream, component_rust: TokenStream| {
-                let prop_ref = |n: &str| {
-                    if elem.borrow().lookup_property(n) == Type::Length {
+    component.layout_constraints.borrow().iter().for_each(|layout| match &layout {
+        Layout::GridLayout(grid_layout) => {
+            let within = quote::format_ident!("{}", grid_layout.within.borrow().id);
+            let within_ty = quote::format_ident!(
+                "{}",
+                grid_layout.within.borrow().base_type.as_native().class_name
+            );
+            let cells = grid_layout.elems.iter().map(|cell| {
+                let e = quote::format_ident!("{}", cell.item.borrow().id);
+                let p = |n: &str| {
+                    if cell.item.borrow().lookup_property(n) == Type::Length {
                         let n = quote::format_ident!("{}", n);
-                        quote! {Some(& #elem_rs.#n)}
+                        quote! {Some(&self.#e.#n)}
                     } else {
                         quote! {None}
                     }
                 };
-                let prop_value = |n: &str| {
-                    if elem.borrow().lookup_property(n) == Type::Length {
-                        let accessor = access_member(
-                            &elem,
-                            n,
-                            &elem.borrow().enclosing_component.upgrade().unwrap(),
-                            component_rust.clone(),
-                        );
-                        quote!(#accessor.get())
-                    } else {
-                        quote! {0.}
-                    }
-                };
-                let x = prop_ref("x");
-                let y = prop_ref("y");
-                let width = prop_value("width");
-                let height = prop_value("height");
-                quote!(PathLayoutItemData {
+                let width = p("width");
+                let height = p("height");
+                let x = p("x");
+                let y = p("y");
+                let (col, row, colspan, rowspan) = (cell.col, cell.row, cell.colspan, cell.rowspan);
+                quote!(GridLayoutCellData {
                     x: #x,
                     y: #y,
                     width: #width,
                     height: #height,
+                    col: #col,
+                    row: #row,
+                    colspan: #colspan,
+                    rowspan: #rowspan,
+                    constraint: Self::field_offsets().#e.apply_pin(self).layouting_info(),
                 })
-            };
-        let path_layout_item_data_for_elem = |elem: &ElementRc| {
-            let e = quote::format_ident!("{}", elem.borrow().id);
-            path_layout_item_data(elem, quote!(self.#e), quote!(self))
-        };
+            });
 
-        let is_static_array =
-            path_layout.elements.iter().all(|elem| elem.borrow().repeated.is_none());
-
-        let slice = if is_static_array {
-            let items = path_layout.elements.iter().map(path_layout_item_data_for_elem);
-            quote!( Slice::from_slice(&[#( #items ),*]) )
-        } else {
-            let mut fixed_count = 0usize;
-            let mut repeated_count = quote!();
-            let mut push_code = quote!();
-            for elem in &path_layout.elements {
-                if elem.borrow().repeated.is_some() {
-                    let repeater_id = quote::format_ident!("repeater_{}", elem.borrow().id);
-                    repeated_count = quote!(#repeated_count + self.#repeater_id.len());
-                    let root_element = elem.borrow().base_type.as_component().root_element.clone();
-                    let root_id = quote::format_ident!("{}", root_element.borrow().id);
-                    let e = path_layout_item_data(
-                        &root_element,
-                        quote!(sub_comp.#root_id),
-                        quote!(sub_comp.as_ref()),
-                    );
-                    push_code = quote! {
-                        #push_code
-                        let internal_vec = self.#repeater_id.borrow_item_vec();
-                        for sub_comp in &*internal_vec {
-                            items_vec.push(#e)
-                        }
-                    }
-                } else {
-                    fixed_count += 1;
-                    let e = path_layout_item_data_for_elem(elem);
-                    push_code = quote! {
-                        #push_code
-                        items_vec.push(#e);
-                    }
-                }
-            }
+            let x_pos = compile_expression(&*grid_layout.x_reference, &component);
+            let y_pos = compile_expression(&*grid_layout.y_reference, &component);
 
             layouts.push(quote! {
-                let mut items_vec = Vec::with_capacity(#fixed_count #repeated_count);
-                #push_code
+                solve_grid_layout(&GridLayoutData {
+                    width: (Self::field_offsets().#within + #within_ty::field_offsets().width)
+                        .apply_pin(self).get(),
+                    height: (Self::field_offsets().#within + #within_ty::field_offsets().height)
+                        .apply_pin(self).get(),
+                    x: #x_pos,
+                    y: #y_pos,
+                    cells: Slice::from_slice(&[#( #cells ),*]),
+                });
             });
-            quote!(Slice::from_slice(items_vec.as_slice()))
-        };
+        }
+        Layout::PathLayout(path_layout) => {
+            let path_layout_item_data =
+                |elem: &ElementRc, elem_rs: TokenStream, component_rust: TokenStream| {
+                    let prop_ref = |n: &str| {
+                        if elem.borrow().lookup_property(n) == Type::Length {
+                            let n = quote::format_ident!("{}", n);
+                            quote! {Some(& #elem_rs.#n)}
+                        } else {
+                            quote! {None}
+                        }
+                    };
+                    let prop_value = |n: &str| {
+                        if elem.borrow().lookup_property(n) == Type::Length {
+                            let accessor = access_member(
+                                &elem,
+                                n,
+                                &elem.borrow().enclosing_component.upgrade().unwrap(),
+                                component_rust.clone(),
+                            );
+                            quote!(#accessor.get())
+                        } else {
+                            quote! {0.}
+                        }
+                    };
+                    let x = prop_ref("x");
+                    let y = prop_ref("y");
+                    let width = prop_value("width");
+                    let height = prop_value("height");
+                    quote!(PathLayoutItemData {
+                        x: #x,
+                        y: #y,
+                        width: #width,
+                        height: #height,
+                    })
+                };
+            let path_layout_item_data_for_elem = |elem: &ElementRc| {
+                let e = quote::format_ident!("{}", elem.borrow().id);
+                path_layout_item_data(elem, quote!(self.#e), quote!(self))
+            };
 
-        let path = compile_path(&path_layout.path, &component);
+            let is_static_array =
+                path_layout.elements.iter().all(|elem| elem.borrow().repeated.is_none());
 
-        let x_pos = compile_expression(&*path_layout.x_reference, &component);
-        let y_pos = compile_expression(&*path_layout.y_reference, &component);
-        let width = compile_expression(&*path_layout.width_reference, &component);
-        let height = compile_expression(&*path_layout.width_reference, &component);
-        let offset = compile_expression(&*path_layout.offset_reference, &component);
+            let slice = if is_static_array {
+                let items = path_layout.elements.iter().map(path_layout_item_data_for_elem);
+                quote!( Slice::from_slice(&[#( #items ),*]) )
+            } else {
+                let mut fixed_count = 0usize;
+                let mut repeated_count = quote!();
+                let mut push_code = quote!();
+                for elem in &path_layout.elements {
+                    if elem.borrow().repeated.is_some() {
+                        let repeater_id = quote::format_ident!("repeater_{}", elem.borrow().id);
+                        repeated_count = quote!(#repeated_count + self.#repeater_id.len());
+                        let root_element =
+                            elem.borrow().base_type.as_component().root_element.clone();
+                        let root_id = quote::format_ident!("{}", root_element.borrow().id);
+                        let e = path_layout_item_data(
+                            &root_element,
+                            quote!(sub_comp.#root_id),
+                            quote!(sub_comp.as_ref()),
+                        );
+                        push_code = quote! {
+                            #push_code
+                            let internal_vec = self.#repeater_id.borrow_item_vec();
+                            for sub_comp in &*internal_vec {
+                                items_vec.push(#e)
+                            }
+                        }
+                    } else {
+                        fixed_count += 1;
+                        let e = path_layout_item_data_for_elem(elem);
+                        push_code = quote! {
+                            #push_code
+                            items_vec.push(#e);
+                        }
+                    }
+                }
 
-        layouts.push(quote! {
-            solve_path_layout(&PathLayoutData {
-                items: #slice,
-                elements: &#path,
-                x: #x_pos,
-                y: #y_pos,
-                width: #width,
-                height: #height,
-                offset: #offset,
+                layouts.push(quote! {
+                    let mut items_vec = Vec::with_capacity(#fixed_count #repeated_count);
+                    #push_code
+                });
+                quote!(Slice::from_slice(items_vec.as_slice()))
+            };
+
+            let path = compile_path(&path_layout.path, &component);
+
+            let x_pos = compile_expression(&*path_layout.x_reference, &component);
+            let y_pos = compile_expression(&*path_layout.y_reference, &component);
+            let width = compile_expression(&*path_layout.width_reference, &component);
+            let height = compile_expression(&*path_layout.width_reference, &component);
+            let offset = compile_expression(&*path_layout.offset_reference, &component);
+
+            layouts.push(quote! {
+                solve_path_layout(&PathLayoutData {
+                    items: #slice,
+                    elements: &#path,
+                    x: #x_pos,
+                    y: #y_pos,
+                    width: #width,
+                    height: #height,
+                    offset: #offset,
+                });
             });
-        });
-    }
+        }
+    });
 
     quote! {
         fn layout_info(self: ::core::pin::Pin<&Self>) -> sixtyfps::re_exports::LayoutInfo {

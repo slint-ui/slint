@@ -642,109 +642,115 @@ unsafe extern "C" fn compute_layout(component: ComponentRefPin) {
             .unwrap_or_default()
     };
 
-    for it in &component_type.original.layout_constraints.borrow().grids {
-        let cells = it
-            .elems
-            .iter()
-            .map(|cell| {
-                let info = &component_type.items[cell.item.borrow().id.as_str()];
-                let get_prop = |name| {
-                    info.rtti.properties.get(name).map(|p| {
-                        &*(component.as_ptr().add(info.offset).add(p.offset())
-                            as *const Property<f32>)
-                    })
-                };
-                GridLayoutCellData {
-                    x: get_prop("x"),
-                    y: get_prop("y"),
-                    width: get_prop("width"),
-                    height: get_prop("height"),
-                    col: cell.col,
-                    row: cell.row,
-                    colspan: cell.colspan,
-                    rowspan: cell.rowspan,
-                    constraint: info
-                        .item_from_component(component.as_ptr())
-                        .as_ref()
-                        .layouting_info(),
-                }
-            })
-            .collect::<Vec<_>>();
+    component_type.original.layout_constraints.borrow().iter().for_each(|layout| match &layout {
+        layout::Layout::GridLayout(grid_layout) => {
+            let cells = grid_layout
+                .elems
+                .iter()
+                .map(|cell| {
+                    let info = &component_type.items[cell.item.borrow().id.as_str()];
+                    let get_prop = |name| {
+                        info.rtti.properties.get(name).map(|p| {
+                            &*(component.as_ptr().add(info.offset).add(p.offset())
+                                as *const Property<f32>)
+                        })
+                    };
+                    GridLayoutCellData {
+                        x: get_prop("x"),
+                        y: get_prop("y"),
+                        width: get_prop("width"),
+                        height: get_prop("height"),
+                        col: cell.col,
+                        row: cell.row,
+                        colspan: cell.colspan,
+                        rowspan: cell.rowspan,
+                        constraint: info
+                            .item_from_component(component.as_ptr())
+                            .as_ref()
+                            .layouting_info(),
+                    }
+                })
+                .collect::<Vec<_>>();
 
-        let within_info = &component_type.items[it.within.borrow().id.as_str()];
-        let within_prop = |name| {
-            within_info.rtti.properties[name]
-                .get(within_info.item_from_component(component.as_ptr()))
-                .try_into()
-                .unwrap()
-        };
-
-        solve_grid_layout(&GridLayoutData {
-            width: within_prop("width"),
-            height: within_prop("height"),
-            x: resolve_prop_ref(&it.x_reference),
-            y: resolve_prop_ref(&it.y_reference),
-            cells: Slice::from(cells.as_slice()),
-        });
-    }
-
-    for it in &component_type.original.layout_constraints.borrow().paths {
-        use sixtyfps_corelib::layout::*;
-
-        let mut items = vec![];
-        for elem in &it.elements {
-            let mut push_layout_data = |elem: &ElementRc, component: ComponentRefPin| {
-                let component_type = &*(component.get_vtable() as *const ComponentVTable
-                    as *const ComponentDescription);
-                let item_info = &component_type.items[elem.borrow().id.as_str()];
-                let get_prop = |name| {
-                    item_info.rtti.properties.get(name).map(|p| {
-                        &*(component.as_ptr().add(item_info.offset).add(p.offset())
-                            as *const Property<f32>)
-                    })
-                };
-
-                let item = item_info.item_from_component(component.as_ptr());
-                let get_prop_value = |name| {
-                    item_info.rtti.properties.get(name).map(|p| p.get(item)).unwrap_or_default()
-                };
-                items.push(PathLayoutItemData {
-                    x: get_prop("x"),
-                    y: get_prop("y"),
-                    width: get_prop_value("width").try_into().unwrap_or_default(),
-                    height: get_prop_value("height").try_into().unwrap_or_default(),
-                });
+            let within_info = &component_type.items[grid_layout.within.borrow().id.as_str()];
+            let within_prop = |name| {
+                within_info.rtti.properties[name]
+                    .get(within_info.item_from_component(component.as_ptr()))
+                    .try_into()
+                    .unwrap()
             };
 
-            if elem.borrow().repeated.is_none() {
-                push_layout_data(elem, component)
-            } else {
-                let rep_index = component_type.repeater_names[elem.borrow().id.as_str()];
-                let rep_in_comp = &component_type.repeater[rep_index];
-                let vec = &mut *(component.as_ptr().add(rep_in_comp.offset) as *mut RepeaterVec);
+            solve_grid_layout(&GridLayoutData {
+                width: within_prop("width"),
+                height: within_prop("height"),
+                x: resolve_prop_ref(&grid_layout.x_reference),
+                y: resolve_prop_ref(&grid_layout.y_reference),
+                cells: Slice::from(cells.as_slice()),
+            });
+        }
+        layout::Layout::PathLayout(path_layout) => {
+            use sixtyfps_corelib::layout::*;
 
-                for sub_comp in vec {
-                    push_layout_data(
-                        &elem.borrow().base_type.as_component().root_element,
-                        sub_comp.borrow(),
-                    )
+            let mut items = vec![];
+            for elem in &path_layout.elements {
+                let mut push_layout_data = |elem: &ElementRc, component: ComponentRefPin| {
+                    let component_type = &*(component.get_vtable() as *const ComponentVTable
+                        as *const ComponentDescription);
+                    let item_info = &component_type.items[elem.borrow().id.as_str()];
+                    let get_prop = |name| {
+                        item_info.rtti.properties.get(name).map(|p| {
+                            &*(component.as_ptr().add(item_info.offset).add(p.offset())
+                                as *const Property<f32>)
+                        })
+                    };
+
+                    let item = item_info.item_from_component(component.as_ptr());
+                    let get_prop_value = |name| {
+                        item_info.rtti.properties.get(name).map(|p| p.get(item)).unwrap_or_default()
+                    };
+                    items.push(PathLayoutItemData {
+                        x: get_prop("x"),
+                        y: get_prop("y"),
+                        width: get_prop_value("width").try_into().unwrap_or_default(),
+                        height: get_prop_value("height").try_into().unwrap_or_default(),
+                    });
+                };
+
+                if elem.borrow().repeated.is_none() {
+                    push_layout_data(elem, component)
+                } else {
+                    let rep_index = component_type.repeater_names[elem.borrow().id.as_str()];
+                    let rep_in_comp = &component_type.repeater[rep_index];
+                    let vec =
+                        &mut *(component.as_ptr().add(rep_in_comp.offset) as *mut RepeaterVec);
+
+                    for sub_comp in vec {
+                        push_layout_data(
+                            &elem.borrow().base_type.as_component().root_element,
+                            sub_comp.borrow(),
+                        )
+                    }
                 }
             }
+
+            let path_elements = eval::convert_path(
+                &path_layout.path,
+                component_type,
+                component,
+                &mut Default::default(),
+            );
+
+            solve_path_layout(&PathLayoutData {
+                items: Slice::from(items.as_slice()),
+                elements: &path_elements,
+                x: resolve_prop_ref(&path_layout.x_reference),
+                y: resolve_prop_ref(&path_layout.y_reference),
+                width: resolve_prop_ref(&path_layout.width_reference),
+                height: resolve_prop_ref(&path_layout.height_reference),
+                offset: resolve_prop_ref(&path_layout.offset_reference),
+            });
         }
-
-        let path_elements =
-            eval::convert_path(&it.path, component_type, component, &mut Default::default());
-
-        solve_path_layout(&PathLayoutData {
-            items: Slice::from(items.as_slice()),
-            elements: &path_elements,
-            x: resolve_prop_ref(&it.x_reference),
-            y: resolve_prop_ref(&it.y_reference),
-            width: resolve_prop_ref(&it.width_reference),
-            height: resolve_prop_ref(&it.height_reference),
-            offset: resolve_prop_ref(&it.offset_reference),
-        });
-    }
+    });
 }
 
 /// Get the component description from a ComponentRef
