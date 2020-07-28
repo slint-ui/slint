@@ -15,13 +15,12 @@ pub struct Font {
 }
 
 impl Font {
-    pub fn string_to_glyphs(&self, text: &str) -> Vec<u32> {
-        text.chars().map(|ch| self.font.glyph_for_char(ch).unwrap()).collect()
+    pub fn string_to_glyphs<'a>(&'a self, text: &'a str) -> impl Iterator<Item = u32> + 'a {
+        text.chars().map(move |ch| self.font.glyph_for_char(ch).unwrap())
     }
 
     pub fn text_width(&self, text: &str) -> f32 {
         self.string_to_glyphs(text)
-            .into_iter()
             .map(|glyph| self.glyph_metrics(glyph))
             .fold(0., |width, glyph| width + glyph.advance)
     }
