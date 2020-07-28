@@ -280,7 +280,7 @@ impl Item for TouchArea {
     }
 
     fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
-        todo!()
+        LayoutInfo::default()
     }
 
     fn input_event(self: Pin<&Self>, event: super::datastructures::MouseEvent) {
@@ -343,7 +343,7 @@ impl Item for Path {
     }
 
     fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
-        todo!()
+        LayoutInfo::default()
     }
 
     fn input_event(self: Pin<&Self>, _: super::datastructures::MouseEvent) {}

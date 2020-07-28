@@ -78,7 +78,6 @@ impl Item for QtStyleButton {
                 height: Self::field_offsets().height.apply_pin(self).get() as _,
             };
 
-            #[cfg(have_qt)]
             let img = cpp!(unsafe [
                 text as "QString",
                 size as "QSize",
@@ -87,7 +86,6 @@ impl Item for QtStyleButton {
                 ensure_initialized();
                 QImage img(size, QImage::Format_ARGB32);
                 img.fill(Qt::transparent);
-                // Note: i wonder if it would be possible to paint directly in the cairo context
                 QPainter p(&img);
                 QStyleOptionButton option;
                 option.text = std::move(text);
@@ -108,7 +106,27 @@ impl Item for QtStyleButton {
     }
 
     fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
-        todo!()
+        #[cfg(have_qt)]
+        {
+            let text: qttypes::QString =
+                Self::field_offsets().text.apply_pin(self).get().as_str().into();
+            let size = cpp!(unsafe [
+                text as "QString"
+            ] -> qttypes::QSize as "QSize" {
+                ensure_initialized();
+                QStyleOptionButton option;
+                option.rect = option.fontMetrics.boundingRect(text);
+                option.text = std::move(text);
+                return qApp->style()->sizeFromContents(QStyle::CT_PushButton, &option, option.rect.size(), nullptr);
+            });
+            LayoutInfo {
+                min_width: size.width as f32,
+                min_height: size.height as f32,
+                ..LayoutInfo::default()
+            }
+        }
+        #[cfg(not(have_qt))]
+        LayoutInfo::default()
     }
 
     fn input_event(self: Pin<&Self>, event: MouseEvent) {
@@ -164,7 +182,6 @@ impl Item for QtStyleCheckBox {
                 height: Self::field_offsets().height.apply_pin(self).get() as _,
             };
 
-            #[cfg(have_qt)]
             let img = cpp!(unsafe [
                 text as "QString",
                 size as "QSize",
@@ -173,7 +190,6 @@ impl Item for QtStyleCheckBox {
                 ensure_initialized();
                 QImage img(size, QImage::Format_ARGB32);
                 img.fill(Qt::transparent);
-                // Note: i wonder if it would be possible to paint directly in the cairo context
                 QPainter p(&img);
                 QStyleOptionButton option;
                 option.text = std::move(text);
@@ -193,7 +209,27 @@ impl Item for QtStyleCheckBox {
     }
 
     fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
-        todo!()
+        #[cfg(have_qt)]
+        {
+            let text: qttypes::QString =
+                Self::field_offsets().text.apply_pin(self).get().as_str().into();
+            let size = cpp!(unsafe [
+                text as "QString"
+            ] -> qttypes::QSize as "QSize" {
+                ensure_initialized();
+                QStyleOptionButton option;
+                option.rect = option.fontMetrics.boundingRect(text);
+                option.text = std::move(text);
+                return qApp->style()->sizeFromContents(QStyle::CT_PushButton, &option, option.rect.size(), nullptr);
+            });
+            LayoutInfo {
+                min_width: size.width as f32,
+                min_height: size.height as f32,
+                ..LayoutInfo::default()
+            }
+        }
+        #[cfg(not(have_qt))]
+        LayoutInfo::default()
     }
 
     fn input_event(self: Pin<&Self>, event: MouseEvent) {
