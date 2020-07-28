@@ -11,10 +11,6 @@ pub struct Font {
 }
 
 impl Font {
-    pub fn string_to_glyphs(&self, text: &str) -> Vec<u32> {
-        text.chars().map(|ch| ch as u32).collect()
-    }
-
     pub fn text_width(&self, text: &str) -> f32 {
         let text_metrics = self.canvas_context.measure_text(text).unwrap();
         text_metrics.width() as _
