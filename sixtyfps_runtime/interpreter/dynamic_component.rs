@@ -255,7 +255,7 @@ fn generate_component(root_component: &Rc<object_tree::Component>) -> Rc<Compone
             .iter()
             .cloned(),
         );
-        #[cfg(all(feature = "qt_style", have_qt))]
+        #[cfg(feature = "qt_style")]
         rtti.extend(
             [rtti_for::<qt_style::QtStyleButton>(), rtti_for::<qt_style::QtStyleCheckBox>()]
                 .iter()
