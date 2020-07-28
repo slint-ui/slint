@@ -130,7 +130,7 @@ mod cpp_ast {
 }
 
 use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic, Spanned};
-use crate::expression_tree::Expression;
+use crate::expression_tree::ExpressionSpanned;
 use crate::object_tree::{Component, Element, ElementRc, RepeatedElementInfo};
 use crate::typeregister::Type;
 use cpp_ast::*;
@@ -162,7 +162,7 @@ impl CppType for Type {
 
 fn new_struct_with_bindings(
     type_name: &str,
-    bindings: &HashMap<String, Expression>,
+    bindings: &HashMap<String, ExpressionSpanned>,
     component: &Rc<Component>,
 ) -> String {
     let bindings_initialization: Vec<String> = bindings

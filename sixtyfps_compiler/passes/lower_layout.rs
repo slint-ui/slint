@@ -90,7 +90,10 @@ pub fn lower_layouts(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
                 component.optimized_elements.borrow_mut().push(layout_elem.clone());
                 let path_elements_expr = match layout_elem.borrow_mut().bindings.remove("elements")
                 {
-                    Some(Expression::PathElements { elements }) => elements,
+                    Some(ExpressionSpanned {
+                        expression: Expression::PathElements { elements },
+                        ..
+                    }) => elements,
                     _ => {
                         diag.push_error("Internal error: elements binding in PathLayout does not contain path elements expression".into(), &*layout_elem.borrow());
                         return;

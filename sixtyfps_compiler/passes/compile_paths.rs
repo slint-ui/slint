@@ -53,7 +53,7 @@ pub fn compile_paths(
                 return;
             }
 
-            let commands = match commands_expr {
+            let commands = match commands_expr.expression {
                 Expression::StringLiteral(commands) => commands,
                 _ => {
                     diag.push_error(
@@ -100,6 +100,7 @@ pub fn compile_paths(
             crate::expression_tree::Path::Elements(path_data)
         };
 
-        elem.bindings.insert("elements".into(), Expression::PathElements { elements: path_data });
+        elem.bindings
+            .insert("elements".into(), Expression::PathElements { elements: path_data }.into());
     });
 }

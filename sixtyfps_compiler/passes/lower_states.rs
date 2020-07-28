@@ -39,7 +39,8 @@ pub fn lower_states(component: &Rc<Component>, _diag: &mut BuildDiagnostics) {
                     }),
                     true_expr: Box::new(expr),
                     false_expr: Box::new(property_expr),
-                },
+                }
+                .into(),
             );
         }
     }
@@ -51,7 +52,7 @@ pub fn lower_states(component: &Rc<Component>, _diag: &mut BuildDiagnostics) {
             expose_in_public_api: false,
         },
     );
-    root_element.borrow_mut().bindings.insert(state_property.clone(), state_value);
+    root_element.borrow_mut().bindings.insert(state_property.clone(), state_value.into());
 }
 
 fn compute_state_property_name(root_element: &ElementRc) -> String {
@@ -66,7 +67,7 @@ fn expression_for_property(element: &ElementRc, name: &str) -> Expression {
     let mut element_it = Some(element.clone());
     while let Some(element) = element_it {
         if let Some(e) = element.borrow().bindings.get(name) {
-            return e.clone();
+            return e.expression.clone();
         }
         element_it = if let Type::Component(base) = &element.borrow().base_type {
             Some(base.root_element.clone())

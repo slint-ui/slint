@@ -1,7 +1,7 @@
 use core::convert::{TryFrom, TryInto};
 use core::pin::Pin;
 use sixtyfps_compilerlib::expression_tree::{
-    Expression, NamedReference, Path as ExprPath, PathElement as ExprPathElement,
+    Expression, ExpressionSpanned, NamedReference, Path as ExprPath, PathElement as ExprPathElement,
 };
 use sixtyfps_compilerlib::{object_tree::ElementRc, typeregister::Type};
 use sixtyfps_corelib as corelib;
@@ -396,7 +396,7 @@ fn enclosing_component_for_element<'a>(
 pub fn new_struct_with_bindings<
     ElementType: 'static + Default + sixtyfps_corelib::rtti::BuiltinItem,
 >(
-    bindings: &HashMap<String, Expression>,
+    bindings: &HashMap<String, ExpressionSpanned>,
     component_type: &crate::ComponentDescription,
     component_ref: ComponentRefPin,
     local_context: &mut EvalLocalContext,

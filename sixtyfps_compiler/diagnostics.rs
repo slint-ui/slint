@@ -73,7 +73,7 @@ impl FileDiagnostics {
     pub fn push_error_with_span(&mut self, message: String, span: Span) {
         self.inner.push(CompilerDiagnostic { message, span }.into());
     }
-    pub fn push_error(&mut self, message: String, source: &impl Spanned) {
+    pub fn push_error(&mut self, message: String, source: &dyn Spanned) {
         self.push_error_with_span(message, source.span());
     }
     pub fn push_compiler_error(&mut self, error: CompilerDiagnostic) {
@@ -235,7 +235,7 @@ impl BuildDiagnostics {
         }
     }
 
-    pub fn push_error(&mut self, message: String, source: &impl SpannedWithSourceFile) {
+    pub fn push_error(&mut self, message: String, source: &dyn SpannedWithSourceFile) {
         match source.source_file() {
             Some(source_file) => self
                 .per_input_file_diagnostics
@@ -244,7 +244,7 @@ impl BuildDiagnostics {
                     current_path: source_file.clone(),
                     ..Default::default()
                 })
-                .push_error(message, source),
+                .push_error_with_span(message, source.span()),
             None => {
                 self.push_internal_error(CompilerDiagnostic { message, span: source.span() }.into())
             }

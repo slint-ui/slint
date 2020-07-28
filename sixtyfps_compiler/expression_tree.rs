@@ -1,10 +1,8 @@
+use crate::diagnostics::{BuildDiagnostics, Spanned, SpannedWithSourceFile};
 use crate::object_tree::*;
 use crate::parser::SyntaxNodeWithSourceFile;
 use crate::typeregister::BuiltinElement;
-use crate::{
-    diagnostics::{BuildDiagnostics, SpannedWithSourceFile},
-    typeregister::Type,
-};
+use crate::typeregister::Type;
 use core::cell::RefCell;
 use std::collections::HashMap;
 use std::hash::Hash;
@@ -543,6 +541,39 @@ impl Expression {
     }
 }
 
+#[derive(Default, Debug, Clone, derive_more::Deref, derive_more::DerefMut)]
+pub struct ExpressionSpanned {
+    #[deref]
+    #[deref_mut]
+    pub expression: Expression,
+    pub span: Option<(crate::diagnostics::SourceFile, crate::diagnostics::Span)>,
+}
+
+impl std::convert::From<Expression> for ExpressionSpanned {
+    fn from(expression: Expression) -> Self {
+        Self { expression, span: None }
+    }
+}
+
+impl ExpressionSpanned {
+    pub fn new_uncompiled(node: SyntaxNodeWithSourceFile) -> Self {
+        let span = node.source_file().map(|f| (f.clone(), node.span()));
+        Self { expression: Expression::Uncompiled(node.into()), span }
+    }
+}
+
+impl SpannedWithSourceFile for ExpressionSpanned {
+    fn source_file(&self) -> Option<&crate::diagnostics::SourceFile> {
+        self.span.as_ref().map(|x| &x.0)
+    }
+}
+
+impl Spanned for ExpressionSpanned {
+    fn span(&self) -> crate::diagnostics::Span {
+        self.span.as_ref().map(|x| x.1.clone()).unwrap_or_default()
+    }
+}
+
 pub type PathEvents = Vec<lyon::path::Event<lyon::math::Point, lyon::math::Point>>;
 
 #[derive(Debug, Clone)]
@@ -554,5 +585,5 @@ pub enum Path {
 #[derive(Debug, Clone)]
 pub struct PathElement {
     pub element_type: Rc<BuiltinElement>,
-    pub bindings: HashMap<String, Expression>,
+    pub bindings: HashMap<String, ExpressionSpanned>,
 }

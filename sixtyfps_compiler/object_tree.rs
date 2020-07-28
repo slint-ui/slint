@@ -3,7 +3,7 @@
 */
 
 use crate::diagnostics::{FileDiagnostics, Spanned, SpannedWithSourceFile};
-use crate::expression_tree::{Expression, NamedReference};
+use crate::expression_tree::{Expression, ExpressionSpanned, NamedReference};
 use crate::parser::{syntax_nodes, SyntaxKind, SyntaxNodeWithSourceFile};
 use crate::typeregister::{Type, TypeRegister};
 use std::cell::RefCell;
@@ -128,7 +128,7 @@ pub struct Element {
     //pub base: QualifiedTypeName,
     pub base_type: crate::typeregister::Type,
     /// Currently contains also the signals. FIXME: should that be changed?
-    pub bindings: HashMap<String, Expression>,
+    pub bindings: HashMap<String, ExpressionSpanned>,
     pub children: Vec<ElementRc>,
     /// The component which contains this element.
     pub enclosing_component: Weak<Component>,
@@ -233,7 +233,10 @@ impl Element {
             );
 
             if let Some(csn) = prop_decl.BindingExpression() {
-                if r.bindings.insert(prop_name, Expression::Uncompiled(csn.into())).is_some() {
+                if r.bindings
+                    .insert(prop_name, ExpressionSpanned::new_uncompiled(csn.into()))
+                    .is_some()
+                {
                     diag.push_error("Duplicated property binding".into(), &prop_name_token);
                 }
             }
@@ -266,7 +269,7 @@ impl Element {
                 diag.push_error(format!("'{}' is not a signal in {}", name, base), &name_token);
             }
             if r.bindings
-                .insert(name, Expression::Uncompiled(con_node.CodeBlock().into()))
+                .insert(name, ExpressionSpanned::new_uncompiled(con_node.CodeBlock().into()))
                 .is_some()
             {
                 diag.push_error("Duplicated signal".into(), &name_token);
@@ -469,7 +472,7 @@ impl Element {
             }
             if self
                 .bindings
-                .insert(name, Expression::Uncompiled(b.BindingExpression().into()))
+                .insert(name, ExpressionSpanned::new_uncompiled(b.BindingExpression().into()))
                 .is_some()
             {
                 diag.push_error("Duplicated property binding".into(), &name_token);
