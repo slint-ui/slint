@@ -8,8 +8,10 @@
 
 #[test]
 fn syntax_tests() -> std::io::Result<()> {
-    if let Some(specific_test) =
-        std::env::args().skip(1).skip_while(|arg| arg.starts_with("--") || arg == "main").next()
+    if let Some(specific_test) = std::env::args()
+        .skip(1)
+        .skip_while(|arg| arg.starts_with("--") || arg == "syntax_tests")
+        .next()
     {
         let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("tests");

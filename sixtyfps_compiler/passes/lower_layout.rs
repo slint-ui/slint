@@ -115,10 +115,12 @@ pub fn lower_layouts(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
                 });
                 continue;
             } else {
+                check_no_layout_properties(&child, diag);
                 elem.children.push(child);
             }
         }
     });
+    check_no_layout_properties(&component.root_element, diag);
 }
 
 impl GridLayout {
@@ -167,6 +169,14 @@ fn eval_const_expr(
         _ => {
             diag.push_error(format!("'{}' must be an integer literal", name), span);
             None
+        }
+    }
+}
+
+fn check_no_layout_properties(item: &ElementRc, diag: &mut BuildDiagnostics) {
+    for (prop, expr) in item.borrow().bindings.iter() {
+        if matches!(prop.as_ref(), "col" | "row" | "colspan" | "rowspan") {
+            diag.push_error(format!("{} used outside of a GridLayout", prop), expr);
         }
     }
 }
