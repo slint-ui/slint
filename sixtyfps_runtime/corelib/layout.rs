@@ -9,7 +9,7 @@ type Coord = f32;
 mod internal {
     use super::*;
 
-    #[derive(Debug, Default)]
+    #[derive(Debug, Clone)]
     pub struct LayoutData {
         // inputs
         pub min: Coord,
@@ -20,6 +20,12 @@ mod internal {
         // outputs
         pub pos: Coord,
         pub size: Coord,
+    }
+
+    impl Default for LayoutData {
+        fn default() -> Self {
+            LayoutData { min: 0., max: Coord::MAX, pref: 0., stretch: 1., pos: 0., size: 0. }
+        }
     }
 
     /// Layout the items within a specified size
@@ -112,19 +118,23 @@ impl Default for Constraint {
 }
 
 #[repr(C)]
+#[derive(Debug)]
 pub struct GridLayoutData<'a> {
-    pub row_constraint: Slice<'a, Constraint>,
-    pub col_constraint: Slice<'a, Constraint>,
     pub width: Coord,
     pub height: Coord,
     pub x: Coord,
     pub y: Coord,
-    pub cells: Slice<'a, Slice<'a, GridLayoutCellData<'a>>>,
+    pub cells: Slice<'a, GridLayoutCellData<'a>>,
 }
 
 #[repr(C)]
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct GridLayoutCellData<'a> {
+    pub col: u16,
+    pub row: u16,
+    pub colspan: u16,
+    pub rowspan: u16,
+    pub constraint: crate::abi::datastructures::LayoutInfo,
     pub x: Option<&'a Property<Coord>>,
     pub y: Option<&'a Property<Coord>>,
     pub width: Option<&'a Property<Coord>>,
@@ -134,26 +144,34 @@ pub struct GridLayoutCellData<'a> {
 /// FIXME: rename with sixstyfps prefix
 #[no_mangle]
 pub extern "C" fn solve_grid_layout(data: &GridLayoutData) {
-    let map = |c: &Constraint| internal::LayoutData {
-        min: c.min,
-        max: c.max,
-        pref: c.min,
-        stretch: 1.,
-        pos: 0.,
-        size: 0.,
-    };
+    let (mut num_col, mut num_row) = (0, 0);
+    for cell in data.cells.iter() {
+        num_row = num_row.max(cell.row + cell.rowspan);
+        num_col = num_col.max(cell.col + cell.colspan);
+    }
 
-    let mut row_layout_data = data.row_constraint.iter().map(map).collect::<Vec<_>>();
-    let mut col_layout_data = data.col_constraint.iter().map(map).collect::<Vec<_>>();
+    let mut row_layout_data = vec![internal::LayoutData::default(); num_row as usize];
+    let mut col_layout_data = vec![internal::LayoutData::default(); num_col as usize];
+    for cell in data.cells.iter() {
+        let rdata = &mut row_layout_data[cell.row as usize];
+        let cdata = &mut col_layout_data[cell.col as usize];
+        rdata.max = rdata.max.min(cell.constraint.max_height);
+        cdata.max = cdata.max.min(cell.constraint.max_width);
+        rdata.min = rdata.min.max(cell.constraint.min_height);
+        cdata.min = cdata.min.max(cell.constraint.min_width);
+        rdata.pref = rdata.pref.max(cell.constraint.min_height);
+        cdata.pref = cdata.pref.max(cell.constraint.min_width);
+    }
+
     internal::layout_items(&mut row_layout_data, data.y, data.height);
     internal::layout_items(&mut col_layout_data, data.x, data.width);
-    for (row_data, row) in row_layout_data.iter().zip(data.cells.iter()) {
-        for (col_data, cell) in col_layout_data.iter().zip(row.iter()) {
-            cell.x.map(|p| p.set(col_data.pos));
-            cell.width.map(|p| p.set(col_data.size));
-            cell.y.map(|p| p.set(row_data.pos));
-            cell.height.map(|p| p.set(row_data.size));
-        }
+    for cell in data.cells.iter() {
+        let rdata = &row_layout_data[cell.row as usize];
+        let cdata = &col_layout_data[cell.col as usize];
+        cell.x.map(|p| p.set(cdata.pos));
+        cell.width.map(|p| p.set(cdata.size));
+        cell.y.map(|p| p.set(rdata.pos));
+        cell.height.map(|p| p.set(rdata.size));
     }
 }
 

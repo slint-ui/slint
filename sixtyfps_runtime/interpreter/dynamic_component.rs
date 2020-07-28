@@ -629,6 +629,8 @@ pub fn instantiate(
     component_box
 }
 
+use sixtyfps_corelib::layout::*;
+
 unsafe extern "C" fn compute_layout(component: ComponentRefPin) {
     // This is fine since we can only be called with a component that with our vtable which is a ComponentDescription
     let component_type =
@@ -641,43 +643,33 @@ unsafe extern "C" fn compute_layout(component: ComponentRefPin) {
     };
 
     for it in &component_type.original.layout_constraints.borrow().grids {
-        use sixtyfps_corelib::layout::*;
-
-        let mut row_constraint = vec![];
-        let mut col_constraint = vec![];
-        //let mut cells = vec![];
-
-        row_constraint.resize_with(it.row_count(), Default::default);
-        col_constraint.resize_with(it.col_count(), Default::default);
-
-        let cells_v = it
+        let cells = it
             .elems
             .iter()
-            .map(|x| {
-                x.iter()
-                    .map(|y| {
-                        y.as_ref()
-                            .map(|elem| {
-                                let info = &component_type.items[elem.borrow().id.as_str()];
-                                let get_prop = |name| {
-                                    info.rtti.properties.get(name).map(|p| {
-                                        &*(component.as_ptr().add(info.offset).add(p.offset())
-                                            as *const Property<f32>)
-                                    })
-                                };
-                                GridLayoutCellData {
-                                    x: get_prop("x"),
-                                    y: get_prop("y"),
-                                    width: get_prop("width"),
-                                    height: get_prop("height"),
-                                }
-                            })
-                            .unwrap_or_default()
+            .map(|cell| {
+                let info = &component_type.items[cell.item.borrow().id.as_str()];
+                let get_prop = |name| {
+                    info.rtti.properties.get(name).map(|p| {
+                        &*(component.as_ptr().add(info.offset).add(p.offset())
+                            as *const Property<f32>)
                     })
-                    .collect::<Vec<_>>()
+                };
+                GridLayoutCellData {
+                    x: get_prop("x"),
+                    y: get_prop("y"),
+                    width: get_prop("width"),
+                    height: get_prop("height"),
+                    col: cell.col,
+                    row: cell.row,
+                    colspan: cell.colspan,
+                    rowspan: cell.rowspan,
+                    constraint: info
+                        .item_from_component(component.as_ptr())
+                        .as_ref()
+                        .layouting_info(),
+                }
             })
             .collect::<Vec<_>>();
-        let cells = cells_v.iter().map(|x| x.as_slice().into()).collect::<Vec<Slice<_>>>();
 
         let within_info = &component_type.items[it.within.borrow().id.as_str()];
         let within_prop = |name| {
@@ -688,8 +680,6 @@ unsafe extern "C" fn compute_layout(component: ComponentRefPin) {
         };
 
         solve_grid_layout(&GridLayoutData {
-            row_constraint: Slice::from(row_constraint.as_slice()),
-            col_constraint: Slice::from(col_constraint.as_slice()),
             width: within_prop("width"),
             height: within_prop("height"),
             x: resolve_prop_ref(&it.x_reference),

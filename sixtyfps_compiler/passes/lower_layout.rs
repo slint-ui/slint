@@ -119,25 +119,7 @@ pub fn lower_layouts(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
 }
 
 impl GridLayout {
-    fn add_element(
-        &mut self,
-        elem: ElementRc,
-        row: usize,
-        col: usize,
-        diag: &mut BuildDiagnostics,
-    ) {
-        fn index_checked<T: Default>(vec: &mut Vec<T>, idx: usize) -> &mut T {
-            if vec.len() <= idx {
-                vec.resize_with(idx + 1, T::default)
-            }
-            &mut vec[idx]
-        };
-
-        let row_vec = index_checked(&mut self.elems, row);
-        let cell = index_checked(row_vec, col);
-        if cell.is_some() {
-            diag.push_error(format!("Multiple elements in the same cell"), &*elem.borrow())
-        }
-        *cell = Some(elem)
+    fn add_element(&mut self, item: ElementRc, row: u16, col: u16, _diag: &mut BuildDiagnostics) {
+        self.elems.push(GridLayoutElement { col, row, colspan: 1, rowspan: 1, item });
     }
 }

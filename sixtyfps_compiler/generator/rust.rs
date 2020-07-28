@@ -720,56 +720,46 @@ fn compute_layout(component: &Rc<Component>) -> TokenStream {
             "{}",
             grid_layout.within.borrow().base_type.as_native().class_name
         );
-        let row_constraint = vec![quote!(Constraint::default()); grid_layout.row_count()];
-        let col_constraint = vec![quote!(Constraint::default()); grid_layout.col_count()];
-        let cells = grid_layout
-            .elems
-            .iter()
-            .map(|x| {
-                x.iter()
-                    .map(|y| {
-                        y.as_ref()
-                            .map(|elem| {
-                                let e = quote::format_ident!("{}", elem.borrow().id);
-                                let p = |n: &str| {
-                                    if elem.borrow().lookup_property(n) == Type::Length {
-                                        let n = quote::format_ident!("{}", n);
-                                        quote! {Some(&self.#e.#n)}
-                                    } else {
-                                        quote! {None}
-                                    }
-                                };
-                                let width = p("width");
-                                let height = p("height");
-                                let x = p("x");
-                                let y = p("y");
-                                quote!(GridLayoutCellData {
-                                    x: #x,
-                                    y: #y,
-                                    width: #width,
-                                    height: #height,
-                                })
-                            })
-                            .unwrap_or_else(|| quote!(GridLayoutCellData::default()))
-                    })
-                    .collect::<Vec<_>>()
+        let cells = grid_layout.elems.iter().map(|cell| {
+            let e = quote::format_ident!("{}", cell.item.borrow().id);
+            let p = |n: &str| {
+                if cell.item.borrow().lookup_property(n) == Type::Length {
+                    let n = quote::format_ident!("{}", n);
+                    quote! {Some(&self.#e.#n)}
+                } else {
+                    quote! {None}
+                }
+            };
+            let width = p("width");
+            let height = p("height");
+            let x = p("x");
+            let y = p("y");
+            let (col, row, colspan, rowspan) = (cell.col, cell.row, cell.colspan, cell.rowspan);
+            quote!(GridLayoutCellData {
+                x: #x,
+                y: #y,
+                width: #width,
+                height: #height,
+                col: #col,
+                row: #row,
+                colspan: #colspan,
+                rowspan: #rowspan,
+                constraint: Self::field_offsets().#e.apply_pin(self).layouting_info(),
             })
-            .collect::<Vec<_>>();
+        });
 
         let x_pos = compile_expression(&*grid_layout.x_reference, &component);
         let y_pos = compile_expression(&*grid_layout.y_reference, &component);
 
         layouts.push(quote! {
             solve_grid_layout(&GridLayoutData {
-                row_constraint: Slice::from_slice(&[#(#row_constraint),*]),
-                col_constraint: Slice::from_slice(&[#(#col_constraint),*]),
                 width: (Self::field_offsets().#within + #within_ty::field_offsets().width)
                     .apply_pin(self).get(),
                 height: (Self::field_offsets().#within + #within_ty::field_offsets().height)
                     .apply_pin(self).get(),
                 x: #x_pos,
                 y: #y_pos,
-                cells: Slice::from_slice(&[#( Slice::from_slice(&[#( #cells ),*])),*]),
+                cells: Slice::from_slice(&[#( #cells ),*]),
             });
         });
     }

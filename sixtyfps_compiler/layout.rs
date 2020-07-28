@@ -17,6 +17,16 @@ impl ExpressionFieldsVisitor for LayoutConstraints {
     }
 }
 
+/// An element in a GridLayout
+#[derive(Debug)]
+pub struct GridLayoutElement {
+    pub col: u16,
+    pub row: u16,
+    pub colspan: u16,
+    pub rowspan: u16,
+    pub item: ElementRc,
+}
+
 /// Internal representation of a grid layout
 #[derive(Debug)]
 pub struct GridLayout {
@@ -24,19 +34,9 @@ pub struct GridLayout {
     ///
     /// FIXME: This should not be implemented like that instead there should be
     pub within: ElementRc,
-    /// This is like a matrix of elements.
-    pub elems: Vec<Vec<Option<ElementRc>>>,
+    pub elems: Vec<GridLayoutElement>,
     pub x_reference: Box<Expression>,
     pub y_reference: Box<Expression>,
-}
-
-impl GridLayout {
-    pub fn col_count(&self) -> usize {
-        self.elems.iter().map(|x| x.len()).max().unwrap_or(0)
-    }
-    pub fn row_count(&self) -> usize {
-        self.elems.len()
-    }
 }
 
 impl ExpressionFieldsVisitor for GridLayout {

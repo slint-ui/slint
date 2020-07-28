@@ -73,7 +73,6 @@ constexpr inline ItemTreeNode<uint8_t> make_dyn_node(std::uintptr_t offset)
 using internal::sixtyfps_visit_item_tree;
 
 // layouts:
-using internal::Constraint;
 using internal::GridLayoutCellData;
 using internal::GridLayoutData;
 using internal::PathLayoutData;

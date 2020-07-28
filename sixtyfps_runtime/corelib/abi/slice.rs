@@ -1,6 +1,6 @@
 //! FFI-friendly slice
 
-use core::{cmp::PartialEq, marker::PhantomData, ptr::NonNull};
+use core::{cmp::PartialEq, fmt::Debug, marker::PhantomData, ptr::NonNull};
 
 /// That's basicaly the same as `&'a [T]`  but `repr(C)`
 ///
@@ -28,12 +28,18 @@ use core::{cmp::PartialEq, marker::PhantomData, ptr::NonNull};
 /// assert_eq!(a.as_slice(), b.as_slice());
 /// ```
 #[repr(C)]
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq)]
 pub struct Slice<'a, T> {
     /// Invariant, this is a valid slice of len `len`
     ptr: NonNull<T>,
     len: usize,
     phantom: PhantomData<&'a [T]>,
+}
+
+impl<'a, T: Debug> Debug for Slice<'a, T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.as_slice().fmt(f)
+    }
 }
 
 // Need to implement manually otheriwse it is not implemented if T do not implement Copy / Clone

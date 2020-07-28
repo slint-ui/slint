@@ -892,56 +892,32 @@ fn compute_layout(component: &Rc<Component>) -> Vec<String> {
     ));
     for grid in component.layout_constraints.borrow().grids.iter() {
         res.push("{".to_owned());
-        res.push(format!("    std::array<sixtyfps::Constraint, {}> row_constr;", grid.row_count()));
-        res.push(format!("    std::array<sixtyfps::Constraint, {}> col_constr;", grid.col_count()));
-        res.push(
-            "    row_constr.fill(sixtyfps::Constraint{0., std::numeric_limits<float>::max()});"
-                .to_owned(),
-        );
-        res.push(
-            "    col_constr.fill(sixtyfps::Constraint{0., std::numeric_limits<float>::max()});"
-                .to_owned(),
-        );
         res.push("    sixtyfps::GridLayoutCellData grid_data[] = {".to_owned());
-        let mut row_info = vec![];
-        let mut count = 0;
-        for row in &grid.elems {
-            row_info.push(format!("{{ &grid_data[{}], {} }}", count, row.len()));
-            for cell in row {
-                if let Some(cell) = cell {
-                    let p = |n: &str| {
-                        if cell.borrow().lookup_property(n) == Type::Length {
-                            format!("&self->{}.{}", cell.borrow().id, n)
-                        } else {
-                            "nullptr".to_owned()
-                        }
-                    };
-                    res.push(format!(
-                        "        {{ {}, {}, {}, {} }},",
-                        p("x"),
-                        p("y"),
-                        p("width"),
-                        p("height")
-                    ));
+        for cell in &grid.elems {
+            let p = |n: &str| {
+                if cell.item.borrow().lookup_property(n) == Type::Length {
+                    format!("&self->{}.{}", cell.item.borrow().id, n)
                 } else {
-                    res.push("        {},".into());
+                    "nullptr".to_owned()
                 }
-                count += 1;
-            }
+            };
+            res.push(format!(
+                "        {{ {c}, {r}, {cs}, {rs}, sixtyfps::{vt}.layouting_info({{&sixtyfps::{vt}, const_cast<sixtyfps::{ty}*>(&self->{id})}}), {x}, {y}, {w}, {h} }},",
+                c = cell.col, r = cell.row, cs = cell.colspan, rs =cell.rowspan,
+                vt = cell.item.borrow().base_type.as_native().vtable_symbol,
+                ty = cell.item.borrow().base_type.as_native().class_name,
+                id = cell.item.borrow().id,
+                x = p("x"), y = p("y"), w = p("width"), h = p("height")
+            ));
         }
         res.push("    };".to_owned());
-        res.push("    sixtyfps::Slice<sixtyfps::GridLayoutCellData> cells[] = {".to_owned());
-        res.push(format!("        {} }};", row_info.join(", ")));
         res.push(format!("    auto x = {};", compile_expression(&grid.x_reference, component)));
         res.push(format!("    auto y = {};", compile_expression(&grid.y_reference, component)));
         res.push("    sixtyfps::GridLayoutData grid { ".into());
-        // FIXME: add auto conversion from std::array* to Slice
-        res.push("        { row_constr.data(), row_constr.size() },".to_owned());
-        res.push("        { col_constr.data(), col_constr.size() },".to_owned());
         res.push(format!("        self->{}.width.get(),", grid.within.borrow().id));
         res.push(format!("        self->{}.height.get(),", grid.within.borrow().id));
         res.push("        x, y,".to_owned());
-        res.push("        {cells, std::size(cells)}".to_owned());
+        res.push("        {grid_data, std::size(grid_data)}".to_owned());
         res.push("    };".to_owned());
         res.push("    sixtyfps::solve_grid_layout(&grid);".to_owned());
         res.push("}".to_owned());
