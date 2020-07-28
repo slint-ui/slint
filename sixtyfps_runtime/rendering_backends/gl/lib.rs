@@ -36,13 +36,13 @@ use buffers::{GLArrayBuffer, GLIndexBuffer};
 mod text;
 
 #[cfg(not(target_arch = "wasm32"))]
-mod fontcache;
+mod glyphcache;
 #[cfg(not(target_arch = "wasm32"))]
-use fontcache::FontCache;
+use glyphcache::GlyphCache;
 
 #[cfg(not(target_arch = "wasm32"))]
 struct PlatformData {
-    font_cache: FontCache,
+    glyph_cache: GlyphCache,
     glyph_shader: GlyphShader,
 }
 
@@ -52,7 +52,7 @@ struct PlatformData {}
 impl PlatformData {
     #[cfg(not(target_arch = "wasm32"))]
     fn new(context: &glow::Context) -> Self {
-        Self { font_cache: FontCache::default(), glyph_shader: GlyphShader::new(&context) }
+        Self { glyph_cache: GlyphCache::default(), glyph_shader: GlyphShader::new(&context) }
     }
 
     #[cfg(target_arch = "wasm32")]
@@ -606,15 +606,14 @@ impl GLRenderingPrimitivesBuilder {
         color: Color,
     ) -> GLRenderingPrimitive {
         let mut pd = self.platform_data.borrow_mut();
-        let font_cache = &mut pd.font_cache;
-        let font = font_cache.find_font(font_family, pixel_size);
-        let mut font = font.borrow_mut();
-        let glyphs =
-            font.string_to_glyphs(&self.context, &mut self.texture_atlas.borrow_mut(), text);
+        let cached_glyphs = pd.glyph_cache.find_font(font_family, pixel_size);
+        let mut cached_glyphs = cached_glyphs.borrow_mut();
+        let mut atlas = self.texture_atlas.borrow_mut();
+        let glyphs = cached_glyphs.string_to_glyphs(&self.context, &mut atlas, text);
 
         let mut x = 0.;
 
-        let glyph_runs = font
+        let glyph_runs = cached_glyphs
             .layout_glyphs(glyphs)
             .map(|cached_glyph| {
                 let glyph_width =
@@ -672,48 +671,9 @@ impl GLRenderingPrimitivesBuilder {
         pixel_size: f32,
         color: Color,
     ) -> GLRenderingPrimitive {
-        let text_canvas = web_sys::window()
-            .unwrap()
-            .document()
-            .unwrap()
-            .create_element("canvas")
-            .unwrap()
-            .dyn_into::<web_sys::HtmlCanvasElement>()
-            .unwrap();
-
-        use wasm_bindgen::JsCast;
-        let canvas_context = text_canvas
-            .get_context("2d")
-            .unwrap()
-            .unwrap()
-            .dyn_into::<web_sys::CanvasRenderingContext2d>()
-            .unwrap();
-
-        canvas_context.set_font(&format!("{}px \"{}\"", pixel_size, font_family));
-
-        let text_metrics = canvas_context.measure_text(text).unwrap();
-
-        text_canvas.set_width(text_metrics.width() as _);
-        text_canvas.set_height(pixel_size as _);
-        text_canvas.style().set_property("width", &format!("{}px", text_metrics.width())).unwrap();
-        text_canvas.style().set_property("height", &format!("{}px", pixel_size)).unwrap();
-
-        // Re-apply after resize :(
-        canvas_context.set_font(&format!("{}px \"{}\"", pixel_size, font_family));
-
-        canvas_context.set_text_align("center");
-        canvas_context.set_text_baseline("middle");
-        canvas_context.set_fill_style(&wasm_bindgen::JsValue::from_str("transparent"));
-        canvas_context.fill_rect(0., 0., text_canvas.width() as _, text_canvas.height() as _);
-
-        let (r, g, b, a) = color.as_rgba_u8();
-        canvas_context.set_fill_style(&wasm_bindgen::JsValue::from_str(&format!(
-            "rgba({}, {}, {}, {})",
-            r, g, b, a
-        )));
-        canvas_context
-            .fill_text(text, (text_canvas.width() / 2) as _, (text_canvas.height() / 2) as _)
-            .unwrap();
+        let font =
+            sixtyfps_corelib::font::FONT_CACHE.with(|fc| fc.find_font(font_family, pixel_size));
+        let text_canvas = font.render_text(text, color);
 
         let texture = GLTexture::new_from_canvas(&self.context, &text_canvas);
 

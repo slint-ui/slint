@@ -5,12 +5,12 @@ use std::rc::Rc;
 #[cfg(not(target_arch = "wasm32"))]
 mod fontkit;
 #[cfg(not(target_arch = "wasm32"))]
-use fontkit::*;
+pub use fontkit::*;
 
 #[cfg(target_arch = "wasm32")]
 mod canvasfont;
 #[cfg(target_arch = "wasm32")]
-use canvasfont::*;
+pub use canvasfont::*;
 
 #[derive(Default)]
 struct FontMatch {
