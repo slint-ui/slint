@@ -606,12 +606,11 @@ impl GLRenderingPrimitivesBuilder {
         let cached_glyphs = pd.glyph_cache.find_font(font_family, pixel_size);
         let mut cached_glyphs = cached_glyphs.borrow_mut();
         let mut atlas = self.texture_atlas.borrow_mut();
-        let glyphs = cached_glyphs.string_to_glyphs(&self.context, &mut atlas, text);
+        let glyphs = cached_glyphs.layout_glyphs(&self.context, &mut atlas, text);
 
         let mut x = 0.;
 
-        let glyph_runs = cached_glyphs
-            .layout_glyphs(glyphs)
+        let glyph_runs = glyphs
             .map(|cached_glyph| {
                 let glyph_width =
                     cached_glyph.glyph_allocation.sub_texture.texture_coordinates.width() as f32;

@@ -60,29 +60,22 @@ impl CachedFontGlyphs {
         Self { font, glyphs }
     }
 
-    pub fn string_to_glyphs(
-        &mut self,
-        gl: &glow::Context,
-        atlas: &mut TextureAtlas,
-        text: &str,
-    ) -> Vec<u32> {
-        self.font
-            .clone()
-            .string_to_glyphs(text)
-            .into_iter()
-            .inspect(|glyph| {
-                if !self.glyphs.contains_key(&glyph) {
-                    // ensure the glyph is cached
-                    self.glyphs.insert(*glyph, self.render_glyph(gl, atlas, *glyph));
-                }
-            })
-            .collect()
-    }
+    pub fn layout_glyphs<'a>(
+        &'a mut self,
+        gl: &'a glow::Context,
+        atlas: &'a mut TextureAtlas,
+        text: &'a str,
+    ) -> impl Iterator<Item = &PreRenderedGlyph> + 'a {
+        let glyphs =
+            self.font.clone().string_to_glyphs(text).collect::<smallvec::SmallVec<[_; 32]>>();
 
-    pub fn layout_glyphs<'a, I: std::iter::IntoIterator<Item = u32>>(
-        &'a self,
-        glyphs: I,
-    ) -> GlyphIter<'a, I::IntoIter> {
+        glyphs.iter().for_each(|glyph| {
+            if !self.glyphs.contains_key(&glyph) {
+                // ensure the glyph is cached
+                self.glyphs.insert(*glyph, self.render_glyph(gl, atlas, *glyph));
+            }
+        });
+
         GlyphIter { gl_font: self, glyph_it: glyphs.into_iter() }
     }
 
