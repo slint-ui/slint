@@ -223,14 +223,14 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
     //println!("{:#?}", syntax_node);
     let compiler_config =
         CompilerConfiguration { include_paths: &include_paths, ..Default::default() };
-    let (tree, mut diag) = compile_syntax_node(syntax_node, diag, &compiler_config);
+    let (root_component, mut diag) = compile_syntax_node(syntax_node, diag, &compiler_config);
     //println!("{:#?}", tree);
     if diag.has_error() {
         diag.map_offsets_to_span(&tokens);
         return diag.into_token_stream().into();
     }
 
-    let result = generator::rust::generate(&tree.root_component, &mut diag);
+    let result = generator::rust::generate(&root_component, &mut diag);
 
     result
         .unwrap_or_else(|| {

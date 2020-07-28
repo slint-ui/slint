@@ -103,7 +103,7 @@ pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
         }
     };
 
-    let (doc, mut diag) = compile_syntax_node(syntax_node, diag, &compiler_config);
+    let (root_component, mut diag) = compile_syntax_node(syntax_node, diag, &compiler_config);
 
     if diag.has_error() {
         let vec = diag.to_string_vec();
@@ -121,7 +121,7 @@ pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
 
     let file = std::fs::File::create(&output_file_path).map_err(CompileError::SaveError)?;
     let mut code_formater = CodeFormatter { indentation: 0, in_string: false, sink: file };
-    let generated = generator::rust::generate(&doc.root_component, &mut diag).ok_or_else(|| {
+    let generated = generator::rust::generate(&root_component, &mut diag).ok_or_else(|| {
         let vec = diag.to_string_vec();
         diag.print();
         CompileError::CompileError(vec)

@@ -232,11 +232,11 @@ pub fn load(
 ) -> Result<Rc<ComponentDescription>, sixtyfps_compilerlib::diagnostics::BuildDiagnostics> {
     let (syntax_node, diag) = parser::parse(source, Some(path));
     let compiler_config = CompilerConfiguration { include_paths, ..Default::default() };
-    let (tree, diag) = compile_syntax_node(syntax_node, diag, &compiler_config);
+    let (root_component, diag) = compile_syntax_node(syntax_node, diag, &compiler_config);
     if diag.has_error() {
         return Err(diag);
     }
-    Ok(generate_component(&tree.root_component))
+    Ok(generate_component(&root_component))
 }
 
 fn generate_component(root_component: &Rc<object_tree::Component>) -> Rc<ComponentDescription> {

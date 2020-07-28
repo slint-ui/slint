@@ -12,7 +12,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
 
     let (syntax_node, diag) = parser::parse(source.clone(), Some(&testcase.absolute_path));
     let compiler_config = CompilerConfiguration { include_paths, ..Default::default() };
-    let (doc, mut diag) = compile_syntax_node(syntax_node, diag, &compiler_config);
+    let (root_component, mut diag) = compile_syntax_node(syntax_node, diag, &compiler_config);
 
     if diag.has_error() {
         let vec = diag.to_string_vec();
@@ -24,7 +24,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     generator::generate(
         generator::OutputFormat::Cpp,
         &mut generated_cpp,
-        &doc.root_component,
+        &root_component,
         &mut diag,
     )?;
 
