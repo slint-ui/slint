@@ -49,6 +49,7 @@ impl EventLoop {
     ) {
         use winit::event::Event;
         use winit::event_loop::{ControlFlow, EventLoopWindowTarget};
+        let layout_listener = Rc::pin(crate::abi::properties::PropertyListenerScope::default());
 
         let mut cursor_pos = winit::dpi::PhysicalPosition::new(0., 0.);
         let mut run_fn = move |event: Event<()>,
@@ -70,6 +71,11 @@ impl EventLoop {
                         if let Some(Some(window)) =
                             windows.borrow().get(&id).map(|weakref| weakref.upgrade())
                         {
+                            if layout_listener.as_ref().is_dirty() {
+                                layout_listener
+                                    .as_ref()
+                                    .evaluate(|| component.as_ref().compute_layout())
+                            }
                             window.draw(component);
                         }
                     });

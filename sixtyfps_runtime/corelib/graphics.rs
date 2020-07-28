@@ -144,9 +144,6 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow
     for RefCell<GraphicsWindow<Backend>>
 {
     fn draw(&self, component: crate::ComponentRefPin) {
-        // FIXME: we should do that only if some property change
-        component.as_ref().compute_layout();
-
         let mut this = self.borrow_mut();
 
         {
