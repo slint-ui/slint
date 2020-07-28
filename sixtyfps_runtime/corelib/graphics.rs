@@ -1,5 +1,5 @@
 extern crate alloc;
-use crate::abi::datastructures::{Color, RenderingPrimitive};
+use crate::abi::datastructures::{Color, RenderingPrimitive, Size};
 use cgmath::Matrix4;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -233,6 +233,15 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow
     fn request_redraw(&self) {
         if let Some(backend) = self.borrow().graphics_backend.as_ref() {
             backend.window().request_redraw();
+        }
+    }
+
+    fn size(&self) -> Size {
+        if let Some(backend) = self.borrow().graphics_backend.as_ref() {
+            let size = backend.window().inner_size();
+            Size::new(size.width as _, size.height as _)
+        } else {
+            Size::default()
         }
     }
 }

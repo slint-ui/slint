@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
+use crate::abi::datastructures::Size;
 #[cfg(not(target_arch = "wasm32"))]
 use winit::platform::desktop::EventLoopExtDesktop;
 
@@ -15,6 +16,7 @@ pub trait GenericWindow {
     fn window_handle(&self) -> std::cell::Ref<'_, winit::window::Window>;
     fn map_window(self: Rc<Self>, event_loop: &EventLoop);
     fn request_redraw(&self);
+    fn size(&self) -> Size;
 }
 
 thread_local! {

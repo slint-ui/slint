@@ -681,6 +681,16 @@ impl ComponentWindow {
         let event_loop = crate::eventloop::EventLoop::new();
         self.0.clone().map_window(&event_loop);
 
+        {
+            let size = self.0.size();
+            if let Some(width_property) = props.width {
+                width_property.set(size.width)
+            }
+            if let Some(height_property) = props.height {
+                height_property.set(size.height)
+            }
+        }
+
         event_loop.run(component, &props);
     }
 }
