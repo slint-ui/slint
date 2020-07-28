@@ -67,13 +67,13 @@ pub fn lower_layouts(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
                             col = 0;
                         }
                         for x in &cc.borrow().children {
-                            grid.add_element(x.clone(), row, col, diag);
+                            grid.add_element(x.clone(), &mut row, &mut col, diag);
                             col += 1;
                         }
                         elem.children.append(&mut cc.borrow_mut().children);
                         component.optimized_elements.borrow_mut().push(cc.clone());
                     } else {
-                        grid.add_element(cc.clone(), row, col, diag);
+                        grid.add_element(cc.clone(), &mut row, &mut col, diag);
                         elem.children.push(cc);
                         col += 1;
                     }
@@ -122,7 +122,51 @@ pub fn lower_layouts(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
 }
 
 impl GridLayout {
-    fn add_element(&mut self, item: ElementRc, row: u16, col: u16, _diag: &mut BuildDiagnostics) {
-        self.elems.push(GridLayoutElement { col, row, colspan: 1, rowspan: 1, item });
+    fn add_element(
+        &mut self,
+        item: ElementRc,
+        row: &mut u16,
+        col: &mut u16,
+        diag: &mut BuildDiagnostics,
+    ) {
+        let mut get_const_value = |name: &str| {
+            item.borrow()
+                .bindings
+                .get(name)
+                .and_then(|e| eval_const_expr(&e.expression, name, e, diag))
+        };
+        let colspan = get_const_value("colspan").unwrap_or(1);
+        let rowspan = get_const_value("rowspan").unwrap_or(1);
+        if let Some(c) = get_const_value("col") {
+            *col = c;
+        }
+        if let Some(r) = get_const_value("row") {
+            *row = r;
+        }
+        self.elems.push(GridLayoutElement { col: *col, row: *row, colspan, rowspan, item });
+    }
+}
+
+fn eval_const_expr(
+    expression: &Expression,
+    name: &str,
+    span: &dyn crate::diagnostics::SpannedWithSourceFile,
+    diag: &mut BuildDiagnostics,
+) -> Option<u16> {
+    match expression {
+        Expression::NumberLiteral(v, Unit::None) => {
+            let r = *v as u16;
+            if r as f32 != *v as f32 {
+                diag.push_error(format!("'{}' must be a positive integer", name), span);
+                None
+            } else {
+                Some(r)
+            }
+        }
+        Expression::Cast { from, .. } => eval_const_expr(&from, name, span, diag),
+        _ => {
+            diag.push_error(format!("'{}' must be an integer literal", name), span);
+            None
+        }
     }
 }
