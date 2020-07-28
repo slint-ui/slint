@@ -228,7 +228,7 @@ impl Item for Text {
         let text = Self::field_offsets().text.apply_pin(self).get();
 
         crate::font::FONT_CACHE.with(|fc| {
-            let font = fc.borrow_mut().find_font(&font_family, font_pixel_size);
+            let font = fc.find_font(&font_family, font_pixel_size);
             let width = font.text_width(&text);
             let height = font.font_height();
             LayoutInfo {

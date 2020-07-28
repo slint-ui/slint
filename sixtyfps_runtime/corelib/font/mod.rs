@@ -19,16 +19,17 @@ struct FontMatch {
 
 #[derive(Default)]
 pub struct FontCache {
-    loaded_fonts: HashMap<FontHandle, FontMatch>,
+    loaded_fonts: RefCell<HashMap<FontHandle, FontMatch>>,
 }
 
 impl FontCache {
-    pub fn find_font(&mut self, family: &str, font_pixel_size: f32) -> Rc<Font> {
+    pub fn find_font(&self, family: &str, font_pixel_size: f32) -> Rc<Font> {
         let pixel_size = if font_pixel_size != 0. { font_pixel_size } else { 48.0 * 72. / 96. };
 
         let handle = FontHandle::new_from_match(family);
 
-        let font_match = self.loaded_fonts.entry(handle.clone()).or_insert(FontMatch::default());
+        let mut loaded_fonts = self.loaded_fonts.borrow_mut();
+        let font_match = loaded_fonts.entry(handle.clone()).or_insert(FontMatch::default());
 
         font_match
             .fonts_per_pixel_size
@@ -43,5 +44,5 @@ impl FontCache {
 }
 
 thread_local! {
-    pub static FONT_CACHE: RefCell<FontCache> = RefCell::new(Default::default());
+    pub static FONT_CACHE: FontCache = Default::default();
 }
