@@ -33,9 +33,6 @@ mod buffers;
 use buffers::{GLArrayBuffer, GLIndexBuffer};
 
 #[cfg(not(target_arch = "wasm32"))]
-mod text;
-
-#[cfg(not(target_arch = "wasm32"))]
 mod glyphcache;
 #[cfg(not(target_arch = "wasm32"))]
 use glyphcache::GlyphCache;
