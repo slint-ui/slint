@@ -745,10 +745,10 @@ unsafe extern "C" fn compute_layout(component: ComponentRefPin) {
                 .collect::<Vec<_>>();
 
             solve_grid_layout(&GridLayoutData {
-                width: resolve_prop_ref(&grid_layout.width_reference),
-                height: resolve_prop_ref(&grid_layout.height_reference),
-                x: resolve_prop_ref(&grid_layout.x_reference),
-                y: resolve_prop_ref(&grid_layout.y_reference),
+                width: resolve_prop_ref(&grid_layout.rect.width_reference),
+                height: resolve_prop_ref(&grid_layout.rect.height_reference),
+                x: resolve_prop_ref(&grid_layout.rect.x_reference),
+                y: resolve_prop_ref(&grid_layout.rect.y_reference),
                 cells: Slice::from(cells.as_slice()),
             });
         }
@@ -807,10 +807,10 @@ unsafe extern "C" fn compute_layout(component: ComponentRefPin) {
             solve_path_layout(&PathLayoutData {
                 items: Slice::from(items.as_slice()),
                 elements: &path_elements,
-                x: resolve_prop_ref(&path_layout.x_reference),
-                y: resolve_prop_ref(&path_layout.y_reference),
-                width: resolve_prop_ref(&path_layout.width_reference),
-                height: resolve_prop_ref(&path_layout.height_reference),
+                x: resolve_prop_ref(&path_layout.rect.x_reference),
+                y: resolve_prop_ref(&path_layout.rect.y_reference),
+                width: resolve_prop_ref(&path_layout.rect.width_reference),
+                height: resolve_prop_ref(&path_layout.rect.height_reference),
                 offset: resolve_prop_ref(&path_layout.offset_reference),
             });
         }

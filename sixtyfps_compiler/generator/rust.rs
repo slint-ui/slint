@@ -790,17 +790,17 @@ fn compute_layout(component: &Rc<Component>) -> TokenStream {
                 })
             });
 
-            let x_pos = compile_expression(&*grid_layout.x_reference, &component);
-            let y_pos = compile_expression(&*grid_layout.y_reference, &component);
-            let width = compile_expression(&*grid_layout.width_reference, component);
-            let height = compile_expression(&*grid_layout.height_reference, component);
+            let x_pos = compile_expression(&*grid_layout.rect.x_reference, &component);
+            let y_pos = compile_expression(&*grid_layout.rect.y_reference, &component);
+            let width = compile_expression(&*grid_layout.rect.width_reference, component);
+            let height = compile_expression(&*grid_layout.rect.height_reference, component);
 
             layouts.push(quote! {
                 solve_grid_layout(&GridLayoutData {
                     width: #width,
                     height: #height,
-                    x: #x_pos,
-                    y: #y_pos,
+                    x: #x_pos as _,
+                    y: #y_pos as _,
                     cells: Slice::from_slice(&[#( #cells ),*]),
                 });
             });
@@ -893,10 +893,10 @@ fn compute_layout(component: &Rc<Component>) -> TokenStream {
 
             let path = compile_path(&path_layout.path, &component);
 
-            let x_pos = compile_expression(&*path_layout.x_reference, &component);
-            let y_pos = compile_expression(&*path_layout.y_reference, &component);
-            let width = compile_expression(&*path_layout.width_reference, &component);
-            let height = compile_expression(&*path_layout.width_reference, &component);
+            let x_pos = compile_expression(&*path_layout.rect.x_reference, &component);
+            let y_pos = compile_expression(&*path_layout.rect.y_reference, &component);
+            let width = compile_expression(&*path_layout.rect.width_reference, &component);
+            let height = compile_expression(&*path_layout.rect.width_reference, &component);
             let offset = compile_expression(&*path_layout.offset_reference, &component);
 
             layouts.push(quote! {

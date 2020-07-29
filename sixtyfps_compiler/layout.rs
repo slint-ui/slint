@@ -34,6 +34,23 @@ pub enum LayoutItem {
     Layout(Box<Layout>),
 }
 
+#[derive(Debug, Clone)]
+pub struct LayoutRect {
+    pub width_reference: Box<Expression>,
+    pub height_reference: Box<Expression>,
+    pub x_reference: Box<Expression>,
+    pub y_reference: Box<Expression>,
+}
+
+impl ExpressionFieldsVisitor for LayoutRect {
+    fn visit_expressions(&mut self, visitor: &mut impl FnMut(&mut Expression)) {
+        visitor(&mut self.width_reference);
+        visitor(&mut self.height_reference);
+        visitor(&mut self.x_reference);
+        visitor(&mut self.y_reference);
+    }
+}
+
 /// An element in a GridLayout
 #[derive(Debug)]
 pub struct GridLayoutElement {
@@ -50,18 +67,12 @@ pub struct GridLayout {
     /// All the elements will be layout within that element.
     ///
     pub elems: Vec<GridLayoutElement>,
-    pub width_reference: Box<Expression>,
-    pub height_reference: Box<Expression>,
-    pub x_reference: Box<Expression>,
-    pub y_reference: Box<Expression>,
+    pub rect: LayoutRect,
 }
 
 impl ExpressionFieldsVisitor for GridLayout {
     fn visit_expressions(&mut self, visitor: &mut impl FnMut(&mut Expression)) {
-        visitor(&mut self.x_reference);
-        visitor(&mut self.y_reference);
-        visitor(&mut self.width_reference);
-        visitor(&mut self.height_reference);
+        self.rect.visit_expressions(visitor);
         for cell in &mut self.elems {
             match &mut cell.item {
                 LayoutItem::Element(_) => {
@@ -78,19 +89,13 @@ impl ExpressionFieldsVisitor for GridLayout {
 pub struct PathLayout {
     pub path: Path,
     pub elements: Vec<ElementRc>,
-    pub x_reference: Box<Expression>,
-    pub y_reference: Box<Expression>,
-    pub width_reference: Box<Expression>,
-    pub height_reference: Box<Expression>,
+    pub rect: LayoutRect,
     pub offset_reference: Box<Expression>,
 }
 
 impl ExpressionFieldsVisitor for PathLayout {
     fn visit_expressions(&mut self, visitor: &mut impl FnMut(&mut Expression)) {
-        visitor(&mut self.x_reference);
-        visitor(&mut self.y_reference);
-        visitor(&mut self.width_reference);
-        visitor(&mut self.height_reference);
+        self.rect.visit_expressions(visitor);
         visitor(&mut self.offset_reference);
     }
 }

@@ -3,9 +3,6 @@ TestCase := Rectangle {
     height: 300px;
 
     GridLayout {
-        x: 100px;
-        y: 100px;
-
         Row {
             rect1 := Rectangle {
                 color: red;
@@ -23,9 +20,9 @@ TestCase := Rectangle {
         }
     }
 
-    property <bool> rect1_pos_ok: rect1.x == 100px && rect1.y == 100px && rect1.width == 150px && rect2.height == 150px;
-    property <bool> rect2_pos_ok: rect2.x == 250px && rect2.y == 100px && rect2.width == 150px && rect2.height == 150px;
-    property <bool> rect3_pos_ok: rect3.x == 100px && rect3.y == 250px && rect3.width == 150px && rect3.height == 150px;
+    property <bool> rect1_pos_ok: rect1.x == 0px && rect1.y == 0px && rect1.width == 150px && rect2.height == 150px;
+    property <bool> rect2_pos_ok: rect2.x == 150px && rect2.y == 0px && rect2.width == 150px && rect2.height == 150px;
+    property <bool> rect3_pos_ok: rect3.x == 0px && rect3.y == 150px && rect3.width == 150px && rect3.height == 150px;
 }
 
 /*

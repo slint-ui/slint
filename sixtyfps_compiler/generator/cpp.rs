@@ -961,12 +961,12 @@ fn compute_layout(component: &Rc<Component>) -> Vec<String> {
                 ));
             }
             res.push("    };".to_owned());
-            res.push(format!("    auto x = {};", compile_expression(&grid.x_reference, component)));
-            res.push(format!("    auto y = {};", compile_expression(&grid.y_reference, component)));
-            res.push(format!("    auto width = {};", compile_expression(&grid.width_reference, component)));
-            res.push(format!("    auto height = {};", compile_expression(&grid.height_reference, component)));
+            res.push(format!("    auto width = {};", compile_expression(&grid.rect.width_reference, component)));
+            res.push(format!("    auto height = {};", compile_expression(&grid.rect.height_reference, component)));
             res.push("    sixtyfps::GridLayoutData grid { ".into());
-            res.push("        width, height, x, y,".to_owned());
+            res.push(format!("        width, height, {}, {},",
+                     compile_expression(&grid.rect.x_reference, component),
+                     compile_expression(&grid.rect.y_reference, component)));
             res.push("        {grid_data, std::size(grid_data)}".to_owned());
             res.push("    };".to_owned());
             res.push("    sixtyfps::solve_grid_layout(&grid);".to_owned());
@@ -1050,19 +1050,19 @@ fn compute_layout(component: &Rc<Component>) -> Vec<String> {
 
             res.push(format!(
                 "    auto x = {};",
-                compile_expression(&path_layout.x_reference, component)
+                compile_expression(&path_layout.rect.x_reference, component)
             ));
             res.push(format!(
                 "    auto y = {};",
-                compile_expression(&path_layout.y_reference, component)
+                compile_expression(&path_layout.rect.y_reference, component)
             ));
             res.push(format!(
                 "    auto width = {};",
-                compile_expression(&path_layout.width_reference, component)
+                compile_expression(&path_layout.rect.width_reference, component)
             ));
             res.push(format!(
                 "    auto height = {};",
-                compile_expression(&path_layout.height_reference, component)
+                compile_expression(&path_layout.rect.height_reference, component)
             ));
 
             res.push(format!(
