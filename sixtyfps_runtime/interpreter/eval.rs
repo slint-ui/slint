@@ -1,7 +1,8 @@
 use core::convert::{TryFrom, TryInto};
 use core::pin::Pin;
 use sixtyfps_compilerlib::expression_tree::{
-    Expression, ExpressionSpanned, NamedReference, Path as ExprPath, PathElement as ExprPathElement,
+    EasingCurve, Expression, ExpressionSpanned, NamedReference, Path as ExprPath,
+    PathElement as ExprPathElement,
 };
 use sixtyfps_compilerlib::{object_tree::ElementRc, typeregister::Type};
 use sixtyfps_corelib as corelib;
@@ -69,6 +70,8 @@ pub enum Value {
     Color(Color),
     /// The elements of a path
     PathElements(PathData),
+    /// An easing curve
+    EasingCurve(corelib::abi::datastructures::EasingCurve),
 }
 
 impl Default for Value {
@@ -114,6 +117,7 @@ declare_value_conversion!(Resource => [Resource] );
 declare_value_conversion!(Object => [HashMap<String, Value>] );
 declare_value_conversion!(Color => [Color] );
 declare_value_conversion!(PathElements => [PathData]);
+declare_value_conversion!(EasingCurve => [corelib::abi::datastructures::EasingCurve]);
 
 /// The local variable needed for binding evaluation
 #[derive(Default)]
@@ -348,7 +352,12 @@ pub fn eval_expression(
         Expression::ReadLocalVariable { name, .. } => {
             local_context.local_variables.get(name).unwrap().clone()
         }
-        Expression::EasingCurve(_) => todo!("EasingCurve not yet implemented"),
+        Expression::EasingCurve(curve) => Value::EasingCurve(match curve {
+            EasingCurve::Linear => corelib::abi::datastructures::EasingCurve::Linear,
+            EasingCurve::CubicBezier(a, b, c, d) => {
+                corelib::abi::datastructures::EasingCurve::CubicBezier([*a, *b, *c, *d])
+            }
+        }),
     }
 }
 

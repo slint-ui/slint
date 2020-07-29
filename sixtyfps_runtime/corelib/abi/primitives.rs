@@ -365,4 +365,6 @@ pub struct PropertyAnimation {
     pub duration: i32,
     #[rtti_field]
     pub loop_count: i32,
+    #[rtti_field]
+    pub easing: crate::abi::datastructures::EasingCurve,
 }

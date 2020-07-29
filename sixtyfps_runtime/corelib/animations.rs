@@ -1,5 +1,6 @@
 #![warn(missing_docs)]
 
+use crate::abi::datastructures::EasingCurve;
 use std::cell::Cell;
 
 /// The AnimationDriver
@@ -44,3 +45,27 @@ impl AnimationDriver {
 }
 
 thread_local!(pub(crate) static CURRENT_ANIMATION_DRIVER : AnimationDriver = AnimationDriver::default());
+
+/// map a value betwen 0 and 1 to another value between 0 and 1 according to the curve
+pub fn easing_curve(curve: &EasingCurve, value: f32) -> f32 {
+    match curve {
+        EasingCurve::Linear => value,
+        EasingCurve::CubicBezier([a, b, c, d]) => {
+            if !(0.0..=1.0).contains(a) && !(0.0..=1.0).contains(c) {
+                return value;
+            };
+            let curve = lyon::algorithms::geom::cubic_bezier::CubicBezierSegment {
+                from: (0., 0.).into(),
+                ctrl1: (*a, *b).into(),
+                ctrl2: (*c, *d).into(),
+                to: (1., 1.).into(),
+            };
+            let curve = curve.assume_monotonic();
+            curve.y(curve.solve_t_for_x(
+                value,
+                0.0..1.0,
+                lyon::tessellation::StrokeOptions::DEFAULT_TOLERANCE,
+            ))
+        }
+    }
+}

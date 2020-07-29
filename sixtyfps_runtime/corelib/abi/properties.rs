@@ -622,7 +622,8 @@ impl<T: InterpolatedPropertyValue> PropertyValueAnimationData<T> {
         }
         let progress = time_progress as f32 / self.details.duration as f32;
         assert!(progress <= 1.);
-        let val = self.from_value.interpolate(self.to_value, progress);
+        let t = crate::animations::easing_curve(&self.details.easing, progress);
+        let val = self.from_value.interpolate(self.to_value, t);
         (val, false)
     }
 }
@@ -997,8 +998,10 @@ mod animation_tests {
     fn properties_test_animation_triggered_by_set() {
         let compo = Component::new_test_component();
 
-        let animation_details =
-            PropertyAnimation { duration: DURATION.as_millis() as _, loop_count: 0 };
+        let animation_details = PropertyAnimation {
+            duration: DURATION.as_millis() as _,
+            ..PropertyAnimation::default()
+        };
 
         compo.width.set(100);
         assert_eq!(get_prop_value(&compo.width), 100);
@@ -1036,8 +1039,10 @@ mod animation_tests {
         let start_time =
             crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| driver.current_tick());
 
-        let animation_details =
-            PropertyAnimation { duration: DURATION.as_millis() as _, loop_count: 0 };
+        let animation_details = PropertyAnimation {
+            duration: DURATION.as_millis() as _,
+            ..PropertyAnimation::default()
+        };
 
         let w = Rc::downgrade(&compo);
         compo.width.set_animated_binding(
@@ -1073,8 +1078,11 @@ mod animation_tests {
     fn test_loop() {
         let compo = Component::new_test_component();
 
-        let animation_details =
-            PropertyAnimation { duration: DURATION.as_millis() as _, loop_count: 2 };
+        let animation_details = PropertyAnimation {
+            duration: DURATION.as_millis() as _,
+            loop_count: 2,
+            ..PropertyAnimation::default()
+        };
 
         compo.width.set(100);
 
@@ -1116,8 +1124,11 @@ mod animation_tests {
     fn test_loop_overshoot() {
         let compo = Component::new_test_component();
 
-        let animation_details =
-            PropertyAnimation { duration: DURATION.as_millis() as _, loop_count: 2 };
+        let animation_details = PropertyAnimation {
+            duration: DURATION.as_millis() as _,
+            loop_count: 2,
+            ..PropertyAnimation::default()
+        };
 
         compo.width.set(100);
 

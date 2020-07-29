@@ -44,7 +44,7 @@ export CheckBox := Rectangle {
             y: 4lx;
             x: root.checked ? 4lx : indicator.width - bubble.width - 4lx;
             color: root.checked ? #aea : #eaa;
-            animate x, color { duration: 200ms; }
+            animate x, color { duration: 200ms; easing: ease;}
         }
     }
 

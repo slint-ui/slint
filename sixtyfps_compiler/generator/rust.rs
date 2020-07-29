@@ -2,7 +2,7 @@
 */
 
 use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic, Spanned};
-use crate::expression_tree::{Expression, NamedReference, OperatorClass, Path};
+use crate::expression_tree::{EasingCurve, Expression, NamedReference, OperatorClass, Path};
 use crate::object_tree::{Component, ElementRc};
 use crate::typeregister::Type;
 use proc_macro2::TokenStream;
@@ -709,7 +709,12 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
             let name = quote::format_ident!("{}", name);
             quote!(#name)
         }
-        Expression::EasingCurve(_) => quote!(todo!("EasingCurve not yet implemented in rust.rs")),
+        Expression::EasingCurve(EasingCurve::Linear) => {
+            quote!(sixtyfps::re_exports::EasingCurve::Linear)
+        }
+        Expression::EasingCurve(EasingCurve::CubicBezier(a, b, c, d)) => {
+            quote!(sixtyfps::re_exports::EasingCurve::CubicBezier([#a, #b, #c, #d]))
+        }
     }
 }
 

@@ -15,6 +15,7 @@ fn main() {
         "Slice",
         "ComponentWindowOpaque",
         "PropertyAnimation",
+        "EasingCurve",
     ]
     .iter()
     .map(|x| x.to_string())
@@ -141,6 +142,11 @@ fn main() {
     config.export.body.insert(
         "CachedRenderingData".to_owned(),
         "    constexpr CachedRenderingData() : cache_index{}, cache_ok{} {}".to_owned(),
+    );
+    config.export.body.insert(
+        "EasingCurve".to_owned(),
+        "    constexpr EasingCurve() : tag(Tag::Linear), cubic_bezier{{0,0,1,1}} {}
+    constexpr explicit EasingCurve(EasingCurve::Tag tag, float a, float b, float c, float d) : tag(tag), cubic_bezier{{a,b,c,d}} {}".into()
     );
     cbindgen::Builder::new()
         .with_config(config)

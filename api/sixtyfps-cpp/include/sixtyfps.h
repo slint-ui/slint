@@ -28,6 +28,7 @@ using internal::ItemTreeNode;
 using ComponentRef = VRef<ComponentVTable>;
 using ItemVisitorRefMut = VRefMut<internal::ItemVisitorVTable>;
 using internal::WindowProperties;
+using internal::EasingCurve;
 
 struct ComponentWindow
 {
