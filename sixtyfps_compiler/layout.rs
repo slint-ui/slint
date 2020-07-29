@@ -1,8 +1,9 @@
 //! Datastructures used to represent layouts in the compiler
 
-use crate::expression_tree::{Expression, Path};
-use crate::object_tree::ElementRc;
-use crate::passes::ExpressionFieldsVisitor;
+use crate::expression_tree::{Expression, NamedReference, Path};
+use crate::object_tree::{ElementRc, PropertyDeclaration};
+use crate::{passes::ExpressionFieldsVisitor, typeregister::Type};
+use std::rc::Rc;
 
 #[derive(Debug, derive_more::From)]
 pub enum Layout {
@@ -40,6 +41,33 @@ pub struct LayoutRect {
     pub height_reference: Box<Expression>,
     pub x_reference: Box<Expression>,
     pub y_reference: Box<Expression>,
+}
+
+impl LayoutRect {
+    pub fn install_on_element(element: &ElementRc) -> Self {
+        let install_prop = |name: &str| {
+            element.borrow_mut().property_declarations.insert(
+                name.to_string(),
+                PropertyDeclaration {
+                    property_type: Type::Length,
+                    type_node: None,
+                    ..Default::default()
+                },
+            );
+
+            Box::new(Expression::PropertyReference(NamedReference {
+                element: Rc::downgrade(&element.clone()),
+                name: name.into(),
+            }))
+        };
+
+        Self {
+            x_reference: install_prop("x"),
+            y_reference: install_prop("y"),
+            width_reference: install_prop("width"),
+            height_reference: install_prop("height"),
+        }
+    }
 }
 
 impl ExpressionFieldsVisitor for LayoutRect {

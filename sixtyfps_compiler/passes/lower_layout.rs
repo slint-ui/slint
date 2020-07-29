@@ -3,10 +3,10 @@
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::*;
 use crate::layout::*;
-use crate::object_tree::*;
+use crate::{object_tree::*, typeregister::Type};
 use std::rc::Rc;
 
-fn property_reference(element: &ElementRc, name: &'static str) -> Box<Expression> {
+fn property_reference(element: &ElementRc, name: &str) -> Box<Expression> {
     Box::new(Expression::PropertyReference(NamedReference {
         element: Rc::downgrade(&element.clone()),
         name: name.into(),
@@ -27,26 +27,31 @@ fn lower_grid_layout(
 
     let layout_children = std::mem::take(&mut grid_layout_element.borrow_mut().children);
     for layout_child in layout_children {
-        let is_row =
-            if let crate::typeregister::Type::Builtin(be) = &layout_child.borrow().base_type {
-                be.native_class.class_name == "Row"
-            } else {
-                false
-            };
+        let is_row = if let Type::Builtin(be) = &layout_child.borrow().base_type {
+            be.native_class.class_name == "Row"
+        } else {
+            false
+        };
         if is_row {
             if col > 0 {
                 row += 1;
                 col = 0;
             }
-            for x in &layout_child.borrow().children {
-                grid.add_element(x.clone(), &mut row, &mut col, diag);
+            let row_children = std::mem::take(&mut layout_child.borrow_mut().children);
+            for x in row_children {
+                grid.add_element(x, &mut row, &mut col, diag, &component, collected_children);
                 col += 1;
             }
-            collected_children.append(&mut layout_child.borrow_mut().children);
             component.optimized_elements.borrow_mut().push(layout_child.clone());
         } else {
-            grid.add_element(layout_child.clone(), &mut row, &mut col, diag);
-            collected_children.push(layout_child);
+            grid.add_element(
+                layout_child,
+                &mut row,
+                &mut col,
+                diag,
+                &component,
+                collected_children,
+            );
             col += 1;
         }
     }
@@ -111,7 +116,7 @@ fn layout_parse_function(
         &mut BuildDiagnostics,
     ) -> Option<Layout>,
 > {
-    if let crate::typeregister::Type::Builtin(be) = &layout_element_candidate.borrow().base_type {
+    if let Type::Builtin(be) = &layout_element_candidate.borrow().base_type {
         assert!(be.native_class.class_name != "Row"); // Caught at element lookup time
         if be.native_class.class_name == "GridLayout" {
             return Some(&lower_grid_layout);
@@ -163,13 +168,16 @@ pub fn lower_layouts(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
 impl GridLayout {
     fn add_element(
         &mut self,
-        item: ElementRc,
+        item_element: ElementRc,
         row: &mut u16,
         col: &mut u16,
         diag: &mut BuildDiagnostics,
+        component: &Rc<Component>,
+        collected_children: &mut Vec<ElementRc>,
     ) {
         let mut get_const_value = |name: &str| {
-            item.borrow()
+            item_element
+                .borrow()
                 .bindings
                 .get(name)
                 .and_then(|e| eval_const_expr(&e.expression, name, e, diag))
@@ -182,12 +190,32 @@ impl GridLayout {
         if let Some(r) = get_const_value("row") {
             *row = r;
         }
+
+        let layout_item = if let Some(nested_layout_parser) = layout_parse_function(&item_element) {
+            let layout_rect = LayoutRect::install_on_element(&item_element);
+
+            if let Some(layout) = nested_layout_parser(
+                component,
+                layout_rect,
+                &item_element,
+                collected_children,
+                diag,
+            ) {
+                Box::new(layout).into()
+            } else {
+                return;
+            }
+        } else {
+            collected_children.push(item_element.clone());
+            item_element.into()
+        };
+
         self.elems.push(GridLayoutElement {
             col: *col,
             row: *row,
             colspan,
             rowspan,
-            item: item.into(),
+            item: layout_item,
         });
     }
 }
