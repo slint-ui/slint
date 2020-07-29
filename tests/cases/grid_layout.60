@@ -7,21 +7,46 @@ TestCase := Rectangle {
         y: 100px;
 
         Row {
-            Rectangle {
+            rect1 := Rectangle {
                 color: red;
                 rowspan: 1;
+            }
+            rect2 := Rectangle {
+                color: red;
             }
         }
 
         Row {
-            Rectangle {
+            rect3 := Rectangle {
                 color: green;
             }
         }
     }
 
-    Text {
-        text: "This test should be above the two rectangles below";
-        color: black;
-    }
+    property <bool> rect1_pos_ok: rect1.x == 100px && rect1.y == 100px && rect1.width == 150px && rect2.height == 150px;
+    property <bool> rect2_pos_ok: rect2.x == 250px && rect2.y == 100px && rect2.width == 150px && rect2.height == 150px;
+    property <bool> rect3_pos_ok: rect3.x == 100px && rect3.y == 250px && rect3.width == 150px && rect3.height == 150px;
 }
+
+/*
+
+```cpp
+TestCase instance;
+TestCase::compute_layout({&TestCase::component_type, &instance });
+assert(instance.get_rect1_pos_ok());
+assert(instance.get_rect2_pos_ok());
+assert(instance.get_rect3_pos_ok());
+```
+
+
+```rust
+let instance = TestCase::new();
+let instance = instance.as_ref();
+use sixtyfps::re_exports::Component;
+instance.compute_layout();
+assert!(instance.get_rect1_pos_ok());
+assert!(instance.get_rect2_pos_ok());
+assert!(instance.get_rect3_pos_ok());
+```
+
+*/
