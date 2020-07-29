@@ -130,7 +130,7 @@ mod cpp_ast {
 }
 
 use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic, Spanned};
-use crate::expression_tree::ExpressionSpanned;
+use crate::expression_tree::{EasingCurve, Expression, ExpressionSpanned};
 use crate::object_tree::{Component, Element, ElementRc, RepeatedElementInfo};
 use crate::typeregister::Type;
 use cpp_ast::*;
@@ -714,41 +714,42 @@ fn dpi_expression(component: &Rc<Component>) -> String {
 }
 
 fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Component>) -> String {
-    use crate::expression_tree::Expression::*;
     use crate::expression_tree::NamedReference;
     match e {
-        StringLiteral(s) => format!(r#"sixtyfps::SharedString("{}")"#, s.escape_default()),
-        NumberLiteral(n, unit) => unit.normalize(*n).to_string(),
-        BoolLiteral(b) => b.to_string(),
-        PropertyReference(NamedReference { element, name }) => {
+        Expression::StringLiteral(s) => {
+            format!(r#"sixtyfps::SharedString("{}")"#, s.escape_default())
+        }
+        Expression::NumberLiteral(n, unit) => unit.normalize(*n).to_string(),
+        Expression::BoolLiteral(b) => b.to_string(),
+        Expression::PropertyReference(NamedReference { element, name }) => {
             let access =
                 access_member(&element.upgrade().unwrap(), name.as_str(), component, "self");
             format!(r#"{}.get()"#, access)
         }
-        SignalReference(NamedReference { element, name }) => {
+        Expression::SignalReference(NamedReference { element, name }) => {
             let access =
                 access_member(&element.upgrade().unwrap(), name.as_str(), component, "self");
             format!(r#"{}.emit()"#, access)
         }
-        RepeaterIndexReference { element } => {
+        Expression::RepeaterIndexReference { element } => {
             if element.upgrade().unwrap().borrow().base_type == Type::Component(component.clone()) {
                 "self->index.get()".to_owned()
             } else {
                 todo!();
             }
         }
-        RepeaterModelReference { element } => {
+        Expression::RepeaterModelReference { element } => {
             if element.upgrade().unwrap().borrow().base_type == Type::Component(component.clone()) {
                 "self->model_data.get()".to_owned()
             } else {
                 todo!();
             }
         }
-        StoreLocalVariable { name, value } => {
+        Expression::StoreLocalVariable { name, value } => {
             format!("auto {} = {};", name, compile_expression(value, component))
         }
-        ReadLocalVariable { name, .. } => name.clone(),
-        ObjectAccess { base, name } => {
+        Expression::ReadLocalVariable { name, .. } => name.clone(),
+        Expression::ObjectAccess { base, name } => {
             let index = if let Type::Object(ty) = base.ty() {
                 ty.keys()
                     .position(|k| k == name)
@@ -758,7 +759,7 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
             };
             format!("std::get<{}>({})", index, compile_expression(base, component))
         }
-        Cast { from, to } => {
+        Expression::Cast { from, to } => {
             let f = compile_expression(&*from, component);
             match (from.ty(), to) {
                 (Type::Float32, Type::String) | (Type::Int32, Type::String) => {
@@ -778,21 +779,21 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
                 _ => f,
             }
         }
-        CodeBlock(sub) => {
+        Expression::CodeBlock(sub) => {
             let mut x = sub.iter().map(|e| compile_expression(e, component)).collect::<Vec<_>>();
             x.last_mut().map(|s| *s = format!("return {};", s));
 
             format!("[&]{{ {} }}()", x.join(";"))
         }
-        FunctionCall { function } => {
+        Expression::FunctionCall { function } => {
             if matches!(function.ty(), Type::Signal) {
                 compile_expression(&*function, component)
             } else {
                 format!("\n#error the function `{:?}` is not a signal\n", function)
             }
         }
-        SelfAssignment { lhs, rhs, op } => match &**lhs {
-            PropertyReference(NamedReference { element, name }) => {
+        Expression::SelfAssignment { lhs, rhs, op } => match &**lhs {
+            Expression::PropertyReference(NamedReference { element, name }) => {
                 let access =
                     access_member(&element.upgrade().unwrap(), name.as_str(), component, "self");
                 let rhs = compile_expression(&*rhs, component);
@@ -809,7 +810,7 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
             }
             _ => panic!("typechecking should make sure this was a PropertyReference"),
         },
-        BinaryExpression { lhs, rhs, op } => {
+        Expression::BinaryExpression { lhs, rhs, op } => {
             let mut buffer = [0; 3];
             format!(
                 "({lhs} {op} {rhs})",
@@ -826,13 +827,13 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
                 },
             )
         }
-        UnaryOp { sub, op } => {
+        Expression::UnaryOp { sub, op } => {
             format!("({op} {sub})", sub = compile_expression(&*sub, component), op = op,)
         }
-        ResourceReference { absolute_source_path } => {
+        Expression::ResourceReference { absolute_source_path } => {
             format!(r#"sixtyfps::Resource(sixtyfps::SharedString("{}"))"#, absolute_source_path)
         }
-        Condition { condition, true_expr, false_expr } => {
+        Expression::Condition { condition, true_expr, false_expr } => {
             let cond_code = compile_expression(condition, component);
             let true_code = compile_expression(true_expr, component);
             let false_code = compile_expression(false_expr, component);
@@ -844,7 +845,7 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
                 false_code
             )
         }
-        Array { element_ty, values } => {
+        Expression::Array { element_ty, values } => {
             let ty = element_ty.cpp_type().unwrap_or_else(|| "FIXME: report error".to_owned());
             format!(
                 "std::make_shared<sixtyfps::ArrayModel<{count},{ty}>>({val})",
@@ -861,7 +862,7 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
                     .join(", ")
             )
         }
-        Object { ty, values } => {
+        Expression::Object { ty, values } => {
             if let Type::Object(ty) = ty {
                 let elem = ty
                     .keys()
@@ -877,10 +878,14 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
                 panic!("Expression::Object is not a Type::Object")
             }
         }
-        PathElements { elements } => compile_path(elements, component),
-        EasingCurve(_) => todo!("EasingCurve not yet implemented"),
-        Uncompiled(_) => panic!(),
-        Invalid => format!("\n#error invalid expression\n"),
+        Expression::PathElements { elements } => compile_path(elements, component),
+        Expression::EasingCurve(EasingCurve::Linear) => "sixtyfps::EasingCurve()".into(),
+        Expression::EasingCurve(EasingCurve::CubicBezier(a, b, c, d)) => format!(
+            "sixtyfps::EasingCurve(sixtyfps::EasingCurve::Tag::CubicBezier, {}, {}, {}, {})",
+            a, b, c, d
+        ),
+        Expression::Uncompiled(_) => panic!(),
+        Expression::Invalid => format!("\n#error invalid expression\n"),
     }
 }
 

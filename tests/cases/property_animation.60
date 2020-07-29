@@ -1,6 +1,7 @@
 TestCase := Rectangle {
     animate x {
         duration: 1000ms;
+        easing: ease;
     }
 
     property<int32> hello: 40;
