@@ -6,121 +6,143 @@ use crate::layout::*;
 use crate::object_tree::*;
 use std::rc::Rc;
 
+fn property_reference(element: &ElementRc, name: &'static str) -> Box<Expression> {
+    Box::new(Expression::PropertyReference(NamedReference {
+        element: Rc::downgrade(&element.clone()),
+        name: name.into(),
+    }))
+}
+
+fn lower_grid_layout(
+    component: &Rc<Component>,
+    layout_parent: &ElementRc,
+    grid_layout_element: &ElementRc,
+    collected_children: &mut Vec<ElementRc>,
+    diag: &mut BuildDiagnostics,
+) -> Option<Layout> {
+    let mut grid = GridLayout {
+        within: layout_parent.clone(),
+        elems: Default::default(),
+        x_reference: property_reference(grid_layout_element, "x"),
+        y_reference: property_reference(grid_layout_element, "y"),
+    };
+
+    let mut row = 0;
+    let mut col = 0;
+
+    let layout_children = std::mem::take(&mut grid_layout_element.borrow_mut().children);
+    for layout_child in layout_children {
+        let is_row =
+            if let crate::typeregister::Type::Builtin(be) = &layout_child.borrow().base_type {
+                be.native_class.class_name == "Row"
+            } else {
+                false
+            };
+        if is_row {
+            if col > 0 {
+                row += 1;
+                col = 0;
+            }
+            for x in &layout_child.borrow().children {
+                grid.add_element(x.clone(), &mut row, &mut col, diag);
+                col += 1;
+            }
+            collected_children.append(&mut layout_child.borrow_mut().children);
+            component.optimized_elements.borrow_mut().push(layout_child.clone());
+        } else {
+            grid.add_element(layout_child.clone(), &mut row, &mut col, diag);
+            collected_children.push(layout_child);
+            col += 1;
+        }
+    }
+    component.optimized_elements.borrow_mut().push(grid_layout_element.clone());
+    if !grid.elems.is_empty() {
+        Some(grid.into())
+    } else {
+        None
+    }
+}
+
+fn lower_path_layout(
+    component: &Rc<Component>,
+    _layout_parent: &ElementRc,
+    path_layout_element: &ElementRc,
+    collected_children: &mut Vec<ElementRc>,
+    diag: &mut BuildDiagnostics,
+) -> Option<Layout> {
+    let layout_children = std::mem::take(&mut path_layout_element.borrow_mut().children);
+    collected_children.extend(layout_children.iter().cloned());
+    component.optimized_elements.borrow_mut().push(path_layout_element.clone());
+    let path_elements_expr = match path_layout_element.borrow_mut().bindings.remove("elements") {
+        Some(ExpressionSpanned { expression: Expression::PathElements { elements }, .. }) => {
+            elements
+        }
+        _ => {
+            diag.push_error("Internal error: elements binding in PathLayout does not contain path elements expression".into(), &*path_layout_element.borrow());
+            return None;
+        }
+    };
+
+    if layout_children.is_empty() {
+        return None;
+    }
+
+    Some(
+        PathLayout {
+            elements: layout_children,
+            path: path_elements_expr,
+            x_reference: property_reference(path_layout_element, "x"),
+            y_reference: property_reference(path_layout_element, "y"),
+            width_reference: property_reference(path_layout_element, "width"),
+            height_reference: property_reference(path_layout_element, "height"),
+            offset_reference: property_reference(path_layout_element, "offset"),
+        }
+        .into(),
+    )
+}
+
+fn layout_parse_function(
+    layout_element_candidate: &ElementRc,
+) -> Option<
+    &'static dyn Fn(
+        &Rc<Component>,
+        &ElementRc,
+        &ElementRc,
+        &mut Vec<ElementRc>,
+        &mut BuildDiagnostics,
+    ) -> Option<Layout>,
+> {
+    if let crate::typeregister::Type::Builtin(be) = &layout_element_candidate.borrow().base_type {
+        assert!(be.native_class.class_name != "Row"); // Caught at element lookup time
+        if be.native_class.class_name == "GridLayout" {
+            return Some(&lower_grid_layout);
+        } else if be.native_class.class_name == "PathLayout" {
+            return Some(&lower_path_layout);
+        }
+    }
+    None
+}
+
 /// Currently this just removes the layout from the tree
 pub fn lower_layouts(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
-    recurse_elem(&component.root_element, &(), &mut |elem_, _| {
-        let mut elem = elem_.borrow_mut();
-        let new_children = Vec::with_capacity(elem.children.len());
-        let old_children = std::mem::replace(&mut elem.children, new_children);
+    recurse_elem(&component.root_element, &(), &mut |elem, _| {
+        let old_children = {
+            let mut elem = elem.borrow_mut();
+            let new_children = Vec::with_capacity(elem.children.len());
+            std::mem::replace(&mut elem.children, new_children)
+        };
 
         for child in old_children {
-            let is_grid_layout =
-                if let crate::typeregister::Type::Builtin(be) = &child.borrow().base_type {
-                    assert!(be.native_class.class_name != "Row"); // Caught at element lookup time
-                    be.native_class.class_name == "GridLayout"
-                } else {
-                    false
-                };
-
-            let is_path_layout =
-                if let crate::typeregister::Type::Builtin(be) = &child.borrow().base_type {
-                    be.native_class.class_name == "PathLayout"
-                } else {
-                    false
-                };
-
-            let ref_child = child.clone();
-            let prop_ref = move |name: &'static str| {
-                Box::new(Expression::PropertyReference(NamedReference {
-                    element: Rc::downgrade(&ref_child),
-                    name: name.into(),
-                }))
-            };
-
-            let (x_reference, y_reference) = if is_grid_layout || is_path_layout {
-                (prop_ref("x"), prop_ref("y"))
-            } else {
-                (Box::new(Expression::Invalid), Box::new(Expression::Invalid))
-            };
-
-            if is_grid_layout {
-                let mut grid = GridLayout {
-                    within: elem_.clone(),
-                    elems: Default::default(),
-                    x_reference,
-                    y_reference,
-                };
-                let mut row = 0;
-                let mut col = 0;
-
-                let child_children = std::mem::take(&mut child.borrow_mut().children);
-                for cc in child_children {
-                    let is_row =
-                        if let crate::typeregister::Type::Builtin(be) = &cc.borrow().base_type {
-                            be.native_class.class_name == "Row"
-                        } else {
-                            false
-                        };
-                    if is_row {
-                        if col > 0 {
-                            row += 1;
-                            col = 0;
-                        }
-                        for x in &cc.borrow().children {
-                            grid.add_element(x.clone(), &mut row, &mut col, diag);
-                            col += 1;
-                        }
-                        elem.children.append(&mut cc.borrow_mut().children);
-                        component.optimized_elements.borrow_mut().push(cc.clone());
-                    } else {
-                        grid.add_element(cc.clone(), &mut row, &mut col, diag);
-                        elem.children.push(cc);
-                        col += 1;
-                    }
-                }
-                component.optimized_elements.borrow_mut().push(child.clone());
-                if !grid.elems.is_empty() {
-                    component.layout_constraints.borrow_mut().push(grid.into());
-                }
-                continue;
-            } else if is_path_layout {
-                let layout_elem = child;
-                let layout_children = std::mem::take(&mut layout_elem.borrow_mut().children);
-                elem.children.extend(layout_children.iter().cloned());
-                component.optimized_elements.borrow_mut().push(layout_elem.clone());
-                let path_elements_expr = match layout_elem.borrow_mut().bindings.remove("elements")
+            if let Some(layout_parser) = layout_parse_function(&child) {
+                if let Some(layout) =
+                    layout_parser(component, &elem, &child, &mut elem.borrow_mut().children, diag)
                 {
-                    Some(ExpressionSpanned {
-                        expression: Expression::PathElements { elements },
-                        ..
-                    }) => elements,
-                    _ => {
-                        diag.push_error("Internal error: elements binding in PathLayout does not contain path elements expression".into(), &*layout_elem.borrow());
-                        return;
-                    }
-                };
-
-                if layout_children.is_empty() {
-                    continue;
+                    component.layout_constraints.borrow_mut().push(layout);
                 }
-
-                component.layout_constraints.borrow_mut().push(
-                    PathLayout {
-                        elements: layout_children,
-                        path: path_elements_expr,
-                        x_reference,
-                        y_reference,
-                        width_reference: prop_ref("width"),
-                        height_reference: prop_ref("height"),
-                        offset_reference: prop_ref("offset"),
-                    }
-                    .into(),
-                );
-
                 continue;
             } else {
                 check_no_layout_properties(&child, diag);
-                elem.children.push(child);
+                elem.borrow_mut().children.push(child);
             }
         }
     });
