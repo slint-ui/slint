@@ -240,6 +240,8 @@ pub enum Expression {
     PathElements {
         elements: Path,
     },
+
+    EasingCurve(EasingCurve),
 }
 
 impl Default for Expression {
@@ -329,6 +331,7 @@ impl Expression {
             Expression::PathElements { .. } => Type::PathElements,
             Expression::StoreLocalVariable { .. } => Type::Void,
             Expression::ReadLocalVariable { ty, .. } => ty.clone(),
+            Expression::EasingCurve(_) => Type::Easing,
         }
     }
 
@@ -386,6 +389,7 @@ impl Expression {
             }
             Expression::StoreLocalVariable { value, .. } => visitor(&**value),
             Expression::ReadLocalVariable { .. } => {}
+            Expression::EasingCurve(_) => {}
         }
     }
 
@@ -442,6 +446,7 @@ impl Expression {
             }
             Expression::StoreLocalVariable { value, .. } => visitor(&mut **value),
             Expression::ReadLocalVariable { .. } => {}
+            Expression::EasingCurve(_) => {}
         }
     }
 
@@ -480,6 +485,7 @@ impl Expression {
             }
             Expression::StoreLocalVariable { .. } => false,
             Expression::ReadLocalVariable { .. } => false,
+            Expression::EasingCurve(_) => true,
         }
     }
 
@@ -537,6 +543,7 @@ impl Expression {
                     .map(|(k, v)| (k.clone(), Expression::default_value_for_type(v)))
                     .collect(),
             },
+            Type::Easing => Expression::EasingCurve(EasingCurve::default()),
         }
     }
 }
@@ -586,4 +593,18 @@ pub enum Path {
 pub struct PathElement {
     pub element_type: Rc<BuiltinElement>,
     pub bindings: HashMap<String, ExpressionSpanned>,
+}
+
+#[derive(Clone, Debug)]
+pub enum EasingCurve {
+    Linear,
+    CubicBezier(f32, f32, f32, f32),
+    // CubicBesizerNonConst([Box<Expression>; 4]),
+    // Custom(Box<dyn Fn(f32)->f32>),
+}
+
+impl Default for EasingCurve {
+    fn default() -> Self {
+        Self::Linear
+    }
 }

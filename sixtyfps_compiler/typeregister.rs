@@ -25,6 +25,7 @@ pub enum Type {
     Bool,
     Model,
     PathElements,
+    Easing,
 
     Array(Box<Type>),
     Object(BTreeMap<String, Type>),
@@ -52,6 +53,7 @@ impl core::cmp::PartialEq for Type {
             (Type::Object(a), Type::Object(b)) => a == b,
             (Type::Model, Type::Model) => true,
             (Type::PathElements, Type::PathElements) => true,
+            (Type::Easing, Type::Easing) => true,
             _ => false,
         }
     }
@@ -85,6 +87,7 @@ impl Display for Type {
                 write!(f, "}}")
             }
             Type::PathElements => write!(f, "pathelements"),
+            Type::Easing => write!(f, "easing"),
         }
     }
 }
@@ -108,6 +111,7 @@ impl Type {
                 | Self::Resource
                 | Self::Bool
                 | Self::Model
+                | Self::Easing
                 | Self::Object(_)
         )
     }
@@ -543,6 +547,7 @@ impl TypeRegister {
 
         let mut property_animation = NativeClass::new("PropertyAnimation");
         property_animation.properties.insert("duration".to_owned(), Type::Duration);
+        property_animation.properties.insert("easing".to_owned(), Type::Easing);
         property_animation.properties.insert("loop_count".to_owned(), Type::Int32);
         let mut property_animation = BuiltinElement::new(Rc::new(property_animation));
         property_animation.is_non_item_type = true;

@@ -709,6 +709,7 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
             let name = quote::format_ident!("{}", name);
             quote!(#name)
         }
+        Expression::EasingCurve(_) => quote!(todo!("EasingCurve not yet implemented in rust.rs")),
     }
 }
 

@@ -348,6 +348,7 @@ pub fn eval_expression(
         Expression::ReadLocalVariable { name, .. } => {
             local_context.local_variables.get(name).unwrap().clone()
         }
+        Expression::EasingCurve(_) => todo!("EasingCurve not yet implemented"),
     }
 }
 

@@ -384,6 +384,20 @@ impl Expression {
                     to: Type::Color,
                 };
             }
+        } else if matches!(ctx.property_type, Type::Easing) {
+            // These value are coming from CSSn with - replaced by _
+            let value = match first_str {
+                "linear" => Some(EasingCurve::Linear),
+                "ease" => Some(EasingCurve::CubicBezier(0.25, 0.1, 0.25, 1.0)),
+                "ease_in" => Some(EasingCurve::CubicBezier(0.42, 0.0, 1.0, 1.0)),
+                "ease_in_out" => Some(EasingCurve::CubicBezier(0.42, 0.0, 0.58, 1.0)),
+                "ease_out" => Some(EasingCurve::CubicBezier(0.0, 0.0, 0.58, 1.0)),
+                "cubic_bezier" => todo!("Not yet implemented"),
+                _ => None,
+            };
+            if let Some(curve) = value {
+                return Expression::EasingCurve(curve);
+            }
         }
 
         ctx.diag.push_error(format!("Unknown unqualified identifier '{}'", first_str), &node);

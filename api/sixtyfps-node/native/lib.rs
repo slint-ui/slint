@@ -119,6 +119,7 @@ fn to_eval_value<'cx>(
         | Type::Native(_)
         | Type::Model
         | Type::Signal
+        | Type::Easing
         | Type::PathElements => cx.throw_error("Cannot convert to a Sixtyfps property value"),
         Type::Float32 | Type::Int32 | Type::Duration | Type::Length | Type::LogicalLength => {
             Ok(Value::Number(val.downcast_or_throw::<JsNumber, _>(cx)?.value()))

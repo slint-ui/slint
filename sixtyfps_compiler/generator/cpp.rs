@@ -878,6 +878,7 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
             }
         }
         PathElements { elements } => compile_path(elements, component),
+        EasingCurve(_) => todo!("EasingCurve not yet implemented"),
         Uncompiled(_) => panic!(),
         Invalid => format!("\n#error invalid expression\n"),
     }

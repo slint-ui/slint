@@ -3,6 +3,7 @@ SuperSimple := Rectangle {
 
     animate x {
         duration: 1000ms;
+        easing: linear;
     }
 
     animate x {
