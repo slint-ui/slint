@@ -4,10 +4,12 @@ use core::convert::TryInto;
 use core::ptr::NonNull;
 use dynamic_type::{Instance, InstanceBox};
 use object_tree::{Element, ElementRc};
+use sixtyfps_compilerlib::layout::{Layout, LayoutItem};
 use sixtyfps_compilerlib::typeregister::Type;
 use sixtyfps_compilerlib::*;
 use sixtyfps_corelib::abi::datastructures::{
-    ComponentVTable, ItemTreeNode, ItemVTable, ItemVisitorRefMut, Resource, WindowProperties,
+    ComponentVTable, ItemTreeNode, ItemVTable, ItemVisitorRefMut, LayoutInfo, Resource,
+    WindowProperties,
 };
 use sixtyfps_corelib::abi::primitives::PropertyAnimation;
 use sixtyfps_corelib::abi::{properties::PropertyListenerScope, slice::Slice};
@@ -384,9 +386,7 @@ fn generate_component(root_component: &Rc<object_tree::Component>) -> Rc<Compone
         None
     };
 
-    extern "C" fn layout_info(
-        _: ComponentRefPin,
-    ) -> sixtyfps_corelib::abi::datastructures::LayoutInfo {
+    extern "C" fn layout_info(_: ComponentRefPin) -> LayoutInfo {
         todo!()
     }
 
@@ -631,6 +631,86 @@ pub fn instantiate(
 
 use sixtyfps_corelib::layout::*;
 
+trait LayoutItemCodeGen {
+    fn get_property_ref<'a>(
+        &'a self,
+        component: ComponentRefPin,
+        component_description: &ComponentDescription,
+        name: &str,
+    ) -> Option<&'a Property<f32>>;
+    fn get_layout_info(
+        &self,
+        component: ComponentRefPin,
+        component_description: &ComponentDescription,
+    ) -> LayoutInfo;
+}
+
+impl LayoutItemCodeGen for LayoutItem {
+    fn get_property_ref<'a>(
+        &'a self,
+        component: ComponentRefPin,
+        component_description: &ComponentDescription,
+        name: &str,
+    ) -> Option<&'a Property<f32>> {
+        match self {
+            LayoutItem::Element(e) => e.get_property_ref(component, component_description, name),
+            LayoutItem::Layout(l) => l.get_property_ref(component, component_description, name),
+        }
+    }
+    fn get_layout_info(
+        &self,
+        component: ComponentRefPin,
+        component_description: &ComponentDescription,
+    ) -> LayoutInfo {
+        match self {
+            LayoutItem::Element(e) => e.get_layout_info(component, component_description),
+            LayoutItem::Layout(l) => l.get_layout_info(component, component_description),
+        }
+    }
+}
+
+impl LayoutItemCodeGen for Layout {
+    fn get_property_ref<'a>(
+        &'a self,
+        _component: ComponentRefPin,
+        _component_description: &ComponentDescription,
+        _name: &str,
+    ) -> Option<&'a Property<f32>> {
+        todo!()
+    }
+    fn get_layout_info(
+        &self,
+        _component: ComponentRefPin,
+        _component_description: &ComponentDescription,
+    ) -> LayoutInfo {
+        todo!()
+    }
+}
+
+impl LayoutItemCodeGen for ElementRc {
+    fn get_property_ref<'a>(
+        &'a self,
+        component: ComponentRefPin,
+        component_description: &ComponentDescription,
+        name: &str,
+    ) -> Option<&'a Property<f32>> {
+        let item = &component_description.items[self.borrow().id.as_str()];
+        unsafe {
+            item.rtti.properties.get(name).map(|p| {
+                &*(component.as_ptr().add(item.offset).add(p.offset()) as *const Property<f32>)
+            })
+        }
+    }
+    fn get_layout_info(
+        &self,
+        component: ComponentRefPin,
+        component_description: &ComponentDescription,
+    ) -> LayoutInfo {
+        let item = &component_description.items[self.borrow().id.as_str()];
+        unsafe { item.item_from_component(component.as_ptr()).as_ref().layouting_info() }
+    }
+}
+
 unsafe extern "C" fn compute_layout(component: ComponentRefPin) {
     // This is fine since we can only be called with a component that with our vtable which is a ComponentDescription
     let component_type =
@@ -648,13 +728,8 @@ unsafe extern "C" fn compute_layout(component: ComponentRefPin) {
                 .elems
                 .iter()
                 .map(|cell| {
-                    let info = &component_type.items[cell.item.borrow().id.as_str()];
-                    let get_prop = |name| {
-                        info.rtti.properties.get(name).map(|p| {
-                            &*(component.as_ptr().add(info.offset).add(p.offset())
-                                as *const Property<f32>)
-                        })
-                    };
+                    let get_prop =
+                        |name| cell.item.get_property_ref(component, &component_type, name);
                     GridLayoutCellData {
                         x: get_prop("x"),
                         y: get_prop("y"),
@@ -664,10 +739,7 @@ unsafe extern "C" fn compute_layout(component: ComponentRefPin) {
                         row: cell.row,
                         colspan: cell.colspan,
                         rowspan: cell.rowspan,
-                        constraint: info
-                            .item_from_component(component.as_ptr())
-                            .as_ref()
-                            .layouting_info(),
+                        constraint: cell.item.get_layout_info(component, component_type),
                     }
                 })
                 .collect::<Vec<_>>();

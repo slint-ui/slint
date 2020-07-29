@@ -4,7 +4,10 @@
 use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic, Spanned};
 use crate::expression_tree::{EasingCurve, Expression, NamedReference, OperatorClass, Path};
 use crate::object_tree::{Component, ElementRc};
-use crate::{layout::Layout, typeregister::Type};
+use crate::{
+    layout::{Layout, LayoutItem},
+    typeregister::Type,
+};
 use proc_macro2::TokenStream;
 use quote::quote;
 use std::rc::Rc;
@@ -718,6 +721,51 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
     }
 }
 
+trait LayoutItemCodeGen {
+    fn get_property_ref(&self, name: &str) -> TokenStream;
+    fn get_layout_info_ref(&self) -> TokenStream;
+}
+
+impl LayoutItemCodeGen for LayoutItem {
+    fn get_property_ref(&self, name: &str) -> TokenStream {
+        match self {
+            LayoutItem::Element(e) => e.get_property_ref(name),
+            LayoutItem::Layout(l) => l.get_property_ref(name),
+        }
+    }
+    fn get_layout_info_ref(&self) -> TokenStream {
+        match self {
+            LayoutItem::Element(e) => e.get_layout_info_ref(),
+            LayoutItem::Layout(l) => l.get_layout_info_ref(),
+        }
+    }
+}
+
+impl LayoutItemCodeGen for Layout {
+    fn get_property_ref(&self, _name: &str) -> TokenStream {
+        todo!()
+    }
+    fn get_layout_info_ref(&self) -> TokenStream {
+        todo!()
+    }
+}
+
+impl LayoutItemCodeGen for ElementRc {
+    fn get_property_ref(&self, name: &str) -> TokenStream {
+        let e = quote::format_ident!("{}", self.borrow().id);
+        if self.borrow().lookup_property(name) == Type::Length {
+            let n = quote::format_ident!("{}", name);
+            quote! {Some(&self.#e.#n)}
+        } else {
+            quote! {None}
+        }
+    }
+    fn get_layout_info_ref(&self) -> TokenStream {
+        let e = quote::format_ident!("{}", self.borrow().id);
+        quote!(Self::field_offsets().#e.apply_pin(self).layouting_info())
+    }
+}
+
 fn compute_layout(component: &Rc<Component>) -> TokenStream {
     let mut layouts = vec![];
     component.layout_constraints.borrow().iter().for_each(|layout| match &layout {
@@ -728,20 +776,12 @@ fn compute_layout(component: &Rc<Component>) -> TokenStream {
                 grid_layout.within.borrow().base_type.as_native().class_name
             );
             let cells = grid_layout.elems.iter().map(|cell| {
-                let e = quote::format_ident!("{}", cell.item.borrow().id);
-                let p = |n: &str| {
-                    if cell.item.borrow().lookup_property(n) == Type::Length {
-                        let n = quote::format_ident!("{}", n);
-                        quote! {Some(&self.#e.#n)}
-                    } else {
-                        quote! {None}
-                    }
-                };
-                let width = p("width");
-                let height = p("height");
-                let x = p("x");
-                let y = p("y");
+                let width = cell.item.get_property_ref("width");
+                let height = cell.item.get_property_ref("height");
+                let x = cell.item.get_property_ref("x");
+                let y = cell.item.get_property_ref("y");
                 let (col, row, colspan, rowspan) = (cell.col, cell.row, cell.colspan, cell.rowspan);
+                let layout_info = cell.item.get_layout_info_ref();
                 quote!(GridLayoutCellData {
                     x: #x,
                     y: #y,
@@ -751,7 +791,7 @@ fn compute_layout(component: &Rc<Component>) -> TokenStream {
                     row: #row,
                     colspan: #colspan,
                     rowspan: #rowspan,
-                    constraint: Self::field_offsets().#e.apply_pin(self).layouting_info(),
+                    constraint: #layout_info,
                 })
             });
 

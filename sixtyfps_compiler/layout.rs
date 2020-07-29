@@ -28,6 +28,12 @@ impl ExpressionFieldsVisitor for LayoutConstraints {
     }
 }
 
+#[derive(Debug, derive_more::From)]
+pub enum LayoutItem {
+    Element(ElementRc),
+    Layout(Box<Layout>),
+}
+
 /// An element in a GridLayout
 #[derive(Debug)]
 pub struct GridLayoutElement {
@@ -35,7 +41,7 @@ pub struct GridLayoutElement {
     pub row: u16,
     pub colspan: u16,
     pub rowspan: u16,
-    pub item: ElementRc,
+    pub item: LayoutItem,
 }
 
 /// Internal representation of a grid layout

@@ -149,7 +149,13 @@ impl GridLayout {
         if let Some(r) = get_const_value("row") {
             *row = r;
         }
-        self.elems.push(GridLayoutElement { col: *col, row: *row, colspan, rowspan, item });
+        self.elems.push(GridLayoutElement {
+            col: *col,
+            row: *row,
+            colspan,
+            rowspan,
+            item: item.into(),
+        });
     }
 }
 

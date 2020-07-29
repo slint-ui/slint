@@ -131,7 +131,7 @@ mod cpp_ast {
 
 use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic, Spanned};
 use crate::expression_tree::{EasingCurve, Expression, ExpressionSpanned};
-use crate::layout::Layout;
+use crate::layout::{Layout, LayoutItem};
 use crate::object_tree::{Component, Element, ElementRc, RepeatedElementInfo};
 use crate::typeregister::Type;
 use cpp_ast::*;
@@ -890,6 +890,54 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
     }
 }
 
+trait LayoutItemCodeGen {
+    fn get_property_ref(&self, name: &str) -> String;
+    fn get_layout_info_ref(&self) -> String;
+}
+
+impl LayoutItemCodeGen for LayoutItem {
+    fn get_property_ref(&self, name: &str) -> String {
+        match self {
+            LayoutItem::Element(e) => e.get_property_ref(name),
+            LayoutItem::Layout(l) => l.get_property_ref(name),
+        }
+    }
+    fn get_layout_info_ref(&self) -> String {
+        match self {
+            LayoutItem::Element(e) => e.get_layout_info_ref(),
+            LayoutItem::Layout(l) => l.get_layout_info_ref(),
+        }
+    }
+}
+
+impl LayoutItemCodeGen for Layout {
+    fn get_property_ref(&self, _name: &str) -> String {
+        todo!()
+    }
+    fn get_layout_info_ref(&self) -> String {
+        todo!()
+    }
+    
+}
+
+impl LayoutItemCodeGen for ElementRc {
+    fn get_property_ref(&self, name: &str) -> String {
+        if self.borrow().lookup_property(name) == Type::Length {
+            format!("&self->{}.{}", self.borrow().id, name)
+        } else {
+            "nullptr".to_owned()
+        }
+    }
+    fn get_layout_info_ref(&self) -> String {
+        format!(
+            "sixtyfps::{vt}.layouting_info({{&sixtyfps::{vt}, const_cast<sixtyfps::{ty}*>(&self->{id})}})",            
+            vt = self.borrow().base_type.as_native().vtable_symbol,
+            ty = self.borrow().base_type.as_native().class_name,
+            id = self.borrow().id,            
+        )
+    }
+}
+
 fn compute_layout(component: &Rc<Component>) -> Vec<String> {
     let mut res = vec![];
 
@@ -902,20 +950,14 @@ fn compute_layout(component: &Rc<Component>) -> Vec<String> {
             res.push("{".to_owned());
             res.push("    sixtyfps::GridLayoutCellData grid_data[] = {".to_owned());
             for cell in &grid.elems {
-                let p = |n: &str| {
-                    if cell.item.borrow().lookup_property(n) == Type::Length {
-                        format!("&self->{}.{}", cell.item.borrow().id, n)
-                    } else {
-                        "nullptr".to_owned()
-                    }
-                };
                 res.push(format!(
-                    "        {{ {c}, {r}, {cs}, {rs}, sixtyfps::{vt}.layouting_info({{&sixtyfps::{vt}, const_cast<sixtyfps::{ty}*>(&self->{id})}}), {x}, {y}, {w}, {h} }},",
+                    "        {{ {c}, {r}, {cs}, {rs}, {li}, {x}, {y}, {w}, {h} }},",
                     c = cell.col, r = cell.row, cs = cell.colspan, rs =cell.rowspan,
-                    vt = cell.item.borrow().base_type.as_native().vtable_symbol,
-                    ty = cell.item.borrow().base_type.as_native().class_name,
-                    id = cell.item.borrow().id,
-                    x = p("x"), y = p("y"), w = p("width"), h = p("height")
+                    li = cell.item.get_layout_info_ref(),
+                    x = cell.item.get_property_ref("x"),
+                    y = cell.item.get_property_ref("y"),
+                    w = cell.item.get_property_ref("width"),
+                    h = cell.item.get_property_ref("height")
                 ));
             }
             res.push("    };".to_owned());
