@@ -11,7 +11,7 @@ pub enum Layout {
 }
 
 impl ExpressionFieldsVisitor for Layout {
-    fn visit_expressions(&mut self, visitor: impl FnMut(&mut Expression)) {
+    fn visit_expressions(&mut self, visitor: &mut impl FnMut(&mut Expression)) {
         match self {
             Layout::GridLayout(grid) => grid.visit_expressions(visitor),
             Layout::PathLayout(path) => path.visit_expressions(visitor),
@@ -23,7 +23,7 @@ impl ExpressionFieldsVisitor for Layout {
 pub struct LayoutConstraints(Vec<Layout>);
 
 impl ExpressionFieldsVisitor for LayoutConstraints {
-    fn visit_expressions(&mut self, mut visitor: impl FnMut(&mut Expression)) {
+    fn visit_expressions(&mut self, mut visitor: &mut impl FnMut(&mut Expression)) {
         self.0.iter_mut().for_each(|l| l.visit_expressions(&mut visitor));
     }
 }
@@ -57,9 +57,17 @@ pub struct GridLayout {
 }
 
 impl ExpressionFieldsVisitor for GridLayout {
-    fn visit_expressions(&mut self, mut visitor: impl FnMut(&mut Expression)) {
+    fn visit_expressions(&mut self, visitor: &mut impl FnMut(&mut Expression)) {
         visitor(&mut self.x_reference);
         visitor(&mut self.y_reference);
+        for cell in &mut self.elems {
+            match &mut cell.item {
+                LayoutItem::Element(_) => {
+                    // These expressions are traversed through the regular element tree traversal
+                }
+                LayoutItem::Layout(layout) => layout.visit_expressions(visitor),
+            }
+        }
     }
 }
 
@@ -76,7 +84,7 @@ pub struct PathLayout {
 }
 
 impl ExpressionFieldsVisitor for PathLayout {
-    fn visit_expressions(&mut self, mut visitor: impl FnMut(&mut Expression)) {
+    fn visit_expressions(&mut self, visitor: &mut impl FnMut(&mut Expression)) {
         visitor(&mut self.x_reference);
         visitor(&mut self.y_reference);
         visitor(&mut self.width_reference);

@@ -30,7 +30,7 @@ mod passes {
     pub trait ExpressionFieldsVisitor {
         fn visit_expressions(
             &mut self,
-            visitor: impl FnMut(&mut super::expression_tree::Expression),
+            visitor: &mut impl FnMut(&mut super::expression_tree::Expression),
         );
     }
 
