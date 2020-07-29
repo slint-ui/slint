@@ -744,17 +744,9 @@ unsafe extern "C" fn compute_layout(component: ComponentRefPin) {
                 })
                 .collect::<Vec<_>>();
 
-            let within_info = &component_type.items[grid_layout.within.borrow().id.as_str()];
-            let within_prop = |name| {
-                within_info.rtti.properties[name]
-                    .get(within_info.item_from_component(component.as_ptr()))
-                    .try_into()
-                    .unwrap()
-            };
-
             solve_grid_layout(&GridLayoutData {
-                width: within_prop("width"),
-                height: within_prop("height"),
+                width: resolve_prop_ref(&grid_layout.width_reference),
+                height: resolve_prop_ref(&grid_layout.height_reference),
                 x: resolve_prop_ref(&grid_layout.x_reference),
                 y: resolve_prop_ref(&grid_layout.y_reference),
                 cells: Slice::from(cells.as_slice()),

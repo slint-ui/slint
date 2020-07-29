@@ -49,9 +49,9 @@ pub struct GridLayoutElement {
 pub struct GridLayout {
     /// All the elements will be layout within that element.
     ///
-    /// FIXME: This should not be implemented like that instead there should be
-    pub within: ElementRc,
     pub elems: Vec<GridLayoutElement>,
+    pub width_reference: Box<Expression>,
+    pub height_reference: Box<Expression>,
     pub x_reference: Box<Expression>,
     pub y_reference: Box<Expression>,
 }
@@ -60,6 +60,8 @@ impl ExpressionFieldsVisitor for GridLayout {
     fn visit_expressions(&mut self, visitor: &mut impl FnMut(&mut Expression)) {
         visitor(&mut self.x_reference);
         visitor(&mut self.y_reference);
+        visitor(&mut self.width_reference);
+        visitor(&mut self.height_reference);
         for cell in &mut self.elems {
             match &mut cell.item {
                 LayoutItem::Element(_) => {

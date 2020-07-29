@@ -15,14 +15,16 @@ fn property_reference(element: &ElementRc, name: &'static str) -> Box<Expression
 
 fn lower_grid_layout(
     component: &Rc<Component>,
-    layout_parent: &ElementRc,
+    width_reference: Box<Expression>,
+    height_reference: Box<Expression>,
     grid_layout_element: &ElementRc,
     collected_children: &mut Vec<ElementRc>,
     diag: &mut BuildDiagnostics,
 ) -> Option<Layout> {
     let mut grid = GridLayout {
-        within: layout_parent.clone(),
         elems: Default::default(),
+        width_reference,
+        height_reference,
         x_reference: property_reference(grid_layout_element, "x"),
         y_reference: property_reference(grid_layout_element, "y"),
     };
@@ -65,7 +67,8 @@ fn lower_grid_layout(
 
 fn lower_path_layout(
     component: &Rc<Component>,
-    _layout_parent: &ElementRc,
+    width_reference: Box<Expression>,
+    height_reference: Box<Expression>,
     path_layout_element: &ElementRc,
     collected_children: &mut Vec<ElementRc>,
     diag: &mut BuildDiagnostics,
@@ -93,8 +96,8 @@ fn lower_path_layout(
             path: path_elements_expr,
             x_reference: property_reference(path_layout_element, "x"),
             y_reference: property_reference(path_layout_element, "y"),
-            width_reference: property_reference(path_layout_element, "width"),
-            height_reference: property_reference(path_layout_element, "height"),
+            width_reference,
+            height_reference,
             offset_reference: property_reference(path_layout_element, "offset"),
         }
         .into(),
@@ -106,7 +109,8 @@ fn layout_parse_function(
 ) -> Option<
     &'static dyn Fn(
         &Rc<Component>,
-        &ElementRc,
+        Box<Expression>,
+        Box<Expression>,
         &ElementRc,
         &mut Vec<ElementRc>,
         &mut BuildDiagnostics,
@@ -132,11 +136,19 @@ pub fn lower_layouts(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
             std::mem::replace(&mut elem.children, new_children)
         };
 
+        let width_reference = property_reference(elem, "width");
+        let height_reference = property_reference(elem, "height");
+
         for child in old_children {
             if let Some(layout_parser) = layout_parse_function(&child) {
-                if let Some(layout) =
-                    layout_parser(component, &elem, &child, &mut elem.borrow_mut().children, diag)
-                {
+                if let Some(layout) = layout_parser(
+                    component,
+                    width_reference.clone(),
+                    height_reference.clone(),
+                    &child,
+                    &mut elem.borrow_mut().children,
+                    diag,
+                ) {
                     component.layout_constraints.borrow_mut().push(layout);
                 }
                 continue;

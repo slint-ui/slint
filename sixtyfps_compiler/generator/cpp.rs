@@ -963,10 +963,10 @@ fn compute_layout(component: &Rc<Component>) -> Vec<String> {
             res.push("    };".to_owned());
             res.push(format!("    auto x = {};", compile_expression(&grid.x_reference, component)));
             res.push(format!("    auto y = {};", compile_expression(&grid.y_reference, component)));
+            res.push(format!("    auto width = {};", compile_expression(&grid.width_reference, component)));
+            res.push(format!("    auto height = {};", compile_expression(&grid.height_reference, component)));
             res.push("    sixtyfps::GridLayoutData grid { ".into());
-            res.push(format!("        self->{}.width.get(),", grid.within.borrow().id));
-            res.push(format!("        self->{}.height.get(),", grid.within.borrow().id));
-            res.push("        x, y,".to_owned());
+            res.push("        width, height, x, y,".to_owned());
             res.push("        {grid_data, std::size(grid_data)}".to_owned());
             res.push("    };".to_owned());
             res.push("    sixtyfps::solve_grid_layout(&grid);".to_owned());

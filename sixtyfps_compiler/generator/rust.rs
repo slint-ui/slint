@@ -770,11 +770,6 @@ fn compute_layout(component: &Rc<Component>) -> TokenStream {
     let mut layouts = vec![];
     component.layout_constraints.borrow().iter().for_each(|layout| match &layout {
         Layout::GridLayout(grid_layout) => {
-            let within = quote::format_ident!("{}", grid_layout.within.borrow().id);
-            let within_ty = quote::format_ident!(
-                "{}",
-                grid_layout.within.borrow().base_type.as_native().class_name
-            );
             let cells = grid_layout.elems.iter().map(|cell| {
                 let width = cell.item.get_property_ref("width");
                 let height = cell.item.get_property_ref("height");
@@ -797,13 +792,13 @@ fn compute_layout(component: &Rc<Component>) -> TokenStream {
 
             let x_pos = compile_expression(&*grid_layout.x_reference, &component);
             let y_pos = compile_expression(&*grid_layout.y_reference, &component);
+            let width = compile_expression(&*grid_layout.width_reference, component);
+            let height = compile_expression(&*grid_layout.height_reference, component);
 
             layouts.push(quote! {
                 solve_grid_layout(&GridLayoutData {
-                    width: (Self::field_offsets().#within + #within_ty::field_offsets().width)
-                        .apply_pin(self).get(),
-                    height: (Self::field_offsets().#within + #within_ty::field_offsets().height)
-                        .apply_pin(self).get(),
+                    width: #width,
+                    height: #height,
                     x: #x_pos,
                     y: #y_pos,
                     cells: Slice::from_slice(&[#( #cells ),*]),
