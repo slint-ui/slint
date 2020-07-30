@@ -807,10 +807,10 @@ fn collect_layouts_recursively<'a, 'b>(
                 })
                 .collect();
             layout_tree.push(GridLayoutWithCells { grid: grid_layout, cells }.into());
-            layout_tree.last().unwrap()
         }
-        Layout::PathLayout(_) => todo!(),
+        Layout::PathLayout(layout) => layout_tree.push(layout.into()),
     }
+    layout_tree.last().unwrap()
 }
 
 impl<'a> LayoutTreeItem<'a> {
