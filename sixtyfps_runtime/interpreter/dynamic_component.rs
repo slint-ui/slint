@@ -4,7 +4,7 @@ use core::convert::TryInto;
 use core::ptr::NonNull;
 use dynamic_type::{Instance, InstanceBox};
 use object_tree::{Element, ElementRc};
-use sixtyfps_compilerlib::layout::{Layout, LayoutItem};
+use sixtyfps_compilerlib::layout::{GridLayout, Layout, LayoutItem, PathLayout};
 use sixtyfps_compilerlib::typeregister::Type;
 use sixtyfps_compilerlib::*;
 use sixtyfps_corelib::abi::datastructures::{
@@ -652,6 +652,34 @@ pub fn instantiate(
 
 use sixtyfps_corelib::layout::*;
 
+#[derive(derive_more::From)]
+pub enum PendingLayout<'a> {
+    GridLayout(&'a GridLayout),
+    PathLayout(&'a PathLayout),
+}
+
+pub struct GridLayoutWithCells<'a> {
+    grid: &'a GridLayout,
+    cells: Vec<GridLayoutCellData<'a>>,
+}
+
+#[derive(derive_more::From)]
+enum LayoutTreeItem<'a> {
+    GridLayout(GridLayoutWithCells<'a>),
+    PathLayout(&'a PathLayout),
+}
+
+impl<'a> LayoutTreeItem<'a> {
+    fn layout_info(&self) -> LayoutInfo {
+        match self {
+            LayoutTreeItem::GridLayout(grid_layout) => {
+                grid_layout_info(&Slice::from(grid_layout.cells.as_slice()))
+            }
+            LayoutTreeItem::PathLayout(_) => todo!(),
+        }
+    }
+}
+
 trait LayoutItemCodeGen {
     fn get_property_ref<'a>(
         &'a self,
@@ -659,10 +687,11 @@ trait LayoutItemCodeGen {
         component_description: &ComponentDescription,
         name: &str,
     ) -> Option<&'a Property<f32>>;
-    fn get_layout_info(
-        &self,
+    fn get_layout_info<'a, 'b>(
+        &'a self,
         component: ComponentRefPin,
         component_description: &ComponentDescription,
+        layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
     ) -> LayoutInfo;
 }
 
@@ -678,14 +707,19 @@ impl LayoutItemCodeGen for LayoutItem {
             LayoutItem::Layout(l) => l.get_property_ref(component, component_description, name),
         }
     }
-    fn get_layout_info(
-        &self,
+    fn get_layout_info<'a, 'b>(
+        &'a self,
         component: ComponentRefPin,
         component_description: &ComponentDescription,
+        layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
     ) -> LayoutInfo {
         match self {
-            LayoutItem::Element(e) => e.get_layout_info(component, component_description),
-            LayoutItem::Layout(l) => l.get_layout_info(component, component_description),
+            LayoutItem::Element(e) => {
+                e.get_layout_info(component, component_description, layout_tree)
+            }
+            LayoutItem::Layout(l) => {
+                l.get_layout_info(component, component_description, layout_tree)
+            }
         }
     }
 }
@@ -704,12 +738,15 @@ impl LayoutItemCodeGen for Layout {
         let prop = component_description.custom_properties.get(moved_property_name).unwrap();
         Some(unsafe { &*(component.as_ptr().add(prop.offset) as *const Property<f32>) })
     }
-    fn get_layout_info(
-        &self,
-        _component: ComponentRefPin,
-        _component_description: &ComponentDescription,
+    fn get_layout_info<'a, 'b>(
+        &'a self,
+        component: ComponentRefPin,
+        component_description: &ComponentDescription,
+        layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
     ) -> LayoutInfo {
-        todo!()
+        let self_as_layout_tree_item =
+            collect_layouts_recursively(layout_tree, &self, component, component_description);
+        self_as_layout_tree_item.layout_info()
     }
 }
 
@@ -727,35 +764,31 @@ impl LayoutItemCodeGen for ElementRc {
             })
         }
     }
-    fn get_layout_info(
-        &self,
+    fn get_layout_info<'a, 'b>(
+        &'a self,
         component: ComponentRefPin,
         component_description: &ComponentDescription,
+        _layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
     ) -> LayoutInfo {
         let item = &component_description.items[self.borrow().id.as_str()];
         unsafe { item.item_from_component(component.as_ptr()).as_ref().layouting_info() }
     }
 }
 
-unsafe extern "C" fn compute_layout(component: ComponentRefPin) {
-    // This is fine since we can only be called with a component that with our vtable which is a ComponentDescription
-    let component_type =
-        &*(component.get_vtable() as *const ComponentVTable as *const ComponentDescription);
-
-    let resolve_prop_ref = |prop_ref: &expression_tree::Expression| {
-        eval::eval_expression(&prop_ref, &component_type, component, &mut Default::default())
-            .try_into()
-            .unwrap_or_default()
-    };
-
-    component_type.original.layout_constraints.borrow().iter().for_each(|layout| match &layout {
-        layout::Layout::GridLayout(grid_layout) => {
+fn collect_layouts_recursively<'a, 'b>(
+    layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
+    layout: &'a Layout,
+    component: ComponentRefPin,
+    component_description: &ComponentDescription,
+) -> &'b LayoutTreeItem<'a> {
+    match layout {
+        Layout::GridLayout(grid_layout) => {
             let cells = grid_layout
                 .elems
                 .iter()
                 .map(|cell| {
                     let get_prop =
-                        |name| cell.item.get_property_ref(component, &component_type, name);
+                        |name| cell.item.get_property_ref(component, &component_description, name);
                     GridLayoutCellData {
                         x: get_prop("x"),
                         y: get_prop("y"),
@@ -765,81 +798,128 @@ unsafe extern "C" fn compute_layout(component: ComponentRefPin) {
                         row: cell.row,
                         colspan: cell.colspan,
                         rowspan: cell.rowspan,
-                        constraint: cell.item.get_layout_info(component, component_type),
+                        constraint: cell.item.get_layout_info(
+                            component,
+                            component_description,
+                            layout_tree,
+                        ),
                     }
                 })
-                .collect::<Vec<_>>();
-
-            solve_grid_layout(&GridLayoutData {
-                width: resolve_prop_ref(&grid_layout.rect.width_reference),
-                height: resolve_prop_ref(&grid_layout.rect.height_reference),
-                x: resolve_prop_ref(&grid_layout.rect.x_reference),
-                y: resolve_prop_ref(&grid_layout.rect.y_reference),
-                cells: Slice::from(cells.as_slice()),
-            });
+                .collect();
+            layout_tree.push(GridLayoutWithCells { grid: grid_layout, cells }.into());
+            layout_tree.last().unwrap()
         }
-        layout::Layout::PathLayout(path_layout) => {
-            use sixtyfps_corelib::layout::*;
+        Layout::PathLayout(_) => todo!(),
+    }
+}
 
-            let mut items = vec![];
-            for elem in &path_layout.elements {
-                let mut push_layout_data = |elem: &ElementRc, component: ComponentRefPin| {
-                    let component_type = &*(component.get_vtable() as *const ComponentVTable
-                        as *const ComponentDescription);
-                    let item_info = &component_type.items[elem.borrow().id.as_str()];
-                    let get_prop = |name| {
-                        item_info.rtti.properties.get(name).map(|p| {
-                            &*(component.as_ptr().add(item_info.offset).add(p.offset())
-                                as *const Property<f32>)
-                        })
-                    };
-
-                    let item = item_info.item_from_component(component.as_ptr());
-                    let get_prop_value = |name| {
-                        item_info.rtti.properties.get(name).map(|p| p.get(item)).unwrap_or_default()
-                    };
-                    items.push(PathLayoutItemData {
-                        x: get_prop("x"),
-                        y: get_prop("y"),
-                        width: get_prop_value("width").try_into().unwrap_or_default(),
-                        height: get_prop_value("height").try_into().unwrap_or_default(),
-                    });
-                };
-
-                if elem.borrow().repeated.is_none() {
-                    push_layout_data(elem, component)
-                } else {
-                    let rep_index = component_type.repeater_names[elem.borrow().id.as_str()];
-                    let rep_in_comp = &component_type.repeater[rep_index];
-                    let vec =
-                        &mut *(component.as_ptr().add(rep_in_comp.offset) as *mut RepeaterVec);
-
-                    for sub_comp in vec {
-                        push_layout_data(
-                            &elem.borrow().base_type.as_component().root_element,
-                            sub_comp.borrow(),
-                        )
-                    }
-                }
-            }
-
-            let path_elements = eval::convert_path(
-                &path_layout.path,
-                component_type,
+impl<'a> LayoutTreeItem<'a> {
+    fn solve(&self, component: ComponentRefPin, component_description: &ComponentDescription) {
+        let resolve_prop_ref = |prop_ref: &expression_tree::Expression| {
+            eval::eval_expression(
+                &prop_ref,
+                &component_description,
                 component,
                 &mut Default::default(),
-            );
+            )
+            .try_into()
+            .unwrap_or_default()
+        };
 
-            solve_path_layout(&PathLayoutData {
-                items: Slice::from(items.as_slice()),
-                elements: &path_elements,
-                x: resolve_prop_ref(&path_layout.rect.x_reference),
-                y: resolve_prop_ref(&path_layout.rect.y_reference),
-                width: resolve_prop_ref(&path_layout.rect.width_reference),
-                height: resolve_prop_ref(&path_layout.rect.height_reference),
-                offset: resolve_prop_ref(&path_layout.offset_reference),
-            });
+        match self {
+            Self::GridLayout(grid_layout) => {
+                solve_grid_layout(&GridLayoutData {
+                    width: resolve_prop_ref(&grid_layout.grid.rect.width_reference),
+                    height: resolve_prop_ref(&grid_layout.grid.rect.height_reference),
+                    x: resolve_prop_ref(&grid_layout.grid.rect.x_reference),
+                    y: resolve_prop_ref(&grid_layout.grid.rect.y_reference),
+                    cells: Slice::from(grid_layout.cells.as_slice()),
+                });
+            }
+            Self::PathLayout(path_layout) => {
+                use sixtyfps_corelib::layout::*;
+
+                let mut items = vec![];
+                for elem in &path_layout.elements {
+                    let mut push_layout_data = |elem: &ElementRc, component: ComponentRefPin| {
+                        let item_info = &component_description.items[elem.borrow().id.as_str()];
+                        let get_prop = |name| {
+                            item_info.rtti.properties.get(name).map(|p| unsafe {
+                                &*(component.as_ptr().add(item_info.offset).add(p.offset())
+                                    as *const Property<f32>)
+                            })
+                        };
+
+                        let item = unsafe { item_info.item_from_component(component.as_ptr()) };
+                        let get_prop_value = |name| {
+                            item_info
+                                .rtti
+                                .properties
+                                .get(name)
+                                .map(|p| p.get(item))
+                                .unwrap_or_default()
+                        };
+                        items.push(PathLayoutItemData {
+                            x: get_prop("x"),
+                            y: get_prop("y"),
+                            width: get_prop_value("width").try_into().unwrap_or_default(),
+                            height: get_prop_value("height").try_into().unwrap_or_default(),
+                        });
+                    };
+
+                    if elem.borrow().repeated.is_none() {
+                        push_layout_data(elem, component)
+                    } else {
+                        let rep_index =
+                            component_description.repeater_names[elem.borrow().id.as_str()];
+                        let rep_in_comp = &component_description.repeater[rep_index];
+                        let vec = unsafe {
+                            &mut *(component.as_ptr().add(rep_in_comp.offset) as *mut RepeaterVec)
+                        };
+
+                        for sub_comp in vec {
+                            push_layout_data(
+                                &elem.borrow().base_type.as_component().root_element,
+                                sub_comp.borrow(),
+                            )
+                        }
+                    }
+                }
+
+                let path_elements = eval::convert_path(
+                    &path_layout.path,
+                    component_description,
+                    component,
+                    &mut Default::default(),
+                );
+
+                solve_path_layout(&PathLayoutData {
+                    items: Slice::from(items.as_slice()),
+                    elements: &path_elements,
+                    x: resolve_prop_ref(&path_layout.rect.x_reference),
+                    y: resolve_prop_ref(&path_layout.rect.y_reference),
+                    width: resolve_prop_ref(&path_layout.rect.width_reference),
+                    height: resolve_prop_ref(&path_layout.rect.height_reference),
+                    offset: resolve_prop_ref(&path_layout.offset_reference),
+                });
+            }
         }
+    }
+}
+
+unsafe extern "C" fn compute_layout(component: ComponentRefPin) {
+    // This is fine since we can only be called with a component that with our vtable which is a ComponentDescription
+    let component_type =
+        &*(component.get_vtable() as *const ComponentVTable as *const ComponentDescription);
+
+    component_type.original.layout_constraints.borrow().iter().for_each(|layout| {
+        let mut inverse_layout_tree = Vec::new();
+
+        collect_layouts_recursively(&mut inverse_layout_tree, &layout, component, &component_type);
+
+        inverse_layout_tree.iter().rev().for_each(|layout| {
+            layout.solve(component, &component_type);
+        });
     });
 }
 
