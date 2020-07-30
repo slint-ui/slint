@@ -2,7 +2,10 @@
 //!
 //! Currently this is a very basic implementation
 
-use crate::{abi::slice::Slice, Property};
+use crate::{
+    abi::{datastructures::LayoutInfo, slice::Slice},
+    Property,
+};
 
 type Coord = f32;
 
@@ -134,7 +137,7 @@ pub struct GridLayoutCellData<'a> {
     pub row: u16,
     pub colspan: u16,
     pub rowspan: u16,
-    pub constraint: crate::abi::datastructures::LayoutInfo,
+    pub constraint: LayoutInfo,
     pub x: Option<&'a Property<Coord>>,
     pub y: Option<&'a Property<Coord>>,
     pub width: Option<&'a Property<Coord>>,
@@ -173,6 +176,35 @@ pub extern "C" fn solve_grid_layout(data: &GridLayoutData) {
         cell.y.map(|p| p.set(rdata.pos));
         cell.height.map(|p| p.set(rdata.size));
     }
+}
+
+#[no_mangle]
+pub extern "C" fn grid_layout_info<'a>(cells: &Slice<'a, GridLayoutCellData<'a>>) -> LayoutInfo {
+    let (mut num_col, mut num_row) = (0, 0);
+    for cell in cells.iter() {
+        num_row = num_row.max(cell.row + cell.rowspan);
+        num_col = num_col.max(cell.col + cell.colspan);
+    }
+
+    let mut row_layout_data = vec![internal::LayoutData::default(); num_row as usize];
+    let mut col_layout_data = vec![internal::LayoutData::default(); num_col as usize];
+    for cell in cells.iter() {
+        let rdata = &mut row_layout_data[cell.row as usize];
+        let cdata = &mut col_layout_data[cell.col as usize];
+        rdata.max = rdata.max.min(cell.constraint.max_height);
+        cdata.max = cdata.max.min(cell.constraint.max_width);
+        rdata.min = rdata.min.max(cell.constraint.min_height);
+        cdata.min = cdata.min.max(cell.constraint.min_width);
+        rdata.pref = rdata.pref.max(cell.constraint.min_height);
+        cdata.pref = cdata.pref.max(cell.constraint.min_width);
+    }
+
+    let min_height = row_layout_data.iter().map(|data| data.min).sum();
+    let max_height = row_layout_data.iter().map(|data| data.max).sum();
+    let min_width = col_layout_data.iter().map(|data| data.min).sum();
+    let max_width = col_layout_data.iter().map(|data| data.max).sum();
+
+    LayoutInfo { min_width, max_width, min_height, max_height }
 }
 
 #[repr(C)]
