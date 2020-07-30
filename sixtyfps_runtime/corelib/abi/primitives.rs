@@ -356,6 +356,84 @@ impl ItemConsts for Path {
 
 pub use crate::abi::datastructures::PathVTable;
 
+/// The implementation of the `Flickable` element
+#[repr(C)]
+#[derive(FieldOffsets, Default, BuiltinItem)]
+#[pin]
+pub struct Flickable {
+    pub x: Property<f32>,
+    pub y: Property<f32>,
+    pub width: Property<f32>,
+    pub height: Property<f32>,
+    pub viewport: Rectangle,
+    data: FlickableDataBox,
+
+    /// FIXME: remove this
+    pub cached_rendering_data: CachedRenderingData,
+}
+
+impl Item for Flickable {
+    fn geometry(self: Pin<&Self>) -> Rect {
+        euclid::rect(
+            Self::field_offsets().x.apply_pin(self).get(),
+            Self::field_offsets().y.apply_pin(self).get(),
+            Self::field_offsets().width.apply_pin(self).get(),
+            Self::field_offsets().height.apply_pin(self).get(),
+        )
+    }
+    fn rendering_primitive(self: Pin<&Self>) -> RenderingPrimitive {
+        RenderingPrimitive::NoContents
+    }
+
+    fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
+        LayoutInfo::default()
+    }
+
+    fn input_event(self: Pin<&Self>, event: super::datastructures::MouseEvent) {
+        self.data.handle_mouse(self, event);
+    }
+}
+
+impl ItemConsts for Flickable {
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
+        Self::field_offsets().cached_rendering_data.as_unpinned_projection();
+}
+pub use crate::abi::datastructures::FlickableVTable;
+
+#[repr(C)]
+/// Wraps the internal datastructure for the Flickable
+pub struct FlickableDataBox(core::ptr::NonNull<crate::flickable::FlickableData>);
+
+impl Default for FlickableDataBox {
+    fn default() -> Self {
+        FlickableDataBox(Box::leak(Box::new(crate::flickable::FlickableData::default())).into())
+    }
+}
+impl Drop for FlickableDataBox {
+    fn drop(&mut self) {
+        // Safety: the self.0 was constructed from a Box::leak in FlickableDataBox::default
+        unsafe {
+            Box::from_raw(self.0.as_ptr());
+        }
+    }
+}
+impl core::ops::Deref for FlickableDataBox {
+    type Target = crate::flickable::FlickableData;
+    fn deref(&self) -> &Self::Target {
+        // Safety: initialized in FlickableDataBox::default
+        unsafe { self.0.as_ref() }
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn sixtyfps_flickable_data_init(data: *mut FlickableDataBox) {
+    std::ptr::write(data, FlickableDataBox::default());
+}
+#[no_mangle]
+pub unsafe extern "C" fn sixtyfps_flickable_data_free(data: *mut FlickableDataBox) {
+    std::ptr::read(data);
+}
+
 /// The implementation of the `PropertyAnimation` element
 #[repr(C)]
 #[derive(FieldOffsets, Default, BuiltinItem, Clone)]

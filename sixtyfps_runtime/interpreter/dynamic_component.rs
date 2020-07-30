@@ -253,6 +253,7 @@ fn generate_component(root_component: &Rc<object_tree::Component>) -> Rc<Compone
                 rtti_for::<BorderRectangle>(),
                 rtti_for::<TouchArea>(),
                 rtti_for::<Path>(),
+                rtti_for::<Flickable>(),
             ]
             .iter()
             .cloned(),
@@ -267,15 +268,31 @@ fn generate_component(root_component: &Rc<object_tree::Component>) -> Rc<Compone
     let rtti = Rc::new(rtti);
 
     let mut tree_array = vec![];
-    let mut items_types = HashMap::new();
+    let mut items_types = HashMap::<String, ItemWithinComponent>::new();
     let mut builder = dynamic_type::TypeBuilder::new();
 
     let mut repeater = vec![];
     let mut repeater_names = HashMap::new();
 
-    generator::build_array_helper(root_component, |rc_item, child_offset| {
+    generator::build_array_helper(root_component, |rc_item, child_offset, is_flickable_rect| {
         let item = rc_item.borrow();
-        if let Some(repeated) = &item.repeated {
+        if is_flickable_rect {
+            use vtable::HasStaticVTable;
+            let offset = items_types[&item.id].offset
+                + sixtyfps_corelib::abi::primitives::Flickable::field_offsets()
+                    .viewport
+                    .get_byte_offset();
+            tree_array.push(ItemTreeNode::Item {
+                item: unsafe {
+                    vtable::VOffset::from_raw(
+                        sixtyfps_corelib::abi::primitives::Rectangle::static_vtable(),
+                        offset,
+                    )
+                },
+                children_index: tree_array.len() as u32 + 1,
+                chilren_count: item.children.len() as _,
+            });
+        } else if let Some(repeated) = &item.repeated {
             tree_array.push(ItemTreeNode::DynamicTree { index: repeater.len() });
             let base_component = item.base_type.as_component();
             repeater_names.insert(item.id.clone(), repeater.len());
@@ -295,7 +312,11 @@ fn generate_component(root_component: &Rc<object_tree::Component>) -> Rc<Compone
             tree_array.push(ItemTreeNode::Item {
                 item: unsafe { vtable::VOffset::from_raw(rt.vtable, offset) },
                 children_index: child_offset,
-                chilren_count: item.children.len() as _,
+                chilren_count: if generator::is_flickable(rc_item) {
+                    1
+                } else {
+                    item.children.len() as _
+                },
             });
             items_types.insert(
                 item.id.clone(),

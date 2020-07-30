@@ -461,6 +461,15 @@ impl TypeRegister {
             Type::Builtin(Rc::new(BuiltinElement::new(touch_area))),
         );
 
+        let mut flickable = NativeClass::new("Flickable");
+        flickable.properties.insert("x".to_owned(), Type::Length);
+        flickable.properties.insert("y".to_owned(), Type::Length);
+        flickable.properties.insert("width".to_owned(), Type::Length);
+        flickable.properties.insert("height".to_owned(), Type::Length);
+        let flickable = Rc::new(flickable);
+        r.types
+            .insert("Flickable".to_owned(), Type::Builtin(Rc::new(BuiltinElement::new(flickable))));
+
         let mut grid_layout = BuiltinElement::new(Rc::new(NativeClass::new("GridLayout")));
 
         // Row can only be in a GridLayout

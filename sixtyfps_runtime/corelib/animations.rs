@@ -46,6 +46,12 @@ impl AnimationDriver {
 
 thread_local!(pub(crate) static CURRENT_ANIMATION_DRIVER : AnimationDriver = AnimationDriver::default());
 
+/// The current instant that is to be used for animation
+/// using this function register the current binding as a dependency
+pub fn current_tick() -> instant::Instant {
+    CURRENT_ANIMATION_DRIVER.with(|driver| driver.current_tick())
+}
+
 /// map a value betwen 0 and 1 to another value between 0 and 1 according to the curve
 pub fn easing_curve(curve: &EasingCurve, value: f32) -> f32 {
     match curve {

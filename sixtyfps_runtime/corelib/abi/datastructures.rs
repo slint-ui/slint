@@ -824,3 +824,9 @@ ItemVTable_static! {
     #[no_mangle]
     pub static PathVTable for crate::abi::primitives::Path
 }
+
+ItemVTable_static! {
+    /// The VTable for `Flickable`
+    #[no_mangle]
+    pub static FlickableVTable for crate::abi::primitives::Flickable
+}

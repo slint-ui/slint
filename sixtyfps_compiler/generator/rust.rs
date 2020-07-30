@@ -120,9 +120,21 @@ pub fn generate(component: &Rc<Component>, diag: &mut BuildDiagnostics) -> Optio
     let mut repeated_dynmodel_names = Vec::new();
     let mut repeated_visit_branch = Vec::new();
     let mut init = Vec::new();
-    super::build_array_helper(component, |item_rc, children_index| {
+    super::build_array_helper(component, |item_rc, children_index, is_flickable_rect| {
         let item = item_rc.borrow();
-        if let Some(repeated) = &item.repeated {
+        if is_flickable_rect {
+            let field_name = quote::format_ident!("{}", item.id);
+            let children_count = item.children.len() as u32;
+            let children_index = item_tree_array.len() as u32 + 1;
+
+            item_tree_array.push(quote!(
+                sixtyfps::re_exports::ItemTreeNode::Item{
+                    item: VOffset::new(#component_id::field_offsets().#field_name + sixtyfps::re_exports::Flickable::field_offsets().viewport),
+                    chilren_count: #children_count,
+                    children_index: #children_index,
+                }
+            ));
+        } else if let Some(repeated) = &item.repeated {
             let base_component = item.base_type.as_component();
             let repeater_index = repeated_element_names.len();
             let repeater_id = quote::format_ident!("repeater_{}", item.id);
@@ -202,7 +214,9 @@ pub fn generate(component: &Rc<Component>, diag: &mut BuildDiagnostics) -> Optio
             repeated_element_components.push(rep_component_id);
         } else {
             let field_name = quote::format_ident!("{}", item.id);
-            let children_count = item.children.len() as u32;
+            let children_count =
+                if super::is_flickable(item_rc) { 1 } else { item.children.len() as u32 };
+
             item_tree_array.push(quote!(
                 sixtyfps::re_exports::ItemTreeNode::Item{
                     item: VOffset::new(#component_id::field_offsets().#field_name),

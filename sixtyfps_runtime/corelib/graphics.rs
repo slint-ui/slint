@@ -184,21 +184,14 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow
     fn process_mouse_input(
         &self,
         pos: winit::dpi::PhysicalPosition<f64>,
-        state: winit::event::ElementState,
+        what: crate::abi::datastructures::MouseEventType,
         component: crate::ComponentRefPin,
     ) {
         crate::input::process_mouse_event(
             component,
             crate::abi::datastructures::MouseEvent {
                 pos: euclid::point2(pos.x as _, pos.y as _),
-                what: match state {
-                    winit::event::ElementState::Pressed => {
-                        crate::abi::datastructures::MouseEventType::MousePressed
-                    }
-                    winit::event::ElementState::Released => {
-                        crate::abi::datastructures::MouseEventType::MouseReleased
-                    }
-                },
+                what,
             },
         );
     }

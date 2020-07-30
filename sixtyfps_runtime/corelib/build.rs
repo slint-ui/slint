@@ -9,6 +9,7 @@ fn main() {
         "BorderRectangle",
         "Image",
         "TouchArea",
+        "Flickable",
         "Text",
         "Path",
         "ComponentVTable",
@@ -148,6 +149,11 @@ fn main() {
         "    constexpr EasingCurve() : tag(Tag::Linear), cubic_bezier{{0,0,1,1}} {}
     constexpr explicit EasingCurve(EasingCurve::Tag tag, float a, float b, float c, float d) : tag(tag), cubic_bezier{{a,b,c,d}} {}".into()
     );
+    config
+        .export
+        .body
+        .insert("Flickable".to_owned(), "    inline Flickable(); inline ~Flickable();".into());
+    config.export.pre_body.insert("FlickableDataBox".to_owned(), "struct FlickableData;".into());
     cbindgen::Builder::new()
         .with_config(config)
         .with_src(crate_dir.join("abi/datastructures.rs"))

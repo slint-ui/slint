@@ -20,6 +20,7 @@ extern const internal::ItemVTable TextVTable;
 extern const internal::ItemVTable TouchAreaVTable;
 extern const internal::ItemVTable ImageVTable;
 extern const internal::ItemVTable PathVTable;
+extern const internal::ItemVTable FlickableVTable;
 }
 
 // Bring opaque structure in scope
@@ -56,6 +57,7 @@ using internal::Path;
 using internal::Rectangle;
 using internal::Text;
 using internal::TouchArea;
+using internal::Flickable;
 
 constexpr inline ItemTreeNode<uint8_t> make_item_node(std::uintptr_t offset,
                                                       const internal::ItemVTable *vtable,
@@ -142,5 +144,8 @@ struct Repeater
         }
     }
 };
+
+Flickable::Flickable() { sixtyfps_flickable_data_init(&data); }
+Flickable::~Flickable() { sixtyfps_flickable_data_free(&data); }
 
 } // namespace sixtyfps

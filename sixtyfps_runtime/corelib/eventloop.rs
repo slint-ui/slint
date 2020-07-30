@@ -10,7 +10,7 @@ pub trait GenericWindow {
     fn process_mouse_input(
         &self,
         pos: winit::dpi::PhysicalPosition<f64>,
-        state: winit::event::ElementState,
+        what: crate::abi::datastructures::MouseEventType,
         component: core::pin::Pin<crate::abi::datastructures::ComponentRef>,
     );
     fn window_handle(&self) -> std::cell::Ref<'_, winit::window::Window>;
@@ -83,13 +83,6 @@ impl EventLoop {
                     });
                 }
                 winit::event::Event::WindowEvent {
-                    event: winit::event::WindowEvent::CursorMoved { position, .. },
-                    ..
-                } => {
-                    cursor_pos = position;
-                    // TODO: propagate mouse move?
-                }
-                winit::event::Event::WindowEvent {
                     event: winit::event::WindowEvent::Resized(size),
                     window_id,
                 } => {
@@ -141,7 +134,39 @@ impl EventLoop {
                         if let Some(Some(window)) =
                             windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
                         {
-                            window.process_mouse_input(cursor_pos, state, component);
+                            let what = match state {
+                                winit::event::ElementState::Pressed => {
+                                    crate::abi::datastructures::MouseEventType::MousePressed
+                                }
+                                winit::event::ElementState::Released => {
+                                    crate::abi::datastructures::MouseEventType::MouseReleased
+                                }
+                            };
+                            window.process_mouse_input(cursor_pos, what, component);
+                            let window = window.window_handle();
+                            // FIXME: remove this, it should be based on actual changes rather than this
+                            window.request_redraw();
+                        }
+                    });
+                }
+                winit::event::Event::WindowEvent {
+                    window_id,
+                    event: winit::event::WindowEvent::CursorMoved { position, .. },
+                    ..
+                } => {
+                    cursor_pos = position;
+                    crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
+                        driver.update_animations(instant::Instant::now());
+                    });
+                    ALL_WINDOWS.with(|windows| {
+                        if let Some(Some(window)) =
+                            windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
+                        {
+                            window.process_mouse_input(
+                                cursor_pos,
+                                crate::abi::datastructures::MouseEventType::MouseMoved,
+                                component,
+                            );
                             let window = window.window_handle();
                             // FIXME: remove this, it should be based on actual changes rather than this
                             window.request_redraw();

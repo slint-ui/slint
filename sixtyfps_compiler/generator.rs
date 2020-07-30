@@ -73,10 +73,13 @@ pub fn generate(
 }
 
 /// Visit each item in order in which they should appear in the children tree array.
-/// The parameter of the visitor are the item, and the first_children_offset
+/// The parameter of the visitor are the item, and the first_children_offset, and wether this is the flickable rectangle
 #[allow(dead_code)]
-pub fn build_array_helper(component: &Component, mut visit_item: impl FnMut(&ElementRc, u32)) {
-    visit_item(&component.root_element, 1);
+pub fn build_array_helper(
+    component: &Component,
+    mut visit_item: impl FnMut(&ElementRc, u32, bool),
+) {
+    visit_item(&component.root_element, 1, false);
     visit_children(&component.root_element, 1, &mut visit_item);
 
     fn sub_children_count(e: &ElementRc) -> usize {
@@ -84,24 +87,45 @@ pub fn build_array_helper(component: &Component, mut visit_item: impl FnMut(&Ele
         for i in &e.borrow().children {
             count += sub_children_count(i);
         }
+        if is_flickable(e) {
+            count += 1;
+        }
         count
     }
 
     fn visit_children(
         item: &ElementRc,
         children_offset: u32,
-        visit_item: &mut impl FnMut(&ElementRc, u32),
+        visit_item: &mut impl FnMut(&ElementRc, u32, bool),
     ) {
         let mut offset = children_offset + item.borrow().children.len() as u32;
+
+        if is_flickable(item) {
+            visit_item(item, offset, true);
+            offset += 1;
+        }
+
         for i in &item.borrow().children {
-            visit_item(i, offset);
+            visit_item(i, offset, false);
             offset += sub_children_count(i) as u32;
         }
 
         let mut offset = children_offset + item.borrow().children.len() as u32;
+
+        if is_flickable(item) {
+            offset += 1;
+        }
+
         for e in &item.borrow().children {
             visit_children(e, offset, visit_item);
             offset += sub_children_count(e) as u32;
         }
+    }
+}
+
+pub fn is_flickable(e: &ElementRc) -> bool {
+    match &e.borrow().base_type {
+        crate::typeregister::Type::Native(n) if n.class_name == "Flickable" => true,
+        _ => false,
     }
 }

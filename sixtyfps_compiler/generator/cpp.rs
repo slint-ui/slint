@@ -546,17 +546,20 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Bui
     }
 
     let mut children_visitor_case = vec![];
-    let mut tree_array = String::new();
+    let mut tree_array = vec![];
     let mut repeater_count = 0;
-    super::build_array_helper(component, |item, children_offset| {
-        let item = item.borrow();
-        if let Some(repeated) = &item.repeated {
-            tree_array = format!(
-                "{}{}sixtyfps::make_dyn_node({})",
-                tree_array,
-                if tree_array.is_empty() { "" } else { ", " },
-                repeater_count,
-            );
+    super::build_array_helper(component, |item_rc, children_offset, is_flickable_rect| {
+        let item = item_rc.borrow();
+        if is_flickable_rect {
+            tree_array.push(format!(
+                "sixtyfps::make_item_node(offsetof({}, {}) + offsetof(sixtyfps::Flickable, viewport), &sixtyfps::RectangleVTable, {}, {})",
+                &component_id,
+                item.id,
+                item.children.len(),
+                tree_array.len() + 1,
+            ));
+        } else if let Some(repeated) = &item.repeated {
+            tree_array.push(format!("sixtyfps::make_dyn_node({})", repeater_count,));
             let base_component = item.base_type.as_component();
             generate_component(file, base_component, diag);
             handle_repeater(
@@ -570,16 +573,14 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Bui
             );
             repeater_count += 1;
         } else {
-            tree_array = format!(
-                "{}{}sixtyfps::make_item_node(offsetof({}, {}), &sixtyfps::{}, {}, {})",
-                tree_array,
-                if tree_array.is_empty() { "" } else { ", " },
+            tree_array.push(format!(
+                "sixtyfps::make_item_node(offsetof({}, {}), &sixtyfps::{}, {}, {})",
                 &component_id,
                 item.id,
                 item.base_type.as_native().vtable_symbol,
-                item.children.len(),
+                if super::is_flickable(item_rc) { 1 } else { item.children.len() },
                 children_offset,
-            );
+            ));
             handle_item(&*item, &mut component_struct, &mut init);
         }
     });
@@ -628,7 +629,7 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Bui
         signature: "(sixtyfps::ComponentRef component, intptr_t index, sixtyfps::ItemVisitorRefMut visitor) -> void".into(),
         statements: Some(vec![
             "static const sixtyfps::ItemTreeNode<uint8_t> children[] {".to_owned(),
-            format!("    {} }};", tree_array),
+            format!("    {} }};", tree_array.join(", ")),
             "static const auto dyn_visit = [] (const uint8_t *base, [[maybe_unused]] sixtyfps::ItemVisitorRefMut visitor, uintptr_t dyn_index) {".to_owned(),
             format!("    [[maybe_unused]] auto self = reinterpret_cast<const {}*>(base);", component_id),
             // Fixme: this is not the root component
@@ -917,7 +918,6 @@ impl LayoutItemCodeGen for Layout {
     fn get_layout_info_ref(&self) -> String {
         todo!()
     }
-    
 }
 
 impl LayoutItemCodeGen for ElementRc {
@@ -930,10 +930,10 @@ impl LayoutItemCodeGen for ElementRc {
     }
     fn get_layout_info_ref(&self) -> String {
         format!(
-            "sixtyfps::{vt}.layouting_info({{&sixtyfps::{vt}, const_cast<sixtyfps::{ty}*>(&self->{id})}})",            
+            "sixtyfps::{vt}.layouting_info({{&sixtyfps::{vt}, const_cast<sixtyfps::{ty}*>(&self->{id})}})",
             vt = self.borrow().base_type.as_native().vtable_symbol,
             ty = self.borrow().base_type.as_native().class_name,
-            id = self.borrow().id,            
+            id = self.borrow().id,
         )
     }
 }
@@ -952,7 +952,10 @@ fn compute_layout(component: &Rc<Component>) -> Vec<String> {
             for cell in &grid.elems {
                 res.push(format!(
                     "        {{ {c}, {r}, {cs}, {rs}, {li}, {x}, {y}, {w}, {h} }},",
-                    c = cell.col, r = cell.row, cs = cell.colspan, rs =cell.rowspan,
+                    c = cell.col,
+                    r = cell.row,
+                    cs = cell.colspan,
+                    rs = cell.rowspan,
                     li = cell.item.get_layout_info_ref(),
                     x = cell.item.get_property_ref("x"),
                     y = cell.item.get_property_ref("y"),
@@ -961,18 +964,25 @@ fn compute_layout(component: &Rc<Component>) -> Vec<String> {
                 ));
             }
             res.push("    };".to_owned());
-            res.push(format!("    auto width = {};", compile_expression(&grid.rect.width_reference, component)));
-            res.push(format!("    auto height = {};", compile_expression(&grid.rect.height_reference, component)));
+            res.push(format!(
+                "    auto width = {};",
+                compile_expression(&grid.rect.width_reference, component)
+            ));
+            res.push(format!(
+                "    auto height = {};",
+                compile_expression(&grid.rect.height_reference, component)
+            ));
             res.push("    sixtyfps::GridLayoutData grid { ".into());
-            res.push(format!("        width, height, {}, {},",
-                     compile_expression(&grid.rect.x_reference, component),
-                     compile_expression(&grid.rect.y_reference, component)));
+            res.push(format!(
+                "        width, height, {}, {},",
+                compile_expression(&grid.rect.x_reference, component),
+                compile_expression(&grid.rect.y_reference, component)
+            ));
             res.push("        {grid_data, std::size(grid_data)}".to_owned());
             res.push("    };".to_owned());
             res.push("    sixtyfps::solve_grid_layout(&grid);".to_owned());
             res.push("}".to_owned());
-
-        },
+        }
         Layout::PathLayout(path_layout) => {
             res.push("{".to_owned());
 
@@ -1023,7 +1033,8 @@ fn compute_layout(component: &Rc<Component>) -> Vec<String> {
                 res.push("    std::vector<sixtyfps::PathLayoutItemData> items;".to_owned());
                 for elem in &path_layout.elements {
                     if elem.borrow().repeated.is_some() {
-                        let root_element = elem.borrow().base_type.as_component().root_element.clone();
+                        let root_element =
+                            elem.borrow().base_type.as_component().root_element.clone();
                         res.push(format!(
                             "    for (auto &&sub_comp : self->repeater_{}.data)",
                             elem.borrow().id
@@ -1077,7 +1088,7 @@ fn compute_layout(component: &Rc<Component>) -> Vec<String> {
             res.push("    };".to_owned());
             res.push("    sixtyfps::solve_path_layout(&pl);".to_owned());
             res.push("}".to_owned());
-        },
+        }
     });
 
     res

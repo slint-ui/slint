@@ -39,13 +39,11 @@ component ButtonRectangle := Rectangle {
     }
 }
 
-Hello := Rectangle {
+Hello := Flickable {
 
     signal foobar;
     signal plus_clicked;
     signal minus_clicked;
-
-    color: white;
 
     property<color> top_color: #00f5;
 
@@ -134,7 +132,6 @@ Hello := Rectangle {
     }
 
     Text { text: (root.width / 1px); color: black; }
-
 
     PathLayout {
         x: 100px;
