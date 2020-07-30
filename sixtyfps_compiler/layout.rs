@@ -11,6 +11,15 @@ pub enum Layout {
     PathLayout(PathLayout),
 }
 
+impl Layout {
+    pub fn rect(&self) -> &LayoutRect {
+        match self {
+            Layout::GridLayout(g) => &g.rect,
+            Layout::PathLayout(p) => &p.rect,
+        }
+    }
+}
+
 impl ExpressionFieldsVisitor for Layout {
     fn visit_expressions(&mut self, visitor: &mut impl FnMut(&mut Expression)) {
         match self {
@@ -66,6 +75,20 @@ impl LayoutRect {
             y_reference: install_prop("y"),
             width_reference: install_prop("width"),
             height_reference: install_prop("height"),
+        }
+    }
+
+    pub fn mapped_property_name(&self, name: &str) -> Option<&str> {
+        let expr = match name {
+            "x" => &self.x_reference,
+            "y" => &self.y_reference,
+            "width" => &self.width_reference,
+            "height" => &self.height_reference,
+            _ => return None,
+        };
+        match expr.as_ref() {
+            Expression::PropertyReference(NamedReference { name, .. }) => Some(name),
+            _ => None,
         }
     }
 }

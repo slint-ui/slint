@@ -672,11 +672,16 @@ impl LayoutItemCodeGen for LayoutItem {
 impl LayoutItemCodeGen for Layout {
     fn get_property_ref<'a>(
         &'a self,
-        _component: ComponentRefPin,
-        _component_description: &ComponentDescription,
-        _name: &str,
+        component: ComponentRefPin,
+        component_description: &ComponentDescription,
+        name: &str,
     ) -> Option<&'a Property<f32>> {
-        todo!()
+        let moved_property_name = match self.rect().mapped_property_name(name) {
+            Some(name) => name,
+            None => return None,
+        };
+        let prop = component_description.custom_properties.get(moved_property_name).unwrap();
+        Some(unsafe { &*(component.as_ptr().add(prop.offset) as *const Property<f32>) })
     }
     fn get_layout_info(
         &self,
