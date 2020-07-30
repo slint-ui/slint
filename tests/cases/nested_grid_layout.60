@@ -1,0 +1,60 @@
+TestCase := Rectangle {
+    width: 300px;
+    height: 300px;
+
+    GridLayout {
+        Row {
+            rect1 := Rectangle { color: red; }
+        }
+
+        Row {
+            rect2 := Rectangle { color: green; }
+            GridLayout {
+                Row {
+                    rect3 := Rectangle { color: black; }
+                    rect4 := Rectangle { color: blue; }
+                }
+                Row {
+                    rect5 := Rectangle { color: red; }
+                    rect6 := Rectangle { color: green; }
+                }
+            }
+        }
+    }
+
+    property <bool> rect1_pos_ok: rect1.x == 0px && rect1.y == 0px && rect1.width == 150px && rect2.height == 150px;
+    property <bool> rect2_pos_ok: rect2.x == 0px && rect2.y == 150px && rect2.width == 150px && rect2.height == 150px;
+    property <bool> rect3_pos_ok: rect3.x == 150px && rect3.y == 150px && rect3.width == 75px && rect3.height == 75px;
+    property <bool> rect4_pos_ok: rect4.x == 225px && rect4.y == 150px && rect4.width == 75px && rect4.height == 75px;
+    property <bool> rect5_pos_ok: rect5.x == 150px && rect5.y == 225px && rect5.width == 75px && rect5.height == 75px;
+    property <bool> rect6_pos_ok: rect6.x == 225px && rect6.y == 225px && rect6.width == 75px && rect6.height == 75px;
+}
+
+/*
+
+```cpp
+TestCase instance;
+TestCase::compute_layout({&TestCase::component_type, &instance });
+assert(instance.get_rect1_pos_ok());
+assert(instance.get_rect2_pos_ok());
+assert(instance.get_rect3_pos_ok());
+assert(instance.get_rect4_pos_ok());
+assert(instance.get_rect5_pos_ok());
+assert(instance.get_rect6_pos_ok());
+```
+
+
+```rust
+let instance = TestCase::new();
+let instance = instance.as_ref();
+use sixtyfps::re_exports::Component;
+instance.compute_layout();
+assert!(instance.get_rect1_pos_ok());
+assert!(instance.get_rect2_pos_ok());
+assert!(instance.get_rect3_pos_ok());
+assert!(instance.get_rect4_pos_ok());
+assert!(instance.get_rect5_pos_ok());
+assert!(instance.get_rect6_pos_ok());
+```
+
+*/
