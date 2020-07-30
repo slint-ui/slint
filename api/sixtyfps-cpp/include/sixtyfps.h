@@ -28,8 +28,8 @@ using internal::ComponentVTable;
 using internal::ItemTreeNode;
 using ComponentRef = VRef<ComponentVTable>;
 using ItemVisitorRefMut = VRefMut<internal::ItemVisitorVTable>;
-using internal::WindowProperties;
 using internal::EasingCurve;
+using internal::WindowProperties;
 
 struct ComponentWindow
 {
@@ -52,12 +52,12 @@ private:
 };
 
 using internal::BorderRectangle;
+using internal::Flickable;
 using internal::Image;
 using internal::Path;
 using internal::Rectangle;
 using internal::Text;
 using internal::TouchArea;
-using internal::Flickable;
 
 constexpr inline ItemTreeNode<uint8_t> make_item_node(std::uintptr_t offset,
                                                       const internal::ItemVTable *vtable,
@@ -76,6 +76,7 @@ constexpr inline ItemTreeNode<uint8_t> make_dyn_node(std::uintptr_t offset)
 using internal::sixtyfps_visit_item_tree;
 
 // layouts:
+using internal::grid_layout_info;
 using internal::GridLayoutCellData;
 using internal::GridLayoutData;
 using internal::PathLayoutData;
@@ -145,7 +146,13 @@ struct Repeater
     }
 };
 
-Flickable::Flickable() { sixtyfps_flickable_data_init(&data); }
-Flickable::~Flickable() { sixtyfps_flickable_data_free(&data); }
+Flickable::Flickable()
+{
+    sixtyfps_flickable_data_init(&data);
+}
+Flickable::~Flickable()
+{
+    sixtyfps_flickable_data_free(&data);
+}
 
 } // namespace sixtyfps
