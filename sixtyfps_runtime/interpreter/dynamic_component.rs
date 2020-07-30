@@ -652,12 +652,6 @@ pub fn instantiate(
 
 use sixtyfps_corelib::layout::*;
 
-#[derive(derive_more::From)]
-pub enum PendingLayout<'a> {
-    GridLayout(&'a GridLayout),
-    PathLayout(&'a PathLayout),
-}
-
 pub struct GridLayoutWithCells<'a> {
     grid: &'a GridLayout,
     cells: Vec<GridLayoutCellData<'a>>,

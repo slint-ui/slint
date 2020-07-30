@@ -891,12 +891,6 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
     }
 }
 
-#[derive(derive_more::From)]
-pub enum PendingLayout<'a> {
-    GridLayout(&'a GridLayout),
-    PathLayout(&'a PathLayout),
-}
-
 pub struct GridLayoutWithCells<'a> {
     grid: &'a GridLayout,
     cell_creation_code: String,
