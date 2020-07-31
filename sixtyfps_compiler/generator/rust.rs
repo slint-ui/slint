@@ -237,7 +237,7 @@ pub fn generate(component: &Rc<Component>, diag: &mut BuildDiagnostics) -> Optio
                 if matches!(item.lookup_property(k.as_str()), Type::Signal) {
                     init.push(quote!(
                         self_pinned.#rust_property.set_handler({
-                            let self_weak = sixtyfps::re_exports::WeakPin::downgrade(self_pinned.clone());
+                            let self_weak = sixtyfps::re_exports::PinWeak::downgrade(self_pinned.clone());
                             move |()| {
                                 let self_pinned = self_weak.upgrade().unwrap();
                                 let _self = self_pinned.as_ref();
@@ -254,7 +254,7 @@ pub fn generate(component: &Rc<Component>, diag: &mut BuildDiagnostics) -> Optio
                             &item_rc,
                             k,
                             quote!({
-                                let self_weak = sixtyfps::re_exports::WeakPin::downgrade(self_pinned.clone());
+                                let self_weak = sixtyfps::re_exports::PinWeak::downgrade(self_pinned.clone());
                                 move || {
                                     let self_pinned = self_weak.upgrade().unwrap();
                                     let _self = self_pinned.as_ref();
@@ -360,8 +360,8 @@ pub fn generate(component: &Rc<Component>, diag: &mut BuildDiagnostics) -> Optio
             #(#declared_signals : sixtyfps::re_exports::Signal<()>,)*
             #(#repeated_element_names : sixtyfps::re_exports::Repeater<#repeated_element_components>,)*
             #(#repeated_dynmodel_names : sixtyfps::re_exports::PropertyListenerScope,)*
-            self_weak: sixtyfps::re_exports::OnceCell<sixtyfps::re_exports::WeakPin<#component_id>>,
-            #(parent : sixtyfps::re_exports::WeakPin<#parent_component_type>,)*
+            self_weak: sixtyfps::re_exports::OnceCell<sixtyfps::re_exports::PinWeak<#component_id>>,
+            #(parent : sixtyfps::re_exports::PinWeak<#parent_component_type>,)*
         }
 
         impl sixtyfps::re_exports::Component for #component_id {
@@ -382,7 +382,7 @@ pub fn generate(component: &Rc<Component>, diag: &mut BuildDiagnostics) -> Optio
         }
 
         impl #component_id{
-            fn new(#(parent: sixtyfps::re_exports::WeakPin::<#parent_component_type>)*)
+            fn new(#(parent: sixtyfps::re_exports::PinWeak::<#parent_component_type>)*)
                 -> core::pin::Pin<std::rc::Rc<Self>>
             {
                 #![allow(unused)]
@@ -395,10 +395,10 @@ pub fn generate(component: &Rc<Component>, diag: &mut BuildDiagnostics) -> Optio
                     #(#repeated_element_names : ::core::default::Default::default(),)*
                     #(#repeated_dynmodel_names : ::core::default::Default::default(),)*
                     self_weak : ::core::default::Default::default(),
-                    #(parent : parent as sixtyfps::re_exports::WeakPin::<#parent_component_type>,)*
+                    #(parent : parent as sixtyfps::re_exports::PinWeak::<#parent_component_type>,)*
                 };
                 let self_pinned = std::rc::Rc::pin(self_);
-                self_pinned.self_weak.set(WeakPin::downgrade(self_pinned.clone())).map_err(|_|())
+                self_pinned.self_weak.set(PinWeak::downgrade(self_pinned.clone())).map_err(|_|())
                     .expect("Can only be pinned once");
                 #(#init)*
                 self_pinned

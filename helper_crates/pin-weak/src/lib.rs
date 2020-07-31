@@ -30,15 +30,15 @@ let x = std::mem::replace(
 In that example, `x` is the original `SomeStruct` which we moved in memory,
 **that is undefined behavior**, do not do that at home.
 
-## `WeakPin`
+## `PinWeak`
 
-This crate simply provide a `rc::WeakPin` and `sync::WeakPin` which allow to
+This crate simply provide a `rc::PinWeak` and `sync::PinWeak` which allow to
 get weak pointer from `Pin<std::rc::Rc>` and `Pin<srd::sync::Arc>`.
 
 This is safe because you can one can only get back a `Pin` out of it when
 trying to upgrade the weak pointer.
 
-`WeakPin` can be created using the `WeakPin` downgrade function.
+`PinWeak` can be created using the `PinWeak` downgrade function.
 
 ## Example
 
@@ -47,7 +47,7 @@ use pin_weak::rc::*;
 # use std::marker::PhantomPinned;
 struct SomeStruct(PhantomPinned, usize);
 let pinned = Rc::pin(SomeStruct(PhantomPinned, 42));
-let weak = WeakPin::downgrade(pinned.clone());
+let weak = PinWeak::downgrade(pinned.clone());
 assert_eq!(weak.upgrade().unwrap().1, 42);
 std::mem::drop(pinned);
 assert!(weak.upgrade().is_none());
@@ -66,16 +66,16 @@ macro_rules! implementation {
         pub use core::pin::Pin;
         /// This is a safe wrapper around something that could be compared to `Pin<Weak<T>>`
         ///
-        /// The typical way to obtain a `WeakPin` is to call `WeakPin::downgrade`
+        /// The typical way to obtain a `PinWeak` is to call `PinWeak::downgrade`
         #[derive(Debug)]
-        pub struct WeakPin<T: ?Sized>(Weak<T>);
-        impl<T> Default for WeakPin<T> {
+        pub struct PinWeak<T: ?Sized>(Weak<T>);
+        impl<T> Default for PinWeak<T> {
             fn default() -> Self { Self(Weak::default()) }
         }
-        impl<T: ?Sized> Clone for WeakPin<T> {
+        impl<T: ?Sized> Clone for PinWeak<T> {
             fn clone(&self) -> Self { Self(self.0.clone()) }
         }
-        impl<T: ?Sized> WeakPin<T> {
+        impl<T: ?Sized> PinWeak<T> {
             /// Equivalent function to `
             #[doc = $rc_lit]
             /// ::downgrade`,  but taking a `Pin<
@@ -106,20 +106,20 @@ macro_rules! implementation {
                 }
             }
             let c = $Rc::pin(Foo::new(44));
-            let weak1 = WeakPin::downgrade(c.clone());
+            let weak1 = PinWeak::downgrade(c.clone());
             assert_eq!(weak1.upgrade().unwrap().u, 44);
             assert_eq!(weak1.clone().upgrade().unwrap().u, 44);
-            let weak2 = WeakPin::downgrade(c.clone());
+            let weak2 = PinWeak::downgrade(c.clone());
             assert_eq!(weak2.upgrade().unwrap().u, 44);
             assert_eq!(weak1.upgrade().unwrap().u, 44);
             // note that this moves c and therefore it will be dropped
-            let weak3 = WeakPin::downgrade(c);
+            let weak3 = PinWeak::downgrade(c);
             assert!(weak3.upgrade().is_none());
             assert!(weak2.upgrade().is_none());
             assert!(weak1.upgrade().is_none());
             assert!(weak1.clone().upgrade().is_none());
 
-            let def = WeakPin::<alloc::boxed::Box<&'static mut ()>>::default();
+            let def = PinWeak::<alloc::boxed::Box<&'static mut ()>>::default();
             assert!(def.upgrade().is_none());
             assert!(def.clone().upgrade().is_none());
         }

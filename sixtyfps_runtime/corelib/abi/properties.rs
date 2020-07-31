@@ -692,7 +692,7 @@ impl<T: InterpolatedPropertyValue> BindingCallable for AnimatedBindingCallable<T
 #[test]
 fn properties_simple_test() {
     use std::rc::Rc;
-    use pin_weak::rc::WeakPin;
+    use pin_weak::rc::PinWeak;
     fn g(prop: &Property<i32>) -> i32 {
         unsafe { Pin::new_unchecked(prop).get() }
     }
@@ -705,7 +705,7 @@ fn properties_simple_test() {
     }
 
     let compo = Rc::pin(Component::default());
-    let w = WeakPin::downgrade(compo.clone());
+    let w = PinWeak::downgrade(compo.clone());
     compo.area.set_binding(move || {
         let compo = w.upgrade().unwrap();
         g(&compo.width) * g(&compo.height)
@@ -716,7 +716,7 @@ fn properties_simple_test() {
     assert_eq!(g(&compo.height), 8);
     assert_eq!(g(&compo.area), 4 * 8);
 
-    let w = WeakPin::downgrade(compo.clone());
+    let w = PinWeak::downgrade(compo.clone());
     compo.width.set_binding(move || {
         let compo = w.upgrade().unwrap();
         g(&compo.height) * 2
