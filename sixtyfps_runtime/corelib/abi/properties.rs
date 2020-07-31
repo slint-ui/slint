@@ -1188,7 +1188,7 @@ impl PropertyListenerScope {
         self.holder.dirty.get()
     }
 
-    /// Evaluate the function, and record any property accessed whithin this function.
+    /// Evaluate the function, and record dependencies of properties accessed whithin this function.
     pub fn evaluate<R>(self: Pin<&Self>, f: impl FnOnce() -> R) -> R {
         // clear all the nodes so that we can start from scratch
         *self.holder.dep_nodes.borrow_mut() = Default::default();
