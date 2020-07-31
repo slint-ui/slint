@@ -692,7 +692,7 @@ impl<T: InterpolatedPropertyValue> BindingCallable for AnimatedBindingCallable<T
 #[test]
 fn properties_simple_test() {
     use std::rc::Rc;
-    use weak_pin::rc::WeakPin;
+    use pin_weak::rc::WeakPin;
     fn g(prop: &Property<i32>) -> i32 {
         unsafe { Pin::new_unchecked(prop).get() }
     }

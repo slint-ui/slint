@@ -1,5 +1,5 @@
 [package]
-name = "weak-pin"
+name = "pin-weak"
 version = "0.1.0"
 authors = ["Olivier Goffart <ogoffart@sixtyfps.io>"]
 edition = "2018"

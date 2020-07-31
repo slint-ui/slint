@@ -43,7 +43,7 @@ trying to upgrade the weak pointer.
 ## Example
 
 ```
-use weak_pin::rc::*;
+use pin_weak::rc::*;
 # use std::marker::PhantomPinned;
 struct SomeStruct(PhantomPinned, usize);
 let pinned = Rc::pin(SomeStruct(PhantomPinned, 42));

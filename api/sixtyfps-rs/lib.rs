@@ -90,7 +90,7 @@ pub mod re_exports {
     pub use sixtyfps_corelib::SharedArray;
     pub use sixtyfps_corelib::SharedString;
     pub use vtable::{self, *};
-    pub use weak_pin::rc::*;
+    pub use pin_weak::rc::*;
 }
 
 /// Creates a new window to render components in.

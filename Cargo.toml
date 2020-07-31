@@ -23,7 +23,7 @@ members = [
     'helper_crates/const-field-offset',
     'helper_crates/vtable',
     'helper_crates/vtable/macro',
-    'helper_crates/weak-pin',
+    'helper_crates/pin-weak',
     'xtask',
     'tests/driver',
     'tests/driver_lib',

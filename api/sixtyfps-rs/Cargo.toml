@@ -12,7 +12,7 @@ once_cell = "1.4"
 sixtyfps-rs-macro= { path = "sixtyfps-rs-macro" }
 const-field-offset = { path = "../../helper_crates/const-field-offset" }
 vtable = { path = "../../helper_crates/vtable" }
-weak-pin = { path = "../../helper_crates/weak-pin" }
+pin-weak = { path = "../../helper_crates/pin-weak" }
 sixtyfps_corelib = { path="../../sixtyfps_runtime/corelib" }
 # FIXME: should be under a feature or somehow done differently
 sixtyfps_rendering_backend_gl = { path="../../sixtyfps_runtime/rendering_backends/gl" }
