@@ -1,20 +1,20 @@
 # The `.60` language reference
 
 This page is work in progress as the language is not yet set in stones.
+`TODO` indicate things that are not yet implemented.
 
 ## Comments
 
 C-style comments are supported:
  - line comments: `//` means everything to the end of the line is commented.
- - block comments: `/* .. */`  (FIXME, make possible to embedd them)
+ - block comments: `/* .. */`  (TODO, make possible to nest them)
 
 ## `.60` files
 
-The basic idea is that the .60 files contains one or several "component" (FIXME: name to be
-adjusted).
-These "components" are consisting of a bunch of elements that form a tree of elements.
+The basic idea is that the .60 files contains one or several components.
+These components consist of a bunch of elements that form a tree.
 Each declared component can be re-used as an element later. There are also a bunch
-of builtin elements.
+of [builtin elements].
 
 ```60
 
@@ -22,7 +22,7 @@ MyButton := Rectangle {
     // ...
 }
 
-MyApp := Window {
+export MyApp := Window {
     MyButton {
         text: "hello";
     }
@@ -33,10 +33,9 @@ MyApp := Window {
 
 ```
 
-Here, both `MyButton` and `MyApp` are components.  MyApp is the main component because it is the last one
-(FIXME, maybe there should be a keyword or something)
+Here, both `MyButton` and `MyApp` are components.
 
-One can give name to the elements using the `:=`  syntax within a component
+One can give name to the elements using the `:=`  syntax in front an element:
 
 ```60
 //...
@@ -50,7 +49,9 @@ MyApp := Window {
 }
 ```
 
-The root element of a component is always called `root`
+The outermost element of a component is always accessible under the name `root`.
+TODO: the current element can be referred as `self`.
+TODO: the parent element can be referred as `parent`.
 
 ## Properties
 
@@ -65,9 +66,11 @@ Example := Rectangle {
 }
 ```
 
-You can declare properties. The properties declared at the top level of the main component
-are public.
-property are declared like so:
+You can declare properties. The properties declared at the top level of a component
+are public and can be accessed by the component using it as an element, or using the
+language bindings.
+
+Properties are declared like so:
 
 ```60
 Example := Rectangle {
@@ -81,7 +84,7 @@ Example := Rectangle {
 
 The value of properties are an expression (see later).
 You can access properties in these expression, and the bindings are automatically
-re-evaluated if the property changes.
+re-evaluated if any of the accessed properties change.
 
 ```60
 Example := Rectangle {
@@ -94,39 +97,31 @@ Example := Rectangle {
 }
 ```
 
-If one change the `my_property`, the width will be updated automatically.
+If someone changes `my_property`, the width will be updated automatically.
 
 
 ## Types
 
- - `int32`
- - `float32`
- - `string`
- - `color`
- - `length`
- - `logical_length`
- - `duration`
- - FIXME: more
-
-`int32` and `float32` are the types for the numbers, they correspond to the equivalent in the target language
-A number can end with '%', so for example `30%` is the same as `0.30`
-
-`string` are implicitly shared.
-
-`length` is the type for the x, y, width and height coordinate. This is an amount of physical pixels. To convert from
+ - `int32` -> TODO: rename to `int`
+ - `float32` -> TODO: rename to `float`
+   `int32` and `float32` are the types for the numbers, they correspond to the equivalent in the target language
+    A number can end with '%', so for example `30%` is the same as `0.30`
+ - `string`: Represent a utf8 encoded string. Strings are reference counted.
+ - `color`: color literal follow more or less the CSS specs
+ - `length`: the type for the x, y, width and height coordinate. This is an amount of physical pixels. To convert from
 an integer to a length unit, one can simply multiply by `1px`.  Or to convert from a length to a float32, one can divide
 by `1px`.
-`logical_length` correspond to literal like `1lx`, `1pt`, `1in`, `1mm`, or `1cm`.
+ - `logical_length`:  correspond to literal like `1lx`, `1pt`, `1in`, `1mm`, or `1cm`.
 It can be converted to and from length provided the binding is run in a context where there
 is an access to the pixel ratio.
-
-`duration` is a type for the duration of animation, it is represented by the amount of milisecond. But in the language
+ - `duration`: is a type for the duration of animation, it is represented by the amount of milisecond. But in the language
 they correspond to the number like `1ms` or `1s`
+ - `easing`: follow more or less the CSS spec
 
 
 ## Expressions
 
-Basic arithmetic expression do what they do in most languages
+Basic arithmetic expression do what they do in most languages with the operator `*`, `+`, `-`, `/`
 
 ```60
 Example := Rectangle {
@@ -145,8 +140,9 @@ Example := Rectangle {
 }
 ```
 
-Strings are with quote.
-(FIXME what is the escaping, should we support using stuff like "hello {name}"?)
+Strings are with duble quote: `"foo"`.
+(TODO: escaping, support using stuff like `` `hello {foo}` ``)
+
 
 ```60
 Example := Text {
@@ -172,8 +168,6 @@ TODO
 
 ## Signal
 
-FIXME: rename event?
-
 ```60
 Example := Rectangle {
     // declares a signal
@@ -188,6 +182,8 @@ Example := Rectangle {
     }
 }
 ```
+
+TODO: add parameter to the signal
 
 ## Repetition
 
@@ -220,6 +216,7 @@ This will aniate the color property for 100ms when it changes.
 Animation can be configured with the following parameter:
  * `duration`: the amount of time it takes for the animation to complete
  * `loop_count`: FIXME
+ * `easing`: can be `linear`, `ease`, `ease_in`, `ease_out`, `ease_in_out`, `cubic_bezier(a, b, c, d)` as in CSS
 
 It is also possible to animate sevaral properties with the same animation:
 
@@ -257,7 +254,7 @@ Example := Rectangle {
 In that example, when the `enabled` property is set to false, the `disabled` state will be entered
 This will change the color of the Rectangle and of the Text.
 
-### Transitions
+### Transitions (TODO)
 
 Complex animation can be declared on state transitions:
 
@@ -309,7 +306,7 @@ Button := Rectangle {
 export { Button }
 ```
 
-In the above example, ```Button``` is usable from other .60 files, but ```ButtonHelper``` isn't.
+In the above example, `Button` is usable from other .60 files, but `ButtonHelper` isn't.
 
 It's also possible to change the name just for the purpose of exporting, without affecting its internal use:
 
@@ -342,6 +339,7 @@ App := Rectangle {
         // ...
     }
 }
+```
 
 In the event that two files export a type under the same then, then you have the option
 of assigning a different name at import type:
@@ -356,3 +354,30 @@ App := Rectangle {
     Button {} // from button.60
 }
 ```
+
+## Builtin elements
+
+### Rendered Items
+
+#### Rectangle
+
+#### Image
+
+#### Path
+
+### TouchArea
+
+### Layouts
+
+#### Window (TODO)
+
+#### GridLayout
+
+#### PathLayout
+
+#### Flickable
+
+...
+
+
+
