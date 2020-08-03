@@ -8,7 +8,7 @@ use sixtyfps_corelib::abi::datastructures::Resource;
 use sixtyfps_corelib::abi::datastructures::{
     CachedRenderingData, Item, ItemConsts, ItemVTable, LayoutInfo, MouseEvent, MouseEventType, Rect,
 };
-use sixtyfps_corelib::graphics::RenderingPrimitive;
+use sixtyfps_corelib::graphics::HighLevelRenderingPrimitive;
 #[cfg(feature = "rtti")]
 use sixtyfps_corelib::rtti::*;
 use sixtyfps_corelib::{ItemVTable_static, Property, SharedString, Signal};
@@ -67,7 +67,7 @@ impl Item for QtStyleButton {
             Self::field_offsets().height.apply_pin(self).get(),
         )
     }
-    fn rendering_primitive(self: Pin<&Self>) -> RenderingPrimitive {
+    fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
         #[cfg(have_qt)]
         {
             let down: bool = Self::field_offsets().pressed.apply_pin(self).get();
@@ -95,14 +95,14 @@ impl Item for QtStyleButton {
                 qApp->style()->drawControl(QStyle::CE_PushButton, &option, &p, nullptr);
                 return img;
             });
-            return RenderingPrimitive::Image {
+            return HighLevelRenderingPrimitive::Image {
                 x: Self::field_offsets().x.apply_pin(self).get(),
                 y: Self::field_offsets().y.apply_pin(self).get(),
                 source: to_resource(img),
             };
         }
         #[cfg(not(have_qt))]
-        RenderingPrimitive::NoContents
+        HighLevelRenderingPrimitive::NoContents
     }
 
     fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
@@ -171,7 +171,7 @@ impl Item for QtStyleCheckBox {
             Self::field_offsets().height.apply_pin(self).get(),
         )
     }
-    fn rendering_primitive(self: Pin<&Self>) -> RenderingPrimitive {
+    fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
         #[cfg(have_qt)]
         {
             let checked: bool = Self::field_offsets().checked.apply_pin(self).get();
@@ -198,14 +198,14 @@ impl Item for QtStyleCheckBox {
                 qApp->style()->drawControl(QStyle::CE_CheckBox, &option, &p, nullptr);
                 return img;
             });
-            return RenderingPrimitive::Image {
+            return HighLevelRenderingPrimitive::Image {
                 x: Self::field_offsets().x.apply_pin(self).get(),
                 y: Self::field_offsets().y.apply_pin(self).get(),
                 source: to_resource(img),
             };
         }
         #[cfg(not(have_qt))]
-        RenderingPrimitive::NoContents
+        HighLevelRenderingPrimitive::NoContents
     }
 
     fn layouting_info(self: Pin<&Self>) -> LayoutInfo {

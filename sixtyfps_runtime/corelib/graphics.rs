@@ -12,7 +12,7 @@ pub enum FillStyle {
 #[derive(PartialEq, Debug)]
 #[repr(C)]
 #[allow(missing_docs)]
-pub enum RenderingPrimitive {
+pub enum HighLevelRenderingPrimitive {
     /// There is nothing to draw
     NoContents,
     Rectangle {
@@ -58,7 +58,7 @@ pub enum RenderingPrimitive {
 }
 
 pub trait HasRenderingPrimitive {
-    fn primitive(&self) -> &RenderingPrimitive;
+    fn primitive(&self) -> &HighLevelRenderingPrimitive;
 }
 
 pub trait Frame {
@@ -73,7 +73,10 @@ pub trait Frame {
 pub trait RenderingPrimitivesBuilder {
     type LowLevelRenderingPrimitive: HasRenderingPrimitive;
 
-    fn create(&mut self, primitive: RenderingPrimitive) -> Self::LowLevelRenderingPrimitive;
+    fn create(
+        &mut self,
+        primitive: HighLevelRenderingPrimitive,
+    ) -> Self::LowLevelRenderingPrimitive;
 }
 
 pub trait GraphicsBackend: Sized {

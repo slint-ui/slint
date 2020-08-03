@@ -5,7 +5,7 @@ use core::pin::Pin;
 use std::cell::Cell;
 use vtable::*;
 
-use crate::graphics::RenderingPrimitive;
+use crate::graphics::HighLevelRenderingPrimitive;
 #[cfg(feature = "rtti")]
 use crate::rtti::{BuiltinItem, FieldInfo, FieldOffset, PropertyInfo, ValueType};
 use const_field_offset::FieldOffsets;
@@ -123,7 +123,8 @@ pub struct ItemVTable {
     pub cached_rendering_data_offset: usize,
 
     /// Return the rendering primitive used to display this item.
-    pub rendering_primitive: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>) -> RenderingPrimitive,
+    pub rendering_primitive:
+        extern "C" fn(core::pin::Pin<VRef<ItemVTable>>) -> HighLevelRenderingPrimitive,
 
     /// We would need max/min/preferred size, and all layout info
     pub layouting_info: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>) -> LayoutInfo,

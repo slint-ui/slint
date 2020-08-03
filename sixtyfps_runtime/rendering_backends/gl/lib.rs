@@ -12,7 +12,7 @@ use sixtyfps_corelib::abi::datastructures::{
 };
 use sixtyfps_corelib::graphics::{
     FillStyle, Frame as GraphicsFrame, GraphicsBackend, GraphicsWindow, HasRenderingPrimitive,
-    RenderingPrimitive, RenderingPrimitivesBuilder,
+    HighLevelRenderingPrimitive, RenderingPrimitivesBuilder,
 };
 use smallvec::{smallvec, SmallVec};
 use std::cell::RefCell;
@@ -206,11 +206,11 @@ type GLRenderingPrimitives = SmallVec<[GLRenderingPrimitive; 1]>;
 
 pub struct OpaqueRenderingPrimitive {
     gl_primitives: GLRenderingPrimitives,
-    rendering_primitive: RenderingPrimitive,
+    rendering_primitive: HighLevelRenderingPrimitive,
 }
 
 impl HasRenderingPrimitive for OpaqueRenderingPrimitive {
-    fn primitive(&self) -> &RenderingPrimitive {
+    fn primitive(&self) -> &HighLevelRenderingPrimitive {
         &self.rendering_primitive
     }
 }
@@ -295,17 +295,20 @@ impl GraphicsBackend for GLRenderer {
 impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
     type LowLevelRenderingPrimitive = OpaqueRenderingPrimitive;
 
-    fn create(&mut self, primitive: RenderingPrimitive) -> Self::LowLevelRenderingPrimitive {
+    fn create(
+        &mut self,
+        primitive: HighLevelRenderingPrimitive,
+    ) -> Self::LowLevelRenderingPrimitive {
         OpaqueRenderingPrimitive {
             gl_primitives: match &primitive {
-                RenderingPrimitive::NoContents => smallvec::SmallVec::new(),
-                RenderingPrimitive::Rectangle { x: _, y: _, width, height, color } => {
+                HighLevelRenderingPrimitive::NoContents => smallvec::SmallVec::new(),
+                HighLevelRenderingPrimitive::Rectangle { x: _, y: _, width, height, color } => {
                     use lyon::math::Point;
 
                     let rect = Rect::new(Point::default(), Size::new(*width, *height));
                     self.fill_rectangle(&rect, 0., *color).into_iter().collect()
                 }
-                RenderingPrimitive::BorderRectangle {
+                HighLevelRenderingPrimitive::BorderRectangle {
                     x: _,
                     y: _,
                     width,
@@ -334,7 +337,7 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
 
                     primitives
                 }
-                RenderingPrimitive::Image { x: _, y: _, source } => {
+                HighLevelRenderingPrimitive::Image { x: _, y: _, source } => {
                     match source {
                         Resource::AbsoluteFilePath(path) => {
                             let mut image_path = std::env::current_exe().unwrap();
@@ -372,7 +375,7 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                         Resource::None => SmallVec::new(),
                     }
                 }
-                RenderingPrimitive::Text {
+                HighLevelRenderingPrimitive::Text {
                     x: _,
                     y: _,
                     text,
@@ -384,7 +387,7 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                         if *font_pixel_size != 0. { *font_pixel_size } else { 48.0 * 72. / 96. };
                     smallvec![self.create_glyph_runs(text, font_family, pixel_size, *color)]
                 }
-                RenderingPrimitive::Path {
+                HighLevelRenderingPrimitive::Path {
                     x: _,
                     y: _,
                     width,

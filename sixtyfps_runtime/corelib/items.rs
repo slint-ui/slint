@@ -19,7 +19,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 use super::abi::datastructures::{
     CachedRenderingData, Color, Item, ItemConsts, LayoutInfo, MouseEvent, PathData, Rect, Resource,
 };
-use super::graphics::RenderingPrimitive;
+use super::graphics::HighLevelRenderingPrimitive;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::{Property, SharedString, Signal};
@@ -49,11 +49,11 @@ impl Item for Rectangle {
             Self::field_offsets().height.apply_pin(self).get(),
         )
     }
-    fn rendering_primitive(self: Pin<&Self>) -> RenderingPrimitive {
+    fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
         let width = Self::field_offsets().width.apply_pin(self).get();
         let height = Self::field_offsets().height.apply_pin(self).get();
         if width > 0. && height > 0. {
-            RenderingPrimitive::Rectangle {
+            HighLevelRenderingPrimitive::Rectangle {
                 x: Self::field_offsets().x.apply_pin(self).get(),
                 y: Self::field_offsets().y.apply_pin(self).get(),
                 width,
@@ -61,7 +61,7 @@ impl Item for Rectangle {
                 color: Self::field_offsets().color.apply_pin(self).get(),
             }
         } else {
-            RenderingPrimitive::NoContents
+            HighLevelRenderingPrimitive::NoContents
         }
     }
 
@@ -106,11 +106,11 @@ impl Item for BorderRectangle {
             Self::field_offsets().height.apply_pin(self).get(),
         )
     }
-    fn rendering_primitive(self: Pin<&Self>) -> RenderingPrimitive {
+    fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
         let width = Self::field_offsets().width.apply_pin(self).get();
         let height = Self::field_offsets().height.apply_pin(self).get();
         if width > 0. && height > 0. {
-            RenderingPrimitive::BorderRectangle {
+            HighLevelRenderingPrimitive::BorderRectangle {
                 x: Self::field_offsets().x.apply_pin(self).get(),
                 y: Self::field_offsets().y.apply_pin(self).get(),
                 width,
@@ -121,7 +121,7 @@ impl Item for BorderRectangle {
                 border_color: Self::field_offsets().border_color.apply_pin(self).get(),
             }
         } else {
-            RenderingPrimitive::NoContents
+            HighLevelRenderingPrimitive::NoContents
         }
     }
 
@@ -163,8 +163,8 @@ impl Item for Image {
             Self::field_offsets().height.apply_pin(self).get(),
         )
     }
-    fn rendering_primitive(self: Pin<&Self>) -> RenderingPrimitive {
-        RenderingPrimitive::Image {
+    fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
+        HighLevelRenderingPrimitive::Image {
             x: Self::field_offsets().x.apply_pin(self).get(),
             y: Self::field_offsets().y.apply_pin(self).get(),
             source: Self::field_offsets().source.apply_pin(self).get(),
@@ -212,8 +212,8 @@ impl Item for Text {
             0.,
         )
     }
-    fn rendering_primitive(self: Pin<&Self>) -> RenderingPrimitive {
-        RenderingPrimitive::Text {
+    fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
+        HighLevelRenderingPrimitive::Text {
             x: Self::field_offsets().x.apply_pin(self).get(),
             y: Self::field_offsets().y.apply_pin(self).get(),
             text: Self::field_offsets().text.apply_pin(self).get(),
@@ -276,8 +276,8 @@ impl Item for TouchArea {
             Self::field_offsets().height.apply_pin(self).get(),
         )
     }
-    fn rendering_primitive(self: Pin<&Self>) -> RenderingPrimitive {
-        RenderingPrimitive::NoContents
+    fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
+        HighLevelRenderingPrimitive::NoContents
     }
 
     fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
@@ -330,8 +330,8 @@ impl Item for Path {
             0.,
         )
     }
-    fn rendering_primitive(self: Pin<&Self>) -> RenderingPrimitive {
-        RenderingPrimitive::Path {
+    fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
+        HighLevelRenderingPrimitive::Path {
             x: Self::field_offsets().x.apply_pin(self).get(),
             y: Self::field_offsets().y.apply_pin(self).get(),
             width: Self::field_offsets().width.apply_pin(self).get(),
@@ -382,8 +382,8 @@ impl Item for Flickable {
             Self::field_offsets().height.apply_pin(self).get(),
         )
     }
-    fn rendering_primitive(self: Pin<&Self>) -> RenderingPrimitive {
-        RenderingPrimitive::NoContents
+    fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
+        HighLevelRenderingPrimitive::NoContents
     }
 
     fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
