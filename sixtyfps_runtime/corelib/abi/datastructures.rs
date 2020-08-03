@@ -1,6 +1,5 @@
 //! This module contains the basic datastructures that are exposed to the C API
 
-use core::pin::Pin;
 use vtable::*;
 
 use crate::graphics::{HighLevelRenderingPrimitive, Rect};
@@ -99,66 +98,6 @@ pub struct WindowProperties<'a> {
     /// A reference to the property that is supposed to be kept up-to-date with the current
     /// screen dpi
     pub dpi: Option<&'a crate::Property<f32>>,
-}
-
-/// The ComponentWindow is the (rust) facing public type that can render the items
-/// of components to the screen.
-#[repr(C)]
-#[derive(Clone)]
-pub struct ComponentWindow(std::rc::Rc<dyn crate::eventloop::GenericWindow>);
-
-impl ComponentWindow {
-    /// Creates a new instance of a CompomentWindow based on the given window implementation. Only used
-    /// internally.
-    pub fn new(window_impl: std::rc::Rc<dyn crate::eventloop::GenericWindow>) -> Self {
-        Self(window_impl)
-    }
-    /// Spins an event loop and renders the items of the provided component in this window.
-    pub fn run(&self, component: Pin<VRef<ComponentVTable>>, props: &WindowProperties) {
-        let event_loop = crate::eventloop::EventLoop::new();
-        self.0.clone().map_window(&event_loop);
-
-        {
-            let size = self.0.size();
-            if let Some(width_property) = props.width {
-                width_property.set(size.width)
-            }
-            if let Some(height_property) = props.height {
-                height_property.set(size.height)
-            }
-        }
-
-        event_loop.run(component, &props);
-    }
-}
-
-#[allow(non_camel_case_types)]
-type c_void = ();
-
-/// Same layout as ComponentWindow (fat pointer)
-#[repr(C)]
-pub struct ComponentWindowOpaque(*const c_void, *const c_void);
-
-/// Releases the reference to the component window held by handle.
-#[no_mangle]
-pub unsafe extern "C" fn sixtyfps_component_window_drop(handle: *mut ComponentWindowOpaque) {
-    assert_eq!(
-        core::mem::size_of::<ComponentWindow>(),
-        core::mem::size_of::<ComponentWindowOpaque>()
-    );
-    core::ptr::read(handle as *mut ComponentWindow);
-}
-
-/// Spins an event loop and renders the items of the provided component in this window.
-#[no_mangle]
-pub unsafe extern "C" fn sixtyfps_component_window_run(
-    handle: *mut ComponentWindowOpaque,
-    component: Pin<VRef<ComponentVTable>>,
-    window_props: *mut WindowProperties,
-) {
-    let window = &*(handle as *const ComponentWindow);
-    let window_props = &*(window_props as *const WindowProperties);
-    window.run(component, &window_props);
 }
 
 // This is here because for some reason (rust bug?) the ItemVTable_static is not accessible in the other modules

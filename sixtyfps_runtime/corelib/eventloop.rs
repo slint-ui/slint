@@ -1,5 +1,10 @@
+use crate::abi::datastructures::{ComponentVTable, WindowProperties};
 use std::cell::RefCell;
-use std::rc::{Rc, Weak};
+use std::{
+    pin::Pin,
+    rc::{Rc, Weak},
+};
+use vtable::*;
 
 use crate::{graphics::Size, input::MouseEventType};
 #[cfg(not(target_arch = "wasm32"))]
@@ -17,6 +22,37 @@ pub trait GenericWindow {
     fn map_window(self: Rc<Self>, event_loop: &EventLoop);
     fn request_redraw(&self);
     fn size(&self) -> Size;
+}
+
+/// The ComponentWindow is the (rust) facing public type that can render the items
+/// of components to the screen.
+#[repr(C)]
+#[derive(Clone)]
+pub struct ComponentWindow(std::rc::Rc<dyn crate::eventloop::GenericWindow>);
+
+impl ComponentWindow {
+    /// Creates a new instance of a CompomentWindow based on the given window implementation. Only used
+    /// internally.
+    pub fn new(window_impl: std::rc::Rc<dyn crate::eventloop::GenericWindow>) -> Self {
+        Self(window_impl)
+    }
+    /// Spins an event loop and renders the items of the provided component in this window.
+    pub fn run(&self, component: Pin<VRef<ComponentVTable>>, props: &WindowProperties) {
+        let event_loop = crate::eventloop::EventLoop::new();
+        self.0.clone().map_window(&event_loop);
+
+        {
+            let size = self.0.size();
+            if let Some(width_property) = props.width {
+                width_property.set(size.width)
+            }
+            if let Some(height_property) = props.height {
+                height_property.set(size.height)
+            }
+        }
+
+        event_loop.run(component, &props);
+    }
 }
 
 thread_local! {
@@ -212,5 +248,40 @@ impl EventLoop {
 
     pub fn get_winit_event_loop(&self) -> &winit::event_loop::EventLoop<()> {
         &self.winit_loop
+    }
+}
+
+pub mod ffi {
+    #![allow(unsafe_code)]
+
+    use super::*;
+
+    #[allow(non_camel_case_types)]
+    type c_void = ();
+
+    /// Same layout as ComponentWindow (fat pointer)
+    #[repr(C)]
+    pub struct ComponentWindowOpaque(*const c_void, *const c_void);
+
+    /// Releases the reference to the component window held by handle.
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_component_window_drop(handle: *mut ComponentWindowOpaque) {
+        assert_eq!(
+            core::mem::size_of::<ComponentWindow>(),
+            core::mem::size_of::<ComponentWindowOpaque>()
+        );
+        core::ptr::read(handle as *mut ComponentWindow);
+    }
+
+    /// Spins an event loop and renders the items of the provided component in this window.
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_component_window_run(
+        handle: *mut ComponentWindowOpaque,
+        component: Pin<VRef<ComponentVTable>>,
+        window_props: *mut WindowProperties,
+    ) {
+        let window = &*(handle as *const ComponentWindow);
+        let window_props = &*(window_props as *const WindowProperties);
+        window.run(component, &window_props);
     }
 }

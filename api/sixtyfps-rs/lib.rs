@@ -80,6 +80,7 @@ pub mod re_exports {
     pub use sixtyfps_corelib::abi::signals::Signal;
     pub use sixtyfps_corelib::abi::slice::Slice;
     pub use sixtyfps_corelib::animations::EasingCurve;
+    pub use sixtyfps_corelib::eventloop::ComponentWindow;
     pub use sixtyfps_corelib::graphics::{
         PathArcTo, PathData, PathElement, PathEvent, PathLineTo, Point, Rect, Size,
     };

@@ -7,7 +7,7 @@ use lyon::tessellation::{
     FillAttributes, FillOptions, FillTessellator, StrokeAttributes, StrokeOptions,
     StrokeTessellator,
 };
-use sixtyfps_corelib::abi::datastructures::{ComponentWindow, ComponentWindowOpaque};
+use sixtyfps_corelib::eventloop::{ffi::ComponentWindowOpaque, ComponentWindow};
 use sixtyfps_corelib::graphics::{
     Color, FillStyle, Frame as GraphicsFrame, GraphicsBackend, GraphicsWindow,
     HasRenderingPrimitive, HighLevelRenderingPrimitive, Point, Rect, RenderingPrimitivesBuilder,
