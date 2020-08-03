@@ -8,11 +8,12 @@ use sixtyfps_compilerlib::layout::{GridLayout, Layout, LayoutItem, PathLayout};
 use sixtyfps_compilerlib::typeregister::Type;
 use sixtyfps_compilerlib::*;
 use sixtyfps_corelib::abi::datastructures::{ComponentVTable, ItemVTable, WindowProperties};
-use sixtyfps_corelib::abi::{properties::PropertyListenerScope, slice::Slice};
+use sixtyfps_corelib::abi::slice::Slice;
 use sixtyfps_corelib::graphics::Resource;
 use sixtyfps_corelib::item_tree::{ItemTreeNode, ItemVisitorRefMut};
 use sixtyfps_corelib::items::{Flickable, PropertyAnimation, Rectangle};
 use sixtyfps_corelib::layout::LayoutInfo;
+use sixtyfps_corelib::properties::{InterpolatedPropertyValue, PropertyListenerScope};
 use sixtyfps_corelib::rtti::PropertyInfo;
 use sixtyfps_corelib::ComponentRefPin;
 use sixtyfps_corelib::{rtti, Color, Property, SharedString, Signal};
@@ -324,9 +325,8 @@ fn generate_component(root_component: &Rc<object_tree::Component>) -> Rc<Compone
             dynamic_type::StaticTypeInfo::new::<Property<T>>(),
         )
     }
-    fn animated_property_info<
-        T: Clone + Default + sixtyfps_corelib::abi::properties::InterpolatedPropertyValue + 'static,
-    >() -> (Box<dyn PropertyInfo<u8, eval::Value>>, dynamic_type::StaticTypeInfo)
+    fn animated_property_info<T: Clone + Default + InterpolatedPropertyValue + 'static>(
+    ) -> (Box<dyn PropertyInfo<u8, eval::Value>>, dynamic_type::StaticTypeInfo)
     where
         T: std::convert::TryInto<eval::Value>,
         eval::Value: std::convert::TryInto<T>,

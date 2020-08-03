@@ -78,7 +78,7 @@ fn main() {
 
     cbindgen::Builder::new()
         .with_config(config.clone())
-        .with_src(crate_dir.join("abi/properties.rs"))
+        .with_src(crate_dir.join("properties.rs"))
         .with_src(crate_dir.join("abi/signals.rs"))
         .with_after_include("namespace sixtyfps { struct Color; }")
         .generate()

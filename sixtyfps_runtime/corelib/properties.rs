@@ -5,7 +5,11 @@
     thin dst container, and intrusive linked list
 */
 
+#![allow(unsafe_code)]
+
 mod single_linked_list_pin {
+    #![allow(unsafe_code)]
+
     ///! A singled linked list whose nodes are pinned
     use core::pin::Pin;
     type NodePtr<T> = Option<Pin<Box<SingleLinkedListPinNode<T>>>>;
@@ -726,85 +730,6 @@ fn properties_simple_test() {
     assert_eq!(g(&compo.area), 8 * 8 * 2);
 }
 
-#[allow(non_camel_case_types)]
-type c_void = ();
-#[repr(C)]
-/// Has the same layout as PropertyHandle
-pub struct PropertyHandleOpaque(PropertyHandle);
-
-/// Initialize the first pointer of the Property. Does not initialize the content.
-/// `out` is assumed to be uninitialized
-#[no_mangle]
-pub unsafe extern "C" fn sixtyfps_property_init(out: *mut PropertyHandleOpaque) {
-    core::ptr::write(out, PropertyHandleOpaque(PropertyHandle::default()));
-}
-
-/// To be called before accessing the value
-#[no_mangle]
-pub unsafe extern "C" fn sixtyfps_property_update(handle: &PropertyHandleOpaque, val: *mut c_void) {
-    handle.0.update(val);
-    handle.0.register_as_dependency_to_current_binding();
-}
-
-/// Mark the fact that the property was changed and that its binding need to be removed, and
-/// The dependencies marked dirty
-#[no_mangle]
-pub unsafe extern "C" fn sixtyfps_property_set_changed(handle: &PropertyHandleOpaque) {
-    handle.0.remove_binding();
-    handle.0.mark_dirty();
-}
-
-fn make_c_function_binding(
-    binding: extern "C" fn(*mut c_void, *mut c_void),
-    user_data: *mut c_void,
-    drop_user_data: Option<extern "C" fn(*mut c_void)>,
-) -> impl Fn(*mut ()) -> BindingResult {
-    struct CFunctionBinding<T> {
-        binding_function: extern "C" fn(*mut c_void, *mut T),
-        user_data: *mut c_void,
-        drop_user_data: Option<extern "C" fn(*mut c_void)>,
-    }
-
-    impl<T> Drop for CFunctionBinding<T> {
-        fn drop(&mut self) {
-            if let Some(x) = self.drop_user_data {
-                x(self.user_data)
-            }
-        }
-    }
-
-    let b = CFunctionBinding { binding_function: binding, user_data, drop_user_data };
-
-    move |value_ptr| {
-        (b.binding_function)(b.user_data, value_ptr);
-        BindingResult::KeepBinding
-    }
-}
-
-/// Set a binding
-///
-/// The current implementation will do usually two memory alocation:
-///  1. the allocation from the calling code to allocate user_data
-///  2. the box allocation within this binding
-/// It might be possible to reduce that by passing something with a
-/// vtable, so there is the need for less memory allocation.
-#[no_mangle]
-pub unsafe extern "C" fn sixtyfps_property_set_binding(
-    handle: &PropertyHandleOpaque,
-    binding: extern "C" fn(user_data: *mut c_void, pointer_to_value: *mut c_void),
-    user_data: *mut c_void,
-    drop_user_data: Option<extern "C" fn(*mut c_void)>,
-) {
-    let binding = make_c_function_binding(binding, user_data, drop_user_data);
-    handle.0.set_binding(binding);
-}
-
-/// Destroy handle
-#[no_mangle]
-pub unsafe extern "C" fn sixtyfps_property_drop(handle: *mut PropertyHandleOpaque) {
-    core::ptr::read(handle);
-}
-
 /// InterpolatedPropertyValue is a trait used to enable properties to be used with
 /// animations that interpolate values. The basic requirement is the ability to apply
 /// a progress that's typically between 0 and 1 to a range.
@@ -839,126 +764,6 @@ impl InterpolatedPropertyValue for u8 {
     fn interpolate(self, target_value: Self, t: f32) -> Self {
         ((self as f32) + (t * ((target_value as f32) - (self as f32)))).min(255.).max(0.) as u8
     }
-}
-
-fn c_set_animated_value<T: InterpolatedPropertyValue>(
-    handle: &PropertyHandleOpaque,
-    from: T,
-    to: T,
-    animation_data: &PropertyAnimation,
-) {
-    let d = RefCell::new(PropertyValueAnimationData::new(from, to, animation_data.clone()));
-    handle.0.set_binding(move |val: *mut ()| {
-        let (value, finished) = d.borrow_mut().compute_interpolated_value();
-        unsafe {
-            *(val as *mut T) = value;
-        }
-        if finished {
-            BindingResult::RemoveBinding
-        } else {
-            crate::animations::CURRENT_ANIMATION_DRIVER
-                .with(|driver| driver.set_has_active_animations());
-            BindingResult::KeepBinding
-        }
-    });
-}
-
-/// Internal function to set up a property animation to the specified target value for an integer property.
-#[no_mangle]
-pub unsafe extern "C" fn sixtyfps_property_set_animated_value_int(
-    handle: &PropertyHandleOpaque,
-    from: i32,
-    to: i32,
-    animation_data: &PropertyAnimation,
-) {
-    c_set_animated_value(handle, from, to, animation_data)
-}
-
-/// Internal function to set up a property animation to the specified target value for a float property.
-#[no_mangle]
-pub unsafe extern "C" fn sixtyfps_property_set_animated_value_float(
-    handle: &PropertyHandleOpaque,
-    from: f32,
-    to: f32,
-    animation_data: &PropertyAnimation,
-) {
-    c_set_animated_value(handle, from, to, animation_data)
-}
-
-/// Internal function to set up a property animation to the specified target value for a color property.
-#[no_mangle]
-pub unsafe extern "C" fn sixtyfps_property_set_animated_value_color(
-    handle: &PropertyHandleOpaque,
-    from: Color,
-    to: Color,
-    animation_data: &PropertyAnimation,
-) {
-    c_set_animated_value(handle, from, to, animation_data);
-}
-
-unsafe fn c_set_animated_binding<T: InterpolatedPropertyValue>(
-    handle: &PropertyHandleOpaque,
-    binding: extern "C" fn(*mut c_void, *mut T),
-    user_data: *mut c_void,
-    drop_user_data: Option<extern "C" fn(*mut c_void)>,
-    animation_data: &PropertyAnimation,
-) {
-    let binding = core::mem::transmute::<
-        extern "C" fn(*mut c_void, *mut T),
-        extern "C" fn(*mut c_void, *mut ()),
-    >(binding);
-    handle.0.set_binding(AnimatedBindingCallable::<T> {
-        original_binding: PropertyHandle {
-            handle: Cell::new(
-                (alloc_binding_holder(make_c_function_binding(binding, user_data, drop_user_data))
-                    as usize)
-                    | 0b10,
-            ),
-        },
-        state: Cell::new(AnimatedBindingState::NotAnimating),
-        animation_data: RefCell::new(PropertyValueAnimationData::new(
-            T::default(),
-            T::default(),
-            animation_data.clone(),
-        )),
-    });
-    handle.0.mark_dirty();
-}
-
-/// Internal function to set up a property animation between values produced by the specified binding for an integer property.
-#[no_mangle]
-pub unsafe extern "C" fn sixtyfps_property_set_animated_binding_int(
-    handle: &PropertyHandleOpaque,
-    binding: extern "C" fn(*mut c_void, *mut i32),
-    user_data: *mut c_void,
-    drop_user_data: Option<extern "C" fn(*mut c_void)>,
-    animation_data: &PropertyAnimation,
-) {
-    c_set_animated_binding(handle, binding, user_data, drop_user_data, animation_data);
-}
-
-/// Internal function to set up a property animation between values produced by the specified binding for a float property.
-#[no_mangle]
-pub unsafe extern "C" fn sixtyfps_property_set_animated_binding_float(
-    handle: &PropertyHandleOpaque,
-    binding: extern "C" fn(*mut c_void, *mut f32),
-    user_data: *mut c_void,
-    drop_user_data: Option<extern "C" fn(*mut c_void)>,
-    animation_data: &PropertyAnimation,
-) {
-    c_set_animated_binding(handle, binding, user_data, drop_user_data, animation_data);
-}
-
-/// Internal function to set up a property animation between values produced by the specified binding for a color property.
-#[no_mangle]
-pub unsafe extern "C" fn sixtyfps_property_set_animated_binding_color(
-    handle: &PropertyHandleOpaque,
-    binding: extern "C" fn(*mut c_void, *mut Color),
-    user_data: *mut c_void,
-    drop_user_data: Option<extern "C" fn(*mut c_void)>,
-    animation_data: &PropertyAnimation,
-) {
-    c_set_animated_binding(handle, binding, user_data, drop_user_data, animation_data);
 }
 
 #[cfg(test)]
@@ -1221,48 +1026,260 @@ fn test_property_listener_scope() {
     assert!(!scope.is_dirty());
 }
 
-#[repr(C)]
-/// Opaque type representing the PropertyListenerScope
-pub struct PropertyListenerOpaque {
-    dependencies: usize,
-    dep_nodes: [usize; 2],
-    vtable: usize,
-    dirty: bool,
-}
+pub(crate) mod ffi {
+    use super::*;
 
-static_assertions::assert_eq_align!(PropertyListenerOpaque, PropertyListenerScope);
-static_assertions::assert_eq_size!(PropertyListenerOpaque, PropertyListenerScope);
+    #[allow(non_camel_case_types)]
+    type c_void = ();
+    #[repr(C)]
+    /// Has the same layout as PropertyHandle
+    pub struct PropertyHandleOpaque(PropertyHandle);
 
-/// Initialize the first pointer of the PropertyListenerScope.
-/// `out` is assumed to be uninitialized
-/// sixtyfps_property_listener_scope_drop need to be called after that
-#[no_mangle]
-pub unsafe extern "C" fn sixtyfps_property_listener_scope_init(out: *mut PropertyListenerOpaque) {
-    core::ptr::write(out as *mut PropertyListenerScope, PropertyListenerScope::default());
-}
+    /// Initialize the first pointer of the Property. Does not initialize the content.
+    /// `out` is assumed to be uninitialized
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_property_init(out: *mut PropertyHandleOpaque) {
+        core::ptr::write(out, PropertyHandleOpaque(PropertyHandle::default()));
+    }
 
-/// Call the callback with the user data. Any properties access within the callback will be registered.
-#[no_mangle]
-pub unsafe extern "C" fn sixtyfps_property_listener_scope_evaluate(
-    handle: *const PropertyListenerOpaque,
-    callback: extern "C" fn(user_data: *mut c_void),
-    user_data: *mut c_void,
-) {
-    Pin::new_unchecked(&*(handle as *const PropertyListenerScope)).evaluate(|| callback(user_data))
-}
+    /// To be called before accessing the value
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_property_update(
+        handle: &PropertyHandleOpaque,
+        val: *mut c_void,
+    ) {
+        handle.0.update(val);
+        handle.0.register_as_dependency_to_current_binding();
+    }
 
-/// Query if the property listener is dirty
-#[no_mangle]
-pub unsafe extern "C" fn sixtyfps_property_listener_scope_is_dirty(
-    handle: *const PropertyListenerOpaque,
-) -> bool {
-    (*(handle as *const PropertyListenerScope)).is_dirty()
-}
+    /// Mark the fact that the property was changed and that its binding need to be removed, and
+    /// The dependencies marked dirty
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_property_set_changed(handle: &PropertyHandleOpaque) {
+        handle.0.remove_binding();
+        handle.0.mark_dirty();
+    }
 
-/// Destroy handle
-#[no_mangle]
-pub unsafe extern "C" fn sixtyfps_property_listener_scope_drop(
-    handle: *mut PropertyListenerOpaque,
-) {
-    core::ptr::read(handle as *mut PropertyListenerScope);
+    fn make_c_function_binding(
+        binding: extern "C" fn(*mut c_void, *mut c_void),
+        user_data: *mut c_void,
+        drop_user_data: Option<extern "C" fn(*mut c_void)>,
+    ) -> impl Fn(*mut ()) -> BindingResult {
+        struct CFunctionBinding<T> {
+            binding_function: extern "C" fn(*mut c_void, *mut T),
+            user_data: *mut c_void,
+            drop_user_data: Option<extern "C" fn(*mut c_void)>,
+        }
+
+        impl<T> Drop for CFunctionBinding<T> {
+            fn drop(&mut self) {
+                if let Some(x) = self.drop_user_data {
+                    x(self.user_data)
+                }
+            }
+        }
+
+        let b = CFunctionBinding { binding_function: binding, user_data, drop_user_data };
+
+        move |value_ptr| {
+            (b.binding_function)(b.user_data, value_ptr);
+            BindingResult::KeepBinding
+        }
+    }
+
+    /// Set a binding
+    ///
+    /// The current implementation will do usually two memory alocation:
+    ///  1. the allocation from the calling code to allocate user_data
+    ///  2. the box allocation within this binding
+    /// It might be possible to reduce that by passing something with a
+    /// vtable, so there is the need for less memory allocation.
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_property_set_binding(
+        handle: &PropertyHandleOpaque,
+        binding: extern "C" fn(user_data: *mut c_void, pointer_to_value: *mut c_void),
+        user_data: *mut c_void,
+        drop_user_data: Option<extern "C" fn(*mut c_void)>,
+    ) {
+        let binding = make_c_function_binding(binding, user_data, drop_user_data);
+        handle.0.set_binding(binding);
+    }
+
+    /// Destroy handle
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_property_drop(handle: *mut PropertyHandleOpaque) {
+        core::ptr::read(handle);
+    }
+
+    fn c_set_animated_value<T: InterpolatedPropertyValue>(
+        handle: &PropertyHandleOpaque,
+        from: T,
+        to: T,
+        animation_data: &PropertyAnimation,
+    ) {
+        let d = RefCell::new(PropertyValueAnimationData::new(from, to, animation_data.clone()));
+        handle.0.set_binding(move |val: *mut ()| {
+            let (value, finished) = d.borrow_mut().compute_interpolated_value();
+            unsafe {
+                *(val as *mut T) = value;
+            }
+            if finished {
+                BindingResult::RemoveBinding
+            } else {
+                crate::animations::CURRENT_ANIMATION_DRIVER
+                    .with(|driver| driver.set_has_active_animations());
+                BindingResult::KeepBinding
+            }
+        });
+    }
+
+    /// Internal function to set up a property animation to the specified target value for an integer property.
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_property_set_animated_value_int(
+        handle: &PropertyHandleOpaque,
+        from: i32,
+        to: i32,
+        animation_data: &PropertyAnimation,
+    ) {
+        c_set_animated_value(handle, from, to, animation_data)
+    }
+
+    /// Internal function to set up a property animation to the specified target value for a float property.
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_property_set_animated_value_float(
+        handle: &PropertyHandleOpaque,
+        from: f32,
+        to: f32,
+        animation_data: &PropertyAnimation,
+    ) {
+        c_set_animated_value(handle, from, to, animation_data)
+    }
+
+    /// Internal function to set up a property animation to the specified target value for a color property.
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_property_set_animated_value_color(
+        handle: &PropertyHandleOpaque,
+        from: Color,
+        to: Color,
+        animation_data: &PropertyAnimation,
+    ) {
+        c_set_animated_value(handle, from, to, animation_data);
+    }
+
+    unsafe fn c_set_animated_binding<T: InterpolatedPropertyValue>(
+        handle: &PropertyHandleOpaque,
+        binding: extern "C" fn(*mut c_void, *mut T),
+        user_data: *mut c_void,
+        drop_user_data: Option<extern "C" fn(*mut c_void)>,
+        animation_data: &PropertyAnimation,
+    ) {
+        let binding = core::mem::transmute::<
+            extern "C" fn(*mut c_void, *mut T),
+            extern "C" fn(*mut c_void, *mut ()),
+        >(binding);
+        handle.0.set_binding(AnimatedBindingCallable::<T> {
+            original_binding: PropertyHandle {
+                handle: Cell::new(
+                    (alloc_binding_holder(make_c_function_binding(
+                        binding,
+                        user_data,
+                        drop_user_data,
+                    )) as usize)
+                        | 0b10,
+                ),
+            },
+            state: Cell::new(AnimatedBindingState::NotAnimating),
+            animation_data: RefCell::new(PropertyValueAnimationData::new(
+                T::default(),
+                T::default(),
+                animation_data.clone(),
+            )),
+        });
+        handle.0.mark_dirty();
+    }
+
+    /// Internal function to set up a property animation between values produced by the specified binding for an integer property.
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_property_set_animated_binding_int(
+        handle: &PropertyHandleOpaque,
+        binding: extern "C" fn(*mut c_void, *mut i32),
+        user_data: *mut c_void,
+        drop_user_data: Option<extern "C" fn(*mut c_void)>,
+        animation_data: &PropertyAnimation,
+    ) {
+        c_set_animated_binding(handle, binding, user_data, drop_user_data, animation_data);
+    }
+
+    /// Internal function to set up a property animation between values produced by the specified binding for a float property.
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_property_set_animated_binding_float(
+        handle: &PropertyHandleOpaque,
+        binding: extern "C" fn(*mut c_void, *mut f32),
+        user_data: *mut c_void,
+        drop_user_data: Option<extern "C" fn(*mut c_void)>,
+        animation_data: &PropertyAnimation,
+    ) {
+        c_set_animated_binding(handle, binding, user_data, drop_user_data, animation_data);
+    }
+
+    /// Internal function to set up a property animation between values produced by the specified binding for a color property.
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_property_set_animated_binding_color(
+        handle: &PropertyHandleOpaque,
+        binding: extern "C" fn(*mut c_void, *mut Color),
+        user_data: *mut c_void,
+        drop_user_data: Option<extern "C" fn(*mut c_void)>,
+        animation_data: &PropertyAnimation,
+    ) {
+        c_set_animated_binding(handle, binding, user_data, drop_user_data, animation_data);
+    }
+
+    #[repr(C)]
+    /// Opaque type representing the PropertyListenerScope
+    pub struct PropertyListenerOpaque {
+        dependencies: usize,
+        dep_nodes: [usize; 2],
+        vtable: usize,
+        dirty: bool,
+    }
+
+    static_assertions::assert_eq_align!(PropertyListenerOpaque, PropertyListenerScope);
+    static_assertions::assert_eq_size!(PropertyListenerOpaque, PropertyListenerScope);
+
+    /// Initialize the first pointer of the PropertyListenerScope.
+    /// `out` is assumed to be uninitialized
+    /// sixtyfps_property_listener_scope_drop need to be called after that
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_property_listener_scope_init(
+        out: *mut PropertyListenerOpaque,
+    ) {
+        core::ptr::write(out as *mut PropertyListenerScope, PropertyListenerScope::default());
+    }
+
+    /// Call the callback with the user data. Any properties access within the callback will be registered.
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_property_listener_scope_evaluate(
+        handle: *const PropertyListenerOpaque,
+        callback: extern "C" fn(user_data: *mut c_void),
+        user_data: *mut c_void,
+    ) {
+        Pin::new_unchecked(&*(handle as *const PropertyListenerScope))
+            .evaluate(|| callback(user_data))
+    }
+
+    /// Query if the property listener is dirty
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_property_listener_scope_is_dirty(
+        handle: *const PropertyListenerOpaque,
+    ) -> bool {
+        (*(handle as *const PropertyListenerScope)).is_dirty()
+    }
+
+    /// Destroy handle
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_property_listener_scope_drop(
+        handle: *mut PropertyListenerOpaque,
+    ) {
+        core::ptr::read(handle as *mut PropertyListenerScope);
+    }
 }

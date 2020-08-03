@@ -76,7 +76,6 @@ pub mod re_exports {
     pub use once_cell::unsync::OnceCell;
     pub use pin_weak::rc::*;
     pub use sixtyfps_corelib::abi::datastructures::*;
-    pub use sixtyfps_corelib::abi::properties::{Property, PropertyListenerScope};
     pub use sixtyfps_corelib::abi::signals::Signal;
     pub use sixtyfps_corelib::abi::slice::Slice;
     pub use sixtyfps_corelib::animations::EasingCurve;
@@ -93,6 +92,7 @@ pub mod re_exports {
         grid_layout_info, solve_grid_layout, solve_path_layout, GridLayoutCellData, GridLayoutData,
         PathLayoutData, PathLayoutItemData,
     };
+    pub use sixtyfps_corelib::properties::{Property, PropertyListenerScope};
     pub use sixtyfps_corelib::Color;
     pub use sixtyfps_corelib::ComponentVTable_static;
     pub use sixtyfps_corelib::Resource;

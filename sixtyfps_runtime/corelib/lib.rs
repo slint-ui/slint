@@ -28,7 +28,6 @@ pub mod abi {
     #![allow(unsafe_code)]
     pub mod datastructures;
     pub mod model;
-    pub mod properties;
     pub mod sharedarray;
     pub mod signals;
     pub mod slice;
@@ -37,6 +36,7 @@ pub mod abi {
 }
 
 pub mod items;
+pub mod properties;
 
 #[doc(inline)]
 pub use abi::string::SharedString;
@@ -48,7 +48,7 @@ pub use abi::sharedarray::SharedArray;
 pub use graphics::Resource;
 
 #[doc(inline)]
-pub use abi::properties::Property;
+pub use properties::Property;
 
 #[doc(inline)]
 pub use abi::signals::Signal;
@@ -77,4 +77,5 @@ pub fn use_modules() -> usize {
         + layout::solve_grid_layout as usize
         + item_tree::ffi::sixtyfps_visit_item_tree as usize
         + graphics::ffi::sixtyfps_new_path_elements as usize
+        + properties::ffi::sixtyfps_property_init as usize
 }

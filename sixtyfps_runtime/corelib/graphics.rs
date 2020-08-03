@@ -1,5 +1,6 @@
 extern crate alloc;
 use crate::input::{MouseEvent, MouseEventType};
+use crate::properties::InterpolatedPropertyValue;
 #[cfg(feature = "rtti")]
 use crate::rtti::{BuiltinItem, FieldInfo, FieldOffset, PropertyInfo, ValueType};
 
@@ -83,7 +84,7 @@ impl From<u32> for Color {
     }
 }
 
-impl crate::abi::properties::InterpolatedPropertyValue for Color {
+impl InterpolatedPropertyValue for Color {
     fn interpolate(self, target_value: Self, t: f32) -> Self {
         Self {
             red: self.red.interpolate(target_value.red, t),

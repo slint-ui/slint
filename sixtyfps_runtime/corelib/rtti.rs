@@ -109,7 +109,7 @@ impl<Item, T: Clone, Value: 'static> PropertyInfo<Item, Value>
 where
     Value: TryInto<T>,
     T: TryInto<Value>,
-    T: crate::abi::properties::InterpolatedPropertyValue,
+    T: crate::properties::InterpolatedPropertyValue,
 {
     fn get(&self, item: Pin<&Item>) -> Result<Value, ()> {
         self.0.get(item)
