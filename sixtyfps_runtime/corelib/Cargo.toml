@@ -41,4 +41,4 @@ pathfinder_geometry = "0.5.1"
 cbindgen = "0.14.2"
 
 [dev-dependencies]
-pin-weak = { path = "../../helper_crates/pin-weak" }
+pin-weak = "1"
