@@ -11,7 +11,7 @@ use sixtyfps_corelib::abi::datastructures::{
     ComponentVTable, ItemTreeNode, ItemVTable, ItemVisitorRefMut, LayoutInfo, Resource,
     WindowProperties,
 };
-use sixtyfps_corelib::abi::primitives::PropertyAnimation;
+use sixtyfps_corelib::abi::primitives::{Flickable, PropertyAnimation, Rectangle};
 use sixtyfps_corelib::abi::{properties::PropertyListenerScope, slice::Slice};
 use sixtyfps_corelib::rtti::PropertyInfo;
 use sixtyfps_corelib::ComponentRefPin;
@@ -279,16 +279,9 @@ fn generate_component(root_component: &Rc<object_tree::Component>) -> Rc<Compone
         if is_flickable_rect {
             use vtable::HasStaticVTable;
             let offset = items_types[&item.id].offset
-                + sixtyfps_corelib::abi::primitives::Flickable::field_offsets()
-                    .viewport
-                    .get_byte_offset();
+                + Flickable::field_offsets().viewport.get_byte_offset();
             tree_array.push(ItemTreeNode::Item {
-                item: unsafe {
-                    vtable::VOffset::from_raw(
-                        sixtyfps_corelib::abi::primitives::Rectangle::static_vtable(),
-                        offset,
-                    )
-                },
+                item: unsafe { vtable::VOffset::from_raw(Rectangle::static_vtable(), offset) },
                 children_index: tree_array.len() as u32 + 1,
                 chilren_count: item.children.len() as _,
             });

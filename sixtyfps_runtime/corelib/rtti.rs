@@ -4,6 +4,7 @@
 */
 
 pub type FieldOffset<T, U> = const_field_offset::FieldOffset<T, U, const_field_offset::PinnedFlag>;
+use crate::abi::primitives::PropertyAnimation;
 use core::convert::{TryFrom, TryInto};
 use core::pin::Pin;
 
@@ -33,13 +34,13 @@ pub trait PropertyInfo<Item, Value> {
         &self,
         item: Pin<&Item>,
         value: Value,
-        animation: Option<crate::abi::primitives::PropertyAnimation>,
+        animation: Option<PropertyAnimation>,
     ) -> Result<(), ()>;
     fn set_binding(
         &self,
         item: Pin<&Item>,
         binding: Box<dyn Fn() -> Value>,
-        animation: Option<crate::abi::primitives::PropertyAnimation>,
+        animation: Option<PropertyAnimation>,
     ) -> Result<(), ()>;
 
     /// The offset of the property in the item.
@@ -69,7 +70,7 @@ where
         &self,
         item: Pin<&Item>,
         value: Value,
-        animation: Option<crate::abi::primitives::PropertyAnimation>,
+        animation: Option<PropertyAnimation>,
     ) -> Result<(), ()> {
         if animation.is_some() {
             Err(())
@@ -82,7 +83,7 @@ where
         &self,
         item: Pin<&Item>,
         binding: Box<dyn Fn() -> Value>,
-        animation: Option<crate::abi::primitives::PropertyAnimation>,
+        animation: Option<PropertyAnimation>,
     ) -> Result<(), ()> {
         if animation.is_some() {
             Err(())
@@ -117,7 +118,7 @@ where
         &self,
         item: Pin<&Item>,
         value: Value,
-        animation: Option<crate::abi::primitives::PropertyAnimation>,
+        animation: Option<PropertyAnimation>,
     ) -> Result<(), ()> {
         if let Some(animation) = &animation {
             self.apply_pin(item).set_animated_value(value.try_into().map_err(|_| ())?, animation);
@@ -130,7 +131,7 @@ where
         &self,
         item: Pin<&Item>,
         binding: Box<dyn Fn() -> Value>,
-        animation: Option<crate::abi::primitives::PropertyAnimation>,
+        animation: Option<PropertyAnimation>,
     ) -> Result<(), ()> {
         if let Some(animation) = &animation {
             self.apply_pin(item).set_animated_binding(

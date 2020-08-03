@@ -593,13 +593,13 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
 struct PropertyValueAnimationData<T> {
     from_value: T,
     to_value: T,
-    details: crate::abi::primitives::PropertyAnimation,
+    details: PropertyAnimation,
     start_time: instant::Instant,
     loop_iteration: i32,
 }
 
 impl<T: InterpolatedPropertyValue> PropertyValueAnimationData<T> {
-    fn new(from_value: T, to_value: T, details: crate::abi::primitives::PropertyAnimation) -> Self {
+    fn new(from_value: T, to_value: T, details: PropertyAnimation) -> Self {
         let start_time =
             crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| driver.current_tick());
 
@@ -691,8 +691,8 @@ impl<T: InterpolatedPropertyValue> BindingCallable for AnimatedBindingCallable<T
 
 #[test]
 fn properties_simple_test() {
-    use std::rc::Rc;
     use pin_weak::rc::PinWeak;
+    use std::rc::Rc;
     fn g(prop: &Property<i32>) -> i32 {
         unsafe { Pin::new_unchecked(prop).get() }
     }
@@ -845,7 +845,7 @@ fn c_set_animated_value<T: InterpolatedPropertyValue>(
     handle: &PropertyHandleOpaque,
     from: T,
     to: T,
-    animation_data: &crate::abi::primitives::PropertyAnimation,
+    animation_data: &PropertyAnimation,
 ) {
     let d = RefCell::new(PropertyValueAnimationData::new(from, to, animation_data.clone()));
     handle.0.set_binding(move |val: *mut ()| {
@@ -869,7 +869,7 @@ pub unsafe extern "C" fn sixtyfps_property_set_animated_value_int(
     handle: &PropertyHandleOpaque,
     from: i32,
     to: i32,
-    animation_data: &crate::abi::primitives::PropertyAnimation,
+    animation_data: &PropertyAnimation,
 ) {
     c_set_animated_value(handle, from, to, animation_data)
 }
@@ -880,7 +880,7 @@ pub unsafe extern "C" fn sixtyfps_property_set_animated_value_float(
     handle: &PropertyHandleOpaque,
     from: f32,
     to: f32,
-    animation_data: &crate::abi::primitives::PropertyAnimation,
+    animation_data: &PropertyAnimation,
 ) {
     c_set_animated_value(handle, from, to, animation_data)
 }
@@ -891,7 +891,7 @@ pub unsafe extern "C" fn sixtyfps_property_set_animated_value_color(
     handle: &PropertyHandleOpaque,
     from: Color,
     to: Color,
-    animation_data: &crate::abi::primitives::PropertyAnimation,
+    animation_data: &PropertyAnimation,
 ) {
     c_set_animated_value(handle, from, to, animation_data);
 }
@@ -901,7 +901,7 @@ unsafe fn c_set_animated_binding<T: InterpolatedPropertyValue>(
     binding: extern "C" fn(*mut c_void, *mut T),
     user_data: *mut c_void,
     drop_user_data: Option<extern "C" fn(*mut c_void)>,
-    animation_data: &crate::abi::primitives::PropertyAnimation,
+    animation_data: &PropertyAnimation,
 ) {
     let binding = core::mem::transmute::<
         extern "C" fn(*mut c_void, *mut T),
@@ -932,7 +932,7 @@ pub unsafe extern "C" fn sixtyfps_property_set_animated_binding_int(
     binding: extern "C" fn(*mut c_void, *mut i32),
     user_data: *mut c_void,
     drop_user_data: Option<extern "C" fn(*mut c_void)>,
-    animation_data: &crate::abi::primitives::PropertyAnimation,
+    animation_data: &PropertyAnimation,
 ) {
     c_set_animated_binding(handle, binding, user_data, drop_user_data, animation_data);
 }
@@ -944,7 +944,7 @@ pub unsafe extern "C" fn sixtyfps_property_set_animated_binding_float(
     binding: extern "C" fn(*mut c_void, *mut f32),
     user_data: *mut c_void,
     drop_user_data: Option<extern "C" fn(*mut c_void)>,
-    animation_data: &crate::abi::primitives::PropertyAnimation,
+    animation_data: &PropertyAnimation,
 ) {
     c_set_animated_binding(handle, binding, user_data, drop_user_data, animation_data);
 }
@@ -956,7 +956,7 @@ pub unsafe extern "C" fn sixtyfps_property_set_animated_binding_color(
     binding: extern "C" fn(*mut c_void, *mut Color),
     user_data: *mut c_void,
     drop_user_data: Option<extern "C" fn(*mut c_void)>,
-    animation_data: &crate::abi::primitives::PropertyAnimation,
+    animation_data: &PropertyAnimation,
 ) {
     c_set_animated_binding(handle, binding, user_data, drop_user_data, animation_data);
 }
