@@ -30,7 +30,6 @@ pub mod abi {
     pub mod model;
     pub mod sharedarray;
     pub mod signals;
-    pub mod tests;
 }
 
 pub mod items;
@@ -65,6 +64,7 @@ pub type ComponentRefPin<'a> = core::pin::Pin<abi::datastructures::ComponentRef<
 
 pub mod eventloop;
 pub mod item_rendering;
+pub mod tests;
 
 /// One need to use at least one function in each module in order to get them
 /// exported in the final binary.
@@ -72,7 +72,7 @@ pub mod item_rendering;
 #[doc(hidden)]
 #[cold]
 pub fn use_modules() -> usize {
-    abi::tests::sixtyfps_test_ellapse_time as usize
+    tests::sixtyfps_test_ellapse_time as usize
         + abi::signals::sixtyfps_signal_init as usize
         + abi::sharedarray::sixtyfps_shared_array_drop as usize
         + layout::solve_grid_layout as usize

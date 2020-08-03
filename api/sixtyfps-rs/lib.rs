@@ -108,7 +108,7 @@ pub fn create_window() -> re_exports::ComponentWindow {
 
 /// This module contains functions usefull for unit tests
 pub mod testing {
-    pub use sixtyfps_corelib::abi::tests::sixtyfps_test_ellapse_time as ellapse_time;
+    pub use sixtyfps_corelib::tests::sixtyfps_test_ellapse_time as ellapse_time;
 }
 
 /// Include the code generated with the sixtyfps-build crate from the build script

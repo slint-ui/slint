@@ -171,7 +171,7 @@ fn main() {
         .with_src(crate_dir.join("items.rs"))
         .with_src(crate_dir.join("eventloop.rs"))
         .with_src(crate_dir.join("abi/model.rs"))
-        .with_src(crate_dir.join("abi/tests.rs"))
+        .with_src(crate_dir.join("tests.rs"))
         .with_src(crate_dir.join("layout.rs")) // FIXME: move in ABI?
         .with_include("vtable.h")
         .with_include("sixtyfps_string.h")
