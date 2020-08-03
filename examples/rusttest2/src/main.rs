@@ -5,16 +5,14 @@ sixtyfps::include_modules!();
 fn main() {
     let app = Hello::new();
     let app_weak = sixtyfps::re_exports::PinWeak::downgrade(app.clone());
-    app.plus_clicked.set_handler(move |()| {
+    app.as_ref().on_plus_clicked(move || {
         let app = app_weak.upgrade().unwrap();
-        let counter = Hello::field_offsets().counter.apply_pin(app.as_ref());
-        counter.set(counter.get() + 1);
+        app.as_ref().set_counter(app.as_ref().get_counter() + 1);
     });
     let app_weak = sixtyfps::re_exports::PinWeak::downgrade(app.clone());
-    app.minus_clicked.set_handler(move |()| {
+    app.as_ref().on_minus_clicked(move || {
         let app = app_weak.upgrade().unwrap();
-        let counter = Hello::field_offsets().counter.apply_pin(app.as_ref());
-        counter.set(counter.get() - 1);
+        app.as_ref().set_counter(app.as_ref().get_counter() - 1);
     });
     app.run();
 }

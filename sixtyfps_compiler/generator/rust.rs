@@ -52,12 +52,21 @@ pub fn generate(component: &Rc<Component>, diag: &mut BuildDiagnostics) -> Optio
             declared_signals.push(prop_ident.clone());
             if property_decl.expose_in_public_api {
                 let emitter_ident = quote::format_ident!("emit_{}", prop_name);
-
                 property_and_signal_accessors.push(
                     quote!(
                         #[allow(dead_code)]
                         fn #emitter_ident(self: ::core::pin::Pin<&Self>) {
                             Self::field_offsets().#prop_ident.apply_pin(self).emit(())
+                        }
+                    )
+                    .into(),
+                );
+                let on_ident = quote::format_ident!("on_{}", prop_name);
+                property_and_signal_accessors.push(
+                    quote!(
+                        #[allow(dead_code)]
+                        fn #on_ident(self: ::core::pin::Pin<&Self>, f: impl Fn() + 'static) {
+                            Self::field_offsets().#prop_ident.apply_pin(self).set_handler(move |()|f())
                         }
                     )
                     .into(),
