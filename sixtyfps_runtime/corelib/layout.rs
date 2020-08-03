@@ -237,7 +237,7 @@ pub extern "C" fn solve_path_layout(data: &PathLayoutData) {
         return;
     }
 
-    let path_iter = data.elements.iter().fitted(data.width, data.height);
+    let path_iter = data.elements.iter_fitted(data.width, data.height);
 
     let tolerance = lyon::tessellation::StrokeOptions::DEFAULT_TOLERANCE;
 

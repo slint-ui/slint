@@ -388,12 +388,11 @@ impl<EventIt: Iterator<Item = lyon::path::Event<lyon::math::Point, lyon::math::P
 {
 }
 
-/// LyonPathIterator is a data structure that acts as starting point for iterating
+/// PathDataIterator is a data structure that acts as starting point for iterating
 /// through the low-level events of a path. If the path was constructed from said
 /// events, then it is a very thin abstraction. If the path was created from higher-level
 /// elements, then an intermediate lyon path is required/built.
-#[doc(hidden)]
-pub struct LyonPathIterator<'a> {
+pub struct PathDataIterator<'a> {
     it: LyonPathIteratorVariant<'a>,
     transform: Option<lyon::math::Transform>,
 }
@@ -403,7 +402,7 @@ enum LyonPathIteratorVariant<'a> {
     FromEvents(&'a crate::SharedArray<PathEvent>, &'a crate::SharedArray<Point>),
 }
 
-impl<'a> LyonPathIterator<'a> {
+impl<'a> PathDataIterator<'a> {
     /// Create a new iterator for path traversal.
     pub fn iter(
         &'a self,
@@ -422,8 +421,7 @@ impl<'a> LyonPathIterator<'a> {
         }
     }
 
-    /// This function changes the iterator to be one that applies a transformation to make the path fit into the specified bounds.
-    pub fn fitted(mut self, width: f32, height: f32) -> LyonPathIterator<'a> {
+    fn fit(&mut self, width: f32, height: f32) {
         if width > 0. || height > 0. {
             let br = lyon::algorithms::aabb::bounding_rect(self.iter());
             self.transform = Some(lyon::algorithms::fit::fit_rectangle(
@@ -432,8 +430,6 @@ impl<'a> LyonPathIterator<'a> {
                 lyon::algorithms::fit::FitStyle::Min,
             ));
         }
-
-        self
     }
 
     fn apply_transform(
@@ -470,8 +466,8 @@ impl Default for PathData {
 
 impl PathData {
     /// This function returns an iterator that allows traversing the path by means of lyon events.
-    pub fn iter(&self) -> LyonPathIterator {
-        LyonPathIterator {
+    pub fn iter(&self) -> PathDataIterator {
+        PathDataIterator {
             it: match self {
                 PathData::None => LyonPathIteratorVariant::FromPath(lyon::path::Path::new()),
                 PathData::Elements(elements) => LyonPathIteratorVariant::FromPath(
@@ -483,6 +479,13 @@ impl PathData {
             },
             transform: None,
         }
+    }
+
+    /// This function returns an iterator that allows traversing the path by means of lyon events.
+    pub fn iter_fitted(&self, width: f32, height: f32) -> PathDataIterator {
+        let mut it = self.iter();
+        it.fit(width, height);
+        it
     }
 
     fn build_path(element_it: std::slice::Iter<PathElement>) -> lyon::path::Path {
