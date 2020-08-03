@@ -24,7 +24,7 @@ use crate::rtti::*;
 use crate::{Property, SharedString, Signal};
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
-use corelib_macros::*;
+use sixtyfps_corelib_macros::*;
 
 #[repr(C)]
 #[derive(FieldOffsets, Default, BuiltinItem)]

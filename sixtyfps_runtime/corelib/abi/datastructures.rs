@@ -8,7 +8,7 @@ use vtable::*;
 #[cfg(feature = "rtti")]
 use crate::rtti::{BuiltinItem, FieldInfo, FieldOffset, PropertyInfo, ValueType};
 use const_field_offset::FieldOffsets;
-use corelib_macros::*;
+use sixtyfps_corelib_macros::*;
 
 /// 2D Rectangle
 pub type Rect = euclid::default::Rect<f32>;

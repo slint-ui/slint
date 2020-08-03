@@ -19,7 +19,7 @@ cpp_build = "0.5.5"
 [dependencies]
 const-field-offset = { path = "../../helper_crates/const-field-offset" }
 vtable = { path = "../../helper_crates/vtable" }
-corelib-macros = { path = "../corelib_macros" }
+sixtyfps-corelib-macros = { path = "../corelib_macros" }
 sixtyfps-corelib = { path = "../corelib" }
 cpp = "0.5.5"
 euclid = "0.20.11"
