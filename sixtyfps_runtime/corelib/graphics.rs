@@ -1,11 +1,60 @@
 extern crate alloc;
-use crate::abi::datastructures::{Color, RenderingPrimitive, Size};
+use crate::abi::datastructures::{Color, Size};
 use cgmath::Matrix4;
 use std::cell::RefCell;
 use std::rc::Rc;
 
 pub enum FillStyle {
     SolidColor(Color),
+}
+
+/// Each item return a RenderingPrimitive to the backend with information about what to draw.
+#[derive(PartialEq, Debug)]
+#[repr(C)]
+#[allow(missing_docs)]
+pub enum RenderingPrimitive {
+    /// There is nothing to draw
+    NoContents,
+    Rectangle {
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        color: Color,
+    },
+    BorderRectangle {
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        color: Color,
+        border_width: f32,
+        border_radius: f32,
+        border_color: Color,
+    },
+    Image {
+        x: f32,
+        y: f32,
+        source: crate::Resource,
+    },
+    Text {
+        x: f32,
+        y: f32,
+        text: crate::SharedString,
+        font_family: crate::SharedString,
+        font_pixel_size: f32,
+        color: Color,
+    },
+    Path {
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        elements: crate::PathData,
+        fill_color: Color,
+        stroke_color: Color,
+        stroke_width: f32,
+    },
 }
 
 pub trait HasRenderingPrimitive {

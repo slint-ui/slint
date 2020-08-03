@@ -5,6 +5,7 @@ use core::pin::Pin;
 use std::cell::Cell;
 use vtable::*;
 
+use crate::graphics::RenderingPrimitive;
 #[cfg(feature = "rtti")]
 use crate::rtti::{BuiltinItem, FieldInfo, FieldOffset, PropertyInfo, ValueType};
 use const_field_offset::FieldOffsets;
@@ -583,55 +584,6 @@ pub unsafe extern "C" fn sixtyfps_new_path_events(
     let coordinates =
         crate::SharedArray::from(std::slice::from_raw_parts(first_coordinate, coordinate_count));
     core::ptr::write(out_coordinates as *mut crate::SharedArray<Point>, coordinates.clone());
-}
-
-/// Each item return a RenderingPrimitive to the backend with information about what to draw.
-#[derive(PartialEq, Debug)]
-#[repr(C)]
-#[allow(missing_docs)]
-pub enum RenderingPrimitive {
-    /// There is nothing to draw
-    NoContents,
-    Rectangle {
-        x: f32,
-        y: f32,
-        width: f32,
-        height: f32,
-        color: Color,
-    },
-    BorderRectangle {
-        x: f32,
-        y: f32,
-        width: f32,
-        height: f32,
-        color: Color,
-        border_width: f32,
-        border_radius: f32,
-        border_color: Color,
-    },
-    Image {
-        x: f32,
-        y: f32,
-        source: crate::Resource,
-    },
-    Text {
-        x: f32,
-        y: f32,
-        text: crate::SharedString,
-        font_family: crate::SharedString,
-        font_pixel_size: f32,
-        color: Color,
-    },
-    Path {
-        x: f32,
-        y: f32,
-        width: f32,
-        height: f32,
-        elements: crate::PathData,
-        fill_color: Color,
-        stroke_color: Color,
-        stroke_width: f32,
-    },
 }
 
 /// The type of a MouseEvent
