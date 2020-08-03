@@ -97,11 +97,16 @@ mod cpp_ast {
         /// The list of statement instead the function.  When None,  this is just a function
         /// declaration without the definition
         pub statements: Option<Vec<String>>,
+        /// What's inside template<...> if any
+        pub template_parameters: Option<String>,
     }
 
     impl Display for Function {
         fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
             indent(f)?;
+            if let Some(tpl) = &self.template_parameters {
+                write!(f, "template<{}> ", tpl)?;
+            }
             if self.is_static {
                 write!(f, "static ")?;
             }
@@ -428,14 +433,26 @@ fn generate_component(
     for (cpp_name, property_decl) in component.root_element.borrow().property_declarations.iter() {
         let ty = if property_decl.property_type == Type::Signal {
             if property_decl.expose_in_public_api && is_root {
-                let signal_emitter: Vec<String> = vec![format!("{}.emit();", cpp_name)];
-
+                let signal_emitter = vec![format!("{}.emit();", cpp_name)];
                 component_struct.members.push((
                     Access::Public,
                     Declaration::Function(Function {
                         name: format!("emit_{}", cpp_name),
                         signature: "()".into(),
                         statements: Some(signal_emitter),
+                        ..Default::default()
+                    }),
+                ));
+                component_struct.members.push((
+                    Access::Public,
+                    Declaration::Function(Function {
+                        name: format!("on_{}", cpp_name),
+                        template_parameters: Some("typename Functor".into()),
+                        signature: "(Functor && signal_handler)".into(),
+                        statements: Some(vec![format!(
+                            "{}.set_handler(std::forward<Functor>(signal_handler));",
+                            cpp_name
+                        )]),
                         ..Default::default()
                     }),
                 ));
