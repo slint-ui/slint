@@ -1,14 +1,13 @@
 #![allow(non_upper_case_globals)]
+#![cfg_attr(not(have_qt), allow(unused))]
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 #[cfg(have_qt)]
 use cpp::cpp;
-#[cfg(have_qt)]
-use sixtyfps_corelib::abi::datastructures::Resource;
 use sixtyfps_corelib::abi::datastructures::{
     CachedRenderingData, Item, ItemConsts, ItemVTable, LayoutInfo, MouseEvent, MouseEventType, Rect,
 };
-use sixtyfps_corelib::graphics::HighLevelRenderingPrimitive;
+use sixtyfps_corelib::graphics::{HighLevelRenderingPrimitive, Resource};
 #[cfg(feature = "rtti")]
 use sixtyfps_corelib::rtti::*;
 use sixtyfps_corelib::{ItemVTable_static, Property, SharedString, Signal};
