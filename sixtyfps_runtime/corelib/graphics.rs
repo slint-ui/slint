@@ -1,5 +1,4 @@
 extern crate alloc;
-use crate::abi::datastructures::Color;
 use cgmath::Matrix4;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -28,6 +27,90 @@ mod ffi {
     struct Point {
         x: f32,
         y: f32,
+    }
+}
+
+/// RGBA color
+#[derive(Copy, Clone, PartialEq, Debug, Default)]
+#[repr(C)]
+pub struct Color {
+    red: u8,
+    green: u8,
+    blue: u8,
+    alpha: u8,
+}
+
+impl Color {
+    /// Construct a color from an integer encoded as `0xAARRGGBB`
+    pub const fn from_argb_encoded(encoded: u32) -> Color {
+        Color {
+            red: (encoded >> 16) as u8,
+            green: (encoded >> 8) as u8,
+            blue: encoded as u8,
+            alpha: (encoded >> 24) as u8,
+        }
+    }
+
+    /// Construct a color from its RGBA components as u8
+    pub const fn from_rgba(red: u8, green: u8, blue: u8, alpha: u8) -> Color {
+        Color { red, green, blue, alpha }
+    }
+    /// Construct a color from its RGB components as u8
+    pub const fn from_rgb(red: u8, green: u8, blue: u8) -> Color {
+        Color::from_rgba(red, green, blue, 0xff)
+    }
+
+    /// Returns `(red, green, blue, alpha)` encoded as f32
+    pub fn as_rgba_f32(&self) -> (f32, f32, f32, f32) {
+        (
+            (self.red as f32) / 255.0,
+            (self.green as f32) / 255.0,
+            (self.blue as f32) / 255.0,
+            (self.alpha as f32) / 255.0,
+        )
+    }
+
+    /// Returns `(red, green, blue, alpha)` encoded as u8
+    pub fn as_rgba_u8(&self) -> (u8, u8, u8, u8) {
+        (self.red, self.green, self.blue, self.alpha)
+    }
+
+    /// Returns `(alpha, red, green, blue)` encoded as u32
+    pub fn as_argb_encoded(&self) -> u32 {
+        ((self.red as u32) << 16)
+            | ((self.green as u32) << 8)
+            | (self.blue as u32)
+            | ((self.alpha as u32) << 24)
+    }
+
+    /// A constant for the black color
+    pub const BLACK: Color = Color::from_rgb(0, 0, 0);
+    /// A constant for the white color
+    pub const WHITE: Color = Color::from_rgb(255, 255, 255);
+    /// A constant for the transparent color
+    pub const TRANSPARENT: Color = Color::from_rgba(0, 0, 0, 0);
+}
+
+impl From<u32> for Color {
+    fn from(encoded: u32) -> Self {
+        Color::from_argb_encoded(encoded)
+    }
+}
+
+impl crate::abi::properties::InterpolatedPropertyValue for Color {
+    fn interpolate(self, target_value: Self, t: f32) -> Self {
+        Self {
+            red: self.red.interpolate(target_value.red, t),
+            green: self.green.interpolate(target_value.green, t),
+            blue: self.blue.interpolate(target_value.blue, t),
+            alpha: self.alpha.interpolate(target_value.alpha, t),
+        }
+    }
+}
+
+impl std::fmt::Display for Color {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "argb({}, {}, {}, {})", self.alpha, self.red, self.green, self.blue)
     }
 }
 

@@ -64,7 +64,7 @@ mod single_linked_list_pin {
 use core::cell::{Cell, RefCell, UnsafeCell};
 use core::{marker::PhantomPinned, pin::Pin};
 
-use crate::abi::datastructures::Color;
+use crate::graphics::Color;
 use crate::items::PropertyAnimation;
 
 /// The return value of a binding

@@ -54,7 +54,7 @@ pub use abi::properties::Property;
 pub use abi::signals::Signal;
 
 #[doc(inline)]
-pub use abi::datastructures::Color;
+pub use graphics::Color;
 
 #[doc(inline)]
 pub use abi::datastructures::PathData;

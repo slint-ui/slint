@@ -7,10 +7,11 @@ use lyon::tessellation::{
     FillAttributes, FillOptions, FillTessellator, StrokeAttributes, StrokeOptions,
     StrokeTessellator,
 };
-use sixtyfps_corelib::abi::datastructures::{Color, ComponentWindow, ComponentWindowOpaque};
+use sixtyfps_corelib::abi::datastructures::{ComponentWindow, ComponentWindowOpaque};
 use sixtyfps_corelib::graphics::{
-    FillStyle, Frame as GraphicsFrame, GraphicsBackend, GraphicsWindow, HasRenderingPrimitive,
-    HighLevelRenderingPrimitive, Point, Rect, RenderingPrimitivesBuilder, Resource, Size,
+    Color, FillStyle, Frame as GraphicsFrame, GraphicsBackend, GraphicsWindow,
+    HasRenderingPrimitive, HighLevelRenderingPrimitive, Point, Rect, RenderingPrimitivesBuilder,
+    Resource, Size,
 };
 use smallvec::{smallvec, SmallVec};
 use std::cell::RefCell;
