@@ -75,7 +75,7 @@ For fields whose type is a function:
 
 For the other fields
  - They are considered assotiated const of the MyTraitConsts
- - If they are annotated with the `#[offset(FieldType)]` attribute, the type of the field must be `usize`,
+ - If they are annotated with the `#[field_offset(FieldType)]` attribute, the type of the field must be `usize`,
    and the associated const in the trait will be of type `FieldOffset<Self, FieldType>`, and accessor to
    the field reference and reference mut will be added to the Target of VRef and VRefMut.
 
@@ -84,10 +84,72 @@ The VRef/VRefMut/VBox structure will dereference to a type which has the followi
  - For each `#[field_offset] attributes, a corresponding getter returns a reference
    to that field, and mutable accessor that ends with `_mut` returns a mutable reference.
  - `as_ptr` returns a `*mut u8`
- - `get_type` Return a reference to the VTable so one can access the associated consts.
+ - `get_vtable` Return a reference to the VTable so one can access the associated consts.
 
 The VTable struct gets a `new` associated function that creates a vtable for any type
 that implements the generated traits.
+
+## Example
+
+
+```
+use vtable::*;
+// we are going to declare a VTable structure for an Animal trait
+#[vtable]
+#[repr(C)]
+struct AnimalVTable {
+    /// Pointer to a function that make noise.
+    /// `unsafe` and `extern "C"` will automatically be added
+    make_noise: fn(VRef<AnimalVTable>, i32) -> i32,
+
+    /// if there is a 'drop' member, it is considered as the destrutor
+    drop: fn(VRefMut<AnimalVTable>),
+
+    /// Associated constant.
+    LEG_NUMBER: i8,
+
+    /// There exist a `bool` field in the structure and this is an offset
+    #[field_offset(bool)]
+    IS_HUNGRY: usize,
+
+}
+
+#[repr(C)]
+struct Dog{ strenght: i32, is_hungry: bool };
+
+// The #[vtable] macro created the Animal Trait
+impl Animal for Dog {
+    fn make_noise(&self, intensity: i32) -> i32 {
+        println!("Wof!");
+        return self.strenght * intensity;
+    }
+}
+
+// The #[vtable] macro created the AnimalConsts Trait
+impl AnimalConsts for Dog {
+    const LEG_NUMBER: i8 = 4;
+    const IS_HUNGRY: vtable::FieldOffset<Self, bool> = unsafe { vtable::FieldOffset::new_from_offset(4) };
+}
+
+
+// The #[vtable] macro also exposed a macro to create a vtable
+AnimalVTable_static!(static DOG_VT for Dog);
+
+// with that, it is possible to instantiate a vtable::VRefMut
+let mut dog = Dog { strenght: 100, is_hungry: false };
+{
+    let mut animal_vref = VRefMut::<AnimalVTable>::new(&mut dog);
+
+    // access to the vtable through the get_vtable() function
+    assert_eq!(animal_vref.get_vtable().LEG_NUMBER, 4);
+    // functions are also added for the #[field_offset] member
+    assert_eq!(*animal_vref.IS_HUNGRY(), false);
+    *animal_vref.IS_HUNGRY_mut() = true;
+}
+assert_eq!(dog.is_hungry, true);
+```
+
+
 */
 #[proc_macro_attribute]
 pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -462,7 +524,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
             let const_type = if let Some(o) = field
                 .attrs
                 .iter()
-                .position(|a| a.path.get_ident().map(|a| a == "offset").unwrap_or(false))
+                .position(|a| a.path.get_ident().map(|a| a == "field_offset").unwrap_or(false))
             {
                 let a = field.attrs.remove(o);
                 let member_type = match parse2::<Type>(a.tokens) {
@@ -475,7 +537,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     ty @ _ => {
                         return Error::new(
                             ty.span(),
-                            "The type of an #[offset] member in the vtable must be 'usize'",
+                            "The type of an #[field_offset] member in the vtable must be 'usize'",
                         )
                         .to_compile_error()
                         .into()

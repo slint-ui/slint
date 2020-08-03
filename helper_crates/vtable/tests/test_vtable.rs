@@ -12,7 +12,7 @@ struct HelloVTable {
 
     CONSTANT: usize,
 
-    #[offset(u32)]
+    #[field_offset(u32)]
     SOME_OFFSET: usize,
 }
 

@@ -118,7 +118,7 @@ pub struct ItemVTable {
     /// offset in bytes fromthe *const ItemImpl.
     /// isize::MAX  means None
     #[allow(non_upper_case_globals)]
-    #[offset(CachedRenderingData)]
+    #[field_offset(CachedRenderingData)]
     pub cached_rendering_data_offset: usize,
 
     /// Return the rendering primitive used to display this item.
