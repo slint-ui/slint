@@ -1,5 +1,5 @@
 [package]
-name = "corelib_macro"
+name = "corelib-macros"
 version = "0.1.0"
 authors = ["Sixty FPS <info@sixtyfps.io>"]
 edition = "2018"

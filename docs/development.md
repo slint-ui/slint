@@ -23,7 +23,7 @@ These tests allow to test the proper error conditions.
 The library crates that are used at runtime.
 
  - **`corelib`** is the main library. It is meant to be used for all frontends. Ideally it should
-   be kept as small as possible. **`corelib_macro`** contains some procedural macro used by corelib.
+   be kept as small as possible. **`corelib-macros`** contains some procedural macro used by corelib.
  - **`rendering_backends`** contains the different backend for the different platform, separated from
    corelib.  Currently there is just the gl backend
  - **`interpreter`** is the library used by the more dynamic languages backend to compile and

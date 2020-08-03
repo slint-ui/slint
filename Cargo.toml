@@ -1,7 +1,7 @@
 [workspace]
 members = [
     'sixtyfps_runtime/corelib',
-    'sixtyfps_runtime/corelib_macro',
+    'sixtyfps_runtime/corelib_macros',
     'sixtyfps_runtime/interpreter',
     'sixtyfps_runtime/rendering_backends/gl',
     'sixtyfps_runtime/qt_style',

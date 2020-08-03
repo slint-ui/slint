@@ -1,7 +1,7 @@
 #![allow(non_upper_case_globals)]
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
-use corelib_macro::*;
+use corelib_macros::*;
 #[cfg(have_qt)]
 use cpp::cpp;
 #[cfg(have_qt)]
