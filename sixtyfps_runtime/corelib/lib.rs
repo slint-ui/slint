@@ -30,15 +30,15 @@ pub mod abi {
     pub mod model;
     pub mod sharedarray;
     pub mod signals;
-    pub mod string;
     pub mod tests;
 }
 
 pub mod items;
 pub mod properties;
+pub mod string;
 
 #[doc(inline)]
-pub use abi::string::SharedString;
+pub use string::SharedString;
 
 #[doc(inline)]
 pub use abi::sharedarray::SharedArray;
@@ -79,4 +79,5 @@ pub fn use_modules() -> usize {
         + item_tree::ffi::sixtyfps_visit_item_tree as usize
         + graphics::ffi::sixtyfps_new_path_elements as usize
         + properties::ffi::sixtyfps_property_init as usize
+        + string::ffi::sixtyfps_shared_string_bytes as usize
 }

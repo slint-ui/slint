@@ -1,4 +1,7 @@
 //! module for the SharedString and related things
+
+#![allow(unsafe_code)]
+
 use core::mem::MaybeUninit;
 use std::{fmt::Debug, fmt::Display, ops::Deref};
 use triomphe::{Arc, HeaderWithLength, ThinArc};
@@ -249,54 +252,63 @@ fn simple_test() {
     );
 }
 
-/// for cbingen.
-#[allow(non_camel_case_types)]
-type c_char = u8;
+pub(crate) mod ffi {
+    use super::*;
 
-#[no_mangle]
-/// Returns a nul-reminated pointer for this string.
-/// The returned value is owned by the string, and should not be used after any
-/// mutable function have been called on the string, and must not be free'ed.
-pub extern "C" fn sixtyfps_shared_string_bytes(ss: &SharedString) -> *const c_char {
-    ss.as_ptr()
-}
+    /// for cbingen.
+    #[allow(non_camel_case_types)]
+    type c_char = u8;
 
-#[no_mangle]
-/// Destroy the shared string
-pub unsafe extern "C" fn sixtyfps_shared_string_drop(ss: *const SharedString) {
-    core::ptr::read(ss);
-}
+    #[no_mangle]
+    /// Returns a nul-reminated pointer for this string.
+    /// The returned value is owned by the string, and should not be used after any
+    /// mutable function have been called on the string, and must not be free'ed.
+    pub extern "C" fn sixtyfps_shared_string_bytes(ss: &SharedString) -> *const c_char {
+        ss.as_ptr()
+    }
 
-#[no_mangle]
-/// Increment the reference count of the string.
-/// The resulting structure must be passed to sixtyfps_shared_string_drop
-pub unsafe extern "C" fn sixtyfps_shared_string_clone(out: *mut SharedString, ss: &SharedString) {
-    core::ptr::write(out, ss.clone())
-}
+    #[no_mangle]
+    /// Destroy the shared string
+    pub unsafe extern "C" fn sixtyfps_shared_string_drop(ss: *const SharedString) {
+        core::ptr::read(ss);
+    }
 
-#[no_mangle]
-/// Safety: bytes must be a valid utf-8 string of size len wihout null inside.
-/// The resulting structure must be passed to sixtyfps_shared_string_drop
-pub unsafe extern "C" fn sixtyfps_shared_string_from_bytes(
-    out: *mut SharedString,
-    bytes: *const c_char,
-    len: usize,
-) {
-    let str = core::str::from_utf8_unchecked(core::slice::from_raw_parts(bytes, len));
-    core::ptr::write(out, SharedString::from(str));
-}
+    #[no_mangle]
+    /// Increment the reference count of the string.
+    /// The resulting structure must be passed to sixtyfps_shared_string_drop
+    pub unsafe extern "C" fn sixtyfps_shared_string_clone(
+        out: *mut SharedString,
+        ss: &SharedString,
+    ) {
+        core::ptr::write(out, ss.clone())
+    }
 
-/// Create a string from a number.
-/// The resulting structure must be passed to sixtyfps_shared_string_drop
-#[no_mangle]
-pub unsafe extern "C" fn sixtyfps_shared_string_from_number(out: *mut SharedString, n: f64) {
-    // TODO: implement Write for SharedString so this can be done without alocation
-    let str = format!("{}", n);
-    core::ptr::write(out, SharedString::from(str.as_str()));
+    #[no_mangle]
+    /// Safety: bytes must be a valid utf-8 string of size len wihout null inside.
+    /// The resulting structure must be passed to sixtyfps_shared_string_drop
+    pub unsafe extern "C" fn sixtyfps_shared_string_from_bytes(
+        out: *mut SharedString,
+        bytes: *const c_char,
+        len: usize,
+    ) {
+        let str = core::str::from_utf8_unchecked(core::slice::from_raw_parts(bytes, len));
+        core::ptr::write(out, SharedString::from(str));
+    }
+
+    /// Create a string from a number.
+    /// The resulting structure must be passed to sixtyfps_shared_string_drop
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_shared_string_from_number(out: *mut SharedString, n: f64) {
+        // TODO: implement Write for SharedString so this can be done without alocation
+        let str = format!("{}", n);
+        core::ptr::write(out, SharedString::from(str.as_str()));
+    }
 }
 
 #[test]
 fn test_sixtyfps_shared_string_from_number() {
+    use ffi::*;
+
     unsafe {
         let mut s = core::mem::MaybeUninit::uninit();
         sixtyfps_shared_string_from_number(s.as_mut_ptr(), 45.);

@@ -61,7 +61,7 @@ fn main() {
     let crate_dir = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").unwrap());
     cbindgen::Builder::new()
         .with_config(config.clone())
-        .with_src(crate_dir.join("abi/string.rs"))
+        .with_src(crate_dir.join("string.rs"))
         .with_src(crate_dir.join("slice.rs"))
         .with_after_include("namespace sixtyfps { struct SharedString; }")
         .generate()
