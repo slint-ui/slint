@@ -1,7 +1,8 @@
 use cgmath::{Matrix4, SquareMatrix, Vector3};
-use sixtyfps_corelib::abi::datastructures::{Color, PathData, PathElement, PathLineTo, Resource};
+use sixtyfps_corelib::abi::datastructures::{Color, PathData, PathElement, PathLineTo};
 use sixtyfps_corelib::graphics::{
-    Frame, GraphicsBackend, HighLevelRenderingPrimitive, RenderingCache, RenderingPrimitivesBuilder,
+    Frame, GraphicsBackend, HighLevelRenderingPrimitive, RenderingCache,
+    RenderingPrimitivesBuilder, Resource,
 };
 use sixtyfps_corelib::SharedArray;
 

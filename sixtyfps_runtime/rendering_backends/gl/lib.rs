@@ -8,11 +8,11 @@ use lyon::tessellation::{
     StrokeTessellator,
 };
 use sixtyfps_corelib::abi::datastructures::{
-    Color, ComponentWindow, ComponentWindowOpaque, Point, Rect, Resource, Size,
+    Color, ComponentWindow, ComponentWindowOpaque, Point, Rect, Size,
 };
 use sixtyfps_corelib::graphics::{
     FillStyle, Frame as GraphicsFrame, GraphicsBackend, GraphicsWindow, HasRenderingPrimitive,
-    HighLevelRenderingPrimitive, RenderingPrimitivesBuilder,
+    HighLevelRenderingPrimitive, RenderingPrimitivesBuilder, Resource,
 };
 use smallvec::{smallvec, SmallVec};
 use std::cell::RefCell;

@@ -129,6 +129,7 @@ fn main() {
         cbindgen::Builder::new()
             .with_config(special_config)
             .with_src(crate_dir.join("abi/datastructures.rs"))
+            .with_src(crate_dir.join("graphics.rs"))
             .generate()
             .expect("Unable to generate bindings")
             .write_to_file(include_dir.join(internal_header));

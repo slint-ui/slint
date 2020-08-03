@@ -8,6 +8,30 @@ pub enum FillStyle {
     SolidColor(Color),
 }
 
+/// A resource is a reference to binary data, for example images. They can be accessible on the file
+/// system or embedded in the resulting binary. Or they might be URLs to a web server and a downloaded
+/// is necessary before they can be used.
+#[derive(Clone, PartialEq, Debug)]
+#[repr(u8)]
+pub enum Resource {
+    /// A resource that does not represent any data.
+    None,
+    /// A resource that points to a file in the file system
+    AbsoluteFilePath(crate::SharedString),
+    /// A resource that is embedded in the program and accessible via pointer
+    /// The format is the same as in a file
+    EmbeddedData(super::abi::slice::Slice<'static, u8>),
+    /// Raw ARGB
+    #[allow(missing_docs)]
+    EmbeddedRgbaImage { width: u32, height: u32, data: super::abi::sharedarray::SharedArray<u8> },
+}
+
+impl Default for Resource {
+    fn default() -> Self {
+        Resource::None
+    }
+}
+
 /// Each item return a RenderingPrimitive to the backend with information about what to draw.
 #[derive(PartialEq, Debug)]
 #[repr(C)]

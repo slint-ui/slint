@@ -1,8 +1,8 @@
 use core::cell::RefCell;
 use neon::prelude::*;
 use sixtyfps_compilerlib::typeregister::Type;
-use sixtyfps_corelib::abi::datastructures::{Resource, WindowProperties};
-use sixtyfps_corelib::ComponentRefPin;
+use sixtyfps_corelib::abi::datastructures::WindowProperties;
+use sixtyfps_corelib::{ComponentRefPin, Resource};
 
 use std::rc::Rc;
 

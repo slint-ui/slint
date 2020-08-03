@@ -45,7 +45,7 @@ pub use abi::string::SharedString;
 pub use abi::sharedarray::SharedArray;
 
 #[doc(inline)]
-pub use abi::datastructures::Resource;
+pub use graphics::Resource;
 
 #[doc(inline)]
 pub use abi::properties::Property;
