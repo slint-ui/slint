@@ -133,6 +133,7 @@ fn main() {
             .with_src(crate_dir.join("animations.rs"))
             .with_src(crate_dir.join("input.rs"))
             .with_src(crate_dir.join("item_tree.rs"))
+            .with_src(crate_dir.join("item_rendering.rs"))
             .generate()
             .expect("Unable to generate bindings")
             .write_to_file(include_dir.join(internal_header));
@@ -165,6 +166,7 @@ fn main() {
         .with_src(crate_dir.join("animations.rs"))
         .with_src(crate_dir.join("input.rs"))
         .with_src(crate_dir.join("item_tree.rs"))
+        .with_src(crate_dir.join("item_rendering.rs"))
         .with_src(crate_dir.join("items.rs"))
         .with_src(crate_dir.join("abi/model.rs"))
         .with_src(crate_dir.join("abi/tests.rs"))

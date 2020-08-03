@@ -4,9 +4,10 @@ use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 #[cfg(have_qt)]
 use cpp::cpp;
-use sixtyfps_corelib::abi::datastructures::{CachedRenderingData, Item, ItemConsts, ItemVTable};
+use sixtyfps_corelib::abi::datastructures::{Item, ItemConsts, ItemVTable};
 use sixtyfps_corelib::graphics::{HighLevelRenderingPrimitive, Rect, Resource};
 use sixtyfps_corelib::input::{MouseEvent, MouseEventType};
+use sixtyfps_corelib::item_rendering::CachedRenderingData;
 use sixtyfps_corelib::layout::LayoutInfo;
 #[cfg(feature = "rtti")]
 use sixtyfps_corelib::rtti::*;

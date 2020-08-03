@@ -1,11 +1,11 @@
 //! This module contains the basic datastructures that are exposed to the C API
 
 use core::pin::Pin;
-use std::cell::Cell;
 use vtable::*;
 
 use crate::graphics::{HighLevelRenderingPrimitive, Rect};
 use crate::input::MouseEvent;
+use crate::item_rendering::CachedRenderingData;
 use crate::item_tree::ItemVisitorVTable;
 use crate::layout::LayoutInfo;
 
@@ -32,32 +32,6 @@ pub struct ComponentVTable {
 /// Alias for `vtable::VRef<ComponentVTable>` which represent a pointer to a `dyn Component` with
 /// the associated vtable
 pub type ComponentRef<'a> = vtable::VRef<'a, ComponentVTable>;
-
-/// This structure must be present in items that are Rendered and contains information.
-/// Used by the backend.
-#[derive(Default, Debug)]
-#[repr(C)]
-pub struct CachedRenderingData {
-    /// Used and modified by the backend, should be initialized to 0 by the user code
-    pub(crate) cache_index: Cell<usize>,
-    /// Set to false initially and when changes happen that require updating the cache
-    pub(crate) cache_ok: Cell<bool>,
-}
-
-impl CachedRenderingData {
-    pub(crate) fn low_level_rendering_primitive<
-        'a,
-        GraphicsBackend: crate::graphics::GraphicsBackend,
-    >(
-        &self,
-        cache: &'a crate::graphics::RenderingCache<GraphicsBackend>,
-    ) -> Option<&'a GraphicsBackend::LowLevelRenderingPrimitive> {
-        if !self.cache_ok.get() {
-            return None;
-        }
-        Some(cache.entry_at(self.cache_index.get()))
-    }
-}
 
 /// The item tree is an array of ItemTreeNode representing a static tree of items
 /// within a component.

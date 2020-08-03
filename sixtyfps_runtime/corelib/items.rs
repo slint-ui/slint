@@ -16,9 +16,10 @@ When adding an item or a property, it needs to be kept in sync with different pl
 #![allow(non_upper_case_globals)]
 #![allow(missing_docs)] // because documenting each property of items is redundent
 
-use super::abi::datastructures::{CachedRenderingData, Item, ItemConsts};
+use super::abi::datastructures::{Item, ItemConsts};
 use super::graphics::{Color, HighLevelRenderingPrimitive, PathData, Rect, Resource};
 use super::input::{MouseEvent, MouseEventType};
+use super::item_rendering::CachedRenderingData;
 use super::layout::LayoutInfo;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;

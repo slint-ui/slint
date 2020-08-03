@@ -63,7 +63,7 @@ pub use graphics::PathData;
 pub type ComponentRefPin<'a> = core::pin::Pin<abi::datastructures::ComponentRef<'a>>;
 
 pub mod eventloop;
-mod item_rendering;
+pub mod item_rendering;
 
 /// One need to use at least one function in each module in order to get them
 /// exported in the final binary.

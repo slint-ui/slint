@@ -3,6 +3,30 @@ use super::graphics::{
     Frame, GraphicsBackend, HasRenderingPrimitive, RenderingCache, RenderingPrimitivesBuilder,
 };
 use cgmath::{Matrix4, SquareMatrix, Vector3};
+use std::cell::Cell;
+
+/// This structure must be present in items that are Rendered and contains information.
+/// Used by the backend.
+#[derive(Default, Debug)]
+#[repr(C)]
+pub struct CachedRenderingData {
+    /// Used and modified by the backend, should be initialized to 0 by the user code
+    pub(crate) cache_index: Cell<usize>,
+    /// Set to false initially and when changes happen that require updating the cache
+    pub(crate) cache_ok: Cell<bool>,
+}
+
+impl CachedRenderingData {
+    pub(crate) fn low_level_rendering_primitive<'a, Backend: GraphicsBackend>(
+        &self,
+        cache: &'a RenderingCache<Backend>,
+    ) -> Option<&'a Backend::LowLevelRenderingPrimitive> {
+        if !self.cache_ok.get() {
+            return None;
+        }
+        Some(cache.entry_at(self.cache_index.get()))
+    }
+}
 
 pub(crate) fn update_item_rendering_data<Backend: GraphicsBackend>(
     item: core::pin::Pin<ItemRef>,
