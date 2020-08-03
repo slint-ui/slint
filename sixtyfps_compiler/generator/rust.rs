@@ -44,9 +44,23 @@ pub fn generate(component: &Rc<Component>, diag: &mut BuildDiagnostics) -> Optio
     let compo = generate_component(component, diag)?;
     let compo_id = component_id(component);
     let compo_module = quote::format_ident!("sixtyfps_generated_{}", compo_id);
+    /*let (version_major, version_minor, version_patch): (usize, usize, usize) = (
+        env!("CARGO_PKG_VERSION_MAJOR").parse().unwrap(),
+        env!("CARGO_PKG_VERSION_MINOR").parse().unwrap(),
+        env!("CARGO_PKG_VERSION_PATCH").parse().unwrap(),
+    );*/
+    let version_check = quote::format_ident!(
+        "VersionCheck_{}_{}_{}",
+        env!("CARGO_PKG_VERSION_MAJOR"),
+        env!("CARGO_PKG_VERSION_MINOR"),
+        env!("CARGO_PKG_VERSION_PATCH"),
+    );
     Some(quote! {
         #[allow(non_snake_case)]
-        mod #compo_module { #compo }
+        mod #compo_module {
+             #compo
+             const _THE_SAME_VERSION_MUST_BE_USED_FOR_THE_COMPILER_AND_THE_RUNTIME : sixtyfps::#version_check = sixtyfps::#version_check;
+        }
         pub use #compo_module::#compo_id;
     })
 }

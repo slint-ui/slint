@@ -158,4 +158,6 @@ Flickable::~Flickable()
     sixtyfps_flickable_data_free(&data);
 }
 
+template <int Major, int Minor, int Patch> struct VersionCheckHelper {};
+
 } // namespace sixtyfps

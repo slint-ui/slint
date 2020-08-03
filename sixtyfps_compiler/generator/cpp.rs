@@ -408,6 +408,16 @@ pub fn generate(
 
     generate_component(&mut file, component, diag, None);
 
+    file.declarations.push(Declaration::Var(Var{
+        ty: format!(
+            "constexpr sixtyfps::VersionCheckHelper<{}, {}, {}>",
+            env!("CARGO_PKG_VERSION_MAJOR"),
+            env!("CARGO_PKG_VERSION_MINOR"),
+            env!("CARGO_PKG_VERSION_PATCH")),
+        name: "THE_SAME_VERSION_MUST_BE_USED_FOR_THE_COMPILER_AND_THE_RUNTIME".into(),
+        init: Some("sixtyfps::VersionCheckHelper<int(sixtyfps::VersionCheck::Major), int(sixtyfps::VersionCheck::Minor), int(sixtyfps::VersionCheck::Patch)>()".into())
+    }));
+
     if diag.has_error() {
         None
     } else {

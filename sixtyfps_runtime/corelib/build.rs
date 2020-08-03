@@ -181,6 +181,12 @@ fn main() {
         .with_include("sixtyfps_resource.h")
         .with_include("sixtyfps_color.h")
         .with_include("sixtyfps_pathdata.h")
+        .with_after_include(format!(
+            "namespace sixtyfps {{ enum class VersionCheck {{ Major = {}, Minor = {}, Patch = {} }}; }}",
+            env!("CARGO_PKG_VERSION_MAJOR"),
+            env!("CARGO_PKG_VERSION_MINOR"),
+            env!("CARGO_PKG_VERSION_PATCH")
+        ))
         .generate()
         .expect("Unable to generate bindings")
         .write_to_file(include_dir.join("sixtyfps_internal.h"));
