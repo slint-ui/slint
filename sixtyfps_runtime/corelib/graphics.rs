@@ -1,8 +1,35 @@
 extern crate alloc;
-use crate::abi::datastructures::{Color, Size};
+use crate::abi::datastructures::Color;
 use cgmath::Matrix4;
 use std::cell::RefCell;
 use std::rc::Rc;
+
+/// 2D Rectangle
+pub type Rect = euclid::default::Rect<f32>;
+/// 2D Point
+pub type Point = euclid::default::Point2D<f32>;
+/// 2D Size
+pub type Size = euclid::default::Size2D<f32>;
+
+mod ffi {
+    /// Expand Rect so that cbindgen can see it. ( is in fact euclid::default::Rect<f32>)
+    #[cfg(cbindgen)]
+    #[repr(C)]
+    struct Rect {
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+    }
+
+    /// Expand Point so that cbindgen can see it. ( is in fact euclid::default::PointD2<f32>)
+    #[cfg(cbindgen)]
+    #[repr(C)]
+    struct Point {
+        x: f32,
+        y: f32,
+    }
+}
 
 pub enum FillStyle {
     SolidColor(Color),

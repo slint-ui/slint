@@ -5,36 +5,11 @@ use core::pin::Pin;
 use std::cell::Cell;
 use vtable::*;
 
-use crate::graphics::HighLevelRenderingPrimitive;
+use crate::graphics::{HighLevelRenderingPrimitive, Point, Rect, Size};
 #[cfg(feature = "rtti")]
 use crate::rtti::{BuiltinItem, FieldInfo, FieldOffset, PropertyInfo, ValueType};
 use const_field_offset::FieldOffsets;
 use sixtyfps_corelib_macros::*;
-
-/// 2D Rectangle
-pub type Rect = euclid::default::Rect<f32>;
-/// 2D Point
-pub type Point = euclid::default::Point2D<f32>;
-/// 2D Size
-pub type Size = euclid::default::Size2D<f32>;
-
-/// Expand Rect so that cbindgen can see it. ( is in fact euclid::default::Rect<f32>)
-#[cfg(cbindgen)]
-#[repr(C)]
-struct Rect {
-    x: f32,
-    y: f32,
-    width: f32,
-    height: f32,
-}
-
-/// Expand Point so that cbindgen can see it. ( is in fact euclid::default::PointD2<f32>)
-#[cfg(cbindgen)]
-#[repr(C)]
-struct Point {
-    x: f32,
-    y: f32,
-}
 
 /// A Component is representing an unit that is allocated together
 #[vtable]
