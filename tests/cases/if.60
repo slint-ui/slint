@@ -3,7 +3,7 @@ TestCase := Rectangle {
     width: 100px;
     height: 100px;
     color: white;
-    property<int32> top_level: 42;
+    property<int> top_level: 42;
 
     property<bool> cond1;
     property<bool> cond2;
@@ -11,7 +11,7 @@ TestCase := Rectangle {
 
     if (cond1) : Rectangle {
         color: root.color;
-        property<int32> xx: root.top_level;
+        property<int> xx: root.top_level;
     }
 
     if (cond1 ? cond2 : cond3) : Rectangle {

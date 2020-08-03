@@ -4,7 +4,7 @@ Hello := Rectangle {
         bbb := Text{ text: "bbb"; }
     }
 
-    property<int32> count: 5;
+    property<int> count: 5;
 
     for foo[idx] in count: Rectangle {
         x: idx * 1px;
@@ -33,7 +33,7 @@ Hello := Rectangle {
         x: plop * 1px;
         Rectangle {
             color: plop;
-//                ^error{Cannot convert float32 to color}
+//                ^error{Cannot convert float to color}
         }
     }
 
@@ -47,13 +47,13 @@ Hello := Rectangle {
         text: pp.b;
         y: pp.b;
 //        ^error{Cannot convert string to length}
-        property<int32> ggg: pp;
-//                          ^error{Cannot convert \{ a: length,b: string,\} to int32}
+        property<int> ggg: pp;
+//                        ^error{Cannot convert \{ a: length,b: string,\} to int}
     }
 
 
     for pp[idx] in [{a: 1, b: "P"},{a: 2}]: Text {
-//                 ^error{Cannot convert \{ a: float32,\} to \{ a: float32,b: string,\}}
+//                 ^error{Cannot convert \{ a: float,\} to \{ a: float,b: string,\}}
         text: pp.b;
     }
 

@@ -75,10 +75,10 @@ Properties are declared like so:
 ```60
 Example := Rectangle {
     // declare a property of type int
-    property<int32> my_property;
+    property<int> my_property;
 
     // declare a property with a default value
-    property<int32> my_second_property: 42;
+    property<int> my_second_property: 42;
 }
 ```
 
@@ -89,7 +89,7 @@ re-evaluated if any of the accessed properties change.
 ```60
 Example := Rectangle {
     // declare a property of type int
-    property<int32> my_property;
+    property<int> my_property;
 
     // This access the property
     width: root.my_property * 20px;
@@ -102,14 +102,14 @@ If someone changes `my_property`, the width will be updated automatically.
 
 ## Types
 
- - `int32` -> TODO: rename to `int`
- - `float32` -> TODO: rename to `float`
-   `int32` and `float32` are the types for the numbers, they correspond to the equivalent in the target language
+ - `int`
+ - `float`:
+   `int` and `float` are the types for the numbers, they correspond to the equivalent in the target language
     A number can end with '%', so for example `30%` is the same as `0.30`
  - `string`: Represent a utf8 encoded string. Strings are reference counted.
  - `color`: color literal follow more or less the CSS specs
  - `length`: the type for the x, y, width and height coordinate. This is an amount of physical pixels. To convert from
-an integer to a length unit, one can simply multiply by `1px`.  Or to convert from a length to a float32, one can divide
+an integer to a length unit, one can simply multiply by `1px`.  Or to convert from a length to a float, one can divide
 by `1px`.
  - `logical_length`:  correspond to literal like `1lx`, `1pt`, `1in`, `1mm`, or `1cm`.
 It can be converted to and from length provided the binding is run in a context where there
@@ -292,7 +292,7 @@ By default, everything declared in a .60 file is private, but it can be made acc
 keyword:
 
 ```60
-ButtonHelper := Rectangle { 
+ButtonHelper := Rectangle {
     // ...
 }
 

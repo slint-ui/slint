@@ -1,8 +1,8 @@
 TestCase := Rectangle {
     property<bool> condition;
-    property<int32> test_value: condition ? 1 : 2;
+    property<int> test_value: condition ? 1 : 2;
     property<bool> condition2;
-    property<int32> test_value2: condition ? condition2 ? 1 : 2 : condition2 ? 3 : 4;
+    property<int> test_value2: condition ? condition2 ? 1 : 2 : condition2 ? 3 : 4;
 
 }
 /*

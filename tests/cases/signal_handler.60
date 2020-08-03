@@ -2,7 +2,7 @@ TestCase := Rectangle {
     signal test_signal;
     signal test_signal2;
     signal test_signal3;
-    property<int32> signal_emission_count;
+    property<int> signal_emission_count;
     test_signal => { signal_emission_count += 1; }
     test_signal2 => {  signal_emission_count = 88; root.test_signal3(); }
 }

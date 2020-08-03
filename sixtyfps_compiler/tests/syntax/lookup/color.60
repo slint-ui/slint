@@ -28,6 +28,6 @@ X := Rectangle {
 //                         ^error{Invalid color literal}
 
         property<color> b: 123;
-//                        ^error{Cannot convert float32 to color}
+//                        ^error{Cannot convert float to color}
     }
 }

@@ -81,7 +81,7 @@ Hello := Rectangle {
     signal foobar;
     signal plus_clicked;
     signal minus_clicked;
-    property<int32> counter : 3;
+    property<int> counter : 3;
 
     color: white;
 

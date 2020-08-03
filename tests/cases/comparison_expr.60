@@ -1,5 +1,5 @@
 TestCase := Rectangle {
-    property<int32> hello: 44;
+    property<int> hello: 44;
 
     property<bool> t1: hello == 44 || hello == 45;
     property<bool> t2: hello > 44 && hello < 46;

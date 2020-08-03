@@ -92,7 +92,7 @@ Hello := Rectangle {
         clicked => { counter += 1 }
         button_text: "+";
     }
-    property<int32> counter;
+    property<int> counter;
     counter_label := Text { x: 100px; y: 300px; text: counter; color: black; }
     ButtonRectangle {
         color: #888;

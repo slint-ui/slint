@@ -93,7 +93,7 @@ Hello := Flickable {
         source: img!"../graphicstest/logo.png";
     }
 
-    property<int32> counter;
+    property<int> counter;
 
     Rectangle {
         x: 50px;

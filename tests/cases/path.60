@@ -1,6 +1,6 @@
 TestCase := Path {
-    property<float32> my_x: 100;
-    property<float32> my_y: 200;
+    property<float> my_x: 100;
+    property<float> my_y: 200;
 
     LineTo {
         x: root.my_x;

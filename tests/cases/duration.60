@@ -7,8 +7,8 @@ TestCase := Rectangle {
     property<duration> d6: d1 - d2;
     property<duration> d7: -0.5s;
     property<duration> d8: -0.5s / 2;
-    property<int32> i1: d1 / 1ms;
-    property<int32> i2: d1 / 2ms;
+    property<int> i1: d1 / 1ms;
+    property<int> i2: d1 / 2ms;
 }
 
 

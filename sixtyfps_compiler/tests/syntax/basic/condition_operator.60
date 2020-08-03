@@ -1,7 +1,7 @@
 SuperSimple := Rectangle {
     color: area.pressed ? green : blue;
     property<color> c2: area.pressed ? 123 : 456;
-//                     ^error{Cannot convert float32 to color}
+//                     ^error{Cannot convert float to color}
 
     area := TouchArea {
     }

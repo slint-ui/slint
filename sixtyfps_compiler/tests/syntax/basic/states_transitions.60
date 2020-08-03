@@ -1,6 +1,6 @@
 TestCase := Rectangle {
     property<bool> checked;
-    property <int32> border;
+    property <int> border;
     states [
         checked when checked: {
             color: blue; // same as root.color

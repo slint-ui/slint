@@ -1,6 +1,6 @@
 
 Comp := Rectangle {
-    property<int32> prop;
+    property<int> prop;
 }
 
 Test := Rectangle {

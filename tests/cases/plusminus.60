@@ -22,7 +22,7 @@ PlusMinus := Rectangle {
     height: 300px;
     color: white;
 
-    property<int32> counter;
+    property<int> counter;
 
     GridLayout {
         Row {
