@@ -1,7 +1,30 @@
-use crate::abi::datastructures::{ComponentVTable, ItemRef, ItemTreeNode, ItemVTable};
+use crate::abi::datastructures::{ComponentVTable, ItemRef, ItemVTable};
 use crate::ComponentRefPin;
 use core::pin::Pin;
 use vtable::*;
+
+/// The item tree is an array of ItemTreeNode representing a static tree of items
+/// within a component.
+#[repr(u8)]
+pub enum ItemTreeNode<T> {
+    /// Static item
+    Item {
+        /// byte offset where we can find the item (from the *ComponentImpl)
+        item: vtable::VOffset<T, ItemVTable, vtable::PinnedFlag>,
+
+        /// number of children
+        chilren_count: u32,
+
+        /// index of the first children within the item tree
+        children_index: u32,
+    },
+    /// A placeholder for many instance of item in their own component which
+    /// are instantiated according to a model.
+    DynamicTree {
+        /// the undex which is passed in the visit_dynamic callback.
+        index: usize,
+    },
+}
 
 #[repr(C)]
 #[vtable]
