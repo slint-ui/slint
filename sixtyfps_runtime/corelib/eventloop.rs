@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
-use crate::graphics::Size;
+use crate::{graphics::Size, input::MouseEventType};
 #[cfg(not(target_arch = "wasm32"))]
 use winit::platform::desktop::EventLoopExtDesktop;
 
@@ -10,7 +10,7 @@ pub trait GenericWindow {
     fn process_mouse_input(
         &self,
         pos: winit::dpi::PhysicalPosition<f64>,
-        what: crate::abi::datastructures::MouseEventType,
+        what: MouseEventType,
         component: core::pin::Pin<crate::abi::datastructures::ComponentRef>,
     );
     fn window_handle(&self) -> std::cell::Ref<'_, winit::window::Window>;
@@ -135,11 +135,9 @@ impl EventLoop {
                             windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
                         {
                             let what = match state {
-                                winit::event::ElementState::Pressed => {
-                                    crate::abi::datastructures::MouseEventType::MousePressed
-                                }
+                                winit::event::ElementState::Pressed => MouseEventType::MousePressed,
                                 winit::event::ElementState::Released => {
-                                    crate::abi::datastructures::MouseEventType::MouseReleased
+                                    MouseEventType::MouseReleased
                                 }
                             };
                             window.process_mouse_input(cursor_pos, what, component);
@@ -164,7 +162,7 @@ impl EventLoop {
                         {
                             window.process_mouse_input(
                                 cursor_pos,
-                                crate::abi::datastructures::MouseEventType::MouseMoved,
+                                MouseEventType::MouseMoved,
                                 component,
                             );
                             let window = window.window_handle();

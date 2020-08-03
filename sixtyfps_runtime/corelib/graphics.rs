@@ -1,6 +1,9 @@
 extern crate alloc;
 #[cfg(feature = "rtti")]
-use crate::rtti::{BuiltinItem, FieldInfo, FieldOffset, PropertyInfo, ValueType};
+use crate::{
+    input::{MouseEvent, MouseEventType},
+    rtti::{BuiltinItem, FieldInfo, FieldOffset, PropertyInfo, ValueType},
+};
 use cgmath::Matrix4;
 use const_field_offset::FieldOffsets;
 use sixtyfps_corelib_macros::*;
@@ -354,15 +357,12 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow
     fn process_mouse_input(
         &self,
         pos: winit::dpi::PhysicalPosition<f64>,
-        what: crate::abi::datastructures::MouseEventType,
+        what: MouseEventType,
         component: crate::ComponentRefPin,
     ) {
         crate::input::process_mouse_event(
             component,
-            crate::abi::datastructures::MouseEvent {
-                pos: euclid::point2(pos.x as _, pos.y as _),
-                what,
-            },
+            MouseEvent { pos: euclid::point2(pos.x as _, pos.y as _), what },
         );
     }
     fn window_handle(&self) -> std::cell::Ref<winit::window::Window> {

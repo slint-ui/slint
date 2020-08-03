@@ -3,9 +3,31 @@
 TODO: Keyboard events
 */
 
-use crate::abi::datastructures::MouseEvent;
+use crate::graphics::Point;
 use crate::ComponentRefPin;
 use euclid::default::Vector2D;
+
+/// The type of a MouseEvent
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub enum MouseEventType {
+    /// The mouse was pressed
+    MousePressed,
+    /// The mouse was relased
+    MouseReleased,
+    /// The mouse position has changed
+    MouseMoved,
+}
+
+/// Structur representing a mouse event
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct MouseEvent {
+    /// The position of the cursor
+    pub pos: Point,
+    /// The action performed (pressed/released/moced)
+    pub what: MouseEventType,
+}
 
 pub fn process_mouse_event(component: ComponentRefPin, event: MouseEvent) {
     let offset = Vector2D::new(0., 0.);

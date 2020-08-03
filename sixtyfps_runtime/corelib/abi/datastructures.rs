@@ -5,7 +5,8 @@ use core::pin::Pin;
 use std::cell::Cell;
 use vtable::*;
 
-use crate::graphics::{HighLevelRenderingPrimitive, Point, Rect};
+use crate::graphics::{HighLevelRenderingPrimitive, Rect};
+use crate::input::MouseEvent;
 use crate::layout::LayoutInfo;
 
 /// A Component is representing an unit that is allocated together
@@ -108,28 +109,6 @@ pub struct ItemVTable {
 /// Alias for `vtable::VRef<ItemVTable>` which represent a pointer to a `dyn Item` with
 /// the associated vtable
 pub type ItemRef<'a> = vtable::VRef<'a, ItemVTable>;
-
-/// The type of a MouseEvent
-#[repr(C)]
-#[derive(Debug, Clone, Copy)]
-pub enum MouseEventType {
-    /// The mouse was pressed
-    MousePressed,
-    /// The mouse was relased
-    MouseReleased,
-    /// The mouse position has changed
-    MouseMoved,
-}
-
-/// Structur representing a mouse event
-#[repr(C)]
-#[derive(Debug, Clone, Copy)]
-pub struct MouseEvent {
-    /// The position of the cursor
-    pub pos: Point,
-    /// The action performed (pressed/released/moced)
-    pub what: MouseEventType,
-}
 
 #[repr(C)]
 #[derive(Default)]
