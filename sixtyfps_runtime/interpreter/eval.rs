@@ -7,8 +7,8 @@ use sixtyfps_compilerlib::expression_tree::{
 use sixtyfps_compilerlib::{object_tree::ElementRc, typeregister::Type};
 use sixtyfps_corelib as corelib;
 use sixtyfps_corelib::{
-    abi::datastructures::ItemRef, abi::datastructures::PathElement, items::PropertyAnimation,
-    Color, ComponentRefPin, PathData, Resource, SharedArray, SharedString,
+    abi::datastructures::ItemRef, graphics::PathElement, items::PropertyAnimation, Color,
+    ComponentRefPin, PathData, Resource, SharedArray, SharedString,
 };
 use std::{collections::HashMap, rc::Rc};
 
@@ -424,7 +424,7 @@ fn convert_from_lyon_path<'a>(
     it: impl IntoIterator<Item = &'a lyon::path::Event<lyon::math::Point, lyon::math::Point>>,
 ) -> PathData {
     use lyon::path::Event;
-    use sixtyfps_corelib::abi::datastructures::PathEvent;
+    use sixtyfps_corelib::graphics::PathEvent;
 
     let mut coordinates = Vec::new();
 

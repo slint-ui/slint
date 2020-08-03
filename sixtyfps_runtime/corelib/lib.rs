@@ -57,7 +57,7 @@ pub use abi::signals::Signal;
 pub use graphics::Color;
 
 #[doc(inline)]
-pub use abi::datastructures::PathData;
+pub use graphics::PathData;
 
 /// Type alias to the commonly use `Pin<VRef<ComponentVTable>>>`
 pub type ComponentRefPin<'a> = core::pin::Pin<abi::datastructures::ComponentRef<'a>>;

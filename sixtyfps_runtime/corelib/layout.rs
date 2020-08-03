@@ -226,7 +226,7 @@ pub extern "C" fn grid_layout_info<'a>(cells: &Slice<'a, GridLayoutCellData<'a>>
 
 #[repr(C)]
 pub struct PathLayoutData<'a> {
-    pub elements: &'a crate::abi::datastructures::PathData,
+    pub elements: &'a crate::graphics::PathData,
     pub items: Slice<'a, PathLayoutItemData<'a>>,
     pub x: Coord,
     pub y: Coord,

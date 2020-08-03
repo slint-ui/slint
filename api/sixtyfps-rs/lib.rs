@@ -79,7 +79,9 @@ pub mod re_exports {
     pub use sixtyfps_corelib::abi::properties::{Property, PropertyListenerScope};
     pub use sixtyfps_corelib::abi::signals::Signal;
     pub use sixtyfps_corelib::abi::slice::Slice;
-    pub use sixtyfps_corelib::graphics::{Point, Rect, Size};
+    pub use sixtyfps_corelib::graphics::{
+        PathArcTo, PathData, PathElement, PathEvent, PathLineTo, Point, Rect, Size,
+    };
     pub use sixtyfps_corelib::item_tree::visit_item_tree;
     pub use sixtyfps_corelib::items::*;
     pub use sixtyfps_corelib::layout::LayoutInfo;
