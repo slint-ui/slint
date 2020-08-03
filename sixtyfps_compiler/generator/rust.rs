@@ -41,6 +41,23 @@ fn rust_type(
 ///
 /// Fill the diagnostic in case of error.
 pub fn generate(component: &Rc<Component>, diag: &mut BuildDiagnostics) -> Option<TokenStream> {
+    let compo = generate_component(component, diag)?;
+    let compo_id = component_id(component);
+    let compo_module = quote::format_ident!("sixtyfps_generated_{}", compo_id);
+    Some(quote! {
+        #[allow(non_snake_case)]
+        mod #compo_module { #compo }
+        pub use #compo_module::#compo_id;
+    })
+}
+
+/// Generate the rust code for the given component.
+///
+/// Fill the diagnostic in case of error.
+fn generate_component(
+    component: &Rc<Component>,
+    diag: &mut BuildDiagnostics,
+) -> Option<TokenStream> {
     let mut extra_components = vec![];
     let mut declared_property_vars = vec![];
     let mut declared_property_types = vec![];
@@ -55,7 +72,7 @@ pub fn generate(component: &Rc<Component>, diag: &mut BuildDiagnostics) -> Optio
                 property_and_signal_accessors.push(
                     quote!(
                         #[allow(dead_code)]
-                        fn #emitter_ident(self: ::core::pin::Pin<&Self>) {
+                        pub fn #emitter_ident(self: ::core::pin::Pin<&Self>) {
                             Self::field_offsets().#prop_ident.apply_pin(self).emit(())
                         }
                     )
@@ -65,7 +82,7 @@ pub fn generate(component: &Rc<Component>, diag: &mut BuildDiagnostics) -> Optio
                 property_and_signal_accessors.push(
                     quote!(
                         #[allow(dead_code)]
-                        fn #on_ident(self: ::core::pin::Pin<&Self>, f: impl Fn() + 'static) {
+                        pub fn #on_ident(self: ::core::pin::Pin<&Self>, f: impl Fn() + 'static) {
                             Self::field_offsets().#prop_ident.apply_pin(self).set_handler(move |()|f())
                         }
                     )
@@ -89,7 +106,7 @@ pub fn generate(component: &Rc<Component>, diag: &mut BuildDiagnostics) -> Optio
                 property_and_signal_accessors.push(
                     quote!(
                         #[allow(dead_code)]
-                        fn #getter_ident(self: ::core::pin::Pin<&Self>) -> #rust_property_type {
+                        pub fn #getter_ident(self: ::core::pin::Pin<&Self>) -> #rust_property_type {
                             Self::field_offsets().#prop_ident.apply_pin(self).get()
                         }
                     )
@@ -105,7 +122,7 @@ pub fn generate(component: &Rc<Component>, diag: &mut BuildDiagnostics) -> Optio
                 property_and_signal_accessors.push(
                     quote!(
                         #[allow(dead_code)]
-                        fn #setter_ident(&self, value: #rust_property_type) {
+                        pub fn #setter_ident(&self, value: #rust_property_type) {
                             Self::field_offsets().#prop_ident.apply(self).#set_value
                         }
                     )
@@ -149,10 +166,12 @@ pub fn generate(component: &Rc<Component>, diag: &mut BuildDiagnostics) -> Optio
             let repeater_id = quote::format_ident!("repeater_{}", item.id);
             let rep_component_id = self::component_id(&*base_component);
 
-            extra_components.push(generate(&*base_component, diag).unwrap_or_else(|| {
-                assert!(diag.has_error());
-                Default::default()
-            }));
+            extra_components.push(generate_component(&*base_component, diag).unwrap_or_else(
+                || {
+                    assert!(diag.has_error());
+                    Default::default()
+                },
+            ));
             extra_components.push(if repeated.is_conditional_element {
                 quote! {
                      impl sixtyfps::re_exports::RepeatedComponent for #rep_component_id {
@@ -293,7 +312,7 @@ pub fn generate(component: &Rc<Component>, diag: &mut BuildDiagnostics) -> Optio
         .collect();
 
     let layouts = compute_layout(component);
-
+    let mut visibility = None;
     let mut parent_component_type = None;
     if let Some(parent_element) = component.parent_element.upgrade() {
         if !parent_element.borrow().repeated.as_ref().map_or(false, |r| r.is_conditional_element) {
@@ -340,13 +359,20 @@ pub fn generate(component: &Rc<Component>, diag: &mut BuildDiagnostics) -> Optio
         let width_prop = window_props("width");
         let height_prop = window_props("height");
         property_and_signal_accessors.push(quote! {
-            fn run(self : core::pin::Pin<std::rc::Rc<Self>>) {
+            pub fn run(self : core::pin::Pin<std::rc::Rc<Self>>) {
                 use sixtyfps::re_exports::*;
                 let window = sixtyfps::create_window();
                 let window_props = WindowProperties {width: #width_prop, height: #height_prop, dpi: Some(&self.dpi)};
                 window.run(VRef::new_pin(self.as_ref()), &window_props);
             }
         });
+        property_and_signal_accessors.push(quote! {
+            /// FIXME: this only exist for the test
+            pub fn dpi(&self, dpi: f32) {
+                self.dpi.set(dpi);
+            }
+        });
+        visibility = Some(quote!(pub));
     };
 
     // Trick so we can use `#()` as a `if let Some` in `quote!`
@@ -363,7 +389,7 @@ pub fn generate(component: &Rc<Component>, diag: &mut BuildDiagnostics) -> Optio
         #[const_field_offset(sixtyfps::re_exports::const_field_offset)]
         #[repr(C)]
         #[pin]
-        struct #component_id {
+        #visibility struct #component_id {
             #(#item_names : sixtyfps::re_exports::#item_types,)*
             #(#declared_property_vars : sixtyfps::re_exports::Property<#declared_property_types>,)*
             #(#declared_signals : sixtyfps::re_exports::Signal<()>,)*
@@ -391,7 +417,7 @@ pub fn generate(component: &Rc<Component>, diag: &mut BuildDiagnostics) -> Optio
         }
 
         impl #component_id{
-            fn new(#(parent: sixtyfps::re_exports::PinWeak::<#parent_component_type>)*)
+            pub fn new(#(parent: sixtyfps::re_exports::PinWeak::<#parent_component_type>)*)
                 -> core::pin::Pin<std::rc::Rc<Self>>
             {
                 #![allow(unused)]
