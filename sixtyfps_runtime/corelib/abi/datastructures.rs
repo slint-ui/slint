@@ -1,12 +1,12 @@
 //! This module contains the basic datastructures that are exposed to the C API
 
-use super::slice::Slice;
 use core::pin::Pin;
 use std::cell::Cell;
 use vtable::*;
 
 use crate::graphics::{HighLevelRenderingPrimitive, Rect};
 use crate::input::MouseEvent;
+use crate::item_tree::ItemVisitorVTable;
 use crate::layout::LayoutInfo;
 
 /// A Component is representing an unit that is allocated together
@@ -185,60 +185,6 @@ pub unsafe extern "C" fn sixtyfps_component_window_run(
     let window = &*(handle as *const ComponentWindow);
     let window_props = &*(window_props as *const WindowProperties);
     window.run(component, &window_props);
-}
-
-#[repr(C)]
-#[vtable]
-/// Object to be passed in visit_item_children method of the Component.
-pub struct ItemVisitorVTable {
-    /// Called for each children of the visited item
-    ///
-    /// The `component` parameter is the component in which the item live which might not be the same
-    /// as the parent's component.
-    /// `index` is to be used again in the visit_item_children function of the Component (the one passed as parameter)
-    /// and `item` is a reference to the item itself
-    visit_item: fn(
-        VRefMut<ItemVisitorVTable>,
-        component: Pin<VRef<ComponentVTable>>,
-        index: isize,
-        item: Pin<VRef<ItemVTable>>,
-    ),
-    /// Destructor
-    drop: fn(VRefMut<ItemVisitorVTable>),
-}
-
-/// Type alias to `vtable::VRefMut<ItemVisitorVTable>`
-pub type ItemVisitorRefMut<'a> = vtable::VRefMut<'a, ItemVisitorVTable>;
-
-impl<T: FnMut(crate::ComponentRefPin, isize, Pin<ItemRef>)> ItemVisitor for T {
-    fn visit_item(&mut self, component: crate::ComponentRefPin, index: isize, item: Pin<ItemRef>) {
-        self(component, index, item)
-    }
-}
-
-/// Expose `crate::item_tree::visit_item_tree` to C++
-///
-/// Safety: Assume a correct implementation of the item_tree array
-#[no_mangle]
-pub unsafe extern "C" fn sixtyfps_visit_item_tree(
-    component: Pin<VRef<ComponentVTable>>,
-    item_tree: Slice<ItemTreeNode<u8>>,
-    index: isize,
-    visitor: VRefMut<ItemVisitorVTable>,
-    visit_dynamic: extern "C" fn(
-        base: &u8,
-        visitor: vtable::VRefMut<ItemVisitorVTable>,
-        dyn_index: usize,
-    ),
-) {
-    crate::item_tree::visit_item_tree(
-        Pin::new_unchecked(&*(component.as_ptr() as *const u8)),
-        component,
-        item_tree.as_slice(),
-        index,
-        visitor,
-        |a, b, c| visit_dynamic(a.get_ref(), b, c),
-    )
 }
 
 // This is here because for some reason (rust bug?) the ItemVTable_static is not accessible in the other modules

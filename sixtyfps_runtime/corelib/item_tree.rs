@@ -1,6 +1,68 @@
-use crate::abi::datastructures::{ItemRef, ItemTreeNode, ItemVisitor, ItemVisitorVTable};
+use crate::abi::datastructures::{ComponentVTable, ItemRef, ItemTreeNode, ItemVTable};
 use crate::ComponentRefPin;
 use core::pin::Pin;
+use vtable::*;
+
+#[repr(C)]
+#[vtable]
+/// Object to be passed in visit_item_children method of the Component.
+pub struct ItemVisitorVTable {
+    /// Called for each children of the visited item
+    ///
+    /// The `component` parameter is the component in which the item live which might not be the same
+    /// as the parent's component.
+    /// `index` is to be used again in the visit_item_children function of the Component (the one passed as parameter)
+    /// and `item` is a reference to the item itself
+    visit_item: fn(
+        VRefMut<ItemVisitorVTable>,
+        component: Pin<VRef<ComponentVTable>>,
+        index: isize,
+        item: Pin<VRef<ItemVTable>>,
+    ),
+    /// Destructor
+    drop: fn(VRefMut<ItemVisitorVTable>),
+}
+
+/// Type alias to `vtable::VRefMut<ItemVisitorVTable>`
+pub type ItemVisitorRefMut<'a> = vtable::VRefMut<'a, ItemVisitorVTable>;
+
+impl<T: FnMut(crate::ComponentRefPin, isize, Pin<ItemRef>)> ItemVisitor for T {
+    fn visit_item(&mut self, component: crate::ComponentRefPin, index: isize, item: Pin<ItemRef>) {
+        self(component, index, item)
+    }
+}
+
+mod ffi {
+    #![allow(unsafe_code)]
+
+    use super::*;
+    use crate::abi::slice::Slice;
+
+    /// Expose `crate::item_tree::visit_item_tree` to C++
+    ///
+    /// Safety: Assume a correct implementation of the item_tree array
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_visit_item_tree(
+        component: Pin<VRef<ComponentVTable>>,
+        item_tree: Slice<ItemTreeNode<u8>>,
+        index: isize,
+        visitor: VRefMut<ItemVisitorVTable>,
+        visit_dynamic: extern "C" fn(
+            base: &u8,
+            visitor: vtable::VRefMut<ItemVisitorVTable>,
+            dyn_index: usize,
+        ),
+    ) {
+        crate::item_tree::visit_item_tree(
+            Pin::new_unchecked(&*(component.as_ptr() as *const u8)),
+            component,
+            item_tree.as_slice(),
+            index,
+            visitor,
+            |a, b, c| visit_dynamic(a.get_ref(), b, c),
+        )
+    }
+}
 
 /// Visit each items recursively
 ///

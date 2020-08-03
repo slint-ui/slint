@@ -83,7 +83,7 @@ pub mod re_exports {
     pub use sixtyfps_corelib::graphics::{
         PathArcTo, PathData, PathElement, PathEvent, PathLineTo, Point, Rect, Size,
     };
-    pub use sixtyfps_corelib::item_tree::visit_item_tree;
+    pub use sixtyfps_corelib::item_tree::{visit_item_tree, ItemVisitorRefMut, ItemVisitorVTable};
     pub use sixtyfps_corelib::items::*;
     pub use sixtyfps_corelib::layout::LayoutInfo;
     pub use sixtyfps_corelib::layout::{

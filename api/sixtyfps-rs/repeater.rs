@@ -41,7 +41,7 @@ where
     }
 
     /// Call the visitor for each component
-    pub fn visit(&self, mut visitor: sixtyfps_corelib::abi::datastructures::ItemVisitorRefMut) {
+    pub fn visit(&self, mut visitor: sixtyfps_corelib::item_tree::ItemVisitorRefMut) {
         for c in self.components.borrow().iter() {
             c.as_ref().visit_children_item(-1, visitor.borrow_mut());
         }
