@@ -49,7 +49,7 @@ fn create<'cx>(
     cx: &mut CallContext<'cx, impl neon::object::This>,
     component_type: Rc<sixtyfps_interpreter::ComponentDescription>,
 ) -> JsResult<'cx, JsValue> {
-    let mut component = component_type.clone().create();
+    let component = component_type.clone().create();
     let persistent_context = persistent_context::PersistentContext::new(cx);
 
     if let Some(args) = cx.argument_opt(0).and_then(|arg| arg.downcast::<JsObject>().ok()) {
@@ -69,7 +69,7 @@ fn create<'cx>(
                 let fun_idx = persistent_context.allocate(cx, value);
                 component_type
                     .set_signal_handler(
-                        component.borrow_mut(),
+                        component.borrow(),
                         prop_name.as_str(),
                         Box::new(move |()| {
                             GLOBAL_CONTEXT.with(|cx_fn| {

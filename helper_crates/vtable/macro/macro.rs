@@ -57,11 +57,6 @@ For example, if it is applied to `struct MyTraitVTable`, it will create:
  - The `MyTraitConsts` trait for the associated constants, if any
  - `MyTraitVTable_static!` macro.
 
-It will also expose type aliases for convinence
- - `type MyTraitRef<'a> = VRef<'a, MyTraitVTable>`
- - `type MyTraitRefMut<'a> = VRefMut<'a, MyTraitVTable>`
- - `type MyTraitBox = VBox<'a, MyTraitVTable>`
-
 It will also implement the `VTableMeta` and `VTableMetaDrop` traits so that VRef and so on can work,
 allowing to access methods from the trait directly from VRef.
 
@@ -119,9 +114,6 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let trait_name = Ident::new(&vtable_name[..vtable_name.len() - 6], input.ident.span());
     let to_name = quote::format_ident!("{}TO", trait_name);
     let module_name = quote::format_ident!("{}_vtable_mod", trait_name);
-    let ref_name = quote::format_ident!("{}Ref", trait_name);
-    let refmut_name = quote::format_ident!("{}RefMut", trait_name);
-    let box_name = quote::format_ident!("{}Box", trait_name);
     let static_vtable_macro_name = quote::format_ident!("{}_static", vtable_name);
 
     let vtable_name = input.ident.clone();
@@ -376,9 +368,6 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                             unsafe { VBox::from_raw(core::ptr::NonNull::from(X::static_vtable()), ptr.cast()) }
                         }
                     }
-                    /// Convinience alias to a `vtable::VBox`.
-                    #[doc = #additional_doc]
-                    pub type #box_name = VBox<#vtable_name>;
                 });
                 continue;
             }
@@ -640,14 +629,6 @@ and implements HasStaticVTable for it.
             }
 
             #drop_impl
-
-            /// Convinience alias to a `vtable::VRef`.
-            #[doc = #additional_doc]
-            pub type #ref_name<'a> = VRef<'a, #vtable_name>;
-            /// Convinience alias to a `vtable::VRefMut`.
-            #[doc = #additional_doc]
-            pub type #refmut_name<'a> = VRefMut<'a, #vtable_name>;
-
         }
         #[doc(inline)]
         #[macro_use]

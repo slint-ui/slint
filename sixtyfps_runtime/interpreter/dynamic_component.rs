@@ -35,16 +35,6 @@ impl ComponentBox {
         }
     }
 
-    /// Borrow this component as a `Pin<ComponentRefMut>`
-    pub fn borrow_mut(&mut self) -> Pin<sixtyfps_corelib::abi::datastructures::ComponentRefMut> {
-        unsafe {
-            Pin::new_unchecked(vtable::VRefMut::from_raw(
-                NonNull::from(&self.component_type.ct).cast(),
-                self.instance.as_ptr().cast(),
-            ))
-        }
-    }
-
     pub fn description(&self) -> Rc<ComponentDescription> {
         return self.component_type.clone();
     }

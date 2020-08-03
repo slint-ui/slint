@@ -55,6 +55,10 @@ pub struct ComponentVTable {
     pub compute_layout: extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>),
 }
 
+/// Alias for `vtable::VRef<ComponentVTable>` which represent a pointer to a `dyn Component` with
+/// the associated vtable
+pub type ComponentRef<'a> = vtable::VRef<'a, ComponentVTable>;
+
 /// This structure must be present in items that are Rendered and contains information.
 /// Used by the backend.
 #[derive(Default, Debug)]
@@ -126,6 +130,10 @@ pub struct ItemVTable {
     /// input event
     pub input_event: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, MouseEvent),
 }
+
+/// Alias for `vtable::VRef<ItemVTable>` which represent a pointer to a `dyn Item` with
+/// the associated vtable
+pub type ItemRef<'a> = vtable::VRef<'a, ItemVTable>;
 
 /// The constraint that applies to an item
 #[repr(C)]
@@ -760,6 +768,9 @@ pub struct ItemVisitorVTable {
     /// Destructor
     drop: fn(VRefMut<ItemVisitorVTable>),
 }
+
+/// Type alias to `vtable::VRefMut<ItemVisitorVTable>`
+pub type ItemVisitorRefMut<'a> = vtable::VRefMut<'a, ItemVisitorVTable>;
 
 impl<T: FnMut(crate::ComponentRefPin, isize, Pin<ItemRef>)> ItemVisitor for T {
     fn visit_item(&mut self, component: crate::ComponentRefPin, index: isize, item: Pin<ItemRef>) {

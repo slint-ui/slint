@@ -15,7 +15,7 @@ pub use dynamic_component::ComponentDescription;
 pub use eval::Value;
 
 pub use dynamic_component::ComponentBox;
-use sixtyfps_corelib::abi::datastructures::{ComponentRef, ComponentRefMut};
+use sixtyfps_corelib::abi::datastructures::ComponentRef;
 use sixtyfps_corelib::{ComponentRefPin, Signal};
 use std::{collections::HashMap, pin::Pin, rc::Rc};
 
@@ -110,7 +110,7 @@ impl ComponentDescription {
     /// or if the property with this name does not exist in this component
     pub fn set_signal_handler(
         &self,
-        component: Pin<ComponentRefMut>,
+        component: Pin<ComponentRef>,
         name: &str,
         handler: Box<dyn Fn(())>,
     ) -> Result<(), ()> {
