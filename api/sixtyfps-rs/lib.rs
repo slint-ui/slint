@@ -82,6 +82,7 @@ pub mod re_exports {
     pub use sixtyfps_corelib::graphics::{Point, Rect, Size};
     pub use sixtyfps_corelib::item_tree::visit_item_tree;
     pub use sixtyfps_corelib::items::*;
+    pub use sixtyfps_corelib::layout::LayoutInfo;
     pub use sixtyfps_corelib::layout::{
         grid_layout_info, solve_grid_layout, solve_path_layout, GridLayoutCellData, GridLayoutData,
         PathLayoutData, PathLayoutItemData,

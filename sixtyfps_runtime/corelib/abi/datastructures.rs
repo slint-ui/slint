@@ -6,6 +6,7 @@ use std::cell::Cell;
 use vtable::*;
 
 use crate::graphics::{HighLevelRenderingPrimitive, Point, Rect, Size};
+use crate::layout::LayoutInfo;
 #[cfg(feature = "rtti")]
 use crate::rtti::{BuiltinItem, FieldInfo, FieldOffset, PropertyInfo, ValueType};
 use const_field_offset::FieldOffsets;
@@ -111,26 +112,6 @@ pub struct ItemVTable {
 /// Alias for `vtable::VRef<ItemVTable>` which represent a pointer to a `dyn Item` with
 /// the associated vtable
 pub type ItemRef<'a> = vtable::VRef<'a, ItemVTable>;
-
-/// The constraint that applies to an item
-#[repr(C)]
-#[derive(Clone, Debug)]
-pub struct LayoutInfo {
-    /// The minimum width for the item.
-    pub min_width: f32,
-    /// The maximum width for the item.
-    pub max_width: f32,
-    /// The minimum height for the item.
-    pub min_height: f32,
-    /// The maximum height for the item.
-    pub max_height: f32,
-}
-
-impl Default for LayoutInfo {
-    fn default() -> Self {
-        LayoutInfo { min_width: 0., max_width: f32::MAX, min_height: 0., max_height: f32::MAX }
-    }
-}
 
 #[repr(C)]
 #[derive(FieldOffsets, Default, BuiltinItem, Clone, Debug, PartialEq)]

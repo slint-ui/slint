@@ -5,9 +5,10 @@ use core::pin::Pin;
 #[cfg(have_qt)]
 use cpp::cpp;
 use sixtyfps_corelib::abi::datastructures::{
-    CachedRenderingData, Item, ItemConsts, ItemVTable, LayoutInfo, MouseEvent, MouseEventType,
+    CachedRenderingData, Item, ItemConsts, ItemVTable, MouseEvent, MouseEventType,
 };
 use sixtyfps_corelib::graphics::{HighLevelRenderingPrimitive, Rect, Resource};
+use sixtyfps_corelib::layout::LayoutInfo;
 #[cfg(feature = "rtti")]
 use sixtyfps_corelib::rtti::*;
 use sixtyfps_corelib::{ItemVTable_static, Property, SharedString, Signal};

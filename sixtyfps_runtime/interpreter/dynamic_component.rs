@@ -8,11 +8,12 @@ use sixtyfps_compilerlib::layout::{GridLayout, Layout, LayoutItem, PathLayout};
 use sixtyfps_compilerlib::typeregister::Type;
 use sixtyfps_compilerlib::*;
 use sixtyfps_corelib::abi::datastructures::{
-    ComponentVTable, ItemTreeNode, ItemVTable, ItemVisitorRefMut, LayoutInfo, WindowProperties,
+    ComponentVTable, ItemTreeNode, ItemVTable, ItemVisitorRefMut, WindowProperties,
 };
 use sixtyfps_corelib::abi::{properties::PropertyListenerScope, slice::Slice};
 use sixtyfps_corelib::graphics::Resource;
 use sixtyfps_corelib::items::{Flickable, PropertyAnimation, Rectangle};
+use sixtyfps_corelib::layout::LayoutInfo;
 use sixtyfps_corelib::rtti::PropertyInfo;
 use sixtyfps_corelib::ComponentRefPin;
 use sixtyfps_corelib::{rtti, Color, Property, SharedString, Signal};

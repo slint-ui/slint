@@ -2,12 +2,29 @@
 //!
 //! Currently this is a very basic implementation
 
-use crate::{
-    abi::{datastructures::LayoutInfo, slice::Slice},
-    Property,
-};
+use crate::{abi::slice::Slice, Property};
 
 type Coord = f32;
+
+/// The constraint that applies to an item
+#[repr(C)]
+#[derive(Clone, Debug)]
+pub struct LayoutInfo {
+    /// The minimum width for the item.
+    pub min_width: f32,
+    /// The maximum width for the item.
+    pub max_width: f32,
+    /// The minimum height for the item.
+    pub min_height: f32,
+    /// The maximum height for the item.
+    pub max_height: f32,
+}
+
+impl Default for LayoutInfo {
+    fn default() -> Self {
+        LayoutInfo { min_width: 0., max_width: f32::MAX, min_height: 0., max_height: f32::MAX }
+    }
+}
 
 mod internal {
     use super::*;
