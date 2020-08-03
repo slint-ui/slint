@@ -117,7 +117,7 @@ pub enum Resource {
     AbsoluteFilePath(crate::SharedString),
     /// A resource that is embedded in the program and accessible via pointer
     /// The format is the same as in a file
-    EmbeddedData(super::abi::slice::Slice<'static, u8>),
+    EmbeddedData(super::slice::Slice<'static, u8>),
     /// Raw ARGB
     #[allow(missing_docs)]
     EmbeddedRgbaImage { width: u32, height: u32, data: super::abi::sharedarray::SharedArray<u8> },

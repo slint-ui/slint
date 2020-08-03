@@ -1,5 +1,7 @@
 //! FFI-friendly slice
 
+#![allow(unsafe_code)]
+
 use core::{cmp::PartialEq, fmt::Debug, marker::PhantomData, ptr::NonNull};
 
 /// That's basicaly the same as `&'a [T]`  but `repr(C)`
@@ -7,7 +9,7 @@ use core::{cmp::PartialEq, fmt::Debug, marker::PhantomData, ptr::NonNull};
 /// Can be constructed from a slice using the from trait.
 ///
 /// ```
-/// use sixtyfps_corelib::abi::slice::Slice;
+/// use sixtyfps_corelib::slice::Slice;
 /// let x = Slice::from_slice(&[1, 2, 3]);
 /// assert_eq!(x.len(), 3);
 /// assert_eq!(x[1], 2);
@@ -16,7 +18,7 @@ use core::{cmp::PartialEq, fmt::Debug, marker::PhantomData, ptr::NonNull};
 ///
 /// Comparing two Slice compare their pointer, not the content.
 /// ```
-/// use sixtyfps_corelib::abi::slice::Slice;
+/// use sixtyfps_corelib::slice::Slice;
 /// let a = Slice::from_slice(&[1, 2, 3]);
 /// let slice = [1, 2, 3, 4];
 /// let b = Slice::from(&slice[..3]);

@@ -8,13 +8,13 @@ use sixtyfps_compilerlib::layout::{GridLayout, Layout, LayoutItem, PathLayout};
 use sixtyfps_compilerlib::typeregister::Type;
 use sixtyfps_compilerlib::*;
 use sixtyfps_corelib::abi::datastructures::{ComponentVTable, ItemVTable, WindowProperties};
-use sixtyfps_corelib::abi::slice::Slice;
 use sixtyfps_corelib::graphics::Resource;
 use sixtyfps_corelib::item_tree::{ItemTreeNode, ItemVisitorRefMut};
 use sixtyfps_corelib::items::{Flickable, PropertyAnimation, Rectangle};
 use sixtyfps_corelib::layout::LayoutInfo;
 use sixtyfps_corelib::properties::{InterpolatedPropertyValue, PropertyListenerScope};
 use sixtyfps_corelib::rtti::PropertyInfo;
+use sixtyfps_corelib::slice::Slice;
 use sixtyfps_corelib::ComponentRefPin;
 use sixtyfps_corelib::{rtti, Color, Property, SharedString, Signal};
 use std::collections::HashMap;
@@ -269,8 +269,8 @@ fn generate_component(root_component: &Rc<object_tree::Component>) -> Rc<Compone
         let item = rc_item.borrow();
         if is_flickable_rect {
             use vtable::HasStaticVTable;
-            let offset = items_types[&item.id].offset
-                + Flickable::FIELD_OFFSETS.viewport.get_byte_offset();
+            let offset =
+                items_types[&item.id].offset + Flickable::FIELD_OFFSETS.viewport.get_byte_offset();
             tree_array.push(ItemTreeNode::Item {
                 item: unsafe { vtable::VOffset::from_raw(Rectangle::static_vtable(), offset) },
                 children_index: tree_array.len() as u32 + 1,

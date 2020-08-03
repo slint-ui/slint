@@ -62,7 +62,7 @@ fn main() {
     cbindgen::Builder::new()
         .with_config(config.clone())
         .with_src(crate_dir.join("abi/string.rs"))
-        .with_src(crate_dir.join("abi/slice.rs"))
+        .with_src(crate_dir.join("slice.rs"))
         .with_after_include("namespace sixtyfps { struct SharedString; }")
         .generate()
         .expect("Unable to generate bindings")

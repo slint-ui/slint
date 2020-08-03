@@ -2,7 +2,7 @@
 //!
 //! Currently this is a very basic implementation
 
-use crate::{abi::slice::Slice, Property};
+use crate::{slice::Slice, Property};
 
 type Coord = f32;
 

@@ -30,7 +30,6 @@ pub mod abi {
     pub mod model;
     pub mod sharedarray;
     pub mod signals;
-    pub mod slice;
     pub mod string;
     pub mod tests;
 }
@@ -58,6 +57,8 @@ pub use graphics::Color;
 
 #[doc(inline)]
 pub use graphics::PathData;
+
+pub mod slice;
 
 /// Type alias to the commonly use `Pin<VRef<ComponentVTable>>>`
 pub type ComponentRefPin<'a> = core::pin::Pin<abi::datastructures::ComponentRef<'a>>;

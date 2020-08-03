@@ -59,7 +59,7 @@ pub(crate) mod ffi {
     #![allow(unsafe_code)]
 
     use super::*;
-    use crate::abi::slice::Slice;
+    use crate::slice::Slice;
 
     /// Expose `crate::item_tree::visit_item_tree` to C++
     ///
