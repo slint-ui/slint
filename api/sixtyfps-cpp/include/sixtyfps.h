@@ -1,5 +1,8 @@
 #pragma once
 
+// In C++17, it is conditionally supported, but still valid for all compiler we care
+#pragma GCC diagnostic ignored "-Winvalid-offsetof"
+
 #include <vector>
 #include <memory>
 

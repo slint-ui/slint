@@ -44,20 +44,40 @@ mod cpp_ast {
         Var(Var),
     }
 
+    #[derive(Debug, Copy, Clone, Eq, PartialEq)]
+    pub enum Access {
+        Public,
+        Private,
+        /*Protected,*/
+    }
+
     #[derive(Default, Debug)]
     pub struct Struct {
         pub name: String,
-        pub members: Vec<Declaration>,
+        pub members: Vec<(Access, Declaration)>,
+        pub friends: Vec<String>,
     }
 
     impl Display for Struct {
         fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
             indent(f)?;
-            writeln!(f, "struct {} {{", self.name)?;
+            writeln!(f, "class {} {{", self.name)?;
             INDETATION.with(|x| x.set(x.get() + 1));
+            let mut access = Access::Private;
             for m in &self.members {
-                // FIXME! identation
-                write!(f, "{}", m)?;
+                if m.0 != access {
+                    access = m.0;
+                    indent(f)?;
+                    match access {
+                        Access::Public => writeln!(f, "public:")?,
+                        Access::Private => writeln!(f, "private:")?,
+                    }
+                }
+                write!(f, "{}", m.1)?;
+            }
+            for friend in &self.friends {
+                indent(f)?;
+                writeln!(f, "friend class {};", friend)?;
             }
             INDETATION.with(|x| x.set(x.get() - 1));
             indent(f)?;
@@ -235,11 +255,14 @@ fn property_set_binding_code(
 }
 
 fn handle_item(item: &Element, main_struct: &mut Struct, init: &mut Vec<String>) {
-    main_struct.members.push(Declaration::Var(Var {
-        ty: format!("sixtyfps::{}", item.base_type.as_native().class_name),
-        name: item.id.clone(),
-        ..Default::default()
-    }));
+    main_struct.members.push((
+        Access::Private,
+        Declaration::Var(Var {
+            ty: format!("sixtyfps::{}", item.base_type.as_native().class_name),
+            name: item.id.clone(),
+            ..Default::default()
+        }),
+    ));
 
     let id = &item.id;
     init.extend(item.bindings.iter().map(|(s, i)| {
@@ -333,11 +356,14 @@ fn handle_repeater(
         ));
     } else {
         let model_id = format!("model_{}", repeater_count);
-        component_struct.members.push(Declaration::Var(Var {
-            ty: "sixtyfps::PropertyListenerScope".to_owned(),
-            name: model_id,
-            init: None,
-        }));
+        component_struct.members.push((
+            Access::Private,
+            Declaration::Var(Var {
+                ty: "sixtyfps::PropertyListenerScope".to_owned(),
+                name: model_id,
+                init: None,
+            }),
+        ));
         children_repeater_cases.push(format!(
             "\n        case {i}: {{
                 if (self->model_{i}.is_dirty()) {{
@@ -354,11 +380,14 @@ fn handle_repeater(
         ));
     }
 
-    component_struct.members.push(Declaration::Var(Var {
-        ty: format!("sixtyfps::Repeater<struct {}>", component_id(base_component)),
-        name: repeater_id,
-        init: None,
-    }));
+    component_struct.members.push((
+        Access::Private,
+        Declaration::Var(Var {
+            ty: format!("sixtyfps::Repeater<struct {}>", component_id(base_component)),
+            name: repeater_id,
+            init: None,
+        }),
+    ));
 }
 
 /// Returns the text of the C++ code produced by the given root component
@@ -372,7 +401,7 @@ pub fn generate(
     file.includes.push("<limits>".into());
     file.includes.push("<sixtyfps.h>".into());
 
-    generate_component(&mut file, component, diag);
+    generate_component(&mut file, component, diag, None);
 
     if diag.has_error() {
         None
@@ -381,7 +410,15 @@ pub fn generate(
     }
 }
 
-fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut BuildDiagnostics) {
+/// Generate the component in `file`.
+///
+/// `sub_components`, if Some, will be filled with all the sub component which needs to be added as friends
+fn generate_component(
+    file: &mut File,
+    component: &Rc<Component>,
+    diag: &mut BuildDiagnostics,
+    mut sub_components: Option<&mut Vec<String>>,
+) {
     let component_id = component_id(component);
     let mut component_struct = Struct { name: component_id.clone(), ..Default::default() };
 
@@ -393,12 +430,15 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Bui
             if property_decl.expose_in_public_api && is_root {
                 let signal_emitter: Vec<String> = vec![format!("{}.emit();", cpp_name)];
 
-                component_struct.members.push(Declaration::Function(Function {
-                    name: format!("emit_{}", cpp_name),
-                    signature: "()".into(),
-                    statements: Some(signal_emitter),
-                    ..Default::default()
-                }));
+                component_struct.members.push((
+                    Access::Public,
+                    Declaration::Function(Function {
+                        name: format!("emit_{}", cpp_name),
+                        signature: "()".into(),
+                        statements: Some(signal_emitter),
+                        ..Default::default()
+                    }),
+                ));
             }
 
             "sixtyfps::Signal".into()
@@ -416,12 +456,15 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Bui
             if property_decl.expose_in_public_api && is_root {
                 let prop_getter: Vec<String> = vec![format!("return {}.get();", cpp_name)];
 
-                component_struct.members.push(Declaration::Function(Function {
-                    name: format!("get_{}", cpp_name),
-                    signature: format!("() -> {}", cpp_type),
-                    statements: Some(prop_getter),
-                    ..Default::default()
-                }));
+                component_struct.members.push((
+                    Access::Public,
+                    Declaration::Function(Function {
+                        name: format!("get_{}", cpp_name),
+                        signature: format!("() -> {}", cpp_type),
+                        statements: Some(prop_getter),
+                        ..Default::default()
+                    }),
+                ));
 
                 let prop_setter: Vec<String> = vec![format!(
                     "this->{}.{};",
@@ -433,21 +476,23 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Bui
                         "value"
                     )
                 )];
-                component_struct.members.push(Declaration::Function(Function {
-                    name: format!("set_{}", cpp_name),
-                    signature: format!("(const {} &value)", cpp_type),
-                    statements: Some(prop_setter),
-                    ..Default::default()
-                }));
+                component_struct.members.push((
+                    Access::Public,
+                    Declaration::Function(Function {
+                        name: format!("set_{}", cpp_name),
+                        signature: format!("(const {} &value)", cpp_type),
+                        statements: Some(prop_setter),
+                        ..Default::default()
+                    }),
+                ));
             }
 
             format!("sixtyfps::Property<{}>", cpp_type)
         };
-        component_struct.members.push(Declaration::Var(Var {
-            ty,
-            name: cpp_name.clone(),
-            init: None,
-        }));
+        component_struct.members.push((
+            Access::Private,
+            Declaration::Var(Var { ty, name: cpp_name.clone(), init: None }),
+        ));
     }
 
     if !is_root {
@@ -456,11 +501,14 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Bui
         let mut update_statements = vec![];
 
         if !parent_element.borrow().repeated.as_ref().map_or(false, |r| r.is_conditional_element) {
-            component_struct.members.push(Declaration::Var(Var {
-                ty: "sixtyfps::Property<int>".into(),
-                name: "index".into(),
-                init: None,
-            }));
+            component_struct.members.push((
+                Access::Private,
+                Declaration::Var(Var {
+                    ty: "sixtyfps::Property<int>".into(),
+                    name: "index".into(),
+                    init: None,
+                }),
+            ));
             let cpp_model_data_type = crate::expression_tree::Expression::RepeaterModelReference {
                 element: component.parent_element.clone(),
             }
@@ -482,46 +530,58 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Bui
                 String::default()
             })
             .to_owned();
-            component_struct.members.push(Declaration::Var(Var {
-                ty: format!("sixtyfps::Property<{}>", cpp_model_data_type),
-                name: "model_data".into(),
-                init: None,
-            }));
+            component_struct.members.push((
+                Access::Private,
+                Declaration::Var(Var {
+                    ty: format!("sixtyfps::Property<{}>", cpp_model_data_type),
+                    name: "model_data".into(),
+                    init: None,
+                }),
+            ));
 
             update_statements = vec![
                 "index.set(i);".into(),
                 format!("model_data.set(*reinterpret_cast<{} const*>(data));", cpp_model_data_type),
             ];
         }
-        component_struct.members.push(Declaration::Var(Var {
-            ty: format!(
-                "{} const *",
-                self::component_id(
-                    &component
-                        .parent_element
-                        .upgrade()
-                        .unwrap()
-                        .borrow()
-                        .enclosing_component
-                        .upgrade()
-                        .unwrap()
-                )
-            ),
-            name: "parent".into(),
-            init: Some("nullptr".to_owned()),
-        }));
-        component_struct.members.push(Declaration::Function(Function {
-            name: "update_data".into(),
-            signature: "([[maybe_unused]] int i, [[maybe_unused]] const void *data) -> void".into(),
-            statements: Some(update_statements),
-            ..Function::default()
-        }));
+        let parent_component_id = self::component_id(
+            &component
+                .parent_element
+                .upgrade()
+                .unwrap()
+                .borrow()
+                .enclosing_component
+                .upgrade()
+                .unwrap(),
+        );
+        component_struct.members.push((
+            Access::Public, // Because Repeater::update_model accesses it
+            Declaration::Var(Var {
+                ty: format!("{} const *", parent_component_id),
+                name: "parent".into(),
+                init: Some("nullptr".to_owned()),
+            }),
+        ));
+        component_struct.friends.push(parent_component_id);
+        component_struct.members.push((
+            Access::Public, // Because Repeater::update_model accesses it
+            Declaration::Function(Function {
+                name: "update_data".into(),
+                signature: "([[maybe_unused]] int i, [[maybe_unused]] const void *data) -> void"
+                    .into(),
+                statements: Some(update_statements),
+                ..Function::default()
+            }),
+        ));
     } else {
-        component_struct.members.push(Declaration::Var(Var {
-            ty: "sixtyfps::Property<float>".into(),
-            name: "dpi".into(),
-            ..Var::default()
-        }));
+        component_struct.members.push((
+            Access::Public, // FIXME: many of the different component bindings need to access this
+            Declaration::Var(Var {
+                ty: "sixtyfps::Property<float>".into(),
+                name: "dpi".into(),
+                ..Var::default()
+            }),
+        ));
         init.push("self->dpi.set(1.);".to_owned());
 
         let window_props = |name| {
@@ -533,16 +593,19 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Bui
                 "nullptr".to_owned()
             }
         };
-        component_struct.members.push(Declaration::Function(Function {
-            name: "window_properties".into(),
-            signature: "() -> sixtyfps::WindowProperties".into(),
-            statements: Some(vec![format!(
-                "return {{ {} , {}, &this->dpi }};",
-                window_props("width"),
-                window_props("height")
-            )]),
-            ..Default::default()
-        }));
+        component_struct.members.push((
+            Access::Public,
+            Declaration::Function(Function {
+                name: "window_properties".into(),
+                signature: "() -> sixtyfps::WindowProperties".into(),
+                statements: Some(vec![format!(
+                    "return {{ {} , {}, &this->dpi }};",
+                    window_props("width"),
+                    window_props("height")
+                )]),
+                ..Default::default()
+            }),
+        ));
     }
 
     let mut children_visitor_case = vec![];
@@ -561,7 +624,14 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Bui
         } else if let Some(repeated) = &item.repeated {
             tree_array.push(format!("sixtyfps::make_dyn_node({})", repeater_count,));
             let base_component = item.base_type.as_component();
-            generate_component(file, base_component, diag);
+            let mut friends = Vec::new();
+            generate_component(file, base_component, diag, Some(&mut friends));
+            if let Some(sub_components) = sub_components.as_mut() {
+                sub_components.extend_from_slice(friends.as_slice());
+                sub_components.push(self::component_id(base_component))
+            }
+            component_struct.friends.append(&mut friends);
+            component_struct.friends.push(self::component_id(base_component));
             handle_repeater(
                 repeated,
                 base_component,
@@ -585,33 +655,46 @@ fn generate_component(file: &mut File, component: &Rc<Component>, diag: &mut Bui
         }
     });
 
-    component_struct.members.push(Declaration::Function(Function {
-        name: component_id.clone(),
-        signature: "()".to_owned(),
-        is_constructor: true,
-        statements: None,
-        ..Default::default()
-    }));
+    component_struct.members.push((
+        Access::Public,
+        Declaration::Function(Function {
+            name: component_id.clone(),
+            signature: "()".to_owned(),
+            is_constructor: true,
+            statements: None,
+            ..Default::default()
+        }),
+    ));
 
-    component_struct.members.push(Declaration::Function(Function {
-        name: "visit_children".into(),
-        signature: "(sixtyfps::ComponentRef, intptr_t, sixtyfps::ItemVisitorRefMut) -> void".into(),
-        is_static: true,
-        ..Default::default()
-    }));
+    component_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
+            name: "visit_children".into(),
+            signature: "(sixtyfps::ComponentRef, intptr_t, sixtyfps::ItemVisitorRefMut) -> void"
+                .into(),
+            is_static: true,
+            ..Default::default()
+        }),
+    ));
 
-    component_struct.members.push(Declaration::Function(Function {
-        name: "compute_layout".into(),
-        signature: "(sixtyfps::ComponentRef component) -> void".into(),
-        is_static: true,
-        ..Default::default()
-    }));
+    component_struct.members.push((
+        Access::Public, // FIXME: we call this function from tests
+        Declaration::Function(Function {
+            name: "compute_layout".into(),
+            signature: "(sixtyfps::ComponentRef component) -> void".into(),
+            is_static: true,
+            ..Default::default()
+        }),
+    ));
 
-    component_struct.members.push(Declaration::Var(Var {
-        ty: "static const sixtyfps::ComponentVTable".to_owned(),
-        name: "component_type".to_owned(),
-        init: None,
-    }));
+    component_struct.members.push((
+        Access::Public,
+        Declaration::Var(Var {
+            ty: "static const sixtyfps::ComponentVTable".to_owned(),
+            name: "component_type".to_owned(),
+            init: None,
+        }),
+    ));
 
     let mut declarations = vec![];
     declarations.push(Declaration::Struct(component_struct));
