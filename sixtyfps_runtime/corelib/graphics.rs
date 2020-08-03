@@ -1,9 +1,8 @@
 extern crate alloc;
+use crate::input::{MouseEvent, MouseEventType};
 #[cfg(feature = "rtti")]
-use crate::{
-    input::{MouseEvent, MouseEventType},
-    rtti::{BuiltinItem, FieldInfo, FieldOffset, PropertyInfo, ValueType},
-};
+use crate::rtti::{BuiltinItem, FieldInfo, FieldOffset, PropertyInfo, ValueType};
+
 use cgmath::Matrix4;
 use const_field_offset::FieldOffsets;
 use sixtyfps_corelib_macros::*;
