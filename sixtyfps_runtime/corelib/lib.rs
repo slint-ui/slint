@@ -75,4 +75,6 @@ pub fn use_modules() -> usize {
         + abi::signals::sixtyfps_signal_init as usize
         + abi::sharedarray::sixtyfps_shared_array_drop as usize
         + layout::solve_grid_layout as usize
+        + item_tree::ffi::sixtyfps_visit_item_tree as usize
+        + graphics::ffi::sixtyfps_new_path_elements as usize
 }

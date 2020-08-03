@@ -55,7 +55,7 @@ impl<T: FnMut(crate::ComponentRefPin, isize, Pin<ItemRef>)> ItemVisitor for T {
     }
 }
 
-mod ffi {
+pub(crate) mod ffi {
     #![allow(unsafe_code)]
 
     use super::*;

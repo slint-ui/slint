@@ -705,7 +705,7 @@ impl PathData {
     }
 }
 
-mod ffi {
+pub(crate) mod ffi {
     #![allow(unsafe_code)]
 
     use super::*;
