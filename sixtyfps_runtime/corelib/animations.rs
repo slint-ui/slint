@@ -1,7 +1,23 @@
 #![warn(missing_docs)]
 
-use crate::abi::datastructures::EasingCurve;
 use std::cell::Cell;
+
+/// The representation of an easing curve, for animations
+#[repr(C, u32)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum EasingCurve {
+    /// The linear curve
+    Linear,
+    /// A Cubic bezier curve, with its 4 parameter
+    CubicBezier([f32; 4]),
+    //Custom(Box<dyn Fn(f32) -> f32>),
+}
+
+impl Default for EasingCurve {
+    fn default() -> Self {
+        Self::Linear
+    }
+}
 
 /// The AnimationDriver
 pub struct AnimationDriver {

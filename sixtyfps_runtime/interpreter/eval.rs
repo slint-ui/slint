@@ -70,7 +70,7 @@ pub enum Value {
     /// The elements of a path
     PathElements(PathData),
     /// An easing curve
-    EasingCurve(corelib::abi::datastructures::EasingCurve),
+    EasingCurve(corelib::animations::EasingCurve),
 }
 
 impl Default for Value {
@@ -116,7 +116,7 @@ declare_value_conversion!(Resource => [Resource] );
 declare_value_conversion!(Object => [HashMap<String, Value>] );
 declare_value_conversion!(Color => [Color] );
 declare_value_conversion!(PathElements => [PathData]);
-declare_value_conversion!(EasingCurve => [corelib::abi::datastructures::EasingCurve]);
+declare_value_conversion!(EasingCurve => [corelib::animations::EasingCurve]);
 
 /// The local variable needed for binding evaluation
 #[derive(Default)]
@@ -352,9 +352,9 @@ pub fn eval_expression(
             local_context.local_variables.get(name).unwrap().clone()
         }
         Expression::EasingCurve(curve) => Value::EasingCurve(match curve {
-            EasingCurve::Linear => corelib::abi::datastructures::EasingCurve::Linear,
+            EasingCurve::Linear => corelib::animations::EasingCurve::Linear,
             EasingCurve::CubicBezier(a, b, c, d) => {
-                corelib::abi::datastructures::EasingCurve::CubicBezier([*a, *b, *c, *d])
+                corelib::animations::EasingCurve::CubicBezier([*a, *b, *c, *d])
             }
         }),
     }
