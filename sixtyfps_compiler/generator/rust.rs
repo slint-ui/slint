@@ -372,6 +372,11 @@ fn generate_component(
                 self.dpi.set(dpi);
             }
         });
+        property_and_signal_accessors.push(quote! {
+            pub fn as_weak(self: core::pin::Pin<std::rc::Rc<Self>>) -> sixtyfps::re_exports::PinWeak<Self> {
+                sixtyfps::re_exports::PinWeak::downgrade(self)
+            }
+        });
         visibility = Some(quote!(pub));
     };
 
