@@ -12,8 +12,8 @@ use syn::{parse_macro_input, spanned::Spanned, DeriveInput, VisRestricted, Visib
 
 /**
 
-The macro FieldOffsets adds a `const fn field_offsets()` associated function to the struct, that
-returns an object which has fields with the same name as the fields of the original struct,
+The macro FieldOffsets adds a `FIELD_OFFSETS` associated const to the struct, that
+is an object which has fields with the same name as the fields of the original struct,
 each field is of type `const_field_offset::FieldOffset`
 
 ```rust
@@ -25,7 +25,7 @@ struct Foo {
     field_2 : u32,
 }
 
-const FOO : usize = Foo::field_offsets().field_2.get_byte_offset();
+const FOO : usize = Foo::FIELD_OFFSETS.field_2.get_byte_offset();
 assert_eq!(FOO, 4);
 
 // This would not work on stable rust at the moment (rust 1.43)
@@ -71,7 +71,7 @@ struct Foo {
     field_2 : u32,
 }
 
-const FIELD_2 : FieldOffset<Foo, u32, PinnedFlag> = Foo::field_offsets().field_2;
+const FIELD_2 : FieldOffset<Foo, u32, PinnedFlag> = Foo::FIELD_OFFSETS.field_2;
 let pin_box = Box::pin(Foo{field_1: 1, field_2: 2});
 assert_eq!(*FIELD_2.apply_pin(pin_box.as_ref()), 2);
 ```
@@ -208,7 +208,7 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
 
         impl #struct_name {
             /// Return a struct containing the offset of for the fields of this struct
-            pub const fn field_offsets() -> #field_struct_name {
+            pub const FIELD_OFFSETS : #field_struct_name = {
                 #ensure_pin_safe;
                 let mut len = 0usize;
                 #field_struct_name {
@@ -221,7 +221,7 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
                         unsafe { #crate_::FieldOffset::<#struct_name, #types, _>::#new_from_offset(len_rounded_up) }
                     }, )*
                 }
-            }
+            };
         }
 
         #[allow(non_camel_case_types)]
@@ -239,11 +239,11 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
                 type Field = #types;
                 type PinFlag = #pin_flag;
                 const OFFSET : #crate_::FieldOffset<#struct_name, #types, Self::PinFlag>
-                    = #struct_name::field_offsets().#fields;
+                    = #struct_name::FIELD_OFFSETS.#fields;
             }
             impl ::core::convert::Into<#crate_::FieldOffset<#struct_name, #types, #pin_flag>> for #module_name::#fields {
                 fn into(self) -> #crate_::FieldOffset<#struct_name, #types, #pin_flag> {
-                    #struct_name::field_offsets().#fields
+                    #struct_name::FIELD_OFFSETS.#fields
                 }
             }
             impl<Other> ::core::ops::Add<Other> for #module_name::#fields

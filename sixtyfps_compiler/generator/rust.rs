@@ -73,7 +73,7 @@ fn generate_component(
                     quote!(
                         #[allow(dead_code)]
                         pub fn #emitter_ident(self: ::core::pin::Pin<&Self>) {
-                            Self::field_offsets().#prop_ident.apply_pin(self).emit(())
+                            Self::FIELD_OFFSETS.#prop_ident.apply_pin(self).emit(())
                         }
                     )
                     .into(),
@@ -83,7 +83,7 @@ fn generate_component(
                     quote!(
                         #[allow(dead_code)]
                         pub fn #on_ident(self: ::core::pin::Pin<&Self>, f: impl Fn() + 'static) {
-                            Self::field_offsets().#prop_ident.apply_pin(self).set_handler(move |()|f())
+                            Self::FIELD_OFFSETS.#prop_ident.apply_pin(self).set_handler(move |()|f())
                         }
                     )
                     .into(),
@@ -107,7 +107,7 @@ fn generate_component(
                     quote!(
                         #[allow(dead_code)]
                         pub fn #getter_ident(self: ::core::pin::Pin<&Self>) -> #rust_property_type {
-                            Self::field_offsets().#prop_ident.apply_pin(self).get()
+                            Self::FIELD_OFFSETS.#prop_ident.apply_pin(self).get()
                         }
                     )
                     .into(),
@@ -123,7 +123,7 @@ fn generate_component(
                     quote!(
                         #[allow(dead_code)]
                         pub fn #setter_ident(&self, value: #rust_property_type) {
-                            Self::field_offsets().#prop_ident.apply(self).#set_value
+                            Self::FIELD_OFFSETS.#prop_ident.apply(self).#set_value
                         }
                     )
                     .into(),
@@ -155,7 +155,7 @@ fn generate_component(
 
             item_tree_array.push(quote!(
                 sixtyfps::re_exports::ItemTreeNode::Item{
-                    item: VOffset::new(#component_id::field_offsets().#field_name + sixtyfps::re_exports::Flickable::field_offsets().viewport),
+                    item: VOffset::new(#component_id::FIELD_OFFSETS.#field_name + sixtyfps::re_exports::Flickable::FIELD_OFFSETS.viewport),
                     chilren_count: #children_count,
                     children_index: #children_index,
                 }
@@ -219,7 +219,7 @@ fn generate_component(
                 repeated_visit_branch.push(quote!(
                     #repeater_index => {
                         if self_pinned.#model_name.is_dirty() {
-                            #component_id::field_offsets().#model_name.apply_pin(self_pinned).evaluate(|| {
+                            #component_id::FIELD_OFFSETS.#model_name.apply_pin(self_pinned).evaluate(|| {
                                 let _self = self_pinned.clone();
                                 self_pinned.#repeater_id.update_model(#model, || {
                                     #rep_component_id::new(self_pinned.self_weak.get().unwrap().clone())
@@ -247,7 +247,7 @@ fn generate_component(
 
             item_tree_array.push(quote!(
                 sixtyfps::re_exports::ItemTreeNode::Item{
-                    item: VOffset::new(#component_id::field_offsets().#field_name),
+                    item: VOffset::new(#component_id::FIELD_OFFSETS.#field_name),
                     chilren_count: #children_count,
                     children_index: #children_index,
                 }
@@ -536,12 +536,12 @@ fn access_member(
         let component_id = component_id(&enclosing_component);
         let name_ident = quote::format_ident!("{}", name);
         if e.property_declarations.contains_key(name) {
-            quote!(#component_id::field_offsets().#name_ident.apply_pin(#component_rust))
+            quote!(#component_id::FIELD_OFFSETS.#name_ident.apply_pin(#component_rust))
         } else {
             let elem_ident = quote::format_ident!("{}", e.id);
             let elem_ty = quote::format_ident!("{}", e.base_type.as_native().class_name);
 
-            quote!((#component_id::field_offsets().#elem_ident + #elem_ty::field_offsets().#name_ident)
+            quote!((#component_id::FIELD_OFFSETS.#elem_ident + #elem_ty::FIELD_OFFSETS.#name_ident)
                 .apply_pin(#component_rust)
             )
         }
@@ -571,7 +571,7 @@ fn dpi_expression(component: &Rc<Component>) -> TokenStream {
         component_rust = quote!(#component_rust.parent.upgrade().unwrap().as_ref());
     }
     let component_id = component_id(&root_component);
-    quote!(#component_id::field_offsets().dpi.apply_pin(#component_rust).get())
+    quote!(#component_id::FIELD_OFFSETS.dpi.apply_pin(#component_rust).get())
 }
 
 fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream {
@@ -612,7 +612,7 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
         Expression::RepeaterIndexReference { element } => {
             if element.upgrade().unwrap().borrow().base_type == Type::Component(component.clone()) {
                 let component_id = component_id(&component);
-                quote!({ #component_id::field_offsets().index.apply_pin(_self).get() })
+                quote!({ #component_id::FIELD_OFFSETS.index.apply_pin(_self).get() })
             } else {
                 todo!();
             }
@@ -620,7 +620,7 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
         Expression::RepeaterModelReference { element } => {
             if element.upgrade().unwrap().borrow().base_type == Type::Component(component.clone()) {
                 let component_id = component_id(&component);
-                quote!({ #component_id::field_offsets().model_data.apply_pin(_self).get() })
+                quote!({ #component_id::FIELD_OFFSETS.model_data.apply_pin(_self).get() })
             } else {
                 todo!();
             }
@@ -858,7 +858,7 @@ impl LayoutItemCodeGen for ElementRc {
         _layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
     ) -> TokenStream {
         let e = quote::format_ident!("{}", self.borrow().id);
-        quote!(Self::field_offsets().#e.apply_pin(self).layouting_info())
+        quote!(Self::FIELD_OFFSETS.#e.apply_pin(self).layouting_info())
     }
 }
 

@@ -44,22 +44,22 @@ pub struct Rectangle {
 impl Item for Rectangle {
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(
-            Self::field_offsets().x.apply_pin(self).get(),
-            Self::field_offsets().y.apply_pin(self).get(),
-            Self::field_offsets().width.apply_pin(self).get(),
-            Self::field_offsets().height.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.x.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.y.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.width.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.height.apply_pin(self).get(),
         )
     }
     fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
-        let width = Self::field_offsets().width.apply_pin(self).get();
-        let height = Self::field_offsets().height.apply_pin(self).get();
+        let width = Self::FIELD_OFFSETS.width.apply_pin(self).get();
+        let height = Self::FIELD_OFFSETS.height.apply_pin(self).get();
         if width > 0. && height > 0. {
             HighLevelRenderingPrimitive::Rectangle {
-                x: Self::field_offsets().x.apply_pin(self).get(),
-                y: Self::field_offsets().y.apply_pin(self).get(),
+                x: Self::FIELD_OFFSETS.x.apply_pin(self).get(),
+                y: Self::FIELD_OFFSETS.y.apply_pin(self).get(),
                 width,
                 height,
-                color: Self::field_offsets().color.apply_pin(self).get(),
+                color: Self::FIELD_OFFSETS.color.apply_pin(self).get(),
             }
         } else {
             HighLevelRenderingPrimitive::NoContents
@@ -77,7 +77,7 @@ impl ItemConsts for Rectangle {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         Rectangle,
         CachedRenderingData,
-    > = Rectangle::field_offsets().cached_rendering_data.as_unpinned_projection();
+    > = Rectangle::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
 pub use crate::abi::datastructures::RectangleVTable;
@@ -101,25 +101,25 @@ pub struct BorderRectangle {
 impl Item for BorderRectangle {
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(
-            Self::field_offsets().x.apply_pin(self).get(),
-            Self::field_offsets().y.apply_pin(self).get(),
-            Self::field_offsets().width.apply_pin(self).get(),
-            Self::field_offsets().height.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.x.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.y.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.width.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.height.apply_pin(self).get(),
         )
     }
     fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
-        let width = Self::field_offsets().width.apply_pin(self).get();
-        let height = Self::field_offsets().height.apply_pin(self).get();
+        let width = Self::FIELD_OFFSETS.width.apply_pin(self).get();
+        let height = Self::FIELD_OFFSETS.height.apply_pin(self).get();
         if width > 0. && height > 0. {
             HighLevelRenderingPrimitive::BorderRectangle {
-                x: Self::field_offsets().x.apply_pin(self).get(),
-                y: Self::field_offsets().y.apply_pin(self).get(),
+                x: Self::FIELD_OFFSETS.x.apply_pin(self).get(),
+                y: Self::FIELD_OFFSETS.y.apply_pin(self).get(),
                 width,
                 height,
-                color: Self::field_offsets().color.apply_pin(self).get(),
-                border_width: Self::field_offsets().border_width.apply_pin(self).get(),
-                border_radius: Self::field_offsets().border_radius.apply_pin(self).get(),
-                border_color: Self::field_offsets().border_color.apply_pin(self).get(),
+                color: Self::FIELD_OFFSETS.color.apply_pin(self).get(),
+                border_width: Self::FIELD_OFFSETS.border_width.apply_pin(self).get(),
+                border_radius: Self::FIELD_OFFSETS.border_radius.apply_pin(self).get(),
+                border_color: Self::FIELD_OFFSETS.border_color.apply_pin(self).get(),
             }
         } else {
             HighLevelRenderingPrimitive::NoContents
@@ -137,7 +137,7 @@ impl ItemConsts for BorderRectangle {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         BorderRectangle,
         CachedRenderingData,
-    > = BorderRectangle::field_offsets().cached_rendering_data.as_unpinned_projection();
+    > = BorderRectangle::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
 pub use crate::abi::datastructures::BorderRectangleVTable;
@@ -158,17 +158,17 @@ pub struct Image {
 impl Item for Image {
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(
-            Self::field_offsets().x.apply_pin(self).get(),
-            Self::field_offsets().y.apply_pin(self).get(),
-            Self::field_offsets().width.apply_pin(self).get(),
-            Self::field_offsets().height.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.x.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.y.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.width.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.height.apply_pin(self).get(),
         )
     }
     fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
         HighLevelRenderingPrimitive::Image {
-            x: Self::field_offsets().x.apply_pin(self).get(),
-            y: Self::field_offsets().y.apply_pin(self).get(),
-            source: Self::field_offsets().source.apply_pin(self).get(),
+            x: Self::FIELD_OFFSETS.x.apply_pin(self).get(),
+            y: Self::FIELD_OFFSETS.y.apply_pin(self).get(),
+            source: Self::FIELD_OFFSETS.source.apply_pin(self).get(),
         }
     }
 
@@ -184,7 +184,7 @@ impl ItemConsts for Image {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         Image,
         CachedRenderingData,
-    > = Image::field_offsets().cached_rendering_data.as_unpinned_projection();
+    > = Image::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
 pub use crate::abi::datastructures::ImageVTable;
@@ -207,27 +207,27 @@ impl Item for Text {
     // FIXME: width / height.  or maybe it doesn't matter?  (
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(
-            Self::field_offsets().x.apply_pin(self).get(),
-            Self::field_offsets().y.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.x.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.y.apply_pin(self).get(),
             0.,
             0.,
         )
     }
     fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
         HighLevelRenderingPrimitive::Text {
-            x: Self::field_offsets().x.apply_pin(self).get(),
-            y: Self::field_offsets().y.apply_pin(self).get(),
-            text: Self::field_offsets().text.apply_pin(self).get(),
-            font_family: Self::field_offsets().font_family.apply_pin(self).get(),
-            font_pixel_size: Self::field_offsets().font_pixel_size.apply_pin(self).get(),
-            color: Self::field_offsets().color.apply_pin(self).get(),
+            x: Self::FIELD_OFFSETS.x.apply_pin(self).get(),
+            y: Self::FIELD_OFFSETS.y.apply_pin(self).get(),
+            text: Self::FIELD_OFFSETS.text.apply_pin(self).get(),
+            font_family: Self::FIELD_OFFSETS.font_family.apply_pin(self).get(),
+            font_pixel_size: Self::FIELD_OFFSETS.font_pixel_size.apply_pin(self).get(),
+            color: Self::FIELD_OFFSETS.color.apply_pin(self).get(),
         }
     }
 
     fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
-        let font_family = Self::field_offsets().font_family.apply_pin(self).get();
-        let font_pixel_size = Self::field_offsets().font_pixel_size.apply_pin(self).get();
-        let text = Self::field_offsets().text.apply_pin(self).get();
+        let font_family = Self::FIELD_OFFSETS.font_family.apply_pin(self).get();
+        let font_pixel_size = Self::FIELD_OFFSETS.font_pixel_size.apply_pin(self).get();
+        let text = Self::FIELD_OFFSETS.text.apply_pin(self).get();
 
         crate::font::FONT_CACHE.with(|fc| {
             let font = fc.find_font(&font_family, font_pixel_size);
@@ -247,7 +247,7 @@ impl Item for Text {
 
 impl ItemConsts for Text {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Text, CachedRenderingData> =
-        Text::field_offsets().cached_rendering_data.as_unpinned_projection();
+        Text::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
 pub use crate::abi::datastructures::TextVTable;
@@ -271,10 +271,10 @@ pub struct TouchArea {
 impl Item for TouchArea {
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(
-            Self::field_offsets().x.apply_pin(self).get(),
-            Self::field_offsets().y.apply_pin(self).get(),
-            Self::field_offsets().width.apply_pin(self).get(),
-            Self::field_offsets().height.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.x.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.y.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.width.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.height.apply_pin(self).get(),
         )
     }
     fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
@@ -287,13 +287,13 @@ impl Item for TouchArea {
 
     fn input_event(self: Pin<&Self>, event: MouseEvent) {
         println!("Touch Area Event {:?}", event);
-        Self::field_offsets().pressed.apply_pin(self).set(match event.what {
+        Self::FIELD_OFFSETS.pressed.apply_pin(self).set(match event.what {
             MouseEventType::MousePressed => true,
             MouseEventType::MouseReleased => false,
             MouseEventType::MouseMoved => return,
         });
         if matches!(event.what, MouseEventType::MouseReleased) {
-            Self::field_offsets().clicked.apply_pin(self).emit(())
+            Self::FIELD_OFFSETS.clicked.apply_pin(self).emit(())
         }
     }
 }
@@ -302,7 +302,7 @@ impl ItemConsts for TouchArea {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         TouchArea,
         CachedRenderingData,
-    > = TouchArea::field_offsets().cached_rendering_data.as_unpinned_projection();
+    > = TouchArea::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 pub use crate::abi::datastructures::TouchAreaVTable;
 
@@ -325,22 +325,22 @@ pub struct Path {
 impl Item for Path {
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(
-            Self::field_offsets().x.apply_pin(self).get(),
-            Self::field_offsets().y.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.x.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.y.apply_pin(self).get(),
             0.,
             0.,
         )
     }
     fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
         HighLevelRenderingPrimitive::Path {
-            x: Self::field_offsets().x.apply_pin(self).get(),
-            y: Self::field_offsets().y.apply_pin(self).get(),
-            width: Self::field_offsets().width.apply_pin(self).get(),
-            height: Self::field_offsets().height.apply_pin(self).get(),
-            elements: Self::field_offsets().elements.apply_pin(self).get(),
-            fill_color: Self::field_offsets().fill_color.apply_pin(self).get(),
-            stroke_color: Self::field_offsets().stroke_color.apply_pin(self).get(),
-            stroke_width: Self::field_offsets().stroke_width.apply_pin(self).get(),
+            x: Self::FIELD_OFFSETS.x.apply_pin(self).get(),
+            y: Self::FIELD_OFFSETS.y.apply_pin(self).get(),
+            width: Self::FIELD_OFFSETS.width.apply_pin(self).get(),
+            height: Self::FIELD_OFFSETS.height.apply_pin(self).get(),
+            elements: Self::FIELD_OFFSETS.elements.apply_pin(self).get(),
+            fill_color: Self::FIELD_OFFSETS.fill_color.apply_pin(self).get(),
+            stroke_color: Self::FIELD_OFFSETS.stroke_color.apply_pin(self).get(),
+            stroke_width: Self::FIELD_OFFSETS.stroke_width.apply_pin(self).get(),
         }
     }
 
@@ -353,7 +353,7 @@ impl Item for Path {
 
 impl ItemConsts for Path {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Path, CachedRenderingData> =
-        Path::field_offsets().cached_rendering_data.as_unpinned_projection();
+        Path::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
 pub use crate::abi::datastructures::PathVTable;
@@ -377,10 +377,10 @@ pub struct Flickable {
 impl Item for Flickable {
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(
-            Self::field_offsets().x.apply_pin(self).get(),
-            Self::field_offsets().y.apply_pin(self).get(),
-            Self::field_offsets().width.apply_pin(self).get(),
-            Self::field_offsets().height.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.x.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.y.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.width.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.height.apply_pin(self).get(),
         )
     }
     fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
@@ -398,7 +398,7 @@ impl Item for Flickable {
 
 impl ItemConsts for Flickable {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
-        Self::field_offsets().cached_rendering_data.as_unpinned_projection();
+        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 pub use crate::abi::datastructures::FlickableVTable;
 

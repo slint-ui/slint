@@ -29,10 +29,10 @@ impl FlickableData {
                 inner.pressed_pos = event.pos;
                 inner.pressed_time = Some(crate::animations::current_tick());
                 inner.pressed_viewport_pos = Point::new(
-                    (Flickable::field_offsets().viewport + Rectangle::field_offsets().x)
+                    (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.x)
                         .apply_pin(flick)
                         .get(),
-                    (Flickable::field_offsets().viewport + Rectangle::field_offsets().y)
+                    (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.y)
                         .apply_pin(flick)
                         .get(),
                 )
@@ -53,10 +53,10 @@ impl FlickableData {
                         easing: EasingCurve::CubicBezier([0.0, 0.0, 0.58, 1.0]),
                         ..PropertyAnimation::default()
                     };
-                    (Flickable::field_offsets().viewport + Rectangle::field_offsets().x)
+                    (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.x)
                         .apply_pin(flick)
                         .set_animated_value(final_pos.x, &anim);
-                    (Flickable::field_offsets().viewport + Rectangle::field_offsets().y)
+                    (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.y)
                         .apply_pin(flick)
                         .set_animated_value(final_pos.y, &anim);
                 }
@@ -68,10 +68,10 @@ impl FlickableData {
                         flick,
                         inner.pressed_viewport_pos + (event.pos - inner.pressed_pos),
                     );
-                    (Flickable::field_offsets().viewport + Rectangle::field_offsets().x)
+                    (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.x)
                         .apply_pin(flick)
                         .set(new_pos.x);
-                    (Flickable::field_offsets().viewport + Rectangle::field_offsets().y)
+                    (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.y)
                         .apply_pin(flick)
                         .set(new_pos.y);
                 }
@@ -82,12 +82,12 @@ impl FlickableData {
 
 /// Make sure that the point is within the bounds
 fn ensure_in_bound(flick: Pin<&Flickable>, p: Point) -> Point {
-    let w = (Flickable::field_offsets().width).apply_pin(flick).get();
-    let h = (Flickable::field_offsets().height).apply_pin(flick).get();
-    /*let vw = (Flickable::field_offsets().viewport + Rectangle::field_offsets().width)
+    let w = (Flickable::FIELD_OFFSETS.width).apply_pin(flick).get();
+    let h = (Flickable::FIELD_OFFSETS.height).apply_pin(flick).get();
+    /*let vw = (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.width)
         .apply_pin(flick)
         .get();
-    let vh = (Flickable::field_offsets().viewport + Rectangle::field_offsets().height)
+    let vh = (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.height)
         .apply_pin(flick)
         .get();*/
     let (vw, vh) = (1000., 1000.); // FIXME: should be the actual viewport

@@ -61,21 +61,21 @@ pub struct QtStyleButton {
 impl Item for QtStyleButton {
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(
-            Self::field_offsets().x.apply_pin(self).get(),
-            Self::field_offsets().y.apply_pin(self).get(),
-            Self::field_offsets().width.apply_pin(self).get(),
-            Self::field_offsets().height.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.x.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.y.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.width.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.height.apply_pin(self).get(),
         )
     }
     fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
         #[cfg(have_qt)]
         {
-            let down: bool = Self::field_offsets().pressed.apply_pin(self).get();
+            let down: bool = Self::FIELD_OFFSETS.pressed.apply_pin(self).get();
             let text: qttypes::QString =
-                Self::field_offsets().text.apply_pin(self).get().as_str().into();
+                Self::FIELD_OFFSETS.text.apply_pin(self).get().as_str().into();
             let size: qttypes::QSize = qttypes::QSize {
-                width: Self::field_offsets().width.apply_pin(self).get() as _,
-                height: Self::field_offsets().height.apply_pin(self).get() as _,
+                width: Self::FIELD_OFFSETS.width.apply_pin(self).get() as _,
+                height: Self::FIELD_OFFSETS.height.apply_pin(self).get() as _,
             };
 
             let img = cpp!(unsafe [
@@ -96,8 +96,8 @@ impl Item for QtStyleButton {
                 return img;
             });
             return HighLevelRenderingPrimitive::Image {
-                x: Self::field_offsets().x.apply_pin(self).get(),
-                y: Self::field_offsets().y.apply_pin(self).get(),
+                x: Self::FIELD_OFFSETS.x.apply_pin(self).get(),
+                y: Self::FIELD_OFFSETS.y.apply_pin(self).get(),
                 source: to_resource(img),
             };
         }
@@ -109,7 +109,7 @@ impl Item for QtStyleButton {
         #[cfg(have_qt)]
         {
             let text: qttypes::QString =
-                Self::field_offsets().text.apply_pin(self).get().as_str().into();
+                Self::FIELD_OFFSETS.text.apply_pin(self).get().as_str().into();
             let size = cpp!(unsafe [
                 text as "QString"
             ] -> qttypes::QSize as "QSize" {
@@ -130,20 +130,20 @@ impl Item for QtStyleButton {
     }
 
     fn input_event(self: Pin<&Self>, event: MouseEvent) {
-        Self::field_offsets().pressed.apply_pin(self).set(match event.what {
+        Self::FIELD_OFFSETS.pressed.apply_pin(self).set(match event.what {
             MouseEventType::MousePressed => true,
             MouseEventType::MouseReleased => false,
             MouseEventType::MouseMoved => return,
         });
         if matches!(event.what, MouseEventType::MouseReleased) {
-            Self::field_offsets().clicked.apply_pin(self).emit(())
+            Self::FIELD_OFFSETS.clicked.apply_pin(self).emit(())
         }
     }
 }
 
 impl ItemConsts for QtStyleButton {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
-        Self::field_offsets().cached_rendering_data.as_unpinned_projection();
+        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
 ItemVTable_static! { #[no_mangle] pub static QtStyleButtonVTable for QtStyleButton }
@@ -165,21 +165,21 @@ pub struct QtStyleCheckBox {
 impl Item for QtStyleCheckBox {
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(
-            Self::field_offsets().x.apply_pin(self).get(),
-            Self::field_offsets().y.apply_pin(self).get(),
-            Self::field_offsets().width.apply_pin(self).get(),
-            Self::field_offsets().height.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.x.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.y.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.width.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.height.apply_pin(self).get(),
         )
     }
     fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
         #[cfg(have_qt)]
         {
-            let checked: bool = Self::field_offsets().checked.apply_pin(self).get();
+            let checked: bool = Self::FIELD_OFFSETS.checked.apply_pin(self).get();
             let text: qttypes::QString =
-                Self::field_offsets().text.apply_pin(self).get().as_str().into();
+                Self::FIELD_OFFSETS.text.apply_pin(self).get().as_str().into();
             let size: qttypes::QSize = qttypes::QSize {
-                width: Self::field_offsets().width.apply_pin(self).get() as _,
-                height: Self::field_offsets().height.apply_pin(self).get() as _,
+                width: Self::FIELD_OFFSETS.width.apply_pin(self).get() as _,
+                height: Self::FIELD_OFFSETS.height.apply_pin(self).get() as _,
             };
 
             let img = cpp!(unsafe [
@@ -199,8 +199,8 @@ impl Item for QtStyleCheckBox {
                 return img;
             });
             return HighLevelRenderingPrimitive::Image {
-                x: Self::field_offsets().x.apply_pin(self).get(),
-                y: Self::field_offsets().y.apply_pin(self).get(),
+                x: Self::FIELD_OFFSETS.x.apply_pin(self).get(),
+                y: Self::FIELD_OFFSETS.y.apply_pin(self).get(),
                 source: to_resource(img),
             };
         }
@@ -212,7 +212,7 @@ impl Item for QtStyleCheckBox {
         #[cfg(have_qt)]
         {
             let text: qttypes::QString =
-                Self::field_offsets().text.apply_pin(self).get().as_str().into();
+                Self::FIELD_OFFSETS.text.apply_pin(self).get().as_str().into();
             let size = cpp!(unsafe [
                 text as "QString"
             ] -> qttypes::QSize as "QSize" {
@@ -234,18 +234,18 @@ impl Item for QtStyleCheckBox {
 
     fn input_event(self: Pin<&Self>, event: MouseEvent) {
         if matches!(event.what, MouseEventType::MouseReleased) {
-            Self::field_offsets()
+            Self::FIELD_OFFSETS
                 .checked
                 .apply_pin(self)
-                .set(!Self::field_offsets().checked.apply_pin(self).get());
-            Self::field_offsets().toggled.apply_pin(self).emit(())
+                .set(!Self::FIELD_OFFSETS.checked.apply_pin(self).get());
+            Self::FIELD_OFFSETS.toggled.apply_pin(self).emit(())
         }
     }
 }
 
 impl ItemConsts for QtStyleCheckBox {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
-        Self::field_offsets().cached_rendering_data.as_unpinned_projection();
+        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
 ItemVTable_static! { #[no_mangle] pub static QtStyleCheckBoxVTable for QtStyleCheckBox }

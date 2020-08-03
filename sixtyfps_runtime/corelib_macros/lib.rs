@@ -65,20 +65,20 @@ pub fn builtin_item(input: TokenStream) -> TokenStream {
             fn properties<Value: ValueType>() -> Vec<(&'static str, &'static dyn PropertyInfo<Self, Value>)> {
                 vec![#( {
                     const O : MaybeAnimatedPropertyInfoWrapper<#item_name, #prop_field_types> =
-                        MaybeAnimatedPropertyInfoWrapper(#item_name::field_offsets().#prop_field_names);
+                        MaybeAnimatedPropertyInfoWrapper(#item_name::FIELD_OFFSETS.#prop_field_names);
                     (stringify!(#prop_field_names), (&O).as_property_info())
                 } ),*]
             }
             fn fields<Value: ValueType>() -> Vec<(&'static str, &'static dyn FieldInfo<Self, Value>)> {
                 vec![#( {
                     const O : FieldOffset<#item_name, #plain_field_types> =
-                        #item_name::field_offsets().#plain_field_names;
+                        #item_name::FIELD_OFFSETS.#plain_field_names;
                     (stringify!(#plain_field_names), &O as &'static dyn FieldInfo<Self, Value> )
                 } ),*]
             }
             fn signals() -> Vec<(&'static str, FieldOffset<Self, crate::Signal<()>>)> {
                 vec![#(
-                    (stringify!(#signal_field_names),#item_name::field_offsets().#signal_field_names)
+                    (stringify!(#signal_field_names),#item_name::FIELD_OFFSETS.#signal_field_names)
                 ),*]
             }
         }

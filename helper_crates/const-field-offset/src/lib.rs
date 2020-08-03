@@ -359,7 +359,7 @@ mod tests {
     #[test]
     fn test_simple() {
         // Get a pointer to `b` within `Foo`
-        let foo_b = Foo::field_offsets().b;
+        let foo_b = Foo::FIELD_OFFSETS.b;
 
         // Construct an example `Foo`
         let mut x = Foo { a: 1, b: 2.0, c: false };
@@ -384,7 +384,7 @@ mod tests {
         let mut x = Bar { x: 0, y: Foo { a: 1, b: 2.0, c: false } };
 
         // Combine the pointer-to-members
-        let bar_y_b = Bar::field_offsets().y + Foo::field_offsets().b;
+        let bar_y_b = Bar::FIELD_OFFSETS.y + Foo::FIELD_OFFSETS.b;
 
         // Apply the pointer to get at `b` and mutate it
         {
@@ -398,17 +398,17 @@ mod tests {
     fn test_pin() {
         use ::alloc::boxed::Box;
         // Get a pointer to `b` within `Foo`
-        let foo_b = Foo::field_offsets().b;
+        let foo_b = Foo::FIELD_OFFSETS.b;
         let foo_b_pin = unsafe { foo_b.as_pinned_projection() };
         let foo = Box::pin(Foo { a: 21, b: 22.0, c: true });
         let pb: Pin<&f64> = foo_b_pin.apply_pin(foo.as_ref());
         assert!(*pb == 22.0);
 
         let mut x = Box::pin(Bar { x: 0, y: Foo { a: 1, b: 52.0, c: false } });
-        let bar_y_b = Bar::field_offsets().y + foo_b_pin;
+        let bar_y_b = Bar::FIELD_OFFSETS.y + foo_b_pin;
         assert!(*bar_y_b.apply(&*x) == 52.0);
 
-        let bar_y_pin = unsafe { Bar::field_offsets().y.as_pinned_projection() };
+        let bar_y_pin = unsafe { Bar::FIELD_OFFSETS.y.as_pinned_projection() };
         *(bar_y_pin + foo_b_pin).apply_pin_mut(x.as_mut()) = 12.;
         assert!(x.y.b == 12.0);
     }

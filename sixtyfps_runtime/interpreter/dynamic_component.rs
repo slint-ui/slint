@@ -269,7 +269,7 @@ fn generate_component(root_component: &Rc<object_tree::Component>) -> Rc<Compone
         if is_flickable_rect {
             use vtable::HasStaticVTable;
             let offset = items_types[&item.id].offset
-                + Flickable::field_offsets().viewport.get_byte_offset();
+                + Flickable::FIELD_OFFSETS.viewport.get_byte_offset();
             tree_array.push(ItemTreeNode::Item {
                 item: unsafe { vtable::VOffset::from_raw(Rectangle::static_vtable(), offset) },
                 children_index: tree_array.len() as u32 + 1,
