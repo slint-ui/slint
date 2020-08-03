@@ -21,7 +21,7 @@ struct Signal
                 [](void *user_data) {
                     (*reinterpret_cast<F *>(user_data))();
                 },
-                new F(binding), [](void *user_data) { delete reinterpret_cast<F *>(user_data); });
+                new F(std::move(binding)), [](void *user_data) { delete reinterpret_cast<F *>(user_data); });
     }
 
     void emit() const

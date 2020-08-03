@@ -287,10 +287,18 @@ declare_types! {
             let lock = cx.lock();
             let x = this.borrow(&lock).0.clone();
             let component = x.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
-            component.description()
-                .emit_signal(component.borrow(), signal_name.as_str())
-                .or_else(|_| cx.throw_error(format!("Cannot emit signal")))?;
+            let persistent_context = persistent_context::PersistentContext::from_object(&mut cx, this.downcast().unwrap())?;
 
+            cx.execute_scoped(|cx| {
+                let cx = RefCell::new(cx);
+                let cx_fn = move |callback: &GlobalContextCallback| {
+                    callback(&mut *cx.borrow_mut(), &persistent_context)
+                };
+                GLOBAL_CONTEXT.set(&&cx_fn, || {
+                    component.description()
+                        .emit_signal(component.borrow(), signal_name.as_str())
+                })
+            }).or_else(|_| cx.throw_error(format!("Cannot emit signal")))?;
             Ok(JsUndefined::new().as_value(&mut cx))
         }
     }

@@ -73,9 +73,7 @@ fn resolve_expression(
         let new_expr = match node.kind() {
             SyntaxKind::CodeBlock => {
                 //FIXME: proper signal suport (node is a codeblock)
-                node.child_node(SyntaxKind::Expression)
-                    .map(|en| Expression::from_expression_node(en.into(), &mut lookup_ctx))
-                    .unwrap_or(Expression::Invalid)
+                Expression::from_codeblock_node(node.clone(), &mut lookup_ctx)
             }
             SyntaxKind::Expression => {
                 //FIXME again: this happen for non-binding expression (i.e: model)
