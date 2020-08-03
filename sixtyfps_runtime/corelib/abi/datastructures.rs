@@ -254,7 +254,7 @@ pub enum Resource {
     EmbeddedData(super::slice::Slice<'static, u8>),
     /// Raw ARGB
     #[allow(missing_docs)]
-    EmbeddedDataOwned { width: u32, height: u32, data: super::sharedarray::SharedArray<u8> },
+    EmbeddedRgbaImage { width: u32, height: u32, data: super::sharedarray::SharedArray<u8> },
 }
 
 impl Default for Resource {

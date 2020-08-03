@@ -20,7 +20,7 @@ mod qttypes;
 #[cfg(have_qt)]
 fn to_resource(image: qttypes::QImage) -> Resource {
     let size = image.size();
-    Resource::EmbeddedDataOwned {
+    Resource::EmbeddedRgbaImage {
         width: size.width,
         height: size.height,
         data: sixtyfps_corelib::abi::sharedarray::SharedArray::from(image.data()),

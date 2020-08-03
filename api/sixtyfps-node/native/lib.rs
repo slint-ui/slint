@@ -144,7 +144,7 @@ fn to_js_value<'cx>(
         Value::Resource(r) => match r {
             Resource::None => JsUndefined::new().as_value(cx),
             Resource::AbsoluteFilePath(path) => JsString::new(cx, path.as_str()).as_value(cx),
-            Resource::EmbeddedData { .. } | Resource::EmbeddedDataOwned { .. } => {
+            Resource::EmbeddedData { .. } | Resource::EmbeddedRgbaImage { .. } => {
                 JsNull::new().as_value(cx)
             } // TODO: maybe pass around node buffers?
         },

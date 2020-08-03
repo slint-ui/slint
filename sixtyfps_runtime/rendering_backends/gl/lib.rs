@@ -360,7 +360,7 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                             .unwrap();
                             smallvec![self.create_image(image)]
                         }
-                        Resource::EmbeddedDataOwned { width, height, data } => {
+                        Resource::EmbeddedRgbaImage { width, height, data } => {
                             let image = image::ImageBuffer::<image::Rgba<u8>, &[u8]>::from_raw(
                                 *width,
                                 *height,
