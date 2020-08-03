@@ -1,7 +1,7 @@
 //! The implementation details behind the Flickable
 
 use crate::abi::datastructures::{EasingCurve, MouseEvent, MouseEventType, Point};
-use crate::abi::primitives::{Flickable, PropertyAnimation, Rectangle};
+use crate::items::{Flickable, PropertyAnimation, Rectangle};
 use core::cell::RefCell;
 use core::pin::Pin;
 use instant::Instant;

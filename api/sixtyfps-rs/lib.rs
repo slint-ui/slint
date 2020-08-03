@@ -74,12 +74,13 @@ pub mod re_exports {
     pub use crate::repeater::*;
     pub use const_field_offset::{self, FieldOffsets};
     pub use once_cell::unsync::OnceCell;
+    pub use pin_weak::rc::*;
     pub use sixtyfps_corelib::abi::datastructures::*;
-    pub use sixtyfps_corelib::abi::primitives::*;
     pub use sixtyfps_corelib::abi::properties::{Property, PropertyListenerScope};
     pub use sixtyfps_corelib::abi::signals::Signal;
     pub use sixtyfps_corelib::abi::slice::Slice;
     pub use sixtyfps_corelib::item_tree::visit_item_tree;
+    pub use sixtyfps_corelib::items::*;
     pub use sixtyfps_corelib::layout::{
         grid_layout_info, solve_grid_layout, solve_path_layout, GridLayoutCellData, GridLayoutData,
         PathLayoutData, PathLayoutItemData,
@@ -90,7 +91,6 @@ pub mod re_exports {
     pub use sixtyfps_corelib::SharedArray;
     pub use sixtyfps_corelib::SharedString;
     pub use vtable::{self, *};
-    pub use pin_weak::rc::*;
 }
 
 /// Creates a new window to render components in.

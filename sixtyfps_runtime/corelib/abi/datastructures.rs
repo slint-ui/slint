@@ -797,36 +797,36 @@ pub unsafe extern "C" fn sixtyfps_visit_item_tree(
 ItemVTable_static! {
     /// The VTable for `Image`
     #[no_mangle]
-    pub static ImageVTable for crate::abi::primitives::Image
+    pub static ImageVTable for crate::items::Image
 }
 ItemVTable_static! {
     /// The VTable for `Rectangle`
     #[no_mangle]
-    pub static RectangleVTable for crate::abi::primitives::Rectangle
+    pub static RectangleVTable for crate::items::Rectangle
 }
 ItemVTable_static! {
     /// The VTable for `BorderRectangle`
     #[no_mangle]
-    pub static BorderRectangleVTable for crate::abi::primitives::BorderRectangle
+    pub static BorderRectangleVTable for crate::items::BorderRectangle
 }
 ItemVTable_static! {
     /// The VTable for `Text`
     #[no_mangle]
-    pub static TextVTable for crate::abi::primitives::Text
+    pub static TextVTable for crate::items::Text
 }
 ItemVTable_static! {
     /// The VTable for `TouchArea`
     #[no_mangle]
-    pub static TouchAreaVTable for crate::abi::primitives::TouchArea
+    pub static TouchAreaVTable for crate::items::TouchArea
 }
 ItemVTable_static! {
     /// The VTable for `Path`
     #[no_mangle]
-    pub static PathVTable for crate::abi::primitives::Path
+    pub static PathVTable for crate::items::Path
 }
 
 ItemVTable_static! {
     /// The VTable for `Flickable`
     #[no_mangle]
-    pub static FlickableVTable for crate::abi::primitives::Flickable
+    pub static FlickableVTable for crate::items::Flickable
 }

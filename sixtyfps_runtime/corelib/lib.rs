@@ -28,7 +28,6 @@ pub mod abi {
     #![allow(unsafe_code)]
     pub mod datastructures;
     pub mod model;
-    pub mod primitives;
     pub mod properties;
     pub mod sharedarray;
     pub mod signals;
@@ -36,6 +35,8 @@ pub mod abi {
     pub mod string;
     pub mod tests;
 }
+
+pub mod items;
 
 #[doc(inline)]
 pub use abi::string::SharedString;

@@ -157,7 +157,7 @@ fn main() {
     cbindgen::Builder::new()
         .with_config(config)
         .with_src(crate_dir.join("abi/datastructures.rs"))
-        .with_src(crate_dir.join("abi/primitives.rs"))
+        .with_src(crate_dir.join("items.rs"))
         .with_src(crate_dir.join("abi/model.rs"))
         .with_src(crate_dir.join("abi/tests.rs"))
         .with_src(crate_dir.join("layout.rs")) // FIXME: move in ABI?

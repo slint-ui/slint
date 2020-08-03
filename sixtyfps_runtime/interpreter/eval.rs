@@ -7,9 +7,8 @@ use sixtyfps_compilerlib::expression_tree::{
 use sixtyfps_compilerlib::{object_tree::ElementRc, typeregister::Type};
 use sixtyfps_corelib as corelib;
 use sixtyfps_corelib::{
-    abi::datastructures::ItemRef, abi::datastructures::PathElement,
-    abi::primitives::PropertyAnimation, Color, ComponentRefPin, PathData, Resource, SharedArray,
-    SharedString,
+    abi::datastructures::ItemRef, abi::datastructures::PathElement, items::PropertyAnimation,
+    Color, ComponentRefPin, PathData, Resource, SharedArray, SharedString,
 };
 use std::{collections::HashMap, rc::Rc};
 

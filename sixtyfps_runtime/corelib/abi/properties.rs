@@ -65,7 +65,7 @@ use core::cell::{Cell, RefCell, UnsafeCell};
 use core::{marker::PhantomPinned, pin::Pin};
 
 use crate::abi::datastructures::Color;
-use crate::abi::primitives::PropertyAnimation;
+use crate::items::PropertyAnimation;
 
 /// The return value of a binding
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -964,7 +964,7 @@ pub unsafe extern "C" fn sixtyfps_property_set_animated_binding_color(
 #[cfg(test)]
 mod animation_tests {
     use super::*;
-    use crate::abi::primitives::PropertyAnimation;
+    use crate::items::PropertyAnimation;
     use std::rc::Rc;
 
     #[derive(Default)]

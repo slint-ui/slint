@@ -4,7 +4,7 @@
 */
 
 pub type FieldOffset<T, U> = const_field_offset::FieldOffset<T, U, const_field_offset::PinnedFlag>;
-use crate::abi::primitives::PropertyAnimation;
+use crate::items::PropertyAnimation;
 use core::convert::{TryFrom, TryInto};
 use core::pin::Pin;
 

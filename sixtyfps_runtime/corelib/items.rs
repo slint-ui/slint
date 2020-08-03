@@ -12,12 +12,13 @@ When adding an item or a property, it needs to be kept in sync with different pl
 
 */
 
+#![allow(unsafe_code)]
 #![allow(non_upper_case_globals)]
 #![allow(missing_docs)] // because documenting each property of items is redundent
 
-use super::datastructures::{
-    CachedRenderingData, Color, Item, ItemConsts, LayoutInfo, PathData, Rect, RenderingPrimitive,
-    Resource,
+use super::abi::datastructures::{
+    CachedRenderingData, Color, Item, ItemConsts, LayoutInfo, MouseEvent, PathData, Rect,
+    RenderingPrimitive, Resource,
 };
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
@@ -68,7 +69,7 @@ impl Item for Rectangle {
         Default::default()
     }
 
-    fn input_event(self: Pin<&Self>, _: super::datastructures::MouseEvent) {}
+    fn input_event(self: Pin<&Self>, _: MouseEvent) {}
 }
 
 impl ItemConsts for Rectangle {
@@ -128,7 +129,7 @@ impl Item for BorderRectangle {
         Default::default()
     }
 
-    fn input_event(self: Pin<&Self>, _: super::datastructures::MouseEvent) {}
+    fn input_event(self: Pin<&Self>, _: MouseEvent) {}
 }
 
 impl ItemConsts for BorderRectangle {
@@ -175,7 +176,7 @@ impl Item for Image {
         Default::default()
     }
 
-    fn input_event(self: Pin<&Self>, _: super::datastructures::MouseEvent) {}
+    fn input_event(self: Pin<&Self>, _: MouseEvent) {}
 }
 
 impl ItemConsts for Image {
@@ -240,7 +241,7 @@ impl Item for Text {
         })
     }
 
-    fn input_event(self: Pin<&Self>, _: super::datastructures::MouseEvent) {}
+    fn input_event(self: Pin<&Self>, _: MouseEvent) {}
 }
 
 impl ItemConsts for Text {
@@ -283,14 +284,14 @@ impl Item for TouchArea {
         LayoutInfo::default()
     }
 
-    fn input_event(self: Pin<&Self>, event: super::datastructures::MouseEvent) {
+    fn input_event(self: Pin<&Self>, event: MouseEvent) {
         println!("Touch Area Event {:?}", event);
         Self::field_offsets().pressed.apply_pin(self).set(match event.what {
-            super::datastructures::MouseEventType::MousePressed => true,
-            super::datastructures::MouseEventType::MouseReleased => false,
-            super::datastructures::MouseEventType::MouseMoved => return,
+            super::abi::datastructures::MouseEventType::MousePressed => true,
+            super::abi::datastructures::MouseEventType::MouseReleased => false,
+            super::abi::datastructures::MouseEventType::MouseMoved => return,
         });
-        if matches!(event.what, super::datastructures::MouseEventType::MouseReleased) {
+        if matches!(event.what, super::abi::datastructures::MouseEventType::MouseReleased) {
             Self::field_offsets().clicked.apply_pin(self).emit(())
         }
     }
@@ -346,7 +347,7 @@ impl Item for Path {
         LayoutInfo::default()
     }
 
-    fn input_event(self: Pin<&Self>, _: super::datastructures::MouseEvent) {}
+    fn input_event(self: Pin<&Self>, _: MouseEvent) {}
 }
 
 impl ItemConsts for Path {
@@ -389,7 +390,7 @@ impl Item for Flickable {
         LayoutInfo::default()
     }
 
-    fn input_event(self: Pin<&Self>, event: super::datastructures::MouseEvent) {
+    fn input_event(self: Pin<&Self>, event: MouseEvent) {
         self.data.handle_mouse(self, event);
     }
 }

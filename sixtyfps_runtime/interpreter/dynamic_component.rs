@@ -11,8 +11,8 @@ use sixtyfps_corelib::abi::datastructures::{
     ComponentVTable, ItemTreeNode, ItemVTable, ItemVisitorRefMut, LayoutInfo, Resource,
     WindowProperties,
 };
-use sixtyfps_corelib::abi::primitives::{Flickable, PropertyAnimation, Rectangle};
 use sixtyfps_corelib::abi::{properties::PropertyListenerScope, slice::Slice};
+use sixtyfps_corelib::items::{Flickable, PropertyAnimation, Rectangle};
 use sixtyfps_corelib::rtti::PropertyInfo;
 use sixtyfps_corelib::ComponentRefPin;
 use sixtyfps_corelib::{rtti, Color, Property, SharedString, Signal};
@@ -244,7 +244,7 @@ pub fn load(
 fn generate_component(root_component: &Rc<object_tree::Component>) -> Rc<ComponentDescription> {
     let mut rtti = HashMap::new();
     {
-        use sixtyfps_corelib::abi::primitives::*;
+        use sixtyfps_corelib::items::*;
         rtti.extend(
             [
                 rtti_for::<Image>(),
