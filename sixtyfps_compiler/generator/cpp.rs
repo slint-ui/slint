@@ -388,7 +388,7 @@ fn handle_repeater(
     component_struct.members.push((
         Access::Private,
         Declaration::Var(Var {
-            ty: format!("sixtyfps::Repeater<struct {}>", component_id(base_component)),
+            ty: format!("sixtyfps::Repeater<class {}>", component_id(base_component)),
             name: repeater_id,
             init: None,
         }),
