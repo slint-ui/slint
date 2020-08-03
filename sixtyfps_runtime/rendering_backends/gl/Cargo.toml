@@ -12,7 +12,7 @@ crate-type = [ "lib", "cdylib" ]
 cbindgen = "0.14.2"
 
 [dependencies]
-sixtyfps_corelib = { path = "../../corelib" }
+sixtyfps-corelib = { path = "../../corelib" }
 lyon = { version = "0.15.8" }
 image = { version = "0.23.4", default-features = false }
 cgmath = "0.17.0"

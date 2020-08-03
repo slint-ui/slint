@@ -1,5 +1,5 @@
 [package]
-name = "sixtyfps_corelib"
+name = "sixtyfps-corelib"
 version = "0.1.0"
 authors = ["Sixty FPS <info@sixtyfps.io>"]
 edition = "2018"

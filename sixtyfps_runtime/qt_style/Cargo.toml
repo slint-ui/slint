@@ -9,7 +9,7 @@ path = "lib.rs"
 
 [features]
 # Allow the vewer to query at runtime information about item types
-rtti = ['sixtyfps_corelib/rtti']
+rtti = ['sixtyfps-corelib/rtti']
 
 
 [build-dependencies]
@@ -20,7 +20,7 @@ cpp_build = "0.5.5"
 const-field-offset = { path = "../../helper_crates/const-field-offset" }
 vtable = { path = "../../helper_crates/vtable" }
 corelib_macro = { path = "../corelib_macro" }
-sixtyfps_corelib = { path = "../corelib" }
+sixtyfps-corelib = { path = "../corelib" }
 cpp = "0.5.5"
 euclid = "0.20.11"
 

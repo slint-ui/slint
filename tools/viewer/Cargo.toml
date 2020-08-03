@@ -6,7 +6,7 @@ edition = "2018"
 
 
 [dependencies]
-sixtyfps_corelib = { path="../../sixtyfps_runtime/corelib" }
+sixtyfps-corelib = { path="../../sixtyfps_runtime/corelib" }
 vtable = { path="../../helper_crates/vtable" }
 sixtyfps_interpreter = { path = "../../sixtyfps_runtime/interpreter", features=['qt_style'] }
 # FIXME: make optional and configurable backends

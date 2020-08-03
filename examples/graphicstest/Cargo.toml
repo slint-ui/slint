@@ -7,7 +7,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-sixtyfps_corelib = { path = "../../sixtyfps_runtime/corelib" }
+sixtyfps-corelib = { path = "../../sixtyfps_runtime/corelib" }
 sixtyfps_rendering_backend_gl = { path = "../../sixtyfps_runtime/rendering_backends/gl" }
 image = { version = "0.23.4", default-features = false, features = [ "png" ] }
 cgmath = "0.17.0"
