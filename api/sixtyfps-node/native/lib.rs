@@ -306,13 +306,13 @@ declare_types! {
 
 register_module!(mut m, {
     m.export_function("load", load)?;
-    m.export_function("test_ellapse_time", test_ellapse_time)?;
+    m.export_function("mock_elapsed_time", mock_elapsed_time)?;
     Ok(())
 });
 
 /// let some time ellapse for testing purposes
-fn test_ellapse_time(mut cx: FunctionContext) -> JsResult<JsValue> {
+fn mock_elapsed_time(mut cx: FunctionContext) -> JsResult<JsValue> {
     let ms = cx.argument::<JsNumber>(0)?.value();
-    sixtyfps_corelib::tests::sixtyfps_test_ellapse_time(ms as _);
+    sixtyfps_corelib::tests::sixtyfps_mock_elapsed_time(ms as _);
     Ok(JsUndefined::new().as_value(&mut cx))
 }

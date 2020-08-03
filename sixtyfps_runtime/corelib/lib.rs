@@ -72,7 +72,7 @@ pub mod tests;
 #[doc(hidden)]
 #[cold]
 pub fn use_modules() -> usize {
-    tests::sixtyfps_test_ellapse_time as usize
+    tests::sixtyfps_mock_elapsed_time as usize
         + abi::signals::sixtyfps_signal_init as usize
         + abi::sharedarray::sixtyfps_shared_array_drop as usize
         + layout::solve_grid_layout as usize
