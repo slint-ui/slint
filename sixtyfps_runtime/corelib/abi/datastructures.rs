@@ -414,6 +414,7 @@ impl<EventIt: Iterator<Item = lyon::path::Event<lyon::math::Point, lyon::math::P
 /// through the low-level events of a path. If the path was constructed from said
 /// events, then it is a very thin abstraction. If the path was created from higher-level
 /// elements, then an intermediate lyon path is required/built.
+#[doc(hidden)]
 pub struct LyonPathIterator<'a> {
     it: LyonPathIteratorVariant<'a>,
     transform: Option<lyon::math::Transform>,
