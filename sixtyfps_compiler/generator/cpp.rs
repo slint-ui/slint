@@ -797,7 +797,7 @@ fn access_member(
     let enclosing_component = e.enclosing_component.upgrade().unwrap();
     if Rc::ptr_eq(component, &enclosing_component) {
         let e = element.borrow();
-        if e.property_declarations.contains_key(name) {
+        if e.property_declarations.contains_key(name) || name == "" {
             format!("{}->{}", component_cpp, name)
         } else {
             format!("{}->{}.{}", component_cpp, e.id.as_str(), name)
@@ -852,18 +852,22 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
             BuiltinFunction::GetWindowScaleFactor => window_scale_factor_expression(component),
         },
         Expression::RepeaterIndexReference { element } => {
-            if element.upgrade().unwrap().borrow().base_type == Type::Component(component.clone()) {
-                "self->index.get()".to_owned()
-            } else {
-                todo!();
-            }
+            let access = access_member(
+                &element.upgrade().unwrap().borrow().base_type.as_component().root_element,
+                "",
+                component,
+                "self",
+            );
+            format!(r#"{}index.get()"#, access)
         }
         Expression::RepeaterModelReference { element } => {
-            if element.upgrade().unwrap().borrow().base_type == Type::Component(component.clone()) {
-                "self->model_data.get()".to_owned()
-            } else {
-                todo!();
-            }
+            let access = access_member(
+                &element.upgrade().unwrap().borrow().base_type.as_component().root_element,
+                "",
+                component,
+                "self",
+            );
+            format!(r#"{}model_data.get()"#, access)
         }
         Expression::StoreLocalVariable { name, value } => {
             format!("auto {} = {};", name, compile_expression(value, component))

@@ -350,6 +350,15 @@ impl Expression {
         }
 
         for elem in ctx.component_scope.iter().rev() {
+            if let Some(repeated) = &elem.borrow().repeated {
+                if first_str == repeated.index_id {
+                    return Expression::RepeaterIndexReference { element: Rc::downgrade(elem) };
+                } else if first_str == repeated.model_data_id {
+                    let base = Expression::RepeaterModelReference { element: Rc::downgrade(elem) };
+                    return maybe_lookup_object(base, it, ctx);
+                }
+            }
+
             let property = elem.borrow().lookup_property(first_str);
             if property.is_property_type() {
                 let prop = Self::PropertyReference(NamedReference {
@@ -367,18 +376,6 @@ impl Expression {
                 });
             } else if property.is_object_type() {
                 todo!("Continue lookling up");
-            }
-        }
-
-        // Try to lookup an index or model property
-        for scope in ctx.component_scope.iter().rev() {
-            if let Some(repeated) = &scope.borrow().repeated {
-                if first_str == repeated.index_id {
-                    return Expression::RepeaterIndexReference { element: Rc::downgrade(scope) };
-                } else if first_str == repeated.model_data_id {
-                    let base = Expression::RepeaterModelReference { element: Rc::downgrade(scope) };
-                    return maybe_lookup_object(base, it, ctx);
-                }
             }
         }
 

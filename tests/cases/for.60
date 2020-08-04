@@ -1,5 +1,9 @@
+ExtraComponent := Rectangle {
+    for x in [{a: "0"}, {a: "1"}] : Text { text: x.a; }
+}
 
-TestCase := Rectangle {
+
+export TestCase := Rectangle {
     width: 100px;
     height: 100px;
     color: white;
@@ -32,5 +36,7 @@ TestCase := Rectangle {
         x: pp.a * 1px;
         text: pp.b;
         color: pp.c.a;
+
+        ExtraComponent { }
     }
 }

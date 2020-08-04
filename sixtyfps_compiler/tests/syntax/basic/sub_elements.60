@@ -20,8 +20,5 @@ SubElements := Rectangle {
         self := Rectangle {}
 //      ^error{'self' is a reserved id}
     }
-
-
-
 }
 

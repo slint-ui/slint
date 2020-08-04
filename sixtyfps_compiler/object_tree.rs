@@ -648,6 +648,15 @@ pub fn visit_all_named_references(elem: &ElementRc, mut vis: impl FnMut(&mut Nam
         expr.visit_mut(|sub| recurse_expression(sub, vis));
         match expr {
             Expression::PropertyReference(r) | Expression::SignalReference(r) => vis(r),
+            // This is not really a named reference, but the result is the same, it need to be updated
+            // FIXME: this should probably be lowered into a PropertyReference
+            Expression::RepeaterModelReference { element }
+            | Expression::RepeaterIndexReference { element } => {
+                let mut nc = NamedReference { element: element.clone(), name: "$model".into() };
+                vis(&mut nc);
+                debug_assert!(nc.element.upgrade().unwrap().borrow().repeated.is_some());
+                *element = nc.element;
+            }
             _ => {}
         }
     }

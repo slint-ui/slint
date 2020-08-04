@@ -51,7 +51,10 @@ fn create_repeater_components(component: &Rc<Component>) {
 /// to the root of the newly created component
 fn adjust_references(comp: &Rc<Component>) {
     recurse_elem(&comp.root_element, &(), &mut |elem, _| {
-        visit_all_named_references(elem, |NamedReference { element, .. }| {
+        visit_all_named_references(elem, |NamedReference { element, name }| {
+            if name == "$model" {
+                return;
+            }
             let e = element.upgrade().unwrap();
             if e.borrow().repeated.is_some() {
                 if let Type::Component(c) = e.borrow().base_type.clone() {
