@@ -10,8 +10,7 @@ use lyon::tessellation::{
 use sixtyfps_corelib::eventloop::{ffi::ComponentWindowOpaque, ComponentWindow};
 use sixtyfps_corelib::graphics::{
     Color, FillStyle, Frame as GraphicsFrame, GraphicsBackend, GraphicsWindow,
-    HasRenderingPrimitive, HighLevelRenderingPrimitive, Point, Rect, RenderingPrimitivesBuilder,
-    Resource, Size,
+    HighLevelRenderingPrimitive, Point, Rect, RenderingPrimitivesBuilder, Resource, Size,
 };
 use smallvec::{smallvec, SmallVec};
 use std::cell::RefCell;
@@ -208,13 +207,6 @@ type GLRenderingPrimitives = SmallVec<[GLRenderingPrimitive; 1]>;
 
 pub struct OpaqueRenderingPrimitive {
     gl_primitives: GLRenderingPrimitives,
-    rendering_primitive: HighLevelRenderingPrimitive,
-}
-
-impl HasRenderingPrimitive for OpaqueRenderingPrimitive {
-    fn primitive(&self) -> &HighLevelRenderingPrimitive {
-        &self.rendering_primitive
-    }
 }
 
 impl GraphicsBackend for GLRenderer {
@@ -425,7 +417,6 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                     primitives
                 }
             },
-            rendering_primitive: primitive,
         }
     }
 }

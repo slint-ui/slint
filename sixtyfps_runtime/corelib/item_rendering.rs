@@ -1,7 +1,5 @@
 use super::abi::datastructures::ItemRef;
-use super::graphics::{
-    Frame, GraphicsBackend, HasRenderingPrimitive, RenderingCache, RenderingPrimitivesBuilder,
-};
+use super::graphics::{Frame, GraphicsBackend, RenderingCache, RenderingPrimitivesBuilder};
 use cgmath::{Matrix4, SquareMatrix, Vector3};
 use std::cell::Cell;
 
@@ -17,14 +15,18 @@ pub struct CachedRenderingData {
 }
 
 impl CachedRenderingData {
-    pub(crate) fn low_level_rendering_primitive<'a, Backend: GraphicsBackend>(
+    pub(crate) fn ensure_up_to_date<'a, Backend: GraphicsBackend>(
         &self,
-        cache: &'a RenderingCache<Backend>,
-    ) -> Option<&'a Backend::LowLevelRenderingPrimitive> {
-        if !self.cache_ok.get() {
-            return None;
-        }
-        Some(cache.entry_at(self.cache_index.get()))
+        cache: &'a mut RenderingCache<Backend>,
+        item: core::pin::Pin<ItemRef>,
+        rendering_primitives_builder: &mut Backend::RenderingPrimitivesBuilder,
+    ) {
+        let idx = if self.cache_ok.get() { Some(self.cache_index.get()) } else { None };
+
+        self.cache_index.set(cache.ensure_cached(idx, || {
+            rendering_primitives_builder.create(item.as_ref().rendering_primitive())
+        }));
+        self.cache_ok.set(true);
     }
 }
 
@@ -33,25 +35,8 @@ pub(crate) fn update_item_rendering_data<Backend: GraphicsBackend>(
     rendering_cache: &mut RenderingCache<Backend>,
     rendering_primitives_builder: &mut Backend::RenderingPrimitivesBuilder,
 ) {
-    let item_rendering_primitive = item.as_ref().rendering_primitive();
-
     let rendering_data = item.cached_rendering_data_offset();
-
-    let last_rendering_primitive =
-        rendering_data.low_level_rendering_primitive(&rendering_cache).map(|ll| ll.primitive());
-
-    if let Some(last_rendering_primitive) = last_rendering_primitive {
-        if *last_rendering_primitive == item_rendering_primitive {
-            //println!("Keeping ... {:?}", item_rendering_info);
-            return;
-        }
-    }
-
-    rendering_data.cache_index.set(
-        rendering_cache
-            .allocate_entry(rendering_primitives_builder.create(item_rendering_primitive)),
-    );
-    rendering_data.cache_ok.set(true);
+    rendering_data.ensure_up_to_date(rendering_cache, item, rendering_primitives_builder);
 }
 
 pub(crate) fn render_component_items<Backend: GraphicsBackend>(

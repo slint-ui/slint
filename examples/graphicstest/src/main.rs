@@ -33,7 +33,7 @@ fn main() {
                 height: 100.,
                 color: Color::from_rgb(0, 0, 255),
             });
-        render_cache.allocate_entry(root_rect)
+        render_cache.ensure_cached(None, || root_rect)
     };
 
     let child_rect = {
@@ -45,7 +45,7 @@ fn main() {
                 height: 100.,
                 color: Color::from_rgb(0, 255, 0),
             });
-        render_cache.allocate_entry(child_rect)
+        render_cache.ensure_cached(None, || child_rect)
     };
 
     let image_node = {
@@ -64,7 +64,7 @@ fn main() {
                 source: Resource::AbsoluteFilePath(logo_path.to_str().unwrap().into()),
             });
 
-        render_cache.allocate_entry(image_primitive)
+        render_cache.ensure_cached(None, || image_primitive)
     };
 
     const TRIANGLE_PATH: &'static [PathElement] = &[
@@ -83,7 +83,7 @@ fn main() {
                 stroke_color: Color::BLACK,
                 stroke_width: 2.0,
             });
-        render_cache.allocate_entry(path_primitive)
+        render_cache.ensure_cached(None, || path_primitive)
     };
 
     renderer.finish_primitives(rendering_primitives_builder);

@@ -178,12 +178,8 @@ pub enum HighLevelRenderingPrimitive {
     },
 }
 
-pub trait HasRenderingPrimitive {
-    fn primitive(&self) -> &HighLevelRenderingPrimitive;
-}
-
 pub trait Frame {
-    type LowLevelRenderingPrimitive: HasRenderingPrimitive;
+    type LowLevelRenderingPrimitive;
     fn render_primitive(
         &mut self,
         primitive: &Self::LowLevelRenderingPrimitive,
@@ -192,7 +188,7 @@ pub trait Frame {
 }
 
 pub trait RenderingPrimitivesBuilder {
-    type LowLevelRenderingPrimitive: HasRenderingPrimitive;
+    type LowLevelRenderingPrimitive;
 
     fn create(
         &mut self,
@@ -201,7 +197,7 @@ pub trait RenderingPrimitivesBuilder {
 }
 
 pub trait GraphicsBackend: Sized {
-    type LowLevelRenderingPrimitive: HasRenderingPrimitive;
+    type LowLevelRenderingPrimitive;
     type Frame: Frame<LowLevelRenderingPrimitive = Self::LowLevelRenderingPrimitive>;
     type RenderingPrimitivesBuilder: RenderingPrimitivesBuilder<
         LowLevelRenderingPrimitive = Self::LowLevelRenderingPrimitive,
@@ -216,8 +212,29 @@ pub trait GraphicsBackend: Sized {
     fn window(&self) -> &winit::window::Window;
 }
 
+struct TrackingRenderingPrimitive<RenderingPrimitive> {
+    primitive: RenderingPrimitive,
+    dependency_tracker: core::pin::Pin<Box<crate::properties::PropertyListenerScope>>,
+}
+
+impl<RenderingPrimitive> TrackingRenderingPrimitive<RenderingPrimitive> {
+    fn new(update_fn: impl FnOnce() -> RenderingPrimitive) -> Self {
+        let dependency_tracker = Box::pin(crate::properties::PropertyListenerScope::default());
+        let primitive = dependency_tracker.as_ref().evaluate(update_fn);
+        Self { primitive, dependency_tracker }
+    }
+}
+
+impl<RenderingPrimitive> From<RenderingPrimitive>
+    for TrackingRenderingPrimitive<RenderingPrimitive>
+{
+    fn from(p: RenderingPrimitive) -> Self {
+        Self { primitive: p, dependency_tracker: Box::pin(Default::default()) }
+    }
+}
+
 enum RenderingCacheEntry<RenderingPrimitive> {
-    AllocateEntry(RenderingPrimitive),
+    AllocateEntry(TrackingRenderingPrimitive<RenderingPrimitive>),
     FreeEntry(Option<usize>), // contains next free index if exists
 }
 
@@ -234,7 +251,30 @@ impl<Backend: GraphicsBackend> Default for RenderingCache<Backend> {
 }
 
 impl<Backend: GraphicsBackend> RenderingCache<Backend> {
-    pub fn allocate_entry(&mut self, content: Backend::LowLevelRenderingPrimitive) -> usize {
+    pub fn ensure_cached(
+        &mut self,
+        index: Option<usize>,
+        update_fn: impl FnOnce() -> Backend::LowLevelRenderingPrimitive,
+    ) -> usize {
+        if let Some(index) = index {
+            match self.nodes[index] {
+                RenderingCacheEntry::AllocateEntry(ref mut data) => {
+                    if data.dependency_tracker.is_dirty() {
+                        data.primitive = data.dependency_tracker.as_ref().evaluate(update_fn)
+                    }
+                }
+                _ => unreachable!(),
+            }
+            index
+        } else {
+            self.allocate_entry(update_fn)
+        }
+    }
+
+    fn allocate_entry(
+        &mut self,
+        content_fn: impl FnOnce() -> Backend::LowLevelRenderingPrimitive,
+    ) -> usize {
         let idx = {
             if let Some(free_idx) = self.next_free {
                 let node = &mut self.nodes[free_idx];
@@ -243,10 +283,13 @@ impl<Backend: GraphicsBackend> RenderingCache<Backend> {
                 } else {
                     unreachable!();
                 }
-                *node = RenderingCacheEntry::AllocateEntry(content);
+                *node =
+                    RenderingCacheEntry::AllocateEntry(TrackingRenderingPrimitive::new(content_fn));
                 free_idx
             } else {
-                self.nodes.push(RenderingCacheEntry::AllocateEntry(content));
+                self.nodes.push(RenderingCacheEntry::AllocateEntry(
+                    TrackingRenderingPrimitive::new(content_fn),
+                ));
                 self.nodes.len() - 1
             }
         };
@@ -256,14 +299,7 @@ impl<Backend: GraphicsBackend> RenderingCache<Backend> {
 
     pub fn entry_at(&self, idx: usize) -> &Backend::LowLevelRenderingPrimitive {
         match self.nodes[idx] {
-            RenderingCacheEntry::AllocateEntry(ref data) => return data,
-            _ => unreachable!(),
-        }
-    }
-
-    pub fn set_entry_at(&mut self, idx: usize, primitive: Backend::LowLevelRenderingPrimitive) {
-        match self.nodes[idx] {
-            RenderingCacheEntry::AllocateEntry(ref mut data) => *data = primitive,
+            RenderingCacheEntry::AllocateEntry(ref data) => return &data.primitive,
             _ => unreachable!(),
         }
     }
