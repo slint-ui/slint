@@ -11,7 +11,7 @@ use sixtyfps_corelib::item_rendering::CachedRenderingData;
 use sixtyfps_corelib::layout::LayoutInfo;
 #[cfg(feature = "rtti")]
 use sixtyfps_corelib::rtti::*;
-use sixtyfps_corelib::{ItemVTable_static, Property, SharedString, Signal};
+use sixtyfps_corelib::{ItemVTable_static, Property, SharedArray, SharedString, Signal};
 use sixtyfps_corelib_macros::*;
 
 #[cfg(have_qt)]
@@ -23,7 +23,7 @@ fn to_resource(image: qttypes::QImage) -> Resource {
     Resource::EmbeddedRgbaImage {
         width: size.width,
         height: size.height,
-        data: sixtyfps_corelib::abi::sharedarray::SharedArray::from(image.data()),
+        data: SharedArray::from(image.data()),
     }
 }
 
