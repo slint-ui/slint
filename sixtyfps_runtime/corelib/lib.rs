@@ -28,11 +28,11 @@ pub mod abi {
     #![allow(unsafe_code)]
     pub mod datastructures;
     pub mod model;
-    pub mod sharedarray;
 }
 
 pub mod items;
 pub mod properties;
+pub mod sharedarray;
 pub mod signals;
 pub mod string;
 
@@ -40,7 +40,7 @@ pub mod string;
 pub use string::SharedString;
 
 #[doc(inline)]
-pub use abi::sharedarray::SharedArray;
+pub use sharedarray::SharedArray;
 
 #[doc(inline)]
 pub use graphics::Resource;
@@ -74,7 +74,7 @@ pub mod tests;
 pub fn use_modules() -> usize {
     tests::sixtyfps_mock_elapsed_time as usize
         + signals::ffi::sixtyfps_signal_init as usize
-        + abi::sharedarray::sixtyfps_shared_array_drop as usize
+        + sharedarray::ffi::sixtyfps_shared_array_drop as usize
         + layout::solve_grid_layout as usize
         + item_tree::ffi::sixtyfps_visit_item_tree as usize
         + graphics::ffi::sixtyfps_new_path_elements as usize

@@ -70,7 +70,7 @@ fn main() {
 
     cbindgen::Builder::new()
         .with_config(config.clone())
-        .with_src(crate_dir.join("abi/sharedarray.rs"))
+        .with_src(crate_dir.join("sharedarray.rs"))
         .with_after_include("namespace sixtyfps { template<typename T> struct SharedArray; }")
         .generate()
         .expect("Unable to generate bindings")

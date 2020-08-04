@@ -1,4 +1,5 @@
 //! module for the SharedArray and related things
+#![allow(unsafe_code)]
 use core::mem::MaybeUninit;
 use std::{fmt::Debug, fmt::Display, ops::Deref};
 use triomphe::{Arc, HeaderWithLength, ThinArc};
@@ -169,24 +170,28 @@ fn simple_test() {
     assert_ne!(def, x);
 }
 
-#[no_mangle]
-/// This function is used for the low-level C++ interface to allocate the backing vector for an empty shared array.
-pub unsafe extern "C" fn sixtyfps_shared_array_new_null(out: *mut SharedArray<u8>) {
-    core::ptr::write(out, SharedArray::<u8>::default());
-}
+pub(crate) mod ffi {
+    use super::*;
 
-#[no_mangle]
-/// This function is used for the low-level C++ interface to clone a shared array by increasing its reference count.
-pub unsafe extern "C" fn sixtyfps_shared_array_clone(
-    out: *mut SharedArray<u8>,
-    source: &SharedArray<u8>,
-) {
-    core::ptr::write(out, source.clone());
-}
+    #[no_mangle]
+    /// This function is used for the low-level C++ interface to allocate the backing vector for an empty shared array.
+    pub unsafe extern "C" fn sixtyfps_shared_array_new_null(out: *mut SharedArray<u8>) {
+        core::ptr::write(out, SharedArray::<u8>::default());
+    }
 
-#[no_mangle]
-/// This function is used for the low-level C++ interface to decrease the reference count of a shared array.
-pub unsafe extern "C" fn sixtyfps_shared_array_drop(out: *mut SharedArray<u8>) {
-    // ?? This won't call drop on the right type...
-    core::ptr::read(out);
+    #[no_mangle]
+    /// This function is used for the low-level C++ interface to clone a shared array by increasing its reference count.
+    pub unsafe extern "C" fn sixtyfps_shared_array_clone(
+        out: *mut SharedArray<u8>,
+        source: &SharedArray<u8>,
+    ) {
+        core::ptr::write(out, source.clone());
+    }
+
+    #[no_mangle]
+    /// This function is used for the low-level C++ interface to decrease the reference count of a shared array.
+    pub unsafe extern "C" fn sixtyfps_shared_array_drop(out: *mut SharedArray<u8>) {
+        // ?? This won't call drop on the right type...
+        core::ptr::read(out);
+    }
 }
