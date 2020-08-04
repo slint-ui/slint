@@ -119,6 +119,25 @@ is an access to the pixel ratio.
 they correspond to the number like `1ms` or `1s`
  - `easing`: follow more or less the CSS spec
 
+## Signal
+
+```60
+Example := Rectangle {
+    // declares a signal
+    signal hello;
+
+    area := TouchArea {
+        // sets a handler with `=>`
+        clicked => {
+            // emit the signal
+            root.hello()
+        }
+    }
+}
+```
+
+TODO: add parameter to the signal
+
 
 ## Expressions
 
@@ -166,25 +185,48 @@ Array / Object
 TODO
 ```
 
+## Statements
 
-## Signal
+Inside signal handler, more complicated statements are allowed:
+
+Assignment:
 
 ```60
-Example := Rectangle {
-    // declares a signal
-    signal hello;
+clicked => { some_property = 42; }
+```
 
-    area := TouchArea {
-        // sets a handler with `=>`
-        clicked => {
-            // emit the signal
-            root.hello()
-        }
+Self-assignement with `+=` `-=` `*=` `/=`
+
+```60
+clicked => { some_property += 42; }
+```
+
+Calling a signal
+
+```60
+clicked => { root.some_signal(); }
+```
+
+Conditional expression
+
+```60
+clicked => {
+    if (condition) {
+        foo = 42;
+    } else {
+        bar = 28;
     }
 }
 ```
 
-TODO: add parameter to the signal
+Empty expression
+
+```60
+clicked => { }
+// or
+clicked => { ; }
+```
+
 
 ## Repetition
 

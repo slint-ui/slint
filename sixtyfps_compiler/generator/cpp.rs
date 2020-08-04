@@ -166,6 +166,7 @@ use std::rc::Rc;
 impl CppType for Type {
     fn cpp_type(&self) -> Option<String> {
         match self {
+            Type::Void => Some("void".to_owned()),
             Type::Float32 => Some("float".to_owned()),
             Type::Int32 => Some("int".to_owned()),
             Type::String => Some("sixtyfps::SharedString".to_owned()),

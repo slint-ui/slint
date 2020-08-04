@@ -67,7 +67,7 @@ fn resolve_expression(
         let new_expr = match node.kind() {
             SyntaxKind::CodeBlock => {
                 //FIXME: proper signal suport (node is a codeblock)
-                Expression::from_codeblock_node(node.clone(), &mut lookup_ctx)
+                Expression::from_codeblock_node(node.clone().into(), &mut lookup_ctx)
             }
             SyntaxKind::Expression => {
                 //FIXME again: this happen for non-binding expression (i.e: model)
@@ -167,13 +167,14 @@ impl Expression {
             .child_node(SyntaxKind::Expression)
             .map(|n| Self::from_expression_node(n.into(), ctx))
             .or_else(|| {
-                node.child_node(SyntaxKind::CodeBlock).map(|c| Self::from_codeblock_node(c, ctx))
+                node.child_node(SyntaxKind::CodeBlock)
+                    .map(|c| Self::from_codeblock_node(c.into(), ctx))
             })
             .unwrap_or(Self::Invalid);
         e.maybe_convert_to(ctx.property_type.clone(), &node, &mut ctx.diag)
     }
 
-    fn from_codeblock_node(node: SyntaxNodeWithSourceFile, ctx: &mut LookupCtx) -> Expression {
+    fn from_codeblock_node(node: syntax_nodes::CodeBlock, ctx: &mut LookupCtx) -> Expression {
         debug_assert_eq!(node.kind(), SyntaxKind::CodeBlock);
         Expression::CodeBlock(
             node.children()
@@ -239,6 +240,7 @@ impl Expression {
             })
             .or_else(|| node.ObjectLiteral().map(|n| Self::from_object_literal_node(n, ctx)))
             .or_else(|| node.Array().map(|n| Self::from_array_node(n, ctx)))
+            .or_else(|| node.CodeBlock().map(|n| Self::from_codeblock_node(n, ctx)))
             .unwrap_or(Self::Invalid)
     }
 

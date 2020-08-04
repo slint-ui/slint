@@ -288,7 +288,7 @@ declare_syntax! {
         // FIXME: the test should test that as alternative rather than several of them (but it can also be a literal)
         Expression-> [ ?Expression, ?BangExpression, ?FunctionCallExpression, ?SelfAssignment,
                        ?ConditionalExpression, ?QualifiedName, ?BinaryExpression, ?Array, ?ObjectLiteral,
-                       ?UnaryOpExpression],
+                       ?UnaryOpExpression, ?CodeBlock],
         /// `foo!bar`
         BangExpression -> [Expression],
         /// expression()

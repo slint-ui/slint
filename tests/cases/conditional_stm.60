@@ -1,0 +1,56 @@
+TestCase := Rectangle {
+    property<int> value;
+    property<int> result : 3;
+    signal action;
+    action => {
+        if (value == 5) {
+            result += 1;
+            result += 1;
+        }
+
+        if (value != 8) {
+
+        } else {
+            result += 33;
+        }
+    }
+}
+/*
+```cpp
+TestCase instance;
+instance.emit_action();
+assert(instance.get_result() == 3);
+instance.set_value(5);
+instance.emit_action();
+assert(instance.get_result() == 5);
+instance.set_value(8);
+instance.emit_action();
+assert(instance.get_result() == 5+33);
+```
+
+
+```rust
+let instance = TestCase::new();
+let instance = instance.as_ref();
+instance.emit_action();
+assert_eq!(instance.get_result(), 3);
+instance.set_value(5);
+instance.emit_action();
+assert_eq!(instance.get_result(), 5);
+instance.set_value(8);
+instance.emit_action();
+assert_eq!(instance.get_result(), 5+33);
+```
+
+```js
+var instance = new sixtyfps.TestCase({});
+instance.action();
+assert.equal(instance.result, 3);
+instance.value = 5;
+instance.action();
+assert.equal(instance.result, 5);
+instance.value = 8;
+instance.action();
+assert.equal(instance.result, 5+33);
+```
+*/

@@ -259,13 +259,12 @@ fn parse_binding_expression(p: &mut impl Parser) {
 /// { expression ; expression ; }
 /// { ;;;; }
 /// ```
-fn parse_code_block(p: &mut impl Parser) {
+pub fn parse_code_block(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::CodeBlock);
     p.expect(SyntaxKind::LBrace); // Or assert?
 
     while p.nth(0) != SyntaxKind::RBrace {
-        parse_statement(&mut *p);
-        if !p.test(SyntaxKind::Semicolon) {
+        if !parse_statement(&mut *p) {
             break;
         }
     }
