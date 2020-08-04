@@ -12,6 +12,7 @@ MainWindow := Rectangle {
         height: root.height / 3;
         y: root.height / 3;
         x: idx * root.width / 4 + root.width / 45;
+        border_radius: 25lx;
         color: page_info.color;
         img := Image {
             y: 5lx;
@@ -54,6 +55,7 @@ MainWindow := Rectangle {
                 y: 0px;
                 height: root.height / 8;
                 width: root.width;
+                border_radius: 0lx;
                 img.x: root.height / 8;
                 text.y: 0px;
                 text.x: root.height / 4;
