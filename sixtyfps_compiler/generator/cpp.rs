@@ -180,6 +180,7 @@ impl CppType for Type {
                 // This will produce a tuple
                 Some(format!("std::tuple<{}>", elem.join(", ")))
             }
+            Type::Resource => Some("sixtyfps::Resource".to_owned()),
             Type::Builtin(elem) => elem.native_class.cpp_type.clone(),
             _ => None,
         }

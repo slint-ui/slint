@@ -3,21 +3,20 @@ MainWindow := Rectangle {
     property<int> active_page: 0;
 
     for page_info[idx] in [
-        { color: #f00, text: "Copy", img: "📋" },
-        { color: #0f0, text: "Fax", img: "📠" },
-        { color: #dd0, text: "Print", img: "🖨️" },
-        { color: #00f, text: "Settings", img: "⚙️" },
+        { color: #f00, text: "Copy", img: img!"images/copy.png" },
+        { color: #0f0, text: "Fax", img: img!"images/fax.png" },
+        { color: #dd0, text: "Print", img: img!"images/printer.png" },
+        { color: #00f, text: "Settings", img: img!"images/settings.png" },
     ] : Rectangle {
         width: root.width / 5;
         height: root.height / 3;
         y: root.height / 3;
         x: idx * root.width / 4 + root.width / 45;
         color: page_info.color;
-        img := Text {
-            color: white;
+        img := Image {
             y: 5lx;
             x: 5lx;
-            text: "�";//page_info.img;
+            source: page_info.img;
             animate x, y {
                 duration: 200ms;
                 easing: ease;
@@ -62,6 +61,7 @@ MainWindow := Rectangle {
             }
             invisible when root.active_page > 0 && root.active_page != idx + 1 : {
                 color: white;
+                img.y: -1000lx; // FIXME: should probaby hide the entire item under with z-ordering
             }
         ]
     }

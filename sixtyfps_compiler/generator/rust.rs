@@ -27,6 +27,7 @@ fn rust_type(
         Type::Length => Ok(quote!(f32)),
         Type::LogicalLength => Ok(quote!(f32)),
         Type::Bool => Ok(quote!(bool)),
+        Type::Resource => Ok(quote!(sixtyfps::re_exports::Resource)),
         Type::Object(o) => {
             let elem = o.values().map(|v| rust_type(v, span)).collect::<Result<Vec<_>, _>>()?;
             // This will produce a tuple
