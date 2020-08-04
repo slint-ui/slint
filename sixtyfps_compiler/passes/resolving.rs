@@ -58,17 +58,11 @@ struct ComponentScope(Vec<ElementRc>);
 fn resolve_expression(
     expr: &mut Expression,
     property_type: Type,
-    component: &Rc<Component>,
     scope: &ComponentScope,
     diag: &mut BuildDiagnostics,
 ) {
     if let Expression::Uncompiled(node) = expr {
-        let mut lookup_ctx = LookupCtx {
-            property_type,
-            component: component.clone(),
-            component_scope: &scope.0,
-            diag,
-        };
+        let mut lookup_ctx = LookupCtx { property_type, component_scope: &scope.0, diag };
 
         let new_expr = match node.kind() {
             SyntaxKind::CodeBlock => {
@@ -104,9 +98,11 @@ pub fn resolve_expressions(doc: &Document, diag: &mut BuildDiagnostics) {
                 scope.0.push(elem.clone())
             }
 
+            scope.0.push(elem.clone());
             visit_element_expressions(elem, |expr, property_type| {
-                resolve_expression(expr, property_type(), component, &scope, diag)
+                resolve_expression(expr, property_type(), &scope, diag)
             });
+            scope.0.pop();
             scope
         })
     }
@@ -117,9 +113,6 @@ struct LookupCtx<'a> {
     /// the type of the property for which this expression refers.
     /// (some property come in the scope)
     property_type: Type,
-
-    /// document_root
-    component: Rc<Component>,
 
     /// Here is the stack in which id applies
     component_scope: &'a [ElementRc],
@@ -143,6 +136,28 @@ fn find_element_by_id(roots: &[ElementRc], name: &str) -> Option<ElementRc> {
         }
     }
     None
+}
+
+/// Find the parent element to a given element.
+/// (since there is no parent mapping we need to fo an exhaustive search)
+fn find_parent_element(e: &ElementRc) -> Option<ElementRc> {
+    fn recurse(base: &ElementRc, e: &ElementRc) -> Option<ElementRc> {
+        for child in &base.borrow().children {
+            if Rc::ptr_eq(child, e) {
+                return Some(base.clone());
+            }
+            if let Some(x) = recurse(child, e) {
+                return Some(x);
+            }
+        }
+        None
+    }
+
+    let root = e.borrow().enclosing_component.upgrade().unwrap().root_element.clone();
+    if Rc::ptr_eq(&root, e) {
+        return None;
+    }
+    recurse(&root, e)
 }
 
 impl Expression {
@@ -295,32 +310,15 @@ impl Expression {
 
         let first_str = first.text().as_str();
 
-        if first_str == "true" {
-            return Self::BoolLiteral(true);
-        } else if first_str == "false" {
-            return Self::BoolLiteral(false);
-        }
+        let elem_opt = match first_str {
+            "self" => ctx.component_scope.last().cloned(),
+            "parent" => ctx.component_scope.last().and_then(find_parent_element),
+            "true" => return Self::BoolLiteral(true),
+            "false" => return Self::BoolLiteral(false),
+            _ => find_element_by_id(ctx.component_scope, first_str),
+        };
 
-        let property = ctx.component.root_element.borrow().lookup_property(first_str);
-        if property.is_property_type() {
-            let prop = Self::PropertyReference(NamedReference {
-                element: Rc::downgrade(&ctx.component.root_element),
-                name: first_str.to_string(),
-            });
-            return maybe_lookup_object(prop, it, ctx);
-        } else if matches!(property, Type::Signal) {
-            if let Some(x) = it.next() {
-                ctx.diag.push_error("Cannot access fields of signal".into(), &x)
-            }
-            return Self::SignalReference(NamedReference {
-                element: Rc::downgrade(&ctx.component.root_element),
-                name: first_str.to_string(),
-            });
-        } else if property.is_object_type() {
-            todo!("Continue lookling up");
-        }
-
-        if let Some(elem) = find_element_by_id(ctx.component_scope, first_str) {
+        if let Some(elem) = elem_opt {
             let prop_name = if let Some(second) = it.next() {
                 second
             } else {
@@ -346,6 +344,27 @@ impl Expression {
             } else {
                 ctx.diag.push_error(format!("Cannot access property '{}'", prop_name), &prop_name);
                 return Self::Invalid;
+            }
+        }
+
+        for elem in ctx.component_scope.iter().rev() {
+            let property = elem.borrow().lookup_property(first_str);
+            if property.is_property_type() {
+                let prop = Self::PropertyReference(NamedReference {
+                    element: Rc::downgrade(&elem),
+                    name: first_str.to_string(),
+                });
+                return maybe_lookup_object(prop, it, ctx);
+            } else if matches!(property, Type::Signal) {
+                if let Some(x) = it.next() {
+                    ctx.diag.push_error("Cannot access fields of signal".into(), &x)
+                }
+                return Self::SignalReference(NamedReference {
+                    element: Rc::downgrade(&elem),
+                    name: first_str.to_string(),
+                });
+            } else if property.is_object_type() {
+                todo!("Continue lookling up");
             }
         }
 

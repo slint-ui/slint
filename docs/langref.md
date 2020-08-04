@@ -50,8 +50,9 @@ MyApp := Window {
 ```
 
 The outermost element of a component is always accessible under the name `root`.
-TODO: the current element can be referred as `self`.
-TODO: the parent element can be referred as `parent`.
+The current element can be referred as `self`.
+The parent element can be referred as `parent`.
+These names are reserved and cannot be used as an element name.
 
 ## Properties
 

@@ -313,6 +313,12 @@ impl Element {
         for se in node.children() {
             if se.kind() == SyntaxKind::SubElement {
                 let id = se.child_text(SyntaxKind::Identifier).unwrap_or_default();
+                if matches!(id.as_ref(), "parent" | "self" | "root") {
+                    diag.push_error(
+                        format!("'{}' is a reserved id", id),
+                        &se.child_token(SyntaxKind::Identifier).unwrap(),
+                    )
+                }
                 if let Some(element_node) = se.child_node(SyntaxKind::Element) {
                     r.children.push(Element::from_node(
                         element_node.into(),
