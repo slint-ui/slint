@@ -605,11 +605,11 @@ fn generate_component(
             Access::Public, // FIXME: many of the different component bindings need to access this
             Declaration::Var(Var {
                 ty: "sixtyfps::Property<float>".into(),
-                name: "dpi".into(),
+                name: "scale_factor".into(),
                 ..Var::default()
             }),
         ));
-        init.push("self->dpi.set(1.);".to_owned());
+        init.push("self->scale_factor.set(1.);".to_owned());
 
         let window_props = |name| {
             let root_elem = component.root_element.borrow();
@@ -626,7 +626,7 @@ fn generate_component(
                 name: "window_properties".into(),
                 signature: "() -> sixtyfps::WindowProperties".into(),
                 statements: Some(vec![format!(
-                    "return {{ {} , {}, &this->dpi }};",
+                    "return {{ {} , {}, &this->scale_factor }};",
                     window_props("width"),
                     window_props("height")
                 )]),
@@ -814,15 +814,15 @@ fn access_member(
     }
 }
 
-/// Return an expression that gets the DPI property
-fn dpi_expression(component: &Rc<Component>) -> String {
+/// Return an expression that gets the window scale factor property
+fn window_scale_factor_expression(component: &Rc<Component>) -> String {
     let mut root_component = component.clone();
     let mut component_cpp = "self".to_owned();
     while let Some(p) = root_component.parent_element.upgrade() {
         root_component = p.borrow().enclosing_component.upgrade().unwrap();
         component_cpp = format!("{}->parent", component_cpp);
     }
-    format!("{}->dpi.get()", component_cpp)
+    format!("{}->scale_factor.get()", component_cpp)
 }
 
 fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Component>) -> String {
@@ -883,10 +883,10 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
                 (Type::Array(_), Type::Model) => f,
                 (Type::Float32, Type::Color) => format!("sixtyfps::Color({})", f),
                 (Type::LogicalLength, Type::Length) => {
-                    format!("({} * {})", f, dpi_expression(component))
+                    format!("({} * {})", f, window_scale_factor_expression(component))
                 }
                 (Type::Length, Type::LogicalLength) => {
-                    format!("({} / {})", f, dpi_expression(component))
+                    format!("({} / {})", f, window_scale_factor_expression(component))
                 }
                 _ => f,
             }

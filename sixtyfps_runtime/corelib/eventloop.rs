@@ -128,13 +128,13 @@ impl EventLoop {
                     if let Some(height_property) = window_properties.height {
                         height_property.set(size.height as f32)
                     }
-                    if let Some(dpi_property) = window_properties.dpi {
+                    if let Some(scale_factor_property) = window_properties.scale_factor {
                         ALL_WINDOWS.with(|windows| {
                             if let Some(Some(window)) =
                                 windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
                             {
                                 let window = window.window_handle();
-                                dpi_property.set(window.scale_factor() as f32)
+                                scale_factor_property.set(window.scale_factor() as f32)
                             }
                         });
                     }
@@ -153,8 +153,8 @@ impl EventLoop {
                     if let Some(height_property) = window_properties.height {
                         height_property.set(size.height as f32)
                     }
-                    if let Some(dpi_property) = window_properties.dpi {
-                        dpi_property.set(scale_factor as f32)
+                    if let Some(scale_factor_property) = window_properties.scale_factor {
+                        scale_factor_property.set(scale_factor as f32)
                     }
                 }
 

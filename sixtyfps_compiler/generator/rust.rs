@@ -356,9 +356,9 @@ fn generate_component(
             &parent_element.borrow().enclosing_component.upgrade().unwrap(),
         ));
     } else {
-        declared_property_vars.push(quote::format_ident!("dpi"));
+        declared_property_vars.push(quote::format_ident!("scale_factor"));
         declared_property_types.push(quote!(f32));
-        init.push(quote!(self_pinned.dpi.set(1.0);));
+        init.push(quote!(self_pinned.scale_factor.set(1.0);));
         let window_props = |name| {
             let root_elem = component.root_element.borrow();
 
@@ -376,14 +376,14 @@ fn generate_component(
             pub fn run(self : core::pin::Pin<std::rc::Rc<Self>>) {
                 use sixtyfps::re_exports::*;
                 let window = sixtyfps::create_window();
-                let window_props = WindowProperties {width: #width_prop, height: #height_prop, dpi: Some(&self.dpi)};
+                let window_props = WindowProperties {width: #width_prop, height: #height_prop, scale_factor: Some(&self.scale_factor)};
                 window.run(VRef::new_pin(self.as_ref()), &window_props);
             }
         });
         property_and_signal_accessors.push(quote! {
             /// FIXME: this only exist for the test
-            pub fn dpi(&self, dpi: f32) {
-                self.dpi.set(dpi);
+            pub fn window_scale_factor(&self, factor: f32) {
+                self.scale_factor.set(factor);
             }
         });
         property_and_signal_accessors.push(quote! {
@@ -576,8 +576,8 @@ fn access_member(
     }
 }
 
-/// Return an expression that gets the DPI property
-fn dpi_expression(component: &Rc<Component>) -> TokenStream {
+/// Return an expression that gets the window scale factor property
+fn window_scale_factor_expression(component: &Rc<Component>) -> TokenStream {
     let mut root_component = component.clone();
     let mut component_rust = quote!(_self);
     while let Some(p) = root_component.parent_element.upgrade() {
@@ -585,7 +585,7 @@ fn dpi_expression(component: &Rc<Component>) -> TokenStream {
         component_rust = quote!(#component_rust.parent.upgrade().unwrap().as_ref());
     }
     let component_id = component_id(&root_component);
-    quote!(#component_id::FIELD_OFFSETS.dpi.apply_pin(#component_rust).get())
+    quote!(#component_id::FIELD_OFFSETS.scale_factor.apply_pin(#component_rust).get())
 }
 
 fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream {
@@ -608,12 +608,12 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                     quote!(sixtyfps::re_exports::Color::from(#f as u32))
                 }
                 (Type::LogicalLength, Type::Length) => {
-                    let dpi_expression = dpi_expression(component);
-                    quote!((#f as f64) * #dpi_expression as f64)
+                    let window_scale_factor_expression = window_scale_factor_expression(component);
+                    quote!((#f as f64) * #window_scale_factor_expression as f64)
                 }
                 (Type::Length, Type::LogicalLength) => {
-                    let dpi_expression = dpi_expression(component);
-                    quote!((#f as f64) / #dpi_expression as f64)
+                    let window_scale_factor_expression = window_scale_factor_expression(component);
+                    quote!((#f as f64) / #window_scale_factor_expression as f64)
                 }
                 _ => f,
             }

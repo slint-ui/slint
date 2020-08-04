@@ -73,8 +73,8 @@ pub struct WindowProperties<'a> {
     pub height: Option<&'a crate::Property<f32>>,
 
     /// A reference to the property that is supposed to be kept up-to-date with the current
-    /// screen dpi
-    pub dpi: Option<&'a crate::Property<f32>>,
+    /// screen dpi / scale factor
+    pub scale_factor: Option<&'a crate::Property<f32>>,
 }
 
 // This is here because for some reason (rust bug?) the ItemVTable_static is not accessible in the other modules

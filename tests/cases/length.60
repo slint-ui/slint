@@ -31,7 +31,7 @@ assert(instance.get_ll4() * ratio == 120.);
 assert(instance.get_value());
 
 ratio = 2.;
-instance.dpi.set(ratio);
+instance.scale_factor.set(ratio);
 assert(instance.get_l1() == 12.);
 assert(instance.get_l2() == 12. * ratio);
 assert(instance.get_l3() == 100. + 12. * ratio);
@@ -63,7 +63,7 @@ assert_eq!(instance.get_ll4() * ratio, 120.);
 assert!(instance.get_value());
 
 let ratio = 2.;
-instance.dpi(ratio);
+instance.window_scale_factor(ratio);
 assert_eq!(instance.get_l1(), 12.);
 assert_eq!(instance.get_l2(), 12. * ratio);
 assert_eq!(instance.get_l3(), 100. + 12. * ratio);

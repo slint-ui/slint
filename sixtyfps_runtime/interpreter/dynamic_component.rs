@@ -61,9 +61,9 @@ impl ComponentBox {
         WindowProperties {
             width: get_prop("width"),
             height: get_prop("height"),
-            /// Safety: there must be a dpi property of type f32 as it is added by us for top level window
-            dpi: Some(unsafe {
-                &*(component.as_ptr().add(component_type.custom_properties["dpi"].offset)
+            /// Safety: there must be a scale_factor property of type f32 as it is added by us for top level window
+            scale_factor: Some(unsafe {
+                &*(component.as_ptr().add(component_type.custom_properties["scale_factor"].offset)
                     as *const Property<f32>)
             }),
         }
@@ -379,7 +379,7 @@ fn generate_component(root_component: &Rc<object_tree::Component>) -> Rc<Compone
     } else {
         let (prop, type_info) = property_info::<f32>();
         custom_properties.insert(
-            "dpi".into(),
+            "scale_factor".into(),
             PropertiesWithinComponent { offset: builder.add_field(type_info), prop },
         );
     }
@@ -475,7 +475,7 @@ pub fn instantiate(
         }
     } else {
         component_type
-            .set_property(component_box.borrow(), "dpi", crate::Value::Number(1.))
+            .set_property(component_box.borrow(), "scale_factor", crate::Value::Number(1.))
             .unwrap();
     }
 
