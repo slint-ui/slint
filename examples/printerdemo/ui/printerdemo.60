@@ -1,0 +1,6 @@
+MainWindow := Rectangle {
+    Text {
+        text: "Hello, world!";
+        color: black;
+    }
+}
