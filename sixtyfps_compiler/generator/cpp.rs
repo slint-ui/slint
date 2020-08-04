@@ -536,27 +536,30 @@ fn generate_component(
                     init: None,
                 }),
             ));
-            let cpp_model_data_type = crate::expression_tree::Expression::RepeaterModelReference {
+
+            let model_data_type = crate::expression_tree::Expression::RepeaterModelReference {
                 element: component.parent_element.clone(),
             }
-            .ty()
-            .cpp_type()
-            .unwrap_or_else(|| {
-                diag.push_internal_error(
-                    CompilerDiagnostic {
-                        message: "Cannot map property type to C++".into(),
-                        span: parent_element
-                            .borrow()
-                            .node
-                            .as_ref()
-                            .map(|n| n.span())
-                            .unwrap_or_default(),
-                    }
-                    .into(),
-                );
-                String::default()
-            })
-            .to_owned();
+            .ty();
+            let cpp_model_data_type = model_data_type
+                .cpp_type()
+                .unwrap_or_else(|| {
+                    diag.push_internal_error(
+                        CompilerDiagnostic {
+                            message: format!("Cannot map property type {} to C++", model_data_type)
+                                .into(),
+                            span: parent_element
+                                .borrow()
+                                .node
+                                .as_ref()
+                                .map(|n| n.span())
+                                .unwrap_or_default(),
+                        }
+                        .into(),
+                    );
+                    String::default()
+                })
+                .to_owned();
             component_struct.members.push((
                 Access::Private,
                 Declaration::Var(Var {
