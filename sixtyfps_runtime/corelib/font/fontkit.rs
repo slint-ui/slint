@@ -21,7 +21,11 @@ pub struct Font {
 
 impl Font {
     pub fn string_to_glyphs<'a>(&'a self, text: &'a str) -> impl Iterator<Item = u32> + 'a {
-        text.chars().map(move |ch| self.font.glyph_for_char(ch).unwrap())
+        text.chars().map(move |ch| {
+            self.font
+                .glyph_for_char(dbg!(ch))
+                .unwrap_or_else(|| self.font.glyph_for_char('\u{FFFD}').unwrap())
+        })
     }
 
     pub fn text_width(&self, text: &str) -> f32 {
