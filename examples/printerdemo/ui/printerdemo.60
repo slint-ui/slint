@@ -1,4 +1,7 @@
 MainWindow := Rectangle {
+
+    property<int> active_page: 0;
+
     for page_info[idx] in [
         { color: #f00, text: "Copy", img: "📋" },
         { color: #0f0, text: "Fax", img: "📠" },
@@ -10,17 +13,71 @@ MainWindow := Rectangle {
         y: root.height / 3;
         x: idx * root.width / 4 + root.width / 45;
         color: page_info.color;
-        Text {
+        img := Text {
             color: white;
             y: 5lx;
             x: 5lx;
             text: "�";//page_info.img;
+            animate x, y {
+                duration: 200ms;
+                easing: ease;
+            }
         }
-        Text {
+        text := Text {
             color: white;
             y: root.height / 7;
             x: 5lx;
             text: page_info.text;
+            animate x, y {
+                duration: 200ms;
+                easing: ease;
+            }
+        }
+        TouchArea {
+            // FIXME: fill parent should be easier
+            width: root.width / 5;
+            height: root.height / 3;
+            clicked => {
+                // FIXME! if statements?
+                //root.active_page == 0 ?
+                root.active_page = idx + 1;
+            }
+        }
+
+        animate x, y, height, width, color {
+            duration: 300ms;
+            easing: ease_in_out;
+        }
+
+        states [
+            active when root.active_page == idx + 1: {
+                x: 0px;
+                y: 0px;
+                height: root.height / 8;
+                width: root.width;
+                img.x: root.height / 8;
+                text.y: 0px;
+                text.x: root.height / 4;
+
+            }
+            invisible when root.active_page > 0 && root.active_page != idx + 1 : {
+                color: white;
+            }
+        ]
+    }
+
+    if (root.active_page != 0) : Rectangle {
+        width: root.height / 8;
+        height: root.height / 8;
+        Text {
+             text: "←";
+             color: white;
+             font_pixel_size: root.height / 8;
+        }
+        TouchArea {
+            width: root.height / 8;
+            height: root.height / 8;
+            clicked => { root.active_page = 0; }
         }
     }
 }
