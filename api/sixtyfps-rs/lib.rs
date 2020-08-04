@@ -76,7 +76,6 @@ pub mod re_exports {
     pub use once_cell::unsync::OnceCell;
     pub use pin_weak::rc::*;
     pub use sixtyfps_corelib::abi::datastructures::*;
-    pub use sixtyfps_corelib::abi::signals::Signal;
     pub use sixtyfps_corelib::animations::EasingCurve;
     pub use sixtyfps_corelib::eventloop::ComponentWindow;
     pub use sixtyfps_corelib::graphics::{
@@ -92,6 +91,7 @@ pub mod re_exports {
         PathLayoutData, PathLayoutItemData,
     };
     pub use sixtyfps_corelib::properties::{Property, PropertyListenerScope};
+    pub use sixtyfps_corelib::signals::Signal;
     pub use sixtyfps_corelib::slice::Slice;
     pub use sixtyfps_corelib::Color;
     pub use sixtyfps_corelib::ComponentVTable_static;
