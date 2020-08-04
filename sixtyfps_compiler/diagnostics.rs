@@ -94,6 +94,7 @@ impl FileDiagnostics {
         ) -> codemap_diagnostic::Emitter<'b>,
     ) {
         let mut codemap = codemap::CodeMap::new();
+        let internal_errors = self.source.is_none();
         let file = codemap.add_file(
             self.current_path.to_string_lossy().to_string(),
             self.source.unwrap_or_default(),
@@ -105,16 +106,21 @@ impl FileDiagnostics {
             .into_iter()
             .map(|diagnostic| match diagnostic {
                 Diagnostic::CompilerDiagnostic(CompilerDiagnostic { message, span }) => {
-                    let s = codemap_diagnostic::SpanLabel {
-                        span: file_span.subspan(span.offset as u64, span.offset as u64),
-                        style: codemap_diagnostic::SpanStyle::Primary,
-                        label: None,
+                    let spans = if !internal_errors {
+                        let s = codemap_diagnostic::SpanLabel {
+                            span: file_span.subspan(span.offset as u64, span.offset as u64),
+                            style: codemap_diagnostic::SpanStyle::Primary,
+                            label: None,
+                        };
+                        vec![s]
+                    } else {
+                        vec![]
                     };
                     codemap_diagnostic::Diagnostic {
                         level: codemap_diagnostic::Level::Error,
                         message,
                         code: None,
-                        spans: vec![s],
+                        spans,
                     }
                 }
                 Diagnostic::FileLoadError(err) => codemap_diagnostic::Diagnostic {
