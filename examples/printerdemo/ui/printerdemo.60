@@ -3,10 +3,10 @@ MainWindow := Rectangle {
     property<int> active_page: 0;
 
     for page_info[idx] in [
-        { color: #f00, text: "Copy", img: img!"images/copy.png" },
-        { color: #0f0, text: "Fax", img: img!"images/fax.png" },
-        { color: #dd0, text: "Print", img: img!"images/printer.png" },
-        { color: #00f, text: "Settings", img: img!"images/settings.png" },
+        { color: #f00, text: "Copy", img_small: img!"images/replicate.png" },
+        { color: #0f0, text: "Fax", img_small: img!"images/laptop.png" },
+        { color: #dd0, text: "Print", img_small: img!"images/printer.png" },
+        { color: #00f, text: "Settings", img_small: img!"images/list.png" },
     ] : Rectangle {
         width: root.width / 5;
         height: root.height / 3;
@@ -17,7 +17,7 @@ MainWindow := Rectangle {
         img := Image {
             y: 5lx;
             x: 5lx;
-            source: page_info.img;
+            source: page_info.img_small;
             animate x, y {
                 duration: 200ms;
                 easing: ease;
