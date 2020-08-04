@@ -1,4 +1,4 @@
-use crate::abi::datastructures::Color;
+use crate::Color;
 use std::hash::Hash;
 
 #[derive(Clone)]
