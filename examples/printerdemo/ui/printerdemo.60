@@ -1,12 +1,39 @@
+PrintPage := Rectangle {
+    color: white;
+
+    Rectangle {
+        color: #ddd;
+        width: parent.width / 3;
+        x: parent.width / 12  ;
+        y: parent.width / 8;
+        height: parent.width / 2;
+        Text {
+            color: black;
+            text: "Hello";
+        }
+    }
+    Rectangle {
+        color: #ddd;
+        width: parent.width / 3;
+        x: parent.width / 12 + parent.width / 2 ;
+        y: parent.width / 8;
+        height: parent.width / 2;
+        Text {
+            color: black;
+            text: "World";
+        }
+    }
+}
+
 MainWindow := Rectangle {
 
     property<int> active_page: 0;
 
     for page_info[idx] in [
-        { color: #f00, text: "Copy", img_small: img!"images/replicate.png" },
-        { color: #0f0, text: "Fax", img_small: img!"images/laptop.png" },
+        { color: #d11, text: "Copy", img_small: img!"images/replicate.png" },
+        { color: #1d1, text: "Fax", img_small: img!"images/laptop.png" },
         { color: #dd0, text: "Print", img_small: img!"images/printer.png" },
-        { color: #00f, text: "Settings", img_small: img!"images/list.png" },
+        { color: #08d, text: "Settings", img_small: img!"images/list.png" },
     ] : Rectangle {
         width: root.width / 5;
         height: root.height / 3;
@@ -19,32 +46,31 @@ MainWindow := Rectangle {
             x: 5lx;
             source: page_info.img_small;
             animate x, y {
-                duration: 200ms;
-                easing: ease;
+                duration: 300ms;
+                easing: ease_in_out;
             }
         }
         text := Text {
-            color: white;
+            color: #2a2e3b;
             y: root.height / 7;
             x: 5lx;
             text: page_info.text;
             animate x, y {
-                duration: 200ms;
-                easing: ease;
+                duration: 300ms;
+                easing: ease_in_out;
             }
         }
         TouchArea {
-            // FIXME: fill parent should be easier
-            width: root.width / 5;
-            height: root.height / 3;
+            width: parent.width;
+            height: parent.height;
             clicked => {
-                // FIXME! if statements?
-                //root.active_page == 0 ?
-                root.active_page = idx + 1;
+                if (root.active_page == 0) {
+                    root.active_page = idx + 1;
+                }
             }
         }
 
-        animate x, y, height, width, color {
+        animate x, y, height, width, color, border_radius {
             duration: 300ms;
             easing: ease_in_out;
         }
@@ -63,7 +89,9 @@ MainWindow := Rectangle {
             }
             invisible when root.active_page > 0 && root.active_page != idx + 1 : {
                 color: white;
-                img.y: -1000lx; // FIXME: should probaby hide the entire item under with z-ordering
+                // FIXME: should probaby hide the entire item under with z-ordering
+                img.y: 10000000lx;
+                text.color: #0000;
             }
         ]
     }
@@ -82,4 +110,17 @@ MainWindow := Rectangle {
             clicked => { root.active_page = 0; }
         }
     }
+
+    PrintPage {
+        height: root.height - root.height / 8;
+        width: root.width;
+        y: root.height;
+        animate y { duration: 300ms; easing: ease_in_out; }
+        states [
+            active when root.active_page != 0: {
+                y: root.height / 8;
+            }
+        ]
+    }
+
 }
