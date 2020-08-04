@@ -196,7 +196,7 @@ pub use crate::abi::datastructures::ImageVTable;
 pub struct Text {
     pub text: Property<SharedString>,
     pub font_family: Property<SharedString>,
-    pub font_pixel_size: Property<f32>,
+    pub font_size: Property<f32>,
     pub color: Property<Color>,
     pub x: Property<f32>,
     pub y: Property<f32>,
@@ -219,18 +219,18 @@ impl Item for Text {
             y: Self::FIELD_OFFSETS.y.apply_pin(self).get(),
             text: Self::FIELD_OFFSETS.text.apply_pin(self).get(),
             font_family: Self::FIELD_OFFSETS.font_family.apply_pin(self).get(),
-            font_pixel_size: Self::FIELD_OFFSETS.font_pixel_size.apply_pin(self).get(),
+            font_size: Self::FIELD_OFFSETS.font_size.apply_pin(self).get(),
             color: Self::FIELD_OFFSETS.color.apply_pin(self).get(),
         }
     }
 
     fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
         let font_family = Self::FIELD_OFFSETS.font_family.apply_pin(self).get();
-        let font_pixel_size = Self::FIELD_OFFSETS.font_pixel_size.apply_pin(self).get();
+        let font_size = Self::FIELD_OFFSETS.font_size.apply_pin(self).get();
         let text = Self::FIELD_OFFSETS.text.apply_pin(self).get();
 
         crate::font::FONT_CACHE.with(|fc| {
-            let font = fc.find_font(&font_family, font_pixel_size);
+            let font = fc.find_font(&font_family, font_size);
             let width = font.text_width(&text);
             let height = font.font_height();
             LayoutInfo {

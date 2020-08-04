@@ -384,11 +384,11 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                     y: _,
                     text,
                     font_family,
-                    font_pixel_size,
+                    font_size,
                     color,
                 } => {
-                    let pixel_size = if *font_pixel_size != 0. {
-                        *font_pixel_size
+                    let pixel_size = if *font_size != 0. {
+                        *font_size
                     } else {
                         16.0 * self.window_scale_factor()
                     };

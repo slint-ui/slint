@@ -74,7 +74,7 @@ MainWindow := Rectangle {
         Text {
              text: "←";
              color: white;
-             font_pixel_size: root.height / 8;
+             font_size: root.height / 8;
         }
         TouchArea {
             width: root.height / 8;

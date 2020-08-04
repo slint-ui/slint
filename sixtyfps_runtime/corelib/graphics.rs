@@ -163,7 +163,7 @@ pub enum HighLevelRenderingPrimitive {
         y: f32,
         text: crate::SharedString,
         font_family: crate::SharedString,
-        font_pixel_size: f32,
+        font_size: f32,
         color: Color,
     },
     Path {
