@@ -829,7 +829,7 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
     use crate::expression_tree::NamedReference;
     match e {
         Expression::StringLiteral(s) => {
-            format!(r#"sixtyfps::SharedString("{}")"#, s.escape_default())
+            format!(r#"sixtyfps::SharedString("{}")"#, s.escape_debug())
         }
         Expression::NumberLiteral(n, unit) => unit.normalize(*n).to_string(),
         Expression::BoolLiteral(b) => b.to_string(),

@@ -1,0 +1,36 @@
+TestCase := Rectangle {
+    property<string> p1: "hello";
+    property<string> p2: "fox:🦊";
+    property<bool> e1: p2 == "fox:🦊";
+    property<bool> e2: p2 == "fox:🦍";
+}
+
+
+/*
+
+```cpp
+TestCase instance;
+assert(instance.get_p1() == "hello");
+assert(instance.get_p2() == u8"fox:🦊");
+assert(instance.get_e1());
+assert(!instance.get_e2());
+```
+
+```rust
+let instance = TestCase::new();
+let instance = instance.as_ref();
+assert_eq!(instance.get_p1(), "hello");
+assert_eq!(instance.get_p2(), "fox:🦊");
+assert!(instance.get_e1());
+assert!(!instance.get_e2());
+```
+
+```js
+var instance = new sixtyfps.TestCase({});
+assert.equal(instance.p1, "hello");
+assert.equal(instance.p2, "fox:🦊");
+assert(instance.e1);
+assert(!instance.e2);
+```
+
+*/
