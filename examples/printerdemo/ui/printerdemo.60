@@ -1,6 +1,26 @@
 MainWindow := Rectangle {
-    Text {
-        text: "Hello, world!";
-        color: black;
+    for page_info[idx] in [
+        { color: #f00, text: "Copy", img: "📋" },
+        { color: #0f0, text: "Fax", img: "📠" },
+        { color: #dd0, text: "Print", img: "🖨️" },
+        { color: #00f, text: "Settings", img: "⚙️" },
+    ] : Rectangle {
+        width: root.width / 5;
+        height: root.height / 3;
+        y: root.height / 3;
+        x: idx * root.width / 4 + root.width / 45;
+        color: page_info.color;
+        Text {
+            color: white;
+            y: 5lx;
+            x: 5lx;
+            text: "�";//page_info.img;
+        }
+        Text {
+            color: white;
+            y: root.height / 7;
+            x: 5lx;
+            text: page_info.text;
+        }
     }
 }
