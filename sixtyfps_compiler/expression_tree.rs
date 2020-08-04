@@ -30,6 +30,22 @@ impl Hash for NamedReference {
     }
 }
 
+#[derive(Debug, Clone)]
+/// A function built into the run-time
+pub enum BuiltinFunction {
+    GetWindowScaleFactor,
+}
+
+impl BuiltinFunction {
+    fn ty(&self) -> Type {
+        match self {
+            BuiltinFunction::GetWindowScaleFactor => {
+                Type::Function { return_type: Box::new(Type::Float32), args: vec![] }
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum OperatorClass {
     ComparisonOp,
@@ -147,6 +163,9 @@ pub enum Expression {
     /// Reference to the signal <name> in the <element>
     PropertyReference(NamedReference),
 
+    /// Reference to a function built into the run-time, implemented natively
+    BuiltinFunctionReference(BuiltinFunction),
+
     /// Reference to the index variable of a repeater
     ///
     /// Example: `idx`  in `for xxx[idx] in ...`.   The element is the reference to the
@@ -263,6 +282,7 @@ impl Expression {
             Expression::PropertyReference(NamedReference { element, name }) => {
                 element.upgrade().unwrap().borrow().lookup_property(name)
             }
+            Expression::BuiltinFunctionReference(funcref) => funcref.ty(),
             Expression::RepeaterIndexReference { .. } => Type::Int32,
             Expression::RepeaterModelReference { element } => {
                 if let Expression::Cast { from, .. } = element
@@ -345,6 +365,7 @@ impl Expression {
             Expression::BoolLiteral(_) => {}
             Expression::SignalReference { .. } => {}
             Expression::PropertyReference { .. } => {}
+            Expression::BuiltinFunctionReference { .. } => {}
             Expression::ObjectAccess { base, .. } => visitor(&**base),
             Expression::RepeaterIndexReference { .. } => {}
             Expression::RepeaterModelReference { .. } => {}
@@ -402,6 +423,7 @@ impl Expression {
             Expression::BoolLiteral(_) => {}
             Expression::SignalReference { .. } => {}
             Expression::PropertyReference { .. } => {}
+            Expression::BuiltinFunctionReference { .. } => {}
             Expression::ObjectAccess { base, .. } => visitor(&mut **base),
             Expression::RepeaterIndexReference { .. } => {}
             Expression::RepeaterModelReference { .. } => {}
@@ -459,6 +481,7 @@ impl Expression {
             Expression::BoolLiteral(_) => true,
             Expression::SignalReference { .. } => false,
             Expression::PropertyReference { .. } => false,
+            Expression::BuiltinFunctionReference { .. } => false,
             Expression::RepeaterIndexReference { .. } => false,
             Expression::RepeaterModelReference { .. } => false,
             Expression::ObjectAccess { base, .. } => base.is_constant(),
@@ -500,7 +523,28 @@ impl Expression {
         if ty == target_type {
             self
         } else if ty.can_convert(&target_type) {
-            Expression::Cast { from: Box::new(self), to: target_type }
+            let from = match (ty, &target_type) {
+                (Type::Length, Type::LogicalLength) => Expression::BinaryExpression {
+                    lhs: Box::new(self),
+                    rhs: Box::new(Expression::FunctionCall {
+                        function: Box::new(Expression::BuiltinFunctionReference(
+                            BuiltinFunction::GetWindowScaleFactor,
+                        )),
+                    }),
+                    op: '/',
+                },
+                (Type::LogicalLength, Type::Length) => Expression::BinaryExpression {
+                    lhs: Box::new(self),
+                    rhs: Box::new(Expression::FunctionCall {
+                        function: Box::new(Expression::BuiltinFunctionReference(
+                            BuiltinFunction::GetWindowScaleFactor,
+                        )),
+                    }),
+                    op: '*',
+                },
+                _ => self,
+            };
+            Expression::Cast { from: Box::new(from), to: target_type }
         } else if ty == Type::Invalid || target_type == Type::Invalid {
             self
         } else {
@@ -517,6 +561,7 @@ impl Expression {
             | Type::Builtin(_)
             | Type::Native(_)
             | Type::Signal
+            | Type::Function { .. }
             | Type::Void => Expression::Invalid,
             Type::Float32 => Expression::NumberLiteral(0., Unit::None),
             Type::Int32 => Expression::NumberLiteral(0., Unit::None),

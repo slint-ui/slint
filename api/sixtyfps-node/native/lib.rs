@@ -117,6 +117,7 @@ fn to_eval_value<'cx>(
         | Type::Component(_)
         | Type::Builtin(_)
         | Type::Native(_)
+        | Type::Function { .. }
         | Type::Model
         | Type::Signal
         | Type::Easing

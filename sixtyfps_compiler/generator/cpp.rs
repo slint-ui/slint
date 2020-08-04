@@ -155,7 +155,7 @@ mod cpp_ast {
 }
 
 use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic, Spanned};
-use crate::expression_tree::{EasingCurve, Expression, ExpressionSpanned};
+use crate::expression_tree::{BuiltinFunction, EasingCurve, Expression, ExpressionSpanned};
 use crate::layout::{GridLayout, Layout, LayoutItem, PathLayout};
 use crate::object_tree::{Component, Element, ElementRc, RepeatedElementInfo};
 use crate::typeregister::Type;
@@ -843,6 +843,9 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
                 access_member(&element.upgrade().unwrap(), name.as_str(), component, "self");
             format!(r#"{}.emit()"#, access)
         }
+        Expression::BuiltinFunctionReference(funcref) => match funcref {
+            BuiltinFunction::GetWindowScaleFactor => window_scale_factor_expression(component),
+        },
         Expression::RepeaterIndexReference { element } => {
             if element.upgrade().unwrap().borrow().base_type == Type::Component(component.clone()) {
                 "self->index.get()".to_owned()
@@ -882,12 +885,6 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
                 }
                 (Type::Array(_), Type::Model) => f,
                 (Type::Float32, Type::Color) => format!("sixtyfps::Color({})", f),
-                (Type::LogicalLength, Type::Length) => {
-                    format!("({} * {})", f, window_scale_factor_expression(component))
-                }
-                (Type::Length, Type::LogicalLength) => {
-                    format!("({} / {})", f, window_scale_factor_expression(component))
-                }
                 _ => f,
             }
         }
@@ -898,7 +895,7 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
             format!("[&]{{ {} }}()", x.join(";"))
         }
         Expression::FunctionCall { function } => {
-            if matches!(function.ty(), Type::Signal) {
+            if matches!(function.ty(), Type::Signal | Type::Function{..}) {
                 compile_expression(&*function, component)
             } else {
                 format!("\n#error the function `{:?}` is not a signal\n", function)

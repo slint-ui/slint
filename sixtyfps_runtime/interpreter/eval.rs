@@ -1,7 +1,7 @@
 use core::convert::{TryFrom, TryInto};
 use core::pin::Pin;
 use sixtyfps_compilerlib::expression_tree::{
-    EasingCurve, Expression, ExpressionSpanned, NamedReference, Path as ExprPath,
+    BuiltinFunction, EasingCurve, Expression, ExpressionSpanned, NamedReference, Path as ExprPath,
     PathElement as ExprPathElement,
 };
 use sixtyfps_compilerlib::{object_tree::ElementRc, typeregister::Type};
@@ -138,6 +138,9 @@ pub fn eval_expression(
         Expression::NumberLiteral(n, unit) => Value::Number(unit.normalize(*n)),
         Expression::BoolLiteral(b) => Value::Bool(*b),
         Expression::SignalReference { .. } => panic!("signal in expression"),
+        Expression::BuiltinFunctionReference(_) => panic!(
+            "naked builtin function reference not allowed, should be handled by function call"
+        ),
         Expression::PropertyReference(NamedReference { element, name }) => {
             let element = element.upgrade().unwrap();
             let (component_mem, component_type, _) =
@@ -197,12 +200,6 @@ pub fn eval_expression(
                     Value::String(SharedString::from(format!("{}", n).as_str()))
                 }
                 (Value::Number(n), Type::Color) => Value::Color(Color::from(n as u32)),
-                (Value::Number(n), Type::Length) => {
-                    Value::Number(n * window_scale_factor(component_type, component_ref))
-                }
-                (Value::Number(n), Type::LogicalLength) => {
-                    Value::Number(n / window_scale_factor(component_type, component_ref))
-                }
                 (v, _) => v,
             }
         }
@@ -238,6 +235,12 @@ pub fn eval_expression(
                 };
                 signal.emit(());
                 Value::Void
+            } else if let Expression::BuiltinFunctionReference(funcref) = &**function {
+                match funcref {
+                    BuiltinFunction::GetWindowScaleFactor => {
+                        Value::Number(window_scale_factor(component_type, component_ref))
+                    }
+                }
             } else {
                 panic!("call of something not a signal")
             }

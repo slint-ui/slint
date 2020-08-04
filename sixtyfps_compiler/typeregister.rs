@@ -12,6 +12,10 @@ pub enum Type {
     Native(Rc<NativeClass>),
 
     Signal,
+    Function {
+        return_type: Box<Type>,
+        args: Vec<Type>,
+    },
 
     // Other property types:
     Float32,
@@ -40,6 +44,10 @@ impl core::cmp::PartialEq for Type {
             (Type::Builtin(a), Type::Builtin(b)) => Rc::ptr_eq(a, b),
             (Type::Native(a), Type::Native(b)) => Rc::ptr_eq(a, b),
             (Type::Signal, Type::Signal) => true,
+            (
+                Type::Function { return_type: lhs_rt, args: lhs_args },
+                Type::Function { return_type: rhs_rt, args: rhs_args },
+            ) => lhs_rt == rhs_rt && lhs_args == rhs_args,
             (Type::Float32, Type::Float32) => true,
             (Type::Int32, Type::Int32) => true,
             (Type::String, Type::String) => true,
@@ -68,6 +76,16 @@ impl Display for Type {
             Type::Builtin(b) => b.native_class.class_name.fmt(f),
             Type::Native(b) => b.class_name.fmt(f),
             Type::Signal => write!(f, "signal"),
+            Type::Function { return_type, args } => {
+                write!(f, "function(")?;
+                for (i, arg) in args.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ",")?;
+                    }
+                    write!(f, "{}", arg)?;
+                }
+                write!(f, ") -> {}", return_type)
+            }
             Type::Float32 => write!(f, "float"),
             Type::Int32 => write!(f, "int"),
             Type::String => write!(f, "string"),

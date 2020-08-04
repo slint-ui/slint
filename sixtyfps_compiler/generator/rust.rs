@@ -2,7 +2,9 @@
 */
 
 use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic, Spanned};
-use crate::expression_tree::{EasingCurve, Expression, NamedReference, OperatorClass, Path};
+use crate::expression_tree::{
+    BuiltinFunction, EasingCurve, Expression, NamedReference, OperatorClass, Path,
+};
 use crate::object_tree::{Component, ElementRc};
 use crate::{
     layout::{GridLayout, Layout, LayoutItem, PathLayout},
@@ -607,14 +609,6 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                 (Type::Float32, Type::Color) => {
                     quote!(sixtyfps::re_exports::Color::from(#f as u32))
                 }
-                (Type::LogicalLength, Type::Length) => {
-                    let window_scale_factor_expression = window_scale_factor_expression(component);
-                    quote!((#f as f64) * #window_scale_factor_expression as f64)
-                }
-                (Type::Length, Type::LogicalLength) => {
-                    let window_scale_factor_expression = window_scale_factor_expression(component);
-                    quote!((#f as f64) / #window_scale_factor_expression as f64)
-                }
                 _ => f,
             }
         }
@@ -623,6 +617,9 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                 access_member(&element.upgrade().unwrap(), name.as_str(), component, quote!(_self));
             quote!(#access.get())
         }
+        Expression::BuiltinFunctionReference(funcref) => match funcref {
+            BuiltinFunction::GetWindowScaleFactor => window_scale_factor_expression(component),
+        },
         Expression::RepeaterIndexReference { element } => {
             if element.upgrade().unwrap().borrow().base_type == Type::Component(component.clone()) {
                 let component_id = component_id(&component);
@@ -661,7 +658,7 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
             quote!(#access.emit(()))
         }
         Expression::FunctionCall { function } => {
-            if matches!(function.ty(), Type::Signal) {
+            if matches!(function.ty(), Type::Signal | Type::Function{..}) {
                 compile_expression(function, &component)
             } else {
                 let error = format!("the function {:?} is not a signal", e);
