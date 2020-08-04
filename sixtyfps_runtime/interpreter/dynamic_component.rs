@@ -224,6 +224,11 @@ pub fn load(
     include_paths: &[std::path::PathBuf],
 ) -> Result<Rc<ComponentDescription>, sixtyfps_compilerlib::diagnostics::BuildDiagnostics> {
     let (syntax_node, diag) = parser::parse(source, Some(path));
+    if diag.has_error() {
+        let mut d = sixtyfps_compilerlib::diagnostics::BuildDiagnostics::default();
+        d.add(diag);
+        return Err(d);
+    }
     let compiler_config = CompilerConfiguration { include_paths, ..Default::default() };
     let (root_component, diag) = compile_syntax_node(syntax_node, diag, &compiler_config);
     if diag.has_error() {
