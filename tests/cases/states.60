@@ -20,6 +20,15 @@
 
     property<int> text1_foo: text1.foo;
 
+    for xx in [1, 2] : Rectangle {
+        states [
+            foo when xx == 1 : {
+                height: top_level * 1px;
+            }
+        ]
+
+    }
+
 }
 
 

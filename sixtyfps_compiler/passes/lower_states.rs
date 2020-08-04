@@ -6,8 +6,11 @@ use crate::object_tree::*;
 use crate::typeregister::Type;
 use std::rc::Rc;
 
-pub fn lower_states(component: &Rc<Component>, _diag: &mut BuildDiagnostics) {
-    let root_element = &component.root_element;
+pub fn lower_states(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
+    recurse_elem(&component.root_element, &(), &mut |elem, _| lower_state_in_element(elem, diag));
+}
+
+fn lower_state_in_element(root_element: &ElementRc, _diag: &mut BuildDiagnostics) {
     if root_element.borrow().states.is_empty() {
         return;
     }
@@ -55,6 +58,7 @@ pub fn lower_states(component: &Rc<Component>, _diag: &mut BuildDiagnostics) {
     root_element.borrow_mut().bindings.insert(state_property.clone(), state_value.into());
 }
 
+/// Returns a suitable unique name for the "state" property
 fn compute_state_property_name(root_element: &ElementRc) -> String {
     let mut property_name = "state".to_owned();
     while root_element.borrow().lookup_property(property_name.as_ref()) != Type::Invalid {
@@ -63,6 +67,7 @@ fn compute_state_property_name(root_element: &ElementRc) -> String {
     property_name
 }
 
+/// Return the expression binding currently associated to the given property
 fn expression_for_property(element: &ElementRc, name: &str) -> Expression {
     let mut element_it = Some(element.clone());
     while let Some(element) = element_it {

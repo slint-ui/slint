@@ -2,10 +2,17 @@
 Make sure that the Repeated expression are just components without any chilodren
  */
 
-use crate::{object_tree::*, typeregister::Type};
+use crate::expression_tree::NamedReference;
+use crate::object_tree::*;
+use crate::typeregister::Type;
 use std::{cell::RefCell, rc::Rc};
 
-pub fn create_repeater_components(component: &Rc<Component>) {
+pub fn process_repeater_components(component: &Rc<Component>) {
+    create_repeater_components(component);
+    adjust_references(component);
+}
+
+fn create_repeater_components(component: &Rc<Component>) {
     recurse_elem(&component.root_element, &(), &mut |elem, _| {
         if elem.borrow().repeated.is_none() {
             return;
@@ -24,8 +31,8 @@ pub fn create_repeater_components(component: &Rc<Component>) {
                 repeated: None,
                 node: elem.node.clone(),
                 enclosing_component: Default::default(),
-                states: Default::default(),
-                transitions: Default::default(),
+                states: std::mem::take(&mut elem.states),
+                transitions: std::mem::take(&mut elem.transitions),
             })),
             parent_element,
             ..Component::default()
@@ -37,5 +44,23 @@ pub fn create_repeater_components(component: &Rc<Component>) {
         });
         create_repeater_components(&comp);
         elem.base_type = Type::Component(comp);
+    });
+}
+
+/// Make sure that references to property within the repeated element actually point to the reference
+/// to the root of the newly created component
+fn adjust_references(comp: &Rc<Component>) {
+    recurse_elem(&comp.root_element, &(), &mut |elem, _| {
+        visit_all_named_references(elem, |NamedReference { element, .. }| {
+            let e = element.upgrade().unwrap();
+            if e.borrow().repeated.is_some() {
+                if let Type::Component(c) = e.borrow().base_type.clone() {
+                    *element = Rc::downgrade(&c.root_element);
+                };
+            }
+        });
+        if let Type::Component(c) = elem.borrow().base_type.clone() {
+            adjust_references(&c);
+        }
     });
 }
