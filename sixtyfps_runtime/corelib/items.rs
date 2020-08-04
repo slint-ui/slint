@@ -174,7 +174,19 @@ impl Item for Image {
     }
 
     fn rendering_variables(self: Pin<&Self>) -> SharedArray<RenderingVariable> {
-        SharedArray::from(&[])
+        let mut vars = Vec::new();
+
+        let width = Self::FIELD_OFFSETS.width.apply_pin(self).get();
+        let height = Self::FIELD_OFFSETS.height.apply_pin(self).get();
+
+        if width > 0. {
+            vars.push(RenderingVariable::ScaledWidth(width));
+        }
+        if height > 0. {
+            vars.push(RenderingVariable::ScaledHeight(height));
+        }
+
+        SharedArray::from_iter(vars.into_iter())
     }
 
     fn layouting_info(self: Pin<&Self>) -> LayoutInfo {

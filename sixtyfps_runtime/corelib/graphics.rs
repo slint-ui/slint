@@ -145,6 +145,7 @@ pub enum HighLevelRenderingPrimitive {
         border_width: f32,
         border_radius: f32,
     },
+    /// Optional rendering variable: ScaledWidth, ScaledHeight
     Image {
         source: crate::Resource,
     },
@@ -168,13 +169,27 @@ pub enum HighLevelRenderingPrimitive {
 #[repr(C)]
 pub enum RenderingVariable {
     Color(Color),
+    ScaledWidth(f32),
+    ScaledHeight(f32),
 }
 
 impl RenderingVariable {
     pub fn as_color(&self) -> &Color {
         match self {
             RenderingVariable::Color(c) => c,
-            // _ => panic!("internal error: expected color but found something else"),
+            _ => panic!("internal error: expected color but found something else"),
+        }
+    }
+    pub fn as_scaled_width(&self) -> f32 {
+        match self {
+            RenderingVariable::ScaledWidth(w) => *w,
+            _ => panic!("internal error: expected scaled width but found something else"),
+        }
+    }
+    pub fn as_scaled_height(&self) -> f32 {
+        match self {
+            RenderingVariable::ScaledHeight(h) => *h,
+            _ => panic!("internal error: expected scaled height but found something else"),
         }
     }
 }

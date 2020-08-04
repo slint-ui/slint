@@ -44,15 +44,17 @@ MainWindow := Rectangle {
         img := Image {
             y: 5lx;
             x: 5lx;
+            width: 256lx;
+            height: 256lx;
             source: page_info.img_small;
-            animate x, y {
+            animate x, y, width, height {
                 duration: 300ms;
                 easing: ease_in_out;
             }
         }
         text := Text {
             color: #2a2e3b;
-            y: root.height / 7;
+            y: root.height / 5;
             x: 5lx;
             text: page_info.text;
             animate x, y {
@@ -83,6 +85,8 @@ MainWindow := Rectangle {
                 width: root.width;
                 border_radius: 0lx;
                 img.x: root.height / 8;
+                img.width: 64lx;
+                img.height: 64lx;
                 text.y: 0px;
                 text.x: root.height / 4;
 

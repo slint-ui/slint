@@ -89,6 +89,7 @@ enum GLRenderingPrimitive {
         vertices: GLArrayBuffer<Vertex>,
         texture_vertices: GLArrayBuffer<Vertex>,
         texture: GLTexture,
+        image_size: Size,
     },
     #[cfg(not(target_arch = "wasm32"))]
     GlyphRuns {
@@ -533,6 +534,7 @@ impl GLRenderingPrimitivesBuilder {
         &mut self,
         image: image::ImageBuffer<image::Rgba<u8>, &[u8]>,
     ) -> GLRenderingPrimitive {
+        let image_size = Size::new(image.width() as _, image.height() as _);
         let source_size = image.dimensions();
         let rect =
             Rect::new(Point::new(0.0, 0.0), Size::new(source_size.0 as f32, source_size.1 as f32));
@@ -556,6 +558,7 @@ impl GLRenderingPrimitivesBuilder {
             vertices,
             texture_vertices,
             texture: atlas_allocation.sub_texture.texture,
+            image_size,
         }
     }
 
@@ -675,6 +678,27 @@ impl GLRenderingPrimitivesBuilder {
     }
 }
 
+fn to_gl_matrix(matrix: &Matrix4<f32>) -> [f32; 16] {
+    [
+        matrix.x[0],
+        matrix.x[1],
+        matrix.x[2],
+        matrix.x[3],
+        matrix.y[0],
+        matrix.y[1],
+        matrix.y[2],
+        matrix.y[3],
+        matrix.z[0],
+        matrix.z[1],
+        matrix.z[2],
+        matrix.z[3],
+        matrix.w[0],
+        matrix.w[1],
+        matrix.w[2],
+        matrix.w[3],
+    ]
+}
+
 impl GraphicsFrame for GLFrame {
     type LowLevelRenderingPrimitive = OpaqueRenderingPrimitive;
 
@@ -685,30 +709,19 @@ impl GraphicsFrame for GLFrame {
         variables: SharedArray<RenderingVariable>,
     ) {
         let matrix = self.root_matrix * transform;
-        let gl_matrix: [f32; 16] = [
-            matrix.x[0],
-            matrix.x[1],
-            matrix.x[2],
-            matrix.x[3],
-            matrix.y[0],
-            matrix.y[1],
-            matrix.y[2],
-            matrix.y[3],
-            matrix.z[0],
-            matrix.z[1],
-            matrix.z[2],
-            matrix.z[3],
-            matrix.w[0],
-            matrix.w[1],
-            matrix.w[2],
-            matrix.w[3],
-        ];
+
         let mut rendering_var = variables.iter();
         primitive.gl_primitives.iter().for_each(|gl_primitive| match gl_primitive {
             GLRenderingPrimitive::FillPath { vertices, indices } => {
                 let (r, g, b, a) = rendering_var.next().unwrap().as_color().as_rgba_f32();
 
-                self.path_shader.bind(&self.context, &gl_matrix, &[r, g, b, a], vertices, indices);
+                self.path_shader.bind(
+                    &self.context,
+                    &to_gl_matrix(&matrix),
+                    &[r, g, b, a],
+                    vertices,
+                    indices,
+                );
 
                 unsafe {
                     self.context.draw_elements(
@@ -719,10 +732,32 @@ impl GraphicsFrame for GLFrame {
                     );
                 }
             }
-            GLRenderingPrimitive::Texture { vertices, texture_vertices, texture } => {
+            GLRenderingPrimitive::Texture { vertices, texture_vertices, texture, image_size } => {
+                let matrix = if let Some(scaled_width) = rendering_var.next() {
+                    matrix
+                        * Matrix4::from_nonuniform_scale(
+                            scaled_width.as_scaled_width() / image_size.width,
+                            1.,
+                            1.,
+                        )
+                } else {
+                    matrix
+                };
+
+                let matrix = if let Some(scaled_height) = rendering_var.next() {
+                    matrix
+                        * Matrix4::from_nonuniform_scale(
+                            1.,
+                            scaled_height.as_scaled_height() / image_size.height,
+                            1.,
+                        )
+                } else {
+                    matrix
+                };
+
                 self.image_shader.bind(
                     &self.context,
-                    &gl_matrix,
+                    &to_gl_matrix(&matrix),
                     texture,
                     vertices,
                     texture_vertices,
@@ -739,7 +774,7 @@ impl GraphicsFrame for GLFrame {
                 for GlyphRun { vertices, texture_vertices, texture, vertex_count } in glyph_runs {
                     self.platform_data.borrow().glyph_shader.bind(
                         &self.context,
-                        &gl_matrix,
+                        &to_gl_matrix(&matrix),
                         &[r, g, b, a],
                         texture,
                         vertices,
