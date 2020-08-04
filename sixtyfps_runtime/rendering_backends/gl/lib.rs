@@ -102,7 +102,7 @@ pub struct GLRenderer {
     platform_data: Rc<RefCell<PlatformData>>,
     texture_atlas: Rc<RefCell<TextureAtlas>>,
     #[cfg(target_arch = "wasm32")]
-    window: winit::window::Window,
+    window: Rc<winit::window::Window>,
     #[cfg(not(target_arch = "wasm32"))]
     windowed_context: Option<glutin::WindowedContext<glutin::NotCurrent>>,
 }
@@ -115,6 +115,8 @@ pub struct GLRenderingPrimitivesBuilder {
     #[cfg(not(target_arch = "wasm32"))]
     platform_data: Rc<RefCell<PlatformData>>,
 
+    #[cfg(target_arch = "wasm32")]
+    window: Rc<winit::window::Window>,
     #[cfg(not(target_arch = "wasm32"))]
     windowed_context: glutin::WindowedContext<glutin::PossiblyCurrent>,
 }
@@ -164,7 +166,8 @@ impl GLRenderer {
             use winit::platform::web::WindowBuilderExtWebSys;
             use winit::platform::web::WindowExtWebSys;
 
-            let window = window_builder.with_canvas(Some(canvas)).build(&event_loop).unwrap();
+            let window =
+                Rc::new(window_builder.with_canvas(Some(canvas)).build(&event_loop).unwrap());
 
             use wasm_bindgen::JsCast;
             let webgl1_context = window
@@ -231,6 +234,8 @@ impl GraphicsBackend for GLRenderer {
             #[cfg(not(target_arch = "wasm32"))]
             platform_data: self.platform_data.clone(),
 
+            #[cfg(target_arch = "wasm32")]
+            window: self.window.clone(),
             #[cfg(not(target_arch = "wasm32"))]
             windowed_context: current_windowed_context,
         }
@@ -382,8 +387,11 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                     font_pixel_size,
                     color,
                 } => {
-                    let pixel_size =
-                        if *font_pixel_size != 0. { *font_pixel_size } else { 48.0 * 72. / 96. };
+                    let pixel_size = if *font_pixel_size != 0. {
+                        *font_pixel_size
+                    } else {
+                        16.0 * self.window_scale_factor()
+                    };
                     smallvec![self.create_glyph_runs(text, font_family, pixel_size, *color)]
                 }
                 HighLevelRenderingPrimitive::Path {
@@ -700,6 +708,15 @@ impl GLRenderingPrimitivesBuilder {
         let texture_vertices = GLArrayBuffer::new(&self.context, &normalized_coordinates);
 
         GLRenderingPrimitive::Texture { vertices, texture_vertices, texture }
+    }
+
+    fn window_scale_factor(&self) -> f32 {
+        #[cfg(not(target_arch = "wasm32"))]
+        let window = self.windowed_context.window();
+        #[cfg(target_arch = "wasm32")]
+        let window = &self.window;
+
+        window.scale_factor() as f32
     }
 }
 
