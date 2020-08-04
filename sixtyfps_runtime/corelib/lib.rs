@@ -27,10 +27,10 @@ pub mod abi {
     // We need to allow unsafe functions because of FFI
     #![allow(unsafe_code)]
     pub mod datastructures;
-    pub mod model;
 }
 
 pub mod items;
+pub mod model;
 pub mod properties;
 pub mod sharedarray;
 pub mod signals;
