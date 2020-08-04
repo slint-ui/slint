@@ -33,7 +33,7 @@ fn rust_type(
             Ok(quote!((#(#elem,)*)))
         }
         _ => Err(CompilerDiagnostic {
-            message: "Cannot map property type to Rust".into(),
+            message: format!("Cannot map property type {} to Rust", ty),
             span: span.clone(),
         }),
     }
