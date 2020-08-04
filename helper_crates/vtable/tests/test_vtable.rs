@@ -116,8 +116,7 @@ fn test() {
         assert_eq!(xref2.foo(1), 4);
     }
 
-    let vo =
-        VOffset::<SomeStructContainer, HelloVTable>::new(SomeStructContainer::FIELD_OFFSETS.s);
+    let vo = VOffset::<SomeStructContainer, HelloVTable>::new(SomeStructContainer::FIELD_OFFSETS.s);
     let mut ssc = SomeStructContainer { e: 4, s: SomeStruct { e: 5, x: 32 } };
     assert_eq!(vo.apply(&ssc).foo(4), 32 + 4);
     assert_eq!(vo.apply_mut(&mut ssc).foo_mut(4), 32 + 4);
