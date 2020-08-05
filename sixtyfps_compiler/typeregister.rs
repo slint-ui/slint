@@ -427,6 +427,14 @@ impl TypeRegister {
         insert_type(Type::Bool);
         insert_type(Type::Model);
 
+        let native_class = |tr: &mut TypeRegister, name: &str, properties: &[(&str, Type)]| {
+            let native = Rc::new(NativeClass::new_with_properties(
+                name,
+                properties.iter().map(|(n, t)| (n.to_string(), t.clone())),
+            ));
+            tr.types.insert(name.to_string(), Type::Builtin(Rc::new(BuiltinElement::new(native))));
+        };
+
         let mut rectangle = NativeClass::new("Rectangle");
         rectangle.properties.insert("color".to_owned(), Type::Color);
         rectangle.properties.insert("x".to_owned(), Type::Length);
@@ -447,46 +455,54 @@ impl TypeRegister {
             Type::Builtin(Rc::new(BuiltinElement::new(border_rectangle))),
         );
 
-        let mut image = NativeClass::new("Image");
-        image.properties.insert("source".to_owned(), Type::Resource);
-        image.properties.insert("x".to_owned(), Type::Length);
-        image.properties.insert("y".to_owned(), Type::Length);
-        image.properties.insert("width".to_owned(), Type::Length);
-        image.properties.insert("height".to_owned(), Type::Length);
-        let image = Rc::new(image);
-        r.types.insert("Image".to_owned(), Type::Builtin(Rc::new(BuiltinElement::new(image))));
-
-        let mut text = NativeClass::new("Text");
-        text.properties.insert("text".to_owned(), Type::String);
-        text.properties.insert("font_family".to_owned(), Type::String);
-        text.properties.insert("font_size".to_owned(), Type::Length);
-        text.properties.insert("color".to_owned(), Type::Color);
-        text.properties.insert("x".to_owned(), Type::Length);
-        text.properties.insert("y".to_owned(), Type::Length);
-        let text = Rc::new(text);
-        r.types.insert("Text".to_owned(), Type::Builtin(Rc::new(BuiltinElement::new(text))));
-
-        let mut touch_area = NativeClass::new("TouchArea");
-        touch_area.properties.insert("x".to_owned(), Type::Length);
-        touch_area.properties.insert("y".to_owned(), Type::Length);
-        touch_area.properties.insert("width".to_owned(), Type::Length);
-        touch_area.properties.insert("height".to_owned(), Type::Length);
-        touch_area.properties.insert("pressed".to_owned(), Type::Bool);
-        touch_area.properties.insert("clicked".to_owned(), Type::Signal);
-        let touch_area = Rc::new(touch_area);
-        r.types.insert(
-            "TouchArea".to_owned(),
-            Type::Builtin(Rc::new(BuiltinElement::new(touch_area))),
+        native_class(
+            &mut r,
+            "Image",
+            &[
+                ("source", Type::Resource),
+                ("x", Type::Length),
+                ("y", Type::Length),
+                ("width", Type::Length),
+                ("height", Type::Length),
+            ],
         );
 
-        let mut flickable = NativeClass::new("Flickable");
-        flickable.properties.insert("x".to_owned(), Type::Length);
-        flickable.properties.insert("y".to_owned(), Type::Length);
-        flickable.properties.insert("width".to_owned(), Type::Length);
-        flickable.properties.insert("height".to_owned(), Type::Length);
-        let flickable = Rc::new(flickable);
-        r.types
-            .insert("Flickable".to_owned(), Type::Builtin(Rc::new(BuiltinElement::new(flickable))));
+        native_class(
+            &mut r,
+            "Text",
+            &[
+                ("text", Type::String),
+                ("font_family", Type::String),
+                ("font_size", Type::Length),
+                ("color", Type::Color),
+                ("x", Type::Length),
+                ("y", Type::Length),
+            ],
+        );
+
+        native_class(
+            &mut r,
+            "TouchArea",
+            &[
+                ("x", Type::Length),
+                ("y", Type::Length),
+                ("width", Type::Length),
+                ("height", Type::Length),
+                ("pressed", Type::Bool),
+                ("clicked", Type::Signal),
+            ],
+        );
+
+        native_class(
+            &mut r,
+            "Flickable",
+            &[
+                ("x", Type::Length),
+                ("y", Type::Length),
+                ("width", Type::Length),
+                ("height", Type::Length),
+            ],
+        );
 
         let mut grid_layout = BuiltinElement::new(Rc::new(NativeClass::new("GridLayout")));
 
@@ -588,29 +604,31 @@ impl TypeRegister {
         r.context_restricted_types = context_restricted_types;
 
         // FIXME: should this be auto generated or placed somewhere else
-        let mut qt_style_button = NativeClass::new("QtStyleButton");
-        qt_style_button.properties.insert("x".to_owned(), Type::Length);
-        qt_style_button.properties.insert("y".to_owned(), Type::Length);
-        qt_style_button.properties.insert("width".to_owned(), Type::Length);
-        qt_style_button.properties.insert("height".to_owned(), Type::Length);
-        qt_style_button.properties.insert("text".to_owned(), Type::String);
-        qt_style_button.properties.insert("pressed".to_owned(), Type::Bool);
-        qt_style_button.properties.insert("clicked".to_owned(), Type::Signal);
-        r.types.insert(
-            "QtStyleButton".to_owned(),
-            Type::Builtin(Rc::new(BuiltinElement::new(Rc::new(qt_style_button)))),
+        native_class(
+            &mut r,
+            "QtStyleButton",
+            &[
+                ("x", Type::Length),
+                ("y", Type::Length),
+                ("width", Type::Length),
+                ("height", Type::Length),
+                ("text", Type::String),
+                ("pressed", Type::Bool),
+                ("clicked", Type::Signal),
+            ],
         );
-        let mut qt_style_checkbox = NativeClass::new("QtStyleCheckBox");
-        qt_style_checkbox.properties.insert("x".to_owned(), Type::Length);
-        qt_style_checkbox.properties.insert("y".to_owned(), Type::Length);
-        qt_style_checkbox.properties.insert("width".to_owned(), Type::Length);
-        qt_style_checkbox.properties.insert("height".to_owned(), Type::Length);
-        qt_style_checkbox.properties.insert("text".to_owned(), Type::String);
-        qt_style_checkbox.properties.insert("checked".to_owned(), Type::Bool);
-        qt_style_checkbox.properties.insert("toggled".to_owned(), Type::Signal);
-        r.types.insert(
-            "QtStyleCheckBox".to_owned(),
-            Type::Builtin(Rc::new(BuiltinElement::new(Rc::new(qt_style_checkbox)))),
+        native_class(
+            &mut r,
+            "QtStyleCheckBox",
+            &[
+                ("x", Type::Length),
+                ("y", Type::Length),
+                ("width", Type::Length),
+                ("height", Type::Length),
+                ("text", Type::String),
+                ("checked", Type::Bool),
+                ("toggled", Type::Signal),
+            ],
         );
 
         Rc::new(RefCell::new(r))
