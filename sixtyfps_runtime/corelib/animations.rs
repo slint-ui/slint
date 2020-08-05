@@ -85,14 +85,40 @@ pub fn easing_curve(curve: &EasingCurve, value: f32) -> f32 {
                 to: (1., 1.).into(),
             };
             let curve = curve.assume_monotonic();
-            curve.y(curve.solve_t_for_x(
-                value,
-                0.0..1.0,
-                lyon::tessellation::StrokeOptions::DEFAULT_TOLERANCE,
-            ))
+            curve.sample(curve.x(value)).y
         }
     }
 }
+
+/*
+#[test]
+fn easing_test() {
+    fn test_curve(name: &str, curve: &EasingCurve) {
+        let mut img = image::ImageBuffer::new(500, 500);
+        let white = image::Rgba([255 as u8, 255 as u8, 255 as u8, 255 as u8]);
+
+        for x in 0..img.width() {
+            let t = (x as f32) / (img.width() as f32);
+            let y = easing_curve(curve, t);
+            let y = (y * (img.height() as f32)) as u32;
+            let y = y.min(img.height() - 1);
+            *img.get_pixel_mut(x, img.height() - 1 - y) = white;
+        }
+
+        img.save(
+            std::path::PathBuf::from(std::env::var_os("HOME").unwrap())
+                .join(format!("{}.png", name)),
+        )
+        .unwrap();
+    }
+
+    test_curve("linear", &EasingCurve::Linear);
+    test_curve("ease", &EasingCurve::CubicBezier([0.25, 0.1, 0.25, 1.0]));
+    test_curve("ease_in", &EasingCurve::CubicBezier([0.42, 0.0, 1.0, 1.0]));
+    test_curve("ease_in_out", &EasingCurve::CubicBezier([0.42, 0.0, 0.58, 1.0]));
+    test_curve("ease_out", &EasingCurve::CubicBezier([0.0, 0.0, 0.58, 1.0]));
+}
+*/
 
 /// Update the glibal animation time to the current time
 pub(crate) fn update_animations() {
