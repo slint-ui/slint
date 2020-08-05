@@ -86,7 +86,10 @@ pub fn compile_syntax_node(
 
     build_diagnostics.add(diagnostics);
 
-    run_passes(&doc, &mut build_diagnostics, compiler_config);
+    if !build_diagnostics.has_error() {
+        // FIXME: ideally we would be able to run more passes, but currently we panic because invariant are not met.
+        run_passes(&doc, &mut build_diagnostics, compiler_config);
+    }
 
     (doc.root_component, build_diagnostics)
 }
