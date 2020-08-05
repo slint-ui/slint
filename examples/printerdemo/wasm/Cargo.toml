@@ -1,0 +1,18 @@
+[package]
+name = "wasmprinterdemo"
+version = "0.1.0"
+authors = ["Sixty FPS <info@sixtyfps.io>"]
+edition = "2018"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+path = "../rust/main.rs"
+
+[dependencies]
+sixtyfps = { path = "../../../api/sixtyfps-rs" }
+wasm-bindgen = { version = "0.2" }
+web_sys = { version = "0.3", package = "web-sys", features=["console"] }
+console_error_panic_hook = "0.1.5"
+
+[build-dependencies]
+sixtyfps-build = { path = "../../../api/sixtyfps-rs/sixtyfps-build" }
