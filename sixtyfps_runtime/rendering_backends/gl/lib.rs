@@ -665,7 +665,7 @@ impl GLRenderingPrimitivesBuilder {
         );
         let texture_vertices = GLArrayBuffer::new(&self.context, &normalized_coordinates);
 
-        GLRenderingPrimitive::Texture { vertices, texture_vertices, texture }
+        GLRenderingPrimitive::Texture { vertices, texture_vertices, texture, image_size: rect.size }
     }
 
     fn window_scale_factor(&self) -> f32 {
