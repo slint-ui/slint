@@ -85,7 +85,7 @@ pub fn easing_curve(curve: &EasingCurve, value: f32) -> f32 {
                 to: (1., 1.).into(),
             };
             let curve = curve.assume_monotonic();
-            curve.y(curve.solve_t_for_x(value, 0.0..1.0, 0.0001))
+            curve.y(curve.solve_t_for_x(value, 0.0..1.0, 0.01))
         }
     }
 }
@@ -113,6 +113,7 @@ fn easing_test() {
     }
 
     test_curve("linear", &EasingCurve::Linear);
+    test_curve("linear2", &EasingCurve::CubicBezier([0.0, 0.0, 1.0, 1.0]));
     test_curve("ease", &EasingCurve::CubicBezier([0.25, 0.1, 0.25, 1.0]));
     test_curve("ease_in", &EasingCurve::CubicBezier([0.42, 0.0, 1.0, 1.0]));
     test_curve("ease_in_out", &EasingCurve::CubicBezier([0.42, 0.0, 0.58, 1.0]));
