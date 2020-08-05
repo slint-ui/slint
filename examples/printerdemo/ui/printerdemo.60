@@ -47,8 +47,8 @@ MainWindow := Rectangle {
         img := Image {
             y: 5lx;
             x: 5lx;
-            width: 128lx;
-            height: 128lx;
+            width: root.width / 6.25;
+            height: root.height / 4.68;
             source: page_info.img_small;
             animate x, y, width, height {
                 duration: 300ms;
@@ -88,8 +88,8 @@ MainWindow := Rectangle {
                 width: root.width;
                 border_radius: 0lx;
                 img.x: root.height / 8;
-                img.width: 32lx;
-                img.height: 32lx;
+                img.width: root.width / 25;
+                img.height: root.height / 18.75;
                 text.y: 0px;
                 text.x: root.height / 4;
 
