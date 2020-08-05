@@ -95,11 +95,7 @@ impl Item for QtStyleButton {
                 qApp->style()->drawControl(QStyle::CE_PushButton, &option, &p, nullptr);
                 return img;
             });
-            return HighLevelRenderingPrimitive::Image {
-                x: Self::FIELD_OFFSETS.x.apply_pin(self).get(),
-                y: Self::FIELD_OFFSETS.y.apply_pin(self).get(),
-                source: to_resource(img),
-            };
+            return HighLevelRenderingPrimitive::Image { source: to_resource(img) };
         }
         #[cfg(not(have_qt))]
         HighLevelRenderingPrimitive::NoContents
@@ -202,11 +198,7 @@ impl Item for QtStyleCheckBox {
                 qApp->style()->drawControl(QStyle::CE_CheckBox, &option, &p, nullptr);
                 return img;
             });
-            return HighLevelRenderingPrimitive::Image {
-                x: Self::FIELD_OFFSETS.x.apply_pin(self).get(),
-                y: Self::FIELD_OFFSETS.y.apply_pin(self).get(),
-                source: to_resource(img),
-            };
+            return HighLevelRenderingPrimitive::Image { source: to_resource(img) };
         }
         #[cfg(not(have_qt))]
         HighLevelRenderingPrimitive::NoContents
