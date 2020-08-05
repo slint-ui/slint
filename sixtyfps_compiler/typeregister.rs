@@ -505,6 +505,7 @@ impl TypeRegister {
         );
 
         let mut grid_layout = BuiltinElement::new(Rc::new(NativeClass::new("GridLayout")));
+        grid_layout.properties.insert("spacing".to_owned(), Type::Length);
 
         // Row can only be in a GridLayout
         let mut row = BuiltinElement::new(Rc::new(NativeClass::new("Row")));

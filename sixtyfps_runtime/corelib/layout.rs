@@ -51,12 +51,16 @@ mod internal {
     /// Layout the items within a specified size
     ///
     /// This is quite a simple implementation for now
-    pub fn layout_items(data: &mut [LayoutData], start_pos: Coord, size: Coord) {
+    pub fn layout_items(data: &mut [LayoutData], start_pos: Coord, size: Coord, spacing: Coord) {
         let (min, _max, perf, mut s) =
             data.iter().fold((0., 0., 0., 0.), |(min, max, pref, s), it| {
                 (min + it.min, max + it.max, pref + it.pref, s + it.stretch)
             });
-        if size >= perf {
+
+        //let total_spacing = spacing * (data.len() - 1) as Coord;
+        let size_without_spacing = size - spacing * (data.len() - 1) as Coord;
+
+        if size_without_spacing >= perf {
             // bigger than the prefered size
 
             // distribute each item its prefered size
@@ -69,7 +73,7 @@ mod internal {
 
             // Allocate the space according to the stretch. Until all space is distributed, or all item
             // have reached their maximum size
-            let mut extra_space = size - perf;
+            let mut extra_space = size_without_spacing - perf;
             while s > 0. && extra_space > 0. {
                 let extra_per_stretch = extra_space / s;
                 s = 0.;
@@ -82,7 +86,7 @@ mod internal {
                         s += it.stretch;
                     }
                     it.pos = pos;
-                    pos += it.size;
+                    pos += it.size + spacing;
                 }
             }
         } else
@@ -90,12 +94,12 @@ mod internal {
         {
             // We have less than the minimum size
             // distribute the difference proportional to the size (TODO: and stretch)
-            let ratio = size / min;
+            let ratio = size_without_spacing / min;
             let mut pos = start_pos;
             for it in data {
                 it.size = it.min * ratio;
                 it.pos = pos;
-                pos += it.size;
+                pos += it.size + spacing;
             }
         }
     }
@@ -108,17 +112,17 @@ mod internal {
             LayoutData { min: 50., max: 150., pref: 100., stretch: 1., ..Default::default() },
         ];
 
-        layout_items(my_items, 100., 650.);
+        layout_items(my_items, 100., 650., 0.);
         assert_eq!(my_items[0].size, 200.);
         assert_eq!(my_items[1].size, 300.);
         assert_eq!(my_items[2].size, 150.);
 
-        layout_items(my_items, 100., 200.);
+        layout_items(my_items, 100., 200., 0.);
         assert_eq!(my_items[0].size, 100.);
         assert_eq!(my_items[1].size, 50.);
         assert_eq!(my_items[2].size, 50.);
 
-        layout_items(my_items, 100., 300.);
+        layout_items(my_items, 100., 300., 0.);
         assert_eq!(my_items[0].size, 100.);
         assert_eq!(my_items[1].size, 100.);
         assert_eq!(my_items[2].size, 100.);
@@ -144,6 +148,7 @@ pub struct GridLayoutData<'a> {
     pub height: Coord,
     pub x: Coord,
     pub y: Coord,
+    pub spacing: Coord,
     pub cells: Slice<'a, GridLayoutCellData<'a>>,
 }
 
@@ -170,6 +175,10 @@ pub extern "C" fn solve_grid_layout(data: &GridLayoutData) {
         num_col = num_col.max(cell.col + cell.colspan);
     }
 
+    if num_col < 1 || num_row < 1 {
+        return;
+    }
+
     let mut row_layout_data = vec![internal::LayoutData::default(); num_row as usize];
     let mut col_layout_data = vec![internal::LayoutData::default(); num_col as usize];
     for cell in data.cells.iter() {
@@ -183,8 +192,8 @@ pub extern "C" fn solve_grid_layout(data: &GridLayoutData) {
         cdata.pref = cdata.pref.max(cell.constraint.min_width);
     }
 
-    internal::layout_items(&mut row_layout_data, data.y, data.height);
-    internal::layout_items(&mut col_layout_data, data.x, data.width);
+    internal::layout_items(&mut row_layout_data, data.y, data.height, data.spacing);
+    internal::layout_items(&mut col_layout_data, data.x, data.width, data.spacing);
     for cell in data.cells.iter() {
         let rdata = &row_layout_data[cell.row as usize];
         let cdata = &col_layout_data[cell.col as usize];
@@ -196,12 +205,19 @@ pub extern "C" fn solve_grid_layout(data: &GridLayoutData) {
 }
 
 #[no_mangle]
-pub extern "C" fn grid_layout_info<'a>(cells: &Slice<'a, GridLayoutCellData<'a>>) -> LayoutInfo {
+pub extern "C" fn grid_layout_info<'a>(
+    cells: &Slice<'a, GridLayoutCellData<'a>>,
+    spacing: Coord,
+) -> LayoutInfo {
     let (mut num_col, mut num_row) = (0, 0);
     for cell in cells.iter() {
         num_row = num_row.max(cell.row + cell.rowspan);
         num_col = num_col.max(cell.col + cell.colspan);
     }
+
+    if num_col < 1 || num_row < 1 {
+        return LayoutInfo { min_width: 0., max_width: 0., min_height: 0., max_height: 0. };
+    };
 
     let mut row_layout_data = vec![internal::LayoutData::default(); num_row as usize];
     let mut col_layout_data = vec![internal::LayoutData::default(); num_col as usize];
@@ -216,10 +232,13 @@ pub extern "C" fn grid_layout_info<'a>(cells: &Slice<'a, GridLayoutCellData<'a>>
         cdata.pref = cdata.pref.max(cell.constraint.min_width);
     }
 
-    let min_height = row_layout_data.iter().map(|data| data.min).sum();
-    let max_height = row_layout_data.iter().map(|data| data.max).sum();
-    let min_width = col_layout_data.iter().map(|data| data.min).sum();
-    let max_width = col_layout_data.iter().map(|data| data.max).sum();
+    let spacing_h = spacing * (num_row - 1) as Coord;
+    let spacing_w = spacing * (num_col - 1) as Coord;
+
+    let min_height = row_layout_data.iter().map(|data| data.min).sum::<Coord>() * spacing_h;
+    let max_height = row_layout_data.iter().map(|data| data.max).sum::<Coord>() * spacing_h;
+    let min_width = col_layout_data.iter().map(|data| data.min).sum::<Coord>() * spacing_w;
+    let max_width = col_layout_data.iter().map(|data| data.max).sum::<Coord>() * spacing_w;
 
     LayoutInfo { min_width, max_width, min_height, max_height }
 }

@@ -2,6 +2,7 @@ import { Button, CheckBox, SpinBox } from "sixtyfps_widgets.60";
 
 App := Rectangle {
     GridLayout {
+        spacing: 10lx;
         Row {
             gallery_button := Button {
                 text: gallery_button.pressed ? "Button (pressed)" : "Button (not pressed)";

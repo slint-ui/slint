@@ -656,6 +656,7 @@ use sixtyfps_corelib::layout::*;
 pub struct GridLayoutWithCells<'a> {
     grid: &'a GridLayout,
     cells: Vec<GridLayoutCellData<'a>>,
+    spacing: f32,
 }
 
 #[derive(derive_more::From)]
@@ -668,7 +669,7 @@ impl<'a> LayoutTreeItem<'a> {
     fn layout_info(&self) -> LayoutInfo {
         match self {
             LayoutTreeItem::GridLayout(grid_layout) => {
-                grid_layout_info(&Slice::from(grid_layout.cells.as_slice()))
+                grid_layout_info(&Slice::from(grid_layout.cells.as_slice()), grid_layout.spacing)
             }
             LayoutTreeItem::PathLayout(_) => todo!(),
         }
@@ -801,7 +802,17 @@ fn collect_layouts_recursively<'a, 'b>(
                     }
                 })
                 .collect();
-            layout_tree.push(GridLayoutWithCells { grid: grid_layout, cells }.into());
+            let spacing = grid_layout.spacing.as_ref().map_or(0., |expr| {
+                eval::eval_expression(
+                    expr,
+                    component_description,
+                    component,
+                    &mut Default::default(),
+                )
+                .try_into()
+                .unwrap()
+            });
+            layout_tree.push(GridLayoutWithCells { grid: grid_layout, cells, spacing }.into());
         }
         Layout::PathLayout(layout) => layout_tree.push(layout.into()),
     }
@@ -828,6 +839,7 @@ impl<'a> LayoutTreeItem<'a> {
                     height: resolve_prop_ref(&grid_layout.grid.rect.height_reference),
                     x: resolve_prop_ref(&grid_layout.grid.rect.x_reference),
                     y: resolve_prop_ref(&grid_layout.grid.rect.y_reference),
+                    spacing: grid_layout.grid.spacing.as_ref().map(resolve_prop_ref).unwrap_or(0.),
                     cells: Slice::from(grid_layout.cells.as_slice()),
                 });
             }

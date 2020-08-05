@@ -119,6 +119,8 @@ pub struct GridLayout {
     ///
     pub elems: Vec<GridLayoutElement>,
     pub rect: LayoutRect,
+
+    pub spacing: Option<Expression>,
 }
 
 impl ExpressionFieldsVisitor for GridLayout {
@@ -132,6 +134,7 @@ impl ExpressionFieldsVisitor for GridLayout {
                 LayoutItem::Layout(layout) => layout.visit_expressions(visitor),
             }
         }
+        self.spacing.as_mut().map(visitor);
     }
 }
 

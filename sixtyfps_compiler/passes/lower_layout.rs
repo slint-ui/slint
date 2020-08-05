@@ -8,7 +8,7 @@ use std::rc::Rc;
 
 fn property_reference(element: &ElementRc, name: &str) -> Box<Expression> {
     Box::new(Expression::PropertyReference(NamedReference {
-        element: Rc::downgrade(&element.clone()),
+        element: Rc::downgrade(element),
         name: name.into(),
     }))
 }
@@ -20,7 +20,16 @@ fn lower_grid_layout(
     collected_children: &mut Vec<ElementRc>,
     diag: &mut BuildDiagnostics,
 ) -> Option<Layout> {
-    let mut grid = GridLayout { elems: Default::default(), rect };
+    let spacing = if grid_layout_element.borrow().bindings.contains_key("spacing") {
+        Some(Expression::PropertyReference(NamedReference {
+            element: Rc::downgrade(grid_layout_element),
+            name: "spacing".into(),
+        }))
+    } else {
+        None
+    };
+
+    let mut grid = GridLayout { elems: Default::default(), rect, spacing };
 
     let mut row = 0;
     let mut col = 0;
