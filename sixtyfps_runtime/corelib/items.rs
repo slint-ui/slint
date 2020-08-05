@@ -309,7 +309,6 @@ impl Item for TouchArea {
     }
 
     fn input_event(self: Pin<&Self>, event: MouseEvent) {
-        println!("Touch Area Event {:?}", event);
         Self::FIELD_OFFSETS.pressed.apply_pin(self).set(match event.what {
             MouseEventType::MousePressed => true,
             MouseEventType::MouseReleased => false,
