@@ -630,6 +630,17 @@ impl TypeRegister {
                 ("toggled", Type::Signal),
             ],
         );
+        native_class(
+            &mut r,
+            "QtStyleSpinBox",
+            &[
+                ("x", Type::Length),
+                ("y", Type::Length),
+                ("width", Type::Length),
+                ("height", Type::Length),
+                ("value", Type::Int32),
+            ],
+        );
 
         Rc::new(RefCell::new(r))
     }

@@ -25,7 +25,7 @@ pub fn builtin_item(input: TokenStream) -> TokenStream {
 
     let (prop_field_names, prop_field_types): (Vec<_>, Vec<_>) = fields
         .iter()
-        .filter(|f| is_property(&f.ty))
+        .filter(|f| is_property(&f.ty) && matches!(f.vis, syn::Visibility::Public(_)))
         .map(|f| (f.ident.as_ref().unwrap(), &f.ty))
         .unzip();
 

@@ -64,3 +64,55 @@ export CheckBox := Rectangle {
     }
 
 }
+
+
+SpinBoxButton := Rectangle {
+    signal clicked;
+    property<string> text;
+    border_width: 2lx;
+    border_radius: 10lx;
+    border_color: black;
+    color: touch.pressed ? #ddd : #eee;
+    touch := TouchArea {
+        width: parent.width;
+        height: parent.height;
+        clicked => { root.clicked(); }
+    }
+    Text {
+        x: parent.width / 2 - 15lx + (touch.pressed ? 1lx : 0lx) ;
+        y: parent.height / 2 - 15lx + (touch.pressed ? 1lx : 0lx);
+        text: root.text;
+        color: black;
+    }
+}
+
+export SpinBox := Rectangle {
+    signal toggled;
+    property <string> text;
+    property <bool> checked;
+    property <int> value;
+    color: white;
+
+    SpinBoxButton {
+        text: "-";
+        clicked => { root.value -= 1; }
+        width: parent.height;
+        height: parent.height;
+    }
+
+    SpinBoxButton {
+        width: parent.height;
+        height: parent.height;
+        x: parent.width - self.width;
+        text: "+";
+        clicked => { root.value += 1; }
+    }
+
+    Text {
+        text: root.value;
+        x: parent.height + 15lx;
+        color: black;
+    }
+
+
+}

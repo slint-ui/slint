@@ -1,5 +1,6 @@
 #![allow(non_upper_case_globals)]
 #![cfg_attr(not(have_qt), allow(unused))]
+#![recursion_limit = "256"]
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 #[cfg(have_qt)]
@@ -225,6 +226,7 @@ impl Item for QtStyleCheckBox {
             LayoutInfo {
                 min_width: size.width as f32,
                 min_height: size.height as f32,
+                max_height: size.height as f32,
                 ..LayoutInfo::default()
             }
         }
@@ -249,3 +251,195 @@ impl ItemConsts for QtStyleCheckBox {
 }
 
 ItemVTable_static! { #[no_mangle] pub static QtStyleCheckBoxVTable for QtStyleCheckBox }
+
+#[derive(Default, Copy, Clone, Debug)]
+#[repr(C)]
+struct QtStyleSpinBoxData {
+    active_controls: u32,
+    pressed: bool,
+}
+
+#[repr(C)]
+#[derive(FieldOffsets, Default, BuiltinItem)]
+#[pin]
+pub struct QtStyleSpinBox {
+    pub x: Property<f32>,
+    pub y: Property<f32>,
+    pub width: Property<f32>,
+    pub height: Property<f32>,
+    pub value: Property<i32>,
+    pub cached_rendering_data: CachedRenderingData,
+    data: Property<QtStyleSpinBoxData>,
+}
+
+#[cfg(have_qt)]
+cpp! {{
+void initQSpinBoxOptions(QStyleOptionSpinBox &option, bool pressed, int active_controls) {
+    auto style = qApp->style();
+    option.activeSubControls = QStyle::SC_None;
+    option.subControls = QStyle::SC_SpinBoxEditField | QStyle::SC_SpinBoxUp | QStyle::SC_SpinBoxDown;
+    if (style->styleHint(QStyle::SH_SpinBox_ButtonsInsideFrame, nullptr, nullptr))
+        option.subControls |= QStyle::SC_SpinBoxFrame;
+    option.activeSubControls = {active_controls};
+    option.state = QStyle::State_Enabled | QStyle::State_Active;
+    if (pressed) {
+        option.state |= QStyle::State_Sunken | QStyle::State_MouseOver;
+    }
+    /*if (active_controls) {
+        option.state |= QStyle::State_MouseOver;
+    }*/
+    option.stepEnabled = QAbstractSpinBox::StepDownEnabled | QAbstractSpinBox::StepUpEnabled;
+    option.frame = true;
+}
+}}
+
+impl Item for QtStyleSpinBox {
+    fn geometry(self: Pin<&Self>) -> Rect {
+        euclid::rect(
+            Self::FIELD_OFFSETS.x.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.y.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.width.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.height.apply_pin(self).get(),
+        )
+    }
+    fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
+        #[cfg(have_qt)]
+        {
+            let value: i32 = Self::FIELD_OFFSETS.value.apply_pin(self).get();
+            let size: qttypes::QSize = qttypes::QSize {
+                width: Self::FIELD_OFFSETS.width.apply_pin(self).get() as _,
+                height: Self::FIELD_OFFSETS.height.apply_pin(self).get() as _,
+            };
+            let data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
+            let active_controls = data.active_controls;
+            let pressed = data.pressed;
+
+            let img = cpp!(unsafe [
+                value as "int",
+                size as "QSize",
+                active_controls as "int",
+                pressed as "bool"
+            ] -> qttypes::QImage as "QImage" {
+                ensure_initialized();
+                QImage img(size, QImage::Format_ARGB32);
+                img.fill(Qt::transparent);
+                QPainter p(&img);
+                auto style = qApp->style();
+                QStyleOptionSpinBox option;
+                option.rect = img.rect();
+                initQSpinBoxOptions(option, pressed, active_controls);
+                style->drawComplexControl(QStyle::CC_SpinBox, &option, &p, nullptr);
+
+                auto text_rect = style->subControlRect(QStyle::CC_SpinBox, &option, QStyle::SC_SpinBoxEditField, nullptr);
+                p.drawText(text_rect, QString::number(value));
+                return img;
+            });
+            return HighLevelRenderingPrimitive::Image { source: to_resource(img) };
+        }
+        #[cfg(not(have_qt))]
+        HighLevelRenderingPrimitive::NoContents
+    }
+
+    fn rendering_variables(self: Pin<&Self>) -> SharedArray<RenderingVariable> {
+        SharedArray::from(&[])
+    }
+
+    fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
+        #[cfg(have_qt)]
+        {
+            //let value: i32 = Self::FIELD_OFFSETS.value.apply_pin(self).get();
+            let data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
+            let active_controls = data.active_controls;
+            let pressed = data.pressed;
+
+            let size = cpp!(unsafe [
+                //value as "int",
+                active_controls as "int",
+                pressed as "bool"
+            ] -> qttypes::QSize as "QSize" {
+                ensure_initialized();
+                auto style = qApp->style();
+
+                QStyleOptionSpinBox option;
+                initQSpinBoxOptions(option, pressed, active_controls);
+
+                auto content = option.fontMetrics.boundingRect("0000");
+
+                return style->sizeFromContents(QStyle::CT_SpinBox, &option, content.size(), nullptr)
+                    .expandedTo(QApplication::globalStrut());
+            });
+            LayoutInfo {
+                min_width: size.width as f32,
+                min_height: size.height as f32,
+                max_height: size.height as f32,
+                ..LayoutInfo::default()
+            }
+        }
+        #[cfg(not(have_qt))]
+        LayoutInfo::default()
+    }
+
+    fn input_event(self: Pin<&Self>, event: MouseEvent) {
+        #[cfg(have_qt)]
+        {
+            let size: qttypes::QSize = qttypes::QSize {
+                width: Self::FIELD_OFFSETS.width.apply_pin(self).get() as _,
+                height: Self::FIELD_OFFSETS.height.apply_pin(self).get() as _,
+            };
+            let mut data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
+            let active_controls = data.active_controls;
+            let pressed = data.pressed;
+
+            let pos = qttypes::QPoint { x: event.pos.x as u32, y: event.pos.y as u32 };
+
+            let new_control = cpp!(unsafe [
+                pos as "QPoint",
+                size as "QSize",
+                active_controls as "int",
+                pressed as "bool"
+            ] -> u32 as "int" {
+                ensure_initialized();
+                auto style = qApp->style();
+
+                QStyleOptionSpinBox option;
+                option.rect = { QPoint{}, size };
+                initQSpinBoxOptions(option, pressed, active_controls);
+
+                return style->hitTestComplexControl(QStyle::CC_SpinBox, &option, pos, nullptr);
+            });
+            let changed = new_control != active_controls
+                || match event.what {
+                    MouseEventType::MousePressed => {
+                        data.pressed = true;
+                        true
+                    }
+                    MouseEventType::MouseReleased => {
+                        data.pressed = false;
+                        if new_control
+                            == cpp!(unsafe []->u32 as "int" { return QStyle::SC_SpinBoxUp;})
+                        {
+                            self.value.set(Self::FIELD_OFFSETS.value.apply_pin(self).get() + 1);
+                        }
+                        if new_control
+                            == cpp!(unsafe []->u32 as "int" { return QStyle::SC_SpinBoxDown;})
+                        {
+                            self.value.set(Self::FIELD_OFFSETS.value.apply_pin(self).get() - 1);
+                        }
+                        true
+                    }
+                    MouseEventType::MouseMoved => false,
+                };
+            data.active_controls = new_control;
+            if changed {
+                self.data.set(data);
+            }
+        }
+    }
+}
+
+impl ItemConsts for QtStyleSpinBox {
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
+        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+}
+
+ItemVTable_static! { #[no_mangle] pub static QtStyleSpinBoxVTable for QtStyleSpinBox }

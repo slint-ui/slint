@@ -119,7 +119,7 @@ MainWindow := Rectangle {
         height: root.height - root.height / 8;
         width: root.width;
         y: root.height;
-        animate y { duration: 300ms; easing: ease_in_out; }
+        animate y { duration: 300ms; easing: ease_out; }
         states [
             active when root.active_page != 0: {
                 y: root.height / 8;

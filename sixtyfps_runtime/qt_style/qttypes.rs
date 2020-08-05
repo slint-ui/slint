@@ -75,6 +75,9 @@ pub struct QSize {
     pub height: u32,
 }
 
-cpp_class!(
-    pub unsafe struct QByteArray as "QByteArray"
-);
+#[repr(C)]
+#[derive(Default, Clone, Copy, PartialEq, Debug)]
+pub struct QPoint {
+    pub x: u32,
+    pub y: u32,
+}

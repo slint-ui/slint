@@ -256,9 +256,13 @@ fn generate_component(root_component: &Rc<object_tree::Component>) -> Rc<Compone
         );
         #[cfg(feature = "qt_style")]
         rtti.extend(
-            [rtti_for::<qt_style::QtStyleButton>(), rtti_for::<qt_style::QtStyleCheckBox>()]
-                .iter()
-                .cloned(),
+            [
+                rtti_for::<qt_style::QtStyleButton>(),
+                rtti_for::<qt_style::QtStyleCheckBox>(),
+                rtti_for::<qt_style::QtStyleSpinBox>(),
+            ]
+            .iter()
+            .cloned(),
         );
     }
     let rtti = Rc::new(rtti);
@@ -296,7 +300,9 @@ fn generate_component(root_component: &Rc<object_tree::Component>) -> Rc<Compone
                 },
             });
         } else {
-            let rt = &rtti[&*item.base_type.as_native().class_name];
+            let rt = rtti.get(&*item.base_type.as_native().class_name).unwrap_or_else(|| {
+                panic!("Native type not registered: {}", item.base_type.as_native().class_name)
+            });
             let offset = builder.add_field(rt.type_info);
             tree_array.push(ItemTreeNode::Item {
                 item: unsafe { vtable::VOffset::from_raw(rt.vtable, offset) },
