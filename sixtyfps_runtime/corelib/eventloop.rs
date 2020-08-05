@@ -6,7 +6,7 @@ use std::{
 };
 use vtable::*;
 
-use crate::{graphics::Size, input::MouseEventType, properties::PropertyListenerScope};
+use crate::{input::MouseEventType, properties::PropertyListenerScope};
 #[cfg(not(target_arch = "wasm32"))]
 use winit::platform::desktop::EventLoopExtDesktop;
 
@@ -21,7 +21,6 @@ pub trait GenericWindow {
     fn window_handle(&self) -> std::cell::Ref<'_, winit::window::Window>;
     fn map_window(self: Rc<Self>, event_loop: &EventLoop);
     fn request_redraw(&self);
-    fn size(&self) -> Size;
 }
 
 /// The ComponentWindow is the (rust) facing public type that can render the items
@@ -42,12 +41,16 @@ impl ComponentWindow {
         self.0.clone().map_window(&event_loop);
 
         {
-            let size = self.0.size();
+            let platform_window = self.0.window_handle();
+            let size = platform_window.inner_size();
             if let Some(width_property) = props.width {
-                width_property.set(size.width)
+                width_property.set(size.width as _)
             }
             if let Some(height_property) = props.height {
-                height_property.set(size.height)
+                height_property.set(size.height as _)
+            }
+            if let Some(scale_factor_property) = props.scale_factor {
+                scale_factor_property.set(platform_window.scale_factor() as _)
             }
         }
 

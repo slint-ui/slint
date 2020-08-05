@@ -451,15 +451,6 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow
             backend.window().request_redraw();
         }
     }
-
-    fn size(&self) -> Size {
-        if let Some(backend) = self.borrow().graphics_backend.as_ref() {
-            let size = backend.window().inner_size();
-            Size::new(size.width as _, size.height as _)
-        } else {
-            Size::default()
-        }
-    }
 }
 
 #[repr(C)]
