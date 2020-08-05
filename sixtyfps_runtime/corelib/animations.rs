@@ -85,7 +85,7 @@ pub fn easing_curve(curve: &EasingCurve, value: f32) -> f32 {
                 to: (1., 1.).into(),
             };
             let curve = curve.assume_monotonic();
-            curve.sample(curve.x(value)).y
+            curve.y(curve.solve_t_for_x(value, 0.0..1.0, 0.0001))
         }
     }
 }
