@@ -27,6 +27,9 @@ PrintPage := Rectangle {
 
 MainWindow := Rectangle {
 
+    width: 800lx;
+    height: 600lx;
+
     property<int> active_page: 0;
 
     for page_info[idx] in [

@@ -67,6 +67,9 @@ pub struct ItemVTable {
 /// the associated vtable
 pub type ItemRef<'a> = vtable::VRef<'a, ItemVTable>;
 
+/// Alias for Option<Pin<&'a Property<T>>> to faciliate cbindgen.
+pub type PinnedOptionalProp<'a, T> = Option<core::pin::Pin<&'a crate::Property<T>>>;
+
 #[repr(C)]
 #[derive(Default)]
 /// WindowProperties is used to pass the references to properties of the instantiated
@@ -74,14 +77,14 @@ pub type ItemRef<'a> = vtable::VRef<'a, ItemVTable>;
 pub struct WindowProperties<'a> {
     /// A reference to the property that is supposed to be kept up-to-date with the width
     /// of the window.
-    pub width: Option<&'a crate::Property<f32>>,
+    pub width: PinnedOptionalProp<'a, f32>,
     /// A reference to the property that is supposed to be kept up-to-date with the height
     /// of the window.
-    pub height: Option<&'a crate::Property<f32>>,
+    pub height: PinnedOptionalProp<'a, f32>,
 
     /// A reference to the property that is supposed to be kept up-to-date with the current
     /// screen dpi / scale factor
-    pub scale_factor: Option<&'a crate::Property<f32>>,
+    pub scale_factor: PinnedOptionalProp<'a, f32>,
 }
 
 // This is here because for some reason (rust bug?) the ItemVTable_static is not accessible in the other modules

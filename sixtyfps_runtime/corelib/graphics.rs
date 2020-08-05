@@ -421,7 +421,11 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow
     fn window_handle(&self) -> std::cell::Ref<winit::window::Window> {
         std::cell::Ref::map(self.borrow(), |mw| mw.graphics_backend.as_ref().unwrap().window())
     }
-    fn map_window(self: Rc<Self>, event_loop: &crate::eventloop::EventLoop) {
+    fn map_window(
+        self: Rc<Self>,
+        event_loop: &crate::eventloop::EventLoop,
+        props: &crate::abi::datastructures::WindowProperties,
+    ) {
         if self.borrow().graphics_backend.is_some() {
             return;
         }
@@ -433,7 +437,34 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow
             let factory = this.graphics_backend_factory.as_mut();
             let backend = factory(&event_loop, window_builder);
 
-            let window_id = backend.window().id();
+            let platform_window = backend.window();
+            let window_id = platform_window.id();
+
+            // Ideally we should be passing the initial requested size to the window builder, but those properties
+            // may be specified in logical pixels, relative to the scale factory, which we only know *after* mapping
+            // the window to the screen. So we first map the window then, propagate the scale factory and *then* the
+            // width/height properties should have the correct values calculated via their bindings that multiply with
+            // the scale factor.
+            // We could pass the logical requested size at window builder time, *if* we knew what the values are.
+            {
+                if let Some(scale_factor_property) = props.scale_factor {
+                    scale_factor_property.set(platform_window.scale_factor() as _)
+                }
+                let existing_size = platform_window.inner_size();
+
+                let mut new_size = existing_size;
+
+                if let Some(width_property) = props.width {
+                    new_size.width = width_property.get() as _;
+                }
+                if let Some(height_property) = props.height {
+                    new_size.height = height_property.get() as _;
+                }
+
+                if new_size != existing_size {
+                    platform_window.set_inner_size(new_size)
+                }
+            }
 
             this.graphics_backend = Some(backend);
 

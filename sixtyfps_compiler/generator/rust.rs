@@ -367,19 +367,23 @@ fn generate_component(
 
             if root_elem.lookup_property(name) == Type::Length {
                 let root_item_name = quote::format_ident!("{}", root_elem.id);
+                let root_item_ty =
+                    quote::format_ident!("{}", root_elem.base_type.as_native().class_name);
                 let name = quote::format_ident!("{}", name);
-                quote!(Some(&self.#root_item_name.#name))
+                quote!(Some((Self::FIELD_OFFSETS.#root_item_name + #root_item_ty::FIELD_OFFSETS.#name).apply_pin(self.as_ref())))
             } else {
                 quote!(None)
             }
         };
         let width_prop = window_props("width");
         let height_prop = window_props("height");
+        let scale_factor_prop =
+            quote!(Some(Self::FIELD_OFFSETS.scale_factor.apply_pin(self.as_ref())));
         property_and_signal_accessors.push(quote! {
             pub fn run(self : core::pin::Pin<std::rc::Rc<Self>>) {
                 use sixtyfps::re_exports::*;
                 let window = sixtyfps::create_window();
-                let window_props = WindowProperties {width: #width_prop, height: #height_prop, scale_factor: Some(&self.scale_factor)};
+                let window_props = WindowProperties {width: #width_prop, height: #height_prop, scale_factor: #scale_factor_prop};
                 window.run(VRef::new_pin(self.as_ref()), &window_props);
             }
         });

@@ -19,7 +19,7 @@ pub trait GenericWindow {
         component: core::pin::Pin<crate::abi::datastructures::ComponentRef>,
     );
     fn window_handle(&self) -> std::cell::Ref<'_, winit::window::Window>;
-    fn map_window(self: Rc<Self>, event_loop: &EventLoop);
+    fn map_window(self: Rc<Self>, event_loop: &EventLoop, props: &WindowProperties);
     fn request_redraw(&self);
 }
 
@@ -38,21 +38,8 @@ impl ComponentWindow {
     /// Spins an event loop and renders the items of the provided component in this window.
     pub fn run(&self, component: Pin<VRef<ComponentVTable>>, props: &WindowProperties) {
         let event_loop = crate::eventloop::EventLoop::new();
-        self.0.clone().map_window(&event_loop);
 
-        {
-            let platform_window = self.0.window_handle();
-            let size = platform_window.inner_size();
-            if let Some(width_property) = props.width {
-                width_property.set(size.width as _)
-            }
-            if let Some(height_property) = props.height {
-                height_property.set(size.height as _)
-            }
-            if let Some(scale_factor_property) = props.scale_factor {
-                scale_factor_property.set(platform_window.scale_factor() as _)
-            }
-        }
+        self.0.clone().map_window(&event_loop, props);
 
         event_loop.run(component, &props);
     }

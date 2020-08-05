@@ -53,7 +53,10 @@ impl ComponentBox {
                 None
             } else {
                 info.rtti.properties.get(name).map(|p| unsafe {
-                    &*(component.as_ptr().add(info.offset).add(p.offset()) as *const Property<f32>)
+                    Pin::new_unchecked(
+                        &*(component.as_ptr().add(info.offset).add(p.offset())
+                            as *const Property<f32>),
+                    )
                 })
             }
         };
@@ -63,8 +66,12 @@ impl ComponentBox {
             height: get_prop("height"),
             /// Safety: there must be a scale_factor property of type f32 as it is added by us for top level window
             scale_factor: Some(unsafe {
-                &*(component.as_ptr().add(component_type.custom_properties["scale_factor"].offset)
-                    as *const Property<f32>)
+                Pin::new_unchecked(
+                    &*(component
+                        .as_ptr()
+                        .add(component_type.custom_properties["scale_factor"].offset)
+                        as *const Property<f32>),
+                )
             }),
         }
     }
