@@ -8,9 +8,13 @@ use lyon::tessellation::{
     StrokeTessellator,
 };
 use sixtyfps_corelib::eventloop::{ffi::ComponentWindowOpaque, ComponentWindow};
-use sixtyfps_corelib::graphics::{
-    Color, FillStyle, Frame as GraphicsFrame, GraphicsBackend, GraphicsWindow,
-    HighLevelRenderingPrimitive, Point, Rect, RenderingPrimitivesBuilder, Resource, Size,
+use sixtyfps_corelib::{
+    graphics::{
+        Color, Frame as GraphicsFrame, GraphicsBackend, GraphicsWindow,
+        HighLevelRenderingPrimitive, Point, Rect, RenderingPrimitivesBuilder, RenderingVariable,
+        Resource, Size,
+    },
+    SharedArray,
 };
 use smallvec::{smallvec, SmallVec};
 use std::cell::RefCell;
@@ -80,7 +84,6 @@ enum GLRenderingPrimitive {
     FillPath {
         vertices: GLArrayBuffer<Vertex>,
         indices: GLIndexBuffer<u16>,
-        style: FillStyle,
     },
     Texture {
         vertices: GLArrayBuffer<Vertex>,
@@ -298,33 +301,28 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
         OpaqueRenderingPrimitive {
             gl_primitives: match &primitive {
                 HighLevelRenderingPrimitive::NoContents => smallvec::SmallVec::new(),
-                HighLevelRenderingPrimitive::Rectangle { x: _, y: _, width, height, color } => {
+                HighLevelRenderingPrimitive::Rectangle { width, height } => {
                     use lyon::math::Point;
 
                     let rect = Rect::new(Point::default(), Size::new(*width, *height));
-                    self.fill_rectangle(&rect, 0., *color).into_iter().collect()
+                    self.fill_rectangle(&rect, 0.).into_iter().collect()
                 }
                 HighLevelRenderingPrimitive::BorderRectangle {
-                    x: _,
-                    y: _,
                     width,
                     height,
-                    color,
                     border_width,
                     border_radius,
-                    border_color,
                 } => {
                     use lyon::math::Point;
 
                     let rect = Rect::new(Point::default(), Size::new(*width, *height));
 
                     let mut primitives: SmallVec<_> =
-                        self.fill_rectangle(&rect, *border_radius, *color).into_iter().collect();
+                        self.fill_rectangle(&rect, *border_radius).into_iter().collect();
 
                     if *border_width > 0. {
                         let stroke = self.stroke_rectangle(
                             &Rect::new(Point::default(), Size::new(*width, *height)),
-                            *border_color,
                             *border_width,
                             *border_radius,
                         );
@@ -333,7 +331,7 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
 
                     primitives
                 }
-                HighLevelRenderingPrimitive::Image { x: _, y: _, source } => {
+                HighLevelRenderingPrimitive::Image { source } => {
                     match source {
                         Resource::AbsoluteFilePath(path) => {
                             let mut image_path = std::env::current_exe().unwrap();
@@ -371,14 +369,7 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                         Resource::None => SmallVec::new(),
                     }
                 }
-                HighLevelRenderingPrimitive::Text {
-                    x: _,
-                    y: _,
-                    text,
-                    font_family,
-                    font_size,
-                    color,
-                } => {
+                HighLevelRenderingPrimitive::Text { text, font_family, font_size, color } => {
                     let pixel_size = if *font_size != 0. {
                         *font_size
                     } else {
@@ -386,33 +377,15 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                     };
                     smallvec![self.create_glyph_runs(text, font_family, pixel_size, *color)]
                 }
-                HighLevelRenderingPrimitive::Path {
-                    x: _,
-                    y: _,
-                    width,
-                    height,
-                    elements,
-                    fill_color,
-                    stroke_color,
-                    stroke_width,
-                } => {
+                HighLevelRenderingPrimitive::Path { width, height, elements, stroke_width } => {
                     let mut primitives = SmallVec::new();
 
                     let path_iter = elements.iter_fitted(*width, *height);
 
-                    if *fill_color != Color::TRANSPARENT {
-                        primitives.extend(
-                            self.fill_path(path_iter.iter(), FillStyle::SolidColor(*fill_color))
-                                .into_iter(),
-                        );
-                    }
+                    primitives.extend(self.fill_path(path_iter.iter()).into_iter());
 
-                    if *stroke_color != Color::TRANSPARENT {
-                        primitives.extend(
-                            self.stroke_path(path_iter.iter(), *stroke_color, *stroke_width)
-                                .into_iter(),
-                        );
-                    }
+                    primitives
+                        .extend(self.stroke_path(path_iter.iter(), *stroke_width).into_iter());
 
                     primitives
                 }
@@ -425,7 +398,6 @@ impl GLRenderingPrimitivesBuilder {
     fn fill_path_from_geometry(
         &self,
         geometry: &VertexBuffers<Vertex, u16>,
-        style: FillStyle,
     ) -> Option<GLRenderingPrimitive> {
         if geometry.vertices.len() == 0 || geometry.indices.len() == 0 {
             return None;
@@ -434,13 +406,12 @@ impl GLRenderingPrimitivesBuilder {
         let vertices = GLArrayBuffer::new(&self.context, &geometry.vertices);
         let indices = GLIndexBuffer::new(&self.context, &geometry.indices);
 
-        Some(GLRenderingPrimitive::FillPath { vertices, indices, style }.into())
+        Some(GLRenderingPrimitive::FillPath { vertices, indices }.into())
     }
 
     fn fill_path(
         &mut self,
         path: impl IntoIterator<Item = lyon::path::PathEvent>,
-        style: FillStyle,
     ) -> Option<GLRenderingPrimitive> {
         let mut geometry: VertexBuffers<Vertex, u16> = VertexBuffers::new();
 
@@ -458,13 +429,12 @@ impl GLRenderingPrimitivesBuilder {
             )
             .unwrap();
 
-        self.fill_path_from_geometry(&geometry, style)
+        self.fill_path_from_geometry(&geometry)
     }
 
     fn stroke_path(
         &mut self,
         path: impl IntoIterator<Item = lyon::path::PathEvent>,
-        stroke_color: Color,
         stroke_width: f32,
     ) -> Option<GLRenderingPrimitive> {
         let mut geometry: VertexBuffers<Vertex, u16> = VertexBuffers::new();
@@ -484,15 +454,10 @@ impl GLRenderingPrimitivesBuilder {
             )
             .unwrap();
 
-        self.fill_path_from_geometry(&geometry, FillStyle::SolidColor(stroke_color))
+        self.fill_path_from_geometry(&geometry)
     }
 
-    fn fill_rectangle(
-        &mut self,
-        rect: &Rect,
-        radius: f32,
-        color: Color,
-    ) -> Option<GLRenderingPrimitive> {
+    fn fill_rectangle(&mut self, rect: &Rect, radius: f32) -> Option<GLRenderingPrimitive> {
         let mut geometry: VertexBuffers<Vertex, u16> = VertexBuffers::new();
 
         let mut geometry_builder = BuffersBuilder::new(&mut geometry, |pos: lyon::math::Point| {
@@ -521,13 +486,12 @@ impl GLRenderingPrimitivesBuilder {
             .unwrap();
         }
 
-        self.fill_path_from_geometry(&geometry, FillStyle::SolidColor(color))
+        self.fill_path_from_geometry(&geometry)
     }
 
     fn stroke_rectangle(
         &mut self,
         rect: &Rect,
-        stroke_color: Color,
         stroke_width: f32,
         radius: f32,
     ) -> Option<GLRenderingPrimitive> {
@@ -562,7 +526,7 @@ impl GLRenderingPrimitivesBuilder {
             .unwrap();
         }
 
-        self.fill_path_from_geometry(&geometry, FillStyle::SolidColor(stroke_color))
+        self.fill_path_from_geometry(&geometry)
     }
 
     fn create_image(
@@ -714,7 +678,12 @@ impl GLRenderingPrimitivesBuilder {
 impl GraphicsFrame for GLFrame {
     type LowLevelRenderingPrimitive = OpaqueRenderingPrimitive;
 
-    fn render_primitive(&mut self, primitive: &OpaqueRenderingPrimitive, transform: &Matrix4<f32>) {
+    fn render_primitive(
+        &mut self,
+        primitive: &OpaqueRenderingPrimitive,
+        transform: &Matrix4<f32>,
+        variables: SharedArray<RenderingVariable>,
+    ) {
         let matrix = self.root_matrix * transform;
         let gl_matrix: [f32; 16] = [
             matrix.x[0],
@@ -734,11 +703,10 @@ impl GraphicsFrame for GLFrame {
             matrix.w[2],
             matrix.w[3],
         ];
+        let mut rendering_var = variables.iter();
         primitive.gl_primitives.iter().for_each(|gl_primitive| match gl_primitive {
-            GLRenderingPrimitive::FillPath { vertices, indices, style } => {
-                let (r, g, b, a) = match style {
-                    FillStyle::SolidColor(color) => color.as_rgba_f32(),
-                };
+            GLRenderingPrimitive::FillPath { vertices, indices } => {
+                let (r, g, b, a) = rendering_var.next().unwrap().as_color().as_rgba_f32();
 
                 self.path_shader.bind(&self.context, &gl_matrix, &[r, g, b, a], vertices, indices);
 

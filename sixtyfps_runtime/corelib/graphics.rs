@@ -3,6 +3,7 @@ use crate::input::{MouseEvent, MouseEventType};
 use crate::properties::InterpolatedPropertyValue;
 #[cfg(feature = "rtti")]
 use crate::rtti::{BuiltinItem, FieldInfo, FieldOffset, PropertyInfo, ValueType};
+use crate::SharedArray;
 
 use cgmath::Matrix4;
 use const_field_offset::FieldOffsets;
@@ -101,10 +102,6 @@ impl std::fmt::Display for Color {
     }
 }
 
-pub enum FillStyle {
-    SolidColor(Color),
-}
-
 /// A resource is a reference to binary data, for example images. They can be accessible on the file
 /// system or embedded in the resulting binary. Or they might be URLs to a web server and a downloaded
 /// is necessary before they can be used.
@@ -136,46 +133,50 @@ impl Default for Resource {
 pub enum HighLevelRenderingPrimitive {
     /// There is nothing to draw
     NoContents,
+    // Expected rendering variables in order: Color (fill color)
     Rectangle {
-        x: f32,
-        y: f32,
         width: f32,
         height: f32,
-        color: Color,
     },
+    // Expected rendering variables in order: Color (fill color), Color (border color)
     BorderRectangle {
-        x: f32,
-        y: f32,
         width: f32,
         height: f32,
-        color: Color,
         border_width: f32,
         border_radius: f32,
-        border_color: Color,
     },
     Image {
-        x: f32,
-        y: f32,
         source: crate::Resource,
     },
+    // TODO: turn color into a rendering variable. Needs fixing of the wasm canvas code path though.
     Text {
-        x: f32,
-        y: f32,
         text: crate::SharedString,
         font_family: crate::SharedString,
         font_size: f32,
         color: Color,
     },
+    // Expected rendering variables in order: Color (fill color), Color (stroke color)
     Path {
-        x: f32,
-        y: f32,
         width: f32,
         height: f32,
         elements: crate::PathData,
-        fill_color: Color,
-        stroke_color: Color,
         stroke_width: f32,
     },
+}
+
+#[derive(Debug, Clone)]
+#[repr(C)]
+pub enum RenderingVariable {
+    Color(Color),
+}
+
+impl RenderingVariable {
+    pub fn as_color(&self) -> &Color {
+        match self {
+            RenderingVariable::Color(c) => c,
+            // _ => panic!("internal error: expected color but found something else"),
+        }
+    }
 }
 
 pub trait Frame {
@@ -184,6 +185,7 @@ pub trait Frame {
         &mut self,
         primitive: &Self::LowLevelRenderingPrimitive,
         transform: &Matrix4<f32>,
+        variables: SharedArray<RenderingVariable>,
     );
 }
 

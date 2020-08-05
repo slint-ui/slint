@@ -2,11 +2,11 @@
 
 use vtable::*;
 
-use crate::graphics::{HighLevelRenderingPrimitive, Rect};
+use crate::graphics::{HighLevelRenderingPrimitive, Rect, RenderingVariable};
 use crate::input::MouseEvent;
 use crate::item_rendering::CachedRenderingData;
 use crate::item_tree::ItemVisitorVTable;
-use crate::layout::LayoutInfo;
+use crate::{layout::LayoutInfo, SharedArray};
 
 /// A Component is representing an unit that is allocated together
 #[vtable]
@@ -45,9 +45,16 @@ pub struct ItemVTable {
     #[field_offset(CachedRenderingData)]
     pub cached_rendering_data_offset: usize,
 
-    /// Return the rendering primitive used to display this item.
+    /// Return the rendering primitive used to display this item. This should depend on only
+    /// rarely changed properties as it typically contains data uploaded to the GPU.
     pub rendering_primitive:
         extern "C" fn(core::pin::Pin<VRef<ItemVTable>>) -> HighLevelRenderingPrimitive,
+
+    /// Return the variables needed to render the graphical primitives of this item. These
+    /// are typically variables that do not require uploading any data sets to the GPU and
+    /// can instead be represented using uniforms.
+    pub rendering_variables:
+        extern "C" fn(core::pin::Pin<VRef<ItemVTable>>) -> SharedArray<RenderingVariable>,
 
     /// We would need max/min/preferred size, and all layout info
     pub layouting_info: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>) -> LayoutInfo,

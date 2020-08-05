@@ -56,7 +56,7 @@ pub(crate) fn render_component_items<Backend: GraphicsBackend>(
             let cached_rendering_data = item.cached_rendering_data_offset();
             if cached_rendering_data.cache_ok.get() {
                 let primitive = rendering_cache.entry_at(cached_rendering_data.cache_index.get());
-                frame.render_primitive(&primitive, &transform);
+                frame.render_primitive(&primitive, &transform, item.as_ref().rendering_variables());
             }
 
             transform

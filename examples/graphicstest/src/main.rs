@@ -1,7 +1,7 @@
 use cgmath::{Matrix4, SquareMatrix, Vector3};
 use sixtyfps_corelib::graphics::{
     Color, Frame, GraphicsBackend, HighLevelRenderingPrimitive, PathData, PathElement, PathLineTo,
-    RenderingCache, RenderingPrimitivesBuilder, Resource,
+    RenderingCache, RenderingPrimitivesBuilder, RenderingVariable, Resource,
 };
 use sixtyfps_corelib::SharedArray;
 
@@ -25,26 +25,14 @@ fn main() {
     let mut rendering_primitives_builder = renderer.new_rendering_primitives_builder();
 
     let root = {
-        let root_rect =
-            rendering_primitives_builder.create(HighLevelRenderingPrimitive::Rectangle {
-                x: 0.,
-                y: 0.,
-                width: 100.,
-                height: 100.,
-                color: Color::from_rgb(0, 0, 255),
-            });
+        let root_rect = rendering_primitives_builder
+            .create(HighLevelRenderingPrimitive::Rectangle { width: 100., height: 100. });
         render_cache.ensure_cached(None, || root_rect)
     };
 
     let child_rect = {
-        let child_rect =
-            rendering_primitives_builder.create(HighLevelRenderingPrimitive::Rectangle {
-                x: 0.,
-                y: 0.,
-                width: 100.,
-                height: 100.,
-                color: Color::from_rgb(0, 255, 0),
-            });
+        let child_rect = rendering_primitives_builder
+            .create(HighLevelRenderingPrimitive::Rectangle { width: 100., height: 100. });
         render_cache.ensure_cached(None, || child_rect)
     };
 
@@ -59,8 +47,6 @@ fn main() {
 
         let image_primitive =
             rendering_primitives_builder.create(HighLevelRenderingPrimitive::Image {
-                x: 0.,
-                y: 0.,
                 source: Resource::AbsoluteFilePath(logo_path.to_str().unwrap().into()),
             });
 
@@ -74,13 +60,9 @@ fn main() {
     let path_node = {
         let path_primitive =
             rendering_primitives_builder.create(HighLevelRenderingPrimitive::Path {
-                x: 50.,
-                y: 300.,
                 width: 0.,
                 height: 0.,
                 elements: PathData::Elements(SharedArray::from(TRIANGLE_PATH)),
-                fill_color: Color::from_rgb(0, 128, 255),
-                stroke_color: Color::BLACK,
                 stroke_width: 2.0,
             });
         render_cache.ensure_cached(None, || path_primitive)
@@ -102,18 +84,28 @@ fn main() {
                 let size = window.inner_size();
                 let mut frame = renderer.new_frame(size.width, size.height, &Color::WHITE);
 
-                frame.render_primitive(render_cache.entry_at(root), &Matrix4::identity());
+                frame.render_primitive(
+                    render_cache.entry_at(root),
+                    &Matrix4::identity(),
+                    SharedArray::from(&[RenderingVariable::Color(Color::from_rgb(0, 0, 255))]),
+                );
                 frame.render_primitive(
                     render_cache.entry_at(child_rect),
                     &Matrix4::from_translation(Vector3::new(100., 100., 0.)),
+                    SharedArray::from(&[RenderingVariable::Color(Color::from_rgb(0, 255, 0))]),
                 );
                 frame.render_primitive(
                     render_cache.entry_at(image_node),
                     &Matrix4::from_translation(Vector3::new(200., 200., 0.)),
+                    SharedArray::from(&[]),
                 );
                 frame.render_primitive(
                     render_cache.entry_at(path_node),
                     &Matrix4::from_translation(Vector3::new(20., 200., 0.)),
+                    SharedArray::from(&[
+                        RenderingVariable::Color(Color::from_rgb(0, 128, 255)),
+                        RenderingVariable::Color(Color::BLACK),
+                    ]),
                 );
 
                 renderer.present_frame(frame);

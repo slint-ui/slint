@@ -54,16 +54,16 @@ impl Item for Rectangle {
         let width = Self::FIELD_OFFSETS.width.apply_pin(self).get();
         let height = Self::FIELD_OFFSETS.height.apply_pin(self).get();
         if width > 0. && height > 0. {
-            HighLevelRenderingPrimitive::Rectangle {
-                x: Self::FIELD_OFFSETS.x.apply_pin(self).get(),
-                y: Self::FIELD_OFFSETS.y.apply_pin(self).get(),
-                width,
-                height,
-                color: Self::FIELD_OFFSETS.color.apply_pin(self).get(),
-            }
+            HighLevelRenderingPrimitive::Rectangle { width, height }
         } else {
             HighLevelRenderingPrimitive::NoContents
         }
+    }
+
+    fn rendering_variables(self: Pin<&Self>) -> SharedArray<RenderingVariable> {
+        SharedArray::from(&[RenderingVariable::Color(
+            Self::FIELD_OFFSETS.color.apply_pin(self).get(),
+        )])
     }
 
     fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
@@ -112,18 +112,21 @@ impl Item for BorderRectangle {
         let height = Self::FIELD_OFFSETS.height.apply_pin(self).get();
         if width > 0. && height > 0. {
             HighLevelRenderingPrimitive::BorderRectangle {
-                x: Self::FIELD_OFFSETS.x.apply_pin(self).get(),
-                y: Self::FIELD_OFFSETS.y.apply_pin(self).get(),
                 width,
                 height,
-                color: Self::FIELD_OFFSETS.color.apply_pin(self).get(),
                 border_width: Self::FIELD_OFFSETS.border_width.apply_pin(self).get(),
                 border_radius: Self::FIELD_OFFSETS.border_radius.apply_pin(self).get(),
-                border_color: Self::FIELD_OFFSETS.border_color.apply_pin(self).get(),
             }
         } else {
             HighLevelRenderingPrimitive::NoContents
         }
+    }
+
+    fn rendering_variables(self: Pin<&Self>) -> SharedArray<RenderingVariable> {
+        SharedArray::from(&[
+            RenderingVariable::Color(Self::FIELD_OFFSETS.color.apply_pin(self).get()),
+            RenderingVariable::Color(Self::FIELD_OFFSETS.border_color.apply_pin(self).get()),
+        ])
     }
 
     fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
@@ -166,10 +169,12 @@ impl Item for Image {
     }
     fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
         HighLevelRenderingPrimitive::Image {
-            x: Self::FIELD_OFFSETS.x.apply_pin(self).get(),
-            y: Self::FIELD_OFFSETS.y.apply_pin(self).get(),
             source: Self::FIELD_OFFSETS.source.apply_pin(self).get(),
         }
+    }
+
+    fn rendering_variables(self: Pin<&Self>) -> SharedArray<RenderingVariable> {
+        SharedArray::from(&[])
     }
 
     fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
@@ -215,13 +220,15 @@ impl Item for Text {
     }
     fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
         HighLevelRenderingPrimitive::Text {
-            x: Self::FIELD_OFFSETS.x.apply_pin(self).get(),
-            y: Self::FIELD_OFFSETS.y.apply_pin(self).get(),
             text: Self::FIELD_OFFSETS.text.apply_pin(self).get(),
             font_family: Self::FIELD_OFFSETS.font_family.apply_pin(self).get(),
             font_size: Self::FIELD_OFFSETS.font_size.apply_pin(self).get(),
             color: Self::FIELD_OFFSETS.color.apply_pin(self).get(),
         }
+    }
+
+    fn rendering_variables(self: Pin<&Self>) -> SharedArray<RenderingVariable> {
+        SharedArray::from(&[])
     }
 
     fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
@@ -281,6 +288,10 @@ impl Item for TouchArea {
         HighLevelRenderingPrimitive::NoContents
     }
 
+    fn rendering_variables(self: Pin<&Self>) -> SharedArray<RenderingVariable> {
+        SharedArray::from(&[])
+    }
+
     fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
         LayoutInfo::default()
     }
@@ -333,15 +344,18 @@ impl Item for Path {
     }
     fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
         HighLevelRenderingPrimitive::Path {
-            x: Self::FIELD_OFFSETS.x.apply_pin(self).get(),
-            y: Self::FIELD_OFFSETS.y.apply_pin(self).get(),
             width: Self::FIELD_OFFSETS.width.apply_pin(self).get(),
             height: Self::FIELD_OFFSETS.height.apply_pin(self).get(),
             elements: Self::FIELD_OFFSETS.elements.apply_pin(self).get(),
-            fill_color: Self::FIELD_OFFSETS.fill_color.apply_pin(self).get(),
-            stroke_color: Self::FIELD_OFFSETS.stroke_color.apply_pin(self).get(),
             stroke_width: Self::FIELD_OFFSETS.stroke_width.apply_pin(self).get(),
         }
+    }
+
+    fn rendering_variables(self: Pin<&Self>) -> SharedArray<RenderingVariable> {
+        SharedArray::from(&[
+            RenderingVariable::Color(Self::FIELD_OFFSETS.fill_color.apply_pin(self).get()),
+            RenderingVariable::Color(Self::FIELD_OFFSETS.stroke_color.apply_pin(self).get()),
+        ])
     }
 
     fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
@@ -387,6 +401,10 @@ impl Item for Flickable {
         HighLevelRenderingPrimitive::NoContents
     }
 
+    fn rendering_variables(self: Pin<&Self>) -> SharedArray<RenderingVariable> {
+        SharedArray::from(&[])
+    }
+
     fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
         LayoutInfo::default()
     }
@@ -400,7 +418,7 @@ impl ItemConsts for Flickable {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
         Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
-pub use crate::abi::datastructures::FlickableVTable;
+pub use crate::{abi::datastructures::FlickableVTable, graphics::RenderingVariable, SharedArray};
 
 #[repr(C)]
 /// Wraps the internal datastructure for the Flickable
