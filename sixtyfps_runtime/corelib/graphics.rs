@@ -455,14 +455,24 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow
                 let mut new_size = existing_size;
 
                 if let Some(width_property) = props.width {
-                    new_size.width = width_property.get() as _;
+                    let width = width_property.get();
+                    if width > 0. {
+                        new_size.width = width as _;
+                    }
                 }
                 if let Some(height_property) = props.height {
-                    new_size.height = height_property.get() as _;
+                    let height = height_property.get();
+                    if height > 0. {
+                        new_size.height = height as _;
+                    }
                 }
 
+                // Either request a new size or update width/height to the size given by the window manager.
                 if new_size != existing_size {
                     platform_window.set_inner_size(new_size)
+                } else {
+                    props.width.map(|p| p.set(existing_size.width as _));
+                    props.height.map(|p| p.set(existing_size.height as _));
                 }
             }
 
