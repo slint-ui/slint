@@ -100,7 +100,7 @@ pub(crate) fn update_animations() {
         match std::env::var("SIXTYFPS_SLOW_ANIMATIONS") {
             Err(_) => driver.update_animations(instant::Instant::now()),
             Ok(val) => {
-                let factor = dbg!(val.parse().unwrap_or(2.));
+                let factor = val.parse().unwrap_or(2.);
                 driver.update_animations(
                     driver.initial_instant
                         + (instant::Instant::now() - driver.initial_instant).div_f32(factor),
