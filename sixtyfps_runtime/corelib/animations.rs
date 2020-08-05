@@ -24,6 +24,7 @@ pub struct AnimationDriver {
     /// Indicate whether there are any active animations that require a future call to update_animations.
     active_animations: Cell<bool>,
     global_instant: core::pin::Pin<Box<crate::Property<instant::Instant>>>,
+    initial_instant: instant::Instant,
 }
 
 impl Default for AnimationDriver {
@@ -31,6 +32,7 @@ impl Default for AnimationDriver {
         AnimationDriver {
             active_animations: Cell::default(),
             global_instant: Box::pin(crate::Property::new(instant::Instant::now())),
+            initial_instant: instant::Instant::now(),
         }
     }
 }
@@ -90,4 +92,20 @@ pub fn easing_curve(curve: &EasingCurve, value: f32) -> f32 {
             ))
         }
     }
+}
+
+/// Update the glibal animation time to the current time
+pub(crate) fn update_animations() {
+    CURRENT_ANIMATION_DRIVER.with(|driver| {
+        match std::env::var("SIXTYFPS_SLOW_ANIMATIONS") {
+            Err(_) => driver.update_animations(instant::Instant::now()),
+            Ok(val) => {
+                let factor = dbg!(val.parse().unwrap_or(2.));
+                driver.update_animations(
+                    driver.initial_instant
+                        + (instant::Instant::now() - driver.initial_instant).div_f32(factor),
+                )
+            }
+        };
+    });
 }

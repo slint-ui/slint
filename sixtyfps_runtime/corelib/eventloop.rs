@@ -104,10 +104,7 @@ impl EventLoop {
                     ..
                 } => *control_flow = winit::event_loop::ControlFlow::Exit,
                 winit::event::Event::RedrawRequested(id) => {
-                    crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
-                        driver.update_animations(instant::Instant::now());
-                    });
-
+                    crate::animations::update_animations();
                     ALL_WINDOWS.with(|windows| {
                         if let Some(Some(window)) =
                             windows.borrow().get(&id).map(|weakref| weakref.upgrade())
@@ -166,9 +163,7 @@ impl EventLoop {
                     event: winit::event::WindowEvent::MouseInput { state, .. },
                     ..
                 } => {
-                    crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
-                        driver.update_animations(instant::Instant::now());
-                    });
+                    crate::animations::update_animations();
                     ALL_WINDOWS.with(|windows| {
                         if let Some(Some(window)) =
                             windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
@@ -192,9 +187,7 @@ impl EventLoop {
                     ..
                 } => {
                     cursor_pos = position;
-                    crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
-                        driver.update_animations(instant::Instant::now());
-                    });
+                    crate::animations::update_animations();
                     ALL_WINDOWS.with(|windows| {
                         if let Some(Some(window)) =
                             windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
