@@ -69,7 +69,7 @@ jobs:
       with:
         cmakeListsTxtPath: CMakeLists.txt
     - name: Install wasm-pack
-      run: cargo install wasm-pack
+      run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
     - name: Setup Node.js
       uses: actions/setup-node@v1
       with:
