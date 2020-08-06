@@ -8,7 +8,7 @@ use crate::SharedArray;
 use cgmath::Matrix4;
 use const_field_offset::FieldOffsets;
 use sixtyfps_corelib_macros::*;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 /// 2D Rectangle
@@ -333,48 +333,44 @@ impl<Backend: GraphicsBackend> RenderingCache<Backend> {
 }
 
 pub struct GraphicsWindow<Backend: GraphicsBackend + 'static> {
-    graphics_backend_factory:
-        Box<dyn Fn(&crate::eventloop::EventLoop, winit::window::WindowBuilder) -> Backend>,
-    graphics_backend: Option<Backend>,
-    rendering_cache: RenderingCache<Backend>,
+    graphics_backend_factory: Cell<
+        Option<Box<dyn Fn(&crate::eventloop::EventLoop, winit::window::WindowBuilder) -> Backend>>,
+    >,
+    graphics_backend: RefCell<Option<Backend>>,
+    rendering_cache: RefCell<RenderingCache<Backend>>,
 }
 
 impl<Backend: GraphicsBackend + 'static> GraphicsWindow<Backend> {
     pub fn new(
         graphics_backend_factory: impl Fn(&crate::eventloop::EventLoop, winit::window::WindowBuilder) -> Backend
             + 'static,
-    ) -> Rc<RefCell<Self>> {
-        let this = Rc::new(RefCell::new(Self {
-            graphics_backend_factory: Box::new(graphics_backend_factory),
-            graphics_backend: None,
-            rendering_cache: RenderingCache::default(),
-        }));
-
-        this
+    ) -> Rc<Self> {
+        Rc::new(Self {
+            graphics_backend_factory: Cell::new(Some(Box::new(graphics_backend_factory))),
+            graphics_backend: RefCell::new(None),
+            rendering_cache: RefCell::new(RenderingCache::default()),
+        })
     }
 
     pub fn id(&self) -> Option<winit::window::WindowId> {
-        self.graphics_backend.as_ref().map(|backend| backend.window().id())
+        self.graphics_backend.borrow().as_ref().map(|backend| backend.window().id())
     }
 }
 
 impl<Backend: GraphicsBackend> Drop for GraphicsWindow<Backend> {
     fn drop(&mut self) {
-        if let Some(backend) = self.graphics_backend.as_ref() {
+        if let Some(backend) = self.graphics_backend.borrow().as_ref() {
             crate::eventloop::unregister_window(backend.window().id());
         }
     }
 }
 
-impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow
-    for RefCell<GraphicsWindow<Backend>>
-{
+impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindow<Backend> {
     fn draw(&self, component: crate::ComponentRefPin) {
-        let mut this = self.borrow_mut();
-
         {
-            let mut rendering_primitives_builder =
-                this.graphics_backend.as_mut().unwrap().new_rendering_primitives_builder();
+            let mut backend = self.graphics_backend.borrow_mut();
+            let backend = backend.as_mut().unwrap();
+            let mut rendering_primitives_builder = backend.new_rendering_primitives_builder();
 
             // Generate cached rendering data once
             crate::item_tree::visit_items(
@@ -382,30 +378,26 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow
                 |_, item, _| {
                     crate::item_rendering::update_item_rendering_data(
                         item,
-                        &mut this.rendering_cache,
+                        &mut self.rendering_cache.borrow_mut(),
                         &mut rendering_primitives_builder,
                     );
                 },
                 (),
             );
 
-            this.graphics_backend.as_mut().unwrap().finish_primitives(rendering_primitives_builder);
+            backend.finish_primitives(rendering_primitives_builder);
         }
 
-        let window = this.graphics_backend.as_ref().unwrap().window();
-
-        let size = window.inner_size();
-        let mut frame = this.graphics_backend.as_mut().unwrap().new_frame(
-            size.width,
-            size.height,
-            &Color::WHITE,
-        );
+        let mut backend = self.graphics_backend.borrow_mut();
+        let backend = backend.as_mut().unwrap();
+        let size = backend.window().inner_size();
+        let mut frame = backend.new_frame(size.width, size.height, &Color::WHITE);
         crate::item_rendering::render_component_items(
             component,
             &mut frame,
-            &mut this.rendering_cache,
+            &mut self.rendering_cache.borrow_mut(),
         );
-        this.graphics_backend.as_mut().unwrap().present_frame(frame);
+        backend.present_frame(frame);
     }
     fn process_mouse_input(
         &self,
@@ -419,22 +411,24 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow
         );
     }
     fn window_handle(&self) -> std::cell::Ref<winit::window::Window> {
-        std::cell::Ref::map(self.borrow(), |mw| mw.graphics_backend.as_ref().unwrap().window())
+        std::cell::Ref::map(self.graphics_backend.borrow(), |backend| {
+            backend.as_ref().unwrap().window()
+        })
     }
+
     fn map_window(
         self: Rc<Self>,
         event_loop: &crate::eventloop::EventLoop,
         props: &crate::abi::datastructures::WindowProperties,
     ) {
-        if self.borrow().graphics_backend.is_some() {
+        if self.graphics_backend.borrow().is_some() {
             return;
         }
 
         let id = {
             let window_builder = winit::window::WindowBuilder::new();
 
-            let mut this = self.borrow_mut();
-            let factory = this.graphics_backend_factory.as_mut();
+            let factory = self.graphics_backend_factory.take().unwrap();
             let backend = factory(&event_loop, window_builder);
 
             let platform_window = backend.window();
@@ -476,7 +470,7 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow
                 }
             }
 
-            this.graphics_backend = Some(backend);
+            *self.graphics_backend.borrow_mut() = Some(backend);
 
             window_id
         };
@@ -488,7 +482,7 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow
     }
 
     fn request_redraw(&self) {
-        if let Some(backend) = self.borrow().graphics_backend.as_ref() {
+        if let Some(backend) = self.graphics_backend.borrow().as_ref() {
             backend.window().request_redraw();
         }
     }
