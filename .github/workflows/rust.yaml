@@ -62,14 +62,26 @@ jobs:
       with:
           command: test
           args: --verbose
-    - name: WASM Build
-      uses: actions-rs/cargo@v1
-      with:
-          command: build
-          args: --target wasm32-unknown-unknown --verbose -p rustwasmtest
     - name: Prepare cmake module
       run: cargo xtask cmake --prefix $HOME/sixtyfps_install --install
     - name: C++ Test
       uses: lukka/run-cmake@v2.4
       with:
         cmakeListsTxtPath: CMakeLists.txt
+    - uses: jetli/wasm-pack-action@v0.3.0
+      with:
+        version: 'latest'
+    - name: Setup Node.js
+      uses: actions/setup-node@v1
+      with:
+        node-version: '12'
+    - name: Gallery WASM build
+      run: |
+          npm install
+          npm run build
+      working-directory: examples/gallery/wasm
+    - name: Printer demo WASM build
+      run: |
+          npm install
+          npm run build
+      working-directory: examples/printerdemo/wasm
