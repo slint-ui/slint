@@ -7,7 +7,7 @@ use core::pin::Pin;
 use cpp::cpp;
 use sixtyfps_corelib::abi::datastructures::{Item, ItemConsts, ItemVTable};
 use sixtyfps_corelib::graphics::{HighLevelRenderingPrimitive, Rect, RenderingVariable, Resource};
-use sixtyfps_corelib::input::{MouseEvent, MouseEventType};
+use sixtyfps_corelib::input::{InputEventResult, MouseEvent, MouseEventType};
 use sixtyfps_corelib::item_rendering::CachedRenderingData;
 use sixtyfps_corelib::layout::LayoutInfo;
 #[cfg(feature = "rtti")]
@@ -130,15 +130,16 @@ impl Item for QtStyleButton {
         LayoutInfo::default()
     }
 
-    fn input_event(self: Pin<&Self>, event: MouseEvent) {
+    fn input_event(self: Pin<&Self>, event: MouseEvent) -> InputEventResult {
         Self::FIELD_OFFSETS.pressed.apply_pin(self).set(match event.what {
             MouseEventType::MousePressed => true,
-            MouseEventType::MouseReleased => false,
-            MouseEventType::MouseMoved => return,
+            MouseEventType::MouseExit | MouseEventType::MouseReleased => false,
+            MouseEventType::MouseMoved => return InputEventResult::EventAccepted,
         });
         if matches!(event.what, MouseEventType::MouseReleased) {
             Self::FIELD_OFFSETS.clicked.apply_pin(self).emit(())
         }
+        InputEventResult::GrabMouse
     }
 }
 
@@ -234,7 +235,7 @@ impl Item for QtStyleCheckBox {
         LayoutInfo::default()
     }
 
-    fn input_event(self: Pin<&Self>, event: MouseEvent) {
+    fn input_event(self: Pin<&Self>, event: MouseEvent) -> InputEventResult {
         if matches!(event.what, MouseEventType::MouseReleased) {
             Self::FIELD_OFFSETS
                 .checked
@@ -242,6 +243,7 @@ impl Item for QtStyleCheckBox {
                 .set(!Self::FIELD_OFFSETS.checked.apply_pin(self).get());
             Self::FIELD_OFFSETS.toggled.apply_pin(self).emit(())
         }
+        InputEventResult::GrabMouse
     }
 }
 
@@ -379,7 +381,7 @@ impl Item for QtStyleSpinBox {
         LayoutInfo::default()
     }
 
-    fn input_event(self: Pin<&Self>, event: MouseEvent) {
+    fn input_event(self: Pin<&Self>, event: MouseEvent) -> InputEventResult {
         #[cfg(have_qt)]
         {
             let size: qttypes::QSize = qttypes::QSize {
@@ -413,7 +415,7 @@ impl Item for QtStyleSpinBox {
                         data.pressed = true;
                         true
                     }
-                    MouseEventType::MouseReleased => {
+                    MouseEventType::MouseExit | MouseEventType::MouseReleased => {
                         data.pressed = false;
                         if new_control
                             == cpp!(unsafe []->u32 as "int" { return QStyle::SC_SpinBoxUp;})
@@ -434,6 +436,7 @@ impl Item for QtStyleSpinBox {
                 self.data.set(data);
             }
         }
+        InputEventResult::GrabMouse
     }
 }
 

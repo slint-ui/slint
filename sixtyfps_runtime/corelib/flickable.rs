@@ -37,7 +37,7 @@ impl FlickableData {
                         .get(),
                 )
             }
-            MouseEventType::MouseReleased => {
+            MouseEventType::MouseExit | MouseEventType::MouseReleased => {
                 if let Some(pressed_time) = inner.pressed_time {
                     let dist = event.pos - inner.pressed_pos;
                     let speed = dist

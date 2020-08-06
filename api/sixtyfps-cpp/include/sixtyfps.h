@@ -142,12 +142,16 @@ struct Repeater
         }
     }
 
-    void visit(ItemVisitorRefMut visitor) const
+    intptr_t visit(ItemVisitorRefMut visitor) const
     {
-        for (const auto &x : data) {
+        for (auto i = 0; i < data.size(); ++i) {
+            const auto &x = data.at(i);
             VRef<ComponentVTable> ref { &C::component_type, x.get() };
-            ref.vtable->visit_children_item(ref, -1, visitor);
+            if (ref.vtable->visit_children_item(ref, -1, visitor) == -1) {
+                return i;
+            }
         }
+        return -1;
     }
 };
 

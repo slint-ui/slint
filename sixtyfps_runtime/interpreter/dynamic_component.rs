@@ -142,7 +142,7 @@ unsafe extern "C" fn visit_children_item(
     component: ComponentRefPin,
     index: isize,
     v: ItemVisitorRefMut,
-) {
+) -> isize {
     let component_type =
         &*(component.get_vtable() as *const ComponentVTable as *const ComponentDescription);
     let item_tree = &component_type.it;
@@ -189,11 +189,14 @@ unsafe extern "C" fn visit_children_item(
                     });
                 }
             }
-            for x in vec {
-                x.borrow().as_ref().visit_children_item(-1, visitor.borrow_mut());
+            for (i, x) in vec.iter().enumerate() {
+                if x.borrow().as_ref().visit_children_item(-1, visitor.borrow_mut()) != -1 {
+                    return i as isize;
+                }
             }
+            -1
         },
-    );
+    )
 }
 
 /// Information attached to a builtin item
@@ -412,7 +415,7 @@ fn generate_component(root_component: &Rc<object_tree::Component>) -> Rc<Compone
         todo!()
     }
 
-    let t = ComponentVTable { visit_children_item, layout_info, compute_layout };
+    let t = ComponentVTable { visit_children_item, layout_info, compute_layout, input_event };
     let t = ComponentDescription {
         ct: t,
         dynamic_type: builder.build(),
@@ -912,6 +915,13 @@ impl<'a> LayoutTreeItem<'a> {
             }
         }
     }
+}
+
+extern "C" fn input_event(
+    _component: ComponentRefPin,
+    _mouse: sixtyfps_corelib::input::MouseEvent,
+) -> sixtyfps_corelib::input::InputEventResult {
+    todo!()
 }
 
 unsafe extern "C" fn compute_layout(component: ComponentRefPin) {

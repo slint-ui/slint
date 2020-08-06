@@ -41,10 +41,13 @@ where
     }
 
     /// Call the visitor for each component
-    pub fn visit(&self, mut visitor: sixtyfps_corelib::item_tree::ItemVisitorRefMut) {
-        for c in self.components.borrow().iter() {
-            c.as_ref().visit_children_item(-1, visitor.borrow_mut());
+    pub fn visit(&self, mut visitor: sixtyfps_corelib::item_tree::ItemVisitorRefMut) -> isize {
+        for (i, c) in self.components.borrow().iter().enumerate() {
+            if c.as_ref().visit_children_item(-1, visitor.borrow_mut()) != -1 {
+                return i as isize;
+            }
         }
+        -1
     }
 
     /// Return the amount of item currently in the component

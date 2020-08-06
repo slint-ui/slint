@@ -81,7 +81,7 @@ pub(crate) mod ffi {
             base: &u8,
             visitor: vtable::VRefMut<ItemVisitorVTable>,
             dyn_index: usize,
-        ) -> bool,
+        ) -> isize,
     ) -> isize {
         crate::item_tree::visit_item_tree(
             Pin::new_unchecked(&*(component.as_ptr() as *const u8)),
@@ -151,21 +151,25 @@ pub fn visit_item_tree<Base>(
     item_tree: &[ItemTreeNode<Base>],
     index: isize,
     mut visitor: vtable::VRefMut<ItemVisitorVTable>,
-    visit_dynamic: impl Fn(Pin<&Base>, vtable::VRefMut<ItemVisitorVTable>, usize) -> bool,
+    visit_dynamic: impl Fn(Pin<&Base>, vtable::VRefMut<ItemVisitorVTable>, usize) -> isize,
 ) -> isize {
     let mut visit_at_index = |idx: usize| -> isize {
-        let continue_ = match &item_tree[idx] {
+        match &item_tree[idx] {
             ItemTreeNode::Item { item, .. } => {
-                visitor.visit_item(component, idx as isize, item.apply_pin(base))
+                if visitor.visit_item(component, idx as isize, item.apply_pin(base)) {
+                    -1
+                } else {
+                    idx as isize
+                }
             }
             ItemTreeNode::DynamicTree { index } => {
-                visit_dynamic(base, visitor.borrow_mut(), *index)
+                let sub_idx = visit_dynamic(base, visitor.borrow_mut(), *index);
+                if sub_idx == -1 {
+                    -1
+                } else {
+                    idx as isize | sub_idx << 16
+                }
             }
-        };
-        if continue_ {
-            idx as isize | continue_ << 16
-        } else {
-            -1
         }
     };
     if index == -1 {

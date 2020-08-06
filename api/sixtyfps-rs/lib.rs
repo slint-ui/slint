@@ -81,6 +81,7 @@ pub mod re_exports {
     pub use sixtyfps_corelib::graphics::{
         PathArcTo, PathData, PathElement, PathEvent, PathLineTo, Point, Rect, Size,
     };
+    pub use sixtyfps_corelib::input::{InputEventResult, MouseEvent};
     pub use sixtyfps_corelib::item_tree::{
         visit_item_tree, ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable,
     };

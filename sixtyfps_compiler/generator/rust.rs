@@ -430,17 +430,21 @@ fn generate_component(
         }
 
         impl sixtyfps::re_exports::Component for #component_id {
-            fn visit_children_item(self: ::core::pin::Pin<&Self>, index: isize, visitor: sixtyfps::re_exports::ItemVisitorRefMut) {
+            fn visit_children_item(self: ::core::pin::Pin<&Self>, index: isize, visitor: sixtyfps::re_exports::ItemVisitorRefMut) -> isize {
                 use sixtyfps::re_exports::*;
                 let tree = &[#(#item_tree_array),*];
-                sixtyfps::re_exports::visit_item_tree(self, VRef::new_pin(self), tree, index, visitor, visit_dynamic);
+                return sixtyfps::re_exports::visit_item_tree(self, VRef::new_pin(self), tree, index, visitor, visit_dynamic);
                 #[allow(unused)]
-                fn visit_dynamic(self_pinned: ::core::pin::Pin<&#component_id>, visitor: ItemVisitorRefMut, dyn_index: usize) {
+                fn visit_dynamic(self_pinned: ::core::pin::Pin<&#component_id>, visitor: ItemVisitorRefMut, dyn_index: usize) -> isize {
                     match dyn_index {
                         #(#repeated_visit_branch)*
                         _ => panic!("invalid dyn_index {}", dyn_index),
                     }
                 }
+            }
+
+            fn input_event(self: ::core::pin::Pin<&Self>, _ : sixtyfps::re_exports::MouseEvent) -> sixtyfps::re_exports::InputEventResult {
+                todo!()
             }
 
             #layouts
@@ -1230,7 +1234,7 @@ fn compile_path(path: &Path, component: &Rc<Component>) -> TokenStream {
         }
     }
 }
-
+/*
 quote! {
 
     fn process_input_event(self: ::core::pin::Pin<&Self>, mouse_event) {
@@ -1242,7 +1246,7 @@ match child_array[inx] {
 DynamicItem(repeater_offset) => {
 let repeater_index = self.grab >> 16;
 match repeater_offset => {
-    #(repeater_id => { 
+    #(repeater_id => {
         self.#repeater_name.component[repeater_index].proccess_input_event()
 
     }  )*
@@ -1253,3 +1257,4 @@ match repeater_offset => {
 }
     }
 }
+*/

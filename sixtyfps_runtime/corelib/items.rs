@@ -18,7 +18,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 
 use super::abi::datastructures::{Item, ItemConsts};
 use super::graphics::{Color, HighLevelRenderingPrimitive, PathData, Rect, Resource};
-use super::input::{MouseEvent, MouseEventType};
+use super::input::{InputEventResult, MouseEvent, MouseEventType};
 use super::item_rendering::CachedRenderingData;
 use super::layout::LayoutInfo;
 #[cfg(feature = "rtti")]
@@ -70,7 +70,9 @@ impl Item for Rectangle {
         Default::default()
     }
 
-    fn input_event(self: Pin<&Self>, _: MouseEvent) {}
+    fn input_event(self: Pin<&Self>, _: MouseEvent) -> InputEventResult {
+        InputEventResult::EventIgnored
+    }
 }
 
 impl ItemConsts for Rectangle {
@@ -133,7 +135,9 @@ impl Item for BorderRectangle {
         Default::default()
     }
 
-    fn input_event(self: Pin<&Self>, _: MouseEvent) {}
+    fn input_event(self: Pin<&Self>, _: MouseEvent) -> InputEventResult {
+        InputEventResult::EventIgnored
+    }
 }
 
 impl ItemConsts for BorderRectangle {
@@ -194,7 +198,9 @@ impl Item for Image {
         Default::default()
     }
 
-    fn input_event(self: Pin<&Self>, _: MouseEvent) {}
+    fn input_event(self: Pin<&Self>, _: MouseEvent) -> InputEventResult {
+        InputEventResult::EventIgnored
+    }
 }
 
 impl ItemConsts for Image {
@@ -312,7 +318,9 @@ impl Item for Text {
         })
     }
 
-    fn input_event(self: Pin<&Self>, _: MouseEvent) {}
+    fn input_event(self: Pin<&Self>, _: MouseEvent) -> InputEventResult {
+        InputEventResult::EventIgnored
+    }
 }
 
 impl ItemConsts for Text {
@@ -359,15 +367,16 @@ impl Item for TouchArea {
         LayoutInfo::default()
     }
 
-    fn input_event(self: Pin<&Self>, event: MouseEvent) {
+    fn input_event(self: Pin<&Self>, event: MouseEvent) -> InputEventResult {
         Self::FIELD_OFFSETS.pressed.apply_pin(self).set(match event.what {
             MouseEventType::MousePressed => true,
-            MouseEventType::MouseReleased => false,
-            MouseEventType::MouseMoved => return,
+            MouseEventType::MouseExit | MouseEventType::MouseReleased => false,
+            MouseEventType::MouseMoved => return InputEventResult::EventAccepted,
         });
         if matches!(event.what, MouseEventType::MouseReleased) {
             Self::FIELD_OFFSETS.clicked.apply_pin(self).emit(())
         }
+        InputEventResult::GrabMouse
     }
 }
 
@@ -424,7 +433,9 @@ impl Item for Path {
         LayoutInfo::default()
     }
 
-    fn input_event(self: Pin<&Self>, _: MouseEvent) {}
+    fn input_event(self: Pin<&Self>, _: MouseEvent) -> InputEventResult {
+        InputEventResult::EventIgnored
+    }
 }
 
 impl ItemConsts for Path {
@@ -471,8 +482,10 @@ impl Item for Flickable {
         LayoutInfo::default()
     }
 
-    fn input_event(self: Pin<&Self>, event: MouseEvent) {
+    fn input_event(self: Pin<&Self>, event: MouseEvent) -> InputEventResult {
         self.data.handle_mouse(self, event);
+        // FIXME
+        InputEventResult::EventAccepted
     }
 }
 

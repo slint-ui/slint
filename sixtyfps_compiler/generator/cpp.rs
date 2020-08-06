@@ -353,7 +353,7 @@ fn handle_repeater(
 
     if repeated.model.is_constant() {
         children_repeater_cases.push(format!(
-            "\n        case {i}: self->{id}.visit(visitor); break;",
+            "\n        case {i}: return self->{id}.visit(visitor);",
             id = repeater_id,
             i = repeater_count
         ));
@@ -703,7 +703,7 @@ fn generate_component(
         Access::Private,
         Declaration::Function(Function {
             name: "visit_children".into(),
-            signature: "(sixtyfps::ComponentRef, intptr_t, sixtyfps::ItemVisitorRefMut) -> void"
+            signature: "(sixtyfps::ComponentRef, intptr_t, sixtyfps::ItemVisitorRefMut) -> intptr_t"
                 .into(),
             is_static: true,
             ..Default::default()
@@ -742,14 +742,15 @@ fn generate_component(
 
     declarations.push(Declaration::Function(Function {
         name: format!("{}::visit_children", component_id),
-        signature: "(sixtyfps::ComponentRef component, intptr_t index, sixtyfps::ItemVisitorRefMut visitor) -> void".into(),
+        signature: "(sixtyfps::ComponentRef component, intptr_t index, sixtyfps::ItemVisitorRefMut visitor) -> intptr_t".into(),
         statements: Some(vec![
             "static const sixtyfps::ItemTreeNode<uint8_t> children[] {".to_owned(),
             format!("    {} }};", tree_array.join(", ")),
-            "static const auto dyn_visit = [] (const uint8_t *base, [[maybe_unused]] sixtyfps::ItemVisitorRefMut visitor, uintptr_t dyn_index) {".to_owned(),
+            "static const auto dyn_visit = [] (const uint8_t *base, [[maybe_unused]] sixtyfps::ItemVisitorRefMut visitor, uintptr_t dyn_index) -> intptr_t {".to_owned(),
             format!("    [[maybe_unused]] auto self = reinterpret_cast<const {}*>(base);", component_id),
             // Fixme: this is not the root component
-            format!("    switch(dyn_index) {{ {} }}\n  }};", children_visitor_case.join("")),
+            format!("    switch(dyn_index) {{ {} }};", children_visitor_case.join("")),
+            "    return -1; //should not happen\n};".to_owned(),
             "return sixtyfps::sixtyfps_visit_item_tree(component, { const_cast<sixtyfps::ItemTreeNode<uint8_t>*>(children), std::size(children)}, index, visitor, dyn_visit);".to_owned(),
         ]),
         ..Default::default()
