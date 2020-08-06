@@ -9,7 +9,7 @@ use sixtyfps_compilerlib::typeregister::Type;
 use sixtyfps_compilerlib::*;
 use sixtyfps_corelib::abi::datastructures::{ComponentVTable, ItemVTable, WindowProperties};
 use sixtyfps_corelib::graphics::Resource;
-use sixtyfps_corelib::item_tree::{ItemTreeNode, ItemVisitorRefMut};
+use sixtyfps_corelib::item_tree::{ItemTreeNode, ItemVisitorRefMut, VisitChildrenResult};
 use sixtyfps_corelib::items::{Flickable, PropertyAnimation, Rectangle};
 use sixtyfps_corelib::layout::LayoutInfo;
 use sixtyfps_corelib::properties::{InterpolatedPropertyValue, PropertyListenerScope};
@@ -142,7 +142,7 @@ unsafe extern "C" fn visit_children_item(
     component: ComponentRefPin,
     index: isize,
     v: ItemVisitorRefMut,
-) -> isize {
+) -> VisitChildrenResult {
     let component_type =
         &*(component.get_vtable() as *const ComponentVTable as *const ComponentDescription);
     let item_tree = &component_type.it;
@@ -190,11 +190,11 @@ unsafe extern "C" fn visit_children_item(
                 }
             }
             for (i, x) in vec.iter().enumerate() {
-                if x.borrow().as_ref().visit_children_item(-1, visitor.borrow_mut()) != -1 {
-                    return i as isize;
+                if x.borrow().as_ref().visit_children_item(-1, visitor.borrow_mut()).has_aborted() {
+                    return VisitChildrenResult::abort(i, 0);
                 }
             }
-            -1
+            VisitChildrenResult::CONTINUE
         },
     )
 }

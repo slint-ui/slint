@@ -430,12 +430,14 @@ fn generate_component(
         }
 
         impl sixtyfps::re_exports::Component for #component_id {
-            fn visit_children_item(self: ::core::pin::Pin<&Self>, index: isize, visitor: sixtyfps::re_exports::ItemVisitorRefMut) -> isize {
+            fn visit_children_item(self: ::core::pin::Pin<&Self>, index: isize, visitor: sixtyfps::re_exports::ItemVisitorRefMut)
+                -> sixtyfps::re_exports::VisitChildrenResult
+            {
                 use sixtyfps::re_exports::*;
                 let tree = &[#(#item_tree_array),*];
                 return sixtyfps::re_exports::visit_item_tree(self, VRef::new_pin(self), tree, index, visitor, visit_dynamic);
                 #[allow(unused)]
-                fn visit_dynamic(self_pinned: ::core::pin::Pin<&#component_id>, visitor: ItemVisitorRefMut, dyn_index: usize) -> isize {
+                fn visit_dynamic(self_pinned: ::core::pin::Pin<&#component_id>, visitor: ItemVisitorRefMut, dyn_index: usize) -> VisitChildrenResult  {
                     match dyn_index {
                         #(#repeated_visit_branch)*
                         _ => panic!("invalid dyn_index {}", dyn_index),

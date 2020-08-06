@@ -746,7 +746,7 @@ fn generate_component(
         statements: Some(vec![
             "static const sixtyfps::ItemTreeNode<uint8_t> children[] {".to_owned(),
             format!("    {} }};", tree_array.join(", ")),
-            "static const auto dyn_visit = [] (const uint8_t *base, [[maybe_unused]] sixtyfps::ItemVisitorRefMut visitor, uintptr_t dyn_index) -> intptr_t {".to_owned(),
+            "static const auto dyn_visit = [] (const uint8_t *base, [[maybe_unused]] sixtyfps::ItemVisitorRefMut visitor, uintptr_t dyn_index) -> int64_t {".to_owned(),
             format!("    [[maybe_unused]] auto self = reinterpret_cast<const {}*>(base);", component_id),
             // Fixme: this is not the root component
             format!("    switch(dyn_index) {{ {} }};", children_visitor_case.join("")),

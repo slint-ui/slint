@@ -83,7 +83,7 @@ pub mod re_exports {
     };
     pub use sixtyfps_corelib::input::{InputEventResult, MouseEvent};
     pub use sixtyfps_corelib::item_tree::{
-        visit_item_tree, ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable,
+        visit_item_tree, ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, VisitChildrenResult,
     };
     pub use sixtyfps_corelib::items::*;
     pub use sixtyfps_corelib::layout::LayoutInfo;

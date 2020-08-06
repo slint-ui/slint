@@ -3,6 +3,40 @@ use crate::ComponentRefPin;
 use core::pin::Pin;
 use vtable::*;
 
+/// The return value of the Component::visit_children_item function
+///
+/// Represents something like `enum { Continue, Aborted{aborted_at_item: isize} }`.
+/// But this is just wrapping a int because it is easier to use ffi with isize than
+/// complex enum.
+///
+/// -1 means the visitor will continue
+/// otherwise this is the index of the item that aborted the visit.
+#[repr(transparent)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct VisitChildrenResult(i64);
+impl VisitChildrenResult {
+    /// The result used for a visitor that want to continue the visit
+    pub const CONTINUE: Self = Self(-1);
+
+    /// Returns a result that means that the visitor must stop, and convey the item that caused the abort
+    pub fn abort(item_index: usize, index_within_repeater: usize) -> Self {
+        assert!(item_index < i32::MAX as usize);
+        assert!(index_within_repeater < i32::MAX as usize);
+        Self(item_index as i64 | (index_within_repeater as i64) << 32)
+    }
+    /// True if the visitor wants to abort the visit
+    pub fn has_aborted(&self) -> bool {
+        self.0 != -1
+    }
+    pub fn aborted_index(&self) -> Option<usize> {
+        if self.0 != -1 {
+            Some((self.0 & 0xffff_ffff) as usize)
+        } else {
+            None
+        }
+    }
+}
+
 /// The item tree is an array of ItemTreeNode representing a static tree of items
 /// within a component.
 #[repr(u8)]
@@ -81,8 +115,8 @@ pub(crate) mod ffi {
             base: &u8,
             visitor: vtable::VRefMut<ItemVisitorVTable>,
             dyn_index: usize,
-        ) -> isize,
-    ) -> isize {
+        ) -> VisitChildrenResult,
+    ) -> VisitChildrenResult {
         crate::item_tree::visit_item_tree(
             Pin::new_unchecked(&*(component.as_ptr() as *const u8)),
             component,
@@ -151,23 +185,24 @@ pub fn visit_item_tree<Base>(
     item_tree: &[ItemTreeNode<Base>],
     index: isize,
     mut visitor: vtable::VRefMut<ItemVisitorVTable>,
-    visit_dynamic: impl Fn(Pin<&Base>, vtable::VRefMut<ItemVisitorVTable>, usize) -> isize,
-) -> isize {
-    let mut visit_at_index = |idx: usize| -> isize {
+    visit_dynamic: impl Fn(Pin<&Base>, vtable::VRefMut<ItemVisitorVTable>, usize) -> VisitChildrenResult,
+) -> VisitChildrenResult {
+    let mut visit_at_index = |idx: usize| -> VisitChildrenResult {
         match &item_tree[idx] {
             ItemTreeNode::Item { item, .. } => {
                 if visitor.visit_item(component, idx as isize, item.apply_pin(base)) {
-                    -1
+                    VisitChildrenResult::CONTINUE
                 } else {
-                    idx as isize
+                    VisitChildrenResult::abort(idx, 0)
                 }
             }
             ItemTreeNode::DynamicTree { index } => {
-                let sub_idx = visit_dynamic(base, visitor.borrow_mut(), *index);
-                if sub_idx == -1 {
-                    -1
+                if let Some(sub_idx) =
+                    visit_dynamic(base, visitor.borrow_mut(), *index).aborted_index()
+                {
+                    VisitChildrenResult::abort(idx, sub_idx)
                 } else {
-                    idx as isize | sub_idx << 16
+                    VisitChildrenResult::CONTINUE
                 }
             }
         }
@@ -179,13 +214,13 @@ pub fn visit_item_tree<Base>(
             ItemTreeNode::Item { children_index, chilren_count, .. } => {
                 for c in *children_index..(*children_index + *chilren_count) {
                     let maybe_abort_index = visit_at_index(c as usize);
-                    if maybe_abort_index != -1 {
+                    if maybe_abort_index.has_aborted() {
                         return maybe_abort_index;
                     }
                 }
             }
             ItemTreeNode::DynamicTree { .. } => panic!("should not be called with dynamic items"),
         };
-        -1
+        VisitChildrenResult::CONTINUE
     }
 }
