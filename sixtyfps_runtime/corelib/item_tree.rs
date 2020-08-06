@@ -36,12 +36,14 @@ pub struct ItemVisitorVTable {
     /// as the parent's component.
     /// `index` is to be used again in the visit_item_children function of the Component (the one passed as parameter)
     /// and `item` is a reference to the item itself
+    ///
+    /// returns true to continue, or false to abort the visit
     visit_item: fn(
         VRefMut<ItemVisitorVTable>,
         component: Pin<VRef<ComponentVTable>>,
         index: isize,
         item: Pin<VRef<ItemVTable>>,
-    ),
+    ) -> bool,
     /// Destructor
     drop: fn(VRefMut<ItemVisitorVTable>),
 }
@@ -49,8 +51,13 @@ pub struct ItemVisitorVTable {
 /// Type alias to `vtable::VRefMut<ItemVisitorVTable>`
 pub type ItemVisitorRefMut<'a> = vtable::VRefMut<'a, ItemVisitorVTable>;
 
-impl<T: FnMut(crate::ComponentRefPin, isize, Pin<ItemRef>)> ItemVisitor for T {
-    fn visit_item(&mut self, component: crate::ComponentRefPin, index: isize, item: Pin<ItemRef>) {
+impl<T: FnMut(crate::ComponentRefPin, isize, Pin<ItemRef>) -> bool> ItemVisitor for T {
+    fn visit_item(
+        &mut self,
+        component: crate::ComponentRefPin,
+        index: isize,
+        item: Pin<ItemRef>,
+    ) -> bool {
         self(component, index, item)
     }
 }
@@ -74,8 +81,8 @@ pub(crate) mod ffi {
             base: &u8,
             visitor: vtable::VRefMut<ItemVisitorVTable>,
             dyn_index: usize,
-        ),
-    ) {
+        ) -> bool,
+    ) -> isize {
         crate::item_tree::visit_item_tree(
             Pin::new_unchecked(&*(component.as_ptr() as *const u8)),
             component,
@@ -87,29 +94,47 @@ pub(crate) mod ffi {
     }
 }
 
+pub enum ItemVisitorResult<State> {
+    Continue(State),
+    Abort,
+}
+
 /// Visit each items recursively
 ///
 /// The state parametter returned by the visitor is passed to each children.
+///
+/// Returns the index of the item that cancelled, or -1 if nobody cancelled
 pub fn visit_items<State>(
     component: ComponentRefPin,
-    mut visitor: impl FnMut(ComponentRefPin, Pin<ItemRef>, &State) -> State,
+    mut visitor: impl FnMut(ComponentRefPin, Pin<ItemRef>, &State) -> ItemVisitorResult<State>,
     state: State,
-) {
+) -> isize {
     visit_internal(component, &mut visitor, -1, &state)
 }
 
 fn visit_internal<State>(
     component: ComponentRefPin,
-    visitor: &mut impl FnMut(ComponentRefPin, Pin<ItemRef>, &State) -> State,
+    visitor: &mut impl FnMut(ComponentRefPin, Pin<ItemRef>, &State) -> ItemVisitorResult<State>,
     index: isize,
     state: &State,
-) {
-    let mut actual_visitor = |component: ComponentRefPin, index: isize, item: Pin<ItemRef>| {
-        let s = visitor(component, item, state);
-        visit_internal(component, visitor, index, &s);
-    };
+) -> isize {
+    let mut result = -1;
+    let mut actual_visitor =
+        |component: ComponentRefPin, index: isize, item: Pin<ItemRef>| -> bool {
+            match visitor(component, item, state) {
+                ItemVisitorResult::Continue(state) => {
+                    result = visit_internal(component, visitor, index, &state);
+                    result == -1
+                }
+                ItemVisitorResult::Abort => {
+                    result = index;
+                    false
+                }
+            }
+        };
     vtable::new_vref!(let mut actual_visitor : VRefMut<ItemVisitorVTable> for ItemVisitor = &mut actual_visitor);
     component.as_ref().visit_children_item(index, actual_visitor);
+    result
 }
 
 /// Visit the children within an array of ItemTreeNode
@@ -126,24 +151,37 @@ pub fn visit_item_tree<Base>(
     item_tree: &[ItemTreeNode<Base>],
     index: isize,
     mut visitor: vtable::VRefMut<ItemVisitorVTable>,
-    visit_dynamic: impl Fn(Pin<&Base>, vtable::VRefMut<ItemVisitorVTable>, usize),
-) {
-    let mut visit_at_index = |idx: usize| match &item_tree[idx] {
-        ItemTreeNode::Item { item, .. } => {
-            visitor.visit_item(component, idx as isize, item.apply_pin(base));
+    visit_dynamic: impl Fn(Pin<&Base>, vtable::VRefMut<ItemVisitorVTable>, usize) -> bool,
+) -> isize {
+    let mut visit_at_index = |idx: usize| -> isize {
+        let continue_ = match &item_tree[idx] {
+            ItemTreeNode::Item { item, .. } => {
+                visitor.visit_item(component, idx as isize, item.apply_pin(base))
+            }
+            ItemTreeNode::DynamicTree { index } => {
+                visit_dynamic(base, visitor.borrow_mut(), *index)
+            }
+        };
+        if continue_ {
+            idx as isize | continue_ << 16
+        } else {
+            -1
         }
-        ItemTreeNode::DynamicTree { index } => visit_dynamic(base, visitor.borrow_mut(), *index),
     };
     if index == -1 {
-        visit_at_index(0);
+        visit_at_index(0)
     } else {
         match &item_tree[index as usize] {
             ItemTreeNode::Item { children_index, chilren_count, .. } => {
                 for c in *children_index..(*children_index + *chilren_count) {
-                    visit_at_index(c as usize);
+                    let maybe_abort_index = visit_at_index(c as usize);
+                    if maybe_abort_index != -1 {
+                        return maybe_abort_index;
+                    }
                 }
             }
-            ItemTreeNode::DynamicTree { .. } => todo!(),
+            ItemTreeNode::DynamicTree { .. } => panic!("should not be called with dynamic items"),
         };
-    };
+        -1
+    }
 }

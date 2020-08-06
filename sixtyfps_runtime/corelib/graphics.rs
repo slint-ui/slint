@@ -422,6 +422,7 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
                         &mut window.rendering_cache,
                         &mut rendering_primitives_builder,
                     );
+                    crate::item_tree::ItemVisitorResult::Continue(())
                 },
                 (),
             );

@@ -1230,3 +1230,26 @@ fn compile_path(path: &Path, component: &Rc<Component>) -> TokenStream {
         }
     }
 }
+
+quote! {
+
+    fn process_input_event(self: ::core::pin::Pin<&Self>, mouse_event) {
+if self.grab == -1 {
+    sixtyfps::re_exports::process_ungrabbed_input_event(mouse_event)
+} else {
+let inx =self.grab & 0xffff;
+match child_array[inx] {
+DynamicItem(repeater_offset) => {
+let repeater_index = self.grab >> 16;
+match repeater_offset => {
+    #(repeater_id => { 
+        self.#repeater_name.component[repeater_index].proccess_input_event()
+
+    }  )*
+}
+
+}
+}
+}
+    }
+}
