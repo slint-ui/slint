@@ -93,6 +93,8 @@ jobs:
           cd www
           rm -rf demos
           mkdir -p demos
+          mkdir -p demos/gallery
+          mkdir -p demos/printerdemo
           cp -a ../examples/gallery/wasm/dist/* demos/gallery
           cp -a ../examples/printerdemo/wasm/dist/* demos/printerdemo
           git add demos
