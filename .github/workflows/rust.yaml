@@ -68,9 +68,8 @@ jobs:
       uses: lukka/run-cmake@v2.4
       with:
         cmakeListsTxtPath: CMakeLists.txt
-    - uses: jetli/wasm-pack-action@v0.3.0
-      with:
-        version: 'latest'
+    - name: Install wasm-pack
+      run: cargo install wasm-pack
     - name: Setup Node.js
       uses: actions/setup-node@v1
       with:
