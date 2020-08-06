@@ -104,5 +104,5 @@ jobs:
           cp -a ../examples/printerdemo/wasm/dist/* demos/printerdemo
           git add demos
           git add -u demos
-          git commit --message "Update $NAME from $GITHUB_REPOSITORY"
+          git commit --message "Update $NAME from $GITHUB_REPOSITORY" --message "Pull web demos from commit $GITHUB_SHA ($GITHUB_REF)"
           git push origin master
