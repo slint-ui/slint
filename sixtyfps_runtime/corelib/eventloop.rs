@@ -169,6 +169,32 @@ impl EventLoop {
                     });
                 }
                 winit::event::Event::WindowEvent {
+                    ref window_id,
+                    event: winit::event::WindowEvent::Touch(touch),
+                    ..
+                } => {
+                    crate::animations::update_animations();
+                    ALL_WINDOWS.with(|windows| {
+                        if let Some(Some(window)) =
+                            windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
+                        {
+                            let cursor_pos = touch.location;
+                            let what = match touch.phase {
+                                winit::event::TouchPhase::Started => MouseEventType::MousePressed,
+                                winit::event::TouchPhase::Ended
+                                | winit::event::TouchPhase::Cancelled => {
+                                    MouseEventType::MouseReleased
+                                }
+                                winit::event::TouchPhase::Moved => MouseEventType::MouseMoved,
+                            };
+                            window.process_mouse_input(cursor_pos, what, component);
+                            let window = window.window_handle();
+                            // FIXME: remove this, it should be based on actual changes rather than this
+                            window.request_redraw();
+                        }
+                    });
+                }
+                winit::event::Event::WindowEvent {
                     window_id,
                     event: winit::event::WindowEvent::CursorMoved { position, .. },
                     ..
