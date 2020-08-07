@@ -4,7 +4,7 @@ TODO: Keyboard events
 */
 
 use crate::graphics::Point;
-use crate::item_tree::ItemVisitorResult;
+use crate::item_tree::{ItemVisitorResult, VisitChildrenResult};
 use crate::ComponentRefPin;
 use euclid::default::Vector2D;
 
@@ -36,7 +36,7 @@ pub struct MouseEvent {
 /// to notify the run-time about how the event was handled and
 /// what the next steps are.
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum InputEventResult {
     /// The event was accepted. This may result in additional events, for example
     /// accepting a mouse move will result in a MouseExit event later.
@@ -60,7 +60,7 @@ pub enum InputEventResult {
 pub fn process_ungrabbed_mouse_event(
     component: ComponentRefPin,
     event: MouseEvent,
-) -> (InputEventResult, isize) {
+) -> (InputEventResult, VisitChildrenResult) {
     let offset = Vector2D::new(0., 0.);
 
     let mut result = InputEventResult::EventIgnored;
@@ -90,8 +90,39 @@ pub fn process_ungrabbed_mouse_event(
         },
         offset,
     );
-    (result, item_index)
+
+    (
+        result,
+        if result == InputEventResult::GrabMouse {
+            item_index
+        } else {
+            VisitChildrenResult::CONTINUE
+        },
+    )
 }
+/*
+/// The event must be in the component coordinate
+/// Returns the new grabber.
+pub fn process_grabbed_mouse_event(
+    component: ComponentRefPin,
+    item: core::pin::Pin<ItemRef>,
+    offset: Point,
+    event: MouseEvent,
+    old_grab: VisitChildrenResult,
+) -> (InputEventResult, VisitChildrenResult) {
+    let mut event2 = event.clone();
+    event2.pos -= offset.to_vector();
+
+    let res = item.as_ref().input_event(event2);
+    match res {
+        InputEventResult::EventIgnored => {
+            // We need then to forward to another event
+            process_ungrabbed_mouse_event(component, event)
+        }
+        InputEventResult::GrabMouse => (res, old_grab),
+        InputEventResult::EventAccepted => (res, VisitChildrenResult::CONTINUE),
+    }
+}*/
 
 pub(crate) mod ffi {
     use super::*;
@@ -101,7 +132,18 @@ pub(crate) mod ffi {
     pub extern "C" fn sixtyfps_process_ungrabbed_mouse_event(
         component: ComponentRefPin,
         event: MouseEvent,
-    ) -> (InputEventResult, isize) {
+    ) -> (InputEventResult, crate::item_tree::VisitChildrenResult) {
         process_ungrabbed_mouse_event(component, event)
     }
+    /*
+    #[no_mangle]
+    pub extern "C" fn sixtyfps_process_grabbed_mouse_event(
+        component: ComponentRefPin,
+        item: core::pin::Pin<ItemRef>,
+        offset: Point,
+        event: MouseEvent,
+        old_grab: VisitChildrenResult,
+    ) -> (InputEventResult, crate::item_tree::VisitChildrenResult) {
+        process_grabbed_mouse_event(component, item, offset, event, old_grab)
+    }*/
 }

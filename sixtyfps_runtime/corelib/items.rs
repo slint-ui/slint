@@ -371,12 +371,20 @@ impl Item for TouchArea {
         Self::FIELD_OFFSETS.pressed.apply_pin(self).set(match event.what {
             MouseEventType::MousePressed => true,
             MouseEventType::MouseExit | MouseEventType::MouseReleased => false,
-            MouseEventType::MouseMoved => return InputEventResult::EventAccepted,
+            MouseEventType::MouseMoved => {
+                return if Self::FIELD_OFFSETS.pressed.apply_pin(self).get() {
+                    InputEventResult::GrabMouse
+                } else {
+                    InputEventResult::EventIgnored
+                }
+            }
         });
         if matches!(event.what, MouseEventType::MouseReleased) {
-            Self::FIELD_OFFSETS.clicked.apply_pin(self).emit(())
+            Self::FIELD_OFFSETS.clicked.apply_pin(self).emit(());
+            InputEventResult::EventAccepted
+        } else {
+            InputEventResult::GrabMouse
         }
-        InputEventResult::GrabMouse
     }
 }
 

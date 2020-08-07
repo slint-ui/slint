@@ -460,6 +460,7 @@ impl<Base, T: ?Sized + VTableMeta, Flag> VOffset<Base, T, Flag> {
         }
     }
 
+    #[inline]
     pub fn new<X: HasStaticVTable<T>>(o: FieldOffset<Base, X, Flag>) -> Self {
         Self { vtable: X::static_vtable(), offset: o.get_byte_offset(), phantom: PhantomData }
     }
@@ -467,12 +468,14 @@ impl<Base, T: ?Sized + VTableMeta, Flag> VOffset<Base, T, Flag> {
     /// Create a new VOffset from raw data
     ///
     /// Safety: there must be a field that matches the vtable at offset T in base
+    #[inline]
     pub unsafe fn from_raw(vtable: &'static T::VTable, offset: usize) -> Self {
         Self { vtable, offset, phantom: PhantomData }
     }
 }
 
 impl<Base, T: ?Sized + VTableMeta> VOffset<Base, T, PinnedFlag> {
+    #[inline]
     pub fn apply_pin<'a>(self, x: Pin<&'a Base>) -> Pin<VRef<'a, T>> {
         let ptr = x.get_ref() as *const Base as *mut u8;
         unsafe {

@@ -62,7 +62,7 @@ pub struct FieldOffset<T, U, PinFlag = NotPinnedFlag>(
     ///     of.apply(foo)
     /// }
     /// ```
-    PhantomData<(PhantomContra<T>, *const U, PinFlag)>,
+    PhantomData<(PhantomContra<T>, U, PinFlag)>,
 );
 
 /// Type that can be used in the `Flag` parameter of `FieldOffset` to specify that

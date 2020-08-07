@@ -35,6 +35,13 @@ impl VisitChildrenResult {
             None
         }
     }
+    pub fn aborted_indexes(&self) -> Option<(usize, usize)> {
+        if self.0 != -1 {
+            Some(((self.0 & 0xffff_ffff) as usize, (self.0 >> 32) as usize))
+        } else {
+            None
+        }
+    }
 }
 
 /// The item tree is an array of ItemTreeNode representing a static tree of items
@@ -70,14 +77,12 @@ pub struct ItemVisitorVTable {
     /// as the parent's component.
     /// `index` is to be used again in the visit_item_children function of the Component (the one passed as parameter)
     /// and `item` is a reference to the item itself
-    ///
-    /// returns true to continue, or false to abort the visit
     visit_item: fn(
         VRefMut<ItemVisitorVTable>,
         component: Pin<VRef<ComponentVTable>>,
         index: isize,
         item: Pin<VRef<ItemVTable>>,
-    ) -> bool,
+    ) -> VisitChildrenResult,
     /// Destructor
     drop: fn(VRefMut<ItemVisitorVTable>),
 }
@@ -85,14 +90,127 @@ pub struct ItemVisitorVTable {
 /// Type alias to `vtable::VRefMut<ItemVisitorVTable>`
 pub type ItemVisitorRefMut<'a> = vtable::VRefMut<'a, ItemVisitorVTable>;
 
-impl<T: FnMut(crate::ComponentRefPin, isize, Pin<ItemRef>) -> bool> ItemVisitor for T {
+impl<T: FnMut(crate::ComponentRefPin, isize, Pin<ItemRef>) -> VisitChildrenResult> ItemVisitor
+    for T
+{
     fn visit_item(
         &mut self,
         component: crate::ComponentRefPin,
         index: isize,
         item: Pin<ItemRef>,
-    ) -> bool {
+    ) -> VisitChildrenResult {
         self(component, index, item)
+    }
+}
+pub enum ItemVisitorResult<State> {
+    Continue(State),
+    Abort,
+}
+
+/// Visit each items recursively
+///
+/// The state parametter returned by the visitor is passed to each children.
+///
+/// Returns the index of the item that cancelled, or -1 if nobody cancelled
+pub fn visit_items<State>(
+    component: ComponentRefPin,
+    mut visitor: impl FnMut(ComponentRefPin, Pin<ItemRef>, &State) -> ItemVisitorResult<State>,
+    state: State,
+) -> VisitChildrenResult {
+    visit_internal(component, &mut visitor, -1, &state)
+}
+
+fn visit_internal<State>(
+    component: ComponentRefPin,
+    visitor: &mut impl FnMut(ComponentRefPin, Pin<ItemRef>, &State) -> ItemVisitorResult<State>,
+    index: isize,
+    state: &State,
+) -> VisitChildrenResult {
+    let mut actual_visitor = |component: ComponentRefPin,
+                              index: isize,
+                              item: Pin<ItemRef>|
+     -> VisitChildrenResult {
+        match visitor(component, item, state) {
+            ItemVisitorResult::Continue(state) => visit_internal(component, visitor, index, &state),
+            ItemVisitorResult::Abort => VisitChildrenResult::abort(index as usize, 0),
+        }
+    };
+    vtable::new_vref!(let mut actual_visitor : VRefMut<ItemVisitorVTable> for ItemVisitor = &mut actual_visitor);
+    component.as_ref().visit_children_item(index, actual_visitor)
+}
+
+/// Visit the children within an array of ItemTreeNode
+///
+/// The dynamic visitor is called for the dynamic nodes, its signature is
+/// `fn(base: &Base, visitor: vtable::VRefMut<ItemVisitorVTable>, dyn_index: usize)`
+///
+/// FIXME: the design of this use lots of indirection and stack frame in recursive functions
+/// Need to check if the compiler is able to optimize away some of it.
+/// Possibly we should generate code that directly call the visitor instead
+pub fn visit_item_tree<Base>(
+    base: Pin<&Base>,
+    component: ComponentRefPin,
+    item_tree: &[ItemTreeNode<Base>],
+    index: isize,
+    mut visitor: vtable::VRefMut<ItemVisitorVTable>,
+    visit_dynamic: impl Fn(Pin<&Base>, vtable::VRefMut<ItemVisitorVTable>, usize) -> VisitChildrenResult,
+) -> VisitChildrenResult {
+    let mut visit_at_index = |idx: usize| -> VisitChildrenResult {
+        match &item_tree[idx] {
+            ItemTreeNode::Item { item, .. } => {
+                visitor.visit_item(component, idx as isize, item.apply_pin(base))
+            }
+            ItemTreeNode::DynamicTree { index } => {
+                if let Some(sub_idx) =
+                    visit_dynamic(base, visitor.borrow_mut(), *index).aborted_index()
+                {
+                    VisitChildrenResult::abort(idx, sub_idx)
+                } else {
+                    VisitChildrenResult::CONTINUE
+                }
+            }
+        }
+    };
+    if index == -1 {
+        visit_at_index(0)
+    } else {
+        match &item_tree[index as usize] {
+            ItemTreeNode::Item { children_index, chilren_count, .. } => {
+                for c in *children_index..(*children_index + *chilren_count) {
+                    let maybe_abort_index = visit_at_index(c as usize);
+                    if maybe_abort_index.has_aborted() {
+                        return maybe_abort_index;
+                    }
+                }
+            }
+            ItemTreeNode::DynamicTree { .. } => panic!("should not be called with dynamic items"),
+        };
+        VisitChildrenResult::CONTINUE
+    }
+}
+
+/// Attempt to find out the x, y position of the parent in the component's coordinate
+pub fn item_offset<Base>(
+    base: Pin<&Base>,
+    item_tree: &[ItemTreeNode<Base>],
+    index: usize,
+) -> crate::graphics::Point {
+    let index = index as u32;
+    // FIXME: This algorithm is shit
+    let parent = item_tree.iter().find_map(|n| match n {
+        ItemTreeNode::Item { item, chilren_count, children_index } => {
+            if *children_index > index && *children_index + *chilren_count < index {
+                Some(item)
+            } else {
+                None
+            }
+        }
+        ItemTreeNode::DynamicTree { .. } => None,
+    });
+    if let Some(parent) = parent {
+        parent.apply_pin(base).as_ref().geometry().origin
+    } else {
+        crate::graphics::Point::default()
     }
 }
 
@@ -126,101 +244,20 @@ pub(crate) mod ffi {
             |a, b, c| visit_dynamic(a.get_ref(), b, c),
         )
     }
-}
 
-pub enum ItemVisitorResult<State> {
-    Continue(State),
-    Abort,
-}
-
-/// Visit each items recursively
-///
-/// The state parametter returned by the visitor is passed to each children.
-///
-/// Returns the index of the item that cancelled, or -1 if nobody cancelled
-pub fn visit_items<State>(
-    component: ComponentRefPin,
-    mut visitor: impl FnMut(ComponentRefPin, Pin<ItemRef>, &State) -> ItemVisitorResult<State>,
-    state: State,
-) -> isize {
-    visit_internal(component, &mut visitor, -1, &state)
-}
-
-fn visit_internal<State>(
-    component: ComponentRefPin,
-    visitor: &mut impl FnMut(ComponentRefPin, Pin<ItemRef>, &State) -> ItemVisitorResult<State>,
-    index: isize,
-    state: &State,
-) -> isize {
-    let mut result = -1;
-    let mut actual_visitor =
-        |component: ComponentRefPin, index: isize, item: Pin<ItemRef>| -> bool {
-            match visitor(component, item, state) {
-                ItemVisitorResult::Continue(state) => {
-                    result = visit_internal(component, visitor, index, &state);
-                    result == -1
-                }
-                ItemVisitorResult::Abort => {
-                    result = index;
-                    false
-                }
-            }
-        };
-    vtable::new_vref!(let mut actual_visitor : VRefMut<ItemVisitorVTable> for ItemVisitor = &mut actual_visitor);
-    component.as_ref().visit_children_item(index, actual_visitor);
-    result
-}
-
-/// Visit the children within an array of ItemTreeNode
-///
-/// The dynamic visitor is called for the dynamic nodes, its signature is
-/// `fn(base: &Base, visitor: vtable::VRefMut<ItemVisitorVTable>, dyn_index: usize)`
-///
-/// FIXME: the design of this use lots of indirection and stack frame in recursive functions
-/// Need to check if the compiler is able to optimize away some of it.
-/// Possibly we should generate code that directly call the visitor instead
-pub fn visit_item_tree<Base>(
-    base: Pin<&Base>,
-    component: ComponentRefPin,
-    item_tree: &[ItemTreeNode<Base>],
-    index: isize,
-    mut visitor: vtable::VRefMut<ItemVisitorVTable>,
-    visit_dynamic: impl Fn(Pin<&Base>, vtable::VRefMut<ItemVisitorVTable>, usize) -> VisitChildrenResult,
-) -> VisitChildrenResult {
-    let mut visit_at_index = |idx: usize| -> VisitChildrenResult {
-        match &item_tree[idx] {
-            ItemTreeNode::Item { item, .. } => {
-                if visitor.visit_item(component, idx as isize, item.apply_pin(base)) {
-                    VisitChildrenResult::CONTINUE
-                } else {
-                    VisitChildrenResult::abort(idx, 0)
-                }
-            }
-            ItemTreeNode::DynamicTree { index } => {
-                if let Some(sub_idx) =
-                    visit_dynamic(base, visitor.borrow_mut(), *index).aborted_index()
-                {
-                    VisitChildrenResult::abort(idx, sub_idx)
-                } else {
-                    VisitChildrenResult::CONTINUE
-                }
-            }
-        }
-    };
-    if index == -1 {
-        visit_at_index(0)
-    } else {
-        match &item_tree[index as usize] {
-            ItemTreeNode::Item { children_index, chilren_count, .. } => {
-                for c in *children_index..(*children_index + *chilren_count) {
-                    let maybe_abort_index = visit_at_index(c as usize);
-                    if maybe_abort_index.has_aborted() {
-                        return maybe_abort_index;
-                    }
-                }
-            }
-            ItemTreeNode::DynamicTree { .. } => panic!("should not be called with dynamic items"),
-        };
-        VisitChildrenResult::CONTINUE
+    /// Expose `crate::item_tree::item_offset` to C++
+    ///
+    /// Safety: Assume a correct implementation of the item_tree array
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_item_offset(
+        component: Pin<VRef<ComponentVTable>>,
+        item_tree: Slice<ItemTreeNode<u8>>,
+        index: usize,
+    ) -> crate::graphics::Point {
+        crate::item_tree::item_offset(
+            Pin::new_unchecked(&*(component.as_ptr() as *const u8)),
+            item_tree.as_slice(),
+            index,
+        )
     }
 }

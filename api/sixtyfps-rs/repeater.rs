@@ -53,6 +53,15 @@ where
         sixtyfps_corelib::item_tree::VisitChildrenResult::CONTINUE
     }
 
+    /// Forward an input event to a particular item
+    pub fn input_event(
+        &self,
+        idx: usize,
+        event: sixtyfps_corelib::input::MouseEvent,
+    ) -> sixtyfps_corelib::input::InputEventResult {
+        self.components.borrow()[idx].as_ref().input_event(event)
+    }
+
     /// Return the amount of item currently in the component
     pub fn len(&self) -> usize {
         self.components.borrow().len()

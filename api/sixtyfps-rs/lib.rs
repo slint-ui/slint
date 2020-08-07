@@ -73,6 +73,7 @@ pub(crate) mod repeater;
 pub mod re_exports {
     pub use crate::repeater::*;
     pub use const_field_offset::{self, FieldOffsets};
+    pub use once_cell::sync::Lazy;
     pub use once_cell::unsync::OnceCell;
     pub use pin_weak::rc::*;
     pub use sixtyfps_corelib::abi::datastructures::*;
@@ -81,9 +82,12 @@ pub mod re_exports {
     pub use sixtyfps_corelib::graphics::{
         PathArcTo, PathData, PathElement, PathEvent, PathLineTo, Point, Rect, Size,
     };
-    pub use sixtyfps_corelib::input::{InputEventResult, MouseEvent};
+    pub use sixtyfps_corelib::input::{
+        process_ungrabbed_mouse_event, InputEventResult, MouseEvent,
+    };
     pub use sixtyfps_corelib::item_tree::{
-        visit_item_tree, ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, VisitChildrenResult,
+        item_offset, visit_item_tree, ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable,
+        VisitChildrenResult,
     };
     pub use sixtyfps_corelib::items::*;
     pub use sixtyfps_corelib::layout::LayoutInfo;

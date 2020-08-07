@@ -162,6 +162,7 @@ fn generate_component(
     let mut repeated_element_components = Vec::new();
     let mut repeated_dynmodel_names = Vec::new();
     let mut repeated_visit_branch = Vec::new();
+    let mut repeated_input_branch = Vec::new();
     let mut init = Vec::new();
     super::build_array_helper(component, |item_rc, children_index, is_flickable_rect| {
         let item = item_rc.borrow();
@@ -248,6 +249,10 @@ fn generate_component(
                 ));
                 repeated_dynmodel_names.push(model_name);
             }
+
+            repeated_input_branch.push(quote!(
+                #repeater_index => self.#repeater_id.input_event(rep_index, event),
+            ));
 
             item_tree_array.push(quote!(
                 sixtyfps::re_exports::ItemTreeNode::DynamicTree {
@@ -408,6 +413,8 @@ fn generate_component(
     // Trick so we can use `#()` as a `if let Some` in `quote!`
     let parent_component_type = parent_component_type.iter().collect::<Vec<_>>();
 
+    let item_tree_array_len = item_tree_array.len();
+
     if diag.has_error() {
         return None;
     }
@@ -427,6 +434,7 @@ fn generate_component(
             #(#repeated_dynmodel_names : sixtyfps::re_exports::PropertyListenerScope,)*
             self_weak: sixtyfps::re_exports::OnceCell<sixtyfps::re_exports::PinWeak<#component_id>>,
             #(parent : sixtyfps::re_exports::PinWeak<#parent_component_type>,)*
+            mouse_grabber: ::core::cell::Cell<sixtyfps::re_exports::VisitChildrenResult>
         }
 
         impl sixtyfps::re_exports::Component for #component_id {
@@ -434,8 +442,7 @@ fn generate_component(
                 -> sixtyfps::re_exports::VisitChildrenResult
             {
                 use sixtyfps::re_exports::*;
-                let tree = &[#(#item_tree_array),*];
-                return sixtyfps::re_exports::visit_item_tree(self, VRef::new_pin(self), tree, index, visitor, visit_dynamic);
+                return sixtyfps::re_exports::visit_item_tree(self, VRef::new_pin(self), Self::item_tree(), index, visitor, visit_dynamic);
                 #[allow(unused)]
                 fn visit_dynamic(self_pinned: ::core::pin::Pin<&#component_id>, visitor: ItemVisitorRefMut, dyn_index: usize) -> VisitChildrenResult  {
                     match dyn_index {
@@ -445,8 +452,35 @@ fn generate_component(
                 }
             }
 
-            fn input_event(self: ::core::pin::Pin<&Self>, _ : sixtyfps::re_exports::MouseEvent) -> sixtyfps::re_exports::InputEventResult {
-                todo!()
+            fn input_event(self: ::core::pin::Pin<&Self>, mouse_event : sixtyfps::re_exports::MouseEvent) -> sixtyfps::re_exports::InputEventResult {
+                use sixtyfps::re_exports::*;
+                let mouse_grabber = self.mouse_grabber.get();
+                #[allow(unused)]
+                let (status, new_grab) = if let Some((item_index, rep_index)) = mouse_grabber.aborted_indexes() {
+                    let tree = Self::item_tree();
+                    let offset = item_offset(self, tree, item_index);
+                    let mut event = mouse_event.clone();
+                    event.pos -= offset.to_vector();
+                    let res = match tree[item_index] {
+                        ItemTreeNode::Item { item, .. } => {
+                            item.apply_pin(self).as_ref().input_event(event)
+                        }
+                        ItemTreeNode::DynamicTree { index } => {
+                            match index {
+                                #(#repeated_input_branch)*
+                                _ => panic!("invalid index {}", index),
+                            }
+                        }
+                    };
+                    match res {
+                        InputEventResult::GrabMouse => (res, mouse_grabber),
+                        _ => (res, VisitChildrenResult::CONTINUE),
+                    }
+                } else {
+                    process_ungrabbed_mouse_event(VRef::new_pin(self), mouse_event)
+                };
+                self.mouse_grabber.set(new_grab);
+                status
             }
 
             #layouts
@@ -467,6 +501,7 @@ fn generate_component(
                     #(#repeated_dynmodel_names : ::core::default::Default::default(),)*
                     self_weak : ::core::default::Default::default(),
                     #(parent : parent as sixtyfps::re_exports::PinWeak::<#parent_component_type>,)*
+                    mouse_grabber: ::core::cell::Cell::new(sixtyfps::re_exports::VisitChildrenResult::CONTINUE),
                 };
                 let self_pinned = std::rc::Rc::pin(self_);
                 self_pinned.self_weak.set(PinWeak::downgrade(self_pinned.clone())).map_err(|_|())
@@ -475,6 +510,14 @@ fn generate_component(
                 self_pinned
             }
             #(#property_and_signal_accessors)*
+
+            fn item_tree() -> &'static [sixtyfps::re_exports::ItemTreeNode<Self>] {
+                use sixtyfps::re_exports::*;
+                // FIXME: ideally this should be a const
+                static ITEM_TREE : Lazy<[sixtyfps::re_exports::ItemTreeNode<#component_id>; #item_tree_array_len]>  =
+                    Lazy::new(|| [#(#item_tree_array),*]);
+                &*ITEM_TREE
+            }
         }
 
         #(#extra_components)*
@@ -1236,27 +1279,3 @@ fn compile_path(path: &Path, component: &Rc<Component>) -> TokenStream {
         }
     }
 }
-/*
-quote! {
-
-    fn process_input_event(self: ::core::pin::Pin<&Self>, mouse_event) {
-if self.grab == -1 {
-    sixtyfps::re_exports::process_ungrabbed_input_event(mouse_event)
-} else {
-let inx =self.grab & 0xffff;
-match child_array[inx] {
-DynamicItem(repeater_offset) => {
-let repeater_index = self.grab >> 16;
-match repeater_offset => {
-    #(repeater_id => {
-        self.#repeater_name.component[repeater_index].proccess_input_event()
-
-    }  )*
-}
-
-}
-}
-}
-    }
-}
-*/
