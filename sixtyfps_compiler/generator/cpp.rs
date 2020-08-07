@@ -740,12 +740,37 @@ fn generate_component(
         Access::Private,
         Declaration::Function(Function {
             name: "item_tree".into(),
-            signature: "() -> sixtyfps::Slice<sixtyfps::ItemTreeNode<uint8_t>>".into(),
+            signature: "() -> sixtyfps::Slice<sixtyfps::ItemTreeNode>".into(),
             is_static: true,
             statements: Some(vec![
-                "static const sixtyfps::ItemTreeNode<uint8_t> children[] {".to_owned(),
+                "static const sixtyfps::ItemTreeNode children[] {".to_owned(),
                 format!("    {} }};", tree_array.join(", ")),
-                "return { const_cast<sixtyfps::ItemTreeNode<uint8_t>*>(children), std::size(children) };".to_owned(),
+                "return { const_cast<sixtyfps::ItemTreeNode*>(children), std::size(children) };"
+                    .to_owned(),
+            ]),
+            ..Default::default()
+        }),
+    ));
+
+    component_struct.members.push((
+        Access::Private,
+        Declaration::Var(Var {
+            ty: "int64_t".into(),
+            name: "mouse_grabber".into(),
+            init: Some("-1".into()),
+        }),
+    ));
+    component_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
+            name: "input_event".into(),
+            signature:
+                "(sixtyfps::ComponentRef component, sixtyfps::MouseEvent mouse_event) -> sixtyfps::InputEventResult"
+                    .into(),
+            is_static: true,
+            statements: Some(vec![
+                format!("    auto self = reinterpret_cast<{}*>(component.instance);", component_id),
+                "return sixtyfps::process_input_event(component, self->mouse_grabber, mouse_event, item_tree(), [](auto...) { return sixtyfps::InputEventResult::EventIgnored; });".into()
             ]),
             ..Default::default()
         }),
@@ -778,7 +803,7 @@ fn generate_component(
     declarations.push(Declaration::Var(Var {
         ty: "const sixtyfps::ComponentVTable".to_owned(),
         name: format!("{}::component_type", component_id),
-        init: Some("{ visit_children, nullptr, compute_layout }".to_owned()),
+        init: Some("{ visit_children, nullptr, compute_layout, input_event }".to_owned()),
     }));
 
     declarations.append(&mut file.declarations);

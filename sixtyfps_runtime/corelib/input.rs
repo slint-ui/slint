@@ -126,14 +126,16 @@ pub fn process_grabbed_mouse_event(
 
 pub(crate) mod ffi {
     use super::*;
-    use crate::ComponentRefPin;
 
     #[no_mangle]
     pub extern "C" fn sixtyfps_process_ungrabbed_mouse_event(
-        component: ComponentRefPin,
+        component: core::pin::Pin<crate::abi::datastructures::ComponentRef>,
         event: MouseEvent,
-    ) -> (InputEventResult, crate::item_tree::VisitChildrenResult) {
-        process_ungrabbed_mouse_event(component, event)
+        new_mouse_grabber: &mut crate::item_tree::VisitChildrenResult,
+    ) -> InputEventResult {
+        let (res, grab) = process_ungrabbed_mouse_event(component, event);
+        *new_mouse_grabber = grab;
+        res
     }
     /*
     #[no_mangle]

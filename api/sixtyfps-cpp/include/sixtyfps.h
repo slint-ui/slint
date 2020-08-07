@@ -28,13 +28,14 @@ extern const internal::ItemVTable FlickableVTable;
 
 // Bring opaque structure in scope
 using internal::ComponentVTable;
-using internal::ItemTreeNode;
+using ItemTreeNode = internal::ItemTreeNode<uint8_t>;
 using ComponentRef = VRef<ComponentVTable>;
 using ItemVisitorRefMut = VRefMut<internal::ItemVisitorVTable>;
 using internal::EasingCurve;
 using internal::TextHorizontalAlignment;
 using internal::TextVerticalAlignment;
 using internal::WindowProperties;
+using internal::Slice;
 
 struct ComponentWindow
 {
@@ -64,21 +65,54 @@ using internal::Rectangle;
 using internal::Text;
 using internal::TouchArea;
 
-constexpr inline ItemTreeNode<uint8_t> make_item_node(std::uintptr_t offset,
+constexpr inline ItemTreeNode make_item_node(std::uintptr_t offset,
                                                       const internal::ItemVTable *vtable,
                                                       uint32_t child_count, uint32_t child_index)
 {
-    return ItemTreeNode<uint8_t> { ItemTreeNode<uint8_t>::Item_Body {
-            ItemTreeNode<uint8_t>::Tag::Item, { vtable, offset }, child_count, child_index } };
+    return ItemTreeNode { ItemTreeNode::Item_Body {
+            ItemTreeNode::Tag::Item, { vtable, offset }, child_count, child_index } };
 }
 
-constexpr inline ItemTreeNode<uint8_t> make_dyn_node(std::uintptr_t offset)
+constexpr inline ItemTreeNode make_dyn_node(std::uintptr_t offset)
 {
-    return ItemTreeNode<uint8_t> { ItemTreeNode<uint8_t>::DynamicTree_Body {
-            ItemTreeNode<uint8_t>::Tag::DynamicTree, offset } };
+    return ItemTreeNode { ItemTreeNode::DynamicTree_Body {
+            ItemTreeNode::Tag::DynamicTree, offset } };
 }
 
 using internal::sixtyfps_visit_item_tree;
+using internal::MouseEvent;
+using internal::InputEventResult;
+template<typename HandleDynamic>
+inline InputEventResult process_input_event(
+    ComponentRef component, int64_t &mouse_grabber, MouseEvent mouse_event,
+    Slice<ItemTreeNode> tree, HandleDynamic handle_dynamic)
+{
+     if (mouse_grabber != -1) {
+        auto item_index = mouse_grabber & 0xffffffff;
+        auto rep_index = mouse_grabber >> 32;
+        auto offset = internal::sixtyfps_item_offset(component, tree, item_index);
+        mouse_event.pos = { mouse_event.pos.x - offset.x , mouse_event.pos.y - offset.y };
+        const auto &item_node = tree.ptr[item_index];
+        InputEventResult result = InputEventResult::EventIgnored;
+        switch (item_node.tag) {
+            case ItemTreeNode::Tag::Item:
+                result = item_node.item.item.vtable->input_event( {
+                    item_node.item.item.vtable,
+                    reinterpret_cast<char*>(component.instance) + item_node.item.item.offset,
+                } , mouse_event);
+                break;
+            case ItemTreeNode::Tag::DynamicTree:
+                result = handle_dynamic(item_node.dynamic_tree.index, rep_index, &mouse_event);
+                break;
+        }
+        if (result != InputEventResult::GrabMouse) {
+            mouse_grabber = -1;
+        }
+        return result;
+    } else {
+        return internal::sixtyfps_process_ungrabbed_mouse_event(component, mouse_event, &mouse_grabber);
+    }
+}
 
 // layouts:
 using internal::grid_layout_info;
@@ -86,7 +120,6 @@ using internal::GridLayoutCellData;
 using internal::GridLayoutData;
 using internal::PathLayoutData;
 using internal::PathLayoutItemData;
-using internal::Slice;
 using internal::solve_grid_layout;
 using internal::solve_path_layout;
 
@@ -147,7 +180,7 @@ struct Repeater
         for (auto i = 0; i < data.size(); ++i) {
             const auto &x = data.at(i);
             VRef<ComponentVTable> ref { &C::component_type, x.get() };
-            if (ref.vtable->visit_children_item(ref, -1, visitor) == -1) {
+            if (ref.vtable->visit_children_item(ref, -1, visitor) != -1) {
                 return i;
             }
         }
