@@ -113,6 +113,20 @@ pub(crate) struct RepeaterWithinComponent {
 
 type RepeaterVec = Vec<ComponentBox>;
 
+struct ComponentExtraData {
+    mouse_grabber: core::cell::Cell<sixtyfps_corelib::item_tree::VisitChildrenResult>,
+}
+
+impl Default for ComponentExtraData {
+    fn default() -> Self {
+        Self {
+            mouse_grabber: core::cell::Cell::new(
+                sixtyfps_corelib::item_tree::VisitChildrenResult::CONTINUE,
+            ),
+        }
+    }
+}
+
 /// ComponentDescription is a representation of a component suitable for interpretation
 ///
 /// It contains information about how to create and destroy the Component.
@@ -134,6 +148,8 @@ pub struct ComponentDescription {
     pub repeater_names: HashMap<String, usize>,
     /// Offset to a Option<ComponentPinRef>
     pub(crate) parent_component_offset: Option<usize>,
+    /// Offset of a ComponentExtraData
+    extra_data_offset: usize,
     /// Keep the Rc alive
     pub(crate) original: Rc<object_tree::Component>,
 }
@@ -411,6 +427,8 @@ fn generate_component(root_component: &Rc<object_tree::Component>) -> Rc<Compone
         None
     };
 
+    let extra_data_offset = builder.add_field_type::<Option<ComponentExtraData>>();
+
     extern "C" fn layout_info(_: ComponentRefPin) -> LayoutInfo {
         todo!()
     }
@@ -427,6 +445,7 @@ fn generate_component(root_component: &Rc<object_tree::Component>) -> Rc<Compone
         repeater,
         repeater_names,
         parent_component_offset,
+        extra_data_offset,
     };
 
     Rc::new(t)
@@ -918,16 +937,47 @@ impl<'a> LayoutTreeItem<'a> {
 }
 
 extern "C" fn input_event(
-    _component: ComponentRefPin,
-    _mouse: sixtyfps_corelib::input::MouseEvent,
+    component: ComponentRefPin,
+    mouse_event: sixtyfps_corelib::input::MouseEvent,
 ) -> sixtyfps_corelib::input::InputEventResult {
-    todo!()
+    // This is fine since we can only be called with a component that with our vtable which is a ComponentDescription
+    let component_type = unsafe { get_component_type(component) };
+    let instance = unsafe { Pin::new_unchecked(&*component.as_ptr().cast::<Instance>()) };
+    let extra_data = unsafe {
+        &*component.as_ptr().add(component_type.extra_data_offset).cast::<ComponentExtraData>()
+    };
+
+    let mouse_grabber = extra_data.mouse_grabber.get();
+    let (status, new_grab) = if let Some((item_index, rep_index)) = mouse_grabber.aborted_indexes()
+    {
+        let tree = &component_type.it;
+        let offset = sixtyfps_corelib::item_tree::item_offset(instance, tree, item_index);
+        let mut event = mouse_event.clone();
+        event.pos -= offset.to_vector();
+        let res = match tree[item_index] {
+            ItemTreeNode::Item { item, .. } => item.apply_pin(instance).as_ref().input_event(event),
+            ItemTreeNode::DynamicTree { index } => {
+                let rep_in_comp = &component_type.repeater[index];
+                let vec = unsafe {
+                    &mut *(component.as_ptr().add(rep_in_comp.offset) as *mut RepeaterVec)
+                };
+                vec[rep_index].borrow().as_ref().input_event(event)
+            }
+        };
+        match res {
+            sixtyfps_corelib::input::InputEventResult::GrabMouse => (res, mouse_grabber),
+            _ => (res, VisitChildrenResult::CONTINUE),
+        }
+    } else {
+        sixtyfps_corelib::input::process_ungrabbed_mouse_event(component, mouse_event)
+    };
+    extra_data.mouse_grabber.set(new_grab);
+    status
 }
 
-unsafe extern "C" fn compute_layout(component: ComponentRefPin) {
+extern "C" fn compute_layout(component: ComponentRefPin) {
     // This is fine since we can only be called with a component that with our vtable which is a ComponentDescription
-    let component_type =
-        &*(component.get_vtable() as *const ComponentVTable as *const ComponentDescription);
+    let component_type = unsafe { get_component_type(component) };
 
     component_type.original.layout_constraints.borrow().iter().for_each(|layout| {
         let mut inverse_layout_tree = Vec::new();
