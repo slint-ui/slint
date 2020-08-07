@@ -11,7 +11,7 @@ pub fn collect_resources(component: &Rc<Component>) {
 fn collect_resources_from_expression(e: &Expression, component: &Rc<Component>) {
     match e {
         Expression::ResourceReference { absolute_source_path } => {
-            let mut resources = component.embedded_file_resources.borrow_mut();
+            let mut resources = component.referenced_file_resources.borrow_mut();
             let maybe_id = resources.len();
             resources.entry(absolute_source_path.clone()).or_insert(maybe_id);
         }

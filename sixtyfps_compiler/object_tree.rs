@@ -6,7 +6,7 @@ use crate::diagnostics::{FileDiagnostics, Spanned, SpannedWithSourceFile};
 use crate::expression_tree::{Expression, ExpressionSpanned, NamedReference};
 use crate::parser::{syntax_nodes, SyntaxKind, SyntaxNodeWithSourceFile};
 use crate::typeregister::{Type, TypeRegister};
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
 
@@ -74,10 +74,14 @@ pub struct Component {
     /// optimized away, but their properties may still be in use
     pub optimized_elements: RefCell<Vec<ElementRc>>,
 
-    /// Map of resources to embed in the generated binary, indexed by their absolute path on
+    /// Map of resources to referenced in the sources, indexed by their absolute path on
     /// disk on the build system and valued by a unique integer id, that can be used by the
     /// generator for symbol generation.
-    pub embedded_file_resources: RefCell<HashMap<String, usize>>,
+    pub referenced_file_resources: RefCell<HashMap<String, usize>>,
+
+    /// Copied from the compiler configuration, generators can use this to detect if file resources
+    /// should be embedded.
+    pub embed_file_resources: Cell<bool>,
 
     /// LayoutConstraints
     pub layout_constraints: RefCell<crate::layout::LayoutConstraints>,

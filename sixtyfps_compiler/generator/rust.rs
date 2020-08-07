@@ -318,15 +318,19 @@ fn generate_component(
         }
     });
 
-    let resource_symbols: Vec<proc_macro2::TokenStream> = component
-        .embedded_file_resources
-        .borrow()
-        .iter()
-        .map(|(path, id)| {
-            let symbol = quote::format_ident!("SFPS_EMBEDDED_RESOURCE_{}", id);
-            quote!(const #symbol: &'static [u8] = ::core::include_bytes!(#path);)
-        })
-        .collect();
+    let resource_symbols: Vec<proc_macro2::TokenStream> = if component.embed_file_resources.get() {
+        component
+            .referenced_file_resources
+            .borrow()
+            .iter()
+            .map(|(path, id)| {
+                let symbol = quote::format_ident!("SFPS_EMBEDDED_RESOURCE_{}", id);
+                quote!(const #symbol: &'static [u8] = ::core::include_bytes!(#path);)
+            })
+            .collect()
+    } else {
+        Vec::new()
+    };
 
     let layouts = compute_layout(component);
     let mut visibility = None;
@@ -729,7 +733,12 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
             quote!( #op #sub )
         }
         Expression::ResourceReference { absolute_source_path } => {
-            if let Some(id) = component.embedded_file_resources.borrow().get(absolute_source_path) {
+            if let Some(id) = component
+                .referenced_file_resources
+                .borrow()
+                .get(absolute_source_path)
+                .filter(|_| component.embed_file_resources.get())
+            {
                 let symbol = quote::format_ident!("SFPS_EMBEDDED_RESOURCE_{}", id);
                 quote!(sixtyfps::re_exports::Resource::EmbeddedData(#symbol.into()))
             } else {

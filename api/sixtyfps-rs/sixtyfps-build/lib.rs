@@ -128,6 +128,13 @@ pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
     })?;
     write!(code_formater, "{}", generated).map_err(CompileError::SaveError)?;
     println!("cargo:rerun-if-changed={}", path.display());
+
+    if !compiler_config.embed_resources {
+        for resource in root_component.referenced_file_resources.borrow().keys() {
+            println!("cargo:rerun-if-changed={}", resource);
+        }
+    }
+
     println!("cargo:rustc-env=SIXTYFPS_INCLUDE_GENERATED={}", output_file_path.display());
     Ok(())
 }
