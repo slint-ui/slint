@@ -1,3 +1,11 @@
+
+import { SpinBox, Button } from "sixtyfps_widgets.60";
+
+Label := Text {
+    color: black;
+    font_size: 28lx;
+}
+
 Page := Rectangle {
     color: white;
     animate y { duration: 300ms; easing: ease_out; }
@@ -5,12 +13,40 @@ Page := Rectangle {
 
 CopyPage := Page {
 
-    Text {
-        x: parent.width / 12;
-        y: parent.width / 8;
-        color: black;
-        text: "Copy";
+    preview := Image {
+        x: 40lx;
+        y: 20lx;
+        source: img!"images/cat_preview_round.png";
+        width: 320lx;
+        height: 480lx;        
     }
+
+    copies_label := Label {
+        x: preview.x + preview.width + 20lx;
+        y: preview.y + 10lx;
+        width: root.width - self.x - 40lx;
+        height: 40lx;
+        text: "Copies:";
+    }
+
+    copies_spinbox := SpinBox {
+        x: copies_label.x;
+        y: copies_label.y + copies_label.height + 10lx;
+        width: copies_label.width;
+        height: copies_label.height;
+        font_size: 28lx;
+    }
+
+    Button {
+        text: "Print Page";
+        font_size: 28lx;
+        x: copies_spinbox.x;
+        y: copies_spinbox.y + copies_spinbox.height + 10lx;
+        width: copies_spinbox.width;
+        height: copies_spinbox.height;
+    }
+
+    
 }
 
 FaxPage := Page {

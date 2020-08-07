@@ -2,6 +2,7 @@
 export Button := Rectangle {
     signal clicked;
     property<string> text;
+    property<length> font_size;
     property<bool> pressed: touch_area.pressed;
 
     border_width: 2lx;
@@ -10,6 +11,9 @@ export Button := Rectangle {
 
     Text {
         text: root.text;
+        font_size: root.font_size;
+        y: root.border_radius;
+        x: root.border_radius;
         color: black;
         width: touch_area.width;
         height: touch_area.height;
@@ -20,8 +24,8 @@ export Button := Rectangle {
     touch_area := TouchArea {
         x: root.border_radius;
         y: root.border_radius;
-        width: root.width - root.border_radius;
-        height: root.height - root.border_radius;
+        width: root.width - 2 * root.border_radius;
+        height: root.height - 2 * root.border_radius;
         clicked => { root.clicked() }
     }
 }
@@ -73,6 +77,7 @@ export CheckBox := Rectangle {
 SpinBoxButton := Rectangle {
     signal clicked;
     property<string> text;
+    property <length> font_size;
     border_width: 2lx;
     border_radius: 10lx;
     border_color: black;
@@ -86,6 +91,7 @@ SpinBoxButton := Rectangle {
         x: parent.width / 2 - 15lx + (touch.pressed ? 1lx : 0lx) ;
         y: parent.height / 2 - 15lx + (touch.pressed ? 1lx : 0lx);
         text: root.text;
+        font_size: root.font_size;
         color: black;
     }
 }
@@ -95,26 +101,32 @@ export SpinBox := Rectangle {
     property <string> text;
     property <bool> checked;
     property <int> value;
+    property <length> font_size;
     color: white;
 
     SpinBoxButton {
         text: "-";
+        font_size: root.font_size;
         clicked => { root.value -= 1; }
         width: parent.height;
         height: parent.height;
     }
 
-    SpinBoxButton {
+    plus_button := SpinBoxButton {
         width: parent.height;
         height: parent.height;
         x: parent.width - self.width;
+        font_size: root.font_size;
         text: "+";
         clicked => { root.value += 1; }
     }
 
     Text {
         text: root.value;
+        font_size: root.font_size;
         x: parent.height + 15lx;
+        width: plus_button.x - self.x - 15lx;
+        horizontal_alignment: align_center;
         color: black;
     }
 
