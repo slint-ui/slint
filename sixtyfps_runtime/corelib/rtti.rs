@@ -25,7 +25,9 @@ declare_ValueType![
     crate::Resource,
     crate::Color,
     crate::PathData,
-    crate::animations::EasingCurve
+    crate::animations::EasingCurve,
+    crate::items::TextHorizontalAlignment,
+    crate::items::TextVerticalAlignment
 ];
 
 pub trait PropertyInfo<Item, Value> {

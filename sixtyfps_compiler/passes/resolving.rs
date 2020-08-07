@@ -414,6 +414,26 @@ impl Expression {
             if let Some(curve) = value {
                 return Expression::EasingCurve(curve);
             }
+        } else if matches!(ctx.property_type, Type::TextHorizontalAlignment) {
+            let value = match first_str {
+                "align_left" => Some(TextHorizontalAlignment::AlignLeft),
+                "align_center" => Some(TextHorizontalAlignment::AlignCenter),
+                "align_right" => Some(TextHorizontalAlignment::AlignRight),
+                _ => None,
+            };
+            if let Some(alignment) = value {
+                return Expression::TextHorizontalAlignment(alignment);
+            }
+        } else if matches!(ctx.property_type, Type::TextVerticalAlignment) {
+            let value = match first_str {
+                "align_top" => Some(TextVerticalAlignment::AlignTop),
+                "align_center" => Some(TextVerticalAlignment::AlignCenter),
+                "align_bottom" => Some(TextVerticalAlignment::AlignBottom),
+                _ => None,
+            };
+            if let Some(alignment) = value {
+                return Expression::TextVerticalAlignment(alignment);
+            }
         }
 
         ctx.diag.push_error(format!("Unknown unqualified identifier '{}'", first_str), &node);

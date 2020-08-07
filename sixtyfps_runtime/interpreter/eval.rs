@@ -2,7 +2,7 @@ use core::convert::{TryFrom, TryInto};
 use core::pin::Pin;
 use sixtyfps_compilerlib::expression_tree::{
     BuiltinFunction, EasingCurve, Expression, ExpressionSpanned, NamedReference, Path as ExprPath,
-    PathElement as ExprPathElement,
+    PathElement as ExprPathElement, TextHorizontalAlignment, TextVerticalAlignment,
 };
 use sixtyfps_compilerlib::{object_tree::ElementRc, typeregister::Type};
 use sixtyfps_corelib as corelib;
@@ -71,6 +71,10 @@ pub enum Value {
     PathElements(PathData),
     /// An easing curve
     EasingCurve(corelib::animations::EasingCurve),
+    /// The horizontal alignment for text
+    TextHorizontalAlignment(corelib::items::TextHorizontalAlignment),
+    /// The vertical alignment for text
+    TextVerticalAlignment(corelib::items::TextVerticalAlignment),
 }
 
 impl Default for Value {
@@ -117,6 +121,8 @@ declare_value_conversion!(Object => [HashMap<String, Value>] );
 declare_value_conversion!(Color => [Color] );
 declare_value_conversion!(PathElements => [PathData]);
 declare_value_conversion!(EasingCurve => [corelib::animations::EasingCurve]);
+declare_value_conversion!(TextHorizontalAlignment => [corelib::items::TextHorizontalAlignment]);
+declare_value_conversion!(TextVerticalAlignment => [corelib::items::TextVerticalAlignment]);
 
 /// The local variable needed for binding evaluation
 #[derive(Default)]
@@ -360,6 +366,30 @@ pub fn eval_expression(
                 corelib::animations::EasingCurve::CubicBezier([*a, *b, *c, *d])
             }
         }),
+        Expression::TextHorizontalAlignment(alignment) => {
+            Value::TextHorizontalAlignment(match *alignment {
+                TextHorizontalAlignment::AlignLeft => {
+                    corelib::items::TextHorizontalAlignment::AlignLeft
+                }
+                TextHorizontalAlignment::AlignCenter => {
+                    corelib::items::TextHorizontalAlignment::AlignCenter
+                }
+                TextHorizontalAlignment::AlignRight => {
+                    corelib::items::TextHorizontalAlignment::AlignRight
+                }
+            })
+        }
+        Expression::TextVerticalAlignment(alignment) => {
+            Value::TextVerticalAlignment(match *alignment {
+                TextVerticalAlignment::AlignTop => corelib::items::TextVerticalAlignment::AlignTop,
+                TextVerticalAlignment::AlignCenter => {
+                    corelib::items::TextVerticalAlignment::AlignCenter
+                }
+                TextVerticalAlignment::AlignBottom => {
+                    corelib::items::TextVerticalAlignment::AlignBottom
+                }
+            })
+        }
     }
 }
 

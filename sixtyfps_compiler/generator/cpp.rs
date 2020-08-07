@@ -183,6 +183,8 @@ impl CppType for Type {
             }
             Type::Resource => Some("sixtyfps::Resource".to_owned()),
             Type::Builtin(elem) => elem.native_class.cpp_type.clone(),
+            Type::TextHorizontalAlignment => Some("sixtyfps::TextHorizontalAlignment".to_owned()),
+            Type::TextVerticalAlignment => Some("sixtyfps::TextVerticalAlignment".to_owned()),
             _ => None,
         }
     }
@@ -1002,6 +1004,12 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
             "sixtyfps::EasingCurve(sixtyfps::EasingCurve::Tag::CubicBezier, {}, {}, {}, {})",
             a, b, c, d
         ),
+        Expression::TextHorizontalAlignment(alignment) => {
+            format!("sixtyfps::TextHorizontalAlignment::{}", alignment)
+        }
+        Expression::TextVerticalAlignment(alignment) => {
+            format!("sixtyfps::TextVerticalAlignment::{}", alignment)
+        }
         Expression::Uncompiled(_) => panic!(),
         Expression::Invalid => format!("\n#error invalid expression\n"),
     }

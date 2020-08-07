@@ -30,6 +30,8 @@ pub enum Type {
     Model,
     PathElements,
     Easing,
+    TextHorizontalAlignment,
+    TextVerticalAlignment,
 
     Array(Box<Type>),
     Object(BTreeMap<String, Type>),
@@ -62,6 +64,8 @@ impl core::cmp::PartialEq for Type {
             (Type::Model, Type::Model) => true,
             (Type::PathElements, Type::PathElements) => true,
             (Type::Easing, Type::Easing) => true,
+            (Type::TextHorizontalAlignment, Type::TextHorizontalAlignment) => true,
+            (Type::TextVerticalAlignment, Type::TextVerticalAlignment) => true,
             _ => false,
         }
     }
@@ -106,6 +110,8 @@ impl Display for Type {
             }
             Type::PathElements => write!(f, "pathelements"),
             Type::Easing => write!(f, "easing"),
+            Type::TextHorizontalAlignment => write!(f, "texthorizontalalignment"),
+            Type::TextVerticalAlignment => write!(f, "textverticalalignment"),
         }
     }
 }
@@ -130,6 +136,8 @@ impl Type {
                 | Self::Bool
                 | Self::Model
                 | Self::Easing
+                | Self::TextHorizontalAlignment
+                | Self::TextVerticalAlignment
                 | Self::Object(_)
         )
     }
@@ -475,8 +483,12 @@ impl TypeRegister {
                 ("font_family", Type::String),
                 ("font_size", Type::Length),
                 ("color", Type::Color),
+                ("horizontal_alignment", Type::TextHorizontalAlignment),
+                ("vertical_alignment", Type::TextVerticalAlignment),
                 ("x", Type::Length),
                 ("y", Type::Length),
+                ("width", Type::Length),
+                ("height", Type::Length),
             ],
         );
 

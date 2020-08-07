@@ -788,6 +788,14 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
         Expression::EasingCurve(EasingCurve::CubicBezier(a, b, c, d)) => {
             quote!(sixtyfps::re_exports::EasingCurve::CubicBezier([#a, #b, #c, #d]))
         }
+        Expression::TextHorizontalAlignment(alignment) => {
+            let ident = quote::format_ident!("{}", alignment.to_string());
+            quote!(sixtyfps::re_exports::TextHorizontalAlignment::#ident)
+        }
+        Expression::TextVerticalAlignment(alignment) => {
+            let ident = quote::format_ident!("{}", alignment.to_string());
+            quote!(sixtyfps::re_exports::TextVerticalAlignment::#ident)
+        }
     }
 }
 

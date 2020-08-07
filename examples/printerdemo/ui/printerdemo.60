@@ -59,6 +59,9 @@ MainWindow := Rectangle {
             color: #2a2e3b;
             y: root.height / 5;
             x: 5lx;
+            width: parent.width;
+            height: parent.height;
+            horizontal_alignment: align_center;
             text: page_info.text;
             animate x, y {
                 duration: 300ms;
@@ -92,7 +95,7 @@ MainWindow := Rectangle {
                 img.height: root.height / 18.75;
                 text.y: 0px;
                 text.x: root.height / 4;
-
+                text.horizontal_alignment: align_left;
             }
             invisible when root.active_page > 0 && root.active_page != idx + 1 : {
                 color: white;

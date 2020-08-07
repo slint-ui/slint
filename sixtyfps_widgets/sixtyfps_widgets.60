@@ -11,6 +11,10 @@ export Button := Rectangle {
     Text {
         text: root.text;
         color: black;
+        width: touch_area.width;
+        height: touch_area.height;
+        horizontal_alignment: align_center;
+        vertical_alignment: align_center;
     }
 
     touch_area := TouchArea {

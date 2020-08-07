@@ -121,6 +121,8 @@ fn to_eval_value<'cx>(
         | Type::Model
         | Type::Signal
         | Type::Easing
+        | Type::TextHorizontalAlignment
+        | Type::TextVerticalAlignment
         | Type::PathElements => cx.throw_error("Cannot convert to a Sixtyfps property value"),
         Type::Float32 | Type::Int32 | Type::Duration | Type::Length | Type::LogicalLength => {
             Ok(Value::Number(val.downcast_or_throw::<JsNumber, _>(cx)?.value()))
@@ -168,6 +170,8 @@ fn to_js_value<'cx>(
         Value::Color(c) => JsNumber::new(cx, c.as_argb_encoded()).as_value(cx),
         Value::PathElements(_) => todo!(),
         Value::EasingCurve(_) => todo!(),
+        Value::TextHorizontalAlignment(_) => todo!(),
+        Value::TextVerticalAlignment(_) => todo!(),
     })
 }
 

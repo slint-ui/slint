@@ -17,6 +17,8 @@ fn main() {
         "ComponentWindowOpaque",
         "PropertyAnimation",
         "EasingCurve",
+        "TextHorizontalAlignment",
+        "TextVerticalAlignment",
     ]
     .iter()
     .map(|x| x.to_string())

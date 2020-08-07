@@ -206,6 +206,34 @@ impl ItemConsts for Image {
 
 pub use crate::abi::datastructures::ImageVTable;
 
+#[derive(Copy, Clone, Debug, PartialEq)]
+#[repr(C)]
+pub enum TextHorizontalAlignment {
+    AlignLeft,
+    AlignCenter,
+    AlignRight,
+}
+
+impl Default for TextHorizontalAlignment {
+    fn default() -> Self {
+        Self::AlignLeft
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+#[repr(C)]
+pub enum TextVerticalAlignment {
+    AlignTop,
+    AlignCenter,
+    AlignBottom,
+}
+
+impl Default for TextVerticalAlignment {
+    fn default() -> Self {
+        Self::AlignTop
+    }
+}
+
 /// The implementation of the `Text` element
 #[repr(C)]
 #[derive(FieldOffsets, Default, BuiltinItem)]
@@ -215,8 +243,12 @@ pub struct Text {
     pub font_family: Property<SharedString>,
     pub font_size: Property<f32>,
     pub color: Property<Color>,
+    pub horizontal_alignment: Property<TextHorizontalAlignment>,
+    pub vertical_alignment: Property<TextVerticalAlignment>,
     pub x: Property<f32>,
     pub y: Property<f32>,
+    pub width: Property<f32>,
+    pub height: Property<f32>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
@@ -226,8 +258,8 @@ impl Item for Text {
         euclid::rect(
             Self::FIELD_OFFSETS.x.apply_pin(self).get(),
             Self::FIELD_OFFSETS.y.apply_pin(self).get(),
-            0.,
-            0.,
+            Self::FIELD_OFFSETS.width.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.height.apply_pin(self).get(),
         )
     }
     fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
@@ -240,7 +272,24 @@ impl Item for Text {
     }
 
     fn rendering_variables(self: Pin<&Self>) -> SharedArray<RenderingVariable> {
-        SharedArray::from(&[])
+        let layout_info = self.layouting_info();
+        let rect = self.geometry();
+
+        let hor_alignment = Self::FIELD_OFFSETS.horizontal_alignment.apply_pin(self).get();
+        let translate_x = match hor_alignment {
+            TextHorizontalAlignment::AlignLeft => 0.,
+            TextHorizontalAlignment::AlignCenter => rect.width() / 2. - layout_info.min_width / 2.,
+            TextHorizontalAlignment::AlignRight => rect.width() - layout_info.min_width,
+        };
+
+        let ver_alignment = Self::FIELD_OFFSETS.vertical_alignment.apply_pin(self).get();
+        let translate_y = match ver_alignment {
+            TextVerticalAlignment::AlignTop => 0.,
+            TextVerticalAlignment::AlignCenter => rect.height() / 2. - layout_info.min_height / 2.,
+            TextVerticalAlignment::AlignBottom => rect.height() - layout_info.min_height,
+        };
+
+        SharedArray::from(&[RenderingVariable::Translate(translate_x, translate_y)])
     }
 
     fn layouting_info(self: Pin<&Self>) -> LayoutInfo {

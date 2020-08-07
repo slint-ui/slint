@@ -32,6 +32,8 @@ using internal::ItemTreeNode;
 using ComponentRef = VRef<ComponentVTable>;
 using ItemVisitorRefMut = VRefMut<internal::ItemVisitorVTable>;
 using internal::EasingCurve;
+using internal::TextHorizontalAlignment;
+using internal::TextVerticalAlignment;
 using internal::WindowProperties;
 
 struct ComponentWindow
@@ -158,6 +160,9 @@ Flickable::~Flickable()
     sixtyfps_flickable_data_free(&data);
 }
 
-template <int Major, int Minor, int Patch> struct VersionCheckHelper {};
+template<int Major, int Minor, int Patch>
+struct VersionCheckHelper
+{
+};
 
 } // namespace sixtyfps

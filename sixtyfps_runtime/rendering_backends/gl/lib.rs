@@ -710,7 +710,16 @@ impl GraphicsFrame for GLFrame {
     ) {
         let matrix = self.root_matrix * transform;
 
-        let mut rendering_var = variables.iter();
+        let mut rendering_var = variables.iter().peekable();
+
+        let matrix = match rendering_var.peek() {
+            Some(RenderingVariable::Translate(x_offset, y_offset)) => {
+                rendering_var.next();
+                matrix * Matrix4::from_translation(cgmath::Vector3::new(*x_offset, *y_offset, 0.))
+            }
+            _ => matrix,
+        };
+
         primitive.gl_primitives.iter().for_each(|gl_primitive| match gl_primitive {
             GLRenderingPrimitive::FillPath { vertices, indices } => {
                 let (r, g, b, a) = rendering_var.next().unwrap().as_color().as_rgba_f32();

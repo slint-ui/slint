@@ -168,6 +168,7 @@ pub enum HighLevelRenderingPrimitive {
 #[derive(Debug, Clone)]
 #[repr(C)]
 pub enum RenderingVariable {
+    Translate(f32, f32),
     Color(Color),
     ScaledWidth(f32),
     ScaledHeight(f32),
