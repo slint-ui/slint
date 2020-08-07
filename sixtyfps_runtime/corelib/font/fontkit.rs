@@ -20,19 +20,22 @@ pub struct Font {
 }
 
 impl Font {
-    pub fn string_to_glyphs<'a>(&'a self, text: &'a str) -> impl Iterator<Item = u32> + 'a {
+    pub fn string_to_glyphs<'a>(&'a self, text: &'a str) -> impl Iterator<Item = (char, u32)> + 'a {
         text.chars().map(move |ch| {
-            self.font.glyph_for_char(ch).unwrap_or_else(|| {
-                self.font
-                    .glyph_for_char('\u{FFFD}')
-                    .unwrap_or_else(|| self.font.glyph_for_char('?').unwrap())
-            })
+            (
+                ch,
+                self.font.glyph_for_char(ch).unwrap_or_else(|| {
+                    self.font
+                        .glyph_for_char('\u{FFFD}')
+                        .unwrap_or_else(|| self.font.glyph_for_char('?').unwrap())
+                }),
+            )
         })
     }
 
     pub fn text_width(&self, text: &str) -> f32 {
         self.string_to_glyphs(text)
-            .map(|glyph| self.glyph_metrics(glyph))
+            .map(|(_, glyph)| self.glyph_metrics(glyph))
             .fold(0., |width, glyph| width + glyph.advance)
     }
 

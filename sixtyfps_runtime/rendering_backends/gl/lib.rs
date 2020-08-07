@@ -579,26 +579,30 @@ impl GLRenderingPrimitivesBuilder {
         let mut x = 0.;
 
         let glyph_runs = glyphs
-            .map(|cached_glyph| {
-                let glyph_width =
-                    cached_glyph.glyph_allocation.sub_texture.texture_coordinates.width() as f32;
-                let glyph_height =
-                    cached_glyph.glyph_allocation.sub_texture.texture_coordinates.height() as f32;
-
-                let vertex1 = Vertex { _pos: [x, 0.] };
-                let vertex2 = Vertex { _pos: [x + glyph_width, 0.] };
-                let vertex3 = Vertex { _pos: [x + glyph_width, glyph_height] };
-                let vertex4 = Vertex { _pos: [x, glyph_height] };
-
-                let vertices = [vertex1, vertex2, vertex3, vertex1, vertex3, vertex4];
-                let texture_vertices =
-                    cached_glyph.glyph_allocation.sub_texture.normalized_coordinates;
-
-                let texture = cached_glyph.glyph_allocation.sub_texture.texture;
-
+            .filter_map(|cached_glyph| {
+                let glyph_x = x;
                 x += cached_glyph.advance;
 
-                (vertices, texture_vertices, texture)
+                if let Some(glyph_allocation) = &cached_glyph.glyph_allocation {
+                    let glyph_width =
+                        glyph_allocation.sub_texture.texture_coordinates.width() as f32;
+                    let glyph_height =
+                        glyph_allocation.sub_texture.texture_coordinates.height() as f32;
+
+                    let vertex1 = Vertex { _pos: [glyph_x, 0.] };
+                    let vertex2 = Vertex { _pos: [glyph_x + glyph_width, 0.] };
+                    let vertex3 = Vertex { _pos: [glyph_x + glyph_width, glyph_height] };
+                    let vertex4 = Vertex { _pos: [glyph_x, glyph_height] };
+
+                    let vertices = [vertex1, vertex2, vertex3, vertex1, vertex3, vertex4];
+                    let texture_vertices = glyph_allocation.sub_texture.normalized_coordinates;
+
+                    let texture = glyph_allocation.sub_texture.texture;
+
+                    Some((vertices, texture_vertices, texture))
+                } else {
+                    None
+                }
             })
             .group_by(|(_, _, texture)| *texture)
             .into_iter()

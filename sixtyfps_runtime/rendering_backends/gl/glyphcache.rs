@@ -45,7 +45,7 @@ impl GlyphCache {
 }
 
 pub struct PreRenderedGlyph {
-    pub glyph_allocation: AtlasAllocation,
+    pub glyph_allocation: Option<AtlasAllocation>,
     pub advance: f32,
 }
 
@@ -67,36 +67,44 @@ impl CachedFontGlyphs {
         text: &'a str,
     ) -> impl Iterator<Item = &PreRenderedGlyph> + 'a {
         let glyphs =
-            self.font.clone().string_to_glyphs(text).collect::<smallvec::SmallVec<[_; 32]>>();
+            self.font.clone().string_to_glyphs(text).collect::<smallvec::SmallVec<[(_, _); 32]>>();
 
-        glyphs.iter().for_each(|glyph| {
+        glyphs.iter().for_each(|(ch, glyph)| {
             if !self.glyphs.contains_key(&glyph) {
                 // ensure the glyph is cached
-                self.glyphs.insert(*glyph, self.render_glyph(gl, atlas, *glyph));
+                self.glyphs.insert(*glyph, self.render_glyph(gl, atlas, *ch, *glyph));
             }
         });
 
-        GlyphIter { gl_font: self, glyph_it: glyphs.into_iter() }
+        GlyphIter { gl_font: self, glyph_it: glyphs.into_iter().map(|(_, g)| g) }
     }
 
     fn render_glyph(
         &self,
         gl: &glow::Context,
         atlas: &mut TextureAtlas,
+        ch: char,
         glyph_id: u32,
     ) -> PreRenderedGlyph {
         let advance = self.font.glyph_metrics(glyph_id).advance;
-        let glyph_image = self.font.rasterize_glyph(glyph_id);
 
-        let glyph_allocation = atlas.allocate_image_in_atlas(
-            gl,
-            image::ImageBuffer::<_, &[u8]>::from_raw(
-                glyph_image.width(),
-                glyph_image.height(),
-                &glyph_image,
+        let glyph_allocation = if !ch.is_whitespace() {
+            let glyph_image = self.font.rasterize_glyph(glyph_id);
+
+            Some(
+                atlas.allocate_image_in_atlas(
+                    gl,
+                    image::ImageBuffer::<_, &[u8]>::from_raw(
+                        glyph_image.width(),
+                        glyph_image.height(),
+                        &glyph_image,
+                    )
+                    .unwrap(),
+                ),
             )
-            .unwrap(),
-        );
+        } else {
+            None
+        };
 
         PreRenderedGlyph { glyph_allocation, advance }
     }
