@@ -725,14 +725,27 @@ fn generate_component(
             signature: "(sixtyfps::ComponentRef component, intptr_t index, sixtyfps::ItemVisitorRefMut visitor) -> intptr_t".into(),
             is_static: true,
             statements: Some(vec![
-                "static const sixtyfps::ItemTreeNode<uint8_t> children[] {".to_owned(),
-                format!("    {} }};", tree_array.join(", ")),
                 "static const auto dyn_visit = [] (const uint8_t *base, [[maybe_unused]] sixtyfps::ItemVisitorRefMut visitor, uintptr_t dyn_index) -> int64_t {".to_owned(),
                 format!("    [[maybe_unused]] auto self = reinterpret_cast<const {}*>(base);", component_id),
                 // Fixme: this is not the root component
                 format!("    switch(dyn_index) {{ {} }};", children_visitor_case.join("")),
                 "    return -1; //should not happen\n};".to_owned(),
-                "return sixtyfps::sixtyfps_visit_item_tree(component, { const_cast<sixtyfps::ItemTreeNode<uint8_t>*>(children), std::size(children)}, index, visitor, dyn_visit);".to_owned(),
+                "return sixtyfps::sixtyfps_visit_item_tree(component, item_tree() , index, visitor, dyn_visit);".to_owned(),
+            ]),
+            ..Default::default()
+        }),
+    ));
+
+    component_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
+            name: "item_tree".into(),
+            signature: "() -> sixtyfps::Slice<sixtyfps::ItemTreeNode<uint8_t>>".into(),
+            is_static: true,
+            statements: Some(vec![
+                "static const sixtyfps::ItemTreeNode<uint8_t> children[] {".to_owned(),
+                format!("    {} }};", tree_array.join(", ")),
+                "return { const_cast<sixtyfps::ItemTreeNode<uint8_t>*>(children), std::size(children) };".to_owned(),
             ]),
             ..Default::default()
         }),
