@@ -2,7 +2,7 @@ use crate::diagnostics::{BuildDiagnostics, Spanned, SpannedWithSourceFile};
 use crate::object_tree::*;
 use crate::parser::SyntaxNodeWithSourceFile;
 use crate::typeregister::BuiltinElement;
-use crate::typeregister::Type;
+use crate::typeregister::{EnumerationValue, Type};
 use core::cell::RefCell;
 use std::collections::HashMap;
 use std::hash::Hash;
@@ -261,8 +261,8 @@ pub enum Expression {
     },
 
     EasingCurve(EasingCurve),
-    TextHorizontalAlignment(TextHorizontalAlignment),
-    TextVerticalAlignment(TextVerticalAlignment),
+
+    EnumerationValue(EnumerationValue),
 }
 
 impl Default for Expression {
@@ -354,8 +354,7 @@ impl Expression {
             Expression::StoreLocalVariable { .. } => Type::Void,
             Expression::ReadLocalVariable { ty, .. } => ty.clone(),
             Expression::EasingCurve(_) => Type::Easing,
-            Expression::TextHorizontalAlignment(_) => Type::TextHorizontalAlignment,
-            Expression::TextVerticalAlignment(_) => Type::TextVerticalAlignment,
+            Expression::EnumerationValue(value) => Type::Enumeration(value.enumeration.clone()),
         }
     }
 
@@ -415,8 +414,7 @@ impl Expression {
             Expression::StoreLocalVariable { value, .. } => visitor(&**value),
             Expression::ReadLocalVariable { .. } => {}
             Expression::EasingCurve(_) => {}
-            Expression::TextHorizontalAlignment(_) => {}
-            Expression::TextVerticalAlignment(_) => {}
+            Expression::EnumerationValue(_) => {}
         }
     }
 
@@ -475,8 +473,7 @@ impl Expression {
             Expression::StoreLocalVariable { value, .. } => visitor(&mut **value),
             Expression::ReadLocalVariable { .. } => {}
             Expression::EasingCurve(_) => {}
-            Expression::TextHorizontalAlignment(_) => {}
-            Expression::TextVerticalAlignment(_) => {}
+            Expression::EnumerationValue(_) => {}
         }
     }
 
@@ -517,8 +514,7 @@ impl Expression {
             Expression::StoreLocalVariable { .. } => false,
             Expression::ReadLocalVariable { .. } => false,
             Expression::EasingCurve(_) => true,
-            Expression::TextHorizontalAlignment(_) => true,
-            Expression::TextVerticalAlignment(_) => true,
+            Expression::EnumerationValue(_) => true,
         }
     }
 
@@ -599,12 +595,10 @@ impl Expression {
                     .collect(),
             },
             Type::Easing => Expression::EasingCurve(EasingCurve::default()),
-            Type::TextHorizontalAlignment => {
-                Expression::TextHorizontalAlignment(TextHorizontalAlignment::default())
+            Type::Enumeration(enumeration) => {
+                Expression::EnumerationValue(enumeration.clone().default_value())
             }
-            Type::TextVerticalAlignment => {
-                Expression::TextVerticalAlignment(TextVerticalAlignment::default())
-            }
+            Type::EnumerationValue(_) => Expression::Invalid,
         }
     }
 }
@@ -667,43 +661,5 @@ pub enum EasingCurve {
 impl Default for EasingCurve {
     fn default() -> Self {
         Self::Linear
-    }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub enum TextHorizontalAlignment {
-    AlignLeft,
-    AlignCenter,
-    AlignRight,
-}
-
-impl Default for TextHorizontalAlignment {
-    fn default() -> Self {
-        Self::AlignLeft
-    }
-}
-
-impl std::fmt::Display for TextHorizontalAlignment {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Debug::fmt(self, f)
-    }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub enum TextVerticalAlignment {
-    AlignTop,
-    AlignCenter,
-    AlignBottom,
-}
-
-impl Default for TextVerticalAlignment {
-    fn default() -> Self {
-        Self::AlignTop
-    }
-}
-
-impl std::fmt::Display for TextVerticalAlignment {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Debug::fmt(self, f)
     }
 }

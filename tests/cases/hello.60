@@ -39,6 +39,10 @@ component ButtonRectangle := Rectangle {
             y: { area.pressed ? 20px : 10px; }
             text: button_text;
             color: black;
+            width: root.width;
+            height: root.height;
+            horizontal_alignment: align_left;
+            vertical_alignment: align_center;
         }
         animate x { duration: 500ms; }
         animate y { duration: 500ms; }

@@ -384,56 +384,45 @@ impl Expression {
             return Expression::Invalid;
         }
 
-        if matches!(ctx.property_type, Type::Color) {
-            let value: Option<u32> = match first_str {
-                "blue" => Some(0xff0000ff),
-                "red" => Some(0xffff0000),
-                "green" => Some(0xff00ff00),
-                "yellow" => Some(0xffffff00),
-                "black" => Some(0xff000000),
-                "white" => Some(0xffffffff),
-                _ => None,
-            };
-            if let Some(value) = value {
-                return Expression::Cast {
-                    from: Box::new(Expression::NumberLiteral(value as f64, Unit::None)),
-                    to: Type::Color,
+        match &ctx.property_type {
+            Type::Color => {
+                let value: Option<u32> = match first_str {
+                    "blue" => Some(0xff0000ff),
+                    "red" => Some(0xffff0000),
+                    "green" => Some(0xff00ff00),
+                    "yellow" => Some(0xffffff00),
+                    "black" => Some(0xff000000),
+                    "white" => Some(0xffffffff),
+                    _ => None,
                 };
+                if let Some(value) = value {
+                    return Expression::Cast {
+                        from: Box::new(Expression::NumberLiteral(value as f64, Unit::None)),
+                        to: Type::Color,
+                    };
+                }
             }
-        } else if matches!(ctx.property_type, Type::Easing) {
-            // These value are coming from CSSn with - replaced by _
-            let value = match first_str {
-                "linear" => Some(EasingCurve::Linear),
-                "ease" => Some(EasingCurve::CubicBezier(0.25, 0.1, 0.25, 1.0)),
-                "ease_in" => Some(EasingCurve::CubicBezier(0.42, 0.0, 1.0, 1.0)),
-                "ease_in_out" => Some(EasingCurve::CubicBezier(0.42, 0.0, 0.58, 1.0)),
-                "ease_out" => Some(EasingCurve::CubicBezier(0.0, 0.0, 0.58, 1.0)),
-                "cubic_bezier" => todo!("Not yet implemented"),
-                _ => None,
-            };
-            if let Some(curve) = value {
-                return Expression::EasingCurve(curve);
+            Type::Easing => {
+                // These value are coming from CSSn with - replaced by _
+                let value = match first_str {
+                    "linear" => Some(EasingCurve::Linear),
+                    "ease" => Some(EasingCurve::CubicBezier(0.25, 0.1, 0.25, 1.0)),
+                    "ease_in" => Some(EasingCurve::CubicBezier(0.42, 0.0, 1.0, 1.0)),
+                    "ease_in_out" => Some(EasingCurve::CubicBezier(0.42, 0.0, 0.58, 1.0)),
+                    "ease_out" => Some(EasingCurve::CubicBezier(0.0, 0.0, 0.58, 1.0)),
+                    "cubic_bezier" => todo!("Not yet implemented"),
+                    _ => None,
+                };
+                if let Some(curve) = value {
+                    return Expression::EasingCurve(curve);
+                }
             }
-        } else if matches!(ctx.property_type, Type::TextHorizontalAlignment) {
-            let value = match first_str {
-                "align_left" => Some(TextHorizontalAlignment::AlignLeft),
-                "align_center" => Some(TextHorizontalAlignment::AlignCenter),
-                "align_right" => Some(TextHorizontalAlignment::AlignRight),
-                _ => None,
-            };
-            if let Some(alignment) = value {
-                return Expression::TextHorizontalAlignment(alignment);
+            Type::Enumeration(enumeration) => {
+                if let Some(value) = enumeration.clone().try_value_from_string(first_str) {
+                    return Expression::EnumerationValue(value);
+                }
             }
-        } else if matches!(ctx.property_type, Type::TextVerticalAlignment) {
-            let value = match first_str {
-                "align_top" => Some(TextVerticalAlignment::AlignTop),
-                "align_center" => Some(TextVerticalAlignment::AlignCenter),
-                "align_bottom" => Some(TextVerticalAlignment::AlignBottom),
-                _ => None,
-            };
-            if let Some(alignment) = value {
-                return Expression::TextVerticalAlignment(alignment);
-            }
+            _ => {}
         }
 
         ctx.diag.push_error(format!("Unknown unqualified identifier '{}'", first_str), &node);

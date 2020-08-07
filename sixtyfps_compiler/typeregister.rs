@@ -30,11 +30,12 @@ pub enum Type {
     Model,
     PathElements,
     Easing,
-    TextHorizontalAlignment,
-    TextVerticalAlignment,
 
     Array(Box<Type>),
     Object(BTreeMap<String, Type>),
+
+    Enumeration(Rc<Enumeration>),
+    EnumerationValue(EnumerationValue),
 }
 
 impl core::cmp::PartialEq for Type {
@@ -64,8 +65,7 @@ impl core::cmp::PartialEq for Type {
             (Type::Model, Type::Model) => true,
             (Type::PathElements, Type::PathElements) => true,
             (Type::Easing, Type::Easing) => true,
-            (Type::TextHorizontalAlignment, Type::TextHorizontalAlignment) => true,
-            (Type::TextVerticalAlignment, Type::TextVerticalAlignment) => true,
+            (Type::Enumeration(lhs), Type::Enumeration(rhs)) => lhs == rhs,
             _ => false,
         }
     }
@@ -110,8 +110,10 @@ impl Display for Type {
             }
             Type::PathElements => write!(f, "pathelements"),
             Type::Easing => write!(f, "easing"),
-            Type::TextHorizontalAlignment => write!(f, "texthorizontalalignment"),
-            Type::TextVerticalAlignment => write!(f, "textverticalalignment"),
+            Type::Enumeration(enumeration) => write!(f, "enum {}", enumeration.name),
+            Type::EnumerationValue(value) => {
+                write!(f, "enum {}::{}", value.enumeration.name, value.to_string())
+            }
         }
     }
 }
@@ -136,8 +138,7 @@ impl Type {
                 | Self::Bool
                 | Self::Model
                 | Self::Easing
-                | Self::TextHorizontalAlignment
-                | Self::TextVerticalAlignment
+                | Self::Enumeration(_)
                 | Self::Object(_)
         )
     }
@@ -435,6 +436,19 @@ impl TypeRegister {
         insert_type(Type::Bool);
         insert_type(Type::Model);
 
+        let declare_enum = |name: &str, values: &[&str]| {
+            Rc::new(Enumeration {
+                name: name.to_owned(),
+                values: values.into_iter().cloned().map(String::from).collect(),
+                default_value: 0,
+            })
+        };
+
+        let text_horizontal_alignment =
+            declare_enum("TextHorizontalAlignment", &["align_left", "align_center", "align_right"]);
+        let text_vertical_alignment =
+            declare_enum("TextVerticalAlignment", &["align_top", "align_center", "align_bottom"]);
+
         let native_class = |tr: &mut TypeRegister, name: &str, properties: &[(&str, Type)]| {
             let native = Rc::new(NativeClass::new_with_properties(
                 name,
@@ -483,8 +497,8 @@ impl TypeRegister {
                 ("font_family", Type::String),
                 ("font_size", Type::Length),
                 ("color", Type::Color),
-                ("horizontal_alignment", Type::TextHorizontalAlignment),
-                ("vertical_alignment", Type::TextVerticalAlignment),
+                ("horizontal_alignment", Type::Enumeration(text_horizontal_alignment)),
+                ("vertical_alignment", Type::Enumeration(text_vertical_alignment)),
                 ("x", Type::Length),
                 ("y", Type::Length),
                 ("width", Type::Length),
@@ -769,4 +783,51 @@ fn test_select_minimal_class_based_on_property_usage() {
     );
 
     assert_eq!(reduce_to_second.class_name, second.class_name);
+}
+
+#[derive(Debug, Clone)]
+pub struct Enumeration {
+    pub name: String,
+    pub values: Vec<String>,
+    pub default_value: usize, // index in values
+}
+
+impl PartialEq for Enumeration {
+    fn eq(&self, other: &Self) -> bool {
+        self.name.eq(&other.name)
+    }
+}
+
+impl Enumeration {
+    pub fn default_value(self: Rc<Self>) -> EnumerationValue {
+        EnumerationValue { value: self.default_value, enumeration: self.clone() }
+    }
+
+    pub fn try_value_from_string(self: Rc<Self>, value: &str) -> Option<EnumerationValue> {
+        self.values.iter().enumerate().find_map(|(idx, name)| {
+            if name == value {
+                Some(EnumerationValue { value: idx, enumeration: self.clone() })
+            } else {
+                None
+            }
+        })
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct EnumerationValue {
+    pub value: usize, // index in enumeration.values
+    pub enumeration: Rc<Enumeration>,
+}
+
+impl PartialEq for EnumerationValue {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.enumeration, &other.enumeration) && self.value == other.value
+    }
+}
+
+impl std::fmt::Display for EnumerationValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.enumeration.values[self.value].fmt(f)
+    }
 }

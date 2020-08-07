@@ -206,31 +206,33 @@ impl ItemConsts for Image {
 
 pub use crate::abi::datastructures::ImageVTable;
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, strum_macros::EnumString, strum_macros::Display)]
 #[repr(C)]
+#[allow(non_camel_case_types)]
 pub enum TextHorizontalAlignment {
-    AlignLeft,
-    AlignCenter,
-    AlignRight,
+    align_left,
+    align_center,
+    align_right,
 }
 
 impl Default for TextHorizontalAlignment {
     fn default() -> Self {
-        Self::AlignLeft
+        Self::align_left
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, strum_macros::EnumString, strum_macros::Display)]
 #[repr(C)]
+#[allow(non_camel_case_types)]
 pub enum TextVerticalAlignment {
-    AlignTop,
-    AlignCenter,
-    AlignBottom,
+    align_top,
+    align_center,
+    align_bottom,
 }
 
 impl Default for TextVerticalAlignment {
     fn default() -> Self {
-        Self::AlignTop
+        Self::align_top
     }
 }
 
@@ -277,16 +279,16 @@ impl Item for Text {
 
         let hor_alignment = Self::FIELD_OFFSETS.horizontal_alignment.apply_pin(self).get();
         let translate_x = match hor_alignment {
-            TextHorizontalAlignment::AlignLeft => 0.,
-            TextHorizontalAlignment::AlignCenter => rect.width() / 2. - layout_info.min_width / 2.,
-            TextHorizontalAlignment::AlignRight => rect.width() - layout_info.min_width,
+            TextHorizontalAlignment::align_left => 0.,
+            TextHorizontalAlignment::align_center => rect.width() / 2. - layout_info.min_width / 2.,
+            TextHorizontalAlignment::align_right => rect.width() - layout_info.min_width,
         };
 
         let ver_alignment = Self::FIELD_OFFSETS.vertical_alignment.apply_pin(self).get();
         let translate_y = match ver_alignment {
-            TextVerticalAlignment::AlignTop => 0.,
-            TextVerticalAlignment::AlignCenter => rect.height() / 2. - layout_info.min_height / 2.,
-            TextVerticalAlignment::AlignBottom => rect.height() - layout_info.min_height,
+            TextVerticalAlignment::align_top => 0.,
+            TextVerticalAlignment::align_center => rect.height() / 2. - layout_info.min_height / 2.,
+            TextVerticalAlignment::align_bottom => rect.height() - layout_info.min_height,
         };
 
         SharedArray::from(&[RenderingVariable::Translate(translate_x, translate_y)])
