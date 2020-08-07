@@ -140,7 +140,7 @@ MainWindow := Rectangle {
                 easing: ease_in_out;
             }
         }
-        TouchArea {
+        touch := TouchArea {
             width: parent.width;
             height: parent.height;
             clicked => {
@@ -169,7 +169,16 @@ MainWindow := Rectangle {
                 img.height: root.height / 18.75;
                 text.y: 0px;
                 text.x: root.height / 4;
-                text.horizontal_alignment: align_left;
+                //text.horizontal_alignment: align_left;
+            }
+            pressed when root.active_page == 0 && touch.pressed : {
+                width: root.width / 5 + 6lx;
+                height: root.height / 3 + 6lx ;
+                y: root.height / 3 - 3lx;
+                x: idx * root.width / 4 + root.width / 45 - 3lx;
+                img.x: 8lx;
+                img.y: 8lx;
+                text.y: root.height / 5 + 5lx;
             }
             invisible when root.active_page > 0 && root.active_page != idx + 1 : {
                 color: white;
