@@ -1,5 +1,29 @@
-PrintPage := Rectangle {
+Page := Rectangle {
     color: white;
+    animate y { duration: 300ms; easing: ease_out; }
+}
+
+CopyPage := Page {
+
+    Text {
+        x: parent.width / 12;
+        y: parent.width / 8;
+        color: black;
+        text: "Copy";
+    }
+}
+
+FaxPage := Page {
+
+    Text {
+        x: parent.width / 12;
+        y: parent.width / 8;
+        color: black;
+        text: "Fax";
+    }
+}
+
+PrintPage := Page {
 
     Rectangle {
         color: #ddd;
@@ -20,8 +44,19 @@ PrintPage := Rectangle {
         height: parent.width / 2;
         Text {
             color: black;
-            text: "World";
+            text: "Print";
         }
+    }
+}
+
+
+SettingsPage := Page {
+
+    Text {
+        x: parent.width / 12;
+        y: parent.width / 8;
+        color: black;
+        text: "Settings";
     }
 }
 
@@ -122,16 +157,47 @@ MainWindow := Rectangle {
         }
     }
 
-    PrintPage {
+    CopyPage {
         height: root.height - root.height / 8;
         width: root.width;
         y: root.height;
-        animate y { duration: 300ms; easing: ease_out; }
         states [
-            active when root.active_page != 0: {
+            active when root.active_page == 1: {
                 y: root.height / 8;
             }
         ]
     }
 
+    FaxPage {
+        height: root.height - root.height / 8;
+        width: root.width;
+        y: root.height;
+        states [
+            active when root.active_page == 2: {
+                y: root.height / 8;
+            }
+        ]
+    }
+
+    PrintPage {
+        height: root.height - root.height / 8;
+        width: root.width;
+        y: root.height;
+        states [
+            active when root.active_page == 3: {
+                y: root.height / 8;
+            }
+        ]
+    }
+
+    SettingsPage {
+        height: root.height - root.height / 8;
+        width: root.width;
+        y: root.height;
+        states [
+            active when root.active_page == 4: {
+                y: root.height / 8;
+            }
+        ]
+    }
 }
