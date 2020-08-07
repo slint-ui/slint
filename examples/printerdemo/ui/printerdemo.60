@@ -63,6 +63,7 @@ MainWindow := Rectangle {
             height: parent.height;
             horizontal_alignment: align_center;
             text: page_info.text;
+            font_size: 28lx;
             animate x, y {
                 duration: 300ms;
                 easing: ease_in_out;
