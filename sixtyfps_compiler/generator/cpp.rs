@@ -85,6 +85,25 @@ mod cpp_ast {
         }
     }
 
+    impl Struct {
+        pub fn extract_definitions(&mut self) -> impl Iterator<Item = Declaration> + '_ {
+            let struct_name = self.name.clone();
+            self.members.iter_mut().filter_map(move |x| match &mut x.1 {
+                Declaration::Function(f) if f.statements.is_some() => {
+                    Some(Declaration::Function(Function {
+                        name: format!("{}::{}", struct_name, f.name),
+                        signature: f.signature.clone(),
+                        is_constructor: f.is_constructor,
+                        is_static: false,
+                        statements: f.statements.take(),
+                        template_parameters: f.template_parameters.clone(),
+                    }))
+                }
+                _ => None,
+            })
+        }
+    }
+
     /// Function or method
     #[derive(Default, Debug)]
     pub struct Function {
@@ -694,7 +713,7 @@ fn generate_component(
             name: component_id.clone(),
             signature: "()".to_owned(),
             is_constructor: true,
-            statements: None,
+            statements: Some(init),
             ..Default::default()
         }),
     ));
@@ -703,9 +722,18 @@ fn generate_component(
         Access::Private,
         Declaration::Function(Function {
             name: "visit_children".into(),
-            signature: "(sixtyfps::ComponentRef, intptr_t, sixtyfps::ItemVisitorRefMut) -> intptr_t"
-                .into(),
+            signature: "(sixtyfps::ComponentRef component, intptr_t index, sixtyfps::ItemVisitorRefMut visitor) -> intptr_t".into(),
             is_static: true,
+            statements: Some(vec![
+                "static const sixtyfps::ItemTreeNode<uint8_t> children[] {".to_owned(),
+                format!("    {} }};", tree_array.join(", ")),
+                "static const auto dyn_visit = [] (const uint8_t *base, [[maybe_unused]] sixtyfps::ItemVisitorRefMut visitor, uintptr_t dyn_index) -> int64_t {".to_owned(),
+                format!("    [[maybe_unused]] auto self = reinterpret_cast<const {}*>(base);", component_id),
+                // Fixme: this is not the root component
+                format!("    switch(dyn_index) {{ {} }};", children_visitor_case.join("")),
+                "    return -1; //should not happen\n};".to_owned(),
+                "return sixtyfps::sixtyfps_visit_item_tree(component, { const_cast<sixtyfps::ItemTreeNode<uint8_t>*>(children), std::size(children)}, index, visitor, dyn_visit);".to_owned(),
+            ]),
             ..Default::default()
         }),
     ));
@@ -716,6 +744,7 @@ fn generate_component(
             name: "compute_layout".into(),
             signature: "(sixtyfps::ComponentRef component) -> void".into(),
             is_static: true,
+            statements: Some(compute_layout(component)),
             ..Default::default()
         }),
     ));
@@ -729,32 +758,9 @@ fn generate_component(
         }),
     ));
 
+    let mut definitions = component_struct.extract_definitions().collect::<Vec<_>>();
     let mut declarations = vec![];
     declarations.push(Declaration::Struct(component_struct));
-
-    declarations.push(Declaration::Function(Function {
-        name: format!("{0}::{0}", component_id),
-        signature: "()".to_owned(),
-        is_constructor: true,
-        statements: Some(init),
-        ..Default::default()
-    }));
-
-    declarations.push(Declaration::Function(Function {
-        name: format!("{}::visit_children", component_id),
-        signature: "(sixtyfps::ComponentRef component, intptr_t index, sixtyfps::ItemVisitorRefMut visitor) -> intptr_t".into(),
-        statements: Some(vec![
-            "static const sixtyfps::ItemTreeNode<uint8_t> children[] {".to_owned(),
-            format!("    {} }};", tree_array.join(", ")),
-            "static const auto dyn_visit = [] (const uint8_t *base, [[maybe_unused]] sixtyfps::ItemVisitorRefMut visitor, uintptr_t dyn_index) -> int64_t {".to_owned(),
-            format!("    [[maybe_unused]] auto self = reinterpret_cast<const {}*>(base);", component_id),
-            // Fixme: this is not the root component
-            format!("    switch(dyn_index) {{ {} }};", children_visitor_case.join("")),
-            "    return -1; //should not happen\n};".to_owned(),
-            "return sixtyfps::sixtyfps_visit_item_tree(component, { const_cast<sixtyfps::ItemTreeNode<uint8_t>*>(children), std::size(children)}, index, visitor, dyn_visit);".to_owned(),
-        ]),
-        ..Default::default()
-    }));
 
     declarations.push(Declaration::Var(Var {
         ty: "const sixtyfps::ComponentVTable".to_owned(),
@@ -763,13 +769,7 @@ fn generate_component(
     }));
 
     declarations.append(&mut file.declarations);
-
-    declarations.push(Declaration::Function(Function {
-        name: format!("{}::compute_layout", component_id),
-        signature: "(sixtyfps::ComponentRef component) -> void".into(),
-        statements: Some(compute_layout(component)),
-        ..Default::default()
-    }));
+    declarations.append(&mut definitions);
 
     file.declarations = declarations;
 }
