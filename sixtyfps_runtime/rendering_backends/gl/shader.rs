@@ -4,14 +4,15 @@ use super::{
     GLContext, Vertex,
 };
 use glow::HasContext;
+use std::rc::Rc;
 
-#[derive(Clone)]
 struct Shader {
     program: <GLContext as HasContext>::Program,
+    context: Rc<glow::Context>,
 }
 
 impl Shader {
-    fn new(gl: &GLContext, vertex_shader_source: &str, fragment_shader_source: &str) -> Shader {
+    fn new(gl: &Rc<GLContext>, vertex_shader_source: &str, fragment_shader_source: &str) -> Shader {
         let program = unsafe { gl.create_program().expect("Cannot create program") };
 
         let shader_sources = [
@@ -46,7 +47,7 @@ impl Shader {
             }
         }
 
-        Shader { program }
+        Shader { context: gl.clone(), program }
     }
 
     pub fn use_program(&self, gl: &glow::Context) {
@@ -54,24 +55,26 @@ impl Shader {
             gl.use_program(Some(self.program));
         }
     }
+}
 
-    pub fn drop(&mut self, gl: &GLContext) {
+impl Drop for Shader {
+    fn drop(&mut self) {
         unsafe {
-            gl.delete_program(self.program);
+            self.context.delete_program(self.program);
         }
     }
 }
 
 #[derive(Clone)]
 pub(crate) struct PathShader {
-    inner: Shader,
+    inner: Rc<Shader>,
     matrix_location: <GLContext as HasContext>::UniformLocation,
     vertcolor_location: <GLContext as HasContext>::UniformLocation,
     pos_location: u32,
 }
 
 impl PathShader {
-    pub fn new(gl: &glow::Context) -> Self {
+    pub fn new(gl: &Rc<glow::Context>) -> Self {
         const PATH_VERTEX_SHADER: &str = r#"#version 100
         attribute vec2 pos;
         uniform vec4 vertcolor;
@@ -90,7 +93,7 @@ impl PathShader {
             gl_FragColor = fragcolor;
         }"#;
 
-        let inner = Shader::new(&gl, PATH_VERTEX_SHADER, PATH_FRAGMENT_SHADER);
+        let inner = Rc::new(Shader::new(&gl, PATH_VERTEX_SHADER, PATH_FRAGMENT_SHADER));
 
         let matrix_location = unsafe { gl.get_uniform_location(inner.program, "matrix").unwrap() };
         let vertcolor_location =
@@ -127,15 +130,11 @@ impl PathShader {
 
         indices.bind(&gl);
     }
-
-    pub fn drop(&mut self, gl: &glow::Context) {
-        self.inner.drop(gl)
-    }
 }
 
 #[derive(Clone)]
 pub(crate) struct ImageShader {
-    inner: Shader,
+    inner: Rc<Shader>,
     matrix_location: <GLContext as HasContext>::UniformLocation,
     tex_location: <GLContext as HasContext>::UniformLocation,
     pos_location: u32,
@@ -143,7 +142,7 @@ pub(crate) struct ImageShader {
 }
 
 impl ImageShader {
-    pub fn new(gl: &glow::Context) -> Self {
+    pub fn new(gl: &Rc<glow::Context>) -> Self {
         const IMAGE_VERTEX_SHADER: &str = r#"#version 100
         attribute vec2 pos;
         attribute vec2 tex_pos;
@@ -161,7 +160,7 @@ impl ImageShader {
             gl_FragColor = texture2D(tex, frag_tex_pos);
         }"#;
 
-        let inner = Shader::new(&gl, IMAGE_VERTEX_SHADER, IMAGE_FRAGMENT_SHADER);
+        let inner = Rc::new(Shader::new(&gl, IMAGE_VERTEX_SHADER, IMAGE_FRAGMENT_SHADER));
 
         let matrix_location = unsafe { gl.get_uniform_location(inner.program, "matrix").unwrap() };
         let tex_location = unsafe { gl.get_uniform_location(inner.program, "tex").unwrap() };
@@ -190,16 +189,12 @@ impl ImageShader {
 
         tex_pos.bind(&gl, self.tex_pos_location);
     }
-
-    pub fn drop(&mut self, gl: &glow::Context) {
-        self.inner.drop(gl)
-    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 #[derive(Clone)]
 pub(crate) struct GlyphShader {
-    inner: Shader,
+    inner: Rc<Shader>,
     matrix_location: <GLContext as HasContext>::UniformLocation,
     text_color_location: <GLContext as HasContext>::UniformLocation,
     tex_location: <GLContext as HasContext>::UniformLocation,
@@ -209,7 +204,7 @@ pub(crate) struct GlyphShader {
 
 #[cfg(not(target_arch = "wasm32"))]
 impl GlyphShader {
-    pub fn new(gl: &glow::Context) -> Self {
+    pub fn new(gl: &Rc<glow::Context>) -> Self {
         const GLYPH_VERTEX_SHADER: &str = r#"#version 100
         attribute vec2 pos;
         attribute vec2 tex_pos;
@@ -231,7 +226,7 @@ impl GlyphShader {
             gl_FragColor = fragcolor * texture2D(tex, frag_tex_pos).a;
         }"#;
 
-        let inner = Shader::new(&gl, GLYPH_VERTEX_SHADER, GLYPH_FRAGMENT_SHADER);
+        let inner = Rc::new(Shader::new(&gl, GLYPH_VERTEX_SHADER, GLYPH_FRAGMENT_SHADER));
 
         let matrix_location = unsafe { gl.get_uniform_location(inner.program, "matrix").unwrap() };
         let text_color_location =
@@ -281,9 +276,5 @@ impl GlyphShader {
         pos.bind(&gl, self.pos_location);
 
         tex_pos.bind(&gl, self.tex_pos_location);
-    }
-
-    pub fn drop(&mut self, gl: &glow::Context) {
-        self.inner.drop(gl)
     }
 }
