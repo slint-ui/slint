@@ -4,14 +4,16 @@ use super::{
     GLContext, Vertex,
 };
 use glow::HasContext;
+use std::rc::Rc;
 
 #[derive(Clone)]
 struct Shader {
     program: <GLContext as HasContext>::Program,
+    context: Rc<glow::Context>,
 }
 
 impl Shader {
-    fn new(gl: &GLContext, vertex_shader_source: &str, fragment_shader_source: &str) -> Shader {
+    fn new(gl: &Rc<GLContext>, vertex_shader_source: &str, fragment_shader_source: &str) -> Shader {
         let program = unsafe { gl.create_program().expect("Cannot create program") };
 
         let shader_sources = [
@@ -46,7 +48,7 @@ impl Shader {
             }
         }
 
-        Shader { program }
+        Shader { context: gl.clone(), program }
     }
 
     pub fn use_program(&self, gl: &glow::Context) {
@@ -54,10 +56,12 @@ impl Shader {
             gl.use_program(Some(self.program));
         }
     }
+}
 
-    pub fn drop(&mut self, gl: &GLContext) {
+impl Drop for Shader {
+    fn drop(&mut self) {
         unsafe {
-            gl.delete_program(self.program);
+            self.context.delete_program(self.program);
         }
     }
 }
@@ -71,7 +75,7 @@ pub(crate) struct PathShader {
 }
 
 impl PathShader {
-    pub fn new(gl: &glow::Context) -> Self {
+    pub fn new(gl: &Rc<glow::Context>) -> Self {
         const PATH_VERTEX_SHADER: &str = r#"#version 100
         attribute vec2 pos;
         uniform vec4 vertcolor;
@@ -127,10 +131,6 @@ impl PathShader {
 
         indices.bind(&gl);
     }
-
-    pub fn drop(&mut self, gl: &glow::Context) {
-        self.inner.drop(gl)
-    }
 }
 
 #[derive(Clone)]
@@ -143,7 +143,7 @@ pub(crate) struct ImageShader {
 }
 
 impl ImageShader {
-    pub fn new(gl: &glow::Context) -> Self {
+    pub fn new(gl: &Rc<glow::Context>) -> Self {
         const IMAGE_VERTEX_SHADER: &str = r#"#version 100
         attribute vec2 pos;
         attribute vec2 tex_pos;
@@ -190,10 +190,6 @@ impl ImageShader {
 
         tex_pos.bind(&gl, self.tex_pos_location);
     }
-
-    pub fn drop(&mut self, gl: &glow::Context) {
-        self.inner.drop(gl)
-    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -209,7 +205,7 @@ pub(crate) struct GlyphShader {
 
 #[cfg(not(target_arch = "wasm32"))]
 impl GlyphShader {
-    pub fn new(gl: &glow::Context) -> Self {
+    pub fn new(gl: &Rc<glow::Context>) -> Self {
         const GLYPH_VERTEX_SHADER: &str = r#"#version 100
         attribute vec2 pos;
         attribute vec2 tex_pos;
@@ -281,9 +277,5 @@ impl GlyphShader {
         pos.bind(&gl, self.pos_location);
 
         tex_pos.bind(&gl, self.tex_pos_location);
-    }
-
-    pub fn drop(&mut self, gl: &glow::Context) {
-        self.inner.drop(gl)
     }
 }
