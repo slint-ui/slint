@@ -310,6 +310,7 @@ fn generate_component(root_component: &Rc<object_tree::Component>) -> Rc<Compone
                 rtti_for::<qt_style::QtStyleButton>(),
                 rtti_for::<qt_style::QtStyleCheckBox>(),
                 rtti_for::<qt_style::QtStyleSpinBox>(),
+                rtti_for::<qt_style::QtStyleSlider>(),
             ]
             .iter()
             .cloned(),

@@ -454,3 +454,201 @@ impl ItemConsts for QtStyleSpinBox {
 }
 
 ItemVTable_static! { #[no_mangle] pub static QtStyleSpinBoxVTable for QtStyleSpinBox }
+
+#[derive(Default, Copy, Clone, Debug)]
+#[repr(C)]
+struct QtStyleSliderData {
+    active_controls: u32,
+    pressed_position: Option<(f32, f32)>,
+    pressed_val: f32,
+}
+
+#[repr(C)]
+#[derive(FieldOffsets, Default, BuiltinItem)]
+#[pin]
+pub struct QtStyleSlider {
+    pub x: Property<f32>,
+    pub y: Property<f32>,
+    pub width: Property<f32>,
+    pub height: Property<f32>,
+    pub value: Property<f32>,
+    pub min: Property<f32>,
+    pub max: Property<f32>,
+    pub cached_rendering_data: CachedRenderingData,
+    data: Property<QtStyleSliderData>,
+}
+
+#[cfg(have_qt)]
+cpp! {{
+void initQSliderOptions(QStyleOptionSlider &option, bool pressed, int active_controls, int minimum, int maximum, int value) {
+    option.subControls = QStyle::SC_SliderGroove | QStyle::SC_SliderHandle;
+    option.activeSubControls = { active_controls };
+    option.orientation = Qt::Horizontal;
+    option.maximum = maximum;
+    option.minimum = minimum;
+    option.sliderPosition = value;
+    option.sliderValue = value;
+    option.state = QStyle::State_Enabled | QStyle::State_Active | QStyle::State_Horizontal;
+    if (pressed) {
+        option.state |= QStyle::State_Sunken | QStyle::State_MouseOver;
+    }
+}
+}}
+
+impl Item for QtStyleSlider {
+    fn geometry(self: Pin<&Self>) -> Rect {
+        euclid::rect(
+            Self::FIELD_OFFSETS.x.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.y.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.width.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.height.apply_pin(self).get(),
+        )
+    }
+    fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
+        #[cfg(have_qt)]
+        {
+            let value = Self::FIELD_OFFSETS.value.apply_pin(self).get() as i32;
+            let min = Self::FIELD_OFFSETS.min.apply_pin(self).get() as i32;
+            let max = Self::FIELD_OFFSETS.max.apply_pin(self).get() as i32;
+            let size: qttypes::QSize = qttypes::QSize {
+                width: Self::FIELD_OFFSETS.width.apply_pin(self).get() as _,
+                height: Self::FIELD_OFFSETS.height.apply_pin(self).get() as _,
+            };
+            let data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
+            let active_controls = data.active_controls;
+            let pressed = data.pressed_position.is_some();
+
+            let img = cpp!(unsafe [
+                value as "int",
+                min as "int",
+                max as "int",
+                size as "QSize",
+                active_controls as "int",
+                pressed as "bool"
+            ] -> qttypes::QImage as "QImage" {
+                ensure_initialized();
+                QImage img(size, QImage::Format_ARGB32);
+                img.fill(Qt::transparent);
+                QPainter p(&img);
+                QStyleOptionSlider option;
+                option.rect = img.rect();
+                initQSliderOptions(option, pressed, active_controls, min, max, value);
+                auto style = qApp->style();
+                style->drawComplexControl(QStyle::CC_Slider, &option, &p, nullptr);
+                return img;
+            });
+            return HighLevelRenderingPrimitive::Image { source: to_resource(img) };
+        }
+        #[cfg(not(have_qt))]
+        HighLevelRenderingPrimitive::NoContents
+    }
+
+    fn rendering_variables(self: Pin<&Self>) -> SharedArray<RenderingVariable> {
+        SharedArray::from(&[])
+    }
+
+    fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
+        #[cfg(have_qt)]
+        {
+            let value = Self::FIELD_OFFSETS.value.apply_pin(self).get() as i32;
+            let min = Self::FIELD_OFFSETS.min.apply_pin(self).get() as i32;
+            let max = Self::FIELD_OFFSETS.max.apply_pin(self).get() as i32;
+            let data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
+            let active_controls = data.active_controls;
+            let pressed = data.pressed_position.is_some();
+
+            let size = cpp!(unsafe [
+                value as "int",
+                min as "int",
+                max as "int",
+                active_controls as "int",
+                pressed as "bool"
+            ] -> qttypes::QSize as "QSize" {
+                ensure_initialized();
+                QStyleOptionSlider option;
+                initQSliderOptions(option, pressed, active_controls, min, max, value);
+                auto style = qApp->style();
+                auto thick = style->pixelMetric(QStyle::PM_SliderThickness, &option, nullptr);
+                return style->sizeFromContents(QStyle::CT_Slider, &option, QSize(0, thick), nullptr)
+                    .expandedTo(QApplication::globalStrut());
+            });
+            LayoutInfo {
+                min_width: size.width as f32,
+                min_height: size.height as f32,
+                max_height: size.height as f32,
+                ..LayoutInfo::default()
+            }
+        }
+        #[cfg(not(have_qt))]
+        LayoutInfo::default()
+    }
+
+    fn input_event(self: Pin<&Self>, event: MouseEvent) -> InputEventResult {
+        #[allow(unused)]
+        let mut result = InputEventResult::EventIgnored;
+        #[cfg(have_qt)]
+        {
+            let size: qttypes::QSize = qttypes::QSize {
+                width: Self::FIELD_OFFSETS.width.apply_pin(self).get() as _,
+                height: Self::FIELD_OFFSETS.height.apply_pin(self).get() as _,
+            };
+            let value = Self::FIELD_OFFSETS.value.apply_pin(self).get() as f32;
+            let min = Self::FIELD_OFFSETS.min.apply_pin(self).get() as f32;
+            let max = Self::FIELD_OFFSETS.max.apply_pin(self).get() as f32;
+            let mut data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
+            let active_controls = data.active_controls;
+            let pressed = data.pressed_position.is_some();
+            let pos = qttypes::QPoint { x: event.pos.x as u32, y: event.pos.y as u32 };
+
+            let new_control = cpp!(unsafe [
+                pos as "QPoint",
+                size as "QSize",
+                value as "float",
+                min as "float",
+                max as "float",
+                active_controls as "int",
+                pressed as "bool"
+            ] -> u32 as "int" {
+                ensure_initialized();
+                QStyleOptionSlider option;
+                initQSliderOptions(option, pressed, active_controls, min, max, value);
+                auto style = qApp->style();
+                option.rect = { QPoint{}, size };
+                return style->hitTestComplexControl(QStyle::CC_Slider, &option, pos, nullptr);
+            });
+            result = match event.what {
+                MouseEventType::MousePressed => {
+                    data.pressed_position = Some((event.pos.x as f32, event.pos.y as f32));
+                    data.pressed_val = value;
+                    InputEventResult::GrabMouse
+                }
+                MouseEventType::MouseExit | MouseEventType::MouseReleased => {
+                    data.pressed_position = None;
+                    InputEventResult::EventAccepted
+                }
+                MouseEventType::MouseMoved => {
+                    if let Some((pressed_x, _)) = data.pressed_position {
+                        // FIXME: use QStyle::subControlRect to find out the actual size of the groove
+                        let new_val = data.pressed_val
+                            + ((event.pos.x as f32) - pressed_x) * (max - min) / size.width as f32;
+                        self.value.set(new_val.max(min).min(max));
+                        InputEventResult::GrabMouse
+                    } else {
+                        InputEventResult::EventIgnored
+                    }
+                }
+            };
+            data.active_controls = new_control;
+
+            self.data.set(data);
+        }
+        result
+    }
+}
+
+impl ItemConsts for QtStyleSlider {
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
+        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+}
+
+ItemVTable_static! { #[no_mangle] pub static QtStyleSliderVTable for QtStyleSlider }

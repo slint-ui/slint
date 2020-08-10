@@ -672,6 +672,19 @@ impl TypeRegister {
                 ("value", Type::Int32),
             ],
         );
+        native_class(
+            &mut r,
+            "QtStyleSlider",
+            &[
+                ("x", Type::Length),
+                ("y", Type::Length),
+                ("width", Type::Length),
+                ("height", Type::Length),
+                ("value", Type::Float32),
+                ("min", Type::Float32),
+                ("max", Type::Float32),
+            ],
+        );
 
         Rc::new(RefCell::new(r))
     }
