@@ -540,8 +540,10 @@ impl GLRenderingPrimitivesBuilder {
             &self.context,
             &vec![vertex1, vertex2, vertex3, vertex1, vertex3, vertex4],
         );
-        let texture_vertices =
-            GLArrayBuffer::new(&self.context, &atlas_allocation.sub_texture.normalized_coordinates);
+        let texture_vertices = GLArrayBuffer::new(
+            &self.context,
+            &atlas_allocation.sub_texture.normalized_texture_coordinates(),
+        );
 
         GLRenderingPrimitive::Texture {
             vertices,
@@ -584,7 +586,8 @@ impl GLRenderingPrimitivesBuilder {
                     let vertex4 = Vertex { _pos: [glyph_x, glyph_height] };
 
                     let vertices = [vertex1, vertex2, vertex3, vertex1, vertex3, vertex4];
-                    let texture_vertices = glyph_allocation.sub_texture.normalized_coordinates;
+                    let texture_vertices =
+                        glyph_allocation.sub_texture.normalized_texture_coordinates();
 
                     let texture = glyph_allocation.sub_texture.texture.clone();
 
