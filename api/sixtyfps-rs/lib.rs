@@ -114,6 +114,16 @@ pub fn create_window() -> re_exports::ComponentWindow {
 /// This module contains functions usefull for unit tests
 pub mod testing {
     pub use sixtyfps_corelib::tests::sixtyfps_mock_elapsed_time as mock_elapsed_time;
+    /// Simulate a mouse click
+    pub fn send_mouse_click<
+        X: vtable::HasStaticVTable<sixtyfps_corelib::abi::datastructures::ComponentVTable>,
+    >(
+        component: core::pin::Pin<&X>,
+        x: f32,
+        y: f32,
+    ) {
+        sixtyfps_corelib::tests::sixtyfps_send_mouse_click(vtable::VRef::new_pin(component), x, y);
+    }
 }
 
 /// Include the code generated with the sixtyfps-build crate from the build script

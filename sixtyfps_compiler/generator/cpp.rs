@@ -734,7 +734,7 @@ fn generate_component(
             signature: "(sixtyfps::ComponentRef component, intptr_t index, sixtyfps::TraversalOrder order, sixtyfps::ItemVisitorRefMut visitor) -> intptr_t".into(),
             is_static: true,
             statements: Some(vec![
-                "static const auto dyn_visit = [] (const uint8_t *base, sixtyfps::TraversalOrder order, [[maybe_unused]] sixtyfps::ItemVisitorRefMut visitor, uintptr_t dyn_index) -> int64_t {".to_owned(),
+                "static const auto dyn_visit = [] (const uint8_t *base,  [[maybe_unused]] sixtyfps::TraversalOrder order, [[maybe_unused]] sixtyfps::ItemVisitorRefMut visitor, uintptr_t dyn_index) -> int64_t {".to_owned(),
                 format!("    [[maybe_unused]] auto self = reinterpret_cast<const {}*>(base);", component_id),
                 format!("    switch(dyn_index) {{ {} }};", children_visitor_cases.join("")),
                 "    return -1; //should not happen\n};".to_owned(),

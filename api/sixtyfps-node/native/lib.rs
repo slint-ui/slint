@@ -1,8 +1,7 @@
 use core::cell::RefCell;
 use neon::prelude::*;
 use sixtyfps_compilerlib::typeregister::Type;
-use sixtyfps_corelib::abi::datastructures::WindowProperties;
-use sixtyfps_corelib::{ComponentRefPin, Resource};
+use sixtyfps_corelib::Resource;
 
 use std::rc::Rc;
 
@@ -16,6 +15,25 @@ type GlobalContextCallback =
     dyn for<'b> Fn(&mut ExecuteContext<'b>, &persistent_context::PersistentContext<'b>);
 scoped_tls_hkt::scoped_thread_local!(static GLOBAL_CONTEXT:
     for <'a> &'a dyn Fn(&GlobalContextCallback));
+
+/// This function exists as a workaround so one can access the ExecuteContext from signal handler
+fn run_scoped<'cx, T>(
+    cx: &mut impl Context<'cx>,
+    object_with_persistant_context: Handle<'cx, JsObject>,
+    functor: impl FnOnce() -> Result<T, String>,
+) -> NeonResult<T> {
+    let persistent_context =
+        persistent_context::PersistentContext::from_object(cx, object_with_persistant_context)?;
+    Ok(cx
+        .execute_scoped(|cx| {
+            let cx = RefCell::new(cx);
+            let cx_fn = move |callback: &GlobalContextCallback| {
+                callback(&mut *cx.borrow_mut(), &persistent_context)
+            };
+            GLOBAL_CONTEXT.set(&&cx_fn, functor)
+        })
+        .or_else(|e| cx.throw_error(e))?)
+}
 
 /// Load a .60 files.
 ///
@@ -174,26 +192,6 @@ fn to_js_value<'cx>(
     })
 }
 
-fn show<'cx>(
-    cx: &mut CallContext<'cx, impl neon::object::This>,
-    component: ComponentRefPin,
-    window_props: &WindowProperties,
-    presistent_context: persistent_context::PersistentContext<'cx>,
-) -> JsResult<'cx, JsUndefined> {
-    cx.execute_scoped(|cx| {
-        let cx = RefCell::new(cx);
-        let cx_fn = move |callback: &GlobalContextCallback| {
-            callback(&mut *cx.borrow_mut(), &presistent_context)
-        };
-        GLOBAL_CONTEXT.set(&&cx_fn, || {
-            let window = sixtyfps_rendering_backend_gl::create_gl_window();
-            window.run(component, window_props);
-        })
-    });
-
-    Ok(JsUndefined::new())
-}
-
 declare_types! {
     class SixtyFpsComponentType for WrappedComponentType {
         init(_) {
@@ -249,8 +247,11 @@ declare_types! {
             let mut this = cx.this();
             let component = cx.borrow(&mut this, |x| x.0.clone());
             let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
-            let persistent_context = persistent_context::PersistentContext::from_object(&mut cx, this.downcast().unwrap())?;
-            show(&mut cx, component.borrow(), &component.window_properties(), persistent_context)?;
+            run_scoped(&mut cx,this.downcast().unwrap(), || {
+                let window = sixtyfps_rendering_backend_gl::create_gl_window();
+                window.run(component.borrow(), &component.window_properties());
+                Ok(())
+            })?;
             Ok(JsUndefined::new().as_value(&mut cx))
         }
         method get_property(mut cx) {

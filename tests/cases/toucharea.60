@@ -1,0 +1,78 @@
+TestCase := Rectangle {
+    property <int> touch1;
+    property <int> touch2;
+
+    TouchArea {
+        x: 100px;
+        y: 100px;
+        width: 10px;
+        height: 10px;
+        clicked => { touch1+=1; }
+    }
+    TouchArea {
+        x: 100px;
+        y: 100px;
+        width: 5px;
+        height: 5px;
+        clicked => { touch2+=1; }
+    }
+}
+
+/*
+```cpp
+TestCase instance;
+
+// does not click on anything
+sixtyfps::testing::send_mouse_click(instance, 5., 5.);
+assert(instance.get_touch1() == 0);
+assert(instance.get_touch2() == 0);
+
+// click on second one
+sixtyfps::testing::send_mouse_click(instance, 101., 101.);
+assert(instance.get_touch1() == 0);
+assert(instance.get_touch2() == 1);
+
+// click on first one only
+sixtyfps::testing::send_mouse_click(instance, 108., 108.);
+assert(instance.get_touch1() == 1);
+assert(instance.get_touch2() == 1);
+```
+
+
+```rust
+let instance = TestCase::new();
+let instance = instance.as_ref();
+// does not click on anything
+sixtyfps::testing::send_mouse_click(instance, 5., 5.);
+assert_eq!(instance.get_touch1(), 0);
+assert_eq!(instance.get_touch2(), 0);
+
+// click on second one
+sixtyfps::testing::send_mouse_click(instance, 101., 101.);
+assert_eq!(instance.get_touch1(), 0);
+assert_eq!(instance.get_touch2(), 1);
+
+// click on first one only
+sixtyfps::testing::send_mouse_click(instance, 108., 108.);
+assert_eq!(instance.get_touch1(), 1);
+assert_eq!(instance.get_touch2(), 1);
+```
+
+```js
+var instance = new sixtyfps.TestCase();
+// does not click on anything
+instance.send_mouse_click(5., 5.);
+assert.equal(instance.touch1, 0);
+assert.equal(instance.touch2, 0);
+
+// click on second one
+instance.send_mouse_click(101., 101.);
+assert.equal(instance.touch1, 0);
+assert.equal(instance.touch2, 1);
+
+// click on first one only
+instance.send_mouse_click(108., 108.);
+assert.equal(instance.touch1, 1);
+assert.equal(instance.touch2, 1);
+```
+*/
