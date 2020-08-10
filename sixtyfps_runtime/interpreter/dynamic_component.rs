@@ -452,7 +452,7 @@ fn generate_component(root_component: &Rc<object_tree::Component>) -> Rc<Compone
         None
     };
 
-    let extra_data_offset = builder.add_field_type::<Option<ComponentExtraData>>();
+    let extra_data_offset = builder.add_field_type::<ComponentExtraData>();
 
     extern "C" fn layout_info(_: ComponentRefPin) -> LayoutInfo {
         todo!()
