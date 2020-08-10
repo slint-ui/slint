@@ -1,4 +1,4 @@
-import { Button, CheckBox, SpinBox } from "sixtyfps_widgets.60";
+import { Button, CheckBox, SpinBox, Slider } from "sixtyfps_widgets.60";
 
 App := Rectangle {
     GridLayout {
@@ -29,7 +29,9 @@ App := Rectangle {
             }
         }
         Row {
-            Rectangle {}
+            Slider {
+
+            }
         }
         Row {
             Rectangle {}

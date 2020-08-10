@@ -339,8 +339,16 @@ pub struct TouchArea {
     pub y: Property<f32>,
     pub width: Property<f32>,
     pub height: Property<f32>,
-    /// FIXME: We should anotate this as an "output" property
+    /// FIXME: We should anotate this as an "output" property.
     pub pressed: Property<bool>,
+    /// FIXME: there should be just one property for the point istead of two.
+    /// Could even be merged with pressed in a Property<Option<Point>> (of course, in the
+    /// implementation item only, for the compiler it would stay separate properties)
+    pub pressed_x: Property<f32>,
+    pub pressed_y: Property<f32>,
+    /// FIXME: should maybe be as parameter to the mouse event instead. Or at least just one property
+    pub mouse_x: Property<f32>,
+    pub mouse_y: Property<f32>,
     pub clicked: Signal<()>,
     /// FIXME: remove this
     pub cached_rendering_data: CachedRenderingData,
@@ -368,8 +376,22 @@ impl Item for TouchArea {
     }
 
     fn input_event(self: Pin<&Self>, event: MouseEvent) -> InputEventResult {
+        Self::FIELD_OFFSETS.mouse_x.apply_pin(self).set(event.pos.x);
+        Self::FIELD_OFFSETS.mouse_y.apply_pin(self).set(event.pos.y);
+
+        let result = if matches!(event.what, MouseEventType::MouseReleased) {
+            Self::FIELD_OFFSETS.clicked.apply_pin(self).emit(());
+            InputEventResult::EventAccepted
+        } else {
+            InputEventResult::GrabMouse
+        };
+
         Self::FIELD_OFFSETS.pressed.apply_pin(self).set(match event.what {
-            MouseEventType::MousePressed => true,
+            MouseEventType::MousePressed => {
+                Self::FIELD_OFFSETS.pressed_x.apply_pin(self).set(event.pos.x);
+                Self::FIELD_OFFSETS.pressed_y.apply_pin(self).set(event.pos.y);
+                true
+            }
             MouseEventType::MouseExit | MouseEventType::MouseReleased => false,
             MouseEventType::MouseMoved => {
                 return if Self::FIELD_OFFSETS.pressed.apply_pin(self).get() {
@@ -379,12 +401,7 @@ impl Item for TouchArea {
                 }
             }
         });
-        if matches!(event.what, MouseEventType::MouseReleased) {
-            Self::FIELD_OFFSETS.clicked.apply_pin(self).emit(());
-            InputEventResult::EventAccepted
-        } else {
-            InputEventResult::GrabMouse
-        }
+        result
     }
 }
 

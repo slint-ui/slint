@@ -515,6 +515,10 @@ impl TypeRegister {
                 ("width", Type::Length),
                 ("height", Type::Length),
                 ("pressed", Type::Bool),
+                ("mouse_x", Type::Length),
+                ("mouse_y", Type::Length),
+                ("pressed_x", Type::Length),
+                ("pressed_y", Type::Length),
                 ("clicked", Type::Signal),
             ],
         );

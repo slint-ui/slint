@@ -1,3 +1,5 @@
 export Button := QtStyleButton { }
 export CheckBox := QtStyleCheckBox { }
 export SpinBox := QtStyleSpinBox { }
+// FIXME
+export Slider := QtStyleSpinBox { }

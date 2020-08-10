@@ -8,6 +8,8 @@ export Button := Rectangle {
     border_width: 2lx;
     border_radius: 10lx;
     border_color: black;
+    color: touch_area.pressed ? #ddd : #eee;
+    animate color { duration: 100ms; }
 
     Text {
         text: root.text;
@@ -42,8 +44,8 @@ export CheckBox := Rectangle {
         border_width: 2lx;
         border_radius: root.height / 2;
         border_color: black;
-        color: root.checked ? #eee : #eee;
-        animate x, color { duration: 200ms; }
+        color: touch_area.pressed? #ddd : #eee;
+        animate color { duration: 100ms; }
 
         bubble := Rectangle {
             width: root.height - 8lx;
@@ -82,6 +84,7 @@ SpinBoxButton := Rectangle {
     border_radius: 10lx;
     border_color: black;
     color: touch.pressed ? #ddd : #eee;
+    animate color { duration: 100ms; }
     touch := TouchArea {
         width: parent.width;
         height: parent.height;
@@ -129,6 +132,42 @@ export SpinBox := Rectangle {
         horizontal_alignment: align_center;
         color: black;
     }
+}
 
+export Slider := Rectangle {
+    property<float> max: 100;
+    property<float> min: 0;
+    property<float> value;
+    slider := Rectangle {
+        width: parent.width;
+        y: parent.height / 3;
+        height: parent.height / 3;
+        border_width: 2lx;
+        border_radius: self.height / 2;
+        border_color: black;
+        color: #eee;
+    }
 
+    handle := Rectangle {
+        width: parent.height / 3;
+        height: parent.height;
+        border_width: 2lx;
+        border_radius: self.width / 2;
+        border_color: black;
+        color: touch_area.pressed ? #ddd : #eee;
+        animate color { duration: 100ms; }
+        x: (root.width - handle.width) * (new_value - min)/(max - min);
+        property<float> new_value_tmp : touch_area.pressed
+            ? root.value + (touch_area.mouse_x - touch_area.pressed_x) * (max - min) / (root.width - handle.width)
+            : root.value;
+        property<float> new_value : new_value_tmp < root.min ? root.min
+            : new_value_tmp > root.max ? root.max : new_value_tmp;
+    }
+    touch_area := TouchArea {
+        width: parent.width;
+        height: parent.height;
+        clicked => {
+            root.value = handle.new_value;
+        }
+    }
 }
