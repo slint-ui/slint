@@ -437,6 +437,12 @@ pub struct VOffset<Base, T: ?Sized + VTableMeta, PinFlag = NotPinnedFlag> {
     phantom: PhantomData<FieldOffset<Base, (), PinFlag>>,
 }
 
+impl<Base, T: ?Sized + VTableMeta, PinFlag> core::fmt::Debug for VOffset<Base, T, PinFlag> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "VOffset({})", self.offset)
+    }
+}
+
 impl<Base, T: ?Sized + VTableMeta, Flag> VOffset<Base, T, Flag> {
     #[inline]
     pub fn apply<'a>(self, x: &'a Base) -> VRef<'a, T> {

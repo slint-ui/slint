@@ -19,7 +19,7 @@ pub enum TraversalOrder {
 /// -1 means the visitor will continue
 /// otherwise this is the index of the item that aborted the visit.
 #[repr(transparent)]
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub struct VisitChildrenResult(i64);
 impl VisitChildrenResult {
     /// The result used for a visitor that want to continue the visit
@@ -50,10 +50,20 @@ impl VisitChildrenResult {
         }
     }
 }
+impl core::fmt::Debug for VisitChildrenResult {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        if self.0 == -1 {
+            write!(f, "CONTINUE")
+        } else {
+            write!(f, "({},{})", (self.0 & 0xffff_ffff) as usize, (self.0 >> 32) as usize)
+        }
+    }
+}
 
 /// The item tree is an array of ItemTreeNode representing a static tree of items
 /// within a component.
 #[repr(u8)]
+#[derive(Debug)]
 pub enum ItemTreeNode<T> {
     /// Static item
     Item {

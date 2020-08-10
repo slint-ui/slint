@@ -153,6 +153,12 @@ pub struct Instance {
     _opaque: [u8; 0],
 }
 
+impl core::fmt::Debug for Instance {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Instance({:p})", self)
+    }
+}
+
 /// A pointer to an Instance that automaticaly frees the memory after use
 pub struct InstanceBox(core::ptr::NonNull<Instance>);
 
