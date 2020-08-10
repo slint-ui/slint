@@ -38,10 +38,14 @@ cpp! {{
 
     void ensure_initialized()
     {
-        static int argc  = 1;
-        static char argv[] = "sixtyfps";
-        static char *argv2[] = { argv };
-        static QApplication app(argc, argv2);
+        static auto app [[maybe_unused]]  = []{
+            static int argc  = 1;
+            static char argv[] = "sixtyfps";
+            static char *argv2[] = { argv };
+            // Leak the QApplication, otherwise it crashes on exit
+            // (because the QGuiApplication destructor access some Q_GLOBAL_STATIC which are already gone)
+            return new QApplication(argc, argv2);
+        }();
     }
 }}
 
