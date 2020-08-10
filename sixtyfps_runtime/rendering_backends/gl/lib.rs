@@ -45,10 +45,25 @@ struct PlatformData {
     glyph_shader: GlyphShader,
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(target_arch = "wasm32")]
+struct PlatformData {}
+
 impl PlatformData {
-    fn new(context: &Rc<glow::Context>) -> Self {
+    #[cfg(not(target_arch = "wasm32"))]
+    fn new(context: &glow::Context) -> Self {
         Self { glyph_cache: GlyphCache::default(), glyph_shader: GlyphShader::new(&context) }
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn new(_context: &glow::Context) -> Self {
+        Self {}
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn drop(&mut self, _context: &glow::Context) {}
+    #[cfg(not(target_arch = "wasm32"))]
+    fn drop(&mut self, context: &glow::Context) {
+        self.glyph_shader.drop(&context);
     }
 }
 
@@ -87,7 +102,6 @@ pub struct GLRenderer {
     context: Rc<glow::Context>,
     path_shader: PathShader,
     image_shader: ImageShader,
-    #[cfg(not(target_arch = "wasm32"))]
     platform_data: Rc<RefCell<PlatformData>>,
     texture_atlas: Rc<RefCell<TextureAtlas>>,
     #[cfg(target_arch = "wasm32")]
@@ -175,17 +189,14 @@ impl GLRenderer {
             context.bind_vertex_array(Some(vertex_array_object));
         }
 
-        let context = Rc::new(context);
         let path_shader = PathShader::new(&context);
         let image_shader = ImageShader::new(&context);
-        #[cfg(not(target_arch = "wasm32"))]
         let platform_data = Rc::new(RefCell::new(PlatformData::new(&context)));
 
         GLRenderer {
-            context,
+            context: Rc::new(context),
             path_shader,
             image_shader,
-            #[cfg(not(target_arch = "wasm32"))]
             platform_data,
             texture_atlas: Rc::new(RefCell::new(TextureAtlas::new())),
             #[cfg(target_arch = "wasm32")]
@@ -789,6 +800,14 @@ impl GraphicsFrame for GLFrame {
                 }
             }
         });
+    }
+}
+
+impl Drop for GLRenderer {
+    fn drop(&mut self) {
+        self.path_shader.drop(&self.context);
+        self.image_shader.drop(&self.context);
+        self.platform_data.borrow_mut().drop(&self.context);
     }
 }
 
