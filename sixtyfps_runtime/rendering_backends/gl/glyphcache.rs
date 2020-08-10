@@ -62,7 +62,7 @@ impl CachedFontGlyphs {
 
     pub fn layout_glyphs<'a>(
         &'a mut self,
-        gl: &'a glow::Context,
+        gl: &'a Rc<glow::Context>,
         atlas: &'a mut TextureAtlas,
         text: &'a str,
     ) -> impl Iterator<Item = &PreRenderedGlyph> + 'a {
@@ -81,7 +81,7 @@ impl CachedFontGlyphs {
 
     fn render_glyph(
         &self,
-        gl: &glow::Context,
+        gl: &Rc<glow::Context>,
         atlas: &mut TextureAtlas,
         ch: char,
         glyph_id: u32,

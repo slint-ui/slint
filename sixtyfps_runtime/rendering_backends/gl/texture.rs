@@ -1,15 +1,22 @@
 use super::{GLContext, Vertex};
 use glow::HasContext;
 use pathfinder_geometry::{rect::RectI, vector::Vector2I};
+use std::rc::Rc;
 
-#[derive(Copy, Clone, PartialEq)]
 pub struct GLTexture {
     texture_id: <GLContext as HasContext>::Texture,
+    context: Rc<glow::Context>,
+}
+
+impl PartialEq for GLTexture {
+    fn eq(&self, other: &Self) -> bool {
+        self.texture_id == other.texture_id && Rc::ptr_eq(&self.context, &other.context)
+    }
 }
 
 impl GLTexture {
     fn new_with_size_and_data(
-        gl: &glow::Context,
+        gl: &Rc<glow::Context>,
         width: i32,
         height: i32,
         data: Option<&[u8]>,
@@ -44,11 +51,11 @@ impl GLTexture {
             )
         }
 
-        Self { texture_id }
+        Self { texture_id, context: gl.clone() }
     }
 
     #[cfg(target_arch = "wasm32")]
-    pub fn new_from_canvas(gl: &glow::Context, canvas: &web_sys::HtmlCanvasElement) -> Self {
+    pub fn new_from_canvas(gl: &Rc<glow::Context>, canvas: &web_sys::HtmlCanvasElement) -> Self {
         let texture_id = unsafe { gl.create_texture().unwrap() };
 
         unsafe {
@@ -76,11 +83,11 @@ impl GLTexture {
             )
         }
 
-        Self { texture_id }
+        Self { texture_id, context: gl.clone() }
     }
 
     fn set_sub_image(
-        &mut self,
+        &self,
         gl: &glow::Context,
         x: i32,
         y: i32,
@@ -113,26 +120,25 @@ impl GLTexture {
             gl.uniform_1_i32(Some(&texture_location), 0);
         }
     }
+}
 
-    // TODO #3: make sure we release GL resources
-    /*
-    fn drop(&mut self, gl: &glow::Context) {
+impl Drop for GLTexture {
+    fn drop(&mut self) {
         unsafe {
-            gl.delete_texture(self.texture_id);
+            self.context.delete_texture(self.texture_id);
         }
     }
-    */
 }
 
 pub(crate) struct AtlasTextureAllocation {
-    pub texture: GLTexture,
+    pub texture: Rc<GLTexture>,
     pub texture_coordinates: RectI,
     pub normalized_coordinates: [Vertex; 6],
 }
 
 impl AtlasTextureAllocation {
     fn new(
-        texture: GLTexture,
+        texture: Rc<GLTexture>,
         allocator: &guillotiere::AtlasAllocator,
         allocation: guillotiere::Allocation,
     ) -> Self {
@@ -171,7 +177,7 @@ impl AtlasTextureAllocation {
 
 struct GLAtlasTexture {
     index_in_atlases: usize,
-    texture: GLTexture,
+    texture: Rc<GLTexture>,
     allocator: guillotiere::AtlasAllocator,
 }
 
@@ -181,14 +187,14 @@ pub struct AtlasAllocation {
 }
 
 impl GLAtlasTexture {
-    fn new(gl: &glow::Context, index_in_atlases: usize) -> Self {
+    fn new(gl: &Rc<glow::Context>, index_in_atlases: usize) -> Self {
         let allocator = guillotiere::AtlasAllocator::new(guillotiere::Size::new(2048, 2048));
-        let texture = GLTexture::new_with_size_and_data(
+        let texture = Rc::new(GLTexture::new_with_size_and_data(
             gl,
             allocator.size().width,
             allocator.size().height,
             None,
-        );
+        ));
         Self { index_in_atlases, texture, allocator }
     }
 
@@ -197,7 +203,7 @@ impl GLAtlasTexture {
             |guillotiere_alloc| AtlasAllocation {
                 atlas_index: self.index_in_atlases,
                 sub_texture: AtlasTextureAllocation::new(
-                    self.texture,
+                    self.texture.clone(),
                     &self.allocator,
                     guillotiere_alloc,
                 ),
@@ -217,7 +223,7 @@ impl TextureAtlas {
 
     fn allocate_region(
         &mut self,
-        gl: &glow::Context,
+        gl: &Rc<glow::Context>,
         requested_width: i32,
         requested_height: i32,
     ) -> AtlasAllocation {
@@ -236,7 +242,7 @@ impl TextureAtlas {
 
     pub fn allocate_image_in_atlas(
         &mut self,
-        gl: &glow::Context,
+        gl: &Rc<glow::Context>,
         image: image::ImageBuffer<image::Rgba<u8>, &[u8]>,
     ) -> AtlasAllocation {
         let requested_width = image.width() as i32;

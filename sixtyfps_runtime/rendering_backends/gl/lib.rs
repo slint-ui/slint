@@ -61,7 +61,7 @@ pub(crate) struct Vertex {
 struct GlyphRun {
     vertices: GLArrayBuffer<Vertex>,
     texture_vertices: GLArrayBuffer<Vertex>,
-    texture: GLTexture,
+    texture: Rc<GLTexture>,
     vertex_count: i32,
 }
 
@@ -73,7 +73,7 @@ enum GLRenderingPrimitive {
     Texture {
         vertices: GLArrayBuffer<Vertex>,
         texture_vertices: GLArrayBuffer<Vertex>,
-        texture: GLTexture,
+        texture: Rc<GLTexture>,
         image_size: Size,
     },
     #[cfg(not(target_arch = "wasm32"))]
@@ -586,14 +586,14 @@ impl GLRenderingPrimitivesBuilder {
                     let vertices = [vertex1, vertex2, vertex3, vertex1, vertex3, vertex4];
                     let texture_vertices = glyph_allocation.sub_texture.normalized_coordinates;
 
-                    let texture = glyph_allocation.sub_texture.texture;
+                    let texture = glyph_allocation.sub_texture.texture.clone();
 
                     Some((vertices, texture_vertices, texture))
                 } else {
                     None
                 }
             })
-            .group_by(|(_, _, texture)| *texture)
+            .group_by(|(_, _, texture)| texture.clone())
             .into_iter()
             .map(|(texture, glyph_it)| {
                 let glyph_count = glyph_it.size_hint().0;
@@ -632,7 +632,7 @@ impl GLRenderingPrimitivesBuilder {
             sixtyfps_corelib::font::FONT_CACHE.with(|fc| fc.find_font(font_family, pixel_size));
         let text_canvas = font.render_text(text, color);
 
-        let texture = GLTexture::new_from_canvas(&self.context, &text_canvas);
+        let texture = Rc::new(GLTexture::new_from_canvas(&self.context, &text_canvas));
 
         let rect = Rect::new(
             Point::new(0.0, 0.0),
