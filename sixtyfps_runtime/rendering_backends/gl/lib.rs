@@ -65,6 +65,22 @@ struct GlyphRun {
     vertex_count: i32,
 }
 
+enum RenderingTexture {
+    #[cfg(target_arch = "wasm32")]
+    PlainTexture(Rc<GLTexture>),
+    AtlasTexture(texture::AtlasAllocation),
+}
+
+impl AsRef<GLTexture> for RenderingTexture {
+    fn as_ref(&self) -> &GLTexture {
+        match self {
+            #[cfg(target_arch = "wasm32")]
+            RenderingTexture::PlainTexture(pt) => pt,
+            RenderingTexture::AtlasTexture(atlas_alloc) => atlas_alloc.atlas.texture.as_ref(),
+        }
+    }
+}
+
 enum GLRenderingPrimitive {
     FillPath {
         vertices: GLArrayBuffer<Vertex>,
@@ -73,7 +89,7 @@ enum GLRenderingPrimitive {
     Texture {
         vertices: GLArrayBuffer<Vertex>,
         texture_vertices: GLArrayBuffer<Vertex>,
-        texture: Rc<GLTexture>,
+        texture: RenderingTexture,
         image_size: Size,
     },
     #[cfg(not(target_arch = "wasm32"))]
@@ -540,15 +556,13 @@ impl GLRenderingPrimitivesBuilder {
             &self.context,
             &vec![vertex1, vertex2, vertex3, vertex1, vertex3, vertex4],
         );
-        let texture_vertices = GLArrayBuffer::new(
-            &self.context,
-            &atlas_allocation.sub_texture.normalized_texture_coordinates(),
-        );
+        let texture_vertices =
+            GLArrayBuffer::new(&self.context, &atlas_allocation.normalized_texture_coordinates());
 
         GLRenderingPrimitive::Texture {
             vertices,
             texture_vertices,
-            texture: atlas_allocation.sub_texture.texture,
+            texture: RenderingTexture::AtlasTexture(atlas_allocation),
             image_size,
         }
     }
@@ -575,10 +589,8 @@ impl GLRenderingPrimitivesBuilder {
                 x += cached_glyph.advance;
 
                 if let Some(glyph_allocation) = &cached_glyph.glyph_allocation {
-                    let glyph_width =
-                        glyph_allocation.sub_texture.texture_coordinates.width() as f32;
-                    let glyph_height =
-                        glyph_allocation.sub_texture.texture_coordinates.height() as f32;
+                    let glyph_width = glyph_allocation.texture_coordinates.width() as f32;
+                    let glyph_height = glyph_allocation.texture_coordinates.height() as f32;
 
                     let vertex1 = Vertex { _pos: [glyph_x, 0.] };
                     let vertex2 = Vertex { _pos: [glyph_x + glyph_width, 0.] };
@@ -586,17 +598,14 @@ impl GLRenderingPrimitivesBuilder {
                     let vertex4 = Vertex { _pos: [glyph_x, glyph_height] };
 
                     let vertices = [vertex1, vertex2, vertex3, vertex1, vertex3, vertex4];
-                    let texture_vertices =
-                        glyph_allocation.sub_texture.normalized_texture_coordinates();
+                    let texture_vertices = glyph_allocation.normalized_texture_coordinates();
 
-                    let texture = glyph_allocation.sub_texture.texture.clone();
-
-                    Some((vertices, texture_vertices, texture))
+                    Some((vertices, texture_vertices, glyph_allocation.clone()))
                 } else {
                     None
                 }
             })
-            .group_by(|(_, _, texture)| texture.clone())
+            .group_by(|(_, _, allocation)| allocation.atlas.texture.clone())
             .into_iter()
             .map(|(texture, glyph_it)| {
                 let glyph_count = glyph_it.size_hint().0;
@@ -661,7 +670,12 @@ impl GLRenderingPrimitivesBuilder {
         );
         let texture_vertices = GLArrayBuffer::new(&self.context, &normalized_coordinates);
 
-        GLRenderingPrimitive::Texture { vertices, texture_vertices, texture, image_size: rect.size }
+        GLRenderingPrimitive::Texture {
+            vertices,
+            texture_vertices,
+            texture: RenderingTexture::PlainTexture(texture),
+            image_size: rect.size,
+        }
     }
 
     fn window_scale_factor(&self) -> f32 {
@@ -763,7 +777,7 @@ impl GraphicsFrame for GLFrame {
                 self.image_shader.bind(
                     &self.context,
                     &to_gl_matrix(&matrix),
-                    texture,
+                    texture.as_ref(),
                     vertices,
                     texture_vertices,
                 );

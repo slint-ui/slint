@@ -1,7 +1,7 @@
 use super::{GLContext, Vertex};
 use glow::HasContext;
 use pathfinder_geometry::{rect::RectI, vector::Vector2I};
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
 pub struct GLTexture {
     texture_id: <GLContext as HasContext>::Texture,
@@ -137,25 +137,27 @@ impl Drop for GLTexture {
     }
 }
 
-pub(crate) struct AtlasTextureAllocation {
-    pub texture: Rc<GLTexture>,
-    pub texture_coordinates: RectI, // excludes padding
+pub(crate) struct GLAtlasTexture {
+    pub(crate) texture: Rc<GLTexture>,
+    allocator: RefCell<guillotiere::AtlasAllocator>,
 }
 
-impl AtlasTextureAllocation {
-    fn new(texture: Rc<GLTexture>, allocation: guillotiere::Allocation) -> Self {
-        let min = allocation.rectangle.min;
-        let size = allocation.rectangle.max - allocation.rectangle.min;
-        let origin = Vector2I::new(min.x, min.y);
-        let size = Vector2I::new(size.x, size.y);
-        let texture_coordinates = RectI::new(origin, size);
+pub struct AtlasAllocation {
+    pub texture_coordinates: RectI, // excludes padding
+    allocation_id: guillotiere::AllocId,
+    pub(crate) atlas: Rc<GLAtlasTexture>,
+}
 
-        AtlasTextureAllocation { texture, texture_coordinates }
+impl Drop for AtlasAllocation {
+    fn drop(&mut self) {
+        self.atlas.allocator.borrow_mut().deallocate(self.allocation_id)
     }
+}
 
-    pub fn normalized_texture_coordinates(&self) -> [Vertex; 6] {
-        let atlas_width = self.texture.width as f32;
-        let atlas_height = self.texture.height as f32;
+impl AtlasAllocation {
+    pub(crate) fn normalized_texture_coordinates(&self) -> [Vertex; 6] {
+        let atlas_width = self.atlas.texture.width as f32;
+        let atlas_height = self.atlas.texture.height as f32;
         let origin = self.texture_coordinates.origin();
         let size = self.texture_coordinates.size();
         let texture_coordinates = RectI::new(origin, size);
@@ -174,19 +176,8 @@ impl AtlasTextureAllocation {
     }
 }
 
-struct GLAtlasTexture {
-    index_in_atlases: usize,
-    texture: Rc<GLTexture>,
-    allocator: guillotiere::AtlasAllocator,
-}
-
-pub struct AtlasAllocation {
-    atlas_index: usize,
-    pub(crate) sub_texture: AtlasTextureAllocation,
-}
-
 impl GLAtlasTexture {
-    fn new(gl: &Rc<glow::Context>, index_in_atlases: usize) -> Self {
+    fn new(gl: &Rc<glow::Context>) -> Self {
         let allocator = guillotiere::AtlasAllocator::new(guillotiere::Size::new(2048, 2048));
         let texture = Rc::new(GLTexture::new_with_size_and_data(
             gl,
@@ -194,21 +185,35 @@ impl GLAtlasTexture {
             allocator.size().height,
             None,
         ));
-        Self { index_in_atlases, texture, allocator }
+        Self { texture, allocator: RefCell::new(allocator) }
     }
 
-    fn allocate(&mut self, requested_width: i32, requested_height: i32) -> Option<AtlasAllocation> {
-        self.allocator.allocate(guillotiere::Size::new(requested_width, requested_height)).map(
-            |guillotiere_alloc| AtlasAllocation {
-                atlas_index: self.index_in_atlases,
-                sub_texture: AtlasTextureAllocation::new(self.texture.clone(), guillotiere_alloc),
-            },
-        )
+    fn allocate(
+        self: Rc<Self>,
+        requested_width: i32,
+        requested_height: i32,
+    ) -> Option<AtlasAllocation> {
+        self.allocator
+            .borrow_mut()
+            .allocate(guillotiere::Size::new(requested_width, requested_height))
+            .map(|guillotiere_alloc| {
+                let min = guillotiere_alloc.rectangle.min;
+                let size = guillotiere_alloc.rectangle.max - guillotiere_alloc.rectangle.min;
+                let origin = Vector2I::new(min.x, min.y);
+                let size = Vector2I::new(size.x, size.y);
+                let texture_coordinates = RectI::new(origin, size);
+
+                AtlasAllocation {
+                    texture_coordinates,
+                    allocation_id: guillotiere_alloc.id,
+                    atlas: self.clone(),
+                }
+            })
     }
 }
 
 pub struct TextureAtlas {
-    atlases: Vec<GLAtlasTexture>,
+    atlases: Vec<Rc<GLAtlasTexture>>,
 }
 
 impl TextureAtlas {
@@ -223,13 +228,12 @@ impl TextureAtlas {
         requested_height: i32,
     ) -> AtlasAllocation {
         self.atlases
-            .iter_mut()
-            .find_map(|atlas| atlas.allocate(requested_width, requested_height))
+            .iter()
+            .find_map(|atlas| atlas.clone().allocate(requested_width, requested_height))
             .unwrap_or_else(|| {
-                let atlas_index = self.atlases.len();
-                let mut new_atlas = GLAtlasTexture::new(&gl, atlas_index);
+                let new_atlas = Rc::new(GLAtlasTexture::new(&gl));
                 let atlas_allocation =
-                    new_atlas.allocate(requested_width, requested_height).unwrap();
+                    new_atlas.clone().allocate(requested_width, requested_height).unwrap();
                 self.atlases.push(new_atlas);
                 atlas_allocation
             })
@@ -298,17 +302,16 @@ impl TextureAtlas {
 
         let mut allocation = self.allocate_region(gl, requested_width as _, requested_height as _);
 
-        let texture = &mut self.atlases[allocation.atlas_index].texture;
-        texture.set_sub_image(
+        allocation.atlas.texture.set_sub_image(
             gl,
-            allocation.sub_texture.texture_coordinates.origin_x(),
-            allocation.sub_texture.texture_coordinates.origin_y(),
+            allocation.texture_coordinates.origin_x(),
+            allocation.texture_coordinates.origin_y(),
             padded_image,
         );
 
         // Remove the padding from the coordinates we use for sampling
-        allocation.sub_texture.texture_coordinates =
-            allocation.sub_texture.texture_coordinates.contract(Vector2I::new(1, 1));
+        allocation.texture_coordinates =
+            allocation.texture_coordinates.contract(Vector2I::new(1, 1));
 
         allocation
     }
