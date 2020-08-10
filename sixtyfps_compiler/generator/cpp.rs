@@ -356,7 +356,7 @@ fn handle_repeater(
     repeater_count: i32,
     component_struct: &mut Struct,
     init: &mut Vec<String>,
-    children_repeater_cases: &mut Vec<String>,
+    children_visitor_cases: &mut Vec<String>,
     repeated_input_branch: &mut Vec<String>,
 ) {
     let repeater_id =
@@ -372,8 +372,8 @@ fn handle_repeater(
     };
 
     if repeated.model.is_constant() {
-        children_repeater_cases.push(format!(
-            "\n        case {i}: return self->{id}.visit(visitor);",
+        children_visitor_cases.push(format!(
+            "\n        case {i}: return self->{id}.visit(order, visitor);",
             id = repeater_id,
             i = repeater_count
         ));
@@ -392,14 +392,14 @@ fn handle_repeater(
                 init: None,
             }),
         ));
-        children_repeater_cases.push(format!(
+        children_visitor_cases.push(format!(
             "\n        case {i}: {{
                 if (self->model_{i}.is_dirty()) {{
                     self->model_{i}.evaluate([&] {{
                         self->{id}.update_model({model}, self);
                     }});
                 }}
-                self->{id}.visit(visitor);
+                self->{id}.visit(order, visitor);
                 break;
             }}",
             id = repeater_id,
@@ -667,7 +667,7 @@ fn generate_component(
         ));
     }
 
-    let mut children_visitor_case = vec![];
+    let mut children_visitor_cases = vec![];
     let mut repeated_input_branch = vec![];
     let mut tree_array = vec![];
     let mut repeater_count = 0;
@@ -699,7 +699,7 @@ fn generate_component(
                 repeater_count,
                 &mut component_struct,
                 &mut init,
-                &mut children_visitor_case,
+                &mut children_visitor_cases,
                 &mut repeated_input_branch,
             );
             repeater_count += 1;
@@ -731,15 +731,14 @@ fn generate_component(
         Access::Private,
         Declaration::Function(Function {
             name: "visit_children".into(),
-            signature: "(sixtyfps::ComponentRef component, intptr_t index, sixtyfps::ItemVisitorRefMut visitor) -> intptr_t".into(),
+            signature: "(sixtyfps::ComponentRef component, intptr_t index, sixtyfps::TraversalOrder order, sixtyfps::ItemVisitorRefMut visitor) -> intptr_t".into(),
             is_static: true,
             statements: Some(vec![
-                "static const auto dyn_visit = [] (const uint8_t *base, [[maybe_unused]] sixtyfps::ItemVisitorRefMut visitor, uintptr_t dyn_index) -> int64_t {".to_owned(),
+                "static const auto dyn_visit = [] (const uint8_t *base, sixtyfps::TraversalOrder order, [[maybe_unused]] sixtyfps::ItemVisitorRefMut visitor, uintptr_t dyn_index) -> int64_t {".to_owned(),
                 format!("    [[maybe_unused]] auto self = reinterpret_cast<const {}*>(base);", component_id),
-                // Fixme: this is not the root component
-                format!("    switch(dyn_index) {{ {} }};", children_visitor_case.join("")),
+                format!("    switch(dyn_index) {{ {} }};", children_visitor_cases.join("")),
                 "    return -1; //should not happen\n};".to_owned(),
-                "return sixtyfps::sixtyfps_visit_item_tree(component, item_tree() , index, visitor, dyn_visit);".to_owned(),
+                "return sixtyfps::sixtyfps_visit_item_tree(component, item_tree() , index, order, visitor, dyn_visit);".to_owned(),
             ]),
             ..Default::default()
         }),

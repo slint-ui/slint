@@ -31,6 +31,7 @@ using internal::ComponentVTable;
 using ItemTreeNode = internal::ItemTreeNode<uint8_t>;
 using ComponentRef = VRef<ComponentVTable>;
 using ItemVisitorRefMut = VRefMut<internal::ItemVisitorVTable>;
+using internal::TraversalOrder;
 using internal::EasingCurve;
 using internal::TextHorizontalAlignment;
 using internal::TextVerticalAlignment;
@@ -177,12 +178,13 @@ struct Repeater
         }
     }
 
-    intptr_t visit(ItemVisitorRefMut visitor) const
+    intptr_t visit(TraversalOrder order, ItemVisitorRefMut visitor) const
     {
         for (std::size_t i = 0; i < data.size(); ++i) {
-            VRef<ComponentVTable> ref = item_at(i);
-            if (ref.vtable->visit_children_item(ref, -1, visitor) != -1) {
-                return i;
+            int index = order == TraversalOrder::BackToFront ? i : data.size() - 1 - i;
+            VRef<ComponentVTable> ref = item_at(index);
+            if (ref.vtable->visit_children_item(ref, -1, order, visitor) != -1) {
+                return index;
             }
         }
         return -1;

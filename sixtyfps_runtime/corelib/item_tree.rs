@@ -3,6 +3,13 @@ use crate::ComponentRefPin;
 use core::pin::Pin;
 use vtable::*;
 
+#[repr(u8)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum TraversalOrder {
+    BackToFront,
+    FrontToBack,
+}
+
 /// The return value of the Component::visit_children_item function
 ///
 /// Represents something like `enum { Continue, Aborted{aborted_at_item: isize} }`.
@@ -114,29 +121,31 @@ pub enum ItemVisitorResult<State> {
 /// Returns the index of the item that cancelled, or -1 if nobody cancelled
 pub fn visit_items<State>(
     component: ComponentRefPin,
+    order: TraversalOrder,
     mut visitor: impl FnMut(ComponentRefPin, Pin<ItemRef>, &State) -> ItemVisitorResult<State>,
     state: State,
 ) -> VisitChildrenResult {
-    visit_internal(component, &mut visitor, -1, &state)
+    visit_internal(component, order, &mut visitor, -1, &state)
 }
 
 fn visit_internal<State>(
     component: ComponentRefPin,
+    order: TraversalOrder,
     visitor: &mut impl FnMut(ComponentRefPin, Pin<ItemRef>, &State) -> ItemVisitorResult<State>,
     index: isize,
     state: &State,
 ) -> VisitChildrenResult {
-    let mut actual_visitor = |component: ComponentRefPin,
-                              index: isize,
-                              item: Pin<ItemRef>|
-     -> VisitChildrenResult {
-        match visitor(component, item, state) {
-            ItemVisitorResult::Continue(state) => visit_internal(component, visitor, index, &state),
-            ItemVisitorResult::Abort => VisitChildrenResult::abort(index as usize, 0),
-        }
-    };
+    let mut actual_visitor =
+        |component: ComponentRefPin, index: isize, item: Pin<ItemRef>| -> VisitChildrenResult {
+            match visitor(component, item, state) {
+                ItemVisitorResult::Continue(state) => {
+                    visit_internal(component, order, visitor, index, &state)
+                }
+                ItemVisitorResult::Abort => VisitChildrenResult::abort(index as usize, 0),
+            }
+        };
     vtable::new_vref!(let mut actual_visitor : VRefMut<ItemVisitorVTable> for ItemVisitor = &mut actual_visitor);
-    component.as_ref().visit_children_item(index, actual_visitor)
+    component.as_ref().visit_children_item(index, order, actual_visitor)
 }
 
 /// Visit the children within an array of ItemTreeNode
@@ -152,8 +161,14 @@ pub fn visit_item_tree<Base>(
     component: ComponentRefPin,
     item_tree: &[ItemTreeNode<Base>],
     index: isize,
+    order: TraversalOrder,
     mut visitor: vtable::VRefMut<ItemVisitorVTable>,
-    visit_dynamic: impl Fn(Pin<&Base>, vtable::VRefMut<ItemVisitorVTable>, usize) -> VisitChildrenResult,
+    visit_dynamic: impl Fn(
+        Pin<&Base>,
+        TraversalOrder,
+        vtable::VRefMut<ItemVisitorVTable>,
+        usize,
+    ) -> VisitChildrenResult,
 ) -> VisitChildrenResult {
     let mut visit_at_index = |idx: usize| -> VisitChildrenResult {
         match &item_tree[idx] {
@@ -162,7 +177,7 @@ pub fn visit_item_tree<Base>(
             }
             ItemTreeNode::DynamicTree { index } => {
                 if let Some(sub_idx) =
-                    visit_dynamic(base, visitor.borrow_mut(), *index).aborted_index()
+                    visit_dynamic(base, order, visitor.borrow_mut(), *index).aborted_index()
                 {
                     VisitChildrenResult::abort(idx, sub_idx)
                 } else {
@@ -176,8 +191,12 @@ pub fn visit_item_tree<Base>(
     } else {
         match &item_tree[index as usize] {
             ItemTreeNode::Item { children_index, chilren_count, .. } => {
-                for c in *children_index..(*children_index + *chilren_count) {
-                    let maybe_abort_index = visit_at_index(c as usize);
+                for c in 0..*chilren_count {
+                    let idx = match order {
+                        TraversalOrder::BackToFront => (*children_index + c),
+                        TraversalOrder::FrontToBack => (*children_index + *chilren_count - c - 1),
+                    } as usize;
+                    let maybe_abort_index = visit_at_index(idx);
                     if maybe_abort_index.has_aborted() {
                         return maybe_abort_index;
                     }
@@ -228,9 +247,11 @@ pub(crate) mod ffi {
         component: Pin<VRef<ComponentVTable>>,
         item_tree: Slice<ItemTreeNode<u8>>,
         index: isize,
+        order: TraversalOrder,
         visitor: VRefMut<ItemVisitorVTable>,
         visit_dynamic: extern "C" fn(
             base: &u8,
+            order: TraversalOrder,
             visitor: vtable::VRefMut<ItemVisitorVTable>,
             dyn_index: usize,
         ) -> VisitChildrenResult,
@@ -240,8 +261,9 @@ pub(crate) mod ffi {
             component,
             item_tree.as_slice(),
             index,
+            order,
             visitor,
-            |a, b, c| visit_dynamic(a.get_ref(), b, c),
+            |a, b, c, d| visit_dynamic(a.get_ref(), b, c, d),
         )
     }
 

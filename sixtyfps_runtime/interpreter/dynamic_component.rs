@@ -9,7 +9,9 @@ use sixtyfps_compilerlib::typeregister::Type;
 use sixtyfps_compilerlib::*;
 use sixtyfps_corelib::abi::datastructures::{ComponentVTable, ItemVTable, WindowProperties};
 use sixtyfps_corelib::graphics::Resource;
-use sixtyfps_corelib::item_tree::{ItemTreeNode, ItemVisitorRefMut, VisitChildrenResult};
+use sixtyfps_corelib::item_tree::{
+    ItemTreeNode, ItemVisitorRefMut, TraversalOrder, VisitChildrenResult,
+};
 use sixtyfps_corelib::items::{Flickable, PropertyAnimation, Rectangle};
 use sixtyfps_corelib::layout::LayoutInfo;
 use sixtyfps_corelib::properties::{InterpolatedPropertyValue, PropertyListenerScope};
@@ -157,6 +159,7 @@ pub struct ComponentDescription {
 unsafe extern "C" fn visit_children_item(
     component: ComponentRefPin,
     index: isize,
+    order: TraversalOrder,
     v: ItemVisitorRefMut,
 ) -> VisitChildrenResult {
     let component_type =
@@ -167,8 +170,9 @@ unsafe extern "C" fn visit_children_item(
         component,
         item_tree.as_slice().into(),
         index,
+        order,
         v,
-        |_, mut visitor, index| {
+        |_, order, mut visitor, index| {
             let rep_in_comp = &component_type.repeater[index];
             let vec = &mut *(component.as_ptr().add(rep_in_comp.offset) as *mut RepeaterVec);
             if let Some(listener_offset) = rep_in_comp.listener {
@@ -205,11 +209,31 @@ unsafe extern "C" fn visit_children_item(
                     });
                 }
             }
-            for (i, x) in vec.iter().enumerate() {
-                if x.borrow().as_ref().visit_children_item(-1, visitor.borrow_mut()).has_aborted() {
-                    return VisitChildrenResult::abort(i, 0);
+            match order {
+                TraversalOrder::FrontToBack => {
+                    for (i, x) in vec.iter().enumerate() {
+                        if x.borrow()
+                            .as_ref()
+                            .visit_children_item(-1, order, visitor.borrow_mut())
+                            .has_aborted()
+                        {
+                            return VisitChildrenResult::abort(i, 0);
+                        }
+                    }
+                }
+                TraversalOrder::BackToFront => {
+                    for (i, x) in vec.iter().enumerate().rev() {
+                        if x.borrow()
+                            .as_ref()
+                            .visit_children_item(-1, order, visitor.borrow_mut())
+                            .has_aborted()
+                        {
+                            return VisitChildrenResult::abort(i, 0);
+                        }
+                    }
                 }
             }
+
             VisitChildrenResult::CONTINUE
         },
     )

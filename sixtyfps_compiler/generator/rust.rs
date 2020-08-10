@@ -230,7 +230,7 @@ fn generate_component(
                     });
                 });
                 repeated_visit_branch.push(quote!(
-                    #repeater_index => self_pinned.#repeater_id.visit(visitor),
+                    #repeater_index => self_pinned.#repeater_id.visit(order, visitor),
                 ));
             } else {
                 let model_name = quote::format_ident!("model_{}", repeater_index);
@@ -244,7 +244,7 @@ fn generate_component(
                                 });
                             });
                         }
-                        self_pinned.#repeater_id.visit(visitor)
+                        self_pinned.#repeater_id.visit(order, visitor)
                     }
                 ));
                 repeated_dynmodel_names.push(model_name);
@@ -438,13 +438,13 @@ fn generate_component(
         }
 
         impl sixtyfps::re_exports::Component for #component_id {
-            fn visit_children_item(self: ::core::pin::Pin<&Self>, index: isize, visitor: sixtyfps::re_exports::ItemVisitorRefMut)
+            fn visit_children_item(self: ::core::pin::Pin<&Self>, index: isize, order: sixtyfps::re_exports::TraversalOrder, visitor: sixtyfps::re_exports::ItemVisitorRefMut)
                 -> sixtyfps::re_exports::VisitChildrenResult
             {
                 use sixtyfps::re_exports::*;
-                return sixtyfps::re_exports::visit_item_tree(self, VRef::new_pin(self), Self::item_tree(), index, visitor, visit_dynamic);
+                return sixtyfps::re_exports::visit_item_tree(self, VRef::new_pin(self), Self::item_tree(), index, order, visitor, visit_dynamic);
                 #[allow(unused)]
-                fn visit_dynamic(self_pinned: ::core::pin::Pin<&#component_id>, visitor: ItemVisitorRefMut, dyn_index: usize) -> VisitChildrenResult  {
+                fn visit_dynamic(self_pinned: ::core::pin::Pin<&#component_id>, order: sixtyfps::re_exports::TraversalOrder, visitor: ItemVisitorRefMut, dyn_index: usize) -> VisitChildrenResult  {
                     match dyn_index {
                         #(#repeated_visit_branch)*
                         _ => panic!("invalid dyn_index {}", dyn_index),

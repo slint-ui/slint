@@ -43,10 +43,11 @@ where
     /// Call the visitor for each component
     pub fn visit(
         &self,
+        order: sixtyfps_corelib::item_tree::TraversalOrder,
         mut visitor: sixtyfps_corelib::item_tree::ItemVisitorRefMut,
     ) -> sixtyfps_corelib::item_tree::VisitChildrenResult {
         for (i, c) in self.components.borrow().iter().enumerate() {
-            if c.as_ref().visit_children_item(-1, visitor.borrow_mut()).has_aborted() {
+            if c.as_ref().visit_children_item(-1, order, visitor.borrow_mut()).has_aborted() {
                 return sixtyfps_corelib::item_tree::VisitChildrenResult::abort(i, 0);
             }
         }

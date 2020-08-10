@@ -49,6 +49,7 @@ pub(crate) fn render_component_items<Backend: GraphicsBackend>(
 
     crate::item_tree::visit_items(
         component,
+        crate::item_tree::TraversalOrder::BackToFront,
         |_, item, transform| {
             let origin = item.as_ref().geometry().origin;
             let transform =

@@ -5,7 +5,7 @@ use vtable::*;
 use crate::graphics::{HighLevelRenderingPrimitive, Rect, RenderingVariable};
 use crate::input::{InputEventResult, MouseEvent};
 use crate::item_rendering::CachedRenderingData;
-use crate::item_tree::{ItemVisitorVTable, VisitChildrenResult};
+use crate::item_tree::{ItemVisitorVTable, TraversalOrder, VisitChildrenResult};
 use crate::{layout::LayoutInfo, SharedArray};
 
 /// A Component is representing an unit that is allocated together
@@ -18,6 +18,7 @@ pub struct ComponentVTable {
     pub visit_children_item: extern "C" fn(
         core::pin::Pin<VRef<ComponentVTable>>,
         index: isize,
+        order: TraversalOrder,
         visitor: VRefMut<ItemVisitorVTable>,
     ) -> VisitChildrenResult,
 

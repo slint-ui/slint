@@ -66,6 +66,7 @@ pub fn process_ungrabbed_mouse_event(
     let mut result = InputEventResult::EventIgnored;
     let item_index = crate::item_tree::visit_items(
         component,
+        crate::item_tree::TraversalOrder::FrontToBack,
         |_, item, offset| -> ItemVisitorResult<Vector2D<f32>> {
             let geom = item.as_ref().geometry();
             let geom = geom.translate(*offset);

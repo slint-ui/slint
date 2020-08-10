@@ -87,7 +87,7 @@ pub mod re_exports {
     };
     pub use sixtyfps_corelib::item_tree::{
         item_offset, visit_item_tree, ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable,
-        VisitChildrenResult,
+        TraversalOrder, VisitChildrenResult,
     };
     pub use sixtyfps_corelib::items::*;
     pub use sixtyfps_corelib::layout::LayoutInfo;

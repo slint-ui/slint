@@ -146,8 +146,6 @@ MainWindow := Rectangle {
             clicked => {
                 if (root.active_page == 0) {
                     root.active_page = idx + 1;
-                } else {
-                    root.active_page = 0;
                 }
             }
         }
