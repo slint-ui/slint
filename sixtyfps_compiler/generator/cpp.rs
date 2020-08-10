@@ -357,6 +357,7 @@ fn handle_repeater(
     component_struct: &mut Struct,
     init: &mut Vec<String>,
     children_repeater_cases: &mut Vec<String>,
+    repeated_input_branch: &mut Vec<String>,
 ) {
     let repeater_id =
         format!("repeater_{}", base_component.parent_element.upgrade().unwrap().borrow().id);
@@ -406,6 +407,12 @@ fn handle_repeater(
             model = model,
         ));
     }
+
+    repeated_input_branch.push(format!(
+        "\n        case {i}: return self->{id}.item_at(rep_index);",
+        i = repeater_count,
+        id = repeater_id,
+    ));
 
     component_struct.members.push((
         Access::Private,
@@ -661,6 +668,7 @@ fn generate_component(
     }
 
     let mut children_visitor_case = vec![];
+    let mut repeated_input_branch = vec![];
     let mut tree_array = vec![];
     let mut repeater_count = 0;
     super::build_array_helper(component, |item_rc, children_offset, is_flickable_rect| {
@@ -692,6 +700,7 @@ fn generate_component(
                 &mut component_struct,
                 &mut init,
                 &mut children_visitor_case,
+                &mut repeated_input_branch,
             );
             repeater_count += 1;
         } else {
@@ -770,7 +779,9 @@ fn generate_component(
             is_static: true,
             statements: Some(vec![
                 format!("    auto self = reinterpret_cast<{}*>(component.instance);", component_id),
-                "return sixtyfps::process_input_event(component, self->mouse_grabber, mouse_event, item_tree(), [](auto...) { return sixtyfps::InputEventResult::EventIgnored; });".into()
+                "return sixtyfps::process_input_event(component, self->mouse_grabber, mouse_event, item_tree(), [self](int dyn_index, [[maybe_unused]] int rep_index) {".into(),
+                format!("    switch(dyn_index) {{ {} }};", repeated_input_branch.join("")),
+                "    return sixtyfps::ComponentRef{nullptr, nullptr};\n});".into(),
             ]),
             ..Default::default()
         }),

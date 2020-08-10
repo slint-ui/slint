@@ -82,10 +82,10 @@ constexpr inline ItemTreeNode make_dyn_node(std::uintptr_t offset)
 using internal::sixtyfps_visit_item_tree;
 using internal::MouseEvent;
 using internal::InputEventResult;
-template<typename HandleDynamic>
+template<typename GetDynamic>
 inline InputEventResult process_input_event(
     ComponentRef component, int64_t &mouse_grabber, MouseEvent mouse_event,
-    Slice<ItemTreeNode> tree, HandleDynamic handle_dynamic)
+    Slice<ItemTreeNode> tree, GetDynamic get_dynamic)
 {
      if (mouse_grabber != -1) {
         auto item_index = mouse_grabber & 0xffffffff;
@@ -101,8 +101,10 @@ inline InputEventResult process_input_event(
                     reinterpret_cast<char*>(component.instance) + item_node.item.item.offset,
                 } , mouse_event);
                 break;
-            case ItemTreeNode::Tag::DynamicTree:
-                result = handle_dynamic(item_node.dynamic_tree.index, rep_index, &mouse_event);
+            case ItemTreeNode::Tag::DynamicTree: {
+                ComponentRef comp = get_dynamic(item_node.dynamic_tree.index, rep_index);
+                result = comp.vtable->input_event(comp, mouse_event);
+                }
                 break;
         }
         if (result != InputEventResult::GrabMouse) {
@@ -177,15 +179,20 @@ struct Repeater
 
     intptr_t visit(ItemVisitorRefMut visitor) const
     {
-        for (auto i = 0; i < data.size(); ++i) {
-            const auto &x = data.at(i);
-            VRef<ComponentVTable> ref { &C::component_type, x.get() };
+        for (std::size_t i = 0; i < data.size(); ++i) {
+            VRef<ComponentVTable> ref = item_at(i);
             if (ref.vtable->visit_children_item(ref, -1, visitor) != -1) {
                 return i;
             }
         }
         return -1;
     }
+
+    VRef<ComponentVTable> item_at(int i) const {
+        const auto &x = data.at(i);
+        return { &C::component_type, x.get() };
+    }
+
 };
 
 Flickable::Flickable()
