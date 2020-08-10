@@ -292,18 +292,25 @@ declare_types! {
             let lock = cx.lock();
             let x = this.borrow(&lock).0.clone();
             let component = x.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
-            let persistent_context = persistent_context::PersistentContext::from_object(&mut cx, this.downcast().unwrap())?;
+            run_scoped(&mut cx,this.downcast().unwrap(), || {
+                component.description()
+                    .emit_signal(component.borrow(), signal_name.as_str())
+                    .map_err(|()| "Cannot emit signal".to_string())
+            })?;
+            Ok(JsUndefined::new().as_value(&mut cx))
+        }
 
-            cx.execute_scoped(|cx| {
-                let cx = RefCell::new(cx);
-                let cx_fn = move |callback: &GlobalContextCallback| {
-                    callback(&mut *cx.borrow_mut(), &persistent_context)
-                };
-                GLOBAL_CONTEXT.set(&&cx_fn, || {
-                    component.description()
-                        .emit_signal(component.borrow(), signal_name.as_str())
-                })
-            }).or_else(|_| cx.throw_error(format!("Cannot emit signal")))?;
+        method send_mouse_click(mut cx) {
+            let x = cx.argument::<JsNumber>(0)?.value() as f32;
+            let y = cx.argument::<JsNumber>(1)?.value() as f32;
+            let this = cx.this();
+            let lock = cx.lock();
+            let comp = this.borrow(&lock).0.clone();
+            let component = comp.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            run_scoped(&mut cx,this.downcast().unwrap(), || {
+                sixtyfps_corelib::tests::sixtyfps_send_mouse_click(component.borrow(), x, y);
+                Ok(())
+            })?;
             Ok(JsUndefined::new().as_value(&mut cx))
         }
     }
