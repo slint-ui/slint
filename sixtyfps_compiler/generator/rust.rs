@@ -164,6 +164,8 @@ fn generate_component(
     let mut repeated_visit_branch = Vec::new();
     let mut repeated_input_branch = Vec::new();
     let mut init = Vec::new();
+    let mut maybe_window_field_decl = Vec::new();
+    let mut maybe_window_field_init = Vec::new();
     super::build_array_helper(component, |item_rc, children_index, is_flickable_rect| {
         let item = item_rc.borrow();
         if is_flickable_rect {
@@ -368,6 +370,8 @@ fn generate_component(
             &parent_element.borrow().enclosing_component.upgrade().unwrap(),
         ));
     } else {
+        maybe_window_field_decl.push(quote!(window: sixtyfps::re_exports::ComponentWindow));
+        maybe_window_field_init.push(quote!(window: sixtyfps::create_window()));
         declared_property_vars.push(quote::format_ident!("scale_factor"));
         declared_property_types.push(quote!(f32));
         init.push(quote!(self_pinned.scale_factor.set(1.0);));
@@ -391,9 +395,8 @@ fn generate_component(
         property_and_signal_accessors.push(quote! {
             pub fn run(self : core::pin::Pin<std::rc::Rc<Self>>) {
                 use sixtyfps::re_exports::*;
-                let window = sixtyfps::create_window();
                 let window_props = WindowProperties {width: #width_prop, height: #height_prop, scale_factor: #scale_factor_prop};
-                window.run(VRef::new_pin(self.as_ref()), &window_props);
+                self.as_ref().window.run(VRef::new_pin(self.as_ref()), &window_props);
             }
         });
         property_and_signal_accessors.push(quote! {
@@ -434,7 +437,8 @@ fn generate_component(
             #(#repeated_dynmodel_names : sixtyfps::re_exports::PropertyListenerScope,)*
             self_weak: sixtyfps::re_exports::OnceCell<sixtyfps::re_exports::PinWeak<#component_id>>,
             #(parent : sixtyfps::re_exports::PinWeak<#parent_component_type>,)*
-            mouse_grabber: ::core::cell::Cell<sixtyfps::re_exports::VisitChildrenResult>
+            mouse_grabber: ::core::cell::Cell<sixtyfps::re_exports::VisitChildrenResult>,
+            #(#maybe_window_field_decl,)*
         }
 
         impl sixtyfps::re_exports::Component for #component_id {
@@ -502,6 +506,7 @@ fn generate_component(
                     self_weak : ::core::default::Default::default(),
                     #(parent : parent as sixtyfps::re_exports::PinWeak::<#parent_component_type>,)*
                     mouse_grabber: ::core::cell::Cell::new(sixtyfps::re_exports::VisitChildrenResult::CONTINUE),
+                    #(#maybe_window_field_init,)*
                 };
                 let self_pinned = std::rc::Rc::pin(self_);
                 self_pinned.self_weak.set(PinWeak::downgrade(self_pinned.clone())).map_err(|_|())

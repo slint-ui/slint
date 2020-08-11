@@ -643,6 +643,15 @@ fn generate_component(
         ));
         init.push("self->scale_factor.set(1.);".to_owned());
 
+        component_struct.members.push((
+            Access::Public, // FIXME: many of the different component bindings need to access this
+            Declaration::Var(Var {
+                ty: "sixtyfps::ComponentWindow".into(),
+                name: "window".into(),
+                ..Var::default()
+            }),
+        ));
+
         let window_props = |name| {
             let root_elem = component.root_element.borrow();
 
@@ -665,6 +674,16 @@ fn generate_component(
                 ..Default::default()
             }),
         ));
+
+        component_struct.members.push((
+            Access::Public,
+            Declaration::Function(Function {
+                name: "run".into(),
+                signature: "()".into(),
+                statements: Some(vec!["window.run(this);".into()]),
+                ..Default::default()
+            }),
+        ))
     }
 
     let mut children_visitor_cases = vec![];

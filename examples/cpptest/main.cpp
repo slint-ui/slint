@@ -15,6 +15,5 @@ int main()
         component.set_counter(component.get_counter() - 1);
     });
 
-    sixtyfps::ComponentWindow window;
-    window.run(&component);
+    component.run();
 }

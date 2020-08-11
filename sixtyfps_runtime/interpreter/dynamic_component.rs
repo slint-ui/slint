@@ -20,7 +20,7 @@ use sixtyfps_corelib::slice::Slice;
 use sixtyfps_corelib::ComponentRefPin;
 use sixtyfps_corelib::{Color, Property, SharedString, Signal};
 use std::collections::HashMap;
-use std::{pin::Pin, rc::Rc};
+use std::{cell::RefCell, pin::Pin, rc::Rc};
 
 pub struct ComponentBox<'id> {
     instance: InstanceBox<'id>,
@@ -82,6 +82,17 @@ impl<'id> ComponentBox<'id> {
     pub fn borrow_instance<'a>(&'a self) -> InstanceRef<'a, 'id> {
         InstanceRef { instance: self.instance.as_pin_ref(), component_type: &self.component_type }
     }
+
+    pub fn window(&self) -> sixtyfps_corelib::eventloop::ComponentWindow {
+        self.component_type
+            .extra_data_offset
+            .apply_pin(self.instance.as_pin_ref())
+            .window
+            .borrow()
+            .as_ref()
+            .unwrap()
+            .clone()
+    }
 }
 
 pub(crate) struct ItemWithinComponent {
@@ -122,6 +133,7 @@ type RepeaterVec<'id> = core::cell::RefCell<Vec<ComponentBox<'id>>>;
 
 struct ComponentExtraData {
     mouse_grabber: core::cell::Cell<sixtyfps_corelib::item_tree::VisitChildrenResult>,
+    window: RefCell<Option<sixtyfps_corelib::eventloop::ComponentWindow>>,
 }
 
 impl Default for ComponentExtraData {
@@ -130,6 +142,7 @@ impl Default for ComponentExtraData {
             mouse_grabber: core::cell::Cell::new(
                 sixtyfps_corelib::item_tree::VisitChildrenResult::CONTINUE,
             ),
+            window: RefCell::new(None),
         }
     }
 }
@@ -576,6 +589,8 @@ pub fn instantiate<'id>(
         component_type
             .set_property(component_box.borrow(), "scale_factor", crate::Value::Number(1.))
             .unwrap();
+        let extra_data = component_type.extra_data_offset.apply(instance_ref.as_ref());
+        extra_data.window.replace(Some(sixtyfps_rendering_backend_gl::create_gl_window()));
     }
 
     for item_within_component in component_type.items.values() {

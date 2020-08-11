@@ -248,8 +248,7 @@ declare_types! {
             let component = cx.borrow(&mut this, |x| x.0.clone());
             let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
             run_scoped(&mut cx,this.downcast().unwrap(), || {
-                let window = sixtyfps_rendering_backend_gl::create_gl_window();
-                window.run(component.borrow(), &component.window_properties());
+                component.window().run(component.borrow(), &component.window_properties());
                 Ok(())
             })?;
             Ok(JsUndefined::new().as_value(&mut cx))

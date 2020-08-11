@@ -9,8 +9,6 @@ edition = "2018"
 sixtyfps-corelib = { path="../../sixtyfps_runtime/corelib" }
 vtable = { path="../../helper_crates/vtable" }
 sixtyfps_interpreter = { path = "../../sixtyfps_runtime/interpreter", features=['qt_style'] }
-# FIXME: make optional and configurable backends
-sixtyfps_rendering_backend_gl = { path = "../../sixtyfps_runtime/rendering_backends/gl" }
 structopt = "0.3.14"
 codemap-diagnostic = "0.1.1"
 codemap = "0.1"
