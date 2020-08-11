@@ -642,24 +642,16 @@ fn generate_component(
             }),
         ));
 
-        let window_props = |name| {
-            let root_elem = component.root_element.borrow();
-
-            if root_elem.lookup_property(name) == Type::Length {
-                format!("&this->{}.{}", root_elem.id, name)
-            } else {
-                "nullptr".to_owned()
-            }
-        };
+        let root_elem = component.root_element.borrow();
         component_struct.members.push((
             Access::Public,
             Declaration::Function(Function {
-                name: "window_properties".into(),
-                signature: "() -> sixtyfps::WindowProperties".into(),
+                name: "root_item".into(),
+                signature: "() -> VRef<sixtyfps::internal::ItemVTable>".into(),
                 statements: Some(vec![format!(
-                    "return {{ {} , {} }};",
-                    window_props("width"),
-                    window_props("height")
+                    "return {{ &sixtyfps::{vt}, &this->{id} }};",
+                    vt = root_elem.base_type.as_native().vtable_symbol,
+                    id = root_elem.id
                 )]),
                 ..Default::default()
             }),

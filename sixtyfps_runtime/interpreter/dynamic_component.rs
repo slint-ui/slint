@@ -7,7 +7,7 @@ use object_tree::{Element, ElementRc};
 use sixtyfps_compilerlib::layout::{GridLayout, Layout, LayoutItem, PathLayout};
 use sixtyfps_compilerlib::typeregister::Type;
 use sixtyfps_compilerlib::*;
-use sixtyfps_corelib::abi::datastructures::{ComponentVTable, ItemVTable, WindowProperties};
+use sixtyfps_corelib::abi::datastructures::{ComponentVTable, ItemRef, ItemVTable};
 use sixtyfps_corelib::graphics::Resource;
 use sixtyfps_corelib::item_tree::{
     ItemTreeNode, ItemVisitorRefMut, TraversalOrder, VisitChildrenResult,
@@ -43,7 +43,7 @@ impl<'id> ComponentBox<'id> {
         return self.component_type.clone();
     }
 
-    pub fn window_properties<'a>(&'a self) -> WindowProperties<'a> {
+    pub fn root_item(&self) -> Pin<ItemRef> {
         let component = self.borrow();
         let component_type = unsafe {
             &*(component.get_vtable() as *const ComponentVTable as *const ComponentDescription)
@@ -51,20 +51,7 @@ impl<'id> ComponentBox<'id> {
 
         let info = &component_type.items[component_type.original.root_element.borrow().id.as_str()];
 
-        let get_prop = |name| {
-            if info.elem.borrow().lookup_property(name) != Type::Length {
-                None
-            } else {
-                info.rtti.properties.get(name).map(|p| unsafe {
-                    Pin::new_unchecked(
-                        &*(component.as_ptr().add(info.offset).add(p.offset())
-                            as *const Property<f32>),
-                    )
-                })
-            }
-        };
-
-        WindowProperties { width: get_prop("width"), height: get_prop("height") }
+        unsafe { info.item_from_component(component.as_ptr()) }
     }
 
     pub fn borrow_instance<'a>(&'a self) -> InstanceRef<'a, 'id> {
@@ -338,6 +325,7 @@ fn generate_component<'id>(
                 rtti_for::<TouchArea>(),
                 rtti_for::<Path>(),
                 rtti_for::<Flickable>(),
+                rtti_for::<Window>(),
             ]
             .iter()
             .cloned(),

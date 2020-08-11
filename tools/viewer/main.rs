@@ -36,6 +36,6 @@ fn main() -> std::io::Result<()> {
     };
 
     let component = c.create();
-    component.window().run(component.borrow(), &component.window_properties());
+    component.window().run(component.borrow(), component.root_item());
     Ok(())
 }

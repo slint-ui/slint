@@ -115,7 +115,7 @@ SettingsPage := Page {
     }
 }
 
-MainWindow := Rectangle {
+MainWindow := Window {
 
     width: 800lx;
     height: 600lx;

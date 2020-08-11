@@ -566,3 +566,44 @@ pub struct PropertyAnimation {
     #[rtti_field]
     pub easing: crate::animations::EasingCurve,
 }
+
+/// The implementation of the `Window` element
+#[repr(C)]
+#[derive(FieldOffsets, Default, BuiltinItem)]
+#[pin]
+pub struct Window {
+    pub width: Property<f32>,
+    pub height: Property<f32>,
+    pub cached_rendering_data: CachedRenderingData,
+}
+
+impl Item for Window {
+    fn geometry(self: Pin<&Self>) -> Rect {
+        euclid::rect(
+            0.,
+            0.,
+            Self::FIELD_OFFSETS.width.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.height.apply_pin(self).get(),
+        )
+    }
+    fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
+        HighLevelRenderingPrimitive::NoContents
+    }
+
+    fn rendering_variables(self: Pin<&Self>) -> SharedArray<RenderingVariable> {
+        SharedArray::from(&[])
+    }
+
+    fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
+        LayoutInfo::default()
+    }
+
+    fn input_event(self: Pin<&Self>, _event: MouseEvent) -> InputEventResult {
+        InputEventResult::EventIgnored
+    }
+}
+
+impl ItemConsts for Window {
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
+        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+}

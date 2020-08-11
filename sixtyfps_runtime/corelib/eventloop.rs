@@ -1,4 +1,4 @@
-use crate::abi::datastructures::{ComponentVTable, WindowProperties};
+use crate::abi::datastructures::{ComponentVTable, ItemRef};
 use std::cell::RefCell;
 use std::{
     pin::Pin,
@@ -19,11 +19,13 @@ pub trait GenericWindow {
         component: core::pin::Pin<crate::abi::datastructures::ComponentRef>,
     );
     fn window_handle(&self) -> std::cell::Ref<'_, winit::window::Window>;
-    fn map_window(self: Rc<Self>, event_loop: &EventLoop, props: &WindowProperties);
+    fn map_window(self: Rc<Self>, event_loop: &EventLoop, root_item: Pin<ItemRef>);
     fn unmap_window(self: Rc<Self>);
     fn request_redraw(&self);
     fn scale_factor(&self) -> f32;
     fn set_scale_factor(&self, factor: f32);
+    fn set_width(&self, width: f32);
+    fn set_height(&self, height: f32);
 }
 
 /// The ComponentWindow is the (rust) facing public type that can render the items
@@ -39,12 +41,12 @@ impl ComponentWindow {
         Self(window_impl)
     }
     /// Spins an event loop and renders the items of the provided component in this window.
-    pub fn run(&self, component: Pin<VRef<ComponentVTable>>, props: &WindowProperties) {
+    pub fn run(&self, component: Pin<VRef<ComponentVTable>>, root_item: Pin<ItemRef>) {
         let event_loop = crate::eventloop::EventLoop::new();
 
-        self.0.clone().map_window(&event_loop, props);
+        self.0.clone().map_window(&event_loop, root_item);
 
-        event_loop.run(component, &props);
+        event_loop.run(component);
 
         self.0.clone().unmap_window();
     }
@@ -83,11 +85,7 @@ impl EventLoop {
         Self { winit_loop: winit::event_loop::EventLoop::new() }
     }
     #[allow(unused_mut)] // mut need changes for wasm
-    pub fn run(
-        mut self,
-        component: core::pin::Pin<crate::abi::datastructures::ComponentRef>,
-        window_properties: &crate::abi::datastructures::WindowProperties,
-    ) {
+    pub fn run(mut self, component: core::pin::Pin<crate::abi::datastructures::ComponentRef>) {
         use winit::event::Event;
         use winit::event_loop::{ControlFlow, EventLoopWindowTarget};
         let layout_listener = Rc::pin(PropertyListenerScope::default());
@@ -122,19 +120,14 @@ impl EventLoop {
                     event: winit::event::WindowEvent::Resized(size),
                     window_id,
                 } => {
-                    if let Some(width_property) = window_properties.width {
-                        width_property.set(size.width as f32)
-                    }
-                    if let Some(height_property) = window_properties.height {
-                        height_property.set(size.height as f32)
-                    }
-
                     ALL_WINDOWS.with(|windows| {
                         if let Some(Some(window)) =
                             windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
                         {
                             let platform_window = window.window_handle();
-                            window.set_scale_factor(platform_window.scale_factor() as f32)
+                            window.set_scale_factor(platform_window.scale_factor() as f32);
+                            window.set_width(size.width as f32);
+                            window.set_height(size.height as f32);
                         }
                     });
                 }
@@ -146,17 +139,13 @@ impl EventLoop {
                         },
                     window_id,
                 } => {
-                    if let Some(width_property) = window_properties.width {
-                        width_property.set(size.width as f32)
-                    }
-                    if let Some(height_property) = window_properties.height {
-                        height_property.set(size.height as f32)
-                    }
                     ALL_WINDOWS.with(|windows| {
                         if let Some(Some(window)) =
                             windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
                         {
-                            window.set_scale_factor(scale_factor as f32)
+                            window.set_scale_factor(scale_factor as f32);
+                            window.set_width(size.width as f32);
+                            window.set_height(size.height as f32);
                         }
                     });
                 }
@@ -280,6 +269,7 @@ pub mod ffi {
     #![allow(unsafe_code)]
 
     use super::*;
+    use crate::abi::datastructures::ItemVTable;
 
     #[allow(non_camel_case_types)]
     type c_void = ();
@@ -303,11 +293,10 @@ pub mod ffi {
     pub unsafe extern "C" fn sixtyfps_component_window_run(
         handle: *mut ComponentWindowOpaque,
         component: Pin<VRef<ComponentVTable>>,
-        window_props: *mut WindowProperties,
+        root_item: Pin<VRef<ItemVTable>>,
     ) {
         let window = &*(handle as *const ComponentWindow);
-        let window_props = &*(window_props as *const WindowProperties);
-        window.run(component, &window_props);
+        window.run(component, root_item);
     }
 
     /// Returns the window scale factor.

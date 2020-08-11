@@ -1,6 +1,6 @@
 import { Button, CheckBox, SpinBox, Slider } from "sixtyfps_widgets.60";
 
-App := Rectangle {
+App := Window {
     GridLayout {
         spacing: 10lx;
         Row {

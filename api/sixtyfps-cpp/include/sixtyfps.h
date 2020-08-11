@@ -24,6 +24,7 @@ extern const internal::ItemVTable TouchAreaVTable;
 extern const internal::ItemVTable ImageVTable;
 extern const internal::ItemVTable PathVTable;
 extern const internal::ItemVTable FlickableVTable;
+extern const internal::ItemVTable WindowVTable;
 }
 
 // Bring opaque structure in scope
@@ -35,7 +36,6 @@ using internal::TraversalOrder;
 using internal::EasingCurve;
 using internal::TextHorizontalAlignment;
 using internal::TextVerticalAlignment;
-using internal::WindowProperties;
 using internal::Slice;
 
 struct ComponentWindow
@@ -49,9 +49,8 @@ struct ComponentWindow
     template<typename Component>
     void run(Component *c)
     {
-        auto props = c->window_properties();
         sixtyfps_component_window_run(
-                &inner, VRefMut<ComponentVTable> { &Component::component_type, c }, &props);
+                &inner, VRefMut<ComponentVTable> { &Component::component_type, c }, c->root_item());
     }
 
     float scale_factor() const { return sixtyfps_component_window_get_scale_factor(&inner); }
@@ -71,6 +70,7 @@ using internal::Path;
 using internal::Rectangle;
 using internal::Text;
 using internal::TouchArea;
+using internal::Window;
 
 constexpr inline ItemTreeNode make_item_node(std::uintptr_t offset,
                                                       const internal::ItemVTable *vtable,

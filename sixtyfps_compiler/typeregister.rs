@@ -534,6 +534,8 @@ impl TypeRegister {
             ],
         );
 
+        native_class(&mut r, "Window", &[("width", Type::Length), ("height", Type::Length)]);
+
         let mut grid_layout = BuiltinElement::new(Rc::new(NativeClass::new("GridLayout")));
         grid_layout.properties.insert("spacing".to_owned(), Type::Length);
 

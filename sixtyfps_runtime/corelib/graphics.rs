@@ -3,7 +3,7 @@ use crate::input::{MouseEvent, MouseEventType};
 use crate::properties::{InterpolatedPropertyValue, Property};
 #[cfg(feature = "rtti")]
 use crate::rtti::{BuiltinItem, FieldInfo, FieldOffset, PropertyInfo, ValueType};
-use crate::SharedArray;
+use crate::{abi::datastructures::ItemRef, SharedArray};
 
 use cgmath::Matrix4;
 use const_field_offset::FieldOffsets;
@@ -366,11 +366,29 @@ impl<Backend: GraphicsBackend + 'static> GraphicsWindowBackendState<Backend> {
     }
 }
 
+#[derive(FieldOffsets)]
+#[repr(C)]
+#[pin]
+struct WindowProperties {
+    scale_factor: Property<f32>,
+    width: Property<f32>,
+    height: Property<f32>,
+}
+
+impl Default for WindowProperties {
+    fn default() -> Self {
+        Self {
+            scale_factor: Property::new(1.0),
+            width: Property::new(800.),
+            height: Property::new(600.),
+        }
+    }
+}
+
 pub struct GraphicsWindow<Backend: GraphicsBackend + 'static> {
     window_factory: Box<WindowFactoryFn<Backend>>,
     map_state: RefCell<GraphicsWindowBackendState<Backend>>,
-    /// Turn into a struct when we get more properties later.
-    scale_factor: Pin<Box<Property<f32>>>,
+    properties: Pin<Box<WindowProperties>>,
 }
 
 impl<Backend: GraphicsBackend + 'static> GraphicsWindow<Backend> {
@@ -381,7 +399,7 @@ impl<Backend: GraphicsBackend + 'static> GraphicsWindow<Backend> {
         Rc::new(Self {
             window_factory: Box::new(graphics_backend_factory),
             map_state: RefCell::new(GraphicsWindowBackendState::Unmapped),
-            scale_factor: Box::pin(Property::new(1.0)),
+            properties: Box::pin(WindowProperties::default()),
         })
     }
 
@@ -455,7 +473,7 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
     fn map_window(
         self: Rc<Self>,
         event_loop: &crate::eventloop::EventLoop,
-        props: &crate::abi::datastructures::WindowProperties,
+        root_item: Pin<ItemRef>,
     ) {
         if matches!(&*self.map_state.borrow(), GraphicsWindowBackendState::Mapped(..)) {
             return;
@@ -476,31 +494,49 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
             // the scale factor.
             // We could pass the logical requested size at window builder time, *if* we knew what the values are.
             {
-                self.scale_factor.as_ref().set(platform_window.scale_factor() as _);
+                self.properties.as_ref().scale_factor.set(platform_window.scale_factor() as _);
                 let existing_size = platform_window.inner_size();
 
                 let mut new_size = existing_size;
 
-                if let Some(width_property) = props.width {
-                    let width = width_property.get();
+                if let Some(window_item) = ItemRef::downcast_pin(root_item) {
+                    let width =
+                        crate::items::Window::FIELD_OFFSETS.width.apply_pin(window_item).get();
                     if width > 0. {
                         new_size.width = width as _;
                     }
-                }
-                if let Some(height_property) = props.height {
-                    let height = height_property.get();
+                    let height =
+                        crate::items::Window::FIELD_OFFSETS.height.apply_pin(window_item).get();
                     if height > 0. {
                         new_size.height = height as _;
                     }
+
+                    {
+                        let window = self.clone();
+                        window_item.as_ref().width.set_binding(move || {
+                            WindowProperties::FIELD_OFFSETS
+                                .width
+                                .apply_pin(window.properties.as_ref())
+                                .get()
+                        });
+                    }
+                    {
+                        let window = self.clone();
+                        window_item.as_ref().height.set_binding(move || {
+                            WindowProperties::FIELD_OFFSETS
+                                .height
+                                .apply_pin(window.properties.as_ref())
+                                .get()
+                        });
+                    }
                 }
 
-                // Either request a new size or update width/height to the size given by the window manager.
                 if new_size != existing_size {
                     platform_window.set_inner_size(new_size)
-                } else {
-                    props.width.map(|p| p.set(existing_size.width as _));
-                    props.height.map(|p| p.set(existing_size.height as _));
                 }
+
+                self.properties.as_ref().width.set(new_size.width as _);
+                self.properties.as_ref().height.set(new_size.height as _);
             }
 
             self.map_state.replace(GraphicsWindowBackendState::Mapped(MappedWindow {
@@ -529,11 +565,19 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
     }
 
     fn scale_factor(&self) -> f32 {
-        self.scale_factor.as_ref().get()
+        WindowProperties::FIELD_OFFSETS.scale_factor.apply_pin(self.properties.as_ref()).get()
     }
 
     fn set_scale_factor(&self, factor: f32) {
-        self.scale_factor.as_ref().set(factor);
+        self.properties.as_ref().scale_factor.set(factor);
+    }
+
+    fn set_width(&self, width: f32) {
+        self.properties.as_ref().width.set(width);
+    }
+
+    fn set_height(&self, height: f32) {
+        self.properties.as_ref().height.set(height);
     }
 }
 

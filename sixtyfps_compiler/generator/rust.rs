@@ -373,26 +373,14 @@ fn generate_component(
         // FIXME: This field is public for testing.
         maybe_window_field_decl.push(quote!(pub window: sixtyfps::re_exports::ComponentWindow));
         maybe_window_field_init.push(quote!(window: sixtyfps::create_window()));
-        let window_props = |name| {
-            let root_elem = component.root_element.borrow();
 
-            if root_elem.lookup_property(name) == Type::Length {
-                let root_item_name = quote::format_ident!("{}", root_elem.id);
-                let root_item_ty =
-                    quote::format_ident!("{}", root_elem.base_type.as_native().class_name);
-                let name = quote::format_ident!("{}", name);
-                quote!(Some((Self::FIELD_OFFSETS.#root_item_name + #root_item_ty::FIELD_OFFSETS.#name).apply_pin(self.as_ref())))
-            } else {
-                quote!(None)
-            }
-        };
-        let width_prop = window_props("width");
-        let height_prop = window_props("height");
+        let root_elem = component.root_element.borrow();
+        let root_item_name = quote::format_ident!("{}", root_elem.id);
         property_and_signal_accessors.push(quote! {
             pub fn run(self : core::pin::Pin<std::rc::Rc<Self>>) {
                 use sixtyfps::re_exports::*;
-                let window_props = WindowProperties {width: #width_prop, height: #height_prop};
-                self.as_ref().window.run(VRef::new_pin(self.as_ref()), &window_props);
+                let root_item = Self::FIELD_OFFSETS.#root_item_name.apply_pin(self.as_ref());
+                self.as_ref().window.run(VRef::new_pin(self.as_ref()), VRef::new_pin(root_item));
             }
         });
         property_and_signal_accessors.push(quote! {
