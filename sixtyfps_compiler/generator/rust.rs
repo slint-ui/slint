@@ -373,9 +373,6 @@ fn generate_component(
         // FIXME: This field is public for testing.
         maybe_window_field_decl.push(quote!(pub window: sixtyfps::re_exports::ComponentWindow));
         maybe_window_field_init.push(quote!(window: sixtyfps::create_window()));
-        declared_property_vars.push(quote::format_ident!("scale_factor"));
-        declared_property_types.push(quote!(f32));
-        init.push(quote!(self_pinned.scale_factor.set(1.0);));
         let window_props = |name| {
             let root_elem = component.root_element.borrow();
 

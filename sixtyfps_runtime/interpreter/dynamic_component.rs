@@ -574,9 +574,6 @@ pub fn instantiate<'id>(
                 as *mut Option<ComponentRefPin>) = Some(parent);
         }
     } else {
-        component_type
-            .set_property(component_box.borrow(), "scale_factor", crate::Value::Number(1.))
-            .unwrap();
         let extra_data = component_type.extra_data_offset.apply(instance_ref.as_ref());
         extra_data.window.replace(Some(sixtyfps_rendering_backend_gl::create_gl_window()));
     }
