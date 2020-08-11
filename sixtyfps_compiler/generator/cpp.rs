@@ -636,16 +636,6 @@ fn generate_component(
         component_struct.members.push((
             Access::Public, // FIXME: many of the different component bindings need to access this
             Declaration::Var(Var {
-                ty: "sixtyfps::Property<float>".into(),
-                name: "scale_factor".into(),
-                ..Var::default()
-            }),
-        ));
-        init.push("self->scale_factor.set(1.);".to_owned());
-
-        component_struct.members.push((
-            Access::Public, // FIXME: many of the different component bindings need to access this
-            Declaration::Var(Var {
                 ty: "sixtyfps::ComponentWindow".into(),
                 name: "window".into(),
                 ..Var::default()
@@ -667,7 +657,7 @@ fn generate_component(
                 name: "window_properties".into(),
                 signature: "() -> sixtyfps::WindowProperties".into(),
                 statements: Some(vec![format!(
-                    "return {{ {} , {}, &this->scale_factor }};",
+                    "return {{ {} , {} }};",
                     window_props("width"),
                     window_props("height")
                 )]),
@@ -888,15 +878,15 @@ fn access_member(
     }
 }
 
-/// Return an expression that gets the window scale factor property
-fn window_scale_factor_expression(component: &Rc<Component>) -> String {
+/// Return an expression that gets the window
+fn window_ref_expression(component: &Rc<Component>) -> String {
     let mut root_component = component.clone();
     let mut component_cpp = "self".to_owned();
     while let Some(p) = root_component.parent_element.upgrade() {
         root_component = p.borrow().enclosing_component.upgrade().unwrap();
         component_cpp = format!("{}->parent", component_cpp);
     }
-    format!("{}->scale_factor.get()", component_cpp)
+    format!("{}->window", component_cpp)
 }
 
 fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Component>) -> String {
@@ -918,7 +908,9 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
             format!(r#"{}.emit()"#, access)
         }
         Expression::BuiltinFunctionReference(funcref) => match funcref {
-            BuiltinFunction::GetWindowScaleFactor => window_scale_factor_expression(component),
+            BuiltinFunction::GetWindowScaleFactor => {
+                format!("{}.scale_factor()", window_ref_expression(component))
+            }
         },
         Expression::RepeaterIndexReference { element } => {
             let access = access_member(

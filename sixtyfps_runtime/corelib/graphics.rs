@@ -1,12 +1,13 @@
 extern crate alloc;
 use crate::input::{MouseEvent, MouseEventType};
-use crate::properties::InterpolatedPropertyValue;
+use crate::properties::{InterpolatedPropertyValue, Property};
 #[cfg(feature = "rtti")]
 use crate::rtti::{BuiltinItem, FieldInfo, FieldOffset, PropertyInfo, ValueType};
 use crate::SharedArray;
 
 use cgmath::Matrix4;
 use const_field_offset::FieldOffsets;
+use core::pin::Pin;
 use sixtyfps_corelib_macros::*;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -368,6 +369,8 @@ impl<Backend: GraphicsBackend + 'static> GraphicsWindowBackendState<Backend> {
 pub struct GraphicsWindow<Backend: GraphicsBackend + 'static> {
     window_factory: Box<WindowFactoryFn<Backend>>,
     map_state: RefCell<GraphicsWindowBackendState<Backend>>,
+    /// Turn into a struct when we get more properties later.
+    scale_factor: Pin<Box<Property<f32>>>,
 }
 
 impl<Backend: GraphicsBackend + 'static> GraphicsWindow<Backend> {
@@ -378,6 +381,7 @@ impl<Backend: GraphicsBackend + 'static> GraphicsWindow<Backend> {
         Rc::new(Self {
             window_factory: Box::new(graphics_backend_factory),
             map_state: RefCell::new(GraphicsWindowBackendState::Unmapped),
+            scale_factor: Box::pin(Property::new(1.0)),
         })
     }
 
@@ -472,9 +476,7 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
             // the scale factor.
             // We could pass the logical requested size at window builder time, *if* we knew what the values are.
             {
-                if let Some(scale_factor_property) = props.scale_factor {
-                    scale_factor_property.set(platform_window.scale_factor() as _)
-                }
+                self.scale_factor.as_ref().set(platform_window.scale_factor() as _);
                 let existing_size = platform_window.inner_size();
 
                 let mut new_size = existing_size;
@@ -524,6 +526,14 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
 
     fn unmap_window(self: Rc<Self>) {
         self.map_state.replace(GraphicsWindowBackendState::Unmapped);
+    }
+
+    fn scale_factor(&self) -> f32 {
+        self.scale_factor.as_ref().get()
+    }
+
+    fn set_scale_factor(&self, factor: f32) {
+        self.scale_factor.as_ref().set(factor);
     }
 }
 

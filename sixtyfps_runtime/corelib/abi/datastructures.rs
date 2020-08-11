@@ -87,10 +87,6 @@ pub struct WindowProperties<'a> {
     /// A reference to the property that is supposed to be kept up-to-date with the height
     /// of the window.
     pub height: PinnedOptionalProp<'a, f32>,
-
-    /// A reference to the property that is supposed to be kept up-to-date with the current
-    /// screen dpi / scale factor
-    pub scale_factor: PinnedOptionalProp<'a, f32>,
 }
 
 // This is here because for some reason (rust bug?) the ItemVTable_static is not accessible in the other modules

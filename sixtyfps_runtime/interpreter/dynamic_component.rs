@@ -64,19 +64,7 @@ impl<'id> ComponentBox<'id> {
             }
         };
 
-        WindowProperties {
-            width: get_prop("width"),
-            height: get_prop("height"),
-            /// Safety: there must be a scale_factor property of type f32 as it is added by us for top level window
-            scale_factor: Some(unsafe {
-                Pin::new_unchecked(
-                    &*(component
-                        .as_ptr()
-                        .add(component_type.custom_properties["scale_factor"].offset)
-                        as *const Property<f32>),
-                )
-            }),
-        }
+        WindowProperties { width: get_prop("width"), height: get_prop("height") }
     }
 
     pub fn borrow_instance<'a>(&'a self) -> InstanceRef<'a, 'id> {
@@ -131,9 +119,9 @@ pub(crate) struct RepeaterWithinComponent<'par_id, 'sub_id> {
 
 type RepeaterVec<'id> = core::cell::RefCell<Vec<ComponentBox<'id>>>;
 
-struct ComponentExtraData {
+pub(crate) struct ComponentExtraData {
     mouse_grabber: core::cell::Cell<sixtyfps_corelib::item_tree::VisitChildrenResult>,
-    window: RefCell<Option<sixtyfps_corelib::eventloop::ComponentWindow>>,
+    pub(crate) window: RefCell<Option<sixtyfps_corelib::eventloop::ComponentWindow>>,
 }
 
 impl Default for ComponentExtraData {
@@ -199,7 +187,7 @@ pub struct ComponentDescription<'id> {
     pub(crate) parent_component_offset:
         Option<FieldOffset<Instance<'id>, Option<ComponentRefPin<'id>>>>,
     /// Offset of a ComponentExtraData
-    extra_data_offset: FieldOffset<Instance<'id>, ComponentExtraData>,
+    pub(crate) extra_data_offset: FieldOffset<Instance<'id>, ComponentExtraData>,
     /// Keep the Rc alive
     pub(crate) original: Rc<object_tree::Component>,
 }

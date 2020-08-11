@@ -370,7 +370,8 @@ fn generate_component(
             &parent_element.borrow().enclosing_component.upgrade().unwrap(),
         ));
     } else {
-        maybe_window_field_decl.push(quote!(window: sixtyfps::re_exports::ComponentWindow));
+        // FIXME: This field is public for testing.
+        maybe_window_field_decl.push(quote!(pub window: sixtyfps::re_exports::ComponentWindow));
         maybe_window_field_init.push(quote!(window: sixtyfps::create_window()));
         declared_property_vars.push(quote::format_ident!("scale_factor"));
         declared_property_types.push(quote!(f32));
@@ -390,19 +391,11 @@ fn generate_component(
         };
         let width_prop = window_props("width");
         let height_prop = window_props("height");
-        let scale_factor_prop =
-            quote!(Some(Self::FIELD_OFFSETS.scale_factor.apply_pin(self.as_ref())));
         property_and_signal_accessors.push(quote! {
             pub fn run(self : core::pin::Pin<std::rc::Rc<Self>>) {
                 use sixtyfps::re_exports::*;
-                let window_props = WindowProperties {width: #width_prop, height: #height_prop, scale_factor: #scale_factor_prop};
+                let window_props = WindowProperties {width: #width_prop, height: #height_prop};
                 self.as_ref().window.run(VRef::new_pin(self.as_ref()), &window_props);
-            }
-        });
-        property_and_signal_accessors.push(quote! {
-            /// FIXME: this only exist for the test
-            pub fn window_scale_factor(&self, factor: f32) {
-                self.scale_factor.set(factor);
             }
         });
         property_and_signal_accessors.push(quote! {
@@ -641,16 +634,15 @@ fn access_member(
     }
 }
 
-/// Return an expression that gets the window scale factor property
-fn window_scale_factor_expression(component: &Rc<Component>) -> TokenStream {
+/// Return an expression that gets the window
+fn window_ref_expression(component: &Rc<Component>) -> TokenStream {
     let mut root_component = component.clone();
     let mut component_rust = quote!(_self);
     while let Some(p) = root_component.parent_element.upgrade() {
         root_component = p.borrow().enclosing_component.upgrade().unwrap();
         component_rust = quote!(#component_rust.parent.upgrade().unwrap().as_ref());
     }
-    let component_id = component_id(&root_component);
-    quote!(#component_id::FIELD_OFFSETS.scale_factor.apply_pin(#component_rust).get())
+    quote!(#component_rust.as_ref().window)
 }
 
 fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream {
@@ -681,7 +673,10 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
             quote!(#access.get())
         }
         Expression::BuiltinFunctionReference(funcref) => match funcref {
-            BuiltinFunction::GetWindowScaleFactor => window_scale_factor_expression(component),
+            BuiltinFunction::GetWindowScaleFactor => {
+                let window_ref = window_ref_expression(component);
+                quote!(#window_ref.scale_factor())
+            }
         },
         Expression::RepeaterIndexReference { element } => {
             if element.upgrade().unwrap().borrow().base_type == Type::Component(component.clone()) {

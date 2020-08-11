@@ -22,6 +22,8 @@ pub trait GenericWindow {
     fn map_window(self: Rc<Self>, event_loop: &EventLoop, props: &WindowProperties);
     fn unmap_window(self: Rc<Self>);
     fn request_redraw(&self);
+    fn scale_factor(&self) -> f32;
+    fn set_scale_factor(&self, factor: f32);
 }
 
 /// The ComponentWindow is the (rust) facing public type that can render the items
@@ -45,6 +47,14 @@ impl ComponentWindow {
         event_loop.run(component, &props);
 
         self.0.clone().unmap_window();
+    }
+
+    pub fn scale_factor(&self) -> f32 {
+        self.0.scale_factor()
+    }
+
+    pub fn set_scale_factor(&self, factor: f32) {
+        self.0.set_scale_factor(factor)
     }
 }
 
@@ -118,16 +128,15 @@ impl EventLoop {
                     if let Some(height_property) = window_properties.height {
                         height_property.set(size.height as f32)
                     }
-                    if let Some(scale_factor_property) = window_properties.scale_factor {
-                        ALL_WINDOWS.with(|windows| {
-                            if let Some(Some(window)) =
-                                windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
-                            {
-                                let window = window.window_handle();
-                                scale_factor_property.set(window.scale_factor() as f32)
-                            }
-                        });
-                    }
+
+                    ALL_WINDOWS.with(|windows| {
+                        if let Some(Some(window)) =
+                            windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
+                        {
+                            let platform_window = window.window_handle();
+                            window.set_scale_factor(platform_window.scale_factor() as f32)
+                        }
+                    });
                 }
                 winit::event::Event::WindowEvent {
                     event:
@@ -135,7 +144,7 @@ impl EventLoop {
                             scale_factor,
                             new_inner_size: size,
                         },
-                    ..
+                    window_id,
                 } => {
                     if let Some(width_property) = window_properties.width {
                         width_property.set(size.width as f32)
@@ -143,9 +152,13 @@ impl EventLoop {
                     if let Some(height_property) = window_properties.height {
                         height_property.set(size.height as f32)
                     }
-                    if let Some(scale_factor_property) = window_properties.scale_factor {
-                        scale_factor_property.set(scale_factor as f32)
-                    }
+                    ALL_WINDOWS.with(|windows| {
+                        if let Some(Some(window)) =
+                            windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
+                        {
+                            window.set_scale_factor(scale_factor as f32)
+                        }
+                    });
                 }
 
                 winit::event::Event::WindowEvent {
@@ -295,5 +308,28 @@ pub mod ffi {
         let window = &*(handle as *const ComponentWindow);
         let window_props = &*(window_props as *const WindowProperties);
         window.run(component, &window_props);
+    }
+
+    /// Returns the window scale factor.
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_component_window_get_scale_factor(
+        handle: *const ComponentWindowOpaque,
+    ) -> f32 {
+        assert_eq!(
+            core::mem::size_of::<ComponentWindow>(),
+            core::mem::size_of::<ComponentWindowOpaque>()
+        );
+        let window = &*(handle as *const ComponentWindow);
+        window.scale_factor()
+    }
+
+    /// Sets the window scale factor, merely for testing purposes.
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_component_window_set_scale_factor(
+        handle: *mut ComponentWindowOpaque,
+        value: f32,
+    ) {
+        let window = &*(handle as *const ComponentWindow);
+        window.set_scale_factor(value)
     }
 }

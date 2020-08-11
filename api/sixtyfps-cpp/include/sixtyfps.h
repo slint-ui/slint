@@ -54,6 +54,12 @@ struct ComponentWindow
                 &inner, VRefMut<ComponentVTable> { &Component::component_type, c }, &props);
     }
 
+    float scale_factor() const { return sixtyfps_component_window_get_scale_factor(&inner); }
+    void set_scale_factor(float value)
+    {
+        sixtyfps_component_window_set_scale_factor(&inner, value);
+    }
+
 private:
     internal::ComponentWindowOpaque inner;
 };
