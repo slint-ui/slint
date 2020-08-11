@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "scripts": {
     "start": "rimraf dist && parcel index.html --open",
-    "build": "rimraf dist pkg && parcel build index.html"
+    "build": "rimraf dist pkg && parcel build index.html --public-url ./"
   },
   "devDependencies": {
     "parcel-bundler": "^1.12.4",
