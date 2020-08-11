@@ -224,23 +224,20 @@ pub fn item_offset<Base>(
     item_tree: &[ItemTreeNode<Base>],
     index: usize,
 ) -> crate::graphics::Point {
-    let index = index as u32;
+    let index = dbg!(index as u32);
     // FIXME: This algorithm is shit
-    let parent = item_tree.iter().find_map(|n| match n {
-        ItemTreeNode::Item { item, chilren_count, children_index } => {
-            if *children_index > index && *children_index + *chilren_count < index {
-                Some(item)
-            } else {
-                None
+    for (parent, node) in item_tree.iter().enumerate() {
+        match node {
+            ItemTreeNode::Item { item, chilren_count, children_index } => {
+                if *children_index <= index && *children_index + *chilren_count > index {
+                    return item.apply_pin(base).as_ref().geometry().origin
+                        + item_offset(base, item_tree, parent).to_vector();
+                }
             }
+            ItemTreeNode::DynamicTree { .. } => (),
         }
-        ItemTreeNode::DynamicTree { .. } => None,
-    });
-    if let Some(parent) = parent {
-        parent.apply_pin(base).as_ref().geometry().origin
-    } else {
-        crate::graphics::Point::default()
     }
+    return crate::graphics::Point::default();
 }
 
 pub(crate) mod ffi {
