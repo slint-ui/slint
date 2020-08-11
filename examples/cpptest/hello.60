@@ -90,7 +90,7 @@ Hello := Flickable {
     Image {
         x: 200px;
         y: 200px;
-        source: img!"../graphicstest/logo.png";
+        source: img!"../../resources/logo_scaled.png";
     }
 
     property<int> counter;

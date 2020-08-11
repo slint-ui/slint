@@ -102,7 +102,7 @@ Hello := Rectangle {
     Image {
         x: 200px;
         y: 200px;
-        source: img!"../graphicstest/logo.png";
+        source: img!"../../resources/logo_scaled.png";
     }
 
     plus_button := ButtonRectangle {
