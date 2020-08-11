@@ -333,31 +333,23 @@ impl<Backend: GraphicsBackend> RenderingCache<Backend> {
     }
 }
 
+type WindowFactoryFn<Backend> =
+    dyn Fn(&crate::eventloop::EventLoop, winit::window::WindowBuilder) -> Backend;
+
 struct MappedWindow<Backend: GraphicsBackend + 'static> {
     backend: Backend,
     rendering_cache: RenderingCache<Backend>,
 }
 
 enum GraphicsWindowBackendState<Backend: GraphicsBackend + 'static> {
-    Unmapped(Box<dyn Fn(&crate::eventloop::EventLoop, winit::window::WindowBuilder) -> Backend>),
+    Unmapped,
     Mapped(MappedWindow<Backend>),
 }
 
 impl<Backend: GraphicsBackend + 'static> GraphicsWindowBackendState<Backend> {
-    fn factory(
-        &self,
-    ) -> &Box<dyn Fn(&crate::eventloop::EventLoop, winit::window::WindowBuilder) -> Backend> {
-        match self {
-            GraphicsWindowBackendState::Unmapped(factory) => factory,
-            GraphicsWindowBackendState::Mapped(_) => {
-                panic!("internal error: cannot map window twice")
-            }
-        }
-    }
-
     fn as_mapped(&self) -> &MappedWindow<Backend> {
         match self {
-            GraphicsWindowBackendState::Unmapped(_) => panic!(
+            GraphicsWindowBackendState::Unmapped => panic!(
                 "internal error: tried to access window functions that require a mapped window"
             ),
             GraphicsWindowBackendState::Mapped(mw) => &mw,
@@ -365,7 +357,7 @@ impl<Backend: GraphicsBackend + 'static> GraphicsWindowBackendState<Backend> {
     }
     fn as_mapped_mut(&mut self) -> &mut MappedWindow<Backend> {
         match self {
-            GraphicsWindowBackendState::Unmapped(_) => panic!(
+            GraphicsWindowBackendState::Unmapped => panic!(
                 "internal error: tried to access window functions that require a mapped window"
             ),
             GraphicsWindowBackendState::Mapped(ref mut mw) => mw,
@@ -374,6 +366,7 @@ impl<Backend: GraphicsBackend + 'static> GraphicsWindowBackendState<Backend> {
 }
 
 pub struct GraphicsWindow<Backend: GraphicsBackend + 'static> {
+    window_factory: Box<WindowFactoryFn<Backend>>,
     map_state: RefCell<GraphicsWindowBackendState<Backend>>,
 }
 
@@ -383,9 +376,8 @@ impl<Backend: GraphicsBackend + 'static> GraphicsWindow<Backend> {
             + 'static,
     ) -> Rc<Self> {
         Rc::new(Self {
-            map_state: RefCell::new(GraphicsWindowBackendState::Unmapped(Box::new(
-                graphics_backend_factory,
-            ))),
+            window_factory: Box::new(graphics_backend_factory),
+            map_state: RefCell::new(GraphicsWindowBackendState::Unmapped),
         })
     }
 
@@ -397,7 +389,7 @@ impl<Backend: GraphicsBackend + 'static> GraphicsWindow<Backend> {
 impl<Backend: GraphicsBackend> Drop for GraphicsWindow<Backend> {
     fn drop(&mut self) {
         match &*self.map_state.borrow() {
-            GraphicsWindowBackendState::Unmapped(_) => {}
+            GraphicsWindowBackendState::Unmapped => {}
             GraphicsWindowBackendState::Mapped(mw) => {
                 crate::eventloop::unregister_window(mw.backend.window().id());
             }
@@ -468,11 +460,7 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
         let id = {
             let window_builder = winit::window::WindowBuilder::new();
 
-            let backend = {
-                let map_state = self.map_state.borrow();
-                let factory = map_state.factory();
-                factory(&event_loop, window_builder)
-            };
+            let backend = self.window_factory.as_ref()(&event_loop, window_builder);
 
             let platform_window = backend.window();
             let window_id = platform_window.id();
@@ -529,9 +517,13 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
 
     fn request_redraw(&self) {
         match &*self.map_state.borrow() {
-            GraphicsWindowBackendState::Unmapped(_) => {}
+            GraphicsWindowBackendState::Unmapped => {}
             GraphicsWindowBackendState::Mapped(window) => window.backend.window().request_redraw(),
         }
+    }
+
+    fn unmap_window(self: Rc<Self>) {
+        self.map_state.replace(GraphicsWindowBackendState::Unmapped);
     }
 }
 

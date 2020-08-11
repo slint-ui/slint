@@ -20,6 +20,7 @@ pub trait GenericWindow {
     );
     fn window_handle(&self) -> std::cell::Ref<'_, winit::window::Window>;
     fn map_window(self: Rc<Self>, event_loop: &EventLoop, props: &WindowProperties);
+    fn unmap_window(self: Rc<Self>);
     fn request_redraw(&self);
 }
 
@@ -42,6 +43,8 @@ impl ComponentWindow {
         self.0.clone().map_window(&event_loop, props);
 
         event_loop.run(component, &props);
+
+        self.0.clone().unmap_window();
     }
 }
 
