@@ -10,16 +10,14 @@ mod dynamic_component;
 mod dynamic_type;
 mod eval;
 
-pub use dynamic_component::load;
-pub use dynamic_component::ComponentDescription;
 pub use eval::Value;
 
-pub use dynamic_component::ComponentBox;
+use dynamic_component::InstanceRef;
 use sixtyfps_corelib::abi::datastructures::ComponentRef;
-use sixtyfps_corelib::{ComponentRefPin, Signal};
+use sixtyfps_corelib::ComponentRefPin;
 use std::{collections::HashMap, pin::Pin, rc::Rc};
 
-impl ComponentDescription {
+impl<'id> dynamic_component::ComponentDescription<'id> {
     /// The name of this Component as written in the .60 file
     pub fn id(&self) -> &str {
         self.original.id.as_str()
@@ -37,7 +35,7 @@ impl ComponentDescription {
     }
 
     /// Instantiate a runtime component from this ComponentDescription
-    pub fn create(self: Rc<Self>) -> ComponentBox {
+    pub fn create(self: Rc<Self>) -> dynamic_component::ComponentBox<'id> {
         dynamic_component::instantiate(self, None)
     }
 
@@ -55,9 +53,9 @@ impl ComponentDescription {
             return Err(());
         }
         let x = self.custom_properties.get(name).ok_or(())?;
+        generativity::make_guard!(guard);
         let maybe_animation = dynamic_component::animation_for_property(
-            self,
-            component,
+            unsafe { InstanceRef::from_pin_ref(component, guard) },
             &self.original.root_element.borrow().property_animations,
             name,
         );
@@ -118,7 +116,7 @@ impl ComponentDescription {
             return Err(());
         }
         let x = self.custom_signals.get(name).ok_or(())?;
-        let sig = unsafe { &mut *(component.as_ptr().add(*x) as *mut Signal<()>) };
+        let sig = x.apply(unsafe { &*(component.as_ptr() as *const dynamic_type::Instance) });
         sig.set_handler(handler);
         Ok(())
     }
@@ -132,8 +130,20 @@ impl ComponentDescription {
             return Err(());
         }
         let x = self.custom_signals.get(name).ok_or(())?;
-        let sig = unsafe { &mut *(component.as_ptr().add(*x) as *mut Signal<()>) };
+        let sig = x.apply(unsafe { &*(component.as_ptr() as *const dynamic_type::Instance) });
         sig.emit(());
         Ok(())
     }
+}
+
+pub type ComponentDescription = dynamic_component::ComponentDescription<'static>;
+pub type ComponentBox = dynamic_component::ComponentBox<'static>;
+pub fn load(
+    source: String,
+    path: &std::path::Path,
+    include_paths: &[std::path::PathBuf],
+) -> Result<Rc<ComponentDescription>, sixtyfps_compilerlib::diagnostics::BuildDiagnostics> {
+    dynamic_component::load(source, path, include_paths, unsafe {
+        generativity::Guard::new(generativity::Id::new())
+    })
 }

@@ -5,6 +5,8 @@
 */
 
 use core::alloc::Layout;
+use generativity::Id;
+use sixtyfps_corelib::rtti::FieldOffset;
 use std::rc::Rc;
 
 unsafe fn construct_fn<T: Default>(ptr: *mut u8) {
@@ -48,41 +50,45 @@ struct FieldInfo {
 /// A TypeInfo represents the metadata required to create and drop dynamic type
 ///
 /// It needs to be built with the TypeBuilder.
-pub struct TypeInfo {
+pub struct TypeInfo<'id> {
     mem_layout: core::alloc::Layout,
     /// Invariant: each field must represent a valid field within the `mem_layout`
     /// and the construct and drop function must be valid so that each field can
     /// be constructed and droped correctly.
     /// The first FieldInfo must be related to the `Rc<TypeInfo>` member at the beginning
     fields: Vec<FieldInfo>,
+
+    #[allow(unused)]
+    id: Id<'id>,
 }
 
 /// A builder for a dynamic type.
 ///
 /// Call `add_field()` for each type, and then `build()` to return a TypeInfo
-pub struct TypeBuilder {
+pub struct TypeBuilder<'id> {
     /// max alignement in byte of the types
     align: usize,
     /// Size in byte of the tpye so far (not including the trailling padding)
     size: usize,
     fields: Vec<FieldInfo>,
+    id: Id<'id>,
 }
 
-impl TypeBuilder {
-    pub fn new() -> Self {
-        let mut s = Self { align: 1, size: 0, fields: vec![] };
-        type T = Rc<TypeInfo>;
+impl<'id> TypeBuilder<'id> {
+    pub fn new(id: generativity::Guard<'id>) -> Self {
+        let mut s = Self { align: 1, size: 0, fields: vec![], id: id.into() };
+        type T<'id> = Rc<TypeInfo<'id>>;
         s.add_field(StaticTypeInfo {
             construct: None,
-            drop: Some(drop_fn::<T>),
-            mem_layout: Layout::new::<T>(),
+            drop: Some(drop_fn::<T<'id>>),
+            mem_layout: Layout::new::<T<'id>>(),
         });
         s
     }
 
     /// Convinience to call add_field with the StaticTypeInfo for a field
-    pub fn add_field_type<T: Default>(&mut self) -> usize {
-        self.add_field(StaticTypeInfo::new::<T>())
+    pub fn add_field_type<T: Default>(&mut self) -> FieldOffset<Instance<'id>, T> {
+        unsafe { FieldOffset::new_from_offset_pinned(self.add_field(StaticTypeInfo::new::<T>())) }
     }
 
     /// Add a field in this dynamic type.
@@ -103,21 +109,22 @@ impl TypeBuilder {
         len_rounded_up
     }
 
-    pub fn build(self) -> Rc<TypeInfo> {
+    pub fn build(self) -> Rc<TypeInfo<'id>> {
         let size = self.size.wrapping_add(self.align).wrapping_sub(1) & !self.align.wrapping_sub(1);
         Rc::new(TypeInfo {
             mem_layout: core::alloc::Layout::from_size_align(size, self.align).unwrap(),
             fields: self.fields,
+            id: self.id,
         })
     }
 }
 
-impl TypeInfo {
+impl<'id> TypeInfo<'id> {
     /// Create an instance of this type.
     ///
     /// The instance will be allocated on the heap.
     /// The instance must be freed with `delete_instance`
-    pub fn create_instance(self: Rc<Self>) -> InstanceBox {
+    pub fn create_instance(self: Rc<Self>) -> InstanceBox<'id> {
         // Safety: the TypeInfo invariant means that the constructor can be called
         unsafe {
             let mem = std::alloc::alloc(self.mem_layout);
@@ -148,28 +155,32 @@ impl TypeInfo {
 
 /// Opaque type that represents something created with `TypeInfo::create_instance`
 #[repr(C)]
-pub struct Instance {
-    type_info: Rc<TypeInfo>,
+pub struct Instance<'id> {
+    type_info: Rc<TypeInfo<'id>>,
     _opaque: [u8; 0],
 }
 
-impl core::fmt::Debug for Instance {
+impl<'id> core::fmt::Debug for Instance<'id> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Instance({:p})", self)
     }
 }
 
 /// A pointer to an Instance that automaticaly frees the memory after use
-pub struct InstanceBox(core::ptr::NonNull<Instance>);
+pub struct InstanceBox<'id>(core::ptr::NonNull<Instance<'id>>);
 
-impl InstanceBox {
-    // return a pointer to the instance
-    pub fn as_ptr(&self) -> core::ptr::NonNull<Instance> {
+impl<'id> InstanceBox<'id> {
+    /// return a pointer to the instance
+    pub fn as_ptr(&self) -> core::ptr::NonNull<Instance<'id>> {
         self.0
+    }
+
+    pub fn as_pin_ref(&self) -> core::pin::Pin<&Instance<'id>> {
+        unsafe { core::pin::Pin::new_unchecked(self.0.as_ref()) }
     }
 }
 
-impl Drop for InstanceBox {
+impl<'id> Drop for InstanceBox<'id> {
     fn drop(&mut self) {
         unsafe { TypeInfo::delete_instance(self.0.as_mut()) }
     }

@@ -1,3 +1,4 @@
+use crate::dynamic_component::InstanceRef;
 use core::convert::{TryFrom, TryInto};
 use core::pin::Pin;
 use sixtyfps_compilerlib::expression_tree::{
@@ -7,8 +8,8 @@ use sixtyfps_compilerlib::expression_tree::{
 use sixtyfps_compilerlib::{object_tree::ElementRc, typeregister::Type};
 use sixtyfps_corelib as corelib;
 use sixtyfps_corelib::{
-    abi::datastructures::ItemRef, graphics::PathElement, items::PropertyAnimation, Color,
-    ComponentRefPin, PathData, Resource, SharedArray, SharedString,
+    abi::datastructures::ItemRef, graphics::PathElement, items::PropertyAnimation, Color, PathData,
+    Resource, SharedArray, SharedString,
 };
 use std::{collections::HashMap, rc::Rc};
 
@@ -159,8 +160,7 @@ pub struct EvalLocalContext {
 /// Evaluate an expression and return a Value as the result of this expression
 pub fn eval_expression(
     e: &Expression,
-    component_type: &crate::ComponentDescription,
-    component_ref: ComponentRefPin,
+    component: InstanceRef,
     local_context: &mut EvalLocalContext,
 ) -> Value {
     match e {
@@ -175,29 +175,31 @@ pub fn eval_expression(
         ),
         Expression::PropertyReference(NamedReference { element, name }) => {
             let element = element.upgrade().unwrap();
-            let (component_mem, component_type, _) =
-                enclosing_component_for_element(&element, component_type, component_ref);
+            generativity::make_guard!(guard);
+            let enclosing_component = enclosing_component_for_element(&element, component, guard);
             let element = element.borrow();
             if element.id == element.enclosing_component.upgrade().unwrap().root_element.borrow().id
             {
-                if let Some(x) = component_type.custom_properties.get(name) {
+                if let Some(x) = enclosing_component.component_type.custom_properties.get(name) {
                     return unsafe {
-                        x.prop.get(Pin::new_unchecked(&*component_mem.add(x.offset))).unwrap()
+                        x.prop
+                            .get(Pin::new_unchecked(&*enclosing_component.as_ptr().add(x.offset)))
+                            .unwrap()
                     };
                 }
             };
-            let item_info = &component_type.items[element.id.as_str()];
+            let item_info = &enclosing_component.component_type.items[element.id.as_str()];
             core::mem::drop(element);
-            let item = unsafe { item_info.item_from_component(component_mem) };
+            let item = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
             item_info.rtti.properties[name.as_str()].get(item)
         }
         Expression::RepeaterIndexReference { element } => {
             if element.upgrade().unwrap().borrow().base_type
-                == Type::Component(component_type.original.clone())
+                == Type::Component(component.component_type.original.clone())
             {
-                let x = &component_type.custom_properties["index"];
+                let x = &component.component_type.custom_properties["index"];
                 unsafe {
-                    x.prop.get(Pin::new_unchecked(&*component_ref.as_ptr().add(x.offset))).unwrap()
+                    x.prop.get(Pin::new_unchecked(&*component.as_ptr().add(x.offset))).unwrap()
                 }
             } else {
                 todo!();
@@ -205,27 +207,25 @@ pub fn eval_expression(
         }
         Expression::RepeaterModelReference { element } => {
             if element.upgrade().unwrap().borrow().base_type
-                == Type::Component(component_type.original.clone())
+                == Type::Component(component.component_type.original.clone())
             {
-                let x = &component_type.custom_properties["model_data"];
+                let x = &component.component_type.custom_properties["model_data"];
                 unsafe {
-                    x.prop.get(Pin::new_unchecked(&*component_ref.as_ptr().add(x.offset))).unwrap()
+                    x.prop.get(Pin::new_unchecked(&*component.as_ptr().add(x.offset))).unwrap()
                 }
             } else {
                 todo!();
             }
         }
         Expression::ObjectAccess { base, name } => {
-            if let Value::Object(mut o) =
-                eval_expression(base, component_type, component_ref, local_context)
-            {
+            if let Value::Object(mut o) = eval_expression(base, component, local_context) {
                 o.remove(name).unwrap_or(Value::Void)
             } else {
                 Value::Void
             }
         }
         Expression::Cast { from, to } => {
-            let v = eval_expression(&*from, component_type, component_ref, local_context);
+            let v = eval_expression(&*from, component, local_context);
             match (v, to) {
                 (Value::Number(n), Type::Int32) => Value::Number(n.round()),
                 (Value::Number(n), Type::String) => {
@@ -238,39 +238,38 @@ pub fn eval_expression(
         Expression::CodeBlock(sub) => {
             let mut v = Value::Void;
             for e in sub {
-                v = eval_expression(e, component_type, component_ref, local_context);
+                v = eval_expression(e, component, local_context);
             }
             v
         }
         Expression::FunctionCall { function, .. } => {
             if let Expression::SignalReference(NamedReference { element, name }) = &**function {
                 let element = element.upgrade().unwrap();
-                let (component_mem, component_type, _) =
-                    enclosing_component_for_element(&element, component_type, component_ref);
+                generativity::make_guard!(guard);
+                let enclosing_component =
+                    enclosing_component_for_element(&element, component, guard);
+                let component_type = enclosing_component.component_type;
 
                 let item_info = &component_type.items[element.borrow().id.as_str()];
-                let item = unsafe { item_info.item_from_component(component_mem) };
-                let signal = unsafe {
-                    &mut *(item_info
-                        .rtti
-                        .signals
-                        .get(name.as_str())
-                        .map(|o| item.as_ptr().add(*o) as *const u8)
-                        .or_else(|| {
-                            component_type
-                                .custom_signals
-                                .get(name.as_str())
-                                .map(|o| component_mem.add(*o))
-                        })
-                        .unwrap_or_else(|| panic!("unkown signal {}", name))
-                        as *mut corelib::Signal<()>)
-                };
+                let item = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
+                let signal = item_info
+                    .rtti
+                    .signals
+                    .get(name.as_str())
+                    .map(|o| unsafe { &*(item.as_ptr().add(*o) as *const corelib::Signal<()>) })
+                    .or_else(|| {
+                        component_type
+                            .custom_signals
+                            .get(name.as_str())
+                            .map(|o| o.apply(&*enclosing_component.instance))
+                    })
+                    .unwrap_or_else(|| panic!("unkown signal {}", name));
                 signal.emit(());
                 Value::Void
             } else if let Expression::BuiltinFunctionReference(funcref) = &**function {
                 match funcref {
                     BuiltinFunction::GetWindowScaleFactor => {
-                        Value::Number(window_scale_factor(component_type, component_ref))
+                        Value::Number(window_scale_factor(component))
                     }
                 }
             } else {
@@ -280,7 +279,7 @@ pub fn eval_expression(
         Expression::SelfAssignment { lhs, rhs, op } => match &**lhs {
             Expression::PropertyReference(NamedReference { element, name }) => {
                 let mut eval = |lhs| {
-                    let rhs = eval_expression(&**rhs, component_type, component_ref, local_context);
+                    let rhs = eval_expression(&**rhs, component, local_context);
                     match (lhs, rhs, op) {
                         (_, rhs, '=') => rhs,
                         (Value::Number(a), Value::Number(b), '+') => Value::Number(a + b),
@@ -292,21 +291,25 @@ pub fn eval_expression(
                 };
 
                 let element = element.upgrade().unwrap();
-                let (component_mem, component_type, _) =
-                    enclosing_component_for_element(&element, component_type, component_ref);
+                generativity::make_guard!(guard);
+                let enclosing_component =
+                    enclosing_component_for_element(&element, component, guard);
 
                 let component = element.borrow().enclosing_component.upgrade().unwrap();
                 if element.borrow().id == component.root_element.borrow().id {
-                    if let Some(x) = component_type.custom_properties.get(name) {
+                    if let Some(x) = enclosing_component.component_type.custom_properties.get(name)
+                    {
                         unsafe {
-                            let p = Pin::new_unchecked(&*component_mem.add(x.offset));
+                            let p =
+                                Pin::new_unchecked(&*enclosing_component.as_ptr().add(x.offset));
                             x.prop.set(p, eval(x.prop.get(p).unwrap()), None).unwrap();
                         }
                         return Value::Void;
                     }
                 };
-                let item_info = &component_type.items[element.borrow().id.as_str()];
-                let item = unsafe { item_info.item_from_component(component_mem) };
+                let item_info =
+                    &enclosing_component.component_type.items[element.borrow().id.as_str()];
+                let item = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
                 let p = &item_info.rtti.properties[name.as_str()];
                 p.set(item, eval(p.get(item)), None);
                 Value::Void
@@ -314,8 +317,8 @@ pub fn eval_expression(
             _ => panic!("typechecking should make sure this was a PropertyReference"),
         },
         Expression::BinaryExpression { lhs, rhs, op } => {
-            let lhs = eval_expression(&**lhs, component_type, component_ref, local_context);
-            let rhs = eval_expression(&**rhs, component_type, component_ref, local_context);
+            let lhs = eval_expression(&**lhs, component, local_context);
+            let rhs = eval_expression(&**rhs, component, local_context);
 
             match (op, lhs, rhs) {
                 ('+', Value::Number(a), Value::Number(b)) => Value::Number(a + b),
@@ -334,7 +337,7 @@ pub fn eval_expression(
             }
         }
         Expression::UnaryOp { sub, op } => {
-            let sub = eval_expression(&**sub, component_type, component_ref, local_context);
+            let sub = eval_expression(&**sub, component, local_context);
             match (sub, op) {
                 (Value::Number(a), '+') => Value::Number(a),
                 (Value::Number(a), '-') => Value::Number(-a),
@@ -346,40 +349,28 @@ pub fn eval_expression(
             Value::Resource(Resource::AbsoluteFilePath(absolute_source_path.as_str().into()))
         }
         Expression::Condition { condition, true_expr, false_expr } => {
-            match eval_expression(&**condition, component_type, component_ref, local_context)
-                .try_into() as Result<bool, _>
+            match eval_expression(&**condition, component, local_context).try_into()
+                as Result<bool, _>
             {
-                Ok(true) => {
-                    eval_expression(&**true_expr, component_type, component_ref, local_context)
-                }
-                Ok(false) => {
-                    eval_expression(&**false_expr, component_type, component_ref, local_context)
-                }
+                Ok(true) => eval_expression(&**true_expr, component, local_context),
+                Ok(false) => eval_expression(&**false_expr, component, local_context),
                 _ => panic!("conditional expression did not evaluate to boolean"),
             }
         }
         Expression::Array { values, .. } => Value::Array(
-            values
-                .iter()
-                .map(|e| eval_expression(e, component_type, component_ref, local_context))
-                .collect(),
+            values.iter().map(|e| eval_expression(e, component, local_context)).collect(),
         ),
         Expression::Object { values, .. } => Value::Object(
             values
                 .iter()
-                .map(|(k, v)| {
-                    (k.clone(), eval_expression(v, component_type, component_ref, local_context))
-                })
+                .map(|(k, v)| (k.clone(), eval_expression(v, component, local_context)))
                 .collect(),
         ),
-        Expression::PathElements { elements } => Value::PathElements(convert_path(
-            elements,
-            component_type,
-            component_ref,
-            local_context,
-        )),
+        Expression::PathElements { elements } => {
+            Value::PathElements(convert_path(elements, component, local_context))
+        }
         Expression::StoreLocalVariable { name, value } => {
-            let value = eval_expression(value, component_type, component_ref, local_context);
+            let value = eval_expression(value, component, local_context);
             local_context.local_variables.insert(name.clone(), value);
             Value::Void
         }
@@ -398,48 +389,45 @@ pub fn eval_expression(
     }
 }
 
-fn window_scale_factor(
-    component_type: &crate::ComponentDescription,
-    component_ref: ComponentRefPin,
-) -> f64 {
-    if let Some(parent_offset) = component_type.parent_component_offset {
-        let mem = component_ref.as_ptr();
-        let parent_component =
-            unsafe { *(mem.add(parent_offset) as *const Option<corelib::ComponentRefPin>) }
-                .unwrap();
-        let parent_component_type =
-            unsafe { crate::dynamic_component::get_component_type(parent_component) };
-        window_scale_factor(parent_component_type, parent_component)
+fn window_scale_factor(component: InstanceRef) -> f64 {
+    if let Some(parent_offset) = component.component_type.parent_component_offset {
+        let parent_component = parent_offset.apply(&*component.instance.as_ref()).unwrap();
+        generativity::make_guard!(guard);
+        window_scale_factor(unsafe { InstanceRef::from_pin_ref(parent_component, guard) })
     } else {
-        let x = &component_type.custom_properties["scale_factor"];
-        let val = unsafe {
-            x.prop.get(Pin::new_unchecked(&*component_ref.as_ptr().add(x.offset))).unwrap()
-        };
+        let x = &component.component_type.custom_properties["scale_factor"];
+        let val =
+            unsafe { x.prop.get(Pin::new_unchecked(&*component.as_ptr().add(x.offset))).unwrap() };
         val.try_into().unwrap()
     }
 }
 
-fn enclosing_component_for_element<'a>(
-    element: &ElementRc,
-    component_type: &'a crate::ComponentDescription,
-    component_ref: ComponentRefPin<'a>,
-) -> (*const u8, &'a crate::ComponentDescription, ComponentRefPin<'a>) {
+fn enclosing_component_for_element<'a, 'old_id, 'new_id>(
+    element: &'a ElementRc,
+    component: InstanceRef<'a, 'old_id>,
+    guard: generativity::Guard<'new_id>,
+) -> InstanceRef<'a, 'new_id> {
     if Rc::ptr_eq(
         &element.borrow().enclosing_component.upgrade().unwrap(),
-        &component_type.original,
+        &component.component_type.original,
     ) {
-        let mem = component_ref.as_ptr();
-        (mem, component_type, component_ref)
-    } else {
-        let mem = component_ref.as_ptr();
-        let parent_component = unsafe {
-            *(mem.add(component_type.parent_component_offset.unwrap())
-                as *const Option<corelib::ComponentRefPin>)
+        // Safety: new_id is an unique id
+        unsafe {
+            std::mem::transmute::<InstanceRef<'a, 'old_id>, InstanceRef<'a, 'new_id>>(component)
         }
-        .unwrap();
-        let parent_component_type =
-            unsafe { crate::dynamic_component::get_component_type(parent_component) };
-        enclosing_component_for_element(element, parent_component_type, parent_component)
+    } else {
+        let parent_component = component
+            .component_type
+            .parent_component_offset
+            .unwrap()
+            .apply(component.as_ref())
+            .unwrap();
+        generativity::make_guard!(new_guard);
+        let parent_instance = unsafe { InstanceRef::from_pin_ref(parent_component, new_guard) };
+        let parent_instance = unsafe {
+            core::mem::transmute::<InstanceRef, InstanceRef<'a, 'static>>(parent_instance)
+        };
+        enclosing_component_for_element(element, parent_instance, guard)
     }
 }
 
@@ -447,14 +435,13 @@ pub fn new_struct_with_bindings<
     ElementType: 'static + Default + sixtyfps_corelib::rtti::BuiltinItem,
 >(
     bindings: &HashMap<String, ExpressionSpanned>,
-    component_type: &crate::ComponentDescription,
-    component_ref: ComponentRefPin,
+    component: InstanceRef,
     local_context: &mut EvalLocalContext,
 ) -> ElementType {
     let mut element = ElementType::default();
     for (prop, info) in ElementType::fields::<Value>().into_iter() {
         if let Some(binding) = &bindings.get(prop) {
-            let value = eval_expression(&binding, &*component_type, component_ref, local_context);
+            let value = eval_expression(&binding, component, local_context);
             info.set_field(&mut element, value).unwrap();
         }
     }
@@ -514,15 +501,12 @@ fn convert_from_lyon_path<'a>(
 
 pub fn convert_path(
     path: &ExprPath,
-    component_type: &crate::ComponentDescription,
-    component_ref: ComponentRefPin,
+    component: InstanceRef,
     local_context: &mut EvalLocalContext,
 ) -> PathData {
     match path {
         ExprPath::Elements(elements) => PathData::Elements(SharedArray::<PathElement>::from_iter(
-            elements.iter().map(|element| {
-                convert_path_element(element, component_type, component_ref, local_context)
-            }),
+            elements.iter().map(|element| convert_path_element(element, component, local_context)),
         )),
         ExprPath::Events(events) => convert_from_lyon_path(events.iter()),
     }
@@ -530,21 +514,18 @@ pub fn convert_path(
 
 fn convert_path_element(
     expr_element: &ExprPathElement,
-    component_type: &crate::ComponentDescription,
-    component_ref: ComponentRefPin,
+    component: InstanceRef,
     local_context: &mut EvalLocalContext,
 ) -> PathElement {
     match expr_element.element_type.native_class.class_name.as_str() {
         "LineTo" => PathElement::LineTo(new_struct_with_bindings(
             &expr_element.bindings,
-            component_type,
-            component_ref,
+            component,
             local_context,
         )),
         "ArcTo" => PathElement::ArcTo(new_struct_with_bindings(
             &expr_element.bindings,
-            component_type,
-            component_ref,
+            component,
             local_context,
         )),
         "Close" => PathElement::Close,
