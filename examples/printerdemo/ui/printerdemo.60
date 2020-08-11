@@ -1,5 +1,5 @@
 
-import { SpinBox, Button } from "sixtyfps_widgets.60";
+import { SpinBox, Button, CheckBox, Slider } from "sixtyfps_widgets.60";
 
 Label := Text {
     color: black;
@@ -87,12 +87,31 @@ PrintPage := Page {
 
 
 SettingsPage := Page {
-
-    Text {
-        x: parent.width / 12;
-        y: parent.width / 8;
-        color: black;
-        text: "Settings";
+   GridLayout {
+        height: parent.height - 20lx;
+        width: parent.width - 20lx;
+        x: 10lx;
+        y: 10lx;
+        spacing: 10lx;
+        Row { Rectangle {} }
+        Row {
+            CheckBox {
+                text: "Black and White";
+            }
+        }
+        Row {
+            Label { text: "Scan DPI"; }
+            Slider {  }
+        }
+        Row {
+            CheckBox { text: "Eco Mode"; }
+        }
+        Row {
+            CheckBox { text: "TURBO"; }
+        }
+        Row { Rectangle {} }
+        Row { Rectangle {} }
+        Row { Rectangle {} }
     }
 }
 
@@ -163,8 +182,8 @@ MainWindow := Rectangle {
                 width: root.width;
                 border_radius: 0lx;
                 img.x: root.height / 8;
-                img.width: root.width / 25;
-                img.height: root.height / 18.75;
+                img.width: root.height / 10;
+                img.height: root.height / 10;
                 text.y: 0px;
                 text.x: root.height / 4;
                 //text.horizontal_alignment: align_left;
@@ -181,7 +200,7 @@ MainWindow := Rectangle {
             invisible when root.active_page > 0 && root.active_page != idx + 1 : {
                 color: white;
                 // FIXME: should probaby hide the entire item under with z-ordering
-                img.y: 10000000lx;
+                img.y: 1000000000lx;
                 text.color: #0000;
             }
         ]

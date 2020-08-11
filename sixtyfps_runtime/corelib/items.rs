@@ -311,7 +311,7 @@ impl Item for Text {
             let height = font.font_height();
             LayoutInfo {
                 min_width: width,
-                max_width: width,
+                max_width: f32::MAX,
                 min_height: height,
                 max_height: height,
             }

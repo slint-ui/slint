@@ -224,7 +224,7 @@ pub fn item_offset<Base>(
     item_tree: &[ItemTreeNode<Base>],
     index: usize,
 ) -> crate::graphics::Point {
-    let index = dbg!(index as u32);
+    let index = index as u32;
     // FIXME: This algorithm is shit
     for (parent, node) in item_tree.iter().enumerate() {
         match node {
