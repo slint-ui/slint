@@ -570,14 +570,15 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
     ///
     pub fn set_animated_binding(
         &self,
-        f: impl (Fn() -> T) + 'static,
+        binding: impl Binding<T> + 'static,
         animation_data: &PropertyAnimation,
     ) {
         self.handle.set_binding(AnimatedBindingCallable::<T> {
             original_binding: PropertyHandle {
                 handle: Cell::new(
                     (alloc_binding_holder(move |val: *mut ()| unsafe {
-                        *(val as *mut T) = f();
+                        let val = &mut *(val as *mut T);
+                        *(val as *mut T) = binding.evaluate(val);
                         BindingResult::KeepBinding
                     }) as usize)
                         | 0b10,
