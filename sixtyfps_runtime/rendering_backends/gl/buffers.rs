@@ -1,15 +1,35 @@
 use super::GLContext;
 use glow::HasContext;
 use std::marker::PhantomData;
-use std::mem;
+use std::{mem, rc::Rc};
+
+struct GLBuffer {
+    id: <GLContext as HasContext>::Buffer,
+    context: Rc<glow::Context>,
+}
+
+impl Drop for GLBuffer {
+    fn drop(&mut self) {
+        unsafe {
+            self.context.delete_buffer(self.id);
+        }
+    }
+}
+
+impl std::ops::Deref for GLBuffer {
+    type Target = <GLContext as HasContext>::Buffer;
+    fn deref(&self) -> &Self::Target {
+        &self.id
+    }
+}
 
 pub struct GLArrayBuffer<ArrayMemberType> {
-    buffer_id: <GLContext as HasContext>::Buffer,
+    buffer: GLBuffer,
     _type_marker: PhantomData<ArrayMemberType>,
 }
 
 impl<ArrayMemberType> GLArrayBuffer<ArrayMemberType> {
-    pub fn new(gl: &glow::Context, data: &[ArrayMemberType]) -> Self {
+    pub fn new(gl: &Rc<glow::Context>, data: &[ArrayMemberType]) -> Self {
         let buffer_id = unsafe { gl.create_buffer().expect("vertex buffer") };
 
         unsafe {
@@ -20,12 +40,12 @@ impl<ArrayMemberType> GLArrayBuffer<ArrayMemberType> {
             gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, byte_slice, glow::STATIC_DRAW);
         }
 
-        Self { buffer_id, _type_marker: PhantomData }
+        Self { buffer: GLBuffer { id: buffer_id, context: gl.clone() }, _type_marker: PhantomData }
     }
 
     pub fn bind(&self, gl: &glow::Context, attribute_location: u32) {
         unsafe {
-            gl.bind_buffer(glow::ARRAY_BUFFER, Some(self.buffer_id));
+            gl.bind_buffer(glow::ARRAY_BUFFER, Some(*self.buffer));
 
             // TODO #5: generalize GL array buffer size/data_type handling beyond f32
             gl.vertex_attrib_pointer_f32(
@@ -39,25 +59,16 @@ impl<ArrayMemberType> GLArrayBuffer<ArrayMemberType> {
             gl.enable_vertex_attrib_array(attribute_location);
         }
     }
-
-    // TODO #3: make sure we release GL resources
-    /*
-    fn drop(&mut self, gl: &glow::Context) {
-        unsafe {
-            gl.delete_buffer(self.buffer_id);
-        }
-    }
-    */
 }
 
 pub struct GLIndexBuffer<IndexType> {
-    buffer_id: <GLContext as HasContext>::Buffer,
+    buffer: GLBuffer,
     pub len: i32,
     _vertex_marker: PhantomData<IndexType>,
 }
 
 impl<IndexType> GLIndexBuffer<IndexType> {
-    pub fn new(gl: &glow::Context, data: &[IndexType]) -> Self {
+    pub fn new(gl: &Rc<glow::Context>, data: &[IndexType]) -> Self {
         let buffer_id = unsafe { gl.create_buffer().expect("vertex buffer") };
 
         unsafe {
@@ -68,21 +79,16 @@ impl<IndexType> GLIndexBuffer<IndexType> {
             gl.buffer_data_u8_slice(glow::ELEMENT_ARRAY_BUFFER, byte_slice, glow::STATIC_DRAW);
         }
 
-        Self { buffer_id, len: data.len() as i32, _vertex_marker: PhantomData }
+        Self {
+            buffer: GLBuffer { id: buffer_id, context: gl.clone() },
+            len: data.len() as i32,
+            _vertex_marker: PhantomData,
+        }
     }
 
     pub fn bind(&self, gl: &glow::Context) {
         unsafe {
-            gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, Some(self.buffer_id));
+            gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, Some(*self.buffer));
         }
     }
-
-    // TODO #3: make sure we release GL resources
-    /*
-    fn drop(&mut self, gl: &glow::Context) {
-        unsafe {
-            gl.delete_buffer(self.buffer_id);
-        }
-    }
-    */
 }
