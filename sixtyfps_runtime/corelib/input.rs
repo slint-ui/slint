@@ -130,7 +130,7 @@ pub(crate) mod ffi {
 
     #[no_mangle]
     pub extern "C" fn sixtyfps_process_ungrabbed_mouse_event(
-        component: core::pin::Pin<crate::abi::datastructures::ComponentRef>,
+        component: core::pin::Pin<crate::ComponentRef>,
         event: MouseEvent,
         new_mouse_grabber: &mut crate::item_tree::VisitChildrenResult,
     ) -> InputEventResult {

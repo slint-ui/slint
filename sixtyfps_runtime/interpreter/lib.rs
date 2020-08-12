@@ -13,7 +13,7 @@ mod eval;
 pub use eval::Value;
 
 use dynamic_component::InstanceRef;
-use sixtyfps_corelib::abi::datastructures::ComponentRef;
+use sixtyfps_corelib::ComponentRef;
 use sixtyfps_corelib::ComponentRefPin;
 use std::{collections::HashMap, pin::Pin, rc::Rc};
 

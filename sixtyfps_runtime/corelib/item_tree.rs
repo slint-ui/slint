@@ -1,6 +1,6 @@
-use crate::abi::datastructures::ComponentVTable;
 use crate::items::{ItemRef, ItemVTable};
 use crate::ComponentRefPin;
+use crate::ComponentVTable;
 use core::pin::Pin;
 use vtable::*;
 

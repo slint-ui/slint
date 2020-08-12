@@ -34,6 +34,14 @@ fn main() {
         "PathElement",
         "sixtyfps_new_path_elements",
         "sixtyfps_new_path_events",
+        "Property",
+        "Slice",
+        "PropertyHandleOpaque",
+        "Signal",
+        "sixtyfps_property_listener_scope_evaluate",
+        "sixtyfps_property_listener_scope_is_dirty",
+        "PropertyListenerOpaque",
+        "SignalOpaque",
     ]
     .iter()
     .map(|x| x.to_string())
@@ -62,8 +70,10 @@ fn main() {
     std::fs::create_dir_all(include_dir.clone()).unwrap();
 
     let crate_dir = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").unwrap());
+    let mut string_config = config.clone();
+    string_config.export.exclude = vec!["SharedString".into()];
     cbindgen::Builder::new()
-        .with_config(config.clone())
+        .with_config(string_config)
         .with_src(crate_dir.join("string.rs"))
         .with_src(crate_dir.join("slice.rs"))
         .with_after_include("namespace sixtyfps { struct SharedString; }")
@@ -79,8 +89,10 @@ fn main() {
         .expect("Unable to generate bindings")
         .write_to_file(include_dir.join("sixtyfps_sharedarray_internal.h"));
 
+    let mut properties_config = config.clone();
+    properties_config.export.exclude.clear();
     cbindgen::Builder::new()
-        .with_config(config.clone())
+        .with_config(properties_config)
         .with_src(crate_dir.join("properties.rs"))
         .with_src(crate_dir.join("signals.rs"))
         .with_after_include("namespace sixtyfps { struct Color; }")
@@ -133,7 +145,6 @@ fn main() {
             Some(vec!["sixtyfps".into(), "internal".into(), "types".into()]);
         cbindgen::Builder::new()
             .with_config(special_config)
-            .with_src(crate_dir.join("abi/datastructures.rs"))
             .with_src(crate_dir.join("graphics.rs"))
             .with_src(crate_dir.join("animations.rs"))
             //            .with_src(crate_dir.join("input.rs"))
@@ -166,17 +177,7 @@ fn main() {
     config.export.pre_body.insert("FlickableDataBox".to_owned(), "struct FlickableData;".into());
     cbindgen::Builder::new()
         .with_config(config)
-        .with_src(crate_dir.join("abi/datastructures.rs"))
-        .with_src(crate_dir.join("graphics.rs"))
-        .with_src(crate_dir.join("animations.rs"))
-        .with_src(crate_dir.join("input.rs"))
-        .with_src(crate_dir.join("item_tree.rs"))
-        .with_src(crate_dir.join("item_rendering.rs"))
-        .with_src(crate_dir.join("items.rs"))
-        .with_src(crate_dir.join("eventloop.rs"))
-        .with_src(crate_dir.join("model.rs"))
-        .with_src(crate_dir.join("tests.rs"))
-        .with_src(crate_dir.join("layout.rs")) // FIXME: move in ABI?
+        .with_src(crate_dir.join("lib.rs"))
         .with_include("vtable.h")
         .with_include("sixtyfps_string.h")
         .with_include("sixtyfps_sharedarray.h")

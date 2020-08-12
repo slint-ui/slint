@@ -18,7 +18,7 @@ pub extern "C" fn sixtyfps_mock_elapsed_time(time_in_ms: u64) {
 /// Simulate a click on a position within the component.
 #[no_mangle]
 pub extern "C" fn sixtyfps_send_mouse_click(
-    component: core::pin::Pin<crate::abi::datastructures::ComponentRef>,
+    component: core::pin::Pin<crate::ComponentRef>,
     x: f32,
     y: f32,
 ) {

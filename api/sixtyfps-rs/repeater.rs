@@ -3,7 +3,7 @@ use core::pin::Pin;
 use std::rc::Rc;
 
 /// Component that can be instantiated by a repeater.
-pub trait RepeatedComponent: sixtyfps_corelib::abi::datastructures::Component {
+pub trait RepeatedComponent: sixtyfps_corelib::Component {
     /// The data corresponding to the model
     type Data;
 

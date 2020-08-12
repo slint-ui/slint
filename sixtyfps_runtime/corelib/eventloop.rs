@@ -1,5 +1,5 @@
-use crate::abi::datastructures::ComponentVTable;
 use crate::items::ItemRef;
+use crate::ComponentVTable;
 use std::cell::RefCell;
 use std::{
     pin::Pin,
@@ -12,12 +12,12 @@ use crate::{input::MouseEventType, properties::PropertyListenerScope};
 use winit::platform::desktop::EventLoopExtDesktop;
 
 pub trait GenericWindow {
-    fn draw(&self, component: core::pin::Pin<crate::abi::datastructures::ComponentRef>);
+    fn draw(&self, component: core::pin::Pin<crate::ComponentRef>);
     fn process_mouse_input(
         &self,
         pos: winit::dpi::PhysicalPosition<f64>,
         what: MouseEventType,
-        component: core::pin::Pin<crate::abi::datastructures::ComponentRef>,
+        component: core::pin::Pin<crate::ComponentRef>,
     );
     fn window_handle(&self) -> std::cell::Ref<'_, winit::window::Window>;
     fn map_window(self: Rc<Self>, event_loop: &EventLoop, root_item: Pin<ItemRef>);
@@ -86,7 +86,7 @@ impl EventLoop {
         Self { winit_loop: winit::event_loop::EventLoop::new() }
     }
     #[allow(unused_mut)] // mut need changes for wasm
-    pub fn run(mut self, component: core::pin::Pin<crate::abi::datastructures::ComponentRef>) {
+    pub fn run(mut self, component: core::pin::Pin<crate::ComponentRef>) {
         use winit::event::Event;
         use winit::event_loop::{ControlFlow, EventLoopWindowTarget};
         let layout_listener = Rc::pin(PropertyListenerScope::default());
