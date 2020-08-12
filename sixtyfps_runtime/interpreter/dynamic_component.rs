@@ -13,7 +13,7 @@ use sixtyfps_corelib::item_tree::{
 };
 use sixtyfps_corelib::items::{Flickable, ItemRef, ItemVTable, PropertyAnimation, Rectangle};
 use sixtyfps_corelib::layout::LayoutInfo;
-use sixtyfps_corelib::properties::{InterpolatedPropertyValue, PropertyListenerScope};
+use sixtyfps_corelib::properties::{InterpolatedPropertyValue, PropertyTracker};
 use sixtyfps_corelib::rtti::{self, FieldOffset, PropertyInfo};
 use sixtyfps_corelib::slice::Slice;
 use sixtyfps_corelib::ComponentRefPin;
@@ -100,8 +100,8 @@ pub(crate) struct RepeaterWithinComponent<'par_id, 'sub_id> {
     pub(crate) offset: FieldOffset<Instance<'par_id>, RepeaterVec<'sub_id>>,
     /// The model
     pub(crate) model: expression_tree::Expression,
-    /// Offset of the PropertyListenerScope
-    listener: Option<FieldOffset<Instance<'par_id>, PropertyListenerScope>>,
+    /// Offset of the PropertyTracker
+    property_tracker: Option<FieldOffset<Instance<'par_id>, PropertyTracker>>,
 }
 
 type RepeaterVec<'id> = core::cell::RefCell<Vec<ComponentBox<'id>>>;
@@ -199,7 +199,7 @@ extern "C" fn visit_children_item(
             generativity::make_guard!(guard);
             let rep_in_comp = component_type.repeater[index].unerase(guard);
             let mut vec = rep_in_comp.offset.apply(&*instance).borrow_mut();
-            if let Some(listener_offset) = rep_in_comp.listener {
+            if let Some(listener_offset) = rep_in_comp.property_tracker {
                 let listener = listener_offset.apply_pin(instance);
                 if listener.is_dirty() {
                     listener.evaluate(|| {
@@ -372,10 +372,10 @@ fn generate_component<'id>(
                     component_to_repeat: generate_component(base_component, guard),
                     offset: builder.add_field_type::<RepeaterVec>(),
                     model: repeated.model.clone(),
-                    listener: if repeated.model.is_constant() {
+                    property_tracker: if repeated.model.is_constant() {
                         None
                     } else {
-                        Some(builder.add_field_type::<PropertyListenerScope>())
+                        Some(builder.add_field_type::<PropertyTracker>())
                     },
                 }
                 .into(),

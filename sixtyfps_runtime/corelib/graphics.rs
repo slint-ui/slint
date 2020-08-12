@@ -234,12 +234,12 @@ pub trait GraphicsBackend: Sized {
 
 struct TrackingRenderingPrimitive<RenderingPrimitive> {
     primitive: RenderingPrimitive,
-    dependency_tracker: core::pin::Pin<Box<crate::properties::PropertyListenerScope>>,
+    dependency_tracker: core::pin::Pin<Box<crate::properties::PropertyTracker>>,
 }
 
 impl<RenderingPrimitive> TrackingRenderingPrimitive<RenderingPrimitive> {
     fn new(update_fn: impl FnOnce() -> RenderingPrimitive) -> Self {
-        let dependency_tracker = Box::pin(crate::properties::PropertyListenerScope::default());
+        let dependency_tracker = Box::pin(crate::properties::PropertyTracker::default());
         let primitive = dependency_tracker.as_ref().evaluate(update_fn);
         Self { primitive, dependency_tracker }
     }

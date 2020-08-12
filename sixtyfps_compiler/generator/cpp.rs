@@ -387,7 +387,7 @@ fn handle_repeater(
         component_struct.members.push((
             Access::Private,
             Declaration::Var(Var {
-                ty: "sixtyfps::PropertyListenerScope".to_owned(),
+                ty: "sixtyfps::PropertyTracker".to_owned(),
                 name: model_id,
                 init: None,
             }),

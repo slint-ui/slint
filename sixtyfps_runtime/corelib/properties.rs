@@ -963,11 +963,11 @@ mod animation_tests {
 
 /// This structure allow to run a closure that queries properties, and can report
 /// if any property we accessed have become dirty
-pub struct PropertyListenerScope {
+pub struct PropertyTracker {
     holder: BindingHolder<()>,
 }
 
-impl Default for PropertyListenerScope {
+impl Default for PropertyTracker {
     fn default() -> Self {
         static VT: &'static BindingVTable = &BindingVTable {
             drop: |_| (),
@@ -987,7 +987,7 @@ impl Default for PropertyListenerScope {
     }
 }
 
-impl PropertyListenerScope {
+impl PropertyTracker {
     /// Any of the properties accessed during the last evaluation of the closure called
     /// from the last call to evaluate is pottentially dirty.
     pub fn is_dirty(&self) -> bool {
@@ -1008,7 +1008,7 @@ impl PropertyListenerScope {
 
 #[test]
 fn test_property_listener_scope() {
-    let scope = Box::pin(PropertyListenerScope::default());
+    let scope = Box::pin(PropertyTracker::default());
     let prop1 = Box::pin(Property::new(42));
     assert!(scope.is_dirty()); // It is dirty at the beginning
 
@@ -1236,51 +1236,46 @@ pub(crate) mod ffi {
     }
 
     #[repr(C)]
-    /// Opaque type representing the PropertyListenerScope
-    pub struct PropertyListenerOpaque {
+    /// Opaque type representing the PropertyTracker
+    pub struct PropertyTrackerOpaque {
         dependencies: usize,
         dep_nodes: [usize; 2],
         vtable: usize,
         dirty: bool,
     }
 
-    static_assertions::assert_eq_align!(PropertyListenerOpaque, PropertyListenerScope);
-    static_assertions::assert_eq_size!(PropertyListenerOpaque, PropertyListenerScope);
+    static_assertions::assert_eq_align!(PropertyTrackerOpaque, PropertyTracker);
+    static_assertions::assert_eq_size!(PropertyTrackerOpaque, PropertyTracker);
 
-    /// Initialize the first pointer of the PropertyListenerScope.
+    /// Initialize the first pointer of the PropertyTracker.
     /// `out` is assumed to be uninitialized
-    /// sixtyfps_property_listener_scope_drop need to be called after that
+    /// sixtyfps_property_tracker_drop need to be called after that
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_listener_scope_init(
-        out: *mut PropertyListenerOpaque,
-    ) {
-        core::ptr::write(out as *mut PropertyListenerScope, PropertyListenerScope::default());
+    pub unsafe extern "C" fn sixtyfps_property_tracker_init(out: *mut PropertyTrackerOpaque) {
+        core::ptr::write(out as *mut PropertyTracker, PropertyTracker::default());
     }
 
     /// Call the callback with the user data. Any properties access within the callback will be registered.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_listener_scope_evaluate(
-        handle: *const PropertyListenerOpaque,
+    pub unsafe extern "C" fn sixtyfps_property_tracker_evaluate(
+        handle: *const PropertyTrackerOpaque,
         callback: extern "C" fn(user_data: *mut c_void),
         user_data: *mut c_void,
     ) {
-        Pin::new_unchecked(&*(handle as *const PropertyListenerScope))
-            .evaluate(|| callback(user_data))
+        Pin::new_unchecked(&*(handle as *const PropertyTracker)).evaluate(|| callback(user_data))
     }
 
-    /// Query if the property listener is dirty
+    /// Query if the property tracker is dirty
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_listener_scope_is_dirty(
-        handle: *const PropertyListenerOpaque,
+    pub unsafe extern "C" fn sixtyfps_property_tracker_is_dirty(
+        handle: *const PropertyTrackerOpaque,
     ) -> bool {
-        (*(handle as *const PropertyListenerScope)).is_dirty()
+        (*(handle as *const PropertyTracker)).is_dirty()
     }
 
     /// Destroy handle
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_listener_scope_drop(
-        handle: *mut PropertyListenerOpaque,
-    ) {
-        core::ptr::read(handle as *mut PropertyListenerScope);
+    pub unsafe extern "C" fn sixtyfps_property_tracker_drop(handle: *mut PropertyTrackerOpaque) {
+        core::ptr::read(handle as *mut PropertyTracker);
     }
 }

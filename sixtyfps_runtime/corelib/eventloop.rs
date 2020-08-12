@@ -7,7 +7,7 @@ use std::{
 };
 use vtable::*;
 
-use crate::{input::MouseEventType, properties::PropertyListenerScope};
+use crate::{input::MouseEventType, properties::PropertyTracker};
 #[cfg(not(target_arch = "wasm32"))]
 use winit::platform::desktop::EventLoopExtDesktop;
 
@@ -89,7 +89,7 @@ impl EventLoop {
     pub fn run(mut self, component: core::pin::Pin<crate::ComponentRef>) {
         use winit::event::Event;
         use winit::event_loop::{ControlFlow, EventLoopWindowTarget};
-        let layout_listener = Rc::pin(PropertyListenerScope::default());
+        let layout_listener = Rc::pin(PropertyTracker::default());
 
         let mut cursor_pos = winit::dpi::PhysicalPosition::new(0., 0.);
         let mut run_fn = move |event: Event<()>,

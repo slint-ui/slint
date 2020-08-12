@@ -40,7 +40,7 @@ fn main() {
         "Signal",
         "sixtyfps_property_listener_scope_evaluate",
         "sixtyfps_property_listener_scope_is_dirty",
-        "PropertyListenerOpaque",
+        "PropertyTrackerOpaque",
         "SignalOpaque",
     ]
     .iter()

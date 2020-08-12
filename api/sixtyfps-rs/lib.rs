@@ -94,7 +94,7 @@ pub mod re_exports {
         grid_layout_info, solve_grid_layout, solve_path_layout, GridLayoutCellData, GridLayoutData,
         PathLayoutData, PathLayoutItemData,
     };
-    pub use sixtyfps_corelib::properties::{Property, PropertyListenerScope};
+    pub use sixtyfps_corelib::properties::{Property, PropertyTracker};
     pub use sixtyfps_corelib::signals::Signal;
     pub use sixtyfps_corelib::slice::Slice;
     pub use sixtyfps_corelib::Color;

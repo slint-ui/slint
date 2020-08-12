@@ -412,7 +412,7 @@ fn generate_component(
             #(#declared_property_vars : sixtyfps::re_exports::Property<#declared_property_types>,)*
             #(#declared_signals : sixtyfps::re_exports::Signal<()>,)*
             #(#repeated_element_names : sixtyfps::re_exports::Repeater<#repeated_element_components>,)*
-            #(#repeated_dynmodel_names : sixtyfps::re_exports::PropertyListenerScope,)*
+            #(#repeated_dynmodel_names : sixtyfps::re_exports::PropertyTracker,)*
             self_weak: sixtyfps::re_exports::OnceCell<sixtyfps::re_exports::PinWeak<#component_id>>,
             #(parent : sixtyfps::re_exports::PinWeak<#parent_component_type>,)*
             mouse_grabber: ::core::cell::Cell<sixtyfps::re_exports::VisitChildrenResult>,

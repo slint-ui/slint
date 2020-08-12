@@ -103,20 +103,20 @@ void Property<float>::set_animated_binding(F binding,
             &animation_data);
 }
 
-struct PropertyListenerScope
+struct PropertyTracker
 {
-    PropertyListenerScope() { internal::sixtyfps_property_listener_scope_init(&inner); }
-    ~PropertyListenerScope() { internal::sixtyfps_property_listener_scope_drop(&inner); }
-    PropertyListenerScope(const PropertyListenerScope &) = delete;
-    PropertyListenerScope &operator=(const PropertyListenerScope &) = delete;
+    PropertyTracker() { internal::sixtyfps_property_tracker_init(&inner); }
+    ~PropertyTracker() { internal::sixtyfps_property_tracker_drop(&inner); }
+    PropertyTracker(const PropertyTracker &) = delete;
+    PropertyTracker &operator=(const PropertyTracker &) = delete;
 
     bool is_dirty() const {
-        return internal::sixtyfps_property_listener_scope_is_dirty(&inner);
+        return internal::sixtyfps_property_tracker_is_dirty(&inner);
     }
 
     template<typename F>
     void evaluate(const F &f) const {
-        internal::sixtyfps_property_listener_scope_evaluate(
+        internal::sixtyfps_property_tracker_evaluate(
             &inner,
             [](void *f){ (*reinterpret_cast<const F*>(f))(); },
             const_cast<F*>(&f)
@@ -124,7 +124,7 @@ struct PropertyListenerScope
     }
 
 private:
-    internal::PropertyListenerOpaque inner;
+    internal::PropertyTrackerOpaque inner;
 };
 
 } // namespace sixtyfps
