@@ -11,6 +11,10 @@ export Button := Rectangle {
     color: touch_area.pressed ? #ddd : #eee;
     animate color { duration: 100ms; }
 
+    maximum_height: 40lx;
+    minimum_height: 40lx;
+    minimum_width: 120lx;
+
     Text {
         text: root.text;
         font_size: root.font_size;
@@ -36,6 +40,10 @@ export CheckBox := Rectangle {
     signal toggled;
     property <string> text;
     property <bool> checked;
+
+    maximum_height: 40lx;
+    minimum_height: 40lx;
+    minimum_width: 120lx;
 
     // the check box iteself
     indicator := Rectangle {
@@ -107,6 +115,10 @@ export SpinBox := Rectangle {
     property <length> font_size;
     color: white;
 
+    maximum_height: 40lx;
+    minimum_height: 40lx;
+    minimum_width: 120lx;
+
     SpinBoxButton {
         text: "-";
         font_size: root.font_size;
@@ -138,6 +150,11 @@ export Slider := Rectangle {
     property<float> max: 100;
     property<float> min: 0;
     property<float> value;
+
+    maximum_height: 40lx;
+    minimum_height: 40lx;
+    minimum_width: 120lx;
+
     slider := Rectangle {
         width: parent.width;
         y: parent.height / 3;

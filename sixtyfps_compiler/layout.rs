@@ -110,6 +110,34 @@ pub struct GridLayoutElement {
     pub colspan: u16,
     pub rowspan: u16,
     pub item: LayoutItem,
+    pub minimum_width: Option<Box<Expression>>,
+    pub maximum_width: Option<Box<Expression>>,
+    pub minimum_height: Option<Box<Expression>>,
+    pub maximum_height: Option<Box<Expression>>,
+}
+
+impl GridLayoutElement {
+    pub fn has_explicit_restrictions(&self) -> bool {
+        self.minimum_width.is_some()
+            || self.maximum_width.is_some()
+            || self.minimum_height.is_some()
+            || self.maximum_height.is_some()
+    }
+
+    /*pub fn for_each_restrictions(&self, mut f: impl FnMut(&str, &Expression)) {
+        self.minimum_width.map(|e| f("minimum_width", &e));
+        self.maximum_width.map(|e| f("maximum_width", &e));
+        self.minimum_height.map(|e| f("minimum_height", &e));
+        self.maximum_height.map(|e| f("maximum_height", &e));
+    }*/
+    pub fn for_each_restrictions<'a>(&'a self) -> [(&Option<Box<Expression>>, &'static str); 4] {
+        [
+            (&self.minimum_width, "min_width"),
+            (&self.maximum_width, "max_width"),
+            (&self.minimum_height, "min_height"),
+            (&self.maximum_height, "max_height"),
+        ]
+    }
 }
 
 /// Internal representation of a grid layout
@@ -133,6 +161,12 @@ impl ExpressionFieldsVisitor for GridLayout {
                 }
                 LayoutItem::Layout(layout) => layout.visit_expressions(visitor),
             }
+        }
+        for e in &mut self.elems {
+            e.maximum_width.as_mut().map(|e| visitor(&mut *e));
+            e.minimum_width.as_mut().map(|e| visitor(&mut *e));
+            e.maximum_height.as_mut().map(|e| visitor(&mut *e));
+            e.minimum_height.as_mut().map(|e| visitor(&mut *e));
         }
         self.spacing.as_mut().map(visitor);
     }

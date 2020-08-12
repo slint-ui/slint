@@ -906,7 +906,26 @@ fn collect_layouts_recursively<'a, 'b>(
                     let y = get_property_ref(&cell.item, "y");
                     let (col, row, colspan, rowspan) =
                         (cell.col, cell.row, cell.colspan, cell.rowspan);
-                    let layout_info = cell.item.get_layout_info_ref(layout_tree, component);
+                    let mut layout_info = cell.item.get_layout_info_ref(layout_tree, component);
+                    if cell.has_explicit_restrictions() {
+                        let (name, expr): (Vec<_>, Vec<_>) = cell
+                            .for_each_restrictions()
+                            .iter()
+                            .filter_map(|(e, s)| {
+                                e.as_ref().map(|e| {
+                                    (
+                                        quote::format_ident!("{}", s),
+                                        compile_expression(&e, component),
+                                    )
+                                })
+                            })
+                            .unzip();
+                        layout_info = quote!({
+                            let mut layout_info = #layout_info;
+                             #(layout_info.#name = #expr;)*
+                            layout_info });
+                    }
+
                     quote!(GridLayoutCellData {
                         x: #x,
                         y: #y,

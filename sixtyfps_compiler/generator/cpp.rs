@@ -1123,7 +1123,23 @@ fn collect_layouts_recursively<'a, 'b>(
     match layout {
         Layout::GridLayout(grid_layout) => {
             let mut creation_code = Vec::new();
+
             for cell in &grid_layout.elems {
+                let mut layout_info = cell.item.get_layout_info_ref(layout_tree, component);
+                if cell.has_explicit_restrictions() {
+                    layout_info = format!("[&]{{ auto layout_info = {};", layout_info);
+                    for (expr, name) in cell.for_each_restrictions().iter() {
+                        if let Some(e) = expr {
+                            layout_info += &format!(
+                                " layout_info.{} = {};",
+                                name,
+                                compile_expression(&e, component)
+                            );
+                        }
+                    }
+                    layout_info += " return layout_info; }()";
+                }
+
                 let get_property_ref = LayoutItemCodeGen::<CppLanguageLayoutGen>::get_property_ref;
                 creation_code.push(format!(
                     "        {{ {c}, {r}, {cs}, {rs}, {li}, {x}, {y}, {w}, {h} }},",
@@ -1131,7 +1147,7 @@ fn collect_layouts_recursively<'a, 'b>(
                     r = cell.row,
                     cs = cell.colspan,
                     rs = cell.rowspan,
-                    li = cell.item.get_layout_info_ref(layout_tree, component),
+                    li = layout_info,
                     x = get_property_ref(&cell.item, "x"),
                     y = get_property_ref(&cell.item, "y"),
                     w = get_property_ref(&cell.item, "width"),

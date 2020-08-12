@@ -216,7 +216,7 @@ impl GridLayout {
             }
         } else {
             collected_children.push(item_element.clone());
-            item_element.into()
+            item_element.clone().into()
         };
 
         self.elems.push(GridLayoutElement {
@@ -225,8 +225,16 @@ impl GridLayout {
             colspan,
             rowspan,
             item: layout_item,
+            minimum_width: find_expression("minimum_width", &item_element),
+            maximum_width: find_expression("maximum_width", &item_element),
+            minimum_height: find_expression("minimum_height", &item_element),
+            maximum_height: find_expression("maximum_height", &item_element),
         });
     }
+}
+
+fn find_expression(name: &str, item_element: &ElementRc) -> Option<Box<Expression>> {
+    item_element.borrow().bindings.get(name).map(|_| property_reference(item_element, name))
 }
 
 fn eval_const_expr(

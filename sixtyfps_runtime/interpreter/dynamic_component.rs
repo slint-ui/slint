@@ -823,11 +823,20 @@ fn collect_layouts_recursively<'a, 'b>(
 ) -> &'b LayoutTreeItem<'a> {
     match layout {
         Layout::GridLayout(grid_layout) => {
+            let expr_eval = |expr| {
+                eval::eval_expression(expr, component, &mut Default::default()).try_into().unwrap()
+            };
             let cells = grid_layout
                 .elems
                 .iter()
                 .map(|cell| {
                     let get_prop = |name| cell.item.get_property_ref(component, name);
+                    let mut layout_info = cell.item.get_layout_info(component, layout_tree);
+                    cell.minimum_width.as_ref().map(|e| layout_info.min_width = expr_eval(e));
+                    cell.maximum_width.as_ref().map(|e| layout_info.max_width = expr_eval(e));
+                    cell.minimum_height.as_ref().map(|e| layout_info.min_height = expr_eval(e));
+                    cell.maximum_height.as_ref().map(|e| layout_info.max_height = expr_eval(e));
+
                     GridLayoutCellData {
                         x: get_prop("x"),
                         y: get_prop("y"),
@@ -837,13 +846,11 @@ fn collect_layouts_recursively<'a, 'b>(
                         row: cell.row,
                         colspan: cell.colspan,
                         rowspan: cell.rowspan,
-                        constraint: cell.item.get_layout_info(component, layout_tree),
+                        constraint: layout_info,
                     }
                 })
                 .collect();
-            let spacing = grid_layout.spacing.as_ref().map_or(0., |expr| {
-                eval::eval_expression(expr, component, &mut Default::default()).try_into().unwrap()
-            });
+            let spacing = grid_layout.spacing.as_ref().map_or(0., expr_eval);
             layout_tree.push(GridLayoutWithCells { grid: grid_layout, cells, spacing }.into());
         }
         Layout::PathLayout(layout) => layout_tree.push(layout.into()),

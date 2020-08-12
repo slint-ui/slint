@@ -1,0 +1,65 @@
+// Test the maximum and minimum size within a grid layout
+
+TestCase := Rectangle {
+    width: 300px;
+    height: 300px;
+
+    GridLayout {
+        spacing: 1px;
+        Row {
+            rect1 := Rectangle {
+                color: red;
+                minimum_width: 50px;
+                minimum_height: 20px;
+                maximum_height: 20px;
+
+            }
+            rect2 := Rectangle {
+                color: blue;
+            }
+        }
+
+        Row {
+            rect3 := Rectangle {
+                color: green;
+                maximum_width: 60px;
+            }
+            rect4 := Rectangle {
+                color: red;
+            }
+            rect5 := Rectangle {
+                color: black;
+                maximum_width: 100px;
+            }
+        }
+    }
+
+    property <bool> rect1_pos_ok: rect1.x == 0px && rect1.y == 0px && rect1.width == 60px && rect1.height == 20px;
+    property <bool> rect2_pos_ok: rect2.x == 61px && rect2.y == 0px && rect2.width == 138px && rect2.height == 20px;
+    property <bool> rect3_pos_ok: rect3.x == 0px && rect3.y == 21px && rect3.width == 60px && rect3.height == 279px;
+}
+
+/*
+
+```cpp
+TestCase instance;
+TestCase::compute_layout({&TestCase::component_type, &instance });
+assert(instance.get_rect1_pos_ok());
+assert(instance.get_rect2_pos_ok());
+assert(instance.get_rect3_pos_ok());
+```
+
+
+```rust
+let instance = TestCase::new();
+let instance = instance.as_ref();
+use sixtyfps::re_exports::Component;
+instance.compute_layout();
+assert!(instance.get_rect1_pos_ok());
+assert!(instance.get_rect2_pos_ok());
+assert!(instance.get_rect3_pos_ok());
+```
+
+// FIXME:: interpreter test
+
+*/
