@@ -122,6 +122,24 @@ MainWindow := Window {
 
     property<int> active_page: 0;
 
+    title1 := Text {
+        text: "PrintMachine";
+        color: active_page == 0 ? black : #0000;
+        animate color { duration: 200ms; }
+        font_size: root.width / 20;
+        y: 5lx;
+        x: 40lx;
+    }
+    Text {
+        y:  title1.y;
+        x: title1.x + title1.font_size*7; //title1.x + title1.width;
+        text: "2000";
+        color: active_page == 0 ? red : #0000;
+        animate color { duration: 200ms; }
+        font_size: root.width / 20;
+    }
+
+
     for page_info[idx] in [
         { color: #d11, text: "Copy", img_small: img!"images/replicate.png" },
         { color: #1d1, text: "Fax", img_small: img!"images/laptop.png" },
@@ -130,7 +148,7 @@ MainWindow := Window {
     ] : Rectangle {
         width: root.width / 5;
         height: root.height / 3;
-        y: root.height / 3;
+        y: root.height / 4;
         x: idx * root.width / 4 + root.width / 45;
         border_radius: 25lx;
         color: page_info.color;
@@ -191,7 +209,7 @@ MainWindow := Window {
             pressed when root.active_page == 0 && touch.pressed : {
                 width: root.width / 5 + 6lx;
                 height: root.height / 3 + 6lx ;
-                y: root.height / 3 - 3lx;
+                y: root.height / 4 - 3lx;
                 x: idx * root.width / 4 + root.width / 45 - 3lx;
                 img.x: 8lx;
                 img.y: 8lx;
@@ -218,6 +236,61 @@ MainWindow := Window {
             width: root.height / 8;
             height: root.height / 8;
             clicked => { root.active_page = 0; }
+        }
+    }
+
+
+    Rectangle {
+        width: root.width / 3;
+        height: root.height / 3;
+        x: root.width - self.width - 20lx;
+        y: root.height - self.height - 20lx;
+        color: #eee;
+
+        //GridLayout {
+        //    spacing: 20lx;
+            for color_info[idx] in [
+                {color: #0ff, level: 60%},
+                {color: #ff0, level: 80%},
+                {color: #f0f, level: 70%},
+                {color: #000, level: 30%},
+            ] : Rectangle {
+
+                color: white;
+
+    // this should be done by the Layout later
+    width: (parent.width - 5*10lx) / 4;
+    height: parent.height - 20lx;
+    y: 10lx;
+    x: 10lx + (self.width + 10lx) * idx;
+
+                Rectangle {
+                    width: parent.width;
+                    height: tentative_height > parent.height * color_info.level ? parent.height * color_info.level: tentative_height;
+                    property <length> tentative_height: root.active_page == 0 ? parent.height * color_info.level : 0px;
+                    animate tentative_height { duration: 750ms; easing: ease_in_out; }
+                    y: parent.height - self.height;
+                    color: color_info.color;
+                }
+            }
+        //}
+
+        property <bool> full_screen;
+        states [
+            full_screen when full_screen : {
+                width: root.width - 35lx;
+                height: 7/8 * root.height - 40lx ;
+            }
+        ]
+        animate width, height { duration: 200ms; easing: ease;  }
+        TouchArea {
+            width: parent.width;
+            height: parent.height;
+            clicked => {
+                if (active_page == 0) {
+                    parent.full_screen = !parent.full_screen;
+                }
+            }
         }
     }
 
@@ -265,3 +338,4 @@ MainWindow := Window {
         ]
     }
 }
+
