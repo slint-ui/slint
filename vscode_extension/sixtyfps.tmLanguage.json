@@ -1,0 +1,71 @@
+{
+    "name": "sixtyfps",
+    "scopeName": "source.sixtyfps",
+    "patterns": [{ "include": "#document" }],
+    "repository": {
+        "document": {
+            "patterns": [
+                { "include": "#general" },
+                {
+                    "match": "import|from",
+                    "name": "keyword"
+                },
+                {
+                    "match": "property|signal|animate|states|transitions",
+                    "name": "keyword.other"
+                },
+                {
+                    "match": "if|for",
+                    "name": "keyword.control"
+                },
+                {
+                    "match": "root|parent|this",
+                    "name": "variable.language"
+                },
+                {
+                    "match": "\\w+ *:",
+                    "name": "variable.parameter"
+                },
+                {
+                    "match": "\\w+ *:=",
+                    "name": "storage.type"
+                },
+                {
+                    "match": "blue|red|green|yellow|red|black|ease|ease_in|ease_out|ease_in_out",
+                    "name": "support.constant"
+                }
+            ]
+        },
+        "letter": {
+            "match": "a|b|c",
+            "name": "keyword"
+        },
+
+        "general": {
+            "patterns": [
+                {
+                    "match": "//.*$",
+                    "name": "comment.line"
+                },
+                {
+                    "name": "comment.block",
+                    "begin": "/\\*",
+                    "end": "\\*/",
+                    "comment": "Block comment."
+                },
+                {
+                    "match": "\"[^\"]*\"",
+                    "name": "string"
+                },
+                                {
+                    "match": "#[0-9a-fA-F]+",
+                    "name": "constant.other"
+                },
+                {
+                    "match": "\\d+(\\.\\d+)?\\w*",
+                    "name": "constant.numeric"
+                }
+            ]
+        }
+    }
+}

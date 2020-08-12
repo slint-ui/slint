@@ -1,0 +1,20 @@
+{
+    "name": "sixtyfps",
+    "version": "0.0.1",
+    "engines": {
+        "vscode": "^1.31"
+    },
+    "publisher": "SixtyFps",
+    "contributes": {
+        "languages": [{
+            "id": "sixtyfps",
+            "aliases": ["SixtyFps"],
+            "extensions": [".60"]
+        }],
+        "grammars": [{
+            "language": "sixtyfps",
+            "scopeName": "source.sixtyfps",
+            "path": "./sixtyfps.tmLanguage.json"
+        }]
+    }
+}
