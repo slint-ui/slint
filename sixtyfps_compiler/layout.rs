@@ -153,3 +153,55 @@ impl ExpressionFieldsVisitor for PathLayout {
         visitor(&mut self.offset_reference);
     }
 }
+
+pub mod gen {
+    use super::*;
+    use crate::object_tree::Component;
+
+    pub trait Language {
+        type CompiledCode;
+    }
+
+    #[derive(derive_more::From)]
+    pub enum LayoutTreeItem<'a, L: Language> {
+        GridLayout {
+            grid: &'a GridLayout,
+            spacing: L::CompiledCode,
+            var_creation_code: L::CompiledCode,
+            cell_ref_variable: L::CompiledCode,
+        },
+        PathLayout(&'a PathLayout),
+    }
+
+    pub trait LayoutItemCodeGen<L: Language> {
+        fn get_property_ref(&self, name: &str) -> L::CompiledCode;
+        fn get_layout_info_ref<'a, 'b>(
+            &'a self,
+            layout_tree: &'b mut Vec<LayoutTreeItem<'a, L>>,
+            component: &Rc<Component>,
+        ) -> L::CompiledCode;
+    }
+
+    impl<L: Language> LayoutItemCodeGen<L> for LayoutItem
+    where
+        ElementRc: LayoutItemCodeGen<L>,
+        Layout: LayoutItemCodeGen<L>,
+    {
+        fn get_property_ref(&self, name: &str) -> L::CompiledCode {
+            match self {
+                LayoutItem::Element(e) => e.get_property_ref(name),
+                LayoutItem::Layout(l) => l.get_property_ref(name),
+            }
+        }
+        fn get_layout_info_ref<'a, 'b>(
+            &'a self,
+            layout_tree: &'b mut Vec<LayoutTreeItem<'a, L>>,
+            component: &Rc<Component>,
+        ) -> L::CompiledCode {
+            match self {
+                LayoutItem::Element(e) => e.get_layout_info_ref(layout_tree, component),
+                LayoutItem::Layout(l) => l.get_layout_info_ref(layout_tree, component),
+            }
+        }
+    }
+}

@@ -5,11 +5,9 @@ use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic, Spanned};
 use crate::expression_tree::{
     BuiltinFunction, EasingCurve, Expression, NamedReference, OperatorClass, Path,
 };
+use crate::layout::{gen::LayoutItemCodeGen, Layout};
 use crate::object_tree::{Component, ElementRc};
-use crate::{
-    layout::{GridLayout, Layout, LayoutItem, PathLayout},
-    typeregister::Type,
-};
+use crate::typeregister::Type;
 use proc_macro2::TokenStream;
 use quote::quote;
 use std::rc::Rc;
@@ -839,61 +837,14 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
     }
 }
 
-pub struct GridLayoutWithCells<'a> {
-    grid: &'a GridLayout,
-    var_creation_code: TokenStream,
-    cell_ref_variable: proc_macro2::Ident,
-    spacing_variable: TokenStream,
+struct RustLanguageLayoutGen;
+impl crate::layout::gen::Language for RustLanguageLayoutGen {
+    type CompiledCode = TokenStream;
 }
 
-#[derive(derive_more::From)]
-enum LayoutTreeItem<'a> {
-    GridLayout(GridLayoutWithCells<'a>),
-    PathLayout(&'a PathLayout),
-}
+type LayoutTreeItem<'a> = crate::layout::gen::LayoutTreeItem<'a, RustLanguageLayoutGen>;
 
-impl<'a> LayoutTreeItem<'a> {
-    fn layout_info(&self) -> TokenStream {
-        match self {
-            LayoutTreeItem::GridLayout(grid_layout) => {
-                let cells_ref = &grid_layout.cell_ref_variable;
-                let spacing = &grid_layout.spacing_variable;
-                quote!(grid_layout_info(&Slice::from_slice(&#cells_ref), #spacing))
-            }
-            LayoutTreeItem::PathLayout(_) => todo!(),
-        }
-    }
-}
-
-trait LayoutItemCodeGen {
-    fn get_property_ref(&self, name: &str) -> TokenStream;
-    fn get_layout_info_ref<'a, 'b>(
-        &'a self,
-        layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
-        component: &Rc<Component>,
-    ) -> TokenStream;
-}
-
-impl LayoutItemCodeGen for LayoutItem {
-    fn get_property_ref(&self, name: &str) -> TokenStream {
-        match self {
-            LayoutItem::Element(e) => e.get_property_ref(name),
-            LayoutItem::Layout(l) => l.get_property_ref(name),
-        }
-    }
-    fn get_layout_info_ref<'a, 'b>(
-        &'a self,
-        layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
-        component: &Rc<Component>,
-    ) -> TokenStream {
-        match self {
-            LayoutItem::Element(e) => e.get_layout_info_ref(layout_tree, component),
-            LayoutItem::Layout(l) => l.get_layout_info_ref(layout_tree, component),
-        }
-    }
-}
-
-impl LayoutItemCodeGen for Layout {
+impl LayoutItemCodeGen<RustLanguageLayoutGen> for Layout {
     fn get_property_ref(&self, name: &str) -> TokenStream {
         let moved_property_name = match self.rect().mapped_property_name(name) {
             Some(name) => name,
@@ -908,11 +859,16 @@ impl LayoutItemCodeGen for Layout {
         component: &Rc<Component>,
     ) -> TokenStream {
         let self_as_layout_tree_item = collect_layouts_recursively(layout_tree, &self, component);
-        self_as_layout_tree_item.layout_info()
+        match self_as_layout_tree_item {
+            LayoutTreeItem::GridLayout { cell_ref_variable, spacing, .. } => {
+                quote!(grid_layout_info(&Slice::from_slice(&#cell_ref_variable), #spacing))
+            }
+            LayoutTreeItem::PathLayout(_) => todo!(),
+        }
     }
 }
 
-impl LayoutItemCodeGen for ElementRc {
+impl LayoutItemCodeGen<RustLanguageLayoutGen> for ElementRc {
     fn get_property_ref(&self, name: &str) -> TokenStream {
         let e = quote::format_ident!("{}", self.borrow().id);
         if self.borrow().lookup_property(name) == Type::Length {
@@ -937,16 +893,17 @@ fn collect_layouts_recursively<'a, 'b>(
     layout: &'a Layout,
     component: &Rc<Component>,
 ) -> &'b LayoutTreeItem<'a> {
+    let get_property_ref = LayoutItemCodeGen::<RustLanguageLayoutGen>::get_property_ref;
     match layout {
         Layout::GridLayout(grid_layout) => {
             let cells: Vec<TokenStream> = grid_layout
                 .elems
                 .iter()
                 .map(|cell| {
-                    let width = cell.item.get_property_ref("width");
-                    let height = cell.item.get_property_ref("height");
-                    let x = cell.item.get_property_ref("x");
-                    let y = cell.item.get_property_ref("y");
+                    let width = get_property_ref(&cell.item, "width");
+                    let height = get_property_ref(&cell.item, "height");
+                    let x = get_property_ref(&cell.item, "x");
+                    let y = get_property_ref(&cell.item, "y");
                     let (col, row, colspan, rowspan) =
                         (cell.col, cell.row, cell.colspan, cell.rowspan);
                     let layout_info = cell.item.get_layout_info_ref(layout_tree, component);
@@ -966,20 +923,19 @@ fn collect_layouts_recursively<'a, 'b>(
 
             let cell_ref_variable = quote::format_ident!("cells_{}", layout_tree.len());
             let cell_creation_code = quote!(let #cell_ref_variable = [#( #cells ),*];);
-            let (spacing_variable, spacing_creation_code) =
-                if let Some(spacing) = &grid_layout.spacing {
-                    let variable = quote::format_ident!("spacing_{}", layout_tree.len());
-                    let spacing_code = compile_expression(spacing, component);
-                    (quote!(#variable), Some(quote!(let #variable = #spacing_code;)))
-                } else {
-                    (quote!(0.), None)
-                };
+            let (spacing, spacing_creation_code) = if let Some(spacing) = &grid_layout.spacing {
+                let variable = quote::format_ident!("spacing_{}", layout_tree.len());
+                let spacing_code = compile_expression(spacing, component);
+                (quote!(#variable), Some(quote!(let #variable = #spacing_code;)))
+            } else {
+                (quote!(0.), None)
+            };
             layout_tree.push(
-                GridLayoutWithCells {
+                LayoutTreeItem::GridLayout {
                     grid: grid_layout,
                     var_creation_code: quote!(#cell_creation_code #spacing_creation_code),
-                    cell_ref_variable,
-                    spacing_variable,
+                    cell_ref_variable: quote!(#cell_ref_variable),
+                    spacing,
                 }
                 .into(),
             );
@@ -990,23 +946,13 @@ fn collect_layouts_recursively<'a, 'b>(
 }
 
 impl<'a> LayoutTreeItem<'a> {
-    fn layout_info_collecting_code(&self) -> Option<TokenStream> {
-        match self {
-            LayoutTreeItem::GridLayout(grid_layout) => Some(grid_layout.var_creation_code.clone()),
-            LayoutTreeItem::PathLayout(_) => None,
-        }
-    }
-
     fn emit_solve_calls(&self, component: &Rc<Component>, code_stream: &mut Vec<TokenStream>) {
         match self {
-            LayoutTreeItem::GridLayout(grid_layout) => {
-                let x_pos = compile_expression(&*grid_layout.grid.rect.x_reference, component);
-                let y_pos = compile_expression(&*grid_layout.grid.rect.y_reference, component);
-                let width = compile_expression(&*grid_layout.grid.rect.width_reference, component);
-                let height =
-                    compile_expression(&*grid_layout.grid.rect.height_reference, component);
-                let cells_variable = &grid_layout.cell_ref_variable;
-                let spacing = &grid_layout.spacing_variable;
+            LayoutTreeItem::GridLayout { grid, cell_ref_variable, spacing, .. } => {
+                let x_pos = compile_expression(&*grid.rect.x_reference, component);
+                let y_pos = compile_expression(&*grid.rect.y_reference, component);
+                let width = compile_expression(&*grid.rect.width_reference, component);
+                let height = compile_expression(&*grid.rect.height_reference, component);
 
                 code_stream.push(quote! {
                     solve_grid_layout(&GridLayoutData {
@@ -1014,7 +960,7 @@ impl<'a> LayoutTreeItem<'a> {
                         height: #height,
                         x: #x_pos as _,
                         y: #y_pos as _,
-                        cells: Slice::from_slice(&#cells_variable),
+                        cells: Slice::from_slice(&#cell_ref_variable),
                         spacing: #spacing,
                     });
                 });
@@ -1136,9 +1082,10 @@ fn compute_layout(component: &Rc<Component>) -> TokenStream {
 
         collect_layouts_recursively(&mut inverse_layout_tree, layout, component);
 
-        layouts.extend(
-            inverse_layout_tree.iter().filter_map(|layout| layout.layout_info_collecting_code()),
-        );
+        layouts.extend(inverse_layout_tree.iter().filter_map(|layout| match layout {
+            LayoutTreeItem::GridLayout { var_creation_code, .. } => Some(var_creation_code.clone()),
+            LayoutTreeItem::PathLayout(_) => None,
+        }));
 
         inverse_layout_tree
             .iter()

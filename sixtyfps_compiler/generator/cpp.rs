@@ -175,7 +175,7 @@ mod cpp_ast {
 
 use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic, Spanned};
 use crate::expression_tree::{BuiltinFunction, EasingCurve, Expression, ExpressionSpanned};
-use crate::layout::{GridLayout, Layout, LayoutItem, PathLayout};
+use crate::layout::{gen::LayoutItemCodeGen, Layout};
 use crate::object_tree::{Component, Element, ElementRc, RepeatedElementInfo};
 use crate::typeregister::Type;
 use cpp_ast::*;
@@ -1063,60 +1063,14 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
     }
 }
 
-pub struct GridLayoutWithCells<'a> {
-    grid: &'a GridLayout,
-    var_creation_code: String,
-    cell_ref_variable: String,
-    spacing: String,
+struct CppLanguageLayoutGen;
+impl crate::layout::gen::Language for CppLanguageLayoutGen {
+    type CompiledCode = String;
 }
 
-#[derive(derive_more::From)]
-enum LayoutTreeItem<'a> {
-    GridLayout(GridLayoutWithCells<'a>),
-    PathLayout(&'a PathLayout),
-}
+type LayoutTreeItem<'a> = crate::layout::gen::LayoutTreeItem<'a, CppLanguageLayoutGen>;
 
-impl<'a> LayoutTreeItem<'a> {
-    fn layout_info(&self) -> String {
-        match self {
-            LayoutTreeItem::GridLayout(grid_layout) => format!(
-                "sixtyfps::grid_layout_info(&{}, {})",
-                grid_layout.cell_ref_variable, grid_layout.spacing
-            ),
-            LayoutTreeItem::PathLayout(_) => todo!(),
-        }
-    }
-}
-
-trait LayoutItemCodeGen {
-    fn get_property_ref(&self, name: &str) -> String;
-    fn get_layout_info_ref<'a, 'b>(
-        &'a self,
-        layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
-        component: &Rc<Component>,
-    ) -> String;
-}
-
-impl LayoutItemCodeGen for LayoutItem {
-    fn get_property_ref(&self, name: &str) -> String {
-        match self {
-            LayoutItem::Element(e) => e.get_property_ref(name),
-            LayoutItem::Layout(l) => l.get_property_ref(name),
-        }
-    }
-    fn get_layout_info_ref<'a, 'b>(
-        &'a self,
-        layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
-        component: &Rc<Component>,
-    ) -> String {
-        match self {
-            LayoutItem::Element(e) => e.get_layout_info_ref(layout_tree, component),
-            LayoutItem::Layout(l) => l.get_layout_info_ref(layout_tree, component),
-        }
-    }
-}
-
-impl LayoutItemCodeGen for Layout {
+impl LayoutItemCodeGen<CppLanguageLayoutGen> for Layout {
     fn get_property_ref(&self, name: &str) -> String {
         let moved_property_name = match self.rect().mapped_property_name(name) {
             Some(name) => name,
@@ -1130,11 +1084,16 @@ impl LayoutItemCodeGen for Layout {
         component: &Rc<Component>,
     ) -> String {
         let self_as_layout_tree_item = collect_layouts_recursively(layout_tree, &self, component);
-        self_as_layout_tree_item.layout_info()
+        match self_as_layout_tree_item {
+            LayoutTreeItem::GridLayout { spacing, cell_ref_variable, .. } => {
+                format!("sixtyfps::grid_layout_info(&{}, {})", cell_ref_variable, spacing)
+            }
+            LayoutTreeItem::PathLayout(_) => todo!(),
+        }
     }
 }
 
-impl LayoutItemCodeGen for ElementRc {
+impl LayoutItemCodeGen<CppLanguageLayoutGen> for ElementRc {
     fn get_property_ref(&self, name: &str) -> String {
         if self.borrow().lookup_property(name) == Type::Length {
             format!("&self->{}.{}", self.borrow().id, name)
@@ -1165,6 +1124,7 @@ fn collect_layouts_recursively<'a, 'b>(
         Layout::GridLayout(grid_layout) => {
             let mut creation_code = Vec::new();
             for cell in &grid_layout.elems {
+                let get_property_ref = LayoutItemCodeGen::<CppLanguageLayoutGen>::get_property_ref;
                 creation_code.push(format!(
                     "        {{ {c}, {r}, {cs}, {rs}, {li}, {x}, {y}, {w}, {h} }},",
                     c = cell.col,
@@ -1172,10 +1132,10 @@ fn collect_layouts_recursively<'a, 'b>(
                     cs = cell.colspan,
                     rs = cell.rowspan,
                     li = cell.item.get_layout_info_ref(layout_tree, component),
-                    x = cell.item.get_property_ref("x"),
-                    y = cell.item.get_property_ref("y"),
-                    w = cell.item.get_property_ref("width"),
-                    h = cell.item.get_property_ref("height")
+                    x = get_property_ref(&cell.item, "x"),
+                    y = get_property_ref(&cell.item, "y"),
+                    w = get_property_ref(&cell.item, "width"),
+                    h = get_property_ref(&cell.item, "height")
                 ));
             }
             let cell_ref_variable = format!("cells_{}", layout_tree.len()).to_owned();
@@ -1200,15 +1160,12 @@ fn collect_layouts_recursively<'a, 'b>(
                 "0.".into()
             };
 
-            layout_tree.push(
-                GridLayoutWithCells {
-                    grid: grid_layout,
-                    var_creation_code: creation_code.join("\n"),
-                    cell_ref_variable,
-                    spacing,
-                }
-                .into(),
-            )
+            layout_tree.push(LayoutTreeItem::GridLayout {
+                grid: grid_layout,
+                spacing,
+                var_creation_code: creation_code.join("\n"),
+                cell_ref_variable,
+            })
         }
         Layout::PathLayout(path_layout) => layout_tree.push(path_layout.into()),
     }
@@ -1216,34 +1173,26 @@ fn collect_layouts_recursively<'a, 'b>(
 }
 
 impl<'a> LayoutTreeItem<'a> {
-    fn layout_info_collecting_code(&self) -> Option<String> {
-        match self {
-            LayoutTreeItem::GridLayout(grid_layout) => Some(grid_layout.var_creation_code.clone()),
-            LayoutTreeItem::PathLayout(_) => None,
-        }
-    }
-
     fn emit_solve_calls(&self, component: &Rc<Component>, code_stream: &mut Vec<String>) {
         match self {
-            LayoutTreeItem::GridLayout(grid_layout) => {
+            LayoutTreeItem::GridLayout { grid, spacing, cell_ref_variable, .. } => {
                 code_stream.push("    { ".into());
                 code_stream.push(format!(
                     "    auto width = {};",
-                    compile_expression(&grid_layout.grid.rect.width_reference, component)
+                    compile_expression(&grid.rect.width_reference, component)
                 ));
                 code_stream.push(format!(
                     "    auto height = {};",
-                    compile_expression(&grid_layout.grid.rect.height_reference, component)
+                    compile_expression(&grid.rect.height_reference, component)
                 ));
                 code_stream.push("    sixtyfps::GridLayoutData grid { ".into());
                 code_stream.push(format!(
                     "        width, height, {}, {}, {},",
-                    compile_expression(&grid_layout.grid.rect.x_reference, component),
-                    compile_expression(&grid_layout.grid.rect.y_reference, component),
-                    grid_layout.spacing,
+                    compile_expression(&grid.rect.x_reference, component),
+                    compile_expression(&grid.rect.y_reference, component),
+                    spacing,
                 ));
-                code_stream
-                    .push(format!("        {cv}", cv = grid_layout.cell_ref_variable).to_owned());
+                code_stream.push(format!("        {cv}", cv = cell_ref_variable).to_owned());
                 code_stream.push("    };".to_owned());
                 code_stream.push("    sixtyfps::solve_grid_layout(&grid);".to_owned());
                 code_stream.push("    } ".into());
@@ -1376,9 +1325,10 @@ fn compute_layout(component: &Rc<Component>) -> Vec<String> {
 
         collect_layouts_recursively(&mut inverse_layout_tree, layout, component);
 
-        res.extend(
-            inverse_layout_tree.iter().filter_map(|layout| layout.layout_info_collecting_code()),
-        );
+        res.extend(inverse_layout_tree.iter().filter_map(|layout| match layout {
+            LayoutTreeItem::GridLayout { var_creation_code, .. } => Some(var_creation_code.clone()),
+            LayoutTreeItem::PathLayout(_) => None,
+        }));
 
         inverse_layout_tree
             .iter()
