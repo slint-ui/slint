@@ -8,8 +8,8 @@ use sixtyfps_compilerlib::expression_tree::{
 use sixtyfps_compilerlib::{object_tree::ElementRc, typeregister::Type};
 use sixtyfps_corelib as corelib;
 use sixtyfps_corelib::{
-    abi::datastructures::ItemRef, graphics::PathElement, items::PropertyAnimation, Color, PathData,
-    Resource, SharedArray, SharedString,
+    graphics::PathElement, items::ItemRef, items::PropertyAnimation, Color, PathData, Resource,
+    SharedArray, SharedString,
 };
 use std::{collections::HashMap, rc::Rc};
 
@@ -25,7 +25,7 @@ pub trait ErasedPropertyInfo {
     fn offset(&self) -> usize;
 }
 
-impl<Item: vtable::HasStaticVTable<corelib::abi::datastructures::ItemVTable>> ErasedPropertyInfo
+impl<Item: vtable::HasStaticVTable<corelib::items::ItemVTable>> ErasedPropertyInfo
     for &'static dyn corelib::rtti::PropertyInfo<Item, Value>
 {
     fn get(&self, item: Pin<ItemRef>) -> Value {

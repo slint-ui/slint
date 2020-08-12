@@ -16,7 +16,6 @@ When adding an item or a property, it needs to be kept in sync with different pl
 #![allow(non_upper_case_globals)]
 #![allow(missing_docs)] // because documenting each property of items is redundent
 
-use super::abi::datastructures::{Item, ItemConsts};
 use super::graphics::{Color, HighLevelRenderingPrimitive, PathData, Rect, Resource};
 use super::input::{InputEventResult, MouseEvent, MouseEventType};
 use super::item_rendering::CachedRenderingData;
@@ -27,6 +26,43 @@ use crate::{Property, SharedString, Signal};
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use sixtyfps_corelib_macros::*;
+use vtable::*;
+
+/// Items are the nodes in the render tree.
+#[vtable]
+#[repr(C)]
+pub struct ItemVTable {
+    /// Returns the geometry of this item (relative to its parent item)
+    pub geometry: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>) -> Rect,
+
+    /// offset in bytes fromthe *const ItemImpl.
+    /// isize::MAX  means None
+    #[allow(non_upper_case_globals)]
+    #[field_offset(CachedRenderingData)]
+    pub cached_rendering_data_offset: usize,
+
+    /// Return the rendering primitive used to display this item. This should depend on only
+    /// rarely changed properties as it typically contains data uploaded to the GPU.
+    pub rendering_primitive:
+        extern "C" fn(core::pin::Pin<VRef<ItemVTable>>) -> HighLevelRenderingPrimitive,
+
+    /// Return the variables needed to render the graphical primitives of this item. These
+    /// are typically variables that do not require uploading any data sets to the GPU and
+    /// can instead be represented using uniforms.
+    pub rendering_variables:
+        extern "C" fn(core::pin::Pin<VRef<ItemVTable>>) -> SharedArray<RenderingVariable>,
+
+    /// We would need max/min/preferred size, and all layout info
+    pub layouting_info: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>) -> LayoutInfo,
+
+    /// input event
+    pub input_event:
+        extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, MouseEvent) -> InputEventResult,
+}
+
+/// Alias for `vtable::VRef<ItemVTable>` which represent a pointer to a `dyn Item` with
+/// the associated vtable
+pub type ItemRef<'a> = vtable::VRef<'a, ItemVTable>;
 
 #[repr(C)]
 #[derive(FieldOffsets, Default, BuiltinItem)]
@@ -82,7 +118,11 @@ impl ItemConsts for Rectangle {
     > = Rectangle::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-pub use crate::abi::datastructures::RectangleVTable;
+ItemVTable_static! {
+    /// The VTable for `Rectangle`
+    #[no_mangle]
+    pub static RectangleVTable for Rectangle
+}
 
 #[repr(C)]
 #[derive(FieldOffsets, Default, BuiltinItem)]
@@ -147,7 +187,11 @@ impl ItemConsts for BorderRectangle {
     > = BorderRectangle::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-pub use crate::abi::datastructures::BorderRectangleVTable;
+ItemVTable_static! {
+    /// The VTable for `BorderRectangle`
+    #[no_mangle]
+    pub static BorderRectangleVTable for BorderRectangle
+}
 
 #[repr(C)]
 #[derive(FieldOffsets, Default, BuiltinItem)]
@@ -210,7 +254,11 @@ impl ItemConsts for Image {
     > = Image::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-pub use crate::abi::datastructures::ImageVTable;
+ItemVTable_static! {
+    /// The VTable for `Image`
+    #[no_mangle]
+    pub static ImageVTable for Image
+}
 
 #[derive(Copy, Clone, Debug, PartialEq, strum_macros::EnumString, strum_macros::Display)]
 #[repr(C)]
@@ -328,7 +376,11 @@ impl ItemConsts for Text {
         Text::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-pub use crate::abi::datastructures::TextVTable;
+ItemVTable_static! {
+    /// The VTable for `Text`
+    #[no_mangle]
+    pub static TextVTable for Text
+}
 
 /// The implementation of the `TouchArea` element
 #[repr(C)]
@@ -411,7 +463,12 @@ impl ItemConsts for TouchArea {
         CachedRenderingData,
     > = TouchArea::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
-pub use crate::abi::datastructures::TouchAreaVTable;
+
+ItemVTable_static! {
+    /// The VTable for `TouchArea`
+    #[no_mangle]
+    pub static TouchAreaVTable for TouchArea
+}
 
 /// The implementation of the `Path` element
 #[repr(C)]
@@ -468,7 +525,11 @@ impl ItemConsts for Path {
         Path::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-pub use crate::abi::datastructures::PathVTable;
+ItemVTable_static! {
+    /// The VTable for `Path`
+    #[no_mangle]
+    pub static PathVTable for Path
+}
 
 /// The implementation of the `Flickable` element
 #[repr(C)]
@@ -518,7 +579,14 @@ impl ItemConsts for Flickable {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
         Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
-pub use crate::{abi::datastructures::FlickableVTable, graphics::RenderingVariable, SharedArray};
+
+ItemVTable_static! {
+    /// The VTable for `Flickable`
+    #[no_mangle]
+    pub static FlickableVTable for Flickable
+}
+
+pub use crate::{graphics::RenderingVariable, SharedArray};
 
 #[repr(C)]
 /// Wraps the internal datastructure for the Flickable
@@ -606,4 +674,10 @@ impl Item for Window {
 impl ItemConsts for Window {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
         Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+}
+
+ItemVTable_static! {
+    /// The VTable for `Window`
+    #[no_mangle]
+    pub static WindowVTable for Window
 }

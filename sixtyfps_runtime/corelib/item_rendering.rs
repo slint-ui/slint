@@ -1,5 +1,5 @@
-use super::abi::datastructures::ItemRef;
 use super::graphics::{Frame, GraphicsBackend, RenderingCache, RenderingPrimitivesBuilder};
+use super::items::ItemRef;
 use crate::item_tree::ItemVisitorResult;
 use cgmath::{Matrix4, SquareMatrix, Vector3};
 use std::cell::Cell;

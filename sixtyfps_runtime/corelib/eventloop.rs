@@ -1,4 +1,5 @@
-use crate::abi::datastructures::{ComponentVTable, ItemRef};
+use crate::abi::datastructures::ComponentVTable;
+use crate::items::ItemRef;
 use std::cell::RefCell;
 use std::{
     pin::Pin,
@@ -269,7 +270,7 @@ pub mod ffi {
     #![allow(unsafe_code)]
 
     use super::*;
-    use crate::abi::datastructures::ItemVTable;
+    use crate::items::ItemVTable;
 
     #[allow(non_camel_case_types)]
     type c_void = ();

@@ -1,9 +1,10 @@
 extern crate alloc;
 use crate::input::{MouseEvent, MouseEventType};
+use crate::items::ItemRef;
 use crate::properties::{InterpolatedPropertyValue, Property};
 #[cfg(feature = "rtti")]
-use crate::rtti::{BuiltinItem, FieldInfo, FieldOffset, PropertyInfo, ValueType};
-use crate::{abi::datastructures::ItemRef, SharedArray};
+use crate::rtti::{BuiltinItem, FieldInfo, PropertyInfo, ValueType};
+use crate::SharedArray;
 
 use cgmath::Matrix4;
 use const_field_offset::FieldOffsets;

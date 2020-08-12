@@ -171,5 +171,8 @@ pub trait BuiltinItem: Sized {
     fn name() -> &'static str;
     fn properties<Value: ValueType>() -> Vec<(&'static str, &'static dyn PropertyInfo<Self, Value>)>;
     fn fields<Value: ValueType>() -> Vec<(&'static str, &'static dyn FieldInfo<Self, Value>)>;
-    fn signals() -> Vec<(&'static str, FieldOffset<Self, crate::Signal<()>>)>;
+    fn signals() -> Vec<(
+        &'static str,
+        const_field_offset::FieldOffset<Self, crate::Signal<()>, const_field_offset::PinnedFlag>,
+    )>;
 }

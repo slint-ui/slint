@@ -7,12 +7,12 @@ use object_tree::{Element, ElementRc};
 use sixtyfps_compilerlib::layout::{GridLayout, Layout, LayoutItem, PathLayout};
 use sixtyfps_compilerlib::typeregister::Type;
 use sixtyfps_compilerlib::*;
-use sixtyfps_corelib::abi::datastructures::{ComponentVTable, ItemRef, ItemVTable};
+use sixtyfps_corelib::abi::datastructures::ComponentVTable;
 use sixtyfps_corelib::graphics::Resource;
 use sixtyfps_corelib::item_tree::{
     ItemTreeNode, ItemVisitorRefMut, TraversalOrder, VisitChildrenResult,
 };
-use sixtyfps_corelib::items::{Flickable, PropertyAnimation, Rectangle};
+use sixtyfps_corelib::items::{Flickable, ItemRef, ItemVTable, PropertyAnimation, Rectangle};
 use sixtyfps_corelib::layout::LayoutInfo;
 use sixtyfps_corelib::properties::{InterpolatedPropertyValue, PropertyListenerScope};
 use sixtyfps_corelib::rtti::{self, FieldOffset, PropertyInfo};
