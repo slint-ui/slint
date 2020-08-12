@@ -77,6 +77,7 @@ pub mod re_exports {
     pub use once_cell::unsync::OnceCell;
     pub use pin_weak::rc::*;
     pub use sixtyfps_corelib::animations::EasingCurve;
+    pub use sixtyfps_corelib::component::{Component, ComponentVTable};
     pub use sixtyfps_corelib::eventloop::ComponentWindow;
     pub use sixtyfps_corelib::graphics::{
         PathArcTo, PathData, PathElement, PathEvent, PathLineTo, Point, Rect, Size,
@@ -102,7 +103,6 @@ pub mod re_exports {
     pub use sixtyfps_corelib::Resource;
     pub use sixtyfps_corelib::SharedArray;
     pub use sixtyfps_corelib::SharedString;
-    pub use sixtyfps_corelib::{Component, ComponentVTable};
     pub use vtable::{self, *};
 }
 
@@ -115,7 +115,9 @@ pub fn create_window() -> re_exports::ComponentWindow {
 pub mod testing {
     pub use sixtyfps_corelib::tests::sixtyfps_mock_elapsed_time as mock_elapsed_time;
     /// Simulate a mouse click
-    pub fn send_mouse_click<X: vtable::HasStaticVTable<sixtyfps_corelib::ComponentVTable>>(
+    pub fn send_mouse_click<
+        X: vtable::HasStaticVTable<sixtyfps_corelib::component::ComponentVTable>,
+    >(
         component: core::pin::Pin<&X>,
         x: f32,
         y: f32,

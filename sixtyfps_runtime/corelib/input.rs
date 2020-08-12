@@ -3,9 +3,9 @@
 TODO: Keyboard events
 */
 
+use crate::component::ComponentRefPin;
 use crate::graphics::Point;
 use crate::item_tree::{ItemVisitorResult, VisitChildrenResult};
-use crate::ComponentRefPin;
 use euclid::default::Vector2D;
 
 /// The type of a MouseEvent
@@ -130,7 +130,7 @@ pub(crate) mod ffi {
 
     #[no_mangle]
     pub extern "C" fn sixtyfps_process_ungrabbed_mouse_event(
-        component: core::pin::Pin<crate::ComponentRef>,
+        component: core::pin::Pin<crate::component::ComponentRef>,
         event: MouseEvent,
         new_mouse_grabber: &mut crate::item_tree::VisitChildrenResult,
     ) -> InputEventResult {

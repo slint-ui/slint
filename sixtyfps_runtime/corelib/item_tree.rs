@@ -1,6 +1,5 @@
+use crate::component::{ComponentRefPin, ComponentVTable};
 use crate::items::{ItemRef, ItemVTable};
-use crate::ComponentRefPin;
-use crate::ComponentVTable;
 use core::pin::Pin;
 use vtable::*;
 
@@ -108,12 +107,12 @@ pub struct ItemVisitorVTable {
 /// Type alias to `vtable::VRefMut<ItemVisitorVTable>`
 pub type ItemVisitorRefMut<'a> = vtable::VRefMut<'a, ItemVisitorVTable>;
 
-impl<T: FnMut(crate::ComponentRefPin, isize, Pin<ItemRef>) -> VisitChildrenResult> ItemVisitor
-    for T
+impl<T: FnMut(crate::component::ComponentRefPin, isize, Pin<ItemRef>) -> VisitChildrenResult>
+    ItemVisitor for T
 {
     fn visit_item(
         &mut self,
-        component: crate::ComponentRefPin,
+        component: crate::component::ComponentRefPin,
         index: isize,
         item: Pin<ItemRef>,
     ) -> VisitChildrenResult {

@@ -421,7 +421,7 @@ impl<Backend: GraphicsBackend> Drop for GraphicsWindow<Backend> {
 }
 
 impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindow<Backend> {
-    fn draw(&self, component: crate::ComponentRefPin) {
+    fn draw(&self, component: crate::component::ComponentRefPin) {
         {
             let mut map_state = self.map_state.borrow_mut();
             let window = map_state.as_mapped_mut();
@@ -461,7 +461,7 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
         &self,
         pos: winit::dpi::PhysicalPosition<f64>,
         what: MouseEventType,
-        component: crate::ComponentRefPin,
+        component: crate::component::ComponentRefPin,
     ) {
         component
             .as_ref()

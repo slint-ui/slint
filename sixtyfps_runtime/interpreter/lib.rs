@@ -13,8 +13,7 @@ mod eval;
 pub use eval::Value;
 
 use dynamic_component::InstanceRef;
-use sixtyfps_corelib::ComponentRef;
-use sixtyfps_corelib::ComponentRefPin;
+use sixtyfps_corelib::component::{ComponentRef, ComponentRefPin};
 use std::{collections::HashMap, pin::Pin, rc::Rc};
 
 impl<'id> dynamic_component::ComponentDescription<'id> {

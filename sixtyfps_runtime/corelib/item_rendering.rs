@@ -41,7 +41,7 @@ pub(crate) fn update_item_rendering_data<Backend: GraphicsBackend>(
 }
 
 pub(crate) fn render_component_items<Backend: GraphicsBackend>(
-    component: crate::ComponentRefPin,
+    component: crate::component::ComponentRefPin,
     frame: &mut Backend::Frame,
     rendering_cache: &RenderingCache<Backend>,
 ) {

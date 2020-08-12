@@ -7,6 +7,7 @@ use object_tree::{Element, ElementRc};
 use sixtyfps_compilerlib::layout::{GridLayout, Layout, LayoutItem, PathLayout};
 use sixtyfps_compilerlib::typeregister::Type;
 use sixtyfps_compilerlib::*;
+use sixtyfps_corelib::component::{ComponentRefPin, ComponentVTable};
 use sixtyfps_corelib::graphics::Resource;
 use sixtyfps_corelib::item_tree::{
     ItemTreeNode, ItemVisitorRefMut, TraversalOrder, VisitChildrenResult,
@@ -16,8 +17,6 @@ use sixtyfps_corelib::layout::LayoutInfo;
 use sixtyfps_corelib::properties::{InterpolatedPropertyValue, PropertyTracker};
 use sixtyfps_corelib::rtti::{self, FieldOffset, PropertyInfo};
 use sixtyfps_corelib::slice::Slice;
-use sixtyfps_corelib::ComponentRefPin;
-use sixtyfps_corelib::ComponentVTable;
 use sixtyfps_corelib::{Color, Property, SharedString, Signal};
 use std::collections::HashMap;
 use std::{cell::RefCell, pin::Pin, rc::Rc};
