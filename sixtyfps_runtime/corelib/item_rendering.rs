@@ -1,3 +1,6 @@
+#![warn(missing_docs)]
+//! module for rendering the tree of items
+
 use super::graphics::{Frame, GraphicsBackend, RenderingCache, RenderingPrimitivesBuilder};
 use super::items::ItemRef;
 use crate::item_tree::ItemVisitorResult;

@@ -1,5 +1,6 @@
 //! module for the SharedArray and related things
 #![allow(unsafe_code)]
+#![warn(missing_docs)]
 use core::mem::MaybeUninit;
 use std::{fmt::Debug, fmt::Display, ops::Deref};
 use triomphe::{Arc, HeaderWithLength, ThinArc};

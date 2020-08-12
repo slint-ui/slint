@@ -1,4 +1,5 @@
 //! Functions usefull for testing
+#![warn(missing_docs)]
 
 use crate::input::{MouseEvent, MouseEventType};
 

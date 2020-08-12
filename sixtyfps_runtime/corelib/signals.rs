@@ -5,6 +5,8 @@ TODO: reconsider if we should rename that to `Event`
 but then it should also be renamed everywhere, including in the language grammar
 */
 
+#![warn(missing_docs)]
+
 use core::cell::Cell;
 
 /// A Signal that can be connected to a handler.

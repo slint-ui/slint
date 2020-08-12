@@ -1,6 +1,7 @@
 //! FFI-friendly slice
 
 #![allow(unsafe_code)]
+#![warn(missing_docs)]
 
 use core::{cmp::PartialEq, fmt::Debug, marker::PhantomData, ptr::NonNull};
 

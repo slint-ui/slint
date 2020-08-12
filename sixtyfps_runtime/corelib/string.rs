@@ -1,6 +1,7 @@
 //! module for the SharedString and related things
 
 #![allow(unsafe_code)]
+#![warn(missing_docs)]
 
 use core::mem::MaybeUninit;
 use std::{fmt::Debug, fmt::Display, ops::Deref};

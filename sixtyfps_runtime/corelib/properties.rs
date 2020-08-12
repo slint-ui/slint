@@ -6,6 +6,7 @@
 */
 
 #![allow(unsafe_code)]
+#![warn(missing_docs)]
 
 mod single_linked_list_pin {
     #![allow(unsafe_code)]
