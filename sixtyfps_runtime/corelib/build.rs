@@ -95,7 +95,7 @@ fn main() {
         .with_config(properties_config)
         .with_src(crate_dir.join("properties.rs"))
         .with_src(crate_dir.join("signals.rs"))
-        .with_after_include("namespace sixtyfps { struct Color; }")
+        .with_after_include("namespace sixtyfps { class Color; }")
         .generate()
         .expect("Unable to generate bindings")
         .write_to_file(include_dir.join("sixtyfps_properties_internal.h"));
