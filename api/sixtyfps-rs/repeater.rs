@@ -28,10 +28,15 @@ where
     C: RepeatedComponent<Data = Data>,
 {
     /// Called when the model is changed
-    pub fn update_model<'a>(&self, data: impl Iterator<Item = Data>, init: impl Fn() -> Pin<Rc<C>>)
-    where
+    pub fn update_model<'a>(
+        &self,
+        data: impl Iterator<Item = Data>,
+        init: impl Fn() -> Pin<Rc<C>>,
+        free_fn: impl Fn(&Pin<Rc<C>>),
+    ) where
         Data: 'a,
     {
+        self.components.borrow().iter().for_each(|c| free_fn(c));
         self.components.borrow_mut().clear();
         for (i, d) in data.enumerate() {
             let c = init();

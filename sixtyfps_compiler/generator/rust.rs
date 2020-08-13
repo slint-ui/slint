@@ -223,10 +223,14 @@ fn generate_component(
                 model = quote!((if #model {Some(())} else {None}).iter().cloned())
             }
 
+            let window_ref = window_ref_expression(component);
             if repeated.model.is_constant() {
                 init.push(quote! {
                     self_pinned.#repeater_id.update_model(#model, || {
                         #rep_component_id::new(self_pinned.self_weak.get().unwrap().clone())
+                    }, |comp| {
+                        let _self = self_pinned.clone();
+                        #window_ref.free_graphics_resources(VRef::new_pin(comp.as_ref()));
                     });
                 });
                 repeated_visit_branch.push(quote!(
@@ -241,6 +245,9 @@ fn generate_component(
                                 let _self = self_pinned.clone();
                                 self_pinned.#repeater_id.update_model(#model, || {
                                     #rep_component_id::new(self_pinned.self_weak.get().unwrap().clone())
+                                }, |comp| {                                    
+                                    let _self = self_pinned.clone();
+                                    #window_ref.free_graphics_resources(VRef::new_pin(comp.as_ref()));
                                 });
                             });
                         }

@@ -580,6 +580,18 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
     fn set_height(&self, height: f32) {
         self.properties.as_ref().height.set(height);
     }
+
+    fn free_graphics_resources(
+        self: Rc<Self>,
+        component: core::pin::Pin<crate::component::ComponentRef>,
+    ) {
+        match &*self.map_state.borrow() {
+            GraphicsWindowBackendState::Unmapped => {}
+            GraphicsWindowBackendState::Mapped(window) => {
+                crate::item_rendering::free_item_rendering_data(component, &window.rendering_cache)
+            }
+        }
+    }
 }
 
 #[repr(C)]

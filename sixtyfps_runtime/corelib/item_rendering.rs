@@ -32,6 +32,13 @@ impl CachedRenderingData {
         }));
         self.cache_ok.set(true);
     }
+
+    fn release<Backend: GraphicsBackend>(&self, cache: &RefCell<RenderingCache<Backend>>) {
+        if self.cache_ok.get() {
+            let index = self.cache_index.get();
+            cache.borrow_mut().free_entry(index);
+        }
+    }
 }
 
 pub(crate) fn update_item_rendering_data<Backend: GraphicsBackend>(
@@ -67,5 +74,21 @@ pub(crate) fn render_component_items<Backend: GraphicsBackend>(
             ItemVisitorResult::Continue(transform)
         },
         transform,
+    );
+}
+
+pub(crate) fn free_item_rendering_data<Backend: GraphicsBackend>(
+    component: crate::component::ComponentRefPin,
+    rendering_cache: &RefCell<RenderingCache<Backend>>,
+) {
+    crate::item_tree::visit_items(
+        component,
+        crate::item_tree::TraversalOrder::FrontToBack,
+        |_, item, _| {
+            let cached_rendering_data = item.cached_rendering_data_offset();
+            cached_rendering_data.release(rendering_cache);
+            ItemVisitorResult::Continue(())
+        },
+        (),
     );
 }

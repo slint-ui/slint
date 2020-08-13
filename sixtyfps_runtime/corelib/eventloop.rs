@@ -27,6 +27,10 @@ pub trait GenericWindow {
     fn set_scale_factor(&self, factor: f32);
     fn set_width(&self, width: f32);
     fn set_height(&self, height: f32);
+    fn free_graphics_resources(
+        self: Rc<Self>,
+        component: core::pin::Pin<crate::component::ComponentRef>,
+    );
 }
 
 /// The ComponentWindow is the (rust) facing public type that can render the items
@@ -58,6 +62,13 @@ impl ComponentWindow {
 
     pub fn set_scale_factor(&self, factor: f32) {
         self.0.set_scale_factor(factor)
+    }
+
+    pub fn free_graphics_resources(
+        &self,
+        component: core::pin::Pin<crate::component::ComponentRef>,
+    ) {
+        self.0.clone().free_graphics_resources(component);
     }
 }
 
