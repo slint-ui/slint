@@ -467,8 +467,11 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
             .as_ref()
             .input_event(MouseEvent { pos: euclid::point2(pos.x as _, pos.y as _), what });
     }
-    fn window_handle(&self) -> std::cell::Ref<winit::window::Window> {
-        std::cell::Ref::map(self.map_state.borrow(), |window| window.as_mapped().backend.window())
+
+    fn with_platform_window(&self, callback: &dyn Fn(&winit::window::Window)) {
+        let map_state = self.map_state.borrow();
+        let handle = map_state.as_mapped().backend.window();
+        callback(handle);
     }
 
     fn map_window(

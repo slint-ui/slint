@@ -19,7 +19,7 @@ pub trait GenericWindow {
         what: MouseEventType,
         component: core::pin::Pin<crate::component::ComponentRef>,
     );
-    fn window_handle(&self) -> std::cell::Ref<'_, winit::window::Window>;
+    fn with_platform_window(&self, callback: &dyn Fn(&winit::window::Window));
     fn map_window(self: Rc<Self>, event_loop: &EventLoop, root_item: Pin<ItemRef>);
     fn unmap_window(self: Rc<Self>);
     fn request_redraw(&self);
@@ -125,8 +125,9 @@ impl EventLoop {
                         if let Some(Some(window)) =
                             windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
                         {
-                            let platform_window = window.window_handle();
-                            window.set_scale_factor(platform_window.scale_factor() as f32);
+                            window.with_platform_window(&|platform_window| {
+                                window.set_scale_factor(platform_window.scale_factor() as f32);
+                            });
                             window.set_width(size.width as f32);
                             window.set_height(size.height as f32);
                         }
@@ -168,7 +169,6 @@ impl EventLoop {
                                 }
                             };
                             window.process_mouse_input(cursor_pos, what, component);
-                            let window = window.window_handle();
                             // FIXME: remove this, it should be based on actual changes rather than this
                             window.request_redraw();
                         }
@@ -194,7 +194,6 @@ impl EventLoop {
                                 winit::event::TouchPhase::Moved => MouseEventType::MouseMoved,
                             };
                             window.process_mouse_input(cursor_pos, what, component);
-                            let window = window.window_handle();
                             // FIXME: remove this, it should be based on actual changes rather than this
                             window.request_redraw();
                         }
@@ -216,7 +215,6 @@ impl EventLoop {
                                 MouseEventType::MouseMoved,
                                 component,
                             );
-                            let window = window.window_handle();
                             // FIXME: remove this, it should be based on actual changes rather than this
                             window.request_redraw();
                         }
