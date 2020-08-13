@@ -16,7 +16,7 @@ The aim of the project is to be
    home on each platform. Both the user and the developer. The appearance and look and feel should match was is expected of 
    an application build for this platform.
     
- `<insert a few screenshots here>`
+[![Screenshot of the Printer Demo](resources/screenshot.png "Printer Demo")](https://www.sixtyfps.io/demos/printerdemo/)
 
 ## Documentation
 
