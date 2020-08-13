@@ -378,9 +378,10 @@ fn handle_repeater(
             i = repeater_count
         ));
         init.push(format!(
-            "self->{repeater_id}.update_model({model}, self);",
+            "self->{repeater_id}.update_model({model}, self, &{window});",
             repeater_id = repeater_id,
             model = model,
+            window = window_ref_expression(parent_component),
         ));
     } else {
         let model_id = format!("model_{}", repeater_count);
@@ -396,7 +397,7 @@ fn handle_repeater(
             "\n        case {i}: {{
                 if (self->model_{i}.is_dirty()) {{
                     self->model_{i}.evaluate([&] {{
-                        self->{id}.update_model({model}, self);
+                        self->{id}.update_model({model}, self, &{window});
                     }});
                 }}
                 return self->{id}.visit(order, visitor);
@@ -404,6 +405,7 @@ fn handle_repeater(
             id = repeater_id,
             i = repeater_count,
             model = model,
+            window = window_ref_expression(parent_component)
         ));
     }
 

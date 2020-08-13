@@ -123,6 +123,7 @@ fn main() {
             "sixtyfps_component_window_run",
             "sixtyfps_component_window_get_scale_factor",
             "sixtyfps_component_window_set_scale_factor",
+            "sixtyfps_component_window_free_graphics_resources",
             "sixtyfps_new_path_elements",
             "sixtyfps_new_path_events",
         ]

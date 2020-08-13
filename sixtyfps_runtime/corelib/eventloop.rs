@@ -331,4 +331,14 @@ pub mod ffi {
         let window = &*(handle as *const ComponentWindow);
         window.set_scale_factor(value)
     }
+
+    /// Sets the window scale factor, merely for testing purposes.
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_component_window_free_graphics_resources(
+        handle: *const ComponentWindowOpaque,
+        component: Pin<VRef<ComponentVTable>>,
+    ) {
+        let window = &*(handle as *const ComponentWindow);
+        window.free_graphics_resources(component)
+    }
 }
