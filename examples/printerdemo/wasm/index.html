@@ -1,11 +1,23 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="UTF-8">
-    <title>My Rust + Webpack project!</title>
-  </head>
-  <body>
-    <canvas id="canvas" width="640" height="480"></canvas>
-    <script src="index.js"></script>
-  </body>
+
+<head>
+  <meta charset="UTF-8">
+  <title>SixtyFPS UI Printer Demo (Web Assembly version)</title>
+  <style>
+    canvas {
+      border: solid;
+    }
+  </style>
+</head>
+
+<body>
+  <p>This is the SixtyFPS UI Printer Demo compiled to WebAssembly. It simulates the touch user interface interface of
+    the advanced "Print Machine 2000", without actually printing anything.</p>
+  <canvas id="canvas" width="640" height="480" unselectable="on"></canvas>
+  <p><a href="https://github.com/sixtyfpsui/sixtyfps/blob/master/examples/printerdemo/ui/printerdemo.60">View Source
+      Code</a></a></p>
+  <script src="index.js"></script>
+</body>
+
 </html>
