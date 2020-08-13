@@ -15,8 +15,10 @@ The aim of the project is to be
  - **Native**: We support many platforms. From embedded devices, to desktop, including mobile and web. One should feel at 
    home on each platform. Both the user and the developer. The appearance and look and feel should match was is expected of 
    an application build for this platform.
-    
-[![Screenshot of the Printer Demo](resources/screenshot.png "Printer Demo")](https://www.sixtyfps.io/demos/printerdemo/)
+
+| Printer Demo | Widget Gallery |
+---------------------------------
+| [![Screenshot of the Printer Demo](resources/printerdemo_screenshot.png "Printer Demo")](https://www.sixtyfps.io/demos/printerdemo/) | [![Screenshot of the Gallery Demo](resources/gallery_screenshot.png "Gallery Demo")](https://www.sixtyfps.io/demos/gallery/) |
 
 ## Documentation
 
