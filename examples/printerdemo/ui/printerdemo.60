@@ -139,6 +139,13 @@ MainWindow := Window {
         font_size: root.width / 20;
     }
 
+    logo := Image {
+        x: parent.width - self.width - 20lx;
+        y: 5lx;
+        source: img!"../../../resources/logo_scaled.png";
+        width: self.height * 1.44;
+        height: root.width / 20;
+    }
 
     for page_info[idx] in [
         { color: #d11, text: "Copy", img_small: img!"images/replicate.png" },
