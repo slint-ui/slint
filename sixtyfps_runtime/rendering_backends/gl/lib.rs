@@ -104,7 +104,7 @@ pub struct GLRenderer {
     path_shader: PathShader,
     image_shader: ImageShader,
     #[cfg(not(target_arch = "wasm32"))]
-    platform_data: Rc<RefCell<PlatformData>>,
+    platform_data: Rc<PlatformData>,
     texture_atlas: Rc<RefCell<TextureAtlas>>,
     #[cfg(target_arch = "wasm32")]
     window: Rc<winit::window::Window>,
@@ -118,7 +118,7 @@ pub struct GLRenderingPrimitivesBuilder {
     stroke_tesselator: StrokeTessellator,
     texture_atlas: Rc<RefCell<TextureAtlas>>,
     #[cfg(not(target_arch = "wasm32"))]
-    platform_data: Rc<RefCell<PlatformData>>,
+    platform_data: Rc<PlatformData>,
 
     #[cfg(target_arch = "wasm32")]
     window: Rc<winit::window::Window>,
@@ -131,7 +131,7 @@ pub struct GLFrame {
     path_shader: PathShader,
     image_shader: ImageShader,
     #[cfg(not(target_arch = "wasm32"))]
-    platform_data: Rc<RefCell<PlatformData>>,
+    platform_data: Rc<PlatformData>,
     root_matrix: cgmath::Matrix4<f32>,
     #[cfg(not(target_arch = "wasm32"))]
     windowed_context: glutin::WindowedContext<glutin::PossiblyCurrent>,
@@ -195,7 +195,7 @@ impl GLRenderer {
         let path_shader = PathShader::new(&context);
         let image_shader = ImageShader::new(&context);
         #[cfg(not(target_arch = "wasm32"))]
-        let platform_data = Rc::new(RefCell::new(PlatformData::new(&context)));
+        let platform_data = Rc::new(PlatformData::new(&context));
 
         GLRenderer {
             context,
@@ -575,8 +575,7 @@ impl GLRenderingPrimitivesBuilder {
         pixel_size: f32,
         color: Color,
     ) -> GLRenderingPrimitive {
-        let mut pd = self.platform_data.borrow_mut();
-        let cached_glyphs = pd.glyph_cache.find_font(font_family, pixel_size);
+        let cached_glyphs = self.platform_data.glyph_cache.find_font(font_family, pixel_size);
         let mut cached_glyphs = cached_glyphs.borrow_mut();
         let mut atlas = self.texture_atlas.borrow_mut();
         let glyphs = cached_glyphs.layout_glyphs(&self.context, &mut atlas, text);
@@ -791,7 +790,7 @@ impl GraphicsFrame for GLFrame {
                 let (r, g, b, a) = color.as_rgba_f32();
 
                 for GlyphRun { vertices, texture_vertices, texture, vertex_count } in glyph_runs {
-                    self.platform_data.borrow().glyph_shader.bind(
+                    self.platform_data.glyph_shader.bind(
                         &self.context,
                         &to_gl_matrix(&matrix),
                         &[r, g, b, a],

@@ -10,22 +10,19 @@ type GlyphsByPixelSize = Vec<Rc<RefCell<CachedFontGlyphs>>>;
 
 #[derive(Default)]
 pub(crate) struct GlyphCache {
-    glyphs_by_font: HashMap<FontHandle, GlyphsByPixelSize>,
+    glyphs_by_font: RefCell<HashMap<FontHandle, GlyphsByPixelSize>>,
 }
 
 impl GlyphCache {
-    pub fn find_font(
-        &mut self,
-        font_family: &str,
-        pixel_size: f32,
-    ) -> Rc<RefCell<CachedFontGlyphs>> {
+    pub fn find_font(&self, font_family: &str, pixel_size: f32) -> Rc<RefCell<CachedFontGlyphs>> {
         let font =
             sixtyfps_corelib::font::FONT_CACHE.with(|fc| fc.find_font(font_family, pixel_size));
 
         let font_handle = font.handle();
 
+        let mut glyphs_by_font = self.glyphs_by_font.borrow_mut();
         let glyphs_by_pixel_size =
-            self.glyphs_by_font.entry(font_handle.clone()).or_insert(GlyphsByPixelSize::default());
+            glyphs_by_font.entry(font_handle.clone()).or_insert(GlyphsByPixelSize::default());
 
         glyphs_by_pixel_size
             .iter()
