@@ -93,7 +93,7 @@ mod cpp_ast {
                     Some(Declaration::Function(Function {
                         name: format!("{}::{}", struct_name, f.name),
                         signature: f.signature.clone(),
-                        is_constructor: f.is_constructor,
+                        is_constructor_or_destructor: f.is_constructor_or_destructor,
                         is_static: false,
                         statements: f.statements.take(),
                         template_parameters: f.template_parameters.clone(),
@@ -111,7 +111,7 @@ mod cpp_ast {
         /// "(...) -> ..."
         pub signature: String,
         /// The function does not have return type
-        pub is_constructor: bool,
+        pub is_constructor_or_destructor: bool,
         pub is_static: bool,
         /// The list of statement instead the function.  When None,  this is just a function
         /// declaration without the definition
@@ -131,7 +131,7 @@ mod cpp_ast {
             }
             // all functions are inlines because we are in a header
             write!(f, "inline ")?;
-            if !self.is_constructor {
+            if !self.is_constructor_or_destructor {
                 write!(f, "auto ")?;
             }
             write!(f, "{} {}", self.name, self.signature)?;
@@ -380,10 +380,9 @@ fn handle_repeater(
             i = repeater_count
         ));
         init.push(format!(
-            "self->{repeater_id}.update_model({model}, self, &{window});",
+            "self->{repeater_id}.update_model({model}, self);",
             repeater_id = repeater_id,
             model = model,
-            window = window_ref_expression(parent_component),
         ));
     } else {
         let model_id = format!("model_{}", repeater_count);
@@ -399,7 +398,7 @@ fn handle_repeater(
             "\n        case {i}: {{
                 if (self->model_{i}.is_dirty()) {{
                     self->model_{i}.evaluate([&] {{
-                        self->{id}.update_model({model}, self, &{window});
+                        self->{id}.update_model({model}, self);
                     }});
                 }}
                 return self->{id}.visit(order, visitor);
@@ -407,7 +406,6 @@ fn handle_repeater(
             id = repeater_id,
             i = repeater_count,
             model = model,
-            window = window_ref_expression(parent_component)
         ));
     }
 
@@ -725,11 +723,35 @@ fn generate_component(
         Declaration::Function(Function {
             name: component_id.clone(),
             signature: "()".to_owned(),
-            is_constructor: true,
+            is_constructor_or_destructor: true,
             statements: Some(init),
             ..Default::default()
         }),
     ));
+
+    {
+        let mut destructor = Vec::new();
+
+        destructor.push("auto self = this;".to_owned());
+        if component.parent_element.upgrade().is_some() {
+            destructor.push("if (!parent) return;".to_owned())
+        }
+        destructor.push(format!(
+            "{window}.free_graphics_resources(this);",
+            window = window_ref_expression(component)
+        ));
+
+        component_struct.members.push((
+            Access::Public,
+            Declaration::Function(Function {
+                name: format!("~{}", component_id.clone()),
+                signature: "()".to_owned(),
+                is_constructor_or_destructor: true,
+                statements: Some(destructor),
+                ..Default::default()
+            }),
+        ));
+    }
 
     component_struct.members.push((
         Access::Private,

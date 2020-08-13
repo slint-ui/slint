@@ -59,9 +59,11 @@ struct ComponentWindow
         sixtyfps_component_window_set_scale_factor(&inner, value);
     }
 
-    void free_graphics_resources(const VRef<ComponentVTable> &c) const
+    template<typename Component>
+    void free_graphics_resources(Component *c) const
     {
-        internal::sixtyfps_component_window_free_graphics_resources(&inner, c);
+        internal::sixtyfps_component_window_free_graphics_resources(
+                &inner, VRef<ComponentVTable> { &Component::component_type, c });
     }
 
 private:
@@ -176,10 +178,8 @@ struct Repeater
     std::vector<std::unique_ptr<C>> data;
 
     template<typename Parent>
-    void update_model(Model *model, const Parent *parent, const ComponentWindow *window) const
+    void update_model(Model *model, const Parent *parent) const
     {
-        for (size_t i = 0; i < data.size(); ++i)
-            window->free_graphics_resources(item_at(i));
         auto &data = const_cast<Repeater *>(this)->data;
         data.clear();
         auto count = model->count();
