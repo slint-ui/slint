@@ -245,7 +245,7 @@ fn generate_component(
                                 let _self = self_pinned.clone();
                                 self_pinned.#repeater_id.update_model(#model, || {
                                     #rep_component_id::new(self_pinned.self_weak.get().unwrap().clone())
-                                }, |comp| {                          
+                                }, |comp| {
                                     let _self = self_pinned.clone();
                                     #window_ref.free_graphics_resources(VRef::new_pin(comp.as_ref()));
                                 });
