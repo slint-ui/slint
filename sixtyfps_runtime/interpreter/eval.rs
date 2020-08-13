@@ -238,7 +238,7 @@ pub fn eval_expression(
             } else if let Expression::BuiltinFunctionReference(funcref) = &**function {
                 match funcref {
                     BuiltinFunction::GetWindowScaleFactor => {
-                        Value::Number(window_ref(component).scale_factor() as _)
+                        Value::Number(window_ref(component).unwrap().scale_factor() as _)
                     }
                 }
             } else {
@@ -381,9 +381,14 @@ fn load_property(component: InstanceRef, element: &ElementRc, name: &str) -> Val
     item_info.rtti.properties[name].get(item)
 }
 
-fn window_ref(component: InstanceRef) -> sixtyfps_corelib::eventloop::ComponentWindow {
+pub fn window_ref(component: InstanceRef) -> Option<sixtyfps_corelib::eventloop::ComponentWindow> {
     if let Some(parent_offset) = component.component_type.parent_component_offset {
-        let parent_component = parent_offset.apply(&*component.instance.as_ref()).unwrap();
+        let parent_component =
+            if let Some(parent) = parent_offset.apply(&*component.instance.as_ref()) {
+                *parent
+            } else {
+                return None;
+            };
         generativity::make_guard!(guard);
         window_ref(unsafe { InstanceRef::from_pin_ref(parent_component, guard) })
     } else {
@@ -394,8 +399,7 @@ fn window_ref(component: InstanceRef) -> sixtyfps_corelib::eventloop::ComponentW
             .window
             .borrow()
             .as_ref()
-            .unwrap()
-            .clone()
+            .map(|w| w.clone())
     }
 }
 

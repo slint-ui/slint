@@ -69,6 +69,17 @@ impl<'id> ComponentBox<'id> {
     }
 }
 
+impl<'id> Drop for ComponentBox<'id> {
+    fn drop(&mut self) {
+        match eval::window_ref(self.borrow_instance()) {
+            Some(window) => {
+                window.free_graphics_resources(self.borrow());
+            }
+            None => {}
+        }
+    }
+}
+
 pub(crate) struct ItemWithinComponent {
     offset: usize,
     pub(crate) rtti: Rc<ItemRTTI>,
