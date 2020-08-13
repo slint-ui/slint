@@ -4,16 +4,17 @@ This is the monolithic repository of the SixtyFPS project.
 
 ## What is SixtyFPS
 
-It is a GUI engine, with libraries for different languages.
+It is a toolkit to efficiently develop fluid graphical user interfaces in different languages.
 The aim of the project is to be
 
- - **Lightweight**: We aim to provide a runtime that fits in a few MB. Minimize the RAM usage, and also be blazing fast.
- - **Straightforward**: We want to optimize as well for programmer and designer productivity.
-    Making it an enjoyable experience to work with. We claim to use well thought idiomatic API for each target language.
-    Provide well written documentation. And use of modern tools.
+ - **Lightweight**: We aim to provide a runtime that fits into a few hundred kilobytes of RAM and requires little processing
+   power.
+ - **Straightforward**: We want programmers and designers to feel productive. It should be an enjoyable experience to design
+   and developer the user interface. We aim to provide APIS that are idiomatic and easy to use for each target language,
+   along with excellent documentation and modern tools.
  - **Native**: We support many platforms. From embedded devices, to desktop, including mobile and web. One should feel at 
-    home on each platform. Both the user and the developer. The appearance and look and feel should match was is expected of 
-    an application build for this platform.
+   home on each platform. Both the user and the developer. The appearance and look and feel should match was is expected of 
+   an application build for this platform.
     
  `<insert a few screenshots here>`
 
@@ -38,13 +39,19 @@ NodeJS bindings
  
 ## The .60 DSL
 
+SixtyFPS UI comes with a mark-up language that is specifically designed for user interfaces: It provides a powerful way to
+describe graphical elements, their placement and the flow of data through the different states. Here's the obligatory
+"Hello World":
+
 ```60
-HelloWorld = Window {
- TextLabel { text: "Hello, world" }
+HelloWorld := Window {
+    Text {
+       text: "Hello, world"
+    }
 }
 ```
 
-Check out the [language reference](docs/langref.md)
+Check out the [language reference](docs/langref.md) for more details.
 
 ## Examples / Demo
 
@@ -58,7 +65,7 @@ Contributions are done under a CLA.
 
 ## License
 
-The software is provided under a double license scheme
+The software is provided under a dual license scheme
 
  - **GNU GPLv3**: Open source license ideal for free software.
  - **Commercial SixtyFps license**: more details to come.
