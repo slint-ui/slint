@@ -19,9 +19,9 @@ pub struct CachedRenderingData {
 }
 
 impl CachedRenderingData {
-    pub(crate) fn ensure_up_to_date<'a, Backend: GraphicsBackend>(
+    pub(crate) fn ensure_up_to_date<Backend: GraphicsBackend>(
         &self,
-        cache: &'a mut RenderingCache<Backend>,
+        cache: &mut RenderingCache<Backend>,
         item: core::pin::Pin<ItemRef>,
         rendering_primitives_builder: &mut Backend::RenderingPrimitivesBuilder,
     ) {
