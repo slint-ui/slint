@@ -10,7 +10,6 @@ struct SharedArray
     {
         internal::sixtyfps_shared_array_new_null(reinterpret_cast<SharedArray<uint8_t> *>(this));
     }
-    explicit SharedArray(void *inner) : inner(inner) { }
 
     SharedArray(const SharedArray &other)
     {

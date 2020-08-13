@@ -174,49 +174,18 @@ pub fn eval_expression(
             "naked builtin function reference not allowed, should be handled by function call"
         ),
         Expression::PropertyReference(NamedReference { element, name }) => {
-            let element = element.upgrade().unwrap();
-            generativity::make_guard!(guard);
-            let enclosing_component = enclosing_component_for_element(&element, component, guard);
-            let element = element.borrow();
-            if element.id == element.enclosing_component.upgrade().unwrap().root_element.borrow().id
-            {
-                if let Some(x) = enclosing_component.component_type.custom_properties.get(name) {
-                    return unsafe {
-                        x.prop
-                            .get(Pin::new_unchecked(&*enclosing_component.as_ptr().add(x.offset)))
-                            .unwrap()
-                    };
-                }
-            };
-            let item_info = &enclosing_component.component_type.items[element.id.as_str()];
-            core::mem::drop(element);
-            let item = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
-            item_info.rtti.properties[name.as_str()].get(item)
+            load_property(component, &element.upgrade().unwrap(), name.as_ref())
         }
-        Expression::RepeaterIndexReference { element } => {
-            if element.upgrade().unwrap().borrow().base_type
-                == Type::Component(component.component_type.original.clone())
-            {
-                let x = &component.component_type.custom_properties["index"];
-                unsafe {
-                    x.prop.get(Pin::new_unchecked(&*component.as_ptr().add(x.offset))).unwrap()
-                }
-            } else {
-                todo!();
-            }
-        }
-        Expression::RepeaterModelReference { element } => {
-            if element.upgrade().unwrap().borrow().base_type
-                == Type::Component(component.component_type.original.clone())
-            {
-                let x = &component.component_type.custom_properties["model_data"];
-                unsafe {
-                    x.prop.get(Pin::new_unchecked(&*component.as_ptr().add(x.offset))).unwrap()
-                }
-            } else {
-                todo!();
-            }
-        }
+        Expression::RepeaterIndexReference { element } => load_property(
+            component,
+            &element.upgrade().unwrap().borrow().base_type.as_component().root_element,
+            "index",
+        ),
+        Expression::RepeaterModelReference { element } => load_property(
+            component,
+            &element.upgrade().unwrap().borrow().base_type.as_component().root_element,
+            "model_data",
+        ),
         Expression::ObjectAccess { base, name } => {
             if let Value::Object(mut o) = eval_expression(base, component, local_context) {
                 o.remove(name).unwrap_or(Value::Void)
@@ -387,6 +356,29 @@ pub fn eval_expression(
             Value::EnumerationValue(value.enumeration.name.clone(), value.to_string())
         }
     }
+}
+
+fn load_property(component: InstanceRef, element: &ElementRc, name: &str) -> Value {
+    generativity::make_guard!(guard);
+    let enclosing_component = enclosing_component_for_element(&element, component, guard);
+    let element = element.borrow();
+    if element.id == element.enclosing_component.upgrade().unwrap().root_element.borrow().id {
+        if let Some(x) = enclosing_component.component_type.custom_properties.get(name) {
+            return unsafe {
+                x.prop
+                    .get(Pin::new_unchecked(&*enclosing_component.as_ptr().add(x.offset)))
+                    .unwrap()
+            };
+        }
+    };
+    let item_info = enclosing_component
+        .component_type
+        .items
+        .get(element.id.as_str())
+        .unwrap_or_else(|| panic!("Unkown element for {}.{}", element.id, name));
+    core::mem::drop(element);
+    let item = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
+    item_info.rtti.properties[name].get(item)
 }
 
 fn window_ref(component: InstanceRef) -> sixtyfps_corelib::eventloop::ComponentWindow {

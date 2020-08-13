@@ -200,6 +200,8 @@ impl CppType for Type {
                 // This will produce a tuple
                 Some(format!("std::tuple<{}>", elem.join(", ")))
             }
+            // FIXME: we should consider using sixtyfps::SharedArray
+            Type::Array(_inner) => Some("std::shared_ptr<sixtyfps::Model>".into()),
             Type::Resource => Some("sixtyfps::Resource".to_owned()),
             Type::Builtin(elem) => elem.native_class.cpp_type.clone(),
             Type::Enumeration(enumeration) => Some(format!("sixtyfps::{}", enumeration.name)),

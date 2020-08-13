@@ -31,6 +31,10 @@ fn rust_type(
             // This will produce a tuple
             Ok(quote!((#(#elem,)*)))
         }
+        Type::Array(o) => {
+            let inner = rust_type(&o, span)?;
+            Ok(quote!(sixtyfps::re_exports::SharedArray<#inner>))
+        }
         _ => Err(CompilerDiagnostic {
             message: format!("Cannot map property type {} to Rust", ty),
             span: span.clone(),
@@ -590,6 +594,7 @@ fn access_member(
     name: &str,
     component: &Rc<Component>,
     component_rust: TokenStream,
+    is_special: bool,
 ) -> TokenStream {
     let e = element.borrow();
 
@@ -597,7 +602,7 @@ fn access_member(
     if Rc::ptr_eq(component, &enclosing_component) {
         let component_id = component_id(&enclosing_component);
         let name_ident = quote::format_ident!("{}", name);
-        if e.property_declarations.contains_key(name) {
+        if e.property_declarations.contains_key(name) || is_special {
             quote!(#component_id::FIELD_OFFSETS.#name_ident.apply_pin(#component_rust))
         } else {
             let elem_ident = quote::format_ident!("{}", e.id);
@@ -620,6 +625,7 @@ fn access_member(
                 .upgrade()
                 .unwrap(),
             quote!(#component_rust.parent.upgrade().unwrap().as_ref()),
+            is_special,
         )
     }
 }
@@ -658,8 +664,13 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
             }
         }
         Expression::PropertyReference(NamedReference { element, name }) => {
-            let access =
-                access_member(&element.upgrade().unwrap(), name.as_str(), component, quote!(_self));
+            let access = access_member(
+                &element.upgrade().unwrap(),
+                name.as_str(),
+                component,
+                quote!(_self),
+                false,
+            );
             quote!(#access.get())
         }
         Expression::BuiltinFunctionReference(funcref) => match funcref {
@@ -669,20 +680,24 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
             }
         },
         Expression::RepeaterIndexReference { element } => {
-            if element.upgrade().unwrap().borrow().base_type == Type::Component(component.clone()) {
-                let component_id = component_id(&component);
-                quote!({ #component_id::FIELD_OFFSETS.index.apply_pin(_self).get() })
-            } else {
-                todo!();
-            }
+            let access = access_member(
+                &element.upgrade().unwrap().borrow().base_type.as_component().root_element,
+                "index",
+                component,
+                quote!(_self),
+                true,
+            );
+            quote!(#access.get())
         }
         Expression::RepeaterModelReference { element } => {
-            if element.upgrade().unwrap().borrow().base_type == Type::Component(component.clone()) {
-                let component_id = component_id(&component);
-                quote!({ #component_id::FIELD_OFFSETS.model_data.apply_pin(_self).get() })
-            } else {
-                todo!();
-            }
+            let access = access_member(
+                &element.upgrade().unwrap().borrow().base_type.as_component().root_element,
+                "model_data",
+                component,
+                quote!(_self),
+                true,
+            );
+            quote!(#access.get())
         }
         Expression::ObjectAccess { base, name } => {
             let index = if let Type::Object(ty) = base.ty() {
@@ -701,8 +716,13 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
             quote!({ #(#map);* })
         }
         Expression::SignalReference(NamedReference { element, name, .. }) => {
-            let access =
-                access_member(&element.upgrade().unwrap(), name.as_str(), component, quote!(_self));
+            let access = access_member(
+                &element.upgrade().unwrap(),
+                name.as_str(),
+                component,
+                quote!(_self),
+                false,
+            );
             quote!(#access.emit(()))
         }
         Expression::FunctionCall { function } => {
@@ -720,6 +740,7 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                     name.as_str(),
                     component,
                     quote!(_self),
+                    false,
                 );
                 let rhs = compile_expression(&*rhs, &component);
                 if *op == '=' {
@@ -800,10 +821,11 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
             let error = format!("unsupported expression {:?}", e);
             quote!(compile_error! {#error})
         }
-        Expression::Array { values, .. } => {
-            //let rust_element_ty = rust_type(&element_ty, &Default::default());
+        Expression::Array { values, element_ty } => {
+            let rust_element_ty = rust_type(&element_ty, &Default::default()).unwrap();
             let val = values.iter().map(|e| compile_expression(e, component));
-            quote!([#(#val as _),*])
+            // FIXME: we don't need to allocate a SharedArray in the model case.
+            quote!(sixtyfps::re_exports::SharedArray::<#rust_element_ty>::from(&[#(#val as _),*]))
         }
         Expression::Object { ty, values } => {
             if let Type::Object(ty) = ty {
@@ -1009,6 +1031,7 @@ impl<'a> LayoutTreeItem<'a> {
                                     n,
                                     &elem.borrow().enclosing_component.upgrade().unwrap(),
                                     component_rust.clone(),
+                                    false,
                                 );
                                 quote!(#accessor.get())
                             } else {
