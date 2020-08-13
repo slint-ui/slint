@@ -5,7 +5,7 @@ use super::graphics::{Frame, GraphicsBackend, RenderingCache, RenderingPrimitive
 use super::items::ItemRef;
 use crate::item_tree::ItemVisitorResult;
 use cgmath::{Matrix4, SquareMatrix, Vector3};
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 
 /// This structure must be present in items that are Rendered and contains information.
 /// Used by the backend.
@@ -21,13 +21,13 @@ pub struct CachedRenderingData {
 impl CachedRenderingData {
     pub(crate) fn ensure_up_to_date<Backend: GraphicsBackend>(
         &self,
-        cache: &mut RenderingCache<Backend>,
+        cache: &RefCell<RenderingCache<Backend>>,
         item: core::pin::Pin<ItemRef>,
         rendering_primitives_builder: &mut Backend::RenderingPrimitivesBuilder,
     ) {
         let idx = if self.cache_ok.get() { Some(self.cache_index.get()) } else { None };
 
-        self.cache_index.set(cache.ensure_cached(idx, || {
+        self.cache_index.set(cache.borrow_mut().ensure_cached(idx, || {
             rendering_primitives_builder.create(item.as_ref().rendering_primitive())
         }));
         self.cache_ok.set(true);
@@ -36,7 +36,7 @@ impl CachedRenderingData {
 
 pub(crate) fn update_item_rendering_data<Backend: GraphicsBackend>(
     item: core::pin::Pin<ItemRef>,
-    rendering_cache: &mut RenderingCache<Backend>,
+    rendering_cache: &RefCell<RenderingCache<Backend>>,
     rendering_primitives_builder: &mut Backend::RenderingPrimitivesBuilder,
 ) {
     let rendering_data = item.cached_rendering_data_offset();

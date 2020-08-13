@@ -339,8 +339,8 @@ type WindowFactoryFn<Backend> =
     dyn Fn(&crate::eventloop::EventLoop, winit::window::WindowBuilder) -> Backend;
 
 struct MappedWindow<Backend: GraphicsBackend + 'static> {
-    backend: Backend,
-    rendering_cache: RenderingCache<Backend>,
+    backend: RefCell<Backend>,
+    rendering_cache: RefCell<RenderingCache<Backend>>,
 }
 
 enum GraphicsWindowBackendState<Backend: GraphicsBackend + 'static> {
@@ -355,14 +355,6 @@ impl<Backend: GraphicsBackend + 'static> GraphicsWindowBackendState<Backend> {
                 "internal error: tried to access window functions that require a mapped window"
             ),
             GraphicsWindowBackendState::Mapped(mw) => &mw,
-        }
-    }
-    fn as_mapped_mut(&mut self) -> &mut MappedWindow<Backend> {
-        match self {
-            GraphicsWindowBackendState::Unmapped => panic!(
-                "internal error: tried to access window functions that require a mapped window"
-            ),
-            GraphicsWindowBackendState::Mapped(ref mut mw) => mw,
         }
     }
 }
@@ -405,7 +397,7 @@ impl<Backend: GraphicsBackend + 'static> GraphicsWindow<Backend> {
     }
 
     pub fn id(&self) -> Option<winit::window::WindowId> {
-        Some(self.map_state.borrow().as_mapped().backend.window().id())
+        Some(self.map_state.borrow().as_mapped().backend.borrow().window().id())
     }
 }
 
@@ -414,7 +406,7 @@ impl<Backend: GraphicsBackend> Drop for GraphicsWindow<Backend> {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped => {}
             GraphicsWindowBackendState::Mapped(mw) => {
-                crate::eventloop::unregister_window(mw.backend.window().id());
+                crate::eventloop::unregister_window(mw.backend.borrow().window().id());
             }
         }
     }
@@ -423,10 +415,10 @@ impl<Backend: GraphicsBackend> Drop for GraphicsWindow<Backend> {
 impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindow<Backend> {
     fn draw(&self, component: crate::component::ComponentRefPin) {
         {
-            let mut map_state = self.map_state.borrow_mut();
-            let window = map_state.as_mapped_mut();
-            let mut rendering_primitives_builder =
-                window.backend.new_rendering_primitives_builder();
+            let map_state = self.map_state.borrow();
+            let window = map_state.as_mapped();
+            let mut backend = window.backend.borrow_mut();
+            let mut rendering_primitives_builder = backend.new_rendering_primitives_builder();
 
             // Generate cached rendering data once
             crate::item_tree::visit_items(
@@ -435,7 +427,7 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
                 |_, item, _| {
                     crate::item_rendering::update_item_rendering_data(
                         item,
-                        &mut window.rendering_cache,
+                        &window.rendering_cache,
                         &mut rendering_primitives_builder,
                     );
                     crate::item_tree::ItemVisitorResult::Continue(())
@@ -443,19 +435,20 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
                 (),
             );
 
-            window.backend.finish_primitives(rendering_primitives_builder);
+            backend.finish_primitives(rendering_primitives_builder);
         }
 
-        let mut map_state = self.map_state.borrow_mut();
-        let window = map_state.as_mapped_mut();
-        let size = window.backend.window().inner_size();
-        let mut frame = window.backend.new_frame(size.width, size.height, &Color::WHITE);
+        let map_state = self.map_state.borrow();
+        let window = map_state.as_mapped();
+        let mut backend = window.backend.borrow_mut();
+        let size = backend.window().inner_size();
+        let mut frame = backend.new_frame(size.width, size.height, &Color::WHITE);
         crate::item_rendering::render_component_items(
             component,
             &mut frame,
-            &mut window.rendering_cache,
+            &mut window.rendering_cache.borrow_mut(),
         );
-        window.backend.present_frame(frame);
+        backend.present_frame(frame);
     }
     fn process_mouse_input(
         &self,
@@ -470,7 +463,9 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
 
     fn with_platform_window(&self, callback: &dyn Fn(&winit::window::Window)) {
         let map_state = self.map_state.borrow();
-        let handle = map_state.as_mapped().backend.window();
+        let window = map_state.as_mapped();
+        let backend = window.backend.borrow();
+        let handle = backend.window();
         callback(handle);
     }
 
@@ -544,7 +539,7 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
             }
 
             self.map_state.replace(GraphicsWindowBackendState::Mapped(MappedWindow {
-                backend,
+                backend: RefCell::new(backend),
                 rendering_cache: Default::default(),
             }));
 
@@ -560,7 +555,9 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
     fn request_redraw(&self) {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped => {}
-            GraphicsWindowBackendState::Mapped(window) => window.backend.window().request_redraw(),
+            GraphicsWindowBackendState::Mapped(window) => {
+                window.backend.borrow().window().request_redraw()
+            }
         }
     }
 
