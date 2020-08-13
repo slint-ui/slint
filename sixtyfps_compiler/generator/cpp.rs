@@ -399,8 +399,7 @@ fn handle_repeater(
                         self->{id}.update_model({model}, self);
                     }});
                 }}
-                self->{id}.visit(order, visitor);
-                break;
+                return self->{id}.visit(order, visitor);
             }}",
             id = repeater_id,
             i = repeater_count,
@@ -738,7 +737,7 @@ fn generate_component(
                 "static const auto dyn_visit = [] (const uint8_t *base,  [[maybe_unused]] sixtyfps::TraversalOrder order, [[maybe_unused]] sixtyfps::ItemVisitorRefMut visitor, uintptr_t dyn_index) -> int64_t {".to_owned(),
                 format!("    [[maybe_unused]] auto self = reinterpret_cast<const {}*>(base);", component_id),
                 format!("    switch(dyn_index) {{ {} }};", children_visitor_cases.join("")),
-                "    return -1; //should not happen\n};".to_owned(),
+                "    std::abort();\n};".to_owned(),
                 "return sixtyfps::sixtyfps_visit_item_tree(component, item_tree() , index, order, visitor, dyn_visit);".to_owned(),
             ]),
             ..Default::default()
