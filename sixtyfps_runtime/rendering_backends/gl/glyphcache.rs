@@ -1,10 +1,12 @@
-use super::texture::{AtlasAllocation, TextureAtlas};
+use super::buffers::GLArrayBuffer;
+use super::texture::{AtlasAllocation, GLTexture, TextureAtlas};
+use super::Vertex;
 use collections::hash_map::HashMap;
+use itertools::Itertools;
 use sixtyfps_corelib::font::Font;
+use sixtyfps_corelib::font::FontHandle;
 use std::cell::RefCell;
 use std::{collections, rc::Rc};
-
-use sixtyfps_corelib::font::FontHandle;
 
 type GlyphsByPixelSize = Vec<Rc<RefCell<CachedFontGlyphs>>>;
 
@@ -105,6 +107,61 @@ impl CachedFontGlyphs {
 
         PreRenderedGlyph { glyph_allocation, advance }
     }
+
+    pub fn render_glyphs(
+        &mut self,
+        context: &Rc<glow::Context>,
+        texture_atlas: &mut TextureAtlas,
+        text: &str,
+    ) -> Vec<GlyphRun> {
+        let mut x = 0.;
+
+        self.layout_glyphs(&context, texture_atlas, text)
+            .filter_map(|cached_glyph| {
+                let glyph_x = x;
+                x += cached_glyph.advance;
+
+                if let Some(glyph_allocation) = &cached_glyph.glyph_allocation {
+                    let glyph_width = glyph_allocation.texture_coordinates.width() as f32;
+                    let glyph_height = glyph_allocation.texture_coordinates.height() as f32;
+
+                    let vertex1 = Vertex { _pos: [glyph_x, 0.] };
+                    let vertex2 = Vertex { _pos: [glyph_x + glyph_width, 0.] };
+                    let vertex3 = Vertex { _pos: [glyph_x + glyph_width, glyph_height] };
+                    let vertex4 = Vertex { _pos: [glyph_x, glyph_height] };
+
+                    let vertices = [vertex1, vertex2, vertex3, vertex1, vertex3, vertex4];
+                    let texture_vertices = glyph_allocation.normalized_texture_coordinates();
+
+                    Some((vertices, texture_vertices, glyph_allocation.clone()))
+                } else {
+                    None
+                }
+            })
+            .group_by(|(_, _, allocation)| allocation.atlas.texture.clone())
+            .into_iter()
+            .map(|(texture, glyph_it)| {
+                let glyph_count = glyph_it.size_hint().0;
+                let mut vertices: Vec<Vertex> = Vec::with_capacity(glyph_count * 6);
+                let mut texture_vertices: Vec<Vertex> = Vec::with_capacity(glyph_count * 6);
+
+                for (glyph_vertices, glyph_texture_vertices) in
+                    glyph_it.map(|(vertices, texture_vertices, _)| (vertices, texture_vertices))
+                {
+                    vertices.extend(&glyph_vertices);
+                    texture_vertices.extend(&glyph_texture_vertices);
+                }
+
+                let vertex_count = vertices.len() as i32;
+                GlyphRun {
+                    vertices: GLArrayBuffer::new(&context, &vertices),
+                    texture_vertices: GLArrayBuffer::new(&context, &texture_vertices),
+                    texture,
+                    vertex_count,
+                }
+            })
+            .collect()
+    }
 }
 
 pub struct GlyphIter<'a, GlyphIterator> {
@@ -124,4 +181,11 @@ where
             None
         }
     }
+}
+
+pub struct GlyphRun {
+    pub(crate) vertices: GLArrayBuffer<Vertex>,
+    pub(crate) texture_vertices: GLArrayBuffer<Vertex>,
+    pub(crate) texture: Rc<GLTexture>,
+    pub(crate) vertex_count: i32,
 }

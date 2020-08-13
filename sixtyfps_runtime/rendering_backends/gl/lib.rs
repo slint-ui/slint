@@ -1,7 +1,5 @@
 use cgmath::Matrix4;
 use glow::{Context as GLContext, HasContext};
-#[cfg(not(target_arch = "wasm32"))]
-use itertools::Itertools;
 use lyon::tessellation::geometry_builder::{BuffersBuilder, VertexBuffers};
 use lyon::tessellation::{
     FillAttributes, FillOptions, FillTessellator, StrokeAttributes, StrokeOptions,
@@ -37,7 +35,7 @@ use buffers::{GLArrayBuffer, GLIndexBuffer};
 #[cfg(not(target_arch = "wasm32"))]
 mod glyphcache;
 #[cfg(not(target_arch = "wasm32"))]
-use glyphcache::GlyphCache;
+use glyphcache::{GlyphCache, GlyphRun};
 
 #[cfg(not(target_arch = "wasm32"))]
 struct PlatformData {
@@ -55,14 +53,6 @@ impl PlatformData {
 #[derive(Copy, Clone)]
 pub(crate) struct Vertex {
     _pos: [f32; 2],
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-struct GlyphRun {
-    vertices: GLArrayBuffer<Vertex>,
-    texture_vertices: GLArrayBuffer<Vertex>,
-    texture: Rc<GLTexture>,
-    vertex_count: i32,
 }
 
 enum RenderingTexture {
@@ -578,57 +568,8 @@ impl GLRenderingPrimitivesBuilder {
         let cached_glyphs = self.platform_data.glyph_cache.find_font(font_family, pixel_size);
         let mut cached_glyphs = cached_glyphs.borrow_mut();
         let mut atlas = self.texture_atlas.borrow_mut();
-        let glyphs = cached_glyphs.layout_glyphs(&self.context, &mut atlas, text);
-
-        let mut x = 0.;
-
-        let glyph_runs = glyphs
-            .filter_map(|cached_glyph| {
-                let glyph_x = x;
-                x += cached_glyph.advance;
-
-                if let Some(glyph_allocation) = &cached_glyph.glyph_allocation {
-                    let glyph_width = glyph_allocation.texture_coordinates.width() as f32;
-                    let glyph_height = glyph_allocation.texture_coordinates.height() as f32;
-
-                    let vertex1 = Vertex { _pos: [glyph_x, 0.] };
-                    let vertex2 = Vertex { _pos: [glyph_x + glyph_width, 0.] };
-                    let vertex3 = Vertex { _pos: [glyph_x + glyph_width, glyph_height] };
-                    let vertex4 = Vertex { _pos: [glyph_x, glyph_height] };
-
-                    let vertices = [vertex1, vertex2, vertex3, vertex1, vertex3, vertex4];
-                    let texture_vertices = glyph_allocation.normalized_texture_coordinates();
-
-                    Some((vertices, texture_vertices, glyph_allocation.clone()))
-                } else {
-                    None
-                }
-            })
-            .group_by(|(_, _, allocation)| allocation.atlas.texture.clone())
-            .into_iter()
-            .map(|(texture, glyph_it)| {
-                let glyph_count = glyph_it.size_hint().0;
-                let mut vertices: Vec<Vertex> = Vec::with_capacity(glyph_count * 6);
-                let mut texture_vertices: Vec<Vertex> = Vec::with_capacity(glyph_count * 6);
-
-                for (glyph_vertices, glyph_texture_vertices) in
-                    glyph_it.map(|(vertices, texture_vertices, _)| (vertices, texture_vertices))
-                {
-                    vertices.extend(&glyph_vertices);
-                    texture_vertices.extend(&glyph_texture_vertices);
-                }
-
-                let vertex_count = vertices.len() as i32;
-                GlyphRun {
-                    vertices: GLArrayBuffer::new(&self.context, &vertices),
-                    texture_vertices: GLArrayBuffer::new(&self.context, &texture_vertices),
-                    texture,
-                    vertex_count,
-                }
-            })
-            .collect();
-
-        GLRenderingPrimitive::GlyphRuns { glyph_runs, color }
+        let glyphs_runs = cached_glyphs.render_glyphs(&self.context, &mut atlas, text);
+        GLRenderingPrimitive::GlyphRuns { glyph_runs: glyphs_runs, color }
     }
 
     #[cfg(target_arch = "wasm32")]
