@@ -72,7 +72,7 @@ pub(crate) mod repeater;
 #[doc(hidden)]
 pub mod re_exports {
     pub use crate::repeater::*;
-    pub use const_field_offset::{self, FieldOffsets};
+    pub use const_field_offset::{self, FieldOffsets, PinnedDrop};
     pub use once_cell::sync::Lazy;
     pub use once_cell::unsync::OnceCell;
     pub use pin_weak::rc::*;

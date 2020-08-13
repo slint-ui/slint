@@ -227,14 +227,10 @@ fn generate_component(
                 model = quote!((if #model {Some(())} else {None}).iter().cloned())
             }
 
-            let window_ref = window_ref_expression(component);
             if repeated.model.is_constant() {
                 init.push(quote! {
                     self_pinned.#repeater_id.update_model(#model, || {
                         #rep_component_id::new(self_pinned.self_weak.get().unwrap().clone())
-                    }, |comp| {
-                        let _self = self_pinned.clone();
-                        #window_ref.free_graphics_resources(VRef::new_pin(comp.as_ref()));
                     });
                 });
                 repeated_visit_branch.push(quote!(
@@ -249,9 +245,6 @@ fn generate_component(
                                 let _self = self_pinned.clone();
                                 self_pinned.#repeater_id.update_model(#model, || {
                                     #rep_component_id::new(self_pinned.self_weak.get().unwrap().clone())
-                                }, |comp| {
-                                    let _self = self_pinned.clone();
-                                    #window_ref.free_graphics_resources(VRef::new_pin(comp.as_ref()));
                                 });
                             });
                         }
@@ -409,13 +402,36 @@ fn generate_component(
         return None;
     }
 
+    let drop_impl = {
+        let guarded_window_ref = {
+            let mut root_component = component.clone();
+            let mut component_rust = quote!(self);
+            while let Some(p) = root_component.parent_element.upgrade() {
+                root_component = p.borrow().enclosing_component.upgrade().unwrap();
+                component_rust = quote!(if let Some(parent) = #component_rust.parent.upgrade() {
+                    parent
+                } else {
+                    return;
+                }.as_ref());
+            }
+            quote!(#component_rust.as_ref().window)
+        };
+
+        quote!(impl sixtyfps::re_exports::PinnedDrop for #component_id {
+            fn drop(self: core::pin::Pin<&mut #component_id>) {
+                use sixtyfps::re_exports::*;
+                #guarded_window_ref.free_graphics_resources(VRef::new_pin(self.as_ref()));
+            }
+        })
+    };
+
     Some(quote!(
         #(#resource_symbols)*
 
         #[derive(sixtyfps::re_exports::FieldOffsets)]
         #[const_field_offset(sixtyfps::re_exports::const_field_offset)]
         #[repr(C)]
-        #[pin]
+        #[pin_drop]
         #visibility struct #component_id {
             #(#item_names : sixtyfps::re_exports::#item_types,)*
             #(#declared_property_vars : sixtyfps::re_exports::Property<#declared_property_types>,)*
@@ -511,6 +527,8 @@ fn generate_component(
                 &*ITEM_TREE
             }
         }
+
+        #drop_impl
 
         #(#extra_components)*
     ))
