@@ -17,7 +17,7 @@ The aim of the project is to be
    an application build for this platform.
 
 | Printer Demo | Widget Gallery |
----------------------------------
+|--------------|----------------|
 | [![Screenshot of the Printer Demo](resources/printerdemo_screenshot.png "Printer Demo")](https://www.sixtyfps.io/demos/printerdemo/) | [![Screenshot of the Gallery Demo](resources/gallery_screenshot.png "Gallery Demo")](https://www.sixtyfps.io/demos/gallery/) |
 
 ## Documentation
