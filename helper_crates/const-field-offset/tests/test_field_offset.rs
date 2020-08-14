@@ -1,4 +1,5 @@
 use const_field_offset::*;
+use lazy_static::lazy_static;
 use memoffset::offset_of;
 
 #[derive(FieldOffsets)]
@@ -95,4 +96,31 @@ fn test_pin() {
 
     assert_eq!(XX_CONST_PIN, offset_of!(MyStruct2Pin, xx));
     assert_eq!(D_STATIC_PIN, offset_of!(MyStructPin, d));
+}
+
+lazy_static! {
+    static ref DROP_CALLED: std::sync::Mutex<bool> = std::sync::Mutex::new(false);
+}
+
+#[derive(FieldOffsets)]
+#[repr(C)]
+#[pin]
+#[pin_drop]
+struct MyPinnedStructWithDrop {
+    x: u32,
+}
+
+impl PinnedDrop for MyPinnedStructWithDrop {
+    fn drop(self: core::pin::Pin<&mut MyPinnedStructWithDrop>) {
+        *DROP_CALLED.lock().unwrap() = true;
+    }
+}
+
+#[test]
+fn test_pin_drop() {
+    *DROP_CALLED.lock().unwrap() = false;
+    {
+        let _instance = Box::pin(MyPinnedStructWithDrop { x: 42 });
+    }
+    assert!(*DROP_CALLED.lock().unwrap());
 }

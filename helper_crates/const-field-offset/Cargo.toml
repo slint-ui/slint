@@ -9,3 +9,4 @@ const-field-offset-macro = { path = "./macro" }
 
 [dev-dependencies]
 memoffset = "0.5.4"
+lazy_static = "1.4.0"

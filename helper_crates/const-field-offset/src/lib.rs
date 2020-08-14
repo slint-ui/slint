@@ -478,3 +478,17 @@ where
         ConstFieldOffsetSum(self, other)
     }
 }
+
+/// This trait needs to be implemented if you use the #[pin_drop] attribute. It enables
+/// you to implement Drop for your type safely.
+pub trait PinnedDrop {
+    /// This is the equivalent to the regular Drop trait with the difference that self
+    /// is pinned.
+    fn drop(self: Pin<&mut Self>);
+
+    #[doc(hidden)]
+    fn do_safe_pinned_drop(&mut self) {
+        let p = unsafe { Pin::new_unchecked(self) };
+        p.drop()
+    }
+}

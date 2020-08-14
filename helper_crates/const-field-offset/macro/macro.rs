@@ -93,14 +93,41 @@ struct Foo {
 }
 ```
 
+### `pin_drop`
+
+This attribute works like the `pin` attribute but it does not prevent a custom
+Drop implementation. Instead it provides a Drop implementation that forwards to
+the [PinnedDrop](../const_field_offset/trait.PinnedDrop.html) trait that you need to implement for our type.
+
+```rust
+use const_field_offset::*;
+use core::pin::Pin;
+
+struct TypeThatRequiresSpecialDropHandling(); // ...
+
+#[repr(C)]
+#[derive(FieldOffsets)]
+#[pin_drop]
+struct Foo {
+    field : TypeThatRequiresSpecialDropHandling,
+}
+
+impl PinnedDrop for Foo {
+    fn drop(self: Pin<&mut Self>) {
+        // Do you safe drop handling here
+    }
+}
+```
+
 */
-#[proc_macro_derive(FieldOffsets, attributes(const_field_offset, pin))]
+#[proc_macro_derive(FieldOffsets, attributes(const_field_offset, pin, pin_drop))]
 pub fn const_field_offset(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
     let mut has_repr_c = false;
     let mut crate_ = quote!(const_field_offset);
     let mut pin = false;
+    let mut drop = false;
     for a in &input.attrs {
         if let Some(i) = a.path.get_ident() {
             if i == "repr" {
@@ -127,6 +154,9 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
                     quote_spanned! {a.span() => compile_error!{"const_field_offset attreibute must be a crate name"}},
                 );
             } else if i == "pin" {
+                pin = true;
+            } else if i == "pin_drop" {
+                drop = true;
                 pin = true;
             }
         }
@@ -173,29 +203,50 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
         struct_name
     );
 
-    let (ensure_pin_safe, pin_flag, new_from_offset) = if !pin {
-        (None, quote!(#crate_::NotPinnedFlag), quote!(new_from_offset))
+    let (ensure_pin_safe, ensure_no_unpin, pin_flag, new_from_offset) = if !pin {
+        (None, None, quote!(#crate_::NotPinnedFlag), quote!(new_from_offset))
     } else {
-        let drop_trait_ident = format_ident!("{}MustNotImplDrop", struct_name);
         (
-            Some(quote! {
-                /// Make sure that Drop is not implemented
-                #[allow(non_camel_case_types)]
-                trait #drop_trait_ident {}
-                impl<T: ::core::ops::Drop> #drop_trait_ident for T {}
-                impl #drop_trait_ident for #struct_name {}
+            if drop {
+                None
+            } else {
+                let drop_trait_ident = format_ident!("{}MustNotImplDrop", struct_name);
+                Some(quote! {
+                    /// Make sure that Drop is not implemented
+                    #[allow(non_camel_case_types)]
+                    trait #drop_trait_ident {}
+                    impl<T: ::core::ops::Drop> #drop_trait_ident for T {}
+                    impl #drop_trait_ident for #struct_name {}
 
-                /// Make sure that Unpin is not implemented
-                pub struct __MustNotImplUnpin<'__dummy_lifetime> (
-                    #(#types, )*
-                    ::core::marker::PhantomData<&'__dummy_lifetime ()>
-                );
-                impl<'__dummy_lifetime> Unpin for #struct_name where __MustNotImplUnpin<'__dummy_lifetime> : Unpin {};
+                })
+            },
+            Some(quote! {
+
+                    /// Make sure that Unpin is not implemented
+                    pub struct __MustNotImplUnpin<'__dummy_lifetime> (
+                        #(#types, )*
+                        ::core::marker::PhantomData<&'__dummy_lifetime ()>
+                    );
+                    impl<'__dummy_lifetime> Unpin for #struct_name where __MustNotImplUnpin<'__dummy_lifetime> : Unpin {};
             }),
             quote!(#crate_::PinnedFlag),
             quote!(new_from_offset_pinned),
         )
     };
+
+    let pinned_drop_impl = if drop {
+        Some(quote!(
+            impl Drop for #struct_name {
+                fn drop(&mut self) {
+                    use #crate_::PinnedDrop;
+                    self.do_safe_pinned_drop();
+                }
+            }
+        ))
+    } else {
+        None
+    };
+
     // Build the output, possibly using quasi-quotation
     let expanded = quote! {
         #[doc = #doc]
@@ -210,6 +261,7 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
             /// Return a struct containing the offset of for the fields of this struct
             pub const FIELD_OFFSETS : #field_struct_name = {
                 #ensure_pin_safe;
+                #ensure_no_unpin;
                 let mut len = 0usize;
                 #field_struct_name {
                     #( #fields : {
@@ -223,6 +275,8 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
                 }
             };
         }
+
+        #pinned_drop_impl
 
         #[allow(non_camel_case_types)]
         #[allow(non_snake_case)]
