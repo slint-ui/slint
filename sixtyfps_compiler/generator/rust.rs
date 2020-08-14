@@ -166,8 +166,8 @@ fn generate_component(
     let mut repeated_visit_branch = Vec::new();
     let mut repeated_input_branch = Vec::new();
     let mut init = Vec::new();
-    let mut maybe_window_field_decl = Vec::new();
-    let mut maybe_window_field_init = Vec::new();
+    let mut maybe_window_field_decl = None;
+    let mut maybe_window_field_init = None;
     super::build_array_helper(component, |item_rc, children_index, is_flickable_rect| {
         let item = item_rc.borrow();
         if is_flickable_rect {
@@ -380,8 +380,8 @@ fn generate_component(
         ));
     } else {
         // FIXME: This field is public for testing.
-        maybe_window_field_decl.push(quote!(pub window: sixtyfps::re_exports::ComponentWindow));
-        maybe_window_field_init.push(quote!(window: sixtyfps::create_window()));
+        maybe_window_field_decl = Some(quote!(pub window: sixtyfps::re_exports::ComponentWindow));
+        maybe_window_field_init = Some(quote!(window: sixtyfps::create_window()));
 
         let root_elem = component.root_element.borrow();
         let root_item_name = quote::format_ident!("{}", root_elem.id);
@@ -425,7 +425,7 @@ fn generate_component(
             self_weak: sixtyfps::re_exports::OnceCell<sixtyfps::re_exports::PinWeak<#component_id>>,
             #(parent : sixtyfps::re_exports::PinWeak<#parent_component_type>,)*
             mouse_grabber: ::core::cell::Cell<sixtyfps::re_exports::VisitChildrenResult>,
-            #(#maybe_window_field_decl,)*
+            #maybe_window_field_decl
         }
 
         impl sixtyfps::re_exports::Component for #component_id {
@@ -493,7 +493,7 @@ fn generate_component(
                     self_weak : ::core::default::Default::default(),
                     #(parent : parent as sixtyfps::re_exports::PinWeak::<#parent_component_type>,)*
                     mouse_grabber: ::core::cell::Cell::new(sixtyfps::re_exports::VisitChildrenResult::CONTINUE),
-                    #(#maybe_window_field_init,)*
+                    #maybe_window_field_init
                 };
                 let self_pinned = std::rc::Rc::pin(self_);
                 self_pinned.self_weak.set(PinWeak::downgrade(self_pinned.clone())).map_err(|_|())
