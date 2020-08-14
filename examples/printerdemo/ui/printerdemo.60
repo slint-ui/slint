@@ -118,7 +118,7 @@ SettingsPage := Page {
 TopPanel := Rectangle {
    property<int> active_page: 0;
 
-   color: #D3D3D3;
+   color: white;
 
    title1 := Text {
         text: "PrintMachine";
@@ -153,10 +153,17 @@ MainWindow := Window {
 
     property<int> active_page: 0;
 
-    TopPanel {
+    panel := TopPanel {
         active_page: root.active_page;
         width: root.width;
         height: root.width / 20 + 10lx;
+    }
+
+    Image {
+        source: img!"images/metallic_toad_background.png";
+        y: panel.y + panel.height;
+        width: root.width;
+        height: root.height - self.y;
     }
 
     for page_info[idx] in [
