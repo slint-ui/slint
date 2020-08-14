@@ -115,14 +115,12 @@ SettingsPage := Page {
     }
 }
 
-MainWindow := Window {
+TopPanel := Rectangle {
+   property<int> active_page: 0;
 
-    width: 800lx;
-    height: 600lx;
+   color: #D3D3D3;
 
-    property<int> active_page: 0;
-
-    title1 := Text {
+   title1 := Text {
         text: "PrintMachine";
         color: active_page == 0 ? black : #0000;
         animate color { duration: 200ms; }
@@ -139,12 +137,26 @@ MainWindow := Window {
         font_size: root.width / 20;
     }
 
-    logo := Image {
+    power_button := Image {
         x: parent.width - self.width - 20lx;
         y: 5lx;
-        source: img!"../../../resources/logo_scaled.png";
-        width: self.height * 1.44;
+        source: img!"images/power.png";
+        width: root.width / 20;
         height: root.width / 20;
+    }
+}
+
+MainWindow := Window {
+
+    width: 800lx;
+    height: 600lx;
+
+    property<int> active_page: 0;
+
+    TopPanel {
+        active_page: root.active_page;
+        width: root.width;
+        height: root.width / 20 + 10lx;
     }
 
     for page_info[idx] in [
