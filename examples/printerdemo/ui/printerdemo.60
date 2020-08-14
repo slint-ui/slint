@@ -180,7 +180,7 @@ MainWindow := Window {
         color: page_info.color;
         img := Image {
             y: 5lx;
-            x: 5lx;
+            x: parent.border_radius + (self.width / 2) - ((parent.width - parent.border_radius) / 2);
             width: root.width / 6.25;
             height: root.height / 4.68;
             source: page_info.img_small;
@@ -191,7 +191,7 @@ MainWindow := Window {
         }
         text := Text {
             color: #2a2e3b;
-            y: root.height / 5;
+            y: root.height / 4.5;
             x: 5lx;
             width: parent.width;
             height: parent.height;
