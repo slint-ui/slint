@@ -73,6 +73,8 @@ jobs:
       with:
           command: fmt
           args: -- --check
+    - name: Check license headers
+      run: cargo xtask check_license_headers --show-all
     - name: Run tests
       uses: actions-rs/cargo@v1
       with:
