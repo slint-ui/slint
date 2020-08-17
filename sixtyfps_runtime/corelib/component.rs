@@ -1,3 +1,13 @@
+/* LICENSE BEGIN
+
+    This file is part of the Sixty FPS Project
+
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+
+LICENSE END */
 #![warn(missing_docs)]
 
 //! This module contains the basic datastructures that are exposed to the C API

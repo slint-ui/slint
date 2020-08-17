@@ -1,3 +1,13 @@
+/* LICENSE BEGIN
+
+    This file is part of the Sixty FPS Project
+
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+
+LICENSE END */
 use crate::diagnostics::BuildDiagnostics;
 /// This pass converts the verbose markup used for paths, such as
 ///    Path {

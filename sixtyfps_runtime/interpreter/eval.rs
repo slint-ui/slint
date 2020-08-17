@@ -1,3 +1,13 @@
+/* LICENSE BEGIN
+
+    This file is part of the Sixty FPS Project
+
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+
+LICENSE END */
 use crate::dynamic_component::InstanceRef;
 use core::convert::{TryFrom, TryInto};
 use core::pin::Pin;
