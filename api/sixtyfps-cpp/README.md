@@ -2,8 +2,8 @@
 
 **A C++ UI toolkit**
 
-SixtyFPS is a GUI engine, with libraries for different languages.
-SixtyFPS.cpp the a C++ API to interact with a SictyFPS UI from your C++ program.
+SixtyFPS is a UI toolkit that supports different programming languages.
+SixtyFPS.cpp the a C++ API to interact with a SixtyFPS toolkit from C++.
 
 ## Tutorial
 
