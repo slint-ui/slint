@@ -344,31 +344,23 @@ impl LicenseHeaderCheck {
     }
 
     fn check_crate_license(&self, path: &Path) -> Result<()> {
-        use toml_edit::{value, Document};
-        let source = &std::fs::read_to_string(path).context("Error reading file")?;
-        let mut doc = source.parse::<Document>()?;
+        use cargo_toml2::{from_path, CargoToml};
 
-        if let Some(package) = doc.as_table().get("package").map(|p| p.as_table()).flatten() {
-            if let Some(license) = package.get("license") {
-                if !license.is_str() {
-                    return Err(anyhow::anyhow!("license field is not a string"));
-                } else if license.as_str().unwrap() == EXPECTED_SPDX_EXPRESSION {
-                    return Ok(());
+        let toml: CargoToml = from_path(path).context("Failed to read Cargo.toml")?;
+
+        match toml.package.license {
+            Some(license) => {
+                if license == EXPECTED_SPDX_EXPRESSION {
+                    Ok(())
+                } else {
+                    Err(anyhow::anyhow!(
+                        "Incorrect license. Found {} expected {}",
+                        license,
+                        EXPECTED_SPDX_EXPRESSION
+                    ))
                 }
             }
-            if self.fixit {
-                doc["package"]["license"] = value(EXPECTED_SPDX_EXPRESSION);
-
-                std::fs::write(path, &doc.to_string()).context("Error writing new Cargo.toml")
-            } else {
-                Err(anyhow::anyhow!(
-                    "Unexpected license field value. Expected {} found {:?}",
-                    EXPECTED_SPDX_EXPRESSION,
-                    package.get("license")
-                ))
-            }
-        } else {
-            Err(anyhow::anyhow!("Invalid Cargo.toml -- cannot find package section"))
+            None => Err(anyhow::anyhow!("Missing license field")),
         }
     }
 
