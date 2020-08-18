@@ -5,6 +5,7 @@ authors = ["Sixty FPS <info@sixtyfps.io>"]
 edition = "2018"
 build = "build.rs"
 publish = false
+license = "GPL-3.0-only"
 
 [[bin]]
 path = "main.rs"

@@ -6,6 +6,7 @@ edition = "2018"
 build = "build.rs"
 # This is not meant to be used as a library from crate.io
 publish = false
+license = "GPL-3.0-only"
 
 [lib]
 path = "lib.rs"
