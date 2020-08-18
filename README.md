@@ -43,7 +43,7 @@ Rust Crate
 
 NodeJS bindings
  
-## The .60 DSL
+## The .60 Language
 
 SixtyFPS comes with a mark-up language that is specifically designed for user interfaces: It provides a powerful way to
 describe graphical elements, their placement and the flow of data through the different states. At the heart of it are a familar syntax to describe the hierarchy of elements and property bindings. Here's the obligatory "Hello World":
@@ -61,13 +61,13 @@ Check out the [language reference](docs/langref.md) for more details.
 
 ## Examples / Demo
 
-Todo
+All examples and demos are located in the [examples](/examples) folder.
 
 ## Contributions
 
 Contributions are welcome.
 To contribute, please see [CONTRIBUTING.md](CONTRIBUTING.md).
-Contributions are done under a CLA.
+Due to the dual-licensing nature, contributions require agreeing to a CLA.
 
 ## License
 
