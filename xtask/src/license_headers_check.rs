@@ -184,6 +184,8 @@ enum LicenseLocation {
 
 lazy_static! {
     static ref LICENSE_LOCATION_FOR_FILE: Vec<(regex::Regex, LicenseLocation)> = [
+        ("^helper_crates/const-field-offset/src/lib.rs$".into(), LicenseLocation::NoLicense), // Upstream fork
+        ("^helper_crates/const-field-offset/Cargo.toml$".into(), LicenseLocation::NoLicense), // Upstream fork
         (".+\\.rs$".into(), LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
         (".+\\.js$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
         (".+\\.mjs$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
