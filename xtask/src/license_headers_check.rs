@@ -175,30 +175,42 @@ blah"#
     }
 }
 
+#[derive(Copy, Clone)]
+enum LicenseLocation {
+    Tag(LicenseTagStyle),
+    Crate,
+    NoLicense,
+}
+
 lazy_static! {
-    static ref STYLE_FOR_FILE: Vec<(regex::Regex, Option<LicenseTagStyle>)> = [
-        (".+\\.rs$".into(), Some(LicenseTagStyle::c_style_comment_style())),
-        (".+\\.js$", Some(LicenseTagStyle::c_style_comment_style())),
-        (".+\\.mjs$", Some(LicenseTagStyle::c_style_comment_style())),
-        (".+\\.h$", Some(LicenseTagStyle::c_style_comment_style())),
-        (".+\\.cpp$", Some(LicenseTagStyle::c_style_comment_style())),
-        (".+\\.md$", None),
-        (".+\\.png$", None),
-        (".+\\.svg$", None),
-        (".+\\.json$", None),
-        (".+\\.html$", None),
-        (".*\\.gitignore$", None),
-        ("\\.clang-format$", None),
-        ("\\.cargo/config$", Some(LicenseTagStyle::shell_comment_style())),
-        ("\\.github/workflows/rust.yaml$", Some(LicenseTagStyle::shell_comment_style())),
-        (".+\\.toml$", None),
-        (".*CMakeLists.txt$", Some(LicenseTagStyle::shell_comment_style())),
-        (".+\\.cmake.in$", Some(LicenseTagStyle::shell_comment_style())),
-        (".+\\.sh$", Some(LicenseTagStyle::shell_comment_style())),
-        (".+\\.60$", Some(LicenseTagStyle::c_style_comment_style())),
-        (".*README$", None),
-        (".*README\\.txt$", None),
-        ("LICENSE\\.GPL3$", None),
+    static ref LICENSE_LOCATION_FOR_FILE: Vec<(regex::Regex, LicenseLocation)> = [
+        (".+\\.rs$".into(), LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+        (".+\\.js$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+        (".+\\.mjs$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+        (".+\\.h$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+        (".+\\.cpp$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+        (".+\\.md$", LicenseLocation::NoLicense),
+        (".+\\.png$", LicenseLocation::NoLicense),
+        (".+\\.svg$", LicenseLocation::NoLicense),
+        (".+\\.json$", LicenseLocation::NoLicense),
+        (".+\\.html$", LicenseLocation::NoLicense),
+        (".*\\.gitignore$", LicenseLocation::NoLicense),
+        ("\\.clang-format$", LicenseLocation::NoLicense),
+        ("\\.cargo/config$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+        (
+            "\\.github/workflows/rust.yaml$",
+            LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())
+        ),
+        ("^Cargo.toml$", LicenseLocation::NoLicense),
+        (".+Cargo.toml$", LicenseLocation::Crate),
+        (".+\\.toml$", LicenseLocation::NoLicense),
+        (".*CMakeLists.txt$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+        (".+\\.cmake.in$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+        (".+\\.sh$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+        (".+\\.60$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+        (".*README$", LicenseLocation::NoLicense),
+        (".*README\\.txt$", LicenseLocation::NoLicense),
+        ("LICENSE\\.GPL3$", LicenseLocation::NoLicense),
     ]
     .iter()
     .map(|(re, ty)| (regex::Regex::new(re).unwrap(), *ty))
@@ -223,6 +235,9 @@ impl<'a> LicenseHeader<'a> {
     }
 }
 
+const EXPECTED_SPDX_EXPRESSION: &str = "GPL-3.0-only";
+const EXPECTED_SPDX_ID: &str = "SPDX-License-Identifier: GPL-3.0-only";
+
 const EXPECTED_HEADER: LicenseHeader<'static> = LicenseHeader(&[
     "",
     "This file is part of the Sixty FPS Project",
@@ -230,7 +245,7 @@ const EXPECTED_HEADER: LicenseHeader<'static> = LicenseHeader(&[
     "Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>",
     "Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>",
     "",
-    "SPDX-License-Identifier: GPL-3.0-only",
+    EXPECTED_SPDX_ID,
     "",
 ]);
 
@@ -296,30 +311,17 @@ impl LicenseHeaderCheck {
         Ok(())
     }
 
-    fn check_file(&self, path: &Path) -> Result<()> {
-        let path_str = path.to_str().unwrap();
-        let style = STYLE_FOR_FILE
-            .iter()
-            .find_map(|(regex, style)| if regex.is_match(path_str) { Some(style) } else { None })
-            .with_context(|| format!("Cannot determine the expected license header style. Please the license checking xtask."))?;
-
-        let style = match style {
-            Some(style) => style,
-            None => {
-                if self.verbose {
-                    println!("Skipping {} as configured", path_str);
-                }
-                return Ok(());
-            }
-        };
-
+    fn check_file_tags(&self, path: &Path, style: &LicenseTagStyle) -> Result<()> {
         let source = &std::fs::read_to_string(path).context("Error reading file")?;
 
         let source = SourceFileWithTags::new(source, style);
 
         if !source.has_tag() {
             if self.fixit {
-                eprintln!("Fixing up {} as instructed. It's missing a license header.", path_str);
+                eprintln!(
+                    "Fixing up {} as instructed. It's missing a license header.",
+                    path.to_str().unwrap()
+                );
                 let source = source.replace_tag(&EXPECTED_HEADER);
                 std::fs::write(path, &source).context("Error writing source")
             } else {
@@ -337,6 +339,54 @@ impl LicenseHeaderCheck {
                     EXPECTED_HEADER.to_string(style),
                     source.found_tag()
                 ))
+            }
+        }
+    }
+
+    fn check_crate_license(&self, path: &Path) -> Result<()> {
+        use toml_edit::{value, Document};
+        let source = &std::fs::read_to_string(path).context("Error reading file")?;
+        let mut doc = source.parse::<Document>()?;
+
+        if let Some(package) = doc.as_table().get("package").map(|p| p.as_table()).flatten() {
+            if let Some(license) = package.get("license") {
+                if !license.is_str() {
+                    return Err(anyhow::anyhow!("license field is not a string"));
+                } else if license.as_str().unwrap() == EXPECTED_SPDX_EXPRESSION {
+                    return Ok(());
+                }
+            }
+            if self.fixit {
+                doc["package"]["license"] = value(EXPECTED_SPDX_EXPRESSION);
+
+                std::fs::write(path, &doc.to_string()).context("Error writing new Cargo.toml")
+            } else {
+                Err(anyhow::anyhow!(
+                    "Unexpected license field value. Expected {} found {:?}",
+                    EXPECTED_SPDX_EXPRESSION,
+                    package.get("license")
+                ))
+            }
+        } else {
+            Err(anyhow::anyhow!("Invalid Cargo.toml -- cannot find package section"))
+        }
+    }
+
+    fn check_file(&self, path: &Path) -> Result<()> {
+        let path_str = path.to_str().unwrap();
+        let location = LICENSE_LOCATION_FOR_FILE
+            .iter()
+            .find_map(|(regex, style)| if regex.is_match(path_str) { Some(style) } else { None })
+            .with_context(|| format!("Cannot determine the expected license header style. Please the license checking xtask."))?;
+
+        match location {
+            LicenseLocation::Tag(tag_style) => self.check_file_tags(path, tag_style),
+            LicenseLocation::Crate => self.check_crate_license(path),
+            LicenseLocation::NoLicense => {
+                if self.verbose {
+                    println!("Skipping {} as configured", path_str);
+                }
+                Ok(())
             }
         }
     }
