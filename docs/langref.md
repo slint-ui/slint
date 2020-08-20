@@ -1,20 +1,17 @@
 # The `.60` language reference
 
 This page is work in progress as the language is not yet set in stones.
-`TODO` indicate things that are not yet implemented.
-
-## Comments
-
-C-style comments are supported:
- - line comments: `//` means everything to the end of the line is commented.
- - block comments: `/* .. */`  (TODO, make possible to nest them)
+`TODO` indicates things that are not yet implemented.
 
 ## `.60` files
 
-The basic idea is that the .60 files contains one or several components.
-These components consist of a bunch of elements that form a tree.
-Each declared component can be re-used as an element later. There are also a bunch
-of [builtin elements].
+The basic idea is that the `.60` files contains one or several components.
+These components contain a tree of elements. Each declared component can be
+given a name and re-used under that name as an an element later.
+
+By default, the SixtyFPS comes with some [builtin elements](#builtin-elements).
+
+Below is an example of components and elements:
 
 ```60
 
@@ -29,13 +26,17 @@ export MyApp := Window {
     MyButton {
         text: "world";
     }
+    Rectangle {
+        color: green;        
+    }
 }
 
 ```
 
-Here, both `MyButton` and `MyApp` are components.
+Here, both `MyButton` and `MyApp` are components. `Window` and `Rectangle` are built-in elements
+used by `MyApp`. `MyApp` also re-uses the `MyButton` component.
 
-One can give name to the elements using the `:=`  syntax in front an element:
+You can assign a name to the elements using the `:=`  syntax in front an element:
 
 ```60
 //...
@@ -52,11 +53,19 @@ MyApp := Window {
 The outermost element of a component is always accessible under the name `root`.
 The current element can be referred as `self`.
 The parent element can be referred as `parent`.
-These names are reserved and cannot be used as an element name.
+These names are reserved and cannot be used as element names.
+
+## Comments
+
+C-style comments are supported:
+ - line comments: `//` means everything to the end of the line is commented.
+ - block comments: `/* .. */`  (TODO, make possible to nest them)
+
 
 ## Properties
 
-The elements can have properties
+The elements can have properties. Built-in elements come with common properties such
+as color or dimensional properties. You can assign values or entire [expressions](#expressions) to them:
 
 ```60
 Example := Rectangle {
@@ -67,39 +76,19 @@ Example := Rectangle {
 }
 ```
 
-You can declare properties. The properties declared at the top level of a component
-are public and can be accessed by the component using it as an element, or using the
-language bindings.
-
-Properties are declared like so:
+You can also declare your own properties. The properties declared at the top level of a
+component are public and can be accessed by the component using it as an element, or using the
+language bindings:
 
 ```60
 Example := Rectangle {
-    // declare a property of type int
+    // declare a property of type int with the name `my_property`
     property<int> my_property;
 
     // declare a property with a default value
     property<int> my_second_property: 42;
 }
 ```
-
-The value of properties are an expression (see later).
-You can access properties in these expression, and the bindings are automatically
-re-evaluated if any of the accessed properties change.
-
-```60
-Example := Rectangle {
-    // declare a property of type int
-    property<int> my_property;
-
-    // This access the property
-    width: root.my_property * 20px;
-
-}
-```
-
-If someone changes `my_property`, the width will be updated automatically.
-
 
 ## Types
 
@@ -121,6 +110,12 @@ they correspond to the number like `1ms` or `1s`
 
 ## Signal
 
+Components may declare signals, that allow it to communicate change of state to the outside. Signals are emitted by "calling" them
+and you can re-act to signal emissions by declaring a handler using the `=>` arrow syntax. The built-in `TouchArea`
+element comes with a `clicked` signal, that's emitted when the user touches the rectangular area covered by the element, or clicks into
+it with the mouse. In the example below, the emission of that signal is forwarded to another custom signal (`hello`) by declaring a
+handler and emitting our custom signal:
+
 ```60
 Example := Rectangle {
     // declares a signal
@@ -141,7 +136,25 @@ TODO: add parameter to the signal
 
 ## Expressions
 
-Basic arithmetic expression do what they do in most languages with the operator `*`, `+`, `-`, `/`
+Expressions are a powerful way to declare relationships and connections in your user interface. They
+are typically used to combine basic arithmetic with access to properties of other elements. When
+these properties change, the expression is automatically re-evaluated and a new value is assigned
+to the property the expression is associated with:
+
+```60
+Example := Rectangle {
+    // declare a property of type int
+    property<int> my_property;
+
+    // This access the property
+    width: root.my_property * 20px;
+
+}
+```
+
+If someone changes `my_property`, the width will be updated automatically.
+
+Arithmetic in expression works like in most programming language with the operators `*`, `+`, `-`, `/`:
 
 ```60
 Example := Rectangle {
@@ -149,18 +162,18 @@ Example := Rectangle {
 }
 ```
 
-Access properties with `.`
+You can access properties by addressing the associated element, followed by a `.` and the property name:
 
 ```60
 Example := Rectangle {
-    x: foo.x;
     foo := Rectangle {
         x: 42;
     }
+    x: foo.x;
 }
 ```
 
-Strings are with duble quote: `"foo"`.
+Strings can beu used with surrounding quote: `"foo"`.
 (TODO: escaping, support using stuff like `` `hello {foo}` ``)
 
 
@@ -170,7 +183,7 @@ Example := Text {
 }
 ```
 
-Color literal use the CSS syntax:
+Color literals follow the syntax of CSS:
 
 ```60
 Example := Rectangle {
@@ -187,7 +200,7 @@ TODO
 
 ## Statements
 
-Inside signal handler, more complicated statements are allowed:
+Inside signal handlers, more complicated statements are allowed:
 
 Assignment:
 
