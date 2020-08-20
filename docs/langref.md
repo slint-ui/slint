@@ -173,7 +173,7 @@ Example := Rectangle {
 }
 ```
 
-Strings can beu used with surrounding quote: `"foo"`.
+Strings can be used with surrounding quote: `"foo"`.
 (TODO: escaping, support using stuff like `` `hello {foo}` ``)
 
 
