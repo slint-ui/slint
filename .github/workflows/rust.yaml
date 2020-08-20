@@ -80,6 +80,8 @@ jobs:
       with:
           command: test
           args: --verbose
+    - name: Install clang-doc
+      run: sudo apt-get install clang-tools-10
     - name: Prepare cmake module
       run: cargo xtask cmake --prefix $HOME/sixtyfps_install --install
     - name: C++ Test
