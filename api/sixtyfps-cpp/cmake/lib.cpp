@@ -9,3 +9,4 @@
 
 LICENSE END */
 /* Dummy file to make cmake happy */
+#include <sixtyfps.h>

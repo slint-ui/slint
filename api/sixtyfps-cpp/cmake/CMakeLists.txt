@@ -11,6 +11,9 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(SixtyFPS LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 17)
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_library(SixtyFPS INTERFACE)
 
@@ -79,3 +82,21 @@ install(FILES
     "${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/SixtyFPS/SixtyFPSConfigVersion.cmake"
     DESTINATION lib/cmake/SixtyFPS
 )
+
+if(APPLE)
+    execute_process(COMMAND brew --prefix llvm RESULT_VARIABLE prefix_status OUTPUT_VARIABLE llvm_prefix ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE)
+    if(prefix_status EQUAL "0")
+        set(clang_doc_hint "HINTS;${llvm_prefix}/bin")
+    endif()
+endif()
+
+find_program(clang_doc NAMES clang-doc clang-doc-10 ${clang_doc_hint})
+if(clang_doc)
+    message(STATUS "Clang doc found at ${clang_doc}. Will build API documentation")
+    add_library(api_docs lib.cpp)
+    target_link_libraries(api_docs SixtyFPS)
+    add_custom_target(docs ALL COMMAND ${clang_doc} -p ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/lib.cpp)
+else()
+    message(STATUS "Clang doc NOT found. Will NOT build API documentation")
+    add_custom_target(docs COMMAND ${CMAKE} -E echo "Not building documentation because clang-doc wasn't found in PATH")
+endif()
