@@ -108,6 +108,8 @@ is an access to the pixel ratio.
 they correspond to the number like `1ms` or `1s`
  - `easing`: follow more or less the CSS spec
 
+Please see the language specific API references how these types are mapped to the APIs of the different programming languages.
+
 ## Signal
 
 Components may declare signals, that allow it to communicate change of state to the outside. Signals are emitted by "calling" them

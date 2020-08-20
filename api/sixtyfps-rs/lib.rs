@@ -86,6 +86,22 @@ fn main() {
     HelloWorld::new().run()
 }
 ```
+
+### Types
+
+The types used for properties in `.60` markup each translate to specific types in Rust.
+The follow table summarizes the entire mapping:
+
+| `.60` Type | Rust Type |
+| --- | --- |
+| int | i32 |
+| float | f32 |
+| string | [sixtyfps::SharedString](../sixtyfps_corelib/string/struct.SharedString.html) |
+| color | [sixtyfps::Color](../sixtyfps_corelib/graphics/struct.Color.html) |
+| length | f32 |
+| logical_length | f32 |
+| duration | i64 |
+
 */
 
 #![cfg_attr(nightly, feature(doc_cfg, external_doc))]
