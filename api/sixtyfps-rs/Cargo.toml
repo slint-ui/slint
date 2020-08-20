@@ -17,3 +17,6 @@ pin-weak = "1"
 sixtyfps-corelib = { path="../../sixtyfps_runtime/corelib" }
 # FIXME: should be under a feature or somehow done differently
 sixtyfps_rendering_backend_gl = { path="../../sixtyfps_runtime/rendering_backends/gl" }
+
+[build-dependencies]
+rustc_version = "0.2.3"

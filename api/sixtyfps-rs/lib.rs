@@ -11,22 +11,29 @@ LICENSE END */
 /*!
 # SixtyFPS
 
-This create is the main entry point for project using SixtyFPS UI in rust.
+This crate is the main entry point for embedding user interfaces designed with
+SixtyFPS UI in Rust programs.
+
+Included in this documentation is also the [language reference](langref/index.html).
 
 ## How to use:
 
-There are two ways to use this crate.
+The user interfaces are described in the `.60` markup language. There are two ways
+of including the design in Rust:
 
- - The `.60` code inline in a macro.
+ - The `.60` code is inline in a macro.
  - The `.60` code in external files compiled with `build.rs`
 
 ### The .60 code in a macro
 
-This is the simpler way, just put the
+This method combines your Rust code with the `.60` markup in one file, using a macro:
 
 ```rust
 sixtyfps::sixtyfps!{
-    HelloWorld := Text { text: "hello world"; }
+    HelloWorld := Text {
+        text: "hello world";
+        color: black;
+    }
 }
 fn main() {
 #   return; // Don't run a window in an example
@@ -35,6 +42,11 @@ fn main() {
 ```
 
 ### The .60 file in external files compiled with `build.rs`
+
+This method allows you to a separate `.60` file on the file system, which works well if
+your design becomes bigger and you split it up across multiple files. You need to use a
+so-called [build script](https://doc.rust-lang.org/cargo/reference/build-scripts.html)
+to trigger the compilation of the `.60` file.
 
 In your Cargo.toml:
 
@@ -71,6 +83,7 @@ fn main() {
 ```
 */
 
+#![cfg_attr(nightly, feature(doc_cfg, external_doc))]
 #![warn(missing_docs)]
 #![deny(unsafe_code)]
 
@@ -117,11 +130,12 @@ pub mod re_exports {
 }
 
 /// Creates a new window to render components in.
+#[doc(hidden)]
 pub fn create_window() -> re_exports::ComponentWindow {
     sixtyfps_rendering_backend_gl::create_gl_window()
 }
 
-/// This module contains functions usefull for unit tests
+/// This module contains functions useful for unit tests
 pub mod testing {
     pub use sixtyfps_corelib::tests::sixtyfps_mock_elapsed_time as mock_elapsed_time;
     /// Simulate a mouse click
@@ -136,7 +150,9 @@ pub mod testing {
     }
 }
 
-/// Include the code generated with the sixtyfps-build crate from the build script
+/// Include the code generated with the sixtyfps-build crate from the build script. After calling `sixtyfps_build::compile`
+/// in your `build.rs` build script, the use of this macro includes the generated Rust code and makes the exported types
+/// available for you to instantiate.
 #[macro_export]
 macro_rules! include_modules {
     () => {
@@ -151,3 +167,8 @@ pub struct VersionCheck_0_1_0;
 
 #[cfg(doctest)]
 mod compile_fail_tests;
+
+pub mod langref {
+    #![cfg_attr(nightly, doc(include = "../../docs/langref.md"))]
+    #![doc = ""]
+}

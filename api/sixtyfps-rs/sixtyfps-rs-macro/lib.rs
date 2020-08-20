@@ -208,6 +208,8 @@ fn extract_include_paths(
     (remaining_stream, include_paths)
 }
 
+/// This macro allows you to use the `.60` markup language inline in Rust code. Within the braces of the macro
+/// you can use place `.60` code and the named exported components will be available for instantiation.
 #[proc_macro]
 pub fn sixtyfps(stream: TokenStream) -> TokenStream {
     let token_iter = stream.into_iter();
