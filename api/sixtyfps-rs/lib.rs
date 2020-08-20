@@ -92,15 +92,16 @@ fn main() {
 The types used for properties in `.60` markup each translate to specific types in Rust.
 The follow table summarizes the entire mapping:
 
-| `.60` Type | Rust Type |
-| --- | --- |
-| int | i32 |
-| float | f32 |
-| string | [sixtyfps::SharedString](../sixtyfps_corelib/string/struct.SharedString.html) |
-| color | [sixtyfps::Color](../sixtyfps_corelib/graphics/struct.Color.html) |
-| length | f32 |
-| logical_length | f32 |
-| duration | i64 |
+| `.60` Type | Rust Type | Note |
+| --- | --- | --- |
+| `int` | `i32` | |
+| `float` | `f32` | |
+| `string` | [`sixtyfps::SharedString`](../sixtyfps_corelib/string/struct.SharedString.html) | A reference-counted string type that can be easily converted to a str reference. |
+| `color` | [`sixtyfps::Color`](../sixtyfps_corelib/graphics/struct.Color.html) | |
+| `length` | `f32` | The unit are physical pixels. |
+| `logical_length` | `f32` | At run-time, logical lengths are automatically translated to physical pixels using the device pixel ratio. |
+| `duration` | `i64` | At run-time, durations are always represented as signed 64-bit integers with milisecond precision. |
+| `easing` | [`sixtyfps::EasingCurve`](../sixtyfps_corelib/animations/enum.EasingCurve.html) | |
 
 */
 

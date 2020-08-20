@@ -92,21 +92,18 @@ Example := Rectangle {
 
 ## Types
 
- - `int`
- - `float`:
-   `int` and `float` are the types for the numbers, they correspond to the equivalent in the target language
-    A number can end with '%', so for example `30%` is the same as `0.30`
- - `string`: Represent a utf8 encoded string. Strings are reference counted.
- - `color`: color literal follow more or less the CSS specs
- - `length`: the type for the x, y, width and height coordinate. This is an amount of physical pixels. To convert from
-an integer to a length unit, one can simply multiply by `1px`.  Or to convert from a length to a float, one can divide
-by `1px`.
- - `logical_length`:  correspond to literal like `1lx`, `1pt`, `1in`, `1mm`, or `1cm`.
-It can be converted to and from length provided the binding is run in a context where there
-is an access to the pixel ratio.
- - `duration`: is a type for the duration of animation, it is represented by the amount of milisecond. But in the language
-they correspond to the number like `1ms` or `1s`
- - `easing`: follow more or less the CSS spec
+All properties in elements have a type. The following types are supported:
+
+| Type | Description |
+| --- | --- |
+| `int` | Signed integral number. |
+| `float` | Signed, 32-bit floating point number. Numbers with a `%` suffix are automatically divided by 100, so for example `30%` is the same as `0.30`. |
+| `string` | UTF-8 encoded, reference counted string. |
+| `color` | RGB color with an alpha channel, with 8 bit precision for each channel. |
+| `length` | The type used for `x`, `y`, `width` and `height` coordinates. This is an amount of physical pixels. To convert from an integer to a length unit, one can simply multiply by `1px`.  Or to convert from a length to a float, one can divide by `1px`. |
+| `logical_length` | Corresponds to a literal like `1lx`, `1pt`, `1in`, `1mm`, or `1cm`. It can be converted to and from length provided the binding is run in a context where there is an access to the device pixel ratio. |
+ | `duration` | Type for the duration of animations. A suffix like `ms` (milisecond) or `s` (second) is used to indicate the precision. |
+ | `easing` | Property animation allow specifying an easing curve. Valid values are `linear` (values are interpolated linearly) and the [four common cubiz-bezier functions known from CSS](https://developer.mozilla.org/en-US/docs/Web/CSS/easing-function#Keywords_for_common_cubic-bezier_easing_functions):  `ease`, `ease_in`, `ease_in_out`, `ease_out`. |
 
 Please see the language specific API references how these types are mapped to the APIs of the different programming languages.
 
