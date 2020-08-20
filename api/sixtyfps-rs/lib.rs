@@ -202,7 +202,7 @@ pub mod generated_code {
     /// This an example of the API that is generated for a component in `.60` markup. This may help you understand
     /// what functions you can call and how you can pass data in and out.
     /// This is the `.60` markup source code:
-    /// ```
+    /// ```sixtyfps
     /// export SampleComponent := Window {
     ///     property<int> counter;
     ///     property<string> user_name;
@@ -218,7 +218,7 @@ pub mod generated_code {
         }
         /// Creates a window on the screen, renders this component in it and spins an event loop to react
         /// to user input. A typical sequence of creating an instance and showing it may look like this:
-        /// ```
+        /// ```ignore
         /// fn main() {
         ///     let sample = SampleComponent::new();
         ///     /// other setup code here, connect to signal handlers, set property values
@@ -251,7 +251,7 @@ pub mod generated_code {
         /// the component in the callback, you'd typically capture a weak reference obtained using
         /// [as_weak()](#method.as_weak)
         /// and then upgrade it to a strong reference when the callback is run:
-        /// ```
+        /// ```ignore
         ///     let sample = SampleComponent::new();
         ///     let sample_weak = sample.clone().as_weak();
         ///     sample.as_ref().on_hello(move || {
