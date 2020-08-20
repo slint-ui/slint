@@ -4,8 +4,8 @@ This is the monolithic repository of the SixtyFPS project.
 
 ## What is SixtyFPS
 
-SixtyFPS is a toolkit to efficiently develop fluid graphical user interfaces and embed them in different programming language environments.
-Our design goals are
+SixtyFPS is a toolkit to efficiently develop fluid graphical user interfaces for devices with touch screens and desktop applications. Multiple
+programming language environments are supported, such as Rust or C++. Our design goals are
 
  - **Lightweight**: Fit into a few hundred kilobytes of RAM and require little processing power.
  - **Straightforward**: Programmers and designers should feel feel productive and enjoy the design and development process.
