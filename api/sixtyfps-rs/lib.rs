@@ -24,6 +24,11 @@ of including the design in Rust:
  - The `.60` code is inline in a macro.
  - The `.60` code in external files compiled with `build.rs`
 
+ This markup code is translated to Rust code and each component is turned into a Rust
+ struct with functions to instantiated, show or access properties. This documentation
+ includes an [example](generated_code/struct.SampleComponent.html) of how the API looks
+ like.
+
 ### The .60 code in a macro
 
 This method combines your Rust code with the `.60` markup in one file, using a macro:
@@ -171,4 +176,72 @@ mod compile_fail_tests;
 pub mod langref {
     #![cfg_attr(nightly, doc(include = "../../docs/langref.md"))]
     #![doc = ""]
+}
+
+/// This module exists only to explain the API of the code generated from `.60` markup. Its described structure
+/// is not really contained in the compiled crate.
+#[cfg(doc)]
+pub mod generated_code {
+    /// This an example of the API that is generated for a component in `.60` markup. This may help you understand
+    /// what functions you can call and how you can pass data in and out.
+    /// This is the `.60` markup source code:
+    /// ```
+    /// export SampleComponent := Window {
+    ///     property<int> counter;
+    ///     property<string> user_name;
+    ///     signal hello();
+    ///     /// ... maybe more elements here
+    /// }
+    /// ```
+    pub struct SampleComponent {}
+    impl SampleComponent {
+        /// Creates a new instance that is reference counted and pinned in memory.
+        pub fn new() -> core::pin::Pin<std::rc::Rc<Self>> {
+            unimplemented!()
+        }
+        /// Creates a window on the screen, renders this component in it and spins an event loop to react
+        /// to user input. A typical sequence of creating an instance and showing it may look like this:
+        /// ```
+        /// fn main() {
+        ///     let sample = SampleComponent::new();
+        ///     /// other setup code here, connect to signal handlers, set property values
+        ///     sample.run();
+        /// }
+        /// ```
+        pub fn run(self: core::pin::Pin<std::rc::Rc<Self>>) {}
+        /// Returns a weak pointer for an instance of this component. You can use this to in captures of
+        /// closures, for example signal handlers, to access the component later.
+        pub fn as_weak(
+            self: core::pin::Pin<std::rc::Rc<Self>>,
+        ) -> super::re_exports::PinWeak<Self> {
+            unimplemented!()
+        }
+        /// Returns the value of the counter property declared in the `.60` markup.
+        pub fn get_counter(self: ::core::pin::Pin<&Self>) -> i32 {
+            unimplemented!()
+        }
+        /// Assigns a new value to the counter property.
+        pub fn set_counter(&self, value: i32) {}
+        /// Returns the value of the user_name property declared in the `.60` markup.
+        pub fn get_user_name(self: ::core::pin::Pin<&Self>) -> super::re_exports::SharedString {
+            unimplemented!()
+        }
+        /// Assigns a new value to the user_name property.
+        pub fn set_user_name(&self, value: super::re_exports::SharedString) {}
+        /// Emits the hello signal declared in the `.60` markup.
+        pub fn emit_hello(self: ::core::pin::Pin<&Self>) {}
+        /// Registers the function f as callback when the signal hello is emitted. In order to access
+        /// the component in the callback, you'd typically capture a weak reference obtained using
+        /// [as_weak()](#method.as_weak)
+        /// and then upgrade it to a strong reference when the callback is run:
+        /// ```
+        ///     let sample = SampleComponent::new();
+        ///     let sample_weak = sample.clone().as_weak();
+        ///     sample.as_ref().on_hello(move || {
+        ///         let sample = sample_weak.upgrade().unwrap();
+        ///         sample.as_ref().set_counter(42);
+        ///     });
+        /// ```
+        pub fn on_hello(self: ::core::pin::Pin<&Self>, f: impl Fn() + 'static) {}
+    }
 }
