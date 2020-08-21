@@ -25,6 +25,13 @@ SixtyFPS is still in the early stages of development. APIs can and will change, 
 
 At the moment, it's possible to create user interfaces from C++, Rust and NodeJS. Those can be compiled/shown on Linux, macOS, Windows and in Web Browsers (using WebAssembly).
 
+## Architecture
+
+An application is composed of the business logic written in Rust, C++ or JavaScript and the `.60` user interface markup design, which
+is compiled to native code.
+
+![Architecture Overview](resources/architecture.drawio.svg)
+
 ## Documentation
 
 SixtyFPS can be used from different frontend languages. Refer to the README of these directories for reference documentation.
