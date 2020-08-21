@@ -3,7 +3,7 @@
 **A Rust UI toolkit**
 
 [SixtyFPS](/README.md) is a UI toolkit that supports different programming languages.
-SixtyFPS-rs is the Rust API to interact with a SixtyFPS toolkit from Rust.
+SixtyFPS-rs is the Rust API to interact with a SixtyFPS UI design from Rust.
 
 ## Getting Started
 
