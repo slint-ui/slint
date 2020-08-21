@@ -18,7 +18,7 @@ Included in this documentation is also the [language reference](langref/index.ht
 
 ## How to use:
 
-The user interfaces are described in the `.60` markup language. There are two ways
+The user interfaces are described in the `.60` design markup language. There are two ways
 of including the design in Rust:
 
  - The `.60` code is inline in a macro.
@@ -31,7 +31,7 @@ of including the design in Rust:
 
 ### The .60 code in a macro
 
-This method combines your Rust code with the `.60` markup in one file, using a macro:
+This method combines your Rust code with the `.60` design markup in one file, using a macro:
 
 ```rust
 sixtyfps::sixtyfps!{
@@ -89,7 +89,7 @@ fn main() {
 
 ### Types
 
-The types used for properties in `.60` markup each translate to specific types in Rust.
+The types used for properties in `.60` design markup each translate to specific types in Rust.
 The follow table summarizes the entire mapping:
 
 | `.60` Type | Rust Type | Note |
@@ -199,13 +199,13 @@ pub mod langref {
     #![doc = ""]
 }
 
-/// This module exists only to explain the API of the code generated from `.60` markup. Its described structure
+/// This module exists only to explain the API of the code generated from `.60` design markup. Its described structure
 /// is not really contained in the compiled crate.
 #[cfg(doc)]
 pub mod generated_code {
-    /// This an example of the API that is generated for a component in `.60` markup. This may help you understand
+    /// This an example of the API that is generated for a component in `.60` design markup. This may help you understand
     /// what functions you can call and how you can pass data in and out.
-    /// This is the `.60` markup source code:
+    /// This is the source code:
     /// ```sixtyfps
     /// export SampleComponent := Window {
     ///     property<int> counter;
@@ -237,19 +237,19 @@ pub mod generated_code {
         ) -> super::re_exports::PinWeak<Self> {
             unimplemented!()
         }
-        /// Returns the value of the counter property declared in the `.60` markup.
+        /// Returns the value of the counter property declared in the `.60` design markup.
         pub fn get_counter(self: ::core::pin::Pin<&Self>) -> i32 {
             unimplemented!()
         }
         /// Assigns a new value to the counter property.
         pub fn set_counter(&self, value: i32) {}
-        /// Returns the value of the user_name property declared in the `.60` markup.
+        /// Returns the value of the user_name property declared in the `.60` design markup.
         pub fn get_user_name(self: ::core::pin::Pin<&Self>) -> super::re_exports::SharedString {
             unimplemented!()
         }
         /// Assigns a new value to the user_name property.
         pub fn set_user_name(&self, value: super::re_exports::SharedString) {}
-        /// Emits the hello signal declared in the `.60` markup.
+        /// Emits the hello signal declared in the `.60` design markup.
         pub fn emit_hello(self: ::core::pin::Pin<&Self>) {}
         /// Registers the function f as callback when the signal hello is emitted. In order to access
         /// the component in the callback, you'd typically capture a weak reference obtained using
