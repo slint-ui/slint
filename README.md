@@ -4,16 +4,18 @@ This is the monolithic repository of the SixtyFPS project.
 
 ## What is SixtyFPS
 
-SixtyFPS is a toolkit to efficiently develop fluid graphical user interfaces for devices with touch screens and desktop applications. Multiple
-programming language environments are supported, such as Rust or C++. Our design goals are
+SixtyFPS is a toolkit to efficiently develop fluid graphical user interfaces for any display: embedded devices and desktop applications. We
+support multiple programming languages, such as Rust, C++ or JavaScript.
+
+Our design goals are:
 
  - **Lightweight**: Fit into a few hundred kilobytes of RAM and require little processing power.
- - **Straightforward**: Programmers and designers should feel feel productive and enjoy the design and development process.
- - **Intuitive APIs** The APIs should be idiomatic, easy to use and intuitive, for each supported target language. Excellent documentation
-   should describe the APIs, teach concepts and how to use them most efficiently.
- - **Native**: We support many platforms. From embedded devices, to desktop, including mobile and web. One should feel at 
-   home on each platform. Both the user and the developer. The appearance and look and feel should match was is expected of 
-   an application build for this platform.
+ - **Straightforward**: Programmers and designers should feel productive and be able to enjoy the design and development process.
+ - **Intuitive APIs** The APIs should be consistent, easy to use, and intuitive, no matter the target language. High-quality documentation
+   should describe the APIs, teach concepts and how to use them.
+ - **Native**: We support many different target platforms, from embedded devices, to desktops, including mobile and web. You should feel at 
+   home on each platform; both the user and the developer. The look and feel and experience should match what users expect of an
+   application built for a specific platform.
 
 | Printer Demo | Widget Gallery |
 |--------------|----------------|
@@ -21,13 +23,13 @@ programming language environments are supported, such as Rust or C++. Our design
 
 ## Status
 
-SixtyFPS is still in the early stages of development. APIs can and will change, important features are still missing.
+SixtyFPS is still in the early stages of development: APIs will change and important features are still being developed.
 
-At the moment, it's possible to create user interfaces from C++, Rust and NodeJS. Those can be compiled/shown on Linux, macOS, Windows and in Web Browsers (using WebAssembly).
+At the moment, it's possible to create user interfaces from C++, Rust, and NodeJS. These can be compiled and shown on Linux, macOS, Windows and in Web Browsers (using WebAssembly).
 
 ## Architecture
 
-An application is composed of the business logic written in Rust, C++ or JavaScript and the `.60` user interface markup design, which
+An application is composed of the business logic written in Rust, C++, or JavaScript and the `.60` user interface design markup, which
 is compiled to native code.
 
 ![Architecture Overview](resources/architecture.drawio.svg)
