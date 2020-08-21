@@ -104,7 +104,7 @@ jobs:
           npm install
           npm run build
       working-directory: examples/printerdemo/wasm
-    - name: Publish Demos
+    - name: Publish C++ Docs and Demos
       run: |
           git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
           git config --global user.name "${GITHUB_ACTOR}"
@@ -118,5 +118,11 @@ jobs:
           cp -a ../examples/printerdemo/wasm/dist/* demos/printerdemo
           git add demos
           git add -u demos
-          git commit --message "Update $NAME from $GITHUB_REPOSITORY" --message "Pull web demos from commit $GITHUB_SHA ($GITHUB_REF)"
+          rm -rf docs
+          mkdir -p docs
+          mkdir -p docs/cpp
+          cp -a ../target/debug/docs/* docs/cpp/
+          git add docs
+          git add -u docs
+          git commit --message "Update $NAME from $GITHUB_REPOSITORY" --message "Pull web demos and C++ reference docs from commit $GITHUB_SHA ($GITHUB_REF)"
           git push origin master
