@@ -3,7 +3,7 @@
 **A C++ UI toolkit**
 
 [SixtyFPS](/README.md) is a UI toolkit that supports different programming languages.
-SixtyFPS.cpp the a C++ API to interact with a SixtyFPS toolkit from C++.
+SixtyFPS.cpp is the C++ API to interact with a SixtyFPS UI from C++.
 
 ## Tutorial
 
