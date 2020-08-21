@@ -96,12 +96,12 @@ The follow table summarizes the entire mapping:
 | --- | --- | --- |
 | `int` | `i32` | |
 | `float` | `f32` | |
-| `string` | [`sixtyfps::SharedString`](../sixtyfps_corelib/string/struct.SharedString.html) | A reference-counted string type that can be easily converted to a str reference. |
-| `color` | [`sixtyfps::Color`](../sixtyfps_corelib/graphics/struct.Color.html) | |
+| `string` | [`sixtyfps::SharedString`](struct.SharedString.html) | A reference-counted string type that can be easily converted to a str reference. |
+| `color` | [`sixtyfps::Color`](struct.Color.html) | |
 | `length` | `f32` | The unit are physical pixels. |
 | `logical_length` | `f32` | At run-time, logical lengths are automatically translated to physical pixels using the device pixel ratio. |
 | `duration` | `i64` | At run-time, durations are always represented as signed 64-bit integers with milisecond precision. |
-| `easing` | [`sixtyfps::EasingCurve`](../sixtyfps_corelib/animations/enum.EasingCurve.html) | |
+| `easing` | [`sixtyfps::EasingCurve`](enum.EasingCurve.html) | |
 
 */
 
@@ -112,6 +112,10 @@ The follow table summarizes the entire mapping:
 pub use sixtyfps_rs_macro::sixtyfps;
 
 pub(crate) mod repeater;
+
+pub use sixtyfps_corelib::animations::EasingCurve;
+pub use sixtyfps_corelib::string::SharedString;
+pub use sixtyfps_corelib::Color;
 
 /// internal re_exports used by the macro generated
 #[doc(hidden)]
