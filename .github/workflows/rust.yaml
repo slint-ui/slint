@@ -80,8 +80,8 @@ jobs:
       with:
           command: test
           args: --verbose
-    - name: Install clang-doc
-      run: sudo apt-get install clang-tools-10 clang-10-doc
+    - name: Install doxygen
+      run: sudo apt-get install doxygen
     - name: Prepare cmake module
       run: cargo xtask cmake --prefix $HOME/sixtyfps_install --install
     - name: C++ Test
@@ -121,7 +121,7 @@ jobs:
           rm -rf docs
           mkdir -p docs
           mkdir -p docs/cpp
-          cp -a ../target/debug/docs/* docs/cpp/
+          cp -a ../target/debug/docs/html/* docs/cpp/
           git add docs
           git add -u docs
           git commit --message "Update $NAME from $GITHUB_REPOSITORY" --message "Pull web demos and C++ reference docs from commit $GITHUB_SHA ($GITHUB_REF)"
