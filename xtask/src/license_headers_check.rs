@@ -357,7 +357,12 @@ impl LicenseHeaderCheck {
     }
 
     fn check_crate_license(&self, path: &Path) -> Result<()> {
-        use cargo_toml2::{from_path, CargoToml};
+        use cargo_toml2::{from_path, CargoToml, Workspace};
+
+        let maybe_workspace: Result<Workspace, cargo_toml2::CargoTomlError> = from_path(path);
+        if maybe_workspace.is_ok() {
+            return Ok(());
+        }
 
         let toml: CargoToml = from_path(path).context("Failed to read Cargo.toml")?;
 
