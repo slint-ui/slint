@@ -7,6 +7,9 @@ build = "build.rs"
 # This is not meant to be used as a library from crate.io
 publish = false
 license = "GPL-3.0-only"
+repository = "https://github.com/sixtyfpsui/sixtyfps"
+homepage = "https://sixtyfps.io"
+
 
 [lib]
 path = "lib.rs"
@@ -15,8 +18,8 @@ name = "sixtyfps_node_native"
 
 [dependencies]
 once_cell = "1.4"
-sixtyfps_compilerlib = { path="../../../sixtyfps_compiler" }
-sixtyfps_interpreter = { path="../../../sixtyfps_runtime/interpreter" }
+sixtyfps-compilerlib = { path="../../../sixtyfps_compiler" }
+sixtyfps-interpreter = { path="../../../sixtyfps_runtime/interpreter" }
 sixtyfps-corelib = { path="../../../sixtyfps_runtime/corelib" }
 neon = { version = "0.4" }
 scoped-tls-hkt = "0.1"

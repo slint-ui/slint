@@ -1,9 +1,13 @@
 [package]
-name = "sixtyfps_qt_style"
-version = "0.1.0"
+name = "sixtyfps-qt-style"
+version = "0.0.1"
 authors = ["Sixty FPS <info@sixtyfps.io>"]
 edition = "2018"
 license = "GPL-3.0-only"
+description = "Qt style for SixtyFPS"
+repository = "https://github.com/sixtyfpsui/sixtyfps"
+homepage = "https://sixtyfps.io"
+
 
 [lib]
 path = "lib.rs"
@@ -18,10 +22,10 @@ cbindgen = "0.14.2"
 cpp_build = "0.5.5"
 
 [dependencies]
-const-field-offset = { path = "../../helper_crates/const-field-offset" }
-vtable = { path = "../../helper_crates/vtable" }
-sixtyfps-corelib-macros = { path = "../corelib_macros" }
-sixtyfps-corelib = { path = "../corelib" }
+const-field-offset = { version = "0.1", path = "../../helper_crates/const-field-offset" }
+vtable = { version = "0.1", path = "../../helper_crates/vtable" }
+sixtyfps-corelib-macros = { version = "=0.0.1", path = "../corelib_macros" }
+sixtyfps-corelib = { version = "=0.0.1", path = "../corelib" }
 cpp = "0.5.5"
 euclid = "0.20.11"
 

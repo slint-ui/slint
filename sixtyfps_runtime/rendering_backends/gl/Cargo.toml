@@ -1,9 +1,13 @@
 [package]
-name = "sixtyfps_rendering_backend_gl"
-version = "0.1.0"
+name = "sixtyfps-rendering-backend-gl"
+version = "0.0.1"
 authors = ["Sixty FPS <info@sixtyfps.io>"]
 edition = "2018"
 license = "GPL-3.0-only"
+description = "OpenGL rendering backend for SixtyFPS"
+repository = "https://github.com/sixtyfpsui/sixtyfps"
+homepage = "https://sixtyfps.io"
+
 
 [lib]
 path = "lib.rs"
@@ -13,7 +17,7 @@ crate-type = [ "lib", "cdylib" ]
 cbindgen = "0.14.2"
 
 [dependencies]
-sixtyfps-corelib = { path = "../../corelib" }
+sixtyfps-corelib = { version="=0.0.1", path = "../../corelib" }
 lyon = { version = "0.15.8" }
 image = { version = "0.23.4", default-features = false }
 cgmath = "0.17.0"

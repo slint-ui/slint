@@ -1,20 +1,24 @@
 [package]
-name = "sixtyfps_interpreter"
-version = "0.1.0"
+name = "sixtyfps-interpreter"
+version = "0.0.1"
 authors = ["Sixty FPS <info@sixtyfps.io>"]
 edition = "2018"
 license = "GPL-3.0-only"
+description = "Interpreter library for SixtyFPS"
+repository = "https://github.com/sixtyfpsui/sixtyfps"
+homepage = "https://sixtyfps.io"
+
 
 [lib]
 path = "lib.rs"
 
 
 [dependencies]
-sixtyfps-corelib = { path = "../corelib", features = ["rtti"] }
-sixtyfps_rendering_backend_gl = { path = "../../sixtyfps_runtime/rendering_backends/gl" }
-qt_style = { path = "../qt_style", package = 'sixtyfps_qt_style', features = ["rtti"], optional = true }
-vtable = { path="../../helper_crates/vtable" }
-sixtyfps_compilerlib = { path = "../../sixtyfps_compiler", features = ["display-diagnostics"] }
+sixtyfps-corelib = { version = "=0.0.1", path = "../corelib", features = ["rtti"] }
+sixtyfps-rendering-backend-gl = { version = "=0.0.1", path = "../../sixtyfps_runtime/rendering_backends/gl" }
+qt_style = { version = "=0.0.1", path = "../qt_style", package = 'sixtyfps-qt-style', features = ["rtti"], optional = true }
+vtable = { version = "0.1", path="../../helper_crates/vtable" }
+sixtyfps-compilerlib = { version = "=0.0.1", path = "../../sixtyfps_compiler", features = ["display-diagnostics"] }
 lyon = { version = "0.15.8" }
 derive_more = "0.99.5"
 generativity = "1"

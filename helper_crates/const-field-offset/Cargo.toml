@@ -4,6 +4,10 @@ version = "0.1.0"
 authors = ["Sixty FPS <info@sixtyfps.io>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
+description = "Wrapper around field-offset crate and const-field-offset-macro"
+repository = "https://github.com/sixtyfpsui/sixtyfps"
+homepage = "https://sixtyfps.io"
+
 
 [dependencies]
 const-field-offset-macro = { path = "./macro" }

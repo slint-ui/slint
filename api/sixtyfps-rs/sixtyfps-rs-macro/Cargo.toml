@@ -1,9 +1,13 @@
 [package]
 name = "sixtyfps-rs-macro"
-version = "0.1.0"
+version = "0.0.1"
 authors = ["Sixty FPS <info@sixtyfps.io>"]
 edition = "2018"
 license = "GPL-3.0-only"
+description = "Macro helper for sixtyfps crate"
+repository = "https://github.com/sixtyfpsui/sixtyfps"
+homepage = "https://sixtyfps.io"
+
 
 [lib]
 proc-macro = true
@@ -12,5 +16,5 @@ path = "lib.rs"
 [dependencies]
 quote = "1.0"
 proc-macro2 = "1.0.17"
-sixtyfps_compilerlib = { path = "../../../sixtyfps_compiler", features = ["proc_macro_span", "rust"] }
+sixtyfps-compilerlib = { version = "=0.0.1", path = "../../../sixtyfps_compiler", features = ["proc_macro_span", "rust"] }
 

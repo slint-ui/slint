@@ -5,6 +5,7 @@ authors = ["Sixty FPS <info@sixtyfps.io>"]
 edition = "2018"
 build = "build.rs"
 license = "GPL-3.0-only"
+publish= false
 
 [dependencies]
 sixtyfps = { path = "../../api/sixtyfps-rs" }

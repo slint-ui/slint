@@ -1,22 +1,25 @@
 [package]
 name = "sixtyfps"
-version = "0.1.0"
+version = "0.0.1"
 authors = ["Sixty FPS <info@sixtyfps.io>"]
 edition = "2018"
 license = "GPL-3.0-only"
+description = "SixtyFPS Rust API"
+repository = "https://github.com/sixtyfpsui/sixtyfps"
+homepage = "https://sixtyfps.io"
 
 [lib]
 path = "lib.rs"
 
 [dependencies]
 once_cell = "1.4"
-sixtyfps-rs-macro= { path = "sixtyfps-rs-macro" }
-const-field-offset = { path = "../../helper_crates/const-field-offset" }
-vtable = { path = "../../helper_crates/vtable" }
+sixtyfps-rs-macro= { version = "=0.0.1", path = "sixtyfps-rs-macro" }
+const-field-offset = { version = "0.1", path = "../../helper_crates/const-field-offset" }
+vtable = { version = "0.1", path = "../../helper_crates/vtable" }
 pin-weak = "1"
-sixtyfps-corelib = { path="../../sixtyfps_runtime/corelib" }
+sixtyfps-corelib = { version = "=0.0.1", path="../../sixtyfps_runtime/corelib" }
 # FIXME: should be under a feature or somehow done differently
-sixtyfps_rendering_backend_gl = { path="../../sixtyfps_runtime/rendering_backends/gl" }
+sixtyfps-rendering-backend-gl = { version = "=0.0.1", path="../../sixtyfps_runtime/rendering_backends/gl" }
 
 [build-dependencies]
 rustc_version = "0.2.3"

@@ -1,9 +1,13 @@
 [package]
 name = "sixtyfps-corelib-macros"
-version = "0.1.0"
+version = "0.0.1"
 authors = ["Sixty FPS <info@sixtyfps.io>"]
 edition = "2018"
 license = "GPL-3.0-only"
+description = "Helper macro for sixtyfps-corelib"
+repository = "https://github.com/sixtyfpsui/sixtyfps"
+homepage = "https://sixtyfps.io"
+
 
 [lib]
 proc-macro = true

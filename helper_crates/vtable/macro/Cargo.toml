@@ -4,6 +4,9 @@ version = "0.1.0"
 authors = ["Sixty FPS <info@sixtyfps.io>"]
 edition = "2018"
 license = "GPL-3.0-only"
+description = "Helper crate to generate ffi-friendly virtual tables"
+repository = "https://github.com/sixtyfpsui/sixtyfps"
+homepage = "https://sixtyfps.io"
 
 [lib]
 proc-macro = true

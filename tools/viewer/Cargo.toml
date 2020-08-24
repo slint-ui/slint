@@ -1,15 +1,17 @@
 [package]
-name = "viewer"
-version = "0.1.0"
+name = "sixtyfps-viewer"
+version = "0.0.1"
 authors = ["Sixty FPS <info@sixtyfps.io>"]
 edition = "2018"
 license = "GPL-3.0-only"
-
+description = "Viewer binary for SixtyFps"
+repository = "https://github.com/sixtyfpsui/sixtyfps"
+homepage = "https://sixtyfps.io"
 
 [dependencies]
-sixtyfps-corelib = { path="../../sixtyfps_runtime/corelib" }
-vtable = { path="../../helper_crates/vtable" }
-sixtyfps_interpreter = { path = "../../sixtyfps_runtime/interpreter", features=['qt_style'] }
+sixtyfps-corelib = { version = "=0.0.1", path="../../sixtyfps_runtime/corelib" }
+vtable = { version = "0.1", path="../../helper_crates/vtable" }
+sixtyfps-interpreter = { version = "=0.0.1", path = "../../sixtyfps_runtime/interpreter", features=['qt_style'] }
 structopt = "0.3.14"
 codemap-diagnostic = "0.1.1"
 codemap = "0.1"

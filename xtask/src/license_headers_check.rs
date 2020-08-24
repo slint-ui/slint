@@ -15,7 +15,7 @@ use std::str::FromStr;
 use std::{path::Path, path::PathBuf, process::Command};
 use structopt::StructOpt;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 struct LicenseTagStyle {
     tag_start: &'static str,
     line_prefix: &'static str,
@@ -175,7 +175,7 @@ blah"#
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 enum LicenseLocation {
     Tag(LicenseTagStyle),
     Crate,
@@ -251,6 +251,9 @@ const EXPECTED_HEADER: LicenseHeader<'static> = LicenseHeader(&[
     EXPECTED_SPDX_ID,
     "",
 ]);
+
+const EXPECTED_HOMEPAGE: &str = "https://sixtyfps.io";
+const EXPECTED_REPOSITORY: &str = "https://github.com/sixtyfpsui/sixtyfps";
 
 fn run_command(program: &str, args: &[&str]) -> Result<Vec<u8>> {
     let cmdline = || format!("{} {}", program, args.join(" "));
@@ -356,30 +359,99 @@ impl LicenseHeaderCheck {
         }
     }
 
-    fn check_crate_license(&self, path: &Path) -> Result<()> {
-        use cargo_toml2::{from_path, CargoToml, Workspace};
+    fn check_cargo_toml(&self, path: &Path) -> Result<()> {
+        use cargo_toml2::{from_path, CargoToml, Dependency, Workspace};
 
         let maybe_workspace: Result<Workspace, cargo_toml2::CargoTomlError> = from_path(path);
-        if maybe_workspace.is_ok() {
-            return Ok(());
+        if let Ok(workspace) = maybe_workspace {
+            if workspace.members.is_some() {
+                return Ok(());
+            }
         }
 
         let toml: CargoToml = from_path(path).context("Failed to read Cargo.toml")?;
 
         match toml.package.license {
             Some(license) => {
-                if license == EXPECTED_SPDX_EXPRESSION {
-                    Ok(())
-                } else {
-                    Err(anyhow::anyhow!(
+                if license != EXPECTED_SPDX_EXPRESSION {
+                    return Err(anyhow::anyhow!(
                         "Incorrect license. Found {} expected {}",
                         license,
                         EXPECTED_SPDX_EXPRESSION
-                    ))
+                    ));
                 }
             }
-            None => Err(anyhow::anyhow!("Missing license field")),
+            None => return Err(anyhow::anyhow!("Missing license field")),
         }
+
+        if !toml.package.publish.unwrap_or(true) {
+            // Skip further tests for package that are not published
+            return Ok(());
+        }
+
+        match toml.package.homepage {
+            None => return Err(anyhow::anyhow!("Missing homepage field")),
+            Some(homepage) => {
+                if homepage != EXPECTED_HOMEPAGE {
+                    return Err(anyhow::anyhow!(
+                        "Incorrect homepahe. Found '{}' expected '{}'",
+                        homepage,
+                        EXPECTED_HOMEPAGE
+                    ));
+                }
+            }
+        }
+
+        match toml.package.repository {
+            None => return Err(anyhow::anyhow!("Missing repository field")),
+            Some(repository) => {
+                if repository != EXPECTED_REPOSITORY {
+                    return Err(anyhow::anyhow!(
+                        "Incorrect repository. Found '{}' expected '{}'",
+                        repository,
+                        EXPECTED_REPOSITORY
+                    ));
+                }
+            }
+        }
+
+        if toml.package.description.is_none() {
+            return Err(anyhow::anyhow!("Missing description field"));
+        }
+
+        // Check that version of sixtyfps- dependencies are matching this version
+        let expected_version = format!("={}", toml.package.version);
+        for (dep_name, dep) in
+            toml.dependencies.iter().chain(toml.build_dependencies.iter()).flatten()
+        {
+            if dep_name.starts_with("sixtyfps") {
+                match dep {
+                    Dependency::Simple(_) => {
+                        return Err(anyhow::anyhow!(
+                            "sixtyfps package '{}' outside of the repository?",
+                            dep_name
+                        ))
+                    }
+                    Dependency::Full(dep) => {
+                        if dep.path.is_none() {
+                            return Err(anyhow::anyhow!(
+                                "sixtyfps package '{}' outside of the repository?",
+                                dep_name
+                            ));
+                        }
+                        if dep.version.as_ref() != Some(&expected_version) {
+                            return Err(anyhow::anyhow!(
+                                "Version \"{}\" must be specified for dependency {}",
+                                expected_version,
+                                dep_name
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(())
     }
 
     fn check_file(&self, path: &Path) -> Result<()> {
@@ -392,7 +464,7 @@ impl LicenseHeaderCheck {
 
         match location {
             LicenseLocation::Tag(tag_style) => self.check_file_tags(path, tag_style),
-            LicenseLocation::Crate => self.check_crate_license(path),
+            LicenseLocation::Crate => self.check_cargo_toml(path),
             LicenseLocation::NoLicense => {
                 if self.verbose {
                     println!("Skipping {} as configured", path_str);
