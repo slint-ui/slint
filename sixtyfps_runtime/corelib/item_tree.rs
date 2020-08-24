@@ -78,7 +78,7 @@ pub enum ItemTreeNode<T> {
     /// Static item
     Item {
         /// byte offset where we can find the item (from the *ComponentImpl)
-        item: vtable::VOffset<T, ItemVTable, vtable::PinnedFlag>,
+        item: vtable::VOffset<T, ItemVTable, vtable::AllowPin>,
 
         /// number of children
         chilren_count: u32,

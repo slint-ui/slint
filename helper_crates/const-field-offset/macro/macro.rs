@@ -66,7 +66,7 @@ Only work with named #[repr(C)] structures.
 
 ### `pin`
 
-Add a `PinnedFlag` to the FieldOffset.
+Add a `AllowPin` to the FieldOffset.
 
 In order for this to be safe, the macro will add code to prevent a
 custom `Drop` or `Unpin` implementation.
@@ -81,7 +81,7 @@ struct Foo {
     field_2 : u32,
 }
 
-const FIELD_2 : FieldOffset<Foo, u32, PinnedFlag> = Foo::FIELD_OFFSETS.field_2;
+const FIELD_2 : FieldOffset<Foo, u32, AllowPin> = Foo::FIELD_OFFSETS.field_2;
 let pin_box = Box::pin(Foo{field_1: 1, field_2: 2});
 assert_eq!(*FIELD_2.apply_pin(pin_box.as_ref()), 2);
 ```
@@ -214,7 +214,7 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
     );
 
     let (ensure_pin_safe, ensure_no_unpin, pin_flag, new_from_offset) = if !pin {
-        (None, None, quote!(#crate_::NotPinnedFlag), quote!(new_from_offset))
+        (None, None, quote!(#crate_::NotPinned), quote!(new_from_offset))
     } else {
         (
             if drop {
@@ -239,7 +239,7 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
                     );
                     impl<'__dummy_lifetime> Unpin for #struct_name where __MustNotImplUnpin<'__dummy_lifetime> : Unpin {};
             }),
-            quote!(#crate_::PinnedFlag),
+            quote!(#crate_::AllowPin),
             quote!(new_from_offset_pinned),
         )
     };

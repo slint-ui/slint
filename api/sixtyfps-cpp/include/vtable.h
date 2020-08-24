@@ -40,7 +40,7 @@ struct VRef {
 };
 */
 
-struct PinnedFlag;
+struct AllowPin;
 
 template<typename Base, typename T, typename Flag = void>
 struct VOffset

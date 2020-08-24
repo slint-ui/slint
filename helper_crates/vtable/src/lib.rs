@@ -439,7 +439,7 @@ macro_rules! new_vref {
 
 /// Represent an offset to a field of type mathcing the vtable, within the Base container structure.
 #[repr(C)]
-pub struct VOffset<Base, T: ?Sized + VTableMeta, PinFlag = NotPinnedFlag> {
+pub struct VOffset<Base, T: ?Sized + VTableMeta, PinFlag = NotPinned> {
     vtable: &'static T::VTable,
     /// Safety invariant: the vtable is valid, and the field at the given offset within Base is
     /// matching with the vtable
@@ -490,7 +490,7 @@ impl<Base, T: ?Sized + VTableMeta, Flag> VOffset<Base, T, Flag> {
     }
 }
 
-impl<Base, T: ?Sized + VTableMeta> VOffset<Base, T, PinnedFlag> {
+impl<Base, T: ?Sized + VTableMeta> VOffset<Base, T, AllowPin> {
     #[inline]
     pub fn apply_pin<'a>(self, x: Pin<&'a Base>) -> Pin<VRef<'a, T>> {
         let ptr = x.get_ref() as *const Base as *mut u8;

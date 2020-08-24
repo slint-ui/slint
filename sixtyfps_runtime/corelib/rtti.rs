@@ -13,7 +13,7 @@ LICENSE END */
  property so that the viewer can handle them
 */
 
-pub type FieldOffset<T, U> = const_field_offset::FieldOffset<T, U, const_field_offset::PinnedFlag>;
+pub type FieldOffset<T, U> = const_field_offset::FieldOffset<T, U, const_field_offset::AllowPin>;
 use crate::items::PropertyAnimation;
 use core::convert::{TryFrom, TryInto};
 use core::pin::Pin;
@@ -183,6 +183,6 @@ pub trait BuiltinItem: Sized {
     fn fields<Value: ValueType>() -> Vec<(&'static str, &'static dyn FieldInfo<Self, Value>)>;
     fn signals() -> Vec<(
         &'static str,
-        const_field_offset::FieldOffset<Self, crate::Signal<()>, const_field_offset::PinnedFlag>,
+        const_field_offset::FieldOffset<Self, crate::Signal<()>, const_field_offset::AllowPin>,
     )>;
 }
