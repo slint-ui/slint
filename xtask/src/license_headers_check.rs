@@ -255,6 +255,7 @@ fn run_command(program: &str, args: &[&str]) -> Result<Vec<u8>> {
     let cmdline = || format!("{} {}", program, args.join(" "));
     let output = Command::new(program)
         .args(args)
+        .current_dir(super::cmake::root_dir()?)
         .output()
         .with_context(|| format!("Error launching {}", cmdline()))?;
     let code =
@@ -267,6 +268,7 @@ fn run_command(program: &str, args: &[&str]) -> Result<Vec<u8>> {
 }
 
 fn collect_files() -> Result<Vec<PathBuf>> {
+    let root = super::cmake::root_dir()?;
     let ls_files_output = run_command("git", &["ls-files", "-z"])?;
     let mut files = Vec::new();
     for path in ls_files_output.split(|ch| *ch == 0) {
@@ -278,7 +280,8 @@ fn collect_files() -> Result<Vec<PathBuf>> {
                 .context("Error decoding git ls-files command output as utf-8")?,
         )
         .context("Failed to decide path output in git ls-files")?;
-        files.push(path);
+
+        files.push(root.join(path));
     }
     Ok(files)
 }
@@ -367,7 +370,8 @@ impl LicenseHeaderCheck {
     }
 
     fn check_file(&self, path: &Path) -> Result<()> {
-        let path_str = path.to_str().unwrap();
+        let repo_relative_path = path.strip_prefix(super::cmake::root_dir()?)?;
+        let path_str = repo_relative_path.to_str().unwrap();
         let location = LICENSE_LOCATION_FOR_FILE
             .iter()
             .find_map(|(regex, style)| if regex.is_match(path_str) { Some(style) } else { None })

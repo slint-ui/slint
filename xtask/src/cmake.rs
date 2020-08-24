@@ -27,8 +27,8 @@ pub struct CMakeCommand {
     install: bool,
 }
 
-fn root_dir() -> Result<PathBuf, Box<dyn Error>> {
-    let mut root = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").ok_or_else(|| "Cannot determine root directory - CARGO_MANIFEST_DIR is not set -- you can only run xtask via cargo")?);
+pub fn root_dir() -> anyhow::Result<PathBuf> {
+    let mut root = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").ok_or_else(|| anyhow::anyhow!("Cannot determine root directory - CARGO_MANIFEST_DIR is not set -- you can only run xtask via cargo"))?);
     root.pop(); // $root/xtask -> $root
     Ok(root)
 }
