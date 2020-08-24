@@ -198,6 +198,7 @@ lazy_static! {
         (".+\\.html$", LicenseLocation::NoLicense),
         (".*\\.gitignore$", LicenseLocation::NoLicense),
         ("\\.clang-format$", LicenseLocation::NoLicense),
+        ("^api/sixtyfps-cpp/cmake/Doxyfile.in$", LicenseLocation::NoLicense),
         ("\\.cargo/config$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         (
             "\\.github/workflows/rust.yaml$",
