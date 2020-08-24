@@ -882,7 +882,6 @@ fn access_member(
     let e = element.borrow();
     let enclosing_component = e.enclosing_component.upgrade().unwrap();
     if Rc::ptr_eq(component, &enclosing_component) {
-        let e = element.borrow();
         if e.property_declarations.contains_key(name) || name == "" {
             format!("{}->{}", component_cpp, name)
         } else {

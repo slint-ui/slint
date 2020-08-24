@@ -38,6 +38,8 @@ pub fn move_declarations(component: &Rc<Component>) {
     let mut new_root_property_animations = HashMap::new();
 
     let move_bindings_and_animations = &mut |elem: &ElementRc| {
+        visit_all_named_references(elem, fixup_reference);
+
         if elem.borrow().repeated.is_some() {
             if let Type::Component(base) = &elem.borrow().base_type {
                 move_declarations(base);
@@ -50,8 +52,6 @@ pub fn move_declarations(component: &Rc<Component>) {
             );
             return;
         }
-
-        visit_all_named_references(elem, |nr| fixup_reference(nr, component));
 
         // take the bindings so we do nt keep the borrow_mut of the element
         let bindings = core::mem::take(&mut elem.borrow_mut().bindings);
@@ -112,12 +112,12 @@ pub fn move_declarations(component: &Rc<Component>) {
     core::mem::take(&mut *component.optimized_elements.borrow_mut());
 }
 
-fn fixup_reference(NamedReference { element, name }: &mut NamedReference, comp: &Rc<Component>) {
+fn fixup_reference(NamedReference { element, name }: &mut NamedReference) {
     let e = element.upgrade().unwrap();
     let component = e.borrow().enclosing_component.upgrade().unwrap();
-    if Rc::ptr_eq(&component, comp) && e.borrow().property_declarations.contains_key(name) {
+    if e.borrow().property_declarations.contains_key(name) {
         *name = map_name(&e, name.as_str());
-        *element = Rc::downgrade(&comp.root_element);
+        *element = Rc::downgrade(&component.root_element);
     }
 }
 
@@ -127,9 +127,7 @@ fn map_name(e: &ElementRc, s: &str) -> String {
 
 fn fixup_bindings(val: &mut Expression, comp: &Rc<Component>) {
     match val {
-        Expression::PropertyReference(nr) | Expression::SignalReference(nr) => {
-            fixup_reference(nr, comp)
-        }
+        Expression::PropertyReference(nr) | Expression::SignalReference(nr) => fixup_reference(nr),
         _ => {}
     };
     val.visit_mut(|sub| fixup_bindings(sub, comp))

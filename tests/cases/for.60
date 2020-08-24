@@ -13,6 +13,26 @@ ExtraComponent := Rectangle {
 }
 
 
+Extra2 := Rectangle {
+    property<int> top_level;
+    property<int> value;
+    signal update_value;
+    for aaa[r] in [[10, top_level], [2, 3]] : Rectangle {
+        width: parent.width;
+        height: root.height;
+        for bb[l] in aaa : TouchArea {
+            width: 10px;
+            height: 10px;
+            x: r*10px;
+            y: l*10px;
+            clicked => {
+                root.value += bb;
+                update_value();
+            }
+        }
+    }
+}
+
 export TestCase := Rectangle {
     width: 100px;
     height: 100px;
@@ -50,18 +70,12 @@ export TestCase := Rectangle {
         ExtraComponent {
         }
     }
-
-    for aaa[r] in [[10, top_level], [2, 3]] : Rectangle {
+    Extra2 {
         width: parent.width;
         height: root.height;
-        for bb[l] in aaa : TouchArea {
-            width: 10px;
-            height: 10px;
-            x: r*10px;
-            y: l*10px;
-            clicked => {
-                root.value += bb;
-            }
+        top_level: root.top_level;
+        update_value => {
+            root.value = self.value;
         }
     }
 
