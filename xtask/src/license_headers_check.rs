@@ -300,12 +300,14 @@ pub struct LicenseHeaderCheck {
 
 impl LicenseHeaderCheck {
     pub fn check_license_headers(&self) -> Result<(), Box<dyn std::error::Error>> {
+        let mut seen_errors = false;
         for path in &collect_files()? {
             let result = self
                 .check_file(path.as_path())
                 .with_context(|| format!("checking {}", &path.to_string_lossy()));
 
             if result.is_err() {
+                seen_errors = true;
                 if self.show_all {
                     eprintln!("Error: {:?}", result);
                 } else {
@@ -313,7 +315,12 @@ impl LicenseHeaderCheck {
                 }
             }
         }
-        Ok(())
+        if seen_errors {
+            Err(anyhow::anyhow!("Encountered one or multiple errors. See above for details.")
+                .into())
+        } else {
+            Ok(())
+        }
     }
 
     fn check_file_tags(&self, path: &Path, style: &LicenseTagStyle) -> Result<()> {
