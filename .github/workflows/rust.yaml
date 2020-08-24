@@ -82,6 +82,7 @@ jobs:
           args: --verbose
     - name: Install doxygen
       run: sudo apt-get install doxygen
+    - uses: dschep/install-pipenv-action@v1
     - name: Prepare cmake module
       run: cargo xtask cmake --prefix $HOME/sixtyfps_install --install
     - name: C++ Test
