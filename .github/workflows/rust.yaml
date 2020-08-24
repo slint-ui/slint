@@ -105,6 +105,7 @@ jobs:
           npm run build
       working-directory: examples/printerdemo/wasm
     - name: Publish C++ Docs and Demos
+      if: github.ref == 'refs/heads/master' && github.event_name == 'push'
       run: |
           git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
           git config --global user.name "${GITHUB_ACTOR}"
