@@ -41,6 +41,15 @@ impl LicenseTagStyle {
             tag_end: "# LICENSE END\n",
         }
     }
+
+    fn rst_comment_style() -> Self {
+        Self {
+            tag_start: ".. LICENSE BEGIN\n",
+            line_prefix: "..",
+            line_indentation: "    ",
+            tag_end: ".. LICENSE END\n",
+        }
+    }
 }
 
 struct SourceFileWithTags<'a> {
@@ -196,9 +205,11 @@ lazy_static! {
         (".+\\.svg$", LicenseLocation::NoLicense),
         (".+\\.json$", LicenseLocation::NoLicense),
         (".+\\.html$", LicenseLocation::NoLicense),
+        (".+\\.rst$", LicenseLocation::Tag(LicenseTagStyle::rst_comment_style())),
         (".*\\.gitignore$", LicenseLocation::NoLicense),
         ("\\.clang-format$", LicenseLocation::NoLicense),
-        ("^api/sixtyfps-cpp/cmake/Doxyfile.in$", LicenseLocation::NoLicense),
+        ("^api/sixtyfps-cpp/docs/Pipfile$", LicenseLocation::NoLicense),
+        ("^api/sixtyfps-cpp/docs/conf.py.in$", LicenseLocation::NoLicense),
         ("\\.cargo/config$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         (
             "\\.github/workflows/rust.yaml$",
