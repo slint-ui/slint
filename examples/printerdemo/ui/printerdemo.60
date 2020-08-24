@@ -21,14 +21,18 @@ Page := Rectangle {
     animate y { duration: 300ms; easing: ease_out; }
 }
 
+Preview := Image {
+    source: img!"images/cat_preview_round.png";
+    width: self.height * 320/480;
+}
+
+
 CopyPage := Page {
 
-    preview := Image {
+    preview := Preview {
         x: 40lx;
         y: 20lx;
-        source: img!"images/cat_preview_round.png";
-        width: 320lx;
-        height: 480lx;        
+        height: parent.height - 40lx;
     }
 
     copies_label := Label {
@@ -56,16 +60,84 @@ CopyPage := Page {
         height: copies_spinbox.height;
     }
 
-    
+
 }
 
 FaxPage := Page {
 
-    Text {
-        x: parent.width / 12;
-        y: parent.width / 8;
+
+    preview := Preview {
+        x: 40lx;
+        y: 20lx;
+        height: parent.height - 40lx;
+    }
+
+    property<int> fax_number: 0;
+
+    text := Text {
+        x: preview.x + preview.width + 20lx;
+        y: preview.y + 10lx;
+        text: fax_number;
+        width: parent.width - x - 40lx;
+        horizontal_alignment: align_center;
+        font_size: 40lx;
         color: black;
-        text: "Fax";
+        height: 40lx;
+    }
+
+    Rectangle {
+        color: #333;
+        x: text.x;
+        y: text.y + text.height + 20lx;
+        width: text.width;
+        height: send.y - y - 40lx;
+
+        for row_model[r] in [
+            [ 7, 8, 9 ],
+            [ 4, 5, 6 ],
+            [ 1, 2, 3 ],
+            [ 0, -1 ],
+        ] : Rectangle {
+            width: parent.width;
+            height: (parent.height - 5*10lx) / 4;
+            y: r * (self.height + 10lx) + 10lx;
+
+            for num[c] in row_model : Rectangle {
+                height: parent.height;
+                width: (parent.width - 4*10lx) / 3;
+                x: c * (self.width + 10lx) + 10lx;
+                color: key_area.pressed ? #566 : #555 ;
+                Text {
+                    height: parent.height;
+                    width: parent.width;
+                    horizontal_alignment: align_center;
+                    vertical_alignment: align_center;
+                    color: white;
+                    text: num >= 0 ? num : "⌫";
+                }
+                key_area := TouchArea {
+                    width: parent.width;
+                    height: parent.height;
+                    clicked => {
+                        if (num >= 0) {
+                            fax_number *= 10;
+                            fax_number += num;
+                        } else {
+                            fax_number /= 10;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    send := Button {
+        text: "Send";
+        font_size: 28lx;
+        y: parent.height - height - 20lx;
+        x: parent.width - width - 40lx;
+        width: minimum_width;
+        height: minimum_height;
     }
 }
 
