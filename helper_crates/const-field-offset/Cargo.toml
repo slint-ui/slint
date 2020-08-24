@@ -10,8 +10,8 @@ homepage = "https://sixtyfps.io"
 
 
 [dependencies]
-const-field-offset-macro = { path = "./macro" }
-field-offset = { git = "https://github.com/diggsey/rust-field-offset" }
+const-field-offset-macro = { version = "=0.1.0", path = "./macro" }
+field-offset = "0.3.2"
 
 [dev-dependencies]
 memoffset = "0.5.4"
