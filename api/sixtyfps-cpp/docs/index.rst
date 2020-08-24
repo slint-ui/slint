@@ -20,10 +20,11 @@ Welcome to SixtyFPS C++'s documentation!
    :maxdepth: 2
    :caption: Contents:
 
-   markdown/langref.md
+   Introduction <README.md>
 
    api/library_root
 
+   markdown/langref.md
 
 Indices and tables
 ==================
