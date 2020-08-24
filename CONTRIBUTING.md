@@ -1,6 +1,7 @@
 # Contributing
 
 We warmly welcome contributions to the project.
+Please feel welcome to open github issues or pull requests.
 
 ## Coding Style
 
@@ -11,3 +12,9 @@ For the C++ portion of the code base, we enforce the coding style via `clang-for
 ## Testing
 
 All changes submitted to the repository are automatically built and tested via Github Actions and the corresponding workflow defined in the [`rust.yaml`](/.github/workflows/rust.yaml) file.
+
+## Contributor License Agreement
+
+When opening a pull request, you will be asked to sign a Contributor License Agreement (CLA) which
+will allow us to relicense your contribution.
+Please contact us for any concerns.

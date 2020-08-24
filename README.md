@@ -1,6 +1,13 @@
 # SixtyFPS
 
-This is the monolithic repository of the SixtyFPS project.
+This is the repository of the SixtyFPS project.
+
+## Warning: Pre-Alpha
+
+SixtyFPS is still in the early stages of development: APIs will change and important features are still being developed. **Do not use this yet in production**.
+We welcome any feedback.
+
+At the moment, it's possible to create user interfaces from C++, Rust, and NodeJS. These can be compiled and shown on Linux, macOS, Windows and in Web Browsers (using WebAssembly).
 
 ## What is SixtyFPS
 
@@ -11,7 +18,7 @@ Our design goals are:
 
  - **Lightweight**: Fit into a few hundred kilobytes of RAM and require little processing power.
  - **Straightforward**: Programmers and designers should feel productive and be able to enjoy the design and development process.
- - **Intuitive APIs** The APIs should be consistent, easy to use, and intuitive, no matter the target language. High-quality documentation
+   The APIs should be consistent, easy to use, and intuitive, no matter the target language. High-quality documentation
    should describe the APIs, teach concepts and how to use them.
  - **Native**: We support many different target platforms, from embedded devices, to desktops, including mobile and web. You should feel at 
    home on each platform; both the user and the developer. The look and feel and experience should match what users expect of an
@@ -20,12 +27,6 @@ Our design goals are:
 | Printer Demo | Widget Gallery |
 |--------------|----------------|
 | [![Screenshot of the Printer Demo](resources/printerdemo_screenshot.png "Printer Demo")](https://www.sixtyfps.io/demos/printerdemo/) | [![Screenshot of the Gallery Demo](resources/gallery_screenshot.png "Gallery Demo")](https://www.sixtyfps.io/demos/gallery/) |
-
-## Status
-
-SixtyFPS is still in the early stages of development: APIs will change and important features are still being developed.
-
-At the moment, it's possible to create user interfaces from C++, Rust, and NodeJS. These can be compiled and shown on Linux, macOS, Windows and in Web Browsers (using WebAssembly).
 
 ## Architecture
 
@@ -40,17 +41,11 @@ SixtyFPS can be used from different frontend languages. Refer to the README of t
 
 The docs folder contains [build instructions](docs/building.md) and [internal developer docs](docs/development.md).
 
-## [SixtyFps.cpp](api/sixtyfps-cpp)
- 
-C++ Library
+## Supported integration languages
 
-## [SixtyFps-rs](api/sixtyfps-rs)
- 
-Rust Crate
-
-## [SixtyFps-js](api/sixtyfps-js)
-
-NodeJS bindings
+ * [SixtyFps-cpp](api/sixtyfps-cpp)
+ * [SixtyFps-rs](api/sixtyfps-rs)
+ * [SixtyFps-node](api/sixtyfps-node)
  
 ## The .60 Language
 
@@ -84,3 +79,9 @@ The software is provided under a dual licensing scheme
 
  - **GNU GPLv3**: Open source license ideal for free software.
  - **Commercial SixtyFps license**: more details to come.
+
+## Contact us
+
+Github issues can be used to report public suggestions or bugs.
+
+You can also contact us privately by sending email to info@sixtyfps.io
