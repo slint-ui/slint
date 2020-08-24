@@ -55,7 +55,7 @@ impl<'a> SourceFileWithTags<'a> {
             Some(start) => {
                 let end = source[start..]
                     .find(style.tag_end)
-                    .map(|idx| idx + style.tag_end.len())
+                    .map(|idx| start + idx + style.tag_end.len())
                     .unwrap_or_default();
                 if end > start {
                     Some(std::ops::Range { start, end })

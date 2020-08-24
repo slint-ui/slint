@@ -1,3 +1,4 @@
+#!/bin/bash
 # LICENSE BEGIN
 #
 # This file is part of the Sixty FPS Project
@@ -8,7 +9,6 @@
 # SPDX-License-Identifier: GPL-3.0-only
 #
 # LICENSE END
-#!/bin/bash
 
 for s in *.svg; do
     rsvg-convert -w 256 -h 256 $s > `basename $s .svg`.png

@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 /* LICENSE BEGIN
 
     This file is part of the Sixty FPS Project
@@ -8,7 +9,6 @@
     SPDX-License-Identifier: GPL-3.0-only
 
 LICENSE END */
-#!/usr/bin/env node
 
 // import "sixtyfps";
 require("sixtyfps");
