@@ -17,9 +17,9 @@ use triomphe::{Arc, HeaderWithLength, ThinArc};
 
 #[derive(Clone)]
 #[repr(C)]
-/// SharedArray holds a reference-counted read-only copy of [T].
+/// SharedArray holds a reference-counted read-only copy of `[T]`.
 pub struct SharedArray<T: 'static> {
-    /// Invariant: The usize header is the `len` of the vector, the contained buffer is [T]
+    /// Invariant: The usize header is the `len` of the vector, the contained buffer is `[T]`
     inner: ThinArc<usize, MaybeUninit<T>>,
 }
 

@@ -8,7 +8,7 @@ use core::pin::Pin;
 #[doc(inline)]
 pub use const_field_offset_macro::FieldOffsets;
 
-pub use field_offset::*;
+pub use field_offset::{AllowPin, FieldOffset, NotPinned};
 
 #[cfg(test)]
 mod tests {
@@ -155,6 +155,7 @@ union TransmutePinFlag<Container, Field, PinFlag> {
     y: FieldOffset<Container, Field>,
 }
 
+/// Helper class used as the result of the addition of two stype that implement the `ConstFieldOffset` trait
 #[derive(Copy, Clone)]
 pub struct ConstFieldOffsetSum<A: ConstFieldOffset, B: ConstFieldOffset>(pub A, pub B);
 
