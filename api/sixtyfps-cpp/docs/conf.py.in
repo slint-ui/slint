@@ -44,7 +44,8 @@ exhale_args = {
         "doxygenStripFromPath": "..",
         "createTreeView": True,
         "exhaleExecutesDoxygen": True,
-        "exhaleDoxygenStdin": "INPUT = @CMAKE_CURRENT_SOURCE_DIR@/../include"
+        "exhaleDoxygenStdin": '''INPUT = @CMAKE_CURRENT_SOURCE_DIR@/../include
+EXCLUDE_SYMBOLS = sixtyfps::cbindgen_private*'''
 }
 
 # Add any paths that contain templates here, relative to this directory.
