@@ -194,8 +194,9 @@ pub struct VersionCheck_0_0_1;
 #[cfg(doctest)]
 mod compile_fail_tests;
 
+#[cfg(all(doc, nightly))]
 pub mod langref {
-    #![cfg_attr(nightly, doc(include = "../../docs/langref.md"))]
+    #![doc(include = "docs/langref.md")]
     #![doc = ""]
 }
 

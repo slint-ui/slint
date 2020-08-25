@@ -188,7 +188,7 @@ where
     }
 }
 
-/// This trait needs to be implemented if you use the #[pin_drop] attribute. It enables
+/// This trait needs to be implemented if you use the `#[pin_drop]` attribute. It enables
 /// you to implement Drop for your type safely.
 pub trait PinnedDrop {
     /// This is the equivalent to the regular Drop trait with the difference that self
