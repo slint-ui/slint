@@ -687,7 +687,7 @@ fn generate_component(
         let item = item_rc.borrow();
         if is_flickable_rect {
             tree_array.push(format!(
-                "sixtyfps::private_api::make_item_node(offsetof({}, {}) + offsetof(sixtyfps::Flickable, viewport), &sixtyfps::RectangleVTable, {}, {})",
+                "sixtyfps::private_api::make_item_node(offsetof({}, {}) + offsetof(sixtyfps::Flickable, viewport), &sixtyfps::private_api::RectangleVTable, {}, {})",
                 &component_id,
                 item.id,
                 item.children.len(),
