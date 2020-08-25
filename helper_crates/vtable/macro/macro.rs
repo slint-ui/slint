@@ -54,13 +54,13 @@ fn is_pin<'a>(ty: &'a Type) -> Option<&'a Type> {
 }
 
 /**
-This macro need to be applied to a VTable structure
+This macro needs to be applied to a VTable structure
 
-The desing choice is that it is applied to a VTable and not to a trait so that cbindgen
+The design choice is that it is applied to a VTable and not to a trait so that cbindgen
 can see the actual vtable struct.
 
-This macro need to be applied to a struct whose name ends with "VTable", and which
-contains member which are function pointers.
+This macro needs to be applied to a struct whose name ends with "VTable", and which
+contains members which are function pointers.
 
 For example, if it is applied to `struct MyTraitVTable`, it will create:
  - The `MyTrait` trait with all the functions.
@@ -70,23 +70,23 @@ For example, if it is applied to `struct MyTraitVTable`, it will create:
 It will also implement the `VTableMeta` and `VTableMetaDrop` traits so that VRef and so on can work,
 allowing to access methods from the trait directly from VRef.
 
-This macro does the following transformation.
+This macro does the following transformation:
 
-For fields whose type is a function:
+For function type fields:
  - The ABI of each functions is changed to `extern "C"`
- - `unsafe` is added to the signature of each, since it is unsafe to call these function directly from
+ - `unsafe` is added to the signature, since it is unsafe to call these functions directly from
   the vtable without having a valid pointer to the actual object. But if the original function was
-  marked unsafe, the unsafety is forwared to the trait.
- - If a field is called `drop` it is understood that this is the destructor for a VBox
- - If the first argument of the function is `VRef<MyVTable>`  or `VRefMut<MyVTable>` this is
+  marked unsafe, the unsafety is forwarded to the trait.
+ - If a field is called `drop`, then it is understood that this is the destructor for a VBox.
+ - If the first argument of the function is `VRef<MyVTable>` or `VRefMut<MyVTable>`, then it is
    understood as a `&self` or `&mut self` argument in the trait.
- - Similarily, if it is a `Pin<VRef<MyVTable>>` or `Pin<VRefMut<MyVTable>>`, self is mapped
+ - Similarly, if it is a `Pin<VRef<MyVTable>>` or `Pin<VRefMut<MyVTable>>`, self is mapped
    to `Pin<&Self>` or `Pin<&mut Self>`
 
-For the other fields
- - They are considered assotiated const of the MyTraitConsts
+For the other fields:
+ - They are considered associated constants of the MyTraitConsts trait.
  - If they are annotated with the `#[field_offset(FieldType)]` attribute, the type of the field must be `usize`,
-   and the associated const in the trait will be of type `FieldOffset<Self, FieldType>`, and accessor to
+   and the associated const in the trait will be of type `FieldOffset<Self, FieldType>`, and an accessor to
    the field reference and reference mut will be added to the Target of VRef and VRefMut.
 
 The VRef/VRefMut/VBox structure will dereference to a type which has the following associated items:

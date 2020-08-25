@@ -9,16 +9,16 @@
 
 LICENSE END */
 /*!
-This crate allow to create ffi-friendly virtual tables.
+This crate allows you to create ffi-friendly virtual tables.
 
 ## Features
 
  - A `#[vtable]` macro to annotate a VTable struct to generate the traits and structure
    to safely work with it.
- - `VRef`/`VRefMut`/`VBox` types which are fat reference/box which wrap a pointer to
-   the vtable, and a pointer to the object
- - Ability to store constant in a vtable.
- - These constant can even be field offset
+ - `VRef`/`VRefMut`/`VBox` types. They are fat reference/box types which wrap a pointer to
+   the vtable, and a pointer to the object.
+ - Ability to store constants in a vtable.
+ - These constants can even be a field offset.
 
 ## Example of use:
 
@@ -28,13 +28,13 @@ use vtable::*;
 #[vtable]
 #[repr(C)]
 struct AnimalVTable {
-    /// pointer to a function that make a noise.  The `VRef<AnimalVTable>` is the type of
+    /// pointer to a function that makes a noise.  The `VRef<AnimalVTable>` is the type of
     /// the self object.
     ///
-    /// Note: the #[vtable] macro will automatically add `extern "C"` if that is missing
+    /// Note: the #[vtable] macro will automatically add `extern "C"` if that is missing.
     make_noise: fn(VRef<AnimalVTable>, i32) -> i32,
 
-    /// if there is a 'drop' member, it is considered as the destrutor
+    /// if there is a 'drop' member, it is considered as the destructor.
     drop: fn(VRefMut<AnimalVTable>),
 }
 
@@ -74,11 +74,12 @@ pub use vtable_macro::*;
 
 /// Internal trait that is implemented by the `#[vtable]` macro.
 ///
-/// Safety: The Target object need to be implemented correctly.
-/// And there should be a VTable::VTable::new<T> funciton that returns a
-/// VTable  suitable for the type T
+/// Safety: The Target object needs to be implemented correctly.
+/// And there should be a VTable::VTable::new<T> function that returns a
+/// VTable suitable for the type T.
 pub unsafe trait VTableMeta {
     /// That's the trait object that implements the functions
+    ///
     /// NOTE: the size must be `2*size_of::<usize>`
     /// and a `repr(C)` with `(vtable, ptr)` so it has the same layout as
     /// the inner and VBox/VRef/VRefMut
@@ -90,14 +91,14 @@ pub unsafe trait VTableMeta {
 
 /// This trait is implemented by the `#[vtable]` macro.
 ///
-/// It is implemented if the macro has a "drop" function
+/// It is implemented if the macro has a "drop" function.
 pub trait VTableMetaDrop: VTableMeta {
-    /// Safety: the Target need to be pointing to a valid allocated pointer
+    /// Safety: the Target needs to be pointing to a valid allocated pointer
     unsafe fn drop(ptr: *mut Self::Target);
     fn new_box<X: HasStaticVTable<Self>>(value: X) -> VBox<Self>;
 }
 
-/// Allow to associate a VTable to a type.
+/// Allow to associate a VTable with a type.
 ///
 /// Safety: the VTABLE and STATIC_VTABLE need to be a a valid virtual table
 /// corresponding to pointer to Self instance.
@@ -129,14 +130,14 @@ impl Inner {
     }
 }
 
-/// An equivalent of a Box that holds a pointer to a VTable and a pointer to an instance
-/// which frees the instance when droped.
+/// An equivalent of a Box that holds a pointer to a VTable and a pointer to an instance.
+/// A VBox frees the instance when dropped.
 ///
 /// The type parameter is supposed to be the VTable type.
 ///
-/// The VBox implemtns Deref so one can access all the member of the vtable.
+/// The VBox implements Deref so one can access all the members of the vtable.
 ///
-/// This is only valid of the VTable has a `drop` type (so that the `#[vtable]` macro
+/// This is only valid if the VTable has a `drop` type (so that the `#[vtable]` macro
 /// implements the `VTableMetaDrop` trait for it)
 #[repr(transparent)]
 pub struct VBox<T: ?Sized + VTableMetaDrop> {
@@ -165,7 +166,7 @@ impl<T: ?Sized + VTableMetaDrop> Drop for VBox<T> {
 }
 
 impl<T: ?Sized + VTableMetaDrop> VBox<T> {
-    /// Create a new VBox from an instance of a type that can be assosiated with a VTable.
+    /// Create a new VBox from an instance of a type that can be associated with a VTable.
     ///
     /// Will move the instance on the heap.
     ///
@@ -203,7 +204,7 @@ impl<T: ?Sized + VTableMetaDrop> VBox<T> {
 
 /// `VRef<'a MyTraitVTable>` can be thought as a `&'a dyn MyTrait`
 ///
-/// It will dereference to a structure that has the same member as MyTrait
+/// It will dereference to a structure that has the same members as MyTrait.
 #[repr(transparent)]
 pub struct VRef<'a, T: ?Sized + VTableMeta> {
     inner: Inner,
@@ -227,7 +228,7 @@ impl<'a, T: ?Sized + VTableMeta> Deref for VRef<'a, T> {
 }
 
 impl<'a, T: ?Sized + VTableMeta> VRef<'a, T> {
-    /// Create a new VRef from an reference of a type that can be assosiated with a VTable.
+    /// Create a new VRef from an reference of a type that can be associated with a VTable.
     ///
     /// (the `HasStaticVTable` is implemented by the `“MyTrait”VTable_static!` macro generated by
     /// the #[vtable] macro)
@@ -241,7 +242,7 @@ impl<'a, T: ?Sized + VTableMeta> VRef<'a, T> {
         }
     }
 
-    /// Create a new Pin<VRef<_>> from a pinned reference. This is similar to `VRef::new`
+    /// Create a new Pin<VRef<_>> from a pinned reference. This is similar to `VRef::new`.
     pub fn new_pin<X: HasStaticVTable<T>>(value: core::pin::Pin<&'a X>) -> Pin<Self> {
         // Since Value is pinned, this means it is safe to construct a Pin
         unsafe {
@@ -267,7 +268,7 @@ impl<'a, T: ?Sized + VTableMeta> VRef<'a, T> {
         }
     }
 
-    /// Return to a reference of the given type if the type is actually matching
+    /// Return a reference of the given type if the type is matching.
     pub fn downcast<X: HasStaticVTable<T>>(&self) -> Option<&X> {
         if self.inner.vtable == X::static_vtable() as *const _ as *const u8 {
             // Safety: We just checked that the vtable fits
@@ -277,7 +278,7 @@ impl<'a, T: ?Sized + VTableMeta> VRef<'a, T> {
         }
     }
 
-    /// Return to a reference of the given type if the type is actually matching
+    /// Return a reference of the given type if the type is matching
     pub fn downcast_pin<X: HasStaticVTable<T>>(this: Pin<Self>) -> Option<Pin<&'a X>> {
         let inner = unsafe { Pin::into_inner_unchecked(this).inner };
         if inner.vtable == X::static_vtable() as *const _ as *const u8 {
@@ -291,7 +292,7 @@ impl<'a, T: ?Sized + VTableMeta> VRef<'a, T> {
 
 /// `VRefMut<'a MyTraitVTable>` can be thought as a `&'a mut dyn MyTrait`
 ///
-/// It will dereference to a structure that has the same member as MyTrait
+/// It will dereference to a structure that has the same members as MyTrait.
 #[repr(transparent)]
 pub struct VRefMut<'a, T: ?Sized + VTableMeta> {
     inner: Inner,
@@ -312,7 +313,7 @@ impl<'a, T: ?Sized + VTableMeta> DerefMut for VRefMut<'a, T> {
 }
 
 impl<'a, T: ?Sized + VTableMeta> VRefMut<'a, T> {
-    /// Create a new VRef from a mutable reference of a type that can be assosiated with a VTable.
+    /// Create a new VRef from a mutable reference of a type that can be associated with a VTable.
     ///
     /// (the `HasStaticVTable` is implemented by the `“MyTrait”VTable_static!` macro generated by
     /// the #[vtable] macro)
@@ -338,22 +339,22 @@ impl<'a, T: ?Sized + VTableMeta> VRefMut<'a, T> {
         }
     }
 
-    /// Borrow this to obtain a VRef
+    /// Borrow this to obtain a VRef.
     pub fn borrow<'b>(&'b self) -> VRef<'b, T> {
         unsafe { VRef::from_inner(self.inner) }
     }
 
-    /// Borrow this to obtain a new VRefMut
+    /// Borrow this to obtain a new VRefMut.
     pub fn borrow_mut<'b>(&'b mut self) -> VRefMut<'b, T> {
         unsafe { VRefMut::from_inner(self.inner) }
     }
 
-    /// Create a VRef with the same lifetime as the original lifetime
+    /// Create a VRef with the same lifetime as the original lifetime.
     pub fn into_ref(self) -> VRef<'a, T> {
         unsafe { VRef::from_inner(self.inner) }
     }
 
-    /// Return to a reference of the given type if the type is actually matching
+    /// Return a reference of the given type if the type is matching.
     pub fn downcast<X: HasStaticVTable<T>>(&mut self) -> Option<&mut X> {
         if self.inner.vtable == X::static_vtable() as *const _ as *const u8 {
             // Safety: We just checked that the vtable fits
@@ -364,11 +365,12 @@ impl<'a, T: ?Sized + VTableMeta> VRefMut<'a, T> {
     }
 }
 
-/** Create a `VRef` or a `VRefMut` suitable for an instance that implements the trait
+/** Creates a `VRef` or a `VRefMut` suitable for an instance that implements the trait
 
 When possible, `VRef::new` or `VRefMut::new` should be preferred, as they use a static vtable.
-But when using the generated `XxxVTable_static!` macro is not possible, this can be used.
-Note that the `downcast` will not work with references created with this macro
+But when using the generated `XxxVTable_static!` macro that is not possible and this macro can be
+used instead.
+Note that the `downcast` will not work with references created with this macro.
 
 ```
 use vtable::*;
@@ -438,7 +440,7 @@ macro_rules! new_vref {
     };
 }
 
-/// Represent an offset to a field of type mathcing the vtable, within the Base container structure.
+/// Represents an offset to a field of type matching the vtable, within the Base container structure.
 #[repr(C)]
 pub struct VOffset<Base, T: ?Sized + VTableMeta, PinFlag = NotPinned> {
     vtable: &'static T::VTable,
@@ -484,7 +486,7 @@ impl<Base, T: ?Sized + VTableMeta, Flag> VOffset<Base, T, Flag> {
 
     /// Create a new VOffset from raw data
     ///
-    /// Safety: there must be a field that matches the vtable at offset T in base
+    /// Safety: there must be a field that matches the vtable at offset T in base.
     #[inline]
     pub unsafe fn from_raw(vtable: &'static T::VTable, offset: usize) -> Self {
         Self { vtable, offset, phantom: PhantomData }
