@@ -43,12 +43,12 @@ using cbindgen_private::ItemVTable;
 using ItemTreeNode = cbindgen_private::ItemTreeNode<uint8_t>;
 using ComponentRef = VRef<ComponentVTable>;
 using ItemVisitorRefMut = VRefMut<cbindgen_private::ItemVisitorVTable>;
-using cbindgen_private::TraversalOrder;
 using cbindgen_private::EasingCurve;
+using cbindgen_private::PropertyAnimation;
+using cbindgen_private::Slice;
 using cbindgen_private::TextHorizontalAlignment;
 using cbindgen_private::TextVerticalAlignment;
-using cbindgen_private::Slice;
-using cbindgen_private::PropertyAnimation;
+using cbindgen_private::TraversalOrder;
 
 struct ComponentWindow
 {
@@ -92,8 +92,8 @@ using cbindgen_private::TouchArea;
 using cbindgen_private::Window;
 
 constexpr inline ItemTreeNode make_item_node(std::uintptr_t offset,
-                                                      const cbindgen_private::ItemVTable *vtable,
-                                                      uint32_t child_count, uint32_t child_index)
+                                             const cbindgen_private::ItemVTable *vtable,
+                                             uint32_t child_count, uint32_t child_index)
 {
     return ItemTreeNode { ItemTreeNode::Item_Body {
             ItemTreeNode::Tag::Item, { vtable, offset }, child_count, child_index } };
@@ -101,44 +101,47 @@ constexpr inline ItemTreeNode make_item_node(std::uintptr_t offset,
 
 constexpr inline ItemTreeNode make_dyn_node(std::uintptr_t offset)
 {
-    return ItemTreeNode { ItemTreeNode::DynamicTree_Body {
-            ItemTreeNode::Tag::DynamicTree, offset } };
+    return ItemTreeNode { ItemTreeNode::DynamicTree_Body { ItemTreeNode::Tag::DynamicTree,
+                                                           offset } };
 }
 
-using cbindgen_private::sixtyfps_visit_item_tree;
-using cbindgen_private::MouseEvent;
 using cbindgen_private::InputEventResult;
+using cbindgen_private::MouseEvent;
+using cbindgen_private::sixtyfps_visit_item_tree;
 template<typename GetDynamic>
-inline InputEventResult process_input_event(
-    ComponentRef component, int64_t &mouse_grabber, MouseEvent mouse_event,
-    Slice<ItemTreeNode> tree, GetDynamic get_dynamic)
+inline InputEventResult process_input_event(ComponentRef component, int64_t &mouse_grabber,
+                                            MouseEvent mouse_event, Slice<ItemTreeNode> tree,
+                                            GetDynamic get_dynamic)
 {
-     if (mouse_grabber != -1) {
+    if (mouse_grabber != -1) {
         auto item_index = mouse_grabber & 0xffffffff;
         auto rep_index = mouse_grabber >> 32;
         auto offset = cbindgen_private::sixtyfps_item_offset(component, tree, item_index);
-        mouse_event.pos = { mouse_event.pos.x - offset.x , mouse_event.pos.y - offset.y };
+        mouse_event.pos = { mouse_event.pos.x - offset.x, mouse_event.pos.y - offset.y };
         const auto &item_node = tree.ptr[item_index];
         InputEventResult result = InputEventResult::EventIgnored;
         switch (item_node.tag) {
-            case ItemTreeNode::Tag::Item:
-                result = item_node.item.item.vtable->input_event( {
-                    item_node.item.item.vtable,
-                    reinterpret_cast<char*>(component.instance) + item_node.item.item.offset,
-                } , mouse_event);
-                break;
-            case ItemTreeNode::Tag::DynamicTree: {
-                ComponentRef comp = get_dynamic(item_node.dynamic_tree.index, rep_index);
-                result = comp.vtable->input_event(comp, mouse_event);
-                }
-                break;
+        case ItemTreeNode::Tag::Item:
+            result = item_node.item.item.vtable->input_event(
+                    {
+                            item_node.item.item.vtable,
+                            reinterpret_cast<char *>(component.instance)
+                                    + item_node.item.item.offset,
+                    },
+                    mouse_event);
+            break;
+        case ItemTreeNode::Tag::DynamicTree: {
+            ComponentRef comp = get_dynamic(item_node.dynamic_tree.index, rep_index);
+            result = comp.vtable->input_event(comp, mouse_event);
+        } break;
         }
         if (result != InputEventResult::GrabMouse) {
             mouse_grabber = -1;
         }
         return result;
     } else {
-        return cbindgen_private::sixtyfps_process_ungrabbed_mouse_event(component, mouse_event, &mouse_grabber);
+        return cbindgen_private::sixtyfps_process_ungrabbed_mouse_event(component, mouse_event,
+                                                                        &mouse_grabber);
     }
 }
 
@@ -215,11 +218,11 @@ struct Repeater
         return -1;
     }
 
-    VRef<ComponentVTable> item_at(int i) const {
+    VRef<ComponentVTable> item_at(int i) const
+    {
         const auto &x = data.at(i);
         return { &C::component_type, x.get() };
     }
-
 };
 
 Flickable::Flickable()
