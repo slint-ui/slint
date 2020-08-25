@@ -24,7 +24,7 @@ use syn::{VisRestricted, Visibility};
 
 /**
 
-The macro FieldOffsets adds a `FIELD_OFFSETS` associated const to the struct, that
+The macro FieldOffsets adds a `FIELD_OFFSETS` associated const to the struct. That
 is an object which has fields with the same name as the fields of the original struct,
 each field is of type `const_field_offset::FieldOffset`
 
