@@ -296,7 +296,9 @@ fn collect_files() -> Result<Vec<PathBuf>> {
         )
         .context("Failed to decide path output in git ls-files")?;
 
-        files.push(root.join(path));
+        if !path.is_dir() {
+            files.push(root.join(path));
+        }
     }
     Ok(files)
 }
