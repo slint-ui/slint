@@ -12,5 +12,5 @@ homepage = "https://sixtyfps.io"
 [lib]
 
 [dependencies]
-vtable-macro = { path="./macro" }
-const-field-offset = { path="../const-field-offset" }
+vtable-macro = { version = "0.1", path = "./macro" }
+const-field-offset = { version = "0.1", path = "../const-field-offset" }
