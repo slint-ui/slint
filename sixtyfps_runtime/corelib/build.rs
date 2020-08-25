@@ -198,7 +198,7 @@ fn main() {
         .with_include("sixtyfps_color.h")
         .with_include("sixtyfps_pathdata.h")
         .with_after_include(format!(
-            "namespace sixtyfps {{ enum class VersionCheck {{ Major = {}, Minor = {}, Patch = {} }}; }}",
+            "namespace sixtyfps {{ namespace private_api {{ enum class VersionCheck {{ Major = {}, Minor = {}, Patch = {} }}; }} }}",
             env!("CARGO_PKG_VERSION_MAJOR"),
             env!("CARGO_PKG_VERSION_MINOR"),
             env!("CARGO_PKG_VERSION_PATCH")

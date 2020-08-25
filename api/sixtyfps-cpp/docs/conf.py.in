@@ -45,7 +45,7 @@ exhale_args = {
         "createTreeView": True,
         "exhaleExecutesDoxygen": True,
         "exhaleDoxygenStdin": '''INPUT = @CMAKE_CURRENT_SOURCE_DIR@/../include
-EXCLUDE_SYMBOLS = sixtyfps::cbindgen_private*'''
+EXCLUDE_SYMBOLS = sixtyfps::cbindgen_private* sixtyfps::private_api*'''
 }
 
 # Add any paths that contain templates here, relative to this directory.

@@ -450,12 +450,12 @@ pub fn generate(
 
     file.declarations.push(Declaration::Var(Var{
         ty: format!(
-            "constexpr sixtyfps::VersionCheckHelper<{}, {}, {}>",
+            "constexpr sixtyfps::private_api::VersionCheckHelper<{}, {}, {}>",
             env!("CARGO_PKG_VERSION_MAJOR"),
             env!("CARGO_PKG_VERSION_MINOR"),
             env!("CARGO_PKG_VERSION_PATCH")),
         name: "THE_SAME_VERSION_MUST_BE_USED_FOR_THE_COMPILER_AND_THE_RUNTIME".into(),
-        init: Some("sixtyfps::VersionCheckHelper<int(sixtyfps::VersionCheck::Major), int(sixtyfps::VersionCheck::Minor), int(sixtyfps::VersionCheck::Patch)>()".into())
+        init: Some("sixtyfps::private_api::VersionCheckHelper<int(sixtyfps::private_api::VersionCheck::Major), int(sixtyfps::private_api::VersionCheck::Minor), int(sixtyfps::private_api::VersionCheck::Patch)>()".into())
     }));
 
     if diag.has_error() {
@@ -647,7 +647,7 @@ fn generate_component(
         component_struct.members.push((
             Access::Public, // FIXME: many of the different component bindings need to access this
             Declaration::Var(Var {
-                ty: "sixtyfps::ComponentWindow".into(),
+                ty: "sixtyfps::private_api::ComponentWindow".into(),
                 name: "window".into(),
                 ..Var::default()
             }),
@@ -658,9 +658,9 @@ fn generate_component(
             Access::Public,
             Declaration::Function(Function {
                 name: "root_item".into(),
-                signature: "() -> VRef<sixtyfps::ItemVTable>".into(),
+                signature: "() -> VRef<sixtyfps::private_api::ItemVTable>".into(),
                 statements: Some(vec![format!(
-                    "return {{ &sixtyfps::{vt}, &this->{id} }};",
+                    "return {{ &sixtyfps::private_api::{vt}, &this->{id} }};",
                     vt = root_elem.base_type.as_native().vtable_symbol,
                     id = root_elem.id
                 )]),
@@ -687,14 +687,14 @@ fn generate_component(
         let item = item_rc.borrow();
         if is_flickable_rect {
             tree_array.push(format!(
-                "sixtyfps::make_item_node(offsetof({}, {}) + offsetof(sixtyfps::Flickable, viewport), &sixtyfps::RectangleVTable, {}, {})",
+                "sixtyfps::private_api::make_item_node(offsetof({}, {}) + offsetof(sixtyfps::Flickable, viewport), &sixtyfps::RectangleVTable, {}, {})",
                 &component_id,
                 item.id,
                 item.children.len(),
                 tree_array.len() + 1,
             ));
         } else if let Some(repeated) = &item.repeated {
-            tree_array.push(format!("sixtyfps::make_dyn_node({})", repeater_count,));
+            tree_array.push(format!("sixtyfps::private_api::make_dyn_node({})", repeater_count,));
             let base_component = item.base_type.as_component();
             let mut friends = Vec::new();
             generate_component(file, base_component, diag, Some(&mut friends));
@@ -717,7 +717,7 @@ fn generate_component(
             repeater_count += 1;
         } else {
             tree_array.push(format!(
-                "sixtyfps::make_item_node(offsetof({}, {}), &sixtyfps::{}, {}, {})",
+                "sixtyfps::private_api::make_item_node(offsetof({}, {}), &sixtyfps::private_api::{}, {}, {})",
                 &component_id,
                 item.id,
                 item.base_type.as_native().vtable_symbol,
@@ -784,12 +784,12 @@ fn generate_component(
         Access::Private,
         Declaration::Function(Function {
             name: "item_tree".into(),
-            signature: "() -> sixtyfps::Slice<sixtyfps::ItemTreeNode>".into(),
+            signature: "() -> sixtyfps::Slice<sixtyfps::private_api::ItemTreeNode>".into(),
             is_static: true,
             statements: Some(vec![
-                "static const sixtyfps::ItemTreeNode children[] {".to_owned(),
+                "static const sixtyfps::private_api::ItemTreeNode children[] {".to_owned(),
                 format!("    {} }};", tree_array.join(", ")),
-                "return { const_cast<sixtyfps::ItemTreeNode*>(children), std::size(children) };"
+                "return { const_cast<sixtyfps::private_api::ItemTreeNode*>(children), std::size(children) };"
                     .to_owned(),
             ]),
             ..Default::default()
@@ -814,7 +814,7 @@ fn generate_component(
             is_static: true,
             statements: Some(vec![
                 format!("    auto self = reinterpret_cast<{}*>(component.instance);", component_id),
-                "return sixtyfps::process_input_event(component, self->mouse_grabber, mouse_event, item_tree(), [self](int dyn_index, [[maybe_unused]] int rep_index) {".into(),
+                "return sixtyfps::private_api::process_input_event(component, self->mouse_grabber, mouse_event, item_tree(), [self](int dyn_index, [[maybe_unused]] int rep_index) {".into(),
                 format!("    switch(dyn_index) {{ {} }};", repeated_input_branch.join("")),
                 "    return sixtyfps::ComponentRef{nullptr, nullptr};\n});".into(),
             ]),
@@ -836,7 +836,7 @@ fn generate_component(
     component_struct.members.push((
         Access::Public,
         Declaration::Var(Var {
-            ty: "static const sixtyfps::ComponentVTable".to_owned(),
+            ty: "static const sixtyfps::private_api::ComponentVTable".to_owned(),
             name: "component_type".to_owned(),
             init: None,
         }),
@@ -847,7 +847,7 @@ fn generate_component(
     declarations.push(Declaration::Struct(component_struct));
 
     declarations.push(Declaration::Var(Var {
-        ty: "const sixtyfps::ComponentVTable".to_owned(),
+        ty: "const sixtyfps::private_api::ComponentVTable".to_owned(),
         name: format!("{}::component_type", component_id),
         init: Some("{ visit_children, nullptr, compute_layout, input_event }".to_owned()),
     }));
@@ -1141,7 +1141,7 @@ impl LayoutItemCodeGen<CppLanguageLayoutGen> for ElementRc {
         _component: &Rc<Component>,
     ) -> String {
         format!(
-            "sixtyfps::{vt}.layouting_info({{&sixtyfps::{vt}, const_cast<sixtyfps::{ty}*>(&self->{id})}})",
+            "sixtyfps::private_api::{vt}.layouting_info({{&sixtyfps::private_api::{vt}, const_cast<sixtyfps::{ty}*>(&self->{id})}})",
             vt = self.borrow().base_type.as_native().vtable_symbol,
             ty = self.borrow().base_type.as_native().class_name,
             id = self.borrow().id,
