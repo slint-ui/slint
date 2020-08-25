@@ -1,6 +1,6 @@
 {
     "name": "sixtyfps",
-    "version": "0.1.0",
+    "version": "0.0.1",
     "main": "lib/index.js",
     "dependencies": {
         "neon-cli": "^0.4"
