@@ -67,7 +67,7 @@ assert_eq!(FOO.get_byte_offset(), 4);
 )]
 /**
 
-## limitations
+## Limitations
 
 Only work with named #[repr(C)] structures.
 
@@ -95,23 +95,6 @@ let pin_box = Box::pin(Foo{field_1: 1, field_2: 2});
 assert_eq!(*FIELD_2.apply_pin(pin_box.as_ref()), 2);
 ```
 
-### `const-field-offset`
-
-In case the `const-field-offset` crate is re-exported, it is possible to
-specify the crate name using the `const_field_offset` attribute.
-
-```rust
-// suppose you re-export the const_field_offset create from a different module
-mod xxx { pub use const_field_offset as cfo; }
-#[repr(C)]
-#[derive(xxx::cfo::FieldOffsets)]
-#[const_field_offset(xxx::cfo)]
-struct Foo {
-    field_1 : u8,
-    field_2 : u32,
-}
-```
-
 ### `pin_drop`
 
 This attribute works like the `pin` attribute but it does not prevent a custom
@@ -135,6 +118,23 @@ impl PinnedDrop for Foo {
     fn drop(self: Pin<&mut Self>) {
         // Do you safe drop handling here
     }
+}
+```
+
+### `const-field-offset`
+
+In case the `const-field-offset` crate is re-exported, it is possible to
+specify the crate name using the `const_field_offset` attribute.
+
+```rust
+// suppose you re-export the const_field_offset create from a different module
+mod xxx { pub use const_field_offset as cfo; }
+#[repr(C)]
+#[derive(xxx::cfo::FieldOffsets)]
+#[const_field_offset(xxx::cfo)]
+struct Foo {
+    field_1 : u8,
+    field_2 : u32,
 }
 ```
 

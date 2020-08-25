@@ -64,6 +64,7 @@ that `cbindgen` can see the actual vtable.
 
 */
 
+#[doc(no_inline)]
 pub use const_field_offset::*;
 use core::marker::PhantomData;
 use core::ops::{Deref, DerefMut, Drop};
