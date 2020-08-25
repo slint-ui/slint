@@ -251,7 +251,7 @@ fn property_animation_code(
 ) -> Option<String> {
     if let Some(animation) = element.property_animations.get(property_name) {
         Some(new_struct_with_bindings(
-            "sixtyfps::internal::PropertyAnimation",
+            "sixtyfps::cbindgen_private::PropertyAnimation",
             &animation.borrow().bindings,
             component,
         ))
@@ -658,7 +658,7 @@ fn generate_component(
             Access::Public,
             Declaration::Function(Function {
                 name: "root_item".into(),
-                signature: "() -> VRef<sixtyfps::internal::ItemVTable>".into(),
+                signature: "() -> VRef<sixtyfps::cbindgen_private::ItemVTable>".into(),
                 statements: Some(vec![format!(
                     "return {{ &sixtyfps::{vt}, &this->{id} }};",
                     vt = root_elem.base_type.as_native().vtable_symbol,

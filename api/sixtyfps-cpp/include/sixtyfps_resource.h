@@ -18,13 +18,13 @@ namespace sixtyfps {
 struct Resource
 {
 public:
-    using Tag = internal::types::Resource::Tag;
+    using Tag = cbindgen_private::types::Resource::Tag;
 
     Resource() : data(Data::None()) { }
     Resource(const SharedString &file_path) : data(Data::AbsoluteFilePath(file_path)) { }
 
 private:
-    using Data = internal::types::Resource;
+    using Data = cbindgen_private::types::Resource;
     Data data;
 };
 

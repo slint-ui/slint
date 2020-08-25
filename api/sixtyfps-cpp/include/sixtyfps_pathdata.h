@@ -15,16 +15,16 @@ LICENSE END */
 
 namespace sixtyfps {
 
-using internal::types::PathArcTo;
-using internal::types::PathElement;
-using internal::types::PathEvent;
-using internal::types::PathLineTo;
-using internal::types::Point;
+using cbindgen_private::types::PathArcTo;
+using cbindgen_private::types::PathElement;
+using cbindgen_private::types::PathEvent;
+using cbindgen_private::types::PathLineTo;
+using cbindgen_private::types::Point;
 
 struct PathData
 {
 public:
-    using Tag = internal::types::PathData::Tag;
+    using Tag = cbindgen_private::types::PathData::Tag;
 
     PathData() : data(Data::None()) { }
     PathData(const PathElement *firstElement, size_t count)
@@ -47,7 +47,7 @@ private:
         return tmp;
     }
 
-    static internal::types::PathData events_from_array(const PathEvent *firstEvent,
+    static cbindgen_private::types::PathData events_from_array(const PathEvent *firstEvent,
                                                        size_t event_count,
                                                        const Point *firstCoordinate,
                                                        size_t coordinate_count)
@@ -59,7 +59,7 @@ private:
         return Data::Events(events, coordinates);
     }
 
-    using Data = internal::types::PathData;
+    using Data = cbindgen_private::types::PathData;
     Data data;
 };
 

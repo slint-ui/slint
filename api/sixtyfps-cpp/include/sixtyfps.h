@@ -16,7 +16,7 @@ LICENSE END */
 #include <vector>
 #include <memory>
 
-namespace sixtyfps::internal {
+namespace sixtyfps::cbindgen_private {
 // Workaround https://github.com/eqrion/cbindgen/issues/43
 struct ComponentVTable;
 struct ItemVTable;
@@ -27,31 +27,31 @@ struct ItemVTable;
 namespace sixtyfps {
 
 extern "C" {
-extern const internal::ItemVTable RectangleVTable;
-extern const internal::ItemVTable BorderRectangleVTable;
-extern const internal::ItemVTable TextVTable;
-extern const internal::ItemVTable TouchAreaVTable;
-extern const internal::ItemVTable ImageVTable;
-extern const internal::ItemVTable PathVTable;
-extern const internal::ItemVTable FlickableVTable;
-extern const internal::ItemVTable WindowVTable;
+extern const cbindgen_private::ItemVTable RectangleVTable;
+extern const cbindgen_private::ItemVTable BorderRectangleVTable;
+extern const cbindgen_private::ItemVTable TextVTable;
+extern const cbindgen_private::ItemVTable TouchAreaVTable;
+extern const cbindgen_private::ItemVTable ImageVTable;
+extern const cbindgen_private::ItemVTable PathVTable;
+extern const cbindgen_private::ItemVTable FlickableVTable;
+extern const cbindgen_private::ItemVTable WindowVTable;
 }
 
 // Bring opaque structure in scope
-using internal::ComponentVTable;
-using ItemTreeNode = internal::ItemTreeNode<uint8_t>;
+using cbindgen_private::ComponentVTable;
+using ItemTreeNode = cbindgen_private::ItemTreeNode<uint8_t>;
 using ComponentRef = VRef<ComponentVTable>;
-using ItemVisitorRefMut = VRefMut<internal::ItemVisitorVTable>;
-using internal::TraversalOrder;
-using internal::EasingCurve;
-using internal::TextHorizontalAlignment;
-using internal::TextVerticalAlignment;
-using internal::Slice;
+using ItemVisitorRefMut = VRefMut<cbindgen_private::ItemVisitorVTable>;
+using cbindgen_private::TraversalOrder;
+using cbindgen_private::EasingCurve;
+using cbindgen_private::TextHorizontalAlignment;
+using cbindgen_private::TextVerticalAlignment;
+using cbindgen_private::Slice;
 
 struct ComponentWindow
 {
-    ComponentWindow() { internal::sixtyfps_component_window_gl_renderer_init(&inner); }
-    ~ComponentWindow() { internal::sixtyfps_component_window_drop(&inner); }
+    ComponentWindow() { cbindgen_private::sixtyfps_component_window_gl_renderer_init(&inner); }
+    ~ComponentWindow() { cbindgen_private::sixtyfps_component_window_drop(&inner); }
     ComponentWindow(const ComponentWindow &) = delete;
     ComponentWindow(ComponentWindow &&) = delete;
     ComponentWindow &operator=(const ComponentWindow &) = delete;
@@ -72,25 +72,25 @@ struct ComponentWindow
     template<typename Component>
     void free_graphics_resources(Component *c) const
     {
-        internal::sixtyfps_component_window_free_graphics_resources(
+        cbindgen_private::sixtyfps_component_window_free_graphics_resources(
                 &inner, VRef<ComponentVTable> { &Component::component_type, c });
     }
 
 private:
-    internal::ComponentWindowOpaque inner;
+    cbindgen_private::ComponentWindowOpaque inner;
 };
 
-using internal::BorderRectangle;
-using internal::Flickable;
-using internal::Image;
-using internal::Path;
-using internal::Rectangle;
-using internal::Text;
-using internal::TouchArea;
-using internal::Window;
+using cbindgen_private::BorderRectangle;
+using cbindgen_private::Flickable;
+using cbindgen_private::Image;
+using cbindgen_private::Path;
+using cbindgen_private::Rectangle;
+using cbindgen_private::Text;
+using cbindgen_private::TouchArea;
+using cbindgen_private::Window;
 
 constexpr inline ItemTreeNode make_item_node(std::uintptr_t offset,
-                                                      const internal::ItemVTable *vtable,
+                                                      const cbindgen_private::ItemVTable *vtable,
                                                       uint32_t child_count, uint32_t child_index)
 {
     return ItemTreeNode { ItemTreeNode::Item_Body {
@@ -103,9 +103,9 @@ constexpr inline ItemTreeNode make_dyn_node(std::uintptr_t offset)
             ItemTreeNode::Tag::DynamicTree, offset } };
 }
 
-using internal::sixtyfps_visit_item_tree;
-using internal::MouseEvent;
-using internal::InputEventResult;
+using cbindgen_private::sixtyfps_visit_item_tree;
+using cbindgen_private::MouseEvent;
+using cbindgen_private::InputEventResult;
 template<typename GetDynamic>
 inline InputEventResult process_input_event(
     ComponentRef component, int64_t &mouse_grabber, MouseEvent mouse_event,
@@ -114,7 +114,7 @@ inline InputEventResult process_input_event(
      if (mouse_grabber != -1) {
         auto item_index = mouse_grabber & 0xffffffff;
         auto rep_index = mouse_grabber >> 32;
-        auto offset = internal::sixtyfps_item_offset(component, tree, item_index);
+        auto offset = cbindgen_private::sixtyfps_item_offset(component, tree, item_index);
         mouse_event.pos = { mouse_event.pos.x - offset.x , mouse_event.pos.y - offset.y };
         const auto &item_node = tree.ptr[item_index];
         InputEventResult result = InputEventResult::EventIgnored;
@@ -136,18 +136,18 @@ inline InputEventResult process_input_event(
         }
         return result;
     } else {
-        return internal::sixtyfps_process_ungrabbed_mouse_event(component, mouse_event, &mouse_grabber);
+        return cbindgen_private::sixtyfps_process_ungrabbed_mouse_event(component, mouse_event, &mouse_grabber);
     }
 }
 
 // layouts:
-using internal::grid_layout_info;
-using internal::GridLayoutCellData;
-using internal::GridLayoutData;
-using internal::PathLayoutData;
-using internal::PathLayoutItemData;
-using internal::solve_grid_layout;
-using internal::solve_path_layout;
+using cbindgen_private::grid_layout_info;
+using cbindgen_private::GridLayoutCellData;
+using cbindgen_private::GridLayoutData;
+using cbindgen_private::PathLayoutData;
+using cbindgen_private::PathLayoutItemData;
+using cbindgen_private::solve_grid_layout;
+using cbindgen_private::solve_path_layout;
 
 // models
 

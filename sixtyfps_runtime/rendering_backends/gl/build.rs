@@ -17,7 +17,7 @@ fn main() {
     let config = cbindgen::Config {
         pragma_once: true,
         include_version: true,
-        namespaces: Some(vec!["sixtyfps".into(), "internal".into()]),
+        namespaces: Some(vec!["sixtyfps".into(), "cbindgen_private".into()]),
         line_length: 100,
         tab_width: 4,
         // Note: we might need to switch to C if we need to generate bindings for language that needs C headers

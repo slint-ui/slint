@@ -60,7 +60,7 @@ fn main() {
     let mut config = cbindgen::Config {
         pragma_once: true,
         include_version: true,
-        namespaces: Some(vec!["sixtyfps".into(), "internal".into()]),
+        namespaces: Some(vec!["sixtyfps".into(), "cbindgen_private".into()]),
         line_length: 100,
         tab_width: 4,
         // Note: we might need to switch to C if we need to generate bindings for language that needs C headers
@@ -153,7 +153,7 @@ fn main() {
         // Put the rust type in a deeper "types" namespace, so the use of same type in for example generated
         // Property<> fields uses the public `sixtyfps::Blah` type
         special_config.namespaces =
-            Some(vec!["sixtyfps".into(), "internal".into(), "types".into()]);
+            Some(vec!["sixtyfps".into(), "cbindgen_private".into(), "types".into()]);
         cbindgen::Builder::new()
             .with_config(special_config)
             .with_src(crate_dir.join("graphics.rs"))
