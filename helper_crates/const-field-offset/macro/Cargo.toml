@@ -8,10 +8,12 @@ description = "Procedural macro to generate constant field offset from repr(c) s
 repository = "https://github.com/sixtyfpsui/sixtyfps"
 homepage = "https://sixtyfps.io"
 
-
 [lib]
 path = "macro.rs"
 proc-macro = true
+
+[features]
+field-offset-trait = []
 
 [dependencies]
 syn = { version = "1.0", features = ["derive"] }

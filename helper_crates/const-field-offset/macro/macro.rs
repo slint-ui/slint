@@ -18,7 +18,9 @@ extern crate proc_macro;
 
 use proc_macro::TokenStream;
 use quote::{format_ident, quote, quote_spanned};
-use syn::{parse_macro_input, spanned::Spanned, DeriveInput, VisRestricted, Visibility};
+use syn::{parse_macro_input, spanned::Spanned, DeriveInput};
+#[cfg(feature = "field-offset-trait")]
+use syn::{VisRestricted, Visibility};
 
 /**
 
@@ -42,7 +44,11 @@ assert_eq!(FOO, 4);
 // const FOO : usize = memofsets::offsetof!(Foo, field_2);
 ```
 
-In addition, the macro laso create a module `{ClassName}_field_offsets` which contains
+*/
+#[cfg_attr(
+    feature = "field-offset-trait",
+    doc = "
+In addition, the macro also create a module `{ClassName}_field_offsets` which contains
 zero-sized type that implement the `const_field_offset::ConstFieldOffset` trait
 
 ```rust
@@ -57,6 +63,9 @@ struct Foo {
 const FOO : FieldOffset<Foo, u32> = Foo_field_offsets::field_2::OFFSET;
 assert_eq!(FOO.get_byte_offset(), 4);
 ```
+"
+)]
+/**
 
 ## limitations
 
@@ -180,8 +189,6 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
     let struct_name = input.ident;
     let field_struct_name = quote::format_ident!("{}FieldsOffsets", struct_name);
 
-    let module_name = quote::format_ident!("{}_field_offsets", struct_name);
-
     let (fields, types, vis) = if let syn::Data::Struct(s) = &input.data {
         if let syn::Fields::Named(n) = &s.fields {
             let (f, tv): (Vec<_>, Vec<_>) =
@@ -194,19 +201,6 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
     } else {
         return TokenStream::from(quote! {compile_error!("Only work for struct")});
     };
-
-    let in_mod_vis = vis.iter().map(|vis| match vis {
-        Visibility::Public(_) => quote! {#vis},
-        Visibility::Crate(_) => quote! {#vis},
-        Visibility::Restricted(VisRestricted { pub_token, path, .. }) => {
-            if quote!(#path).to_string().starts_with("super") {
-                quote!(#pub_token(in super::#path))
-            } else {
-                quote!(#vis)
-            }
-        }
-        Visibility::Inherited => quote!(pub(super)),
-    });
 
     let doc = format!(
         "Helper struct containing the offsets of the fields of the struct `{}`",
@@ -287,7 +281,27 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
         }
 
         #pinned_drop_impl
+    };
 
+    #[cfg(feature = "field-offset-trait")]
+    let module_name = quote::format_ident!("{}_field_offsets", struct_name);
+
+    #[cfg(feature = "field-offset-trait")]
+    let in_mod_vis = vis.iter().map(|vis| match vis {
+        Visibility::Public(_) => quote! {#vis},
+        Visibility::Crate(_) => quote! {#vis},
+        Visibility::Restricted(VisRestricted { pub_token, path, .. }) => {
+            if quote!(#path).to_string().starts_with("super") {
+                quote!(#pub_token(in super::#path))
+            } else {
+                quote!(#vis)
+            }
+        }
+        Visibility::Inherited => quote!(pub(super)),
+    });
+
+    #[cfg(feature = "field-offset-trait")]
+    let expanded = quote! { #expanded
         #[allow(non_camel_case_types)]
         #[allow(non_snake_case)]
         #[allow(missing_docs)]

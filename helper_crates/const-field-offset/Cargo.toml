@@ -8,6 +8,8 @@ description = "Wrapper around field-offset crate and const-field-offset-macro"
 repository = "https://github.com/sixtyfpsui/sixtyfps"
 homepage = "https://sixtyfps.io"
 
+[features]
+field-offset-trait = ["const-field-offset-macro/field-offset-trait"]
 
 [dependencies]
 const-field-offset-macro = { version = "=0.1.0", path = "./macro" }

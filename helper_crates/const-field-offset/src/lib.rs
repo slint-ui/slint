@@ -10,6 +10,20 @@ pub use const_field_offset_macro::FieldOffsets;
 
 pub use field_offset::{AllowPin, FieldOffset, NotPinned};
 
+/// This trait needs to be implemented if you use the `#[pin_drop]` attribute. It enables
+/// you to implement Drop for your type safely.
+pub trait PinnedDrop {
+    /// This is the equivalent to the regular Drop trait with the difference that self
+    /// is pinned.
+    fn drop(self: Pin<&mut Self>);
+
+    #[doc(hidden)]
+    fn do_safe_pinned_drop(&mut self) {
+        let p = unsafe { Pin::new_unchecked(self) };
+        p.drop()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -91,6 +105,7 @@ mod tests {
 }
 
 #[doc(hidden)]
+#[cfg(feature = "field-offset-trait")]
 mod internal {
     use super::*;
     pub trait CombineFlag {
@@ -110,6 +125,7 @@ mod internal {
     }
 }
 
+#[cfg(feature = "field-offset-trait")]
 pub trait ConstFieldOffset: Copy {
     /// The type of the container
     type Container;
@@ -150,6 +166,7 @@ pub trait ConstFieldOffset: Copy {
 
 /// This can be used to transmute a FieldOffset from a NotPinned to any pin flag.
 /// This is only valid if we know that the offset is actually valid for this Flag.
+#[cfg(feature = "field-offset-trait")]
 union TransmutePinFlag<Container, Field, PinFlag> {
     x: FieldOffset<Container, Field, PinFlag>,
     y: FieldOffset<Container, Field>,
@@ -157,8 +174,10 @@ union TransmutePinFlag<Container, Field, PinFlag> {
 
 /// Helper class used as the result of the addition of two stype that implement the `ConstFieldOffset` trait
 #[derive(Copy, Clone)]
+#[cfg(feature = "field-offset-trait")]
 pub struct ConstFieldOffsetSum<A: ConstFieldOffset, B: ConstFieldOffset>(pub A, pub B);
 
+#[cfg(feature = "field-offset-trait")]
 impl<A: ConstFieldOffset, B: ConstFieldOffset> ConstFieldOffset for ConstFieldOffsetSum<A, B>
 where
     A: ConstFieldOffset<Field = B::Container>,
@@ -177,6 +196,7 @@ where
     };
 }
 
+#[cfg(feature = "field-offset-trait")]
 impl<A: ConstFieldOffset, B: ConstFieldOffset, Other> ::core::ops::Add<Other>
     for ConstFieldOffsetSum<A, B>
 where
@@ -186,19 +206,5 @@ where
     type Output = ConstFieldOffsetSum<Self, Other>;
     fn add(self, other: Other) -> Self::Output {
         ConstFieldOffsetSum(self, other)
-    }
-}
-
-/// This trait needs to be implemented if you use the `#[pin_drop]` attribute. It enables
-/// you to implement Drop for your type safely.
-pub trait PinnedDrop {
-    /// This is the equivalent to the regular Drop trait with the difference that self
-    /// is pinned.
-    fn drop(self: Pin<&mut Self>);
-
-    #[doc(hidden)]
-    fn do_safe_pinned_drop(&mut self) {
-        let p = unsafe { Pin::new_unchecked(self) };
-        p.drop()
     }
 }

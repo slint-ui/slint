@@ -50,7 +50,11 @@ fn test() {
 
     assert_eq!(XX_CONST, offset_of!(MyStruct2, xx));
     assert_eq!(D_STATIC, offset_of!(MyStruct, d));
+}
 
+#[test]
+#[cfg(feature = "field-offset-trait")]
+fn test_module() {
     assert_eq!(offset_of!(MyStruct, a), MyStruct_field_offsets::a.get_byte_offset());
     assert_eq!(offset_of!(MyStruct, b), MyStruct_field_offsets::b.get_byte_offset());
     assert_eq!(offset_of!(MyStruct, c), MyStruct_field_offsets::c.get_byte_offset());
