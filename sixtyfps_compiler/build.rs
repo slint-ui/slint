@@ -14,8 +14,7 @@ use std::path::{Path, PathBuf};
 
 fn main() -> std::io::Result<()> {
     let mut library_dir = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").unwrap());
-    library_dir.pop();
-    library_dir.push("sixtyfps_widgets");
+    library_dir.push("widgets");
 
     println!("cargo:rerun-if-changed={}", library_dir.display());
 
