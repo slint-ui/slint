@@ -11,22 +11,41 @@ LICENSE END */
 use std::io::Write;
 use std::path::PathBuf;
 
+fn os_dylib_prefix_and_suffix() -> (&'static str, &'static str) {
+    if cfg!(target_os = "windows") {
+        ("", "dll")
+    } else if cfg!(target_os = "macos") || cfg!(target_os = "ios") {
+        ("lib", "dylib")
+    } else {
+        ("lib", "so")
+    }
+}
+
 fn main() -> std::io::Result<()> {
     // Variables that cc.rs needs.
     println!("cargo:rustc-env=TARGET={}", std::env::var("TARGET").unwrap());
     println!("cargo:rustc-env=HOST={}", std::env::var("HOST").unwrap());
     println!("cargo:rustc-env=OPT_LEVEL={}", std::env::var("OPT_LEVEL").unwrap());
 
-    let mut generated_include_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
-    generated_include_dir.pop();
-    generated_include_dir.pop();
-    generated_include_dir.pop();
+    // target/{debug|release}/build/package/out/ -> target/{debug|release}
+    let mut target_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
+    target_dir.pop();
+    target_dir.pop();
+    target_dir.pop();
 
-    let lib_dir = generated_include_dir.clone();
-    println!("cargo:rustc-env=CPP_LIB_PATH={}", lib_dir.display());
+    println!("cargo:rustc-env=CPP_LIB_PATH={}", target_dir.display());
 
-    generated_include_dir.push("include");
-    println!("cargo:rustc-env=GENERATED_CPP_HEADERS_PATH={}", generated_include_dir.display());
+    let nodejs_native_lib_name = {
+        let (prefix, suffix) = os_dylib_prefix_and_suffix();
+        format!("{}sixtyfps_node_native.{}", prefix, suffix)
+    };
+    println!(
+        "cargo:rustc-env=SIXTYFPS_NODE_NATIVE_LIB={}",
+        target_dir.join(nodejs_native_lib_name).display()
+    );
+
+    target_dir.push("include");
+    println!("cargo:rustc-env=GENERATED_CPP_HEADERS_PATH={}", target_dir.display());
 
     let mut api_includes = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
     api_includes.pop();
