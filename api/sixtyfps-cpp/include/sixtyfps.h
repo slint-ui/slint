@@ -39,6 +39,7 @@ extern const cbindgen_private::ItemVTable WindowVTable;
 
 // Bring opaque structure in scope
 using cbindgen_private::ComponentVTable;
+using cbindgen_private::ItemVTable;
 using ItemTreeNode = cbindgen_private::ItemTreeNode<uint8_t>;
 using ComponentRef = VRef<ComponentVTable>;
 using ItemVisitorRefMut = VRefMut<cbindgen_private::ItemVisitorVTable>;
@@ -47,6 +48,7 @@ using cbindgen_private::EasingCurve;
 using cbindgen_private::TextHorizontalAlignment;
 using cbindgen_private::TextVerticalAlignment;
 using cbindgen_private::Slice;
+using cbindgen_private::PropertyAnimation;
 
 struct ComponentWindow
 {
