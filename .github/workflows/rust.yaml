@@ -113,7 +113,7 @@ jobs:
       with:
           command: doc
           toolchain: nightly
-          args: -p sixtyfps --no-deps
+          args: -p sixtyfps -p sixtyfps-build --no-deps
     - name: Publish Docs and Demos
       if: github.ref == 'refs/heads/master' && github.event_name == 'push'
       run: |
