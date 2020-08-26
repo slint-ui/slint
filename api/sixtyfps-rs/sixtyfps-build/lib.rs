@@ -8,10 +8,10 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 /*!
-    This crate serves as a compagnon crate for the sixtyfps crate.
-    It is meant to be able to compile the `.60` files from your `build.rs`script
+    This crate serves as a companion crate for the sixtyfps crate.
+    It is meant to allow you to compile the `.60` files from your `build.rs`script.
 
-    The main entry point of this crate is the gernerate() function
+    The main entry point of this crate is the compile() function
 */
 
 #![warn(missing_docs)]
