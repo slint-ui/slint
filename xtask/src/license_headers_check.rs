@@ -1,12 +1,11 @@
 /* LICENSE BEGIN
-
-    This file is part of the Sixty FPS Project
-
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
     Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
     Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
 
     SPDX-License-Identifier: GPL-3.0-only
-
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
 LICENSE END */
 use anyhow::Context;
 use anyhow::Result;
@@ -224,7 +223,7 @@ lazy_static! {
         (".+\\.60$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
         (".*README$", LicenseLocation::NoLicense),
         (".*README\\.txt$", LicenseLocation::NoLicense),
-        ("LICENSE\\.GPL3$", LicenseLocation::NoLicense),
+        ("LICENSE\\..*", LicenseLocation::NoLicense),
     ]
     .iter()
     .map(|(re, ty)| (regex::Regex::new(re).unwrap(), *ty))
@@ -253,14 +252,13 @@ const EXPECTED_SPDX_EXPRESSION: &str = "GPL-3.0-only";
 const EXPECTED_SPDX_ID: &str = "SPDX-License-Identifier: GPL-3.0-only";
 
 const EXPECTED_HEADER: LicenseHeader<'static> = LicenseHeader(&[
-    "",
-    "This file is part of the Sixty FPS Project",
-    "",
+    "This file is part of the SixtyFPS Project -- https://sixtyfps.io",
     "Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>",
     "Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>",
     "",
     EXPECTED_SPDX_ID,
-    "",
+    "This file is also available under commercial licensing terms.",
+    "Please contact info@sixtyfps.io for more information.",
 ]);
 
 const EXPECTED_HOMEPAGE: &str = "https://sixtyfps.io";

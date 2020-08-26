@@ -1,12 +1,11 @@
 /* LICENSE BEGIN
-
-    This file is part of the Sixty FPS Project
-
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
     Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
     Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
 
     SPDX-License-Identifier: GPL-3.0-only
-
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
 LICENSE END */
 #![allow(non_upper_case_globals)]
 #![cfg_attr(not(have_qt), allow(unused))]
