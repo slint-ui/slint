@@ -94,6 +94,10 @@ pub struct Component {
 
     /// LayoutConstraints
     pub layout_constraints: RefCell<crate::layout::LayoutConstraints>,
+
+    /// When creating this component and inserting "children", append them to the children of
+    /// the element pointer to by this field.
+    pub child_insertion_point: Option<ElementRc>,
 }
 
 impl Component {
@@ -102,17 +106,21 @@ impl Component {
         diag: &mut FileDiagnostics,
         tr: &TypeRegister,
     ) -> Rc<Self> {
-        let c = Rc::new(Component {
+        let mut child_insertion_point = None;
+        let mut c = Component {
             id: node.child_text(SyntaxKind::Identifier).unwrap_or_default(),
             root_element: Element::from_node(
                 node.Element(),
                 "root".into(),
                 Type::Invalid,
+                &mut child_insertion_point,
                 diag,
                 tr,
             ),
             ..Default::default()
-        });
+        };
+        c.child_insertion_point = child_insertion_point;
+        let c = Rc::new(c);
         let weak = Rc::downgrade(&c);
         recurse_elem(&c.root_element, &(), &mut |e, _| {
             e.borrow_mut().enclosing_component = weak.clone()
@@ -191,6 +199,7 @@ impl Element {
         node: syntax_nodes::Element,
         id: String,
         parent_type: Type,
+        component_child_insertion_point: &mut Option<ElementRc>,
         diag: &mut FileDiagnostics,
         tr: &TypeRegister,
     ) -> ElementRc {
@@ -323,6 +332,8 @@ impl Element {
             }
         }
 
+        let mut children_placeholder = None;
+
         for se in node.children() {
             if se.kind() == SyntaxKind::SubElement {
                 let id = se.child_text(SyntaxKind::Identifier).unwrap_or_default();
@@ -337,6 +348,7 @@ impl Element {
                         element_node.into(),
                         id,
                         r.base_type.clone(),
+                        component_child_insertion_point,
                         diag,
                         tr,
                     ));
@@ -347,6 +359,7 @@ impl Element {
                 r.children.push(Element::from_repeated_node(
                     se.into(),
                     r.base_type.clone(),
+                    component_child_insertion_point,
                     diag,
                     tr,
                 ));
@@ -354,13 +367,34 @@ impl Element {
                 r.children.push(Element::from_conditional_node(
                     se.into(),
                     r.base_type.clone(),
+                    component_child_insertion_point,
                     diag,
                     tr,
                 ));
+            } else if se.kind() == SyntaxKind::ChildrenPlaceholder {
+                if children_placeholder.is_some() {
+                    diag.push_error(
+                        "The $children placeholder can only appear once in an element".into(),
+                        &se,
+                    )
+                } else {
+                    children_placeholder = Some(se.clone());
+                }
             }
         }
 
         let r = ElementRc::new(RefCell::new(r));
+
+        if let Some(children_placeholder) = children_placeholder {
+            if component_child_insertion_point.is_some() {
+                diag.push_error(
+                    "The $children placeholder can only appear once in an element hierarchy".into(),
+                    &children_placeholder,
+                )
+            } else {
+                *component_child_insertion_point = Some(r.clone());
+            }
+        }
 
         for state in node.States().flat_map(|s| s.State()) {
             let s = State {
@@ -415,6 +449,7 @@ impl Element {
     fn from_repeated_node(
         node: syntax_nodes::RepeatedElement,
         parent_type: Type,
+        component_child_insertion_point: &mut Option<ElementRc>,
         diag: &mut FileDiagnostics,
         tr: &TypeRegister,
     ) -> ElementRc {
@@ -430,7 +465,14 @@ impl Element {
                 .unwrap_or_default(),
             is_conditional_element: false,
         };
-        let e = Element::from_node(node.Element(), String::new(), parent_type, diag, tr);
+        let e = Element::from_node(
+            node.Element(),
+            String::new(),
+            parent_type,
+            component_child_insertion_point,
+            diag,
+            tr,
+        );
         e.borrow_mut().repeated = Some(rei);
         e
     }
@@ -438,6 +480,7 @@ impl Element {
     fn from_conditional_node(
         node: syntax_nodes::ConditionalElement,
         parent_type: Type,
+        component_child_insertion_point: &mut Option<ElementRc>,
         diag: &mut FileDiagnostics,
         tr: &TypeRegister,
     ) -> ElementRc {
@@ -447,7 +490,14 @@ impl Element {
             index_id: String::new(),
             is_conditional_element: true,
         };
-        let e = Element::from_node(node.Element(), String::new(), parent_type, diag, tr);
+        let e = Element::from_node(
+            node.Element(),
+            String::new(),
+            parent_type,
+            component_child_insertion_point,
+            diag,
+            tr,
+        );
         e.borrow_mut().repeated = Some(rei);
         e
     }

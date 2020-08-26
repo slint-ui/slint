@@ -55,6 +55,43 @@ The current element can be referred as `self`.
 The parent element can be referred as `parent`.
 These names are reserved and cannot be used as element names.
 
+### Container Components
+
+When creating components, it may sometimes be useful to influence where child elements
+are placed when they are used. For example, imagine a component that draws label above
+whatever element the user places inside:
+
+```60
+MyApp := Window {
+
+    BoxWithLabel {
+        Text {
+            // ...
+        }
+    }
+
+    // ...
+}
+```
+
+Such a `BoxWithLabel` could be implemented using a layout, but by default child elements like
+the `Text` element become children of the `BoxWithLlabel`, when they would have to be somewhere
+else, inside the layout. For this purpose, you can change the default child placement by using
+the `$children` expression inside the element hierarchy of a component:
+
+```60
+BoxWithLabel := GridLayout {
+    Row {
+        Text {
+            // label text here
+        }
+    }
+    Row {
+        $children
+    }
+}
+```
+
 ## Comments
 
 C-style comments are supported:

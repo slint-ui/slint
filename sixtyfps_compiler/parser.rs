@@ -268,6 +268,7 @@ declare_syntax! {
         Bang -> "!",
         Dot -> ".",
         Question -> "?",
+        Dollar -> "$",
     }
     // syntax kind
     {
@@ -277,7 +278,7 @@ declare_syntax! {
         SubElement -> [ Element ],
         Element -> [ QualifiedName, *PropertyDeclaration, *Binding, *SignalConnection,
                      *SignalDeclaration, *SubElement, *RepeatedElement, *PropertyAnimation,
-                     *States, *Transitions ],
+                     *States, *Transitions, ?ChildrenPlaceholder ],
         RepeatedElement -> [ ?DeclaredIdentifier, ?RepeatedIndex, Expression , Element],
         RepeatedIndex -> [],
         ConditionalElement -> [ Expression , Element],
@@ -291,6 +292,7 @@ declare_syntax! {
         QualifiedName-> [],
         /// Wraps single identifier (to disambiguate when there are other identifiar in the production)
         DeclaredIdentifier -> [],
+        ChildrenPlaceholder -> [],
         Binding-> [ BindingExpression ],
         /// the right-hand-side of a binding
         // Fixme: the test should be a or

@@ -77,7 +77,20 @@ fn inline_element(
             .iter()
             .map(|x| duplicate_element_with_mapping(x, &mut mapping, root_component)),
     );
-    new_children.append(&mut elem_mut.children);
+
+    match inlined_component
+        .child_insertion_point
+        .as_ref()
+        .and_then(|elem| mapping.get(&element_key(elem.clone())))
+    {
+        Some(insertion_element) if !Rc::ptr_eq(elem, insertion_element) => {
+            insertion_element.borrow_mut().children.append(&mut elem_mut.children);
+        }
+        _ => {
+            new_children.append(&mut elem_mut.children);
+        }
+    }
+
     elem_mut.children = new_children;
 
     elem_mut.bindings.extend(

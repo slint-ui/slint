@@ -96,6 +96,7 @@ pub fn parse_element(p: &mut impl Parser) -> bool {
 /// property<int> width;
 /// animate someProp { }
 /// animate * { }
+/// $children
 /// ```
 fn parse_element_content(p: &mut impl Parser) {
     loop {
@@ -132,6 +133,20 @@ fn parse_element_content(p: &mut impl Parser) {
                     p.error("FIXME");
                 }
             },
+            SyntaxKind::Dollar => {
+                let checkpoint = p.checkpoint();
+                p.consume();
+                if p.peek().as_str() == "children" {
+                    {
+                        let _ =
+                            p.start_node_at(checkpoint.clone(), SyntaxKind::ChildrenPlaceholder);
+                    }
+                    p.consume()
+                } else {
+                    p.consume();
+                    p.error("Unexpected identifier. Expected $children.")
+                }
+            }
             _ => {
                 p.consume();
                 p.error("FIXME");
