@@ -12,13 +12,12 @@ homepage = "https://sixtyfps.io"
 [lib]
 path = "lib.rs"
 
-
 [dependencies]
 sixtyfps-corelib = { version = "=0.0.1", path = "../corelib", features = ["rtti"] }
 sixtyfps-rendering-backend-gl = { version = "=0.0.1", path = "../../sixtyfps_runtime/rendering_backends/gl" }
 qt_style = { version = "=0.0.1", path = "../qt_style", package = 'sixtyfps-qt-style', features = ["rtti"], optional = true }
 vtable = { version = "0.1", path="../../helper_crates/vtable" }
-sixtyfps-compilerlib = { version = "=0.0.1", path = "../../sixtyfps_compiler", features = ["display-diagnostics"] }
+sixtyfps-compilerlib = { version = "=0.0.1", path = "../../sixtyfps_compiler" }
 lyon = { version = "0.15.8" }
 derive_more = "0.99.5"
 generativity = "1"
