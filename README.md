@@ -20,7 +20,7 @@ Our design goals are:
  - **Straightforward**: Programmers and designers should feel productive and be able to enjoy the design and development process.
    The APIs should be consistent, easy to use, and intuitive, no matter the target language. High-quality documentation
    should describe the APIs, teach concepts and how to use them.
- - **Native**: We support many different target platforms, from embedded devices, to desktops, including mobile and web. You should feel at 
+ - **Native**: We support many different target platforms, from embedded devices, to desktops, including mobile and web. You should feel at
    home on each platform; both the user and the developer. The look and feel and experience should match what users expect of an
    application built for a specific platform.
 
@@ -46,7 +46,7 @@ The docs folder contains [build instructions](docs/building.md) and [internal de
  * [SixtyFps-cpp](api/sixtyfps-cpp)
  * [SixtyFps-rs](api/sixtyfps-rs)
  * [SixtyFps-node](api/sixtyfps-node)
- 
+
 ## The .60 Language
 
 SixtyFPS comes with a mark-up language that is specifically designed for user interfaces: It provides a powerful way to
@@ -82,6 +82,6 @@ The software is provided under a dual licensing scheme
 
 ## Contact us
 
-Github issues can be used to report public suggestions or bugs.
+[Github issues](https://github.com/sixtyfpsui/sixtyfps/issues) can be used to report public suggestions or bugs.
 
 You can also contact us privately by sending email to info@sixtyfps.io
