@@ -62,6 +62,10 @@ jobs:
           override: true
           components: rustfmt, clippy
           target: wasm32-unknown-unknown
+    - name: Install nightly
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: nightly
     - name: Build
       uses: actions-rs/cargo@v1
       with:
@@ -104,7 +108,13 @@ jobs:
           npm install
           npm run build
       working-directory: examples/printerdemo/wasm
-    - name: Publish C++ Docs and Demos
+    - name: "Rust docs"
+      uses: actions-rs/cargo@v1
+      with:
+          command: doc
+          toolchain: nightly
+          args: -p sixtyfps --no-deps
+    - name: Publish Docs and Demos
       if: github.ref == 'refs/heads/master' && github.event_name == 'push'
       run: |
           git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
@@ -123,7 +133,9 @@ jobs:
           mkdir -p docs
           mkdir -p docs/cpp
           cp -a ../target/debug/docs/html/* docs/cpp/
+          mkdir -p docs/rust
+          cp -a ../target/docs/* docs/rust/
           git add docs
           git add -u docs
-          git commit --message "Update $NAME from $GITHUB_REPOSITORY" --message "Pull web demos and C++ reference docs from commit $GITHUB_SHA ($GITHUB_REF)"
+          git commit --message "Update $NAME from $GITHUB_REPOSITORY" --message "Pull web demos and C++/Rust reference docs from commit $GITHUB_SHA ($GITHUB_REF)"
           git push origin master
