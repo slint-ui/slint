@@ -94,16 +94,44 @@ Example := Rectangle {
 
 All properties in elements have a type. The following types are supported:
 
-| Type | Description |
-| --- | --- |
-| `int` | Signed integral number. |
-| `float` | Signed, 32-bit floating point number. Numbers with a `%` suffix are automatically divided by 100, so for example `30%` is the same as `0.30`. |
-| `string` | UTF-8 encoded, reference counted string. |
-| `color` | RGB color with an alpha channel, with 8 bit precision for each channel. |
-| `length` | The type used for `x`, `y`, `width` and `height` coordinates. This is an amount of physical pixels. To convert from an integer to a length unit, one can simply multiply by `1px`.  Or to convert from a length to a float, one can divide by `1px`. |
-| `logical_length` | Corresponds to a literal like `1lx`, `1pt`, `1in`, `1mm`, or `1cm`. It can be converted to and from length provided the binding is run in a context where there is an access to the device pixel ratio. |
- | `duration` | Type for the duration of animations. A suffix like `ms` (milisecond) or `s` (second) is used to indicate the precision. |
- | `easing` | Property animation allow specifying an easing curve. Valid values are `linear` (values are interpolated linearly) and the [four common cubiz-bezier functions known from CSS](https://developer.mozilla.org/en-US/docs/Web/CSS/easing-function#Keywords_for_common_cubic-bezier_easing_functions):  `ease`, `ease_in`, `ease_in_out`, `ease_out`. |
+<table>
+    <tr>
+        <th>Type</th>
+        <th>Description</th>
+    </tr>
+    <tr>
+        <td><code>int</code></td>
+        <td>Signed integral number.</td>
+    </tr>
+    <tr>
+        <td><code>float</code></td>
+        <td>Signed, 32-bit floating point number. Numbers with a <code>%</code> suffix are automatically divided by 100, so for example <code>30%</code> is the same as <code>0.30</code>.</td>
+    </tr>
+    <tr>
+        <td><code>string</code></td>
+        <td>UTF-8 encoded, reference counted string.</td>
+    </tr>
+    <tr>
+        <td><code>color</code></td>
+        <td>RGB color with an alpha channel, with 8 bit precision for each channel.</td>
+    </tr>
+    <tr>
+        <td><code>length</code></td>
+        <td>The type used for <code>x</code>, <code>y</code>, <code>width</code> and <code>height</code> coordinates. This is an amount of physical pixels. To convert from an integer to a length unit, one can simply multiply by <code>1px</code>.  Or to convert from a length to a float, one can divide by <code>1px</code>.</td>
+    </tr>
+    <tr>
+        <td><code>logical_length</code></td>
+        <td>Corresponds to a literal like <code>1lx</code>, <code>1pt</code>, <code>1in</code>, <code>1mm</code>, or <code>1cm</code>. It can be converted to and from length provided the binding is run in a context where there is an access to the device pixel ratio.</td>
+    </tr>
+    <tr>
+        <td><code>duration</code></td>
+        <td>Type for the duration of animations. A suffix like <code>ms</code> (milisecond) or <code>s</code> (second) is used to indicate the precision.</td>
+    </tr>
+    <tr>
+        <td><code>easing</code></td>
+        <td>Property animation allow specifying an easing curve. Valid values are <code>linear</code> (values are interpolated linearly) and the <a href="https://developer.mozilla.org/en-US/docs/Web/CSS/easing-function#Keywords_for_common_cubic-bezier_easing_functions">four common cubiz-bezier functions known from CSS</a>:  <code>ease</code>, <code>ease_in</code>, <code>ease_in_out</code>, <code>ease_out</code>.</td>
+    </tr>
+</table>
 
 Please see the language specific API references how these types are mapped to the APIs of the different programming languages.
 
