@@ -27,7 +27,7 @@ export MyApp := Window {
         text: "world";
     }
     Rectangle {
-        color: green;        
+        color: green;
     }
 }
 
@@ -172,8 +172,11 @@ Example := Rectangle {
 }
 ```
 
+### Strings
+
 Strings can be used with surrounding quote: `"foo"`.
 (TODO: escaping, support using stuff like `` `hello {foo}` ``)
+(TODO: translations: `tr!"Hello"`)
 
 
 ```60
@@ -181,6 +184,8 @@ Example := Text {
     text: "hello";
 }
 ```
+
+### Colors
 
 Color literals follow the syntax of CSS:
 
@@ -191,11 +196,14 @@ Example := Rectangle {
 }
 ```
 
-Array / Object
+(TODO: currently color name are only limited to a handfull and only supported in color property)
 
-```
-TODO
-```
+### Arrays/Objects
+
+Array are currently only supported in for expression. `[1, 2, 3]` is an array of integer.
+All the types in the array have to be of the same type.
+It is usefull to have array of objects. An Object is between curly braces: `{ a: 12, b: "hello"}`.
+
 
 ## Statements
 
