@@ -43,8 +43,16 @@ impl<'id> dynamic_component::ComponentDescription<'id> {
     }
 
     /// Instantiate a runtime component from this ComponentDescription
-    pub fn create(self: Rc<Self>) -> dynamic_component::ComponentBox<'id> {
-        dynamic_component::instantiate(self, None)
+    pub fn create(
+        self: Rc<Self>,
+        #[cfg(target_arch = "wasm32")] canvas_id: String,
+    ) -> dynamic_component::ComponentBox<'id> {
+        dynamic_component::instantiate(
+            self,
+            None,
+            #[cfg(target_arch = "wasm32")]
+            canvas_id,
+        )
     }
 
     /// Set a value to property.

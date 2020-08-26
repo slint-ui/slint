@@ -140,6 +140,7 @@ impl GLRenderer {
     pub fn new(
         event_loop: &winit::event_loop::EventLoop<()>,
         window_builder: winit::window::WindowBuilder,
+        #[cfg(target_arch = "wasm32")] canvas_id: &str,
     ) -> GLRenderer {
         #[cfg(not(target_arch = "wasm32"))]
         let (windowed_context, context) = {
@@ -162,7 +163,7 @@ impl GLRenderer {
                 .unwrap()
                 .document()
                 .unwrap()
-                .get_element_by_id("canvas")
+                .get_element_by_id(canvas_id)
                 .unwrap()
                 .dyn_into::<web_sys::HtmlCanvasElement>()
                 .unwrap();
@@ -771,7 +772,19 @@ pub unsafe extern "C" fn sixtyfps_component_window_gl_renderer_init(
 
 pub fn create_gl_window() -> ComponentWindow {
     ComponentWindow::new(GraphicsWindow::new(|event_loop, window_builder| {
-        GLRenderer::new(&event_loop.get_winit_event_loop(), window_builder)
+        GLRenderer::new(
+            &event_loop.get_winit_event_loop(),
+            window_builder,
+            #[cfg(target_arch = "wasm32")]
+            "canvas",
+        )
+    }))
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn create_gl_window_with_canvas_id(canvas_id: String) -> ComponentWindow {
+    ComponentWindow::new(GraphicsWindow::new(move |event_loop, window_builder| {
+        GLRenderer::new(&event_loop.get_winit_event_loop(), window_builder, &canvas_id)
     }))
 }
 

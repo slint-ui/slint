@@ -555,7 +555,12 @@ fn populate_model<'par_id, 'sub_id>(
     model: impl Iterator<Item = eval::Value> + ExactSizeIterator,
 ) {
     vec.resize_with(model.size_hint().1.unwrap(), || {
-        instantiate(rep_in_comp.component_to_repeat.clone(), Some(component))
+        instantiate(
+            rep_in_comp.component_to_repeat.clone(),
+            Some(component),
+            #[cfg(target_arch = "wasm32")]
+            String::new(),
+        )
     });
     for (i, (x, val)) in vec.iter().zip(model).enumerate() {
         rep_in_comp
@@ -569,6 +574,7 @@ fn populate_model<'par_id, 'sub_id>(
 pub fn instantiate<'id>(
     component_type: Rc<ComponentDescription<'id>>,
     parent_ctx: Option<ComponentRefPin>,
+    #[cfg(target_arch = "wasm32")] canvas_id: String,
 ) -> ComponentBox<'id> {
     let instance = component_type.dynamic_type.clone().create_instance();
     let mem = instance.as_ptr().as_ptr() as *mut u8;
@@ -582,7 +588,12 @@ pub fn instantiate<'id>(
         }
     } else {
         let extra_data = component_type.extra_data_offset.apply(instance_ref.as_ref());
+        #[cfg(not(target_arch = "wasm32"))]
         extra_data.window.replace(Some(sixtyfps_rendering_backend_gl::create_gl_window()));
+        #[cfg(target_arch = "wasm32")]
+        extra_data.window.replace(Some(
+            sixtyfps_rendering_backend_gl::create_gl_window_with_canvas_id(canvas_id),
+        ));
     }
 
     for item_within_component in component_type.items.values() {
