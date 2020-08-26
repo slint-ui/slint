@@ -5,9 +5,11 @@ This is the repository of the SixtyFPS project.
 ## Warning: Pre-Alpha
 
 SixtyFPS is still in the early stages of development: APIs will change and important features are still being developed. **Do not use this yet in production**.
-We welcome any feedback.
 
 At the moment, it's possible to create user interfaces from C++, Rust, and NodeJS. These can be compiled and shown on Linux, macOS, Windows and in Web Browsers (using WebAssembly).
+
+We aim to support the development of this project through commercial licensing and services.
+We would love to get feedback from potential future customers or users.
 
 ## What is SixtyFPS
 
