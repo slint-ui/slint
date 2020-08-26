@@ -1,6 +1,6 @@
 # SixtyFPS-node
 
-[SixtyFPS](/README.md) is a UI toolkit that supports different programming languages.
+[SixtyFPS](https://www.sixtyfps.io/) is a UI toolkit that supports different programming languages.
 SixtyFPS-node is the integration with node.
 
 ## Tutorial
