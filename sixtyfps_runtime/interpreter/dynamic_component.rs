@@ -904,7 +904,7 @@ impl<'a> LayoutTreeItem<'a> {
                     height: resolve_prop_ref(&grid_layout.grid.rect.height_reference),
                     x: resolve_prop_ref(&grid_layout.grid.rect.x_reference),
                     y: resolve_prop_ref(&grid_layout.grid.rect.y_reference),
-                    spacing: grid_layout.grid.spacing.as_ref().map(resolve_prop_ref).unwrap_or(0.),
+                    spacing: grid_layout.spacing,
                     cells: Slice::from(grid_layout.cells.as_slice()),
                 });
             }
