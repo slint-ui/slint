@@ -206,11 +206,11 @@ pub mod generated_code {
     /// This an example of the API that is generated for a component in `.60` design markup. This may help you understand
     /// what functions you can call and how you can pass data in and out.
     /// This is the source code:
-    /// ```sixtyfps
-    /// export SampleComponent := Window {
+    /// ```60
+    /// SampleComponent := Window {
     ///     property<int> counter;
     ///     property<string> user_name;
-    ///     signal hello();
+    ///     signal hello;
     ///     /// ... maybe more elements here
     /// }
     /// ```

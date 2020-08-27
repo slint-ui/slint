@@ -1,0 +1,41 @@
+<script type="module">
+"use strict";
+import * as sixtyfps from 'https://www.sixtyfps.io/wasm-interpreter/sixtyfps_wasm_interpreter.js';
+
+function render_or_error(source, div) {
+    let canvas_id = 'canvas_' + Math.random().toString(36).substr(2, 9);
+    div.innerHTML = `<canvas id='${canvas_id}' width=100 height=100></canvas>`;
+    try {
+        sixtyfps.instantiate_from_string(source, canvas_id);
+    } catch (e) {
+        if (e.message === "Using exceptions for control flow, don't mind me. This isn't actually an error!") {
+            throw e;
+        }
+        var text = document.createTextNode(e.message);
+        var p = document.createElement('pre');
+        p.appendChild(text);
+        div.innerHTML = "<pre style='color: red; background-color:#fee; margin:0'>" + p.innerHTML + "</pre>";
+
+        throw e;
+    }
+}
+
+async function run() {
+
+    await sixtyfps.default();
+
+    var elements = document.querySelectorAll("code.language-60");
+    for (var i = 0; i < elements.length; ++i) {
+        let source = elements[i].innerText;
+        let div = document.createElement("div");
+        //div.style="float: right; width: 50%; padding:0";
+        //elements[i].parentElement.insertBefore(div, elements[i])
+        div.style="padding:0; margin:0;";
+        elements[i].parentElement.appendChild(div);
+        setTimeout(function(){ render_or_error(source, div); }, 1);
+    }
+}
+run();
+
+
+</script>
