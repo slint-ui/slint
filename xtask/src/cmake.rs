@@ -26,12 +26,6 @@ pub struct CMakeCommand {
     install: bool,
 }
 
-pub fn root_dir() -> anyhow::Result<PathBuf> {
-    let mut root = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").ok_or_else(|| anyhow::anyhow!("Cannot determine root directory - CARGO_MANIFEST_DIR is not set -- you can only run xtask via cargo"))?);
-    root.pop(); // $root/xtask -> $root
-    Ok(root)
-}
-
 fn cargo() -> String {
     std::env::var("CARGO").unwrap_or("cargo".into())
 }
@@ -119,6 +113,11 @@ impl CMakeCommand {
         let output_dir =
             output_dir.ok_or_else(|| "Failed to locate target directory from artifacts")?;
 
+        println!("Generate header files");
+        let mut include_dir = output_dir.clone();
+        include_dir.push("include");
+        test_driver_lib::cbindgen::gen_all(&include_dir)?;
+
         let mut libs_list = String::from("-DSIXTYFPS_INTERNAL_LIBS=");
         libs_list.push_str(
             &library_artifacts
@@ -128,7 +127,7 @@ impl CMakeCommand {
                 .join(";"),
         );
 
-        let source_dir = root_dir()?.join("api/sixtyfps-cpp/cmake");
+        let source_dir = super::root_dir()?.join("api/sixtyfps-cpp/cmake");
         let binary_dir = output_dir;
 
         let mut cmd = std::process::Command::new("cmake");

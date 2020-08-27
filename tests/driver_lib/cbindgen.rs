@@ -7,12 +7,20 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-extern crate cbindgen;
+use anyhow::Context;
+use std::iter::Extend;
+use std::path::{Path, PathBuf};
 
-use std::env;
-use std::path::PathBuf;
+/// The root dir of the git repository
+fn root_dir() -> PathBuf {
+    let mut root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    // $root/tests/driver_lib -> $root
+    root.pop();
+    root.pop();
+    root
+}
 
-fn main() {
+fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
     let include = [
         "Rectangle",
         "BorderRectangle",
@@ -70,15 +78,9 @@ fn main() {
         ..Default::default()
     };
 
-    let mut include_dir = PathBuf::from(env::var_os("OUT_DIR").unwrap());
-    include_dir.pop();
-    include_dir.pop();
-    include_dir.pop(); // target/{debug|release}/build/package/out/ -> target/{debug|release}
-    include_dir.push("include");
+    let mut crate_dir = root_dir();
+    crate_dir.extend(["sixtyfps_runtime", "corelib"].iter());
 
-    std::fs::create_dir_all(include_dir.clone()).unwrap();
-
-    let crate_dir = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").unwrap());
     let mut string_config = config.clone();
     string_config.export.exclude = vec!["SharedString".into()];
     cbindgen::Builder::new()
@@ -87,7 +89,7 @@ fn main() {
         .with_src(crate_dir.join("slice.rs"))
         .with_after_include("namespace sixtyfps { struct SharedString; }")
         .generate()
-        .expect("Unable to generate bindings")
+        .context("Unable to generate bindings for sixtyfps_string_internal.h")?
         .write_to_file(include_dir.join("sixtyfps_string_internal.h"));
 
     cbindgen::Builder::new()
@@ -95,7 +97,7 @@ fn main() {
         .with_src(crate_dir.join("sharedarray.rs"))
         .with_after_include("namespace sixtyfps { template<typename T> struct SharedArray; }")
         .generate()
-        .expect("Unable to generate bindings")
+        .context("Unable to generate bindings for sixtyfps_sharedarray_internal.h")?
         .write_to_file(include_dir.join("sixtyfps_sharedarray_internal.h"));
 
     let mut properties_config = config.clone();
@@ -106,7 +108,7 @@ fn main() {
         .with_src(crate_dir.join("signals.rs"))
         .with_after_include("namespace sixtyfps { class Color; }")
         .generate()
-        .expect("Unable to generate bindings")
+        .context("Unable to generate bindings for sixtyfps_properties_internal.h")?
         .write_to_file(include_dir.join("sixtyfps_properties_internal.h"));
 
     for (rust_types, internal_header) in [
@@ -161,7 +163,7 @@ fn main() {
             .with_src(crate_dir.join("item_rendering.rs"))
             .with_src(crate_dir.join("eventloop.rs"))
             .generate()
-            .expect("Unable to generate bindings")
+            .with_context(|| format!("Unable to generate bindings for {}", internal_header))?
             .write_to_file(include_dir.join(internal_header));
     }
 
@@ -198,11 +200,50 @@ fn main() {
         .with_include("sixtyfps_pathdata.h")
         .with_after_include(format!(
             "namespace sixtyfps {{ namespace private_api {{ enum class VersionCheck {{ Major = {}, Minor = {}, Patch = {} }}; }} }}",
-            env!("CARGO_PKG_VERSION_MAJOR"),
-            env!("CARGO_PKG_VERSION_MINOR"),
-            env!("CARGO_PKG_VERSION_PATCH")
+            0, 0, 1,
         ))
         .generate()
         .expect("Unable to generate bindings")
         .write_to_file(include_dir.join("sixtyfps_internal.h"));
+
+    Ok(())
+}
+
+fn gen_backend_gl(include_dir: &Path) -> anyhow::Result<()> {
+    let config = cbindgen::Config {
+        pragma_once: true,
+        include_version: true,
+        namespaces: Some(vec!["sixtyfps".into(), "cbindgen_private".into()]),
+        line_length: 100,
+        tab_width: 4,
+        // Note: we might need to switch to C if we need to generate bindings for language that needs C headers
+        language: cbindgen::Language::Cxx,
+        cpp_compat: true,
+        documentation: true,
+        export: cbindgen::ExportConfig { ..Default::default() },
+        ..Default::default()
+    };
+
+    std::fs::create_dir_all(include_dir.clone()).unwrap();
+
+    let mut crate_dir = root_dir();
+    crate_dir.extend(["sixtyfps_runtime", "rendering_backends", "gl"].iter());
+    cbindgen::Builder::new()
+        .with_config(config)
+        .with_crate(crate_dir)
+        .with_header("#include <sixtyfps_internal.h>")
+        .generate()
+        .context("Unable to generate bindings for sixtyfps_gl_internal.h")?
+        .write_to_file(include_dir.join("sixtyfps_gl_internal.h"));
+
+    Ok(())
+}
+
+/// Generate the headers.
+/// `include_dir` is the output directory
+pub fn gen_all(include_dir: &Path) -> anyhow::Result<()> {
+    std::fs::create_dir_all(include_dir).context("Could not create the include directory")?;
+    gen_corelib(include_dir)?;
+    gen_backend_gl(include_dir)?;
+    Ok(())
 }

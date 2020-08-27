@@ -3,7 +3,6 @@ name = "sixtyfps-corelib"
 version = "0.0.1"
 authors = ["Sixty FPS <info@sixtyfps.io>"]
 edition = "2018"
-build = "build.rs"
 license = "GPL-3.0-only"
 description = "Internal SixtyFPS runtime library."
 repository = "https://github.com/sixtyfpsui/sixtyfps"
@@ -43,9 +42,6 @@ wasm-bindgen = { version = "0.2" }
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 font-kit = "0.8"
 pathfinder_geometry = "0.5.1"
-
-[build-dependencies]
-cbindgen = "0.14.2"
 
 [dev-dependencies]
 pin-weak = "1"

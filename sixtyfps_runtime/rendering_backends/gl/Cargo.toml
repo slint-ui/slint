@@ -13,9 +13,6 @@ homepage = "https://sixtyfps.io"
 path = "lib.rs"
 crate-type = [ "lib", "cdylib" ]
 
-[build-dependencies]
-cbindgen = "0.14.2"
-
 [dependencies]
 sixtyfps-corelib = { version="=0.0.1", path = "../../corelib" }
 lyon = { version = "0.15.8" }

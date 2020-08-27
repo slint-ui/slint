@@ -8,6 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 use std::error::Error;
+use std::path::PathBuf;
 use structopt::StructOpt;
 
 mod cmake;
@@ -26,6 +27,12 @@ pub enum TaskCommand {
 pub struct ApplicationArguments {
     #[structopt(subcommand)]
     pub command: TaskCommand,
+}
+
+pub fn root_dir() -> anyhow::Result<PathBuf> {
+    let mut root = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").ok_or_else(|| anyhow::anyhow!("Cannot determine root directory - CARGO_MANIFEST_DIR is not set -- you can only run xtask via cargo"))?);
+    root.pop(); // $root/xtask -> $root
+    Ok(root)
 }
 
 fn main() -> Result<(), Box<dyn Error>> {

@@ -20,7 +20,7 @@ fn os_dylib_prefix_and_suffix() -> (&'static str, &'static str) {
     }
 }
 
-fn main() -> std::io::Result<()> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Variables that cc.rs needs.
     println!("cargo:rustc-env=TARGET={}", std::env::var("TARGET").unwrap());
     println!("cargo:rustc-env=HOST={}", std::env::var("HOST").unwrap());
@@ -43,8 +43,10 @@ fn main() -> std::io::Result<()> {
         target_dir.join(nodejs_native_lib_name).display()
     );
 
-    target_dir.push("include");
-    println!("cargo:rustc-env=GENERATED_CPP_HEADERS_PATH={}", target_dir.display());
+    let mut include_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
+    include_dir.push("include");
+    println!("cargo:rustc-env=GENERATED_CPP_HEADERS_PATH={}", include_dir.display());
+    test_driver_lib::cbindgen::gen_all(&include_dir)?;
 
     let mut api_includes = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
     api_includes.pop();
