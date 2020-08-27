@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 //! This wasm library can be loaded from JS to load and display the content of .60 files
-//#![cfg(target_arch = "wasm32")]
+#![cfg(target_arch = "wasm32")]
 
 use wasm_bindgen::prelude::*;
 
