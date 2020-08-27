@@ -1,0 +1,24 @@
+[package]
+name = "sixtyfps-wasm-interpreter"
+version = "0.0.1"
+authors = ["Sixty FPS <info@sixtyfps.io>"]
+edition = "2018"
+license = "GPL-3.0-only"
+publish = false
+description = "SixtyFPS wasm glue"
+repository = "https://github.com/sixtyfpsui/sixtyfps"
+homepage = "https://sixtyfps.io"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+sixtyfps-interpreter = { path = "../../sixtyfps_runtime/interpreter" }
+wasm-bindgen = { version = "0.2.67" }
+js-sys = "0.3.44"
+console_error_panic_hook = { version = "0.1.6", optional = true }
+wee_alloc = { version = "0.4.5", optional = true }
+
+#[dev-dependencies]
+#wasm-bindgen-test = "0.3.13"
+

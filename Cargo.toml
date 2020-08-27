@@ -11,6 +11,7 @@ members = [
     'api/sixtyfps-rs/sixtyfps-rs-macro',
     'api/sixtyfps-rs/sixtyfps-build',
     'api/sixtyfps-node/native',
+    'api/sixtyfps-wasm-interpreter',
     'tools/compiler',
     'tools/viewer',
     'tools/syntax_updater',
@@ -33,4 +34,5 @@ exclude = [
     # Exclude the wasm crates from a normal build, they must be build separetaly with the wasm tools
     'examples/gallery/wasm',
     'examples/printerdemo/wasm',
+    'api/sixtyfps-wasm-interpreter',
 ]
