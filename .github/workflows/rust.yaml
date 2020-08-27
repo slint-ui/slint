@@ -99,7 +99,7 @@ jobs:
       with:
         node-version: '12'
     - name: Compile sixtyfps-wasm-interpreter
-      run: wasm-pack build --release -- --features console_error_panic_hook
+      run: wasm-pack build --release --target web -- --features console_error_panic_hook
       working-directory: api/sixtyfps-wasm-interpreter
     - name: Gallery WASM build
       run: |
