@@ -28,3 +28,9 @@ members = [
     'tests/driver_lib',
     'tests/rustdriver'
 ]
+
+exclude = [
+    # Exclude the wasm crates from a normal build, they must be build separetaly with the wasm tools
+    'examples/gallery/wasm',
+    'examples/printerdemo/wasm',
+]
