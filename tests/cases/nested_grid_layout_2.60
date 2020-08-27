@@ -1,0 +1,67 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+TestCase := Rectangle {
+    width: 300px;
+    height: 300px;
+
+    GridLayout {
+        Row {
+            rect1 := Rectangle {
+                color: red;
+                GridLayout {
+                    spacing: 10lx;
+                    Row {
+                        rect2 := Rectangle {
+                            color: green;
+                            maximum_width: 50px;
+                            maximum_height: 50px;
+                        }
+                        rect3 := Rectangle {
+                            color: black;
+                        }
+                    }
+                }
+            }
+            rect4 := Rectangle {
+                color: blue;
+            }
+        }        
+    }   
+    
+    property <bool> rect1_pos_ok: rect1.x == 0px && rect1.y == 0px && rect1.width == 155px && rect1.height == 50px;
+    property <bool> rect2_pos_ok: rect2.x == 0px && rect2.y == 0px && rect2.width == 50px && rect2.height == 50px;
+    property <bool> rect3_pos_ok: rect3.x == 60px && rect3.y == 0px && rect3.width == 95px && rect3.height == 50px;
+    property <bool> rect4_pos_ok: rect4.x == 155px && rect4.y == 0px && rect4.width == 145px && rect4.height == 50px;
+}
+
+/*
+
+```cpp
+TestCase instance;
+TestCase::compute_layout({&TestCase::component_type, &instance });
+assert(instance.get_rect1_pos_ok());
+assert(instance.get_rect2_pos_ok());
+assert(instance.get_rect3_pos_ok());
+assert(instance.get_rect4_pos_ok());
+```
+
+
+```rust
+let instance = TestCase::new();
+let instance = instance.as_ref();
+use sixtyfps::re_exports::Component;
+instance.compute_layout();
+assert!(instance.get_rect1_pos_ok());
+assert!(instance.get_rect2_pos_ok());
+assert!(instance.get_rect3_pos_ok());
+assert!(instance.get_rect4_pos_ok());
+```
+
+*/

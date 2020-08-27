@@ -145,40 +145,57 @@ fn layout_parse_function(
     None
 }
 
+fn lower_element_layout(
+    component: &Rc<Component>,
+    elem: &ElementRc,
+    diag: &mut BuildDiagnostics,
+) -> Vec<Layout> {
+    let old_children = {
+        let mut elem = elem.borrow_mut();
+        let new_children = Vec::with_capacity(elem.children.len());
+        std::mem::replace(&mut elem.children, new_children)
+    };
+
+    // lay out within the current element's boundaries.
+    let rect_to_layout = LayoutRect {
+        x_reference: Box::new(Expression::NumberLiteral(0., Unit::Px)),
+        y_reference: Box::new(Expression::NumberLiteral(0., Unit::Px)),
+        width_reference: property_reference(elem, "width"),
+        height_reference: property_reference(elem, "height"),
+    };
+
+    let mut found_layouts = Vec::new();
+
+    for child in old_children {
+        if let Some(layout_parser) = layout_parse_function(&child) {
+            if let Some(layout) = layout_parser(
+                component,
+                rect_to_layout.clone(),
+                &child,
+                &mut elem.borrow_mut().children,
+                diag,
+            ) {
+                found_layouts.push(layout);
+            }
+            continue;
+        } else {
+            if !child.borrow().child_of_layout {
+                check_no_layout_properties(&child, diag);
+                // Don't check again in case we reach this element a second time, to avoid duplicate errors
+                child.borrow_mut().child_of_layout = true;
+            }
+            elem.borrow_mut().children.push(child);
+        }
+    }
+
+    found_layouts
+}
+
 /// Currently this just removes the layout from the tree
 pub fn lower_layouts(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
     recurse_elem(&component.root_element, &(), &mut |elem, _| {
-        let old_children = {
-            let mut elem = elem.borrow_mut();
-            let new_children = Vec::with_capacity(elem.children.len());
-            std::mem::replace(&mut elem.children, new_children)
-        };
-
-        // lay out within the current element's boundaries.
-        let rect_to_layout = LayoutRect {
-            x_reference: Box::new(Expression::NumberLiteral(0., Unit::Px)),
-            y_reference: Box::new(Expression::NumberLiteral(0., Unit::Px)),
-            width_reference: property_reference(elem, "width"),
-            height_reference: property_reference(elem, "height"),
-        };
-
-        for child in old_children {
-            if let Some(layout_parser) = layout_parse_function(&child) {
-                if let Some(layout) = layout_parser(
-                    component,
-                    rect_to_layout.clone(),
-                    &child,
-                    &mut elem.borrow_mut().children,
-                    diag,
-                ) {
-                    component.layout_constraints.borrow_mut().push(layout);
-                }
-                continue;
-            } else {
-                check_no_layout_properties(&child, diag);
-                elem.borrow_mut().children.push(child);
-            }
-        }
+        let mut layouts = lower_element_layout(component, elem, diag);
+        component.layout_constraints.borrow_mut().append(&mut layouts);
     });
     check_no_layout_properties(&component.root_element, diag);
 }
@@ -224,8 +241,18 @@ impl GridLayout {
                 return;
             }
         } else {
+            item_element.borrow_mut().child_of_layout = true;
             collected_children.push(item_element.clone());
-            item_element.clone().into()
+            let element = item_element.clone();
+            let layout = {
+                let mut layouts = lower_element_layout(component, &element, diag);
+                if layouts.is_empty() {
+                    None
+                } else {
+                    Some(layouts.remove(0))
+                }
+            };
+            LayoutElement { element, layout }.into()
         };
 
         self.elems.push(GridLayoutElement {

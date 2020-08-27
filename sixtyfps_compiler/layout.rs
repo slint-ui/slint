@@ -48,8 +48,14 @@ impl ExpressionFieldsVisitor for LayoutConstraints {
 }
 
 #[derive(Debug, derive_more::From)]
+pub struct LayoutElement {
+    pub element: ElementRc,
+    pub layout: Option<Layout>,
+}
+
+#[derive(Debug, derive_more::From)]
 pub enum LayoutItem {
-    Element(ElementRc),
+    Element(LayoutElement),
     Layout(Box<Layout>),
 }
 
@@ -165,8 +171,9 @@ impl ExpressionFieldsVisitor for GridLayout {
         self.rect.visit_expressions(visitor);
         for cell in &mut self.elems {
             match &mut cell.item {
-                LayoutItem::Element(_) => {
-                    // These expressions are traversed through the regular element tree traversal
+                LayoutItem::Element(element) => {
+                    element.layout.as_mut().map(|layout| layout.visit_expressions(visitor));
+                    // The expressions of element.element are traversed through the regular element tree traversal
                 }
                 LayoutItem::Layout(layout) => layout.visit_expressions(visitor),
             }
@@ -227,7 +234,7 @@ pub mod gen {
 
     impl<L: Language> LayoutItemCodeGen<L> for LayoutItem
     where
-        ElementRc: LayoutItemCodeGen<L>,
+        LayoutElement: LayoutItemCodeGen<L>,
         Layout: LayoutItemCodeGen<L>,
     {
         fn get_property_ref(&self, name: &str) -> L::CompiledCode {

@@ -14,7 +14,7 @@ use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic, Spanned};
 use crate::expression_tree::{
     BuiltinFunction, EasingCurve, Expression, NamedReference, OperatorClass, Path,
 };
-use crate::layout::{gen::LayoutItemCodeGen, Layout};
+use crate::layout::{gen::LayoutItemCodeGen, Layout, LayoutElement};
 use crate::object_tree::{Component, ElementRc};
 use crate::typeregister::Type;
 use proc_macro2::TokenStream;
@@ -924,10 +924,10 @@ impl LayoutItemCodeGen<RustLanguageLayoutGen> for Layout {
     }
 }
 
-impl LayoutItemCodeGen<RustLanguageLayoutGen> for ElementRc {
+impl LayoutItemCodeGen<RustLanguageLayoutGen> for LayoutElement {
     fn get_property_ref(&self, name: &str) -> TokenStream {
-        let e = quote::format_ident!("{}", self.borrow().id);
-        if self.borrow().lookup_property(name) == Type::Length {
+        let e = quote::format_ident!("{}", self.element.borrow().id);
+        if self.element.borrow().lookup_property(name) == Type::Length {
             let n = quote::format_ident!("{}", name);
             quote! {Some(&self.#e.#n)}
         } else {
@@ -936,11 +936,18 @@ impl LayoutItemCodeGen<RustLanguageLayoutGen> for ElementRc {
     }
     fn get_layout_info_ref<'a, 'b>(
         &'a self,
-        _layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
-        _component: &Rc<Component>,
+        layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
+        component: &Rc<Component>,
     ) -> TokenStream {
-        let e = quote::format_ident!("{}", self.borrow().id);
-        quote!(Self::FIELD_OFFSETS.#e.apply_pin(self).layouting_info())
+        let e = quote::format_ident!("{}", self.element.borrow().id);
+        let element_info = quote!(Self::FIELD_OFFSETS.#e.apply_pin(self).layouting_info());
+        match &self.layout {
+            Some(layout) => {
+                let layout_info = layout.get_layout_info_ref(layout_tree, component);
+                quote!(#layout_info.merge(&#element_info))
+            }
+            None => element_info,
+        }
     }
 }
 

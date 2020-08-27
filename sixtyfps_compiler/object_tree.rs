@@ -164,6 +164,8 @@ pub struct Element {
     pub states: Vec<State>,
     pub transitions: Vec<Transition>,
 
+    pub child_of_layout: bool,
+
     /// The AST node, if available
     pub node: Option<syntax_nodes::Element>,
 }

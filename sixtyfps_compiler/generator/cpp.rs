@@ -184,7 +184,7 @@ mod cpp_ast {
 
 use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic, Spanned};
 use crate::expression_tree::{BuiltinFunction, EasingCurve, Expression, ExpressionSpanned};
-use crate::layout::{gen::LayoutItemCodeGen, Layout};
+use crate::layout::{gen::LayoutItemCodeGen, Layout, LayoutElement};
 use crate::object_tree::{Component, Element, ElementRc, RepeatedElementInfo};
 use crate::typeregister::Type;
 use cpp_ast::*;
@@ -1126,25 +1126,46 @@ impl LayoutItemCodeGen<CppLanguageLayoutGen> for Layout {
     }
 }
 
-impl LayoutItemCodeGen<CppLanguageLayoutGen> for ElementRc {
+impl LayoutItemCodeGen<CppLanguageLayoutGen> for LayoutElement {
     fn get_property_ref(&self, name: &str) -> String {
-        if self.borrow().lookup_property(name) == Type::Length {
-            format!("&self->{}.{}", self.borrow().id, name)
+        if self.element.borrow().lookup_property(name) == Type::Length {
+            format!("&self->{}.{}", self.element.borrow().id, name)
         } else {
             "nullptr".to_owned()
         }
     }
     fn get_layout_info_ref<'a, 'b>(
         &'a self,
-        _layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
-        _component: &Rc<Component>,
+        layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
+        component: &Rc<Component>,
     ) -> String {
-        format!(
+        let element_info = format!(
             "sixtyfps::private_api::{vt}.layouting_info({{&sixtyfps::private_api::{vt}, const_cast<sixtyfps::{ty}*>(&self->{id})}})",
-            vt = self.borrow().base_type.as_native().vtable_symbol,
-            ty = self.borrow().base_type.as_native().class_name,
-            id = self.borrow().id,
-        )
+            vt = self.element.borrow().base_type.as_native().vtable_symbol,
+            ty = self.element.borrow().base_type.as_native().class_name,
+            id = self.element.borrow().id,
+        );
+
+        match &self.layout {
+            Some(layout) => {
+                let layout_info = layout.get_layout_info_ref(layout_tree, component);
+                // Note: This "logic" is manually inlined from LayoutInfo::merge in layout.rs.
+                format!(
+                    r#"[&]() -> auto {{
+                        auto layout_info = {};
+                        auto element_info = {};
+                        return sixtyfps::LayoutInfo{{
+                            std::max(layout_info.min_width, element_info.min_width),
+                            std::min(layout_info.max_width, element_info.max_width),
+                            std::max(layout_info.min_height, element_info.min_height),
+                            std::min(layout_info.max_height, element_info.max_height),
+                        }};
+                }}()"#,
+                    layout_info, element_info
+                )
+            }
+            None => element_info,
+        }
     }
 }
 

@@ -35,6 +35,18 @@ impl Default for LayoutInfo {
     }
 }
 
+impl LayoutInfo {
+    // Note: This "logic" is duplicated in the cpp generator's generated code for merging layout infos.
+    pub fn merge(&self, other: &LayoutInfo) -> Self {
+        Self {
+            min_width: self.min_width.max(other.min_width),
+            max_width: self.max_width.min(other.max_width),
+            min_height: self.min_height.max(other.min_height),
+            max_height: self.max_height.min(other.max_height),
+        }
+    }
+}
+
 mod internal {
     use super::*;
 

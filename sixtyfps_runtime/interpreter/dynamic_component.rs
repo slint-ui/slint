@@ -13,7 +13,7 @@ use core::convert::TryInto;
 use core::ptr::NonNull;
 use dynamic_type::{Instance, InstanceBox};
 use object_tree::{Element, ElementRc};
-use sixtyfps_compilerlib::layout::{GridLayout, Layout, LayoutItem, PathLayout};
+use sixtyfps_compilerlib::layout::{GridLayout, Layout, LayoutElement, LayoutItem, PathLayout};
 use sixtyfps_compilerlib::typeregister::Type;
 use sixtyfps_compilerlib::*;
 use sixtyfps_corelib::component::{ComponentRefPin, ComponentVTable};
@@ -824,13 +824,13 @@ impl LayoutItemCodeGen for Layout {
     }
 }
 
-impl LayoutItemCodeGen for ElementRc {
+impl LayoutItemCodeGen for LayoutElement {
     fn get_property_ref<'a>(
         &'a self,
         component: InstanceRef,
         name: &str,
     ) -> Option<&'a Property<f32>> {
-        let item = &component.component_type.items[self.borrow().id.as_str()];
+        let item = &component.component_type.items[self.element.borrow().id.as_str()];
         unsafe {
             item.rtti.properties.get(name).map(|p| {
                 &*(component.as_ptr().add(item.offset).add(p.offset()) as *const Property<f32>)
@@ -840,10 +840,19 @@ impl LayoutItemCodeGen for ElementRc {
     fn get_layout_info<'a, 'b>(
         &'a self,
         component: InstanceRef,
-        _layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
+        layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
     ) -> LayoutInfo {
-        let item = &component.component_type.items[self.borrow().id.as_str()];
-        unsafe { item.item_from_component(component.as_ptr()).as_ref().layouting_info() }
+        let item = &component.component_type.items[self.element.borrow().id.as_str()];
+        let element_info =
+            unsafe { item.item_from_component(component.as_ptr()).as_ref().layouting_info() };
+
+        match &self.layout {
+            Some(layout) => {
+                let layout_info = layout.get_layout_info(component, layout_tree);
+                layout_info.merge(&element_info)
+            }
+            None => element_info,
+        }
     }
 }
 

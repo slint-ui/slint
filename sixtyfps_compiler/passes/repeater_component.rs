@@ -42,6 +42,7 @@ fn create_repeater_components(component: &Rc<Component>) {
                 enclosing_component: Default::default(),
                 states: std::mem::take(&mut elem.states),
                 transitions: std::mem::take(&mut elem.transitions),
+                child_of_layout: elem.child_of_layout,
             })),
             parent_element,
             ..Component::default()
