@@ -19,7 +19,7 @@ jobs:
   build:
     env:
       LD_LIBRARY_PATH: /home/runner/work/sixtyfps/Qt/5.12.9/gcc_64/lib
-      RUSTDOCFLAGS: --html-in-header=api/sixtyfps-rs/sixtyfps-docs-integration.html
+      RUSTDOCFLAGS: --html-in-header=/home/runner/work/sixtyfps/sixtyfps/api/sixtyfps-rs/sixtyfps-docs-integration.html
 
     runs-on: ubuntu-20.04
 
