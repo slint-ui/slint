@@ -128,12 +128,13 @@ jobs:
           mkdir -p demos
           mkdir -p demos/gallery
           mkdir -p demos/printerdemo
-          cp -a ../examples/gallery/wasm/dist/* demos/gallery
-          cp -a ../examples/printerdemo/wasm/dist/* demos/printerdemo
+          cp -a ../examples/gallery/wasm/dist/* demos/gallery/
+          cp -a ../examples/printerdemo/wasm/dist/* demos/printerdemo/
           git add demos
           git add -u demos
           rm -rf wasm-interpreter
-          cp -va ../api/sixtyfps-wasm-interpreter/pkg ./wasm-interpreter
+          mkdir -p wasm-interpreter
+          cp -a ../api/sixtyfps-wasm-interpreter/pkg/* ./wasm-interpreter/
           git add wasm-interpreter
           git add -u wasm-interpreter
           rm -rf docs
