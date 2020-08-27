@@ -244,10 +244,10 @@ pub extern "C" fn grid_layout_info<'a>(
     let spacing_h = spacing * (num_row - 1) as Coord;
     let spacing_w = spacing * (num_col - 1) as Coord;
 
-    let min_height = row_layout_data.iter().map(|data| data.min).sum::<Coord>() * spacing_h;
-    let max_height = row_layout_data.iter().map(|data| data.max).sum::<Coord>() * spacing_h;
-    let min_width = col_layout_data.iter().map(|data| data.min).sum::<Coord>() * spacing_w;
-    let max_width = col_layout_data.iter().map(|data| data.max).sum::<Coord>() * spacing_w;
+    let min_height = row_layout_data.iter().map(|data| data.min).sum::<Coord>() + spacing_h;
+    let max_height = row_layout_data.iter().map(|data| data.max).sum::<Coord>() + spacing_h;
+    let min_width = col_layout_data.iter().map(|data| data.min).sum::<Coord>() + spacing_w;
+    let max_width = col_layout_data.iter().map(|data| data.max).sum::<Coord>() + spacing_w;
 
     LayoutInfo { min_width, max_width, min_height, max_height }
 }
