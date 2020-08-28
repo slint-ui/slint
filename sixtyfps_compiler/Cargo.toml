@@ -26,7 +26,6 @@ display-diagnostics = ["codemap", "codemap-diagnostic"]
 
 
 [dependencies]
-m_lexer = "0.0.4" # simple lexer for now
 num_enum = "0.4.3"
 rowan = "0.10.0"
 derive_more = "0.99.5"

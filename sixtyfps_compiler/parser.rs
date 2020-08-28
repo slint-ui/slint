@@ -155,7 +155,7 @@ macro_rules! node_accessors {
 /// and the nodes with their contents.
 macro_rules! declare_syntax {
     ({
-        $($token:ident -> $rx:expr ,)*
+        $($token:ident -> $rule:expr ,)*
      }
      {
         $( $(#[$attr:meta])*  $nodekind:ident -> $children:tt ,)*
@@ -169,10 +169,7 @@ macro_rules! declare_syntax {
 
             // Tokens:
             $(
-                /// Token matching this regexp:
-                /// ```text
-                #[doc = $rx]
-                /// ```
+                /// Token
                 $token,
             )*
 
@@ -183,13 +180,16 @@ macro_rules! declare_syntax {
             )*
         }
 
-        fn lexer() -> m_lexer::Lexer {
-            m_lexer::LexerBuilder::new()
-                .error_token(m_lexer::TokenKind(SyntaxKind::Error.into()))
-                .tokens(&[
-                    $((m_lexer::TokenKind(SyntaxKind::$token.into()), $rx)),*
-                ])
-                .build()
+        /// Returns a pair of the matched token type at the beginning of `text`, and its size
+        pub fn lex_next_token(text : &str) -> Option<(usize, SyntaxKind)> {
+            use crate::lexer::LexingRule;
+            $(
+                let len = ($rule).lex(text);
+                if len > 0 {
+                    return Some((len, SyntaxKind::$token));
+                }
+            )*
+            None
         }
 
         pub mod syntax_nodes {
@@ -228,44 +228,46 @@ macro_rules! declare_syntax {
 declare_syntax! {
     // Tokens.
     // WARNING: when changing this, do not forget to update the tokenizer in the sixtyfps-rs-macro crate!
+    // The order of token is important because the rules will be run in that order
+    // and the first one matching will be chosen.
     {
-        Whitespace -> r"\s+",
-        Comment -> r"//.*\n|(?sU)/\*.*\*/", // FIXME: comments within comments
-        StringLiteral -> r#""[^"]*""#, // FIXME: escapes
-        NumberLiteral -> r"[\d]+(\.[\d]*)?[\w]*%?",
-        ColorLiteral -> r"#[\w]+",
-        Identifier -> r"[\w]+",
-        LBrace -> r"\{",
-        RBrace -> r"\}",
-        LParent -> r"\(",
-        RParent -> r"\)",
-        LAngle -> r"<",
-        RAngle -> r">",
-        LBracket -> r"\[",
-        RBracket -> r"\]",
-        Plus -> r"\+",
-        Minus -> r"-",
-        Star -> r"\*",
-        Div -> r"/",
-        PlusEqual -> r"\+=",
-        MinusEqual -> r"-=",
-        StarEqual -> r"\*=",
-        DivEqual -> r"/=",
-        LessEqual -> r"<=",
-        GreaterEqual -> r">=",
-        EqualEqual -> r"==",
-        NotEqual -> r"!=",
-        ColonEqual -> r":=",
-        FatArrow -> r"=>",
-        OrOr -> r"\|\|",
-        AndAnd -> r"&&",
-        Equal -> r"=",
-        Colon -> r":",
-        Comma -> r",",
-        Semicolon -> r";",
-        Bang -> r"!",
-        Dot -> r"\.",
-        Question -> r"\?",
+        Whitespace -> &crate::lexer::lex_whitespace,
+        Comment -> &crate::lexer::lex_comment,
+        StringLiteral -> &crate::lexer::lex_string,
+        NumberLiteral -> &crate::lexer::lex_number,
+        ColorLiteral -> &crate::lexer::lex_color,
+        Identifier -> &crate::lexer::lex_identifier,
+        PlusEqual -> "+=",
+        MinusEqual -> "-=",
+        StarEqual -> "*=",
+        DivEqual -> "/=",
+        LessEqual -> "<=",
+        GreaterEqual -> ">=",
+        EqualEqual -> "==",
+        NotEqual -> "!=",
+        ColonEqual -> ":=",
+        FatArrow -> "=>",
+        OrOr -> "||",
+        AndAnd -> "&&",
+        LBrace -> "{",
+        RBrace -> "}",
+        LParent -> "(",
+        RParent -> ")",
+        LAngle -> "<",
+        RAngle -> ">",
+        LBracket -> "[",
+        RBracket -> "]",
+        Plus -> "+",
+        Minus -> "-",
+        Star -> "*",
+        Div -> "/",
+        Equal -> "=",
+        Colon -> ":",
+        Comma -> ",",
+        Semicolon -> ";",
+        Bang -> "!",
+        Dot -> ".",
+        Question -> "?",
     }
     // syntax kind
     {
@@ -488,24 +490,7 @@ impl From<Vec<Token>> for DefaultParser {
 impl DefaultParser {
     /// Constructor that create a parser from the source code
     pub fn new(source: String) -> Self {
-        fn lex(source: &str) -> Vec<Token> {
-            lexer()
-                .tokenize(source)
-                .into_iter()
-                .scan(0usize, |start_offset, t| {
-                    let s: rowan::SmolStr = source[*start_offset..*start_offset + t.len].into();
-                    let offset = *start_offset;
-                    *start_offset += t.len;
-                    Some(Token {
-                        kind: SyntaxKind::try_from(t.kind.0).unwrap(),
-                        text: s,
-                        offset,
-                        ..Default::default()
-                    })
-                })
-                .collect()
-        }
-        let mut parser = Self::from(lex(&source));
+        let mut parser = Self::from(crate::lexer::lex(&source));
         parser.diags.source = Some(source);
         parser
     }

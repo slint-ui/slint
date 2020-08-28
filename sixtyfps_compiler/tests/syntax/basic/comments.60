@@ -17,14 +17,17 @@ SuperSimple := Rectangle {
     //comment
 
     /* block comment
-       on several 
+       on several
        lines
     */
     color: /* . */ blue;
 //  ^error{Duplicated property}
 }
 
-/* another comment 
-here*/
+/* another comment
+    /* even with some /*nesting*/*/
+
+plop
+*/
 
 // this is a comment
