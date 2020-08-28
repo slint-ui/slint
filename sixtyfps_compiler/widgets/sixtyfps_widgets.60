@@ -153,7 +153,9 @@ export SpinBox := Rectangle {
         font_size: root.font_size;
         x: parent.height + 15lx;
         width: plus_button.x - self.x - 15lx;
+        height: parent.height;
         horizontal_alignment: align_center;
+        vertical_alignment: align_center;
         color: black;
     }
 }
