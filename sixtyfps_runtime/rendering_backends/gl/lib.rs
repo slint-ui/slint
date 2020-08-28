@@ -700,6 +700,8 @@ impl GraphicsFrame for GLFrame {
                         0,
                     );
                 }
+
+                self.path_shader.unbind(&self.context);
             }
             GLRenderingPrimitive::Texture { vertices, texture_vertices, texture, image_size } => {
                 let matrix = if let Some(scaled_width) = rendering_var.next() {
@@ -735,6 +737,8 @@ impl GraphicsFrame for GLFrame {
                 unsafe {
                     self.context.draw_arrays(glow::TRIANGLES, 0, 6);
                 }
+
+                self.image_shader.unbind(&self.context);
             }
             #[cfg(not(target_arch = "wasm32"))]
             GLRenderingPrimitive::GlyphRuns { glyph_runs, color } => {
@@ -753,6 +757,8 @@ impl GraphicsFrame for GLFrame {
                     unsafe {
                         self.context.draw_arrays(glow::TRIANGLES, 0, *vertex_count);
                     }
+
+                    self.platform_data.glyph_shader.unbind(&self.context);
                 }
             }
         });

@@ -139,6 +139,12 @@ impl PathShader {
 
         indices.bind(&gl);
     }
+
+    pub fn unbind(&self, gl: &glow::Context) {
+        unsafe {
+            gl.disable_vertex_attrib_array(self.pos_location);
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -198,6 +204,13 @@ impl ImageShader {
 
         tex_pos.bind(&gl, self.tex_pos_location);
     }
+
+    pub fn unbind(&self, gl: &glow::Context) {
+        unsafe {
+            gl.disable_vertex_attrib_array(self.pos_location);
+            gl.disable_vertex_attrib_array(self.tex_pos_location);
+        }
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -256,7 +269,6 @@ impl GlyphShader {
         }
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
     pub fn bind(
         &self,
         gl: &glow::Context,
@@ -285,5 +297,12 @@ impl GlyphShader {
         pos.bind(&gl, self.pos_location);
 
         tex_pos.bind(&gl, self.tex_pos_location);
+    }
+
+    pub fn unbind(&self, gl: &glow::Context) {
+        unsafe {
+            gl.disable_vertex_attrib_array(self.pos_location);
+            gl.disable_vertex_attrib_array(self.tex_pos_location);
+        }
     }
 }
