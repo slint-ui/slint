@@ -22,7 +22,7 @@ use sixtyfps_corelib::item_tree::{
     ItemTreeNode, ItemVisitorRefMut, TraversalOrder, VisitChildrenResult,
 };
 use sixtyfps_corelib::items::{Flickable, ItemRef, ItemVTable, PropertyAnimation, Rectangle};
-use sixtyfps_corelib::layout::LayoutInfo;
+use sixtyfps_corelib::layout::{LayoutInfo, Padding};
 use sixtyfps_corelib::properties::{InterpolatedPropertyValue, PropertyTracker};
 use sixtyfps_corelib::rtti::{self, FieldOffset, PropertyInfo};
 use sixtyfps_corelib::slice::Slice;
@@ -746,6 +746,7 @@ pub struct GridLayoutWithCells<'a> {
     grid: &'a GridLayout,
     cells: Vec<GridLayoutCellData<'a>>,
     spacing: f32,
+    padding: Padding,
 }
 
 #[derive(derive_more::From)]
@@ -757,9 +758,11 @@ enum LayoutTreeItem<'a> {
 impl<'a> LayoutTreeItem<'a> {
     fn layout_info(&self) -> LayoutInfo {
         match self {
-            LayoutTreeItem::GridLayout(grid_layout) => {
-                grid_layout_info(&Slice::from(grid_layout.cells.as_slice()), grid_layout.spacing)
-            }
+            LayoutTreeItem::GridLayout(grid_layout) => grid_layout_info(
+                &Slice::from(grid_layout.cells.as_slice()),
+                grid_layout.spacing,
+                &grid_layout.padding,
+            ),
             LayoutTreeItem::PathLayout(_) => todo!(),
         }
     }
@@ -891,7 +894,14 @@ fn collect_layouts_recursively<'a, 'b>(
                 })
                 .collect();
             let spacing = grid_layout.spacing.as_ref().map_or(0., expr_eval);
-            layout_tree.push(GridLayoutWithCells { grid: grid_layout, cells, spacing }.into());
+            let padding = Padding {
+                left: grid_layout.padding.left.as_ref().map_or(0., expr_eval),
+                right: grid_layout.padding.right.as_ref().map_or(0., expr_eval),
+                top: grid_layout.padding.top.as_ref().map_or(0., expr_eval),
+                bottom: grid_layout.padding.bottom.as_ref().map_or(0., expr_eval),
+            };
+            layout_tree
+                .push(GridLayoutWithCells { grid: grid_layout, cells, spacing, padding }.into());
         }
         Layout::PathLayout(layout) => layout_tree.push(layout.into()),
     }
@@ -914,6 +924,7 @@ impl<'a> LayoutTreeItem<'a> {
                     x: resolve_prop_ref(&grid_layout.grid.rect.x_reference),
                     y: resolve_prop_ref(&grid_layout.grid.rect.y_reference),
                     spacing: grid_layout.spacing,
+                    padding: &grid_layout.padding,
                     cells: Slice::from(grid_layout.cells.as_slice()),
                 });
             }

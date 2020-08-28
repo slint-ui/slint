@@ -1118,9 +1118,10 @@ impl LayoutItemCodeGen<CppLanguageLayoutGen> for Layout {
     ) -> String {
         let self_as_layout_tree_item = collect_layouts_recursively(layout_tree, &self, component);
         match self_as_layout_tree_item {
-            LayoutTreeItem::GridLayout { spacing, cell_ref_variable, .. } => {
-                format!("sixtyfps::grid_layout_info(&{}, {})", cell_ref_variable, spacing)
-            }
+            LayoutTreeItem::GridLayout { spacing, cell_ref_variable, padding, .. } => format!(
+                "sixtyfps::grid_layout_info(&{}, {}, &{})",
+                cell_ref_variable, spacing, padding
+            ),
             LayoutTreeItem::PathLayout(_) => todo!(),
         }
     }
@@ -1230,9 +1231,27 @@ fn collect_layouts_recursively<'a, 'b>(
                 "0.".into()
             };
 
+            let padding = format!("padding_{}", layout_tree.len());
+            let padding_prop = |expr| {
+                if let Some(expr) = expr {
+                    compile_expression(expr, component)
+                } else {
+                    "0.".into()
+                }
+            };
+            creation_code.push(format!(
+                "sixtyfps::Padding {} = {{ {}, {}, {}, {} }};",
+                padding,
+                padding_prop(grid_layout.padding.left.as_ref()),
+                padding_prop(grid_layout.padding.right.as_ref()),
+                padding_prop(grid_layout.padding.top.as_ref()),
+                padding_prop(grid_layout.padding.bottom.as_ref()),
+            ));
+
             layout_tree.push(LayoutTreeItem::GridLayout {
                 grid: grid_layout,
                 spacing,
+                padding,
                 var_creation_code: creation_code.join("\n"),
                 cell_ref_variable,
             })
@@ -1245,7 +1264,7 @@ fn collect_layouts_recursively<'a, 'b>(
 impl<'a> LayoutTreeItem<'a> {
     fn emit_solve_calls(&self, component: &Rc<Component>, code_stream: &mut Vec<String>) {
         match self {
-            LayoutTreeItem::GridLayout { grid, spacing, cell_ref_variable, .. } => {
+            LayoutTreeItem::GridLayout { grid, spacing, cell_ref_variable, padding, .. } => {
                 code_stream.push("    { ".into());
                 code_stream.push(format!(
                     "    auto width = {};",
@@ -1257,10 +1276,11 @@ impl<'a> LayoutTreeItem<'a> {
                 ));
                 code_stream.push("    sixtyfps::GridLayoutData grid { ".into());
                 code_stream.push(format!(
-                    "        width, height, {}, {}, {},",
+                    "        width, height, {}, {}, {}, &{},",
                     compile_expression(&grid.rect.x_reference, component),
                     compile_expression(&grid.rect.y_reference, component),
                     spacing,
+                    padding,
                 ));
                 code_stream.push(format!("        {cv}", cv = cell_ref_variable).to_owned());
                 code_stream.push("    };".to_owned());

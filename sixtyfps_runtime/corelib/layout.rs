@@ -163,6 +163,15 @@ impl Default for Constraint {
 }
 
 #[repr(C)]
+#[derive(Debug, Default)]
+pub struct Padding {
+    pub left: Coord,
+    pub right: Coord,
+    pub top: Coord,
+    pub bottom: Coord,
+}
+
+#[repr(C)]
 #[derive(Debug)]
 pub struct GridLayoutData<'a> {
     pub width: Coord,
@@ -170,6 +179,7 @@ pub struct GridLayoutData<'a> {
     pub x: Coord,
     pub y: Coord,
     pub spacing: Coord,
+    pub padding: &'a Padding,
     pub cells: Slice<'a, GridLayoutCellData<'a>>,
 }
 
@@ -213,8 +223,18 @@ pub extern "C" fn solve_grid_layout(data: &GridLayoutData) {
         cdata.pref = cdata.pref.max(cell.constraint.min_width);
     }
 
-    internal::layout_items(&mut row_layout_data, data.y, data.height, data.spacing);
-    internal::layout_items(&mut col_layout_data, data.x, data.width, data.spacing);
+    internal::layout_items(
+        &mut row_layout_data,
+        data.y + data.padding.top,
+        data.height - (data.padding.top + data.padding.bottom),
+        data.spacing,
+    );
+    internal::layout_items(
+        &mut col_layout_data,
+        data.x + data.padding.left,
+        data.width - (data.padding.left + data.padding.right),
+        data.spacing,
+    );
     for cell in data.cells.iter() {
         let rdata = &row_layout_data[cell.row as usize];
         let cdata = &col_layout_data[cell.col as usize];
@@ -229,6 +249,7 @@ pub extern "C" fn solve_grid_layout(data: &GridLayoutData) {
 pub extern "C" fn grid_layout_info<'a>(
     cells: &Slice<'a, GridLayoutCellData<'a>>,
     spacing: Coord,
+    padding: &Padding,
 ) -> LayoutInfo {
     let (mut num_col, mut num_row) = (0, 0);
     for cell in cells.iter() {
@@ -256,10 +277,22 @@ pub extern "C" fn grid_layout_info<'a>(
     let spacing_h = spacing * (num_row - 1) as Coord;
     let spacing_w = spacing * (num_col - 1) as Coord;
 
-    let min_height = row_layout_data.iter().map(|data| data.min).sum::<Coord>() + spacing_h;
-    let max_height = row_layout_data.iter().map(|data| data.max).sum::<Coord>() + spacing_h;
-    let min_width = col_layout_data.iter().map(|data| data.min).sum::<Coord>() + spacing_w;
-    let max_width = col_layout_data.iter().map(|data| data.max).sum::<Coord>() + spacing_w;
+    let min_height = row_layout_data.iter().map(|data| data.min).sum::<Coord>()
+        + spacing_h
+        + padding.left
+        + padding.right;
+    let max_height = row_layout_data.iter().map(|data| data.max).sum::<Coord>()
+        + spacing_h
+        + padding.top
+        + padding.bottom;
+    let min_width = col_layout_data.iter().map(|data| data.min).sum::<Coord>()
+        + spacing_w
+        + padding.left
+        + padding.right;
+    let max_width = col_layout_data.iter().map(|data| data.max).sum::<Coord>()
+        + spacing_w
+        + padding.top
+        + padding.bottom;
 
     LayoutInfo { min_width, max_width, min_height, max_height }
 }

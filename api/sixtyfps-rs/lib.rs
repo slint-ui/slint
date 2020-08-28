@@ -141,7 +141,7 @@ pub mod re_exports {
     pub use sixtyfps_corelib::layout::LayoutInfo;
     pub use sixtyfps_corelib::layout::{
         grid_layout_info, solve_grid_layout, solve_path_layout, GridLayoutCellData, GridLayoutData,
-        PathLayoutData, PathLayoutItemData,
+        Padding, PathLayoutData, PathLayoutItemData,
     };
     pub use sixtyfps_corelib::properties::{Property, PropertyTracker};
     pub use sixtyfps_corelib::signals::Signal;

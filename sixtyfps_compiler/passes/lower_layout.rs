@@ -22,6 +22,17 @@ fn property_reference(element: &ElementRc, name: &str) -> Box<Expression> {
     }))
 }
 
+fn binding_reference(element: &ElementRc, name: &str) -> Option<Expression> {
+    if element.borrow().bindings.contains_key(name) {
+        Some(Expression::PropertyReference(NamedReference {
+            element: Rc::downgrade(element),
+            name: name.into(),
+        }))
+    } else {
+        None
+    }
+}
+
 fn lower_grid_layout(
     component: &Rc<Component>,
     rect: LayoutRect,
@@ -29,16 +40,15 @@ fn lower_grid_layout(
     collected_children: &mut Vec<ElementRc>,
     diag: &mut BuildDiagnostics,
 ) -> Option<Layout> {
-    let spacing = if grid_layout_element.borrow().bindings.contains_key("spacing") {
-        Some(Expression::PropertyReference(NamedReference {
-            element: Rc::downgrade(grid_layout_element),
-            name: "spacing".into(),
-        }))
-    } else {
-        None
+    let spacing = binding_reference(grid_layout_element, "spacing");
+    let padding = Padding {
+        left: binding_reference(grid_layout_element, "padding_left"),
+        right: binding_reference(grid_layout_element, "padding_right"),
+        top: binding_reference(grid_layout_element, "padding_top"),
+        bottom: binding_reference(grid_layout_element, "padding_bottom"),
     };
 
-    let mut grid = GridLayout { elems: Default::default(), rect, spacing };
+    let mut grid = GridLayout { elems: Default::default(), rect, spacing, padding };
 
     let mut row = 0;
     let mut col = 0;

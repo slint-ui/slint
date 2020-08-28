@@ -155,6 +155,23 @@ impl GridLayoutElement {
     }
 }
 
+#[derive(Debug)]
+pub struct Padding {
+    pub left: Option<Expression>,
+    pub right: Option<Expression>,
+    pub top: Option<Expression>,
+    pub bottom: Option<Expression>,
+}
+
+impl ExpressionFieldsVisitor for Padding {
+    fn visit_expressions(&mut self, visitor: &mut impl FnMut(&mut Expression)) {
+        self.left.as_mut().map(|e| visitor(&mut *e));
+        self.right.as_mut().map(|e| visitor(&mut *e));
+        self.top.as_mut().map(|e| visitor(&mut *e));
+        self.bottom.as_mut().map(|e| visitor(&mut *e));
+    }
+}
+
 /// Internal representation of a grid layout
 #[derive(Debug)]
 pub struct GridLayout {
@@ -164,6 +181,7 @@ pub struct GridLayout {
     pub rect: LayoutRect,
 
     pub spacing: Option<Expression>,
+    pub padding: Padding,
 }
 
 impl ExpressionFieldsVisitor for GridLayout {
@@ -184,7 +202,8 @@ impl ExpressionFieldsVisitor for GridLayout {
             e.maximum_height.as_mut().map(|e| visitor(&mut *e));
             e.minimum_height.as_mut().map(|e| visitor(&mut *e));
         }
-        self.spacing.as_mut().map(visitor);
+        self.spacing.as_mut().map(|e| visitor(&mut *e));
+        self.padding.visit_expressions(visitor);
     }
 }
 
@@ -217,6 +236,7 @@ pub mod gen {
         GridLayout {
             grid: &'a GridLayout,
             spacing: L::CompiledCode,
+            padding: L::CompiledCode,
             var_creation_code: L::CompiledCode,
             cell_ref_variable: L::CompiledCode,
         },

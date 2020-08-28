@@ -916,8 +916,8 @@ impl LayoutItemCodeGen<RustLanguageLayoutGen> for Layout {
     ) -> TokenStream {
         let self_as_layout_tree_item = collect_layouts_recursively(layout_tree, &self, component);
         match self_as_layout_tree_item {
-            LayoutTreeItem::GridLayout { cell_ref_variable, spacing, .. } => {
-                quote!(grid_layout_info(&Slice::from_slice(&#cell_ref_variable), #spacing))
+            LayoutTreeItem::GridLayout { cell_ref_variable, spacing, padding, .. } => {
+                quote!(grid_layout_info(&Slice::from_slice(&#cell_ref_variable), #spacing, #padding))
             }
             LayoutTreeItem::PathLayout(_) => todo!(),
         }
@@ -1012,12 +1012,32 @@ fn collect_layouts_recursively<'a, 'b>(
             } else {
                 (quote!(0.), None)
             };
+            let padding = {
+                let padding_prop = |expr| {
+                    if let Some(expr) = expr {
+                        compile_expression(expr, component)
+                    } else {
+                        quote!(0.)
+                    }
+                };
+                let left = padding_prop(grid_layout.padding.left.as_ref());
+                let right = padding_prop(grid_layout.padding.right.as_ref());
+                let top = padding_prop(grid_layout.padding.top.as_ref());
+                let bottom = padding_prop(grid_layout.padding.bottom.as_ref());
+                quote!(&sixtyfps::re_exports::Padding {
+                    left: #left,
+                    right: #right,
+                    top: #top,
+                    bottom: #bottom,
+                })
+            };
             layout_tree.push(
                 LayoutTreeItem::GridLayout {
                     grid: grid_layout,
                     var_creation_code: quote!(#cell_creation_code #spacing_creation_code),
                     cell_ref_variable: quote!(#cell_ref_variable),
                     spacing,
+                    padding,
                 }
                 .into(),
             );
@@ -1030,7 +1050,7 @@ fn collect_layouts_recursively<'a, 'b>(
 impl<'a> LayoutTreeItem<'a> {
     fn emit_solve_calls(&self, component: &Rc<Component>, code_stream: &mut Vec<TokenStream>) {
         match self {
-            LayoutTreeItem::GridLayout { grid, cell_ref_variable, spacing, .. } => {
+            LayoutTreeItem::GridLayout { grid, cell_ref_variable, spacing, padding, .. } => {
                 let x_pos = compile_expression(&*grid.rect.x_reference, component);
                 let y_pos = compile_expression(&*grid.rect.y_reference, component);
                 let width = compile_expression(&*grid.rect.width_reference, component);
@@ -1044,6 +1064,7 @@ impl<'a> LayoutTreeItem<'a> {
                         y: #y_pos as _,
                         cells: Slice::from_slice(&#cell_ref_variable),
                         spacing: #spacing,
+                        padding: #padding,
                     });
                 });
             }
