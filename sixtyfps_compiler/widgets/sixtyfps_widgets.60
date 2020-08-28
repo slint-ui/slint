@@ -111,8 +111,12 @@ SpinBoxButton := Rectangle {
         clicked => { root.clicked(); }
     }
     Text {
-        x: parent.width / 2 - 15lx + (touch.pressed ? 1lx : 0lx) ;
-        y: parent.height / 2 - 15lx + (touch.pressed ? 1lx : 0lx);
+        x: touch.pressed ? 1lx : 0lx;
+        y: touch.pressed ? 1lx : 0lx;
+        width: parent.width;
+        height: parent.height;
+        vertical_alignment: align_center;
+        horizontal_alignment: align_center;
         text: root.text;
         font_size: root.font_size;
         color: black;
