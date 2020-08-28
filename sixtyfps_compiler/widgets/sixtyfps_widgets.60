@@ -76,9 +76,12 @@ export CheckBox := Rectangle {
     }
 
     Text {
-        x: indicator.width + 2lx;
+        x: indicator.width + 8lx;
         text: root.text;
         color: black;
+        vertical_alignment: align_center;
+        width: parent.width - self.x;
+        height: parent.height;
     }
 
     touch_area := TouchArea {
