@@ -62,7 +62,7 @@ pub fn lex_comment(text: &str) -> usize {
         while offset < bytes.len() {
             if let Some(star) = bytes[offset..].iter().position(|c| *c == b'*') {
                 let star = star + offset;
-                if bytes[star - 1] == b'/' {
+                if star > offset && bytes[star - 1] == b'/' {
                     nested += 1;
                     offset = star + 1;
                 } else if bytes[star + 1] == b'/' {
@@ -220,6 +220,14 @@ fn basic_lexer_test() {
             (crate::parser::SyntaxKind::Identifier, "b1"),
             (crate::parser::SyntaxKind::Comma, ","),
             (crate::parser::SyntaxKind::Identifier, "c"),
+        ],
+    );
+    compare(
+        r#"/*/**/*//**/*"#,
+        &[
+            (crate::parser::SyntaxKind::Comment, "/*/**/*/"),
+            (crate::parser::SyntaxKind::Comment, "/**/"),
+            (crate::parser::SyntaxKind::Star, "*"),
         ],
     );
 }
