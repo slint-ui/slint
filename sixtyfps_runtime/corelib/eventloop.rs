@@ -112,6 +112,7 @@ impl EventLoop {
         let layout_listener = Rc::pin(PropertyTracker::default());
 
         let mut cursor_pos = winit::dpi::PhysicalPosition::new(0., 0.);
+        let mut pressed = false;
         let mut run_fn = move |event: Event<()>,
                                _: &EventLoopWindowTarget<()>,
                                control_flow: &mut ControlFlow| {
@@ -183,8 +184,12 @@ impl EventLoop {
                             windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
                         {
                             let what = match state {
-                                winit::event::ElementState::Pressed => MouseEventType::MousePressed,
+                                winit::event::ElementState::Pressed => {
+                                    pressed = true;
+                                    MouseEventType::MousePressed
+                                }
                                 winit::event::ElementState::Released => {
+                                    pressed = false;
                                     MouseEventType::MouseReleased
                                 }
                             };
@@ -206,9 +211,13 @@ impl EventLoop {
                         {
                             let cursor_pos = touch.location;
                             let what = match touch.phase {
-                                winit::event::TouchPhase::Started => MouseEventType::MousePressed,
+                                winit::event::TouchPhase::Started => {
+                                    pressed = true;
+                                    MouseEventType::MousePressed
+                                }
                                 winit::event::TouchPhase::Ended
                                 | winit::event::TouchPhase::Cancelled => {
+                                    pressed = false;
                                     MouseEventType::MouseReleased
                                 }
                                 winit::event::TouchPhase::Moved => MouseEventType::MouseMoved,
@@ -239,6 +248,31 @@ impl EventLoop {
                             window.request_redraw();
                         }
                     });
+                }
+                // On the html canvas, we don't get the mouse move or release event when outside the canvas. So we have no choice but canceling the event
+                #[cfg(target_arch = "wasm32")]
+                winit::event::Event::WindowEvent {
+                    ref window_id,
+                    event: winit::event::WindowEvent::CursorLeft { .. },
+                    ..
+                } => {
+                    if pressed {
+                        crate::animations::update_animations();
+                        ALL_WINDOWS.with(|windows| {
+                            if let Some(Some(window)) =
+                                windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
+                            {
+                                pressed = false;
+                                window.process_mouse_input(
+                                    cursor_pos,
+                                    MouseEventType::MouseExit,
+                                    component,
+                                );
+                                // FIXME: remove this, it should be based on actual changes rather than this
+                                window.request_redraw();
+                            }
+                        });
+                    }
                 }
 
                 _ => (),
