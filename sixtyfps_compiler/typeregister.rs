@@ -243,6 +243,8 @@ impl Type {
                     | (Type::Float32, Type::Model)
                     | (Type::Int32, Type::Model)
                     | (Type::Length, Type::LogicalLength)
+                    | (Type::Length, Type::Float32)
+                    | (Type::Float32, Type::Length)
                     | (Type::LogicalLength, Type::Length)
             )
     }
