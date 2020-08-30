@@ -56,9 +56,9 @@ enum OperatorPrecedence {
 fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) {
     let mut p = p.start_node(SyntaxKind::Expression);
     let checkpoint = p.checkpoint();
-    match p.nth(0) {
+    match p.nth(0).kind() {
         SyntaxKind::Identifier => {
-            if p.nth(1) == SyntaxKind::Bang {
+            if p.nth(1).kind() == SyntaxKind::Bang {
                 parse_bang_expression(&mut *p)
             } else {
                 parse_qualified_name(&mut *p);
@@ -95,7 +95,7 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) 
         }
     }
 
-    match p.nth(0) {
+    match p.nth(0).kind() {
         SyntaxKind::LParent => {
             {
                 let _ = p.start_node_at(checkpoint.clone(), SyntaxKind::Expression);
@@ -112,7 +112,7 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) 
         return;
     }
 
-    while matches!(p.nth(0), SyntaxKind::Star | SyntaxKind::Div) {
+    while matches!(p.nth(0).kind(), SyntaxKind::Star | SyntaxKind::Div) {
         {
             let _ = p.start_node_at(checkpoint.clone(), SyntaxKind::Expression);
         }
@@ -125,7 +125,7 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) 
         return;
     }
 
-    while matches!(p.nth(0), SyntaxKind::Plus | SyntaxKind::Minus) {
+    while matches!(p.nth(0).kind(), SyntaxKind::Plus | SyntaxKind::Minus) {
         {
             let _ = p.start_node_at(checkpoint.clone(), SyntaxKind::Expression);
         }
@@ -139,7 +139,7 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) 
     }
 
     if matches!(
-        p.nth(0),
+        p.nth(0).kind(),
         SyntaxKind::LessEqual
             | SyntaxKind::GreaterEqual
             | SyntaxKind::EqualEqual
@@ -164,14 +164,14 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) 
     }
 
     let mut prev_logical_op = None;
-    while matches!(p.nth(0), SyntaxKind::AndAnd | SyntaxKind::OrOr) {
+    while matches!(p.nth(0).kind(), SyntaxKind::AndAnd | SyntaxKind::OrOr) {
         if let Some(prev) = prev_logical_op {
-            if prev != p.nth(0) {
+            if prev != p.nth(0).kind() {
                 p.error("Use parentheses to disambiguate between && and ||");
                 prev_logical_op = None;
             }
         } else {
-            prev_logical_op = Some(p.nth(0));
+            prev_logical_op = Some(p.nth(0).kind());
         }
 
         {
@@ -182,7 +182,7 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) 
         parse_expression_helper(&mut *p, OperatorPrecedence::Logical);
     }
 
-    match p.nth(0) {
+    match p.nth(0).kind() {
         SyntaxKind::Question => {
             {
                 let _ = p.start_node_at(checkpoint.clone(), SyntaxKind::Expression);
@@ -224,7 +224,7 @@ fn parse_array(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::Array);
     p.expect(SyntaxKind::LBracket);
 
-    while p.nth(0) != SyntaxKind::RBracket {
+    while p.nth(0).kind() != SyntaxKind::RBracket {
         parse_expression(&mut *p);
         if !p.test(SyntaxKind::Comma) {
             break;
@@ -244,7 +244,7 @@ fn parse_object_notation(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::ObjectLiteral);
     p.expect(SyntaxKind::LBrace);
 
-    while p.nth(0) != SyntaxKind::RBrace {
+    while p.nth(0).kind() != SyntaxKind::RBrace {
         let mut p = p.start_node(SyntaxKind::ObjectMember);
         p.expect(SyntaxKind::Identifier);
         p.expect(SyntaxKind::Colon);
