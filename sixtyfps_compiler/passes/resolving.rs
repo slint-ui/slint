@@ -197,7 +197,7 @@ impl Expression {
         node.Expression()
             .map(|n| Self::from_expression_node(n, ctx))
             .or_else(|| {
-                node.BangExpression().map(|n| Self::from_bang_expresion_node(n.into(), ctx))
+                node.BangExpression().map(|n| Self::from_bang_expression_node(n.into(), ctx))
             })
             .or_else(|| node.QualifiedName().map(|s| Self::from_qualified_name_node(s.into(), ctx)))
             .or_else(|| {
@@ -253,7 +253,7 @@ impl Expression {
             .unwrap_or(Self::Invalid)
     }
 
-    fn from_bang_expresion_node(node: SyntaxNodeWithSourceFile, ctx: &mut LookupCtx) -> Self {
+    fn from_bang_expression_node(node: SyntaxNodeWithSourceFile, ctx: &mut LookupCtx) -> Self {
         match node.child_text(SyntaxKind::Identifier).as_ref().map(|x| x.as_str()) {
             None => {
                 debug_assert!(false, "the parser should not allow that");
