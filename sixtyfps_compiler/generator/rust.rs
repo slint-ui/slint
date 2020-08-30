@@ -679,7 +679,9 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
         Expression::Cast { from, to } => {
             let f = compile_expression(&*from, &component);
             match (from.ty(), to) {
-                (Type::Float32, Type::String) | (Type::Int32, Type::String) => {
+                (Type::Length, Type::String)
+                | (Type::Float32, Type::String)
+                | (Type::Int32, Type::String) => {
                     quote!(sixtyfps::re_exports::SharedString::from(format!("{}", #f).as_str()))
                 }
                 (Type::Float32, Type::Model) | (Type::Int32, Type::Model) => quote!((0..#f as i32)),

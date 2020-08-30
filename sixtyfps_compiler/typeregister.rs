@@ -244,6 +244,7 @@ impl Type {
                     | (Type::Int32, Type::Model)
                     | (Type::Length, Type::LogicalLength)
                     | (Type::Length, Type::Float32)
+                    | (Type::Length, Type::String)
                     | (Type::Float32, Type::Length)
                     | (Type::LogicalLength, Type::Length)
             )
