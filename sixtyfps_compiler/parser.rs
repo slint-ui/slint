@@ -420,7 +420,7 @@ mod parser_trait {
         );
         fn peek(&mut self) -> Token;
         /// Peek the n'th token, not including whitespaces and comments
-        fn nth(&mut self, n: usize) -> SyntaxKind;
+        fn nth(&mut self, n: usize) -> Token;
         fn consume(&mut self);
         fn error(&mut self, e: impl Into<String>);
 
@@ -536,7 +536,7 @@ impl Parser for DefaultParser {
     }
 
     /// Peek the n'th token, not including whitespaces and comments
-    fn nth(&mut self, mut n: usize) -> SyntaxKind {
+    fn nth(&mut self, mut n: usize) -> Token {
         self.consume_ws();
         let mut c = self.cursor;
         while n > 0 {
@@ -548,7 +548,7 @@ impl Parser for DefaultParser {
                 c += 1;
             }
         }
-        self.tokens.get(c).map_or(SyntaxKind::Eof, |x| x.kind)
+        self.tokens.get(c).cloned().unwrap_or_default()
     }
 
     /// Consume the current token
