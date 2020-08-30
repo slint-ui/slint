@@ -436,7 +436,7 @@ mod parser_trait {
 
         /// If the token if of this type, consume it and return true, otherwise return false
         fn test(&mut self, kind: SyntaxKind) -> bool {
-            if self.nth(0) != kind {
+            if self.nth(0).kind() != kind {
                 return false;
             }
             self.consume();
@@ -447,7 +447,7 @@ mod parser_trait {
         fn until(&mut self, kind: SyntaxKind) {
             // FIXME! match {} () []
             while {
-                let k = self.nth(0);
+                let k = self.nth(0).kind();
                 k != kind && k != SyntaxKind::Eof
             } {
                 self.consume();

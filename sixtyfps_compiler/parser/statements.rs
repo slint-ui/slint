@@ -20,7 +20,7 @@ use super::prelude::*;
 /// if (true) { foo = bar; } else { bar = foo;  }
 /// ```
 pub fn parse_statement(p: &mut impl Parser) -> bool {
-    if p.nth(0) == SyntaxKind::RBrace {
+    if p.nth(0).kind() == SyntaxKind::RBrace {
         return false;
     }
     if p.test(SyntaxKind::Semicolon) {
@@ -28,7 +28,7 @@ pub fn parse_statement(p: &mut impl Parser) -> bool {
     }
     let checkpoint = p.checkpoint();
 
-    if p.peek().as_str() == "if" && p.nth(1) == SyntaxKind::LParent {
+    if p.peek().as_str() == "if" && p.nth(1).kind() == SyntaxKind::LParent {
         let mut p = p.start_node(SyntaxKind::Expression);
         parse_if_statement(&mut *p);
         return true;
@@ -36,7 +36,7 @@ pub fn parse_statement(p: &mut impl Parser) -> bool {
 
     parse_expression(p);
     if matches!(
-        p.nth(0),
+        p.nth(0).kind(),
         SyntaxKind::MinusEqual
             | SyntaxKind::PlusEqual
             | SyntaxKind::StarEqual

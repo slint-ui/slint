@@ -35,7 +35,7 @@ pub fn parse_document(p: &mut impl Parser) -> bool {
                 }
             }
             _ => {
-                if p.peek().as_str() == "component" && p.nth(1) != SyntaxKind::ColonEqual {
+                if p.peek().as_str() == "component" && p.nth(1).kind() != SyntaxKind::ColonEqual {
                     p.expect(SyntaxKind::Identifier);
                 }
 
@@ -45,7 +45,7 @@ pub fn parse_document(p: &mut impl Parser) -> bool {
             }
         }
 
-        if p.nth(0) == SyntaxKind::Eof {
+        if p.nth(0).kind() == SyntaxKind::Eof {
             return true;
         }
     }
@@ -100,10 +100,10 @@ pub fn parse_element(p: &mut impl Parser) -> bool {
 /// ```
 fn parse_element_content(p: &mut impl Parser) {
     loop {
-        match p.nth(0) {
+        match p.nth(0).kind() {
             SyntaxKind::RBrace => return,
             SyntaxKind::Eof => return,
-            SyntaxKind::Identifier => match p.nth(1) {
+            SyntaxKind::Identifier => match p.nth(1).kind() {
                 SyntaxKind::Colon => parse_property_binding(&mut *p),
                 SyntaxKind::ColonEqual | SyntaxKind::LBrace => parse_sub_element(&mut *p),
                 SyntaxKind::FatArrow => parse_signal_connection(&mut *p),
@@ -164,7 +164,7 @@ fn parse_element_content(p: &mut impl Parser) {
 /// Must consume at least one token
 fn parse_sub_element(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::SubElement);
-    if p.nth(1) == SyntaxKind::ColonEqual {
+    if p.nth(1).kind() == SyntaxKind::ColonEqual {
         assert!(p.expect(SyntaxKind::Identifier));
         p.expect(SyntaxKind::ColonEqual);
     }
@@ -182,11 +182,11 @@ fn parse_repeated_element(p: &mut impl Parser) {
     debug_assert_eq!(p.peek().as_str(), "for");
     let mut p = p.start_node(SyntaxKind::RepeatedElement);
     p.consume(); // "for"
-    if p.nth(0) == SyntaxKind::Identifier {
+    if p.nth(0).kind() == SyntaxKind::Identifier {
         let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
         p.expect(SyntaxKind::Identifier);
     }
-    if p.nth(0) == SyntaxKind::LBracket {
+    if p.nth(0).kind() == SyntaxKind::LBracket {
         let mut p = p.start_node(SyntaxKind::RepeatedIndex);
         p.expect(SyntaxKind::LBracket);
         p.expect(SyntaxKind::Identifier);
@@ -235,7 +235,7 @@ pub fn parse_qualified_name(p: &mut impl Parser) -> bool {
     }
 
     loop {
-        if p.nth(0) != SyntaxKind::Dot {
+        if p.nth(0).kind() != SyntaxKind::Dot {
             break;
         }
         p.consume();
@@ -266,7 +266,7 @@ fn parse_property_binding(p: &mut impl Parser) {
 /// ```
 fn parse_binding_expression(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::BindingExpression);
-    if p.nth(0) == SyntaxKind::LBrace && p.nth(2) != SyntaxKind::Colon {
+    if p.nth(0).kind() == SyntaxKind::LBrace && p.nth(2).kind() != SyntaxKind::Colon {
         parse_code_block(&mut *p);
         p.test(SyntaxKind::Semicolon);
     } else {
@@ -287,7 +287,7 @@ pub fn parse_code_block(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::CodeBlock);
     p.expect(SyntaxKind::LBrace); // Or assert?
 
-    while p.nth(0) != SyntaxKind::RBrace {
+    while p.nth(0).kind() != SyntaxKind::RBrace {
         if !parse_statement(&mut *p) {
             break;
         }
@@ -338,7 +338,7 @@ fn parse_property_declaration(p: &mut impl Parser) {
         let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
         p.expect(SyntaxKind::Identifier);
     }
-    if p.nth(0) == SyntaxKind::Colon {
+    if p.nth(0).kind() == SyntaxKind::Colon {
         p.consume();
         parse_binding_expression(&mut *p);
     } else {
@@ -356,11 +356,11 @@ fn parse_property_animation(p: &mut impl Parser) {
     debug_assert_eq!(p.peek().as_str(), "animate");
     let mut p = p.start_node(SyntaxKind::PropertyAnimation);
     p.consume(); // animate
-    if p.nth(0) == SyntaxKind::Star {
+    if p.nth(0).kind() == SyntaxKind::Star {
         p.consume();
     } else {
         parse_qualified_name(&mut *p);
-        while p.nth(0) == SyntaxKind::Comma {
+        while p.nth(0).kind() == SyntaxKind::Comma {
             p.consume();
             parse_qualified_name(&mut *p);
         }
@@ -368,13 +368,13 @@ fn parse_property_animation(p: &mut impl Parser) {
     p.expect(SyntaxKind::LBrace);
 
     loop {
-        match p.nth(0) {
+        match p.nth(0).kind() {
             SyntaxKind::RBrace => {
                 p.consume();
                 return;
             }
             SyntaxKind::Eof => return,
-            SyntaxKind::Identifier => match p.nth(1) {
+            SyntaxKind::Identifier => match p.nth(1).kind() {
                 SyntaxKind::Colon => parse_property_binding(&mut *p),
                 _ => {
                     p.consume();
@@ -409,7 +409,7 @@ fn parse_states(p: &mut impl Parser) {
 /// foo when bar == 1:  { color: blue; foo.color: red;   }
 /// ```
 fn parse_state(p: &mut impl Parser) -> bool {
-    if p.nth(0) != SyntaxKind::Identifier {
+    if p.nth(0).kind() != SyntaxKind::Identifier {
         return false;
     }
     let mut p = p.start_node(SyntaxKind::State);
@@ -427,7 +427,7 @@ fn parse_state(p: &mut impl Parser) -> bool {
     }
 
     loop {
-        match p.nth(0) {
+        match p.nth(0).kind() {
             SyntaxKind::RBrace => {
                 p.consume();
                 return true;
@@ -453,7 +453,7 @@ fn parse_transitions(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::Transitions);
     p.consume(); // "transitions"
     p.expect(SyntaxKind::LBracket);
-    while p.nth(0) != SyntaxKind::RBracket && parse_transition(&mut *p) {}
+    while p.nth(0).kind() != SyntaxKind::RBracket && parse_transition(&mut *p) {}
     p.expect(SyntaxKind::RBracket);
 }
 
@@ -480,7 +480,7 @@ fn parse_transition(p: &mut impl Parser) -> bool {
     }
 
     loop {
-        match p.nth(0) {
+        match p.nth(0).kind() {
             SyntaxKind::RBrace => {
                 p.consume();
                 return true;
@@ -510,7 +510,7 @@ fn parse_export(p: &mut impl Parser) -> bool {
     if p.test(SyntaxKind::LBrace) {
         loop {
             parse_export_specifier(&mut *p);
-            match p.nth(0) {
+            match p.nth(0).kind() {
                 SyntaxKind::RBrace => {
                     p.consume();
                     return true;
@@ -595,7 +595,7 @@ fn parse_import_identifier_list(p: &mut impl Parser) -> bool {
     }
     loop {
         parse_import_identifier(&mut *p);
-        match p.nth(0) {
+        match p.nth(0).kind() {
             SyntaxKind::RBrace => {
                 p.consume();
                 return true;
@@ -625,7 +625,7 @@ fn parse_import_identifier(p: &mut impl Parser) -> bool {
             return false;
         }
     }
-    if p.nth(0) == SyntaxKind::Identifier && p.peek().as_str() == "as" {
+    if p.nth(0).kind() == SyntaxKind::Identifier && p.peek().as_str() == "as" {
         p.consume();
         let mut p = p.start_node(SyntaxKind::InternalName);
         if !p.expect(SyntaxKind::Identifier) {
