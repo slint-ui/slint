@@ -378,6 +378,10 @@ impl Token {
     pub fn as_str(&self) -> &str {
         self.text.as_str()
     }
+
+    pub fn kind(&self) -> SyntaxKind {
+        self.kind
+    }
 }
 
 mod parser_trait {
