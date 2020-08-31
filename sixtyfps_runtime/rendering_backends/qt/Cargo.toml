@@ -23,7 +23,7 @@ sixtyfps-corelib-macros = { version = "=0.0.1", path = "../../corelib_macros" }
 sixtyfps-corelib = { version="=0.0.1", path = "../../corelib" }
 # FIXME: obviously, we do not want to depends on another backend
 sixtyfps-rendering-backend-gl = { version="=0.0.1", path = "../gl" }
-euclid = "0.20.11"
+euclid = "0.22.1"
 
 [build-dependencies]
 cpp_build = "0.5.5"

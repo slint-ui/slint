@@ -8,7 +8,7 @@ publish = false
 
 [dependencies]
 structopt = "0.3.14"
-cargo_metadata = "0.10.0"
+cargo_metadata = "0.11"
 test_driver_lib = { path = "../tests/driver_lib" }
 anyhow = "1.0"
 lazy_static = "1.4.0"

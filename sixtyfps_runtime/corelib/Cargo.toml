@@ -23,8 +23,8 @@ const-field-offset = { version = "0.1", path = "../../helper_crates/const-field-
 vtable = { version="0.1", path = "../../helper_crates/vtable" }
 sixtyfps-corelib-macros = { version = "=0.0.1", path = "../corelib_macros" }
 winit = "0.22.1"
-lyon = { version = "0.15.8" }
-euclid = "0.20.11"
+lyon = { version = "0.16" }
+euclid = "0.22.1"
 triomphe = "0.1.1"
 once_cell = "1.4"
 instant = { version = "0.1", features = [ "now" ] }
@@ -40,7 +40,7 @@ web_sys = { version = "0.3", package = "web-sys", features=["console", "CanvasRe
 wasm-bindgen = { version = "0.2" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-font-kit = "0.8"
+font-kit = "0.10"
 pathfinder_geometry = "0.5.1"
 
 [dev-dependencies]
