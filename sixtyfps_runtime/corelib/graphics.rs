@@ -41,7 +41,8 @@ pub type Point = euclid::default::Point2D<f32>;
 /// 2D Size
 pub type Size = euclid::default::Size2D<f32>;
 
-/// RGBA color
+/// Color represents a color in the SixtyFPS run-time, represented using 8-bit channels for
+/// red, green, blue and the alpha (opacity).
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
 #[repr(C)]
 pub struct Color {
