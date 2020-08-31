@@ -11,7 +11,7 @@ LICENSE END */
 /*!
     Graphics Abstractions.
 
-    This crate contains the abstractions and convenience types to allow the runtime
+    This module contains the abstractions and convenience types to allow the runtime
     library to instruct different graphics backends to render the tree of items.
 
     The entry trait is [GraphicsBackend].
