@@ -148,29 +148,47 @@ impl Default for Resource {
     }
 }
 
-/// Each item return a RenderingPrimitive to the backend with information about what to draw.
+/// The run-time library uses this enum to instruct the [GraphicsBackend] to render SixtyFPS
+/// graphics items.
+/// The different variants of this enum closely resemble the properties found in the `.60`
+/// mark-up language for various items. More specifically this enum typically holds the
+/// properties that usually require for the allocation and uploading of GPU side data, such
+/// as vertex buffers or textures. Other properties such as colors not part of the enum but
+/// are provided to the back-end using [RenderingVariable]. That means that certain variants
+/// of this enum relate to a sequence of rendering variables.
+///
+/// Always absent here are the starting coordinates for the primitives. Those are provided
+/// using a translation in the transform parameter of [Frame::render_primitive].
 #[derive(PartialEq, Debug)]
 #[repr(C)]
 #[allow(missing_docs)]
 pub enum HighLevelRenderingPrimitive {
-    /// There is nothing to draw
+    /// There is nothing to draw.
+    ///
+    /// Associated rendering variables: None.
     NoContents,
-    // Expected rendering variables in order: Color (fill color)
-    Rectangle {
-        width: f32,
-        height: f32,
-    },
-    // Expected rendering variables in order: Color (fill color), Color (border color)
-    BorderRectangle {
-        width: f32,
-        height: f32,
-        border_width: f32,
-        border_radius: f32,
-    },
-    /// Optional rendering variable: ScaledWidth, ScaledHeight
-    Image {
-        source: crate::Resource,
-    },
+    /// Renders a rectangle with the specified `width` and `height`.
+    ///
+    /// Expected rendering variables:
+    /// * [`RenderingVariable::Color`]: The fill color to use for the rectangle.
+    Rectangle { width: f32, height: f32 },
+    /// Renders a rectangle with the specified `width` and `height`, as well as a border
+    /// around it. The `border_width` specifies the width to use for the border, and the
+    /// `border_radius` can be used to render a rounded rectangle.
+    ///
+    /// Expected rendering variables:
+    /// * [`RenderingVariable::Color`]: The color to fill the rectangle with.
+    /// * [`RenderingVariable::Color`]: The color to use for stroking the border of the rectangle.
+    BorderRectangle { width: f32, height: f32, border_width: f32, border_radius: f32 },
+    /// Renders a image referenced by the specified `source`.
+    ///
+    /// Optional rendering variables:
+    /// * [`RenderingVariable::ScaledWidth`]: The image will be scaled to the specified width.
+    /// * [`RenderingVariable::ScaledHeight`]: The image will be scaled to the specified height.
+    Image { source: crate::Resource },
+    /// Renders the specified `text` with a font that matches the specified family (`font_family`) and the given
+    /// pixel size (`font_size`).
+    ///
     // TODO: turn color into a rendering variable. Needs fixing of the wasm canvas code path though.
     Text {
         text: crate::SharedString,
@@ -178,13 +196,14 @@ pub enum HighLevelRenderingPrimitive {
         font_size: f32,
         color: Color,
     },
-    // Expected rendering variables in order: Color (fill color), Color (stroke color)
-    Path {
-        width: f32,
-        height: f32,
-        elements: crate::PathData,
-        stroke_width: f32,
-    },
+    /// Renders a path specified by the `elements` parameter. The path will be scaled to fit into the given
+    /// `width` and `height`. If the `stroke_width` is greater than zero, then path will also be outlined.
+    ///
+    /// Expected rendering variables:
+    /// * [`RenderingVariable::Color`]: The color to use for filling the path.
+    /// * [`RenderingVariable::Color`]: The color to use for the path outline, if a non-zero `stroke_width`
+    ///   was specified.
+    Path { width: f32, height: f32, elements: crate::PathData, stroke_width: f32 },
 }
 
 #[derive(Debug, Clone)]
