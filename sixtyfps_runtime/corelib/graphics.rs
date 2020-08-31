@@ -365,6 +365,13 @@ enum RenderingCacheEntry<RenderingPrimitive> {
     FreeEntry(Option<usize>), // contains next free index if exists
 }
 
+/// The RenderingCache is used by the run-time library to avoid storing the
+/// typed [GraphicsBackend::LowLevelRenderingPrimitive] instances created for
+/// [Items](../items/index.html). Instead it allows mapping them to a usize
+/// handle, and it also allows tracking whenever any of the properties used to
+/// create the primitive changed.
+///
+/// The main function to use is [RenderingCache::ensure_cached].
 pub struct RenderingCache<Backend: GraphicsBackend> {
     nodes: Vec<RenderingCacheEntry<Backend::LowLevelRenderingPrimitive>>,
     next_free: Option<usize>,
@@ -378,6 +385,15 @@ impl<Backend: GraphicsBackend> Default for RenderingCache<Backend> {
 }
 
 impl<Backend: GraphicsBackend> RenderingCache<Backend> {
+    /// This function can be used to lazily cache low-level rendering primitives and
+    /// reference the cache using the returned usize index.
+    ///
+    /// Arguments:
+    /// * `index`: If the provided option contains an index, then that will be re-used
+    ///   by the cache and returned. Otherwise a new index is allocated.
+    /// * `update_fn`: This callback will be invoked if this function is called the first
+    ///   time or if any [Property](../properties/struct.Property.html) accessed during
+    ///   a previous invokation has changed.
     pub fn ensure_cached(
         &mut self,
         index: Option<usize>,
@@ -424,6 +440,9 @@ impl<Backend: GraphicsBackend> RenderingCache<Backend> {
         idx
     }
 
+    /// Returns a reference to the [GraphicsBackend::LowLevelRenderingPrimitive] for the given `idx`, as previously
+    /// returned by [RenderingCache::ensure_cached]. Panics if the given index is not valid.
+    /// This is typically used when rendering items, to retrieve the associated low-level primitives.
     pub fn entry_at(&self, idx: usize) -> &Backend::LowLevelRenderingPrimitive {
         match self.nodes[idx] {
             RenderingCacheEntry::AllocateEntry(ref data) => return &data.primitive,
@@ -431,12 +450,14 @@ impl<Backend: GraphicsBackend> RenderingCache<Backend> {
         }
     }
 
+    /// Deletes the cached [GraphicsBackend::LowLevelRenderingPrimitive](LowLevelRenderingPrimitive) at the specified `idx`.
     pub fn free_entry(&mut self, idx: usize) {
         self.len = self.len - 1;
         self.nodes[idx] = RenderingCacheEntry::FreeEntry(self.next_free);
         self.next_free = Some(idx);
     }
 
+    /// Returns the number of cached rendering primitives.
     pub fn len(&self) -> usize {
         self.len
     }
