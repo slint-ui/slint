@@ -7,6 +7,17 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
+/*!
+    Graphics Abstractions.
+
+    This crate contains the abstractions and convenience types to allow the runtime
+    library to instruct different graphics backends to render the tree of items.
+
+    The entry trait is [GraphicsBackend].
+
+    The run-time library also makes use of [RenderingCache] to store the rendering primitives
+    created by the backend in a type-erased manner.
+*/
 extern crate alloc;
 use crate::input::{MouseEvent, MouseEventType};
 use crate::items::ItemRef;
@@ -225,19 +236,54 @@ pub trait RenderingPrimitivesBuilder {
     ) -> Self::LowLevelRenderingPrimitive;
 }
 
+/// GraphicsBackend is the trait that the the SixtyFPS run-time uses to convert [HighLevelRenderingPrimitive]
+/// to an internal representation that is optimal for the backend, in order to render it later. The internal
+/// representation is opaque but must be provided via the [GraphicsBackend::LowLevelRenderingPrimitive] associated type.
+///
+/// The backend operates in two modes:
+///   1. It can be used to create new rendering primitives, by calling [GraphicsBackend::new_rendering_primitives_builder]. This is
+///      usually an expensive step, that involves uploading data to the GPU or performing other pre-calculations.
+///
+///   1. A series of low-level rendering primitives can be rendered into a frame, that's started using [GraphicsBackend::new_frame].
+///      The low-level rendering primitives are intended to be fast and ready for rendering.
 pub trait GraphicsBackend: Sized {
+    /// This associated type is typically opaque and is produced by the [RenderingPrimitivesBuilder]. For example it may contain
+    /// handles that refer to data that was uploaded to the GPU.
     type LowLevelRenderingPrimitive;
+    /// This associated type ties the Frame trait together with this trait's LowLevelRenderingPrimitive.
     type Frame: Frame<LowLevelRenderingPrimitive = Self::LowLevelRenderingPrimitive>;
+    /// This associated type ties the RenderingPrimitivesBuilder trait with this trait's LowLevelRenderingPrimitive.
     type RenderingPrimitivesBuilder: RenderingPrimitivesBuilder<
         LowLevelRenderingPrimitive = Self::LowLevelRenderingPrimitive,
     >;
 
+    /// Creates a new RenderingPrimitivesBuilder for the allocation of any GPU side data of different primitives. Call
+    /// [GraphicsBackend::finish_primitives] when done.
     fn new_rendering_primitives_builder(&mut self) -> Self::RenderingPrimitivesBuilder;
+    /// When all low-level rendering primitives have been created needed to render your scene, then this method
+    /// needs to be called to complete the process.
+    ///
+    /// Arguments:
+    /// * `builder`: The [RenderingPrimitivesBuilder] created by calling [GraphicsBackend::new_rendering_primitives_builder].
     fn finish_primitives(&mut self, builder: Self::RenderingPrimitivesBuilder);
 
+    /// Begins the process of rendering a new frame into what is typically the window back-buffer. Call [GraphicsBackend::present_frame]
+    /// when all rendering primitives have been queued for rendering.
+    ///
+    /// Arguments:
+    /// * `width`: The width of the window to render.
+    /// * `height`: The height of the window to render.
+    /// * `clear_color`: The color to clear the back-buffer with.
     fn new_frame(&mut self, width: u32, height: u32, clear_color: &Color) -> Self::Frame;
+    /// When all rendering primitives have been queued for rendering with the [Frame] API, pass the frame instance to this function
+    /// and thereby complete the rendering. The backend then will present the contents on the screen inside the window, for example by
+    /// flushing the backing store or swapping OpenGL buffers.
+    ///
+    /// Arguments:
+    /// * `frame`: The frame created by calling [GraphicsBackend::new_frame].
     fn present_frame(&mut self, frame: Self::Frame);
 
+    /// Returns the window that the backend is associated with.
     fn window(&self) -> &winit::window::Window;
 }
 
