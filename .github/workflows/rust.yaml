@@ -148,3 +148,14 @@ jobs:
           git add -u docs
           git commit --message "Update $NAME from $GITHUB_REPOSITORY" --message "Pull web demos and C++/Rust reference docs from commit $GITHUB_SHA ($GITHUB_REF)"
           git push origin master
+    - name: Clean cache # Otherwise the cache is much too big
+      run: |
+          du -hs target
+          rm -rv target/*/incremental
+          rm -rv target/*/*/*sixtyfps*
+          rm -rv target/*/*sixtyfps*
+          rm -rv target/*/*/test* target/*/*/gallery* target/*/*/printerdemo* target/*/*/viewer*
+          rm -rv target/*/*.so
+          rm -rv target/*/viewer target/*/printerdemo target/*/gallery target/*/*test*
+          du -hs target
+
