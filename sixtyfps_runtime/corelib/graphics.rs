@@ -7,6 +7,7 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
+#![warn(missing_docs)]
 /*!
     Graphics Abstractions.
 
@@ -450,7 +451,7 @@ impl<Backend: GraphicsBackend> RenderingCache<Backend> {
         }
     }
 
-    /// Deletes the cached [GraphicsBackend::LowLevelRenderingPrimitive](LowLevelRenderingPrimitive) at the specified `idx`.
+    /// Deletes the cached [GraphicsBackend::LowLevelRenderingPrimitive] at the specified `idx`.
     pub fn free_entry(&mut self, idx: usize) {
         self.len = self.len - 1;
         self.nodes[idx] = RenderingCacheEntry::FreeEntry(self.next_free);
@@ -506,6 +507,8 @@ impl Default for WindowProperties {
     }
 }
 
+/// GraphicsWindow is an implementation of the [GenericWindow](../eventloop/trait.GenericWindow.html) trait. This is
+/// typically instantiated by entry factory functions of the different graphics backends.
 pub struct GraphicsWindow<Backend: GraphicsBackend + 'static> {
     window_factory: Box<WindowFactoryFn<Backend>>,
     map_state: RefCell<GraphicsWindowBackendState<Backend>>,
@@ -513,6 +516,12 @@ pub struct GraphicsWindow<Backend: GraphicsBackend + 'static> {
 }
 
 impl<Backend: GraphicsBackend + 'static> GraphicsWindow<Backend> {
+    /// Creates a new reference-counted instance.
+    ///
+    /// Arguments:
+    /// * `graphics_backend_factory`: The factor function stored in the GraphicsWindow that's called when the state
+    ///   of the window changes to mapped. The event loop and window builder parameters can be used to create a
+    ///   backing window.
     pub fn new(
         graphics_backend_factory: impl Fn(&crate::eventloop::EventLoop, winit::window::WindowBuilder) -> Backend
             + 'static,
@@ -524,6 +533,7 @@ impl<Backend: GraphicsBackend + 'static> GraphicsWindow<Backend> {
         })
     }
 
+    /// Returns the window id of the window if it is mapped, None otherwise.
     pub fn id(&self) -> Option<winit::window::WindowId> {
         Some(self.map_state.borrow().as_mapped().backend.borrow().window().id())
     }
