@@ -266,6 +266,17 @@ impl Type {
             accepted_child_type.collect_contextual_types(context_restricted_types);
         }
     }
+
+    /// If this is a number type which should be used with an unit, this returns the default unit
+    /// otherwise, returns None
+    pub fn default_unit(&self) -> Option<crate::expression_tree::Unit> {
+        match self {
+            Type::Duration => Some(crate::expression_tree::Unit::Ms),
+            Type::Length => Some(crate::expression_tree::Unit::Px),
+            Type::LogicalLength => Some(crate::expression_tree::Unit::Lx),
+            _ => None,
+        }
+    }
 }
 
 impl Default for Type {

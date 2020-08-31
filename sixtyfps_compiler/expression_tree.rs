@@ -563,7 +563,24 @@ impl Expression {
         } else if ty == Type::Invalid || target_type == Type::Invalid {
             self
         } else {
-            diag.push_error(format!("Cannot convert {} to {}", ty, target_type), node);
+            let mut message = format!("Cannot convert {} to {}", ty, target_type);
+            // Explicit error message for unit cnversion
+            if let Some(from_unit) = ty.default_unit() {
+                if matches!(&target_type, Type::Int32 | Type::Float32 | Type::String) {
+                    message = format!(
+                        "{}. Divide by 1{} to convert to a plain number.",
+                        message, from_unit
+                    );
+                }
+            } else if let Some(to_unit) = target_type.default_unit() {
+                if matches!(ty, Type::Int32 | Type::Float32) {
+                    message = format!(
+                        "{}. Use an unit, or multiply by 1{} to convert explicitly.",
+                        message, to_unit
+                    );
+                }
+            }
+            diag.push_error(message, node);
             self
         }
     }
