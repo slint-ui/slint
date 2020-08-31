@@ -26,9 +26,17 @@ Our design goals are:
    home on each platform; both the user and the developer. The look and feel and experience should match what users expect of an
    application built for a specific platform.
 
+### Demos running in WebAssembly Simulation
+
 | Printer Demo | Widget Gallery |
 |--------------|----------------|
 | [![Screenshot of the Printer Demo](resources/printerdemo_screenshot.png "Printer Demo")](https://www.sixtyfps.io/demos/printerdemo/) | [![Screenshot of the Gallery Demo](resources/gallery_screenshot.png "Gallery Demo")](https://www.sixtyfps.io/demos/gallery/) |
+
+### Desktop native controls
+
+| Windows | macOs | Linux |
+|---------|-------|-------|
+| TODO: Screenshot    | TODO: Screenshot  | TODO: Screenshot  |
 
 ## Architecture
 
