@@ -7,6 +7,12 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
+#![warn(missing_docs)]
+/*!
+    This module contains the event loop implementation using winit, as well as the
+    [GenericWindow] trait used by the generated code and the run-time to change
+    aspects of windows on the screen.
+*/
 use crate::component::ComponentVTable;
 use crate::items::ItemRef;
 use std::cell::RefCell;
@@ -20,22 +26,59 @@ use crate::{input::MouseEventType, properties::PropertyTracker};
 #[cfg(not(target_arch = "wasm32"))]
 use winit::platform::desktop::EventLoopExtDesktop;
 
+/// This trait represents the interface that the generated code and the run-time
+/// require in order to implement functionality such as device-independent pixels,
+/// window resizing and other typicaly windowing system related tasks.
+///
+/// The [graphics module](../graphics/index.html) provides a generic implementation of
+/// this trait for use with a [GraphicsBackend](../graphics/trait.GraphicsBackend.html).
 pub trait GenericWindow {
+    /// Draw the items of the specified `component` in the given window.
     fn draw(&self, component: core::pin::Pin<crate::component::ComponentRef>);
+    /// Receive a mouse event and pass it to the items of the component to
+    /// change their state.
+    ///
+    /// Arguments:
+    /// * `pos`: The position of the mouse event in window physical coordinates.
+    /// * `what`: The type of mouse event.
+    /// * `component`: The SixtyFPS compiled component that provides the tree of items.
     fn process_mouse_input(
         &self,
         pos: winit::dpi::PhysicalPosition<f64>,
         what: MouseEventType,
         component: core::pin::Pin<crate::component::ComponentRef>,
     );
+    /// Calls the `callback` function with the underlying winit::Window that this
+    /// GenericWindow backs.
     fn with_platform_window(&self, callback: &dyn Fn(&winit::window::Window));
+    /// Requests for the window to be mapped to the screen.
+    ///
+    /// Arguments:
+    /// * `event_loop`: The event loop used to drive further event handling for this window
+    ///   as it will receive events.
+    /// * `root_item`: The root item of the scene. If the item is a (Window Item)[../items/struct.Window.html], then
+    ///   the `width` and `height` properties are read and the values are passed to the windowing system as request
+    ///   for the initial size of the window. Then bindings are installed on these properties to keep them up-to-date
+    ///   with the size as it may be changed by the user or the windowing system in general.
     fn map_window(self: Rc<Self>, event_loop: &EventLoop, root_item: Pin<ItemRef>);
+    /// Removes the window from the screen. The window is not destroyed though, it can be show (mapped) again later
+    /// by calling .GenericWindow::map_window].
     fn unmap_window(self: Rc<Self>);
+    /// Issue a request to the windowing system to re-render the contents of the window. This is typically an asynchronous
+    /// request.
     fn request_redraw(&self);
+    /// Returns the scale factor set on the window, as provided by the windowing system.
     fn scale_factor(&self) -> f32;
+    /// Sets an overriding scale factor for the window. This is typically only used for testing.
     fn set_scale_factor(&self, factor: f32);
+    /// Sets the size of the window to the specified `width`. This method is typically called in response to receiving a
+    /// window resize event from the windowing system.
     fn set_width(&self, width: f32);
+    /// Sets the size of the window to the specified `height`. This method is typically called in response to receiving a
+    /// window resize event from the windowing system.
     fn set_height(&self, height: f32);
+    /// This function is called by the generated code when a component and therefore its tree of items are destroyed. The
+    /// implementation typically uses this to free the underlying graphics resources cached via [RenderingCache](../graphics/struct.RenderingCache.html).
     fn free_graphics_resources(
         self: Rc<Self>,
         component: core::pin::Pin<crate::component::ComponentRef>,
@@ -65,14 +108,18 @@ impl ComponentWindow {
         self.0.clone().unmap_window();
     }
 
+    /// Returns the scale factor set on the window.
     pub fn scale_factor(&self) -> f32 {
         self.0.scale_factor()
     }
 
+    /// Sets an overriding scale factor for the window. This is typically only used for testing.
     pub fn set_scale_factor(&self, factor: f32) {
         self.0.set_scale_factor(factor)
     }
 
+    /// This function is called by the generated code when a component and therefore its tree of items are destroyed. The
+    /// implementation typically uses this to free the underlying graphics resources cached via [RenderingCache](../graphics/struct.RenderingCache.html).
     pub fn free_graphics_resources(
         &self,
         component: core::pin::Pin<crate::component::ComponentRef>,
@@ -97,14 +144,21 @@ pub(crate) fn unregister_window(id: winit::window::WindowId) {
     })
 }
 
+/// This is the main structure to hold the event loop responsible for delegating events from the
+/// windowing system to the individual windows managed by the run-time, and then subsequently to
+/// the items. These are typically rendering and input events.
 pub struct EventLoop {
     winit_loop: winit::event_loop::EventLoop<()>,
 }
 
 impl EventLoop {
+    /// Returns a new instance of the event loop, backed by a winit eventloop.
     pub fn new() -> Self {
         Self { winit_loop: winit::event_loop::EventLoop::new() }
     }
+
+    /// Runs the event loop and renders the items in the provided `component` in its
+    /// own window.
     #[allow(unused_mut)] // mut need changes for wasm
     pub fn run(mut self, component: core::pin::Pin<crate::component::ComponentRef>) {
         use winit::event::Event;
@@ -313,11 +367,14 @@ impl EventLoop {
         }
     }
 
+    /// Returns a reference to the backing winit event loop.
     pub fn get_winit_event_loop(&self) -> &winit::event_loop::EventLoop<()> {
         &self.winit_loop
     }
 }
 
+/// This module contains the functions needed to interface with the event loop and window traits
+/// from outside the Rust language.
 pub mod ffi {
     #![allow(unsafe_code)]
 
