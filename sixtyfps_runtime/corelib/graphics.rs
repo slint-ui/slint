@@ -189,26 +189,37 @@ pub enum HighLevelRenderingPrimitive {
 
 #[derive(Debug, Clone)]
 #[repr(C)]
+/// This enum is used to affect various aspects of the rendering of [GraphicsBackend::LowLevelRenderingPrimitive]
+/// without the need to re-create them. See the documentation of [HighLevelRenderingPrimitive]
+/// about which variables are supported in which order.
 pub enum RenderingVariable {
+    /// Translates the primitive by the given (x, y) vector.
     Translate(f32, f32),
+    /// Apply the specified color. Depending on the order in the rendering variables array this may apply to different
+    /// aspects of the primitive, such as the fill or stroke.
     Color(Color),
+    /// Scale the primitive by the specified width.
     ScaledWidth(f32),
+    /// Scale the primitive by the specified height.
     ScaledHeight(f32),
 }
 
 impl RenderingVariable {
+    /// Returns the color of this variable, or panics if the enum holds a different variant.
     pub fn as_color(&self) -> &Color {
         match self {
             RenderingVariable::Color(c) => c,
             _ => panic!("internal error: expected color but found something else"),
         }
     }
+    /// Returns the scaled width of this variable, or panics if the enum holds a different variant.
     pub fn as_scaled_width(&self) -> f32 {
         match self {
             RenderingVariable::ScaledWidth(w) => *w,
             _ => panic!("internal error: expected scaled width but found something else"),
         }
     }
+    /// Returns the scaled height of this variable, or panics if the enum holds a different variant.
     pub fn as_scaled_height(&self) -> f32 {
         match self {
             RenderingVariable::ScaledHeight(h) => *h,
@@ -217,8 +228,21 @@ impl RenderingVariable {
     }
 }
 
+/// Frame is used to render previously created [GraphicsBackend::LowLevelRenderingPrimitive] instances
+/// to the back-buffer of the window.
 pub trait Frame {
+    /// This associated type is usually provided through the [GraphicsBackend::LowLevelRenderingPrimitive] type.
     type LowLevelRenderingPrimitive;
+    /// Renderings the provided primitive to the back-buffer, taking the provided transform and additional rendering
+    /// variables into account.
+    ///
+    /// Arguments:
+    /// * `primitive`: The primitive to render.
+    /// * `transform`: The geometry of the primitive will be transformed by this 4x4 matrix. This can be used to apply
+    ///                rotation, scaling, etc. without re-creating the low-level rendering primitive.
+    /// * `variables`: An array of [RenderingVariable] instances that are applied when rendering the primitive. These
+    ///                variables typically translate to OpenGL uniforms and allow for affecting various aspects of the
+    ///                rendering of the primitive without expensive buffer uploads to the GPU.
     fn render_primitive(
         &mut self,
         primitive: &Self::LowLevelRenderingPrimitive,
@@ -227,9 +251,18 @@ pub trait Frame {
     );
 }
 
+/// RenderingPrimitivesBuilder is used to convert instances of [HighLevelRenderingPrimitive] to
+/// the back-end specific [GraphicsBackend::LowLevelRenderingPrimitive], giving the backend a way
+/// to determin the optimal representation for rendering later. For example this may involve uploading
+/// textures for images to GPU memory, pre-rendering glyphs or allocating vertex buffers.
 pub trait RenderingPrimitivesBuilder {
+    /// This associated type is usually provided through the [GraphicsBackend::LowLevelRenderingPrimitive] type.
     type LowLevelRenderingPrimitive;
 
+    /// Lowers the high-level rendering primitive to a representation suitable for the graphics backend.
+    ///
+    /// Arguments:
+    /// * `primitive`: The primitive to convert.
     fn create(
         &mut self,
         primitive: HighLevelRenderingPrimitive,
