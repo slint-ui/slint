@@ -21,7 +21,7 @@ struct ComponentVTable;
 struct ItemVTable;
 }
 #include "sixtyfps_internal.h"
-#include "sixtyfps_gl_internal.h"
+#include "sixtyfps_default_backend_internal.h"
 
 namespace sixtyfps {
 
@@ -57,7 +57,7 @@ using ItemTreeNode = cbindgen_private::ItemTreeNode<uint8_t>;
 
 struct ComponentWindow
 {
-    ComponentWindow() { cbindgen_private::sixtyfps_component_window_gl_renderer_init(&inner); }
+    ComponentWindow() { cbindgen_private::sixtyfps_component_window_init(&inner); }
     ~ComponentWindow() { cbindgen_private::sixtyfps_component_window_drop(&inner); }
     ComponentWindow(const ComponentWindow &) = delete;
     ComponentWindow(ComponentWindow &&) = delete;

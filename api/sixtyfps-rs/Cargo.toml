@@ -18,8 +18,7 @@ const-field-offset = { version = "0.1", path = "../../helper_crates/const-field-
 vtable = { version = "0.1", path = "../../helper_crates/vtable" }
 pin-weak = "1"
 sixtyfps-corelib = { version = "=0.0.1", path="../../sixtyfps_runtime/corelib" }
-# FIXME: should be under a feature or somehow done differently
-sixtyfps-rendering-backend-gl = { version = "=0.0.1", path="../../sixtyfps_runtime/rendering_backends/gl" }
+sixtyfps-rendering-backend-default = { version = "=0.0.1", path="../../sixtyfps_runtime/rendering_backends/default" }
 
 [build-dependencies]
 rustc_version = "0.2.3"

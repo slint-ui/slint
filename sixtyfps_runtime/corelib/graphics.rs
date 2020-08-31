@@ -26,6 +26,7 @@ use crate::properties::{InterpolatedPropertyValue, Property};
 #[cfg(feature = "rtti")]
 use crate::rtti::{BuiltinItem, FieldInfo, PropertyInfo, ValueType};
 use crate::SharedArray;
+use crate::Signal;
 
 use cgmath::Matrix4;
 use const_field_offset::FieldOffsets;

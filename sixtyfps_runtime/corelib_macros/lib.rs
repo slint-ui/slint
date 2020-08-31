@@ -85,7 +85,7 @@ pub fn builtin_item(input: TokenStream) -> TokenStream {
                     (stringify!(#plain_field_names), &O as &'static dyn FieldInfo<Self, Value> )
                 } ),*]
             }
-            fn signals() -> Vec<(&'static str, const_field_offset::FieldOffset<Self, crate::Signal<()>, const_field_offset::AllowPin>)> {
+            fn signals() -> Vec<(&'static str, const_field_offset::FieldOffset<Self, Signal<()>, const_field_offset::AllowPin>)> {
                 vec![#(
                     (stringify!(#signal_field_names),#item_name::FIELD_OFFSETS.#signal_field_names)
                 ),*]

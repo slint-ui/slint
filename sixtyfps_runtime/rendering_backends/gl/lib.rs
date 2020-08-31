@@ -14,7 +14,7 @@ use lyon::tessellation::{
     FillAttributes, FillOptions, FillTessellator, StrokeAttributes, StrokeOptions,
     StrokeTessellator,
 };
-use sixtyfps_corelib::eventloop::{ffi::ComponentWindowOpaque, ComponentWindow};
+use sixtyfps_corelib::eventloop::ComponentWindow;
 use sixtyfps_corelib::{
     graphics::{
         Color, Frame as GraphicsFrame, GraphicsBackend, GraphicsWindow,
@@ -765,17 +765,6 @@ impl GraphicsFrame for GLFrame {
     }
 }
 
-#[no_mangle]
-pub unsafe extern "C" fn sixtyfps_component_window_gl_renderer_init(
-    out: *mut ComponentWindowOpaque,
-) {
-    assert_eq!(
-        core::mem::size_of::<ComponentWindow>(),
-        core::mem::size_of::<ComponentWindowOpaque>()
-    );
-    core::ptr::write(out as *mut ComponentWindow, create_gl_window());
-}
-
 pub fn create_gl_window() -> ComponentWindow {
     ComponentWindow::new(GraphicsWindow::new(|event_loop, window_builder| {
         GLRenderer::new(
@@ -799,3 +788,5 @@ pub fn create_gl_window_with_canvas_id(canvas_id: String) -> ComponentWindow {
 pub fn use_modules() {
     sixtyfps_corelib::use_modules();
 }
+
+pub type NativeWidgets = ();

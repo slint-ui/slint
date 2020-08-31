@@ -349,17 +349,25 @@ fn generate_component<'id>(
             .iter()
             .cloned(),
         );
-        #[cfg(feature = "qt_style")]
-        rtti.extend(
-            [
-                rtti_for::<qt_style::QtStyleButton>(),
-                rtti_for::<qt_style::QtStyleCheckBox>(),
-                rtti_for::<qt_style::QtStyleSpinBox>(),
-                rtti_for::<qt_style::QtStyleSlider>(),
-            ]
-            .iter()
-            .cloned(),
-        );
+
+        trait NativeHelper {
+            fn push(rtti: &mut HashMap<&str, Rc<ItemRTTI>>);
+        }
+        impl NativeHelper for () {
+            fn push(_rtti: &mut HashMap<&str, Rc<ItemRTTI>>) {}
+        }
+        impl<
+                T: 'static + Default + rtti::BuiltinItem + vtable::HasStaticVTable<ItemVTable>,
+                Next: NativeHelper,
+            > NativeHelper for (T, Next)
+        {
+            fn push(rtti: &mut HashMap<&str, Rc<ItemRTTI>>) {
+                let info = rtti_for::<T>();
+                rtti.insert(info.0, info.1);
+                Next::push(rtti);
+            }
+        }
+        sixtyfps_rendering_backend_default::NativeWidgets::push(&mut rtti);
     }
     let rtti = Rc::new(rtti);
 
@@ -589,7 +597,7 @@ pub fn instantiate<'id>(
     } else {
         let extra_data = component_type.extra_data_offset.apply(instance_ref.as_ref());
         #[cfg(not(target_arch = "wasm32"))]
-        extra_data.window.replace(Some(sixtyfps_rendering_backend_gl::create_gl_window()));
+        extra_data.window.replace(Some(sixtyfps_rendering_backend_default::create_window()));
         #[cfg(target_arch = "wasm32")]
         extra_data.window.replace(Some(
             sixtyfps_rendering_backend_gl::create_gl_window_with_canvas_id(canvas_id),

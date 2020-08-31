@@ -20,8 +20,24 @@ fn root_dir() -> PathBuf {
     root
 }
 
+fn default_config() -> cbindgen::Config {
+    cbindgen::Config {
+        pragma_once: true,
+        include_version: true,
+        namespaces: Some(vec!["sixtyfps".into(), "cbindgen_private".into()]),
+        line_length: 100,
+        tab_width: 4,
+        // Note: we might need to switch to C if we need to generate bindings for language that needs C headers
+        language: cbindgen::Language::Cxx,
+        cpp_compat: true,
+        documentation: true,
+        ..Default::default()
+    }
+}
+
 fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
-    let include = [
+    let mut config = default_config();
+    config.export.include = [
         "Rectangle",
         "BorderRectangle",
         "Image",
@@ -40,9 +56,9 @@ fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
     ]
     .iter()
     .map(|x| x.to_string())
-    .collect::<Vec<String>>();
+    .collect();
 
-    let exclude = [
+    config.export.exclude = [
         "SharedString",
         "SharedArray",
         "Resource",
@@ -62,21 +78,7 @@ fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
     ]
     .iter()
     .map(|x| x.to_string())
-    .collect::<Vec<String>>();
-
-    let mut config = cbindgen::Config {
-        pragma_once: true,
-        include_version: true,
-        namespaces: Some(vec!["sixtyfps".into(), "cbindgen_private".into()]),
-        line_length: 100,
-        tab_width: 4,
-        // Note: we might need to switch to C if we need to generate bindings for language that needs C headers
-        language: cbindgen::Language::Cxx,
-        cpp_compat: true,
-        documentation: true,
-        export: cbindgen::ExportConfig { include, exclude, ..Default::default() },
-        ..Default::default()
-    };
+    .collect();
 
     let mut crate_dir = root_dir();
     crate_dir.extend(["sixtyfps_runtime", "corelib"].iter());
@@ -210,22 +212,7 @@ fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
 }
 
 fn gen_backend_gl(include_dir: &Path) -> anyhow::Result<()> {
-    let config = cbindgen::Config {
-        pragma_once: true,
-        include_version: true,
-        namespaces: Some(vec!["sixtyfps".into(), "cbindgen_private".into()]),
-        line_length: 100,
-        tab_width: 4,
-        // Note: we might need to switch to C if we need to generate bindings for language that needs C headers
-        language: cbindgen::Language::Cxx,
-        cpp_compat: true,
-        documentation: true,
-        export: cbindgen::ExportConfig { ..Default::default() },
-        ..Default::default()
-    };
-
-    std::fs::create_dir_all(include_dir.clone()).unwrap();
-
+    let config = default_config();
     let mut crate_dir = root_dir();
     crate_dir.extend(["sixtyfps_runtime", "rendering_backends", "gl"].iter());
     cbindgen::Builder::new()
@@ -239,11 +226,43 @@ fn gen_backend_gl(include_dir: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
+fn gen_backend_qt(include_dir: &Path) -> anyhow::Result<()> {
+    let config = default_config();
+    let mut crate_dir = root_dir();
+    crate_dir.extend(["sixtyfps_runtime", "rendering_backends", "qt"].iter());
+    cbindgen::Builder::new()
+        .with_config(config)
+        .with_crate(crate_dir)
+        .with_header("#include <sixtyfps_internal.h>")
+        .generate()
+        .context("Unable to generate bindings for sixtyfps_qt_internal.h")?
+        .write_to_file(include_dir.join("sixtyfps_qt_internal.h"));
+
+    Ok(())
+}
+
+fn gen_backend_default(include_dir: &Path) -> anyhow::Result<()> {
+    let config = default_config();
+    let mut crate_dir = root_dir();
+    crate_dir.extend(["sixtyfps_runtime", "rendering_backends", "default"].iter());
+    cbindgen::Builder::new()
+        .with_config(config)
+        .with_crate(crate_dir)
+        .with_header("#include <sixtyfps_internal.h>")
+        .generate()
+        .context("Unable to generate bindings for sixtyfps_default_backend_internal.h")?
+        .write_to_file(include_dir.join("sixtyfps_default_backend_internal.h"));
+
+    Ok(())
+}
+
 /// Generate the headers.
 /// `include_dir` is the output directory
 pub fn gen_all(include_dir: &Path) -> anyhow::Result<()> {
     std::fs::create_dir_all(include_dir).context("Could not create the include directory")?;
     gen_corelib(include_dir)?;
     gen_backend_gl(include_dir)?;
+    gen_backend_qt(include_dir)?;
+    gen_backend_default(include_dir)?;
     Ok(())
 }

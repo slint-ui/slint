@@ -27,10 +27,10 @@ fn main() -> std::io::Result<()> {
     let source = std::fs::read_to_string(&args.path)?;
 
     let mut include_paths = args.include_paths;
-    if args.style == "qt" {
+    if args.style == "qt" || args.style == "native" {
         // FIXME: that's not how it should work
         include_paths.push(
-            [env!("CARGO_MANIFEST_DIR"), "..", "..", "sixtyfps_runtime", "qt_style"]
+            [env!("CARGO_MANIFEST_DIR"), "..", "..", "sixtyfps_runtime", "rendering_backend", "qt"]
                 .iter()
                 .collect(),
         );

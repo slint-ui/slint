@@ -157,7 +157,7 @@ pub mod re_exports {
 /// Creates a new window to render components in.
 #[doc(hidden)]
 pub fn create_window() -> re_exports::ComponentWindow {
-    sixtyfps_rendering_backend_gl::create_gl_window()
+    sixtyfps_rendering_backend_default::create_window()
 }
 
 /// This module contains functions useful for unit tests

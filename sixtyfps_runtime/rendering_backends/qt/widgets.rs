@@ -8,26 +8,20 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 #![allow(non_upper_case_globals)]
-#![cfg_attr(not(have_qt), allow(unused))]
-#![recursion_limit = "256"]
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
-#[cfg(have_qt)]
 use cpp::cpp;
 use sixtyfps_corelib::graphics::{HighLevelRenderingPrimitive, Rect, RenderingVariable, Resource};
 use sixtyfps_corelib::input::{InputEventResult, MouseEvent, MouseEventType};
 use sixtyfps_corelib::item_rendering::CachedRenderingData;
 use sixtyfps_corelib::items::{Item, ItemConsts, ItemVTable};
 use sixtyfps_corelib::layout::LayoutInfo;
-#[cfg(feature = "rtti")]
 use sixtyfps_corelib::rtti::*;
 use sixtyfps_corelib::{ItemVTable_static, Property, SharedArray, SharedString, Signal};
 use sixtyfps_corelib_macros::*;
 
-#[cfg(have_qt)]
-mod qttypes;
+use crate::qttypes;
 
-#[cfg(have_qt)]
 fn to_resource(image: qttypes::QImage) -> Resource {
     let size = image.size();
     Resource::EmbeddedRgbaImage {
