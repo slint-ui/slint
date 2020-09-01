@@ -10,8 +10,11 @@ LICENSE END */
 #![allow(non_upper_case_globals)]
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
+#[cfg(have_qt)]
 use cpp::cpp;
-use sixtyfps_corelib::graphics::{HighLevelRenderingPrimitive, Rect, RenderingVariable, Resource};
+#[cfg(have_qt)]
+use sixtyfps_corelib::graphics::Resource;
+use sixtyfps_corelib::graphics::{HighLevelRenderingPrimitive, Rect, RenderingVariable};
 use sixtyfps_corelib::input::{InputEventResult, MouseEvent, MouseEventType};
 use sixtyfps_corelib::item_rendering::CachedRenderingData;
 use sixtyfps_corelib::items::{Item, ItemConsts, ItemVTable};
@@ -20,8 +23,10 @@ use sixtyfps_corelib::rtti::*;
 use sixtyfps_corelib::{ItemVTable_static, Property, SharedArray, SharedString, Signal};
 use sixtyfps_corelib_macros::*;
 
+#[cfg(have_qt)]
 use crate::qttypes;
 
+#[cfg(have_qt)]
 fn to_resource(image: qttypes::QImage) -> Resource {
     let size = image.size();
     Resource::EmbeddedRgbaImage {
