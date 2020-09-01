@@ -311,7 +311,7 @@ fn rtti_for<T: 'static + Default + rtti::BuiltinItem + vtable::HasStaticVTable<I
 pub fn load<'id>(
     source: String,
     path: &std::path::Path,
-    include_paths: &[std::path::PathBuf],
+    compiler_config: &CompilerConfiguration,
     guard: generativity::Guard<'id>,
 ) -> Result<Rc<ComponentDescription<'id>>, sixtyfps_compilerlib::diagnostics::BuildDiagnostics> {
     let (syntax_node, diag) = parser::parse(source, Some(path));
@@ -320,8 +320,7 @@ pub fn load<'id>(
         d.add(diag);
         return Err(d);
     }
-    let compiler_config = CompilerConfiguration { include_paths, ..Default::default() };
-    let (root_component, diag) = compile_syntax_node(syntax_node, diag, &compiler_config);
+    let (root_component, diag) = compile_syntax_node(syntax_node, diag, compiler_config);
     if diag.has_error() {
         return Err(diag);
     }

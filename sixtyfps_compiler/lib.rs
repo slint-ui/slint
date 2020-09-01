@@ -22,7 +22,7 @@ You should use the `sixtyfps` crate instead
 #[cfg(feature = "proc_macro_span")]
 extern crate proc_macro;
 
-use std::{cell::RefCell, rc::Rc};
+use std::{borrow::Cow, cell::RefCell, rc::Rc};
 
 pub mod diagnostics;
 pub mod expression_tree;
@@ -66,6 +66,8 @@ pub struct CompilerConfiguration<'a> {
     pub embed_resources: bool,
     /// The compiler will look in these paths for components used in the file to compile.
     pub include_paths: &'a [std::path::PathBuf],
+    /// the name of the style. (eg: "native")
+    pub style: Option<&'a str>,
 }
 
 pub fn compile_syntax_node(
@@ -81,13 +83,19 @@ pub fn compile_syntax_node(
 
     let doc_node: parser::syntax_nodes::Document = doc_node.into();
 
+    let style = compiler_config
+        .style
+        .map(Cow::from)
+        .or_else(|| std::env::var("SIXTYFPS_STYLE").map(Cow::from).ok())
+        .unwrap_or(Cow::from("ugly"));
+
     if doc_node.source_file.is_some() {
         typeloader::load_dependencies_recursively(
             &doc_node,
             &mut diagnostics,
             &type_registry,
             &compiler_config,
-            Some(library::widget_library()),
+            library::widget_library().iter().find(|x| x.0 == style).map(|x| x.1),
             &mut build_diagnostics,
         );
     }

@@ -790,3 +790,4 @@ pub fn use_modules() {
 }
 
 pub type NativeWidgets = ();
+pub mod native_widgets {}

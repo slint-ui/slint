@@ -47,7 +47,7 @@ pub fn create_window() -> ComponentWindow {
     create_default_window()
 }
 
-pub use default_backend::NativeWidgets;
+pub use default_backend::{native_widgets, NativeWidgets};
 
 #[doc(hidden)]
 #[cold]

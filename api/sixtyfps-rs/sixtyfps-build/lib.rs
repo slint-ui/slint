@@ -143,6 +143,7 @@ pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
             println!("cargo:rerun-if-changed={}", resource);
         }
     }
+    println!("cargo:rerun-if-env-changed=SIXTYFPS_STYLE");
 
     println!("cargo:rustc-env=SIXTYFPS_INCLUDE_GENERATED={}", output_file_path.display());
     Ok(())

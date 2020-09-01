@@ -20,7 +20,38 @@ fn main() -> std::io::Result<()> {
     let output_file_path = Path::new(&std::env::var_os("OUT_DIR").unwrap())
         .join(Path::new("included_library").with_extension("rs"));
 
-    let library_files: Vec<PathBuf> = read_dir(library_dir)?
+    let mut file = std::fs::File::create(&output_file_path)?;
+    write!(
+        file,
+        r#"
+use crate::typeloader::{{VirtualFile, VirtualDirectory}};
+pub fn widget_library() -> &'static [(&'static str, &'static VirtualDirectory<'static>)] {{
+    &[
+"#
+    )?;
+
+    for style in read_dir(library_dir)?.filter_map(Result::ok) {
+        let path = style.path();
+        if !path.is_dir() {
+            continue;
+        }
+        write!(
+            file,
+            "(\"{}\", &[{}]),\n",
+            path.file_name().unwrap().to_string_lossy(),
+            process_style(&path)?
+        )?;
+    }
+
+    write!(file, "]\n}}\n")?;
+
+    println!("cargo:rustc-env=SIXTYFPS_WIDGETS_LIBRARY={}", output_file_path.display());
+
+    Ok(())
+}
+
+fn process_style(path: &Path) -> std::io::Result<String> {
+    let library_files: Vec<PathBuf> = read_dir(path)?
         .filter_map(Result::ok)
         .filter(|entry| {
             entry.path().is_file()
@@ -29,27 +60,15 @@ fn main() -> std::io::Result<()> {
         .map(|entry| entry.path())
         .collect();
 
-    let mut file = std::fs::File::create(&output_file_path)?;
-    write!(
-        file,
-        "use crate::typeloader::VirtualFile; pub fn widget_library() -> &'static [&'static VirtualFile<'static>] {{ &["
-    )?;
-    write!(
-        file,
-        "{}",
-        library_files
-            .iter()
-            .map(|file| format!(
+    Ok(library_files
+        .iter()
+        .map(|file| {
+            format!(
                 "&VirtualFile {{path: \"{}\" , contents: include_str!(\"{}\")}}",
                 file.file_name().unwrap().to_string_lossy(),
                 file.display()
-            ))
-            .collect::<Vec<_>>()
-            .join(",")
-    )?;
-    write!(file, "] }}")?;
-
-    println!("cargo:rustc-env=SIXTYFPS_WIDGETS_LIBRARY={}", output_file_path.display());
-
-    Ok(())
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(","))
 }

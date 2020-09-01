@@ -11,7 +11,7 @@ LICENSE END */
 #[cfg(not(no_qt))]
 mod qttypes;
 #[cfg(not(no_qt))]
-pub mod widgets;
+mod widgets;
 
 // FIXME: right now, we are just re-exposing the GL backend, but eventually, we want the Qt
 // backend to use QPainter to draw directly on the window.
@@ -26,6 +26,11 @@ pub fn use_modules() {
 #[cfg(not(no_qt))]
 #[rustfmt::skip]
 pub type NativeWidgets = (widgets::NativeButton, (widgets::NativeCheckBox, (widgets::NativeSlider, (widgets::NativeSpinBox, ()))));
+
+pub mod native_widgets {
+    #[cfg(not(no_qt))]
+    pub use super::widgets::*;
+}
 
 #[cfg(no_qt)]
 pub type NativeWidgets = ();

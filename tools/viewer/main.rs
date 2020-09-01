@@ -26,17 +26,13 @@ fn main() -> std::io::Result<()> {
     let args = Cli::from_args();
     let source = std::fs::read_to_string(&args.path)?;
 
-    let mut include_paths = args.include_paths;
-    if args.style == "qt" || args.style == "native" {
-        // FIXME: that's not how it should work
-        include_paths.push(
-            [env!("CARGO_MANIFEST_DIR"), "..", "..", "sixtyfps_runtime", "rendering_backend", "qt"]
-                .iter()
-                .collect(),
-        );
-    }
+    let compiler_config = sixtyfps_compilerlib::CompilerConfiguration {
+        include_paths: &args.include_paths,
+        style: if args.style.is_empty() { None } else { Some(&args.style) },
+        ..Default::default()
+    };
 
-    let c = match sixtyfps_interpreter::load(source, &args.path, &include_paths) {
+    let c = match sixtyfps_interpreter::load(source, &args.path, &compiler_config) {
         Ok(c) => c,
         Err(diag) => {
             diag.print();
