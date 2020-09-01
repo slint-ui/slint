@@ -501,6 +501,60 @@ App := Rectangle {
 
 #### GridLayout
 
+`GridLayout` place the element in a grid. `GridLayout` adds peroperties to each item: `col`, `row`, `colspan`, `rowspan`.
+One can control the position of elements with `col` and `row`.
+If `col` or `row` is not specified, they are automatically computed such that the item is next to the previous item, in the same row.
+Alternatively, the item can be put in a `Row` element.
+
+The `GridLayout` element has as `spacing` property which is the distance between the elements in the layout.
+There is also a `padding` property which sets the padding within the layout, which can be overriden for specific sides with
+`padding_left`, `padding_right`, `padding_top` and `padding_bottom`
+
+
+This example use the `Row` element
+
+```
+Foo := Window {
+    width: 300lx;
+    height: 300lx;
+    spacing: 5lx;
+
+    GridLayout {
+        Row {
+            Rectangle { color: red; }
+            Rectangle { color: blue; }
+        }
+        Row {
+            Rectangle { color: yellow; }
+            Rectangle { color: green; }
+        }
+    }
+}
+```
+
+This example use the `col` and `row` property
+
+```
+// use Row
+Foo := Window {
+    width: 300lx;
+    height: 300lx;
+    GridLayout {
+        Rectangle { color: red; }
+        Rectangle { color: blue; }
+        Rectangle { color: yellow; row: 1 }
+        Rectangle { color: green; }
+        Rectangle { color: black; col: 3; row: 0; }
+    }
+}
+```
+
+
+
+
+
+TODO: colspan and rowspan
+
 #### PathLayout
 
 #### Flickable
