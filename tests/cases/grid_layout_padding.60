@@ -8,24 +8,49 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 TestCase := Rectangle {
-    width: 300px;
+    width: 600px;
     height: 300px;
-    border_color: black;
-    border_width: 2lx;
 
-    GridLayout {
-        padding_top: 10px;
-        padding_left: 20px;
-        padding_right: 30px;
-        padding_bottom: 40px;
-        Row {
-            rect1 := Rectangle {
-                color: red;
+    Rectangle {
+        width: 300px;
+        height: 300px;
+        border_color: black;
+        border_width: 2lx;
+        GridLayout {
+            padding_top: 10px;
+            padding_left: 20px;
+            padding_right: 30px;
+            padding_bottom: 40px;
+            Row {
+                rect1 := Rectangle {
+                    color: red;
+                }
             }
-        }        
-    }   
-    
+        }
+    }
+
+    Rectangle {
+        width: 300px;
+        height: 300px;
+        x: 300px;
+        border_color: black;
+        border_width: 2lx;
+
+        GridLayout {
+            spacing: 1000px;
+            padding: 25px;
+            padding_left: 20px;
+            padding_right: 30px;
+            Row {
+                rect2 := Rectangle {
+                    color: blue;
+                }
+            }
+        }
+    }
+
     property <bool> rect1_pos_ok: rect1.x == 20px && rect1.y == 10px && rect1.width == 250px && rect1.height == 250px;
+    property <bool> rect2_pos_ok: rect2.x == 20px && rect2.y == 25px && rect2.width == 250px && rect2.height == 250px;
 }
 
 /*
@@ -34,6 +59,7 @@ TestCase := Rectangle {
 TestCase instance;
 TestCase::compute_layout({&TestCase::component_type, &instance });
 assert(instance.get_rect1_pos_ok());
+assert(instance.get_rect2_pos_ok());
 ```
 
 
@@ -43,6 +69,7 @@ let instance = instance.as_ref();
 use sixtyfps::re_exports::Component;
 instance.compute_layout();
 assert!(instance.get_rect1_pos_ok());
+assert!(instance.get_rect2_pos_ok());
 ```
 
 */

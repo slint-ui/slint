@@ -41,11 +41,12 @@ fn lower_grid_layout(
     diag: &mut BuildDiagnostics,
 ) -> Option<Layout> {
     let spacing = binding_reference(grid_layout_element, "spacing");
+    let padding = || binding_reference(grid_layout_element, "padding");
     let padding = Padding {
-        left: binding_reference(grid_layout_element, "padding_left"),
-        right: binding_reference(grid_layout_element, "padding_right"),
-        top: binding_reference(grid_layout_element, "padding_top"),
-        bottom: binding_reference(grid_layout_element, "padding_bottom"),
+        left: binding_reference(grid_layout_element, "padding_left").or_else(padding),
+        right: binding_reference(grid_layout_element, "padding_right").or_else(padding),
+        top: binding_reference(grid_layout_element, "padding_top").or_else(padding),
+        bottom: binding_reference(grid_layout_element, "padding_bottom").or_else(padding),
     };
 
     let mut grid = GridLayout { elems: Default::default(), rect, spacing, padding };

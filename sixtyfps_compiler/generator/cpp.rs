@@ -1413,6 +1413,7 @@ fn compute_layout(component: &Rc<Component>) -> Vec<String> {
     component.layout_constraints.borrow().iter().for_each(|layout| {
         let mut inverse_layout_tree = Vec::new();
 
+        res.push("    {".into());
         collect_layouts_recursively(&mut inverse_layout_tree, layout, component);
 
         res.extend(inverse_layout_tree.iter().filter_map(|layout| match layout {
@@ -1424,6 +1425,7 @@ fn compute_layout(component: &Rc<Component>) -> Vec<String> {
             .iter()
             .rev()
             .for_each(|layout| layout.emit_solve_calls(component, &mut res));
+        res.push("    }".into());
     });
 
     res
