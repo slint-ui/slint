@@ -25,7 +25,7 @@ pub fn use_modules() {
 
 #[cfg(not(no_qt))]
 #[rustfmt::skip]
-pub type NativeWidgets = (widgets::QtStyleButton, (widgets::QtStyleCheckBox, (widgets::QtStyleSlider, (widgets::QtStyleSpinBox, ()))));
+pub type NativeWidgets = (widgets::NativeButton, (widgets::NativeCheckBox, (widgets::NativeSlider, (widgets::NativeSpinBox, ()))));
 
 #[cfg(no_qt)]
 pub type NativeWidgets = ();

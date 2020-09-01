@@ -663,7 +663,7 @@ impl TypeRegister {
         // FIXME: should this be auto generated or placed somewhere else
         native_class(
             &mut r,
-            "QtStyleButton",
+            "NativeButton",
             &[
                 ("x", Type::Length),
                 ("y", Type::Length),
@@ -676,7 +676,7 @@ impl TypeRegister {
         );
         native_class(
             &mut r,
-            "QtStyleCheckBox",
+            "NativeCheckBox",
             &[
                 ("x", Type::Length),
                 ("y", Type::Length),
@@ -689,7 +689,7 @@ impl TypeRegister {
         );
         native_class(
             &mut r,
-            "QtStyleSpinBox",
+            "NativeSpinBox",
             &[
                 ("x", Type::Length),
                 ("y", Type::Length),
@@ -700,7 +700,7 @@ impl TypeRegister {
         );
         native_class(
             &mut r,
-            "QtStyleSlider",
+            "NativeSlider",
             &[
                 ("x", Type::Length),
                 ("y", Type::Length),

@@ -7,7 +7,7 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-export Button := QtStyleButton { }
-export CheckBox := QtStyleCheckBox { }
-export SpinBox := QtStyleSpinBox { }
-export Slider := QtStyleSlider { max:100; }
+export Button := NativeButton { }
+export CheckBox := NativeCheckBox { }
+export SpinBox := NativeSpinBox { }
+export Slider := NativeSlider { max:100; }

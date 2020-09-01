@@ -55,7 +55,7 @@ cpp! {{
 #[repr(C)]
 #[derive(FieldOffsets, Default, BuiltinItem)]
 #[pin]
-pub struct QtStyleButton {
+pub struct NativeButton {
     pub x: Property<f32>,
     pub y: Property<f32>,
     pub width: Property<f32>,
@@ -66,7 +66,7 @@ pub struct QtStyleButton {
     pub cached_rendering_data: CachedRenderingData,
 }
 
-impl Item for QtStyleButton {
+impl Item for NativeButton {
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(
             Self::FIELD_OFFSETS.x.apply_pin(self).get(),
@@ -146,17 +146,17 @@ impl Item for QtStyleButton {
     }
 }
 
-impl ItemConsts for QtStyleButton {
+impl ItemConsts for NativeButton {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
         Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-ItemVTable_static! { #[no_mangle] pub static QtStyleButtonVTable for QtStyleButton }
+ItemVTable_static! { #[no_mangle] pub static NativeButtonVTable for NativeButton }
 
 #[repr(C)]
 #[derive(FieldOffsets, Default, BuiltinItem)]
 #[pin]
-pub struct QtStyleCheckBox {
+pub struct NativeCheckBox {
     pub x: Property<f32>,
     pub y: Property<f32>,
     pub width: Property<f32>,
@@ -167,7 +167,7 @@ pub struct QtStyleCheckBox {
     pub cached_rendering_data: CachedRenderingData,
 }
 
-impl Item for QtStyleCheckBox {
+impl Item for NativeCheckBox {
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(
             Self::FIELD_OFFSETS.x.apply_pin(self).get(),
@@ -238,16 +238,16 @@ impl Item for QtStyleCheckBox {
     }
 }
 
-impl ItemConsts for QtStyleCheckBox {
+impl ItemConsts for NativeCheckBox {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
         Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-ItemVTable_static! { #[no_mangle] pub static QtStyleCheckBoxVTable for QtStyleCheckBox }
+ItemVTable_static! { #[no_mangle] pub static NativeCheckBoxVTable for NativeCheckBox }
 
 #[derive(Default, Copy, Clone, Debug)]
 #[repr(C)]
-struct QtStyleSpinBoxData {
+struct NativeSpinBoxData {
     active_controls: u32,
     pressed: bool,
 }
@@ -255,14 +255,14 @@ struct QtStyleSpinBoxData {
 #[repr(C)]
 #[derive(FieldOffsets, Default, BuiltinItem)]
 #[pin]
-pub struct QtStyleSpinBox {
+pub struct NativeSpinBox {
     pub x: Property<f32>,
     pub y: Property<f32>,
     pub width: Property<f32>,
     pub height: Property<f32>,
     pub value: Property<i32>,
     pub cached_rendering_data: CachedRenderingData,
-    data: Property<QtStyleSpinBoxData>,
+    data: Property<NativeSpinBoxData>,
 }
 
 cpp! {{
@@ -285,7 +285,7 @@ void initQSpinBoxOptions(QStyleOptionSpinBox &option, bool pressed, int active_c
 }
 }}
 
-impl Item for QtStyleSpinBox {
+impl Item for NativeSpinBox {
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(
             Self::FIELD_OFFSETS.x.apply_pin(self).get(),
@@ -416,16 +416,16 @@ impl Item for QtStyleSpinBox {
     }
 }
 
-impl ItemConsts for QtStyleSpinBox {
+impl ItemConsts for NativeSpinBox {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
         Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-ItemVTable_static! { #[no_mangle] pub static QtStyleSpinBoxVTable for QtStyleSpinBox }
+ItemVTable_static! { #[no_mangle] pub static NativeSpinBoxVTable for NativeSpinBox }
 
 #[derive(Default, Copy, Clone, Debug)]
 #[repr(C)]
-struct QtStyleSliderData {
+struct NativeSliderData {
     active_controls: u32,
     pressed_position: Option<(f32, f32)>,
     pressed_val: f32,
@@ -434,7 +434,7 @@ struct QtStyleSliderData {
 #[repr(C)]
 #[derive(FieldOffsets, Default, BuiltinItem)]
 #[pin]
-pub struct QtStyleSlider {
+pub struct NativeSlider {
     pub x: Property<f32>,
     pub y: Property<f32>,
     pub width: Property<f32>,
@@ -443,7 +443,7 @@ pub struct QtStyleSlider {
     pub min: Property<f32>,
     pub max: Property<f32>,
     pub cached_rendering_data: CachedRenderingData,
-    data: Property<QtStyleSliderData>,
+    data: Property<NativeSliderData>,
 }
 
 cpp! {{
@@ -462,7 +462,7 @@ void initQSliderOptions(QStyleOptionSlider &option, bool pressed, int active_con
 }
 }}
 
-impl Item for QtStyleSlider {
+impl Item for NativeSlider {
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(
             Self::FIELD_OFFSETS.x.apply_pin(self).get(),
@@ -598,9 +598,9 @@ impl Item for QtStyleSlider {
     }
 }
 
-impl ItemConsts for QtStyleSlider {
+impl ItemConsts for NativeSlider {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
         Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-ItemVTable_static! { #[no_mangle] pub static QtStyleSliderVTable for QtStyleSlider }
+ItemVTable_static! { #[no_mangle] pub static NativeSliderVTable for NativeSlider }
