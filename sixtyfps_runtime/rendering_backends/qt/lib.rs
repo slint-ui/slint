@@ -8,8 +8,9 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-#[cfg(have_qt)]
+#[cfg(not(no_qt))]
 mod qttypes;
+#[cfg(not(no_qt))]
 pub mod widgets;
 
 // FIXME: right now, we are just re-exposing the GL backend, but eventually, we want the Qt
@@ -22,5 +23,9 @@ pub fn use_modules() {
     sixtyfps_corelib::use_modules();
 }
 
+#[cfg(not(no_qt))]
 #[rustfmt::skip]
 pub type NativeWidgets = (widgets::QtStyleButton, (widgets::QtStyleCheckBox, (widgets::QtStyleSlider, (widgets::QtStyleSpinBox, ()))));
+
+#[cfg(no_qt)]
+pub type NativeWidgets = ();

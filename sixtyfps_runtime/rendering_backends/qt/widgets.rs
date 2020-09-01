@@ -10,9 +10,7 @@ LICENSE END */
 #![allow(non_upper_case_globals)]
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
-#[cfg(have_qt)]
 use cpp::cpp;
-#[cfg(have_qt)]
 use sixtyfps_corelib::graphics::Resource;
 use sixtyfps_corelib::graphics::{HighLevelRenderingPrimitive, Rect, RenderingVariable};
 use sixtyfps_corelib::input::{InputEventResult, MouseEvent, MouseEventType};
@@ -23,10 +21,8 @@ use sixtyfps_corelib::rtti::*;
 use sixtyfps_corelib::{ItemVTable_static, Property, SharedArray, SharedString, Signal};
 use sixtyfps_corelib_macros::*;
 
-#[cfg(have_qt)]
 use crate::qttypes;
 
-#[cfg(have_qt)]
 fn to_resource(image: qttypes::QImage) -> Resource {
     let size = image.size();
     Resource::EmbeddedRgbaImage {
@@ -36,7 +32,6 @@ fn to_resource(image: qttypes::QImage) -> Resource {
     }
 }
 
-#[cfg(have_qt)]
 cpp! {{
     #include <QtWidgets/QApplication>
     #include <QtWidgets/QStyle>
@@ -81,37 +76,31 @@ impl Item for QtStyleButton {
         )
     }
     fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
-        #[cfg(have_qt)]
-        {
-            let down: bool = Self::FIELD_OFFSETS.pressed.apply_pin(self).get();
-            let text: qttypes::QString =
-                Self::FIELD_OFFSETS.text.apply_pin(self).get().as_str().into();
-            let size: qttypes::QSize = qttypes::QSize {
-                width: Self::FIELD_OFFSETS.width.apply_pin(self).get() as _,
-                height: Self::FIELD_OFFSETS.height.apply_pin(self).get() as _,
-            };
+        let down: bool = Self::FIELD_OFFSETS.pressed.apply_pin(self).get();
+        let text: qttypes::QString = Self::FIELD_OFFSETS.text.apply_pin(self).get().as_str().into();
+        let size: qttypes::QSize = qttypes::QSize {
+            width: Self::FIELD_OFFSETS.width.apply_pin(self).get() as _,
+            height: Self::FIELD_OFFSETS.height.apply_pin(self).get() as _,
+        };
 
-            let img = cpp!(unsafe [
-                text as "QString",
-                size as "QSize",
-                down as "bool"
-            ] -> qttypes::QImage as "QImage" {
-                ensure_initialized();
-                QImage img(size, QImage::Format_ARGB32);
-                img.fill(Qt::transparent);
-                QPainter p(&img);
-                QStyleOptionButton option;
-                option.text = std::move(text);
-                option.rect = QRect(img.rect());
-                if (down)
-                    option.state |= QStyle::State_Sunken;
-                qApp->style()->drawControl(QStyle::CE_PushButton, &option, &p, nullptr);
-                return img;
-            });
-            return HighLevelRenderingPrimitive::Image { source: to_resource(img) };
-        }
-        #[cfg(not(have_qt))]
-        HighLevelRenderingPrimitive::NoContents
+        let img = cpp!(unsafe [
+            text as "QString",
+            size as "QSize",
+            down as "bool"
+        ] -> qttypes::QImage as "QImage" {
+            ensure_initialized();
+            QImage img(size, QImage::Format_ARGB32);
+            img.fill(Qt::transparent);
+            QPainter p(&img);
+            QStyleOptionButton option;
+            option.text = std::move(text);
+            option.rect = QRect(img.rect());
+            if (down)
+                option.state |= QStyle::State_Sunken;
+            qApp->style()->drawControl(QStyle::CE_PushButton, &option, &p, nullptr);
+            return img;
+        });
+        return HighLevelRenderingPrimitive::Image { source: to_resource(img) };
     }
 
     fn rendering_variables(self: Pin<&Self>) -> SharedArray<RenderingVariable> {
@@ -119,27 +108,21 @@ impl Item for QtStyleButton {
     }
 
     fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
-        #[cfg(have_qt)]
-        {
-            let text: qttypes::QString =
-                Self::FIELD_OFFSETS.text.apply_pin(self).get().as_str().into();
-            let size = cpp!(unsafe [
-                text as "QString"
-            ] -> qttypes::QSize as "QSize" {
-                ensure_initialized();
-                QStyleOptionButton option;
-                option.rect = option.fontMetrics.boundingRect(text);
-                option.text = std::move(text);
-                return qApp->style()->sizeFromContents(QStyle::CT_PushButton, &option, option.rect.size(), nullptr);
-            });
-            LayoutInfo {
-                min_width: size.width as f32,
-                min_height: size.height as f32,
-                ..LayoutInfo::default()
-            }
+        let text: qttypes::QString = Self::FIELD_OFFSETS.text.apply_pin(self).get().as_str().into();
+        let size = cpp!(unsafe [
+            text as "QString"
+        ] -> qttypes::QSize as "QSize" {
+            ensure_initialized();
+            QStyleOptionButton option;
+            option.rect = option.fontMetrics.boundingRect(text);
+            option.text = std::move(text);
+            return qApp->style()->sizeFromContents(QStyle::CT_PushButton, &option, option.rect.size(), nullptr);
+        });
+        LayoutInfo {
+            min_width: size.width as f32,
+            min_height: size.height as f32,
+            ..LayoutInfo::default()
         }
-        #[cfg(not(have_qt))]
-        LayoutInfo::default()
     }
 
     fn input_event(self: Pin<&Self>, event: MouseEvent) -> InputEventResult {
@@ -194,36 +177,30 @@ impl Item for QtStyleCheckBox {
         )
     }
     fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
-        #[cfg(have_qt)]
-        {
-            let checked: bool = Self::FIELD_OFFSETS.checked.apply_pin(self).get();
-            let text: qttypes::QString =
-                Self::FIELD_OFFSETS.text.apply_pin(self).get().as_str().into();
-            let size: qttypes::QSize = qttypes::QSize {
-                width: Self::FIELD_OFFSETS.width.apply_pin(self).get() as _,
-                height: Self::FIELD_OFFSETS.height.apply_pin(self).get() as _,
-            };
+        let checked: bool = Self::FIELD_OFFSETS.checked.apply_pin(self).get();
+        let text: qttypes::QString = Self::FIELD_OFFSETS.text.apply_pin(self).get().as_str().into();
+        let size: qttypes::QSize = qttypes::QSize {
+            width: Self::FIELD_OFFSETS.width.apply_pin(self).get() as _,
+            height: Self::FIELD_OFFSETS.height.apply_pin(self).get() as _,
+        };
 
-            let img = cpp!(unsafe [
-                text as "QString",
-                size as "QSize",
-                checked as "bool"
-            ] -> qttypes::QImage as "QImage" {
-                ensure_initialized();
-                QImage img(size, QImage::Format_ARGB32);
-                img.fill(Qt::transparent);
-                QPainter p(&img);
-                QStyleOptionButton option;
-                option.text = std::move(text);
-                option.rect = QRect(img.rect());
-                option.state |= checked ? QStyle::State_On : QStyle::State_Off;
-                qApp->style()->drawControl(QStyle::CE_CheckBox, &option, &p, nullptr);
-                return img;
-            });
-            return HighLevelRenderingPrimitive::Image { source: to_resource(img) };
-        }
-        #[cfg(not(have_qt))]
-        HighLevelRenderingPrimitive::NoContents
+        let img = cpp!(unsafe [
+            text as "QString",
+            size as "QSize",
+            checked as "bool"
+        ] -> qttypes::QImage as "QImage" {
+            ensure_initialized();
+            QImage img(size, QImage::Format_ARGB32);
+            img.fill(Qt::transparent);
+            QPainter p(&img);
+            QStyleOptionButton option;
+            option.text = std::move(text);
+            option.rect = QRect(img.rect());
+            option.state |= checked ? QStyle::State_On : QStyle::State_Off;
+            qApp->style()->drawControl(QStyle::CE_CheckBox, &option, &p, nullptr);
+            return img;
+        });
+        return HighLevelRenderingPrimitive::Image { source: to_resource(img) };
     }
 
     fn rendering_variables(self: Pin<&Self>) -> SharedArray<RenderingVariable> {
@@ -231,28 +208,22 @@ impl Item for QtStyleCheckBox {
     }
 
     fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
-        #[cfg(have_qt)]
-        {
-            let text: qttypes::QString =
-                Self::FIELD_OFFSETS.text.apply_pin(self).get().as_str().into();
-            let size = cpp!(unsafe [
-                text as "QString"
-            ] -> qttypes::QSize as "QSize" {
-                ensure_initialized();
-                QStyleOptionButton option;
-                option.rect = option.fontMetrics.boundingRect(text);
-                option.text = std::move(text);
-                return qApp->style()->sizeFromContents(QStyle::CT_PushButton, &option, option.rect.size(), nullptr);
-            });
-            LayoutInfo {
-                min_width: size.width as f32,
-                min_height: size.height as f32,
-                max_height: size.height as f32,
-                ..LayoutInfo::default()
-            }
+        let text: qttypes::QString = Self::FIELD_OFFSETS.text.apply_pin(self).get().as_str().into();
+        let size = cpp!(unsafe [
+            text as "QString"
+        ] -> qttypes::QSize as "QSize" {
+            ensure_initialized();
+            QStyleOptionButton option;
+            option.rect = option.fontMetrics.boundingRect(text);
+            option.text = std::move(text);
+            return qApp->style()->sizeFromContents(QStyle::CT_PushButton, &option, option.rect.size(), nullptr);
+        });
+        LayoutInfo {
+            min_width: size.width as f32,
+            min_height: size.height as f32,
+            max_height: size.height as f32,
+            ..LayoutInfo::default()
         }
-        #[cfg(not(have_qt))]
-        LayoutInfo::default()
     }
 
     fn input_event(self: Pin<&Self>, event: MouseEvent) -> InputEventResult {
@@ -294,7 +265,6 @@ pub struct QtStyleSpinBox {
     data: Property<QtStyleSpinBoxData>,
 }
 
-#[cfg(have_qt)]
 cpp! {{
 void initQSpinBoxOptions(QStyleOptionSpinBox &option, bool pressed, int active_controls) {
     auto style = qApp->style();
@@ -325,41 +295,36 @@ impl Item for QtStyleSpinBox {
         )
     }
     fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
-        #[cfg(have_qt)]
-        {
-            let value: i32 = Self::FIELD_OFFSETS.value.apply_pin(self).get();
-            let size: qttypes::QSize = qttypes::QSize {
-                width: Self::FIELD_OFFSETS.width.apply_pin(self).get() as _,
-                height: Self::FIELD_OFFSETS.height.apply_pin(self).get() as _,
-            };
-            let data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
-            let active_controls = data.active_controls;
-            let pressed = data.pressed;
+        let value: i32 = Self::FIELD_OFFSETS.value.apply_pin(self).get();
+        let size: qttypes::QSize = qttypes::QSize {
+            width: Self::FIELD_OFFSETS.width.apply_pin(self).get() as _,
+            height: Self::FIELD_OFFSETS.height.apply_pin(self).get() as _,
+        };
+        let data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
+        let active_controls = data.active_controls;
+        let pressed = data.pressed;
 
-            let img = cpp!(unsafe [
-                value as "int",
-                size as "QSize",
-                active_controls as "int",
-                pressed as "bool"
-            ] -> qttypes::QImage as "QImage" {
-                ensure_initialized();
-                QImage img(size, QImage::Format_ARGB32);
-                img.fill(Qt::transparent);
-                QPainter p(&img);
-                auto style = qApp->style();
-                QStyleOptionSpinBox option;
-                option.rect = img.rect();
-                initQSpinBoxOptions(option, pressed, active_controls);
-                style->drawComplexControl(QStyle::CC_SpinBox, &option, &p, nullptr);
+        let img = cpp!(unsafe [
+            value as "int",
+            size as "QSize",
+            active_controls as "int",
+            pressed as "bool"
+        ] -> qttypes::QImage as "QImage" {
+            ensure_initialized();
+            QImage img(size, QImage::Format_ARGB32);
+            img.fill(Qt::transparent);
+            QPainter p(&img);
+            auto style = qApp->style();
+            QStyleOptionSpinBox option;
+            option.rect = img.rect();
+            initQSpinBoxOptions(option, pressed, active_controls);
+            style->drawComplexControl(QStyle::CC_SpinBox, &option, &p, nullptr);
 
-                auto text_rect = style->subControlRect(QStyle::CC_SpinBox, &option, QStyle::SC_SpinBoxEditField, nullptr);
-                p.drawText(text_rect, QString::number(value));
-                return img;
-            });
-            return HighLevelRenderingPrimitive::Image { source: to_resource(img) };
-        }
-        #[cfg(not(have_qt))]
-        HighLevelRenderingPrimitive::NoContents
+            auto text_rect = style->subControlRect(QStyle::CC_SpinBox, &option, QStyle::SC_SpinBoxEditField, nullptr);
+            p.drawText(text_rect, QString::number(value));
+            return img;
+        });
+        return HighLevelRenderingPrimitive::Image { source: to_resource(img) };
     }
 
     fn rendering_variables(self: Pin<&Self>) -> SharedArray<RenderingVariable> {
@@ -367,94 +332,85 @@ impl Item for QtStyleSpinBox {
     }
 
     fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
-        #[cfg(have_qt)]
-        {
-            //let value: i32 = Self::FIELD_OFFSETS.value.apply_pin(self).get();
-            let data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
-            let active_controls = data.active_controls;
-            let pressed = data.pressed;
+        //let value: i32 = Self::FIELD_OFFSETS.value.apply_pin(self).get();
+        let data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
+        let active_controls = data.active_controls;
+        let pressed = data.pressed;
 
-            let size = cpp!(unsafe [
-                //value as "int",
-                active_controls as "int",
-                pressed as "bool"
-            ] -> qttypes::QSize as "QSize" {
-                ensure_initialized();
-                auto style = qApp->style();
+        let size = cpp!(unsafe [
+            //value as "int",
+            active_controls as "int",
+            pressed as "bool"
+        ] -> qttypes::QSize as "QSize" {
+            ensure_initialized();
+            auto style = qApp->style();
 
-                QStyleOptionSpinBox option;
-                initQSpinBoxOptions(option, pressed, active_controls);
+            QStyleOptionSpinBox option;
+            initQSpinBoxOptions(option, pressed, active_controls);
 
-                auto content = option.fontMetrics.boundingRect("0000");
+            auto content = option.fontMetrics.boundingRect("0000");
 
-                return style->sizeFromContents(QStyle::CT_SpinBox, &option, content.size(), nullptr)
-                    .expandedTo(QApplication::globalStrut());
-            });
-            LayoutInfo {
-                min_width: size.width as f32,
-                min_height: size.height as f32,
-                max_height: size.height as f32,
-                ..LayoutInfo::default()
-            }
+            return style->sizeFromContents(QStyle::CT_SpinBox, &option, content.size(), nullptr)
+                .expandedTo(QApplication::globalStrut());
+        });
+        LayoutInfo {
+            min_width: size.width as f32,
+            min_height: size.height as f32,
+            max_height: size.height as f32,
+            ..LayoutInfo::default()
         }
-        #[cfg(not(have_qt))]
-        LayoutInfo::default()
     }
 
     fn input_event(self: Pin<&Self>, event: MouseEvent) -> InputEventResult {
-        #[cfg(have_qt)]
-        {
-            let size: qttypes::QSize = qttypes::QSize {
-                width: Self::FIELD_OFFSETS.width.apply_pin(self).get() as _,
-                height: Self::FIELD_OFFSETS.height.apply_pin(self).get() as _,
+        let size: qttypes::QSize = qttypes::QSize {
+            width: Self::FIELD_OFFSETS.width.apply_pin(self).get() as _,
+            height: Self::FIELD_OFFSETS.height.apply_pin(self).get() as _,
+        };
+        let mut data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
+        let active_controls = data.active_controls;
+        let pressed = data.pressed;
+
+        let pos = qttypes::QPoint { x: event.pos.x as u32, y: event.pos.y as u32 };
+
+        let new_control = cpp!(unsafe [
+            pos as "QPoint",
+            size as "QSize",
+            active_controls as "int",
+            pressed as "bool"
+        ] -> u32 as "int" {
+            ensure_initialized();
+            auto style = qApp->style();
+
+            QStyleOptionSpinBox option;
+            option.rect = { QPoint{}, size };
+            initQSpinBoxOptions(option, pressed, active_controls);
+
+            return style->hitTestComplexControl(QStyle::CC_SpinBox, &option, pos, nullptr);
+        });
+        let changed = new_control != active_controls
+            || match event.what {
+                MouseEventType::MousePressed => {
+                    data.pressed = true;
+                    true
+                }
+                MouseEventType::MouseExit | MouseEventType::MouseReleased => {
+                    data.pressed = false;
+                    if new_control == cpp!(unsafe []->u32 as "int" { return QStyle::SC_SpinBoxUp;})
+                    {
+                        self.value.set(Self::FIELD_OFFSETS.value.apply_pin(self).get() + 1);
+                    }
+                    if new_control
+                        == cpp!(unsafe []->u32 as "int" { return QStyle::SC_SpinBoxDown;})
+                    {
+                        self.value.set(Self::FIELD_OFFSETS.value.apply_pin(self).get() - 1);
+                    }
+                    true
+                }
+                MouseEventType::MouseMoved => false,
             };
-            let mut data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
-            let active_controls = data.active_controls;
-            let pressed = data.pressed;
-
-            let pos = qttypes::QPoint { x: event.pos.x as u32, y: event.pos.y as u32 };
-
-            let new_control = cpp!(unsafe [
-                pos as "QPoint",
-                size as "QSize",
-                active_controls as "int",
-                pressed as "bool"
-            ] -> u32 as "int" {
-                ensure_initialized();
-                auto style = qApp->style();
-
-                QStyleOptionSpinBox option;
-                option.rect = { QPoint{}, size };
-                initQSpinBoxOptions(option, pressed, active_controls);
-
-                return style->hitTestComplexControl(QStyle::CC_SpinBox, &option, pos, nullptr);
-            });
-            let changed = new_control != active_controls
-                || match event.what {
-                    MouseEventType::MousePressed => {
-                        data.pressed = true;
-                        true
-                    }
-                    MouseEventType::MouseExit | MouseEventType::MouseReleased => {
-                        data.pressed = false;
-                        if new_control
-                            == cpp!(unsafe []->u32 as "int" { return QStyle::SC_SpinBoxUp;})
-                        {
-                            self.value.set(Self::FIELD_OFFSETS.value.apply_pin(self).get() + 1);
-                        }
-                        if new_control
-                            == cpp!(unsafe []->u32 as "int" { return QStyle::SC_SpinBoxDown;})
-                        {
-                            self.value.set(Self::FIELD_OFFSETS.value.apply_pin(self).get() - 1);
-                        }
-                        true
-                    }
-                    MouseEventType::MouseMoved => false,
-                };
-            data.active_controls = new_control;
-            if changed {
-                self.data.set(data);
-            }
+        data.active_controls = new_control;
+        if changed {
+            self.data.set(data);
         }
         InputEventResult::EventAccepted
     }
@@ -490,7 +446,6 @@ pub struct QtStyleSlider {
     data: Property<QtStyleSliderData>,
 }
 
-#[cfg(have_qt)]
 cpp! {{
 void initQSliderOptions(QStyleOptionSlider &option, bool pressed, int active_controls, int minimum, int maximum, int value) {
     option.subControls = QStyle::SC_SliderGroove | QStyle::SC_SliderHandle;
@@ -517,42 +472,37 @@ impl Item for QtStyleSlider {
         )
     }
     fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
-        #[cfg(have_qt)]
-        {
-            let value = Self::FIELD_OFFSETS.value.apply_pin(self).get() as i32;
-            let min = Self::FIELD_OFFSETS.min.apply_pin(self).get() as i32;
-            let max = Self::FIELD_OFFSETS.max.apply_pin(self).get() as i32;
-            let size: qttypes::QSize = qttypes::QSize {
-                width: Self::FIELD_OFFSETS.width.apply_pin(self).get() as _,
-                height: Self::FIELD_OFFSETS.height.apply_pin(self).get() as _,
-            };
-            let data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
-            let active_controls = data.active_controls;
-            let pressed = data.pressed_position.is_some();
+        let value = Self::FIELD_OFFSETS.value.apply_pin(self).get() as i32;
+        let min = Self::FIELD_OFFSETS.min.apply_pin(self).get() as i32;
+        let max = Self::FIELD_OFFSETS.max.apply_pin(self).get() as i32;
+        let size: qttypes::QSize = qttypes::QSize {
+            width: Self::FIELD_OFFSETS.width.apply_pin(self).get() as _,
+            height: Self::FIELD_OFFSETS.height.apply_pin(self).get() as _,
+        };
+        let data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
+        let active_controls = data.active_controls;
+        let pressed = data.pressed_position.is_some();
 
-            let img = cpp!(unsafe [
-                value as "int",
-                min as "int",
-                max as "int",
-                size as "QSize",
-                active_controls as "int",
-                pressed as "bool"
-            ] -> qttypes::QImage as "QImage" {
-                ensure_initialized();
-                QImage img(size, QImage::Format_ARGB32);
-                img.fill(Qt::transparent);
-                QPainter p(&img);
-                QStyleOptionSlider option;
-                option.rect = img.rect();
-                initQSliderOptions(option, pressed, active_controls, min, max, value);
-                auto style = qApp->style();
-                style->drawComplexControl(QStyle::CC_Slider, &option, &p, nullptr);
-                return img;
-            });
-            return HighLevelRenderingPrimitive::Image { source: to_resource(img) };
-        }
-        #[cfg(not(have_qt))]
-        HighLevelRenderingPrimitive::NoContents
+        let img = cpp!(unsafe [
+            value as "int",
+            min as "int",
+            max as "int",
+            size as "QSize",
+            active_controls as "int",
+            pressed as "bool"
+        ] -> qttypes::QImage as "QImage" {
+            ensure_initialized();
+            QImage img(size, QImage::Format_ARGB32);
+            img.fill(Qt::transparent);
+            QPainter p(&img);
+            QStyleOptionSlider option;
+            option.rect = img.rect();
+            initQSliderOptions(option, pressed, active_controls, min, max, value);
+            auto style = qApp->style();
+            style->drawComplexControl(QStyle::CC_Slider, &option, &p, nullptr);
+            return img;
+        });
+        return HighLevelRenderingPrimitive::Image { source: to_resource(img) };
     }
 
     fn rendering_variables(self: Pin<&Self>) -> SharedArray<RenderingVariable> {
@@ -560,100 +510,90 @@ impl Item for QtStyleSlider {
     }
 
     fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
-        #[cfg(have_qt)]
-        {
-            let value = Self::FIELD_OFFSETS.value.apply_pin(self).get() as i32;
-            let min = Self::FIELD_OFFSETS.min.apply_pin(self).get() as i32;
-            let max = Self::FIELD_OFFSETS.max.apply_pin(self).get() as i32;
-            let data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
-            let active_controls = data.active_controls;
-            let pressed = data.pressed_position.is_some();
+        let value = Self::FIELD_OFFSETS.value.apply_pin(self).get() as i32;
+        let min = Self::FIELD_OFFSETS.min.apply_pin(self).get() as i32;
+        let max = Self::FIELD_OFFSETS.max.apply_pin(self).get() as i32;
+        let data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
+        let active_controls = data.active_controls;
+        let pressed = data.pressed_position.is_some();
 
-            let size = cpp!(unsafe [
-                value as "int",
-                min as "int",
-                max as "int",
-                active_controls as "int",
-                pressed as "bool"
-            ] -> qttypes::QSize as "QSize" {
-                ensure_initialized();
-                QStyleOptionSlider option;
-                initQSliderOptions(option, pressed, active_controls, min, max, value);
-                auto style = qApp->style();
-                auto thick = style->pixelMetric(QStyle::PM_SliderThickness, &option, nullptr);
-                return style->sizeFromContents(QStyle::CT_Slider, &option, QSize(0, thick), nullptr)
-                    .expandedTo(QApplication::globalStrut());
-            });
-            LayoutInfo {
-                min_width: size.width as f32,
-                min_height: size.height as f32,
-                max_height: size.height as f32,
-                ..LayoutInfo::default()
-            }
+        let size = cpp!(unsafe [
+            value as "int",
+            min as "int",
+            max as "int",
+            active_controls as "int",
+            pressed as "bool"
+        ] -> qttypes::QSize as "QSize" {
+            ensure_initialized();
+            QStyleOptionSlider option;
+            initQSliderOptions(option, pressed, active_controls, min, max, value);
+            auto style = qApp->style();
+            auto thick = style->pixelMetric(QStyle::PM_SliderThickness, &option, nullptr);
+            return style->sizeFromContents(QStyle::CT_Slider, &option, QSize(0, thick), nullptr)
+                .expandedTo(QApplication::globalStrut());
+        });
+        LayoutInfo {
+            min_width: size.width as f32,
+            min_height: size.height as f32,
+            max_height: size.height as f32,
+            ..LayoutInfo::default()
         }
-        #[cfg(not(have_qt))]
-        LayoutInfo::default()
     }
 
     fn input_event(self: Pin<&Self>, event: MouseEvent) -> InputEventResult {
-        #[allow(unused)]
-        let mut result = InputEventResult::EventIgnored;
-        #[cfg(have_qt)]
-        {
-            let size: qttypes::QSize = qttypes::QSize {
-                width: Self::FIELD_OFFSETS.width.apply_pin(self).get() as _,
-                height: Self::FIELD_OFFSETS.height.apply_pin(self).get() as _,
-            };
-            let value = Self::FIELD_OFFSETS.value.apply_pin(self).get() as f32;
-            let min = Self::FIELD_OFFSETS.min.apply_pin(self).get() as f32;
-            let max = Self::FIELD_OFFSETS.max.apply_pin(self).get() as f32;
-            let mut data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
-            let active_controls = data.active_controls;
-            let pressed = data.pressed_position.is_some();
-            let pos = qttypes::QPoint { x: event.pos.x as u32, y: event.pos.y as u32 };
+        let size: qttypes::QSize = qttypes::QSize {
+            width: Self::FIELD_OFFSETS.width.apply_pin(self).get() as _,
+            height: Self::FIELD_OFFSETS.height.apply_pin(self).get() as _,
+        };
+        let value = Self::FIELD_OFFSETS.value.apply_pin(self).get() as f32;
+        let min = Self::FIELD_OFFSETS.min.apply_pin(self).get() as f32;
+        let max = Self::FIELD_OFFSETS.max.apply_pin(self).get() as f32;
+        let mut data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
+        let active_controls = data.active_controls;
+        let pressed = data.pressed_position.is_some();
+        let pos = qttypes::QPoint { x: event.pos.x as u32, y: event.pos.y as u32 };
 
-            let new_control = cpp!(unsafe [
-                pos as "QPoint",
-                size as "QSize",
-                value as "float",
-                min as "float",
-                max as "float",
-                active_controls as "int",
-                pressed as "bool"
-            ] -> u32 as "int" {
-                ensure_initialized();
-                QStyleOptionSlider option;
-                initQSliderOptions(option, pressed, active_controls, min, max, value);
-                auto style = qApp->style();
-                option.rect = { QPoint{}, size };
-                return style->hitTestComplexControl(QStyle::CC_Slider, &option, pos, nullptr);
-            });
-            result = match event.what {
-                MouseEventType::MousePressed => {
-                    data.pressed_position = Some((event.pos.x as f32, event.pos.y as f32));
-                    data.pressed_val = value;
+        let new_control = cpp!(unsafe [
+            pos as "QPoint",
+            size as "QSize",
+            value as "float",
+            min as "float",
+            max as "float",
+            active_controls as "int",
+            pressed as "bool"
+        ] -> u32 as "int" {
+            ensure_initialized();
+            QStyleOptionSlider option;
+            initQSliderOptions(option, pressed, active_controls, min, max, value);
+            auto style = qApp->style();
+            option.rect = { QPoint{}, size };
+            return style->hitTestComplexControl(QStyle::CC_Slider, &option, pos, nullptr);
+        });
+        let result = match event.what {
+            MouseEventType::MousePressed => {
+                data.pressed_position = Some((event.pos.x as f32, event.pos.y as f32));
+                data.pressed_val = value;
+                InputEventResult::GrabMouse
+            }
+            MouseEventType::MouseExit | MouseEventType::MouseReleased => {
+                data.pressed_position = None;
+                InputEventResult::EventAccepted
+            }
+            MouseEventType::MouseMoved => {
+                if let Some((pressed_x, _)) = data.pressed_position {
+                    // FIXME: use QStyle::subControlRect to find out the actual size of the groove
+                    let new_val = data.pressed_val
+                        + ((event.pos.x as f32) - pressed_x) * (max - min) / size.width as f32;
+                    self.value.set(new_val.max(min).min(max));
                     InputEventResult::GrabMouse
+                } else {
+                    InputEventResult::EventIgnored
                 }
-                MouseEventType::MouseExit | MouseEventType::MouseReleased => {
-                    data.pressed_position = None;
-                    InputEventResult::EventAccepted
-                }
-                MouseEventType::MouseMoved => {
-                    if let Some((pressed_x, _)) = data.pressed_position {
-                        // FIXME: use QStyle::subControlRect to find out the actual size of the groove
-                        let new_val = data.pressed_val
-                            + ((event.pos.x as f32) - pressed_x) * (max - min) / size.width as f32;
-                        self.value.set(new_val.max(min).min(max));
-                        InputEventResult::GrabMouse
-                    } else {
-                        InputEventResult::EventIgnored
-                    }
-                }
-            };
-            data.active_controls = new_control;
+            }
+        };
+        data.active_controls = new_control;
 
-            self.data.set(data);
-        }
+        self.data.set(data);
         result
     }
 }
