@@ -44,7 +44,7 @@ exhale_args = {
         "doxygenStripFromPath": "..",
         "createTreeView": True,
         "exhaleExecutesDoxygen": True,
-        "exhaleDoxygenStdin": '''INPUT = @CMAKE_CURRENT_SOURCE_DIR@/../include
+        "exhaleDoxygenStdin": '''INPUT = ../../api/sixtyfps-cpp/include
 EXCLUDE_SYMBOLS = sixtyfps::cbindgen_private* sixtyfps::private_api*'''
 }
 

@@ -85,10 +85,6 @@ jobs:
       with:
           command: test
           args: --verbose
-    - name: Install doxygen
-      if: matrix.os == 'ubuntu-20.04'
-      run: sudo apt-get install doxygen
-    - uses: dschep/install-pipenv-action@v1
     - name: Prepare cmake module
       run: cargo xtask cmake --prefix $HOME/sixtyfps_install --install
     - name: C++ Test
@@ -147,8 +143,8 @@ jobs:
     - name: Install doxygen
       run: sudo apt-get install doxygen
     - uses: dschep/install-pipenv-action@v1
-    - name: Prepare cmake module (builds docs)
-      run: cargo xtask cmake
+    - name: Build Cpp docs
+      run: cargo xtask cppdocs
     - name: Install wasm-pack
       run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
     - name: Setup Node.js
@@ -183,7 +179,7 @@ jobs:
               examples/printerdemo/wasm/dist/
               api/sixtyfps-wasm-interpreter/pkg/
               target/doc
-              target/debug/docs/html
+              target/cppdocs/html
     - name: Clean cache # Otherwise the cache is much too big
       run: |
           du -hs target
@@ -223,7 +219,7 @@ jobs:
             rm -rf docs
             mkdir -p docs
             mkdir -p docs/cpp
-            cp -a ../target/debug/docs/html/* docs/cpp/
+            cp -a ../target/cppdocs/html/* docs/cpp/
             mkdir -p docs/rust
             cp -a ../target/doc/* docs/rust/
             git add docs

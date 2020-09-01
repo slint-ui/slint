@@ -7,11 +7,13 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
+use anyhow::Context;
 use std::error::Error;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
 mod cmake;
+mod cppdocs;
 mod license_headers_check;
 
 #[derive(Debug, StructOpt)]
@@ -20,6 +22,8 @@ pub enum TaskCommand {
     CMake(cmake::CMakeCommand),
     #[structopt(name = "check_license_headers")]
     CheckLicenseHeaders(license_headers_check::LicenseHeaderCheck),
+    #[structopt(name = "cppdocs")]
+    CppDocs,
 }
 
 #[derive(Debug, StructOpt)]
@@ -35,10 +39,39 @@ pub fn root_dir() -> anyhow::Result<PathBuf> {
     Ok(root)
 }
 
+fn run_command<I, K, V>(program: &str, args: &[&str], env: I) -> anyhow::Result<Vec<u8>>
+where
+    I: IntoIterator<Item = (K, V)>,
+    K: AsRef<std::ffi::OsStr>,
+    V: AsRef<std::ffi::OsStr>,
+{
+    let cmdline = || format!("{} {}", program, args.join(" "));
+    let output = std::process::Command::new(program)
+        .args(args)
+        .current_dir(root_dir()?)
+        .envs(env)
+        .output()
+        .with_context(|| format!("Error launching {}", cmdline()))?;
+    let code =
+        output.status.code().with_context(|| format!("Command received signal: {}", cmdline()))?;
+    if code != 0 {
+        Err(anyhow::anyhow!(
+            "Command {} exited with non-zero status: {}\nstdout: {}\nstderr: {}",
+            cmdline(),
+            code,
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        ))
+    } else {
+        Ok(output.stdout)
+    }
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     match ApplicationArguments::from_args().command {
         TaskCommand::CMake(cmd) => cmd.build_cmake()?,
         TaskCommand::CheckLicenseHeaders(cmd) => cmd.check_license_headers()?,
+        TaskCommand::CppDocs => cppdocs::generate()?,
     };
 
     Ok(())

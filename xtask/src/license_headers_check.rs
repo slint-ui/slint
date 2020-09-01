@@ -11,7 +11,7 @@ use anyhow::Context;
 use anyhow::Result;
 use lazy_static::lazy_static;
 use std::str::FromStr;
-use std::{path::Path, path::PathBuf, process::Command};
+use std::{path::Path, path::PathBuf};
 use structopt::StructOpt;
 
 #[derive(Copy, Clone, Debug)]
@@ -208,7 +208,7 @@ lazy_static! {
         (".*\\.gitignore$", LicenseLocation::NoLicense),
         ("\\.clang-format$", LicenseLocation::NoLicense),
         ("^api/sixtyfps-cpp/docs/Pipfile$", LicenseLocation::NoLicense),
-        ("^api/sixtyfps-cpp/docs/conf.py.in$", LicenseLocation::NoLicense),
+        ("^api/sixtyfps-cpp/docs/conf.py$", LicenseLocation::NoLicense),
         ("\\.cargo/config$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         (
             "\\.github/workflows/rust.yaml$",
@@ -264,25 +264,13 @@ const EXPECTED_HEADER: LicenseHeader<'static> = LicenseHeader(&[
 const EXPECTED_HOMEPAGE: &str = "https://sixtyfps.io";
 const EXPECTED_REPOSITORY: &str = "https://github.com/sixtyfpsui/sixtyfps";
 
-fn run_command(program: &str, args: &[&str]) -> Result<Vec<u8>> {
-    let cmdline = || format!("{} {}", program, args.join(" "));
-    let output = Command::new(program)
-        .args(args)
-        .current_dir(super::root_dir()?)
-        .output()
-        .with_context(|| format!("Error launching {}", cmdline()))?;
-    let code =
-        output.status.code().with_context(|| format!("Command received signal: {}", cmdline()))?;
-    if code != 0 {
-        Err(anyhow::anyhow!("Command {} exited with non-zero status: {}", cmdline(), code))
-    } else {
-        Ok(output.stdout)
-    }
-}
-
 fn collect_files() -> Result<Vec<PathBuf>> {
     let root = super::root_dir()?;
-    let ls_files_output = run_command("git", &["ls-files", "-z"])?;
+    let ls_files_output = super::run_command(
+        "git",
+        &["ls-files", "-z"],
+        std::iter::empty::<(std::ffi::OsString, std::ffi::OsString)>(),
+    )?;
     let mut files = Vec::new();
     for path in ls_files_output.split(|ch| *ch == 0) {
         if path.is_empty() {
