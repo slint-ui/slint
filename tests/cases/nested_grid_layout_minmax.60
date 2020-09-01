@@ -16,16 +16,16 @@ TestCase := Rectangle {
     GridLayout {
         Row {
             GridLayout {
-                Row {
-                    rect1 := Rectangle {
-                        color: red;
-                        maximum_width: 50px;
-                        minimum_height: 20px;
-                        maximum_height: 20px;
-                    }
-                    rect2 := Rectangle {
-                        color: blue;
-                    }
+                rect1 := Rectangle {
+                    color: red;
+                    maximum_width: 50px;
+                    minimum_height: 20px;
+                    maximum_height: 20px;
+                }
+                rect2 := Rectangle {
+                    row: 0;
+                    col: 1;
+                    color: blue;
                 }
             }
         }

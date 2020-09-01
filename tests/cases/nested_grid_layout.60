@@ -20,14 +20,10 @@ TestCase := Rectangle {
             rect2 := Rectangle { color: green; }
             GridLayout {
                 spacing: 4px;
-                Row {
-                    rect3 := Rectangle { color: black; }
-                    rect4 := Rectangle { color: blue; }
-                }
-                Row {
-                    rect5 := Rectangle { color: red; }
-                    rect6 := Rectangle { color: green; }
-                }
+                rect3 := Rectangle { color: black; }
+                rect4 := Rectangle { color: blue; }
+                rect5 := Rectangle { color: red; row: 1; }
+                rect6 := Rectangle { color: green; }
             }
         }
     }

@@ -230,11 +230,12 @@ impl GridLayout {
         };
         let colspan = get_const_value("colspan").unwrap_or(1);
         let rowspan = get_const_value("rowspan").unwrap_or(1);
-        if let Some(c) = get_const_value("col") {
-            *col = c;
-        }
         if let Some(r) = get_const_value("row") {
             *row = r;
+            *col = 0;
+        }
+        if let Some(c) = get_const_value("col") {
+            *col = c;
         }
 
         let layout_item = if let Some(nested_layout_parser) = layout_parse_function(&item_element) {
