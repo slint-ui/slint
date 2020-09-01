@@ -15,19 +15,25 @@ Below is an example of components and elements:
 
 ```60
 
-MyButton := Rectangle {
+MyButton := Text {
+    color: black;
     // ...
 }
 
 export MyApp := Window {
+    width: 200lx;
+    height: 100lx;
+    Rectangle {
+        width: 200lx;
+        height: 100lx;
+        color: green;
+    }
     MyButton {
         text: "hello";
     }
     MyButton {
+        x: 50px;
         text: "world";
-    }
-    Rectangle {
-        color: green;
     }
 }
 
@@ -105,11 +111,11 @@ The elements can have properties. Built-in elements come with common properties 
 as color or dimensional properties. You can assign values or entire [expressions](#expressions) to them:
 
 ```60
-Example := Rectangle {
+Example := Window {
     // Simple expression: ends with a semi colon
-    width: 42px;
+    width: 42lx;
     // or a code block
-    height: { 42px }
+    height: { 42lx }
 }
 ```
 
@@ -222,7 +228,7 @@ Arithmetic in expression works like in most programming language with the operat
 
 ```60
 Example := Rectangle {
-    x: 1 * 2 + 3 * 4; // same as (1 * 2) + (3 * 4)
+    property <int> p: 1 * 2 + 3 * 4; // same as (1 * 2) + (3 * 4)
 }
 ```
 
@@ -231,7 +237,7 @@ You can access properties by addressing the associated element, followed by a `.
 ```60
 Example := Rectangle {
     foo := Rectangle {
-        x: 42;
+        x: 42lx;
     }
     x: foo.x;
 }
@@ -276,25 +282,25 @@ Inside signal handlers, more complicated statements are allowed:
 
 Assignment:
 
-```60
+```
 clicked => { some_property = 42; }
 ```
 
 Self-assignement with `+=` `-=` `*=` `/=`
 
-```60
+```
 clicked => { some_property += 42; }
 ```
 
 Calling a signal
 
-```60
+```
 clicked => { root.some_signal(); }
 ```
 
 Conditional expression
 
-```60
+```
 clicked => {
     if (condition) {
         foo = 42;
@@ -306,7 +312,7 @@ clicked => {
 
 Empty expression
 
-```60
+```
 clicked => { }
 // or
 clicked => { ; }
@@ -319,8 +325,14 @@ The `for` syntax
 
 
 ```60
-Example := Rectangle {
-    for person[index] in model: Button {
+Example := Window {
+    height: 100lx;
+    width: 300lx;
+    for my_color[index] in [ #e11, #1a2, #23d ]: Rectangle {
+        height: 100lx;
+        width: 60lx;
+        x: width * index;
+        color: my_color;
     }
 }
 ```
@@ -348,11 +360,11 @@ Animation can be configured with the following parameter:
 
 It is also possible to animate sevaral properties with the same animation:
 
-```60
+```
 animate x, y { duration: 100ms; }
 ```
 is the same as
-```60
+```
 animate x { duration: 100ms; }
 animate y { duration: 100ms; }
 ```
@@ -363,12 +375,12 @@ The `states` statement alow to declare states like so:
 
 ```60
 Example := Rectangle {
-    text := Text { text: "hello" }
+    text := Text { text: "hello"; }
     property<bool> pressed;
-    property<bool> enabled;
+    property<bool> is_enabled;
 
     states [
-        disabled when !enabled : {
+        disabled when !is_enabled : {
             color: gray; // same as root.color: gray;
             text.color: white;
         }
@@ -379,7 +391,7 @@ Example := Rectangle {
 }
 ```
 
-In that example, when the `enabled` property is set to false, the `disabled` state will be entered
+In that example, when the `is_enabled` property is set to false, the `disabled` state will be entered
 This will change the color of the Rectangle and of the Text.
 
 ### Transitions (TODO)
@@ -388,12 +400,12 @@ Complex animation can be declared on state transitions:
 
 ```60
 Example := Rectangle {
-    text := Text { text: "hello" }
+    text := Text { text: "hello"; }
     property<bool> pressed;
-    property<bool> enabled;
+    property<bool> is_enabled;
 
     states [
-        disabled when !enabled : {
+        disabled when !is_enabled : {
             color: gray; // same as root.color: gray;
             text.color: white;
         }
@@ -403,11 +415,11 @@ Example := Rectangle {
     ]
 
     transitions [
-        to down {
-            animate color { duration: 300ms }
+        to down : {
+            animate color { duration: 300ms; }
         }
-        out disabled {
-            animate * { duration: 800ms }
+        out disabled : {
+            animate * { duration: 800ms; }
         }
     ]
 }
@@ -514,11 +526,10 @@ This example use the `Row` element
 
 ```60
 Foo := Window {
-    width: 300lx;
-    height: 300lx;
-    spacing: 5lx;
-
+    width: 200lx;
+    height: 200lx;
     GridLayout {
+        spacing: 5lx;
         Row {
             Rectangle { color: red; }
             Rectangle { color: blue; }
@@ -535,14 +546,14 @@ This example use the `col` and `row` property
 
 ```60
 Foo := Window {
-    width: 300lx;
-    height: 300lx;
+    width: 200lx;
+    height: 150lx;
     GridLayout {
         Rectangle { color: red; }
         Rectangle { color: blue; }
-        Rectangle { color: yellow; row: 1 }
+        Rectangle { color: yellow; row: 1; }
         Rectangle { color: green; }
-        Rectangle { color: black; col: 3; row: 0; }
+        Rectangle { color: black; col: 2; row: 0; }
     }
 }
 ```

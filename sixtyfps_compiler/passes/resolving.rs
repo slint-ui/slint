@@ -402,6 +402,7 @@ impl Expression {
                     "yellow" => Some(0xffffff00),
                     "black" => Some(0xff000000),
                     "white" => Some(0xffffffff),
+                    "gray" => Some(0xff808080),
                     _ => None,
                 };
                 if let Some(value) = value {
