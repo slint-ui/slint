@@ -33,7 +33,7 @@ jobs:
       uses: actions/cache@v2
       with:
         path: ../Qt
-        key: ${{ runner.os }}-QtCache
+        key: ${{ runner.os }}-${{ github.job }}-QtCache
     - name: Install Qt
       if: matrix.os == 'ubuntu-20.04'
       uses: jurplel/install-qt-action@v2
@@ -43,23 +43,23 @@ jobs:
       uses: actions/cache@v2
       with:
         path: ~/.cargo/registry
-        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.toml') }}
+        key: ${{ runner.os }}-${{ github.job }}-cargo-registry-${{ hashFiles('**/Cargo.toml') }}
     - name: Cache cargo index
       uses: actions/cache@v2
       with:
         path: ~/.cargo/git
-        key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.toml') }}
+        key: ${{ runner.os }}-${{ github.job }}-cargo-index-${{ hashFiles('**/Cargo.toml') }}
     - uses: actions/cache@v2
       with:
         path: ~/.npm
-        key: ${{ runner.os }}-node-${{ hashFiles('examples/**/package.json', 'api/**/package.json') }}
+        key: ${{ runner.os }}-${{ github.job }}-node-${{ hashFiles('examples/**/package.json', 'api/**/package.json') }}
         restore-keys: |
-          ${{ runner.os }}-node-
+          ${{ runner.os }}-${{ github.job }}-node-
     - name: Cache cargo build
       uses: actions/cache@v2
       with:
         path: target
-        key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.toml') }}
+        key: ${{ runner.os }}-${{ github.job }}-cargo-build-target-${{ hashFiles('**/Cargo.toml') }}
     - name: Install latest stable
       uses: actions-rs/toolchain@v1
       with:
@@ -116,23 +116,23 @@ jobs:
       uses: actions/cache@v2
       with:
         path: ~/.cargo/registry
-        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.toml') }}
+        key: ${{ runner.os }}-${{ github.job }}-cargo-registry-${{ hashFiles('**/Cargo.toml') }}
     - name: Cache cargo index
       uses: actions/cache@v2
       with:
         path: ~/.cargo/git
-        key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.toml') }}
+        key: ${{ runner.os }}-${{ github.job }}-cargo-index-${{ hashFiles('**/Cargo.toml') }}
     - uses: actions/cache@v2
       with:
         path: ~/.npm
-        key: ${{ runner.os }}-node-${{ hashFiles('examples/**/package.json', 'api/**/package.json') }}
+        key: ${{ runner.os }}-${{ github.job }}-node-${{ hashFiles('examples/**/package.json', 'api/**/package.json') }}
         restore-keys: |
-          ${{ runner.os }}-node-
+          ${{ runner.os }}-${{ github.job }}-node-
     - name: Cache cargo build
       uses: actions/cache@v2
       with:
         path: target
-        key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.toml') }}
+        key: ${{ runner.os }}-${{ github.job }}-cargo-build-target-${{ hashFiles('**/Cargo.toml') }}
     - name: Install latest stable
       uses: actions-rs/toolchain@v1
       with:
