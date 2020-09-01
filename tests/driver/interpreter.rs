@@ -15,9 +15,12 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     let include_paths = &test_driver_lib::extract_include_paths(&source)
         .map(std::path::PathBuf::from)
         .collect::<Vec<_>>();
+    let config = sixtyfps_compilerlib::CompilerConfiguration {
+        include_paths: &include_paths,
+        ..Default::default()
+    };
 
-    let component = match sixtyfps_interpreter::load(source, &testcase.absolute_path, include_paths)
-    {
+    let component = match sixtyfps_interpreter::load(source, &testcase.absolute_path, &config) {
         Ok(c) => c,
         Err(diag) => {
             let vec = diag.to_string_vec();
