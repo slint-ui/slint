@@ -19,19 +19,23 @@ jobs:
   build_and_test:
     env:
       LD_LIBRARY_PATH: /home/runner/work/sixtyfps/Qt/5.12.9/gcc_64/lib
-      RUSTDOCFLAGS: --html-in-header=/home/runner/work/sixtyfps/sixtyfps/api/sixtyfps-rs/sixtyfps-docs-integration.html
 
-    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        os: [ubuntu-20.04, macos-latest]
+    runs-on: ${{ matrix.os }}
 
     steps:
     - uses: actions/checkout@v2
     - name: Cache Qt
+      if: matrix.os == 'ubuntu-20.04'
       id: cache-qt
       uses: actions/cache@v2
       with:
         path: ../Qt
         key: ${{ runner.os }}-QtCache
     - name: Install Qt
+      if: matrix.os == 'ubuntu-20.04'
       uses: jurplel/install-qt-action@v2
       with:
         cached: ${{ steps.cache-qt.outputs.cache-hit }}
@@ -62,21 +66,19 @@ jobs:
           toolchain: stable
           override: true
           components: rustfmt, clippy
-    - name: Install nightly
-      uses: actions-rs/toolchain@v1
-      with:
-          toolchain: nightly
     - name: Build
       uses: actions-rs/cargo@v1
       with:
           command: build
           args: --verbose --all-features
     - name: Check formatting
+      if: matrix.os == 'ubuntu-20.04'
       uses: actions-rs/cargo@v1
       with:
           command: fmt
           args: -- --check
     - name: Check license headers
+      if: matrix.os == 'ubuntu-20.04'
       run: cargo xtask check_license_headers --show-all
     - name: Run tests
       uses: actions-rs/cargo@v1
@@ -84,6 +86,7 @@ jobs:
           command: test
           args: --verbose
     - name: Install doxygen
+      if: matrix.os == 'ubuntu-20.04'
       run: sudo apt-get install doxygen
     - uses: dschep/install-pipenv-action@v1
     - name: Prepare cmake module
@@ -99,7 +102,7 @@ jobs:
           rm -rv target/*/*/*sixtyfps*
           rm -rv target/*/*sixtyfps*
           rm -rv target/*/*/test* target/*/*/gallery* target/*/*/printerdemo* target/*/*/viewer*
-          rm -rv target/*/*.so
+          rm -rfv target/*/*.{so,dylib}
           rm -rv target/*/viewer target/*/printerdemo target/*/gallery target/*/*test*
           du -hs target
 
