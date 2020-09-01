@@ -16,7 +16,7 @@ fn qmake_query(var: &str) -> Option<String> {
     })
 }
 fn main() {
-    if !qmake_query("QT_VERSION").is_none() {
+    if qmake_query("QT_VERSION").is_none() {
         println!("cargo:rustc-cfg=no_qt");
         println!(
             "cargo:warning=Could not find a Qt installation. The Qt backend will not be functional"
