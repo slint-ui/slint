@@ -16,7 +16,7 @@ on:
     branches: [ master ]
 
 jobs:
-  build:
+  build_and_test:
     env:
       LD_LIBRARY_PATH: /home/runner/work/sixtyfps/Qt/5.12.9/gcc_64/lib
       RUSTDOCFLAGS: --html-in-header=/home/runner/work/sixtyfps/sixtyfps/api/sixtyfps-rs/sixtyfps-docs-integration.html
@@ -62,7 +62,6 @@ jobs:
           toolchain: stable
           override: true
           components: rustfmt, clippy
-          target: wasm32-unknown-unknown
     - name: Install nightly
       uses: actions-rs/toolchain@v1
       with:
@@ -93,6 +92,60 @@ jobs:
       uses: lukka/run-cmake@v2.4
       with:
         cmakeListsTxtPath: CMakeLists.txt
+    - name: Clean cache # Otherwise the cache is much too big
+      run: |
+          du -hs target
+          rm -rv target/*/incremental
+          rm -rv target/*/*/*sixtyfps*
+          rm -rv target/*/*sixtyfps*
+          rm -rv target/*/*/test* target/*/*/gallery* target/*/*/printerdemo* target/*/*/viewer*
+          rm -rv target/*/*.so
+          rm -rv target/*/viewer target/*/printerdemo target/*/gallery target/*/*test*
+          du -hs target
+
+  docs_and_demos:
+    runs-on: ubuntu-20.04
+    env:
+          RUSTDOCFLAGS: --html-in-header=/home/runner/work/sixtyfps/sixtyfps/api/sixtyfps-rs/sixtyfps-docs-integration.html
+    steps:
+    - uses: actions/checkout@v2
+    - name: Cache cargo registry
+      uses: actions/cache@v2
+      with:
+        path: ~/.cargo/registry
+        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.toml') }}
+    - name: Cache cargo index
+      uses: actions/cache@v2
+      with:
+        path: ~/.cargo/git
+        key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.toml') }}
+    - uses: actions/cache@v2
+      with:
+        path: ~/.npm
+        key: ${{ runner.os }}-node-${{ hashFiles('examples/**/package.json', 'api/**/package.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-
+    - name: Cache cargo build
+      uses: actions/cache@v2
+      with:
+        path: target
+        key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.toml') }}
+    - name: Install latest stable
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: stable
+          override: true
+          components: rustfmt, clippy
+          target: wasm32-unknown-unknown
+    - name: Install nightly
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: nightly
+    - name: Install doxygen
+      run: sudo apt-get install doxygen
+    - uses: dschep/install-pipenv-action@v1
+    - name: Prepare cmake module (builds docs)
+      run: cargo xtask cmake
     - name: Install wasm-pack
       run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
     - name: Setup Node.js
@@ -118,44 +171,61 @@ jobs:
           command: doc
           toolchain: nightly
           args: -p sixtyfps -p sixtyfps-build --no-deps
-    - name: Publish Docs and Demos
-      if: github.ref == 'refs/heads/master' && github.event_name == 'push'
-      run: |
-          git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
-          git config --global user.name "${GITHUB_ACTOR}"
-          git clone "https://tronical:${{ secrets.WWW_PUBLISH_SECRET }}@github.com/sixtyfpsui/www"
-          cd www
-          rm -rf demos
-          mkdir -p demos
-          mkdir -p demos/gallery
-          mkdir -p demos/printerdemo
-          cp -a ../examples/gallery/wasm/dist/* demos/gallery/
-          cp -a ../examples/printerdemo/wasm/dist/* demos/printerdemo/
-          git add demos
-          git add -u demos
-          rm -rf wasm-interpreter
-          mkdir -p wasm-interpreter
-          cp -a ../api/sixtyfps-wasm-interpreter/pkg/* ./wasm-interpreter/
-          git add wasm-interpreter
-          git add -u wasm-interpreter
-          rm -rf docs
-          mkdir -p docs
-          mkdir -p docs/cpp
-          cp -a ../target/debug/docs/html/* docs/cpp/
-          mkdir -p docs/rust
-          cp -a ../target/doc/* docs/rust/
-          git add docs
-          git add -u docs
-          git commit --message "Update $NAME from $GITHUB_REPOSITORY" --message "Pull web demos and C++/Rust reference docs from commit $GITHUB_SHA ($GITHUB_REF)"
-          git push origin master
+    - name: "Upload Docs & Demo Artifacts"
+      uses: actions/upload-artifact@v2
+      with:
+          name: docs-and-demos
+          path: |
+              examples/gallery/wasm/dist/
+              examples/printerdemo/wasm/dist/
+              api/sixtyfps-wasm-interpreter/pkg/
+              target/doc
+              target/debug/docs/html
     - name: Clean cache # Otherwise the cache is much too big
       run: |
           du -hs target
           rm -rv target/*/incremental
           rm -rv target/*/*/*sixtyfps*
           rm -rv target/*/*sixtyfps*
-          rm -rv target/*/*/test* target/*/*/gallery* target/*/*/printerdemo* target/*/*/viewer*
-          rm -rv target/*/*.so
-          rm -rv target/*/viewer target/*/printerdemo target/*/gallery target/*/*test*
+          rm -rv target/*/*/test*
           du -hs target
+
+  publish:
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+    needs: [build_and_test, docs_and_demos] # also depends on build_and_test to only publish if tests are green
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/download-artifact@v2
+        with:
+          name: docs-and-demos
+      - name: Publish Docs and Demos
+        run: |
+            git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+            git config --global user.name "${GITHUB_ACTOR}"
+            git clone "https://tronical:${{ secrets.WWW_PUBLISH_SECRET }}@github.com/sixtyfpsui/www"
+            cd www
+            rm -rf demos
+            mkdir -p demos
+            mkdir -p demos/gallery
+            mkdir -p demos/printerdemo
+            cp -a ../examples/gallery/wasm/dist/* demos/gallery/
+            cp -a ../examples/printerdemo/wasm/dist/* demos/printerdemo/
+            git add demos
+            git add -u demos
+            rm -rf wasm-interpreter
+            mkdir -p wasm-interpreter
+            cp -a ../api/sixtyfps-wasm-interpreter/pkg/* ./wasm-interpreter/
+            git add wasm-interpreter
+            git add -u wasm-interpreter
+            rm -rf docs
+            mkdir -p docs
+            mkdir -p docs/cpp
+            cp -a ../target/debug/docs/html/* docs/cpp/
+            mkdir -p docs/rust
+            cp -a ../target/doc/* docs/rust/
+            git add docs
+            git add -u docs
+            git commit --message "Update $NAME from $GITHUB_REPOSITORY" --message "Pull web demos and C++/Rust reference docs from commit $GITHUB_SHA ($GITHUB_REF)"
+            git push origin master
+
 
