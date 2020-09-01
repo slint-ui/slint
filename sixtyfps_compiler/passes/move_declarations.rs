@@ -107,7 +107,7 @@ pub fn move_declarations(component: &Rc<Component>) {
 
     // By now, the optimized item should be unused
     #[cfg(debug_assertions)]
-    assert_optized_item_unused(component.optimized_elements.borrow().as_slice());
+    assert_optimized_item_unused(component.optimized_elements.borrow().as_slice());
     core::mem::take(&mut *component.optimized_elements.borrow_mut());
 }
 
@@ -180,7 +180,7 @@ fn simplify_optimized_items(items: &[ElementRc]) {
 
 /// Check there are no longer references to optimized items
 #[cfg(debug_assertions)]
-fn assert_optized_item_unused(items: &[ElementRc]) {
+fn assert_optimized_item_unused(items: &[ElementRc]) {
     for e in items {
         recurse_elem(e, &(), &mut |e, _| {
             assert_eq!(Rc::strong_count(e), 1);

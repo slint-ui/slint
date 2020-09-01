@@ -33,6 +33,20 @@ fn binding_reference(element: &ElementRc, name: &str) -> Option<Expression> {
     }
 }
 
+fn init_fake_property(
+    grid_layout_element: &ElementRc,
+    name: &str,
+    lazy_default: impl Fn() -> Option<Expression>,
+) {
+    if grid_layout_element.borrow().property_declarations.contains_key(name)
+        && !grid_layout_element.borrow().bindings.contains_key(name)
+    {
+        if let Some(e) = lazy_default() {
+            grid_layout_element.borrow_mut().bindings.insert(name.to_owned(), e.into());
+        }
+    }
+}
+
 fn lower_grid_layout(
     component: &Rc<Component>,
     rect: LayoutRect,
@@ -40,8 +54,18 @@ fn lower_grid_layout(
     collected_children: &mut Vec<ElementRc>,
     diag: &mut BuildDiagnostics,
 ) -> Option<Layout> {
-    let spacing = binding_reference(grid_layout_element, "spacing");
     let padding = || binding_reference(grid_layout_element, "padding");
+    let spacing = binding_reference(grid_layout_element, "spacing");
+
+    init_fake_property(grid_layout_element, "width", || Some((*rect.width_reference).clone()));
+    init_fake_property(grid_layout_element, "height", || Some((*rect.height_reference).clone()));
+    init_fake_property(grid_layout_element, "x", || Some((*rect.x_reference).clone()));
+    init_fake_property(grid_layout_element, "y", || Some((*rect.y_reference).clone()));
+    init_fake_property(grid_layout_element, "padding_left", padding);
+    init_fake_property(grid_layout_element, "padding_right", padding);
+    init_fake_property(grid_layout_element, "padding_top", padding);
+    init_fake_property(grid_layout_element, "padding_bottom", padding);
+
     let padding = Padding {
         left: binding_reference(grid_layout_element, "padding_left").or_else(padding),
         right: binding_reference(grid_layout_element, "padding_right").or_else(padding),
@@ -179,15 +203,13 @@ fn lower_element_layout(
 
     for child in old_children {
         if let Some(layout_parser) = layout_parse_function(&child) {
-            if let Some(layout) = layout_parser(
-                component,
-                rect_to_layout.clone(),
-                &child,
-                &mut elem.borrow_mut().children,
-                diag,
-            ) {
+            let mut children = std::mem::take(&mut elem.borrow_mut().children);
+            if let Some(layout) =
+                layout_parser(component, rect_to_layout.clone(), &child, &mut children, diag)
+            {
                 found_layouts.push(layout);
             }
+            elem.borrow_mut().children = children;
             continue;
         } else {
             if !child.borrow().child_of_layout {

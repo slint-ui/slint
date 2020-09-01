@@ -9,44 +9,64 @@
 LICENSE END */
 //! This pass creates properties that are used but are otherwise not real
 
-use crate::{object_tree::*, typeregister::Type};
+use crate::expression_tree::NamedReference;
+use crate::object_tree::*;
+use crate::typeregister::Type;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 pub fn materialize_fake_properties(component: &Rc<Component>) {
-    recurse_elem(&component.root_element, &(), &mut |elem, _| {
+    recurse_elem_no_borrow(&component.root_element, &(), &mut |elem, _| {
+        visit_all_named_references(elem, |NamedReference { element, name }| {
+            let elem = element.upgrade().unwrap();
+            let elem = elem.borrow_mut();
+            let (base_type, mut property_declarations) =
+                std::cell::RefMut::map_split(elem, |elem| {
+                    (&mut elem.base_type, &mut elem.property_declarations)
+                });
+            maybe_materialize(&mut property_declarations, &base_type, name);
+        });
         let elem = elem.borrow_mut();
         let base_type = elem.base_type.clone();
         let (bindings, mut property_declarations) = std::cell::RefMut::map_split(elem, |elem| {
             (&mut elem.bindings, &mut elem.property_declarations)
         });
         for (prop, _) in bindings.iter() {
-            if property_declarations.contains_key(prop) {
-                continue;
-            }
-            let has_declared_property = match &base_type {
-                crate::typeregister::Type::Component(c) => {
-                    has_declared_property(&c.root_element.borrow(), prop)
-                }
-                crate::typeregister::Type::Builtin(b) => b.properties.contains_key(prop),
-                crate::typeregister::Type::Native(n) => n.lookup_property(prop).is_some(),
-                _ => false,
-            };
-
-            if !has_declared_property {
-                let ty = crate::typeregister::reserved_property(prop);
-                if ty != Type::Invalid {
-                    property_declarations.insert(
-                        prop.to_owned(),
-                        PropertyDeclaration {
-                            property_type: ty,
-                            type_node: None,
-                            expose_in_public_api: false,
-                        },
-                    );
-                }
-            }
+            maybe_materialize(&mut property_declarations, &base_type, prop);
         }
     })
+}
+
+fn maybe_materialize(
+    property_declarations: &mut HashMap<String, PropertyDeclaration>,
+    base_type: &Type,
+    prop: &String,
+) {
+    if property_declarations.contains_key(prop) {
+        return;
+    }
+    let has_declared_property = match &base_type {
+        crate::typeregister::Type::Component(c) => {
+            has_declared_property(&c.root_element.borrow(), prop)
+        }
+        crate::typeregister::Type::Builtin(b) => b.properties.contains_key(prop),
+        crate::typeregister::Type::Native(n) => n.lookup_property(prop).is_some(),
+        _ => false,
+    };
+
+    if !has_declared_property {
+        let ty = crate::typeregister::reserved_property(prop);
+        if ty != Type::Invalid {
+            property_declarations.insert(
+                prop.to_owned(),
+                PropertyDeclaration {
+                    property_type: ty,
+                    type_node: None,
+                    expose_in_public_api: false,
+                },
+            );
+        }
+    }
 }
 
 /// Returns true if the property is declared in this element or parent

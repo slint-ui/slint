@@ -666,6 +666,20 @@ pub fn recurse_elem<State>(
     }
 }
 
+/// Same as recurse_elem, but will take the children from the element as to not keep the element borrow
+pub fn recurse_elem_no_borrow<State>(
+    elem: &ElementRc,
+    state: &State,
+    vis: &mut impl FnMut(&ElementRc, &State) -> State,
+) {
+    let state = vis(elem, state);
+    let children = std::mem::take(&mut elem.borrow_mut().children);
+    for sub in &children {
+        recurse_elem_no_borrow(sub, &state, vis);
+    }
+    elem.borrow_mut().children = children;
+}
+
 /// This visit the binding attached to this element, but does not recurse in children elements
 /// Also does not recurse within the expressions.
 ///

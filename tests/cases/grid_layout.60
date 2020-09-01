@@ -11,7 +11,7 @@ TestCase := Rectangle {
     width: 300px;
     height: 300px;
 
-    GridLayout {
+    layout := GridLayout {
         Row {
             rect1 := Rectangle {
                 color: red;
@@ -32,6 +32,7 @@ TestCase := Rectangle {
     property <bool> rect1_pos_ok: rect1.x == 0px && rect1.y == 0px && rect1.width == 150px && rect1.height == 150px;
     property <bool> rect2_pos_ok: rect2.x == 150px && rect2.y == 0px && rect2.width == 150px && rect2.height == 150px;
     property <bool> rect3_pos_ok: rect3.x == 0px && rect3.y == 150px && rect3.width == 150px && rect3.height == 150px;
+    property <length> layout_width: layout.width;
 }
 
 /*
@@ -42,6 +43,7 @@ TestCase::compute_layout({&TestCase::component_type, &instance });
 assert(instance.get_rect1_pos_ok());
 assert(instance.get_rect2_pos_ok());
 assert(instance.get_rect3_pos_ok());
+assert(instance.get_layout_width() == 300);
 ```
 
 
@@ -53,6 +55,7 @@ instance.compute_layout();
 assert!(instance.get_rect1_pos_ok());
 assert!(instance.get_rect2_pos_ok());
 assert!(instance.get_rect3_pos_ok());
+assert_eq!(instance.get_layout_width(), 300.);
 ```
 
 // FIXME! interpreter test
