@@ -510,10 +510,9 @@ The `GridLayout` element has as `spacing` property which is the distance between
 There is also a `padding` property which sets the padding within the layout, which can be overriden for specific sides with
 `padding_left`, `padding_right`, `padding_top` and `padding_bottom`
 
-
 This example use the `Row` element
 
-```
+```60
 Foo := Window {
     width: 300lx;
     height: 300lx;
@@ -534,8 +533,7 @@ Foo := Window {
 
 This example use the `col` and `row` property
 
-```
-// use Row
+```60
 Foo := Window {
     width: 300lx;
     height: 300lx;
