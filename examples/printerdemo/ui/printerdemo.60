@@ -135,8 +135,12 @@ FaxPage := Page {
         font_size: 28lx;
         y: parent.height - height - 20lx;
         x: parent.width - width - 40lx;
+        /* FIXME: does not work with the native stylr
         width: minimum_width;
         height: minimum_height;
+        */
+        width: 120lx;
+        height: 40lx;
     }
 }
 

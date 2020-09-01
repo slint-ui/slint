@@ -211,23 +211,22 @@ fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn gen_backend_gl(include_dir: &Path) -> anyhow::Result<()> {
-    let config = default_config();
-    let mut crate_dir = root_dir();
-    crate_dir.extend(["sixtyfps_runtime", "rendering_backends", "gl"].iter());
-    cbindgen::Builder::new()
-        .with_config(config)
-        .with_crate(crate_dir)
-        .with_header("#include <sixtyfps_internal.h>")
-        .generate()
-        .context("Unable to generate bindings for sixtyfps_gl_internal.h")?
-        .write_to_file(include_dir.join("sixtyfps_gl_internal.h"));
-
-    Ok(())
-}
-
 fn gen_backend_qt(include_dir: &Path) -> anyhow::Result<()> {
-    let config = default_config();
+    let mut config = default_config();
+    config.export.include = [
+        "NativeButton",
+        "NativeButtonVTable",
+        "NativeSpinBox",
+        "NativeSpinBoxVTable",
+        "NativeCheckBox",
+        "NativeCheckBoxVTable",
+        "NativeSlider",
+        "NativeSliderVTable",
+    ]
+    .iter()
+    .map(|x| x.to_string())
+    .collect();
+
     let mut crate_dir = root_dir();
     crate_dir.extend(["sixtyfps_runtime", "rendering_backends", "qt"].iter());
     cbindgen::Builder::new()
@@ -261,7 +260,6 @@ fn gen_backend_default(include_dir: &Path) -> anyhow::Result<()> {
 pub fn gen_all(include_dir: &Path) -> anyhow::Result<()> {
     std::fs::create_dir_all(include_dir).context("Could not create the include directory")?;
     gen_corelib(include_dir)?;
-    gen_backend_gl(include_dir)?;
     gen_backend_qt(include_dir)?;
     gen_backend_default(include_dir)?;
     Ok(())

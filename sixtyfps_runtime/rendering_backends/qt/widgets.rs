@@ -427,7 +427,8 @@ ItemVTable_static! { #[no_mangle] pub static NativeSpinBoxVTable for NativeSpinB
 #[repr(C)]
 struct NativeSliderData {
     active_controls: u32,
-    pressed_position: Option<(f32, f32)>,
+    pressed: bool,
+    pressed_x: f32,
     pressed_val: f32,
 }
 
@@ -481,7 +482,7 @@ impl Item for NativeSlider {
         };
         let data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
         let active_controls = data.active_controls;
-        let pressed = data.pressed_position.is_some();
+        let pressed = data.pressed;
 
         let img = cpp!(unsafe [
             value as "int",
@@ -515,7 +516,7 @@ impl Item for NativeSlider {
         let max = Self::FIELD_OFFSETS.max.apply_pin(self).get() as i32;
         let data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
         let active_controls = data.active_controls;
-        let pressed = data.pressed_position.is_some();
+        let pressed = data.pressed;
 
         let size = cpp!(unsafe [
             value as "int",
@@ -550,7 +551,7 @@ impl Item for NativeSlider {
         let max = Self::FIELD_OFFSETS.max.apply_pin(self).get() as f32;
         let mut data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
         let active_controls = data.active_controls;
-        let pressed = data.pressed_position.is_some();
+        let pressed = data.pressed;
         let pos = qttypes::QPoint { x: event.pos.x as u32, y: event.pos.y as u32 };
 
         let new_control = cpp!(unsafe [
@@ -571,19 +572,20 @@ impl Item for NativeSlider {
         });
         let result = match event.what {
             MouseEventType::MousePressed => {
-                data.pressed_position = Some((event.pos.x as f32, event.pos.y as f32));
+                data.pressed_x = event.pos.x as f32;
+                data.pressed = true;
                 data.pressed_val = value;
                 InputEventResult::GrabMouse
             }
             MouseEventType::MouseExit | MouseEventType::MouseReleased => {
-                data.pressed_position = None;
+                data.pressed = false;
                 InputEventResult::EventAccepted
             }
             MouseEventType::MouseMoved => {
-                if let Some((pressed_x, _)) = data.pressed_position {
+                if data.pressed {
                     // FIXME: use QStyle::subControlRect to find out the actual size of the groove
                     let new_val = data.pressed_val
-                        + ((event.pos.x as f32) - pressed_x) * (max - min) / size.width as f32;
+                        + ((event.pos.x as f32) - data.pressed_x) * (max - min) / size.width as f32;
                     self.value.set(new_val.max(min).min(max));
                     InputEventResult::GrabMouse
                 } else {

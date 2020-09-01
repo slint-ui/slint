@@ -22,6 +22,7 @@ struct ItemVTable;
 }
 #include "sixtyfps_internal.h"
 #include "sixtyfps_default_backend_internal.h"
+#include "sixtyfps_qt_internal.h"
 
 namespace sixtyfps {
 
@@ -35,6 +36,11 @@ extern const cbindgen_private::ItemVTable ImageVTable;
 extern const cbindgen_private::ItemVTable PathVTable;
 extern const cbindgen_private::ItemVTable FlickableVTable;
 extern const cbindgen_private::ItemVTable WindowVTable;
+
+extern const cbindgen_private::ItemVTable NativeButtonVTable;
+extern const cbindgen_private::ItemVTable NativeCheckBoxVTable;
+extern const cbindgen_private::ItemVTable NativeSpinBoxVTable;
+extern const cbindgen_private::ItemVTable NativeSliderVTable;
 }
 }
 
@@ -96,6 +102,11 @@ using cbindgen_private::Rectangle;
 using cbindgen_private::Text;
 using cbindgen_private::TouchArea;
 using cbindgen_private::Window;
+
+using cbindgen_private::NativeButton;
+using cbindgen_private::NativeCheckBox;
+using cbindgen_private::NativeSlider;
+using cbindgen_private::NativeSpinBox;
 
 namespace private_api {
 constexpr inline ItemTreeNode make_item_node(std::uintptr_t offset,

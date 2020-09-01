@@ -19,8 +19,13 @@ pub use sixtyfps_rendering_backend_gl::*;
 
 #[doc(hidden)]
 #[cold]
-pub fn use_modules() {
-    sixtyfps_corelib::use_modules();
+pub fn use_modules() -> usize {
+    let mut x = sixtyfps_corelib::use_modules();
+    #[cfg(not(no_qt))]
+    {
+        x += (&widgets::NativeButtonVTable) as *const _ as usize;
+    }
+    x
 }
 
 #[cfg(not(no_qt))]
