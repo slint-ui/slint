@@ -513,8 +513,8 @@ App := Rectangle {
 
 #### GridLayout
 
-`GridLayout` place the element in a grid. `GridLayout` adds peroperties to each item: `col`, `row`, `colspan`, `rowspan`.
-One can control the position of elements with `col` and `row`.
+`GridLayout` places the elements in a grid. `GridLayout` adds properties to each item: `col`, `row`, `colspan`, `rowspan`.
+You can control the position of elements with `col` and `row`.
 If `col` or `row` is not specified, they are automatically computed such that the item is next to the previous item, in the same row.
 Alternatively, the item can be put in a `Row` element.
 
