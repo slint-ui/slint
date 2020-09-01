@@ -217,7 +217,7 @@ TopPanel := Rectangle {
         y:  title1.y;
         x: title1.x + title1.font_size*7; //title1.x + title1.width;
         text: "2000";
-        color: active_page == 0 ? red : #0000;
+        color: active_page == 0 ? #918e8c : #0000;
         animate color { duration: 200ms; }
         font_size: root.width / 20;
     }
@@ -252,10 +252,10 @@ MainWindow := Window {
     }
 
     for page_info[idx] in [
-        { color: #d11, text: "Copy", img_small: img!"images/replicate.png" },
-        { color: #1d1, text: "Fax", img_small: img!"images/laptop.png" },
-        { color: #dd0, text: "Print", img_small: img!"images/printer.png" },
-        { color: #08d, text: "Settings", img_small: img!"images/list.png" },
+        { color: #b85a5b, text: "Copy", img_small: img!"images/replicate.png" },
+        { color: #005c7b, text: "Fax", img_small: img!"images/laptop.png" },
+        { color: #96af54, text: "Print", img_small: img!"images/printer.png" },
+        { color: #f17d35, text: "Settings", img_small: img!"images/list.png" },
     ] : Rectangle {
         width: root.width / 5;
         height: root.height / 3;
@@ -352,8 +352,8 @@ MainWindow := Window {
 
 
     Rectangle {
-        width: root.width / 3;
-        height: root.height / 3;
+        width: root.width / 5;
+        height: root.height / 5;
         x: root.width - self.width - 20lx;
         y: root.height - self.height - 20lx;
         color: #eee;
