@@ -323,6 +323,7 @@ impl LicenseHeaderCheck {
             Err(anyhow::anyhow!("Encountered one or multiple errors. See above for details.")
                 .into())
         } else {
+            println!("All files are ok.");
             Ok(())
         }
     }
