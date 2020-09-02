@@ -192,13 +192,9 @@ pub enum HighLevelRenderingPrimitive {
     /// Renders the specified `text` with a font that matches the specified family (`font_family`) and the given
     /// pixel size (`font_size`).
     ///
-    // TODO: turn color into a rendering variable. Needs fixing of the wasm canvas code path though.
-    Text {
-        text: crate::SharedString,
-        font_family: crate::SharedString,
-        font_size: f32,
-        color: Color,
-    },
+    /// Expected rendering variables:
+    /// * [`RenderingVariable::Color`]: The color to use for rendering the glyphs.
+    Text { text: crate::SharedString, font_family: crate::SharedString, font_size: f32 },
     /// Renders a path specified by the `elements` parameter. The path will be scaled to fit into the given
     /// `width` and `height`. If the `stroke_width` is greater than zero, then path will also be outlined.
     ///

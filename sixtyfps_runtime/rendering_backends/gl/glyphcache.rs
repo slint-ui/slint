@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 use super::buffers::GLArrayBuffer;
-use super::texture::{AtlasAllocation, GLTexture, TextureAtlas};
+use super::texture::{AtlasAllocation, TextureAtlas};
 use super::Vertex;
 use collections::hash_map::HashMap;
 use itertools::Itertools;
@@ -18,6 +18,8 @@ use std::cell::RefCell;
 use std::{collections, rc::Rc};
 
 type GlyphsByPixelSize = Vec<Rc<RefCell<CachedFontGlyphs>>>;
+
+use super::GlyphRun;
 
 #[derive(Default)]
 pub(crate) struct GlyphCache {
@@ -190,11 +192,4 @@ where
             None
         }
     }
-}
-
-pub struct GlyphRun {
-    pub(crate) vertices: GLArrayBuffer<Vertex>,
-    pub(crate) texture_vertices: GLArrayBuffer<Vertex>,
-    pub(crate) texture: Rc<GLTexture>,
-    pub(crate) vertex_count: i32,
 }

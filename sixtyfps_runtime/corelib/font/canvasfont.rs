@@ -7,7 +7,6 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-use crate::Color;
 use std::hash::Hash;
 
 #[derive(Clone)]
@@ -32,7 +31,7 @@ impl Font {
         self.pixel_size
     }
 
-    pub fn render_text<'a>(&'a self, text: &str, color: Color) -> &'a web_sys::HtmlCanvasElement {
+    pub fn render_text<'a>(&'a self, text: &str) -> &'a web_sys::HtmlCanvasElement {
         let text_metrics = self.canvas_context.measure_text(text).unwrap();
 
         self.text_canvas.set_width(text_metrics.width() as _);
@@ -56,11 +55,7 @@ impl Font {
             self.text_canvas.height() as _,
         );
 
-        let (r, g, b, a) = color.as_rgba_u8();
-        self.canvas_context.set_fill_style(&wasm_bindgen::JsValue::from_str(&format!(
-            "rgba({}, {}, {}, {})",
-            r, g, b, a
-        )));
+        self.canvas_context.set_fill_style(&wasm_bindgen::JsValue::from_str("rgb(0, 0, 0)"));
         self.canvas_context
             .fill_text(
                 text,

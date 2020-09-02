@@ -332,7 +332,6 @@ impl Item for Text {
             text: Self::FIELD_OFFSETS.text.apply_pin(self).get(),
             font_family: Self::FIELD_OFFSETS.font_family.apply_pin(self).get(),
             font_size: Self::FIELD_OFFSETS.font_size.apply_pin(self).get(),
-            color: Self::FIELD_OFFSETS.color.apply_pin(self).get(),
         }
     }
 
@@ -354,7 +353,10 @@ impl Item for Text {
             TextVerticalAlignment::align_bottom => rect.height() - layout_info.min_height,
         };
 
-        SharedArray::from(&[RenderingVariable::Translate(translate_x, translate_y)])
+        SharedArray::from(&[
+            RenderingVariable::Translate(translate_x, translate_y),
+            RenderingVariable::Color(Self::FIELD_OFFSETS.color.apply_pin(self).get()),
+        ])
     }
 
     fn layouting_info(self: Pin<&Self>) -> LayoutInfo {

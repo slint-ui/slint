@@ -35,7 +35,6 @@ use texture::{GLTexture, TextureAtlas};
 mod shader;
 use shader::{ImageShader, PathShader};
 
-#[cfg(not(target_arch = "wasm32"))]
 use shader::GlyphShader;
 
 mod buffers;
@@ -44,19 +43,12 @@ use buffers::{GLArrayBuffer, GLIndexBuffer};
 #[cfg(not(target_arch = "wasm32"))]
 mod glyphcache;
 #[cfg(not(target_arch = "wasm32"))]
-use glyphcache::{GlyphCache, GlyphRun};
+use glyphcache::GlyphCache;
 
 #[cfg(not(target_arch = "wasm32"))]
+#[derive(Default)]
 struct PlatformData {
     glyph_cache: GlyphCache,
-    glyph_shader: GlyphShader,
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-impl PlatformData {
-    fn new(context: &Rc<glow::Context>) -> Self {
-        Self { glyph_cache: GlyphCache::default(), glyph_shader: GlyphShader::new(&context) }
-    }
 }
 
 #[derive(Copy, Clone)]
@@ -64,20 +56,11 @@ pub(crate) struct Vertex {
     _pos: [f32; 2],
 }
 
-enum RenderingTexture {
-    #[cfg(target_arch = "wasm32")]
-    PlainTexture(Rc<GLTexture>),
-    AtlasTexture(texture::AtlasAllocation),
-}
-
-impl AsRef<GLTexture> for RenderingTexture {
-    fn as_ref(&self) -> &GLTexture {
-        match self {
-            #[cfg(target_arch = "wasm32")]
-            RenderingTexture::PlainTexture(pt) => pt,
-            RenderingTexture::AtlasTexture(atlas_alloc) => atlas_alloc.atlas.texture.as_ref(),
-        }
-    }
+pub struct GlyphRun {
+    pub(crate) vertices: GLArrayBuffer<Vertex>,
+    pub(crate) texture_vertices: GLArrayBuffer<Vertex>,
+    pub(crate) texture: Rc<GLTexture>,
+    pub(crate) vertex_count: i32,
 }
 
 enum GLRenderingPrimitive {
@@ -88,13 +71,11 @@ enum GLRenderingPrimitive {
     Texture {
         vertices: GLArrayBuffer<Vertex>,
         texture_vertices: GLArrayBuffer<Vertex>,
-        texture: RenderingTexture,
+        texture: texture::AtlasAllocation,
         image_size: Size,
     },
-    #[cfg(not(target_arch = "wasm32"))]
     GlyphRuns {
         glyph_runs: Vec<GlyphRun>,
-        color: Color,
     },
 }
 
@@ -102,6 +83,7 @@ pub struct GLRenderer {
     context: Rc<glow::Context>,
     path_shader: PathShader,
     image_shader: ImageShader,
+    glyph_shader: GlyphShader,
     #[cfg(not(target_arch = "wasm32"))]
     platform_data: Rc<PlatformData>,
     texture_atlas: Rc<RefCell<TextureAtlas>>,
@@ -129,8 +111,7 @@ pub struct GLFrame {
     context: Rc<glow::Context>,
     path_shader: PathShader,
     image_shader: ImageShader,
-    #[cfg(not(target_arch = "wasm32"))]
-    platform_data: Rc<PlatformData>,
+    glyph_shader: GlyphShader,
     root_matrix: cgmath::Matrix4<f32>,
     #[cfg(not(target_arch = "wasm32"))]
     windowed_context: glutin::WindowedContext<glutin::PossiblyCurrent>,
@@ -194,13 +175,15 @@ impl GLRenderer {
         let context = Rc::new(context);
         let path_shader = PathShader::new(&context);
         let image_shader = ImageShader::new(&context);
+        let glyph_shader = GlyphShader::new(&context);
         #[cfg(not(target_arch = "wasm32"))]
-        let platform_data = Rc::new(PlatformData::new(&context));
+        let platform_data = Rc::new(PlatformData::default());
 
         GLRenderer {
             context,
             path_shader,
             image_shader,
+            glyph_shader,
             #[cfg(not(target_arch = "wasm32"))]
             platform_data,
             texture_atlas: Rc::new(RefCell::new(TextureAtlas::new())),
@@ -272,8 +255,7 @@ impl GraphicsBackend for GLRenderer {
             context: self.context.clone(),
             path_shader: self.path_shader.clone(),
             image_shader: self.image_shader.clone(),
-            #[cfg(not(target_arch = "wasm32"))]
-            platform_data: self.platform_data.clone(),
+            glyph_shader: self.glyph_shader.clone(),
             root_matrix: cgmath::ortho(0.0, width as f32, height as f32, 0.0, -1., 1.0),
             #[cfg(not(target_arch = "wasm32"))]
             windowed_context: current_windowed_context,
@@ -375,13 +357,13 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                         Resource::None => SmallVec::new(),
                     }
                 }
-                HighLevelRenderingPrimitive::Text { text, font_family, font_size, color } => {
+                HighLevelRenderingPrimitive::Text { text, font_family, font_size } => {
                     let pixel_size = if *font_size != 0. {
                         *font_size
                     } else {
                         16.0 * self.window_scale_factor()
                     };
-                    smallvec![self.create_glyph_runs(text, font_family, pixel_size, *color)]
+                    smallvec![self.create_glyph_runs(text, font_family, pixel_size)]
                 }
                 HighLevelRenderingPrimitive::Path { width, height, elements, stroke_width } => {
                     let mut primitives = SmallVec::new();
@@ -562,7 +544,7 @@ impl GLRenderingPrimitivesBuilder {
         GLRenderingPrimitive::Texture {
             vertices,
             texture_vertices,
-            texture: RenderingTexture::AtlasTexture(atlas_allocation),
+            texture: atlas_allocation,
             image_size,
         }
     }
@@ -573,13 +555,12 @@ impl GLRenderingPrimitivesBuilder {
         text: &str,
         font_family: &str,
         pixel_size: f32,
-        color: Color,
     ) -> GLRenderingPrimitive {
         let cached_glyphs = self.platform_data.glyph_cache.find_font(font_family, pixel_size);
         let mut cached_glyphs = cached_glyphs.borrow_mut();
         let mut atlas = self.texture_atlas.borrow_mut();
         let glyphs_runs = cached_glyphs.render_glyphs(&self.context, &mut atlas, text);
-        GLRenderingPrimitive::GlyphRuns { glyph_runs: glyphs_runs, color }
+        GLRenderingPrimitive::GlyphRuns { glyph_runs: glyphs_runs }
     }
 
     #[cfg(target_arch = "wasm32")]
@@ -588,11 +569,10 @@ impl GLRenderingPrimitivesBuilder {
         text: &str,
         font_family: &str,
         pixel_size: f32,
-        color: Color,
     ) -> GLRenderingPrimitive {
         let font =
             sixtyfps_corelib::font::FONT_CACHE.with(|fc| fc.find_font(font_family, pixel_size));
-        let text_canvas = font.render_text(text, color);
+        let text_canvas = font.render_text(text);
 
         let texture = Rc::new(GLTexture::new_from_canvas(&self.context, &text_canvas));
 
@@ -619,13 +599,11 @@ impl GLRenderingPrimitivesBuilder {
             &vec![vertex1, vertex2, vertex3, vertex1, vertex3, vertex4],
         );
         let texture_vertices = GLArrayBuffer::new(&self.context, &normalized_coordinates);
+        let vertex_count = 6;
 
-        GLRenderingPrimitive::Texture {
-            vertices,
-            texture_vertices,
-            texture: RenderingTexture::PlainTexture(texture),
-            image_size: rect.size,
-        }
+        let glyph_runs = vec![GlyphRun { vertices, texture_vertices, texture, vertex_count }];
+
+        GLRenderingPrimitive::GlyphRuns { glyph_runs }
     }
 
     fn window_scale_factor(&self) -> f32 {
@@ -729,7 +707,7 @@ impl GraphicsFrame for GLFrame {
                 self.image_shader.bind(
                     &self.context,
                     &to_gl_matrix(&matrix),
-                    texture.as_ref(),
+                    texture.atlas.texture.as_ref(),
                     vertices,
                     texture_vertices,
                 );
@@ -740,12 +718,11 @@ impl GraphicsFrame for GLFrame {
 
                 self.image_shader.unbind(&self.context);
             }
-            #[cfg(not(target_arch = "wasm32"))]
-            GLRenderingPrimitive::GlyphRuns { glyph_runs, color } => {
-                let (r, g, b, a) = color.as_rgba_f32();
+            GLRenderingPrimitive::GlyphRuns { glyph_runs } => {
+                let (r, g, b, a) = rendering_var.next().unwrap().as_color().as_rgba_f32();
 
                 for GlyphRun { vertices, texture_vertices, texture, vertex_count } in glyph_runs {
-                    self.platform_data.glyph_shader.bind(
+                    self.glyph_shader.bind(
                         &self.context,
                         &to_gl_matrix(&matrix),
                         &[r, g, b, a],
@@ -758,7 +735,7 @@ impl GraphicsFrame for GLFrame {
                         self.context.draw_arrays(glow::TRIANGLES, 0, *vertex_count);
                     }
 
-                    self.platform_data.glyph_shader.unbind(&self.context);
+                    self.glyph_shader.unbind(&self.context);
                 }
             }
         });
