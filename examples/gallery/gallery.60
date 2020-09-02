@@ -10,6 +10,8 @@ LICENSE END */
 import { Button, CheckBox, SpinBox, Slider } from "sixtyfps_widgets.60";
 
 App := Window {
+    width: 500lx;
+    height: 300lx;
     GridLayout {
         padding: 10lx;
         spacing: 10lx;
@@ -23,6 +25,7 @@ App := Window {
         Row {
             CheckBox {
                 text: "A CheckBox";
+                checked: true;
             }
             Rectangle {}
         }
@@ -34,9 +37,6 @@ App := Window {
             Slider {
 
             }
-        }
-        Row {
-            Rectangle {}
         }
     }
 }
