@@ -17,7 +17,7 @@ export Button := Rectangle {
     border_width: 2lx;
     border_radius: 10lx;
     border_color: black;
-    color: touch_area.pressed ? #ddd : #eee;
+    color: touch_area.pressed ? #088e95 : #98c6c9;
     animate color { duration: 100ms; }
 
     maximum_height: 40lx;
@@ -61,7 +61,7 @@ export CheckBox := Rectangle {
         border_width: 2lx;
         border_radius: root.height / 2;
         border_color: black;
-        color: touch_area.pressed? #ddd : #eee;
+        color: touch_area.pressed? #088e95 : #98c6c9;
         animate color { duration: 100ms; }
 
         bubble := Rectangle {
@@ -70,7 +70,7 @@ export CheckBox := Rectangle {
             border_radius: bubble.height / 2;
             y: 4lx;
             x: root.checked ? 4lx : indicator.width - bubble.width - 4lx;
-            color: root.checked ? #aea : #eaa;
+            color: root.checked ? #184649 : #4ca0a6;
             animate x, color { duration: 200ms; easing: ease;}
         }
     }
@@ -103,7 +103,7 @@ SpinBoxButton := Rectangle {
     border_width: 2lx;
     border_radius: 10lx;
     border_color: black;
-    color: touch.pressed ? #ddd : #eee;
+    color: touch.pressed ? #088e95 : #98c6c9;
     animate color { duration: 100ms; }
     touch := TouchArea {
         width: parent.width;
@@ -180,7 +180,7 @@ export Slider := Rectangle {
         border_width: 2lx;
         border_radius: self.height / 2;
         border_color: black;
-        color: #eee;
+        color: #98c6c9;
     }
 
     handle := Rectangle {
@@ -189,7 +189,7 @@ export Slider := Rectangle {
         border_width: 2lx;
         border_radius: self.width / 2;
         border_color: black;
-        color: touch_area.pressed ? #ddd : #eee;
+        color: touch_area.pressed ? #088e95 : #98c6c9;
         animate color { duration: 100ms; }
         x: (root.width - handle.width) * (new_value - min)/(max - min);
         property<float> new_value_tmp : touch_area.pressed
