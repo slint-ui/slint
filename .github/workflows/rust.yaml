@@ -44,12 +44,12 @@ jobs:
       uses: actions/cache@v2
       with:
         path: ~/.cargo/registry
-        key: ${{ runner.os }}-${{ github.ref }}-${{ github.job }}-cargo-registry-${{ hashFiles('**/Cargo.toml') }}
+        key: ${{ runner.os }}-${{ github.job }}-cargo-registry-${{ hashFiles('**/Cargo.toml') }}
     - name: Cache cargo index
       uses: actions/cache@v2
       with:
         path: ~/.cargo/git
-        key: ${{ runner.os }}-${{ github.ref }}-${{ github.job }}-cargo-index-${{ hashFiles('**/Cargo.toml') }}
+        key: ${{ runner.os }}-${{ github.job }}-cargo-index-${{ hashFiles('**/Cargo.toml') }}
     - uses: actions/cache@v2
       with:
         path: ~/.npm
@@ -60,7 +60,7 @@ jobs:
       uses: actions/cache@v2
       with:
         path: target
-        key: ${{ runner.os }}-${{ github.ref }}-${{ github.job }}-cargo-build-target-${{ hashFiles('**/Cargo.toml') }}
+        key: ${{ runner.os }}-${{ github.job }}-cargo-build-target-${{ hashFiles('**/Cargo.toml') }}
     - name: Install latest stable
       uses: actions-rs/toolchain@v1
       with:
@@ -113,12 +113,12 @@ jobs:
       uses: actions/cache@v2
       with:
         path: ~/.cargo/registry
-        key: ${{ runner.os }}-${{ github.ref }}-${{ github.job }}-cargo-registry-${{ hashFiles('**/Cargo.toml') }}
+        key: ${{ runner.os }}-${{ github.job }}-cargo-registry-${{ hashFiles('**/Cargo.toml') }}
     - name: Cache cargo index
       uses: actions/cache@v2
       with:
         path: ~/.cargo/git
-        key: ${{ runner.os }}-${{ github.ref }}-${{ github.job }}-cargo-index-${{ hashFiles('**/Cargo.toml') }}
+        key: ${{ runner.os }}-${{ github.job }}-cargo-index-${{ hashFiles('**/Cargo.toml') }}
     - uses: actions/cache@v2
       with:
         path: ~/.npm
@@ -129,7 +129,7 @@ jobs:
       uses: actions/cache@v2
       with:
         path: target
-        key: ${{ runner.os }}-${{ github.ref }}-${{ github.job }}-cargo-build-target-${{ hashFiles('**/Cargo.toml') }}
+        key: ${{ runner.os }}-${{ github.job }}-cargo-build-target-${{ hashFiles('**/Cargo.toml') }}
     - name: Install latest stable
       uses: actions-rs/toolchain@v1
       with:
