@@ -8,6 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 use crate::component::{ComponentRefPin, ComponentVTable};
+use crate::graphics::Point;
 use crate::items::{ItemRef, ItemVTable};
 use core::pin::Pin;
 use vtable::*;
@@ -227,12 +228,12 @@ pub fn visit_item_tree<Base>(
     }
 }
 
-/// Attempt to find out the x, y position of the parent in the component's coordinate
-pub fn item_offset<Base>(
+/// Attempt to find out the x, y position of the item in the component's coordinate
+fn parent_item_offset<Base>(
     base: Pin<&Base>,
     item_tree: &[ItemTreeNode<Base>],
     index: usize,
-) -> crate::graphics::Point {
+) -> Point {
     let index = index as u32;
     // FIXME: This algorithm is shit
     for (parent, node) in item_tree.iter().enumerate() {
@@ -240,13 +241,25 @@ pub fn item_offset<Base>(
             ItemTreeNode::Item { item, chilren_count, children_index } => {
                 if *children_index <= index && *children_index + *chilren_count > index {
                     return item.apply_pin(base).as_ref().geometry().origin
-                        + item_offset(base, item_tree, parent).to_vector();
+                        + parent_item_offset(base, item_tree, parent).to_vector();
                 }
             }
             ItemTreeNode::DynamicTree { .. } => (),
         }
     }
-    return crate::graphics::Point::default();
+    return Point::default();
+}
+
+/// Attempt to find out the x, y position of the item in the component's coordinate
+pub fn item_offset<Base>(
+    base: Pin<&Base>,
+    item_tree: &[ItemTreeNode<Base>],
+    index: usize,
+) -> Point {
+    (match &item_tree[index] {
+        ItemTreeNode::Item { item, .. } => item.apply_pin(base).as_ref().geometry().origin,
+        ItemTreeNode::DynamicTree { .. } => Point::default(),
+    }) + parent_item_offset(base, item_tree, index).to_vector()
 }
 
 pub(crate) mod ffi {
