@@ -200,6 +200,18 @@ pub mod langref {
     #![doc = ""]
 }
 
+#[cfg(all(doc, nightly))]
+pub mod builtin_elements {
+    #![doc(include = "docs/builtin_elements.md")]
+    #![doc = ""]
+}
+
+#[cfg(all(doc, nightly))]
+pub mod widgets {
+    #![doc(include = "docs/widgets.md")]
+    #![doc = ""]
+}
+
 /// This module exists only to explain the API of the code generated from `.60` design markup. Its described structure
 /// is not really contained in the compiled crate.
 #[cfg(doc)]
