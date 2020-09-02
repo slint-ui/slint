@@ -205,6 +205,12 @@ pub enum HighLevelRenderingPrimitive {
     Path { width: f32, height: f32, elements: crate::PathData, stroke_width: f32 },
 }
 
+impl Default for HighLevelRenderingPrimitive {
+    fn default() -> Self {
+        Self::NoContents
+    }
+}
+
 #[derive(Debug, Clone)]
 #[repr(C)]
 /// This enum is used to affect various aspects of the rendering of [GraphicsBackend::LowLevelRenderingPrimitive]

@@ -66,6 +66,12 @@ pub enum InputEventResult {
     GrabMouse,
 }
 
+impl Default for InputEventResult {
+    fn default() -> Self {
+        Self::EventIgnored
+    }
+}
+
 pub fn process_ungrabbed_mouse_event(
     component: ComponentRefPin,
     event: MouseEvent,

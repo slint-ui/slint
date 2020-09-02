@@ -11,8 +11,7 @@ LICENSE END */
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use cpp::cpp;
-use sixtyfps_corelib::graphics::Resource;
-use sixtyfps_corelib::graphics::{HighLevelRenderingPrimitive, Rect, RenderingVariable};
+use sixtyfps_corelib::graphics::{HighLevelRenderingPrimitive, Rect, RenderingVariable, Resource};
 use sixtyfps_corelib::input::{InputEventResult, MouseEvent, MouseEventType};
 use sixtyfps_corelib::item_rendering::CachedRenderingData;
 use sixtyfps_corelib::items::{Item, ItemConsts, ItemVTable};
@@ -22,6 +21,19 @@ use sixtyfps_corelib::{ItemVTable_static, Property, SharedArray, SharedString, S
 use sixtyfps_corelib_macros::*;
 
 use crate::qttypes;
+
+/// Helper macro to get the size from the width and height property,
+/// and return Default::default in case the size is too small
+macro_rules! get_size {
+    ($self:ident) => {{
+        let width = Self::FIELD_OFFSETS.width.apply_pin($self).get();
+        let height = Self::FIELD_OFFSETS.height.apply_pin($self).get();
+        if width < 1. || height < 1. {
+            return Default::default();
+        };
+        qttypes::QSize { width: width as _, height: height as _ }
+    }};
+}
 
 fn to_resource(image: qttypes::QImage) -> Resource {
     let size = image.size();
@@ -78,10 +90,7 @@ impl Item for NativeButton {
     fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
         let down: bool = Self::FIELD_OFFSETS.pressed.apply_pin(self).get();
         let text: qttypes::QString = Self::FIELD_OFFSETS.text.apply_pin(self).get().as_str().into();
-        let size: qttypes::QSize = qttypes::QSize {
-            width: Self::FIELD_OFFSETS.width.apply_pin(self).get() as _,
-            height: Self::FIELD_OFFSETS.height.apply_pin(self).get() as _,
-        };
+        let size: qttypes::QSize = get_size!(self);
 
         let img = cpp!(unsafe [
             text as "QString",
@@ -179,10 +188,7 @@ impl Item for NativeCheckBox {
     fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
         let checked: bool = Self::FIELD_OFFSETS.checked.apply_pin(self).get();
         let text: qttypes::QString = Self::FIELD_OFFSETS.text.apply_pin(self).get().as_str().into();
-        let size: qttypes::QSize = qttypes::QSize {
-            width: Self::FIELD_OFFSETS.width.apply_pin(self).get() as _,
-            height: Self::FIELD_OFFSETS.height.apply_pin(self).get() as _,
-        };
+        let size: qttypes::QSize = get_size!(self);
 
         let img = cpp!(unsafe [
             text as "QString",
@@ -296,10 +302,7 @@ impl Item for NativeSpinBox {
     }
     fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
         let value: i32 = Self::FIELD_OFFSETS.value.apply_pin(self).get();
-        let size: qttypes::QSize = qttypes::QSize {
-            width: Self::FIELD_OFFSETS.width.apply_pin(self).get() as _,
-            height: Self::FIELD_OFFSETS.height.apply_pin(self).get() as _,
-        };
+        let size: qttypes::QSize = get_size!(self);
         let data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
         let active_controls = data.active_controls;
         let pressed = data.pressed;
@@ -362,10 +365,7 @@ impl Item for NativeSpinBox {
     }
 
     fn input_event(self: Pin<&Self>, event: MouseEvent) -> InputEventResult {
-        let size: qttypes::QSize = qttypes::QSize {
-            width: Self::FIELD_OFFSETS.width.apply_pin(self).get() as _,
-            height: Self::FIELD_OFFSETS.height.apply_pin(self).get() as _,
-        };
+        let size: qttypes::QSize = get_size!(self);
         let mut data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
         let active_controls = data.active_controls;
         let pressed = data.pressed;
@@ -476,10 +476,7 @@ impl Item for NativeSlider {
         let value = Self::FIELD_OFFSETS.value.apply_pin(self).get() as i32;
         let min = Self::FIELD_OFFSETS.min.apply_pin(self).get() as i32;
         let max = Self::FIELD_OFFSETS.max.apply_pin(self).get() as i32;
-        let size: qttypes::QSize = qttypes::QSize {
-            width: Self::FIELD_OFFSETS.width.apply_pin(self).get() as _,
-            height: Self::FIELD_OFFSETS.height.apply_pin(self).get() as _,
-        };
+        let size: qttypes::QSize = get_size!(self);
         let data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
         let active_controls = data.active_controls;
         let pressed = data.pressed;
@@ -542,10 +539,7 @@ impl Item for NativeSlider {
     }
 
     fn input_event(self: Pin<&Self>, event: MouseEvent) -> InputEventResult {
-        let size: qttypes::QSize = qttypes::QSize {
-            width: Self::FIELD_OFFSETS.width.apply_pin(self).get() as _,
-            height: Self::FIELD_OFFSETS.height.apply_pin(self).get() as _,
-        };
+        let size: qttypes::QSize = get_size!(self);
         let value = Self::FIELD_OFFSETS.value.apply_pin(self).get() as f32;
         let min = Self::FIELD_OFFSETS.min.apply_pin(self).get() as f32;
         let max = Self::FIELD_OFFSETS.max.apply_pin(self).get() as f32;
