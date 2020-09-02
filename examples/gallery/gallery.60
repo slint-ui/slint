@@ -7,31 +7,7 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-import { Button, CheckBox, SpinBox, Slider } from "sixtyfps_widgets.60";
-
-WidgetBox := GridLayout {
-    property <string> title;
-    spacing: 5lx;
-    Row {
-        Text {
-            text: root.title;
-            color: black;
-        }
-    }
-    Row {
-        Rectangle {
-            border_width: 1lx;
-            border_color: #d0d3cf;
-            border_radius: 3lx;
-            color: white;
-
-            GridLayout {
-                padding: 10lx;
-                $children
-            }
-        }
-    }
-}
+import { Button, CheckBox, SpinBox, Slider, GroupBox } from "sixtyfps_widgets.60";
 
 App := Window {
     width: 500lx;
@@ -46,7 +22,7 @@ App := Window {
         padding: 20lx;
         spacing: 20lx;
         Row {
-            WidgetBox {
+            GroupBox {
                 title: "Button";
                 gallery_button := Button {
                     text: gallery_button.pressed ? "Button (pressed)" : "Button (not pressed)";
@@ -56,7 +32,7 @@ App := Window {
         }
 
         Row {
-            WidgetBox {
+            GroupBox {
                 title: "CheckBox";
                 CheckBox {
                     text: "A CheckBox";
@@ -66,14 +42,14 @@ App := Window {
             Rectangle {}
         }
         Row {
-            WidgetBox {
+            GroupBox {
                 title: "SpinBox";
                 SpinBox {
                 }
             }
         }
         Row {
-            WidgetBox {
+            GroupBox {
                 title: "Slider";
                 Slider {
                 }

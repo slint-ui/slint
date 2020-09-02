@@ -217,3 +217,28 @@ export Slider := Rectangle {
         }
     }
 }
+
+export GroupBox := GridLayout {
+    property <string> title;
+    spacing: 5lx;
+    Row {
+        Text {
+            text: root.title;
+            color: black;
+        }
+    }
+    Row {
+        Rectangle {
+            border_width: 1lx;
+            border_color: #d0d3cf;
+            border_radius: 3lx;
+            color: white;
+
+            GridLayout {
+                padding: 10lx;
+                $children
+            }
+        }
+    }
+}
+
