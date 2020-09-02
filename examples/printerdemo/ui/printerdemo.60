@@ -253,9 +253,9 @@ MainWindow := Window {
 
     for page_info[idx] in [
         { color: #b85a5b, text: "Copy", img_small: img!"images/replicate.png" },
-        { color: #005c7b, text: "Fax", img_small: img!"images/laptop.png" },
+        { color: #417590, text: "Fax", img_small: img!"images/laptop.png" },
         { color: #96af54, text: "Print", img_small: img!"images/printer.png" },
-        { color: #f17d35, text: "Settings", img_small: img!"images/list.png" },
+        { color: #496465, text: "Settings", img_small: img!"images/list.png" },
     ] : Rectangle {
         width: root.width / 5;
         height: root.height / 3;
@@ -275,7 +275,7 @@ MainWindow := Window {
             }
         }
         text := Text {
-            color: #2a2e3b;
+            color: black;
             y: root.height / 4.5;
             x: 5lx;
             width: parent.width;
