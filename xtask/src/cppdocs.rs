@@ -62,8 +62,11 @@ pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
 
     let docs_source_dir = root.join("api/sixtyfps-cpp");
     let docs_build_dir = root.join("target/cppdocs");
+    let html_static_dir = docs_build_dir.join("_static");
 
     std::fs::create_dir_all(docs_build_dir.as_path()).context("Error creating docs build dir")?;
+    std::fs::create_dir_all(html_static_dir.as_path())
+        .context("Error creating _static path for docs build")?;
 
     symlink_files_in_dir(
         docs_source_dir.join("docs"),
@@ -77,6 +80,13 @@ pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
     symlink_file(
         ["..", "..", "api", "sixtyfps-cpp", "README.md"].iter().collect::<PathBuf>(),
         docs_build_dir.join("README.md"),
+    )?;
+
+    symlink_file(
+        ["..", "..", "..", "api", "sixtyfps-cpp", "docs", "theme_tweak.css"]
+            .iter()
+            .collect::<PathBuf>(),
+        html_static_dir.join("theme_tweak.css"),
     )?;
 
     let pip_env =

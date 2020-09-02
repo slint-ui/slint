@@ -11,6 +11,7 @@ breathe = "*"
 sphinx-rtd-theme = "*"
 exhale = "*"
 recommonmark = "*"
+sphinx-markdown-tables = "*"
 
 [requires]
 python_version = "3.8"
