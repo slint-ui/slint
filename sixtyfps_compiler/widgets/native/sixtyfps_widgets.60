@@ -13,3 +13,12 @@ export Button := NativeButton { property<length> font_size; }
 export CheckBox := NativeCheckBox { }
 export SpinBox := NativeSpinBox { property<length> font_size; }
 export Slider := NativeSlider { max:100; }
+export GroupBox := NativeGroupBox {
+    GridLayout {
+        padding_left: root.native_padding_left;
+        padding_right: root.native_padding_right;
+        padding_top: root.native_padding_top;
+        padding_bottom: root.native_padding_bottom;
+        $children
+    }
+ }

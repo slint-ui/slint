@@ -90,3 +90,12 @@ pub struct QPoint {
     pub x: u32,
     pub y: u32,
 }
+
+#[repr(C)]
+#[derive(Default, Clone, Copy, PartialEq, Debug)]
+pub struct QMargins {
+    pub left: i32,
+    pub top: i32,
+    pub right: i32,
+    pub bottom: i32,
+}

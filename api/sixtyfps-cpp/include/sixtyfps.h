@@ -41,6 +41,7 @@ extern const cbindgen_private::ItemVTable NativeButtonVTable;
 extern const cbindgen_private::ItemVTable NativeCheckBoxVTable;
 extern const cbindgen_private::ItemVTable NativeSpinBoxVTable;
 extern const cbindgen_private::ItemVTable NativeSliderVTable;
+extern const cbindgen_private::ItemVTable NativeGroupBoxVTable;
 }
 }
 
@@ -107,6 +108,7 @@ using cbindgen_private::NativeButton;
 using cbindgen_private::NativeCheckBox;
 using cbindgen_private::NativeSlider;
 using cbindgen_private::NativeSpinBox;
+using cbindgen_private::NativeGroupBox;
 
 namespace private_api {
 constexpr inline ItemTreeNode make_item_node(std::uintptr_t offset,

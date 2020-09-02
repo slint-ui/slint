@@ -213,19 +213,11 @@ fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
 
 fn gen_backend_qt(include_dir: &Path) -> anyhow::Result<()> {
     let mut config = default_config();
-    config.export.include = [
-        "NativeButton",
-        "NativeButtonVTable",
-        "NativeSpinBox",
-        "NativeSpinBoxVTable",
-        "NativeCheckBox",
-        "NativeCheckBoxVTable",
-        "NativeSlider",
-        "NativeSliderVTable",
-    ]
-    .iter()
-    .map(|x| x.to_string())
-    .collect();
+    config.export.include =
+        ["NativeButton", "NativeSpinBox", "NativeCheckBox", "NativeSlider", "NativeGroupBox"]
+            .iter()
+            .map(|x| x.to_string())
+            .collect();
 
     let mut crate_dir = root_dir();
     crate_dir.extend(["sixtyfps_runtime", "rendering_backends", "qt"].iter());

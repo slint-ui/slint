@@ -7,6 +7,7 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
+#![recursion_limit = "256"]
 
 #[cfg(not(no_qt))]
 mod qttypes;
@@ -30,7 +31,13 @@ pub fn use_modules() -> usize {
 
 #[cfg(not(no_qt))]
 #[rustfmt::skip]
-pub type NativeWidgets = (widgets::NativeButton, (widgets::NativeCheckBox, (widgets::NativeSlider, (widgets::NativeSpinBox, ()))));
+pub type NativeWidgets =
+    (widgets::NativeButton,
+    (widgets::NativeCheckBox,
+    (widgets::NativeSlider,
+    (widgets::NativeSpinBox,
+    (widgets::NativeGroupBox,
+        ())))));
 
 pub mod native_widgets {
     #[cfg(not(no_qt))]

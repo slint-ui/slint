@@ -600,3 +600,119 @@ impl ItemConsts for NativeSlider {
 }
 
 ItemVTable_static! { #[no_mangle] pub static NativeSliderVTable for NativeSlider }
+
+#[repr(C)]
+#[derive(FieldOffsets, Default, BuiltinItem)]
+#[pin]
+pub struct NativeGroupBox {
+    pub x: Property<f32>,
+    pub y: Property<f32>,
+    pub width: Property<f32>,
+    pub height: Property<f32>,
+    pub title: Property<SharedString>,
+    pub cached_rendering_data: CachedRenderingData,
+    pub native_padding_left: Property<f32>,
+    pub native_padding_right: Property<f32>,
+    pub native_padding_top: Property<f32>,
+    pub native_padding_bottom: Property<f32>,
+}
+
+impl Item for NativeGroupBox {
+    fn geometry(self: Pin<&Self>) -> Rect {
+        euclid::rect(
+            Self::FIELD_OFFSETS.x.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.y.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.width.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.height.apply_pin(self).get(),
+        )
+    }
+    fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
+        let text: qttypes::QString =
+            Self::FIELD_OFFSETS.title.apply_pin(self).get().as_str().into();
+        let size: qttypes::QSize = get_size!(self);
+
+        let img = cpp!(unsafe [
+            text as "QString",
+            size as "QSize"
+        ] -> qttypes::QImage as "QImage" {
+            ensure_initialized();
+            QImage img(size, QImage::Format_ARGB32);
+            img.fill(Qt::transparent);
+            QPainter p(&img);
+            QStyleOptionGroupBox option;
+            option.rect = QRect(img.rect());
+            option.text = text;
+            option.lineWidth = 1;
+            option.midLineWidth = 0;
+            option.subControls = QStyle::SC_GroupBoxFrame;
+            if (!text.isEmpty()) {
+                option.subControls |= QStyle::SC_GroupBoxLabel;
+            }
+            option.textColor = QColor(qApp->style()->styleHint(
+                QStyle::SH_GroupBox_TextLabelColor, &option));
+            qApp->style()->drawComplexControl(QStyle::CC_GroupBox, &option, &p);
+            return img;
+        });
+        return HighLevelRenderingPrimitive::Image { source: to_resource(img) };
+    }
+
+    fn rendering_variables(self: Pin<&Self>) -> SharedArray<RenderingVariable> {
+        SharedArray::from(&[])
+    }
+
+    fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
+        let text: qttypes::QString =
+            Self::FIELD_OFFSETS.title.apply_pin(self).get().as_str().into();
+
+        let paddings = cpp!(unsafe [
+            text as "QString"
+        ] -> qttypes::QMargins as "QMargins" {
+            ensure_initialized();
+            QStyleOptionGroupBox option;
+            option.text = text;
+            option.lineWidth = 1;
+            option.midLineWidth = 0;
+            option.subControls = QStyle::SC_GroupBoxFrame;
+            if (!text.isEmpty()) {
+                option.subControls |= QStyle::SC_GroupBoxLabel;
+            }
+             // Just some size big enough to be sure that the frame fitst in it
+            option.rect = QRect(0, 0, 10000, 10000);
+            option.textColor = QColor(qApp->style()->styleHint(
+                QStyle::SH_GroupBox_TextLabelColor, &option));
+            QRect contentsRect = qApp->style()->subControlRect(
+                QStyle::CC_GroupBox, &option, QStyle::SC_GroupBoxContents);
+            //QRect elementRect = qApp->style()->subElementRect(
+            //    QStyle::SE_GroupBoxLayoutItem, &option);
+
+            auto hs = qApp->style()->pixelMetric(QStyle::PM_LayoutHorizontalSpacing, &option);
+            auto vs = qApp->style()->pixelMetric(QStyle::PM_LayoutVerticalSpacing, &option);
+
+            return {
+                contentsRect.left() + hs,
+                contentsRect.top() + vs,
+                option.rect.right() - contentsRect.right() + hs,
+                option.rect.bottom() - contentsRect.bottom() + vs };
+        });
+        self.native_padding_left.set(paddings.left as _);
+        self.native_padding_right.set(paddings.right as _);
+        self.native_padding_top.set(paddings.top as _);
+        self.native_padding_bottom.set(paddings.bottom as _);
+        LayoutInfo {
+            min_width: (paddings.left + paddings.right) as _,
+            min_height: (paddings.top + paddings.bottom) as _,
+            ..LayoutInfo::default()
+        }
+    }
+
+    fn input_event(self: Pin<&Self>, _: MouseEvent) -> InputEventResult {
+        InputEventResult::EventIgnored
+    }
+}
+
+impl ItemConsts for NativeGroupBox {
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
+        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+}
+
+ItemVTable_static! { #[no_mangle] pub static NativeGroupBoxVTable for NativeGroupBox }
