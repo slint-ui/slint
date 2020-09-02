@@ -9,33 +9,74 @@
 LICENSE END */
 import { Button, CheckBox, SpinBox, Slider } from "sixtyfps_widgets.60";
 
+WidgetBox := GridLayout {
+    property <string> title;
+    spacing: 5lx;
+    Row {
+        Text {
+            text: root.title;
+            color: black;
+        }
+    }
+    Row {
+        Rectangle {
+            border_width: 1lx;
+            border_color: #d0d3cf;
+            border_radius: 3lx;
+            color: white;
+
+            GridLayout {
+                padding: 10lx;
+                $children
+            }
+        }
+    }
+}
+
 App := Window {
     width: 500lx;
-    height: 300lx;
+    height: 400lx;
+    Rectangle {
+        color: #ecedeb;
+        width: parent.width;
+        height: parent.height;
+    }
+    
     GridLayout {
-        padding: 10lx;
-        spacing: 10lx;
+        padding: 20lx;
+        spacing: 20lx;
         Row {
-            gallery_button := Button {
-                text: gallery_button.pressed ? "Button (pressed)" : "Button (not pressed)";
+            WidgetBox {
+                title: "Button";
+                gallery_button := Button {
+                    text: gallery_button.pressed ? "Button (pressed)" : "Button (not pressed)";
+                }
             }
             Rectangle {}
         }
 
         Row {
-            CheckBox {
-                text: "A CheckBox";
-                checked: true;
+            WidgetBox {
+                title: "CheckBox";
+                CheckBox {
+                    text: "A CheckBox";
+                    checked: true;
+                }
             }
             Rectangle {}
         }
         Row {
-            SpinBox {
+            WidgetBox {
+                title: "SpinBox";
+                SpinBox {
+                }
             }
         }
         Row {
-            Slider {
-
+            WidgetBox {
+                title: "Slider";
+                Slider {
+                }
             }
         }
     }
