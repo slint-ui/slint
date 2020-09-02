@@ -173,13 +173,24 @@ export Slider := Rectangle {
     minimum_height: 40lx;
     minimum_width: 120lx;
 
-    slider := Rectangle {
+    slider_filled := Rectangle {
         width: parent.width;
         y: parent.height / 3;
         height: parent.height / 3;
         border_width: 2lx;
         border_radius: self.height / 2;
         border_color: black;
+        color: #184649;
+    }
+
+    slider_empty := Rectangle {
+        y: slider_filled.y;
+        x: handle.x;
+        width: parent.width - self.x;
+        height: slider_filled.height;
+        border_width: slider_filled.border_width;
+        border_radius: slider_filled.border_radius;
+        border_color: slider_filled.border_color;
         color: #98c6c9;
     }
 
