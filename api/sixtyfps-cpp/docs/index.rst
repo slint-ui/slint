@@ -21,6 +21,8 @@ Welcome to SixtyFPS C++'s documentation!
 
    Introduction <README.md>
 
+   Type Mappings <types.md>
+
    api/library_root
 
    markdown/langref.md
