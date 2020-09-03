@@ -221,21 +221,8 @@ impl Element {
         assert!(r.base_type.is_object_type());
 
         for prop_decl in node.PropertyDeclaration() {
-            let qualified_type_node = prop_decl.QualifiedName();
-            let qualified_type = QualifiedTypeName::from_node(qualified_type_node.clone());
-
-            let prop_type = tr.lookup_qualified(&qualified_type.members);
-
-            match prop_type {
-                Type::Invalid => {
-                    diag.push_error(
-                        format!("Unknown property type '{}'", qualified_type.to_string()),
-                        &qualified_type_node,
-                    );
-                }
-                _ => (),
-            };
-
+            let type_node = prop_decl.Type();
+            let prop_type = type_from_node(type_node.clone(), diag, tr);
             let prop_name_token =
                 prop_decl.DeclaredIdentifier().child_token(SyntaxKind::Identifier).unwrap();
 
@@ -251,7 +238,7 @@ impl Element {
                 prop_name.clone(),
                 PropertyDeclaration {
                     property_type: prop_type,
-                    type_node: Some(qualified_type_node.into()),
+                    type_node: Some(type_node.into()),
                     ..Default::default()
                 },
             );
@@ -549,6 +536,38 @@ impl Element {
                 diag.push_error("Duplicated property binding".into(), &name_token);
             }
         }
+    }
+}
+
+fn type_from_node(node: syntax_nodes::Type, diag: &mut FileDiagnostics, tr: &TypeRegister) -> Type {
+    if let Some(qualified_type_node) = node.QualifiedName() {
+        let qualified_type = QualifiedTypeName::from_node(qualified_type_node.clone());
+
+        let prop_type = tr.lookup_qualified(&qualified_type.members);
+
+        if prop_type == Type::Invalid {
+            diag.push_error(
+                format!("Unknown type '{}'", qualified_type.to_string()),
+                &qualified_type_node,
+            );
+        }
+        prop_type
+    } else if let Some(object_node) = node.ObjectType() {
+        let map = object_node
+            .ObjectTypeMember()
+            .map(|member| {
+                (
+                    member.child_text(SyntaxKind::Identifier).unwrap_or_default(),
+                    type_from_node(member.Type(), diag, tr),
+                )
+            })
+            .collect();
+        Type::Object(map)
+    } else if let Some(array_node) = node.ArrayType() {
+        Type::Array(Box::new(type_from_node(array_node.Type(), diag, tr)))
+    } else {
+        assert!(diag.has_error());
+        Type::Invalid
     }
 }
 

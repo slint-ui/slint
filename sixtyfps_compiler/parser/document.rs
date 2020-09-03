@@ -9,6 +9,7 @@
 LICENSE END */
 use super::expressions::parse_expression;
 use super::prelude::*;
+use super::r#type::parse_type;
 use super::statements::parse_statement;
 
 #[cfg_attr(test, parser_test)]
@@ -332,7 +333,7 @@ fn parse_property_declaration(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::PropertyDeclaration);
     p.consume(); // property
     p.expect(SyntaxKind::LAngle);
-    parse_qualified_name(&mut *p);
+    parse_type(&mut *p);
     p.expect(SyntaxKind::RAngle);
     {
         let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);

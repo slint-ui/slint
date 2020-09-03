@@ -25,6 +25,7 @@ use std::convert::TryFrom;
 mod document;
 mod expressions;
 mod statements;
+mod r#type;
 
 /// Each parser submodule would simply do `use super::prelude::*` to import typically used items
 mod prelude {
@@ -284,8 +285,8 @@ declare_syntax! {
         ConditionalElement -> [ Expression , Element],
         SignalDeclaration -> [ DeclaredIdentifier ],
         SignalConnection -> [ CodeBlock ],
-        /// Declaration of a propery. QualifiedName is the type.
-        PropertyDeclaration-> [ QualifiedName , DeclaredIdentifier, ?BindingExpression ],
+        /// Declaration of a propery.
+        PropertyDeclaration-> [ Type , DeclaredIdentifier, ?BindingExpression ],
         /// QualifiedName are the properties name
         PropertyAnimation-> [ *QualifiedName, *Binding ],
         /// wraps Identifiers, like `Rectangle` or `SomeModule.SomeType`
@@ -337,13 +338,22 @@ declare_syntax! {
         ExportSpecifier -> [ ExportIdentifier, ?ExportName ],
         ExportIdentifier -> [],
         ExportName -> [],
-        // import { foo, bar, baz } from "blah"; The import uri is stored as string literal.
+        /// import { foo, bar, baz } from "blah"; The import uri is stored as string literal.
         ImportSpecifier -> [ ImportIdentifierList ],
         ImportIdentifierList -> [ *ImportIdentifier ],
-        // { foo as bar } or just { foo }
+        /// { foo as bar } or just { foo }
         ImportIdentifier -> [ ExternalName, ?InternalName ],
         ExternalName -> [],
         InternalName -> [],
+        /// The representation of a type
+        Type -> [ ?QualifiedName, ?ObjectType, ?ArrayType ],
+        /// `{foo: string, bar: string} `
+        ObjectType ->[ *ObjectTypeMember ],
+        /// `foo: type` inside an ObjectType
+        ObjectTypeMember -> [ Type ],
+        /// `[ type ]`
+        ArrayType -> [ Type ],
+
     }
 }
 
