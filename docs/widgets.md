@@ -1,19 +1,21 @@
+# Widgets
+
 Widgets are not imported by default, and need to be imported from `"sixtyfps_widgets.60"`
 
 Their appearence can change depending on the style
 
-# `Button`
+## `Button`
 
-## Properties
+### Properties
 
 * **`text`** (*string*): The text written in the button.
 * **`pressed`**: (*bool*): Set to true when the button is pressed.
 
-## Signals
+### Signals
 
 * **`clicked`**
 
-## Example
+### Example
 
 ```60
 import { Button } from "sixtyfps_widgets.60";
@@ -29,18 +31,18 @@ Example := Window {
 }
 ```
 
-# `CheckBox`
+## `CheckBox`
 
-## Properties
+### Properties
 
 * **`text`** (*string*): The text written next to the checkbox.
 * **`checked`**: (*bool*): Whether the checkbox is checked or not.
 
-## Signals
+### Signals
 
 * **`toggled`**: The checkbox value changed
 
-## Example
+### Example
 
 ```60
 import { CheckBox } from "sixtyfps_widgets.60";
@@ -56,13 +58,13 @@ Example := Window {
 ```
 
 
-# `SpinBox`
+## `SpinBox`
 
-## Properties
+### Properties
 
 * **`value`** (*int*): The value.
 
-## Example
+### Example
 
 ```60
 import { SpinBox } from "sixtyfps_widgets.60";
@@ -78,15 +80,15 @@ Example := Window {
 ```
 
 
-# `Slider`
+## `Slider`
 
-## Properties
+### Properties
 
 * **`value`** (*float*): The value.
 * **`min`** (*float*): The minimum value (default: 0)
 * **`max`** (*float*): The maximum value (default: 100)
 
-## Example
+### Example
 
 ```60
 import { Slider } from "sixtyfps_widgets.60";
@@ -102,13 +104,13 @@ Example := Window {
 ```
 
 
-# `GroupBox`
+## `GroupBox`
 
-## Properties
+### Properties
 
 * **`title`** (*string*): A text written as the title of the group box.
 
-## Example
+### Example
 
 ```60
 import { GroupBox } from "sixtyfps_widgets.60";
