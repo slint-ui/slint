@@ -1,3 +1,13 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
 Test := Rectangle {
     property<{a: string, b: int}> obj: {a : "444", b: 12 };
     property<{a: string, b: int}> obj_conversion: { b: 12, a : 444, c: "nothing" };
