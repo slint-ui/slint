@@ -149,6 +149,7 @@ impl Type {
                 | Self::Easing
                 | Self::Enumeration(_)
                 | Self::Object(_)
+                | Self::Array(_)
         )
     }
 

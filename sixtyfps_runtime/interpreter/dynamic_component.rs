@@ -476,6 +476,7 @@ fn generate_component<'id>(
                 continue;
             }
             Type::Object(_) => property_info::<eval::Value>(),
+            Type::Array(_) => property_info::<eval::Value>(),
             _ => panic!("bad type"),
         };
         custom_properties.insert(

@@ -102,17 +102,24 @@ pub fn resolve_expressions(doc: &Document, diag: &mut BuildDiagnostics) {
         let scope = ComponentScope(vec![component.root_element.clone()]);
 
         recurse_elem(&component.root_element, &scope, &mut |elem, scope| {
-            let mut scope = scope.clone();
-            if elem.borrow().repeated.is_some() {
-                scope.0.push(elem.clone())
+            let mut new_scope = scope.clone();
+            let mut is_repeated = elem.borrow().repeated.is_some();
+            if is_repeated {
+                new_scope.0.push(elem.clone())
             }
-
-            scope.0.push(elem.clone());
+            new_scope.0.push(elem.clone());
             visit_element_expressions(elem, |expr, property_type| {
-                resolve_expression(expr, property_type(), &scope, diag)
+                if is_repeated {
+                    // The first expression is always the model and it needs to be resolved with the parent scope
+                    debug_assert!(elem.borrow().repeated.as_ref().is_none()); // should be none because it is taken by the visit_element_expressions function
+                    resolve_expression(expr, property_type(), scope, diag);
+                    is_repeated = false;
+                } else {
+                    resolve_expression(expr, property_type(), &new_scope, diag)
+                }
             });
-            scope.0.pop();
-            scope
+            new_scope.0.pop();
+            new_scope
         })
     }
 }

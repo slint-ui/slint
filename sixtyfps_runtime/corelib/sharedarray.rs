@@ -114,7 +114,7 @@ impl<T: Clone> Deref for SharedArray<T> {
 trait StaticNull: Sized + 'static {
     const NULL: once_cell::sync::Lazy<ThinArc<usize, MaybeUninit<Self>>>;
 }
-impl<T: Clone + Copy + Default + Sized + 'static> StaticNull for T {
+impl<T: Clone + Default + Sized + 'static> StaticNull for T {
     const NULL: once_cell::sync::Lazy<ThinArc<usize, MaybeUninit<T>>> =
         once_cell::sync::Lazy::new(|| {
             let len = 0;
@@ -128,7 +128,7 @@ impl<T: Clone + Copy + Default + Sized + 'static> StaticNull for T {
         });
 }
 
-impl<T: Clone + Copy + Default> Default for SharedArray<T> {
+impl<T: Clone + Default> Default for SharedArray<T> {
     fn default() -> Self {
         SharedArray { inner: StaticNull::NULL.clone() }
     }
