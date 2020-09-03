@@ -100,7 +100,6 @@ The follow table summarizes the entire mapping:
 | `length` | `f32` | The unit are physical pixels. |
 | `logical_length` | `f32` | At run-time, logical lengths are automatically translated to physical pixels using the device pixel ratio. |
 | `duration` | `i64` | At run-time, durations are always represented as signed 64-bit integers with milisecond precision. |
-| `easing` | [`sixtyfps::EasingCurve`](enum.EasingCurve.html) | |
 
 */
 
@@ -112,7 +111,6 @@ pub use sixtyfps_rs_macro::sixtyfps;
 
 pub(crate) mod repeater;
 
-pub use sixtyfps_corelib::animations::EasingCurve;
 pub use sixtyfps_corelib::string::SharedString;
 pub use sixtyfps_corelib::Color;
 
