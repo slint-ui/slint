@@ -232,19 +232,29 @@ impl Type {
 
     /// Return true if the type can be converted to the other type
     pub fn can_convert(&self, other: &Self) -> bool {
-        self == other
-            || matches!(
-                (self, other),
-                (Type::Float32, Type::Int32)
-                    | (Type::Float32, Type::String)
-                    | (Type::Int32, Type::Float32)
-                    | (Type::Int32, Type::String)
-                    | (Type::Array(_), Type::Model)
-                    | (Type::Float32, Type::Model)
-                    | (Type::Int32, Type::Model)
-                    | (Type::Length, Type::LogicalLength)
-                    | (Type::LogicalLength, Type::Length)
-            )
+        let can_compare_object = |a: &BTreeMap<String, Type>, b: &BTreeMap<String, Type>| {
+            for (k, v) in b {
+                if !a.get(k).map(|t| t.can_convert(v)).unwrap_or(false) {
+                    return false;
+                }
+            }
+            true
+        };
+
+        match (self, other) {
+            (a, b) if a == b => true,
+            (Type::Float32, Type::Int32)
+            | (Type::Float32, Type::String)
+            | (Type::Int32, Type::Float32)
+            | (Type::Int32, Type::String)
+            | (Type::Array(_), Type::Model)
+            | (Type::Float32, Type::Model)
+            | (Type::Int32, Type::Model)
+            | (Type::Length, Type::LogicalLength)
+            | (Type::LogicalLength, Type::Length) => true,
+            (Type::Object(a), Type::Object(b)) if can_compare_object(a, b) => true,
+            _ => false,
+        }
     }
 
     fn collect_contextual_types(

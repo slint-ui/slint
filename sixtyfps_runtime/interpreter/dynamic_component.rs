@@ -475,6 +475,7 @@ fn generate_component<'id>(
                 custom_signals.insert(name.clone(), builder.add_field_type::<Signal<()>>());
                 continue;
             }
+            Type::Object(_) => property_info::<eval::Value>(),
             _ => panic!("bad type"),
         };
         custom_properties.insert(

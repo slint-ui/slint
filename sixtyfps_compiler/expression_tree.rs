@@ -557,6 +557,29 @@ impl Expression {
                     }),
                     op: '*',
                 },
+                (Type::Object(_), Type::Object(b)) => {
+                    // FIXME: optimize: special case for a == Expression::Object,  and put self into a local variable.
+                    return Expression::Object {
+                        values: b
+                            .iter()
+                            .map(|(p, t)| {
+                                (
+                                    p.clone(),
+                                    Expression::ObjectAccess {
+                                        base: Box::new(self.clone()),
+                                        name: p.clone(),
+                                    }
+                                    .maybe_convert_to(
+                                        t.clone(),
+                                        node,
+                                        diag,
+                                    ),
+                                )
+                            })
+                            .collect(),
+                        ty: target_type,
+                    };
+                }
                 _ => self,
             };
             Expression::Cast { from: Box::new(from), to: target_type }

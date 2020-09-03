@@ -1,0 +1,4 @@
+Test := Rectangle {
+    property<{a: string, b: int}> obj: {a : "444", b: 12 };
+    property<{a: string, b: int}> obj_conversion: { b: 12, a : 444, c: "nothing" };
+}
