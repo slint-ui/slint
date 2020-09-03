@@ -104,12 +104,6 @@ impl Color {
     pub const TRANSPARENT: Color = Color::from_rgba(0, 0, 0, 0);
 }
 
-impl From<u32> for Color {
-    fn from(encoded: u32) -> Self {
-        Color::from_argb_encoded(encoded)
-    }
-}
-
 impl InterpolatedPropertyValue for Color {
     fn interpolate(self, target_value: Self, t: f32) -> Self {
         Self {

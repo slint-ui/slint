@@ -685,7 +685,7 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                 (Type::Float32, Type::Model) | (Type::Int32, Type::Model) => quote!((0..#f as i32)),
                 (Type::Array(_), Type::Model) => quote!(#f.iter().cloned()),
                 (Type::Float32, Type::Color) => {
-                    quote!(sixtyfps::re_exports::Color::from(#f as u32))
+                    quote!(sixtyfps::re_exports::Color::from_argb_encoded(#f as u32))
                 }
                 _ => f,
             }

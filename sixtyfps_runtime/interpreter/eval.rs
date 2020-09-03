@@ -209,7 +209,7 @@ pub fn eval_expression(
                 (Value::Number(n), Type::String) => {
                     Value::String(SharedString::from(format!("{}", n).as_str()))
                 }
-                (Value::Number(n), Type::Color) => Value::Color(Color::from(n as u32)),
+                (Value::Number(n), Type::Color) => Value::Color(Color::from_argb_encoded(n as u32)),
                 (v, _) => v,
             }
         }
