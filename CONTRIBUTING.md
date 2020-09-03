@@ -1,7 +1,7 @@
 # Contributing
 
 We warmly welcome contributions to the project.
-Please feel welcome to open github issues or pull requests.
+Please feel welcome to open github issues, pull requests or comment for example on [RFC tagged](https://github.com/sixtyfpsui/sixtyfps/issues?q=is%3Aissue+is%3Aopen+label%3Arfc) issues.
 
 ## Coding Style
 
