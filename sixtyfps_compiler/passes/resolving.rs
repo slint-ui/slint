@@ -395,17 +395,11 @@ impl Expression {
 
         match &ctx.property_type {
             Type::Color => {
-                let value: Option<u32> = match first_str {
-                    "blue" => Some(0xff0000ff),
-                    "red" => Some(0xffff0000),
-                    "green" => Some(0xff00ff00),
-                    "yellow" => Some(0xffffff00),
-                    "black" => Some(0xff000000),
-                    "white" => Some(0xffffffff),
-                    "gray" => Some(0xff808080),
-                    _ => None,
-                };
-                if let Some(value) = value {
+                if let Some(c) = css_color_parser2::NAMED_COLORS.get(first_str) {
+                    let value = ((c.a as u32 * 255) << 24)
+                        | ((c.r as u32) << 16)
+                        | ((c.g as u32) << 8)
+                        | (c.b as u32);
                     return Expression::Cast {
                         from: Box::new(Expression::NumberLiteral(value as f64, Unit::None)),
                         to: Type::Color,

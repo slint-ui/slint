@@ -36,6 +36,7 @@ proc-macro2 = { version = "1.0.17", optional = true }
 lyon = { version = "0.16", features = ["svg"] }
 thiserror = "1"
 by_address = "1.0.4"
+css-color-parser2 = "1.0.1"
 
 [dev-dependencies]
 regex = "1.3.7"
