@@ -249,6 +249,10 @@ pub fn eval_expression(
                     BuiltinFunction::GetWindowScaleFactor => {
                         Value::Number(window_ref(component).unwrap().scale_factor() as _)
                     }
+                    BuiltinFunction::Debug => {
+                        println!("FIXME: the debug statement in the interpreter should print its argument");
+                        Value::Void
+                    }
                 }
             } else {
                 panic!("call of something not a signal")

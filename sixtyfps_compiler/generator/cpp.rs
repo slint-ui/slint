@@ -936,6 +936,9 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
             BuiltinFunction::GetWindowScaleFactor => {
                 format!("{}.scale_factor()", window_ref_expression(component))
             }
+            BuiltinFunction::Debug =>
+                "[]{ std::cout << \"FIXME: the debug statement in C++ should print the argument\" << std::endl; return nullptr; }()".into()
+            ,
         },
         Expression::RepeaterIndexReference { element } => {
             let access = access_member(

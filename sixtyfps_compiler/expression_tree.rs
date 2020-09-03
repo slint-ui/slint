@@ -43,6 +43,7 @@ impl Hash for NamedReference {
 /// A function built into the run-time
 pub enum BuiltinFunction {
     GetWindowScaleFactor,
+    Debug,
 }
 
 impl BuiltinFunction {
@@ -50,6 +51,9 @@ impl BuiltinFunction {
         match self {
             BuiltinFunction::GetWindowScaleFactor => {
                 Type::Function { return_type: Box::new(Type::Float32), args: vec![] }
+            }
+            BuiltinFunction::Debug => {
+                Type::Function { return_type: Box::new(Type::Void), args: vec![Type::String] }
             }
         }
     }

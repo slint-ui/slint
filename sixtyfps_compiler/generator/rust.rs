@@ -705,6 +705,10 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                 let window_ref = window_ref_expression(component);
                 quote!(#window_ref.scale_factor())
             }
+
+            BuiltinFunction::Debug => {
+                quote!(println!("FIXME: the debug statement in rust should print the argument");)
+            }
         },
         Expression::RepeaterIndexReference { element } => {
             let access = access_member(

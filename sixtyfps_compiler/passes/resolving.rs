@@ -436,6 +436,11 @@ impl Expression {
             _ => {}
         }
 
+        // Builtin functions  FIXME: handle that in a registery or something
+        if first_str == "debug" {
+            return Expression::BuiltinFunctionReference(BuiltinFunction::Debug);
+        }
+
         ctx.diag.push_error(format!("Unknown unqualified identifier '{}'", first_str), &node);
 
         Self::Invalid

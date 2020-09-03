@@ -22,6 +22,7 @@ use super::prelude::*;
 /// img!"something"
 /// some_id.some_property
 /// function_call()
+/// function_call(hello, world)
 /// cond ? first : second
 /// call_cond() ? first : second
 /// (nested()) ? (ok) : (other.ko)
@@ -101,9 +102,7 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) 
                 let _ = p.start_node_at(checkpoint.clone(), SyntaxKind::Expression);
             }
             let mut p = p.start_node_at(checkpoint.clone(), SyntaxKind::FunctionCallExpression);
-
-            p.consume();
-            p.expect(SyntaxKind::RParent);
+            parse_function_arguments(&mut *p);
         }
         _ => {}
     }
@@ -254,4 +253,23 @@ fn parse_object_notation(p: &mut impl Parser) {
         }
     }
     p.expect(SyntaxKind::RBrace);
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test
+/// ()
+/// (foo)
+/// (foo, bar, foo)
+/// (foo, bar(), xx+xx,)
+/// ```
+fn parse_function_arguments(p: &mut impl Parser) {
+    p.expect(SyntaxKind::LParent);
+
+    while p.nth(0).kind() != SyntaxKind::RParent {
+        parse_expression(&mut *p);
+        if !p.test(SyntaxKind::Comma) {
+            break;
+        }
+    }
+    p.expect(SyntaxKind::RParent);
 }

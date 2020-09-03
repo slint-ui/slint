@@ -14,6 +14,7 @@ LICENSE END */
 
 #include <vector>
 #include <memory>
+#include <iostream> // FIXME: remove: iostream always bring it lots of code so we should not have it in this header
 
 namespace sixtyfps::cbindgen_private {
 // Workaround https://github.com/eqrion/cbindgen/issues/43

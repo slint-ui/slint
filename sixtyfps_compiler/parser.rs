@@ -306,7 +306,7 @@ declare_syntax! {
         /// `foo!bar`
         BangExpression -> [Expression],
         /// expression()
-        FunctionCallExpression -> [Expression],
+        FunctionCallExpression -> [*Expression],
         /// `expression += expression`
         SelfAssignment -> [2 Expression],
         /// `condition ? first : second`
