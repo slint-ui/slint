@@ -80,7 +80,7 @@ All examples and demos are located in the [examples](/examples) folder.
 ## Contributions
 
 Contributions are welcome, in the form of code, bug reports or feedback. As an example
-we track issues where we specifically seek feedback with an [RFC tag](https://github.com/sixtyfpsui/sixtyfps/issues?q=is%3Aopen+is%3Aissue+label%3Arfc).
+we track issues where we specifically seek feedback with an [RFC tag](https://github.com/sixtyfpsui/sixtyfps/labels/rfc).
 To contribute, please see [CONTRIBUTING.md](CONTRIBUTING.md).
 Due to the dual-licensing nature, contributions require agreeing to a CLA.
 
