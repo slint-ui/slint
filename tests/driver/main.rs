@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 #[cfg(test)]
-mod cpp;
+mod cppdriver;
 #[cfg(test)]
 mod interpreter;
 #[cfg(test)]

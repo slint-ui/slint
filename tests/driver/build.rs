@@ -77,7 +77,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             r#"
             #[test]
             fn test_cpp_{function_name}() {{
-                cpp::test(&test_driver_lib::TestCase{{
+                cppdriver::test(&test_driver_lib::TestCase{{
                     absolute_path: std::path::PathBuf::from("{absolute_path}"),
                     relative_path: std::path::PathBuf::from("{relative_path}"),
                 }}).unwrap();
