@@ -94,7 +94,7 @@ Example := Image {
 }
 ```
 
-# Text
+# `Text`
 
 A text simply show the text on the screen
 
@@ -123,7 +123,7 @@ Example := Window {
 }
 ```
 
-# Path
+# `Path`
 
 FIXME: write docs
 
@@ -168,7 +168,7 @@ Example := Window {
 }
 ```
 
-# GridLayout
+# `GridLayout`
 
 `GridLayout` places the elements in a grid. `GridLayout` adds properties to each item: `col`, `row`, `colspan`, `rowspan`.
 You can control the position of elements with `col` and `row`.
@@ -220,11 +220,11 @@ Foo := Window {
 }
 ```
 
-# PathLayout
+# `PathLayout`
 
 FIXME: write docs
 
-# Flickable
+# `Flickable`
 
 FIXME: write docs
 
