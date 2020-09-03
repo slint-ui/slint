@@ -248,21 +248,29 @@ pub mod generated_code {
         ) -> super::re_exports::PinWeak<Self> {
             unimplemented!()
         }
-        /// Returns the value of the counter property declared in the `.60` design markup.
+        /// A getter is generated for each property declared at the root of the component.
+        /// In this case, this is the getter that returns the value of the `counter`
+        /// property declared in the `.60` design markup.
         pub fn get_counter(self: ::core::pin::Pin<&Self>) -> i32 {
             unimplemented!()
         }
-        /// Assigns a new value to the counter property.
+        /// A setter is generated for each property declared at the root of the component,
+        /// In this case, this is the setter that sets the value of the `counter` property
+        /// declared in the `.60` design markup.
         pub fn set_counter(&self, value: i32) {}
-        /// Returns the value of the user_name property declared in the `.60` design markup.
+        /// Returns the value of the `user_name` property declared in the `.60` design markup.
         pub fn get_user_name(self: ::core::pin::Pin<&Self>) -> super::re_exports::SharedString {
             unimplemented!()
         }
-        /// Assigns a new value to the user_name property.
+        /// Assigns a new value to the `user_name` property.
         pub fn set_user_name(&self, value: super::re_exports::SharedString) {}
-        /// Emits the hello signal declared in the `.60` design markup.
+        /// For each signal declared at the root of the component, a function to emit that
+        /// signal is generated. This is the function that emits the `hello` signal declared
+        /// in the `.60` design markup.
         pub fn emit_hello(self: ::core::pin::Pin<&Self>) {}
-        /// Registers the function f as callback when the signal hello is emitted. In order to access
+        /// For each signal declared at the root of the component, a function connect to that signal
+        /// is generated. This is the function that registers the function f as callback when the
+        /// signal `hello` is emitted. In order to access
         /// the component in the callback, you'd typically capture a weak reference obtained using
         /// [as_weak()](#method.as_weak)
         /// and then upgrade it to a strong reference when the callback is run:
