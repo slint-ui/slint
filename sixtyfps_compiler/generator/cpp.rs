@@ -766,10 +766,10 @@ fn generate_component(
         Access::Private,
         Declaration::Function(Function {
             name: "visit_children".into(),
-            signature: "(sixtyfps::ComponentRef component, intptr_t index, sixtyfps::TraversalOrder order, sixtyfps::ItemVisitorRefMut visitor) -> int64_t".into(),
+            signature: "(sixtyfps::private_api::ComponentRef component, intptr_t index, sixtyfps::TraversalOrder order, sixtyfps::private_api::ItemVisitorRefMut visitor) -> int64_t".into(),
             is_static: true,
             statements: Some(vec![
-                "static const auto dyn_visit = [] (const uint8_t *base,  [[maybe_unused]] sixtyfps::TraversalOrder order, [[maybe_unused]] sixtyfps::ItemVisitorRefMut visitor, uintptr_t dyn_index) -> int64_t {".to_owned(),
+                "static const auto dyn_visit = [] (const uint8_t *base,  [[maybe_unused]] sixtyfps::TraversalOrder order, [[maybe_unused]] sixtyfps::private_api::ItemVisitorRefMut visitor, uintptr_t dyn_index) -> int64_t {".to_owned(),
                 format!("    [[maybe_unused]] auto self = reinterpret_cast<const {}*>(base);", component_id),
                 format!("    switch(dyn_index) {{ {} }};", children_visitor_cases.join("")),
                 "    std::abort();\n};".to_owned(),
@@ -808,14 +808,14 @@ fn generate_component(
         Declaration::Function(Function {
             name: "input_event".into(),
             signature:
-                "(sixtyfps::ComponentRef component, sixtyfps::MouseEvent mouse_event) -> sixtyfps::InputEventResult"
+                "(sixtyfps::private_api::ComponentRef component, sixtyfps::MouseEvent mouse_event) -> sixtyfps::InputEventResult"
                     .into(),
             is_static: true,
             statements: Some(vec![
                 format!("    auto self = reinterpret_cast<{}*>(component.instance);", component_id),
                 "return sixtyfps::private_api::process_input_event(component, self->mouse_grabber, mouse_event, item_tree(), [self](int dyn_index, [[maybe_unused]] int rep_index) {".into(),
                 format!("    switch(dyn_index) {{ {} }};", repeated_input_branch.join("")),
-                "    return sixtyfps::ComponentRef{nullptr, nullptr};\n});".into(),
+                "    return sixtyfps::private_api::ComponentRef{nullptr, nullptr};\n});".into(),
             ]),
             ..Default::default()
         }),
@@ -825,7 +825,7 @@ fn generate_component(
         Access::Public, // FIXME: we call this function from tests
         Declaration::Function(Function {
             name: "compute_layout".into(),
-            signature: "(sixtyfps::ComponentRef component) -> void".into(),
+            signature: "(sixtyfps::private_api::ComponentRef component) -> void".into(),
             is_static: true,
             statements: Some(compute_layout(component)),
             ..Default::default()

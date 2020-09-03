@@ -49,9 +49,9 @@ extern const cbindgen_private::ItemVTable NativeGroupBoxVTable;
 namespace private_api {
 using cbindgen_private::ComponentVTable;
 using cbindgen_private::ItemVTable;
-}
 using ComponentRef = VRef<private_api::ComponentVTable>;
 using ItemVisitorRefMut = VRefMut<cbindgen_private::ItemVisitorVTable>;
+}
 using cbindgen_private::EasingCurve;
 using cbindgen_private::PropertyAnimation;
 using cbindgen_private::Slice;
@@ -106,9 +106,9 @@ using cbindgen_private::Window;
 
 using cbindgen_private::NativeButton;
 using cbindgen_private::NativeCheckBox;
+using cbindgen_private::NativeGroupBox;
 using cbindgen_private::NativeSlider;
 using cbindgen_private::NativeSpinBox;
-using cbindgen_private::NativeGroupBox;
 
 namespace private_api {
 constexpr inline ItemTreeNode make_item_node(std::uintptr_t offset,
@@ -231,7 +231,7 @@ struct Repeater
         }
     }
 
-    intptr_t visit(TraversalOrder order, ItemVisitorRefMut visitor) const
+    intptr_t visit(TraversalOrder order, private_api::ItemVisitorRefMut visitor) const
     {
         for (std::size_t i = 0; i < data.size(); ++i) {
             int index = order == TraversalOrder::BackToFront ? i : data.size() - 1 - i;
