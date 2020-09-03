@@ -53,8 +53,8 @@ The docs folder contains [build instructions](docs/building.md) and [internal de
 
 ## Supported integration languages
 
- * [SixtyFps-cpp](api/sixtyfps-cpp)
- * [SixtyFps-rs](api/sixtyfps-rs)
+ * [SixtyFps-cpp](api/sixtyfps-cpp) ([Documentation](https://www.sixtyfps.io/docs/cpp))
+ * [SixtyFps-rs](api/sixtyfps-rs) ([Documentation](https://www.sixtyfps.io/docs/rust/sixtyfps/))
  * [SixtyFps-node](api/sixtyfps-node)
 
 ## The .60 Language
