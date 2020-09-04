@@ -271,10 +271,10 @@ impl quote::ToTokens for FileDiagnostics {
                                 Some(quote::quote_spanned!(span.into() => #warning))
                             } else {
                                 Some(warning)
-                            }                            
+                            }
                         }
                     }
-                },                
+                },
                 _ => None,
             })
             .collect();
