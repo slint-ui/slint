@@ -154,6 +154,17 @@ impl GLRenderer {
                 })
             };
 
+            #[cfg(target_os = "macos")]
+            {
+                use cocoa::appkit::NSView;
+                use winit::platform::macos::WindowExtMacOS;
+                let ns_view = windowed_context.window().ns_view();
+                let view_id: cocoa::base::id = ns_view as *const _ as *mut _;
+                unsafe {
+                    NSView::setLayerContentsPlacement(view_id, cocoa::appkit::NSViewLayerContentsPlacement::NSViewLayerContentsPlacementTopLeft)
+                }
+            }
+
             (windowed_context, gl_context)
         };
 
