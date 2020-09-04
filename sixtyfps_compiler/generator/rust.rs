@@ -233,12 +233,12 @@ fn generate_component(
 
             let mut model = compile_expression(&repeated.model, component);
             if repeated.is_conditional_element {
-                model = quote!((if #model {Some(())} else {None}).iter().cloned())
+                model = quote!((if #model {Some(())} else {None}))
             }
 
             if repeated.model.is_constant() {
                 init.push(quote! {
-                    self_pinned.#repeater_id.update_model(#model, || {
+                    self_pinned.#repeater_id.update_model((#model).into_iter(), || {
                         #rep_component_id::new(self_pinned.self_weak.get().unwrap().clone())
                     });
                 });
@@ -250,12 +250,13 @@ fn generate_component(
                 repeated_visit_branch.push(quote!(
                     #repeater_index => {
                         if self_pinned.#model_name.is_dirty() {
-                            #component_id::FIELD_OFFSETS.#model_name.apply_pin(self_pinned).evaluate(|| {
-                                let _self = self_pinned.clone();
-                                self_pinned.#repeater_id.update_model(#model, || {
-                                    #rep_component_id::new(self_pinned.self_weak.get().unwrap().clone())
-                                });
-                            });
+                            self_pinned.#repeater_id.update_model(
+                                #component_id::FIELD_OFFSETS.#model_name.apply_pin(self_pinned).evaluate(|| {
+                                    let _self = self_pinned.clone();
+                                    #model
+                                }).into_iter(),
+                                || { #rep_component_id::new(self_pinned.self_weak.get().unwrap().clone()) }
+                            );
                         }
                         self_pinned.#repeater_id.visit(order, visitor)
                     }
@@ -683,7 +684,6 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                     quote!(sixtyfps::re_exports::SharedString::from(format!("{}", #f).as_str()))
                 }
                 (Type::Float32, Type::Model) | (Type::Int32, Type::Model) => quote!((0..#f as i32)),
-                (Type::Array(_), Type::Model) => quote!(#f.iter().cloned()),
                 (Type::Float32, Type::Color) => {
                     quote!(sixtyfps::re_exports::Color::from_argb_encoded(#f as u32))
                 }
@@ -705,7 +705,6 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                 let window_ref = window_ref_expression(component);
                 quote!(#window_ref.scale_factor())
             }
-
             BuiltinFunction::Debug => {
                 quote!(println!("FIXME: the debug statement in rust should print the argument");)
             }

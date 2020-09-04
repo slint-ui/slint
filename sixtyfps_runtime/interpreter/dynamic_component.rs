@@ -221,32 +221,30 @@ extern "C" fn visit_children_item(
             if let Some(listener_offset) = rep_in_comp.property_tracker {
                 let listener = listener_offset.apply_pin(instance);
                 if listener.is_dirty() {
-                    listener.evaluate(|| {
-                        match eval::eval_expression(
+                    match listener.evaluate(|| {
+                        eval::eval_expression(
                             &rep_in_comp.model,
                             InstanceRef { instance, component_type },
                             &mut Default::default(),
-                        ) {
-                            crate::Value::Number(count) => populate_model(
-                                &mut *vec,
-                                rep_in_comp,
-                                component,
-                                (0..count as i32)
-                                    .into_iter()
-                                    .map(|v| crate::Value::Number(v as f64)),
-                            ),
-                            crate::Value::Array(a) => {
-                                populate_model(&mut *vec, rep_in_comp, component, a.into_iter())
-                            }
-                            crate::Value::Bool(b) => populate_model(
-                                &mut *vec,
-                                rep_in_comp,
-                                component,
-                                (if b { Some(crate::Value::Void) } else { None }).into_iter(),
-                            ),
-                            _ => panic!("Unsupported model"),
+                        )
+                    }) {
+                        crate::Value::Number(count) => populate_model(
+                            &mut *vec,
+                            rep_in_comp,
+                            component,
+                            (0..count as i32).into_iter().map(|v| crate::Value::Number(v as f64)),
+                        ),
+                        crate::Value::Array(a) => {
+                            populate_model(&mut *vec, rep_in_comp, component, a.into_iter())
                         }
-                    });
+                        crate::Value::Bool(b) => populate_model(
+                            &mut *vec,
+                            rep_in_comp,
+                            component,
+                            (if b { Some(crate::Value::Void) } else { None }).into_iter(),
+                        ),
+                        _ => panic!("Unsupported model"),
+                    }
                 }
             }
             match order {

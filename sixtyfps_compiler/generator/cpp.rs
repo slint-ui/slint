@@ -373,13 +373,11 @@ fn handle_repeater(
     let repeater_id =
         format!("repeater_{}", base_component.parent_element.upgrade().unwrap().borrow().id);
 
-    let model = compile_expression(&repeated.model, parent_component);
-    let model = if !repeated.is_conditional_element {
-        format!("{}.get()", model)
-    } else {
+    let mut model = compile_expression(&repeated.model, parent_component);
+    if repeated.is_conditional_element {
         // bool converts to int
         // FIXME: don't do a heap allocation here
-        format!("std::make_shared<sixtyfps::IntModel>({}).get()", model)
+        model = format!("std::make_shared<sixtyfps::IntModel>({})", model)
     };
 
     if repeated.model.is_constant() {
@@ -389,7 +387,7 @@ fn handle_repeater(
             i = repeater_count
         ));
         init.push(format!(
-            "self->{repeater_id}.update_model({model}, self);",
+            "self->{repeater_id}.update_model({model}.get(), self);",
             repeater_id = repeater_id,
             model = model,
         ));
@@ -406,9 +404,9 @@ fn handle_repeater(
         children_visitor_cases.push(format!(
             "\n        case {i}: {{
                 if (self->model_{i}.is_dirty()) {{
-                    self->model_{i}.evaluate([&] {{
-                        self->{id}.update_model({model}, self);
-                    }});
+                    self->{id}.update_model(self->model_{i}.evaluate([&] {{
+                        return {model};
+                    }}).get(), self);
                 }}
                 return self->{id}.visit(order, visitor);
             }}",
