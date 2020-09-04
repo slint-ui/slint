@@ -329,17 +329,18 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                 } => {
                     use lyon::math::Point;
 
-                    let rect = Rect::new(Point::default(), Size::new(*width, *height));
+                    let border_offset = *border_width / 2.;
+
+                    let rect = Rect::new(
+                        Point::new(border_offset, border_offset),
+                        Size::new(*width - border_width, *height - *border_width),
+                    );
 
                     let mut primitives: SmallVec<_> =
                         self.fill_rectangle(&rect, *border_radius).into_iter().collect();
 
                     if *border_width > 0. {
-                        let stroke = self.stroke_rectangle(
-                            &Rect::new(Point::default(), Size::new(*width, *height)),
-                            *border_width,
-                            *border_radius,
-                        );
+                        let stroke = self.stroke_rectangle(&rect, *border_width, *border_radius);
                         primitives.extend(stroke);
                     }
 
