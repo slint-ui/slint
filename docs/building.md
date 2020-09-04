@@ -31,7 +31,6 @@ SixtyFPS also includes a viewer tool that can load `.60`files dynamically at run
 cargo-integrated binary and can be run directly on the `.60`files, for example:
 
 ```sh
-cargo run --bin viewer -- examples/cpptest/hello.60
-cargo run --bin viewer -- tests/cases/plusminus.60
+cargo run --bin viewer -- examples/printerdemo/ui/printerdemo.60
 ```
 
