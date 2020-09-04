@@ -27,12 +27,19 @@ pub fn instantiate_from_string(
     #[cfg(feature = "console_error_panic_hook")]
     console_error_panic_hook::set_once();
 
-    let c = sixtyfps_interpreter::load(
+    let c = match sixtyfps_interpreter::load(
         source.to_owned(),
         &std::path::Path::new(""),
         &Default::default(),
-    )
-    .map_err(|diag| js_sys::Error::new(&diag.to_string_vec().join("\n")))?;
+    ) {
+        (Ok(c), ..) => {
+            //TODO: warnings.print();
+            c
+        }
+        (Err(()), errors) => {
+            return Err(js_sys::Error::new(&errors.to_string_vec().join("\n")).into());
+        }
+    };
 
     let component = c.clone().create(canvas_id);
     component.window().run(component.borrow(), component.root_item());
