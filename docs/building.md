@@ -23,40 +23,7 @@ cargo test
 Note that `cargo test` does not work without first calling `cargo build` because the
 C++ tests will not find the dynamic library
 
-### Run the rusttest examples
-
-There are two examples written in rust:
-
-The first one uses the sixtyfps! macro
-
-```sh
-cargo run --bin rusttest
-```
-
-The second one uses an external .60 file
-
-```sh
-cargo run --bin rusttest2
-```
-
-## The C++ example
-
-The C++ API comes with a CMake integration, which needs to be built first:
-
-```sh
-cargo xtask cmake
-```
-
-This creates CMake configuration files in the `target/debug` folder
-(or `target/release` if you run `cargo xtask cmake --release`).
-
-Then, from another directory, you can run cmake
-
-```
-cmake -DCMAKE_PREFIX_PATH=/path/to/sixtyfps/target/debug /path/to/sixtyfps/example/cpptest .
-cmake --build .
-./hello
-```
+See the [examples](/examples) folder for examples to build, run and test.
 
 ## Running the viewer
 
