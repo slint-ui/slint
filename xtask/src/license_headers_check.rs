@@ -209,7 +209,8 @@ lazy_static! {
         ("\\.clang-format$", LicenseLocation::NoLicense),
         ("^api/sixtyfps-cpp/docs/Pipfile$", LicenseLocation::NoLicense),
         ("^api/sixtyfps-cpp/docs/conf.py$", LicenseLocation::NoLicense),
-        ("^api/sixtyfps-cpp/docs/theme_tweak.css$", LicenseLocation::NoLicense),
+        ("^api/sixtyfps-cpp/docs/_static/.+$", LicenseLocation::NoLicense),
+        ("^api/sixtyfps-cpp/docs/_templates/.+$", LicenseLocation::NoLicense),
         ("\\.cargo/config$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         (
             "\\.github/workflows/rust.yaml$",
