@@ -27,7 +27,7 @@ fn symlink_file<P: AsRef<Path>, Q: AsRef<Path>>(src: P, dst: Q) -> Result<()> {
 
 fn symlink_dir<P: AsRef<Path>, Q: AsRef<Path>>(src: P, dst: Q) -> Result<()> {
     if dst.as_ref().exists() {
-        std::fs::remove_file(dst.as_ref()).context("Error removing old symlink")?;
+        std::fs::remove_dir_all(dst.as_ref()).context("Error removing old symlink")?;
     }
     #[cfg(target_os = "windows")]
     return std::os::windows::fs::symlink_dir(&src, &dst).context("Error creating symlink");
@@ -47,11 +47,13 @@ fn symlink_files_in_dir<S: AsRef<Path>, T: AsRef<Path>, TS: AsRef<Path>>(
     for entry in std::fs::read_dir(src.as_ref()).context("Error reading docs source directory")? {
         let entry = entry.context("Error reading directory entry")?;
         let path = entry.path();
+        let file_name = path.file_name().unwrap();
+        let symlink_source = target_to_source.as_ref().to_path_buf().join(&file_name);
+        let symlink_target = target.as_ref().to_path_buf().join(path.file_name().unwrap());
         if path.is_file() {
-            let file_name = path.file_name().unwrap();
-            let symlink_source = target_to_source.as_ref().to_path_buf().join(&file_name);
-            let symlink_target = target.as_ref().to_path_buf().join(path.file_name().unwrap());
-            symlink_file(symlink_source, symlink_target)?;
+            symlink_file(symlink_source, symlink_target).context("Could not symlink file")?;
+        } else if path.is_dir() {
+            symlink_dir(symlink_source, symlink_target).context("Could not symlink directory")?;
         }
     }
     Ok(())
@@ -80,13 +82,6 @@ pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
     symlink_file(
         ["..", "..", "api", "sixtyfps-cpp", "README.md"].iter().collect::<PathBuf>(),
         docs_build_dir.join("README.md"),
-    )?;
-
-    symlink_file(
-        ["..", "..", "..", "api", "sixtyfps-cpp", "docs", "theme_tweak.css"]
-            .iter()
-            .collect::<PathBuf>(),
-        html_static_dir.join("theme_tweak.css"),
     )?;
 
     let pip_env =
