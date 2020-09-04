@@ -182,6 +182,7 @@ using cbindgen_private::solve_path_layout;
 
 // models
 
+template<typename ModelData>
 struct Model
 {
     virtual ~Model() = default;
@@ -189,37 +190,36 @@ struct Model
     Model(const Model &) = delete;
     Model &operator=(const Model &) = delete;
     virtual int count() const = 0;
-    virtual const void *get(int i) const = 0;
+    virtual const ModelData get(int i) const = 0;
 };
 
 template<int Count, typename ModelData>
-struct ArrayModel : Model
+struct ArrayModel : Model<ModelData>
 {
     std::array<ModelData, Count> data;
     template<typename... A>
     ArrayModel(A &&... a) : data { std::forward<A>(a)... }
     {
     }
-    ArrayModel(int x) { }
     int count() const override { return Count; }
-    const void *get(int i) const override { return &data[i]; }
+    const ModelData get(int i) const override { return data[i]; }
 };
 
-struct IntModel : Model
+struct IntModel : Model<int>
 {
     IntModel(int d) : data(d) { }
     int data;
     int count() const override { return data; }
-    const void *get(int) const override { return &data; }
+    const int get(int value) const override { return value; }
 };
 
-template<typename C>
+template<typename C, typename ModelData>
 struct Repeater
 {
     std::vector<std::unique_ptr<C>> data;
 
     template<typename Parent>
-    void update_model(Model *model, const Parent *parent) const
+    void update_model(Model<ModelData> *model, const Parent *parent) const
     {
         auto &data = const_cast<Repeater *>(this)->data;
         data.clear();

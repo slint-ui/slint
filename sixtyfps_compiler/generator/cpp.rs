@@ -203,14 +203,12 @@ impl CppType for Type {
             Type::Length => Some("float".to_owned()),
             Type::LogicalLength => Some("float".to_owned()),
             Type::Bool => Some("bool".to_owned()),
-            Type::Model => Some("std::shared_ptr<sixtyfps::Model>".to_owned()),
             Type::Object(o) => {
                 let elem = o.values().map(|v| v.cpp_type()).collect::<Option<Vec<_>>>()?;
                 // This will produce a tuple
                 Some(format!("std::tuple<{}>", elem.join(", ")))
             }
-            // FIXME: we should consider using sixtyfps::SharedArray
-            Type::Array(_inner) => Some("std::shared_ptr<sixtyfps::Model>".into()),
+            Type::Array(i) => Some(format!("std::shared_ptr<sixtyfps::Model<{}>>", i.cpp_type()?)),
             Type::Resource => Some("sixtyfps::Resource".to_owned()),
             Type::Builtin(elem) => elem.native_class.cpp_type.clone(),
             Type::Enumeration(enumeration) => Some(format!("sixtyfps::{}", enumeration.name)),
@@ -369,9 +367,10 @@ fn handle_repeater(
     init: &mut Vec<String>,
     children_visitor_cases: &mut Vec<String>,
     repeated_input_branch: &mut Vec<String>,
+    diag: &mut BuildDiagnostics,
 ) {
-    let repeater_id =
-        format!("repeater_{}", base_component.parent_element.upgrade().unwrap().borrow().id);
+    let parent_element = base_component.parent_element.upgrade().unwrap();
+    let repeater_id = format!("repeater_{}", parent_element.borrow().id);
 
     let mut model = compile_expression(&repeated.model, parent_component);
     if repeated.is_conditional_element {
@@ -425,7 +424,11 @@ fn handle_repeater(
     component_struct.members.push((
         Access::Private,
         Declaration::Var(Var {
-            ty: format!("sixtyfps::Repeater<class {}>", component_id(base_component)),
+            ty: format!(
+                "sixtyfps::Repeater<class {}, {}>",
+                component_id(base_component),
+                model_data_type(&parent_element, diag)
+            ),
             name: repeater_id,
             init: None,
         }),
@@ -563,6 +566,7 @@ fn generate_component(
         let parent_element = component.parent_element.upgrade().unwrap();
 
         let mut update_statements = vec![];
+        let cpp_model_data_type = model_data_type(&parent_element, diag);
 
         if !parent_element.borrow().repeated.as_ref().map_or(false, |r| r.is_conditional_element) {
             component_struct.members.push((
@@ -574,29 +578,6 @@ fn generate_component(
                 }),
             ));
 
-            let model_data_type = crate::expression_tree::Expression::RepeaterModelReference {
-                element: component.parent_element.clone(),
-            }
-            .ty();
-            let cpp_model_data_type = model_data_type
-                .cpp_type()
-                .unwrap_or_else(|| {
-                    diag.push_internal_error(
-                        CompilerDiagnostic {
-                            message: format!("Cannot map property type {} to C++", model_data_type)
-                                .into(),
-                            span: parent_element
-                                .borrow()
-                                .node
-                                .as_ref()
-                                .map(|n| n.span())
-                                .unwrap_or_default(),
-                        }
-                        .into(),
-                    );
-                    String::default()
-                })
-                .to_owned();
             component_struct.members.push((
                 Access::Private,
                 Declaration::Var(Var {
@@ -606,10 +587,7 @@ fn generate_component(
                 }),
             ));
 
-            update_statements = vec![
-                "index.set(i);".into(),
-                format!("model_data.set(*reinterpret_cast<{} const*>(data));", cpp_model_data_type),
-            ];
+            update_statements = vec!["index.set(i);".into(), "model_data.set(data);".into()];
         }
         let parent_component_id = self::component_id(
             &component
@@ -634,8 +612,10 @@ fn generate_component(
             Access::Public, // Because Repeater::update_model accesses it
             Declaration::Function(Function {
                 name: "update_data".into(),
-                signature: "([[maybe_unused]] int i, [[maybe_unused]] const void *data) -> void"
-                    .into(),
+                signature: format!(
+                    "([[maybe_unused]] int i, [[maybe_unused]] const {} &data) -> void",
+                    cpp_model_data_type
+                ),
                 statements: Some(update_statements),
                 ..Function::default()
             }),
@@ -710,6 +690,7 @@ fn generate_component(
                 &mut init,
                 &mut children_visitor_cases,
                 &mut repeated_input_branch,
+                diag,
             );
             repeater_count += 1;
         } else {
@@ -861,6 +842,34 @@ fn component_id(component: &Rc<Component>) -> String {
     } else {
         component.id.clone()
     }
+}
+
+fn model_data_type(parent_element: &ElementRc, diag: &mut BuildDiagnostics) -> String {
+    if parent_element.borrow().repeated.as_ref().unwrap().is_conditional_element {
+        return "int".into();
+    }
+    let model_data_type = crate::expression_tree::Expression::RepeaterModelReference {
+        element: Rc::downgrade(parent_element),
+    }
+    .ty();
+    model_data_type
+        .cpp_type()
+        .unwrap_or_else(|| {
+            diag.push_internal_error(
+                CompilerDiagnostic {
+                    message: format!("Cannot map property type {} to C++", model_data_type).into(),
+                    span: parent_element
+                        .borrow()
+                        .node
+                        .as_ref()
+                        .map(|n| n.span())
+                        .unwrap_or_default(),
+                }
+                .into(),
+            );
+            String::default()
+        })
+        .to_owned()
 }
 
 /// Returns the code that can access the given property (but without the set or get)
