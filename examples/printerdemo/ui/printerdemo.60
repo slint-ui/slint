@@ -236,6 +236,15 @@ MainWindow := Window {
     width: 800lx;
     height: 600lx;
 
+    /// Note that this property is overwriten in the .cpp and .rs code.
+    // The data is only in this file so it looks good in the viewer
+    property <[{color: color, level: float}]> ink_levels: [
+                {color: #0ff, level: 60%},
+                {color: #ff0, level: 80%},
+                {color: #f0f, level: 70%},
+                {color: #000, level: 30%},
+            ];
+
     property<int> active_page: 0;
 
     panel := TopPanel {
@@ -327,7 +336,7 @@ MainWindow := Window {
                 text.y: root.height / 5 + 5lx;
             }
             invisible when root.active_page > 0 && root.active_page != idx + 1 : {
-                color: white;
+                color: transparent;
                 // FIXME: should probaby hide the entire item under with z-ordering
                 img.y: 1000000000lx;
                 text.color: #0000;
@@ -360,12 +369,7 @@ MainWindow := Window {
 
         //GridLayout {
         //    spacing: 20lx;
-            for color_info[idx] in [
-                {color: #0ff, level: 60%},
-                {color: #ff0, level: 80%},
-                {color: #f0f, level: 70%},
-                {color: #000, level: 30%},
-            ] : Rectangle {
+            for color_info[idx] in ink_levels : Rectangle {
 
                 color: white;
 
