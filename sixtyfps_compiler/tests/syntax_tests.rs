@@ -80,12 +80,16 @@ fn process_file_source(
 
     let mut success = true;
 
-    // Find expected errors in the file.
-    let re = regex::Regex::new(r"\n *//[^\n]*(\^)error\{([^\n]*)\}\n").unwrap();
+    // Find expected errors in the file. The first caret (^) points to the expected column. The number of
+    // carets refers to the number of lines to go back. This is useful when one line of code produces multiple
+    // errors or warnings.
+    let re = regex::Regex::new(r"\n *//[^\n\^]*(\^+)(error|warning)\{([^\n]*)\}\n").unwrap();
     for m in re.captures_iter(&source) {
         let line_begin_offset = m.get(0).unwrap().start();
         let column = m.get(1).unwrap().start() - line_begin_offset;
-        let rx = m.get(2).unwrap().as_str();
+        let lines_to_source = m.get(1).unwrap().as_str().len();
+        let warning_or_error = m.get(2).unwrap().as_str();
+        let rx = m.get(3).unwrap().as_str();
         let r = match regex::Regex::new(&rx) {
             Err(e) => {
                 eprintln!("{:?}: Invalid regexp {:?} : {:?}", path, rx, e);
@@ -93,12 +97,27 @@ fn process_file_source(
             }
             Ok(r) => r,
         };
-        let offset = source[..line_begin_offset].rfind('\n').unwrap_or(0) + column;
+
+        let mut line_counter = 0;
+        let mut line_offset = source[..line_begin_offset].rfind('\n').unwrap_or(0);
+        let offset = loop {
+            line_counter += 1;
+            if line_counter >= lines_to_source {
+                break line_offset;
+            }
+            line_offset = source[..line_offset].rfind('\n').unwrap_or(0);
+        } + column;
+
+        let expected_diag_level = match warning_or_error {
+            "warning" => sixtyfps_compilerlib::diagnostics::Level::Warning,
+            "error" => sixtyfps_compilerlib::diagnostics::Level::Error,
+            _ => panic!("Unsupported diagnostic level {}", warning_or_error),
+        };
 
         match compile_diagnostics.inner.iter().position(|e| match e {
             sixtyfps_compilerlib::diagnostics::Diagnostic::FileLoadError(_) => false,
             sixtyfps_compilerlib::diagnostics::Diagnostic::CompilerDiagnostic(e) => {
-                e.span.offset == offset && r.is_match(&e.message)
+                e.span.offset == offset && r.is_match(&e.message) && e.level == expected_diag_level
             }
         }) {
             Some(idx) => {
@@ -106,13 +125,16 @@ fn process_file_source(
             }
             None => {
                 success = false;
-                println!("{:?}: Error not found at offset {}: {:?}", path, offset, rx);
+                println!(
+                    "{:?}: {} not found at offset {}: {:?}",
+                    path, warning_or_error, offset, rx
+                );
             }
         }
     }
 
     if !compile_diagnostics.inner.is_empty() {
-        println!("{:?}: Unexptected errors: {:#?}", path, compile_diagnostics.inner);
+        println!("{:?}: Unexptected errors/warnings: {:#?}", path, compile_diagnostics.inner);
 
         if !silent {
             #[cfg(feature = "display-diagnostics")]

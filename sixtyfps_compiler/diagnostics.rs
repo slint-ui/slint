@@ -48,7 +48,7 @@ pub trait SpannedWithSourceFile: Spanned {
     fn source_file(&self) -> Option<&SourceFile>;
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Level {
     Error,
     Warning,

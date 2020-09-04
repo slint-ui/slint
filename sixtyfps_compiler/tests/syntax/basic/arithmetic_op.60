@@ -9,6 +9,7 @@
 LICENSE END */
 SuperSimple := Rectangle {
     property<duration> p1: 3s + 1ms;
+//           ^warning{Properties of type duration are not supported yet for public API. The property will not be exposed.}
     property<int> p2: 3s + 1;
 //                        ^error{Cannot convert float to duration}
     property<int> p3: 3s - 1;
@@ -17,8 +18,11 @@ SuperSimple := Rectangle {
 //                       ^error{Cannot convert duration to float}
 
     property<duration> p5: 3ms * 1;
+//           ^warning{Properties of type duration are not supported yet for public API. The property will not be exposed.}
     property<duration> p6: 3ms * 1s;
 //                         ^error{Cannot convert duration to float}
+
+//           ^^^warning{Properties of type duration are not supported yet for public API. The property will not be exposed.}
 
     property<int> p7: "hello" * 1;
 //                    ^error{Cannot convert string to float}
