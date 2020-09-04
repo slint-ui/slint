@@ -130,11 +130,18 @@ pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
 
     let file = std::fs::File::create(&output_file_path).map_err(CompileError::SaveError)?;
     let mut code_formater = CodeFormatter { indentation: 0, in_string: false, sink: file };
-    let generated = generator::rust::generate(&root_component, &mut diag).ok_or_else(|| {
-        let vec = diag.to_string_vec();
-        diag.print();
-        CompileError::CompileError(vec)
-    })?;
+    let generated = match generator::rust::generate(&root_component, &mut diag) {
+        Some(code) => {
+            diag.print(); // print warnings
+            code
+        }
+        None => {
+            let vec = diag.to_string_vec();
+            diag.print();
+            return Err(CompileError::CompileError(vec));
+        }
+    };
+
     write!(code_formater, "{}", generated).map_err(CompileError::SaveError)?;
     println!("cargo:rerun-if-changed={}", path.display());
 

@@ -63,13 +63,15 @@ fn load(mut cx: FunctionContext) -> JsResult<JsValue> {
         ..Default::default()
     };
     let source = std::fs::read_to_string(&path).or_else(|e| cx.throw_error(e.to_string()))?;
-    let c = match sixtyfps_interpreter::load(source, &path, &compiler_config) {
-        Ok(c) => c,
-        Err(diag) => {
-            diag.print();
+    let (c, warnings) = match sixtyfps_interpreter::load(source, &path, &compiler_config) {
+        (Ok(c), warnings) => (c, warnings),
+        (Err(()), errors) => {
+            errors.print();
             return cx.throw_error("Compilation error");
         }
     };
+
+    warnings.print();
 
     let mut obj = SixtyFpsComponentType::new::<_, JsValue, _>(&mut cx, std::iter::empty())?;
     cx.borrow_mut(&mut obj, |mut obj| obj.0 = Some(c));

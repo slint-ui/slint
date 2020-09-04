@@ -33,9 +33,12 @@ fn main() -> std::io::Result<()> {
     };
 
     let c = match sixtyfps_interpreter::load(source, &args.path, &compiler_config) {
-        Ok(c) => c,
-        Err(diag) => {
-            diag.print();
+        (Ok(c), warnings) => {
+            warnings.print();
+            c
+        }
+        (Err(()), errors) => {
+            errors.print();
             std::process::exit(-1);
         }
     };

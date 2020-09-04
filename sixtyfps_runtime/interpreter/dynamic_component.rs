@@ -311,18 +311,19 @@ pub fn load<'id>(
     path: &std::path::Path,
     compiler_config: &CompilerConfiguration,
     guard: generativity::Guard<'id>,
-) -> Result<Rc<ComponentDescription<'id>>, sixtyfps_compilerlib::diagnostics::BuildDiagnostics> {
+) -> (Result<Rc<ComponentDescription<'id>>, ()>, sixtyfps_compilerlib::diagnostics::BuildDiagnostics)
+{
     let (syntax_node, diag) = parser::parse(source, Some(path));
     if diag.has_error() {
         let mut d = sixtyfps_compilerlib::diagnostics::BuildDiagnostics::default();
         d.add(diag);
-        return Err(d);
+        return (Err(()), d);
     }
     let (root_component, diag) = compile_syntax_node(syntax_node, diag, compiler_config);
     if diag.has_error() {
-        return Err(diag);
+        return (Err(()), diag);
     }
-    Ok(generate_component(&root_component, guard))
+    (Ok(generate_component(&root_component, guard)), diag)
 }
 
 fn generate_component<'id>(

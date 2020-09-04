@@ -20,14 +20,17 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         ..Default::default()
     };
 
-    let component = match sixtyfps_interpreter::load(source, &testcase.absolute_path, &config) {
-        Ok(c) => c,
-        Err(diag) => {
-            let vec = diag.to_string_vec();
-            diag.print();
-            return Err(vec.join("\n").into());
-        }
-    };
+    let (component, warnings) =
+        match sixtyfps_interpreter::load(source, &testcase.absolute_path, &config) {
+            (Ok(c), diagnostics) => (c, diagnostics),
+            (Err(()), errors) => {
+                let vec = errors.to_string_vec();
+                errors.print();
+                return Err(vec.join("\n").into());
+            }
+        };
+
+    warnings.print();
 
     component.create();
 

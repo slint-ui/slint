@@ -367,6 +367,15 @@ impl BuildDiagnostics {
         self
     }
 
+    #[cfg(feature = "display-diagnostics")]
+    pub fn print_warnings_and_exit_on_error(self) {
+        let has_error = self.has_error();
+        self.print();
+        if has_error {
+            std::process::exit(-1);
+        }
+    }
+
     #[cfg(feature = "proc_macro_span")]
     pub fn map_offsets_to_span(&mut self, span_map: &[crate::parser::Token]) {
         self.iter_mut().for_each(|diag| diag.map_offsets_to_span(span_map))

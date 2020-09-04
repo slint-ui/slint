@@ -34,6 +34,6 @@ fn main() -> std::io::Result<()> {
     let mut diag = diag.check_and_exit_on_error();
 
     generator::generate(args.format, &mut std::io::stdout(), &root_component, &mut diag)?;
-    diag.check_and_exit_on_error();
+    diag.print_warnings_and_exit_on_error();
     Ok(())
 }

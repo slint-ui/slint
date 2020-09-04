@@ -158,7 +158,7 @@ pub fn load(
     source: String,
     path: &std::path::Path,
     compiler_config: &sixtyfps_compilerlib::CompilerConfiguration,
-) -> Result<Rc<ComponentDescription>, sixtyfps_compilerlib::diagnostics::BuildDiagnostics> {
+) -> (Result<Rc<ComponentDescription>, ()>, sixtyfps_compilerlib::diagnostics::BuildDiagnostics) {
     dynamic_component::load(source, path, compiler_config, unsafe {
         generativity::Guard::new(generativity::Id::new())
     })
