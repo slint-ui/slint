@@ -745,6 +745,12 @@ impl Spanned for Option<SyntaxNodeWithSourceFile> {
     }
 }
 
+impl SpannedWithSourceFile for Option<SyntaxNodeWithSourceFile> {
+    fn source_file(&self) -> Option<&SourceFile> {
+        self.as_ref().map(|n| n.source_file.as_ref()).unwrap_or_default()
+    }
+}
+
 impl Spanned for SyntaxTokenWithSourceFile {
     fn span(&self) -> crate::diagnostics::Span {
         self.token.span()

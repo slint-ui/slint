@@ -128,7 +128,7 @@ pub fn run_passes(
     passes::lower_states::lower_states(&doc.root_component, diag);
     passes::deduplicate_property_read::deduplicate_property_read(&doc.root_component);
     passes::repeater_component::process_repeater_components(&doc.root_component);
-    passes::move_declarations::move_declarations(&doc.root_component);
+    passes::move_declarations::move_declarations(&doc.root_component, diag);
     passes::resolve_native_classes::resolve_native_classes(&doc.root_component);
 }
 

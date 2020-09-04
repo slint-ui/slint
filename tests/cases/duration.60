@@ -18,20 +18,29 @@ TestCase := Rectangle {
     property<duration> d8: -0.5s / 2;
     property<int> i1: d1 / 1ms;
     property<int> i2: d1 / 2ms;
+
+    property<int> untyped_d1: self.d1 / 1ms;
+    property<int> untyped_d2: self.d2 / 1ms;
+    property<int> untyped_d3: self.d3 / 1ms;
+    property<int> untyped_d4: self.d4 / 1ms;
+    property<int> untyped_d5: self.d5 / 1ms;
+    property<int> untyped_d6: self.d6 / 1ms;
+    property<int> untyped_d7: self.d7 / 1ms;
+    property<int> untyped_d8: self.d8 / 1ms;
 }
 
 
 /*
 ```cpp
 TestCase instance;
-assert(instance.get_d1() == 100);
-assert(instance.get_d2() == 3000);
-assert(instance.get_d3() == 1500);
-assert(instance.get_d4() == 30);
-assert(instance.get_d5() == 3008);
-assert(instance.get_d6() == -2900);
-assert(instance.get_d7() == -500);
-assert(instance.get_d8() == -250);
+assert(instance.get_untyped_d1() == 100);
+assert(instance.get_untyped_d2() == 3000);
+assert(instance.get_untyped_d3() == 1500);
+assert(instance.get_untyped_d4() == 30);
+assert(instance.get_untyped_d5() == 3008);
+assert(instance.get_untyped_d6() == -2900);
+assert(instance.get_untyped_d7() == -500);
+assert(instance.get_untyped_d8() == -250);
 assert(instance.get_i1() == 100);
 assert(instance.get_i2() == 50);
 ```
@@ -40,28 +49,28 @@ assert(instance.get_i2() == 50);
 ```rust
 let instance = TestCase::new();
 let instance = instance.as_ref();
-assert_eq!(instance.get_d1(), 100);
-assert_eq!(instance.get_d2(), 3000);
-assert_eq!(instance.get_d3(), 1500);
-assert_eq!(instance.get_d4(), 30);
-assert_eq!(instance.get_d5(), 3008);
-assert_eq!(instance.get_d6(), -2900);
-assert_eq!(instance.get_d7(), -500);
-assert_eq!(instance.get_d8(), -250);
+assert_eq!(instance.get_untyped_d1(), 100);
+assert_eq!(instance.get_untyped_d2(), 3000);
+assert_eq!(instance.get_untyped_d3(), 1500);
+assert_eq!(instance.get_untyped_d4(), 30);
+assert_eq!(instance.get_untyped_d5(), 3008);
+assert_eq!(instance.get_untyped_d6(), -2900);
+assert_eq!(instance.get_untyped_d7(), -500);
+assert_eq!(instance.get_untyped_d8(), -250);
 assert_eq!(instance.get_i1(), 100);
 assert_eq!(instance.get_i2(), 50);
 ```
 
 ```js
 var instance = new sixtyfps.TestCase({});
-assert.equal(instance.d1, 100);
-assert.equal(instance.d2, 3000);
-assert.equal(instance.d3, 1500);
-assert.equal(instance.d4, 30);
-assert.equal(instance.d5, 3008);
-assert.equal(instance.d6, -2900);
-assert.equal(instance.d7, -500);
-assert.equal(instance.d8, -250);
+assert.equal(instance.untyped_d1, 100);
+assert.equal(instance.untyped_d2, 3000);
+assert.equal(instance.untyped_d3, 1500);
+assert.equal(instance.untyped_d4, 30);
+assert.equal(instance.untyped_d5, 3008);
+assert.equal(instance.untyped_d6, -2900);
+assert.equal(instance.untyped_d7, -500);
+assert.equal(instance.untyped_d8, -250);
 assert.equal(instance.i1, 100);
 assert.equal(instance.i2, 50);
 ```

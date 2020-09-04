@@ -153,6 +153,11 @@ impl Type {
         )
     }
 
+    pub fn ok_for_public_api(&self) -> bool {
+        // Duration and Easing don't have good types for public API exposure yet.
+        !matches!(self, Self::Duration | Self::Easing)
+    }
+
     pub fn lookup_property(&self, name: &str) -> Type {
         match self {
             Type::Component(c) => c.root_element.borrow().lookup_property(name),

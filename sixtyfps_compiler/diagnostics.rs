@@ -102,8 +102,11 @@ impl IntoIterator for FileDiagnostics {
 }
 
 impl FileDiagnostics {
+    pub fn push_diagnostic_with_span(&mut self, message: String, span: Span, level: Level) {
+        self.inner.push(CompilerDiagnostic { message, span, level }.into());
+    }
     pub fn push_error_with_span(&mut self, message: String, span: Span) {
-        self.inner.push(CompilerDiagnostic { message, span, level: Level::Error }.into());
+        self.push_diagnostic_with_span(message, span, Level::Error)
     }
     pub fn push_error(&mut self, message: String, source: &dyn Spanned) {
         self.push_error_with_span(message, source.span());
@@ -296,7 +299,12 @@ impl BuildDiagnostics {
         }
     }
 
-    pub fn push_error(&mut self, message: String, source: &dyn SpannedWithSourceFile) {
+    pub fn push_diagnostic(
+        &mut self,
+        message: String,
+        source: &dyn SpannedWithSourceFile,
+        level: Level,
+    ) {
         match source.source_file() {
             Some(source_file) => self
                 .per_input_file_diagnostics
@@ -305,11 +313,15 @@ impl BuildDiagnostics {
                     current_path: source_file.clone(),
                     ..Default::default()
                 })
-                .push_error_with_span(message, source.span()),
+                .push_diagnostic_with_span(message, source.span(), level),
             None => self.push_internal_error(
-                CompilerDiagnostic { message, span: source.span(), level: Level::Error }.into(),
+                CompilerDiagnostic { message, span: source.span(), level }.into(),
             ),
         }
+    }
+
+    pub fn push_error(&mut self, message: String, source: &dyn SpannedWithSourceFile) {
+        self.push_diagnostic(message, source, Level::Error)
     }
 
     pub fn push_internal_error(&mut self, err: Diagnostic) {
