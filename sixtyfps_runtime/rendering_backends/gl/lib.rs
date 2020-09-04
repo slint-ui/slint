@@ -152,8 +152,34 @@ impl GLRenderer {
             use winit::platform::web::WindowBuilderExtWebSys;
             use winit::platform::web::WindowExtWebSys;
 
+            // Try to maintain the existing size of the canvas element. A window created with winit
+            // on the web will always have 1024x768 as size otherwise.
+            let existing_canvas_size = winit::dpi::PhysicalSize::new(
+                canvas.client_width() as u32,
+                canvas.client_height() as u32,
+            );
+
             let window =
                 Rc::new(window_builder.with_canvas(Some(canvas)).build(&event_loop).unwrap());
+
+            {
+                let default_size = window.inner_size();
+                let new_size = winit::dpi::PhysicalSize::new(
+                    if existing_canvas_size.width > 0 {
+                        existing_canvas_size.width
+                    } else {
+                        default_size.width
+                    },
+                    if existing_canvas_size.height > 0 {
+                        existing_canvas_size.height
+                    } else {
+                        default_size.height
+                    },
+                );
+                if new_size != default_size {
+                    window.set_inner_size(new_size);
+                }
+            }
 
             use wasm_bindgen::JsCast;
             let webgl1_context = window
