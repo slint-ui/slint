@@ -10,7 +10,7 @@ LICENSE END */
 /*! module for the Rust code generator
 */
 
-use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic, Spanned};
+use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic, Level, Spanned};
 use crate::expression_tree::{
     BuiltinFunction, EasingCurve, Expression, NamedReference, OperatorClass, Path,
 };
@@ -47,6 +47,7 @@ fn rust_type(
         _ => Err(CompilerDiagnostic {
             message: format!("Cannot map property type {} to Rust", ty),
             span: span.clone(),
+            level: Level::Error,
         }),
     }
 }

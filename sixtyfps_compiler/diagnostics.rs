@@ -48,11 +48,34 @@ pub trait SpannedWithSourceFile: Spanned {
     fn source_file(&self) -> Option<&SourceFile>;
 }
 
+#[derive(Debug)]
+pub enum Level {
+    Error,
+    Warning,
+}
+
+impl Default for Level {
+    fn default() -> Self {
+        Self::Error
+    }
+}
+
+#[cfg(feature = "display-diagnostics")]
+impl From<Level> for codemap_diagnostic::Level {
+    fn from(l: Level) -> Self {
+        match l {
+            Level::Error => codemap_diagnostic::Level::Error,
+            Level::Warning => codemap_diagnostic::Level::Warning,
+        }
+    }
+}
+
 #[derive(thiserror::Error, Default, Debug)]
 #[error("{message}")]
 pub struct CompilerDiagnostic {
     pub message: String,
     pub span: Span,
+    pub level: Level,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -80,7 +103,7 @@ impl IntoIterator for FileDiagnostics {
 
 impl FileDiagnostics {
     pub fn push_error_with_span(&mut self, message: String, span: Span) {
-        self.inner.push(CompilerDiagnostic { message, span }.into());
+        self.inner.push(CompilerDiagnostic { message, span, level: Level::Error }.into());
     }
     pub fn push_error(&mut self, message: String, source: &dyn Spanned) {
         self.push_error_with_span(message, source.span());
@@ -90,7 +113,10 @@ impl FileDiagnostics {
     }
 
     pub fn has_error(&self) -> bool {
-        !self.inner.is_empty()
+        self.inner.iter().any(|diag| match diag {
+            Diagnostic::FileLoadError(_) => true,
+            Diagnostic::CompilerDiagnostic(diag) => matches!(diag.level, Level::Error),
+        })
     }
 
     #[cfg(feature = "display-diagnostics")]
@@ -114,7 +140,7 @@ impl FileDiagnostics {
             .inner
             .into_iter()
             .map(|diagnostic| match diagnostic {
-                Diagnostic::CompilerDiagnostic(CompilerDiagnostic { message, span }) => {
+                Diagnostic::CompilerDiagnostic(CompilerDiagnostic { message, span, level }) => {
                     let spans = if !internal_errors {
                         let s = codemap_diagnostic::SpanLabel {
                             span: file_span.subspan(span.offset as u64, span.offset as u64),
@@ -126,7 +152,7 @@ impl FileDiagnostics {
                         vec![]
                     };
                     codemap_diagnostic::Diagnostic {
-                        level: codemap_diagnostic::Level::Error,
+                        level: level.into(),
                         message,
                         code: None,
                         spans,
@@ -218,15 +244,35 @@ impl quote::ToTokens for FileDiagnostics {
             .inner
             .iter()
             .filter_map(|diag| match diag {
-                Diagnostic::CompilerDiagnostic(compiler_diag) => Some(compiler_diag),
+                Diagnostic::CompilerDiagnostic(CompilerDiagnostic {
+                    level,
+                    message,
+                    span,
+                }) => {
+                    match level {
+                        Level::Error => {
+                            if let Some(span) = span.span {
+                                Some(quote::quote_spanned!(span.into() => compile_error!{ #message }))
+                            } else {
+                                Some(quote!(compile_error! { #message }))
+                            }
+                        }
+                        Level::Warning => {
+                            let warning_symbol = quote::format_ident!("WARNING_{}", message.replace("-", "_"));
+                            let warning = quote!(
+                                #[warn(dead_code)]
+                                #[allow(non_upper_case_globals)]
+                                const #warning_symbol : () = ();
+                            );
+                            if let Some(span) = span.span {
+                                Some(quote::quote_spanned!(span.into() => #warning))
+                            } else {
+                                Some(warning)
+                            }                            
+                        }
+                    }
+                },                
                 _ => None,
-            })
-            .map(|CompilerDiagnostic { message, span }| {
-                if let Some(span) = span.span {
-                    quote::quote_spanned!(span.into() => compile_error!{ #message })
-                } else {
-                    quote!(compile_error! { #message })
-                }
             })
             .collect();
         quote!(#(#diags)*).to_tokens(tokens);
@@ -260,9 +306,9 @@ impl BuildDiagnostics {
                     ..Default::default()
                 })
                 .push_error_with_span(message, source.span()),
-            None => {
-                self.push_internal_error(CompilerDiagnostic { message, span: source.span() }.into())
-            }
+            None => self.push_internal_error(
+                CompilerDiagnostic { message, span: source.span(), level: Level::Error }.into(),
+            ),
         }
     }
 

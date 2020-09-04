@@ -182,7 +182,7 @@ mod cpp_ast {
     }
 }
 
-use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic, Spanned};
+use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic, Level, Spanned};
 use crate::expression_tree::{BuiltinFunction, EasingCurve, Expression, ExpressionSpanned};
 use crate::layout::{gen::LayoutItemCodeGen, Layout, LayoutElement};
 use crate::object_tree::{Component, Element, ElementRc, RepeatedElementInfo};
@@ -514,6 +514,7 @@ fn generate_component(
                 let err = CompilerDiagnostic {
                     message: "Cannot map property type to C++".into(),
                     span: property_decl.type_node.span(),
+                    level: Level::Error,
                 };
 
                 diag.push_internal_error(err.into());
@@ -864,6 +865,7 @@ fn model_data_type(parent_element: &ElementRc, diag: &mut BuildDiagnostics) -> S
                         .as_ref()
                         .map(|n| n.span())
                         .unwrap_or_default(),
+                    level: Level::Error,
                 }
                 .into(),
             );
