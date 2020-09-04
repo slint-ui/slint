@@ -4,7 +4,11 @@
 
     function render_or_error(source, div) {
         let canvas_id = 'canvas_' + Math.random().toString(36).substr(2, 9);
-        div.innerHTML = `<canvas id='${canvas_id}' width=100 height=100></canvas>`;
+        let canvas = document.createElement("canvas");
+        canvas.width = 100;
+        canvas.height = 100;
+        canvas.id = canvas_id;
+        div.appendChild(canvas);
         try {
             sixtyfps.instantiate_from_string(source, canvas_id);
         } catch (e) {
@@ -28,10 +32,9 @@
         for (var i = 0; i < elements.length; ++i) {
             let source = elements[i].innerText;
             let div = document.createElement("div");
-            //div.style="float: right; width: 50%; padding:0";
-            //elements[i].parentElement.insertBefore(div, elements[i])
-            div.style = "padding:0; margin:0;";
-            elements[i].parentElement.appendChild(div);
+            div.style = "float: right; padding:0; margin:0;";
+            div.innerHTML = "<p>Preview:</p>";
+            elements[i].parentElement.insertBefore(div, elements[i])
             setTimeout(function () { render_or_error(source, div); }, 1);
         }
     }
