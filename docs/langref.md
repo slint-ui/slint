@@ -32,7 +32,7 @@ export MyApp := Window {
         text: "hello";
     }
     MyButton {
-        x: 50px;
+        x: 50lx;
         text: "world";
     }
 }
