@@ -69,36 +69,40 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             dir
         });
 
-        let test_function_name =
-            testcase.relative_path.file_stem().unwrap().to_string_lossy().replace("/", "_");
+        let test_function_name = testcase
+            .relative_path
+            .file_stem()
+            .unwrap()
+            .to_string_lossy()
+            .replace(|c: char| !c.is_ascii_alphanumeric(), "_");
 
         write!(
             tests_file,
-            r#"
+            r##"
             #[test]
             fn test_cpp_{function_name}() {{
                 cppdriver::test(&test_driver_lib::TestCase{{
-                    absolute_path: std::path::PathBuf::from("{absolute_path}"),
-                    relative_path: std::path::PathBuf::from("{relative_path}"),
+                    absolute_path: std::path::PathBuf::from(r#"{absolute_path}"#),
+                    relative_path: std::path::PathBuf::from(r#"{relative_path}"#),
                 }}).unwrap();
             }}
 
             #[test]
             fn test_interpreter_{function_name}() {{
                 interpreter::test(&test_driver_lib::TestCase{{
-                    absolute_path: std::path::PathBuf::from("{absolute_path}"),
-                    relative_path: std::path::PathBuf::from("{relative_path}"),
+                    absolute_path: std::path::PathBuf::from(r#"{absolute_path}"#),
+                    relative_path: std::path::PathBuf::from(r#"{relative_path}"#),
                 }}).unwrap();
             }}
 
             #[test]
             fn test_nodejs_{function_name}() {{
                 nodejs::test(&test_driver_lib::TestCase{{
-                    absolute_path: std::path::PathBuf::from("{absolute_path}"),
-                    relative_path: std::path::PathBuf::from("{relative_path}"),
+                    absolute_path: std::path::PathBuf::from(r#"{absolute_path}"#),
+                    relative_path: std::path::PathBuf::from(r#"{relative_path}"#),
                 }}).unwrap();
             }}
-        "#,
+        "##,
             function_name = test_function_name,
             absolute_path = testcase.absolute_path.to_string_lossy(),
             relative_path = testcase.relative_path.to_string_lossy(),
