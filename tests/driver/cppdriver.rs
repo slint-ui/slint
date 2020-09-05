@@ -85,13 +85,20 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         }
     });
 
-    compiler_command.arg("-o").arg(binary_path.clone()).arg(cpp_file.path());
-
     if compiler.is_like_clang() || compiler.is_like_gnu() {
         compiler_command.arg("-std=c++17");
         compiler_command.arg(concat!("-L", env!("CPP_LIB_PATH")));
         compiler_command.arg("-lsixtyfps_rendering_backend_default");
+        compiler_command.arg("-o").arg(&*binary_path);
+    } else if compiler.is_like_msvc() {
+        compiler_command.arg(concat!("/LIBPATH:", env!("CPP_LIB_PATH")));
+        compiler_command.arg("sixtyfps_rendering_backend_default.lib");
+        let mut out_arg = std::ffi::OsString::from("-Fo");
+        out_arg.push(&*binary_path);
+        compiler_command.arg(out_arg);
     }
+
+    compiler_command.arg(cpp_file.path());
 
     let output = compiler_command.output()?;
     print!("{}", String::from_utf8_lossy(output.stderr.as_ref()));
