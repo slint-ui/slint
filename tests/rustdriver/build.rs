@@ -40,9 +40,9 @@ fn main() -> std::io::Result<()> {
             abs_path.pop();
             abs_path.push(path);
 
-            output.write_all(b"#[include_path=\"")?;
+            output.write_all(b"#[include_path=r#\"")?;
             output.write_all(abs_path.to_string_lossy().as_bytes())?;
-            output.write_all(b"\"]")?;
+            output.write_all(b"\"#]")?;
             println!("cargo:rerun-if-changed={}", abs_path.to_string_lossy());
         }
 
