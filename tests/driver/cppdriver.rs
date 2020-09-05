@@ -95,6 +95,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         compiler_command.arg("-lsixtyfps_rendering_backend_default");
         compiler_command.arg("-o").arg(&*binary_path);
     } else if compiler.is_like_msvc() {
+        compiler_command.arg("/std:c++17");
         compiler_command.arg("sixtyfps_rendering_backend_default.lib");
         let mut out_arg = std::ffi::OsString::from("-Fo");
         out_arg.push(&*binary_path);
