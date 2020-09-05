@@ -21,10 +21,11 @@ once_cell = "1.4"
 sixtyfps-compilerlib = { path="../../../sixtyfps_compiler" }
 sixtyfps-interpreter = { path="../../../sixtyfps_runtime/interpreter" }
 sixtyfps-corelib = { path="../../../sixtyfps_runtime/corelib" }
-neon = { version = "0.4" }
 scoped-tls-hkt = "0.1"
+# The neon (and neon-build) dependencies use git in order to be able to build in debug on the CI [https://github.com/neon-bindings/neon/pull/506]
+neon = { version = "0.4", git = "https://github.com/neon-bindings/neon" }
 
 [build-dependencies]
-neon-build = "0.4"
+neon-build = { version = "0.4", git = "https://github.com/neon-bindings/neon" }
 
 
