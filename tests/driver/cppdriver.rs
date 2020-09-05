@@ -63,6 +63,8 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         .sync_all()
         .map_err(|err| format!("Error flushing generated code to disk: {}", err))?;
 
+    let cpp_file = cpp_file.into_temp_path();
+
     let compiler = cc::Build::new()
         .cargo_metadata(false)
         .cpp(true)
@@ -75,7 +77,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
 
     let mut compiler_command = compiler.to_command();
 
-    let binary_path = cpp_file.path().with_extension(std::env::consts::EXE_EXTENSION);
+    let binary_path = cpp_file.with_extension(std::env::consts::EXE_EXTENSION);
 
     let keep_temp_files = std::env::var("KEEP_TEMP_FILES").is_ok();
 
@@ -85,7 +87,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         }
     });
 
-    compiler_command.arg(cpp_file.path());
+    compiler_command.arg(&*cpp_file);
 
     if compiler.is_like_clang() || compiler.is_like_gnu() {
         compiler_command.arg("-std=c++17");
@@ -128,7 +130,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         println!(
             "Left temporary files behind for {} : source {} binary {}",
             testcase.absolute_path.display(),
-            cpp_file.path().display(),
+            cpp_file.display(),
             binary_path.display()
         );
         cpp_file.keep()?;
