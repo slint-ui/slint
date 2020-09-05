@@ -123,7 +123,7 @@ pub fn extract_include_paths(source: &str) -> impl Iterator<Item = &'_ str> {
     lazy_static::lazy_static! {
         static ref RX: Regex = Regex::new(r"//include_path:\s*(.+)\s*\n").unwrap();
     }
-    RX.captures_iter(source).map(|mat| mat.get(1).unwrap().as_str())
+    RX.captures_iter(source).map(|mat| mat.get(1).unwrap().as_str().trim())
 }
 
 #[test]
@@ -136,6 +136,11 @@ fn test_extract_include_paths() {
     Blah {}
 ";
 
+    let r = extract_include_paths(source).collect::<Vec<_>>();
+    assert_eq!(r, ["../first", "../second"]);
+
+    // Windows \r\n
+    let source = "//include_path: ../first\r\n//include_path: ../second\r\nBlah {}\r\n";
     let r = extract_include_paths(source).collect::<Vec<_>>();
     assert_eq!(r, ["../first", "../second"]);
 }

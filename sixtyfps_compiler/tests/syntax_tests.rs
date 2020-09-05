@@ -83,7 +83,7 @@ fn process_file_source(
     // Find expected errors in the file. The first caret (^) points to the expected column. The number of
     // carets refers to the number of lines to go back. This is useful when one line of code produces multiple
     // errors or warnings.
-    let re = regex::Regex::new(r"\n *//[^\n\^]*(\^+)(error|warning)\{([^\n]*)\}\n").unwrap();
+    let re = regex::Regex::new(r"\n *//[^\n\^]*(\^+)(error|warning)\{([^\n]*)\}").unwrap();
     for m in re.captures_iter(&source) {
         let line_begin_offset = m.get(0).unwrap().start();
         let column = m.get(1).unwrap().start() - line_begin_offset;
@@ -206,6 +206,20 @@ Foo := Rectangle foo { x:0px; }
 Foo := Rectangle foo { x:0px; }
 //               ^error{foo_bar}
     "#
+    )?);
+
+    // or the wrong line because two carets
+    assert!(!process(
+        r#"
+
+Foo := Rectangle foo { x:0px; }
+//               ^^error{expected LBrace}
+    "#
+    )?);
+
+    // Even on windows, it should work
+    assert!(process(
+        "\r\nFoo := Rectangle foo { x:0px; }\r\n//               ^error{expected LBrace}\r\n"
     )?);
 
     Ok(())
