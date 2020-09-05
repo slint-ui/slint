@@ -28,14 +28,14 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Cache Qt
-      if: matrix.os != 'macos-latest'
+      if: matrix.os == 'ubuntu-20.04'
       id: cache-qt
       uses: actions/cache@v2
       with:
         path: ../Qt
         key: ${{ runner.os }}-${{ github.job }}-QtCache-5.12.9
     - name: Install Qt
-      if: matrix.os != 'macos-latest'
+      if: matrix.os == 'ubuntu-20.04'
       uses: jurplel/install-qt-action@v2
       with:
         version: '5.12.9'
