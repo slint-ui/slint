@@ -21,6 +21,9 @@ foreach(lib_path IN LISTS SIXTYFPS_INTERNAL_LIBS)
 
     add_library(${lib_name} SHARED IMPORTED)
     set_property(TARGET ${lib_name} PROPERTY IMPORTED_LOCATION "${lib_path}")
+    if (WIN32)
+        set_property(TARGET ${lib_name} PROPERTY IMPORTED_IMPLIB "${lib_path}.lib")
+    endif ()
 
     target_link_libraries(SixtyFPS INTERFACE ${lib_name})
     list(APPEND internal_libs ${lib_name})
