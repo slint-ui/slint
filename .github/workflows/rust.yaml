@@ -95,12 +95,14 @@ jobs:
     - name: Clean cache # Otherwise the cache is much too big
       run: |
           du -hs target
-          rm -rv target/*/incremental
-          rm -rv target/*/*/*sixtyfps*
-          rm -rv target/*/*sixtyfps*
-          rm -rv target/*/*/test* target/*/*/gallery* target/*/*/printerdemo* target/*/*/viewer*
-          rm -rfv target/*/*.{so,dylib}
-          rm -rv target/*/viewer target/*/printerdemo target/*/gallery target/*/*test*
+          rm -rf target/*/incremental
+          rm -rf target/*/*/*sixtyfps*
+          rm -rf target/*/*sixtyfps*
+          rm -rf target/*/*/test* target/*/*/gallery* target/*/*/printerdemo* target/*/*/viewer*
+          rm -rf target/*/*.so
+          rm -rf target/*/*.dylib
+          rm -rf target/*/*.dll
+          rm -rf target/*/viewer target/*/printerdemo target/*/gallery target/*/*test*
           du -hs target
 
   docs_and_demos:
