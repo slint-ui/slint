@@ -93,6 +93,7 @@ jobs:
       with:
         cmakeListsTxtPath: CMakeLists.txt
     - name: Clean cache # Otherwise the cache is much too big
+      if: matrix.os != 'windows-latest'
       run: |
           du -hs target
           rm -rf target/*/incremental
