@@ -367,6 +367,7 @@ fn handle_repeater(
     init: &mut Vec<String>,
     children_visitor_cases: &mut Vec<String>,
     repeated_input_branch: &mut Vec<String>,
+    layout_repeater_code: &mut Vec<String>,
     diag: &mut BuildDiagnostics,
 ) {
     let parent_element = base_component.parent_element.upgrade().unwrap();
@@ -420,6 +421,7 @@ fn handle_repeater(
         i = repeater_count,
         id = repeater_id,
     ));
+    layout_repeater_code.push(format!("self->{}.compute_layout();", repeater_id));
 
     component_struct.members.push((
         Access::Private,
@@ -659,6 +661,7 @@ fn generate_component(
 
     let mut children_visitor_cases = vec![];
     let mut repeated_input_branch = vec![];
+    let mut repeater_layout_code = vec![];
     let mut tree_array = vec![];
     let mut repeater_count = 0;
     super::build_array_helper(component, |item_rc, children_offset, is_flickable_rect| {
@@ -691,6 +694,7 @@ fn generate_component(
                 &mut init,
                 &mut children_visitor_cases,
                 &mut repeated_input_branch,
+                &mut repeater_layout_code,
                 diag,
             );
             repeater_count += 1;
@@ -807,7 +811,7 @@ fn generate_component(
             name: "compute_layout".into(),
             signature: "(sixtyfps::private_api::ComponentRef component) -> void".into(),
             is_static: true,
-            statements: Some(compute_layout(component)),
+            statements: Some(compute_layout(component, &mut repeater_layout_code)),
             ..Default::default()
         }),
     ));
@@ -1415,7 +1419,10 @@ impl<'a> LayoutTreeItem<'a> {
     }
 }
 
-fn compute_layout(component: &Rc<Component>) -> Vec<String> {
+fn compute_layout(
+    component: &Rc<Component>,
+    repeater_layout_code: &mut Vec<String>,
+) -> Vec<String> {
     let mut res = vec![];
 
     res.push(format!(
@@ -1439,6 +1446,8 @@ fn compute_layout(component: &Rc<Component>) -> Vec<String> {
             .for_each(|layout| layout.emit_solve_calls(component, &mut res));
         res.push("    }".into());
     });
+
+    res.append(repeater_layout_code);
 
     res
 }

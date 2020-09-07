@@ -1059,6 +1059,15 @@ extern "C" fn compute_layout(component: ComponentRefPin) {
             layout.solve(instance_ref);
         });
     });
+
+    for rep_in_comp in &instance_ref.component_type.repeater {
+        generativity::make_guard!(guard);
+        let rep_in_comp = rep_in_comp.unerase(guard);
+        let vec = rep_in_comp.offset.apply(instance_ref.as_ref()).borrow();
+        for c in vec.iter() {
+            c.borrow().as_ref().compute_layout();
+        }
+    }
 }
 
 /// Get the component description from a ComponentRef

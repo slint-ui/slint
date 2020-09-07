@@ -17,7 +17,7 @@ use crate::expression_tree::{
 use crate::layout::{gen::LayoutItemCodeGen, Layout, LayoutElement};
 use crate::object_tree::{Component, ElementRc};
 use crate::typeregister::Type;
-use proc_macro2::TokenStream;
+use proc_macro2::{Ident, TokenStream};
 use quote::quote;
 use std::rc::Rc;
 
@@ -352,7 +352,7 @@ fn generate_component(
         Vec::new()
     };
 
-    let layouts = compute_layout(component);
+    let layouts = compute_layout(component, &repeated_element_names);
     let mut visibility = None;
     let mut parent_component_type = None;
     if let Some(parent_element) = component.parent_element.upgrade() {
@@ -1183,7 +1183,7 @@ impl<'a> LayoutTreeItem<'a> {
     }
 }
 
-fn compute_layout(component: &Rc<Component>) -> TokenStream {
+fn compute_layout(component: &Rc<Component>, repeated_element_names: &[Ident]) -> TokenStream {
     let mut layouts = vec![];
     component.layout_constraints.borrow().iter().for_each(|layout| {
         let mut inverse_layout_tree = Vec::new();
@@ -1212,6 +1212,8 @@ fn compute_layout(component: &Rc<Component>) -> TokenStream {
             let _self = self;
 
             #(#layouts)*
+
+            #(self.#repeated_element_names.compute_layout();)*
         }
     }
 }

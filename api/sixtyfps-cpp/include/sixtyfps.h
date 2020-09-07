@@ -249,6 +249,12 @@ struct Repeater
         const auto &x = data.at(i);
         return { &C::component_type, x.get() };
     }
+
+    void compute_layout() const {
+        for (auto &x : data) {
+            x->compute_layout({ &C::component_type, x.get() });
+        }
+    }
 };
 
 Flickable::Flickable()

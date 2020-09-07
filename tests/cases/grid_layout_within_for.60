@@ -34,3 +34,34 @@ TestCase := Rectangle {
         }
     }
 }
+
+
+/*
+```cpp
+TestCase instance;
+TestCase::compute_layout({&TestCase::component_type, &instance });
+
+sixtyfps::testing::send_mouse_click(instance, 190., 190.);
+assert(instance.get_value() == 1+1);
+
+sixtyfps::testing::send_mouse_click(instance, 5., 290.);
+assert(instance.get_value() == 1+1+2);
+```
+
+
+```rust
+let instance = TestCase::new();
+let instance = instance.as_ref();
+use sixtyfps::re_exports::Component;
+instance.compute_layout();
+
+sixtyfps::testing::send_mouse_click(instance, 190., 190.);
+assert_eq!(instance.get_value(), 1+1);
+
+sixtyfps::testing::send_mouse_click(instance, 5., 290.);
+assert_eq!(instance.get_value(), 1+1+2);
+
+```
+
+// FIXME: JS test because layout are not computed
+*/

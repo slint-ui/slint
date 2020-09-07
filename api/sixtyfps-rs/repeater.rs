@@ -81,4 +81,11 @@ where
     pub fn borrow_item_vec(&self) -> core::cell::Ref<Vec<Pin<Rc<C>>>> {
         self.components.borrow()
     }
+
+    /// Recompute the layout of each chile elements
+    pub fn compute_layout(&self) {
+        for c in self.components.borrow().iter() {
+            c.as_ref().compute_layout();
+        }
+    }
 }
