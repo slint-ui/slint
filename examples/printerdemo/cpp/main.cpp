@@ -14,7 +14,7 @@ using InkData = std::tuple<sixtyfps::Color, float>;
 
 struct InkLevelModel : sixtyfps::Model<InkData> {
     int count() const override { return m_data.size(); }
-    const InkData get(int i) const override { return m_data[i]; }
+    InkData get(int i) const override { return m_data[i]; }
 
     std::vector<InkData> m_data = {
         { sixtyfps::Color(0xffffff00), 0.9 },

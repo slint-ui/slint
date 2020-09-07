@@ -190,7 +190,7 @@ struct Model
     Model(const Model &) = delete;
     Model &operator=(const Model &) = delete;
     virtual int count() const = 0;
-    virtual const ModelData get(int i) const = 0;
+    virtual ModelData get(int i) const = 0;
 };
 
 template<int Count, typename ModelData>
@@ -202,7 +202,7 @@ struct ArrayModel : Model<ModelData>
     {
     }
     int count() const override { return Count; }
-    const ModelData get(int i) const override { return data[i]; }
+    ModelData get(int i) const override { return data[i]; }
 };
 
 struct IntModel : Model<int>
@@ -210,7 +210,7 @@ struct IntModel : Model<int>
     IntModel(int d) : data(d) { }
     int data;
     int count() const override { return data; }
-    const int get(int value) const override { return value; }
+    int get(int value) const override { return value; }
 };
 
 template<typename C, typename ModelData>
