@@ -195,12 +195,10 @@ impl ExpressionFieldsVisitor for GridLayout {
                 }
                 LayoutItem::Layout(layout) => layout.visit_expressions(visitor),
             }
-        }
-        for e in &mut self.elems {
-            e.maximum_width.as_mut().map(|e| visitor(&mut *e));
-            e.minimum_width.as_mut().map(|e| visitor(&mut *e));
-            e.maximum_height.as_mut().map(|e| visitor(&mut *e));
-            e.minimum_height.as_mut().map(|e| visitor(&mut *e));
+            cell.maximum_width.as_mut().map(|e| visitor(&mut *e));
+            cell.minimum_width.as_mut().map(|e| visitor(&mut *e));
+            cell.maximum_height.as_mut().map(|e| visitor(&mut *e));
+            cell.minimum_height.as_mut().map(|e| visitor(&mut *e));
         }
         self.spacing.as_mut().map(|e| visitor(&mut *e));
         self.padding.visit_expressions(visitor);

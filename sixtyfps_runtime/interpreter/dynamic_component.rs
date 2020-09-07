@@ -841,7 +841,10 @@ impl LayoutItemCodeGen for LayoutElement {
         component: InstanceRef,
         name: &str,
     ) -> Option<&'a Property<f32>> {
-        let item = &component.component_type.items[self.element.borrow().id.as_str()];
+        let item =
+            &component.component_type.items.get(self.element.borrow().id.as_str()).unwrap_or_else(
+                || panic!("Internal error: Item {} not found", self.element.borrow().id),
+            );
         unsafe {
             item.rtti.properties.get(name).map(|p| {
                 &*(component.as_ptr().add(item.offset).add(p.offset()) as *const Property<f32>)
@@ -853,7 +856,10 @@ impl LayoutItemCodeGen for LayoutElement {
         component: InstanceRef,
         layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
     ) -> LayoutInfo {
-        let item = &component.component_type.items[self.element.borrow().id.as_str()];
+        let item =
+            &component.component_type.items.get(self.element.borrow().id.as_str()).unwrap_or_else(
+                || panic!("Internal error: Item {} not found", self.element.borrow().id),
+            );
         let element_info =
             unsafe { item.item_from_component(component.as_ptr()).as_ref().layouting_info() };
 

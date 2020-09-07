@@ -122,12 +122,12 @@ pub fn run_passes(
     passes::compile_paths::compile_paths(&doc.root_component, &doc.local_registry, diag);
     passes::unique_id::assign_unique_id(&doc.root_component);
     passes::materialize_fake_properties::materialize_fake_properties(&doc.root_component);
-    passes::lower_layout::lower_layouts(&doc.root_component, diag);
     passes::collect_resources::collect_resources(&doc.root_component);
     doc.root_component.embed_file_resources.set(compiler_config.embed_resources);
     passes::lower_states::lower_states(&doc.root_component, diag);
-    passes::deduplicate_property_read::deduplicate_property_read(&doc.root_component);
     passes::repeater_component::process_repeater_components(&doc.root_component);
+    passes::lower_layout::lower_layouts(&doc.root_component, diag);
+    passes::deduplicate_property_read::deduplicate_property_read(&doc.root_component);
     passes::move_declarations::move_declarations(&doc.root_component, diag);
     passes::resolve_native_classes::resolve_native_classes(&doc.root_component);
 }

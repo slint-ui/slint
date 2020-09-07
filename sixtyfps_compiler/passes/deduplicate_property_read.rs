@@ -23,7 +23,13 @@ pub fn deduplicate_property_read(component: &Component) {
                 return;
             }
             process_expression(expr, &mut Default::default());
-        })
+        });
+
+        if elem.borrow().repeated.is_some() {
+            if let Type::Component(base) = &elem.borrow().base_type {
+                deduplicate_property_read(base);
+            }
+        }
     })
 }
 
