@@ -1,5 +1,7 @@
 # SixtyFPS
 
+[![Build Status](https://github.com/sixtyfpsui/sixtyfps/workflows/CI/badge.svg)](https://github.com/sixtyfpsui/sixtyfps/actions)
+
 This is the repository of the SixtyFPS project.
 
 ## Warning: Pre-Alpha
