@@ -94,7 +94,7 @@ fn generate_component(
     let mut property_and_signal_accessors: Vec<TokenStream> = vec![];
     for (prop_name, property_decl) in component.root_element.borrow().property_declarations.iter() {
         let prop_ident = quote::format_ident!("{}", prop_name);
-        if property_decl.property_type == Type::Signal {
+        if matches!(property_decl.property_type, Type::Signal{..}) {
             declared_signals.push(prop_ident.clone());
             if property_decl.expose_in_public_api {
                 let emitter_ident = quote::format_ident!("emit_{}", prop_name);
@@ -299,7 +299,7 @@ fn generate_component(
                 let rust_property = quote!(#rust_property_accessor_prefix#rust_property_ident);
                 let tokens_for_expression = compile_expression(binding_expression, &component);
 
-                if matches!(item.lookup_property(k.as_str()), Type::Signal) {
+                if matches!(item.lookup_property(k.as_str()), Type::Signal{..}) {
                     init.push(quote!(
                         self_pinned.#rust_property.set_handler({
                             let self_weak = sixtyfps::re_exports::PinWeak::downgrade(self_pinned.clone());
@@ -757,7 +757,7 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
             quote!(#access.emit(()))
         }
         Expression::FunctionCall { function } => {
-            if matches!(function.ty(), Type::Signal | Type::Function{..}) {
+            if matches!(function.ty(), Type::Signal{..} | Type::Function{..}) {
                 compile_expression(function, &component)
             } else {
                 let error = format!("the function {:?} is not a signal", e);

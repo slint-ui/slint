@@ -20,7 +20,9 @@ pub enum Type {
     Builtin(Rc<BuiltinElement>),
     Native(Rc<NativeClass>),
 
-    Signal,
+    Signal {
+        args: Vec<Type>,
+    },
     Function {
         return_type: Box<Type>,
         args: Vec<Type>,
@@ -55,7 +57,7 @@ impl core::cmp::PartialEq for Type {
             (Type::Component(a), Type::Component(b)) => Rc::ptr_eq(a, b),
             (Type::Builtin(a), Type::Builtin(b)) => Rc::ptr_eq(a, b),
             (Type::Native(a), Type::Native(b)) => Rc::ptr_eq(a, b),
-            (Type::Signal, Type::Signal) => true,
+            (Type::Signal { args: a }, Type::Signal { args: b }) => a == b,
             (
                 Type::Function { return_type: lhs_rt, args: lhs_args },
                 Type::Function { return_type: rhs_rt, args: rhs_args },
@@ -88,7 +90,20 @@ impl Display for Type {
             Type::Component(c) => c.id.fmt(f),
             Type::Builtin(b) => b.native_class.class_name.fmt(f),
             Type::Native(b) => b.class_name.fmt(f),
-            Type::Signal => write!(f, "signal"),
+            Type::Signal { args } => {
+                write!(f, "signal")?;
+                if !args.is_empty() {
+                    write!(f, "(")?;
+                    for (i, arg) in args.iter().enumerate() {
+                        if i > 0 {
+                            write!(f, ",")?;
+                        }
+                        write!(f, "{}", arg)?;
+                    }
+                    write!(f, ")")?
+                }
+                Ok(())
+            }
             Type::Function { return_type, args } => {
                 write!(f, "function(")?;
                 for (i, arg) in args.iter().enumerate() {
@@ -555,7 +570,7 @@ impl TypeRegister {
                 ("mouse_y", Type::Length),
                 ("pressed_x", Type::Length),
                 ("pressed_y", Type::Length),
-                ("clicked", Type::Signal),
+                ("clicked", Type::Signal { args: vec![] }),
             ],
         );
 
@@ -683,7 +698,7 @@ impl TypeRegister {
                 ("height", Type::Length),
                 ("text", Type::String),
                 ("pressed", Type::Bool),
-                ("clicked", Type::Signal),
+                ("clicked", Type::Signal { args: vec![] }),
             ],
         );
         native_class(
@@ -696,7 +711,7 @@ impl TypeRegister {
                 ("height", Type::Length),
                 ("text", Type::String),
                 ("checked", Type::Bool),
-                ("toggled", Type::Signal),
+                ("toggled", Type::Signal { args: vec![] }),
             ],
         );
         native_class(

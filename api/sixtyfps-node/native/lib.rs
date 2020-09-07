@@ -97,7 +97,7 @@ fn create<'cx>(
                     cx.throw_error(format!("Property {} not found in the component", prop_name))
                 })?
                 .clone();
-            if ty == Type::Signal {
+            if let Type::Signal { .. } = ty {
                 let _fun = value.downcast_or_throw::<JsFunction, _>(cx)?;
                 let fun_idx = persistent_context.allocate(cx, value);
                 component_type
@@ -152,7 +152,7 @@ fn to_eval_value<'cx>(
         | Type::Native(_)
         | Type::Function { .. }
         | Type::Model
-        | Type::Signal
+        | Type::Signal { .. }
         | Type::Easing
         | Type::PathElements => cx.throw_error("Cannot convert to a Sixtyfps property value"),
         Type::Float32 | Type::Int32 | Type::Duration | Type::Length | Type::LogicalLength => {
@@ -245,7 +245,7 @@ declare_types! {
             let properties = ct.properties();
             let array = JsArray::new(&mut cx, properties.len() as u32);
             let mut len: u32 = 0;
-            for (p, _) in properties.iter().filter(|(_, prop_type)| **prop_type == Type::Signal) {
+            for (p, _) in properties.iter().filter(|(_, prop_type)| matches!(**prop_type, Type::Signal{..})) {
                 let prop_name = JsString::new(&mut cx, p);
                 array.set(&mut cx, len, prop_name)?;
                 len = len + 1;

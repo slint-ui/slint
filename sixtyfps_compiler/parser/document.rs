@@ -310,6 +310,10 @@ fn parse_signal_connection(p: &mut impl Parser) {
 #[cfg_attr(test, parser_test)]
 /// ```test,SignalDeclaration
 /// signal foobar;
+/// signal my_signal();
+/// signal foo(int, string);
+/// signal one_arg({ a: string, b: string});
+/// signal end_coma(a, b, c,);
 /// ```
 /// Must consume at least one token
 fn parse_signal_declaration(p: &mut impl Parser) {
@@ -319,6 +323,15 @@ fn parse_signal_declaration(p: &mut impl Parser) {
     {
         let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
         p.expect(SyntaxKind::Identifier);
+    }
+    if p.test(SyntaxKind::LParent) {
+        while p.peek().kind() != SyntaxKind::RParent {
+            parse_type(&mut *p);
+            if !p.test(SyntaxKind::Comma) {
+                break;
+            }
+        }
+        p.expect(SyntaxKind::RParent);
     }
     p.expect(SyntaxKind::Semicolon);
 }

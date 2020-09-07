@@ -259,10 +259,11 @@ impl Element {
             let name_token =
                 sig_decl.DeclaredIdentifier().child_token(SyntaxKind::Identifier).unwrap();
             let name = name_token.text().to_string();
+            let args = sig_decl.Type().map(|node_ty| type_from_node(node_ty, diag, tr)).collect();
             r.property_declarations.insert(
                 name,
                 PropertyDeclaration {
-                    property_type: Type::Signal,
+                    property_type: Type::Signal { args },
                     type_node: Some(sig_decl.into()),
                     ..Default::default()
                 },
@@ -276,7 +277,7 @@ impl Element {
             };
             let name = name_token.text().to_string();
             let prop_type = r.lookup_property(&name);
-            if !matches!(prop_type, Type::Signal) {
+            if !matches!(prop_type, Type::Signal{..}) {
                 diag.push_error(format!("'{}' is not a signal in {}", name, base), &name_token);
             }
             if r.bindings
@@ -522,7 +523,9 @@ impl Element {
                 diag.push_error(
                     match prop_type {
                         Type::Invalid => format!("Unknown property {} in {}", name, base),
-                        Type::Signal => format!("'{}' is a signal. Use `=>` to connect", name),
+                        Type::Signal { .. } => {
+                            format!("'{}' is a signal. Use `=>` to connect", name)
+                        }
                         _ => format!("Cannot assing to {} in {}", name, base),
                     },
                     &name_token,

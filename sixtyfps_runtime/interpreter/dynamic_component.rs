@@ -470,7 +470,7 @@ fn generate_component<'id>(
             Type::LogicalLength => animated_property_info::<f32>(),
             Type::Resource => property_info::<Resource>(),
             Type::Bool => property_info::<bool>(),
-            Type::Signal => {
+            Type::Signal { .. } => {
                 custom_signals.insert(name.clone(), builder.add_field_type::<Signal<()>>());
                 continue;
             }
@@ -610,7 +610,7 @@ pub fn instantiate<'id>(
             let elem = item_within_component.elem.borrow();
             for (prop, expr) in &elem.bindings {
                 let ty = elem.lookup_property(prop.as_str());
-                if ty == Type::Signal {
+                if let Type::Signal { .. } = ty {
                     let signal = item_within_component
                         .rtti
                         .signals

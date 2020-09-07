@@ -302,7 +302,7 @@ fn handle_item(item: &Element, main_struct: &mut Struct, init: &mut Vec<String>)
 
     let id = &item.id;
     init.extend(item.bindings.iter().map(|(s, i)| {
-        if matches!(item.lookup_property(s.as_str()), Type::Signal) {
+        if matches!(item.lookup_property(s.as_str()), Type::Signal{..}) {
             let signal_accessor_prefix = if item.property_declarations.contains_key(s) {
                 String::new()
             } else {
@@ -483,7 +483,7 @@ fn generate_component(
     let mut init = vec!["[[maybe_unused]] auto self = this;".into()];
 
     for (cpp_name, property_decl) in component.root_element.borrow().property_declarations.iter() {
-        let ty = if property_decl.property_type == Type::Signal {
+        let ty = if matches!(property_decl.property_type, Type::Signal{..}) {
             if property_decl.expose_in_public_api && is_root {
                 let signal_emitter = vec![format!("{}.emit();", cpp_name)];
                 component_struct.members.push((
@@ -1006,7 +1006,7 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
             format!("[&]{{ {} }}()", x.join(";"))
         }
         Expression::FunctionCall { function } => {
-            if matches!(function.ty(), Type::Signal | Type::Function{..}) {
+            if matches!(function.ty(), Type::Signal{..} | Type::Function{..}) {
                 compile_expression(&*function, component)
             } else {
                 format!("\n#error the function `{:?}` is not a signal\n", function)

@@ -351,7 +351,7 @@ impl Expression {
                     name: prop_name.text().to_string(),
                 });
                 return maybe_lookup_object(prop, it, ctx);
-            } else if matches!(p, Type::Signal) {
+            } else if matches!(p, Type::Signal{..}) {
                 if let Some(x) = it.next() {
                     ctx.diag.push_error("Cannot access fields of signal".into(), &x)
                 }
@@ -382,7 +382,7 @@ impl Expression {
                     name: first_str.to_string(),
                 });
                 return maybe_lookup_object(prop, it, ctx);
-            } else if matches!(property, Type::Signal) {
+            } else if matches!(property, Type::Signal{..}) {
                 if let Some(x) = it.next() {
                     ctx.diag.push_error("Cannot access fields of signal".into(), &x)
                 }

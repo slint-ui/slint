@@ -293,7 +293,9 @@ impl Expression {
             Expression::StringLiteral(_) => Type::String,
             Expression::NumberLiteral(_, unit) => unit.ty(),
             Expression::BoolLiteral(_) => Type::Bool,
-            Expression::SignalReference { .. } => Type::Signal,
+            Expression::SignalReference(NamedReference { element, name }) => {
+                element.upgrade().unwrap().borrow().lookup_property(name)
+            }
             Expression::PropertyReference(NamedReference { element, name }) => {
                 element.upgrade().unwrap().borrow().lookup_property(name)
             }
@@ -619,7 +621,7 @@ impl Expression {
             | Type::Component(_)
             | Type::Builtin(_)
             | Type::Native(_)
-            | Type::Signal
+            | Type::Signal { .. }
             | Type::Function { .. }
             | Type::Void => Expression::Invalid,
             Type::Float32 => Expression::NumberLiteral(0., Unit::None),

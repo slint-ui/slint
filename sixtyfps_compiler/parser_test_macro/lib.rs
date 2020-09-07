@@ -73,7 +73,10 @@ fn generate_test(fn_name: &str, doc: &str) -> String {
         {{
             let mut p = DefaultParser::new("{source}".to_owned());
             {fn}(&mut p);
-            assert!(!p.diags.has_error());
+            let has_error = p.diags.has_error();
+            //#[cfg(feature = "display-diagnostics")]
+            //p.diags.print();
+            assert!(!has_error);
             assert_eq!(p.cursor, p.tokens.len());
             {verify}
         }}

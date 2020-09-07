@@ -283,7 +283,7 @@ declare_syntax! {
         RepeatedElement -> [ ?DeclaredIdentifier, ?RepeatedIndex, Expression , Element],
         RepeatedIndex -> [],
         ConditionalElement -> [ Expression , Element],
-        SignalDeclaration -> [ DeclaredIdentifier ],
+        SignalDeclaration -> [ DeclaredIdentifier, *Type ],
         SignalConnection -> [ CodeBlock ],
         /// Declaration of a propery.
         PropertyDeclaration-> [ Type , DeclaredIdentifier, ?BindingExpression ],
@@ -428,7 +428,11 @@ mod parser_trait {
             checkpoint: Option<Self::Checkpoint>,
             token: NodeToken,
         );
-        fn peek(&mut self) -> Token;
+
+        /// Same as nth(0)
+        fn peek(&mut self) -> Token {
+            self.nth(0)
+        }
         /// Peek the n'th token, not including whitespaces and comments
         fn nth(&mut self, n: usize) -> Token;
         fn consume(&mut self);
@@ -538,11 +542,6 @@ impl Parser for DefaultParser {
 
     fn finish_node_impl(&mut self, _: NodeToken) {
         self.builder.finish_node();
-    }
-
-    fn peek(&mut self) -> Token {
-        self.consume_ws();
-        self.current_token()
     }
 
     /// Peek the n'th token, not including whitespaces and comments
