@@ -107,7 +107,9 @@ fn parse_element_content(p: &mut impl Parser) {
             SyntaxKind::Identifier => match p.nth(1).kind() {
                 SyntaxKind::Colon => parse_property_binding(&mut *p),
                 SyntaxKind::ColonEqual | SyntaxKind::LBrace => parse_sub_element(&mut *p),
-                SyntaxKind::FatArrow => parse_signal_connection(&mut *p),
+                SyntaxKind::FatArrow | SyntaxKind::LParent if p.peek().as_str() != "if" => {
+                    parse_signal_connection(&mut *p)
+                }
                 SyntaxKind::Identifier if p.peek().as_str() == "for" => {
                     parse_repeated_element(&mut *p);
                 }
@@ -299,10 +301,25 @@ pub fn parse_code_block(p: &mut impl Parser) {
 #[cfg_attr(test, parser_test)]
 /// ```test,SignalConnection
 /// clicked => {}
+/// clicked() => { foo; }
+/// mouse_move(x, y) => {}
+/// mouse_move(x, y, ) => { bar; goo; }
 /// ```
 fn parse_signal_connection(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::SignalConnection);
     p.consume(); // the identifier
+    if p.test(SyntaxKind::LParent) {
+        while p.peek().kind() != SyntaxKind::RParent {
+            {
+                let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
+                p.expect(SyntaxKind::Identifier);
+            }
+            if !p.test(SyntaxKind::Comma) {
+                break;
+            }
+        }
+        p.expect(SyntaxKind::RParent);
+    }
     p.expect(SyntaxKind::FatArrow);
     parse_code_block(&mut *p);
 }

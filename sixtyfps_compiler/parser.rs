@@ -284,7 +284,7 @@ declare_syntax! {
         RepeatedIndex -> [],
         ConditionalElement -> [ Expression , Element],
         SignalDeclaration -> [ DeclaredIdentifier, *Type ],
-        SignalConnection -> [ CodeBlock ],
+        SignalConnection -> [ *DeclaredIdentifier,  CodeBlock ],
         /// Declaration of a propery.
         PropertyDeclaration-> [ Type , DeclaredIdentifier, ?BindingExpression ],
         /// QualifiedName are the properties name
