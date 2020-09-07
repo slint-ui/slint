@@ -40,6 +40,11 @@ jobs:
       with:
         version: '5.12.9'
         cached: ${{ steps.cache-qt.outputs.cache-hit }}
+    - name: Install native node libraries
+      if: matrix.os == 'windows-latest'
+      run: |
+          npm install -g node-gyp
+          node-gyp install
     - name: Cache cargo registry
       uses: actions/cache@v2
       with:
