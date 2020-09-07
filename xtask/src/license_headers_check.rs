@@ -205,6 +205,7 @@ lazy_static! {
         (".+\\.json$", LicenseLocation::NoLicense),
         (".+\\.html$", LicenseLocation::NoLicense),
         (".+\\.rst$", LicenseLocation::Tag(LicenseTagStyle::rst_comment_style())),
+        (".+\\.yaml$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         (".*\\.gitignore$", LicenseLocation::NoLicense),
         ("\\.clang-format$", LicenseLocation::NoLicense),
         ("^api/sixtyfps-cpp/docs/Pipfile$", LicenseLocation::NoLicense),
@@ -212,10 +213,6 @@ lazy_static! {
         ("^api/sixtyfps-cpp/docs/_static/.+$", LicenseLocation::NoLicense),
         ("^api/sixtyfps-cpp/docs/_templates/.+$", LicenseLocation::NoLicense),
         ("\\.cargo/config$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
-        (
-            "\\.github/workflows/rust.yaml$",
-            LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())
-        ),
         ("^Cargo.toml$", LicenseLocation::NoLicense),
         (".+Cargo.toml$", LicenseLocation::Crate),
         (".+\\.toml$", LicenseLocation::NoLicense),
