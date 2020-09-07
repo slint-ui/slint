@@ -11,6 +11,11 @@ LICENSE END */
 SubElements := Rectangle {
     signal foobar;
 
+    signal signal_with_arg(int, string);
+
+    signal invalid_arg(InvalidType);
+//                     ^error{Unknown type 'InvalidType'}
+
     TouchArea {
         clicked => { foobar() }
     }
@@ -33,6 +38,9 @@ SubElements := Rectangle {
         root.does_not_exist();
     }
 
+    foobar() => { foobar() }
+    signal_with_arg(a, b, c, d) => { }
+//  ^error{'signal_with_arg' only has 2 arguments, but 4 were provided}
 
 }
 

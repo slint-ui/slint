@@ -71,12 +71,13 @@ fn resolve_expression(
     diag: &mut BuildDiagnostics,
 ) {
     if let Expression::Uncompiled(node) = expr {
-        let mut lookup_ctx = LookupCtx { property_type, component_scope: &scope.0, diag };
+        let mut lookup_ctx =
+            LookupCtx { property_type, component_scope: &scope.0, diag, arguments: vec![] };
 
         let new_expr = match node.kind() {
-            SyntaxKind::CodeBlock => {
+            SyntaxKind::SignalConnection => {
                 //FIXME: proper signal suport (node is a codeblock)
-                Expression::from_codeblock_node(node.clone().into(), &mut lookup_ctx)
+                Expression::from_signal_connection(node.clone().into(), &mut lookup_ctx)
             }
             SyntaxKind::Expression => {
                 //FIXME again: this happen for non-binding expression (i.e: model)
@@ -135,6 +136,9 @@ struct LookupCtx<'a> {
 
     /// Somewhere to report diagnostics
     diag: &'a mut BuildDiagnostics,
+
+    /// The name of the arguments of the signal or function
+    arguments: Vec<String>,
 }
 
 fn find_element_by_id(roots: &[ElementRc], name: &str) -> Option<ElementRc> {
@@ -198,6 +202,17 @@ impl Expression {
                 .map(|n| Self::from_expression_node(n.into(), ctx))
                 .collect(),
         )
+    }
+
+    fn from_signal_connection(
+        node: syntax_nodes::SignalConnection,
+        ctx: &mut LookupCtx,
+    ) -> Expression {
+        ctx.arguments = node
+            .DeclaredIdentifier()
+            .map(|x| x.child_text(SyntaxKind::Identifier).unwrap_or_default())
+            .collect();
+        Self::from_codeblock_node(node.CodeBlock(), ctx)
     }
 
     fn from_expression_node(node: syntax_nodes::Expression, ctx: &mut LookupCtx) -> Self {

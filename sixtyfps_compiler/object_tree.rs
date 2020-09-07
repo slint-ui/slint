@@ -277,14 +277,27 @@ impl Element {
             };
             let name = name_token.text().to_string();
             let prop_type = r.lookup_property(&name);
-            if !matches!(prop_type, Type::Signal{..}) {
+            if let Type::Signal { args } = prop_type {
+                let num_arg = con_node.DeclaredIdentifier().count();
+                if num_arg > args.len() {
+                    diag.push_error(
+                        format!(
+                            "'{}' only has {} arguments, but {} were provided",
+                            name,
+                            args.len(),
+                            num_arg
+                        ),
+                        &name_token,
+                    );
+                }
+                if r.bindings
+                    .insert(name, ExpressionSpanned::new_uncompiled(con_node.into()))
+                    .is_some()
+                {
+                    diag.push_error("Duplicated signal".into(), &name_token);
+                }
+            } else {
                 diag.push_error(format!("'{}' is not a signal in {}", name, base), &name_token);
-            }
-            if r.bindings
-                .insert(name, ExpressionSpanned::new_uncompiled(con_node.CodeBlock().into()))
-                .is_some()
-            {
-                diag.push_error("Duplicated signal".into(), &name_token);
             }
         }
 
