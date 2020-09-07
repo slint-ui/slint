@@ -40,6 +40,16 @@ jobs:
       with:
         version: '5.12.9'
         cached: ${{ steps.cache-qt.outputs.cache-hit }}
+    - name: Setup Node.js
+      uses: actions/setup-node@v1
+      with:
+        node-version: '12' # Make sure to bump the version in the cache key below
+    - name: Cache native node libraries
+      uses: actions/cache@v2
+      if: matrix.os == 'windows-latest'
+      with:
+        path: ~/node-gyp/cache
+        key: ${{ runner.os }}-${{ github.job }}-12
     - name: Cache cargo registry
       uses: actions/cache@v2
       with:
@@ -154,7 +164,13 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v1
       with:
-        node-version: '12'
+        node-version: '12' # Make sure to bump the version in the cache key below
+    - name: Cache native node libraries
+      uses: actions/cache@v2
+      if: matrix.os == 'windows-latest'
+      with:
+        path: ~/node-gyp/cache
+        key: ${{ runner.os }}-${{ github.job }}-12
     - name: Compile sixtyfps-wasm-interpreter
       run: wasm-pack build --release --target web -- --features console_error_panic_hook
       working-directory: api/sixtyfps-wasm-interpreter
