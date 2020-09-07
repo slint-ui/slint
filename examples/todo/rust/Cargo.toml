@@ -1,0 +1,18 @@
+[package]
+name = "todo"
+version = "0.1.0"
+authors = ["Sixty FPS <info@sixtyfps.io>"]
+edition = "2018"
+build = "build.rs"
+publish = false
+license = "GPL-3.0-only"
+
+[[bin]]
+path = "main.rs"
+name = "todo"
+
+[dependencies]
+sixtyfps = { path = "../../../api/sixtyfps-rs" }
+
+[build-dependencies]
+sixtyfps-build = { path = "../../../api/sixtyfps-rs/sixtyfps-build" }

@@ -22,6 +22,7 @@ members = [
     'examples/gallery/wasm',
     'examples/printerdemo/rust',
     'examples/printerdemo/wasm',
+    'examples/todo/rust',
     'helper_crates/const-field-offset',
     'helper_crates/vtable',
     'helper_crates/vtable/macro',

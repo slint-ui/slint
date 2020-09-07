@@ -1,0 +1,72 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+import { SpinBox, Button, CheckBox, Slider } from "sixtyfps_widgets.60";
+
+MainWindow := Window {
+    width: 400lx;
+    height: 600lx;
+    // signal todo_added(string);
+
+    property <[{title: string, checked: bool}]> todo_model: [
+        { title: "Implement the .60 file", checked: true },
+        { title: "Do the rust part", checked: false },
+        { title: "Make the C++ code", checked: false },
+        { title: "???", checked: false },
+        { title: "Profit", checked: false },
+    ];
+
+    GridLayout {
+        Row {
+            text_edit := Text {
+                text: "Something to do";
+                color: black;
+            }
+            btn := Button {
+                text: "Add Todo";
+                clicked => {
+                    // todo_added(text_edit.text);
+                }
+            }
+        }
+        spacing := Rectangle {
+            height: 15lx;
+            maximum_height: 15lx;
+            minimum_height: 15lx;
+            row: 1;
+            rowspan: 2;
+        }
+        // Should be a ListView
+        list_view := Rectangle {
+            rowspan: 2;
+            row: 2;
+            for todo[index] in todo_model: Rectangle {
+                y: index * height;
+                width: parent.width;
+                height: 20lx;
+                GridLayout {
+                    CheckBox {
+                        text: todo.title;
+                        checked: todo.checked;
+                    }
+                }
+            }
+        }
+        Row {
+            Button {
+                col: 1;
+                text: "All done!";
+            }
+        }
+    }
+
+
+}
+
