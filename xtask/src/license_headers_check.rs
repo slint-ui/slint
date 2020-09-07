@@ -288,6 +288,124 @@ fn collect_files() -> Result<Vec<PathBuf>> {
     Ok(files)
 }
 
+enum CargoDependency {
+    Simple { _version: String },
+    Full { path: String, version: String },
+}
+
+impl CargoDependency {
+    fn new(encoded_value: &toml_edit::Value) -> Option<Self> {
+        match encoded_value {
+            toml_edit::Value::String(s) => {
+                return Some(Self::Simple { _version: s.value().clone() })
+            }
+            toml_edit::Value::Float(_) => None,
+            toml_edit::Value::DateTime(_) => None,
+            toml_edit::Value::Boolean(_) => None,
+            toml_edit::Value::Array(_) => None,
+            toml_edit::Value::Integer(_) => None,
+            toml_edit::Value::InlineTable(table) => {
+                if let (Some(path), Some(version)) = (table.get("path"), table.get("version")) {
+                    Some(Self::Full {
+                        path: path.as_str().unwrap_or_default().clone().into(),
+                        version: version.as_str().unwrap_or_default().clone().into(),
+                    })
+                } else {
+                    None
+                }
+            }
+        }
+    }
+}
+
+struct CargoToml {
+    doc: toml_edit::Document,
+    edited: bool,
+}
+
+impl CargoToml {
+    fn new(path: &Path) -> Result<Self> {
+        let source = &std::fs::read_to_string(path).context("Error reading file")?;
+        Ok(Self { doc: source.parse()?, edited: false })
+    }
+
+    fn is_workspace(&self) -> bool {
+        self.doc.as_table().get("workspace").is_some()
+    }
+
+    fn package(&self) -> Result<&toml_edit::Table> {
+        Ok(self
+            .doc
+            .as_table()
+            .get("package")
+            .map(|p| p.as_table())
+            .flatten()
+            .ok_or_else(|| anyhow::anyhow!("Invalid Cargo.toml -- cannot find package section"))?)
+    }
+
+    fn dependencies<'a>(&self, dep_type: &'a str) -> Vec<(String, CargoDependency)> {
+        match self.doc.as_table().get(dep_type).map(|d| d.as_table()).flatten() {
+            Some(dep_table) => dep_table
+                .iter()
+                .filter_map(|(name, entry)| {
+                    CargoDependency::new(entry.as_value().unwrap())
+                        .map(|entry| (name.to_owned(), entry))
+                })
+                .collect(),
+            None => Vec::new(),
+        }
+    }
+
+    fn check_and_fix_package_string_field<'a>(
+        &mut self,
+        fixit: bool,
+        field: &'a str,
+        expected_str: &'a str,
+    ) -> Result<()> {
+        match self.package()?.get(field) {
+            Some(field_value) => match field_value.as_str() {
+                Some(text) => {
+                    if text != expected_str {
+                        if fixit {
+                            self.doc["package"][field] = toml_edit::value(expected_str);
+                            self.edited = true;
+                        } else {
+                            return Err(anyhow::anyhow!(
+                                "Incorrect {}. Found {} expected {}",
+                                field,
+                                text,
+                                expected_str
+                            ));
+                        }
+                    }
+                }
+                None => return Err(anyhow::anyhow!("{} field is not a string", field)),
+            },
+            None => {
+                if fixit {
+                    self.doc["package"][field] = toml_edit::value(expected_str);
+                    self.edited = true;
+                } else {
+                    return Err(anyhow::anyhow!("Missing {} field", field));
+                }
+            }
+        };
+        Ok(())
+    }
+
+    fn published(&self) -> Result<bool> {
+        Ok(self.package()?.get("publish").map(|v| v.as_bool().unwrap()).unwrap_or(true))
+    }
+
+    fn save_if_changed(&self, path: &Path) -> Result<()> {
+        if self.edited {
+            std::fs::write(path, &self.doc.to_string()).context("Error writing new Cargo.toml")
+        } else {
+            Ok(())
+        }
+    }
+}
+
 #[derive(Debug, StructOpt)]
 pub struct LicenseHeaderCheck {
     #[structopt(long)]
@@ -359,86 +477,53 @@ impl LicenseHeaderCheck {
     }
 
     fn check_cargo_toml(&self, path: &Path) -> Result<()> {
-        use cargo_toml2::{from_path, CargoToml, Dependency, Workspace};
+        let mut doc = CargoToml::new(path)?;
 
-        let maybe_workspace: Result<Workspace, cargo_toml2::CargoTomlError> = from_path(path);
-        if let Ok(workspace) = maybe_workspace {
-            if workspace.members.is_some() {
-                return Ok(());
-            }
+        if doc.is_workspace() {
+            return Ok(());
         }
 
-        let toml: CargoToml = from_path(path).context("Failed to read Cargo.toml")?;
+        doc.check_and_fix_package_string_field(self.fixit, "license", EXPECTED_SPDX_EXPRESSION)?;
 
-        match toml.package.license {
-            Some(license) => {
-                if license != EXPECTED_SPDX_EXPRESSION {
-                    return Err(anyhow::anyhow!(
-                        "Incorrect license. Found {} expected {}",
-                        license,
-                        EXPECTED_SPDX_EXPRESSION
-                    ));
-                }
-            }
-            None => return Err(anyhow::anyhow!("Missing license field")),
-        }
-
-        if !toml.package.publish.unwrap_or(true) {
+        if !doc.published()? {
             // Skip further tests for package that are not published
             return Ok(());
         }
 
-        match toml.package.homepage {
-            None => return Err(anyhow::anyhow!("Missing homepage field")),
-            Some(homepage) => {
-                if homepage != EXPECTED_HOMEPAGE {
-                    return Err(anyhow::anyhow!(
-                        "Incorrect homepahe. Found '{}' expected '{}'",
-                        homepage,
-                        EXPECTED_HOMEPAGE
-                    ));
-                }
-            }
-        }
+        doc.check_and_fix_package_string_field(self.fixit, "homepage", EXPECTED_HOMEPAGE)?;
+        doc.check_and_fix_package_string_field(self.fixit, "repository", EXPECTED_REPOSITORY)?;
 
-        match toml.package.repository {
-            None => return Err(anyhow::anyhow!("Missing repository field")),
-            Some(repository) => {
-                if repository != EXPECTED_REPOSITORY {
-                    return Err(anyhow::anyhow!(
-                        "Incorrect repository. Found '{}' expected '{}'",
-                        repository,
-                        EXPECTED_REPOSITORY
-                    ));
-                }
-            }
-        }
-
-        if toml.package.description.is_none() {
+        if doc.package()?["description"].is_none() {
             return Err(anyhow::anyhow!("Missing description field"));
         }
 
         // Check that version of sixtyfps- dependencies are matching this version
-        let expected_version = format!("={}", toml.package.version);
-        for (dep_name, dep) in
-            toml.dependencies.iter().chain(toml.build_dependencies.iter()).flatten()
+        let expected_version = format!(
+            "={}",
+            doc.package()?.get("version").unwrap().as_value().unwrap().as_str().unwrap()
+        );
+
+        for (dep_name, dep) in doc
+            .dependencies("dependencies")
+            .iter()
+            .chain(doc.dependencies("build-dependencies").iter())
         {
             if dep_name.starts_with("sixtyfps") {
                 match dep {
-                    Dependency::Simple(_) => {
+                    CargoDependency::Simple { .. } => {
                         return Err(anyhow::anyhow!(
                             "sixtyfps package '{}' outside of the repository?",
                             dep_name
                         ))
                     }
-                    Dependency::Full(dep) => {
-                        if dep.path.is_none() {
+                    CargoDependency::Full { path, version } => {
+                        if path.is_empty() {
                             return Err(anyhow::anyhow!(
                                 "sixtyfps package '{}' outside of the repository?",
                                 dep_name
                             ));
                         }
-                        if dep.version.as_ref() != Some(&expected_version) {
+                        if version != &expected_version {
                             return Err(anyhow::anyhow!(
                                 "Version \"{}\" must be specified for dependency {}",
                                 expected_version,
@@ -448,6 +533,10 @@ impl LicenseHeaderCheck {
                     }
                 }
             }
+        }
+
+        if self.fixit {
+            doc.save_if_changed(path)?;
         }
 
         Ok(())
