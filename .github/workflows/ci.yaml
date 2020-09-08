@@ -67,6 +67,7 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-${{ github.job }}-node-
     - name: Cache cargo build
+      if: matrix.os != 'macos-latest'
       uses: actions/cache@v2
       with:
         path: target
@@ -103,7 +104,7 @@ jobs:
       with:
         cmakeListsTxtPath: CMakeLists.txt
     - name: Clean cache # Otherwise the cache is much too big
-      if: matrix.os != 'windows-latest'
+      if: matrix.os == 'ubuntu-20.04'
       run: |
           du -hs target
           rm -rf target/*/incremental
