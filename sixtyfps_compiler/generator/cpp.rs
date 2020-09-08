@@ -186,7 +186,7 @@ use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic, Level, Spanned};
 use crate::expression_tree::{BuiltinFunction, EasingCurve, Expression, ExpressionSpanned};
 use crate::layout::{gen::LayoutItemCodeGen, Layout, LayoutElement};
 use crate::object_tree::{Component, Element, ElementRc, RepeatedElementInfo};
-use crate::typeregister::Type;
+use crate::{parser::SyntaxNodeWithSourceFile, typeregister::Type};
 use cpp_ast::*;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -215,6 +215,18 @@ impl CppType for Type {
             _ => None,
         }
     }
+}
+
+fn get_cpp_type(ty: &Type, type_node: &dyn Spanned, diag: &mut BuildDiagnostics) -> String {
+    ty.cpp_type().unwrap_or_else(|| {
+        let err = CompilerDiagnostic {
+            message: "Cannot map property type to C++".into(),
+            span: type_node.span(),
+            level: Level::Error,
+        };
+        diag.push_internal_error(err.into());
+        "".into()
+    })
 }
 
 fn new_struct_with_bindings(
@@ -483,7 +495,7 @@ fn generate_component(
     let mut init = vec!["[[maybe_unused]] auto self = this;".into()];
 
     for (cpp_name, property_decl) in component.root_element.borrow().property_declarations.iter() {
-        let ty = if matches!(property_decl.property_type, Type::Signal{..}) {
+        let ty = if let Type::Signal { args } = &property_decl.property_type {
             if property_decl.expose_in_public_api && is_root {
                 let signal_emitter = vec![format!("{}.emit();", cpp_name)];
                 component_struct.members.push((
@@ -509,19 +521,11 @@ fn generate_component(
                     }),
                 ));
             }
-
-            "sixtyfps::Signal".into()
+            let cpp_type = args.iter().map(|t| get_cpp_type(t, &property_decl.type_node, diag));
+            format!("sixtyfps::Signal<{}>", cpp_type.collect::<Vec<_>>().join(", "))
         } else {
-            let cpp_type = property_decl.property_type.cpp_type().unwrap_or_else(|| {
-                let err = CompilerDiagnostic {
-                    message: "Cannot map property type to C++".into(),
-                    span: property_decl.type_node.span(),
-                    level: Level::Error,
-                };
-
-                diag.push_internal_error(err.into());
-                "".into()
-            });
+            let cpp_type =
+                get_cpp_type(&property_decl.property_type, &property_decl.type_node, diag);
 
             if property_decl.expose_in_public_api && is_root {
                 let prop_getter: Vec<String> = vec![format!("return {}.get();", cpp_name)];

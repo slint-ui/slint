@@ -31,6 +31,10 @@ fn default_config() -> cbindgen::Config {
         language: cbindgen::Language::Cxx,
         cpp_compat: true,
         documentation: true,
+        export: cbindgen::ExportConfig {
+            rename: [("Signal".into(), "Signal<>".into())].iter().cloned().collect(),
+            ..Default::default()
+        },
         ..Default::default()
     }
 }

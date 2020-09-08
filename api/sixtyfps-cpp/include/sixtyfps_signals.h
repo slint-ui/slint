@@ -8,12 +8,12 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 #pragma once
-#include <string_view>
+#include <tuple>
 #include "sixtyfps_properties_internal.h"
 
 namespace sixtyfps {
 
-// template<typename... Args>
+template<typename... Arg>
 struct Signal
 {
     Signal() { cbindgen_private::sixtyfps_signal_init(&inner); }
@@ -27,18 +27,22 @@ struct Signal
     {
         cbindgen_private::sixtyfps_signal_set_handler(
                 &inner,
-                [](void *user_data) {
-                    (*reinterpret_cast<F *>(user_data))();
+                [](void *user_data, const void *arg) {
+                    std::apply(*reinterpret_cast<F *>(user_data),
+                               *reinterpret_cast<const Tuple*>(arg));
                 },
-                new F(std::move(binding)), [](void *user_data) { delete reinterpret_cast<F *>(user_data); });
+                new F(std::move(binding)),
+                [](void *user_data) { delete reinterpret_cast<F *>(user_data); });
     }
 
-    void emit() const
+    void emit(const Arg &...arg) const
     {
-        cbindgen_private::sixtyfps_signal_emit(&inner);
+        Tuple tuple{arg...};
+        cbindgen_private::sixtyfps_signal_emit(&inner, &tuple);
     }
 
 private:
+    using Tuple = std::tuple<Arg...>;
     cbindgen_private::SignalOpaque inner;
 };
 }

@@ -70,11 +70,13 @@ pub(crate) mod ffi {
     #[allow(non_camel_case_types)]
     type c_void = ();
     #[repr(C)]
-    /// Has the same layout as Signal<()>
+    /// Has the same layout as Signal<_>
     pub struct SignalOpaque(*const c_void, *const c_void);
 
     static_assertions::assert_eq_align!(SignalOpaque, Signal<()>);
     static_assertions::assert_eq_size!(SignalOpaque, Signal<()>);
+    static_assertions::assert_eq_align!(SignalOpaque, Signal<(String,)>);
+    static_assertions::assert_eq_size!(SignalOpaque, Signal<(String,)>);
 
     /// Initialize the signal.
     /// sixtyfps_signal_drop must be called.
@@ -86,9 +88,9 @@ pub(crate) mod ffi {
 
     /// Emit the signal
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_signal_emit(sig: *const SignalOpaque) {
-        let sig = &*(sig as *const Signal<()>);
-        sig.emit(&());
+    pub unsafe extern "C" fn sixtyfps_signal_emit(sig: *const SignalOpaque, arg: *const c_void) {
+        let sig = &*(sig as *const Signal<c_void>);
+        sig.emit(&*arg);
     }
 
     /// Set signal handler.
@@ -97,11 +99,11 @@ pub(crate) mod ffi {
     #[no_mangle]
     pub unsafe extern "C" fn sixtyfps_signal_set_handler(
         sig: *mut SignalOpaque,
-        binding: extern "C" fn(user_data: *mut c_void),
+        binding: extern "C" fn(user_data: *mut c_void, arg: *const c_void),
         user_data: *mut c_void,
         drop_user_data: Option<extern "C" fn(*mut c_void)>,
     ) {
-        let sig = &mut *(sig as *mut Signal<()>);
+        let sig = &mut *(sig as *mut Signal<c_void>);
 
         struct UserData {
             user_data: *mut c_void,
@@ -117,8 +119,8 @@ pub(crate) mod ffi {
         }
         let ud = UserData { user_data, drop_user_data };
 
-        let real_binding = move |_: &()| {
-            binding(ud.user_data);
+        let real_binding = move |arg: &()| {
+            binding(ud.user_data, arg as *const c_void);
         };
         sig.set_handler(real_binding);
     }
