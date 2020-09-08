@@ -16,11 +16,12 @@ use core::mem::MaybeUninit;
 use std::{fmt::Debug, fmt::Display, ops::Deref};
 use triomphe::{Arc, HeaderWithLength, ThinArc};
 
-/// The string type suitable for properties. It is shared meaning passing copies
-/// around will not allocate, and that different properties with the same string
-/// can share the same buffer.
-/// It is also ffi-friendly as the buffer always ends with `'\0'`
-/// Internally, this is an implicitly shared type to a null terminated string
+/// The string type used by the SixtyFPS run-time. It is shared, meaning cloning
+/// is cheap because it does not copy the underlying data but shares it instead.
+/// When modifying the string, it automatically detaches the shared copy.
+/// It is therefore a suitable type for properties.
+///
+/// Note that SharedString is internally utf-8 encoded and always null terminated.
 #[derive(Clone)]
 #[repr(C)]
 pub struct SharedString {
