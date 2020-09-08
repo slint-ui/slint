@@ -50,6 +50,11 @@ jobs:
       with:
         path: ~/node-gyp/cache
         key: ${{ runner.os }}-${{ github.job }}-12
+    - name: Ensure node-gyp cache is populated
+      if: matrix.os == 'windows-latest'
+      run: |
+          npm install -g node-gyp
+          node-gyp install      
     - name: Cache cargo registry
       uses: actions/cache@v2
       with:
