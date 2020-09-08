@@ -18,7 +18,7 @@ use crate::layout::{gen::LayoutItemCodeGen, Layout, LayoutElement};
 use crate::object_tree::{Component, ElementRc};
 use crate::typeregister::Type;
 use proc_macro2::{Ident, TokenStream};
-use quote::quote;
+use quote::{format_ident, quote};
 use std::rc::Rc;
 
 fn rust_type(
@@ -58,13 +58,13 @@ fn rust_type(
 pub fn generate(component: &Rc<Component>, diag: &mut BuildDiagnostics) -> Option<TokenStream> {
     let compo = generate_component(component, diag)?;
     let compo_id = component_id(component);
-    let compo_module = quote::format_ident!("sixtyfps_generated_{}", compo_id);
+    let compo_module = format_ident!("sixtyfps_generated_{}", compo_id);
     /*let (version_major, version_minor, version_patch): (usize, usize, usize) = (
         env!("CARGO_PKG_VERSION_MAJOR").parse().unwrap(),
         env!("CARGO_PKG_VERSION_MINOR").parse().unwrap(),
         env!("CARGO_PKG_VERSION_PATCH").parse().unwrap(),
     );*/
-    let version_check = quote::format_ident!(
+    let version_check = format_ident!(
         "VersionCheck_{}_{}_{}",
         env!("CARGO_PKG_VERSION_MAJOR"),
         env!("CARGO_PKG_VERSION_MINOR"),
@@ -91,33 +91,51 @@ fn generate_component(
     let mut declared_property_vars = vec![];
     let mut declared_property_types = vec![];
     let mut declared_signals = vec![];
+    let mut declared_signals_types = vec![];
     let mut property_and_signal_accessors: Vec<TokenStream> = vec![];
     for (prop_name, property_decl) in component.root_element.borrow().property_declarations.iter() {
-        let prop_ident = quote::format_ident!("{}", prop_name);
-        if matches!(property_decl.property_type, Type::Signal{..}) {
+        let prop_ident = format_ident!("{}", prop_name);
+        if let Type::Signal { args } = &property_decl.property_type {
             declared_signals.push(prop_ident.clone());
+            let signal_args = args
+                .iter()
+                .map(|a| rust_type(a, &property_decl.type_node.span()))
+                .collect::<Result<Vec<_>, _>>()
+                .unwrap_or_else(|err| {
+                    diag.push_internal_error(err.into());
+                    vec![]
+                });
+
             if property_decl.expose_in_public_api {
-                let emitter_ident = quote::format_ident!("emit_{}", prop_name);
+                let args_name =
+                    (0..signal_args.len()).map(|i| format_ident!("arg_{}", i)).collect::<Vec<_>>();
+                let emitter_ident = format_ident!("emit_{}", prop_name);
                 property_and_signal_accessors.push(
                     quote!(
                         #[allow(dead_code)]
-                        pub fn #emitter_ident(self: ::core::pin::Pin<&Self>) {
-                            Self::FIELD_OFFSETS.#prop_ident.apply_pin(self).emit(&())
+                        pub fn #emitter_ident(self: ::core::pin::Pin<&Self>, #(#args_name : #signal_args,)*) {
+                            Self::FIELD_OFFSETS.#prop_ident.apply_pin(self).emit(&(#(#args_name,)*))
                         }
                     )
                     .into(),
                 );
-                let on_ident = quote::format_ident!("on_{}", prop_name);
+                let on_ident = format_ident!("on_{}", prop_name);
+                let args_index = (0..signal_args.len()).map(proc_macro2::Literal::usize_unsuffixed);
                 property_and_signal_accessors.push(
                     quote!(
                         #[allow(dead_code)]
-                        pub fn #on_ident(self: ::core::pin::Pin<&Self>, f: impl Fn() + 'static) {
-                            Self::FIELD_OFFSETS.#prop_ident.apply_pin(self).set_handler(move |_: &()|f())
+                        pub fn #on_ident(self: ::core::pin::Pin<&Self>, f: impl Fn(#(#signal_args),*) + 'static) {
+                            #[allow(unused)]
+                            Self::FIELD_OFFSETS.#prop_ident.apply_pin(self).set_handler(
+                                // FIXME: why do i need to clone here?
+                                move |args| f(#(args.#args_index.clone()),*)
+                            )
                         }
                     )
                     .into(),
                 );
             }
+            declared_signals_types.push(signal_args);
         } else {
             declared_property_vars.push(prop_ident.clone());
             let rust_property_type =
@@ -129,8 +147,8 @@ fn generate_component(
             declared_property_types.push(rust_property_type.clone());
 
             if property_decl.expose_in_public_api {
-                let getter_ident = quote::format_ident!("get_{}", prop_name);
-                let setter_ident = quote::format_ident!("set_{}", prop_name);
+                let getter_ident = format_ident!("get_{}", prop_name);
+                let setter_ident = format_ident!("set_{}", prop_name);
 
                 property_and_signal_accessors.push(
                     quote!(
@@ -181,7 +199,7 @@ fn generate_component(
     super::build_array_helper(component, |item_rc, children_index, is_flickable_rect| {
         let item = item_rc.borrow();
         if is_flickable_rect {
-            let field_name = quote::format_ident!("{}", item.id);
+            let field_name = format_ident!("{}", item.id);
             let children_count = item.children.len() as u32;
             let children_index = item_tree_array.len() as u32 + 1;
 
@@ -195,7 +213,7 @@ fn generate_component(
         } else if let Some(repeated) = &item.repeated {
             let base_component = item.base_type.as_component();
             let repeater_index = repeated_element_names.len();
-            let repeater_id = quote::format_ident!("repeater_{}", item.id);
+            let repeater_id = format_ident!("repeater_{}", item.id);
             let rep_component_id = self::component_id(&*base_component);
 
             extra_components.push(generate_component(&*base_component, diag).unwrap_or_else(
@@ -247,7 +265,7 @@ fn generate_component(
                     #repeater_index => self_pinned.#repeater_id.visit(order, visitor),
                 ));
             } else {
-                let model_name = quote::format_ident!("model_{}", repeater_index);
+                let model_name = format_ident!("model_{}", repeater_index);
                 repeated_visit_branch.push(quote!(
                     #repeater_index => {
                         if self_pinned.#model_name.is_dirty() {
@@ -278,7 +296,7 @@ fn generate_component(
             repeated_element_names.push(repeater_id);
             repeated_element_components.push(rep_component_id);
         } else {
-            let field_name = quote::format_ident!("{}", item.id);
+            let field_name = format_ident!("{}", item.id);
             let children_count =
                 if super::is_flickable(item_rc) { 1 } else { item.children.len() as u32 };
 
@@ -290,7 +308,7 @@ fn generate_component(
                 }
             ));
             for (k, binding_expression) in &item.bindings {
-                let rust_property_ident = quote::format_ident!("{}", k);
+                let rust_property_ident = format_ident!("{}", k);
                 let rust_property_accessor_prefix = if item.property_declarations.contains_key(k) {
                     proc_macro2::TokenStream::new()
                 } else {
@@ -303,7 +321,7 @@ fn generate_component(
                     init.push(quote!(
                         self_pinned.#rust_property.set_handler({
                             let self_weak = sixtyfps::re_exports::PinWeak::downgrade(self_pinned.clone());
-                            move |()| {
+                            move |args| {
                                 let self_pinned = self_weak.upgrade().unwrap();
                                 let _self = self_pinned.as_ref();
                                 #tokens_for_expression;
@@ -334,7 +352,7 @@ fn generate_component(
                 }
             }
             item_names.push(field_name);
-            item_types.push(quote::format_ident!("{}", item.base_type.as_native().class_name));
+            item_types.push(format_ident!("{}", item.base_type.as_native().class_name));
         }
     });
 
@@ -344,7 +362,7 @@ fn generate_component(
             .borrow()
             .iter()
             .map(|(path, id)| {
-                let symbol = quote::format_ident!("SFPS_EMBEDDED_RESOURCE_{}", id);
+                let symbol = format_ident!("SFPS_EMBEDDED_RESOURCE_{}", id);
                 quote!(const #symbol: &'static [u8] = ::core::include_bytes!(#path);)
             })
             .collect()
@@ -357,9 +375,9 @@ fn generate_component(
     let mut parent_component_type = None;
     if let Some(parent_element) = component.parent_element.upgrade() {
         if !parent_element.borrow().repeated.as_ref().map_or(false, |r| r.is_conditional_element) {
-            declared_property_vars.push(quote::format_ident!("index"));
+            declared_property_vars.push(format_ident!("index"));
             declared_property_types.push(quote!(usize));
-            declared_property_vars.push(quote::format_ident!("model_data"));
+            declared_property_vars.push(format_ident!("model_data"));
             declared_property_types.push(
                 rust_type(
                     &Expression::RepeaterModelReference {
@@ -388,7 +406,7 @@ fn generate_component(
         maybe_window_field_init = Some(quote!(window: sixtyfps::create_window()));
 
         let root_elem = component.root_element.borrow();
-        let root_item_name = quote::format_ident!("{}", root_elem.id);
+        let root_item_name = format_ident!("{}", root_elem.id);
         property_and_signal_accessors.push(quote! {
             pub fn run(self : core::pin::Pin<std::rc::Rc<Self>>) {
                 use sixtyfps::re_exports::*;
@@ -446,7 +464,7 @@ fn generate_component(
         #visibility struct #component_id {
             #(#item_names : sixtyfps::re_exports::#item_types,)*
             #(#declared_property_vars : sixtyfps::re_exports::Property<#declared_property_types>,)*
-            #(#declared_signals : sixtyfps::re_exports::Signal<()>,)*
+            #(#declared_signals : sixtyfps::re_exports::Signal<(#(#declared_signals_types,)*)>,)*
             #(#repeated_element_names : sixtyfps::re_exports::Repeater<#repeated_element_components>,)*
             #(#repeated_dynmodel_names : sixtyfps::re_exports::PropertyTracker,)*
             self_weak: sixtyfps::re_exports::OnceCell<sixtyfps::re_exports::PinWeak<#component_id>>,
@@ -553,9 +571,9 @@ fn component_id(component: &Component) -> proc_macro2::Ident {
         let mut it = s.chars();
         let id =
             it.next().map(|c| c.to_ascii_uppercase()).into_iter().chain(it).collect::<String>();
-        quote::format_ident!("{}", id)
+        format_ident!("{}", id)
     } else {
-        quote::format_ident!("{}", component.id)
+        format_ident!("{}", component.id)
     }
 }
 
@@ -570,7 +588,7 @@ fn property_animation_tokens(
             .bindings
             .iter()
             .map(|(prop, initializer)| {
-                let prop_ident = quote::format_ident!("{}", prop);
+                let prop_ident = format_ident!("{}", prop);
                 let initializer = compile_expression(initializer, component);
                 quote!(#prop_ident: #initializer as _)
             })
@@ -630,12 +648,12 @@ fn access_member(
     let enclosing_component = e.enclosing_component.upgrade().unwrap();
     if Rc::ptr_eq(component, &enclosing_component) {
         let component_id = component_id(&enclosing_component);
-        let name_ident = quote::format_ident!("{}", name);
+        let name_ident = format_ident!("{}", name);
         if e.property_declarations.contains_key(name) || is_special {
             quote!(#component_id::FIELD_OFFSETS.#name_ident.apply_pin(#component_rust))
         } else {
-            let elem_ident = quote::format_ident!("{}", e.id);
-            let elem_ty = quote::format_ident!("{}", e.base_type.as_native().class_name);
+            let elem_ident = format_ident!("{}", e.id);
+            let elem_ty = format_ident!("{}", e.base_type.as_native().class_name);
 
             quote!((#component_id::FIELD_OFFSETS.#elem_ident + #elem_ty::FIELD_OFFSETS.#name_ident)
                 .apply_pin(#component_rust)
@@ -730,7 +748,7 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
         }
         Expression::FunctionParameterReference { index, .. } => {
             let i = proc_macro2::Literal::usize_unsuffixed(*index);
-            quote! {args.#i}
+            quote! {args.#i.clone()}
         }
         Expression::ObjectAccess { base, name } => {
             let index = if let Type::Object(ty) = base.ty() {
@@ -758,8 +776,14 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
         Expression::FunctionCall { function, arguments } => {
             let f = compile_expression(function, &component);
             let a = arguments.iter().map(|a| compile_expression(a, &component));
-            if matches!(function.ty(), Type::Signal{..}) {
-                quote! { #f.emit(&(#((#a).clone(),)*).into())}
+            if let Type::Signal { args } = function.ty() {
+                let cast = args.iter().map(|ty| match ty {
+                    Type::Bool => quote!(as bool),
+                    Type::Int32 => quote!(as i32),
+                    Type::Float32 => quote!(as f32),
+                    _ => quote!(.clone()),
+                });
+                quote! { #f.emit(&(#((#a)#cast,)*).into())}
             } else {
                 quote! { #f(#(#a.clone()),*)}
             }
@@ -830,7 +854,7 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                 .get(absolute_source_path)
                 .filter(|_| component.embed_file_resources.get())
             {
-                let symbol = quote::format_ident!("SFPS_EMBEDDED_RESOURCE_{}", id);
+                let symbol = format_ident!("SFPS_EMBEDDED_RESOURCE_{}", id);
                 quote!(sixtyfps::re_exports::Resource::EmbeddedData(#symbol.into()))
             } else {
                 quote!(sixtyfps::re_exports::Resource::AbsoluteFilePath(sixtyfps::re_exports::SharedString::from(#absolute_source_path)))
@@ -876,11 +900,11 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
         Expression::PathElements { elements } => compile_path(elements, component),
         Expression::StoreLocalVariable { name, value } => {
             let value = compile_expression(value, component);
-            let name = quote::format_ident!("{}", name);
+            let name = format_ident!("{}", name);
             quote!(let #name = #value;)
         }
         Expression::ReadLocalVariable { name, .. } => {
-            let name = quote::format_ident!("{}", name);
+            let name = format_ident!("{}", name);
             quote!(#name)
         }
         Expression::EasingCurve(EasingCurve::Linear) => {
@@ -890,8 +914,8 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
             quote!(sixtyfps::re_exports::EasingCurve::CubicBezier([#a, #b, #c, #d]))
         }
         Expression::EnumerationValue(value) => {
-            let base_ident = quote::format_ident!("{}", value.enumeration.name);
-            let value_ident = quote::format_ident!("{}", value.to_string());
+            let base_ident = format_ident!("{}", value.enumeration.name);
+            let value_ident = format_ident!("{}", value.to_string());
             quote!(sixtyfps::re_exports::#base_ident::#value_ident)
         }
     }
@@ -910,7 +934,7 @@ impl LayoutItemCodeGen<RustLanguageLayoutGen> for Layout {
             Some(name) => name,
             None => return quote!(None),
         };
-        let n = quote::format_ident!("{}", moved_property_name);
+        let n = format_ident!("{}", moved_property_name);
         quote! {Some(&self.#n)}
     }
     fn get_layout_info_ref<'a, 'b>(
@@ -930,9 +954,9 @@ impl LayoutItemCodeGen<RustLanguageLayoutGen> for Layout {
 
 impl LayoutItemCodeGen<RustLanguageLayoutGen> for LayoutElement {
     fn get_property_ref(&self, name: &str) -> TokenStream {
-        let e = quote::format_ident!("{}", self.element.borrow().id);
+        let e = format_ident!("{}", self.element.borrow().id);
         if self.element.borrow().lookup_property(name) == Type::Length {
-            let n = quote::format_ident!("{}", name);
+            let n = format_ident!("{}", name);
             quote! {Some(&self.#e.#n)}
         } else {
             quote! {None}
@@ -943,7 +967,7 @@ impl LayoutItemCodeGen<RustLanguageLayoutGen> for LayoutElement {
         layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
         component: &Rc<Component>,
     ) -> TokenStream {
-        let e = quote::format_ident!("{}", self.element.borrow().id);
+        let e = format_ident!("{}", self.element.borrow().id);
         let element_info = quote!(Self::FIELD_OFFSETS.#e.apply_pin(self).layouting_info());
         match &self.layout {
             Some(layout) => {
@@ -980,10 +1004,7 @@ fn collect_layouts_recursively<'a, 'b>(
                             .iter()
                             .filter_map(|(e, s)| {
                                 e.as_ref().map(|e| {
-                                    (
-                                        quote::format_ident!("{}", s),
-                                        compile_expression(&e, component),
-                                    )
+                                    (format_ident!("{}", s), compile_expression(&e, component))
                                 })
                             })
                             .unzip();
@@ -1007,10 +1028,10 @@ fn collect_layouts_recursively<'a, 'b>(
                 })
                 .collect();
 
-            let cell_ref_variable = quote::format_ident!("cells_{}", layout_tree.len());
+            let cell_ref_variable = format_ident!("cells_{}", layout_tree.len());
             let cell_creation_code = quote!(let #cell_ref_variable = [#( #cells ),*];);
             let (spacing, spacing_creation_code) = if let Some(spacing) = &grid_layout.spacing {
-                let variable = quote::format_ident!("spacing_{}", layout_tree.len());
+                let variable = format_ident!("spacing_{}", layout_tree.len());
                 let spacing_code = compile_expression(spacing, component);
                 (quote!(#variable), Some(quote!(let #variable = #spacing_code;)))
             } else {
@@ -1077,7 +1098,7 @@ impl<'a> LayoutTreeItem<'a> {
                     |elem: &ElementRc, elem_rs: TokenStream, component_rust: TokenStream| {
                         let prop_ref = |n: &str| {
                             if elem.borrow().lookup_property(n) == Type::Length {
-                                let n = quote::format_ident!("{}", n);
+                                let n = format_ident!("{}", n);
                                 quote! {Some(& #elem_rs.#n)}
                             } else {
                                 quote! {None}
@@ -1109,7 +1130,7 @@ impl<'a> LayoutTreeItem<'a> {
                         })
                     };
                 let path_layout_item_data_for_elem = |elem: &ElementRc| {
-                    let e = quote::format_ident!("{}", elem.borrow().id);
+                    let e = format_ident!("{}", elem.borrow().id);
                     path_layout_item_data(elem, quote!(self.#e), quote!(self))
                 };
 
@@ -1125,11 +1146,11 @@ impl<'a> LayoutTreeItem<'a> {
                     let mut push_code = quote!();
                     for elem in &path_layout.elements {
                         if elem.borrow().repeated.is_some() {
-                            let repeater_id = quote::format_ident!("repeater_{}", elem.borrow().id);
+                            let repeater_id = format_ident!("repeater_{}", elem.borrow().id);
                             repeated_count = quote!(#repeated_count + self.#repeater_id.len());
                             let root_element =
                                 elem.borrow().base_type.as_component().root_element.clone();
-                            let root_id = quote::format_ident!("{}", root_element.borrow().id);
+                            let root_id = format_ident!("{}", root_element.borrow().id);
                             let e = path_layout_item_data(
                                 &root_element,
                                 quote!(sub_comp.#root_id),
@@ -1283,7 +1304,7 @@ fn compile_path(path: &Path, component: &Rc<Component>) -> TokenStream {
                         .bindings
                         .iter()
                         .map(|(property, expr)| {
-                            let prop_ident = quote::format_ident!("{}", property);
+                            let prop_ident = format_ident!("{}", property);
                             let binding_expr = compile_expression(expr, component);
 
                             quote!(#prop_ident: #binding_expr as _).to_string()

@@ -1,0 +1,17 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+TestCase := Rectangle {
+    signal test_signal(int);
+    signal test_signal2(string);
+    signal test_signal3(int, string);
+    property<int> signal_emission_count;
+    test_signal => { signal_emission_count += 1; }
+    test_signal2(xx) => { signal_emission_count = 88; root.test_signal3(88, xx); }
+}

@@ -188,6 +188,7 @@ use crate::layout::{gen::LayoutItemCodeGen, Layout, LayoutElement};
 use crate::object_tree::{Component, Element, ElementRc, RepeatedElementInfo};
 use crate::typeregister::Type;
 use cpp_ast::*;
+use itertools::Itertools;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -314,21 +315,25 @@ fn handle_item(item: &Element, main_struct: &mut Struct, init: &mut Vec<String>)
 
     let id = &item.id;
     init.extend(item.bindings.iter().map(|(s, i)| {
-        if matches!(item.lookup_property(s.as_str()), Type::Signal{..}) {
+        if let Type::Signal { args } = item.lookup_property(s.as_str()) {
             let signal_accessor_prefix = if item.property_declarations.contains_key(s) {
                 String::new()
             } else {
                 format!("{id}.", id = id.clone())
             };
+            let mut params = args.iter().enumerate().map(|(i, ty)| {
+                format!("[[maybe_unused]] {} arg_{}", ty.cpp_type().unwrap_or_default(), i)
+            });
 
             format!(
                 "{signal_accessor_prefix}{prop}.set_handler(
-                    [this]() {{
+                    [this]({params}) {{
                         [[maybe_unused]] auto self = this;
                         {code};
                     }});",
                 signal_accessor_prefix = signal_accessor_prefix,
                 prop = s,
+                params = params.join(", "),
                 code = compile_expression(i, &item.enclosing_component.upgrade().unwrap())
             )
         } else {
@@ -496,13 +501,28 @@ fn generate_component(
 
     for (cpp_name, property_decl) in component.root_element.borrow().property_declarations.iter() {
         let ty = if let Type::Signal { args } = &property_decl.property_type {
+            let param_types = args
+                .iter()
+                .map(|t| get_cpp_type(t, &property_decl.type_node, diag))
+                .collect::<Vec<_>>();
             if property_decl.expose_in_public_api && is_root {
-                let signal_emitter = vec![format!("{}.emit();", cpp_name)];
+                let signal_emitter = vec![format!(
+                    "{}.emit({});",
+                    cpp_name,
+                    (0..args.len()).map(|i| format!("arg_{}", i)).join(", ")
+                )];
                 component_struct.members.push((
                     Access::Public,
                     Declaration::Function(Function {
                         name: format!("emit_{}", cpp_name),
-                        signature: "()".into(),
+                        signature: format!(
+                            "({})",
+                            param_types
+                                .iter()
+                                .enumerate()
+                                .map(|(i, ty)| format!("{} arg_{}", ty, i))
+                                .join(", ")
+                        ),
                         statements: Some(signal_emitter),
                         ..Default::default()
                     }),
@@ -521,8 +541,7 @@ fn generate_component(
                     }),
                 ));
             }
-            let cpp_type = args.iter().map(|t| get_cpp_type(t, &property_decl.type_node, diag));
-            format!("sixtyfps::Signal<{}>", cpp_type.collect::<Vec<_>>().join(", "))
+            format!("sixtyfps::Signal<{}>", param_types.join(", "))
         } else {
             let cpp_type =
                 get_cpp_type(&property_decl.property_type, &property_decl.type_node, diag);
@@ -975,9 +994,7 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
             );
             format!(r#"{}model_data.get()"#, access)
         }
-        Expression::FunctionParameterReference { index, .. } => {
-            format!("std::get<{}>(args)", index)
-        }
+        Expression::FunctionParameterReference { index, .. } => format!("arg_{}", index),
         Expression::StoreLocalVariable { name, value } => {
             format!("auto {} = {};", name, compile_expression(value, component))
         }
@@ -1013,8 +1030,7 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
             format!("[&]{{ {} }}()", x.join(";"))
         }
         Expression::FunctionCall { function, arguments } => {
-            let args =
-                arguments.iter().map(|e| compile_expression(e, component)).collect::<Vec<_>>();
+            let mut args = arguments.iter().map(|e| compile_expression(e, component));
             format!("{}({})", compile_expression(&function, component), args.join(", "))
         }
         Expression::SelfAssignment { lhs, rhs, op } => match &**lhs {
@@ -1083,21 +1099,17 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
                         expr = compile_expression(e, component),
                         ty = ty,
                     ))
-                    .collect::<Vec<_>>()
                     .join(", ")
             )
         }
         Expression::Object { ty, values } => {
             if let Type::Object(ty) = ty {
-                let elem = ty
-                    .keys()
-                    .map(|k| {
-                        values
-                            .get(k)
-                            .map(|e| compile_expression(e, component))
-                            .unwrap_or_else(|| "(Error: missing member in object)".to_owned())
-                    })
-                    .collect::<Vec<String>>();
+                let mut elem = ty.keys().map(|k| {
+                    values
+                        .get(k)
+                        .map(|e| compile_expression(e, component))
+                        .unwrap_or_else(|| "(Error: missing member in object)".to_owned())
+                });
                 format!("std::make_tuple({})", elem.join(", "))
             } else {
                 panic!("Expression::Object is not a Type::Object")
