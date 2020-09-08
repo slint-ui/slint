@@ -233,6 +233,7 @@ pub enum Expression {
     /// A function call
     FunctionCall {
         function: Box<Expression>,
+        arguments: Vec<Expression>,
     },
 
     /// A SelfAssignment or an Assignment.  When op is '=' this is a signel assignment.
@@ -335,7 +336,7 @@ impl Expression {
             }
             Expression::Cast { to, .. } => to.clone(),
             Expression::CodeBlock(sub) => sub.last().map_or(Type::Void, |e| e.ty()),
-            Expression::FunctionCall { function } => function.ty(),
+            Expression::FunctionCall { function, .. } => function.ty(),
             Expression::SelfAssignment { .. } => Type::Void,
             Expression::ResourceReference { .. } => Type::Resource,
             Expression::Condition { condition: _, true_expr, false_expr } => {
@@ -397,11 +398,12 @@ impl Expression {
             Expression::RepeaterModelReference { .. } => {}
             Expression::Cast { from, .. } => visitor(&**from),
             Expression::CodeBlock(sub) => {
-                for e in sub {
-                    visitor(e)
-                }
+                sub.iter().for_each(visitor);
             }
-            Expression::FunctionCall { function } => visitor(&**function),
+            Expression::FunctionCall { function, arguments } => {
+                visitor(&**function);
+                arguments.iter().for_each(visitor);
+            }
             Expression::SelfAssignment { lhs, rhs, .. } => {
                 visitor(&**lhs);
                 visitor(&**rhs);
@@ -457,11 +459,12 @@ impl Expression {
             Expression::RepeaterModelReference { .. } => {}
             Expression::Cast { from, .. } => visitor(&mut **from),
             Expression::CodeBlock(sub) => {
-                for e in sub {
-                    visitor(e)
-                }
+                sub.iter_mut().for_each(visitor);
             }
-            Expression::FunctionCall { function } => visitor(&mut **function),
+            Expression::FunctionCall { function, arguments } => {
+                visitor(&mut **function);
+                arguments.iter_mut().for_each(visitor);
+            }
             Expression::SelfAssignment { lhs, rhs, .. } => {
                 visitor(&mut **lhs);
                 visitor(&mut **rhs);
@@ -561,6 +564,7 @@ impl Expression {
                         function: Box::new(Expression::BuiltinFunctionReference(
                             BuiltinFunction::GetWindowScaleFactor,
                         )),
+                        arguments: vec![],
                     }),
                     op: '/',
                 },
@@ -570,6 +574,7 @@ impl Expression {
                         function: Box::new(Expression::BuiltinFunctionReference(
                             BuiltinFunction::GetWindowScaleFactor,
                         )),
+                        arguments: vec![],
                     }),
                     op: '*',
                 },

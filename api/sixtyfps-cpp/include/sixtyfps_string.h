@@ -58,6 +58,9 @@ struct SharedString
         return std::string_view(a) != std::string_view(b);
     }
 
+    friend std::ostream& operator<< (std::ostream& stream, const SharedString& shared_string) {
+        return stream << std::string_view(shared_string);
+    }
 private:
     /// Use SharedString::from_number
     explicit SharedString(double n) { cbindgen_private::sixtyfps_shared_string_from_number(this, n); }

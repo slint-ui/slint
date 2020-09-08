@@ -186,7 +186,7 @@ use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic, Level, Spanned};
 use crate::expression_tree::{BuiltinFunction, EasingCurve, Expression, ExpressionSpanned};
 use crate::layout::{gen::LayoutItemCodeGen, Layout, LayoutElement};
 use crate::object_tree::{Component, Element, ElementRc, RepeatedElementInfo};
-use crate::{parser::SyntaxNodeWithSourceFile, typeregister::Type};
+use crate::typeregister::Type;
 use cpp_ast::*;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -944,18 +944,18 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
                 access_member(&element.upgrade().unwrap(), name.as_str(), component, "self");
             format!(r#"{}.get()"#, access)
         }
-        Expression::SignalReference(NamedReference { element, name }) => {
-            let access =
-                access_member(&element.upgrade().unwrap(), name.as_str(), component, "self");
-            format!(r#"{}.emit()"#, access)
-        }
+        Expression::SignalReference(NamedReference { element, name }) => format!(
+            "{}.emit",
+            access_member(&element.upgrade().unwrap(), name.as_str(), component, "self")
+        ),
         Expression::BuiltinFunctionReference(funcref) => match funcref {
             BuiltinFunction::GetWindowScaleFactor => {
-                format!("{}.scale_factor()", window_ref_expression(component))
+                format!("{}.scale_factor", window_ref_expression(component))
             }
-            BuiltinFunction::Debug =>
-                "[]{ std::cout << \"FIXME: the debug statement in C++ should print the argument\" << std::endl; return nullptr; }()".into()
-            ,
+            BuiltinFunction::Debug => {
+                "[](auto... args){ (std::cout << ... << args) << std::endl; return nullptr; }"
+                    .into()
+            }
         },
         Expression::RepeaterIndexReference { element } => {
             let access = access_member(
@@ -975,7 +975,9 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
             );
             format!(r#"{}model_data.get()"#, access)
         }
-        Expression::FunctionParameterReference { index, .. } => format!("std::get<{}>(args)", index),
+        Expression::FunctionParameterReference { index, .. } => {
+            format!("std::get<{}>(args)", index)
+        }
         Expression::StoreLocalVariable { name, value } => {
             format!("auto {} = {};", name, compile_expression(value, component))
         }
@@ -1010,12 +1012,10 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
 
             format!("[&]{{ {} }}()", x.join(";"))
         }
-        Expression::FunctionCall { function } => {
-            if matches!(function.ty(), Type::Signal{..} | Type::Function{..}) {
-                compile_expression(&*function, component)
-            } else {
-                format!("\n#error the function `{:?}` is not a signal\n", function)
-            }
+        Expression::FunctionCall { function, arguments } => {
+            let args =
+                arguments.iter().map(|e| compile_expression(e, component)).collect::<Vec<_>>();
+            format!("{}({})", compile_expression(&function, component), args.join(", "))
         }
         Expression::SelfAssignment { lhs, rhs, op } => match &**lhs {
             Expression::PropertyReference(NamedReference { element, name }) => {

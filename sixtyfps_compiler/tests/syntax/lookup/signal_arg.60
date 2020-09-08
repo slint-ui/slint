@@ -18,6 +18,17 @@ Xxx := Rectangle {
 //      ^error{Assignement need to be done on a property}
         width = x;
 //             ^error{Cannot convert string to length}
+        plop("hallo", #fff, 42);
+        plop("hallo", #fff,);
+//      ^error{The signal or function expects 3 arguments, but 2 are provided}
+        plop("hallo", #fff, 42, true);
+//      ^error{The signal or function expects 3 arguments, but 4 are provided}
+        plop(42, 42, 42);
+//               ^error{Cannot convert float to color}
+        hello(45, fff)
+//      ^error{The expression is not a function}
+//                ^^error{Unknown unqualified identifier 'fff'}
+
     }
 
     x: 12px;

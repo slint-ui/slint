@@ -112,7 +112,7 @@ fn generate_component(
                     quote!(
                         #[allow(dead_code)]
                         pub fn #on_ident(self: ::core::pin::Pin<&Self>, f: impl Fn() + 'static) {
-                            Self::FIELD_OFFSETS.#prop_ident.apply_pin(self).set_handler(move |()|f())
+                            Self::FIELD_OFFSETS.#prop_ident.apply_pin(self).set_handler(move |_: &()|f())
                         }
                     )
                     .into(),
@@ -704,11 +704,9 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
         Expression::BuiltinFunctionReference(funcref) => match funcref {
             BuiltinFunction::GetWindowScaleFactor => {
                 let window_ref = window_ref_expression(component);
-                quote!(#window_ref.scale_factor())
+                quote!(#window_ref.scale_factor)
             }
-            BuiltinFunction::Debug => {
-                quote!(println!("FIXME: the debug statement in rust should print the argument");)
-            }
+            BuiltinFunction::Debug => quote!((|x| println!("{:?}", x))),
         },
         Expression::RepeaterIndexReference { element } => {
             let access = access_member(
@@ -750,22 +748,20 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
             let map = sub.iter().map(|e| compile_expression(e, &component));
             quote!({ #(#map);* })
         }
-        Expression::SignalReference(NamedReference { element, name, .. }) => {
-            let access = access_member(
-                &element.upgrade().unwrap(),
-                name.as_str(),
-                component,
-                quote!(_self),
-                false,
-            );
-            quote!(#access.emit(&()))
-        }
-        Expression::FunctionCall { function } => {
-            if matches!(function.ty(), Type::Signal{..} | Type::Function{..}) {
-                compile_expression(function, &component)
+        Expression::SignalReference(NamedReference { element, name, .. }) => access_member(
+            &element.upgrade().unwrap(),
+            name.as_str(),
+            component,
+            quote!(_self),
+            false,
+        ),
+        Expression::FunctionCall { function, arguments } => {
+            let f = compile_expression(function, &component);
+            let a = arguments.iter().map(|a| compile_expression(a, &component));
+            if matches!(function.ty(), Type::Signal{..}) {
+                quote! { #f.emit(&(#((#a).clone(),)*).into())}
             } else {
-                let error = format!("the function {:?} is not a signal", e);
-                quote!(compile_error! {#error})
+                quote! { #f(#(#a.clone()),*)}
             }
         }
         Expression::SelfAssignment { lhs, rhs, op } => match &**lhs {

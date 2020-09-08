@@ -253,13 +253,7 @@ impl Expression {
                 })
             })
             .or_else(|| {
-                node.FunctionCallExpression().map(|n| Expression::FunctionCall {
-                    function: Box::new(
-                        n.child_node(SyntaxKind::Expression)
-                            .map(|n| Self::from_expression_node(n.into(), ctx))
-                            .unwrap_or(Expression::Invalid),
-                    ),
-                })
+                node.FunctionCallExpression().map(|n| Self::from_function_call_node(n, ctx))
             })
             .or_else(|| node.SelfAssignment().map(|n| Self::from_self_assignement_node(n, ctx)))
             .or_else(|| node.BinaryExpression().map(|n| Self::from_binary_expression_node(n, ctx)))
@@ -468,6 +462,44 @@ impl Expression {
         ctx.diag.push_error(format!("Unknown unqualified identifier '{}'", first_str), &node);
 
         Self::Invalid
+    }
+
+    fn from_function_call_node(
+        node: syntax_nodes::FunctionCallExpression,
+        ctx: &mut LookupCtx,
+    ) -> Expression {
+        let mut sub_expr =
+            node.Expression().map(|n| (Self::from_expression_node(n.clone(), ctx), n));
+        let function = Box::new(sub_expr.next().map_or(Expression::Invalid, |e| e.0));
+        let arguments = sub_expr.collect::<Vec<_>>();
+
+        let arguments = match function.ty() {
+            Type::Function { args, .. } | Type::Signal { args } => {
+                if arguments.len() != args.len() {
+                    ctx.diag.push_error(
+                        format!(
+                            "The signal or function expects {} arguments, but {} are provided",
+                            args.len(),
+                            arguments.len()
+                        ),
+                        &node,
+                    );
+                    arguments.into_iter().map(|x| x.0).collect()
+                } else {
+                    arguments
+                        .into_iter()
+                        .zip(args.iter())
+                        .map(|((e, node), ty)| e.maybe_convert_to(ty.clone(), &node, &mut ctx.diag))
+                        .collect()
+                }
+            }
+            _ => {
+                ctx.diag.push_error("The expression is not a function".into(), &node);
+                arguments.into_iter().map(|x| x.0).collect()
+            }
+        };
+
+        Expression::FunctionCall { function, arguments }
     }
 
     fn from_self_assignement_node(
