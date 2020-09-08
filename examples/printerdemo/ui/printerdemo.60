@@ -253,18 +253,11 @@ MainWindow := Window {
         height: root.width / 20 + 10lx;
     }
 
-    Image {
-        source: img!"images/metallic_toad_background.png";
-        y: panel.y + panel.height;
-        width: root.width;
-        height: root.height - self.y;
-    }
-
     for page_info[idx] in [
-        { color: #b85a5b, text: "Copy", img_small: img!"images/replicate.png" },
-        { color: #417590, text: "Fax", img_small: img!"images/laptop.png" },
-        { color: #96af54, text: "Print", img_small: img!"images/printer.png" },
-        { color: #496465, text: "Settings", img_small: img!"images/list.png" },
+        { color: #129c08, text: "Copy", img_small: img!"images/replicate.png" },
+        { color: #009f6f, text: "Fax", img_small: img!"images/laptop.png" },
+        { color: #009ca9, text: "Print", img_small: img!"images/printer.png" },
+        { color: #0093bf, text: "Settings", img_small: img!"images/list.png" },
     ] : Rectangle {
         width: root.width / 5;
         height: root.height / 3;

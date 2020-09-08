@@ -25,7 +25,7 @@ App := Window {
             GroupBox {
                 title: "Button";
                 gallery_button := Button {
-                    text: gallery_button.pressed ? "Button (pressed)" : "Button (not pressed)";
+                    text: gallery_button.pressed ? "(pressed)" : "(not pressed)";
                 }
             }
             Rectangle {}
@@ -34,8 +34,8 @@ App := Window {
         Row {
             GroupBox {
                 title: "CheckBox";
-                CheckBox {
-                    text: "A CheckBox";
+                checkbox := CheckBox {
+                    text: checkbox.checked ? "(checked)" : "(unchecked)";
                     checked: true;
                 }
             }
@@ -45,6 +45,7 @@ App := Window {
             GroupBox {
                 title: "SpinBox";
                 SpinBox {
+                    value: 42;
                 }
             }
         }
@@ -52,6 +53,7 @@ App := Window {
             GroupBox {
                 title: "Slider";
                 Slider {
+                    value: 42;
                 }
             }
         }
