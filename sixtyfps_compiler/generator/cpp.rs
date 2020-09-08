@@ -1019,7 +1019,9 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
                     format!("std::make_shared<sixtyfps::IntModel>({})", f)
                 }
                 (Type::Array(_), Type::Model) => f,
-                (Type::Float32, Type::Color) => format!("sixtyfps::Color({})", f),
+                (Type::Float32, Type::Color) => {
+                    format!("sixtyfps::Color::from_argb_encoded({})", f)
+                }
                 _ => f,
             }
         }

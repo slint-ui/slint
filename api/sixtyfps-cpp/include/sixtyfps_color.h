@@ -20,12 +20,20 @@ class Color
 {
 public:
     Color() { inner.red = inner.green = inner.blue = inner.alpha = 0; }
-    explicit Color(uint32_t argb_encoded)
+    static Color from_argb_encoded(uint32_t argb_encoded)
     {
-        inner.red = (argb_encoded >> 16) & 0xff;
-        inner.green = (argb_encoded >> 8) & 0xff;
-        inner.blue = argb_encoded & 0xff;
-        inner.alpha = (argb_encoded >> 24) & 0xff;
+        Color col;
+        col.inner.red = (argb_encoded >> 16) & 0xff;
+        col.inner.green = (argb_encoded >> 8) & 0xff;
+        col.inner.blue = argb_encoded & 0xff;
+        col.inner.alpha = (argb_encoded >> 24) & 0xff;
+        return col;
+    }
+
+    uint32_t as_argb_encoded() const
+    {
+        return (uint32_t(inner.red) << 16) | (uint32_t(inner.green) << 8) | uint32_t(inner.blue)
+                | (uint32_t(inner.alpha) << 24);
     }
 
     friend bool operator==(const Color &lhs, const Color &rhs)
