@@ -95,13 +95,6 @@ impl Color {
             | (self.blue as u32)
             | ((self.alpha as u32) << 24)
     }
-
-    /// A constant for the black color
-    pub const BLACK: Color = Color::from_rgb(0, 0, 0);
-    /// A constant for the white color
-    pub const WHITE: Color = Color::from_rgb(255, 255, 255);
-    /// A constant for the transparent color
-    pub const TRANSPARENT: Color = Color::from_rgba(0, 0, 0, 0);
 }
 
 impl InterpolatedPropertyValue for Color {
@@ -578,7 +571,8 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
         let window = map_state.as_mapped();
         let mut backend = window.backend.borrow_mut();
         let size = backend.window().inner_size();
-        let mut frame = backend.new_frame(size.width, size.height, &Color::WHITE);
+        let mut frame =
+            backend.new_frame(size.width, size.height, &Color::from_rgba(255, 255, 255, 255));
         crate::item_rendering::render_component_items(
             component,
             &mut frame,
