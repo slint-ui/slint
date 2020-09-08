@@ -730,6 +730,10 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
             );
             quote!(#access.get())
         }
+        Expression::FunctionParameterReference { index, .. } => {
+            let i = proc_macro2::Literal::usize_unsuffixed(*index);
+            quote! {args.#i}
+        }
         Expression::ObjectAccess { base, name } => {
             let index = if let Type::Object(ty) = base.ty() {
                 ty.keys()

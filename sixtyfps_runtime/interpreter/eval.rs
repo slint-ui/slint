@@ -164,6 +164,7 @@ declare_value_enum_conversion!(corelib::items::TextVerticalAlignment, TextVertic
 #[derive(Default)]
 pub struct EvalLocalContext {
     local_variables: HashMap<String, Value>,
+    function_parameters: Vec<Value>,
 }
 
 /// Evaluate an expression and return a Value as the result of this expression
@@ -195,6 +196,9 @@ pub fn eval_expression(
             &element.upgrade().unwrap().borrow().base_type.as_component().root_element,
             "model_data",
         ),
+        Expression::FunctionParameterReference { index, .. } => {
+            local_context.function_parameters[*index].clone()
+        }
         Expression::ObjectAccess { base, name } => {
             if let Value::Object(mut o) = eval_expression(base, component, local_context) {
                 o.remove(name).unwrap_or(Value::Void)

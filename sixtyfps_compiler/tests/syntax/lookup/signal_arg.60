@@ -1,0 +1,24 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+Xxx := Rectangle {
+    signal plop(string, color, int);
+    property <color> glop_col;
+    property <string> blah: "yo";
+    plop(x, blah, hello) => {
+        color = blah;
+        x = 42 + hello;
+//      ^error{Assignement need to be done on a property}
+        width = x;
+//             ^error{Cannot convert string to length}
+    }
+
+    x: 12px;
+}

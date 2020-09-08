@@ -343,6 +343,15 @@ impl Expression {
 
         let first_str = first.text().as_str();
 
+        if let Some(index) = ctx.arguments.iter().position(|x| x == first_str) {
+            let ty = match &ctx.property_type {
+                Type::Signal { args } | Type::Function { args, .. } => args[index].clone(),
+                _ => panic!("There should only be argument within functions or signal"),
+            };
+            let e = Expression::FunctionParameterReference { index, ty };
+            return maybe_lookup_object(e, it, ctx);
+        }
+
         let elem_opt = match first_str {
             "self" => ctx.component_scope.last().cloned(),
             "parent" => ctx.component_scope.last().and_then(find_parent_element),

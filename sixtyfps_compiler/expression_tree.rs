@@ -195,6 +195,12 @@ pub enum Expression {
         element: Weak<RefCell<Element>>,
     },
 
+    /// Reference the parameter at the given index of the current function.
+    FunctionParameterReference {
+        index: usize,
+        ty: Type,
+    },
+
     /// Should be directly within a CodeBlock expression, and store the value of the expression in a local variable
     StoreLocalVariable {
         name: String,
@@ -319,6 +325,7 @@ impl Expression {
                     Type::Invalid
                 }
             }
+            Expression::FunctionParameterReference { ty, .. } => ty.clone(),
             Expression::ObjectAccess { base, name } => {
                 if let Type::Object(o) = base.ty() {
                     o.get(name.as_str()).unwrap_or(&Type::Invalid).clone()
@@ -383,6 +390,7 @@ impl Expression {
             Expression::BoolLiteral(_) => {}
             Expression::SignalReference { .. } => {}
             Expression::PropertyReference { .. } => {}
+            Expression::FunctionParameterReference { .. } => {}
             Expression::BuiltinFunctionReference { .. } => {}
             Expression::ObjectAccess { base, .. } => visitor(&**base),
             Expression::RepeaterIndexReference { .. } => {}
@@ -442,6 +450,7 @@ impl Expression {
             Expression::BoolLiteral(_) => {}
             Expression::SignalReference { .. } => {}
             Expression::PropertyReference { .. } => {}
+            Expression::FunctionParameterReference { .. } => {}
             Expression::BuiltinFunctionReference { .. } => {}
             Expression::ObjectAccess { base, .. } => visitor(&mut **base),
             Expression::RepeaterIndexReference { .. } => {}
@@ -504,6 +513,7 @@ impl Expression {
             Expression::BuiltinFunctionReference { .. } => false,
             Expression::RepeaterIndexReference { .. } => false,
             Expression::RepeaterModelReference { .. } => false,
+            Expression::FunctionParameterReference { .. } => false,
             Expression::ObjectAccess { base, .. } => base.is_constant(),
             Expression::Cast { from, to } => {
                 from.is_constant() && !matches!(to, Type::Length | Type::LogicalLength)

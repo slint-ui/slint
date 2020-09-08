@@ -971,6 +971,7 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
             );
             format!(r#"{}model_data.get()"#, access)
         }
+        Expression::FunctionParameterReference { index, .. } => format!("std::get<{}>(args)", index),
         Expression::StoreLocalVariable { name, value } => {
             format!("auto {} = {};", name, compile_expression(value, component))
         }
