@@ -42,6 +42,29 @@ pub type Point = euclid::default::Point2D<f32>;
 /// 2D Size
 pub type Size = euclid::default::Size2D<f32>;
 
+/// ARGBColor stores the red, green, blue and alpha components of a color
+/// with the precision of the generic parameter T. For example if T is f32,
+/// the values are normalized between 0 and 1. If T is u8, they values range
+/// is 0 to 255.
+#[derive(Copy, Clone, PartialEq, Debug, Default)]
+pub struct ARGBColor<T> {
+    /// The alpha component.
+    pub alpha: T,
+    /// The red channel.
+    pub red: T,
+    /// The green channel.
+    pub green: T,
+    /// The blue channel.
+    pub blue: T,
+}
+
+impl<T> ARGBColor<T> {
+    /// Creates a new ARGBColor from the individual components in one go.
+    pub fn from_argb(a: T, r: T, g: T, b: T) -> Self {
+        Self { alpha: a, red: r, green: g, blue: b }
+    }
+}
+
 /// Color represents a color in the SixtyFPS run-time, represented using 8-bit channels for
 /// red, green, blue and the alpha (opacity).
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
@@ -53,39 +76,45 @@ pub struct Color {
     alpha: u8,
 }
 
+impl From<ARGBColor<u8>> for Color {
+    fn from(col: ARGBColor<u8>) -> Self {
+        Self { red: col.red, green: col.green, blue: col.blue, alpha: col.alpha }
+    }
+}
+
+impl From<Color> for ARGBColor<u8> {
+    fn from(col: Color) -> Self {
+        ARGBColor { red: col.red, green: col.green, blue: col.blue, alpha: col.alpha }
+    }
+}
+
+impl From<ARGBColor<u8>> for ARGBColor<f32> {
+    fn from(col: ARGBColor<u8>) -> Self {
+        Self {
+            red: (col.red as f32) / 255.0,
+            green: (col.green as f32) / 255.0,
+            blue: (col.blue as f32) / 255.0,
+            alpha: (col.alpha as f32) / 255.0,
+        }
+    }
+}
+
+impl From<Color> for ARGBColor<f32> {
+    fn from(col: Color) -> Self {
+        let u8col: ARGBColor<u8> = col.into();
+        u8col.into()
+    }
+}
+
 impl Color {
     /// Construct a color from an integer encoded as `0xAARRGGBB`
     pub const fn from_argb_encoded(encoded: u32) -> Color {
-        Color {
+        Self {
             red: (encoded >> 16) as u8,
             green: (encoded >> 8) as u8,
             blue: encoded as u8,
             alpha: (encoded >> 24) as u8,
         }
-    }
-
-    /// Construct a color from its RGBA components as u8
-    pub const fn from_rgba(red: u8, green: u8, blue: u8, alpha: u8) -> Color {
-        Color { red, green, blue, alpha }
-    }
-    /// Construct a color from its RGB components as u8
-    pub const fn from_rgb(red: u8, green: u8, blue: u8) -> Color {
-        Color::from_rgba(red, green, blue, 0xff)
-    }
-
-    /// Returns `(red, green, blue, alpha)` encoded as f32
-    pub fn as_rgba_f32(&self) -> (f32, f32, f32, f32) {
-        (
-            (self.red as f32) / 255.0,
-            (self.green as f32) / 255.0,
-            (self.blue as f32) / 255.0,
-            (self.alpha as f32) / 255.0,
-        )
-    }
-
-    /// Returns `(red, green, blue, alpha)` encoded as u8
-    pub fn as_rgba_u8(&self) -> (u8, u8, u8, u8) {
-        (self.red, self.green, self.blue, self.alpha)
     }
 
     /// Returns `(alpha, red, green, blue)` encoded as u32
@@ -571,8 +600,11 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
         let window = map_state.as_mapped();
         let mut backend = window.backend.borrow_mut();
         let size = backend.window().inner_size();
-        let mut frame =
-            backend.new_frame(size.width, size.height, &Color::from_rgba(255, 255, 255, 255));
+        let mut frame = backend.new_frame(
+            size.width,
+            size.height,
+            &ARGBColor { red: 255 as u8, green: 255, blue: 255, alpha: 255 }.into(),
+        );
         crate::item_rendering::render_component_items(
             component,
             &mut frame,

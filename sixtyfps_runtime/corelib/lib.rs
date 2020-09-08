@@ -57,6 +57,9 @@ pub use signals::Signal;
 pub use graphics::Color;
 
 #[doc(inline)]
+pub use graphics::ARGBColor;
+
+#[doc(inline)]
 pub use graphics::PathData;
 
 pub mod slice;

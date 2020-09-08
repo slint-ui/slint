@@ -22,10 +22,10 @@ pub fn main() {
     let main_window = MainWindow::new();
     // FIXME: better represtation of the models
     main_window.set_ink_levels(sixtyfps::re_exports::SharedArray::from(&[
-        (sixtyfps::Color::from_rgb(0, 255, 255), 0.40),
-        (sixtyfps::Color::from_rgb(255, 0, 255), 0.20),
-        (sixtyfps::Color::from_rgb(255, 255, 0), 0.50),
-        (sixtyfps::Color::from_rgb(0, 0, 0), 0.80),
+        (sixtyfps::ARGBColor::from_argb(255, 0, 255, 255).into(), 0.40),
+        (sixtyfps::ARGBColor::from_argb(255, 255, 0, 255).into(), 0.20),
+        (sixtyfps::ARGBColor::from_argb(255, 255, 255, 0).into(), 0.50),
+        (sixtyfps::ARGBColor::from_argb(255, 0, 0, 0).into(), 0.80),
     ]));
 
     main_window.run();

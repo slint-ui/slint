@@ -112,7 +112,7 @@ pub use sixtyfps_rs_macro::sixtyfps;
 pub(crate) mod repeater;
 
 pub use sixtyfps_corelib::string::SharedString;
-pub use sixtyfps_corelib::Color;
+pub use sixtyfps_corelib::{ARGBColor, Color};
 
 /// internal re_exports used by the macro generated
 #[doc(hidden)]

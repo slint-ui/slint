@@ -17,7 +17,7 @@ use lyon::tessellation::{
 use sixtyfps_corelib::eventloop::ComponentWindow;
 use sixtyfps_corelib::{
     graphics::{
-        Color, Frame as GraphicsFrame, GraphicsBackend, GraphicsWindow,
+        ARGBColor, Color, Frame as GraphicsFrame, GraphicsBackend, GraphicsWindow,
         HighLevelRenderingPrimitive, Point, Rect, RenderingPrimitivesBuilder, RenderingVariable,
         Resource, Size,
     },
@@ -271,9 +271,9 @@ impl GraphicsBackend for GLRenderer {
             self.context.blend_func(glow::ONE, glow::ONE_MINUS_SRC_ALPHA);
         }
 
-        let (r, g, b, a) = clear_color.as_rgba_f32();
+        let col: ARGBColor<f32> = (*clear_color).into();
         unsafe {
-            self.context.clear_color(r, g, b, a);
+            self.context.clear_color(col.red, col.green, col.blue, col.alpha);
             self.context.clear(glow::COLOR_BUFFER_BIT);
         };
 
@@ -687,12 +687,12 @@ impl GraphicsFrame for GLFrame {
 
         primitive.gl_primitives.iter().for_each(|gl_primitive| match gl_primitive {
             GLRenderingPrimitive::FillPath { vertices, indices } => {
-                let (r, g, b, a) = rendering_var.next().unwrap().as_color().as_rgba_f32();
+                let col: ARGBColor<f32> = (*rendering_var.next().unwrap().as_color()).into();
 
                 self.path_shader.bind(
                     &self.context,
                     &to_gl_matrix(&matrix),
-                    &[r, g, b, a],
+                    &[col.red, col.green, col.blue, col.alpha],
                     vertices,
                     indices,
                 );
@@ -746,13 +746,13 @@ impl GraphicsFrame for GLFrame {
                 self.image_shader.unbind(&self.context);
             }
             GLRenderingPrimitive::GlyphRuns { glyph_runs } => {
-                let (r, g, b, a) = rendering_var.next().unwrap().as_color().as_rgba_f32();
+                let col: ARGBColor<f32> = (*rendering_var.next().unwrap().as_color()).into();
 
                 for GlyphRun { vertices, texture_vertices, texture, vertex_count } in glyph_runs {
                     self.glyph_shader.bind(
                         &self.context,
                         &to_gl_matrix(&matrix),
-                        &[r, g, b, a],
+                        &[col.red, col.green, col.blue, col.alpha],
                         texture,
                         vertices,
                         texture_vertices,
