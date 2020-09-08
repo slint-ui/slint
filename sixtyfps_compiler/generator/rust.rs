@@ -102,7 +102,7 @@ fn generate_component(
                     quote!(
                         #[allow(dead_code)]
                         pub fn #emitter_ident(self: ::core::pin::Pin<&Self>) {
-                            Self::FIELD_OFFSETS.#prop_ident.apply_pin(self).emit(())
+                            Self::FIELD_OFFSETS.#prop_ident.apply_pin(self).emit(&())
                         }
                     )
                     .into(),
@@ -758,7 +758,7 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                 quote!(_self),
                 false,
             );
-            quote!(#access.emit(()))
+            quote!(#access.emit(&()))
         }
         Expression::FunctionCall { function } => {
             if matches!(function.ty(), Type::Signal{..} | Type::Function{..}) {

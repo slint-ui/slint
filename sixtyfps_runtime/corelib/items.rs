@@ -443,7 +443,7 @@ impl Item for TouchArea {
         Self::FIELD_OFFSETS.mouse_y.apply_pin(self).set(event.pos.y);
 
         let result = if matches!(event.what, MouseEventType::MouseReleased) {
-            Self::FIELD_OFFSETS.clicked.apply_pin(self).emit(());
+            Self::FIELD_OFFSETS.clicked.apply_pin(self).emit(&());
             InputEventResult::EventAccepted
         } else {
             InputEventResult::GrabMouse

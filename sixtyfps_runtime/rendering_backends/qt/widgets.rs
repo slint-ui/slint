@@ -147,7 +147,7 @@ impl Item for NativeButton {
             }
         });
         if matches!(event.what, MouseEventType::MouseReleased) {
-            Self::FIELD_OFFSETS.clicked.apply_pin(self).emit(());
+            Self::FIELD_OFFSETS.clicked.apply_pin(self).emit(&());
             InputEventResult::EventAccepted
         } else {
             InputEventResult::GrabMouse
@@ -238,7 +238,7 @@ impl Item for NativeCheckBox {
                 .checked
                 .apply_pin(self)
                 .set(!Self::FIELD_OFFSETS.checked.apply_pin(self).get());
-            Self::FIELD_OFFSETS.toggled.apply_pin(self).emit(())
+            Self::FIELD_OFFSETS.toggled.apply_pin(self).emit(&())
         }
         InputEventResult::EventAccepted
     }

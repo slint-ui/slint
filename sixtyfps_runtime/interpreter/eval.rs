@@ -246,7 +246,7 @@ pub fn eval_expression(
                             .map(|o| o.apply(&*enclosing_component.instance))
                     })
                     .unwrap_or_else(|| panic!("unkown signal {}", name));
-                signal.emit(());
+                signal.emit(&());
                 Value::Void
             } else if let Expression::BuiltinFunctionReference(funcref) = &**function {
                 match funcref {

@@ -26,12 +26,12 @@ use core::cell::Cell;
 #[repr(C)]
 pub struct Signal<Arg> {
     /// FIXME: Box<dyn> is a fat object and we probaly want to put an erased type in there
-    handler: Cell<Option<Box<dyn Fn(Arg)>>>,
+    handler: Cell<Option<Box<dyn Fn(&Arg)>>>,
 }
 
 impl<Arg> Signal<Arg> {
     /// Emit the signal with the given argument.
-    pub fn emit(&self, a: Arg) {
+    pub fn emit(&self, a: &Arg) {
         if let Some(h) = self.handler.take() {
             h(a);
             assert!(self.handler.take().is_none(), "Signal Handler set while emitted");
@@ -42,7 +42,7 @@ impl<Arg> Signal<Arg> {
     /// Set an handler to be called when the signal is emited
     ///
     /// There can only be one single handler per signal.
-    pub fn set_handler(&self, f: impl Fn(Arg) + 'static) {
+    pub fn set_handler(&self, f: impl Fn(&Arg) + 'static) {
         self.handler.set(Some(Box::new(f)));
     }
 }
@@ -58,7 +58,7 @@ fn signal_simple_test() {
     let c = Rc::new(Component::default());
     let weak = Rc::downgrade(&c);
     c.clicked.set_handler(move |()| weak.upgrade().unwrap().pressed.set(true));
-    c.clicked.emit(());
+    c.clicked.emit(&());
     assert_eq!(c.pressed.get(), true);
 }
 
@@ -88,7 +88,7 @@ pub(crate) mod ffi {
     #[no_mangle]
     pub unsafe extern "C" fn sixtyfps_signal_emit(sig: *const SignalOpaque) {
         let sig = &*(sig as *const Signal<()>);
-        sig.emit(());
+        sig.emit(&());
     }
 
     /// Set signal handler.
@@ -117,7 +117,7 @@ pub(crate) mod ffi {
         }
         let ud = UserData { user_data, drop_user_data };
 
-        let real_binding = move |()| {
+        let real_binding = move |_: &()| {
             binding(ud.user_data);
         };
         sig.set_handler(real_binding);

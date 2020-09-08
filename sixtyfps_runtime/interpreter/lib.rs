@@ -126,7 +126,7 @@ impl<'id> dynamic_component::ComponentDescription<'id> {
         &self,
         component: Pin<ComponentRef>,
         name: &str,
-        handler: Box<dyn Fn(())>,
+        handler: Box<dyn Fn(&())>,
     ) -> Result<(), ()> {
         if !core::ptr::eq((&self.ct) as *const _, component.get_vtable() as *const _) {
             return Err(());
@@ -147,7 +147,7 @@ impl<'id> dynamic_component::ComponentDescription<'id> {
         }
         let x = self.custom_signals.get(name).ok_or(())?;
         let sig = x.apply(unsafe { &*(component.as_ptr() as *const dynamic_type::Instance) });
-        sig.emit(());
+        sig.emit(&());
         Ok(())
     }
 }
