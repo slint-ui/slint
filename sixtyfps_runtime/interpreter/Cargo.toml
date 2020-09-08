@@ -8,7 +8,6 @@ description = "Interpreter library for SixtyFPS"
 repository = "https://github.com/sixtyfpsui/sixtyfps"
 homepage = "https://sixtyfps.io"
 
-
 [lib]
 path = "lib.rs"
 

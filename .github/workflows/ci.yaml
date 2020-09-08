@@ -110,9 +110,6 @@ jobs:
           rm -rf target/*/*/*sixtyfps*
           rm -rf target/*/*sixtyfps*
           rm -rf target/*/*/test* target/*/*/gallery* target/*/*/printerdemo* target/*/*/viewer*
-          rm -rf target/*/*.so
-          rm -rf target/*/*.dylib
-          rm -rf target/*/*.dll
           rm -rf target/*/viewer target/*/printerdemo target/*/gallery target/*/*test*
           du -hs target
 
