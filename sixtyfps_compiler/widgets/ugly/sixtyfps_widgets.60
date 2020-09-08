@@ -69,9 +69,10 @@ export CheckBox := Rectangle {
             height: bubble.width;
             border_radius: bubble.height / 2;
             y: 4lx;
-            x: root.checked ? indicator.width - bubble.width - 4lx : 4lx;
+            x: 4lx + a * (indicator.width - bubble.width - 8lx);
+            property <float> a: root.checked ? 1 : 0;
             color: root.checked ? #556884 : lightgray;
-            animate x, color { duration: 200ms; easing: ease;}
+            animate a, color { duration: 200ms; easing: ease;}
         }
     }
 
