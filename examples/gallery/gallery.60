@@ -21,6 +21,24 @@ App := Window {
     GridLayout {
         padding: 20lx;
         spacing: 20lx;
+
+        Row {
+            GridLayout {
+                Row {
+                    Text {
+                        text: "Below are some of the standard widgets that application";
+                        color: black;
+                    }
+                }
+                Row {
+                    Text {
+                        text: "developers can easily re-use.";
+                        color: black;
+                    }
+                }
+            }
+        }
+
         Row {
             GroupBox {
                 title: "Button";
@@ -45,9 +63,11 @@ App := Window {
             GroupBox {
                 title: "SpinBox";
                 SpinBox {
+                    maximum_width: 120lx;
                     value: 42;
                 }
             }
+            Rectangle {}
         }
         Row {
             GroupBox {
