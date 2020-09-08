@@ -16,6 +16,29 @@ LICENSE END */
 
 namespace sixtyfps {
 
+class Color;
+
+/// ARGBColor stores the red, green, blue and alpha components of a color
+/// with the precision of the template parameter T. For example if T is float,
+/// the values are normalized between 0 and 1. If T is uint8_t, they values range
+/// is 0 to 255.
+template<typename T>
+struct ARGBColor
+{
+    /// The alpha component.
+    T alpha;
+    /// The red component.
+    T red;
+    /// The green component.
+    T green;
+    /// The blue component.
+    T blue;
+
+    /// Creates a new ARGBColor instance from a given color. This template function is
+    /// specialized and thus implemented for T == uint8_t and T == float.
+    static ARGBColor<T> from(const Color &col);
+};
+
 /// Color represents a color in the SixtyFPS run-time, represented using 8-bit channels for
 /// red, green, blue and the alpha (opacity).
 class Color
@@ -34,6 +57,11 @@ public:
         col.inner.alpha = (argb_encoded >> 24) & 0xff;
         return col;
     }
+
+    /// Constructs a new Color from the ARGBColor \a col with the precision T. This template
+    /// function is specialized and thus implemented for T == uint8_t and T == float.
+    template<typename T>
+    static Color from(const ARGBColor<T> &col);
 
     /// Returns `(alpha, red, green, blue)` encoded as uint32_t.
     uint32_t as_argb_encoded() const
@@ -69,6 +97,39 @@ public:
 private:
     cbindgen_private::types::Color inner;
 };
+
+template<>
+Color Color::from<uint8_t>(const ARGBColor<uint8_t> &c)
+{
+    Color col;
+    col.inner.red = c.red;
+    col.inner.green = c.green;
+    col.inner.blue = c.blue;
+    col.inner.alpha = c.alpha;
+    return col;
+}
+
+template<>
+ARGBColor<uint8_t> ARGBColor<uint8_t>::from(const Color &color)
+{
+    ARGBColor<uint8_t> col;
+    col.red = color.red();
+    col.green = color.green();
+    col.blue = color.blue();
+    col.alpha = color.alpha();
+    return col;
+}
+
+template<>
+ARGBColor<float> ARGBColor<float>::from(const Color &color)
+{
+    ARGBColor<float> col;
+    col.red = float(color.red()) / 255.;
+    col.green = float(color.green()) / 255.;
+    col.blue = float(color.blue()) / 255.;
+    col.alpha = float(color.alpha()) / 255.;
+    return col;
+}
 
 template<>
 void Property<Color>::set_animated_value(const Color &new_value,
