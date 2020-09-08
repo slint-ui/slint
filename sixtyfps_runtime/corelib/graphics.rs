@@ -124,6 +124,26 @@ impl Color {
             | (self.blue as u32)
             | ((self.alpha as u32) << 24)
     }
+
+    /// Returns the red channel of the color as u8 in the range 0..255.
+    pub fn red(self) -> u8 {
+        self.red
+    }
+
+    /// Returns the green channel of the color as u8 in the range 0..255.
+    pub fn green(self) -> u8 {
+        self.green
+    }
+
+    /// Returns the blue channel of the color as u8 in the range 0..255.
+    pub fn blue(self) -> u8 {
+        self.blue
+    }
+
+    /// Returns the alpha channel of the color as u8 in the range 0..255.
+    pub fn alpha(self) -> u8 {
+        self.alpha
+    }
 }
 
 impl InterpolatedPropertyValue for Color {
