@@ -106,7 +106,7 @@ impl Item for Rectangle {
     }
 
     fn rendering_variables(self: Pin<&Self>) -> SharedArray<RenderingVariable> {
-        SharedArray::from(&[RenderingVariable::Color(
+        SharedArray::from([RenderingVariable::Color(
             Self::FIELD_OFFSETS.color.apply_pin(self).get(),
         )])
     }
@@ -174,7 +174,7 @@ impl Item for BorderRectangle {
     }
 
     fn rendering_variables(self: Pin<&Self>) -> SharedArray<RenderingVariable> {
-        SharedArray::from(&[
+        SharedArray::from([
             RenderingVariable::Color(Self::FIELD_OFFSETS.color.apply_pin(self).get()),
             RenderingVariable::Color(Self::FIELD_OFFSETS.border_color.apply_pin(self).get()),
         ])
@@ -231,7 +231,7 @@ impl Item for Image {
     }
 
     fn rendering_variables(self: Pin<&Self>) -> SharedArray<RenderingVariable> {
-        let mut vars = Vec::new();
+        let mut vars = SharedArray::default();
 
         let width = Self::FIELD_OFFSETS.width.apply_pin(self).get();
         let height = Self::FIELD_OFFSETS.height.apply_pin(self).get();
@@ -243,7 +243,7 @@ impl Item for Image {
             vars.push(RenderingVariable::ScaledHeight(height));
         }
 
-        SharedArray::from_iter(vars.into_iter())
+        vars
     }
 
     fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
@@ -353,7 +353,7 @@ impl Item for Text {
             TextVerticalAlignment::align_bottom => rect.height() - layout_info.min_height,
         };
 
-        SharedArray::from(&[
+        SharedArray::from([
             RenderingVariable::Translate(translate_x, translate_y),
             RenderingVariable::Color(Self::FIELD_OFFSETS.color.apply_pin(self).get()),
         ])
@@ -431,7 +431,7 @@ impl Item for TouchArea {
     }
 
     fn rendering_variables(self: Pin<&Self>) -> SharedArray<RenderingVariable> {
-        SharedArray::from(&[])
+        SharedArray::default()
     }
 
     fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
@@ -516,7 +516,7 @@ impl Item for Path {
     }
 
     fn rendering_variables(self: Pin<&Self>) -> SharedArray<RenderingVariable> {
-        SharedArray::from(&[
+        SharedArray::from([
             RenderingVariable::Color(Self::FIELD_OFFSETS.fill_color.apply_pin(self).get()),
             RenderingVariable::Color(Self::FIELD_OFFSETS.stroke_color.apply_pin(self).get()),
         ])
@@ -572,7 +572,7 @@ impl Item for Flickable {
     }
 
     fn rendering_variables(self: Pin<&Self>) -> SharedArray<RenderingVariable> {
-        SharedArray::from(&[])
+        SharedArray::default()
     }
 
     fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
@@ -670,7 +670,7 @@ impl Item for Window {
     }
 
     fn rendering_variables(self: Pin<&Self>) -> SharedArray<RenderingVariable> {
-        SharedArray::from(&[])
+        SharedArray::default()
     }
 
     fn layouting_info(self: Pin<&Self>) -> LayoutInfo {

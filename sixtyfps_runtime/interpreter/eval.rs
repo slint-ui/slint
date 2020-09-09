@@ -9,6 +9,7 @@
 LICENSE END */
 use crate::dynamic_component::InstanceRef;
 use core::convert::{TryFrom, TryInto};
+use core::iter::FromIterator;
 use core::pin::Pin;
 use sixtyfps_compilerlib::expression_tree::{
     BuiltinFunction, EasingCurve, Expression, ExpressionSpanned, NamedReference, Path as ExprPath,
@@ -20,7 +21,8 @@ use sixtyfps_corelib::{
     graphics::PathElement, items::ItemRef, items::PropertyAnimation, Color, PathData, Resource,
     SharedArray, SharedString, Signal,
 };
-use std::{collections::HashMap, rc::Rc};
+use std::collections::HashMap;
+use std::rc::Rc;
 
 pub trait ErasedPropertyInfo {
     fn get(&self, item: Pin<ItemRef>) -> Value;
@@ -520,7 +522,7 @@ fn convert_from_lyon_path<'a>(
         .collect::<Vec<_>>();
 
     PathData::Events(
-        SharedArray::from(&events),
+        SharedArray::from(events.as_slice()),
         SharedArray::from_iter(coordinates.into_iter().cloned()),
     )
 }

@@ -880,7 +880,7 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
             let rust_element_ty = rust_type(&element_ty, &Default::default()).unwrap();
             let val = values.iter().map(|e| compile_expression(e, component));
             // FIXME: we don't need to allocate a SharedArray in the model case.
-            quote!(sixtyfps::re_exports::SharedArray::<#rust_element_ty>::from(&[#(#val as _),*]))
+            quote!(sixtyfps::re_exports::SharedArray::<#rust_element_ty>::from_slice(&[#(#val as _),*]))
         }
         Expression::Object { ty, values } => {
             if let Type::Object(ty) = ty {
@@ -1290,8 +1290,8 @@ fn compile_path_events(events: &crate::expression_tree::PathEvents) -> TokenStre
         })
         .collect();
 
-    quote!(sixtyfps::re_exports::SharedArray::<sixtyfps::re_exports::PathEvent>::from(&[#(#converted_events),*]),
-           sixtyfps::re_exports::SharedArray::<sixtyfps::re_exports::Point>::from(&[#(#coordinates),*]))
+    quote!(sixtyfps::re_exports::SharedArray::<sixtyfps::re_exports::PathEvent>::from_slice(&[#(#converted_events),*]),
+           sixtyfps::re_exports::SharedArray::<sixtyfps::re_exports::Point>::from_slice(&[#(#coordinates),*]))
 }
 
 fn compile_path(path: &Path, component: &Rc<Component>) -> TokenStream {
@@ -1333,7 +1333,7 @@ fn compile_path(path: &Path, component: &Rc<Component>) -> TokenStream {
                 .collect();
 
             quote!(sixtyfps::re_exports::PathData::Elements(
-                sixtyfps::re_exports::SharedArray::<sixtyfps::re_exports::PathElement>::from(&[#(#converted_elements),*])
+                sixtyfps::re_exports::SharedArray::<sixtyfps::re_exports::PathElement>::from_slice(&[#(#converted_elements),*])
             ))
         }
         Path::Events(events) => {

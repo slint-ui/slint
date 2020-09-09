@@ -114,7 +114,7 @@ impl Item for NativeButton {
     }
 
     fn rendering_variables(self: Pin<&Self>) -> SharedArray<RenderingVariable> {
-        SharedArray::from(&[])
+        SharedArray::default()
     }
 
     fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
@@ -211,7 +211,7 @@ impl Item for NativeCheckBox {
     }
 
     fn rendering_variables(self: Pin<&Self>) -> SharedArray<RenderingVariable> {
-        SharedArray::from(&[])
+        SharedArray::default()
     }
 
     fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
@@ -332,7 +332,7 @@ impl Item for NativeSpinBox {
     }
 
     fn rendering_variables(self: Pin<&Self>) -> SharedArray<RenderingVariable> {
-        SharedArray::from(&[])
+        SharedArray::default()
     }
 
     fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
@@ -505,7 +505,7 @@ impl Item for NativeSlider {
     }
 
     fn rendering_variables(self: Pin<&Self>) -> SharedArray<RenderingVariable> {
-        SharedArray::from(&[])
+        SharedArray::default()
     }
 
     fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
@@ -658,7 +658,7 @@ impl Item for NativeGroupBox {
     }
 
     fn rendering_variables(self: Pin<&Self>) -> SharedArray<RenderingVariable> {
-        SharedArray::from(&[])
+        SharedArray::default()
     }
 
     fn layouting_info(self: Pin<&Self>) -> LayoutInfo {

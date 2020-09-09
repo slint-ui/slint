@@ -15,7 +15,7 @@ use core::mem::MaybeUninit;
 use core::ops::Deref;
 use core::ptr::NonNull;
 use core::sync::atomic;
-use std::alloc;
+use std::{alloc, iter::FromIterator};
 
 #[repr(C)]
 struct SharedArrayHeader {
@@ -61,6 +61,23 @@ fn alloc_with_capacity<T>(capacity: usize) -> NonNull<SharedArrayInner<T>> {
     NonNull::new(ptr).unwrap().cast()
 }
 
+/// Return a new capacity suitable for this vector
+/// Loosly based on alloc::raw_vec::RawVec::grow_amortized.
+fn capacity_for_grow(current_cap: usize, required_cap: usize, elem_size: usize) -> usize {
+    if current_cap >= elem_size {
+        return current_cap;
+    }
+    let cap = core::cmp::max(current_cap * 2, required_cap);
+    let min_non_zero_cap = if elem_size == 1 {
+        8
+    } else if elem_size <= 1024 {
+        4
+    } else {
+        1
+    };
+    core::cmp::max(min_non_zero_cap, cap)
+}
+
 #[repr(C)]
 /// SharedArray holds a reference-counted read-only copy of `[T]`.
 pub struct SharedArray<T> {
@@ -92,6 +109,11 @@ impl<T> Clone for SharedArray<T> {
 }
 
 impl<T> SharedArray<T> {
+    /// Create a new empty array with a pre-allocated capacity in number of items
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self { inner: alloc_with_capacity(capacity) }
+    }
+
     fn as_ptr(&self) -> *const T {
         unsafe { self.inner.as_ref().data.as_ptr() }
     }
@@ -106,29 +128,50 @@ impl<T> SharedArray<T> {
         unsafe { core::slice::from_raw_parts(self.as_ptr(), self.len()) }
     }
 
-    /// Constructs a new SharedArray from the given iterator.
-    pub fn from_iter(mut iter: impl Iterator<Item = T> + ExactSizeIterator) -> Self {
-        let capacity = iter.len();
-        let inner = alloc_with_capacity::<T>(capacity);
-        let mut result = SharedArray { inner };
-        let mut size = 0;
-        while let Some(x) = iter.next() {
-            assert_ne!(size, capacity);
-            unsafe {
-                core::ptr::write(result.inner.as_mut().data.as_mut_ptr().add(size), x);
-                size += 1;
-                result.inner.as_mut().header.size = size;
-            }
-        }
-        result
+    /// Returns the number of elements the vector can hold without reallocating, when not shared
+    fn capacity(&self) -> usize {
+        unsafe { self.inner.as_ref().header.capacity }
+    }
+}
+
+impl<T: Clone> SharedArray<T> {
+    /// Create a SharedArray from a slice
+    pub fn from_slice(slice: &[T]) -> SharedArray<T> {
+        Self::from(slice)
     }
 
-    /// Constructs a new SharedArray from the given slice.
-    pub fn from(slice: &[T]) -> Self
-    where
-        T: Clone,
-    {
-        SharedArray::from_iter(slice.iter().cloned())
+    /// Ensure that the reference count is 1 so the array can be changed.
+    /// If that's not tha case, the array will be cloned
+    fn detach(&mut self, new_capacity: usize) {
+        let is_shared =
+            unsafe { self.inner.as_ref().header.refcount.load(atomic::Ordering::Relaxed) } != 1;
+        if !is_shared && new_capacity >= self.capacity() {
+            return;
+        }
+        let mut new_array = SharedArray::with_capacity(new_capacity);
+        core::mem::swap(&mut self.inner, &mut new_array.inner);
+        let mut size = 0;
+        let mut iter = new_array.into_iter();
+        while let Some(x) = iter.next() {
+            assert_ne!(size, new_capacity);
+            unsafe {
+                core::ptr::write(self.inner.as_mut().data.as_mut_ptr().add(size), x);
+                size += 1;
+                self.inner.as_mut().header.size = size;
+            }
+        }
+    }
+
+    /// Add an elent to the array. If the array was shared, this will make a copy of the array
+    pub fn push(&mut self, value: T) {
+        self.detach(capacity_for_grow(self.capacity(), self.len() + 1, core::mem::size_of::<T>()));
+        unsafe {
+            core::ptr::write(
+                self.inner.as_mut().data.as_mut_ptr().add(self.inner.as_mut().header.size),
+                value,
+            );
+            self.inner.as_mut().header.size += 1;
+        }
     }
 }
 
@@ -136,6 +179,71 @@ impl<T> Deref for SharedArray<T> {
     type Target = [T];
     fn deref(&self) -> &Self::Target {
         self.as_slice()
+    }
+}
+
+impl<T: Clone> From<&[T]> for SharedArray<T> {
+    fn from(slice: &[T]) -> Self {
+        SharedArray::from_iter(slice.iter().cloned())
+    }
+}
+
+macro_rules! from_array {
+    ($($n:literal)*) => { $(
+        // FIXME: remove the Clone bound
+        impl<T: Clone> From<[T; $n]> for SharedArray<T> {
+            fn from(array: [T; $n]) -> Self {
+                array.iter().cloned().collect()
+            }
+        }
+    )+ };
+}
+
+from_array! {0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31}
+
+impl<T> FromIterator<T> for SharedArray<T> {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        let mut iter = iter.into_iter();
+        let mut capacity = iter.size_hint().0;
+        let mut result = Self::with_capacity(capacity);
+        let mut size = 0;
+        while let Some(x) = iter.next() {
+            if size >= capacity {
+                capacity = capacity_for_grow(
+                    capacity,
+                    size + 1 + iter.size_hint().0,
+                    core::mem::size_of::<T>(),
+                );
+                unsafe {
+                    result.inner.as_ref().header.refcount.store(0, atomic::Ordering::Relaxed)
+                };
+                let mut iter = IntoIter(IntoIterInner::UnShared(result.inner, 0));
+                result.inner = alloc_with_capacity::<T>(capacity);
+                match &mut iter.0 {
+                    IntoIterInner::UnShared(old_inner, begin) => {
+                        while *begin < size {
+                            unsafe {
+                                core::ptr::write(
+                                    result.inner.as_mut().data.as_mut_ptr().add(size),
+                                    core::ptr::read(old_inner.as_ref().data.as_ptr().add(*begin)),
+                                );
+                                *begin += 1;
+                                result.inner.as_mut().header.size = *begin;
+                            }
+                        }
+                    }
+                    _ => unreachable!(),
+                }
+            }
+            debug_assert_eq!(result.len(), size);
+            debug_assert!(result.capacity() > size);
+            unsafe {
+                core::ptr::write(result.inner.as_mut().data.as_mut_ptr().add(size), x);
+                size += 1;
+                result.inner.as_mut().header.size = size;
+            }
+        }
+        result
     }
 }
 
@@ -246,8 +354,8 @@ impl<T: Clone> Iterator for IntoIter<T> {
 
 #[test]
 fn simple_test() {
-    let x: SharedArray<i32> = SharedArray::from(&[1, 2, 3]);
-    let y: SharedArray<i32> = SharedArray::from(&[3, 2, 1]);
+    let x: SharedArray<i32> = SharedArray::from([1, 2, 3]);
+    let y: SharedArray<i32> = SharedArray::from([3, 2, 1]);
     assert_eq!(x, x.clone());
     assert_ne!(x, y);
     let z: [i32; 3] = [1, 2, 3];
