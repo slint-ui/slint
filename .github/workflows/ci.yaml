@@ -19,6 +19,7 @@ jobs:
   build_and_test:
     env:
       LD_LIBRARY_PATH: /home/runner/work/sixtyfps/Qt/5.12.9/gcc_64/lib
+      DYLD_FRAMEWORK_PATH: /Users/runner/work/sixtyfps/Qt/5.12.9/clang_64/lib
 
     strategy:
       matrix:
@@ -28,14 +29,14 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Cache Qt
-      if: matrix.os == 'ubuntu-20.04'
+      if: matrix.os != 'windows-latest'
       id: cache-qt
       uses: actions/cache@v2
       with:
         path: ../Qt
         key: ${{ runner.os }}-${{ github.job }}-QtCache-5.12.9
     - name: Install Qt
-      if: matrix.os == 'ubuntu-20.04'
+      if: matrix.os != 'windows-latest'
       uses: jurplel/install-qt-action@v2
       with:
         version: '5.12.9'
