@@ -46,6 +46,7 @@ pub type Size = euclid::default::Size2D<f32>;
 /// with the precision of the generic parameter T. For example if T is f32,
 /// the values are normalized between 0 and 1. If T is u8, they values range
 /// is 0 to 255.
+/// This is merely a helper class for use with [`Color`].
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
 pub struct ARGBColor<T> {
     /// The alpha component.
@@ -58,15 +59,22 @@ pub struct ARGBColor<T> {
     pub blue: T,
 }
 
-impl<T> ARGBColor<T> {
-    /// Creates a new ARGBColor from the individual components in one go.
-    pub fn from_argb(a: T, r: T, g: T, b: T) -> Self {
-        Self { alpha: a, red: r, green: g, blue: b }
-    }
-}
-
 /// Color represents a color in the SixtyFPS run-time, represented using 8-bit channels for
 /// red, green, blue and the alpha (opacity).
+/// It can be conveniently constructed and destructured using the to_ and from_ (a)rgb helper functions:
+/// ```
+/// # fn do_something_with_red_and_green(_:f32, _:f32) {}
+/// # fn do_something_with_red(_:u8) {}
+/// # use sixtyfps_corelib::graphics::{Color, ARGBColor};
+/// # let some_color = Color::from_rgb_u8(0, 0, 0);
+/// let col = some_color.to_argb_f32();
+/// do_something_with_red_and_green(col.red, col.green);
+///
+/// let ARGBColor { red, blue, green, .. } = some_color.to_argb_u8();
+/// do_something_with_red(red);
+///
+/// let new_col = Color::from(ARGBColor{ red: 0.5, green: 0.65, blue: 0.32, alpha: 1.});
+/// ```
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
 #[repr(C)]
 pub struct Color {
@@ -106,6 +114,17 @@ impl From<Color> for ARGBColor<f32> {
     }
 }
 
+impl From<ARGBColor<f32>> for Color {
+    fn from(col: ARGBColor<f32>) -> Self {
+        Self {
+            red: (col.red * 255.) as u8,
+            green: (col.green * 255.) as u8,
+            blue: (col.blue * 255.) as u8,
+            alpha: (col.alpha * 255.) as u8,
+        }
+    }
+}
+
 impl Color {
     /// Construct a color from an integer encoded as `0xAARRGGBB`
     pub const fn from_argb_encoded(encoded: u32) -> Color {
@@ -123,6 +142,38 @@ impl Color {
             | ((self.green as u32) << 8)
             | (self.blue as u32)
             | ((self.alpha as u32) << 24)
+    }
+
+    /// Construct a color from the alpha, red, green and blue color channel parameters.
+    pub fn from_argb_u8(alpha: u8, red: u8, green: u8, blue: u8) -> Self {
+        Self { red, green, blue, alpha }
+    }
+
+    /// Construct a color from the red, green and blue color channel parameters. The alpha
+    /// channel will have the value 255.
+    pub fn from_rgb_u8(red: u8, green: u8, blue: u8) -> Self {
+        Self::from_argb_u8(255, red, green, blue)
+    }
+
+    /// Construct a color from the alpha, red, green and blue color channel parameters.
+    pub fn from_argb_f32(alpha: f32, red: f32, green: f32, blue: f32) -> Self {
+        ARGBColor { alpha, red, green, blue }.into()
+    }
+
+    /// Construct a color from the red, green and blue color channel parameters. The alpha
+    /// channel will have the value 255.   
+    pub fn from_rgb_f32(red: f32, green: f32, blue: f32) -> Self {
+        Self::from_argb_f32(1.0, red, green, blue)
+    }
+
+    /// Converts this color to an ARGBColor struct for easy destructuring.
+    pub fn to_argb_u8(&self) -> ARGBColor<u8> {
+        ARGBColor::from(*self)
+    }
+
+    /// Converts this color to an ARGBColor struct for easy destructuring.
+    pub fn to_argb_f32(&self) -> ARGBColor<f32> {
+        ARGBColor::from(*self)
     }
 
     /// Returns the red channel of the color as u8 in the range 0..255.
