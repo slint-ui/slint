@@ -67,9 +67,11 @@ cpp! {{
     std::tuple<QImage, QRect> offline_style_rendering_image(QSize size)
     {
         ensure_initialized();
+        const auto dpr = qApp->devicePixelRatio();
         QImage img(size, QImage::Format_ARGB32_Premultiplied);
+        img.setDevicePixelRatio(dpr);
         img.fill(Qt::transparent);
-        return std::make_tuple(img, img.rect());
+        return std::make_tuple(img, QRect(0, 0, size.width() / dpr, size.height() / dpr));
     }
 
     QWidget *global_widget()
