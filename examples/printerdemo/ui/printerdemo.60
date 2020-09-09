@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-import { SpinBox, Button, CheckBox, Slider } from "sixtyfps_widgets.60";
+import { SpinBox, Button, CheckBox, Slider, GroupBox } from "sixtyfps_widgets.60";
 
 Label := Text {
     color: black;
@@ -178,21 +178,53 @@ SettingsPage := Page {
         x: 10lx;
         y: 10lx;
         spacing: 10lx;
-        Row { Rectangle {} }
+        padding: 15lx;
         Row {
-            CheckBox {
-                text: "Black and White";
+            GroupBox {
+                title: "Color Management";
+                GridLayout {
+                    Row {
+                        CheckBox {
+                            text: "Black and White";
+                        }
+                    }
+                }
             }
         }
         Row {
-            Label { text: "Scan DPI"; }
-            Slider {  }
+            GroupBox {
+                title: "Scanning";
+                GridLayout {
+                    Row {
+                        Text {
+                            text: "Resolution (DPI)";
+                            color: black;
+                        }
+                        Slider {  }
+                        Rectangle { }
+                    }
+                }
+            }
         }
         Row {
-            CheckBox { text: "Eco Mode"; }
+            GroupBox {
+                title: "Power Management";
+                GridLayout {
+                    Row {
+                        CheckBox { text: "Eco Mode"; }
+                    }
+                }
+            }
         }
         Row {
-            CheckBox { text: "TURBO"; }
+            GroupBox {
+                title: "Performance";
+                GridLayout {
+                    Row {
+                        CheckBox { text: "TURBO"; }
+                    }
+                }
+            }
         }
         Row { Rectangle {} }
         Row { Rectangle {} }
