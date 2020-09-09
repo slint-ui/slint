@@ -30,8 +30,7 @@ use winit::platform::desktop::EventLoopExtDesktop;
 /// require in order to implement functionality such as device-independent pixels,
 /// window resizing and other typicaly windowing system related tasks.
 ///
-/// The [graphics module](../graphics/index.html) provides a generic implementation of
-/// this trait for use with a [GraphicsBackend](../graphics/trait.GraphicsBackend.html).
+/// [`crate::graphics`] provides an implementation of this trait for use with [`crate::graphics::GraphicsBackend`].
 pub trait GenericWindow {
     /// Draw the items of the specified `component` in the given window.
     fn draw(&self, component: core::pin::Pin<crate::component::ComponentRef>);
@@ -56,13 +55,13 @@ pub trait GenericWindow {
     /// Arguments:
     /// * `event_loop`: The event loop used to drive further event handling for this window
     ///   as it will receive events.
-    /// * `root_item`: The root item of the scene. If the item is a (Window Item)[../items/struct.Window.html], then
+    /// * `root_item`: The root item of the scene. If the item is a [`crate::items::Window`], then
     ///   the `width` and `height` properties are read and the values are passed to the windowing system as request
     ///   for the initial size of the window. Then bindings are installed on these properties to keep them up-to-date
     ///   with the size as it may be changed by the user or the windowing system in general.
     fn map_window(self: Rc<Self>, event_loop: &EventLoop, root_item: Pin<ItemRef>);
     /// Removes the window from the screen. The window is not destroyed though, it can be show (mapped) again later
-    /// by calling .GenericWindow::map_window].
+    /// by calling [`GenericWindow::map_window`].
     fn unmap_window(self: Rc<Self>);
     /// Issue a request to the windowing system to re-render the contents of the window. This is typically an asynchronous
     /// request.
@@ -78,7 +77,7 @@ pub trait GenericWindow {
     /// window resize event from the windowing system.
     fn set_height(&self, height: f32);
     /// This function is called by the generated code when a component and therefore its tree of items are destroyed. The
-    /// implementation typically uses this to free the underlying graphics resources cached via [RenderingCache](../graphics/struct.RenderingCache.html).
+    /// implementation typically uses this to free the underlying graphics resources cached via [`crate::graphics::RenderingCache`].
     fn free_graphics_resources(
         self: Rc<Self>,
         component: core::pin::Pin<crate::component::ComponentRef>,
@@ -119,7 +118,7 @@ impl ComponentWindow {
     }
 
     /// This function is called by the generated code when a component and therefore its tree of items are destroyed. The
-    /// implementation typically uses this to free the underlying graphics resources cached via [RenderingCache](../graphics/struct.RenderingCache.html).
+    /// implementation typically uses this to free the underlying graphics resources cached via [RenderingCache][`crate::graphics::RenderingCache`].
     pub fn free_graphics_resources(
         &self,
         component: core::pin::Pin<crate::component::ComponentRef>,

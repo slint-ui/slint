@@ -459,7 +459,7 @@ enum RenderingCacheEntry<RenderingPrimitive> {
 
 /// The RenderingCache is used by the run-time library to avoid storing the
 /// typed [GraphicsBackend::LowLevelRenderingPrimitive] instances created for
-/// [Items](../items/index.html). Instead it allows mapping them to a usize
+/// [Items][`crate::items`]. Instead it allows mapping them to a usize
 /// handle, and it also allows tracking whenever any of the properties used to
 /// create the primitive changed.
 ///
@@ -484,7 +484,7 @@ impl<Backend: GraphicsBackend> RenderingCache<Backend> {
     /// * `index`: If the provided option contains an index, then that will be re-used
     ///   by the cache and returned. Otherwise a new index is allocated.
     /// * `update_fn`: This callback will be invoked if this function is called the first
-    ///   time or if any [Property](../properties/struct.Property.html) accessed during
+    ///   time or if any [Property][`crate::properties::Property`] accessed during
     ///   a previous invokation has changed.
     pub fn ensure_cached(
         &mut self,
@@ -598,7 +598,7 @@ impl Default for WindowProperties {
     }
 }
 
-/// GraphicsWindow is an implementation of the [GenericWindow](../eventloop/trait.GenericWindow.html) trait. This is
+/// GraphicsWindow is an implementation of the [GenericWindow][`crate::eventloop::GenericWindow`] trait. This is
 /// typically instantiated by entry factory functions of the different graphics backends.
 pub struct GraphicsWindow<Backend: GraphicsBackend + 'static> {
     window_factory: Box<WindowFactoryFn<Backend>>,

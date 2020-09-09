@@ -25,7 +25,7 @@ of including the design in Rust:
 
  This markup code is translated to Rust code and each component is turned into a Rust
  struct with functions to instantiated, show or access properties. This documentation
- includes an [example](generated_code/struct.SampleComponent.html) of how the API looks
+ includes an [example][`generated_code::SampleComponent`] of how the API looks
  like.
 
 ### The .60 code in a macro
@@ -95,8 +95,8 @@ The follow table summarizes the entire mapping:
 | --- | --- | --- |
 | `int` | `i32` | |
 | `float` | `f32` | |
-| `string` | [`sixtyfps::SharedString`](struct.SharedString.html) | A reference-counted string type that can be easily converted to a str reference. |
-| `color` | [`sixtyfps::Color`](struct.Color.html) | |
+| `string` | [`SharedString`] | A reference-counted string type that can be easily converted to a str reference. |
+| `color` | [`Color`] | |
 | `length` | `f32` | The unit are physical pixels. |
 | `logical_length` | `f32` | At run-time, logical lengths are automatically translated to physical pixels using the device pixel ratio. |
 | `duration` | `i64` | At run-time, durations are always represented as signed 64-bit integers with milisecond precision. |
@@ -274,7 +274,7 @@ pub mod generated_code {
         /// is generated. This is the function that registers the function f as callback when the
         /// signal `hello` is emitted. In order to access
         /// the component in the callback, you'd typically capture a weak reference obtained using
-        /// [as_weak()](#method.as_weak)
+        /// [`SampleComponent::as_weak`]
         /// and then upgrade it to a strong reference when the callback is run:
         /// ```ignore
         ///     let sample = SampleComponent::new();
