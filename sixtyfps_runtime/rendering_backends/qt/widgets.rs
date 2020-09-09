@@ -356,8 +356,7 @@ impl Item for NativeSpinBox {
 
             auto content = option.fontMetrics.boundingRect("0000");
 
-            return style->sizeFromContents(QStyle::CT_SpinBox, &option, content.size(), nullptr)
-                .expandedTo(QApplication::globalStrut());
+            return style->sizeFromContents(QStyle::CT_SpinBox, &option, content.size(), nullptr);
         });
         LayoutInfo {
             min_width: size.width as f32,
@@ -528,8 +527,7 @@ impl Item for NativeSlider {
             initQSliderOptions(option, pressed, active_controls, min, max, value);
             auto style = qApp->style();
             auto thick = style->pixelMetric(QStyle::PM_SliderThickness, &option, nullptr);
-            return style->sizeFromContents(QStyle::CT_Slider, &option, QSize(0, thick), nullptr)
-                .expandedTo(QApplication::globalStrut());
+            return style->sizeFromContents(QStyle::CT_Slider, &option, QSize(0, thick), nullptr);
         });
         LayoutInfo {
             min_width: size.width as f32,
