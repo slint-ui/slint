@@ -13,5 +13,28 @@ TestCase := Rectangle {
     signal test_signal3(int, string);
     property<int> signal_emission_count;
     test_signal => { signal_emission_count += 1; }
-    test_signal2(xx) => { signal_emission_count = 88; root.test_signal3(88, xx); }
+    test_signal2(xx) => { signal_emission_count = 88; root.test_signal3(55, xx); }
 }
+
+/*
+
+```rust
+let instance = TestCase::new();
+let instance = instance.as_ref();
+let signal_3_emited = std::rc::Rc::new(std::cell::RefCell::new((0, String::new())));
+instance.on_test_signal3({
+    let signal_3_emited = signal_3_emited.clone();
+    move |a, b|  *signal_3_emited.borrow_mut() = (a, b.as_str().into())
+});
+instance.set_signal_emission_count(0);
+assert_eq!(instance.get_signal_emission_count(), 0);
+instance.emit_test_signal(42);
+assert_eq!(instance.get_signal_emission_count(), 1);
+assert_eq!(*signal_3_emited.borrow(), (0, "".into()));
+instance.emit_test_signal2("hello".into());
+assert_eq!(instance.get_signal_emission_count(), 88);
+assert_eq!(*signal_3_emited.borrow(), (55, "hello".into()));
+```
+
+*/
+
