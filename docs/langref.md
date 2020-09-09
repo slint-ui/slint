@@ -173,8 +173,15 @@ Example := Rectangle {
 }
 ```
 
-TODO: add parameter to the signal
+It is also possible to add parameters to the signal.
 
+```60
+Example := Rectangle {
+    // declares a signal
+    signal hello(int, string);
+    hello(aa, bb) => { /* ... */ }
+}
+```
 
 ## Expressions
 
