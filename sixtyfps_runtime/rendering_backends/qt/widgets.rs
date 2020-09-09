@@ -63,6 +63,14 @@ cpp! {{
             return new QApplication(argc, argv2);
         }();
     }
+
+    std::tuple<QImage, QRect> offline_style_rendering_image(QSize size)
+    {
+        ensure_initialized();
+        QImage img(size, QImage::Format_ARGB32);
+        img.fill(Qt::transparent);
+        return std::make_tuple(img, img.rect());
+    }
 }}
 
 #[repr(C)]
@@ -98,13 +106,11 @@ impl Item for NativeButton {
             size as "QSize",
             down as "bool"
         ] -> qttypes::QImage as "QImage" {
-            ensure_initialized();
-            QImage img(size, QImage::Format_ARGB32);
-            img.fill(Qt::transparent);
+            auto [img, rect] = offline_style_rendering_image(size);
             QPainter p(&img);
             QStyleOptionButton option;
             option.text = std::move(text);
-            option.rect = QRect(img.rect());
+            option.rect = rect;
             if (down)
                 option.state |= QStyle::State_Sunken;
             qApp->style()->drawControl(QStyle::CE_PushButton, &option, &p, nullptr);
@@ -196,13 +202,11 @@ impl Item for NativeCheckBox {
             size as "QSize",
             checked as "bool"
         ] -> qttypes::QImage as "QImage" {
-            ensure_initialized();
-            QImage img(size, QImage::Format_ARGB32);
-            img.fill(Qt::transparent);
+            auto [img, rect] = offline_style_rendering_image(size);
             QPainter p(&img);
             QStyleOptionButton option;
             option.text = std::move(text);
-            option.rect = QRect(img.rect());
+            option.rect = rect;
             option.state |= checked ? QStyle::State_On : QStyle::State_Off;
             qApp->style()->drawControl(QStyle::CE_CheckBox, &option, &p, nullptr);
             return img;
@@ -314,13 +318,11 @@ impl Item for NativeSpinBox {
             active_controls as "int",
             pressed as "bool"
         ] -> qttypes::QImage as "QImage" {
-            ensure_initialized();
-            QImage img(size, QImage::Format_ARGB32);
-            img.fill(Qt::transparent);
+            auto [img, rect] = offline_style_rendering_image(size);
             QPainter p(&img);
             auto style = qApp->style();
             QStyleOptionSpinBox option;
-            option.rect = img.rect();
+            option.rect = rect;
             initQSpinBoxOptions(option, pressed, active_controls);
             style->drawComplexControl(QStyle::CC_SpinBox, &option, &p, nullptr);
 
@@ -490,12 +492,10 @@ impl Item for NativeSlider {
             active_controls as "int",
             pressed as "bool"
         ] -> qttypes::QImage as "QImage" {
-            ensure_initialized();
-            QImage img(size, QImage::Format_ARGB32);
-            img.fill(Qt::transparent);
+            auto [img, rect] = offline_style_rendering_image(size);
             QPainter p(&img);
             QStyleOptionSlider option;
-            option.rect = img.rect();
+            option.rect = rect;
             initQSliderOptions(option, pressed, active_controls, min, max, value);
             auto style = qApp->style();
             style->drawComplexControl(QStyle::CC_Slider, &option, &p, nullptr);
@@ -636,12 +636,10 @@ impl Item for NativeGroupBox {
             text as "QString",
             size as "QSize"
         ] -> qttypes::QImage as "QImage" {
-            ensure_initialized();
-            QImage img(size, QImage::Format_ARGB32);
-            img.fill(Qt::transparent);
+            auto [img, rect] = offline_style_rendering_image(size);
             QPainter p(&img);
             QStyleOptionGroupBox option;
-            option.rect = QRect(img.rect());
+            option.rect = rect;
             option.text = text;
             option.lineWidth = 1;
             option.midLineWidth = 0;

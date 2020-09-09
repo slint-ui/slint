@@ -28,6 +28,9 @@ fn main() {
     let qt_library_path = qmake_query("QT_INSTALL_LIBS").unwrap();
     let mut config = cpp_build::Config::new();
 
+    config.flag_if_supported("-std=c++17");
+    config.flag_if_supported("/std:c++17");
+
     if cfg!(target_os = "macos") {
         config.flag("-F");
         config.flag(qt_library_path.trim());
