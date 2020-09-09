@@ -18,6 +18,28 @@ TestCase := Rectangle {
 
 /*
 
+```cpp
+TestCase instance;
+int signal_3_emited = 0;
+std::string signal_3_string_value;
+int signal_3_int_value = 0;
+instance.on_test_signal3([&](int a, auto b) {
+    signal_3_int_value = a;
+    signal_3_string_value = b;
+    signal_3_emited ++;
+});
+instance.set_signal_emission_count(0);
+assert(instance.get_signal_emission_count() == 0);
+instance.emit_test_signal(42);
+assert(instance.get_signal_emission_count() == 1);
+assert(signal_3_emited == 0);
+instance.emit_test_signal2("hello");
+assert(instance.get_signal_emission_count() == 88);
+assert(signal_3_emited == 1);
+assert(signal_3_int_value == 55);
+assert(signal_3_string_value == "hello");
+```
+
 ```rust
 let instance = TestCase::new();
 let instance = instance.as_ref();
