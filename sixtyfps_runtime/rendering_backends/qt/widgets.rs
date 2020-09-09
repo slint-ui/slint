@@ -67,9 +67,19 @@ cpp! {{
     std::tuple<QImage, QRect> offline_style_rendering_image(QSize size)
     {
         ensure_initialized();
-        QImage img(size, QImage::Format_ARGB32);
+        QImage img(size, QImage::Format_ARGB32_Premultiplied);
         img.fill(Qt::transparent);
         return std::make_tuple(img, img.rect());
+    }
+
+    QWidget *global_widget()
+    {
+#if defined(Q_WS_MAC)
+        static QWidget widget;
+        return &widget;
+#else
+        return nullptr;
+#endif
     }
 }}
 
@@ -113,7 +123,7 @@ impl Item for NativeButton {
             option.rect = rect;
             if (down)
                 option.state |= QStyle::State_Sunken;
-            qApp->style()->drawControl(QStyle::CE_PushButton, &option, &p, nullptr);
+            qApp->style()->drawControl(QStyle::CE_PushButton, &option, &p, global_widget());
             return img;
         });
         return HighLevelRenderingPrimitive::Image { source: to_resource(img) };
@@ -208,7 +218,7 @@ impl Item for NativeCheckBox {
             option.text = std::move(text);
             option.rect = rect;
             option.state |= checked ? QStyle::State_On : QStyle::State_Off;
-            qApp->style()->drawControl(QStyle::CE_CheckBox, &option, &p, nullptr);
+            qApp->style()->drawControl(QStyle::CE_CheckBox, &option, &p, global_widget());
             return img;
         });
         return HighLevelRenderingPrimitive::Image { source: to_resource(img) };
@@ -326,7 +336,7 @@ impl Item for NativeSpinBox {
             initQSpinBoxOptions(option, pressed, active_controls);
             style->drawComplexControl(QStyle::CC_SpinBox, &option, &p, nullptr);
 
-            auto text_rect = style->subControlRect(QStyle::CC_SpinBox, &option, QStyle::SC_SpinBoxEditField, nullptr);
+            auto text_rect = style->subControlRect(QStyle::CC_SpinBox, &option, QStyle::SC_SpinBoxEditField, global_widget());
             p.drawText(text_rect, QString::number(value));
             return img;
         });
@@ -497,7 +507,7 @@ impl Item for NativeSlider {
             option.rect = rect;
             initQSliderOptions(option, pressed, active_controls, min, max, value);
             auto style = qApp->style();
-            style->drawComplexControl(QStyle::CC_Slider, &option, &p, nullptr);
+            style->drawComplexControl(QStyle::CC_Slider, &option, &p, global_widget());
             return img;
         });
         return HighLevelRenderingPrimitive::Image { source: to_resource(img) };
@@ -647,7 +657,7 @@ impl Item for NativeGroupBox {
             }
             option.textColor = QColor(qApp->style()->styleHint(
                 QStyle::SH_GroupBox_TextLabelColor, &option));
-            qApp->style()->drawComplexControl(QStyle::CC_GroupBox, &option, &p);
+            qApp->style()->drawComplexControl(QStyle::CC_GroupBox, &option, &p, global_widget());
             return img;
         });
         return HighLevelRenderingPrimitive::Image { source: to_resource(img) };
