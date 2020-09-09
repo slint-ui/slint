@@ -118,7 +118,7 @@ impl<T> SharedArray<T> {
         unsafe { self.inner.as_ref().data.as_ptr() }
     }
 
-    /// Size of the string, in bytes
+    /// Number of elements in the array
     pub fn len(&self) -> usize {
         unsafe { self.inner.as_ref().header.size }
     }
