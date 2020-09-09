@@ -18,7 +18,7 @@ use sixtyfps_compilerlib::{object_tree::ElementRc, typeregister::Type};
 use sixtyfps_corelib as corelib;
 use sixtyfps_corelib::{
     graphics::PathElement, items::ItemRef, items::PropertyAnimation, Color, PathData, Resource,
-    SharedArray, SharedString,
+    SharedArray, SharedString, Signal,
 };
 use std::{collections::HashMap, rc::Rc};
 
@@ -164,7 +164,14 @@ declare_value_enum_conversion!(corelib::items::TextVerticalAlignment, TextVertic
 #[derive(Default)]
 pub struct EvalLocalContext {
     local_variables: HashMap<String, Value>,
-    function_parameters: Vec<Value>,
+    function_arguments: Vec<Value>,
+}
+
+impl EvalLocalContext {
+    /// Create a context for a function and passing the arguments
+    pub fn from_function_arguments(function_arguments: Vec<Value>) -> Self {
+        Self { function_arguments, ..Default::default() }
+    }
 }
 
 /// Evaluate an expression and return a Value as the result of this expression
@@ -197,7 +204,7 @@ pub fn eval_expression(
             "model_data",
         ),
         Expression::FunctionParameterReference { index, .. } => {
-            local_context.function_parameters[*index].clone()
+            local_context.function_arguments[*index].clone()
         }
         Expression::ObjectAccess { base, name } => {
             if let Value::Object(mut o) = eval_expression(base, component, local_context) {
@@ -224,7 +231,8 @@ pub fn eval_expression(
             }
             v
         }
-        Expression::FunctionCall { function, .. } => {
+        Expression::FunctionCall { function, arguments } => {
+            let a = arguments.iter().map(|e| eval_expression(e, component, local_context));
             if let Expression::SignalReference(NamedReference { element, name }) = &**function {
                 let element = element.upgrade().unwrap();
                 generativity::make_guard!(guard);
@@ -234,19 +242,19 @@ pub fn eval_expression(
 
                 let item_info = &component_type.items[element.borrow().id.as_str()];
                 let item = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
-                let signal = item_info
-                    .rtti
-                    .signals
-                    .get(name.as_str())
-                    .map(|o| unsafe { &*(item.as_ptr().add(*o) as *const corelib::Signal<()>) })
-                    .or_else(|| {
-                        component_type
-                            .custom_signals
-                            .get(name.as_str())
-                            .map(|o| o.apply(&*enclosing_component.instance))
-                    })
-                    .unwrap_or_else(|| panic!("unkown signal {}", name));
-                signal.emit(&());
+
+                if let Some(signal_offset) = item_info.rtti.signals.get(name.as_str()) {
+                    let signal =
+                        unsafe { &*(item.as_ptr().add(*signal_offset) as *const Signal<()>) };
+                    signal.emit(&());
+                } else if let Some(signal_offset) = component_type.custom_signals.get(name.as_str())
+                {
+                    let signal = signal_offset.apply(&*enclosing_component.instance);
+                    signal.emit(a.collect::<Vec<_>>().as_slice())
+                } else {
+                    panic!("unkown signal {}", name)
+                }
+
                 Value::Void
             } else if let Expression::BuiltinFunctionReference(funcref) = &**function {
                 match funcref {
@@ -254,7 +262,7 @@ pub fn eval_expression(
                         Value::Number(window_ref(component).unwrap().scale_factor() as _)
                     }
                     BuiltinFunction::Debug => {
-                        println!("FIXME: the debug statement in the interpreter should print its argument");
+                        println!("{:?}", a);
                         Value::Void
                     }
                 }

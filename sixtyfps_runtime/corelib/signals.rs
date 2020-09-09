@@ -22,14 +22,19 @@ use core::cell::Cell;
 ///
 /// The Arg represents the argument. It should always be a tuple
 ///
-#[derive(Default)]
 #[repr(C)]
-pub struct Signal<Arg> {
+pub struct Signal<Arg: ?Sized> {
     /// FIXME: Box<dyn> is a fat object and we probaly want to put an erased type in there
     handler: Cell<Option<Box<dyn Fn(&Arg)>>>,
 }
 
-impl<Arg> Signal<Arg> {
+impl<Arg: ?Sized> Default for Signal<Arg> {
+    fn default() -> Self {
+        Self { handler: Default::default() }
+    }
+}
+
+impl<Arg: ?Sized> Signal<Arg> {
     /// Emit the signal with the given argument.
     pub fn emit(&self, a: &Arg) {
         if let Some(h) = self.handler.take() {

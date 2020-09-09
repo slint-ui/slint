@@ -126,7 +126,7 @@ impl<'id> dynamic_component::ComponentDescription<'id> {
         &self,
         component: Pin<ComponentRef>,
         name: &str,
-        handler: Box<dyn Fn(&())>,
+        handler: Box<dyn Fn(&[Value])>,
     ) -> Result<(), ()> {
         if !core::ptr::eq((&self.ct) as *const _, component.get_vtable() as *const _) {
             return Err(());
@@ -141,13 +141,18 @@ impl<'id> dynamic_component::ComponentDescription<'id> {
     ///
     /// Returns an error if the component is not an instance corresponding to this ComponentDescription,
     /// or if the signal with this name does not exist in this component
-    pub fn emit_signal(&self, component: ComponentRefPin, name: &str) -> Result<(), ()> {
+    pub fn emit_signal(
+        &self,
+        component: ComponentRefPin,
+        name: &str,
+        args: &[Value],
+    ) -> Result<(), ()> {
         if !core::ptr::eq((&self.ct) as *const _, component.get_vtable() as *const _) {
             return Err(());
         }
         let x = self.custom_signals.get(name).ok_or(())?;
         let sig = x.apply(unsafe { &*(component.as_ptr() as *const dynamic_type::Instance) });
-        sig.emit(&());
+        sig.emit(args);
         Ok(())
     }
 }

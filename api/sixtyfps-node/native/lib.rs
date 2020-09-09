@@ -104,19 +104,20 @@ fn create<'cx>(
                     .set_signal_handler(
                         component.borrow(),
                         prop_name.as_str(),
-                        Box::new(move |()| {
-                            GLOBAL_CONTEXT.with(|cx_fn| {
+                        Box::new(move |args| {
+                            let args = args.iter().cloned().collect::<Vec<_>>();
+                            GLOBAL_CONTEXT.with(move |cx_fn| {
                                 cx_fn(&move |cx, presistent_context| {
+                                    let args = args
+                                        .iter()
+                                        .map(|a| to_js_value(a.clone(), cx).unwrap())
+                                        .collect::<Vec<_>>();
                                     presistent_context
                                         .get(cx, fun_idx)
                                         .unwrap()
                                         .downcast::<JsFunction>()
                                         .unwrap()
-                                        .call::<_, _, JsValue, _>(
-                                            cx,
-                                            JsUndefined::new(),
-                                            std::iter::empty(),
-                                        )
+                                        .call::<_, _, JsValue, _>(cx, JsUndefined::new(), args)
                                         .unwrap();
                                 })
                             })
@@ -302,13 +303,33 @@ declare_types! {
         }
         method emit_signal(mut cx) {
             let signal_name = cx.argument::<JsString>(0)?.value();
+            let arguments = cx.argument::<JsArray>(1)?.to_vec(&mut cx)?;
             let this = cx.this();
             let lock = cx.lock();
             let x = this.borrow(&lock).0.clone();
             let component = x.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            let ty = component.description().properties().get(&signal_name)
+                .ok_or(())
+                .or_else(|()| {
+                    cx.throw_error(format!("Signal {} not found in the component", signal_name))
+                })?
+                .clone();
+            let args = if let Type::Signal {args} = ty {
+                let count = args.len();
+                let args = arguments.into_iter().zip(args.into_iter()).map(|(a, ty)| to_eval_value(a, ty, &mut cx)).collect::<Result<Vec<_>, _>>()?;
+                if args.len() != count {
+                    cx.throw_error(format!("{} expect {} arguments, but {} where provided", signal_name, count, args.len()))?;
+                }
+                args
+
+            } else {
+                cx.throw_error(format!("{} is not a signal", signal_name))?;
+                unreachable!()
+            };
+
             run_scoped(&mut cx,this.downcast().unwrap(), || {
                 component.description()
-                    .emit_signal(component.borrow(), signal_name.as_str())
+                    .emit_signal(component.borrow(), signal_name.as_str(), args.as_slice())
                     .map_err(|()| "Cannot emit signal".to_string())
             })?;
             Ok(JsUndefined::new().as_value(&mut cx))

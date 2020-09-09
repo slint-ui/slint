@@ -38,7 +38,7 @@ require.extensions['.60'] =
             });
             c.signals().forEach(x => {
                 Object.defineProperty(ret, x, {
-                    get() { return function () { comp.emit_signal(x); } },
+                    get() { return function () { comp.emit_signal(x, [...arguments]); } },
                     enumerable: true,
                 })
             });

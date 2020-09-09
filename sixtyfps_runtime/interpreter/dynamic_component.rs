@@ -185,7 +185,7 @@ pub struct ComponentDescription<'id> {
     item_tree: Vec<ItemTreeNode<crate::dynamic_type::Instance<'id>>>,
     pub(crate) items: HashMap<String, ItemWithinComponent>,
     pub(crate) custom_properties: HashMap<String, PropertiesWithinComponent>,
-    pub(crate) custom_signals: HashMap<String, FieldOffset<Instance<'id>, Signal<()>>>,
+    pub(crate) custom_signals: HashMap<String, FieldOffset<Instance<'id>, Signal<[eval::Value]>>>,
     repeater: Vec<ErasedRepeaterWithinComponent<'id>>,
     /// Map the Element::id of the repeater to the index in the `repeater` vec
     pub repeater_names: HashMap<String, usize>,
@@ -471,7 +471,8 @@ fn generate_component<'id>(
             Type::Resource => property_info::<Resource>(),
             Type::Bool => property_info::<bool>(),
             Type::Signal { .. } => {
-                custom_signals.insert(name.clone(), builder.add_field_type::<Signal<()>>());
+                custom_signals
+                    .insert(name.clone(), builder.add_field_type::<Signal<[eval::Value]>>());
                 continue;
             }
             Type::Object(_) => property_info::<eval::Value>(),
@@ -611,18 +612,6 @@ pub fn instantiate<'id>(
             for (prop, expr) in &elem.bindings {
                 let ty = elem.lookup_property(prop.as_str());
                 if let Type::Signal { .. } = ty {
-                    let signal = item_within_component
-                        .rtti
-                        .signals
-                        .get(prop.as_str())
-                        .map(|o| &*(item.as_ptr().add(*o) as *const Signal<()>))
-                        .or_else(|| {
-                            component_type
-                                .custom_signals
-                                .get(prop.as_str())
-                                .map(|o| o.apply(instance_ref.as_ref()))
-                        })
-                        .unwrap_or_else(|| panic!("unkown signal {}", prop));
                     let expr = expr.clone();
                     let component_type = component_type.clone();
                     let instance = component_box.instance.as_ptr();
@@ -630,14 +619,36 @@ pub fn instantiate<'id>(
                         NonNull::from(&component_type.ct).cast(),
                         instance.cast(),
                     ));
-                    signal.set_handler(move |_| {
-                        generativity::make_guard!(guard);
-                        eval::eval_expression(
-                            &expr,
-                            InstanceRef::from_pin_ref(c, guard),
-                            &mut Default::default(),
-                        );
-                    })
+                    if let Some(signal_offset) =
+                        item_within_component.rtti.signals.get(prop.as_str())
+                    {
+                        let signal = &*(item.as_ptr().add(*signal_offset) as *const Signal<()>);
+                        signal.set_handler(move |_: &()| {
+                            generativity::make_guard!(guard);
+                            eval::eval_expression(
+                                &expr,
+                                InstanceRef::from_pin_ref(c, guard),
+                                &mut Default::default(),
+                            );
+                        })
+                    } else if let Some(signal_offset) =
+                        component_type.custom_signals.get(prop.as_str())
+                    {
+                        let signal = signal_offset.apply(instance_ref.as_ref());
+                        signal.set_handler(move |args| {
+                            generativity::make_guard!(guard);
+                            let mut local_context = eval::EvalLocalContext::from_function_arguments(
+                                args.iter().cloned().collect(),
+                            );
+                            eval::eval_expression(
+                                &expr,
+                                InstanceRef::from_pin_ref(c, guard),
+                                &mut local_context,
+                            );
+                        })
+                    } else {
+                        panic!("unkown signal {}", prop)
+                    }
                 } else {
                     if let Some(prop_rtti) =
                         item_within_component.rtti.properties.get(prop.as_str())
