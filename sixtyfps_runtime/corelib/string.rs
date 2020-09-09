@@ -16,12 +16,13 @@ use core::mem::MaybeUninit;
 use std::{fmt::Debug, fmt::Display, ops::Deref};
 use triomphe::{Arc, HeaderWithLength, ThinArc};
 
-/// The string type used by the SixtyFPS run-time. It is shared, meaning cloning
-/// is cheap because it does not copy the underlying data but shares it instead.
-/// When modifying the string, it automatically detaches the shared copy.
-/// It is therefore a suitable type for properties.
+/// A string type used by the SixtyFPS run-time.
 ///
-/// Note that SharedString is internally utf-8 encoded and always null terminated.
+/// SharedString uses implicit data sharing to make it efficient to pass around copies. When
+/// cloning, a reference to the data is cloned, not the data itself. The data itself is only copied
+/// when modifying it, for example using [push_str](#method.push_str). This is also called copy-on-write.
+///
+/// Under the hood the string data is UTF-8 encoded and it is always terminated with a null character.
 #[derive(Clone)]
 #[repr(C)]
 pub struct SharedString {
@@ -35,7 +36,7 @@ impl SharedString {
         self.inner.slice.as_ptr() as *const u8
     }
 
-    /// Size of the string, in bytes
+    /// Size of the string, in bytes. This excludes the terminating null character.
     pub fn len(&self) -> usize {
         self.inner.header.header
     }
