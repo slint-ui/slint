@@ -144,7 +144,7 @@ impl Item for NativeButton {
             QStyleOptionButton option;
             option.rect = option.fontMetrics.boundingRect(text);
             option.text = std::move(text);
-            return qApp->style()->sizeFromContents(QStyle::CT_PushButton, &option, option.rect.size(), nullptr);
+            return qApp->style()->sizeFromContents(QStyle::CT_PushButton, &option, option.rect.size(), nullptr) * qApp->devicePixelRatio();
         });
         LayoutInfo {
             min_width: size.width as f32,
@@ -239,7 +239,7 @@ impl Item for NativeCheckBox {
             QStyleOptionButton option;
             option.rect = option.fontMetrics.boundingRect(text);
             option.text = std::move(text);
-            return qApp->style()->sizeFromContents(QStyle::CT_PushButton, &option, option.rect.size(), nullptr);
+            return qApp->style()->sizeFromContents(QStyle::CT_PushButton, &option, option.rect.size(), nullptr) * qApp->devicePixelRatio();
         });
         LayoutInfo {
             min_width: size.width as f32,
@@ -368,7 +368,7 @@ impl Item for NativeSpinBox {
 
             auto content = option.fontMetrics.boundingRect("0000");
 
-            return style->sizeFromContents(QStyle::CT_SpinBox, &option, content.size(), nullptr);
+            return style->sizeFromContents(QStyle::CT_SpinBox, &option, content.size(), nullptr) * qApp->devicePixelRatio();
         });
         LayoutInfo {
             min_width: size.width as f32,
@@ -539,7 +539,7 @@ impl Item for NativeSlider {
             initQSliderOptions(option, pressed, active_controls, min, max, value);
             auto style = qApp->style();
             auto thick = style->pixelMetric(QStyle::PM_SliderThickness, &option, nullptr);
-            return style->sizeFromContents(QStyle::CT_Slider, &option, QSize(0, thick), nullptr);
+            return style->sizeFromContents(QStyle::CT_Slider, &option, QSize(0, thick), nullptr) * qApp->devicePixelRatio();
         });
         LayoutInfo {
             min_width: size.width as f32,
@@ -696,12 +696,13 @@ impl Item for NativeGroupBox {
 
             auto hs = qApp->style()->pixelMetric(QStyle::PM_LayoutHorizontalSpacing, &option);
             auto vs = qApp->style()->pixelMetric(QStyle::PM_LayoutVerticalSpacing, &option);
+            auto dpr = qApp->devicePixelRatio();
 
             return {
-                contentsRect.left() + hs,
-                contentsRect.top() + vs,
-                option.rect.right() - contentsRect.right() + hs,
-                option.rect.bottom() - contentsRect.bottom() + vs };
+                qRound((contentsRect.left() + hs) * dpr),
+                qRound((contentsRect.top() + vs) * dpr),
+                qRound((option.rect.right() - contentsRect.right() + hs) * dpr),
+                qRound((option.rect.bottom() - contentsRect.bottom() + vs) * dpr) };
         });
         self.native_padding_left.set(paddings.left as _);
         self.native_padding_right.set(paddings.right as _);
