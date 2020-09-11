@@ -58,17 +58,54 @@ public:
         return col;
     }
 
-    /// Constructs a new Color from the ARGBColor \a col with the precision T. This template
-    /// function is specialized and thus implemented for T == uint8_t and T == float.
-    template<typename T>
-    static Color from(const ARGBColor<T> &col);
-
     /// Returns `(alpha, red, green, blue)` encoded as uint32_t.
     uint32_t as_argb_encoded() const
     {
         return (uint32_t(inner.red) << 16) | (uint32_t(inner.green) << 8) | uint32_t(inner.blue)
                 | (uint32_t(inner.alpha) << 24);
     }
+
+    /// Construct a color from the alpha, red, green and blue color channel parameters.
+    static Color from_argb_uint8(uint8_t alpha, uint8_t red, uint8_t green, uint8_t blue)
+    {
+        Color col;
+        col.inner.alpha = alpha;
+        col.inner.red = red;
+        col.inner.green = green;
+        col.inner.blue = blue;
+        return col;
+    }
+
+    /// Construct a color from the red, green and blue color channel parameters. The alpha
+    /// channel will have the value 255.
+    static Color from_rgb_uint8(uint8_t red, uint8_t green, uint8_t blue)
+    {
+        return from_argb_uint8(255, red, green, blue);
+    }
+
+    /// Construct a color from the alpha, red, green and blue color channel parameters.
+    static Color from_argb_float(float alpha, float red, float green, float blue)
+    {
+        Color col;
+        col.inner.alpha = alpha * 255;
+        col.inner.red = red * 255;
+        col.inner.green = green * 255;
+        col.inner.blue = blue * 255;
+        return col;
+    }
+
+    /// Construct a color from the red, green and blue color channel parameters. The alpha
+    /// channel will have the value 255.
+    static Color from_rgb_float(float red, float green, float blue)
+    {
+        return Color::from_argb_float(1.0, red, green, blue);
+    }
+
+    /// Converts this color to an ARGBColor struct for easy destructuring.
+    ARGBColor<uint8_t> to_argb_uint() const { return ARGBColor<uint8_t>::from(*this); }
+
+    /// Converts this color to an ARGBColor struct for easy destructuring.
+    ARGBColor<float> to_argb_float() const { return ARGBColor<float>::from(*this); }
 
     /// Returns the red channel of the color as u8 in the range 0..255.
     uint8_t red() const { return inner.red; }
@@ -97,39 +134,6 @@ public:
 private:
     cbindgen_private::types::Color inner;
 };
-
-template<>
-Color Color::from<uint8_t>(const ARGBColor<uint8_t> &c)
-{
-    Color col;
-    col.inner.red = c.red;
-    col.inner.green = c.green;
-    col.inner.blue = c.blue;
-    col.inner.alpha = c.alpha;
-    return col;
-}
-
-template<>
-ARGBColor<uint8_t> ARGBColor<uint8_t>::from(const Color &color)
-{
-    ARGBColor<uint8_t> col;
-    col.red = color.red();
-    col.green = color.green();
-    col.blue = color.blue();
-    col.alpha = color.alpha();
-    return col;
-}
-
-template<>
-ARGBColor<float> ARGBColor<float>::from(const Color &color)
-{
-    ARGBColor<float> col;
-    col.red = float(color.red()) / 255.;
-    col.green = float(color.green()) / 255.;
-    col.blue = float(color.blue()) / 255.;
-    col.alpha = float(color.alpha()) / 255.;
-    return col;
-}
 
 template<>
 void Property<Color>::set_animated_value(const Color &new_value,

@@ -17,10 +17,10 @@ struct InkLevelModel : sixtyfps::Model<InkData>
     int count() const override { return m_data.size(); }
     InkData get(int i) const override { return m_data[i]; }
 
-    std::vector<InkData> m_data = { { sixtyfps::Color::from_argb_encoded(0xffffff00), 0.9 },
-                                    { sixtyfps::Color::from_argb_encoded(0xff00ffff), 0.5 },
-                                    { sixtyfps::Color::from_argb_encoded(0xffff00ff), 0.8 },
-                                    { sixtyfps::Color::from_argb_encoded(0xff000000), 0.1 } };
+    std::vector<InkData> m_data = { { sixtyfps::Color::from_rgb_uint8(255, 255, 0), 0.9 },
+                                    { sixtyfps::Color::from_rgb_uint8(0, 255, 255), 0.5 },
+                                    { sixtyfps::Color::from_rgb_uint8(255, 0, 255), 0.8 },
+                                    { sixtyfps::Color::from_rgb_uint8(0, 0, 0), 0.1 } };
 };
 
 int main()
