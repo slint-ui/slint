@@ -36,9 +36,9 @@ Our design goals are:
 
 ### Desktop native controls
 
-| Windows | macOs | Linux |
+| Windows | macOS | Linux |
 |---------|-------|-------|
-| TODO: Screenshot    | TODO: Screenshot  | TODO: Screenshot  |
+| ![Screenshot of the Gallery on Windows](resources/gallery_win_screenshot.png "Gallery") | ![Screenshot of the Gallery on macOS](resources/gallery_mac_screenshot.png "Gallery") | ![Screenshot of the Gallery on Linux](resources/gallery_linux_screenshot.png "Gallery") |
 
 ## Architecture
 

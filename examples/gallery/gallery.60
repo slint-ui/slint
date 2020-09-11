@@ -26,13 +26,13 @@ App := Window {
             GridLayout {
                 Row {
                     Text {
-                        text: "Below are some of the standard widgets that application";
+                        text: "Below are some of the standard widgets that";
                         color: black;
                     }
                 }
                 Row {
                     Text {
-                        text: "developers can easily re-use.";
+                        text: "application developers can easily re-use.";
                         color: black;
                     }
                 }
@@ -43,21 +43,21 @@ App := Window {
             GroupBox {
                 title: "Button";
                 gallery_button := Button {
+                    maximum_width: 120lx;
                     text: gallery_button.pressed ? "(pressed)" : "(not pressed)";
                 }
             }
-            Rectangle {}
         }
 
         Row {
             GroupBox {
                 title: "CheckBox";
                 checkbox := CheckBox {
+                    maximum_width: 150lx;
                     text: checkbox.checked ? "(checked)" : "(unchecked)";
                     checked: true;
                 }
             }
-            Rectangle {}
         }
         Row {
             GroupBox {
