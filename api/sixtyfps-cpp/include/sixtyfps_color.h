@@ -36,7 +36,7 @@ struct ARGBColor
 
     /// Creates a new ARGBColor instance from a given color. This template function is
     /// specialized and thus implemented for T == uint8_t and T == float.
-    static ARGBColor<T> from(const Color &col);
+    ARGBColor(const Color &col);
 };
 
 /// Color represents a color in the SixtyFPS run-time, represented using 8-bit channels for
@@ -46,6 +46,20 @@ class Color
 public:
     /// Default constructs a new color that is entirely transparent.
     Color() { inner.red = inner.green = inner.blue = inner.alpha = 0; }
+    Color(const ARGBColor<uint8_t> &col)
+    {
+        inner.red = col.red;
+        inner.green = col.green;
+        inner.blue = col.blue;
+        inner.alpha = col.alpha;
+    }
+    Color(const ARGBColor<float> &col)
+    {
+        inner.red = col.red * 255;
+        inner.green = col.green * 255;
+        inner.blue = col.blue * 255;
+        inner.alpha = col.alpha * 255;
+    }
 
     /// Construct a color from an integer encoded as `0xAARRGGBB`
     static Color from_argb_encoded(uint32_t argb_encoded)
@@ -102,10 +116,10 @@ public:
     }
 
     /// Converts this color to an ARGBColor struct for easy destructuring.
-    ARGBColor<uint8_t> to_argb_uint() const { return ARGBColor<uint8_t>::from(*this); }
+    inline ARGBColor<uint8_t> to_argb_uint() const;
 
     /// Converts this color to an ARGBColor struct for easy destructuring.
-    ARGBColor<float> to_argb_float() const { return ARGBColor<float>::from(*this); }
+    inline ARGBColor<float> to_argb_float() const;
 
     /// Returns the red channel of the color as u8 in the range 0..255.
     uint8_t red() const { return inner.red; }
@@ -134,6 +148,34 @@ public:
 private:
     cbindgen_private::types::Color inner;
 };
+
+template<>
+ARGBColor<uint8_t>::ARGBColor(const Color &color)
+{
+    red = color.red();
+    green = color.green();
+    blue = color.blue();
+    alpha = color.alpha();
+}
+
+template<>
+ARGBColor<float>::ARGBColor(const Color &color)
+{
+    red = float(color.red()) / 255.;
+    green = float(color.green()) / 255.;
+    blue = float(color.blue()) / 255.;
+    alpha = float(color.alpha()) / 255.;
+}
+
+ARGBColor<uint8_t> Color::to_argb_uint() const
+{
+    return ARGBColor<uint8_t>(*this);
+}
+
+ARGBColor<float> Color::to_argb_float() const
+{
+    return ARGBColor<float>(*this);
+}
 
 template<>
 void Property<Color>::set_animated_value(const Color &new_value,
