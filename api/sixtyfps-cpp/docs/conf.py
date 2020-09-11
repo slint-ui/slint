@@ -45,7 +45,7 @@ exhale_args = {
         "createTreeView": True,
         "exhaleExecutesDoxygen": True,
         "exhaleDoxygenStdin": '''INPUT = ../../api/sixtyfps-cpp/include
-EXCLUDE_SYMBOLS = sixtyfps::cbindgen_private* sixtyfps::private_api* VOffset VRefMut'''
+EXCLUDE_SYMBOLS = sixtyfps::cbindgen_private* sixtyfps::private_api* VOffset VRefMut sixtyfps::testing*'''
 }
 
 # Add any paths that contain templates here, relative to this directory.
