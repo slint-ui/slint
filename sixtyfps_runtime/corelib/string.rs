@@ -246,6 +246,24 @@ where
 
 impl Eq for SharedString {}
 
+impl From<String> for SharedString {
+    fn from(s: String) -> Self {
+        s.as_str().into()
+    }
+}
+
+impl From<&String> for SharedString {
+    fn from(s: &String) -> Self {
+        s.as_str().into()
+    }
+}
+
+impl Into<String> for SharedString {
+    fn into(self) -> String {
+        self.as_str().to_string()
+    }
+}
+
 #[test]
 fn simple_test() {
     let x = SharedString::from("hello world!");

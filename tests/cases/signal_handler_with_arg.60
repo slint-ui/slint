@@ -46,7 +46,7 @@ let instance = instance.as_ref();
 let signal_3_emited = std::rc::Rc::new(std::cell::RefCell::new((0, String::new())));
 instance.on_test_signal3({
     let signal_3_emited = signal_3_emited.clone();
-    move |a, b|  *signal_3_emited.borrow_mut() = (a, b.as_str().into())
+    move |a, b|  *signal_3_emited.borrow_mut() = (a, b.into())
 });
 instance.set_signal_emission_count(0);
 assert_eq!(instance.get_signal_emission_count(), 0);

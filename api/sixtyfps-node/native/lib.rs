@@ -159,9 +159,9 @@ fn to_eval_value<'cx>(
         Type::Float32 | Type::Int32 | Type::Duration | Type::Length | Type::LogicalLength => {
             Ok(Value::Number(val.downcast_or_throw::<JsNumber, _>(cx)?.value()))
         }
-        Type::String => Ok(Value::String(val.to_string(cx)?.value().as_str().into())),
+        Type::String => Ok(Value::String(val.to_string(cx)?.value().into())),
         Type::Color | Type::Array(_) | Type::Object(_) => todo!(),
-        Type::Resource => Ok(Value::String(val.to_string(cx)?.value().as_str().into())),
+        Type::Resource => Ok(Value::String(val.to_string(cx)?.value().into())),
         Type::Bool => Ok(Value::Bool(val.downcast_or_throw::<JsBoolean, _>(cx)?.value())),
         Type::Enumeration(_) => todo!(),
         Type::EnumerationValue(_) => todo!(),

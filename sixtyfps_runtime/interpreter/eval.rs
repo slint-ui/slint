@@ -185,7 +185,7 @@ pub fn eval_expression(
     match e {
         Expression::Invalid => panic!("invalid expression while evaluating"),
         Expression::Uncompiled(_) => panic!("uncompiled expression while evaluating"),
-        Expression::StringLiteral(s) => Value::String(s.as_str().into()),
+        Expression::StringLiteral(s) => Value::String(s.into()),
         Expression::NumberLiteral(n, unit) => Value::Number(unit.normalize(*n)),
         Expression::BoolLiteral(b) => Value::Bool(*b),
         Expression::SignalReference { .. } => panic!("signal in expression"),
@@ -342,7 +342,7 @@ pub fn eval_expression(
             }
         }
         Expression::ResourceReference { absolute_source_path } => {
-            Value::Resource(Resource::AbsoluteFilePath(absolute_source_path.as_str().into()))
+            Value::Resource(Resource::AbsoluteFilePath(absolute_source_path.into()))
         }
         Expression::Condition { condition, true_expr, false_expr } => {
             match eval_expression(&**condition, component, local_context).try_into()
