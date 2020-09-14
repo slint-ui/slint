@@ -30,7 +30,7 @@ MainWindow := Window {
 
     GridLayout {
         Row {
-            text_edit := Text {
+            text_edit := TextInput {
                 text: "Something to do";
             }
             btn := Button {

@@ -575,8 +575,8 @@ impl TypeRegister {
                 ("font_family", Type::String),
                 ("font_size", Type::Length),
                 ("color", Type::Color),
-                ("horizontal_alignment", Type::Enumeration(text_horizontal_alignment)),
-                ("vertical_alignment", Type::Enumeration(text_vertical_alignment)),
+                ("horizontal_alignment", Type::Enumeration(text_horizontal_alignment.clone())),
+                ("vertical_alignment", Type::Enumeration(text_vertical_alignment.clone())),
                 ("x", Type::Length),
                 ("y", Type::Length),
                 ("width", Type::Length),
@@ -622,6 +622,30 @@ impl TypeRegister {
         );
 
         native_class(&mut r, "Window", &[("width", Type::Length), ("height", Type::Length)], &[]);
+
+        native_class(
+            &mut r,
+            "TextInput",
+            &[
+                ("text", Type::String),
+                ("font_family", Type::String),
+                ("font_size", Type::Length),
+                ("color", Type::Color),
+                ("horizontal_alignment", Type::Enumeration(text_horizontal_alignment)),
+                ("vertical_alignment", Type::Enumeration(text_vertical_alignment)),
+                ("x", Type::Length),
+                ("y", Type::Length),
+                ("width", Type::Length),
+                ("height", Type::Length),
+            ],
+            &[(
+                "color",
+                Expression::Cast {
+                    from: Box::new(Expression::NumberLiteral(0xff000000u32 as _, Unit::None)),
+                    to: Type::Color,
+                },
+            )],
+        );
 
         let mut grid_layout = BuiltinElement::new(Rc::new(NativeClass::new("GridLayout")));
         grid_layout.properties.insert("spacing".to_owned(), Type::Length);

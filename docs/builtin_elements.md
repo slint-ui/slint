@@ -230,5 +230,31 @@ FIXME: write docs
 
 FIXME: write docs
 
+## `TextInput`
+
+The `TextInput` is a lower-level item that shows text and allows entering text.
+
+### Properties
+
+* **`text`** (*string*): The actual text.
+* **`font_family`** (*string*): The font name
+* **`font_size`** (*length*): The font size of the text
+* **`color`** (*color*): The color of the text (default: transparent)
+* **`horizontal_alignment`**, **`vertical_alignment`** (*FIXME: enum*): How is the text aligned
+  within the item
+
+
+### Example
+
+```60
+Example := Window {
+    width: 270lx;
+    height: 100lx;
+
+    TextInput {
+        text: "Replace me with a name";
+    }
+}
+```
 
 

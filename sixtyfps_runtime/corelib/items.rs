@@ -810,3 +810,130 @@ ItemVTable_static! {
     #[no_mangle]
     pub static WindowVTable for Window
 }
+
+/// The implementation of the `TextInput` element
+#[repr(C)]
+#[derive(FieldOffsets, Default, BuiltinItem)]
+#[pin]
+pub struct TextInput {
+    pub text: Property<SharedString>,
+    pub font_family: Property<SharedString>,
+    pub font_size: Property<f32>,
+    pub color: Property<Color>,
+    pub horizontal_alignment: Property<TextHorizontalAlignment>,
+    pub vertical_alignment: Property<TextVerticalAlignment>,
+    pub x: Property<f32>,
+    pub y: Property<f32>,
+    pub width: Property<f32>,
+    pub height: Property<f32>,
+    pub cached_rendering_data: CachedRenderingData,
+}
+
+impl Item for TextInput {
+    // FIXME: width / height.  or maybe it doesn't matter?  (
+    fn geometry(self: Pin<&Self>) -> Rect {
+        euclid::rect(
+            Self::FIELD_OFFSETS.x.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.y.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.width.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.height.apply_pin(self).get(),
+        )
+    }
+    fn rendering_primitive(
+        self: Pin<&Self>,
+        window: &ComponentWindow,
+    ) -> HighLevelRenderingPrimitive {
+        HighLevelRenderingPrimitive::Text {
+            text: Self::FIELD_OFFSETS.text.apply_pin(self).get(),
+            font_family: Self::FIELD_OFFSETS.font_family.apply_pin(self).get(),
+            font_size: TextInput::font_pixel_size(self, window),
+        }
+    }
+
+    fn rendering_variables(
+        self: Pin<&Self>,
+        window: &ComponentWindow,
+    ) -> SharedArray<RenderingVariable> {
+        let layout_info = self.layouting_info(window);
+        let rect = self.geometry();
+
+        let hor_alignment = Self::FIELD_OFFSETS.horizontal_alignment.apply_pin(self).get();
+        let translate_x = match hor_alignment {
+            TextHorizontalAlignment::align_left => 0.,
+            TextHorizontalAlignment::align_center => rect.width() / 2. - layout_info.min_width / 2.,
+            TextHorizontalAlignment::align_right => rect.width() - layout_info.min_width,
+        };
+
+        let ver_alignment = Self::FIELD_OFFSETS.vertical_alignment.apply_pin(self).get();
+        let translate_y = match ver_alignment {
+            TextVerticalAlignment::align_top => 0.,
+            TextVerticalAlignment::align_center => rect.height() / 2. - layout_info.min_height / 2.,
+            TextVerticalAlignment::align_bottom => rect.height() - layout_info.min_height,
+        };
+
+        SharedArray::from([
+            RenderingVariable::Translate(translate_x, translate_y),
+            RenderingVariable::Color(Self::FIELD_OFFSETS.color.apply_pin(self).get()),
+        ])
+    }
+
+    fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
+        let font_family = Self::FIELD_OFFSETS.font_family.apply_pin(self).get();
+        let font_size = TextInput::font_pixel_size(self, window);
+        let text = Self::FIELD_OFFSETS.text.apply_pin(self).get();
+
+        crate::font::FONT_CACHE.with(|fc| {
+            let font = fc.find_font(&font_family, font_size);
+            let width = font.text_width(&text);
+            let height = font.height();
+            LayoutInfo {
+                min_width: width,
+                max_width: f32::MAX,
+                min_height: height,
+                max_height: height,
+            }
+        })
+    }
+
+    fn input_event(self: Pin<&Self>, _: MouseEvent, _window: &ComponentWindow) -> InputEventResult {
+        InputEventResult::EventIgnored
+    }
+
+    fn key_event(self: Pin<&Self>, event: &KeyEvent) -> KeyEventResult {
+        use std::convert::TryInto;
+        match event {
+            KeyEvent::CharacterInput(ch_code) => {
+                let mut text = Self::FIELD_OFFSETS.text.apply_pin(self).get();
+                let ch: char = (*ch_code).try_into().unwrap();
+                text.push_str(&ch.to_string());
+                Self::FIELD_OFFSETS.text.apply_pin(self).set(text);
+                KeyEventResult::EventAccepted
+            }
+            _ => KeyEventResult::EventIgnored,
+        }
+    }
+}
+
+impl TextInput {
+    fn font_pixel_size(self: Pin<&Self>, window: &ComponentWindow) -> f32 {
+        let font_size = Self::FIELD_OFFSETS.font_size.apply_pin(self).get();
+        if font_size == 0.0 {
+            16. * window.scale_factor()
+        } else {
+            font_size
+        }
+    }
+}
+
+impl ItemConsts for TextInput {
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<
+        TextInput,
+        CachedRenderingData,
+    > = TextInput::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+}
+
+ItemVTable_static! {
+    /// The VTable for `TextInput`
+    #[no_mangle]
+    pub static TextInputVTable for TextInput
+}

@@ -344,6 +344,7 @@ fn generate_component<'id>(
                 rtti_for::<Path>(),
                 rtti_for::<Flickable>(),
                 rtti_for::<Window>(),
+                rtti_for::<TextInput>(),
             ]
             .iter()
             .cloned(),
