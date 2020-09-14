@@ -11,6 +11,7 @@ LICENSE END */
 
 TODO: Keyboard events
 */
+#![warn(missing_docs)]
 
 use crate::component::ComponentRefPin;
 use crate::graphics::Point;
@@ -50,6 +51,7 @@ pub enum InputEventResult {
     /// The event was accepted. This may result in additional events, for example
     /// accepting a mouse move will result in a MouseExit event later.
     EventAccepted,
+    /// The event was ignored.
     EventIgnored,
     /* /// Same as grab, but continue forwarding the event to children.
     /// If a child grab the mouse, the grabber will be stored in the item itself.
@@ -72,6 +74,16 @@ impl Default for InputEventResult {
     }
 }
 
+/// Feed the given mouse event into the tree of items that component holds. The
+/// event will be delivered to items in front first.
+///
+/// The returned tuple is identical with the tuple the ItemVTable's input_event returns,
+/// indicating the acceptance or potential mouse grabbing as well as how to proceed
+/// in the event of recursive item tree traversal.
+///
+/// Arguments:
+/// * `component`: The component to deliver the event to.
+/// * `event`: The mouse event to deliver.
 pub fn process_ungrabbed_mouse_event(
     component: ComponentRefPin,
     event: MouseEvent,
