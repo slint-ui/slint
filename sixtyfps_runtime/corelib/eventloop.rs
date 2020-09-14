@@ -17,12 +17,16 @@ use crate::component::ComponentVTable;
 use crate::items::ItemRef;
 use std::cell::RefCell;
 use std::{
+    convert::TryInto,
     pin::Pin,
     rc::{Rc, Weak},
 };
 use vtable::*;
 
-use crate::{input::MouseEventType, properties::PropertyTracker};
+use crate::{
+    input::{KeyEvent, MouseEventType},
+    properties::PropertyTracker,
+};
 #[cfg(not(target_arch = "wasm32"))]
 use winit::platform::desktop::EventLoopExtDesktop;
 
@@ -45,6 +49,17 @@ pub trait GenericWindow {
         &self,
         pos: winit::dpi::PhysicalPosition<f64>,
         what: MouseEventType,
+        component: core::pin::Pin<crate::component::ComponentRef>,
+    );
+    /// Receive a key event and pass it to the items of the component to
+    /// change their state.
+    ///
+    /// Arguments:
+    /// * `event`: The key event received by the windowing system.
+    /// * `component`: The SixtyFPS compiled component that provides the tree of items.
+    fn process_key_input(
+        &self,
+        event: &KeyEvent,
         component: core::pin::Pin<crate::component::ComponentRef>,
     );
     /// Calls the `callback` function with the underlying winit::Window that this
@@ -326,6 +341,40 @@ impl EventLoop {
                             }
                         });
                     }
+                }
+
+                winit::event::Event::WindowEvent {
+                    ref window_id,
+                    event: winit::event::WindowEvent::KeyboardInput { ref input, .. },
+                } => {
+                    crate::animations::update_animations();
+                    ALL_WINDOWS.with(|windows| {
+                        if let Some(Some(window)) =
+                            windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
+                        {
+                            if let Some(ref key_event) = input.try_into().ok() {
+                                window.process_key_input(key_event, component);
+                                // FIXME: remove this, it should be based on actual changes rather than this
+                                window.request_redraw();
+                            }
+                        }
+                    });
+                }
+                winit::event::Event::WindowEvent {
+                    ref window_id,
+                    event: winit::event::WindowEvent::ReceivedCharacter(ch),
+                } => {
+                    crate::animations::update_animations();
+                    ALL_WINDOWS.with(|windows| {
+                        if let Some(Some(window)) =
+                            windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
+                        {
+                            let key_event = KeyEvent::CharacterInput(ch.into());
+                            window.process_key_input(&key_event, component);
+                            // FIXME: remove this, it should be based on actual changes rather than this
+                            window.request_redraw();
+                        }
+                    });
                 }
 
                 _ => (),

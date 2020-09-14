@@ -26,7 +26,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 #![allow(missing_docs)] // because documenting each property of items is redundent
 
 use super::graphics::{Color, HighLevelRenderingPrimitive, PathData, Rect, Resource};
-use super::input::{InputEventResult, MouseEvent, MouseEventType};
+use super::input::{InputEventResult, KeyEvent, KeyEventResult, MouseEvent, MouseEventType};
 use super::item_rendering::CachedRenderingData;
 use super::layout::LayoutInfo;
 #[cfg(feature = "rtti")]
@@ -67,6 +67,8 @@ pub struct ItemVTable {
     /// input event
     pub input_event:
         extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, MouseEvent) -> InputEventResult,
+
+    pub key_event: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, &KeyEvent) -> KeyEventResult,
 }
 
 /// Alias for `vtable::VRef<ItemVTable>` which represent a pointer to a `dyn Item` with
@@ -117,6 +119,10 @@ impl Item for Rectangle {
 
     fn input_event(self: Pin<&Self>, _: MouseEvent) -> InputEventResult {
         InputEventResult::EventIgnored
+    }
+
+    fn key_event(self: Pin<&Self>, _: &KeyEvent) -> KeyEventResult {
+        KeyEventResult::EventIgnored
     }
 }
 
@@ -187,6 +193,10 @@ impl Item for BorderRectangle {
     fn input_event(self: Pin<&Self>, _: MouseEvent) -> InputEventResult {
         InputEventResult::EventIgnored
     }
+
+    fn key_event(self: Pin<&Self>, _: &KeyEvent) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
 }
 
 impl ItemConsts for BorderRectangle {
@@ -253,6 +263,10 @@ impl Item for Image {
 
     fn input_event(self: Pin<&Self>, _: MouseEvent) -> InputEventResult {
         InputEventResult::EventIgnored
+    }
+
+    fn key_event(self: Pin<&Self>, _: &KeyEvent) -> KeyEventResult {
+        KeyEventResult::EventIgnored
     }
 }
 
@@ -380,6 +394,10 @@ impl Item for Text {
     fn input_event(self: Pin<&Self>, _: MouseEvent) -> InputEventResult {
         InputEventResult::EventIgnored
     }
+
+    fn key_event(self: Pin<&Self>, _: &KeyEvent) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
 }
 
 impl ItemConsts for Text {
@@ -466,6 +484,10 @@ impl Item for TouchArea {
         });
         result
     }
+
+    fn key_event(self: Pin<&Self>, _: &KeyEvent) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
 }
 
 impl ItemConsts for TouchArea {
@@ -529,6 +551,10 @@ impl Item for Path {
     fn input_event(self: Pin<&Self>, _: MouseEvent) -> InputEventResult {
         InputEventResult::EventIgnored
     }
+
+    fn key_event(self: Pin<&Self>, _: &KeyEvent) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
 }
 
 impl ItemConsts for Path {
@@ -583,6 +609,10 @@ impl Item for Flickable {
         self.data.handle_mouse(self, event);
         // FIXME
         InputEventResult::EventAccepted
+    }
+
+    fn key_event(self: Pin<&Self>, _: &KeyEvent) -> KeyEventResult {
+        KeyEventResult::EventIgnored
     }
 }
 
@@ -679,6 +709,10 @@ impl Item for Window {
 
     fn input_event(self: Pin<&Self>, _event: MouseEvent) -> InputEventResult {
         InputEventResult::EventIgnored
+    }
+
+    fn key_event(self: Pin<&Self>, _: &KeyEvent) -> KeyEventResult {
+        KeyEventResult::EventIgnored
     }
 }
 

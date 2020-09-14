@@ -20,7 +20,7 @@ LICENSE END */
     created by the backend in a type-erased manner.
 */
 extern crate alloc;
-use crate::input::{MouseEvent, MouseEventType};
+use crate::input::{KeyEvent, MouseEvent, MouseEventType};
 use crate::items::ItemRef;
 use crate::properties::{InterpolatedPropertyValue, Property};
 #[cfg(feature = "rtti")]
@@ -683,6 +683,7 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
         );
         backend.present_frame(frame);
     }
+
     fn process_mouse_input(
         &self,
         pos: winit::dpi::PhysicalPosition<f64>,
@@ -692,6 +693,14 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
         component
             .as_ref()
             .input_event(MouseEvent { pos: euclid::point2(pos.x as _, pos.y as _), what });
+    }
+
+    fn process_key_input(
+        &self,
+        event: &KeyEvent,
+        component: core::pin::Pin<crate::component::ComponentRef>,
+    ) {
+        crate::input::process_key_event(component, event)
     }
 
     fn with_platform_window(&self, callback: &dyn Fn(&winit::window::Window)) {

@@ -12,7 +12,9 @@ use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use cpp::cpp;
 use sixtyfps_corelib::graphics::{HighLevelRenderingPrimitive, Rect, RenderingVariable, Resource};
-use sixtyfps_corelib::input::{InputEventResult, MouseEvent, MouseEventType};
+use sixtyfps_corelib::input::{
+    InputEventResult, KeyEvent, KeyEventResult, MouseEvent, MouseEventType,
+};
 use sixtyfps_corelib::item_rendering::CachedRenderingData;
 use sixtyfps_corelib::items::{Item, ItemConsts, ItemVTable};
 use sixtyfps_corelib::layout::LayoutInfo;
@@ -172,6 +174,10 @@ impl Item for NativeButton {
             InputEventResult::GrabMouse
         }
     }
+
+    fn key_event(self: Pin<&Self>, _: &KeyEvent) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
 }
 
 impl ItemConsts for NativeButton {
@@ -258,6 +264,10 @@ impl Item for NativeCheckBox {
             Self::FIELD_OFFSETS.toggled.apply_pin(self).emit(&())
         }
         InputEventResult::EventAccepted
+    }
+
+    fn key_event(self: Pin<&Self>, _: &KeyEvent) -> KeyEventResult {
+        KeyEventResult::EventIgnored
     }
 }
 
@@ -427,6 +437,10 @@ impl Item for NativeSpinBox {
             self.data.set(data);
         }
         InputEventResult::EventAccepted
+    }
+
+    fn key_event(self: Pin<&Self>, _: &KeyEvent) -> KeyEventResult {
+        KeyEventResult::EventIgnored
     }
 }
 
@@ -603,6 +617,10 @@ impl Item for NativeSlider {
         self.data.set(data);
         result
     }
+
+    fn key_event(self: Pin<&Self>, _: &KeyEvent) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
 }
 
 impl ItemConsts for NativeSlider {
@@ -717,6 +735,10 @@ impl Item for NativeGroupBox {
 
     fn input_event(self: Pin<&Self>, _: MouseEvent) -> InputEventResult {
         InputEventResult::EventIgnored
+    }
+
+    fn key_event(self: Pin<&Self>, _: &KeyEvent) -> KeyEventResult {
+        KeyEventResult::EventIgnored
     }
 }
 
