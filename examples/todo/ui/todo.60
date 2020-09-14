@@ -13,7 +13,7 @@ import { SpinBox, Button, CheckBox, Slider } from "sixtyfps_widgets.60";
 MainWindow := Window {
     width: 400lx;
     height: 600lx;
-    // signal todo_added(string);
+    signal todo_added(string);
 
     property <[{title: string, checked: bool}]> todo_model: [
         { title: "Implement the .60 file", checked: true },
@@ -32,7 +32,7 @@ MainWindow := Window {
             btn := Button {
                 text: "Add Todo";
                 clicked => {
-                    // todo_added(text_edit.text);
+                    todo_added(text_edit.text);
                 }
             }
         }

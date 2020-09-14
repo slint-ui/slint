@@ -145,7 +145,7 @@ impl<T: Clone> SharedArray<T> {
     fn detach(&mut self, new_capacity: usize) {
         let is_shared =
             unsafe { self.inner.as_ref().header.refcount.load(atomic::Ordering::Relaxed) } != 1;
-        if !is_shared && new_capacity >= self.capacity() {
+        if !is_shared && new_capacity <= self.capacity() {
             return;
         }
         let mut new_array = SharedArray::with_capacity(new_capacity);
@@ -378,6 +378,17 @@ fn simple_test() {
     let def: SharedArray<i32> = Default::default();
     assert_eq!(def, SharedArray::<i32>::default());
     assert_ne!(def, x);
+}
+
+#[test]
+fn push_test() {
+    let mut x: SharedArray<i32> = SharedArray::from([1, 2, 3]);
+    let y = x.clone();
+    x.push(4);
+    x.push(5);
+    x.push(6);
+    assert_eq!(x.as_slice(), &[1, 2, 3, 4, 5, 6]);
+    assert_eq!(y.as_slice(), &[1, 2, 3]);
 }
 
 pub(crate) mod ffi {

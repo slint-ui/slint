@@ -21,7 +21,7 @@ pub fn main() {
 
     let main_window = MainWindow::new();
     // FIXME: better represtation of the models
-    main_window.set_ink_levels(sixtyfps::re_exports::ArrayModel::from_slice(&[
+    main_window.set_ink_levels(sixtyfps::model::ArrayModel::from_slice(&[
         (sixtyfps::Color::from_rgb_u8(0, 255, 255), 0.40),
         (sixtyfps::Color::from_rgb_u8(255, 0, 255), 0.20),
         (sixtyfps::Color::from_rgb_u8(255, 255, 0), 0.50),

@@ -77,6 +77,7 @@ pub trait Model {
 }
 
 /// A model backed by an SharedArray
+#[derive(Default)]
 pub struct ArrayModel<T> {
     array: RefCell<SharedArray<T>>,
     notify: ModelNotify,
@@ -86,6 +87,12 @@ impl<T: Clone> ArrayModel<T> {
     /// Allocate a new model from a slice
     pub fn from_slice(slice: &[T]) -> ModelRc<T> {
         ModelRc(Rc::<Self>::new(SharedArray::from_slice(slice).into()))
+    }
+
+    /// Add a row at the end of the model
+    pub fn push(&self, value: T) {
+        self.array.borrow_mut().push(value);
+        self.notify.row_added(self.array.borrow().len() - 1, 1)
     }
 }
 
@@ -298,4 +305,16 @@ impl<C: RepeatedComponent> Repeater<C> {
             c.as_ref().compute_layout();
         }
     }
+}
+
+#[test]
+fn simple_array_notify_test() {
+    let model = ArrayModel::<u32>::from(SharedArray::from_slice(&[1, 2, 3]));
+    let model = Rc::new(model);
+    let inner = Rc::new(ModelPeerInner(Cell::new(false)));
+    model.push(5);
+    model.attach_peer(ModelPeer { inner: inner.clone() });
+    model.attach_peer(ModelPeer { inner: Rc::new(ModelPeerInner(Cell::new(false))) });
+    model.push(6);
+    assert_eq!(inner.0.get(), true);
 }
