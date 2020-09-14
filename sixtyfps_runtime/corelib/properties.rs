@@ -547,6 +547,12 @@ impl<T: Clone> Property<T> {
         });
         self.handle.mark_dirty();
     }
+
+    /// Any of the properties accessed during the last evaluation of the closure called
+    /// from the last call to evaluate is pottentially dirty.
+    pub fn is_dirty(&self) -> bool {
+        self.handle.access(|binding| binding.map_or(false, |b| b.dirty.get()))
+    }
 }
 
 impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
@@ -1013,6 +1019,11 @@ impl PropertyTracker {
         let r = CURRENT_BINDING.set(pinned_holder, f);
         self.holder.dirty.set(false);
         r
+    }
+
+    /// Mark this PropertyTracker as dirty
+    pub fn set_dirty(&self) {
+        self.holder.dirty.set(true);
     }
 }
 

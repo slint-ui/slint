@@ -53,6 +53,8 @@ assert(instance.get_value() == 1+1+2);
 let instance = TestCase::new();
 let instance = instance.as_ref();
 use sixtyfps::re_exports::Component;
+sixtyfps::testing::send_mouse_click(instance, -1., -1.); // FIXME: Force creation of repeater components before computing the layout
+
 instance.compute_layout();
 
 sixtyfps::testing::send_mouse_click(instance, 190., 190.);

@@ -42,7 +42,7 @@ fn rust_type(
         }
         Type::Array(o) => {
             let inner = rust_type(&o, span)?;
-            Ok(quote!(sixtyfps::re_exports::SharedArray<#inner>))
+            Ok(quote!(sixtyfps::re_exports::ModelRc<#inner>))
         }
         _ => Err(CompilerDiagnostic {
             message: format!("Cannot map property type {} to Rust", ty),
@@ -190,7 +190,6 @@ fn generate_component(
     let mut item_types = Vec::new();
     let mut repeated_element_names = Vec::new();
     let mut repeated_element_components = Vec::new();
-    let mut repeated_dynmodel_names = Vec::new();
     let mut repeated_visit_branch = Vec::new();
     let mut repeated_input_branch = Vec::new();
     let mut init = Vec::new();
@@ -252,36 +251,28 @@ fn generate_component(
 
             let mut model = compile_expression(&repeated.model, component);
             if repeated.is_conditional_element {
-                model = quote!((if #model {Some(())} else {None}))
+                model = quote!(sixtyfps::re_exports::ModelRc(std::rc::Rc::<bool>::new(#model)))
             }
 
-            if repeated.model.is_constant() {
-                init.push(quote! {
-                    self_pinned.#repeater_id.update_model((#model).into_iter(), || {
-                        #rep_component_id::new(self_pinned.self_weak.get().unwrap().clone())
-                    });
-                });
-                repeated_visit_branch.push(quote!(
-                    #repeater_index => self_pinned.#repeater_id.visit(order, visitor),
-                ));
-            } else {
-                let model_name = format_ident!("model_{}", repeater_index);
-                repeated_visit_branch.push(quote!(
-                    #repeater_index => {
-                        if self_pinned.#model_name.is_dirty() {
-                            self_pinned.#repeater_id.update_model(
-                                #component_id::FIELD_OFFSETS.#model_name.apply_pin(self_pinned).evaluate(|| {
-                                    let _self = self_pinned.clone();
-                                    #model
-                                }).into_iter(),
-                                || { #rep_component_id::new(self_pinned.self_weak.get().unwrap().clone()) }
-                            );
-                        }
-                        self_pinned.#repeater_id.visit(order, visitor)
+            // FIXME: there could be an optimization if `repeated.model.is_constant()`, we don't need a binding
+            init.push(quote! {
+                self_pinned.#repeater_id.set_model_binding({
+                    let self_weak = sixtyfps::re_exports::PinWeak::downgrade(self_pinned.clone());
+                    move || {
+                        let self_pinned = self_weak.upgrade().unwrap();
+                        let _self = self_pinned.as_ref();
+                        (#model) as _
                     }
-                ));
-                repeated_dynmodel_names.push(model_name);
-            }
+                });
+            });
+            repeated_visit_branch.push(quote!(
+                #repeater_index => {
+                    #component_id::FIELD_OFFSETS.#repeater_id.apply_pin(self_pinned).ensure_updated(
+                            || { #rep_component_id::new(self_pinned.self_weak.get().unwrap().clone()) }
+                        );
+                    self_pinned.#repeater_id.visit(order, visitor)
+                }
+            ));
 
             repeated_input_branch.push(quote!(
                 #repeater_index => self.#repeater_id.input_event(rep_index, event),
@@ -466,7 +457,6 @@ fn generate_component(
             #(#declared_property_vars : sixtyfps::re_exports::Property<#declared_property_types>,)*
             #(#declared_signals : sixtyfps::re_exports::Signal<(#(#declared_signals_types,)*)>,)*
             #(#repeated_element_names : sixtyfps::re_exports::Repeater<#repeated_element_components>,)*
-            #(#repeated_dynmodel_names : sixtyfps::re_exports::PropertyTracker,)*
             self_weak: sixtyfps::re_exports::OnceCell<sixtyfps::re_exports::PinWeak<#component_id>>,
             #(parent : sixtyfps::re_exports::PinWeak<#parent_component_type>,)*
             mouse_grabber: ::core::cell::Cell<sixtyfps::re_exports::VisitChildrenResult>,
@@ -534,7 +524,6 @@ fn generate_component(
                     #(#declared_property_vars : ::core::default::Default::default(),)*
                     #(#declared_signals : ::core::default::Default::default(),)*
                     #(#repeated_element_names : ::core::default::Default::default(),)*
-                    #(#repeated_dynmodel_names : ::core::default::Default::default(),)*
                     self_weak : ::core::default::Default::default(),
                     #(parent : parent as sixtyfps::re_exports::PinWeak::<#parent_component_type>,)*
                     mouse_grabber: ::core::cell::Cell::new(sixtyfps::re_exports::VisitChildrenResult::CONTINUE),
@@ -702,7 +691,9 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                 (Type::Float32, Type::String) | (Type::Int32, Type::String) => {
                     quote!(sixtyfps::re_exports::SharedString::from(format!("{}", #f).as_str()))
                 }
-                (Type::Float32, Type::Model) | (Type::Int32, Type::Model) => quote!((0..#f as i32)),
+                (Type::Float32, Type::Model) | (Type::Int32, Type::Model) => {
+                    quote!(sixtyfps::re_exports::ModelRc(std::rc::Rc::<usize>::new(#f as usize)))
+                }
                 (Type::Float32, Type::Color) => {
                     quote!(sixtyfps::re_exports::Color::from_argb_encoded(#f as u32))
                 }
@@ -879,8 +870,7 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
         Expression::Array { values, element_ty } => {
             let rust_element_ty = rust_type(&element_ty, &Default::default()).unwrap();
             let val = values.iter().map(|e| compile_expression(e, component));
-            // FIXME: we don't need to allocate a SharedArray in the model case.
-            quote!(sixtyfps::re_exports::SharedArray::<#rust_element_ty>::from_slice(&[#(#val as _),*]))
+            quote!(sixtyfps::re_exports::ArrayModel::<#rust_element_ty>::from_slice(&[#(#val as _),*]))
         }
         Expression::Object { ty, values } => {
             if let Type::Object(ty) = ty {

@@ -7,14 +7,202 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-use core::cell::RefCell;
+use core::cell::{Cell, RefCell};
 use core::pin::Pin;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
+
+use sixtyfps_corelib::Property;
+use sixtyfps_corelib::SharedArray;
+
+#[derive(Default, Clone)]
+struct ModelPeerInner(Cell<bool>);
+
+impl ModelPeerInner {
+    fn notify(&self) {
+        self.0.set(true);
+    }
+}
+
+/// Represent a handle to a view that listen to change to a model. See [`Model::attach_peer`] and [`ModelNotify`]
+pub struct ModelPeer {
+    inner: Rc<ModelPeerInner>,
+}
+
+/// Dispatch notification from a [`Model`] to one or several [`ModelPeer`].
+/// Typically, you would want to put this in the implementaiton of the Model
+#[derive(Default)]
+pub struct ModelNotify {
+    inner: RefCell<weak_table::PtrWeakHashSet<Weak<ModelPeerInner>>>,
+}
+
+impl ModelNotify {
+    /// Notify the peers that a specific row was changed
+    pub fn row_changed(&self, _row: usize) {
+        self.notify()
+    }
+    /// Notify the peers that rows were added
+    pub fn row_added(&self, _index: usize, _count: usize) {
+        self.notify()
+    }
+    /// Notify the peers that rows were removed
+    pub fn row_removed(&self, _index: usize, _count: usize) {
+        self.notify()
+    }
+    /// Attach one peer. The peer will be notified when the model changes
+    pub fn attach(&self, peer: ModelPeer) {
+        self.inner.borrow_mut().insert(peer.inner);
+    }
+
+    fn notify(&self) {
+        for peer in self.inner.borrow().iter() {
+            peer.notify()
+        }
+    }
+}
+
+/// A Model is providing Data for the Repeater or ListView elements of the `.60` language
+pub trait Model {
+    /// The model data: A model is a set of row and each row has this data
+    type Data;
+    /// The amount of row in the model
+    fn row_count(&self) -> usize;
+    /// Returns the data for a particular row. This function should be called with `row < row_count()`.
+    fn row_data(&self, row: usize) -> Self::Data;
+    /// Sets the data for a particular row. This function should be called with `row < row_count()`.
+    /// If the model cannot support data changes, then it is ok to do nothing (default implementation).
+    /// If the model can update the data, it should also call row_changed on its internal `ModelNotify`.
+    fn set_row_data(&self, _row: usize, _data: Self::Data) {}
+    /// Should forward to the internal [`ModelNotify::attach`]
+    fn attach_peer(&self, peer: ModelPeer);
+}
+
+/// A model backed by an SharedArray
+pub struct ArrayModel<T> {
+    array: RefCell<SharedArray<T>>,
+    notify: ModelNotify,
+}
+
+impl<T: Clone> ArrayModel<T> {
+    /// Allocate a new model from a slice
+    pub fn from_slice(slice: &[T]) -> ModelRc<T> {
+        ModelRc(Rc::<Self>::new(SharedArray::from_slice(slice).into()))
+    }
+}
+
+impl<T> From<SharedArray<T>> for ArrayModel<T> {
+    fn from(array: SharedArray<T>) -> Self {
+        ArrayModel { array: RefCell::new(array), notify: Default::default() }
+    }
+}
+
+impl<T: Clone> Model for ArrayModel<T> {
+    type Data = T;
+
+    fn row_count(&self) -> usize {
+        self.array.borrow().len()
+    }
+
+    fn row_data(&self, row: usize) -> Self::Data {
+        self.array.borrow()[row].clone()
+    }
+
+    fn set_row_data(&self, row: usize, data: Self::Data) {
+        self.array.borrow_mut().as_slice_mut()[row] = data;
+        self.notify.row_changed(row);
+    }
+
+    fn attach_peer(&self, peer: ModelPeer) {
+        self.notify.attach(peer);
+    }
+}
+
+/// An empty model with no data
+pub struct EmptyModel<Data>(core::marker::PhantomData<Vec<Data>>);
+
+impl<Data> Copy for EmptyModel<Data> {}
+
+impl<Data> Clone for EmptyModel<Data> {
+    fn clone(&self) -> Self {
+        EmptyModel(Default::default())
+    }
+}
+
+impl<Data> Default for EmptyModel<Data> {
+    fn default() -> Self {
+        EmptyModel(Default::default())
+    }
+}
+
+impl<Data> Model for EmptyModel<Data> {
+    type Data = Data;
+
+    fn row_count(&self) -> usize {
+        0
+    }
+
+    fn row_data(&self, _row: usize) -> Self::Data {
+        panic!("Getting the data from an empty model")
+    }
+
+    fn attach_peer(&self, _peer: ModelPeer) {
+        // The model is read_only: nothing to do
+    }
+}
+
+impl Model for usize {
+    type Data = i32;
+
+    fn row_count(&self) -> usize {
+        *self
+    }
+
+    fn row_data(&self, row: usize) -> Self::Data {
+        row as i32
+    }
+
+    fn attach_peer(&self, _peer: ModelPeer) {
+        // The model is read_only: nothing to do
+    }
+}
+
+impl Model for bool {
+    type Data = ();
+
+    fn row_count(&self) -> usize {
+        if *self {
+            1
+        } else {
+            0
+        }
+    }
+
+    fn row_data(&self, _row: usize) -> Self::Data {}
+
+    fn attach_peer(&self, _peer: ModelPeer) {
+        // The model is read_only: nothing to do
+    }
+}
+
+/// Wrapper around Rc<dyn Model<Data = T>> that implements Default
+#[derive(derive_more::Deref, derive_more::From)]
+pub struct ModelRc<T: 'static>(pub Rc<dyn Model<Data = T>>);
+
+impl<T> Default for ModelRc<T> {
+    fn default() -> Self {
+        Self(Rc::new(EmptyModel::default()))
+    }
+}
+
+impl<T> Clone for ModelRc<T> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
 
 /// Component that can be instantiated by a repeater.
 pub trait RepeatedComponent: sixtyfps_corelib::component::Component {
     /// The data corresponding to the model
-    type Data;
+    type Data: 'static;
 
     /// Update this component at the given index and the given data
     fn update(&self, index: usize, data: Self::Data);
@@ -22,30 +210,52 @@ pub trait RepeatedComponent: sixtyfps_corelib::component::Component {
 
 /// This field is put in a component when using the `for` syntax
 /// It helps instantiating the components `C`
-pub struct Repeater<C> {
+#[repr(C)]
+pub struct Repeater<C: RepeatedComponent> {
     components: RefCell<Vec<Pin<Rc<C>>>>,
+    model: Property<ModelRc<C::Data>>,
+    peer: RefCell<Option<ModelPeer>>,
 }
 
-impl<C> Default for Repeater<C> {
+impl<C: RepeatedComponent> Default for Repeater<C> {
     fn default() -> Self {
-        Repeater { components: Default::default() }
+        Repeater {
+            components: Default::default(),
+            model: Default::default(),
+            peer: Default::default(),
+        }
     }
 }
 
-impl<Data, C> Repeater<C>
-where
-    C: RepeatedComponent<Data = Data>,
-{
-    /// Called when the model is changed
-    pub fn update_model<'a>(&self, data: impl Iterator<Item = Data>, init: impl Fn() -> Pin<Rc<C>>)
-    where
-        Data: 'a,
-    {
-        self.components.borrow_mut().clear();
-        for (i, d) in data.enumerate() {
-            let c = init();
-            c.update(i, d);
-            self.components.borrow_mut().push(c);
+impl<C: RepeatedComponent> Repeater<C> {
+    /// Set the model binding
+    pub fn set_model_binding(&self, binding: impl Fn() -> ModelRc<C::Data> + 'static) {
+        self.model.set_binding(binding);
+    }
+
+    /// Call this function to make sure that the model is updated.
+    /// The init function is the function to create a component
+    pub fn ensure_updated(self: Pin<&Self>, init: impl Fn() -> Pin<Rc<C>>) {
+        #[allow(unsafe_code)]
+        // Safety: Repeater does not implement drop and never let access model as mutable
+        let model = unsafe { self.map_unchecked(|s| &s.model) };
+        if model.is_dirty() {
+            let peer_inner = Rc::new(ModelPeerInner(Cell::new(true)));
+            *self.peer.borrow_mut() = Some(ModelPeer { inner: peer_inner.clone() });
+            model.get().attach_peer(ModelPeer { inner: peer_inner });
+        }
+        if let Some(peer) = self.peer.borrow().as_ref() {
+            if peer.inner.0.get() {
+                peer.inner.0.set(false);
+
+                let model = model.get();
+                self.components.borrow_mut().clear();
+                for i in 0..model.row_count() {
+                    let c = init();
+                    c.update(i, model.row_data(i));
+                    self.components.borrow_mut().push(c);
+                }
+            }
         }
     }
 

@@ -162,7 +162,13 @@ impl<T: Clone> SharedArray<T> {
         }
     }
 
-    /// Add an elent to the array. If the array was shared, this will make a copy of the array
+    /// Return a mutable slice to the array. If the array was shared, this will make a copy of the array.
+    pub fn as_slice_mut(&mut self) -> &mut [T] {
+        self.detach(self.len());
+        unsafe { core::slice::from_raw_parts_mut(self.as_ptr() as *mut T, self.len()) }
+    }
+
+    /// Add an elent to the array. If the array was shared, this will make a copy of the array.
     pub fn push(&mut self, value: T) {
         self.detach(capacity_for_grow(self.capacity(), self.len() + 1, core::mem::size_of::<T>()));
         unsafe {
@@ -181,6 +187,13 @@ impl<T> Deref for SharedArray<T> {
         self.as_slice()
     }
 }
+
+/* FIXME: is this a good idea to implement DerefMut knowing what it might detach?
+impl<T> DerefMut for SharedArray<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.as_slice_mut()
+    }
+}*/
 
 impl<T: Clone> From<&[T]> for SharedArray<T> {
     fn from(slice: &[T]) -> Self {

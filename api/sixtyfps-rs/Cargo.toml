@@ -16,9 +16,11 @@ once_cell = "1.4"
 sixtyfps-rs-macro= { version = "=0.0.1", path = "sixtyfps-rs-macro" }
 const-field-offset = { version = "0.1", path = "../../helper_crates/const-field-offset" }
 vtable = { version = "0.1", path = "../../helper_crates/vtable" }
-pin-weak = "1"
 sixtyfps-corelib = { version = "=0.0.1", path="../../sixtyfps_runtime/corelib" }
 sixtyfps-rendering-backend-default = { version = "=0.0.1", path="../../sixtyfps_runtime/rendering_backends/default" }
+weak-table =  "0.3"
+pin-weak = "1"
+derive_more = "0.99.5"
 
 [build-dependencies]
 rustc_version = "0.2.3"
