@@ -30,17 +30,15 @@ export Button := Rectangle {
         y: root.border_radius;
         x: root.border_radius;
         color: black;
-        width: touch_area.width;
-        height: touch_area.height;
+        width: root.width - 2 * root.border_radius;
+        height: root.height - 2 * root.border_radius;
         horizontal_alignment: align_center;
         vertical_alignment: align_center;
     }
 
     touch_area := TouchArea {
-        x: root.border_radius;
-        y: root.border_radius;
-        width: root.width - 2 * root.border_radius;
-        height: root.height - 2 * root.border_radius;
+        width: root.width;
+        height: root.height;
         clicked => { root.clicked() }
     }
 }
