@@ -67,6 +67,7 @@ pub mod slice;
 pub mod eventloop;
 pub mod item_rendering;
 pub mod tests;
+pub mod timers;
 
 /// One need to use at least one function in each module in order to get them
 /// exported in the final binary.

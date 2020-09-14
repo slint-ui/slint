@@ -281,6 +281,7 @@ pub enum HighLevelRenderingPrimitive {
     ///
     /// Expected rendering variables:
     /// * [`RenderingVariable::Color`]: The color to use for rendering the glyphs.
+    /// * [`RenderingVariable::TextCursor`]: Draw a text cursor.
     Text { text: crate::SharedString, font_family: crate::SharedString, font_size: f32 },
     /// Renders a path specified by the `elements` parameter. The path will be scaled to fit into the given
     /// `width` and `height`. If the `stroke_width` is greater than zero, then path will also be outlined.
@@ -313,6 +314,8 @@ pub enum RenderingVariable {
     ScaledWidth(f32),
     /// Scale the primitive by the specified height.
     ScaledHeight(f32),
+    /// Draw a text cursor. The parameters provide the x coordiante and the width/height as (x, width, height) tuple.
+    TextCursor(f32, f32, f32),
 }
 
 impl RenderingVariable {
@@ -507,6 +510,7 @@ pub struct GraphicsWindow<Backend: GraphicsBackend + 'static> {
     window_factory: Box<WindowFactoryFn<Backend>>,
     map_state: RefCell<GraphicsWindowBackendState<Backend>>,
     properties: Pin<Box<WindowProperties>>,
+    cursor_blinker: std::cell::RefCell<pin_weak::rc::PinWeak<TextCursorBlinker>>,
 }
 
 impl<Backend: GraphicsBackend + 'static> GraphicsWindow<Backend> {
@@ -524,6 +528,7 @@ impl<Backend: GraphicsBackend + 'static> GraphicsWindow<Backend> {
             window_factory: Box::new(graphics_backend_factory),
             map_state: RefCell::new(GraphicsWindowBackendState::Unmapped),
             properties: Box::pin(WindowProperties::default()),
+            cursor_blinker: Default::default(),
         })
     }
 
@@ -540,6 +545,9 @@ impl<Backend: GraphicsBackend> Drop for GraphicsWindow<Backend> {
             GraphicsWindowBackendState::Mapped(mw) => {
                 crate::eventloop::unregister_window(mw.backend.borrow().window().id());
             }
+        }
+        if let Some(existing_blinker) = self.cursor_blinker.borrow().upgrade() {
+            existing_blinker.stop();
         }
     }
 }
@@ -715,6 +723,9 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
 
     fn unmap_window(self: Rc<Self>) {
         self.map_state.replace(GraphicsWindowBackendState::Unmapped);
+        if let Some(existing_blinker) = self.cursor_blinker.borrow().upgrade() {
+            existing_blinker.stop();
+        }
     }
 
     fn scale_factor(&self) -> f32 {
@@ -743,6 +754,19 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
                 crate::item_rendering::free_item_rendering_data(component, &window.rendering_cache)
             }
         }
+    }
+
+    fn set_cursor_blink_binding(&self, prop: &crate::properties::Property<bool>) {
+        let existing_blinker = self.cursor_blinker.borrow().clone();
+
+        let blinker = existing_blinker.upgrade().unwrap_or_else(|| {
+            let new_blinker = TextCursorBlinker::new();
+            *self.cursor_blinker.borrow_mut() =
+                pin_weak::rc::PinWeak::downgrade(new_blinker.clone());
+            new_blinker
+        });
+
+        TextCursorBlinker::set_binding(blinker, prop);
     }
 }
 
@@ -1097,5 +1121,65 @@ pub(crate) mod ffi {
             coordinate_count,
         ));
         core::ptr::write(out_coordinates as *mut crate::SharedArray<Point>, coordinates.clone());
+    }
+}
+
+/// The TextCursorBlinker takes care of providing a toggled boolean property
+/// that can be used to animate a blinking cursor. It's typically stored in the
+/// Window using a Weak and set_binding() can be used to set up a binding on a given
+/// property that'll keep it up-to-date. That binding keeps a strong reference to the
+/// blinker. If the underlying item that uses it goes away, the binding goes away and
+/// so does the blinker.
+#[derive(FieldOffsets)]
+#[repr(C)]
+#[pin]
+struct TextCursorBlinker {
+    cursor_visible: Property<bool>,
+    cursor_blink_timer: crate::timers::Timer,
+}
+
+impl TextCursorBlinker {
+    fn new() -> Pin<Rc<Self>> {
+        Rc::pin(Self {
+            cursor_visible: Property::new(true),
+            cursor_blink_timer: Default::default(),
+        })
+    }
+
+    fn set_binding(instance: Pin<Rc<TextCursorBlinker>>, prop: &crate::properties::Property<bool>) {
+        instance.as_ref().cursor_visible.set(true);
+        // Re-start timer, in case.
+        Self::start(&instance);
+        prop.set_binding(move || {
+            TextCursorBlinker::FIELD_OFFSETS.cursor_visible.apply_pin(instance.as_ref()).get()
+        });
+    }
+
+    fn start(self: &Pin<Rc<Self>>) {
+        if self.cursor_blink_timer.running() {
+            self.cursor_blink_timer.restart();
+        } else {
+            let toggle_cursor = {
+                let weak_blinker = pin_weak::rc::PinWeak::downgrade(self.clone());
+                move || {
+                    if let Some(blinker) = weak_blinker.upgrade() {
+                        let visible = TextCursorBlinker::FIELD_OFFSETS
+                            .cursor_visible
+                            .apply_pin(blinker.as_ref())
+                            .get();
+                        blinker.cursor_visible.set(!visible);
+                    }
+                }
+            };
+            self.cursor_blink_timer.start(
+                crate::timers::TimerMode::Repeated,
+                std::time::Duration::from_millis(500),
+                Box::new(toggle_cursor),
+            );
+        }
+    }
+
+    fn stop(&self) {
+        self.cursor_blink_timer.stop()
     }
 }

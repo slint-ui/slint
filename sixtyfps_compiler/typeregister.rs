@@ -637,14 +637,18 @@ impl TypeRegister {
                 ("y", Type::Length),
                 ("width", Type::Length),
                 ("height", Type::Length),
+                ("text_cursor_width", Type::Length),
             ],
-            &[(
-                "color",
-                Expression::Cast {
-                    from: Box::new(Expression::NumberLiteral(0xff000000u32 as _, Unit::None)),
-                    to: Type::Color,
-                },
-            )],
+            &[
+                (
+                    "color",
+                    Expression::Cast {
+                        from: Box::new(Expression::NumberLiteral(0xff000000u32 as _, Unit::None)),
+                        to: Type::Color,
+                    },
+                ),
+                ("text_cursor_width", Expression::NumberLiteral(2., Unit::Lx)),
+            ],
         );
 
         let mut grid_layout = BuiltinElement::new(Rc::new(NativeClass::new("GridLayout")));

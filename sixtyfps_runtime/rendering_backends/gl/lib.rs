@@ -79,6 +79,20 @@ enum GLRenderingPrimitive {
     },
 }
 
+struct TextCursor {
+    vertices: GLArrayBuffer<Vertex>,
+    indices: GLIndexBuffer<u16>,
+}
+
+impl TextCursor {
+    fn from_primitive(rect_primitive: GLRenderingPrimitive) -> Self {
+        match rect_primitive {
+            GLRenderingPrimitive::FillPath { vertices, indices } => Self { vertices, indices },
+            _ => panic!("internal error: TextCursor can only be constructed from rectangle fill"),
+        }
+    }
+}
+
 pub struct GLRenderer {
     context: Rc<glow::Context>,
     path_shader: PathShader,
@@ -91,6 +105,7 @@ pub struct GLRenderer {
     window: Rc<winit::window::Window>,
     #[cfg(not(target_arch = "wasm32"))]
     windowed_context: Option<glutin::WindowedContext<glutin::NotCurrent>>,
+    text_cursor_rect: Option<TextCursor>,
 }
 
 pub struct GLRenderingPrimitivesBuilder {
@@ -103,6 +118,8 @@ pub struct GLRenderingPrimitivesBuilder {
 
     #[cfg(not(target_arch = "wasm32"))]
     windowed_context: glutin::WindowedContext<glutin::PossiblyCurrent>,
+
+    text_cursor_rect: Option<TextCursor>,
 }
 
 pub struct GLFrame {
@@ -113,6 +130,7 @@ pub struct GLFrame {
     root_matrix: cgmath::Matrix4<f32>,
     #[cfg(not(target_arch = "wasm32"))]
     windowed_context: glutin::WindowedContext<glutin::PossiblyCurrent>,
+    text_cursor_rect: Option<TextCursor>,
 }
 
 impl GLRenderer {
@@ -217,6 +235,7 @@ impl GLRenderer {
             window,
             #[cfg(not(target_arch = "wasm32"))]
             windowed_context: Some(unsafe { windowed_context.make_not_current().unwrap() }),
+            text_cursor_rect: None,
         }
     }
 }
@@ -246,15 +265,17 @@ impl GraphicsBackend for GLRenderer {
 
             #[cfg(not(target_arch = "wasm32"))]
             windowed_context: current_windowed_context,
+            text_cursor_rect: self.text_cursor_rect.take(),
         }
     }
 
-    fn finish_primitives(&mut self, _builder: Self::RenderingPrimitivesBuilder) {
+    fn finish_primitives(&mut self, mut builder: Self::RenderingPrimitivesBuilder) {
         #[cfg(not(target_arch = "wasm32"))]
         {
             self.windowed_context =
-                Some(unsafe { _builder.windowed_context.make_not_current().unwrap() });
+                Some(unsafe { builder.windowed_context.make_not_current().unwrap() });
         }
+        self.text_cursor_rect = builder.text_cursor_rect.take();
     }
 
     fn new_frame(&mut self, width: u32, height: u32, clear_color: &Color) -> GLFrame {
@@ -283,17 +304,19 @@ impl GraphicsBackend for GLRenderer {
             root_matrix: cgmath::ortho(0.0, width as f32, height as f32, 0.0, -1., 1.0),
             #[cfg(not(target_arch = "wasm32"))]
             windowed_context: current_windowed_context,
+            text_cursor_rect: self.text_cursor_rect.take(),
         }
     }
 
-    fn present_frame(&mut self, _frame: Self::Frame) {
+    fn present_frame(&mut self, mut frame: Self::Frame) {
         #[cfg(not(target_arch = "wasm32"))]
         {
-            _frame.windowed_context.swap_buffers().unwrap();
+            frame.windowed_context.swap_buffers().unwrap();
 
             self.windowed_context =
-                Some(unsafe { _frame.windowed_context.make_not_current().unwrap() });
+                Some(unsafe { frame.windowed_context.make_not_current().unwrap() });
         }
+        self.text_cursor_rect = frame.text_cursor_rect.take();
     }
     fn window(&self) -> &winit::window::Window {
         #[cfg(not(target_arch = "wasm32"))]
@@ -383,6 +406,13 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                     }
                 }
                 HighLevelRenderingPrimitive::Text { text, font_family, font_size } => {
+                    if self.text_cursor_rect.is_none() {
+                        let rect = Rect::new(Point::default(), Size::new(1., 1.));
+                        self.text_cursor_rect = Some(TextCursor::from_primitive(
+                            self.fill_rectangle(&rect, 0.).unwrap(),
+                        ));
+                    }
+
                     smallvec![self.create_glyph_runs(text, font_family, *font_size)]
                 }
                 HighLevelRenderingPrimitive::Path { width, height, elements, stroke_width } => {
@@ -672,25 +702,7 @@ impl GraphicsFrame for GLFrame {
         primitive.gl_primitives.iter().for_each(|gl_primitive| match gl_primitive {
             GLRenderingPrimitive::FillPath { vertices, indices } => {
                 let col: ARGBColor<f32> = (*rendering_var.next().unwrap().as_color()).into();
-
-                self.path_shader.bind(
-                    &self.context,
-                    &to_gl_matrix(&matrix),
-                    &[col.red, col.green, col.blue, col.alpha],
-                    vertices,
-                    indices,
-                );
-
-                unsafe {
-                    self.context.draw_elements(
-                        glow::TRIANGLES,
-                        indices.len,
-                        glow::UNSIGNED_SHORT,
-                        0,
-                    );
-                }
-
-                self.path_shader.unbind(&self.context);
+                self.fill_path(&matrix, vertices, indices, col);
             }
             GLRenderingPrimitive::Texture { vertices, texture_vertices, texture, image_size } => {
                 let matrix = if let Some(scaled_width) = rendering_var.next() {
@@ -715,41 +727,107 @@ impl GraphicsFrame for GLFrame {
                     matrix
                 };
 
-                self.image_shader.bind(
-                    &self.context,
-                    &to_gl_matrix(&matrix),
-                    texture.atlas.texture.as_ref(),
-                    vertices,
-                    texture_vertices,
-                );
-
-                unsafe {
-                    self.context.draw_arrays(glow::TRIANGLES, 0, 6);
-                }
-
-                self.image_shader.unbind(&self.context);
+                self.render_texture(&matrix, vertices, texture_vertices, texture);
             }
             GLRenderingPrimitive::GlyphRuns { glyph_runs } => {
                 let col: ARGBColor<f32> = (*rendering_var.next().unwrap().as_color()).into();
 
                 for GlyphRun { vertices, texture_vertices, texture, vertex_count } in glyph_runs {
-                    self.glyph_shader.bind(
-                        &self.context,
-                        &to_gl_matrix(&matrix),
-                        &[col.red, col.green, col.blue, col.alpha],
-                        texture,
+                    self.render_glyph_run(
+                        &matrix,
                         vertices,
                         texture_vertices,
+                        texture,
+                        *vertex_count,
+                        col,
                     );
+                }
 
-                    unsafe {
-                        self.context.draw_arrays(glow::TRIANGLES, 0, *vertex_count);
+                match (rendering_var.peek(), &self.text_cursor_rect) {
+                    (Some(RenderingVariable::TextCursor(x, width, height)), Some(text_cursor)) => {
+                        let matrix = matrix
+                            * Matrix4::from_translation(cgmath::Vector3::new(*x, 0., 0.))
+                            * Matrix4::from_nonuniform_scale(*width, *height, 1.);
+
+                        self.fill_path(&matrix, &text_cursor.vertices, &text_cursor.indices, col);
+
+                        rendering_var.next();
                     }
-
-                    self.glyph_shader.unbind(&self.context);
+                    _ => {}
                 }
             }
         });
+    }
+}
+
+impl GLFrame {
+    fn fill_path(
+        &self,
+        matrix: &Matrix4<f32>,
+        vertices: &GLArrayBuffer<Vertex>,
+        indices: &GLIndexBuffer<u16>,
+        color: ARGBColor<f32>,
+    ) {
+        self.path_shader.bind(
+            &self.context,
+            &to_gl_matrix(&matrix),
+            &[color.red, color.green, color.blue, color.alpha],
+            vertices,
+            indices,
+        );
+
+        unsafe {
+            self.context.draw_elements(glow::TRIANGLES, indices.len, glow::UNSIGNED_SHORT, 0);
+        }
+
+        self.path_shader.unbind(&self.context);
+    }
+
+    fn render_texture(
+        &self,
+        matrix: &Matrix4<f32>,
+        vertices: &GLArrayBuffer<Vertex>,
+        texture_vertices: &GLArrayBuffer<Vertex>,
+        texture: &texture::AtlasAllocation,
+    ) {
+        self.image_shader.bind(
+            &self.context,
+            &to_gl_matrix(&matrix),
+            texture.atlas.texture.as_ref(),
+            vertices,
+            texture_vertices,
+        );
+
+        unsafe {
+            self.context.draw_arrays(glow::TRIANGLES, 0, 6);
+        }
+
+        self.image_shader.unbind(&self.context);
+    }
+
+    fn render_glyph_run(
+        &self,
+        matrix: &Matrix4<f32>,
+        vertices: &GLArrayBuffer<Vertex>,
+        texture_vertices: &GLArrayBuffer<Vertex>,
+        texture: &texture::GLTexture,
+        vertex_count: i32,
+        color: ARGBColor<f32>,
+    ) {
+        self.glyph_shader.bind(
+            &self.context,
+            &to_gl_matrix(&matrix),
+            &[color.red, color.green, color.blue, color.alpha],
+            texture,
+            vertices,
+            texture_vertices,
+        );
+
+        unsafe {
+            self.context.draw_arrays(glow::TRIANGLES, 0, vertex_count);
+        }
+
+        self.glyph_shader.unbind(&self.context);
     }
 }
 

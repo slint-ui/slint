@@ -826,6 +826,9 @@ pub struct TextInput {
     pub y: Property<f32>,
     pub width: Property<f32>,
     pub height: Property<f32>,
+    pub cursor_position: Property<i32>,
+    pub text_cursor_width: Property<f32>,
+    pub cursor_visible: Property<bool>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
@@ -871,42 +874,83 @@ impl Item for TextInput {
             TextVerticalAlignment::align_bottom => rect.height() - layout_info.min_height,
         };
 
-        SharedArray::from([
+        let mut variables = SharedArray::from([
             RenderingVariable::Translate(translate_x, translate_y),
             RenderingVariable::Color(Self::FIELD_OFFSETS.color.apply_pin(self).get()),
-        ])
+        ]);
+
+        if Self::FIELD_OFFSETS.cursor_visible.apply_pin(self).get() {
+            let cursor_pos = Self::FIELD_OFFSETS.cursor_position.apply_pin(self).get();
+            let text = Self::FIELD_OFFSETS.text.apply_pin(self).get();
+            let (cursor_x_pos, font_height) = TextInput::with_font(self, window, |font| {
+                (font.text_width(text.split_at(cursor_pos as _).0), font.height())
+            });
+
+            let cursor_width =
+                Self::FIELD_OFFSETS.text_cursor_width.apply_pin(self).get() * window.scale_factor();
+
+            variables.push(RenderingVariable::TextCursor(cursor_x_pos, cursor_width, font_height));
+        }
+
+        variables
     }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
-        let font_family = Self::FIELD_OFFSETS.font_family.apply_pin(self).get();
-        let font_size = TextInput::font_pixel_size(self, window);
         let text = Self::FIELD_OFFSETS.text.apply_pin(self).get();
 
-        crate::font::FONT_CACHE.with(|fc| {
-            let font = fc.find_font(&font_family, font_size);
-            let width = font.text_width(&text);
-            let height = font.height();
-            LayoutInfo {
-                min_width: width,
-                max_width: f32::MAX,
-                min_height: height,
-                max_height: height,
-            }
-        })
+        let (width, height) =
+            TextInput::with_font(self, window, |font| (font.text_width(&text), font.height()));
+
+        LayoutInfo { min_width: width, max_width: f32::MAX, min_height: height, max_height: height }
     }
 
-    fn input_event(self: Pin<&Self>, _: MouseEvent, _window: &ComponentWindow) -> InputEventResult {
-        InputEventResult::EventIgnored
+    fn input_event(
+        self: Pin<&Self>,
+        event: MouseEvent,
+        window: &ComponentWindow,
+    ) -> InputEventResult {
+        if matches!(event.what, MouseEventType::MouseReleased) {
+            self.as_ref().show_cursor(window);
+            InputEventResult::EventAccepted
+        } else {
+            InputEventResult::EventIgnored
+        }
     }
 
-    fn key_event(self: Pin<&Self>, event: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
-        use std::convert::TryInto;
+    fn key_event(self: Pin<&Self>, event: &KeyEvent, window: &ComponentWindow) -> KeyEventResult {
+        use std::convert::TryFrom;
         match event {
             KeyEvent::CharacterInput(ch_code) => {
-                let mut text = Self::FIELD_OFFSETS.text.apply_pin(self).get();
-                let ch: char = (*ch_code).try_into().unwrap();
-                text.push_str(&ch.to_string());
-                Self::FIELD_OFFSETS.text.apply_pin(self).set(text);
+                let mut text: String = Self::FIELD_OFFSETS.text.apply_pin(self).get().into();
+
+                // FIXME: respect grapheme boundaries
+                let insert_pos = Self::FIELD_OFFSETS
+                    .cursor_position
+                    .apply_pin(self)
+                    .get()
+                    .max(0)
+                    .min(text.len() as i32) as usize;
+                let ch = char::try_from(*ch_code).unwrap().to_string();
+                text.insert_str(insert_pos, &ch);
+
+                Self::FIELD_OFFSETS.text.apply_pin(self).set(text.into());
+                Self::FIELD_OFFSETS
+                    .cursor_position
+                    .apply_pin(self)
+                    .set((insert_pos + ch.len()) as i32);
+
+                // Keep the cursor visible when inserting text. Blinking should only occur when
+                // nothing is entered or the cursor isn't moved.
+                self.as_ref().show_cursor(window);
+
+                KeyEventResult::EventAccepted
+            }
+            KeyEvent::KeyPressed(code) if *code == crate::input::KeyCode::Right => {
+                TextInput::move_cursor(self, 1, window);
+                KeyEventResult::EventAccepted
+            }
+            KeyEvent::KeyPressed(code) if *code == crate::input::KeyCode::Left => {
+                TextInput::move_cursor(self, -1, window);
                 KeyEventResult::EventAccepted
             }
             _ => KeyEventResult::EventIgnored,
@@ -930,6 +974,36 @@ impl ItemConsts for TextInput {
         TextInput,
         CachedRenderingData,
     > = TextInput::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+}
+
+impl TextInput {
+    fn show_cursor(&self, window: &ComponentWindow) {
+        window.set_cursor_blink_binding(&self.cursor_visible);
+    }
+
+    fn move_cursor(self: Pin<&Self>, delta: i32, window: &ComponentWindow) {
+        let text = Self::FIELD_OFFSETS.text.apply_pin(self).get();
+        let cursor_pos = Self::FIELD_OFFSETS.cursor_position.apply_pin(self).get();
+        let cursor_pos = (cursor_pos + delta).max(0).min(text.len() as i32);
+        self.as_ref().cursor_position.set(cursor_pos);
+
+        // Keep the cursor visible when moving. Blinking should only occur when
+        // nothing is entered or the cursor isn't moved.
+        self.as_ref().show_cursor(window);
+    }
+
+    fn with_font<R>(
+        self: Pin<&Self>,
+        window: &ComponentWindow,
+        callback: impl FnOnce(&crate::font::Font) -> R,
+    ) -> R {
+        let font_family = Self::FIELD_OFFSETS.font_family.apply_pin(self).get();
+        let font_size = TextInput::font_pixel_size(self, window);
+        crate::font::FONT_CACHE.with(|fc| {
+            let font = fc.find_font(&font_family, font_size);
+            callback(&font)
+        })
+    }
 }
 
 ItemVTable_static! {

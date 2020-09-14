@@ -97,6 +97,8 @@ pub trait GenericWindow {
         self: Rc<Self>,
         component: core::pin::Pin<crate::component::ComponentRef>,
     );
+    /// Installs a binding on the specified property that's toggled whenever the text cursor is supposed to be visible or not.
+    fn set_cursor_blink_binding(&self, prop: &crate::properties::Property<bool>);
 }
 
 /// The ComponentWindow is the (rust) facing public type that can render the items
@@ -139,6 +141,11 @@ impl ComponentWindow {
         component: core::pin::Pin<crate::component::ComponentRef>,
     ) {
         self.0.clone().free_graphics_resources(component);
+    }
+
+    /// Installs a binding on the specified property that's toggled whenever the text cursor is supposed to be visible or not.
+    pub fn set_cursor_blink_binding(&self, prop: &crate::properties::Property<bool>) {
+        self.0.clone().set_cursor_blink_binding(prop)
     }
 }
 
@@ -395,6 +402,22 @@ impl EventLoop {
                         })
                     })
                 })
+            }
+
+            if crate::timers::TimerList::maybe_activate_timers() {
+                ALL_WINDOWS.with(|windows| {
+                    windows.borrow().values().for_each(|window| {
+                        if let Some(window) = window.upgrade() {
+                            window.request_redraw();
+                        }
+                    })
+                })
+            }
+
+            if *control_flow == winit::event_loop::ControlFlow::Wait {
+                if let Some(next_timer) = crate::timers::TimerList::next_timeout() {
+                    *control_flow = winit::event_loop::ControlFlow::WaitUntil(next_timer);
+                }
             }
         };
 
