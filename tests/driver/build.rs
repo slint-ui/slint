@@ -47,13 +47,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     include_dir.push("include");
     println!("cargo:rustc-env=GENERATED_CPP_HEADERS_PATH={}", include_dir.display());
     test_driver_lib::cbindgen::gen_all(&include_dir)?;
+    // re-run cbindgen if files changes
+    let mut manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
+    manifest_dir.pop();
+    manifest_dir.pop();
+    println!("cargo:rerun-if-changed={}/sixtyfps_runtime/corelib/", manifest_dir.display());
+    for entry in std::fs::read_dir(manifest_dir.join("sixtyfps_runtime/corelib/"))? {
+        let entry = entry?;
+        if entry.path().extension().map_or(false, |e| e == "rs") {
+            println!("cargo:rerun-if-changed={}", entry.path().display());
+        }
+    }
 
-    let mut api_includes = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
-    api_includes.pop();
-    api_includes.pop();
-    api_includes = api_includes.join("api/sixtyfps-cpp/include");
-
-    println!("cargo:rustc-env=CPP_API_HEADERS_PATH={}", api_includes.display());
+    println!(
+        "cargo:rustc-env=CPP_API_HEADERS_PATH={}/api/sixtyfps-cpp/include",
+        manifest_dir.display()
+    );
 
     let tests_file_path =
         std::path::Path::new(&std::env::var_os("OUT_DIR").unwrap()).join("test_functions.rs");
