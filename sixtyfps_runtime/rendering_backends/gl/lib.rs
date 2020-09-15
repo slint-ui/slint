@@ -131,9 +131,11 @@ impl GLRenderer {
                 .unwrap();
             let windowed_context = unsafe { windowed_context.make_current().unwrap() };
 
-            let gl_context = glow::Context::from_loader_function(|s| {
-                windowed_context.get_proc_address(s) as *const _
-            });
+            let gl_context = unsafe {
+                glow::Context::from_loader_function(|s| {
+                    windowed_context.get_proc_address(s) as *const _
+                })
+            };
 
             (windowed_context, gl_context)
         };
