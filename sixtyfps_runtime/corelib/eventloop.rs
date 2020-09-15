@@ -371,17 +371,19 @@ impl EventLoop {
                     ref window_id,
                     event: winit::event::WindowEvent::ReceivedCharacter(ch),
                 } => {
-                    crate::animations::update_animations();
-                    ALL_WINDOWS.with(|windows| {
-                        if let Some(Some(window)) =
-                            windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
-                        {
-                            let key_event = KeyEvent::CharacterInput(ch.into());
-                            window.clone().process_key_input(&key_event, component);
-                            // FIXME: remove this, it should be based on actual changes rather than this
-                            window.request_redraw();
-                        }
-                    });
+                    if !ch.is_control() {
+                        crate::animations::update_animations();
+                        ALL_WINDOWS.with(|windows| {
+                            if let Some(Some(window)) =
+                                windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
+                            {
+                                let key_event = KeyEvent::CharacterInput(ch.into());
+                                window.clone().process_key_input(&key_event, component);
+                                // FIXME: remove this, it should be based on actual changes rather than this
+                                window.request_redraw();
+                            }
+                        });
+                    }
                 }
 
                 _ => (),
