@@ -1,0 +1,14 @@
+{
+  "author": "You <you@example.com>",
+  "name": "rust-webpack-template",
+  "version": "0.1.0",
+  "scripts": {
+    "start": "rimraf dist && parcel index.html --open",
+    "build": "rimraf dist pkg && parcel build index.html --public-url ./"
+  },
+  "devDependencies": {
+    "parcel-bundler": "^1.12.4",
+    "parcel-plugin-wasm.rs": "^1.2.16",
+    "rimraf": "^3.0.0"
+  }
+}
