@@ -67,10 +67,9 @@ cpp! {{
         }();
     }
 
-    std::tuple<QImage, QRect> offline_style_rendering_image(QSize size)
+    std::tuple<QImage, QRect> offline_style_rendering_image(QSize size, float dpr)
     {
         ensure_initialized();
-        const auto dpr = qApp->devicePixelRatio();
         QImage img(size, QImage::Format_ARGB32_Premultiplied);
         img.setDevicePixelRatio(dpr);
         img.fill(Qt::transparent);
@@ -113,18 +112,20 @@ impl Item for NativeButton {
     }
     fn rendering_primitive(
         self: Pin<&Self>,
-        _window: &ComponentWindow,
+        window: &ComponentWindow,
     ) -> HighLevelRenderingPrimitive {
         let down: bool = Self::FIELD_OFFSETS.pressed.apply_pin(self).get();
         let text: qttypes::QString = Self::FIELD_OFFSETS.text.apply_pin(self).get().as_str().into();
         let size: qttypes::QSize = get_size!(self);
+        let dpr = window.scale_factor();
 
         let img = cpp!(unsafe [
             text as "QString",
             size as "QSize",
-            down as "bool"
+            down as "bool",
+            dpr as "float"
         ] -> qttypes::QImage as "QImage" {
-            auto [img, rect] = offline_style_rendering_image(size);
+            auto [img, rect] = offline_style_rendering_image(size, dpr);
             QPainter p(&img);
             QStyleOptionButton option;
             option.text = std::move(text);
@@ -144,16 +145,18 @@ impl Item for NativeButton {
         SharedArray::default()
     }
 
-    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
+    fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
         let text: qttypes::QString = Self::FIELD_OFFSETS.text.apply_pin(self).get().as_str().into();
+        let dpr = window.scale_factor();
         let size = cpp!(unsafe [
-            text as "QString"
+            text as "QString",
+            dpr as "float"
         ] -> qttypes::QSize as "QSize" {
             ensure_initialized();
             QStyleOptionButton option;
             option.rect = option.fontMetrics.boundingRect(text);
             option.text = std::move(text);
-            return qApp->style()->sizeFromContents(QStyle::CT_PushButton, &option, option.rect.size(), nullptr) * qApp->devicePixelRatio();
+            return qApp->style()->sizeFromContents(QStyle::CT_PushButton, &option, option.rect.size(), nullptr) * dpr;
         });
         LayoutInfo {
             min_width: size.width as f32,
@@ -219,18 +222,20 @@ impl Item for NativeCheckBox {
     }
     fn rendering_primitive(
         self: Pin<&Self>,
-        _window: &ComponentWindow,
+        window: &ComponentWindow,
     ) -> HighLevelRenderingPrimitive {
         let checked: bool = Self::FIELD_OFFSETS.checked.apply_pin(self).get();
         let text: qttypes::QString = Self::FIELD_OFFSETS.text.apply_pin(self).get().as_str().into();
         let size: qttypes::QSize = get_size!(self);
+        let dpr = window.scale_factor();
 
         let img = cpp!(unsafe [
             text as "QString",
             size as "QSize",
-            checked as "bool"
+            checked as "bool",
+            dpr as "float"
         ] -> qttypes::QImage as "QImage" {
-            auto [img, rect] = offline_style_rendering_image(size);
+            auto [img, rect] = offline_style_rendering_image(size, dpr);
             QPainter p(&img);
             QStyleOptionButton option;
             option.text = std::move(text);
@@ -249,16 +254,18 @@ impl Item for NativeCheckBox {
         SharedArray::default()
     }
 
-    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
+    fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
         let text: qttypes::QString = Self::FIELD_OFFSETS.text.apply_pin(self).get().as_str().into();
+        let dpr = window.scale_factor();
         let size = cpp!(unsafe [
-            text as "QString"
+            text as "QString",
+            dpr as "float"
         ] -> qttypes::QSize as "QSize" {
             ensure_initialized();
             QStyleOptionButton option;
             option.rect = option.fontMetrics.boundingRect(text);
             option.text = std::move(text);
-            return qApp->style()->sizeFromContents(QStyle::CT_PushButton, &option, option.rect.size(), nullptr) * qApp->devicePixelRatio();
+            return qApp->style()->sizeFromContents(QStyle::CT_PushButton, &option, option.rect.size(), nullptr) * dpr;
         });
         LayoutInfo {
             min_width: size.width as f32,
@@ -342,10 +349,11 @@ impl Item for NativeSpinBox {
     }
     fn rendering_primitive(
         self: Pin<&Self>,
-        _window: &ComponentWindow,
+        window: &ComponentWindow,
     ) -> HighLevelRenderingPrimitive {
         let value: i32 = Self::FIELD_OFFSETS.value.apply_pin(self).get();
         let size: qttypes::QSize = get_size!(self);
+        let dpr = window.scale_factor();
         let data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
         let active_controls = data.active_controls;
         let pressed = data.pressed;
@@ -354,9 +362,10 @@ impl Item for NativeSpinBox {
             value as "int",
             size as "QSize",
             active_controls as "int",
-            pressed as "bool"
+            pressed as "bool",
+            dpr as "float"
         ] -> qttypes::QImage as "QImage" {
-            auto [img, rect] = offline_style_rendering_image(size);
+            auto [img, rect] = offline_style_rendering_image(size, dpr);
             QPainter p(&img);
             auto style = qApp->style();
             QStyleOptionSpinBox option;
@@ -378,16 +387,18 @@ impl Item for NativeSpinBox {
         SharedArray::default()
     }
 
-    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
+    fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
         //let value: i32 = Self::FIELD_OFFSETS.value.apply_pin(self).get();
         let data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
         let active_controls = data.active_controls;
         let pressed = data.pressed;
+        let dpr = window.scale_factor();
 
         let size = cpp!(unsafe [
             //value as "int",
             active_controls as "int",
-            pressed as "bool"
+            pressed as "bool",
+            dpr as "float"
         ] -> qttypes::QSize as "QSize" {
             ensure_initialized();
             auto style = qApp->style();
@@ -397,7 +408,7 @@ impl Item for NativeSpinBox {
 
             auto content = option.fontMetrics.boundingRect("0000");
 
-            return style->sizeFromContents(QStyle::CT_SpinBox, &option, content.size(), nullptr) * qApp->devicePixelRatio();
+            return style->sizeFromContents(QStyle::CT_SpinBox, &option, content.size(), nullptr) * dpr;
         });
         LayoutInfo {
             min_width: size.width as f32,
@@ -521,12 +532,13 @@ impl Item for NativeSlider {
     }
     fn rendering_primitive(
         self: Pin<&Self>,
-        _window: &ComponentWindow,
+        window: &ComponentWindow,
     ) -> HighLevelRenderingPrimitive {
         let value = Self::FIELD_OFFSETS.value.apply_pin(self).get() as i32;
         let min = Self::FIELD_OFFSETS.min.apply_pin(self).get() as i32;
         let max = Self::FIELD_OFFSETS.max.apply_pin(self).get() as i32;
         let size: qttypes::QSize = get_size!(self);
+        let dpr = window.scale_factor();
         let data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
         let active_controls = data.active_controls;
         let pressed = data.pressed;
@@ -537,9 +549,10 @@ impl Item for NativeSlider {
             max as "int",
             size as "QSize",
             active_controls as "int",
-            pressed as "bool"
+            pressed as "bool",
+            dpr as "float"
         ] -> qttypes::QImage as "QImage" {
-            auto [img, rect] = offline_style_rendering_image(size);
+            auto [img, rect] = offline_style_rendering_image(size, dpr);
             QPainter p(&img);
             QStyleOptionSlider option;
             option.rect = rect;
@@ -558,27 +571,29 @@ impl Item for NativeSlider {
         SharedArray::default()
     }
 
-    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
+    fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
         let value = Self::FIELD_OFFSETS.value.apply_pin(self).get() as i32;
         let min = Self::FIELD_OFFSETS.min.apply_pin(self).get() as i32;
         let max = Self::FIELD_OFFSETS.max.apply_pin(self).get() as i32;
         let data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
         let active_controls = data.active_controls;
         let pressed = data.pressed;
+        let dpr = window.scale_factor();
 
         let size = cpp!(unsafe [
             value as "int",
             min as "int",
             max as "int",
             active_controls as "int",
-            pressed as "bool"
+            pressed as "bool",
+            dpr as "float"
         ] -> qttypes::QSize as "QSize" {
             ensure_initialized();
             QStyleOptionSlider option;
             initQSliderOptions(option, pressed, active_controls, min, max, value);
             auto style = qApp->style();
             auto thick = style->pixelMetric(QStyle::PM_SliderThickness, &option, nullptr);
-            return style->sizeFromContents(QStyle::CT_Slider, &option, QSize(0, thick), nullptr) * qApp->devicePixelRatio();
+            return style->sizeFromContents(QStyle::CT_Slider, &option, QSize(0, thick), nullptr) * dpr;
         });
         LayoutInfo {
             min_width: size.width as f32,
@@ -682,17 +697,19 @@ impl Item for NativeGroupBox {
     }
     fn rendering_primitive(
         self: Pin<&Self>,
-        _window: &ComponentWindow,
+        window: &ComponentWindow,
     ) -> HighLevelRenderingPrimitive {
         let text: qttypes::QString =
             Self::FIELD_OFFSETS.title.apply_pin(self).get().as_str().into();
         let size: qttypes::QSize = get_size!(self);
+        let dpr = window.scale_factor();
 
         let img = cpp!(unsafe [
             text as "QString",
-            size as "QSize"
+            size as "QSize",
+            dpr as "float"
         ] -> qttypes::QImage as "QImage" {
-            auto [img, rect] = offline_style_rendering_image(size);
+            auto [img, rect] = offline_style_rendering_image(size, dpr);
             QPainter p(&img);
             QStyleOptionGroupBox option;
             option.rect = rect;
@@ -718,12 +735,14 @@ impl Item for NativeGroupBox {
         SharedArray::default()
     }
 
-    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
+    fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
         let text: qttypes::QString =
             Self::FIELD_OFFSETS.title.apply_pin(self).get().as_str().into();
+        let dpr = window.scale_factor();
 
         let paddings = cpp!(unsafe [
-            text as "QString"
+            text as "QString",
+            dpr as "float"
         ] -> qttypes::QMargins as "QMargins" {
             ensure_initialized();
             QStyleOptionGroupBox option;
@@ -745,7 +764,6 @@ impl Item for NativeGroupBox {
 
             auto hs = qApp->style()->pixelMetric(QStyle::PM_LayoutHorizontalSpacing, &option);
             auto vs = qApp->style()->pixelMetric(QStyle::PM_LayoutVerticalSpacing, &option);
-            auto dpr = qApp->devicePixelRatio();
 
             return {
                 qRound((contentsRect.left() + hs) * dpr),
