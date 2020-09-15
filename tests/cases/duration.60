@@ -33,16 +33,16 @@ TestCase := Rectangle {
 /*
 ```cpp
 TestCase instance;
-assert(instance.get_untyped_d1() == 100);
-assert(instance.get_untyped_d2() == 3000);
-assert(instance.get_untyped_d3() == 1500);
-assert(instance.get_untyped_d4() == 30);
-assert(instance.get_untyped_d5() == 3008);
-assert(instance.get_untyped_d6() == -2900);
-assert(instance.get_untyped_d7() == -500);
-assert(instance.get_untyped_d8() == -250);
-assert(instance.get_i1() == 100);
-assert(instance.get_i2() == 50);
+assert_eq(instance.get_untyped_d1(), 100);
+assert_eq(instance.get_untyped_d2(), 3000);
+assert_eq(instance.get_untyped_d3(), 1500);
+assert_eq(instance.get_untyped_d4(), 30);
+assert_eq(instance.get_untyped_d5(), 3008);
+assert_eq(instance.get_untyped_d6(), -2900);
+assert_eq(instance.get_untyped_d7(), -500);
+assert_eq(instance.get_untyped_d8(), -250);
+assert_eq(instance.get_i1(), 100);
+assert_eq(instance.get_i2(), 50);
 ```
 
 

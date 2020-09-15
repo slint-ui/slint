@@ -21,11 +21,11 @@ TestCase := Rectangle {
 ```cpp
 TestCase instance;
 instance.set_condition(true);
-assert(instance.get_s1() == "abc");
-assert(instance.get_s2() == "123");
+assert_eq(instance.get_s1(), "abc");
+assert_eq(instance.get_s2(), "123");
 instance.set_condition(false);
-assert(instance.get_s2() == "abc");
-assert(instance.get_s1() == "123");
+assert_eq(instance.get_s2(), "abc");
+assert_eq(instance.get_s1(), "123");
 ```
 
 

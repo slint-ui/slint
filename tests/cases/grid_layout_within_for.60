@@ -42,10 +42,10 @@ TestCase instance;
 TestCase::compute_layout({&TestCase::component_type, &instance });
 
 sixtyfps::testing::send_mouse_click(instance, 190., 190.);
-assert(instance.get_value() == 1+1);
+assert_eq(instance.get_value(), 1+1);
 
 sixtyfps::testing::send_mouse_click(instance, 5., 290.);
-assert(instance.get_value() == 1+1+2);
+assert_eq(instance.get_value(), 1+1+2);
 ```
 
 

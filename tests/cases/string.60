@@ -19,8 +19,8 @@ TestCase := Rectangle {
 
 ```cpp
 TestCase instance;
-assert(instance.get_p1() == "hello");
-assert(instance.get_p2() == u8"fox:🦊");
+assert_eq(instance.get_p1(), "hello");
+assert_eq(instance.get_p2(), u8"fox:🦊");
 assert(instance.get_e1());
 assert(!instance.get_e2());
 ```

@@ -23,45 +23,45 @@ TestCase := Rectangle {
 /*
 ```cpp
 TestCase instance;
-assert(instance.get_t1() == true);
-assert(instance.get_t2() == false);
-assert(instance.get_t3() == true);
-assert(instance.get_t4() == true);
-assert(instance.get_t5() == true);
-assert(instance.get_t6() == false);
-assert(instance.get_t7() == true);
+assert_eq(instance.get_t1(), true);
+assert_eq(instance.get_t2(), false);
+assert_eq(instance.get_t3(), true);
+assert_eq(instance.get_t4(), true);
+assert_eq(instance.get_t5(), true);
+assert_eq(instance.get_t6(), false);
+assert_eq(instance.get_t7(), true);
 
 instance.set_hello(45);
-assert(instance.get_t1() == true);
-assert(instance.get_t2() == true);
-assert(instance.get_t3() == true);
-assert(instance.get_t4() == true);
-assert(instance.get_t5() == true);
-assert(instance.get_t6() == false);
+assert_eq(instance.get_t1(), true);
+assert_eq(instance.get_t2(), true);
+assert_eq(instance.get_t3(), true);
+assert_eq(instance.get_t4(), true);
+assert_eq(instance.get_t5(), true);
+assert_eq(instance.get_t6(), false);
 
 instance.set_hello(46);
-assert(instance.get_t1() == false);
-assert(instance.get_t2() == false);
-assert(instance.get_t3() == true);
-assert(instance.get_t4() == false);
-assert(instance.get_t5() == true);
-assert(instance.get_t6() == true);
+assert_eq(instance.get_t1(), false);
+assert_eq(instance.get_t2(), false);
+assert_eq(instance.get_t3(), true);
+assert_eq(instance.get_t4(), false);
+assert_eq(instance.get_t5(), true);
+assert_eq(instance.get_t6(), true);
 
 instance.set_hello(47);
-assert(instance.get_t1() == false);
-assert(instance.get_t2() == false);
-assert(instance.get_t3() == false);
-assert(instance.get_t4() == false);
-assert(instance.get_t5() == true);
-assert(instance.get_t6() == true);
+assert_eq(instance.get_t1(), false);
+assert_eq(instance.get_t2(), false);
+assert_eq(instance.get_t3(), false);
+assert_eq(instance.get_t4(), false);
+assert_eq(instance.get_t5(), true);
+assert_eq(instance.get_t6(), true);
 
 instance.set_hello(41);
-assert(instance.get_t1() == false);
-assert(instance.get_t2() == false);
-assert(instance.get_t3() == false);
-assert(instance.get_t4() == false);
-assert(instance.get_t5() == false);
-assert(instance.get_t6() == true);
+assert_eq(instance.get_t1(), false);
+assert_eq(instance.get_t2(), false);
+assert_eq(instance.get_t3(), false);
+assert_eq(instance.get_t4(), false);
+assert_eq(instance.get_t5(), false);
+assert_eq(instance.get_t6(), true);
 
 ```
 
