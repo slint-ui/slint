@@ -29,15 +29,15 @@ instance.on_test_signal3([&](int a, auto b) {
     signal_3_emited ++;
 });
 instance.set_signal_emission_count(0);
-assert(instance.get_signal_emission_count() == 0);
+assert_eq(instance.get_signal_emission_count(), 0);
 instance.emit_test_signal(42);
-assert(instance.get_signal_emission_count() == 1);
-assert(signal_3_emited == 0);
+assert_eq(instance.get_signal_emission_count(), 1);
+assert_eq(signal_3_emited, 0);
 instance.emit_test_signal2("hello");
-assert(instance.get_signal_emission_count() == 88);
-assert(signal_3_emited == 1);
-assert(signal_3_int_value == 55);
-assert(signal_3_string_value == "hello");
+assert_eq(instance.get_signal_emission_count(), 88);
+assert_eq(signal_3_emited, 1);
+assert_eq(signal_3_int_value, 55);
+assert_eq(signal_3_string_value, "hello");
 ```
 
 ```rust
