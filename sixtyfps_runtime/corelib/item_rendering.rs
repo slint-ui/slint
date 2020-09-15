@@ -10,8 +10,11 @@ LICENSE END */
 #![warn(missing_docs)]
 //! module for rendering the tree of items
 
-use super::graphics::{Frame, GraphicsBackend, RenderingCache, RenderingPrimitivesBuilder};
+use super::graphics::{
+    Frame, GraphicsBackend, GraphicsWindow, RenderingCache, RenderingPrimitivesBuilder,
+};
 use super::items::ItemRef;
+use crate::eventloop::ComponentWindow;
 use crate::item_tree::ItemVisitorResult;
 use cgmath::{Matrix4, SquareMatrix, Vector3};
 use std::cell::{Cell, RefCell};
@@ -33,11 +36,13 @@ impl CachedRenderingData {
         cache: &RefCell<RenderingCache<Backend>>,
         item: core::pin::Pin<ItemRef>,
         rendering_primitives_builder: &mut Backend::RenderingPrimitivesBuilder,
+        window: &std::rc::Rc<GraphicsWindow<Backend>>,
     ) {
         let idx = if self.cache_ok.get() { Some(self.cache_index.get()) } else { None };
 
         self.cache_index.set(cache.borrow_mut().ensure_cached(idx, || {
-            rendering_primitives_builder.create(item.as_ref().rendering_primitive())
+            rendering_primitives_builder
+                .create(item.as_ref().rendering_primitive(&ComponentWindow::new(window.clone())))
         }));
         self.cache_ok.set(true);
     }
@@ -54,17 +59,20 @@ pub(crate) fn update_item_rendering_data<Backend: GraphicsBackend>(
     item: core::pin::Pin<ItemRef>,
     rendering_cache: &RefCell<RenderingCache<Backend>>,
     rendering_primitives_builder: &mut Backend::RenderingPrimitivesBuilder,
+    window: &std::rc::Rc<GraphicsWindow<Backend>>,
 ) {
     let rendering_data = item.cached_rendering_data_offset();
-    rendering_data.ensure_up_to_date(rendering_cache, item, rendering_primitives_builder);
+    rendering_data.ensure_up_to_date(rendering_cache, item, rendering_primitives_builder, window);
 }
 
 pub(crate) fn render_component_items<Backend: GraphicsBackend>(
     component: crate::component::ComponentRefPin,
     frame: &mut Backend::Frame,
     rendering_cache: &RenderingCache<Backend>,
+    window: &std::rc::Rc<GraphicsWindow<Backend>>,
 ) {
     let transform = Matrix4::identity();
+    let window = ComponentWindow::new(window.clone());
 
     crate::item_tree::visit_items(
         component,
@@ -77,7 +85,11 @@ pub(crate) fn render_component_items<Backend: GraphicsBackend>(
             let cached_rendering_data = item.cached_rendering_data_offset();
             if cached_rendering_data.cache_ok.get() {
                 let primitive = rendering_cache.entry_at(cached_rendering_data.cache_index.get());
-                frame.render_primitive(&primitive, &transform, item.as_ref().rendering_variables());
+                frame.render_primitive(
+                    &primitive,
+                    &transform,
+                    item.as_ref().rendering_variables(&window),
+                );
             }
 
             ItemVisitorResult::Continue(transform)

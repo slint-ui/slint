@@ -642,7 +642,7 @@ impl<Backend: GraphicsBackend> Drop for GraphicsWindow<Backend> {
 }
 
 impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindow<Backend> {
-    fn draw(&self, component: crate::component::ComponentRefPin) {
+    fn draw(self: Rc<Self>, component: crate::component::ComponentRefPin) {
         {
             let map_state = self.map_state.borrow();
             let window = map_state.as_mapped();
@@ -658,6 +658,7 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
                         item,
                         &window.rendering_cache,
                         &mut rendering_primitives_builder,
+                        &self,
                     );
                     crate::item_tree::ItemVisitorResult::Continue(())
                 },
@@ -680,6 +681,7 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
             component,
             &mut frame,
             &mut window.rendering_cache.borrow_mut(),
+            &self,
         );
         backend.present_frame(frame);
     }

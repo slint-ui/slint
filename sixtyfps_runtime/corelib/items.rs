@@ -25,6 +25,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 #![allow(non_upper_case_globals)]
 #![allow(missing_docs)] // because documenting each property of items is redundent
 
+use super::eventloop::ComponentWindow;
 use super::graphics::{Color, HighLevelRenderingPrimitive, PathData, Rect, Resource};
 use super::input::{InputEventResult, KeyEvent, KeyEventResult, MouseEvent, MouseEventType};
 use super::item_rendering::CachedRenderingData;
@@ -52,17 +53,22 @@ pub struct ItemVTable {
 
     /// Return the rendering primitive used to display this item. This should depend on only
     /// rarely changed properties as it typically contains data uploaded to the GPU.
-    pub rendering_primitive:
-        extern "C" fn(core::pin::Pin<VRef<ItemVTable>>) -> HighLevelRenderingPrimitive,
+    pub rendering_primitive: extern "C" fn(
+        core::pin::Pin<VRef<ItemVTable>>,
+        window: &ComponentWindow,
+    ) -> HighLevelRenderingPrimitive,
 
     /// Return the variables needed to render the graphical primitives of this item. These
     /// are typically variables that do not require uploading any data sets to the GPU and
     /// can instead be represented using uniforms.
-    pub rendering_variables:
-        extern "C" fn(core::pin::Pin<VRef<ItemVTable>>) -> SharedArray<RenderingVariable>,
+    pub rendering_variables: extern "C" fn(
+        core::pin::Pin<VRef<ItemVTable>>,
+        window: &ComponentWindow,
+    ) -> SharedArray<RenderingVariable>,
 
     /// We would need max/min/preferred size, and all layout info
-    pub layouting_info: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>) -> LayoutInfo,
+    pub layouting_info:
+        extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, window: &ComponentWindow) -> LayoutInfo,
 
     /// input event
     pub input_event:
@@ -97,7 +103,10 @@ impl Item for Rectangle {
             Self::FIELD_OFFSETS.height.apply_pin(self).get(),
         )
     }
-    fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
+    fn rendering_primitive(
+        self: Pin<&Self>,
+        _window: &ComponentWindow,
+    ) -> HighLevelRenderingPrimitive {
         let width = Self::FIELD_OFFSETS.width.apply_pin(self).get();
         let height = Self::FIELD_OFFSETS.height.apply_pin(self).get();
         if width > 0. && height > 0. {
@@ -107,13 +116,16 @@ impl Item for Rectangle {
         }
     }
 
-    fn rendering_variables(self: Pin<&Self>) -> SharedArray<RenderingVariable> {
+    fn rendering_variables(
+        self: Pin<&Self>,
+        _window: &ComponentWindow,
+    ) -> SharedArray<RenderingVariable> {
         SharedArray::from([RenderingVariable::Color(
             Self::FIELD_OFFSETS.color.apply_pin(self).get(),
         )])
     }
 
-    fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
+    fn layouting_info(self: Pin<&Self>, _window: &crate::eventloop::ComponentWindow) -> LayoutInfo {
         Default::default()
     }
 
@@ -164,7 +176,10 @@ impl Item for BorderRectangle {
             Self::FIELD_OFFSETS.height.apply_pin(self).get(),
         )
     }
-    fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
+    fn rendering_primitive(
+        self: Pin<&Self>,
+        _window: &ComponentWindow,
+    ) -> HighLevelRenderingPrimitive {
         let width = Self::FIELD_OFFSETS.width.apply_pin(self).get();
         let height = Self::FIELD_OFFSETS.height.apply_pin(self).get();
         if width > 0. && height > 0. {
@@ -179,14 +194,17 @@ impl Item for BorderRectangle {
         }
     }
 
-    fn rendering_variables(self: Pin<&Self>) -> SharedArray<RenderingVariable> {
+    fn rendering_variables(
+        self: Pin<&Self>,
+        _window: &ComponentWindow,
+    ) -> SharedArray<RenderingVariable> {
         SharedArray::from([
             RenderingVariable::Color(Self::FIELD_OFFSETS.color.apply_pin(self).get()),
             RenderingVariable::Color(Self::FIELD_OFFSETS.border_color.apply_pin(self).get()),
         ])
     }
 
-    fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
+    fn layouting_info(self: Pin<&Self>, _window: &crate::eventloop::ComponentWindow) -> LayoutInfo {
         Default::default()
     }
 
@@ -234,13 +252,19 @@ impl Item for Image {
             Self::FIELD_OFFSETS.height.apply_pin(self).get(),
         )
     }
-    fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
+    fn rendering_primitive(
+        self: Pin<&Self>,
+        _window: &ComponentWindow,
+    ) -> HighLevelRenderingPrimitive {
         HighLevelRenderingPrimitive::Image {
             source: Self::FIELD_OFFSETS.source.apply_pin(self).get(),
         }
     }
 
-    fn rendering_variables(self: Pin<&Self>) -> SharedArray<RenderingVariable> {
+    fn rendering_variables(
+        self: Pin<&Self>,
+        _window: &ComponentWindow,
+    ) -> SharedArray<RenderingVariable> {
         let mut vars = SharedArray::default();
 
         let width = Self::FIELD_OFFSETS.width.apply_pin(self).get();
@@ -256,7 +280,7 @@ impl Item for Image {
         vars
     }
 
-    fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
+    fn layouting_info(self: Pin<&Self>, _window: &crate::eventloop::ComponentWindow) -> LayoutInfo {
         // FIXME: should we use the image size here
         Default::default()
     }
@@ -341,7 +365,10 @@ impl Item for Text {
             Self::FIELD_OFFSETS.height.apply_pin(self).get(),
         )
     }
-    fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
+    fn rendering_primitive(
+        self: Pin<&Self>,
+        _window: &ComponentWindow,
+    ) -> HighLevelRenderingPrimitive {
         HighLevelRenderingPrimitive::Text {
             text: Self::FIELD_OFFSETS.text.apply_pin(self).get(),
             font_family: Self::FIELD_OFFSETS.font_family.apply_pin(self).get(),
@@ -349,8 +376,11 @@ impl Item for Text {
         }
     }
 
-    fn rendering_variables(self: Pin<&Self>) -> SharedArray<RenderingVariable> {
-        let layout_info = self.layouting_info();
+    fn rendering_variables(
+        self: Pin<&Self>,
+        window: &ComponentWindow,
+    ) -> SharedArray<RenderingVariable> {
+        let layout_info = self.layouting_info(window);
         let rect = self.geometry();
 
         let hor_alignment = Self::FIELD_OFFSETS.horizontal_alignment.apply_pin(self).get();
@@ -373,7 +403,7 @@ impl Item for Text {
         ])
     }
 
-    fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
+    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
         let font_family = Self::FIELD_OFFSETS.font_family.apply_pin(self).get();
         let font_size = Self::FIELD_OFFSETS.font_size.apply_pin(self).get();
         let text = Self::FIELD_OFFSETS.text.apply_pin(self).get();
@@ -444,15 +474,21 @@ impl Item for TouchArea {
             Self::FIELD_OFFSETS.height.apply_pin(self).get(),
         )
     }
-    fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
+    fn rendering_primitive(
+        self: Pin<&Self>,
+        _window: &ComponentWindow,
+    ) -> HighLevelRenderingPrimitive {
         HighLevelRenderingPrimitive::NoContents
     }
 
-    fn rendering_variables(self: Pin<&Self>) -> SharedArray<RenderingVariable> {
+    fn rendering_variables(
+        self: Pin<&Self>,
+        _window: &ComponentWindow,
+    ) -> SharedArray<RenderingVariable> {
         SharedArray::default()
     }
 
-    fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
+    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
         LayoutInfo::default()
     }
 
@@ -528,7 +564,10 @@ impl Item for Path {
             0.,
         )
     }
-    fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
+    fn rendering_primitive(
+        self: Pin<&Self>,
+        _window: &ComponentWindow,
+    ) -> HighLevelRenderingPrimitive {
         HighLevelRenderingPrimitive::Path {
             width: Self::FIELD_OFFSETS.width.apply_pin(self).get(),
             height: Self::FIELD_OFFSETS.height.apply_pin(self).get(),
@@ -537,14 +576,17 @@ impl Item for Path {
         }
     }
 
-    fn rendering_variables(self: Pin<&Self>) -> SharedArray<RenderingVariable> {
+    fn rendering_variables(
+        self: Pin<&Self>,
+        _window: &ComponentWindow,
+    ) -> SharedArray<RenderingVariable> {
         SharedArray::from([
             RenderingVariable::Color(Self::FIELD_OFFSETS.fill_color.apply_pin(self).get()),
             RenderingVariable::Color(Self::FIELD_OFFSETS.stroke_color.apply_pin(self).get()),
         ])
     }
 
-    fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
+    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
         LayoutInfo::default()
     }
 
@@ -593,15 +635,21 @@ impl Item for Flickable {
             Self::FIELD_OFFSETS.height.apply_pin(self).get(),
         )
     }
-    fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
+    fn rendering_primitive(
+        self: Pin<&Self>,
+        _window: &ComponentWindow,
+    ) -> HighLevelRenderingPrimitive {
         HighLevelRenderingPrimitive::NoContents
     }
 
-    fn rendering_variables(self: Pin<&Self>) -> SharedArray<RenderingVariable> {
+    fn rendering_variables(
+        self: Pin<&Self>,
+        _window: &ComponentWindow,
+    ) -> SharedArray<RenderingVariable> {
         SharedArray::default()
     }
 
-    fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
+    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
         LayoutInfo::default()
     }
 
@@ -695,15 +743,21 @@ impl Item for Window {
             Self::FIELD_OFFSETS.height.apply_pin(self).get(),
         )
     }
-    fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
+    fn rendering_primitive(
+        self: Pin<&Self>,
+        _window: &ComponentWindow,
+    ) -> HighLevelRenderingPrimitive {
         HighLevelRenderingPrimitive::NoContents
     }
 
-    fn rendering_variables(self: Pin<&Self>) -> SharedArray<RenderingVariable> {
+    fn rendering_variables(
+        self: Pin<&Self>,
+        _window: &ComponentWindow,
+    ) -> SharedArray<RenderingVariable> {
         SharedArray::default()
     }
 
-    fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
+    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
         LayoutInfo::default()
     }
 

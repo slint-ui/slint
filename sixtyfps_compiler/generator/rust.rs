@@ -958,7 +958,7 @@ impl LayoutItemCodeGen<RustLanguageLayoutGen> for LayoutElement {
         component: &Rc<Component>,
     ) -> TokenStream {
         let e = format_ident!("{}", self.element.borrow().id);
-        let element_info = quote!(Self::FIELD_OFFSETS.#e.apply_pin(self).layouting_info());
+        let element_info = quote!(Self::FIELD_OFFSETS.#e.apply_pin(self).layouting_info(&window));
         match &self.layout {
             Some(layout) => {
                 let layout_info = layout.get_layout_info_ref(layout_tree, component);
@@ -1212,6 +1212,8 @@ fn compute_layout(component: &Rc<Component>, repeated_element_names: &[Ident]) -
             .for_each(|layout| layout.emit_solve_calls(component, &mut layouts));
     });
 
+    let window_ref = window_ref_expression(component);
+
     quote! {
         fn layout_info(self: ::core::pin::Pin<&Self>) -> sixtyfps::re_exports::LayoutInfo {
             todo!("Implement in rust.rs")
@@ -1221,6 +1223,7 @@ fn compute_layout(component: &Rc<Component>, repeated_element_names: &[Ident]) -
             use sixtyfps::re_exports::*;
             let dummy = Property::<f32>::default();
             let _self = self;
+            let window = #window_ref.clone();
 
             #(#layouts)*
 

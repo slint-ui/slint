@@ -1156,10 +1156,11 @@ impl LayoutItemCodeGen<CppLanguageLayoutGen> for LayoutElement {
         component: &Rc<Component>,
     ) -> String {
         let element_info = format!(
-            "sixtyfps::private_api::{vt}.layouting_info({{&sixtyfps::private_api::{vt}, const_cast<sixtyfps::{ty}*>(&self->{id})}})",
+            "sixtyfps::private_api::{vt}.layouting_info({{&sixtyfps::private_api::{vt}, const_cast<sixtyfps::{ty}*>(&self->{id})}}, &{window})",
             vt = self.element.borrow().base_type.as_native().vtable_symbol,
             ty = self.element.borrow().base_type.as_native().class_name,
             id = self.element.borrow().id,
+            window = window_ref_expression(component)
         );
 
         match &self.layout {

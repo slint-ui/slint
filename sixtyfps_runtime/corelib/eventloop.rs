@@ -37,7 +37,7 @@ use winit::platform::desktop::EventLoopExtDesktop;
 /// [`crate::graphics`] provides an implementation of this trait for use with [`crate::graphics::GraphicsBackend`].
 pub trait GenericWindow {
     /// Draw the items of the specified `component` in the given window.
-    fn draw(&self, component: core::pin::Pin<crate::component::ComponentRef>);
+    fn draw(self: Rc<Self>, component: core::pin::Pin<crate::component::ComponentRef>);
     /// Receive a mouse event and pass it to the items of the component to
     /// change their state.
     ///

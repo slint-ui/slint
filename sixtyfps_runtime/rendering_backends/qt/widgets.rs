@@ -11,6 +11,7 @@ LICENSE END */
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use cpp::cpp;
+use sixtyfps_corelib::eventloop::ComponentWindow;
 use sixtyfps_corelib::graphics::{HighLevelRenderingPrimitive, Rect, RenderingVariable, Resource};
 use sixtyfps_corelib::input::{
     InputEventResult, KeyEvent, KeyEventResult, MouseEvent, MouseEventType,
@@ -110,7 +111,10 @@ impl Item for NativeButton {
             Self::FIELD_OFFSETS.height.apply_pin(self).get(),
         )
     }
-    fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
+    fn rendering_primitive(
+        self: Pin<&Self>,
+        _window: &ComponentWindow,
+    ) -> HighLevelRenderingPrimitive {
         let down: bool = Self::FIELD_OFFSETS.pressed.apply_pin(self).get();
         let text: qttypes::QString = Self::FIELD_OFFSETS.text.apply_pin(self).get().as_str().into();
         let size: qttypes::QSize = get_size!(self);
@@ -133,11 +137,14 @@ impl Item for NativeButton {
         return HighLevelRenderingPrimitive::Image { source: to_resource(img) };
     }
 
-    fn rendering_variables(self: Pin<&Self>) -> SharedArray<RenderingVariable> {
+    fn rendering_variables(
+        self: Pin<&Self>,
+        _window: &ComponentWindow,
+    ) -> SharedArray<RenderingVariable> {
         SharedArray::default()
     }
 
-    fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
+    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
         let text: qttypes::QString = Self::FIELD_OFFSETS.text.apply_pin(self).get().as_str().into();
         let size = cpp!(unsafe [
             text as "QString"
@@ -210,7 +217,10 @@ impl Item for NativeCheckBox {
             Self::FIELD_OFFSETS.height.apply_pin(self).get(),
         )
     }
-    fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
+    fn rendering_primitive(
+        self: Pin<&Self>,
+        _window: &ComponentWindow,
+    ) -> HighLevelRenderingPrimitive {
         let checked: bool = Self::FIELD_OFFSETS.checked.apply_pin(self).get();
         let text: qttypes::QString = Self::FIELD_OFFSETS.text.apply_pin(self).get().as_str().into();
         let size: qttypes::QSize = get_size!(self);
@@ -232,11 +242,14 @@ impl Item for NativeCheckBox {
         return HighLevelRenderingPrimitive::Image { source: to_resource(img) };
     }
 
-    fn rendering_variables(self: Pin<&Self>) -> SharedArray<RenderingVariable> {
+    fn rendering_variables(
+        self: Pin<&Self>,
+        _window: &ComponentWindow,
+    ) -> SharedArray<RenderingVariable> {
         SharedArray::default()
     }
 
-    fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
+    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
         let text: qttypes::QString = Self::FIELD_OFFSETS.text.apply_pin(self).get().as_str().into();
         let size = cpp!(unsafe [
             text as "QString"
@@ -327,7 +340,10 @@ impl Item for NativeSpinBox {
             Self::FIELD_OFFSETS.height.apply_pin(self).get(),
         )
     }
-    fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
+    fn rendering_primitive(
+        self: Pin<&Self>,
+        _window: &ComponentWindow,
+    ) -> HighLevelRenderingPrimitive {
         let value: i32 = Self::FIELD_OFFSETS.value.apply_pin(self).get();
         let size: qttypes::QSize = get_size!(self);
         let data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
@@ -355,11 +371,14 @@ impl Item for NativeSpinBox {
         return HighLevelRenderingPrimitive::Image { source: to_resource(img) };
     }
 
-    fn rendering_variables(self: Pin<&Self>) -> SharedArray<RenderingVariable> {
+    fn rendering_variables(
+        self: Pin<&Self>,
+        _window: &ComponentWindow,
+    ) -> SharedArray<RenderingVariable> {
         SharedArray::default()
     }
 
-    fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
+    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
         //let value: i32 = Self::FIELD_OFFSETS.value.apply_pin(self).get();
         let data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
         let active_controls = data.active_controls;
@@ -500,7 +519,10 @@ impl Item for NativeSlider {
             Self::FIELD_OFFSETS.height.apply_pin(self).get(),
         )
     }
-    fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
+    fn rendering_primitive(
+        self: Pin<&Self>,
+        _window: &ComponentWindow,
+    ) -> HighLevelRenderingPrimitive {
         let value = Self::FIELD_OFFSETS.value.apply_pin(self).get() as i32;
         let min = Self::FIELD_OFFSETS.min.apply_pin(self).get() as i32;
         let max = Self::FIELD_OFFSETS.max.apply_pin(self).get() as i32;
@@ -529,11 +551,14 @@ impl Item for NativeSlider {
         return HighLevelRenderingPrimitive::Image { source: to_resource(img) };
     }
 
-    fn rendering_variables(self: Pin<&Self>) -> SharedArray<RenderingVariable> {
+    fn rendering_variables(
+        self: Pin<&Self>,
+        _window: &ComponentWindow,
+    ) -> SharedArray<RenderingVariable> {
         SharedArray::default()
     }
 
-    fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
+    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
         let value = Self::FIELD_OFFSETS.value.apply_pin(self).get() as i32;
         let min = Self::FIELD_OFFSETS.min.apply_pin(self).get() as i32;
         let max = Self::FIELD_OFFSETS.max.apply_pin(self).get() as i32;
@@ -655,7 +680,10 @@ impl Item for NativeGroupBox {
             Self::FIELD_OFFSETS.height.apply_pin(self).get(),
         )
     }
-    fn rendering_primitive(self: Pin<&Self>) -> HighLevelRenderingPrimitive {
+    fn rendering_primitive(
+        self: Pin<&Self>,
+        _window: &ComponentWindow,
+    ) -> HighLevelRenderingPrimitive {
         let text: qttypes::QString =
             Self::FIELD_OFFSETS.title.apply_pin(self).get().as_str().into();
         let size: qttypes::QSize = get_size!(self);
@@ -683,11 +711,14 @@ impl Item for NativeGroupBox {
         return HighLevelRenderingPrimitive::Image { source: to_resource(img) };
     }
 
-    fn rendering_variables(self: Pin<&Self>) -> SharedArray<RenderingVariable> {
+    fn rendering_variables(
+        self: Pin<&Self>,
+        _window: &ComponentWindow,
+    ) -> SharedArray<RenderingVariable> {
         SharedArray::default()
     }
 
-    fn layouting_info(self: Pin<&Self>) -> LayoutInfo {
+    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
         let text: qttypes::QString =
             Self::FIELD_OFFSETS.title.apply_pin(self).get().as_str().into();
 

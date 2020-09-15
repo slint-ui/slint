@@ -17,6 +17,7 @@ use sixtyfps_compilerlib::layout::{GridLayout, Layout, LayoutElement, LayoutItem
 use sixtyfps_compilerlib::typeregister::Type;
 use sixtyfps_compilerlib::*;
 use sixtyfps_corelib::component::{ComponentRefPin, ComponentVTable};
+use sixtyfps_corelib::eventloop::ComponentWindow;
 use sixtyfps_corelib::graphics::Resource;
 use sixtyfps_corelib::item_tree::{
     ItemTreeNode, ItemVisitorRefMut, TraversalOrder, VisitChildrenResult,
@@ -797,6 +798,7 @@ trait LayoutItemCodeGen {
         &'a self,
         component: InstanceRef,
         layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
+        window: &ComponentWindow,
     ) -> LayoutInfo;
 }
 
@@ -815,10 +817,11 @@ impl LayoutItemCodeGen for LayoutItem {
         &'a self,
         component: InstanceRef,
         layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
+        window: &ComponentWindow,
     ) -> LayoutInfo {
         match self {
-            LayoutItem::Element(e) => e.get_layout_info(component, layout_tree),
-            LayoutItem::Layout(l) => l.get_layout_info(component, layout_tree),
+            LayoutItem::Element(e) => e.get_layout_info(component, layout_tree, window),
+            LayoutItem::Layout(l) => l.get_layout_info(component, layout_tree, window),
         }
     }
 }
@@ -840,8 +843,10 @@ impl LayoutItemCodeGen for Layout {
         &'a self,
         component: InstanceRef,
         layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
+        window: &ComponentWindow,
     ) -> LayoutInfo {
-        let self_as_layout_tree_item = collect_layouts_recursively(layout_tree, &self, component);
+        let self_as_layout_tree_item =
+            collect_layouts_recursively(layout_tree, &self, component, window);
         self_as_layout_tree_item.layout_info()
     }
 }
@@ -866,17 +871,18 @@ impl LayoutItemCodeGen for LayoutElement {
         &'a self,
         component: InstanceRef,
         layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
+        window: &ComponentWindow,
     ) -> LayoutInfo {
         let item =
             &component.component_type.items.get(self.element.borrow().id.as_str()).unwrap_or_else(
                 || panic!("Internal error: Item {} not found", self.element.borrow().id),
             );
         let element_info =
-            unsafe { item.item_from_component(component.as_ptr()).as_ref().layouting_info() };
+            unsafe { item.item_from_component(component.as_ptr()).as_ref().layouting_info(window) };
 
         match &self.layout {
             Some(layout) => {
-                let layout_info = layout.get_layout_info(component, layout_tree);
+                let layout_info = layout.get_layout_info(component, layout_tree, window);
                 layout_info.merge(&element_info)
             }
             None => element_info,
@@ -888,6 +894,7 @@ fn collect_layouts_recursively<'a, 'b>(
     layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
     layout: &'a Layout,
     component: InstanceRef,
+    window: &ComponentWindow,
 ) -> &'b LayoutTreeItem<'a> {
     match layout {
         Layout::GridLayout(grid_layout) => {
@@ -899,7 +906,7 @@ fn collect_layouts_recursively<'a, 'b>(
                 .iter()
                 .map(|cell| {
                     let get_prop = |name| cell.item.get_property_ref(component, name);
-                    let mut layout_info = cell.item.get_layout_info(component, layout_tree);
+                    let mut layout_info = cell.item.get_layout_info(component, layout_tree, window);
                     cell.minimum_width.as_ref().map(|e| layout_info.min_width = expr_eval(e));
                     cell.maximum_width.as_ref().map(|e| layout_info.max_width = expr_eval(e));
                     cell.minimum_height.as_ref().map(|e| layout_info.min_height = expr_eval(e));
@@ -1060,11 +1067,12 @@ extern "C" fn compute_layout(component: ComponentRefPin) {
     generativity::make_guard!(guard);
     // This is fine since we can only be called with a component that with our vtable which is a ComponentDescription
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
+    let window = eval::window_ref(instance_ref).unwrap();
 
     instance_ref.component_type.original.layout_constraints.borrow().iter().for_each(|layout| {
         let mut inverse_layout_tree = Vec::new();
 
-        collect_layouts_recursively(&mut inverse_layout_tree, &layout, instance_ref);
+        collect_layouts_recursively(&mut inverse_layout_tree, &layout, instance_ref, &window);
 
         inverse_layout_tree.iter().rev().for_each(|layout| {
             layout.solve(instance_ref);

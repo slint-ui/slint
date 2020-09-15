@@ -79,6 +79,7 @@ fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
         "sixtyfps_property_listener_scope_is_dirty",
         "PropertyTrackerOpaque",
         "SignalOpaque",
+        "ComponentWindow",
     ]
     .iter()
     .map(|x| x.to_string())
@@ -205,7 +206,7 @@ fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
         .with_include("sixtyfps_color.h")
         .with_include("sixtyfps_pathdata.h")
         .with_after_include(format!(
-            "namespace sixtyfps {{ namespace private_api {{ enum class VersionCheck {{ Major = {}, Minor = {}, Patch = {} }}; }} }}",
+            "namespace sixtyfps {{ namespace private_api {{ enum class VersionCheck {{ Major = {}, Minor = {}, Patch = {} }}; struct ComponentWindow; }} namespace cbindgen_private {{ using sixtyfps::private_api::ComponentWindow; }} }}",
             0, 0, 1,
         ))
         .generate()
