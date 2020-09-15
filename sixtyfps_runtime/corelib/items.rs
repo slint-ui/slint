@@ -381,7 +381,7 @@ impl Item for Text {
         crate::font::FONT_CACHE.with(|fc| {
             let font = fc.find_font(&font_family, font_size);
             let width = font.text_width(&text);
-            let height = font.font_height();
+            let height = font.height();
             LayoutInfo {
                 min_width: width,
                 max_width: f32::MAX,

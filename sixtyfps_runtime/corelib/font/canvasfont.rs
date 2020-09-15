@@ -27,7 +27,7 @@ impl Font {
         text_metrics.width() as _
     }
 
-    pub fn font_height(&self) -> f32 {
+    pub fn height(&self) -> f32 {
         self.pixel_size
     }
 

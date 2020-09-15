@@ -48,10 +48,6 @@ impl Font {
             .fold(0., |width, glyph| width + glyph.advance)
     }
 
-    pub fn font_height(&self) -> f32 {
-        (self.metrics.ascent - self.metrics.descent + 1.) * self.font_units_to_pixel_size()
-    }
-
     pub fn glyph_metrics(&self, glyph: u32) -> GlyphMetrics {
         self.glyph_metrics_cache
             .borrow_mut()
