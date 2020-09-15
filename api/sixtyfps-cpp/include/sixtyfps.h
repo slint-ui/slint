@@ -200,7 +200,7 @@ public:
     /// Sets the data for a particular row. This function should be called with `row < row_count()`.
     /// If the model cannot support data changes, then it is ok to do nothing (default implementation).
     /// If the model can update the data, the implmentation should also call row_changed.
-    virtual ModelData set_row_data(int) const {};
+    virtual void set_row_data(int, const ModelData &) {};
 
     /// Internal function called by the view to register itself
     void attach_peer(ModelPeer p) {
@@ -238,15 +238,19 @@ private:
 
 /// A Model backed by an array of constant size
 template<int Count, typename ModelData>
-struct ArrayModel : Model<ModelData>
+class ArrayModel : public Model<ModelData>
 {
     std::array<ModelData, Count> data;
+public:
     template<typename... A>
     ArrayModel(A &&... a) : data { std::forward<A>(a)... }
     {
     }
     int row_count() const override { return Count; }
     ModelData row_data(int i) const override { return data[i]; }
+    void set_row_data(int i, const ModelData &value) override {
+        data[i] = value;
+    }
 };
 
 /// Model to be used when we just want to repeat without data.
@@ -256,6 +260,28 @@ struct IntModel : Model<int>
     int data;
     int row_count() const override { return data; }
     int row_data(int value) const override { return value; }
+};
+
+/// A Model backed by a SharedArray
+template<typename ModelData>
+class SharedArrayModel : public Model<ModelData>
+{
+    SharedArray<ModelData> data;
+public:
+    SharedArrayModel() = default;
+    SharedArrayModel(SharedArray<ModelData> array) : data(std::move(array)) {}
+    int row_count() const override { return data.size(); }
+    ModelData row_data(int i) const override { return data[i]; }
+    void set_row_data(int i, const ModelData &value) override {
+        data[i] = value;
+        this->row_changed(i);
+    }
+
+    // Append a new row with the given value
+    void push_back(const ModelData &value) {
+        data.push_back(value);
+        this->row_added(data.size() - 1, 1);
+    }
 };
 
 template<typename C, typename ModelData>
