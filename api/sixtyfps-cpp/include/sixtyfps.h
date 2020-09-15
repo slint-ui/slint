@@ -14,6 +14,7 @@ LICENSE END */
 
 #include <vector>
 #include <memory>
+#include <algorithm>
 #include <iostream> // FIXME: remove: iostream always bring it lots of code so we should not have it in this header
 
 namespace sixtyfps::cbindgen_private {
@@ -181,16 +182,51 @@ using cbindgen_private::solve_grid_layout;
 using cbindgen_private::solve_path_layout;
 
 // models
+using ModelPeer = std::weak_ptr<bool>;
 
 template<typename ModelData>
-struct Model
+class Model
 {
+public:
     virtual ~Model() = default;
     Model() = default;
     Model(const Model &) = delete;
     Model &operator=(const Model &) = delete;
     virtual int count() const = 0;
     virtual ModelData get(int i) const = 0;
+
+    /// Internal function called by the view to register itself
+    void attach_peer(ModelPeer p) {
+        peers.push_back(std::move(p));
+    }
+
+protected:
+    /// Notify the views that a specific row was changed
+    void row_changed(int row) {
+        (void)row;
+        notify();
+    }
+    /// Notify the views that rows were added
+    void row_added(int index, int count) {
+        (void)(index + count);
+        notify();
+    }
+    /// Notify the views that rows were removed
+    void row_removed(int index, int count) {
+        (void)(index + count);
+        notify();
+    }
+private:
+    void notify() {
+        peers.erase(std::remove_if(peers.begin(), peers.end(), [](const auto &p) {
+            if (auto pp = p.lock()) {
+                *pp = true;
+                return false;
+            }
+            return true;
+        }), peers.end());
+    }
+    std::vector<ModelPeer> peers;
 };
 
 template<int Count, typename ModelData>
@@ -214,21 +250,43 @@ struct IntModel : Model<int>
 };
 
 template<typename C, typename ModelData>
-struct Repeater
+class Repeater
 {
+    mutable std::shared_ptr<bool> is_dirty;
+    Property<std::shared_ptr<Model<ModelData>>> model;
+
+public:
+    // FIXME: should be private, but compute_layout uses it.
     std::vector<std::unique_ptr<C>> data;
 
-    template<typename Parent>
-    void update_model(Model<ModelData> *model, const Parent *parent) const
+    template<typename F>
+    void set_model_binding(F &&binding) const
     {
-        auto &data = const_cast<Repeater *>(this)->data;
-        data.clear();
-        auto count = model->count();
-        for (auto i = 0; i < count; ++i) {
-            auto x = std::make_unique<C>();
-            x->parent = parent;
-            x->update_data(i, model->get(i));
-            data.push_back(std::move(x));
+        model.set_binding(std::forward<F>(binding));
+    }
+
+
+    template<typename Parent>
+    void ensure_updated(const Parent *parent) const
+    {
+        if (model.is_dirty()) {
+            is_dirty = std::make_shared<bool>(true);
+            if (auto m = model.get()) {
+                m->attach_peer(is_dirty);
+            }
+        }
+        if (is_dirty && *is_dirty) {
+            auto &data = const_cast<Repeater *>(this)->data;
+            data.clear();
+            auto m = model.get();
+            auto count = m->count();
+            for (auto i = 0; i < count; ++i) {
+                auto x = std::make_unique<C>();
+                x->parent = parent;
+                x->update_data(i, m->get(i));
+                data.push_back(std::move(x));
+            }
+            *is_dirty = false;
         }
     }
 

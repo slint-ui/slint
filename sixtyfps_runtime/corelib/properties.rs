@@ -1127,6 +1127,12 @@ pub(crate) mod ffi {
         handle.0.set_binding(binding);
     }
 
+    /// Returns whether the property behind this handle is marked as dirty
+    #[no_mangle]
+    pub extern "C" fn sixtyfps_property_is_dirty(handle: &PropertyHandleOpaque) -> bool {
+        handle.0.access(|binding| binding.map_or(false, |b| b.dirty.get()))
+    }
+
     /// Destroy handle
     #[no_mangle]
     pub unsafe extern "C" fn sixtyfps_property_drop(handle: *mut PropertyHandleOpaque) {

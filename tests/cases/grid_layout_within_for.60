@@ -39,6 +39,7 @@ TestCase := Rectangle {
 /*
 ```cpp
 TestCase instance;
+sixtyfps::testing::send_mouse_click(instance, -1., -1.); // FIXME: Force creation of repeater components before computing the layout
 TestCase::compute_layout({&TestCase::component_type, &instance });
 
 sixtyfps::testing::send_mouse_click(instance, 190., 190.);

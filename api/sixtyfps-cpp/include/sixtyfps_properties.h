@@ -65,6 +65,10 @@ struct Property
     template<typename F>
     inline void set_animated_binding(F binding, const cbindgen_private::PropertyAnimation &animation_data);
 
+    bool is_dirty() const {
+        return cbindgen_private::sixtyfps_property_is_dirty(&inner);
+    }
+
 private:
     cbindgen_private::PropertyHandleOpaque inner;
     mutable T value{};

@@ -72,6 +72,32 @@ assert_eq!(instance.get_clicked_score(), 222000);
 assert_eq!(instance.get_clicked_name(), sixtyfps::SharedString::from("cruel"));
 ```
 
+```cpp
+TestCase instance;
+
+// there should be nothing there
+sixtyfps::testing::send_mouse_click(instance, 25., 5.);
+assert_eq(instance.get_clicked_score(), 0);
+
+sixtyfps::testing::send_mouse_click(instance, 15., 5.);
+assert_eq(instance.get_clicked_score(), 789000);
+
+using ModelData = std::tuple<sixtyfps::SharedString, sixtyfps::SharedString, float>;
+auto another_model = std::make_shared<sixtyfps::ArrayModel<3, ModelData>>(
+        ModelData{"a1", "hello", 111.},
+        ModelData{"a2", "cruel", 222.},
+        ModelData{"a3", "world", 333.}
+    );
+instance.set_model(another_model);
+
+sixtyfps::testing::send_mouse_click(instance, 25., 5.);
+assert_eq(instance.get_clicked_score(), 333000);
+
+sixtyfps::testing::send_mouse_click(instance, 15., 5.);
+assert_eq(instance.get_clicked_score(), 222000);
+assert_eq(instance.get_clicked_name(), "cruel");
+```
+
 
 
 */

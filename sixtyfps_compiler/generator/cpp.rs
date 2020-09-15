@@ -397,41 +397,21 @@ fn handle_repeater(
         model = format!("std::make_shared<sixtyfps::IntModel>({})", model)
     };
 
-    if repeated.model.is_constant() {
-        children_visitor_cases.push(format!(
-            "\n        case {i}: return self->{id}.visit(order, visitor);",
-            id = repeater_id,
-            i = repeater_count
-        ));
-        init.push(format!(
-            "self->{repeater_id}.update_model({model}.get(), self);",
-            repeater_id = repeater_id,
-            model = model,
-        ));
-    } else {
-        let model_id = format!("model_{}", repeater_count);
-        component_struct.members.push((
-            Access::Private,
-            Declaration::Var(Var {
-                ty: "sixtyfps::PropertyTracker".to_owned(),
-                name: model_id,
-                init: None,
-            }),
-        ));
-        children_visitor_cases.push(format!(
-            "\n        case {i}: {{
-                if (self->model_{i}.is_dirty()) {{
-                    self->{id}.update_model(self->model_{i}.evaluate([&] {{
-                        return {model};
-                    }}).get(), self);
-                }}
+    // FIXME: optimize  if repeated.model.is_constant()
+    init.push(format!(
+        "self->{repeater_id}.set_model_binding([self] {{ return {model}; }});",
+        repeater_id = repeater_id,
+        model = model,
+    ));
+
+    children_visitor_cases.push(format!(
+        "\n        case {i}: {{
+                self->{id}.ensure_updated(self);
                 return self->{id}.visit(order, visitor);
             }}",
-            id = repeater_id,
-            i = repeater_count,
-            model = model,
-        ));
-    }
+        id = repeater_id,
+        i = repeater_count,
+    ));
 
     repeated_input_branch.push(format!(
         "\n        case {i}: return self->{id}.item_at(rep_index);",
@@ -626,7 +606,7 @@ fn generate_component(
                 .unwrap(),
         );
         component_struct.members.push((
-            Access::Public, // Because Repeater::update_model accesses it
+            Access::Public, // Because Repeater accesses it
             Declaration::Var(Var {
                 ty: format!("{} const *", parent_component_id),
                 name: "parent".into(),
@@ -635,7 +615,7 @@ fn generate_component(
         ));
         component_struct.friends.push(parent_component_id);
         component_struct.members.push((
-            Access::Public, // Because Repeater::update_model accesses it
+            Access::Public, // Because Repeater accesses it
             Declaration::Function(Function {
                 name: "update_data".into(),
                 signature: format!(
