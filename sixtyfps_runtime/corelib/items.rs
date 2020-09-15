@@ -953,6 +953,14 @@ impl Item for TextInput {
                 TextInput::move_cursor(self, TextCursorDirection::Backward, window);
                 KeyEventResult::EventAccepted
             }
+            KeyEvent::KeyPressed(code) if *code == crate::input::KeyCode::Back => {
+                TextInput::delete_previous(self, window);
+                KeyEventResult::EventAccepted
+            }
+            KeyEvent::KeyPressed(code) if *code == crate::input::KeyCode::Delete => {
+                TextInput::delete_char(self);
+                KeyEventResult::EventAccepted
+            }
             _ => KeyEventResult::EventIgnored,
         }
     }
@@ -1025,6 +1033,24 @@ impl TextInput {
         self.as_ref().show_cursor(window);
 
         moved
+    }
+
+    fn delete_char(self: Pin<&Self>) {
+        let mut text: String = Self::FIELD_OFFSETS.text.apply_pin(self).get().into();
+        if text.len() == 0 {
+            return;
+        }
+
+        let cursor_pos = Self::FIELD_OFFSETS.cursor_position.apply_pin(self).get();
+        text.remove(cursor_pos as usize);
+
+        self.cursor_position.set(cursor_pos.min(text.len() as i32));
+        self.text.set(text.into());
+    }
+
+    fn delete_previous(self: Pin<&Self>, window: &ComponentWindow) {
+        self.move_cursor(TextCursorDirection::Backward, window);
+        self.delete_char();
     }
 
     fn with_font<R>(
