@@ -104,14 +104,13 @@ impl GLTexture {
 
     fn set_sub_image<Container: core::ops::Deref<Target = [u8]>>(
         &self,
-        gl: &glow::Context,
         x: i32,
         y: i32,
         image: image::ImageBuffer<image::Rgba<u8>, Container>,
     ) {
         unsafe {
-            gl.bind_texture(glow::TEXTURE_2D, Some(self.texture_id));
-            gl.tex_sub_image_2d(
+            self.context.bind_texture(glow::TEXTURE_2D, Some(self.texture_id));
+            self.context.tex_sub_image_2d(
                 glow::TEXTURE_2D,
                 0,
                 x,
@@ -127,13 +126,12 @@ impl GLTexture {
 
     pub fn bind_to_location(
         &self,
-        gl: &glow::Context,
         texture_location: &<glow::Context as glow::HasContext>::UniformLocation,
     ) {
         unsafe {
-            gl.active_texture(glow::TEXTURE0);
-            gl.bind_texture(glow::TEXTURE_2D, Some(self.texture_id));
-            gl.uniform_1_i32(Some(&texture_location), 0);
+            self.context.active_texture(glow::TEXTURE0);
+            self.context.bind_texture(glow::TEXTURE_2D, Some(self.texture_id));
+            self.context.uniform_1_i32(Some(&texture_location), 0);
         }
     }
 }
@@ -312,7 +310,6 @@ impl TextureAtlas {
         let mut allocation = self.allocate_region(gl, requested_width as _, requested_height as _);
 
         allocation.atlas.texture.set_sub_image(
-            gl,
             allocation.texture_coordinates.origin_x(),
             allocation.texture_coordinates.origin_y(),
             padded_image,

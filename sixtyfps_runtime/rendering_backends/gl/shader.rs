@@ -198,7 +198,7 @@ impl ImageShader {
 
         unsafe { gl.uniform_matrix_4_f32_slice(Some(&self.matrix_location), false, matrix) };
 
-        tex.bind_to_location(&gl, &self.tex_location);
+        tex.bind_to_location(&self.tex_location);
 
         pos.bind(&gl, self.pos_location);
 
@@ -290,7 +290,7 @@ impl GlyphShader {
             )
         };
 
-        tex.bind_to_location(&gl, &self.tex_location);
+        tex.bind_to_location(&self.tex_location);
 
         pos.bind(&gl, self.pos_location);
 
