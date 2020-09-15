@@ -192,8 +192,15 @@ public:
     Model() = default;
     Model(const Model &) = delete;
     Model &operator=(const Model &) = delete;
-    virtual int count() const = 0;
-    virtual ModelData get(int i) const = 0;
+
+    /// The amount of row in the model
+    virtual int row_count() const = 0;
+    /// Returns the data for a particular row. This function should be called with `row < row_count()`.
+    virtual ModelData row_data(int i) const = 0;
+    /// Sets the data for a particular row. This function should be called with `row < row_count()`.
+    /// If the model cannot support data changes, then it is ok to do nothing (default implementation).
+    /// If the model can update the data, the implmentation should also call row_changed.
+    virtual ModelData set_row_data(int) const {};
 
     /// Internal function called by the view to register itself
     void attach_peer(ModelPeer p) {
@@ -229,6 +236,7 @@ private:
     std::vector<ModelPeer> peers;
 };
 
+/// A Model backed by an array of constant size
 template<int Count, typename ModelData>
 struct ArrayModel : Model<ModelData>
 {
@@ -237,16 +245,17 @@ struct ArrayModel : Model<ModelData>
     ArrayModel(A &&... a) : data { std::forward<A>(a)... }
     {
     }
-    int count() const override { return Count; }
-    ModelData get(int i) const override { return data[i]; }
+    int row_count() const override { return Count; }
+    ModelData row_data(int i) const override { return data[i]; }
 };
 
+/// Model to be used when we just want to repeat without data.
 struct IntModel : Model<int>
 {
     IntModel(int d) : data(d) { }
     int data;
-    int count() const override { return data; }
-    int get(int value) const override { return value; }
+    int row_count() const override { return data; }
+    int row_data(int value) const override { return value; }
 };
 
 template<typename C, typename ModelData>
@@ -279,11 +288,11 @@ public:
             auto &data = const_cast<Repeater *>(this)->data;
             data.clear();
             auto m = model.get();
-            auto count = m->count();
+            auto count = m->row_count();
             for (auto i = 0; i < count; ++i) {
                 auto x = std::make_unique<C>();
                 x->parent = parent;
-                x->update_data(i, m->get(i));
+                x->update_data(i, m->row_data(i));
                 data.push_back(std::move(x));
             }
             *is_dirty = false;
