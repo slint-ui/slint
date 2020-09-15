@@ -33,8 +33,8 @@ pub struct FontCache {
 }
 
 impl FontCache {
-    pub fn find_font(&self, family: &str, font_pixel_size: f32) -> Rc<Font> {
-        let pixel_size = if font_pixel_size != 0. { font_pixel_size } else { 48.0 * 72. / 96. };
+    pub fn find_font(&self, family: &str, pixel_size: f32) -> Rc<Font> {
+        assert_ne!(pixel_size, 0.0);
 
         let mut loaded_fonts = self.loaded_fonts.borrow_mut();
         let font_match = loaded_fonts.entry(family.to_owned()).or_insert_with(|| FontMatch {

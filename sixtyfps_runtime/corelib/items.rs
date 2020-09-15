@@ -367,12 +367,12 @@ impl Item for Text {
     }
     fn rendering_primitive(
         self: Pin<&Self>,
-        _window: &ComponentWindow,
+        window: &ComponentWindow,
     ) -> HighLevelRenderingPrimitive {
         HighLevelRenderingPrimitive::Text {
             text: Self::FIELD_OFFSETS.text.apply_pin(self).get(),
             font_family: Self::FIELD_OFFSETS.font_family.apply_pin(self).get(),
-            font_size: Self::FIELD_OFFSETS.font_size.apply_pin(self).get(),
+            font_size: Text::font_pixel_size(self, window),
         }
     }
 
@@ -403,9 +403,9 @@ impl Item for Text {
         ])
     }
 
-    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
+    fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
         let font_family = Self::FIELD_OFFSETS.font_family.apply_pin(self).get();
-        let font_size = Self::FIELD_OFFSETS.font_size.apply_pin(self).get();
+        let font_size = Text::font_pixel_size(self, window);
         let text = Self::FIELD_OFFSETS.text.apply_pin(self).get();
 
         crate::font::FONT_CACHE.with(|fc| {
@@ -433,6 +433,17 @@ impl Item for Text {
 impl ItemConsts for Text {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Text, CachedRenderingData> =
         Text::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+}
+
+impl Text {
+    fn font_pixel_size(self: Pin<&Self>, window: &ComponentWindow) -> f32 {
+        let font_size = Self::FIELD_OFFSETS.font_size.apply_pin(self).get();
+        if font_size == 0.0 {
+            16. * window.scale_factor()
+        } else {
+            font_size
+        }
+    }
 }
 
 ItemVTable_static! {

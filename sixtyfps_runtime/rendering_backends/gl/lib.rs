@@ -101,8 +101,6 @@ pub struct GLRenderingPrimitivesBuilder {
     #[cfg(not(target_arch = "wasm32"))]
     platform_data: Rc<PlatformData>,
 
-    #[cfg(target_arch = "wasm32")]
-    window: Rc<winit::window::Window>,
     #[cfg(not(target_arch = "wasm32"))]
     windowed_context: glutin::WindowedContext<glutin::PossiblyCurrent>,
 }
@@ -246,8 +244,6 @@ impl GraphicsBackend for GLRenderer {
             #[cfg(not(target_arch = "wasm32"))]
             platform_data: self.platform_data.clone(),
 
-            #[cfg(target_arch = "wasm32")]
-            window: self.window.clone(),
             #[cfg(not(target_arch = "wasm32"))]
             windowed_context: current_windowed_context,
         }
@@ -387,12 +383,7 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                     }
                 }
                 HighLevelRenderingPrimitive::Text { text, font_family, font_size } => {
-                    let pixel_size = if *font_size != 0. {
-                        *font_size
-                    } else {
-                        16.0 * self.window_scale_factor()
-                    };
-                    smallvec![self.create_glyph_runs(text, font_family, pixel_size)]
+                    smallvec![self.create_glyph_runs(text, font_family, *font_size)]
                 }
                 HighLevelRenderingPrimitive::Path { width, height, elements, stroke_width } => {
                     let mut primitives = SmallVec::new();
@@ -633,15 +624,6 @@ impl GLRenderingPrimitivesBuilder {
         let glyph_runs = vec![GlyphRun { vertices, texture_vertices, texture, vertex_count }];
 
         GLRenderingPrimitive::GlyphRuns { glyph_runs }
-    }
-
-    fn window_scale_factor(&self) -> f32 {
-        #[cfg(not(target_arch = "wasm32"))]
-        let window = self.windowed_context.window();
-        #[cfg(target_arch = "wasm32")]
-        let window = &self.window;
-
-        window.scale_factor() as f32
     }
 }
 
