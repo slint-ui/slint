@@ -9,7 +9,9 @@
 LICENSE END */
 
 
-Test := Rectangle {
+TestCase := Rectangle {
+    width: 300px;
+    height: 300px;
     property<[{name: string, account: string, score: float}]> model: [
         {
             name: "Olivier",
@@ -23,9 +25,53 @@ Test := Rectangle {
         }
     ];
 
-    for person in model: Text {
+    property <int> clicked_score;
+    property <string> clicked_name;
+
+    for person[i] in model: TouchArea {
+        x: i*10px;
+        width: 10px;
+        height: 10px;
         property <length> model; // this is not the model
-        text: person.name;
+        property <string> text: person.name;
         property <int> score: person.score * 1000;
+        clicked => {
+            clicked_score = score;
+            clicked_name = text;
+        }
     }
 }
+
+/*
+```rust
+let instance = TestCase::new();
+let instance = instance.as_ref();
+
+// there should be nothing there
+sixtyfps::testing::send_mouse_click(instance, 25., 5.);
+assert_eq!(instance.get_clicked_score(), 0);
+
+sixtyfps::testing::send_mouse_click(instance, 15., 5.);
+assert_eq!(instance.get_clicked_score(), 789000);
+
+type ModelData = (sixtyfps::SharedString, sixtyfps::SharedString, f32);
+let another_model = std::rc::Rc::new(sixtyfps::model::ArrayModel::<ModelData>::from(
+    sixtyfps::SharedArray::from_slice(&[
+        ("a1".into(), "hello".into(), 111.),
+        ("a2".into(), "cruel".into(), 222.),
+        ("a3".into(), "world".into(), 333.),
+    ])));
+
+instance.set_model(sixtyfps::model::ModelRc(another_model.clone()));
+
+sixtyfps::testing::send_mouse_click(instance, 25., 5.);
+assert_eq!(instance.get_clicked_score(), 333000);
+
+sixtyfps::testing::send_mouse_click(instance, 15., 5.);
+assert_eq!(instance.get_clicked_score(), 222000);
+assert_eq!(instance.get_clicked_name(), sixtyfps::SharedString::from("cruel"));
+```
+
+
+
+*/
