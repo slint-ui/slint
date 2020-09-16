@@ -10,6 +10,8 @@ LICENSE END */
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::{cell::RefCell, fmt::Display, rc::Rc};
 
+use crate::expression_tree::{Expression, Unit};
+
 #[derive(Debug, Clone)]
 pub enum Type {
     /// Correspond to an uninitialized type, or an error
@@ -300,11 +302,11 @@ impl Type {
 
     /// If this is a number type which should be used with an unit, this returns the default unit
     /// otherwise, returns None
-    pub fn default_unit(&self) -> Option<crate::expression_tree::Unit> {
+    pub fn default_unit(&self) -> Option<Unit> {
         match self {
-            Type::Duration => Some(crate::expression_tree::Unit::Ms),
-            Type::Length => Some(crate::expression_tree::Unit::Px),
-            Type::LogicalLength => Some(crate::expression_tree::Unit::Lx),
+            Type::Duration => Some(Unit::Ms),
+            Type::Length => Some(Unit::Px),
+            Type::LogicalLength => Some(Unit::Lx),
             _ => None,
         }
     }
@@ -407,6 +409,7 @@ impl NativeClass {
 pub struct BuiltinElement {
     pub native_class: Rc<NativeClass>,
     pub properties: HashMap<String, Type>,
+    pub default_bindings: HashMap<String, Expression>,
     pub additional_accepted_child_types: HashMap<String, Type>,
     pub disallow_global_types_as_child_elements: bool,
     /// Non-item type do not have reserved properties (x/width/rowspan/...) added to them  (eg: PropertyAnimation)
@@ -500,12 +503,19 @@ impl TypeRegister {
         let text_vertical_alignment =
             declare_enum("TextVerticalAlignment", &["align_top", "align_center", "align_bottom"]);
 
-        let native_class = |tr: &mut TypeRegister, name: &str, properties: &[(&str, Type)]| {
+        let native_class = |tr: &mut TypeRegister,
+                            name: &str,
+                            properties: &[(&str, Type)],
+                            default_bindings: &[(&str, Expression)]| {
             let native = Rc::new(NativeClass::new_with_properties(
                 name,
                 properties.iter().map(|(n, t)| (n.to_string(), t.clone())),
             ));
-            tr.types.insert(name.to_string(), Type::Builtin(Rc::new(BuiltinElement::new(native))));
+            let mut builtin = BuiltinElement::new(native);
+            for (prop, expr) in default_bindings {
+                builtin.default_bindings.insert(prop.to_string(), expr.clone());
+            }
+            tr.types.insert(name.to_string(), Type::Builtin(Rc::new(builtin)));
         };
 
         let mut rectangle = NativeClass::new("Rectangle");
@@ -538,6 +548,7 @@ impl TypeRegister {
                 ("width", Type::Length),
                 ("height", Type::Length),
             ],
+            &[],
         );
 
         native_class(
@@ -555,6 +566,13 @@ impl TypeRegister {
                 ("width", Type::Length),
                 ("height", Type::Length),
             ],
+            &[(
+                "color",
+                Expression::Cast {
+                    from: Box::new(Expression::NumberLiteral(0xff000000u32 as _, Unit::None)),
+                    to: Type::Color,
+                },
+            )],
         );
 
         native_class(
@@ -572,6 +590,7 @@ impl TypeRegister {
                 ("pressed_y", Type::Length),
                 ("clicked", Type::Signal { args: vec![] }),
             ],
+            &[],
         );
 
         native_class(
@@ -583,9 +602,10 @@ impl TypeRegister {
                 ("width", Type::Length),
                 ("height", Type::Length),
             ],
+            &[],
         );
 
-        native_class(&mut r, "Window", &[("width", Type::Length), ("height", Type::Length)]);
+        native_class(&mut r, "Window", &[("width", Type::Length), ("height", Type::Length)], &[]);
 
         let mut grid_layout = BuiltinElement::new(Rc::new(NativeClass::new("GridLayout")));
         grid_layout.properties.insert("spacing".to_owned(), Type::Length);
@@ -700,6 +720,7 @@ impl TypeRegister {
                 ("pressed", Type::Bool),
                 ("clicked", Type::Signal { args: vec![] }),
             ],
+            &[],
         );
         native_class(
             &mut r,
@@ -713,6 +734,7 @@ impl TypeRegister {
                 ("checked", Type::Bool),
                 ("toggled", Type::Signal { args: vec![] }),
             ],
+            &[],
         );
         native_class(
             &mut r,
@@ -724,6 +746,7 @@ impl TypeRegister {
                 ("height", Type::Length),
                 ("value", Type::Int32),
             ],
+            &[],
         );
         native_class(
             &mut r,
@@ -737,6 +760,7 @@ impl TypeRegister {
                 ("min", Type::Float32),
                 ("max", Type::Float32),
             ],
+            &[],
         );
         native_class(
             &mut r,
@@ -752,6 +776,7 @@ impl TypeRegister {
                 ("native_padding_top", Type::Length),
                 ("native_padding_bottom", Type::Length),
             ],
+            &[],
         );
 
         Rc::new(RefCell::new(r))

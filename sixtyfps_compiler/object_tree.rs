@@ -255,6 +255,15 @@ impl Element {
 
         r.parse_bindings(&base, node.Binding(), diag);
 
+        match &r.base_type {
+            Type::Builtin(builtin_base) => {
+                for (prop, expr) in &builtin_base.default_bindings {
+                    r.bindings.entry(prop.clone()).or_insert(expr.clone().into());
+                }
+            }
+            _ => {}
+        }
+
         for sig_decl in node.SignalDeclaration() {
             let name_token =
                 sig_decl.DeclaredIdentifier().child_token(SyntaxKind::Identifier).unwrap();

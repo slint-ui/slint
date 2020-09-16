@@ -368,11 +368,6 @@ Flickable::~Flickable()
     sixtyfps_flickable_data_free(&data);
 }
 
-Text::Text()
-{
-    sixtyfps_text_init(this);
-}
-
 namespace private_api {
 template<int Major, int Minor, int Patch>
 struct VersionCheckHelper

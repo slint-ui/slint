@@ -145,6 +145,15 @@ public:
     /// false otherwise.
     friend bool operator!=(const Color &lhs, const Color &rhs) { return !(lhs == rhs); }
 
+    /// Writes the \a color to the specified \a stream and returns a reference to the
+    /// stream.
+    friend std::ostream &operator<<(std::ostream &stream, const Color &color)
+    {
+        // Cast to uint to avoid the components being interpreted as char.
+        return stream << "argb(" << uint(color.inner.alpha) << ", " << uint(color.inner.red) << ", "
+                      << uint(color.inner.green) << ", " << uint(color.inner.blue) << ")";
+    }
+
 private:
     cbindgen_private::types::Color inner;
 };
