@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-export MyType := {
+MyType := {
     property <int> aaa;
     property <int> aaa;
 //                 ^error{Cannot override property 'aaa'}
@@ -37,6 +37,10 @@ export MyType := {
 }
 
 SuperSimple := Rectangle {
+    MyType {
+//  ^error{Cannot create an instance of a struct that does not have a base type}
+        ccc: "hello";
+    }
 }
 
 

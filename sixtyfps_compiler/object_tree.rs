@@ -265,18 +265,22 @@ impl Element {
             return Rc::new(RefCell::new(r));
         };
         let base = QualifiedTypeName::from_node(base_node.clone());
-        let mut r = Element {
-            id,
-            base_type: match parent_type.lookup_type_for_child_element(&base.to_string(), tr) {
-                Ok(ty) => ty,
-                Err(err) => {
-                    diag.push_error(err, &base_node);
-                    return ElementRc::default();
-                }
-            },
-            node: Some(node.clone()),
-            ..Default::default()
+        let base_type = match parent_type.lookup_type_for_child_element(&base.to_string(), tr) {
+            Ok(ty) => ty,
+            Err(err) => {
+                diag.push_error(err, &base_node);
+                return ElementRc::default();
+            }
         };
+        if let Type::Component(c) = &base_type {
+            if c.root_element.borrow().base_type == Type::Void {
+                diag.push_error(
+                    "Cannot create an instance of a struct that does not have a base type".into(),
+                    &base_node,
+                )
+            }
+        }
+        let mut r = Element { id, base_type, node: Some(node.clone()), ..Default::default() };
         assert!(r.base_type.is_object_type());
 
         for prop_decl in node.PropertyDeclaration() {
