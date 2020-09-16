@@ -22,3 +22,16 @@ export GroupBox := NativeGroupBox {
         $children
     }
  }
+export LineEdit := NativeLineEdit {
+    property <string> text;
+    property <bool> focused: true;
+    GridLayout {
+        padding_left: root.native_padding_left;
+        padding_right: root.native_padding_right;
+        padding_top: root.native_padding_top;
+        padding_bottom: root.native_padding_bottom;
+        TextInput {
+            text: root.text;
+        }
+    }
+}

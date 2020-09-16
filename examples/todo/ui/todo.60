@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-import { SpinBox, Button, CheckBox, Slider } from "sixtyfps_widgets.60";
+import { SpinBox, Button, CheckBox, Slider, LineEdit } from "sixtyfps_widgets.60";
 
 export TodoItem := {
     property <string> title;
@@ -30,7 +30,7 @@ MainWindow := Window {
 
     GridLayout {
         Row {
-            text_edit := TextInput {
+            text_edit := LineEdit {
                 text: "Something to do";
             }
             btn := Button {

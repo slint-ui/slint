@@ -813,3 +813,107 @@ impl ItemConsts for NativeGroupBox {
 }
 
 ItemVTable_static! { #[no_mangle] pub static NativeGroupBoxVTable for NativeGroupBox }
+
+#[repr(C)]
+#[derive(FieldOffsets, Default, BuiltinItem)]
+#[pin]
+pub struct NativeLineEdit {
+    pub x: Property<f32>,
+    pub y: Property<f32>,
+    pub width: Property<f32>,
+    pub height: Property<f32>,
+    pub cached_rendering_data: CachedRenderingData,
+    pub native_padding_left: Property<f32>,
+    pub native_padding_right: Property<f32>,
+    pub native_padding_top: Property<f32>,
+    pub native_padding_bottom: Property<f32>,
+}
+
+impl Item for NativeLineEdit {
+    fn geometry(self: Pin<&Self>) -> Rect {
+        euclid::rect(
+            Self::FIELD_OFFSETS.x.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.y.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.width.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.height.apply_pin(self).get(),
+        )
+    }
+    fn rendering_primitive(
+        self: Pin<&Self>,
+        window: &ComponentWindow,
+    ) -> HighLevelRenderingPrimitive {
+        let size: qttypes::QSize = get_size!(self);
+        let dpr = window.scale_factor();
+
+        let img = cpp!(unsafe [
+            size as "QSize",
+            dpr as "float"
+        ] -> qttypes::QImage as "QImage" {
+            auto [img, rect] = offline_style_rendering_image(size, dpr);
+            QPainter p(&img);
+            QStyleOptionFrame option;
+            option.rect = rect;
+            option.lineWidth = 1;
+            option.midLineWidth = 0;
+            qApp->style()->drawPrimitive(QStyle::PE_PanelLineEdit, &option, &p, global_widget());
+            return img;
+        });
+        return HighLevelRenderingPrimitive::Image { source: to_resource(img) };
+    }
+
+    fn rendering_variables(
+        self: Pin<&Self>,
+        _window: &ComponentWindow,
+    ) -> SharedArray<RenderingVariable> {
+        SharedArray::default()
+    }
+
+    fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
+        let dpr = window.scale_factor();
+
+        let paddings = cpp!(unsafe [
+            dpr as "float"
+        ] -> qttypes::QMargins as "QMargins" {
+            ensure_initialized();
+            QStyleOptionFrame option;
+            option.lineWidth = 1;
+            option.midLineWidth = 0;
+             // Just some size big enough to be sure that the frame fitst in it
+            option.rect = QRect(0, 0, 10000, 10000);
+            QRect contentsRect = qApp->style()->subElementRect(
+                QStyle::SE_LineEditContents, &option);
+
+            // ### remove extra margins
+
+            return {
+                qRound((2 + contentsRect.left()) * dpr),
+                qRound((4 + contentsRect.top()) * dpr),
+                qRound((2 + option.rect.right() - contentsRect.right()) * dpr),
+                qRound((4 + option.rect.bottom() - contentsRect.bottom()) * dpr) };
+        });
+        self.native_padding_left.set(paddings.left as _);
+        self.native_padding_right.set(paddings.right as _);
+        self.native_padding_top.set(paddings.top as _);
+        self.native_padding_bottom.set(paddings.bottom as _);
+        LayoutInfo {
+            min_width: (paddings.left + paddings.right) as _,
+            min_height: (paddings.top + paddings.bottom) as _,
+            ..LayoutInfo::default()
+        }
+    }
+
+    fn input_event(self: Pin<&Self>, _: MouseEvent, _window: &ComponentWindow) -> InputEventResult {
+        InputEventResult::EventIgnored
+    }
+
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
+}
+
+impl ItemConsts for NativeLineEdit {
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
+        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+}
+
+ItemVTable_static! { #[no_mangle] pub static NativeLineEditVTable for NativeLineEdit }

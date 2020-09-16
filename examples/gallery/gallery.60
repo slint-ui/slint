@@ -7,11 +7,11 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-import { Button, CheckBox, SpinBox, Slider, GroupBox } from "sixtyfps_widgets.60";
+import { Button, CheckBox, SpinBox, Slider, GroupBox, LineEdit } from "sixtyfps_widgets.60";
 
 App := Window {
     width: 500lx;
-    height: 400lx;
+    height: 600lx;
     Rectangle {
         color: #ecedeb;
         width: parent.width;
@@ -72,6 +72,13 @@ App := Window {
                 title: "Slider";
                 Slider {
                     value: 42;
+                }
+            }
+        }
+        Row {
+            GroupBox {
+                title: "LineEdit";
+                LineEdit {                
                 }
             }
         }

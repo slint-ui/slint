@@ -822,6 +822,21 @@ impl TypeRegister {
             ],
             &[],
         );
+        native_class(
+            &mut r,
+            "NativeLineEdit",
+            &[
+                ("x", Type::Length),
+                ("y", Type::Length),
+                ("width", Type::Length),
+                ("height", Type::Length),
+                ("native_padding_left", Type::Length),
+                ("native_padding_right", Type::Length),
+                ("native_padding_top", Type::Length),
+                ("native_padding_bottom", Type::Length),
+            ],
+            &[],
+        );
 
         Rc::new(RefCell::new(r))
     }

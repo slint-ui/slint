@@ -45,6 +45,7 @@ extern const cbindgen_private::ItemVTable NativeCheckBoxVTable;
 extern const cbindgen_private::ItemVTable NativeSpinBoxVTable;
 extern const cbindgen_private::ItemVTable NativeSliderVTable;
 extern const cbindgen_private::ItemVTable NativeGroupBoxVTable;
+extern const cbindgen_private::ItemVTable NativeLineEditVTable;
 }
 }
 
@@ -111,6 +112,7 @@ using cbindgen_private::Window;
 using cbindgen_private::NativeButton;
 using cbindgen_private::NativeCheckBox;
 using cbindgen_private::NativeGroupBox;
+using cbindgen_private::NativeLineEdit;
 using cbindgen_private::NativeSlider;
 using cbindgen_private::NativeSpinBox;
 

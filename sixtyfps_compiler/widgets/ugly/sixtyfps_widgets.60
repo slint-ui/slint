@@ -236,3 +236,29 @@ export GroupBox := GridLayout {
     }
 }
 
+export LineEdit := Rectangle {
+    property <string> text;
+    property <bool> focused: true;
+
+    border_color: root.focused ? #556884 : #ffffff;
+    border_radius: 1lx;
+    border_width: 2lx;
+
+    GridLayout {
+        padding: 3lx;
+
+        Rectangle {
+            border_color: #ecedeb;
+            border_radius: 1lx;
+            border_width: 1lx;
+            color: white;
+
+            GridLayout {
+                padding: 3lx;
+                TextInput {
+                    text: root.text;
+                }
+           }
+        }
+    }
+}

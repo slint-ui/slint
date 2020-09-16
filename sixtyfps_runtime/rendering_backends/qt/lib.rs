@@ -41,7 +41,8 @@ pub type NativeWidgets =
     (widgets::NativeSlider,
     (widgets::NativeSpinBox,
     (widgets::NativeGroupBox,
-        ())))));
+    (widgets::NativeLineEdit,
+            ()))))));
 
 pub mod native_widgets {
     #[cfg(not(no_qt))]
