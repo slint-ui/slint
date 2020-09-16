@@ -149,9 +149,10 @@ public:
     /// stream.
     friend std::ostream &operator<<(std::ostream &stream, const Color &color)
     {
-        // Cast to uint to avoid the components being interpreted as char.
-        return stream << "argb(" << uint(color.inner.alpha) << ", " << uint(color.inner.red) << ", "
-                      << uint(color.inner.green) << ", " << uint(color.inner.blue) << ")";
+        // Cast to uint32_t to avoid the components being interpreted as char.
+        return stream << "argb(" << uint32_t(color.inner.alpha) << ", " << uint32_t(color.inner.red)
+                      << ", " << uint32_t(color.inner.green) << ", " << uint32_t(color.inner.blue)
+                      << ")";
     }
 
 private:
