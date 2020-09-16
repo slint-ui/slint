@@ -29,7 +29,6 @@ export Button := Rectangle {
         font_size: root.font_size;
         y: root.border_radius;
         x: root.border_radius;
-        color: black;
         width: root.width - 2 * root.border_radius;
         height: root.height - 2 * root.border_radius;
         horizontal_alignment: align_center;
@@ -77,7 +76,6 @@ export CheckBox := Rectangle {
     Text {
         x: indicator.width + 8lx;
         text: root.text;
-        color: black;
         vertical_alignment: align_center;
         width: parent.width - self.x;
         height: parent.height;
@@ -118,7 +116,6 @@ SpinBoxButton := Rectangle {
         horizontal_alignment: align_center;
         text: root.text;
         font_size: root.font_size;
-        color: black;
     }
 }
 
@@ -159,7 +156,6 @@ export SpinBox := Rectangle {
         height: parent.height;
         horizontal_alignment: align_center;
         vertical_alignment: align_center;
-        color: black;
     }
 }
 
@@ -223,7 +219,6 @@ export GroupBox := GridLayout {
     Row {
         Text {
             text: root.title;
-            color: black;
         }
     }
     Row {

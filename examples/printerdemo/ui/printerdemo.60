@@ -11,7 +11,6 @@ LICENSE END */
 import { SpinBox, Button, CheckBox, Slider, GroupBox } from "sixtyfps_widgets.60";
 
 Label := Text {
-    color: black;
     font_size: 28lx;
 }
 
@@ -80,7 +79,6 @@ FaxPage := Page {
         width: parent.width - x - 40lx;
         horizontal_alignment: align_center;
         font_size: 40lx;
-        color: black;
         height: 40lx;
     }
 
@@ -153,7 +151,6 @@ PrintPage := Page {
         y: parent.width / 8;
         height: parent.width / 2;
         Text {
-            color: black;
             text: "Hello";
         }
     }
@@ -164,7 +161,6 @@ PrintPage := Page {
         y: parent.width / 8;
         height: parent.width / 2;
         Text {
-            color: black;
             text: "Print";
         }
     }
@@ -198,7 +194,6 @@ SettingsPage := Page {
                     Row {
                         Text {
                             text: "Resolution (DPI)";
-                            color: black;
                         }
                         Slider {  }
                         Rectangle { }
@@ -309,7 +304,6 @@ MainWindow := Window {
             }
         }
         text := Text {
-            color: black;
             y: root.height / 4.5;
             x: 5lx;
             width: parent.width;

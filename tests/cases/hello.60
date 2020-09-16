@@ -47,7 +47,6 @@ component ButtonRectangle := Rectangle {
             x: { area.pressed ? 60px : 50px; }
             y: { area.pressed ? 20px : 10px; }
             text: button_text;
-            color: black;
             width: root.width;
             height: root.height;
             horizontal_alignment: align_left;

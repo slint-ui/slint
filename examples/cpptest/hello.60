@@ -44,7 +44,6 @@ component ButtonRectangle := Rectangle {
         x: 50px;
         y: 10px;
         text: button_text;
-        color: black;
     }
 }
 

@@ -27,13 +27,11 @@ App := Window {
                 Row {
                     Text {
                         text: "Below are some of the standard widgets that";
-                        color: black;
                     }
                 }
                 Row {
                     Text {
                         text: "application developers can easily re-use.";
-                        color: black;
                     }
                 }
             }

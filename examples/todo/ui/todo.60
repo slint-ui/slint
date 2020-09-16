@@ -27,7 +27,6 @@ MainWindow := Window {
         Row {
             text_edit := Text {
                 text: "Something to do";
-                color: black;
             }
             btn := Button {
                 text: "Add Todo";

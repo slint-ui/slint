@@ -36,7 +36,7 @@ This method combines your Rust code with the `.60` design markup in one file, us
 sixtyfps::sixtyfps!{
     HelloWorld := Text {
         text: "hello world";
-        color: black;
+        color: green;
     }
 }
 fn main() {

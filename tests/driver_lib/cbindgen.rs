@@ -193,6 +193,7 @@ fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
         .export
         .body
         .insert("Flickable".to_owned(), "    inline Flickable(); inline ~Flickable();".into());
+    config.export.body.insert("Text".to_owned(), "    inline Text();".into());
     config.export.pre_body.insert("FlickableDataBox".to_owned(), "struct FlickableData;".into());
     cbindgen::Builder::new()
         .with_config(config)

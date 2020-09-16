@@ -339,7 +339,7 @@ impl Default for TextVerticalAlignment {
 
 /// The implementation of the `Text` element
 #[repr(C)]
-#[derive(FieldOffsets, Default, BuiltinItem)]
+#[derive(FieldOffsets, BuiltinItem)]
 #[pin]
 pub struct Text {
     pub text: Property<SharedString>,
@@ -435,7 +435,31 @@ impl ItemConsts for Text {
         Text::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
+impl Default for Text {
+    fn default() -> Self {
+        let _self = Self {
+            text: Default::default(),
+            font_family: Default::default(),
+            font_size: Default::default(),
+            color: Default::default(),
+            horizontal_alignment: Default::default(),
+            vertical_alignment: Default::default(),
+            x: Default::default(),
+            y: Default::default(),
+            width: Default::default(),
+            height: Default::default(),
+            cached_rendering_data: Default::default(),
+        };
+        _self.init();
+        _self
+    }
+}
+
 impl Text {
+    fn init(&self) {
+        self.color.set(Color::from_rgb_u8(0, 0, 0))
+    }
+
     fn font_pixel_size(self: Pin<&Self>, window: &ComponentWindow) -> f32 {
         let font_size = Self::FIELD_OFFSETS.font_size.apply_pin(self).get();
         if font_size == 0.0 {
@@ -450,6 +474,15 @@ ItemVTable_static! {
     /// The VTable for `Text`
     #[no_mangle]
     pub static TextVTable for Text
+}
+
+mod ffi {
+    use super::Text;
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_text_init(data: *mut Text) {
+        let text = &*data;
+        text.init();
+    }
 }
 
 /// The implementation of the `TouchArea` element
