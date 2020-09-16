@@ -195,43 +195,50 @@ public:
 
     /// The amount of row in the model
     virtual int row_count() const = 0;
-    /// Returns the data for a particular row. This function should be called with `row < row_count()`.
+    /// Returns the data for a particular row. This function should be called with `row <
+    /// row_count()`.
     virtual ModelData row_data(int i) const = 0;
     /// Sets the data for a particular row. This function should be called with `row < row_count()`.
-    /// If the model cannot support data changes, then it is ok to do nothing (default implementation).
-    /// If the model can update the data, the implmentation should also call row_changed.
+    /// If the model cannot support data changes, then it is ok to do nothing (default
+    /// implementation). If the model can update the data, the implmentation should also call
+    /// row_changed.
     virtual void set_row_data(int, const ModelData &) {};
 
     /// Internal function called by the view to register itself
-    void attach_peer(ModelPeer p) {
-        peers.push_back(std::move(p));
-    }
+    void attach_peer(ModelPeer p) { peers.push_back(std::move(p)); }
 
 protected:
     /// Notify the views that a specific row was changed
-    void row_changed(int row) {
+    void row_changed(int row)
+    {
         (void)row;
         notify();
     }
     /// Notify the views that rows were added
-    void row_added(int index, int count) {
+    void row_added(int index, int count)
+    {
         (void)(index + count);
         notify();
     }
     /// Notify the views that rows were removed
-    void row_removed(int index, int count) {
+    void row_removed(int index, int count)
+    {
         (void)(index + count);
         notify();
     }
+
 private:
-    void notify() {
-        peers.erase(std::remove_if(peers.begin(), peers.end(), [](const auto &p) {
-            if (auto pp = p.lock()) {
-                *pp = true;
-                return false;
-            }
-            return true;
-        }), peers.end());
+    void notify()
+    {
+        peers.erase(std::remove_if(peers.begin(), peers.end(),
+                                   [](const auto &p) {
+                                       if (auto pp = p.lock()) {
+                                           *pp = true;
+                                           return false;
+                                       }
+                                       return true;
+                                   }),
+                    peers.end());
     }
     std::vector<ModelPeer> peers;
 };
@@ -241,6 +248,7 @@ template<int Count, typename ModelData>
 class ArrayModel : public Model<ModelData>
 {
     std::array<ModelData, Count> data;
+
 public:
     template<typename... A>
     ArrayModel(A &&... a) : data { std::forward<A>(a)... }
@@ -248,9 +256,7 @@ public:
     }
     int row_count() const override { return Count; }
     ModelData row_data(int i) const override { return data[i]; }
-    void set_row_data(int i, const ModelData &value) override {
-        data[i] = value;
-    }
+    void set_row_data(int i, const ModelData &value) override { data[i] = value; }
 };
 
 /// Model to be used when we just want to repeat without data.
@@ -267,18 +273,21 @@ template<typename ModelData>
 class SharedArrayModel : public Model<ModelData>
 {
     SharedArray<ModelData> data;
+
 public:
     SharedArrayModel() = default;
-    SharedArrayModel(SharedArray<ModelData> array) : data(std::move(array)) {}
+    SharedArrayModel(SharedArray<ModelData> array) : data(std::move(array)) { }
     int row_count() const override { return data.size(); }
     ModelData row_data(int i) const override { return data[i]; }
-    void set_row_data(int i, const ModelData &value) override {
+    void set_row_data(int i, const ModelData &value) override
+    {
         data[i] = value;
         this->row_changed(i);
     }
 
     // Append a new row with the given value
-    void push_back(const ModelData &value) {
+    void push_back(const ModelData &value)
+    {
         data.push_back(value);
         this->row_added(data.size() - 1, 1);
     }
@@ -299,7 +308,6 @@ public:
     {
         model.set_binding(std::forward<F>(binding));
     }
-
 
     template<typename Parent>
     void ensure_updated(const Parent *parent) const
@@ -343,7 +351,8 @@ public:
         return { &C::component_type, x.get() };
     }
 
-    void compute_layout() const {
+    void compute_layout() const
+    {
         for (auto &x : data) {
             x->compute_layout({ &C::component_type, x.get() });
         }
