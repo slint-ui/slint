@@ -84,4 +84,5 @@ pub fn use_modules() -> usize {
         + string::ffi::sixtyfps_shared_string_bytes as usize
         + eventloop::ffi::sixtyfps_component_window_drop as usize
         + input::ffi::sixtyfps_process_ungrabbed_mouse_event as usize
+        + items::ffi::sixtyfps_text_init as usize
 }

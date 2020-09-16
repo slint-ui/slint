@@ -476,7 +476,7 @@ ItemVTable_static! {
     pub static TextVTable for Text
 }
 
-mod ffi {
+pub mod ffi {
     use super::Text;
     #[no_mangle]
     pub unsafe extern "C" fn sixtyfps_text_init(data: *mut Text) {
