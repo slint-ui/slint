@@ -57,6 +57,7 @@ pub fn parse_document(p: &mut impl Parser) -> bool {
 /// Type := Base { }
 /// Type := Base { prop: value; }
 /// Type := Base { SubElement { } }
+/// Struct := { property<int> xx; }
 /// ```
 pub fn parse_component(p: &mut impl Parser) -> bool {
     let mut p = p.start_node(SyntaxKind::Component);
@@ -64,10 +65,14 @@ pub fn parse_component(p: &mut impl Parser) -> bool {
         return false;
     }
 
-    if !parse_element(&mut *p) {
-        return false;
+    if p.peek().kind() == SyntaxKind::LBrace {
+        let mut p = p.start_node(SyntaxKind::Element);
+        p.consume();
+        parse_element_content(&mut *p);
+        return p.expect(SyntaxKind::RBrace);
     }
-    true
+
+    parse_element(&mut *p)
 }
 
 #[cfg_attr(test, parser_test)]

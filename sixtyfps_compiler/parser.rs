@@ -277,7 +277,7 @@ declare_syntax! {
         Component -> [ Element ],
         /// Note: This is in fact the same as Component as far as the parser is concerned
         SubElement -> [ Element ],
-        Element -> [ QualifiedName, *PropertyDeclaration, *Binding, *SignalConnection,
+        Element -> [ ?QualifiedName, *PropertyDeclaration, *Binding, *SignalConnection,
                      *SignalDeclaration, *SubElement, *RepeatedElement, *PropertyAnimation,
                      *States, *Transitions, ?ChildrenPlaceholder ],
         RepeatedElement -> [ ?DeclaredIdentifier, ?RepeatedIndex, Expression , Element],

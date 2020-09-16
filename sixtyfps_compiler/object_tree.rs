@@ -205,13 +205,72 @@ impl Element {
         diag: &mut FileDiagnostics,
         tr: &TypeRegister,
     ) -> ElementRc {
-        let base = QualifiedTypeName::from_node(node.QualifiedName());
+        let base_node = if let Some(base_node) = node.QualifiedName() {
+            base_node
+        } else {
+            if parent_type != Type::Invalid {
+                // This should normally never happen because the parser does not allow for this
+                assert!(diag.has_error());
+                return ElementRc::default();
+            }
+
+            // This is a "struct" declaration, it can only have properties.
+            let mut error_on = |node: &dyn Spanned, what: &str| {
+                diag.push_error(
+                    format!(
+                        "A component without base type is a struct declaration and cannot have {}",
+                        what
+                    ),
+                    node,
+                );
+            };
+            node.SubElement().for_each(|n| error_on(&n, "sub elements"));
+            node.RepeatedElement().for_each(|n| error_on(&n, "sub elements"));
+            node.ChildrenPlaceholder().map(|n| error_on(&n, "sub elements"));
+            node.SignalConnection().for_each(|n| error_on(&n, "signal connections"));
+            node.SignalDeclaration().for_each(|n| error_on(&n, "signals"));
+            node.Binding().for_each(|n| error_on(&n, "bindings"));
+            node.PropertyAnimation().for_each(|n| error_on(&n, "animations"));
+            node.States().for_each(|n| error_on(&n, "states"));
+            node.Transitions().for_each(|n| error_on(&n, "transitions"));
+            let mut r = Element {
+                id,
+                base_type: Type::Void,
+                node: Some(node.clone()),
+                ..Default::default()
+            };
+            for prop_decl in node.PropertyDeclaration() {
+                let type_node = prop_decl.Type();
+                let prop_name_token =
+                    prop_decl.DeclaredIdentifier().child_token(SyntaxKind::Identifier).unwrap();
+                let prop_name = prop_name_token.text().to_string();
+                if !matches!(r.lookup_property(&prop_name), Type::Invalid) {
+                    diag.push_error(
+                        format!("Cannot override property '{}'", prop_name),
+                        &prop_name_token,
+                    )
+                }
+                r.property_declarations.insert(
+                    prop_name.clone(),
+                    PropertyDeclaration {
+                        property_type: type_from_node(type_node.clone(), diag, tr),
+                        type_node: Some(type_node.into()),
+                        ..Default::default()
+                    },
+                );
+                if let Some(csn) = prop_decl.BindingExpression() {
+                    diag.push_error(format!("A component without base type is a struct declaration and cannot have bindings.").into(), &csn);
+                }
+            }
+            return Rc::new(RefCell::new(r));
+        };
+        let base = QualifiedTypeName::from_node(base_node.clone());
         let mut r = Element {
             id,
             base_type: match parent_type.lookup_type_for_child_element(&base.to_string(), tr) {
                 Ok(ty) => ty,
                 Err(err) => {
-                    diag.push_error(err, &node.QualifiedName());
+                    diag.push_error(err, &base_node);
                     return ElementRc::default();
                 }
             },

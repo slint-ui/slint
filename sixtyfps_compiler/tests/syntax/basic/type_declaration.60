@@ -1,0 +1,43 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+export MyType := {
+    property <int> aaa;
+    property <int> aaa;
+//                 ^error{Cannot override property 'aaa'}
+    property <int> bbb : 42;
+//                      ^error{A component without base type is a struct declaration and cannot have bindings}
+    property <string> ccc;
+
+    ccc: "hello";
+//  ^error{A component without base type is a struct declaration and cannot have bindings}
+    animate bbb { duration: 100ms; }
+//  ^error{A component without base type is a struct declaration and cannot have animations}
+    states [ ]
+//  ^error{A component without base type is a struct declaration and cannot have states}
+    transitions [ ]
+//  ^error{A component without base type is a struct declaration and cannot have transitions}
+    $children
+//  ^error{A component without base type is a struct declaration and cannot have sub elements}
+    Rectangle { }
+//  ^error{A component without base type is a struct declaration and cannot have sub elements}
+    for x in mod : Text { }
+//  ^error{A component without base type is a struct declaration and cannot have sub elements}
+    signal foo;
+//  ^error{A component without base type is a struct declaration and cannot have signals}
+    foo => {}
+//  ^error{A component without base type is a struct declaration and cannot have signal connections}
+}
+
+SuperSimple := Rectangle {
+}
+
+
+
