@@ -28,7 +28,8 @@ struct Property
     Property(const Property &) = delete;
     Property(Property &&) = delete;
     Property &operator=(const Property &) = delete;
-    explicit Property(const T &value) : value(value) {
+    explicit Property(const T &value) : value(value)
+    {
         cbindgen_private::sixtyfps_property_init(&inner);
     }
 
@@ -63,39 +64,40 @@ struct Property
     inline void set_animated_value(const T &value,
                                    const cbindgen_private::PropertyAnimation &animation_data);
     template<typename F>
-    inline void set_animated_binding(F binding, const cbindgen_private::PropertyAnimation &animation_data);
+    inline void set_animated_binding(F binding,
+                                     const cbindgen_private::PropertyAnimation &animation_data);
 
-    bool is_dirty() const {
-        return cbindgen_private::sixtyfps_property_is_dirty(&inner);
-    }
+    bool is_dirty() const { return cbindgen_private::sixtyfps_property_is_dirty(&inner); }
 
 private:
     cbindgen_private::PropertyHandleOpaque inner;
-    mutable T value{};
+    mutable T value {};
 };
 
 template<>
-void Property<int32_t>::set_animated_value(const int32_t &new_value,
-                                           const cbindgen_private::PropertyAnimation &animation_data)
+void Property<int32_t>::set_animated_value(
+        const int32_t &new_value, const cbindgen_private::PropertyAnimation &animation_data)
 {
-    cbindgen_private::sixtyfps_property_set_animated_value_int(&inner, value, new_value, &animation_data);
+    cbindgen_private::sixtyfps_property_set_animated_value_int(&inner, value, new_value,
+                                                               &animation_data);
 }
 
 template<>
 void Property<float>::set_animated_value(const float &new_value,
                                          const cbindgen_private::PropertyAnimation &animation_data)
 {
-    cbindgen_private::sixtyfps_property_set_animated_value_float(&inner, value, new_value, &animation_data);
+    cbindgen_private::sixtyfps_property_set_animated_value_float(&inner, value, new_value,
+                                                                 &animation_data);
 }
 
 template<>
 template<typename F>
-void Property<int32_t>::set_animated_binding(F binding,
-                                             const cbindgen_private::PropertyAnimation &animation_data)
+void Property<int32_t>::set_animated_binding(
+        F binding, const cbindgen_private::PropertyAnimation &animation_data)
 {
     cbindgen_private::sixtyfps_property_set_animated_binding_int(
             &inner,
-            [](void *user_data,  int32_t *value) {
+            [](void *user_data, int32_t *value) {
                 *reinterpret_cast<int32_t *>(value) = (*reinterpret_cast<F *>(user_data))();
             },
             new F(binding), [](void *user_data) { delete reinterpret_cast<F *>(user_data); },
@@ -104,8 +106,8 @@ void Property<int32_t>::set_animated_binding(F binding,
 
 template<>
 template<typename F>
-void Property<float>::set_animated_binding(F binding,
-                                           const cbindgen_private::PropertyAnimation &animation_data)
+void Property<float>::set_animated_binding(
+        F binding, const cbindgen_private::PropertyAnimation &animation_data)
 {
     cbindgen_private::sixtyfps_property_set_animated_binding_float(
             &inner,
@@ -123,23 +125,21 @@ struct PropertyTracker
     PropertyTracker(const PropertyTracker &) = delete;
     PropertyTracker &operator=(const PropertyTracker &) = delete;
 
-    bool is_dirty() const {
-        return cbindgen_private::sixtyfps_property_tracker_is_dirty(&inner);
-    }
+    bool is_dirty() const { return cbindgen_private::sixtyfps_property_tracker_is_dirty(&inner); }
 
     template<typename F>
-    auto evaluate(const F &f) const -> std::enable_if_t<std::is_same_v<decltype(f()), void>> {
+    auto evaluate(const F &f) const -> std::enable_if_t<std::is_same_v<decltype(f()), void>>
+    {
         cbindgen_private::sixtyfps_property_tracker_evaluate(
-            &inner,
-            [](void *f){ (*reinterpret_cast<const F*>(f))(); },
-            const_cast<F*>(&f)
-        );
+                &inner, [](void *f) { (*reinterpret_cast<const F *>(f))(); }, const_cast<F *>(&f));
     }
 
     template<typename F>
-    auto evaluate(const F &f) const -> std::enable_if_t<!std::is_same_v<decltype(f()), void>, decltype(f())> {
+    auto evaluate(const F &f) const
+            -> std::enable_if_t<!std::is_same_v<decltype(f()), void>, decltype(f())>
+    {
         decltype(f()) result;
-        this->evaluate([&] { result = f(); } );
+        this->evaluate([&] { result = f(); });
         return result;
     }
 
