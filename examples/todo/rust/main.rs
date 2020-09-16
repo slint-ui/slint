@@ -23,15 +23,13 @@ pub fn main() {
     console_error_panic_hook::set_once();
 
     type TodoModelData = (bool, sixtyfps::SharedString);
-    let todo_model =
-        sixtyfps::model::ArrayModel::<TodoModelData>::from(sixtyfps::SharedArray::from_slice(&[
-            (true, "Implement the .60 file".into()),
-            (true, "Do the rust part".into()),
-            (false, "Make the C++ code".into()),
-            (false, "???".into()),
-            (false, "Profit".into()),
-        ]));
-    let todo_model = Rc::new(todo_model);
+    let todo_model = Rc::new(sixtyfps::VecModel::<TodoModelData>::from(vec![
+        (true, "Implement the .60 file".into()),
+        (true, "Do the rust part".into()),
+        (false, "Make the C++ code".into()),
+        (false, "???".into()),
+        (false, "Profit".into()),
+    ]));
 
     let main_window = MainWindow::new();
     main_window.as_ref().on_todo_added({
@@ -39,7 +37,7 @@ pub fn main() {
         move |text| todo_model.push((true, text))
     });
 
-    main_window.set_todo_model(sixtyfps::model::ModelRc(todo_model));
+    main_window.set_todo_model(Some(todo_model));
 
     main_window.run();
 }

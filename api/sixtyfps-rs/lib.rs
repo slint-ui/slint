@@ -111,14 +111,10 @@ pub use sixtyfps_rs_macro::sixtyfps;
 
 pub(crate) mod repeater;
 
+pub use crate::repeater::{Model, ModelHandle, ModelNotify, ModelPeer, VecModel};
 pub use sixtyfps_corelib::sharedarray::SharedArray;
 pub use sixtyfps_corelib::string::SharedString;
 pub use sixtyfps_corelib::{ARGBColor, Color};
-
-/// Types to expose data as Model
-pub mod model {
-    pub use crate::repeater::{ArrayModel, Model, ModelNotify, ModelPeer, ModelRc};
-}
 
 /// internal re_exports used by the macro generated
 #[doc(hidden)]

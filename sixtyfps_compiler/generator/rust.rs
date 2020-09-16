@@ -42,7 +42,7 @@ fn rust_type(
         }
         Type::Array(o) => {
             let inner = rust_type(&o, span)?;
-            Ok(quote!(sixtyfps::re_exports::ModelRc<#inner>))
+            Ok(quote!(sixtyfps::re_exports::ModelHandle<#inner>))
         }
         _ => Err(CompilerDiagnostic {
             message: format!("Cannot map property type {} to Rust", ty),
@@ -251,7 +251,7 @@ fn generate_component(
 
             let mut model = compile_expression(&repeated.model, component);
             if repeated.is_conditional_element {
-                model = quote!(sixtyfps::re_exports::ModelRc(std::rc::Rc::<bool>::new(#model)))
+                model = quote!(sixtyfps::re_exports::ModelHandle::Some(std::rc::Rc::<bool>::new(#model)))
             }
 
             // FIXME: there could be an optimization if `repeated.model.is_constant()`, we don't need a binding
@@ -692,7 +692,7 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                     quote!(sixtyfps::re_exports::SharedString::from(format!("{}", #f).as_str()))
                 }
                 (Type::Float32, Type::Model) | (Type::Int32, Type::Model) => {
-                    quote!(sixtyfps::re_exports::ModelRc(std::rc::Rc::<usize>::new(#f as usize)))
+                    quote!(sixtyfps::re_exports::ModelHandle::Some(std::rc::Rc::<usize>::new(#f as usize)))
                 }
                 (Type::Float32, Type::Color) => {
                     quote!(sixtyfps::re_exports::Color::from_argb_encoded(#f as u32))
@@ -870,7 +870,9 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
         Expression::Array { values, element_ty } => {
             let rust_element_ty = rust_type(&element_ty, &Default::default()).unwrap();
             let val = values.iter().map(|e| compile_expression(e, component));
-            quote!(sixtyfps::re_exports::ArrayModel::<#rust_element_ty>::from_slice(&[#(#val as _),*]))
+            quote!(sixtyfps::re_exports::ModelHandle::Some(
+                std::rc::Rc::new(sixtyfps::re_exports::VecModel::<#rust_element_ty>::from(vec![#(#val as _),*]))
+            ))
         }
         Expression::Object { ty, values } => {
             if let Type::Object(ty) = ty {

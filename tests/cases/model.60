@@ -55,14 +55,14 @@ sixtyfps::testing::send_mouse_click(instance, 15., 5.);
 assert_eq!(instance.get_clicked_score(), 789000);
 
 type ModelData = (sixtyfps::SharedString, sixtyfps::SharedString, f32);
-let another_model = std::rc::Rc::new(sixtyfps::model::ArrayModel::<ModelData>::from(
-    sixtyfps::SharedArray::from_slice(&[
+let another_model = std::rc::Rc::new(sixtyfps::VecModel::<ModelData>::from(
+    vec![
         ("a1".into(), "hello".into(), 111.),
         ("a2".into(), "cruel".into(), 222.),
         ("a3".into(), "world".into(), 333.),
-    ])));
+    ]));
 
-instance.set_model(sixtyfps::model::ModelRc(another_model.clone()));
+instance.set_model(Some(another_model.clone()));
 
 sixtyfps::testing::send_mouse_click(instance, 25., 5.);
 assert_eq!(instance.get_clicked_score(), 333000);
@@ -76,7 +76,7 @@ sixtyfps::testing::send_mouse_click(instance, 35., 5.);
 assert_eq!(instance.get_clicked_score(), 444000);
 assert_eq!(instance.get_clicked_name(), sixtyfps::SharedString::from("!"));
 
-use sixtyfps::model::Model;
+use sixtyfps::Model;
 another_model.set_row_data(1, ("a2".into(), "idyllic".into(), 555.));
 sixtyfps::testing::send_mouse_click(instance, 15., 5.);
 assert_eq!(instance.get_clicked_score(), 555000);

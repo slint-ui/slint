@@ -12,7 +12,6 @@ use core::pin::Pin;
 use std::rc::{Rc, Weak};
 
 use sixtyfps_corelib::Property;
-use sixtyfps_corelib::SharedArray;
 
 #[derive(Default, Clone)]
 struct ModelPeerInner(Cell<bool>);
@@ -78,15 +77,18 @@ pub trait Model {
 
 /// A model backed by an SharedArray
 #[derive(Default)]
-pub struct ArrayModel<T> {
-    array: RefCell<SharedArray<T>>,
+pub struct VecModel<T> {
+    array: RefCell<Vec<T>>,
     notify: ModelNotify,
 }
 
-impl<T: Clone> ArrayModel<T> {
+impl<T: 'static> VecModel<T> {
     /// Allocate a new model from a slice
-    pub fn from_slice(slice: &[T]) -> ModelRc<T> {
-        ModelRc(Rc::<Self>::new(SharedArray::from_slice(slice).into()))
+    pub fn from_slice(slice: &[T]) -> ModelHandle<T>
+    where
+        T: Clone,
+    {
+        Some(Rc::<Self>::new(slice.iter().cloned().collect::<Vec<T>>().into()))
     }
 
     /// Add a row at the end of the model
@@ -96,13 +98,13 @@ impl<T: Clone> ArrayModel<T> {
     }
 }
 
-impl<T> From<SharedArray<T>> for ArrayModel<T> {
-    fn from(array: SharedArray<T>) -> Self {
-        ArrayModel { array: RefCell::new(array), notify: Default::default() }
+impl<T> From<Vec<T>> for VecModel<T> {
+    fn from(array: Vec<T>) -> Self {
+        VecModel { array: RefCell::new(array), notify: Default::default() }
     }
 }
 
-impl<T: Clone> Model for ArrayModel<T> {
+impl<T: Clone> Model for VecModel<T> {
     type Data = T;
 
     fn row_count(&self) -> usize {
@@ -114,45 +116,12 @@ impl<T: Clone> Model for ArrayModel<T> {
     }
 
     fn set_row_data(&self, row: usize, data: Self::Data) {
-        self.array.borrow_mut().as_slice_mut()[row] = data;
+        self.array.borrow_mut()[row] = data;
         self.notify.row_changed(row);
     }
 
     fn attach_peer(&self, peer: ModelPeer) {
         self.notify.attach(peer);
-    }
-}
-
-/// An empty model with no data
-pub struct EmptyModel<Data>(core::marker::PhantomData<Vec<Data>>);
-
-impl<Data> Copy for EmptyModel<Data> {}
-
-impl<Data> Clone for EmptyModel<Data> {
-    fn clone(&self) -> Self {
-        EmptyModel(Default::default())
-    }
-}
-
-impl<Data> Default for EmptyModel<Data> {
-    fn default() -> Self {
-        EmptyModel(Default::default())
-    }
-}
-
-impl<Data> Model for EmptyModel<Data> {
-    type Data = Data;
-
-    fn row_count(&self) -> usize {
-        0
-    }
-
-    fn row_data(&self, _row: usize) -> Self::Data {
-        panic!("Getting the data from an empty model")
-    }
-
-    fn attach_peer(&self, _peer: ModelPeer) {
-        // The model is read_only: nothing to do
     }
 }
 
@@ -190,21 +159,9 @@ impl Model for bool {
     }
 }
 
-/// Wrapper around Rc<dyn Model<Data = T>> that implements Default
-#[derive(derive_more::Deref, derive_more::From)]
-pub struct ModelRc<T: 'static>(pub Rc<dyn Model<Data = T>>);
-
-impl<T> Default for ModelRc<T> {
-    fn default() -> Self {
-        Self(Rc::new(EmptyModel::default()))
-    }
-}
-
-impl<T> Clone for ModelRc<T> {
-    fn clone(&self) -> Self {
-        Self(self.0.clone())
-    }
-}
+/// Properties of type array in the .60 language are represented as
+/// an [Option] of an [Rc] of somthing implemented the [Model] trait
+pub type ModelHandle<T> = Option<Rc<dyn Model<Data = T>>>;
 
 /// Component that can be instantiated by a repeater.
 pub trait RepeatedComponent: sixtyfps_corelib::component::Component {
@@ -220,7 +177,7 @@ pub trait RepeatedComponent: sixtyfps_corelib::component::Component {
 #[repr(C)]
 pub struct Repeater<C: RepeatedComponent> {
     components: RefCell<Vec<Pin<Rc<C>>>>,
-    model: Property<ModelRc<C::Data>>,
+    model: Property<ModelHandle<C::Data>>,
     peer: RefCell<Option<ModelPeer>>,
 }
 
@@ -236,7 +193,7 @@ impl<C: RepeatedComponent> Default for Repeater<C> {
 
 impl<C: RepeatedComponent> Repeater<C> {
     /// Set the model binding
-    pub fn set_model_binding(&self, binding: impl Fn() -> ModelRc<C::Data> + 'static) {
+    pub fn set_model_binding(&self, binding: impl Fn() -> ModelHandle<C::Data> + 'static) {
         self.model.set_binding(binding);
     }
 
@@ -249,18 +206,21 @@ impl<C: RepeatedComponent> Repeater<C> {
         if model.is_dirty() {
             let peer_inner = Rc::new(ModelPeerInner(Cell::new(true)));
             *self.peer.borrow_mut() = Some(ModelPeer { inner: peer_inner.clone() });
-            model.get().attach_peer(ModelPeer { inner: peer_inner });
+            if let Some(m) = model.get() {
+                m.attach_peer(ModelPeer { inner: peer_inner });
+            }
         }
         if let Some(peer) = self.peer.borrow().as_ref() {
             if peer.inner.0.get() {
                 peer.inner.0.set(false);
-
-                let model = model.get();
                 self.components.borrow_mut().clear();
-                for i in 0..model.row_count() {
-                    let c = init();
-                    c.update(i, model.row_data(i));
-                    self.components.borrow_mut().push(c);
+
+                if let Some(model) = model.get() {
+                    for i in 0..model.row_count() {
+                        let c = init();
+                        c.update(i, model.row_data(i));
+                        self.components.borrow_mut().push(c);
+                    }
                 }
             }
         }
@@ -309,7 +269,7 @@ impl<C: RepeatedComponent> Repeater<C> {
 
 #[test]
 fn simple_array_notify_test() {
-    let model = ArrayModel::<u32>::from(SharedArray::from_slice(&[1, 2, 3]));
+    let model = VecModel::<u32>::from(vec![1, 2, 3]);
     let model = Rc::new(model);
     let inner = Rc::new(ModelPeerInner(Cell::new(false)));
     model.push(5);
