@@ -70,6 +70,17 @@ assert_eq!(instance.get_clicked_score(), 333000);
 sixtyfps::testing::send_mouse_click(instance, 15., 5.);
 assert_eq!(instance.get_clicked_score(), 222000);
 assert_eq!(instance.get_clicked_name(), sixtyfps::SharedString::from("cruel"));
+
+another_model.push(("a4".into(), "!".into(), 444.));
+sixtyfps::testing::send_mouse_click(instance, 35., 5.);
+assert_eq!(instance.get_clicked_score(), 444000);
+assert_eq!(instance.get_clicked_name(), sixtyfps::SharedString::from("!"));
+
+use sixtyfps::model::Model;
+another_model.set_row_data(1, ("a2".into(), "idyllic".into(), 555.));
+sixtyfps::testing::send_mouse_click(instance, 15., 5.);
+assert_eq!(instance.get_clicked_score(), 555000);
+assert_eq!(instance.get_clicked_name(), sixtyfps::SharedString::from("idyllic"));
 ```
 
 ```cpp
@@ -96,6 +107,16 @@ assert_eq(instance.get_clicked_score(), 333000);
 sixtyfps::testing::send_mouse_click(instance, 15., 5.);
 assert_eq(instance.get_clicked_score(), 222000);
 assert_eq(instance.get_clicked_name(), "cruel");
+
+another_model->push_back({"a4", "!", 444.});
+sixtyfps::testing::send_mouse_click(instance, 35., 5.);
+assert_eq(instance.get_clicked_score(), 444000);
+assert_eq(instance.get_clicked_name(), "!");
+
+another_model->set_row_data(1, {"a2", "idyllic", 555.});
+sixtyfps::testing::send_mouse_click(instance, 15., 5.);
+assert_eq(instance.get_clicked_score(), 555000);
+assert_eq(instance.get_clicked_name(), "idyllic");
 ```
 
 */
