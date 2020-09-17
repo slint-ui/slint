@@ -1,0 +1,69 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+export Player := {
+    property <string> name;
+    property <int> score;
+}
+
+TestCase := Rectangle {
+    property<Player> player_1: {name : "Player1", score: 12 };
+    property<Player> player_2: {name : "Player2", score: 24 };
+
+    property<[Player]> players: [player_1, player_2];
+    property<[Player]> player_list: [
+        {name : "Simon", score: 1 },
+        {name : "Olivier", score: 10 }
+    ];
+
+    property<int> player_2_score: player_2.score;
+}
+
+/*
+```rust
+let instance = TestCase::new();
+let instance = instance.as_ref();
+
+assert_eq!(instance.get_player_1().score, 12);
+assert_eq!(instance.get_player_1(), Player{ name: "Player1".into(), score: 12 });
+assert_eq!(instance.get_player_2(), Player{ name: "Player2".into(), score: 24 });
+let super_player = Player{ name: "Super Player".into(), score: 99 };
+instance.set_player_2(super_player.clone());
+assert_eq!(instance.get_player_2(), super_player);
+
+assert_eq!(instance.get_player_2_score(), 99);
+```
+
+```cpp
+TestCase instance;
+
+assert_eq(instance.get_player_1().score, 12.);
+auto [ name , score ] = instance.get_player_2();
+assert_eq(name, "Player2");
+assert_eq(score, 24);
+auto super_player = Player{ "Super Player", 99 };
+instance.set_player_2(super_player);
+assert_eq(instance.get_player_2().name, "Super Player");
+
+assert_eq(instance.get_player_2_score(), 99);
+```
+
+```js
+var instance = new sixtyfps.TestCase();
+assert.equal(instance.player_1.score, 12.);
+let player2 = instance.player_2
+assert.equal(player2.name, "Player2");
+let super_player = { name: "Super Player", score: 99 };
+instance.player_2 = super_player;
+assert.equal(instance.player_2.name, "Super Player");
+assert.equal(instance.player_2_score, 99);
+```
+
+*/

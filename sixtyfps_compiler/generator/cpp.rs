@@ -1018,16 +1018,19 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
             format!("auto {} = {};", name, compile_expression(value, component))
         }
         Expression::ReadLocalVariable { name, .. } => name.clone(),
-        Expression::ObjectAccess { base, name } => {
-            let index = if let Type::Object(ty) = base.ty() {
-                ty.keys()
+        Expression::ObjectAccess { base, name } => match base.ty() {
+            Type::Object(ty) => {
+                let index = ty
+                    .keys()
                     .position(|k| k == name)
-                    .expect("Expression::ObjectAccess: Cannot find a key in an object")
-            } else {
-                panic!("Expression::ObjectAccess's base expression is not an Object type")
-            };
-            format!("std::get<{}>({})", index, compile_expression(base, component))
-        }
+                    .expect("Expression::ObjectAccess: Cannot find a key in an object");
+                format!("std::get<{}>({})", index, compile_expression(base, component))
+            }
+            Type::Component(c) if c.root_element.borrow().base_type == Type::Void => {
+                format!("{}.{}", compile_expression(base, component), name)
+            }
+            _ => panic!("Expression::ObjectAccess's base expression is not an Object type"),
+        },
         Expression::Cast { from, to } => {
             let f = compile_expression(&*from, component);
             match (from.ty(), to) {

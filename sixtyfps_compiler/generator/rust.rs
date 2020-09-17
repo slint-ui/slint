@@ -788,18 +788,23 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
             let i = proc_macro2::Literal::usize_unsuffixed(*index);
             quote! {args.#i.clone()}
         }
-        Expression::ObjectAccess { base, name } => {
-            let index = if let Type::Object(ty) = base.ty() {
-                ty.keys()
+        Expression::ObjectAccess { base, name } => match base.ty() {
+            Type::Object(ty) => {
+                let index = ty
+                    .keys()
                     .position(|k| k == name)
-                    .expect("Expression::ObjectAccess: Cannot find a key in an object")
-            } else {
-                panic!("Expression::ObjectAccess's base expression is not an Object type")
-            };
-            let index = proc_macro2::Literal::usize_unsuffixed(index);
-            let base_e = compile_expression(base, component);
-            quote!((#base_e).#index )
-        }
+                    .expect("Expression::ObjectAccess: Cannot find a key in an object");
+                let index = proc_macro2::Literal::usize_unsuffixed(index);
+                let base_e = compile_expression(base, component);
+                quote!((#base_e).#index )
+            }
+            Type::Component(c) if c.root_element.borrow().base_type == Type::Void => {
+                let base_e = compile_expression(base, component);
+                let name = format_ident!("{}", name);
+                quote!((#base_e).#name)
+            }
+            _ => panic!("Expression::ObjectAccess's base expression is not an Object type"),
+        },
         Expression::CodeBlock(sub) => {
             let map = sub.iter().map(|e| compile_expression(e, &component));
             quote!({ #(#map);* })

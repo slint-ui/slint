@@ -327,13 +327,11 @@ impl Expression {
                 }
             }
             Expression::FunctionParameterReference { ty, .. } => ty.clone(),
-            Expression::ObjectAccess { base, name } => {
-                if let Type::Object(o) = base.ty() {
-                    o.get(name.as_str()).unwrap_or(&Type::Invalid).clone()
-                } else {
-                    Type::Invalid
-                }
-            }
+            Expression::ObjectAccess { base, name } => match base.ty() {
+                Type::Object(o) => o.get(name.as_str()).unwrap_or(&Type::Invalid).clone(),
+                Type::Component(c) => c.root_element.borrow().lookup_property(name.as_str()),
+                _ => Type::Invalid,
+            },
             Expression::Cast { to, .. } => to.clone(),
             Expression::CodeBlock(sub) => sub.last().map_or(Type::Void, |e| e.ty()),
             Expression::FunctionCall { function, .. } => function.ty(),
@@ -625,6 +623,19 @@ impl Expression {
             Expression::Cast { from: Box::new(from), to: target_type }
         } else if ty == Type::Invalid || target_type == Type::Invalid {
             self
+        } else if matches!((&ty, &target_type, &self), (Type::Array(a), Type::Array(b), Expression::Array{..}) if a.can_convert(b))
+        {
+            // Special case for converting array literals
+            match (self, target_type) {
+                (Expression::Array { values, .. }, Type::Array(target_type)) => Expression::Array {
+                    values: values
+                        .into_iter()
+                        .map(|e| e.maybe_convert_to((*target_type).clone(), node, diag))
+                        .collect(),
+                    element_ty: *target_type,
+                },
+                _ => unreachable!(),
+            }
         } else {
             let mut message = format!("Cannot convert {} to {}", ty, target_type);
             // Explicit error message for unit cnversion

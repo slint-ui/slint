@@ -724,6 +724,18 @@ fn maybe_lookup_object(
                     return Expression::Invalid;
                 }
             }
+            Type::Component(c) => {
+                let prop_ty = c.root_element.borrow().lookup_property(next.text().as_str());
+                if prop_ty != Type::Invalid {
+                    base = Expression::ObjectAccess {
+                        base: Box::new(std::mem::replace(&mut base, Expression::Invalid)),
+                        name: next.to_string(),
+                    }
+                } else {
+                    ctx.diag.push_error("Cannot access this field".into(), &next);
+                    return Expression::Invalid;
+                }
+            }
             _ => {
                 ctx.diag.push_error("Cannot access fields of property".into(), &next);
                 return Expression::Invalid;
