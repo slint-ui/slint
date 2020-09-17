@@ -1048,12 +1048,13 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
                     if c.root_element.borrow().base_type == Type::Void =>
                 {
                     format!(
-                        "[&](const auto &o){{ return {struct_name} {{ {fields} }}; }}({obj})",
+                        "[&](const auto &o){{ {struct_name} s; auto& [{field_members}] = s; {fields}; return s; }}({obj})",
                         struct_name = component_id(c),
+                        field_members = (0..c.root_element.borrow().property_declarations.len()).map(|idx| format!("f_{}", idx)).join(", "),
                         obj = f,
                         fields = (0..c.root_element.borrow().property_declarations.len())
-                            .map(|idx| format!("std::get<{}>(o)", idx))
-                            .join(", ")
+                            .map(|idx| format!("f_{} = std::get<{}>(o)", idx, idx))
+                            .join("; ")
                     )
                 }
                 _ => f,
