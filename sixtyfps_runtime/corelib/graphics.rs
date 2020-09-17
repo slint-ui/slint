@@ -452,11 +452,6 @@ impl<RenderingPrimitive> From<RenderingPrimitive>
     }
 }
 
-enum RenderingCacheEntry<RenderingPrimitive> {
-    AllocateEntry(TrackingRenderingPrimitive<RenderingPrimitive>),
-    FreeEntry(Option<usize>), // contains next free index if exists
-}
-
 /// The RenderingCache is used by the run-time library to avoid storing the
 /// typed [GraphicsBackend::LowLevelRenderingPrimitive] instances created for
 /// [Items][`crate::items`]. Instead it allows mapping them to a usize
@@ -465,14 +460,12 @@ enum RenderingCacheEntry<RenderingPrimitive> {
 ///
 /// The main function to use is [RenderingCache::ensure_cached].
 pub struct RenderingCache<Backend: GraphicsBackend> {
-    nodes: Vec<RenderingCacheEntry<Backend::LowLevelRenderingPrimitive>>,
-    next_free: Option<usize>,
-    len: usize,
+    entries: vec_arena::Arena<TrackingRenderingPrimitive<Backend::LowLevelRenderingPrimitive>>,
 }
 
 impl<Backend: GraphicsBackend> Default for RenderingCache<Backend> {
     fn default() -> Self {
-        Self { nodes: vec![], next_free: None, len: 0 }
+        Self { entries: Default::default() }
     }
 }
 
@@ -492,66 +485,32 @@ impl<Backend: GraphicsBackend> RenderingCache<Backend> {
         update_fn: impl FnOnce() -> Backend::LowLevelRenderingPrimitive,
     ) -> usize {
         if let Some(index) = index {
-            match self.nodes[index] {
-                RenderingCacheEntry::AllocateEntry(ref mut data) => {
-                    if data.dependency_tracker.is_dirty() {
-                        data.primitive = data.dependency_tracker.as_ref().evaluate(update_fn)
-                    }
-                }
-                _ => unreachable!(),
+            let existing_entry = self.entries.get_mut(index).unwrap();
+            if existing_entry.dependency_tracker.is_dirty() {
+                existing_entry.primitive =
+                    existing_entry.dependency_tracker.as_ref().evaluate(update_fn)
             }
             index
         } else {
-            self.allocate_entry(update_fn)
+            self.entries.insert(TrackingRenderingPrimitive::new(update_fn))
         }
-    }
-
-    fn allocate_entry(
-        &mut self,
-        content_fn: impl FnOnce() -> Backend::LowLevelRenderingPrimitive,
-    ) -> usize {
-        let idx = {
-            if let Some(free_idx) = self.next_free {
-                let node = &mut self.nodes[free_idx];
-                if let RenderingCacheEntry::FreeEntry(next_free) = node {
-                    self.next_free = *next_free;
-                } else {
-                    unreachable!();
-                }
-                *node =
-                    RenderingCacheEntry::AllocateEntry(TrackingRenderingPrimitive::new(content_fn));
-                free_idx
-            } else {
-                self.nodes.push(RenderingCacheEntry::AllocateEntry(
-                    TrackingRenderingPrimitive::new(content_fn),
-                ));
-                self.nodes.len() - 1
-            }
-        };
-        self.len = self.len + 1;
-        idx
     }
 
     /// Returns a reference to the [GraphicsBackend::LowLevelRenderingPrimitive] for the given `idx`, as previously
     /// returned by [RenderingCache::ensure_cached]. Panics if the given index is not valid.
     /// This is typically used when rendering items, to retrieve the associated low-level primitives.
     pub fn entry_at(&self, idx: usize) -> &Backend::LowLevelRenderingPrimitive {
-        match self.nodes[idx] {
-            RenderingCacheEntry::AllocateEntry(ref data) => return &data.primitive,
-            _ => unreachable!(),
-        }
+        &self.entries.get(idx).unwrap().primitive
     }
 
     /// Deletes the cached [GraphicsBackend::LowLevelRenderingPrimitive] at the specified `idx`.
     pub fn free_entry(&mut self, idx: usize) {
-        self.len = self.len - 1;
-        self.nodes[idx] = RenderingCacheEntry::FreeEntry(self.next_free);
-        self.next_free = Some(idx);
+        self.entries.remove(idx);
     }
 
     /// Returns the number of cached rendering primitives.
     pub fn len(&self) -> usize {
-        self.len
+        self.entries.len()
     }
 }
 
