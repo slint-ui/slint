@@ -11,6 +11,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::{cell::RefCell, fmt::Display, rc::Rc};
 
 use crate::expression_tree::{Expression, Unit};
+use crate::object_tree::Component;
 
 #[derive(Debug, Clone)]
 pub enum Type {
@@ -151,23 +152,24 @@ impl Type {
 
     /// valid type for properties
     pub fn is_property_type(&self) -> bool {
-        matches!(
-            self,
+        match self {
             Self::Float32
-                | Self::Int32
-                | Self::String
-                | Self::Color
-                | Self::Duration
-                | Self::Length
-                | Self::LogicalLength
-                | Self::Resource
-                | Self::Bool
-                | Self::Model
-                | Self::Easing
-                | Self::Enumeration(_)
-                | Self::Object(_)
-                | Self::Array(_)
-        )
+            | Self::Int32
+            | Self::String
+            | Self::Color
+            | Self::Duration
+            | Self::Length
+            | Self::LogicalLength
+            | Self::Resource
+            | Self::Bool
+            | Self::Model
+            | Self::Easing
+            | Self::Enumeration(_)
+            | Self::Object(_)
+            | Self::Array(_) => true,
+            Self::Component(c) => c.root_element.borrow().base_type == Type::Void,
+            _ => false,
+        }
     }
 
     pub fn ok_for_public_api(&self) -> bool {
@@ -255,9 +257,22 @@ impl Type {
 
     /// Return true if the type can be converted to the other type
     pub fn can_convert(&self, other: &Self) -> bool {
-        let can_compare_object = |a: &BTreeMap<String, Type>, b: &BTreeMap<String, Type>| {
+        let can_convert_object = |a: &BTreeMap<String, Type>, b: &BTreeMap<String, Type>| {
             for (k, v) in b {
-                if !a.get(k).map(|t| t.can_convert(v)).unwrap_or(false) {
+                if !a.get(k).map_or(false, |t| t.can_convert(v)) {
+                    return false;
+                }
+            }
+            true
+        };
+        let can_convert_object_to_component = |a: &BTreeMap<String, Type>, c: &Component| {
+            let root_element = c.root_element.borrow();
+            if root_element.base_type != Type::Void {
+                //component is not a struct
+                return false;
+            }
+            for (k, v) in &root_element.property_declarations {
+                if !a.get(k).map_or(false, |t| t.can_convert(&v.property_type)) {
                     return false;
                 }
             }
@@ -275,7 +290,8 @@ impl Type {
             | (Type::Int32, Type::Model)
             | (Type::Length, Type::LogicalLength)
             | (Type::LogicalLength, Type::Length) => true,
-            (Type::Object(a), Type::Object(b)) if can_compare_object(a, b) => true,
+            (Type::Object(a), Type::Object(b)) if can_convert_object(a, b) => true,
+            (Type::Object(a), Type::Component(c)) if can_convert_object_to_component(a, c) => true,
             _ => false,
         }
     }

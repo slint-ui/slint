@@ -74,7 +74,7 @@ pub fn compile_syntax_node(
     doc_node: parser::SyntaxNodeWithSourceFile,
     mut diagnostics: diagnostics::FileDiagnostics,
     compiler_config: &CompilerConfiguration,
-) -> (Rc<crate::object_tree::Component>, diagnostics::BuildDiagnostics) {
+) -> (object_tree::Document, diagnostics::BuildDiagnostics) {
     let mut build_diagnostics = diagnostics::BuildDiagnostics::default();
 
     let global_type_registry = typeregister::TypeRegister::builtin();
@@ -109,7 +109,7 @@ pub fn compile_syntax_node(
         run_passes(&doc, &mut build_diagnostics, compiler_config);
     }
 
-    (doc.root_component, build_diagnostics)
+    (doc, build_diagnostics)
 }
 
 pub fn run_passes(

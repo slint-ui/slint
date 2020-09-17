@@ -29,11 +29,11 @@ fn main() -> std::io::Result<()> {
     //println!("{:#?}", syntax_node);
     let compiler_config =
         CompilerConfiguration { include_paths: &args.include_paths, ..Default::default() };
-    let (root_component, diag) = compile_syntax_node(syntax_node, diag, &compiler_config);
+    let (doc, diag) = compile_syntax_node(syntax_node, diag, &compiler_config);
 
     let mut diag = diag.check_and_exit_on_error();
 
-    generator::generate(args.format, &mut std::io::stdout(), &root_component, &mut diag)?;
+    generator::generate(args.format, &mut std::io::stdout(), &doc, &mut diag)?;
     diag.print_warnings_and_exit_on_error();
     Ok(())
 }

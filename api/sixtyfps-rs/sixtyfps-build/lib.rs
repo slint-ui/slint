@@ -112,7 +112,7 @@ pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
         }
     };
 
-    let (root_component, mut diag) = compile_syntax_node(syntax_node, diag, &compiler_config);
+    let (doc, mut diag) = compile_syntax_node(syntax_node, diag, &compiler_config);
 
     if diag.has_error() {
         let vec = diag.to_string_vec();
@@ -130,7 +130,7 @@ pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
 
     let file = std::fs::File::create(&output_file_path).map_err(CompileError::SaveError)?;
     let mut code_formater = CodeFormatter { indentation: 0, in_string: false, sink: file };
-    let generated = match generator::rust::generate(&root_component, &mut diag) {
+    let generated = match generator::rust::generate(&doc, &mut diag) {
         Some(code) => {
             diag.print(); // print warnings
             code
@@ -146,7 +146,7 @@ pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
     println!("cargo:rerun-if-changed={}", path.display());
 
     if !compiler_config.embed_resources {
-        for resource in root_component.referenced_file_resources.borrow().keys() {
+        for resource in doc.root_component.referenced_file_resources.borrow().keys() {
             println!("cargo:rerun-if-changed={}", resource);
         }
     }

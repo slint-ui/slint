@@ -185,7 +185,7 @@ mod cpp_ast {
 use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic, Level, Spanned};
 use crate::expression_tree::{BuiltinFunction, EasingCurve, Expression, ExpressionSpanned};
 use crate::layout::{gen::LayoutItemCodeGen, Layout, LayoutElement};
-use crate::object_tree::{Component, Element, ElementRc, RepeatedElementInfo};
+use crate::object_tree::{Component, Document, Element, ElementRc, RepeatedElementInfo};
 use crate::typeregister::Type;
 use cpp_ast::*;
 use itertools::Itertools;
@@ -213,6 +213,9 @@ impl CppType for Type {
             Type::Resource => Some("sixtyfps::Resource".to_owned()),
             Type::Builtin(elem) => elem.native_class.cpp_type.clone(),
             Type::Enumeration(enumeration) => Some(format!("sixtyfps::{}", enumeration.name)),
+            Type::Component(c) if c.root_element.borrow().base_type == Type::Void => {
+                Some(c.id.clone())
+            }
             _ => None,
         }
     }
@@ -435,17 +438,24 @@ fn handle_repeater(
 }
 
 /// Returns the text of the C++ code produced by the given root component
-pub fn generate(
-    component: &Rc<Component>,
-    diag: &mut BuildDiagnostics,
-) -> Option<impl std::fmt::Display> {
+pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std::fmt::Display> {
     let mut file = File::default();
 
     file.includes.push("<array>".into());
     file.includes.push("<limits>".into());
     file.includes.push("<sixtyfps.h>".into());
 
-    generate_component(&mut file, component, diag, None);
+    for (_, c) in
+        doc.exports().iter().filter(|(_, c)| c.root_element.borrow().base_type == Type::Void)
+    {
+        generate_struct(&mut file, c, diag);
+    }
+    let mut struct_declarations = std::mem::take(&mut file.declarations);
+
+    generate_component(&mut file, &doc.root_component, diag, None);
+
+    struct_declarations.append(&mut file.declarations);
+    file.declarations = struct_declarations;
 
     file.declarations.push(Declaration::Var(Var{
         ty: format!(
@@ -462,6 +472,35 @@ pub fn generate(
     } else {
         Some(file)
     }
+}
+
+fn generate_struct(file: &mut File, c: &Rc<Component>, diag: &mut BuildDiagnostics) {
+    debug_assert_eq!(c.root_element.borrow().base_type, Type::Void);
+    let mut members = c
+        .root_element
+        .borrow()
+        .property_declarations
+        .iter()
+        .map(|(name, decl)| {
+            (
+                Access::Public,
+                Declaration::Var(Var {
+                    ty: get_cpp_type(&decl.property_type, &decl.type_node, diag),
+                    name: name.clone(),
+                    ..Default::default()
+                }),
+            )
+        })
+        .collect::<Vec<_>>();
+    members.sort_unstable_by(|a, b| match (&a.1, &b.1) {
+        (Declaration::Var(a), Declaration::Var(b)) => a.name.cmp(&b.name),
+        _ => unreachable!(),
+    });
+    file.declarations.push(Declaration::Struct(Struct {
+        name: component_id(c),
+        members,
+        ..Default::default()
+    }))
 }
 
 /// Generate the component in `file`.
@@ -1001,6 +1040,18 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
                 (Type::Array(_), Type::Model) => f,
                 (Type::Float32, Type::Color) => {
                     format!("sixtyfps::Color::from_argb_encoded({})", f)
+                }
+                (Type::Object(_), Type::Component(c))
+                    if c.root_element.borrow().base_type == Type::Void =>
+                {
+                    format!(
+                        "[&](const auto &o){{ return {struct_name} {{ {fields} }}; }}({obj})",
+                        struct_name = component_id(c),
+                        obj = f,
+                        fields = (0..c.root_element.borrow().property_declarations.len())
+                            .map(|idx| format!("std::get<{}>(o)", idx))
+                            .join(", ")
+                    )
                 }
                 _ => f,
             }

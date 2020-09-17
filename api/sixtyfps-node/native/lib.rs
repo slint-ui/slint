@@ -146,16 +146,6 @@ fn to_eval_value<'cx>(
 ) -> NeonResult<sixtyfps_interpreter::Value> {
     use sixtyfps_interpreter::Value;
     match ty {
-        Type::Invalid
-        | Type::Void
-        | Type::Component(_)
-        | Type::Builtin(_)
-        | Type::Native(_)
-        | Type::Function { .. }
-        | Type::Model
-        | Type::Signal { .. }
-        | Type::Easing
-        | Type::PathElements => cx.throw_error("Cannot convert to a Sixtyfps property value"),
         Type::Float32 | Type::Int32 | Type::Duration | Type::Length | Type::LogicalLength => {
             Ok(Value::Number(val.downcast_or_throw::<JsNumber, _>(cx)?.value()))
         }
@@ -163,8 +153,38 @@ fn to_eval_value<'cx>(
         Type::Color | Type::Array(_) | Type::Object(_) => todo!(),
         Type::Resource => Ok(Value::String(val.to_string(cx)?.value().into())),
         Type::Bool => Ok(Value::Bool(val.downcast_or_throw::<JsBoolean, _>(cx)?.value())),
+        Type::Component(c) if c.root_element.borrow().base_type == Type::Void => {
+            let obj = val.downcast_or_throw::<JsObject, _>(cx)?;
+            Ok(Value::Object(
+                c.root_element
+                    .borrow()
+                    .property_declarations
+                    .iter()
+                    .map(|(pro_name, pro_decl)| {
+                        Ok((
+                            pro_name.clone(),
+                            to_eval_value(
+                                obj.get(cx, pro_name.as_str())?,
+                                pro_decl.property_type.clone(),
+                                cx,
+                            )?,
+                        ))
+                    })
+                    .collect::<Result<_, _>>()?,
+            ))
+        }
         Type::Enumeration(_) => todo!(),
         Type::EnumerationValue(_) => todo!(),
+        Type::Invalid
+        | Type::Void
+        | Type::Builtin(_)
+        | Type::Native(_)
+        | Type::Function { .. }
+        | Type::Model
+        | Type::Signal { .. }
+        | Type::Easing
+        | Type::Component(_) // The struct case is handled before
+        | Type::PathElements => cx.throw_error("Cannot convert to a Sixtyfps property value"),
     }
 }
 

@@ -320,11 +320,11 @@ pub fn load<'id>(
         d.add(diag);
         return (Err(()), d);
     }
-    let (root_component, diag) = compile_syntax_node(syntax_node, diag, compiler_config);
+    let (doc, diag) = compile_syntax_node(syntax_node, diag, compiler_config);
     if diag.has_error() {
         return (Err(()), diag);
     }
-    (Ok(generate_component(&root_component, guard)), diag)
+    (Ok(generate_component(&doc.root_component, guard)), diag)
 }
 
 fn generate_component<'id>(
@@ -478,6 +478,9 @@ fn generate_component<'id>(
             }
             Type::Object(_) => property_info::<eval::Value>(),
             Type::Array(_) => property_info::<eval::Value>(),
+            Type::Component(ref c) if c.root_element.borrow().base_type == Type::Void => {
+                property_info::<eval::Value>()
+            }
             _ => panic!("bad type"),
         };
         custom_properties.insert(

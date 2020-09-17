@@ -14,8 +14,7 @@ There is one sub module for every language
 */
 
 use crate::diagnostics::BuildDiagnostics;
-use crate::object_tree::{Component, ElementRc};
-use std::rc::Rc;
+use crate::object_tree::{Component, Document, ElementRc};
 
 #[cfg(feature = "cpp")]
 mod cpp;
@@ -59,7 +58,7 @@ impl std::str::FromStr for OutputFormat {
 pub fn generate(
     format: OutputFormat,
     destination: &mut impl std::io::Write,
-    component: &Rc<Component>,
+    doc: &Document,
     diag: &mut BuildDiagnostics,
 ) -> std::io::Result<()> {
     #![allow(unused_variables)]
@@ -67,13 +66,13 @@ pub fn generate(
     match format {
         #[cfg(feature = "cpp")]
         OutputFormat::Cpp => {
-            if let Some(output) = cpp::generate(component, diag) {
+            if let Some(output) = cpp::generate(doc, diag) {
                 write!(destination, "{}", output)?;
             }
         }
         #[cfg(feature = "rust")]
         OutputFormat::Rust => {
-            if let Some(output) = rust::generate(component, diag) {
+            if let Some(output) = rust::generate(doc, diag) {
                 write!(destination, "{}", output)?;
             }
         }

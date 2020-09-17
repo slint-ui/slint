@@ -15,7 +15,7 @@ use crate::expression_tree::{
     BuiltinFunction, EasingCurve, Expression, NamedReference, OperatorClass, Path,
 };
 use crate::layout::{gen::LayoutItemCodeGen, Layout, LayoutElement};
-use crate::object_tree::{Component, ElementRc};
+use crate::object_tree::{Component, Document, ElementRc};
 use crate::typeregister::Type;
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
@@ -44,6 +44,10 @@ fn rust_type(
             let inner = rust_type(&o, span)?;
             Ok(quote!(sixtyfps::re_exports::ModelHandle<#inner>))
         }
+        Type::Component(c) if c.root_element.borrow().base_type == Type::Void => {
+            let c = format_ident!("{}", c.id);
+            Ok(quote!(#c))
+        }
         _ => Err(CompilerDiagnostic {
             message: format!("Cannot map property type {} to Rust", ty),
             span: span.clone(),
@@ -55,9 +59,15 @@ fn rust_type(
 /// Generate the rust code for the given component.
 ///
 /// Fill the diagnostic in case of error.
-pub fn generate(component: &Rc<Component>, diag: &mut BuildDiagnostics) -> Option<TokenStream> {
-    let compo = generate_component(component, diag)?;
-    let compo_id = component_id(component);
+pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<TokenStream> {
+    let (structs_ids, structs): (Vec<_>, Vec<_>) = doc
+        .exports()
+        .iter()
+        .filter(|(_, component)| component.root_element.borrow().base_type == Type::Void)
+        .map(|(_, component)| (component_id(component), generate_struct(component, diag)))
+        .unzip();
+    let compo = generate_component(&doc.root_component, diag)?;
+    let compo_id = component_id(&doc.root_component);
     let compo_module = format_ident!("sixtyfps_generated_{}", compo_id);
     /*let (version_major, version_minor, version_patch): (usize, usize, usize) = (
         env!("CARGO_PKG_VERSION_MAJOR").parse().unwrap(),
@@ -73,11 +83,39 @@ pub fn generate(component: &Rc<Component>, diag: &mut BuildDiagnostics) -> Optio
     Some(quote! {
         #[allow(non_snake_case)]
         mod #compo_module {
-             #compo
-             const _THE_SAME_VERSION_MUST_BE_USED_FOR_THE_COMPILER_AND_THE_RUNTIME : sixtyfps::#version_check = sixtyfps::#version_check;
+            #(#structs)*
+            #compo
+            const _THE_SAME_VERSION_MUST_BE_USED_FOR_THE_COMPILER_AND_THE_RUNTIME : sixtyfps::#version_check = sixtyfps::#version_check;
         }
-        pub use #compo_module::#compo_id;
+        pub use #compo_module::{#compo_id #(,#structs_ids)* };
     })
+}
+
+fn generate_struct(component: &Rc<Component>, diag: &mut BuildDiagnostics) -> TokenStream {
+    let component_id = component_id(component);
+    debug_assert_eq!(component.root_element.borrow().base_type, Type::Void);
+    let (declared_property_vars, declared_property_types): (Vec<_>, Vec<_>) = component
+        .root_element
+        .borrow()
+        .property_declarations
+        .iter()
+        .map(|(name, decl)| {
+            (
+                format_ident!("{}", name),
+                rust_type(&decl.property_type, &decl.type_node.span()).unwrap_or_else(|err| {
+                    diag.push_internal_error(err.into());
+                    quote!(())
+                }),
+            )
+        })
+        .unzip();
+
+    quote! {
+        #[derive(Default, PartialEq, Debug, Clone)]
+        pub struct #component_id {
+            #(pub #declared_property_vars : #declared_property_types),*
+        }
+    }
 }
 
 /// Generate the rust code for the given component.
@@ -696,6 +734,15 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                 }
                 (Type::Float32, Type::Color) => {
                     quote!(sixtyfps::re_exports::Color::from_argb_encoded(#f as u32))
+                }
+                (Type::Object(ref o), Type::Component(c)) => {
+                    let fields = o.iter().enumerate().map(|(index, (name, _))| {
+                        let index = proc_macro2::Literal::usize_unsuffixed(index);
+                        let name = format_ident!("{}", name);
+                        quote!(#name: obj.#index as _)
+                    });
+                    let id = component_id(c);
+                    quote!({ let obj = #f; #id { #(#fields),*} })
                 }
                 _ => f,
             }
