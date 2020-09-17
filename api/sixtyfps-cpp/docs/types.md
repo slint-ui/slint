@@ -12,3 +12,4 @@ The follow table summarizes the entire mapping:
 | `length` | `float` | The unit are physical pixels. |
 | `logical_length` | `float` | At run-time, logical lengths are automatically translated to physical pixels using the device pixel ratio. |
 | `duration` | `std::int64_t` | At run-time, durations are always represented as signed 64-bit integers with milisecond precision. |
+| stucture | A `struct` of the same name | The order of the data member are in the lexicographic order of their name |
