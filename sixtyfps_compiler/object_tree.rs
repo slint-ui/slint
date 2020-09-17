@@ -38,27 +38,29 @@ impl Document {
         debug_assert_eq!(node.kind(), SyntaxKind::Document);
 
         let mut local_registry = TypeRegister::new(parent_registry);
+        let mut inner_components = vec![];
 
-        let inner_components = node
-            .Component()
-            .chain(node.ExportsList().flat_map(|export| export.Component()))
-            .map(|n| {
-                let compo = Component::from_node(n, diag, &local_registry);
-                local_registry.add(compo.clone());
-                compo
-            })
-            .collect::<Vec<_>>();
-
+        let mut process_component = |n: syntax_nodes::Component| {
+            let compo = Component::from_node(n, diag, &local_registry);
+            local_registry.add(compo.clone());
+            inner_components.push(compo);
+        };
+        for n in node.children() {
+            match n.kind() {
+                SyntaxKind::Component => process_component(n.into()),
+                SyntaxKind::ExportsList => {
+                    syntax_nodes::ExportsList::from(n).Component().for_each(&mut process_component)
+                }
+                _ => {}
+            };
+        }
         let exports = Exports::from_node(&node, &inner_components, &parent_registry, diag);
 
         Document {
             // FIXME: one should use the `component` hint instead of always returning the last
             root_component: inner_components.last().cloned().unwrap_or_default(),
-
             inner_components,
-
             local_registry,
-
             exports,
         }
     }
