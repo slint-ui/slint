@@ -431,24 +431,23 @@ pub trait GraphicsBackend: Sized {
     fn window(&self) -> &winit::window::Window;
 }
 
-struct TrackingRenderingPrimitive<RenderingPrimitive> {
-    primitive: RenderingPrimitive,
-    dependency_tracker: core::pin::Pin<Box<crate::properties::PropertyTracker>>,
+/// Holds a GraphicBackend's rendering primitive as well as a PropertyTracker that allows lazily re-creating
+/// the primitive if the properties needed to create it have changed.
+pub struct TrackingRenderingPrimitive<Backend: GraphicsBackend> {
+    /// The rendering primitive that's being tracked.
+    pub primitive: Backend::LowLevelRenderingPrimitive,
+    /// The property tracker that should be used to evaluate whether the primitive needs to be re-created
+    /// or not.
+    pub dependency_tracker: core::pin::Pin<Box<crate::properties::PropertyTracker>>,
 }
 
-impl<RenderingPrimitive> TrackingRenderingPrimitive<RenderingPrimitive> {
-    fn new(update_fn: impl FnOnce() -> RenderingPrimitive) -> Self {
+impl<Backend: GraphicsBackend> TrackingRenderingPrimitive<Backend> {
+    /// Creates a new TrackingRenderingPrimitive by evaluating the provided update_fn once, storing the returned
+    /// rendering primitive and initializing the dependency tracker.
+    pub fn new(update_fn: impl FnOnce() -> Backend::LowLevelRenderingPrimitive) -> Self {
         let dependency_tracker = Box::pin(crate::properties::PropertyTracker::default());
         let primitive = dependency_tracker.as_ref().evaluate(update_fn);
         Self { primitive, dependency_tracker }
-    }
-}
-
-impl<RenderingPrimitive> From<RenderingPrimitive>
-    for TrackingRenderingPrimitive<RenderingPrimitive>
-{
-    fn from(p: RenderingPrimitive) -> Self {
-        Self { primitive: p, dependency_tracker: Box::pin(Default::default()) }
     }
 }
 
@@ -457,62 +456,7 @@ impl<RenderingPrimitive> From<RenderingPrimitive>
 /// [Items][`crate::items`]. Instead it allows mapping them to a usize
 /// handle, and it also allows tracking whenever any of the properties used to
 /// create the primitive changed.
-///
-/// The main function to use is [RenderingCache::ensure_cached].
-pub struct RenderingCache<Backend: GraphicsBackend> {
-    entries: vec_arena::Arena<TrackingRenderingPrimitive<Backend::LowLevelRenderingPrimitive>>,
-}
-
-impl<Backend: GraphicsBackend> Default for RenderingCache<Backend> {
-    fn default() -> Self {
-        Self { entries: Default::default() }
-    }
-}
-
-impl<Backend: GraphicsBackend> RenderingCache<Backend> {
-    /// This function can be used to lazily cache low-level rendering primitives and
-    /// reference the cache using the returned usize index.
-    ///
-    /// Arguments:
-    /// * `index`: If the provided option contains an index, then that will be re-used
-    ///   by the cache and returned. Otherwise a new index is allocated.
-    /// * `update_fn`: This callback will be invoked if this function is called the first
-    ///   time or if any [Property][`crate::properties::Property`] accessed during
-    ///   a previous invokation has changed.
-    pub fn ensure_cached(
-        &mut self,
-        index: Option<usize>,
-        update_fn: impl FnOnce() -> Backend::LowLevelRenderingPrimitive,
-    ) -> usize {
-        if let Some(index) = index {
-            let existing_entry = self.entries.get_mut(index).unwrap();
-            if existing_entry.dependency_tracker.is_dirty() {
-                existing_entry.primitive =
-                    existing_entry.dependency_tracker.as_ref().evaluate(update_fn)
-            }
-            index
-        } else {
-            self.entries.insert(TrackingRenderingPrimitive::new(update_fn))
-        }
-    }
-
-    /// Returns a reference to the [GraphicsBackend::LowLevelRenderingPrimitive] for the given `idx`, as previously
-    /// returned by [RenderingCache::ensure_cached]. Panics if the given index is not valid.
-    /// This is typically used when rendering items, to retrieve the associated low-level primitives.
-    pub fn entry_at(&self, idx: usize) -> &Backend::LowLevelRenderingPrimitive {
-        &self.entries.get(idx).unwrap().primitive
-    }
-
-    /// Deletes the cached [GraphicsBackend::LowLevelRenderingPrimitive] at the specified `idx`.
-    pub fn free_entry(&mut self, idx: usize) {
-        self.entries.remove(idx);
-    }
-
-    /// Returns the number of cached rendering primitives.
-    pub fn len(&self) -> usize {
-        self.entries.len()
-    }
-}
+pub type RenderingCache<Backend> = vec_arena::Arena<TrackingRenderingPrimitive<Backend>>;
 
 type WindowFactoryFn<Backend> =
     dyn Fn(&crate::eventloop::EventLoop, winit::window::WindowBuilder) -> Backend;

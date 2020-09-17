@@ -38,19 +38,33 @@ impl CachedRenderingData {
         rendering_primitives_builder: &mut Backend::RenderingPrimitivesBuilder,
         window: &std::rc::Rc<GraphicsWindow<Backend>>,
     ) {
-        let idx = if self.cache_ok.get() { Some(self.cache_index.get()) } else { None };
-
-        self.cache_index.set(cache.borrow_mut().ensure_cached(idx, || {
+        let update_fn = || {
             rendering_primitives_builder
                 .create(item.as_ref().rendering_primitive(&ComponentWindow::new(window.clone())))
-        }));
-        self.cache_ok.set(true);
+        };
+
+        if self.cache_ok.get() {
+            let index = self.cache_index.get();
+            let mut cache = cache.borrow_mut();
+            let existing_entry = cache.get_mut(index).unwrap();
+            if existing_entry.dependency_tracker.is_dirty() {
+                existing_entry.primitive =
+                    existing_entry.dependency_tracker.as_ref().evaluate(update_fn)
+            }
+        } else {
+            self.cache_index.set(
+                cache
+                    .borrow_mut()
+                    .insert(crate::graphics::TrackingRenderingPrimitive::new(update_fn)),
+            );
+            self.cache_ok.set(true);
+        }
     }
 
     fn release<Backend: GraphicsBackend>(&self, cache: &RefCell<RenderingCache<Backend>>) {
         if self.cache_ok.get() {
             let index = self.cache_index.get();
-            cache.borrow_mut().free_entry(index);
+            cache.borrow_mut().remove(index);
         }
     }
 }
@@ -84,7 +98,10 @@ pub(crate) fn render_component_items<Backend: GraphicsBackend>(
 
             let cached_rendering_data = item.cached_rendering_data_offset();
             if cached_rendering_data.cache_ok.get() {
-                let primitive = rendering_cache.entry_at(cached_rendering_data.cache_index.get());
+                let primitive = &rendering_cache
+                    .get(cached_rendering_data.cache_index.get())
+                    .unwrap()
+                    .primitive;
                 frame.render_primitive(
                     &primitive,
                     &transform,
