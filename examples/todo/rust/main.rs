@@ -22,19 +22,18 @@ pub fn main() {
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
     console_error_panic_hook::set_once();
 
-    type TodoModelData = (bool, sixtyfps::SharedString);
-    let todo_model = Rc::new(sixtyfps::VecModel::<TodoModelData>::from(vec![
-        (true, "Implement the .60 file".into()),
-        (true, "Do the rust part".into()),
-        (false, "Make the C++ code".into()),
-        (false, "???".into()),
-        (false, "Profit".into()),
+    let todo_model = Rc::new(sixtyfps::VecModel::<TodoItem>::from(vec![
+        TodoItem { checked: true, title: "Implement the .60 file".into() },
+        TodoItem { checked: true, title: "Do the rust part".into() },
+        TodoItem { checked: false, title: "Make the C++ code".into() },
+        TodoItem { checked: false, title: "???".into() },
+        TodoItem { checked: false, title: "Profit".into() },
     ]));
 
     let main_window = MainWindow::new();
     main_window.as_ref().on_todo_added({
         let todo_model = todo_model.clone();
-        move |text| todo_model.push((true, text))
+        move |text| todo_model.push(TodoItem { checked: true, title: text })
     });
 
     main_window.set_todo_model(Some(todo_model));

@@ -22,10 +22,10 @@ pub fn main() {
     let main_window = MainWindow::new();
     // FIXME: better represtation of the models
     main_window.set_ink_levels(sixtyfps::VecModel::from_slice(&[
-        (sixtyfps::Color::from_rgb_u8(0, 255, 255), 0.40),
-        (sixtyfps::Color::from_rgb_u8(255, 0, 255), 0.20),
-        (sixtyfps::Color::from_rgb_u8(255, 255, 0), 0.50),
-        (sixtyfps::Color::from_rgb_u8(0, 0, 0), 0.80),
+        InkLevel { color: sixtyfps::Color::from_rgb_u8(0, 255, 255), level: 0.40 },
+        InkLevel { color: sixtyfps::Color::from_rgb_u8(255, 0, 255), level: 0.20 },
+        InkLevel { color: sixtyfps::Color::from_rgb_u8(255, 255, 0), level: 0.50 },
+        InkLevel { color: sixtyfps::Color::from_rgb_u8(0, 0, 0), level: 0.80 },
     ]));
 
     main_window.run();

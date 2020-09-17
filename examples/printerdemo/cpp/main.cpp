@@ -9,15 +9,13 @@
 LICENSE END */
 #include "printerdemo.h"
 
-// FIXME: Ideally it should be a better type in the generated code
-using InkData = std::tuple<sixtyfps::Color, float>;
 
-struct InkLevelModel : sixtyfps::Model<InkData>
+struct InkLevelModel : sixtyfps::Model<InkLevel>
 {
     int row_count() const override { return m_data.size(); }
-    InkData row_data(int i) const override { return m_data[i]; }
+    InkLevel row_data(int i) const override { return m_data[i]; }
 
-    std::vector<InkData> m_data = { { sixtyfps::Color::from_rgb_uint8(255, 255, 0), 0.9 },
+    std::vector<InkLevel> m_data = { { sixtyfps::Color::from_rgb_uint8(255, 255, 0), 0.9 },
                                     { sixtyfps::Color::from_rgb_uint8(0, 255, 255), 0.5 },
                                     { sixtyfps::Color::from_rgb_uint8(255, 0, 255), 0.8 },
                                     { sixtyfps::Color::from_rgb_uint8(0, 0, 0), 0.1 } };

@@ -10,12 +10,17 @@ LICENSE END */
 
 import { SpinBox, Button, CheckBox, Slider } from "sixtyfps_widgets.60";
 
+export TodoItem := {
+    property <string> title;
+    property <bool> checked;
+}
+
 MainWindow := Window {
     width: 400lx;
     height: 600lx;
     signal todo_added(string);
 
-    property <[{title: string, checked: bool}]> todo_model: [
+    property <[TodoItem]> todo_model: [
         { title: "Implement the .60 file", checked: true },
         { title: "Do the rust part", checked: false },
         { title: "Make the C++ code", checked: false },

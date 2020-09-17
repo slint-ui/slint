@@ -258,6 +258,11 @@ TopPanel := Rectangle {
     }
 }
 
+export InkLevel := {
+    property<color> color;
+    property<float> level;
+}
+
 MainWindow := Window {
 
     width: 800lx;
@@ -265,7 +270,7 @@ MainWindow := Window {
 
     /// Note that this property is overwriten in the .cpp and .rs code.
     // The data is only in this file so it looks good in the viewer
-    property <[{color: color, level: float}]> ink_levels: [
+    property <[InkLevel]> ink_levels: [
                 {color: #0ff, level: 60%},
                 {color: #ff0, level: 80%},
                 {color: #f0f, level: 70%},
