@@ -946,11 +946,11 @@ impl Item for TextInput {
                 KeyEventResult::EventAccepted
             }
             KeyEvent::KeyPressed(code) if *code == crate::input::KeyCode::Right => {
-                TextInput::move_cursor(self, 1, window);
+                TextInput::move_cursor(self, TextCursorDirection::Forward, window);
                 KeyEventResult::EventAccepted
             }
             KeyEvent::KeyPressed(code) if *code == crate::input::KeyCode::Left => {
-                TextInput::move_cursor(self, -1, window);
+                TextInput::move_cursor(self, TextCursorDirection::Backward, window);
                 KeyEventResult::EventAccepted
             }
             _ => KeyEventResult::EventIgnored,
@@ -976,20 +976,55 @@ impl ItemConsts for TextInput {
     > = TextInput::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
+enum TextCursorDirection {
+    Forward,
+    Backward,
+}
+
 impl TextInput {
     fn show_cursor(&self, window: &ComponentWindow) {
         window.set_cursor_blink_binding(&self.cursor_visible);
     }
 
-    fn move_cursor(self: Pin<&Self>, delta: i32, window: &ComponentWindow) {
+    fn move_cursor(
+        self: Pin<&Self>,
+        direction: TextCursorDirection,
+        window: &ComponentWindow,
+    ) -> bool {
         let text = Self::FIELD_OFFSETS.text.apply_pin(self).get();
-        let cursor_pos = Self::FIELD_OFFSETS.cursor_position.apply_pin(self).get();
-        let cursor_pos = (cursor_pos + delta).max(0).min(text.len() as i32);
+        if text.len() == 0 {
+            return false;
+        }
+
+        let mut cursor_pos = Self::FIELD_OFFSETS.cursor_position.apply_pin(self).get() as i32;
+
+        let delta: i32 = match direction {
+            TextCursorDirection::Forward => 1,
+            TextCursorDirection::Backward => -1,
+        };
+
+        let mut moved = false;
+
+        loop {
+            if (delta < 0 && cursor_pos == 0)
+                || (delta > 0 && cursor_pos == (text.len() as i32) - 1)
+            {
+                break;
+            }
+            cursor_pos += delta;
+            moved = true;
+            if text.is_char_boundary(cursor_pos as usize) {
+                break;
+            }
+        }
+
         self.as_ref().cursor_position.set(cursor_pos);
 
         // Keep the cursor visible when moving. Blinking should only occur when
         // nothing is entered or the cursor isn't moved.
         self.as_ref().show_cursor(window);
+
+        moved
     }
 
     fn with_font<R>(
