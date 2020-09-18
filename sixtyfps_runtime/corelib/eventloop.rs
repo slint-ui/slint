@@ -331,7 +331,7 @@ impl EventLoop {
                                 windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
                             {
                                 pressed = false;
-                                window.process_mouse_input(
+                                window.clone().process_mouse_input(
                                     cursor_pos,
                                     MouseEventType::MouseExit,
                                     component,
