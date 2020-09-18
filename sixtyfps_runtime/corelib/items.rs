@@ -71,8 +71,11 @@ pub struct ItemVTable {
         extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, window: &ComponentWindow) -> LayoutInfo,
 
     /// input event
-    pub input_event:
-        extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, MouseEvent) -> InputEventResult,
+    pub input_event: extern "C" fn(
+        core::pin::Pin<VRef<ItemVTable>>,
+        MouseEvent,
+        window: &ComponentWindow,
+    ) -> InputEventResult,
 
     pub key_event: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, &KeyEvent) -> KeyEventResult,
 }
@@ -129,7 +132,7 @@ impl Item for Rectangle {
         Default::default()
     }
 
-    fn input_event(self: Pin<&Self>, _: MouseEvent) -> InputEventResult {
+    fn input_event(self: Pin<&Self>, _: MouseEvent, _window: &ComponentWindow) -> InputEventResult {
         InputEventResult::EventIgnored
     }
 
@@ -208,7 +211,7 @@ impl Item for BorderRectangle {
         Default::default()
     }
 
-    fn input_event(self: Pin<&Self>, _: MouseEvent) -> InputEventResult {
+    fn input_event(self: Pin<&Self>, _: MouseEvent, _window: &ComponentWindow) -> InputEventResult {
         InputEventResult::EventIgnored
     }
 
@@ -285,7 +288,7 @@ impl Item for Image {
         Default::default()
     }
 
-    fn input_event(self: Pin<&Self>, _: MouseEvent) -> InputEventResult {
+    fn input_event(self: Pin<&Self>, _: MouseEvent, _window: &ComponentWindow) -> InputEventResult {
         InputEventResult::EventIgnored
     }
 
@@ -421,7 +424,7 @@ impl Item for Text {
         })
     }
 
-    fn input_event(self: Pin<&Self>, _: MouseEvent) -> InputEventResult {
+    fn input_event(self: Pin<&Self>, _: MouseEvent, _window: &ComponentWindow) -> InputEventResult {
         InputEventResult::EventIgnored
     }
 
@@ -503,7 +506,11 @@ impl Item for TouchArea {
         LayoutInfo::default()
     }
 
-    fn input_event(self: Pin<&Self>, event: MouseEvent) -> InputEventResult {
+    fn input_event(
+        self: Pin<&Self>,
+        event: MouseEvent,
+        _window: &ComponentWindow,
+    ) -> InputEventResult {
         Self::FIELD_OFFSETS.mouse_x.apply_pin(self).set(event.pos.x);
         Self::FIELD_OFFSETS.mouse_y.apply_pin(self).set(event.pos.y);
 
@@ -601,7 +608,7 @@ impl Item for Path {
         LayoutInfo::default()
     }
 
-    fn input_event(self: Pin<&Self>, _: MouseEvent) -> InputEventResult {
+    fn input_event(self: Pin<&Self>, _: MouseEvent, _window: &ComponentWindow) -> InputEventResult {
         InputEventResult::EventIgnored
     }
 
@@ -664,7 +671,11 @@ impl Item for Flickable {
         LayoutInfo::default()
     }
 
-    fn input_event(self: Pin<&Self>, event: MouseEvent) -> InputEventResult {
+    fn input_event(
+        self: Pin<&Self>,
+        event: MouseEvent,
+        _window: &ComponentWindow,
+    ) -> InputEventResult {
         self.data.handle_mouse(self, event);
         // FIXME
         InputEventResult::EventAccepted
@@ -772,7 +783,11 @@ impl Item for Window {
         LayoutInfo::default()
     }
 
-    fn input_event(self: Pin<&Self>, _event: MouseEvent) -> InputEventResult {
+    fn input_event(
+        self: Pin<&Self>,
+        _event: MouseEvent,
+        _window: &ComponentWindow,
+    ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
 

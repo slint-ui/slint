@@ -590,14 +590,15 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
     }
 
     fn process_mouse_input(
-        &self,
+        self: Rc<Self>,
         pos: winit::dpi::PhysicalPosition<f64>,
         what: MouseEventType,
         component: crate::component::ComponentRefPin,
     ) {
-        component
-            .as_ref()
-            .input_event(MouseEvent { pos: euclid::point2(pos.x as _, pos.y as _), what });
+        component.as_ref().input_event(
+            MouseEvent { pos: euclid::point2(pos.x as _, pos.y as _), what },
+            &crate::eventloop::ComponentWindow::new(self.clone()),
+        );
     }
 
     fn process_key_input(

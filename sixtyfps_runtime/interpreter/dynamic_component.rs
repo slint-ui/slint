@@ -1033,6 +1033,7 @@ impl<'a> LayoutTreeItem<'a> {
 extern "C" fn input_event(
     component: ComponentRefPin,
     mouse_event: sixtyfps_corelib::input::MouseEvent,
+    window: &sixtyfps_corelib::eventloop::ComponentWindow,
 ) -> sixtyfps_corelib::input::InputEventResult {
     // This is fine since we can only be called with a component that with our vtable which is a ComponentDescription
     let component_type = unsafe { get_component_type(component) };
@@ -1047,12 +1048,14 @@ extern "C" fn input_event(
         let mut event = mouse_event.clone();
         event.pos -= offset.to_vector();
         let res = match tree[item_index] {
-            ItemTreeNode::Item { item, .. } => item.apply_pin(instance).as_ref().input_event(event),
+            ItemTreeNode::Item { item, .. } => {
+                item.apply_pin(instance).as_ref().input_event(event, window)
+            }
             ItemTreeNode::DynamicTree { index } => {
                 generativity::make_guard!(guard);
                 let rep_in_comp = &component_type.repeater[index].unerase(guard);
                 let vec = rep_in_comp.offset.apply(&*instance).borrow();
-                vec[rep_index].borrow().as_ref().input_event(event)
+                vec[rep_index].borrow().as_ref().input_event(event, window)
             }
         };
         match res {
@@ -1060,7 +1063,7 @@ extern "C" fn input_event(
             _ => (res, VisitChildrenResult::CONTINUE),
         }
     } else {
-        sixtyfps_corelib::input::process_ungrabbed_mouse_event(component, mouse_event)
+        sixtyfps_corelib::input::process_ungrabbed_mouse_event(component, mouse_event, window)
     };
     extra_data.mouse_grabber.set(new_grab);
     status

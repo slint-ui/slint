@@ -165,7 +165,11 @@ impl Item for NativeButton {
         }
     }
 
-    fn input_event(self: Pin<&Self>, event: MouseEvent) -> InputEventResult {
+    fn input_event(
+        self: Pin<&Self>,
+        event: MouseEvent,
+        _window: &ComponentWindow,
+    ) -> InputEventResult {
         Self::FIELD_OFFSETS.pressed.apply_pin(self).set(match event.what {
             MouseEventType::MousePressed => true,
             MouseEventType::MouseExit | MouseEventType::MouseReleased => false,
@@ -275,7 +279,11 @@ impl Item for NativeCheckBox {
         }
     }
 
-    fn input_event(self: Pin<&Self>, event: MouseEvent) -> InputEventResult {
+    fn input_event(
+        self: Pin<&Self>,
+        event: MouseEvent,
+        _window: &ComponentWindow,
+    ) -> InputEventResult {
         if matches!(event.what, MouseEventType::MouseReleased) {
             Self::FIELD_OFFSETS
                 .checked
@@ -418,7 +426,11 @@ impl Item for NativeSpinBox {
         }
     }
 
-    fn input_event(self: Pin<&Self>, event: MouseEvent) -> InputEventResult {
+    fn input_event(
+        self: Pin<&Self>,
+        event: MouseEvent,
+        _window: &ComponentWindow,
+    ) -> InputEventResult {
         let size: qttypes::QSize = get_size!(self);
         let mut data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
         let active_controls = data.active_controls;
@@ -603,7 +615,11 @@ impl Item for NativeSlider {
         }
     }
 
-    fn input_event(self: Pin<&Self>, event: MouseEvent) -> InputEventResult {
+    fn input_event(
+        self: Pin<&Self>,
+        event: MouseEvent,
+        _window: &ComponentWindow,
+    ) -> InputEventResult {
         let size: qttypes::QSize = get_size!(self);
         let value = Self::FIELD_OFFSETS.value.apply_pin(self).get() as f32;
         let min = Self::FIELD_OFFSETS.min.apply_pin(self).get() as f32;
@@ -782,7 +798,7 @@ impl Item for NativeGroupBox {
         }
     }
 
-    fn input_event(self: Pin<&Self>, _: MouseEvent) -> InputEventResult {
+    fn input_event(self: Pin<&Self>, _: MouseEvent, _window: &ComponentWindow) -> InputEventResult {
         InputEventResult::EventIgnored
     }
 

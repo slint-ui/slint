@@ -313,7 +313,7 @@ fn generate_component(
             ));
 
             repeated_input_branch.push(quote!(
-                #repeater_index => self.#repeater_id.input_event(rep_index, event),
+                #repeater_index => self.#repeater_id.input_event(rep_index, event, window),
             ));
 
             item_tree_array.push(quote!(
@@ -402,6 +402,7 @@ fn generate_component(
     let layouts = compute_layout(component, &repeated_element_names);
     let mut visibility = None;
     let mut parent_component_type = None;
+    let mut has_window_impl = None;
     if let Some(parent_element) = component.parent_element.upgrade() {
         if !parent_element.borrow().repeated.as_ref().map_or(false, |r| r.is_conditional_element) {
             declared_property_vars.push(format_ident!("index"));
@@ -449,6 +450,14 @@ fn generate_component(
             }
         });
         visibility = Some(quote!(pub));
+
+        has_window_impl = Some(quote!(
+            impl sixtyfps::testing::HasWindow for #component_id {
+                fn component_window(&self) -> &sixtyfps::re_exports::ComponentWindow {
+                    &self.window
+                }
+            }
+        ))
     };
 
     // Trick so we can use `#()` as a `if let Some` in `quote!`
@@ -516,7 +525,7 @@ fn generate_component(
                 }
             }
 
-            fn input_event(self: ::core::pin::Pin<&Self>, mouse_event : sixtyfps::re_exports::MouseEvent) -> sixtyfps::re_exports::InputEventResult {
+            fn input_event(self: ::core::pin::Pin<&Self>, mouse_event : sixtyfps::re_exports::MouseEvent, window: &sixtyfps::re_exports::ComponentWindow) -> sixtyfps::re_exports::InputEventResult {
                 use sixtyfps::re_exports::*;
                 let mouse_grabber = self.mouse_grabber.get();
                 #[allow(unused)]
@@ -527,7 +536,7 @@ fn generate_component(
                     event.pos -= offset.to_vector();
                     let res = match tree[item_index] {
                         ItemTreeNode::Item { item, .. } => {
-                            item.apply_pin(self).as_ref().input_event(event)
+                            item.apply_pin(self).as_ref().input_event(event, window)
                         }
                         ItemTreeNode::DynamicTree { index } => {
                             match index {
@@ -541,7 +550,7 @@ fn generate_component(
                         _ => (res, VisitChildrenResult::CONTINUE),
                     }
                 } else {
-                    process_ungrabbed_mouse_event(VRef::new_pin(self), mouse_event)
+                    process_ungrabbed_mouse_event(VRef::new_pin(self), mouse_event, window)
                 };
                 self.mouse_grabber.set(new_grab);
                 status
@@ -585,6 +594,8 @@ fn generate_component(
         }
 
         #drop_impl
+
+        #has_window_impl
 
         #(#extra_components)*
     ))

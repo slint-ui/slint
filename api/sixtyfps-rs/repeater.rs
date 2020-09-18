@@ -245,8 +245,9 @@ impl<C: RepeatedComponent> Repeater<C> {
         &self,
         idx: usize,
         event: sixtyfps_corelib::input::MouseEvent,
+        window: &sixtyfps_corelib::eventloop::ComponentWindow,
     ) -> sixtyfps_corelib::input::InputEventResult {
-        self.components.borrow()[idx].as_ref().input_event(event)
+        self.components.borrow()[idx].as_ref().input_event(event, window)
     }
 
     /// Return the amount of item currently in the component

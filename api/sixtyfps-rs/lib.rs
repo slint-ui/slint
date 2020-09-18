@@ -165,16 +165,28 @@ pub fn create_window() -> re_exports::ComponentWindow {
 
 /// This module contains functions useful for unit tests
 pub mod testing {
+    /// This trait gives access to the underyling Window of a component for the
+    /// purposes of testing.
+    pub trait HasWindow {
+        /// Returns a reference to the component's window.
+        fn component_window(&self) -> &super::re_exports::ComponentWindow;
+    }
+
     pub use sixtyfps_corelib::tests::sixtyfps_mock_elapsed_time as mock_elapsed_time;
     /// Simulate a mouse click
     pub fn send_mouse_click<
-        X: vtable::HasStaticVTable<sixtyfps_corelib::component::ComponentVTable>,
+        X: vtable::HasStaticVTable<sixtyfps_corelib::component::ComponentVTable> + HasWindow,
     >(
         component: core::pin::Pin<&X>,
         x: f32,
         y: f32,
     ) {
-        sixtyfps_corelib::tests::sixtyfps_send_mouse_click(vtable::VRef::new_pin(component), x, y);
+        sixtyfps_corelib::tests::sixtyfps_send_mouse_click(
+            vtable::VRef::new_pin(component),
+            x,
+            y,
+            component.component_window(),
+        );
     }
 }
 

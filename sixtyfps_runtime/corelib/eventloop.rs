@@ -46,7 +46,7 @@ pub trait GenericWindow {
     /// * `what`: The type of mouse event.
     /// * `component`: The SixtyFPS compiled component that provides the tree of items.
     fn process_mouse_input(
-        &self,
+        self: Rc<Self>,
         pos: winit::dpi::PhysicalPosition<f64>,
         what: MouseEventType,
         component: core::pin::Pin<crate::component::ComponentRef>,
@@ -261,7 +261,7 @@ impl EventLoop {
                                     MouseEventType::MouseReleased
                                 }
                             };
-                            window.process_mouse_input(cursor_pos, what, component);
+                            window.clone().process_mouse_input(cursor_pos, what, component);
                             // FIXME: remove this, it should be based on actual changes rather than this
                             window.request_redraw();
                         }
@@ -290,7 +290,7 @@ impl EventLoop {
                                 }
                                 winit::event::TouchPhase::Moved => MouseEventType::MouseMoved,
                             };
-                            window.process_mouse_input(cursor_pos, what, component);
+                            window.clone().process_mouse_input(cursor_pos, what, component);
                             // FIXME: remove this, it should be based on actual changes rather than this
                             window.request_redraw();
                         }
@@ -307,7 +307,7 @@ impl EventLoop {
                         if let Some(Some(window)) =
                             windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
                         {
-                            window.process_mouse_input(
+                            window.clone().process_mouse_input(
                                 cursor_pos,
                                 MouseEventType::MouseMoved,
                                 component,

@@ -297,6 +297,7 @@ pub enum KeyEventResult {
 pub fn process_ungrabbed_mouse_event(
     component: ComponentRefPin,
     event: MouseEvent,
+    window: &crate::eventloop::ComponentWindow,
 ) -> (InputEventResult, VisitChildrenResult) {
     let offset = Vector2D::new(0., 0.);
 
@@ -311,7 +312,7 @@ pub fn process_ungrabbed_mouse_event(
             if geom.contains(event.pos) {
                 let mut event2 = event.clone();
                 event2.pos -= geom.origin.to_vector();
-                match item.as_ref().input_event(event2) {
+                match item.as_ref().input_event(event2, window) {
                     InputEventResult::EventAccepted => {
                         result = InputEventResult::EventAccepted;
                         return ItemVisitorResult::Abort;
@@ -382,9 +383,10 @@ pub(crate) mod ffi {
     pub extern "C" fn sixtyfps_process_ungrabbed_mouse_event(
         component: core::pin::Pin<crate::component::ComponentRef>,
         event: MouseEvent,
+        window: &crate::eventloop::ComponentWindow,
         new_mouse_grabber: &mut crate::item_tree::VisitChildrenResult,
     ) -> InputEventResult {
-        let (res, grab) = process_ungrabbed_mouse_event(component, event);
+        let (res, grab) = process_ungrabbed_mouse_event(component, event, window);
         *new_mouse_grabber = grab;
         res
     }

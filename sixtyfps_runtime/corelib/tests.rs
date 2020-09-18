@@ -31,10 +31,11 @@ pub extern "C" fn sixtyfps_send_mouse_click(
     component: core::pin::Pin<crate::component::ComponentRef>,
     x: f32,
     y: f32,
+    window: &crate::eventloop::ComponentWindow,
 ) {
     let pos = euclid::point2(x, y);
-    component.as_ref().input_event(MouseEvent { pos, what: MouseEventType::MouseMoved });
-    component.as_ref().input_event(MouseEvent { pos, what: MouseEventType::MousePressed });
+    component.as_ref().input_event(MouseEvent { pos, what: MouseEventType::MouseMoved }, window);
+    component.as_ref().input_event(MouseEvent { pos, what: MouseEventType::MousePressed }, window);
     sixtyfps_mock_elapsed_time(50);
-    component.as_ref().input_event(MouseEvent { pos, what: MouseEventType::MouseReleased });
+    component.as_ref().input_event(MouseEvent { pos, what: MouseEventType::MouseReleased }, window);
 }
