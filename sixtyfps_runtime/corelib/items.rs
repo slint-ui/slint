@@ -899,7 +899,7 @@ impl Item for TextInput {
         InputEventResult::EventIgnored
     }
 
-    fn key_event(self: Pin<&Self>, event: &KeyEvent) -> KeyEventResult {
+    fn key_event(self: Pin<&Self>, event: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
         use std::convert::TryInto;
         match event {
             KeyEvent::CharacterInput(ch_code) => {
