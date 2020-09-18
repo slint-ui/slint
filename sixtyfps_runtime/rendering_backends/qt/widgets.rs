@@ -189,7 +189,7 @@ impl Item for NativeButton {
         }
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent) -> KeyEventResult {
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
 }
@@ -294,7 +294,7 @@ impl Item for NativeCheckBox {
         InputEventResult::EventAccepted
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent) -> KeyEventResult {
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
 }
@@ -481,7 +481,7 @@ impl Item for NativeSpinBox {
         InputEventResult::EventAccepted
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent) -> KeyEventResult {
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
 }
@@ -674,7 +674,7 @@ impl Item for NativeSlider {
         result
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent) -> KeyEventResult {
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
 }
@@ -802,7 +802,7 @@ impl Item for NativeGroupBox {
         InputEventResult::EventIgnored
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent) -> KeyEventResult {
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
 }

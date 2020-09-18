@@ -364,11 +364,15 @@ pub fn process_grabbed_mouse_event(
 }*/
 
 /// Process the given key event by sending it to the item tree that belongs to the specified component.
-pub fn process_key_event(component: ComponentRefPin, event: &KeyEvent) {
+pub fn process_key_event(
+    component: ComponentRefPin,
+    event: &KeyEvent,
+    window: &crate::eventloop::ComponentWindow,
+) {
     crate::item_tree::visit_items(
         component,
         crate::item_tree::TraversalOrder::BackToFront,
-        |_, item, _| match item.as_ref().key_event(event) {
+        |_, item, _| match item.as_ref().key_event(event, window) {
             KeyEventResult::EventAccepted => ItemVisitorResult::Abort,
             KeyEventResult::EventIgnored => ItemVisitorResult::Continue(()),
         },

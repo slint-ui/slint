@@ -77,7 +77,11 @@ pub struct ItemVTable {
         window: &ComponentWindow,
     ) -> InputEventResult,
 
-    pub key_event: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, &KeyEvent) -> KeyEventResult,
+    pub key_event: extern "C" fn(
+        core::pin::Pin<VRef<ItemVTable>>,
+        &KeyEvent,
+        window: &ComponentWindow,
+    ) -> KeyEventResult,
 }
 
 /// Alias for `vtable::VRef<ItemVTable>` which represent a pointer to a `dyn Item` with
@@ -136,7 +140,7 @@ impl Item for Rectangle {
         InputEventResult::EventIgnored
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent) -> KeyEventResult {
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
 }
@@ -215,7 +219,7 @@ impl Item for BorderRectangle {
         InputEventResult::EventIgnored
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent) -> KeyEventResult {
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
 }
@@ -292,7 +296,7 @@ impl Item for Image {
         InputEventResult::EventIgnored
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent) -> KeyEventResult {
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
 }
@@ -428,7 +432,7 @@ impl Item for Text {
         InputEventResult::EventIgnored
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent) -> KeyEventResult {
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
 }
@@ -539,7 +543,7 @@ impl Item for TouchArea {
         result
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent) -> KeyEventResult {
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
 }
@@ -612,7 +616,7 @@ impl Item for Path {
         InputEventResult::EventIgnored
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent) -> KeyEventResult {
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
 }
@@ -681,7 +685,7 @@ impl Item for Flickable {
         InputEventResult::EventAccepted
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent) -> KeyEventResult {
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
 }
@@ -791,7 +795,7 @@ impl Item for Window {
         InputEventResult::EventIgnored
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent) -> KeyEventResult {
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
 }

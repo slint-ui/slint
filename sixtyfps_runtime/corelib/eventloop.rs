@@ -58,7 +58,7 @@ pub trait GenericWindow {
     /// * `event`: The key event received by the windowing system.
     /// * `component`: The SixtyFPS compiled component that provides the tree of items.
     fn process_key_input(
-        &self,
+        self: Rc<Self>,
         event: &KeyEvent,
         component: core::pin::Pin<crate::component::ComponentRef>,
     );
@@ -353,7 +353,7 @@ impl EventLoop {
                             windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
                         {
                             if let Some(ref key_event) = input.try_into().ok() {
-                                window.process_key_input(key_event, component);
+                                window.clone().process_key_input(key_event, component);
                                 // FIXME: remove this, it should be based on actual changes rather than this
                                 window.request_redraw();
                             }
@@ -370,7 +370,7 @@ impl EventLoop {
                             windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
                         {
                             let key_event = KeyEvent::CharacterInput(ch.into());
-                            window.process_key_input(&key_event, component);
+                            window.clone().process_key_input(&key_event, component);
                             // FIXME: remove this, it should be based on actual changes rather than this
                             window.request_redraw();
                         }
