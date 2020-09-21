@@ -638,6 +638,7 @@ impl TypeRegister {
                 ("width", Type::Length),
                 ("height", Type::Length),
                 ("text_cursor_width", Type::Length),
+                ("accepted", Type::Signal { args: vec![] }),
             ],
             &[
                 (

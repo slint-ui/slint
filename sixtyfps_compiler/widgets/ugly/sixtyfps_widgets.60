@@ -238,7 +238,9 @@ export GroupBox := GridLayout {
 
 export LineEdit := Rectangle {
     property <string> text;
+    property <string> accepted_text: root.text; // FIXME: remove when we can do two-way bindings
     property <bool> focused: true;
+    signal accepted(string);
 
     border_color: root.focused ? #556884 : #ffffff;
     border_radius: 1lx;
@@ -257,6 +259,9 @@ export LineEdit := Rectangle {
                 padding: 3lx;
                 TextInput {
                     text: root.text;
+                    accepted => {
+                        root.accepted(self.text);
+                    }
                 }
            }
         }

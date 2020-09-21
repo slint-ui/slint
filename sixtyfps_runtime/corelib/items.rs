@@ -829,6 +829,7 @@ pub struct TextInput {
     pub cursor_position: Property<i32>,
     pub text_cursor_width: Property<f32>,
     pub cursor_visible: Property<bool>,
+    pub accepted: Signal<()>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
@@ -959,6 +960,10 @@ impl Item for TextInput {
             }
             KeyEvent::KeyPressed(code) if *code == crate::input::KeyCode::Delete => {
                 TextInput::delete_char(self);
+                KeyEventResult::EventAccepted
+            }
+            KeyEvent::KeyPressed(code) if *code == crate::input::KeyCode::Return => {
+                Self::FIELD_OFFSETS.accepted.apply_pin(self).emit(&());
                 KeyEventResult::EventAccepted
             }
             _ => KeyEventResult::EventIgnored,

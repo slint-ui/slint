@@ -32,11 +32,14 @@ MainWindow := Window {
         Row {
             text_edit := LineEdit {
                 text: "Something to do";
+                accepted(text) => {
+                    todo_added(text);
+                }
             }
             btn := Button {
                 text: "Add Todo";
                 clicked => {
-                    todo_added(text_edit.text);
+                    todo_added(text_edit.accepted_text);
                 }
             }
         }
