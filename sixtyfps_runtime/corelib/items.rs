@@ -31,7 +31,7 @@ use super::input::{InputEventResult, KeyEvent, KeyEventResult, MouseEvent, Mouse
 use super::item_rendering::CachedRenderingData;
 use super::layout::LayoutInfo;
 #[cfg(feature = "rtti")]
-use crate::rtti::*;
+use crate::{input::KeyboardModifiers, rtti::*};
 use crate::{Property, SharedString, Signal};
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
@@ -827,6 +827,7 @@ pub struct TextInput {
     pub width: Property<f32>,
     pub height: Property<f32>,
     pub cursor_position: Property<i32>,
+    pub anchor_position: Property<i32>,
     pub text_cursor_width: Property<f32>,
     pub cursor_visible: Property<bool>,
     pub accepted: Signal<()>,
@@ -946,12 +947,22 @@ impl Item for TextInput {
 
                 KeyEventResult::EventAccepted
             }
-            KeyEvent::KeyPressed { code, .. } if *code == crate::input::KeyCode::Right => {
-                TextInput::move_cursor(self, TextCursorDirection::Forward, window);
+            KeyEvent::KeyPressed { code, modifiers } if *code == crate::input::KeyCode::Right => {
+                TextInput::move_cursor(
+                    self,
+                    TextCursorDirection::Forward,
+                    (*modifiers).into(),
+                    window,
+                );
                 KeyEventResult::EventAccepted
             }
-            KeyEvent::KeyPressed { code, .. } if *code == crate::input::KeyCode::Left => {
-                TextInput::move_cursor(self, TextCursorDirection::Backward, window);
+            KeyEvent::KeyPressed { code, modifiers } if *code == crate::input::KeyCode::Left => {
+                TextInput::move_cursor(
+                    self,
+                    TextCursorDirection::Backward,
+                    (*modifiers).into(),
+                    window,
+                );
                 KeyEventResult::EventAccepted
             }
             KeyEvent::KeyPressed { code, .. } if *code == crate::input::KeyCode::Back => {
@@ -994,6 +1005,21 @@ enum TextCursorDirection {
     Backward,
 }
 
+enum AnchorMode {
+    KeepAnchor,
+    MoveAnchor,
+}
+
+impl From<KeyboardModifiers> for AnchorMode {
+    fn from(modifiers: KeyboardModifiers) -> Self {
+        if modifiers.shift() {
+            Self::KeepAnchor
+        } else {
+            Self::MoveAnchor
+        }
+    }
+}
+
 impl TextInput {
     fn show_cursor(&self, window: &ComponentWindow) {
         window.set_cursor_blink_binding(&self.cursor_visible);
@@ -1002,6 +1028,7 @@ impl TextInput {
     fn move_cursor(
         self: Pin<&Self>,
         direction: TextCursorDirection,
+        anchor_mode: AnchorMode,
         window: &ComponentWindow,
     ) -> bool {
         let text = Self::FIELD_OFFSETS.text.apply_pin(self).get();
@@ -1031,6 +1058,13 @@ impl TextInput {
 
         self.as_ref().cursor_position.set(cursor_pos);
 
+        match anchor_mode {
+            AnchorMode::KeepAnchor => {}
+            AnchorMode::MoveAnchor => {
+                self.as_ref().anchor_position.set(cursor_pos);
+            }
+        }
+
         // Keep the cursor visible when moving. Blinking should only occur when
         // nothing is entered or the cursor isn't moved.
         self.as_ref().show_cursor(window);
@@ -1039,6 +1073,11 @@ impl TextInput {
     }
 
     fn delete_char(self: Pin<&Self>) {
+        if self.has_selection() {
+            self.delete_selection();
+            return;
+        }
+
         let mut text: String = Self::FIELD_OFFSETS.text.apply_pin(self).get().into();
         if text.len() == 0 {
             return;
@@ -1055,9 +1094,42 @@ impl TextInput {
     }
 
     fn delete_previous(self: Pin<&Self>, window: &ComponentWindow) {
-        if self.move_cursor(TextCursorDirection::Backward, window) {
+        if self.has_selection() {
+            self.delete_selection();
+            return;
+        }
+        if self.move_cursor(TextCursorDirection::Backward, AnchorMode::MoveAnchor, window) {
             self.delete_char();
         }
+    }
+
+    fn delete_selection(self: Pin<&Self>) {
+        let text: String = Self::FIELD_OFFSETS.text.apply_pin(self).get().into();
+        if text.len() == 0 {
+            return;
+        }
+
+        let (anchor, cursor) = self.selection_anchor_and_cursor();
+
+        let text = [text.split_at(anchor as usize).0, text.split_at(cursor as usize).1].concat();
+        self.cursor_position.set(anchor);
+        self.text.set(text.into());
+    }
+
+    fn selection_anchor_and_cursor(self: Pin<&Self>) -> (i32, i32) {
+        let cursor_pos = Self::FIELD_OFFSETS.cursor_position.apply_pin(self).get();
+        let anchor_pos = Self::FIELD_OFFSETS.anchor_position.apply_pin(self).get();
+
+        if anchor_pos > cursor_pos {
+            (cursor_pos, anchor_pos)
+        } else {
+            (anchor_pos, cursor_pos)
+        }
+    }
+
+    fn has_selection(self: Pin<&Self>) -> bool {
+        let (anchor_pos, cursor_pos) = self.selection_anchor_and_cursor();
+        anchor_pos != cursor_pos
     }
 
     fn with_font<R>(
