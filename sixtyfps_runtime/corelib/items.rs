@@ -1014,9 +1014,7 @@ impl TextInput {
         let mut moved = false;
 
         loop {
-            if (delta < 0 && cursor_pos == 0)
-                || (delta > 0 && cursor_pos == (text.len() as i32) - 1)
-            {
+            if (delta < 0 && cursor_pos == 0) || (delta > 0 && cursor_pos == (text.len() as i32)) {
                 break;
             }
             cursor_pos += delta;
@@ -1042,6 +1040,9 @@ impl TextInput {
         }
 
         let cursor_pos = Self::FIELD_OFFSETS.cursor_position.apply_pin(self).get();
+        if cursor_pos == text.len() as i32 {
+            return;
+        }
         text.remove(cursor_pos as usize);
 
         self.cursor_position.set(cursor_pos.min(text.len() as i32));
