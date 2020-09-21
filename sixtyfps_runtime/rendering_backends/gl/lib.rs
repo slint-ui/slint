@@ -131,6 +131,7 @@ pub struct GLFrame {
     #[cfg(not(target_arch = "wasm32"))]
     windowed_context: glutin::WindowedContext<glutin::PossiblyCurrent>,
     text_cursor_rect: Option<TextCursor>,
+    current_stencil_clip_value: u8,
 }
 
 impl GLRenderer {
@@ -288,12 +289,21 @@ impl GraphicsBackend for GLRenderer {
 
             self.context.enable(glow::BLEND);
             self.context.blend_func(glow::ONE, glow::ONE_MINUS_SRC_ALPHA);
+
+            self.context.enable(glow::STENCIL_TEST);
+            self.context.stencil_func(glow::EQUAL, 0, 0xff);
+
+            self.context.stencil_op(glow::KEEP, glow::KEEP, glow::KEEP);
+            self.context.stencil_mask(0);
         }
 
         let col: ARGBColor<f32> = (*clear_color).into();
         unsafe {
+            self.context.stencil_mask(0xff);
+            self.context.clear_stencil(0);
             self.context.clear_color(col.red, col.green, col.blue, col.alpha);
-            self.context.clear(glow::COLOR_BUFFER_BIT);
+            self.context.clear(glow::COLOR_BUFFER_BIT | glow::STENCIL_BUFFER_BIT);
+            self.context.stencil_mask(0);
         };
 
         GLFrame {
@@ -305,6 +315,7 @@ impl GraphicsBackend for GLRenderer {
             #[cfg(not(target_arch = "wasm32"))]
             windowed_context: current_windowed_context,
             text_cursor_rect: self.text_cursor_rect.take(),
+            current_stencil_clip_value: 0,
         }
     }
 
@@ -732,15 +743,113 @@ impl GraphicsFrame for GLFrame {
             GLRenderingPrimitive::GlyphRuns { glyph_runs } => {
                 let col: ARGBColor<f32> = (*rendering_var.next().unwrap().as_color()).into();
 
-                for GlyphRun { vertices, texture_vertices, texture, vertex_count } in glyph_runs {
-                    self.render_glyph_run(
-                        &matrix,
-                        vertices,
-                        texture_vertices,
-                        texture,
-                        *vertex_count,
+                let render_glyphs = |text_color| {
+                    for GlyphRun { vertices, texture_vertices, texture, vertex_count } in glyph_runs
+                    {
+                        self.render_glyph_run(
+                            &matrix,
+                            vertices,
+                            texture_vertices,
+                            texture,
+                            *vertex_count,
+                            text_color,
+                        );
+                    }
+                };
+
+                // Text selection is drawn in three phases:
+                // 1. Draw the selection background rectangle, use regular stencil testing, write into the stencil buffer with GL_INCR
+                // 2. Draw the glyphs, use regular stencil testing against current_stencil clip value + 1, don't write into the stencil buffer. This clips
+                //    and draws only the glyphs of the selected text.
+                // 3. Draw the glyphs, use regular stencil testing against current stencil clip value, don't write into the stencil buffer. This clips
+                //    away the selected text and draws the non-selected part.
+                // 4. We draw the selection background rectangle, use regular stencil testing, write into the stencil buffer with GL_DECR, use false color mask.
+                //    This "removes" the selection rectangle from the stencil buffer again.
+
+                let reset_stencil = match (rendering_var.peek(), &self.text_cursor_rect) {
+                    (
+                        Some(RenderingVariable::TextSelection(x, width, height)),
+                        Some(text_cursor),
+                    ) => {
+                        rendering_var.next();
+                        let foreground_color: ARGBColor<f32> =
+                            (*rendering_var.next().unwrap().as_color()).into();
+                        let background_color: ARGBColor<f32> =
+                            (*rendering_var.next().unwrap().as_color()).into();
+
+                        // Phase 1
+
+                        let matrix = matrix
+                            * Matrix4::from_translation(cgmath::Vector3::new(*x, 0., 0.))
+                            * Matrix4::from_nonuniform_scale(*width, *height, 1.);
+
+                        unsafe {
+                            self.context.stencil_mask(0xff);
+                            self.context.stencil_op(glow::KEEP, glow::KEEP, glow::INCR);
+                        }
+
+                        self.fill_path(
+                            &matrix,
+                            &text_cursor.vertices,
+                            &text_cursor.indices,
+                            background_color,
+                        );
+
+                        unsafe {
+                            self.context.stencil_mask(0);
+                            self.context.stencil_op(glow::KEEP, glow::KEEP, glow::KEEP);
+                        }
+
+                        // Phase 2
+
+                        unsafe {
+                            self.context.stencil_func(
+                                glow::EQUAL,
+                                (self.current_stencil_clip_value + 1) as i32,
+                                0xff,
+                            );
+                        }
+
+                        render_glyphs(foreground_color);
+
+                        unsafe {
+                            self.context.stencil_func(
+                                glow::EQUAL,
+                                self.current_stencil_clip_value as i32,
+                                0xff,
+                            );
+                        }
+
+                        Some(matrix)
+                    }
+                    _ => None, // no stencil to reset
+                };
+
+                // Phase 3
+
+                render_glyphs(col);
+
+                if let (Some(selection_matrix), Some(text_cursor)) =
+                    (reset_stencil, &self.text_cursor_rect)
+                {
+                    // Phase 4
+                    unsafe {
+                        self.context.stencil_mask(0xff);
+                        self.context.stencil_op(glow::KEEP, glow::KEEP, glow::DECR);
+                        self.context.color_mask(false, false, false, false);
+                    }
+
+                    self.fill_path(
+                        &selection_matrix,
+                        &text_cursor.vertices,
+                        &text_cursor.indices,
                         col,
                     );
+                    unsafe {
+                        self.context.stencil_mask(0);
+                        self.context.color_mask(true, true, true, true);
+                        self.context.stencil_op(glow::KEEP, glow::KEEP, glow::REPLACE);
+                    }
                 }
 
                 match (rendering_var.peek(), &self.text_cursor_rect) {

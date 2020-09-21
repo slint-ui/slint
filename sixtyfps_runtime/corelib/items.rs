@@ -820,6 +820,8 @@ pub struct TextInput {
     pub font_family: Property<SharedString>,
     pub font_size: Property<f32>,
     pub color: Property<Color>,
+    pub selection_foreground_color: Property<Color>,
+    pub selection_background_color: Property<Color>,
     pub horizontal_alignment: Property<TextHorizontalAlignment>,
     pub vertical_alignment: Property<TextVerticalAlignment>,
     pub x: Property<f32>,
@@ -880,6 +882,31 @@ impl Item for TextInput {
             RenderingVariable::Translate(translate_x, translate_y),
             RenderingVariable::Color(Self::FIELD_OFFSETS.color.apply_pin(self).get()),
         ]);
+
+        if self.has_selection() {
+            let (anchor_pos, cursor_pos) = self.selection_anchor_and_cursor();
+            let text = Self::FIELD_OFFSETS.text.apply_pin(self).get();
+            let (selection_start_x, selection_end_x, font_height) =
+                TextInput::with_font(self, window, |font| {
+                    (
+                        font.text_width(text.split_at(anchor_pos as _).0),
+                        font.text_width(text.split_at(cursor_pos as _).0),
+                        font.height(),
+                    )
+                });
+
+            variables.push(RenderingVariable::TextSelection(
+                selection_start_x,
+                selection_end_x - selection_start_x,
+                font_height,
+            ));
+            let selection_foreground =
+                Self::FIELD_OFFSETS.selection_foreground_color.apply_pin(self).get();
+            let selection_background =
+                Self::FIELD_OFFSETS.selection_background_color.apply_pin(self).get();
+            variables.push(RenderingVariable::Color(selection_foreground));
+            variables.push(RenderingVariable::Color(selection_background));
+        }
 
         if Self::FIELD_OFFSETS.cursor_visible.apply_pin(self).get() {
             let cursor_pos = Self::FIELD_OFFSETS.cursor_position.apply_pin(self).get();

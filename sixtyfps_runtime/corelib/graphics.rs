@@ -316,6 +316,7 @@ pub enum RenderingVariable {
     ScaledHeight(f32),
     /// Draw a text cursor. The parameters provide the x coordiante and the width/height as (x, width, height) tuple.
     TextCursor(f32, f32, f32),
+    TextSelection(f32, f32, f32),
 }
 
 impl RenderingVariable {

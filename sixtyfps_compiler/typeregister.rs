@@ -631,6 +631,8 @@ impl TypeRegister {
                 ("font_family", Type::String),
                 ("font_size", Type::Length),
                 ("color", Type::Color),
+                ("selection_foreground_color", Type::Color),
+                ("selection_background_color", Type::Color),
                 ("horizontal_alignment", Type::Enumeration(text_horizontal_alignment)),
                 ("vertical_alignment", Type::Enumeration(text_vertical_alignment)),
                 ("x", Type::Length),
@@ -645,6 +647,20 @@ impl TypeRegister {
                     "color",
                     Expression::Cast {
                         from: Box::new(Expression::NumberLiteral(0xff000000u32 as _, Unit::None)),
+                        to: Type::Color,
+                    },
+                ),
+                (
+                    "selection_foreground_color",
+                    Expression::Cast {
+                        from: Box::new(Expression::NumberLiteral(0xff000000u32 as _, Unit::None)),
+                        to: Type::Color,
+                    },
+                ),
+                (
+                    "selection_background_color",
+                    Expression::Cast {
+                        from: Box::new(Expression::NumberLiteral(0xff808080u32 as _, Unit::None)),
                         to: Type::Color,
                     },
                 ),
