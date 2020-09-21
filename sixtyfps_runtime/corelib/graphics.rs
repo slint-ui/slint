@@ -316,6 +316,8 @@ pub enum RenderingVariable {
     ScaledHeight(f32),
     /// Draw a text cursor. The parameters provide the x coordiante and the width/height as (x, width, height) tuple.
     TextCursor(f32, f32, f32),
+    /// Draw a text selection. The parameters provide the starting x coordinate, the width and the height. This variable
+    /// must be followed by two colors, foreground and background.
     TextSelection(f32, f32, f32),
 }
 
