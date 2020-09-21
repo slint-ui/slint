@@ -1213,8 +1213,8 @@ impl<'a> LayoutTreeItem<'a> {
                             );
                             push_code = quote! {
                                 #push_code
-                                let internal_vec = self.#repeater_id.borrow_item_vec();
-                                for sub_comp in &*internal_vec {
+                                let internal_vec = self.#repeater_id.components_vec();
+                                for sub_comp in &internal_vec {
                                     items_vec.push(#e)
                                 }
                             }
