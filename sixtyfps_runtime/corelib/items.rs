@@ -1055,8 +1055,9 @@ impl TextInput {
     }
 
     fn delete_previous(self: Pin<&Self>, window: &ComponentWindow) {
-        self.move_cursor(TextCursorDirection::Backward, window);
-        self.delete_char();
+        if self.move_cursor(TextCursorDirection::Backward, window) {
+            self.delete_char();
+        }
     }
 
     fn with_font<R>(
