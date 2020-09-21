@@ -20,7 +20,7 @@ LICENSE END */
     created by the backend in a type-erased manner.
 */
 extern crate alloc;
-use crate::input::{KeyEvent, MouseEvent, MouseEventType};
+use crate::input::{KeyEvent, KeyboardModifiers, MouseEvent, MouseEventType};
 use crate::items::ItemRef;
 use crate::properties::{InterpolatedPropertyValue, Property};
 #[cfg(feature = "rtti")]
@@ -511,6 +511,7 @@ pub struct GraphicsWindow<Backend: GraphicsBackend + 'static> {
     map_state: RefCell<GraphicsWindowBackendState<Backend>>,
     properties: Pin<Box<WindowProperties>>,
     cursor_blinker: std::cell::RefCell<pin_weak::rc::PinWeak<TextCursorBlinker>>,
+    keyboard_modifiers: std::cell::Cell<KeyboardModifiers>,
 }
 
 impl<Backend: GraphicsBackend + 'static> GraphicsWindow<Backend> {
@@ -529,6 +530,7 @@ impl<Backend: GraphicsBackend + 'static> GraphicsWindow<Backend> {
             map_state: RefCell::new(GraphicsWindowBackendState::Unmapped),
             properties: Box::pin(WindowProperties::default()),
             cursor_blinker: Default::default(),
+            keyboard_modifiers: Default::default(),
         })
     }
 
@@ -767,6 +769,16 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
         });
 
         TextCursorBlinker::set_binding(blinker, prop);
+    }
+
+    /// Returns the currently active keyboard notifiers.
+    fn current_keyboard_modifiers(&self) -> KeyboardModifiers {
+        self.keyboard_modifiers.get()
+    }
+    /// Sets the currently active keyboard notifiers. This is used only for testing or directly
+    /// from the event loop implementation.
+    fn set_current_keyboard_modifiers(&self, state: KeyboardModifiers) {
+        self.keyboard_modifiers.set(state)
     }
 }
 

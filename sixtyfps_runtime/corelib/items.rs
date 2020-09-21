@@ -921,7 +921,7 @@ impl Item for TextInput {
     fn key_event(self: Pin<&Self>, event: &KeyEvent, window: &ComponentWindow) -> KeyEventResult {
         use std::convert::TryFrom;
         match event {
-            KeyEvent::CharacterInput(ch_code) => {
+            KeyEvent::CharacterInput { unicode_scalar, .. } => {
                 let mut text: String = Self::FIELD_OFFSETS.text.apply_pin(self).get().into();
 
                 // FIXME: respect grapheme boundaries
@@ -931,7 +931,7 @@ impl Item for TextInput {
                     .get()
                     .max(0)
                     .min(text.len() as i32) as usize;
-                let ch = char::try_from(*ch_code).unwrap().to_string();
+                let ch = char::try_from(*unicode_scalar).unwrap().to_string();
                 text.insert_str(insert_pos, &ch);
 
                 Self::FIELD_OFFSETS.text.apply_pin(self).set(text.into());
@@ -946,23 +946,23 @@ impl Item for TextInput {
 
                 KeyEventResult::EventAccepted
             }
-            KeyEvent::KeyPressed(code) if *code == crate::input::KeyCode::Right => {
+            KeyEvent::KeyPressed { code, .. } if *code == crate::input::KeyCode::Right => {
                 TextInput::move_cursor(self, TextCursorDirection::Forward, window);
                 KeyEventResult::EventAccepted
             }
-            KeyEvent::KeyPressed(code) if *code == crate::input::KeyCode::Left => {
+            KeyEvent::KeyPressed { code, .. } if *code == crate::input::KeyCode::Left => {
                 TextInput::move_cursor(self, TextCursorDirection::Backward, window);
                 KeyEventResult::EventAccepted
             }
-            KeyEvent::KeyPressed(code) if *code == crate::input::KeyCode::Back => {
+            KeyEvent::KeyPressed { code, .. } if *code == crate::input::KeyCode::Back => {
                 TextInput::delete_previous(self, window);
                 KeyEventResult::EventAccepted
             }
-            KeyEvent::KeyPressed(code) if *code == crate::input::KeyCode::Delete => {
+            KeyEvent::KeyPressed { code, .. } if *code == crate::input::KeyCode::Delete => {
                 TextInput::delete_char(self);
                 KeyEventResult::EventAccepted
             }
-            KeyEvent::KeyPressed(code) if *code == crate::input::KeyCode::Return => {
+            KeyEvent::KeyPressed { code, .. } if *code == crate::input::KeyCode::Return => {
                 Self::FIELD_OFFSETS.accepted.apply_pin(self).emit(&());
                 KeyEventResult::EventAccepted
             }

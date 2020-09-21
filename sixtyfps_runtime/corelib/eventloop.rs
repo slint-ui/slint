@@ -99,6 +99,12 @@ pub trait GenericWindow {
     );
     /// Installs a binding on the specified property that's toggled whenever the text cursor is supposed to be visible or not.
     fn set_cursor_blink_binding(&self, prop: &crate::properties::Property<bool>);
+
+    /// Returns the currently active keyboard notifiers.
+    fn current_keyboard_modifiers(&self) -> crate::input::KeyboardModifiers;
+    /// Sets the currently active keyboard notifiers. This is used only for testing or directly
+    /// from the event loop implementation.
+    fn set_current_keyboard_modifiers(&self, modifiers: crate::input::KeyboardModifiers);
 }
 
 /// The ComponentWindow is the (rust) facing public type that can render the items
@@ -359,7 +365,9 @@ impl EventLoop {
                         if let Some(Some(window)) =
                             windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
                         {
-                            if let Some(ref key_event) = input.try_into().ok() {
+                            if let Some(ref key_event) =
+                                (input, window.current_keyboard_modifiers()).try_into().ok()
+                            {
                                 window.clone().process_key_input(key_event, component);
                                 // FIXME: remove this, it should be based on actual changes rather than this
                                 window.request_redraw();
@@ -377,13 +385,28 @@ impl EventLoop {
                             if let Some(Some(window)) =
                                 windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
                             {
-                                let key_event = KeyEvent::CharacterInput(ch.into());
+                                let key_event = KeyEvent::CharacterInput {
+                                    unicode_scalar: ch.into(),
+                                    modifiers: window.current_keyboard_modifiers(),
+                                };
                                 window.clone().process_key_input(&key_event, component);
                                 // FIXME: remove this, it should be based on actual changes rather than this
                                 window.request_redraw();
                             }
                         });
                     }
+                }
+                winit::event::Event::WindowEvent {
+                    ref window_id,
+                    event: winit::event::WindowEvent::ModifiersChanged(state),
+                } => {
+                    ALL_WINDOWS.with(|windows| {
+                        if let Some(Some(window)) =
+                            windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
+                        {
+                            window.set_current_keyboard_modifiers(state.into());
+                        }
+                    });
                 }
 
                 _ => (),

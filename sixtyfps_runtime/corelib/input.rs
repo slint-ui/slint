@@ -244,32 +244,125 @@ pub enum KeyCode {
     Cut,
 }
 
+/// KeyboardModifiers wraps a u32 that reserves a single bit for each
+/// possible modifier key on a keyboard, such as Shift, Control, etc.
+///
+/// On macOS, the command key is mapped to the logo modifier.
+///
+/// On Windows, the windows key is mapped to the logo modifier.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct KeyboardModifiers(u32);
+/// KeyboardModifier wraps a u32 that has a single bit set to represent
+/// a modifier key such as shift on a keyboard. Convenience constants such as
+/// [`NO_MODIFIER`], [`SHIFT_MODIFIER`], [`CONTROL_MODIFIER`], [`ALT_MODIFIER`]
+/// and [`LOGO_MODIFIER`] are provided.
+#[derive(Copy, Clone, Debug)]
+pub struct KeyboardModifier(u32);
+/// Convenience constant that indicates no modifier key being pressed on a keyboard.
+pub const NO_MODIFIER: KeyboardModifier = KeyboardModifier(0);
+/// Convenience constant that indicates the shift key being pressed on a keyboard.
+pub const SHIFT_MODIFIER: KeyboardModifier =
+    KeyboardModifier(winit::event::ModifiersState::SHIFT.bits());
+/// Convenience constant that indicates the control key being pressed on a keyboard.
+pub const CONTROL_MODIFIER: KeyboardModifier =
+    KeyboardModifier(winit::event::ModifiersState::CTRL.bits());
+/// Convenience constant that indicates the control key being pressed on a keyboard.
+pub const ALT_MODIFIER: KeyboardModifier =
+    KeyboardModifier(winit::event::ModifiersState::ALT.bits());
+/// Convenience constant that on macOS indicates the command key and on Windows the
+/// windows key being pressed on a keyboard.
+pub const LOGO_MODIFIER: KeyboardModifier =
+    KeyboardModifier(winit::event::ModifiersState::LOGO.bits());
+
+impl KeyboardModifiers {
+    /// Returns true if this set of keyboard modifiers includes the given modifier; false otherwise.
+    ///
+    /// Arguments:
+    /// * `modifier`: The keyboard modifier to test for, usually one of the provided convenience
+    ///               constants such as [`SHIFT_MODIFIER`].
+    pub fn test(&self, modifier: KeyboardModifier) -> bool {
+        self.0 & modifier.0 != 0
+    }
+
+    /// Returns true if the shift key is part of this set of keyboard modifiers.
+    pub fn shift(&self) -> bool {
+        self.test(SHIFT_MODIFIER)
+    }
+
+    /// Returns true if the control key is part of this set of keyboard modifiers.
+    pub fn control(&self) -> bool {
+        self.test(CONTROL_MODIFIER)
+    }
+
+    /// Returns true if the alt key is part of this set of keyboard modifiers.
+    pub fn alt(&self) -> bool {
+        self.test(ALT_MODIFIER)
+    }
+
+    /// Returns true if on macOS the command key and on Windows the Windows key is part of this
+    /// set of keyboard modifiers.
+    pub fn logo(&self) -> bool {
+        self.test(LOGO_MODIFIER)
+    }
+}
+
+impl Default for KeyboardModifiers {
+    fn default() -> Self {
+        Self(NO_MODIFIER.0)
+    }
+}
+
+impl From<winit::event::ModifiersState> for KeyboardModifiers {
+    fn from(state: winit::event::ModifiersState) -> Self {
+        Self(state.bits())
+    }
+}
+
 /// Represents a key event sent by the windowing system.
 #[derive(Debug, Clone, PartialEq)]
 #[repr(C)]
 pub enum KeyEvent {
     /// A key on a keyboard was pressed.
-    KeyPressed(KeyCode),
+    KeyPressed {
+        /// The key code of the pressed key.
+        code: KeyCode,
+        /// The keyboard modifiers active at the time of the key press event.
+        modifiers: KeyboardModifiers,
+    },
     /// A key on a keyboard was released.
-    KeyReleased(KeyCode),
+    KeyReleased {
+        /// The key code of the released key.
+        code: KeyCode,
+        /// The keyboard modifiers active at the time of the key release event.
+        modifiers: KeyboardModifiers,
+    },
     /// A key on a keyboard was released that results in
-    /// a character that's suitable for text input. The provided
-    /// u32 is a unicode scalar value that is safe to convert to
-    /// char.
-    CharacterInput(u32),
+    /// a character that's suitable for text input.
+    CharacterInput {
+        /// The u32 is a unicode scalar value that is safe to convert to char.
+        unicode_scalar: u32,
+        /// The keyboard modifiers active at the time of the char input event.
+        modifiers: KeyboardModifiers,
+    },
 }
 
-impl TryFrom<&winit::event::KeyboardInput> for KeyEvent {
+impl TryFrom<(&winit::event::KeyboardInput, KeyboardModifiers)> for KeyEvent {
     type Error = ();
 
-    fn try_from(input: &winit::event::KeyboardInput) -> Result<Self, Self::Error> {
-        let key_code = match input.virtual_keycode {
+    fn try_from(
+        input: (&winit::event::KeyboardInput, KeyboardModifiers),
+    ) -> Result<Self, Self::Error> {
+        let key_code = match input.0.virtual_keycode {
             Some(code) => code.into(),
             None => return Err(()),
         };
-        Ok(match input.state {
-            winit::event::ElementState::Pressed => KeyEvent::KeyPressed(key_code),
-            winit::event::ElementState::Released => KeyEvent::KeyReleased(key_code),
+        Ok(match input.0.state {
+            winit::event::ElementState::Pressed => {
+                KeyEvent::KeyPressed { code: key_code, modifiers: input.1 }
+            }
+            winit::event::ElementState::Released => {
+                KeyEvent::KeyReleased { code: key_code, modifiers: input.1 }
+            }
         })
     }
 }
