@@ -251,12 +251,14 @@ pub enum KeyCode {
 ///
 /// On Windows, the windows key is mapped to the logo modifier.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[repr(C)]
 pub struct KeyboardModifiers(u32);
 /// KeyboardModifier wraps a u32 that has a single bit set to represent
 /// a modifier key such as shift on a keyboard. Convenience constants such as
 /// [`NO_MODIFIER`], [`SHIFT_MODIFIER`], [`CONTROL_MODIFIER`], [`ALT_MODIFIER`]
 /// and [`LOGO_MODIFIER`] are provided.
 #[derive(Copy, Clone, Debug)]
+#[repr(C)]
 pub struct KeyboardModifier(u32);
 /// Convenience constant that indicates no modifier key being pressed on a keyboard.
 pub const NO_MODIFIER: KeyboardModifier = KeyboardModifier(0);
