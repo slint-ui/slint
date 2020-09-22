@@ -335,7 +335,7 @@ void initQSpinBoxOptions(QStyleOptionSpinBox &option, bool pressed, int active_c
     if (style->styleHint(QStyle::SH_SpinBox_ButtonsInsideFrame, nullptr, nullptr))
         option.subControls |= QStyle::SC_SpinBoxFrame;
     option.activeSubControls = {active_controls};
-    option.state = QStyle::State_Enabled | QStyle::State_Active | QStyle::State_Horizontal;
+    option.state = QStyle::State_Enabled | QStyle::State_Active;
     if (pressed) {
         option.state |= QStyle::State_Sunken | QStyle::State_MouseOver;
     }
@@ -978,7 +978,7 @@ impl Item for NativeScrollArea {
             auto [img, rect] = offline_style_rendering_image(size, dpr);
             QPainter p(&img);
 
-            auto init_scrollbar = [&](QStyleOptionSlider &option, int tot_size, int vp_size, int vp_pos) {
+            auto init_scrollbar = [&, rect](QStyleOptionSlider &option, int tot_size, int vp_size, int vp_pos) {
                 initQSliderOptions(option, false, 0, 0, vp_size - tot_size, -vp_pos);
                 option.rect = rect;
                 option.subControls = QStyle::SC_All;
