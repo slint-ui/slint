@@ -33,9 +33,22 @@ members = [
     'tests/rustdriver'
 ]
 
-exclude = [
-    # Exclude the wasm crates from a normal build, they must be build separetaly with the wasm tools
-    'examples/gallery/wasm',
-    'examples/printerdemo/wasm',
-    'api/sixtyfps-wasm-interpreter',
+default-members = [
+    'sixtyfps_runtime/corelib',
+    'sixtyfps_runtime/interpreter',
+    'sixtyfps_runtime/rendering_backends/gl',
+    'sixtyfps_runtime/rendering_backends/qt',
+    'sixtyfps_runtime/rendering_backends/default',
+    'sixtyfps_compiler',
+    'api/sixtyfps-rs',
+    'api/sixtyfps-rs/sixtyfps-build',
+    'api/sixtyfps-node/native',
+    'tools/compiler',
+    'tools/viewer',
+    'tools/syntax_updater',
+    'examples/gallery',
+    'examples/printerdemo/rust',
+    'examples/todo/rust',
+    'tests/driver',
+    'tests/rustdriver'
 ]
