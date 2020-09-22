@@ -683,8 +683,13 @@ impl Item for Flickable {
         _window: &ComponentWindow,
     ) -> InputEventResult {
         self.data.handle_mouse(self, event);
-        // FIXME
-        InputEventResult::EventAccepted
+
+        if event.what == MouseEventType::MousePressed || event.what == MouseEventType::MouseMoved {
+            // FIXME
+            InputEventResult::GrabMouse
+        } else {
+            InputEventResult::EventAccepted
+        }
     }
 
     fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {

@@ -20,7 +20,7 @@ use std::convert::TryFrom;
 
 /// The type of a MouseEvent
 #[repr(C)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum MouseEventType {
     /// The mouse was pressed
     MousePressed,
