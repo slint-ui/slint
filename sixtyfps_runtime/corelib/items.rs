@@ -27,11 +27,13 @@ When adding an item or a property, it needs to be kept in sync with different pl
 
 use super::eventloop::ComponentWindow;
 use super::graphics::{Color, HighLevelRenderingPrimitive, PathData, Rect, Resource};
-use super::input::{InputEventResult, KeyEvent, KeyEventResult, MouseEvent, MouseEventType};
+use super::input::{
+    InputEventResult, KeyEvent, KeyEventResult, KeyboardModifiers, MouseEvent, MouseEventType,
+};
 use super::item_rendering::CachedRenderingData;
 use super::layout::LayoutInfo;
 #[cfg(feature = "rtti")]
-use crate::{input::KeyboardModifiers, rtti::*};
+use crate::rtti::*;
 use crate::{Property, SharedString, Signal};
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
