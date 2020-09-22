@@ -48,18 +48,19 @@ impl Font {
             .fold(0., |width, glyph| width + glyph.advance)
     }
 
-    pub fn text_index_for_x_position(&self, text: &str, x: f32) -> usize {
-        let mut index = 0;
+    pub fn text_offset_for_x_position<'a>(&self, text: &'a str, x: f32) -> usize {
+        let mut char_offset_it = text.char_indices().map(|(offset, _)| offset);
 
         let mut current_x = 0.;
+        let mut current_offset = 0;
         // This assumes a 1:1 mapping between glyphs and characters right now -- this is wrong.
         for (_, glyph_id) in self.string_to_glyphs(text) {
             let metrics = self.glyph_metrics(glyph_id);
 
             if current_x + metrics.advance / 2. >= x {
-                return index;
+                return current_offset;
             }
-            index += 1;
+            current_offset = char_offset_it.next().unwrap();
             current_x += metrics.advance;
         }
 

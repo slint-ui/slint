@@ -27,17 +27,17 @@ impl Font {
         text_metrics.width() as _
     }
 
-    pub fn text_index_for_x_position(&self, text: &str, x: f32) -> usize {
+    pub fn text_offset_for_x_position(&self, text: &str, x: f32) -> usize {
         // This is pretty cruel ...
         let mut last_width = 0.;
-        for index in 1..text.len() {
-            let new_width = self.text_width(&text[0..index]);
+        for offset in text.char_indices().map(|(offset, _)| offset) {
+            let new_width = self.text_width(&text[0..offset]);
 
             if new_width > last_width {
                 let advance = new_width - last_width;
 
                 if last_width + advance / 2. >= x {
-                    return index;
+                    return offset;
                 }
 
                 last_width = new_width;

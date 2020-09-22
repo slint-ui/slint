@@ -835,8 +835,8 @@ pub struct TextInput {
     pub y: Property<f32>,
     pub width: Property<f32>,
     pub height: Property<f32>,
-    pub cursor_position: Property<i32>,
-    pub anchor_position: Property<i32>,
+    pub cursor_position: Property<i32>, // byte offset,
+    pub anchor_position: Property<i32>, // byte offset
     pub text_cursor_width: Property<f32>,
     pub cursor_visible: Property<bool>,
     pub accepted: Signal<()>,
@@ -952,16 +952,16 @@ impl Item for TextInput {
             InputEventResult::GrabMouse
         };
 
-        let clicked_index = TextInput::with_font(self, window, |font| {
+        let clicked_offset = TextInput::with_font(self, window, |font| {
             let text = Self::FIELD_OFFSETS.text.apply_pin(self).get();
-            font.text_index_for_x_position(&text, event.pos.x)
+            font.text_offset_for_x_position(&text, event.pos.x)
         }) as i32;
 
         if matches!(event.what, MouseEventType::MousePressed) {
             self.as_ref().pressed.set(true);
             self.as_ref().show_cursor(window);
-            self.as_ref().anchor_position.set(clicked_index);
-            self.as_ref().cursor_position.set(clicked_index);
+            self.as_ref().anchor_position.set(clicked_offset);
+            self.as_ref().cursor_position.set(clicked_offset);
         }
 
         match event.what {
@@ -969,7 +969,7 @@ impl Item for TextInput {
                 self.as_ref().pressed.set(false);
             }
             MouseEventType::MouseMoved if self.as_ref().pressed.get() => {
-                self.as_ref().cursor_position.set(clicked_index);
+                self.as_ref().cursor_position.set(clicked_offset);
             }
             _ => {}
         }
