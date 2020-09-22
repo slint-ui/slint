@@ -99,7 +99,7 @@ pub struct Component {
 
     /// When creating this component and inserting "children", append them to the children of
     /// the element pointer to by this field.
-    pub child_insertion_point: Option<ElementRc>,
+    pub child_insertion_point: RefCell<Option<ElementRc>>,
 }
 
 impl Component {
@@ -109,7 +109,7 @@ impl Component {
         tr: &TypeRegister,
     ) -> Rc<Self> {
         let mut child_insertion_point = None;
-        let mut c = Component {
+        let c = Component {
             id: node.child_text(SyntaxKind::Identifier).unwrap_or_default(),
             root_element: Element::from_node(
                 node.Element(),
@@ -119,9 +119,9 @@ impl Component {
                 diag,
                 tr,
             ),
+            child_insertion_point: RefCell::new(child_insertion_point),
             ..Default::default()
         };
-        c.child_insertion_point = child_insertion_point;
         let c = Rc::new(c);
         let weak = Rc::downgrade(&c);
         recurse_elem(&c.root_element, &(), &mut |e, _| {

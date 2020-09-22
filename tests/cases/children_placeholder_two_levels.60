@@ -1,0 +1,56 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+Container := Rectangle {
+    GridLayout {
+        Row {
+            Rectangle {
+                color: green;
+            }
+            $children
+        }
+    }
+}
+
+MegaContainer := Rectangle {
+    Container {
+        $children
+        width: parent.width;
+        height: parent.height;
+    }
+}
+
+TestCase := MegaContainer {
+    width: 300px;
+    height: 200px;
+
+    rect1 := Rectangle {
+        color: black;
+    }
+
+
+    property <bool> rect1_pos_ok: rect1.x == 150px;
+}
+/*
+```cpp
+TestCase instance;
+TestCase::compute_layout({&TestCase::component_type, &instance });
+assert(instance.get_rect1_pos_ok());
+```
+
+
+```rust
+let instance = TestCase::new();
+let instance = instance.as_ref();
+use sixtyfps::re_exports::Component;
+instance.compute_layout();
+assert!(instance.get_rect1_pos_ok());
+```
+*/

@@ -80,11 +80,17 @@ fn inline_element(
 
     match inlined_component
         .child_insertion_point
+        .borrow()
         .as_ref()
         .and_then(|elem| mapping.get(&element_key(elem.clone())))
     {
         Some(insertion_element) if !Rc::ptr_eq(elem, insertion_element) => {
             insertion_element.borrow_mut().children.append(&mut elem_mut.children);
+            root_component.child_insertion_point.borrow_mut().as_mut().map(|cip| {
+                if Rc::ptr_eq(cip, elem) {
+                    *cip = insertion_element.clone();
+                }
+            });
         }
         _ => {
             new_children.append(&mut elem_mut.children);
