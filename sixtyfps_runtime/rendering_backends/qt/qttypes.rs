@@ -87,8 +87,8 @@ pub struct QSize {
 #[repr(C)]
 #[derive(Default, Clone, Copy, PartialEq, Debug)]
 pub struct QPoint {
-    pub x: u32,
-    pub y: u32,
+    pub x: i32,
+    pub y: i32,
 }
 
 #[repr(C)]

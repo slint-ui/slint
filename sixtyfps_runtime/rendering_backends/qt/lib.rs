@@ -7,7 +7,7 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-#![recursion_limit = "256"]
+#![recursion_limit = "512"]
 
 #[cfg(not(no_qt))]
 mod qttypes;
@@ -42,7 +42,8 @@ pub type NativeWidgets =
     (widgets::NativeSpinBox,
     (widgets::NativeGroupBox,
     (widgets::NativeLineEdit,
-            ()))))));
+    (widgets::NativeScrollArea,
+            ())))))));
 
 pub mod native_widgets {
     #[cfg(not(no_qt))]

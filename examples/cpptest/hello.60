@@ -8,6 +8,8 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
+import { ScrollArea } from "sixtyfps_widgets.60";
+
 component TwoRectangle := Rectangle {
 
     signal clicked;
@@ -47,7 +49,17 @@ component ButtonRectangle := Rectangle {
     }
 }
 
-Hello := Flickable {
+FlickWin := Window {
+    ScrollArea {
+        width: parent.width;
+        height: parent.height;
+        $children
+        viewport_width: 3000lx;
+        viewport_height: 3000lx;
+    }
+}
+
+Hello := FlickWin {
 
     signal foobar;
     signal plus_clicked;

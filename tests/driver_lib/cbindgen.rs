@@ -226,6 +226,7 @@ fn gen_backend_qt(include_dir: &Path) -> anyhow::Result<()> {
         "NativeSlider",
         "NativeGroupBox",
         "NativeLineEdit",
+        "NativeScrollArea",
     ]
     .iter()
     .map(|x| x.to_string())

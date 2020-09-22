@@ -267,3 +267,18 @@ export LineEdit := Rectangle {
         }
     }
 }
+
+export ScrollArea := Rectangle {
+    property <length> viewport_width;
+    property <length> viewport_height;
+    border_width: 1lx;
+    border_color: #d0d3cf;
+    color: white;
+    Flickable {
+        width: parent.width;
+        height: parent.height;
+        viewport_width: parent.viewport_width;
+        viewport_height: parent.viewport_height;
+        $children
+    }
+}

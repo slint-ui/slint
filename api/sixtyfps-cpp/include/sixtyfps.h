@@ -46,6 +46,7 @@ extern const cbindgen_private::ItemVTable NativeSpinBoxVTable;
 extern const cbindgen_private::ItemVTable NativeSliderVTable;
 extern const cbindgen_private::ItemVTable NativeGroupBoxVTable;
 extern const cbindgen_private::ItemVTable NativeLineEditVTable;
+extern const cbindgen_private::ItemVTable NativeScrollArea;
 }
 }
 

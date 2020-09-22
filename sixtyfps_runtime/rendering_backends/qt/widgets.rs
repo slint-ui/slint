@@ -53,6 +53,7 @@ cpp! {{
     #include <QtWidgets/QStyleOption>
     #include <QtWidgets/QStyleFactory>
     #include <QtGui/QPainter>
+    #include <QtCore/QDebug>
 
     void ensure_initialized()
     {
@@ -334,7 +335,7 @@ void initQSpinBoxOptions(QStyleOptionSpinBox &option, bool pressed, int active_c
     if (style->styleHint(QStyle::SH_SpinBox_ButtonsInsideFrame, nullptr, nullptr))
         option.subControls |= QStyle::SC_SpinBoxFrame;
     option.activeSubControls = {active_controls};
-    option.state = QStyle::State_Enabled | QStyle::State_Active;
+    option.state = QStyle::State_Enabled | QStyle::State_Active | QStyle::State_Horizontal;
     if (pressed) {
         option.state |= QStyle::State_Sunken | QStyle::State_MouseOver;
     }
@@ -436,7 +437,7 @@ impl Item for NativeSpinBox {
         let active_controls = data.active_controls;
         let pressed = data.pressed;
 
-        let pos = qttypes::QPoint { x: event.pos.x as u32, y: event.pos.y as u32 };
+        let pos = qttypes::QPoint { x: event.pos.x as _, y: event.pos.y as _ };
 
         let new_control = cpp!(unsafe [
             pos as "QPoint",
@@ -627,7 +628,7 @@ impl Item for NativeSlider {
         let mut data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
         let active_controls = data.active_controls;
         let pressed = data.pressed;
-        let pos = qttypes::QPoint { x: event.pos.x as u32, y: event.pos.y as u32 };
+        let pos = qttypes::QPoint { x: event.pos.x as _, y: event.pos.y as _ };
 
         let new_control = cpp!(unsafe [
             pos as "QPoint",
@@ -917,3 +918,149 @@ impl ItemConsts for NativeLineEdit {
 }
 
 ItemVTable_static! { #[no_mangle] pub static NativeLineEditVTable for NativeLineEdit }
+
+#[repr(C)]
+#[derive(FieldOffsets, Default, BuiltinItem)]
+#[pin]
+pub struct NativeScrollArea {
+    pub x: Property<f32>,
+    pub y: Property<f32>,
+    pub width: Property<f32>,
+    pub height: Property<f32>,
+    pub cached_rendering_data: CachedRenderingData,
+    pub native_padding_left: Property<f32>,
+    pub native_padding_right: Property<f32>,
+    pub native_padding_top: Property<f32>,
+    pub native_padding_bottom: Property<f32>,
+    pub viewport_height: Property<f32>,
+    pub viewport_width: Property<f32>,
+    pub viewport_x: Property<f32>,
+    pub viewport_y: Property<f32>,
+}
+
+impl Item for NativeScrollArea {
+    fn geometry(self: Pin<&Self>) -> Rect {
+        euclid::rect(
+            Self::FIELD_OFFSETS.x.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.y.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.width.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.height.apply_pin(self).get(),
+        )
+    }
+    fn rendering_primitive(
+        self: Pin<&Self>,
+        window: &ComponentWindow,
+    ) -> HighLevelRenderingPrimitive {
+        let size: qttypes::QSize = get_size!(self);
+        let dpr = window.scale_factor();
+        let vp_offset = qttypes::QPoint {
+            x: Self::FIELD_OFFSETS.viewport_x.apply_pin(self).get() as _,
+            y: Self::FIELD_OFFSETS.viewport_y.apply_pin(self).get() as _,
+        };
+        let vp_size = qttypes::QSize {
+            width: Self::FIELD_OFFSETS.viewport_width.apply_pin(self).get() as _,
+            height: Self::FIELD_OFFSETS.viewport_height.apply_pin(self).get() as _,
+        };
+        let paddings = qttypes::QMargins {
+            left: Self::FIELD_OFFSETS.native_padding_left.apply_pin(self).get() as _,
+            top: Self::FIELD_OFFSETS.native_padding_top.apply_pin(self).get() as _,
+            right: Self::FIELD_OFFSETS.native_padding_right.apply_pin(self).get() as _,
+            bottom: Self::FIELD_OFFSETS.native_padding_bottom.apply_pin(self).get() as _,
+        };
+
+        let img = cpp!(unsafe [
+            size as "QSize",
+            vp_offset as "QPoint",
+            vp_size as "QSize",
+            paddings as "QMargins",
+            dpr as "float"
+        ] -> qttypes::QImage as "QImage" {
+            auto [img, rect] = offline_style_rendering_image(size, dpr);
+            QPainter p(&img);
+
+            auto init_scrollbar = [&](QStyleOptionSlider &option, int tot_size, int vp_size, int vp_pos) {
+                initQSliderOptions(option, false, 0, 0, vp_size - tot_size, -vp_pos);
+                option.rect = rect;
+                option.subControls = QStyle::SC_All;
+            };
+
+            // Horizonral scrollbar
+            QStyleOptionSlider option;
+            init_scrollbar(option, size.width() - paddings.left() - paddings.right(), vp_size.width(), vp_offset.x());
+
+            int hExtent = qApp->style()->pixelMetric(QStyle::PM_ScrollBarExtent, &option, global_widget());
+            int hSliderMin = qApp->style()->pixelMetric(QStyle::PM_ScrollBarSliderMin, &option, global_widget());
+            auto hSize = qApp->style()->sizeFromContents(QStyle::CT_ScrollBar, &option, QSize(hExtent * 2 + hSliderMin, hExtent), global_widget());
+            option.rect.setTop(rect.height() - hSize.height());
+            qApp->style()->drawComplexControl(QStyle::CC_ScrollBar, &option, &p, global_widget());
+
+            // Vertical Scrollbar
+            init_scrollbar(option, size.height() - paddings.top() - paddings.bottom(), vp_size.height(), vp_offset.y());
+            option.state ^= QStyle::State_Horizontal;
+            option.orientation = Qt::Vertical;
+
+            int vExtent = qApp->style()->pixelMetric(QStyle::PM_ScrollBarExtent, &option, global_widget());
+            int vSliderMin = qApp->style()->pixelMetric(QStyle::PM_ScrollBarSliderMin, &option, global_widget());
+            auto vSize = qApp->style()->sizeFromContents(QStyle::CT_ScrollBar, &option, QSize(vExtent, vExtent * 2 + vSliderMin), global_widget());
+            option.rect.setLeft(rect.width() - vSize.width());
+            qApp->style()->drawComplexControl(QStyle::CC_ScrollBar, &option, &p, global_widget());
+
+            return img;
+        });
+        return HighLevelRenderingPrimitive::Image { source: to_resource(img) };
+    }
+
+    fn rendering_variables(
+        self: Pin<&Self>,
+        _window: &ComponentWindow,
+    ) -> SharedArray<RenderingVariable> {
+        SharedArray::default()
+    }
+
+    fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
+        let dpr = window.scale_factor();
+
+        let paddings = cpp!(unsafe [
+            dpr as "float"
+        ] -> qttypes::QMargins as "QMargins" {
+            ensure_initialized();
+
+            QStyleOptionSlider option;
+            // int overlap = qApp->style()->pixelMetric(QStyle::PM_ScrollView_ScrollBarOverlap, &option, global_widget());
+
+            initQSliderOptions(option, false, 0, 0, 1000, 1000);
+            int hExtent = qApp->style()->pixelMetric(QStyle::PM_ScrollBarExtent, &option, global_widget());
+            int hSliderMin = qApp->style()->pixelMetric(QStyle::PM_ScrollBarSliderMin, &option, global_widget());
+            auto hSize = qApp->style()->sizeFromContents(QStyle::CT_ScrollBar, &option, QSize(hExtent * 2 + hSliderMin, hExtent), global_widget());
+            option.state ^= QStyle::State_Horizontal;
+            int vExtent = qApp->style()->pixelMetric(QStyle::PM_ScrollBarExtent, &option, global_widget());
+            int vSliderMin = qApp->style()->pixelMetric(QStyle::PM_ScrollBarSliderMin, &option, global_widget());
+            auto vSize = qApp->style()->sizeFromContents(QStyle::CT_ScrollBar, &option, QSize(vExtent, vExtent * 2 + vSliderMin), global_widget());
+            return { 0, 0, qRound(vSize.width() * dpr), qRound(hSize.height() * dpr) };
+        });
+        self.native_padding_left.set(paddings.left as _);
+        self.native_padding_right.set(paddings.right as _);
+        self.native_padding_top.set(paddings.top as _);
+        self.native_padding_bottom.set(paddings.bottom as _);
+        LayoutInfo {
+            min_width: (paddings.left + paddings.right) as _,
+            min_height: (paddings.top + paddings.bottom) as _,
+            ..LayoutInfo::default()
+        }
+    }
+
+    fn input_event(self: Pin<&Self>, _: MouseEvent, _window: &ComponentWindow) -> InputEventResult {
+        InputEventResult::EventIgnored
+    }
+
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
+}
+
+impl ItemConsts for NativeScrollArea {
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
+        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+}
+
+ItemVTable_static! { #[no_mangle] pub static NativeScrollAreaVTable for NativeScrollArea }

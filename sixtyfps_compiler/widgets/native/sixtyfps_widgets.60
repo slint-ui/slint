@@ -40,3 +40,15 @@ export LineEdit := NativeLineEdit {
         }
     }
 }
+
+export ScrollArea := NativeScrollArea {
+    viewport_x: f.viewport_x;
+    viewport_y: f.viewport_y;
+    f:= Flickable {
+        width: parent.width;
+        height: parent.height;
+        viewport_width: parent.viewport_width;
+        viewport_height: parent.viewport_height;
+        $children
+    }
+}

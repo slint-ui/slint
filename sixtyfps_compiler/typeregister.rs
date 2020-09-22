@@ -860,6 +860,25 @@ impl TypeRegister {
             ],
             &[],
         );
+        native_class(
+            &mut r,
+            "NativeScrollArea",
+            &[
+                ("x", Type::Length),
+                ("y", Type::Length),
+                ("width", Type::Length),
+                ("height", Type::Length),
+                ("native_padding_left", Type::Length),
+                ("native_padding_right", Type::Length),
+                ("native_padding_top", Type::Length),
+                ("native_padding_bottom", Type::Length),
+                ("viewport_height", Type::Length),
+                ("viewport_width", Type::Length),
+                ("viewport_x", Type::Length),
+                ("viewport_y", Type::Length),
+            ],
+            &[],
+        );
 
         Rc::new(RefCell::new(r))
     }
