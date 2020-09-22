@@ -617,6 +617,12 @@ impl TypeRegister {
                 ("y", Type::Length),
                 ("width", Type::Length),
                 ("height", Type::Length),
+                // These properties are actually going to be forwarded to the viewport by the
+                // code generator
+                ("viewport_height", Type::Length),
+                ("viewport_width", Type::Length),
+                ("viewport_x", Type::Length),
+                ("viewport_y", Type::Length),
             ],
             &[],
         );

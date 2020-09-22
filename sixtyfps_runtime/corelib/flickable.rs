@@ -93,13 +93,11 @@ impl FlickableData {
 fn ensure_in_bound(flick: Pin<&Flickable>, p: Point) -> Point {
     let w = (Flickable::FIELD_OFFSETS.width).apply_pin(flick).get();
     let h = (Flickable::FIELD_OFFSETS.height).apply_pin(flick).get();
-    /*let vw = (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.width)
-        .apply_pin(flick)
-        .get();
+    let vw =
+        (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.width).apply_pin(flick).get();
     let vh = (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.height)
         .apply_pin(flick)
-        .get();*/
-    let (vw, vh) = (1000., 1000.); // FIXME: should be the actual viewport
+        .get();
 
     let min = Point::new(w - vw, h - vh);
     let max = Point::new(0., 0.);

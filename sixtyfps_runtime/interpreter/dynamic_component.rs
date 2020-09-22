@@ -290,18 +290,68 @@ pub(crate) struct ItemRTTI {
 
 fn rtti_for<T: 'static + Default + rtti::BuiltinItem + vtable::HasStaticVTable<ItemVTable>>(
 ) -> (&'static str, Rc<ItemRTTI>) {
-    (
-        T::name(),
-        Rc::new(ItemRTTI {
-            vtable: T::static_vtable(),
-            type_info: dynamic_type::StaticTypeInfo::new::<T>(),
-            properties: T::properties()
-                .into_iter()
-                .map(|(k, v)| (k, Box::new(v) as Box<dyn eval::ErasedPropertyInfo>))
-                .collect(),
-            signals: T::signals().into_iter().map(|(k, v)| (k, v.get_byte_offset())).collect(),
+    let rtti = ItemRTTI {
+        vtable: T::static_vtable(),
+        type_info: dynamic_type::StaticTypeInfo::new::<T>(),
+        properties: T::properties()
+            .into_iter()
+            .map(|(k, v)| (k, Box::new(v) as Box<dyn eval::ErasedPropertyInfo>))
+            .collect(),
+        signals: T::signals().into_iter().map(|(k, v)| (k, v.get_byte_offset())).collect(),
+    };
+    (T::name(), Rc::new(rtti))
+}
+
+/// Flickable is special because some of its property applies to the viewport.
+/// This adds the viewport property in the flickable's property list
+fn rtti_for_flickable() -> (&'static str, Rc<ItemRTTI>) {
+    let (name, mut rtti) = rtti_for::<Flickable>();
+
+    use rtti::BuiltinItem;
+    let rect_prop = &["viewport_x", "viewport_y", "viewport_width", "viewport_height"];
+
+    struct FlickableViewPortPropertyInfo(&'static dyn rtti::PropertyInfo<Rectangle, eval::Value>);
+    fn viewport(flick: Pin<ItemRef>) -> Pin<&Rectangle> {
+        Flickable::FIELD_OFFSETS
+            .viewport
+            .apply_pin(ItemRef::downcast_pin::<Flickable>(flick).unwrap())
+    }
+
+    impl eval::ErasedPropertyInfo for FlickableViewPortPropertyInfo {
+        fn get(&self, item: Pin<ItemRef>) -> eval::Value {
+            (*self.0).get(viewport(item)).unwrap()
+        }
+        fn set(
+            &self,
+            item: Pin<ItemRef>,
+            value: eval::Value,
+            animation: Option<PropertyAnimation>,
+        ) {
+            (*self.0).set(viewport(item), value, animation).unwrap()
+        }
+        fn set_binding(
+            &self,
+            item: Pin<ItemRef>,
+            binding: Box<dyn Fn() -> eval::Value>,
+            animation: Option<PropertyAnimation>,
+        ) {
+            (*self.0).set_binding(viewport(item), binding, animation).unwrap();
+        }
+        fn offset(&self) -> usize {
+            (*self.0).offset() + Flickable::FIELD_OFFSETS.viewport.get_byte_offset()
+        }
+    }
+
+    Rc::get_mut(&mut rtti).unwrap().properties.extend(
+        Rectangle::properties().into_iter().filter_map(|(k, v)| {
+            Some((
+                *rect_prop.iter().find(|x| x.ends_with(k))?,
+                Box::new(FlickableViewPortPropertyInfo(v)) as Box<dyn eval::ErasedPropertyInfo>,
+            ))
         }),
-    )
+    );
+
+    (name, rtti)
 }
 
 /// Create a ComponentDescription from a source.
@@ -342,7 +392,7 @@ fn generate_component<'id>(
                 rtti_for::<BorderRectangle>(),
                 rtti_for::<TouchArea>(),
                 rtti_for::<Path>(),
-                rtti_for::<Flickable>(),
+                rtti_for_flickable(),
                 rtti_for::<Window>(),
                 rtti_for::<TextInput>(),
             ]

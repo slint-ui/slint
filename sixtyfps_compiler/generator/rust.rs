@@ -338,12 +338,14 @@ fn generate_component(
             ));
             for (k, binding_expression) in &item.bindings {
                 let rust_property_ident = format_ident!("{}", k);
-                let rust_property_accessor_prefix = if item.property_declarations.contains_key(k) {
-                    proc_macro2::TokenStream::new()
+                let rust_property = if item.property_declarations.contains_key(k) {
+                    quote!(#rust_property_ident)
+                } else if let Some(vp) = super::as_flickable_viewport_property(item_rc, k) {
+                    let rust_property_ident = format_ident!("{}", vp);
+                    quote!(#field_name.viewport.#rust_property_ident)
                 } else {
-                    quote!(#field_name.)
+                    quote!(#field_name.#rust_property_ident)
                 };
-                let rust_property = quote!(#rust_property_accessor_prefix#rust_property_ident);
                 let tokens_for_expression = compile_expression(binding_expression, &component);
 
                 if matches!(item.lookup_property(k.as_str()), Type::Signal{..}) {
@@ -689,6 +691,15 @@ fn access_member(
         let name_ident = format_ident!("{}", name);
         if e.property_declarations.contains_key(name) || is_special {
             quote!(#component_id::FIELD_OFFSETS.#name_ident.apply_pin(#component_rust))
+        } else if let Some(vp) = super::as_flickable_viewport_property(element, name) {
+            let name_ident = format_ident!("{}", vp);
+            let elem_ident = format_ident!("{}", e.id);
+
+            quote!((#component_id::FIELD_OFFSETS.#elem_ident
+                + sixtyfps::re_exports::Flickable::FIELD_OFFSETS.viewport
+                + sixtyfps::re_exports::Rectangle::FIELD_OFFSETS.#name_ident)
+                    .apply_pin(#component_rust)
+            )
         } else {
             let elem_ident = format_ident!("{}", e.id);
             let elem_ty = format_ident!("{}", e.base_type.as_native().class_name);

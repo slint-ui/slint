@@ -306,7 +306,8 @@ fn property_set_binding_code(
     }
 }
 
-fn handle_item(item: &Element, main_struct: &mut Struct, init: &mut Vec<String>) {
+fn handle_item(elem: &ElementRc, main_struct: &mut Struct, init: &mut Vec<String>) {
+    let item = elem.borrow();
     main_struct.members.push((
         Access::Private,
         Declaration::Var(Var {
@@ -349,13 +350,8 @@ fn handle_item(item: &Element, main_struct: &mut Struct, init: &mut Vec<String>)
             let component = &item.enclosing_component.upgrade().unwrap();
 
             let init = compile_expression(i, component);
-            if i.is_constant() {
-                format!(
-                    "{accessor_prefix}{cpp_prop}.set({init});",
-                    accessor_prefix = accessor_prefix,
-                    cpp_prop = s,
-                    init = init
-                )
+            let setter = if i.is_constant() {
+                format!("set({});", init)
             } else {
                 let binding_code = format!(
                     "[this]() {{
@@ -364,14 +360,22 @@ fn handle_item(item: &Element, main_struct: &mut Struct, init: &mut Vec<String>)
                         }}",
                     init = init
                 );
+                property_set_binding_code(component, &item, s, binding_code)
+            };
 
-                let binding_setter = property_set_binding_code(component, item, s, binding_code);
-
+            if let Some(vp) = super::as_flickable_viewport_property(elem, s) {
                 format!(
-                    "{accessor_prefix}{cpp_prop}.{binding_setter};",
+                    "{accessor_prefix}viewport.{cpp_prop}.{setter};",
+                    accessor_prefix = accessor_prefix,
+                    cpp_prop = vp,
+                    setter = setter,
+                )
+            } else {
+                format!(
+                    "{accessor_prefix}{cpp_prop}.{setter};",
                     accessor_prefix = accessor_prefix,
                     cpp_prop = s,
-                    binding_setter = binding_setter,
+                    setter = setter,
                 )
             }
         }
@@ -749,7 +753,7 @@ fn generate_component(
                 if super::is_flickable(item_rc) { 1 } else { item.children.len() },
                 children_offset,
             ));
-            handle_item(&*item, &mut component_struct, &mut init);
+            handle_item(item_rc, &mut component_struct, &mut init);
         }
     });
 
@@ -938,6 +942,8 @@ fn access_member(
     if Rc::ptr_eq(component, &enclosing_component) {
         if e.property_declarations.contains_key(name) || name == "" {
             format!("{}->{}", component_cpp, name)
+        } else if let Some(vp) = super::as_flickable_viewport_property(element, name) {
+            format!("{}->{}.viewport.{}", component_cpp, e.id.as_str(), vp)
         } else {
             format!("{}->{}.{}", component_cpp, e.id.as_str(), name)
         }

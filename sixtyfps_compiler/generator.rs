@@ -137,3 +137,12 @@ pub fn is_flickable(e: &ElementRc) -> bool {
         _ => false,
     }
 }
+
+/// If the element is a Flickable and the property is the property of the viewport, returns the property with the prefix stipped
+pub fn as_flickable_viewport_property<'a>(e: &ElementRc, name: &'a str) -> Option<&'a str> {
+    if is_flickable(e) {
+        name.strip_prefix("viewport_")
+    } else {
+        None
+    }
+}
