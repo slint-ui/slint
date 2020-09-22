@@ -29,9 +29,13 @@ pub struct Font {
 }
 
 impl Font {
-    pub fn string_to_glyphs<'a>(&'a self, text: &'a str) -> impl Iterator<Item = (char, u32)> + 'a {
-        text.chars().map(move |ch| {
+    pub fn string_to_glyphs<'a>(
+        &'a self,
+        text: &'a str,
+    ) -> impl Iterator<Item = (usize, char, u32)> + 'a {
+        text.char_indices().map(move |(offset, ch)| {
             (
+                offset,
                 ch,
                 self.font.glyph_for_char(ch).unwrap_or_else(|| {
                     self.font
@@ -44,23 +48,19 @@ impl Font {
 
     pub fn text_width(&self, text: &str) -> f32 {
         self.string_to_glyphs(text)
-            .map(|(_, glyph)| self.glyph_metrics(glyph))
+            .map(|(_, _, glyph)| self.glyph_metrics(glyph))
             .fold(0., |width, glyph| width + glyph.advance)
     }
 
     pub fn text_offset_for_x_position<'a>(&self, text: &'a str, x: f32) -> usize {
-        let mut char_offset_it = text.char_indices().map(|(offset, _)| offset);
-
         let mut current_x = 0.;
-        let mut current_offset = 0;
         // This assumes a 1:1 mapping between glyphs and characters right now -- this is wrong.
-        for (_, glyph_id) in self.string_to_glyphs(text) {
+        for (offset, _, glyph_id) in self.string_to_glyphs(text) {
             let metrics = self.glyph_metrics(glyph_id);
 
             if current_x + metrics.advance / 2. >= x {
-                return current_offset;
+                return offset;
             }
-            current_offset = char_offset_it.next().unwrap();
             current_x += metrics.advance;
         }
 

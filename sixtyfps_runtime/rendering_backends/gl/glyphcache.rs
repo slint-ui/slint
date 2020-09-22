@@ -76,8 +76,12 @@ impl CachedFontGlyphs {
         atlas: &'a mut TextureAtlas,
         text: &'a str,
     ) -> impl Iterator<Item = &PreRenderedGlyph> + 'a {
-        let glyphs =
-            self.font.clone().string_to_glyphs(text).collect::<smallvec::SmallVec<[(_, _); 32]>>();
+        let glyphs = self
+            .font
+            .clone()
+            .string_to_glyphs(text)
+            .map(|(_, ch, glyph_id)| (ch, glyph_id))
+            .collect::<smallvec::SmallVec<[(_, _); 32]>>();
 
         glyphs.iter().for_each(|(ch, glyph)| {
             if !self.glyphs.contains_key(&glyph) {
