@@ -14,7 +14,8 @@ path = "lib.rs"
 
 [dependencies]
 sixtyfps-corelib = { version="=0.0.1", path = "../../corelib" }
-lyon = { version = "0.16" }
+# Pinned due to nical/lyon#607
+lyon = { version = "~0.15.9" }
 image = { version = "0.23.4", default-features = false }
 cgmath = "0.17.0"
 vtable = { path = "../../../helper_crates/vtable" }
