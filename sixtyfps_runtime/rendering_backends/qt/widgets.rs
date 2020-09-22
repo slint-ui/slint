@@ -978,7 +978,7 @@ impl Item for NativeScrollArea {
             auto [img, rect] = offline_style_rendering_image(size, dpr);
             QPainter p(&img);
 
-            auto init_scrollbar = [&, rect](QStyleOptionSlider &option, int tot_size, int vp_size, int vp_pos) {
+            auto init_scrollbar = [&, rect = QRect(rect)](QStyleOptionSlider &option, int tot_size, int vp_size, int vp_pos) {
                 initQSliderOptions(option, false, 0, 0, vp_size - tot_size, -vp_pos);
                 option.rect = rect;
                 option.subControls = QStyle::SC_All;
