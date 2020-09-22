@@ -1029,7 +1029,7 @@ impl Item for TextInput {
                 KeyEventResult::EventAccepted
             }
             KeyEvent::KeyPressed { code, .. } if *code == crate::input::KeyCode::Delete => {
-                TextInput::delete_char(self);
+                TextInput::delete_char(self, window);
                 KeyEventResult::EventAccepted
             }
             KeyEvent::KeyPressed { code, .. } if *code == crate::input::KeyCode::Return => {
@@ -1131,25 +1131,11 @@ impl TextInput {
         moved
     }
 
-    fn delete_char(self: Pin<&Self>) {
-        if self.has_selection() {
-            self.delete_selection();
-            return;
+    fn delete_char(self: Pin<&Self>, window: &ComponentWindow) {
+        if !self.has_selection() {
+            self.move_cursor(TextCursorDirection::Forward, AnchorMode::KeepAnchor, window);
         }
-
-        let mut text: String = Self::FIELD_OFFSETS.text.apply_pin(self).get().into();
-        if text.len() == 0 {
-            return;
-        }
-
-        let cursor_pos = Self::FIELD_OFFSETS.cursor_position.apply_pin(self).get();
-        if cursor_pos == text.len() as i32 {
-            return;
-        }
-        text.remove(cursor_pos as usize);
-
-        self.cursor_position.set(cursor_pos.min(text.len() as i32));
-        self.text.set(text.into());
+        self.delete_selection();
     }
 
     fn delete_previous(self: Pin<&Self>, window: &ComponentWindow) {
@@ -1158,7 +1144,7 @@ impl TextInput {
             return;
         }
         if self.move_cursor(TextCursorDirection::Backward, AnchorMode::MoveAnchor, window) {
-            self.delete_char();
+            self.delete_char(window);
         }
     }
 
