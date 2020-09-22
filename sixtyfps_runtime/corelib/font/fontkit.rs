@@ -48,6 +48,24 @@ impl Font {
             .fold(0., |width, glyph| width + glyph.advance)
     }
 
+    pub fn text_index_for_x_position(&self, text: &str, x: f32) -> usize {
+        let mut index = 0;
+
+        let mut current_x = 0.;
+        // This assumes a 1:1 mapping between glyphs and characters right now -- this is wrong.
+        for (_, glyph_id) in self.string_to_glyphs(text) {
+            let metrics = self.glyph_metrics(glyph_id);
+
+            if current_x + metrics.advance / 2. >= x {
+                return index;
+            }
+            index += 1;
+            current_x += metrics.advance;
+        }
+
+        text.len()
+    }
+
     pub fn glyph_metrics(&self, glyph: u32) -> GlyphMetrics {
         self.glyph_metrics_cache
             .borrow_mut()

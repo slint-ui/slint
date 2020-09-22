@@ -835,6 +835,7 @@ pub struct TextInput {
     pub text_cursor_width: Property<f32>,
     pub cursor_visible: Property<bool>,
     pub accepted: Signal<()>,
+    pub pressed: std::cell::Cell<bool>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
@@ -940,12 +941,35 @@ impl Item for TextInput {
         event: MouseEvent,
         window: &ComponentWindow,
     ) -> InputEventResult {
-        if matches!(event.what, MouseEventType::MouseReleased) {
-            self.as_ref().show_cursor(window);
+        let result = if matches!(event.what, MouseEventType::MouseReleased) {
             InputEventResult::EventAccepted
         } else {
-            InputEventResult::EventIgnored
+            InputEventResult::GrabMouse
+        };
+
+        let clicked_index = TextInput::with_font(self, window, |font| {
+            let text = Self::FIELD_OFFSETS.text.apply_pin(self).get();
+            font.text_index_for_x_position(&text, event.pos.x)
+        }) as i32;
+
+        if matches!(event.what, MouseEventType::MousePressed) {
+            self.as_ref().pressed.set(true);
+            self.as_ref().show_cursor(window);
+            self.as_ref().anchor_position.set(clicked_index);
+            self.as_ref().cursor_position.set(clicked_index);
         }
+
+        match event.what {
+            MouseEventType::MouseReleased => {
+                self.as_ref().pressed.set(false);
+            }
+            MouseEventType::MouseMoved if self.as_ref().pressed.get() => {
+                self.as_ref().cursor_position.set(clicked_index);
+            }
+            _ => {}
+        }
+
+        result
     }
 
     fn key_event(self: Pin<&Self>, event: &KeyEvent, window: &ComponentWindow) -> KeyEventResult {
