@@ -952,6 +952,8 @@ impl Item for TextInput {
         use std::convert::TryFrom;
         match event {
             KeyEvent::CharacterInput { unicode_scalar, .. } => {
+                self.delete_selection();
+
                 let mut text: String = Self::FIELD_OFFSETS.text.apply_pin(self).get().into();
 
                 // FIXME: respect grapheme boundaries
@@ -964,11 +966,10 @@ impl Item for TextInput {
                 let ch = char::try_from(*unicode_scalar).unwrap().to_string();
                 text.insert_str(insert_pos, &ch);
 
-                Self::FIELD_OFFSETS.text.apply_pin(self).set(text.into());
-                Self::FIELD_OFFSETS
-                    .cursor_position
-                    .apply_pin(self)
-                    .set((insert_pos + ch.len()) as i32);
+                self.as_ref().text.set(text.into());
+                let new_cursor_pos = (insert_pos + ch.len()) as i32;
+                self.as_ref().cursor_position.set(new_cursor_pos);
+                self.as_ref().anchor_position.set(new_cursor_pos);
 
                 // Keep the cursor visible when inserting text. Blinking should only occur when
                 // nothing is entered or the cursor isn't moved.
@@ -1139,6 +1140,9 @@ impl TextInput {
         }
 
         let (anchor, cursor) = self.selection_anchor_and_cursor();
+        if anchor == cursor {
+            return;
+        }
 
         let text = [text.split_at(anchor as usize).0, text.split_at(cursor as usize).1].concat();
         self.cursor_position.set(anchor);
