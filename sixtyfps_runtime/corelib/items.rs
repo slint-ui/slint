@@ -986,12 +986,7 @@ impl Item for TextInput {
                 let mut text: String = Self::FIELD_OFFSETS.text.apply_pin(self).get().into();
 
                 // FIXME: respect grapheme boundaries
-                let insert_pos = Self::FIELD_OFFSETS
-                    .cursor_position
-                    .apply_pin(self)
-                    .get()
-                    .max(0)
-                    .min(text.len() as i32) as usize;
+                let insert_pos = Self::FIELD_OFFSETS.cursor_position.apply_pin(self).get() as usize;
                 let ch = char::try_from(*unicode_scalar).unwrap().to_string();
                 text.insert_str(insert_pos, &ch);
 
@@ -1095,32 +1090,35 @@ impl TextInput {
             return false;
         }
 
-        let mut cursor_pos = Self::FIELD_OFFSETS.cursor_position.apply_pin(self).get() as i32;
+        let last_cursor_pos = Self::FIELD_OFFSETS.cursor_position.apply_pin(self).get() as usize;
 
-        let delta: i32 = match direction {
-            TextCursorDirection::Forward => 1,
-            TextCursorDirection::Backward => -1,
+        let new_cursor_pos = match direction {
+            TextCursorDirection::Forward => {
+                let mut i = last_cursor_pos;
+                loop {
+                    i = i.checked_add(1).unwrap_or_default();
+                    if text.is_char_boundary(i) {
+                        break i;
+                    }
+                }
+            }
+            TextCursorDirection::Backward => {
+                let mut i = last_cursor_pos;
+                loop {
+                    i = i.checked_sub(1).unwrap_or_default();
+                    if text.is_char_boundary(i) {
+                        break i;
+                    }
+                }
+            }
         };
 
-        let mut moved = false;
-
-        loop {
-            if (delta < 0 && cursor_pos == 0) || (delta > 0 && cursor_pos == (text.len() as i32)) {
-                break;
-            }
-            cursor_pos += delta;
-            moved = true;
-            if text.is_char_boundary(cursor_pos as usize) {
-                break;
-            }
-        }
-
-        self.as_ref().cursor_position.set(cursor_pos);
+        self.as_ref().cursor_position.set(new_cursor_pos as i32);
 
         match anchor_mode {
             AnchorMode::KeepAnchor => {}
             AnchorMode::MoveAnchor => {
-                self.as_ref().anchor_position.set(cursor_pos);
+                self.as_ref().anchor_position.set(new_cursor_pos as i32);
             }
         }
 
@@ -1128,7 +1126,7 @@ impl TextInput {
         // nothing is entered or the cursor isn't moved.
         self.as_ref().show_cursor(window);
 
-        moved
+        new_cursor_pos != last_cursor_pos
     }
 
     fn delete_char(self: Pin<&Self>, window: &ComponentWindow) {
@@ -1159,19 +1157,19 @@ impl TextInput {
             return;
         }
 
-        let text = [text.split_at(anchor as usize).0, text.split_at(cursor as usize).1].concat();
-        self.cursor_position.set(anchor);
+        let text = [text.split_at(anchor).0, text.split_at(cursor).1].concat();
+        self.cursor_position.set(anchor as i32);
         self.text.set(text.into());
     }
 
-    fn selection_anchor_and_cursor(self: Pin<&Self>) -> (i32, i32) {
-        let cursor_pos = Self::FIELD_OFFSETS.cursor_position.apply_pin(self).get();
-        let anchor_pos = Self::FIELD_OFFSETS.anchor_position.apply_pin(self).get();
+    fn selection_anchor_and_cursor(self: Pin<&Self>) -> (usize, usize) {
+        let cursor_pos = Self::FIELD_OFFSETS.cursor_position.apply_pin(self).get().max(0);
+        let anchor_pos = Self::FIELD_OFFSETS.anchor_position.apply_pin(self).get().max(0);
 
         if anchor_pos > cursor_pos {
-            (cursor_pos, anchor_pos)
+            (cursor_pos as _, anchor_pos as _)
         } else {
-            (anchor_pos, cursor_pos)
+            (anchor_pos as _, cursor_pos as _)
         }
     }
 
