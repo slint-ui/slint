@@ -1031,6 +1031,20 @@ impl Item for TextInput {
                 Self::FIELD_OFFSETS.accepted.apply_pin(self).emit(&());
                 KeyEventResult::EventAccepted
             }
+            KeyEvent::KeyReleased { code, modifiers }
+                if modifiers.test_exclusive(crate::input::COPY_PASTE_MODIFIER)
+                    && *code == crate::input::KeyCode::C =>
+            {
+                self.copy();
+                KeyEventResult::EventAccepted
+            }
+            KeyEvent::KeyReleased { code, modifiers }
+                if modifiers.test_exclusive(crate::input::COPY_PASTE_MODIFIER)
+                    && *code == crate::input::KeyCode::V =>
+            {
+                self.paste();
+                KeyEventResult::EventAccepted
+            }
             _ => KeyEventResult::EventIgnored,
         }
     }
@@ -1178,6 +1192,35 @@ impl TextInput {
         anchor_pos != cursor_pos
     }
 
+    fn selected_text(self: Pin<&Self>) -> String {
+        let (anchor, cursor) = self.selection_anchor_and_cursor();
+        let text: String = Self::FIELD_OFFSETS.text.apply_pin(self).get().into();
+        text.split_at(anchor).1.split_at(cursor - anchor).0.to_string()
+    }
+
+    fn insert(self: Pin<&Self>, text_to_insert: &str) {
+        self.delete_selection();
+        let mut text: String = Self::FIELD_OFFSETS.text.apply_pin(self).get().into();
+        let cursor_pos = self.selection_anchor_and_cursor().1;
+        text.insert_str(cursor_pos, text_to_insert);
+        let cursor_pos = cursor_pos + text_to_insert.len();
+        self.cursor_position.set(cursor_pos as i32);
+        self.anchor_position.set(cursor_pos as i32);
+        self.text.set(text.into());
+    }
+
+    fn copy(self: Pin<&Self>) {
+        use copypasta::ClipboardProvider;
+        CLIPBOARD.with(|clipboard| clipboard.borrow_mut().set_contents(self.selected_text()).ok());
+    }
+
+    fn paste(self: Pin<&Self>) {
+        use copypasta::ClipboardProvider;
+        if let Some(text) = CLIPBOARD.with(|clipboard| clipboard.borrow_mut().get_contents().ok()) {
+            self.insert(&text);
+        }
+    }
+
     fn with_font<R>(
         self: Pin<&Self>,
         window: &ComponentWindow,
@@ -1197,3 +1240,5 @@ ItemVTable_static! {
     #[no_mangle]
     pub static TextInputVTable for TextInput
 }
+
+thread_local!(pub(crate) static CLIPBOARD : std::cell::RefCell<copypasta::ClipboardContext> = std::cell::RefCell::new(copypasta::ClipboardContext::new().unwrap()));

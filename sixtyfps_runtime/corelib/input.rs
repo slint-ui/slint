@@ -276,6 +276,14 @@ pub const ALT_MODIFIER: KeyboardModifier =
 pub const LOGO_MODIFIER: KeyboardModifier =
     KeyboardModifier(winit::event::ModifiersState::LOGO.bits());
 
+/// Convenience constant that is used to detect copy & paste related shortcuts, where
+/// on macOS the modifier is the command key (aka LOGO_MODIFIER) and on Linux and Windows
+/// it is control.
+#[cfg(target_os = "macos")]
+pub const COPY_PASTE_MODIFIER: KeyboardModifier = LOGO_MODIFIER;
+#[cfg(not(target_os = "macos"))]
+pub const COPY_PASTE_MODIFIER: KeyboardModifier = CONTROL_MODIFIER;
+
 impl KeyboardModifiers {
     /// Returns true if this set of keyboard modifiers includes the given modifier; false otherwise.
     ///
@@ -284,6 +292,16 @@ impl KeyboardModifiers {
     ///               constants such as [`SHIFT_MODIFIER`].
     pub fn test(&self, modifier: KeyboardModifier) -> bool {
         self.0 & modifier.0 != 0
+    }
+
+    /// Returns true if this set of keyboard modifiers consists of exactly the one specified
+    /// modifier; false otherwise.
+    ///
+    /// Arguments:
+    /// * `modifier`: The only modifier that is allowed to be in this modifier set, in order
+    //                for this function to return true;
+    pub fn test_exclusive(&self, modifier: KeyboardModifier) -> bool {
+        self.0 == modifier.0
     }
 
     /// Returns true if the shift key is part of this set of keyboard modifiers.
