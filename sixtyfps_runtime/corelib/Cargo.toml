@@ -35,7 +35,7 @@ strum = "0.19.2"
 strum_macros = "0.19.2"
 vec-arena = "1.0.0"
 pin-weak = "1"
-copypasta = { version = "0.7.0", features = ["x11"] }
+copypasta = { version = "0.7.0", default-features = false, features = ["x11"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 instant = { version = "0.1", features = [ "wasm-bindgen", "now" ] }
