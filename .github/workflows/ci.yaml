@@ -129,9 +129,6 @@ jobs:
           RUSTDOCFLAGS: --html-in-header=/home/runner/work/sixtyfps/sixtyfps/api/sixtyfps-rs/sixtyfps-docs-integration.html
     steps:
     - uses: actions/checkout@v2
-    - name: Install Linux Dependencies
-      if: matrix.os == 'ubuntu-20.04'
-      run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev
     - name: Cache cargo registry
       uses: actions/cache@v2
       with:
