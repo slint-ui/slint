@@ -197,7 +197,18 @@ impl<T> DerefMut for SharedArray<T> {
 
 impl<T: Clone> From<&[T]> for SharedArray<T> {
     fn from(slice: &[T]) -> Self {
-        SharedArray::from_iter(slice.iter().cloned())
+        let capacity = slice.len();
+        let mut result = Self::with_capacity(capacity);
+        for x in slice {
+            unsafe {
+                core::ptr::write(
+                    result.inner.as_mut().data.as_mut_ptr().add(result.inner.as_mut().header.size),
+                    x.clone(),
+                );
+                result.inner.as_mut().header.size += 1;
+            }
+        }
+        result
     }
 }
 
