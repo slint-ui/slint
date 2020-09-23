@@ -271,6 +271,12 @@ impl Drop for DependencyNode {
 #[repr(transparent)]
 #[derive(Debug, Default)]
 struct PropertyHandle {
+    /// The handle can either be a pointer to a binding, or a pointer to the list of dependent properties.
+    /// The two least significant bit of the pointer are flags, as the pointer will be aligned.
+    /// The least significant bit (`0b01`) tells that the binding is borrowed. So no two reference to the
+    /// binding exist at the same time.
+    /// The decond to last bit (`0b10`) tells that the pointer points to a binding. Otherwise, it is the head
+    /// node of the linked list of dependent binding
     handle: Cell<usize>,
 }
 
