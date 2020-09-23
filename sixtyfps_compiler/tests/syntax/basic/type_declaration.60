@@ -34,6 +34,12 @@ MyType := {
 //  ^error{A component without base type is a struct declaration and cannot have signals}
     foo => {}
 //  ^error{A component without base type is a struct declaration and cannot have signal connections}
+    aaa <=> bbb;
+//  ^error{A component without base type is a struct declaration and cannot have bindings}
+
+    property <int> eee <=> aaa;
+//                     ^error{A component without base type is a struct declaration and cannot have bindings}
+
 }
 
 SuperSimple := Rectangle {

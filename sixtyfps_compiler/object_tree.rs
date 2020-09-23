@@ -232,6 +232,7 @@ impl Element {
             node.SignalConnection().for_each(|n| error_on(&n, "signal connections"));
             node.SignalDeclaration().for_each(|n| error_on(&n, "signals"));
             node.Binding().for_each(|n| error_on(&n, "bindings"));
+            node.TwoWayBinding().for_each(|n| error_on(&n, "bindings"));
             node.PropertyAnimation().for_each(|n| error_on(&n, "animations"));
             node.States().for_each(|n| error_on(&n, "states"));
             node.Transitions().for_each(|n| error_on(&n, "transitions"));
@@ -261,6 +262,9 @@ impl Element {
                     },
                 );
                 if let Some(csn) = prop_decl.BindingExpression() {
+                    diag.push_error(format!("A component without base type is a struct declaration and cannot have bindings.").into(), &csn);
+                }
+                if let Some(csn) = prop_decl.TwoWayBinding() {
                     diag.push_error(format!("A component without base type is a struct declaration and cannot have bindings.").into(), &csn);
                 }
             }
@@ -310,6 +314,14 @@ impl Element {
 
             if let Some(csn) = prop_decl.BindingExpression() {
                 if r.bindings
+                    .insert(prop_name.clone(), ExpressionSpanned::new_uncompiled(csn.into()))
+                    .is_some()
+                {
+                    diag.push_error("Duplicated property binding".into(), &prop_name_token);
+                }
+            }
+            if let Some(csn) = prop_decl.TwoWayBinding() {
+                if r.bindings
                     .insert(prop_name, ExpressionSpanned::new_uncompiled(csn.into()))
                     .is_some()
                 {
@@ -318,7 +330,19 @@ impl Element {
             }
         }
 
-        r.parse_bindings(&base, node.Binding(), diag);
+        r.parse_bindings(
+            &base,
+            node.Binding().filter_map(|b| {
+                Some((b.child_token(SyntaxKind::Identifier)?, b.BindingExpression().into()))
+            }),
+            diag,
+        );
+        r.parse_bindings(
+            &base,
+            node.TwoWayBinding()
+                .filter_map(|b| Some((b.child_token(SyntaxKind::Identifier)?, b.into()))),
+            diag,
+        );
 
         match &r.base_type {
             Type::Builtin(builtin_base) => {
@@ -596,14 +620,12 @@ impl Element {
     fn parse_bindings(
         &mut self,
         base: &QualifiedTypeName,
-        bindings: impl Iterator<Item = syntax_nodes::Binding>,
+        bindings: impl Iterator<
+            Item = (crate::parser::SyntaxTokenWithSourceFile, SyntaxNodeWithSourceFile),
+        >,
         diag: &mut FileDiagnostics,
     ) {
-        for b in bindings {
-            let name_token = match b.child_token(SyntaxKind::Identifier) {
-                Some(x) => x,
-                None => continue,
-            };
+        for (name_token, b) in bindings {
             let name = name_token.text().to_string();
             let prop_type = self.lookup_property(&name);
             if !prop_type.is_property_type() {
@@ -618,11 +640,7 @@ impl Element {
                     &name_token,
                 );
             }
-            if self
-                .bindings
-                .insert(name, ExpressionSpanned::new_uncompiled(b.BindingExpression().into()))
-                .is_some()
-            {
+            if self.bindings.insert(name, ExpressionSpanned::new_uncompiled(b)).is_some() {
                 diag.push_error("Duplicated property binding".into(), &name_token);
             }
         }
@@ -681,7 +699,13 @@ fn animation_element_from_node(
         };
         let mut anim_element =
             Element { id: "".into(), base_type: anim_type, node: None, ..Default::default() };
-        anim_element.parse_bindings(&base, anim.Binding(), diag);
+        anim_element.parse_bindings(
+            &base,
+            anim.Binding().filter_map(|b| {
+                Some((b.child_token(SyntaxKind::Identifier)?, b.BindingExpression().into()))
+            }),
+            diag,
+        );
         Some(Rc::new(RefCell::new(anim_element)))
     }
 }

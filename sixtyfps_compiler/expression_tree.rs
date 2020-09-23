@@ -161,6 +161,10 @@ pub enum Expression {
     Invalid,
     /// We haven't done the lookup yet
     Uncompiled(SyntaxNodeWithSourceFile),
+
+    /// Special expression that can be the value of a two way binding
+    TwoWayBinding(NamedReference),
+
     /// A string literal. The .0 is the content of the string, without the quotes
     StringLiteral(String),
     /// Number
@@ -300,6 +304,9 @@ impl Expression {
             Expression::StringLiteral(_) => Type::String,
             Expression::NumberLiteral(_, unit) => unit.ty(),
             Expression::BoolLiteral(_) => Type::Bool,
+            Expression::TwoWayBinding(NamedReference { element, name }) => {
+                element.upgrade().unwrap().borrow().lookup_property(name)
+            }
             Expression::SignalReference(NamedReference { element, name }) => {
                 element.upgrade().unwrap().borrow().lookup_property(name)
             }
@@ -384,6 +391,7 @@ impl Expression {
         match self {
             Expression::Invalid => {}
             Expression::Uncompiled(_) => {}
+            Expression::TwoWayBinding(_) => {}
             Expression::StringLiteral(_) => {}
             Expression::NumberLiteral(_, _) => {}
             Expression::BoolLiteral(_) => {}
@@ -445,6 +453,7 @@ impl Expression {
         match self {
             Expression::Invalid => {}
             Expression::Uncompiled(_) => {}
+            Expression::TwoWayBinding(_) => {}
             Expression::StringLiteral(_) => {}
             Expression::NumberLiteral(_, _) => {}
             Expression::BoolLiteral(_) => {}
@@ -506,6 +515,7 @@ impl Expression {
         match self {
             Expression::Invalid => true,
             Expression::Uncompiled(_) => false,
+            Expression::TwoWayBinding(_) => false,
             Expression::StringLiteral(_) => true,
             Expression::NumberLiteral(_, _) => true,
             Expression::BoolLiteral(_) => true,

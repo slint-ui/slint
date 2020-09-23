@@ -87,6 +87,9 @@ fn resolve_expression(
             SyntaxKind::BindingExpression => {
                 Expression::from_binding_expression_node(node.clone(), &mut lookup_ctx)
             }
+            SyntaxKind::TwoWayBinding => {
+                Expression::from_two_way_binding(node.clone().into(), &mut lookup_ctx)
+            }
             _ => {
                 debug_assert!(diag.has_error());
                 Expression::Invalid
@@ -213,6 +216,29 @@ impl Expression {
             .map(|x| x.child_text(SyntaxKind::Identifier).unwrap_or_default())
             .collect();
         Self::from_codeblock_node(node.CodeBlock(), ctx)
+    }
+
+    fn from_two_way_binding(node: syntax_nodes::TwoWayBinding, ctx: &mut LookupCtx) -> Expression {
+        let e = Self::from_expression_node(node.Expression(), ctx);
+        let ty = e.ty();
+        match e {
+            Expression::PropertyReference(n) => {
+                if ty != ctx.property_type {
+                    ctx.diag.push_error(
+                        "The property does not have the same type as the bound property".into(),
+                        &node,
+                    );
+                }
+                Expression::TwoWayBinding(n)
+            }
+            _ => {
+                ctx.diag.push_error(
+                    "The expression in a two way binding must be a property reference".into(),
+                    &node,
+                );
+                e
+            }
+        }
     }
 
     fn from_expression_node(node: syntax_nodes::Expression, ctx: &mut LookupCtx) -> Self {

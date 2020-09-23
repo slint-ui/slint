@@ -1167,7 +1167,7 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
         Expression::EnumerationValue(value) => {
             format!("sixtyfps::{}::{}", value.enumeration.name, value.to_string())
         }
-        Expression::Uncompiled(_) => panic!(),
+        Expression::Uncompiled(_) | Expression::TwoWayBinding(_) => panic!(),
         Expression::Invalid => format!("\n#error invalid expression\n"),
     }
 }

@@ -280,7 +280,7 @@ declare_syntax! {
         SubElement -> [ Element ],
         Element -> [ ?QualifiedName, *PropertyDeclaration, *Binding, *SignalConnection,
                      *SignalDeclaration, *SubElement, *RepeatedElement, *PropertyAnimation,
-                     *States, *Transitions, ?ChildrenPlaceholder ],
+                     *TwoWayBinding, *States, *Transitions, ?ChildrenPlaceholder ],
         RepeatedElement -> [ ?DeclaredIdentifier, ?RepeatedIndex, Expression , Element],
         RepeatedIndex -> [],
         ConditionalElement -> [ Expression , Element],

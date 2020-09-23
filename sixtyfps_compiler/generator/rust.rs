@@ -937,7 +937,7 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                 }
             )
         }
-        Expression::Invalid | Expression::Uncompiled(_) => {
+        Expression::Invalid | Expression::Uncompiled(_) | Expression::TwoWayBinding(_) => {
             let error = format!("unsupported expression {:?}", e);
             quote!(compile_error! {#error})
         }
