@@ -84,33 +84,27 @@ pub extern "C" fn send_keyboard_string_sequence(
     use std::convert::TryInto;
 
     let key_down = |maybe_code: &Option<crate::input::KeyCode>| {
-        maybe_code
-            .clone()
-            .map(|code| {
-                window.process_key_input(
-                    &crate::input::KeyEvent::KeyPressed {
-                        code: code,
-                        modifiers: window.current_keyboard_modifiers(),
-                    },
-                    component,
-                );
-            })
-            .unwrap();
+        maybe_code.clone().map(|code| {
+            window.process_key_input(
+                &crate::input::KeyEvent::KeyPressed {
+                    code: code,
+                    modifiers: window.current_keyboard_modifiers(),
+                },
+                component,
+            );
+        });
     };
 
     let key_up = |maybe_code: &Option<crate::input::KeyCode>| {
-        maybe_code
-            .clone()
-            .map(|code| {
-                window.process_key_input(
-                    &crate::input::KeyEvent::KeyReleased {
-                        code: code,
-                        modifiers: window.current_keyboard_modifiers(),
-                    },
-                    component,
-                );
-            })
-            .unwrap();
+        maybe_code.clone().map(|code| {
+            window.process_key_input(
+                &crate::input::KeyEvent::KeyReleased {
+                    code: code,
+                    modifiers: window.current_keyboard_modifiers(),
+                },
+                component,
+            );
+        });
     };
 
     for ch in sequence.chars() {
