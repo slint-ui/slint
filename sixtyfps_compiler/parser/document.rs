@@ -103,6 +103,7 @@ pub fn parse_element(p: &mut impl Parser) -> bool {
 /// animate someProp { }
 /// animate * { }
 /// $children
+/// double_binding <=> element.property;
 /// ```
 fn parse_element_content(p: &mut impl Parser) {
     loop {
@@ -115,6 +116,7 @@ fn parse_element_content(p: &mut impl Parser) {
                 SyntaxKind::FatArrow | SyntaxKind::LParent if p.peek().as_str() != "if" => {
                     parse_signal_connection(&mut *p)
                 }
+                SyntaxKind::DoubleArrow => parse_two_way_binding(&mut *p),
                 SyntaxKind::Identifier if p.peek().as_str() == "for" => {
                     parse_repeated_element(&mut *p);
                 }
@@ -330,6 +332,19 @@ fn parse_signal_connection(p: &mut impl Parser) {
 }
 
 #[cfg_attr(test, parser_test)]
+/// ```test,TwoWayBinding
+/// foo <=> bar;
+/// foo <=> bar.xxx;
+/// ```
+fn parse_two_way_binding(p: &mut impl Parser) {
+    let mut p = p.start_node(SyntaxKind::TwoWayBinding);
+    p.consume(); // the identifier
+    p.expect(SyntaxKind::DoubleArrow);
+    parse_expression(&mut *p);
+    p.expect(SyntaxKind::Semicolon);
+}
+
+#[cfg_attr(test, parser_test)]
 /// ```test,SignalDeclaration
 /// signal foobar;
 /// signal my_signal();
@@ -362,6 +377,7 @@ fn parse_signal_declaration(p: &mut impl Parser) {
 /// ```test,PropertyDeclaration
 /// property<int> foobar;
 /// property<string> text: "Something";
+/// property<string> text <=> two.way;
 /// ```
 fn parse_property_declaration(p: &mut impl Parser) {
     debug_assert_eq!(p.peek().as_str(), "property");
@@ -374,11 +390,20 @@ fn parse_property_declaration(p: &mut impl Parser) {
         let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
         p.expect(SyntaxKind::Identifier);
     }
-    if p.nth(0).kind() == SyntaxKind::Colon {
-        p.consume();
-        parse_binding_expression(&mut *p);
-    } else {
-        p.expect(SyntaxKind::Semicolon);
+    match p.nth(0).kind() {
+        SyntaxKind::Colon => {
+            p.consume();
+            parse_binding_expression(&mut *p);
+        }
+        SyntaxKind::DoubleArrow => {
+            let mut p = p.start_node(SyntaxKind::TwoWayBinding);
+            p.consume();
+            parse_expression(&mut *p);
+            p.expect(SyntaxKind::Semicolon);
+        }
+        _ => {
+            p.expect(SyntaxKind::Semicolon);
+        }
     }
 }
 

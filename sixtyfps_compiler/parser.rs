@@ -238,6 +238,7 @@ declare_syntax! {
         NumberLiteral -> &crate::lexer::lex_number,
         ColorLiteral -> &crate::lexer::lex_color,
         Identifier -> &crate::lexer::lex_identifier,
+        DoubleArrow -> "<=>",
         PlusEqual -> "+=",
         MinusEqual -> "-=",
         StarEqual -> "*=",
@@ -286,15 +287,17 @@ declare_syntax! {
         SignalDeclaration -> [ DeclaredIdentifier, *Type ],
         SignalConnection -> [ *DeclaredIdentifier,  CodeBlock ],
         /// Declaration of a propery.
-        PropertyDeclaration-> [ Type , DeclaredIdentifier, ?BindingExpression ],
+        PropertyDeclaration-> [ Type , DeclaredIdentifier, ?BindingExpression, ?TwoWayBinding ],
         /// QualifiedName are the properties name
         PropertyAnimation-> [ *QualifiedName, *Binding ],
         /// wraps Identifiers, like `Rectangle` or `SomeModule.SomeType`
         QualifiedName-> [],
-        /// Wraps single identifier (to disambiguate when there are other identifiar in the production)
+        /// Wraps single identifier (to disambiguate when there are other identifier in the production)
         DeclaredIdentifier -> [],
         ChildrenPlaceholder -> [],
         Binding-> [ BindingExpression ],
+        /// `xxx <=> something`
+        TwoWayBinding -> [ Expression ],
         /// the right-hand-side of a binding
         // Fixme: the test should be a or
         BindingExpression-> [ ?CodeBlock, ?Expression ],

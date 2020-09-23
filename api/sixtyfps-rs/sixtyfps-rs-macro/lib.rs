@@ -10,13 +10,12 @@ LICENSE END */
 extern crate proc_macro;
 use proc_macro::{Spacing, TokenStream, TokenTree};
 use quote::ToTokens;
+use sixtyfps_compilerlib::parser::SyntaxKind;
 use sixtyfps_compilerlib::*;
 
 fn fill_token_vec(stream: impl Iterator<Item = TokenTree>, vec: &mut Vec<parser::Token>) {
     let mut prev_spacing = Spacing::Alone;
     for t in stream {
-        use parser::SyntaxKind;
-
         match t {
             TokenTree::Ident(i) => {
                 if let Some(last) = vec.last_mut() {
@@ -69,7 +68,14 @@ fn fill_token_vec(stream: impl Iterator<Item = TokenTree>, vec: &mut Vec<parser:
                     '<' => SyntaxKind::LAngle,
                     '>' => {
                         if let Some(last) = vec.last_mut() {
-                            if last.kind == SyntaxKind::Equal && prev_spacing == Spacing::Joint {
+                            if last.kind == SyntaxKind::LessEqual && prev_spacing == Spacing::Joint
+                            {
+                                last.kind = SyntaxKind::DoubleArrow;
+                                last.text = "<=>".into();
+                                continue;
+                            } else if last.kind == SyntaxKind::Equal
+                                && prev_spacing == Spacing::Joint
+                            {
                                 last.kind = SyntaxKind::FatArrow;
                                 last.text = "=>".into();
                                 continue;
