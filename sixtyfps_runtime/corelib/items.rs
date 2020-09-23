@@ -1173,6 +1173,7 @@ impl TextInput {
 
         let text = [text.split_at(anchor).0, text.split_at(cursor).1].concat();
         self.cursor_position.set(anchor as i32);
+        self.anchor_position.set(anchor as i32);
         self.text.set(text.into());
     }
 

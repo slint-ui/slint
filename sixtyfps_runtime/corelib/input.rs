@@ -244,6 +244,42 @@ pub enum KeyCode {
     Cut,
 }
 
+impl TryFrom<char> for KeyCode {
+    type Error = ();
+
+    fn try_from(value: char) -> Result<Self, Self::Error> {
+        Ok(match value {
+            'a' => Self::A,
+            'b' => Self::B,
+            'c' => Self::C,
+            'd' => Self::D,
+            'e' => Self::E,
+            'f' => Self::F,
+            'g' => Self::G,
+            'h' => Self::H,
+            'i' => Self::I,
+            'j' => Self::J,
+            'k' => Self::K,
+            'l' => Self::L,
+            'm' => Self::M,
+            'n' => Self::N,
+            'o' => Self::O,
+            'p' => Self::P,
+            'q' => Self::Q,
+            'r' => Self::R,
+            's' => Self::S,
+            't' => Self::T,
+            'u' => Self::U,
+            'v' => Self::V,
+            'w' => Self::W,
+            'x' => Self::X,
+            'y' => Self::Y,
+            'z' => Self::Z,
+            _ => return Err(()),
+        })
+    }
+}
+
 /// KeyboardModifiers wraps a u32 that reserves a single bit for each
 /// possible modifier key on a keyboard, such as Shift, Control, etc.
 ///
@@ -333,6 +369,12 @@ impl Default for KeyboardModifiers {
 impl From<winit::event::ModifiersState> for KeyboardModifiers {
     fn from(state: winit::event::ModifiersState) -> Self {
         Self(state.bits())
+    }
+}
+
+impl From<KeyboardModifier> for KeyboardModifiers {
+    fn from(modifier: KeyboardModifier) -> Self {
+        Self(modifier.0)
     }
 }
 

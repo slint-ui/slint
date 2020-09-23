@@ -133,7 +133,9 @@ pub mod re_exports {
         PathArcTo, PathData, PathElement, PathEvent, PathLineTo, Point, Rect, Size,
     };
     pub use sixtyfps_corelib::input::{
-        process_ungrabbed_mouse_event, InputEventResult, KeyEvent, KeyEventResult, MouseEvent,
+        process_ungrabbed_mouse_event, InputEventResult, KeyCode, KeyEvent, KeyEventResult,
+        KeyboardModifiers, MouseEvent, ALT_MODIFIER, CONTROL_MODIFIER, COPY_PASTE_MODIFIER,
+        LOGO_MODIFIER, NO_MODIFIER, SHIFT_MODIFIER,
     };
     pub use sixtyfps_corelib::item_tree::{
         item_offset, visit_item_tree, ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable,
@@ -187,6 +189,45 @@ pub mod testing {
             y,
             component.component_window(),
         );
+    }
+
+    /// Simulate a change in keyboard modifiers being pressed
+    pub fn set_current_keyboard_modifiers<X: HasWindow>(
+        component: core::pin::Pin<&X>,
+        modifiers: crate::re_exports::KeyboardModifiers,
+    ) {
+        sixtyfps_corelib::tests::sixtyfps_set_keyboard_modifiers(
+            component.component_window(),
+            modifiers,
+        )
+    }
+
+    /// Simulate a series of key press and release event
+    pub fn send_key_clicks<
+        X: vtable::HasStaticVTable<sixtyfps_corelib::component::ComponentVTable> + HasWindow,
+    >(
+        component: core::pin::Pin<&X>,
+        key_codes: &[crate::re_exports::KeyCode],
+    ) {
+        sixtyfps_corelib::tests::sixtyfps_send_key_clicks(
+            vtable::VRef::new_pin(component),
+            &crate::re_exports::Slice::from_slice(key_codes),
+            component.component_window(),
+        )
+    }
+
+    /// Simulate entering a sequence of ascii characters key by key.
+    pub fn send_keyboard_string_sequence<
+        X: vtable::HasStaticVTable<sixtyfps_corelib::component::ComponentVTable> + HasWindow,
+    >(
+        component: core::pin::Pin<&X>,
+        sequence: &str,
+    ) {
+        sixtyfps_corelib::tests::send_keyboard_string_sequence(
+            vtable::VRef::new_pin(component),
+            &super::SharedString::from(sequence),
+            component.component_window(),
+        )
     }
 }
 

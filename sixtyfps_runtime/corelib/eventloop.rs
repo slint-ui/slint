@@ -150,8 +150,30 @@ impl ComponentWindow {
     }
 
     /// Installs a binding on the specified property that's toggled whenever the text cursor is supposed to be visible or not.
-    pub fn set_cursor_blink_binding(&self, prop: &crate::properties::Property<bool>) {
+    pub(crate) fn set_cursor_blink_binding(&self, prop: &crate::properties::Property<bool>) {
         self.0.clone().set_cursor_blink_binding(prop)
+    }
+
+    /// Sets the currently active keyboard notifiers. This is used only for testing or directly
+    /// from the event loop implementation.
+    pub(crate) fn set_current_keyboard_modifiers(
+        &self,
+        modifiers: crate::input::KeyboardModifiers,
+    ) {
+        self.0.clone().set_current_keyboard_modifiers(modifiers)
+    }
+
+    /// Returns the currently active keyboard notifiers.
+    pub(crate) fn current_keyboard_modifiers(&self) -> crate::input::KeyboardModifiers {
+        self.0.clone().current_keyboard_modifiers()
+    }
+
+    pub(crate) fn process_key_input(
+        &self,
+        event: &KeyEvent,
+        component: core::pin::Pin<crate::component::ComponentRef>,
+    ) {
+        self.0.clone().process_key_input(event, component)
     }
 }
 
