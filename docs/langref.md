@@ -133,6 +133,42 @@ Example := Rectangle {
 }
 ```
 
+### Bindings
+
+The expression on the right of a binding is automatically re-evaluated when the expression changes.
+
+In the followinf example, the text of the button is automaticallty changed when the button is pressed, because
+changing the `counter`  property automatically changes the text.
+
+```60
+import { Button } from "sixtyfps_widgets.60";
+Example := Button {
+    property <int> counter: 3;
+    clicked => { counter += 3 }
+    text: counter * 2;
+}
+```
+
+### Two ways bindings
+
+(TODO)
+
+using the `<=>` syntax, one can create two ways binding between properties. These properties are now linked
+together.
+The right hand side of the `<=>` must be a reference to a property of the same type.
+
+
+```60
+Example := Window {
+    property<color> rect_color <=> r.color;
+    r:= Rectangle {
+        width: parent.width;
+        height: parent.height;
+        color: blue;
+    }
+}
+```
+
 ## Types
 
 All properties in elements have a type. The following types are supported:
