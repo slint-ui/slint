@@ -385,13 +385,17 @@ impl EventLoop {
                             if let Some(Some(window)) =
                                 windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
                             {
-                                let key_event = KeyEvent::CharacterInput {
-                                    unicode_scalar: ch.into(),
-                                    modifiers: window.current_keyboard_modifiers(),
-                                };
-                                window.clone().process_key_input(&key_event, component);
-                                // FIXME: remove this, it should be based on actual changes rather than this
-                                window.request_redraw();
+                                let modifiers = window.current_keyboard_modifiers();
+
+                                if !modifiers.control() && !modifiers.alt() && !modifiers.logo() {
+                                    let key_event = KeyEvent::CharacterInput {
+                                        unicode_scalar: ch.into(),
+                                        modifiers,
+                                    };
+                                    window.clone().process_key_input(&key_event, component);
+                                    // FIXME: remove this, it should be based on actual changes rather than this
+                                    window.request_redraw();
+                                }
                             }
                         });
                     }
