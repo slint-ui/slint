@@ -29,7 +29,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Install Linux Dependencies
-      if: matrix.os == "ubuntu-20.04"
+      if: matrix.os == 'ubuntu-20.04'
       run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes-dev
     - name: Cache Qt
       if: matrix.os != 'windows-latest'
@@ -130,7 +130,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Install Linux Dependencies
-      if: matrix.os == "ubuntu-20.04"
+      if: matrix.os == 'ubuntu-20.04'
       run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes-dev
     - name: Cache cargo registry
       uses: actions/cache@v2
