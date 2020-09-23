@@ -279,13 +279,8 @@ pub const LOGO_MODIFIER: KeyboardModifier =
 /// Convenience constant that is used to detect copy & paste related shortcuts, where
 /// on macOS the modifier is the command key (aka LOGO_MODIFIER) and on Linux and Windows
 /// it is control.
-#[cfg(target_os = "macos")]
-pub const COPY_PASTE_MODIFIER: KeyboardModifier = LOGO_MODIFIER;
-/// Convenience constant that is used to detect copy & paste related shortcuts, where
-/// on macOS the modifier is the command key (aka LOGO_MODIFIER) and on Linux and Windows
-/// it is control.
-#[cfg(not(target_os = "macos"))]
-pub const COPY_PASTE_MODIFIER: KeyboardModifier = CONTROL_MODIFIER;
+pub const COPY_PASTE_MODIFIER: KeyboardModifier =
+    if cfg!(target_os = "macos") { LOGO_MODIFIER } else { CONTROL_MODIFIER };
 
 impl KeyboardModifiers {
     /// Returns true if this set of keyboard modifiers includes the given modifier; false otherwise.
