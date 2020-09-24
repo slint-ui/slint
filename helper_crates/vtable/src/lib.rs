@@ -255,6 +255,12 @@ impl<'a, T: ?Sized + VTableMeta> VRef<'a, T> {
         }
     }
 
+    /// Returns a raw pointer to the VRef's instance. This is primarily useful for comparisons.
+    /// The caller must ensure that the VRef outlives the pointer returned.
+    pub fn as_ptr(&self) -> *const u8 {
+        self.inner.ptr
+    }
+
     unsafe fn from_inner(inner: Inner) -> Self {
         Self { inner, phantom: PhantomData }
     }

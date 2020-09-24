@@ -29,7 +29,8 @@ use super::component::{ComponentRefPin, ComponentVTable};
 use super::eventloop::ComponentWindow;
 use super::graphics::{Color, HighLevelRenderingPrimitive, PathData, Rect, Resource};
 use super::input::{
-    InputEventResult, KeyEvent, KeyEventResult, KeyboardModifiers, MouseEvent, MouseEventType,
+    FocusEvent, InputEventResult, KeyEvent, KeyEventResult, KeyboardModifiers, MouseEvent,
+    MouseEventType,
 };
 use super::item_rendering::CachedRenderingData;
 use super::layout::LayoutInfo;
@@ -80,6 +81,9 @@ pub struct ItemVTable {
         window: &ComponentWindow,
         app_component: core::pin::Pin<VRef<ComponentVTable>>,
     ) -> InputEventResult,
+
+    pub focus_event:
+        extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, &FocusEvent, window: &ComponentWindow),
 
     pub key_event: extern "C" fn(
         core::pin::Pin<VRef<ItemVTable>>,
@@ -152,6 +156,8 @@ impl Item for Rectangle {
     fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
+
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 }
 
 impl ItemConsts for Rectangle {
@@ -236,6 +242,8 @@ impl Item for BorderRectangle {
     fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
+
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 }
 
 impl ItemConsts for BorderRectangle {
@@ -318,6 +326,8 @@ impl Item for Image {
     fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
+
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 }
 
 impl ItemConsts for Image {
@@ -459,6 +469,8 @@ impl Item for Text {
     fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
+
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 }
 
 impl ItemConsts for Text {
@@ -571,6 +583,8 @@ impl Item for TouchArea {
     fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
+
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 }
 
 impl ItemConsts for TouchArea {
@@ -649,6 +663,8 @@ impl Item for Path {
     fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
+
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 }
 
 impl ItemConsts for Path {
@@ -724,6 +740,8 @@ impl Item for Flickable {
     fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
+
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 }
 
 impl ItemConsts for Flickable {
@@ -835,6 +853,8 @@ impl Item for Window {
     fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
+
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 }
 
 impl ItemConsts for Window {
@@ -975,7 +995,7 @@ impl Item for TextInput {
         self: Pin<&Self>,
         event: MouseEvent,
         window: &ComponentWindow,
-        _app_component: ComponentRefPin,
+        app_component: ComponentRefPin,
     ) -> InputEventResult {
         let clicked_offset = TextInput::with_font(self, window, |font| {
             let text = Self::FIELD_OFFSETS.text.apply_pin(self).get();
@@ -984,9 +1004,11 @@ impl Item for TextInput {
 
         if matches!(event.what, MouseEventType::MousePressed) {
             self.as_ref().pressed.set(true);
-            self.as_ref().show_cursor(window);
             self.as_ref().anchor_position.set(clicked_offset);
             self.as_ref().cursor_position.set(clicked_offset);
+            if !Self::FIELD_OFFSETS.focused.apply_pin(self).get() {
+                window.set_focus_item(app_component, self);
+            }
         }
 
         match event.what {
@@ -1073,6 +1095,13 @@ impl Item for TextInput {
             _ => KeyEventResult::EventIgnored,
         }
     }
+
+    fn focus_event(self: Pin<&Self>, event: &FocusEvent, window: &ComponentWindow) {
+        match event {
+            FocusEvent::FocusIn(_) | FocusEvent::WindowReceivedFocus => self.show_cursor(window),
+            FocusEvent::FocusOut | FocusEvent::WindowLostFocus => self.hide_cursor(),
+        }
+    }
 }
 
 impl TextInput {
@@ -1116,6 +1145,10 @@ impl From<KeyboardModifiers> for AnchorMode {
 impl TextInput {
     fn show_cursor(&self, window: &ComponentWindow) {
         window.set_cursor_blink_binding(&self.cursor_visible);
+    }
+
+    fn hide_cursor(&self) {
+        self.cursor_visible.set(false);
     }
 
     fn move_cursor(

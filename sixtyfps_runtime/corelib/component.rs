@@ -12,7 +12,9 @@ LICENSE END */
 //! This module contains the basic datastructures that are exposed to the C API
 
 use crate::eventloop::ComponentWindow;
-use crate::input::{InputEventResult, KeyEvent, KeyEventResult, MouseEvent};
+use crate::input::{
+    FocusEvent, FocusEventResult, InputEventResult, KeyEvent, KeyEventResult, MouseEvent,
+};
 use crate::item_tree::{ItemVisitorVTable, TraversalOrder, VisitChildrenResult};
 use crate::layout::LayoutInfo;
 use vtable::*;
@@ -51,6 +53,13 @@ pub struct ComponentVTable {
         &KeyEvent,
         &ComponentWindow,
     ) -> KeyEventResult,
+
+    /// Event sent to transfer focus between items or to communicate window focus change.
+    pub focus_event: extern "C" fn(
+        core::pin::Pin<VRef<ComponentVTable>>,
+        &FocusEvent,
+        &ComponentWindow,
+    ) -> FocusEventResult,
 }
 
 /// Alias for `vtable::VRef<ComponentVTable>` which represent a pointer to a `dyn Component` with

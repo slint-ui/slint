@@ -133,9 +133,10 @@ pub mod re_exports {
         PathArcTo, PathData, PathElement, PathEvent, PathLineTo, Point, Rect, Size,
     };
     pub use sixtyfps_corelib::input::{
-        process_key_event, process_ungrabbed_mouse_event, InputEventResult, KeyCode, KeyEvent,
-        KeyEventResult, KeyboardModifiers, MouseEvent, ALT_MODIFIER, CONTROL_MODIFIER,
-        COPY_PASTE_MODIFIER, LOGO_MODIFIER, NO_MODIFIER, SHIFT_MODIFIER,
+        locate_and_activate_focus_item, process_ungrabbed_mouse_event, FocusEvent,
+        FocusEventResult, InputEventResult, KeyCode, KeyEvent, KeyEventResult, KeyboardModifiers,
+        MouseEvent, ALT_MODIFIER, CONTROL_MODIFIER, COPY_PASTE_MODIFIER, LOGO_MODIFIER,
+        NO_MODIFIER, SHIFT_MODIFIER,
     };
     pub use sixtyfps_corelib::item_tree::{
         item_offset, visit_item_tree, ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable,

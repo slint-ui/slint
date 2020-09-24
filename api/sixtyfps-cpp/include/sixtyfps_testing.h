@@ -23,6 +23,13 @@ inline void send_mouse_click(Component &component, float x, float y)
                                                 &component.window);
 }
 
+template<typename Component>
+inline void send_keyboard_string_sequence(Component &component, const sixtyfps::SharedString &str)
+{
+    cbindgen_private::send_keyboard_string_sequence({ &Component::component_type, &component },
+                                                    &str, &component.window);
+}
+
 #define assert_eq(A, B)                                                                            \
     sixtyfps::testing::private_api::assert_eq_impl(A, B, #A, #B, __FILE__, __LINE__)
 

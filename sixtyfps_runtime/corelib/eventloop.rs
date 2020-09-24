@@ -105,6 +105,21 @@ pub trait GenericWindow {
     /// Sets the currently active keyboard notifiers. This is used only for testing or directly
     /// from the event loop implementation.
     fn set_current_keyboard_modifiers(&self, modifiers: crate::input::KeyboardModifiers);
+
+    /// Sets the focus to the item pointed to by item_ptr. This will remove the focus from any
+    /// currently focused item.
+    fn set_focus_item(
+        self: Rc<Self>,
+        component: core::pin::Pin<crate::component::ComponentRef>,
+        item_ptr: *const u8,
+    );
+    /// Sets the focus on the window to true or false, depending on the have_focus argument.
+    /// This results in WindowFocusReceived and WindowFocusLost events.
+    fn set_focus(
+        self: Rc<Self>,
+        component: core::pin::Pin<crate::component::ComponentRef>,
+        have_focus: bool,
+    );
 }
 
 /// The ComponentWindow is the (rust) facing public type that can render the items
@@ -174,6 +189,14 @@ impl ComponentWindow {
         component: core::pin::Pin<crate::component::ComponentRef>,
     ) {
         self.0.clone().process_key_input(event, component)
+    }
+
+    pub(crate) fn set_focus_item<X: vtable::HasStaticVTable<crate::items::ItemVTable>>(
+        &self,
+        component: core::pin::Pin<crate::component::ComponentRef>,
+        item: Pin<&X>,
+    ) {
+        self.0.clone().set_focus_item(component, item.get_ref() as *const X as *const u8)
     }
 }
 
@@ -431,6 +454,21 @@ impl EventLoop {
                             windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
                         {
                             window.set_current_keyboard_modifiers(state.into());
+                        }
+                    });
+                }
+
+                winit::event::Event::WindowEvent {
+                    ref window_id,
+                    event: winit::event::WindowEvent::Focused(have_focus),
+                } => {
+                    ALL_WINDOWS.with(|windows| {
+                        if let Some(Some(window)) =
+                            windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
+                        {
+                            window.clone().set_focus(component, have_focus);
+                            // FIXME: remove this, it should be based on actual changes rather than this
+                            window.request_redraw();
                         }
                     });
                 }

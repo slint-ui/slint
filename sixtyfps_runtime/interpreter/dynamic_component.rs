@@ -16,9 +16,8 @@ use object_tree::{Element, ElementRc};
 use sixtyfps_compilerlib::layout::{GridLayout, Layout, LayoutElement, LayoutItem, PathLayout};
 use sixtyfps_compilerlib::typeregister::Type;
 use sixtyfps_compilerlib::*;
-use sixtyfps_corelib::component::{ComponentRefPin, ComponentVTable};
-use sixtyfps_corelib::eventloop::ComponentWindow;
 use sixtyfps_corelib::graphics::Resource;
+use sixtyfps_corelib::input::KeyEventResult;
 use sixtyfps_corelib::item_tree::{
     ItemTreeNode, ItemVisitorRefMut, TraversalOrder, VisitChildrenResult,
 };
@@ -27,6 +26,11 @@ use sixtyfps_corelib::layout::{LayoutInfo, Padding};
 use sixtyfps_corelib::properties::{InterpolatedPropertyValue, PropertyTracker};
 use sixtyfps_corelib::rtti::{self, FieldOffset, PropertyInfo};
 use sixtyfps_corelib::slice::Slice;
+use sixtyfps_corelib::{
+    component::{ComponentRefPin, ComponentVTable},
+    input::FocusEventResult,
+};
+use sixtyfps_corelib::{eventloop::ComponentWindow, input::FocusEvent};
 use sixtyfps_corelib::{Color, Property, SharedString, Signal};
 use std::collections::HashMap;
 use std::{cell::RefCell, pin::Pin, rc::Rc};
@@ -128,6 +132,7 @@ type RepeaterVec<'id> = core::cell::RefCell<Vec<ComponentBox<'id>>>;
 
 pub(crate) struct ComponentExtraData {
     mouse_grabber: core::cell::Cell<sixtyfps_corelib::item_tree::VisitChildrenResult>,
+    focus_item: core::cell::Cell<sixtyfps_corelib::item_tree::VisitChildrenResult>,
     pub(crate) window: RefCell<Option<sixtyfps_corelib::eventloop::ComponentWindow>>,
 }
 
@@ -135,6 +140,9 @@ impl Default for ComponentExtraData {
     fn default() -> Self {
         Self {
             mouse_grabber: core::cell::Cell::new(
+                sixtyfps_corelib::item_tree::VisitChildrenResult::CONTINUE,
+            ),
+            focus_item: core::cell::Cell::new(
                 sixtyfps_corelib::item_tree::VisitChildrenResult::CONTINUE,
             ),
             window: RefCell::new(None),
@@ -580,6 +588,7 @@ fn generate_component<'id>(
         compute_layout,
         input_event,
         key_event,
+        focus_event,
     };
     let t = ComponentDescription {
         ct: t,
@@ -1139,8 +1148,72 @@ extern "C" fn key_event(
     component: ComponentRefPin,
     key_event: &sixtyfps_corelib::input::KeyEvent,
     window: &sixtyfps_corelib::eventloop::ComponentWindow,
-) -> sixtyfps_corelib::input::KeyEventResult {
-    sixtyfps_corelib::input::process_key_event(component, key_event, window)
+) -> KeyEventResult {
+    // This is fine since we can only be called with a component that with our vtable which is a ComponentDescription
+    let component_type = unsafe { get_component_type(component) };
+    let instance = unsafe { Pin::new_unchecked(&*component.as_ptr().cast::<Instance>()) };
+    let extra_data = component_type.extra_data_offset.apply(&*instance);
+    if let Some((item_index, rep_index)) = extra_data.focus_item.get().aborted_indexes() {
+        let tree = &component_type.item_tree;
+        match tree[item_index] {
+            ItemTreeNode::Item { item, .. } => {
+                item.apply_pin(instance).as_ref().key_event(key_event, window)
+            }
+            ItemTreeNode::DynamicTree { index } => {
+                generativity::make_guard!(guard);
+                let rep_in_comp = &component_type.repeater[index].unerase(guard);
+                let vec = rep_in_comp.offset.apply(&*instance).borrow();
+                vec[rep_index].borrow().as_ref().key_event(key_event, window)
+            }
+        }
+    } else {
+        KeyEventResult::EventIgnored
+    }
+}
+
+extern "C" fn focus_event(
+    component: ComponentRefPin,
+    event: &FocusEvent,
+    window: &sixtyfps_corelib::eventloop::ComponentWindow,
+) -> FocusEventResult {
+    // This is fine since we can only be called with a component that with our vtable which is a ComponentDescription
+    let component_type = unsafe { get_component_type(component) };
+    let instance = unsafe { Pin::new_unchecked(&*component.as_ptr().cast::<Instance>()) };
+    let extra_data = component_type.extra_data_offset.apply(&*instance);
+
+    match event {
+        FocusEvent::FocusIn(_) => {
+            let (event_result, visit_result) =
+                sixtyfps_corelib::input::locate_and_activate_focus_item(component, event, window);
+            if event_result == FocusEventResult::FocusItemFound {
+                extra_data.focus_item.set(visit_result)
+            }
+            event_result
+        }
+        FocusEvent::FocusOut | FocusEvent::WindowReceivedFocus | FocusEvent::WindowLostFocus => {
+            if let Some((item_index, rep_index)) = extra_data.focus_item.get().aborted_indexes() {
+                let tree = &component_type.item_tree;
+                match tree[item_index] {
+                    ItemTreeNode::Item { item, .. } => {
+                        item.apply_pin(instance).as_ref().focus_event(&event, window)
+                    }
+                    ItemTreeNode::DynamicTree { index } => {
+                        generativity::make_guard!(guard);
+                        let rep_in_comp = &component_type.repeater[index].unerase(guard);
+                        let vec = rep_in_comp.offset.apply(&*instance).borrow();
+                        vec[rep_index].borrow().as_ref().focus_event(&event, window);
+                    }
+                };
+                // Preserve the focus_item field unless we're clearing it as part of a focus out phase.
+                if matches!(event, sixtyfps_corelib::input::FocusEvent::FocusOut) {
+                    extra_data.focus_item.set(VisitChildrenResult::CONTINUE);
+                }
+                FocusEventResult::FocusItemFound // We had a focus item and "found" it and notified it
+            } else {
+                FocusEventResult::FocusItemNotFound
+            }
+        }
+    }
 }
 
 extern "C" fn compute_layout(component: ComponentRefPin) {

@@ -15,7 +15,7 @@ use sixtyfps_corelib::component::{ComponentRefPin, ComponentVTable};
 use sixtyfps_corelib::eventloop::ComponentWindow;
 use sixtyfps_corelib::graphics::{HighLevelRenderingPrimitive, Rect, RenderingVariable, Resource};
 use sixtyfps_corelib::input::{
-    InputEventResult, KeyEvent, KeyEventResult, MouseEvent, MouseEventType,
+    FocusEvent, InputEventResult, KeyEvent, KeyEventResult, MouseEvent, MouseEventType,
 };
 use sixtyfps_corelib::item_rendering::CachedRenderingData;
 use sixtyfps_corelib::items::{Item, ItemConsts, ItemVTable};
@@ -195,6 +195,8 @@ impl Item for NativeButton {
     fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
+
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 }
 
 impl ItemConsts for NativeButton {
@@ -301,6 +303,8 @@ impl Item for NativeCheckBox {
     fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
+
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 }
 
 impl ItemConsts for NativeCheckBox {
@@ -489,6 +493,8 @@ impl Item for NativeSpinBox {
     fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
+
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 }
 
 impl ItemConsts for NativeSpinBox {
@@ -683,6 +689,8 @@ impl Item for NativeSlider {
     fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
+
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 }
 
 impl ItemConsts for NativeSlider {
@@ -816,6 +824,8 @@ impl Item for NativeGroupBox {
     fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
+
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 }
 
 impl ItemConsts for NativeGroupBox {
@@ -925,6 +935,8 @@ impl Item for NativeLineEdit {
     fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
+
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 }
 
 impl ItemConsts for NativeLineEdit {
@@ -1076,6 +1088,8 @@ impl Item for NativeScrollArea {
     fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
+
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 }
 
 impl ItemConsts for NativeScrollArea {

@@ -27,7 +27,8 @@ require.extensions['.60'] =
             let comp = c.create(init_properties);
             let ret = {
                 show() { comp.show() },
-                send_mouse_click(x, y) { comp.send_mouse_click(x, y) }
+                send_mouse_click(x, y) { comp.send_mouse_click(x, y) },
+                send_keyboard_string_sequence(s) { comp.send_keyboard_string_sequence(s) }
             };
             c.properties().forEach(x => {
                 Object.defineProperty(ret, x, {

@@ -268,6 +268,26 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         )
     }
 
+    /// Forward a key event to a particular item
+    pub fn key_event(
+        &self,
+        idx: usize,
+        event: &sixtyfps_corelib::input::KeyEvent,
+        window: &sixtyfps_corelib::eventloop::ComponentWindow,
+    ) -> sixtyfps_corelib::input::KeyEventResult {
+        self.inner.borrow().components.borrow()[idx].as_ref().key_event(event, window)
+    }
+
+    /// Forward a focus event to a particular item
+    pub fn focus_event(
+        &self,
+        idx: usize,
+        event: &sixtyfps_corelib::input::FocusEvent,
+        window: &sixtyfps_corelib::eventloop::ComponentWindow,
+    ) -> sixtyfps_corelib::input::FocusEventResult {
+        self.inner.borrow().components.borrow()[idx].as_ref().focus_event(event, window)
+    }
+
     /// Return the amount of item currently in the component
     pub fn len(&self) -> usize {
         self.inner.borrow().components.borrow().len()

@@ -864,11 +864,37 @@ fn generate_component(
             name: "key_event".into(),
             signature:
                 "(sixtyfps::private_api::ComponentRef component, const sixtyfps::KeyEvent *key_event, const sixtyfps::private_api::ComponentWindow *window) -> sixtyfps::KeyEventResult"
+                .into(),
+                is_static: true,
+                statements: Some(vec![
+                    format!("    auto self = reinterpret_cast<{}*>(component.instance);", component_id),
+                    "return sixtyfps::private_api::process_key_event(component, self->focus_item, key_event, item_tree(), [self](int dyn_index, [[maybe_unused]] int rep_index) {".into(),
+                    format!("    switch(dyn_index) {{ {} }};", repeated_input_branch.join("")),
+                    "    return sixtyfps::private_api::ComponentRef{nullptr, nullptr};\n}, window);".into(),
+                ]),
+                ..Default::default()
+            }),
+        ));
+
+    component_struct.members.push((
+        Access::Private,
+        Declaration::Var(Var {
+            ty: "int64_t".into(),
+            name: "focus_item".into(),
+            init: Some("-1".into()),
+        }),
+    ));
+    component_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
+            name: "focus_event".into(),
+            signature:
+                "(sixtyfps::private_api::ComponentRef component, const sixtyfps::FocusEvent *focus_event, const sixtyfps::private_api::ComponentWindow *window) -> sixtyfps::FocusEventResult"
                     .into(),
             is_static: true,
             statements: Some(vec![
                 format!("    auto self = reinterpret_cast<{}*>(component.instance);", component_id),
-                "return sixtyfps::private_api::process_key_event(component, key_event, item_tree(), [self](int dyn_index, [[maybe_unused]] int rep_index) {".into(),
+                "return sixtyfps::private_api::process_focus_event(component, self->focus_item, focus_event, item_tree(), [self](int dyn_index, [[maybe_unused]] int rep_index) {".into(),
                 format!("    switch(dyn_index) {{ {} }};", repeated_input_branch.join("")),
                 "    return sixtyfps::private_api::ComponentRef{nullptr, nullptr};\n}, window);".into(),
             ]),
@@ -904,7 +930,8 @@ fn generate_component(
         ty: "const sixtyfps::private_api::ComponentVTable".to_owned(),
         name: format!("{}::component_type", component_id),
         init: Some(
-            "{ visit_children, nullptr, compute_layout, input_event, key_event }".to_owned(),
+            "{ visit_children, nullptr, compute_layout, input_event, key_event, focus_event }"
+                .to_owned(),
         ),
     }));
 

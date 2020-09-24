@@ -133,6 +133,8 @@ constexpr inline ItemTreeNode make_dyn_node(std::uintptr_t offset)
 }
 }
 
+using cbindgen_private::FocusEvent;
+using cbindgen_private::FocusEventResult;
 using cbindgen_private::InputEventResult;
 using cbindgen_private::KeyEvent;
 using cbindgen_private::KeyEventResult;
@@ -177,12 +179,74 @@ inline InputEventResult process_input_event(ComponentRef component, int64_t &mou
     }
 }
 template<typename GetDynamic>
-inline KeyEventResult process_key_event(ComponentRef component, const KeyEvent *key_event,
-                                        Slice<ItemTreeNode> tree, GetDynamic get_dynamic,
-                                        const ComponentWindow *window)
+inline KeyEventResult process_key_event(ComponentRef component, int64_t focus_item,
+                                        const KeyEvent *event, Slice<ItemTreeNode> tree,
+                                        GetDynamic get_dynamic, const ComponentWindow *window)
 {
+    if (focus_item != -1) {
+        auto item_index = focus_item & 0xffffffff;
+        auto rep_index = focus_item >> 32;
+        const auto &item_node = tree.ptr[item_index];
+        switch (item_node.tag) {
+        case ItemTreeNode::Tag::Item:
+            return item_node.item.item.vtable->key_event(
+                    {
+                            item_node.item.item.vtable,
+                            reinterpret_cast<char *>(component.instance)
+                                    + item_node.item.item.offset,
+                    },
+                    event, window);
+        case ItemTreeNode::Tag::DynamicTree: {
+            ComponentRef comp = get_dynamic(item_node.dynamic_tree.index, rep_index);
+            return comp.vtable->key_event(comp, event, window);
+        };
+        }
+    } else {
+        return KeyEventResult::EventIgnored;
+    }
+}
 
-    return cbindgen_private::sixtyfps_process_key_event(component, key_event, window);
+template<typename GetDynamic>
+inline FocusEventResult process_focus_event(ComponentRef component, int64_t &focus_item,
+                                            const FocusEvent *event, Slice<ItemTreeNode> tree,
+                                            GetDynamic get_dynamic, const ComponentWindow *window)
+{
+    switch (event->tag) {
+    case FocusEvent::Tag::FocusIn:
+        return cbindgen_private::sixtyfps_locate_and_activate_focus_item(component, event, window,
+                                                                         &focus_item);
+    case FocusEvent::Tag::FocusOut:
+        [[fallthrough]];
+    case FocusEvent::Tag::WindowReceivedFocus:
+        [[fallthrough]];
+    case FocusEvent::Tag::WindowLostFocus:
+        if (focus_item != -1) {
+            auto item_index = focus_item & 0xffffffff;
+            auto rep_index = focus_item >> 32;
+            const auto &item_node = tree.ptr[item_index];
+            switch (item_node.tag) {
+            case ItemTreeNode::Tag::Item:
+                item_node.item.item.vtable->focus_event(
+                        {
+                                item_node.item.item.vtable,
+                                reinterpret_cast<char *>(component.instance)
+                                        + item_node.item.item.offset,
+                        },
+                        event, window);
+                break;
+            case ItemTreeNode::Tag::DynamicTree: {
+                ComponentRef comp = get_dynamic(item_node.dynamic_tree.index, rep_index);
+                comp.vtable->focus_event(comp, event, window);
+            } break;
+            }
+            if (event->tag == FocusEvent::Tag::FocusOut) {
+                focus_item = -1;
+            }
+            return FocusEventResult::FocusItemFound;
+        } else {
+            return FocusEventResult::FocusItemNotFound;
+        }
+    }
 }
 }
 

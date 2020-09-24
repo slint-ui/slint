@@ -275,6 +275,15 @@ impl TryFrom<char> for KeyCode {
             'x' => Self::X,
             'y' => Self::Y,
             'z' => Self::Z,
+            '1' => Self::Key1,
+            '2' => Self::Key2,
+            '3' => Self::Key3,
+            '4' => Self::Key4,
+            '5' => Self::Key5,
+            '6' => Self::Key6,
+            '7' => Self::Key7,
+            '8' => Self::Key8,
+            '9' => Self::Key9,
             _ => return Err(()),
         })
     }
@@ -437,6 +446,69 @@ pub enum KeyEventResult {
     EventIgnored,
 }
 
+/// This event is sent to a component and items when they receive or loose
+/// the keyboard focus.
+#[derive(Debug, Clone, PartialEq)]
+#[repr(C)]
+pub enum FocusEvent {
+    /// This event is sent when an item receives the focus. The value contained
+    /// in the tuple is a raw pointer to the item that is intended to receive the
+    /// focus. This is only used for equality comparison.
+    FocusIn(*const u8),
+    /// This event is sent when an item looses the focus.
+    FocusOut,
+    /// This event is sent when the window receives the keyboard focus.
+    WindowReceivedFocus,
+    /// This event is sent when the window looses the keyboard focus.
+    WindowLostFocus,
+}
+
+/// Represents how a component's focus_event dealt with the transfer of focus
+/// to an item.
+#[derive(Debug, Clone, PartialEq, Copy)]
+#[repr(C)]
+pub enum FocusEventResult {
+    /// The requested item to transfer focus to was found.
+    FocusItemFound,
+    /// The requested focus item was not in the component's tree of items.
+    FocusItemNotFound,
+}
+
+/// Scans the tree of items of the component to locate the item pointed to by
+/// the focus_event (assuming it is of type FocusIn). Once located, the focus in
+/// even will also be dispatched to the item itself.
+pub fn locate_and_activate_focus_item(
+    component: ComponentRefPin,
+    focus_event: &FocusEvent,
+    window: &crate::eventloop::ComponentWindow,
+) -> (FocusEventResult, VisitChildrenResult) {
+    let mut result = FocusEventResult::FocusItemNotFound;
+    let item_index = crate::item_tree::visit_items(
+        component,
+        crate::item_tree::TraversalOrder::FrontToBack,
+        |_, item, _| -> ItemVisitorResult<()> {
+            if let FocusEvent::FocusIn(new_focus_item_ptr) = focus_event {
+                if item.as_ptr() == *new_focus_item_ptr {
+                    item.as_ref().focus_event(focus_event, window);
+                    result = FocusEventResult::FocusItemFound;
+                    return ItemVisitorResult::Abort;
+                }
+            }
+            ItemVisitorResult::Continue(())
+        },
+        (),
+    );
+
+    (
+        result,
+        if result == FocusEventResult::FocusItemFound {
+            item_index
+        } else {
+            VisitChildrenResult::CONTINUE
+        },
+    )
+}
+
 /// Feed the given mouse event into the tree of items that component holds. The
 /// event will be delivered to items in front first.
 ///
@@ -517,28 +589,6 @@ pub fn process_grabbed_mouse_event(
     }
 }*/
 
-/// Process the given key event by sending it to the item tree that belongs to the specified component.
-pub fn process_key_event(
-    component: ComponentRefPin,
-    event: &KeyEvent,
-    window: &crate::eventloop::ComponentWindow,
-) -> KeyEventResult {
-    let mut result = KeyEventResult::EventIgnored;
-    crate::item_tree::visit_items(
-        component,
-        crate::item_tree::TraversalOrder::BackToFront,
-        |_, item, _| {
-            result = item.as_ref().key_event(event, window);
-            match result {
-                KeyEventResult::EventAccepted => ItemVisitorResult::Abort,
-                KeyEventResult::EventIgnored => ItemVisitorResult::Continue(()),
-            }
-        },
-        (),
-    );
-    result
-}
-
 pub(crate) mod ffi {
     use super::*;
 
@@ -567,11 +617,14 @@ pub(crate) mod ffi {
     }*/
 
     #[no_mangle]
-    pub extern "C" fn sixtyfps_process_key_event(
+    pub extern "C" fn sixtyfps_locate_and_activate_focus_item(
         component: core::pin::Pin<crate::component::ComponentRef>,
-        event: &KeyEvent,
+        event: &FocusEvent,
         window: &crate::eventloop::ComponentWindow,
-    ) -> KeyEventResult {
-        process_key_event(component, event, window)
+        new_focus_item: &mut crate::item_tree::VisitChildrenResult,
+    ) -> FocusEventResult {
+        let (result, focus_item) = locate_and_activate_focus_item(component, event, window);
+        *new_focus_item = focus_item;
+        result
     }
 }

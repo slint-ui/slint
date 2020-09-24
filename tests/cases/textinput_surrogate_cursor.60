@@ -8,16 +8,21 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 TestCase := TextInput {
+    width: 100px;
+    height: 100px;
     property<string> test_text: self.text;
     property<int> test_cursor_pos: self.cursor_position;
     property<int> test_anchor_pos: self.anchor_position;
     property<bool> has_selection: self.cursor_position != self.anchor_position;
+    property<bool> input_focused: self.focused;
 }
 
 /*
 ```rust
 let instance = TestCase::new();
 let instance = instance.as_ref();
+sixtyfps::testing::send_mouse_click(instance, 50., 50.);
+assert!(instance.get_input_focused());
 assert_eq!(instance.get_test_text(), "");
 sixtyfps::testing::send_keyboard_string_sequence(instance, "😍");
 assert_eq!(instance.get_test_text(), "😍");
