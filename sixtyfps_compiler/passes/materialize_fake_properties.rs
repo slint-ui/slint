@@ -59,11 +59,7 @@ fn maybe_materialize(
         if ty != Type::Invalid {
             property_declarations.insert(
                 prop.to_owned(),
-                PropertyDeclaration {
-                    property_type: ty,
-                    type_node: None,
-                    expose_in_public_api: false,
-                },
+                PropertyDeclaration { property_type: ty, ..PropertyDeclaration::default() },
             );
         }
     }

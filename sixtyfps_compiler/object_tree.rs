@@ -137,6 +137,8 @@ pub struct PropertyDeclaration {
     pub type_node: Option<SyntaxNodeWithSourceFile>,
     /// Tells if getter and setter will be added to expose in the native language API
     pub expose_in_public_api: bool,
+    /// Public API property exposed as an alias: it shouldn't be generated but instead forward to the alias.
+    pub is_alias: Option<NamedReference>,
 }
 
 /// An Element is an instentation of a Component
@@ -860,6 +862,7 @@ pub fn visit_all_named_references(elem: &ElementRc, mut vis: impl FnMut(&mut Nam
         expr.visit_mut(|sub| recurse_expression(sub, vis));
         match expr {
             Expression::PropertyReference(r) | Expression::SignalReference(r) => vis(r),
+            Expression::TwoWayBinding(r) => vis(r),
             // This is not really a named reference, but the result is the same, it need to be updated
             // FIXME: this should probably be lowered into a PropertyReference
             Expression::RepeaterModelReference { element }

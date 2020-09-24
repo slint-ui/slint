@@ -58,11 +58,7 @@ fn lower_state_in_element(root_element: &ElementRc, _diag: &mut BuildDiagnostics
     }
     root_element.borrow_mut().property_declarations.insert(
         state_property.clone(),
-        PropertyDeclaration {
-            property_type: Type::Int32,
-            type_node: None,
-            expose_in_public_api: false,
-        },
+        PropertyDeclaration { property_type: Type::Int32, ..PropertyDeclaration::default() },
     );
     root_element.borrow_mut().bindings.insert(state_property.clone(), state_value.into());
 }

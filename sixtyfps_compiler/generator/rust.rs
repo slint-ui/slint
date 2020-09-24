@@ -175,24 +175,35 @@ fn generate_component(
             }
             declared_signals_types.push(signal_args);
         } else {
-            declared_property_vars.push(prop_ident.clone());
             let rust_property_type =
                 rust_type(&property_decl.property_type, &property_decl.type_node.span())
                     .unwrap_or_else(|err| {
                         diag.push_internal_error(err.into());
                         quote!().into()
                     });
-            declared_property_types.push(rust_property_type.clone());
-
             if property_decl.expose_in_public_api {
                 let getter_ident = format_ident!("get_{}", prop_name);
                 let setter_ident = format_ident!("set_{}", prop_name);
+
+                let prop = if let Some(alias) = &property_decl.is_alias {
+                    access_member(
+                        &alias.element.upgrade().unwrap(),
+                        &alias.name,
+                        component,
+                        quote!(self),
+                        false,
+                    )
+                } else {
+                    quote!(Self::FIELD_OFFSETS.#prop_ident.apply_pin(self))
+                };
 
                 property_and_signal_accessors.push(
                     quote!(
                         #[allow(dead_code)]
                         pub fn #getter_ident(self: ::core::pin::Pin<&Self>) -> #rust_property_type {
-                            Self::FIELD_OFFSETS.#prop_ident.apply_pin(self).get()
+                            #[allow(unused_imports)]
+                            use sixtyfps::re_exports::*;
+                            #prop.get()
                         }
                     )
                     .into(),
@@ -207,12 +218,19 @@ fn generate_component(
                 property_and_signal_accessors.push(
                     quote!(
                         #[allow(dead_code)]
-                        pub fn #setter_ident(&self, value: #rust_property_type) {
-                            Self::FIELD_OFFSETS.#prop_ident.apply(self).#set_value
+                        pub fn #setter_ident(self: ::core::pin::Pin<&Self>, value: #rust_property_type) {
+                            #[allow(unused_imports)]
+                            use sixtyfps::re_exports::*;
+                            #prop.#set_value
                         }
                     )
                     .into(),
                 );
+            }
+
+            if property_decl.is_alias.is_none() {
+                declared_property_vars.push(prop_ident.clone());
+                declared_property_types.push(rust_property_type.clone());
             }
         }
     }

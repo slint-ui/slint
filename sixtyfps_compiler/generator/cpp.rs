@@ -570,8 +570,13 @@ fn generate_component(
                 get_cpp_type(&property_decl.property_type, &property_decl.type_node, diag);
 
             if property_decl.expose_in_public_api && is_root {
-                let prop_getter: Vec<String> = vec![format!("return {}.get();", cpp_name)];
+                let access = if let Some(alias) = &property_decl.is_alias {
+                    access_member(&alias.element.upgrade().unwrap(), &alias.name, component, "this")
+                } else {
+                    format!("this->{}", cpp_name)
+                };
 
+                let prop_getter: Vec<String> = vec![format!("return {}.get();", access)];
                 component_struct.members.push((
                     Access::Public,
                     Declaration::Function(Function {
@@ -583,8 +588,8 @@ fn generate_component(
                 ));
 
                 let prop_setter: Vec<String> = vec![format!(
-                    "this->{}.{};",
-                    cpp_name,
+                    "{}.{};",
+                    access,
                     property_set_value_code(
                         &component,
                         &*component.root_element.borrow(),
@@ -602,13 +607,15 @@ fn generate_component(
                     }),
                 ));
             }
-
             format!("sixtyfps::Property<{}>", cpp_type)
         };
-        component_struct.members.push((
-            Access::Private,
-            Declaration::Var(Var { ty, name: cpp_name.clone(), init: None }),
-        ));
+
+        if property_decl.is_alias.is_none() {
+            component_struct.members.push((
+                Access::Private,
+                Declaration::Var(Var { ty, name: cpp_name.clone(), init: None }),
+            ));
+        }
     }
 
     if !is_root {

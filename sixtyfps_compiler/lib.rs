@@ -52,6 +52,7 @@ mod passes {
     pub mod lower_states;
     pub mod materialize_fake_properties;
     pub mod move_declarations;
+    pub mod remove_aliases;
     pub mod repeater_component;
     pub mod resolve_native_classes;
     pub mod resolving;
@@ -129,6 +130,7 @@ pub fn run_passes(
     passes::lower_layout::lower_layouts(&doc.root_component, diag);
     passes::deduplicate_property_read::deduplicate_property_read(&doc.root_component);
     passes::move_declarations::move_declarations(&doc.root_component, diag);
+    passes::remove_aliases::remove_aliases(&doc.root_component, diag);
     passes::resolve_native_classes::resolve_native_classes(&doc.root_component);
 }
 

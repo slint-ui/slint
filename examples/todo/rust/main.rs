@@ -36,7 +36,7 @@ pub fn main() {
         move |text| todo_model.push(TodoItem { checked: true, title: text })
     });
 
-    main_window.set_todo_model(Some(todo_model));
+    main_window.as_ref().set_todo_model(Some(todo_model));
 
     main_window.run();
 }

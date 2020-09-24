@@ -22,10 +22,14 @@ X := Rectangle {
 
     xx := Rectangle {
         x: 42px;
-        width <=> width;
+        width <=> parent.width;
         height <=> x;
         color <=> root.x;
 //      ^error{The property does not have the same type as the bound property}
         y <=> y;
+//      ^error{Property cannot alias to itself}
     }
+
+    property <int> dd <=> dd;
+//                    ^error{Property cannot alias to itself}
 }

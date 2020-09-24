@@ -21,7 +21,7 @@ pub fn main() {
 
     let main_window = MainWindow::new();
     // FIXME: better represtation of the models
-    main_window.set_ink_levels(sixtyfps::VecModel::from_slice(&[
+    main_window.as_ref().set_ink_levels(sixtyfps::VecModel::from_slice(&[
         InkLevel { color: sixtyfps::Color::from_rgb_u8(0, 255, 255), level: 0.40 },
         InkLevel { color: sixtyfps::Color::from_rgb_u8(255, 0, 255), level: 0.20 },
         InkLevel { color: sixtyfps::Color::from_rgb_u8(255, 255, 0), level: 0.50 },
