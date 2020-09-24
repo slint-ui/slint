@@ -451,6 +451,7 @@ pub fn process_ungrabbed_mouse_event(
     component: ComponentRefPin,
     event: MouseEvent,
     window: &crate::eventloop::ComponentWindow,
+    app_component: ComponentRefPin,
 ) -> (InputEventResult, VisitChildrenResult) {
     let offset = Vector2D::new(0., 0.);
 
@@ -465,7 +466,7 @@ pub fn process_ungrabbed_mouse_event(
             if geom.contains(event.pos) {
                 let mut event2 = event.clone();
                 event2.pos -= geom.origin.to_vector();
-                match item.as_ref().input_event(event2, window) {
+                match item.as_ref().input_event(event2, window, app_component) {
                     InputEventResult::EventAccepted => {
                         result = InputEventResult::EventAccepted;
                         return ItemVisitorResult::Abort;
@@ -541,9 +542,10 @@ pub(crate) mod ffi {
         component: core::pin::Pin<crate::component::ComponentRef>,
         event: MouseEvent,
         window: &crate::eventloop::ComponentWindow,
+        app_component: core::pin::Pin<crate::component::ComponentRef>,
         new_mouse_grabber: &mut crate::item_tree::VisitChildrenResult,
     ) -> InputEventResult {
-        let (res, grab) = process_ungrabbed_mouse_event(component, event, window);
+        let (res, grab) = process_ungrabbed_mouse_event(component, event, window, app_component);
         *new_mouse_grabber = grab;
         res
     }

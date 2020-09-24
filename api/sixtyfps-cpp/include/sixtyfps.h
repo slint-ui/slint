@@ -140,7 +140,8 @@ namespace private_api {
 template<typename GetDynamic>
 inline InputEventResult process_input_event(ComponentRef component, int64_t &mouse_grabber,
                                             MouseEvent mouse_event, Slice<ItemTreeNode> tree,
-                                            GetDynamic get_dynamic, const ComponentWindow *window)
+                                            GetDynamic get_dynamic, const ComponentWindow *window,
+                                            const ComponentRef *app_component)
 {
     if (mouse_grabber != -1) {
         auto item_index = mouse_grabber & 0xffffffff;
@@ -157,11 +158,11 @@ inline InputEventResult process_input_event(ComponentRef component, int64_t &mou
                             reinterpret_cast<char *>(component.instance)
                                     + item_node.item.item.offset,
                     },
-                    mouse_event, window);
+                    mouse_event, window, *app_component);
             break;
         case ItemTreeNode::Tag::DynamicTree: {
             ComponentRef comp = get_dynamic(item_node.dynamic_tree.index, rep_index);
-            result = comp.vtable->input_event(comp, mouse_event, window);
+            result = comp.vtable->input_event(comp, mouse_event, window, app_component);
         } break;
         }
         if (result != InputEventResult::GrabMouse) {
@@ -169,8 +170,8 @@ inline InputEventResult process_input_event(ComponentRef component, int64_t &mou
         }
         return result;
     } else {
-        return cbindgen_private::sixtyfps_process_ungrabbed_mouse_event(component, mouse_event,
-                                                                        window, &mouse_grabber);
+        return cbindgen_private::sixtyfps_process_ungrabbed_mouse_event(
+                component, mouse_event, window, *app_component, &mouse_grabber);
     }
 }
 }

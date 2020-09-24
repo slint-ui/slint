@@ -845,14 +845,14 @@ fn generate_component(
         Declaration::Function(Function {
             name: "input_event".into(),
             signature:
-                "(sixtyfps::private_api::ComponentRef component, sixtyfps::MouseEvent mouse_event, const sixtyfps::private_api::ComponentWindow *window) -> sixtyfps::InputEventResult"
+                "(sixtyfps::private_api::ComponentRef component, sixtyfps::MouseEvent mouse_event, const sixtyfps::private_api::ComponentWindow *window, const sixtyfps::private_api::ComponentRef *app_component) -> sixtyfps::InputEventResult"
                     .into(),
             is_static: true,
             statements: Some(vec![
                 format!("    auto self = reinterpret_cast<{}*>(component.instance);", component_id),
                 "return sixtyfps::private_api::process_input_event(component, self->mouse_grabber, mouse_event, item_tree(), [self](int dyn_index, [[maybe_unused]] int rep_index) {".into(),
                 format!("    switch(dyn_index) {{ {} }};", repeated_input_branch.join("")),
-                "    return sixtyfps::private_api::ComponentRef{nullptr, nullptr};\n}, window);".into(),
+                "    return sixtyfps::private_api::ComponentRef{nullptr, nullptr};\n}, window, app_component);".into(),
             ]),
             ..Default::default()
         }),

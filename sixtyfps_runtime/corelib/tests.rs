@@ -34,10 +34,22 @@ pub extern "C" fn sixtyfps_send_mouse_click(
     window: &crate::eventloop::ComponentWindow,
 ) {
     let pos = euclid::point2(x, y);
-    component.as_ref().input_event(MouseEvent { pos, what: MouseEventType::MouseMoved }, window);
-    component.as_ref().input_event(MouseEvent { pos, what: MouseEventType::MousePressed }, window);
+    component.as_ref().input_event(
+        MouseEvent { pos, what: MouseEventType::MouseMoved },
+        window,
+        &component,
+    );
+    component.as_ref().input_event(
+        MouseEvent { pos, what: MouseEventType::MousePressed },
+        window,
+        &component,
+    );
     sixtyfps_mock_elapsed_time(50);
-    component.as_ref().input_event(MouseEvent { pos, what: MouseEventType::MouseReleased }, window);
+    component.as_ref().input_event(
+        MouseEvent { pos, what: MouseEventType::MouseReleased },
+        window,
+        &component,
+    );
 }
 
 /// Simulate a change in keyboard modifiers pressed.

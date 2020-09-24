@@ -42,6 +42,7 @@ pub struct ComponentVTable {
         core::pin::Pin<VRef<ComponentVTable>>,
         MouseEvent,
         &ComponentWindow,
+        &core::pin::Pin<VRef<ComponentVTable>>,
     ) -> InputEventResult,
 }
 

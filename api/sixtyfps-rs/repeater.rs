@@ -11,7 +11,7 @@ use core::cell::{Cell, RefCell};
 use core::pin::Pin;
 use std::rc::{Rc, Weak};
 
-use sixtyfps_corelib::Property;
+use sixtyfps_corelib::{component::ComponentRefPin, Property};
 
 type ModelPeerInner = dyn ViewAbstraction;
 
@@ -259,8 +259,13 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         idx: usize,
         event: sixtyfps_corelib::input::MouseEvent,
         window: &sixtyfps_corelib::eventloop::ComponentWindow,
+        app_component: &ComponentRefPin,
     ) -> sixtyfps_corelib::input::InputEventResult {
-        self.inner.borrow().components.borrow()[idx].as_ref().input_event(event, window)
+        self.inner.borrow().components.borrow()[idx].as_ref().input_event(
+            event,
+            window,
+            app_component,
+        )
     }
 
     /// Return the amount of item currently in the component

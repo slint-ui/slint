@@ -11,6 +11,7 @@ LICENSE END */
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use cpp::cpp;
+use sixtyfps_corelib::component::{ComponentRefPin, ComponentVTable};
 use sixtyfps_corelib::eventloop::ComponentWindow;
 use sixtyfps_corelib::graphics::{HighLevelRenderingPrimitive, Rect, RenderingVariable, Resource};
 use sixtyfps_corelib::input::{
@@ -170,6 +171,7 @@ impl Item for NativeButton {
         self: Pin<&Self>,
         event: MouseEvent,
         _window: &ComponentWindow,
+        _app_component: ComponentRefPin,
     ) -> InputEventResult {
         Self::FIELD_OFFSETS.pressed.apply_pin(self).set(match event.what {
             MouseEventType::MousePressed => true,
@@ -284,6 +286,7 @@ impl Item for NativeCheckBox {
         self: Pin<&Self>,
         event: MouseEvent,
         _window: &ComponentWindow,
+        _app_component: ComponentRefPin,
     ) -> InputEventResult {
         if matches!(event.what, MouseEventType::MouseReleased) {
             Self::FIELD_OFFSETS
@@ -431,6 +434,7 @@ impl Item for NativeSpinBox {
         self: Pin<&Self>,
         event: MouseEvent,
         _window: &ComponentWindow,
+        _app_component: ComponentRefPin,
     ) -> InputEventResult {
         let size: qttypes::QSize = get_size!(self);
         let mut data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
@@ -620,6 +624,7 @@ impl Item for NativeSlider {
         self: Pin<&Self>,
         event: MouseEvent,
         _window: &ComponentWindow,
+        _app_component: ComponentRefPin,
     ) -> InputEventResult {
         let size: qttypes::QSize = get_size!(self);
         let value = Self::FIELD_OFFSETS.value.apply_pin(self).get() as f32;
@@ -799,7 +804,12 @@ impl Item for NativeGroupBox {
         }
     }
 
-    fn input_event(self: Pin<&Self>, _: MouseEvent, _window: &ComponentWindow) -> InputEventResult {
+    fn input_event(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window: &ComponentWindow,
+        _app_component: ComponentRefPin,
+    ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
 
@@ -903,7 +913,12 @@ impl Item for NativeLineEdit {
         }
     }
 
-    fn input_event(self: Pin<&Self>, _: MouseEvent, _window: &ComponentWindow) -> InputEventResult {
+    fn input_event(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window: &ComponentWindow,
+        _app_component: ComponentRefPin,
+    ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
 
@@ -1049,7 +1064,12 @@ impl Item for NativeScrollArea {
         }
     }
 
-    fn input_event(self: Pin<&Self>, _: MouseEvent, _window: &ComponentWindow) -> InputEventResult {
+    fn input_event(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window: &ComponentWindow,
+        _app_component: ComponentRefPin,
+    ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
 

@@ -611,6 +611,7 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
         component.as_ref().input_event(
             MouseEvent { pos: euclid::point2(pos.x as _, pos.y as _), what },
             &crate::eventloop::ComponentWindow::new(self.clone()),
+            &component,
         );
     }
 

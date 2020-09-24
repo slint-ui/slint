@@ -331,7 +331,7 @@ fn generate_component(
             ));
 
             repeated_input_branch.push(quote!(
-                #repeater_index => self.#repeater_id.input_event(rep_index, event, window),
+                #repeater_index => self.#repeater_id.input_event(rep_index, event, window, app_component),
             ));
 
             item_tree_array.push(quote!(
@@ -545,7 +545,8 @@ fn generate_component(
                 }
             }
 
-            fn input_event(self: ::core::pin::Pin<&Self>, mouse_event : sixtyfps::re_exports::MouseEvent, window: &sixtyfps::re_exports::ComponentWindow) -> sixtyfps::re_exports::InputEventResult {
+            fn input_event(self: ::core::pin::Pin<&Self>, mouse_event : sixtyfps::re_exports::MouseEvent, window: &sixtyfps::re_exports::ComponentWindow,
+                           app_component: &::core::pin::Pin<sixtyfps::re_exports::VRef<sixtyfps::re_exports::ComponentVTable>>) -> sixtyfps::re_exports::InputEventResult {
                 use sixtyfps::re_exports::*;
                 let mouse_grabber = self.mouse_grabber.get();
                 #[allow(unused)]
@@ -556,7 +557,7 @@ fn generate_component(
                     event.pos -= offset.to_vector();
                     let res = match tree[item_index] {
                         ItemTreeNode::Item { item, .. } => {
-                            item.apply_pin(self).as_ref().input_event(event, window)
+                            item.apply_pin(self).as_ref().input_event(event, window, app_component.clone())
                         }
                         ItemTreeNode::DynamicTree { index } => {
                             match index {
@@ -570,7 +571,7 @@ fn generate_component(
                         _ => (res, VisitChildrenResult::CONTINUE),
                     }
                 } else {
-                    process_ungrabbed_mouse_event(VRef::new_pin(self), mouse_event, window)
+                    process_ungrabbed_mouse_event(VRef::new_pin(self), mouse_event, window, app_component.clone())
                 };
                 self.mouse_grabber.set(new_grab);
                 status

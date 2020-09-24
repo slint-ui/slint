@@ -25,6 +25,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 #![allow(non_upper_case_globals)]
 #![allow(missing_docs)] // because documenting each property of items is redundent
 
+use super::component::{ComponentRefPin, ComponentVTable};
 use super::eventloop::ComponentWindow;
 use super::graphics::{Color, HighLevelRenderingPrimitive, PathData, Rect, Resource};
 use super::input::{
@@ -77,6 +78,7 @@ pub struct ItemVTable {
         core::pin::Pin<VRef<ItemVTable>>,
         MouseEvent,
         window: &ComponentWindow,
+        app_component: core::pin::Pin<VRef<ComponentVTable>>,
     ) -> InputEventResult,
 
     pub key_event: extern "C" fn(
@@ -138,7 +140,12 @@ impl Item for Rectangle {
         Default::default()
     }
 
-    fn input_event(self: Pin<&Self>, _: MouseEvent, _window: &ComponentWindow) -> InputEventResult {
+    fn input_event(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window: &ComponentWindow,
+        _app_component: ComponentRefPin,
+    ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
 
@@ -217,7 +224,12 @@ impl Item for BorderRectangle {
         Default::default()
     }
 
-    fn input_event(self: Pin<&Self>, _: MouseEvent, _window: &ComponentWindow) -> InputEventResult {
+    fn input_event(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window: &ComponentWindow,
+        _app_component: ComponentRefPin,
+    ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
 
@@ -294,7 +306,12 @@ impl Item for Image {
         Default::default()
     }
 
-    fn input_event(self: Pin<&Self>, _: MouseEvent, _window: &ComponentWindow) -> InputEventResult {
+    fn input_event(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window: &ComponentWindow,
+        _app_component: ComponentRefPin,
+    ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
 
@@ -430,7 +447,12 @@ impl Item for Text {
         })
     }
 
-    fn input_event(self: Pin<&Self>, _: MouseEvent, _window: &ComponentWindow) -> InputEventResult {
+    fn input_event(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window: &ComponentWindow,
+        _app_component: ComponentRefPin,
+    ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
 
@@ -516,6 +538,7 @@ impl Item for TouchArea {
         self: Pin<&Self>,
         event: MouseEvent,
         _window: &ComponentWindow,
+        _app_component: ComponentRefPin,
     ) -> InputEventResult {
         Self::FIELD_OFFSETS.mouse_x.apply_pin(self).set(event.pos.x);
         Self::FIELD_OFFSETS.mouse_y.apply_pin(self).set(event.pos.y);
@@ -614,7 +637,12 @@ impl Item for Path {
         LayoutInfo::default()
     }
 
-    fn input_event(self: Pin<&Self>, _: MouseEvent, _window: &ComponentWindow) -> InputEventResult {
+    fn input_event(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window: &ComponentWindow,
+        _app_component: ComponentRefPin,
+    ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
 
@@ -681,6 +709,7 @@ impl Item for Flickable {
         self: Pin<&Self>,
         event: MouseEvent,
         _window: &ComponentWindow,
+        _app_component: ComponentRefPin,
     ) -> InputEventResult {
         self.data.handle_mouse(self, event);
 
@@ -798,6 +827,7 @@ impl Item for Window {
         self: Pin<&Self>,
         _event: MouseEvent,
         _window: &ComponentWindow,
+        _app_component: ComponentRefPin,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
@@ -945,6 +975,7 @@ impl Item for TextInput {
         self: Pin<&Self>,
         event: MouseEvent,
         window: &ComponentWindow,
+        _app_component: ComponentRefPin,
     ) -> InputEventResult {
         let clicked_offset = TextInput::with_font(self, window, |font| {
             let text = Self::FIELD_OFFSETS.text.apply_pin(self).get();
