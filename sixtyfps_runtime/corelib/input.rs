@@ -522,16 +522,21 @@ pub fn process_key_event(
     component: ComponentRefPin,
     event: &KeyEvent,
     window: &crate::eventloop::ComponentWindow,
-) {
+) -> KeyEventResult {
+    let mut result = KeyEventResult::EventIgnored;
     crate::item_tree::visit_items(
         component,
         crate::item_tree::TraversalOrder::BackToFront,
-        |_, item, _| match item.as_ref().key_event(event, window) {
-            KeyEventResult::EventAccepted => ItemVisitorResult::Abort,
-            KeyEventResult::EventIgnored => ItemVisitorResult::Continue(()),
+        |_, item, _| {
+            result = item.as_ref().key_event(event, window);
+            match result {
+                KeyEventResult::EventAccepted => ItemVisitorResult::Abort,
+                KeyEventResult::EventIgnored => ItemVisitorResult::Continue(()),
+            }
         },
         (),
     );
+    result
 }
 
 pub(crate) mod ffi {
@@ -560,4 +565,13 @@ pub(crate) mod ffi {
     ) -> (InputEventResult, crate::item_tree::VisitChildrenResult) {
         process_grabbed_mouse_event(component, item, offset, event, old_grab)
     }*/
+
+    #[no_mangle]
+    pub extern "C" fn sixtyfps_process_key_event(
+        component: core::pin::Pin<crate::component::ComponentRef>,
+        event: &KeyEvent,
+        window: &crate::eventloop::ComponentWindow,
+    ) -> KeyEventResult {
+        process_key_event(component, event, window)
+    }
 }

@@ -577,6 +577,12 @@ fn generate_component(
                 status
             }
 
+            fn key_event(self: ::core::pin::Pin<&Self>, key_event : &sixtyfps::re_exports::KeyEvent, window: &sixtyfps::re_exports::ComponentWindow)
+                -> sixtyfps::re_exports::KeyEventResult{
+                use sixtyfps::re_exports::*;
+                process_key_event(VRef::new_pin(self), key_event, window)
+            }
+
             #layouts
         }
 

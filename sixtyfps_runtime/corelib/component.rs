@@ -12,7 +12,7 @@ LICENSE END */
 //! This module contains the basic datastructures that are exposed to the C API
 
 use crate::eventloop::ComponentWindow;
-use crate::input::{InputEventResult, MouseEvent};
+use crate::input::{InputEventResult, KeyEvent, KeyEventResult, MouseEvent};
 use crate::item_tree::{ItemVisitorVTable, TraversalOrder, VisitChildrenResult};
 use crate::layout::LayoutInfo;
 use vtable::*;
@@ -44,6 +44,13 @@ pub struct ComponentVTable {
         &ComponentWindow,
         &core::pin::Pin<VRef<ComponentVTable>>,
     ) -> InputEventResult,
+
+    /// key event
+    pub key_event: extern "C" fn(
+        core::pin::Pin<VRef<ComponentVTable>>,
+        &KeyEvent,
+        &ComponentWindow,
+    ) -> KeyEventResult,
 }
 
 /// Alias for `vtable::VRef<ComponentVTable>` which represent a pointer to a `dyn Component` with

@@ -859,6 +859,24 @@ fn generate_component(
     ));
 
     component_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
+            name: "key_event".into(),
+            signature:
+                "(sixtyfps::private_api::ComponentRef component, const sixtyfps::KeyEvent *key_event, const sixtyfps::private_api::ComponentWindow *window) -> sixtyfps::KeyEventResult"
+                    .into(),
+            is_static: true,
+            statements: Some(vec![
+                format!("    auto self = reinterpret_cast<{}*>(component.instance);", component_id),
+                "return sixtyfps::private_api::process_key_event(component, key_event, item_tree(), [self](int dyn_index, [[maybe_unused]] int rep_index) {".into(),
+                format!("    switch(dyn_index) {{ {} }};", repeated_input_branch.join("")),
+                "    return sixtyfps::private_api::ComponentRef{nullptr, nullptr};\n}, window);".into(),
+            ]),
+            ..Default::default()
+        }),
+    ));
+
+    component_struct.members.push((
         Access::Public, // FIXME: we call this function from tests
         Declaration::Function(Function {
             name: "compute_layout".into(),
@@ -885,7 +903,9 @@ fn generate_component(
     declarations.push(Declaration::Var(Var {
         ty: "const sixtyfps::private_api::ComponentVTable".to_owned(),
         name: format!("{}::component_type", component_id),
-        init: Some("{ visit_children, nullptr, compute_layout, input_event }".to_owned()),
+        init: Some(
+            "{ visit_children, nullptr, compute_layout, input_event, key_event }".to_owned(),
+        ),
     }));
 
     declarations.append(&mut file.declarations);

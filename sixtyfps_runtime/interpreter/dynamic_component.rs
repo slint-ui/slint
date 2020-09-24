@@ -574,7 +574,13 @@ fn generate_component<'id>(
         todo!()
     }
 
-    let t = ComponentVTable { visit_children_item, layout_info, compute_layout, input_event };
+    let t = ComponentVTable {
+        visit_children_item,
+        layout_info,
+        compute_layout,
+        input_event,
+        key_event,
+    };
     let t = ComponentDescription {
         ct: t,
         dynamic_type: builder.build(),
@@ -1127,6 +1133,14 @@ extern "C" fn input_event(
     };
     extra_data.mouse_grabber.set(new_grab);
     status
+}
+
+extern "C" fn key_event(
+    component: ComponentRefPin,
+    key_event: &sixtyfps_corelib::input::KeyEvent,
+    window: &sixtyfps_corelib::eventloop::ComponentWindow,
+) -> sixtyfps_corelib::input::KeyEventResult {
+    sixtyfps_corelib::input::process_key_event(component, key_event, window)
 }
 
 extern "C" fn compute_layout(component: ComponentRefPin) {

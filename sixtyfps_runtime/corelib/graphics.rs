@@ -620,11 +620,7 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
         event: &KeyEvent,
         component: core::pin::Pin<crate::component::ComponentRef>,
     ) {
-        crate::input::process_key_event(
-            component,
-            event,
-            &crate::eventloop::ComponentWindow::new(self.clone()),
-        )
+        component.as_ref().key_event(event, &crate::eventloop::ComponentWindow::new(self.clone()));
     }
 
     fn with_platform_window(&self, callback: &dyn Fn(&winit::window::Window)) {

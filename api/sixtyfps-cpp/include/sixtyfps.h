@@ -134,6 +134,8 @@ constexpr inline ItemTreeNode make_dyn_node(std::uintptr_t offset)
 }
 
 using cbindgen_private::InputEventResult;
+using cbindgen_private::KeyEvent;
+using cbindgen_private::KeyEventResult;
 using cbindgen_private::MouseEvent;
 using cbindgen_private::sixtyfps_visit_item_tree;
 namespace private_api {
@@ -173,6 +175,14 @@ inline InputEventResult process_input_event(ComponentRef component, int64_t &mou
         return cbindgen_private::sixtyfps_process_ungrabbed_mouse_event(
                 component, mouse_event, window, *app_component, &mouse_grabber);
     }
+}
+template<typename GetDynamic>
+inline KeyEventResult process_key_event(ComponentRef component, const KeyEvent *key_event,
+                                        Slice<ItemTreeNode> tree, GetDynamic get_dynamic,
+                                        const ComponentWindow *window)
+{
+
+    return cbindgen_private::sixtyfps_process_key_event(component, key_event, window);
 }
 }
 
