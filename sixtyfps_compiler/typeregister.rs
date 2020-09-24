@@ -648,6 +648,7 @@ impl TypeRegister {
                 ("text_cursor_width", Type::Length),
                 ("cursor_position", Type::Int32),
                 ("anchor_position", Type::Int32),
+                ("has_focus", Type::Bool),
                 ("accepted", Type::Signal { args: vec![] }),
             ],
             &[

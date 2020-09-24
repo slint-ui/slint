@@ -24,7 +24,7 @@ export GroupBox := NativeGroupBox {
  }
 export LineEdit := NativeLineEdit {
     property <string> text;
-    property <bool> focused: true;
+    property <bool> has_focus: true;
     property <string> accepted_text: input.text; // FIXME: remove when we can do two-way bindings
     signal accepted(string);
     GridLayout {

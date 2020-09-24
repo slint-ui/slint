@@ -239,10 +239,10 @@ export GroupBox := GridLayout {
 export LineEdit := Rectangle {
     property <string> text;
     property <string> accepted_text: input.text; // FIXME: remove when we can do two-way bindings
-    property <bool> focused: true;
+    property <bool> has_focus: input.has_focus;
     signal accepted(string);
 
-    border_color: root.focused ? #556884 : #ffffff;
+    border_color: root.has_focus ? #556884 : #ffffff;
     border_radius: 1lx;
     border_width: 2lx;
 

@@ -889,6 +889,7 @@ pub struct TextInput {
     pub anchor_position: Property<i32>, // byte offset
     pub text_cursor_width: Property<f32>,
     pub cursor_visible: Property<bool>,
+    pub has_focus: Property<bool>,
     pub accepted: Signal<()>,
     pub pressed: std::cell::Cell<bool>,
     pub cached_rendering_data: CachedRenderingData,
@@ -1006,7 +1007,7 @@ impl Item for TextInput {
             self.as_ref().pressed.set(true);
             self.as_ref().anchor_position.set(clicked_offset);
             self.as_ref().cursor_position.set(clicked_offset);
-            if !Self::FIELD_OFFSETS.focused.apply_pin(self).get() {
+            if !Self::FIELD_OFFSETS.has_focus.apply_pin(self).get() {
                 window.set_focus_item(app_component, self);
             }
         }
@@ -1098,8 +1099,14 @@ impl Item for TextInput {
 
     fn focus_event(self: Pin<&Self>, event: &FocusEvent, window: &ComponentWindow) {
         match event {
-            FocusEvent::FocusIn(_) | FocusEvent::WindowReceivedFocus => self.show_cursor(window),
-            FocusEvent::FocusOut | FocusEvent::WindowLostFocus => self.hide_cursor(),
+            FocusEvent::FocusIn(_) | FocusEvent::WindowReceivedFocus => {
+                self.has_focus.set(true);
+                self.show_cursor(window);
+            }
+            FocusEvent::FocusOut | FocusEvent::WindowLostFocus => {
+                self.has_focus.set(false);
+                self.hide_cursor()
+            }
         }
     }
 }

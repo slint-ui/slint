@@ -22,9 +22,9 @@ TestCase := Rectangle {
         height: 200px;
     }
 
-    property<bool> input1_focused: input1.focused;
+    property<bool> input1_focused: input1.has_focus;
     property<string> input1_text: input1.text;
-    property<bool> input2_focused: input2.focused;
+    property<bool> input2_focused: input2.has_focus;
     property<string> input2_text: input2.text;
 }
 
