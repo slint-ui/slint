@@ -512,6 +512,9 @@ fn generate_component<'id>(
     }
 
     for (name, decl) in &root_component.root_element.borrow().property_declarations {
+        if decl.is_alias.is_some() {
+            continue;
+        }
         let (prop, type_info) = match decl.property_type {
             Type::Float32 => animated_property_info::<f32>(),
             Type::Int32 => animated_property_info::<i32>(),

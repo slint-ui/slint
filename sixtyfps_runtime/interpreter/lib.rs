@@ -68,19 +68,19 @@ impl<'id> dynamic_component::ComponentDescription<'id> {
         if !core::ptr::eq((&self.ct) as *const _, component.get_vtable() as *const _) {
             return Err(());
         }
-        let x = self.custom_properties.get(name).ok_or(())?;
         generativity::make_guard!(guard);
-        let maybe_animation = dynamic_component::animation_for_property(
-            unsafe { InstanceRef::from_pin_ref(component, guard) },
-            &self.original.root_element.borrow().property_animations,
-            name,
-        );
-        unsafe {
-            x.prop.set(
-                Pin::new_unchecked(&*component.as_ptr().add(x.offset)),
-                value,
-                maybe_animation,
-            )
+        let c = unsafe { InstanceRef::from_pin_ref(component, guard) };
+        if let Some(alias) = self
+            .original
+            .root_element
+            .borrow()
+            .property_declarations
+            .get(name)
+            .and_then(|d| d.is_alias.as_ref())
+        {
+            eval::store_property(c, &alias.element.upgrade().unwrap(), &alias.name, value)
+        } else {
+            eval::store_property(c, &self.original.root_element, name, value)
         }
     }
 
@@ -114,8 +114,21 @@ impl<'id> dynamic_component::ComponentDescription<'id> {
         if !core::ptr::eq((&self.ct) as *const _, component.get_vtable() as *const _) {
             return Err(());
         }
-        let x = self.custom_properties.get(name).ok_or(())?;
-        unsafe { x.prop.get(Pin::new_unchecked(&*component.as_ptr().add(x.offset))) }
+        if let Some(alias) = self
+            .original
+            .root_element
+            .borrow()
+            .property_declarations
+            .get(name)
+            .and_then(|d| d.is_alias.as_ref())
+        {
+            generativity::make_guard!(guard);
+            let c = unsafe { InstanceRef::from_pin_ref(component, guard) };
+            eval::load_property(c, &alias.element.upgrade().unwrap(), &alias.name)
+        } else {
+            let x = self.custom_properties.get(name).ok_or(())?;
+            unsafe { x.prop.get(Pin::new_unchecked(&*component.as_ptr().add(x.offset))) }
+        }
     }
 
     /// Sets an handler for a signal

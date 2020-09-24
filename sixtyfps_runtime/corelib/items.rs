@@ -746,7 +746,7 @@ pub unsafe extern "C" fn sixtyfps_flickable_data_free(data: *mut FlickableDataBo
 
 /// The implementation of the `PropertyAnimation` element
 #[repr(C)]
-#[derive(FieldOffsets, Default, BuiltinItem, Clone)]
+#[derive(FieldOffsets, Default, BuiltinItem, Clone, Debug)]
 #[pin]
 pub struct PropertyAnimation {
     #[rtti_field]

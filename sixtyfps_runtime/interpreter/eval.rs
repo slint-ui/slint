@@ -194,18 +194,20 @@ pub fn eval_expression(
             "naked builtin function reference not allowed, should be handled by function call"
         ),
         Expression::PropertyReference(NamedReference { element, name }) => {
-            load_property(component, &element.upgrade().unwrap(), name.as_ref())
+            load_property(component, &element.upgrade().unwrap(), name.as_ref()).unwrap()
         }
         Expression::RepeaterIndexReference { element } => load_property(
             component,
             &element.upgrade().unwrap().borrow().base_type.as_component().root_element,
             "index",
-        ),
+        )
+        .unwrap(),
         Expression::RepeaterModelReference { element } => load_property(
             component,
             &element.upgrade().unwrap().borrow().base_type.as_component().root_element,
             "model_data",
-        ),
+        )
+        .unwrap(),
         Expression::FunctionParameterReference { index, .. } => {
             local_context.function_arguments[*index].clone()
         }
@@ -275,18 +277,19 @@ pub fn eval_expression(
         }
         Expression::SelfAssignment { lhs, rhs, op } => match &**lhs {
             Expression::PropertyReference(NamedReference { element, name }) => {
-                let mut eval = |lhs| {
-                    let rhs = eval_expression(&**rhs, component, local_context);
-                    match (lhs, rhs, op) {
-                        (_, rhs, '=') => rhs,
-                        (Value::Number(a), Value::Number(b), '+') => Value::Number(a + b),
-                        (Value::Number(a), Value::Number(b), '-') => Value::Number(a - b),
-                        (Value::Number(a), Value::Number(b), '/') => Value::Number(a / b),
-                        (Value::Number(a), Value::Number(b), '*') => Value::Number(a * b),
-                        (lhs, rhs, op) => panic!("unsupported {:?} {} {:?}", lhs, op, rhs),
-                    }
+                let rhs = eval_expression(&**rhs, component, local_context);
+                if *op == '=' {
+                    store_property(component, &element.upgrade().unwrap(), name.as_ref(), rhs)
+                        .unwrap();
+                    return Value::Void;
+                }
+                let eval = |lhs| match (lhs, rhs, op) {
+                    (Value::Number(a), Value::Number(b), '+') => Value::Number(a + b),
+                    (Value::Number(a), Value::Number(b), '-') => Value::Number(a - b),
+                    (Value::Number(a), Value::Number(b), '/') => Value::Number(a / b),
+                    (Value::Number(a), Value::Number(b), '*') => Value::Number(a * b),
+                    (lhs, rhs, op) => panic!("unsupported {:?} {} {:?}", lhs, op, rhs),
                 };
-
                 let element = element.upgrade().unwrap();
                 generativity::make_guard!(guard);
                 let enclosing_component =
@@ -386,16 +389,14 @@ pub fn eval_expression(
     }
 }
 
-fn load_property(component: InstanceRef, element: &ElementRc, name: &str) -> Value {
+pub fn load_property(component: InstanceRef, element: &ElementRc, name: &str) -> Result<Value, ()> {
     generativity::make_guard!(guard);
     let enclosing_component = enclosing_component_for_element(&element, component, guard);
     let element = element.borrow();
     if element.id == element.enclosing_component.upgrade().unwrap().root_element.borrow().id {
         if let Some(x) = enclosing_component.component_type.custom_properties.get(name) {
             return unsafe {
-                x.prop
-                    .get(Pin::new_unchecked(&*enclosing_component.as_ptr().add(x.offset)))
-                    .unwrap()
+                x.prop.get(Pin::new_unchecked(&*enclosing_component.as_ptr().add(x.offset)))
             };
         }
     };
@@ -406,7 +407,37 @@ fn load_property(component: InstanceRef, element: &ElementRc, name: &str) -> Val
         .unwrap_or_else(|| panic!("Unkown element for {}.{}", element.id, name));
     core::mem::drop(element);
     let item = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
-    item_info.rtti.properties[name].get(item)
+    Ok(item_info.rtti.properties.get(name).ok_or(())?.get(item))
+}
+
+pub fn store_property(
+    component_instance: InstanceRef,
+    element: &ElementRc,
+    name: &str,
+    value: Value,
+) -> Result<(), ()> {
+    generativity::make_guard!(guard);
+    let enclosing_component = enclosing_component_for_element(&element, component_instance, guard);
+    let maybe_animation = crate::dynamic_component::animation_for_property(
+        enclosing_component,
+        &element.borrow().property_animations,
+        name,
+    );
+
+    let component = element.borrow().enclosing_component.upgrade().unwrap();
+    if element.borrow().id == component.root_element.borrow().id {
+        if let Some(x) = enclosing_component.component_type.custom_properties.get(name) {
+            unsafe {
+                let p = Pin::new_unchecked(&*enclosing_component.as_ptr().add(x.offset));
+                return x.prop.set(p, value, maybe_animation);
+            }
+        }
+    };
+    let item_info = &enclosing_component.component_type.items[element.borrow().id.as_str()];
+    let item = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
+    let p = &item_info.rtti.properties.get(name).ok_or(())?;
+    p.set(item, value, maybe_animation);
+    Ok(())
 }
 
 pub fn window_ref(component: InstanceRef) -> Option<sixtyfps_corelib::eventloop::ComponentWindow> {

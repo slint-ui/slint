@@ -76,5 +76,28 @@ assert_eq(instance.get_sub_foo1(), 15);
 assert_eq(instance.get_sub_foo2(), 15);
 ```
 
+```js
+var instance = new sixtyfps.TestCase({});
+assert.equal(instance.sub_width1, 80.);
+assert.equal(instance.sub_width2, 80.);
+instance.sub_width1 = (99.);
+assert.equal(instance.sub_width1, 99.);
+assert.equal(instance.sub_width2, 99.);
+
+// breaks the binding
+instance.sub_width2 = (23.);
+assert.equal(instance.sub_width1, 99.);
+assert.equal(instance.sub_width2, 23.);
+instance.sub_width1 = (88.);
+assert.equal(instance.sub_width1, 88.);
+assert.equal(instance.sub_width2, 23.);
+
+
+assert.equal(instance.sub_foo1, 44);
+assert.equal(instance.sub_foo2, 44);
+instance.sub_foo1 = (15);
+assert.equal(instance.sub_foo1, 15);
+assert.equal(instance.sub_foo2, 15);
+```
 
 */
