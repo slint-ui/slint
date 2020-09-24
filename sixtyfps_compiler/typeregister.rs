@@ -860,6 +860,7 @@ impl TypeRegister {
                 ("native_padding_right", Type::Length),
                 ("native_padding_top", Type::Length),
                 ("native_padding_bottom", Type::Length),
+                ("focused", Type::Bool),
             ],
             &[],
         );

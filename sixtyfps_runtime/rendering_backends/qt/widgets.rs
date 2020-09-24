@@ -848,6 +848,7 @@ pub struct NativeLineEdit {
     pub native_padding_right: Property<f32>,
     pub native_padding_top: Property<f32>,
     pub native_padding_bottom: Property<f32>,
+    pub focused: Property<bool>,
 }
 
 impl Item for NativeLineEdit {
@@ -865,10 +866,12 @@ impl Item for NativeLineEdit {
     ) -> HighLevelRenderingPrimitive {
         let size: qttypes::QSize = get_size!(self);
         let dpr = window.scale_factor();
+        let focused = Self::FIELD_OFFSETS.focused.apply_pin(self).get();
 
         let img = cpp!(unsafe [
             size as "QSize",
-            dpr as "float"
+            dpr as "float",
+            focused as "bool"
         ] -> qttypes::QImage as "QImage" {
             auto [img, rect] = offline_style_rendering_image(size, dpr);
             QPainter p(&img);
@@ -876,6 +879,8 @@ impl Item for NativeLineEdit {
             option.rect = rect;
             option.lineWidth = 1;
             option.midLineWidth = 0;
+            if (focused)
+                option.state |= QStyle::State_HasFocus;
             qApp->style()->drawPrimitive(QStyle::PE_PanelLineEdit, &option, &p, global_widget());
             return img;
         });
