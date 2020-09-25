@@ -120,8 +120,8 @@ jobs:
           rm -rf target/*/incremental
           rm -rf target/*/*/*sixtyfps*
           rm -rf target/*/*sixtyfps*
-          rm -rf target/*/*/test* target/*/*/gallery* target/*/*/printerdemo* target/*/*/viewer*
-          rm -rf target/*/viewer target/*/printerdemo target/*/gallery target/*/*test*
+          rm -rf target/*/*/test* target/*/*/gallery* target/*/*/printerdemo* target/*/*/viewer* target/*/*/todo*
+          rm -rf target/*/viewer target/*/printerdemo target/*/gallery target/*/todo target/*/*test*
           du -hs target
 
   docs_and_demos:
@@ -192,6 +192,11 @@ jobs:
           npm install
           npm run build
       working-directory: examples/printerdemo/wasm
+    - name: Todo demo WASM build
+      run: |
+          npm install
+          npm run build
+      working-directory: examples/todo/wasm
     - name: "Rust docs"
       uses: actions-rs/cargo@v1
       with:
@@ -205,6 +210,7 @@ jobs:
           path: |
               examples/gallery/wasm/dist/
               examples/printerdemo/wasm/dist/
+              examples/todo/wasm/dist/
               api/sixtyfps-wasm-interpreter/pkg/
               target/doc
               target/cppdocs/html
@@ -235,8 +241,10 @@ jobs:
             mkdir -p demos
             mkdir -p demos/gallery
             mkdir -p demos/printerdemo
+            mkdir -p demos/todo
             cp -a ../examples/gallery/wasm/dist/* demos/gallery/
             cp -a ../examples/printerdemo/wasm/dist/* demos/printerdemo/
+            cp -a ../examples/todo/wasm/dist/* demos/todo/
             git add demos
             git add -u demos
             rm -rf wasm-interpreter
