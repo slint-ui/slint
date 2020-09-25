@@ -95,6 +95,11 @@ struct ComponentWindow
                 &inner, VRef<ComponentVTable> { &Component::component_type, c });
     }
 
+    void set_focus_item(Pin<VRef<ComponentVTable>> c, Pin<VRef<ItemVTable>> item)
+    {
+        cbindgen_private::sixtyfps_component_window_set_focus_item(&inner, c, item);
+    }
+
 private:
     cbindgen_private::ComponentWindowOpaque inner;
 };

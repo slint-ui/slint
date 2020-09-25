@@ -44,6 +44,7 @@ impl Hash for NamedReference {
 pub enum BuiltinFunction {
     GetWindowScaleFactor,
     Debug,
+    SetFocusItem,
 }
 
 impl BuiltinFunction {
@@ -55,6 +56,10 @@ impl BuiltinFunction {
             BuiltinFunction::Debug => {
                 Type::Function { return_type: Box::new(Type::Void), args: vec![Type::String] }
             }
+            BuiltinFunction::SetFocusItem => Type::Function {
+                return_type: Box::new(Type::Void),
+                args: vec![Type::ElementReference],
+            },
         }
     }
 }
@@ -182,6 +187,10 @@ pub enum Expression {
 
     /// Reference to a function built into the run-time, implemented natively
     BuiltinFunctionReference(BuiltinFunction),
+
+    /// A reference to a specific element. This isn't possible to create in .60 syntax itself, but intermediate passes may generate this
+    /// type of expression.
+    ElementReference(Weak<RefCell<Element>>),
 
     /// Reference to the index variable of a repeater
     ///
@@ -314,6 +323,7 @@ impl Expression {
                 element.upgrade().unwrap().borrow().lookup_property(name)
             }
             Expression::BuiltinFunctionReference(funcref) => funcref.ty(),
+            Expression::ElementReference(_) => Type::ElementReference,
             Expression::RepeaterIndexReference { .. } => Type::Int32,
             Expression::RepeaterModelReference { element } => {
                 if let Expression::Cast { from, .. } = element
@@ -399,6 +409,7 @@ impl Expression {
             Expression::PropertyReference { .. } => {}
             Expression::FunctionParameterReference { .. } => {}
             Expression::BuiltinFunctionReference { .. } => {}
+            Expression::ElementReference(_) => {}
             Expression::ObjectAccess { base, .. } => visitor(&**base),
             Expression::RepeaterIndexReference { .. } => {}
             Expression::RepeaterModelReference { .. } => {}
@@ -461,6 +472,7 @@ impl Expression {
             Expression::PropertyReference { .. } => {}
             Expression::FunctionParameterReference { .. } => {}
             Expression::BuiltinFunctionReference { .. } => {}
+            Expression::ElementReference(_) => {}
             Expression::ObjectAccess { base, .. } => visitor(&mut **base),
             Expression::RepeaterIndexReference { .. } => {}
             Expression::RepeaterModelReference { .. } => {}
@@ -522,6 +534,7 @@ impl Expression {
             Expression::SignalReference { .. } => false,
             Expression::PropertyReference { .. } => false,
             Expression::BuiltinFunctionReference { .. } => false,
+            Expression::ElementReference(_) => false,
             Expression::RepeaterIndexReference { .. } => false,
             Expression::RepeaterModelReference { .. } => false,
             Expression::FunctionParameterReference { .. } => false,
@@ -678,7 +691,8 @@ impl Expression {
             | Type::Native(_)
             | Type::Signal { .. }
             | Type::Function { .. }
-            | Type::Void => Expression::Invalid,
+            | Type::Void
+            | Type::ElementReference => Expression::Invalid,
             Type::Float32 => Expression::NumberLiteral(0., Unit::None),
             Type::Int32 => Expression::NumberLiteral(0., Unit::None),
             Type::String => Expression::StringLiteral(String::new()),

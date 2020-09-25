@@ -47,6 +47,7 @@ mod passes {
     pub mod collect_resources;
     pub mod compile_paths;
     pub mod deduplicate_property_read;
+    pub mod focus_item;
     pub mod inlining;
     pub mod lower_layout;
     pub mod lower_states;
@@ -122,6 +123,7 @@ pub fn run_passes(
     passes::inlining::inline(doc);
     passes::compile_paths::compile_paths(&doc.root_component, &doc.local_registry, diag);
     passes::unique_id::assign_unique_id(&doc.root_component);
+    passes::focus_item::determine_initial_focus_item(&doc.root_component, diag);
     passes::materialize_fake_properties::materialize_fake_properties(&doc.root_component);
     passes::collect_resources::collect_resources(&doc.root_component);
     doc.root_component.embed_file_resources.set(compiler_config.embed_resources);

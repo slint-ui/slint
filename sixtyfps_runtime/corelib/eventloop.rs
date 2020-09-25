@@ -191,7 +191,9 @@ impl ComponentWindow {
         self.0.clone().process_key_input(event, component)
     }
 
-    pub(crate) fn set_focus_item(
+    /// Clears the focus on any previously focused item and makes the provided
+    /// item the focus item, in order to receive future key events.
+    pub fn set_focus_item(
         &self,
         component: core::pin::Pin<crate::component::ComponentRef>,
         item: Pin<VRef<crate::items::ItemVTable>>,
@@ -600,5 +602,16 @@ pub mod ffi {
     ) {
         let window = &*(handle as *const ComponentWindow);
         window.free_graphics_resources(component)
+    }
+
+    /// Sets the focus item.
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_component_window_set_focus_item(
+        handle: *const ComponentWindowOpaque,
+        component: Pin<VRef<ComponentVTable>>,
+        item: Pin<VRef<ItemVTable>>,
+    ) {
+        let window = &*(handle as *const ComponentWindow);
+        window.set_focus_item(component, item)
     }
 }

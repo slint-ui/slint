@@ -198,6 +198,7 @@ pub fn eval_expression(
         Expression::BuiltinFunctionReference(_) => panic!(
             "naked builtin function reference not allowed, should be handled by function call"
         ),
+        Expression::ElementReference(_) => todo!("Element references are only supported in the context of built-in function calls at the moment"),
         Expression::PropertyReference(NamedReference { element, name }) => {
             load_property(component, &element.upgrade().unwrap(), name.as_ref()).unwrap()
         }
@@ -241,9 +242,9 @@ pub fn eval_expression(
             }
             v
         }
-        Expression::FunctionCall { function, arguments } => {
-            let a = arguments.iter().map(|e| eval_expression(e, component, local_context));
-            if let Expression::SignalReference(NamedReference { element, name }) = &**function {
+        Expression::FunctionCall { function, arguments } => match &**function {
+            Expression::SignalReference(NamedReference { element, name }) => {
+                let a = arguments.iter().map(|e| eval_expression(e, component, local_context));
                 let element = element.upgrade().unwrap();
                 generativity::make_guard!(guard);
                 let enclosing_component =
@@ -266,19 +267,44 @@ pub fn eval_expression(
                 }
 
                 Value::Void
-            } else if let Expression::BuiltinFunctionReference(funcref) = &**function {
-                match funcref {
-                    BuiltinFunction::GetWindowScaleFactor => {
-                        Value::Number(window_ref(component).unwrap().scale_factor() as _)
-                    }
-                    BuiltinFunction::Debug => {
-                        println!("{:?}", a);
-                        Value::Void
-                    }
-                }
-            } else {
-                panic!("call of something not a signal")
             }
+            Expression::BuiltinFunctionReference(BuiltinFunction::GetWindowScaleFactor) => {
+                Value::Number(window_ref(component).unwrap().scale_factor() as _)
+            }
+            Expression::BuiltinFunctionReference(BuiltinFunction::Debug) => {
+                let a = arguments.iter().map(|e| eval_expression(e, component, local_context));
+                println!("{:?}", a);
+                Value::Void
+            }
+            Expression::BuiltinFunctionReference(BuiltinFunction::SetFocusItem) => {
+                if arguments.len() != 1 {
+                    panic!("internal error: incorrect argument count to SetFocusItem")
+                }
+                if let Expression::ElementReference(focus_item) = &arguments[0] {
+                    generativity::make_guard!(guard);
+                    let component_ref: Pin<vtable::VRef<corelib::component::ComponentVTable>> = unsafe {
+                        Pin::new_unchecked(vtable::VRef::from_raw(
+                            core::ptr::NonNull::from(&component.component_type.ct).cast(),
+                            core::ptr::NonNull::from(&*component.as_ptr()),
+                        ))
+                    };
+
+                    let focus_item = focus_item.upgrade().unwrap();
+                    let enclosing_component =
+                        enclosing_component_for_element(&focus_item, component, guard);
+                    let component_type = enclosing_component.component_type;
+
+                    let item_info = &component_type.items[focus_item.borrow().id.as_str()];
+                    let item =
+                        unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
+
+                    window_ref(component).unwrap().set_focus_item(component_ref, item);
+                    Value::Void
+                } else {
+                    panic!("internal error: argument to SetFocusItem must be an element")
+                }
+            }
+            _ => panic!("call of something not a signal"),
         }
         Expression::SelfAssignment { lhs, rhs, op } => {
             let rhs = eval_expression(&**rhs, component, local_context);

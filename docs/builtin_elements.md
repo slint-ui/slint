@@ -242,6 +242,7 @@ The `TextInput` is a lower-level item that shows text and allows entering text.
 * **`color`** (*color*): The color of the text (default: transparent)
 * **`horizontal_alignment`**, **`vertical_alignment`** (*FIXME: enum*): How is the text aligned
   within the item
+* **`has_focus`** (*bool*): Set to true when item is focused and receives keyboard events.
 
 
 ### Example

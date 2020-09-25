@@ -524,6 +524,10 @@ fn generate_component(
         })
     };
 
+    for extra_init_code in component.setup_code.borrow().iter() {
+        init.push(compile_expression(extra_init_code, component));
+    }
+
     Some(quote!(
         #(#resource_symbols)*
 
@@ -674,6 +678,7 @@ fn generate_component(
                 let self_pinned = std::rc::Rc::pin(self_);
                 self_pinned.self_weak.set(PinWeak::downgrade(self_pinned.clone())).map_err(|_|())
                     .expect("Can only be pinned once");
+                let _self = self_pinned.as_ref();
                 #(#init)*
                 self_pinned
             }
@@ -878,7 +883,9 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                 quote!(#window_ref.scale_factor)
             }
             BuiltinFunction::Debug => quote!((|x| println!("{:?}", x))),
+            BuiltinFunction::SetFocusItem => panic!("internal error: SetFocusItem is handled directly in CallFunction")
         },
+        Expression::ElementReference(_) => todo!("Element references are only supported in the context of built-in function calls at the moment"),        
         Expression::RepeaterIndexReference { element } => {
             let access = access_member(
                 &element.upgrade().unwrap().borrow().base_type.as_component().root_element,
@@ -932,19 +939,39 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
             false,
         ),
         Expression::FunctionCall { function, arguments } => {
-            let f = compile_expression(function, &component);
-            let a = arguments.iter().map(|a| compile_expression(a, &component));
-            if let Type::Signal { args } = function.ty() {
-                let cast = args.iter().map(|ty| match ty {
-                    Type::Bool => quote!(as bool),
-                    Type::Int32 => quote!(as i32),
-                    Type::Float32 => quote!(as f32),
-                    _ => quote!(.clone()),
-                });
-                quote! { #f.emit(&(#((#a)#cast,)*).into())}
-            } else {
-                quote! { #f(#(#a.clone()),*)}
+            match &**function {
+                Expression::BuiltinFunctionReference(BuiltinFunction::SetFocusItem) => {
+                    if arguments.len() != 1 {
+                        panic!("internal error: incorrect argument count to SetFocusItem call");
+                    }
+                    if let Expression::ElementReference(focus_item) = &arguments[0] {
+                        let item = format_ident!("{}", focus_item.upgrade().unwrap().borrow().id);
+                        let window_ref = window_ref_expression(component);
+                        quote!(
+                            #window_ref.set_focus_item(VRef::new_pin(self_pinned.as_ref()), VRef::new_pin(Self::FIELD_OFFSETS.#item.apply_pin(self_pinned.as_ref())));
+                        )
+                    } else {
+                        panic!("internal error: argument to SetFocusItem must be an element")
+                    }
+                }
+                _ => {
+                    let f = compile_expression(function, &component);
+                    let a = arguments.iter().map(|a| compile_expression(a, &component));
+                    let function_type = function.ty();
+                    if let Type::Signal { args } = function_type {
+                        let cast = args.iter().map(|ty| match ty {
+                            Type::Bool => quote!(as bool),
+                            Type::Int32 => quote!(as i32),
+                            Type::Float32 => quote!(as f32),
+                            _ => quote!(.clone()),
+                        });
+                        quote! { #f.emit(&(#((#a)#cast,)*).into())}
+                    } else {
+                        quote! { #f(#(#a.clone()),*)}
+                    }
+                }
             }
+
         }
         Expression::SelfAssignment { lhs, rhs, op } => {
             let rhs = compile_expression(&*rhs, &component);

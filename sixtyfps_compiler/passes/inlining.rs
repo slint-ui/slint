@@ -9,7 +9,11 @@
 LICENSE END */
 //! Inline each object_tree::Component within the main Component
 
-use crate::{expression_tree::NamedReference, object_tree::*, typeregister::Type};
+use crate::{
+    expression_tree::{Expression, NamedReference},
+    object_tree::*,
+    typeregister::Type,
+};
 use by_address::ByAddress;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -113,6 +117,7 @@ fn inline_element(
     // Now fixup all binding and reference
     for (_, e) in &mapping {
         visit_all_named_references(e, |nr| fixup_reference(nr, &mapping));
+        visit_element_expressions(e, |expr, _| fixup_element_references(expr, &mapping));
     }
 }
 
@@ -160,6 +165,19 @@ fn fixup_reference(
 ) {
     if let Some(e) = element.upgrade().and_then(|e| mapping.get(&element_key(e.clone()))) {
         *element = Rc::downgrade(e);
+    }
+}
+
+fn fixup_element_references(
+    expr: &mut Expression,
+    mapping: &HashMap<ByAddress<ElementRc>, ElementRc>,
+) {
+    if let Expression::ElementReference(element) = expr {
+        if let Some(new_element) =
+            element.upgrade().and_then(|e| mapping.get(&element_key(e.clone())))
+        {
+            *element = Rc::downgrade(new_element);
+        }
     }
 }
 

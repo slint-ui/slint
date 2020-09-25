@@ -383,6 +383,8 @@ impl Expression {
         if let Some(elem) = elem_opt {
             let prop_name = if let Some(second) = it.next() {
                 second
+            } else if matches!(ctx.property_type, Type::ElementReference) {
+                return Self::ElementReference(Rc::downgrade(&elem));
             } else {
                 ctx.diag.push_error("Cannot take reference of an element".into(), &node);
                 return Self::Invalid;

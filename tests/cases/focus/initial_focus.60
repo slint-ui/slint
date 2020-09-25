@@ -1,0 +1,90 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+TestCase := Rectangle {
+    width: 400px;
+    height: 400px;
+    initial_focus: input1;
+
+    input1 := TextInput {
+        width: parent.width;
+        height: 200px;
+    }
+    input2 := TextInput {
+        y: 200px;
+        width: parent.width;
+        height: 200px;
+    }
+
+    property<bool> input1_focused: input1.has_focus;
+    property<string> input1_text: input1.text;
+    property<bool> input2_focused: input2.has_focus;
+    property<string> input2_text: input2.text;
+}
+
+/*
+```rust
+let instance = TestCase::new();
+let instance = instance.as_ref();
+assert!(instance.get_input1_focused());
+assert!(!instance.get_input2_focused());
+
+sixtyfps::testing::send_keyboard_string_sequence(instance, "Only for field 1");
+assert_eq!(instance.get_input1_text(), "Only for field 1");
+assert_eq!(instance.get_input2_text(), "");
+
+sixtyfps::testing::send_mouse_click(instance, 150., 100.);
+assert!(instance.get_input1_focused());
+assert!(!instance.get_input2_focused());
+
+sixtyfps::testing::send_mouse_click(instance, 150., 300.);
+assert!(!instance.get_input1_focused());
+assert!(instance.get_input2_focused());
+```
+
+```cpp
+TestCase instance;
+assert(instance.get_input1_focused());
+assert(!instance.get_input2_focused());
+
+sixtyfps::testing::send_keyboard_string_sequence(instance, "Only for field 1");
+assert_eq(instance.get_input1_text(), "Only for field 1");
+assert_eq(instance.get_input2_text(), "");
+
+sixtyfps::testing::send_mouse_click(instance, 150., 100.);
+assert(instance.get_input1_focused());
+assert(!instance.get_input2_focused());
+
+sixtyfps::testing::send_mouse_click(instance, 150., 300.);
+assert(!instance.get_input1_focused());
+assert(instance.get_input2_focused());
+```
+
+```js
+var instance = new sixtyfps.TestCase();
+assert(instance.input1_focused);
+assert(!instance.input2_focused);
+
+instance.send_keyboard_string_sequence("Only for field 1");
+assert.equal(instance.input1_text, "Only for field 1");
+assert.equal(instance.input2_text, "");
+
+instance.send_mouse_click(150., 100.);
+assert(instance.input1_focused);
+assert(!instance.input2_focused);
+
+instance.send_mouse_click(150., 300.);
+assert(!instance.input1_focused);
+assert(instance.input2_focused);
+```
+*/
+
+
+

@@ -50,6 +50,8 @@ pub enum Type {
 
     Enumeration(Rc<Enumeration>),
     EnumerationValue(EnumerationValue),
+
+    ElementReference,
 }
 
 impl core::cmp::PartialEq for Type {
@@ -80,6 +82,7 @@ impl core::cmp::PartialEq for Type {
             (Type::PathElements, Type::PathElements) => true,
             (Type::Easing, Type::Easing) => true,
             (Type::Enumeration(lhs), Type::Enumeration(rhs)) => lhs == rhs,
+            (Type::ElementReference, Type::ElementReference) => true,
             _ => false,
         }
     }
@@ -141,6 +144,7 @@ impl Display for Type {
             Type::EnumerationValue(value) => {
                 write!(f, "enum {}::{}", value.enumeration.name, value.to_string())
             }
+            Type::ElementReference => write!(f, "element ref"),
         }
     }
 }
@@ -165,6 +169,7 @@ impl Type {
             | Self::Model
             | Self::Easing
             | Self::Enumeration(_)
+            | Self::ElementReference
             | Self::Object(_)
             | Self::Array(_) => true,
             Self::Component(c) => c.root_element.borrow().base_type == Type::Void,
@@ -468,6 +473,7 @@ pub fn reserved_property(name: &str) -> Type {
         ("row", Type::Int32),
         ("colspan", Type::Int32),
         ("rowspan", Type::Int32),
+        ("initial_focus", Type::ElementReference),
     ]
     .iter()
     {

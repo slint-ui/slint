@@ -14,7 +14,7 @@ LICENSE END */
 use crate::diagnostics::{FileDiagnostics, Spanned, SpannedWithSourceFile};
 use crate::expression_tree::{Expression, ExpressionSpanned, NamedReference};
 use crate::parser::{syntax_nodes, SyntaxKind, SyntaxNodeWithSourceFile};
-use crate::typeregister::{Type, TypeRegister};
+use crate::typeregister::{NativeClass, Type, TypeRegister};
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
@@ -100,6 +100,9 @@ pub struct Component {
     /// When creating this component and inserting "children", append them to the children of
     /// the element pointer to by this field.
     pub child_insertion_point: RefCell<Option<ElementRc>>,
+
+    /// Code to be inserted into the constructor
+    pub setup_code: RefCell<Vec<Expression>>,
 }
 
 impl Component {
@@ -644,6 +647,20 @@ impl Element {
             }
             if self.bindings.insert(name, ExpressionSpanned::new_uncompiled(b)).is_some() {
                 diag.push_error("Duplicated property binding".into(), &name_token);
+            }
+        }
+    }
+
+    pub fn native_class(&self) -> Option<Rc<NativeClass>> {
+        let mut base_type = self.base_type.clone();
+        loop {
+            match &base_type {
+                Type::Component(component) => {
+                    base_type = component.root_element.clone().borrow().base_type.clone();
+                }
+                Type::Builtin(builtin) => break Some(builtin.native_class.clone()),
+                Type::Native(native) => break Some(native.clone()),
+                _ => break None,
             }
         }
     }

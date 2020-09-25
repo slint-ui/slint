@@ -840,6 +840,10 @@ pub fn instantiate<'id>(
         }
     }
 
+    for extra_init_code in component_type.original.setup_code.borrow().iter() {
+        eval::eval_expression(extra_init_code, instance_ref, &mut Default::default());
+    }
+
     component_box
 }
 

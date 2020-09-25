@@ -775,6 +775,10 @@ fn generate_component(
         }
     });
 
+    for extra_init_code in component.setup_code.borrow().iter() {
+        init.push(compile_expression(extra_init_code, component));
+    }
+
     component_struct.members.push((
         Access::Public,
         Declaration::Function(Function {
@@ -1064,7 +1068,11 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
                 "[](auto... args){ (std::cout << ... << args) << std::endl; return nullptr; }"
                     .into()
             }
+            BuiltinFunction::SetFocusItem => {
+                format!("{}.set_focus_item", window_ref_expression(component))
+            }
         },
+        Expression::ElementReference(_) => todo!("Element references are only supported in the context of built-in function calls at the moment"),
         Expression::RepeaterIndexReference { element } => {
             let access = access_member(
                 &element.upgrade().unwrap().borrow().base_type.as_component().root_element,
@@ -1136,10 +1144,33 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
 
             format!("[&]{{ {} }}()", x.join(";"))
         }
-        Expression::FunctionCall { function, arguments } => {
-            let mut args = arguments.iter().map(|e| compile_expression(e, component));
-            format!("{}({})", compile_expression(&function, component), args.join(", "))
-        }
+        Expression::FunctionCall { function, arguments } => match &**function {
+            Expression::BuiltinFunctionReference(BuiltinFunction::SetFocusItem) => {
+                if arguments.len() != 1 {
+                    panic!("internal error: incorrect argument count to SetFocusItem call");
+                }
+                if let Expression::ElementReference(focus_item) = &arguments[0] {
+                    let focus_item = focus_item.upgrade().unwrap();
+                    let focus_item = focus_item.borrow();
+                    let window_ref = window_ref_expression(component);
+                    let component =
+                        format!("{{&{}::component_type, this}}", component_id(component));
+                    let item = format!(
+                        "{{&sixtyfps::private_api::{vt}, &{item}}}",
+                        vt = focus_item.base_type.as_native().vtable_symbol,
+                        item = focus_item.id
+                    );
+                    format!("{}.set_focus_item({}, {});", window_ref, component, item)
+                } else {
+                    panic!("internal error: argument to SetFocusItem must be an element")
+                }
+            }
+            _ => {
+                let mut args = arguments.iter().map(|e| compile_expression(e, component));
+
+                format!("{}({})", compile_expression(&function, component), args.join(", "))
+            }
+        },
         Expression::SelfAssignment { lhs, rhs, op } => {
             let rhs = compile_expression(&*rhs, &component);
             compile_assignment(lhs, *op, rhs, component)
