@@ -39,7 +39,7 @@ MainWindow := Window {
             btn := Button {
                 text: "Add Todo";
                 clicked => {
-                    todo_added(text_edit.accepted_text);
+                    todo_added(text_edit.text);
                 }
             }
         }
