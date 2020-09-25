@@ -946,12 +946,6 @@ impl Item for TextInput {
         event: MouseEvent,
         window: &ComponentWindow,
     ) -> InputEventResult {
-        let result = if matches!(event.what, MouseEventType::MouseReleased) {
-            InputEventResult::EventAccepted
-        } else {
-            InputEventResult::GrabMouse
-        };
-
         let clicked_offset = TextInput::with_font(self, window, |font| {
             let text = Self::FIELD_OFFSETS.text.apply_pin(self).get();
             font.text_offset_for_x_position(&text, event.pos.x)
@@ -974,7 +968,7 @@ impl Item for TextInput {
             _ => {}
         }
 
-        result
+        InputEventResult::EventAccepted
     }
 
     fn key_event(self: Pin<&Self>, event: &KeyEvent, window: &ComponentWindow) -> KeyEventResult {
