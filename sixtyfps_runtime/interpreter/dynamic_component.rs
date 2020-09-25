@@ -13,6 +13,7 @@ use core::convert::TryInto;
 use core::ptr::NonNull;
 use dynamic_type::{Instance, InstanceBox};
 use object_tree::{Element, ElementRc};
+use sixtyfps_compilerlib::expression_tree::Expression;
 use sixtyfps_compilerlib::layout::{GridLayout, Layout, LayoutElement, LayoutItem, PathLayout};
 use sixtyfps_compilerlib::typeregister::Type;
 use sixtyfps_compilerlib::*;
@@ -123,7 +124,7 @@ pub(crate) struct RepeaterWithinComponent<'par_id, 'sub_id> {
     /// Offset of the `Vec<ComponentBox>`
     pub(crate) offset: FieldOffset<Instance<'par_id>, RepeaterVec<'sub_id>>,
     /// The model
-    pub(crate) model: expression_tree::Expression,
+    pub(crate) model: Expression,
     /// Offset of the PropertyTracker
     property_tracker: Option<FieldOffset<Instance<'par_id>, PropertyTracker>>,
 }
@@ -347,6 +348,10 @@ fn rtti_for_flickable() -> (&'static str, Rc<ItemRTTI>) {
         }
         fn offset(&self) -> usize {
             (*self.0).offset() + Flickable::FIELD_OFFSETS.viewport.get_byte_offset()
+        }
+
+        unsafe fn link_two_ways(&self, item: Pin<ItemRef>, property2: *const ()) {
+            (*self.0).link_two_ways(viewport(item), property2)
         }
     }
 
@@ -728,8 +733,10 @@ pub fn instantiate<'id>(
                     {
                         let maybe_animation =
                             animation_for_element_property(instance_ref, &elem, prop);
-
-                        if expr.is_constant() {
+                        if let Expression::TwoWayBinding(nr) = &expr.expression {
+                            // Safety: The compiler must have ensured that the properties exist and are of the same type
+                            prop_rtti.link_two_ways(item, get_property_ptr(nr, instance_ref));
+                        } else if expr.is_constant() {
                             prop_rtti.set(
                                 item,
                                 eval::eval_expression(expr, instance_ref, &mut Default::default()),
@@ -766,11 +773,15 @@ pub fn instantiate<'id>(
                             &component_type.original.root_element.borrow().property_animations,
                             prop,
                         );
+                        let item = Pin::new_unchecked(&*mem.add(*offset));
 
-                        if expr.is_constant() {
+                        if let Expression::TwoWayBinding(nr) = &expr.expression {
+                            // Safety: The compiler must have ensured that the properties exist and are of the same type
+                            prop_info.link_two_ways(item, get_property_ptr(nr, instance_ref));
+                        } else if expr.is_constant() {
                             let v =
                                 eval::eval_expression(expr, instance_ref, &mut Default::default());
-                            prop_info.set(Pin::new_unchecked(&*mem.add(*offset)), v, None).unwrap();
+                            prop_info.set(item, v, None).unwrap();
                         } else {
                             let expr = expr.clone();
                             let component_type = component_type.clone();
@@ -781,7 +792,7 @@ pub fn instantiate<'id>(
                             ));
                             prop_info
                                 .set_binding(
-                                    Pin::new_unchecked(&*mem.add(*offset)),
+                                    item,
                                     Box::new(move || {
                                         generativity::make_guard!(guard);
                                         eval::eval_expression(
@@ -830,6 +841,28 @@ pub fn instantiate<'id>(
     }
 
     component_box
+}
+
+fn get_property_ptr(nr: &expression_tree::NamedReference, instance: InstanceRef) -> *const () {
+    let element = nr.element.upgrade().unwrap();
+    generativity::make_guard!(guard);
+    let enclosing_component = eval::enclosing_component_for_element(&element, instance, guard);
+    let element = element.borrow();
+    if element.id == element.enclosing_component.upgrade().unwrap().root_element.borrow().id {
+        if let Some(x) = enclosing_component.component_type.custom_properties.get(&nr.name) {
+            return unsafe { enclosing_component.as_ptr().add(x.offset).cast() };
+        };
+    };
+    let item_info = enclosing_component
+        .component_type
+        .items
+        .get(element.id.as_str())
+        .unwrap_or_else(|| panic!("Unkown element for {}.{}", element.id, nr.name));
+    core::mem::drop(element);
+    let item = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
+    unsafe {
+        item.as_ptr().add(item_info.rtti.properties.get(nr.name.as_str()).unwrap().offset()).cast()
+    }
 }
 
 use sixtyfps_corelib::layout::*;
@@ -1014,7 +1047,7 @@ fn collect_layouts_recursively<'a, 'b>(
 
 impl<'a> LayoutTreeItem<'a> {
     fn solve(&self, instance_ref: InstanceRef) {
-        let resolve_prop_ref = |prop_ref: &expression_tree::Expression| {
+        let resolve_prop_ref = |prop_ref: &Expression| {
             eval::eval_expression(&prop_ref, instance_ref, &mut Default::default())
                 .try_into()
                 .unwrap_or_default()

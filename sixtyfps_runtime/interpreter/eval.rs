@@ -34,6 +34,8 @@ pub trait ErasedPropertyInfo {
         animation: Option<PropertyAnimation>,
     );
     fn offset(&self) -> usize;
+
+    unsafe fn link_two_ways(&self, item: Pin<ItemRef>, property2: *const ());
 }
 
 impl<Item: vtable::HasStaticVTable<corelib::items::ItemVTable>> ErasedPropertyInfo
@@ -55,6 +57,9 @@ impl<Item: vtable::HasStaticVTable<corelib::items::ItemVTable>> ErasedPropertyIn
     }
     fn offset(&self) -> usize {
         (*self).offset()
+    }
+    unsafe fn link_two_ways(&self, item: Pin<ItemRef>, property2: *const ()) {
+        (*self).link_two_ways(ItemRef::downcast_pin(item).unwrap(), property2)
     }
 }
 
@@ -462,7 +467,7 @@ pub fn window_ref(component: InstanceRef) -> Option<sixtyfps_corelib::eventloop:
     }
 }
 
-fn enclosing_component_for_element<'a, 'old_id, 'new_id>(
+pub fn enclosing_component_for_element<'a, 'old_id, 'new_id>(
     element: &'a ElementRc,
     component: InstanceRef<'a, 'old_id>,
     guard: generativity::Guard<'new_id>,

@@ -66,9 +66,15 @@ pub trait PropertyInfo<Item, Value> {
     {
         self
     }
+
+    /// Calls Property::link_two_ways with the property represented here and the property pointer
+    ///
+    /// Safety: the property2 must be a pinned pointer to a Property of the same type
+    #[allow(unsafe_code)]
+    unsafe fn link_two_ways(&self, item: Pin<&Item>, property2: *const ());
 }
 
-impl<Item, T: Clone, Value: 'static> PropertyInfo<Item, Value>
+impl<Item, T: Clone + 'static, Value: 'static> PropertyInfo<Item, Value>
     for FieldOffset<Item, crate::Property<T>>
 where
     Value: TryInto<T>,
@@ -108,6 +114,14 @@ where
     fn offset(&self) -> usize {
         self.get_byte_offset()
     }
+
+    #[allow(unsafe_code)]
+    unsafe fn link_two_ways(&self, item: Pin<&Item>, property2: *const ()) {
+        let p1 = self.apply_pin(item);
+        // Safety: that's the invariant of this function
+        let p2 = Pin::new_unchecked((property2 as *const crate::Property<T>).as_ref().unwrap());
+        crate::Property::link_two_way(p1, p2);
+    }
 }
 
 /// Wraper for a field offset that optonally implement PropertyInfo and uses
@@ -115,7 +129,7 @@ where
 #[derive(derive_more::Deref)]
 pub struct MaybeAnimatedPropertyInfoWrapper<T, U>(pub FieldOffset<T, U>);
 
-impl<Item, T: Clone, Value: 'static> PropertyInfo<Item, Value>
+impl<Item, T: Clone + 'static, Value: 'static> PropertyInfo<Item, Value>
     for MaybeAnimatedPropertyInfoWrapper<Item, crate::Property<T>>
 where
     Value: TryInto<T>,
@@ -158,6 +172,14 @@ where
     }
     fn offset(&self) -> usize {
         self.get_byte_offset()
+    }
+
+    #[allow(unsafe_code)]
+    unsafe fn link_two_ways(&self, item: Pin<&Item>, property2: *const ()) {
+        let p1 = self.apply_pin(item);
+        // Safety: that's the invariant of this function
+        let p2 = Pin::new_unchecked((property2 as *const crate::Property<T>).as_ref().unwrap());
+        crate::Property::link_two_way(p1, p2);
     }
 }
 
