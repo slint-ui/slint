@@ -681,18 +681,40 @@ fn properties_simple_test() {
     assert_eq!(g(&compo.area), 8 * 8 * 2);
 }
 
-struct TwoWayBinding<T> {
-    common_property: Pin<Rc<Property<T>>>,
-}
-impl<T: Clone + 'static> BindingCallable for TwoWayBinding<T> {
-    unsafe fn evaluate(self: Pin<&Self>, value: *mut ()) -> BindingResult {
-        *(value as *mut T) = self.common_property.as_ref().get();
-        BindingResult::KeepBinding
-    }
+impl<T: Clone + 'static> Property<T> {
+    /// Link two property such that any change to one property is affecting the other property as if they
+    /// where, in fact, a single property.
+    /// The value or binding of prop2 is kept.
+    pub fn link_two_way(prop1: Pin<&Self>, prop2: Pin<&Self>) {
+        struct TwoWayBinding<T> {
+            common_property: Pin<Rc<Property<T>>>,
+        }
+        impl<T: Clone + 'static> BindingCallable for TwoWayBinding<T> {
+            unsafe fn evaluate(self: Pin<&Self>, value: *mut ()) -> BindingResult {
+                *(value as *mut T) = self.common_property.as_ref().get();
+                BindingResult::KeepBinding
+            }
 
-    unsafe fn intercept_set(self: Pin<&Self>, value: *const ()) -> bool {
-        self.common_property.as_ref().set((*(value as *const T)).clone());
-        true
+            unsafe fn intercept_set(self: Pin<&Self>, value: *const ()) -> bool {
+                self.common_property.as_ref().set((*(value as *const T)).clone());
+                true
+            }
+        }
+
+        let value = prop2.get();
+        let prop2_handle_val = prop2.handle.handle.get();
+        let handle = if prop2_handle_val & 0b10 == 0b10 {
+            // If prop2 is a binding, just "steal it"
+            prop2.handle.handle.set(0);
+            PropertyHandle { handle: Cell::new(prop2_handle_val) }
+        } else {
+            PropertyHandle::default()
+        };
+        let common_property =
+            Rc::pin(Property { handle, value: UnsafeCell::new(value), pinned: PhantomPinned });
+        prop1.handle.set_binding(TwoWayBinding { common_property: common_property.clone() });
+        prop2.handle.set_binding(TwoWayBinding { common_property: common_property.clone() });
+        prop1.handle.mark_dirty();
     }
 }
 
@@ -746,29 +768,6 @@ fn property_two_ways_test_binding() {
     assert_eq!(p2.as_ref().get(), 55 + 9);
     assert_eq!(depends.as_ref().get(), 55 + 9 + 8);
 }
-
-impl<T: Clone + 'static> Property<T> {
-    /// Link two property such that any change to one property is affecting the other property as if they
-    /// where, in fact, a single property.
-    /// The value or binding of prop2 is kept.
-    pub fn link_two_way(prop1: Pin<&Self>, prop2: Pin<&Self>) {
-        let value = prop2.get();
-        let prop2_handle_val = prop2.handle.handle.get();
-        let handle = if prop2_handle_val & 0b10 == 0b10 {
-            // If prop2 is a binding, just "steal it"
-            prop2.handle.handle.set(0);
-            PropertyHandle { handle: Cell::new(prop2_handle_val) }
-        } else {
-            PropertyHandle::default()
-        };
-        let common_property =
-            Rc::pin(Property { handle, value: UnsafeCell::new(value), pinned: PhantomPinned });
-        prop1.handle.set_binding(TwoWayBinding { common_property: common_property.clone() });
-        prop2.handle.set_binding(TwoWayBinding { common_property: common_property.clone() });
-        prop1.handle.mark_dirty();
-    }
-}
-
 struct PropertyValueAnimationData<T> {
     from_value: T,
     to_value: T,
