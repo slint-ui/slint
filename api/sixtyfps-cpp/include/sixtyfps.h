@@ -201,9 +201,8 @@ inline KeyEventResult process_key_event(ComponentRef component, int64_t focus_it
             return comp.vtable->key_event(comp, event, window);
         };
         }
-    } else {
-        return KeyEventResult::EventIgnored;
     }
+    return KeyEventResult::EventIgnored;
 }
 
 template<typename GetDynamic>
@@ -247,6 +246,7 @@ inline FocusEventResult process_focus_event(ComponentRef component, int64_t &foc
             return FocusEventResult::FocusItemNotFound;
         }
     }
+    return FocusEventResult::FocusItemNotFound;
 }
 }
 

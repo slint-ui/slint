@@ -1172,6 +1172,7 @@ fn test_property_listener_scope() {
 
 pub(crate) mod ffi {
     use super::*;
+    use core::pin::Pin;
 
     #[allow(non_camel_case_types)]
     type c_void = ();
@@ -1197,10 +1198,18 @@ pub(crate) mod ffi {
     }
 
     /// Mark the fact that the property was changed and that its binding need to be removed, and
-    /// The dependencies marked dirty
+    /// the dependencies marked dirty.
+    /// To be called after the `value` has been changed
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_set_changed(handle: &PropertyHandleOpaque) {
-        handle.0.remove_binding();
+    pub unsafe extern "C" fn sixtyfps_property_set_changed(
+        handle: &PropertyHandleOpaque,
+        value: *const c_void,
+    ) {
+        if !handle.0.access(|b| {
+            b.map_or(false, |b| (b.vtable.intercept_set)(&*b as *const BindingHolder, value))
+        }) {
+            handle.0.remove_binding();
+        }
         handle.0.mark_dirty();
     }
 
@@ -1208,11 +1217,17 @@ pub(crate) mod ffi {
         binding: extern "C" fn(*mut c_void, *mut c_void),
         user_data: *mut c_void,
         drop_user_data: Option<extern "C" fn(*mut c_void)>,
-    ) -> impl Fn(*mut ()) -> BindingResult {
+        intercept_set: Option<
+            extern "C" fn(user_data: *mut c_void, pointer_to_value: *const c_void) -> bool,
+        >,
+    ) -> impl BindingCallable {
         struct CFunctionBinding<T> {
             binding_function: extern "C" fn(*mut c_void, *mut T),
             user_data: *mut c_void,
             drop_user_data: Option<extern "C" fn(*mut c_void)>,
+            intercept_set: Option<
+                extern "C" fn(user_data: *mut c_void, pointer_to_value: *const c_void) -> bool,
+            >,
         }
 
         impl<T> Drop for CFunctionBinding<T> {
@@ -1223,12 +1238,20 @@ pub(crate) mod ffi {
             }
         }
 
-        let b = CFunctionBinding { binding_function: binding, user_data, drop_user_data };
-
-        move |value_ptr| {
-            (b.binding_function)(b.user_data, value_ptr);
-            BindingResult::KeepBinding
+        impl<T> BindingCallable for CFunctionBinding<T> {
+            unsafe fn evaluate(self: Pin<&Self>, value: *mut ()) -> BindingResult {
+                (self.binding_function)(self.user_data, value as *mut T);
+                BindingResult::KeepBinding
+            }
+            unsafe fn intercept_set(self: Pin<&Self>, value: *const ()) -> bool {
+                match self.intercept_set {
+                    None => false,
+                    Some(intercept_set) => intercept_set(self.user_data, value),
+                }
+            }
         }
+
+        CFunctionBinding { binding_function: binding, user_data, drop_user_data, intercept_set }
     }
 
     /// Set a binding
@@ -1244,8 +1267,11 @@ pub(crate) mod ffi {
         binding: extern "C" fn(user_data: *mut c_void, pointer_to_value: *mut c_void),
         user_data: *mut c_void,
         drop_user_data: Option<extern "C" fn(*mut c_void)>,
+        intercept_set: Option<
+            extern "C" fn(user_data: *mut c_void, pointer_to_value: *const c_void) -> bool,
+        >,
     ) {
-        let binding = make_c_function_binding(binding, user_data, drop_user_data);
+        let binding = make_c_function_binding(binding, user_data, drop_user_data, intercept_set);
         handle.0.set_binding(binding);
     }
 
@@ -1334,6 +1360,7 @@ pub(crate) mod ffi {
                         binding,
                         user_data,
                         drop_user_data,
+                        None,
                     )) as usize)
                         | 0b10,
                 ),

@@ -9,6 +9,7 @@
 LICENSE END */
 #pragma once
 #include <string_view>
+#include <memory>
 
 namespace sixtyfps {
 namespace cbindgen_private {
@@ -41,7 +42,7 @@ struct Property
     void set(const T &value) const
     {
         this->value = value;
-        cbindgen_private::sixtyfps_property_set_changed(&inner);
+        cbindgen_private::sixtyfps_property_set_changed(&inner, &this->value);
     }
 
     const T &get() const
@@ -58,7 +59,8 @@ struct Property
                 [](void *user_data, void *value) {
                     *reinterpret_cast<T *>(value) = (*reinterpret_cast<F *>(user_data))();
                 },
-                new F(binding), [](void *user_data) { delete reinterpret_cast<F *>(user_data); });
+                new F(binding), [](void *user_data) { delete reinterpret_cast<F *>(user_data); },
+                nullptr);
     }
 
     inline void set_animated_value(const T &value,
@@ -68,6 +70,36 @@ struct Property
                                      const cbindgen_private::PropertyAnimation &animation_data);
 
     bool is_dirty() const { return cbindgen_private::sixtyfps_property_is_dirty(&inner); }
+
+    static void link_two_way(Property<T> *p1, Property<T> *p2) {
+        auto value = p2->get();
+        cbindgen_private::PropertyHandleOpaque handle{};
+        if ((p2->inner._0 & 0b10) == 0b10) {
+            std::swap(handle,p2->inner);
+        }
+        auto common_property = std::make_shared<Property<T>>(handle, std::move(value));
+        struct TwoWayBinding {
+            std::shared_ptr<Property<T>> common_property;
+        };
+        auto del_fn = [](void *user_data) { delete reinterpret_cast<TwoWayBinding *>(user_data); };
+        auto call_fn = [](void *user_data, void *value) {
+            *reinterpret_cast<T *>(value) =
+                reinterpret_cast<TwoWayBinding *>(user_data)->common_property->get();
+        };
+        auto intercept_fn = [] (void *user_data, const void *value) {
+            reinterpret_cast<TwoWayBinding *>(user_data)->common_property->set(
+                *reinterpret_cast<const T *>(value));
+            return true;
+        };
+        cbindgen_private::sixtyfps_property_set_binding(&p1->inner, call_fn,
+            new TwoWayBinding{common_property}, del_fn, intercept_fn);
+        cbindgen_private::sixtyfps_property_set_binding(&p2->inner, call_fn,
+            new TwoWayBinding{common_property}, del_fn, intercept_fn);
+    }
+
+    /// Internal (private) constructor used by link_two_way
+    explicit Property(cbindgen_private::PropertyHandleOpaque inner, T value)
+        : inner(inner), value(std::move(value)) {}
 
 private:
     cbindgen_private::PropertyHandleOpaque inner;

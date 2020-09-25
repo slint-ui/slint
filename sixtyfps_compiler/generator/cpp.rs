@@ -306,7 +306,12 @@ fn property_set_binding_code(
     }
 }
 
-fn handle_item(elem: &ElementRc, main_struct: &mut Struct, init: &mut Vec<String>) {
+fn handle_item(
+    elem: &ElementRc,
+    main_struct: &mut Struct,
+    init_begin: &mut Vec<String>,
+    init_end: &mut Vec<String>,
+) {
     let item = elem.borrow();
     main_struct.members.push((
         Access::Private,
@@ -317,10 +322,13 @@ fn handle_item(elem: &ElementRc, main_struct: &mut Struct, init: &mut Vec<String
         }),
     ));
 
+    let component = item.enclosing_component.upgrade().unwrap();
+
     let id = &item.id;
-    init.extend(item.bindings.iter().map(|(s, i)| {
-        if let Type::Signal { args } = item.lookup_property(s.as_str()) {
-            let signal_accessor_prefix = if item.property_declarations.contains_key(s) {
+    for (prop_name, binding_expression) in &item.bindings {
+        let prop_ty = item.lookup_property(prop_name.as_str());
+        if let Type::Signal { args } = &prop_ty {
+            let signal_accessor_prefix = if item.property_declarations.contains_key(prop_name) {
                 String::new()
             } else {
                 format!("{id}.", id = id.clone())
@@ -329,21 +337,26 @@ fn handle_item(elem: &ElementRc, main_struct: &mut Struct, init: &mut Vec<String
                 format!("[[maybe_unused]] {} arg_{}", ty.cpp_type().unwrap_or_default(), i)
             });
 
-            format!(
+            init_begin.push(format!(
                 "{signal_accessor_prefix}{prop}.set_handler(
                     [this]({params}) {{
                         [[maybe_unused]] auto self = this;
                         {code};
                     }});",
                 signal_accessor_prefix = signal_accessor_prefix,
-                prop = s,
+                prop = prop_name,
                 params = params.join(", "),
-                code = compile_expression(i, &item.enclosing_component.upgrade().unwrap())
-            )
-        } else if let Expression::TwoWayBinding(_nr) = &i.expression {
-            "std::printf(\"Two way binding not implemented in C++\");".into()
+                code = compile_expression(binding_expression, &component)
+            ));
+        } else if let Expression::TwoWayBinding(nr) = &binding_expression.expression {
+            init_end.push(format!(
+                "sixtyfps::Property<{ty}>::link_two_way(&{p1}, &{p2});",
+                ty = prop_ty.cpp_type().unwrap_or_default(),
+                p1 = access_member(elem, prop_name, &component, "this"),
+                p2 = access_member(&nr.element.upgrade().unwrap(), &nr.name, &component, "this")
+            ));
         } else {
-            let accessor_prefix = if item.property_declarations.contains_key(s) {
+            let accessor_prefix = if item.property_declarations.contains_key(prop_name) {
                 String::new()
             } else {
                 format!("{id}.", id = id.clone())
@@ -351,8 +364,8 @@ fn handle_item(elem: &ElementRc, main_struct: &mut Struct, init: &mut Vec<String
 
             let component = &item.enclosing_component.upgrade().unwrap();
 
-            let init = compile_expression(i, component);
-            let setter = if i.is_constant() {
+            let init = compile_expression(binding_expression, component);
+            let setter = if binding_expression.is_constant() {
                 format!("set({});", init)
             } else {
                 let binding_code = format!(
@@ -362,26 +375,27 @@ fn handle_item(elem: &ElementRc, main_struct: &mut Struct, init: &mut Vec<String
                         }}",
                     init = init
                 );
-                property_set_binding_code(component, &item, s, binding_code)
+                property_set_binding_code(component, &item, prop_name, binding_code)
             };
-
-            if let Some(vp) = super::as_flickable_viewport_property(elem, s) {
-                format!(
-                    "{accessor_prefix}viewport.{cpp_prop}.{setter};",
-                    accessor_prefix = accessor_prefix,
-                    cpp_prop = vp,
-                    setter = setter,
-                )
-            } else {
-                format!(
-                    "{accessor_prefix}{cpp_prop}.{setter};",
-                    accessor_prefix = accessor_prefix,
-                    cpp_prop = s,
-                    setter = setter,
-                )
-            }
+            init_begin.push(
+                if let Some(vp) = super::as_flickable_viewport_property(elem, prop_name) {
+                    format!(
+                        "{accessor_prefix}viewport.{cpp_prop}.{setter};",
+                        accessor_prefix = accessor_prefix,
+                        cpp_prop = vp,
+                        setter = setter,
+                    )
+                } else {
+                    format!(
+                        "{accessor_prefix}{cpp_prop}.{setter};",
+                        accessor_prefix = accessor_prefix,
+                        cpp_prop = prop_name,
+                        setter = setter,
+                    )
+                },
+            );
         }
-    }));
+    }
 }
 
 fn handle_repeater(
@@ -523,6 +537,7 @@ fn generate_component(
 
     let is_root = component.parent_element.upgrade().is_none();
     let mut init = vec!["[[maybe_unused]] auto self = this;".into()];
+    let mut init_last = vec![];
 
     for (cpp_name, property_decl) in component.root_element.borrow().property_declarations.iter() {
         let ty = if let Type::Signal { args } = &property_decl.property_type {
@@ -762,9 +777,11 @@ fn generate_component(
                 if super::is_flickable(item_rc) { 1 } else { item.children.len() },
                 children_offset,
             ));
-            handle_item(item_rc, &mut component_struct, &mut init);
+            handle_item(item_rc, &mut component_struct, &mut init, &mut init_last);
         }
     });
+
+    init.append(&mut init_last);
 
     component_struct.members.push((
         Access::Public,
