@@ -29,6 +29,7 @@ use crate::SharedArray;
 #[cfg(feature = "rtti")]
 use crate::Signal;
 
+use auto_enums::auto_enum;
 use cgmath::Matrix4;
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
@@ -970,19 +971,19 @@ enum LyonPathIteratorVariant<'a> {
 
 impl<'a> PathDataIterator<'a> {
     /// Create a new iterator for path traversal.
+    #[auto_enum(Iterator)]
     pub fn iter(
         &'a self,
-    ) -> Box<dyn Iterator<Item = lyon::path::Event<lyon::math::Point, lyon::math::Point>> + 'a>
-    {
+    ) -> impl Iterator<Item = lyon::path::Event<lyon::math::Point, lyon::math::Point>> + 'a {
         match &self.it {
             LyonPathIteratorVariant::FromPath(path) => self.apply_transform(path.iter()),
             LyonPathIteratorVariant::FromEvents(events, coordinates) => {
-                Box::new(self.apply_transform(ToLyonPathEventIterator {
+                self.apply_transform(ToLyonPathEventIterator {
                     events_it: events.iter(),
                     coordinates_it: coordinates.iter(),
                     first: coordinates.first(),
                     last: coordinates.last(),
-                }))
+                })
             }
         }
     }
@@ -997,15 +998,14 @@ impl<'a> PathDataIterator<'a> {
             ));
         }
     }
-
+    #[auto_enum(Iterator)]
     fn apply_transform(
         &'a self,
         event_it: impl Iterator<Item = lyon::path::Event<lyon::math::Point, lyon::math::Point>> + 'a,
-    ) -> Box<dyn Iterator<Item = lyon::path::Event<lyon::math::Point, lyon::math::Point>> + 'a>
-    {
+    ) -> impl Iterator<Item = lyon::path::Event<lyon::math::Point, lyon::math::Point>> + 'a {
         match self.transform {
-            Some(transform) => Box::new(TransformedLyonPathIterator { it: event_it, transform }),
-            None => Box::new(event_it),
+            Some(transform) => TransformedLyonPathIterator { it: event_it, transform },
+            None => event_it,
         }
     }
 }
