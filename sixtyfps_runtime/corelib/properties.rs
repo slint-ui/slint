@@ -77,6 +77,7 @@ mod single_linked_list_pin {
 
 use core::cell::{Cell, RefCell, UnsafeCell};
 use core::{marker::PhantomPinned, pin::Pin};
+use std::rc::Rc;
 
 use crate::graphics::Color;
 use crate::items::PropertyAnimation;
@@ -95,6 +96,7 @@ struct BindingVTable {
     drop: unsafe fn(_self: *mut BindingHolder),
     evaluate: unsafe fn(_self: *mut BindingHolder, value: *mut ()) -> BindingResult,
     mark_dirty: unsafe fn(_self: *const BindingHolder),
+    intercept_set: unsafe fn(_self: *const BindingHolder, value: *const ()) -> bool,
 }
 
 /// A binding trait object can be used to dynamically produces values for a property.
@@ -106,6 +108,15 @@ trait BindingCallable {
     /// This function is used to notify the binding that one of the dependencies was changed
     /// and therefore this binding may evaluate to a different value, too.
     fn mark_dirty(self: Pin<&Self>) {}
+
+    /// Allow the binding to t what happens when the value is set.
+    /// The default implementation returns false, meaning the binding will simply be removed and
+    /// the property will get the new value.
+    /// When returning true, the call was intercepted and the binding will not be removed,
+    /// but the property will still have that value
+    unsafe fn intercept_set(self: Pin<&Self>, _value: *const ()) -> bool {
+        false
+    }
 }
 
 impl<F: Fn(*mut ()) -> BindingResult> BindingCallable for F {
@@ -153,6 +164,14 @@ fn alloc_binding_holder<B: BindingCallable + 'static>(binding: B) -> *mut Bindin
         Pin::new_unchecked(&((*(_self as *const BindingHolder<B>)).binding)).mark_dirty()
     }
 
+    /// Safety: _self must be a pointer to a `BindingHolder<B>`
+    unsafe fn intercept_set<B: BindingCallable>(
+        _self: *const BindingHolder,
+        value: *const (),
+    ) -> bool {
+        Pin::new_unchecked(&((*(_self as *const BindingHolder<B>)).binding)).intercept_set(value)
+    }
+
     trait HasBindingVTable {
         const VT: &'static BindingVTable;
     }
@@ -161,6 +180,7 @@ fn alloc_binding_holder<B: BindingCallable + 'static>(binding: B) -> *mut Bindin
             drop: binding_drop::<B>,
             evaluate: evaluate::<B>,
             mark_dirty: mark_dirty::<B>,
+            intercept_set: intercept_set::<B>,
         };
     }
 
@@ -423,7 +443,7 @@ pub trait Binding<T> {
 }
 
 impl<T, F: Fn() -> T> Binding<T> for F {
-    fn evaluate(self: &Self, _value: &T) -> T {
+    fn evaluate(&self, _value: &T) -> T {
         self()
     }
 }
@@ -513,7 +533,14 @@ impl<T: Clone> Property<T> {
     /// be marked as dirty.
     // FIXME  pub fn set(self: Pin<&Self>, t: T) {
     pub fn set(&self, t: T) {
-        self.handle.remove_binding();
+        if !self.handle.access(|b| {
+            b.map_or(false, |b| unsafe {
+                // Safety: b is a BindingHolder<T>
+                (b.vtable.intercept_set)(&*b as *const BindingHolder, &t as *const T as *const ())
+            })
+        }) {
+            self.handle.remove_binding();
+        }
         // Safety: PropertyHandle::access ensure that the value is locked
         self.handle.access(|_| unsafe { *self.value.get() = t });
         self.handle.mark_dirty();
@@ -617,6 +644,131 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
     }
 }
 
+#[test]
+fn properties_simple_test() {
+    use pin_weak::rc::PinWeak;
+    use std::rc::Rc;
+    fn g(prop: &Property<i32>) -> i32 {
+        unsafe { Pin::new_unchecked(prop).get() }
+    }
+
+    #[derive(Default)]
+    struct Component {
+        width: Property<i32>,
+        height: Property<i32>,
+        area: Property<i32>,
+    }
+
+    let compo = Rc::pin(Component::default());
+    let w = PinWeak::downgrade(compo.clone());
+    compo.area.set_binding(move || {
+        let compo = w.upgrade().unwrap();
+        g(&compo.width) * g(&compo.height)
+    });
+    compo.width.set(4);
+    compo.height.set(8);
+    assert_eq!(g(&compo.width), 4);
+    assert_eq!(g(&compo.height), 8);
+    assert_eq!(g(&compo.area), 4 * 8);
+
+    let w = PinWeak::downgrade(compo.clone());
+    compo.width.set_binding(move || {
+        let compo = w.upgrade().unwrap();
+        g(&compo.height) * 2
+    });
+    assert_eq!(g(&compo.width), 8 * 2);
+    assert_eq!(g(&compo.height), 8);
+    assert_eq!(g(&compo.area), 8 * 8 * 2);
+}
+
+struct TwoWayBinding<T> {
+    common_property: Pin<Rc<Property<T>>>,
+}
+impl<T: Clone + 'static> BindingCallable for TwoWayBinding<T> {
+    unsafe fn evaluate(self: Pin<&Self>, value: *mut ()) -> BindingResult {
+        *(value as *mut T) = self.common_property.as_ref().get();
+        BindingResult::KeepBinding
+    }
+
+    unsafe fn intercept_set(self: Pin<&Self>, value: *const ()) -> bool {
+        self.common_property.as_ref().set((*(value as *const T)).clone());
+        true
+    }
+}
+
+#[test]
+fn property_two_ways_test() {
+    let p1 = Rc::pin(Property::new(42));
+    let p2 = Rc::pin(Property::new(88));
+
+    let depends = Box::pin(Property::new(0));
+    depends.as_ref().set_binding({
+        let p1 = p1.clone();
+        move || p1.as_ref().get() + 8
+    });
+    assert_eq!(depends.as_ref().get(), 42 + 8);
+    Property::link_two_way(p1.as_ref(), p2.as_ref());
+    assert_eq!(p1.as_ref().get(), 88);
+    assert_eq!(p2.as_ref().get(), 88);
+    assert_eq!(depends.as_ref().get(), 88 + 8);
+    p2.as_ref().set(5);
+    assert_eq!(p1.as_ref().get(), 5);
+    assert_eq!(p2.as_ref().get(), 5);
+    assert_eq!(depends.as_ref().get(), 5 + 8);
+    p1.as_ref().set(22);
+    assert_eq!(p1.as_ref().get(), 22);
+    assert_eq!(p2.as_ref().get(), 22);
+    assert_eq!(depends.as_ref().get(), 22 + 8);
+}
+
+#[test]
+fn property_two_ways_test_binding() {
+    let p1 = Rc::pin(Property::new(42));
+    let p2 = Rc::pin(Property::new(88));
+    let global = Rc::pin(Property::new(23));
+    p2.as_ref().set_binding({
+        let global = global.clone();
+        move || global.as_ref().get() + 9
+    });
+
+    let depends = Box::pin(Property::new(0));
+    depends.as_ref().set_binding({
+        let p1 = p1.clone();
+        move || p1.as_ref().get() + 8
+    });
+
+    Property::link_two_way(p1.as_ref(), p2.as_ref());
+    assert_eq!(p1.as_ref().get(), 23 + 9);
+    assert_eq!(p2.as_ref().get(), 23 + 9);
+    assert_eq!(depends.as_ref().get(), 23 + 9 + 8);
+    global.as_ref().set(55);
+    assert_eq!(p1.as_ref().get(), 55 + 9);
+    assert_eq!(p2.as_ref().get(), 55 + 9);
+    assert_eq!(depends.as_ref().get(), 55 + 9 + 8);
+}
+
+impl<T: Clone + 'static> Property<T> {
+    /// Link two property such that any change to one property is affecting the other property as if they
+    /// where, in fact, a single property.
+    /// The value or binding of prop2 is kept.
+    pub fn link_two_way(prop1: Pin<&Self>, prop2: Pin<&Self>) {
+        let value = prop2.get();
+        let prop2_handle_val = prop2.handle.handle.get();
+        let handle = if prop2_handle_val & 0b10 == 0b10 {
+            // If prop2 is a binding, just "steal it"
+            prop2.handle.handle.set(0);
+            PropertyHandle { handle: Cell::new(prop2_handle_val) }
+        } else {
+            PropertyHandle::default()
+        };
+        let common_property =
+            Rc::pin(Property { handle, value: UnsafeCell::new(value), pinned: PhantomPinned });
+        prop1.handle.set_binding(TwoWayBinding { common_property: common_property.clone() });
+        prop2.handle.set_binding(TwoWayBinding { common_property: common_property.clone() });
+        prop1.handle.mark_dirty();
+    }
+}
+
 struct PropertyValueAnimationData<T> {
     from_value: T,
     to_value: T,
@@ -714,43 +866,6 @@ impl<T: InterpolatedPropertyValue> BindingCallable for AnimatedBindingCallable<T
                 crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| driver.current_tick());
         }
     }
-}
-
-#[test]
-fn properties_simple_test() {
-    use pin_weak::rc::PinWeak;
-    use std::rc::Rc;
-    fn g(prop: &Property<i32>) -> i32 {
-        unsafe { Pin::new_unchecked(prop).get() }
-    }
-
-    #[derive(Default)]
-    struct Component {
-        width: Property<i32>,
-        height: Property<i32>,
-        area: Property<i32>,
-    }
-
-    let compo = Rc::pin(Component::default());
-    let w = PinWeak::downgrade(compo.clone());
-    compo.area.set_binding(move || {
-        let compo = w.upgrade().unwrap();
-        g(&compo.width) * g(&compo.height)
-    });
-    compo.width.set(4);
-    compo.height.set(8);
-    assert_eq!(g(&compo.width), 4);
-    assert_eq!(g(&compo.height), 8);
-    assert_eq!(g(&compo.area), 4 * 8);
-
-    let w = PinWeak::downgrade(compo.clone());
-    compo.width.set_binding(move || {
-        let compo = w.upgrade().unwrap();
-        g(&compo.height) * 2
-    });
-    assert_eq!(g(&compo.width), 8 * 2);
-    assert_eq!(g(&compo.height), 8);
-    assert_eq!(g(&compo.area), 8 * 8 * 2);
 }
 
 /// InterpolatedPropertyValue is a trait used to enable properties to be used with
@@ -995,6 +1110,7 @@ impl Default for PropertyTracker {
             drop: |_| (),
             evaluate: |_, _| BindingResult::KeepBinding,
             mark_dirty: |_| (),
+            intercept_set: |_, _| false,
         };
 
         let holder = BindingHolder {

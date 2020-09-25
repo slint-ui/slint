@@ -26,6 +26,7 @@ use crate::properties::{InterpolatedPropertyValue, Property};
 #[cfg(feature = "rtti")]
 use crate::rtti::{BuiltinItem, FieldInfo, PropertyInfo, ValueType};
 use crate::SharedArray;
+#[cfg(feature = "rtti")]
 use crate::Signal;
 
 use cgmath::Matrix4;
@@ -161,7 +162,7 @@ impl Color {
     }
 
     /// Construct a color from the red, green and blue color channel parameters. The alpha
-    /// channel will have the value 255.   
+    /// channel will have the value 255.
     pub fn from_rgb_f32(red: f32, green: f32, blue: f32) -> Self {
         Self::from_argb_f32(1.0, red, green, blue)
     }
