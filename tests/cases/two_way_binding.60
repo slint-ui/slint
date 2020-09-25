@@ -1,0 +1,66 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+TestCase := Rectangle {
+
+    property <string> text1: "Hello";
+    property <string> text2: "Blah";
+    property <string> ti1_text: ti1.text;
+    property <string> ti2_text: ti2.text;
+    property <string> text_item_text: text_item.text;
+
+    ti1 := TextInput {
+        text <=> text1;
+    }
+
+    ti2 := TextInput {
+        text <=> text_item.text;
+    }
+
+    text_item := Text {
+        text: text2;
+    }
+
+    signal set_ti1(string);
+    set_ti1(a) => { ti1.text = a; }
+    signal set_ti2(string);
+    set_ti2(a) => { ti2.text = a; }
+}
+
+
+/*
+
+```rust
+let instance = TestCase::new();
+let instance = instance.as_ref();
+assert_eq!(instance.get_text1(), sixtyfps::SharedString::from("Hello"));
+assert_eq!(instance.get_text2(), sixtyfps::SharedString::from("Blah"));
+assert_eq!(instance.get_ti1_text(), sixtyfps::SharedString::from("Hello"));
+assert_eq!(instance.get_ti2_text(), sixtyfps::SharedString::from("Blah"));
+assert_eq!(instance.get_text_item_text(), sixtyfps::SharedString::from("Blah"));
+
+instance.set_text1(sixtyfps::SharedString::from("Text1New"));
+instance.set_text2(sixtyfps::SharedString::from("Text2New"));
+assert_eq!(instance.get_text1(), sixtyfps::SharedString::from("Text1New"));
+assert_eq!(instance.get_text2(), sixtyfps::SharedString::from("Text2New"));
+assert_eq!(instance.get_ti1_text(), sixtyfps::SharedString::from("Text1New"));
+assert_eq!(instance.get_ti2_text(), sixtyfps::SharedString::from("Text2New"));
+assert_eq!(instance.get_text_item_text(), sixtyfps::SharedString::from("Text2New"));
+
+instance.emit_set_ti1(sixtyfps::SharedString::from("Hallo"));
+instance.emit_set_ti2(sixtyfps::SharedString::from("Bonjour"));
+assert_eq!(instance.get_text1(), sixtyfps::SharedString::from("Hallo"));
+assert_eq!(instance.get_text2(), sixtyfps::SharedString::from("Text2New"));
+assert_eq!(instance.get_ti1_text(), sixtyfps::SharedString::from("Hallo"));
+assert_eq!(instance.get_ti2_text(), sixtyfps::SharedString::from("Bonjour"));
+assert_eq!(instance.get_text_item_text(), sixtyfps::SharedString::from("Bonjour"));
+```
+
+*/

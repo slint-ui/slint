@@ -340,6 +340,8 @@ fn handle_item(elem: &ElementRc, main_struct: &mut Struct, init: &mut Vec<String
                 params = params.join(", "),
                 code = compile_expression(i, &item.enclosing_component.upgrade().unwrap())
             )
+        } else if let Expression::TwoWayBinding(_nr) = &i.expression {
+            "std::printf(\"Two way binding not implemented in C++\");".into()
         } else {
             let accessor_prefix = if item.property_declarations.contains_key(s) {
                 String::new()

@@ -251,6 +251,7 @@ fn generate_component(
     let mut repeated_key_event_branch = Vec::new();
     let mut repeated_focus_branch = Vec::new();
     let mut init = Vec::new();
+    let mut init_last = Vec::new();
     let mut maybe_window_field_decl = None;
     let mut maybe_window_field_init = None;
     super::build_array_helper(component, |item_rc, children_index, is_flickable_rect| {
@@ -363,20 +364,12 @@ fn generate_component(
                 }
             ));
             for (k, binding_expression) in &item.bindings {
-                let rust_property_ident = format_ident!("{}", k);
-                let rust_property = if item.property_declarations.contains_key(k) {
-                    quote!(#rust_property_ident)
-                } else if let Some(vp) = super::as_flickable_viewport_property(item_rc, k) {
-                    let rust_property_ident = format_ident!("{}", vp);
-                    quote!(#field_name.viewport.#rust_property_ident)
-                } else {
-                    quote!(#field_name.#rust_property_ident)
-                };
-                let tokens_for_expression = compile_expression(binding_expression, &component);
-
+                let rust_property =
+                    access_member(item_rc, k, component, quote!(self_pinned.as_ref()), false);
                 if matches!(item.lookup_property(k.as_str()), Type::Signal{..}) {
+                    let tokens_for_expression = compile_expression(binding_expression, &component);
                     init.push(quote!(
-                        self_pinned.#rust_property.set_handler({
+                        #rust_property.set_handler({
                             let self_weak = sixtyfps::re_exports::PinWeak::downgrade(self_pinned.clone());
                             move |args| {
                                 let self_pinned = self_weak.upgrade().unwrap();
@@ -385,7 +378,19 @@ fn generate_component(
                             }
                         });
                     ));
+                } else if let Expression::TwoWayBinding(nr) = &binding_expression.expression {
+                    let p2 = access_member(
+                        &nr.element.upgrade().unwrap(),
+                        &nr.name,
+                        component,
+                        quote!(self_pinned.as_ref()),
+                        false,
+                    );
+                    init_last.push(quote!(
+                        Property::link_two_way(#rust_property, #p2);
+                    ));
                 } else {
+                    let tokens_for_expression = compile_expression(binding_expression, &component);
                     let setter = if binding_expression.is_constant() {
                         quote!(set((#tokens_for_expression) as _))
                     } else {
@@ -404,7 +409,7 @@ fn generate_component(
                         )
                     };
                     init.push(quote!(
-                        self_pinned.#rust_property.#setter;
+                        #rust_property.#setter;
                     ));
                 }
             }
@@ -671,6 +676,7 @@ fn generate_component(
                 self_pinned.self_weak.set(PinWeak::downgrade(self_pinned.clone())).map_err(|_|())
                     .expect("Can only be pinned once");
                 #(#init)*
+                #(#init_last)*
                 self_pinned
             }
             #(#property_and_signal_accessors)*
