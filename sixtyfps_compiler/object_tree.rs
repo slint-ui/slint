@@ -637,7 +637,7 @@ impl Element {
                         Type::Signal { .. } => {
                             format!("'{}' is a signal. Use `=>` to connect", name)
                         }
-                        _ => format!("Cannot assing to {} in {}", name, base),
+                        _ => format!("Cannot assign to {} in {}", name, base),
                     },
                     &name_token,
                 );
