@@ -731,6 +731,14 @@ impl<T: Clone + 'static> Property<T> {
                 self.common_property.as_ref().set((*(value as *const T)).clone());
                 true
             }
+
+            unsafe fn intercept_set_binding(
+                self: Pin<&Self>,
+                new_binding: *mut BindingHolder,
+            ) -> bool {
+                self.common_property.handle.set_binding_impl(new_binding);
+                true
+            }
         }
 
         let value = prop2.get();
