@@ -23,8 +23,8 @@ const-field-offset = { version = "0.1", path = "../../helper_crates/const-field-
 vtable = { version="0.1", path = "../../helper_crates/vtable" }
 sixtyfps-corelib-macros = { version = "=0.0.1", path = "../corelib_macros" }
 winit = "0.22.1"
-lyon = { version = "~0.15.9" }
-euclid = "0.20.11"
+lyon = { version = "0.16" }
+euclid = "0.22.1"
 triomphe = "0.1.1"
 once_cell = "1.4"
 instant = { version = "0.1", features = [ "now" ] }

@@ -16,7 +16,7 @@ sixtyfps-corelib = { version = "=0.0.1", path = "../corelib", features = ["rtti"
 sixtyfps-rendering-backend-default = { version = "=0.0.1", path = "../../sixtyfps_runtime/rendering_backends/default" }
 vtable = { version = "0.1", path="../../helper_crates/vtable" }
 sixtyfps-compilerlib = { version = "=0.0.1", path = "../../sixtyfps_compiler" }
-lyon = { version = "~0.15.9" }
+lyon = { version = "0.16" }
 derive_more = "0.99.5"
 generativity = "1"
 
