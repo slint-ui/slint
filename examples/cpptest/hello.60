@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-import { ScrollArea } from "sixtyfps_widgets.60";
+import { ScrollView } from "sixtyfps_widgets.60";
 
 component TwoRectangle := Rectangle {
 
@@ -50,7 +50,7 @@ component ButtonRectangle := Rectangle {
 }
 
 FlickWin := Window {
-    ScrollArea {
+    ScrollView {
         width: parent.width;
         height: parent.height;
         $children

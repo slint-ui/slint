@@ -866,7 +866,7 @@ impl TypeRegister {
         );
         native_class(
             &mut r,
-            "NativeScrollArea",
+            "NativeScrollView",
             &[
                 ("x", Type::Length),
                 ("y", Type::Length),

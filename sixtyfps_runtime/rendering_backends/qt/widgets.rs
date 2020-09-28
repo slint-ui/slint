@@ -954,7 +954,7 @@ ItemVTable_static! { #[no_mangle] pub static NativeLineEditVTable for NativeLine
 #[repr(C)]
 #[derive(FieldOffsets, Default, BuiltinItem)]
 #[pin]
-pub struct NativeScrollArea {
+pub struct NativeScrollView {
     pub x: Property<f32>,
     pub y: Property<f32>,
     pub width: Property<f32>,
@@ -970,7 +970,7 @@ pub struct NativeScrollArea {
     pub viewport_y: Property<f32>,
 }
 
-impl Item for NativeScrollArea {
+impl Item for NativeScrollView {
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(
             Self::FIELD_OFFSETS.x.apply_pin(self).get(),
@@ -1097,9 +1097,9 @@ impl Item for NativeScrollArea {
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 }
 
-impl ItemConsts for NativeScrollArea {
+impl ItemConsts for NativeScrollView {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
         Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-ItemVTable_static! { #[no_mangle] pub static NativeScrollAreaVTable for NativeScrollArea }
+ItemVTable_static! { #[no_mangle] pub static NativeScrollViewVTable for NativeScrollView }

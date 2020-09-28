@@ -40,7 +40,7 @@ export LineEdit := NativeLineEdit {
     }
 }
 
-export ScrollArea := NativeScrollArea {
+export ScrollView := NativeScrollView {
     viewport_x: f.viewport_x;
     viewport_y: f.viewport_y;
     f:= Flickable {
