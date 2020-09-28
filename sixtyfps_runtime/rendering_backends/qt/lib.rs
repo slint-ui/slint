@@ -42,7 +42,7 @@ pub type NativeWidgets =
     (widgets::NativeSpinBox,
     (widgets::NativeGroupBox,
     (widgets::NativeLineEdit,
-    (widgets::NativeScrollView,
+    (widgets::NativeScrollBar,
             ())))))));
 
 pub mod native_widgets {

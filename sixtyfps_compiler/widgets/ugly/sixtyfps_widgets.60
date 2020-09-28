@@ -268,16 +268,17 @@ export LineEdit := Rectangle {
 }
 
 export ScrollView := Rectangle {
-    property <length> viewport_width;
-    property <length> viewport_height;
+    property <length> viewport_width <=> fli.viewport_width;
+    property <length> viewport_height <=> fli.viewport_height;
     border_width: 1lx;
     border_color: #d0d3cf;
     color: white;
-    Flickable {
+    fli := Flickable {
         width: parent.width;
         height: parent.height;
-        viewport_width: parent.viewport_width;
-        viewport_height: parent.viewport_height;
         $children
+        interactive: true;
+        viewport_width: 1000lx;
+        viewport_height: 1000lx;
     }
 }

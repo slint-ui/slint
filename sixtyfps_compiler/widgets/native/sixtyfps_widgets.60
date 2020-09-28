@@ -40,14 +40,34 @@ export LineEdit := NativeLineEdit {
     }
 }
 
-export ScrollView := NativeScrollView {
-    viewport_x: f.viewport_x;
-    viewport_y: f.viewport_y;
-    f:= Flickable {
-        width: parent.width;
-        height: parent.height;
-        viewport_width: parent.viewport_width;
-        viewport_height: parent.viewport_height;
-        $children
+
+
+export ScrollView := Rectangle {
+    property <length> viewport_width <=> fli.viewport_width;
+    property <length> viewport_height <=> fli.viewport_height;
+    border_width: 1lx;
+    border_color: #d0d3cf;
+    color: white;
+
+    GridLayout {
+        fli := Flickable {
+            $children
+            interactive: false;
+            viewport_y: -vbar.value;
+            viewport_x: -hbar.value;
+            viewport_height: 1000lx;
+            viewport_width: 1000lx;
+        }
+        vbar := NativeScrollBar {
+            max: fli.viewport_height - fli.height;
+            page_size: fli.height;
+        }
+        hbar := NativeScrollBar {
+            horizontal: true;
+            row: 1;
+            max: fli.viewport_width - fli.width;
+            page_size: fli.width;
+        }
+
     }
 }

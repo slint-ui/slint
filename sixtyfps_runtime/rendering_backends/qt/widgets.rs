@@ -954,23 +954,20 @@ ItemVTable_static! { #[no_mangle] pub static NativeLineEditVTable for NativeLine
 #[repr(C)]
 #[derive(FieldOffsets, Default, BuiltinItem)]
 #[pin]
-pub struct NativeScrollView {
+pub struct NativeScrollBar {
     pub x: Property<f32>,
     pub y: Property<f32>,
     pub width: Property<f32>,
     pub height: Property<f32>,
+    pub max: Property<f32>,
+    pub page_size: Property<f32>,
+    pub value: Property<f32>,
+    pub horizontal: Property<bool>,
     pub cached_rendering_data: CachedRenderingData,
-    pub native_padding_left: Property<f32>,
-    pub native_padding_right: Property<f32>,
-    pub native_padding_top: Property<f32>,
-    pub native_padding_bottom: Property<f32>,
-    pub viewport_height: Property<f32>,
-    pub viewport_width: Property<f32>,
-    pub viewport_x: Property<f32>,
-    pub viewport_y: Property<f32>,
+    data: Property<NativeSliderData>,
 }
 
-impl Item for NativeScrollView {
+impl Item for NativeScrollBar {
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(
             Self::FIELD_OFFSETS.x.apply_pin(self).get(),
@@ -985,58 +982,38 @@ impl Item for NativeScrollView {
     ) -> HighLevelRenderingPrimitive {
         let size: qttypes::QSize = get_size!(self);
         let dpr = window.scale_factor();
-        let vp_offset = qttypes::QPoint {
-            x: Self::FIELD_OFFSETS.viewport_x.apply_pin(self).get() as _,
-            y: Self::FIELD_OFFSETS.viewport_y.apply_pin(self).get() as _,
-        };
-        let vp_size = qttypes::QSize {
-            width: Self::FIELD_OFFSETS.viewport_width.apply_pin(self).get() as _,
-            height: Self::FIELD_OFFSETS.viewport_height.apply_pin(self).get() as _,
-        };
-        let paddings = qttypes::QMargins {
-            left: Self::FIELD_OFFSETS.native_padding_left.apply_pin(self).get() as _,
-            top: Self::FIELD_OFFSETS.native_padding_top.apply_pin(self).get() as _,
-            right: Self::FIELD_OFFSETS.native_padding_right.apply_pin(self).get() as _,
-            bottom: Self::FIELD_OFFSETS.native_padding_bottom.apply_pin(self).get() as _,
-        };
+        let value = Self::FIELD_OFFSETS.value.apply_pin(self).get() as i32;
+        let max = (Self::FIELD_OFFSETS.max.apply_pin(self).get() as i32).max(0);
+        let page_size = Self::FIELD_OFFSETS.page_size.apply_pin(self).get() as i32;
+        let horizontal: bool = Self::FIELD_OFFSETS.horizontal.apply_pin(self).get();
+        let data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
+        let active_controls = data.active_controls;
+        let pressed = data.pressed;
 
         let img = cpp!(unsafe [
+            value as "int",
+            page_size as "int",
+            max as "int",
             size as "QSize",
-            vp_offset as "QPoint",
-            vp_size as "QSize",
-            paddings as "QMargins",
-            dpr as "float"
+            active_controls as "int",
+            pressed as "bool",
+            dpr as "float",
+            horizontal as "bool"
         ] -> qttypes::QImage as "QImage" {
             auto [img, rect] = offline_style_rendering_image(size, dpr);
             QPainter p(&img);
-
-            auto init_scrollbar = [&, rect = QRect(rect)](QStyleOptionSlider &option, int tot_size, int vp_size, int vp_pos) {
-                initQSliderOptions(option, false, 0, 0, vp_size - tot_size, -vp_pos);
-                option.rect = rect;
-                option.subControls = QStyle::SC_All;
-            };
-
-            // Horizonral scrollbar
             QStyleOptionSlider option;
-            init_scrollbar(option, size.width() - paddings.left() - paddings.right(), vp_size.width(), vp_offset.x());
+            option.rect = rect;
+            initQSliderOptions(option, pressed, active_controls, 0, max / dpr, value / dpr);
+            option.pageStep = page_size / dpr;
 
-            int hExtent = qApp->style()->pixelMetric(QStyle::PM_ScrollBarExtent, &option, global_widget());
-            int hSliderMin = qApp->style()->pixelMetric(QStyle::PM_ScrollBarSliderMin, &option, global_widget());
-            auto hSize = qApp->style()->sizeFromContents(QStyle::CT_ScrollBar, &option, QSize(hExtent * 2 + hSliderMin, hExtent), global_widget());
-            option.rect.setTop(rect.height() - hSize.height());
-            qApp->style()->drawComplexControl(QStyle::CC_ScrollBar, &option, &p, global_widget());
+            if (!horizontal) {
+                option.state ^= QStyle::State_Horizontal;
+                option.orientation = Qt::Vertical;
+            }
 
-            // Vertical Scrollbar
-            init_scrollbar(option, size.height() - paddings.top() - paddings.bottom(), vp_size.height(), vp_offset.y());
-            option.state ^= QStyle::State_Horizontal;
-            option.orientation = Qt::Vertical;
-
-            int vExtent = qApp->style()->pixelMetric(QStyle::PM_ScrollBarExtent, &option, global_widget());
-            int vSliderMin = qApp->style()->pixelMetric(QStyle::PM_ScrollBarSliderMin, &option, global_widget());
-            auto vSize = qApp->style()->sizeFromContents(QStyle::CT_ScrollBar, &option, QSize(vExtent, vExtent * 2 + vSliderMin), global_widget());
-            option.rect.setLeft(rect.width() - vSize.width());
-            qApp->style()->drawComplexControl(QStyle::CC_ScrollBar, &option, &p, global_widget());
-
+            auto style = qApp->style();
+            style->drawComplexControl(QStyle::CC_Slider, &option, &p, global_widget());
             return img;
         });
         return HighLevelRenderingPrimitive::Image { source: to_resource(img) };
@@ -1051,43 +1028,138 @@ impl Item for NativeScrollView {
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
         let dpr = window.scale_factor();
+        let horizontal: bool = Self::FIELD_OFFSETS.horizontal.apply_pin(self).get();
 
-        let paddings = cpp!(unsafe [
-            dpr as "float"
-        ] -> qttypes::QMargins as "QMargins" {
+        let s = cpp!(unsafe [
+            horizontal as "bool"
+        ] -> qttypes::QSize as "QSize" {
             ensure_initialized();
 
             QStyleOptionSlider option;
             // int overlap = qApp->style()->pixelMetric(QStyle::PM_ScrollView_ScrollBarOverlap, &option, global_widget());
 
             initQSliderOptions(option, false, 0, 0, 1000, 1000);
-            int hExtent = qApp->style()->pixelMetric(QStyle::PM_ScrollBarExtent, &option, global_widget());
-            int hSliderMin = qApp->style()->pixelMetric(QStyle::PM_ScrollBarSliderMin, &option, global_widget());
-            auto hSize = qApp->style()->sizeFromContents(QStyle::CT_ScrollBar, &option, QSize(hExtent * 2 + hSliderMin, hExtent), global_widget());
-            option.state ^= QStyle::State_Horizontal;
-            int vExtent = qApp->style()->pixelMetric(QStyle::PM_ScrollBarExtent, &option, global_widget());
-            int vSliderMin = qApp->style()->pixelMetric(QStyle::PM_ScrollBarSliderMin, &option, global_widget());
-            auto vSize = qApp->style()->sizeFromContents(QStyle::CT_ScrollBar, &option, QSize(vExtent, vExtent * 2 + vSliderMin), global_widget());
-            return { 0, 0, qRound(vSize.width() * dpr), qRound(hSize.height() * dpr) };
+            if (!horizontal) {
+                option.state ^= QStyle::State_Horizontal;
+                option.orientation = Qt::Vertical;
+            }
+            int extent = qApp->style()->pixelMetric(QStyle::PM_ScrollBarExtent, &option, global_widget());
+            int sliderMin = qApp->style()->pixelMetric(QStyle::PM_ScrollBarSliderMin, &option, global_widget());
+            auto csize = horizontal ? QSize(extent * 2 + sliderMin, extent) : QSize(extent,extent * 2 + sliderMin) ;
+            return qApp->style()->sizeFromContents(QStyle::CT_ScrollBar, &option, csize, global_widget());
         });
-        self.native_padding_left.set(paddings.left as _);
-        self.native_padding_right.set(paddings.right as _);
-        self.native_padding_top.set(paddings.top as _);
-        self.native_padding_bottom.set(paddings.bottom as _);
-        LayoutInfo {
-            min_width: (paddings.left + paddings.right) as _,
-            min_height: (paddings.top + paddings.bottom) as _,
+        let mut result = LayoutInfo {
+            min_width: s.width as f32 * dpr,
+            min_height: s.height as f32 * dpr,
             ..LayoutInfo::default()
+        };
+        if horizontal {
+            result.max_height = result.min_height;
+        } else {
+            result.max_width = result.min_width;
         }
+        result
     }
 
     fn input_event(
         self: Pin<&Self>,
-        _: MouseEvent,
-        _window: &ComponentWindow,
+        event: MouseEvent,
+        window: &ComponentWindow,
         _app_component: ComponentRefPin,
     ) -> InputEventResult {
-        InputEventResult::EventIgnored
+        let dpr = window.scale_factor();
+        let pos = qttypes::QPoint { x: (event.pos.x / dpr) as _, y: (event.pos.y / dpr) as _ };
+        let size: qttypes::QSize = get_size!(self);
+        let value = Self::FIELD_OFFSETS.value.apply_pin(self).get() as i32;
+        let max = (Self::FIELD_OFFSETS.max.apply_pin(self).get() as i32).max(0);
+        let page_size = Self::FIELD_OFFSETS.page_size.apply_pin(self).get() as i32;
+        let horizontal: bool = Self::FIELD_OFFSETS.horizontal.apply_pin(self).get();
+        let mut data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
+        let active_controls = data.active_controls;
+        let pressed = data.pressed;
+
+        let new_control = cpp!(unsafe [
+            pos as "QPoint",
+            value as "int",
+            page_size as "int",
+            max as "int",
+            size as "QSize",
+            active_controls as "int",
+            pressed as "bool",
+            dpr as "float",
+            horizontal as "bool"
+        ] -> u32 as "int" {
+            ensure_initialized();
+            QStyleOptionSlider option;
+            initQSliderOptions(option, pressed, active_controls, 0, max / dpr, value / dpr);
+            option.pageStep = page_size / dpr;
+            if (!horizontal) {
+                option.state ^= QStyle::State_Horizontal;
+                option.orientation = Qt::Vertical;
+            }
+            auto style = qApp->style();
+            option.rect = { QPoint{}, size / dpr };
+            return style->hitTestComplexControl(QStyle::CC_ScrollBar, &option, pos, nullptr);
+        });
+
+        #[allow(non_snake_case)]
+        let SC_ScrollBarSlider =
+            cpp!(unsafe []->u32 as "int" { return QStyle::SC_ScrollBarSlider;});
+
+        let (pos, size) =
+            if horizontal { (event.pos.x, size.width) } else { (event.pos.y, size.height) };
+
+        let result = match event.what {
+            MouseEventType::MousePressed => {
+                data.pressed = true;
+                if new_control == SC_ScrollBarSlider {
+                    data.pressed_x = pos as f32;
+                    data.pressed_val = value as f32;
+                }
+                data.active_controls = new_control;
+                InputEventResult::GrabMouse
+            }
+            MouseEventType::MouseExit => {
+                data.pressed = false;
+                InputEventResult::EventIgnored
+            }
+            MouseEventType::MouseReleased => {
+                data.pressed = false;
+                let new_val = cpp!(unsafe [active_controls as "int", value as "int", max as "int", page_size as "int", dpr as "float"] -> i32 as "int" {
+                    switch (active_controls) {
+                        case QStyle::SC_ScrollBarAddPage:
+                            return value + page_size;
+                        case QStyle::SC_ScrollBarSubPage:
+                            return value - page_size;
+                        case QStyle::SC_ScrollBarAddLine:
+                            return value + dpr;
+                        case QStyle::SC_ScrollBarSubLine:
+                            return value - dpr;
+                        case QStyle::SC_ScrollBarFirst:
+                            return 0;
+                        case QStyle::SC_ScrollBarLast:
+                            return max;
+                        default:
+                            return value;
+                    }
+                });
+                self.value.set(new_val.max(0).min(max) as f32);
+                InputEventResult::EventIgnored
+            }
+            MouseEventType::MouseMoved => {
+                if data.pressed && data.active_controls == SC_ScrollBarSlider {
+                    let max = max as f32;
+                    let new_val =
+                        data.pressed_val + ((pos as f32) - data.pressed_x) * max / size as f32;
+                    self.value.set(new_val.max(0.).min(max));
+                    InputEventResult::GrabMouse
+                } else {
+                    InputEventResult::EventAccepted
+                }
+            }
+        };
+        self.data.set(data);
+        result
     }
 
     fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
@@ -1097,9 +1169,9 @@ impl Item for NativeScrollView {
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 }
 
-impl ItemConsts for NativeScrollView {
+impl ItemConsts for NativeScrollBar {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
         Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-ItemVTable_static! { #[no_mangle] pub static NativeScrollViewVTable for NativeScrollView }
+ItemVTable_static! { #[no_mangle] pub static NativeScrollBarVTable for NativeScrollBar }

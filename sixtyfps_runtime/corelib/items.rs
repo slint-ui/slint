@@ -688,6 +688,7 @@ pub struct Flickable {
     pub width: Property<f32>,
     pub height: Property<f32>,
     pub viewport: Rectangle,
+    pub interactive: Property<bool>,
     data: FlickableDataBox,
 
     /// FIXME: remove this
@@ -727,6 +728,9 @@ impl Item for Flickable {
         _window: &ComponentWindow,
         _app_component: ComponentRefPin,
     ) -> InputEventResult {
+        if !Self::FIELD_OFFSETS.interactive.apply_pin(self).get() {
+            return InputEventResult::EventIgnored;
+        }
         self.data.handle_mouse(self, event);
 
         if event.what == MouseEventType::MousePressed || event.what == MouseEventType::MouseMoved {

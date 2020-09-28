@@ -623,8 +623,9 @@ impl TypeRegister {
                 ("viewport_width", Type::Length),
                 ("viewport_x", Type::Length),
                 ("viewport_y", Type::Length),
+                ("interactive", Type::Bool),
             ],
-            &[],
+            &[("interactive", Expression::BoolLiteral(true))],
         );
 
         native_class(&mut r, "Window", &[("width", Type::Length), ("height", Type::Length)], &[]);
@@ -866,20 +867,16 @@ impl TypeRegister {
         );
         native_class(
             &mut r,
-            "NativeScrollView",
+            "NativeScrollBar",
             &[
                 ("x", Type::Length),
                 ("y", Type::Length),
                 ("width", Type::Length),
                 ("height", Type::Length),
-                ("native_padding_left", Type::Length),
-                ("native_padding_right", Type::Length),
-                ("native_padding_top", Type::Length),
-                ("native_padding_bottom", Type::Length),
-                ("viewport_height", Type::Length),
-                ("viewport_width", Type::Length),
-                ("viewport_x", Type::Length),
-                ("viewport_y", Type::Length),
+                ("horizontal", Type::Bool),
+                ("max", Type::Length),
+                ("page_size", Type::Length),
+                ("value", Type::Length),
             ],
             &[],
         );
