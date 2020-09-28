@@ -117,11 +117,16 @@ fn process_alias<'a>(
             // Cannot remove if this is not a declaration
             return;
         }
-        let x = aliases_to_invert.insert(
-            NamedReference { element: Rc::downgrade(&from.0), name: from.1.to_string() },
-            NamedReference { element: Rc::downgrade(&to.0), name: to.1.to_string() },
-        );
-        assert!(x.is_none())
+        let k = NamedReference { element: Rc::downgrade(&from.0), name: from.1.to_string() };
+        match aliases_to_invert.entry(k) {
+            Entry::Occupied(_) => {
+                // TODO: maybe there are still way to optimize (three way bindings)
+                return;
+            }
+            Entry::Vacant(e) => {
+                e.insert(NamedReference { element: Rc::downgrade(&to.0), name: to.1.to_string() });
+            }
+        }
     } else if !is_declaration(&from) {
         // Cannot remove if this is not a declaration
         return;

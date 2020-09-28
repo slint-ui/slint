@@ -28,6 +28,10 @@ TestCase := Rectangle {
         text: text2;
     }
 
+    Text {
+        text <=> text1;
+    }
+
     signal set_ti1(string);
     set_ti1(a) => { ti1.text = a; }
     signal set_ti2(string);

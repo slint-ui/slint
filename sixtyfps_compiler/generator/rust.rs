@@ -251,7 +251,6 @@ fn generate_component(
     let mut repeated_key_event_branch = Vec::new();
     let mut repeated_focus_branch = Vec::new();
     let mut init = Vec::new();
-    let mut init_last = Vec::new();
     let mut maybe_window_field_decl = None;
     let mut maybe_window_field_init = None;
     super::build_array_helper(component, |item_rc, children_index, is_flickable_rect| {
@@ -386,7 +385,7 @@ fn generate_component(
                         quote!(self_pinned.as_ref()),
                         false,
                     );
-                    init_last.push(quote!(
+                    init.push(quote!(
                         Property::link_two_way(#rust_property, #p2);
                     ));
                 } else {
@@ -676,7 +675,6 @@ fn generate_component(
                 self_pinned.self_weak.set(PinWeak::downgrade(self_pinned.clone())).map_err(|_|())
                     .expect("Can only be pinned once");
                 #(#init)*
-                #(#init_last)*
                 self_pinned
             }
             #(#property_and_signal_accessors)*

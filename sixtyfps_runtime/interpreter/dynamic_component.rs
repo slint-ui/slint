@@ -683,8 +683,6 @@ pub fn instantiate<'id>(
         ));
     }
 
-    let mut execute_last = Vec::<Box<dyn FnOnce()>>::new();
-
     for item_within_component in component_type.items.values() {
         unsafe {
             let item = item_within_component.item_from_component(mem);
@@ -736,15 +734,8 @@ pub fn instantiate<'id>(
                         let maybe_animation =
                             animation_for_element_property(instance_ref, &elem, prop);
                         if let Expression::TwoWayBinding(nr) = &expr.expression {
-                            execute_last.push(Box::new({
-                                let prop_rtti = prop_rtti.clone();
-                                let nr = nr.clone();
-                                move || {
-                                    // Safety: The compiler must have ensured that the properties exist and are of the same type
-                                    prop_rtti
-                                        .link_two_ways(item, get_property_ptr(&nr, instance_ref));
-                                }
-                            }));
+                            // Safety: The compiler must have ensured that the properties exist and are of the same type
+                            prop_rtti.link_two_ways(item, get_property_ptr(&nr, instance_ref));
                         } else if expr.is_constant() {
                             prop_rtti.set(
                                 item,
@@ -786,15 +777,7 @@ pub fn instantiate<'id>(
 
                         if let Expression::TwoWayBinding(nr) = &expr.expression {
                             // Safety: The compiler must have ensured that the properties exist and are of the same type
-                            execute_last.push(Box::new({
-                                let prop_info = prop_info.clone();
-                                let nr = nr.clone();
-                                move || {
-                                    // Safety: The compiler must have ensured that the properties exist and are of the same type
-                                    prop_info
-                                        .link_two_ways(item, get_property_ptr(&nr, instance_ref));
-                                }
-                            }));
+                            prop_info.link_two_ways(item, get_property_ptr(&nr, instance_ref));
                         } else if expr.is_constant() {
                             let v =
                                 eval::eval_expression(expr, instance_ref, &mut Default::default());
@@ -828,10 +811,6 @@ pub fn instantiate<'id>(
                 }
             }
         }
-    }
-
-    for x in execute_last {
-        x();
     }
 
     for rep_in_comp in &component_type.repeater {

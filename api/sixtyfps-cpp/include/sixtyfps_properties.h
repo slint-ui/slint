@@ -60,7 +60,7 @@ struct Property
                     *reinterpret_cast<T *>(value) = (*reinterpret_cast<F *>(user_data))();
                 },
                 new F(binding), [](void *user_data) { delete reinterpret_cast<F *>(user_data); },
-                nullptr);
+                nullptr, nullptr);
     }
 
     inline void set_animated_value(const T &value,
@@ -91,10 +91,16 @@ struct Property
                 *reinterpret_cast<const T *>(value));
             return true;
         };
+        auto intercept_binding_fn = [] (void *user_data, void *value) {
+            cbindgen_private::sixtyfps_property_set_binding_internal(
+                &reinterpret_cast<TwoWayBinding *>(user_data)->common_property->inner,
+                value);
+            return true;
+        };
         cbindgen_private::sixtyfps_property_set_binding(&p1->inner, call_fn,
-            new TwoWayBinding{common_property}, del_fn, intercept_fn);
+            new TwoWayBinding{common_property}, del_fn, intercept_fn, intercept_binding_fn);
         cbindgen_private::sixtyfps_property_set_binding(&p2->inner, call_fn,
-            new TwoWayBinding{common_property}, del_fn, intercept_fn);
+            new TwoWayBinding{common_property}, del_fn, intercept_fn, intercept_binding_fn);
     }
 
     /// Internal (private) constructor used by link_two_way

@@ -97,6 +97,8 @@ struct BindingVTable {
     evaluate: unsafe fn(_self: *mut BindingHolder, value: *mut ()) -> BindingResult,
     mark_dirty: unsafe fn(_self: *const BindingHolder),
     intercept_set: unsafe fn(_self: *const BindingHolder, value: *const ()) -> bool,
+    intercept_set_binding:
+        unsafe fn(_self: *const BindingHolder, new_binding: *mut BindingHolder) -> bool,
 }
 
 /// A binding trait object can be used to dynamically produces values for a property.
@@ -109,12 +111,19 @@ trait BindingCallable {
     /// and therefore this binding may evaluate to a different value, too.
     fn mark_dirty(self: Pin<&Self>) {}
 
-    /// Allow the binding to t what happens when the value is set.
+    /// Allow the binding to intercept what happens when the value is set.
     /// The default implementation returns false, meaning the binding will simply be removed and
     /// the property will get the new value.
     /// When returning true, the call was intercepted and the binding will not be removed,
     /// but the property will still have that value
     unsafe fn intercept_set(self: Pin<&Self>, _value: *const ()) -> bool {
+        false
+    }
+
+    /// Allow the binding to intercept what happens when the value is set.
+    /// The default implementation returns false, meaning the binding will simply be removed.
+    /// When returning true, the call was intercepted and the binding will not be removed.
+    unsafe fn intercept_set_binding(self: Pin<&Self>, _new_binding: *mut BindingHolder) -> bool {
         false
     }
 }
@@ -172,6 +181,14 @@ fn alloc_binding_holder<B: BindingCallable + 'static>(binding: B) -> *mut Bindin
         Pin::new_unchecked(&((*(_self as *const BindingHolder<B>)).binding)).intercept_set(value)
     }
 
+    unsafe fn intercept_set_binding<B: BindingCallable>(
+        _self: *const BindingHolder,
+        new_binding: *mut BindingHolder,
+    ) -> bool {
+        Pin::new_unchecked(&((*(_self as *const BindingHolder<B>)).binding))
+            .intercept_set_binding(new_binding)
+    }
+
     trait HasBindingVTable {
         const VT: &'static BindingVTable;
     }
@@ -181,6 +198,7 @@ fn alloc_binding_holder<B: BindingCallable + 'static>(binding: B) -> *mut Bindin
             evaluate: evaluate::<B>,
             mark_dirty: mark_dirty::<B>,
             intercept_set: intercept_set::<B>,
+            intercept_set_binding: intercept_set_binding::<B>,
         };
     }
 
@@ -347,8 +365,22 @@ impl PropertyHandle {
     }
 
     fn set_binding<B: BindingCallable + 'static>(&self, binding: B) {
-        self.remove_binding();
         let binding = alloc_binding_holder::<B>(binding);
+        self.set_binding_impl(binding);
+    }
+
+    /// Implementation of Self::set_binding.
+    fn set_binding_impl(&self, binding: *mut BindingHolder) {
+        if self.access(|b| {
+            b.map_or(false, |b| unsafe {
+                // Safety: b is a BindingHolder<T>
+                (b.vtable.intercept_set_binding)(&*b as *const BindingHolder, binding)
+            })
+        }) {
+            return;
+        }
+
+        self.remove_binding();
         debug_assert!((binding as usize) & 0b11 == 0);
         debug_assert!(self.handle.get() & 0b11 == 0);
         unsafe {
@@ -1110,6 +1142,7 @@ impl Default for PropertyTracker {
             evaluate: |_, _| BindingResult::KeepBinding,
             mark_dirty: |_| (),
             intercept_set: |_, _| false,
+            intercept_set_binding: |_, _| false,
         };
 
         let holder = BindingHolder {
@@ -1219,6 +1252,9 @@ pub(crate) mod ffi {
         intercept_set: Option<
             extern "C" fn(user_data: *mut c_void, pointer_to_value: *const c_void) -> bool,
         >,
+        intercept_set_binding: Option<
+            extern "C" fn(user_data: *mut c_void, new_binding: *mut c_void) -> bool,
+        >,
     ) -> impl BindingCallable {
         struct CFunctionBinding<T> {
             binding_function: extern "C" fn(*mut c_void, *mut T),
@@ -1227,6 +1263,8 @@ pub(crate) mod ffi {
             intercept_set: Option<
                 extern "C" fn(user_data: *mut c_void, pointer_to_value: *const c_void) -> bool,
             >,
+            intercept_set_binding:
+                Option<extern "C" fn(user_data: *mut c_void, new_binding: *mut c_void) -> bool>,
         }
 
         impl<T> Drop for CFunctionBinding<T> {
@@ -1248,9 +1286,24 @@ pub(crate) mod ffi {
                     Some(intercept_set) => intercept_set(self.user_data, value),
                 }
             }
+            unsafe fn intercept_set_binding(
+                self: Pin<&Self>,
+                new_binding: *mut BindingHolder,
+            ) -> bool {
+                match self.intercept_set_binding {
+                    None => false,
+                    Some(intercept_set_b) => intercept_set_b(self.user_data, new_binding.cast()),
+                }
+            }
         }
 
-        CFunctionBinding { binding_function: binding, user_data, drop_user_data, intercept_set }
+        CFunctionBinding {
+            binding_function: binding,
+            user_data,
+            drop_user_data,
+            intercept_set,
+            intercept_set_binding,
+        }
     }
 
     /// Set a binding
@@ -1267,11 +1320,31 @@ pub(crate) mod ffi {
         user_data: *mut c_void,
         drop_user_data: Option<extern "C" fn(*mut c_void)>,
         intercept_set: Option<
-            extern "C" fn(user_data: *mut c_void, pointer_to_value: *const c_void) -> bool,
+            extern "C" fn(user_data: *mut c_void, pointer_to_Value: *const c_void) -> bool,
+        >,
+        intercept_set_binding: Option<
+            extern "C" fn(user_data: *mut c_void, new_binding: *mut c_void) -> bool,
         >,
     ) {
-        let binding = make_c_function_binding(binding, user_data, drop_user_data, intercept_set);
+        let binding = make_c_function_binding(
+            binding,
+            user_data,
+            drop_user_data,
+            intercept_set,
+            intercept_set_binding,
+        );
         handle.0.set_binding(binding);
+    }
+
+    /// Set a binding using an already allocated building holder
+    ///
+    //// (take ownershipo of the binding)
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_property_set_binding_internal(
+        handle: &PropertyHandleOpaque,
+        binding: *mut c_void,
+    ) {
+        handle.0.set_binding_impl(binding.cast());
     }
 
     /// Returns whether the property behind this handle is marked as dirty
@@ -1359,6 +1432,7 @@ pub(crate) mod ffi {
                         binding,
                         user_data,
                         drop_user_data,
+                        None,
                         None,
                     )) as usize)
                         | 0b10,
