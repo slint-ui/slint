@@ -191,12 +191,12 @@ impl ComponentWindow {
         self.0.clone().process_key_input(event, component)
     }
 
-    pub(crate) fn set_focus_item<X: vtable::HasStaticVTable<crate::items::ItemVTable>>(
+    pub(crate) fn set_focus_item(
         &self,
         component: core::pin::Pin<crate::component::ComponentRef>,
-        item: Pin<&X>,
+        item: Pin<VRef<crate::items::ItemVTable>>,
     ) {
-        self.0.clone().set_focus_item(component, item.get_ref() as *const X as *const u8)
+        self.0.clone().set_focus_item(component, item.as_ptr())
     }
 }
 

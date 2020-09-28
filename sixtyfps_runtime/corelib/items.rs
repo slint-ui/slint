@@ -1008,7 +1008,7 @@ impl Item for TextInput {
             self.as_ref().anchor_position.set(clicked_offset);
             self.as_ref().cursor_position.set(clicked_offset);
             if !Self::FIELD_OFFSETS.has_focus.apply_pin(self).get() {
-                window.set_focus_item(app_component, self);
+                window.set_focus_item(app_component, VRef::new_pin(self));
             }
         }
 
