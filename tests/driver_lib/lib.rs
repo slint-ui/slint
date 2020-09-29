@@ -49,9 +49,9 @@ pub fn collect_test_cases() -> std::io::Result<Vec<TestCase>> {
     let case_root_dir: std::path::PathBuf =
         [env!("CARGO_MANIFEST_DIR"), "..", "cases"].iter().collect();
 
-    for entry in std::fs::read_dir(case_root_dir.clone())? {
+    for entry in walkdir::WalkDir::new(case_root_dir.clone()) {
         let entry = entry?;
-        let absolute_path = entry.path();
+        let absolute_path = entry.into_path();
         if let Some(ext) = absolute_path.extension() {
             if ext == "60" {
                 let relative_path =

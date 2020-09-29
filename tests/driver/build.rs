@@ -80,8 +80,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let test_function_name = testcase
             .relative_path
-            .file_stem()
-            .unwrap()
+            .with_extension("")
             .to_string_lossy()
             .replace(|c: char| !c.is_ascii_alphanumeric(), "_");
 
