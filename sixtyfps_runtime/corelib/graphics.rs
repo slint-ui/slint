@@ -263,7 +263,10 @@ pub enum HighLevelRenderingPrimitive {
     ///
     /// Expected rendering variables:
     /// * [`RenderingVariable::Color`]: The fill color to use for the rectangle.
-    Rectangle { width: f32, height: f32 },
+    Rectangle {
+        width: f32,
+        height: f32,
+    },
     /// Renders a rectangle with the specified `width` and `height`, as well as a border
     /// around it. The `border_width` specifies the width to use for the border, and the
     /// `border_radius` can be used to render a rounded rectangle.
@@ -271,20 +274,31 @@ pub enum HighLevelRenderingPrimitive {
     /// Expected rendering variables:
     /// * [`RenderingVariable::Color`]: The color to fill the rectangle with.
     /// * [`RenderingVariable::Color`]: The color to use for stroking the border of the rectangle.
-    BorderRectangle { width: f32, height: f32, border_width: f32, border_radius: f32 },
+    BorderRectangle {
+        width: f32,
+        height: f32,
+        border_width: f32,
+        border_radius: f32,
+    },
     /// Renders a image referenced by the specified `source`.
     ///
     /// Optional rendering variables:
     /// * [`RenderingVariable::ScaledWidth`]: The image will be scaled to the specified width.
     /// * [`RenderingVariable::ScaledHeight`]: The image will be scaled to the specified height.
-    Image { source: crate::Resource },
+    Image {
+        source: crate::Resource,
+    },
     /// Renders the specified `text` with a font that matches the specified family (`font_family`) and the given
     /// pixel size (`font_size`).
     ///
     /// Expected rendering variables:
     /// * [`RenderingVariable::Color`]: The color to use for rendering the glyphs.
     /// * [`RenderingVariable::TextCursor`]: Draw a text cursor.
-    Text { text: crate::SharedString, font_family: crate::SharedString, font_size: f32 },
+    Text {
+        text: crate::SharedString,
+        font_family: crate::SharedString,
+        font_size: f32,
+    },
     /// Renders a path specified by the `elements` parameter. The path will be scaled to fit into the given
     /// `width` and `height`. If the `stroke_width` is greater than zero, then path will also be outlined.
     ///
@@ -292,7 +306,16 @@ pub enum HighLevelRenderingPrimitive {
     /// * [`RenderingVariable::Color`]: The color to use for filling the path.
     /// * [`RenderingVariable::Color`]: The color to use for the path outline, if a non-zero `stroke_width`
     ///   was specified.
-    Path { width: f32, height: f32, elements: crate::PathData, stroke_width: f32 },
+    Path {
+        width: f32,
+        height: f32,
+        elements: crate::PathData,
+        stroke_width: f32,
+    },
+    ClipRect {
+        width: f32,
+        height: f32,
+    },
 }
 
 impl Default for HighLevelRenderingPrimitive {
@@ -355,6 +378,9 @@ pub trait Frame {
     /// Renderings the provided primitive to the back-buffer, taking the provided transform and additional rendering
     /// variables into account.
     ///
+    /// The returned cleanup function must be called (if not None) after rendering any rendering primitives that are
+    /// supposed to be in a visual tree after this primitive. This is for example used to clean up clipping regions.
+    ///
     /// Arguments:
     /// * `primitive`: The primitive to render.
     /// * `transform`: The geometry of the primitive will be transformed by this 4x4 matrix. This can be used to apply
@@ -367,7 +393,7 @@ pub trait Frame {
         primitive: &Self::LowLevelRenderingPrimitive,
         transform: &Matrix4<f32>,
         variables: SharedArray<RenderingVariable>,
-    );
+    ) -> Vec<Self::LowLevelRenderingPrimitive>;
 }
 
 /// RenderingPrimitivesBuilder is used to convert instances of [HighLevelRenderingPrimitive] to

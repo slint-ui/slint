@@ -88,7 +88,9 @@ pub(crate) fn render_component_items<Backend: GraphicsBackend>(
     let transform = Matrix4::identity();
     let window = ComponentWindow::new(window.clone());
 
-    crate::item_tree::visit_items(
+    let frame = RefCell::new(frame);
+
+    crate::item_tree::visit_items_with_post_visit(
         component,
         crate::item_tree::TraversalOrder::BackToFront,
         |_, item, transform| {
@@ -97,19 +99,26 @@ pub(crate) fn render_component_items<Backend: GraphicsBackend>(
                 transform * Matrix4::from_translation(Vector3::new(origin.x, origin.y, 0.));
 
             let cached_rendering_data = item.cached_rendering_data_offset();
-            if cached_rendering_data.cache_ok.get() {
+            let cleanup_primitives = if cached_rendering_data.cache_ok.get() {
                 let primitive = &rendering_cache
                     .get(cached_rendering_data.cache_index.get())
                     .unwrap()
                     .primitive;
-                frame.render_primitive(
+                frame.borrow_mut().render_primitive(
                     &primitive,
                     &transform,
                     item.as_ref().rendering_variables(&window),
-                );
-            }
+                )
+            } else {
+                Vec::new()
+            };
 
-            ItemVisitorResult::Continue(transform)
+            (ItemVisitorResult::Continue(transform), (transform, cleanup_primitives))
+        },
+        |_, _, (transform, cleanup_primitives)| {
+            cleanup_primitives.into_iter().for_each(|primitive| {
+                frame.borrow_mut().render_primitive(&primitive, &transform, Default::default());
+            })
         },
         transform,
     );
