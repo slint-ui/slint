@@ -708,7 +708,10 @@ impl Item for Flickable {
         self: Pin<&Self>,
         _window: &ComponentWindow,
     ) -> HighLevelRenderingPrimitive {
-        HighLevelRenderingPrimitive::NoContents
+        HighLevelRenderingPrimitive::ClipRect{
+            width: Self::FIELD_OFFSETS.width.apply_pin(self).get(),
+            height: Self::FIELD_OFFSETS.height.apply_pin(self).get()
+        }
     }
 
     fn rendering_variables(
