@@ -29,26 +29,26 @@ pub struct ModelNotify {
 
 impl ModelNotify {
     /// Notify the peers that a specific row was changed
-    pub fn row_changed(&self, _row: usize) {
-        self.notify()
+    pub fn row_changed(&self, row: usize) {
+        for peer in self.inner.borrow().iter() {
+            peer.borrow_mut().row_changed(row)
+        }
     }
     /// Notify the peers that rows were added
-    pub fn row_added(&self, _index: usize, _count: usize) {
-        self.notify()
+    pub fn row_added(&self, index: usize, count: usize) {
+        for peer in self.inner.borrow().iter() {
+            peer.borrow_mut().row_added(index, count)
+        }
     }
     /// Notify the peers that rows were removed
-    pub fn row_removed(&self, _index: usize, _count: usize) {
-        self.notify()
+    pub fn row_removed(&self, index: usize, count: usize) {
+        for peer in self.inner.borrow().iter() {
+            peer.borrow_mut().row_removed(index, count)
+        }
     }
     /// Attach one peer. The peer will be notified when the model changes
     pub fn attach(&self, peer: ModelPeer) {
         peer.inner.upgrade().map(|rc| self.inner.borrow_mut().insert(rc));
-    }
-
-    fn notify(&self) {
-        for peer in self.inner.borrow().iter() {
-            peer.borrow_mut().notify()
-        }
     }
 }
 
@@ -165,18 +165,21 @@ pub trait RepeatedComponent: sixtyfps_corelib::component::Component {
     fn update(&self, index: usize, data: Self::Data);
 }
 
-trait ViewAbstraction {
-    fn notify(&mut self);
+#[derive(Clone, Copy, PartialEq)]
+enum RepeatedComponentState {
+    /// The item is in a clean state
+    Clean,
+    /// The model data is stale and needs to be refreshed
+    Dirty,
 }
-
 struct RepeaterInner<C: RepeatedComponent> {
-    components: Vec<Pin<Rc<C>>>,
+    components: Vec<(RepeatedComponentState, Option<Pin<Rc<C>>>)>,
     is_dirty: bool,
 }
 
 impl<C: RepeatedComponent> Default for RepeaterInner<C> {
     fn default() -> Self {
-        RepeaterInner { components: Default::default(), is_dirty: Default::default() }
+        RepeaterInner { components: Default::default(), is_dirty: true }
     }
 }
 
@@ -186,9 +189,31 @@ impl<C: RepeatedComponent> Clone for RepeaterInner<C> {
     }
 }
 
+trait ViewAbstraction {
+    fn row_changed(&mut self, row: usize);
+    fn row_added(&mut self, index: usize, count: usize);
+    fn row_removed(&mut self, index: usize, count: usize);
+}
+
 impl<C: RepeatedComponent> ViewAbstraction for RepeaterInner<C> {
-    fn notify(&mut self) {
-        self.is_dirty = true
+    /// Notify the peers that a specific row was changed
+    fn row_changed(&mut self, row: usize) {
+        self.is_dirty = true;
+        if let Some(c) = self.components.get_mut(row) {
+            c.0 = RepeatedComponentState::Dirty;
+        }
+    }
+    /// Notify the peers that rows were added
+    fn row_added(&mut self, index: usize, count: usize) {
+        self.is_dirty = true;
+        self.components.splice(
+            index..index,
+            core::iter::repeat((RepeatedComponentState::Dirty, None)).take(count),
+        );
+    }
+    /// Notify the peers that rows were removed
+    fn row_removed(&mut self, index: usize, count: usize) {
+        self.components.drain(index..(index + count));
     }
 }
 
@@ -221,7 +246,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         let model = unsafe { self.map_unchecked(|s| &s.model) };
         if model.is_dirty() {
             // Invalidate previuos weeks on the previous models
-            Rc::make_mut(&mut self.inner.borrow_mut()).get_mut().is_dirty = true;
+            (*Rc::make_mut(&mut self.inner.borrow_mut()).get_mut()) = RepeaterInner::default();
             if let Some(m) = model.get() {
                 let peer: Rc<RefCell<dyn ViewAbstraction>> = self.inner.borrow().clone();
                 m.attach_peer(ModelPeer { inner: Rc::downgrade(&peer) });
@@ -231,14 +256,20 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         let mut inner = inner.borrow_mut();
         if inner.is_dirty {
             inner.is_dirty = false;
-            inner.components.clear();
-
             if let Some(model) = model.get() {
-                for i in 0..model.row_count() {
-                    let c = init();
-                    c.update(i, model.row_data(i));
-                    inner.components.push(c);
+                let count = model.row_count();
+                inner.components.resize_with(count, || (RepeatedComponentState::Dirty, None));
+                for (i, c) in inner.components.iter_mut().enumerate() {
+                    if c.0 == RepeatedComponentState::Dirty {
+                        if c.1.is_none() {
+                            c.1 = Some(init());
+                        }
+                        c.1.as_ref().unwrap().update(i, model.row_data(i));
+                        c.0 = RepeatedComponentState::Clean;
+                    }
                 }
+            } else {
+                inner.components.clear();
             }
         }
     }
@@ -250,8 +281,10 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         mut visitor: sixtyfps_corelib::item_tree::ItemVisitorRefMut,
     ) -> sixtyfps_corelib::item_tree::VisitChildrenResult {
         for (i, c) in self.inner.borrow().borrow().components.iter().enumerate() {
-            if c.as_ref().visit_children_item(-1, order, visitor.borrow_mut()).has_aborted() {
-                return sixtyfps_corelib::item_tree::VisitChildrenResult::abort(i, 0);
+            if let Some(c) = &c.1 {
+                if c.as_ref().visit_children_item(-1, order, visitor.borrow_mut()).has_aborted() {
+                    return sixtyfps_corelib::item_tree::VisitChildrenResult::abort(i, 0);
+                }
             }
         }
         sixtyfps_corelib::item_tree::VisitChildrenResult::CONTINUE
@@ -265,11 +298,10 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         window: &sixtyfps_corelib::eventloop::ComponentWindow,
         app_component: &ComponentRefPin,
     ) -> sixtyfps_corelib::input::InputEventResult {
-        self.inner.borrow().borrow().components[idx].as_ref().input_event(
-            event,
-            window,
-            app_component,
-        )
+        self.inner.borrow().borrow().components[idx]
+            .1
+            .as_ref()
+            .map_or(Default::default(), |c| c.as_ref().input_event(event, window, app_component))
     }
 
     /// Forward a key event to a particular item
@@ -279,7 +311,12 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         event: &sixtyfps_corelib::input::KeyEvent,
         window: &sixtyfps_corelib::eventloop::ComponentWindow,
     ) -> sixtyfps_corelib::input::KeyEventResult {
-        self.inner.borrow().borrow().components[idx].as_ref().key_event(event, window)
+        self.inner.borrow().borrow().components[idx]
+            .1
+            .as_ref()
+            .map_or(sixtyfps_corelib::input::KeyEventResult::EventIgnored, |c| {
+                c.as_ref().key_event(event, window)
+            })
     }
 
     /// Forward a focus event to a particular item
@@ -289,7 +326,12 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         event: &sixtyfps_corelib::input::FocusEvent,
         window: &sixtyfps_corelib::eventloop::ComponentWindow,
     ) -> sixtyfps_corelib::input::FocusEventResult {
-        self.inner.borrow().borrow().components[idx].as_ref().focus_event(event, window)
+        self.inner.borrow().borrow().components[idx]
+            .1
+            .as_ref()
+            .map_or(sixtyfps_corelib::input::FocusEventResult::FocusItemNotFound, |c| {
+                c.as_ref().focus_event(event, window)
+            })
     }
 
     /// Return the amount of item currently in the component
@@ -299,13 +341,13 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
 
     /// Returns a vector containing all components
     pub fn components_vec(&self) -> Vec<Pin<Rc<C>>> {
-        self.inner.borrow().borrow().components.clone()
+        self.inner.borrow().borrow().components.iter().flat_map(|x| x.1.clone()).collect()
     }
 
     /// Recompute the layout of each child elements
     pub fn compute_layout(&self) {
         for c in self.inner.borrow().borrow().components.iter() {
-            c.as_ref().compute_layout();
+            c.1.as_ref().map(|x| x.as_ref().compute_layout());
         }
     }
 }
