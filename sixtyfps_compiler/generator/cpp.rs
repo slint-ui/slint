@@ -1483,15 +1483,15 @@ impl<'a> LayoutTreeItem<'a> {
                             let root_element =
                                 elem.borrow().base_type.as_component().root_element.clone();
                             code_stream.push(format!(
-                                "    for (auto &&sub_comp : self->repeater_{}.data)",
+                                "    for (auto &&sub_comp : self->repeater_{}.inner->data)",
                                 elem.borrow().id
                             ));
                             code_stream.push(format!(
                                 "         items.push_back({});",
                                 path_layout_item_data(
                                     &root_element,
-                                    &format!("sub_comp->{}", root_element.borrow().id),
-                                    "sub_comp",
+                                    &format!("sub_comp.ptr->{}", root_element.borrow().id),
+                                    "sub_comp.ptr",
                                 )
                             ));
                         } else {

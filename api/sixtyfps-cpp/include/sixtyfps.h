@@ -262,7 +262,13 @@ using cbindgen_private::solve_grid_layout;
 using cbindgen_private::solve_path_layout;
 
 // models
-using ModelPeer = std::weak_ptr<bool>;
+struct AbstractRepeaterView {
+    ~AbstractRepeaterView() = default;
+    virtual void row_added(int index, int count) = 0;
+    virtual void row_removed(int index, int count) = 0;
+    virtual void row_changed(int index) = 0;
+};
+using ModelPeer = std::weak_ptr<AbstractRepeaterView>;
 
 template<typename ModelData>
 class Model
@@ -291,29 +297,27 @@ protected:
     /// Notify the views that a specific row was changed
     void row_changed(int row)
     {
-        (void)row;
-        notify();
+        for_each_peers([=](auto peer) { peer->row_changed(row); });
     }
     /// Notify the views that rows were added
     void row_added(int index, int count)
     {
-        (void)(index + count);
-        notify();
+        for_each_peers([=](auto peer) { peer->row_added(index, count); });
     }
     /// Notify the views that rows were removed
     void row_removed(int index, int count)
     {
-        (void)(index + count);
-        notify();
+        for_each_peers([=](auto peer) { peer->row_removed(index, count); });
     }
 
 private:
-    void notify()
+    template<typename F>
+    void for_each_peers(const F &f)
     {
         peers.erase(std::remove_if(peers.begin(), peers.end(),
-                                   [](const auto &p) {
+                                   [&](const auto &p) {
                                        if (auto pp = p.lock()) {
-                                           *pp = true;
+                                           f(pp);
                                            return false;
                                        }
                                        return true;
@@ -376,12 +380,34 @@ public:
 template<typename C, typename ModelData>
 class Repeater
 {
-    mutable std::shared_ptr<bool> is_dirty;
     Property<std::shared_ptr<Model<ModelData>>> model;
+
+    struct RepeaterInner : AbstractRepeaterView {
+        enum class State { Clean, Dirty };
+        struct ComponentWithState {
+            State state = State::Dirty;
+            std::unique_ptr<C> ptr;
+        };
+        std::vector<ComponentWithState> data;
+        bool is_dirty = true;
+
+        void row_added(int index, int count) override {
+            is_dirty = true;
+            data.resize(data.size() + count);
+            std::rotate(data.begin() + index, data.end() - count, data.end());
+        }
+        void row_changed(int index) override {
+            is_dirty = true;
+            data[index].state = State::Dirty;
+        }
+        void row_removed(int index, int count) override {
+            data.erase(data.begin() + index, data.begin() + index + count);
+        }
+    };
 
 public:
     // FIXME: should be private, but compute_layout uses it.
-    std::vector<std::unique_ptr<C>> data;
+    mutable std::shared_ptr<RepeaterInner> inner;
 
     template<typename F>
     void set_model_binding(F &&binding) const
@@ -393,30 +419,37 @@ public:
     void ensure_updated(const Parent *parent) const
     {
         if (model.is_dirty()) {
-            is_dirty = std::make_shared<bool>(true);
+            inner = std::make_shared<RepeaterInner>();
             if (auto m = model.get()) {
-                m->attach_peer(is_dirty);
+                m->attach_peer(inner);
             }
         }
-        if (is_dirty && *is_dirty) {
-            auto &data = const_cast<Repeater *>(this)->data;
-            data.clear();
-            auto m = model.get();
-            auto count = m->row_count();
-            for (auto i = 0; i < count; ++i) {
-                auto x = std::make_unique<C>();
-                x->parent = parent;
-                x->update_data(i, m->row_data(i));
-                data.push_back(std::move(x));
+
+        if (inner && inner->is_dirty) {
+            inner->is_dirty = false;
+            if (auto m = model.get()) {
+                int count = m->row_count();
+                inner->data.resize(count);
+                for (int i = 0; i < count; ++i) {
+                    auto &c = inner->data[i];
+                    if (c.state == RepeaterInner::State::Dirty) {
+                        if (!c.ptr) {
+                            c.ptr = std::make_unique<C>();
+                            c.ptr->parent = parent;
+                        }
+                        c.ptr->update_data(i, m->row_data(i));
+                    }
+                }
+            } else {
+                inner->data.clear();
             }
-            *is_dirty = false;
         }
     }
 
     intptr_t visit(TraversalOrder order, private_api::ItemVisitorRefMut visitor) const
     {
-        for (std::size_t i = 0; i < data.size(); ++i) {
-            int index = order == TraversalOrder::BackToFront ? i : data.size() - 1 - i;
+        for (std::size_t i = 0; i < inner->data.size(); ++i) {
+            int index = order == TraversalOrder::BackToFront ? i : inner->data.size() - 1 - i;
             auto ref = item_at(index);
             if (ref.vtable->visit_children_item(ref, -1, order, visitor) != -1) {
                 return index;
@@ -427,14 +460,16 @@ public:
 
     VRef<private_api::ComponentVTable> item_at(int i) const
     {
-        const auto &x = data.at(i);
-        return { &C::component_type, x.get() };
+        const auto &x = inner->data.at(i);
+        return { &C::component_type, x.ptr.get() };
     }
 
     void compute_layout() const
     {
-        for (auto &x : data) {
-            x->compute_layout({ &C::component_type, x.get() });
+        if (!inner)
+            return;
+        for (auto &x : inner->data) {
+            x.ptr->compute_layout({ &C::component_type, x.ptr.get() });
         }
     }
 };

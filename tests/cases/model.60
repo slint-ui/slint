@@ -99,9 +99,11 @@ TestCase instance;
 // there should be nothing there
 sixtyfps::testing::send_mouse_click(instance, 25., 5.);
 assert_eq(instance.get_clicked_score(), 0);
+assert_eq(instance.get_clicked_internal_state(), 0);
 
 sixtyfps::testing::send_mouse_click(instance, 15., 5.);
 assert_eq(instance.get_clicked_score(), 789000);
+assert_eq(instance.get_clicked_internal_state(), 1);
 
 using ModelData = std::tuple<sixtyfps::SharedString, sixtyfps::SharedString, float>;
 sixtyfps::SharedArray<ModelData> array;
@@ -113,20 +115,24 @@ instance.set_model(another_model);
 
 sixtyfps::testing::send_mouse_click(instance, 25., 5.);
 assert_eq(instance.get_clicked_score(), 333000);
+assert_eq(instance.get_clicked_internal_state(), 1);
 
 sixtyfps::testing::send_mouse_click(instance, 15., 5.);
 assert_eq(instance.get_clicked_score(), 222000);
 assert_eq(instance.get_clicked_name(), "cruel");
+assert_eq(instance.get_clicked_internal_state(), 1);
 
 another_model->push_back({"a4", "!", 444.});
 sixtyfps::testing::send_mouse_click(instance, 35., 5.);
 assert_eq(instance.get_clicked_score(), 444000);
 assert_eq(instance.get_clicked_name(), "!");
+assert_eq(instance.get_clicked_internal_state(), 1);
 
 another_model->set_row_data(1, {"a2", "idyllic", 555.});
 sixtyfps::testing::send_mouse_click(instance, 15., 5.);
 assert_eq(instance.get_clicked_score(), 555000);
 assert_eq(instance.get_clicked_name(), "idyllic");
+assert_eq(instance.get_clicked_internal_state(), 2);
 ```
 
 */
