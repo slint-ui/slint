@@ -66,8 +66,13 @@ describe graphical elements, their placement and the flow of data through the di
 
 ```60
 HelloWorld := Window {
+    width: 400lx;
+    height: 400lx;
+
     Text {
-       text: "Hello, world"
+       y: parent.width / 2;
+       x: parent.x + 200lx;
+       text: "Hello, world";
        color: blue;
     }
 }
