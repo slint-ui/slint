@@ -313,7 +313,7 @@ fn handle_item(elem: &ElementRc, main_struct: &mut Struct, init: &mut Vec<String
         Declaration::Var(Var {
             ty: format!("sixtyfps::{}", item.base_type.as_native().class_name),
             name: item.id.clone(),
-            ..Default::default()
+            init: Some("{}".to_owned()),
         }),
     ));
 
