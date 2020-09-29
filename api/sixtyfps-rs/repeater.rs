@@ -7,7 +7,7 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-use core::cell::{Cell, RefCell};
+use core::cell::RefCell;
 use core::pin::Pin;
 use std::rc::{Rc, Weak};
 
@@ -17,14 +17,14 @@ type ModelPeerInner = dyn ViewAbstraction;
 
 /// Represent a handle to a view that listen to change to a model. See [`Model::attach_peer`] and [`ModelNotify`]
 pub struct ModelPeer {
-    inner: Weak<ModelPeerInner>,
+    inner: Weak<RefCell<ModelPeerInner>>,
 }
 
 /// Dispatch notification from a [`Model`] to one or several [`ModelPeer`].
 /// Typically, you would want to put this in the implementaiton of the Model
 #[derive(Default)]
 pub struct ModelNotify {
-    inner: RefCell<weak_table::PtrWeakHashSet<Weak<ModelPeerInner>>>,
+    inner: RefCell<weak_table::PtrWeakHashSet<Weak<RefCell<ModelPeerInner>>>>,
 }
 
 impl ModelNotify {
@@ -47,7 +47,7 @@ impl ModelNotify {
 
     fn notify(&self) {
         for peer in self.inner.borrow().iter() {
-            peer.notify()
+            peer.borrow_mut().notify()
         }
     }
 }
@@ -166,12 +166,12 @@ pub trait RepeatedComponent: sixtyfps_corelib::component::Component {
 }
 
 trait ViewAbstraction {
-    fn notify(&self);
+    fn notify(&mut self);
 }
 
 struct RepeaterInner<C: RepeatedComponent> {
-    components: RefCell<Vec<Pin<Rc<C>>>>,
-    is_dirty: Cell<bool>,
+    components: Vec<Pin<Rc<C>>>,
+    is_dirty: bool,
 }
 
 impl<C: RepeatedComponent> Default for RepeaterInner<C> {
@@ -187,15 +187,17 @@ impl<C: RepeatedComponent> Clone for RepeaterInner<C> {
 }
 
 impl<C: RepeatedComponent> ViewAbstraction for RepeaterInner<C> {
-    fn notify(&self) {
-        self.is_dirty.set(true)
+    fn notify(&mut self) {
+        self.is_dirty = true
     }
 }
 
 /// This field is put in a component when using the `for` syntax
 /// It helps instantiating the components `C`
 pub struct Repeater<C: RepeatedComponent> {
-    inner: RefCell<Rc<RepeaterInner<C>>>,
+    /// The Rc is shared between ModelPeer. The outer RefCell make it possible to re-initialize a new Rc when
+    /// The model is changed. The inner RefCell make it possible to change the RepeaterInner when shared
+    inner: RefCell<Rc<RefCell<RepeaterInner<C>>>>,
     model: Property<ModelHandle<C::Data>>,
 }
 
@@ -219,21 +221,23 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         let model = unsafe { self.map_unchecked(|s| &s.model) };
         if model.is_dirty() {
             // Invalidate previuos weeks on the previous models
-            Rc::make_mut(&mut self.inner.borrow_mut()).is_dirty = Cell::new(true);
+            Rc::make_mut(&mut self.inner.borrow_mut()).get_mut().is_dirty = true;
             if let Some(m) = model.get() {
-                let peer: Rc<dyn ViewAbstraction> = self.inner.borrow().clone();
+                let peer: Rc<RefCell<dyn ViewAbstraction>> = self.inner.borrow().clone();
                 m.attach_peer(ModelPeer { inner: Rc::downgrade(&peer) });
             }
         }
-        if self.inner.borrow().is_dirty.get() {
-            self.inner.borrow().is_dirty.set(false);
-            self.inner.borrow().components.borrow_mut().clear();
+        let inner = self.inner.borrow();
+        let mut inner = inner.borrow_mut();
+        if inner.is_dirty {
+            inner.is_dirty = false;
+            inner.components.clear();
 
             if let Some(model) = model.get() {
                 for i in 0..model.row_count() {
                     let c = init();
                     c.update(i, model.row_data(i));
-                    self.inner.borrow().components.borrow_mut().push(c);
+                    inner.components.push(c);
                 }
             }
         }
@@ -245,7 +249,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         order: sixtyfps_corelib::item_tree::TraversalOrder,
         mut visitor: sixtyfps_corelib::item_tree::ItemVisitorRefMut,
     ) -> sixtyfps_corelib::item_tree::VisitChildrenResult {
-        for (i, c) in self.inner.borrow().components.borrow().iter().enumerate() {
+        for (i, c) in self.inner.borrow().borrow().components.iter().enumerate() {
             if c.as_ref().visit_children_item(-1, order, visitor.borrow_mut()).has_aborted() {
                 return sixtyfps_corelib::item_tree::VisitChildrenResult::abort(i, 0);
             }
@@ -261,7 +265,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         window: &sixtyfps_corelib::eventloop::ComponentWindow,
         app_component: &ComponentRefPin,
     ) -> sixtyfps_corelib::input::InputEventResult {
-        self.inner.borrow().components.borrow()[idx].as_ref().input_event(
+        self.inner.borrow().borrow().components[idx].as_ref().input_event(
             event,
             window,
             app_component,
@@ -275,7 +279,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         event: &sixtyfps_corelib::input::KeyEvent,
         window: &sixtyfps_corelib::eventloop::ComponentWindow,
     ) -> sixtyfps_corelib::input::KeyEventResult {
-        self.inner.borrow().components.borrow()[idx].as_ref().key_event(event, window)
+        self.inner.borrow().borrow().components[idx].as_ref().key_event(event, window)
     }
 
     /// Forward a focus event to a particular item
@@ -285,22 +289,22 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         event: &sixtyfps_corelib::input::FocusEvent,
         window: &sixtyfps_corelib::eventloop::ComponentWindow,
     ) -> sixtyfps_corelib::input::FocusEventResult {
-        self.inner.borrow().components.borrow()[idx].as_ref().focus_event(event, window)
+        self.inner.borrow().borrow().components[idx].as_ref().focus_event(event, window)
     }
 
     /// Return the amount of item currently in the component
     pub fn len(&self) -> usize {
-        self.inner.borrow().components.borrow().len()
+        self.inner.borrow().borrow().components.len()
     }
 
     /// Returns a vector containing all components
     pub fn components_vec(&self) -> Vec<Pin<Rc<C>>> {
-        self.inner.borrow().components.borrow().clone()
+        self.inner.borrow().borrow().components.clone()
     }
 
-    /// Recompute the layout of each chile elements
+    /// Recompute the layout of each child elements
     pub fn compute_layout(&self) {
-        for c in self.inner.borrow().components.borrow().iter() {
+        for c in self.inner.borrow().borrow().components.iter() {
             c.as_ref().compute_layout();
         }
     }
