@@ -22,8 +22,11 @@ fn main() -> std::io::Result<()> {
 
         test_dirs.insert(testcase.absolute_path.parent().unwrap().to_owned());
 
-        let module_name =
-            testcase.relative_path.with_extension("").to_string_lossy().replace(std::path::MAIN_SEPARATOR, "_");
+        let module_name = testcase
+            .relative_path
+            .with_extension("")
+            .to_string_lossy()
+            .replace(std::path::MAIN_SEPARATOR, "_");
         write!(generated_file, "#[path=\"{0}.rs\"] mod r#{0};\n", module_name)?;
 
         let source = std::fs::read_to_string(&testcase.absolute_path)?;
