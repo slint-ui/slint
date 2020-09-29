@@ -145,13 +145,29 @@ pub fn visit_items<State>(
     mut visitor: impl FnMut(ComponentRefPin, Pin<ItemRef>, &State) -> ItemVisitorResult<State>,
     state: State,
 ) -> VisitChildrenResult {
-    visit_internal(component, order, &mut visitor, -1, &state)
+    visit_internal(component, order, &mut visitor, &mut |_, _, _| {}, -1, &state)
+}
+
+/// Visit each items recursively
+///
+/// The state parametter returned by the visitor is passed to each children.
+///
+/// Returns the index of the item that cancelled, or -1 if nobody cancelled
+pub fn visit_items_with_post_visit<State>(
+    component: ComponentRefPin,
+    order: TraversalOrder,
+    mut visitor: impl FnMut(ComponentRefPin, Pin<ItemRef>, &State) -> ItemVisitorResult<State>,
+    mut post_visitor: impl FnMut(ComponentRefPin, Pin<ItemRef>, &State),
+    state: State,
+) -> VisitChildrenResult {
+    visit_internal(component, order, &mut visitor, &mut post_visitor, -1, &state)
 }
 
 fn visit_internal<State>(
     component: ComponentRefPin,
     order: TraversalOrder,
     visitor: &mut impl FnMut(ComponentRefPin, Pin<ItemRef>, &State) -> ItemVisitorResult<State>,
+    post_visitor: &mut impl FnMut(ComponentRefPin, Pin<ItemRef>, &State),
     index: isize,
     state: &State,
 ) -> VisitChildrenResult {
@@ -159,7 +175,10 @@ fn visit_internal<State>(
         |component: ComponentRefPin, index: isize, item: Pin<ItemRef>| -> VisitChildrenResult {
             match visitor(component, item, state) {
                 ItemVisitorResult::Continue(state) => {
-                    visit_internal(component, order, visitor, index, &state)
+                    let result =
+                        visit_internal(component, order, visitor, post_visitor, index, &state);
+                    post_visitor(component, item, &state);
+                    result
                 }
                 ItemVisitorResult::Abort => VisitChildrenResult::abort(index as usize, 0),
             }
