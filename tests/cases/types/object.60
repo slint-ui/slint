@@ -8,8 +8,48 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-Test := Rectangle {
-    property<{a: string, b: int}> obj: {a : "444", b: 12 };
+TestCase := Rectangle {
+    property<{a: string, b: int}> foo: {a : "444", b: 12 };
     property<{a: string, b: int}> obj_conversion: { b: 12, a : 444, c: "nothing" };
     property<{a: string, b: int}> obj_cond: true ? { b: 12, a : "ddd" } :  { a: 12, b : 444, c: "nothing" };
+
+    property<string> foo_a : foo.a;
+    property<int> foo_b : foo.b;
+    signal change_foo;
+    change_foo => {
+        foo.a = "hello";
+        foo.b += 8;
+    }
 }
+
+
+/*
+```rust
+let instance = TestCase::new();
+let instance = instance.as_ref();
+assert_eq!(instance.get_foo_a(), sixtyfps::SharedString::from("444"));
+assert_eq!(instance.get_foo_b(), 12);
+instance.emit_change_foo();
+assert_eq!(instance.get_foo_a(), sixtyfps::SharedString::from("hello"));
+assert_eq!(instance.get_foo_b(), 20);
+```
+
+```cpp
+TestCase instance;
+assert_eq(instance.get_foo_a(), sixtyfps::SharedString("444"));
+assert_eq(instance.get_foo_b(), 12);
+instance.emit_change_foo();
+assert_eq(instance.get_foo_a(), sixtyfps::SharedString("hello"));
+assert_eq(instance.get_foo_b(), 20);
+```
+
+
+```js
+var instance = new sixtyfps.TestCase({});
+assert.equal(instance.foo_a, ("444"));
+assert.equal(instance.foo_b, 12);
+instance.change_foo();
+assert.equal(instance.foo_a, ("hello"));
+assert.equal(instance.foo_b, 20);
+```
+*/

@@ -183,7 +183,9 @@ mod cpp_ast {
 }
 
 use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic, Level, Spanned};
-use crate::expression_tree::{BuiltinFunction, EasingCurve, Expression, ExpressionSpanned};
+use crate::expression_tree::{
+    BuiltinFunction, EasingCurve, Expression, ExpressionSpanned, NamedReference,
+};
 use crate::layout::{gen::LayoutItemCodeGen, Layout, LayoutElement};
 use crate::object_tree::{Component, Document, Element, ElementRc, RepeatedElementInfo};
 use crate::typeregister::Type;
@@ -1039,7 +1041,6 @@ fn window_ref_expression(component: &Rc<Component>) -> String {
 }
 
 fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Component>) -> String {
-    use crate::expression_tree::NamedReference;
     match e {
         Expression::StringLiteral(s) => {
             format!(r#"sixtyfps::SharedString("{}")"#, s.escape_debug())
@@ -1139,24 +1140,10 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
             let mut args = arguments.iter().map(|e| compile_expression(e, component));
             format!("{}({})", compile_expression(&function, component), args.join(", "))
         }
-        Expression::SelfAssignment { lhs, rhs, op } => match &**lhs {
-            Expression::PropertyReference(NamedReference { element, name }) => {
-                let access =
-                    access_member(&element.upgrade().unwrap(), name.as_str(), component, "self");
-                let rhs = compile_expression(&*rhs, component);
-                if *op == '=' {
-                    format!(r#"{lhs}.set({rhs})"#, lhs = access, rhs = rhs)
-                } else {
-                    format!(
-                        r#"{lhs}.set({lhs}.get() {op} {rhs})"#,
-                        lhs = access,
-                        rhs = rhs,
-                        op = op,
-                    )
-                }
-            }
-            _ => panic!("typechecking should make sure this was a PropertyReference"),
-        },
+        Expression::SelfAssignment { lhs, rhs, op } => {
+            let rhs = compile_expression(&*rhs, &component);
+            compile_assignment(lhs, *op, rhs, component)
+        }
         Expression::BinaryExpression { lhs, rhs, op } => {
             let mut buffer = [0; 3];
             format!(
@@ -1232,6 +1219,54 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
         }
         Expression::Uncompiled(_) | Expression::TwoWayBinding(_) => panic!(),
         Expression::Invalid => format!("\n#error invalid expression\n"),
+    }
+}
+
+fn compile_assignment(
+    lhs: &Expression,
+    op: char,
+    rhs: String,
+    component: &Rc<Component>,
+) -> String {
+    match lhs {
+        Expression::PropertyReference(NamedReference { element, name }) => {
+            let access =
+                access_member(&element.upgrade().unwrap(), name.as_str(), component, "self");
+            if op == '=' {
+                format!(r#"{lhs}.set({rhs})"#, lhs = access, rhs = rhs)
+            } else {
+                format!(r#"{lhs}.set({lhs}.get() {op} {rhs})"#, lhs = access, rhs = rhs, op = op,)
+            }
+        }
+        Expression::ObjectAccess { base, name } => {
+            let tmpobj = "tmpobj";
+            let get_obj = compile_expression(base, component);
+            let ty = base.ty();
+            let member = match &ty {
+                Type::Object(ty) => {
+                    let index = ty
+                        .keys()
+                        .position(|k| k == name)
+                        .expect("Expression::ObjectAccess: Cannot find a key in an object");
+                    format!("std::get<{}>({})", index, tmpobj)
+                }
+                Type::Component(c) if c.root_element.borrow().base_type == Type::Void => {
+                    format!("{}.{}", tmpobj, name)
+                }
+                _ => panic!("Expression::ObjectAccess's base expression is not an Object type"),
+            };
+            let op = if op == '=' { ' ' } else { op };
+            let new_value = format!(
+                "[&]{{ auto {tmp} = {get}; {member} {op}= {rhs}; return {tmp}; }}()",
+                tmp = tmpobj,
+                get = get_obj,
+                member = member,
+                op = op,
+                rhs = rhs,
+            );
+            compile_assignment(base, '=', new_value, component)
+        }
+        _ => panic!("typechecking should make sure this was a PropertyReference"),
     }
 }
 

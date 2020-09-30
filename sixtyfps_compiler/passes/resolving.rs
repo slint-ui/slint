@@ -541,7 +541,7 @@ impl Expression {
             .or(node.child_token(SyntaxKind::DivEqual).and(Some('/')))
             .or(node.child_token(SyntaxKind::Equal).and(Some('=')))
             .unwrap_or('_');
-        if !matches!(lhs, Expression::PropertyReference{..}) && lhs.ty() != Type::Invalid {
+        if !lhs.is_rw() && lhs.ty() != Type::Invalid {
             ctx.diag.push_error(
                 format!(
                     "{} need to be done on a property",

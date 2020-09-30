@@ -280,47 +280,11 @@ pub fn eval_expression(
                 panic!("call of something not a signal")
             }
         }
-        Expression::SelfAssignment { lhs, rhs, op } => match &**lhs {
-            Expression::PropertyReference(NamedReference { element, name }) => {
-                let rhs = eval_expression(&**rhs, component, local_context);
-                if *op == '=' {
-                    store_property(component, &element.upgrade().unwrap(), name.as_ref(), rhs)
-                        .unwrap();
-                    return Value::Void;
-                }
-                let eval = |lhs| match (lhs, rhs, op) {
-                    (Value::Number(a), Value::Number(b), '+') => Value::Number(a + b),
-                    (Value::Number(a), Value::Number(b), '-') => Value::Number(a - b),
-                    (Value::Number(a), Value::Number(b), '/') => Value::Number(a / b),
-                    (Value::Number(a), Value::Number(b), '*') => Value::Number(a * b),
-                    (lhs, rhs, op) => panic!("unsupported {:?} {} {:?}", lhs, op, rhs),
-                };
-                let element = element.upgrade().unwrap();
-                generativity::make_guard!(guard);
-                let enclosing_component =
-                    enclosing_component_for_element(&element, component, guard);
-
-                let component = element.borrow().enclosing_component.upgrade().unwrap();
-                if element.borrow().id == component.root_element.borrow().id {
-                    if let Some(x) = enclosing_component.component_type.custom_properties.get(name)
-                    {
-                        unsafe {
-                            let p =
-                                Pin::new_unchecked(&*enclosing_component.as_ptr().add(x.offset));
-                            x.prop.set(p, eval(x.prop.get(p).unwrap()), None).unwrap();
-                        }
-                        return Value::Void;
-                    }
-                };
-                let item_info =
-                    &enclosing_component.component_type.items[element.borrow().id.as_str()];
-                let item = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
-                let p = &item_info.rtti.properties[name.as_str()];
-                p.set(item, eval(p.get(item)), None);
-                Value::Void
-            }
-            _ => panic!("typechecking should make sure this was a PropertyReference"),
-        },
+        Expression::SelfAssignment { lhs, rhs, op } => {
+            let rhs = eval_expression(&**rhs, component, local_context);
+            eval_assignement(lhs, *op, rhs, component, local_context);
+            Value::Void
+        }
         Expression::BinaryExpression { lhs, rhs, op } => {
             let lhs = eval_expression(&**lhs, component, local_context);
             let rhs = eval_expression(&**rhs, component, local_context);
@@ -391,6 +355,56 @@ pub fn eval_expression(
         Expression::EnumerationValue(value) => {
             Value::EnumerationValue(value.enumeration.name.clone(), value.to_string())
         }
+    }
+}
+
+fn eval_assignement(
+    lhs: &Expression,
+    op: char,
+    rhs: Value,
+    component: InstanceRef,
+    local_context: &mut EvalLocalContext,
+) {
+    let eval = |lhs| match (lhs, &rhs, op) {
+        (Value::Number(a), Value::Number(b), '+') => Value::Number(a + b),
+        (Value::Number(a), Value::Number(b), '-') => Value::Number(a - b),
+        (Value::Number(a), Value::Number(b), '/') => Value::Number(a / b),
+        (Value::Number(a), Value::Number(b), '*') => Value::Number(a * b),
+        (lhs, rhs, op) => panic!("unsupported {:?} {} {:?}", lhs, op, rhs),
+    };
+    match lhs {
+        Expression::PropertyReference(NamedReference { element, name }) => {
+            if op == '=' {
+                store_property(component, &element.upgrade().unwrap(), name.as_ref(), rhs).unwrap();
+                return;
+            }
+            let element = element.upgrade().unwrap();
+            generativity::make_guard!(guard);
+            let enclosing_component = enclosing_component_for_element(&element, component, guard);
+
+            let component = element.borrow().enclosing_component.upgrade().unwrap();
+            if element.borrow().id == component.root_element.borrow().id {
+                if let Some(x) = enclosing_component.component_type.custom_properties.get(name) {
+                    unsafe {
+                        let p = Pin::new_unchecked(&*enclosing_component.as_ptr().add(x.offset));
+                        x.prop.set(p, eval(x.prop.get(p).unwrap()), None).unwrap();
+                    }
+                    return;
+                }
+            };
+            let item_info = &enclosing_component.component_type.items[element.borrow().id.as_str()];
+            let item = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
+            let p = &item_info.rtti.properties[name.as_str()];
+            p.set(item, eval(p.get(item)), None);
+        }
+        Expression::ObjectAccess { base, name } => {
+            if let Value::Object(mut o) = eval_expression(base, component, local_context) {
+                let r = o.get_mut(name).unwrap();
+                *r = if op == '=' { rhs } else { eval(std::mem::take(r)) };
+                eval_assignement(base, '=', Value::Object(o), component, local_context)
+            }
+        }
+        _ => panic!("typechecking should make sure this was a PropertyReference"),
     }
 }
 

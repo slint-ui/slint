@@ -711,6 +711,15 @@ impl Expression {
             Type::EnumerationValue(_) => Expression::Invalid,
         }
     }
+
+    /// Return true if the expression is a "lvalue" that can be used as the left hand side of a `=` or `+=` or similar
+    pub fn is_rw(&self) -> bool {
+        match self {
+            Expression::PropertyReference(_) => true,
+            Expression::ObjectAccess { base, .. } => base.is_rw(),
+            _ => false,
+        }
+    }
 }
 
 #[derive(Default, Debug, Clone, derive_more::Deref, derive_more::DerefMut)]

@@ -946,25 +946,10 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                 quote! { #f(#(#a.clone()),*)}
             }
         }
-        Expression::SelfAssignment { lhs, rhs, op } => match &**lhs {
-            Expression::PropertyReference(NamedReference { element, name }) => {
-                let lhs = access_member(
-                    &element.upgrade().unwrap(),
-                    name.as_str(),
-                    component,
-                    quote!(_self),
-                    false,
-                );
-                let rhs = compile_expression(&*rhs, &component);
-                if *op == '=' {
-                    quote!( #lhs.set((#rhs) as _) )
-                } else {
-                    let op = proc_macro2::Punct::new(*op, proc_macro2::Spacing::Alone);
-                    quote!( #lhs.set(((#lhs.get() as f64) #op (#rhs as f64)) as _) )
-                }
-            }
-            _ => panic!("typechecking should make sure this was a PropertyReference"),
-        },
+        Expression::SelfAssignment { lhs, rhs, op } => {
+            let rhs = compile_expression(&*rhs, &component);
+            compile_assignment(lhs, *op, rhs, component)
+        }
         Expression::BinaryExpression { lhs, rhs, op } => {
             let conv = match crate::expression_tree::operator_class(*op) {
                 OperatorClass::ArithmeticOp => Some(quote!(as f64)),
@@ -1077,6 +1062,69 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
             let value_ident = format_ident!("{}", value.to_string());
             quote!(sixtyfps::re_exports::#base_ident::#value_ident)
         }
+    }
+}
+
+fn compile_assignment(
+    lhs: &Expression,
+    op: char,
+    rhs: TokenStream,
+    component: &Rc<Component>,
+) -> TokenStream {
+    match lhs {
+        Expression::PropertyReference(NamedReference { element, name }) => {
+            let lhs = access_member(
+                &element.upgrade().unwrap(),
+                name.as_str(),
+                component,
+                quote!(_self),
+                false,
+            );
+            if op == '=' {
+                quote!( #lhs.set((#rhs) as _) )
+            } else {
+                let op = proc_macro2::Punct::new(op, proc_macro2::Spacing::Alone);
+                quote!( #lhs.set(((#lhs.get() as f64) #op (#rhs as f64)) as _) )
+            }
+        }
+        Expression::ObjectAccess { base, name } => {
+            let tmpobj = quote!(tmpobj);
+            let get_obj = compile_expression(base, component);
+            let ty = base.ty();
+            let (member, member_ty) = match &ty {
+                Type::Object(ty) => {
+                    let index = ty
+                        .keys()
+                        .position(|k| k == name)
+                        .expect("Expression::ObjectAccess: Cannot find a key in an object");
+                    let index = proc_macro2::Literal::usize_unsuffixed(index);
+                    (quote!(#index), ty[name].clone())
+                }
+                Type::Component(c) if c.root_element.borrow().base_type == Type::Void => {
+                    let n = format_ident!("{}", name);
+                    (quote!(#n), c.root_element.borrow().lookup_property(name))
+                }
+                _ => panic!("Expression::ObjectAccess's base expression is not an Object type"),
+            };
+            let op = match op {
+                '+' => quote!(+=),
+                '*' => quote!(*=),
+                '-' => quote!(-=),
+                '/' => quote!(/=),
+                '=' => quote!(=),
+                _ => panic!("Unkown assignment op {:?}", op),
+            };
+
+            let member_ty = rust_type(&member_ty, &Default::default()).unwrap_or_default();
+
+            let new_value = quote!({
+               let mut #tmpobj = #get_obj;
+               #tmpobj.#member #op (#rhs as #member_ty);
+               #tmpobj
+            });
+            compile_assignment(base, '=', new_value, component)
+        }
+        _ => panic!("typechecking should make sure this was a PropertyReference"),
     }
 }
 
