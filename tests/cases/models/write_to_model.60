@@ -1,0 +1,96 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+
+TestCase := Rectangle {
+    width: 300px;
+    height: 300px;
+    property<[{name: string, account: string, score: float}]> model: [
+        {
+            name: "Olivier",
+            account: "ogoffart",
+            score: 456,
+        },
+        {
+            name: "Simon",
+            account: "tronical",
+            score: 789,
+        }
+    ];
+
+    property <int> clicked_score;
+
+    for person[i] in model: TouchArea {
+        x: i*10px;
+        width: 10px;
+        height: 10px;
+        property <int> score: person.score;
+        clicked => {
+            person.score += 1;
+            person.score += 1;
+            clicked_score = score;
+
+        }
+    }
+}
+
+/*
+```rust
+use sixtyfps::Model;
+let instance = TestCase::new();
+let instance = instance.as_ref();
+
+sixtyfps::testing::send_mouse_click(instance, 15., 5.);
+assert_eq!(instance.get_clicked_score(), 791);
+
+type ModelData = (sixtyfps::SharedString, sixtyfps::SharedString, f32);
+let another_model = std::rc::Rc::new(sixtyfps::VecModel::<ModelData>::from(
+    vec![
+        ("a1".into(), "hello".into(), 111.),
+        ("a2".into(), "cruel".into(), 222.),
+        ("a3".into(), "world".into(), 333.),
+    ]));
+
+instance.set_model(Some(another_model.clone()));
+
+sixtyfps::testing::send_mouse_click(instance, 25., 5.);
+assert_eq!(instance.get_clicked_score(), 335);
+assert_eq!(another_model.row_data(2).2, 335.);
+sixtyfps::testing::send_mouse_click(instance, 25., 5.);
+assert_eq!(instance.get_clicked_score(), 337);
+assert_eq!(another_model.row_data(2).2, 337.);
+assert_eq!(another_model.row_data(2).1, sixtyfps::SharedString::from("world"));
+```
+
+```cpp
+TestCase instance;
+sixtyfps::testing::send_mouse_click(instance, 15., 5.);
+assert_eq(instance.get_clicked_score(), 791);
+
+using ModelData = std::tuple<sixtyfps::SharedString, sixtyfps::SharedString, float>;
+sixtyfps::SharedArray<ModelData> array;
+array.push_back(ModelData{"a1", "hello", 111.});
+array.push_back(ModelData{"a2", "cruel", 222.});
+array.push_back(ModelData{"a3", "world", 333.});
+auto another_model = std::make_shared<sixtyfps::SharedArrayModel<ModelData>>(array);
+instance.set_model(another_model);
+
+sixtyfps::testing::send_mouse_click(instance, 25., 5.);
+assert_eq(instance.get_clicked_score(), 335);
+assert_eq(std::get<2>(another_model->row_data(2)), 335.);
+sixtyfps::testing::send_mouse_click(instance, 25., 5.);
+assert_eq(instance.get_clicked_score(), 337);
+assert_eq(std::get<2>(another_model->row_data(2)), 337.);
+assert_eq(std::get<1>(another_model->row_data(2)), "world");
+```
+
+
+
+*/
