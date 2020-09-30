@@ -184,7 +184,7 @@ fn to_eval_value<'cx>(
         | Type::Signal { .. }
         | Type::Easing
         | Type::Component(_) // The struct case is handled before
-        | Type::PathElements 
+        | Type::PathElements
         | Type::ElementReference => cx.throw_error("Cannot convert to a Sixtyfps property value"),
     }
 }
