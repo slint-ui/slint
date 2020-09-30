@@ -238,12 +238,18 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         self.model.set_binding(binding);
     }
 
+    fn model(self: Pin<&Self>) -> Pin<&Property<ModelHandle<C::Data>>> {
+        // Safety: Repeater does not implement drop and never let access model as mutable
+        #[allow(unsafe_code)]
+        unsafe {
+            self.map_unchecked(|s| &s.model)
+        }
+    }
+
     /// Call this function to make sure that the model is updated.
     /// The init function is the function to create a component
     pub fn ensure_updated(self: Pin<&Self>, init: impl Fn() -> Pin<Rc<C>>) {
-        #[allow(unsafe_code)]
-        // Safety: Repeater does not implement drop and never let access model as mutable
-        let model = unsafe { self.map_unchecked(|s| &s.model) };
+        let model = self.model();
         if model.is_dirty() {
             // Invalidate previuos weeks on the previous models
             (*Rc::make_mut(&mut self.inner.borrow_mut()).get_mut()) = RepeaterInner::default();
@@ -298,10 +304,8 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         window: &sixtyfps_corelib::eventloop::ComponentWindow,
         app_component: &ComponentRefPin,
     ) -> sixtyfps_corelib::input::InputEventResult {
-        self.inner.borrow().borrow().components[idx]
-            .1
-            .as_ref()
-            .map_or(Default::default(), |c| c.as_ref().input_event(event, window, app_component))
+        let c = self.inner.borrow().borrow().components[idx].1.clone();
+        c.map_or(Default::default(), |c| c.as_ref().input_event(event, window, app_component))
     }
 
     /// Forward a key event to a particular item
@@ -311,12 +315,10 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         event: &sixtyfps_corelib::input::KeyEvent,
         window: &sixtyfps_corelib::eventloop::ComponentWindow,
     ) -> sixtyfps_corelib::input::KeyEventResult {
-        self.inner.borrow().borrow().components[idx]
-            .1
-            .as_ref()
-            .map_or(sixtyfps_corelib::input::KeyEventResult::EventIgnored, |c| {
-                c.as_ref().key_event(event, window)
-            })
+        let c = self.inner.borrow().borrow().components[idx].1.clone();
+        c.map_or(sixtyfps_corelib::input::KeyEventResult::EventIgnored, |c| {
+            c.as_ref().key_event(event, window)
+        })
     }
 
     /// Forward a focus event to a particular item
@@ -326,12 +328,10 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         event: &sixtyfps_corelib::input::FocusEvent,
         window: &sixtyfps_corelib::eventloop::ComponentWindow,
     ) -> sixtyfps_corelib::input::FocusEventResult {
-        self.inner.borrow().borrow().components[idx]
-            .1
-            .as_ref()
-            .map_or(sixtyfps_corelib::input::FocusEventResult::FocusItemNotFound, |c| {
-                c.as_ref().focus_event(event, window)
-            })
+        let c = self.inner.borrow().borrow().components[idx].1.clone();
+        c.map_or(sixtyfps_corelib::input::FocusEventResult::FocusItemNotFound, |c| {
+            c.as_ref().focus_event(event, window)
+        })
     }
 
     /// Return the amount of item currently in the component
@@ -348,6 +348,28 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
     pub fn compute_layout(&self) {
         for c in self.inner.borrow().borrow().components.iter() {
             c.1.as_ref().map(|x| x.as_ref().compute_layout());
+        }
+    }
+
+    /// Sets the data directly in the model
+    pub fn model_set_row_data(self: Pin<&Self>, row: usize, data: C::Data) {
+        let model = self.model();
+        if model.is_dirty() {
+            // We don't want to evaluate the model in this function, because otherwise we would not set the right
+            // binding from ensure_updated. If the model is stale we have a problem
+            panic!("Model is dirty on change");
+        }
+
+        if let Some(model) = model.get() {
+            model.set_row_data(row, data);
+            if let Some(c) = self.inner.borrow().borrow_mut().components.get_mut(row) {
+                if c.0 == RepeatedComponentState::Dirty {
+                    if let Some(comp) = c.1.as_ref() {
+                        comp.update(row, model.row_data(row));
+                        c.0 = RepeatedComponentState::Clean;
+                    }
+                }
+            }
         }
     }
 }

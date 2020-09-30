@@ -1266,6 +1266,42 @@ fn compile_assignment(
             );
             compile_assignment(base, '=', new_value, component)
         }
+        Expression::RepeaterModelReference { element } => {
+            let element = element.upgrade().unwrap();
+            let parent_component = element.borrow().base_type.as_component().clone();
+            let repeater_access = access_member(
+                &parent_component
+                    .parent_element
+                    .upgrade()
+                    .unwrap()
+                    .borrow()
+                    .enclosing_component
+                    .upgrade()
+                    .unwrap()
+                    .root_element,
+                "",
+                component,
+                "self",
+            );
+            let index_access = access_member(&parent_component.root_element, "", component, "self");
+            let repeater_id = format!("repeater_{}", element.borrow().id);
+            if op == '=' {
+                format!(
+                    "{}{}.model_set_row_data({}index.get(), {})",
+                    repeater_access, repeater_id, index_access, rhs
+                )
+            } else {
+                format!(
+                    "{}{}.model_set_row_data({}index.get(), {} {} {})",
+                    repeater_access,
+                    repeater_id,
+                    index_access,
+                    rhs,
+                    op,
+                    compile_expression(lhs, component)
+                )
+            }
+        }
         _ => panic!("typechecking should make sure this was a PropertyReference"),
     }
 }

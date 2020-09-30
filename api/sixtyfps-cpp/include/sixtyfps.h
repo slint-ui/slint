@@ -340,7 +340,10 @@ public:
     }
     int row_count() const override { return Count; }
     ModelData row_data(int i) const override { return data[i]; }
-    void set_row_data(int i, const ModelData &value) override { data[i] = value; }
+    void set_row_data(int i, const ModelData &value) override {
+        data[i] = value;
+        this->row_changed(i);
+    }
 };
 
 /// Model to be used when we just want to repeat without data.
@@ -470,6 +473,21 @@ public:
             return;
         for (auto &x : inner->data) {
             x.ptr->compute_layout({ &C::component_type, x.ptr.get() });
+        }
+    }
+
+    void model_set_row_data(int row, const ModelData &data) const {
+        if (model.is_dirty()) {
+            std::abort();
+        }
+        if (auto m = model.get()) {
+            m->set_row_data(row, data);
+            if (inner && inner->is_dirty) {
+                auto &c = inner->data[row];
+                if (c.state == RepeaterInner::State::Dirty && c.ptr) {
+                    c.ptr->update_data(row, m->row_data(row));
+                }
+            }
         }
     }
 };

@@ -717,6 +717,7 @@ impl Expression {
         match self {
             Expression::PropertyReference(_) => true,
             Expression::ObjectAccess { base, .. } => base.is_rw(),
+            Expression::RepeaterModelReference { .. } => true,
             _ => false,
         }
     }
