@@ -19,6 +19,7 @@ MainWindow := Window {
     width: 400lx;
     height: 600lx;
     signal todo_added(string);
+    signal remove_done();
 
     property <[TodoItem]> todo_model: [
         { title: "Implement the .60 file", checked: true },
@@ -64,6 +65,9 @@ MainWindow := Window {
                     CheckBox {
                         text: todo.title;
                         checked: todo.checked;
+                        toggled => {
+                            todo.checked = checked;
+                        }
                     }
                 }
             }
@@ -71,11 +75,10 @@ MainWindow := Window {
         Row {
             Button {
                 col: 1;
-                text: "All done!";
+                text: "Remove done items!";
+                clicked => { root.remove_done(); }
             }
         }
     }
-
-
 }
 

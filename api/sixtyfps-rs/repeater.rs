@@ -89,6 +89,12 @@ impl<T: 'static> VecModel<T> {
         self.array.borrow_mut().push(value);
         self.notify.row_added(self.array.borrow().len() - 1, 1)
     }
+
+    /// Remove the row at the given index from the model
+    pub fn remove(&self, index: usize) {
+        self.array.borrow_mut().remove(index);
+        self.notify.row_removed(index, 1)
+    }
 }
 
 impl<T> From<Vec<T>> for VecModel<T> {
@@ -213,7 +219,12 @@ impl<C: RepeatedComponent> ViewAbstraction for RepeaterInner<C> {
     }
     /// Notify the peers that rows were removed
     fn row_removed(&mut self, index: usize, count: usize) {
+        self.is_dirty = true;
         self.components.drain(index..(index + count));
+        for c in self.components[index..].iter_mut() {
+            // Because all the indexes are dirty
+            c.0 = RepeatedComponentState::Dirty;
+        }
     }
 }
 
@@ -286,8 +297,11 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         order: sixtyfps_corelib::item_tree::TraversalOrder,
         mut visitor: sixtyfps_corelib::item_tree::ItemVisitorRefMut,
     ) -> sixtyfps_corelib::item_tree::VisitChildrenResult {
-        for (i, c) in self.inner.borrow().borrow().components.iter().enumerate() {
-            if let Some(c) = &c.1 {
+        // We can't keep self.inner borrowed because the event might modify the model
+        let count = self.inner.borrow().borrow().components.len();
+        for i in 0..count {
+            let c = self.inner.borrow().borrow().components.get(i).and_then(|c| c.1.clone());
+            if let Some(c) = c {
                 if c.as_ref().visit_children_item(-1, order, visitor.borrow_mut()).has_aborted() {
                     return sixtyfps_corelib::item_tree::VisitChildrenResult::abort(i, 0);
                 }

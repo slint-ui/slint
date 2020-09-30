@@ -8,6 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
+use sixtyfps::Model;
 use std::rc::Rc;
 
 #[cfg(target_arch = "wasm32")]
@@ -33,7 +34,19 @@ pub fn main() {
     let main_window = MainWindow::new();
     main_window.as_ref().on_todo_added({
         let todo_model = todo_model.clone();
-        move |text| todo_model.push(TodoItem { checked: true, title: text })
+        move |text| todo_model.push(TodoItem { checked: false, title: text })
+    });
+    main_window.as_ref().on_remove_done({
+        let todo_model = todo_model.clone();
+        move || {
+            let mut offset = 0;
+            for i in 0..todo_model.row_count() {
+                if todo_model.row_data(i - offset).checked {
+                    todo_model.remove(i - offset);
+                    offset += 1;
+                }
+            }
+        }
     });
 
     main_window.as_ref().set_todo_model(Some(todo_model));
