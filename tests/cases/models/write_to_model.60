@@ -75,11 +75,11 @@ sixtyfps::testing::send_mouse_click(instance, 15., 5.);
 assert_eq(instance.get_clicked_score(), 791);
 
 using ModelData = std::tuple<sixtyfps::SharedString, sixtyfps::SharedString, float>;
-sixtyfps::SharedArray<ModelData> array;
+std::vector<ModelData> array;
 array.push_back(ModelData{"a1", "hello", 111.});
 array.push_back(ModelData{"a2", "cruel", 222.});
 array.push_back(ModelData{"a3", "world", 333.});
-auto another_model = std::make_shared<sixtyfps::SharedArrayModel<ModelData>>(array);
+auto another_model = std::make_shared<sixtyfps::VectorModel<ModelData>>(std::move(array));
 instance.set_model(another_model);
 
 sixtyfps::testing::send_mouse_click(instance, 25., 5.);

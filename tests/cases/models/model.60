@@ -28,6 +28,7 @@ TestCase := Rectangle {
     property <int> clicked_score;
     property <string> clicked_name;
     property <int> clicked_internal_state;
+    property <int> clicked_index;
 
     for person[i] in model: TouchArea {
         x: i*10px;
@@ -42,6 +43,7 @@ TestCase := Rectangle {
             clicked_internal_state = internal_state;
             clicked_score = score;
             clicked_name = text;
+            clicked_index = i;
         }
     }
 }
@@ -73,6 +75,7 @@ instance.set_model(Some(another_model.clone()));
 sixtyfps::testing::send_mouse_click(instance, 25., 5.);
 assert_eq!(instance.get_clicked_score(), 333000);
 assert_eq!(instance.get_clicked_internal_state(), 1);
+assert_eq!(instance.get_clicked_index(), 2);
 
 sixtyfps::testing::send_mouse_click(instance, 15., 5.);
 assert_eq!(instance.get_clicked_score(), 222000);
@@ -91,6 +94,15 @@ sixtyfps::testing::send_mouse_click(instance, 15., 5.);
 assert_eq!(instance.get_clicked_score(), 555000);
 assert_eq!(instance.get_clicked_name(), sixtyfps::SharedString::from("idyllic"));
 assert_eq!(instance.get_clicked_internal_state(), 2);
+assert_eq!(instance.get_clicked_index(), 1);
+
+another_model.remove(1);
+sixtyfps::testing::send_mouse_click(instance, 15., 5.);
+assert_eq!(instance.get_clicked_score(), 333000);
+assert_eq!(instance.get_clicked_name(), sixtyfps::SharedString::from("world"));
+assert_eq!(instance.get_clicked_internal_state(), 2);
+assert_eq!(instance.get_clicked_index(), 1);
+
 ```
 
 ```cpp
@@ -106,16 +118,17 @@ assert_eq(instance.get_clicked_score(), 789000);
 assert_eq(instance.get_clicked_internal_state(), 1);
 
 using ModelData = std::tuple<sixtyfps::SharedString, sixtyfps::SharedString, float>;
-sixtyfps::SharedArray<ModelData> array;
+std::vector<ModelData> array;
 array.push_back(ModelData{"a1", "hello", 111.});
 array.push_back(ModelData{"a2", "cruel", 222.});
 array.push_back(ModelData{"a3", "world", 333.});
-auto another_model = std::make_shared<sixtyfps::SharedArrayModel<ModelData>>(array);
+auto another_model = std::make_shared<sixtyfps::VectorModel<ModelData>>(std::move(array));
 instance.set_model(another_model);
 
 sixtyfps::testing::send_mouse_click(instance, 25., 5.);
 assert_eq(instance.get_clicked_score(), 333000);
 assert_eq(instance.get_clicked_internal_state(), 1);
+assert_eq(instance.get_clicked_index(), 2);
 
 sixtyfps::testing::send_mouse_click(instance, 15., 5.);
 assert_eq(instance.get_clicked_score(), 222000);
@@ -133,6 +146,16 @@ sixtyfps::testing::send_mouse_click(instance, 15., 5.);
 assert_eq(instance.get_clicked_score(), 555000);
 assert_eq(instance.get_clicked_name(), "idyllic");
 assert_eq(instance.get_clicked_internal_state(), 2);
+assert_eq(instance.get_clicked_index(), 1);
+
+another_model->erase(1);
+sixtyfps::testing::send_mouse_click(instance, 15., 5.);
+assert_eq(instance.get_clicked_score(), 333000);
+assert_eq(instance.get_clicked_name(), "world");
+assert_eq(instance.get_clicked_internal_state(), 2);
+assert_eq(instance.get_clicked_index(), 1);
+
+
 ```
 
 */

@@ -362,13 +362,13 @@ struct IntModel : Model<int>
 
 /// A Model backed by a SharedArray
 template<typename ModelData>
-class SharedArrayModel : public Model<ModelData>
+class VectorModel : public Model<ModelData>
 {
-    SharedArray<ModelData> data;
+    std::vector<ModelData> data;
 
 public:
-    SharedArrayModel() = default;
-    SharedArrayModel(SharedArray<ModelData> array) : data(std::move(array)) { }
+    VectorModel() = default;
+    VectorModel(std::vector<ModelData> array) : data(std::move(array)) { }
     int row_count() const override { return data.size(); }
     ModelData row_data(int i) const override { return data[i]; }
     void set_row_data(int i, const ModelData &value) override
@@ -377,12 +377,19 @@ public:
         this->row_changed(i);
     }
 
-    // Append a new row with the given value
+    /// Append a new row with the given value
     void push_back(const ModelData &value)
     {
         data.push_back(value);
         this->row_added(data.size() - 1, 1);
     }
+
+    /// Remove the row at the given index from the model
+    void erase(int index) {
+        data.erase(data.begin() + index);
+        this->row_removed(index, 1);
+    }
+
 };
 
 template<typename C, typename ModelData>
@@ -409,7 +416,12 @@ class Repeater
             data[index].state = State::Dirty;
         }
         void row_removed(int index, int count) override {
+            is_dirty = true;
             data.erase(data.begin() + index, data.begin() + index + count);
+            for (std::size_t i = index; i < data.size(); ++i) {
+                // all the indexes are dirty
+                data[i].state = State::Dirty;
+            }
         }
     };
 
