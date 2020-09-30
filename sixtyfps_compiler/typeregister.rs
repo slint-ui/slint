@@ -10,7 +10,7 @@ LICENSE END */
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::{cell::RefCell, fmt::Display, rc::Rc};
 
-use crate::expression_tree::{Expression, Unit};
+use crate::expression_tree::{BuiltinFunction, Expression, Unit};
 use crate::object_tree::Component;
 
 #[derive(Debug, Clone)]
@@ -232,6 +232,13 @@ impl Type {
         tr.lookup_element(name)
     }
 
+    pub fn lookup_member_function(&self, name: &str) -> Expression {
+        match self {
+            Type::Builtin(builtin) => builtin.member_functions.get(name).unwrap().clone(),
+            _ => Expression::Invalid,
+        }
+    }
+
     /// Assume this is a builtin type, panic if it isn't
     pub fn as_builtin(&self) -> &BuiltinElement {
         match self {
@@ -435,6 +442,7 @@ pub struct BuiltinElement {
     pub disallow_global_types_as_child_elements: bool,
     /// Non-item type do not have reserved properties (x/width/rowspan/...) added to them  (eg: PropertyAnimation)
     pub is_non_item_type: bool,
+    pub member_functions: HashMap<String, Expression>,
 }
 
 impl BuiltinElement {
@@ -525,19 +533,32 @@ impl TypeRegister {
         let text_vertical_alignment =
             declare_enum("TextVerticalAlignment", &["align_top", "align_center", "align_bottom"]);
 
+        let native_class_with_member_functions =
+            |tr: &mut TypeRegister,
+             name: &str,
+             properties: &[(&str, Type)],
+             default_bindings: &[(&str, Expression)],
+             member_functions: &[(&str, Type, Expression)]| {
+                let native = Rc::new(NativeClass::new_with_properties(
+                    name,
+                    properties.iter().map(|(n, t)| (n.to_string(), t.clone())),
+                ));
+                let mut builtin = BuiltinElement::new(native);
+                for (prop, expr) in default_bindings {
+                    builtin.default_bindings.insert(prop.to_string(), expr.clone());
+                }
+                for (name, funtype, fun) in member_functions {
+                    builtin.properties.insert(name.to_string(), funtype.clone());
+                    builtin.member_functions.insert(name.to_string(), fun.clone());
+                }
+                tr.types.insert(name.to_string(), Type::Builtin(Rc::new(builtin)));
+            };
+
         let native_class = |tr: &mut TypeRegister,
                             name: &str,
                             properties: &[(&str, Type)],
                             default_bindings: &[(&str, Expression)]| {
-            let native = Rc::new(NativeClass::new_with_properties(
-                name,
-                properties.iter().map(|(n, t)| (n.to_string(), t.clone())),
-            ));
-            let mut builtin = BuiltinElement::new(native);
-            for (prop, expr) in default_bindings {
-                builtin.default_bindings.insert(prop.to_string(), expr.clone());
-            }
-            tr.types.insert(name.to_string(), Type::Builtin(Rc::new(builtin)));
+            native_class_with_member_functions(tr, name, properties, default_bindings, &[])
         };
 
         let mut rectangle = NativeClass::new("Rectangle");
@@ -636,7 +657,7 @@ impl TypeRegister {
 
         native_class(&mut r, "Window", &[("width", Type::Length), ("height", Type::Length)], &[]);
 
-        native_class(
+        native_class_with_member_functions(
             &mut r,
             "TextInput",
             &[
@@ -682,6 +703,11 @@ impl TypeRegister {
                 ),
                 ("text_cursor_width", Expression::NumberLiteral(2., Unit::Lx)),
             ],
+            &[(
+                "focus",
+                Type::Function { return_type: Box::new(Type::Void), args: vec![] },
+                Expression::BuiltinFunctionReference(BuiltinFunction::SetFocusItem),
+            )],
         );
 
         let mut grid_layout = BuiltinElement::new(Rc::new(NativeClass::new("GridLayout")));

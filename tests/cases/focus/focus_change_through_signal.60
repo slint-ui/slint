@@ -1,0 +1,80 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+TestCase := Rectangle {
+    width: 400px;
+    height: 400px;
+
+    signal focus_input1();
+    focus_input1 => { input1.focus(); }
+
+    signal focus_input2();
+    focus_input2 => { input2.focus(); }
+
+    input1 := TextInput {
+        width: parent.width;
+        height: 200px;
+    }
+
+    input2 := TextInput {
+        y: 200px;
+        width: parent.width;
+        height: 200px;
+    }
+
+    property<bool> input1_focused: input1.has_focus;
+    property<string> input1_text: input1.text;
+    property<bool> input2_focused: input2.has_focus;
+    property<string> input2_text: input2.text;
+}
+
+/*
+```rust
+let instance = TestCase::new();
+let instance = instance.as_ref();
+assert!(!instance.get_input1_focused());
+assert!(!instance.get_input2_focused());
+
+instance.emit_focus_input1();
+assert!(instance.get_input1_focused());
+assert!(!instance.get_input2_focused());
+
+instance.emit_focus_input2();
+assert!(!instance.get_input1_focused());
+assert!(instance.get_input2_focused());
+```
+
+```cpp
+TestCase instance;
+assert(!instance.get_input1_focused());
+assert(!instance.get_input2_focused());
+
+instance.emit_focus_input1();
+assert(instance.get_input1_focused());
+assert(!instance.get_input2_focused());
+
+instance.emit_focus_input2();
+assert(!instance.get_input1_focused());
+assert(instance.get_input2_focused());
+```
+
+```js
+var instance = new sixtyfps.TestCase();
+assert(!instance.input1_focused);
+assert(!instance.input2_focused);
+
+instance.focus_input1();
+assert(instance.input1_focused);
+assert(!instance.input2_focused);
+
+instance.focus_input2();
+assert(!instance.input1_focused);
+assert(instance.input2_focused);
+```
+*/

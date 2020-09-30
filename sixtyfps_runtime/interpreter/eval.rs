@@ -199,6 +199,7 @@ pub fn eval_expression(
             "naked builtin function reference not allowed, should be handled by function call"
         ),
         Expression::ElementReference(_) => todo!("Element references are only supported in the context of built-in function calls at the moment"),
+        Expression::MemberFunction { .. } => panic!("member function expressions must not appear in the code generator anymore"),
         Expression::PropertyReference(NamedReference { element, name }) => {
             load_property(component, &element.upgrade().unwrap(), name.as_ref()).unwrap()
         }

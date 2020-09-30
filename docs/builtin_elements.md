@@ -244,6 +244,9 @@ The `TextInput` is a lower-level item that shows text and allows entering text.
   within the item
 * **`has_focus`** (*bool*): Set to true when item is focused and receives keyboard events.
 
+### Methods
+
+* **`focus()`** Call this function to focus the text input and make it receive future keyboard events.
 
 ### Example
 

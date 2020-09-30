@@ -405,6 +405,14 @@ impl Expression {
                     element: Rc::downgrade(&elem),
                     name: prop_name.to_string(),
                 });
+            } else if matches!(p, Type::Function{..}) {
+                let member =
+                    elem.borrow().base_type.lookup_member_function(prop_name.text().as_str());
+                return Self::MemberFunction {
+                    base: Box::new(Expression::ElementReference(Rc::downgrade(&elem))),
+                    base_node: node,
+                    member: Box::new(member),
+                };
             } else {
                 ctx.diag.push_error(format!("Cannot access property '{}'", prop_name), &prop_name);
                 return Self::Invalid;
@@ -497,9 +505,19 @@ impl Expression {
         ctx: &mut LookupCtx,
     ) -> Expression {
         let mut sub_expr =
-            node.Expression().map(|n| (Self::from_expression_node(n.clone(), ctx), n));
-        let function = Box::new(sub_expr.next().map_or(Expression::Invalid, |e| e.0));
-        let arguments = sub_expr.collect::<Vec<_>>();
+            node.Expression().map(|n| (Self::from_expression_node(n.clone(), ctx), n.0));
+
+        let mut arguments = Vec::new();
+
+        let function = sub_expr.next().map_or(Expression::Invalid, |e| e.0);
+        let function = if let Expression::MemberFunction { base, base_node, member } = function {
+            arguments.push((*base, base_node));
+            member
+        } else {
+            Box::new(function)
+        };
+
+        arguments.extend(sub_expr);
 
         let arguments = match function.ty() {
             Type::Function { args, .. } | Type::Signal { args } => {

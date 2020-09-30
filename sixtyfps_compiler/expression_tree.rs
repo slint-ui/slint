@@ -10,8 +10,7 @@ LICENSE END */
 use crate::diagnostics::{BuildDiagnostics, Spanned, SpannedWithSourceFile};
 use crate::object_tree::*;
 use crate::parser::SyntaxNodeWithSourceFile;
-use crate::typeregister::BuiltinElement;
-use crate::typeregister::{EnumerationValue, Type};
+use crate::typeregister::{BuiltinElement, EnumerationValue, Type};
 use core::cell::RefCell;
 use std::collections::HashMap;
 use std::hash::Hash;
@@ -188,6 +187,14 @@ pub enum Expression {
     /// Reference to a function built into the run-time, implemented natively
     BuiltinFunctionReference(BuiltinFunction),
 
+    /// A MemberFunction expression exists only for a short time, for example for `item.focus()` to be translated to
+    /// a regular FunctionCall expression where the base becomes the first argument.
+    MemberFunction {
+        base: Box<Expression>,
+        base_node: SyntaxNodeWithSourceFile,
+        member: Box<Expression>,
+    },
+
     /// A reference to a specific element. This isn't possible to create in .60 syntax itself, but intermediate passes may generate this
     /// type of expression.
     ElementReference(Weak<RefCell<Element>>),
@@ -323,6 +330,7 @@ impl Expression {
                 element.upgrade().unwrap().borrow().lookup_property(name)
             }
             Expression::BuiltinFunctionReference(funcref) => funcref.ty(),
+            Expression::MemberFunction { member, .. } => member.ty(),
             Expression::ElementReference(_) => Type::ElementReference,
             Expression::RepeaterIndexReference { .. } => Type::Int32,
             Expression::RepeaterModelReference { element } => {
@@ -409,6 +417,10 @@ impl Expression {
             Expression::PropertyReference { .. } => {}
             Expression::FunctionParameterReference { .. } => {}
             Expression::BuiltinFunctionReference { .. } => {}
+            Expression::MemberFunction { base, member, .. } => {
+                visitor(&**base);
+                visitor(&**member);
+            }
             Expression::ElementReference(_) => {}
             Expression::ObjectAccess { base, .. } => visitor(&**base),
             Expression::RepeaterIndexReference { .. } => {}
@@ -472,6 +484,10 @@ impl Expression {
             Expression::PropertyReference { .. } => {}
             Expression::FunctionParameterReference { .. } => {}
             Expression::BuiltinFunctionReference { .. } => {}
+            Expression::MemberFunction { base, member, .. } => {
+                visitor(&mut **base);
+                visitor(&mut **member);
+            }
             Expression::ElementReference(_) => {}
             Expression::ObjectAccess { base, .. } => visitor(&mut **base),
             Expression::RepeaterIndexReference { .. } => {}
@@ -534,6 +550,7 @@ impl Expression {
             Expression::SignalReference { .. } => false,
             Expression::PropertyReference { .. } => false,
             Expression::BuiltinFunctionReference { .. } => false,
+            Expression::MemberFunction { .. } => false,
             Expression::ElementReference(_) => false,
             Expression::RepeaterIndexReference { .. } => false,
             Expression::RepeaterModelReference { .. } => false,

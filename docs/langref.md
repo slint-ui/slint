@@ -575,3 +575,21 @@ App := Window {
     }
 }
 ```
+
+It's also possible to manually activate the focus on elements such as ```TextInput```:
+
+```60
+import { Button } from "sixtyfps_widgets.60";
+
+App := Window {
+    GridLayout {
+        Button {
+            text: "press me";
+            clicked => { input.focus(); }
+        }
+        input := TextInput {
+            text: "I am a text input field";
+        }
+    }
+}
+```

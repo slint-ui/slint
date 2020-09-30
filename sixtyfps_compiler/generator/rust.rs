@@ -885,7 +885,8 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
             BuiltinFunction::Debug => quote!((|x| println!("{:?}", x))),
             BuiltinFunction::SetFocusItem => panic!("internal error: SetFocusItem is handled directly in CallFunction")
         },
-        Expression::ElementReference(_) => todo!("Element references are only supported in the context of built-in function calls at the moment"),        
+        Expression::ElementReference(_) => todo!("Element references are only supported in the context of built-in function calls at the moment"),
+        Expression::MemberFunction{ .. } => panic!("member function expressions must not appear in the code generator anymore"),
         Expression::RepeaterIndexReference { element } => {
             let access = access_member(
                 &element.upgrade().unwrap().borrow().base_type.as_component().root_element,
