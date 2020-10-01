@@ -267,18 +267,75 @@ export LineEdit := Rectangle {
     }
 }
 
+ScrollBar := Rectangle {
+    color: white;
+    border_color: lightgray;
+    border_width: 1lx;
+    property <bool> horizontal;
+    property<length> max;
+    property<length> page_size;
+    property<length> value;
+
+    handle := Rectangle {
+        width: !horizontal ? parent.width : parent.width * (page_size / max);
+        height: horizontal ? parent.height : parent.height * (page_size / max);
+
+        border_width: 2lx;
+        border_radius: self.width / 2;
+        border_color: black;
+        color: touch_area.pressed ? #556884 : lightgray;
+        animate color { duration: 100ms; }
+        x: !horizontal ? 0px : (root.width - handle.width) * (new_value / max);
+        y: horizontal ? 0px : (root.height - handle.height) * (new_value / max);
+        property<length> new_value_tmp : root.value + (
+            !touch_area.pressed ? 0px
+            : horizontal ?  (touch_area.mouse_x - touch_area.pressed_x) * (max / (root.width - handle.width))
+            : (touch_area.mouse_y - touch_area.pressed_y) * (max / (root.height - handle.height)));
+        property<length> new_value : new_value_tmp < 0px ? 0px
+            : new_value_tmp > root.max ? root.max : new_value_tmp;
+    }
+    touch_area := TouchArea {
+        width: parent.width;
+        height: parent.height;
+        clicked => {
+            root.value = handle.new_value;
+        }
+    }
+
+}
+
 export ScrollView := Rectangle {
     property <length> viewport_width <=> fli.viewport_width;
     property <length> viewport_height <=> fli.viewport_height;
     border_width: 1lx;
     border_color: #d0d3cf;
     color: white;
+
     fli := Flickable {
-        width: parent.width;
-        height: parent.height;
         $children
-        interactive: true;
-        viewport_width: 1000lx;
+        interactive: false;
+        viewport_y: -vbar.value;
+        viewport_x: -hbar.value;
         viewport_height: 1000lx;
+        viewport_width: 1000lx;
+        width: parent.width - vbar.width;
+        height: parent.height - hbar.height;
+
+    }
+    vbar := ScrollBar {
+        width: 20lx;
+        x: fli.width;
+        height: fli.height;
+        horizontal: false;
+        max: fli.viewport_height - fli.height;
+        page_size: fli.height;
+    }
+    hbar := ScrollBar {
+        height: 20lx;
+        y: fli.height;
+        width: fli.width;
+        horizontal: true;
+        max: fli.viewport_width - fli.width;
+        page_size: fli.width;
     }
 }
