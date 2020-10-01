@@ -57,6 +57,8 @@ impl GlyphCache {
 pub struct PreRenderedGlyph {
     pub glyph_allocation: Option<AtlasAllocation>,
     pub advance: f32,
+    pub x: f32,
+    pub y: f32,
 }
 
 pub struct CachedFontGlyphs {
@@ -102,25 +104,29 @@ impl CachedFontGlyphs {
     ) -> PreRenderedGlyph {
         let advance = self.font.glyph_metrics(glyph_id).advance;
 
-        let glyph_allocation = if !ch.is_whitespace() {
-            let glyph_image = self.font.rasterize_glyph(glyph_id);
+        let (x, y, glyph_allocation) = if !ch.is_whitespace() {
+            let (x, y, glyph_image) = self.font.rasterize_glyph(glyph_id);
 
-            Some(
-                atlas.allocate_image_in_atlas(
-                    gl,
-                    image::ImageBuffer::<_, &[u8]>::from_raw(
-                        glyph_image.width(),
-                        glyph_image.height(),
-                        &glyph_image,
-                    )
-                    .unwrap(),
+            (
+                x,
+                y,
+                Some(
+                    atlas.allocate_image_in_atlas(
+                        gl,
+                        image::ImageBuffer::<_, &[u8]>::from_raw(
+                            glyph_image.width(),
+                            glyph_image.height(),
+                            &glyph_image,
+                        )
+                        .unwrap(),
+                    ),
                 ),
             )
         } else {
-            None
+            (0., 0., None)
         };
 
-        PreRenderedGlyph { glyph_allocation, advance }
+        PreRenderedGlyph { glyph_allocation, advance, x, y }
     }
 
     pub fn render_glyphs(
@@ -130,6 +136,7 @@ impl CachedFontGlyphs {
         text: &str,
     ) -> Vec<GlyphRun> {
         let mut x = 0.;
+        let ascent = self.font.ascent();
 
         self.layout_glyphs(&context, texture_atlas, text)
             .filter_map(|cached_glyph| {
@@ -140,10 +147,13 @@ impl CachedFontGlyphs {
                     let glyph_width = glyph_allocation.texture_coordinates.width() as f32;
                     let glyph_height = glyph_allocation.texture_coordinates.height() as f32;
 
-                    let vertex1 = Vertex { _pos: [glyph_x, 0.] };
-                    let vertex2 = Vertex { _pos: [glyph_x + glyph_width, 0.] };
-                    let vertex3 = Vertex { _pos: [glyph_x + glyph_width, glyph_height] };
-                    let vertex4 = Vertex { _pos: [glyph_x, glyph_height] };
+                    let pen_x = glyph_x + cached_glyph.x;
+                    let pen_y = cached_glyph.y + ascent;
+
+                    let vertex1 = Vertex { _pos: [pen_x, pen_y] };
+                    let vertex2 = Vertex { _pos: [pen_x + glyph_width, pen_y] };
+                    let vertex3 = Vertex { _pos: [pen_x + glyph_width, pen_y + glyph_height] };
+                    let vertex4 = Vertex { _pos: [pen_x, pen_y + glyph_height] };
 
                     let vertices = [vertex1, vertex2, vertex3, vertex1, vertex3, vertex4];
                     let texture_vertices = glyph_allocation.normalized_texture_coordinates();

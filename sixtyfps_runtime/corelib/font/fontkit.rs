@@ -96,16 +96,23 @@ impl Font {
         (self.metrics.ascent - self.metrics.descent + 1.) * self.font_units_to_pixel_size()
     }
 
-    pub fn rasterize_glyph(&self, glyph_id: u32) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
-        let baseline_y = self.ascent();
+    pub fn rasterize_glyph(&self, glyph_id: u32) -> (f32, f32, ImageBuffer<Rgba<u8>, Vec<u8>>) {
         let hinting = font_kit::hinting::HintingOptions::None;
         let raster_opts = font_kit::canvas::RasterizationOptions::GrayscaleAa;
 
-        // ### TODO: #8 use tight bounding box for glyphs stored in texture atlas
-        let glyph_height = self.height();
-        let glyph_width = self.glyph_metrics(glyph_id).advance;
+        let glyph_rect = self
+            .font
+            .raster_bounds(glyph_id, self.pixel_size, Transform2F::default(), hinting, raster_opts)
+            .unwrap();
+
+        // With CoreText we oddly need an extra pixel on each side.
+        let glyph_width = glyph_rect.width() + 2;
+        let glyph_height = glyph_rect.height() + 2;
+
+        let x = glyph_rect.origin_x() as f32;
+        let y = glyph_rect.origin_y() as f32;
         let mut canvas = font_kit::canvas::Canvas::new(
-            Vector2I::new(glyph_width.ceil() as i32, glyph_height.ceil() as i32),
+            Vector2I::new(glyph_width, glyph_height),
             font_kit::canvas::Format::A8,
         );
         self.font
@@ -113,17 +120,21 @@ impl Font {
                 &mut canvas,
                 glyph_id,
                 self.pixel_size,
-                Transform2F::from_translation(Vector2F::new(0., baseline_y)),
+                Transform2F::from_translation(Vector2F::new(-x + 1., -y + 1.)),
                 hinting,
                 raster_opts,
             )
             .unwrap();
 
-        image::ImageBuffer::from_fn(canvas.size.x() as u32, canvas.size.y() as u32, |x, y| {
-            let idx = (x as usize) + (y as usize) * canvas.stride;
-            let alpha = canvas.pixels[idx];
-            image::Rgba::<u8>::from_channels(0, 0, 0, alpha)
-        })
+        (
+            x,
+            y,
+            image::ImageBuffer::from_fn(canvas.size.x() as u32, canvas.size.y() as u32, |x, y| {
+                let idx = (x as usize) + (y as usize) * canvas.stride;
+                let alpha = canvas.pixels[idx];
+                image::Rgba::<u8>::from_channels(0, 0, 0, alpha)
+            }),
+        )
     }
 
     pub fn handle(&self) -> FontHandle {
