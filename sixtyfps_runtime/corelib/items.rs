@@ -132,7 +132,12 @@ impl Item for Rectangle {
         let width = Self::FIELD_OFFSETS.width.apply_pin(self).get();
         let height = Self::FIELD_OFFSETS.height.apply_pin(self).get();
         if width > 0. && height > 0. {
-            HighLevelRenderingPrimitive::Rectangle { width, height }
+            HighLevelRenderingPrimitive::Rectangle {
+                width,
+                height,
+                border_width: 0.,
+                border_radius: 0.,
+            }
         } else {
             HighLevelRenderingPrimitive::NoContents
         }
@@ -214,7 +219,7 @@ impl Item for BorderRectangle {
         let width = Self::FIELD_OFFSETS.width.apply_pin(self).get();
         let height = Self::FIELD_OFFSETS.height.apply_pin(self).get();
         if width > 0. && height > 0. {
-            HighLevelRenderingPrimitive::BorderRectangle {
+            HighLevelRenderingPrimitive::Rectangle {
                 width,
                 height,
                 border_width: Self::FIELD_OFFSETS.border_width.apply_pin(self).get(),

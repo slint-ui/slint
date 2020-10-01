@@ -259,11 +259,6 @@ pub enum HighLevelRenderingPrimitive {
     ///
     /// Associated rendering variables: None.
     NoContents,
-    /// Renders a rectangle with the specified `width` and `height`.
-    ///
-    /// Expected rendering variables:
-    /// * [`RenderingVariable::Color`]: The fill color to use for the rectangle.
-    Rectangle { width: f32, height: f32 },
     /// Renders a rectangle with the specified `width` and `height`, as well as a border
     /// around it. The `border_width` specifies the width to use for the border, and the
     /// `border_radius` can be used to render a rounded rectangle.
@@ -271,7 +266,7 @@ pub enum HighLevelRenderingPrimitive {
     /// Expected rendering variables:
     /// * [`RenderingVariable::Color`]: The color to fill the rectangle with.
     /// * [`RenderingVariable::Color`]: The color to use for stroking the border of the rectangle.
-    BorderRectangle { width: f32, height: f32, border_width: f32, border_radius: f32 },
+    Rectangle { width: f32, height: f32, border_width: f32, border_radius: f32 },
     /// Renders a image referenced by the specified `source`.
     ///
     /// Optional rendering variables:
