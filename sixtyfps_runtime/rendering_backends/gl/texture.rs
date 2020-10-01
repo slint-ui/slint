@@ -150,7 +150,7 @@ pub(crate) struct GLAtlasTexture {
 }
 
 pub struct AtlasAllocation {
-    pub texture_coordinates: RectI, // excludes padding
+    pub texture_coordinates: RectI,
     allocation_id: guillotiere::AllocId,
     pub(crate) atlas: Rc<GLAtlasTexture>,
 }
@@ -169,10 +169,10 @@ impl AtlasAllocation {
         let size = self.texture_coordinates.size();
         let texture_coordinates = RectI::new(origin, size);
 
-        let tex_left = (texture_coordinates.min_x() as f32) / atlas_width;
-        let tex_top = (texture_coordinates.min_y() as f32) / atlas_height;
-        let tex_right = (texture_coordinates.max_x() as f32) / atlas_width;
-        let tex_bottom = (texture_coordinates.max_y() as f32) / atlas_height;
+        let tex_left = ((texture_coordinates.min_x() as f32) + 0.5) / atlas_width;
+        let tex_top = ((texture_coordinates.min_y() as f32) + 0.5) / atlas_height;
+        let tex_right = ((texture_coordinates.max_x() as f32) - 0.5) / atlas_width;
+        let tex_bottom = ((texture_coordinates.max_y() as f32) - 0.5) / atlas_height;
 
         let tex_vertex1 = Vertex { _pos: [tex_left, tex_top] };
         let tex_vertex2 = Vertex { _pos: [tex_right, tex_top] };
@@ -251,73 +251,13 @@ impl TextureAtlas {
         gl: &Rc<glow::Context>,
         image: image::ImageBuffer<image::Rgba<u8>, &[u8]>,
     ) -> AtlasAllocation {
-        use image::GenericImage;
-        use image::GenericImageView;
-
-        // To avoid pixels leaking from adjacent textures in the atlas when scaling, add a one-pixel
-        // padding.
-
-        let requested_width = image.width() + 2;
-        let requested_height = image.height() + 2;
-
-        let mut padded_image = image::ImageBuffer::new(requested_width, requested_height);
-
-        let mut blit = |target_x, target_y, source_x, source_y, source_width, source_height| {
-            padded_image
-                .copy_from(
-                    &image.view(source_x, source_y, source_width, source_height),
-                    target_x,
-                    target_y,
-                )
-                .ok()
-                .unwrap();
-        };
-
-        // First the main image itself
-        blit(1, 1, 0, 0, image.width(), image.height());
-
-        // duplicate the top edge
-        blit(1, 0, 0, 0, image.width(), 1);
-
-        // duplicate the bottom edge
-        blit(1, requested_height - 1, 0, image.height() - 1, image.width(), 1);
-
-        // duplicate the left edge
-        blit(0, 1, 0, 0, 1, image.height());
-
-        // duplicate the right edge
-        blit(requested_width - 1, 1, image.width() - 1, 0, 1, image.height());
-
-        // duplicate the top-left corner pixel
-        blit(0, 0, 0, 0, 1, 1);
-
-        // duplicate the bottom-left corner pixel
-        blit(0, requested_height - 1, 0, image.height() - 1, 1, 1);
-
-        // duplicate the top-right corner pixel
-        blit(requested_width - 1, 0, image.width() - 1, 0, 1, 1);
-
-        // duplicate the bottom-right corner pixel
-        blit(
-            requested_width - 1,
-            requested_height - 1,
-            image.width() - 1,
-            image.height() - 1,
-            1,
-            1,
-        );
-
-        let mut allocation = self.allocate_region(gl, requested_width as _, requested_height as _);
+        let allocation = self.allocate_region(gl, image.width() as _, image.height() as _);
 
         allocation.atlas.texture.set_sub_image(
             allocation.texture_coordinates.origin_x(),
             allocation.texture_coordinates.origin_y(),
-            padded_image,
+            image,
         );
-
-        // Remove the padding from the coordinates we use for sampling
-        allocation.texture_coordinates =
-            allocation.texture_coordinates.contract(Vector2I::new(1, 1));
 
         allocation
     }
