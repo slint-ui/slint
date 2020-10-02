@@ -495,6 +495,10 @@ impl Expression {
             return Expression::BuiltinFunctionReference(BuiltinFunction::Debug);
         }
 
+        if first_str == "format" {
+            return Expression::BuiltinFunctionReference(BuiltinFunction::Format);
+        }
+
         ctx.diag.push_error(format!("Unknown unqualified identifier '{}'", first_str), &node);
 
         Self::Invalid

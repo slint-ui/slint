@@ -883,6 +883,7 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                 quote!(#window_ref.scale_factor)
             }
             BuiltinFunction::Debug => quote!((|x| println!("{:?}", x))),
+            BuiltinFunction::Format => quote!(|x| format!("{:?}", x)),
             BuiltinFunction::SetFocusItem => panic!("internal error: SetFocusItem is handled directly in CallFunction")
         },
         Expression::ElementReference(_) => todo!("Element references are only supported in the context of built-in function calls at the moment"),

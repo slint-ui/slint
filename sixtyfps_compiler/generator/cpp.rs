@@ -1068,6 +1068,9 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
                 "[](auto... args){ (std::cout << ... << args) << std::endl; return nullptr; }"
                     .into()
             }
+            BuiltinFunction::Format => {
+                panic!("Not supported for cpp builds.");
+            }
             BuiltinFunction::SetFocusItem => {
                 format!("{}.set_focus_item", window_ref_expression(component))
             }

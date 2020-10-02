@@ -43,6 +43,7 @@ impl Hash for NamedReference {
 pub enum BuiltinFunction {
     GetWindowScaleFactor,
     Debug,
+    Format,
     SetFocusItem,
 }
 
@@ -54,6 +55,9 @@ impl BuiltinFunction {
             }
             BuiltinFunction::Debug => {
                 Type::Function { return_type: Box::new(Type::Void), args: vec![Type::String] }
+            }
+            BuiltinFunction::Format => {
+                Type::Function { return_type: Box::new(Type::String), args: vec![Type::String, Type::String] }
             }
             BuiltinFunction::SetFocusItem => Type::Function {
                 return_type: Box::new(Type::Void),

@@ -59,7 +59,7 @@ App := Window {
         }
         Row {
             GroupBox {
-                title: "SpinBox";
+                title: format("SpinBox {} ", 1);
                 SpinBox {
                     maximum_width: 120lx;
                     value: 42;

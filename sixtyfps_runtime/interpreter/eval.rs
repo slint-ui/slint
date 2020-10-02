@@ -277,6 +277,10 @@ pub fn eval_expression(
                 println!("{:?}", a);
                 Value::Void
             }
+            Expression::BuiltinFunctionReference(BuiltinFunction::Format) => {
+                let a = arguments.iter().map(|e| eval_expression(e, component, local_context));
+                format!("{:#?}", a)
+            }
             Expression::BuiltinFunctionReference(BuiltinFunction::SetFocusItem) => {
                 if arguments.len() != 1 {
                     panic!("internal error: incorrect argument count to SetFocusItem")
