@@ -82,7 +82,7 @@ pub(crate) fn update_item_rendering_data<Backend: GraphicsBackend>(
 pub(crate) fn render_component_items<Backend: GraphicsBackend>(
     component: crate::component::ComponentRefPin,
     frame: &mut Backend::Frame,
-    rendering_cache: &RenderingCache<Backend>,
+    rendering_cache: &RefCell<RenderingCache<Backend>>,
     window: &std::rc::Rc<GraphicsWindow<Backend>>,
 ) {
     let transform = Matrix4::identity();
@@ -100,10 +100,9 @@ pub(crate) fn render_component_items<Backend: GraphicsBackend>(
 
             let cached_rendering_data = item.cached_rendering_data_offset();
             let cleanup_primitives = if cached_rendering_data.cache_ok.get() {
-                let primitive = &rendering_cache
-                    .get(cached_rendering_data.cache_index.get())
-                    .unwrap()
-                    .primitive;
+                let cache = rendering_cache.borrow_mut();
+                let primitive =
+                    &cache.get(cached_rendering_data.cache_index.get()).unwrap().primitive;
                 frame.borrow_mut().render_primitive(
                     &primitive,
                     &transform,

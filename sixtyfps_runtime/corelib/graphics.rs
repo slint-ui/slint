@@ -605,7 +605,7 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
         crate::item_rendering::render_component_items(
             component,
             &mut frame,
-            &mut window.rendering_cache.borrow_mut(),
+            &window.rendering_cache,
             &self,
         );
         backend.present_frame(frame);
