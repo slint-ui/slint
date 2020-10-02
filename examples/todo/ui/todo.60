@@ -54,9 +54,7 @@ MainWindow := Window {
         list_view := ListView {
             rowspan: 2;
             row: 2;
-            for todo[index] in todo_model: Rectangle {
-                y: index * height;
-                width: parent.width;
+            for todo in todo_model: Rectangle {
                 height: 20lx;
                 GridLayout {
                     CheckBox {

@@ -35,6 +35,8 @@ pub trait ErasedPropertyInfo {
     );
     fn offset(&self) -> usize;
 
+    /// Safety: Property2 must be a (pinned) pointer to a `Property<T>`
+    /// where T is the same T as the one represented by this property.
     unsafe fn link_two_ways(&self, item: Pin<ItemRef>, property2: *const ());
 }
 
@@ -59,6 +61,7 @@ impl<Item: vtable::HasStaticVTable<corelib::items::ItemVTable>> ErasedPropertyIn
         (*self).offset()
     }
     unsafe fn link_two_ways(&self, item: Pin<ItemRef>, property2: *const ()) {
+        // Safety: ErasedPropertyInfo::link_two_ways and PropertyInfo::link_two_ways have the same safety requirement
         (*self).link_two_ways(ItemRef::downcast_pin(item).unwrap(), property2)
     }
 }

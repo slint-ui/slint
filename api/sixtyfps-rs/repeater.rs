@@ -174,6 +174,17 @@ pub trait RepeatedComponent: sixtyfps_corelib::component::Component {
 
     /// Update this component at the given index and the given data
     fn update(&self, index: usize, data: Self::Data);
+
+    /// Layout this item in the listview
+    ///
+    /// offset_y is the `y` position where this item should be placed.
+    /// it should be updated to be to the y position of the next item.
+    fn listview_layout(
+        self: Pin<&Self>,
+        _offset_y: &mut f32,
+        _viewport_width: Pin<&Property<f32>>,
+    ) {
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -189,11 +200,18 @@ struct RepeaterInner<C: RepeatedComponent> {
     /// The model row (index) of the first component in the `components` vector.
     /// Only used for ListView
     offset: usize,
+    /// The average visible item_height. Only used for ListView
+    cached_item_height: f32,
 }
 
 impl<C: RepeatedComponent> Default for RepeaterInner<C> {
     fn default() -> Self {
-        RepeaterInner { components: Default::default(), is_dirty: true, offset: 0 }
+        RepeaterInner {
+            components: Default::default(),
+            is_dirty: true,
+            offset: 0,
+            cached_item_height: 0.,
+        }
     }
 }
 
@@ -250,6 +268,9 @@ impl<C: RepeatedComponent> ViewAbstraction for RepeaterInner<C> {
         }
         if count == 0 {
             return;
+        }
+        if (index + count) > self.components.len() {
+            count = self.components.len() - index;
         }
         self.is_dirty = true;
         self.components.drain(index..(index + count));
@@ -308,25 +329,28 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
     pub fn ensure_updated(self: Pin<&Self>, init: impl Fn() -> Pin<Rc<C>>) {
         if let Some(model) = self.model() {
             if self.inner.borrow().borrow().is_dirty {
-                self.ensure_updated_impl(init, &model, model.row_count())
+                self.ensure_updated_impl(init, &model, model.row_count());
             }
         } else {
             self.inner.borrow().borrow_mut().components.clear();
         }
     }
+    // returns true if new items were created
     fn ensure_updated_impl(
         self: Pin<&Self>,
         init: impl Fn() -> Pin<Rc<C>>,
         model: &Rc<dyn Model<Data = C::Data>>,
         count: usize,
-    ) {
+    ) -> bool {
         let inner = self.inner.borrow();
         let mut inner = inner.borrow_mut();
         inner.components.resize_with(count, || (RepeatedComponentState::Dirty, None));
         let offset = inner.offset;
+        let mut created = false;
         for (i, c) in inner.components.iter_mut().enumerate() {
             if c.0 == RepeatedComponentState::Dirty {
                 if c.1.is_none() {
+                    created = true;
                     c.1 = Some(init());
                 }
                 c.1.as_ref().unwrap().update(i + offset, model.row_data(i + offset));
@@ -334,14 +358,17 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
             }
         }
         inner.is_dirty = false;
+        created
     }
 
     /// Same as `Self::ensuer_updated` but for a ListView
     pub fn ensure_updated_listview(
         self: Pin<&Self>,
         init: impl Fn() -> Pin<Rc<C>>,
+        viewport_width: Pin<&Property<f32>>,
         viewport_height: Pin<&Property<f32>>,
         viewport_y: Pin<&Property<f32>>,
+        listview_width: f32,
         listview_height: f32,
     ) {
         let empty_model = || {
@@ -364,59 +391,67 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         // Safety: Repeater does not implement drop and never let access model as mutable
         let listview_geometry_tracker =
             unsafe { self.map_unchecked(|s| &s.listview_geometry_tracker) };
-        listview_geometry_tracker.evaluate_if_dirty(||{
-            // Compute the element height
-            let total_height = Cell::new(0.);
-            let count = Cell::new(0);
+        if listview_geometry_tracker.is_dirty() {
+            listview_geometry_tracker.evaluate_if_dirty(||{
+                // Compute the element height
+                let total_height = Cell::new(0.);
+                let count = Cell::new(0);
 
-            let mut get_height_visitor = |_: ComponentRefPin, _: isize, item: Pin<ItemRef>| -> VisitChildrenResult {
-                count.set(count.get() + 1);
-                total_height.set( total_height.get() + item.as_ref().geometry().height());
+                let mut get_height_visitor = |_: ComponentRefPin, _: isize, item: Pin<ItemRef>| -> VisitChildrenResult {
+                    count.set(count.get() + 1);
+                    total_height.set( total_height.get() + item.as_ref().geometry().height());
 
-                VisitChildrenResult::abort(0, 0)
-            };
-            vtable::new_vref!(
-                let mut get_height_visitor: VRefMut<sixtyfps_corelib::item_tree::ItemVisitorVTable> for sixtyfps_corelib::item_tree::ItemVisitor
-                     = &mut get_height_visitor
-            );
+                    VisitChildrenResult::abort(0, 0)
+                };
+                vtable::new_vref!(
+                    let mut get_height_visitor: VRefMut<sixtyfps_corelib::item_tree::ItemVisitorVTable> for sixtyfps_corelib::item_tree::ItemVisitor
+                        = &mut get_height_visitor
+                );
 
-            for c in self.inner.borrow().borrow().components.iter() {
-                c.1.as_ref().map(|x| {
-                    x.as_ref().compute_layout();
-                    x.as_ref().visit_children_item(-1, sixtyfps_corelib::item_tree::TraversalOrder::FrontToBack, get_height_visitor.borrow_mut());
-                });
-            }
-
-            let element_height = if count.get() > 0 {
-                total_height.get() / (count.get() as f32)
-            } else {
-                // There seems to be currently no items. Just instentiate one item.
-
-                {
-                    let inner = self.inner.borrow();
-                    let mut inner = inner.borrow_mut();
-                    inner.offset = inner.offset.min(row_count - 1);
-                }
-
-                self.ensure_updated_impl(&init, &model, 1);
-                if let Some(c) = self.inner.borrow().borrow().components.get(0) {
+                for c in self.inner.borrow().borrow().components.iter() {
                     c.1.as_ref().map(|x| {
                         x.as_ref().compute_layout();
-                        x.as_ref().visit_children_item(-1, sixtyfps_corelib::item_tree::TraversalOrder::FrontToBack, get_height_visitor);
+                        x.as_ref().visit_children_item(-1, sixtyfps_corelib::item_tree::TraversalOrder::FrontToBack, get_height_visitor.borrow_mut());
                     });
-                } else {
-                    panic!("Could not determine size of items");
                 }
-                total_height.get()
-            };
 
-            viewport_height.set(element_height * model.row_count() as f32);
-            let offset = (-viewport_y.get() / element_height).floor() as usize;
-            self.set_offset(offset, ((listview_height / element_height).ceil() as usize).min(row_count - offset));
-        });
-        if self.inner.borrow().borrow().is_dirty {
-            let count = self.inner.borrow().borrow().components.len();
-            self.ensure_updated_impl(init, &model, count);
+                let element_height = if count.get() > 0 {
+                    total_height.get() / (count.get() as f32)
+                } else {
+                    // There seems to be currently no items. Just instentiate one item.
+
+                    {
+                        let inner = self.inner.borrow();
+                        let mut inner = inner.borrow_mut();
+                        inner.offset = inner.offset.min(row_count - 1);
+                    }
+
+                    self.ensure_updated_impl(&init, &model, 1);
+                    if let Some(c) = self.inner.borrow().borrow().components.get(0) {
+                        c.1.as_ref().map(|x| {
+                            x.as_ref().compute_layout();
+                            x.as_ref().visit_children_item(-1, sixtyfps_corelib::item_tree::TraversalOrder::FrontToBack, get_height_visitor);
+                        });
+                    } else {
+                        panic!("Could not determine size of items");
+                    }
+                    total_height.get()
+                };
+
+                viewport_height.set(element_height * model.row_count() as f32);
+                self.inner.borrow().borrow_mut().cached_item_height = element_height;
+                let offset = (-viewport_y.get() / element_height).floor() as usize;
+                let count = ((listview_height / element_height).ceil() as usize).min(row_count - offset);
+                self.set_offset(offset, count);
+                self.ensure_updated_impl(init, &model, count);
+                self.compute_layout_listview(viewport_width, listview_width);
+            });
+        } else {
+            if self.inner.borrow().borrow().is_dirty {
+                let count = self.inner.borrow().borrow().components.len();
+                self.ensure_updated_impl(init, &model, count);
+                self.compute_layout_listview(viewport_width, listview_width);
+            }
         }
     }
 
@@ -425,11 +460,16 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         let mut inner = inner.borrow_mut();
         let old_offset = inner.offset;
         // Remove the items before the offset, or add items until the old offset
-        inner.components.splice(
-            0..(offset.saturating_sub(old_offset)),
-            core::iter::repeat((RepeatedComponentState::Dirty, None))
-                .take(old_offset.saturating_sub(offset)),
-        );
+        let to_remove = offset.saturating_sub(old_offset);
+        if to_remove < inner.components.len() {
+            inner.components.splice(
+                0..to_remove,
+                core::iter::repeat((RepeatedComponentState::Dirty, None))
+                    .take(old_offset.saturating_sub(offset)),
+            );
+        } else {
+            inner.components.truncate(0);
+        }
         inner.components.resize_with(count, || (RepeatedComponentState::Dirty, None));
         inner.offset = offset;
         inner.is_dirty = true;
@@ -506,6 +546,21 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
     pub fn compute_layout(&self) {
         for c in self.inner.borrow().borrow().components.iter() {
             c.1.as_ref().map(|x| x.as_ref().compute_layout());
+        }
+    }
+
+    /// Same as compule_layout, but only for the ListView
+    pub fn compute_layout_listview(
+        &self,
+        viewport_width: Pin<&Property<f32>>,
+        listview_width: f32,
+    ) {
+        let inner = self.inner.borrow();
+        let inner = inner.borrow();
+        let mut y_offset = inner.offset as f32 * inner.cached_item_height;
+        viewport_width.set(listview_width);
+        for c in self.inner.borrow().borrow().components.iter() {
+            c.1.as_ref().map(|x| x.as_ref().listview_layout(&mut y_offset, viewport_width));
         }
     }
 

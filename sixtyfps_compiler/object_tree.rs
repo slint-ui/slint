@@ -193,7 +193,9 @@ impl SpannedWithSourceFile for Element {
 pub struct ListViewInfo {
     pub viewport_y: NamedReference,
     pub viewport_height: NamedReference,
+    pub viewport_width: NamedReference,
     pub listview_height: NamedReference,
+    pub listview_width: NamedReference,
 }
 
 #[derive(Debug, Clone)]
@@ -573,18 +575,11 @@ impl Element {
     ) -> ElementRc {
         let is_listview = if parent.borrow().base_type.to_string() == "ListView" {
             Some(ListViewInfo {
-                viewport_height: NamedReference {
-                    element: Rc::downgrade(parent),
-                    name: "viewport_height".to_owned(),
-                },
-                viewport_y: NamedReference {
-                    element: Rc::downgrade(parent),
-                    name: "viewport_y".to_owned(),
-                },
-                listview_height: NamedReference {
-                    element: Rc::downgrade(parent),
-                    name: "height".to_owned(),
-                },
+                viewport_y: NamedReference::new(parent, "viewport_y"),
+                viewport_height: NamedReference::new(parent, "viewport_height"),
+                viewport_width: NamedReference::new(parent, "viewport_width"),
+                listview_height: NamedReference::new(parent, "height"),
+                listview_width: NamedReference::new(parent, "width"),
             })
         } else {
             None
@@ -944,7 +939,9 @@ pub fn visit_all_named_references(elem: &ElementRc, mut vis: impl FnMut(&mut Nam
         if let Some(lv) = &mut r.is_listview {
             vis(&mut lv.viewport_y);
             vis(&mut lv.viewport_height);
+            vis(&mut lv.viewport_width);
             vis(&mut lv.listview_height);
+            vis(&mut lv.listview_width);
         }
     }
     elem.borrow_mut().repeated = repeated;

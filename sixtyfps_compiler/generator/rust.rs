@@ -17,7 +17,7 @@ use crate::expression_tree::{
 use crate::layout::{gen::LayoutItemCodeGen, Layout, LayoutElement};
 use crate::object_tree::{Component, Document, ElementRc};
 use crate::typeregister::Type;
-use proc_macro2::{Ident, TokenStream};
+use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use std::rc::Rc;
 
@@ -186,13 +186,7 @@ fn generate_component(
                 let setter_ident = format_ident!("set_{}", prop_name);
 
                 let prop = if let Some(alias) = &property_decl.is_alias {
-                    access_member(
-                        &alias.element.upgrade().unwrap(),
-                        &alias.name,
-                        component,
-                        quote!(self),
-                        false,
-                    )
+                    access_named_reference(alias, component, quote!(self))
                 } else {
                     quote!(Self::FIELD_OFFSETS.#prop_ident.apply_pin(self))
                 };
@@ -245,6 +239,7 @@ fn generate_component(
     let mut item_names = Vec::new();
     let mut item_types = Vec::new();
     let mut repeated_element_names = Vec::new();
+    let mut repeated_element_layouts = Vec::new();
     let mut repeated_element_components = Vec::new();
     let mut repeated_visit_branch = Vec::new();
     let mut repeated_input_branch = Vec::new();
@@ -296,6 +291,47 @@ fn generate_component(
                     quote!().into()
                 });
 
+                let listview_layout = repeated.is_listview.as_ref().map(|_| {
+                    let p_y = access_member(
+                        &base_component.root_element,
+                        "y",
+                        base_component,
+                        quote!(self),
+                        false,
+                    );
+                    let p_height = access_member(
+                        &base_component.root_element,
+                        "height",
+                        base_component,
+                        quote!(self),
+                        false,
+                    );
+                    let p_width = access_member(
+                        &base_component.root_element,
+                        "width",
+                        base_component,
+                        quote!(self),
+                        false,
+                    );
+                    quote! {
+                        fn listview_layout(
+                            self: core::pin::Pin<&Self>,
+                            offset_y: &mut f32,
+                            viewport_width: core::pin::Pin<&sixtyfps::re_exports::Property<f32>>,
+                        ) {
+                            use sixtyfps::re_exports::*;
+                            self.compute_layout();
+                            #p_y.set(*offset_y);
+                            *offset_y += #p_height.get();
+                            let vp_w = viewport_width.get();
+                            let w = #p_width.get();
+                            if vp_w < w {
+                                viewport_width.set(w);
+                            }
+                        }
+                    }
+                });
+
                 quote! {
                     impl sixtyfps::re_exports::RepeatedComponent for #rep_component_id {
                         type Data = #data_type;
@@ -303,6 +339,7 @@ fn generate_component(
                             self.index.set(index);
                             self.model_data.set(data);
                         }
+                        #listview_layout
                     }
                 }
             });
@@ -323,36 +360,50 @@ fn generate_component(
                     }
                 });
             });
+
             if let Some(listview) = &repeated.is_listview {
-                let vp_y = access_member(
-                    &listview.viewport_y.element.upgrade().unwrap(),
-                    listview.viewport_y.name.as_ref(),
+                let vp_y = access_named_reference(
+                    &listview.viewport_y,
                     component,
                     quote!(self_pinned.as_ref()),
-                    false,
                 );
-                let vp_h = access_member(
-                    &listview.viewport_height.element.upgrade().unwrap(),
-                    listview.viewport_height.name.as_ref(),
+                let vp_h = access_named_reference(
+                    &listview.viewport_height,
                     component,
                     quote!(self_pinned.as_ref()),
-                    false,
                 );
-                let lv_h = access_member(
-                    &listview.listview_height.element.upgrade().unwrap(),
-                    listview.listview_height.name.as_ref(),
+                let lv_h = access_named_reference(
+                    &listview.listview_height,
                     component,
                     quote!(self_pinned.as_ref()),
-                    false,
                 );
+                let vp_w = access_named_reference(
+                    &listview.viewport_width,
+                    component,
+                    quote!(self_pinned.as_ref()),
+                );
+                let lv_w = access_named_reference(
+                    &listview.listview_width,
+                    component,
+                    quote!(self_pinned.as_ref()),
+                );
+
+                let ensure_updated = quote! {
+                    #component_id::FIELD_OFFSETS.#repeater_id.apply_pin(self_pinned).ensure_updated_listview(
+                        || { #rep_component_id::new(self_pinned.self_weak.get().unwrap().clone()) },
+                        #vp_w, #vp_h, #vp_y, #lv_w.get(), #lv_h.get()
+                    );
+                };
+
                 repeated_visit_branch.push(quote!(
                     #repeater_index => {
-                        #component_id::FIELD_OFFSETS.#repeater_id.apply_pin(self_pinned).ensure_updated_listview(
-                                || { #rep_component_id::new(self_pinned.self_weak.get().unwrap().clone()) },
-                                #vp_h, #vp_y, #lv_h.get()
-                            );
+                        #ensure_updated
                         self_pinned.#repeater_id.visit(order, visitor)
                     }
+                ));
+
+                repeated_element_layouts.push(quote!(
+                    #ensure_updated
                 ));
             } else {
                 repeated_visit_branch.push(quote!(
@@ -362,6 +413,10 @@ fn generate_component(
                             );
                         self_pinned.#repeater_id.visit(order, visitor)
                     }
+                ));
+
+                repeated_element_layouts.push(quote!(
+                    self_pinned.#repeater_id.compute_layout();
                 ));
             }
 
@@ -464,7 +519,7 @@ fn generate_component(
         Vec::new()
     };
 
-    let layouts = compute_layout(component, &repeated_element_names);
+    let layouts = compute_layout(component, &repeated_element_layouts);
     let mut visibility = None;
     let mut parent_component_type = None;
     let mut has_window_impl = None;
@@ -857,6 +912,15 @@ fn access_member(
     }
 }
 
+/// Call access_member  for a NamedReference
+fn access_named_reference(
+    nr: &NamedReference,
+    component: &Rc<Component>,
+    component_rust: TokenStream,
+) -> TokenStream {
+    access_member(&nr.element.upgrade().unwrap(), &nr.name, component, component_rust, false)
+}
+
 /// Return an expression that gets the window
 fn window_ref_expression(component: &Rc<Component>) -> TokenStream {
     let mut root_component = component.clone();
@@ -900,14 +964,8 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                 _ => f,
             }
         }
-        Expression::PropertyReference(NamedReference { element, name }) => {
-            let access = access_member(
-                &element.upgrade().unwrap(),
-                name.as_str(),
-                component,
-                quote!(_self),
-                false,
-            );
+        Expression::PropertyReference(nr) => {
+            let access = access_named_reference(nr, component, quote!(_self));
             quote!(#access.get())
         }
         Expression::BuiltinFunctionReference(funcref) => match funcref {
@@ -965,12 +1023,10 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
             let map = sub.iter().map(|e| compile_expression(e, &component));
             quote!({ #(#map);* })
         }
-        Expression::SignalReference(NamedReference { element, name, .. }) => access_member(
-            &element.upgrade().unwrap(),
-            name.as_str(),
+        Expression::SignalReference(nr) => access_named_reference(
+            nr,
             component,
             quote!(_self),
-            false,
         ),
         Expression::FunctionCall { function, arguments } => {
             match &**function {
@@ -1133,14 +1189,8 @@ fn compile_assignment(
     component: &Rc<Component>,
 ) -> TokenStream {
     match lhs {
-        Expression::PropertyReference(NamedReference { element, name }) => {
-            let lhs = access_member(
-                &element.upgrade().unwrap(),
-                name.as_str(),
-                component,
-                quote!(_self),
-                false,
-            );
+        Expression::PropertyReference(nr) => {
+            let lhs = access_named_reference(nr, component, quote!(_self));
             if op == '=' {
                 quote!( #lhs.set((#rhs) as _) )
             } else {
@@ -1505,7 +1555,10 @@ impl<'a> LayoutTreeItem<'a> {
     }
 }
 
-fn compute_layout(component: &Rc<Component>, repeated_element_names: &[Ident]) -> TokenStream {
+fn compute_layout(
+    component: &Rc<Component>,
+    repeated_element_layouts: &[TokenStream],
+) -> TokenStream {
     let mut layouts = vec![];
     component.layout_constraints.borrow().iter().for_each(|layout| {
         let mut inverse_layout_tree = Vec::new();
@@ -1535,10 +1588,10 @@ fn compute_layout(component: &Rc<Component>, repeated_element_names: &[Ident]) -
             let dummy = Property::<f32>::default();
             let _self = self;
             let window = #window_ref.clone();
-
             #(#layouts)*
 
-            #(self.#repeated_element_names.compute_layout();)*
+            let self_pinned = self;
+            #(#repeated_element_layouts)*
         }
     }
 }

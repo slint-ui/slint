@@ -23,6 +23,12 @@ pub struct NamedReference {
     pub name: String,
 }
 
+impl NamedReference {
+    pub fn new(element: &ElementRc, name: &str) -> Self {
+        Self { element: Rc::downgrade(element), name: name.to_owned() }
+    }
+}
+
 impl Eq for NamedReference {}
 
 impl PartialEq for NamedReference {
