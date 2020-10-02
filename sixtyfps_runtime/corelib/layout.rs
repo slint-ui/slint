@@ -69,60 +69,76 @@ mod internal {
         }
     }
 
-    /// Layout the items within a specified size
-    ///
-    /// This is quite a simple implementation for now
     pub fn layout_items(data: &mut [LayoutData], start_pos: Coord, size: Coord, spacing: Coord) {
-        let (min, _max, perf, mut s) =
-            data.iter().fold((0., 0., 0., 0.), |(min, max, pref, s), it| {
-                (min + it.min, max + it.max, pref + it.pref, s + it.stretch)
+        use stretch::geometry::*;
+        use stretch::number::*;
+        use stretch::style::*;
+
+        let mut stretch = stretch::Stretch::new();
+
+        let box_style = stretch::style::Style {
+            size: Size { width: Dimension::Percent(1.), height: Dimension::Percent(1.) },
+            flex_grow: 1.,
+            display: Display::Flex,
+            flex_direction: FlexDirection::Row,
+            flex_basis: Dimension::Percent(1.),
+            ..Default::default()
+        };
+
+        let flex_box = stretch.new_node(box_style, vec![]).unwrap();
+
+        data.iter().enumerate().for_each(|(index, cell)| {
+            let min =
+                if cell.min == 0.0 { Dimension::Undefined } else { Dimension::Points(cell.min) };
+            let max = if cell.max == f32::MAX {
+                Dimension::Undefined
+            } else {
+                Dimension::Points(cell.max)
+            };
+            let pref =
+                if cell.pref == 0.0 { Dimension::Undefined } else { Dimension::Points(cell.pref) };
+
+            let mut margin = Rect::default();
+
+            if index != 0 {
+                margin.start = Dimension::Points(spacing / 2.);
+            }
+            if index != data.len() - 1 {
+                margin.end = Dimension::Points(spacing / 2.);
+            }
+
+            let cell_style = Style {
+                min_size: Size { width: min, height: Dimension::Auto },
+                max_size: Size { width: max, height: Dimension::Auto },
+                size: Size { width: pref, height: Dimension::Auto },
+                flex_grow: 1.,
+                margin,
+                ..Default::default()
+            };
+
+            let cell_item = stretch.new_node(cell_style, vec![]).unwrap();
+            stretch.add_child(flex_box, cell_item).unwrap();
+        });
+
+        stretch
+            .compute_layout(
+                flex_box,
+                Size { width: Number::Defined(size), height: Number::Undefined },
+            )
+            .unwrap();
+
+        data.iter_mut()
+            .zip(
+                stretch
+                    .children(flex_box)
+                    .unwrap()
+                    .iter()
+                    .map(|child| stretch.layout(*child).unwrap()),
+            )
+            .for_each(|(cell, layout)| {
+                cell.pos = start_pos + layout.location.x;
+                cell.size = layout.size.width;
             });
-
-        //let total_spacing = spacing * (data.len() - 1) as Coord;
-        let size_without_spacing = size - spacing * (data.len() - 1) as Coord;
-
-        if size_without_spacing >= perf {
-            // bigger than the prefered size
-
-            // distribute each item its prefered size
-            let mut pos = start_pos;
-            for it in data.iter_mut() {
-                it.size = it.pref;
-                it.pos = pos;
-                pos += it.size;
-            }
-
-            // Allocate the space according to the stretch. Until all space is distributed, or all item
-            // have reached their maximum size
-            let mut extra_space = size_without_spacing - perf;
-            while s > 0. && extra_space > 0. {
-                let extra_per_stretch = extra_space / s;
-                s = 0.;
-                let mut pos = start_pos;
-                for it in data.iter_mut() {
-                    let give = (extra_per_stretch * it.stretch).min(it.max - it.size);
-                    it.size += give;
-                    extra_space -= give;
-                    if give > 0. {
-                        s += it.stretch;
-                    }
-                    it.pos = pos;
-                    pos += it.size + spacing;
-                }
-            }
-        } else
-        /*if size < min*/
-        {
-            // We have less than the minimum size
-            // distribute the difference proportional to the size (TODO: and stretch)
-            let ratio = size_without_spacing / min;
-            let mut pos = start_pos;
-            for it in data {
-                it.size = it.min * ratio;
-                it.pos = pos;
-                pos += it.size + spacing;
-            }
-        }
     }
 
     #[test]
