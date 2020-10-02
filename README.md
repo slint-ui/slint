@@ -100,6 +100,7 @@ The software is provided under a dual licensing scheme
 
 ## Contact us
 
-[Github issues](https://github.com/sixtyfpsui/sixtyfps/issues) can be used to report public suggestions or bugs.
+Please feel free to join [Github discussions](https://github.com/sixtyfpsui/sixtyfps/discussions) for general talk or questions.
+[Github issues](https://github.com/sixtyfpsui/sixtyfps/issues) can be used to report public suggestions or bugs. 
 
 You can also contact us privately by sending email to info@sixtyfps.io
