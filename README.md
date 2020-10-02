@@ -40,12 +40,6 @@ Our design goals are:
 |---------|-------|-------|
 | ![Screenshot of the Gallery on Windows](resources/gallery_win_screenshot.png "Gallery") | ![Screenshot of the Gallery on macOS](resources/gallery_mac_screenshot.png "Gallery") | ![Screenshot of the Gallery on Linux](resources/gallery_linux_screenshot.png "Gallery") |
 
-## Architecture
-
-An application is composed of the business logic written in Rust, C++, or JavaScript and the `.60` user interface design markup, which
-is compiled to native code.
-
-![Architecture Overview](resources/architecture.drawio.svg)
 
 ## Documentation
 
@@ -83,6 +77,41 @@ Check out the [language reference](docs/langref.md) for more details.
 ## Examples / Demo
 
 All examples and demos are located in the [examples](/examples) folder.
+
+
+## Architecture
+
+An application is composed of the business logic written in Rust, C++, or JavaScript and the `.60` user interface design markup, which
+is compiled to native code.
+
+![Architecture Overview](resources/architecture.drawio.svg)
+
+### Compiler
+
+The idea is that the `.60` files gets compiled ahead of time. The expression in the `.60` are
+meant to be pure function that the compiler can easily interpret at compile time in order to
+optimize as much as possible. The compiler could decide to "inline" properties and remove
+the ones that are always constant or not changed.
+Ideally it will be possible to pre-process images and text as to improve rendering time of design
+on low end devices. (For example, the compiler could find out that a Text or an Image is always
+on top of an Image in the same location, and pre-render the text/image on top of the
+backgrund image to imprive rendering time).
+
+The compiler is using the typical compiler phase of lexing, parsing, optimisation, code generation.
+
+There are different backend for the code generation in the target language. The C++ code generator
+generates a C++ header file, the rust generator generates rust code, and so on.
+In addition, there is also an interpreter for dynamic languages.
+
+### Runtime
+
+The runtime library consist in an engine that can support the properties written in the `.60` language.
+It is meant to reduce memory allocations. Components with all their elements and items are usually
+laid out in a single memory region.
+
+Rendering backend and styles are pluggable. There are currently two backend: the `gl` backend uses OpenGL to draw everything. There is also a `qt` backend which would use Qt's QPainter,
+this allow to use native looking widgets using Qt's QStyle.
+The choice of rendering backend or style is a compile time decision.
 
 ## Contributions
 
