@@ -47,8 +47,8 @@ export CheckBox := Rectangle {
     property <string> text;
     property <bool> checked;
 
-    maximum_height: 40lx;
-    minimum_height: 40lx;
+    maximum_height: 20lx;
+    minimum_height: 20lx;
     minimum_width: 120lx;
 
     // the check box iteself
