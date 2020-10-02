@@ -100,7 +100,7 @@ pub(crate) fn render_component_items<Backend: GraphicsBackend>(
 
             let cached_rendering_data = item.cached_rendering_data_offset();
             let cleanup_primitives = if cached_rendering_data.cache_ok.get() {
-                let cache = rendering_cache.borrow_mut();
+                let cache = rendering_cache.borrow();
                 let primitive =
                     &cache.get(cached_rendering_data.cache_index.get()).unwrap().primitive;
                 frame.borrow_mut().render_primitive(
