@@ -163,6 +163,8 @@ impl Item for NativeButton {
         LayoutInfo {
             min_width: size.width as f32,
             min_height: size.height as f32,
+            max_width: size.width as f32,
+            max_height: size.height as f32,
             ..LayoutInfo::default()
         }
     }
