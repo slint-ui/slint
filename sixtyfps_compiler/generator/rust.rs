@@ -301,7 +301,7 @@ fn generate_component(
                         type Data = #data_type;
                         fn update(&self, index: usize, data: Self::Data) {
                             self.index.set(index);
-                            self.model_data.set(data)
+                            self.model_data.set(data);
                         }
                     }
                 }

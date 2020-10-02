@@ -939,6 +939,15 @@ pub fn visit_all_named_references(elem: &ElementRc, mut vis: impl FnMut(&mut Nam
         }
     }
     elem.borrow_mut().transitions = transitions;
+    let mut repeated = std::mem::take(&mut elem.borrow_mut().repeated);
+    if let Some(r) = &mut repeated {
+        if let Some(lv) = &mut r.is_listview {
+            vis(&mut lv.viewport_y);
+            vis(&mut lv.viewport_height);
+            vis(&mut lv.listview_height);
+        }
+    }
+    elem.borrow_mut().repeated = repeated;
 }
 
 #[derive(Debug, Clone)]

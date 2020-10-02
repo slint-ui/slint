@@ -307,6 +307,8 @@ ScrollBar := Rectangle {
 export ScrollView := Rectangle {
     property <length> viewport_width <=> fli.viewport_width;
     property <length> viewport_height <=> fli.viewport_height;
+    property <length> viewport_x <=> fli.viewport_x;
+    property <length> viewport_y <=> fli.viewport_y;
     border_width: 1lx;
     border_color: #d0d3cf;
     color: white;

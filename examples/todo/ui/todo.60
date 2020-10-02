@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-import { SpinBox, Button, CheckBox, Slider, LineEdit, ScrollView } from "sixtyfps_widgets.60";
+import { SpinBox, Button, CheckBox, Slider, LineEdit, ScrollView, ListView } from "sixtyfps_widgets.60";
 
 export TodoItem := {
     property <string> title;
@@ -51,10 +51,7 @@ MainWindow := Window {
             row: 1;
             rowspan: 2;
         }
-        // Should be a ListView
-        list_view := ScrollView {
-            viewport_width: self.width;
-            viewport_height: 3000lx;
+        list_view := ListView {
             rowspan: 2;
             row: 2;
             for todo[index] in todo_model: Rectangle {

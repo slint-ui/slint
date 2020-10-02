@@ -176,7 +176,7 @@ pub trait RepeatedComponent: sixtyfps_corelib::component::Component {
     fn update(&self, index: usize, data: Self::Data);
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 enum RepeatedComponentState {
     /// The item is in a clean state
     Clean,
@@ -228,7 +228,7 @@ impl<C: RepeatedComponent> ViewAbstraction for RepeaterInner<C> {
         } else {
             index -= self.offset;
         }
-        if count == 0 {
+        if count == 0 || index > self.components.len() {
             return;
         }
         self.is_dirty = true;
@@ -392,12 +392,14 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
             } else {
                 // There seems to be currently no items. Just instentiate one item.
 
-                let inner = self.inner.borrow();
-                let mut inner = inner.borrow_mut();
-                inner.offset = inner.offset.min(row_count - 1);
+                {
+                    let inner = self.inner.borrow();
+                    let mut inner = inner.borrow_mut();
+                    inner.offset = inner.offset.min(row_count - 1);
+                }
 
                 self.ensure_updated_impl(&init, &model, 1);
-                if let Some(c) = inner.components.get(0) {
+                if let Some(c) = self.inner.borrow().borrow().components.get(0) {
                     c.1.as_ref().map(|x| {
                         x.as_ref().compute_layout();
                         x.as_ref().visit_children_item(-1, sixtyfps_corelib::item_tree::TraversalOrder::FrontToBack, get_height_visitor);
@@ -409,7 +411,8 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
             };
 
             viewport_height.set(element_height * model.row_count() as f32);
-            self.set_offset((-viewport_y.get() / element_height).floor() as usize, (listview_height / element_height).ceil() as usize);
+            let offset = (-viewport_y.get() / element_height).floor() as usize;
+            self.set_offset(offset, ((listview_height / element_height).ceil() as usize).min(row_count - offset));
         });
         if self.inner.borrow().borrow().is_dirty {
             let count = self.inner.borrow().borrow().components.len();
@@ -429,6 +432,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         );
         inner.components.resize_with(count, || (RepeatedComponentState::Dirty, None));
         inner.offset = offset;
+        inner.is_dirty = true;
     }
 
     /// Call the visitor for each component
