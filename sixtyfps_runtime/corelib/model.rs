@@ -307,11 +307,6 @@ impl<C: RepeatedComponent> Default for Repeater<C> {
 }
 
 impl<C: RepeatedComponent + 'static> Repeater<C> {
-    /// Set the model binding
-    pub fn set_model_binding(&self, binding: impl Fn() -> ModelHandle<C::Data> + 'static) {
-        self.model.set_binding(binding);
-    }
-
     fn model(self: Pin<&Self>) -> ModelHandle<C::Data> {
         // Safety: Repeater does not implement drop and never let access model as mutable
         #[allow(unsafe_code)]
@@ -479,6 +474,28 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         inner.is_dirty = true;
     }
 
+    /// Sets the data directly in the model
+    pub fn model_set_row_data(self: Pin<&Self>, row: usize, data: C::Data) {
+        if let Some(model) = self.model() {
+            model.set_row_data(row, data);
+            if let Some(c) = self.inner.borrow().borrow_mut().components.get_mut(row) {
+                if c.0 == RepeatedComponentState::Dirty {
+                    if let Some(comp) = c.1.as_ref() {
+                        comp.update(row, model.row_data(row));
+                        c.0 = RepeatedComponentState::Clean;
+                    }
+                }
+            }
+        }
+    }
+}
+
+impl<C: RepeatedComponent> Repeater<C> {
+    /// Set the model binding
+    pub fn set_model_binding(&self, binding: impl Fn() -> ModelHandle<C::Data> + 'static) {
+        self.model.set_binding(binding);
+    }
+
     /// Call the visitor for each component
     pub fn visit(
         &self,
@@ -565,21 +582,6 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         viewport_width.set(listview_width);
         for c in self.inner.borrow().borrow().components.iter() {
             c.1.as_ref().map(|x| x.as_ref().listview_layout(&mut y_offset, viewport_width));
-        }
-    }
-
-    /// Sets the data directly in the model
-    pub fn model_set_row_data(self: Pin<&Self>, row: usize, data: C::Data) {
-        if let Some(model) = self.model() {
-            model.set_row_data(row, data);
-            if let Some(c) = self.inner.borrow().borrow_mut().components.get_mut(row) {
-                if c.0 == RepeatedComponentState::Dirty {
-                    if let Some(comp) = c.1.as_ref() {
-                        comp.update(row, model.row_data(row));
-                        c.0 = RepeatedComponentState::Clean;
-                    }
-                }
-            }
         }
     }
 }

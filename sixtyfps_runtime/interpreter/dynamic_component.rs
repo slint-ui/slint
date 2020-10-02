@@ -17,20 +17,18 @@ use sixtyfps_compilerlib::expression_tree::Expression;
 use sixtyfps_compilerlib::layout::{GridLayout, Layout, LayoutElement, LayoutItem, PathLayout};
 use sixtyfps_compilerlib::typeregister::Type;
 use sixtyfps_compilerlib::*;
+use sixtyfps_corelib::component::{ComponentRefPin, ComponentVTable};
 use sixtyfps_corelib::graphics::Resource;
-use sixtyfps_corelib::input::KeyEventResult;
+use sixtyfps_corelib::input::{FocusEventResult, KeyEventResult};
 use sixtyfps_corelib::item_tree::{
     ItemTreeNode, ItemVisitorRefMut, TraversalOrder, VisitChildrenResult,
 };
 use sixtyfps_corelib::items::{Flickable, ItemRef, ItemVTable, PropertyAnimation, Rectangle};
 use sixtyfps_corelib::layout::{LayoutInfo, Padding};
-use sixtyfps_corelib::properties::{InterpolatedPropertyValue, PropertyTracker};
+use sixtyfps_corelib::model::Repeater;
+use sixtyfps_corelib::properties::InterpolatedPropertyValue;
 use sixtyfps_corelib::rtti::{self, FieldOffset, PropertyInfo};
 use sixtyfps_corelib::slice::Slice;
-use sixtyfps_corelib::{
-    component::{ComponentRefPin, ComponentVTable},
-    input::FocusEventResult,
-};
 use sixtyfps_corelib::{eventloop::ComponentWindow, input::FocusEvent};
 use sixtyfps_corelib::{Color, Property, SharedString, Signal};
 use std::collections::HashMap;
@@ -121,31 +119,77 @@ pub(crate) struct PropertiesWithinComponent {
 pub(crate) struct RepeaterWithinComponent<'par_id, 'sub_id> {
     /// The component description of the items to repeat
     pub(crate) component_to_repeat: Rc<ComponentDescription<'sub_id>>,
-    /// Offset of the `Vec<ComponentBox>`
-    pub(crate) offset: FieldOffset<Instance<'par_id>, RepeaterVec<'sub_id>>,
     /// The model
     pub(crate) model: Expression,
-    /// Offset of the PropertyTracker
-    property_tracker: Option<FieldOffset<Instance<'par_id>, PropertyTracker>>,
+    /// Offset of the `Repeater`
+    pub(crate) offset: FieldOffset<Instance<'par_id>, Repeater<ComponentBox<'sub_id>>>,
 }
 
-type RepeaterVec<'id> = core::cell::RefCell<Vec<ComponentBox<'id>>>;
+impl<'id> sixtyfps_corelib::model::RepeatedComponent for ComponentBox<'id> {
+    type Data = eval::Value;
+
+    fn update(&self, index: usize, data: Self::Data) {
+        self.component_type
+            .set_property(self.borrow(), "index", index.try_into().unwrap())
+            .unwrap();
+        self.component_type.set_property(self.borrow(), "model_data", data).unwrap();
+    }
+}
+
+impl<'id> sixtyfps_corelib::component::Component for ComponentBox<'id> {
+    fn visit_children_item(
+        self: ::core::pin::Pin<&Self>,
+        index: isize,
+        order: TraversalOrder,
+        visitor: ItemVisitorRefMut,
+    ) -> VisitChildrenResult {
+        self.borrow().as_ref().visit_children_item(index, order, visitor)
+    }
+
+    fn input_event(
+        self: ::core::pin::Pin<&Self>,
+        mouse_event: sixtyfps_corelib::input::MouseEvent,
+        window: &ComponentWindow,
+        app_component: &ComponentRefPin,
+    ) -> sixtyfps_corelib::input::InputEventResult {
+        self.borrow().as_ref().input_event(mouse_event, window, app_component)
+    }
+
+    fn key_event(
+        self: ::core::pin::Pin<&Self>,
+        event: &sixtyfps_corelib::input::KeyEvent,
+        window: &ComponentWindow,
+    ) -> sixtyfps_corelib::input::KeyEventResult {
+        self.borrow().as_ref().key_event(event, window)
+    }
+
+    fn focus_event(
+        self: ::core::pin::Pin<&Self>,
+        event: &sixtyfps_corelib::input::FocusEvent,
+        window: &ComponentWindow,
+    ) -> sixtyfps_corelib::input::FocusEventResult {
+        self.borrow().as_ref().focus_event(event, window)
+    }
+
+    fn layout_info(self: ::core::pin::Pin<&Self>) -> sixtyfps_corelib::layout::LayoutInfo {
+        self.borrow().as_ref().layout_info()
+    }
+    fn compute_layout(self: ::core::pin::Pin<&Self>) {
+        self.borrow().as_ref().compute_layout()
+    }
+}
 
 pub(crate) struct ComponentExtraData {
-    mouse_grabber: core::cell::Cell<sixtyfps_corelib::item_tree::VisitChildrenResult>,
-    focus_item: core::cell::Cell<sixtyfps_corelib::item_tree::VisitChildrenResult>,
-    pub(crate) window: RefCell<Option<sixtyfps_corelib::eventloop::ComponentWindow>>,
+    mouse_grabber: core::cell::Cell<VisitChildrenResult>,
+    focus_item: core::cell::Cell<VisitChildrenResult>,
+    pub(crate) window: RefCell<Option<ComponentWindow>>,
 }
 
 impl Default for ComponentExtraData {
     fn default() -> Self {
         Self {
-            mouse_grabber: core::cell::Cell::new(
-                sixtyfps_corelib::item_tree::VisitChildrenResult::CONTINUE,
-            ),
-            focus_item: core::cell::Cell::new(
-                sixtyfps_corelib::item_tree::VisitChildrenResult::CONTINUE,
-            ),
+            mouse_grabber: core::cell::Cell::new(VisitChildrenResult::CONTINUE),
+            focus_item: core::cell::Cell::new(VisitChildrenResult::CONTINUE),
             window: RefCell::new(None),
         }
     }
@@ -178,6 +222,13 @@ impl<'id> ErasedRepeaterWithinComponent<'id> {
                 &'a RepeaterWithinComponent<'id, 'sub_id>,
             >(&self.0)
         }
+    }
+
+    /// Return a repeater with a component with a 'static lifetime
+    ///
+    /// Safety: one should ensure that the inner component is not mixed with other inner component
+    unsafe fn get_untaged(&self) -> &RepeaterWithinComponent<'id, 'static> {
+        &self.0
     }
 }
 
@@ -224,65 +275,20 @@ extern "C" fn visit_children_item(
         index,
         order,
         v,
-        |_, order, mut visitor, index| {
-            generativity::make_guard!(guard);
-            let rep_in_comp = component_type.repeater[index].unerase(guard);
-            let mut vec = rep_in_comp.offset.apply(&*instance).borrow_mut();
-            if let Some(listener_offset) = rep_in_comp.property_tracker {
-                let listener = listener_offset.apply_pin(instance);
-                if listener.is_dirty() {
-                    match listener.evaluate(|| {
-                        eval::eval_expression(
-                            &rep_in_comp.model,
-                            InstanceRef { instance, component_type },
-                            &mut Default::default(),
-                        )
-                    }) {
-                        crate::Value::Number(count) => populate_model(
-                            &mut *vec,
-                            rep_in_comp,
-                            component,
-                            (0..count as i32).into_iter().map(|v| crate::Value::Number(v as f64)),
-                        ),
-                        crate::Value::Array(a) => {
-                            populate_model(&mut *vec, rep_in_comp, component, a.into_iter())
-                        }
-                        crate::Value::Bool(b) => populate_model(
-                            &mut *vec,
-                            rep_in_comp,
-                            component,
-                            (if b { Some(crate::Value::Void) } else { None }).into_iter(),
-                        ),
-                        _ => panic!("Unsupported model"),
-                    }
-                }
-            }
-            match order {
-                TraversalOrder::FrontToBack => {
-                    for (i, x) in vec.iter().enumerate() {
-                        if x.borrow()
-                            .as_ref()
-                            .visit_children_item(-1, order, visitor.borrow_mut())
-                            .has_aborted()
-                        {
-                            return VisitChildrenResult::abort(i, 0);
-                        }
-                    }
-                }
-                TraversalOrder::BackToFront => {
-                    for (i, x) in vec.iter().enumerate().rev() {
-                        if x.borrow()
-                            .as_ref()
-                            .visit_children_item(-1, order, visitor.borrow_mut())
-                            .has_aborted()
-                        {
-                            return VisitChildrenResult::abort(i, 0);
-                        }
-                    }
-                }
-            }
-
-            VisitChildrenResult::CONTINUE
+        |_, order, visitor, index| {
+            // `ensure_updated` needs a 'static lifetime so we must call get_untaged.
+            // Safety: we do not mix the component with other component id in this function
+            let rep_in_comp = unsafe { component_type.repeater[index].get_untaged() };
+            let repeater = rep_in_comp.offset.apply_pin(instance);
+            repeater.ensure_updated(|| {
+                Rc::pin(instantiate(
+                    rep_in_comp.component_to_repeat.clone(),
+                    Some(component),
+                    #[cfg(target_arch = "wasm32")]
+                    String::new(),
+                ))
+            });
+            repeater.visit(order, visitor)
         },
     )
 }
@@ -460,13 +466,8 @@ fn generate_component<'id>(
             repeater.push(
                 RepeaterWithinComponent {
                     component_to_repeat: generate_component(base_component, guard),
-                    offset: builder.add_field_type::<RepeaterVec>(),
+                    offset: builder.add_field_type::<Repeater<ComponentBox>>(),
                     model: repeated.model.clone(),
-                    property_tracker: if repeated.model.is_constant() {
-                        None
-                    } else {
-                        Some(builder.add_field_type::<PropertyTracker>())
-                    },
                 }
                 .into(),
             );
@@ -635,29 +636,6 @@ fn animation_for_element_property(
     animation_for_property(component, &element.property_animations, property_name)
 }
 
-fn populate_model<'par_id, 'sub_id>(
-    vec: &mut Vec<ComponentBox<'sub_id>>,
-    rep_in_comp: &RepeaterWithinComponent<'par_id, 'sub_id>,
-    component: ComponentRefPin,
-    model: impl Iterator<Item = eval::Value> + ExactSizeIterator,
-) {
-    vec.resize_with(model.size_hint().1.unwrap(), || {
-        instantiate(
-            rep_in_comp.component_to_repeat.clone(),
-            Some(component),
-            #[cfg(target_arch = "wasm32")]
-            String::new(),
-        )
-    });
-    for (i, (x, val)) in vec.iter().zip(model).enumerate() {
-        rep_in_comp
-            .component_to_repeat
-            .set_property(x.borrow(), "index", i.try_into().unwrap())
-            .unwrap();
-        rep_in_comp.component_to_repeat.set_property(x.borrow(), "model_data", val).unwrap();
-    }
-}
-
 pub fn instantiate<'id>(
     component_type: Rc<ComponentDescription<'id>>,
     parent_ctx: Option<ComponentRefPin>,
@@ -816,28 +794,26 @@ pub fn instantiate<'id>(
     for rep_in_comp in &component_type.repeater {
         generativity::make_guard!(guard);
         let rep_in_comp = rep_in_comp.unerase(guard);
-        if !rep_in_comp.model.is_constant() {
-            continue;
-        }
-        let mut vec = rep_in_comp.offset.apply(instance_ref.as_ref()).borrow_mut();
-        match eval::eval_expression(&rep_in_comp.model, instance_ref, &mut Default::default()) {
-            crate::Value::Number(count) => populate_model(
-                &mut *vec,
-                rep_in_comp,
-                component_box.borrow(),
-                (0..count as i32).into_iter().map(|v| crate::Value::Number(v as f64)),
-            ),
-            crate::Value::Array(a) => {
-                populate_model(&mut *vec, rep_in_comp, component_box.borrow(), a.into_iter())
-            }
-            crate::Value::Bool(b) => populate_model(
-                &mut *vec,
-                rep_in_comp,
-                component_box.borrow(),
-                (if b { Some(crate::Value::Void) } else { None }).into_iter(),
-            ),
-            _ => panic!("Unsupported model"),
-        }
+
+        let repeater = rep_in_comp.offset.apply_pin(instance_ref.instance);
+        let expr = rep_in_comp.model.clone();
+        let component_type = component_type.clone();
+        let instance = component_box.instance.as_ptr();
+        let c = unsafe {
+            Pin::new_unchecked(vtable::VRef::from_raw(
+                NonNull::from(&component_type.ct).cast(),
+                instance.cast(),
+            ))
+        };
+        repeater.set_model_binding(move || {
+            generativity::make_guard!(guard);
+            let m = eval::eval_expression(
+                &expr,
+                unsafe { InstanceRef::from_pin_ref(c, guard) },
+                &mut Default::default(),
+            );
+            Some(Rc::new(crate::value_model::ValueModel::new(m)))
+        });
     }
 
     for extra_init_code in component_type.original.setup_code.borrow().iter() {
@@ -1109,7 +1085,8 @@ impl<'a> LayoutTreeItem<'a> {
                         generativity::make_guard!(guard);
                         let rep_in_comp =
                             instance_ref.component_type.repeater[rep_index].unerase(guard);
-                        let vec = rep_in_comp.offset.apply(&*instance_ref.instance).borrow();
+                        let repeater = rep_in_comp.offset.apply_pin(instance_ref.instance);
+                        let vec = repeater.components_vec();
                         for sub_comp in vec.iter() {
                             push_layout_data(
                                 &elem.borrow().base_type.as_component().root_element,
@@ -1160,9 +1137,13 @@ extern "C" fn input_event(
             }
             ItemTreeNode::DynamicTree { index } => {
                 generativity::make_guard!(guard);
-                let rep_in_comp = &component_type.repeater[index].unerase(guard);
-                let vec = rep_in_comp.offset.apply(&*instance).borrow();
-                vec[rep_index].borrow().as_ref().input_event(event, window, app_component)
+                let rep_in_comp = component_type.repeater[index].unerase(guard);
+                rep_in_comp.offset.apply_pin(instance).input_event(
+                    rep_index,
+                    event,
+                    window,
+                    app_component,
+                )
             }
         };
         match res {
@@ -1199,8 +1180,7 @@ extern "C" fn key_event(
             ItemTreeNode::DynamicTree { index } => {
                 generativity::make_guard!(guard);
                 let rep_in_comp = &component_type.repeater[index].unerase(guard);
-                let vec = rep_in_comp.offset.apply(&*instance).borrow();
-                vec[rep_index].borrow().as_ref().key_event(key_event, window)
+                rep_in_comp.offset.apply_pin(instance).key_event(rep_index, key_event, window)
             }
         }
     } else {
@@ -1237,8 +1217,10 @@ extern "C" fn focus_event(
                     ItemTreeNode::DynamicTree { index } => {
                         generativity::make_guard!(guard);
                         let rep_in_comp = &component_type.repeater[index].unerase(guard);
-                        let vec = rep_in_comp.offset.apply(&*instance).borrow();
-                        vec[rep_index].borrow().as_ref().focus_event(&event, window);
+                        rep_in_comp
+                            .offset
+                            .apply_pin(instance)
+                            .focus_event(rep_index, &event, window);
                     }
                 };
                 // Preserve the focus_item field unless we're clearing it as part of a focus out phase.
@@ -1270,12 +1252,9 @@ extern "C" fn compute_layout(component: ComponentRefPin) {
     });
 
     for rep_in_comp in &instance_ref.component_type.repeater {
-        generativity::make_guard!(guard);
-        let rep_in_comp = rep_in_comp.unerase(guard);
-        let vec = rep_in_comp.offset.apply(instance_ref.as_ref()).borrow();
-        for c in vec.iter() {
-            c.borrow().as_ref().compute_layout();
-        }
+        generativity::make_guard!(g);
+        let rep_in_comp = rep_in_comp.unerase(g);
+        rep_in_comp.offset.apply_pin(instance_ref.instance).compute_layout();
     }
 }
 

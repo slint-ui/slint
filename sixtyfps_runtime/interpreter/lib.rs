@@ -18,6 +18,7 @@ You should use the `sixtyfps` crate instead
 mod dynamic_component;
 mod dynamic_type;
 mod eval;
+mod value_model;
 
 pub use eval::Value;
 
