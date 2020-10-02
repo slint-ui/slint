@@ -115,6 +115,9 @@ impl<'id> dynamic_component::ComponentDescription<'id> {
         if !core::ptr::eq((&self.ct) as *const _, component.get_vtable() as *const _) {
             return Err(());
         }
+        generativity::make_guard!(guard);
+        // Safety: we just verified that the component has the right vtable
+        let c = unsafe { InstanceRef::from_pin_ref(component, guard) };
         if let Some(alias) = self
             .original
             .root_element
@@ -123,12 +126,9 @@ impl<'id> dynamic_component::ComponentDescription<'id> {
             .get(name)
             .and_then(|d| d.is_alias.as_ref())
         {
-            generativity::make_guard!(guard);
-            let c = unsafe { InstanceRef::from_pin_ref(component, guard) };
             eval::load_property(c, &alias.element.upgrade().unwrap(), &alias.name)
         } else {
-            let x = self.custom_properties.get(name).ok_or(())?;
-            unsafe { x.prop.get(Pin::new_unchecked(&*component.as_ptr().add(x.offset))) }
+            eval::load_property(c, &self.original.root_element, name)
         }
     }
 

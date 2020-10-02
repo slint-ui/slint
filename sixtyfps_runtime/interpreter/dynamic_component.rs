@@ -12,12 +12,13 @@ use crate::{dynamic_type, eval};
 use core::convert::TryInto;
 use core::ptr::NonNull;
 use dynamic_type::{Instance, InstanceBox};
+use expression_tree::NamedReference;
 use object_tree::{Element, ElementRc};
 use sixtyfps_compilerlib::expression_tree::Expression;
 use sixtyfps_compilerlib::layout::{GridLayout, Layout, LayoutElement, LayoutItem, PathLayout};
 use sixtyfps_compilerlib::typeregister::Type;
 use sixtyfps_compilerlib::*;
-use sixtyfps_corelib::component::{ComponentRefPin, ComponentVTable};
+use sixtyfps_corelib::component::{Component, ComponentRefPin, ComponentVTable};
 use sixtyfps_corelib::graphics::Resource;
 use sixtyfps_corelib::input::{FocusEventResult, KeyEventResult};
 use sixtyfps_corelib::item_tree::{
@@ -134,9 +135,33 @@ impl<'id> sixtyfps_corelib::model::RepeatedComponent for ComponentBox<'id> {
             .unwrap();
         self.component_type.set_property(self.borrow(), "model_data", data).unwrap();
     }
+
+    fn listview_layout(self: Pin<&Self>, offset_y: &mut f32, viewport_width: Pin<&Property<f32>>) {
+        self.as_ref().compute_layout();
+        self.component_type
+            .set_property(self.borrow(), "y", eval::Value::Number(*offset_y as f64))
+            .expect("cannot set y");
+        let h: f32 = self
+            .component_type
+            .get_property(self.borrow(), "height")
+            .expect("missing height")
+            .try_into()
+            .expect("height not the right type");
+        let w: f32 = self
+            .component_type
+            .get_property(self.borrow(), "width")
+            .expect("missing width")
+            .try_into()
+            .expect("width not the right type");
+        *offset_y += h;
+        let vp_w = viewport_width.get();
+        if vp_w < w {
+            viewport_width.set(w);
+        }
+    }
 }
 
-impl<'id> sixtyfps_corelib::component::Component for ComponentBox<'id> {
+impl<'id> Component for ComponentBox<'id> {
     fn visit_children_item(
         self: ::core::pin::Pin<&Self>,
         index: isize,
@@ -266,28 +291,58 @@ extern "C" fn visit_children_item(
     v: ItemVisitorRefMut,
 ) -> VisitChildrenResult {
     generativity::make_guard!(guard);
-    let InstanceRef { instance, component_type } =
-        unsafe { InstanceRef::from_pin_ref(component, guard) };
+    let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
     sixtyfps_corelib::item_tree::visit_item_tree(
-        instance,
+        instance_ref.instance,
         component,
-        component_type.item_tree.as_slice().into(),
+        instance_ref.component_type.item_tree.as_slice().into(),
         index,
         order,
         v,
         |_, order, visitor, index| {
             // `ensure_updated` needs a 'static lifetime so we must call get_untaged.
             // Safety: we do not mix the component with other component id in this function
-            let rep_in_comp = unsafe { component_type.repeater[index].get_untaged() };
-            let repeater = rep_in_comp.offset.apply_pin(instance);
-            repeater.ensure_updated(|| {
+            let rep_in_comp = unsafe { instance_ref.component_type.repeater[index].get_untaged() };
+            let repeater = rep_in_comp.offset.apply_pin(instance_ref.instance);
+            let init = || {
                 Rc::pin(instantiate(
                     rep_in_comp.component_to_repeat.clone(),
                     Some(component),
                     #[cfg(target_arch = "wasm32")]
                     String::new(),
                 ))
-            });
+            };
+            if let Some(lv) = &rep_in_comp
+                .component_to_repeat
+                .original
+                .parent_element
+                .upgrade()
+                .unwrap()
+                .borrow()
+                .repeated
+                .as_ref()
+                .unwrap()
+                .is_listview
+            {
+                let assume_property_f32 =
+                    |prop| unsafe { Pin::new_unchecked(&*(prop as *const Property<f32>)) };
+                let get_prop = |nr: &NamedReference| -> f32 {
+                    eval::load_property(instance_ref, &nr.element.upgrade().unwrap(), &nr.name)
+                        .unwrap()
+                        .try_into()
+                        .unwrap()
+                };
+                repeater.ensure_updated_listview(
+                    init,
+                    assume_property_f32(get_property_ptr(&lv.viewport_width, instance_ref)),
+                    assume_property_f32(get_property_ptr(&lv.viewport_height, instance_ref)),
+                    assume_property_f32(get_property_ptr(&lv.viewport_y, instance_ref)),
+                    get_prop(&lv.listview_width),
+                    get_prop(&lv.listview_height),
+                );
+            } else {
+                repeater.ensure_updated(init);
+            }
             repeater.visit(order, visitor)
         },
     )
@@ -823,7 +878,7 @@ pub fn instantiate<'id>(
     component_box
 }
 
-fn get_property_ptr(nr: &expression_tree::NamedReference, instance: InstanceRef) -> *const () {
+fn get_property_ptr(nr: &NamedReference, instance: InstanceRef) -> *const () {
     let element = nr.element.upgrade().unwrap();
     generativity::make_guard!(guard);
     let enclosing_component = eval::enclosing_component_for_element(&element, instance, guard);
@@ -875,13 +930,13 @@ impl<'a> LayoutTreeItem<'a> {
 
 trait LayoutItemCodeGen {
     fn get_property_ref<'a>(
-        &'a self,
-        component: InstanceRef,
+        &self,
+        component: InstanceRef<'a, '_>,
         name: &str,
     ) -> Option<&'a Property<f32>>;
     fn get_layout_info<'a, 'b>(
         &'a self,
-        component: InstanceRef,
+        component: InstanceRef<'a, '_>,
         layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
         window: &ComponentWindow,
     ) -> LayoutInfo;
@@ -889,8 +944,8 @@ trait LayoutItemCodeGen {
 
 impl LayoutItemCodeGen for LayoutItem {
     fn get_property_ref<'a>(
-        &'a self,
-        component: InstanceRef,
+        &self,
+        component: InstanceRef<'a, '_>,
         name: &str,
     ) -> Option<&'a Property<f32>> {
         match self {
@@ -900,7 +955,7 @@ impl LayoutItemCodeGen for LayoutItem {
     }
     fn get_layout_info<'a, 'b>(
         &'a self,
-        component: InstanceRef,
+        component: InstanceRef<'a, '_>,
         layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
         window: &ComponentWindow,
     ) -> LayoutInfo {
@@ -913,8 +968,8 @@ impl LayoutItemCodeGen for LayoutItem {
 
 impl LayoutItemCodeGen for Layout {
     fn get_property_ref<'a>(
-        &'a self,
-        component: InstanceRef,
+        &self,
+        component: InstanceRef<'a, '_>,
         name: &str,
     ) -> Option<&'a Property<f32>> {
         let moved_property_name = match self.rect().mapped_property_name(name) {
@@ -926,7 +981,7 @@ impl LayoutItemCodeGen for Layout {
     }
     fn get_layout_info<'a, 'b>(
         &'a self,
-        component: InstanceRef,
+        component: InstanceRef<'a, '_>,
         layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
         window: &ComponentWindow,
     ) -> LayoutInfo {
@@ -938,8 +993,8 @@ impl LayoutItemCodeGen for Layout {
 
 impl LayoutItemCodeGen for LayoutElement {
     fn get_property_ref<'a>(
-        &'a self,
-        component: InstanceRef,
+        &self,
+        component: InstanceRef<'a, '_>,
         name: &str,
     ) -> Option<&'a Property<f32>> {
         let item =
@@ -954,7 +1009,7 @@ impl LayoutItemCodeGen for LayoutElement {
     }
     fn get_layout_info<'a, 'b>(
         &'a self,
-        component: InstanceRef,
+        component: InstanceRef<'a, '_>,
         layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
         window: &ComponentWindow,
     ) -> LayoutInfo {
@@ -978,7 +1033,7 @@ impl LayoutItemCodeGen for LayoutElement {
 fn collect_layouts_recursively<'a, 'b>(
     layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
     layout: &'a Layout,
-    component: InstanceRef,
+    component: InstanceRef<'a, '_>,
     window: &ComponentWindow,
 ) -> &'b LayoutTreeItem<'a> {
     match layout {
@@ -1080,12 +1135,9 @@ impl<'a> LayoutTreeItem<'a> {
                     if elem.borrow().repeated.is_none() {
                         push_layout_data(elem, instance_ref)
                     } else {
-                        let rep_index =
-                            instance_ref.component_type.repeater_names[elem.borrow().id.as_str()];
                         generativity::make_guard!(guard);
-                        let rep_in_comp =
-                            instance_ref.component_type.repeater[rep_index].unerase(guard);
-                        let repeater = rep_in_comp.offset.apply_pin(instance_ref.instance);
+                        let repeater =
+                            get_repeater_by_name(instance_ref, elem.borrow().id.as_str(), guard);
                         let vec = repeater.components_vec();
                         for sub_comp in vec.iter() {
                             push_layout_data(
@@ -1111,6 +1163,16 @@ impl<'a> LayoutTreeItem<'a> {
             }
         }
     }
+}
+
+pub fn get_repeater_by_name<'a, 'id>(
+    instance_ref: InstanceRef<'a, '_>,
+    name: &str,
+    guard: generativity::Guard<'id>,
+) -> std::pin::Pin<&'a Repeater<ComponentBox<'id>>> {
+    let rep_index = instance_ref.component_type.repeater_names[name];
+    let rep_in_comp = instance_ref.component_type.repeater[rep_index].unerase(guard);
+    rep_in_comp.offset.apply_pin(instance_ref.instance)
 }
 
 extern "C" fn input_event(

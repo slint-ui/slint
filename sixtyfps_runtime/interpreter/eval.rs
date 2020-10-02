@@ -434,6 +434,38 @@ fn eval_assignement(
                 eval_assignement(base, '=', Value::Object(o), component, local_context)
             }
         }
+        Expression::RepeaterModelReference { element } => {
+            let element = element.upgrade().unwrap();
+            generativity::make_guard!(g1);
+            let enclosing_component = enclosing_component_for_element(&element, component, g1);
+            // we need a 'static Repeater component in order to call model_set_row_data, so get it.
+            // Safety: This is the only 'static Id in scope.
+            let static_guard =
+                unsafe { generativity::Guard::new(generativity::Id::<'static>::new()) };
+            let repeater = crate::dynamic_component::get_repeater_by_name(
+                enclosing_component,
+                element.borrow().id.as_str(),
+                static_guard,
+            );
+            repeater.model_set_row_data(
+                eval_expression(
+                    &Expression::RepeaterIndexReference { element: Rc::downgrade(&element) },
+                    component,
+                    local_context,
+                )
+                .try_into()
+                .unwrap(),
+                if op == '=' {
+                    rhs
+                } else {
+                    eval(eval_expression(
+                        &Expression::RepeaterModelReference { element: Rc::downgrade(&element) },
+                        component,
+                        local_context,
+                    ))
+                },
+            )
+        }
         _ => panic!("typechecking should make sure this was a PropertyReference"),
     }
 }
