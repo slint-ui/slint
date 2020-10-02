@@ -18,7 +18,6 @@ const-field-offset = { version = "0.1", path = "../../helper_crates/const-field-
 vtable = { version = "0.1", path = "../../helper_crates/vtable" }
 sixtyfps-corelib = { version = "=0.0.1", path="../../sixtyfps_runtime/corelib" }
 sixtyfps-rendering-backend-default = { version = "=0.0.1", path="../../sixtyfps_runtime/rendering_backends/default" }
-weak-table =  "0.3"
 pin-weak = "1"
 derive_more = "0.99.5"
 

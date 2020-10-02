@@ -110,9 +110,7 @@ The follow table summarizes the entire mapping:
 
 pub use sixtyfps_rs_macro::sixtyfps;
 
-pub(crate) mod repeater;
-
-pub use crate::repeater::{Model, ModelHandle, ModelNotify, ModelPeer, VecModel};
+pub use sixtyfps_corelib::model::{Model, ModelHandle, ModelNotify, ModelPeer, VecModel};
 pub use sixtyfps_corelib::sharedarray::SharedArray;
 pub use sixtyfps_corelib::string::SharedString;
 pub use sixtyfps_corelib::{ARGBColor, Color};
@@ -120,7 +118,6 @@ pub use sixtyfps_corelib::{ARGBColor, Color};
 /// internal re_exports used by the macro generated
 #[doc(hidden)]
 pub mod re_exports {
-    pub use crate::repeater::*;
     pub use const_field_offset::{self, FieldOffsets, PinnedDrop};
     pub use core::iter::FromIterator;
     pub use once_cell::sync::Lazy;
@@ -148,6 +145,7 @@ pub mod re_exports {
         grid_layout_info, solve_grid_layout, solve_path_layout, GridLayoutCellData, GridLayoutData,
         Padding, PathLayoutData, PathLayoutItemData,
     };
+    pub use sixtyfps_corelib::model::*;
     pub use sixtyfps_corelib::properties::{Property, PropertyTracker};
     pub use sixtyfps_corelib::signals::Signal;
     pub use sixtyfps_corelib::slice::Slice;
