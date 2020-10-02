@@ -190,6 +190,13 @@ impl SpannedWithSourceFile for Element {
 }
 
 #[derive(Debug, Clone)]
+pub struct ListViewInfo {
+    pub viewport_y: NamedReference,
+    pub viewport_height: NamedReference,
+    pub listview_height: NamedReference,
+}
+
+#[derive(Debug, Clone)]
 /// If the parent element is a repeated element, this has information about the models
 pub struct RepeatedElementInfo {
     pub model: Expression,
@@ -199,6 +206,8 @@ pub struct RepeatedElementInfo {
     ///
     /// When this is true, the model is of type bolean instead of Model
     pub is_conditional_element: bool,
+    /// When the for is the delegate of a ListView
+    pub is_listview: Option<ListViewInfo>,
 }
 
 pub type ElementRc = Rc<RefCell<Element>>;
@@ -276,7 +285,8 @@ impl Element {
             return Rc::new(RefCell::new(r));
         };
         let base = QualifiedTypeName::from_node(base_node.clone());
-        let base_type = match parent_type.lookup_type_for_child_element(&base.to_string(), tr) {
+        let base_string = base.to_string();
+        let base_type = match parent_type.lookup_type_for_child_element(&base_string, tr) {
             Ok(ty) => ty,
             Err(err) => {
                 diag.push_error(err, &base_node);
@@ -439,6 +449,7 @@ impl Element {
         }
 
         let mut children_placeholder = None;
+        let r = ElementRc::new(RefCell::new(r));
 
         for se in node.children() {
             if se.kind() == SyntaxKind::SubElement {
@@ -450,10 +461,11 @@ impl Element {
                     )
                 }
                 if let Some(element_node) = se.child_node(SyntaxKind::Element) {
-                    r.children.push(Element::from_node(
+                    let parent_type = r.borrow().base_type.clone();
+                    r.borrow_mut().children.push(Element::from_node(
                         element_node.into(),
                         id,
-                        r.base_type.clone(),
+                        parent_type,
                         component_child_insertion_point,
                         diag,
                         tr,
@@ -462,21 +474,23 @@ impl Element {
                     assert!(diag.has_error());
                 }
             } else if se.kind() == SyntaxKind::RepeatedElement {
-                r.children.push(Element::from_repeated_node(
+                let rep = Element::from_repeated_node(
                     se.into(),
-                    r.base_type.clone(),
+                    &r,
                     component_child_insertion_point,
                     diag,
                     tr,
-                ));
+                );
+                r.borrow_mut().children.push(rep);
             } else if se.kind() == SyntaxKind::ConditionalElement {
-                r.children.push(Element::from_conditional_node(
+                let rep = Element::from_conditional_node(
                     se.into(),
-                    r.base_type.clone(),
+                    r.borrow().base_type.clone(),
                     component_child_insertion_point,
                     diag,
                     tr,
-                ));
+                );
+                r.borrow_mut().children.push(rep);
             } else if se.kind() == SyntaxKind::ChildrenPlaceholder {
                 if children_placeholder.is_some() {
                     diag.push_error(
@@ -488,8 +502,6 @@ impl Element {
                 }
             }
         }
-
-        let r = ElementRc::new(RefCell::new(r));
 
         if let Some(children_placeholder) = children_placeholder {
             if component_child_insertion_point.is_some() {
@@ -554,11 +566,29 @@ impl Element {
 
     fn from_repeated_node(
         node: syntax_nodes::RepeatedElement,
-        parent_type: Type,
+        parent: &ElementRc,
         component_child_insertion_point: &mut Option<ElementRc>,
         diag: &mut FileDiagnostics,
         tr: &TypeRegister,
     ) -> ElementRc {
+        let is_listview = if parent.borrow().base_type.to_string() == "ListView" {
+            Some(ListViewInfo {
+                viewport_height: NamedReference {
+                    element: Rc::downgrade(parent),
+                    name: "viewport_height".to_owned(),
+                },
+                viewport_y: NamedReference {
+                    element: Rc::downgrade(parent),
+                    name: "viewport_y".to_owned(),
+                },
+                listview_height: NamedReference {
+                    element: Rc::downgrade(parent),
+                    name: "height".to_owned(),
+                },
+            })
+        } else {
+            None
+        };
         let rei = RepeatedElementInfo {
             model: Expression::Uncompiled(node.Expression().into()),
             model_data_id: node
@@ -570,11 +600,12 @@ impl Element {
                 .and_then(|r| r.child_text(SyntaxKind::Identifier))
                 .unwrap_or_default(),
             is_conditional_element: false,
+            is_listview,
         };
         let e = Element::from_node(
             node.Element(),
             String::new(),
-            parent_type,
+            parent.borrow().base_type.to_owned(),
             component_child_insertion_point,
             diag,
             tr,
@@ -595,6 +626,7 @@ impl Element {
             model_data_id: String::new(),
             index_id: String::new(),
             is_conditional_element: true,
+            is_listview: None,
         };
         let e = Element::from_node(
             node.Element(),

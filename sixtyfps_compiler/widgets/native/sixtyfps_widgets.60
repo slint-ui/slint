@@ -71,3 +71,7 @@ export ScrollView := Rectangle {
 
     }
 }
+
+export ListView := ScrollView {
+    $children
+}

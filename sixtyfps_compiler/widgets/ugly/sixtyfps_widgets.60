@@ -339,3 +339,7 @@ export ScrollView := Rectangle {
         page_size: fli.width;
     }
 }
+
+export ListView := ScrollView {
+    $children
+}

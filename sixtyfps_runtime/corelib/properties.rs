@@ -1183,6 +1183,13 @@ impl PropertyTracker {
         r
     }
 
+    /// call `Self::evaluate` if and only if it is dirty
+    pub fn evaluate_if_dirty(self: Pin<&Self>, f: impl FnOnce()) {
+        if self.is_dirty() {
+            self.evaluate(f)
+        }
+    }
+
     /// Mark this PropertyTracker as dirty
     pub fn set_dirty(&self) {
         self.holder.dirty.set(true);
@@ -1208,6 +1215,11 @@ fn test_property_listener_scope() {
     assert!(!scope.is_dirty());
     prop1.as_ref().set(1);
     assert!(!scope.is_dirty());
+    scope.as_ref().evaluate_if_dirty(|| panic!("should not be dirty"));
+    scope.set_dirty();
+    let mut ok = false;
+    scope.as_ref().evaluate_if_dirty(|| ok = true);
+    assert!(ok);
 }
 
 pub(crate) mod ffi {

@@ -323,14 +323,47 @@ fn generate_component(
                     }
                 });
             });
-            repeated_visit_branch.push(quote!(
-                #repeater_index => {
-                    #component_id::FIELD_OFFSETS.#repeater_id.apply_pin(self_pinned).ensure_updated(
-                            || { #rep_component_id::new(self_pinned.self_weak.get().unwrap().clone()) }
-                        );
-                    self_pinned.#repeater_id.visit(order, visitor)
-                }
-            ));
+            if let Some(listview) = &repeated.is_listview {
+                let vp_y = access_member(
+                    &listview.viewport_y.element.upgrade().unwrap(),
+                    listview.viewport_y.name.as_ref(),
+                    component,
+                    quote!(self_pinned.as_ref()),
+                    false,
+                );
+                let vp_h = access_member(
+                    &listview.viewport_height.element.upgrade().unwrap(),
+                    listview.viewport_height.name.as_ref(),
+                    component,
+                    quote!(self_pinned.as_ref()),
+                    false,
+                );
+                let lv_h = access_member(
+                    &listview.listview_height.element.upgrade().unwrap(),
+                    listview.listview_height.name.as_ref(),
+                    component,
+                    quote!(self_pinned.as_ref()),
+                    false,
+                );
+                repeated_visit_branch.push(quote!(
+                    #repeater_index => {
+                        #component_id::FIELD_OFFSETS.#repeater_id.apply_pin(self_pinned).ensure_updated_listview(
+                                || { #rep_component_id::new(self_pinned.self_weak.get().unwrap().clone()) },
+                                #vp_h, #vp_y, #lv_h.get()
+                            );
+                        self_pinned.#repeater_id.visit(order, visitor)
+                    }
+                ));
+            } else {
+                repeated_visit_branch.push(quote!(
+                    #repeater_index => {
+                        #component_id::FIELD_OFFSETS.#repeater_id.apply_pin(self_pinned).ensure_updated(
+                                || { #rep_component_id::new(self_pinned.self_weak.get().unwrap().clone()) }
+                            );
+                        self_pinned.#repeater_id.visit(order, visitor)
+                    }
+                ));
+            }
 
             repeated_input_branch.push(quote!(
                 #repeater_index => self.#repeater_id.input_event(rep_index, event, window, app_component),
