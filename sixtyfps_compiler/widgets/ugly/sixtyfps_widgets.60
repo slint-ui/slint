@@ -277,8 +277,8 @@ ScrollBar := Rectangle {
     property<length> value;
 
     handle := Rectangle {
-        width: !horizontal ? parent.width : parent.width * (page_size / max);
-        height: horizontal ? parent.height : parent.height * (page_size / max);
+        width: !horizontal ? parent.width : max <= 0px ? 0px : parent.width * (page_size / (max + page_size));
+        height: horizontal ? parent.height : max <= 0px ? 0px : parent.height * (page_size / (max + page_size));
 
         border_width: 2lx;
         border_radius: self.width / 2;
