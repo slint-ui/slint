@@ -194,10 +194,10 @@ lazy_static! {
     static ref LICENSE_LOCATION_FOR_FILE: Vec<(regex::Regex, LicenseLocation)> = [
         ("^helper_crates/const-field-offset/src/lib.rs$", LicenseLocation::NoLicense), // Upstream fork
         ("^helper_crates/const-field-offset/Cargo.toml$", LicenseLocation::NoLicense), // Upstream fork
-        ("^tools/online_editor/index.ts$", LicenseLocation::NoLicense),
         (".+webpack\\.config\\.js$", LicenseLocation::NoLicense),
         (".+\\.rs$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
         (".+\\.js$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+        (".+\\.ts$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
         (".+\\.mjs$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
         (".+\\.h$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
         (".+\\.cpp$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
