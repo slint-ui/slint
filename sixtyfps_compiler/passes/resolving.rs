@@ -321,8 +321,12 @@ impl Expression {
                     if path.is_absolute() {
                         s
                     } else {
-                        let path =
-                            node.source_file.unwrap_or_default().parent().unwrap().join(path);
+                        let path = node
+                            .source_file
+                            .unwrap_or_default()
+                            .parent()
+                            .map(|b| b.join(path))
+                            .unwrap_or_else(|| path.to_owned());
                         if path.is_absolute() {
                             path.to_string_lossy().to_string()
                         } else {
