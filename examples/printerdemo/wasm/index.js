@@ -7,5 +7,5 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-import { main } from './Cargo.toml';
+let main = import('./pkg/index.js');
 main();

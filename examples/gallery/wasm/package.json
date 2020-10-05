@@ -2,13 +2,17 @@
   "author": "You <you@example.com>",
   "name": "rust-webpack-template",
   "version": "0.1.0",
+  "private": true,
   "scripts": {
-    "start": "rimraf dist && parcel index.html --open",
-    "build": "rimraf dist pkg && parcel build index.html --public-url ./"
+    "start": "rimraf dist && webpack-dev-server --open -d",
+    "build": "rimraf dist pkg && webpack"
   },
   "devDependencies": {
-    "parcel-bundler": "^1.12.4",
-    "parcel-plugin-wasm.rs": "^1.2.16",
-    "rimraf": "^3.0.0"
+    "@wasm-tool/wasm-pack-plugin": "github:wasm-tool/wasm-pack-plugin",
+    "copy-webpack-plugin": "^6.2.0",
+    "rimraf": "^3.0.0",
+    "webpack": "^4.44.2",
+    "webpack-cli": "^3.3.12",
+    "webpack-dev-server": "^3.11.0"
   }
 }
