@@ -1,11 +1,9 @@
 import * as monaco from 'monaco-editor';
 
-var sixtyfps: any;
+var sixtyfps;
 
 async function run() {
-    // @ts-ignore
-    sixtyfps = await import(/* webpackIgnore: true */ "https://www.sixtyfps.io/wasm-interpreter/sixtyfps_wasm_interpreter.js");
-    await sixtyfps.default();
+    sixtyfps = await import("../../api/sixtyfps-wasm-interpreter/pkg/index.js");
     update();
 }
 
