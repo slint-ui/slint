@@ -399,6 +399,7 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                 }
                 HighLevelRenderingPrimitive::Image { source } => {
                     match source {
+                        #[cfg(not(target_arch = "wasm32"))]
                         Resource::AbsoluteFilePath(path) => {
                             let mut image_path = std::env::current_exe().unwrap();
                             image_path.pop(); // pop of executable name
@@ -411,6 +412,44 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                             )
                             .unwrap();
                             smallvec![self.create_image(image)]
+                        }
+                        #[cfg(target_arch = "wasm32")]
+                        Resource::AbsoluteFilePath(path) => {
+                            let xx: &[u8] = &[0; 256 * 256 * 4];
+                            let image = image::ImageBuffer::from_raw(256, 256, xx).unwrap();
+                            let image_prim = self.create_image(image);
+                            let (_x, _y, txt) = match &image_prim {
+                                GLRenderingPrimitive::Texture { texture, .. } => (
+                                    texture.texture_coordinates.origin_x(),
+                                    texture.texture_coordinates.origin_y(),
+                                    texture.atlas.texture.clone(),
+                                ),
+                                _ => unreachable!(),
+                            };
+
+                            let img = web_sys::HtmlImageElement::new().unwrap();
+                            let context = self.context.clone();
+                            let img2 = img.clone();
+                            img.set_onload(Some(
+                                &wasm_bindgen::closure::Closure::once_into_js(move || {
+                                    web_sys::console::log_1(&"Hello".into());
+                                    unsafe {
+                                        context
+                                            .bind_texture(glow::TEXTURE_2D, Some(txt.texture_id));
+                                        context.tex_image_2d_with_html_image(
+                                            glow::TEXTURE_2D,
+                                            0,
+                                            0,
+                                            glow::RGBA,
+                                            glow::UNSIGNED_BYTE,
+                                            &img2,
+                                        );
+                                    }
+                                })
+                                .into(),
+                            ));
+                            img.set_src(path);
+                            SmallVec::new()
                         }
                         Resource::EmbeddedData(slice) => {
                             let image_slice = slice.as_slice();

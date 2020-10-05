@@ -13,7 +13,7 @@ use pathfinder_geometry::{rect::RectI, vector::Vector2I};
 use std::{cell::RefCell, rc::Rc};
 
 pub struct GLTexture {
-    texture_id: <GLContext as HasContext>::Texture,
+    pub(crate) texture_id: <GLContext as HasContext>::Texture,
     context: Rc<glow::Context>,
     width: i32,
     height: i32,
