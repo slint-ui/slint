@@ -4,7 +4,6 @@ const WasmPackPlugin = require("@wasm-tool/wasm-pack-plugin");
 const dist = path.resolve(__dirname, "dist");
 
 module.exports = {
-    mode: 'development',
     entry: {
         app: './index.ts',
         'editor.worker': 'monaco-editor/esm/vs/editor/editor.worker.js',

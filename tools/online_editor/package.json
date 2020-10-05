@@ -4,8 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "rimraf dist && webpack-dev-server --open -d",
-    "build": "rimraf dist pkg && webpack"
+    "start": "rimraf dist && webpack-dev-server --open --config webpack.dev.js -d",
+    "build": "rimraf dist pkg && webpack --config webpack.prod.js"
   },
   "keywords": [],
   "author": "",
@@ -26,6 +26,7 @@
     "typescript": "^4.0.3",
     "webpack": "^4.44.2",
     "webpack-cli": "^3.3.12",
-    "webpack-dev-server": "^3.11.0"
+    "webpack-dev-server": "^3.11.0",
+    "webpack-merge": "^5.1.4"
   }
 }
