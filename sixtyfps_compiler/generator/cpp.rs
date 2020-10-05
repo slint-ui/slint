@@ -350,7 +350,7 @@ fn handle_item(elem: &ElementRc, main_struct: &mut Struct, init: &mut Vec<String
                 "sixtyfps::Property<{ty}>::link_two_way(&{p1}, &{p2});",
                 ty = prop_ty.cpp_type().unwrap_or_default(),
                 p1 = access_member(elem, prop_name, &component, "this"),
-                p2 = access_member(&nr.element.upgrade().unwrap(), &nr.name, &component, "this")
+                p2 = access_named_reference(nr, &component, "this")
             )
         } else {
             let accessor_prefix = if item.property_declarations.contains_key(prop_name) {
@@ -422,21 +422,47 @@ fn handle_repeater(
         model = model,
     ));
 
-    children_visitor_cases.push(format!(
-        "\n        case {i}: {{
+    if let Some(listview) = &repeated.is_listview {
+        let vp_y = access_named_reference(&listview.viewport_y, parent_component, "self");
+        let vp_h = access_named_reference(&listview.viewport_height, parent_component, "self");
+        let lv_h = access_named_reference(&listview.listview_height, parent_component, "self");
+        let vp_w = access_named_reference(&listview.viewport_width, parent_component, "self");
+        let lv_w = access_named_reference(&listview.listview_width, parent_component, "self");
+
+        let ensure_updated = format!(
+            "self->{}.ensure_updated_listview(self, &{}, &{}, &{}, {}.get(), {}.get());",
+            repeater_id, vp_w, vp_h, vp_y, lv_w, lv_h
+        );
+
+        children_visitor_cases.push(format!(
+            "\n        case {i}: {{
+                {e_u}
+                return self->{id}.visit(order, visitor);
+            }}",
+            i = repeater_count,
+            e_u = ensure_updated,
+            id = repeater_id,
+        ));
+
+        layout_repeater_code.push(ensure_updated)
+    } else {
+        children_visitor_cases.push(format!(
+            "\n        case {i}: {{
                 self->{id}.ensure_updated(self);
                 return self->{id}.visit(order, visitor);
             }}",
-        id = repeater_id,
-        i = repeater_count,
-    ));
+            id = repeater_id,
+            i = repeater_count,
+        ));
+
+        layout_repeater_code.push(format!("self->{}.compute_layout();", repeater_id));
+    }
 
     repeated_input_branch.push(format!(
         "\n        case {i}: return self->{id}.item_at(rep_index);",
         i = repeater_count,
         id = repeater_id,
     ));
-    layout_repeater_code.push(format!("self->{}.compute_layout();", repeater_id));
 
     component_struct.members.push((
         Access::Private,
@@ -582,7 +608,7 @@ fn generate_component(
 
             if property_decl.expose_in_public_api && is_root {
                 let access = if let Some(alias) = &property_decl.is_alias {
-                    access_member(&alias.element.upgrade().unwrap(), &alias.name, component, "this")
+                    access_named_reference(alias, component, "this")
                 } else {
                     format!("this->{}", cpp_name)
                 };
@@ -687,6 +713,31 @@ fn generate_component(
                 ..Function::default()
             }),
         ));
+
+        if parent_element.borrow().repeated.as_ref().map_or(false, |r| r.is_listview.is_some()) {
+            let p_y = access_member(&component.root_element, "y", component, "this");
+            let p_height = access_member(&component.root_element, "height", component, "this");
+            let p_width = access_member(&component.root_element, "width", component, "this");
+            component_struct.members.push((
+                Access::Public, // Because Repeater accesses it
+                Declaration::Function(Function {
+                    name: "listview_layout".into(),
+                    signature:
+                        "(float *offset_y, const sixtyfps::Property<float> *viewport_width) const -> void"
+                            .to_owned(),
+                    statements: Some(vec![
+                        "compute_layout({&component_type, const_cast<void *>(static_cast<const void *>(this))});".to_owned(),
+                        format!("{}.set(*offset_y);", p_y),
+                        format!("*offset_y += {}.get();", p_height),
+                        "float vp_w = viewport_width->get();".to_owned(),
+                        format!("float w = {}.get();", p_width),
+                        "if (vp_w < w)".to_owned(),
+                        "    viewport_width->set(w);".to_owned(),
+                    ]),
+                    ..Function::default()
+                }),
+            ));
+        }
     } else {
         component_struct.members.push((
             Access::Public, // FIXME: many of the different component bindings need to access this
@@ -1033,6 +1084,15 @@ fn access_member(
     }
 }
 
+/// Call access_member  for a NamedReference
+fn access_named_reference(
+    nr: &NamedReference,
+    component: &Rc<Component>,
+    component_cpp: &str,
+) -> String {
+    access_member(&nr.element.upgrade().unwrap(), &nr.name, component, component_cpp)
+}
+
 /// Return an expression that gets the window
 fn window_ref_expression(component: &Rc<Component>) -> String {
     let mut root_component = component.clone();
@@ -1051,14 +1111,14 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
         }
         Expression::NumberLiteral(n, unit) => unit.normalize(*n).to_string(),
         Expression::BoolLiteral(b) => b.to_string(),
-        Expression::PropertyReference(NamedReference { element, name }) => {
+        Expression::PropertyReference(nr) => {
             let access =
-                access_member(&element.upgrade().unwrap(), name.as_str(), component, "self");
+                access_named_reference(nr, component, "self");
             format!(r#"{}.get()"#, access)
         }
-        Expression::SignalReference(NamedReference { element, name }) => format!(
+        Expression::SignalReference(nr) => format!(
             "{}.emit",
-            access_member(&element.upgrade().unwrap(), name.as_str(), component, "self")
+            access_named_reference(nr, component, "self")
         ),
         Expression::BuiltinFunctionReference(funcref) => match funcref {
             BuiltinFunction::GetWindowScaleFactor => {
@@ -1261,9 +1321,8 @@ fn compile_assignment(
     component: &Rc<Component>,
 ) -> String {
     match lhs {
-        Expression::PropertyReference(NamedReference { element, name }) => {
-            let access =
-                access_member(&element.upgrade().unwrap(), name.as_str(), component, "self");
+        Expression::PropertyReference(nr) => {
+            let access = access_named_reference(nr, component, "self");
             if op == '=' {
                 format!(r#"{lhs}.set({rhs})"#, lhs = access, rhs = rhs)
             } else {
