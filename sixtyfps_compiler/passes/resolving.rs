@@ -331,8 +331,8 @@ impl Expression {
                             path.to_string_lossy().to_string()
                         } else {
                             std::env::current_dir()
-                                .unwrap()
-                                .join(path)
+                                .map(|b| b.join(&path))
+                                .unwrap_or(path)
                                 .to_string_lossy()
                                 .to_string()
                         }
