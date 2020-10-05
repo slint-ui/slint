@@ -1,0 +1,4 @@
+[target.aarch64-unknown-linux-gnu]
+image = "ghcr.io/sixtyfpsui/sixtyfps/aarch64-unknown-linux-gnu"
+[target.armv7-unknown-linux-gnueabihf]
+image = "ghcr.io/sixtyfpsui/sixtyfps/armv7-unknown-linux-gnueabihf"
