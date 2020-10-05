@@ -260,7 +260,7 @@ jobs:
             git add -u wasm-interpreter
             rm -rf editor
             mkdir -p editor
-            cp -a ../tools/online-editor/dist/* editor/
+            cp -a ../tools/online_editor/dist/* editor/
             git add editor
             git add -u editor
             rm -rf docs
