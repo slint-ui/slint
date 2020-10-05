@@ -182,6 +182,11 @@ jobs:
     - name: Compile sixtyfps-wasm-interpreter
       run: wasm-pack build --release --target web -- --features console_error_panic_hook
       working-directory: api/sixtyfps-wasm-interpreter
+    - name: Compile online editor
+      run: |
+          npm install
+          npm run build
+      working-directory: tools/online-editor
     - name: Gallery WASM build
       run: |
           npm install
@@ -212,6 +217,7 @@ jobs:
               examples/printerdemo/wasm/dist/
               examples/todo/wasm/dist/
               api/sixtyfps-wasm-interpreter/pkg/
+              tools/online-editor/dist/
               target/doc
               target/cppdocs/html
     - name: Clean cache # Otherwise the cache is much too big
