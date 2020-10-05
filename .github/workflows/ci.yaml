@@ -217,7 +217,7 @@ jobs:
               examples/printerdemo/wasm/dist/
               examples/todo/wasm/dist/
               api/sixtyfps-wasm-interpreter/pkg/
-              tools/online-editor/dist/
+              tools/online_editor/dist/
               target/doc
               target/cppdocs/html
     - name: Clean cache # Otherwise the cache is much too big
