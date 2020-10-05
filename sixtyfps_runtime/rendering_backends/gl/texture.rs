@@ -184,8 +184,8 @@ impl AtlasAllocation {
 }
 
 impl GLAtlasTexture {
-    fn new(gl: &Rc<glow::Context>) -> Self {
-        let allocator = guillotiere::AtlasAllocator::new(guillotiere::Size::new(2048, 2048));
+    fn new(gl: &Rc<glow::Context>, width: i32, height: i32) -> Self {
+        let allocator = guillotiere::AtlasAllocator::new(guillotiere::Size::new(width, height));
         let texture = Rc::new(GLTexture::new_with_size_and_data(
             gl,
             allocator.size().width,
@@ -238,7 +238,11 @@ impl TextureAtlas {
             .iter()
             .find_map(|atlas| atlas.clone().allocate(requested_width, requested_height))
             .unwrap_or_else(|| {
-                let new_atlas = Rc::new(GLAtlasTexture::new(&gl));
+                let new_atlas = Rc::new(GLAtlasTexture::new(
+                    &gl,
+                    2048.max(requested_width),
+                    2048.max(requested_height),
+                ));
                 let atlas_allocation =
                     new_atlas.clone().allocate(requested_width, requested_height).unwrap();
                 self.atlases.push(new_atlas);
