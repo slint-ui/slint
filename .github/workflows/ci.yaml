@@ -258,6 +258,11 @@ jobs:
             cp -a ../api/sixtyfps-wasm-interpreter/pkg/* ./wasm-interpreter/
             git add wasm-interpreter
             git add -u wasm-interpreter
+            rm -rf editor
+            mkdir -p editor
+            cp -a ../tools/online-editor/dist/* editor/
+            git add editor
+            git add -u editor
             rm -rf docs
             mkdir -p docs
             mkdir -p docs/cpp
