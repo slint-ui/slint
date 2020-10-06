@@ -258,7 +258,10 @@ jobs:
     steps:
       - uses: actions/download-artifact@v2
         with:
-          name: docs-and-demos
+          name: docs
+      - uses: actions/download-artifact@v2
+        with:
+          name: wasm
       - name: Publish Docs and Demos
         run: |
             git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
