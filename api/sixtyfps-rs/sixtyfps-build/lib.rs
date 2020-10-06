@@ -106,8 +106,8 @@ pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
 
     let mut compiler_config = CompilerConfiguration::default();
 
-    if let Some(target) = env::var("TARGET").ok() {
-        if target == "wasm32-unknown-unknown" {
+    if let (Some(target), Some(host)) = (env::var("TARGET").ok(), env::var("HOST").ok()) {
+        if target != host {
             compiler_config.embed_resources = true;
         }
     };
