@@ -508,11 +508,13 @@ function render_or_error(source, div) {
     canvas.width = 800;
     canvas.height = 600;
     canvas.id = canvas_id;
+    div.innerHTML = "";
     div.appendChild(canvas);
     try {
         sixtyfps.instantiate_from_string(source, canvas_id);
     } catch (e) {
         if (e.message === "Using exceptions for control flow, don't mind me. This isn't actually an error!") {
+            monaco.editor.setModelMarkers(editor.getModel(), "sixtyfps", []);
             throw e;
         }
         var text = document.createTextNode(e.message);
