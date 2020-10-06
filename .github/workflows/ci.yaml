@@ -291,9 +291,9 @@ jobs:
             rm -rf docs
             mkdir -p docs
             mkdir -p docs/cpp
-            cp -a ../target/cppdocs/html/* docs/cpp/
+            cp -a ../cppdocs/html/* docs/cpp/
             mkdir -p docs/rust
-            cp -a ../target/doc/* docs/rust/
+            cp -a ../doc/* docs/rust/
             git add docs
             git add -u docs
             git commit --message "Update $NAME from $GITHUB_REPOSITORY" --message "Pull web demos and C++/Rust reference docs from commit $GITHUB_SHA ($GITHUB_REF)"
