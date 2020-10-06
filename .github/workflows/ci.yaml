@@ -59,7 +59,7 @@ jobs:
       if: matrix.os == 'windows-latest'
       run: |
           npm install -g node-gyp
-          node-gyp install      
+          node-gyp install
     - name: Cache cargo registry
       uses: actions/cache@v2
       with:
@@ -124,10 +124,51 @@ jobs:
           rm -rf target/*/viewer target/*/printerdemo target/*/gallery target/*/todo target/*/*test*
           du -hs target
 
-  docs_and_demos:
+  docs:
     runs-on: ubuntu-20.04
     env:
           RUSTDOCFLAGS: --html-in-header=/home/runner/work/sixtyfps/sixtyfps/api/sixtyfps-rs/sixtyfps-docs-integration.html
+    steps:
+    - uses: actions/checkout@v2
+    - name: Cache cargo registry
+      uses: actions/cache@v2
+      with:
+        path: ~/.cargo/registry
+        key: ${{ runner.os }}-${{ github.job }}-cargo-registry-${{ hashFiles('**/Cargo.toml') }}
+    - name: Cache cargo index
+      uses: actions/cache@v2
+      with:
+        path: ~/.cargo/git
+        key: ${{ runner.os }}-${{ github.job }}-cargo-index-${{ hashFiles('**/Cargo.toml') }}
+    - name: Cache cargo build
+      uses: actions/cache@v2
+      with:
+        path: target
+        key: ${{ runner.os }}-${{ github.job }}-cargo-build-target-${{ hashFiles('**/Cargo.toml') }}
+    - name: Install nightly
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: nightly
+    - name: Install doxygen
+      run: sudo apt-get install doxygen
+    - uses: dschep/install-pipenv-action@v1
+    - name: Build Cpp docs
+      run: cargo xtask cppdocs
+    - name: "Rust docs"
+      uses: actions-rs/cargo@v1
+      with:
+          command: doc
+          toolchain: nightly
+          args: -p sixtyfps -p sixtyfps-build --no-deps
+    - name: "Upload Docs Artifacts"
+      uses: actions/upload-artifact@v2
+      with:
+          name: docs-and-demos
+          path: |
+              target/doc
+              target/cppdocs/html
+  wasm:
+    runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
     - name: Cache cargo registry
@@ -158,15 +199,6 @@ jobs:
           override: true
           components: rustfmt, clippy
           target: wasm32-unknown-unknown
-    - name: Install nightly
-      uses: actions-rs/toolchain@v1
-      with:
-          toolchain: nightly
-    - name: Install doxygen
-      run: sudo apt-get install doxygen
-    - uses: dschep/install-pipenv-action@v1
-    - name: Build Cpp docs
-      run: cargo xtask cppdocs
     - name: Install wasm-pack
       run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
     - name: Setup Node.js
@@ -202,12 +234,6 @@ jobs:
           npm install
           npm run build
       working-directory: examples/todo/wasm
-    - name: "Rust docs"
-      uses: actions-rs/cargo@v1
-      with:
-          command: doc
-          toolchain: nightly
-          args: -p sixtyfps -p sixtyfps-build --no-deps
     - name: "Upload Docs & Demo Artifacts"
       uses: actions/upload-artifact@v2
       with:
@@ -218,8 +244,6 @@ jobs:
               examples/todo/wasm/dist/
               api/sixtyfps-wasm-interpreter/pkg/
               tools/online_editor/dist/
-              target/doc
-              target/cppdocs/html
     - name: Clean cache # Otherwise the cache is much too big
       run: |
           du -hs target
@@ -231,7 +255,7 @@ jobs:
 
   publish:
     if: github.ref == 'refs/heads/master' && github.event_name == 'push'
-    needs: [build_and_test, docs_and_demos] # also depends on build_and_test to only publish if tests are green
+    needs: [build_and_test, docs, wasm] # also depends on build_and_test to only publish if tests are green
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/download-artifact@v2
