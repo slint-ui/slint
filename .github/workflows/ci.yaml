@@ -163,7 +163,7 @@ jobs:
     - name: "Upload Docs Artifacts"
       uses: actions/upload-artifact@v2
       with:
-          name: docs-and-demos
+          name: docs
           path: |
               target/doc
               target/cppdocs/html
@@ -237,7 +237,7 @@ jobs:
     - name: "Upload Demo Artifacts"
       uses: actions/upload-artifact@v2
       with:
-          name: docs-and-demos
+          name: wasm
           path: |
               examples/gallery/wasm/dist/
               examples/printerdemo/wasm/dist/
