@@ -27,10 +27,10 @@ jobs:
       with:
           toolchain: stable
           override: true
-          target: $${{ matrix.target }}
+          target: ${{ matrix.target }}
     - name: Build
       uses: actions-rs/cargo@v1
       with:
           use-cross: true
           command: build
-          args: --release --target=$${{ matrix.target }} -p printerdemo
+          args: --release --target=${{ matrix.target }} -p printerdemo
