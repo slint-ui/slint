@@ -234,7 +234,7 @@ jobs:
           npm install
           npm run build
       working-directory: examples/todo/wasm
-    - name: "Upload Docs & Demo Artifacts"
+    - name: "Upload Demo Artifacts"
       uses: actions/upload-artifact@v2
       with:
           name: docs-and-demos
@@ -247,10 +247,8 @@ jobs:
     - name: Clean cache # Otherwise the cache is much too big
       run: |
           du -hs target
-          rm -rv target/*/incremental
-          rm -rv target/*/*/*sixtyfps*
-          rm -rv target/*/*sixtyfps*
-          rm -rv target/*/*/test*
+          rm -rf target/*/incremental
+          rm -rf target/*/*/*sixtyfps*
           du -hs target
 
   publish:
