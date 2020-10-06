@@ -20,10 +20,7 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 /// The HTML must contains a <canvas> element with the given `canvas_id`
 /// where the result is gonna be rendered
 #[wasm_bindgen]
-pub fn instantiate_from_string(
-    source: &str,
-    canvas_id: String,
-) -> Result<(), wasm_bindgen::JsValue> {
+pub fn instantiate_from_string(source: &str, canvas_id: String) -> Result<(), JsValue> {
     #[cfg(feature = "console_error_panic_hook")]
     console_error_panic_hook::set_once();
 
@@ -37,7 +34,49 @@ pub fn instantiate_from_string(
             c
         }
         (Err(()), errors) => {
-            return Err(js_sys::Error::new(&errors.to_string_vec().join("\n")).into());
+            let line_key = JsValue::from_str("lineNumber");
+            let column_key = JsValue::from_str("columnNumber");
+            let message_key = JsValue::from_str("message");
+            let file_key = JsValue::from_str("fileName");
+            let level_key = JsValue::from_str("level");
+            let mut error_as_string = String::new();
+            let array = js_sys::Array::new();
+            for diag in errors.into_iter() {
+                let filename_js = JsValue::from_str(&diag.current_path.display().to_string());
+                for d in &diag.inner {
+                    if !error_as_string.is_empty() {
+                        error_as_string.push_str("\n");
+                    }
+                    use std::fmt::Write;
+
+                    let (line, column) = d.line_column(&diag);
+                    write!(&mut error_as_string, "{}:{}:{}", diag.current_path.display(), line, d)
+                        .unwrap();
+                    let error_obj = js_sys::Object::new();
+                    js_sys::Reflect::set(
+                        &error_obj,
+                        &message_key,
+                        &JsValue::from_str(&d.to_string()),
+                    )?;
+                    js_sys::Reflect::set(&error_obj, &line_key, &JsValue::from_f64(line as f64))?;
+                    js_sys::Reflect::set(
+                        &error_obj,
+                        &column_key,
+                        &JsValue::from_f64(column as f64),
+                    )?;
+                    js_sys::Reflect::set(&error_obj, &file_key, &filename_js)?;
+                    js_sys::Reflect::set(
+                        &error_obj,
+                        &level_key,
+                        &JsValue::from_f64(d.level() as i8 as f64),
+                    )?;
+                    array.push(&error_obj);
+                }
+            }
+
+            let error = js_sys::Error::new(&error_as_string);
+            js_sys::Reflect::set(&error, &JsValue::from_str("errors"), &array)?;
+            return Err((**error).clone());
         }
     };
 

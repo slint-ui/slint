@@ -12,6 +12,11 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 #[derive(Debug, Clone, Default)]
+/// Span represent an error location within a file.
+///
+/// Currently, it is just an offset in byte within the file.
+///
+/// When the `proc_macro_span` feature is enabled, it may also hold a proc_maco span.
 pub struct Span {
     pub offset: usize,
     #[cfg(feature = "proc_macro_span")]
@@ -48,10 +53,12 @@ pub trait SpannedWithSourceFile: Spanned {
     fn source_file(&self) -> Option<&SourceFile>;
 }
 
-#[derive(Debug, PartialEq)]
+/// Diagnostics level (error or warning)
+#[derive(Debug, PartialEq, Copy, Clone)]
+#[repr(i8)]
 pub enum Level {
-    Error,
-    Warning,
+    Error = 0,
+    Warning = 1,
 }
 
 impl Default for Level {
@@ -86,11 +93,51 @@ pub enum Diagnostic {
     CompilerDiagnostic(#[from] CompilerDiagnostic),
 }
 
+impl Diagnostic {
+    fn span(&self) -> Span {
+        match self {
+            Diagnostic::CompilerDiagnostic(e) => e.span.clone(),
+            _ => Span::default(),
+        }
+    }
+
+    /// Return the level for this diagnostic
+    pub fn level(&self) -> Level {
+        match self {
+            Diagnostic::CompilerDiagnostic(e) => e.level,
+            _ => Level::Error,
+        }
+    }
+
+    /// Returns a tuple with the line (starting at 1) and column number (starting at 0)
+    pub fn line_column(&self, file: &FileDiagnostics) -> (usize, usize) {
+        let offset = self.span().offset;
+        let line_offsets = file.line_offsets();
+        line_offsets.binary_search(&offset).map_or_else(
+            |line| {
+                if line == 0 {
+                    (line + 1, offset)
+                } else {
+                    (line + 1, line_offsets.get(line - 1).map_or(0, |x| offset - x))
+                }
+            },
+            |line| (line + 1, 0),
+        )
+    }
+}
+
+/// This structure holds all the diagnostics for a given files
 #[derive(Default, Debug)]
 pub struct FileDiagnostics {
+    /// List of diagnostics related to this file
     pub inner: Vec<Diagnostic>,
+    /// file path
     pub current_path: SourceFile,
+    /// Complete source code of the path, used to map from offset to line number
     pub source: Option<String>,
+
+    /// The offset of each linebreak
+    pub line_offsets: once_cell::unsync::OnceCell<Vec<usize>>,
 }
 
 impl IntoIterator for FileDiagnostics {
@@ -115,6 +162,7 @@ impl FileDiagnostics {
         self.inner.push(error.into());
     }
 
+    /// Return true if there is at least one compilation error for this file
     pub fn has_error(&self) -> bool {
         self.inner.iter().any(|diag| match diag {
             Diagnostic::FileLoadError(_) => true,
@@ -196,17 +244,8 @@ impl FileDiagnostics {
         ))
     }
 
-    #[cfg(feature = "display-diagnostics")]
-    pub fn check_and_exit_on_error(self) -> Self {
-        if self.has_error() {
-            self.print();
-            std::process::exit(-1);
-        }
-        self
-    }
-
     #[cfg(feature = "proc_macro_span")]
-    /// Will convert the diagnostics that only have offsets to the actual span
+    /// Will convert the diagnostics that only have offsets to the actual proc_macro::Span
     pub fn map_offsets_to_span(&mut self, span_map: &[crate::parser::Token]) {
         for d in &mut self.inner {
             if let Diagnostic::CompilerDiagnostic(d) = d {
@@ -233,7 +272,26 @@ impl FileDiagnostics {
     }
 
     pub fn new_from_error(path: std::path::PathBuf, err: std::io::Error) -> Self {
-        Self { inner: vec![err.into()], current_path: Rc::new(path), source: None }
+        Self {
+            inner: vec![err.into()],
+            current_path: Rc::new(path),
+            source: None,
+            line_offsets: Default::default(),
+        }
+    }
+
+    fn line_offsets(&self) -> &[usize] {
+        self.line_offsets.get_or_init(|| {
+            self.source
+                .as_ref()
+                .map(|s| {
+                    s.bytes()
+                        .enumerate()
+                        .filter_map(|(i, c)| if c == b'\n' { Some(i) } else { None })
+                        .collect()
+                })
+                .unwrap_or_default()
+        })
     }
 }
 

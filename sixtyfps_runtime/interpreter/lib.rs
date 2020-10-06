@@ -23,6 +23,7 @@ mod value_model;
 pub use eval::Value;
 
 use dynamic_component::InstanceRef;
+pub use sixtyfps_compilerlib::CompilerConfiguration;
 use sixtyfps_corelib::component::{ComponentRef, ComponentRefPin};
 use std::{collections::HashMap, pin::Pin, rc::Rc};
 
@@ -176,7 +177,7 @@ pub type ComponentBox = dynamic_component::ComponentBox<'static>;
 pub fn load(
     source: String,
     path: &std::path::Path,
-    compiler_config: &sixtyfps_compilerlib::CompilerConfiguration,
+    compiler_config: &CompilerConfiguration,
 ) -> (Result<Rc<ComponentDescription>, ()>, sixtyfps_compilerlib::diagnostics::BuildDiagnostics) {
     dynamic_component::load(source, path, compiler_config, unsafe {
         generativity::Guard::new(generativity::Id::new())

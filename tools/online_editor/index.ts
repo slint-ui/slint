@@ -520,6 +520,20 @@ function render_or_error(source, div) {
         p.appendChild(text);
         div.innerHTML = "<pre style='color: red; background-color:#fee; margin:0'>" + p.innerHTML + "</pre>";
 
+        let markers = e.errors.map(function (x) {
+            return {
+                severity: 3 - x.level,
+                message: x.message,
+                source: x.fileName,
+                startLineNumber: x.lineNumber,
+                startColumn: x.columnNumber,
+                endLineNumber: x.lineNumber,
+                endColumn: -1,
+            }
+        });
+        monaco.editor.setModelMarkers(editor.getModel(), "sixtyfps", markers);
+
         throw e;
     }
 }
+
