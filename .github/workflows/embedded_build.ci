@@ -1,0 +1,36 @@
+# LICENSE BEGIN
+# This file is part of the SixtyFPS Project -- https://sixtyfps.io
+# Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+# Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+#
+# SPDX-License-Identifier: GPL-3.0-only
+# This file is also available under commercial licensing terms.
+# Please contact info@sixtyfps.io for more information.
+# LICENSE END
+name: CI
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        target:
+          - armv7-unknown-linux-gnueabihf
+          - aarch64-unknown-linux-gnu
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install latest stable
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: stable
+          override: true
+          target: $${{ matrix.target }}
+    - name: Build
+      uses: actions-rs/cargo@v1
+      with:
+          use-cross: true
+          command: build
+          args: --release --target=$${{ matrix.target }} -p printerdemo
