@@ -7,7 +7,7 @@
 # This file is also available under commercial licensing terms.
 # Please contact info@sixtyfps.io for more information.
 # LICENSE END
-name: CI
+name: Embedded Build
 
 on:
   workflow_dispatch:
