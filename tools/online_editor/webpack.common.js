@@ -1,6 +1,7 @@
 const path = require('path');
 const HtmlWebPackPlugin = require('html-webpack-plugin');
 const WasmPackPlugin = require("@wasm-tool/wasm-pack-plugin");
+const MonacoWebpackPlugin = require('monaco-editor-webpack-plugin');
 const dist = path.resolve(__dirname, "dist");
 
 module.exports = {
@@ -45,5 +46,6 @@ module.exports = {
         new WasmPackPlugin({
             crateDirectory: path.resolve(__dirname, "../../api/sixtyfps-wasm-interpreter/"),
         }),
+        new MonacoWebpackPlugin(),
     ]
 };
