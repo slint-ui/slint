@@ -34,3 +34,9 @@ jobs:
           use-cross: true
           command: build
           args: --release --target=${{ matrix.target }} -p printerdemo
+    - name: "Upload printerdemo artifact"
+      uses: actions/upload-artifact@v2
+      with:
+          name: printerdemo-${{ matrix.target }}
+          path: |
+              target/$${{ matrix.target }}/release/printerdemo
