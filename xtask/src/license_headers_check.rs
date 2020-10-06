@@ -210,6 +210,7 @@ lazy_static! {
         (".+\\.yaml$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         (".*\\.gitignore$", LicenseLocation::NoLicense),
         ("\\.clang-format$", LicenseLocation::NoLicense),
+        (".+Dockerfile.*$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         ("^api/sixtyfps-cpp/docs/Pipfile$", LicenseLocation::NoLicense),
         ("^api/sixtyfps-cpp/docs/conf.py$", LicenseLocation::NoLicense),
         ("^api/sixtyfps-cpp/docs/_static/.+$", LicenseLocation::NoLicense),
