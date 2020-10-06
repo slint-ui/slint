@@ -39,4 +39,4 @@ jobs:
       with:
           name: printerdemo-${{ matrix.target }}
           path: |
-              target/$${{ matrix.target }}/release/printerdemo
+              target/${{ matrix.target }}/release/printerdemo
