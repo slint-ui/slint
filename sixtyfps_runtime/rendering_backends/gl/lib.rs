@@ -428,6 +428,7 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                             };
 
                             let img = web_sys::HtmlImageElement::new().unwrap();
+                            img.set_cross_origin(Some("anonymous"));
                             let context = self.context.clone();
                             let img2 = img.clone();
                             img.set_onload(Some(
@@ -439,12 +440,15 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                                         context.tex_image_2d_with_html_image(
                                             glow::TEXTURE_2D,
                                             0,
-                                            0,
+                                            glow::RGBA as i32,
                                             glow::RGBA,
                                             glow::UNSIGNED_BYTE,
                                             &img2,
                                         );
-                                    }
+                                    };
+                                    web_sys::console::log_1(
+                                        &"Hello from after tex_image_2d call".into(),
+                                    );
                                 })
                                 .into(),
                             ));
