@@ -47,14 +47,16 @@ set(generated_headers
     ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_default_backend_internal.h
 )
 
+file(GLOB generated_headers_dependencies "${CMAKE_CURRENT_SOURCE_DIR}/../../sixtyfps_runtime/corelib/*.rs")
+
 add_custom_target(
     generated_headers_target
     COMMAND
     xtask cbindgen --output-dir "${CMAKE_CURRENT_BINARY_DIR}/generated_include/"
     BYPRODUCTS ${generated_headers}
-    DEPENDS
-        ${CMAKE_CURRENT_SOURCE_DIR}/../../sixtyfps_runtime/corelib/*.rs
+    DEPENDS ${generated_headers_dependencies}
 )
+
 add_dependencies(SixtyFPS generated_headers_target)
 foreach(header IN LISTS generated_headers)
     set_property(TARGET SixtyFPS APPEND PROPERTY PUBLIC_HEADER ${header})
