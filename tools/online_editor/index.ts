@@ -32,8 +32,20 @@ select.onchange = function () {
     load_from_url("https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/" + select.value);
 };
 
-editor.getModel().onDidChangeContent(function () {
+let compile_button = (<HTMLButtonElement>document.getElementById("compile_button"));
+compile_button.onclick = function () {
     update();
+};
+
+let auto_compile = (<HTMLInputElement>document.getElementById("auto_compile"));
+auto_compile.onchange = function () {
+    if (auto_compile.checked)
+        update();
+};
+
+editor.getModel().onDidChangeContent(function () {
+    if (auto_compile.checked)
+        update();
 });
 
 function update() {
