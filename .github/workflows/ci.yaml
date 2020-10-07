@@ -161,6 +161,12 @@ jobs:
           toolchain: stable
           override: true
           components: rustfmt, clippy
+    - uses: ilammy/msvc-dev-cmd@v1
+    - name: Select MSVC (windows)
+      run: |
+        echo "CC=cl.exe" >> $GITHUB_ENV
+        echo "CXX=cl.exe" >> $GITHUB_ENV
+      if: matrix.os == 'windows-latest'
     - name: C++ Test
       uses: lukka/run-cmake@v2.4
       with:
