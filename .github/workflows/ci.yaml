@@ -118,11 +118,10 @@ jobs:
           rm -rf target/*/viewer target/*/printerdemo target/*/gallery target/*/todo target/*/*test*
           du -hs target
 
-  cxx_test:
+  cpp:
     env:
       LD_LIBRARY_PATH: /home/runner/work/sixtyfps/Qt/5.12.9/gcc_64/lib
       DYLD_FRAMEWORK_PATH: /Users/runner/work/sixtyfps/Qt/5.12.9/clang_64/lib
-
     strategy:
       matrix:
         os: [ubuntu-20.04, macos-latest, windows-latest]
@@ -167,10 +166,14 @@ jobs:
         echo "CC=cl.exe" >> $GITHUB_ENV
         echo "CXX=cl.exe" >> $GITHUB_ENV
       if: matrix.os == 'windows-latest'
-    - name: C++ Test
+    - name: C++ Build
       uses: lukka/run-cmake@v2.4
       with:
         cmakeListsTxtPath: CMakeLists.txt
+        buildDirectory: ${{ runner.workspace }}/cppbuild
+    - name: cpack
+      working-directory: ${{ runner.workspace }}/cppbuild
+      run: cmake --build . --target package
 
   docs:
     runs-on: ubuntu-20.04
