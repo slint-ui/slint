@@ -10,12 +10,6 @@ LICENSE END */
 import * as monaco from 'monaco-editor';
 
 var sixtyfps;
-
-async function run() {
-    sixtyfps = await import("../../api/sixtyfps-wasm-interpreter/pkg/index.js");
-    update();
-}
-
 var editor = monaco.editor.create(document.getElementById("editor"));
 
 function load_from_url(url) {
@@ -25,12 +19,11 @@ function load_from_url(url) {
 
 }
 
-load_from_url("https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/gallery/gallery.60");
-
 let select = (<HTMLInputElement>document.getElementById("select_combo"));
-select.onchange = function () {
+function select_combo_changed() {
     load_from_url("https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/" + select.value);
-};
+}
+select.onchange = select_combo_changed;
 
 let compile_button = (<HTMLButtonElement>document.getElementById("compile_button"));
 compile_button.onclick = function () {
@@ -42,11 +35,6 @@ auto_compile.onchange = function () {
     if (auto_compile.checked)
         update();
 };
-
-editor.getModel().onDidChangeContent(function () {
-    if (auto_compile.checked)
-        update();
-});
 
 function update() {
     let source = editor.getModel().getValue();
@@ -92,6 +80,22 @@ function render_or_error(source, div) {
 
         throw e;
     }
+}
+
+async function run() {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("snippet");
+    if (code) {
+        editor.getModel().setValue(code);
+    } else {
+        select_combo_changed();
+    }
+    sixtyfps = await import("../../api/sixtyfps-wasm-interpreter/pkg/index.js");
+    update();
+    editor.getModel().onDidChangeContent(function () {
+        if (auto_compile.checked)
+            update();
+    });
 }
 
 run();
