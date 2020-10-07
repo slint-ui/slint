@@ -30,6 +30,14 @@ jobs:
         registry: ghcr.io
         username: ${{ github.actor }}
         password: ${{ secrets.CR_PAT }}
+    - name: Build and push
+      uses: docker/build-push-action@v2
+      with:
+        context: .
+        file: ./docker/Dockerfile.${{ matrix.target }}
+        push: false
+          tags: |
+            ghcr.io/sixtyfpsui/sixtyfps/${{matrix.target}}:latest
 
   build:
     needs: [build_containers]
