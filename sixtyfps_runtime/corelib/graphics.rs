@@ -655,6 +655,11 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
             let backend = self.window_factory.as_ref()(&event_loop, window_builder);
 
             let platform_window = backend.window();
+
+            if std::env::var("SIXTYFPS_FULLSCREEN").is_ok() {
+                platform_window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)));
+            }
+
             let window_id = platform_window.id();
 
             // Ideally we should be passing the initial requested size to the window builder, but those properties
