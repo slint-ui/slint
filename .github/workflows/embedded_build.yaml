@@ -35,7 +35,7 @@ jobs:
       with:
         context: .
         file: ./docker/Dockerfile.${{ matrix.target }}
-        push: false
+        push: true
         tags: ghcr.io/sixtyfpsui/sixtyfps/${{matrix.target}}:latest
 
   build:
