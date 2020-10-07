@@ -65,4 +65,7 @@ jobs:
       with:
           name: printerdemo-${{ matrix.target }}
           path: |
-              target/${{ matrix.target }}/release/{printerdemo,todo,gallery,viewer}
+              target/${{ matrix.target }}/release/printerdemo
+              target/${{ matrix.target }}/release/todo
+              target/${{ matrix.target }}/release/gallery
+              target/${{ matrix.target }}/release/viewer
