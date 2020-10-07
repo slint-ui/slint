@@ -107,12 +107,6 @@ jobs:
       with:
           command: test
           args: --verbose
-    - name: Prepare cmake module
-      run: cargo xtask cmake --prefix $HOME/sixtyfps_install --install
-    - name: C++ Test
-      uses: lukka/run-cmake@v2.4
-      with:
-        cmakeListsTxtPath: CMakeLists.txt
     - name: Clean cache # Otherwise the cache is much too big
       if: matrix.os == 'ubuntu-20.04'
       run: |
@@ -123,6 +117,54 @@ jobs:
           rm -rf target/*/*/test* target/*/*/gallery* target/*/*/printerdemo* target/*/*/viewer* target/*/*/todo*
           rm -rf target/*/viewer target/*/printerdemo target/*/gallery target/*/todo target/*/*test*
           du -hs target
+
+  cxx_test:
+    env:
+      LD_LIBRARY_PATH: /home/runner/work/sixtyfps/Qt/5.12.9/gcc_64/lib
+      DYLD_FRAMEWORK_PATH: /Users/runner/work/sixtyfps/Qt/5.12.9/clang_64/lib
+
+    strategy:
+      matrix:
+        os: [ubuntu-20.04, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install Linux Dependencies
+      if: matrix.os == 'ubuntu-20.04'
+      run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev
+    - name: Cache Qt
+      if: matrix.os != 'windows-latest'
+      id: cache-qt
+      uses: actions/cache@v2
+      with:
+        path: ../Qt
+        key: ${{ runner.os }}-${{ github.job }}-QtCache-5.12.9
+    - name: Install Qt
+      if: matrix.os != 'windows-latest'
+      uses: jurplel/install-qt-action@v2
+      with:
+        version: '5.12.9'
+        cached: ${{ steps.cache-qt.outputs.cache-hit }}
+    - name: Cache cargo registry
+      uses: actions/cache@v2
+      with:
+        path: ~/.cargo/registry
+        key: ${{ runner.os }}-${{ github.job }}-cargo-registry-${{ hashFiles('**/Cargo.toml') }}
+    - name: Cache cargo index
+      uses: actions/cache@v2
+      with:
+        path: ~/.cargo/git
+        key: ${{ runner.os }}-${{ github.job }}-cargo-index-${{ hashFiles('**/Cargo.toml') }}
+    - name: Install latest stable
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: stable
+          override: true
+          components: rustfmt, clippy
+    - name: C++ Test
+      uses: lukka/run-cmake@v2.4
+      with:
+        cmakeListsTxtPath: CMakeLists.txt
 
   docs:
     runs-on: ubuntu-20.04

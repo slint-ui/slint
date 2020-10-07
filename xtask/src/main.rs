@@ -12,18 +12,18 @@ use std::error::Error;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
-mod cmake;
+mod cbindgen;
 mod cppdocs;
 mod license_headers_check;
 
 #[derive(Debug, StructOpt)]
 pub enum TaskCommand {
-    #[structopt(name = "cmake")]
-    CMake(cmake::CMakeCommand),
     #[structopt(name = "check_license_headers")]
     CheckLicenseHeaders(license_headers_check::LicenseHeaderCheck),
     #[structopt(name = "cppdocs")]
     CppDocs,
+    #[structopt(name = "cbindgen")]
+    Cbindgen(cbindgen::CbindgenCommand),
 }
 
 #[derive(Debug, StructOpt)]
@@ -69,9 +69,9 @@ where
 
 fn main() -> Result<(), Box<dyn Error>> {
     match ApplicationArguments::from_args().command {
-        TaskCommand::CMake(cmd) => cmd.build_cmake()?,
         TaskCommand::CheckLicenseHeaders(cmd) => cmd.check_license_headers()?,
         TaskCommand::CppDocs => cppdocs::generate()?,
+        TaskCommand::Cbindgen(cmd) => cmd.run()?,
     };
 
     Ok(())

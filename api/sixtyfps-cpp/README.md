@@ -7,20 +7,29 @@ SixtyFPS.cpp is the C++ API to interact with a SixtyFPS UI from C++.
 
 The complete C++ documentation can be viewed online at https://www.sixtyfps.io/docs/cpp/.
 
-## Building
+## Building from sources
 
-The C++ API comes as a CMake package with a library and header files. The build process consists of the following steps:
+### Install Dependencies
 
- 1. Install Rust and Cargo (recommended via https://rustup.rs).
- 2. Build the CMake package: `cargo xtask cmake`. If you'd like to install SixtyFPS.cpp into a specific directory, then
-       you can pass the `prefix` and `install` parameters: `cargo xtask cmake --prefix /path/where/to/install --install`
- 3. When running `CMake` make sure to point the `CMAKE_PREFIX_PATH` to the install directory. If you build SixtyFPS.cpp without `prefix`, then the `target/debug/` directory is your `CMAKE_PREFIX_PATH`.
+ - CMake 3.16 or later
+ - Rust and cargo (for example via https://rustup.rs)
+ - Qt (Optional, for the desktop style)
+
+### Build
+
+ 1. `mkdir cppbuild && cd cppbuild`
+ 2. `cmake ..`
+ 3. `cmake --build .`
 
 ## Usage via CMake
+
+The C++ API comes as a CMake package with a library and header files.
 
 TODO
 
 ## Tutorial
+
+FIXME: update to the real todo
 
 Let's make a UI for a todo list application using the SixtyFPS UI description language.
 Hopefully this should be self explainatory. Check out the documentation of the language for help

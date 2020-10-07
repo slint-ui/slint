@@ -36,3 +36,4 @@ endforeach()
 set(_IMPORT_PREFIX)
 
 include("${CMAKE_CURRENT_LIST_DIR}/SixtyFPSTargets.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/SixtyFPSMacro.cmake")
