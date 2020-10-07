@@ -220,6 +220,7 @@ lazy_static! {
         (".+Cargo.toml$", LicenseLocation::Crate),
         (".+\\.toml$", LicenseLocation::NoLicense),
         (".*CMakeLists.txt$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+        (".*\\.cmake$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         (".+\\.cmake.in$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         (".+\\.sh$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         (".+\\.60$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
