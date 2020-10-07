@@ -1,6 +1,6 @@
 # SixtyFPS build guide
 
-This page explain how to build and test sixtyfps.
+This page explain how to build and test SixtyFPS.
 
 ## Prerequisites
 
@@ -18,7 +18,7 @@ For the nodejs backend, the following component are needed:
  * **python**
 
 It would be nice if building the nodejs backend was optional, but right now it is part of the workspace.
-We can still not build it by doing `cargo build --workspace --exclude sixtyfps-node`. But cargo test will fail.
+You can still not build it by doing `cargo build --workspace --exclude sixtyfps-node`. But cargo test will fail.
 
 ### C++ dev (optional)
 
@@ -37,6 +37,26 @@ cargo test
 
 **Important:** Note that `cargo test` does not work without first calling `cargo build` because the
 C++ tests or the nodejs tests will not find the required dynamic library otherwise
+
+## Cross-Compiling
+
+SixtyFPS can be cross-compiled to different target architecures and environments. For the Rust build we
+have had a good experience using [`cross`](https://github.com/rust-embedded/cross). For convenience we're
+including a `Cross.toml` configuration file for `cross` in the source tree along with Docker containers that
+allow targeting a Debian ARMv7 and ARMv8 based Distribution with X11 or Wayland, out of the box.
+
+This includes for example the Raspberry Pi OS. Using the following steps you can run the examples on a
+pi:
+
+```sh
+cross build --target armv7-unknown-linux-gnueabihf --workspace --exclude sixtyfps-node --release
+scp target/armv7-unknown-linux-gnueabihf/release/printerdemo pi@raspberrypi.local:.
+```
+
+Finally on a shell on the Pi:
+```sh
+DISPLAY=:0 ./printerdemo
+```
 
 ## Examples
 
