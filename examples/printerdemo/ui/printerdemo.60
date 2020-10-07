@@ -229,6 +229,7 @@ SettingsPage := Page {
 
 TopPanel := Rectangle {
    property<int> active_page: 0;
+   signal quit();
 
    color: white;
 
@@ -255,6 +256,14 @@ TopPanel := Rectangle {
         source: img!"images/power.png";
         width: root.width / 20;
         height: root.width / 20;
+
+        TouchArea {
+            width: parent.width;
+            height: parent.height;
+            clicked => {
+                root.quit();
+            }
+        }
     }
 }
 
@@ -264,6 +273,7 @@ export InkLevel := {
 }
 
 MainWindow := Window {
+    signal quit();
 
     width: 800lx;
     height: 600lx;
@@ -283,6 +293,7 @@ MainWindow := Window {
         active_page: root.active_page;
         width: root.width;
         height: root.width / 20 + 10lx;
+        quit => { root.quit(); }
     }
 
     for page_info[idx] in [

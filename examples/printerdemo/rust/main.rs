@@ -28,5 +28,9 @@ pub fn main() {
         InkLevel { color: sixtyfps::Color::from_rgb_u8(0, 0, 0), level: 0.80 },
     ]));
 
+    main_window.as_ref().on_quit(move || {
+        std::process::exit(0);
+    });
+
     main_window.run();
 }
