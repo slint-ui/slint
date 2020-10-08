@@ -196,6 +196,7 @@ fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
         .body
         .insert("Flickable".to_owned(), "    inline Flickable(); inline ~Flickable();".into());
     config.export.pre_body.insert("FlickableDataBox".to_owned(), "struct FlickableData;".into());
+    config.export.include.push("StandardListViewItem".into());
     cbindgen::Builder::new()
         .with_config(config)
         .with_src(crate_dir.join("lib.rs"))
@@ -228,6 +229,7 @@ fn gen_backend_qt(include_dir: &Path) -> anyhow::Result<()> {
         "NativeGroupBox",
         "NativeLineEdit",
         "NativeScrollBar",
+        "NativeStandardListViewItem",
     ]
     .iter()
     .map(|x| x.to_string())
