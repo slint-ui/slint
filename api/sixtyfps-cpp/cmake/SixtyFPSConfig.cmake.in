@@ -18,13 +18,7 @@ if(_IMPORT_PREFIX STREQUAL "/")
 endif()
 
 add_library(sixtyfps-rendering-backend-default-shared SHARED IMPORTED)
-get_filename_component(SIXTYFPS_SHARED_LIB @SIXTYFPS_SHARED_LIB@ NAME_WLE)
-set_property(TARGET sixtyfps-rendering-backend-default-shared PROPERTY IMPORTED_LOCATION
-    "${_IMPORT_PREFIX}/@CMAKE_INSTALL_LIBDIR@/${SIXTYFPS_SHARED_LIB}${CMAKE_SHARED_LIBRARY_SUFFIX}")
-if (WIN32)
-    set_property(TARGET ${internal_lib} PROPERTY IMPORTED_IMPLIB
-        "${_IMPORT_PREFIX}/@CMAKE_INSTALL_LIBDIR@/${SIXTYFPS_SHARED_LIB}.lib")
-endif()
+set_target_properties(sixtyfps-rendering-backend-default-shared PROPERTIES @SIXTYFPS_LIB_PROPERTIES@)
 
 add_executable(SixtyFPS::sixtyfps_compiler IMPORTED GLOBAL)
 set_target_properties(SixtyFPS::sixtyfps_compiler PROPERTIES IMPORTED_LOCATION "${_IMPORT_PREFIX}/@CMAKE_INSTALL_BINDIR@/sixtyfps_compiler${CMAKE_EXECUTABLE_SUFFIX}")

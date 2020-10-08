@@ -77,16 +77,24 @@ install(TARGETS SixtyFPS sixtyfps-rendering-backend-default
 include(CMakePackageConfigHelpers)
 include(GNUInstallDirs)
 
-get_target_property(SIXTYFPS_SHARED_LIB sixtyfps-rendering-backend-default-shared IMPORTED_LOCATION)
-install(FILES ${SIXTYFPS_SHARED_LIB} TYPE LIB)
-if (WIN32)
-    get_filename_component(SIXTYFPS_SHARED_LIB_DIR ${SIXTYFPS_SHARED_LIB} DIRECTORY)
-    get_filename_component(SIXTYFPS_SHARED_LIB_WE ${SIXTYFPS_SHARED_LIB} NAME_WLE)
-    install(FILES "${SIXTYFPS_SHARED_LIB_DIR}/${SIXTYFPS_SHARED_LIB_WE}.lib" TYPE LIB)
+install(FILES $<TARGET_FILE:sixtyfps-rendering-backend-default-shared> TYPE LIB)
+if(WIN32)
+    install(FILES $<TARGET_LINKER_FILE:sixtyfps-rendering-backend-default-shared> TYPE LIB)
 endif()
 
-get_target_property(SIXTYFPS_COMPILER_PATH sixtyfps_compiler IMPORTED_LOCATION)
-install(PROGRAMS ${SIXTYFPS_COMPILER_PATH} TYPE BIN)
+install(PROGRAMS $<TARGET_FILE:sixtyfps_compiler> TYPE BIN)
+
+set(SIXTYFPS_LIB_PROPERTIES "")
+foreach(prop
+        IMPORTED_LOCATION IMPORTED_LOCATION_DEBUG IMPORTED_LOCATION_RELEASE
+        IMPORTED_IMPLIB IMPORTED_IMPLIB_DEBUG IMPORTED_IMPLIB_RELEASE)
+  get_target_property(value sixtyfps-rendering-backend-default-shared ${prop})
+  if(value)
+    get_filename_component(value ${value} NAME)
+    list(APPEND SIXTYFPS_LIB_PROPERTIES ${prop} "\${_IMPORT_PREFIX}/${CMAKE_INSTALL_LIBDIR}/${value}")
+  endif()
+endforeach()
+
 
 
 configure_package_config_file("cmake/SixtyFPSConfig.cmake.in" "${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/SixtyFPS/SixtyFPSConfig.cmake" INSTALL_DESTINATION lib/cmake/SixtyFPS)
