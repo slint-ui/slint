@@ -45,8 +45,7 @@ fn rust_type(
             Ok(quote!(sixtyfps::re_exports::ModelHandle<#inner>))
         }
         Type::Component(c) if c.root_element.borrow().base_type == Type::Void => {
-            let c = format_ident!("{}", c.id);
-            Ok(quote!(#c))
+            Ok(c.id.parse().unwrap())
         }
         _ => Err(CompilerDiagnostic {
             message: format!("Cannot map property type {} to Rust", ty),
@@ -958,7 +957,7 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                         let name = format_ident!("{}", name);
                         quote!(#name: obj.#index as _)
                     });
-                    let id = component_id(c);
+                    let id : TokenStream = c.id.parse().unwrap();
                     quote!({ let obj = #f; #id { #(#fields),*} })
                 }
                 _ => f,

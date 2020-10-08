@@ -110,7 +110,9 @@ The follow table summarizes the entire mapping:
 
 pub use sixtyfps_rs_macro::sixtyfps;
 
-pub use sixtyfps_corelib::model::{Model, ModelHandle, ModelNotify, ModelPeer, VecModel};
+pub use sixtyfps_corelib::model::{
+    Model, ModelHandle, ModelNotify, ModelPeer, StandardListViewItem, VecModel,
+};
 pub use sixtyfps_corelib::sharedarray::SharedArray;
 pub use sixtyfps_corelib::string::SharedString;
 pub use sixtyfps_corelib::{ARGBColor, Color};

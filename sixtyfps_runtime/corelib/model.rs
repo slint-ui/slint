@@ -590,5 +590,6 @@ impl<C: RepeatedComponent> Repeater<C> {
 #[repr(C)]
 #[derive(Clone, Default, Debug)]
 pub struct StandardListViewItem {
+    /// The text content of the item
     pub text: crate::SharedString,
 }

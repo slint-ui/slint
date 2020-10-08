@@ -811,7 +811,7 @@ impl TypeRegister {
         r.context_restricted_types = context_restricted_types;
 
         let standard_listview_item = Type::Component(Rc::new(Component {
-            id: "StandardListViewItem".into(),
+            id: "sixtyfps::StandardListViewItem".into(),
             root_element: Rc::new(RefCell::new(Element {
                 base_type: Type::Void,
                 property_declarations: [("text".to_owned(), Type::String.into())]
