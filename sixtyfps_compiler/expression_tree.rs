@@ -53,7 +53,7 @@ pub enum BuiltinFunction {
 }
 
 impl BuiltinFunction {
-    fn ty(&self) -> Type {
+    pub fn ty(&self) -> Type {
         match self {
             BuiltinFunction::GetWindowScaleFactor => {
                 Type::Function { return_type: Box::new(Type::Float32), args: vec![] }

@@ -705,7 +705,7 @@ impl TypeRegister {
             ],
             &[(
                 "focus",
-                Type::Function { return_type: Box::new(Type::Void), args: vec![] },
+                BuiltinFunction::SetFocusItem.ty(),
                 Expression::BuiltinFunctionReference(BuiltinFunction::SetFocusItem),
             )],
         );
