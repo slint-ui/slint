@@ -11,10 +11,14 @@ import * as monaco from 'monaco-editor';
 
 var sixtyfps;
 var editor = monaco.editor.create(document.getElementById("editor"));
+var base_url = "";
 
 function load_from_url(url) {
     fetch(url).then(
-        x => x.text().then(y => editor.getModel().setValue(y))
+        x => x.text().then(y => {
+            base_url = url;
+            editor.getModel().setValue(y)
+        })
     );
 
 }
@@ -39,11 +43,11 @@ auto_compile.onchange = function () {
 function update() {
     let source = editor.getModel().getValue();
     let div = document.getElementById("preview");
-    setTimeout(function () { render_or_error(source, div); }, 1);
+    setTimeout(function () { render_or_error(source, base_url, div); }, 1);
 }
 
 
-function render_or_error(source, div) {
+function render_or_error(source, base_url, div) {
     let canvas_id = 'canvas_' + Math.random().toString(36).substr(2, 9);
     let canvas = document.createElement("canvas");
     canvas.width = 800;
@@ -52,7 +56,7 @@ function render_or_error(source, div) {
     div.innerHTML = "";
     div.appendChild(canvas);
     try {
-        sixtyfps.instantiate_from_string(source, canvas_id);
+        sixtyfps.instantiate_from_string(source, base_url, canvas_id);
     } catch (e) {
         if (e.message === "Using exceptions for control flow, don't mind me. This isn't actually an error!") {
             monaco.editor.setModelMarkers(editor.getModel(), "sixtyfps", []);

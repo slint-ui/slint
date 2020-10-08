@@ -20,13 +20,17 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 /// The HTML must contains a <canvas> element with the given `canvas_id`
 /// where the result is gonna be rendered
 #[wasm_bindgen]
-pub fn instantiate_from_string(source: &str, canvas_id: String) -> Result<(), JsValue> {
+pub fn instantiate_from_string(
+    source: &str,
+    base_url: &str,
+    canvas_id: String,
+) -> Result<(), JsValue> {
     #[cfg(feature = "console_error_panic_hook")]
     console_error_panic_hook::set_once();
 
     let c = match sixtyfps_interpreter::load(
         source.to_owned(),
-        &std::path::Path::new(""),
+        &std::path::Path::new(base_url),
         &Default::default(),
     ) {
         (Ok(c), ..) => {
