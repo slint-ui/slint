@@ -16,8 +16,6 @@ members = [
     'tools/compiler',
     'tools/viewer',
     'tools/syntax_updater',
-    'examples/rusttest',
-    'examples/rusttest2',
     'examples/gallery',
     'examples/gallery/wasm',
     'examples/printerdemo/rust',
