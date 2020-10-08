@@ -10,7 +10,7 @@ Install Rust by following the [Rust Getting Started Guide](https://www.rust-lang
 
 Once this is done, you should have the ```rustc``` compiler and the ```cargo``` build system installed in your path.
 
-### NodeJS backend
+### For the NodeJS backend
 
 For the nodejs backend, the following component are needed:
 
@@ -20,7 +20,7 @@ For the nodejs backend, the following component are needed:
 It would be nice if building the nodejs backend was optional, but right now it is part of the workspace.
 You can still not build it by doing `cargo build --workspace --exclude sixtyfps-node`. But cargo test will fail.
 
-### C++ dev (optional)
+### For the C++ dev (optional)
 
  * **cmake** (3.16 or newer)
  * A C++ compiler that can do C++17 (e.g., **MSVC 2019** on Windows)
@@ -37,6 +37,25 @@ cargo test
 
 **Important:** Note that `cargo test` does not work without first calling `cargo build` because the
 C++ tests or the nodejs tests will not find the required dynamic library otherwise
+
+## C++ Build
+
+This is just a normal cmake build.
+
+```sh
+mkdir cppbuild && cd cppbuild
+cmake ..
+cmake --build .
+```
+
+The build will call cargo to build the rust libraries, and build the examples.
+In order to install the libraries and everything you need, use:
+
+```sh
+cmake --install .
+```
+
+You can pass `-DCMAKE_INSTALL_PREFIX` in the first cmake command in order to choose the install location
 
 ## Cross-Compiling
 

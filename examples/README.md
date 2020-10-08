@@ -38,22 +38,14 @@ cargo run --release --bin printerdemo
 
 ## Running the C++ Examples
 
-The C++ API comes with a CMake integration, which needs to be built first:
+ * **When compiling SifxtyFPS from sources:** If you follow the [C++ build instructions](/docs/building.md#c-build), this will build the C++
+examples as well by default
 
-```sh
-cargo xtask cmake
-```
+ * **From [installed binary packages](/api/sixtyfps-cpp/README.md#binary-packages):** Simply run cmake in one of the example directory containing a CMakeLists.txt
 
-This creates CMake configuration files in the `target/debug` folder
-(or `target/release` if you run `cargo xtask cmake --release`).
+ ```sh
+ mkdir build && cd build
+ cmake -DCMAKE_PREFIX_PATH="<path to installed>" ..
+ cmake --build .
+ ```
 
-Then, from another directory, you can run cmake in the `cpp` folder of an example:
-
-```
-cd examples/printerdemo/cpp
-mkdir build
-cd build
-cmake -DCMAKE_PREFIX_PATH=../../../../target/debug/ ..
-cmake --build .
-./printerdemo
-```
