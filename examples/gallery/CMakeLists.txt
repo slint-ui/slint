@@ -7,13 +7,13 @@
 # This file is also available under commercial licensing terms.
 # Please contact info@sixtyfps.io for more information.
 # LICENSE END
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.14)
+project(sixtyfps_cpptest LANGUAGES CXX)
 
-project(SixtyFPS LANGUAGES CXX)
+if (NOT TARGET SixtyFPS::SixtyFPS)
+    find_package(SixtyFPS REQUIRED)
+endif()
 
-add_subdirectory(api/sixtyfps-cpp/)
-add_subdirectory(examples/cpptest/)
-add_subdirectory(examples/printerdemo/cpp/)
-add_subdirectory(examples/todo/cpp/)
-add_subdirectory(examples/gallery/)
-
+add_executable(gallery_cpp main.cpp)
+target_link_libraries(gallery_cpp SixtyFPS::SixtyFPS)
+sixtyfps_target_60_sources(gallery_cpp gallery.60)
