@@ -37,17 +37,17 @@ impl Model for ValueModel {
             }
             Value::Number(x) => *x as usize,
             Value::Array(a) => a.len(),
-            _ => panic!("Invalid model {:?}", self.value),
+            Value::Void => 0,
+            x => panic!("Invalid model {:?}", x),
         }
     }
 
     fn row_data(&self, row: usize) -> Self::Data {
         match &*self.value.borrow() {
             Value::Bool(_) => Value::Void,
-
             Value::Number(_) => Value::Number(row as _),
             Value::Array(a) => a[row].clone(),
-            _ => panic!("Invalid model {:?}", self.value),
+            x => panic!("Invalid model {:?}", x),
         }
     }
 

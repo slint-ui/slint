@@ -78,6 +78,14 @@ export TestCase := Rectangle {
         }
     }
 
+    property<[{a: int}]> m;
+    for x in m : TouchArea {
+        width: parent.width;
+        height: root.height;
+        clicked => {
+            root.value = x.a;
+        }
+    }
 }
 
 
