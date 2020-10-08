@@ -43,7 +43,8 @@ pub type NativeWidgets =
     (widgets::NativeGroupBox,
     (widgets::NativeLineEdit,
     (widgets::NativeScrollBar,
-            ())))))));
+    (widgets::NativeStandardListViewItem,
+            ()))))))));
 
 pub mod native_widgets {
     #[cfg(not(no_qt))]

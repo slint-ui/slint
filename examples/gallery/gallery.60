@@ -7,7 +7,7 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-import { Button, CheckBox, SpinBox, Slider, GroupBox, LineEdit } from "sixtyfps_widgets.60";
+import { Button, CheckBox, SpinBox, Slider, GroupBox, LineEdit, StandardListView } from "sixtyfps_widgets.60";
 
 App := Window {
     width: 500lx;
@@ -17,7 +17,7 @@ App := Window {
         width: parent.width;
         height: parent.height;
     }
-    
+
     GridLayout {
         padding: 20lx;
         spacing: 20lx;
@@ -78,9 +78,20 @@ App := Window {
         Row {
             GroupBox {
                 title: "LineEdit";
-                LineEdit {                
+                LineEdit {
                 }
             }
         }
+        Row {
+            GroupBox {
+                title: "StandardListView";
+                StandardListView {
+                    model: [{text: "Lorem"}, {text: "ipsum"},{text: "dolor"},{text: "sit"},{text: "amet"},{text: "consetetur"},{text: "sadipscing"},{text: "elitr"},{text: "sed"},{text: "diam"},{text: "nonumy"},{text: "eirmod"},{text: "tempor"},{text: "invidunt"},{text: "ut"},{text: "labore"},{text: "et"},{text: "dolore"},{text: "magna"},{text: "aliquyam"},{text: "erat"},{text: "Lorem"}, {text: "ipsum"},{text: "dolor"},{text: "sit"},{text: "amet"},{text: "consetetur"},{text: "sadipscing"},{text: "elitr"},{text: "sed"},{text: "diam"},{text: "nonumy"},{text: "eirmod"},{text: "tempor"},{text: "invidunt"},{text: "ut"},{text: "labore"},{text: "et"},{text: "dolore"},{text: "magna"},{text: "aliquyam"},{text: "erat"},
+                    ];
+                }
+            }
+
+        }
     }
 }
+

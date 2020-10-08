@@ -11,7 +11,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::{cell::RefCell, fmt::Display, rc::Rc};
 
 use crate::expression_tree::{BuiltinFunction, Expression, Unit};
-use crate::object_tree::Component;
+use crate::object_tree::{Component, Element};
 
 #[derive(Debug, Clone)]
 pub enum Type {
@@ -810,6 +810,20 @@ impl TypeRegister {
         r.types.values().for_each(|ty| ty.collect_contextual_types(&mut context_restricted_types));
         r.context_restricted_types = context_restricted_types;
 
+        let standard_listview_item = Type::Component(Rc::new(Component {
+            id: "StandardListViewItem".into(),
+            root_element: Rc::new(RefCell::new(Element {
+                base_type: Type::Void,
+                property_declarations: [("text".to_owned(), Type::String.into())]
+                    .iter()
+                    .cloned()
+                    .collect(),
+                ..Element::default()
+            })),
+            ..Component::default()
+        }));
+        r.types.insert("StandardListViewItem".into(), standard_listview_item.clone());
+
         // FIXME: should this be auto generated or placed somewhere else
         native_class(
             &mut r,
@@ -909,6 +923,19 @@ impl TypeRegister {
                 ("max", Type::Length),
                 ("page_size", Type::Length),
                 ("value", Type::Length),
+            ],
+            &[],
+        );
+        native_class(
+            &mut r,
+            "NativeStandardListViewItem",
+            &[
+                ("x", Type::Length),
+                ("y", Type::Length),
+                ("width", Type::Length),
+                ("height", Type::Length),
+                ("index", Type::Int32),
+                ("item", standard_listview_item),
             ],
             &[],
         );

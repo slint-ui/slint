@@ -140,6 +140,28 @@ declare_value_conversion!(Color => [Color] );
 declare_value_conversion!(PathElements => [PathData]);
 declare_value_conversion!(EasingCurve => [corelib::animations::EasingCurve]);
 
+impl TryFrom<corelib::model::StandardListViewItem> for Value {
+    type Error = ();
+    fn try_from(
+        corelib::model::StandardListViewItem { text }: corelib::model::StandardListViewItem,
+    ) -> Result<Self, ()> {
+        let mut hm = HashMap::new();
+        hm.insert("text".into(), text.try_into()?);
+        Ok(Value::Object(hm))
+    }
+}
+impl TryInto<corelib::model::StandardListViewItem> for Value {
+    type Error = ();
+    fn try_into(self) -> Result<corelib::model::StandardListViewItem, ()> {
+        match self {
+            Self::Object(x) => Ok(corelib::model::StandardListViewItem {
+                text: x.get("text").ok_or(())?.clone().try_into()?,
+            }),
+            _ => Err(()),
+        }
+    }
+}
+
 macro_rules! declare_value_enum_conversion {
     ($ty:ty, $n:ident) => {
         impl TryFrom<$ty> for Value {

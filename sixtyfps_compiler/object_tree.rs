@@ -144,6 +144,12 @@ pub struct PropertyDeclaration {
     pub is_alias: Option<NamedReference>,
 }
 
+impl From<Type> for PropertyDeclaration {
+    fn from(ty: Type) -> Self {
+        PropertyDeclaration { property_type: ty, ..Self::default() }
+    }
+}
+
 /// An Element is an instentation of a Component
 #[derive(Default, Debug)]
 pub struct Element {

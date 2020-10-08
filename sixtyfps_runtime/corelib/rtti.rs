@@ -18,7 +18,7 @@ use core::convert::{TryFrom, TryInto};
 use core::pin::Pin;
 
 macro_rules! declare_ValueType {
-    ($($ty:ty),*) => {
+    ($($ty:ty,)*) => {
         pub trait ValueType: 'static $(+ TryInto<$ty> + TryFrom<$ty>)* {}
     };
 }
@@ -36,7 +36,8 @@ declare_ValueType![
     crate::PathData,
     crate::animations::EasingCurve,
     crate::items::TextHorizontalAlignment,
-    crate::items::TextVerticalAlignment
+    crate::items::TextVerticalAlignment,
+    crate::model::StandardListViewItem,
 ];
 
 pub trait PropertyInfo<Item, Value> {

@@ -585,3 +585,10 @@ impl<C: RepeatedComponent> Repeater<C> {
         }
     }
 }
+
+/// Represend an item in a StandardListView
+#[repr(C)]
+#[derive(Clone, Default, Debug)]
+pub struct StandardListViewItem {
+    pub text: crate::SharedString,
+}

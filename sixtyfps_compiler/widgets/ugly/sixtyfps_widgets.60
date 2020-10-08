@@ -345,3 +345,12 @@ export ScrollView := Rectangle {
 export ListView := ScrollView {
     $children
 }
+
+export StandardListView := ListView {
+    property<[StandardListViewItem]> model;
+    for item in model : Text {
+        text: item.text;
+        height: 20lx;
+    }
+}
+

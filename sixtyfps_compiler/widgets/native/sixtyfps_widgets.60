@@ -40,8 +40,6 @@ export LineEdit := NativeLineEdit {
     }
 }
 
-
-
 export ScrollView := Rectangle {
     property <length> viewport_width <=> fli.viewport_width;
     property <length> viewport_height <=> fli.viewport_height;
@@ -77,4 +75,14 @@ export ScrollView := Rectangle {
 
 export ListView := ScrollView {
     $children
+}
+
+export StandardListView := ListView {
+    property<[StandardListViewItem]> model;
+    for item[i] in model : NativeStandardListViewItem {
+        item: item;
+        index: i;
+        height: 20lx;
+        width: parent.width;
+    }
 }

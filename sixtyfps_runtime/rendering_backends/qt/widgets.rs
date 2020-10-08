@@ -1177,3 +1177,124 @@ impl ItemConsts for NativeScrollBar {
 }
 
 ItemVTable_static! { #[no_mangle] pub static NativeScrollBarVTable for NativeScrollBar }
+
+#[repr(C)]
+#[derive(FieldOffsets, Default, BuiltinItem)]
+#[pin]
+pub struct NativeStandardListViewItem {
+    pub x: Property<f32>,
+    pub y: Property<f32>,
+    pub width: Property<f32>,
+    pub height: Property<f32>,
+    pub item: Property<sixtyfps_corelib::model::StandardListViewItem>,
+    pub index: Property<i32>,
+    pub cached_rendering_data: CachedRenderingData,
+}
+
+impl Item for NativeStandardListViewItem {
+    fn geometry(self: Pin<&Self>) -> Rect {
+        euclid::rect(
+            Self::FIELD_OFFSETS.x.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.y.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.width.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.height.apply_pin(self).get(),
+        )
+    }
+    fn rendering_primitive(
+        self: Pin<&Self>,
+        window: &ComponentWindow,
+    ) -> HighLevelRenderingPrimitive {
+        let size: qttypes::QSize = get_size!(self);
+        let dpr = window.scale_factor();
+        let index: i32 = Self::FIELD_OFFSETS.index.apply_pin(self).get();
+        let item = Self::FIELD_OFFSETS.item.apply_pin(self).get();
+        let text: qttypes::QString = item.text.as_str().into();
+
+        let img = cpp!(unsafe [
+            size as "QSize",
+            dpr as "float",
+            index as "int",
+            text as "QString"
+        ] -> qttypes::QImage as "QImage" {
+            auto [img, rect] = offline_style_rendering_image(size, dpr);
+            QPainter p(&img);
+            QStyleOptionViewItem option;
+            option.rect = rect;
+            option.state = QStyle::State_Enabled | QStyle::State_Active;
+            option.decorationPosition = QStyleOptionViewItem::Left;
+            option.decorationAlignment = Qt::AlignCenter;
+            option.displayAlignment = Qt::AlignLeft|Qt::AlignVCenter;
+            option.showDecorationSelected = qApp->style()->styleHint(QStyle::SH_ItemView_ShowDecorationSelected, nullptr, global_widget());
+            if (index % 2) {
+                option.features |= QStyleOptionViewItem::Alternate;
+            }
+            option.features |= QStyleOptionViewItem::HasDisplay;
+            option.text = text;
+            qApp->style()->drawPrimitive(QStyle::PE_PanelItemViewRow, &option, &p, global_widget());
+            qApp->style()->drawControl(QStyle::CE_ItemViewItem, &option, &p, global_widget());
+            return img;
+        });
+        return HighLevelRenderingPrimitive::Image { source: to_resource(img) };
+    }
+
+    fn rendering_variables(
+        self: Pin<&Self>,
+        _window: &ComponentWindow,
+    ) -> SharedArray<RenderingVariable> {
+        SharedArray::default()
+    }
+
+    fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
+        let dpr = window.scale_factor();
+        let index: i32 = Self::FIELD_OFFSETS.index.apply_pin(self).get();
+        let item = Self::FIELD_OFFSETS.item.apply_pin(self).get();
+        let text: qttypes::QString = item.text.as_str().into();
+
+        let s = cpp!(unsafe [
+            index as "int",
+            text as "QString"
+        ] -> qttypes::QSize as "QSize" {
+            ensure_initialized();
+
+            QStyleOptionViewItem option;
+            option.decorationPosition = QStyleOptionViewItem::Left;
+            option.decorationAlignment = Qt::AlignCenter;
+            option.displayAlignment = Qt::AlignLeft|Qt::AlignVCenter;
+            option.showDecorationSelected = qApp->style()->styleHint(QStyle::SH_ItemView_ShowDecorationSelected, nullptr, global_widget());
+            if (index % 2) {
+                option.features |= QStyleOptionViewItem::Alternate;
+            }
+            option.features |= QStyleOptionViewItem::HasDisplay;
+            option.text = text;
+            return qApp->style()->sizeFromContents(QStyle::CT_ItemViewItem, &option, QSize{}, global_widget());
+        });
+        let result = LayoutInfo {
+            min_width: s.width as f32 * dpr,
+            min_height: s.height as f32 * dpr,
+            ..LayoutInfo::default()
+        };
+        result
+    }
+
+    fn input_event(
+        self: Pin<&Self>,
+        _event: MouseEvent,
+        _window: &ComponentWindow,
+        _app_component: ComponentRefPin,
+    ) -> InputEventResult {
+        InputEventResult::EventIgnored
+    }
+
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
+
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+}
+
+impl ItemConsts for NativeStandardListViewItem {
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
+        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+}
+
+ItemVTable_static! { #[no_mangle] pub static NativeStandardListViewItemVTable for NativeStandardListViewItem }
