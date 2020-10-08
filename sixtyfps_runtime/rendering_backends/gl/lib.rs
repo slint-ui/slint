@@ -74,6 +74,10 @@ enum GLRenderingPrimitive {
         texture: texture::AtlasAllocation,
         image_size: Size,
     },
+    #[cfg(target_arch = "wasm32")]
+    DynamicPrimitive {
+        primitive: Rc<RefCell<Option<GLRenderingPrimitive>>>,
+    },
     GlyphRuns {
         glyph_runs: Vec<GlyphRun>,
     },
@@ -411,49 +415,41 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                                 &image,
                             )
                             .unwrap();
-                            smallvec![self.create_image(image)]
+                            smallvec![GLRenderingPrimitivesBuilder::create_image(
+                                &self.context,
+                                &mut *self.texture_atlas.borrow_mut(),
+                                image
+                            )]
                         }
                         #[cfg(target_arch = "wasm32")]
                         Resource::AbsoluteFilePath(path) => {
-                            let xx: &[u8] = &[0; 256 * 256 * 4];
-                            let image = image::ImageBuffer::from_raw(256, 256, xx).unwrap();
-                            let image_prim = self.create_image(image);
-                            let (_x, _y, txt) = match &image_prim {
-                                GLRenderingPrimitive::Texture { texture, .. } => (
-                                    texture.texture_coordinates.origin_x(),
-                                    texture.texture_coordinates.origin_y(),
-                                    texture.atlas.texture.clone(),
-                                ),
-                                _ => unreachable!(),
-                            };
+                            let shared_primitive = Rc::new(RefCell::new(None));
 
-                            let img = web_sys::HtmlImageElement::new().unwrap();
-                            img.set_cross_origin(Some("anonymous"));
-                            let context = self.context.clone();
-                            let img2 = img.clone();
-                            img.set_onload(Some(
-                                &wasm_bindgen::closure::Closure::once_into_js(move || {
-                                    web_sys::console::log_1(&"Hello".into());
-                                    unsafe {
-                                        context
-                                            .bind_texture(glow::TEXTURE_2D, Some(txt.texture_id));
-                                        context.tex_image_2d_with_html_image(
-                                            glow::TEXTURE_2D,
-                                            0,
-                                            glow::RGBA as i32,
-                                            glow::RGBA,
-                                            glow::UNSIGNED_BYTE,
-                                            &img2,
-                                        );
-                                    };
-                                    web_sys::console::log_1(
-                                        &"Hello from after tex_image_2d call".into(),
-                                    );
+                            let html_image = web_sys::HtmlImageElement::new().unwrap();
+                            html_image.set_cross_origin(Some("anonymous"));
+                            html_image.set_onload(Some(
+                                &wasm_bindgen::closure::Closure::once_into_js({
+                                    let context = self.context.clone();
+                                    let atlas = self.texture_atlas.clone();
+                                    let html_image = html_image.clone();
+                                    let shared_primitive = shared_primitive.clone();
+                                    move || {
+                                        let texture_primitive =
+                                            GLRenderingPrimitivesBuilder::create_image(
+                                                &context,
+                                                &mut *atlas.borrow_mut(),
+                                                &html_image,
+                                            );
+
+                                        *shared_primitive.borrow_mut() = Some(texture_primitive);
+                                    }
                                 })
                                 .into(),
                             ));
-                            img.set_src(path);
-                            SmallVec::new()
+                            html_image.set_src(path);
+                            smallvec![GLRenderingPrimitive::DynamicPrimitive {
+                                primitive: shared_primitive
+                            }]
                         }
                         Resource::EmbeddedData(slice) => {
                             let image_slice = slice.as_slice();
@@ -464,7 +460,11 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                                 &image,
                             )
                             .unwrap();
-                            smallvec![self.create_image(image)]
+                            smallvec![GLRenderingPrimitivesBuilder::create_image(
+                                &self.context,
+                                &mut *self.texture_atlas.borrow_mut(),
+                                image
+                            )]
                         }
                         Resource::EmbeddedRgbaImage { width, height, data } => {
                             let image = image::ImageBuffer::<image::Rgba<u8>, &[u8]>::from_raw(
@@ -473,7 +473,11 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                                 data.as_slice(),
                             )
                             .unwrap();
-                            smallvec![self.create_image(image)]
+                            smallvec![GLRenderingPrimitivesBuilder::create_image(
+                                &self.context,
+                                &mut *self.texture_atlas.borrow_mut(),
+                                image
+                            )]
                         }
                         Resource::None => SmallVec::new(),
                     }
@@ -652,28 +656,27 @@ impl GLRenderingPrimitivesBuilder {
     }
 
     fn create_image(
-        &mut self,
-        image: image::ImageBuffer<image::Rgba<u8>, &[u8]>,
+        context: &Rc<glow::Context>,
+        atlas: &mut TextureAtlas,
+        image: impl texture::UploadableAtlasImage,
     ) -> GLRenderingPrimitive {
         let image_size = Size::new(image.width() as _, image.height() as _);
-        let source_size = image.dimensions();
         let rect =
-            Rect::new(Point::new(0.0, 0.0), Size::new(source_size.0 as f32, source_size.1 as f32));
+            Rect::new(Point::new(0.0, 0.0), Size::new(image.width() as f32, image.height() as f32));
 
         let vertex1 = Vertex { _pos: [rect.min_x(), rect.min_y()] };
         let vertex2 = Vertex { _pos: [rect.max_x(), rect.min_y()] };
         let vertex3 = Vertex { _pos: [rect.max_x(), rect.max_y()] };
         let vertex4 = Vertex { _pos: [rect.min_x(), rect.max_y()] };
 
-        let mut atlas = self.texture_atlas.borrow_mut();
-        let atlas_allocation = atlas.allocate_image_in_atlas(&self.context, image);
+        let atlas_allocation = atlas.allocate_image_in_atlas(&context, image);
 
         let vertices = GLArrayBuffer::new(
-            &self.context,
+            &context,
             &vec![vertex1, vertex2, vertex3, vertex1, vertex3, vertex4],
         );
         let texture_vertices =
-            GLArrayBuffer::new(&self.context, &atlas_allocation.normalized_texture_coordinates());
+            GLArrayBuffer::new(&context, &atlas_allocation.normalized_texture_coordinates());
 
         GLRenderingPrimitive::Texture {
             vertices,
@@ -1028,6 +1031,13 @@ impl GLFrame {
 
                 None
             }
+
+            #[cfg(target_arch = "wasm32")]
+            GLRenderingPrimitive::DynamicPrimitive { primitive } => primitive
+                .borrow()
+                .as_ref()
+                .map(|p| self.render_one_low_level_primitive(p, rendering_var, matrix))
+                .unwrap_or(None),
         }
     }
 

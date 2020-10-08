@@ -25,6 +25,61 @@ impl PartialEq for GLTexture {
     }
 }
 
+pub trait UploadableAtlasImage {
+    fn upload(&self, context: &Rc<glow::Context>, x: i32, y: i32);
+    fn width(&self) -> u32;
+    fn height(&self) -> u32;
+}
+
+#[cfg(target_arch = "wasm32")]
+impl UploadableAtlasImage for &web_sys::HtmlImageElement {
+    fn upload(&self, context: &Rc<GLContext>, x: i32, y: i32) {
+        unsafe {
+            context.tex_sub_image_2d_with_html_image(
+                glow::TEXTURE_2D,
+                0,
+                x,
+                y,
+                glow::RGBA,
+                glow::UNSIGNED_BYTE,
+                self,
+            );
+        }
+    }
+    fn width(&self) -> u32 {
+        (self as Self).width()
+    }
+    fn height(&self) -> u32 {
+        (self as Self).height()
+    }
+}
+
+impl<Container: core::ops::Deref<Target = [u8]>> UploadableAtlasImage
+    for image::ImageBuffer<image::Rgba<u8>, Container>
+{
+    fn upload(&self, context: &Rc<GLContext>, x: i32, y: i32) {
+        unsafe {
+            context.tex_sub_image_2d(
+                glow::TEXTURE_2D,
+                0,
+                x,
+                y,
+                self.width() as i32,
+                self.height() as i32,
+                glow::RGBA,
+                glow::UNSIGNED_BYTE,
+                glow::PixelUnpackData::Slice(&self.as_raw()),
+            );
+        }
+    }
+    fn width(&self) -> u32 {
+        self.width()
+    }
+    fn height(&self) -> u32 {
+        self.height()
+    }
+}
+
 impl GLTexture {
     fn new_with_size_and_data(
         gl: &Rc<glow::Context>,
@@ -102,26 +157,11 @@ impl GLTexture {
         }
     }
 
-    fn set_sub_image<Container: core::ops::Deref<Target = [u8]>>(
-        &self,
-        x: i32,
-        y: i32,
-        image: image::ImageBuffer<image::Rgba<u8>, Container>,
-    ) {
+    fn set_sub_image(&self, x: i32, y: i32, image: impl UploadableAtlasImage) {
         unsafe {
             self.context.bind_texture(glow::TEXTURE_2D, Some(self.texture_id));
-            self.context.tex_sub_image_2d(
-                glow::TEXTURE_2D,
-                0,
-                x,
-                y,
-                image.width() as i32,
-                image.height() as i32,
-                glow::RGBA,
-                glow::UNSIGNED_BYTE,
-                glow::PixelUnpackData::Slice(&image.into_raw()),
-            );
         }
+        image.upload(&self.context, x, y);
     }
 
     pub fn bind_to_location(
@@ -184,8 +224,9 @@ impl AtlasAllocation {
 }
 
 impl GLAtlasTexture {
-    fn new(gl: &Rc<glow::Context>, width: i32, height: i32) -> Self {
-        let allocator = guillotiere::AtlasAllocator::new(guillotiere::Size::new(width, height));
+    fn new(gl: &Rc<glow::Context>, width: u32, height: u32) -> Self {
+        let allocator =
+            guillotiere::AtlasAllocator::new(guillotiere::Size::new(width as _, height as _));
         let texture = Rc::new(GLTexture::new_with_size_and_data(
             gl,
             allocator.size().width,
@@ -197,12 +238,12 @@ impl GLAtlasTexture {
 
     fn allocate(
         self: Rc<Self>,
-        requested_width: i32,
-        requested_height: i32,
+        requested_width: u32,
+        requested_height: u32,
     ) -> Option<AtlasAllocation> {
         self.allocator
             .borrow_mut()
-            .allocate(guillotiere::Size::new(requested_width, requested_height))
+            .allocate(guillotiere::Size::new(requested_width as _, requested_height as _))
             .map(|guillotiere_alloc| {
                 let min = guillotiere_alloc.rectangle.min;
                 let size = guillotiere_alloc.rectangle.max - guillotiere_alloc.rectangle.min;
@@ -228,11 +269,11 @@ impl TextureAtlas {
         Self { atlases: vec![] }
     }
 
-    fn allocate_region(
+    pub fn allocate_region(
         &mut self,
         gl: &Rc<glow::Context>,
-        requested_width: i32,
-        requested_height: i32,
+        requested_width: u32,
+        requested_height: u32,
     ) -> AtlasAllocation {
         self.atlases
             .iter()
@@ -253,9 +294,9 @@ impl TextureAtlas {
     pub fn allocate_image_in_atlas(
         &mut self,
         gl: &Rc<glow::Context>,
-        image: image::ImageBuffer<image::Rgba<u8>, &[u8]>,
+        image: impl UploadableAtlasImage,
     ) -> AtlasAllocation {
-        let allocation = self.allocate_region(gl, image.width() as _, image.height() as _);
+        let allocation = self.allocate_region(gl, image.width(), image.height());
 
         allocation.atlas.texture.set_sub_image(
             allocation.texture_coordinates.origin_x(),

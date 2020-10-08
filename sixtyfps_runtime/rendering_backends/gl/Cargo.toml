@@ -27,12 +27,14 @@ smallvec = "1.4.1"
 web_sys = { version = "0.3", package = "web-sys", features=["console"] }
 wasm-bindgen = { version = "0.2" }
 winit = { version = "0.23", features = ["web-sys"] }
-glow = { version = "0.6.0", features = ["web-sys"], default-features = false }
+# Use a git version until Context::tex_sub_image_2d_with_html_image is released.
+glow = { git = "https://github.com/grovesNL/glow", rev = "b31cce3a5fadb8ec216bd835b5ba5302873b2886", features = ["web-sys"], default-features = false }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 winit = { version = "0.23" }
 glutin = { version = "0.25" }
-glow = { version = "0.6.0", default-features = false }
+# Use a git version until Context::tex_sub_image_2d_with_html_image is released.
+glow = { git = "https://github.com/grovesNL/glow", rev = "b31cce3a5fadb8ec216bd835b5ba5302873b2886", default-features = false }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 cocoa = { version = "0.24.0" }
