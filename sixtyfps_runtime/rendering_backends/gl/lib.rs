@@ -743,217 +743,145 @@ impl GraphicsFrame for GLFrame {
         primitive
             .gl_primitives
             .iter()
-            .filter_map(|gl_primitive| match gl_primitive {
-                GLRenderingPrimitive::FillPath { vertices, indices } => {
-                    let col: ARGBColor<f32> = (*rendering_var.next().unwrap().as_color()).into();
-                    self.fill_path(&matrix, vertices, indices, col);
-                    None
-                }
-                GLRenderingPrimitive::Texture {
-                    vertices,
-                    texture_vertices,
-                    texture,
-                    image_size,
-                } => {
-                    let matrix = if let Some(scaled_width) = rendering_var.next() {
-                        matrix
-                            * Matrix4::from_nonuniform_scale(
-                                scaled_width.as_scaled_width() / image_size.width,
-                                1.,
-                                1.,
-                            )
-                    } else {
-                        matrix
-                    };
+            .filter_map(|gl_primitive| {
+                self.render_one_low_level_primitive(gl_primitive, &mut rendering_var, matrix)
+            })
+            .collect::<Vec<_>>()
+    }
+}
 
-                    let matrix = if let Some(scaled_height) = rendering_var.next() {
-                        matrix
-                            * Matrix4::from_nonuniform_scale(
-                                1.,
-                                scaled_height.as_scaled_height() / image_size.height,
-                                1.,
-                            )
-                    } else {
-                        matrix
-                    };
+impl GLFrame {
+    fn render_one_low_level_primitive<'a>(
+        &mut self,
+        gl_primitive: &GLRenderingPrimitive,
+        rendering_var: &mut std::iter::Peekable<impl Iterator<Item = &'a RenderingVariable>>,
+        matrix: Matrix4<f32>,
+    ) -> Option<OpaqueRenderingPrimitive> {
+        match gl_primitive {
+            GLRenderingPrimitive::FillPath { vertices, indices } => {
+                let col: ARGBColor<f32> = (*rendering_var.next().unwrap().as_color()).into();
+                self.fill_path(&matrix, vertices, indices, col);
+                None
+            }
+            GLRenderingPrimitive::Texture { vertices, texture_vertices, texture, image_size } => {
+                let matrix = if let Some(scaled_width) = rendering_var.next() {
+                    matrix
+                        * Matrix4::from_nonuniform_scale(
+                            scaled_width.as_scaled_width() / image_size.width,
+                            1.,
+                            1.,
+                        )
+                } else {
+                    matrix
+                };
 
-                    self.render_texture(&matrix, vertices, texture_vertices, texture);
-                    None
-                }
-                GLRenderingPrimitive::GlyphRuns { glyph_runs } => {
-                    let col: ARGBColor<f32> = (*rendering_var.next().unwrap().as_color()).into();
+                let matrix = if let Some(scaled_height) = rendering_var.next() {
+                    matrix
+                        * Matrix4::from_nonuniform_scale(
+                            1.,
+                            scaled_height.as_scaled_height() / image_size.height,
+                            1.,
+                        )
+                } else {
+                    matrix
+                };
 
-                    let render_glyphs = |text_color| {
-                        for GlyphRun { vertices, texture_vertices, texture, vertex_count } in
-                            glyph_runs
-                        {
-                            self.render_glyph_run(
-                                &matrix,
-                                vertices,
-                                texture_vertices,
-                                texture,
-                                *vertex_count,
-                                text_color,
-                            );
-                        }
-                    };
+                self.render_texture(&matrix, vertices, texture_vertices, texture);
+                None
+            }
+            GLRenderingPrimitive::GlyphRuns { glyph_runs } => {
+                let col: ARGBColor<f32> = (*rendering_var.next().unwrap().as_color()).into();
 
-                    // Text selection is drawn in three phases:
-                    // 1. Draw the selection background rectangle, use regular stencil testing, write into the stencil buffer with GL_INCR
-                    // 2. Draw the glyphs, use regular stencil testing against current_stencil clip value + 1, don't write into the stencil buffer. This clips
-                    //    and draws only the glyphs of the selected text.
-                    // 3. Draw the glyphs, use regular stencil testing against current stencil clip value, don't write into the stencil buffer. This clips
-                    //    away the selected text and draws the non-selected part.
-                    // 4. We draw the selection background rectangle, use regular stencil testing, write into the stencil buffer with GL_DECR, use false color mask.
-                    //    This "removes" the selection rectangle from the stencil buffer again.
-
-                    let reset_stencil = match (rendering_var.peek(), &self.text_cursor_rect) {
-                        (
-                            Some(RenderingVariable::TextSelection(x, width, height)),
-                            Some(text_cursor),
-                        ) => {
-                            rendering_var.next();
-                            let foreground_color: ARGBColor<f32> =
-                                (*rendering_var.next().unwrap().as_color()).into();
-                            let background_color: ARGBColor<f32> =
-                                (*rendering_var.next().unwrap().as_color()).into();
-
-                            // Phase 1
-
-                            let matrix = matrix
-                                * Matrix4::from_translation(cgmath::Vector3::new(*x, 0., 0.))
-                                * Matrix4::from_nonuniform_scale(*width, *height, 1.);
-
-                            unsafe {
-                                self.context.stencil_mask(0xff);
-                                self.context.stencil_op(glow::KEEP, glow::KEEP, glow::INCR);
-                            }
-
-                            self.fill_path(
-                                &matrix,
-                                &text_cursor.vertices,
-                                &text_cursor.indices,
-                                background_color,
-                            );
-
-                            unsafe {
-                                self.context.stencil_mask(0);
-                                self.context.stencil_op(glow::KEEP, glow::KEEP, glow::KEEP);
-                            }
-
-                            // Phase 2
-
-                            unsafe {
-                                self.context.stencil_func(
-                                    glow::EQUAL,
-                                    (self.current_stencil_clip_value + 1) as i32,
-                                    0xff,
-                                );
-                            }
-
-                            render_glyphs(foreground_color);
-
-                            unsafe {
-                                self.context.stencil_func(
-                                    glow::EQUAL,
-                                    self.current_stencil_clip_value as i32,
-                                    0xff,
-                                );
-                            }
-
-                            Some(matrix)
-                        }
-                        _ => None, // no stencil to reset
-                    };
-
-                    // Phase 3
-
-                    render_glyphs(col);
-
-                    if let (Some(selection_matrix), Some(text_cursor)) =
-                        (reset_stencil, &self.text_cursor_rect)
+                let render_glyphs = |text_color| {
+                    for GlyphRun { vertices, texture_vertices, texture, vertex_count } in glyph_runs
                     {
-                        // Phase 4
+                        self.render_glyph_run(
+                            &matrix,
+                            vertices,
+                            texture_vertices,
+                            texture,
+                            *vertex_count,
+                            text_color,
+                        );
+                    }
+                };
+
+                // Text selection is drawn in three phases:
+                // 1. Draw the selection background rectangle, use regular stencil testing, write into the stencil buffer with GL_INCR
+                // 2. Draw the glyphs, use regular stencil testing against current_stencil clip value + 1, don't write into the stencil buffer. This clips
+                //    and draws only the glyphs of the selected text.
+                // 3. Draw the glyphs, use regular stencil testing against current stencil clip value, don't write into the stencil buffer. This clips
+                //    away the selected text and draws the non-selected part.
+                // 4. We draw the selection background rectangle, use regular stencil testing, write into the stencil buffer with GL_DECR, use false color mask.
+                //    This "removes" the selection rectangle from the stencil buffer again.
+
+                let reset_stencil = match (rendering_var.peek(), &self.text_cursor_rect) {
+                    (
+                        Some(RenderingVariable::TextSelection(x, width, height)),
+                        Some(text_cursor),
+                    ) => {
+                        rendering_var.next();
+                        let foreground_color: ARGBColor<f32> =
+                            (*rendering_var.next().unwrap().as_color()).into();
+                        let background_color: ARGBColor<f32> =
+                            (*rendering_var.next().unwrap().as_color()).into();
+
+                        // Phase 1
+
+                        let matrix = matrix
+                            * Matrix4::from_translation(cgmath::Vector3::new(*x, 0., 0.))
+                            * Matrix4::from_nonuniform_scale(*width, *height, 1.);
+
                         unsafe {
                             self.context.stencil_mask(0xff);
-                            self.context.stencil_op(glow::KEEP, glow::KEEP, glow::DECR);
-                            self.context.color_mask(false, false, false, false);
+                            self.context.stencil_op(glow::KEEP, glow::KEEP, glow::INCR);
                         }
 
                         self.fill_path(
-                            &selection_matrix,
+                            &matrix,
                             &text_cursor.vertices,
                             &text_cursor.indices,
-                            col,
+                            background_color,
                         );
+
                         unsafe {
                             self.context.stencil_mask(0);
-                            self.context.color_mask(true, true, true, true);
-                            self.context.stencil_op(glow::KEEP, glow::KEEP, glow::REPLACE);
+                            self.context.stencil_op(glow::KEEP, glow::KEEP, glow::KEEP);
                         }
-                    }
 
-                    match (rendering_var.peek(), &self.text_cursor_rect) {
-                        (
-                            Some(RenderingVariable::TextCursor(x, width, height)),
-                            Some(text_cursor),
-                        ) => {
-                            let matrix = matrix
-                                * Matrix4::from_translation(cgmath::Vector3::new(*x, 0., 0.))
-                                * Matrix4::from_nonuniform_scale(*width, *height, 1.);
+                        // Phase 2
 
-                            self.fill_path(
-                                &matrix,
-                                &text_cursor.vertices,
-                                &text_cursor.indices,
-                                col,
+                        unsafe {
+                            self.context.stencil_func(
+                                glow::EQUAL,
+                                (self.current_stencil_clip_value + 1) as i32,
+                                0xff,
                             );
-
-                            rendering_var.next();
                         }
-                        _ => {}
+
+                        render_glyphs(foreground_color);
+
+                        unsafe {
+                            self.context.stencil_func(
+                                glow::EQUAL,
+                                self.current_stencil_clip_value as i32,
+                                0xff,
+                            );
+                        }
+
+                        Some(matrix)
                     }
-                    None
-                }
-                GLRenderingPrimitive::ApplyClip { vertices, indices } => {
-                    unsafe {
-                        self.context.stencil_mask(0xff);
-                        self.context.stencil_op(glow::KEEP, glow::KEEP, glow::INCR);
-                        self.context.color_mask(false, false, false, false);
-                    }
+                    _ => None, // no stencil to reset
+                };
 
-                    self.fill_path(
-                        &matrix,
-                        &vertices,
-                        &indices,
-                        ARGBColor { alpha: 0., red: 0., green: 0., blue: 0. },
-                    );
+                // Phase 3
 
-                    unsafe {
-                        self.context.stencil_mask(0);
-                        self.context.stencil_op(glow::KEEP, glow::KEEP, glow::KEEP);
-                        self.context.color_mask(true, true, true, true);
-                    }
+                render_glyphs(col);
 
-                    self.current_stencil_clip_value += 1;
-
-                    unsafe {
-                        self.context.stencil_func(
-                            glow::EQUAL,
-                            self.current_stencil_clip_value as i32,
-                            0xff,
-                        );
-                    }
-
-                    Some(OpaqueRenderingPrimitive {
-                        gl_primitives: smallvec![GLRenderingPrimitive::ReleaseClip {
-                            vertices: vertices.clone(),
-                            indices: indices.clone(),
-                        }],
-                    })
-                }
-
-                GLRenderingPrimitive::ReleaseClip { vertices, indices } => {
+                if let (Some(selection_matrix), Some(text_cursor)) =
+                    (reset_stencil, &self.text_cursor_rect)
+                {
+                    // Phase 4
                     unsafe {
                         self.context.stencil_mask(0xff);
                         self.context.stencil_op(glow::KEEP, glow::KEEP, glow::DECR);
@@ -961,36 +889,105 @@ impl GraphicsFrame for GLFrame {
                     }
 
                     self.fill_path(
-                        &matrix,
-                        &vertices,
-                        &indices,
-                        ARGBColor { alpha: 0., red: 0., green: 0., blue: 0. },
+                        &selection_matrix,
+                        &text_cursor.vertices,
+                        &text_cursor.indices,
+                        col,
                     );
-
                     unsafe {
                         self.context.stencil_mask(0);
-                        self.context.stencil_op(glow::KEEP, glow::KEEP, glow::KEEP);
                         self.context.color_mask(true, true, true, true);
+                        self.context.stencil_op(glow::KEEP, glow::KEEP, glow::REPLACE);
                     }
-
-                    self.current_stencil_clip_value -= 1;
-
-                    unsafe {
-                        self.context.stencil_func(
-                            glow::EQUAL,
-                            self.current_stencil_clip_value as i32,
-                            0xff,
-                        );
-                    }
-
-                    None
                 }
-            })
-            .collect::<Vec<_>>()
-    }
-}
 
-impl GLFrame {
+                match (rendering_var.peek(), &self.text_cursor_rect) {
+                    (Some(RenderingVariable::TextCursor(x, width, height)), Some(text_cursor)) => {
+                        let matrix = matrix
+                            * Matrix4::from_translation(cgmath::Vector3::new(*x, 0., 0.))
+                            * Matrix4::from_nonuniform_scale(*width, *height, 1.);
+
+                        self.fill_path(&matrix, &text_cursor.vertices, &text_cursor.indices, col);
+
+                        rendering_var.next();
+                    }
+                    _ => {}
+                }
+                None
+            }
+            GLRenderingPrimitive::ApplyClip { vertices, indices } => {
+                unsafe {
+                    self.context.stencil_mask(0xff);
+                    self.context.stencil_op(glow::KEEP, glow::KEEP, glow::INCR);
+                    self.context.color_mask(false, false, false, false);
+                }
+
+                self.fill_path(
+                    &matrix,
+                    &vertices,
+                    &indices,
+                    ARGBColor { alpha: 0., red: 0., green: 0., blue: 0. },
+                );
+
+                unsafe {
+                    self.context.stencil_mask(0);
+                    self.context.stencil_op(glow::KEEP, glow::KEEP, glow::KEEP);
+                    self.context.color_mask(true, true, true, true);
+                }
+
+                self.current_stencil_clip_value += 1;
+
+                unsafe {
+                    self.context.stencil_func(
+                        glow::EQUAL,
+                        self.current_stencil_clip_value as i32,
+                        0xff,
+                    );
+                }
+
+                Some(OpaqueRenderingPrimitive {
+                    gl_primitives: smallvec![GLRenderingPrimitive::ReleaseClip {
+                        vertices: vertices.clone(),
+                        indices: indices.clone(),
+                    }],
+                })
+            }
+
+            GLRenderingPrimitive::ReleaseClip { vertices, indices } => {
+                unsafe {
+                    self.context.stencil_mask(0xff);
+                    self.context.stencil_op(glow::KEEP, glow::KEEP, glow::DECR);
+                    self.context.color_mask(false, false, false, false);
+                }
+
+                self.fill_path(
+                    &matrix,
+                    &vertices,
+                    &indices,
+                    ARGBColor { alpha: 0., red: 0., green: 0., blue: 0. },
+                );
+
+                unsafe {
+                    self.context.stencil_mask(0);
+                    self.context.stencil_op(glow::KEEP, glow::KEEP, glow::KEEP);
+                    self.context.color_mask(true, true, true, true);
+                }
+
+                self.current_stencil_clip_value -= 1;
+
+                unsafe {
+                    self.context.stencil_func(
+                        glow::EQUAL,
+                        self.current_stencil_clip_value as i32,
+                        0xff,
+                    );
+                }
+
+                None
+            }
+        }
+    }
+
     fn fill_path(
         &self,
         matrix: &Matrix4<f32>,
