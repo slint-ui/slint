@@ -25,7 +25,9 @@ function load_from_url(url) {
 
 let select = (<HTMLInputElement>document.getElementById("select_combo"));
 function select_combo_changed() {
-    load_from_url("https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/" + select.value);
+    if (select.value) {
+        load_from_url("https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/" + select.value);
+    }
 }
 select.onchange = select_combo_changed;
 
@@ -89,14 +91,38 @@ function render_or_error(source, base_url, div) {
 async function run() {
     const params = new URLSearchParams(window.location.search);
     const code = params.get("snippet");
+    const load_url = params.get("load_url");
     if (code) {
         editor.getModel().setValue(code);
+    } else if (load_url) {
+        load_from_url(load_url);
     } else {
-        select_combo_changed();
+        editor.getModel().setValue(
+            `
+import { SpinBox, Button, CheckBox, Slider, GroupBox } from "sixtyfps_widgets.60";
+export Demo := Window {
+    width: 300lx;
+    height: 300lx;
+    t:= Text {
+        text: "Hello World";
+    }
+    Image{
+        y: 50lx;
+        source: img!"https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/resources/logo_scaled.png";
+    }
+}
+`
+        );
     }
     sixtyfps = await import("../../api/sixtyfps-wasm-interpreter/pkg/index.js");
     update();
     editor.getModel().onDidChangeContent(function () {
+        let permalink = (<HTMLAnchorElement>document.getElementById("permalink"));
+        let params = new URLSearchParams();
+        params.set("snippet", editor.getModel().getValue());
+        let this_url = new URL(window.location.toString());
+        this_url.search = params.toString();
+        permalink.href = this_url.toString();
         if (auto_compile.checked)
             update();
     });
