@@ -28,6 +28,16 @@ Our design goals are:
    home on each platform; both the user and the developer. The look and feel and experience should match what users expect of an
    application built for a specific platform.
 
+## Documentation
+
+SixtyFPS can be used from different frontend languages. Refer to the README of these directories for reference documentation.
+
+The docs folder contains [build instructions](docs/building.md) and [internal developer docs](docs/development.md).
+
+## Examples / Demo
+
+All examples and demos are located in the [examples](/examples) folder.
+
 ### Demos running in WebAssembly Simulation
 
 Click on the screenshot to see the WebAssembly simulation
@@ -42,12 +52,6 @@ Click on the screenshot to see the WebAssembly simulation
 |---------|-------|-------|
 | ![Screenshot of the Gallery on Windows](resources/gallery_win_screenshot.png "Gallery") | ![Screenshot of the Gallery on macOS](resources/gallery_mac_screenshot.png "Gallery") | ![Screenshot of the Gallery on Linux](resources/gallery_linux_screenshot.png "Gallery") |
 
-
-## Documentation
-
-SixtyFPS can be used from different frontend languages. Refer to the README of these directories for reference documentation.
-
-The docs folder contains [build instructions](docs/building.md) and [internal developer docs](docs/development.md).
 
 ## Supported integration languages
 
@@ -76,10 +80,9 @@ HelloWorld := Window {
 
 Check out the [language reference](docs/langref.md) for more details.
 
-## Examples / Demo
+### Try online
 
-All examples and demos are located in the [examples](/examples) folder.
-
+Try online using the [Experimental online editor](https://sixtyfps.io/editor)
 
 ## Architecture
 

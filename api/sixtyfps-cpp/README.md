@@ -19,8 +19,8 @@ Follow the [C++ build instructions](/docs/building.md#c-build)
 ### Binary packages
 
 The CI is building binary packages to use with C++ so that you do not need to install a rust compiler.
-These binary can be found by clicking on the last [succesfull build of the master branch]
-(https://github.com/sixtyfpsui/sixtyfps/actions?query=workflow%3ACI+is%3Asuccess+branch%3Amaster)
+These binary can be found by clicking on the last
+[succesfull build of the master branch](https://github.com/sixtyfpsui/sixtyfps/actions?query=workflow%3ACI+is%3Asuccess+branch%3Amaster)
 and downloading the `cpp_bin` artifact.
 
 ## Usage via CMake
