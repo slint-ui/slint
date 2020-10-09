@@ -30,6 +30,8 @@ Our design goals are:
 
 ### Demos running in WebAssembly Simulation
 
+Click on the screenshot to see the WebAssembly simulation
+
 | Printer Demo | Widget Gallery |
 |--------------|----------------|
 | [![Screenshot of the Printer Demo](resources/printerdemo_screenshot.png "Printer Demo")](https://www.sixtyfps.io/demos/printerdemo/) | [![Screenshot of the Gallery Demo](resources/gallery_screenshot.png "Gallery Demo")](https://www.sixtyfps.io/demos/gallery/) |

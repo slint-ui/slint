@@ -2,11 +2,35 @@
 
 These examples demonstrate the main features of SixtyFPS and how to use them in different language environments.
 
-Demo | `.60` Design | Rust Source | C++ Source | Description
+
+### `printerdemo`
+
+A fictional user interface for the touch screen of a printer
+
+`.60` Design | Rust Source | C++ Source | Online wasm Preview  | Open in code editor
 --- | --- | --- | --- | ---
-`printerdemo`| [`ui.60`](./printerdemo/ui/printerdemo.60) | [`main.rs`](./printerdemo/rust/main.rs) | [`main.cpp`](./printerdemo/cpp/main.cpp) | A fictional user interface for the touch screen of a printer
-`gallery` |[`gallery.60`](./gallery/gallery.60) | [`main.rs`](./gallery/main.rs) | [`main.cpp`](./gallery/main.cpp) | A gallery of different widgets
-`todo` |[`todo.60`](./todo/ui/gallery.60) | [`main.rs`](./todo/rust/main.rs) | [`main.cpp`](./todo/cpp/main.cpp) | A simple todo mvc application
+[`ui.60`](./printerdemo/ui/printerdemo.60) | [`main.rs`](./printerdemo/rust/main.rs) | [`main.cpp`](./printerdemo/cpp/main.cpp)| [Online simulation](https://www.sixtyfps.io/demos/printerdemo/) | [Preview in Online Code Editor](https://www.sixtyfps.io/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/printerdemo/ui/printerdemo.60)
+
+![Screenshot of the Printer Demo](/resources/printerdemo_screenshot.png "Printer Demo")
+
+
+### `gallery`
+
+A simple application showing the different widgets
+
+`.60` Design | Rust Source | C++ Source | Online wasm Preview  | Open in code editor
+--- | --- | --- | --- | ---
+[`gallery.60`](./gallery/gallery.60) | [`main.rs`](./gallery/main.rs) | [`main.cpp`](./gallery/main.cpp)| [Online simulation](https://www.sixtyfps.io/demos/gallery/) | [Preview in Online Code Editor](https://www.sixtyfps.io/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/gallery/gallery.60)
+
+![Screenshot of the Gallery on Windows](/resources/gallery_win_screenshot.png "Gallery")
+
+### `todo`
+
+A simple todo mvc application
+
+`.60` Design | Rust Source | C++ Source | Online wasm Preview  | Open in code editor
+--- | --- | --- | --- | ---
+[`todo.60`](./todo/ui/todo.60) | [`main.rs`](./todo/rust/main.rs) | [`main.cpp`](./todo/cpp/main.cpp) | [Online simulation](https://www.sixtyfps.io/demos/todo/) | [Preview in Online Code Editor](https://www.sixtyfps.io/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/todo/ui/.60)
 
 
 ## Loading the example with the `viewer`
