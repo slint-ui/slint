@@ -115,6 +115,9 @@ pub struct GLRenderer {
     texture_atlas: Rc<RefCell<TextureAtlas>>,
     #[cfg(target_arch = "wasm32")]
     window: Rc<winit::window::Window>,
+    #[cfg(target_arch = "wasm32")]
+    event_loop_proxy:
+        Rc<winit::event_loop::EventLoopProxy<sixtyfps_corelib::eventloop::CustomEvent>>,
     #[cfg(not(target_arch = "wasm32"))]
     windowed_context: Option<glutin::WindowedContext<glutin::NotCurrent>>,
     text_cursor_rect: Option<TextCursor>,
@@ -128,6 +131,11 @@ pub struct GLRenderingPrimitivesBuilder {
     #[cfg(not(target_arch = "wasm32"))]
     platform_data: Rc<PlatformData>,
 
+    #[cfg(target_arch = "wasm32")]
+    window: Rc<winit::window::Window>,
+    #[cfg(target_arch = "wasm32")]
+    event_loop_proxy:
+        Rc<winit::event_loop::EventLoopProxy<sixtyfps_corelib::eventloop::CustomEvent>>,
     #[cfg(not(target_arch = "wasm32"))]
     windowed_context: glutin::WindowedContext<glutin::PossiblyCurrent>,
 
@@ -148,7 +156,7 @@ pub struct GLFrame {
 
 impl GLRenderer {
     pub fn new(
-        event_loop: &winit::event_loop::EventLoop<()>,
+        event_loop: &winit::event_loop::EventLoop<sixtyfps_corelib::eventloop::CustomEvent>,
         window_builder: winit::window::WindowBuilder,
         #[cfg(target_arch = "wasm32")] canvas_id: &str,
     ) -> GLRenderer {
@@ -257,6 +265,8 @@ impl GLRenderer {
             texture_atlas: Rc::new(RefCell::new(TextureAtlas::new())),
             #[cfg(target_arch = "wasm32")]
             window,
+            #[cfg(target_arch = "wasm32")]
+            event_loop_proxy: Rc::new(event_loop.create_proxy()),
             #[cfg(not(target_arch = "wasm32"))]
             windowed_context: Some(unsafe { windowed_context.make_not_current().unwrap() }),
             text_cursor_rect: None,
@@ -287,6 +297,10 @@ impl GraphicsBackend for GLRenderer {
             #[cfg(not(target_arch = "wasm32"))]
             platform_data: self.platform_data.clone(),
 
+            #[cfg(target_arch = "wasm32")]
+            window: self.window.clone(),
+            #[cfg(target_arch = "wasm32")]
+            event_loop_proxy: self.event_loop_proxy.clone(),
             #[cfg(not(target_arch = "wasm32"))]
             windowed_context: current_windowed_context,
             text_cursor_rect: self.text_cursor_rect.take(),
@@ -433,6 +447,8 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                                     let atlas = self.texture_atlas.clone();
                                     let html_image = html_image.clone();
                                     let shared_primitive = shared_primitive.clone();
+                                    let window = self.window.clone();
+                                    let event_loop_proxy = self.event_loop_proxy.clone();
                                     move || {
                                         let texture_primitive =
                                             GLRenderingPrimitivesBuilder::create_image(
@@ -442,6 +458,14 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                                             );
 
                                         *shared_primitive.borrow_mut() = Some(texture_primitive);
+                                        // As you can paint on a HTML canvas at any point in time, request_redraw()
+                                        // on a winit window only queues an additional internal event, that'll be
+                                        // be dispatched as the next event. We are however not in an event loop
+                                        // call, so we also need to wake up the event loop.
+                                        window.request_redraw();
+                                        event_loop_proxy.send_event(
+                                            sixtyfps_corelib::eventloop::CustomEvent::WakeUpAndPoll,
+                                        ).ok();
                                     }
                                 })
                                 .into(),

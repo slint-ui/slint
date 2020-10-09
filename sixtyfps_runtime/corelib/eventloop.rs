@@ -218,17 +218,25 @@ pub(crate) fn unregister_window(id: winit::window::WindowId) {
     })
 }
 
+/// This enum captures run-time specific events that can be dispatched to the event loop in
+/// addition to the winit events.
+pub enum CustomEvent {
+    /// Request for the event loop to wake up and poll. This is used on the web for example to
+    /// request an animation frame.
+    WakeUpAndPoll,
+}
+
 /// This is the main structure to hold the event loop responsible for delegating events from the
 /// windowing system to the individual windows managed by the run-time, and then subsequently to
 /// the items. These are typically rendering and input events.
 pub struct EventLoop {
-    winit_loop: winit::event_loop::EventLoop<()>,
+    winit_loop: winit::event_loop::EventLoop<CustomEvent>,
 }
 
 impl EventLoop {
     /// Returns a new instance of the event loop, backed by a winit eventloop.
     pub fn new() -> Self {
-        Self { winit_loop: winit::event_loop::EventLoop::new() }
+        Self { winit_loop: winit::event_loop::EventLoop::with_user_event() }
     }
 
     /// Runs the event loop and renders the items in the provided `component` in its
@@ -241,8 +249,8 @@ impl EventLoop {
 
         let mut cursor_pos = winit::dpi::PhysicalPosition::new(0., 0.);
         let mut pressed = false;
-        let mut run_fn = move |event: Event<()>,
-                               _: &EventLoopWindowTarget<()>,
+        let mut run_fn = move |event: Event<CustomEvent>,
+                               _: &EventLoopWindowTarget<CustomEvent>,
                                control_flow: &mut ControlFlow| {
             *control_flow = ControlFlow::Wait;
 
@@ -519,8 +527,8 @@ impl EventLoop {
             // Since wasm does not have a run_return function that takes a non-static closure,
             // we use this hack to work that around
             scoped_tls_hkt::scoped_thread_local!(static mut RUN_FN_TLS: for <'a> &'a mut dyn FnMut(
-                Event<'_, ()>,
-                &EventLoopWindowTarget<()>,
+                Event<'_, CustomEvent>,
+                &EventLoopWindowTarget<CustomEvent>,
                 &mut ControlFlow,
             ));
             RUN_FN_TLS.set(&mut run_fn, move || {
@@ -530,7 +538,7 @@ impl EventLoop {
     }
 
     /// Returns a reference to the backing winit event loop.
-    pub fn get_winit_event_loop(&self) -> &winit::event_loop::EventLoop<()> {
+    pub fn get_winit_event_loop(&self) -> &winit::event_loop::EventLoop<CustomEvent> {
         &self.winit_loop
     }
 }
