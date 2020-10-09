@@ -4,19 +4,13 @@
 
 This is the repository of the SixtyFPS project.
 
-## Warning: Pre-Alpha
-
-SixtyFPS is still in the early stages of development: APIs will change and important features are still being developed. **Do not use this yet in production**.
-
-At the moment, it's possible to create user interfaces from C++, Rust, and NodeJS. These can be compiled and shown on Linux, macOS, Windows and in Web Browsers (using WebAssembly).
-
-We aim to support the development of this project through commercial licensing and services.
-We would love to get feedback from potential future customers or users.
+*Note: SixtyFPS is still in the early development stage. Some APIs may change as we are still in the
+midst of developing our key features. Consequently this code is not yet ready for use in production.*
 
 ## What is SixtyFPS
 
-SixtyFPS is a toolkit to efficiently develop fluid graphical user interfaces for any display: embedded devices and desktop applications. We
-support multiple programming languages, such as Rust, C++ or JavaScript.
+SixtyFPS is a toolkit to efficiently develop fluid graphical user interfaces for any display: embedded devices and desktop applications. We support multiple programming languages, such as
+Rust, C++, or JavaScript.
 
 Our design goals are:
 
@@ -24,21 +18,31 @@ Our design goals are:
  - **Straightforward**: Programmers and designers should feel productive and be able to enjoy the design and development process.
    The APIs should be consistent, easy to use, and intuitive, no matter the target language. High-quality documentation
    should describe the APIs, teach concepts and how to use them.
- - **Native**: We support many different target platforms, from embedded devices, to desktops, including mobile and web. You should feel at
-   home on each platform; both the user and the developer. The look and feel and experience should match what users expect of an
-   application built for a specific platform.
+ - **Native**: We support many different target platforms, from embedded devices to desktops including mobile and web. Both the user and the developer should feel at
+   home on each platform. The look and feel and experience should match the users' expectations of a
+   native application.
 
-## Documentation
+### Current Status
 
-SixtyFPS can be used from different frontend languages. Refer to the README of these directories for reference documentation.
+It's possible to create user interfaces from C++, Rust, or NodeJS. These user interfaces can be compiled and
+shown on Linux, macOS, Windows, and in Web Browsers (using WebAssembly). You can also try out SixtyFPS using
+our [experimental online editor](https://sixtyfps.io/editor).
 
-The docs folder contains [build instructions](docs/building.md) and [internal developer docs](docs/development.md).
+We plan to support the development of this project through commercial licensing and services. We seek feedback
+from potential customers or users.
 
-## Examples / Demo
+## Reference
 
-All examples and demos are located in the [examples](/examples) folder.
+Refer to the README of each language directory in the `api` sub-folder:
 
-### Demos running in WebAssembly Simulation
+ * [SixtyFps-cpp](api/sixtyfps-cpp) ([Documentation](https://www.sixtyfps.io/docs/cpp))
+ * [SixtyFps-rs](api/sixtyfps-rs) ([Documentation](https://www.sixtyfps.io/docs/rust/sixtyfps/))
+ * [SixtyFps-node](api/sixtyfps-node)
+
+The [examples](/examples) folder contains examples and demos. The `docs` folder contains [build instructions](docs/building.md) and [internal developer docs](docs/development.md).
+
+
+## Demos running in WebAssembly Simulation
 
 Click on the screenshot to see the WebAssembly simulation
 
@@ -52,17 +56,10 @@ Click on the screenshot to see the WebAssembly simulation
 |---------|-------|-------|
 | ![Screenshot of the Gallery on Windows](resources/gallery_win_screenshot.png "Gallery") | ![Screenshot of the Gallery on macOS](resources/gallery_mac_screenshot.png "Gallery") | ![Screenshot of the Gallery on Linux](resources/gallery_linux_screenshot.png "Gallery") |
 
+## The .60 Mark-Up Language
 
-## Supported integration languages
-
- * [SixtyFps-cpp](api/sixtyfps-cpp) ([Documentation](https://www.sixtyfps.io/docs/cpp))
- * [SixtyFps-rs](api/sixtyfps-rs) ([Documentation](https://www.sixtyfps.io/docs/rust/sixtyfps/))
- * [SixtyFps-node](api/sixtyfps-node)
-
-## The .60 Language
-
-SixtyFPS comes with a mark-up language that is specifically designed for user interfaces: It provides a powerful way to
-describe graphical elements, their placement and the flow of data through the different states. At the heart of it are a familar syntax to describe the hierarchy of elements and property bindings. Here's the obligatory "Hello World":
+SixtyFPS comes with a mark-up language that is specifically designed for user interfaces. This language provides a
+powerful way to describe graphical elements, their placement, and the flow of data through the different states. It is a familar syntax to describe the hierarchy of elements and property bindings. Here's the obligatory "Hello World":
 
 ```60
 HelloWorld := Window {
@@ -80,10 +77,6 @@ HelloWorld := Window {
 
 Check out the [language reference](docs/langref.md) for more details.
 
-### Try online
-
-Try online using the [Experimental online editor](https://sixtyfps.io/editor)
-
 ## Architecture
 
 An application is composed of the business logic written in Rust, C++, or JavaScript and the `.60` user interface design markup, which
@@ -93,48 +86,48 @@ is compiled to native code.
 
 ### Compiler
 
-The idea is that the `.60` files gets compiled ahead of time. The expression in the `.60` are
-meant to be pure function that the compiler can easily interpret at compile time in order to
-optimize as much as possible. The compiler could decide to "inline" properties and remove
-the ones that are always constant or not changed.
-Ideally it will be possible to pre-process images and text as to improve rendering time of design
-on low end devices. (For example, the compiler could find out that a Text or an Image is always
-on top of an Image in the same location, and pre-render the text/image on top of the
-backgrund image to imprive rendering time).
+The `.60` files are compiled ahead of time. The expressions in the `.60` are pure functions that the
+compiler can optimize. For example, the compiler could choose to "inline" properties and remove those
+that are constant or unchanged. In the future we hope to improve rendering time on low end devices by
+pre-processing images and text. The compiler could determine that a `Text` or an `Image` element is
+always on top of another `Image` in the same location. Consequently both elements could be rendered ahead
+of time into a single element, thus cutting down on rendering time.
 
-The compiler is using the typical compiler phase of lexing, parsing, optimisation, code generation.
-
-There are different backend for the code generation in the target language. The C++ code generator
-generates a C++ header file, the rust generator generates rust code, and so on.
-In addition, there is also an interpreter for dynamic languages.
+The compiler uses the typical compiler phases of lexing, parsing, optimisation, and finally code
+generation. It provides different backends for code generation in the target language. The C++ code
+generator produces a C++ header file, the Rust generator produces Rust code, and so on. An interpreter
+for dynamic languages is also included.
 
 ### Runtime
 
-The runtime library consist in an engine that can support the properties written in the `.60` language.
-It is meant to reduce memory allocations. Components with all their elements and items are usually
-laid out in a single memory region.
+The runtime library consists of an engine that supports properties declared in the `.60` language.
+Components with their elements, items, and properties are laid out in a single memory region, to reduce
+memory allocations.
 
-Rendering backend and styles are pluggable. There are currently two backend: the `gl` backend uses OpenGL to draw everything. There is also a `qt` backend which would use Qt's QPainter,
-this allow to use native looking widgets using Qt's QStyle.
-The choice of rendering backend or style is a compile time decision.
+Rendering backends and styles are configurable at compile time. Current there are two backends:
+
+ * The `gl` backend uses OpenGL ES 2.0 for rendering.
+ * The `qt` backend uses Qt's QStyle to achieve native looking widgets. In the future it could also use
+   QPainter.
 
 ## Contributions
 
-Contributions are welcome, in the form of code, bug reports or feedback. As an example
-we track issues where we specifically seek feedback with an [RFC tag](https://github.com/sixtyfpsui/sixtyfps/labels/rfc).
-To contribute, please see [CONTRIBUTING.md](CONTRIBUTING.md).
-Due to the dual-licensing nature, contributions require agreeing to a CLA.
+We welcome your contributions: in the form of code, bug reports or feedback.
+
+ * If you see an [RFC tag](https://github.com/sixtyfpsui/sixtyfps/labels/rfc) on an issue, feel free to
+   chime in.
+ * For contribution guidelines see [CONTRIBUTING.md](CONTRIBUTING.md). The dual-licensing requires the
+   contributor to accept a CLA.
 
 ## License
 
-The software is provided under a dual licensing scheme
+This software is provided under a dual licensing scheme:
 
  - **GNU GPLv3**: Open source license ideal for free software.
- - **Commercial SixtyFps license**: more details to come.
+ - **Commercial SixtyFps license**: More details to come.
 
 ## Contact us
 
-Please feel free to join [Github discussions](https://github.com/sixtyfpsui/sixtyfps/discussions) for general talk or questions.
-[Github issues](https://github.com/sixtyfpsui/sixtyfps/issues) can be used to report public suggestions or bugs. 
+Feel free to join [Github discussions](https://github.com/sixtyfpsui/sixtyfps/discussions) for general chat or questions. Use [Github issues](https://github.com/sixtyfpsui/sixtyfps/issues) to report public suggestions or bugs.
 
-You can also contact us privately by sending email to info@sixtyfps.io
+To contact us privately send an email to info@sixtyfps.io
