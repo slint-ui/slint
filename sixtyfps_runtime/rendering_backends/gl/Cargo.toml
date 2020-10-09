@@ -15,7 +15,7 @@ path = "lib.rs"
 [dependencies]
 sixtyfps-corelib = { version="=0.0.1", path = "../../corelib" }
 lyon = { version = "0.16" }
-image = { version = "0.23.4", default-features = false }
+image = { version = "0.23.10", default-features = false }
 cgmath = "0.17.0"
 vtable = { path = "../../../helper_crates/vtable" }
 pathfinder_geometry = "0.5.1"
