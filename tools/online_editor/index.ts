@@ -8,9 +8,18 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 import * as monaco from 'monaco-editor';
+import { sixtyfps_language } from "./highlighting";
 
 var sixtyfps;
-var editor = monaco.editor.create(document.getElementById("editor"));
+monaco.languages.register({
+    id: 'sixtyfps'
+});
+monaco.languages.onLanguage('sixtyfps', () => {
+    monaco.languages.setMonarchTokensProvider('sixtyfps', sixtyfps_language);
+});
+var editor = monaco.editor.create(document.getElementById("editor"), {
+    language: 'sixtyfps'
+});
 var base_url = "";
 
 function load_from_url(url) {
@@ -101,13 +110,17 @@ async function run() {
             `
 import { SpinBox, Button, CheckBox, Slider, GroupBox } from "sixtyfps_widgets.60";
 export Demo := Window {
+    property<string> string <=> t.text;
     width: 300lx;
     height: 300lx;
     t:= Text {
         text: "Hello World";
+        property<string> foo: root.string;
+        color: { blue }
+        animate color { duration: 42ms; }
     }
     Image{
-        y: 50lx;
+        y: 50lx + t.y;
         source: img!"https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/resources/logo_scaled.png";
     }
 }
