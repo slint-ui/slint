@@ -12,6 +12,10 @@ homepage = "https://sixtyfps.io"
 path = "lib.rs"
 crate-type = [ "lib", "cdylib" ]
 
+[features]
+x11 = ["sixtyfps-rendering-backend-gl/x11"]
+wayland = ["sixtyfps-rendering-backend-gl/wayland"]
+
 [dependencies]
 sixtyfps-corelib = { version="=0.0.1", path = "../../corelib" }
 cfg-if = "0.1.10"

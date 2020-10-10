@@ -12,6 +12,11 @@ homepage = "https://sixtyfps.io"
 [lib]
 path = "lib.rs"
 
+[features]
+x11 = ["winit/x11", "glutin/x11", "sixtyfps-corelib/x11"]
+wayland = ["winit/wayland", "glutin/wayland", "sixtyfps-corelib/wayland"]
+default = ["x11"]
+
 [dependencies]
 sixtyfps-corelib = { version="=0.0.1", path = "../../corelib" }
 lyon = { version = "0.16" }
@@ -26,13 +31,13 @@ smallvec = "1.4.1"
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web_sys = { version = "0.3", package = "web-sys", features=["console"] }
 wasm-bindgen = { version = "0.2" }
-winit = { version = "0.23", features = ["web-sys"] }
+winit = { version = "0.23", default-features = false, features = ["web-sys"] }
 # Use a git version until Context::tex_sub_image_2d_with_html_image is released.
 glow = { git = "https://github.com/grovesNL/glow", rev = "b31cce3a5fadb8ec216bd835b5ba5302873b2886", features = ["web-sys"], default-features = false }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-winit = { version = "0.23" }
-glutin = { version = "0.25" }
+winit = { version = "0.23", default-features = false }
+glutin = { version = "0.25.1", default-features = false }
 # Use a git version until Context::tex_sub_image_2d_with_html_image is released.
 glow = { git = "https://github.com/grovesNL/glow", rev = "b31cce3a5fadb8ec216bd835b5ba5302873b2886", default-features = false }
 
