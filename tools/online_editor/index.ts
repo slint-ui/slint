@@ -110,17 +110,13 @@ async function run() {
             `
 import { SpinBox, Button, CheckBox, Slider, GroupBox } from "sixtyfps_widgets.60";
 export Demo := Window {
-    property<string> string <=> t.text;
     width: 300lx;
     height: 300lx;
     t:= Text {
         text: "Hello World";
-        property<string> foo: root.string;
-        color: { blue }
-        animate color { duration: 42ms; }
     }
     Image{
-        y: 50lx + t.y;
+        y: 50lx;
         source: img!"https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/resources/logo_scaled.png";
     }
 }
