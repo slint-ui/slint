@@ -19,7 +19,7 @@ SuperSimple := Rectangle {
 //                          ^error{Use parentheses to disambiguate equality expression on the same level}
 
     property<bool> ww: aa && dd && ee || cc ==
-//                                    ^error{Use parentheses to disambiguate && and ||}
+//                                    ^error{Use parentheses to disambiguate between && and \|\|}
         dd == ee;
 //         ^error{Use parentheses to disambiguate equality expression on the same level}
 
