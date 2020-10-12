@@ -919,14 +919,6 @@ pub struct NativeLineEdit {
     pub focused: Property<bool>,
 }
 
-#[repr(C)]
-#[derive(FieldOffsets, Default, BuiltinItem)]
-#[pin]
-struct LineEditData {
-    title: Property<SharedString>,
-    paddings: Property<qttypes::QMargins>,
-}
-
 impl Item for NativeLineEdit {
     fn init(self: Pin<&Self>, window: &ComponentWindow) {
         let paddings = Rc::pin(Property::default());
