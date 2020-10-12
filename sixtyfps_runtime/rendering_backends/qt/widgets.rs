@@ -919,8 +919,63 @@ pub struct NativeLineEdit {
     pub focused: Property<bool>,
 }
 
+#[repr(C)]
+#[derive(FieldOffsets, Default, BuiltinItem)]
+#[pin]
+struct LineEditData {
+    title: Property<SharedString>,
+    paddings: Property<qttypes::QMargins>,
+}
+
 impl Item for NativeLineEdit {
-    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+    fn init(self: Pin<&Self>, window: &ComponentWindow) {
+        let paddings = Rc::pin(Property::default());
+
+        paddings.as_ref().set_binding({
+            let window_weak = Rc::downgrade(&window.0.clone());
+            move || {
+                let dpr = window_weak.upgrade().unwrap().scale_factor();
+
+                cpp!(unsafe [
+                    dpr as "float"
+                ] -> qttypes::QMargins as "QMargins" {
+                    ensure_initialized();
+                    QStyleOptionFrame option;
+                    option.lineWidth = 1;
+                    option.midLineWidth = 0;
+                     // Just some size big enough to be sure that the frame fitst in it
+                    option.rect = QRect(0, 0, 10000, 10000);
+                    QRect contentsRect = qApp->style()->subElementRect(
+                        QStyle::SE_LineEditContents, &option);
+
+                    // ### remove extra margins
+
+                    return {
+                        qRound((2 + contentsRect.left()) * dpr),
+                        qRound((4 + contentsRect.top()) * dpr),
+                        qRound((2 + option.rect.right() - contentsRect.right()) * dpr),
+                        qRound((4 + option.rect.bottom() - contentsRect.bottom()) * dpr) };
+                })
+            }
+        });
+
+        self.native_padding_left.set_binding({
+            let paddings = paddings.clone();
+            move || paddings.as_ref().get().left as _
+        });
+        self.native_padding_right.set_binding({
+            let paddings = paddings.clone();
+            move || paddings.as_ref().get().right as _
+        });
+        self.native_padding_top.set_binding({
+            let paddings = paddings.clone();
+            move || paddings.as_ref().get().top as _
+        });
+        self.native_padding_bottom.set_binding({
+            let paddings = paddings.clone();
+            move || paddings.as_ref().get().bottom as _
+        });
+    }
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(
@@ -964,38 +1019,12 @@ impl Item for NativeLineEdit {
         SharedArray::default()
     }
 
-    fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
-        let dpr = window.scale_factor();
-
-        let paddings = cpp!(unsafe [
-            dpr as "float"
-        ] -> qttypes::QMargins as "QMargins" {
-            ensure_initialized();
-            QStyleOptionFrame option;
-            option.lineWidth = 1;
-            option.midLineWidth = 0;
-             // Just some size big enough to be sure that the frame fitst in it
-            option.rect = QRect(0, 0, 10000, 10000);
-            QRect contentsRect = qApp->style()->subElementRect(
-                QStyle::SE_LineEditContents, &option);
-
-            // ### remove extra margins
-
-            return {
-                qRound((2 + contentsRect.left()) * dpr),
-                qRound((4 + contentsRect.top()) * dpr),
-                qRound((2 + option.rect.right() - contentsRect.right()) * dpr),
-                qRound((4 + option.rect.bottom() - contentsRect.bottom()) * dpr) };
-        });
-        self.native_padding_left.set(paddings.left as _);
-        self.native_padding_right.set(paddings.right as _);
-        self.native_padding_top.set(paddings.top as _);
-        self.native_padding_bottom.set(paddings.bottom as _);
-        LayoutInfo {
-            min_width: (paddings.left + paddings.right) as _,
-            min_height: (paddings.top + paddings.bottom) as _,
-            ..LayoutInfo::default()
-        }
+    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
+        let left = Self::FIELD_OFFSETS.native_padding_left.apply_pin(self).get();
+        let right = Self::FIELD_OFFSETS.native_padding_right.apply_pin(self).get();
+        let top = Self::FIELD_OFFSETS.native_padding_top.apply_pin(self).get();
+        let bottom = Self::FIELD_OFFSETS.native_padding_bottom.apply_pin(self).get();
+        LayoutInfo { min_width: left + right, min_height: top + bottom, ..LayoutInfo::default() }
     }
 
     fn input_event(
