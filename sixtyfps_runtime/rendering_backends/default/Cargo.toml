@@ -18,7 +18,7 @@ wayland = ["sixtyfps-rendering-backend-gl/wayland"]
 
 [dependencies]
 sixtyfps-corelib = { version="=0.0.1", path = "../../corelib" }
-cfg-if = "0.1.10"
+cfg-if = "1"
 sixtyfps-rendering-backend-gl = { version="=0.0.1", path = "../gl", optional = true }
 sixtyfps-rendering-backend-qt = { version="=0.0.1", path = "../qt", optional = true }
 
