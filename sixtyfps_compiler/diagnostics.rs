@@ -24,8 +24,12 @@ pub struct Span {
 }
 
 impl Span {
-    fn is_valid(&self) -> bool {
+    pub fn is_valid(&self) -> bool {
         self.offset != usize::MAX
+    }
+
+    pub fn new(offset: usize) -> Self {
+        Self { offset, ..Default::default() }
     }
 }
 
@@ -42,12 +46,6 @@ impl Default for Span {
 impl PartialEq for Span {
     fn eq(&self, other: &Span) -> bool {
         self.offset == other.offset
-    }
-}
-
-impl Span {
-    pub fn new(offset: usize) -> Self {
-        Self { offset, ..Default::default() }
     }
 }
 
