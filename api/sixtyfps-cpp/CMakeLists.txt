@@ -17,7 +17,8 @@ FetchContent_Declare(
     GIT_TAG origin/master # Optionally specify a version tag or branch here
 )
 FetchContent_MakeAvailable(Corrosion)
-corrosion_import_crate(MANIFEST_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../sixtyfps_runtime/rendering_backends/default/Cargo.toml")
+corrosion_import_crate(MANIFEST_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../Cargo.toml"
+    CRATES sixtyfps-compiler sixtyfps-rendering-backend-default xtask)
 
 add_library(SixtyFPS INTERFACE)
 add_library(SixtyFPS::SixtyFPS ALIAS SixtyFPS)
