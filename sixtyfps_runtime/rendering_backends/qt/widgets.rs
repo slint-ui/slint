@@ -728,7 +728,7 @@ pub struct NativeGroupBox {
 }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, BuiltinItem)]
+#[derive(FieldOffsets, Default)]
 #[pin]
 struct GroupBoxData {
     title: Property<SharedString>,
