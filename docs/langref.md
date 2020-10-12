@@ -9,7 +9,7 @@ The basic idea is that the `.60` files contains one or several components.
 These components contain a tree of elements. Each declared component can be
 given a name and re-used under that name as an an element later.
 
-By default, the SixtyFPS comes with some [builtin elements](#builtin-elements).
+By default, the SixtyFPS comes with some [builtin elements](builtin_elements.md).
 
 Below is an example of components and elements:
 
@@ -114,7 +114,7 @@ as color or dimensional properties. You can assign values or entire [expressions
 Example := Window {
     // Simple expression: ends with a semi colon
     width: 42lx;
-    // or a code block
+    // or a code block: (no semicolon needed)
     height: { 42lx }
 }
 ```
@@ -137,7 +137,7 @@ Example := Rectangle {
 
 The expression on the right of a binding is automatically re-evaluated when the expression changes.
 
-In the followinf example, the text of the button is automaticallty changed when the button is pressed, because
+In the following example, the text of the button is automaticallty changed when the button is pressed, because
 changing the `counter`  property automatically changes the text.
 
 ```60
@@ -203,15 +203,15 @@ Example := Window {
 
 ## Signal
 
-Components may declare signals, that allow it to communicate change of state to the outside. Signals are emitted by "calling" them
-and you can re-act to signal emissions by declaring a handler using the `=>` arrow syntax. The built-in `TouchArea`
+Components may declare signals, that allow it to communicate changes of state to the outside. Signals are emitted by "calling" them
+and you can react to signal emissions by declaring a handler using the `=>` arrow syntax. The built-in `TouchArea`
 element comes with a `clicked` signal, that's emitted when the user touches the rectangular area covered by the element, or clicks into
 it with the mouse. In the example below, the emission of that signal is forwarded to another custom signal (`hello`) by declaring a
 handler and emitting our custom signal:
 
 ```60
 Example := Rectangle {
-    // declares a signal
+    // declare a signal
     signal hello;
 
     area := TouchArea {
@@ -246,13 +246,13 @@ Example := Rectangle {
     // declare a property of type int
     property<int> my_property;
 
-    // This access the property
+    // This accesses the property
     width: root.my_property * 20px;
 
 }
 ```
 
-If someone changes `my_property`, the width will be updated automatically.
+If something changes `my_property`, the width will be updated automatically.
 
 Arithmetic in expression works like in most programming language with the operators `*`, `+`, `-`, `/`:
 
@@ -275,7 +275,7 @@ Example := Rectangle {
 
 ### Strings
 
-Strings can be used with surrounding quote: `"foo"`.
+Strings can be used with surrounding quotes: `"foo"`.
 (TODO: escaping, support using stuff like `` `hello {foo}` ``)
 (TODO: translations: `tr!"Hello"`)
 
@@ -301,9 +301,9 @@ Example := Rectangle {
 
 ### Arrays/Objects
 
-Array are currently only supported in for expression. `[1, 2, 3]` is an array of integer.
+Arrays are currently only supported in `for` expressions. `[1, 2, 3]` is an array of integers.
 All the types in the array have to be of the same type.
-It is usefull to have array of objects. An Object is between curly braces: `{ a: 12, b: "hello"}`.
+It is usefull to have arrays of objects. An Object is between curly braces: `{ a: 12, b: "hello"}`.
 
 
 ## Statements
@@ -426,7 +426,7 @@ This will change the color of the Rectangle and of the Text.
 
 ### Transitions (TODO)
 
-Complex animation can be declared on state transitions:
+Complex animations can be declared on state transitions:
 
 ```60
 Example := Rectangle {
