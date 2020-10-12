@@ -114,7 +114,7 @@ as color or dimensional properties. You can assign values or entire [expressions
 Example := Window {
     // Simple expression: ends with a semi colon
     width: 42lx;
-    // or a code block: (no semicolon needed)
+    // or a code block (no semicolon needed)
     height: { 42lx }
 }
 ```

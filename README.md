@@ -53,9 +53,9 @@ Click on the screenshot to see the WebAssembly simulation
 |---------|-------|-------|
 | ![Screenshot of the Gallery on Windows](resources/gallery_win_screenshot.png "Gallery") | ![Screenshot of the Gallery on macOS](resources/gallery_mac_screenshot.png "Gallery") | ![Screenshot of the Gallery on Linux](resources/gallery_linux_screenshot.png "Gallery") |
 
-## The .60 Mark-Up Language
+## The .60 Markup Language
 
-SixtyFPS comes with a mark-up language that is specifically designed for user interfaces. This language provides a
+SixtyFPS comes with a markup language that is specifically designed for user interfaces. This language provides a
 powerful way to describe graphical elements, their placement, and the flow of data through the different states. It is a familar syntax to describe the hierarchy of elements and property bindings. Here's the obligatory "Hello World":
 
 ```60
