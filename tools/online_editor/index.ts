@@ -47,8 +47,9 @@ compile_button.onclick = function () {
 
 let auto_compile = (<HTMLInputElement>document.getElementById("auto_compile"));
 auto_compile.onchange = function () {
-    if (auto_compile.checked)
-        update();
+    if (auto_compile.checked) {
+        update()
+    }
 };
 
 function update() {
@@ -97,6 +98,8 @@ function render_or_error(source, base_url, div) {
     }
 }
 
+let keystorke_timeout_handle;
+
 async function run() {
     const params = new URLSearchParams(window.location.search);
     const code = params.get("snippet");
@@ -132,8 +135,13 @@ export Demo := Window {
         let this_url = new URL(window.location.toString());
         this_url.search = params.toString();
         permalink.href = this_url.toString();
-        if (auto_compile.checked)
-            update();
+        if (auto_compile.checked) {
+            if (keystorke_timeout_handle) {
+                clearTimeout(keystorke_timeout_handle);
+            }
+            keystorke_timeout_handle = setTimeout(update, 500);
+
+        }
     });
 }
 
