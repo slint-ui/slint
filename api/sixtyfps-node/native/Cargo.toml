@@ -22,9 +22,9 @@ sixtyfps-compilerlib = { path="../../../sixtyfps_compiler", features = ["display
 sixtyfps-interpreter = { path="../../../sixtyfps_runtime/interpreter" }
 sixtyfps-corelib = { path="../../../sixtyfps_runtime/corelib" }
 scoped-tls-hkt = "0.1"
-neon = "0.4.2"
+neon = "0.5.0"
 
 [build-dependencies]
-neon-build = "0.4.2"
+neon-build = "0.5.0"
 
 
