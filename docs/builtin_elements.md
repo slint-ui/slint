@@ -5,7 +5,7 @@
 These properties are valid on all visible items
 
 * **`x`** and **`y`** (*length*): the position of the element relative to its parent
-* **`width`** and **`height`** (*length*): The size of the element. When sets, this override the default size.
+* **`width`** and **`height`** (*length*): The size of the element. When set, this overrides the default size.
 * **`maximum_width`** and **`maximum_height`** (*length*): The maximum size of an element when used in a layout.
 * **`minimum_width`** and **`minimum_height`** (*length*): The minimum size of an element when used in a layout.
 * **`col`**, **`row`**, **`colspan`**, **`rowspan`** (*int*): See [`GridLayout`](#gridlayout).
