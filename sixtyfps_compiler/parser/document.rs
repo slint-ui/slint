@@ -106,6 +106,7 @@ pub fn parse_element(p: &mut impl Parser) -> bool {
 /// double_binding <=> element.property;
 /// ```
 fn parse_element_content(p: &mut impl Parser) {
+    let mut had_parse_error = false;
     loop {
         match p.nth(0).kind() {
             SyntaxKind::RBrace => return,
@@ -140,7 +141,10 @@ fn parse_element_content(p: &mut impl Parser) {
                 }
                 _ => {
                     p.consume();
-                    p.error("FIXME");
+                    if !had_parse_error {
+                        p.error("Parse error");
+                        had_parse_error = true;
+                    }
                 }
             },
             SyntaxKind::Dollar => {
@@ -158,8 +162,11 @@ fn parse_element_content(p: &mut impl Parser) {
                 }
             }
             _ => {
+                if !had_parse_error {
+                    p.error("Parse error");
+                    had_parse_error = true;
+                }
                 p.consume();
-                p.error("FIXME");
             }
         }
     }
