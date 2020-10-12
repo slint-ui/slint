@@ -91,7 +91,7 @@ pub fn compile_syntax_node(
         .or_else(|| std::env::var("SIXTYFPS_STYLE").map(Cow::from).ok())
         .unwrap_or_else(|| {
             diagnostics.push_diagnostic_with_span(
-                "SIXTYFPS_STYLE not defined, defaulting to 'ugly', see https://github.com/sixtyfpsui/sixtyfps/issue/83 for more info".to_owned(),
+                "SIXTYFPS_STYLE not defined, defaulting to 'ugly', see https://github.com/sixtyfpsui/sixtyfps/issues/83 for more info".to_owned(),
                 Default::default(),
                 diagnostics::Level::Warning
             );
