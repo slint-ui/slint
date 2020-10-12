@@ -22,6 +22,21 @@ var editor = monaco.editor.create(document.getElementById("editor"), {
 });
 var base_url = "";
 
+let hello_world = `
+import { SpinBox, Button, CheckBox, Slider, GroupBox } from "sixtyfps_widgets.60";
+export Demo := Window {
+    width: 300lx;
+    height: 300lx;
+    t:= Text {
+        text: "Hello World";
+    }
+    Image{
+        y: 50lx;
+        source: img!"https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/resources/logo_scaled.png";
+    }
+}
+`
+
 function load_from_url(url) {
     fetch(url).then(
         x => x.text().then(y => {
@@ -36,6 +51,9 @@ let select = (<HTMLInputElement>document.getElementById("select_combo"));
 function select_combo_changed() {
     if (select.value) {
         load_from_url("https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/" + select.value);
+    } else {
+        base_url = "";
+        editor.getModel().setValue(hello_world)
     }
 }
 select.onchange = select_combo_changed;
@@ -109,22 +127,7 @@ async function run() {
     } else if (load_url) {
         load_from_url(load_url);
     } else {
-        editor.getModel().setValue(
-            `
-import { SpinBox, Button, CheckBox, Slider, GroupBox } from "sixtyfps_widgets.60";
-export Demo := Window {
-    width: 300lx;
-    height: 300lx;
-    t:= Text {
-        text: "Hello World";
-    }
-    Image{
-        y: 50lx;
-        source: img!"https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/resources/logo_scaled.png";
-    }
-}
-`
-        );
+        editor.getModel().setValue(hello_world);
     }
     sixtyfps = await import("../../api/sixtyfps-wasm-interpreter/pkg/index.js");
     update();
