@@ -26,6 +26,7 @@ sixtyfps-rendering-backend-gl = { version="=0.0.1", path = "../gl" }
 euclid = "0.22.1"
 # Pin to work around regression in aho-corasick: https://github.com/BurntSushi/aho-corasick/issues/64
 aho-corasick = "=0.7.4"
+pin-weak = "1"
 
 [build-dependencies]
 cpp_build = "0.5.5"

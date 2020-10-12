@@ -23,6 +23,7 @@ use sixtyfps_corelib::layout::LayoutInfo;
 use sixtyfps_corelib::rtti::*;
 use sixtyfps_corelib::{ItemVTable_static, Property, SharedArray, SharedString, Signal};
 use sixtyfps_corelib_macros::*;
+use std::rc::Rc;
 
 use crate::qttypes;
 
@@ -726,8 +727,102 @@ pub struct NativeGroupBox {
     pub native_padding_bottom: Property<f32>,
 }
 
+#[repr(C)]
+#[derive(FieldOffsets, Default, BuiltinItem)]
+#[pin]
+struct GroupBoxData {
+    title: Property<SharedString>,
+    paddings: Property<qttypes::QMargins>,
+}
+
 impl Item for NativeGroupBox {
-    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+    fn init(self: Pin<&Self>, window: &ComponentWindow) {
+        let shared_data = Rc::pin(GroupBoxData::default());
+
+        Property::link_two_way(
+            Self::FIELD_OFFSETS.title.apply_pin(self),
+            GroupBoxData::FIELD_OFFSETS.title.apply_pin(shared_data.as_ref()),
+        );
+
+        shared_data.paddings.set_binding({
+            let window_weak = Rc::downgrade(&window.0.clone());
+            let shared_data_weak = pin_weak::rc::PinWeak::downgrade(shared_data.clone());
+            move || {
+                let shared_data = shared_data_weak.upgrade().unwrap();
+
+                let text: qttypes::QString = GroupBoxData::FIELD_OFFSETS.title.apply_pin(shared_data.as_ref()).get().as_str().into();
+                let dpr = window_weak.upgrade().unwrap().scale_factor();
+
+                cpp!(unsafe [
+                    text as "QString",
+                    dpr as "float"
+                ] -> qttypes::QMargins as "QMargins" {
+                    ensure_initialized();
+                    QStyleOptionGroupBox option;
+                    option.text = text;
+                    option.lineWidth = 1;
+                    option.midLineWidth = 0;
+                    option.subControls = QStyle::SC_GroupBoxFrame;
+                    if (!text.isEmpty()) {
+                        option.subControls |= QStyle::SC_GroupBoxLabel;
+                    }
+                     // Just some size big enough to be sure that the frame fitst in it
+                    option.rect = QRect(0, 0, 10000, 10000);
+                    option.textColor = QColor(qApp->style()->styleHint(
+                        QStyle::SH_GroupBox_TextLabelColor, &option));
+                    QRect contentsRect = qApp->style()->subControlRect(
+                        QStyle::CC_GroupBox, &option, QStyle::SC_GroupBoxContents);
+                    //QRect elementRect = qApp->style()->subElementRect(
+                    //    QStyle::SE_GroupBoxLayoutItem, &option);
+
+                    auto hs = qApp->style()->pixelMetric(QStyle::PM_LayoutHorizontalSpacing, &option);
+                    auto vs = qApp->style()->pixelMetric(QStyle::PM_LayoutVerticalSpacing, &option);
+
+                    return {
+                        qRound((contentsRect.left() + hs) * dpr),
+                        qRound((contentsRect.top() + vs) * dpr),
+                        qRound((option.rect.right() - contentsRect.right() + hs) * dpr),
+                        qRound((option.rect.bottom() - contentsRect.bottom() + vs) * dpr) };
+                })
+            }
+        });
+
+        self.native_padding_left.set_binding({
+            let shared_data = shared_data.clone();
+            move || {
+                let margins =
+                    GroupBoxData::FIELD_OFFSETS.paddings.apply_pin(shared_data.as_ref()).get();
+                margins.left as _
+            }
+        });
+
+        self.native_padding_right.set_binding({
+            let shared_data = shared_data.clone();
+            move || {
+                let margins =
+                    GroupBoxData::FIELD_OFFSETS.paddings.apply_pin(shared_data.as_ref()).get();
+                margins.right as _
+            }
+        });
+
+        self.native_padding_top.set_binding({
+            let shared_data = shared_data.clone();
+            move || {
+                let margins =
+                    GroupBoxData::FIELD_OFFSETS.paddings.apply_pin(shared_data.as_ref()).get();
+                margins.top as _
+            }
+        });
+
+        self.native_padding_bottom.set_binding({
+            let shared_data = shared_data.clone();
+            move || {
+                let margins =
+                    GroupBoxData::FIELD_OFFSETS.paddings.apply_pin(shared_data.as_ref()).get();
+                margins.bottom as _
+            }
+        });
+    }
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(
@@ -777,51 +872,12 @@ impl Item for NativeGroupBox {
         SharedArray::default()
     }
 
-    fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
-        let text: qttypes::QString =
-            Self::FIELD_OFFSETS.title.apply_pin(self).get().as_str().into();
-        let dpr = window.scale_factor();
-
-        let paddings = cpp!(unsafe [
-            text as "QString",
-            dpr as "float"
-        ] -> qttypes::QMargins as "QMargins" {
-            ensure_initialized();
-            QStyleOptionGroupBox option;
-            option.text = text;
-            option.lineWidth = 1;
-            option.midLineWidth = 0;
-            option.subControls = QStyle::SC_GroupBoxFrame;
-            if (!text.isEmpty()) {
-                option.subControls |= QStyle::SC_GroupBoxLabel;
-            }
-             // Just some size big enough to be sure that the frame fitst in it
-            option.rect = QRect(0, 0, 10000, 10000);
-            option.textColor = QColor(qApp->style()->styleHint(
-                QStyle::SH_GroupBox_TextLabelColor, &option));
-            QRect contentsRect = qApp->style()->subControlRect(
-                QStyle::CC_GroupBox, &option, QStyle::SC_GroupBoxContents);
-            //QRect elementRect = qApp->style()->subElementRect(
-            //    QStyle::SE_GroupBoxLayoutItem, &option);
-
-            auto hs = qApp->style()->pixelMetric(QStyle::PM_LayoutHorizontalSpacing, &option);
-            auto vs = qApp->style()->pixelMetric(QStyle::PM_LayoutVerticalSpacing, &option);
-
-            return {
-                qRound((contentsRect.left() + hs) * dpr),
-                qRound((contentsRect.top() + vs) * dpr),
-                qRound((option.rect.right() - contentsRect.right() + hs) * dpr),
-                qRound((option.rect.bottom() - contentsRect.bottom() + vs) * dpr) };
-        });
-        self.native_padding_left.set(paddings.left as _);
-        self.native_padding_right.set(paddings.right as _);
-        self.native_padding_top.set(paddings.top as _);
-        self.native_padding_bottom.set(paddings.bottom as _);
-        LayoutInfo {
-            min_width: (paddings.left + paddings.right) as _,
-            min_height: (paddings.top + paddings.bottom) as _,
-            ..LayoutInfo::default()
-        }
+    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
+        let left = Self::FIELD_OFFSETS.native_padding_left.apply_pin(self).get();
+        let right = Self::FIELD_OFFSETS.native_padding_right.apply_pin(self).get();
+        let top = Self::FIELD_OFFSETS.native_padding_top.apply_pin(self).get();
+        let bottom = Self::FIELD_OFFSETS.native_padding_bottom.apply_pin(self).get();
+        LayoutInfo { min_width: left + right, min_height: top + bottom, ..LayoutInfo::default() }
     }
 
     fn input_event(

@@ -126,7 +126,7 @@ pub trait GenericWindow {
 /// of components to the screen.
 #[repr(C)]
 #[derive(Clone)]
-pub struct ComponentWindow(std::rc::Rc<dyn crate::eventloop::GenericWindow>);
+pub struct ComponentWindow(pub std::rc::Rc<dyn crate::eventloop::GenericWindow>);
 
 impl ComponentWindow {
     /// Creates a new instance of a CompomentWindow based on the given window implementation. Only used
