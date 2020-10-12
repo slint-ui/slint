@@ -89,7 +89,14 @@ pub fn compile_syntax_node(
         .style
         .map(Cow::from)
         .or_else(|| std::env::var("SIXTYFPS_STYLE").map(Cow::from).ok())
-        .unwrap_or(Cow::from("ugly"));
+        .unwrap_or_else(|| {
+            diagnostics.push_diagnostic_with_span(
+                "SIXTYFPS_STYLE not defined, defaulting to 'ugly', see https://github.com/sixtyfpsui/sixtyfps/issue/83 for more info".to_owned(),
+                Default::default(),
+                diagnostics::Level::Warning
+            );
+            Cow::from("ugly")
+        });
 
     if doc_node.source_file.is_some() {
         typeloader::load_dependencies_recursively(

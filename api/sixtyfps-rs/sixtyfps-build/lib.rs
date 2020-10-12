@@ -132,7 +132,12 @@ pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
     let mut code_formater = CodeFormatter { indentation: 0, in_string: false, sink: file };
     let generated = match generator::rust::generate(&doc, &mut diag) {
         Some(code) => {
-            diag.print(); // print warnings
+            // print warnings
+            diag.diagnostics_as_string().lines().for_each(|w| {
+                if !w.is_empty() {
+                    println!("cargo:warning={}", w.strip_prefix("warning: ").unwrap_or(w))
+                }
+            });
             code
         }
         None => {

@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 /// Span represent an error location within a file.
 ///
 /// Currently, it is just an offset in byte within the file.
@@ -21,6 +21,22 @@ pub struct Span {
     pub offset: usize,
     #[cfg(feature = "proc_macro_span")]
     pub span: Option<proc_macro::Span>,
+}
+
+impl Span {
+    fn is_valid(&self) -> bool {
+        self.offset != usize::MAX
+    }
+}
+
+impl Default for Span {
+    fn default() -> Self {
+        Span {
+            offset: usize::MAX,
+            #[cfg(feature = "proc_macro_span")]
+            span: Default::default(),
+        }
+    }
 }
 
 impl PartialEq for Span {
@@ -192,7 +208,7 @@ impl FileDiagnostics {
             .into_iter()
             .map(|diagnostic| match diagnostic {
                 Diagnostic::CompilerDiagnostic(CompilerDiagnostic { message, span, level }) => {
-                    let spans = if !internal_errors {
+                    let spans = if !internal_errors && span.is_valid() {
                         let s = codemap_diagnostic::SpanLabel {
                             span: file_span.subspan(span.offset as u64, span.offset as u64),
                             style: codemap_diagnostic::SpanStyle::Primary,
@@ -240,7 +256,6 @@ impl FileDiagnostics {
 
         String::from_utf8(output).expect(&format!(
             "Internal error: There were errors during compilation but they did not result in valid utf-8 diagnostics!"
-
         ))
     }
 
@@ -426,6 +441,11 @@ impl BuildDiagnostics {
     #[cfg(feature = "display-diagnostics")]
     pub fn print(self) {
         self.into_iter().for_each(|diag| diag.print());
+    }
+
+    #[cfg(feature = "display-diagnostics")]
+    pub fn diagnostics_as_string(self) -> String {
+        self.into_iter().map(|diag| diag.diagnostics_as_string()).collect::<Vec<_>>().join("\n")
     }
 
     #[cfg(feature = "display-diagnostics")]

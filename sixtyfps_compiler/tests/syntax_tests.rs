@@ -64,7 +64,10 @@ fn process_file_source(
     let (syntax_node, parse_diagnostics) =
         sixtyfps_compilerlib::parser::parse(source.clone(), Some(path));
     let mut compile_diagnostics = if !parse_diagnostics.has_error() {
-        let compiler_config = sixtyfps_compilerlib::CompilerConfiguration::default();
+        let compiler_config = sixtyfps_compilerlib::CompilerConfiguration {
+            style: "ugly".into(),
+            ..Default::default()
+        };
         let (_, build_diags) = sixtyfps_compilerlib::compile_syntax_node(
             syntax_node,
             parse_diagnostics,
