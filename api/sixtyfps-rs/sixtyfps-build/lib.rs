@@ -11,15 +11,16 @@ LICENSE END */
     This crate serves as a companion crate for the sixtyfps crate.
     It is meant to allow you to compile the `.60` files from your `build.rs`script.
 
-    The main entry point of this crate is the compile() function
+    The main entry point of this crate is the [`compile()`] function
 */
 
 #![warn(missing_docs)]
 
-use sixtyfps_compilerlib::*;
 use std::env;
 use std::io::Write;
 use std::path::Path;
+
+pub use sixtyfps_compilerlib::CompilerConfiguration;
 
 /// Error returned by the `compile` function
 #[derive(thiserror::Error, Debug)]
@@ -93,10 +94,19 @@ impl<Sink: Write> Write for CodeFormatter<Sink> {
 /// sixtyfps::include_modules!();
 /// ```
 pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
+    compile_with_config(path, Default::default())
+}
+
+/// Same as [`compile`], but allow to specify a configuration
+pub fn compile_with_config(
+    path: impl AsRef<std::path::Path>,
+    config: CompilerConfiguration,
+) -> Result<(), CompileError> {
     let path = Path::new(&env::var_os("CARGO_MANIFEST_DIR").ok_or(CompileError::NotRunViaCargo)?)
         .join(path.as_ref());
 
-    let (syntax_node, diag) = parser::parse_file(&path).map_err(CompileError::LoadError)?;
+    let (syntax_node, diag) =
+        sixtyfps_compilerlib::parser::parse_file(&path).map_err(CompileError::LoadError)?;
 
     if diag.has_error() {
         let vec = diag.to_string_vec();
@@ -104,7 +114,7 @@ pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
         return Err(CompileError::CompileError(vec));
     }
 
-    let mut compiler_config = CompilerConfiguration::default();
+    let mut compiler_config = config;
 
     if let (Some(target), Some(host)) = (env::var("TARGET").ok(), env::var("HOST").ok()) {
         if target != host {
@@ -112,7 +122,8 @@ pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
         }
     };
 
-    let (doc, mut diag) = compile_syntax_node(syntax_node, diag, &compiler_config);
+    let (doc, mut diag) =
+        sixtyfps_compilerlib::compile_syntax_node(syntax_node, diag, &compiler_config);
 
     if diag.has_error() {
         let vec = diag.to_string_vec();
@@ -130,7 +141,7 @@ pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
 
     let file = std::fs::File::create(&output_file_path).map_err(CompileError::SaveError)?;
     let mut code_formater = CodeFormatter { indentation: 0, in_string: false, sink: file };
-    let generated = match generator::rust::generate(&doc, &mut diag) {
+    let generated = match sixtyfps_compilerlib::generator::rust::generate(&doc, &mut diag) {
         Some(code) => {
             // print warnings
             diag.diagnostics_as_string().lines().for_each(|w| {
