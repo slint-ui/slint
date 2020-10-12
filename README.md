@@ -28,7 +28,7 @@ It's possible to create user interfaces from C++, Rust, or NodeJS. These user in
 shown on Linux, macOS, Windows, and in Web Browsers (using WebAssembly). You can also try out SixtyFPS using
 our [experimental online editor](https://sixtyfps.io/editor).
 
-We plan to support the development of this project through commercial licensing and services. We seek feedback
+We plan to support the development of this project through dual-licensing and services. We seek feedback
 from potential customers or users.
 
 ## Reference
