@@ -41,7 +41,7 @@ The [examples](/examples) folder contains examples and demos. The `docs` folder 
 
 ## Demos running in WebAssembly Simulation
 
-Click on the screenshot to see the WebAssembly simulation
+Click on the screenshots to run the WebAssembly simulation
 
 | Printer Demo | Widget Gallery |
 |--------------|----------------|
@@ -121,7 +121,7 @@ We welcome your contributions: in the form of code, bug reports or feedback.
 This software is provided under a dual licensing scheme:
 
  - **GNU GPLv3**: Open source license ideal for free software.
- - **Commercial SixtyFps license**: More details to come.
+ - **Commercial SixtyFPS license**: More details to come.
 
 ## Contact us
 
