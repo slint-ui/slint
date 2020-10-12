@@ -11,7 +11,7 @@ import { Button, CheckBox, SpinBox, Slider, GroupBox, LineEdit, StandardListView
 
 App := Window {
     width: 500lx;
-    height: 600lx;
+    height: 700lx;
     Rectangle {
         color: #ecedeb;
         width: parent.width;
