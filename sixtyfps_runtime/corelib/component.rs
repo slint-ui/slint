@@ -68,3 +68,40 @@ pub type ComponentRef<'a> = vtable::VRef<'a, ComponentVTable>;
 
 /// Type alias to the commonly use `Pin<VRef<ComponentVTable>>>`
 pub type ComponentRefPin<'a> = core::pin::Pin<ComponentRef<'a>>;
+
+/// Call init() on the ItemVTable for each item of the component.
+pub fn init_component_items<Base>(
+    base: core::pin::Pin<&Base>,
+    item_tree: &[crate::item_tree::ItemTreeNode<Base>],
+    window: &ComponentWindow,
+) {
+    item_tree.iter().for_each(|entry| match entry {
+        crate::item_tree::ItemTreeNode::Item { item, .. } => {
+            item.apply_pin(base).as_ref().init(window)
+        }
+        crate::item_tree::ItemTreeNode::DynamicTree { .. } => {}
+    })
+}
+
+pub(crate) mod ffi {
+    #![allow(unsafe_code)]
+
+    use super::*;
+    use crate::item_tree::*;
+    use crate::slice::Slice;
+
+    /// Call init() on the ItemVTable of each item of the component.
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_component_init_items(
+        component: ComponentRefPin,
+        item_tree: Slice<ItemTreeNode<u8>>,
+        window_handle: *const crate::eventloop::ffi::ComponentWindowOpaque,
+    ) {
+        let window = &*(window_handle as *const ComponentWindow);
+        super::init_component_items(
+            core::pin::Pin::new_unchecked(&*(component.as_ptr() as *const u8)),
+            item_tree.as_slice(),
+            window,
+        )
+    }
+}

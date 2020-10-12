@@ -46,6 +46,11 @@ use vtable::*;
 #[vtable]
 #[repr(C)]
 pub struct ItemVTable {
+    /// This function is called by the run-time after the memory for the item
+    /// has been allocated and initialized. It will be called before any user specified
+    /// bindings are set.
+    pub init: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, window: &ComponentWindow),
+
     /// Returns the geometry of this item (relative to its parent item)
     pub geometry: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>) -> Rect,
 
@@ -110,6 +115,8 @@ pub struct Rectangle {
 }
 
 impl Item for Rectangle {
+    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(
             Self::FIELD_OFFSETS.x.apply_pin(self).get(),
@@ -190,6 +197,8 @@ pub struct BorderRectangle {
 }
 
 impl Item for BorderRectangle {
+    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(
             Self::FIELD_OFFSETS.x.apply_pin(self).get(),
@@ -273,6 +282,8 @@ pub struct Image {
 }
 
 impl Item for Image {
+    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(
             Self::FIELD_OFFSETS.x.apply_pin(self).get(),
@@ -392,6 +403,8 @@ pub struct Text {
 }
 
 impl Item for Text {
+    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+
     // FIXME: width / height.  or maybe it doesn't matter?  (
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(
@@ -520,6 +533,8 @@ pub struct TouchArea {
 }
 
 impl Item for TouchArea {
+    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(
             Self::FIELD_OFFSETS.x.apply_pin(self).get(),
@@ -617,6 +632,8 @@ pub struct Path {
 }
 
 impl Item for Path {
+    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(
             Self::FIELD_OFFSETS.x.apply_pin(self).get(),
@@ -696,6 +713,8 @@ pub struct Flickable {
 }
 
 impl Item for Flickable {
+    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(
             Self::FIELD_OFFSETS.x.apply_pin(self).get(),
@@ -822,6 +841,8 @@ pub struct Window {
 }
 
 impl Item for Window {
+    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(
             0.,
@@ -903,6 +924,8 @@ pub struct TextInput {
 }
 
 impl Item for TextInput {
+    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+
     // FIXME: width / height.  or maybe it doesn't matter?  (
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(

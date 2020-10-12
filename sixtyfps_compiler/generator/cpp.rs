@@ -655,6 +655,8 @@ fn generate_component(
         }
     }
 
+    let mut constructor_parent_arg = String::new();
+
     if !is_root {
         let parent_element = component.parent_element.upgrade().unwrap();
 
@@ -692,10 +694,13 @@ fn generate_component(
                 .upgrade()
                 .unwrap(),
         );
+        let parent_type = format!("{} const *", parent_component_id);
+        constructor_parent_arg = format!("{} parent", parent_type);
+        init.push("this->parent = parent;".into());
         component_struct.members.push((
             Access::Public, // Because Repeater accesses it
             Declaration::Var(Var {
-                ty: format!("{} const *", parent_component_id),
+                ty: parent_type,
                 name: "parent".into(),
                 init: Some("nullptr".to_owned()),
             }),
@@ -826,6 +831,11 @@ fn generate_component(
         }
     });
 
+    init.push(format!(
+        "{}.init_items(this, item_tree());",
+        window = window_ref_expression(component)
+    ));
+
     for extra_init_code in component.setup_code.borrow().iter() {
         init.push(compile_expression(extra_init_code, component));
     }
@@ -834,7 +844,7 @@ fn generate_component(
         Access::Public,
         Declaration::Function(Function {
             name: component_id.clone(),
-            signature: "()".to_owned(),
+            signature: format!("({})", constructor_parent_arg),
             is_constructor_or_destructor: true,
             statements: Some(init),
             ..Default::default()

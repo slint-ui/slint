@@ -716,6 +716,12 @@ pub fn instantiate<'id>(
         ));
     }
 
+    sixtyfps_corelib::component::init_component_items(
+        instance_ref.instance,
+        instance_ref.component_type.item_tree.as_slice().into(),
+        &eval::window_ref(instance_ref).unwrap(),
+    );
+
     for item_within_component in component_type.items.values() {
         unsafe {
             let item = item_within_component.item_from_component(mem);

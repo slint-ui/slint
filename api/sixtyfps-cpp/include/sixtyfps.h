@@ -101,6 +101,13 @@ struct ComponentWindow
         cbindgen_private::sixtyfps_component_window_set_focus_item(&inner, c, item);
     }
 
+    template<typename Component, typename ItemTree>
+    void init_items(Component *c, ItemTree items) const
+    {
+        cbindgen_private::sixtyfps_component_init_items(
+                VRef<ComponentVTable> { &Component::component_type, c }, items, &inner);
+    }
+
 private:
     cbindgen_private::ComponentWindowOpaque inner;
 };
@@ -120,9 +127,9 @@ using cbindgen_private::NativeButton;
 using cbindgen_private::NativeCheckBox;
 using cbindgen_private::NativeGroupBox;
 using cbindgen_private::NativeLineEdit;
+using cbindgen_private::NativeScrollBar;
 using cbindgen_private::NativeSlider;
 using cbindgen_private::NativeSpinBox;
-using cbindgen_private::NativeScrollBar;
 using cbindgen_private::NativeStandardListViewItem;
 
 namespace private_api {
@@ -270,7 +277,8 @@ using cbindgen_private::solve_grid_layout;
 using cbindgen_private::solve_path_layout;
 
 // models
-struct AbstractRepeaterView {
+struct AbstractRepeaterView
+{
     ~AbstractRepeaterView() = default;
     virtual void row_added(int index, int count) = 0;
     virtual void row_removed(int index, int count) = 0;
@@ -348,7 +356,8 @@ public:
     }
     int row_count() const override { return Count; }
     ModelData row_data(int i) const override { return data[i]; }
-    void set_row_data(int i, const ModelData &value) override {
+    void set_row_data(int i, const ModelData &value) override
+    {
         data[i] = value;
         this->row_changed(i);
     }
@@ -388,11 +397,11 @@ public:
     }
 
     /// Remove the row at the given index from the model
-    void erase(int index) {
+    void erase(int index)
+    {
         data.erase(data.begin() + index);
         this->row_removed(index, 1);
     }
-
 };
 
 template<typename C, typename ModelData>
@@ -400,25 +409,30 @@ class Repeater
 {
     Property<std::shared_ptr<Model<ModelData>>> model;
 
-    struct RepeaterInner : AbstractRepeaterView {
+    struct RepeaterInner : AbstractRepeaterView
+    {
         enum class State { Clean, Dirty };
-        struct ComponentWithState {
+        struct ComponentWithState
+        {
             State state = State::Dirty;
             std::unique_ptr<C> ptr;
         };
         std::vector<ComponentWithState> data;
         bool is_dirty = true;
 
-        void row_added(int index, int count) override {
+        void row_added(int index, int count) override
+        {
             is_dirty = true;
             data.resize(data.size() + count);
             std::rotate(data.begin() + index, data.end() - count, data.end());
         }
-        void row_changed(int index) override {
+        void row_changed(int index) override
+        {
             is_dirty = true;
             data[index].state = State::Dirty;
         }
-        void row_removed(int index, int count) override {
+        void row_removed(int index, int count) override
+        {
             is_dirty = true;
             data.erase(data.begin() + index, data.begin() + index + count);
             for (std::size_t i = index; i < data.size(); ++i) {
@@ -457,8 +471,7 @@ public:
                     auto &c = inner->data[i];
                     if (c.state == RepeaterInner::State::Dirty) {
                         if (!c.ptr) {
-                            c.ptr = std::make_unique<C>();
-                            c.ptr->parent = parent;
+                            c.ptr = std::make_unique<C>(parent);
                         }
                         c.ptr->update_data(i, m->row_data(i));
                     }
@@ -471,8 +484,9 @@ public:
 
     template<typename Parent>
     void ensure_updated_listview(const Parent *parent, const Property<float> *viewport_width,
-        const Property<float> *viewport_height, [[maybe_unused]] const Property<float> *viewport_y,
-        float listview_width, [[maybe_unused]] float listview_height) const
+                                 const Property<float> *viewport_height,
+                                 [[maybe_unused]] const Property<float> *viewport_y,
+                                 float listview_width, [[maybe_unused]] float listview_height) const
     {
         // TODO: the rust code in model.rs try to only allocate as many items as visible items
         ensure_updated(parent);
@@ -508,7 +522,8 @@ public:
         }
     }
 
-    float compute_layout_listview(const Property<float> *viewport_width, float listview_width) const {
+    float compute_layout_listview(const Property<float> *viewport_width, float listview_width) const
+    {
         float offset = 0;
         viewport_width->set(listview_width);
         if (!inner)
@@ -519,7 +534,8 @@ public:
         return offset;
     }
 
-    void model_set_row_data(int row, const ModelData &data) const {
+    void model_set_row_data(int row, const ModelData &data) const
+    {
         if (model.is_dirty()) {
             std::abort();
         }

@@ -615,6 +615,8 @@ fn generate_component(
         init.push(compile_expression(extra_init_code, component));
     }
 
+    let window_ref = window_ref_expression(component);
+
     Some(quote!(
         #(#resource_symbols)*
 
@@ -766,6 +768,7 @@ fn generate_component(
                 self_pinned.self_weak.set(PinWeak::downgrade(self_pinned.clone())).map_err(|_|())
                     .expect("Can only be pinned once");
                 let _self = self_pinned.as_ref();
+                sixtyfps::re_exports::init_component_items(_self, Self::item_tree(), &#window_ref);
                 #(#init)*
                 self_pinned
             }

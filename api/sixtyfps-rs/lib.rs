@@ -126,7 +126,9 @@ pub mod re_exports {
     pub use once_cell::unsync::OnceCell;
     pub use pin_weak::rc::*;
     pub use sixtyfps_corelib::animations::EasingCurve;
-    pub use sixtyfps_corelib::component::{Component, ComponentRefPin, ComponentVTable};
+    pub use sixtyfps_corelib::component::{
+        init_component_items, Component, ComponentRefPin, ComponentVTable,
+    };
     pub use sixtyfps_corelib::eventloop::ComponentWindow;
     pub use sixtyfps_corelib::graphics::{
         PathArcTo, PathData, PathElement, PathEvent, PathLineTo, Point, Rect, Size,

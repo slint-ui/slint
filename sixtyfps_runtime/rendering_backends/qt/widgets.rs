@@ -104,6 +104,8 @@ pub struct NativeButton {
 }
 
 impl Item for NativeButton {
+    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(
             Self::FIELD_OFFSETS.x.apply_pin(self).get(),
@@ -223,6 +225,8 @@ pub struct NativeCheckBox {
 }
 
 impl Item for NativeCheckBox {
+    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(
             Self::FIELD_OFFSETS.x.apply_pin(self).get(),
@@ -357,6 +361,8 @@ void initQSpinBoxOptions(QStyleOptionSpinBox &option, bool pressed, int active_c
 }}
 
 impl Item for NativeSpinBox {
+    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(
             Self::FIELD_OFFSETS.x.apply_pin(self).get(),
@@ -547,6 +553,8 @@ void initQSliderOptions(QStyleOptionSlider &option, bool pressed, int active_con
 }}
 
 impl Item for NativeSlider {
+    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(
             Self::FIELD_OFFSETS.x.apply_pin(self).get(),
@@ -719,6 +727,8 @@ pub struct NativeGroupBox {
 }
 
 impl Item for NativeGroupBox {
+    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(
             Self::FIELD_OFFSETS.x.apply_pin(self).get(),
@@ -854,6 +864,8 @@ pub struct NativeLineEdit {
 }
 
 impl Item for NativeLineEdit {
+    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(
             Self::FIELD_OFFSETS.x.apply_pin(self).get(),
@@ -970,6 +982,8 @@ pub struct NativeScrollBar {
 }
 
 impl Item for NativeScrollBar {
+    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(
             Self::FIELD_OFFSETS.x.apply_pin(self).get(),
@@ -1192,6 +1206,8 @@ pub struct NativeStandardListViewItem {
 }
 
 impl Item for NativeStandardListViewItem {
+    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(
             Self::FIELD_OFFSETS.x.apply_pin(self).get(),
