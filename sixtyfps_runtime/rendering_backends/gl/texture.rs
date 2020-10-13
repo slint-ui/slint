@@ -34,7 +34,7 @@ pub trait UploadableAtlasImage {
 #[cfg(target_arch = "wasm32")]
 impl UploadableAtlasImage for &web_sys::HtmlImageElement {
     fn upload(&self, context: &Rc<GLContext>, x: i32, y: i32) {
-        /*unsafe {
+        unsafe {
             context.tex_sub_image_2d_with_html_image(
                 glow::TEXTURE_2D,
                 0,
@@ -44,7 +44,7 @@ impl UploadableAtlasImage for &web_sys::HtmlImageElement {
                 glow::UNSIGNED_BYTE,
                 self,
             );
-        }*/
+        }
     }
     fn width(&self) -> u32 {
         (self as Self).width()
