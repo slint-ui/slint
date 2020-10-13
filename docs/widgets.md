@@ -163,6 +163,7 @@ It has scrollbar to interact with.
 
 * **`viewport_width`** and **`viewport_height`** (*lenght*): The `width` and `lenght` properties of the viewport
 * **`viewport_x`** and **`viewport_y`** (*lenght*): The `x` and `y` properties of the viewport. Usually these are negative
+* **`visible_width`** and **`visible_height`** (*lenght*): The size of the visible area of the ScrollView (not including the scrollbar)
 
 
 ### Example
@@ -191,6 +192,10 @@ Example := Window {
 A ListView is like a Scrollview but it should have a `for` element, and the content are
 automatically layed out in a list.
 Elements are only instentiated if they are visible
+
+### Properties
+
+Same as ScrollView
 
 ### Example
 
@@ -233,6 +238,8 @@ Like ListView, but with a default delegate, and a `model` property which is a mo
 The `StandardListViewItem` is equivalent to `{ text: string }` but will be improved in the future with `icon`, `checked` and so on (TODO)
 
 ### Properties
+
+Same as ListView, and in addition:
 
 * **`model`** (*`[StandardListViewItem]`*): The model
 

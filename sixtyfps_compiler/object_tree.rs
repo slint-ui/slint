@@ -584,8 +584,8 @@ impl Element {
                 viewport_y: NamedReference::new(parent, "viewport_y"),
                 viewport_height: NamedReference::new(parent, "viewport_height"),
                 viewport_width: NamedReference::new(parent, "viewport_width"),
-                listview_height: NamedReference::new(parent, "height"),
-                listview_width: NamedReference::new(parent, "width"),
+                listview_height: NamedReference::new(parent, "visible_height"),
+                listview_width: NamedReference::new(parent, "visible_width"),
             })
         } else {
             None

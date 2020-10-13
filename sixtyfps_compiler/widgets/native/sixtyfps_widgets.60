@@ -45,6 +45,8 @@ export ScrollView := Rectangle {
     property <length> viewport_height <=> fli.viewport_height;
     property <length> viewport_x <=> fli.viewport_x;
     property <length> viewport_y <=> fli.viewport_y;
+    property <length> visible_width <=> fli.width;
+    property <length> visible_height <=> fli.height;
 
     border_width: 1lx;
     border_color: #d0d3cf;
@@ -83,6 +85,6 @@ export StandardListView := ListView {
         item: item;
         index: i;
         height: 20lx;
-        width: parent.width;
+        width: parent.visible_width;
     }
 }
