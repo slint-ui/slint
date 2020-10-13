@@ -160,7 +160,7 @@ PrintPage := Page {
                         text: "Select File:";
                     }
                 }
-                
+
                 Row {
                     StandardListView {
                         model: [
@@ -339,11 +339,11 @@ MainWindow := Window {
         color: page_info.color;
         img := Image {
             y: 5lx;
-            x: parent.border_radius + (self.width / 2) - ((parent.width - parent.border_radius) / 2);
+            x: 25lx + (root.width / 6.25 / 2) - ((root.width / 5 - 25lx) / 2);
             width: root.width / 6.25;
             height: root.height / 4.68;
             source: page_info.img_small;
-            animate x, y, width, height {
+            animate width, height, x, y {
                 duration: 300ms;
                 easing: ease_in_out;
             }
