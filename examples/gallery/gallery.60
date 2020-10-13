@@ -86,7 +86,8 @@ App := Window {
             GroupBox {
                 title: "StandardListView";
                 StandardListView {
-                    model: [{text: "Lorem"}, {text: "ipsum"},{text: "dolor"},{text: "sit"},{text: "amet"},{text: "consetetur"},{text: "sadipscing"},{text: "elitr"},{text: "sed"},{text: "diam"},{text: "nonumy"},{text: "eirmod"},{text: "tempor"},{text: "invidunt"},{text: "ut"},{text: "labore"},{text: "et"},{text: "dolore"},{text: "magna"},{text: "aliquyam"},{text: "erat"},{text: "Lorem"}, {text: "ipsum"},{text: "dolor"},{text: "sit"},{text: "amet"},{text: "consetetur"},{text: "sadipscing"},{text: "elitr"},{text: "sed"},{text: "diam"},{text: "nonumy"},{text: "eirmod"},{text: "tempor"},{text: "invidunt"},{text: "ut"},{text: "labore"},{text: "et"},{text: "dolore"},{text: "magna"},{text: "aliquyam"},{text: "erat"},
+                    model: [
+                        {text: "Lorem"}, {text: "ipsum"},{text: "dolor"},{text: "sit"},{text: "amet"},{text: "consetetur"},
                     ];
                 }
             }
