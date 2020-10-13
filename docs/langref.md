@@ -153,7 +153,7 @@ Example := Button {
 
 (TODO)
 
-using the `<=>` syntax, one can create two ways binding between properties. These properties are now linked
+Using the `<=>` syntax, one can create two ways binding between properties. These properties are now linked
 together.
 The right hand side of the `<=>` must be a reference to a property of the same type.
 
@@ -303,7 +303,7 @@ Example := Rectangle {
 
 Arrays are currently only supported in `for` expressions. `[1, 2, 3]` is an array of integers.
 All the types in the array have to be of the same type.
-It is usefull to have arrays of objects. An Object is between curly braces: `{ a: 12, b: "hello"}`.
+It is useful to have arrays of objects. An Object is between curly braces: `{ a: 12, b: "hello"}`.
 
 
 ## Statements
@@ -381,14 +381,14 @@ Example := Rectangle {
 }
 ```
 
-This will aniate the color property for 100ms when it changes.
+This will animate the color property for 100ms when it changes.
 
 Animation can be configured with the following parameter:
  * `duration`: the amount of time it takes for the animation to complete
  * `loop_count`: FIXME
  * `easing`: can be `linear`, `ease`, `ease_in`, `ease_out`, `ease_in_out`, `cubic_bezier(a, b, c, d)` as in CSS
 
-It is also possible to animate sevaral properties with the same animation:
+It is also possible to animate several properties with the same animation:
 
 ```
 animate x, y { duration: 100ms; }
@@ -511,8 +511,8 @@ App := Rectangle {
 }
 ```
 
-In the event that two files export a type under the same then, then you have the option
-of assigning a different name at import type:
+In the event that two files export a type under the same name, then you have the option
+of assigning a different name at import time:
 
 ```60
 import { Button } from "./button.60";
