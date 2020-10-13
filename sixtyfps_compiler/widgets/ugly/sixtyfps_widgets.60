@@ -20,19 +20,15 @@ export Button := Rectangle {
     color: touch_area.pressed ? #556884 : lightgray;
     animate color { duration: 100ms; }
 
-    maximum_height: 40lx;
-    minimum_height: 40lx;
-    minimum_width: 120lx;
+    GridLayout {
+        padding: root.border_radius;
 
-    Text {
-        text: root.text;
-        font_size: root.font_size;
-        y: root.border_radius;
-        x: root.border_radius;
-        width: root.width - 2 * root.border_radius;
-        height: root.height - 2 * root.border_radius;
-        horizontal_alignment: align_center;
-        vertical_alignment: align_center;
+        Text {
+            text: root.text;
+            font_size: root.font_size;
+            horizontal_alignment: align_center;
+            vertical_alignment: align_center;
+        }
     }
 
     touch_area := TouchArea {
