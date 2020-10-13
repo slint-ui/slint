@@ -318,7 +318,7 @@ impl Expression {
                 let absolute_source_path = {
                     let path = std::path::Path::new(&s);
 
-                    if path.is_absolute() {
+                    if path.is_absolute() || s.starts_with("http://") || s.starts_with("https://") {
                         s
                     } else {
                         let path = node
