@@ -1562,7 +1562,7 @@ fn compute_layout(
     repeated_element_layouts: &[TokenStream],
 ) -> TokenStream {
     let mut layouts = vec![];
-    component.layout_constraints.borrow().iter().for_each(|layout| {
+    component.layouts.borrow().iter().for_each(|layout| {
         let mut inverse_layout_tree = Vec::new();
 
         collect_layouts_recursively(&mut inverse_layout_tree, layout, component);

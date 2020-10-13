@@ -1309,7 +1309,7 @@ extern "C" fn compute_layout(component: ComponentRefPin) {
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
     let window = eval::window_ref(instance_ref).unwrap();
 
-    instance_ref.component_type.original.layout_constraints.borrow().iter().for_each(|layout| {
+    instance_ref.component_type.original.layouts.borrow().iter().for_each(|layout| {
         let mut inverse_layout_tree = Vec::new();
 
         collect_layouts_recursively(&mut inverse_layout_tree, &layout, instance_ref, &window);

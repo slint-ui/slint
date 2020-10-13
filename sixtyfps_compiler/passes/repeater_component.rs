@@ -23,7 +23,7 @@ pub fn process_repeater_components(component: &Rc<Component>) {
 
 fn create_repeater_components(component: &Rc<Component>) {
     // Because layout constraint which are supposed to be in the repeater will not be lowered
-    debug_assert!(component.layout_constraints.borrow().is_empty());
+    debug_assert!(component.layouts.borrow().is_empty());
 
     recurse_elem(&component.root_element, &(), &mut |elem, _| {
         if elem.borrow().repeated.is_none() {

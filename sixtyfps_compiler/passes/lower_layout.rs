@@ -228,7 +228,7 @@ fn lower_element_layout(
 pub fn lower_layouts(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
     recurse_elem(&component.root_element, &(), &mut |elem, _| {
         let mut layouts = lower_element_layout(component, elem, diag);
-        component.layout_constraints.borrow_mut().append(&mut layouts);
+        component.layouts.borrow_mut().append(&mut layouts);
 
         if elem.borrow().repeated.is_some() {
             if let Type::Component(base) = &elem.borrow().base_type {

@@ -94,8 +94,8 @@ pub struct Component {
     /// should be embedded.
     pub embed_file_resources: Cell<bool>,
 
-    /// LayoutConstraints
-    pub layout_constraints: RefCell<crate::layout::LayoutConstraints>,
+    /// All layouts in this component
+    pub layouts: RefCell<crate::layout::LayoutVec>,
 
     /// When creating this component and inserting "children", append them to the children of
     /// the element pointer to by this field.

@@ -39,9 +39,9 @@ impl ExpressionFieldsVisitor for Layout {
 }
 
 #[derive(Default, Debug, derive_more::Deref, derive_more::DerefMut)]
-pub struct LayoutConstraints(Vec<Layout>);
+pub struct LayoutVec(Vec<Layout>);
 
-impl ExpressionFieldsVisitor for LayoutConstraints {
+impl ExpressionFieldsVisitor for LayoutVec {
     fn visit_expressions(&mut self, mut visitor: &mut impl FnMut(&mut Expression)) {
         self.0.iter_mut().for_each(|l| l.visit_expressions(&mut visitor));
     }

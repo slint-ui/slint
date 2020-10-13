@@ -72,7 +72,7 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
         &(),
         &mut |elem, _| visit_all_named_references(elem, replace),
     );
-    component.layout_constraints.borrow_mut().visit_expressions(&mut |e| {
+    component.layouts.borrow_mut().visit_expressions(&mut |e| {
         recurse_expression(e, &mut replace);
     });
 

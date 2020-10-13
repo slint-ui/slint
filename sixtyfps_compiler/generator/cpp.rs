@@ -1725,7 +1725,7 @@ fn compute_layout(
         "[[maybe_unused]] auto self = reinterpret_cast<const {ty}*>(component.instance);",
         ty = component_id(component)
     ));
-    component.layout_constraints.borrow().iter().for_each(|layout| {
+    component.layouts.borrow().iter().for_each(|layout| {
         let mut inverse_layout_tree = Vec::new();
 
         res.push("    {".into());
