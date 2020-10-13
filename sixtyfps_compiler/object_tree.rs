@@ -851,6 +851,25 @@ pub fn recurse_elem<State>(
     }
 }
 
+/// Same as [`recurse_elem`] but include the elements form sub_components
+pub fn recurse_elem_including_sub_components<State>(
+    elem: &ElementRc,
+    state: &State,
+    vis: &mut impl FnMut(&ElementRc, &State) -> State,
+) {
+    let state = vis(elem, state);
+    for sub in &elem.borrow().children {
+        recurse_elem(sub, &state, &mut |elem, state| {
+            if elem.borrow().repeated.is_some() {
+                if let Type::Component(base) = &elem.borrow().base_type {
+                    recurse_elem_including_sub_components(&base.root_element, state, vis);
+                }
+            }
+            vis(elem, state)
+        });
+    }
+}
+
 /// Same as recurse_elem, but will take the children from the element as to not keep the element borrow
 pub fn recurse_elem_no_borrow<State>(
     elem: &ElementRc,
@@ -863,6 +882,25 @@ pub fn recurse_elem_no_borrow<State>(
         recurse_elem_no_borrow(sub, &state, vis);
     }
     elem.borrow_mut().children = children;
+}
+
+/// Same as [`recurse_elem`] but include the elements form sub_components
+pub fn recurse_elem_including_sub_components_no_borrow<State>(
+    elem: &ElementRc,
+    state: &State,
+    vis: &mut impl FnMut(&ElementRc, &State) -> State,
+) {
+    let state = vis(elem, state);
+    for sub in &elem.borrow().children {
+        recurse_elem_no_borrow(sub, &state, &mut |elem, state| {
+            if elem.borrow().repeated.is_some() {
+                if let Type::Component(base) = &elem.borrow().base_type {
+                    recurse_elem_including_sub_components_no_borrow(&base.root_element, state, vis);
+                }
+            }
+            vis(elem, state)
+        });
+    }
 }
 
 /// This visit the binding attached to this element, but does not recurse in children elements

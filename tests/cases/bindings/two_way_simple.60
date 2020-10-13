@@ -21,6 +21,8 @@ TestCase := Rectangle {
         width: 80px;
         property<int> foo <=> root.sub_foo1;
     }
+
+    if (true) : Rectangle { color: root.extra_color; }
 }
 
 

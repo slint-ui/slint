@@ -15,7 +15,7 @@ use crate::typeregister::Type;
 use std::{cell::RefCell, collections::HashMap};
 
 pub fn deduplicate_property_read(component: &Component) {
-    recurse_elem(&component.root_element, &(), &mut |elem, _| {
+    recurse_elem_including_sub_components(&component.root_element, &(), &mut |elem, _| {
         visit_element_expressions(elem, |expr, ty| {
             if matches!(ty(), Type::Signal{..}) {
                 // Signal handler can't be optimizes because they can have side effect.
@@ -24,12 +24,6 @@ pub fn deduplicate_property_read(component: &Component) {
             }
             process_expression(expr, &mut Default::default());
         });
-
-        if elem.borrow().repeated.is_some() {
-            if let Type::Component(base) = &elem.borrow().base_type {
-                deduplicate_property_read(base);
-            }
-        }
     })
 }
 
