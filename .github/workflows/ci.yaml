@@ -310,7 +310,7 @@ jobs:
 
   publish:
     if: github.ref == 'refs/heads/master' && github.event_name == 'push'
-    needs: [build_and_test, docs, wasm] # also depends on build_and_test to only publish if tests are green
+    needs: [build_and_test, cpp, docs, wasm] # also depends on build_and_test and cpp to only publish if tests are green
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/download-artifact@v2
