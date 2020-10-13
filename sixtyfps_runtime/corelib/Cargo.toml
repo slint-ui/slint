@@ -58,3 +58,7 @@ servo-fontconfig = { version = "0.5", features = [ "force_system_lib" ] }
 
 [dev-dependencies]
 pin-weak = "1"
+
+[package.metadata.docs.rs]
+# The x11 is needed otherwise winit does not build
+features = ["x11"]
