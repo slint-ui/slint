@@ -54,19 +54,17 @@ to trigger the compilation of the `.60` file.
 
 In your Cargo.toml:
 
-FIXME! set the version
-
 ```toml
 [package]
 ...
 build = "build.rs"
 
 [dependencies]
-sixtyfps = "*"
+sixtyfps = "0.0.1"
 ...
 
 [build-dependencies]
-sixtyfps-build = "*"
+sixtyfps-build = "0.0.1"
 ```
 
 In the `build.rs` file:
