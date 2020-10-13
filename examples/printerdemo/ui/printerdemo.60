@@ -26,39 +26,38 @@ Preview := Image {
 
 
 CopyPage := Page {
+    layout := GridLayout {
+        padding_left: 40lx;
+        padding_right: 40lx;
+        spacing: 20lx;
+        padding_top: 20lx;
+        padding_bottom: 20lx;
 
-    preview := Preview {
-        x: 40lx;
-        y: 20lx;
-        height: parent.height - 40lx;
+        Row {
+            preview := Preview {
+                minimum_height: root.height - layout.padding_top - layout.padding_bottom;
+            }
+            GridLayout {
+                Row {
+                    Label {
+                        text: "Copies:";
+                    }
+                }
+
+                Row {
+                    SpinBox {
+                        font_size: 28lx;
+                    }
+                }
+                Row {
+                    Button {
+                        text: "Print Page";
+                        font_size: 28lx;
+                    }
+                }
+            }
+        }
     }
-
-    copies_label := Label {
-        x: preview.x + preview.width + 20lx;
-        y: preview.y + 10lx;
-        width: root.width - self.x - 40lx;
-        height: 40lx;
-        text: "Copies:";
-    }
-
-    copies_spinbox := SpinBox {
-        x: copies_label.x;
-        y: copies_label.y + copies_label.height + 10lx;
-        width: copies_label.width;
-        height: copies_label.height;
-        font_size: 28lx;
-    }
-
-    Button {
-        text: "Print Page";
-        font_size: 28lx;
-        x: copies_spinbox.x;
-        y: copies_spinbox.y + copies_spinbox.height + 10lx;
-        width: copies_spinbox.width;
-        height: copies_spinbox.height;
-    }
-
-
 }
 
 FaxPage := Page {
