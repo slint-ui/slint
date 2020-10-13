@@ -349,11 +349,12 @@ MainWindow := Window {
             }
         }
         text := Text {
-            y: root.height / 4.5;
+            y: root.height / 10;
             x: 5lx;
             width: parent.width;
             height: parent.height;
             horizontal_alignment: align_center;
+            vertical_alignment: align_center;
             text: page_info.text;
             font_size: 28lx;
             animate x, y {
@@ -411,10 +412,12 @@ MainWindow := Window {
     if (root.active_page != 0) : Rectangle {
         width: root.height / 8;
         height: root.height / 8;
+        x: root.height /50;
+        y: root.width / 100;
         Text {
              text: "←";
              color: white;
-             font_size: root.height / 8;
+             font_size: root.height / 10;
         }
         TouchArea {
             width: root.height / 8;
