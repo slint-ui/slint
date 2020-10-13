@@ -49,5 +49,22 @@ sixtyfps::testing::send_key_clicks(instance, &[sixtyfps::re_exports::KeyCode::Le
 sixtyfps::testing::send_key_clicks(instance, &[sixtyfps::re_exports::KeyCode::Left]);
 sixtyfps::testing::send_key_clicks(instance, &[sixtyfps::re_exports::KeyCode::Left]);
 assert_eq!(instance.get_test_cursor_pos(), 0);
+
+sixtyfps::testing::set_current_keyboard_modifiers(instance, sixtyfps::re_exports::SHIFT_MODIFIER.into());
+sixtyfps::testing::send_key_clicks(instance, &[sixtyfps::re_exports::KeyCode::End]);
+sixtyfps::testing::set_current_keyboard_modifiers(instance, sixtyfps::re_exports::NO_MODIFIER.into());
+assert!(instance.get_has_selection());
+assert_eq!(instance.get_test_cursor_pos(), 2);
+assert_eq!(instance.get_test_anchor_pos(), 0);
+
+sixtyfps::testing::send_key_clicks(instance, &[sixtyfps::re_exports::KeyCode::Left]);
+assert!(!instance.get_has_selection());
+
+sixtyfps::testing::set_current_keyboard_modifiers(instance, sixtyfps::re_exports::SHIFT_MODIFIER.into());
+sixtyfps::testing::send_key_clicks(instance, &[sixtyfps::re_exports::KeyCode::Home]);
+sixtyfps::testing::set_current_keyboard_modifiers(instance, sixtyfps::re_exports::NO_MODIFIER.into());
+assert!(instance.get_has_selection());
+assert_eq!(instance.get_test_cursor_pos(), 0);
+assert_eq!(instance.get_test_anchor_pos(), 1);
 ```
 */

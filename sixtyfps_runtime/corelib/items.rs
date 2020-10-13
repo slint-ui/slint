@@ -1097,6 +1097,24 @@ impl Item for TextInput {
                 );
                 KeyEventResult::EventAccepted
             }
+            KeyEvent::KeyPressed { code, modifiers } if *code == crate::input::KeyCode::Home => {
+                TextInput::move_cursor(
+                    self,
+                    TextCursorDirection::StartOfLine,
+                    (*modifiers).into(),
+                    window,
+                );
+                KeyEventResult::EventAccepted
+            }
+            KeyEvent::KeyPressed { code, modifiers } if *code == crate::input::KeyCode::End => {
+                TextInput::move_cursor(
+                    self,
+                    TextCursorDirection::EndOfLine,
+                    (*modifiers).into(),
+                    window,
+                );
+                KeyEventResult::EventAccepted
+            }
             KeyEvent::KeyPressed { code, .. } if *code == crate::input::KeyCode::Back => {
                 TextInput::delete_previous(self, window);
                 KeyEventResult::EventAccepted
@@ -1162,6 +1180,8 @@ impl ItemConsts for TextInput {
 enum TextCursorDirection {
     Forward,
     Backward,
+    StartOfLine,
+    EndOfLine,
 }
 
 enum AnchorMode {
@@ -1220,6 +1240,8 @@ impl TextInput {
                     }
                 }
             }
+            TextCursorDirection::StartOfLine => 0,
+            TextCursorDirection::EndOfLine => text.len(),
         };
 
         self.as_ref().cursor_position.set(new_cursor_pos as i32);
