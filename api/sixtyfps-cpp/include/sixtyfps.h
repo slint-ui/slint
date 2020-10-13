@@ -9,8 +9,10 @@
 LICENSE END */
 #pragma once
 
+#if defined(__GNUC__) || defined(__clang__)
 // In C++17, it is conditionally supported, but still valid for all compiler we care
-#pragma GCC diagnostic ignored "-Winvalid-offsetof"
+#    pragma GCC diagnostic ignored "-Winvalid-offsetof"
+#endif
 
 #include <vector>
 #include <memory>
