@@ -1,10 +1,10 @@
 [package]
 name = "sixtyfps-viewer"
 version = "0.0.1"
-authors = ["Sixty FPS <info@sixtyfps.io>"]
+authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2018"
 license = "GPL-3.0-only"
-description = "Viewer binary for SixtyFps"
+description = "Viewer binary for SixtyFPS"
 repository = "https://github.com/sixtyfpsui/sixtyfps"
 homepage = "https://sixtyfps.io"
 

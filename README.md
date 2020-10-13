@@ -32,9 +32,9 @@ from potential customers or users.
 
 Refer to the README of each language directory in the `api` sub-folder:
 
- * [SixtyFps-cpp](api/sixtyfps-cpp) ([Documentation](https://www.sixtyfps.io/docs/cpp))
- * [SixtyFps-rs](api/sixtyfps-rs) ([Documentation](https://www.sixtyfps.io/docs/rust/sixtyfps/))
- * [SixtyFps-node](api/sixtyfps-node)
+ * [SixtyFPS-cpp](api/sixtyfps-cpp) ([Documentation](https://www.sixtyfps.io/docs/cpp))
+ * [SixtyFPS-rs](api/sixtyfps-rs) ([Documentation](https://www.sixtyfps.io/docs/rust/sixtyfps/))
+ * [SixtyFPS-node](api/sixtyfps-node)
 
 The [examples](/examples) folder contains examples and demos. The `docs` folder contains [build instructions](docs/building.md) and [internal developer docs](docs/development.md).
 

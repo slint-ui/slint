@@ -4,11 +4,11 @@
     "engines": {
         "vscode": "^1.31"
     },
-    "publisher": "SixtyFps",
+    "publisher": "SixtyFPS",
     "contributes": {
         "languages": [{
             "id": "sixtyfps",
-            "aliases": ["SixtyFps"],
+            "aliases": ["SixtyFPS"],
             "extensions": [".60"]
         }],
         "grammars": [{
