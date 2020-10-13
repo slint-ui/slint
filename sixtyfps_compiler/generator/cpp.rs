@@ -1578,17 +1578,11 @@ impl<'a> LayoutTreeItem<'a> {
         match self {
             LayoutTreeItem::GridLayout { grid, spacing, cell_ref_variable, padding, .. } => {
                 code_stream.push("    { ".into());
-                code_stream.push(format!(
-                    "    auto width = {};",
-                    compile_expression(&grid.rect.width_reference, component)
-                ));
-                code_stream.push(format!(
-                    "    auto height = {};",
-                    compile_expression(&grid.rect.height_reference, component)
-                ));
                 code_stream.push("    sixtyfps::GridLayoutData grid { ".into());
                 code_stream.push(format!(
-                    "        width, height, {}, {}, {}, &{},",
+                    "        {}, {}, {}, {}, {}, &{},",
+                    compile_expression(&grid.rect.width_reference, component),
+                    compile_expression(&grid.rect.height_reference, component),
                     compile_expression(&grid.rect.x_reference, component),
                     compile_expression(&grid.rect.y_reference, component),
                     spacing,
