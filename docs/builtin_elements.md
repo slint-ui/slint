@@ -92,7 +92,9 @@ An Image can be used to represent an image loaded from an image file
 
 ```60
 Example := Image {
-    source: img!"foo.png";
+    source: img!"resources/logo_scaled.png";
+    width: 64lx;
+    height: 44lx;
 }
 ```
 

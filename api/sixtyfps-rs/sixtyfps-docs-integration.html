@@ -10,7 +10,8 @@
         canvas.id = canvas_id;
         div.appendChild(canvas);
         try {
-            sixtyfps.instantiate_from_string(source, document.location.href, canvas_id);
+            // Use the git repo as the base url, so that we can resolve image urls.
+            sixtyfps.instantiate_from_string(source, "https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/README.md", canvas_id);
         } catch (e) {
             if (e.message === "Using exceptions for control flow, don't mind me. This isn't actually an error!") {
                 throw e;
