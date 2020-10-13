@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-import { SpinBox, Button, CheckBox, Slider, GroupBox } from "sixtyfps_widgets.60";
+import { SpinBox, Button, CheckBox, Slider, GroupBox, StandardListView } from "sixtyfps_widgets.60";
 
 Label := Text {
     font_size: 28lx;
@@ -143,24 +143,54 @@ FaxPage := Page {
 
 PrintPage := Page {
 
-    Rectangle {
-        color: #ddd;
-        width: parent.width / 3;
-        x: parent.width / 12  ;
-        y: parent.width / 8;
-        height: parent.width / 2;
-        Text {
-            text: "Hello";
-        }
-    }
-    Rectangle {
-        color: #ddd;
-        width: parent.width / 3;
-        x: parent.width / 12 + parent.width / 2 ;
-        y: parent.width / 8;
-        height: parent.width / 2;
-        Text {
-            text: "Print";
+     layout := GridLayout {
+        padding_left: 40lx;
+        padding_right: 40lx;
+        spacing: 20lx;
+        padding_top: 20lx;
+        padding_bottom: 20lx;
+
+        Row {
+            preview := Preview {
+                minimum_height: root.height - layout.padding_top - layout.padding_bottom;
+            }
+            GridLayout {
+                Row {
+                    Label {
+                        text: "Select File:";
+                    }
+                }
+                
+                Row {
+                    StandardListView {
+                        model: [
+                            { text: ".." },
+                            { text: "cat.png" },
+                            { text: "dog.png" },
+                            { text: "elephant.png" },
+                            { text: "snake.png" },
+                        ];
+                    }
+                }
+
+                Row {
+                    Label {
+                        text: "Copies:";
+                    }
+                }
+
+                Row {
+                    SpinBox {
+                        font_size: 28lx;
+                    }
+                }
+                Row {
+                    Button {
+                        text: "Print Page";
+                        font_size: 28lx;
+                    }
+                }
+            }
         }
     }
 }
