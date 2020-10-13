@@ -23,7 +23,7 @@ pub enum Layout {
 impl Layout {
     pub fn rect(&self) -> &LayoutRect {
         match self {
-            Layout::GridLayout(g) => &g.rect,
+            Layout::GridLayout(g) => &g.geometry.rect,
             Layout::PathLayout(p) => &p.rect,
         }
     }
@@ -196,21 +196,59 @@ impl ExpressionFieldsVisitor for Padding {
     }
 }
 
+#[derive(Debug)]
+pub struct LayoutGeometry {
+    pub rect: LayoutRect,
+    pub spacing: Option<Expression>,
+    pub padding: Padding,
+}
+
+impl ExpressionFieldsVisitor for LayoutGeometry {
+    fn visit_expressions(&mut self, visitor: &mut impl FnMut(&mut Expression)) {
+        self.rect.visit_expressions(visitor);
+        self.spacing.as_mut().map(|e| visitor(&mut *e));
+        self.padding.visit_expressions(visitor);
+    }
+}
+
+impl LayoutGeometry {
+    pub fn new(rect: LayoutRect, layout_element: &ElementRc) -> Self {
+        use crate::passes::lower_layout::{binding_reference, init_fake_property};
+        let padding = || binding_reference(layout_element, "padding");
+        let spacing = binding_reference(layout_element, "spacing");
+
+        init_fake_property(layout_element, "width", || Some((*rect.width_reference).clone()));
+        init_fake_property(layout_element, "height", || Some((*rect.height_reference).clone()));
+        init_fake_property(layout_element, "x", || Some((*rect.x_reference).clone()));
+        init_fake_property(layout_element, "y", || Some((*rect.y_reference).clone()));
+        init_fake_property(layout_element, "padding_left", padding);
+        init_fake_property(layout_element, "padding_right", padding);
+        init_fake_property(layout_element, "padding_top", padding);
+        init_fake_property(layout_element, "padding_bottom", padding);
+
+        let padding = Padding {
+            left: binding_reference(layout_element, "padding_left").or_else(padding),
+            right: binding_reference(layout_element, "padding_right").or_else(padding),
+            top: binding_reference(layout_element, "padding_top").or_else(padding),
+            bottom: binding_reference(layout_element, "padding_bottom").or_else(padding),
+        };
+
+        Self { rect, spacing, padding }
+    }
+}
+
 /// Internal representation of a grid layout
 #[derive(Debug)]
 pub struct GridLayout {
     /// All the elements will be layout within that element.
     ///
     pub elems: Vec<GridLayoutElement>,
-    pub rect: LayoutRect,
 
-    pub spacing: Option<Expression>,
-    pub padding: Padding,
+    pub geometry: LayoutGeometry,
 }
 
 impl ExpressionFieldsVisitor for GridLayout {
     fn visit_expressions(&mut self, visitor: &mut impl FnMut(&mut Expression)) {
-        self.rect.visit_expressions(visitor);
         for cell in &mut self.elems {
             match &mut cell.item {
                 LayoutItem::Element(element) => {
@@ -221,8 +259,7 @@ impl ExpressionFieldsVisitor for GridLayout {
             }
             cell.constraints.visit_expressions(visitor);
         }
-        self.spacing.as_mut().map(|e| visitor(&mut *e));
-        self.padding.visit_expressions(visitor);
+        self.geometry.visit_expressions(visitor);
     }
 }
 

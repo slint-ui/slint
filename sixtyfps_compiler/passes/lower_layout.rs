@@ -22,7 +22,7 @@ fn property_reference(element: &ElementRc, name: &str) -> Box<Expression> {
     }))
 }
 
-fn binding_reference(element: &ElementRc, name: &str) -> Option<Expression> {
+pub fn binding_reference(element: &ElementRc, name: &str) -> Option<Expression> {
     if element.borrow().bindings.contains_key(name) {
         Some(Expression::PropertyReference(NamedReference {
             element: Rc::downgrade(element),
@@ -33,7 +33,7 @@ fn binding_reference(element: &ElementRc, name: &str) -> Option<Expression> {
     }
 }
 
-fn init_fake_property(
+pub fn init_fake_property(
     grid_layout_element: &ElementRc,
     name: &str,
     lazy_default: impl Fn() -> Option<Expression>,
@@ -54,26 +54,10 @@ fn lower_grid_layout(
     collected_children: &mut Vec<ElementRc>,
     diag: &mut BuildDiagnostics,
 ) -> Option<Layout> {
-    let padding = || binding_reference(grid_layout_element, "padding");
-    let spacing = binding_reference(grid_layout_element, "spacing");
-
-    init_fake_property(grid_layout_element, "width", || Some((*rect.width_reference).clone()));
-    init_fake_property(grid_layout_element, "height", || Some((*rect.height_reference).clone()));
-    init_fake_property(grid_layout_element, "x", || Some((*rect.x_reference).clone()));
-    init_fake_property(grid_layout_element, "y", || Some((*rect.y_reference).clone()));
-    init_fake_property(grid_layout_element, "padding_left", padding);
-    init_fake_property(grid_layout_element, "padding_right", padding);
-    init_fake_property(grid_layout_element, "padding_top", padding);
-    init_fake_property(grid_layout_element, "padding_bottom", padding);
-
-    let padding = Padding {
-        left: binding_reference(grid_layout_element, "padding_left").or_else(padding),
-        right: binding_reference(grid_layout_element, "padding_right").or_else(padding),
-        top: binding_reference(grid_layout_element, "padding_top").or_else(padding),
-        bottom: binding_reference(grid_layout_element, "padding_bottom").or_else(padding),
+    let mut grid = GridLayout {
+        elems: Default::default(),
+        geometry: LayoutGeometry::new(rect, &grid_layout_element),
     };
-
-    let mut grid = GridLayout { elems: Default::default(), rect, spacing, padding };
 
     let mut row = 0;
     let mut col = 0;

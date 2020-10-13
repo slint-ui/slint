@@ -14,7 +14,7 @@ use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic, Level, Spanned};
 use crate::expression_tree::{
     BuiltinFunction, EasingCurve, Expression, NamedReference, OperatorClass, Path,
 };
-use crate::layout::{gen::LayoutItemCodeGen, Layout, LayoutElement};
+use crate::layout::{gen::LayoutItemCodeGen, Layout, LayoutElement, LayoutGeometry};
 use crate::object_tree::{Component, Document, ElementRc};
 use crate::typeregister::Type;
 use proc_macro2::TokenStream;
@@ -1332,6 +1332,41 @@ impl LayoutItemCodeGen<RustLanguageLayoutGen> for LayoutElement {
     }
 }
 
+fn generate_layout_padding_and_spacing<'a, 'b>(
+    layout_tree: &'b Vec<LayoutTreeItem<'a>>,
+    layout_geometry: &'a LayoutGeometry,
+    component: &Rc<Component>,
+) -> (TokenStream, TokenStream, Option<TokenStream>) {
+    let (spacing, spacing_creation_code) = if let Some(spacing) = &layout_geometry.spacing {
+        let variable = format_ident!("spacing_{}", layout_tree.len());
+        let spacing_code = compile_expression(spacing, component);
+        (quote!(#variable), Some(quote!(let #variable = #spacing_code;)))
+    } else {
+        (quote!(0.), None)
+    };
+    let padding = {
+        let padding_prop = |expr| {
+            if let Some(expr) = expr {
+                compile_expression(expr, component)
+            } else {
+                quote!(0.)
+            }
+        };
+        let left = padding_prop(layout_geometry.padding.left.as_ref());
+        let right = padding_prop(layout_geometry.padding.right.as_ref());
+        let top = padding_prop(layout_geometry.padding.top.as_ref());
+        let bottom = padding_prop(layout_geometry.padding.bottom.as_ref());
+        quote!(&sixtyfps::re_exports::Padding {
+            left: #left,
+            right: #right,
+            top: #top,
+            bottom: #bottom,
+        })
+    };
+
+    (padding, spacing, spacing_creation_code)
+}
+
 fn collect_layouts_recursively<'a, 'b>(
     layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
     layout: &'a Layout,
@@ -1383,33 +1418,11 @@ fn collect_layouts_recursively<'a, 'b>(
                 .collect();
 
             let cell_ref_variable = format_ident!("cells_{}", layout_tree.len());
-            let cell_creation_code = quote!(let #cell_ref_variable = [#( #cells ),*];);
-            let (spacing, spacing_creation_code) = if let Some(spacing) = &grid_layout.spacing {
-                let variable = format_ident!("spacing_{}", layout_tree.len());
-                let spacing_code = compile_expression(spacing, component);
-                (quote!(#variable), Some(quote!(let #variable = #spacing_code;)))
-            } else {
-                (quote!(0.), None)
-            };
-            let padding = {
-                let padding_prop = |expr| {
-                    if let Some(expr) = expr {
-                        compile_expression(expr, component)
-                    } else {
-                        quote!(0.)
-                    }
-                };
-                let left = padding_prop(grid_layout.padding.left.as_ref());
-                let right = padding_prop(grid_layout.padding.right.as_ref());
-                let top = padding_prop(grid_layout.padding.top.as_ref());
-                let bottom = padding_prop(grid_layout.padding.bottom.as_ref());
-                quote!(&sixtyfps::re_exports::Padding {
-                    left: #left,
-                    right: #right,
-                    top: #top,
-                    bottom: #bottom,
-                })
-            };
+            let cell_creation_code = quote!(let #cell_ref_variable 
+                = [#( #cells ),*];);
+            let (padding, spacing, spacing_creation_code) =
+                generate_layout_padding_and_spacing(&layout_tree, &grid_layout.geometry, component);
+
             layout_tree.push(
                 LayoutTreeItem::GridLayout {
                     grid: grid_layout,
@@ -1430,10 +1443,10 @@ impl<'a> LayoutTreeItem<'a> {
     fn emit_solve_calls(&self, component: &Rc<Component>, code_stream: &mut Vec<TokenStream>) {
         match self {
             LayoutTreeItem::GridLayout { grid, cell_ref_variable, spacing, padding, .. } => {
-                let x_pos = compile_expression(&*grid.rect.x_reference, component);
-                let y_pos = compile_expression(&*grid.rect.y_reference, component);
-                let width = compile_expression(&*grid.rect.width_reference, component);
-                let height = compile_expression(&*grid.rect.height_reference, component);
+                let x_pos = compile_expression(&*grid.geometry.rect.x_reference, component);
+                let y_pos = compile_expression(&*grid.geometry.rect.y_reference, component);
+                let width = compile_expression(&*grid.geometry.rect.width_reference, component);
+                let height = compile_expression(&*grid.geometry.rect.height_reference, component);
 
                 code_stream.push(quote! {
                     solve_grid_layout(&GridLayoutData {

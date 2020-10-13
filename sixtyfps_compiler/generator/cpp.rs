@@ -186,7 +186,7 @@ use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic, Level, Spanned};
 use crate::expression_tree::{
     BuiltinFunction, EasingCurve, Expression, ExpressionSpanned, NamedReference,
 };
-use crate::layout::{gen::LayoutItemCodeGen, Layout, LayoutElement};
+use crate::layout::{gen::LayoutItemCodeGen, Layout, LayoutElement, LayoutGeometry};
 use crate::object_tree::{Component, Document, Element, ElementRc, RepeatedElementInfo};
 use crate::typeregister::Type;
 use cpp_ast::*;
@@ -1482,6 +1482,44 @@ impl LayoutItemCodeGen<CppLanguageLayoutGen> for LayoutElement {
     }
 }
 
+fn generate_layout_padding_and_spacing<'a, 'b>(
+    creation_code: &mut Vec<String>,
+    layout_geometry: &LayoutGeometry,
+    layout_tree: &'b Vec<LayoutTreeItem<'a>>,
+    component: &Rc<Component>,
+) -> (String, String) {
+    let spacing = if let Some(spacing) = &layout_geometry.spacing {
+        let variable = format!("spacing_{}", layout_tree.len());
+        creation_code.push(format!(
+            "auto {} = {};",
+            variable,
+            compile_expression(spacing, component)
+        ));
+        variable
+    } else {
+        "0.".into()
+    };
+
+    let padding = format!("padding_{}", layout_tree.len());
+    let padding_prop = |expr| {
+        if let Some(expr) = expr {
+            compile_expression(expr, component)
+        } else {
+            "0.".into()
+        }
+    };
+    creation_code.push(format!(
+        "sixtyfps::Padding {} = {{ {}, {}, {}, {} }};",
+        padding,
+        padding_prop(layout_geometry.padding.left.as_ref()),
+        padding_prop(layout_geometry.padding.right.as_ref()),
+        padding_prop(layout_geometry.padding.top.as_ref()),
+        padding_prop(layout_geometry.padding.bottom.as_ref()),
+    ));
+
+    (padding, spacing)
+}
+
 fn collect_layouts_recursively<'a, 'b>(
     layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
     layout: &'a Layout,
@@ -1531,34 +1569,13 @@ fn collect_layouts_recursively<'a, 'b>(
                 "    const sixtyfps::Slice<sixtyfps::GridLayoutCellData> {cv}{{{cv}_data, std::size({cv}_data)}};",
                 cv = cell_ref_variable
             ));
-            let spacing = if let Some(spacing) = &grid_layout.spacing {
-                let variable = format!("spacing_{}", layout_tree.len());
-                creation_code.push(format!(
-                    "auto {} = {};",
-                    variable,
-                    compile_expression(spacing, component)
-                ));
-                variable
-            } else {
-                "0.".into()
-            };
 
-            let padding = format!("padding_{}", layout_tree.len());
-            let padding_prop = |expr| {
-                if let Some(expr) = expr {
-                    compile_expression(expr, component)
-                } else {
-                    "0.".into()
-                }
-            };
-            creation_code.push(format!(
-                "sixtyfps::Padding {} = {{ {}, {}, {}, {} }};",
-                padding,
-                padding_prop(grid_layout.padding.left.as_ref()),
-                padding_prop(grid_layout.padding.right.as_ref()),
-                padding_prop(grid_layout.padding.top.as_ref()),
-                padding_prop(grid_layout.padding.bottom.as_ref()),
-            ));
+            let (padding, spacing) = generate_layout_padding_and_spacing(
+                &mut creation_code,
+                &grid_layout.geometry,
+                &layout_tree,
+                component,
+            );
 
             layout_tree.push(LayoutTreeItem::GridLayout {
                 grid: grid_layout,
@@ -1581,10 +1598,10 @@ impl<'a> LayoutTreeItem<'a> {
                 code_stream.push("    sixtyfps::GridLayoutData grid { ".into());
                 code_stream.push(format!(
                     "        {}, {}, {}, {}, {}, &{},",
-                    compile_expression(&grid.rect.width_reference, component),
-                    compile_expression(&grid.rect.height_reference, component),
-                    compile_expression(&grid.rect.x_reference, component),
-                    compile_expression(&grid.rect.y_reference, component),
+                    compile_expression(&grid.geometry.rect.width_reference, component),
+                    compile_expression(&grid.geometry.rect.height_reference, component),
+                    compile_expression(&grid.geometry.rect.x_reference, component),
+                    compile_expression(&grid.geometry.rect.y_reference, component),
                     spacing,
                     padding,
                 ));

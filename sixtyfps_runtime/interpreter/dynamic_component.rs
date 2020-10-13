@@ -1081,12 +1081,12 @@ fn collect_layouts_recursively<'a, 'b>(
                     }
                 })
                 .collect();
-            let spacing = grid_layout.spacing.as_ref().map_or(0., expr_eval);
+            let spacing = grid_layout.geometry.spacing.as_ref().map_or(0., expr_eval);
             let padding = Padding {
-                left: grid_layout.padding.left.as_ref().map_or(0., expr_eval),
-                right: grid_layout.padding.right.as_ref().map_or(0., expr_eval),
-                top: grid_layout.padding.top.as_ref().map_or(0., expr_eval),
-                bottom: grid_layout.padding.bottom.as_ref().map_or(0., expr_eval),
+                left: grid_layout.geometry.padding.left.as_ref().map_or(0., expr_eval),
+                right: grid_layout.geometry.padding.right.as_ref().map_or(0., expr_eval),
+                top: grid_layout.geometry.padding.top.as_ref().map_or(0., expr_eval),
+                bottom: grid_layout.geometry.padding.bottom.as_ref().map_or(0., expr_eval),
             };
             layout_tree
                 .push(GridLayoutWithCells { grid: grid_layout, cells, spacing, padding }.into());
@@ -1107,10 +1107,10 @@ impl<'a> LayoutTreeItem<'a> {
         match self {
             Self::GridLayout(grid_layout) => {
                 solve_grid_layout(&GridLayoutData {
-                    width: resolve_prop_ref(&grid_layout.grid.rect.width_reference),
-                    height: resolve_prop_ref(&grid_layout.grid.rect.height_reference),
-                    x: resolve_prop_ref(&grid_layout.grid.rect.x_reference),
-                    y: resolve_prop_ref(&grid_layout.grid.rect.y_reference),
+                    width: resolve_prop_ref(&grid_layout.grid.geometry.rect.width_reference),
+                    height: resolve_prop_ref(&grid_layout.grid.geometry.rect.height_reference),
+                    x: resolve_prop_ref(&grid_layout.grid.geometry.rect.x_reference),
+                    y: resolve_prop_ref(&grid_layout.grid.geometry.rect.y_reference),
                     spacing: grid_layout.spacing,
                     padding: &grid_layout.padding,
                     cells: Slice::from(grid_layout.cells.as_slice()),
