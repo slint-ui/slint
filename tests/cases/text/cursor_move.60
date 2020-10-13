@@ -37,5 +37,17 @@ assert!(!instance.get_has_selection());
 sixtyfps::testing::send_key_clicks(instance, &[sixtyfps::re_exports::KeyCode::Back]);
 
 assert_eq!(instance.get_test_text(), "Te");
+
+sixtyfps::testing::send_key_clicks(instance, &[sixtyfps::re_exports::KeyCode::Right]);
+sixtyfps::testing::send_key_clicks(instance, &[sixtyfps::re_exports::KeyCode::Right]);
+sixtyfps::testing::send_key_clicks(instance, &[sixtyfps::re_exports::KeyCode::Right]);
+sixtyfps::testing::send_key_clicks(instance, &[sixtyfps::re_exports::KeyCode::Right]);
+assert_eq!(instance.get_test_cursor_pos(), 2);
+
+sixtyfps::testing::send_key_clicks(instance, &[sixtyfps::re_exports::KeyCode::Left]);
+sixtyfps::testing::send_key_clicks(instance, &[sixtyfps::re_exports::KeyCode::Left]);
+sixtyfps::testing::send_key_clicks(instance, &[sixtyfps::re_exports::KeyCode::Left]);
+sixtyfps::testing::send_key_clicks(instance, &[sixtyfps::re_exports::KeyCode::Left]);
+assert_eq!(instance.get_test_cursor_pos(), 0);
 ```
 */
