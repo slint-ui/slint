@@ -116,7 +116,7 @@ pub fn compile_with_config(
 
     let mut compiler_config = config;
 
-    if let (Some(target), Some(host)) = (env::var("TARGET").ok(), env::var("HOST").ok()) {
+    if let (Ok(target), Ok(host)) = (env::var("TARGET"), env::var("HOST")) {
         if target != host {
             compiler_config.embed_resources = true;
         }
