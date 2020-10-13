@@ -1098,6 +1098,7 @@ impl Item for NativeScrollBar {
             QStyleOptionSlider option;
             option.rect = rect;
             initQSliderOptions(option, pressed, active_controls, 0, max / dpr, value / dpr);
+            option.subControls = QStyle::SC_All;
             option.pageStep = page_size / dpr;
 
             if (!horizontal) {
@@ -1106,7 +1107,7 @@ impl Item for NativeScrollBar {
             }
 
             auto style = qApp->style();
-            style->drawComplexControl(QStyle::CC_Slider, &option, &p, global_widget());
+            style->drawComplexControl(QStyle::CC_ScrollBar, &option, &p, global_widget());
             return img;
         });
         return HighLevelRenderingPrimitive::Image { source: to_resource(img) };
