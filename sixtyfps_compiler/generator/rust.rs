@@ -1351,8 +1351,9 @@ fn collect_layouts_recursively<'a, 'b>(
                     let (col, row, colspan, rowspan) =
                         (cell.col, cell.row, cell.colspan, cell.rowspan);
                     let mut layout_info = cell.item.get_layout_info_ref(layout_tree, component);
-                    if cell.has_explicit_restrictions() {
+                    if cell.constraints.has_explicit_restrictions() {
                         let (name, expr): (Vec<_>, Vec<_>) = cell
+                            .constraints
                             .for_each_restrictions()
                             .iter()
                             .filter_map(|(e, s)| {

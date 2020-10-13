@@ -15,7 +15,9 @@ use dynamic_type::{Instance, InstanceBox};
 use expression_tree::NamedReference;
 use object_tree::{Element, ElementRc};
 use sixtyfps_compilerlib::expression_tree::Expression;
-use sixtyfps_compilerlib::layout::{GridLayout, Layout, LayoutElement, LayoutItem, PathLayout};
+use sixtyfps_compilerlib::layout::{
+    GridLayout, Layout, LayoutConstraints, LayoutElement, LayoutItem, PathLayout,
+};
 use sixtyfps_compilerlib::typeregister::Type;
 use sixtyfps_compilerlib::*;
 use sixtyfps_corelib::component::{Component, ComponentRefPin, ComponentVTable};
@@ -1036,6 +1038,17 @@ impl LayoutItemCodeGen for LayoutElement {
     }
 }
 
+fn fill_layout_info_constraints(
+    layout_info: &mut LayoutInfo,
+    constraints: &LayoutConstraints,
+    expr_eval: &impl Fn(&Expression) -> f32,
+) {
+    constraints.minimum_width.as_ref().map(|e| layout_info.min_width = expr_eval(e));
+    constraints.maximum_width.as_ref().map(|e| layout_info.max_width = expr_eval(e));
+    constraints.minimum_height.as_ref().map(|e| layout_info.min_height = expr_eval(e));
+    constraints.maximum_height.as_ref().map(|e| layout_info.max_height = expr_eval(e));
+}
+
 fn collect_layouts_recursively<'a, 'b>(
     layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
     layout: &'a Layout,
@@ -1044,7 +1057,7 @@ fn collect_layouts_recursively<'a, 'b>(
 ) -> &'b LayoutTreeItem<'a> {
     match layout {
         Layout::GridLayout(grid_layout) => {
-            let expr_eval = |expr| {
+            let expr_eval = |expr: &Expression| -> f32 {
                 eval::eval_expression(expr, component, &mut Default::default()).try_into().unwrap()
             };
             let cells = grid_layout
@@ -1053,10 +1066,7 @@ fn collect_layouts_recursively<'a, 'b>(
                 .map(|cell| {
                     let get_prop = |name| cell.item.get_property_ref(component, name);
                     let mut layout_info = cell.item.get_layout_info(component, layout_tree, window);
-                    cell.minimum_width.as_ref().map(|e| layout_info.min_width = expr_eval(e));
-                    cell.maximum_width.as_ref().map(|e| layout_info.max_width = expr_eval(e));
-                    cell.minimum_height.as_ref().map(|e| layout_info.min_height = expr_eval(e));
-                    cell.maximum_height.as_ref().map(|e| layout_info.max_height = expr_eval(e));
+                    fill_layout_info_constraints(&mut layout_info, &cell.constraints, &expr_eval);
 
                     GridLayoutCellData {
                         x: get_prop("x"),

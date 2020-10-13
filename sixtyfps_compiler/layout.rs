@@ -117,21 +117,25 @@ impl ExpressionFieldsVisitor for LayoutRect {
     }
 }
 
-/// An element in a GridLayout
 #[derive(Debug)]
-pub struct GridLayoutElement {
-    pub col: u16,
-    pub row: u16,
-    pub colspan: u16,
-    pub rowspan: u16,
-    pub item: LayoutItem,
+pub struct LayoutConstraints {
     pub minimum_width: Option<Box<Expression>>,
     pub maximum_width: Option<Box<Expression>>,
     pub minimum_height: Option<Box<Expression>>,
     pub maximum_height: Option<Box<Expression>>,
 }
 
-impl GridLayoutElement {
+impl LayoutConstraints {
+    pub fn new(element: &ElementRc) -> Self {
+        use crate::passes::lower_layout::find_expression;
+        Self {
+            minimum_width: find_expression("minimum_width", &element),
+            maximum_width: find_expression("maximum_width", &element),
+            minimum_height: find_expression("minimum_height", &element),
+            maximum_height: find_expression("maximum_height", &element),
+        }
+    }
+
     pub fn has_explicit_restrictions(&self) -> bool {
         self.minimum_width.is_some()
             || self.maximum_width.is_some()
@@ -153,6 +157,26 @@ impl GridLayoutElement {
             (&self.maximum_height, "max_height"),
         ]
     }
+}
+
+impl ExpressionFieldsVisitor for LayoutConstraints {
+    fn visit_expressions(&mut self, visitor: &mut impl FnMut(&mut Expression)) {
+        self.maximum_width.as_mut().map(|e| visitor(&mut *e));
+        self.minimum_width.as_mut().map(|e| visitor(&mut *e));
+        self.maximum_height.as_mut().map(|e| visitor(&mut *e));
+        self.minimum_height.as_mut().map(|e| visitor(&mut *e));
+    }
+}
+
+/// An element in a GridLayout
+#[derive(Debug)]
+pub struct GridLayoutElement {
+    pub col: u16,
+    pub row: u16,
+    pub colspan: u16,
+    pub rowspan: u16,
+    pub item: LayoutItem,
+    pub constraints: LayoutConstraints,
 }
 
 #[derive(Debug)]
@@ -195,10 +219,7 @@ impl ExpressionFieldsVisitor for GridLayout {
                 }
                 LayoutItem::Layout(layout) => layout.visit_expressions(visitor),
             }
-            cell.maximum_width.as_mut().map(|e| visitor(&mut *e));
-            cell.minimum_width.as_mut().map(|e| visitor(&mut *e));
-            cell.maximum_height.as_mut().map(|e| visitor(&mut *e));
-            cell.minimum_height.as_mut().map(|e| visitor(&mut *e));
+            cell.constraints.visit_expressions(visitor);
         }
         self.spacing.as_mut().map(|e| visitor(&mut *e));
         self.padding.visit_expressions(visitor);

@@ -1493,9 +1493,9 @@ fn collect_layouts_recursively<'a, 'b>(
 
             for cell in &grid_layout.elems {
                 let mut layout_info = cell.item.get_layout_info_ref(layout_tree, component);
-                if cell.has_explicit_restrictions() {
+                if cell.constraints.has_explicit_restrictions() {
                     layout_info = format!("[&]{{ auto layout_info = {};", layout_info);
-                    for (expr, name) in cell.for_each_restrictions().iter() {
+                    for (expr, name) in cell.constraints.for_each_restrictions().iter() {
                         if let Some(e) = expr {
                             layout_info += &format!(
                                 " layout_info.{} = {};",

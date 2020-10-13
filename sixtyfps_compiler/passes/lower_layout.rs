@@ -301,15 +301,12 @@ impl GridLayout {
             colspan,
             rowspan,
             item: layout_item,
-            minimum_width: find_expression("minimum_width", &item_element),
-            maximum_width: find_expression("maximum_width", &item_element),
-            minimum_height: find_expression("minimum_height", &item_element),
-            maximum_height: find_expression("maximum_height", &item_element),
+            constraints: LayoutConstraints::new(&item_element),
         });
     }
 }
 
-fn find_expression(name: &str, item_element: &ElementRc) -> Option<Box<Expression>> {
+pub fn find_expression(name: &str, item_element: &ElementRc) -> Option<Box<Expression>> {
     item_element.borrow().bindings.get(name).map(|_| property_reference(item_element, name))
 }
 
