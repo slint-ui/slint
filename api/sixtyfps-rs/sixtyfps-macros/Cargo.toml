@@ -1,5 +1,5 @@
 [package]
-name = "sixtyfps-rs-macro"
+name = "sixtyfps-macros"
 version = "0.0.1"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2018"

@@ -9,7 +9,7 @@ members = [
     'sixtyfps_compiler',
     'sixtyfps_compiler/parser_test_macro',
     'api/sixtyfps-rs',
-    'api/sixtyfps-rs/sixtyfps-rs-macro',
+    'api/sixtyfps-rs/sixtyfps-macros',
     'api/sixtyfps-rs/sixtyfps-build',
     'api/sixtyfps-node/native',
     'api/sixtyfps-wasm-interpreter',

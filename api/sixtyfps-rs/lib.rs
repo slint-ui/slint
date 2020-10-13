@@ -108,7 +108,7 @@ The follow table summarizes the entire mapping:
 #![warn(missing_docs)]
 #![deny(unsafe_code)]
 
-pub use sixtyfps_rs_macro::sixtyfps;
+pub use sixtyfps_macros::sixtyfps;
 
 pub use sixtyfps_corelib::model::{
     Model, ModelHandle, ModelNotify, ModelPeer, StandardListViewItem, VecModel,
