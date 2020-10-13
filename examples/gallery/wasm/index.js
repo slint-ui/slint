@@ -7,5 +7,4 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-let main = import('./pkg/index.js');
-main();
+import('./pkg/index.js');
