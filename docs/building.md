@@ -87,6 +87,28 @@ SixtyFPS also includes a viewer tool that can load `.60`files dynamically at run
 cargo-integrated binary and can be run directly on the `.60`files, for example:
 
 ```sh
-cargo run --bin viewer -- examples/printerdemo/ui/printerdemo.60
+cargo run --release --bin viewer -- examples/printerdemo/ui/printerdemo.60
 ```
 
+## Generating the documentation
+
+### rustdoc
+
+With nightly rust, the documentation of the sixtyfps-rs embed the language reference using the
+[`external_doc`](https://github.com/rust-lang/rust/issues/44732) feature.
+That language reference has snippets in the .60 language which can be previewed by injecting
+html to the documentation with the `--html-in-header` rustdoc flag.
+
+Here is how to build the documentation to include preview of the .60 files.
+
+```sh
+RUSTDOCFLAGS="--html-in-header=api/sixtyfps-rs/sixtyfps-docs-integration.html" cargo +nightly doc --no-deps
+```
+
+### C++ doc
+
+To generate the C++ API documentation, one need to have doxygen installed, and run this command
+
+```
+cargo xtask cppdocs
+```
