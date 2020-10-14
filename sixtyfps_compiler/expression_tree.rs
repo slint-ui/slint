@@ -133,7 +133,7 @@ declare_units! {
     /// No unit was given
     None = "" -> Float32,
     ///
-    Percent = "%" -> Float32 * 0.01,
+    Percent = "%" -> Percent,
 
     // Lengths or Coord
 
@@ -622,6 +622,11 @@ impl Expression {
                     }),
                     op: '*',
                 },
+                (Type::Percent, Type::Float32) => Expression::BinaryExpression {
+                    lhs: Box::new(self),
+                    rhs: Box::new(Expression::NumberLiteral(0.01, Unit::None)),
+                    op: '*',
+                },
                 (Type::Object(ref a), Type::Object(b)) => {
                     if let Expression::Object { mut values, .. } = self {
                         let mut new_values = HashMap::new();
@@ -722,6 +727,7 @@ impl Expression {
             Type::Duration => Expression::NumberLiteral(0., Unit::Ms),
             Type::Length => Expression::NumberLiteral(0., Unit::Phx),
             Type::LogicalLength => Expression::NumberLiteral(0., Unit::Px),
+            Type::Percent => Expression::NumberLiteral(100., Unit::Percent),
             // FIXME: Is that correct?
             Type::Resource => Expression::ResourceReference { absolute_source_path: String::new() },
             Type::Bool => Expression::BoolLiteral(false),

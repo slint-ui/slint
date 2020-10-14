@@ -205,6 +205,7 @@ impl CppType for Type {
             Type::Duration => Some("std::int64_t".to_owned()),
             Type::Length => Some("float".to_owned()),
             Type::LogicalLength => Some("float".to_owned()),
+            Type::Percent => Some("float".to_owned()),
             Type::Bool => Some("bool".to_owned()),
             Type::Object(o) => {
                 let elem = o.values().map(|v| v.cpp_type()).collect::<Option<Vec<_>>>()?;

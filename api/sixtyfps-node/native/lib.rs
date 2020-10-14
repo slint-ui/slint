@@ -146,7 +146,7 @@ fn to_eval_value<'cx>(
 ) -> NeonResult<sixtyfps_interpreter::Value> {
     use sixtyfps_interpreter::Value;
     match ty {
-        Type::Float32 | Type::Int32 | Type::Duration | Type::Length | Type::LogicalLength => {
+        Type::Float32 | Type::Int32 | Type::Duration | Type::Length | Type::LogicalLength | Type::Percent => {
             Ok(Value::Number(val.downcast_or_throw::<JsNumber, _>(cx)?.value()))
         }
         Type::String => Ok(Value::String(val.to_string(cx)?.value().into())),

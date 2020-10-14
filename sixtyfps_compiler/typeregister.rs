@@ -39,6 +39,7 @@ pub enum Type {
     Duration,
     Length,
     LogicalLength,
+    Percent,
     Resource,
     Bool,
     Model,
@@ -73,6 +74,7 @@ impl core::cmp::PartialEq for Type {
             Type::Duration => matches!(other, Type::Duration),
             Type::Length => matches!(other, Type::Length),
             Type::LogicalLength => matches!(other, Type::LogicalLength),
+            Type::Percent => matches!(other, Type::Percent),
             Type::Resource => matches!(other, Type::Resource),
             Type::Bool => matches!(other, Type::Bool),
             Type::Model => matches!(other, Type::Model),
@@ -127,6 +129,7 @@ impl Display for Type {
             Type::Duration => write!(f, "duration"),
             Type::Length => write!(f, "length"),
             Type::LogicalLength => write!(f, "logical_length"),
+            Type::Percent => write!(f, "percent"),
             Type::Color => write!(f, "color"),
             Type::Resource => write!(f, "resource"),
             Type::Bool => write!(f, "bool"),
@@ -165,6 +168,7 @@ impl Type {
             | Self::Duration
             | Self::Length
             | Self::LogicalLength
+            | Self::Percent
             | Self::Resource
             | Self::Bool
             | Self::Model
@@ -312,7 +316,8 @@ impl Type {
             | (Type::Float32, Type::Model)
             | (Type::Int32, Type::Model)
             | (Type::Length, Type::LogicalLength)
-            | (Type::LogicalLength, Type::Length) => true,
+            | (Type::LogicalLength, Type::Length)
+            | (Type::Percent, Type::Float32) => true,
             (Type::Object(a), Type::Object(b)) if can_convert_object(a, b) => true,
             (Type::Object(a), Type::Component(c)) if can_convert_object_to_component(a, c) => true,
             _ => false,
@@ -346,6 +351,7 @@ impl Type {
             Type::Duration => Some(Unit::Ms),
             Type::Length => Some(Unit::Phx),
             Type::LogicalLength => Some(Unit::Px),
+            Type::Percent => Some(Unit::Percent),
             Type::Invalid => None,
             Type::Void => None,
             Type::Component(_) => None,
