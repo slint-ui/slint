@@ -31,7 +31,7 @@ pub fn instantiate_from_string(
     let c = match sixtyfps_interpreter::load(
         source.to_owned(),
         &std::path::Path::new(base_url),
-        &Default::default(),
+        Default::default(),
     ) {
         (Ok(c), ..) => {
             //TODO: warnings.print();
