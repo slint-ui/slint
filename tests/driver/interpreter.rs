@@ -21,7 +21,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     };
 
     let (component, _warnings) =
-        match sixtyfps_interpreter::load(source, &testcase.absolute_path, &config) {
+        match sixtyfps_interpreter::load(source, &testcase.absolute_path, config) {
             (Ok(c), diagnostics) => (c, diagnostics),
             (Err(()), errors) => {
                 let vec = errors.to_string_vec();
