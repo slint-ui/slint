@@ -81,10 +81,17 @@ export ListView := ScrollView {
 
 export StandardListView := ListView {
     property<[StandardListViewItem]> model;
+    property<int> current_item: -1;
     for item[i] in model : NativeStandardListViewItem {
         item: item;
         index: i;
         height: 20lx;
         width: parent.visible_width;
+        is_selected: current_item == i;
+        TouchArea {
+            width: parent.width;
+            height: parent.height;
+            clicked => { current_item = i; }
+        }
     }
 }

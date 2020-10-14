@@ -242,6 +242,7 @@ The `StandardListViewItem` is equivalent to `{ text: string }` but will be impro
 Same as ListView, and in addition:
 
 * **`model`** (*`[StandardListViewItem]`*): The model
+* **`current_item`** (*int*): The index of the currently active item. -1 mean none is selected, which is the default
 
 ### Example
 

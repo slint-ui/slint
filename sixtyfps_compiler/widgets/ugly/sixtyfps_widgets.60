@@ -345,10 +345,19 @@ export ListView := ScrollView {
 
 export StandardListView := ListView {
     property<[StandardListViewItem]> model;
-    for item in model : Text {
-        text: item.text;
+    property<int> current_item: -1;
+    for item[idx] in model : Rectangle {
+        Text {
+            text: item.text;
+        }
         height: 20lx;
         width: parent.visible_width;
+        color: current_item == idx ? #556884 : white;
+        TouchArea {
+            width: parent.width;
+            height: parent.height;
+            clicked => { current_item = idx; }
+        }
     }
 }
 

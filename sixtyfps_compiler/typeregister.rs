@@ -946,6 +946,7 @@ impl TypeRegister {
                 ("height", Type::Length),
                 ("index", Type::Int32),
                 ("item", standard_listview_item),
+                ("is_selected", Type::Bool),
             ],
             &[],
         );

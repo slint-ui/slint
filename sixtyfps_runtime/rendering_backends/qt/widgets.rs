@@ -1280,6 +1280,7 @@ pub struct NativeStandardListViewItem {
     pub height: Property<f32>,
     pub item: Property<sixtyfps_corelib::model::StandardListViewItem>,
     pub index: Property<i32>,
+    pub is_selected: Property<bool>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
@@ -1301,6 +1302,7 @@ impl Item for NativeStandardListViewItem {
         let size: qttypes::QSize = get_size!(self);
         let dpr = window.scale_factor();
         let index: i32 = Self::FIELD_OFFSETS.index.apply_pin(self).get();
+        let is_selected: bool = Self::FIELD_OFFSETS.is_selected.apply_pin(self).get();
         let item = Self::FIELD_OFFSETS.item.apply_pin(self).get();
         let text: qttypes::QString = item.text.as_str().into();
 
@@ -1308,6 +1310,7 @@ impl Item for NativeStandardListViewItem {
             size as "QSize",
             dpr as "float",
             index as "int",
+            is_selected as "bool",
             text as "QString"
         ] -> qttypes::QImage as "QImage" {
             auto [img, rect] = offline_style_rendering_image(size, dpr);
@@ -1315,6 +1318,9 @@ impl Item for NativeStandardListViewItem {
             QStyleOptionViewItem option;
             option.rect = rect;
             option.state = QStyle::State_Enabled | QStyle::State_Active;
+            if (is_selected) {
+                option.state |= QStyle::State_Selected;
+            }
             option.decorationPosition = QStyleOptionViewItem::Left;
             option.decorationAlignment = Qt::AlignCenter;
             option.displayAlignment = Qt::AlignLeft|Qt::AlignVCenter;
