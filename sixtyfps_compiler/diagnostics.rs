@@ -331,19 +331,8 @@ impl quote::ToTokens for FileDiagnostics {
                                 Some(quote!(compile_error! { #message }))
                             }
                         }
-                        Level::Warning => {
-                            let warning_symbol = quote::format_ident!("WARNING_{}", message.replace("-", "_"));
-                            let warning = quote!(
-                                #[warn(dead_code)]
-                                #[allow(non_upper_case_globals)]
-                                const #warning_symbol : () = ();
-                            );
-                            if let Some(span) = span.span {
-                                Some(quote::quote_spanned!(span.into() => #warning))
-                            } else {
-                                Some(warning)
-                            }
-                        }
+                        // FIXME: find a way to report warnings.
+                        Level::Warning => None
                     }
                 },
                 _ => None,
