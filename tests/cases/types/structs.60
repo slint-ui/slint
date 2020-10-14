@@ -20,7 +20,8 @@ TestCase := Rectangle {
     property<[Player]> players: [player_1, player_2];
     property<[Player]> player_list: [
         {name : "Simon", score: 1 },
-        {name : "Olivier", score: 10 }
+        {name : "Olivier", score: 10 },
+        {name : "NoScore", }
     ];
 
     property<int> player_2_score: player_2.score;

@@ -32,4 +32,7 @@ X := Rectangle {
         color: "blue";
 //            ^error{Cannot convert string to color$}
     }
+
+    property <{a: string, b: int}> object1: { a: "123", typo: 42};
+//                                         ^error{Cannot convert \{ a: string,typo: float,\} to \{ a: string,b: int,\}}
 }

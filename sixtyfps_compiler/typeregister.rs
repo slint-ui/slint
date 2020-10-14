@@ -270,8 +270,18 @@ impl Type {
     /// Return true if the type can be converted to the other type
     pub fn can_convert(&self, other: &Self) -> bool {
         let can_convert_object = |a: &BTreeMap<String, Type>, b: &BTreeMap<String, Type>| {
+            // the object `b` has property that the object `a` doesn't
+            let mut has_more_property = false;
             for (k, v) in b {
-                if !a.get(k).map_or(false, |t| t.can_convert(v)) {
+                match a.get(k) {
+                    Some(t) if !t.can_convert(v) => return false,
+                    None => has_more_property = true,
+                    _ => (),
+                }
+            }
+            if has_more_property {
+                // we should reject the conversion if `a` has property that `b` doesn't have
+                if a.keys().any(|k| !b.contains_key(k)) {
                     return false;
                 }
             }

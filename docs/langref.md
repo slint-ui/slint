@@ -181,8 +181,8 @@ All properties in elements have a type. The following types are supported:
 | `color` | RGB color with an alpha channel, with 8 bit precision for each channel. |
 | `length` | The type used for `x`, `y`, `width` and `height` coordinates. This is an amount of physical pixels. To convert from an integer to a length unit, one can simply multiply by `1px`.  Or to convert from a length to a float, one can divide by `1px`. |
 | `logical_length` | Corresponds to a literal like `1lx`, `1pt`, `1in`, `1mm`, or `1cm`. It can be converted to and from length provided the binding is run in a context where there is an access to the device pixel ratio. |
- | `duration` | Type for the duration of animations. A suffix like `ms` (milisecond) or `s` (second) is used to indicate the precision. |
- | `easing` | Property animation allow specifying an easing curve. Valid values are `linear` (values are interpolated linearly) and the [four common cubiz-bezier functions known from CSS](https://developer.mozilla.org/en-US/docs/Web/CSS/easing-function#Keywords_for_common_cubic-bezier_easing_functions):  `ease`, `ease_in`, `ease_in_out`, `ease_out`. |
+| `duration` | Type for the duration of animations. A suffix like `ms` (milisecond) or `s` (second) is used to indicate the precision. |
+| `easing` | Property animation allow specifying an easing curve. Valid values are `linear` (values are interpolated linearly) and the [four common cubiz-bezier functions known from CSS](https://developer.mozilla.org/en-US/docs/Web/CSS/easing-function#Keywords_for_common_cubic-bezier_easing_functions):  `ease`, `ease_in`, `ease_in_out`, `ease_out`. |
 
 Please see the language specific API references how these types are mapped to the APIs of the different programming languages.
 
@@ -198,6 +198,57 @@ export Player := {
 
 Example := Window {
     property<Player> player: { name: "Foo", score: 100 };
+}
+```
+
+### Objects
+
+It is basically an anonymous structures, it can be declared with curly braces: `{ identifier1: type2, identifier1: type2, }`
+The trailing semicolon is optional.
+
+
+```60
+Example := Window {
+    property<{name: string, score: int}> player: { name: "Foo", score: 100 };
+    property<{a: int, }> foo: { a: 3 };
+}
+```
+
+### Arrays / Model
+
+The type array is using square brackets for example  `[int]` is an array of `int`. In the runtime, they are
+basically used as models for the `for` expression.
+
+```60
+Example := Window {
+    property<[int]> list_of_int: [1,2,3];
+    property<[{a: int, b: string]}> list_of_object: [{ a: 1, b: "hello" }, {a: 2, b: "world"}];
+}
+```
+
+### Conversions
+
+ * `int` can be converted implicitly to `float` and vice-versa
+ * `int` and `float` can be converted implicitly to `string`
+ * `logical_lenght` and `lenght` can be converted implictly to eachother only in
+   context where the pixel ratio is known.
+ * the units type (`lenght`, `logical_lenght`, `duration`, ...) cannot be converted to numbers (`float` or `int`)
+   but they can be devided with themself to result in a number. Similarily, a number can be multiplied by one of
+   these unit. The idea is that one would multiply by `1px` or divide by `1px` to do such conversions
+ * Object types convert with another object type if they have the same property names and their types can be converted.
+    The source object can have either missing properties, or extra properties. But not both.
+ * Array generaly do not convert between eachother. But array literal can be converted if the type does convert.
+
+```60
+Example := Window {
+    // ok: int converts to string
+    property<{a: string, b: int}> prop1: {a: 12, b: 12 };
+    // ok even if a is missing, it will just have the default value
+    property<{a: string, b: int}> prop2: { b: 12 };
+    // ok even if c is too many, it will be discarded
+    property<{a: string, b: int}> prop2: { a: "x", b: 12, c: 42 };
+    // ERROR: b is missing and c is extra, this does not compile, because it could be a typo.
+    // property<{a: string, b: int}> prop2: { a: "x", c: 42 };
 }
 ```
 

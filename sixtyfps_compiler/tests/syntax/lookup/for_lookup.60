@@ -61,8 +61,8 @@ Hello := Rectangle {
     }
 
 
-    for pp[idx] in [{a: 1, b: "P"},{a: 2}]: Text {
-//                 ^error{Cannot convert \{ a: float,\} to \{ a: float,b: string,\}}
+    for pp[idx] in [{a: 1, b: "P"},{a: 2, c: 1}]: Text {
+//                 ^error{Cannot convert \{ a: float,c: float,\} to \{ a: float,b: string,\}}
         text: pp.b;
     }
 
