@@ -56,34 +56,35 @@ pub enum Type {
 
 impl core::cmp::PartialEq for Type {
     fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Type::Invalid, Type::Invalid) => true,
-            (Type::Void, Type::Void) => true,
-            (Type::Component(a), Type::Component(b)) => Rc::ptr_eq(a, b),
-            (Type::Builtin(a), Type::Builtin(b)) => Rc::ptr_eq(a, b),
-            (Type::Native(a), Type::Native(b)) => Rc::ptr_eq(a, b),
-            (Type::Signal { args: a }, Type::Signal { args: b }) => a == b,
-            (
-                Type::Function { return_type: lhs_rt, args: lhs_args },
-                Type::Function { return_type: rhs_rt, args: rhs_args },
-            ) => lhs_rt == rhs_rt && lhs_args == rhs_args,
-            (Type::Float32, Type::Float32) => true,
-            (Type::Int32, Type::Int32) => true,
-            (Type::String, Type::String) => true,
-            (Type::Color, Type::Color) => true,
-            (Type::Duration, Type::Duration) => true,
-            (Type::Length, Type::Length) => true,
-            (Type::LogicalLength, Type::LogicalLength) => true,
-            (Type::Resource, Type::Resource) => true,
-            (Type::Bool, Type::Bool) => true,
-            (Type::Array(a), Type::Array(b)) => a == b,
-            (Type::Object(a), Type::Object(b)) => a == b,
-            (Type::Model, Type::Model) => true,
-            (Type::PathElements, Type::PathElements) => true,
-            (Type::Easing, Type::Easing) => true,
-            (Type::Enumeration(lhs), Type::Enumeration(rhs)) => lhs == rhs,
-            (Type::ElementReference, Type::ElementReference) => true,
-            _ => false,
+        match self {
+            Type::Invalid => matches!(other, Type::Invalid),
+            Type::Void => matches!(other, Type::Void),
+            Type::Component(a) => matches!(other, Type::Component(b) if Rc::ptr_eq(a, b)),
+            Type::Builtin(a) => matches!(other, Type::Builtin(b) if Rc::ptr_eq(a, b)),
+            Type::Native(a) => matches!(other, Type::Native(b) if Rc::ptr_eq(a, b)),
+            Type::Signal { args: a } => matches!(other, Type::Signal { args: b } if a == b),
+            Type::Function { return_type: lhs_rt, args: lhs_args } => {
+                matches!(other, Type::Function { return_type: rhs_rt, args: rhs_args } if lhs_rt == rhs_rt && lhs_args == rhs_args)
+            }
+            Type::Float32 => matches!(other, Type::Float32),
+            Type::Int32 => matches!(other, Type::Int32),
+            Type::String => matches!(other, Type::String),
+            Type::Color => matches!(other, Type::Color),
+            Type::Duration => matches!(other, Type::Duration),
+            Type::Length => matches!(other, Type::Length),
+            Type::LogicalLength => matches!(other, Type::LogicalLength),
+            Type::Resource => matches!(other, Type::Resource),
+            Type::Bool => matches!(other, Type::Bool),
+            Type::Model => matches!(other, Type::Model),
+            Type::PathElements => matches!(other, Type::PathElements),
+            Type::Easing => matches!(other, Type::Easing),
+            Type::Array(a) => matches!(other, Type::Array(b) if a == b),
+            Type::Object(a) => matches!(other, Type::Object(b) if a == b),
+            Type::Enumeration(lhs) => matches!(other, Type::Enumeration(rhs) if lhs == rhs),
+            Type::EnumerationValue(lhs) => {
+                matches!(other, Type::EnumerationValue(rhs) if lhs == rhs)
+            }
+            Type::ElementReference => matches!(other, Type::ElementReference),
         }
     }
 }
