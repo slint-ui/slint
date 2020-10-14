@@ -177,9 +177,17 @@ pub type ComponentBox = dynamic_component::ComponentBox<'static>;
 pub fn load(
     source: String,
     path: &std::path::Path,
-    compiler_config: &CompilerConfiguration,
+    mut compiler_config: CompilerConfiguration,
 ) -> (Result<Rc<ComponentDescription>, ()>, sixtyfps_compilerlib::diagnostics::BuildDiagnostics) {
-    dynamic_component::load(source, path, compiler_config, unsafe {
+    if compiler_config.style.is_none() && std::env::var("SIXTYFPS_STYLE").is_err() {
+        // Defaults to native if it exists:
+        compiler_config.style = Some(if sixtyfps_rendering_backend_default::HAS_NATIVE_STYLE {
+            "native"
+        } else {
+            "ugly"
+        });
+    }
+    dynamic_component::load(source, path, &compiler_config, unsafe {
         generativity::Guard::new(generativity::Id::new())
     })
 }

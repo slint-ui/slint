@@ -63,7 +63,7 @@ fn load(mut cx: FunctionContext) -> JsResult<JsValue> {
         ..Default::default()
     };
     let source = std::fs::read_to_string(&path).or_else(|e| cx.throw_error(e.to_string()))?;
-    let (c, warnings) = match sixtyfps_interpreter::load(source, &path, &compiler_config) {
+    let (c, warnings) = match sixtyfps_interpreter::load(source, &path, compiler_config) {
         (Ok(c), warnings) => (c, warnings),
         (Err(()), errors) => {
             errors.print();

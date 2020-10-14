@@ -446,7 +446,7 @@ pub fn load<'id>(
         d.add(diag);
         return (Err(()), d);
     }
-    let (doc, diag) = compile_syntax_node(syntax_node, diag, compiler_config);
+    let (doc, diag) = compile_syntax_node(syntax_node, diag, &compiler_config);
     if diag.has_error() {
         return (Err(()), diag);
     }

@@ -32,7 +32,7 @@ fn main() -> std::io::Result<()> {
         ..Default::default()
     };
 
-    let c = match sixtyfps_interpreter::load(source, &args.path, &compiler_config) {
+    let c = match sixtyfps_interpreter::load(source, &args.path, compiler_config) {
         (Ok(c), warnings) => {
             warnings.print();
             c

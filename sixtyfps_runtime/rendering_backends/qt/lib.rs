@@ -53,3 +53,5 @@ pub mod native_widgets {
 
 #[cfg(no_qt)]
 pub type NativeWidgets = ();
+
+pub const HAS_NATIVE_STYLE: bool = cfg!(not(no_qt));
