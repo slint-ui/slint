@@ -48,11 +48,14 @@ export ScrollView := Rectangle {
     property <length> visible_width <=> fli.width;
     property <length> visible_height <=> fli.height;
 
+    // FIXME: the frame should be drawn by a native control
     border_width: 1lx;
     border_color: #d0d3cf;
     color: white;
 
     GridLayout {
+        padding_left: 1lx;
+        padding_top: 1lx;
         fli := Flickable {
             $children
             interactive: false;

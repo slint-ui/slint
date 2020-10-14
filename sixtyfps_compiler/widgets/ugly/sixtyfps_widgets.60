@@ -88,7 +88,6 @@ export CheckBox := Rectangle {
 
 }
 
-
 SpinBoxButton := Rectangle {
     signal clicked;
     property<string> text;
@@ -313,26 +312,28 @@ export ScrollView := Rectangle {
 
     fli := Flickable {
         $children
+        x: 1lx;
+        y: 1lx;
         interactive: false;
         viewport_y: -vbar.value;
         viewport_x: -hbar.value;
         viewport_height: 1000lx;
         viewport_width: 1000lx;
-        width: parent.width - vbar.width;
-        height: parent.height - hbar.height;
+        width: parent.width - vbar.width - 1lx;
+        height: parent.height - hbar.height -1lx;
     }
     vbar := ScrollBar {
         width: 20lx;
-        x: fli.width;
-        height: fli.height;
+        x: fli.width + fli.x;
+        height: fli.height + fli.y;
         horizontal: false;
         max: fli.viewport_height - fli.height;
         page_size: fli.height;
     }
     hbar := ScrollBar {
         height: 20lx;
-        y: fli.height;
-        width: fli.width;
+        y: fli.height + fli.y;
+        width: fli.width + fli.x;
         horizontal: true;
         max: fli.viewport_width - fli.width;
         page_size: fli.width;
@@ -352,7 +353,7 @@ export StandardListView := ListView {
         }
         height: 20lx;
         width: parent.visible_width;
-        color: current_item == idx ? #556884 : white;
+        color: current_item == idx ? #556884 : transparent;
         TouchArea {
             width: parent.width;
             height: parent.height;
