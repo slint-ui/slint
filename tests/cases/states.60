@@ -32,7 +32,7 @@ LICENSE END */
     for xx in [1, 2] : Rectangle {
         states [
             foo when xx == 1 : {
-                height: top_level * 1px;
+                height: top_level * 1phx;
             }
         ]
 

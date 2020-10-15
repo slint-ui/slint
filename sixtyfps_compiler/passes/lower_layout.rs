@@ -177,8 +177,8 @@ fn lower_element_layout(
 
     // lay out within the current element's boundaries.
     let rect_to_layout = LayoutRect {
-        x_reference: Box::new(Expression::NumberLiteral(0., Unit::Px)),
-        y_reference: Box::new(Expression::NumberLiteral(0., Unit::Px)),
+        x_reference: Box::new(Expression::NumberLiteral(0., Unit::Phx)),
+        y_reference: Box::new(Expression::NumberLiteral(0., Unit::Phx)),
         width_reference: property_reference(elem, "width"),
         height_reference: property_reference(elem, "height"),
     };

@@ -8,8 +8,8 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 TestCase := Rectangle {
-    width: 300px;
-    height: 300px;
+    width: 300phx;
+    height: 300phx;
 
     GridLayout {
         Row {
@@ -19,7 +19,7 @@ TestCase := Rectangle {
         Row {
             rect2 := Rectangle { color: green; }
             GridLayout {
-                spacing: 4px;
+                spacing: 4phx;
                 rect3 := Rectangle { color: black; }
                 rect4 := Rectangle { color: blue; }
                 rect5 := Rectangle { color: red; row: 1; }
@@ -28,12 +28,12 @@ TestCase := Rectangle {
         }
     }
 
-    property <bool> rect1_pos_ok: rect1.x == 0px && rect1.y == 0px && rect1.width == 148px && rect1.height == 148px;
-    property <bool> rect2_pos_ok: rect2.x == 0px && rect2.y == 148px && rect2.width == 148px && rect2.height == 152px;
-    property <bool> rect3_pos_ok: rect3.x == 148px && rect3.y == 148px && rect3.width == 74px && rect3.height == 74px;
-    property <bool> rect4_pos_ok: rect4.x == 226px && rect4.y == 148px && rect4.width == 74px && rect4.height == 74px;
-    property <bool> rect5_pos_ok: rect5.x == 148px && rect5.y == 226px && rect5.width == 74px && rect5.height == 74px;
-    property <bool> rect6_pos_ok: rect6.x == 226px && rect6.y == 226px && rect6.width == 74px && rect6.height == 74px;
+    property <bool> rect1_pos_ok: rect1.x == 0phx && rect1.y == 0phx && rect1.width == 148phx && rect1.height == 148phx;
+    property <bool> rect2_pos_ok: rect2.x == 0phx && rect2.y == 148phx && rect2.width == 148phx && rect2.height == 152phx;
+    property <bool> rect3_pos_ok: rect3.x == 148phx && rect3.y == 148phx && rect3.width == 74phx && rect3.height == 74phx;
+    property <bool> rect4_pos_ok: rect4.x == 226phx && rect4.y == 148phx && rect4.width == 74phx && rect4.height == 74phx;
+    property <bool> rect5_pos_ok: rect5.x == 148phx && rect5.y == 226phx && rect5.width == 74phx && rect5.height == 74phx;
+    property <bool> rect6_pos_ok: rect6.x == 226phx && rect6.y == 226phx && rect6.width == 74phx && rect6.height == 74phx;
 }
 
 /*

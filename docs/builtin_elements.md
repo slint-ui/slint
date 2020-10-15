@@ -31,47 +31,47 @@ it is then possible to draw a simple rectangle on the screen
 
 ```60
 Example := Window {
-    width: 270lx;
-    height: 100lx;
+    width: 270px;
+    height: 100px;
 
     Rectangle {
-        x: 10lx;
-        y: 10lx;
-        width: 50lx;
-        height: 50lx;
+        x: 10px;
+        y: 10px;
+        width: 50px;
+        height: 50px;
         color: blue;
     }
 
     // Rectangle with a border
     Rectangle {
-        x: 70lx;
-        y: 10lx;
-        width: 50lx;
-        height: 50lx;
+        x: 70px;
+        y: 10px;
+        width: 50px;
+        height: 50px;
         color: green;
-        border_width: 2lx;
+        border_width: 2px;
         border_color: red;
     }
 
     // Transparent Rectangle with a border and a radius
     Rectangle {
-        x: 140lx;
-        y: 10lx;
-        width: 50lx;
-        height: 50lx;
-        border_width: 4lx;
+        x: 140px;
+        y: 10px;
+        width: 50px;
+        height: 50px;
+        border_width: 4px;
         border_color: black;
-        border_radius: 10lx;
+        border_radius: 10px;
     }
 
     // A radius of width/2 makes it a circle
     Rectangle {
-        x: 210lx;
-        y: 10lx;
-        width: 50lx;
-        height: 50lx;
+        x: 210px;
+        y: 10px;
+        width: 50px;
+        height: 50px;
         color: yellow;
-        border_width: 2lx;
+        border_width: 2px;
         border_color: blue;
         border_radius: width/2;
     }
@@ -93,8 +93,8 @@ An Image can be used to represent an image loaded from an image file
 ```60
 Example := Image {
     source: img!"https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/resources/logo_scaled.png";
-    width: 64lx;
-    height: 44lx;
+    width: 64px;
+    height: 44px;
 }
 ```
 
@@ -117,8 +117,8 @@ A text simply show the text on the screen
 
 ```60
 Example := Window {
-    width: 270lx;
-    height: 100lx;
+    width: 270px;
+    height: 100px;
 
     Text {
         text: "Hello World";
@@ -150,8 +150,8 @@ The TouchArea control what happens when the zone covered by it is touched or int
 
 ```60
 Example := Window {
-    width: 200lx;
-    height: 100lx;
+    width: 200px;
+    height: 100px;
     area := TouchArea {
         width: parent.width;
         height: parent.height;
@@ -192,10 +192,10 @@ This example use the `Row` element
 
 ```60
 Foo := Window {
-    width: 200lx;
-    height: 200lx;
+    width: 200px;
+    height: 200px;
     GridLayout {
-        spacing: 5lx;
+        spacing: 5px;
         Row {
             Rectangle { color: red; }
             Rectangle { color: blue; }
@@ -212,8 +212,8 @@ This example use the `col` and `row` property
 
 ```60
 Foo := Window {
-    width: 200lx;
-    height: 150lx;
+    width: 200px;
+    height: 150px;
     GridLayout {
         Rectangle { color: red; }
         Rectangle { color: blue; }
@@ -254,8 +254,8 @@ The `TextInput` is a lower-level item that shows text and allows entering text.
 
 ```60
 Example := Window {
-    width: 270lx;
-    height: 100lx;
+    width: 270px;
+    height: 100px;
 
     TextInput {
         text: "Replace me with a name";

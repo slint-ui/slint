@@ -8,17 +8,17 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 TestCase := Rectangle {
-    property<length> l1: 12px;
-    property<length> l2: 12lx;
-    property<length> l3: 100px + 12lx;
-    property<length> l4: 120 * 1px;
+    property<length> l1: 12phx;
+    property<length> l2: 12px;
+    property<length> l3: 100phx + 12px;
+    property<length> l4: 120 * 1phx;
 
-    property<logical_length> ll1: 12px;
-    property<logical_length> ll2: 12lx;
-    property<logical_length> ll3: 100px + 12lx;
-    property<logical_length> ll4: 120 * 1px;
+    property<logical_length> ll1: 12phx;
+    property<logical_length> ll2: 12px;
+    property<logical_length> ll3: 100phx + 12px;
+    property<logical_length> ll4: 120 * 1phx;
 
-    property<bool> value: l1 == 10px + 2px;
+    property<bool> value: l1 == 10phx + 2phx;
 }
 
 

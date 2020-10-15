@@ -10,8 +10,8 @@ LICENSE END */
 import { Button, CheckBox, SpinBox, Slider, GroupBox, LineEdit, StandardListView } from "sixtyfps_widgets.60";
 
 App := Window {
-    width: 500lx;
-    height: 700lx;
+    width: 500px;
+    height: 700px;
     Rectangle {
         color: #ecedeb;
         width: parent.width;
@@ -19,8 +19,8 @@ App := Window {
     }
 
     GridLayout {
-        padding: 20lx;
-        spacing: 20lx;
+        padding: 20px;
+        spacing: 20px;
 
         Row {
             GridLayout {
@@ -41,7 +41,7 @@ App := Window {
             GroupBox {
                 title: "Button";
                 gallery_button := Button {
-                    maximum_width: 120lx;
+                    maximum_width: 120px;
                     text: gallery_button.pressed ? "(pressed)" : "(not pressed)";
                 }
             }
@@ -51,7 +51,7 @@ App := Window {
             GroupBox {
                 title: "CheckBox";
                 checkbox := CheckBox {
-                    maximum_width: 150lx;
+                    maximum_width: 150px;
                     text: checkbox.checked ? "(checked)" : "(unchecked)";
                     checked: true;
                 }
@@ -61,7 +61,7 @@ App := Window {
             GroupBox {
                 title: "SpinBox";
                 SpinBox {
-                    maximum_width: 120lx;
+                    maximum_width: 120px;
                     value: 42;
                 }
             }

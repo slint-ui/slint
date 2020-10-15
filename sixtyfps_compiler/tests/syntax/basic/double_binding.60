@@ -10,14 +10,14 @@ LICENSE END */
 
 X := Rectangle {
 
-    x: 42px;
-    x: 32px;
+    x: 42phx;
+    x: 32phx;
 //  ^error{Duplicated property binding}
-    width: 12px;
+    width: 12phx;
     width <=> self.height;
 //  ^error{Duplicated property binding}
 
-    not_exist <=> 12px;
+    not_exist <=> 12phx;
 //  ^error{Unknown property not_exist in Rectangle}
 
     property <int> foo: 12;

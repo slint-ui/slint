@@ -344,8 +344,8 @@ impl Type {
     pub fn default_unit(&self) -> Option<Unit> {
         match self {
             Type::Duration => Some(Unit::Ms),
-            Type::Length => Some(Unit::Px),
-            Type::LogicalLength => Some(Unit::Lx),
+            Type::Length => Some(Unit::Phx),
+            Type::LogicalLength => Some(Unit::Px),
             Type::Invalid => None,
             Type::Void => None,
             Type::Component(_) => None,
@@ -732,7 +732,7 @@ impl TypeRegister {
                         to: Type::Color,
                     },
                 ),
-                ("text_cursor_width", Expression::NumberLiteral(2., Unit::Lx)),
+                ("text_cursor_width", Expression::NumberLiteral(2., Unit::Px)),
             ],
             &[(
                 "focus",

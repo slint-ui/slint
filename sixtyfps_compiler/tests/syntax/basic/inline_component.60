@@ -10,7 +10,7 @@ LICENSE END */
 
 component Inline1 := Rectangle {
     Rectangle {
-        x: 66px;
+        x: 66phx;
     }
 }
 

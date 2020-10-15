@@ -10,17 +10,17 @@ LICENSE END */
 // Test the maximum and minimum size within a grid layout
 
 TestCase := Rectangle {
-    width: 300px;
-    height: 300px;
+    width: 300phx;
+    height: 300phx;
 
     GridLayout {
-        spacing: 1px;
+        spacing: 1phx;
         Row {
             rect1 := Rectangle {
                 color: red;
-                minimum_width: 50px;
-                minimum_height: 20px;
-                maximum_height: 20px;
+                minimum_width: 50phx;
+                minimum_height: 20phx;
+                maximum_height: 20phx;
 
             }
             rect2 := Rectangle {
@@ -31,21 +31,21 @@ TestCase := Rectangle {
         Row {
             rect3 := Rectangle {
                 color: green;
-                maximum_width: 60px;
+                maximum_width: 60phx;
             }
             rect4 := Rectangle {
                 color: red;
             }
             rect5 := Rectangle {
                 color: black;
-                maximum_width: 100px;
+                maximum_width: 100phx;
             }
         }
     }
 
-    property <bool> rect1_pos_ok: rect1.x == 0px && rect1.y == 0px && rect1.width == 60px && rect1.height == 20px;
-    property <bool> rect2_pos_ok: rect2.x == 61px && rect2.y == 0px && rect2.width == 138px && rect2.height == 20px;
-    property <bool> rect3_pos_ok: rect3.x == 0px && rect3.y == 21px && rect3.width == 60px && rect3.height == 279px;
+    property <bool> rect1_pos_ok: rect1.x == 0phx && rect1.y == 0phx && rect1.width == 60phx && rect1.height == 20phx;
+    property <bool> rect2_pos_ok: rect2.x == 61phx && rect2.y == 0phx && rect2.width == 138phx && rect2.height == 20phx;
+    property <bool> rect3_pos_ok: rect3.x == 0phx && rect3.y == 21phx && rect3.width == 60phx && rect3.height == 279phx;
 }
 
 /*

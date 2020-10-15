@@ -12,7 +12,7 @@ TestCase := Rectangle {
         duration: 1000ms;
     }
     animate y {
-        x: 0px;
+        x: 0phx;
 //      ^error{Unknown property x in PropertyAnimation}
     }
 }

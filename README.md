@@ -60,12 +60,12 @@ powerful way to describe graphical elements, their placement, and the flow of da
 
 ```60
 HelloWorld := Window {
-    width: 400lx;
-    height: 400lx;
+    width: 400px;
+    height: 400px;
 
     Text {
        y: parent.width / 2;
-       x: parent.x + 200lx;
+       x: parent.x + 200px;
        text: "Hello, world";
        color: blue;
     }

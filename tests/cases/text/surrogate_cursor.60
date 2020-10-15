@@ -8,8 +8,8 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 TestCase := TextInput {
-    width: 100px;
-    height: 100px;
+    width: 100phx;
+    height: 100phx;
     property<string> test_text: self.text;
     property<int> test_cursor_pos: self.cursor_position;
     property<int> test_anchor_pos: self.anchor_position;

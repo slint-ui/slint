@@ -11,8 +11,8 @@ LICENSE END */
 TestButtonImpl := Rectangle {
     property<string> button_text;
     Text {
-        x: 10px;
-        y: 10px;
+        x: 10phx;
+        y: 10phx;
         text: root.button_text;
     }
 }

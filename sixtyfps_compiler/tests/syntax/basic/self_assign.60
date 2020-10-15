@@ -9,10 +9,10 @@
 LICENSE END */
 SuperSimple := Rectangle {
     TouchArea {
-        clicked => { root.x += 1px; }
+        clicked => { root.x += 1phx; }
     }
     TouchArea {
-        clicked => { x += 1px; }
+        clicked => { x += 1phx; }
     }
     TouchArea {
         clicked => { 12 += 1; }

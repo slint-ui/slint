@@ -877,18 +877,18 @@ fn test_parse_number_literal() {
     }
 
     assert_eq!(doit("10"), Ok((10., Unit::None)));
-    assert_eq!(doit("10px"), Ok((10., Unit::Px)));
-    assert_eq!(doit("10.0px"), Ok((10., Unit::Px)));
+    assert_eq!(doit("10phx"), Ok((10., Unit::Phx)));
+    assert_eq!(doit("10.0phx"), Ok((10., Unit::Phx)));
     assert_eq!(doit("10.0"), Ok((10., Unit::None)));
-    assert_eq!(doit("1.1px"), Ok((1.1, Unit::Px)));
+    assert_eq!(doit("1.1phx"), Ok((1.1, Unit::Phx)));
     assert_eq!(doit("10.10"), Ok((10.10, Unit::None)));
     assert_eq!(doit("10000000"), Ok((10000000., Unit::None)));
-    assert_eq!(doit("10000001px"), Ok((10000001., Unit::Px)));
+    assert_eq!(doit("10000001phx"), Ok((10000001., Unit::Phx)));
 
     let wrong_unit = Err("Invalid unit".to_owned());
     let cannot_parse = Err("Cannot parse number literal".to_owned());
-    assert_eq!(doit("10000001 px"), wrong_unit);
-    assert_eq!(doit("12.10.12px"), cannot_parse);
+    assert_eq!(doit("10000001 phx"), wrong_unit);
+    assert_eq!(doit("12.10.12phx"), cannot_parse);
     assert_eq!(doit("12.12oo"), wrong_unit);
     assert_eq!(doit("12.12€"), wrong_unit);
 }

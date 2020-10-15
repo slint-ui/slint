@@ -8,20 +8,20 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 TestCase := Rectangle {
-    width: 300px;
-    height: 300px;
+    width: 300phx;
+    height: 300phx;
 
     GridLayout {
         Row {
             rect1 := Rectangle {
                 color: red;
                 GridLayout {
-                    spacing: 10lx;
+                    spacing: 10px;
                     Row {
                         rect2 := Rectangle {
                             color: green;
-                            maximum_width: 50px;
-                            maximum_height: 50px;
+                            maximum_width: 50phx;
+                            maximum_height: 50phx;
                         }
                         rect3 := Rectangle {
                             color: black;
@@ -35,10 +35,10 @@ TestCase := Rectangle {
         }        
     }   
     
-    property <bool> rect1_pos_ok: rect1.x == 0px && rect1.y == 0px && rect1.width == 155px && rect1.height == 50px;
-    property <bool> rect2_pos_ok: rect2.x == 0px && rect2.y == 0px && rect2.width == 50px && rect2.height == 50px;
-    property <bool> rect3_pos_ok: rect3.x == 60px && rect3.y == 0px && rect3.width == 95px && rect3.height == 50px;
-    property <bool> rect4_pos_ok: rect4.x == 155px && rect4.y == 0px && rect4.width == 145px && rect4.height == 50px;
+    property <bool> rect1_pos_ok: rect1.x == 0phx && rect1.y == 0phx && rect1.width == 155phx && rect1.height == 50phx;
+    property <bool> rect2_pos_ok: rect2.x == 0phx && rect2.y == 0phx && rect2.width == 50phx && rect2.height == 50phx;
+    property <bool> rect3_pos_ok: rect3.x == 60phx && rect3.y == 0phx && rect3.width == 95phx && rect3.height == 50phx;
+    property <bool> rect4_pos_ok: rect4.x == 155phx && rect4.y == 0phx && rect4.width == 145phx && rect4.height == 50phx;
 }
 
 /*

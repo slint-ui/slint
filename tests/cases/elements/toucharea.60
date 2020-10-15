@@ -12,17 +12,17 @@ TestCase := Rectangle {
     property <int> touch2;
 
     TouchArea {
-        x: 100px;
-        y: 100px;
-        width: 10px;
-        height: 10px;
+        x: 100phx;
+        y: 100phx;
+        width: 10phx;
+        height: 10phx;
         clicked => { touch1+=1; }
     }
     TouchArea {
-        x: 100px;
-        y: 100px;
-        width: 5px;
-        height: 5px;
+        x: 100phx;
+        y: 100phx;
+        width: 5phx;
+        height: 5phx;
         clicked => { touch2+=1; }
     }
 }

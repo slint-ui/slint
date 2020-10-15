@@ -114,7 +114,7 @@ export MainWindow := Window {
             rowspan: 2;
             row: 2;
             for todo in todo_model: Rectangle {
-                height: 20lx;
+                height: 20px;
                 GridLayout {
                     CheckBox {
                         text: todo.title;

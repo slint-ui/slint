@@ -10,8 +10,8 @@ LICENSE END */
 
 
 TestCase := Rectangle {
-    width: 300px;
-    height: 300px;
+    width: 300phx;
+    height: 300phx;
     property<[{name: string, account: string, score: float}]> model: [
         {
             name: "Olivier",
@@ -31,9 +31,9 @@ TestCase := Rectangle {
     property <int> clicked_index;
 
     for person[i] in model: TouchArea {
-        x: i*10px;
-        width: 10px;
-        height: 10px;
+        x: i*10phx;
+        width: 10phx;
+        height: 10phx;
         property <length> model; // this is not the model
         property <string> text: person.name;
         property <int> score: person.score * 1000;

@@ -31,5 +31,5 @@ Xxx := Rectangle {
 
     }
 
-    x: 12px;
+    x: 12phx;
 }

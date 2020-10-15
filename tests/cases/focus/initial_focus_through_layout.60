@@ -17,8 +17,8 @@ TextComponent := GridLayout {
 }
 
 TestCase := Rectangle {
-    width: 400px;
-    height: 400px;
+    width: 400phx;
+    height: 400phx;
     initial_focus: input2;
 
     input1 := TextComponent {

@@ -25,13 +25,13 @@ var base_url = "";
 let hello_world = `
 import { SpinBox, Button, CheckBox, Slider, GroupBox } from "sixtyfps_widgets.60";
 export Demo := Window {
-    width: 300lx;
-    height: 300lx;
+    width: 300px;
+    height: 300px;
     t:= Text {
         text: "Hello World";
     }
     Image{
-        y: 50lx;
+        y: 50px;
         source: img!"https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/resources/logo_scaled.png";
     }
 }

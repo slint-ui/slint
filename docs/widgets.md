@@ -20,8 +20,8 @@ Their appearence can change depending on the style
 ```60
 import { Button } from "sixtyfps_widgets.60";
 Example := Window {
-    width: 100lx;
-    height: 25lx;
+    width: 100px;
+    height: 25px;
     Button {
         width: parent.width;
         height: parent.height;
@@ -47,8 +47,8 @@ Example := Window {
 ```60
 import { CheckBox } from "sixtyfps_widgets.60";
 Example := Window {
-    width: 200lx;
-    height: 25lx;
+    width: 200px;
+    height: 25px;
     CheckBox {
         width: parent.width;
         height: parent.height;
@@ -69,8 +69,8 @@ Example := Window {
 ```60
 import { SpinBox } from "sixtyfps_widgets.60";
 Example := Window {
-    width: 200lx;
-    height: 25lx;
+    width: 200px;
+    height: 25px;
     SpinBox {
         width: parent.width;
         height: parent.height;
@@ -93,8 +93,8 @@ Example := Window {
 ```60
 import { Slider } from "sixtyfps_widgets.60";
 Example := Window {
-    width: 200lx;
-    height: 25lx;
+    width: 200px;
+    height: 25px;
     Slider {
         width: parent.width;
         height: parent.height;
@@ -115,8 +115,8 @@ Example := Window {
 ```60
 import { GroupBox } from "sixtyfps_widgets.60";
 Example := Window {
-    width: 200lx;
-    height: 100lx;
+    width: 200px;
+    height: 100px;
     GroupBox {
         title: "A Nice Title";
         Text {
@@ -143,8 +143,8 @@ Example := Window {
 ```60
 import { LineEdit } from "sixtyfps_widgets.60";
 Example := Window {
-    width: 200lx;
-    height: 25lx;
+    width: 200px;
+    height: 25px;
     LineEdit {
         width: parent.width;
         height: parent.height;
@@ -171,17 +171,17 @@ It has scrollbar to interact with.
 ```60
 import { ScrollView } from "sixtyfps_widgets.60";
 Example := Window {
-    width: 200lx;
-    height: 200lx;
+    width: 200px;
+    height: 200px;
     ScrollView {
-        width: 200lx;
-        height: 200lx;
-        viewport_width: 300lx;
-        viewport_height: 300lx;
-        Rectangle { width: 30lx; height: 30lx; x: 275lx; y: 50lx; color: blue; }
-        Rectangle { width: 30lx; height: 30lx; x: 175lx; y: 130lx; color: red; }
-        Rectangle { width: 30lx; height: 30lx; x: 25lx; y: 210lx; color: yellow; }
-        Rectangle { width: 30lx; height: 30lx; x: 98lx; y: 55lx; color: orange; }
+        width: 200px;
+        height: 200px;
+        viewport_width: 300px;
+        viewport_height: 300px;
+        Rectangle { width: 30px; height: 30px; x: 275px; y: 50px; color: blue; }
+        Rectangle { width: 30px; height: 30px; x: 175px; y: 130px; color: red; }
+        Rectangle { width: 30px; height: 30px; x: 25px; y: 210px; color: yellow; }
+        Rectangle { width: 30px; height: 30px; x: 98px; y: 55px; color: orange; }
     }
 }
 ```
@@ -202,11 +202,11 @@ Same as ScrollView
 ```60
 import { ListView } from "sixtyfps_widgets.60";
 Example := Window {
-    width: 150lx;
-    height: 150lx;
+    width: 150px;
+    height: 150px;
     ListView {
-        width: 150lx;
-        height: 150lx;
+        width: 150px;
+        height: 150px;
         for data in [
             { text: "Blue", color: #0000ff, bg: #eeeeee},
             { text: "Red", color: #ff0000, bg: #eeeeee},
@@ -217,7 +217,7 @@ Example := Window {
             { text: "Magenta", color: #ff00ff, bg: #eeeeee },
             { text: "Cyan", color: #00ffff, bg: #222222 },
         ] : Rectangle {
-            height: 30lx;
+            height: 30px;
             color: data.bg;
             width: parent.width;
             Text {
@@ -249,11 +249,11 @@ Same as ListView, and in addition:
 ```60
 import { StandardListView } from "sixtyfps_widgets.60";
 Example := Window {
-    width: 150lx;
-    height: 150lx;
+    width: 150px;
+    height: 150px;
     StandardListView {
-        width: 150lx;
-        height: 150lx;
+        width: 150px;
+        height: 150px;
         model: [ { text: "Blue"}, { text: "Red" }, { text: "Green" },
             { text: "Yellow" }, { text: "Black"}, { text: "White"},
             { text: "Magenta" }, { text: "Cyan" },

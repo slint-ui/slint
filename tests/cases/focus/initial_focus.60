@@ -9,18 +9,18 @@
 LICENSE END */
 
 TestCase := Rectangle {
-    width: 400px;
-    height: 400px;
+    width: 400phx;
+    height: 400phx;
     initial_focus: input1;
 
     input1 := TextInput {
         width: parent.width;
-        height: 200px;
+        height: 200phx;
     }
     input2 := TextInput {
-        y: 200px;
+        y: 200phx;
         width: parent.width;
-        height: 200px;
+        height: 200phx;
     }
 
     property<bool> input1_focused: input1.has_focus;

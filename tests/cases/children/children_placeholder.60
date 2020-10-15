@@ -20,15 +20,15 @@ Container := Rectangle {
 }
 
 TestCase := Container {
-    width: 300px;
-    height: 200px;
+    width: 300phx;
+    height: 200phx;
 
     rect1 := Rectangle {
         color: black;
     }
     
 
-    property <bool> rect1_pos_ok: rect1.x == 150px;
+    property <bool> rect1_pos_ok: rect1.x == 150phx;
 }
 /*
 ```cpp

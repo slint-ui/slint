@@ -10,16 +10,16 @@ LICENSE END */
 TestCase := Rectangle {
 
     Path {
-        x: 300px;
-        y: 300px;
+        x: 300phx;
+        y: 300phx;
         commands: "M 100 300 Q 150 50 250 150 C 250 300 300 300 300 450 A 50 50 0 1 0 450 450 L 550 300";
         stroke_color: black;
         stroke_width: 2;
     }
 
     PathLayout {
-        x: 300px;
-        y: 300px;
+        x: 300phx;
+        y: 300phx;
         commands: "M 100 300 Q 150 50 250 150 C 250 300 300 300 300 450 A 50 50 0 1 0 450 450 L 550 300";
 
         Text {
@@ -42,25 +42,25 @@ TestCase := Rectangle {
     PathLayout {
         commands: "M 0 0 L 100 100";
         item1 := Rectangle {
-            width: 2px;
-            height: 2px;
+            width: 2phx;
+            height: 2phx;
             color: red;
         }
         item2 := Rectangle {
-            width: 2px;
-            height: 2px;
+            width: 2phx;
+            height: 2phx;
             color: blue;
         }
         item3 := Rectangle {
-            width: 2px;
-            height: 2px;
+            width: 2phx;
+            height: 2phx;
             color: green;
         }
     }
     property <bool> test1 : item1.x == item1.y && item2.x == item2.y && item3.x == item3.y;
-    property <bool> test2 : item1.x < item2.x + 20px && item2.x < item3.x + 20px;
-    property <bool> test3 : item1.x == -1px;
-    property <bool> test4 : item3.x == 99px;
+    property <bool> test2 : item1.x < item2.x + 20phx && item2.x < item3.x + 20phx;
+    property <bool> test3 : item1.x == -1phx;
+    property <bool> test4 : item3.x == 99phx;
 
     // No items should not crash
     PathLayout {
@@ -71,8 +71,8 @@ TestCase := Rectangle {
     PathLayout {
         commands: "M 0 0 L 100 100";
         single_item := Rectangle {
-            width: 2px;
-            height: 2px;
+            width: 2phx;
+            height: 2phx;
             color: yellow;
         }
     }

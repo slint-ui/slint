@@ -8,8 +8,8 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 TestCase := Rectangle {
-    width: 800px;
-    height: 800px;
+    width: 800phx;
+    height: 800phx;
 
     Path {
         commands: "M 400 300 A 50 50 0 1 1 550 300 C 550 400 450 450 250 450";
@@ -34,8 +34,8 @@ TestCase := Rectangle {
         }
 
         Rectangle {
-            width: 20px;
-            height: 20px;
+            width: 20phx;
+            height: 20phx;
             color: green;
         }
 

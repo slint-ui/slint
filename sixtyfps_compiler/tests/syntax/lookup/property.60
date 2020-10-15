@@ -23,7 +23,7 @@ Comp := Rectangle {
 
 
 X := Rectangle {
-    width: 50px;
+    width: 50phx;
     height: width;
 
     foo := Rectangle {

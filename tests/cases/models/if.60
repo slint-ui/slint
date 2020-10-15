@@ -9,8 +9,8 @@
 LICENSE END */
 
 TestCase := Rectangle {
-    width: 100px;
-    height: 100px;
+    width: 100phx;
+    height: 100phx;
     color: white;
     property<int> top_level: 42;
 

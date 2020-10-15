@@ -138,9 +138,9 @@ declare_units! {
     // Lenghts or Coord
 
     /// Physical pixels
-    Px = "px" -> Length,
+    Phx = "phx" -> Length,
     /// Logical pixels
-    Lx = "lx" -> LogicalLength,
+    Px = "px" -> LogicalLength,
     /// Centimeters
     Cm = "cm" -> LogicalLength * 37.8,
     /// Milimeters
@@ -720,8 +720,8 @@ impl Expression {
                 to: Type::Color,
             },
             Type::Duration => Expression::NumberLiteral(0., Unit::Ms),
-            Type::Length => Expression::NumberLiteral(0., Unit::Px),
-            Type::LogicalLength => Expression::NumberLiteral(0., Unit::Lx),
+            Type::Length => Expression::NumberLiteral(0., Unit::Phx),
+            Type::LogicalLength => Expression::NumberLiteral(0., Unit::Px),
             // FIXME: Is that correct?
             Type::Resource => Expression::ResourceReference { absolute_source_path: String::new() },
             Type::Bool => Expression::BoolLiteral(false),

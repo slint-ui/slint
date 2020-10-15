@@ -11,7 +11,7 @@ LICENSE END */
 import { SpinBox, Button, CheckBox, Slider, GroupBox, StandardListView } from "sixtyfps_widgets.60";
 
 Label := Text {
-    font_size: 28lx;
+    font_size: 28px;
 }
 
 Page := Rectangle {
@@ -27,11 +27,11 @@ Preview := Image {
 
 CopyPage := Page {
     layout := GridLayout {
-        padding_left: 40lx;
-        padding_right: 40lx;
-        spacing: 20lx;
-        padding_top: 20lx;
-        padding_bottom: 20lx;
+        padding_left: 40px;
+        padding_right: 40px;
+        spacing: 20px;
+        padding_top: 20px;
+        padding_bottom: 20px;
 
         Row {
             preview := Preview {
@@ -46,13 +46,13 @@ CopyPage := Page {
 
                 Row {
                     SpinBox {
-                        font_size: 28lx;
+                        font_size: 28px;
                     }
                 }
                 Row {
                     Button {
                         text: "Print Page";
-                        font_size: 28lx;
+                        font_size: 28px;
                     }
                 }
             }
@@ -64,29 +64,29 @@ FaxPage := Page {
 
 
     preview := Preview {
-        x: 40lx;
-        y: 20lx;
-        height: parent.height - 40lx;
+        x: 40px;
+        y: 20px;
+        height: parent.height - 40px;
     }
 
     property<int> fax_number: 0;
 
     text := Text {
-        x: preview.x + preview.width + 20lx;
-        y: preview.y + 10lx;
+        x: preview.x + preview.width + 20px;
+        y: preview.y + 10px;
         text: fax_number;
-        width: parent.width - x - 40lx;
+        width: parent.width - x - 40px;
         horizontal_alignment: align_center;
-        font_size: 40lx;
-        height: 40lx;
+        font_size: 40px;
+        height: 40px;
     }
 
     Rectangle {
         color: #333;
         x: text.x;
-        y: text.y + text.height + 20lx;
+        y: text.y + text.height + 20px;
         width: text.width;
-        height: send.y - y - 40lx;
+        height: send.y - y - 40px;
 
         for row_model[r] in [
             [ 7, 8, 9 ],
@@ -95,13 +95,13 @@ FaxPage := Page {
             [ 0, -1 ],
         ] : Rectangle {
             width: parent.width;
-            height: (parent.height - 5*10lx) / 4;
-            y: r * (self.height + 10lx) + 10lx;
+            height: (parent.height - 5*10px) / 4;
+            y: r * (self.height + 10px) + 10px;
 
             for num[c] in row_model : Rectangle {
                 height: parent.height;
-                width: (parent.width - 4*10lx) / 3;
-                x: c * (self.width + 10lx) + 10lx;
+                width: (parent.width - 4*10px) / 3;
+                x: c * (self.width + 10px) + 10px;
                 color: key_area.pressed ? #566 : #555 ;
                 Text {
                     height: parent.height;
@@ -129,26 +129,26 @@ FaxPage := Page {
 
     send := Button {
         text: "Send";
-        font_size: 28lx;
-        y: parent.height - height - 20lx;
-        x: parent.width - width - 40lx;
+        font_size: 28px;
+        y: parent.height - height - 20px;
+        x: parent.width - width - 40px;
         /* FIXME: does not work with the native stylr
         width: minimum_width;
         height: minimum_height;
         */
-        width: 120lx;
-        height: 40lx;
+        width: 120px;
+        height: 40px;
     }
 }
 
 PrintPage := Page {
 
      layout := GridLayout {
-        padding_left: 40lx;
-        padding_right: 40lx;
-        spacing: 20lx;
-        padding_top: 20lx;
-        padding_bottom: 20lx;
+        padding_left: 40px;
+        padding_right: 40px;
+        spacing: 20px;
+        padding_top: 20px;
+        padding_bottom: 20px;
 
         Row {
             preview := Preview {
@@ -181,13 +181,13 @@ PrintPage := Page {
 
                 Row {
                     SpinBox {
-                        font_size: 28lx;
+                        font_size: 28px;
                     }
                 }
                 Row {
                     Button {
                         text: "Print Page";
-                        font_size: 28lx;
+                        font_size: 28px;
                     }
                 }
             }
@@ -198,12 +198,12 @@ PrintPage := Page {
 
 SettingsPage := Page {
    GridLayout {
-        height: parent.height - 20lx;
-        width: parent.width - 20lx;
-        x: 10lx;
-        y: 10lx;
-        spacing: 10lx;
-        padding: 15lx;
+        height: parent.height - 20px;
+        width: parent.width - 20px;
+        x: 10px;
+        y: 10px;
+        spacing: 10px;
+        padding: 15px;
         Row {
             GroupBox {
                 title: "Color Management";
@@ -267,8 +267,8 @@ TopPanel := Rectangle {
         color: active_page == 0 ? black : #0000;
         animate color { duration: 200ms; }
         font_size: root.width / 20;
-        y: 5lx;
-        x: 40lx;
+        y: 5px;
+        x: 40px;
     }
     Text {
         y:  title1.y;
@@ -280,8 +280,8 @@ TopPanel := Rectangle {
     }
 
     power_button := Image {
-        x: parent.width - self.width - 20lx;
-        y: 5lx;
+        x: parent.width - self.width - 20px;
+        y: 5px;
         source: img!"images/power.png";
         width: root.width / 20;
         height: root.width / 20;
@@ -304,8 +304,8 @@ export InkLevel := {
 MainWindow := Window {
     signal quit();
 
-    width: 800lx;
-    height: 600lx;
+    width: 800px;
+    height: 600px;
 
     /// Note that this property is overwriten in the .cpp and .rs code.
     // The data is only in this file so it looks good in the viewer
@@ -321,7 +321,7 @@ MainWindow := Window {
     panel := TopPanel {
         active_page: root.active_page;
         width: root.width;
-        height: root.width / 20 + 10lx;
+        height: root.width / 20 + 10px;
         quit => { root.quit(); }
     }
 
@@ -335,11 +335,11 @@ MainWindow := Window {
         height: root.height / 3;
         y: root.height / 4;
         x: idx * root.width / 4 + root.width / 45;
-        border_radius: 25lx;
+        border_radius: 25px;
         color: page_info.color;
         img := Image {
-            y: 5lx;
-            x: 25lx + (root.width / 6.25 / 2) - ((root.width / 5 - 25lx) / 2);
+            y: 5px;
+            x: 25px + (root.width / 6.25 / 2) - ((root.width / 5 - 25px) / 2);
             width: root.width / 6.25;
             height: root.height / 4.68;
             source: page_info.img_small;
@@ -350,13 +350,13 @@ MainWindow := Window {
         }
         text := Text {
             y: root.height / 10;
-            x: 5lx;
+            x: 5px;
             width: parent.width;
             height: parent.height;
             horizontal_alignment: align_center;
             vertical_alignment: align_center;
             text: page_info.text;
-            font_size: 28lx;
+            font_size: 28px;
             animate x, y {
                 duration: 300ms;
                 easing: ease_in_out;
@@ -379,31 +379,31 @@ MainWindow := Window {
 
         states [
             active when root.active_page == idx + 1: {
-                x: 0px;
-                y: 0px;
+                x: 0phx;
+                y: 0phx;
                 height: root.height / 8;
                 width: root.width;
-                border_radius: 0lx;
+                border_radius: 0px;
                 img.x: root.height / 8;
                 img.width: root.height / 10;
                 img.height: root.height / 10;
-                text.y: 0px;
+                text.y: 0phx;
                 text.x: root.height / 4;
                 //text.horizontal_alignment: align_left;
             }
             pressed when root.active_page == 0 && touch.pressed : {
-                width: root.width / 5 + 6lx;
-                height: root.height / 3 + 6lx ;
-                y: root.height / 4 - 3lx;
-                x: idx * root.width / 4 + root.width / 45 - 3lx;
-                img.x: 8lx;
-                img.y: 8lx;
-                text.y: root.height / 5 + 5lx;
+                width: root.width / 5 + 6px;
+                height: root.height / 3 + 6px ;
+                y: root.height / 4 - 3px;
+                x: idx * root.width / 4 + root.width / 45 - 3px;
+                img.x: 8px;
+                img.y: 8px;
+                text.y: root.height / 5 + 5px;
             }
             invisible when root.active_page > 0 && root.active_page != idx + 1 : {
                 color: transparent;
                 // FIXME: should probaby hide the entire item under with z-ordering
-                img.y: 1000000000lx;
+                img.y: 1000000000px;
                 text.color: #0000;
             }
         ]
@@ -430,26 +430,26 @@ MainWindow := Window {
     Rectangle {
         width: root.width / 5;
         height: root.height / 5;
-        x: root.width - self.width - 20lx;
-        y: root.height - self.height - 20lx;
+        x: root.width - self.width - 20px;
+        y: root.height - self.height - 20px;
         color: #eee;
 
         //GridLayout {
-        //    spacing: 20lx;
+        //    spacing: 20px;
             for color_info[idx] in ink_levels : Rectangle {
 
                 color: white;
 
     // this should be done by the Layout later
-    width: (parent.width - 5*10lx) / 4;
-    height: parent.height - 20lx;
-    y: 10lx;
-    x: 10lx + (self.width + 10lx) * idx;
+    width: (parent.width - 5*10px) / 4;
+    height: parent.height - 20px;
+    y: 10px;
+    x: 10px + (self.width + 10px) * idx;
 
                 Rectangle {
                     width: parent.width;
                     height: tentative_height > parent.height * color_info.level ? parent.height * color_info.level: tentative_height;
-                    property <length> tentative_height: root.active_page == 0 ? parent.height * color_info.level : 0px;
+                    property <length> tentative_height: root.active_page == 0 ? parent.height * color_info.level : 0phx;
                     animate tentative_height { duration: 750ms; easing: ease_in_out; }
                     y: parent.height - self.height;
                     color: color_info.color;
@@ -460,8 +460,8 @@ MainWindow := Window {
         property <bool> full_screen;
         states [
             full_screen when full_screen : {
-                width: root.width - 35lx;
-                height: 7/8 * root.height - 40lx ;
+                width: root.width - 35px;
+                height: 7/8 * root.height - 40px ;
             }
         ]
         animate width, height { duration: 200ms; easing: ease;  }

@@ -10,17 +10,17 @@ LICENSE END */
 // Test the propagation of maximum and minimum size through nested grid layouts
 
 TestCase := Rectangle {
-    width: 300px;
-    height: 300px;
+    width: 300phx;
+    height: 300phx;
 
     GridLayout {
         Row {
             GridLayout {
                 rect1 := Rectangle {
                     color: red;
-                    maximum_width: 50px;
-                    minimum_height: 20px;
-                    maximum_height: 20px;
+                    maximum_width: 50phx;
+                    minimum_height: 20phx;
+                    maximum_height: 20phx;
                 }
                 rect2 := Rectangle {
                     row: 0;
@@ -31,8 +31,8 @@ TestCase := Rectangle {
         }
     }
 
-    property <bool> rect1_pos_ok: rect1.x == 0px && rect1.y == 0px && rect1.width == 50px && rect1.height == 20px;
-    property <bool> rect2_pos_ok: rect2.x == 50px && rect2.y == 0px && rect2.width == 250px && rect2.height == 20px;
+    property <bool> rect1_pos_ok: rect1.x == 0phx && rect1.y == 0phx && rect1.width == 50phx && rect1.height == 20phx;
+    property <bool> rect2_pos_ok: rect2.x == 50phx && rect2.y == 0phx && rect2.width == 250phx && rect2.height == 20phx;
 }
 
 /*

@@ -18,7 +18,7 @@ TestCase := Rectangle {
 
 
     sub := Rectangle {
-        width: 80px;
+        width: 80phx;
         property<int> foo <=> root.sub_foo1;
     }
 

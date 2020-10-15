@@ -9,10 +9,10 @@
 LICENSE END */
 Hello := Rectangle {
 
-    width: 100px;
-    height: 100px;
+    width: 100phx;
+    height: 100phx;
     color: white;
-    property<length> top_level: 42px;
+    property<length> top_level: 42phx;
 
     property<bool> cond1;
     property<bool> cond2;

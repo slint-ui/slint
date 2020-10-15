@@ -16,8 +16,8 @@ export TodoItem := {
 }
 
 MainWindow := Window {
-    width: 400lx;
-    height: 600lx;
+    width: 400px;
+    height: 600px;
     signal todo_added(string);
     signal remove_done();
 
@@ -45,9 +45,9 @@ MainWindow := Window {
             }
         }
         spacing := Rectangle {
-            height: 15lx;
-            maximum_height: 15lx;
-            minimum_height: 15lx;
+            height: 15px;
+            maximum_height: 15px;
+            minimum_height: 15px;
             row: 1;
             rowspan: 2;
         }
@@ -55,7 +55,7 @@ MainWindow := Window {
             rowspan: 2;
             row: 2;
             for todo in todo_model: Rectangle {
-                height: 20lx;
+                height: 20px;
                 GridLayout {
                     CheckBox {
                         text: todo.title;

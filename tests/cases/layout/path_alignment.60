@@ -8,8 +8,8 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 TestCase := Rectangle {
-    width: 500px;
-    height: 500px;
+    width: 500phx;
+    height: 500phx;
 
     Text {
         text: "The red rectangle should be centered horizontally on the green line";
@@ -17,8 +17,8 @@ TestCase := Rectangle {
     }
 
     Path {
-        x: 250px;
-        y: 100px;
+        x: 250phx;
+        y: 100phx;
         width: root.width;
         height: root.height;
         commands: "M 100 0 L 100 250 ";
@@ -27,16 +27,16 @@ TestCase := Rectangle {
     }
 
     PathLayout {
-        x: 250px;
-        y: 100px;
+        x: 250phx;
+        y: 100phx;
         width: root.width;
         height: root.height;
         commands: "M 100 0 L 100 250 ";
 
         Rectangle {
             color: red;
-            width: 50px;
-            height: 50px;
+            width: 50phx;
+            height: 50phx;
         }
     }
 }
