@@ -33,16 +33,14 @@ jobs:
       if: matrix.os == 'ubuntu-20.04'
       run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev
     - name: Cache Qt
-      # FIXME: re-enable macos when the runners are fixed
-      if: matrix.os == 'ubuntu-20.04'
+      if: matrix.os != 'windows-latest'
       id: cache-qt
       uses: actions/cache@v2
       with:
         path: ../Qt
         key: ${{ runner.os }}-${{ github.job }}-QtCache-5.12.9
     - name: Install Qt
-      # FIXME: re-enable macos when the runners are fixed
-      if: matrix.os == 'ubuntu-20.04'
+      if: matrix.os != 'windows-latest'
       uses: jurplel/install-qt-action@v2
       with:
         version: '5.12.9'
@@ -134,16 +132,14 @@ jobs:
       if: matrix.os == 'ubuntu-20.04'
       run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev
     - name: Cache Qt
-      # FIXME: re-enable macos when the runners are fixed
-      if: matrix.os == 'ubuntu-20.04'      
+      if: matrix.os != 'windows-latest'
       id: cache-qt
       uses: actions/cache@v2
       with:
         path: ../Qt
         key: ${{ runner.os }}-${{ github.job }}-QtCache-5.12.9
     - name: Install Qt
-      # FIXME: re-enable macos when the runners are fixed
-      if: matrix.os == 'ubuntu-20.04'      
+      if: matrix.os != 'windows-latest'
       uses: jurplel/install-qt-action@v2
       with:
         version: '5.12.9'
