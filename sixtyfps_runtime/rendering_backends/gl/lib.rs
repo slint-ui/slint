@@ -231,10 +231,13 @@ impl GLRenderer {
                 }
             }
 
+            let mut attrs = web_sys::WebGlContextAttributes::new();
+            attrs.stencil(true);
+
             use wasm_bindgen::JsCast;
             let webgl1_context = window
                 .canvas()
-                .get_context("webgl")
+                .get_context_with_context_options("webgl", attrs.as_ref())
                 .unwrap()
                 .unwrap()
                 .dyn_into::<web_sys::WebGlRenderingContext>()
