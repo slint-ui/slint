@@ -594,6 +594,7 @@ impl Expression {
     pub fn maybe_convert_to(
         self,
         target_type: Type,
+        symmetric_parent_property: Option<(Type, NamedReference)>,
         node: &impl SpannedWithSourceFile,
         diag: &mut BuildDiagnostics,
     ) -> Expression {
@@ -633,7 +634,7 @@ impl Expression {
                         for (k, ty) in b {
                             let (k, e) = values.remove_entry(k).map_or_else(
                                 || (k.clone(), Expression::default_value_for_type(ty)),
-                                |(k, e)| (k, e.maybe_convert_to(ty.clone(), node, diag)),
+                                |(k, e)| (k, e.maybe_convert_to(ty.clone(), None, node, diag)),
                             );
                             new_values.insert(k, e);
                         }
@@ -650,7 +651,12 @@ impl Expression {
                                 }),
                                 name: k.clone(),
                             }
-                            .maybe_convert_to(ty.clone(), node, diag)
+                            .maybe_convert_to(
+                                ty.clone(),
+                                None,
+                                node,
+                                diag,
+                            )
                         } else {
                             Expression::default_value_for_type(ty)
                         };
@@ -677,11 +683,25 @@ impl Expression {
                 (Expression::Array { values, .. }, Type::Array(target_type)) => Expression::Array {
                     values: values
                         .into_iter()
-                        .map(|e| e.maybe_convert_to((*target_type).clone(), node, diag))
+                        .map(|e| e.maybe_convert_to((*target_type).clone(), None, node, diag))
                         .collect(),
                     element_ty: *target_type,
                 },
                 _ => unreachable!(),
+            }
+        } else if matches!(
+            // Map `width: 10%` to `width: parent.width * 10%`
+            (&ty, &target_type, &symmetric_parent_property),
+            (Type::Percent, Type::Length, Some((Type::Length, _)))
+        ) {
+            Expression::BinaryExpression {
+                lhs: Box::new(Expression::BinaryExpression {
+                    lhs: Box::new(self),
+                    rhs: Box::new(Expression::NumberLiteral(0.01, Unit::None)),
+                    op: '*',
+                }),
+                rhs: Box::new(Expression::PropertyReference(symmetric_parent_property.unwrap().1)),
+                op: '*',
             }
         } else {
             let mut message = format!("Cannot convert {} to {}", ty, target_type);

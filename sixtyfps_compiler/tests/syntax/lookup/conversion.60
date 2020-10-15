@@ -31,6 +31,8 @@ X := Rectangle {
     Rectangle {
         color: "blue";
 //            ^error{Cannot convert string to color$}
+        property<length> no_matching_parent: 50%;
+//                                          ^error{Cannot convert percent to length}
     }
 
     property <{a: string, b: int}> object1: { a: "123", typo: 42};

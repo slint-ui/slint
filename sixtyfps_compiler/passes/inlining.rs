@@ -117,7 +117,7 @@ fn inline_element(
     // Now fixup all binding and reference
     for (_, e) in &mapping {
         visit_all_named_references(e, |nr| fixup_reference(nr, &mapping));
-        visit_element_expressions(e, |expr, _| fixup_element_references(expr, &mapping));
+        visit_element_expressions(e, |expr, _, _| fixup_element_references(expr, &mapping));
     }
 }
 

@@ -252,6 +252,43 @@ Example := Window {
 }
 ```
 
+### Relative Lengths
+
+Sometimes it is convenient to express the relationships of length properties in terms of relative percentages.
+For example the following inner blue rectangle has half the size of the outer green one:
+
+```60
+Example := Rectangle {
+    color: green;
+    Rectangle {
+        color: blue;
+        width: parent.width * 50%;
+        height: parent.height * 50%;
+    }
+}
+```
+
+This pattern of expressing the `width` or `height` in percent of the parent's property with the same name is
+common. For convenience, a short-hand syntax exists for this scenario:
+
+  - A binding expression evaluates to a percentage.
+  - The property the expression is associated with has the type `length`.
+  - The property exists under the same name and type in the parent element.
+
+If these conditions are met, then it is not necessary to specify the parent property, instead you can simply
+use the percentage. The earlier example then looks like this:
+
+```60
+Example := Rectangle {
+    color: green;
+    Rectangle {
+        color: blue;
+        width: 50%;
+        height: 50%;
+    }
+}
+```
+
 ## Signal
 
 Components may declare signals, that allow it to communicate changes of state to the outside. Signals are emitted by "calling" them

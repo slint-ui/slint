@@ -66,13 +66,19 @@ struct ComponentScope(Vec<ElementRc>);
 
 fn resolve_expression(
     expr: &mut Expression,
+    property_name: Option<&str>,
     property_type: Type,
     scope: &ComponentScope,
     diag: &mut BuildDiagnostics,
 ) {
     if let Expression::Uncompiled(node) = expr {
-        let mut lookup_ctx =
-            LookupCtx { property_type, component_scope: &scope.0, diag, arguments: vec![] };
+        let mut lookup_ctx = LookupCtx {
+            property_name,
+            property_type,
+            component_scope: &scope.0,
+            diag,
+            arguments: vec![],
+        };
 
         let new_expr = match node.kind() {
             SyntaxKind::SignalConnection => {
@@ -82,7 +88,12 @@ fn resolve_expression(
             SyntaxKind::Expression => {
                 //FIXME again: this happen for non-binding expression (i.e: model)
                 Expression::from_expression_node(node.clone().into(), &mut lookup_ctx)
-                    .maybe_convert_to(lookup_ctx.property_type, node, diag)
+                    .maybe_convert_to(
+                        lookup_ctx.property_type.clone(),
+                        lookup_ctx.symmetric_parent_property(),
+                        node,
+                        diag,
+                    )
             }
             SyntaxKind::BindingExpression => {
                 Expression::from_binding_expression_node(node.clone(), &mut lookup_ctx)
@@ -112,14 +123,14 @@ pub fn resolve_expressions(doc: &Document, diag: &mut BuildDiagnostics) {
                 new_scope.0.push(elem.clone())
             }
             new_scope.0.push(elem.clone());
-            visit_element_expressions(elem, |expr, property_type| {
+            visit_element_expressions(elem, |expr, property_name, property_type| {
                 if is_repeated {
                     // The first expression is always the model and it needs to be resolved with the parent scope
                     debug_assert!(elem.borrow().repeated.as_ref().is_none()); // should be none because it is taken by the visit_element_expressions function
-                    resolve_expression(expr, property_type(), scope, diag);
+                    resolve_expression(expr, property_name, property_type(), scope, diag);
                     is_repeated = false;
                 } else {
-                    resolve_expression(expr, property_type(), &new_scope, diag)
+                    resolve_expression(expr, property_name, property_type(), &new_scope, diag)
                 }
             });
             new_scope.0.pop();
@@ -129,7 +140,10 @@ pub fn resolve_expressions(doc: &Document, diag: &mut BuildDiagnostics) {
 }
 
 /// Contains information which allow to lookup identifier in expressions
-struct LookupCtx<'a> {
+pub struct LookupCtx<'a> {
+    /// the name of the property for which this expression refers.
+    property_name: Option<&'a str>,
+
     /// the type of the property for which this expression refers.
     /// (some property come in the scope)
     property_type: Type,
@@ -142,6 +156,24 @@ struct LookupCtx<'a> {
 
     /// The name of the arguments of the signal or function
     arguments: Vec<String>,
+}
+
+impl<'a> LookupCtx<'a> {
+    pub fn symmetric_parent_property(&self) -> Option<(Type, NamedReference)> {
+        self.component_scope.last().and_then(find_parent_element).and_then(|parent| {
+            self.property_name.and_then(|name| {
+                let ty = parent.borrow().lookup_property(name);
+                if ty.is_property_type() {
+                    Some((
+                        ty,
+                        NamedReference { element: Rc::downgrade(&parent), name: name.to_string() },
+                    ))
+                } else {
+                    None
+                }
+            })
+        })
+    }
 }
 
 fn find_element_by_id(roots: &[ElementRc], name: &str) -> Option<ElementRc> {
@@ -194,7 +226,12 @@ impl Expression {
                     .map(|c| Self::from_codeblock_node(c.into(), ctx))
             })
             .unwrap_or(Self::Invalid);
-        e.maybe_convert_to(ctx.property_type.clone(), &node, &mut ctx.diag)
+        e.maybe_convert_to(
+            ctx.property_type.clone(),
+            ctx.symmetric_parent_property(),
+            &node,
+            &mut ctx.diag,
+        )
     }
 
     fn from_codeblock_node(node: syntax_nodes::CodeBlock, ctx: &mut LookupCtx) -> Expression {
@@ -539,7 +576,9 @@ impl Expression {
                     arguments
                         .into_iter()
                         .zip(args.iter())
-                        .map(|((e, node), ty)| e.maybe_convert_to(ty.clone(), &node, &mut ctx.diag))
+                        .map(|((e, node), ty)| {
+                            e.maybe_convert_to(ty.clone(), None, &node, &mut ctx.diag)
+                        })
                         .collect()
                 }
             }
@@ -576,6 +615,7 @@ impl Expression {
         }
         let rhs = Self::from_expression_node(rhs_n.clone().into(), ctx).maybe_convert_to(
             lhs.ty(),
+            None,
             &rhs_n,
             &mut ctx.diag,
         );
@@ -627,6 +667,7 @@ impl Expression {
                                         lhs: Box::new(lhs),
                                         rhs: Box::new(rhs.maybe_convert_to(
                                             Type::Float32,
+                                            None,
                                             &lhs_n,
                                             &mut ctx.diag,
                                         )),
@@ -637,6 +678,7 @@ impl Expression {
                                     return Expression::BinaryExpression {
                                         lhs: Box::new(lhs.maybe_convert_to(
                                             Type::Float32,
+                                            None,
                                             &lhs_n,
                                             &mut ctx.diag,
                                         )),
@@ -656,6 +698,7 @@ impl Expression {
                                         lhs: Box::new(lhs),
                                         rhs: Box::new(rhs.maybe_convert_to(
                                             Type::Float32,
+                                            None,
                                             &lhs_n,
                                             &mut ctx.diag,
                                         )),
@@ -671,8 +714,8 @@ impl Expression {
             }
         };
         Expression::BinaryExpression {
-            lhs: Box::new(lhs.maybe_convert_to(expected_ty.clone(), &lhs_n, &mut ctx.diag)),
-            rhs: Box::new(rhs.maybe_convert_to(expected_ty, &rhs_n, &mut ctx.diag)),
+            lhs: Box::new(lhs.maybe_convert_to(expected_ty.clone(), None, &lhs_n, &mut ctx.diag)),
+            rhs: Box::new(rhs.maybe_convert_to(expected_ty, None, &rhs_n, &mut ctx.diag)),
             op,
         }
     }
@@ -701,15 +744,16 @@ impl Expression {
         let (condition_n, true_expr_n, false_expr_n) = node.Expression();
         // FIXME: we should we add bool to the context
         let condition = Self::from_expression_node(condition_n.clone().into(), ctx)
-            .maybe_convert_to(Type::Bool, &condition_n, &mut ctx.diag);
+            .maybe_convert_to(Type::Bool, None, &condition_n, &mut ctx.diag);
         let mut true_expr = Self::from_expression_node(true_expr_n.clone().into(), ctx);
         let mut false_expr = Self::from_expression_node(false_expr_n.clone().into(), ctx);
         let (true_ty, false_ty) = (true_expr.ty(), false_expr.ty());
         if true_ty != false_ty {
             if false_ty.can_convert(&true_ty) {
-                false_expr = false_expr.maybe_convert_to(true_ty, &false_expr_n, &mut ctx.diag);
+                false_expr =
+                    false_expr.maybe_convert_to(true_ty, None, &false_expr_n, &mut ctx.diag);
             } else {
-                true_expr = true_expr.maybe_convert_to(false_ty, &true_expr_n, &mut ctx.diag);
+                true_expr = true_expr.maybe_convert_to(false_ty, None, &true_expr_n, &mut ctx.diag);
             }
         }
         Expression::Condition {
@@ -747,6 +791,7 @@ impl Expression {
         for e in values.iter_mut() {
             *e = core::mem::replace(e, Expression::Invalid).maybe_convert_to(
                 element_ty.clone(),
+                None,
                 &node,
                 ctx.diag,
             );
