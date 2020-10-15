@@ -12,35 +12,73 @@ SixtyFPS is still in the early stages of development: APIs will change and impor
 
 ## Installing or Building SixtyFPS
 
-### Building from sources
+SixtyFPS comes with a CMake integration that automates the compilation step of the `.60` markup language files and
+offers a CMake target for convenient linkage.
 
-Follow the [C++ build instructions](/docs/building.md#c-build)
+### Building from Sources
 
-### Binary packages
+The recommended and most flexible way to use the C++ API is to build SixtyFPS from sources.
 
-The CI is building binary packages to use with C++ so that you do not need to install a rust compiler.
-These binary can be found by clicking on the last
-[succesfull build of the master branch](https://github.com/sixtyfpsui/sixtyfps/actions?query=workflow%3ACI+is%3Asuccess+branch%3Amaster)
+First you need to install the prerequisites:
+
+ * Install Rust by following the [Rust Getting Started Guide](https://www.rust-lang.org/learn/get-started). Once this is done,
+   you should have the ```rustc``` compiler and the ```cargo``` build system installed in your path.
+ * **cmake** (3.16 or newer)
+ * A C++ compiler that supports C++17 (e.g., **MSVC 2019** on Windows)
+
+You can include SixtyFPS in your CMake project using CMake's `FetchContent` feature. Insert the following snippet into your
+`CMakeLists.txt` to make CMake download the latest release, compile it and make the CMake integration available:
+
+```cmake
+include(FetchContent)
+FetchContent_Declare(
+    SixtyFPS
+    GIT_REPOSITORY https://github.com/sixtyfpsui/sixtyfps.git
+    GIT_TAG v0.0.1
+    SOURCE_SUBDIR api/sixtyfps-cpp
+)
+FetchContent_MakeAvailable(SixtyFPS)
+```
+
+If you prefer to treat SixtyFPS as an external CMake package, then you can also build SixtyFPS from source like a regular
+CMake project, install it into a prefix directory of your choice and use `find_package(SixtyFPS)` in your `CMakeLists.txt`.
+
+### Binary Packages
+
+The SixtyFPS continuous integration system is building binary packages to use with C++ so that you do not need to install a rust compiler.
+These binaries can be found by clicking on the last
+[succesful build of the master branch](https://github.com/sixtyfpsui/sixtyfps/actions?query=workflow%3ACI+is%3Asuccess+branch%3Amaster)
 and downloading the `cpp_bin` artifact.
 
-## Usage via CMake
+After extracting the artifact you can place the `lib` directory into your `CMAKE_PREFIX_PATH` and `find_package(SixtyFPS)` should succeed
+in locating the package.
 
-While it should be possible to integrate SixftyFPS with any build system, we are provinding cmake integration.
-Once SixtyFPS has been installed, it can simply be found using `find_package`
+## Usage via CMake
 
 A typical example looks like this:
 
 ```cmake
 cmake_minimum_required(VERSION 3.16)
 project(my_application LANGUAGES CXX)
-find_package(SixtyFPS REQUIRED)
+
+# Note: Use find_package(SixtyFPS) instead of the following three commands, if you prefer the package
+# approach.
+include(FetchContent)
+FetchContent_Declare(
+    SixtyFPS
+    GIT_REPOSITORY https://github.com/sixtyfpsui/sixtyfps.git
+    GIT_TAG v0.0.1
+    SOURCE_SUBDIR api/sixtyfps-cpp
+)
+FetchContent_MakeAvailable(SixtyFPS)
 
 add_executable(my_application main.cpp)
 target_link_libraries(my_application SixtyFPS::SixtyFPS)
 sixtyfps_target_60_sources(my_application my_application_ui.60)
 ```
 
-The `sixtyfps_target_60_sources` cmake command allow to add .60 files to your build
+The `sixtyfps_target_60_sources` cmake command allows you to add .60 files to your build. Finally it is
+necessary to link your executable or library against the `SixtyFPS::SixtyFPS` target.
 
 ## Tutorial
 
