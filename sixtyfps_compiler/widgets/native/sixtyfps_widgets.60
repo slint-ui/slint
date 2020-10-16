@@ -48,10 +48,10 @@ export ScrollView := NativeScrollView {
     property <length> visible_width <=> fli.width;
     property <length> visible_height <=> fli.height;
 
-    vertical_max: fli.viewport_height - fli.height;
+    vertical_max: fli.viewport_height > fli.height ? fli.viewport_height - fli.height : 0phx;
     vertical_page_size: fli.height;
 
-    horizontal_max: fli.viewport_width - fli.width;
+    horizontal_max: fli.viewport_width > fli.width ? fli.viewport_width - fli.width : 0phx;
     horizontal_page_size: fli.width;
 
     fli := Flickable {

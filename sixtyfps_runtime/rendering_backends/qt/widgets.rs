@@ -1327,9 +1327,9 @@ impl Item for NativeScrollView {
                             case QStyle::SC_ScrollBarSubPage:
                                 return value - page_size;
                             case QStyle::SC_ScrollBarAddLine:
-                                return value + dpr;
+                                return value + 3. * dpr;
                             case QStyle::SC_ScrollBarSubLine:
-                                return value - dpr;
+                                return value - 3. * dpr;
                             case QStyle::SC_ScrollBarFirst:
                                 return 0;
                             case QStyle::SC_ScrollBarLast:
@@ -1338,7 +1338,7 @@ impl Item for NativeScrollView {
                                 return value;
                         }
                     });
-                    value_prop.set(new_val.max(0).min(max) as f32);
+                    value_prop.set(new_val.min(max).max(0) as f32);
                     InputEventResult::EventIgnored
                 }
                 MouseEventType::MouseMoved => {
@@ -1347,7 +1347,7 @@ impl Item for NativeScrollView {
                         let new_val = data.pressed_val
                             + ((pos as f32) - data.pressed_x) * (max + (page_size as f32))
                                 / size as f32;
-                        value_prop.set(new_val.max(0.).min(max));
+                        value_prop.set(new_val.min(max).max(0.));
                         InputEventResult::GrabMouse
                     } else {
                         InputEventResult::EventAccepted
