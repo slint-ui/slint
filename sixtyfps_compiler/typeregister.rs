@@ -944,16 +944,22 @@ impl TypeRegister {
         );
         native_class(
             &mut r,
-            "NativeScrollBar",
+            "NativeScrollView",
             &[
                 ("x", Type::Length),
                 ("y", Type::Length),
                 ("width", Type::Length),
                 ("height", Type::Length),
-                ("horizontal", Type::Bool),
-                ("max", Type::Length),
-                ("page_size", Type::Length),
-                ("value", Type::Length),
+                ("horizontal_max", Type::Length),
+                ("horizontal_page_size", Type::Length),
+                ("horizontal_value", Type::Length),
+                ("vertical_max", Type::Length),
+                ("vertical_page_size", Type::Length),
+                ("vertical_value", Type::Length),
+                ("native_padding_left", Type::Length),
+                ("native_padding_right", Type::Length),
+                ("native_padding_top", Type::Length),
+                ("native_padding_bottom", Type::Length),
             ],
             &[],
         );

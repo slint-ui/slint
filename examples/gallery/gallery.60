@@ -88,6 +88,7 @@ App := Window {
                 StandardListView {
                     model: [
                         {text: "Lorem"}, {text: "ipsum"},{text: "dolor"},{text: "sit"},{text: "amet"},{text: "consetetur"},
+                        {text: "Lorem"}, {text: "ipsum"},{text: "dolor"},{text: "sit"},{text: "amet"},{text: "consetetur"},
                     ];
                 }
             }

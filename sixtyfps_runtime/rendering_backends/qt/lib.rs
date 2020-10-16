@@ -42,7 +42,7 @@ pub type NativeWidgets =
     (widgets::NativeSpinBox,
     (widgets::NativeGroupBox,
     (widgets::NativeLineEdit,
-    (widgets::NativeScrollBar,
+    (widgets::NativeScrollView,
     (widgets::NativeStandardListViewItem,
             ()))))))));
 

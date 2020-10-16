@@ -99,3 +99,16 @@ pub struct QMargins {
     pub right: i32,
     pub bottom: i32,
 }
+
+/// FIXME: qreal is not always f64
+#[allow(non_camel_case_types)]
+pub type qreal = f64;
+
+#[repr(C)]
+#[derive(Default, Clone, Copy, PartialEq, Debug)]
+pub struct QRectF {
+    pub x: qreal,
+    pub y: qreal,
+    pub width: qreal,
+    pub height: qreal,
+}

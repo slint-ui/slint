@@ -40,7 +40,7 @@ export LineEdit := NativeLineEdit {
     }
 }
 
-export ScrollView := Rectangle {
+export ScrollView := NativeScrollView {
     property <length> viewport_width <=> fli.viewport_width;
     property <length> viewport_height <=> fli.viewport_height;
     property <length> viewport_x <=> fli.viewport_x;
@@ -48,33 +48,24 @@ export ScrollView := Rectangle {
     property <length> visible_width <=> fli.width;
     property <length> visible_height <=> fli.height;
 
-    // FIXME: the frame should be drawn by a native control
-    border_width: 1px;
-    border_color: #d0d3cf;
-    color: white;
+    vertical_max: fli.viewport_height - fli.height;
+    vertical_page_size: fli.height;
 
-    GridLayout {
-        padding_left: 1px;
-        padding_top: 1px;
-        fli := Flickable {
-            $children
-            interactive: false;
-            viewport_y: -vbar.value;
-            viewport_x: -hbar.value;
+    horizontal_max: fli.viewport_width - fli.width;
+    horizontal_page_size: fli.width;
+
+    fli := Flickable {
+        x: root.native_padding_left;
+        width: root.width - root.native_padding_left - root.native_padding_right;
+        y: root.native_padding_top;
+        height: root.height - root.native_padding_top - root.native_padding_bottom;
+
+        $children
+        interactive: false;
+        viewport_y: -root.vertical_value;
+        viewport_x: -root.horizontal_value;
             viewport_height: 1000px;
             viewport_width: 1000px;
-        }
-        vbar := NativeScrollBar {
-            max: fli.viewport_height - fli.height;
-            page_size: fli.height;
-        }
-        hbar := NativeScrollBar {
-            horizontal: true;
-            row: 1;
-            max: fli.viewport_width - fli.width;
-            page_size: fli.width;
-        }
-
     }
 }
 
