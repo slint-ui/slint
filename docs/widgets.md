@@ -161,9 +161,9 @@ It has scrollbar to interact with.
 
 ### Properties
 
-* **`viewport_width`** and **`viewport_height`** (*lenght*): The `width` and `lenght` properties of the viewport
-* **`viewport_x`** and **`viewport_y`** (*lenght*): The `x` and `y` properties of the viewport. Usually these are negative
-* **`visible_width`** and **`visible_height`** (*lenght*): The size of the visible area of the ScrollView (not including the scrollbar)
+* **`viewport_width`** and **`viewport_height`** (*length*): The `width` and `length` properties of the viewport
+* **`viewport_x`** and **`viewport_y`** (*length*): The `x` and `y` properties of the viewport. Usually these are negative
+* **`visible_width`** and **`visible_height`** (*length*): The size of the visible area of the ScrollView (not including the scrollbar)
 
 
 ### Example

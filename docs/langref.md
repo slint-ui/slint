@@ -230,9 +230,9 @@ Example := Window {
 
  * `int` can be converted implicitly to `float` and vice-versa
  * `int` and `float` can be converted implicitly to `string`
- * `logical_lenght` and `lenght` can be converted implictly to eachother only in
+ * `logical_length` and `length` can be converted implictly to eachother only in
    context where the pixel ratio is known.
- * the units type (`lenght`, `logical_lenght`, `duration`, ...) cannot be converted to numbers (`float` or `int`)
+ * the units type (`length`, `logical_length`, `duration`, ...) cannot be converted to numbers (`float` or `int`)
    but they can be devided with themself to result in a number. Similarily, a number can be multiplied by one of
    these unit. The idea is that one would multiply by `1px` or divide by `1px` to do such conversions
  * Object types convert with another object type if they have the same property names and their types can be converted.

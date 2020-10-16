@@ -135,7 +135,7 @@ declare_units! {
     ///
     Percent = "%" -> Float32 * 0.01,
 
-    // Lenghts or Coord
+    // Lengths or Coord
 
     /// Physical pixels
     Phx = "phx" -> Length,
