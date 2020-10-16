@@ -154,7 +154,10 @@ fn to_eval_value<'cx>(
             let c = val.to_string(cx)?.value().parse::<css_color_parser2::Color>().or_else(|e| cx.throw_error(&e.to_string()))?;
             Ok(Value::Color(sixtyfps_corelib::Color::from_argb_u8((c.a * 255.) as u8, c.r, c.g, c.b)))
         }
-        Type::Array(_) => todo!("conversion to this type is not yet implemented"),
+        Type::Array(a) => {
+            let vec = val.downcast_or_throw::<JsArray, _>(cx)?.to_vec(cx)?;
+            Ok(Value::Array(vec.into_iter().map(|i| to_eval_value(i, (*a).clone(), cx)).collect::<Result<Vec<_>, _>>()?))
+        },
         Type::Resource => Ok(Value::String(val.to_string(cx)?.value().into())),
         Type::Bool => Ok(Value::Bool(val.downcast_or_throw::<JsBoolean, _>(cx)?.value())),
         Type::Object(o) => {
