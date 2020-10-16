@@ -340,7 +340,7 @@ extern "C" fn visit_children_item(
                     assume_property_f32(get_property_ptr(&lv.viewport_height, instance_ref)),
                     assume_property_f32(get_property_ptr(&lv.viewport_y, instance_ref)),
                     get_prop(&lv.listview_width),
-                    get_prop(&lv.listview_height),
+                    assume_property_f32(get_property_ptr(&lv.listview_height, instance_ref)),
                 );
             } else {
                 repeater.ensure_updated(init);

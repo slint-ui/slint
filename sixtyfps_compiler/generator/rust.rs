@@ -390,7 +390,7 @@ fn generate_component(
                 let ensure_updated = quote! {
                     #component_id::FIELD_OFFSETS.#repeater_id.apply_pin(self_pinned).ensure_updated_listview(
                         || { #rep_component_id::new(self_pinned.self_weak.get().unwrap().clone()) },
-                        #vp_w, #vp_h, #vp_y, #lv_w.get(), #lv_h.get()
+                        #vp_w, #vp_h, #vp_y, #lv_w.get(), #lv_h
                     );
                 };
 
@@ -1418,7 +1418,7 @@ fn collect_layouts_recursively<'a, 'b>(
                 .collect();
 
             let cell_ref_variable = format_ident!("cells_{}", layout_tree.len());
-            let cell_creation_code = quote!(let #cell_ref_variable 
+            let cell_creation_code = quote!(let #cell_ref_variable
                 = [#( #cells ),*];);
             let (padding, spacing, spacing_creation_code) =
                 generate_layout_padding_and_spacing(&layout_tree, &grid_layout.geometry, component);

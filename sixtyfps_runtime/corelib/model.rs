@@ -368,7 +368,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         viewport_height: Pin<&Property<f32>>,
         viewport_y: Pin<&Property<f32>>,
         listview_width: f32,
-        listview_height: f32,
+        listview_height: Pin<&Property<f32>>,
     ) {
         let empty_model = || {
             self.inner.borrow().borrow_mut().components.clear();
@@ -440,7 +440,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
                 viewport_height.set(element_height * model.row_count() as f32);
                 self.inner.borrow().borrow_mut().cached_item_height = element_height;
                 let offset = (-viewport_y.get() / element_height).floor() as usize;
-                let count = ((listview_height / element_height).ceil() as usize).min(row_count - offset);
+                let count = ((listview_height.get() / element_height).ceil() as usize).min(row_count - offset);
                 self.set_offset(offset, count);
                 self.ensure_updated_impl(init, &model, count);
                 self.compute_layout_listview(viewport_width, listview_width);
