@@ -123,6 +123,10 @@ This software is provided under a dual licensing scheme:
  - **GNU GPLv3**: Open source license ideal for free software.
  - **Commercial SixtyFPS license**: More details to come.
 
+## Frequently Asked Questions
+
+Please see our separate [FAQ.md](FAQ.md).
+
 ## Contact us
 
 Feel free to join [Github discussions](https://github.com/sixtyfpsui/sixtyfps/discussions) for general chat or questions. Use [Github issues](https://github.com/sixtyfpsui/sixtyfps/issues) to report public suggestions or bugs.
