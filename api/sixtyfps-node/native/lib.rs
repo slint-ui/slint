@@ -150,7 +150,11 @@ fn to_eval_value<'cx>(
             Ok(Value::Number(val.downcast_or_throw::<JsNumber, _>(cx)?.value()))
         }
         Type::String => Ok(Value::String(val.to_string(cx)?.value().into())),
-        Type::Color | Type::Array(_) => todo!("conversion to this type is not yet implemented"),
+        Type::Color => {
+            let c = val.to_string(cx)?.value().parse::<css_color_parser2::Color>().or_else(|e| cx.throw_error(&e.to_string()))?;
+            Ok(Value::Color(sixtyfps_corelib::Color::from_argb_u8((c.a * 255.) as u8, c.r, c.g, c.b)))
+        }
+        Type::Array(_) => todo!("conversion to this type is not yet implemented"),
         Type::Resource => Ok(Value::String(val.to_string(cx)?.value().into())),
         Type::Bool => Ok(Value::Bool(val.downcast_or_throw::<JsBoolean, _>(cx)?.value())),
         Type::Object(o) => {
@@ -240,7 +244,11 @@ fn to_js_value<'cx>(
             }
             js_object.as_value(cx)
         }
-        Value::Color(c) => JsNumber::new(cx, c.as_argb_encoded()).as_value(cx),
+        Value::Color(c) => JsString::new(
+            cx,
+            &format!("#{:02x}{:02x}{:02x}{:02x}", c.alpha(), c.red(), c.green(), c.blue()),
+        )
+        .as_value(cx),
         Value::PathElements(_) => todo!(),
         Value::EasingCurve(_) => todo!(),
         Value::EnumerationValue(..) => todo!(),
