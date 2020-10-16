@@ -1,4 +1,4 @@
-# SixtyFPS
+# SixtyFPS  <!-- omit in toc -->
 
 [![Build Status](https://github.com/sixtyfpsui/sixtyfps/workflows/CI/badge.svg)](https://github.com/sixtyfpsui/sixtyfps/actions)
 
@@ -27,6 +27,20 @@ our [experimental online editor](https://sixtyfps.io/editor).
 
 We plan to support the development of this project through dual-licensing and services. We seek feedback
 from potential customers or users.
+
+## Table Of Contents  <!-- omit in toc -->
+
+- [Reference](#reference)
+- [Demos running in WebAssembly Simulation](#demos-running-in-webassembly-simulation)
+  - [Desktop native controls](#desktop-native-controls)
+- [The .60 Markup Language](#the-60-markup-language)
+- [Architecture](#architecture)
+  - [Compiler](#compiler)
+  - [Runtime](#runtime)
+- [Contributions](#contributions)
+- [License](#license)
+- [Frequently Asked Questions](#frequently-asked-questions)
+- [Contact us](#contact-us)
 
 ## Reference
 
