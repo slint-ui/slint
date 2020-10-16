@@ -94,8 +94,8 @@ FaxPage := Page {
             [ 1, 2, 3 ],
             [ 0, -1 ],
         ] : Rectangle {
-            width: parent.width;
-            height: (parent.height - 5*10px) / 4;
+            width: 100%;
+            height: 25% * (parent.height - 5*10px);
             y: r * (self.height + 10px) + 10px;
 
             for num[c] in row_model : Rectangle {
@@ -104,16 +104,16 @@ FaxPage := Page {
                 x: c * (self.width + 10px) + 10px;
                 color: key_area.pressed ? #566 : #555 ;
                 Text {
-                    height: parent.height;
-                    width: parent.width;
+                    width: 100%;
+                    height: 100%;
                     horizontal_alignment: align_center;
                     vertical_alignment: align_center;
                     color: white;
                     text: num >= 0 ? num : "⌫";
                 }
                 key_area := TouchArea {
-                    width: parent.width;
-                    height: parent.height;
+                    width: 100%;
+                    height: 100%;
                     clicked => {
                         if (num >= 0) {
                             fax_number *= 10;
@@ -266,7 +266,7 @@ TopPanel := Rectangle {
         text: "PrintMachine";
         color: active_page == 0 ? black : #0000;
         animate color { duration: 200ms; }
-        font_size: root.width / 20;
+        font_size: root.width * 5%;
         y: 5px;
         x: 40px;
     }
@@ -276,19 +276,19 @@ TopPanel := Rectangle {
         text: "2000";
         color: active_page == 0 ? #918e8c : #0000;
         animate color { duration: 200ms; }
-        font_size: root.width / 20;
+        font_size: root.width * 5%;
     }
 
     power_button := Image {
         x: parent.width - self.width - 20px;
         y: 5px;
         source: img!"images/power.png";
-        width: root.width / 20;
-        height: root.width / 20;
+        width: root.width * 5%;
+        height: self.width;
 
         TouchArea {
-            width: parent.width;
-            height: parent.height;
+            width: 100%;
+            height: 100%;
             clicked => {
                 root.quit();
             }
@@ -320,8 +320,8 @@ MainWindow := Window {
 
     panel := TopPanel {
         active_page: root.active_page;
-        width: root.width;
-        height: root.width / 20 + 10px;
+        width: 100%;
+        height: 5% * root.width + 10px;
         quit => { root.quit(); }
     }
 
@@ -351,8 +351,8 @@ MainWindow := Window {
         text := Text {
             y: root.height / 10;
             x: 5px;
-            width: parent.width;
-            height: parent.height;
+            width: 100%;
+            height: 100%;
             horizontal_alignment: align_center;
             vertical_alignment: align_center;
             text: page_info.text;
@@ -363,8 +363,8 @@ MainWindow := Window {
             }
         }
         touch := TouchArea {
-            width: parent.width;
-            height: parent.height;
+            width: 100%;
+            height: 100%;
             clicked => {
                 if (root.active_page == 0) {
                     root.active_page = idx + 1;
@@ -381,14 +381,14 @@ MainWindow := Window {
             active when root.active_page == idx + 1: {
                 x: 0phx;
                 y: 0phx;
-                height: root.height / 8;
+                height: root.height * 12.5%;
                 width: root.width;
                 border_radius: 0px;
-                img.x: root.height / 8;
-                img.width: root.height / 10;
-                img.height: root.height / 10;
+                img.x: root.height * 12.5%;
+                img.width: root.height * 10%;
+                img.height: root.height * 10%;
                 text.y: 0phx;
-                text.x: root.height / 4;
+                text.x: root.height * 25%;
                 //text.horizontal_alignment: align_left;
             }
             pressed when root.active_page == 0 && touch.pressed : {
@@ -410,9 +410,9 @@ MainWindow := Window {
     }
 
     if (root.active_page != 0) : Rectangle {
-        width: root.height / 8;
-        height: root.height / 8;
-        x: root.height /50;
+        width: 12.5%;
+        height: 12.5%;
+        x: root.height / 50;
         y: root.width / 100;
         Text {
              text: "←";
@@ -420,8 +420,8 @@ MainWindow := Window {
              font_size: root.height / 10;
         }
         TouchArea {
-            width: root.height / 8;
-            height: root.height / 8;
+            width: 100%;
+            height: 100%;
             clicked => { root.active_page = 0; }
         }
     }
@@ -478,7 +478,7 @@ MainWindow := Window {
 
     CopyPage {
         height: root.height - root.height / 8;
-        width: root.width;
+        width: 100%;
         y: root.height;
         states [
             active when root.active_page == 1: {
@@ -489,7 +489,7 @@ MainWindow := Window {
 
     FaxPage {
         height: root.height - root.height / 8;
-        width: root.width;
+        width: 100%;
         y: root.height;
         states [
             active when root.active_page == 2: {
@@ -500,7 +500,7 @@ MainWindow := Window {
 
     PrintPage {
         height: root.height - root.height / 8;
-        width: root.width;
+        width: 100%;
         y: root.height;
         states [
             active when root.active_page == 3: {
@@ -511,7 +511,7 @@ MainWindow := Window {
 
     SettingsPage {
         height: root.height - root.height / 8;
-        width: root.width;
+        width: 100%;
         y: root.height;
         states [
             active when root.active_page == 4: {
