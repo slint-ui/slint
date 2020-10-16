@@ -13,6 +13,12 @@ TestCase := Rectangle {
         property<length> my_length: 50%;
     }
     property<length> test_length: inner_rect.my_length;
+
+    property<percent> controller: 10%;
+    inner_rect_2 := Rectangle {
+        property<length> my_length: parent.controller;
+    }
+    property<length> controlled_test_length: inner_rect_2.my_length;
 }
 
 
@@ -21,6 +27,11 @@ TestCase := Rectangle {
 ```cpp
 TestCase instance;
 assert_eq(instance.get_test_length(), 100.);
+
+assert_eq(instance.get_controlled_test_length(), 20.);
+instance.set_controller(50);
+assert_eq(instance.get_controlled_test_length(), 100.);
+
 ```
 
 
@@ -28,11 +39,19 @@ assert_eq(instance.get_test_length(), 100.);
 let instance = TestCase::new();
 let instance = instance.as_ref();
 assert_eq!(instance.get_test_length(), 100.);
+
+assert_eq!(instance.get_controlled_test_length(), 20.);
+instance.set_controller(50.);
+assert_eq!(instance.get_controlled_test_length(), 100.);
 ```
 
 ```js
 var instance = new sixtyfps.TestCase({});
 assert.equal(instance.test_length, 100.);
+
+assert.equal(instance.controlled_test_length, 20.);
+instance.controller = 50.;
+assert.equal(instance.controlled_test_length, 100.);
 ```
 
 */

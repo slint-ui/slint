@@ -556,6 +556,7 @@ impl TypeRegister {
         insert_type(Type::Resource);
         insert_type(Type::Bool);
         insert_type(Type::Model);
+        insert_type(Type::Percent);
 
         let declare_enum = |name: &str, values: &[&str]| {
             Rc::new(Enumeration {

@@ -606,6 +606,7 @@ fn generate_component<'id>(
             Type::Component(ref c) if c.root_element.borrow().base_type == Type::Void => {
                 property_info::<eval::Value>()
             }
+            Type::Percent => property_info::<f32>(),
             _ => panic!("bad type"),
         };
         custom_properties.insert(
