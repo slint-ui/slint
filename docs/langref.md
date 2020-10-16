@@ -222,7 +222,7 @@ basically used as models for the `for` expression.
 ```60
 Example := Window {
     property<[int]> list_of_int: [1,2,3];
-    property<[{a: int, b: string]}> list_of_object: [{ a: 1, b: "hello" }, {a: 2, b: "world"}];
+    property<[{a: int, b: string}]> list_of_object: [{ a: 1, b: "hello" }, {a: 2, b: "world"}];
 }
 ```
 
