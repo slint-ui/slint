@@ -49,63 +49,66 @@ fn main() -> std::io::Result<()> {
     Ok(())
 }
 
+fn process_rust_file(source: String, mut file: impl Write) -> std::io::Result<()> {
+    let mut source_slice = &source[..];
+    let sixtyfps_macro = format!("{}!", "sixtyfps"); // in a variable so it does not appear as is
+    'l: while let Some(idx) = source_slice.find(&sixtyfps_macro) {
+        // Note: this code ignore string literal and unbalanced comment, but that should be good enough
+        let idx2 =
+            if let Some(idx2) = source_slice[idx..].find(|c| c == '{' || c == '(' || c == '[') {
+                idx2
+            } else {
+                break 'l;
+            };
+        let open = source_slice.as_bytes()[idx + idx2].into();
+        let close = match open {
+            '{' => '}',
+            '(' => ')',
+            '[' => ']',
+            _ => panic!(),
+        };
+        file.write_all(source_slice[..=idx + idx2].as_bytes())?;
+        source_slice = &source_slice[idx + idx2 + 1..];
+        let mut idx = 0;
+        let mut count = 1;
+        while count > 0 {
+            if let Some(idx2) = source_slice[idx..].find(|c| {
+                if c == open {
+                    count += 1;
+                    true
+                } else if c == close {
+                    count -= 1;
+                    true
+                } else {
+                    false
+                }
+            }) {
+                idx += idx2 + 1;
+            } else {
+                break 'l;
+            }
+        }
+        let code = &source_slice[..idx - 1];
+        source_slice = &source_slice[idx - 1..];
+
+        let (syntax_node, diag) = sixtyfps_compilerlib::parser::parse(code.to_owned(), None);
+        let len = syntax_node.node.text_range().end().into();
+        visit_node(syntax_node.node, &mut file, &mut State::default())?;
+        if diag.has_error() {
+            file.write_all(&code.as_bytes()[len..])?;
+            diag.print();
+        }
+    }
+    return file.write_all(source_slice.as_bytes());
+}
+
 fn process_file(
     source: String,
     path: std::path::PathBuf,
     mut file: impl Write,
 ) -> std::io::Result<()> {
     if path.extension().map(|x| x == "rs") == Some(true) {
-        let mut source_slice = &source[..];
-        let sixtyfps_macro = format!("{}!", "sixtyfps"); // in a variable so it does not appear as is
-        'l: while let Some(idx) = source_slice.find(&sixtyfps_macro) {
-            // Note: this code ignore string literal and unbalanced comment, but that should be good enough
-            let idx2 = if let Some(idx2) =
-                source_slice[idx..].find(|c| c == '{' || c == '(' || c == '[')
-            {
-                idx2
-            } else {
-                break 'l;
-            };
-            let open = source_slice.as_bytes()[idx + idx2].into();
-            let close = match open {
-                '{' => '}',
-                '(' => ')',
-                '[' => ']',
-                _ => panic!(),
-            };
-            file.write_all(source_slice[..=idx + idx2].as_bytes())?;
-            source_slice = &source_slice[idx + idx2 + 1..];
-            let mut idx = 0;
-            let mut count = 1;
-            while count > 0 {
-                if let Some(idx2) = source_slice[idx..].find(|c| {
-                    if c == open {
-                        count += 1;
-                        true
-                    } else if c == close {
-                        count -= 1;
-                        true
-                    } else {
-                        false
-                    }
-                }) {
-                    idx += idx2 + 1;
-                } else {
-                    break 'l;
-                }
-            }
-            let code = &source_slice[..idx - 1];
-            source_slice = &source_slice[idx - 1..];
-
-            let (syntax_node, diag) = sixtyfps_compilerlib::parser::parse(code.to_owned(), None);
-            let len = syntax_node.node.text_range().end().into();
-            visit_node(syntax_node.node, &mut file, &mut State::default())?;
-            if diag.has_error() {
-                file.write_all(&code.as_bytes()[len..])?;
-                diag.print();
-            }
-        }
-        return file.write_all(source_slice.as_bytes());
+        return process_rust_file(source, file);
     }
 
     let (syntax_node, diag) = sixtyfps_compilerlib::parser::parse(source.clone(), Some(&path));
