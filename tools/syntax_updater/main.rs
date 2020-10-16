@@ -17,6 +17,7 @@ LICENSE END */
 //! ````shell
 //! cargo run --bin syntax_updater -- -i  **/*.60
 //! cargo run --bin syntax_updater -- -i  **/*.rs
+//! cargo run --bin syntax_updater -- -i  **/*.md
 //! ````
 
 use sixtyfps_compilerlib::parser::{SyntaxKind, SyntaxNode, SyntaxNodeEx};
@@ -102,13 +103,43 @@ fn process_rust_file(source: String, mut file: impl Write) -> std::io::Result<()
     return file.write_all(source_slice.as_bytes());
 }
 
+fn process_markdown_file(source: String, mut file: impl Write) -> std::io::Result<()> {
+    let mut source_slice = &source[..];
+    const CODE_FENCE_START: &'static str = "```60\n";
+    const CODE_FENCE_END: &'static str = "```\n";
+    'l: while let Some(code_start) =
+        source_slice.find(CODE_FENCE_START).map(|idx| idx + CODE_FENCE_START.len())
+    {
+        let code_end = if let Some(code_end) = source_slice[code_start..].find(CODE_FENCE_END) {
+            code_end
+        } else {
+            break 'l;
+        };
+        file.write_all(source_slice[..=code_start - 1].as_bytes())?;
+        source_slice = &source_slice[code_start..];
+        let code = &source_slice[..code_end];
+        source_slice = &source_slice[code_end..];
+
+        let (syntax_node, diag) = sixtyfps_compilerlib::parser::parse(code.to_owned(), None);
+        let len = syntax_node.node.text_range().end().into();
+        visit_node(syntax_node.node, &mut file, &mut State::default())?;
+        if diag.has_error() {
+            file.write_all(&code.as_bytes()[len..])?;
+            diag.print();
+        }
+    }
+    return file.write_all(source_slice.as_bytes());
+}
+
 fn process_file(
     source: String,
     path: std::path::PathBuf,
     mut file: impl Write,
 ) -> std::io::Result<()> {
-    if path.extension().map(|x| x == "rs") == Some(true) {
-        return process_rust_file(source, file);
+    match path.extension() {
+        Some(ext) if ext == "rs" => return process_rust_file(source, file),
+        Some(ext) if ext == "md" => return process_markdown_file(source, file),
+        _ => {}
     }
 
     let (syntax_node, diag) = sixtyfps_compilerlib::parser::parse(source.clone(), Some(&path));
