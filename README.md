@@ -139,7 +139,7 @@ This software is provided under a dual licensing scheme:
 
 ## Frequently Asked Questions
 
-Please see our separate [FAQ.md](FAQ.md).
+Please see our separate [FAQ](FAQ.md).
 
 ## Contact us
 
