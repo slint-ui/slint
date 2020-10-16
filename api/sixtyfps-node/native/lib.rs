@@ -150,9 +150,27 @@ fn to_eval_value<'cx>(
             Ok(Value::Number(val.downcast_or_throw::<JsNumber, _>(cx)?.value()))
         }
         Type::String => Ok(Value::String(val.to_string(cx)?.value().into())),
-        Type::Color | Type::Array(_) | Type::Object(_) => todo!(),
+        Type::Color | Type::Array(_) => todo!("conversion to this type is not yet implemented"),
         Type::Resource => Ok(Value::String(val.to_string(cx)?.value().into())),
         Type::Bool => Ok(Value::Bool(val.downcast_or_throw::<JsBoolean, _>(cx)?.value())),
+        Type::Object(o) => {
+            let obj = val.downcast_or_throw::<JsObject, _>(cx)?;
+            Ok(Value::Object(
+                o
+                    .iter()
+                    .map(|(pro_name, pro_ty)| {
+                        Ok((
+                            pro_name.clone(),
+                            to_eval_value(
+                                obj.get(cx, pro_name.as_str())?,
+                                pro_ty.clone(),
+                                cx,
+                            )?,
+                        ))
+                    })
+                    .collect::<Result<_, _>>()?,
+            ))
+        }
         Type::Component(c) if c.root_element.borrow().base_type == Type::Void => {
             let obj = val.downcast_or_throw::<JsObject, _>(cx)?;
             Ok(Value::Object(

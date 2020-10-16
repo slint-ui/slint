@@ -33,6 +33,12 @@ assert_eq!(instance.get_foo_b(), 12);
 instance.emit_change_foo();
 assert_eq!(instance.get_foo_a(), sixtyfps::SharedString::from("hello"));
 assert_eq!(instance.get_foo_b(), 20);
+
+// This API to set with a tuple should maybe not be accessible?
+instance.set_foo(("yo".into(), 33));
+assert_eq!(instance.get_foo_a(), sixtyfps::SharedString::from("yo"));
+assert_eq!(instance.get_foo_b(), 33);
+
 ```
 
 ```cpp
@@ -42,6 +48,11 @@ assert_eq(instance.get_foo_b(), 12);
 instance.emit_change_foo();
 assert_eq(instance.get_foo_a(), sixtyfps::SharedString("hello"));
 assert_eq(instance.get_foo_b(), 20);
+
+// This API to set with a tuple should maybe not be accessible?
+instance.set_foo(std::make_tuple(sixtyfps::SharedString("yo"), 33));
+assert_eq(instance.get_foo_a(), sixtyfps::SharedString("yo"));
+assert_eq(instance.get_foo_b(), 33);
 ```
 
 
@@ -50,7 +61,11 @@ var instance = new sixtyfps.TestCase({});
 assert.equal(instance.foo_a, ("444"));
 assert.equal(instance.foo_b, 12);
 instance.change_foo();
-assert.equal(instance.foo_a, ("hello"));
+assert.equal(instance.foo_a, "hello");
 assert.equal(instance.foo_b, 20);
+
+instance.foo = { a: "yo", b: 33 };
+assert.equal(instance.foo_a, "yo");
+assert.equal(instance.foo_b, 33);
 ```
 */
