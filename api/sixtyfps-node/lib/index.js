@@ -18,7 +18,7 @@ function load_native_lib() {
     return module.exports;
 }
 
-const native = !process.env.SIXTYFPS_NODE_NATIVE_LIB ? require('../native/index.node') : load_native_lib();
+let native = !process.env.SIXTYFPS_NODE_NATIVE_LIB ? require('../native/index.node') : load_native_lib();
 
 require.extensions['.60'] =
     function (module, filename) {
@@ -46,5 +46,24 @@ require.extensions['.60'] =
             return ret;
         }
     }
+
+native.ArrayModel = function (arr) {
+    let a = arr || [];
+    return {
+        row_count() { return a.length; },
+        row_data(row) { return a[row]; },
+        set_row_data(row, data) { a[row] = data; this.notify.row_data_changed(row); },
+        push() {
+            let size = a.length;
+            Array.prototype.push.apply(a, arguments);
+            this.notify.row_added(size, arguments.length);
+        },
+        // FIXME: should this be named splice and hav ethe splice api?
+        remove(index, size) {
+            let r = a.splice(index, size);
+            this.notify.row_removed(size, arguments.length);
+        },
+    }
+};
 
 module.exports = native;

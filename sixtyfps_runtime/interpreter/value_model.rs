@@ -38,6 +38,7 @@ impl Model for ValueModel {
             Value::Number(x) => *x as usize,
             Value::Array(a) => a.len(),
             Value::Void => 0,
+            Value::Model(model_ptr) => model_ptr.row_count(),
             x => panic!("Invalid model {:?}", x),
         }
     }
@@ -47,11 +48,15 @@ impl Model for ValueModel {
             Value::Bool(_) => Value::Void,
             Value::Number(_) => Value::Number(row as _),
             Value::Array(a) => a[row].clone(),
+            Value::Model(model_ptr) => model_ptr.row_data(row),
             x => panic!("Invalid model {:?}", x),
         }
     }
 
     fn attach_peer(&self, peer: sixtyfps_corelib::model::ModelPeer) {
+        if let Value::Model(ref model_ptr) = *self.value.borrow() {
+            model_ptr.attach_peer(peer.clone())
+        }
         self.notify.attach(peer)
     }
 
@@ -61,6 +66,7 @@ impl Model for ValueModel {
                 a[row] = data;
                 self.notify.row_changed(row)
             }
+            Value::Model(model_ptr) => model_ptr.set_row_data(row, data),
             _ => println!("Value of model cannot be change"),
         }
     }

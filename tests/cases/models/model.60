@@ -154,8 +154,57 @@ assert_eq(instance.get_clicked_score(), 333000);
 assert_eq(instance.get_clicked_name(), "world");
 assert_eq(instance.get_clicked_internal_state(), 2);
 assert_eq(instance.get_clicked_index(), 1);
-
-
 ```
+
+```js
+var instance = new sixtyfps.TestCase({});
+
+// there should be nothing there
+instance.send_mouse_click(25., 5.);
+assert.equal(instance.clicked_score, 0);
+assert.equal(instance.clicked_internal_state, 0);
+
+instance.send_mouse_click(15., 5.);
+assert.equal(instance.clicked_score, 789000);
+assert.equal(instance.clicked_internal_state, 1);
+
+let another_model = new sixtyfpslib.ArrayModel([
+    {account: "a1", name: "hello", score: 111.},
+    {account: "a2", name: "cruel", score: 222.},
+    {account: "a3", name: "world", score: 333.},
+]);
+instance.model = another_model;
+
+instance.send_mouse_click(25., 5.);
+assert.equal(instance.clicked_score, 333000);
+assert.equal(instance.clicked_internal_state, 1);
+assert.equal(instance.clicked_index, 2);
+
+instance.send_mouse_click(15., 5.);
+assert.equal(instance.clicked_score, 222000);
+assert.equal(instance.clicked_name, "cruel");
+assert.equal(instance.clicked_internal_state, 1);
+
+another_model.push({account: "a4", name: "!", score: 444.});
+instance.send_mouse_click(35., 5.);
+assert.equal(instance.clicked_score, 444000);
+assert.equal(instance.clicked_name, "!");
+assert.equal(instance.clicked_internal_state, 1);
+
+another_model.set_row_data(1, {account: "a2", name: "idyllic", score: 555.});
+instance.send_mouse_click(15., 5.);
+assert.equal(instance.clicked_score, 555000);
+assert.equal(instance.clicked_name, "idyllic");
+assert.equal(instance.clicked_internal_state, 2);
+assert.equal(instance.clicked_index, 1);
+
+another_model.remove(1, 1);
+instance.send_mouse_click(15., 5.);
+assert.equal(instance.clicked_score, 333000);
+assert.equal(instance.clicked_name, "world");
+assert.equal(instance.clicked_internal_state, 2);
+assert.equal(instance.clicked_index, 1);
+```
+
 
 */

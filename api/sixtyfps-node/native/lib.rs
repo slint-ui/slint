@@ -14,25 +14,26 @@ use sixtyfps_corelib::Resource;
 
 use std::rc::Rc;
 
+mod js_model;
 mod persistent_context;
 
 struct WrappedComponentType(Option<Rc<sixtyfps_interpreter::ComponentDescription>>);
 struct WrappedComponentBox(Option<Rc<sixtyfps_interpreter::ComponentBox>>);
 
 /// We need to do some gymnastic with closures to pass the ExecuteContext with the right lifetime
-type GlobalContextCallback =
-    dyn for<'b> Fn(&mut ExecuteContext<'b>, &persistent_context::PersistentContext<'b>);
+type GlobalContextCallback<'c> =
+    dyn for<'b> Fn(&mut ExecuteContext<'b>, &persistent_context::PersistentContext<'b>) + 'c;
 scoped_tls_hkt::scoped_thread_local!(static GLOBAL_CONTEXT:
-    for <'a> &'a dyn Fn(&GlobalContextCallback));
+    for <'a> &'a dyn for<'c> Fn(&'c GlobalContextCallback<'c>));
 
 /// This function exists as a workaround so one can access the ExecuteContext from signal handler
 fn run_scoped<'cx, T>(
     cx: &mut impl Context<'cx>,
-    object_with_persistant_context: Handle<'cx, JsObject>,
+    object_with_persistent_context: Handle<'cx, JsObject>,
     functor: impl FnOnce() -> Result<T, String>,
 ) -> NeonResult<T> {
     let persistent_context =
-        persistent_context::PersistentContext::from_object(cx, object_with_persistant_context)?;
+        persistent_context::PersistentContext::from_object(cx, object_with_persistent_context)?;
     Ok(cx
         .execute_scoped(|cx| {
             let cx = RefCell::new(cx);
@@ -42,6 +43,10 @@ fn run_scoped<'cx, T>(
             GLOBAL_CONTEXT.set(&&cx_fn, functor)
         })
         .or_else(|e| cx.throw_error(e))?)
+}
+
+fn run_with_global_contect(f: &GlobalContextCallback) {
+    GLOBAL_CONTEXT.with(|cx_fn| cx_fn(f))
 }
 
 /// Load a .60 files.
@@ -106,26 +111,24 @@ fn create<'cx>(
                         prop_name.as_str(),
                         Box::new(move |args| {
                             let args = args.iter().cloned().collect::<Vec<_>>();
-                            GLOBAL_CONTEXT.with(move |cx_fn| {
-                                cx_fn(&move |cx, presistent_context| {
-                                    let args = args
-                                        .iter()
-                                        .map(|a| to_js_value(a.clone(), cx).unwrap())
-                                        .collect::<Vec<_>>();
-                                    presistent_context
-                                        .get(cx, fun_idx)
-                                        .unwrap()
-                                        .downcast::<JsFunction>()
-                                        .unwrap()
-                                        .call::<_, _, JsValue, _>(cx, JsUndefined::new(), args)
-                                        .unwrap();
-                                })
+                            run_with_global_contect(&move |cx, persistent_context| {
+                                let args = args
+                                    .iter()
+                                    .map(|a| to_js_value(a.clone(), cx).unwrap())
+                                    .collect::<Vec<_>>();
+                                persistent_context
+                                    .get(cx, fun_idx)
+                                    .unwrap()
+                                    .downcast::<JsFunction>()
+                                    .unwrap()
+                                    .call::<_, _, JsValue, _>(cx, JsUndefined::new(), args)
+                                    .unwrap();
                             })
                         }),
                     )
                     .or_else(|_| cx.throw_error(format!("Cannot set signal")))?;
             } else {
-                let value = to_eval_value(value, ty, cx)?;
+                let value = to_eval_value(value, ty, cx, &persistent_context)?;
                 component_type
                     .set_property(component.borrow(), prop_name.as_str(), value)
                     .or_else(|_| cx.throw_error(format!("Cannot assign property")))?;
@@ -140,9 +143,10 @@ fn create<'cx>(
 }
 
 fn to_eval_value<'cx>(
-    val: Handle<JsValue>,
+    val: Handle<'cx, JsValue>,
     ty: sixtyfps_compilerlib::typeregister::Type,
     cx: &mut impl Context<'cx>,
+    persistent_context: &persistent_context::PersistentContext<'cx>,
 ) -> NeonResult<sixtyfps_interpreter::Value> {
     use sixtyfps_interpreter::Value;
     match ty {
@@ -155,8 +159,20 @@ fn to_eval_value<'cx>(
             Ok(Value::Color(sixtyfps_corelib::Color::from_argb_u8((c.a * 255.) as u8, c.r, c.g, c.b)))
         }
         Type::Array(a) => {
-            let vec = val.downcast_or_throw::<JsArray, _>(cx)?.to_vec(cx)?;
-            Ok(Value::Array(vec.into_iter().map(|i| to_eval_value(i, (*a).clone(), cx)).collect::<Result<Vec<_>, _>>()?))
+            match val.downcast::<JsArray>() {
+                Ok(arr) => {
+                    let vec = arr.to_vec(cx)?;
+                    Ok(Value::Array(vec.into_iter().map(|i| to_eval_value(i, (*a).clone(), cx, persistent_context)).collect::<Result<Vec<_>, _>>()?))
+                }
+                Err(_) => {
+                    let obj = val.downcast_or_throw::<JsObject, _>(cx)?;
+                    obj.get(cx, "row_count")?.downcast_or_throw::<JsFunction, _>(cx)?;
+                    obj.get(cx, "row_data")?.downcast_or_throw::<JsFunction, _>(cx)?;
+                    let m = js_model::JsModel::new(obj, *a, cx, persistent_context)?;
+                    Ok(Value::Model(sixtyfps_interpreter::ModelPtr(m)))
+                }
+            }
+
         },
         Type::Resource => Ok(Value::String(val.to_string(cx)?.value().into())),
         Type::Bool => Ok(Value::Bool(val.downcast_or_throw::<JsBoolean, _>(cx)?.value())),
@@ -172,6 +188,7 @@ fn to_eval_value<'cx>(
                                 obj.get(cx, pro_name.as_str())?,
                                 pro_ty.clone(),
                                 cx,
+                                persistent_context
                             )?,
                         ))
                     })
@@ -192,6 +209,7 @@ fn to_eval_value<'cx>(
                                 obj.get(cx, pro_name.as_str())?,
                                 pro_decl.property_type.clone(),
                                 cx,
+                                persistent_context
                             )?,
                         ))
                     })
@@ -252,9 +270,10 @@ fn to_js_value<'cx>(
             &format!("#{:02x}{:02x}{:02x}{:02x}", c.alpha(), c.red(), c.green(), c.blue()),
         )
         .as_value(cx),
-        Value::PathElements(_) => todo!(),
-        Value::EasingCurve(_) => todo!(),
-        Value::EnumerationValue(..) => todo!(),
+        Value::PathElements(_)
+        | Value::EasingCurve(_)
+        | Value::EnumerationValue(..)
+        | Value::Model(_) => todo!("converting {:?} to js has not been implemented", val),
     })
 }
 
@@ -344,7 +363,10 @@ declare_types! {
                 })?
                 .clone();
 
-            let value = to_eval_value(cx.argument::<JsValue>(1)?, ty, &mut cx)?;
+            let persistent_context =
+                persistent_context::PersistentContext::from_object(&mut cx, this.downcast().unwrap())?;
+
+            let value = to_eval_value(cx.argument::<JsValue>(1)?, ty, &mut cx, &persistent_context)?;
             component.description()
                 .set_property(component.borrow(), prop_name.as_str(), value)
                 .or_else(|_| cx.throw_error(format!("Cannot assign property")))?;
@@ -364,9 +386,14 @@ declare_types! {
                     cx.throw_error(format!("Signal {} not found in the component", signal_name))
                 })?
                 .clone();
+            let persistent_context =
+                persistent_context::PersistentContext::from_object(&mut cx, this.downcast().unwrap())?;
             let args = if let Type::Signal {args} = ty {
                 let count = args.len();
-                let args = arguments.into_iter().zip(args.into_iter()).map(|(a, ty)| to_eval_value(a, ty, &mut cx)).collect::<Result<Vec<_>, _>>()?;
+                let args = arguments.into_iter()
+                    .zip(args.into_iter())
+                    .map(|(a, ty)| to_eval_value(a, ty, &mut cx, &persistent_context))
+                    .collect::<Result<Vec<_>, _>>()?;
                 if args.len() != count {
                     cx.throw_error(format!("{} expect {} arguments, but {} where provided", signal_name, count, args.len()))?;
                 }

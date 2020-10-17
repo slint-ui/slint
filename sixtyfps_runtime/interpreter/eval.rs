@@ -66,7 +66,23 @@ impl<Item: vtable::HasStaticVTable<corelib::items::ItemVTable>> ErasedPropertyIn
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+/// A Pointer to a model
+#[derive(Clone, derive_more::Deref, derive_more::From)]
+pub struct ModelPtr(pub Rc<dyn corelib::model::Model<Data = Value>>);
+
+impl core::fmt::Debug for ModelPtr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "<model object>")
+    }
+}
+
+impl PartialEq for ModelPtr {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.0, &other.0)
+    }
+}
+
+#[derive(Clone, PartialEq, Debug)]
 /// This is a dynamically typed Value used in the interpreter, it need to be able
 /// to be converted from and to anything that can be stored in a Property
 pub enum Value {
@@ -83,6 +99,8 @@ pub enum Value {
     Resource(Resource),
     /// An Array
     Array(Vec<Value>),
+    /// A more complex model which is not created by the interpreter itself
+    Model(ModelPtr),
     /// An object
     Object(HashMap<String, Value>),
     /// A color

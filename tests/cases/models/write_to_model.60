@@ -92,5 +92,26 @@ assert_eq(std::get<1>(another_model->row_data(2)), "world");
 ```
 
 
+```js
+var instance = new sixtyfps.TestCase({});
+instance.send_mouse_click(15., 5.);
+assert.equal(instance.clicked_score, 791);
+
+let another_model = new sixtyfpslib.ArrayModel([
+    {account: "a1", name: "hello", score: 111.},
+    {account: "a2", name: "cruel", score: 222.},
+    {account: "a3", name: "world", score: 333.},
+]);
+instance.model = another_model;
+
+instance.send_mouse_click(25., 5.);
+assert.equal(instance.clicked_score, 335);
+assert.equal(another_model.row_data(2).score, 335.);
+instance.send_mouse_click(25., 5.);
+assert.equal(instance.clicked_score, 337);
+assert.equal(another_model.row_data(2).score, 337.);
+assert.equal(another_model.row_data(2).name, "world");
+```
+
 
 */

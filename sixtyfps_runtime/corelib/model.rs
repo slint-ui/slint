@@ -25,6 +25,7 @@ use crate::Property;
 type ModelPeerInner = dyn ViewAbstraction;
 
 /// Represent a handle to a view that listen to change to a model. See [`Model::attach_peer`] and [`ModelNotify`]
+#[derive(Clone)]
 pub struct ModelPeer {
     inner: Weak<RefCell<ModelPeerInner>>,
 }

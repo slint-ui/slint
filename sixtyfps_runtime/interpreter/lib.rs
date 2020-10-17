@@ -20,7 +20,7 @@ mod dynamic_type;
 mod eval;
 mod value_model;
 
-pub use eval::Value;
+pub use eval::{ModelPtr, Value};
 
 use dynamic_component::InstanceRef;
 pub use sixtyfps_compilerlib::CompilerConfiguration;
