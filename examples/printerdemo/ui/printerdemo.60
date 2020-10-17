@@ -298,7 +298,7 @@ TopPanel := Rectangle {
 
 export InkLevel := {
     property<color> color;
-    property<float> level;
+    property<percent> level;
 }
 
 MainWindow := Window {
