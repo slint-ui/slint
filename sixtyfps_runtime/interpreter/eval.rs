@@ -360,6 +360,7 @@ pub fn eval_expression(
             let rhs = eval_expression(&**rhs, component, local_context);
 
             match (op, lhs, rhs) {
+                ('+', Value::String(mut a), Value::String(b)) => { a.push_str(b.as_str()); Value::String(a) },
                 ('+', Value::Number(a), Value::Number(b)) => Value::Number(a + b),
                 ('-', Value::Number(a), Value::Number(b)) => Value::Number(a - b),
                 ('/', Value::Number(a), Value::Number(b)) => Value::Number(a / b),
@@ -436,6 +437,10 @@ fn eval_assignement(
     local_context: &mut EvalLocalContext,
 ) {
     let eval = |lhs| match (lhs, &rhs, op) {
+        (Value::String(ref mut a), Value::String(b), '+') => {
+            a.push_str(b.as_str());
+            Value::String(a.clone())
+        }
         (Value::Number(a), Value::Number(b), '+') => Value::Number(a + b),
         (Value::Number(a), Value::Number(b), '-') => Value::Number(a - b),
         (Value::Number(a), Value::Number(b), '/') => Value::Number(a / b),

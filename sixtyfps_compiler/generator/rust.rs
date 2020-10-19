@@ -1071,8 +1071,12 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
             compile_assignment(lhs, *op, rhs, component)
         }
         Expression::BinaryExpression { lhs, rhs, op } => {
-            let conv = match crate::expression_tree::operator_class(*op) {
-                OperatorClass::ArithmeticOp => Some(quote!(as f64)),
+            let (conv1, conv2) = match crate::expression_tree::operator_class(*op) {
+                OperatorClass::ArithmeticOp => if lhs.ty() == Type::String {
+                    (None, Some(quote!(.as_str())))
+                } else {
+                    (Some(quote!(as f64)), Some(quote!(as f64)))
+                },
                 OperatorClass::ComparisonOp
                     if matches!(
                         lhs.ty(),
@@ -1083,9 +1087,9 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                             | Type::LogicalLength
                     ) =>
                 {
-                    Some(quote!(as f64))
+                    (Some(quote!(as f64)), Some(quote!(as f64)))
                 }
-                _ => None,
+                _ => (None, None),
             };
             let lhs = compile_expression(&*lhs, &component);
             let rhs = compile_expression(&*rhs, &component);
@@ -1103,7 +1107,7 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                 ))
                 .into(),
             };
-            quote!( ((#lhs #conv ) #op (#rhs #conv )) )
+            quote!( ((#lhs #conv1 ) #op (#rhs #conv2)) )
         }
         Expression::UnaryOp { sub, op } => {
             let sub = compile_expression(&*sub, &component);
@@ -1193,12 +1197,16 @@ fn compile_assignment(
 ) -> TokenStream {
     match lhs {
         Expression::PropertyReference(nr) => {
-            let lhs = access_named_reference(nr, component, quote!(_self));
+            let lhs_ = access_named_reference(nr, component, quote!(_self));
             if op == '=' {
-                quote!( #lhs.set((#rhs) as _) )
+                quote!( #lhs_.set((#rhs) as _) )
             } else {
                 let op = proc_macro2::Punct::new(op, proc_macro2::Spacing::Alone);
-                quote!( #lhs.set(((#lhs.get() as f64) #op (#rhs as f64)) as _) )
+                if lhs.ty() == Type::String {
+                    quote!( #lhs_.set(#lhs_.get() #op #rhs.as_str()) )
+                } else {
+                    quote!( #lhs_.set(((#lhs_.get() as f64) #op (#rhs as f64)) as _) )
+                }
             }
         }
         Expression::ObjectAccess { base, name } => {
@@ -1220,6 +1228,18 @@ fn compile_assignment(
                 }
                 _ => panic!("Expression::ObjectAccess's base expression is not an Object type"),
             };
+
+            let conv = if member_ty == Type::String {
+                if op == '=' {
+                    quote!()
+                } else {
+                    quote!(.as_str())
+                }
+            } else {
+                let member_ty = rust_type(&member_ty, &Default::default()).unwrap_or_default();
+                quote!(as #member_ty)
+            };
+
             let op = match op {
                 '+' => quote!(+=),
                 '*' => quote!(*=),
@@ -1229,11 +1249,9 @@ fn compile_assignment(
                 _ => panic!("Unkown assignment op {:?}", op),
             };
 
-            let member_ty = rust_type(&member_ty, &Default::default()).unwrap_or_default();
-
             let new_value = quote!({
                let mut #tmpobj = #get_obj;
-               #tmpobj.#member #op (#rhs as #member_ty);
+               #tmpobj.#member #op (#rhs #conv);
                #tmpobj
             });
             compile_assignment(base, '=', new_value, component)
@@ -1268,7 +1286,11 @@ fn compile_assignment(
             } else {
                 let op = proc_macro2::Punct::new(op, proc_macro2::Spacing::Alone);
                 let old_data = compile_expression(lhs, component);
-                quote!(#repeater_access.model_set_row_data(#index_access.get(), ((#old_data as f64) #op (#rhs as f64)) as _))
+                if lhs.ty() == Type::String {
+                    quote!(#repeater_access.model_set_row_data(#index_access.get(), #old_data #op &#rhs))
+                } else {
+                    quote!(#repeater_access.model_set_row_data(#index_access.get(), ((#old_data as f64) #op (#rhs as f64)) as _))
+                }
             }
         }
         _ => panic!("typechecking should make sure this was a PropertyReference"),

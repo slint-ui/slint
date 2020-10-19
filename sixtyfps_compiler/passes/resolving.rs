@@ -659,6 +659,9 @@ impl Expression {
                 macro_rules! unit_operations {
                     ($($unit:ident)*) => {
                         match (op, lhs.ty(), rhs.ty()) {
+                            ('+', Type::String, _) => Type::String,
+                            ('+', _, Type::String) => Type::String,
+
                             $(
                                 ('+', Type::$unit, _) => Type::$unit,
                                 ('-', Type::$unit, _) => Type::$unit,

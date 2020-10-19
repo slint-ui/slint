@@ -111,6 +111,19 @@ struct SharedString
         return stream << std::string_view(shared_string);
     }
 
+    friend SharedString operator+(const SharedString &a, std::string_view b) {
+        SharedString a2 = a;
+        return a2 += b;
+    }
+    friend SharedString operator+(SharedString &&a, std::string_view b) {
+        a += b;
+        return a;
+    }
+    SharedString &operator+=(std::string_view other) {
+        cbindgen_private::sixtyfps_shared_string_append(this, other.data(), other.size());
+        return *this;
+    }
+
 private:
     /// Use SharedString::from_number
     explicit SharedString(double n)

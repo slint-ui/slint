@@ -390,6 +390,7 @@ impl Expression {
                                     ('/', Type::$unit, Type::$unit) => Type::Float32,
                                     ('/', Type::$unit, _) => Type::$unit,
                                 )*
+                                ('+', Type::String, Type::String) => Type::String,
                                 _ => Type::Float32,
                             }
                         }

@@ -264,6 +264,20 @@ impl Into<String> for SharedString {
     }
 }
 
+impl core::ops::AddAssign<&str> for SharedString {
+    fn add_assign(&mut self, other: &str) {
+        self.push_str(other);
+    }
+}
+
+impl core::ops::Add<&str> for SharedString {
+    type Output = SharedString;
+    fn add(mut self, other: &str) -> SharedString {
+        self.push_str(other);
+        self
+    }
+}
+
 #[test]
 fn simple_test() {
     let x = SharedString::from("hello world!");
@@ -321,7 +335,7 @@ pub(crate) mod ffi {
         bytes: *const c_char,
         len: usize,
     ) {
-        let str = core::str::from_utf8_unchecked(core::slice::from_raw_parts(bytes, len));
+        let str = core::str::from_utf8(core::slice::from_raw_parts(bytes, len)).unwrap();
         core::ptr::write(out, SharedString::from(str));
     }
 
@@ -333,27 +347,50 @@ pub(crate) mod ffi {
         let str = format!("{}", n);
         core::ptr::write(out, SharedString::from(str.as_str()));
     }
-}
 
-#[test]
-fn test_sixtyfps_shared_string_from_number() {
-    use ffi::*;
+    #[test]
+    fn test_sixtyfps_shared_string_from_number() {
+        unsafe {
+            let mut s = core::mem::MaybeUninit::uninit();
+            sixtyfps_shared_string_from_number(s.as_mut_ptr(), 45.);
+            assert_eq!(s.assume_init(), "45");
 
-    unsafe {
-        let mut s = core::mem::MaybeUninit::uninit();
-        sixtyfps_shared_string_from_number(s.as_mut_ptr(), 45.);
-        assert_eq!(s.assume_init(), "45");
+            let mut s = core::mem::MaybeUninit::uninit();
+            sixtyfps_shared_string_from_number(s.as_mut_ptr(), 45.12);
+            assert_eq!(s.assume_init(), "45.12");
 
-        let mut s = core::mem::MaybeUninit::uninit();
-        sixtyfps_shared_string_from_number(s.as_mut_ptr(), 45.12);
-        assert_eq!(s.assume_init(), "45.12");
+            let mut s = core::mem::MaybeUninit::uninit();
+            sixtyfps_shared_string_from_number(s.as_mut_ptr(), -1325466.);
+            assert_eq!(s.assume_init(), "-1325466");
 
-        let mut s = core::mem::MaybeUninit::uninit();
-        sixtyfps_shared_string_from_number(s.as_mut_ptr(), -1325466.);
-        assert_eq!(s.assume_init(), "-1325466");
+            let mut s = core::mem::MaybeUninit::uninit();
+            sixtyfps_shared_string_from_number(s.as_mut_ptr(), -0.);
+            assert_eq!(s.assume_init(), "0");
+        }
+    }
 
-        let mut s = core::mem::MaybeUninit::uninit();
-        sixtyfps_shared_string_from_number(s.as_mut_ptr(), -0.);
-        assert_eq!(s.assume_init(), "0");
+    /// Append some bytes to an existing shared string
+    ///
+    /// bytes must be a valid utf8 array of size `len`, without null bytes inside
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_shared_string_append(
+        self_: &mut SharedString,
+        bytes: *const c_char,
+        len: usize,
+    ) {
+        let str = core::str::from_utf8(core::slice::from_raw_parts(bytes, len)).unwrap();
+        self_.push_str(str);
+    }
+    #[test]
+    fn test_sixtyfps_shared_string_append() {
+        let mut s = SharedString::default();
+        let mut append = |x: &str| unsafe {
+            sixtyfps_shared_string_append(&mut s, x.as_bytes().as_ptr(), x.len());
+        };
+        append("Hello");
+        append(", ");
+        append("world");
+        append("!");
+        assert_eq!(s.as_str(), "Hello, world!");
     }
 }
