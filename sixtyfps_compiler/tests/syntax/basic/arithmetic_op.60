@@ -30,7 +30,7 @@ SuperSimple := Rectangle {
     property<int> p8: 1 - "hello" - 1;
 //                       ^error{Cannot convert string to float}
 
-    property<int> p9: 1 + "hello" + 1;
+    property<string> p9: 1 + "hello" + 1;
     property<int> p10: "hello" + 1ms;
 //                              ^error{Cannot convert duration to string}
 }
