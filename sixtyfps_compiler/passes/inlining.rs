@@ -103,14 +103,14 @@ fn inline_element(
 
     elem_mut.children = new_children;
 
-    elem_mut.bindings.extend(
-        inlined_component
-            .root_element
-            .borrow()
-            .bindings
-            .iter()
-            .map(|(k, val)| (k.clone(), val.clone())),
-    );
+    for (k, val) in inlined_component.root_element.borrow().bindings.iter() {
+        match elem_mut.bindings.entry(k.clone()) {
+            std::collections::hash_map::Entry::Vacant(entry) => {
+                entry.insert(val.clone());
+            }
+            std::collections::hash_map::Entry::Occupied(_) => {}
+        }
+    }
 
     core::mem::drop(elem_mut);
 
