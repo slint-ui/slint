@@ -600,7 +600,7 @@ impl Expression {
         diag: &mut BuildDiagnostics,
     ) -> Expression {
         let ty = self.ty();
-        if ty == target_type {
+        if ty == target_type || target_type == Type::Void || target_type == Type::Invalid {
             self
         } else if ty.can_convert(&target_type) {
             let from = match (ty, &target_type) {

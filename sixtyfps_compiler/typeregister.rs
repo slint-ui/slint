@@ -308,7 +308,9 @@ impl Type {
 
         match (self, other) {
             (a, b) if a == b => true,
-            (Type::Float32, Type::Int32)
+            (_, Type::Invalid)
+            | (_, Type::Void)
+            | (Type::Float32, Type::Int32)
             | (Type::Float32, Type::String)
             | (Type::Int32, Type::Float32)
             | (Type::Int32, Type::String)

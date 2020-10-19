@@ -23,6 +23,19 @@ TestCase := Rectangle {
             result += 33;
         }
     }
+
+    signal xxx;
+    xxx => {
+        if (false) {
+            action();
+        }
+
+        if (true) {
+            result -=1;
+        } else {
+            action();
+        }
+    }
 }
 /*
 ```cpp
@@ -35,6 +48,8 @@ assert_eq(instance.get_result(), 5);
 instance.set_value(8);
 instance.emit_action();
 assert_eq(instance.get_result(), 5+33);
+instance.emit_xxx();
+assert_eq(instance.get_result(), 5+33-1);
 ```
 
 
@@ -49,6 +64,8 @@ assert_eq!(instance.get_result(), 5);
 instance.set_value(8);
 instance.emit_action();
 assert_eq!(instance.get_result(), 5+33);
+instance.emit_xxx();
+assert_eq!(instance.get_result(), 5+33-1);
 ```
 
 ```js
@@ -61,5 +78,7 @@ assert.equal(instance.result, 5);
 instance.value = 8;
 instance.action();
 assert.equal(instance.result, 5+33);
+instance.xxx();
+assert.equal(instance.result, 5+33-1);
 ```
 */
