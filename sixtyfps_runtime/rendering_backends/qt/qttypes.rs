@@ -7,8 +7,11 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
+
 //! Wrapper around some most important types
 //! Some of it is actually copied from the qmetaobject crate
+
+#![allow(dead_code)]
 use cpp::{cpp, cpp_class};
 
 cpp! {{

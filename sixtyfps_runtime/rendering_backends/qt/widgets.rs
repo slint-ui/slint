@@ -40,17 +40,6 @@ macro_rules! get_size {
     }};
 }
 
-fn to_resource(image: qttypes::QImage) -> Resource {
-    let size = image.size();
-    // Safety: an slice of u8 can be converted to an slice of u32
-    let data = unsafe { image.data().align_to::<u32>().1 };
-    Resource::EmbeddedRgbaImage {
-        width: size.width,
-        height: size.height,
-        data: SharedArray::from_slice(data),
-    }
-}
-
 struct QImageWrapArray {
     /// The image reference the array, so the array must outlive the image without being detached or accessed
     img: qttypes::QImage,
@@ -98,15 +87,6 @@ cpp! {{
         }();
     }
 
-    std::tuple<QImage, QRect> offline_style_rendering_image(QSize size, float dpr)
-    {
-        ensure_initialized();
-        QImage img(size, QImage::Format_ARGB32_Premultiplied);
-        img.setDevicePixelRatio(dpr);
-        img.fill(Qt::transparent);
-        return std::make_tuple(img, QRect(0, 0, size.width() / dpr, size.height() / dpr));
-    }
-
     QWidget *global_widget()
     {
 #if defined(Q_WS_MAC)
@@ -152,23 +132,25 @@ impl Item for NativeButton {
         let size: qttypes::QSize = get_size!(self);
         let dpr = window.scale_factor();
 
-        let img = cpp!(unsafe [
+        let mut imgarray = QImageWrapArray::new(size, dpr);
+        let img = &mut imgarray.img;
+
+        cpp!(unsafe [
+            img as "QImage*",
             text as "QString",
             size as "QSize",
             down as "bool",
             dpr as "float"
-        ] -> qttypes::QImage as "QImage" {
-            auto [img, rect] = offline_style_rendering_image(size, dpr);
-            QPainter p(&img);
+        ] {
+            QPainter p(img);
             QStyleOptionButton option;
             option.text = std::move(text);
-            option.rect = rect;
+            option.rect = QRect(QPoint(), size / dpr);
             if (down)
                 option.state |= QStyle::State_Sunken;
             qApp->style()->drawControl(QStyle::CE_PushButton, &option, &p, global_widget());
-            return img;
         });
-        return HighLevelRenderingPrimitive::Image { source: to_resource(img) };
+        return HighLevelRenderingPrimitive::Image { source: imgarray.to_resource() };
     }
 
     fn rendering_variables(
@@ -273,22 +255,24 @@ impl Item for NativeCheckBox {
         let size: qttypes::QSize = get_size!(self);
         let dpr = window.scale_factor();
 
-        let img = cpp!(unsafe [
+        let mut imgarray = QImageWrapArray::new(size, dpr);
+        let img = &mut imgarray.img;
+
+        cpp!(unsafe [
+            img as "QImage*",
             text as "QString",
             size as "QSize",
             checked as "bool",
             dpr as "float"
-        ] -> qttypes::QImage as "QImage" {
-            auto [img, rect] = offline_style_rendering_image(size, dpr);
-            QPainter p(&img);
+        ] {
+            QPainter p(img);
             QStyleOptionButton option;
             option.text = std::move(text);
-            option.rect = rect;
+            option.rect = QRect(QPoint(), size / dpr);
             option.state |= checked ? QStyle::State_On : QStyle::State_Off;
             qApp->style()->drawControl(QStyle::CE_CheckBox, &option, &p, global_widget());
-            return img;
         });
-        return HighLevelRenderingPrimitive::Image { source: to_resource(img) };
+        return HighLevelRenderingPrimitive::Image { source: imgarray.to_resource() };
     }
 
     fn rendering_variables(
@@ -411,26 +395,27 @@ impl Item for NativeSpinBox {
         let active_controls = data.active_controls;
         let pressed = data.pressed;
 
-        let img = cpp!(unsafe [
+        let mut imgarray = QImageWrapArray::new(size, dpr);
+        let img = &mut imgarray.img;
+        cpp!(unsafe [
+            img as "QImage*",
             value as "int",
             size as "QSize",
             active_controls as "int",
             pressed as "bool",
             dpr as "float"
-        ] -> qttypes::QImage as "QImage" {
-            auto [img, rect] = offline_style_rendering_image(size, dpr);
-            QPainter p(&img);
+        ] {
+            QPainter p(img);
             auto style = qApp->style();
             QStyleOptionSpinBox option;
-            option.rect = rect;
+            option.rect = QRect(QPoint(), size / dpr);
             initQSpinBoxOptions(option, pressed, active_controls);
             style->drawComplexControl(QStyle::CC_SpinBox, &option, &p, nullptr);
 
             auto text_rect = style->subControlRect(QStyle::CC_SpinBox, &option, QStyle::SC_SpinBoxEditField, global_widget());
             p.drawText(text_rect, QString::number(value));
-            return img;
         });
-        return HighLevelRenderingPrimitive::Image { source: to_resource(img) };
+        return HighLevelRenderingPrimitive::Image { source: imgarray.to_resource() };
     }
 
     fn rendering_variables(
@@ -606,7 +591,11 @@ impl Item for NativeSlider {
         let active_controls = data.active_controls;
         let pressed = data.pressed;
 
-        let img = cpp!(unsafe [
+        let mut imgarray = QImageWrapArray::new(size, dpr);
+        let img = &mut imgarray.img;
+
+        cpp!(unsafe [
+            img as "QImage*",
             value as "int",
             min as "int",
             max as "int",
@@ -614,17 +603,15 @@ impl Item for NativeSlider {
             active_controls as "int",
             pressed as "bool",
             dpr as "float"
-        ] -> qttypes::QImage as "QImage" {
-            auto [img, rect] = offline_style_rendering_image(size, dpr);
-            QPainter p(&img);
+        ] {
+            QPainter p(img);
             QStyleOptionSlider option;
-            option.rect = rect;
+            option.rect = QRect(QPoint(), size / dpr);
             initQSliderOptions(option, pressed, active_controls, min, max, value);
             auto style = qApp->style();
             style->drawComplexControl(QStyle::CC_Slider, &option, &p, global_widget());
-            return img;
         });
-        return HighLevelRenderingPrimitive::Image { source: to_resource(img) };
+        return HighLevelRenderingPrimitive::Image { source: imgarray.to_resource() };
     }
 
     fn rendering_variables(
@@ -870,15 +857,18 @@ impl Item for NativeGroupBox {
         let size: qttypes::QSize = get_size!(self);
         let dpr = window.scale_factor();
 
-        let img = cpp!(unsafe [
+        let mut imgarray = QImageWrapArray::new(size, dpr);
+        let img = &mut imgarray.img;
+
+        cpp!(unsafe [
+            img as "QImage*",
             text as "QString",
             size as "QSize",
             dpr as "float"
-        ] -> qttypes::QImage as "QImage" {
-            auto [img, rect] = offline_style_rendering_image(size, dpr);
-            QPainter p(&img);
+        ] {
+            QPainter p(img);
             QStyleOptionGroupBox option;
-            option.rect = rect;
+            option.rect = QRect(QPoint(), size / dpr);
             option.text = text;
             option.lineWidth = 1;
             option.midLineWidth = 0;
@@ -889,9 +879,8 @@ impl Item for NativeGroupBox {
             option.textColor = QColor(qApp->style()->styleHint(
                 QStyle::SH_GroupBox_TextLabelColor, &option));
             qApp->style()->drawComplexControl(QStyle::CC_GroupBox, &option, &p, global_widget());
-            return img;
         });
-        return HighLevelRenderingPrimitive::Image { source: to_resource(img) };
+        return HighLevelRenderingPrimitive::Image { source: imgarray.to_resource() };
     }
 
     fn rendering_variables(
@@ -1014,23 +1003,25 @@ impl Item for NativeLineEdit {
         let dpr = window.scale_factor();
         let focused = Self::FIELD_OFFSETS.focused.apply_pin(self).get();
 
-        let img = cpp!(unsafe [
+        let mut imgarray = QImageWrapArray::new(size, dpr);
+        let img = &mut imgarray.img;
+
+        cpp!(unsafe [
+            img as "QImage*",
             size as "QSize",
             dpr as "float",
             focused as "bool"
-        ] -> qttypes::QImage as "QImage" {
-            auto [img, rect] = offline_style_rendering_image(size, dpr);
-            QPainter p(&img);
+        ] {
+            QPainter p(img);
             QStyleOptionFrame option;
-            option.rect = rect;
+            option.rect = QRect(QPoint(), size / dpr);
             option.lineWidth = 1;
             option.midLineWidth = 0;
             if (focused)
                 option.state |= QStyle::State_HasFocus;
             qApp->style()->drawPrimitive(QStyle::PE_PanelLineEdit, &option, &p, global_widget());
-            return img;
         });
-        return HighLevelRenderingPrimitive::Image { source: to_resource(img) };
+        return HighLevelRenderingPrimitive::Image { source: imgarray.to_resource() };
     }
 
     fn rendering_variables(
@@ -1473,17 +1464,20 @@ impl Item for NativeStandardListViewItem {
         let item = Self::FIELD_OFFSETS.item.apply_pin(self).get();
         let text: qttypes::QString = item.text.as_str().into();
 
-        let img = cpp!(unsafe [
+        let mut imgarray = QImageWrapArray::new(size, dpr);
+        let img = &mut imgarray.img;
+
+        cpp!(unsafe [
+            img as "QImage*",
             size as "QSize",
             dpr as "float",
             index as "int",
             is_selected as "bool",
             text as "QString"
-        ] -> qttypes::QImage as "QImage" {
-            auto [img, rect] = offline_style_rendering_image(size, dpr);
-            QPainter p(&img);
+        ] {
+            QPainter p(img);
             QStyleOptionViewItem option;
-            option.rect = rect;
+            option.rect = QRect(QPoint(), size / dpr);
             option.state = QStyle::State_Enabled | QStyle::State_Active;
             if (is_selected) {
                 option.state |= QStyle::State_Selected;
@@ -1499,9 +1493,8 @@ impl Item for NativeStandardListViewItem {
             option.text = text;
             qApp->style()->drawPrimitive(QStyle::PE_PanelItemViewRow, &option, &p, global_widget());
             qApp->style()->drawControl(QStyle::CE_ItemViewItem, &option, &p, global_widget());
-            return img;
         });
-        return HighLevelRenderingPrimitive::Image { source: to_resource(img) };
+        return HighLevelRenderingPrimitive::Image { source: imgarray.to_resource() };
     }
 
     fn rendering_variables(
