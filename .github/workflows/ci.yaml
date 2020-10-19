@@ -48,13 +48,16 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v1
       with:
-        node-version: '12' # Make sure to bump the version in the cache key below
+        node-version: '12'
+    - id: nodeversion
+      run: |
+          echo "::set-output name=node-version::$(node --version)"
     - name: Cache native node libraries
       uses: actions/cache@v2
       if: matrix.os == 'windows-latest'
       with:
         path: ~/node-gyp/cache
-        key: ${{ runner.os }}-${{ github.job }}-12
+        key: ${{ runner.os }}-${{ github.job }}-${{ steps.nodeversion.outputs.node-version }}
     - name: Ensure node-gyp cache is populated
       if: matrix.os == 'windows-latest'
       run: |
@@ -81,7 +84,7 @@ jobs:
       uses: actions/cache@v2
       with:
         path: target
-        key: ${{ runner.os }}-${{ github.job }}-cargo-build-target-${{ hashFiles('**/Cargo.toml') }}
+        key: ${{ runner.os }}-${{ github.job }}-cargo-build-target-${{ hashFiles('**/Cargo.toml') }}-${{ steps.nodeversion.outputs.node-version }}
     - name: Install latest stable
       uses: actions-rs/toolchain@v1
       with:
@@ -228,6 +231,19 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
+    - name: Setup Node.js
+      uses: actions/setup-node@v1
+      with:
+        node-version: '12'
+    - id: nodeversion
+      run: |
+          echo "::set-output name=node-version::$(node --version)"
+    - name: Cache native node libraries
+      uses: actions/cache@v2
+      if: matrix.os == 'windows-latest'
+      with:
+        path: ~/node-gyp/cache
+        key: ${{ runner.os }}-${{ github.job }}-${{ steps.nodeversion.outputs.node-version }}
     - name: Cache cargo registry
       uses: actions/cache@v2
       with:
@@ -248,7 +264,7 @@ jobs:
       uses: actions/cache@v2
       with:
         path: target
-        key: ${{ runner.os }}-${{ github.job }}-cargo-build-target-${{ hashFiles('**/Cargo.toml') }}
+        key: ${{ runner.os }}-${{ github.job }}-cargo-build-target-${{ hashFiles('**/Cargo.toml') }}-${{ steps.nodeversion.outputs.node-version }}
     - name: Install latest stable
       uses: actions-rs/toolchain@v1
       with:
@@ -258,16 +274,6 @@ jobs:
           target: wasm32-unknown-unknown
     - name: Install wasm-pack
       run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-    - name: Setup Node.js
-      uses: actions/setup-node@v1
-      with:
-        node-version: '12' # Make sure to bump the version in the cache key below
-    - name: Cache native node libraries
-      uses: actions/cache@v2
-      if: matrix.os == 'windows-latest'
-      with:
-        path: ~/node-gyp/cache
-        key: ${{ runner.os }}-${{ github.job }}-12
     - name: Compile sixtyfps-wasm-interpreter
       run: wasm-pack build --release --target web -- --features console_error_panic_hook
       working-directory: api/sixtyfps-wasm-interpreter
