@@ -32,7 +32,7 @@ from potential customers or users.
 
 - [Reference](#reference)
 - [Demos running in WebAssembly Simulation](#demos-running-in-webassembly-simulation)
-  - [Desktop native controls](#desktop-native-controls)
+- [Desktop Native Widgets](#desktop-native-widgets)
 - [The .60 Markup Language](#the-60-markup-language)
 - [Architecture](#architecture)
   - [Compiler](#compiler)
@@ -61,7 +61,7 @@ Click on the screenshots to run the WebAssembly simulation
 |--------------|----------------|
 | [![Screenshot of the Printer Demo](resources/printerdemo_screenshot.png "Printer Demo")](https://www.sixtyfps.io/demos/printerdemo/) | [![Screenshot of the Gallery Demo](resources/gallery_screenshot.png "Gallery Demo")](https://www.sixtyfps.io/demos/gallery/) |
 
-### Desktop native controls
+## Desktop Native Widgets
 
 | Windows | macOS | Linux |
 |---------|-------|-------|
