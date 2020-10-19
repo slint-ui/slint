@@ -1274,13 +1274,23 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
             let cond_code = compile_expression(condition, component);
             let true_code = compile_expression(true_expr, component);
             let false_code = compile_expression(false_expr, component);
-            format!(
-                r#"[&]() -> {} {{ if ({}) {{ return {}; }} else {{ return {}; }}}}()"#,
-                e.ty().cpp_type().unwrap(),
-                cond_code,
-                true_code,
-                false_code
-            )
+            let ty = e.ty();
+            if ty == Type::Invalid || ty == Type::Void {
+                format!(
+                    r#"[&]() {{ if ({}) {{ {}; }} else {{ {}; }}}}()"#,
+                    cond_code,
+                    true_code,
+                    false_code
+                )
+            } else {
+                format!(
+                    r#"[&]() -> {} {{ if ({}) {{ return {}; }} else {{ return {}; }}}}()"#,
+                    ty.cpp_type().unwrap(),
+                    cond_code,
+                    true_code,
+                    false_code
+                )
+            }
         }
         Expression::Array { element_ty, values } => {
             let ty = element_ty.cpp_type().unwrap_or_else(|| "FIXME: report error".to_owned());
