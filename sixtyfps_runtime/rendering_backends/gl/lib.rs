@@ -494,10 +494,10 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                             )]
                         }
                         Resource::EmbeddedRgbaImage { width, height, data } => {
+                            // Safety: a slice of u32 can be transmuted to a slice of u8
+                            let slice = unsafe { data.as_slice().align_to().1 };
                             let image = image::ImageBuffer::<image::Rgba<u8>, &[u8]>::from_raw(
-                                *width,
-                                *height,
-                                data.as_slice(),
+                                *width, *height, slice,
                             )
                             .unwrap();
                             smallvec![GLRenderingPrimitivesBuilder::create_image(

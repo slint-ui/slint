@@ -42,10 +42,38 @@ macro_rules! get_size {
 
 fn to_resource(image: qttypes::QImage) -> Resource {
     let size = image.size();
+    // Safety: an slice of u8 can be converted to an slice of u32
+    let data = unsafe { image.data().align_to::<u32>().1 };
     Resource::EmbeddedRgbaImage {
         width: size.width,
         height: size.height,
-        data: SharedArray::from(image.data()),
+        data: SharedArray::from_slice(data),
+    }
+}
+
+struct QImageWrapArray {
+    /// The image reference the array, so the array must outlive the image without being detached or accessed
+    img: qttypes::QImage,
+    array: SharedArray<u32>,
+}
+
+impl QImageWrapArray {
+    pub fn new(size: qttypes::QSize, dpr: f32) -> Self {
+        let mut array = SharedArray::default();
+        array.resize((size.width * size.height) as usize, 0u32);
+        let array_ptr = array.as_slice_mut().as_mut_ptr();
+        let img = cpp!(unsafe [size as "QSize", array_ptr as "uchar*", dpr as "float"] -> qttypes::QImage as "QImage" {
+            QImage img(array_ptr, size.width(), size.height(), size.width() * 4, QImage::Format_ARGB32_Premultiplied);
+            img.setDevicePixelRatio(dpr);
+            return img;
+        });
+        QImageWrapArray { img, array }
+    }
+
+    pub fn to_resource(self) -> Resource {
+        let size = self.img.size();
+        drop(self.img);
+        Resource::EmbeddedRgbaImage { width: size.width, height: size.height, data: self.array }
     }
 }
 
@@ -1140,6 +1168,9 @@ impl Item for NativeScrollView {
     ) -> HighLevelRenderingPrimitive {
         let size: qttypes::QSize = get_size!(self);
         let dpr = window.scale_factor();
+
+        let mut imgarray = QImageWrapArray::new(size, dpr);
+
         let data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
         let left = Self::FIELD_OFFSETS.native_padding_left.apply_pin(self).get();
         let right = Self::FIELD_OFFSETS.native_padding_right.apply_pin(self).get();
@@ -1151,30 +1182,29 @@ impl Item for NativeScrollView {
             width: ((right - left) / dpr) as _,
             height: ((bottom - top) / dpr) as _,
         };
-        let mut img = cpp!(unsafe [dpr as "float",size as "QSize", corner_rect as "QRectF"] -> qttypes::QImage as "QImage" {
+        let img: &mut qttypes::QImage = &mut imgarray.img;
+        cpp!(unsafe [img as "QImage*", corner_rect as "QRectF"] {
             ensure_initialized();
-            auto [img, rect] = offline_style_rendering_image(size, dpr);
             QStyleOptionFrame frameOption;
             frameOption.frameShape = QFrame::StyledPanel;
             frameOption.lineWidth = 1;
             frameOption.midLineWidth = 0;
             frameOption.rect = corner_rect.toAlignedRect();
-            QPainter p(&img);
+            QPainter p(img);
             qApp->style()->drawPrimitive(QStyle::PE_PanelScrollAreaCorner, &frameOption, &p, global_widget());
             frameOption.rect = QRect(QPoint(), corner_rect.toAlignedRect().topLeft());
             qApp->style()->drawControl(QStyle::CE_ShapedFrame, &frameOption, &p, global_widget());
-            return img;
         });
 
-        let mut draw_scrollbar = |horizontal: bool,
-                                  rect: qttypes::QRectF,
-                                  value: i32,
-                                  page_size: i32,
-                                  max: i32,
-                                  active_controls: u32,
-                                  pressed: bool| {
+        let draw_scrollbar = |horizontal: bool,
+                              rect: qttypes::QRectF,
+                              value: i32,
+                              page_size: i32,
+                              max: i32,
+                              active_controls: u32,
+                              pressed: bool| {
             cpp!(unsafe [
-                mut img as "QImage",
+                img as "QImage*",
                 value as "int",
                 page_size as "int",
                 max as "int",
@@ -1184,7 +1214,7 @@ impl Item for NativeScrollView {
                 dpr as "float",
                 horizontal as "bool"
             ] {
-                QPainter p(&img);
+                QPainter p(img);
                 auto r = rect.toAlignedRect();
                 p.translate(r.topLeft()); // There is bugs in the styles if the scrollbar is not in (0,0)
                 QStyleOptionSlider option;
@@ -1232,7 +1262,7 @@ impl Item for NativeScrollView {
             data.pressed == 1,
         );
 
-        return HighLevelRenderingPrimitive::Image { source: to_resource(img) };
+        return HighLevelRenderingPrimitive::Image { source: imgarray.to_resource() };
     }
 
     fn rendering_variables(

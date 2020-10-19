@@ -159,6 +159,9 @@ impl<T: Clone> SharedArray<T> {
                 size += 1;
                 self.inner.as_mut().header.size = size;
             }
+            if size == new_capacity {
+                break;
+            }
         }
     }
 
@@ -177,6 +180,45 @@ impl<T: Clone> SharedArray<T> {
                 value,
             );
             self.inner.as_mut().header.size += 1;
+        }
+    }
+
+    /// Resize the array to the given size.
+    /// If the array was smaller new elements will be initialized with the value.
+    /// If the array was bigger, extra elements will be discared
+    ///
+    /// ```
+    /// use sixtyfps_corelib::SharedArray;
+    /// let mut shared_array = SharedArray::<u32>::from_slice(&[1, 2, 3]);
+    /// shared_array.resize(5, 8);
+    /// assert_eq!(shared_array.as_slice(), &[1, 2, 3, 8, 8]);
+    /// shared_array.resize(2, 0);
+    /// assert_eq!(shared_array.as_slice(), &[1, 2]);
+    /// ```
+    pub fn resize(&mut self, new_len: usize, value: T) {
+        if self.len() == new_len {
+            return;
+        }
+        self.detach(new_len);
+        // Safety: detach ensured that the array is not shared.
+        let mut inner = unsafe { self.inner.as_mut() };
+
+        if inner.header.size >= new_len {
+            while inner.header.size > new_len {
+                inner.header.size -= 1;
+                // Safety: The array was of size inner.header.size, so there should be an element there
+                unsafe {
+                    drop(core::ptr::read(inner.data.as_mut_ptr().add(inner.header.size)));
+                }
+            }
+        } else {
+            while inner.header.size < new_len {
+                // Safety: The array must have a capacity of at least new_len because of the detach call earlier
+                unsafe {
+                    core::ptr::write(inner.data.as_mut_ptr().add(inner.header.size), value.clone());
+                }
+                inner.header.size += 1;
+            }
         }
     }
 }
