@@ -1075,13 +1075,7 @@ impl GLFrame {
         indices: &GLIndexBuffer<u16>,
         color: ARGBColor<f32>,
     ) {
-        self.path_shader.bind(
-            &self.context,
-            &to_gl_matrix(&matrix),
-            &[color.red, color.green, color.blue, color.alpha],
-            vertices,
-            indices,
-        );
+        self.path_shader.bind(&self.context, &to_gl_matrix(&matrix), color, vertices, indices);
 
         unsafe {
             self.context.draw_elements(glow::TRIANGLES, indices.len, glow::UNSIGNED_SHORT, 0);
@@ -1124,7 +1118,7 @@ impl GLFrame {
         self.glyph_shader.bind(
             &self.context,
             &to_gl_matrix(&matrix),
-            &[color.red, color.green, color.blue, color.alpha],
+            color,
             texture,
             vertices,
             texture_vertices,

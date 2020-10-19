@@ -13,6 +13,7 @@ use super::{
     GLContext, Vertex,
 };
 use glow::HasContext;
+use sixtyfps_corelib::graphics::ARGBColor;
 use std::rc::Rc;
 
 struct Shader {
@@ -117,21 +118,23 @@ impl PathShader {
         &self,
         gl: &glow::Context,
         matrix: &[f32; 16],
-        vertcolor: &[f32; 4],
+        vertcolor: ARGBColor<f32>,
         pos: &GLArrayBuffer<Vertex>,
         indices: &GLIndexBuffer<u16>,
     ) {
         self.inner.use_program(&gl);
+
+        let vertcolor = vertcolor.premultiply_alpha();
 
         unsafe {
             gl.uniform_matrix_4_f32_slice(Some(&self.matrix_location), false, matrix);
 
             gl.uniform_4_f32(
                 Some(&self.vertcolor_location),
-                vertcolor[0],
-                vertcolor[1],
-                vertcolor[2],
-                vertcolor[3],
+                vertcolor.red,
+                vertcolor.green,
+                vertcolor.blue,
+                vertcolor.alpha,
             )
         };
 
@@ -271,22 +274,24 @@ impl GlyphShader {
         &self,
         gl: &glow::Context,
         matrix: &[f32; 16],
-        text_color: &[f32; 4],
+        text_color: ARGBColor<f32>,
         tex: &GLTexture,
         pos: &GLArrayBuffer<Vertex>,
         tex_pos: &GLArrayBuffer<Vertex>,
     ) {
         self.inner.use_program(&gl);
 
+        let text_color = text_color.premultiply_alpha();
+
         unsafe {
             gl.uniform_matrix_4_f32_slice(Some(&self.matrix_location), false, matrix);
 
             gl.uniform_4_f32(
                 Some(&self.text_color_location),
-                text_color[0],
-                text_color[1],
-                text_color[2],
-                text_color[3],
+                text_color.red,
+                text_color.green,
+                text_color.blue,
+                text_color.alpha,
             )
         };
 
