@@ -670,6 +670,27 @@ impl Expression {
                         Expression::Object { values: new_values, ty: target_type },
                     ]);
                 }
+                (Type::Object(_), Type::Component(c)) => {
+                    let object_type_for_component = Type::Object(
+                        c.root_element
+                            .borrow()
+                            .property_declarations
+                            .iter()
+                            .map(|(name, prop_decl)| {
+                                (name.clone(), prop_decl.property_type.clone())
+                            })
+                            .collect(),
+                    );
+                    return Expression::Cast {
+                        from: Box::new(self.maybe_convert_to(
+                            object_type_for_component,
+                            None,
+                            node,
+                            diag,
+                        )),
+                        to: target_type,
+                    };
+                }
                 _ => self,
             };
             Expression::Cast { from: Box::new(from), to: target_type }
