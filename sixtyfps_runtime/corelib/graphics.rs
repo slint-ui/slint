@@ -61,19 +61,6 @@ pub struct ARGBColor<T> {
     pub blue: T,
 }
 
-impl<T: std::ops::Mul<Output = T> + Copy> ARGBColor<T> {
-    /// Consume the color and multiply the alpha to the red, green and blue
-    /// components.
-    pub fn premultiply_alpha(self) -> Self {
-        Self {
-            alpha: self.alpha,
-            red: self.red * self.alpha,
-            green: self.green * self.alpha,
-            blue: self.blue * self.alpha,
-        }
-    }
-}
-
 /// Color represents a color in the SixtyFPS run-time, represented using 8-bit channels for
 /// red, green, blue and the alpha (opacity).
 /// It can be conveniently constructed and destructured using the to_ and from_ (a)rgb helper functions:

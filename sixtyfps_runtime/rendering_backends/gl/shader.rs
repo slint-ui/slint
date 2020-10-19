@@ -16,6 +16,15 @@ use glow::HasContext;
 use sixtyfps_corelib::graphics::ARGBColor;
 use std::rc::Rc;
 
+fn premultiply_alpha(col: ARGBColor<f32>) -> ARGBColor<f32> {
+    ARGBColor {
+        alpha: col.alpha,
+        red: col.red * col.alpha,
+        green: col.green * col.alpha,
+        blue: col.blue * col.alpha,
+    }
+}
+
 struct Shader {
     program: <GLContext as HasContext>::Program,
     context: Rc<glow::Context>,
@@ -124,7 +133,7 @@ impl PathShader {
     ) {
         self.inner.use_program(&gl);
 
-        let vertcolor = vertcolor.premultiply_alpha();
+        let vertcolor = premultiply_alpha(vertcolor);
 
         unsafe {
             gl.uniform_matrix_4_f32_slice(Some(&self.matrix_location), false, matrix);
@@ -281,7 +290,7 @@ impl GlyphShader {
     ) {
         self.inner.use_program(&gl);
 
-        let text_color = text_color.premultiply_alpha();
+        let text_color = premultiply_alpha(text_color);
 
         unsafe {
             gl.uniform_matrix_4_f32_slice(Some(&self.matrix_location), false, matrix);
