@@ -681,15 +681,7 @@ impl Expression {
                             })
                             .collect(),
                     );
-                    return Expression::Cast {
-                        from: Box::new(self.maybe_convert_to(
-                            object_type_for_component,
-                            None,
-                            node,
-                            diag,
-                        )),
-                        to: target_type,
-                    };
+                    self.maybe_convert_to(object_type_for_component, None, node, diag)
                 }
                 _ => self,
             };
