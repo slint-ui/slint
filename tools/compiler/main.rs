@@ -27,6 +27,10 @@ fn main() -> std::io::Result<()> {
     let args = Cli::from_args();
     let (syntax_node, diag) = parser::parse_file(&args.path)?;
     //println!("{:#?}", syntax_node);
+    if diag.has_error() {
+        diag.print();
+        std::process::exit(-1);
+    }
     let compiler_config =
         CompilerConfiguration { include_paths: &args.include_paths, ..Default::default() };
     let (doc, diag) = compile_syntax_node(syntax_node, diag, &compiler_config);

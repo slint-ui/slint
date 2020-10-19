@@ -232,6 +232,10 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
     fill_token_vec(token_iter, &mut tokens);
 
     let (syntax_node, mut diag) = parser::parse_tokens(tokens.clone());
+    if diag.has_error() {
+        diag.map_offsets_to_span(&tokens);
+        return diag.into_token_stream().into();
+    }
 
     let source_file = if let Some(cargo_manifest) = std::env::var_os("CARGO_MANIFEST_DIR") {
         let mut path: std::path::PathBuf = cargo_manifest.into();
