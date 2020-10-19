@@ -267,7 +267,7 @@ fn to_js_value<'cx>(
         }
         Value::Color(c) => JsString::new(
             cx,
-            &format!("#{:02x}{:02x}{:02x}{:02x}", c.alpha(), c.red(), c.green(), c.blue()),
+            &format!("#{:02x}{:02x}{:02x}{:02x}", c.red(), c.green(), c.blue(), c.alpha()),
         )
         .as_value(cx),
         Value::PathElements(_)

@@ -69,7 +69,7 @@ component.clicked();
 | `int` | Number | |
 | `float` | Number | |
 | `string` | String | |
-| `color` |String | When reading a property, it is of the form `"#aarrggbb"`. When setting a property, any CSS complient color is accepted |
+| `color` |String | When reading a property, it is of the form `"#rrggbbaa"`. When setting a property, any CSS compliant color is accepted |
 | `length` | Number |  |
 | `logical_length` | Number | |
 | `duration` | Number |  |
