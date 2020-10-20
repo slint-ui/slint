@@ -61,7 +61,7 @@ impl Model for JsModel {
         crate::run_with_global_contect(&|cx, persistent_context| {
             let obj = self.get_object(cx, persistent_context).unwrap();
             let _ = obj
-                .get(cx, "row_count")
+                .get(cx, "rowCount")
                 .ok()
                 .and_then(|func| func.downcast::<JsFunction>().ok())
                 .and_then(|func| func.call(cx, obj, std::iter::empty::<Handle<JsValue>>()).ok())
@@ -77,7 +77,7 @@ impl Model for JsModel {
             let row = JsNumber::new(cx, row as f64);
             let obj = self.get_object(cx, persistent_context).unwrap();
             let _ = obj
-                .get(cx, "row_data")
+                .get(cx, "rowData")
                 .ok()
                 .and_then(|func| func.downcast::<JsFunction>().ok())
                 .and_then(|func| func.call(cx, obj, std::iter::once(row)).ok())
@@ -99,7 +99,7 @@ impl Model for JsModel {
             let data = crate::to_js_value(data.clone(), cx).unwrap();
             let obj = self.get_object(cx, persistent_context).unwrap();
             let _ = obj
-                .get(cx, "set_row_data")
+                .get(cx, "setRowData")
                 .ok()
                 .and_then(|func| func.downcast::<JsFunction>().ok())
                 .and_then(|func| func.call(cx, obj, [row, data].iter().cloned()).ok());
@@ -114,7 +114,7 @@ declare_types! {
         init(_) {
             Ok(WrappedJsModel(Weak::default()))
         }
-        method row_data_changed(mut cx) {
+        method rowDataChanged(mut cx) {
             let this = cx.this();
             let row = cx.argument::<JsNumber>(0)?.value() as usize;
             if let Some(model) = cx.borrow(&this, |x| x.0.upgrade()) {
@@ -122,7 +122,7 @@ declare_types! {
             }
             Ok(JsUndefined::new().as_value(&mut cx))
         }
-        method row_added(mut cx) {
+        method rowAdded(mut cx) {
             let this = cx.this();
             let row = cx.argument::<JsNumber>(0)?.value() as usize;
             let count = cx.argument::<JsNumber>(1)?.value() as usize;
@@ -131,7 +131,7 @@ declare_types! {
             }
             Ok(JsUndefined::new().as_value(&mut cx))
         }
-        method row_removed(mut cx) {
+        method rowRemoved(mut cx) {
             let this = cx.this();
             let row = cx.argument::<JsNumber>(0)?.value() as usize;
             let count = cx.argument::<JsNumber>(1)?.value() as usize;

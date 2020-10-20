@@ -166,8 +166,8 @@ fn to_eval_value<'cx>(
                 }
                 Err(_) => {
                     let obj = val.downcast_or_throw::<JsObject, _>(cx)?;
-                    obj.get(cx, "row_count")?.downcast_or_throw::<JsFunction, _>(cx)?;
-                    obj.get(cx, "row_data")?.downcast_or_throw::<JsFunction, _>(cx)?;
+                    obj.get(cx, "rowCount")?.downcast_or_throw::<JsFunction, _>(cx)?;
+                    obj.get(cx, "rowData")?.downcast_or_throw::<JsFunction, _>(cx)?;
                     let m = js_model::JsModel::new(obj, *a, cx, persistent_context)?;
                     Ok(Value::Model(sixtyfps_interpreter::ModelPtr(m)))
                 }

@@ -106,11 +106,11 @@ instance.model = another_model;
 
 instance.send_mouse_click(25., 5.);
 assert.equal(instance.clicked_score, 335);
-assert.equal(another_model.row_data(2).score, 335.);
+assert.equal(another_model.rowData(2).score, 335.);
 instance.send_mouse_click(25., 5.);
 assert.equal(instance.clicked_score, 337);
-assert.equal(another_model.row_data(2).score, 337.);
-assert.equal(another_model.row_data(2).name, "world");
+assert.equal(another_model.rowData(2).score, 337.);
+assert.equal(another_model.rowData(2).name, "world");
 ```
 
 

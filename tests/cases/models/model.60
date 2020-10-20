@@ -191,7 +191,7 @@ assert.equal(instance.clicked_score, 444000);
 assert.equal(instance.clicked_name, "!");
 assert.equal(instance.clicked_internal_state, 1);
 
-another_model.set_row_data(1, {account: "a2", name: "idyllic", score: 555.});
+another_model.setRowData(1, {account: "a2", name: "idyllic", score: 555.});
 instance.send_mouse_click(15., 5.);
 assert.equal(instance.clicked_score, 555000);
 assert.equal(instance.clicked_name, "idyllic");

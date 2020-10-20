@@ -48,15 +48,15 @@ require.extensions['.60'] =
     }
 
 interface ModelPeer {
-    row_data_changed(row: number): void;
-    row_added(row: number, count: number): void;
-    row_removed(row: number, count: number): void;
+    rowDataChanged(row: number): void;
+    rowAdded(row: number, count: number): void;
+    rowRemoved(row: number, count: number): void;
 }
 
 class NullPeer implements ModelPeer {
-    row_data_changed(row: number): void { }
-    row_added(row: number, count: number): void { }
-    row_removed(row: number, count: number): void { }
+    rowDataChanged(row: number): void { }
+    rowAdded(row: number, count: number): void { }
+    rowRemoved(row: number, count: number): void { }
 }
 
 /**
@@ -77,15 +77,15 @@ class ArrayModel<T> {
         this.notify = new NullPeer();
     }
 
-    row_count() {
+    rowCount() {
         return this.a.length;
     }
-    row_data(row: number) {
+    rowData(row: number) {
         return this.a[row];
     }
-    set_row_data(row: number, data: T) {
+    setRowData(row: number, data: T) {
         this.a[row] = data;
-        this.notify.row_data_changed(row);
+        this.notify.rowDataChanged(row);
     }
     /**
      * Pushes new values to the array that's backing the model.
@@ -94,12 +94,12 @@ class ArrayModel<T> {
     push(...values: T[]) {
         let size = this.a.length;
         Array.prototype.push.apply(this.a, values);
-        this.notify.row_added(size, arguments.length);
+        this.notify.rowAdded(size, arguments.length);
     }
     // FIXME: should this be named splice and hav ethe splice api?
     remove(index: number, size: number) {
         let r = this.a.splice(index, size);
-        this.notify.row_removed(size, arguments.length);
+        this.notify.rowRemoved(size, arguments.length);
     }
 }
 

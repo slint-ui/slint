@@ -107,31 +107,31 @@ component.model = component.model.concat(4);
 ```
 
 Another option is to set a model object.  A model object has the following function:
- - `row_count()`: returns the number of element in the model.
- - `row_data(index)`: return the row at the given index
- - `set_row_data(index, data)`: called when the model need to be changed. `this.notify.row_data_changed` must be called if successful.
+ - `rowCount()`: returns the number of element in the model.
+ - `rowData(index)`: return the row at the given index
+ - `setRowData(index, data)`: called when the model need to be changed. `this.notify.rowDataChanged` must be called if successful.
 
  When such an object is set to a model property, it gets a new `notify` object with the following function
- - `row_data_changed(index)`: notify the view that the row was changed.
- - `row_added(index, count)`: notify the view that rows were added.
- - `row_removed(index, count)`: notify the view that a row were removed.
+ - `rowDataChanged(index)`: notify the view that the row was changed.
+ - `rowAdded(index, count)`: notify the view that rows were added.
+ - `rowRemoved(index, count)`: notify the view that a row were removed.
 
  As an example, here is the implementation of the `ArrayModel` (which is available on `sixtyfps.ArrayModel`)
 
  ```js
  let array = [1, 2, 3];
  let model = {
-    row_count() { return a.length; },
-    row_data(row) { return a[row]; },
-    set_row_data(row, data) { a[row] = data; this.notify.row_data_changed(row); },
+    rowCount() { return a.length; },
+    rowData(row) { return a[row]; },
+    setRowData(row, data) { a[row] = data; this.notify.rowDataChanged(row); },
     push() {
         let size = a.length;
         Array.prototype.push.apply(a, arguments);
-        this.notify.row_added(size, arguments.length);
+        this.notify.rowAdded(size, arguments.length);
     },
     remove(index, size) {
         let r = a.splice(index, size);
-        this.notify.row_removed(size, arguments.length);
+        this.notify.rowRemoved(size, arguments.length);
     },
 };
 component.model = model;
