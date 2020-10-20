@@ -293,7 +293,7 @@ impl Item for NativeCheckBox {
             QStyleOptionButton option;
             option.rect = option.fontMetrics.boundingRect(text);
             option.text = std::move(text);
-            return qApp->style()->sizeFromContents(QStyle::CT_PushButton, &option, option.rect.size(), nullptr) * dpr;
+            return qApp->style()->sizeFromContents(QStyle::CT_CheckBox, &option, option.rect.size(), nullptr) * dpr;
         });
         LayoutInfo {
             min_width: size.width as f32,
