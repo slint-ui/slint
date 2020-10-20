@@ -49,10 +49,10 @@ MainWindow := Window {
             maximum_height: 15px;
             minimum_height: 15px;
             row: 1;
-            rowspan: 2;
+            colspan: 2;
         }
         list_view := ListView {
-            rowspan: 2;
+            colspan: 2;
             row: 2;
             for todo in todo_model: Rectangle {
                 height: 20px;
