@@ -229,14 +229,27 @@ pub extern "C" fn solve_grid_layout(data: &GridLayoutData) {
     let mut row_layout_data = vec![internal::LayoutData::default(); num_row as usize];
     let mut col_layout_data = vec![internal::LayoutData::default(); num_col as usize];
     for cell in data.cells.iter() {
-        let rdata = &mut row_layout_data[cell.row as usize];
-        let cdata = &mut col_layout_data[cell.col as usize];
-        rdata.max = rdata.max.min(cell.constraint.max_height);
-        cdata.max = cdata.max.min(cell.constraint.max_width);
-        rdata.min = rdata.min.max(cell.constraint.min_height);
-        cdata.min = cdata.min.max(cell.constraint.min_width);
-        rdata.pref = rdata.pref.max(cell.constraint.min_height);
-        cdata.pref = cdata.pref.max(cell.constraint.min_width);
+        let row_max = cell.constraint.max_height / (cell.rowspan as f32);
+        let row_min = cell.constraint.min_height / (cell.rowspan as f32);
+        let row_pref = cell.constraint.min_height / (cell.rowspan as f32);
+
+        for r in 0..(cell.rowspan as usize) {
+            let rdata = &mut row_layout_data[cell.row as usize + r];
+            rdata.max = rdata.max.min(row_max);
+            rdata.min = rdata.min.max(row_min);
+            rdata.pref = rdata.pref.max(row_pref);
+        }
+
+        let col_max = cell.constraint.max_width / (cell.colspan as f32);
+        let col_min = cell.constraint.min_width / (cell.colspan as f32);
+        let col_pref = cell.constraint.min_width / (cell.colspan as f32);
+
+        for c in 0..(cell.colspan as usize) {
+            let cdata = &mut col_layout_data[cell.col as usize + c];
+            cdata.max = cdata.max.min(col_max);
+            cdata.min = cdata.min.max(col_min);
+            cdata.pref = cdata.pref.max(col_pref);
+        }
     }
 
     internal::layout_items(
@@ -255,9 +268,21 @@ pub extern "C" fn solve_grid_layout(data: &GridLayoutData) {
         let rdata = &row_layout_data[cell.row as usize];
         let cdata = &col_layout_data[cell.col as usize];
         cell.x.map(|p| p.set(cdata.pos));
-        cell.width.map(|p| p.set(cdata.size));
+        cell.width.map(|p| {
+            p.set({
+                let first_cell = &col_layout_data[cell.col as usize];
+                let last_cell = &col_layout_data[cell.col as usize + cell.colspan as usize - 1];
+                last_cell.pos + last_cell.size - first_cell.pos
+            })
+        });
         cell.y.map(|p| p.set(rdata.pos));
-        cell.height.map(|p| p.set(rdata.size));
+        cell.height.map(|p| {
+            p.set({
+                let first_cell = &row_layout_data[cell.row as usize];
+                let last_cell = &row_layout_data[cell.row as usize + cell.rowspan as usize - 1];
+                last_cell.pos + last_cell.size - first_cell.pos
+            })
+        });
     }
 }
 
