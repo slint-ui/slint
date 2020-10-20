@@ -3,7 +3,34 @@
 [SixtyFPS](https://www.sixtyfps.io/) is a UI toolkit that supports different programming languages.
 SixtyFPS-node is the integration with node.
 
-## Tutorial
+The complete C++ documentation can be viewed online at https://www.sixtyfps.io/docs/node/.
+
+**Warning: Pre-Alpha**
+SixtyFPS is still in the early stages of development: APIs will change and important features are still being developed.
+
+## Installing SixtyFPS
+
+SixtyFPS is available via NPM, so you can install by running the following command:
+
+```sh
+npm install sixtyfps
+```
+
+## Using SixtyFPS
+
+To initialize the API, you first need to import the `sixtyfps` module in our code:
+
+```js
+let sixtyfps = require("sixtyfps");
+```
+
+This step also installs a hook in NodeJS that allows you to import `.60` files directly:
+
+```js
+let ui = require("../ui/main.60");
+```
+
+Combining these two steps leads us to the obligator "Hello World" example:
 
 ```js
 require("sixtyfps");
@@ -12,19 +39,9 @@ let main = new ui.Main();
 main.show();
 ```
 
-## Example:
+See [/examples/printerdemo/node](/examples/printerdemo/node) for a full example.
 
-See [/examples/printerdemo/node](/examples/printerdemo/node)
-
-## Documentation
-
-By importing the sixtyfps module (or using require), a hook is installed that allows you
-to import `.60` files directly.
-
-```js
-let sixtyfps = require("sixtyfps");
-let ui = require("../ui/main.60");
-```
+## API Overview
 
 ### Instantiating a component
 
@@ -62,7 +79,7 @@ component.clicked = function() { console.log("hello"); }
 component.clicked();
 ```
 
-### types mapping
+### Types mapping
 
 | `.60` Type | JS typr | Note |
 | --- | --- | --- |
@@ -76,7 +93,7 @@ component.clicked();
 | structure | Object | With the properties being the same as the structure |
 | array | Array or Model Object | |
 
-### Model
+### Models
 
 For property of array type, they can either be set using an array.
 In that case, getting the property also return an array.
