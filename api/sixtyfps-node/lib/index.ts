@@ -119,6 +119,8 @@ class ArrayModel<T> {
     }
 }
 
-native.ArrayModel = ArrayModel;
 
-module.exports = native;
+module.exports = {
+    private_api: native,
+    ArrayModel: ArrayModel
+};

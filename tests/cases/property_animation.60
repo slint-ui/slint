@@ -110,14 +110,14 @@ assert.equal(instance.hello, 40);
 assert.equal(instance.binding_dep, 100);
 
 // Half the animation
-sixtyfpslib.mock_elapsed_time(600);
+sixtyfpslib.private_api.mock_elapsed_time(600);
 assert.equal(instance.hello, 50);
 assert.equal(instance.binding_dep, 125);
 // Remaining half
-sixtyfpslib.mock_elapsed_time(600);
+sixtyfpslib.private_api.mock_elapsed_time(600);
 assert.equal(instance.hello, 60);
 assert.equal(instance.binding_dep, 150);
-sixtyfpslib.mock_elapsed_time(100);
+sixtyfpslib.private_api.mock_elapsed_time(100);
 assert.equal(instance.hello, 60);
 assert.equal(instance.binding_dep, 150);
 
@@ -125,7 +125,7 @@ assert.equal(instance.binding_dep, 150);
 // querying the value (because te dirty event should cause the animation to start)
 instance.condition = true;
 instance.hello = 30;
-sixtyfpslib.mock_elapsed_time(600);
+sixtyfpslib.private_api.mock_elapsed_time(600);
 assert.equal(instance.hello, 45);
 assert.equal(instance.binding_dep, 125);
 
