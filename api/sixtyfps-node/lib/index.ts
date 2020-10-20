@@ -20,16 +20,32 @@ function load_native_lib() {
 
 let native = !process.env.SIXTYFPS_NODE_NATIVE_LIB ? require('../native/index.node') : load_native_lib();
 
+class Component {
+    protected comp: any;
+
+    constructor(comp: any) {
+        this.comp = comp;
+    }
+
+    show() {
+        this.comp.show();
+    }
+
+    send_mouse_click(x: number, y: number) {
+        this.comp.send_mouse_click(x, y)
+    }
+
+    send_keyboard_string_sequence(s: String) {
+        this.comp.send_keyboard_string_sequence(s)
+    }
+}
+
 require.extensions['.60'] =
     function (module, filename) {
         var c = native.load(filename);
         module.exports[c.name()] = function (init_properties: any) {
             let comp = c.create(init_properties);
-            let ret = {
-                show() { comp.show() },
-                send_mouse_click(x: number, y: number) { comp.send_mouse_click(x, y) },
-                send_keyboard_string_sequence(s: String) { comp.send_keyboard_string_sequence(s) }
-            };
+            let ret = new Component(comp);
             c.properties().forEach((x: string) => {
                 Object.defineProperty(ret, x, {
                     get() { return comp.get_property(x); },
