@@ -9,6 +9,16 @@
   "templates": {
     "default": {
       "outputSourceFiles": false
+    },
+    "better-docs": {
+      "name": "SixtyFPS Node Documentation",
+      "hideGenerator": true,
+      "navLinks": [
+        {
+          "label": "Github",
+          "href": "https://github.com/sixtyfpsui/sixtyfps"
+        }
+      ]
     }
   }
 }
