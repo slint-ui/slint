@@ -118,6 +118,66 @@ fn generate_struct(component: &Rc<Component>, diag: &mut BuildDiagnostics) -> To
     }
 }
 
+fn handle_property_binding(
+    component: &Rc<Component>,
+    item_rc: &ElementRc,
+    prop_name: &str,
+    binding_expression: &Expression,
+    init: &mut Vec<TokenStream>,
+) {
+    let rust_property =
+        access_member(item_rc, prop_name, component, quote!(self_pinned.as_ref()), false);
+    if matches!(item_rc.borrow().lookup_property(prop_name), Type::Signal{..}) {
+        let tokens_for_expression = compile_expression(binding_expression, &component);
+        init.push(quote!(
+            #rust_property.set_handler({
+                let self_weak = sixtyfps::re_exports::PinWeak::downgrade(self_pinned.clone());
+                move |args| {
+                    let self_pinned = self_weak.upgrade().unwrap();
+                    let _self = self_pinned.as_ref();
+                    #tokens_for_expression;
+                }
+            });
+        ));
+    } else if let Expression::TwoWayBinding(nr, next) = &binding_expression {
+        let p2 = access_member(
+            &nr.element.upgrade().unwrap(),
+            &nr.name,
+            component,
+            quote!(self_pinned.as_ref()),
+            false,
+        );
+        init.push(quote!(
+            Property::link_two_way(#rust_property, #p2);
+        ));
+        if let Some(next) = next {
+            handle_property_binding(component, item_rc, prop_name, next, init)
+        }
+    } else {
+        let tokens_for_expression = compile_expression(binding_expression, &component);
+        let setter = if binding_expression.is_constant() {
+            quote!(set((#tokens_for_expression) as _))
+        } else {
+            property_set_binding_tokens(
+                component,
+                &item_rc,
+                prop_name,
+                quote!({
+                    let self_weak = sixtyfps::re_exports::PinWeak::downgrade(self_pinned.clone());
+                    move || {
+                        let self_pinned = self_weak.upgrade().unwrap();
+                        let _self = self_pinned.as_ref();
+                        (#tokens_for_expression) as _
+                    }
+                }),
+            )
+        };
+        init.push(quote!(
+            #rust_property.#setter;
+        ));
+    }
+}
+
 /// Generate the rust code for the given component.
 ///
 /// Fill the diagnostic in case of error.
@@ -451,54 +511,7 @@ fn generate_component(
                 }
             ));
             for (k, binding_expression) in &item.bindings {
-                let rust_property =
-                    access_member(item_rc, k, component, quote!(self_pinned.as_ref()), false);
-                if matches!(item.lookup_property(k.as_str()), Type::Signal{..}) {
-                    let tokens_for_expression = compile_expression(binding_expression, &component);
-                    init.push(quote!(
-                        #rust_property.set_handler({
-                            let self_weak = sixtyfps::re_exports::PinWeak::downgrade(self_pinned.clone());
-                            move |args| {
-                                let self_pinned = self_weak.upgrade().unwrap();
-                                let _self = self_pinned.as_ref();
-                                #tokens_for_expression;
-                            }
-                        });
-                    ));
-                } else if let Expression::TwoWayBinding(nr) = &binding_expression.expression {
-                    let p2 = access_member(
-                        &nr.element.upgrade().unwrap(),
-                        &nr.name,
-                        component,
-                        quote!(self_pinned.as_ref()),
-                        false,
-                    );
-                    init.push(quote!(
-                        Property::link_two_way(#rust_property, #p2);
-                    ));
-                } else {
-                    let tokens_for_expression = compile_expression(binding_expression, &component);
-                    let setter = if binding_expression.is_constant() {
-                        quote!(set((#tokens_for_expression) as _))
-                    } else {
-                        property_set_binding_tokens(
-                            component,
-                            &item_rc,
-                            k,
-                            quote!({
-                                let self_weak = sixtyfps::re_exports::PinWeak::downgrade(self_pinned.clone());
-                                move || {
-                                    let self_pinned = self_weak.upgrade().unwrap();
-                                    let _self = self_pinned.as_ref();
-                                    (#tokens_for_expression) as _
-                                }
-                            }),
-                        )
-                    };
-                    init.push(quote!(
-                        #rust_property.#setter;
-                    ));
-                }
+                handle_property_binding(component, item_rc, k, binding_expression, &mut init);
             }
             item_names.push(field_name);
             item_types.push(format_ident!("{}", item.base_type.as_native().class_name));
@@ -1139,7 +1152,7 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                 }
             )
         }
-        Expression::Invalid | Expression::Uncompiled(_) | Expression::TwoWayBinding(_) => {
+        Expression::Invalid | Expression::Uncompiled(_) | Expression::TwoWayBinding(..) => {
             let error = format!("unsupported expression {:?}", e);
             quote!(compile_error! {#error})
         }

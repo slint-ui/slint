@@ -30,10 +30,14 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
     // Detects all aliases
     recurse_elem_including_sub_components(&component.root_element, &(), &mut |e, _| {
         for (name, expr) in &e.borrow().bindings {
-            if let Expression::TwoWayBinding(nr) = &expr.expression {
+            if let Expression::TwoWayBinding(nr, _next) = &expr.expression {
                 let other_e = nr.element.upgrade().unwrap();
                 if name == &nr.name && Rc::ptr_eq(e, &other_e) {
                     diag.push_error("Property cannot alias to itself".into(), expr);
+                    continue;
+                }
+                if _next.is_some() {
+                    // FIXME: we could still try to remove this alias if we merge it.
                     continue;
                 }
 
@@ -53,12 +57,21 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
         // Move the binding from the `from` to the `to`
         debug_assert!(aliases_to_remove.contains_key(&from));
         let old = from.element.upgrade().unwrap().borrow_mut().bindings.remove(&from.name);
-        let _x = if let Some(old) = old {
-            to.element.upgrade().unwrap().borrow_mut().bindings.insert(to.name, old)
+        if let Some(old) = old {
+            let _x = to.element.upgrade().unwrap().borrow_mut().bindings.insert(to.name, old);
+            debug_assert!(matches!(_x.unwrap().expression, Expression::TwoWayBinding(..)));
         } else {
-            to.element.upgrade().unwrap().borrow_mut().bindings.remove(&to.name)
+            let o = to.element.upgrade().unwrap().borrow_mut().bindings.remove(&to.name).unwrap();
+            debug_assert!(matches!(o.expression, Expression::TwoWayBinding(..)));
+            if let Expression::TwoWayBinding(_, Some(other)) = o.expression {
+                to.element
+                    .upgrade()
+                    .unwrap()
+                    .borrow_mut()
+                    .bindings
+                    .insert(to.name, (*other).into());
+            }
         };
-        debug_assert!(matches!(_x.unwrap().expression, Expression::TwoWayBinding(_)));
     }
 
     // Do the replacements

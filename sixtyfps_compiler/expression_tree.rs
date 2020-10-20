@@ -173,7 +173,10 @@ pub enum Expression {
     Uncompiled(SyntaxNodeWithSourceFile),
 
     /// Special expression that can be the value of a two way binding
-    TwoWayBinding(NamedReference),
+    ///
+    /// The named reference is what it is aliased to, and the optional Expression is
+    /// the initialization expression, if any.  That expression can be a TwoWayBinding as well
+    TwoWayBinding(NamedReference, Option<Box<Expression>>),
 
     /// A string literal. The .0 is the content of the string, without the quotes
     StringLiteral(String),
@@ -326,7 +329,7 @@ impl Expression {
             Expression::StringLiteral(_) => Type::String,
             Expression::NumberLiteral(_, unit) => unit.ty(),
             Expression::BoolLiteral(_) => Type::Bool,
-            Expression::TwoWayBinding(NamedReference { element, name }) => {
+            Expression::TwoWayBinding(NamedReference { element, name }, _) => {
                 element.upgrade().unwrap().borrow().lookup_property(name)
             }
             Expression::SignalReference(NamedReference { element, name }) => {
@@ -416,7 +419,9 @@ impl Expression {
         match self {
             Expression::Invalid => {}
             Expression::Uncompiled(_) => {}
-            Expression::TwoWayBinding(_) => {}
+            Expression::TwoWayBinding(_, sub) => {
+                sub.as_deref().map(|e| visitor(e));
+            }
             Expression::StringLiteral(_) => {}
             Expression::NumberLiteral(_, _) => {}
             Expression::BoolLiteral(_) => {}
@@ -483,7 +488,9 @@ impl Expression {
         match self {
             Expression::Invalid => {}
             Expression::Uncompiled(_) => {}
-            Expression::TwoWayBinding(_) => {}
+            Expression::TwoWayBinding(_, sub) => {
+                sub.as_deref_mut().map(|e| visitor(e));
+            }
             Expression::StringLiteral(_) => {}
             Expression::NumberLiteral(_, _) => {}
             Expression::BoolLiteral(_) => {}
@@ -550,7 +557,7 @@ impl Expression {
         match self {
             Expression::Invalid => true,
             Expression::Uncompiled(_) => false,
-            Expression::TwoWayBinding(_) => false,
+            Expression::TwoWayBinding(..) => false,
             Expression::StringLiteral(_) => true,
             Expression::NumberLiteral(_, _) => true,
             Expression::BoolLiteral(_) => true,

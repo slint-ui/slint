@@ -108,7 +108,9 @@ fn inline_element(
             std::collections::hash_map::Entry::Vacant(entry) => {
                 entry.insert(val.clone());
             }
-            std::collections::hash_map::Entry::Occupied(_) => {}
+            std::collections::hash_map::Entry::Occupied(mut entry) => {
+                maybe_merge_two_ways(entry.get_mut(), val);
+            }
         }
     }
 
@@ -118,6 +120,19 @@ fn inline_element(
     for (_, e) in &mapping {
         visit_all_named_references(e, |nr| fixup_reference(nr, &mapping));
         visit_element_expressions(e, |expr, _, _| fixup_element_references(expr, &mapping));
+    }
+}
+
+/// Normally, binding would be kept intact. But if they are two ways binding, they need to be merged
+pub fn maybe_merge_two_ways(binding: &mut Expression, original: &Expression) {
+    match (binding, original) {
+        (Expression::TwoWayBinding(_, Some(ref mut x)), o) => maybe_merge_two_ways(&mut *x, o),
+        (Expression::TwoWayBinding(_, x), o) => *x = Some(Box::new(o.clone())),
+        (ref mut x, Expression::TwoWayBinding(nr, _)) => {
+            let n = Expression::TwoWayBinding(nr.clone(), Some(Box::new(std::mem::take(*x))));
+            **x = n
+        }
+        _ => (),
     }
 }
 

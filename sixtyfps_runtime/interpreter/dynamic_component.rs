@@ -775,36 +775,41 @@ pub fn instantiate<'id>(
                     {
                         let maybe_animation =
                             animation_for_element_property(instance_ref, &elem, prop);
-                        if let Expression::TwoWayBinding(nr) = &expr.expression {
+                        let mut e = Some(&expr.expression);
+                        while let Some(Expression::TwoWayBinding(nr, next)) = &e {
                             // Safety: The compiler must have ensured that the properties exist and are of the same type
                             prop_rtti.link_two_ways(item, get_property_ptr(&nr, instance_ref));
-                        } else if expr.is_constant() {
-                            prop_rtti.set(
-                                item,
-                                eval::eval_expression(expr, instance_ref, &mut Default::default()),
-                                maybe_animation,
-                            );
-                        } else {
-                            let expr = expr.clone();
-                            let component_type = component_type.clone();
-                            let instance = component_box.instance.as_ptr();
-                            let c = Pin::new_unchecked(vtable::VRef::from_raw(
-                                NonNull::from(&component_type.ct).cast(),
-                                instance.cast(),
-                            ));
+                            e = next.as_deref();
+                        }
+                        if let Some(e) = e {
+                            if e.is_constant() {
+                                prop_rtti.set(
+                                    item,
+                                    eval::eval_expression(e, instance_ref, &mut Default::default()),
+                                    maybe_animation,
+                                );
+                            } else {
+                                let e = e.clone();
+                                let component_type = component_type.clone();
+                                let instance = component_box.instance.as_ptr();
+                                let c = Pin::new_unchecked(vtable::VRef::from_raw(
+                                    NonNull::from(&component_type.ct).cast(),
+                                    instance.cast(),
+                                ));
 
-                            prop_rtti.set_binding(
-                                item,
-                                Box::new(move || {
-                                    generativity::make_guard!(guard);
-                                    eval::eval_expression(
-                                        &expr,
-                                        InstanceRef::from_pin_ref(c, guard),
-                                        &mut Default::default(),
-                                    )
-                                }),
-                                maybe_animation,
-                            );
+                                prop_rtti.set_binding(
+                                    item,
+                                    Box::new(move || {
+                                        generativity::make_guard!(guard);
+                                        eval::eval_expression(
+                                            &e,
+                                            InstanceRef::from_pin_ref(c, guard),
+                                            &mut Default::default(),
+                                        )
+                                    }),
+                                    maybe_animation,
+                                );
+                            }
                         }
                     } else if let Some(PropertiesWithinComponent {
                         offset, prop: prop_info, ..
@@ -817,35 +822,40 @@ pub fn instantiate<'id>(
                         );
                         let item = Pin::new_unchecked(&*mem.add(*offset));
 
-                        if let Expression::TwoWayBinding(nr) = &expr.expression {
+                        let mut e = Some(&expr.expression);
+                        while let Some(Expression::TwoWayBinding(nr, next)) = &e {
                             // Safety: The compiler must have ensured that the properties exist and are of the same type
                             prop_info.link_two_ways(item, get_property_ptr(&nr, instance_ref));
-                        } else if expr.is_constant() {
-                            let v =
-                                eval::eval_expression(expr, instance_ref, &mut Default::default());
-                            prop_info.set(item, v, None).unwrap();
-                        } else {
-                            let expr = expr.clone();
-                            let component_type = component_type.clone();
-                            let instance = component_box.instance.as_ptr();
-                            let c = Pin::new_unchecked(vtable::VRef::from_raw(
-                                NonNull::from(&component_type.ct).cast(),
-                                instance.cast(),
-                            ));
-                            prop_info
-                                .set_binding(
-                                    item,
-                                    Box::new(move || {
-                                        generativity::make_guard!(guard);
-                                        eval::eval_expression(
-                                            &expr,
-                                            InstanceRef::from_pin_ref(c, guard),
-                                            &mut Default::default(),
-                                        )
-                                    }),
-                                    maybe_animation,
-                                )
-                                .unwrap();
+                            e = next.as_deref();
+                        }
+                        if let Some(e) = e {
+                            if e.is_constant() {
+                                let v =
+                                    eval::eval_expression(e, instance_ref, &mut Default::default());
+                                prop_info.set(item, v, None).unwrap();
+                            } else {
+                                let e = e.clone();
+                                let component_type = component_type.clone();
+                                let instance = component_box.instance.as_ptr();
+                                let c = Pin::new_unchecked(vtable::VRef::from_raw(
+                                    NonNull::from(&component_type.ct).cast(),
+                                    instance.cast(),
+                                ));
+                                prop_info
+                                    .set_binding(
+                                        item,
+                                        Box::new(move || {
+                                            generativity::make_guard!(guard);
+                                            eval::eval_expression(
+                                                &e,
+                                                InstanceRef::from_pin_ref(c, guard),
+                                                &mut Default::default(),
+                                            )
+                                        }),
+                                        maybe_animation,
+                                    )
+                                    .unwrap();
+                            }
                         }
                     } else {
                         panic!("unkown property {}", prop);

@@ -266,7 +266,7 @@ impl Expression {
                         &node,
                     );
                 }
-                Expression::TwoWayBinding(n)
+                Expression::TwoWayBinding(n, None)
             }
             _ => {
                 ctx.diag.push_error(
