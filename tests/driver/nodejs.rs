@@ -14,8 +14,12 @@ lazy_static::lazy_static! {
     static ref NODE_API_JS_PATH: PathBuf = {
         let  node_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().unwrap().parent().unwrap().join("api").join("sixtyfps-node");
 
+        // On Windows npm is 'npm.cmd', which Rust's process::Command doesn't look for as extension, because
+         // it tries to emulate CreateProcess.
+         let npm = which::which("npm").unwrap();
+
         // Ensure TypeScript is installed
-       std::process::Command::new("npm")
+       std::process::Command::new(npm.clone())
             .arg("install")
             .arg("--ignore-scripts")
             .arg("--no-audit")
@@ -26,7 +30,7 @@ lazy_static::lazy_static! {
             .map_err(|err| format!("Could not launch npm install: {}", err)).unwrap();
 
         // Build the .js file of the NodeJS API from the .ts file
-        std::process::Command::new("npm")
+        std::process::Command::new(npm)
             .arg("run")
             .arg("build")
             .current_dir(node_dir.clone())
