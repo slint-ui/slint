@@ -1,7 +1,14 @@
 {
-    "plugins": ["plugins/markdown"],
-    "opts": {
-      "template": "node_modules/better-docs",
-      "destination": "./docs"
+  "plugins": [
+    "plugins/markdown"
+  ],
+  "opts": {
+    "template": "node_modules/better-docs",
+    "destination": "./docs"
+  },
+  "templates": {
+    "default": {
+      "outputSourceFiles": false
     }
+  }
 }
