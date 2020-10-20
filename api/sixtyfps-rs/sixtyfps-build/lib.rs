@@ -8,10 +8,44 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 /*!
-    This crate serves as a companion crate for the sixtyfps crate.
-    It is meant to allow you to compile the `.60` files from your `build.rs`script.
+This crate serves as a companion crate for the sixtyfps crate.
+It is meant to allow you to compile the `.60` files from your `build.rs`script.
 
-    The main entry point of this crate is the [`compile()`] function
+The main entry point of this crate is the [`compile()`] function
+
+## Example
+
+In your Cargo.toml:
+
+```toml
+[package]
+...
+build = "build.rs"
+
+[dependencies]
+sixtyfps = "0.0.1"
+...
+
+[build-dependencies]
+sixtyfps-build = "0.0.1"
+```
+
+In the `build.rs` file:
+
+```ignore
+fn main() {
+    sixtyfps_build::compile("ui/hello.60").unwrap();
+}
+```
+
+Then in your main file
+
+```ignore
+sixtyfps::include_modules!();
+fn main() {
+    HelloWorld::new().run()
+}
+```
 */
 
 #![warn(missing_docs)]
@@ -87,12 +121,24 @@ impl<Sink: Write> Write for CodeFormatter<Sink> {
 
 /// Compile the `.60` file and generate rust code for it.
 ///
-/// The path is relative to the `CARGO_MANIFEST_DIR`.
+/// The generated code code will be created in the directory specified by
+/// the `OUT` environment variable as it is expected for build script.
 ///
-/// The following line need to be added within your crate to include the generated code.
+/// The following line need to be added within your crate in order to include
+/// the generated code.
 /// ```ignore
 /// sixtyfps::include_modules!();
 /// ```
+///
+/// The path is relative to the `CARGO_MANIFEST_DIR`.
+///
+/// In case of compilation error, the errors are shown in `stderr`, the error
+/// are also returned in the [`CompileError`] enum. You must `unwrap` the returned
+/// result to make sure that cargo make the compilation fail in case there were
+/// errors when generating the code.
+///
+/// Please check out the documentation of the `sixtyfps` crate for more information
+/// about how to use the generated code.
 pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
     compile_with_config(path, Default::default())
 }

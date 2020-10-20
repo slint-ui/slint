@@ -13,7 +13,7 @@ LICENSE END */
 This crate is the main entry point for embedding user interfaces designed with
 [SixtyFPS UI](https://www.sixtyfps.io/) in Rust programs.
 
-Included in this documentation is also the [language reference](langref/index.html).
+Included in this documentation is also the [language reference](docs::langref).
 
 ## How to use:
 
@@ -25,7 +25,7 @@ of including the design in Rust:
 
  This markup code is translated to Rust code and each component is turned into a Rust
  struct with functions to instantiated, show or access properties. This documentation
- includes an [example][`generated_code::SampleComponent`] of how the API looks
+ includes an [example](docs::generated_code::SampleComponent) of how the API looks
  like.
 
 ### The .60 code in a macro
@@ -34,9 +34,11 @@ This method combines your Rust code with the `.60` design markup in one file, us
 
 ```rust
 sixtyfps::sixtyfps!{
-    HelloWorld := Text {
-        text: "hello world";
-        color: green;
+    HelloWorld := Window {
+        Text {
+            text: "hello world";
+            color: green;
+        }
     }
 }
 fn main() {
@@ -71,7 +73,7 @@ In the `build.rs` file:
 
 ```ignore
 fn main() {
-    sixtyfps_build::compile("ui/hello.60");
+    sixtyfps_build::compile("ui/hello.60").unwrap();
 }
 ```
 
@@ -235,6 +237,8 @@ pub mod testing {
 /// Include the code generated with the sixtyfps-build crate from the build script. After calling `sixtyfps_build::compile`
 /// in your `build.rs` build script, the use of this macro includes the generated Rust code and makes the exported types
 /// available for you to instantiate.
+///
+/// Check the documentation of the `sixtyfps-build` crate for more information.
 #[macro_export]
 macro_rules! include_modules {
     () => {
@@ -251,95 +255,4 @@ pub struct VersionCheck_0_0_1;
 mod compile_fail_tests;
 
 #[cfg(all(doc, nightly))]
-pub mod langref {
-    #![doc(include = "docs/langref.md")]
-    #![doc = ""]
-}
-
-#[cfg(all(doc, nightly))]
-pub mod builtin_elements {
-    #![doc(include = "docs/builtin_elements.md")]
-    #![doc = ""]
-}
-
-#[cfg(all(doc, nightly))]
-pub mod widgets {
-    #![doc(include = "docs/widgets.md")]
-    #![doc = ""]
-}
-
-/// This module exists only to explain the API of the code generated from `.60` design markup. Its described structure
-/// is not really contained in the compiled crate.
-#[cfg(doc)]
-pub mod generated_code {
-    /// This an example of the API that is generated for a component in `.60` design markup. This may help you understand
-    /// what functions you can call and how you can pass data in and out.
-    /// This is the source code:
-    /// ```60
-    /// SampleComponent := Window {
-    ///     property<int> counter;
-    ///     property<string> user_name;
-    ///     signal hello;
-    ///     /// ... maybe more elements here
-    /// }
-    /// ```
-    pub struct SampleComponent {}
-    impl SampleComponent {
-        /// Creates a new instance that is reference counted and pinned in memory.
-        pub fn new() -> core::pin::Pin<std::rc::Rc<Self>> {
-            unimplemented!()
-        }
-        /// Creates a window on the screen, renders this component in it and spins an event loop to react
-        /// to user input. A typical sequence of creating an instance and showing it may look like this:
-        /// ```ignore
-        /// fn main() {
-        ///     let sample = SampleComponent::new();
-        ///     /// other setup code here, connect to signal handlers, set property values
-        ///     sample.run();
-        /// }
-        /// ```
-        pub fn run(self: core::pin::Pin<std::rc::Rc<Self>>) {}
-        /// Returns a weak pointer for an instance of this component. You can use this to in captures of
-        /// closures, for example signal handlers, to access the component later.
-        pub fn as_weak(
-            self: core::pin::Pin<std::rc::Rc<Self>>,
-        ) -> super::re_exports::PinWeak<Self> {
-            unimplemented!()
-        }
-        /// A getter is generated for each property declared at the root of the component.
-        /// In this case, this is the getter that returns the value of the `counter`
-        /// property declared in the `.60` design markup.
-        pub fn get_counter(self: ::core::pin::Pin<&Self>) -> i32 {
-            unimplemented!()
-        }
-        /// A setter is generated for each property declared at the root of the component,
-        /// In this case, this is the setter that sets the value of the `counter` property
-        /// declared in the `.60` design markup.
-        pub fn set_counter(&self, value: i32) {}
-        /// Returns the value of the `user_name` property declared in the `.60` design markup.
-        pub fn get_user_name(self: ::core::pin::Pin<&Self>) -> super::re_exports::SharedString {
-            unimplemented!()
-        }
-        /// Assigns a new value to the `user_name` property.
-        pub fn set_user_name(&self, value: super::re_exports::SharedString) {}
-        /// For each signal declared at the root of the component, a function to emit that
-        /// signal is generated. This is the function that emits the `hello` signal declared
-        /// in the `.60` design markup.
-        pub fn emit_hello(self: ::core::pin::Pin<&Self>) {}
-        /// For each signal declared at the root of the component, a function connect to that signal
-        /// is generated. This is the function that registers the function f as callback when the
-        /// signal `hello` is emitted. In order to access
-        /// the component in the callback, you'd typically capture a weak reference obtained using
-        /// [`SampleComponent::as_weak`]
-        /// and then upgrade it to a strong reference when the callback is run:
-        /// ```ignore
-        ///     let sample = SampleComponent::new();
-        ///     let sample_weak = sample.clone().as_weak();
-        ///     sample.as_ref().on_hello(move || {
-        ///         let sample = sample_weak.upgrade().unwrap();
-        ///         sample.as_ref().set_counter(42);
-        ///     });
-        /// ```
-        pub fn on_hello(self: ::core::pin::Pin<&Self>, f: impl Fn() + 'static) {}
-    }
-}
+pub mod docs;

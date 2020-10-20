@@ -7,6 +7,15 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
+
+/*!
+
+*NOTE*: This library is an internal crate for the [SixtyFPS project](https://sixtyfps.io).
+This crate should not be used directly by application using SixtyFPS.
+You should use the `sixtyfps` crate instead.
+
+*/
+
 extern crate proc_macro;
 use proc_macro::{Spacing, TokenStream, TokenTree};
 use quote::ToTokens;
@@ -222,6 +231,9 @@ fn extract_include_paths(
 
 /// This macro allows you to use the `.60` design markup language inline in Rust code. Within the braces of the macro
 /// you can use place `.60` code and the named exported components will be available for instantiation.
+///
+/// [The documentation of the `sixtyfps`](./index.html) crate contains more information about the language specification and
+/// how to use the generated code.
 #[proc_macro]
 pub fn sixtyfps(stream: TokenStream) -> TokenStream {
     let token_iter = stream.into_iter();

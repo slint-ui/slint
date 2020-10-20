@@ -12,12 +12,43 @@ The complete Rust documentation can be viewed online at https://www.sixtyfps.io/
 
 ## Getting Started
 
-The [crate documentation](https://www.sixtyfps.io/docs/rust/sixtyfps/) shows to be used.
+The [crate documentation](https://www.sixtyfps.io/docs/rust/sixtyfps/) shows how to use this crate.
 
-You can quickly try out the [examples](/examples) by cloning this repo and running the following command:
+### Hello World
+
+The most basic "Hello world" application can easily be achieve in a few lines of code:
+
+In your `Cargo.toml` add:
+
+```toml
+[dependencies]
+sixtyfps = "0.0.1"
+```
+
+And in your `main.rs`:
+
+```rust
+sixtyfps::sixtyfps!{
+    HelloWorld := Window {
+        Text {
+            text: "hello world";
+            color: green;
+        }
+    }
+}
+fn main() {
+    HelloWorld::new().run()
+}
+```
+
+The [`sixtyfps` crate documentation](https://www.sixtyfps.io/docs/rust/sixtyfps/)
+contains more advanced examples and alternative ways to use this crate.
+
+## More examples
+
+You can quickly try out the [examples](/examples) by cloning this repo and running them with `cargo run`
 
 ```sh
 # Runs the "printerdemo" example
-cargo run --release --bin printerdemo
+cargo run --release --bin printerdem
 ```
-
