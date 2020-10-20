@@ -1,13 +1,17 @@
 {
     "name": "sixtyfps",
     "version": "0.0.1",
-    "main": "lib/index.js",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
     "dependencies": {
-        "neon-cli": "^0.4"
+        "@types/node": "^14.11.11",
+        "neon-cli": "^0.4",
+        "typescript": "^4.0.3"
     },
     "scripts": {
-        "install": "neon build --release",
-        "docs": "jsdoc -c jsdoc.conf.json --readme README.md lib/index.js"
+        "install": "neon build --release && tsc",
+        "build": "tsc",
+        "docs": "jsdoc -c jsdoc.conf.json --readme README.md lib/index.ts"
     },
     "devDependencies": {
         "better-docs": "^2.3.2",

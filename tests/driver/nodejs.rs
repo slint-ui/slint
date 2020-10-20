@@ -10,11 +10,37 @@ LICENSE END */
 use std::error::Error;
 use std::{fs::File, io::Write, path::PathBuf};
 
+lazy_static::lazy_static! {
+    static ref NODE_API_JS_PATH: PathBuf = {
+        let  node_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().unwrap().parent().unwrap().join("api").join("sixtyfps-node");
+
+        // Ensure TypeScript is installed
+       std::process::Command::new("npm")
+            .arg("install")
+            .arg("--ignore-scripts")
+            .arg("--no-audit")
+            .current_dir(node_dir.clone())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .output()
+            .map_err(|err| format!("Could not launch npm install: {}", err)).unwrap();
+
+        // Build the .js file of the NodeJS API from the .ts file
+        std::process::Command::new("npm")
+            .arg("run")
+            .arg("build")
+            .current_dir(node_dir.clone())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .output()
+            .map_err(|err| format!("Could not launch npm run build: {}", err)).unwrap();
+
+        node_dir.join("dist").join("index.js")
+    };
+}
+
 pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> {
-    let mut sixtyfpspath = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    sixtyfpspath.pop(); // driver
-    sixtyfpspath.pop(); // tests
-    sixtyfpspath.push("api/sixtyfps-node/lib/index.js");
+    let sixtyfpspath = NODE_API_JS_PATH.clone();
 
     let dir = tempfile::tempdir()?;
 
