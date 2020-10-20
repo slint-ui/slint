@@ -24,6 +24,18 @@ int main()
 {
     static MainWindow printer_demo;
     printer_demo.set_ink_levels(std::make_shared<InkLevelModel>());
-    printer_demo.on_quit([]() { ::exit(0); });
+    printer_demo.on_quit([] { std::exit(0); });
+
+    printer_demo.on_fax_number_erase([] {
+        std::string fax_number{printer_demo.get_fax_number()};
+        fax_number.pop_back();
+        printer_demo.set_fax_number({fax_number});
+    });
+
+    printer_demo.on_fax_send([] {
+        std::cout << "Sending a fax to " << printer_demo.get_fax_number() << std::endl;
+        printer_demo.set_fax_number({});
+    });
+
     printer_demo.run();
 }

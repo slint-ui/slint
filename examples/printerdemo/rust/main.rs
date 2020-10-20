@@ -20,13 +20,28 @@ pub fn main() {
     console_error_panic_hook::set_once();
 
     let main_window = MainWindow::new();
-    // FIXME: better represtation of the models
     main_window.as_ref().set_ink_levels(sixtyfps::VecModel::from_slice(&[
         InkLevel { color: sixtyfps::Color::from_rgb_u8(0, 255, 255), level: 0.40 },
         InkLevel { color: sixtyfps::Color::from_rgb_u8(255, 0, 255), level: 0.20 },
         InkLevel { color: sixtyfps::Color::from_rgb_u8(255, 255, 0), level: 0.50 },
         InkLevel { color: sixtyfps::Color::from_rgb_u8(0, 0, 0), level: 0.80 },
     ]));
+
+    let main_weak = main_window.clone().as_weak();
+    main_window.as_ref().on_fax_number_erase(move || {
+        let main_window = main_weak.upgrade().unwrap();
+        let mut fax_number = main_window.as_ref().get_fax_number().to_string();
+        fax_number.pop();
+        main_window.as_ref().set_fax_number(fax_number.into());
+    });
+
+    let main_weak = main_window.clone().as_weak();
+    main_window.as_ref().on_fax_send(move || {
+        let main_window = main_weak.upgrade().unwrap();
+        let fax_number = main_window.as_ref().get_fax_number().to_string();
+        println!("Sending a fax to {}", fax_number);
+        main_window.as_ref().set_fax_number(sixtyfps::SharedString::default());
+    });
 
     main_window.as_ref().on_quit(move || {
         std::process::exit(0);

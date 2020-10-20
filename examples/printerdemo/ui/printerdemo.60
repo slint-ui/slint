@@ -61,20 +61,19 @@ CopyPage := Page {
 }
 
 FaxPage := Page {
-
-
     preview := Preview {
         x: 40px;
         y: 20px;
         height: parent.height - 40px;
     }
 
-    property<int> fax_number: 0;
+    property<string> fax_number <=> text.text;
+    signal fax_number_erase;
+    signal fax_send;
 
     text := Text {
         x: preview.x + preview.width + 20px;
         y: preview.y + 10px;
-        text: fax_number;
         width: parent.width - x - 40px;
         horizontal_alignment: align_center;
         font_size: 40px;
@@ -116,10 +115,9 @@ FaxPage := Page {
                     height: 100%;
                     clicked => {
                         if (num >= 0) {
-                            fax_number *= 10;
                             fax_number += num;
                         } else {
-                            fax_number /= 10;
+                            fax_number_erase();
                         }
                     }
                 }
@@ -138,6 +136,7 @@ FaxPage := Page {
         */
         width: 120px;
         height: 40px;
+        clicked => { root.fax_send(); }
     }
 }
 
@@ -308,13 +307,20 @@ MainWindow := Window {
     height: 600px;
 
     /// Note that this property is overwriten in the .cpp and .rs code.
-    // The data is only in this file so it looks good in the viewer
+    /// The data is only in this file so it looks good in the viewer
     property <[InkLevel]> ink_levels: [
                 {color: #0ff, level: 60%},
                 {color: #ff0, level: 80%},
                 {color: #f0f, level: 70%},
                 {color: #000, level: 30%},
             ];
+    /// Aliased to the fax number in the fax page
+    property <string> fax_number;
+    signal fax_number_erase;
+    /// That's just a default implementation for the viewer, but the .cpp and .rs code
+    /// overwrite that to erase only the last character
+    fax_number_erase => { fax_number = ""; }
+    signal fax_send;
 
     property<int> active_page: 0;
 
@@ -496,6 +502,9 @@ MainWindow := Window {
                 y: root.height / 8;
             }
         ]
+        fax_number <=> root.fax_number;
+        fax_number_erase => { root.fax_number_erase(); }
+        fax_send => { root.fax_send(); }
     }
 
     PrintPage {
