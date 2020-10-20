@@ -16,7 +16,7 @@ The [crate documentation](https://www.sixtyfps.io/docs/rust/sixtyfps/) shows how
 
 ### Hello World
 
-The most basic "Hello world" application can easily be achieve in a few lines of code:
+The most basic "Hello world" application can be achieved with a few lines of code:
 
 In your `Cargo.toml` add:
 
