@@ -229,7 +229,7 @@ jobs:
           args: -p sixtyfps -p sixtyfps-build --no-deps
     - name: "Node docs"
       run: |
-          npm install
+          npm install jsdoc
           npm run docs
       working-directory: api/sixtyfps-node
     - name: "Upload Docs Artifacts"
