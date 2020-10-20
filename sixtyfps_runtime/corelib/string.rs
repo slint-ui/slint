@@ -205,7 +205,7 @@ impl Debug for SharedString {
 
 impl Display for SharedString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Debug::fmt(self.as_str(), f)
+        Display::fmt(self.as_str(), f)
     }
 }
 
@@ -287,6 +287,7 @@ fn simple_test() {
     assert_eq!("hello world!", x.as_str());
     let string = String::from("hello world!");
     assert_eq!(x, string);
+    assert_eq!(x.to_string(), string);
     let def = SharedString::default();
     assert_eq!(def, SharedString::default());
     assert_ne!(def, x);
