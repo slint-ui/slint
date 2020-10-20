@@ -49,7 +49,7 @@ Refer to the README of each language directory in the `api` sub-folder:
 
  * [SixtyFPS-cpp](api/sixtyfps-cpp) ([Documentation](https://www.sixtyfps.io/docs/cpp))
  * [SixtyFPS-rs](api/sixtyfps-rs) ([Documentation](https://www.sixtyfps.io/docs/rust/sixtyfps/) [![Crates.io](https://img.shields.io/crates/v/sixtyfps)](https://crates.io/crates/sixtyfps))
- * [SixtyFPS-node](api/sixtyfps-node)
+ * [SixtyFPS-node](api/sixtyfps-node) ([Documentation](https://www.sixtyfps.io/docs/node))
 
 The [examples](/examples) folder contains examples and demos. The `docs` folder contains [build instructions](docs/building.md) and [internal developer docs](docs/development.md).
 
