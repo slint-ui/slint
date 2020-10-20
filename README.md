@@ -40,6 +40,7 @@ from potential customers or users.
 - [Contributions](#contributions)
 - [License](#license)
 - [Frequently Asked Questions](#frequently-asked-questions)
+- [About us](#about-us)
 - [Contact us](#contact-us)
 
 ## Reference
@@ -142,6 +143,15 @@ See also the [Licensing FAQ](FAQ.md#licensing)
 ## Frequently Asked Questions
 
 Please see our separate [FAQ](FAQ.md).
+
+## About us
+
+Olivier and Simon started their open source journey in the KDE project, the popular Open Source Desktop Environment
+for Linux. Later they met while working together in a small company in Norway called Trolltech, on the Qt C++ toolkit.
+Here, they gained valuable experience in API design, cross-platform software development and user interface components.
+Together they have also enjoyed helping customers solve various software problems. Years later they are starting a
+new project. With SixtyFPS they aim to make developing user interfaces fun for everyone: from JavaScript, C++, or
+Rust developers all the way to UI/UX designers.
 
 ## Contact us
 
