@@ -367,9 +367,9 @@ jobs:
             rm -rf docs
             mkdir -p docs
             mkdir -p docs/cpp
-            cp -a ../cppdocs/html/* docs/cpp/
+            cp -a ../target/cppdocs/html/* docs/cpp/
             mkdir -p docs/rust
-            cp -a ../doc/* docs/rust/
+            cp -a ../target/doc/* docs/rust/
             mkdir -p docs/node
             cp -a ../api/sixtyfps-node/docs/* docs/node/
             git add docs
