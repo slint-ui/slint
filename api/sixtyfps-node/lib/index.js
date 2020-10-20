@@ -47,23 +47,41 @@ require.extensions['.60'] =
         }
     }
 
-native.ArrayModel = function (arr) {
-    let a = arr || [];
-    return {
-        row_count() { return a.length; },
-        row_data(row) { return a[row]; },
-        set_row_data(row, data) { a[row] = data; this.notify.row_data_changed(row); },
-        push() {
-            let size = a.length;
-            Array.prototype.push.apply(a, arguments);
-            this.notify.row_added(size, arguments.length);
-        },
-        // FIXME: should this be named splice and hav ethe splice api?
-        remove(index, size) {
-            let r = a.splice(index, size);
-            this.notify.row_removed(size, arguments.length);
-        },
+/**
+ * ArrayModel wraps a JavaScript array for use in `.60` views.
+*/
+class ArrayModel {
+    /**
+     * Creates a new ArrayModel.
+     * 
+     * @param {Array} arr
+     */
+    constructor(arr) {
+        this.a = arr;
     }
-};
+
+    row_count() {
+        return this.a.length;
+    }
+    row_data(row) {
+        return this.a[row];
+    }
+    set_row_data(row, data) {
+        this.a[row] = data;
+        this.notify.row_data_changed(row);
+    }
+    push() {
+        let size = this.a.length;
+        Array.prototype.push.apply(this.a, arguments);
+        this.notify.row_added(size, arguments.length);
+    }
+    // FIXME: should this be named splice and hav ethe splice api?
+    remove(index, size) {
+        let r = this.a.splice(index, size);
+        this.notify.row_removed(size, arguments.length);
+    }
+}
+
+native.ArrayModel = ArrayModel;
 
 module.exports = native;
