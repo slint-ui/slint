@@ -1,0 +1,7 @@
+{
+    "plugins": ["plugins/markdown"],
+    "opts": {
+      "template": "node_modules/better-docs",
+      "destination": "./docs"
+    }
+}

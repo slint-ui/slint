@@ -190,6 +190,13 @@ jobs:
           RUSTDOCFLAGS: --html-in-header=/home/runner/work/sixtyfps/sixtyfps/api/sixtyfps-rs/sixtyfps-docs-integration.html
     steps:
     - uses: actions/checkout@v2
+    - name: Setup Node.js
+      uses: actions/setup-node@v1
+      with:
+        node-version: '12'
+    - id: nodeversion
+      run: |
+          echo "::set-output name=node-version::$(node --version)"
     - name: Cache cargo registry
       uses: actions/cache@v2
       with:
@@ -220,6 +227,11 @@ jobs:
           command: doc
           toolchain: nightly
           args: -p sixtyfps -p sixtyfps-build --no-deps
+    - name: "Node docs"
+      run: |
+          npm install
+          npm run docs
+      working-directory: api/sixtyfps-node
     - name: "Upload Docs Artifacts"
       uses: actions/upload-artifact@v2
       with:
@@ -227,6 +239,7 @@ jobs:
           path: |
               target/doc
               target/cppdocs/html
+              api/sixtyfps-node/docs
   wasm:
     runs-on: ubuntu-20.04
     steps:
@@ -357,6 +370,8 @@ jobs:
             cp -a ../cppdocs/html/* docs/cpp/
             mkdir -p docs/rust
             cp -a ../doc/* docs/rust/
+            mkdir -p docs/node
+            cp -a ../api/sixtyfps-node/docs/* docs/node/
             git add docs
             git add -u docs
             git commit --message "Update $NAME from $GITHUB_REPOSITORY" --message "Pull web demos and C++/Rust reference docs from commit $GITHUB_SHA ($GITHUB_REF)"

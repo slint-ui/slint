@@ -6,6 +6,11 @@
         "neon-cli": "^0.4"
     },
     "scripts": {
-        "install": "neon build --release"
+        "install": "neon build --release",
+        "docs": "jsdoc -c jsdoc.conf.json --readme README.md lib/index.js"
+    },
+    "devDependencies": {
+        "better-docs": "^2.3.2",
+        "jsdoc": "^3.6.6"
     }
 }
