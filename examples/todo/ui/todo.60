@@ -20,6 +20,7 @@ MainWindow := Window {
     height: 600px;
     signal todo_added(string);
     signal remove_done();
+    property <int> todo_left: 7;
 
     property <[TodoItem]> todo_model: [
         { title: "Implement the .60 file", checked: true },
@@ -71,6 +72,11 @@ MainWindow := Window {
             }
         }
         Row {
+            Text {
+                text: root.todo_left + " items left";
+                color: lightgray;
+                vertical_alignment: align_center;
+            }
             Button {
                 col: 1;
                 text: "Remove Done Items";
