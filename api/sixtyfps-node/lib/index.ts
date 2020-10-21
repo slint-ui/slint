@@ -11,6 +11,9 @@ LICENSE END */
 // Load the native library with `process.dlopen` instead of with `require`.
 // This is only done for autotest that do not require nom or neon_cli to
 // copy the lib to its right place
+/**
+ * @hidden
+ */
 function load_native_lib() {
     const os = require('os');
     (process as any).dlopen(module, process.env.SIXTYFPS_NODE_NATIVE_LIB,
@@ -18,8 +21,14 @@ function load_native_lib() {
     return module.exports;
 }
 
+/**
+ * @hidden
+ */
 let native = !process.env.SIXTYFPS_NODE_NATIVE_LIB ? require('../native/index.node') : load_native_lib();
 
+/**
+ * @hidden
+ */
 class Component {
     protected comp: any;
 
@@ -63,12 +72,68 @@ require.extensions['.60'] =
         }
     }
 
+/**
+ * ModelPeer is the interface that the run-time implements. An instance is
+ * set on dynamic Model<T> instances and can be used to notify the run-time
+ * of changes in the structure or data of the model.
+ */
 interface ModelPeer {
+    /**
+     * Call this function from our own model to notify that fields of data
+     * in the specified row have changed.
+     * @argument row
+     */
     rowDataChanged(row: number): void;
+    /**
+     * Call this function from your own model to notify that one or multiple
+     * rows were added to the model, starting at the specified row.
+     * @param row
+     * @param count
+     */
     rowAdded(row: number, count: number): void;
+    /**
+     * Call this function from your own model to notify that one or multiple
+     * rows were removed from the model, starting at the specified row.
+     * @param row
+     * @param count
+     */
     rowRemoved(row: number, count: number): void;
 }
 
+/**
+ * Model<T> is the interface for feeding dynamic data into
+ * `.60` views.
+ *
+ * A model is organized like a table with rows of data. The
+ * fields of the data type T behave like columns.
+ */
+interface Model<T> {
+    /**
+     * Implementations of this function must return the current number of rows.
+     */
+    rowCount(): number;
+    /**
+     * Implementations of this function must return the data at the specified row.
+     * @param row
+     */
+    rowData(row: number): T;
+    /**
+     * Implementations of this function must store the provided data parameter
+     * in the model at the specified row.
+     * @param row
+     * @param data
+     */
+    setRowData(row: number, data: T): void;
+    /**
+     * This public member is set by the run-time and implementation must use this
+     * to notify the run-time of changes in the model.
+     */
+    notify: ModelPeer;
+}
+
+/**
+ * @hidden
+ */
 class NullPeer implements ModelPeer {
     rowDataChanged(row: number): void { }
     rowAdded(row: number, count: number): void { }
@@ -78,14 +143,14 @@ class NullPeer implements ModelPeer {
 /**
  * ArrayModel wraps a JavaScript array for use in `.60` views.
 */
-class ArrayModel<T> {
+class ArrayModel<T> implements Model<T> {
     private a: Array<T>
-    private notify: ModelPeer;
+    notify: ModelPeer;
 
     /**
      * @template T
      * Creates a new ArrayModel.
-     * 
+     *
      * @param {Array<T>} arr
      */
     constructor(arr: Array<T>) {
@@ -105,7 +170,7 @@ class ArrayModel<T> {
     }
     /**
      * Pushes new values to the array that's backing the model.
-     * @param {T} values 
+     * @param {T} values
      */
     push(...values: T[]) {
         let size = this.a.length;

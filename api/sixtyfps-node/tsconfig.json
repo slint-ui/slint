@@ -58,5 +58,14 @@
     /* Advanced Options */
     "skipLibCheck": true, /* Skip type checking of declaration files. */
     "forceConsistentCasingInFileNames": true /* Disallow inconsistently-cased references to the same file. */
+  },
+  "typedocOptions": {
+    "mode": "file",
+    "out": "docs",
+    "readme": "README.md",
+    "disableSources": true,
+    "theme": "minimal",
+    "hideGenerator": true,
+    "name": "SixtyFPS Node"
   }
 }

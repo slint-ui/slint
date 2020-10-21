@@ -11,10 +11,9 @@
     "scripts": {
         "install": "neon build --release && tsc",
         "build": "tsc",
-        "docs": "jsdoc -c jsdoc.conf.json --readme README.md lib/index.ts"
+        "docs": "typedoc lib/index.ts"
     },
     "devDependencies": {
-        "better-docs": "^2.3.2",
-        "jsdoc": "^3.6.6"
+        "typedoc": "^0.19.2"
     }
 }
