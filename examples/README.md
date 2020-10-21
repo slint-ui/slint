@@ -7,9 +7,9 @@ These examples demonstrate the main features of SixtyFPS and how to use them in 
 
 A fictional user interface for the touch screen of a printer
 
-`.60` Design | Rust Source | C++ Source | Online wasm Preview  | Open in code editor
---- | --- | --- | --- | ---
-[`ui.60`](./printerdemo/ui/printerdemo.60) | [`main.rs`](./printerdemo/rust/main.rs) | [`main.cpp`](./printerdemo/cpp/main.cpp)| [Online simulation](https://www.sixtyfps.io/demos/printerdemo/) | [Preview in Online Code Editor](https://www.sixtyfps.io/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/printerdemo/ui/printerdemo.60)
+`.60` Design | Rust Source | C++ Source | Node Source | Online wasm Preview  | Open in code editor
+--- | --- | --- | --- | --- | ---
+[`ui.60`](./printerdemo/ui/printerdemo.60) | [`main.rs`](./printerdemo/rust/main.rs) | [`main.cpp`](./printerdemo/cpp/main.cpp) | [`main.js`](./printerdemo/node/main.js)| [Online simulation](https://www.sixtyfps.io/demos/printerdemo/) | [Preview in Online Code Editor](https://www.sixtyfps.io/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/printerdemo/ui/printerdemo.60)
 
 ![Screenshot of the Printer Demo](/resources/printerdemo_screenshot.png "Printer Demo")
 
@@ -28,9 +28,9 @@ A simple application showing the different widgets
 
 A simple todo mvc application
 
-`.60` Design | Rust Source | C++ Source | Online wasm Preview  | Open in code editor
---- | --- | --- | --- | ---
-[`todo.60`](./todo/ui/todo.60) | [`main.rs`](./todo/rust/main.rs) | [`main.cpp`](./todo/cpp/main.cpp) | [Online simulation](https://www.sixtyfps.io/demos/todo/) | [Preview in Online Code Editor](https://www.sixtyfps.io/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/todo/ui/.60)
+`.60` Design | Rust Source | C++ Source | Node Source | Online wasm Preview  | Open in code editor
+--- | --- | --- | --- | --- | ---
+[`todo.60`](./todo/ui/todo.60) | [`main.rs`](./todo/rust/main.rs) | [`main.cpp`](./todo/cpp/main.cpp) | [`main.js`](./todo/node/main.js) | [Online simulation](https://www.sixtyfps.io/demos/todo/) | [Preview in Online Code Editor](https://www.sixtyfps.io/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/todo/ui/.60)
 
 
 ## Loading the example with the `viewer`
@@ -69,3 +69,12 @@ examples as well by default
  cmake --build .
  ```
 
+## Running the Node Examples
+
+You can run the examples by going into the node sub-folder and use `npm`, for example:
+
+```sh
+cd examples/printerdemo/node
+npm install
+npm start
+```
