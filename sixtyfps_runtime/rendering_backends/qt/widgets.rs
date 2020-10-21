@@ -1210,7 +1210,7 @@ impl Item for NativeScrollView {
                 p.translate(r.topLeft()); // There is bugs in the styles if the scrollbar is not in (0,0)
                 QStyleOptionSlider option;
                 option.rect = QRect(QPoint(), r.size());
-                initQSliderOptions(option, pressed, active_controls, 0, max / dpr, value / dpr);
+                initQSliderOptions(option, pressed, active_controls, 0, max / dpr, -value / dpr);
                 option.subControls = QStyle::SC_All;
                 option.pageStep = page_size / dpr;
 
@@ -1308,7 +1308,7 @@ impl Item for NativeScrollView {
             ] -> u32 as "int" {
                 ensure_initialized();
                 QStyleOptionSlider option;
-                initQSliderOptions(option, pressed, active_controls, 0, max / dpr, value / dpr);
+                initQSliderOptions(option, pressed, active_controls, 0, max / dpr, -value / dpr);
                 option.pageStep = page_size / dpr;
                 if (!horizontal) {
                     option.state ^= QStyle::State_Horizontal;
@@ -1330,7 +1330,7 @@ impl Item for NativeScrollView {
                     data.pressed = if horizontal { 1 } else { 2 };
                     if new_control == SC_ScrollBarSlider {
                         data.pressed_x = pos as f32;
-                        data.pressed_val = value as f32;
+                        data.pressed_val = -value as f32;
                     }
                     data.active_controls = new_control;
                     InputEventResult::GrabMouse
@@ -1344,22 +1344,22 @@ impl Item for NativeScrollView {
                     let new_val = cpp!(unsafe [active_controls as "int", value as "int", max as "int", page_size as "int", dpr as "float"] -> i32 as "int" {
                         switch (active_controls) {
                             case QStyle::SC_ScrollBarAddPage:
-                                return value + page_size;
+                                return -value + page_size;
                             case QStyle::SC_ScrollBarSubPage:
-                                return value - page_size;
+                                return -value - page_size;
                             case QStyle::SC_ScrollBarAddLine:
-                                return value + 3. * dpr;
+                                return -value + 3. * dpr;
                             case QStyle::SC_ScrollBarSubLine:
-                                return value - 3. * dpr;
+                                return -value - 3. * dpr;
                             case QStyle::SC_ScrollBarFirst:
                                 return 0;
                             case QStyle::SC_ScrollBarLast:
                                 return max;
                             default:
-                                return value;
+                                return -value;
                         }
                     });
-                    value_prop.set(new_val.min(max).max(0) as f32);
+                    value_prop.set(-(new_val.min(max).max(0) as f32));
                     InputEventResult::EventIgnored
                 }
                 MouseEventType::MouseMoved => {
@@ -1368,7 +1368,7 @@ impl Item for NativeScrollView {
                         let new_val = data.pressed_val
                             + ((pos as f32) - data.pressed_x) * (max + (page_size as f32))
                                 / size as f32;
-                        value_prop.set(new_val.min(max).max(0.));
+                        value_prop.set(-new_val.min(max).max(0.));
                         InputEventResult::GrabMouse
                     } else {
                         InputEventResult::EventAccepted

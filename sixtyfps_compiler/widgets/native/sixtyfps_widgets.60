@@ -62,10 +62,10 @@ export ScrollView := NativeScrollView {
 
         $children
         interactive: false;
-        viewport_y: -root.vertical_value;
-        viewport_x: -root.horizontal_value;
-            viewport_height: 1000px;
-            viewport_width: 1000px;
+        viewport_y <=> root.vertical_value;
+        viewport_x <=> root.horizontal_value;
+        viewport_height: 1000px;
+        viewport_width: 1000px;
     }
 }
 

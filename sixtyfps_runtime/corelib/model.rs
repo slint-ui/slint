@@ -438,10 +438,14 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
                     total_height.get()
                 };
 
-                viewport_height.set(element_height * model.row_count() as f32);
+                let listview_height = listview_height.get();
+                viewport_height.set(element_height * row_count as f32);
                 self.inner.borrow().borrow_mut().cached_item_height = element_height;
+                if -viewport_y.get() > element_height * row_count as f32 - listview_height {
+                    viewport_y.set(-(element_height * row_count as f32 - listview_height).max(0.))
+                }
                 let offset = (-viewport_y.get() / element_height).floor() as usize;
-                let count = ((listview_height.get() / element_height).ceil() as usize).min(row_count - offset);
+                let count = ((listview_height / element_height).ceil() as usize).min(row_count - offset);
                 self.set_offset(offset, count);
                 self.ensure_updated_impl(init, &model, count);
                 self.compute_layout_listview(viewport_width, listview_width);

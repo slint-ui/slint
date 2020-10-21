@@ -269,6 +269,7 @@ ScrollBar := Rectangle {
     property <bool> horizontal;
     property<length> max;
     property<length> page_size;
+    // this is always negative and migger than  -max
     property<length> value;
 
     handle := Rectangle {
@@ -282,7 +283,7 @@ ScrollBar := Rectangle {
         animate color { duration: 100ms; }
         x: !horizontal ? 0phx : (root.width - handle.width) * (new_value / max);
         y: horizontal ? 0phx : (root.height - handle.height) * (new_value / max);
-        property<length> new_value_tmp : root.value + (
+        property<length> new_value_tmp : -root.value + (
             !touch_area.pressed ? 0phx
             : horizontal ?  (touch_area.mouse_x - touch_area.pressed_x) * (max / (root.width - handle.width))
             : (touch_area.mouse_y - touch_area.pressed_y) * (max / (root.height - handle.height)));
@@ -294,7 +295,7 @@ ScrollBar := Rectangle {
         width: parent.width;
         height: parent.height;
         clicked => {
-            root.value = handle.new_value;
+            root.value = -handle.new_value;
         }
     }
 
@@ -316,8 +317,8 @@ export ScrollView := Rectangle {
         x: 1px;
         y: 1px;
         interactive: false;
-        viewport_y: -vbar.value;
-        viewport_x: -hbar.value;
+        viewport_y <=> vbar.value;
+        viewport_x <=> hbar.value;
         viewport_height: 1000px;
         viewport_width: 1000px;
         width: parent.width - vbar.width - 1px;
