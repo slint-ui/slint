@@ -86,6 +86,29 @@ fn main() {
 }
 ```
 
+### Generated components
+
+As of now, only the last component of a .60 source is generated. It is planed to generate all exported components.
+
+The component is generated and re-exported at the location of the [`include_modules!`]  or [`sixtyfps!`] macro.
+it consist of a struct of the same name of the component.
+For example, if you have `export MyComponent := Window { /*...*/ }` in the .60 file, it will create a `struct MyComponent{ /*...*/ }`.
+This documentation contains a documented generated component: [`docs::generated_code::SampleComponent`].
+
+The following associated function are added to the component:
+
+  - [`fn new() -> Pin<Rc<Self>>`](docs::generated_code::SampleComponent::new): to instantiate the component.
+  - [`fn run(self: Pin<Rc<Self>>)`](docs::generated_code::SampleComponent::run): to show and start the event loop.
+  - [`fn as_weak(self: Pin<Rc<Self>>)`](docs::generated_code::SampleComponent::as_weak): Convenience to create a weak reference pointer.
+
+For each top-level property
+  - A setter [`fn set_<property_name>(&self, value: <PropertyType>)`](docs::generated_code::SampleComponent::set_counter)
+  - A getter [`fn get_<property_name>(self: Pin<&Self>) -> <PropertyType>`](docs::generated_code::SampleComponent::get_counter)
+
+For each top-level signal
+  - [`fn emit_<signal_name>(self: Pin<&Self>)`](docs::generated_code::SampleComponent::emit_hello): to emit the signal
+  - [`fn on_<signal_name>(self: Pin<&Self>, callback: impl Fn(<SignalArgs>) + 'static)`](docs::generated_code::SampleComponent::on_hello): to set the signal handler.
+
 ### Type Mappings
 
 The types used for properties in `.60` design markup each translate to specific types in Rust.
@@ -101,6 +124,25 @@ The follow table summarizes the entire mapping:
 | `logical_length` | `f32` | At run-time, logical lengths are automatically translated to physical pixels using the device pixel ratio. |
 | `duration` | `i64` | At run-time, durations are always represented as signed 64-bit integers with milisecond precision. |
 | structure | `struct` of the same name | |
+
+For user defined structures in the .60, an extra struct is generated.
+For example, if the `.60` contains
+```.60
+export MyStruct := {
+    property <int> foo;
+    property <string> bar;
+}
+```
+
+The following struct would be generated:
+
+```rust
+#[derive(Default, Clone, Debug, PartialEq)]
+struct MyStruct {
+    foo : i32,
+    bar: sixtyfps::SharedString,
+}
+```
 
 */
 

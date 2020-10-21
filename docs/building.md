@@ -102,7 +102,7 @@ html to the documentation with the `--html-in-header` rustdoc flag.
 Here is how to build the documentation to include preview of the .60 files.
 
 ```sh
-RUSTDOCFLAGS="--html-in-header=api/sixtyfps-rs/sixtyfps-docs-integration.html" cargo +nightly doc --no-deps
+RUSTDOCFLAGS="--html-in-header=$PWD/api/sixtyfps-rs/sixtyfps-docs-integration.html" cargo +nightly doc --no-deps
 ```
 
 ### C++ doc

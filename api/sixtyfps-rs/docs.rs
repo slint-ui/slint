@@ -72,6 +72,10 @@ pub mod generated_code {
         pub fn run(self: core::pin::Pin<std::rc::Rc<Self>>) {}
         /// Returns a weak pointer for an instance of this component. You can use this to in captures of
         /// closures, for example signal handlers, to access the component later.
+        ///
+        /// The return type [`pin_weak::rc::PinWeak`] is exposed from the [`pin-weak`](https://crates.io/crates/pin-weak) crate
+        ///
+        /// See the documentation of [`Self::on_hello`] for an example
         pub fn as_weak(self: core::pin::Pin<std::rc::Rc<Self>>) -> re_exports::PinWeak<Self> {
             unimplemented!()
         }
