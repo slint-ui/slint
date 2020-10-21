@@ -207,6 +207,10 @@ class ArrayModel<T> implements Model<T> {
         this.notify.rowRemoved(index, size);
     }
 
+    get length(): number {
+        return this.a.length;
+    }
+
     values(): IterableIterator<T> {
         return this.a.values();
     }

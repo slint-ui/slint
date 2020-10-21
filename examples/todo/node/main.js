@@ -56,9 +56,12 @@ app.todo_added.setHandler(function (text) {
 })
 
 app.remove_done.setHandler(function () {
-    for (const [i, item] of model.entries()) {
-        if (item.checked) {
-            model.remove(i, 1);
+    let offset = 0;
+    const length = model.length;
+    for (let i = 0; i < length; ++i) {
+        if (model.rowData(i - offset).checked) {
+            model.remove(i - offset, 1);
+            offset++;
         }
     }
 })
