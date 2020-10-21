@@ -62,11 +62,11 @@ In your Cargo.toml:
 build = "build.rs"
 
 [dependencies]
-sixtyfps = "0.0.1"
+sixtyfps = "0.0.2"
 ...
 
 [build-dependencies]
-sixtyfps-build = "0.0.1"
+sixtyfps-build = "0.0.2"
 ```
 
 In the `build.rs` file:
@@ -291,7 +291,7 @@ macro_rules! include_modules {
 /// Helper type that helps checking that the generated code is generated for the right version
 #[doc(hidden)]
 #[allow(non_camel_case_types)]
-pub struct VersionCheck_0_0_1;
+pub struct VersionCheck_0_0_2;
 
 #[cfg(doctest)]
 mod compile_fail_tests;

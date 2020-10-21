@@ -210,7 +210,7 @@ fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
         .with_include("sixtyfps_pathdata.h")
         .with_after_include(format!(
             "namespace sixtyfps {{ namespace private_api {{ enum class VersionCheck {{ Major = {}, Minor = {}, Patch = {} }}; struct ComponentWindow; }} namespace cbindgen_private {{ using sixtyfps::private_api::ComponentWindow; }} }}",
-            0, 0, 1,
+            0, 0, 2,
         ))
         .generate()
         .expect("Unable to generate bindings")

@@ -181,7 +181,7 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
           name: cpp_bin
-          path: ${{ runner.workspace }}/cppbuild/SixtyFPS-0.0.1-*
+          path: ${{ runner.workspace }}/cppbuild/SixtyFPS-*
 
 
   docs:

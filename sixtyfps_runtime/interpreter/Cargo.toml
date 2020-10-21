@@ -1,6 +1,6 @@
 [package]
 name = "sixtyfps-interpreter"
-version = "0.0.1"
+version = "0.0.2"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2018"
 license = "GPL-3.0-only"
@@ -12,15 +12,15 @@ homepage = "https://sixtyfps.io"
 path = "lib.rs"
 
 [dependencies]
-sixtyfps-corelib = { version = "=0.0.1", path = "../corelib", features = ["rtti"] }
-sixtyfps-rendering-backend-default = { version = "=0.0.1", path = "../../sixtyfps_runtime/rendering_backends/default" }
+sixtyfps-corelib = { version = "=0.0.2", path = "../corelib", features = ["rtti"] }
+sixtyfps-rendering-backend-default = { version = "=0.0.2", path = "../../sixtyfps_runtime/rendering_backends/default" }
 vtable = { version = "0.1", path="../../helper_crates/vtable" }
-sixtyfps-compilerlib = { version = "=0.0.1", path = "../../sixtyfps_compiler" }
+sixtyfps-compilerlib = { version = "=0.0.2", path = "../../sixtyfps_compiler" }
 lyon = { version = "0.16" }
 derive_more = "0.99.5"
 generativity = "1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-sixtyfps-rendering-backend-gl = { version="=0.0.1", path = "../../sixtyfps_runtime/rendering_backends/gl" }
+sixtyfps-rendering-backend-gl = { version = "0.0.2", path = "../../sixtyfps_runtime/rendering_backends/gl" }
 
 

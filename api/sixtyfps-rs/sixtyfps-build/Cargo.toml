@@ -1,6 +1,6 @@
 [package]
 name = "sixtyfps-build"
-version = "0.0.1"
+version = "0.0.2"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2018"
 license = "GPL-3.0-only"
@@ -13,5 +13,5 @@ homepage = "https://sixtyfps.io"
 path = "lib.rs"
 
 [dependencies]
-sixtyfps-compilerlib = { version = "=0.0.1", path = "../../../sixtyfps_compiler", features = ["rust", "display-diagnostics"] }
+sixtyfps-compilerlib = { version = "=0.0.2", path = "../../../sixtyfps_compiler", features = ["rust", "display-diagnostics"] }
 thiserror = "1"

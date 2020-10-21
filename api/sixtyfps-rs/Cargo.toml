@@ -1,6 +1,6 @@
 [package]
 name = "sixtyfps"
-version = "0.0.1"
+version = "0.0.2"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2018"
 license = "GPL-3.0-only"
@@ -17,11 +17,11 @@ wayland = ["sixtyfps-rendering-backend-default/wayland"]
 
 [dependencies]
 once_cell = "1.4"
-sixtyfps-macros = { version = "=0.0.1", path = "sixtyfps-macros" }
+sixtyfps-macros = { version = "=0.0.2", path = "sixtyfps-macros" }
 const-field-offset = { version = "0.1", path = "../../helper_crates/const-field-offset" }
 vtable = { version = "0.1", path = "../../helper_crates/vtable" }
-sixtyfps-corelib = { version = "=0.0.1", path="../../sixtyfps_runtime/corelib" }
-sixtyfps-rendering-backend-default = { version = "=0.0.1", path="../../sixtyfps_runtime/rendering_backends/default" }
+sixtyfps-corelib = { version = "=0.0.2", path="../../sixtyfps_runtime/corelib" }
+sixtyfps-rendering-backend-default = { version = "=0.0.2", path="../../sixtyfps_runtime/rendering_backends/default" }
 pin-weak = "1"
 derive_more = "0.99.5"
 

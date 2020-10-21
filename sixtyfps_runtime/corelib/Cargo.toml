@@ -1,6 +1,6 @@
 [package]
 name = "sixtyfps-corelib"
-version = "0.0.1"
+version = "0.0.2"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2018"
 license = "GPL-3.0-only"
@@ -23,7 +23,7 @@ image = { version = "0.23.4", default-features = false, features = [ "png" ] }
 cgmath = "0.17.0"
 const-field-offset = { version = "0.1", path = "../../helper_crates/const-field-offset" }
 vtable = { version="0.1", path = "../../helper_crates/vtable" }
-sixtyfps-corelib-macros = { version = "=0.0.1", path = "../corelib_macros" }
+sixtyfps-corelib-macros = { version = "=0.0.2", path = "../corelib_macros" }
 winit = { version = "0.23", default-features = false }
 lyon = { version = "0.16" }
 euclid = "0.22.1"

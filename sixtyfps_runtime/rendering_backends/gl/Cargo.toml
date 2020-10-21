@@ -1,6 +1,6 @@
 [package]
 name = "sixtyfps-rendering-backend-gl"
-version = "0.0.1"
+version = "0.0.2"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2018"
 license = "GPL-3.0-only"
@@ -18,7 +18,7 @@ wayland = ["winit/wayland", "glutin/wayland", "sixtyfps-corelib/wayland"]
 default = ["x11"]
 
 [dependencies]
-sixtyfps-corelib = { version="=0.0.1", path = "../../corelib" }
+sixtyfps-corelib = { version = "=0.0.2", path = "../../corelib" }
 lyon = { version = "0.16" }
 image = { version = "0.23.10", default-features = false }
 cgmath = "0.17.0"

@@ -1,6 +1,6 @@
 [package]
 name = "sixtyfps-rendering-backend-qt"
-version = "0.0.1"
+version = "0.0.2"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2018"
 license = "GPL-3.0-only"
@@ -19,10 +19,10 @@ path = "lib.rs"
 cpp = "0.5.5"
 const-field-offset = { version = "0.1", path = "../../../helper_crates/const-field-offset" }
 vtable = { version = "0.1", path = "../../../helper_crates/vtable" }
-sixtyfps-corelib-macros = { version = "=0.0.1", path = "../../corelib_macros" }
-sixtyfps-corelib = { version="=0.0.1", path = "../../corelib" }
+sixtyfps-corelib-macros = { version = "=0.0.2", path = "../../corelib_macros" }
+sixtyfps-corelib = { version = "=0.0.2", path = "../../corelib" }
 # FIXME: obviously, we do not want to depends on another backend
-sixtyfps-rendering-backend-gl = { version="=0.0.1", path = "../gl" }
+sixtyfps-rendering-backend-gl = { version = "=0.0.2", path = "../gl" }
 euclid = "0.22.1"
 pin-weak = "1"
 

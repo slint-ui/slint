@@ -3,6 +3,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.0.2] - 2020-12-22
+
 ### Changed
  - Default to the native style in the `viewer`, if available.
  - Changed the name of the common logical pixel unit from `lx` to `px`. The less
@@ -10,6 +12,8 @@ All notable changes to this project will be documented in this file.
 
 ### Added
  - Add support for more keyboard shortcuts to `TextInput`.
+ - Added a `current_item` to `StandardListView`.
+ - API cleanup in sixtyfps-node
   
 ### Fixed
  - Fix occasional hang when navigating in `TextInput` fields with the cursor keys.
@@ -20,9 +24,9 @@ All notable changes to this project will be documented in this file.
  - Add missing frame drawing around `ScrollView`.
  - Fix Clipping in scroll views in WASM builds.
  - Fix resizing of `ListView`.
+ - Many more bugfixes
 
 ### Added
- - Added a `current_item` to `StandardListView`.
 
 
 ## [0.0.1] - 2020-10-13

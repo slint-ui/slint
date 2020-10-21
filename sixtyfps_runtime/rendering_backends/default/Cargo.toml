@@ -1,6 +1,6 @@
 [package]
 name = "sixtyfps-rendering-backend-default"
-version = "0.0.1"
+version = "0.0.2"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2018"
 license = "GPL-3.0-only"
@@ -17,18 +17,18 @@ x11 = ["sixtyfps-rendering-backend-gl/x11"]
 wayland = ["sixtyfps-rendering-backend-gl/wayland"]
 
 [dependencies]
-sixtyfps-corelib = { version="=0.0.1", path = "../../corelib" }
+sixtyfps-corelib = { version = "=0.0.2", path = "../../corelib" }
 cfg-if = "1"
-sixtyfps-rendering-backend-gl = { version="=0.0.1", path = "../gl", optional = true }
-sixtyfps-rendering-backend-qt = { version="=0.0.1", path = "../qt", optional = true }
+sixtyfps-rendering-backend-gl = { version = "=0.0.2", path = "../gl", optional = true }
+sixtyfps-rendering-backend-qt = { version = "=0.0.2", path = "../qt", optional = true }
 
 # Desktop platform uses the Qt backend by default
 [target.'cfg(any(target_os="windows", target_os="macos", target_os = "linux", target_os = "dragonfly", target_os = "freebsd", target_os = "openbsd", target_os = "netbsd"))'.dependencies]
-sixtyfps-rendering-backend-qt = { version="=0.0.1", path = "../qt" }
+sixtyfps-rendering-backend-qt = { version = "=0.0.2", path = "../qt" }
 
 # Other platform uses the Gl backend
 [target.'cfg(not(any(target_os="windows", target_os="macos", target_os = "linux", target_os = "dragonfly", target_os = "freebsd", target_os = "openbsd", target_os = "netbsd")))'.dependencies]
-sixtyfps-rendering-backend-gl = { version="=0.0.1", path = "../gl" }
+sixtyfps-rendering-backend-gl = { version = "=0.0.2", path = "../gl" }
 
 
 
