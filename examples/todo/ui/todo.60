@@ -23,8 +23,11 @@ MainWindow := Window {
 
     property <[TodoItem]> todo_model: [
         { title: "Implement the .60 file", checked: true },
-        { title: "Do the rust part", checked: false },
+        { title: "Do the Rust part", checked: false },
         { title: "Make the C++ code", checked: false },
+        { title: "Write some JavaScript code", checked: false },
+        { title: "Test the application", checked: false },
+        { title: "Ship to customer", checked: false },
         { title: "???", checked: false },
         { title: "Profit", checked: false },
     ];
@@ -32,13 +35,13 @@ MainWindow := Window {
     GridLayout {
         Row {
             text_edit := LineEdit {
-                text: "Something to do";
+                text: "Play Golf";
                 accepted(text) => {
                     todo_added(text);
                 }
             }
             btn := Button {
-                text: "Add Todo";
+                text: "Add New Entry";
                 clicked => {
                     todo_added(text_edit.text);
                 }
@@ -70,7 +73,7 @@ MainWindow := Window {
         Row {
             Button {
                 col: 1;
-                text: "Remove done items!";
+                text: "Remove Done Items";
                 clicked => { root.remove_done(); }
             }
         }

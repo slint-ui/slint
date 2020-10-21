@@ -1,0 +1,11 @@
+{
+    "name": "todo",
+    "version": "0.0.0",
+    "main": "main.js",
+    "dependencies": {
+        "sixtyfps": "../../../api/sixtyfps-node"
+    },
+    "scripts": {
+        "start": "node ."
+    }
+}

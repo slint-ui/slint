@@ -25,8 +25,11 @@ pub fn main() {
 
     let todo_model = Rc::new(sixtyfps::VecModel::<TodoItem>::from(vec![
         TodoItem { checked: true, title: "Implement the .60 file".into() },
-        TodoItem { checked: true, title: "Do the rust part".into() },
+        TodoItem { checked: true, title: "Do the Rust part".into() },
         TodoItem { checked: false, title: "Make the C++ code".into() },
+        TodoItem { checked: false, title: "Write some JavaScript code".into() },
+        TodoItem { checked: false, title: "Test the application".into() },
+        TodoItem { checked: false, title: "Ship to customer".into() },
         TodoItem { checked: false, title: "???".into() },
         TodoItem { checked: false, title: "Profit".into() },
     ]));

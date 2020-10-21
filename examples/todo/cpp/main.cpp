@@ -15,15 +15,18 @@ int main()
 
     auto todo_model = std::make_shared<sixtyfps::VectorModel<TodoItem>>(std::vector {
         TodoItem { true, "Implement the .60 file" },
-        TodoItem { false, "Do the rust part" },
+        TodoItem { false, "Do the Rust part" },
         TodoItem { true, "Make the C++ code" },
+        TodoItem { false, "Write some JavaScript code" },
+        TodoItem { false, "Test the application" },
+        TodoItem { false, "Ship to customer" },
         TodoItem { false, "???" },
         TodoItem { false, "Profit" }
     });
     demo.set_todo_model(todo_model);
 
     demo.on_todo_added([todo_model](const sixtyfps::SharedString &s) {
-         todo_model->push_back(TodoItem { false, s} );
+        todo_model->push_back(TodoItem { false, s });
     });
 
     demo.on_remove_done([todo_model] {
