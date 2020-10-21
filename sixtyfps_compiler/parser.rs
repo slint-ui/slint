@@ -765,6 +765,15 @@ impl SpannedWithSourceFile for SyntaxTokenWithSourceFile {
     }
 }
 
+/// return the normalized identifier string of the first SyntaxKind::Identifier in this node
+pub fn identifier_text(node: &SyntaxNodeWithSourceFile) -> Option<String> {
+    node.child_text(SyntaxKind::Identifier).map(|x| normalize_identifier(&x))
+}
+
+pub fn normalize_identifier(ident: &str) -> String {
+    ident.replace('-', "_")
+}
+
 // Actual parser
 pub fn parse(
     source: String,

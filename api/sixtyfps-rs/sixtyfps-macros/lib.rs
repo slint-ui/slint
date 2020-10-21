@@ -22,14 +22,68 @@ use quote::ToTokens;
 use sixtyfps_compilerlib::parser::SyntaxKind;
 use sixtyfps_compilerlib::*;
 
+/// Returns true if the two token are touching. For example the two token `foo`and `-` are touching if
+/// it was written like so in the source code: `foo-` but not when written like so `foo -`
+fn are_token_touching(token1: proc_macro::Span, token2: proc_macro::Span) -> bool {
+    // There is no way with stable API to find out if the token are touching, so do it by
+    // extracting the range from the debug representation of the span
+    are_token_touching_impl(&format!("{:?}", token1), &format!("{:?}", token2))
+}
+
+fn are_token_touching_impl(token1_debug: &str, token2_debug: &str) -> bool {
+    // The debug representation of a span look like this: "#0 bytes(6662789..6662794)"
+    // we just have to find out if the first number of the range of second span
+    // is the same as the second number of the first span
+    let is_byte_char = |c: char| c.is_numeric() || c == ':';
+    let not_is_byte_char = |c: char| !is_byte_char(c);
+    let end_of_token1 = token1_debug
+        .trim_end_matches(not_is_byte_char)
+        .rsplit(not_is_byte_char)
+        .next()
+        .map(|x| x.trim_matches(':'));
+    let begin_of_token2 = token2_debug
+        .trim_end_matches(not_is_byte_char)
+        .trim_end_matches(is_byte_char)
+        .trim_end_matches(not_is_byte_char)
+        .rsplit(not_is_byte_char)
+        .next()
+        .map(|x| x.trim_matches(':'));
+    end_of_token1.zip(begin_of_token2).map(|(a, b)| a != "" && a == b).unwrap_or(false)
+}
+
+#[test]
+fn are_token_touching_impl_test() {
+    assert!(are_token_touching_impl("#0 bytes(6662788..6662789)", "#0 bytes(6662789..6662794)"));
+    assert!(!are_token_touching_impl("#0 bytes(6662788..6662789)", "#0 bytes(6662790..6662794)"));
+    assert!(!are_token_touching_impl("#0 bytes(6662789..6662794)", "#0 bytes(6662788..6662789)"));
+    assert!(!are_token_touching_impl("#0 bytes(6662788..6662789)", "#0 bytes(662789..662794)"));
+    assert!(are_token_touching_impl("#0 bytes(123..456)", "#0 bytes(456..789)"));
+
+    // Alternative representation on nightly with a special flag
+    assert!(are_token_touching_impl("/foo/bar.rs:12:7: 12:18", "/foo/bar.rs:12:18: 12:19"));
+    assert!(are_token_touching_impl("/foo/bar.rs:2:7: 13:18", "/foo/bar.rs:13:18: 14:29"));
+    assert!(!are_token_touching_impl("/foo/bar.rs:2:7: 13:18", "/foo/bar.rs:14:18: 14:29"));
+    assert!(!are_token_touching_impl("/foo/bar.rs:2:7: 2:8", "/foo/bar.rs:2:18: 2:29"));
+
+    // What happens if the representation change
+    assert!(!are_token_touching_impl("hello", "hello"));
+    assert!(!are_token_touching_impl("hello42", "hello42"));
+}
+
 fn fill_token_vec(stream: impl Iterator<Item = TokenTree>, vec: &mut Vec<parser::Token>) {
     let mut prev_spacing = Spacing::Alone;
+    let mut prev_span = proc_macro::Span::call_site();
     for t in stream {
+        let span = t.span();
         match t {
             TokenTree::Ident(i) => {
                 if let Some(last) = vec.last_mut() {
-                    if last.kind == SyntaxKind::ColorLiteral && last.text.len() == 1 {
-                        last.text = format!("#{}", i).into();
+                    if (last.kind == SyntaxKind::ColorLiteral && last.text.len() == 1)
+                        || (last.kind == SyntaxKind::Identifier
+                            && are_token_touching(prev_span, span))
+                    {
+                        last.text = format!("{}{}", last.text, i).into();
+                        prev_span = span;
                         continue;
                     }
                 }
@@ -71,7 +125,18 @@ fn fill_token_vec(stream: impl Iterator<Item = TokenTree>, vec: &mut Vec<parser:
                     '!' => SyntaxKind::Bang,
                     '.' => SyntaxKind::Dot,
                     '+' => SyntaxKind::Plus,
-                    '-' => SyntaxKind::Minus,
+                    '-' => {
+                        if let Some(last) = vec.last_mut() {
+                            if last.kind == SyntaxKind::Identifier
+                                && are_token_touching(prev_span, p.span())
+                            {
+                                last.text = format!("{}-", last.text).into();
+                                prev_span = span;
+                                continue;
+                            }
+                        }
+                        SyntaxKind::Minus
+                    }
                     '*' => SyntaxKind::Star,
                     '/' => SyntaxKind::Div,
                     '<' => SyntaxKind::LAngle,
@@ -144,8 +209,12 @@ fn fill_token_vec(stream: impl Iterator<Item = TokenTree>, vec: &mut Vec<parser:
                     SyntaxKind::StringLiteral
                 } else if f.is_digit(10) {
                     if let Some(last) = vec.last_mut() {
-                        if last.kind == SyntaxKind::ColorLiteral && last.text.len() == 1 {
-                            last.text = format!("#{}", s).into();
+                        if (last.kind == SyntaxKind::ColorLiteral && last.text.len() == 1)
+                            || (last.kind == SyntaxKind::Identifier
+                                && are_token_touching(prev_span, span))
+                        {
+                            last.text = format!("{}{}", last.text, s).into();
+                            prev_span = span;
                             continue;
                         }
                     }
@@ -184,6 +253,7 @@ fn fill_token_vec(stream: impl Iterator<Item = TokenTree>, vec: &mut Vec<parser:
                 });
             }
         }
+        prev_span = span;
     }
 }
 

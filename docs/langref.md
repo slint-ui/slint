@@ -104,6 +104,11 @@ C-style comments are supported:
  - line comments: `//` means everything to the end of the line is commented.
  - block comments: `/* .. */`.  Note that the blocks comments can be nested, so `/* this is a /* single */ comment */`
 
+## Identifiers
+
+Identifiers can be composed of letter (`a-zA-Z`), of numbers (`0-9`), or of the underscore (`_`) or the dash (`-`).
+They cannot start with a number or a dash (but they can start with underscore)
+The dashes are normalized to underscore. Which means that these two identifiers are the same: `foo-bar` and `foo_bar`.
 
 ## Properties
 

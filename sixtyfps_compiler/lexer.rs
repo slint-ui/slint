@@ -146,7 +146,7 @@ pub fn lex_identifier(text: &str) -> usize {
     let mut len = 0;
     let mut chars = text.chars();
     while let Some(c) = chars.next() {
-        if !c.is_alphanumeric() && c != '_' {
+        if !c.is_alphanumeric() && c != '_' && (c != '-' || len == 0) {
             break;
         }
         len += c.len_utf8();

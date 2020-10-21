@@ -13,7 +13,7 @@ LICENSE END */
 
 use crate::diagnostics::{FileDiagnostics, Spanned, SpannedWithSourceFile};
 use crate::expression_tree::{Expression, ExpressionSpanned, NamedReference};
-use crate::parser::{syntax_nodes, SyntaxKind, SyntaxNodeWithSourceFile};
+use crate::parser::{identifier_text, syntax_nodes, SyntaxKind, SyntaxNodeWithSourceFile};
 use crate::typeregister::{NativeClass, Type, TypeRegister};
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
@@ -113,7 +113,7 @@ impl Component {
     ) -> Rc<Self> {
         let mut child_insertion_point = None;
         let c = Component {
-            id: node.child_text(SyntaxKind::Identifier).unwrap_or_default(),
+            id: identifier_text(&node).unwrap_or_default(),
             root_element: Element::from_node(
                 node.Element(),
                 "root".into(),
@@ -266,13 +266,14 @@ impl Element {
             };
             for prop_decl in node.PropertyDeclaration() {
                 let type_node = prop_decl.Type();
-                let prop_name_token =
-                    prop_decl.DeclaredIdentifier().child_token(SyntaxKind::Identifier).unwrap();
-                let prop_name = prop_name_token.text().to_string();
+                let prop_name = identifier_text(&prop_decl.DeclaredIdentifier()).unwrap();
                 if !matches!(r.lookup_property(&prop_name), Type::Invalid) {
                     diag.push_error(
                         format!("Cannot override property '{}'", prop_name),
-                        &prop_name_token,
+                        &prop_decl
+                            .DeclaredIdentifier()
+                            .child_token(SyntaxKind::Identifier)
+                            .unwrap(),
                     )
                 }
                 r.property_declarations.insert(
@@ -315,14 +316,11 @@ impl Element {
         for prop_decl in node.PropertyDeclaration() {
             let type_node = prop_decl.Type();
             let prop_type = type_from_node(type_node.clone(), diag, tr);
-            let prop_name_token =
-                prop_decl.DeclaredIdentifier().child_token(SyntaxKind::Identifier).unwrap();
-
-            let prop_name = prop_name_token.text().to_string();
+            let prop_name = identifier_text(&prop_decl.DeclaredIdentifier()).unwrap();
             if !matches!(r.lookup_property(&prop_name), Type::Invalid) {
                 diag.push_error(
                     format!("Cannot override property '{}'", prop_name),
-                    &prop_name_token,
+                    &prop_decl.DeclaredIdentifier().child_token(SyntaxKind::Identifier).unwrap(),
                 )
             }
 
@@ -340,7 +338,10 @@ impl Element {
                     .insert(prop_name.clone(), ExpressionSpanned::new_uncompiled(csn.into()))
                     .is_some()
                 {
-                    diag.push_error("Duplicated property binding".into(), &prop_name_token);
+                    diag.push_error(
+                        "Duplicated property binding".into(),
+                        &prop_decl.DeclaredIdentifier(),
+                    );
                 }
             }
             if let Some(csn) = prop_decl.TwoWayBinding() {
@@ -348,7 +349,10 @@ impl Element {
                     .insert(prop_name, ExpressionSpanned::new_uncompiled(csn.into()))
                     .is_some()
                 {
-                    diag.push_error("Duplicated property binding".into(), &prop_name_token);
+                    diag.push_error(
+                        "Duplicated property binding".into(),
+                        &prop_decl.DeclaredIdentifier(),
+                    );
                 }
             }
         }
@@ -377,9 +381,7 @@ impl Element {
         }
 
         for sig_decl in node.SignalDeclaration() {
-            let name_token =
-                sig_decl.DeclaredIdentifier().child_token(SyntaxKind::Identifier).unwrap();
-            let name = name_token.text().to_string();
+            let name = identifier_text(&sig_decl.DeclaredIdentifier()).unwrap();
             let args = sig_decl.Type().map(|node_ty| type_from_node(node_ty, diag, tr)).collect();
             r.property_declarations.insert(
                 name,
@@ -392,11 +394,10 @@ impl Element {
         }
 
         for con_node in node.SignalConnection() {
-            let name_token = match con_node.child_token(SyntaxKind::Identifier) {
+            let name = match identifier_text(&con_node) {
                 Some(x) => x,
                 None => continue,
             };
-            let name = name_token.text().to_string();
             let prop_type = r.lookup_property(&name);
             if let Type::Signal { args } = prop_type {
                 let num_arg = con_node.DeclaredIdentifier().count();
@@ -408,17 +409,23 @@ impl Element {
                             args.len(),
                             num_arg
                         ),
-                        &name_token,
+                        &con_node.child_token(SyntaxKind::Identifier).unwrap(),
                     );
                 }
                 if r.bindings
-                    .insert(name, ExpressionSpanned::new_uncompiled(con_node.into()))
+                    .insert(name, ExpressionSpanned::new_uncompiled(con_node.clone().into()))
                     .is_some()
                 {
-                    diag.push_error("Duplicated signal".into(), &name_token);
+                    diag.push_error(
+                        "Duplicated signal".into(),
+                        &con_node.child_token(SyntaxKind::Identifier).unwrap(),
+                    );
                 }
             } else {
-                diag.push_error(format!("'{}' is not a signal in {}", name, base), &name_token);
+                diag.push_error(
+                    format!("'{}' is not a signal in {}", name, base),
+                    &con_node.child_token(SyntaxKind::Identifier).unwrap(),
+                );
             }
         }
 
@@ -461,7 +468,7 @@ impl Element {
 
         for se in node.children() {
             if se.kind() == SyntaxKind::SubElement {
-                let id = se.child_text(SyntaxKind::Identifier).unwrap_or_default();
+                let id = identifier_text(&se).unwrap_or_default();
                 if matches!(id.as_ref(), "parent" | "self" | "root") {
                     diag.push_error(
                         format!("'{}' is a reserved id", id),
@@ -524,10 +531,7 @@ impl Element {
 
         for state in node.States().flat_map(|s| s.State()) {
             let s = State {
-                id: state
-                    .DeclaredIdentifier()
-                    .child_text(SyntaxKind::Identifier)
-                    .unwrap_or_default(),
+                id: identifier_text(&state.DeclaredIdentifier()).unwrap_or_default(),
                 condition: state.Expression().map(|e| Expression::Uncompiled(e.into())),
                 property_changes: state
                     .StatePropertyChange()
@@ -546,11 +550,8 @@ impl Element {
                 diag.push_error("TODO: catch-all not yet implemented".into(), &star);
             };
             let trans = Transition {
-                is_out: trs.child_text(SyntaxKind::Identifier).unwrap_or_default() == "out",
-                state_id: trs
-                    .DeclaredIdentifier()
-                    .child_text(SyntaxKind::Identifier)
-                    .unwrap_or_default(),
+                is_out: identifier_text(&trs).unwrap_or_default() == "out",
+                state_id: identifier_text(&trs.DeclaredIdentifier()).unwrap_or_default(),
                 property_animations: trs
                     .PropertyAnimation()
                     .flat_map(|pa| pa.QualifiedName().map(move |qn| (pa.clone(), qn)))
@@ -594,12 +595,9 @@ impl Element {
             model: Expression::Uncompiled(node.Expression().into()),
             model_data_id: node
                 .DeclaredIdentifier()
-                .and_then(|n| n.child_text(SyntaxKind::Identifier))
+                .and_then(|n| identifier_text(&n))
                 .unwrap_or_default(),
-            index_id: node
-                .RepeatedIndex()
-                .and_then(|r| r.child_text(SyntaxKind::Identifier))
-                .unwrap_or_default(),
+            index_id: node.RepeatedIndex().and_then(|r| identifier_text(&r)).unwrap_or_default(),
             is_conditional_element: false,
             is_listview,
         };
@@ -664,7 +662,7 @@ impl Element {
         diag: &mut FileDiagnostics,
     ) {
         for (name_token, b) in bindings {
-            let name = name_token.text().to_string();
+            let name = crate::parser::normalize_identifier(name_token.text());
             let prop_type = self.lookup_property(&name);
             if !prop_type.is_property_type() {
                 diag.push_error(
@@ -717,7 +715,7 @@ fn type_from_node(node: syntax_nodes::Type, diag: &mut FileDiagnostics, tr: &Typ
             .ObjectTypeMember()
             .map(|member| {
                 (
-                    member.child_text(SyntaxKind::Identifier).unwrap_or_default(),
+                    identifier_text(&member).unwrap_or_default(),
                     type_from_node(member.Type(), diag, tr),
                 )
             })
@@ -773,7 +771,7 @@ impl QualifiedTypeName {
         let members = node
             .children_with_tokens()
             .filter(|n| n.kind() == SyntaxKind::Identifier)
-            .filter_map(|x| x.as_token().map(|x| x.text().to_string()))
+            .filter_map(|x| x.as_token().map(|x| crate::parser::normalize_identifier(x.text())))
             .collect();
         Self { members }
     }
@@ -1028,19 +1026,18 @@ impl Exports {
             .ExportsList()
             .flat_map(|exports| exports.ExportSpecifier())
             .filter_map(|export_specifier| {
-                let internal_name =
-                    match export_specifier.ExportIdentifier().child_text(SyntaxKind::Identifier) {
-                        Some(name) => name,
-                        _ => {
-                            diag.push_error(
-                                "Missing internal name for export".to_owned(),
-                                &export_specifier.ExportIdentifier(),
-                            );
-                            return None;
-                        }
-                    };
+                let internal_name = match identifier_text(&export_specifier.ExportIdentifier()) {
+                    Some(name) => name,
+                    _ => {
+                        diag.push_error(
+                            "Missing internal name for export".to_owned(),
+                            &export_specifier.ExportIdentifier(),
+                        );
+                        return None;
+                    }
+                };
                 let exported_name = match export_specifier.ExportName() {
-                    Some(ident) => match ident.child_text(SyntaxKind::Identifier) {
+                    Some(ident) => match identifier_text(&ident) {
                         Some(name) => name,
                         None => {
                             diag.push_error("Missing external name for export".to_owned(), &ident);
@@ -1055,7 +1052,7 @@ impl Exports {
 
         exports.extend(doc.ExportsList().flat_map(|exports| exports.Component()).filter_map(
             |component| {
-                let name = match component.child_text(SyntaxKind::Identifier) {
+                let name = match identifier_text(&component) {
                     Some(name) => name,
                     None => {
                         diag.push_error(

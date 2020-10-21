@@ -17,7 +17,7 @@ LICENSE END */
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::*;
 use crate::object_tree::*;
-use crate::parser::{syntax_nodes, SyntaxKind, SyntaxNodeWithSourceFile};
+use crate::parser::{identifier_text, syntax_nodes, SyntaxKind, SyntaxNodeWithSourceFile};
 use crate::typeregister::Type;
 use by_address::ByAddress;
 use std::{collections::HashMap, collections::HashSet, rc::Rc};
@@ -248,10 +248,8 @@ impl Expression {
         node: syntax_nodes::SignalConnection,
         ctx: &mut LookupCtx,
     ) -> Expression {
-        ctx.arguments = node
-            .DeclaredIdentifier()
-            .map(|x| x.child_text(SyntaxKind::Identifier).unwrap_or_default())
-            .collect();
+        ctx.arguments =
+            node.DeclaredIdentifier().map(|x| identifier_text(&x).unwrap_or_default()).collect();
         Self::from_codeblock_node(node.CodeBlock(), ctx)
     }
 
@@ -333,7 +331,7 @@ impl Expression {
     }
 
     fn from_bang_expression_node(node: SyntaxNodeWithSourceFile, ctx: &mut LookupCtx) -> Self {
-        match node.child_text(SyntaxKind::Identifier).as_ref().map(|x| x.as_str()) {
+        match identifier_text(&node).as_ref().map(|x| x.as_str()) {
             None => {
                 debug_assert!(false, "the parser should not allow that");
                 ctx.diag.push_error("Missing bang keyword".into(), &node);
@@ -402,9 +400,9 @@ impl Expression {
             return Self::Invalid;
         };
 
-        let first_str = first.text().as_str();
+        let first_str = crate::parser::normalize_identifier(first.text().as_str());
 
-        if let Some(index) = ctx.arguments.iter().position(|x| x == first_str) {
+        if let Some(index) = ctx.arguments.iter().position(|x| x == &first_str) {
             let ty = match &ctx.property_type {
                 Type::Signal { args } | Type::Function { args, .. } => args[index].clone(),
                 _ => panic!("There should only be argument within functions or signal"),
@@ -413,16 +411,16 @@ impl Expression {
             return maybe_lookup_object(e, it, ctx);
         }
 
-        let elem_opt = match first_str {
+        let elem_opt = match first_str.as_str() {
             "self" => ctx.component_scope.last().cloned(),
             "parent" => ctx.component_scope.last().and_then(find_parent_element),
             "true" => return Self::BoolLiteral(true),
             "false" => return Self::BoolLiteral(false),
-            _ => find_element_by_id(ctx.component_scope, first_str),
+            _ => find_element_by_id(ctx.component_scope, &first_str),
         };
 
         if let Some(elem) = elem_opt {
-            let prop_name = if let Some(second) = it.next() {
+            let second = if let Some(second) = it.next() {
                 second
             } else if matches!(ctx.property_type, Type::ElementReference) {
                 return Self::ElementReference(Rc::downgrade(&elem));
@@ -430,12 +428,13 @@ impl Expression {
                 ctx.diag.push_error("Cannot take reference of an element".into(), &node);
                 return Self::Invalid;
             };
+            let prop_name = crate::parser::normalize_identifier(second.text().as_str());
 
-            let p = elem.borrow().lookup_property(prop_name.text().as_str());
+            let p = elem.borrow().lookup_property(&prop_name);
             if p.is_property_type() {
                 let prop = Self::PropertyReference(NamedReference {
                     element: Rc::downgrade(&elem),
-                    name: prop_name.text().to_string(),
+                    name: prop_name,
                 });
                 return maybe_lookup_object(prop, it, ctx);
             } else if matches!(p, Type::Signal{..}) {
@@ -447,15 +446,22 @@ impl Expression {
                     name: prop_name.to_string(),
                 });
             } else if matches!(p, Type::Function{..}) {
-                let member =
-                    elem.borrow().base_type.lookup_member_function(prop_name.text().as_str());
+                let member = elem.borrow().base_type.lookup_member_function(&prop_name);
                 return Self::MemberFunction {
                     base: Box::new(Expression::ElementReference(Rc::downgrade(&elem))),
                     base_node: node,
                     member: Box::new(member),
                 };
             } else {
-                ctx.diag.push_error(format!("Cannot access property '{}'", prop_name), &prop_name);
+                if let Some(minus_pos) = second.text().find('-') {
+                    // Attempt to recover if the user wanted to write "-"
+                    if elem.borrow().lookup_property(&second.text()[0..minus_pos]) != Type::Invalid
+                    {
+                        ctx.diag.push_error(format!("Cannot access property '{}'. Use space before the '-' if you meant a substraction.", second.text()), &second);
+                        return Self::Invalid;
+                    }
+                }
+                ctx.diag.push_error(format!("Cannot access property '{}'", second.text()), &second);
                 return Self::Invalid;
             }
         }
@@ -470,7 +476,7 @@ impl Expression {
                 }
             }
 
-            let property = elem.borrow().lookup_property(first_str);
+            let property = elem.borrow().lookup_property(&first_str);
             if property.is_property_type() {
                 let prop = Self::PropertyReference(NamedReference {
                     element: Rc::downgrade(&elem),
@@ -497,7 +503,7 @@ impl Expression {
 
         match &ctx.property_type {
             Type::Color => {
-                if let Some(c) = css_color_parser2::NAMED_COLORS.get(first_str) {
+                if let Some(c) = css_color_parser2::NAMED_COLORS.get(first_str.as_str()) {
                     let value = ((c.a as u32 * 255) << 24)
                         | ((c.r as u32) << 16)
                         | ((c.g as u32) << 8)
@@ -510,7 +516,7 @@ impl Expression {
             }
             Type::Easing => {
                 // These value are coming from CSSn with - replaced by _
-                let value = match first_str {
+                let value = match first_str.as_str() {
                     "linear" => Some(EasingCurve::Linear),
                     "ease" => Some(EasingCurve::CubicBezier(0.25, 0.1, 0.25, 1.0)),
                     "ease_in" => Some(EasingCurve::CubicBezier(0.42, 0.0, 1.0, 1.0)),
@@ -524,7 +530,7 @@ impl Expression {
                 }
             }
             Type::Enumeration(enumeration) => {
-                if let Some(value) = enumeration.clone().try_value_from_string(first_str) {
+                if let Some(value) = enumeration.clone().try_value_from_string(&first_str) {
                     return Expression::EnumerationValue(value);
                 }
             }
@@ -536,7 +542,29 @@ impl Expression {
             return Expression::BuiltinFunctionReference(BuiltinFunction::Debug);
         }
 
-        ctx.diag.push_error(format!("Unknown unqualified identifier '{}'", first_str), &node);
+        // Attempt to recover if the user wanted to write "-"
+        if let Some(minus_pos) = first.text().find('-') {
+            let report_minus_error = |ctx: &mut LookupCtx| {
+                ctx.diag.push_error(format!("Unknown unqualified identifier '{}'. Use space before the '-' if you meant a substraction.", first.text()), &node);
+            };
+            let first_str = &first.text()[0..minus_pos];
+            for elem in ctx.component_scope.iter().rev() {
+                if let Some(repeated) = &elem.borrow().repeated {
+                    if first_str == repeated.index_id || first_str == repeated.model_data_id {
+                        report_minus_error(ctx);
+                        return Expression::Invalid;
+                    }
+                }
+
+                let property = elem.borrow().lookup_property(&first_str);
+                if property.is_property_type() {
+                    report_minus_error(ctx);
+                    return Expression::Invalid;
+                }
+            }
+        }
+
+        ctx.diag.push_error(format!("Unknown unqualified identifier '{}'", first.text()), &node);
 
         Self::Invalid
     }
@@ -774,7 +802,7 @@ impl Expression {
             .ObjectMember()
             .map(|n| {
                 (
-                    n.child_text(SyntaxKind::Identifier).unwrap_or_default(),
+                    identifier_text(&n).unwrap_or_default(),
                     Expression::from_expression_node(n.Expression(), ctx),
                 )
             })
@@ -809,29 +837,45 @@ fn maybe_lookup_object(
     mut it: impl Iterator<Item = crate::parser::SyntaxTokenWithSourceFile>,
     ctx: &mut LookupCtx,
 ) -> Expression {
+    fn error_or_try_minus(
+        ctx: &mut LookupCtx,
+        ident: crate::parser::SyntaxTokenWithSourceFile,
+        lookup: impl Fn(&str) -> bool,
+    ) -> Expression {
+        if let Some(minus_pos) = ident.text().find('-') {
+            if lookup(&ident.text()[0..minus_pos]) {
+                ctx.diag.push_error(format!("Cannot access the field '{}'. Use space before the '-' if you meant a substraction.", ident.text()), &ident);
+                return Expression::Invalid;
+            }
+        }
+        ctx.diag.push_error(format!("Cannot access the field '{}'", ident.text()), &ident);
+        Expression::Invalid
+    }
+
     while let Some(next) = it.next() {
+        let next_str = crate::parser::normalize_identifier(next.text().as_str());
         match base.ty() {
             Type::Object(obj) => {
-                if obj.get(next.text().as_str()).is_some() {
+                if obj.get(next_str.as_str()).is_some() {
                     base = Expression::ObjectAccess {
                         base: Box::new(std::mem::replace(&mut base, Expression::Invalid)),
-                        name: next.to_string(),
+                        name: next_str,
                     }
                 } else {
-                    ctx.diag.push_error("Cannot access this field".into(), &next);
-                    return Expression::Invalid;
+                    return error_or_try_minus(ctx, next, |x| obj.get(x).is_some());
                 }
             }
             Type::Component(c) => {
-                let prop_ty = c.root_element.borrow().lookup_property(next.text().as_str());
+                let prop_ty = c.root_element.borrow().lookup_property(next_str.as_str());
                 if prop_ty != Type::Invalid {
                     base = Expression::ObjectAccess {
                         base: Box::new(std::mem::replace(&mut base, Expression::Invalid)),
                         name: next.to_string(),
                     }
                 } else {
-                    ctx.diag.push_error("Cannot access this field".into(), &next);
-                    return Expression::Invalid;
+                    return error_or_try_minus(ctx, next, |x| {
+                        c.root_element.borrow().lookup_property(x) != Type::Invalid
+                    });
                 }
             }
             _ => {
