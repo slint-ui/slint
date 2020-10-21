@@ -79,19 +79,19 @@ component.clicked = function() { console.log("hello"); }
 component.clicked();
 ```
 
-### Types mapping
+### Type Mappings
 
-| `.60` Type | JS typr | Note |
+| `.60` Type | JavaScript Type | Notes |
 | --- | --- | --- |
-| `int` | Number | |
-| `float` | Number | |
-| `string` | String | |
-| `color` |String | When reading a property, it is of the form `"#rrggbbaa"`. When setting a property, any CSS compliant color is accepted |
-| `length` | Number |  |
-| `logical_length` | Number | |
-| `duration` | Number |  |
-| structure | Object | With the properties being the same as the structure |
-| array | Array or Model Object | |
+| `int` | `Number` | |
+| `float` | `Number` | |
+| `string` | `String` | |
+| `color` |`String` | Colors are represented as strings in the form `"#rrggbbaa"`. When setting a color property, any CSS compliant color is accepted as a string. |
+| `length` | `Number` |  |
+| `logical_length` | `Number` | |
+| `duration` | `Number` |  |
+| structure | `Object` | Structures are mapped to JavaScrip objects with structure fields mapped to properties. |
+| array | `Array` or Model Object | |
 
 ### Models
 

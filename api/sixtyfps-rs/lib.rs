@@ -86,7 +86,7 @@ fn main() {
 }
 ```
 
-### Types
+### Type Mappings
 
 The types used for properties in `.60` design markup each translate to specific types in Rust.
 The follow table summarizes the entire mapping:
