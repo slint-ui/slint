@@ -141,17 +141,20 @@ class NullPeer implements ModelPeer {
 }
 
 /**
- * ArrayModel wraps a JavaScript array for use in `.60` views.
-*/
+ * ArrayModel wraps a JavaScript array for use in `.60` views. The underlying
+ * array can be modified with the [[ArrayModel.push]] and [[ArrayModel.remove]] methods.
+ */
 class ArrayModel<T> implements Model<T> {
+    /**
+     * @hidden
+     */
     private a: Array<T>
     notify: ModelPeer;
 
     /**
-     * @template T
      * Creates a new ArrayModel.
      *
-     * @param {Array<T>} arr
+     * @param arr
      */
     constructor(arr: Array<T>) {
         this.a = arr;
@@ -169,8 +172,9 @@ class ArrayModel<T> implements Model<T> {
         this.notify.rowDataChanged(row);
     }
     /**
-     * Pushes new values to the array that's backing the model.
-     * @param {T} values
+     * Pushes new values to the array that's backing the model and notifies
+     * the run-time about the added rows.
+     * @param values
      */
     push(...values: T[]) {
         let size = this.a.length;
@@ -178,6 +182,14 @@ class ArrayModel<T> implements Model<T> {
         this.notify.rowAdded(size, arguments.length);
     }
     // FIXME: should this be named splice and hav ethe splice api?
+    /**
+     * Removes the specified number of element from the array that's backing
+     * the model, starting at the specified index. This is equivalent to calling
+     * Array.slice() on the array and notifying the run-time about the removed
+     * rows.
+     * @param index 
+     * @param size 
+     */
     remove(index: number, size: number) {
         let r = this.a.splice(index, size);
         this.notify.rowRemoved(size, arguments.length);
