@@ -12,4 +12,28 @@ The follow table summarizes the entire mapping:
 | `length` | `float` | The unit are physical pixels. |
 | `logical_length` | `float` | At run-time, logical lengths are automatically translated to physical pixels using the device pixel ratio. |
 | `duration` | `std::int64_t` | At run-time, durations are always represented as signed 64-bit integers with milisecond precision. |
-| stucture | A `struct` of the same name | The order of the data member are in the lexicographic order of their name |
+| stucture | A `class` of the same name | The order of the data member are in the lexicographic order of their name |
+
+## Structures
+
+For user-defined structures in the .60 code, a `class` of the same name is generated with data member
+in lexicographic order.
+
+For example, if you have this structure in the .60 file
+
+```60
+export MyStruct := {
+    property <int> foo;
+    property <string> bar;
+}
+```
+
+It would result in the following type being generated:
+
+```cpp
+class MyStruct {
+public:
+    sixtyfps::SharedString bar;
+    int foo;
+};
+```
