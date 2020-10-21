@@ -21,7 +21,7 @@ Welcome to SixtyFPS C++'s documentation!
 
    Introduction <README.md>
 
-   Generared Code <generated_code.md>
+   Generated Code <generated_code.md>
 
    Type Mappings <types.md>
 
