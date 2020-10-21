@@ -49,6 +49,14 @@ class Component {
     }
 }
 
+/**
+ * @hidden
+ */
+interface Signal {
+    (): any;
+    setHandler(cb: any): void;
+}
+
 require.extensions['.60'] =
     function (module, filename) {
         var c = native.load(filename);
@@ -64,7 +72,11 @@ require.extensions['.60'] =
             });
             c.signals().forEach((x: string) => {
                 Object.defineProperty(ret, x, {
-                    get() { return function () { comp.emit_signal(x, [...arguments]); } },
+                    get() {
+                        let signal = function () { comp.emit_signal(x, [...arguments]); } as Signal;
+                        signal.setHandler = function (callback) { comp.connect_signal(x, callback) };
+                        return signal;
+                    },
                     enumerable: true,
                 })
             });
@@ -187,8 +199,8 @@ class ArrayModel<T> implements Model<T> {
      * the model, starting at the specified index. This is equivalent to calling
      * Array.slice() on the array and notifying the run-time about the removed
      * rows.
-     * @param index 
-     * @param size 
+     * @param index
+     * @param size
      */
     remove(index: number, size: number) {
         let r = this.a.splice(index, size);

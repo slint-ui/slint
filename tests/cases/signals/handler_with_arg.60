@@ -88,7 +88,21 @@ try {
     assert.equal(e.toString(), "Error: test_signal expect 1 arguments, but 0 where provided");
 }
 assert.equal(instance.signal_emission_count, 0);
+
+
+/// also test setHandler
+instance.test_signal2.setHandler(function(a) {
+    signal_3_emited += 100;
+    signal_3_string_value = a;
+});
+instance.test_signal2("salùt")
+assert.equal(signal_3_emited, 101);
+assert.equal(signal_3_string_value, "salùt");
+assert.equal(signal_3_int_value, 55); // same as before
+
 ```
+
+
 
 */
 

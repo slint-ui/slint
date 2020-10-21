@@ -70,11 +70,12 @@ console.log(component.counter);
 
 ### Signals
 
-The signals are also exposed as property that can be called
+The signals are also exposed as property that have a setHandler function, and that can can be called.
+
 
 ```js
 // connect to a signal
-component.clicked = function() { console.log("hello"); }
+component.clicked.setHandler(function() { console.log("hello"); })
 // emit a signal
 component.clicked();
 ```

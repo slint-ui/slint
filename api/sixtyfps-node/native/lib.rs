@@ -83,6 +83,28 @@ fn load(mut cx: FunctionContext) -> JsResult<JsValue> {
     Ok(obj.as_value(&mut cx))
 }
 
+fn make_signal_handler<'cx>(
+    cx: &mut impl Context<'cx>,
+    persistent_context: &persistent_context::PersistentContext<'cx>,
+    fun: Handle<'cx, JsFunction>,
+) -> Box<dyn Fn(&[sixtyfps_interpreter::Value])> {
+    let fun_value = fun.as_value(cx);
+    let fun_idx = persistent_context.allocate(cx, fun_value);
+    Box::new(move |args| {
+        let args = args.iter().cloned().collect::<Vec<_>>();
+        run_with_global_contect(&move |cx, persistent_context| {
+            let args = args.iter().map(|a| to_js_value(a.clone(), cx).unwrap()).collect::<Vec<_>>();
+            persistent_context
+                .get(cx, fun_idx)
+                .unwrap()
+                .downcast::<JsFunction>()
+                .unwrap()
+                .call::<_, _, JsValue, _>(cx, JsUndefined::new(), args)
+                .unwrap();
+        })
+    })
+}
+
 fn create<'cx>(
     cx: &mut CallContext<'cx, impl neon::object::This>,
     component_type: Rc<sixtyfps_interpreter::ComponentDescription>,
@@ -103,28 +125,12 @@ fn create<'cx>(
                 })?
                 .clone();
             if let Type::Signal { .. } = ty {
-                let _fun = value.downcast_or_throw::<JsFunction, _>(cx)?;
-                let fun_idx = persistent_context.allocate(cx, value);
+                let fun = value.downcast_or_throw::<JsFunction, _>(cx)?;
                 component_type
                     .set_signal_handler(
                         component.borrow(),
                         prop_name.as_str(),
-                        Box::new(move |args| {
-                            let args = args.iter().cloned().collect::<Vec<_>>();
-                            run_with_global_contect(&move |cx, persistent_context| {
-                                let args = args
-                                    .iter()
-                                    .map(|a| to_js_value(a.clone(), cx).unwrap())
-                                    .collect::<Vec<_>>();
-                                persistent_context
-                                    .get(cx, fun_idx)
-                                    .unwrap()
-                                    .downcast::<JsFunction>()
-                                    .unwrap()
-                                    .call::<_, _, JsValue, _>(cx, JsUndefined::new(), args)
-                                    .unwrap();
-                            })
-                        }),
+                        make_signal_handler(cx, &persistent_context, fun),
                     )
                     .or_else(|_| cx.throw_error(format!("Cannot set signal")))?;
             } else {
@@ -409,6 +415,23 @@ declare_types! {
                     .emit_signal(component.borrow(), signal_name.as_str(), args.as_slice())
                     .map_err(|()| "Cannot emit signal".to_string())
             })?;
+            Ok(JsUndefined::new().as_value(&mut cx))
+        }
+
+         method connect_signal(mut cx) {
+            let signal_name = cx.argument::<JsString>(0)?.value();
+            let handler = cx.argument::<JsFunction>(1)?;
+            let this = cx.this();
+            let persistent_context =
+                persistent_context::PersistentContext::from_object(&mut cx, this.downcast().unwrap())?;
+            let lock = cx.lock();
+            let x = this.borrow(&lock).0.clone();
+            let component = x.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            component.description().set_signal_handler(
+                component.borrow(),
+                signal_name.as_str(),
+                make_signal_handler(&mut cx, &persistent_context, handler)
+            ).or_else(|_| cx.throw_error(format!("Cannot set signal")))?;
             Ok(JsUndefined::new().as_value(&mut cx))
         }
 
