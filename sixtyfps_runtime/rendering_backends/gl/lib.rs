@@ -91,18 +91,9 @@ enum GLRenderingPrimitive {
     },
 }
 
-struct TextCursor {
+struct NormalRectangle {
     vertices: GLArrayBuffer<Vertex>,
     indices: GLIndexBuffer<u16>,
-}
-
-impl TextCursor {
-    fn from_primitive(rect_primitive: GLRenderingPrimitive) -> Self {
-        match rect_primitive {
-            GLRenderingPrimitive::FillPath { vertices, indices } => Self { vertices, indices },
-            _ => panic!("internal error: TextCursor can only be constructed from rectangle fill"),
-        }
-    }
 }
 
 pub struct GLRenderer {
@@ -120,7 +111,7 @@ pub struct GLRenderer {
         Rc<winit::event_loop::EventLoopProxy<sixtyfps_corelib::eventloop::CustomEvent>>,
     #[cfg(not(target_arch = "wasm32"))]
     windowed_context: Option<glutin::WindowedContext<glutin::NotCurrent>>,
-    text_cursor_rect: Option<TextCursor>,
+    normal_rectangle: Option<NormalRectangle>,
 }
 
 pub struct GLRenderingPrimitivesBuilder {
@@ -138,8 +129,6 @@ pub struct GLRenderingPrimitivesBuilder {
         Rc<winit::event_loop::EventLoopProxy<sixtyfps_corelib::eventloop::CustomEvent>>,
     #[cfg(not(target_arch = "wasm32"))]
     windowed_context: glutin::WindowedContext<glutin::PossiblyCurrent>,
-
-    text_cursor_rect: Option<TextCursor>,
 }
 
 pub struct GLFrame {
@@ -150,7 +139,7 @@ pub struct GLFrame {
     root_matrix: cgmath::Matrix4<f32>,
     #[cfg(not(target_arch = "wasm32"))]
     windowed_context: glutin::WindowedContext<glutin::PossiblyCurrent>,
-    text_cursor_rect: Option<TextCursor>,
+    normal_rectangle: Option<NormalRectangle>,
     current_stencil_clip_value: u8,
 }
 
@@ -272,7 +261,7 @@ impl GLRenderer {
             event_loop_proxy: Rc::new(event_loop.create_proxy()),
             #[cfg(not(target_arch = "wasm32"))]
             windowed_context: Some(unsafe { windowed_context.make_not_current().unwrap() }),
-            text_cursor_rect: None,
+            normal_rectangle: None,
         }
     }
 }
@@ -292,6 +281,23 @@ impl GraphicsBackend for GLRenderer {
         #[cfg(not(target_arch = "wasm32"))]
         let current_windowed_context =
             unsafe { self.windowed_context.take().unwrap().make_current().unwrap() };
+
+        {
+            if self.normal_rectangle.is_none() {
+                let vertex1 = Vertex { _pos: [0., 0.] };
+                let vertex2 = Vertex { _pos: [0., 1.] };
+                let vertex3 = Vertex { _pos: [1., 1.] };
+                let vertex4 = Vertex { _pos: [1., 0.] };
+
+                let vertices =
+                    GLArrayBuffer::new(&self.context, &vec![vertex1, vertex2, vertex3, vertex4]);
+
+                let indices = GLIndexBuffer::new(&self.context, &[0, 1, 2, 0, 2, 3]);
+
+                self.normal_rectangle = Some(NormalRectangle { vertices, indices });
+            }
+        }
+
         GLRenderingPrimitivesBuilder {
             context: self.context.clone(),
             fill_tesselator: FillTessellator::new(),
@@ -306,17 +312,15 @@ impl GraphicsBackend for GLRenderer {
             event_loop_proxy: self.event_loop_proxy.clone(),
             #[cfg(not(target_arch = "wasm32"))]
             windowed_context: current_windowed_context,
-            text_cursor_rect: self.text_cursor_rect.take(),
         }
     }
 
-    fn finish_primitives(&mut self, mut builder: Self::RenderingPrimitivesBuilder) {
+    fn finish_primitives(&mut self, builder: Self::RenderingPrimitivesBuilder) {
         #[cfg(not(target_arch = "wasm32"))]
         {
             self.windowed_context =
                 Some(unsafe { builder.windowed_context.make_not_current().unwrap() });
         }
-        self.text_cursor_rect = builder.text_cursor_rect.take();
     }
 
     fn new_frame(&mut self, width: u32, height: u32, clear_color: &Color) -> GLFrame {
@@ -354,7 +358,7 @@ impl GraphicsBackend for GLRenderer {
             root_matrix: cgmath::ortho(0.0, width as f32, height as f32, 0.0, -1., 1.0),
             #[cfg(not(target_arch = "wasm32"))]
             windowed_context: current_windowed_context,
-            text_cursor_rect: self.text_cursor_rect.take(),
+            normal_rectangle: self.normal_rectangle.take(),
             current_stencil_clip_value: 0,
         }
     }
@@ -367,7 +371,7 @@ impl GraphicsBackend for GLRenderer {
             self.windowed_context =
                 Some(unsafe { frame.windowed_context.make_not_current().unwrap() });
         }
-        self.text_cursor_rect = frame.text_cursor_rect.take();
+        self.normal_rectangle = frame.normal_rectangle.take();
     }
     fn window(&self) -> &winit::window::Window {
         #[cfg(not(target_arch = "wasm32"))]
@@ -510,13 +514,6 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                     }
                 }
                 HighLevelRenderingPrimitive::Text { text, font_family, font_size } => {
-                    if self.text_cursor_rect.is_none() {
-                        let rect = Rect::new(Point::default(), Size::new(1., 1.));
-                        self.text_cursor_rect = Some(TextCursor::from_primitive(
-                            self.fill_rectangle(&rect, 0.).unwrap(),
-                        ));
-                    }
-
                     smallvec![self.create_glyph_runs(text, font_family, *font_size)]
                 }
                 HighLevelRenderingPrimitive::Path { width, height, elements, stroke_width } => {
@@ -888,7 +885,7 @@ impl GLFrame {
                 // 4. We draw the selection background rectangle, use regular stencil testing, write into the stencil buffer with GL_DECR, use false color mask.
                 //    This "removes" the selection rectangle from the stencil buffer again.
 
-                let reset_stencil = match (rendering_var.peek(), &self.text_cursor_rect) {
+                let reset_stencil = match (rendering_var.peek(), &self.normal_rectangle) {
                     (
                         Some(RenderingVariable::TextSelection(x, width, height)),
                         Some(text_cursor),
@@ -952,7 +949,7 @@ impl GLFrame {
                 render_glyphs(col);
 
                 if let (Some(selection_matrix), Some(text_cursor)) =
-                    (reset_stencil, &self.text_cursor_rect)
+                    (reset_stencil, &self.normal_rectangle)
                 {
                     // Phase 4
                     unsafe {
@@ -974,7 +971,7 @@ impl GLFrame {
                     }
                 }
 
-                match (rendering_var.peek(), &self.text_cursor_rect) {
+                match (rendering_var.peek(), &self.normal_rectangle) {
                     (Some(RenderingVariable::TextCursor(x, width, height)), Some(text_cursor)) => {
                         let matrix = matrix
                             * Matrix4::from_translation(cgmath::Vector3::new(*x, 0., 0.))
