@@ -65,7 +65,6 @@ App := Window {
                     value: 42;
                 }
             }
-            Rectangle {}
         }
         Row {
             GroupBox {
