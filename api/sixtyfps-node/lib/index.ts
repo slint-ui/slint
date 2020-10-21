@@ -204,7 +204,15 @@ class ArrayModel<T> implements Model<T> {
      */
     remove(index: number, size: number) {
         let r = this.a.splice(index, size);
-        this.notify.rowRemoved(size, arguments.length);
+        this.notify.rowRemoved(index, size);
+    }
+
+    values(): IterableIterator<T> {
+        return this.a.values();
+    }
+
+    entries(): IterableIterator<[number, T]> {
+        return this.a.entries()
     }
 }
 
