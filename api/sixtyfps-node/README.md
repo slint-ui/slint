@@ -1,5 +1,7 @@
 # SixtyFPS-node
 
+[![npm](https://img.shields.io/npm/v/sixtyfps)](https://www.npmjs.com/package/sixtyfps)
+
 [SixtyFPS](https://www.sixtyfps.io/) is a UI toolkit that supports different programming languages.
 SixtyFPS-node is the integration with node.
 
