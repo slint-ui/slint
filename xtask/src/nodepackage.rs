@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 use anyhow::Context;
-use xshell::{cmd, pushd, read_file, write_file};
+use xshell::{cmd, cp, pushd, read_file, rm_rf, write_file};
 
 pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
     let root = super::root_dir().context("error determining root directory")?;
@@ -39,6 +39,11 @@ pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
 
     write_file(cargo_toml_path.clone(), edited_toml).context("Error writing Cargo.toml")?;
 
+    println!("Putting LICENSE.md in place for the source package");
+
+    cp(root.join("LICENSE.md"), node_dir.join("LICENSE.md"))
+        .context("Error copying LICENSE.md into the node dir for packaging")?;
+
     println!("Running npm package to create the tarball");
 
     {
@@ -51,6 +56,8 @@ pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
     println!("Reverting Cargo.toml");
 
     write_file(cargo_toml_path, toml_source).context("Error writing Cargo.toml")?;
+
+    rm_rf(node_dir.join("LICENSE.md")).context("Error deleting LICENSE.md copy")?;
 
     let package_json_source =
         read_file(node_dir.join("package.json")).context("Error reading package.json")?;
