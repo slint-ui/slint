@@ -15,6 +15,7 @@ use structopt::StructOpt;
 mod cbindgen;
 mod cppdocs;
 mod license_headers_check;
+mod nodepackage;
 
 #[derive(Debug, StructOpt)]
 pub enum TaskCommand {
@@ -24,6 +25,8 @@ pub enum TaskCommand {
     CppDocs,
     #[structopt(name = "cbindgen")]
     Cbindgen(cbindgen::CbindgenCommand),
+    #[structopt(name = "node_package")]
+    NodePackage,
 }
 
 #[derive(Debug, StructOpt)]
@@ -72,6 +75,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         TaskCommand::CheckLicenseHeaders(cmd) => cmd.check_license_headers()?,
         TaskCommand::CppDocs => cppdocs::generate()?,
         TaskCommand::Cbindgen(cmd) => cmd.run()?,
+        TaskCommand::NodePackage => nodepackage::generate()?,
     };
 
     Ok(())
