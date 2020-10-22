@@ -44,6 +44,19 @@ pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
     cp(root.join("LICENSE.md"), node_dir.join("LICENSE.md"))
         .context("Error copying LICENSE.md into the node dir for packaging")?;
 
+    let package_json_source =
+        read_file(node_dir.join("package.json")).context("Error reading package.json")?;
+
+    let package_json: serde_json::Value = serde_json::from_str(&package_json_source)?;
+
+    let file_name = node_dir.join(format!(
+        "{}-{}.tar.gz",
+        package_json["name"].as_str().unwrap(),
+        package_json["version"].as_str().unwrap()
+    ));
+
+    rm_rf(file_name.clone()).context("Error deleting old archive")?;
+
     println!("Running npm package to create the tarball");
 
     {
@@ -58,17 +71,6 @@ pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
     write_file(cargo_toml_path, toml_source).context("Error writing Cargo.toml")?;
 
     rm_rf(node_dir.join("LICENSE.md")).context("Error deleting LICENSE.md copy")?;
-
-    let package_json_source =
-        read_file(node_dir.join("package.json")).context("Error reading package.json")?;
-
-    let package_json: serde_json::Value = serde_json::from_str(&package_json_source)?;
-
-    let file_name = node_dir.join(format!(
-        "{}-{}.tar.gz",
-        package_json["name"].as_str().unwrap(),
-        package_json["version"].as_str().unwrap()
-    ));
 
     println!("Source package created and located in {}", file_name.to_string_lossy());
 
