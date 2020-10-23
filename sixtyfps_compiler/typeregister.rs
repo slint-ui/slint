@@ -62,21 +62,24 @@ pub struct TypeRegister {
 }
 
 impl TypeRegister {
-    pub fn builtin() -> Rc<RefCell<Self>> {
-        let mut r = TypeRegister::default();
+    fn insert_type(&mut self, t: Type) {
+        self.types.insert(t.to_string(), t);
+    }
 
-        let mut insert_type = |t: Type| r.types.insert(t.to_string(), t);
-        insert_type(Type::Float32);
-        insert_type(Type::Int32);
-        insert_type(Type::String);
-        insert_type(Type::Length);
-        insert_type(Type::LogicalLength);
-        insert_type(Type::Color);
-        insert_type(Type::Duration);
-        insert_type(Type::Resource);
-        insert_type(Type::Bool);
-        insert_type(Type::Model);
-        insert_type(Type::Percent);
+    pub fn builtin() -> Rc<RefCell<Self>> {
+        let mut register = TypeRegister::default();
+
+        register.insert_type(Type::Float32);
+        register.insert_type(Type::Int32);
+        register.insert_type(Type::String);
+        register.insert_type(Type::Length);
+        register.insert_type(Type::LogicalLength);
+        register.insert_type(Type::Color);
+        register.insert_type(Type::Duration);
+        register.insert_type(Type::Resource);
+        register.insert_type(Type::Bool);
+        register.insert_type(Type::Model);
+        register.insert_type(Type::Percent);
 
         let declare_enum = |name: &str, values: &[&str]| {
             Rc::new(Enumeration {
@@ -109,7 +112,7 @@ impl TypeRegister {
                     builtin.properties.insert(name.to_string(), funtype.clone());
                     builtin.member_functions.insert(name.to_string(), fun.clone());
                 }
-                tr.types.insert(name.to_string(), Type::Builtin(Rc::new(builtin)));
+                tr.insert_type(Type::Builtin(Rc::new(builtin)));
             };
 
         let native_class = |tr: &mut TypeRegister,
@@ -134,13 +137,13 @@ impl TypeRegister {
         border_rectangle.properties.insert("border_color".to_owned(), Type::Color);
         let border_rectangle = Rc::new(border_rectangle);
 
-        r.types.insert(
+        register.types.insert(
             "Rectangle".to_owned(),
             Type::Builtin(Rc::new(BuiltinElement::new(border_rectangle))),
         );
 
         native_class(
-            &mut r,
+            &mut register,
             "Image",
             &[
                 ("source", Type::Resource),
@@ -153,7 +156,7 @@ impl TypeRegister {
         );
 
         native_class(
-            &mut r,
+            &mut register,
             "Text",
             &[
                 ("text", Type::String),
@@ -177,7 +180,7 @@ impl TypeRegister {
         );
 
         native_class(
-            &mut r,
+            &mut register,
             "TouchArea",
             &[
                 ("x", Type::Length),
@@ -195,7 +198,7 @@ impl TypeRegister {
         );
 
         native_class(
-            &mut r,
+            &mut register,
             "Flickable",
             &[
                 ("x", Type::Length),
@@ -213,10 +216,15 @@ impl TypeRegister {
             &[("interactive", Expression::BoolLiteral(true))],
         );
 
-        native_class(&mut r, "Window", &[("width", Type::Length), ("height", Type::Length)], &[]);
+        native_class(
+            &mut register,
+            "Window",
+            &[("width", Type::Length), ("height", Type::Length)],
+            &[],
+        );
 
         native_class_with_member_functions(
-            &mut r,
+            &mut register,
             "TextInput",
             &[
                 ("text", Type::String),
@@ -278,7 +286,7 @@ impl TypeRegister {
             .additional_accepted_child_types
             .insert("Row".to_owned(), Type::Builtin(Rc::new(row)));
 
-        r.types.insert("GridLayout".to_owned(), Type::Builtin(Rc::new(grid_layout)));
+        register.insert_type(Type::Builtin(Rc::new(grid_layout)));
 
         let mut path_class = NativeClass::new("Path");
         path_class.properties.insert("x".to_owned(), Type::Length);
@@ -335,7 +343,7 @@ impl TypeRegister {
                 .insert(elem.native_class.class_name.clone(), Type::Builtin(elem.clone()));
         });
 
-        r.types.insert("Path".to_owned(), Type::Builtin(Rc::new(path_elem)));
+        register.insert_type(Type::Builtin(Rc::new(path_elem)));
 
         let mut path_layout = BuiltinElement::new(Rc::new(NativeClass::new("PathLayout")));
         path_layout.properties.insert("x".to_owned(), Type::Length);
@@ -349,7 +357,7 @@ impl TypeRegister {
                 .additional_accepted_child_types
                 .insert(elem.native_class.class_name.clone(), Type::Builtin(elem.clone()));
         });
-        r.types.insert("PathLayout".to_owned(), Type::Builtin(Rc::new(path_layout)));
+        register.insert_type(Type::Builtin(Rc::new(path_layout)));
 
         let mut property_animation = NativeClass::new("PropertyAnimation");
         property_animation.properties.insert("duration".to_owned(), Type::Duration);
@@ -357,16 +365,19 @@ impl TypeRegister {
         property_animation.properties.insert("loop_count".to_owned(), Type::Int32);
         let mut property_animation = BuiltinElement::new(Rc::new(property_animation));
         property_animation.is_non_item_type = true;
-        r.property_animation_type = Type::Builtin(Rc::new(property_animation));
-        r.supported_property_animation_types.insert(Type::Float32.to_string());
-        r.supported_property_animation_types.insert(Type::Int32.to_string());
-        r.supported_property_animation_types.insert(Type::Color.to_string());
-        r.supported_property_animation_types.insert(Type::Length.to_string());
-        r.supported_property_animation_types.insert(Type::LogicalLength.to_string());
+        register.property_animation_type = Type::Builtin(Rc::new(property_animation));
+        register.supported_property_animation_types.insert(Type::Float32.to_string());
+        register.supported_property_animation_types.insert(Type::Int32.to_string());
+        register.supported_property_animation_types.insert(Type::Color.to_string());
+        register.supported_property_animation_types.insert(Type::Length.to_string());
+        register.supported_property_animation_types.insert(Type::LogicalLength.to_string());
 
         let mut context_restricted_types = HashMap::new();
-        r.types.values().for_each(|ty| ty.collect_contextual_types(&mut context_restricted_types));
-        r.context_restricted_types = context_restricted_types;
+        register
+            .types
+            .values()
+            .for_each(|ty| ty.collect_contextual_types(&mut context_restricted_types));
+        register.context_restricted_types = context_restricted_types;
 
         let standard_listview_item = Type::Component(Rc::new(Component {
             id: "sixtyfps::StandardListViewItem".into(),
@@ -380,11 +391,11 @@ impl TypeRegister {
             })),
             ..Component::default()
         }));
-        r.types.insert("StandardListViewItem".into(), standard_listview_item.clone());
+        register.types.insert("StandardListViewItem".into(), standard_listview_item.clone());
 
         // FIXME: should this be auto generated or placed somewhere else
         native_class(
-            &mut r,
+            &mut register,
             "NativeButton",
             &[
                 ("x", Type::Length),
@@ -398,7 +409,7 @@ impl TypeRegister {
             &[],
         );
         native_class(
-            &mut r,
+            &mut register,
             "NativeCheckBox",
             &[
                 ("x", Type::Length),
@@ -412,7 +423,7 @@ impl TypeRegister {
             &[],
         );
         native_class(
-            &mut r,
+            &mut register,
             "NativeSpinBox",
             &[
                 ("x", Type::Length),
@@ -424,7 +435,7 @@ impl TypeRegister {
             &[],
         );
         native_class(
-            &mut r,
+            &mut register,
             "NativeSlider",
             &[
                 ("x", Type::Length),
@@ -438,7 +449,7 @@ impl TypeRegister {
             &[],
         );
         native_class(
-            &mut r,
+            &mut register,
             "NativeGroupBox",
             &[
                 ("x", Type::Length),
@@ -454,7 +465,7 @@ impl TypeRegister {
             &[],
         );
         native_class(
-            &mut r,
+            &mut register,
             "NativeLineEdit",
             &[
                 ("x", Type::Length),
@@ -470,7 +481,7 @@ impl TypeRegister {
             &[],
         );
         native_class(
-            &mut r,
+            &mut register,
             "NativeScrollView",
             &[
                 ("x", Type::Length),
@@ -491,7 +502,7 @@ impl TypeRegister {
             &[],
         );
         native_class(
-            &mut r,
+            &mut register,
             "NativeStandardListViewItem",
             &[
                 ("x", Type::Length),
@@ -505,7 +516,7 @@ impl TypeRegister {
             &[],
         );
 
-        Rc::new(RefCell::new(r))
+        Rc::new(RefCell::new(register))
     }
 
     pub fn new(parent: &Rc<RefCell<TypeRegister>>) -> Self {
