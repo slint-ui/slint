@@ -9,7 +9,7 @@
 LICENSE END */
 
 use neon::prelude::*;
-use sixtyfps_compilerlib::typeregister::Type;
+use sixtyfps_compilerlib::langtype::Type;
 use sixtyfps_corelib::model::Model;
 use std::cell::Cell;
 use std::rc::{Rc, Weak};

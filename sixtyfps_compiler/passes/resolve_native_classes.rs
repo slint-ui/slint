@@ -10,8 +10,8 @@ LICENSE END */
 //! After inlining and moving declarations, all Element::base_type should be Type::BuiltinElement. This pass resolves them
 //  to NativeClass and picking a variant that only contains the used properties.
 
+use crate::langtype::Type;
 use crate::object_tree::{recurse_elem, Component};
-use crate::typeregister::Type;
 
 pub fn resolve_native_classes(component: &Component) {
     recurse_elem(&component.root_element, &(), &mut |elem, _| {

@@ -12,8 +12,8 @@ Make sure that the Repeated expression are just components without any chilodren
  */
 
 use crate::expression_tree::NamedReference;
+use crate::langtype::Type;
 use crate::object_tree::*;
-use crate::typeregister::Type;
 use std::{cell::RefCell, rc::Rc};
 
 pub fn process_repeater_components(component: &Rc<Component>) {

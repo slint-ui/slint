@@ -14,9 +14,9 @@ use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic, Level, Spanned};
 use crate::expression_tree::{
     BuiltinFunction, EasingCurve, Expression, NamedReference, OperatorClass, Path,
 };
+use crate::langtype::Type;
 use crate::layout::{gen::LayoutItemCodeGen, Layout, LayoutElement, LayoutGeometry};
 use crate::object_tree::{Component, Document, ElementRc};
-use crate::typeregister::Type;
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use std::rc::Rc;

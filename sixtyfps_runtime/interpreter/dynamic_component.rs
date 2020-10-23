@@ -15,10 +15,10 @@ use dynamic_type::{Instance, InstanceBox};
 use expression_tree::NamedReference;
 use object_tree::{Element, ElementRc};
 use sixtyfps_compilerlib::expression_tree::Expression;
+use sixtyfps_compilerlib::langtype::Type;
 use sixtyfps_compilerlib::layout::{
     GridLayout, Layout, LayoutConstraints, LayoutElement, LayoutItem, PathLayout,
 };
-use sixtyfps_compilerlib::typeregister::Type;
 use sixtyfps_compilerlib::*;
 use sixtyfps_corelib::component::{Component, ComponentRefPin, ComponentVTable};
 use sixtyfps_corelib::graphics::Resource;

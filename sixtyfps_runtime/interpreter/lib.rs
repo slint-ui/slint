@@ -34,7 +34,7 @@ impl<'id> dynamic_component::ComponentDescription<'id> {
     }
 
     /// List of publicly declared properties or signal
-    pub fn properties(&self) -> HashMap<String, sixtyfps_compilerlib::typeregister::Type> {
+    pub fn properties(&self) -> HashMap<String, sixtyfps_compilerlib::langtype::Type> {
         self.original
             .root_element
             .borrow()

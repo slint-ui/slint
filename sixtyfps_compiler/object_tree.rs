@@ -13,8 +13,9 @@ LICENSE END */
 
 use crate::diagnostics::{FileDiagnostics, Spanned, SpannedWithSourceFile};
 use crate::expression_tree::{Expression, ExpressionSpanned, NamedReference};
+use crate::langtype::{NativeClass, Type};
 use crate::parser::{identifier_text, syntax_nodes, SyntaxKind, SyntaxNodeWithSourceFile};
-use crate::typeregister::{NativeClass, Type, TypeRegister};
+use crate::typeregister::TypeRegister;
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
@@ -160,7 +161,7 @@ pub struct Element {
     /// The id are then re-assigned unique id in the assign_id pass
     pub id: String,
     //pub base: QualifiedTypeName,
-    pub base_type: crate::typeregister::Type,
+    pub base_type: crate::langtype::Type,
     /// Currently contains also the signals. FIXME: should that be changed?
     pub bindings: HashMap<String, ExpressionSpanned>,
     pub children: Vec<ElementRc>,

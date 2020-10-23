@@ -11,8 +11,9 @@ LICENSE END */
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::*;
+use crate::langtype::Type;
 use crate::layout::*;
-use crate::{object_tree::*, typeregister::Type};
+use crate::object_tree::*;
 use std::rc::Rc;
 
 fn property_reference(element: &ElementRc, name: &str) -> Box<Expression> {

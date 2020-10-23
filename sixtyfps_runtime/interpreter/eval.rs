@@ -15,7 +15,8 @@ use sixtyfps_compilerlib::expression_tree::{
     BuiltinFunction, EasingCurve, Expression, ExpressionSpanned, NamedReference, Path as ExprPath,
     PathElement as ExprPathElement,
 };
-use sixtyfps_compilerlib::{object_tree::ElementRc, typeregister::Type};
+use sixtyfps_compilerlib::langtype::Type;
+use sixtyfps_compilerlib::object_tree::ElementRc;
 use sixtyfps_corelib as corelib;
 use sixtyfps_corelib::{
     graphics::PathElement, items::ItemRef, items::PropertyAnimation, Color, PathData, Resource,

@@ -9,7 +9,7 @@
 LICENSE END */
 use core::cell::RefCell;
 use neon::prelude::*;
-use sixtyfps_compilerlib::typeregister::Type;
+use sixtyfps_compilerlib::langtype::Type;
 use sixtyfps_corelib::Resource;
 
 use std::rc::Rc;
@@ -150,7 +150,7 @@ fn create<'cx>(
 
 fn to_eval_value<'cx>(
     val: Handle<'cx, JsValue>,
-    ty: sixtyfps_compilerlib::typeregister::Type,
+    ty: sixtyfps_compilerlib::langtype::Type,
     cx: &mut impl Context<'cx>,
     persistent_context: &persistent_context::PersistentContext<'cx>,
 ) -> NeonResult<sixtyfps_interpreter::Value> {

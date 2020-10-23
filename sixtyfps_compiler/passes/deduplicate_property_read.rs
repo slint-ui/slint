@@ -10,8 +10,8 @@ LICENSE END */
 //! Do not read twice the same property, store in a local variable instead
 
 use crate::expression_tree::*;
+use crate::langtype::Type;
 use crate::object_tree::*;
-use crate::typeregister::Type;
 use std::{cell::RefCell, collections::HashMap};
 
 pub fn deduplicate_property_read(component: &Component) {

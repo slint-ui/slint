@@ -10,8 +10,8 @@ LICENSE END */
 //! This pass creates properties that are used but are otherwise not real
 
 use crate::expression_tree::NamedReference;
+use crate::langtype::Type;
 use crate::object_tree::*;
-use crate::typeregister::Type;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -46,11 +46,9 @@ fn maybe_materialize(
         return;
     }
     let has_declared_property = match &base_type {
-        crate::typeregister::Type::Component(c) => {
-            has_declared_property(&c.root_element.borrow(), prop)
-        }
-        crate::typeregister::Type::Builtin(b) => b.properties.contains_key(prop),
-        crate::typeregister::Type::Native(n) => n.lookup_property(prop).is_some(),
+        Type::Component(c) => has_declared_property(&c.root_element.borrow(), prop),
+        Type::Builtin(b) => b.properties.contains_key(prop),
+        Type::Native(n) => n.lookup_property(prop).is_some(),
         _ => false,
     };
 
@@ -72,11 +70,9 @@ fn has_declared_property(elem: &Element, prop: &str) -> bool {
         return true;
     }
     match &elem.base_type {
-        crate::typeregister::Type::Component(c) => {
-            has_declared_property(&c.root_element.borrow(), prop)
-        }
-        crate::typeregister::Type::Builtin(b) => b.properties.contains_key(prop),
-        crate::typeregister::Type::Native(n) => n.lookup_property(prop).is_some(),
+        Type::Component(c) => has_declared_property(&c.root_element.borrow(), prop),
+        Type::Builtin(b) => b.properties.contains_key(prop),
+        Type::Native(n) => n.lookup_property(prop).is_some(),
         _ => false,
     }
 }

@@ -9,11 +9,9 @@
 LICENSE END */
 //! Inline each object_tree::Component within the main Component
 
-use crate::{
-    expression_tree::{Expression, NamedReference},
-    object_tree::*,
-    typeregister::Type,
-};
+use crate::expression_tree::{Expression, NamedReference};
+use crate::langtype::Type;
+use crate::object_tree::*;
 use by_address::ByAddress;
 use std::cell::RefCell;
 use std::collections::HashMap;

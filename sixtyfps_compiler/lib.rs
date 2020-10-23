@@ -27,6 +27,7 @@ use std::{borrow::Cow, cell::RefCell, rc::Rc};
 pub mod diagnostics;
 pub mod expression_tree;
 pub mod generator;
+pub mod langtype;
 pub mod layout;
 pub mod lexer;
 pub mod object_tree;

@@ -8,9 +8,9 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 use crate::diagnostics::{BuildDiagnostics, Spanned, SpannedWithSourceFile};
+use crate::langtype::{BuiltinElement, EnumerationValue, Type};
 use crate::object_tree::*;
 use crate::parser::SyntaxNodeWithSourceFile;
-use crate::typeregister::{BuiltinElement, EnumerationValue, Type};
 use core::cell::RefCell;
 use std::collections::HashMap;
 use std::hash::Hash;

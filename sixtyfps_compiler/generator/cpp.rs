@@ -186,9 +186,9 @@ use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic, Level, Spanned};
 use crate::expression_tree::{
     BuiltinFunction, EasingCurve, Expression, ExpressionSpanned, NamedReference,
 };
+use crate::langtype::Type;
 use crate::layout::{gen::LayoutItemCodeGen, Layout, LayoutElement, LayoutGeometry};
 use crate::object_tree::{Component, Document, Element, ElementRc, RepeatedElementInfo};
-use crate::typeregister::Type;
 use cpp_ast::*;
 use itertools::Itertools;
 use std::collections::HashMap;

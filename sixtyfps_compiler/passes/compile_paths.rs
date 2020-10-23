@@ -16,8 +16,8 @@ use crate::diagnostics::BuildDiagnostics;
 /// elements property of the Path element. That way the generators have to deal
 /// with path embedding only as part of the property assignment.
 use crate::expression_tree::*;
+use crate::langtype::Type;
 use crate::object_tree::*;
-use crate::typeregister::Type;
 use std::rc::Rc;
 
 pub fn compile_paths(
@@ -32,12 +32,12 @@ pub fn compile_paths(
 
     recurse_elem(&component.root_element, &(), &mut |elem_, _| {
         let accepted_type = match &elem_.borrow().base_type {
-            crate::typeregister::Type::Builtin(be)
+            Type::Builtin(be)
                 if be.native_class.class_name == path_type.native_class.class_name =>
             {
                 path_type
             }
-            crate::typeregister::Type::Builtin(be)
+            Type::Builtin(be)
                 if be.native_class.class_name == pathlayout_type.native_class.class_name =>
             {
                 pathlayout_type

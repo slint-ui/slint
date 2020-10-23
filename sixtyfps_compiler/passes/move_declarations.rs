@@ -9,13 +9,12 @@
 LICENSE END */
 //! This pass moves all declaration of properties or signal to the root
 
-use crate::{
-    diagnostics::{BuildDiagnostics, Level},
-    expression_tree::{Expression, NamedReference},
-    object_tree::*,
-    passes::ExpressionFieldsVisitor,
-    typeregister::Type,
-};
+use crate::diagnostics::{BuildDiagnostics, Level};
+use crate::expression_tree::{Expression, NamedReference};
+use crate::langtype::Type;
+use crate::object_tree::*;
+use crate::passes::ExpressionFieldsVisitor;
+
 use std::collections::HashMap;
 use std::rc::Rc;
 

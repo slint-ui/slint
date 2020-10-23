@@ -10,8 +10,9 @@ LICENSE END */
 //! Datastructures used to represent layouts in the compiler
 
 use crate::expression_tree::{Expression, NamedReference, Path};
+use crate::langtype::Type;
 use crate::object_tree::{ElementRc, PropertyDeclaration};
-use crate::{passes::ExpressionFieldsVisitor, typeregister::Type};
+use crate::passes::ExpressionFieldsVisitor;
 use std::rc::Rc;
 
 #[derive(Debug, derive_more::From)]

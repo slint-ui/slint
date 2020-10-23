@@ -16,9 +16,9 @@ LICENSE END */
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::*;
+use crate::langtype::Type;
 use crate::object_tree::*;
 use crate::parser::{identifier_text, syntax_nodes, SyntaxKind, SyntaxNodeWithSourceFile};
-use crate::typeregister::Type;
 use by_address::ByAddress;
 use std::{collections::HashMap, collections::HashSet, rc::Rc};
 

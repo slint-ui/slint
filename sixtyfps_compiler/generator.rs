@@ -133,7 +133,7 @@ pub fn build_array_helper(
 
 pub fn is_flickable(e: &ElementRc) -> bool {
     match &e.borrow().base_type {
-        crate::typeregister::Type::Native(n) if n.class_name == "Flickable" => true,
+        crate::langtype::Type::Native(n) if n.class_name == "Flickable" => true,
         _ => false,
     }
 }
