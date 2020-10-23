@@ -19,12 +19,14 @@ use std::rc::Rc;
 pub enum Layout {
     GridLayout(GridLayout),
     PathLayout(PathLayout),
+    BoxLayout(BoxLayout),
 }
 
 impl Layout {
     pub fn rect(&self) -> &LayoutRect {
         match self {
             Layout::GridLayout(g) => &g.geometry.rect,
+            Layout::BoxLayout(g) => &g.geometry.rect,
             Layout::PathLayout(p) => &p.rect,
         }
     }
@@ -34,6 +36,7 @@ impl ExpressionFieldsVisitor for Layout {
     fn visit_expressions(&mut self, visitor: &mut impl FnMut(&mut Expression)) {
         match self {
             Layout::GridLayout(grid) => grid.visit_expressions(visitor),
+            Layout::BoxLayout(l) => l.visit_expressions(visitor),
             Layout::PathLayout(path) => path.visit_expressions(visitor),
         }
     }
@@ -242,13 +245,44 @@ impl LayoutGeometry {
 #[derive(Debug)]
 pub struct GridLayout {
     /// All the elements will be layout within that element.
-    ///
     pub elems: Vec<GridLayoutElement>,
 
     pub geometry: LayoutGeometry,
 }
 
 impl ExpressionFieldsVisitor for GridLayout {
+    fn visit_expressions(&mut self, visitor: &mut impl FnMut(&mut Expression)) {
+        for cell in &mut self.elems {
+            match &mut cell.item {
+                LayoutItem::Element(element) => {
+                    element.layout.as_mut().map(|layout| layout.visit_expressions(visitor));
+                    // The expressions of element.element are traversed through the regular element tree traversal
+                }
+                LayoutItem::Layout(layout) => layout.visit_expressions(visitor),
+            }
+            cell.constraints.visit_expressions(visitor);
+        }
+        self.geometry.visit_expressions(visitor);
+    }
+}
+
+/// An element in a BoxLayout
+#[derive(Debug)]
+pub struct BoxLayoutElement {
+    pub item: LayoutItem,
+    pub constraints: LayoutConstraints,
+}
+
+/// Internal representation of a BoxLayout
+#[derive(Debug)]
+pub struct BoxLayout {
+    /// When true, this is a HorizonalLayout, otherwise a VerticalLayout
+    pub is_horizontal: bool,
+    pub elems: Vec<BoxLayoutElement>,
+    pub geometry: LayoutGeometry,
+}
+
+impl ExpressionFieldsVisitor for BoxLayout {
     fn visit_expressions(&mut self, visitor: &mut impl FnMut(&mut Expression)) {
         for cell in &mut self.elems {
             match &mut cell.item {
@@ -291,7 +325,7 @@ pub mod gen {
     #[derive(derive_more::From)]
     pub enum LayoutTreeItem<'a, L: Language> {
         GridLayout {
-            grid: &'a GridLayout,
+            geometry: &'a LayoutGeometry,
             spacing: L::CompiledCode,
             padding: L::CompiledCode,
             var_creation_code: L::CompiledCode,

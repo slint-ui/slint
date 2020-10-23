@@ -32,8 +32,9 @@ MainWindow := Window {
         { title: "Profit", checked: false },
     ];
 
-    GridLayout {
-        Row {
+    VerticalLayout {
+        spacing: 15px;
+        HorizontalLayout {
             text_edit := LineEdit {
                 text: "Play Golf";
                 accepted(text) => {
@@ -47,16 +48,8 @@ MainWindow := Window {
                 }
             }
         }
-        spacing := Rectangle {
-            height: 15px;
-            maximum_height: 15px;
-            minimum_height: 15px;
-            row: 1;
-            colspan: 2;
-        }
+
         list_view := ListView {
-            colspan: 2;
-            row: 2;
             for todo in todo_model: Rectangle {
                 height: 20px;
                 GridLayout {
@@ -70,9 +63,9 @@ MainWindow := Window {
                 }
             }
         }
-        Row {
+        HorizontalLayout {
+            Rectangle {}  // Fixme: remove and use alignement instead
             Button {
-                col: 1;
                 text: "Remove Done Items";
                 clicked => { root.remove_done(); }
             }

@@ -17,7 +17,7 @@ use object_tree::{Element, ElementRc};
 use sixtyfps_compilerlib::expression_tree::Expression;
 use sixtyfps_compilerlib::langtype::Type;
 use sixtyfps_compilerlib::layout::{
-    GridLayout, Layout, LayoutConstraints, LayoutElement, LayoutItem, PathLayout,
+    Layout, LayoutConstraints, LayoutElement, LayoutItem, PathLayout,
 };
 use sixtyfps_compilerlib::*;
 use sixtyfps_corelib::component::{Component, ComponentRefPin, ComponentVTable};
@@ -922,7 +922,7 @@ fn get_property_ptr(nr: &NamedReference, instance: InstanceRef) -> *const () {
 use sixtyfps_corelib::layout::*;
 
 pub struct GridLayoutWithCells<'a> {
-    grid: &'a GridLayout,
+    geometry: &'a sixtyfps_compilerlib::layout::LayoutGeometry,
     cells: Vec<GridLayoutCellData<'a>>,
     spacing: f32,
     padding: Padding,
@@ -1099,8 +1099,50 @@ fn collect_layouts_recursively<'a, 'b>(
                 top: grid_layout.geometry.padding.top.as_ref().map_or(0., expr_eval),
                 bottom: grid_layout.geometry.padding.bottom.as_ref().map_or(0., expr_eval),
             };
-            layout_tree
-                .push(GridLayoutWithCells { grid: grid_layout, cells, spacing, padding }.into());
+            layout_tree.push(
+                GridLayoutWithCells { geometry: &grid_layout.geometry, cells, spacing, padding }
+                    .into(),
+            );
+        }
+        Layout::BoxLayout(box_layout) => {
+            let expr_eval = |expr: &Expression| -> f32 {
+                eval::eval_expression(expr, component, &mut Default::default()).try_into().unwrap()
+            };
+            let cells = box_layout
+                .elems
+                .iter()
+                .enumerate()
+                .map(|(idx, cell)| {
+                    let get_prop = |name| cell.item.get_property_ref(component, name);
+                    let mut layout_info = cell.item.get_layout_info(component, layout_tree, window);
+                    fill_layout_info_constraints(&mut layout_info, &cell.constraints, &expr_eval);
+                    let (col, row) =
+                        if box_layout.is_horizontal { (idx as u16, 0) } else { (0, idx as u16) };
+
+                    GridLayoutCellData {
+                        x: get_prop("x"),
+                        y: get_prop("y"),
+                        width: get_prop("width"),
+                        height: get_prop("height"),
+                        col,
+                        row,
+                        colspan: 1,
+                        rowspan: 1,
+                        constraint: layout_info,
+                    }
+                })
+                .collect();
+            let spacing = box_layout.geometry.spacing.as_ref().map_or(0., expr_eval);
+            let padding = Padding {
+                left: box_layout.geometry.padding.left.as_ref().map_or(0., expr_eval),
+                right: box_layout.geometry.padding.right.as_ref().map_or(0., expr_eval),
+                top: box_layout.geometry.padding.top.as_ref().map_or(0., expr_eval),
+                bottom: box_layout.geometry.padding.bottom.as_ref().map_or(0., expr_eval),
+            };
+            layout_tree.push(
+                GridLayoutWithCells { geometry: &box_layout.geometry, cells, spacing, padding }
+                    .into(),
+            );
         }
         Layout::PathLayout(layout) => layout_tree.push(layout.into()),
     }
@@ -1118,10 +1160,10 @@ impl<'a> LayoutTreeItem<'a> {
         match self {
             Self::GridLayout(grid_layout) => {
                 solve_grid_layout(&GridLayoutData {
-                    width: resolve_prop_ref(&grid_layout.grid.geometry.rect.width_reference),
-                    height: resolve_prop_ref(&grid_layout.grid.geometry.rect.height_reference),
-                    x: resolve_prop_ref(&grid_layout.grid.geometry.rect.x_reference),
-                    y: resolve_prop_ref(&grid_layout.grid.geometry.rect.y_reference),
+                    width: resolve_prop_ref(&grid_layout.geometry.rect.width_reference),
+                    height: resolve_prop_ref(&grid_layout.geometry.rect.height_reference),
+                    x: resolve_prop_ref(&grid_layout.geometry.rect.x_reference),
+                    y: resolve_prop_ref(&grid_layout.geometry.rect.y_reference),
                     spacing: grid_layout.spacing,
                     padding: &grid_layout.padding,
                     cells: Slice::from(grid_layout.cells.as_slice()),

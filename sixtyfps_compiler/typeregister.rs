@@ -288,6 +288,14 @@ impl TypeRegister {
 
         register.insert_type(Type::Builtin(Rc::new(grid_layout)));
 
+        let mut horizontal_layout =
+            BuiltinElement::new(Rc::new(NativeClass::new("HorizontalLayout")));
+        horizontal_layout.properties.insert("spacing".to_owned(), Type::Length);
+        register.insert_type(Type::Builtin(Rc::new(horizontal_layout)));
+        let mut vertical_layout = BuiltinElement::new(Rc::new(NativeClass::new("VerticalLayout")));
+        vertical_layout.properties.insert("spacing".to_owned(), Type::Length);
+        register.insert_type(Type::Builtin(Rc::new(vertical_layout)));
+
         let mut path_class = NativeClass::new("Path");
         path_class.properties.insert("x".to_owned(), Type::Length);
         path_class.properties.insert("y".to_owned(), Type::Length);

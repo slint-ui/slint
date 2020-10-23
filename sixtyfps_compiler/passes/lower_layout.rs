@@ -101,6 +101,35 @@ fn lower_grid_layout(
     }
 }
 
+fn lower_box_layout(
+    component: &Rc<Component>,
+    rect: LayoutRect,
+    layout_element: &ElementRc,
+    collected_children: &mut Vec<ElementRc>,
+    diag: &mut BuildDiagnostics,
+) -> Option<Layout> {
+    let is_horizontal = layout_element.borrow().base_type.to_string() == "HorizontalLayout";
+    let mut layout = BoxLayout {
+        is_horizontal,
+        elems: Default::default(),
+        geometry: LayoutGeometry::new(rect, &layout_element),
+    };
+    let layout_children = std::mem::take(&mut layout_element.borrow_mut().children);
+    for layout_child in layout_children {
+        if let Some(item) = create_layout_item(&layout_child, component, collected_children, diag) {
+            layout
+                .elems
+                .push(BoxLayoutElement { item, constraints: LayoutConstraints::new(&layout_child) })
+        }
+    }
+    component.optimized_elements.borrow_mut().push(layout_element.clone());
+    if !layout.elems.is_empty() {
+        Some(layout.into())
+    } else {
+        None
+    }
+}
+
 fn lower_path_layout(
     component: &Rc<Component>,
     rect: LayoutRect,
@@ -155,14 +184,17 @@ fn layout_parse_function(
     ) -> Option<Layout>,
 > {
     if let Type::Builtin(be) = &layout_element_candidate.borrow().base_type {
-        assert!(be.native_class.class_name != "Row"); // Caught at element lookup time
-        if be.native_class.class_name == "GridLayout" {
-            return Some(&lower_grid_layout);
-        } else if be.native_class.class_name == "PathLayout" {
-            return Some(&lower_path_layout);
+        match be.native_class.class_name.as_str() {
+            "Row" => panic!("Error caught at element lookup time"),
+            "GridLayout" => Some(&lower_grid_layout),
+            "HorizontalLayout" => Some(&lower_box_layout),
+            "VerticalLayout" => Some(&lower_box_layout),
+            "PathLayout" => Some(&lower_path_layout),
+            _ => None,
         }
+    } else {
+        None
     }
-    None
 }
 
 fn lower_element_layout(
@@ -224,6 +256,34 @@ pub fn lower_layouts(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
     check_no_layout_properties(&component.root_element, diag);
 }
 
+/// Create a LayoutElement for the given `item_element`  returns None is the layout is empty
+fn create_layout_item(
+    item_element: &ElementRc,
+    component: &Rc<Component>,
+    collected_children: &mut Vec<ElementRc>,
+    diag: &mut BuildDiagnostics,
+) -> Option<LayoutItem> {
+    if let Some(nested_layout_parser) = layout_parse_function(item_element) {
+        let layout_rect = LayoutRect::install_on_element(&item_element);
+
+        nested_layout_parser(component, layout_rect, &item_element, collected_children, diag)
+            .map(|x| Box::new(x).into())
+    } else {
+        item_element.borrow_mut().child_of_layout = true;
+        collected_children.push(item_element.clone());
+        let element = item_element.clone();
+        let layout = {
+            let mut layouts = lower_element_layout(component, &element, diag);
+            if layouts.is_empty() {
+                None
+            } else {
+                Some(layouts.remove(0))
+            }
+        };
+        Some(LayoutElement { element, layout }.into())
+    }
+}
+
 impl GridLayout {
     fn add_element(
         &mut self,
@@ -251,43 +311,18 @@ impl GridLayout {
             *col = c;
         }
 
-        let layout_item = if let Some(nested_layout_parser) = layout_parse_function(&item_element) {
-            let layout_rect = LayoutRect::install_on_element(&item_element);
-
-            if let Some(layout) = nested_layout_parser(
-                component,
-                layout_rect,
-                &item_element,
-                collected_children,
-                diag,
-            ) {
-                Box::new(layout).into()
-            } else {
-                return;
-            }
-        } else {
-            item_element.borrow_mut().child_of_layout = true;
-            collected_children.push(item_element.clone());
-            let element = item_element.clone();
-            let layout = {
-                let mut layouts = lower_element_layout(component, &element, diag);
-                if layouts.is_empty() {
-                    None
-                } else {
-                    Some(layouts.remove(0))
-                }
-            };
-            LayoutElement { element, layout }.into()
-        };
-
-        self.elems.push(GridLayoutElement {
-            col: *col,
-            row: *row,
-            colspan,
-            rowspan,
-            item: layout_item,
-            constraints: LayoutConstraints::new(&item_element),
-        });
+        if let Some(layout_item) =
+            create_layout_item(&item_element, component, collected_children, diag)
+        {
+            self.elems.push(GridLayoutElement {
+                col: *col,
+                row: *row,
+                colspan,
+                rowspan,
+                item: layout_item,
+                constraints: LayoutConstraints::new(&item_element),
+            });
+        }
     }
 }
 

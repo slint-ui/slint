@@ -1408,48 +1408,22 @@ fn collect_layouts_recursively<'a, 'b>(
     layout: &'a Layout,
     component: &Rc<Component>,
 ) -> &'b LayoutTreeItem<'a> {
-    let get_property_ref = LayoutItemCodeGen::<RustLanguageLayoutGen>::get_property_ref;
     match layout {
         Layout::GridLayout(grid_layout) => {
             let cells: Vec<TokenStream> = grid_layout
                 .elems
                 .iter()
                 .map(|cell| {
-                    let width = get_property_ref(&cell.item, "width");
-                    let height = get_property_ref(&cell.item, "height");
-                    let x = get_property_ref(&cell.item, "x");
-                    let y = get_property_ref(&cell.item, "y");
-                    let (col, row, colspan, rowspan) =
-                        (cell.col, cell.row, cell.colspan, cell.rowspan);
-                    let mut layout_info = cell.item.get_layout_info_ref(layout_tree, component);
-                    if cell.constraints.has_explicit_restrictions() {
-                        let (name, expr): (Vec<_>, Vec<_>) = cell
-                            .constraints
-                            .for_each_restrictions()
-                            .iter()
-                            .filter_map(|(e, s)| {
-                                e.as_ref().map(|e| {
-                                    (format_ident!("{}", s), compile_expression(&e, component))
-                                })
-                            })
-                            .unzip();
-                        layout_info = quote!({
-                            let mut layout_info = #layout_info;
-                             #(layout_info.#name = #expr;)*
-                            layout_info });
-                    }
-
-                    quote!(GridLayoutCellData {
-                        x: #x,
-                        y: #y,
-                        width: #width,
-                        height: #height,
-                        col: #col,
-                        row: #row,
-                        colspan: #colspan,
-                        rowspan: #rowspan,
-                        constraint: #layout_info,
-                    })
+                    make_grid_layout_cell_data(
+                        &cell.item,
+                        &cell.constraints,
+                        cell.col,
+                        cell.row,
+                        cell.colspan,
+                        cell.rowspan,
+                        layout_tree,
+                        component,
+                    )
                 })
                 .collect();
 
@@ -1461,7 +1435,44 @@ fn collect_layouts_recursively<'a, 'b>(
 
             layout_tree.push(
                 LayoutTreeItem::GridLayout {
-                    grid: grid_layout,
+                    geometry: &grid_layout.geometry,
+                    var_creation_code: quote!(#cell_creation_code #spacing_creation_code),
+                    cell_ref_variable: quote!(#cell_ref_variable),
+                    spacing,
+                    padding,
+                }
+                .into(),
+            );
+        }
+        Layout::BoxLayout(box_layout) => {
+            let cells: Vec<TokenStream> = box_layout
+                .elems
+                .iter()
+                .enumerate()
+                .map(|(idx, cell)| {
+                    let (c, r) = if box_layout.is_horizontal { (idx, 0) } else { (0, idx) };
+                    make_grid_layout_cell_data(
+                        &cell.item,
+                        &cell.constraints,
+                        c as u16,
+                        r as u16,
+                        1,
+                        1,
+                        layout_tree,
+                        component,
+                    )
+                })
+                .collect();
+
+            let cell_ref_variable = format_ident!("cells_{}", layout_tree.len());
+            let cell_creation_code = quote!(let #cell_ref_variable
+                = [#( #cells ),*];);
+            let (padding, spacing, spacing_creation_code) =
+                generate_layout_padding_and_spacing(&layout_tree, &box_layout.geometry, component);
+
+            layout_tree.push(
+                LayoutTreeItem::GridLayout {
+                    geometry: &box_layout.geometry,
                     var_creation_code: quote!(#cell_creation_code #spacing_creation_code),
                     cell_ref_variable: quote!(#cell_ref_variable),
                     spacing,
@@ -1475,14 +1486,59 @@ fn collect_layouts_recursively<'a, 'b>(
     layout_tree.last().unwrap()
 }
 
+fn make_grid_layout_cell_data<'a, 'b>(
+    item: &'a crate::layout::LayoutItem,
+    constraints: &crate::layout::LayoutConstraints,
+    col: u16,
+    row: u16,
+    colspan: u16,
+    rowspan: u16,
+    layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
+    component: &Rc<Component>,
+) -> TokenStream {
+    let get_property_ref = LayoutItemCodeGen::<RustLanguageLayoutGen>::get_property_ref;
+    let width = get_property_ref(item, "width");
+    let height = get_property_ref(item, "height");
+    let x = get_property_ref(item, "x");
+    let y = get_property_ref(item, "y");
+    let mut layout_info = item.get_layout_info_ref(layout_tree, component);
+    if constraints.has_explicit_restrictions() {
+        let (name, expr): (Vec<_>, Vec<_>) = constraints
+            .for_each_restrictions()
+            .iter()
+            .filter_map(|(e, s)| {
+                e.as_ref().map(|e| (format_ident!("{}", s), compile_expression(&e, component)))
+            })
+            .unzip();
+        layout_info = quote!({
+                            let mut layout_info = #layout_info;
+                             #(layout_info.#name = #expr;)*
+                            layout_info });
+    }
+
+    quote!(GridLayoutCellData {
+        x: #x,
+        y: #y,
+        width: #width,
+        height: #height,
+        col: #col,
+        row: #row,
+        colspan: #colspan,
+        rowspan: #rowspan,
+        constraint: #layout_info,
+    })
+}
+
 impl<'a> LayoutTreeItem<'a> {
     fn emit_solve_calls(&self, component: &Rc<Component>, code_stream: &mut Vec<TokenStream>) {
         match self {
-            LayoutTreeItem::GridLayout { grid, cell_ref_variable, spacing, padding, .. } => {
-                let x_pos = compile_expression(&*grid.geometry.rect.x_reference, component);
-                let y_pos = compile_expression(&*grid.geometry.rect.y_reference, component);
-                let width = compile_expression(&*grid.geometry.rect.width_reference, component);
-                let height = compile_expression(&*grid.geometry.rect.height_reference, component);
+            LayoutTreeItem::GridLayout {
+                geometry, cell_ref_variable, spacing, padding, ..
+            } => {
+                let x_pos = compile_expression(&*geometry.rect.x_reference, component);
+                let y_pos = compile_expression(&*geometry.rect.y_reference, component);
+                let width = compile_expression(&*geometry.rect.width_reference, component);
+                let height = compile_expression(&*geometry.rect.height_reference, component);
 
                 code_stream.push(quote! {
                     solve_grid_layout(&GridLayoutData {
