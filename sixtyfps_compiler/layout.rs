@@ -318,8 +318,30 @@ pub mod gen {
     use super::*;
     use crate::object_tree::Component;
 
-    pub trait Language {
+    pub trait Language: Sized {
         type CompiledCode;
+
+        /// Generate the code that instentiate the runtime struct `GridLayoutCellData` for the given cell parameter
+        fn make_grid_layout_cell_data<'a, 'b>(
+            item: &'a crate::layout::LayoutItem,
+            constraints: &crate::layout::LayoutConstraints,
+            col: u16,
+            row: u16,
+            colspan: u16,
+            rowspan: u16,
+            layout_tree: &'b mut Vec<LayoutTreeItem<'a, Self>>,
+            component: &Rc<Component>,
+        ) -> Self::CompiledCode;
+
+        /// Returns a LayoutTree::GridLayout
+        ///
+        /// `cells` is the list of runtime `GridLayoutCellData`
+        fn grid_layout_tree_item<'a, 'b>(
+            layout_tree: &'b mut Vec<LayoutTreeItem<'a, Self>>,
+            geometry: &'a LayoutGeometry,
+            cells: Vec<Self::CompiledCode>,
+            component: &Rc<Component>,
+        ) -> LayoutTreeItem<'a, Self>;
     }
 
     #[derive(derive_more::From)]
@@ -364,5 +386,62 @@ pub mod gen {
                 LayoutItem::Layout(l) => l.get_layout_info_ref(layout_tree, component),
             }
         }
+    }
+
+    pub fn collect_layouts_recursively<'a, 'b, L: Language>(
+        layout_tree: &'b mut Vec<LayoutTreeItem<'a, L>>,
+        layout: &'a Layout,
+        component: &Rc<Component>,
+    ) -> &'b LayoutTreeItem<'a, L> {
+        match layout {
+            Layout::GridLayout(grid_layout) => {
+                let cells: Vec<_> = grid_layout
+                    .elems
+                    .iter()
+                    .map(|cell| {
+                        L::make_grid_layout_cell_data(
+                            &cell.item,
+                            &cell.constraints,
+                            cell.col,
+                            cell.row,
+                            cell.colspan,
+                            cell.rowspan,
+                            layout_tree,
+                            component,
+                        )
+                    })
+                    .collect();
+
+                let i =
+                    L::grid_layout_tree_item(layout_tree, &grid_layout.geometry, cells, component);
+                layout_tree.push(i);
+            }
+            Layout::BoxLayout(box_layout) => {
+                let cells: Vec<_> = box_layout
+                    .elems
+                    .iter()
+                    .enumerate()
+                    .map(|(idx, cell)| {
+                        let (c, r) = if box_layout.is_horizontal { (idx, 0) } else { (0, idx) };
+                        L::make_grid_layout_cell_data(
+                            &cell.item,
+                            &cell.constraints,
+                            c as u16,
+                            r as u16,
+                            1,
+                            1,
+                            layout_tree,
+                            component,
+                        )
+                    })
+                    .collect();
+
+                let i =
+                    L::grid_layout_tree_item(layout_tree, &box_layout.geometry, cells, component);
+                layout_tree.push(i);
+            }
+            Layout::PathLayout(layout) => layout_tree.push(layout.into()),
+        }
+        layout_tree.last().unwrap()
     }
 }
