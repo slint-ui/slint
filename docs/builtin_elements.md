@@ -9,6 +9,8 @@ These properties are valid on all visible items
 * **`maximum_width`** and **`maximum_height`** (*length*): The maximum size of an element when used in a layout.
 * **`minimum_width`** and **`minimum_height`** (*length*): The minimum size of an element when used in a layout.
 * **`col`**, **`row`**, **`colspan`**, **`rowspan`** (*int*): See [`GridLayout`](#gridlayout).
+* **`horizontal_stretch`** and **`vertical_stretch`** (*float*): Specify how much relative space these elements are stretching in a layout.
+  When 0, this means that the elements will not be stretched unless all elements are 0. Builtin widgets have a value of either 0 or 1
 
 ## `Window`
 
@@ -171,6 +173,37 @@ Example := Window {
     }
 }
 ```
+
+
+## `VerticalLayout` / `HorizontalLayout`
+
+These layouts place their children next to eachother verticaly or horizontally.
+The size of elements can either be fixed with the `width` or `height` property, or if they are not set
+they will be computed by the layout respecting the minimum and maximum sizes and the strecth factor.
+
+## Properties
+
+ * **`spacing`** (*length*): The distance between the elements in the layout.
+ * **`padding`** (*length*): the padding within the layout.
+ * **`padding_left`**, **`padding_right`**, **`padding_top`** and **`padding_bottom`** (*length*):
+    override the padding in specific sides.
+
+## Example
+
+```60
+Foo := Window {
+    width: 200px;
+    height: 100px;
+    HorizontalLayout {
+        spacing: 5px;
+        Rectangle { color: red; width: 10px; }
+        Rectangle { color: blue; minimum-width: 10px; }
+        Rectangle { color: yellow; horizontal-stretch: 1; }
+        Rectangle { color: green; horizontal-stretch: 2; }
+    }
+}
+```
+
 
 ## `GridLayout`
 
