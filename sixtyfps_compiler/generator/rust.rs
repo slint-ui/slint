@@ -1336,26 +1336,7 @@ impl crate::layout::gen::Language for RustLanguageLayoutGen {
         let height = get_property_ref(&lay_rect.height_reference);
         let x = get_property_ref(&lay_rect.x_reference);
         let y = get_property_ref(&lay_rect.y_reference);
-        let mut layout_info = Self::get_layout_info_ref(item, layout_tree, component);
-        if constraints.has_explicit_restrictions() {
-            let (name, expr): (Vec<_>, Vec<_>) = constraints
-                .for_each_restrictions()
-                .iter()
-                .filter_map(|(e, s)| {
-                    e.as_ref().map(|e| {
-                        (
-                            format_ident!("{}", s),
-                            access_named_reference(e, component, quote!(_self)),
-                        )
-                    })
-                })
-                .unzip();
-            layout_info = quote!({
-                            let mut layout_info = #layout_info;
-                             #(layout_info.#name = #expr.get();)*
-                            layout_info });
-        }
-
+        let layout_info = get_layout_info_ref(item, constraints, layout_tree, component);
         quote!(GridLayoutCellData {
             x: #x,
             y: #y,
@@ -1390,13 +1371,17 @@ impl crate::layout::gen::Language for RustLanguageLayoutGen {
         }
         .into()
     }
+}
 
-    fn get_layout_info_ref<'a, 'b>(
-        item: &'a crate::layout::LayoutItem,
-        layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
-        component: &Rc<Component>,
-    ) -> TokenStream {
-        let layout_info = item.layout.as_ref().map(|l|{
+type LayoutTreeItem<'a> = crate::layout::gen::LayoutTreeItem<'a, RustLanguageLayoutGen>;
+
+fn get_layout_info_ref<'a, 'b>(
+    item: &'a crate::layout::LayoutItem,
+    constraints: &crate::layout::LayoutConstraints,
+    layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
+    component: &Rc<Component>,
+) -> TokenStream {
+    let layout_info = item.layout.as_ref().map(|l|{
             let layout_tree_item =
                 crate::layout::gen::collect_layouts_recursively(layout_tree, l, component);
             match layout_tree_item {
@@ -1406,20 +1391,35 @@ impl crate::layout::gen::Language for RustLanguageLayoutGen {
                 LayoutTreeItem::PathLayout(_) => todo!(),
             }
         });
-        let elem_info = item.element.as_ref().map(|elem| {
-            let e = format_ident!("{}", elem.borrow().id);
-            quote!(Self::FIELD_OFFSETS.#e.apply_pin(self).layouting_info(&window))
-        });
-        match (layout_info, elem_info) {
-            (None, None) => quote!(),
-            (None, Some(x)) => x,
-            (Some(x), None) => x,
-            (Some(layout_info), Some(elem_info)) => quote!(#layout_info.merge(&#elem_info)),
-        }
+    let elem_info = item.element.as_ref().map(|elem| {
+        let e = format_ident!("{}", elem.borrow().id);
+        quote!(Self::FIELD_OFFSETS.#e.apply_pin(self).layouting_info(&window))
+    });
+    let layout_info = match (layout_info, elem_info) {
+        (None, None) => quote!(),
+        (None, Some(x)) => x,
+        (Some(x), None) => x,
+        (Some(layout_info), Some(elem_info)) => quote!(#layout_info.merge(&#elem_info)),
+    };
+    if constraints.has_explicit_restrictions() {
+        let (name, expr): (Vec<_>, Vec<_>) = constraints
+            .for_each_restrictions()
+            .iter()
+            .filter_map(|(e, s)| {
+                e.as_ref().map(|e| {
+                    (format_ident!("{}", s), access_named_reference(e, component, quote!(_self)))
+                })
+            })
+            .unzip();
+        quote!({
+            let mut layout_info = #layout_info;
+                #(layout_info.#name = #expr.get();)*
+            layout_info
+        })
+    } else {
+        layout_info
     }
 }
-
-type LayoutTreeItem<'a> = crate::layout::gen::LayoutTreeItem<'a, RustLanguageLayoutGen>;
 
 fn generate_layout_padding_and_spacing<'a, 'b>(
     layout_tree: &'b Vec<LayoutTreeItem<'a>>,

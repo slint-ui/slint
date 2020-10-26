@@ -339,12 +339,6 @@ pub mod gen {
             cells: Vec<Self::CompiledCode>,
             component: &Rc<Component>,
         ) -> LayoutTreeItem<'a, Self>;
-
-        fn get_layout_info_ref<'a, 'b>(
-            item: &'a LayoutItem,
-            layout_tree: &'b mut Vec<LayoutTreeItem<'a, Self>>,
-            component: &Rc<Component>,
-        ) -> Self::CompiledCode;
     }
 
     #[derive(derive_more::From)]

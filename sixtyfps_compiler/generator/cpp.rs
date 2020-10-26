@@ -1444,20 +1444,7 @@ impl crate::layout::gen::Language for CppLanguageLayoutGen {
         layout_tree: &'b mut Vec<crate::layout::gen::LayoutTreeItem<'a, Self>>,
         component: &Rc<Component>,
     ) -> Self::CompiledCode {
-        let mut layout_info = Self::get_layout_info_ref(item, layout_tree, component);
-        if constraints.has_explicit_restrictions() {
-            layout_info = format!("[&]{{ auto layout_info = {};", layout_info);
-            for (expr, name) in constraints.for_each_restrictions().iter() {
-                if let Some(e) = expr {
-                    layout_info += &format!(
-                        " layout_info.{} = {}.get();",
-                        name,
-                        access_named_reference(e, component, "self")
-                    );
-                }
-            }
-            layout_info += " return layout_info; }()";
-        }
+        let layout_info = get_layout_info_ref(item, constraints, layout_tree, component);
         let lay_rect = item.rect();
         let get_property_ref = |p: &Option<NamedReference>| match p {
             Some(nr) => format!("&{}", access_named_reference(nr, component, "self")),
@@ -1510,24 +1497,28 @@ impl crate::layout::gen::Language for CppLanguageLayoutGen {
             cell_ref_variable,
         }
     }
+}
 
-    fn get_layout_info_ref<'a, 'b>(
-        item: &'a crate::layout::LayoutItem,
-        layout_tree: &'b mut Vec<crate::layout::gen::LayoutTreeItem<'a, Self>>,
-        component: &Rc<Component>,
-    ) -> Self::CompiledCode {
-        let layout_info = item.layout.as_ref().map(|l| {
-            let layout_tree_item =
-                crate::layout::gen::collect_layouts_recursively(layout_tree, l, component);
-            match layout_tree_item {
-                LayoutTreeItem::GridLayout { cell_ref_variable, spacing, padding, .. } => format!(
-                    "sixtyfps::grid_layout_info(&{}, {}, &{})",
-                    cell_ref_variable, spacing, padding
-                ),
-                LayoutTreeItem::PathLayout(_) => todo!(),
-            }
-        });
-        let elem_info = item.element.as_ref().map(|elem| {
+type LayoutTreeItem<'a> = crate::layout::gen::LayoutTreeItem<'a, CppLanguageLayoutGen>;
+
+fn get_layout_info_ref<'a, 'b>(
+    item: &'a crate::layout::LayoutItem,
+    constraints: &crate::layout::LayoutConstraints,
+    layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
+    component: &Rc<Component>,
+) -> String {
+    let layout_info = item.layout.as_ref().map(|l| {
+        let layout_tree_item =
+            crate::layout::gen::collect_layouts_recursively(layout_tree, l, component);
+        match layout_tree_item {
+            LayoutTreeItem::GridLayout { cell_ref_variable, spacing, padding, .. } => format!(
+                "sixtyfps::grid_layout_info(&{}, {}, &{})",
+                cell_ref_variable, spacing, padding
+            ),
+            LayoutTreeItem::PathLayout(_) => todo!(),
+        }
+    });
+    let elem_info = item.element.as_ref().map(|elem| {
             format!(
                 "sixtyfps::private_api::{vt}.layouting_info({{&sixtyfps::private_api::{vt}, const_cast<sixtyfps::{ty}*>(&self->{id})}}, &{window})",
                 vt = elem.borrow().base_type.as_native().vtable_symbol,
@@ -1536,14 +1527,14 @@ impl crate::layout::gen::Language for CppLanguageLayoutGen {
                 window = window_ref_expression(component)
             )
         });
-        match (layout_info, elem_info) {
-            (None, None) => String::default(),
-            (None, Some(x)) => x,
-            (Some(x), None) => x,
-            (Some(layout_info), Some(elem_info)) => {
-                // Note: This "logic" is manually inlined from LayoutInfo::merge in layout.rs.
-                format!(
-                    r#"[&]() -> auto {{
+    let mut layout_info = match (layout_info, elem_info) {
+        (None, None) => String::default(),
+        (None, Some(x)) => x,
+        (Some(x), None) => x,
+        (Some(layout_info), Some(elem_info)) => {
+            // Note: This "logic" is manually inlined from LayoutInfo::merge in layout.rs.
+            format!(
+                r#"[&]() -> auto {{
                         auto layout_info = {};
                         auto element_info = {};
                         return sixtyfps::LayoutInfo{{
@@ -1553,14 +1544,25 @@ impl crate::layout::gen::Language for CppLanguageLayoutGen {
                             std::min(layout_info.max_height, element_info.max_height),
                         }};
                     }}()"#,
-                    layout_info, elem_info
-                )
+                layout_info, elem_info
+            )
+        }
+    };
+    if constraints.has_explicit_restrictions() {
+        layout_info = format!("[&]{{ auto layout_info = {};", layout_info);
+        for (expr, name) in constraints.for_each_restrictions().iter() {
+            if let Some(e) = expr {
+                layout_info += &format!(
+                    " layout_info.{} = {}.get();",
+                    name,
+                    access_named_reference(e, component, "self")
+                );
             }
         }
+        layout_info += " return layout_info; }()";
     }
+    layout_info
 }
-
-type LayoutTreeItem<'a> = crate::layout::gen::LayoutTreeItem<'a, CppLanguageLayoutGen>;
 
 fn generate_layout_padding_and_spacing<'a, 'b>(
     creation_code: &mut Vec<String>,
