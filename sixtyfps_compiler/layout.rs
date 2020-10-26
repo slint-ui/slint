@@ -339,6 +339,12 @@ pub mod gen {
             cells: Vec<Self::CompiledCode>,
             component: &Rc<Component>,
         ) -> LayoutTreeItem<'a, Self>;
+        /// Returns a LayoutTree:BoxLayout
+        fn box_layout_tree_item<'a, 'b>(
+            layout_tree: &'b mut Vec<LayoutTreeItem<'a, Self>>,
+            box_layout: &'a BoxLayout,
+            component: &Rc<Component>,
+        ) -> LayoutTreeItem<'a, Self>;
     }
 
     #[derive(derive_more::From)]
@@ -350,6 +356,14 @@ pub mod gen {
             var_creation_code: L::CompiledCode,
             cell_ref_variable: L::CompiledCode,
         },
+        BoxLayout {
+            geometry: &'a LayoutGeometry,
+            spacing: L::CompiledCode,
+            padding: L::CompiledCode,
+            var_creation_code: L::CompiledCode,
+            cell_ref_variable: L::CompiledCode,
+        },
+        #[from]
         PathLayout(&'a PathLayout),
     }
 
@@ -382,27 +396,7 @@ pub mod gen {
                 layout_tree.push(i);
             }
             Layout::BoxLayout(box_layout) => {
-                let cells: Vec<_> = box_layout
-                    .elems
-                    .iter()
-                    .enumerate()
-                    .map(|(idx, cell)| {
-                        let (c, r) = if box_layout.is_horizontal { (idx, 0) } else { (0, idx) };
-                        L::make_grid_layout_cell_data(
-                            &cell.item,
-                            &cell.constraints,
-                            c as u16,
-                            r as u16,
-                            1,
-                            1,
-                            layout_tree,
-                            component,
-                        )
-                    })
-                    .collect();
-
-                let i =
-                    L::grid_layout_tree_item(layout_tree, &box_layout.geometry, cells, component);
+                let i = L::box_layout_tree_item(layout_tree, box_layout, component);
                 layout_tree.push(i);
             }
             Layout::PathLayout(layout) => layout_tree.push(layout.into()),

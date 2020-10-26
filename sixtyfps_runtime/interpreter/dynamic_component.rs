@@ -919,16 +919,17 @@ fn get_property_ptr(nr: &NamedReference, instance: InstanceRef) -> *const () {
 
 use sixtyfps_corelib::layout::*;
 
-pub struct GridLayoutWithCells<'a> {
+pub struct LayoutWithCells<'a, C> {
     geometry: &'a sixtyfps_compilerlib::layout::LayoutGeometry,
-    cells: Vec<GridLayoutCellData<'a>>,
+    cells: Vec<C>,
     spacing: f32,
     padding: Padding,
 }
 
 #[derive(derive_more::From)]
 enum LayoutTreeItem<'a> {
-    GridLayout(GridLayoutWithCells<'a>),
+    GridLayout(LayoutWithCells<'a, GridLayoutCellData<'a>>),
+    BoxLayout(LayoutWithCells<'a, BoxLayoutCellData<'a>>),
     PathLayout(&'a PathLayout),
 }
 
@@ -939,6 +940,11 @@ impl<'a> LayoutTreeItem<'a> {
                 &Slice::from(grid_layout.cells.as_slice()),
                 grid_layout.spacing,
                 &grid_layout.padding,
+            ),
+            LayoutTreeItem::BoxLayout(box_layout) => box_layout_info(
+                &Slice::from(box_layout.cells.as_slice()),
+                box_layout.spacing,
+                &box_layout.padding,
             ),
             LayoutTreeItem::PathLayout(_) => todo!(),
         }
@@ -1034,32 +1040,24 @@ fn collect_layouts_recursively<'a, 'b>(
                 bottom: grid_layout.geometry.padding.bottom.as_ref().map_or(0., expr_eval),
             };
             layout_tree.push(
-                GridLayoutWithCells { geometry: &grid_layout.geometry, cells, spacing, padding }
-                    .into(),
+                LayoutWithCells { geometry: &grid_layout.geometry, cells, spacing, padding }.into(),
             );
         }
         Layout::BoxLayout(box_layout) => {
             let cells = box_layout
                 .elems
                 .iter()
-                .enumerate()
-                .map(|(idx, cell)| {
+                .map(|cell| {
                     let mut layout_info =
                         get_layout_info(&cell.item, component, layout_tree, window);
                     fill_layout_info_constraints(&mut layout_info, &cell.constraints, &expr_eval);
-                    let (col, row) =
-                        if box_layout.is_horizontal { (idx as u16, 0) } else { (0, idx as u16) };
                     let rect = cell.item.rect();
 
-                    GridLayoutCellData {
+                    BoxLayoutCellData {
                         x: assume_property_f32(&rect.x_reference),
                         y: assume_property_f32(&rect.y_reference),
                         width: assume_property_f32(&rect.width_reference),
                         height: assume_property_f32(&rect.height_reference),
-                        col,
-                        row,
-                        colspan: 1,
-                        rowspan: 1,
                         constraint: layout_info,
                     }
                 })
@@ -1072,8 +1070,7 @@ fn collect_layouts_recursively<'a, 'b>(
                 bottom: box_layout.geometry.padding.bottom.as_ref().map_or(0., expr_eval),
             };
             layout_tree.push(
-                GridLayoutWithCells { geometry: &box_layout.geometry, cells, spacing, padding }
-                    .into(),
+                LayoutWithCells { geometry: &box_layout.geometry, cells, spacing, padding }.into(),
             );
         }
         Layout::PathLayout(layout) => layout_tree.push(layout.into()),
@@ -1102,6 +1099,17 @@ impl<'a> LayoutTreeItem<'a> {
                     spacing: grid_layout.spacing,
                     padding: &grid_layout.padding,
                     cells: Slice::from(grid_layout.cells.as_slice()),
+                });
+            }
+            Self::BoxLayout(box_layout) => {
+                solve_box_layout(&BoxLayoutData {
+                    width: resolve_prop_ref(&box_layout.geometry.rect.width_reference),
+                    height: resolve_prop_ref(&box_layout.geometry.rect.height_reference),
+                    x: resolve_prop_ref(&box_layout.geometry.rect.x_reference),
+                    y: resolve_prop_ref(&box_layout.geometry.rect.y_reference),
+                    spacing: box_layout.spacing,
+                    padding: &box_layout.padding,
+                    cells: Slice::from(box_layout.cells.as_slice()),
                 });
             }
             Self::PathLayout(path_layout) => {

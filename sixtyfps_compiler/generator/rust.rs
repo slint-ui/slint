@@ -1371,6 +1371,54 @@ impl crate::layout::gen::Language for RustLanguageLayoutGen {
         }
         .into()
     }
+
+    fn box_layout_tree_item<'a, 'b>(
+        layout_tree: &'b mut Vec<crate::layout::gen::LayoutTreeItem<'a, Self>>,
+        box_layout: &'a crate::layout::BoxLayout,
+        component: &Rc<Component>,
+    ) -> crate::layout::gen::LayoutTreeItem<'a, Self> {
+        let cells: Vec<_> = box_layout
+            .elems
+            .iter()
+            .map(|cell| {
+                let get_property_ref = |p: &Option<NamedReference>| match p {
+                    Some(nr) => {
+                        let p = access_named_reference(nr, component, quote!(_self));
+                        quote!(Some(#p.get_ref()))
+                    }
+                    None => quote!(None),
+                };
+                let lay_rect = cell.item.rect();
+                let width = get_property_ref(&lay_rect.width_reference);
+                let height = get_property_ref(&lay_rect.height_reference);
+                let x = get_property_ref(&lay_rect.x_reference);
+                let y = get_property_ref(&lay_rect.y_reference);
+                let layout_info =
+                    get_layout_info_ref(&cell.item, &cell.constraints, layout_tree, component);
+                quote!(BoxLayoutCellData {
+                    x: #x,
+                    y: #y,
+                    width: #width,
+                    height: #height,
+                    constraint: #layout_info,
+                })
+            })
+            .collect();
+        let cell_ref_variable = format_ident!("cells_{}", layout_tree.len());
+        let cell_creation_code = quote!(let #cell_ref_variable
+                = [#( #cells ),*];);
+        let (padding, spacing, spacing_creation_code) =
+            generate_layout_padding_and_spacing(&layout_tree, &box_layout.geometry, component);
+
+        LayoutTreeItem::BoxLayout {
+            geometry: &box_layout.geometry,
+            var_creation_code: quote!(#cell_creation_code #spacing_creation_code),
+            cell_ref_variable: quote!(#cell_ref_variable),
+            spacing,
+            padding,
+        }
+        .into()
+    }
 }
 
 type LayoutTreeItem<'a> = crate::layout::gen::LayoutTreeItem<'a, RustLanguageLayoutGen>;
@@ -1382,15 +1430,18 @@ fn get_layout_info_ref<'a, 'b>(
     component: &Rc<Component>,
 ) -> TokenStream {
     let layout_info = item.layout.as_ref().map(|l|{
-            let layout_tree_item =
-                crate::layout::gen::collect_layouts_recursively(layout_tree, l, component);
-            match layout_tree_item {
-                LayoutTreeItem::GridLayout { cell_ref_variable, spacing, padding, .. } => {
-                    quote!(grid_layout_info(&Slice::from_slice(&#cell_ref_variable), #spacing, #padding))
-                }
-                LayoutTreeItem::PathLayout(_) => todo!(),
+        let layout_tree_item =
+            crate::layout::gen::collect_layouts_recursively(layout_tree, l, component);
+        match layout_tree_item {
+            LayoutTreeItem::GridLayout { cell_ref_variable, spacing, padding, .. } => {
+                quote!(grid_layout_info(&Slice::from_slice(&#cell_ref_variable), #spacing, #padding))
             }
-        });
+            LayoutTreeItem::BoxLayout { cell_ref_variable, spacing, padding, .. } => {
+                quote!(box_layout_info(&Slice::from_slice(&#cell_ref_variable), #spacing, #padding))
+            }
+            LayoutTreeItem::PathLayout(_) => todo!(),
+        }
+    });
     let elem_info = item.element.as_ref().map(|elem| {
         let e = format_ident!("{}", elem.borrow().id);
         quote!(Self::FIELD_OFFSETS.#e.apply_pin(self).layouting_info(&window))
@@ -1478,6 +1529,24 @@ impl<'a> LayoutTreeItem<'a> {
 
                 code_stream.push(quote! {
                     solve_grid_layout(&GridLayoutData {
+                        width: #width,
+                        height: #height,
+                        x: #x_pos as _,
+                        y: #y_pos as _,
+                        cells: Slice::from_slice(&#cell_ref_variable),
+                        spacing: #spacing,
+                        padding: #padding,
+                    });
+                });
+            }
+            LayoutTreeItem::BoxLayout { geometry, cell_ref_variable, spacing, padding, .. } => {
+                let x_pos = layout_prop(&geometry.rect.x_reference);
+                let y_pos = layout_prop(&geometry.rect.y_reference);
+                let width = layout_prop(&geometry.rect.width_reference);
+                let height = layout_prop(&geometry.rect.height_reference);
+
+                code_stream.push(quote! {
+                    solve_box_layout(&BoxLayoutData {
                         width: #width,
                         height: #height,
                         x: #x_pos as _,
@@ -1615,6 +1684,7 @@ fn compute_layout(
 
         layouts.extend(inverse_layout_tree.iter().filter_map(|layout| match layout {
             LayoutTreeItem::GridLayout { var_creation_code, .. } => Some(var_creation_code.clone()),
+            LayoutTreeItem::BoxLayout { var_creation_code, .. } => Some(var_creation_code.clone()),
             LayoutTreeItem::PathLayout(_) => None,
         }));
 

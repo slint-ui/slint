@@ -1497,6 +1497,61 @@ impl crate::layout::gen::Language for CppLanguageLayoutGen {
             cell_ref_variable,
         }
     }
+
+    fn box_layout_tree_item<'a, 'b>(
+        layout_tree: &'b mut Vec<crate::layout::gen::LayoutTreeItem<'a, Self>>,
+        box_layout: &'a crate::layout::BoxLayout,
+        component: &Rc<Component>,
+    ) -> crate::layout::gen::LayoutTreeItem<'a, Self> {
+        let cells: Vec<_> = box_layout
+            .elems
+            .iter()
+            .map(|cell| {
+                let layout_info =
+                    get_layout_info_ref(&cell.item, &cell.constraints, layout_tree, component);
+                let lay_rect = cell.item.rect();
+                let get_property_ref = |p: &Option<NamedReference>| match p {
+                    Some(nr) => format!("&{}", access_named_reference(nr, component, "self")),
+                    None => "nullptr".to_owned(),
+                };
+                format!(
+                    "        {{ {li}, {x}, {y}, {w}, {h} }},",
+                    li = layout_info,
+                    x = get_property_ref(&lay_rect.x_reference),
+                    y = get_property_ref(&lay_rect.y_reference),
+                    w = get_property_ref(&lay_rect.width_reference),
+                    h = get_property_ref(&lay_rect.height_reference)
+                )
+            })
+            .collect();
+
+        let cell_ref_variable = format!("cells_{}", layout_tree.len()).to_owned();
+        let mut creation_code = cells;
+        creation_code.insert(
+            0,
+            format!("    sixtyfps::GridLayoutCellData {}_data[] = {{", cell_ref_variable,),
+        );
+        creation_code.push("    };".to_owned());
+        creation_code.push(format!(
+                "    const sixtyfps::Slice<sixtyfps::GridLayoutCellData> {cv}{{{cv}_data, std::size({cv}_data)}};",
+                cv = cell_ref_variable
+            ));
+
+        let (padding, spacing) = generate_layout_padding_and_spacing(
+            &mut creation_code,
+            &box_layout.geometry,
+            &layout_tree,
+            component,
+        );
+
+        LayoutTreeItem::BoxLayout {
+            geometry: &box_layout.geometry,
+            spacing,
+            padding,
+            var_creation_code: creation_code.join("\n"),
+            cell_ref_variable,
+        }
+    }
 }
 
 type LayoutTreeItem<'a> = crate::layout::gen::LayoutTreeItem<'a, CppLanguageLayoutGen>;
@@ -1513,6 +1568,10 @@ fn get_layout_info_ref<'a, 'b>(
         match layout_tree_item {
             LayoutTreeItem::GridLayout { cell_ref_variable, spacing, padding, .. } => format!(
                 "sixtyfps::grid_layout_info(&{}, {}, &{})",
+                cell_ref_variable, spacing, padding
+            ),
+            LayoutTreeItem::BoxLayout { spacing, cell_ref_variable, padding, .. } => format!(
+                "sixtyfps::box_layout_info(&{}, {}, &{})",
                 cell_ref_variable, spacing, padding
             ),
             LayoutTreeItem::PathLayout(_) => todo!(),
@@ -1623,9 +1682,26 @@ impl<'a> LayoutTreeItem<'a> {
                     s = spacing,
                     p = padding,
                 ));
-                code_stream.push(format!("        {cv}", cv = cell_ref_variable).to_owned());
+                code_stream.push(format!("        {cv}", cv = cell_ref_variable));
                 code_stream.push("    };".to_owned());
                 code_stream.push("    sixtyfps::solve_grid_layout(&grid);".to_owned());
+                code_stream.push("    } ".into());
+            }
+            LayoutTreeItem::BoxLayout { geometry, spacing, cell_ref_variable, padding, .. } => {
+                code_stream.push("    { ".into());
+                code_stream.push("    sixtyfps::BoxLayoutData box { ".into());
+                code_stream.push(format!(
+                    "        {w}, {h}, {x}, {y}, {s}, &{p},",
+                    w = layout_prop(&geometry.rect.width_reference),
+                    h = layout_prop(&geometry.rect.height_reference),
+                    x = layout_prop(&geometry.rect.x_reference),
+                    y = layout_prop(&geometry.rect.y_reference),
+                    s = spacing,
+                    p = padding,
+                ));
+                code_stream.push(format!("        {cv}", cv = cell_ref_variable));
+                code_stream.push("    };".to_owned());
+                code_stream.push("    sixtyfps::solve_box_layout(&box);".to_owned());
                 code_stream.push("    } ".into());
             }
             LayoutTreeItem::PathLayout(path_layout) => {
@@ -1762,6 +1838,7 @@ fn compute_layout(
 
         res.extend(inverse_layout_tree.iter().filter_map(|layout| match layout {
             LayoutTreeItem::GridLayout { var_creation_code, .. } => Some(var_creation_code.clone()),
+            LayoutTreeItem::BoxLayout { var_creation_code, .. } => Some(var_creation_code.clone()),
             LayoutTreeItem::PathLayout(_) => None,
         }));
 

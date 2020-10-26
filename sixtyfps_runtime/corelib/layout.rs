@@ -47,7 +47,7 @@ impl LayoutInfo {
     }
 }
 
-mod internal {
+mod grid_internal {
     use super::*;
 
     #[derive(Debug, Clone)]
@@ -226,8 +226,8 @@ pub extern "C" fn solve_grid_layout(data: &GridLayoutData) {
         return;
     }
 
-    let mut row_layout_data = vec![internal::LayoutData::default(); num_row as usize];
-    let mut col_layout_data = vec![internal::LayoutData::default(); num_col as usize];
+    let mut row_layout_data = vec![grid_internal::LayoutData::default(); num_row as usize];
+    let mut col_layout_data = vec![grid_internal::LayoutData::default(); num_col as usize];
     for cell in data.cells.iter() {
         let row_max = cell.constraint.max_height / (cell.rowspan as f32);
         let row_min = cell.constraint.min_height / (cell.rowspan as f32);
@@ -252,13 +252,13 @@ pub extern "C" fn solve_grid_layout(data: &GridLayoutData) {
         }
     }
 
-    internal::layout_items(
+    grid_internal::layout_items(
         &mut row_layout_data,
         data.y + data.padding.top,
         data.height - (data.padding.top + data.padding.bottom),
         data.spacing,
     );
-    internal::layout_items(
+    grid_internal::layout_items(
         &mut col_layout_data,
         data.x + data.padding.left,
         data.width - (data.padding.left + data.padding.right),
@@ -302,8 +302,8 @@ pub extern "C" fn grid_layout_info<'a>(
         return LayoutInfo { min_width: 0., max_width: 0., min_height: 0., max_height: 0. };
     };
 
-    let mut row_layout_data = vec![internal::LayoutData::default(); num_row as usize];
-    let mut col_layout_data = vec![internal::LayoutData::default(); num_col as usize];
+    let mut row_layout_data = vec![grid_internal::LayoutData::default(); num_row as usize];
+    let mut col_layout_data = vec![grid_internal::LayoutData::default(); num_col as usize];
     for cell in cells.iter() {
         let rdata = &mut row_layout_data[cell.row as usize];
         let cdata = &mut col_layout_data[cell.col as usize];
@@ -320,8 +320,8 @@ pub extern "C" fn grid_layout_info<'a>(
 
     let min_height = row_layout_data.iter().map(|data| data.min).sum::<Coord>()
         + spacing_h
-        + padding.left
-        + padding.right;
+        + padding.top
+        + padding.bottom;
     let max_height = row_layout_data.iter().map(|data| data.max).sum::<Coord>()
         + spacing_h
         + padding.top
@@ -332,9 +332,135 @@ pub extern "C" fn grid_layout_info<'a>(
         + padding.right;
     let max_width = col_layout_data.iter().map(|data| data.max).sum::<Coord>()
         + spacing_w
+        + padding.left
+        + padding.right;
+
+    LayoutInfo { min_width, max_width, min_height, max_height }
+}
+
+#[repr(C)]
+#[derive(Debug)]
+/// The BoxLayoutData is used to represent both a Horizontal and Vertical layout.
+/// The width/height x/y corrspond to that of a horizontal layout.
+/// For vertical layout, they are inverted
+pub struct BoxLayoutData<'a> {
+    pub width: Coord,
+    pub height: Coord,
+    pub x: Coord,
+    pub y: Coord,
+    pub spacing: Coord,
+    pub padding: &'a Padding,
+    pub cells: Slice<'a, BoxLayoutCellData<'a>>,
+}
+
+#[repr(C)]
+#[derive(Default, Debug)]
+pub struct BoxLayoutCellData<'a> {
+    pub constraint: LayoutInfo,
+    pub x: Option<&'a Property<Coord>>,
+    pub y: Option<&'a Property<Coord>>,
+    pub width: Option<&'a Property<Coord>>,
+    pub height: Option<&'a Property<Coord>>,
+}
+
+/// Solve the horizontal BoxLayout
+#[no_mangle]
+pub extern "C" fn solve_box_layout(data: &BoxLayoutData) {
+    use stretch::geometry::*;
+    use stretch::number::*;
+    use stretch::style::*;
+
+    let mut stretch = stretch::Stretch::new();
+
+    let box_style = stretch::style::Style {
+        size: Size { width: Dimension::Percent(1.), height: Dimension::Percent(1.) },
+        flex_grow: 1.,
+        display: Display::Flex,
+        flex_direction: FlexDirection::Row,
+        flex_basis: Dimension::Percent(1.),
+        ..Default::default()
+    };
+
+    let flex_box = stretch.new_node(box_style, vec![]).unwrap();
+
+    for (index, cell) in data.cells.iter().enumerate() {
+        let min = if cell.constraint.min_width == 0.0 {
+            Dimension::Undefined
+        } else {
+            Dimension::Points(cell.constraint.min_height)
+        };
+        let max = if cell.constraint.max_width == f32::MAX {
+            Dimension::Undefined
+        } else {
+            Dimension::Points(cell.constraint.max_width)
+        };
+        let mut margin = Rect::default();
+        if index != 0 {
+            margin.start = Dimension::Points(data.spacing / 2.);
+        }
+        if index != data.cells.len() - 1 {
+            margin.end = Dimension::Points(data.spacing / 2.);
+        }
+
+        let cell_style = Style {
+            min_size: Size { width: min, height: Dimension::Auto },
+            max_size: Size { width: max, height: Dimension::Auto },
+            size: Size { width: min, height: Dimension::Auto },
+            flex_grow: 1.,
+            margin,
+            ..Default::default()
+        };
+
+        let cell_item = stretch.new_node(cell_style, vec![]).unwrap();
+        stretch.add_child(flex_box, cell_item).unwrap();
+    }
+
+    stretch
+        .compute_layout(
+            flex_box,
+            Size {
+                width: Number::Defined(data.width - (data.padding.left + data.padding.right)),
+                height: Number::Undefined,
+            },
+        )
+        .unwrap();
+
+    let start_pos = data.x + data.padding.left;
+
+    for (cell, layout) in data.cells.iter().zip(
+        stretch.children(flex_box).unwrap().iter().map(|child| stretch.layout(*child).unwrap()),
+    ) {
+        cell.x.map(|p| p.set(start_pos + layout.location.x));
+        cell.y.map(|p| p.set(data.y + data.padding.top));
+        cell.width.map(|p| p.set(layout.size.width));
+        cell.height.map(|p| p.set(data.height - (data.padding.top + data.padding.bottom)));
+    }
+}
+
+#[no_mangle]
+/// Return the LayoutInfo for a Horizontal BoxLayout with the given cells.
+/// Transpose everything for vertical
+pub extern "C" fn box_layout_info<'a>(
+    cells: &Slice<'a, BoxLayoutCellData<'a>>,
+    spacing: Coord,
+    padding: &Padding,
+) -> LayoutInfo {
+    let count = cells.len();
+    if count < 1 {
+        return LayoutInfo { min_width: 0., max_width: 0., min_height: 0., max_height: 0. };
+    };
+
+    let extra_w = padding.left + padding.right + spacing * (count - 1) as Coord;
+    let order_float = |a: &Coord, b: &Coord| a.partial_cmp(b).unwrap_or(core::cmp::Ordering::Equal);
+
+    let min_height = cells.iter().map(|c| c.constraint.min_height).max_by(order_float).unwrap()
         + padding.top
         + padding.bottom;
-
+    let max_height = cells.iter().map(|c| c.constraint.max_height).min_by(order_float).unwrap()
+        + padding.top
+        + padding.bottom;
+    let min_width = cells.iter().map(|c| c.constraint.min_width).sum::<Coord>() + extra_w;
+    let max_width = cells.iter().map(|c| c.constraint.max_width).sum::<Coord>() + extra_w;
     LayoutInfo { min_width, max_width, min_height, max_height }
 }
 
