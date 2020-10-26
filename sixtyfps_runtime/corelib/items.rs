@@ -153,7 +153,7 @@ impl Item for Rectangle {
     }
 
     fn layouting_info(self: Pin<&Self>, _window: &crate::eventloop::ComponentWindow) -> LayoutInfo {
-        Default::default()
+        LayoutInfo { horizontal_stretch: 1., vertical_stretch: 1., ..LayoutInfo::default() }
     }
 
     fn input_event(
@@ -241,7 +241,7 @@ impl Item for BorderRectangle {
     }
 
     fn layouting_info(self: Pin<&Self>, _window: &crate::eventloop::ComponentWindow) -> LayoutInfo {
-        Default::default()
+        LayoutInfo { horizontal_stretch: 1., vertical_stretch: 1., ..LayoutInfo::default() }
     }
 
     fn input_event(

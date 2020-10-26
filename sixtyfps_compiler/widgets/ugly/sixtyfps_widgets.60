@@ -19,6 +19,9 @@ export Button := Rectangle {
     border_color: black;
     color: touch_area.pressed ? #556884 : lightgray;
     animate color { duration: 100ms; }
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+
 
     GridLayout {
         padding: root.border_radius;
@@ -46,6 +49,8 @@ export CheckBox := Rectangle {
     maximum_height: 20px;
     minimum_height: 20px;
     minimum_width: 120px;
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
 
     // the check box iteself
     indicator := Rectangle {
@@ -125,6 +130,8 @@ export SpinBox := Rectangle {
     maximum_height: 40px;
     minimum_height: 40px;
     minimum_width: 120px;
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
 
     SpinBoxButton {
         text: "-";
@@ -162,6 +169,8 @@ export Slider := Rectangle {
     maximum_height: 40px;
     minimum_height: 40px;
     minimum_width: 120px;
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
 
     slider_filled := Rectangle {
         width: parent.width;
@@ -214,6 +223,7 @@ export GroupBox := GridLayout {
     Row {
         Text {
             text: root.title;
+            vertical-stretch: 0;
         }
     }
     Row {
@@ -239,6 +249,8 @@ export LineEdit := Rectangle {
     border_color: root.has_focus ? #556884 : #ffffff;
     border_radius: 1px;
     border_width: 2px;
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
 
     GridLayout {
         padding: 3px;
@@ -311,6 +323,8 @@ export ScrollView := Rectangle {
     border_width: 1px;
     border_color: #d0d3cf;
     color: white;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
 
     fli := Flickable {
         $children

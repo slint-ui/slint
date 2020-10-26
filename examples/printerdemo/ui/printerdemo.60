@@ -191,6 +191,7 @@ PrintPage := Page {
                         font_size: 28px;
                     }
                 }
+                Rectangle {}
             }
         }
     }
