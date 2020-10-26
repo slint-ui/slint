@@ -50,6 +50,8 @@ pub struct LayoutItem {
     pub element: Option<ElementRc>,
     pub layout: Option<Layout>,
     pub constraints: LayoutConstraints,
+    pub fixed_width: bool,
+    pub fixed_height: bool,
 }
 
 impl LayoutItem {
@@ -65,11 +67,18 @@ impl LayoutItem {
             Cow::Owned(LayoutRect {
                 x_reference: prop("x"),
                 y_reference: prop("y"),
-                width_reference: prop("width"),
-                height_reference: prop("height"),
+                width_reference: if !self.fixed_width { prop("width") } else { None },
+                height_reference: if !self.fixed_height { prop("height") } else { None },
             })
         } else if let Some(l) = &self.layout {
-            Cow::Borrowed(l.rect())
+            let mut r = Cow::Borrowed(l.rect());
+            if r.width_reference.is_some() && self.fixed_width {
+                r.to_mut().width_reference = None;
+            }
+            if r.height_reference.is_some() && self.fixed_height {
+                r.to_mut().height_reference = None;
+            }
+            r
         } else {
             Cow::Owned(LayoutRect::default())
         }

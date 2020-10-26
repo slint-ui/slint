@@ -268,9 +268,18 @@ pub extern "C" fn solve_grid_layout(data: &GridLayoutData) {
         }
     }
 
+    // Normalize so that all the values are 1 or more
     let normalize_stretch = |v: &mut Vec<grid_internal::LayoutData>| {
-        let s = v.iter().map(|x| x.stretch).sum::<f32>();
-        v.iter_mut().for_each(|x| x.stretch = if s == 0. { 1. } else { x.stretch / s })
+        let mut small: Option<f32> = None;
+        v.iter().for_each(|x| {
+            if x.stretch > 0. {
+                small = Some(small.map(|y| y.min(x.stretch)).unwrap_or(x.stretch))
+            }
+        });
+        if small.unwrap_or(0.) < 1. {
+            v.iter_mut()
+                .for_each(|x| x.stretch = if let Some(s) = small { x.stretch / s } else { 1. })
+        }
     };
     normalize_stretch(&mut row_layout_data);
     normalize_stretch(&mut col_layout_data);
@@ -423,7 +432,14 @@ pub extern "C" fn solve_box_layout(data: &BoxLayoutData, is_horizontal: bool) {
             cell.constraint.vertical_stretch
         }
     };
-    let stretch_factor_sum = data.cells.iter().map(stretch_factor).sum::<Coord>();
+    let mut smaller_strecth: Option<f32> = None;
+    data.cells.iter().map(stretch_factor).for_each(|x| {
+        if x > 0. {
+            smaller_strecth = Some(smaller_strecth.map(|y| y.min(x)).unwrap_or(x))
+        }
+    });
+
+    //let stretch_factor_sum = data.cells.iter().map(stretch_factor).sum::<Coord>();
 
     let flex_box = stretch.new_node(box_style, vec![]).unwrap();
 
@@ -453,11 +469,7 @@ pub extern "C" fn solve_box_layout(data: &BoxLayoutData, is_horizontal: bool) {
         let cell_style = Style {
             min_size,
             max_size,
-            flex_grow: if stretch_factor_sum == 0. {
-                1.
-            } else {
-                stretch_factor(cell) / stretch_factor_sum
-            },
+            flex_grow: if let Some(s) = smaller_strecth { stretch_factor(cell) / s } else { 1. },
             flex_basis: if is_horizontal { min_size.width } else { min_size.height },
             margin,
             align_self: AlignSelf::Stretch,

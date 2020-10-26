@@ -229,12 +229,43 @@ fn create_layout_item(
     collected_children: &mut Vec<ElementRc>,
     diag: &mut BuildDiagnostics,
 ) -> Option<LayoutItem> {
-    let constraints = LayoutConstraints::new(item_element);
+    let mut constraints = LayoutConstraints::new(item_element);
+    let mut fixed_height = false;
+    let mut fixed_width = false;
+    let mut apply_size_constraint = |prop, binding, op: &mut Option<NamedReference>| {
+        if let Some(other_prop) = op {
+            diag.push_error(
+                format!("Cannot specity both {} and {}.", prop, other_prop.name),
+                binding,
+            )
+        }
+        *op = Some(NamedReference::new(item_element, prop))
+    };
+    let e = item_element.borrow();
+    e.bindings.get("height").map(|s| {
+        apply_size_constraint("height", s, &mut constraints.minimum_height);
+        apply_size_constraint("height", s, &mut constraints.maximum_height);
+        fixed_height = true;
+    });
+    e.bindings.get("width").map(|s| {
+        apply_size_constraint("width", s, &mut constraints.minimum_width);
+        apply_size_constraint("width", s, &mut constraints.maximum_width);
+        fixed_width = true;
+    });
+    drop(e);
+
     if let Some(nested_layout_parser) = layout_parse_function(item_element) {
         let layout_rect = LayoutRect::install_on_element(&item_element);
 
-        nested_layout_parser(component, layout_rect, &item_element, collected_children, diag)
-            .map(|x| LayoutItem { layout: Some(x), element: None, constraints })
+        nested_layout_parser(component, layout_rect, &item_element, collected_children, diag).map(
+            |x| LayoutItem {
+                layout: Some(x),
+                constraints,
+                fixed_width,
+                fixed_height,
+                element: None,
+            },
+        )
     } else {
         item_element.borrow_mut().child_of_layout = true;
         collected_children.push(item_element.clone());
@@ -247,7 +278,7 @@ fn create_layout_item(
                 Some(layouts.remove(0))
             }
         };
-        Some(LayoutItem { element: Some(element), layout, constraints })
+        Some(LayoutItem { element: Some(element), layout, constraints, fixed_height, fixed_width })
     }
 }
 
