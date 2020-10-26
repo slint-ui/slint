@@ -1019,7 +1019,11 @@ fn collect_layouts_recursively<'a, 'b>(
                 .map(|cell| {
                     let mut layout_info =
                         get_layout_info(&cell.item, component, layout_tree, window);
-                    fill_layout_info_constraints(&mut layout_info, &cell.constraints, &expr_eval);
+                    fill_layout_info_constraints(
+                        &mut layout_info,
+                        &cell.item.constraints,
+                        &expr_eval,
+                    );
                     let rect = cell.item.rect();
 
                     GridLayoutCellData {
@@ -1051,10 +1055,9 @@ fn collect_layouts_recursively<'a, 'b>(
                 .elems
                 .iter()
                 .map(|cell| {
-                    let mut layout_info =
-                        get_layout_info(&cell.item, component, layout_tree, window);
+                    let mut layout_info = get_layout_info(cell, component, layout_tree, window);
                     fill_layout_info_constraints(&mut layout_info, &cell.constraints, &expr_eval);
-                    let rect = cell.item.rect();
+                    let rect = cell.rect();
 
                     BoxLayoutCellData {
                         x: assume_property_f32(&rect.x_reference),

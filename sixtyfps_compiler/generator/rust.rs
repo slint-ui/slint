@@ -1316,7 +1316,6 @@ impl crate::layout::gen::Language for RustLanguageLayoutGen {
 
     fn make_grid_layout_cell_data<'a, 'b>(
         item: &'a crate::layout::LayoutItem,
-        constraints: &crate::layout::LayoutConstraints,
         col: u16,
         row: u16,
         colspan: u16,
@@ -1336,7 +1335,7 @@ impl crate::layout::gen::Language for RustLanguageLayoutGen {
         let height = get_property_ref(&lay_rect.height_reference);
         let x = get_property_ref(&lay_rect.x_reference);
         let y = get_property_ref(&lay_rect.y_reference);
-        let layout_info = get_layout_info_ref(item, constraints, layout_tree, component);
+        let layout_info = get_layout_info_ref(item, layout_tree, component);
         quote!(GridLayoutCellData {
             x: #x,
             y: #y,
@@ -1388,13 +1387,12 @@ impl crate::layout::gen::Language for RustLanguageLayoutGen {
                     }
                     None => quote!(None),
                 };
-                let lay_rect = cell.item.rect();
+                let lay_rect = cell.rect();
                 let width = get_property_ref(&lay_rect.width_reference);
                 let height = get_property_ref(&lay_rect.height_reference);
                 let x = get_property_ref(&lay_rect.x_reference);
                 let y = get_property_ref(&lay_rect.y_reference);
-                let layout_info =
-                    get_layout_info_ref(&cell.item, &cell.constraints, layout_tree, component);
+                let layout_info = get_layout_info_ref(cell, layout_tree, component);
                 quote!(BoxLayoutCellData {
                     x: #x,
                     y: #y,
@@ -1426,7 +1424,6 @@ type LayoutTreeItem<'a> = crate::layout::gen::LayoutTreeItem<'a, RustLanguageLay
 
 fn get_layout_info_ref<'a, 'b>(
     item: &'a crate::layout::LayoutItem,
-    constraints: &crate::layout::LayoutConstraints,
     layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
     component: &Rc<Component>,
 ) -> TokenStream {
@@ -1453,8 +1450,9 @@ fn get_layout_info_ref<'a, 'b>(
         (Some(x), None) => x,
         (Some(layout_info), Some(elem_info)) => quote!(#layout_info.merge(&#elem_info)),
     };
-    if constraints.has_explicit_restrictions() {
-        let (name, expr): (Vec<_>, Vec<_>) = constraints
+    if item.constraints.has_explicit_restrictions() {
+        let (name, expr): (Vec<_>, Vec<_>) = item
+            .constraints
             .for_each_restrictions()
             .iter()
             .filter_map(|(e, s)| {

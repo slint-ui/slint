@@ -49,6 +49,7 @@ pub type LayoutVec = Vec<Layout>;
 pub struct LayoutItem {
     pub element: Option<ElementRc>,
     pub layout: Option<Layout>,
+    pub constraints: LayoutConstraints,
 }
 
 impl LayoutItem {
@@ -113,7 +114,7 @@ impl LayoutRect {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct LayoutConstraints {
     pub minimum_width: Option<NamedReference>,
     pub maximum_width: Option<NamedReference>,
@@ -173,7 +174,6 @@ pub struct GridLayoutElement {
     pub colspan: u16,
     pub rowspan: u16,
     pub item: LayoutItem,
-    pub constraints: LayoutConstraints,
 }
 
 #[derive(Debug)]
@@ -271,17 +271,10 @@ impl GridLayout {
     fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
         for cell in &mut self.elems {
             cell.item.layout.as_mut().map(|x| x.visit_named_references(visitor));
-            cell.constraints.visit_named_references(visitor);
+            cell.item.constraints.visit_named_references(visitor);
         }
         self.geometry.visit_named_references(visitor);
     }
-}
-
-/// An element in a BoxLayout
-#[derive(Debug)]
-pub struct BoxLayoutElement {
-    pub item: LayoutItem,
-    pub constraints: LayoutConstraints,
 }
 
 /// Internal representation of a BoxLayout
@@ -289,14 +282,14 @@ pub struct BoxLayoutElement {
 pub struct BoxLayout {
     /// When true, this is a HorizonalLayout, otherwise a VerticalLayout
     pub is_horizontal: bool,
-    pub elems: Vec<BoxLayoutElement>,
+    pub elems: Vec<LayoutItem>,
     pub geometry: LayoutGeometry,
 }
 
 impl BoxLayout {
     fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
         for cell in &mut self.elems {
-            cell.item.layout.as_mut().map(|x| x.visit_named_references(visitor));
+            cell.layout.as_mut().map(|x| x.visit_named_references(visitor));
             cell.constraints.visit_named_references(visitor);
         }
         self.geometry.visit_named_references(visitor);
@@ -329,7 +322,6 @@ pub mod gen {
         /// Generate the code that instentiate the runtime struct `GridLayoutCellData` for the given cell parameter
         fn make_grid_layout_cell_data<'a, 'b>(
             item: &'a crate::layout::LayoutItem,
-            constraints: &crate::layout::LayoutConstraints,
             col: u16,
             row: u16,
             colspan: u16,
@@ -389,7 +381,6 @@ pub mod gen {
                     .map(|cell| {
                         L::make_grid_layout_cell_data(
                             &cell.item,
-                            &cell.constraints,
                             cell.col,
                             cell.row,
                             cell.colspan,

@@ -85,9 +85,7 @@ fn lower_box_layout(
     let layout_children = std::mem::take(&mut layout_element.borrow_mut().children);
     for layout_child in layout_children {
         if let Some(item) = create_layout_item(&layout_child, component, collected_children, diag) {
-            layout
-                .elems
-                .push(BoxLayoutElement { item, constraints: LayoutConstraints::new(&layout_child) })
+            layout.elems.push(item)
         }
     }
     component.optimized_elements.borrow_mut().push(layout_element.clone());
@@ -231,11 +229,12 @@ fn create_layout_item(
     collected_children: &mut Vec<ElementRc>,
     diag: &mut BuildDiagnostics,
 ) -> Option<LayoutItem> {
+    let constraints = LayoutConstraints::new(item_element);
     if let Some(nested_layout_parser) = layout_parse_function(item_element) {
         let layout_rect = LayoutRect::install_on_element(&item_element);
 
         nested_layout_parser(component, layout_rect, &item_element, collected_children, diag)
-            .map(|x| LayoutItem { layout: Some(x), element: None })
+            .map(|x| LayoutItem { layout: Some(x), element: None, constraints })
     } else {
         item_element.borrow_mut().child_of_layout = true;
         collected_children.push(item_element.clone());
@@ -248,7 +247,7 @@ fn create_layout_item(
                 Some(layouts.remove(0))
             }
         };
-        Some(LayoutItem { element: Some(element), layout })
+        Some(LayoutItem { element: Some(element), layout, constraints })
     }
 }
 
@@ -288,7 +287,6 @@ impl GridLayout {
                 colspan,
                 rowspan,
                 item: layout_item,
-                constraints: LayoutConstraints::new(&item_element),
             });
         }
     }

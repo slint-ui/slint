@@ -1436,7 +1436,6 @@ impl crate::layout::gen::Language for CppLanguageLayoutGen {
 
     fn make_grid_layout_cell_data<'a, 'b>(
         item: &'a crate::layout::LayoutItem,
-        constraints: &crate::layout::LayoutConstraints,
         col: u16,
         row: u16,
         colspan: u16,
@@ -1444,7 +1443,7 @@ impl crate::layout::gen::Language for CppLanguageLayoutGen {
         layout_tree: &'b mut Vec<crate::layout::gen::LayoutTreeItem<'a, Self>>,
         component: &Rc<Component>,
     ) -> Self::CompiledCode {
-        let layout_info = get_layout_info_ref(item, constraints, layout_tree, component);
+        let layout_info = get_layout_info_ref(item, layout_tree, component);
         let lay_rect = item.rect();
         let get_property_ref = |p: &Option<NamedReference>| match p {
             Some(nr) => format!("&{}", access_named_reference(nr, component, "self")),
@@ -1507,9 +1506,8 @@ impl crate::layout::gen::Language for CppLanguageLayoutGen {
             .elems
             .iter()
             .map(|cell| {
-                let layout_info =
-                    get_layout_info_ref(&cell.item, &cell.constraints, layout_tree, component);
-                let lay_rect = cell.item.rect();
+                let layout_info = get_layout_info_ref(&cell, layout_tree, component);
+                let lay_rect = cell.rect();
                 let get_property_ref = |p: &Option<NamedReference>| match p {
                     Some(nr) => format!("&{}", access_named_reference(nr, component, "self")),
                     None => "nullptr".to_owned(),
@@ -1559,7 +1557,6 @@ type LayoutTreeItem<'a> = crate::layout::gen::LayoutTreeItem<'a, CppLanguageLayo
 
 fn get_layout_info_ref<'a, 'b>(
     item: &'a crate::layout::LayoutItem,
-    constraints: &crate::layout::LayoutConstraints,
     layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
     component: &Rc<Component>,
 ) -> String {
@@ -1614,9 +1611,9 @@ fn get_layout_info_ref<'a, 'b>(
             )
         }
     };
-    if constraints.has_explicit_restrictions() {
+    if item.constraints.has_explicit_restrictions() {
         layout_info = format!("[&]{{ auto layout_info = {};", layout_info);
-        for (expr, name) in constraints.for_each_restrictions().iter() {
+        for (expr, name) in item.constraints.for_each_restrictions().iter() {
             if let Some(e) = expr {
                 layout_info += &format!(
                     " layout_info.{} = {}.get();",
