@@ -16,38 +16,6 @@ use crate::layout::*;
 use crate::object_tree::*;
 use std::rc::Rc;
 
-fn property_reference(element: &ElementRc, name: &str) -> Box<Expression> {
-    Box::new(Expression::PropertyReference(NamedReference {
-        element: Rc::downgrade(element),
-        name: name.into(),
-    }))
-}
-
-pub fn binding_reference(element: &ElementRc, name: &str) -> Option<Expression> {
-    if element.borrow().bindings.contains_key(name) {
-        Some(Expression::PropertyReference(NamedReference {
-            element: Rc::downgrade(element),
-            name: name.into(),
-        }))
-    } else {
-        None
-    }
-}
-
-pub fn init_fake_property(
-    grid_layout_element: &ElementRc,
-    name: &str,
-    lazy_default: impl Fn() -> Option<Expression>,
-) {
-    if grid_layout_element.borrow().property_declarations.contains_key(name)
-        && !grid_layout_element.borrow().bindings.contains_key(name)
-    {
-        if let Some(e) = lazy_default() {
-            grid_layout_element.borrow_mut().bindings.insert(name.to_owned(), e.into());
-        }
-    }
-}
-
 fn lower_grid_layout(
     component: &Rc<Component>,
     rect: LayoutRect,
@@ -155,8 +123,8 @@ fn lower_path_layout(
     }
 
     let rect = LayoutRect {
-        x_reference: property_reference(path_layout_element, "x"),
-        y_reference: property_reference(path_layout_element, "y"),
+        x_reference: Some(NamedReference::new(path_layout_element, "x")),
+        y_reference: Some(NamedReference::new(path_layout_element, "y")),
         width_reference: rect.width_reference,
         height_reference: rect.height_reference,
     };
@@ -166,7 +134,7 @@ fn lower_path_layout(
             elements: layout_children,
             path: path_elements_expr,
             rect,
-            offset_reference: property_reference(path_layout_element, "offset"),
+            offset_reference: NamedReference::new(path_layout_element, "offset"),
         }
         .into(),
     )
@@ -210,10 +178,10 @@ fn lower_element_layout(
 
     // lay out within the current element's boundaries.
     let rect_to_layout = LayoutRect {
-        x_reference: Box::new(Expression::NumberLiteral(0., Unit::Phx)),
-        y_reference: Box::new(Expression::NumberLiteral(0., Unit::Phx)),
-        width_reference: property_reference(elem, "width"),
-        height_reference: property_reference(elem, "height"),
+        x_reference: None,
+        y_reference: None,
+        width_reference: Some(NamedReference::new(elem, "width")),
+        height_reference: Some(NamedReference::new(elem, "height")),
     };
 
     let mut found_layouts = Vec::new();
@@ -256,7 +224,7 @@ pub fn lower_layouts(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
     check_no_layout_properties(&component.root_element, diag);
 }
 
-/// Create a LayoutElement for the given `item_element`  returns None is the layout is empty
+/// Create a LayoutItem for the given `item_element`  returns None is the layout is empty
 fn create_layout_item(
     item_element: &ElementRc,
     component: &Rc<Component>,
@@ -267,7 +235,7 @@ fn create_layout_item(
         let layout_rect = LayoutRect::install_on_element(&item_element);
 
         nested_layout_parser(component, layout_rect, &item_element, collected_children, diag)
-            .map(|x| Box::new(x).into())
+            .map(|x| LayoutItem { layout: Some(x), element: None })
     } else {
         item_element.borrow_mut().child_of_layout = true;
         collected_children.push(item_element.clone());
@@ -280,7 +248,7 @@ fn create_layout_item(
                 Some(layouts.remove(0))
             }
         };
-        Some(LayoutElement { element, layout }.into())
+        Some(LayoutItem { element: Some(element), layout })
     }
 }
 
@@ -324,10 +292,6 @@ impl GridLayout {
             });
         }
     }
-}
-
-pub fn find_expression(name: &str, item_element: &ElementRc) -> Option<Box<Expression>> {
-    item_element.borrow().bindings.get(name).map(|_| property_reference(item_element, name))
 }
 
 fn eval_const_expr(

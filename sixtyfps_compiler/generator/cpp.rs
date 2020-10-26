@@ -187,7 +187,7 @@ use crate::expression_tree::{
     BuiltinFunction, EasingCurve, Expression, ExpressionSpanned, NamedReference,
 };
 use crate::langtype::Type;
-use crate::layout::{gen::LayoutItemCodeGen, Layout, LayoutElement, LayoutGeometry};
+use crate::layout::LayoutGeometry;
 use crate::object_tree::{Component, Document, Element, ElementRc, RepeatedElementInfo};
 use cpp_ast::*;
 use itertools::Itertools;
@@ -1444,19 +1444,25 @@ impl crate::layout::gen::Language for CppLanguageLayoutGen {
         layout_tree: &'b mut Vec<crate::layout::gen::LayoutTreeItem<'a, Self>>,
         component: &Rc<Component>,
     ) -> Self::CompiledCode {
-        let mut layout_info = item.get_layout_info_ref(layout_tree, component);
+        let mut layout_info = Self::get_layout_info_ref(item, layout_tree, component);
         if constraints.has_explicit_restrictions() {
             layout_info = format!("[&]{{ auto layout_info = {};", layout_info);
             for (expr, name) in constraints.for_each_restrictions().iter() {
                 if let Some(e) = expr {
-                    layout_info +=
-                        &format!(" layout_info.{} = {};", name, compile_expression(&e, component));
+                    layout_info += &format!(
+                        " layout_info.{} = {}.get();",
+                        name,
+                        access_named_reference(e, component, "self")
+                    );
                 }
             }
             layout_info += " return layout_info; }()";
         }
-
-        let get_property_ref = LayoutItemCodeGen::<CppLanguageLayoutGen>::get_property_ref;
+        let lay_rect = item.rect();
+        let get_property_ref = |p: &Option<NamedReference>| match p {
+            Some(nr) => format!("&{}", access_named_reference(nr, component, "self")),
+            None => "nullptr".to_owned(),
+        };
         format!(
             "        {{ {c}, {r}, {cs}, {rs}, {li}, {x}, {y}, {w}, {h} }},",
             c = col,
@@ -1464,10 +1470,10 @@ impl crate::layout::gen::Language for CppLanguageLayoutGen {
             cs = colspan,
             rs = rowspan,
             li = layout_info,
-            x = get_property_ref(item, "x"),
-            y = get_property_ref(item, "y"),
-            w = get_property_ref(item, "width"),
-            h = get_property_ref(item, "height")
+            x = get_property_ref(&lay_rect.x_reference),
+            y = get_property_ref(&lay_rect.y_reference),
+            w = get_property_ref(&lay_rect.width_reference),
+            h = get_property_ref(&lay_rect.height_reference)
         )
     }
 
@@ -1504,59 +1510,37 @@ impl crate::layout::gen::Language for CppLanguageLayoutGen {
             cell_ref_variable,
         }
     }
-}
 
-type LayoutTreeItem<'a> = crate::layout::gen::LayoutTreeItem<'a, CppLanguageLayoutGen>;
-
-impl LayoutItemCodeGen<CppLanguageLayoutGen> for Layout {
-    fn get_property_ref(&self, name: &str) -> String {
-        let moved_property_name = match self.rect().mapped_property_name(name) {
-            Some(name) => name,
-            None => return "nullptr".to_owned(),
-        };
-        format!("&self->{}", moved_property_name)
-    }
     fn get_layout_info_ref<'a, 'b>(
-        &'a self,
-        layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
+        item: &'a crate::layout::LayoutItem,
+        layout_tree: &'b mut Vec<crate::layout::gen::LayoutTreeItem<'a, Self>>,
         component: &Rc<Component>,
-    ) -> String {
-        let self_as_layout_tree_item =
-            crate::layout::gen::collect_layouts_recursively(layout_tree, &self, component);
-        match self_as_layout_tree_item {
-            LayoutTreeItem::GridLayout { spacing, cell_ref_variable, padding, .. } => format!(
-                "sixtyfps::grid_layout_info(&{}, {}, &{})",
-                cell_ref_variable, spacing, padding
-            ),
-            LayoutTreeItem::PathLayout(_) => todo!(),
-        }
-    }
-}
-
-impl LayoutItemCodeGen<CppLanguageLayoutGen> for LayoutElement {
-    fn get_property_ref(&self, name: &str) -> String {
-        if self.element.borrow().lookup_property(name) == Type::Length {
-            format!("&self->{}.{}", self.element.borrow().id, name)
-        } else {
-            "nullptr".to_owned()
-        }
-    }
-    fn get_layout_info_ref<'a, 'b>(
-        &'a self,
-        layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
-        component: &Rc<Component>,
-    ) -> String {
-        let element_info = format!(
-            "sixtyfps::private_api::{vt}.layouting_info({{&sixtyfps::private_api::{vt}, const_cast<sixtyfps::{ty}*>(&self->{id})}}, &{window})",
-            vt = self.element.borrow().base_type.as_native().vtable_symbol,
-            ty = self.element.borrow().base_type.as_native().class_name,
-            id = self.element.borrow().id,
-            window = window_ref_expression(component)
-        );
-
-        match &self.layout {
-            Some(layout) => {
-                let layout_info = layout.get_layout_info_ref(layout_tree, component);
+    ) -> Self::CompiledCode {
+        let layout_info = item.layout.as_ref().map(|l| {
+            let layout_tree_item =
+                crate::layout::gen::collect_layouts_recursively(layout_tree, l, component);
+            match layout_tree_item {
+                LayoutTreeItem::GridLayout { cell_ref_variable, spacing, padding, .. } => format!(
+                    "sixtyfps::grid_layout_info(&{}, {}, &{})",
+                    cell_ref_variable, spacing, padding
+                ),
+                LayoutTreeItem::PathLayout(_) => todo!(),
+            }
+        });
+        let elem_info = item.element.as_ref().map(|elem| {
+            format!(
+                "sixtyfps::private_api::{vt}.layouting_info({{&sixtyfps::private_api::{vt}, const_cast<sixtyfps::{ty}*>(&self->{id})}}, &{window})",
+                vt = elem.borrow().base_type.as_native().vtable_symbol,
+                ty = elem.borrow().base_type.as_native().class_name,
+                id = elem.borrow().id,
+                window = window_ref_expression(component)
+            )
+        });
+        match (layout_info, elem_info) {
+            (None, None) => String::default(),
+            (None, Some(x)) => x,
+            (Some(x), None) => x,
+            (Some(layout_info), Some(elem_info)) => {
                 // Note: This "logic" is manually inlined from LayoutInfo::merge in layout.rs.
                 format!(
                     r#"[&]() -> auto {{
@@ -1568,14 +1552,15 @@ impl LayoutItemCodeGen<CppLanguageLayoutGen> for LayoutElement {
                             std::max(layout_info.min_height, element_info.min_height),
                             std::min(layout_info.max_height, element_info.max_height),
                         }};
-                }}()"#,
-                    layout_info, element_info
+                    }}()"#,
+                    layout_info, elem_info
                 )
             }
-            None => element_info,
         }
     }
 }
+
+type LayoutTreeItem<'a> = crate::layout::gen::LayoutTreeItem<'a, CppLanguageLayoutGen>;
 
 fn generate_layout_padding_and_spacing<'a, 'b>(
     creation_code: &mut Vec<String>,
@@ -1586,9 +1571,9 @@ fn generate_layout_padding_and_spacing<'a, 'b>(
     let spacing = if let Some(spacing) = &layout_geometry.spacing {
         let variable = format!("spacing_{}", layout_tree.len());
         creation_code.push(format!(
-            "auto {} = {};",
+            "auto {} = {}.get();",
             variable,
-            compile_expression(spacing, component)
+            access_named_reference(spacing, component, "self")
         ));
         variable
     } else {
@@ -1597,8 +1582,8 @@ fn generate_layout_padding_and_spacing<'a, 'b>(
 
     let padding = format!("padding_{}", layout_tree.len());
     let padding_prop = |expr| {
-        if let Some(expr) = expr {
-            compile_expression(expr, component)
+        if let Some(nr) = expr {
+            format!("{}.get()", access_named_reference(nr, component, "self"))
         } else {
             "0.".into()
         }
@@ -1617,6 +1602,10 @@ fn generate_layout_padding_and_spacing<'a, 'b>(
 
 impl<'a> LayoutTreeItem<'a> {
     fn emit_solve_calls(&self, component: &Rc<Component>, code_stream: &mut Vec<String>) {
+        let layout_prop = |p: &Option<NamedReference>| match p {
+            Some(nr) => format!("{}.get()", access_named_reference(nr, component, "self")),
+            None => "0".into(),
+        };
         match self {
             LayoutTreeItem::GridLayout {
                 geometry, spacing, cell_ref_variable, padding, ..
@@ -1624,13 +1613,13 @@ impl<'a> LayoutTreeItem<'a> {
                 code_stream.push("    { ".into());
                 code_stream.push("    sixtyfps::GridLayoutData grid { ".into());
                 code_stream.push(format!(
-                    "        {}, {}, {}, {}, {}, &{},",
-                    compile_expression(&geometry.rect.width_reference, component),
-                    compile_expression(&geometry.rect.height_reference, component),
-                    compile_expression(&geometry.rect.x_reference, component),
-                    compile_expression(&geometry.rect.y_reference, component),
-                    spacing,
-                    padding,
+                    "        {w}, {h}, {x}, {y}, {s}, &{p},",
+                    w = layout_prop(&geometry.rect.width_reference),
+                    h = layout_prop(&geometry.rect.height_reference),
+                    x = layout_prop(&geometry.rect.x_reference),
+                    y = layout_prop(&geometry.rect.y_reference),
+                    s = spacing,
+                    p = padding,
                 ));
                 code_stream.push(format!("        {cv}", cv = cell_ref_variable).to_owned());
                 code_stream.push("    };".to_owned());
@@ -1719,26 +1708,22 @@ impl<'a> LayoutTreeItem<'a> {
                     compile_path(&path_layout.path, component)
                 ));
 
-                code_stream.push(format!(
-                    "    auto x = {};",
-                    compile_expression(&path_layout.rect.x_reference, component)
-                ));
-                code_stream.push(format!(
-                    "    auto y = {};",
-                    compile_expression(&path_layout.rect.y_reference, component)
-                ));
+                code_stream
+                    .push(format!("    auto x = {};", layout_prop(&path_layout.rect.x_reference)));
+                code_stream
+                    .push(format!("    auto y = {};", layout_prop(&path_layout.rect.y_reference)));
                 code_stream.push(format!(
                     "    auto width = {};",
-                    compile_expression(&path_layout.rect.width_reference, component)
+                    layout_prop(&path_layout.rect.width_reference)
                 ));
                 code_stream.push(format!(
                     "    auto height = {};",
-                    compile_expression(&path_layout.rect.height_reference, component)
+                    layout_prop(&path_layout.rect.height_reference)
                 ));
 
                 code_stream.push(format!(
                     "    auto offset = {};",
-                    compile_expression(&path_layout.offset_reference, component)
+                    layout_prop(&Some(path_layout.offset_reference.clone()))
                 ));
 
                 code_stream.push("    sixtyfps::PathLayoutData pl { ".into());

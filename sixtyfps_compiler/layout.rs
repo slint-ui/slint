@@ -12,8 +12,7 @@ LICENSE END */
 use crate::expression_tree::{Expression, NamedReference, Path};
 use crate::langtype::Type;
 use crate::object_tree::{ElementRc, PropertyDeclaration};
-use crate::passes::ExpressionFieldsVisitor;
-use std::rc::Rc;
+use std::{borrow::Cow, rc::Rc};
 
 #[derive(Debug, derive_more::From)]
 pub enum Layout {
@@ -32,43 +31,56 @@ impl Layout {
     }
 }
 
-impl ExpressionFieldsVisitor for Layout {
-    fn visit_expressions(&mut self, visitor: &mut impl FnMut(&mut Expression)) {
+impl Layout {
+    /// Call the visitor for each NamedReference stored in the layout
+    pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
         match self {
-            Layout::GridLayout(grid) => grid.visit_expressions(visitor),
-            Layout::BoxLayout(l) => l.visit_expressions(visitor),
-            Layout::PathLayout(path) => path.visit_expressions(visitor),
+            Layout::GridLayout(grid) => grid.visit_named_references(visitor),
+            Layout::BoxLayout(l) => l.visit_named_references(visitor),
+            Layout::PathLayout(path) => path.visit_named_references(visitor),
         }
     }
 }
 
-#[derive(Default, Debug, derive_more::Deref, derive_more::DerefMut)]
-pub struct LayoutVec(Vec<Layout>);
+pub type LayoutVec = Vec<Layout>;
 
-impl ExpressionFieldsVisitor for LayoutVec {
-    fn visit_expressions(&mut self, mut visitor: &mut impl FnMut(&mut Expression)) {
-        self.0.iter_mut().for_each(|l| l.visit_expressions(&mut visitor));
-    }
-}
-
-#[derive(Debug, derive_more::From)]
-pub struct LayoutElement {
-    pub element: ElementRc,
+/// An Item in the layout tree
+#[derive(Debug, Default)]
+pub struct LayoutItem {
+    pub element: Option<ElementRc>,
     pub layout: Option<Layout>,
 }
 
-#[derive(Debug, derive_more::From)]
-pub enum LayoutItem {
-    Element(LayoutElement),
-    Layout(Box<Layout>),
+impl LayoutItem {
+    pub fn rect(&self) -> Cow<LayoutRect> {
+        if let Some(e) = &self.element {
+            let prop = |name: &str| {
+                if e.borrow().lookup_property(name) == Type::Length {
+                    Some(NamedReference::new(e, name))
+                } else {
+                    None
+                }
+            };
+            Cow::Owned(LayoutRect {
+                x_reference: prop("x"),
+                y_reference: prop("y"),
+                width_reference: prop("width"),
+                height_reference: prop("height"),
+            })
+        } else if let Some(l) = &self.layout {
+            Cow::Borrowed(l.rect())
+        } else {
+            Cow::Owned(LayoutRect::default())
+        }
+    }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct LayoutRect {
-    pub width_reference: Box<Expression>,
-    pub height_reference: Box<Expression>,
-    pub x_reference: Box<Expression>,
-    pub y_reference: Box<Expression>,
+    pub width_reference: Option<NamedReference>,
+    pub height_reference: Option<NamedReference>,
+    pub x_reference: Option<NamedReference>,
+    pub y_reference: Option<NamedReference>,
 }
 
 impl LayoutRect {
@@ -82,11 +94,7 @@ impl LayoutRect {
                     ..Default::default()
                 },
             );
-
-            Box::new(Expression::PropertyReference(NamedReference {
-                element: Rc::downgrade(&element.clone()),
-                name: name.into(),
-            }))
+            Some(NamedReference::new(element, name))
         };
 
         Self {
@@ -97,46 +105,29 @@ impl LayoutRect {
         }
     }
 
-    pub fn mapped_property_name(&self, name: &str) -> Option<&str> {
-        let expr = match name {
-            "x" => &self.x_reference,
-            "y" => &self.y_reference,
-            "width" => &self.width_reference,
-            "height" => &self.height_reference,
-            _ => return None,
-        };
-        match expr.as_ref() {
-            Expression::PropertyReference(NamedReference { name, .. }) => Some(name),
-            _ => None,
-        }
-    }
-}
-
-impl ExpressionFieldsVisitor for LayoutRect {
-    fn visit_expressions(&mut self, visitor: &mut impl FnMut(&mut Expression)) {
-        visitor(&mut self.width_reference);
-        visitor(&mut self.height_reference);
-        visitor(&mut self.x_reference);
-        visitor(&mut self.y_reference);
+    fn visit_named_references(&mut self, mut visitor: &mut impl FnMut(&mut NamedReference)) {
+        self.width_reference.as_mut().map(&mut visitor);
+        self.height_reference.as_mut().map(&mut visitor);
+        self.x_reference.as_mut().map(&mut visitor);
+        self.y_reference.as_mut().map(&mut visitor);
     }
 }
 
 #[derive(Debug)]
 pub struct LayoutConstraints {
-    pub minimum_width: Option<Box<Expression>>,
-    pub maximum_width: Option<Box<Expression>>,
-    pub minimum_height: Option<Box<Expression>>,
-    pub maximum_height: Option<Box<Expression>>,
+    pub minimum_width: Option<NamedReference>,
+    pub maximum_width: Option<NamedReference>,
+    pub minimum_height: Option<NamedReference>,
+    pub maximum_height: Option<NamedReference>,
 }
 
 impl LayoutConstraints {
     pub fn new(element: &ElementRc) -> Self {
-        use crate::passes::lower_layout::find_expression;
         Self {
-            minimum_width: find_expression("minimum_width", &element),
-            maximum_width: find_expression("maximum_width", &element),
-            minimum_height: find_expression("minimum_height", &element),
-            maximum_height: find_expression("maximum_height", &element),
+            minimum_width: binding_reference(&element, "minimum_width"),
+            maximum_width: binding_reference(&element, "maximum_width"),
+            minimum_height: binding_reference(&element, "minimum_height"),
+            maximum_height: binding_reference(&element, "maximum_height"),
         }
     }
 
@@ -147,13 +138,7 @@ impl LayoutConstraints {
             || self.maximum_height.is_some()
     }
 
-    /*pub fn for_each_restrictions(&self, mut f: impl FnMut(&str, &Expression)) {
-        self.minimum_width.map(|e| f("minimum_width", &e));
-        self.maximum_width.map(|e| f("maximum_width", &e));
-        self.minimum_height.map(|e| f("minimum_height", &e));
-        self.maximum_height.map(|e| f("maximum_height", &e));
-    }*/
-    pub fn for_each_restrictions<'a>(&'a self) -> [(&Option<Box<Expression>>, &'static str); 4] {
+    pub fn for_each_restrictions<'a>(&'a self) -> [(&Option<NamedReference>, &'static str); 4] {
         [
             (&self.minimum_width, "min_width"),
             (&self.maximum_width, "max_width"),
@@ -163,8 +148,8 @@ impl LayoutConstraints {
     }
 }
 
-impl ExpressionFieldsVisitor for LayoutConstraints {
-    fn visit_expressions(&mut self, visitor: &mut impl FnMut(&mut Expression)) {
+impl LayoutConstraints {
+    fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
         self.maximum_width.as_mut().map(|e| visitor(&mut *e));
         self.minimum_width.as_mut().map(|e| visitor(&mut *e));
         self.maximum_height.as_mut().map(|e| visitor(&mut *e));
@@ -185,14 +170,14 @@ pub struct GridLayoutElement {
 
 #[derive(Debug)]
 pub struct Padding {
-    pub left: Option<Expression>,
-    pub right: Option<Expression>,
-    pub top: Option<Expression>,
-    pub bottom: Option<Expression>,
+    pub left: Option<NamedReference>,
+    pub right: Option<NamedReference>,
+    pub top: Option<NamedReference>,
+    pub bottom: Option<NamedReference>,
 }
 
-impl ExpressionFieldsVisitor for Padding {
-    fn visit_expressions(&mut self, visitor: &mut impl FnMut(&mut Expression)) {
+impl Padding {
+    fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
         self.left.as_mut().map(|e| visitor(&mut *e));
         self.right.as_mut().map(|e| visitor(&mut *e));
         self.top.as_mut().map(|e| visitor(&mut *e));
@@ -203,28 +188,52 @@ impl ExpressionFieldsVisitor for Padding {
 #[derive(Debug)]
 pub struct LayoutGeometry {
     pub rect: LayoutRect,
-    pub spacing: Option<Expression>,
+    pub spacing: Option<NamedReference>,
     pub padding: Padding,
 }
 
-impl ExpressionFieldsVisitor for LayoutGeometry {
-    fn visit_expressions(&mut self, visitor: &mut impl FnMut(&mut Expression)) {
-        self.rect.visit_expressions(visitor);
+impl LayoutGeometry {
+    fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
+        self.rect.visit_named_references(visitor);
         self.spacing.as_mut().map(|e| visitor(&mut *e));
-        self.padding.visit_expressions(visitor);
+        self.padding.visit_named_references(visitor);
+    }
+}
+
+fn binding_reference(element: &ElementRc, name: &str) -> Option<NamedReference> {
+    if element.borrow().bindings.contains_key(name) {
+        Some(NamedReference { element: Rc::downgrade(element), name: name.into() })
+    } else {
+        None
+    }
+}
+
+fn init_fake_property(
+    grid_layout_element: &ElementRc,
+    name: &str,
+    lazy_default: impl Fn() -> Option<NamedReference>,
+) {
+    if grid_layout_element.borrow().property_declarations.contains_key(name)
+        && !grid_layout_element.borrow().bindings.contains_key(name)
+    {
+        if let Some(e) = lazy_default() {
+            grid_layout_element
+                .borrow_mut()
+                .bindings
+                .insert(name.to_owned(), Expression::PropertyReference(e).into());
+        }
     }
 }
 
 impl LayoutGeometry {
     pub fn new(rect: LayoutRect, layout_element: &ElementRc) -> Self {
-        use crate::passes::lower_layout::{binding_reference, init_fake_property};
         let padding = || binding_reference(layout_element, "padding");
         let spacing = binding_reference(layout_element, "spacing");
 
-        init_fake_property(layout_element, "width", || Some((*rect.width_reference).clone()));
-        init_fake_property(layout_element, "height", || Some((*rect.height_reference).clone()));
-        init_fake_property(layout_element, "x", || Some((*rect.x_reference).clone()));
-        init_fake_property(layout_element, "y", || Some((*rect.y_reference).clone()));
+        init_fake_property(layout_element, "width", || rect.width_reference.clone());
+        init_fake_property(layout_element, "height", || rect.height_reference.clone());
+        init_fake_property(layout_element, "x", || rect.x_reference.clone());
+        init_fake_property(layout_element, "y", || rect.y_reference.clone());
         init_fake_property(layout_element, "padding_left", padding);
         init_fake_property(layout_element, "padding_right", padding);
         init_fake_property(layout_element, "padding_top", padding);
@@ -250,19 +259,13 @@ pub struct GridLayout {
     pub geometry: LayoutGeometry,
 }
 
-impl ExpressionFieldsVisitor for GridLayout {
-    fn visit_expressions(&mut self, visitor: &mut impl FnMut(&mut Expression)) {
+impl GridLayout {
+    fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
         for cell in &mut self.elems {
-            match &mut cell.item {
-                LayoutItem::Element(element) => {
-                    element.layout.as_mut().map(|layout| layout.visit_expressions(visitor));
-                    // The expressions of element.element are traversed through the regular element tree traversal
-                }
-                LayoutItem::Layout(layout) => layout.visit_expressions(visitor),
-            }
-            cell.constraints.visit_expressions(visitor);
+            cell.item.layout.as_mut().map(|x| x.visit_named_references(visitor));
+            cell.constraints.visit_named_references(visitor);
         }
-        self.geometry.visit_expressions(visitor);
+        self.geometry.visit_named_references(visitor);
     }
 }
 
@@ -282,19 +285,13 @@ pub struct BoxLayout {
     pub geometry: LayoutGeometry,
 }
 
-impl ExpressionFieldsVisitor for BoxLayout {
-    fn visit_expressions(&mut self, visitor: &mut impl FnMut(&mut Expression)) {
+impl BoxLayout {
+    fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
         for cell in &mut self.elems {
-            match &mut cell.item {
-                LayoutItem::Element(element) => {
-                    element.layout.as_mut().map(|layout| layout.visit_expressions(visitor));
-                    // The expressions of element.element are traversed through the regular element tree traversal
-                }
-                LayoutItem::Layout(layout) => layout.visit_expressions(visitor),
-            }
-            cell.constraints.visit_expressions(visitor);
+            cell.item.layout.as_mut().map(|x| x.visit_named_references(visitor));
+            cell.constraints.visit_named_references(visitor);
         }
-        self.geometry.visit_expressions(visitor);
+        self.geometry.visit_named_references(visitor);
     }
 }
 
@@ -304,12 +301,12 @@ pub struct PathLayout {
     pub path: Path,
     pub elements: Vec<ElementRc>,
     pub rect: LayoutRect,
-    pub offset_reference: Box<Expression>,
+    pub offset_reference: NamedReference,
 }
 
-impl ExpressionFieldsVisitor for PathLayout {
-    fn visit_expressions(&mut self, visitor: &mut impl FnMut(&mut Expression)) {
-        self.rect.visit_expressions(visitor);
+impl PathLayout {
+    fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
+        self.rect.visit_named_references(visitor);
         visitor(&mut self.offset_reference);
     }
 }
@@ -342,6 +339,12 @@ pub mod gen {
             cells: Vec<Self::CompiledCode>,
             component: &Rc<Component>,
         ) -> LayoutTreeItem<'a, Self>;
+
+        fn get_layout_info_ref<'a, 'b>(
+            item: &'a LayoutItem,
+            layout_tree: &'b mut Vec<LayoutTreeItem<'a, Self>>,
+            component: &Rc<Component>,
+        ) -> Self::CompiledCode;
     }
 
     #[derive(derive_more::From)]
@@ -354,38 +357,6 @@ pub mod gen {
             cell_ref_variable: L::CompiledCode,
         },
         PathLayout(&'a PathLayout),
-    }
-
-    pub trait LayoutItemCodeGen<L: Language> {
-        fn get_property_ref(&self, name: &str) -> L::CompiledCode;
-        fn get_layout_info_ref<'a, 'b>(
-            &'a self,
-            layout_tree: &'b mut Vec<LayoutTreeItem<'a, L>>,
-            component: &Rc<Component>,
-        ) -> L::CompiledCode;
-    }
-
-    impl<L: Language> LayoutItemCodeGen<L> for LayoutItem
-    where
-        LayoutElement: LayoutItemCodeGen<L>,
-        Layout: LayoutItemCodeGen<L>,
-    {
-        fn get_property_ref(&self, name: &str) -> L::CompiledCode {
-            match self {
-                LayoutItem::Element(e) => e.get_property_ref(name),
-                LayoutItem::Layout(l) => l.get_property_ref(name),
-            }
-        }
-        fn get_layout_info_ref<'a, 'b>(
-            &'a self,
-            layout_tree: &'b mut Vec<LayoutTreeItem<'a, L>>,
-            component: &Rc<Component>,
-        ) -> L::CompiledCode {
-            match self {
-                LayoutItem::Element(e) => e.get_layout_info_ref(layout_tree, component),
-                LayoutItem::Layout(l) => l.get_layout_info_ref(layout_tree, component),
-            }
-        }
     }
 
     pub fn collect_layouts_recursively<'a, 'b, L: Language>(

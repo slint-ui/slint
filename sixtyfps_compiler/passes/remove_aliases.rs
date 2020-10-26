@@ -9,12 +9,9 @@
 LICENSE END */
 //! This pass removes the property used in a two ways bindings
 
-use crate::{
-    diagnostics::BuildDiagnostics,
-    expression_tree::{Expression, NamedReference},
-    object_tree::*,
-    passes::ExpressionFieldsVisitor,
-};
+use crate::diagnostics::BuildDiagnostics;
+use crate::expression_tree::{Expression, NamedReference};
+use crate::object_tree::*;
 use std::collections::{hash_map::Entry, HashMap};
 use std::rc::Rc;
 
@@ -85,9 +82,7 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
         &(),
         &mut |elem, _| visit_all_named_references(elem, replace),
     );
-    component.layouts.borrow_mut().visit_expressions(&mut |e| {
-        recurse_expression(e, &mut replace);
-    });
+    component.layouts.borrow_mut().iter_mut().for_each(|l| l.visit_named_references(&mut replace));
 
     // Remove the properties
     for (remove, to) in aliases_to_remove {
@@ -155,14 +150,5 @@ fn process_alias<'a>(
         Entry::Vacant(e) => {
             e.insert(NamedReference { element: Rc::downgrade(&to.0), name: to.1.to_string() });
         }
-    }
-}
-
-/// Visit the NamedReference recursively in expressions
-fn recurse_expression(expr: &mut Expression, vis: &mut impl FnMut(&mut NamedReference)) {
-    expr.visit_mut(|sub| recurse_expression(sub, vis));
-    match expr {
-        Expression::PropertyReference(r) | Expression::SignalReference(r) => vis(r),
-        _ => {}
     }
 }

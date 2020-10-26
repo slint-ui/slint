@@ -16,9 +16,7 @@ use expression_tree::NamedReference;
 use object_tree::{Element, ElementRc};
 use sixtyfps_compilerlib::expression_tree::Expression;
 use sixtyfps_compilerlib::langtype::Type;
-use sixtyfps_compilerlib::layout::{
-    Layout, LayoutConstraints, LayoutElement, LayoutItem, PathLayout,
-};
+use sixtyfps_compilerlib::layout::{Layout, LayoutConstraints, LayoutItem, PathLayout};
 use sixtyfps_compilerlib::*;
 use sixtyfps_corelib::component::{Component, ComponentRefPin, ComponentVTable};
 use sixtyfps_corelib::graphics::Resource;
@@ -947,112 +945,37 @@ impl<'a> LayoutTreeItem<'a> {
     }
 }
 
-trait LayoutItemCodeGen {
-    fn get_property_ref<'a>(
-        &self,
-        component: InstanceRef<'a, '_>,
-        name: &str,
-    ) -> Option<&'a Property<f32>>;
-    fn get_layout_info<'a, 'b>(
-        &'a self,
-        component: InstanceRef<'a, '_>,
-        layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
-        window: &ComponentWindow,
-    ) -> LayoutInfo;
-}
+fn get_layout_info<'a, 'b>(
+    item: &'a LayoutItem,
+    component: InstanceRef<'a, '_>,
+    layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
+    window: &ComponentWindow,
+) -> LayoutInfo {
+    let layout_info = item.layout.as_ref().map(|l| {
+        let layout_tree_item = collect_layouts_recursively(layout_tree, l, component, window);
+        layout_tree_item.layout_info()
+    });
+    let elem_info = item.element.as_ref().map(|elem| {
+        let item = &component
+            .component_type
+            .items
+            .get(elem.borrow().id.as_str())
+            .unwrap_or_else(|| panic!("Internal error: Item {} not found", elem.borrow().id));
+        unsafe { item.item_from_component(component.as_ptr()).as_ref().layouting_info(window) }
+    });
 
-impl LayoutItemCodeGen for LayoutItem {
-    fn get_property_ref<'a>(
-        &self,
-        component: InstanceRef<'a, '_>,
-        name: &str,
-    ) -> Option<&'a Property<f32>> {
-        match self {
-            LayoutItem::Element(e) => e.get_property_ref(component, name),
-            LayoutItem::Layout(l) => l.get_property_ref(component, name),
-        }
-    }
-    fn get_layout_info<'a, 'b>(
-        &'a self,
-        component: InstanceRef<'a, '_>,
-        layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
-        window: &ComponentWindow,
-    ) -> LayoutInfo {
-        match self {
-            LayoutItem::Element(e) => e.get_layout_info(component, layout_tree, window),
-            LayoutItem::Layout(l) => l.get_layout_info(component, layout_tree, window),
-        }
-    }
-}
-
-impl LayoutItemCodeGen for Layout {
-    fn get_property_ref<'a>(
-        &self,
-        component: InstanceRef<'a, '_>,
-        name: &str,
-    ) -> Option<&'a Property<f32>> {
-        let moved_property_name = match self.rect().mapped_property_name(name) {
-            Some(name) => name,
-            None => return None,
-        };
-        let prop = component.component_type.custom_properties.get(moved_property_name).unwrap();
-        Some(unsafe { &*(component.as_ptr().add(prop.offset) as *const Property<f32>) })
-    }
-    fn get_layout_info<'a, 'b>(
-        &'a self,
-        component: InstanceRef<'a, '_>,
-        layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
-        window: &ComponentWindow,
-    ) -> LayoutInfo {
-        let self_as_layout_tree_item =
-            collect_layouts_recursively(layout_tree, &self, component, window);
-        self_as_layout_tree_item.layout_info()
-    }
-}
-
-impl LayoutItemCodeGen for LayoutElement {
-    fn get_property_ref<'a>(
-        &self,
-        component: InstanceRef<'a, '_>,
-        name: &str,
-    ) -> Option<&'a Property<f32>> {
-        let item =
-            &component.component_type.items.get(self.element.borrow().id.as_str()).unwrap_or_else(
-                || panic!("Internal error: Item {} not found", self.element.borrow().id),
-            );
-        unsafe {
-            item.rtti.properties.get(name).map(|p| {
-                &*(component.as_ptr().add(item.offset).add(p.offset()) as *const Property<f32>)
-            })
-        }
-    }
-    fn get_layout_info<'a, 'b>(
-        &'a self,
-        component: InstanceRef<'a, '_>,
-        layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
-        window: &ComponentWindow,
-    ) -> LayoutInfo {
-        let item =
-            &component.component_type.items.get(self.element.borrow().id.as_str()).unwrap_or_else(
-                || panic!("Internal error: Item {} not found", self.element.borrow().id),
-            );
-        let element_info =
-            unsafe { item.item_from_component(component.as_ptr()).as_ref().layouting_info(window) };
-
-        match &self.layout {
-            Some(layout) => {
-                let layout_info = layout.get_layout_info(component, layout_tree, window);
-                layout_info.merge(&element_info)
-            }
-            None => element_info,
-        }
+    match (layout_info, elem_info) {
+        (None, None) => Default::default(),
+        (None, Some(x)) => x,
+        (Some(x), None) => x,
+        (Some(layout_info), Some(elem_info)) => layout_info.merge(&elem_info),
     }
 }
 
 fn fill_layout_info_constraints(
     layout_info: &mut LayoutInfo,
     constraints: &LayoutConstraints,
-    expr_eval: &impl Fn(&Expression) -> f32,
+    expr_eval: &impl Fn(&NamedReference) -> f32,
 ) {
     constraints.minimum_width.as_ref().map(|e| layout_info.min_width = expr_eval(e));
     constraints.maximum_width.as_ref().map(|e| layout_info.max_width = expr_eval(e));
@@ -1066,24 +989,35 @@ fn collect_layouts_recursively<'a, 'b>(
     component: InstanceRef<'a, '_>,
     window: &ComponentWindow,
 ) -> &'b LayoutTreeItem<'a> {
+    let assume_property_f32 = |nr: &Option<NamedReference>| {
+        nr.as_ref().map(|nr| {
+            let p = get_property_ptr(nr, component);
+            unsafe { &*(p as *const Property<f32>) }
+        })
+    };
+    let expr_eval = |nr: &NamedReference| -> f32 {
+        eval::load_property(component, &nr.element.upgrade().unwrap(), nr.name.as_ref())
+            .unwrap()
+            .try_into()
+            .unwrap()
+    };
+
     match layout {
         Layout::GridLayout(grid_layout) => {
-            let expr_eval = |expr: &Expression| -> f32 {
-                eval::eval_expression(expr, component, &mut Default::default()).try_into().unwrap()
-            };
             let cells = grid_layout
                 .elems
                 .iter()
                 .map(|cell| {
-                    let get_prop = |name| cell.item.get_property_ref(component, name);
-                    let mut layout_info = cell.item.get_layout_info(component, layout_tree, window);
+                    let mut layout_info =
+                        get_layout_info(&cell.item, component, layout_tree, window);
                     fill_layout_info_constraints(&mut layout_info, &cell.constraints, &expr_eval);
+                    let rect = cell.item.rect();
 
                     GridLayoutCellData {
-                        x: get_prop("x"),
-                        y: get_prop("y"),
-                        width: get_prop("width"),
-                        height: get_prop("height"),
+                        x: assume_property_f32(&rect.x_reference),
+                        y: assume_property_f32(&rect.y_reference),
+                        width: assume_property_f32(&rect.width_reference),
+                        height: assume_property_f32(&rect.height_reference),
                         col: cell.col,
                         row: cell.row,
                         colspan: cell.colspan,
@@ -1105,25 +1039,23 @@ fn collect_layouts_recursively<'a, 'b>(
             );
         }
         Layout::BoxLayout(box_layout) => {
-            let expr_eval = |expr: &Expression| -> f32 {
-                eval::eval_expression(expr, component, &mut Default::default()).try_into().unwrap()
-            };
             let cells = box_layout
                 .elems
                 .iter()
                 .enumerate()
                 .map(|(idx, cell)| {
-                    let get_prop = |name| cell.item.get_property_ref(component, name);
-                    let mut layout_info = cell.item.get_layout_info(component, layout_tree, window);
+                    let mut layout_info =
+                        get_layout_info(&cell.item, component, layout_tree, window);
                     fill_layout_info_constraints(&mut layout_info, &cell.constraints, &expr_eval);
                     let (col, row) =
                         if box_layout.is_horizontal { (idx as u16, 0) } else { (0, idx as u16) };
+                    let rect = cell.item.rect();
 
                     GridLayoutCellData {
-                        x: get_prop("x"),
-                        y: get_prop("y"),
-                        width: get_prop("width"),
-                        height: get_prop("height"),
+                        x: assume_property_f32(&rect.x_reference),
+                        y: assume_property_f32(&rect.y_reference),
+                        width: assume_property_f32(&rect.width_reference),
+                        height: assume_property_f32(&rect.height_reference),
                         col,
                         row,
                         colspan: 1,
@@ -1151,10 +1083,13 @@ fn collect_layouts_recursively<'a, 'b>(
 
 impl<'a> LayoutTreeItem<'a> {
     fn solve(&self, instance_ref: InstanceRef) {
-        let resolve_prop_ref = |prop_ref: &Expression| {
-            eval::eval_expression(&prop_ref, instance_ref, &mut Default::default())
-                .try_into()
-                .unwrap_or_default()
+        let resolve_prop_ref = |prop_ref: &Option<NamedReference>| {
+            prop_ref.as_ref().map_or(0., |nr| {
+                eval::load_property(instance_ref, &nr.element.upgrade().unwrap(), &nr.name)
+                    .unwrap()
+                    .try_into()
+                    .unwrap_or(0.)
+            })
         };
 
         match self {
@@ -1227,7 +1162,7 @@ impl<'a> LayoutTreeItem<'a> {
                     y: resolve_prop_ref(&path_layout.rect.y_reference),
                     width: resolve_prop_ref(&path_layout.rect.width_reference),
                     height: resolve_prop_ref(&path_layout.rect.height_reference),
-                    offset: resolve_prop_ref(&path_layout.offset_reference),
+                    offset: resolve_prop_ref(&Some(path_layout.offset_reference.clone())),
                 });
             }
         }

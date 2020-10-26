@@ -36,15 +36,6 @@ pub mod typeloader;
 pub mod typeregister;
 
 mod passes {
-    // Trait for the purpose of applying modifications to Expressions that are stored in various
-    // data structures.
-    pub trait ExpressionFieldsVisitor {
-        fn visit_expressions(
-            &mut self,
-            visitor: &mut impl FnMut(&mut super::expression_tree::Expression),
-        );
-    }
-
     pub mod collect_resources;
     pub mod compile_paths;
     pub mod deduplicate_property_read;

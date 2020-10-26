@@ -10,10 +10,9 @@ LICENSE END */
 //! This pass moves all declaration of properties or signal to the root
 
 use crate::diagnostics::{BuildDiagnostics, Level};
-use crate::expression_tree::{Expression, NamedReference};
+use crate::expression_tree::NamedReference;
 use crate::langtype::Type;
 use crate::object_tree::*;
-use crate::passes::ExpressionFieldsVisitor;
 
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -92,7 +91,11 @@ pub fn move_declarations(component: &Rc<Component>, diag: &mut BuildDiagnostics)
 
     component.optimized_elements.borrow().iter().for_each(|e| move_bindings_and_animations(e));
 
-    component.layouts.borrow_mut().visit_expressions(&mut |e| fixup_bindings(e, component));
+    component
+        .layouts
+        .borrow_mut()
+        .iter_mut()
+        .for_each(|f| f.visit_named_references(&mut |e| fixup_reference(e)));
 
     let move_properties = &mut |elem: &ElementRc| {
         let elem_decl = Declarations::take_from_element(&mut *elem.borrow_mut());
@@ -129,14 +132,6 @@ fn fixup_reference(NamedReference { element, name }: &mut NamedReference) {
 
 fn map_name(e: &ElementRc, s: &str) -> String {
     format!("{}_{}", e.borrow().id, s)
-}
-
-fn fixup_bindings(val: &mut Expression, comp: &Rc<Component>) {
-    match val {
-        Expression::PropertyReference(nr) | Expression::SignalReference(nr) => fixup_reference(nr),
-        _ => {}
-    };
-    val.visit_mut(|sub| fixup_bindings(sub, comp))
 }
 
 /// Optimized item are not used for the fact that they are items, but their properties
