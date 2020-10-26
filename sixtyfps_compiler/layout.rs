@@ -362,6 +362,7 @@ pub mod gen {
             padding: L::CompiledCode,
             var_creation_code: L::CompiledCode,
             cell_ref_variable: L::CompiledCode,
+            is_horizontal: bool,
         },
         #[from]
         PathLayout(&'a PathLayout),

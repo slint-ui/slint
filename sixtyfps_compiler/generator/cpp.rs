@@ -1545,6 +1545,7 @@ impl crate::layout::gen::Language for CppLanguageLayoutGen {
         );
 
         LayoutTreeItem::BoxLayout {
+            is_horizontal: box_layout.is_horizontal,
             geometry: &box_layout.geometry,
             spacing,
             padding,
@@ -1570,9 +1571,15 @@ fn get_layout_info_ref<'a, 'b>(
                 "sixtyfps::grid_layout_info(&{}, {}, &{})",
                 cell_ref_variable, spacing, padding
             ),
-            LayoutTreeItem::BoxLayout { spacing, cell_ref_variable, padding, .. } => format!(
-                "sixtyfps::box_layout_info(&{}, {}, &{})",
-                cell_ref_variable, spacing, padding
+            LayoutTreeItem::BoxLayout {
+                spacing,
+                cell_ref_variable,
+                padding,
+                is_horizontal,
+                ..
+            } => format!(
+                "sixtyfps::box_layout_info(&{}, {}, &{}, {})",
+                cell_ref_variable, spacing, padding, is_horizontal
             ),
             LayoutTreeItem::PathLayout(_) => todo!(),
         }
@@ -1687,7 +1694,14 @@ impl<'a> LayoutTreeItem<'a> {
                 code_stream.push("    sixtyfps::solve_grid_layout(&grid);".to_owned());
                 code_stream.push("    } ".into());
             }
-            LayoutTreeItem::BoxLayout { geometry, spacing, cell_ref_variable, padding, .. } => {
+            LayoutTreeItem::BoxLayout {
+                geometry,
+                spacing,
+                cell_ref_variable,
+                padding,
+                is_horizontal,
+                ..
+            } => {
                 code_stream.push("    { ".into());
                 code_stream.push("    sixtyfps::BoxLayoutData box { ".into());
                 code_stream.push(format!(
@@ -1701,7 +1715,8 @@ impl<'a> LayoutTreeItem<'a> {
                 ));
                 code_stream.push(format!("        {cv}", cv = cell_ref_variable));
                 code_stream.push("    };".to_owned());
-                code_stream.push("    sixtyfps::solve_box_layout(&box);".to_owned());
+                code_stream
+                    .push(format!("    sixtyfps::solve_box_layout(&box, {});", is_horizontal));
                 code_stream.push("    } ".into());
             }
             LayoutTreeItem::PathLayout(path_layout) => {

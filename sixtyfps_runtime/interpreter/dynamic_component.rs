@@ -929,7 +929,7 @@ pub struct LayoutWithCells<'a, C> {
 #[derive(derive_more::From)]
 enum LayoutTreeItem<'a> {
     GridLayout(LayoutWithCells<'a, GridLayoutCellData<'a>>),
-    BoxLayout(LayoutWithCells<'a, BoxLayoutCellData<'a>>),
+    BoxLayout(LayoutWithCells<'a, BoxLayoutCellData<'a>>, bool),
     PathLayout(&'a PathLayout),
 }
 
@@ -941,10 +941,11 @@ impl<'a> LayoutTreeItem<'a> {
                 grid_layout.spacing,
                 &grid_layout.padding,
             ),
-            LayoutTreeItem::BoxLayout(box_layout) => box_layout_info(
+            LayoutTreeItem::BoxLayout(box_layout, is_horizontal) => box_layout_info(
                 &Slice::from(box_layout.cells.as_slice()),
                 box_layout.spacing,
                 &box_layout.padding,
+                *is_horizontal,
             ),
             LayoutTreeItem::PathLayout(_) => todo!(),
         }
@@ -1069,9 +1070,10 @@ fn collect_layouts_recursively<'a, 'b>(
                 top: box_layout.geometry.padding.top.as_ref().map_or(0., expr_eval),
                 bottom: box_layout.geometry.padding.bottom.as_ref().map_or(0., expr_eval),
             };
-            layout_tree.push(
-                LayoutWithCells { geometry: &box_layout.geometry, cells, spacing, padding }.into(),
-            );
+            layout_tree.push(LayoutTreeItem::BoxLayout(
+                LayoutWithCells { geometry: &box_layout.geometry, cells, spacing, padding },
+                box_layout.is_horizontal,
+            ));
         }
         Layout::PathLayout(layout) => layout_tree.push(layout.into()),
     }
@@ -1101,16 +1103,19 @@ impl<'a> LayoutTreeItem<'a> {
                     cells: Slice::from(grid_layout.cells.as_slice()),
                 });
             }
-            Self::BoxLayout(box_layout) => {
-                solve_box_layout(&BoxLayoutData {
-                    width: resolve_prop_ref(&box_layout.geometry.rect.width_reference),
-                    height: resolve_prop_ref(&box_layout.geometry.rect.height_reference),
-                    x: resolve_prop_ref(&box_layout.geometry.rect.x_reference),
-                    y: resolve_prop_ref(&box_layout.geometry.rect.y_reference),
-                    spacing: box_layout.spacing,
-                    padding: &box_layout.padding,
-                    cells: Slice::from(box_layout.cells.as_slice()),
-                });
+            Self::BoxLayout(box_layout, is_horizontal) => {
+                solve_box_layout(
+                    &BoxLayoutData {
+                        width: resolve_prop_ref(&box_layout.geometry.rect.width_reference),
+                        height: resolve_prop_ref(&box_layout.geometry.rect.height_reference),
+                        x: resolve_prop_ref(&box_layout.geometry.rect.x_reference),
+                        y: resolve_prop_ref(&box_layout.geometry.rect.y_reference),
+                        spacing: box_layout.spacing,
+                        padding: &box_layout.padding,
+                        cells: Slice::from(box_layout.cells.as_slice()),
+                    },
+                    *is_horizontal,
+                );
             }
             Self::PathLayout(path_layout) => {
                 use sixtyfps_corelib::layout::*;

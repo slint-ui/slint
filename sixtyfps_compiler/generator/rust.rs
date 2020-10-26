@@ -1411,6 +1411,7 @@ impl crate::layout::gen::Language for RustLanguageLayoutGen {
             generate_layout_padding_and_spacing(&layout_tree, &box_layout.geometry, component);
 
         LayoutTreeItem::BoxLayout {
+            is_horizontal: box_layout.is_horizontal,
             geometry: &box_layout.geometry,
             var_creation_code: quote!(#cell_creation_code #spacing_creation_code),
             cell_ref_variable: quote!(#cell_ref_variable),
@@ -1436,8 +1437,8 @@ fn get_layout_info_ref<'a, 'b>(
             LayoutTreeItem::GridLayout { cell_ref_variable, spacing, padding, .. } => {
                 quote!(grid_layout_info(&Slice::from_slice(&#cell_ref_variable), #spacing, #padding))
             }
-            LayoutTreeItem::BoxLayout { cell_ref_variable, spacing, padding, .. } => {
-                quote!(box_layout_info(&Slice::from_slice(&#cell_ref_variable), #spacing, #padding))
+            LayoutTreeItem::BoxLayout { cell_ref_variable, spacing, padding, is_horizontal, .. } => {
+                quote!(box_layout_info(&Slice::from_slice(&#cell_ref_variable), #spacing, #padding, #is_horizontal))
             }
             LayoutTreeItem::PathLayout(_) => todo!(),
         }
@@ -1539,7 +1540,14 @@ impl<'a> LayoutTreeItem<'a> {
                     });
                 });
             }
-            LayoutTreeItem::BoxLayout { geometry, cell_ref_variable, spacing, padding, .. } => {
+            LayoutTreeItem::BoxLayout {
+                geometry,
+                cell_ref_variable,
+                spacing,
+                padding,
+                is_horizontal,
+                ..
+            } => {
                 let x_pos = layout_prop(&geometry.rect.x_reference);
                 let y_pos = layout_prop(&geometry.rect.y_reference);
                 let width = layout_prop(&geometry.rect.width_reference);
@@ -1554,7 +1562,7 @@ impl<'a> LayoutTreeItem<'a> {
                         cells: Slice::from_slice(&#cell_ref_variable),
                         spacing: #spacing,
                         padding: #padding,
-                    });
+                    }, #is_horizontal);
                 });
             }
             LayoutTreeItem::PathLayout(path_layout) => {

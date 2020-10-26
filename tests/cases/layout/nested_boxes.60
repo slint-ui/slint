@@ -1,0 +1,144 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+TestCase := Rectangle {
+    width: 300phx;
+    height: 300phx;
+
+    VerticalLayout {
+        rect_orange := Rectangle {
+            color: orange;
+            maximum_height: 10phx;
+        }
+        HorizontalLayout {
+            rect_red := Rectangle {
+                color: red;
+                minimum_width: 200phx;
+                HorizontalLayout {
+                    spacing: 10px;
+                    rect_green := Rectangle {
+                        color: green;
+                        maximum_width: 50phx;
+                        maximum_height: 50phx;
+                    }
+                    rect_pink := Rectangle {
+                        color: pink;
+                    }
+                }
+            }
+            rect_blue := Rectangle {
+                color: blue;
+                minimum_width: 100phx; // FIXME: replace with a smaller stretch factor
+            }
+        }
+        rect_yellow := Rectangle {
+            color: yellow;
+            HorizontalLayout {
+                padding-top: 2phx;
+                padding-bottom: 4phx;
+                spacing: 2phx;
+                padding-left: 8phx;
+                padding-right: 10phx;
+                VerticalLayout {
+                    spacing: 5phx;
+                    padding-top: 5phx;
+                    rect_black1 := Rectangle {
+                        color: black;
+                    }
+                    rect_white1 := Rectangle {
+                        color: white;
+                    }
+                }
+                VerticalLayout {
+                    spacing: 5phx;
+                    padding-bottom: 5phx;
+                    rect_black2 := Rectangle {
+                        color: black;
+                    }
+                    rect_white2 := Rectangle {
+                        color: white;
+                    }
+                }
+            }
+        }
+    }
+
+    property <bool> rect_orange_ok:
+        rect_orange.x == 0phx &&
+        rect_orange.y == 0phx &&
+        rect_orange.width == 300phx &&
+        rect_orange.height == 10phx;
+    property <bool> rect_blue_ok:
+        rect_blue.x == 200phx &&
+        rect_blue.y == 10phx &&
+        rect_blue.width == 100phx &&
+        rect_blue.height == 50phx;
+    property <bool> rect_red_ok:
+        rect_red.x == 0phx &&
+        rect_red.y == 10phx &&
+        rect_red.width == 200phx &&
+        rect_red.height == 50phx;
+    property <bool> rect_green_ok:
+        rect_green.x == 0phx &&
+        rect_green.y == 0phx &&
+        rect_green.width == 50phx &&
+        rect_green.height == 50phx;
+    property <bool> rect_pink_ok:
+        rect_pink.x == 60phx &&
+        rect_pink.y == 0phx &&
+        rect_pink.width == 140phx &&
+        rect_pink.height == 50phx;
+    property <bool> rect_yellow_ok:
+        rect_yellow.x == 0phx &&
+        rect_yellow.y == 60phx &&
+        rect_yellow.width == 300phx &&
+        rect_yellow.height == 240phx;
+    property <bool> rect_black1_ok:
+        rect_black1.x == 8phx &&
+        rect_black1.y == 1phx * (2 + 5) &&
+        rect_black1.width == 1phx * (300 - 18 - 2)/2 &&
+        rect_black1.height == 1phx * (240 - 6 - 10)/2 ;
+    property <bool> rect_black2_ok:
+        rect_black2.x == 300phx - 1phx * (300 - 20) / 2 - 10phx &&
+        rect_black2.y == 2phx &&
+        rect_black2.width == 1phx * (300 - 18 - 2)/2 &&
+        rect_black2.height == 1phx * (240 - 6 - 10)/2 ;
+}
+
+/*
+
+```cpp
+TestCase instance;
+TestCase::compute_layout({&TestCase::component_type, &instance });
+assert(instance.get_rect_blue_ok());
+assert(instance.get_rect_orange_ok());
+assert(instance.get_rect_red_ok());
+assert(instance.get_rect_green_ok());
+assert(instance.get_rect_yellow_ok());
+assert(instance.get_rect_black1_ok());
+assert(instance.get_rect_black2_ok());
+```
+
+
+```rust
+let instance = TestCase::new();
+let instance = instance.as_ref();
+use sixtyfps::re_exports::Component;
+instance.compute_layout();
+println!("{:?}", instance.get_debug_());
+assert!(instance.get_rect_blue_ok());
+assert!(instance.get_rect_orange_ok());
+assert!(instance.get_rect_red_ok());
+assert!(instance.get_rect_green_ok());
+assert!(instance.get_rect_yellow_ok());
+assert!(instance.get_rect_black1_ok());
+assert!(instance.get_rect_black2_ok());
+```
+
+*/
