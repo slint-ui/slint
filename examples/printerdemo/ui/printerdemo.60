@@ -86,6 +86,7 @@ FaxPage := Page {
         y: text.y + text.height + 20px;
         width: text.width;
         height: send.y - y - 40px;
+        border_radius: 4px;
 
         for row_model[r] in [
             [ 7, 8, 9 ],
@@ -101,6 +102,7 @@ FaxPage := Page {
                 height: parent.height;
                 width: (parent.width - 4*10px) / 3;
                 x: c * (self.width + 10px) + 10px;
+                border_radius: 4px;
                 color: key_area.pressed ? #566 : #555 ;
                 Text {
                     width: 100%;
