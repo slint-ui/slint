@@ -27,11 +27,23 @@ pub struct LayoutInfo {
     pub min_height: f32,
     /// The maximum height for the item.
     pub max_height: f32,
+
+    /// the horizontal stretch factor
+    pub horizontal_stretch: f32,
+    /// the vertical stretch factor
+    pub vertical_stretch: f32,
 }
 
 impl Default for LayoutInfo {
     fn default() -> Self {
-        LayoutInfo { min_width: 0., max_width: f32::MAX, min_height: 0., max_height: f32::MAX }
+        LayoutInfo {
+            min_width: 0.,
+            max_width: f32::MAX,
+            min_height: 0.,
+            max_height: f32::MAX,
+            horizontal_stretch: 0.,
+            vertical_stretch: 0.,
+        }
     }
 }
 
@@ -43,6 +55,8 @@ impl LayoutInfo {
             max_width: self.max_width.min(other.max_width),
             min_height: self.min_height.max(other.min_height),
             max_height: self.max_height.min(other.max_height),
+            horizontal_stretch: self.horizontal_stretch.min(other.horizontal_stretch),
+            vertical_stretch: self.vertical_stretch.min(other.vertical_stretch),
         }
     }
 }
@@ -65,7 +79,7 @@ mod grid_internal {
 
     impl Default for LayoutData {
         fn default() -> Self {
-            LayoutData { min: 0., max: Coord::MAX, pref: 0., stretch: 1., pos: 0., size: 0. }
+            LayoutData { min: 0., max: Coord::MAX, pref: 0., stretch: f32::MAX, pos: 0., size: 0. }
         }
     }
 
@@ -111,7 +125,7 @@ mod grid_internal {
                 min_size: Size { width: min, height: Dimension::Auto },
                 max_size: Size { width: max, height: Dimension::Auto },
                 size: Size { width: pref, height: Dimension::Auto },
-                flex_grow: 1.,
+                flex_grow: cell.stretch,
                 margin,
                 ..Default::default()
             };
@@ -238,6 +252,7 @@ pub extern "C" fn solve_grid_layout(data: &GridLayoutData) {
             rdata.max = rdata.max.min(row_max);
             rdata.min = rdata.min.max(row_min);
             rdata.pref = rdata.pref.max(row_pref);
+            rdata.stretch = rdata.stretch.min(cell.constraint.vertical_stretch);
         }
 
         let col_max = cell.constraint.max_width / (cell.colspan as f32);
@@ -249,8 +264,16 @@ pub extern "C" fn solve_grid_layout(data: &GridLayoutData) {
             cdata.max = cdata.max.min(col_max);
             cdata.min = cdata.min.max(col_min);
             cdata.pref = cdata.pref.max(col_pref);
+            cdata.stretch = cdata.stretch.min(cell.constraint.horizontal_stretch);
         }
     }
+
+    let normalize_stretch = |v: &mut Vec<grid_internal::LayoutData>| {
+        let s = v.iter().map(|x| x.stretch).sum::<f32>();
+        v.iter_mut().for_each(|x| x.stretch = if s == 0. { 1. } else { x.stretch / s })
+    };
+    normalize_stretch(&mut row_layout_data);
+    normalize_stretch(&mut col_layout_data);
 
     grid_internal::layout_items(
         &mut row_layout_data,
@@ -299,7 +322,7 @@ pub extern "C" fn grid_layout_info<'a>(
     }
 
     if num_col < 1 || num_row < 1 {
-        return LayoutInfo { min_width: 0., max_width: 0., min_height: 0., max_height: 0. };
+        return LayoutInfo { max_width: 0., max_height: 0., ..LayoutInfo::default() };
     };
 
     let mut row_layout_data = vec![grid_internal::LayoutData::default(); num_row as usize];
@@ -313,6 +336,8 @@ pub extern "C" fn grid_layout_info<'a>(
         cdata.min = cdata.min.max(cell.constraint.min_width);
         rdata.pref = rdata.pref.max(cell.constraint.min_height);
         cdata.pref = cdata.pref.max(cell.constraint.min_width);
+        rdata.stretch = rdata.stretch.min(cell.constraint.vertical_stretch);
+        cdata.stretch = cdata.stretch.min(cell.constraint.horizontal_stretch);
     }
 
     let spacing_h = spacing * (num_row - 1) as Coord;
@@ -335,7 +360,17 @@ pub extern "C" fn grid_layout_info<'a>(
         + padding.left
         + padding.right;
 
-    LayoutInfo { min_width, max_width, min_height, max_height }
+    let horizontal_stretch = col_layout_data.iter().map(|data| data.stretch).sum::<Coord>();
+    let vertical_stretch = row_layout_data.iter().map(|data| data.stretch).sum::<Coord>();
+
+    LayoutInfo {
+        min_width,
+        max_width,
+        min_height,
+        max_height,
+        horizontal_stretch,
+        vertical_stretch,
+    }
 }
 
 #[repr(C)]
@@ -381,6 +416,15 @@ pub extern "C" fn solve_box_layout(data: &BoxLayoutData, is_horizontal: bool) {
         ..Default::default()
     };
 
+    let stretch_factor = |cell: &BoxLayoutCellData| {
+        if is_horizontal {
+            cell.constraint.horizontal_stretch
+        } else {
+            cell.constraint.vertical_stretch
+        }
+    };
+    let stretch_factor_sum = data.cells.iter().map(stretch_factor).sum::<Coord>();
+
     let flex_box = stretch.new_node(box_style, vec![]).unwrap();
 
     for (index, cell) in data.cells.iter().enumerate() {
@@ -409,7 +453,12 @@ pub extern "C" fn solve_box_layout(data: &BoxLayoutData, is_horizontal: bool) {
         let cell_style = Style {
             min_size,
             max_size,
-            flex_grow: 1.,
+            flex_grow: if stretch_factor_sum == 0. {
+                1.
+            } else {
+                stretch_factor(cell) / stretch_factor_sum
+            },
+            flex_basis: if is_horizontal { min_size.width } else { min_size.height },
             margin,
             align_self: AlignSelf::Stretch,
             ..Default::default()
@@ -452,7 +501,7 @@ pub extern "C" fn box_layout_info<'a>(
 ) -> LayoutInfo {
     let count = cells.len();
     if count < 1 {
-        return LayoutInfo { min_width: 0., max_width: 0., min_height: 0., max_height: 0. };
+        return LayoutInfo { max_width: 0., max_height: 0., ..LayoutInfo::default() };
     };
     let order_float = |a: &Coord, b: &Coord| a.partial_cmp(b).unwrap_or(core::cmp::Ordering::Equal);
 
@@ -467,7 +516,17 @@ pub extern "C" fn box_layout_info<'a>(
             + padding.bottom;
         let min_width = cells.iter().map(|c| c.constraint.min_width).sum::<Coord>() + extra_w;
         let max_width = cells.iter().map(|c| c.constraint.max_width).sum::<Coord>() + extra_w;
-        LayoutInfo { min_width, max_width, min_height, max_height }
+        let horizontal_stretch = cells.iter().map(|c| c.constraint.horizontal_stretch).sum::<f32>();
+        let vertical_stretch =
+            cells.iter().map(|c| c.constraint.vertical_stretch).min_by(order_float).unwrap();
+        LayoutInfo {
+            min_width,
+            max_width,
+            min_height,
+            max_height,
+            horizontal_stretch,
+            vertical_stretch,
+        }
     } else {
         let extra_h = padding.top + padding.bottom + spacing * (count - 1) as Coord;
 
@@ -479,7 +538,17 @@ pub extern "C" fn box_layout_info<'a>(
             + padding.right;
         let min_height = cells.iter().map(|c| c.constraint.min_height).sum::<Coord>() + extra_h;
         let max_height = cells.iter().map(|c| c.constraint.max_height).sum::<Coord>() + extra_h;
-        LayoutInfo { min_width, max_width, min_height, max_height }
+        let horizontal_stretch =
+            cells.iter().map(|c| c.constraint.horizontal_stretch).min_by(order_float).unwrap();
+        let vertical_stretch = cells.iter().map(|c| c.constraint.vertical_stretch).sum::<f32>();
+        LayoutInfo {
+            min_width,
+            max_width,
+            min_height,
+            max_height,
+            horizontal_stretch,
+            vertical_stretch,
+        }
     }
 }
 

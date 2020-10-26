@@ -119,6 +119,8 @@ pub struct LayoutConstraints {
     pub maximum_width: Option<NamedReference>,
     pub minimum_height: Option<NamedReference>,
     pub maximum_height: Option<NamedReference>,
+    pub horizontal_stretch: Option<NamedReference>,
+    pub vertical_stretch: Option<NamedReference>,
 }
 
 impl LayoutConstraints {
@@ -128,6 +130,8 @@ impl LayoutConstraints {
             maximum_width: binding_reference(&element, "maximum_width"),
             minimum_height: binding_reference(&element, "minimum_height"),
             maximum_height: binding_reference(&element, "maximum_height"),
+            horizontal_stretch: binding_reference(&element, "horizontal_stretch"),
+            vertical_stretch: binding_reference(&element, "vertical_stretch"),
         }
     }
 
@@ -136,24 +140,28 @@ impl LayoutConstraints {
             || self.maximum_width.is_some()
             || self.minimum_height.is_some()
             || self.maximum_height.is_some()
+            || self.horizontal_stretch.is_some()
+            || self.vertical_stretch.is_some()
     }
 
-    pub fn for_each_restrictions<'a>(&'a self) -> [(&Option<NamedReference>, &'static str); 4] {
+    pub fn for_each_restrictions<'a>(&'a self) -> [(&Option<NamedReference>, &'static str); 6] {
         [
             (&self.minimum_width, "min_width"),
             (&self.maximum_width, "max_width"),
             (&self.minimum_height, "min_height"),
             (&self.maximum_height, "max_height"),
+            (&self.horizontal_stretch, "horizontal_stretch"),
+            (&self.vertical_stretch, "vertical_stretch"),
         ]
     }
-}
 
-impl LayoutConstraints {
     fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
         self.maximum_width.as_mut().map(|e| visitor(&mut *e));
         self.minimum_width.as_mut().map(|e| visitor(&mut *e));
         self.maximum_height.as_mut().map(|e| visitor(&mut *e));
         self.minimum_height.as_mut().map(|e| visitor(&mut *e));
+        self.horizontal_stretch.as_mut().map(|e| visitor(&mut *e));
+        self.vertical_stretch.as_mut().map(|e| visitor(&mut *e));
     }
 }
 

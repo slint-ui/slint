@@ -271,11 +271,15 @@ inline FocusEventResult process_focus_event(ComponentRef component, int64_t &foc
 using cbindgen_private::grid_layout_info;
 using cbindgen_private::GridLayoutCellData;
 using cbindgen_private::GridLayoutData;
+using cbindgen_private::BoxLayoutData;
+using cbindgen_private::BoxLayoutCellData;
 using cbindgen_private::LayoutInfo;
 using cbindgen_private::Padding;
 using cbindgen_private::PathLayoutData;
 using cbindgen_private::PathLayoutItemData;
 using cbindgen_private::solve_grid_layout;
+using cbindgen_private::solve_box_layout;
+using cbindgen_private::box_layout_info;
 using cbindgen_private::solve_path_layout;
 
 // models

@@ -466,12 +466,7 @@ impl Item for Text {
             let font = fc.find_font(&font_family, font_size);
             let width = font.text_width(&text);
             let height = font.height();
-            LayoutInfo {
-                min_width: width,
-                max_width: f32::MAX,
-                min_height: height,
-                max_height: height,
-            }
+            LayoutInfo { min_width: width, min_height: height, ..LayoutInfo::default() }
         })
     }
 
@@ -1019,12 +1014,16 @@ impl Item for TextInput {
     }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
-        let text = Self::FIELD_OFFSETS.text.apply_pin(self).get();
+        let (width, height) = TextInput::with_font(self, window, |font| {
+            (font.text_width("********************"), font.height())
+        });
 
-        let (width, height) =
-            TextInput::with_font(self, window, |font| (font.text_width(&text), font.height()));
-
-        LayoutInfo { min_width: width, max_width: f32::MAX, min_height: height, max_height: height }
+        LayoutInfo {
+            min_width: width,
+            min_height: height,
+            horizontal_stretch: 1.,
+            ..LayoutInfo::default()
+        }
     }
 
     fn input_event(

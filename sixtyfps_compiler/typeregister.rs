@@ -30,6 +30,8 @@ pub fn reserved_property(name: &str) -> Type {
         ("padding_right", Type::Length),
         ("padding_top", Type::Length),
         ("padding_bottom", Type::Length),
+        ("horizontal_stretch", Type::Float32),
+        ("vertical_stretch", Type::Float32),
         ("clip", Type::Bool),
         ("opacity", Type::Float32),
         ("visible", Type::Bool),

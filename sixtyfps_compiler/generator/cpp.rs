@@ -1529,11 +1529,11 @@ impl crate::layout::gen::Language for CppLanguageLayoutGen {
         let mut creation_code = cells;
         creation_code.insert(
             0,
-            format!("    sixtyfps::GridLayoutCellData {}_data[] = {{", cell_ref_variable,),
+            format!("    sixtyfps::BoxLayoutCellData {}_data[] = {{", cell_ref_variable,),
         );
         creation_code.push("    };".to_owned());
         creation_code.push(format!(
-                "    const sixtyfps::Slice<sixtyfps::GridLayoutCellData> {cv}{{{cv}_data, std::size({cv}_data)}};",
+                "    const sixtyfps::Slice<sixtyfps::BoxLayoutCellData> {cv}{{{cv}_data, std::size({cv}_data)}};",
                 cv = cell_ref_variable
             ));
 

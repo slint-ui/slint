@@ -176,8 +176,6 @@ impl Item for NativeButton {
         LayoutInfo {
             min_width: size.width as f32,
             min_height: size.height as f32,
-            max_width: size.width as f32,
-            max_height: size.height as f32,
             ..LayoutInfo::default()
         }
     }
@@ -299,6 +297,7 @@ impl Item for NativeCheckBox {
             min_width: size.width as f32,
             min_height: size.height as f32,
             max_height: size.height as f32,
+            horizontal_stretch: 1.,
             ..LayoutInfo::default()
         }
     }
@@ -452,6 +451,7 @@ impl Item for NativeSpinBox {
             min_width: size.width as f32,
             min_height: size.height as f32,
             max_height: size.height as f32,
+            horizontal_stretch: 1.,
             ..LayoutInfo::default()
         }
     }
@@ -649,6 +649,7 @@ impl Item for NativeSlider {
             min_width: size.width as f32,
             min_height: size.height as f32,
             max_height: size.height as f32,
+            horizontal_stretch: 1.,
             ..LayoutInfo::default()
         }
     }
@@ -895,7 +896,13 @@ impl Item for NativeGroupBox {
         let right = Self::FIELD_OFFSETS.native_padding_right.apply_pin(self).get();
         let top = Self::FIELD_OFFSETS.native_padding_top.apply_pin(self).get();
         let bottom = Self::FIELD_OFFSETS.native_padding_bottom.apply_pin(self).get();
-        LayoutInfo { min_width: left + right, min_height: top + bottom, ..LayoutInfo::default() }
+        LayoutInfo {
+            min_width: left + right,
+            min_height: top + bottom,
+            horizontal_stretch: 1.,
+            vertical_stretch: 1.,
+            ..LayoutInfo::default()
+        }
     }
 
     fn input_event(
@@ -1036,7 +1043,12 @@ impl Item for NativeLineEdit {
         let right = Self::FIELD_OFFSETS.native_padding_right.apply_pin(self).get();
         let top = Self::FIELD_OFFSETS.native_padding_top.apply_pin(self).get();
         let bottom = Self::FIELD_OFFSETS.native_padding_bottom.apply_pin(self).get();
-        LayoutInfo { min_width: left + right, min_height: top + bottom, ..LayoutInfo::default() }
+        LayoutInfo {
+            min_width: left + right,
+            min_height: top + bottom,
+            horizontal_stretch: 1.,
+            ..LayoutInfo::default()
+        }
     }
 
     fn input_event(
@@ -1268,7 +1280,13 @@ impl Item for NativeScrollView {
         let right = Self::FIELD_OFFSETS.native_padding_right.apply_pin(self).get();
         let top = Self::FIELD_OFFSETS.native_padding_top.apply_pin(self).get();
         let bottom = Self::FIELD_OFFSETS.native_padding_bottom.apply_pin(self).get();
-        LayoutInfo { min_width: left + right, min_height: top + bottom, ..LayoutInfo::default() }
+        LayoutInfo {
+            min_width: left + right,
+            min_height: top + bottom,
+            horizontal_stretch: 1.,
+            vertical_stretch: 1.,
+            ..LayoutInfo::default()
+        }
     }
 
     fn input_event(

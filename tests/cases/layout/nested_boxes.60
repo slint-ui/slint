@@ -33,8 +33,8 @@ TestCase := Rectangle {
                 }
             }
             rect_blue := Rectangle {
+                horizontal-stretch: 1;
                 color: blue;
-                minimum_width: 100phx; // FIXME: replace with a smaller stretch factor
             }
         }
         rect_yellow := Rectangle {
@@ -131,7 +131,6 @@ let instance = TestCase::new();
 let instance = instance.as_ref();
 use sixtyfps::re_exports::Component;
 instance.compute_layout();
-println!("{:?}", instance.get_debug_());
 assert!(instance.get_rect_blue_ok());
 assert!(instance.get_rect_orange_ok());
 assert!(instance.get_rect_red_ok());
