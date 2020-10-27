@@ -599,7 +599,7 @@ fn generate_component<'id>(
                     .insert(name.clone(), builder.add_field_type::<Signal<[eval::Value]>>());
                 continue;
             }
-            Type::Object(_) => property_info::<eval::Value>(),
+            Type::Object { .. } => property_info::<eval::Value>(),
             Type::Array(_) => property_info::<eval::Value>(),
             Type::Component(ref c) if c.root_element.borrow().base_type == Type::Void => {
                 property_info::<eval::Value>()

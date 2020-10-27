@@ -182,10 +182,10 @@ fn to_eval_value<'cx>(
         },
         Type::Resource => Ok(Value::String(val.to_string(cx)?.value().into())),
         Type::Bool => Ok(Value::Bool(val.downcast_or_throw::<JsBoolean, _>(cx)?.value())),
-        Type::Object(o) => {
+        Type::Object{fields, ..} => {
             let obj = val.downcast_or_throw::<JsObject, _>(cx)?;
             Ok(Value::Object(
-                o
+                fields
                     .iter()
                     .map(|(pro_name, pro_ty)| {
                         Ok((

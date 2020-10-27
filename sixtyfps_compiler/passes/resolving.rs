@@ -807,7 +807,10 @@ impl Expression {
                 )
             })
             .collect();
-        let ty = Type::Object(values.iter().map(|(k, v)| (k.clone(), v.ty())).collect());
+        let ty = Type::Object {
+            fields: values.iter().map(|(k, v)| (k.clone(), v.ty())).collect(),
+            name: None,
+        };
         Expression::Object { ty, values }
     }
 
@@ -855,14 +858,14 @@ fn maybe_lookup_object(
     while let Some(next) = it.next() {
         let next_str = crate::parser::normalize_identifier(next.text().as_str());
         match base.ty() {
-            Type::Object(obj) => {
-                if obj.get(next_str.as_str()).is_some() {
+            Type::Object { fields, .. } => {
+                if fields.get(next_str.as_str()).is_some() {
                     base = Expression::ObjectAccess {
                         base: Box::new(std::mem::replace(&mut base, Expression::Invalid)),
                         name: next_str,
                     }
                 } else {
-                    return error_or_try_minus(ctx, next, |x| obj.get(x).is_some());
+                    return error_or_try_minus(ctx, next, |x| fields.get(x).is_some());
                 }
             }
             Type::Component(c) => {

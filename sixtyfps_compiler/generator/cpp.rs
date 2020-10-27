@@ -207,10 +207,14 @@ impl CppType for Type {
             Type::LogicalLength => Some("float".to_owned()),
             Type::Percent => Some("float".to_owned()),
             Type::Bool => Some("bool".to_owned()),
-            Type::Object(o) => {
-                let elem = o.values().map(|v| v.cpp_type()).collect::<Option<Vec<_>>>()?;
-                // This will produce a tuple
-                Some(format!("std::tuple<{}>", elem.join(", ")))
+            Type::Object { fields, name } => {
+                if let Some(name) = name {
+                    Some(name.clone())
+                } else {
+                    let elem = fields.values().map(|v| v.cpp_type()).collect::<Option<Vec<_>>>()?;
+                    // This will produce a tuple
+                    Some(format!("std::tuple<{}>", elem.join(", ")))
+                }
             }
             Type::Array(i) => Some(format!("std::shared_ptr<sixtyfps::Model<{}>>", i.cpp_type()?)),
             Type::Resource => Some("sixtyfps::Resource".to_owned()),
@@ -1181,12 +1185,15 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
         }
         Expression::ReadLocalVariable { name, .. } => name.clone(),
         Expression::ObjectAccess { base, name } => match base.ty() {
-            Type::Object(ty) => {
-                let index = ty
+            Type::Object { fields, name : None } => {
+                let index = fields
                     .keys()
                     .position(|k| k == name)
                     .expect("Expression::ObjectAccess: Cannot find a key in an object");
                 format!("std::get<{}>({})", index, compile_expression(base, component))
+            }
+            Type::Object{..} => {
+                format!("{}.{}", compile_expression(base, component), name)
             }
             Type::Component(c) if c.root_element.borrow().base_type == Type::Void => {
                 format!("{}.{}", compile_expression(base, component), name)
@@ -1206,7 +1213,7 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
                 (Type::Float32, Type::Color) => {
                     format!("sixtyfps::Color::from_argb_encoded({})", f)
                 }
-                (Type::Object(_), Type::Component(c))
+                (Type::Object { .. }, Type::Component(c))
                     if c.root_element.borrow().base_type == Type::Void =>
                 {
                     format!(
@@ -1215,6 +1222,17 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
                         field_members = (0..c.root_element.borrow().property_declarations.len()).map(|idx| format!("f_{}", idx)).join(", "),
                         obj = f,
                         fields = (0..c.root_element.borrow().property_declarations.len())
+                            .map(|idx| format!("f_{} = std::get<{}>(o)", idx, idx))
+                            .join("; ")
+                    )
+                }
+                (Type::Object { .. }, Type::Object{ fields, name: Some(n)}) => {
+                    format!(
+                        "[&](const auto &o){{ {struct_name} s; auto& [{field_members}] = s; {fields}; return s; }}({obj})",
+                        struct_name = n,
+                        field_members = (0..fields.len()).map(|idx| format!("f_{}", idx)).join(", "),
+                        obj = f,
+                        fields = (0..fields.len())
                             .map(|idx| format!("f_{} = std::get<{}>(o)", idx, idx))
                             .join("; ")
                     )
@@ -1321,14 +1339,18 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
             )
         }
         Expression::Object { ty, values } => {
-            if let Type::Object(ty) = ty {
-                let mut elem = ty.keys().map(|k| {
+            if let Type::Object{fields, name} = ty {
+                let mut elem = fields.keys().map(|k| {
                     values
                         .get(k)
                         .map(|e| compile_expression(e, component))
                         .unwrap_or_else(|| "(Error: missing member in object)".to_owned())
                 });
-                format!("std::make_tuple({})", elem.join(", "))
+                if let Some(name) = name {
+                    format!("{}{{{}}}", name, elem.join(", "))
+                } else {
+                    format!("std::make_tuple({})", elem.join(", "))
+                }
             } else {
                 panic!("Expression::Object is not a Type::Object")
             }
@@ -1367,13 +1389,14 @@ fn compile_assignment(
             let get_obj = compile_expression(base, component);
             let ty = base.ty();
             let member = match &ty {
-                Type::Object(ty) => {
-                    let index = ty
+                Type::Object { fields, name: None } => {
+                    let index = fields
                         .keys()
                         .position(|k| k == name)
                         .expect("Expression::ObjectAccess: Cannot find a key in an object");
                     format!("std::get<{}>({})", index, tmpobj)
                 }
+                Type::Object { .. } => format!("{}.{}", tmpobj, name),
                 Type::Component(c) if c.root_element.borrow().base_type == Type::Void => {
                     format!("{}.{}", tmpobj, name)
                 }

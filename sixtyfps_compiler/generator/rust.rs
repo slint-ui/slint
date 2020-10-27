@@ -36,11 +36,13 @@ fn rust_type(
         Type::Percent => Ok(quote!(f32)),
         Type::Bool => Ok(quote!(bool)),
         Type::Resource => Ok(quote!(sixtyfps::re_exports::Resource)),
-        Type::Object(o) => {
-            let elem = o.values().map(|v| rust_type(v, span)).collect::<Result<Vec<_>, _>>()?;
+        Type::Object { fields, name: None } => {
+            let elem =
+                fields.values().map(|v| rust_type(v, span)).collect::<Result<Vec<_>, _>>()?;
             // This will produce a tuple
             Ok(quote!((#(#elem,)*)))
         }
+        Type::Object { name: Some(name), .. } => Ok(name.parse().unwrap()),
         Type::Array(o) => {
             let inner = rust_type(&o, span)?;
             Ok(quote!(sixtyfps::re_exports::ModelHandle<#inner>))
@@ -968,13 +970,22 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                 (Type::Float32, Type::Color) => {
                     quote!(sixtyfps::re_exports::Color::from_argb_encoded(#f as u32))
                 }
-                (Type::Object(ref o), Type::Component(c)) => {
-                    let fields = o.iter().enumerate().map(|(index, (name, _))| {
+                (Type::Object { ref fields, .. }, Type::Component(c)) => {
+                    let fields = fields.iter().enumerate().map(|(index, (name, _))| {
                         let index = proc_macro2::Literal::usize_unsuffixed(index);
                         let name = format_ident!("{}", name);
                         quote!(#name: obj.#index as _)
                     });
                     let id : TokenStream = c.id.parse().unwrap();
+                    quote!({ let obj = #f; #id { #(#fields),*} })
+                }
+                (Type::Object { ref fields, .. }, Type::Object{  name: Some(n), .. }) => {
+                    let fields = fields.iter().enumerate().map(|(index, (name, _))| {
+                        let index = proc_macro2::Literal::usize_unsuffixed(index);
+                        let name = format_ident!("{}", name);
+                        quote!(#name: obj.#index as _)
+                    });
+                    let id : TokenStream = n.parse().unwrap();
                     quote!({ let obj = #f; #id { #(#fields),*} })
                 }
                 _ => f,
@@ -1019,14 +1030,19 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
             quote! {args.#i.clone()}
         }
         Expression::ObjectAccess { base, name } => match base.ty() {
-            Type::Object(ty) => {
-                let index = ty
+            Type::Object { fields, name: None } => {
+                let index = fields
                     .keys()
                     .position(|k| k == name)
                     .expect("Expression::ObjectAccess: Cannot find a key in an object");
                 let index = proc_macro2::Literal::usize_unsuffixed(index);
                 let base_e = compile_expression(base, component);
                 quote!((#base_e).#index )
+            }
+            Type::Object { .. } => {
+                let name = format_ident!("{}", name);
+                let base_e = compile_expression(base, component);
+                quote!((#base_e).#name)
             }
             Type::Component(c) if c.root_element.borrow().base_type == Type::Void => {
                 let base_e = compile_expression(base, component);
@@ -1164,16 +1180,22 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
             ))
         }
         Expression::Object { ty, values } => {
-            if let Type::Object(ty) = ty {
-                let elem = ty.iter().map(|(k, t)| {
+            if let Type::Object { fields, name } = ty {
+                let elem = fields.iter().map(|(k, t)| {
                     values.get(k).map(|e| {
                         let ce = compile_expression(e, component);
                         let t = rust_type(t, &Default::default()).unwrap_or_default();
                         quote!(#ce as #t)
                     })
                 });
-                // This will produce a tuple
-                quote!((#(#elem,)*))
+                if let Some(name) = name {
+                    let name : TokenStream = name.parse().unwrap();
+                    let keys = fields.keys().map(|k| k.parse::<TokenStream>().unwrap());
+                    quote!(#name { #(#keys: #elem,)* })
+                } else {
+                    // This will produce a tuple
+                    quote!((#(#elem,)*))
+                }
             } else {
                 panic!("Expression::Object is not a Type::Object")
             }
@@ -1227,13 +1249,18 @@ fn compile_assignment(
             let get_obj = compile_expression(base, component);
             let ty = base.ty();
             let (member, member_ty) = match &ty {
-                Type::Object(ty) => {
-                    let index = ty
+                Type::Object { fields, name: None } => {
+                    let index = fields
                         .keys()
                         .position(|k| k == name)
                         .expect("Expression::ObjectAccess: Cannot find a key in an object");
                     let index = proc_macro2::Literal::usize_unsuffixed(index);
-                    (quote!(#index), ty[name].clone())
+                    (quote!(#index), fields[name].clone())
+                }
+
+                Type::Object { fields, name: Some(_) } => {
+                    let n = format_ident!("{}", name);
+                    (quote!(#n), fields[name].clone())
                 }
                 Type::Component(c) if c.root_element.borrow().base_type == Type::Void => {
                     let n = format_ident!("{}", name);

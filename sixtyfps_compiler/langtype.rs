@@ -48,7 +48,10 @@ pub enum Type {
     Easing,
 
     Array(Box<Type>),
-    Object(BTreeMap<String, Type>),
+    Object {
+        fields: BTreeMap<String, Type>,
+        name: Option<String>,
+    },
 
     Enumeration(Rc<Enumeration>),
     EnumerationValue(EnumerationValue),
@@ -82,7 +85,9 @@ impl core::cmp::PartialEq for Type {
             Type::PathElements => matches!(other, Type::PathElements),
             Type::Easing => matches!(other, Type::Easing),
             Type::Array(a) => matches!(other, Type::Array(b) if a == b),
-            Type::Object(a) => matches!(other, Type::Object(b) if a == b),
+            Type::Object { fields, name } => {
+                matches!(other, Type::Object{fields: f, name: n} if fields == f && name == n)
+            }
             Type::Enumeration(lhs) => matches!(other, Type::Enumeration(rhs) if lhs == rhs),
             Type::EnumerationValue(lhs) => {
                 matches!(other, Type::EnumerationValue(rhs) if lhs == rhs)
@@ -136,9 +141,12 @@ impl Display for Type {
             Type::Bool => write!(f, "bool"),
             Type::Model => write!(f, "model"),
             Type::Array(t) => write!(f, "[{}]", t),
-            Type::Object(t) => {
+            Type::Object { fields, name } => {
+                if let Some(name) = name {
+                    write!(f, "{}", name)?;
+                }
                 write!(f, "{{ ")?;
-                for (k, v) in t {
+                for (k, v) in fields {
                     write!(f, "{}: {},", k, v)?;
                 }
                 write!(f, "}}")
@@ -176,7 +184,7 @@ impl Type {
             | Self::Easing
             | Self::Enumeration(_)
             | Self::ElementReference
-            | Self::Object(_)
+            | Self::Object { .. }
             | Self::Array(_) => true,
             Self::Component(c) => c.root_element.borrow().base_type == Type::Void,
             _ => false,
@@ -321,8 +329,16 @@ impl Type {
             | (Type::Length, Type::LogicalLength)
             | (Type::LogicalLength, Type::Length)
             | (Type::Percent, Type::Float32) => true,
-            (Type::Object(a), Type::Object(b)) if can_convert_object(a, b) => true,
-            (Type::Object(a), Type::Component(c)) if can_convert_object_to_component(a, c) => true,
+            (Type::Object { fields: a, .. }, Type::Object { fields: b, .. })
+                if can_convert_object(a, b) =>
+            {
+                true
+            }
+            (Type::Object { fields, .. }, Type::Component(c))
+                if can_convert_object_to_component(fields, c) =>
+            {
+                true
+            }
             _ => false,
         }
     }
@@ -372,7 +388,7 @@ impl Type {
             Type::PathElements => None,
             Type::Easing => None,
             Type::Array(_) => None,
-            Type::Object(_) => None,
+            Type::Object { .. } => None,
             Type::Enumeration(_) => None,
             Type::EnumerationValue(_) => None,
             Type::ElementReference => None,

@@ -41,16 +41,45 @@ impl Document {
         let mut local_registry = TypeRegister::new(parent_registry);
         let mut inner_components = vec![];
 
-        let mut process_component = |n: syntax_nodes::Component| {
-            let compo = Component::from_node(n, diag, &local_registry);
-            local_registry.add(compo.clone());
-            inner_components.push(compo);
+        let mut process_component =
+            |n: syntax_nodes::Component,
+             diag: &mut FileDiagnostics,
+             local_registry: &mut TypeRegister| {
+                let compo = Component::from_node(n, diag, local_registry);
+                local_registry.add(compo.clone());
+                inner_components.push(compo);
+            };
+        let process_struct = |n: syntax_nodes::StructDeclaration,
+                              diag: &mut FileDiagnostics,
+                              local_registry: &mut TypeRegister| {
+            let mut ty = type_struct_from_node(n.ObjectType(), diag, local_registry);
+            if let Type::Object { name, .. } = &mut ty {
+                *name = identifier_text(&n.DeclaredIdentifier());
+            } else {
+                assert!(diag.has_error());
+                return;
+            }
+            local_registry.insert_type(ty);
         };
+
         for n in node.children() {
             match n.kind() {
-                SyntaxKind::Component => process_component(n.into()),
+                SyntaxKind::Component => process_component(n.into(), diag, &mut local_registry),
+                SyntaxKind::StructDeclaration => {
+                    process_struct(n.into(), diag, &mut local_registry)
+                }
                 SyntaxKind::ExportsList => {
-                    syntax_nodes::ExportsList::from(n).Component().for_each(&mut process_component)
+                    for n in n.children() {
+                        match n.kind() {
+                            SyntaxKind::Component => {
+                                process_component(n.into(), diag, &mut local_registry)
+                            }
+                            SyntaxKind::StructDeclaration => {
+                                process_struct(n.into(), diag, &mut local_registry)
+                            }
+                            _ => {}
+                        }
+                    }
                 }
                 _ => {}
             };
@@ -712,22 +741,27 @@ fn type_from_node(node: syntax_nodes::Type, diag: &mut FileDiagnostics, tr: &Typ
         }
         prop_type
     } else if let Some(object_node) = node.ObjectType() {
-        let map = object_node
-            .ObjectTypeMember()
-            .map(|member| {
-                (
-                    identifier_text(&member).unwrap_or_default(),
-                    type_from_node(member.Type(), diag, tr),
-                )
-            })
-            .collect();
-        Type::Object(map)
+        type_struct_from_node(object_node, diag, tr)
     } else if let Some(array_node) = node.ArrayType() {
         Type::Array(Box::new(type_from_node(array_node.Type(), diag, tr)))
     } else {
         assert!(diag.has_error());
         Type::Invalid
     }
+}
+
+fn type_struct_from_node(
+    object_node: syntax_nodes::ObjectType,
+    diag: &mut FileDiagnostics,
+    tr: &TypeRegister,
+) -> Type {
+    let fields = object_node
+        .ObjectTypeMember()
+        .map(|member| {
+            (identifier_text(&member).unwrap_or_default(), type_from_node(member.Type(), diag, tr))
+        })
+        .collect();
+    Type::Object { fields, name: None }
 }
 
 fn animation_element_from_node(

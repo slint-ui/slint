@@ -64,7 +64,8 @@ pub struct TypeRegister {
 }
 
 impl TypeRegister {
-    fn insert_type(&mut self, t: Type) {
+    /// FIXME: same as 'add' ?
+    pub fn insert_type(&mut self, t: Type) {
         self.types.insert(t.to_string(), t);
     }
 

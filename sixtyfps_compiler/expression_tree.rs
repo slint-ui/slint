@@ -362,7 +362,9 @@ impl Expression {
             }
             Expression::FunctionParameterReference { ty, .. } => ty.clone(),
             Expression::ObjectAccess { base, name } => match base.ty() {
-                Type::Object(o) => o.get(name.as_str()).unwrap_or(&Type::Invalid).clone(),
+                Type::Object { fields, .. } => {
+                    fields.get(name.as_str()).unwrap_or(&Type::Invalid).clone()
+                }
                 Type::Component(c) => c.root_element.borrow().lookup_property(name.as_str()),
                 _ => Type::Invalid,
             },
@@ -636,7 +638,9 @@ impl Expression {
                     rhs: Box::new(Expression::NumberLiteral(0.01, Unit::None)),
                     op: '*',
                 },
-                (Type::Object(ref a), Type::Object(b)) => {
+                (Type::Object { fields: ref a, .. }, Type::Object { fields: b, name })
+                    if a != b =>
+                {
                     if let Expression::Object { mut values, .. } = self {
                         let mut new_values = HashMap::new();
                         for (k, ty) in b {
@@ -655,7 +659,7 @@ impl Expression {
                             Expression::ObjectAccess {
                                 base: Box::new(Expression::ReadLocalVariable {
                                     name: var_name.into(),
-                                    ty: Type::Object(a.clone()),
+                                    ty: Type::Object { fields: a.clone(), name: name.clone() },
                                 }),
                                 name: k.clone(),
                             }
@@ -678,9 +682,10 @@ impl Expression {
                         Expression::Object { values: new_values, ty: target_type },
                     ]);
                 }
-                (Type::Object(_), Type::Component(c)) => {
-                    let object_type_for_component = Type::Object(
-                        c.root_element
+                (Type::Object { .. }, Type::Component(c)) => {
+                    let object_type_for_component = Type::Object {
+                        fields: c
+                            .root_element
                             .borrow()
                             .property_declarations
                             .iter()
@@ -688,7 +693,8 @@ impl Expression {
                                 (name.clone(), prop_decl.property_type.clone())
                             })
                             .collect(),
-                    );
+                        name: None,
+                    };
                     self.maybe_convert_to(object_type_for_component, None, node, diag)
                 }
                 _ => self,
@@ -777,9 +783,9 @@ impl Expression {
             Type::Array(element_ty) => {
                 Expression::Array { element_ty: (**element_ty).clone(), values: vec![] }
             }
-            Type::Object(map) => Expression::Object {
+            Type::Object { fields, .. } => Expression::Object {
                 ty: ty.clone(),
-                values: map
+                values: fields
                     .into_iter()
                     .map(|(k, v)| (k.clone(), Expression::default_value_for_type(v)))
                     .collect(),
