@@ -111,7 +111,6 @@ jobs:
           command: test
           args: --verbose
     - name: Clean cache # Otherwise the cache is much too big
-      if: matrix.os == 'ubuntu-20.04'
       run: |
           du -hs target
           rm -rf target/*/incremental
