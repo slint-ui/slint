@@ -89,9 +89,9 @@ Hopefully this should be self explainatory. Check out the documentation of the l
 // file: my_application_ui.60
 import { CheckBox, Button, ListView, LineEdit } from "sixtyfps_widgets.60";
 
-export TodoItem := {
-    property <string> title;
-    property <bool> checked;
+export struct TodoItem := {
+    title: string,
+    checked: bool,
 }
 
 export MainWindow := Window {

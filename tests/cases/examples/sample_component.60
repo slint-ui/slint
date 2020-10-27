@@ -8,9 +8,9 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-export MyStruct := {
-    property <int> foo;
-    property <string> bar;
+export struct MyStruct := {
+    foo: int,
+    bar: string,
 }
 
 SampleComponent := Window {

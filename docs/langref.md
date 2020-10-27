@@ -192,21 +192,6 @@ All properties in elements have a type. The following types are supported:
 
 Please see the language specific API references how these types are mapped to the APIs of the different programming languages.
 
-### Custom named structures
-
-It is possible to define a new type as a component without a base type. For example:
-
-```60
-export Player := {
-    property<string> name;
-    property<int> score;
-}
-
-Example := Window {
-    property<Player> player: { name: "Foo", score: 100 };
-}
-```
-
 ### Objects
 
 It is basically an anonymous structures, it can be declared with curly braces: `{ identifier1: type2, identifier1: type2, }`
@@ -217,6 +202,21 @@ The trailing semicolon is optional.
 Example := Window {
     property<{name: string, score: int}> player: { name: "Foo", score: 100 };
     property<{a: int, }> foo: { a: 3 };
+}
+```
+
+### Custom named structures
+
+It is possible to define a struct using the struct keyword, and defined as an object type
+
+```60
+export struct Player := {
+    name: string,
+    score: int,
+}
+
+Example := Window {
+    property<Player> player: { name: "Foo", score: 100 };
 }
 ```
 

@@ -128,9 +128,9 @@ The follow table summarizes the entire mapping:
 For user defined structures in the .60, an extra struct is generated.
 For example, if the `.60` contains
 ```60
-export MyStruct := {
-    property <int> foo;
-    property <string> bar;
+export struct MyStruct := {
+    foo: int,
+    bar: string,
 }
 ```
 

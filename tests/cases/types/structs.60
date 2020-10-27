@@ -8,10 +8,10 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-export Player := {
-    property <string> name;
-    property <int> score;
-    property <float> energy_level;
+export struct Player := {
+    name: string,
+    score: int,
+    energy_level: float,
 }
 
 TestCase := Rectangle {

@@ -25,6 +25,7 @@ use std::rc::{Rc, Weak};
 pub struct Document {
     //     node: SyntaxNode,
     pub inner_components: Vec<Rc<Component>>,
+    pub inner_structs: Vec<Type>,
     pub root_component: Rc<Component>,
     pub local_registry: TypeRegister,
     exports: Exports,
@@ -40,6 +41,7 @@ impl Document {
 
         let mut local_registry = TypeRegister::new(parent_registry);
         let mut inner_components = vec![];
+        let mut inner_structs = vec![];
 
         let mut process_component =
             |n: syntax_nodes::Component,
@@ -49,18 +51,20 @@ impl Document {
                 local_registry.add(compo.clone());
                 inner_components.push(compo);
             };
-        let process_struct = |n: syntax_nodes::StructDeclaration,
-                              diag: &mut FileDiagnostics,
-                              local_registry: &mut TypeRegister| {
-            let mut ty = type_struct_from_node(n.ObjectType(), diag, local_registry);
-            if let Type::Object { name, .. } = &mut ty {
-                *name = identifier_text(&n.DeclaredIdentifier());
-            } else {
-                assert!(diag.has_error());
-                return;
-            }
-            local_registry.insert_type(ty);
-        };
+        let mut process_struct =
+            |n: syntax_nodes::StructDeclaration,
+             diag: &mut FileDiagnostics,
+             local_registry: &mut TypeRegister| {
+                let mut ty = type_struct_from_node(n.ObjectType(), diag, local_registry);
+                if let Type::Object { name, .. } = &mut ty {
+                    *name = identifier_text(&n.DeclaredIdentifier());
+                } else {
+                    assert!(diag.has_error());
+                    return;
+                }
+                local_registry.insert_type(ty.clone());
+                inner_structs.push(ty);
+            };
 
         for n in node.children() {
             match n.kind() {
@@ -90,6 +94,7 @@ impl Document {
             // FIXME: one should use the `component` hint instead of always returning the last
             root_component: inner_components.last().cloned().unwrap_or_default(),
             inner_components,
+            inner_structs,
             local_registry,
             exports,
         }

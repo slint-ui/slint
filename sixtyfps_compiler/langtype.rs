@@ -141,16 +141,15 @@ impl Display for Type {
             Type::Bool => write!(f, "bool"),
             Type::Model => write!(f, "model"),
             Type::Array(t) => write!(f, "[{}]", t),
-            Type::Object { fields, name } => {
-                if let Some(name) = name {
-                    write!(f, "{}", name)?;
-                }
+            Type::Object { name: Some(name), .. } => write!(f, "{}", name),
+            Type::Object { fields, name: None } => {
                 write!(f, "{{ ")?;
                 for (k, v) in fields {
                     write!(f, "{}: {},", k, v)?;
                 }
                 write!(f, "}}")
             }
+
             Type::PathElements => write!(f, "pathelements"),
             Type::Easing => write!(f, "easing"),
             Type::Enumeration(enumeration) => write!(f, "enum {}", enumeration.name),

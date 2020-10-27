@@ -19,7 +19,7 @@ use crate::layout::LayoutGeometry;
 use crate::object_tree::{Component, Document, ElementRc};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
-use std::rc::Rc;
+use std::{collections::BTreeMap, rc::Rc};
 
 fn rust_type(
     ty: &Type,
@@ -63,10 +63,15 @@ fn rust_type(
 /// Fill the diagnostic in case of error.
 pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<TokenStream> {
     let (structs_ids, structs): (Vec<_>, Vec<_>) = doc
-        .exports()
+        .inner_structs
         .iter()
-        .filter(|(_, component)| component.root_element.borrow().base_type == Type::Void)
-        .map(|(_, component)| (component_id(component), generate_struct(component, diag)))
+        .filter_map(|ty| {
+            if let Type::Object { fields, name: Some(name) } = ty {
+                Some((format_ident!("{}", name), generate_struct(name, fields, diag)))
+            } else {
+                None
+            }
+        })
         .unzip();
     let compo = generate_component(&doc.root_component, diag)?;
     let compo_id = component_id(&doc.root_component);
@@ -93,18 +98,18 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<TokenStre
     })
 }
 
-fn generate_struct(component: &Rc<Component>, diag: &mut BuildDiagnostics) -> TokenStream {
-    let component_id = component_id(component);
-    debug_assert_eq!(component.root_element.borrow().base_type, Type::Void);
-    let (declared_property_vars, declared_property_types): (Vec<_>, Vec<_>) = component
-        .root_element
-        .borrow()
-        .property_declarations
+fn generate_struct(
+    name: &str,
+    fields: &BTreeMap<String, Type>,
+    diag: &mut BuildDiagnostics,
+) -> TokenStream {
+    let component_id: TokenStream = name.parse().unwrap();
+    let (declared_property_vars, declared_property_types): (Vec<_>, Vec<_>) = fields
         .iter()
-        .map(|(name, decl)| {
+        .map(|(name, ty)| {
             (
                 format_ident!("{}", name),
-                rust_type(&decl.property_type, &decl.type_node.span()).unwrap_or_else(|err| {
+                rust_type(ty, &Default::default()).unwrap_or_else(|err| {
                     diag.push_internal_error(err.into());
                     quote!(())
                 }),

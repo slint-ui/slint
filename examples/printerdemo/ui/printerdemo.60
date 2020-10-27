@@ -300,9 +300,9 @@ TopPanel := Rectangle {
     }
 }
 
-export InkLevel := {
-    property<color> color;
-    property<float> level;
+struct InkLevel := {
+    color: color,
+    level: float,
 }
 
 MainWindow := Window {

@@ -191,7 +191,7 @@ use crate::layout::LayoutGeometry;
 use crate::object_tree::{Component, Document, Element, ElementRc, RepeatedElementInfo};
 use cpp_ast::*;
 use itertools::Itertools;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 
 impl CppType for Type {
@@ -503,10 +503,10 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
     file.includes.push("<limits>".into());
     file.includes.push("<sixtyfps.h>".into());
 
-    for (_, c) in
-        doc.exports().iter().filter(|(_, c)| c.root_element.borrow().base_type == Type::Void)
-    {
-        generate_struct(&mut file, c, diag);
+    for ty in &doc.inner_structs {
+        if let Type::Object { fields, name: Some(name) } = ty {
+            generate_struct(&mut file, name, fields, diag);
+        }
     }
     let mut struct_declarations = std::mem::take(&mut file.declarations);
 
@@ -532,18 +532,25 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
     }
 }
 
-fn generate_struct(file: &mut File, c: &Rc<Component>, diag: &mut BuildDiagnostics) {
-    debug_assert_eq!(c.root_element.borrow().base_type, Type::Void);
-    let mut members = c
-        .root_element
-        .borrow()
-        .property_declarations
+fn generate_struct(
+    file: &mut File,
+    name: &str,
+    fields: &BTreeMap<String, Type>,
+    diag: &mut BuildDiagnostics,
+) {
+    let mut members = fields
         .iter()
-        .map(|(name, decl)| {
+        .map(|(name, t)| {
             (
                 Access::Public,
                 Declaration::Var(Var {
-                    ty: get_cpp_type(&decl.property_type, &decl.type_node, diag),
+                    ty: t.cpp_type().unwrap_or_else(|| {
+                        diag.push_error(
+                            format!("Cannot map {} to a C++ type", t),
+                            &Option::<crate::parser::SyntaxNodeWithSourceFile>::None,
+                        );
+                        Default::default()
+                    }),
                     name: name.clone(),
                     ..Default::default()
                 }),
@@ -555,7 +562,7 @@ fn generate_struct(file: &mut File, c: &Rc<Component>, diag: &mut BuildDiagnosti
         _ => unreachable!(),
     });
     file.declarations.push(Declaration::Struct(Struct {
-        name: component_id(c),
+        name: name.into(),
         members,
         ..Default::default()
     }))

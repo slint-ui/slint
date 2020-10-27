@@ -10,9 +10,9 @@ LICENSE END */
 
 import { SpinBox, Button, CheckBox, Slider, LineEdit, ScrollView, ListView } from "sixtyfps_widgets.60";
 
-export TodoItem := {
-    property <string> title;
-    property <bool> checked;
+export struct TodoItem := {
+    title: string,
+    checked: bool,
 }
 
 MainWindow := Window {
