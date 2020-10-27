@@ -127,7 +127,7 @@ jobs:
           rm -Recurse -Force target/*/incremental
           rm -Recurse -Force target/*/*/*sixtyfps*
           rm -Recurse -Force target/*/*sixtyfps*
-          rm -Recurse -Force target/*/*/test* target/*/*/gallery* target/*/*/printerdemo* target/*/*/viewer* target/*/*/todo*
+          rm -Recurse -Force target/*/*/test*
           rm -Recurse -Force target/*/viewer target/*/printerdemo target/*/gallery target/*/todo target/*/*test*
           du -hs target
 
