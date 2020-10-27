@@ -199,7 +199,7 @@ export Slider := Rectangle {
         border_width: 2px;
         border_radius: self.width / 2;
         border_color: black;
-        color: touch_area.pressed ? #556884 : white;
+        color: touch_area.pressed ? lightgray : white;
         animate color { duration: 100ms; }
         x: (root.width - handle.width) * (new_value - min)/(max - min);
         property<float> new_value_tmp : touch_area.pressed
