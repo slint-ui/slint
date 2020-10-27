@@ -9,7 +9,7 @@
 LICENSE END */
 use super::expressions::parse_expression;
 use super::prelude::*;
-use super::r#type::parse_type;
+use super::r#type::{parse_struct_declaration, parse_type};
 use super::statements::parse_statement;
 
 #[cfg_attr(test, parser_test)]
@@ -19,6 +19,7 @@ use super::statements::parse_statement;
 /// Comp := Base {}  Type := Base {}
 /// Type := Base {} export { Type }
 /// import { Base } from "somewhere"; Type := Base {}
+/// struct Foo := { foo: foo }
 /// ```
 pub fn parse_document(p: &mut impl Parser) -> bool {
     let mut p = p.start_node(SyntaxKind::Document);
@@ -32,6 +33,11 @@ pub fn parse_document(p: &mut impl Parser) -> bool {
             }
             "import" => {
                 if !parse_import_specifier(&mut *p) {
+                    return false;
+                }
+            }
+            "struct" => {
+                if !parse_struct_declaration(&mut *p) {
                     return false;
                 }
             }
@@ -566,6 +572,8 @@ fn parse_transition(p: &mut impl Parser) -> bool {
 /// export { Type }
 /// export { Type, AnotherType }
 /// export { Type as Foo, AnotherType }
+/// export Foo := Item { }
+/// export struct Foo := { foo: bar }
 /// ```
 fn parse_export(p: &mut impl Parser) -> bool {
     debug_assert_eq!(p.peek().as_str(), "export");
@@ -589,6 +597,8 @@ fn parse_export(p: &mut impl Parser) -> bool {
                 }
             }
         }
+    } else if p.peek().as_str() == "struct" {
+        return parse_struct_declaration(&mut *p);
     } else {
         return parse_component(&mut *p);
     }

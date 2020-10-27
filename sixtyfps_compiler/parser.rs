@@ -274,7 +274,7 @@ declare_syntax! {
     }
     // syntax kind
     {
-        Document -> [ *Component, *ExportsList, *ImportSpecifier ],
+        Document -> [ *Component, *ExportsList, *ImportSpecifier, *StructDeclaration ],
         Component -> [ Element ],
         /// Note: This is in fact the same as Component as far as the parser is concerned
         SubElement -> [ Element ],
@@ -335,7 +335,7 @@ declare_syntax! {
         /// There is an idientfier "to" or "out", the DeclaredIdentifier is the state name
         Transition -> [DeclaredIdentifier, *PropertyAnimation],
         /// Export a set of declared components by name
-        ExportsList -> [ *ExportSpecifier, *Component ],
+        ExportsList -> [ *ExportSpecifier, *Component, *StructDeclaration ],
         /// Declare the first identifier to be exported, either under its name or instead
         /// under the name of the second identifier.
         ExportSpecifier -> [ ExportIdentifier, ?ExportName ],
@@ -356,6 +356,8 @@ declare_syntax! {
         ObjectTypeMember -> [ Type ],
         /// `[ type ]`
         ArrayType -> [ Type ],
+        /// `struct Foo := { ... }
+        StructDeclaration -> [DeclaredIdentifier, ObjectType],
 
     }
 }

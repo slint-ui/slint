@@ -39,7 +39,9 @@ pub fn parse_type(p: &mut impl Parser) {
 /// ```
 pub fn parse_type_object(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::ObjectType);
-    p.expect(SyntaxKind::LBrace);
+    if !p.expect(SyntaxKind::LBrace) {
+        return;
+    }
     while p.nth(0).kind() != SyntaxKind::RBrace {
         let mut p = p.start_node(SyntaxKind::ObjectTypeMember);
         p.expect(SyntaxKind::Identifier);
@@ -63,4 +65,22 @@ pub fn parse_type_array(p: &mut impl Parser) {
     p.expect(SyntaxKind::LBracket);
     parse_type(&mut *p);
     p.expect(SyntaxKind::RBracket);
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,StructDeclaration
+/// struct Foo := { foo: bar, xxx: { aaa: bbb, } }
+/// struct Bar := {}
+/// ```
+pub fn parse_struct_declaration(p: &mut impl Parser) -> bool {
+    debug_assert_eq!(p.peek().as_str(), "struct");
+    let mut p = p.start_node(SyntaxKind::StructDeclaration);
+    p.consume(); // "struct"
+    {
+        let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
+        p.expect(SyntaxKind::Identifier);
+    }
+    p.expect(SyntaxKind::ColonEqual);
+    parse_type_object(&mut *p);
+    true
 }
