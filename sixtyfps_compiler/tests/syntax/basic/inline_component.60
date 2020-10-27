@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-component Inline1 := Rectangle {
+Inline1 := Rectangle {
     Rectangle {
         x: 66phx;
     }

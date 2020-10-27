@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-component TwoRectangle := Rectangle {
+TwoRectangle := Rectangle {
 
     signal clicked;
 
@@ -27,7 +27,7 @@ component TwoRectangle := Rectangle {
     }
 }
 
-component ButtonRectangle := Rectangle {
+ButtonRectangle := Rectangle {
     property<string> button_text;
     signal clicked;
     width: 100phx;

@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-component Btn := Rectangle {
+Btn := Rectangle {
     property<string> button_text;
     signal clicked;
     width: 100phx;

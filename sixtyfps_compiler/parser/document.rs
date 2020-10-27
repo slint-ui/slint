@@ -16,7 +16,7 @@ use super::statements::parse_statement;
 /// ```test,Document
 /// Type := Base { }
 /// Type := Base { SubElement { } }
-/// component Comp := Base {}  Type := Base {}
+/// Comp := Base {}  Type := Base {}
 /// Type := Base {} export { Type }
 /// import { Base } from "somewhere"; Type := Base {}
 /// ```
@@ -36,10 +36,6 @@ pub fn parse_document(p: &mut impl Parser) -> bool {
                 }
             }
             _ => {
-                if p.peek().as_str() == "component" && p.nth(1).kind() != SyntaxKind::ColonEqual {
-                    p.expect(SyntaxKind::Identifier);
-                }
-
                 if !parse_component(&mut *p) {
                     return false;
                 }
