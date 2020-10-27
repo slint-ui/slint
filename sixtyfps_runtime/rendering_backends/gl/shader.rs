@@ -215,7 +215,16 @@ impl RectShader {
 
         void main() {
             float dist = roundRectDistance(fragpos - rectsize, rectsize, radius);
-            vec4 col = mix(vec4(0., 0., 0., 0.), fragcolor, fillAlpha(dist));
+            vec4 col;
+            if (radius > 0.) {
+                col = mix(vec4(0., 0., 0., 0.), fragcolor, fillAlpha(dist));
+            } else {
+                if (dist < 0.) {
+                    col = fragcolor;
+                } else {
+                    col = vec4(0., 0., 0., 0.);
+                }
+            }
             col = mix(col, border_color, innerBorderAlpha(dist, border_width));
             gl_FragColor = col;
         }"#;
