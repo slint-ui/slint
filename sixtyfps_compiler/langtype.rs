@@ -20,7 +20,7 @@ pub enum Type {
     Invalid,
     /// The type of an expression that return nothing
     Void,
-    Component(Rc<crate::object_tree::Component>),
+    Component(Rc<Component>),
     Builtin(Rc<BuiltinElement>),
     Native(Rc<NativeClass>),
 
@@ -185,7 +185,6 @@ impl Type {
             | Self::ElementReference
             | Self::Object { .. }
             | Self::Array(_) => true,
-            Self::Component(c) => c.root_element.borrow().base_type == Type::Void,
             _ => false,
         }
     }
@@ -273,7 +272,7 @@ impl Type {
     }
 
     /// Assime it is a Component, panic if it isn't
-    pub fn as_component(&self) -> &Rc<crate::object_tree::Component> {
+    pub fn as_component(&self) -> &Rc<Component> {
         match self {
             Type::Component(c) => c,
             _ => panic!("should be a component because of the repeater_component pass"),
@@ -300,19 +299,6 @@ impl Type {
             }
             true
         };
-        let can_convert_object_to_component = |a: &BTreeMap<String, Type>, c: &Component| {
-            let root_element = c.root_element.borrow();
-            if root_element.base_type != Type::Void {
-                //component is not a struct
-                return false;
-            }
-            for (k, v) in &root_element.property_declarations {
-                if !a.get(k).map_or(false, |t| t.can_convert(&v.property_type)) {
-                    return false;
-                }
-            }
-            true
-        };
 
         match (self, other) {
             (a, b) if a == b => true,
@@ -328,15 +314,8 @@ impl Type {
             | (Type::Length, Type::LogicalLength)
             | (Type::LogicalLength, Type::Length)
             | (Type::Percent, Type::Float32) => true,
-            (Type::Object { fields: a, .. }, Type::Object { fields: b, .. })
-                if can_convert_object(a, b) =>
-            {
-                true
-            }
-            (Type::Object { fields, .. }, Type::Component(c))
-                if can_convert_object_to_component(fields, c) =>
-            {
-                true
+            (Type::Object { fields: a, .. }, Type::Object { fields: b, .. }) => {
+                can_convert_object(a, b)
             }
             _ => false,
         }

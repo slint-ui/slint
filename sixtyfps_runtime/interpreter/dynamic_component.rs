@@ -601,9 +601,6 @@ fn generate_component<'id>(
             }
             Type::Object { .. } => property_info::<eval::Value>(),
             Type::Array(_) => property_info::<eval::Value>(),
-            Type::Component(ref c) if c.root_element.borrow().base_type == Type::Void => {
-                property_info::<eval::Value>()
-            }
             Type::Percent => property_info::<f32>(),
             _ => panic!("bad type"),
         };

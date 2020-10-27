@@ -12,7 +12,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use crate::expression_tree::{BuiltinFunction, Expression, Unit};
 use crate::langtype::{BuiltinElement, Enumeration, NativeClass, Type};
-use crate::object_tree::{Component, Element};
+use crate::object_tree::Component;
 
 /// reserved property injected in every item
 pub fn reserved_property(name: &str) -> Type {
@@ -390,18 +390,10 @@ impl TypeRegister {
             .for_each(|ty| ty.collect_contextual_types(&mut context_restricted_types));
         register.context_restricted_types = context_restricted_types;
 
-        let standard_listview_item = Type::Component(Rc::new(Component {
-            id: "sixtyfps::StandardListViewItem".into(),
-            root_element: Rc::new(RefCell::new(Element {
-                base_type: Type::Void,
-                property_declarations: [("text".to_owned(), Type::String.into())]
-                    .iter()
-                    .cloned()
-                    .collect(),
-                ..Element::default()
-            })),
-            ..Component::default()
-        }));
+        let standard_listview_item = Type::Object {
+            name: Some("sixtyfps::StandardListViewItem".into()),
+            fields: [("text".to_owned(), Type::String.into())].iter().cloned().collect(),
+        };
         register.types.insert("StandardListViewItem".into(), standard_listview_item.clone());
 
         // FIXME: should this be auto generated or placed somewhere else
@@ -588,11 +580,11 @@ impl TypeRegister {
         self.lookup(qualified[0].as_ref())
     }
 
-    pub fn add(&mut self, comp: Rc<crate::object_tree::Component>) {
+    pub fn add(&mut self, comp: Rc<Component>) {
         self.add_with_name(comp.id.clone(), comp);
     }
 
-    pub fn add_with_name(&mut self, name: String, comp: Rc<crate::object_tree::Component>) {
+    pub fn add_with_name(&mut self, name: String, comp: Rc<Component>) {
         self.types.insert(name, Type::Component(comp));
     }
 

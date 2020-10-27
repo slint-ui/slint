@@ -156,33 +156,46 @@ fn to_eval_value<'cx>(
 ) -> NeonResult<sixtyfps_interpreter::Value> {
     use sixtyfps_interpreter::Value;
     match ty {
-        Type::Float32 | Type::Int32 | Type::Duration | Type::Length | Type::LogicalLength | Type::Percent => {
-            Ok(Value::Number(val.downcast_or_throw::<JsNumber, _>(cx)?.value()))
-        }
+        Type::Float32
+        | Type::Int32
+        | Type::Duration
+        | Type::Length
+        | Type::LogicalLength
+        | Type::Percent => Ok(Value::Number(val.downcast_or_throw::<JsNumber, _>(cx)?.value())),
         Type::String => Ok(Value::String(val.to_string(cx)?.value().into())),
         Type::Color => {
-            let c = val.to_string(cx)?.value().parse::<css_color_parser2::Color>().or_else(|e| cx.throw_error(&e.to_string()))?;
-            Ok(Value::Color(sixtyfps_corelib::Color::from_argb_u8((c.a * 255.) as u8, c.r, c.g, c.b)))
+            let c = val
+                .to_string(cx)?
+                .value()
+                .parse::<css_color_parser2::Color>()
+                .or_else(|e| cx.throw_error(&e.to_string()))?;
+            Ok(Value::Color(sixtyfps_corelib::Color::from_argb_u8(
+                (c.a * 255.) as u8,
+                c.r,
+                c.g,
+                c.b,
+            )))
         }
-        Type::Array(a) => {
-            match val.downcast::<JsArray>() {
-                Ok(arr) => {
-                    let vec = arr.to_vec(cx)?;
-                    Ok(Value::Array(vec.into_iter().map(|i| to_eval_value(i, (*a).clone(), cx, persistent_context)).collect::<Result<Vec<_>, _>>()?))
-                }
-                Err(_) => {
-                    let obj = val.downcast_or_throw::<JsObject, _>(cx)?;
-                    obj.get(cx, "rowCount")?.downcast_or_throw::<JsFunction, _>(cx)?;
-                    obj.get(cx, "rowData")?.downcast_or_throw::<JsFunction, _>(cx)?;
-                    let m = js_model::JsModel::new(obj, *a, cx, persistent_context)?;
-                    Ok(Value::Model(sixtyfps_interpreter::ModelPtr(m)))
-                }
+        Type::Array(a) => match val.downcast::<JsArray>() {
+            Ok(arr) => {
+                let vec = arr.to_vec(cx)?;
+                Ok(Value::Array(
+                    vec.into_iter()
+                        .map(|i| to_eval_value(i, (*a).clone(), cx, persistent_context))
+                        .collect::<Result<Vec<_>, _>>()?,
+                ))
             }
-
+            Err(_) => {
+                let obj = val.downcast_or_throw::<JsObject, _>(cx)?;
+                obj.get(cx, "rowCount")?.downcast_or_throw::<JsFunction, _>(cx)?;
+                obj.get(cx, "rowData")?.downcast_or_throw::<JsFunction, _>(cx)?;
+                let m = js_model::JsModel::new(obj, *a, cx, persistent_context)?;
+                Ok(Value::Model(sixtyfps_interpreter::ModelPtr(m)))
+            }
         },
         Type::Resource => Ok(Value::String(val.to_string(cx)?.value().into())),
         Type::Bool => Ok(Value::Bool(val.downcast_or_throw::<JsBoolean, _>(cx)?.value())),
-        Type::Object{fields, ..} => {
+        Type::Object { fields, .. } => {
             let obj = val.downcast_or_throw::<JsObject, _>(cx)?;
             Ok(Value::Object(
                 fields
@@ -194,28 +207,7 @@ fn to_eval_value<'cx>(
                                 obj.get(cx, pro_name.as_str())?,
                                 pro_ty.clone(),
                                 cx,
-                                persistent_context
-                            )?,
-                        ))
-                    })
-                    .collect::<Result<_, _>>()?,
-            ))
-        }
-        Type::Component(c) if c.root_element.borrow().base_type == Type::Void => {
-            let obj = val.downcast_or_throw::<JsObject, _>(cx)?;
-            Ok(Value::Object(
-                c.root_element
-                    .borrow()
-                    .property_declarations
-                    .iter()
-                    .map(|(pro_name, pro_decl)| {
-                        Ok((
-                            pro_name.clone(),
-                            to_eval_value(
-                                obj.get(cx, pro_name.as_str())?,
-                                pro_decl.property_type.clone(),
-                                cx,
-                                persistent_context
+                                persistent_context,
                             )?,
                         ))
                     })
@@ -232,7 +224,7 @@ fn to_eval_value<'cx>(
         | Type::Model
         | Type::Signal { .. }
         | Type::Easing
-        | Type::Component(_) // The struct case is handled before
+        | Type::Component(_)
         | Type::PathElements
         | Type::ElementReference => cx.throw_error("Cannot convert to a Sixtyfps property value"),
     }

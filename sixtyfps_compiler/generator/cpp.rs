@@ -220,9 +220,6 @@ impl CppType for Type {
             Type::Resource => Some("sixtyfps::Resource".to_owned()),
             Type::Builtin(elem) => elem.native_class.cpp_type.clone(),
             Type::Enumeration(enumeration) => Some(format!("sixtyfps::{}", enumeration.name)),
-            Type::Component(c) if c.root_element.borrow().base_type == Type::Void => {
-                Some(c.id.clone())
-            }
             _ => None,
         }
     }
@@ -1202,9 +1199,6 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
             Type::Object{..} => {
                 format!("{}.{}", compile_expression(base, component), name)
             }
-            Type::Component(c) if c.root_element.borrow().base_type == Type::Void => {
-                format!("{}.{}", compile_expression(base, component), name)
-            }
             _ => panic!("Expression::ObjectAccess's base expression is not an Object type"),
         },
         Expression::Cast { from, to } => {
@@ -1219,19 +1213,6 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
                 (Type::Array(_), Type::Model) => f,
                 (Type::Float32, Type::Color) => {
                     format!("sixtyfps::Color::from_argb_encoded({})", f)
-                }
-                (Type::Object { .. }, Type::Component(c))
-                    if c.root_element.borrow().base_type == Type::Void =>
-                {
-                    format!(
-                        "[&](const auto &o){{ {struct_name} s; auto& [{field_members}] = s; {fields}; return s; }}({obj})",
-                        struct_name = component_id(c),
-                        field_members = (0..c.root_element.borrow().property_declarations.len()).map(|idx| format!("f_{}", idx)).join(", "),
-                        obj = f,
-                        fields = (0..c.root_element.borrow().property_declarations.len())
-                            .map(|idx| format!("f_{} = std::get<{}>(o)", idx, idx))
-                            .join("; ")
-                    )
                 }
                 (Type::Object { .. }, Type::Object{ fields, name: Some(n)}) => {
                     format!(
@@ -1404,9 +1385,6 @@ fn compile_assignment(
                     format!("std::get<{}>({})", index, tmpobj)
                 }
                 Type::Object { .. } => format!("{}.{}", tmpobj, name),
-                Type::Component(c) if c.root_element.borrow().base_type == Type::Void => {
-                    format!("{}.{}", tmpobj, name)
-                }
                 _ => panic!("Expression::ObjectAccess's base expression is not an Object type"),
             };
             let op = if op == '=' { ' ' } else { op };

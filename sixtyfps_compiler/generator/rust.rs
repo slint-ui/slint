@@ -47,9 +47,6 @@ fn rust_type(
             let inner = rust_type(&o, span)?;
             Ok(quote!(sixtyfps::re_exports::ModelHandle<#inner>))
         }
-        Type::Component(c) if c.root_element.borrow().base_type == Type::Void => {
-            Ok(c.id.parse().unwrap())
-        }
         _ => Err(CompilerDiagnostic {
             message: format!("Cannot map property type {} to Rust", ty),
             span: span.clone(),
@@ -1049,11 +1046,6 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                 let base_e = compile_expression(base, component);
                 quote!((#base_e).#name)
             }
-            Type::Component(c) if c.root_element.borrow().base_type == Type::Void => {
-                let base_e = compile_expression(base, component);
-                let name = format_ident!("{}", name);
-                quote!((#base_e).#name)
-            }
             _ => panic!("Expression::ObjectAccess's base expression is not an Object type"),
         },
         Expression::CodeBlock(sub) => {
@@ -1262,14 +1254,9 @@ fn compile_assignment(
                     let index = proc_macro2::Literal::usize_unsuffixed(index);
                     (quote!(#index), fields[name].clone())
                 }
-
                 Type::Object { fields, name: Some(_) } => {
                     let n = format_ident!("{}", name);
                     (quote!(#n), fields[name].clone())
-                }
-                Type::Component(c) if c.root_element.borrow().base_type == Type::Void => {
-                    let n = format_ident!("{}", name);
-                    (quote!(#n), c.root_element.borrow().lookup_property(name))
                 }
                 _ => panic!("Expression::ObjectAccess's base expression is not an Object type"),
             };
