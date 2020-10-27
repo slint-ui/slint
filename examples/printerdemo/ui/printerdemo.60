@@ -224,6 +224,7 @@ SettingsPage := Page {
             GroupBox {
                 title: "Scanning";
                 GridLayout {
+                    spacing: 10px;
                     Row {
                         Text {
                             text: "Resolution (DPI)";
