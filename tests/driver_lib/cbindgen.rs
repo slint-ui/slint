@@ -191,6 +191,10 @@ fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
         "    constexpr EasingCurve() : tag(Tag::Linear), cubic_bezier{{0,0,1,1}} {}
     constexpr explicit EasingCurve(EasingCurve::Tag tag, float a, float b, float c, float d) : tag(tag), cubic_bezier{{a,b,c,d}} {}".into()
     );
+    config.export.body.insert(
+        "LayoutInfo".to_owned(),
+        "    inline LayoutInfo merge(const LayoutInfo &other) const;".into(),
+    );
     config
         .export
         .body

@@ -1594,22 +1594,7 @@ fn get_layout_info_ref<'a, 'b>(
         (None, None) => String::default(),
         (None, Some(x)) => x,
         (Some(x), None) => x,
-        (Some(layout_info), Some(elem_info)) => {
-            // Note: This "logic" is manually inlined from LayoutInfo::merge in layout.rs.
-            format!(
-                r#"[&]() -> auto {{
-                        auto layout_info = {};
-                        auto element_info = {};
-                        return sixtyfps::LayoutInfo{{
-                            std::max(layout_info.min_width, element_info.min_width),
-                            std::min(layout_info.max_width, element_info.max_width),
-                            std::max(layout_info.min_height, element_info.min_height),
-                            std::min(layout_info.max_height, element_info.max_height),
-                        }};
-                    }}()"#,
-                layout_info, elem_info
-            )
-        }
+        (Some(layout_info), Some(elem_info)) => format!("{}.merge({})", layout_info, elem_info),
     };
     if item.constraints.has_explicit_restrictions() {
         layout_info = format!("[&]{{ auto layout_info = {};", layout_info);

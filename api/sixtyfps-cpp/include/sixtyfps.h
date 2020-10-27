@@ -282,6 +282,18 @@ using cbindgen_private::solve_box_layout;
 using cbindgen_private::box_layout_info;
 using cbindgen_private::solve_path_layout;
 
+inline LayoutInfo LayoutInfo::merge(const LayoutInfo &other) const {
+    // Note: This "logic" is duplicated from LayoutInfo::merge in layout.rs.
+    return LayoutInfo {
+        std::max(min_width, other.min_width),
+        std::min(max_width, other.max_width),
+        std::max(min_height, other.min_height),
+        std::min(max_height, other.max_height),
+        std::min(horizontal_stretch, other.horizontal_stretch),
+        std::min(vertical_stretch, other.vertical_stretch)
+    };
+}
+
 // models
 struct AbstractRepeaterView
 {
