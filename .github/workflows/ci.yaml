@@ -375,6 +375,7 @@ jobs:
             cp -a ../api/sixtyfps-node/docs/* docs/node/
             git add docs
             git add -u docs
+            rm -rf resources
             cp -a ../resources .
             git add resources
             git add -u resources
