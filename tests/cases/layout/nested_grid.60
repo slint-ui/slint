@@ -13,11 +13,11 @@ TestCase := Rectangle {
 
     GridLayout {
         Row {
-            rect1 := Rectangle { color: red; }
+            rect1 := Rectangle { color: red; horizontal-stretch: 2;}
         }
 
         Row {
-            rect2 := Rectangle { color: green; }
+            rect2 := Rectangle { color: green; horizontal-stretch: 2; }
             GridLayout {
                 spacing: 4phx;
                 rect3 := Rectangle { color: black; }

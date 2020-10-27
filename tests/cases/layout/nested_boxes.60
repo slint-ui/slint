@@ -20,6 +20,7 @@ TestCase := Rectangle {
             rect_red := Rectangle {
                 color: red;
                 minimum_width: 200phx;
+                horizontal-stretch: 0;
                 HorizontalLayout {
                     spacing: 10px;
                     rect_green := Rectangle {

@@ -17,6 +17,7 @@ TestCase := Rectangle {
                 color: blue;
                 height: 100phx;
                 minimum-width: 100phx;
+                horizontal-stretch: 0;
             }
             red-rect := Rectangle {
                 width: 50px;
