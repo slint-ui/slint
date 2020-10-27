@@ -318,7 +318,7 @@ pub fn eval_expression(
             }
             Expression::BuiltinFunctionReference(BuiltinFunction::Debug) => {
                 let a = arguments.iter().map(|e| eval_expression(e, component, local_context));
-                println!("{:?}", a);
+                println!("{:?}", a.collect::<Vec<_>>());
                 Value::Void
             }
             Expression::BuiltinFunctionReference(BuiltinFunction::SetFocusItem) => {
