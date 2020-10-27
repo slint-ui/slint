@@ -51,6 +51,6 @@ default-members = [
     'tests/rustdriver'
 ]
 
-# Needed to pull in fix for https://github.com/rust-windowing/winit/pull/1736
+# Needed to pull in fix for https://github.com/rust-windowing/winit/pull/1747
 [patch.crates-io]
-winit = { git = "https://github.com/rust-windowing/winit", rev = "5a78fe33e84023ca4c89cc30ebeebac0fe89e8f0" }
+winit = { git = "https://github.com/tronical/winit", rev = "2a651b445048a0d81d0035998b6ef19140bf7cbf" }
