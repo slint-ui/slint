@@ -275,7 +275,7 @@ declare_syntax! {
     // syntax kind
     {
         Document -> [ *Component, *ExportsList, *ImportSpecifier, *StructDeclaration ],
-        Component -> [ Element ],
+        Component -> [ DeclaredIdentifier, Element ],
         /// Note: This is in fact the same as Component as far as the parser is concerned
         SubElement -> [ Element ],
         Element -> [ ?QualifiedName, *PropertyDeclaration, *Binding, *SignalConnection,

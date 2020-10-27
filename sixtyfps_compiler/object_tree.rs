@@ -148,7 +148,7 @@ impl Component {
     ) -> Rc<Self> {
         let mut child_insertion_point = None;
         let c = Component {
-            id: identifier_text(&node).unwrap_or_default(),
+            id: identifier_text(&node.DeclaredIdentifier()).unwrap_or_default(),
             root_element: Element::from_node(
                 node.Element(),
                 "root".into(),
@@ -1092,7 +1092,7 @@ impl Exports {
 
         exports.extend(doc.ExportsList().flat_map(|exports| exports.Component()).filter_map(
             |component| {
-                let name = match identifier_text(&component) {
+                let name = match identifier_text(&component.DeclaredIdentifier()) {
                     Some(name) => name,
                     None => {
                         diag.push_error(

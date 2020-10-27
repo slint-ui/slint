@@ -63,7 +63,13 @@ pub fn parse_document(p: &mut impl Parser) -> bool {
 /// ```
 pub fn parse_component(p: &mut impl Parser) -> bool {
     let mut p = p.start_node(SyntaxKind::Component);
-    if !(p.expect(SyntaxKind::Identifier) && p.expect(SyntaxKind::ColonEqual)) {
+    {
+        let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
+        if !p.expect(SyntaxKind::Identifier) {
+            return false;
+        }
+    }
+    if !p.expect(SyntaxKind::ColonEqual) {
         return false;
     }
 
