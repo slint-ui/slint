@@ -35,7 +35,7 @@ CopyPage := Page {
 
         Row {
             preview := Preview {
-                minimum_height: root.height - layout.padding_top - layout.padding_bottom;
+                height: root.height - layout.padding_top - layout.padding_bottom;
             }
             GridLayout {
                 Row {
@@ -54,6 +54,9 @@ CopyPage := Page {
                         text: "Print Page";
                         font_size: 28px;
                     }
+                }
+                Row {
+                    Rectangle {}
                 }
             }
         }
@@ -153,7 +156,7 @@ PrintPage := Page {
 
         Row {
             preview := Preview {
-                minimum_height: root.height - layout.padding_top - layout.padding_bottom;
+                height: root.height - layout.padding_top - layout.padding_bottom;
             }
             GridLayout {
                 Row {
@@ -191,7 +194,6 @@ PrintPage := Page {
                         font_size: 28px;
                     }
                 }
-                Rectangle {}
             }
         }
     }
