@@ -78,6 +78,7 @@ App := Window {
             GroupBox {
                 title: "LineEdit";
                 LineEdit {
+                    placeholder-text: "Enter some text";
                 }
             }
         }

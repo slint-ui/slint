@@ -243,6 +243,7 @@ export GroupBox := GridLayout {
 
 export LineEdit := Rectangle {
     property <string> text;
+    property <string> placeholder_text;
     property <bool> has_focus: input.has_focus;
     signal accepted(string);
 
@@ -269,8 +270,15 @@ export LineEdit := Rectangle {
                         root.accepted(self.text);
                     }
                 }
-           }
+                Text {
+                    color: #ecedeb;
+                    col: 0;
+                    row: 0;
+                    text: root.text == "" ? root.placeholder_text : "";
+                }
+            }
         }
+
     }
 }
 

@@ -133,6 +133,7 @@ Example := Window {
 
 * **`text`** (*string*): The test being edited
 * **`has_focus`**: (*bool*): Set to true when the line edit currently has the focus
+* **`placeholder_text`**: (*string*): A placeholder text being shown when there is no text in the edit field
 
 ### Signals
 
@@ -149,6 +150,7 @@ Example := Window {
         width: parent.width;
         height: parent.height;
         value: 42;
+        placeholder_text: "Enter text here";
     }
 }
 ```

@@ -24,6 +24,7 @@ export GroupBox := NativeGroupBox {
  }
 export LineEdit := NativeLineEdit {
     property <string> text;
+    property <string> placeholder_text;
     focused: input.has_focus;
     signal accepted(string);
     GridLayout {
@@ -36,6 +37,12 @@ export LineEdit := NativeLineEdit {
             accepted => {
                 root.accepted(self.text);
             }
+        }
+        Text {
+            color: #ecedeb; // FIXME: use the palette
+            col: 0;
+            row: 0;
+            text: root.text == "" ? root.placeholder_text : "";
         }
     }
 }
