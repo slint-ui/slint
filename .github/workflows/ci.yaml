@@ -111,6 +111,7 @@ jobs:
           command: test
           args: --verbose
     - name: Clean cache # Otherwise the cache is much too big
+      if: matrix.os == 'ubuntu-20.04'
       run: |
           du -hs target
           rm -rf target/*/incremental
@@ -118,6 +119,16 @@ jobs:
           rm -rf target/*/*sixtyfps*
           rm -rf target/*/*/test* target/*/*/gallery* target/*/*/printerdemo* target/*/*/viewer* target/*/*/todo*
           rm -rf target/*/viewer target/*/printerdemo target/*/gallery target/*/todo target/*/*test*
+          du -hs target
+    - name: Clean cache # Otherwise the cache is much too big
+      if: matrix.os == 'windows-latest'
+      run: |
+          du -hs target
+          rm -Recurse -Force target/*/incremental
+          rm -Recurse -Force target/*/*/*sixtyfps*
+          rm -Recurse -Force target/*/*sixtyfps*
+          rm -Recurse -Force target/*/*/test* target/*/*/gallery* target/*/*/printerdemo* target/*/*/viewer* target/*/*/todo*
+          rm -Recurse -Force target/*/viewer target/*/printerdemo target/*/gallery target/*/todo target/*/*test*
           du -hs target
 
   cpp:
