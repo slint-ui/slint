@@ -59,10 +59,14 @@ pub fn parse_document(p: &mut impl Parser) -> bool {
 /// Type := Base { }
 /// Type := Base { prop: value; }
 /// Type := Base { SubElement { } }
-/// Struct := { property<int> xx; }
+/// global Struct := { property<int> xx; }
 /// ```
 pub fn parse_component(p: &mut impl Parser) -> bool {
     let mut p = p.start_node(SyntaxKind::Component);
+    let is_global = p.peek().as_str() == "global";
+    if is_global {
+        p.consume();
+    }
     {
         let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
         if !p.expect(SyntaxKind::Identifier) {
@@ -73,7 +77,7 @@ pub fn parse_component(p: &mut impl Parser) -> bool {
         return false;
     }
 
-    if p.peek().kind() == SyntaxKind::LBrace {
+    if is_global && p.peek().kind() == SyntaxKind::LBrace {
         let mut p = p.start_node(SyntaxKind::Element);
         p.consume();
         parse_element_content(&mut *p);
