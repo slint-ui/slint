@@ -13,38 +13,36 @@ global MyType := {
     property <int> aaa;
 //                 ^error{Cannot override property 'aaa'}
     property <int> bbb : 42;
-//                      ^error{A component without base type is a struct declaration and cannot have bindings}
     property <string> ccc;
 
     ccc: "hello";
-//  ^error{A component without base type is a struct declaration and cannot have bindings}
     animate bbb { duration: 100ms; }
-//  ^error{A component without base type is a struct declaration and cannot have animations}
+//  ^error{A global component cannot have animations}
     states [ ]
-//  ^error{A component without base type is a struct declaration and cannot have states}
+//  ^error{A global component cannot have states}
     transitions [ ]
-//  ^error{A component without base type is a struct declaration and cannot have transitions}
+//  ^error{A global component cannot have transitions}
     $children
-//  ^error{A component without base type is a struct declaration and cannot have sub elements}
+//  ^error{A global component cannot have sub elements}
     Rectangle { }
-//  ^error{A component without base type is a struct declaration and cannot have sub elements}
+//  ^error{A global component cannot have sub elements}
     for x in mod : Text { }
-//  ^error{A component without base type is a struct declaration and cannot have sub elements}
+//  ^error{A global component cannot have sub elements}
     signal foo;
-//  ^error{A component without base type is a struct declaration and cannot have signals}
     foo => {}
-//  ^error{A component without base type is a struct declaration and cannot have signal connections}
+//  ^error{A global component cannot have signal connections}
     aaa <=> bbb;
-//  ^error{A component without base type is a struct declaration and cannot have bindings}
 
     property <int> eee <=> aaa;
-//                     ^error{A component without base type is a struct declaration and cannot have bindings}
+
+    qqq: 42;
+//  ^error{Unknown property qqq}
 
 }
 
 SuperSimple := Rectangle {
     MyType {
-//  ^error{Cannot create an instance of a struct that does not have a base type}
+//  ^error{Cannot create an instance of a global component}
         ccc: "hello";
     }
 }

@@ -167,6 +167,11 @@ impl Component {
         });
         c
     }
+
+    /// This component is a global component introduced with the "global" keyword
+    pub fn is_global(&self) -> bool {
+        self.root_element.borrow().base_type == Type::Void
+    }
 }
 
 #[derive(Clone, Debug, Default)]
@@ -264,8 +269,26 @@ impl Element {
         diag: &mut FileDiagnostics,
         tr: &TypeRegister,
     ) -> ElementRc {
-        let base_node = if let Some(base_node) = node.QualifiedName() {
-            base_node
+        let (base_type, name_for_looup_errors) = if let Some(base_node) = node.QualifiedName() {
+            let base = QualifiedTypeName::from_node(base_node.clone());
+            let base_string = base.to_string();
+            let base_type = match parent_type.lookup_type_for_child_element(&base_string, tr) {
+                Ok(ty) => ty,
+                Err(err) => {
+                    diag.push_error(err, &base_node);
+                    return ElementRc::default();
+                }
+            };
+            assert!(base_type.is_object_type());
+            if let Type::Component(c) = &base_type {
+                if c.is_global() {
+                    diag.push_error(
+                        "Cannot create an instance of a global component".into(),
+                        &base_node,
+                    )
+                }
+            }
+            (base_type, format!(" in {}", base))
         } else {
             if parent_type != Type::Invalid {
                 // This should normally never happen because the parser does not allow for this
@@ -273,80 +296,25 @@ impl Element {
                 return ElementRc::default();
             }
 
-            // This is a "struct" declaration, it can only have properties.
+            // This must be a global component it can only have properties and signal
             let mut error_on = |node: &dyn Spanned, what: &str| {
-                diag.push_error(
-                    format!(
-                        "A component without base type is a struct declaration and cannot have {}",
-                        what
-                    ),
-                    node,
-                );
+                diag.push_error(format!("A global component cannot have {}", what), node);
             };
             node.SubElement().for_each(|n| error_on(&n, "sub elements"));
             node.RepeatedElement().for_each(|n| error_on(&n, "sub elements"));
             node.ChildrenPlaceholder().map(|n| error_on(&n, "sub elements"));
             node.SignalConnection().for_each(|n| error_on(&n, "signal connections"));
-            node.SignalDeclaration().for_each(|n| error_on(&n, "signals"));
-            node.Binding().for_each(|n| error_on(&n, "bindings"));
-            node.TwoWayBinding().for_each(|n| error_on(&n, "bindings"));
             node.PropertyAnimation().for_each(|n| error_on(&n, "animations"));
             node.States().for_each(|n| error_on(&n, "states"));
             node.Transitions().for_each(|n| error_on(&n, "transitions"));
-            let mut r = Element {
-                id,
-                base_type: Type::Void,
-                node: Some(node.clone()),
-                ..Default::default()
-            };
-            for prop_decl in node.PropertyDeclaration() {
-                let type_node = prop_decl.Type();
-                let prop_name = identifier_text(&prop_decl.DeclaredIdentifier()).unwrap();
-                if !matches!(r.lookup_property(&prop_name), Type::Invalid) {
-                    diag.push_error(
-                        format!("Cannot override property '{}'", prop_name),
-                        &prop_decl
-                            .DeclaredIdentifier()
-                            .child_token(SyntaxKind::Identifier)
-                            .unwrap(),
-                    )
-                }
-                r.property_declarations.insert(
-                    prop_name.clone(),
-                    PropertyDeclaration {
-                        property_type: type_from_node(type_node.clone(), diag, tr),
-                        type_node: Some(type_node.into()),
-                        ..Default::default()
-                    },
-                );
-                if let Some(csn) = prop_decl.BindingExpression() {
-                    diag.push_error(format!("A component without base type is a struct declaration and cannot have bindings.").into(), &csn);
-                }
-                if let Some(csn) = prop_decl.TwoWayBinding() {
-                    diag.push_error(format!("A component without base type is a struct declaration and cannot have bindings.").into(), &csn);
-                }
-            }
-            return Rc::new(RefCell::new(r));
+            (Type::Void, String::new())
         };
-        let base = QualifiedTypeName::from_node(base_node.clone());
-        let base_string = base.to_string();
-        let base_type = match parent_type.lookup_type_for_child_element(&base_string, tr) {
-            Ok(ty) => ty,
-            Err(err) => {
-                diag.push_error(err, &base_node);
-                return ElementRc::default();
-            }
+        let mut r = Element {
+            id,
+            base_type: base_type.clone(),
+            node: Some(node.clone()),
+            ..Default::default()
         };
-        if let Type::Component(c) = &base_type {
-            if c.root_element.borrow().base_type == Type::Void {
-                diag.push_error(
-                    "Cannot create an instance of a struct that does not have a base type".into(),
-                    &base_node,
-                )
-            }
-        }
-        let mut r = Element { id, base_type, node: Some(node.clone()), ..Default::default() };
-        assert!(r.base_type.is_object_type());
 
         for prop_decl in node.PropertyDeclaration() {
             let type_node = prop_decl.Type();
@@ -393,14 +361,14 @@ impl Element {
         }
 
         r.parse_bindings(
-            &base,
+            &name_for_looup_errors,
             node.Binding().filter_map(|b| {
                 Some((b.child_token(SyntaxKind::Identifier)?, b.BindingExpression().into()))
             }),
             diag,
         );
         r.parse_bindings(
-            &base,
+            &name_for_looup_errors,
             node.TwoWayBinding()
                 .filter_map(|b| Some((b.child_token(SyntaxKind::Identifier)?, b.into()))),
             diag,
@@ -458,7 +426,7 @@ impl Element {
                 }
             } else {
                 diag.push_error(
-                    format!("'{}' is not a signal in {}", name, base),
+                    format!("'{}' is not a signal{}", name, name_for_looup_errors),
                     &con_node.child_token(SyntaxKind::Identifier).unwrap(),
                 );
             }
@@ -690,7 +658,7 @@ impl Element {
 
     fn parse_bindings(
         &mut self,
-        base: &QualifiedTypeName,
+        name_for_lookup_error: &str,
         bindings: impl Iterator<
             Item = (crate::parser::SyntaxTokenWithSourceFile, SyntaxNodeWithSourceFile),
         >,
@@ -702,11 +670,13 @@ impl Element {
             if !prop_type.is_property_type() {
                 diag.push_error(
                     match prop_type {
-                        Type::Invalid => format!("Unknown property {} in {}", name, base),
+                        Type::Invalid => {
+                            format!("Unknown property {}{}", name, name_for_lookup_error)
+                        }
                         Type::Signal { .. } => {
                             format!("'{}' is a signal. Use `=>` to connect", name)
                         }
-                        _ => format!("Cannot assign to {} in {}", name, base),
+                        _ => format!("Cannot assign to {}{}", name, name_for_lookup_error),
                     },
                     &name_token,
                 );
@@ -784,13 +754,12 @@ fn animation_element_from_node(
         );
         None
     } else {
-        let base = QualifiedTypeName {
-            members: vec![anim_type.as_builtin().native_class.class_name.clone()],
-        };
+        let name_for_lookup_errors =
+            format!(" in {}", anim_type.as_builtin().native_class.class_name);
         let mut anim_element =
             Element { id: "".into(), base_type: anim_type, node: None, ..Default::default() };
         anim_element.parse_bindings(
-            &base,
+            &name_for_lookup_errors,
             anim.Binding().filter_map(|b| {
                 Some((b.child_token(SyntaxKind::Identifier)?, b.BindingExpression().into()))
             }),
