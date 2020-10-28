@@ -212,25 +212,32 @@ declare_value_enum_conversion!(corelib::items::TextHorizontalAlignment, TextHori
 declare_value_enum_conversion!(corelib::items::TextVerticalAlignment, TextVerticalAlignment);
 
 /// The local variable needed for binding evaluation
-#[derive(Default)]
-pub struct EvalLocalContext {
+pub struct EvalLocalContext<'a, 'id> {
     local_variables: HashMap<String, Value>,
     function_arguments: Vec<Value>,
+    component_instance: InstanceRef<'a, 'id>,
 }
 
-impl EvalLocalContext {
+impl<'a, 'id> EvalLocalContext<'a, 'id> {
+    pub fn from_component_instance(component_instance: InstanceRef<'a, 'id>) -> Self {
+        Self {
+            local_variables: Default::default(),
+            function_arguments: Default::default(),
+            component_instance,
+        }
+    }
+
     /// Create a context for a function and passing the arguments
-    pub fn from_function_arguments(function_arguments: Vec<Value>) -> Self {
-        Self { function_arguments, ..Default::default() }
+    pub fn from_function_arguments(
+        component_instance: InstanceRef<'a, 'id>,
+        function_arguments: Vec<Value>,
+    ) -> Self {
+        Self { component_instance, function_arguments, local_variables: Default::default() }
     }
 }
 
 /// Evaluate an expression and return a Value as the result of this expression
-pub fn eval_expression(
-    e: &Expression,
-    component: InstanceRef,
-    local_context: &mut EvalLocalContext,
-) -> Value {
+pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> Value {
     match e {
         Expression::Invalid => panic!("invalid expression while evaluating"),
         Expression::Uncompiled(_) => panic!("uncompiled expression while evaluating"),
@@ -245,16 +252,16 @@ pub fn eval_expression(
         Expression::ElementReference(_) => todo!("Element references are only supported in the context of built-in function calls at the moment"),
         Expression::MemberFunction { .. } => panic!("member function expressions must not appear in the code generator anymore"),
         Expression::PropertyReference(NamedReference { element, name }) => {
-            load_property(component, &element.upgrade().unwrap(), name.as_ref()).unwrap()
+            load_property(local_context.component_instance, &element.upgrade().unwrap(), name.as_ref()).unwrap()
         }
         Expression::RepeaterIndexReference { element } => load_property(
-            component,
+            local_context.component_instance,
             &element.upgrade().unwrap().borrow().base_type.as_component().root_element,
             "index",
         )
         .unwrap(),
         Expression::RepeaterModelReference { element } => load_property(
-            component,
+            local_context.component_instance,
             &element.upgrade().unwrap().borrow().base_type.as_component().root_element,
             "model_data",
         )
@@ -263,14 +270,14 @@ pub fn eval_expression(
             local_context.function_arguments[*index].clone()
         }
         Expression::ObjectAccess { base, name } => {
-            if let Value::Object(mut o) = eval_expression(base, component, local_context) {
+            if let Value::Object(mut o) = eval_expression(base, local_context) {
                 o.remove(name).unwrap_or(Value::Void)
             } else {
                 Value::Void
             }
         }
         Expression::Cast { from, to } => {
-            let v = eval_expression(&*from, component, local_context);
+            let v = eval_expression(&*from, local_context);
             match (v, to) {
                 (Value::Number(n), Type::Int32) => Value::Number(n.round()),
                 (Value::Number(n), Type::String) => {
@@ -283,17 +290,16 @@ pub fn eval_expression(
         Expression::CodeBlock(sub) => {
             let mut v = Value::Void;
             for e in sub {
-                v = eval_expression(e, component, local_context);
+                v = eval_expression(e, local_context);
             }
             v
         }
         Expression::FunctionCall { function, arguments } => match &**function {
             Expression::SignalReference(NamedReference { element, name }) => {
-                let a = arguments.iter().map(|e| eval_expression(e, component, local_context));
                 let element = element.upgrade().unwrap();
                 generativity::make_guard!(guard);
                 let enclosing_component =
-                    enclosing_component_for_element(&element, component, guard);
+                    enclosing_component_for_element(&element, local_context.component_instance, guard);
                 let component_type = enclosing_component.component_type;
 
                 let item_info = &component_type.items[element.borrow().id.as_str()];
@@ -306,7 +312,8 @@ pub fn eval_expression(
                 } else if let Some(signal_offset) = component_type.custom_signals.get(name.as_str())
                 {
                     let signal = signal_offset.apply(&*enclosing_component.instance);
-                    signal.emit(a.collect::<Vec<_>>().as_slice())
+                    let args = arguments.iter().map(|e| eval_expression(e, local_context));
+                    signal.emit(args.collect::<Vec<_>>().as_slice())
                 } else {
                     panic!("unkown signal {}", name)
                 }
@@ -314,10 +321,10 @@ pub fn eval_expression(
                 Value::Void
             }
             Expression::BuiltinFunctionReference(BuiltinFunction::GetWindowScaleFactor) => {
-                Value::Number(window_ref(component).unwrap().scale_factor() as _)
+                Value::Number(window_ref(local_context.component_instance).unwrap().scale_factor() as _)
             }
             Expression::BuiltinFunctionReference(BuiltinFunction::Debug) => {
-                let a = arguments.iter().map(|e| eval_expression(e, component, local_context));
+                let a = arguments.iter().map(|e| eval_expression(e, local_context));
                 println!("{:?}", a.collect::<Vec<_>>());
                 Value::Void
             }
@@ -326,6 +333,7 @@ pub fn eval_expression(
                     panic!("internal error: incorrect argument count to SetFocusItem")
                 }
                 if let Expression::ElementReference(focus_item) = &arguments[0] {
+                    let component = local_context.component_instance;
                     generativity::make_guard!(guard);
                     let component_ref: Pin<vtable::VRef<corelib::component::ComponentVTable>> = unsafe {
                         Pin::new_unchecked(vtable::VRef::from_raw(
@@ -352,13 +360,13 @@ pub fn eval_expression(
             _ => panic!("call of something not a signal"),
         }
         Expression::SelfAssignment { lhs, rhs, op } => {
-            let rhs = eval_expression(&**rhs, component, local_context);
-            eval_assignement(lhs, *op, rhs, component, local_context);
+            let rhs = eval_expression(&**rhs, local_context);
+            eval_assignement(lhs, *op, rhs, local_context);
             Value::Void
         }
         Expression::BinaryExpression { lhs, rhs, op } => {
-            let lhs = eval_expression(&**lhs, component, local_context);
-            let rhs = eval_expression(&**rhs, component, local_context);
+            let lhs = eval_expression(&**lhs, local_context);
+            let rhs = eval_expression(&**rhs, local_context);
 
             match (op, lhs, rhs) {
                 ('+', Value::String(mut a), Value::String(b)) => { a.push_str(b.as_str()); Value::String(a) },
@@ -378,7 +386,7 @@ pub fn eval_expression(
             }
         }
         Expression::UnaryOp { sub, op } => {
-            let sub = eval_expression(&**sub, component, local_context);
+            let sub = eval_expression(&**sub, local_context);
             match (sub, op) {
                 (Value::Number(a), '+') => Value::Number(a),
                 (Value::Number(a), '-') => Value::Number(-a),
@@ -390,28 +398,28 @@ pub fn eval_expression(
             Value::Resource(Resource::AbsoluteFilePath(absolute_source_path.into()))
         }
         Expression::Condition { condition, true_expr, false_expr } => {
-            match eval_expression(&**condition, component, local_context).try_into()
+            match eval_expression(&**condition, local_context).try_into()
                 as Result<bool, _>
             {
-                Ok(true) => eval_expression(&**true_expr, component, local_context),
-                Ok(false) => eval_expression(&**false_expr, component, local_context),
+                Ok(true) => eval_expression(&**true_expr, local_context),
+                Ok(false) => eval_expression(&**false_expr, local_context),
                 _ => panic!("conditional expression did not evaluate to boolean"),
             }
         }
         Expression::Array { values, .. } => Value::Array(
-            values.iter().map(|e| eval_expression(e, component, local_context)).collect(),
+            values.iter().map(|e| eval_expression(e, local_context)).collect(),
         ),
         Expression::Object { values, .. } => Value::Object(
             values
                 .iter()
-                .map(|(k, v)| (k.clone(), eval_expression(v, component, local_context)))
+                .map(|(k, v)| (k.clone(), eval_expression(v, local_context)))
                 .collect(),
         ),
         Expression::PathElements { elements } => {
-            Value::PathElements(convert_path(elements, component, local_context))
+            Value::PathElements(convert_path(elements, local_context))
         }
         Expression::StoreLocalVariable { name, value } => {
-            let value = eval_expression(value, component, local_context);
+            let value = eval_expression(value, local_context);
             local_context.local_variables.insert(name.clone(), value);
             Value::Void
         }
@@ -430,13 +438,7 @@ pub fn eval_expression(
     }
 }
 
-fn eval_assignement(
-    lhs: &Expression,
-    op: char,
-    rhs: Value,
-    component: InstanceRef,
-    local_context: &mut EvalLocalContext,
-) {
+fn eval_assignement(lhs: &Expression, op: char, rhs: Value, local_context: &mut EvalLocalContext) {
     let eval = |lhs| match (lhs, &rhs, op) {
         (Value::String(ref mut a), Value::String(b), '+') => {
             a.push_str(b.as_str());
@@ -451,12 +453,19 @@ fn eval_assignement(
     match lhs {
         Expression::PropertyReference(NamedReference { element, name }) => {
             if op == '=' {
-                store_property(component, &element.upgrade().unwrap(), name.as_ref(), rhs).unwrap();
+                store_property(
+                    local_context.component_instance,
+                    &element.upgrade().unwrap(),
+                    name.as_ref(),
+                    rhs,
+                )
+                .unwrap();
                 return;
             }
             let element = element.upgrade().unwrap();
             generativity::make_guard!(guard);
-            let enclosing_component = enclosing_component_for_element(&element, component, guard);
+            let enclosing_component =
+                enclosing_component_for_element(&element, local_context.component_instance, guard);
 
             let component = element.borrow().enclosing_component.upgrade().unwrap();
             if element.borrow().id == component.root_element.borrow().id {
@@ -474,16 +483,17 @@ fn eval_assignement(
             p.set(item, eval(p.get(item)), None);
         }
         Expression::ObjectAccess { base, name } => {
-            if let Value::Object(mut o) = eval_expression(base, component, local_context) {
+            if let Value::Object(mut o) = eval_expression(base, local_context) {
                 let r = o.get_mut(name).unwrap();
                 *r = if op == '=' { rhs } else { eval(std::mem::take(r)) };
-                eval_assignement(base, '=', Value::Object(o), component, local_context)
+                eval_assignement(base, '=', Value::Object(o), local_context)
             }
         }
         Expression::RepeaterModelReference { element } => {
             let element = element.upgrade().unwrap();
             generativity::make_guard!(g1);
-            let enclosing_component = enclosing_component_for_element(&element, component, g1);
+            let enclosing_component =
+                enclosing_component_for_element(&element, local_context.component_instance, g1);
             // we need a 'static Repeater component in order to call model_set_row_data, so get it.
             // Safety: This is the only 'static Id in scope.
             let static_guard =
@@ -496,7 +506,6 @@ fn eval_assignement(
             repeater.model_set_row_data(
                 eval_expression(
                     &Expression::RepeaterIndexReference { element: Rc::downgrade(&element) },
-                    component,
                     local_context,
                 )
                 .try_into()
@@ -506,7 +515,6 @@ fn eval_assignement(
                 } else {
                     eval(eval_expression(
                         &Expression::RepeaterModelReference { element: Rc::downgrade(&element) },
-                        component,
                         local_context,
                     ))
                 },
@@ -622,13 +630,12 @@ pub fn new_struct_with_bindings<
     ElementType: 'static + Default + sixtyfps_corelib::rtti::BuiltinItem,
 >(
     bindings: &HashMap<String, ExpressionSpanned>,
-    component: InstanceRef,
     local_context: &mut EvalLocalContext,
 ) -> ElementType {
     let mut element = ElementType::default();
     for (prop, info) in ElementType::fields::<Value>().into_iter() {
         if let Some(binding) = &bindings.get(prop) {
-            let value = eval_expression(&binding, component, local_context);
+            let value = eval_expression(&binding, local_context);
             info.set_field(&mut element, value).unwrap();
         }
     }
@@ -686,14 +693,10 @@ fn convert_from_lyon_path<'a>(
     )
 }
 
-pub fn convert_path(
-    path: &ExprPath,
-    component: InstanceRef,
-    local_context: &mut EvalLocalContext,
-) -> PathData {
+pub fn convert_path(path: &ExprPath, local_context: &mut EvalLocalContext) -> PathData {
     match path {
         ExprPath::Elements(elements) => PathData::Elements(SharedArray::<PathElement>::from_iter(
-            elements.iter().map(|element| convert_path_element(element, component, local_context)),
+            elements.iter().map(|element| convert_path_element(element, local_context)),
         )),
         ExprPath::Events(events) => convert_from_lyon_path(events.iter()),
     }
@@ -701,20 +704,15 @@ pub fn convert_path(
 
 fn convert_path_element(
     expr_element: &ExprPathElement,
-    component: InstanceRef,
     local_context: &mut EvalLocalContext,
 ) -> PathElement {
     match expr_element.element_type.native_class.class_name.as_str() {
-        "LineTo" => PathElement::LineTo(new_struct_with_bindings(
-            &expr_element.bindings,
-            component,
-            local_context,
-        )),
-        "ArcTo" => PathElement::ArcTo(new_struct_with_bindings(
-            &expr_element.bindings,
-            component,
-            local_context,
-        )),
+        "LineTo" => {
+            PathElement::LineTo(new_struct_with_bindings(&expr_element.bindings, local_context))
+        }
+        "ArcTo" => {
+            PathElement::ArcTo(new_struct_with_bindings(&expr_element.bindings, local_context))
+        }
         "Close" => PathElement::Close,
         _ => panic!(
             "Cannot create unsupported path element {}",

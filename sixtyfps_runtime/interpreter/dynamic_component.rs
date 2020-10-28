@@ -674,8 +674,7 @@ pub fn animation_for_property(
     match all_animations.get(property_name) {
         Some(anim_elem) => Some(eval::new_struct_with_bindings(
             &anim_elem.borrow().bindings,
-            component,
-            &mut Default::default(),
+            &mut eval::EvalLocalContext::from_component_instance(component),
         )),
         None => None,
     }
@@ -742,8 +741,9 @@ pub fn instantiate<'id>(
                             generativity::make_guard!(guard);
                             eval::eval_expression(
                                 &expr,
-                                InstanceRef::from_pin_ref(c, guard),
-                                &mut Default::default(),
+                                &mut eval::EvalLocalContext::from_component_instance(
+                                    InstanceRef::from_pin_ref(c, guard),
+                                ),
                             );
                         })
                     } else if let Some(signal_offset) =
@@ -753,13 +753,10 @@ pub fn instantiate<'id>(
                         signal.set_handler(move |args| {
                             generativity::make_guard!(guard);
                             let mut local_context = eval::EvalLocalContext::from_function_arguments(
+                                InstanceRef::from_pin_ref(c, guard),
                                 args.iter().cloned().collect(),
                             );
-                            eval::eval_expression(
-                                &expr,
-                                InstanceRef::from_pin_ref(c, guard),
-                                &mut local_context,
-                            );
+                            eval::eval_expression(&expr, &mut local_context);
                         })
                     } else {
                         panic!("unkown signal {}", prop)
@@ -780,7 +777,12 @@ pub fn instantiate<'id>(
                             if e.is_constant() {
                                 prop_rtti.set(
                                     item,
-                                    eval::eval_expression(e, instance_ref, &mut Default::default()),
+                                    eval::eval_expression(
+                                        e,
+                                        &mut eval::EvalLocalContext::from_component_instance(
+                                            instance_ref,
+                                        ),
+                                    ),
                                     maybe_animation,
                                 );
                             } else {
@@ -798,8 +800,9 @@ pub fn instantiate<'id>(
                                         generativity::make_guard!(guard);
                                         eval::eval_expression(
                                             &e,
-                                            InstanceRef::from_pin_ref(c, guard),
-                                            &mut Default::default(),
+                                            &mut eval::EvalLocalContext::from_component_instance(
+                                                InstanceRef::from_pin_ref(c, guard),
+                                            ),
                                         )
                                     }),
                                     maybe_animation,
@@ -825,8 +828,12 @@ pub fn instantiate<'id>(
                         }
                         if let Some(e) = e {
                             if e.is_constant() {
-                                let v =
-                                    eval::eval_expression(e, instance_ref, &mut Default::default());
+                                let v = eval::eval_expression(
+                                    e,
+                                    &mut eval::EvalLocalContext::from_component_instance(
+                                        instance_ref,
+                                    ),
+                                );
                                 prop_info.set(item, v, None).unwrap();
                             } else {
                                 let e = e.clone();
@@ -843,8 +850,7 @@ pub fn instantiate<'id>(
                                             generativity::make_guard!(guard);
                                             eval::eval_expression(
                                                 &e,
-                                                InstanceRef::from_pin_ref(c, guard),
-                                                &mut Default::default(),
+                                                &mut eval::EvalLocalContext::from_component_instance(InstanceRef::from_pin_ref(c, guard)),
                                             )
                                         }),
                                         maybe_animation,
@@ -878,15 +884,19 @@ pub fn instantiate<'id>(
             generativity::make_guard!(guard);
             let m = eval::eval_expression(
                 &expr,
-                unsafe { InstanceRef::from_pin_ref(c, guard) },
-                &mut Default::default(),
+                &mut eval::EvalLocalContext::from_component_instance(unsafe {
+                    InstanceRef::from_pin_ref(c, guard)
+                }),
             );
             Some(Rc::new(crate::value_model::ValueModel::new(m)))
         });
     }
 
     for extra_init_code in component_type.original.setup_code.borrow().iter() {
-        eval::eval_expression(extra_init_code, instance_ref, &mut Default::default());
+        eval::eval_expression(
+            extra_init_code,
+            &mut eval::EvalLocalContext::from_component_instance(instance_ref),
+        );
     }
 
     component_box
@@ -1167,8 +1177,10 @@ impl<'a> LayoutTreeItem<'a> {
                     }
                 }
 
-                let path_elements =
-                    eval::convert_path(&path_layout.path, instance_ref, &mut Default::default());
+                let path_elements = eval::convert_path(
+                    &path_layout.path,
+                    &mut eval::EvalLocalContext::from_component_instance(instance_ref),
+                );
 
                 solve_path_layout(&PathLayoutData {
                     items: Slice::from(items.as_slice()),
