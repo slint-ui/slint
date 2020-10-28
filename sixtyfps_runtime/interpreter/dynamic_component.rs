@@ -452,7 +452,7 @@ pub fn load<'id>(
 }
 
 fn generate_component<'id>(
-    root_component: &Rc<object_tree::Component>,
+    component: &Rc<object_tree::Component>,
     guard: generativity::Guard<'id>,
 ) -> Rc<ComponentDescription<'id>> {
     let mut rtti = HashMap::new();
@@ -502,7 +502,7 @@ fn generate_component<'id>(
     let mut repeater = vec![];
     let mut repeater_names = HashMap::new();
 
-    generator::build_array_helper(root_component, |rc_item, child_offset, is_flickable_rect| {
+    generator::build_array_helper(component, |rc_item, child_offset, is_flickable_rect| {
         let item = rc_item.borrow();
         if is_flickable_rect {
             use vtable::HasStaticVTable;
@@ -580,7 +580,7 @@ fn generate_component<'id>(
         )
     }
 
-    for (name, decl) in &root_component.root_element.borrow().property_declarations {
+    for (name, decl) in &component.root_element.borrow().property_declarations {
         if decl.is_alias.is_some() {
             continue;
         }
@@ -609,7 +609,7 @@ fn generate_component<'id>(
             PropertiesWithinComponent { offset: builder.add_field(type_info), prop },
         );
     }
-    if root_component.parent_element.upgrade().is_some() {
+    if component.parent_element.upgrade().is_some() {
         let (prop, type_info) = property_info::<u32>();
         custom_properties.insert(
             "index".into(),
@@ -629,7 +629,7 @@ fn generate_component<'id>(
         );
     }
 
-    let parent_component_offset = if root_component.parent_element.upgrade().is_some() {
+    let parent_component_offset = if component.parent_element.upgrade().is_some() {
         Some(builder.add_field_type::<Option<ComponentRefPin>>())
     } else {
         None
@@ -656,7 +656,7 @@ fn generate_component<'id>(
         items: items_types,
         custom_properties,
         custom_signals,
-        original: root_component.clone(),
+        original: component.clone(),
         repeater,
         repeater_names,
         parent_component_offset,
