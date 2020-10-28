@@ -31,6 +31,7 @@ mod cpp_ast {
     pub struct File {
         pub includes: Vec<String>,
         pub declarations: Vec<Declaration>,
+        pub definitions: Vec<Declaration>,
     }
 
     impl Display for File {
@@ -39,6 +40,9 @@ mod cpp_ast {
                 writeln!(f, "#include {}", i)?;
             }
             for d in &self.declarations {
+                write!(f, "\n{}", d)?;
+            }
+            for d in &self.definitions {
                 write!(f, "\n{}", d)?;
             }
             Ok(())
@@ -505,14 +509,13 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
             generate_struct(&mut file, name, fields, diag);
         }
     }
-    let mut struct_declarations = std::mem::take(&mut file.declarations);
+    for glob in doc.root_component.used_global.borrow().iter() {
+        generate_component(&mut file, &glob.upgrade().unwrap(), diag, None);
+    }
 
     generate_component(&mut file, &doc.root_component, diag, None);
 
-    struct_declarations.append(&mut file.declarations);
-    file.declarations = struct_declarations;
-
-    file.declarations.push(Declaration::Var(Var{
+    file.definitions.push(Declaration::Var(Var{
         ty: format!(
             "constexpr sixtyfps::private_api::VersionCheckHelper<{}, {}, {}>",
             env!("CARGO_PKG_VERSION_MAJOR"),
@@ -670,7 +673,7 @@ fn generate_component(
 
         if property_decl.is_alias.is_none() {
             component_struct.members.push((
-                Access::Private,
+                if component.is_global() { Access::Public } else { Access::Private },
                 Declaration::Var(Var { ty, name: cpp_name.clone(), init: None }),
             ));
         }
@@ -715,7 +718,7 @@ fn generate_component(
                 .upgrade()
                 .unwrap(),
         );
-        let parent_type = format!("{} const *", parent_component_id);
+        let parent_type = format!("class {} const *", parent_component_id);
         constructor_parent_arg = format!("{} parent", parent_type);
         init.push("this->parent = parent;".into());
         component_struct.members.push((
@@ -764,7 +767,7 @@ fn generate_component(
                 }),
             ));
         }
-    } else {
+    } else if !component.is_global() {
         component_struct.members.push((
             Access::Public, // FIXME: many of the different component bindings need to access this
             Declaration::Var(Var {
@@ -797,7 +800,12 @@ fn generate_component(
                 statements: Some(vec!["window.run(this);".into()]),
                 ..Default::default()
             }),
-        ))
+        ));
+
+        init.push(format!(
+            "{}.init_items(this, item_tree());",
+            window = window_ref_expression(component)
+        ));
     }
 
     let mut children_visitor_cases = vec![];
@@ -815,6 +823,11 @@ fn generate_component(
                 item.children.len(),
                 tree_array.len() + 1,
             ));
+        } else if item.base_type == Type::Void {
+            assert!(component.is_global());
+            for (prop_name, binding_expression) in &item.bindings {
+                handle_property_binding(item_rc, prop_name, binding_expression, &mut init);
+            }
         } else if let Some(repeated) = &item.repeated {
             tree_array.push(format!("sixtyfps::private_api::make_dyn_node({})", repeater_count,));
             let base_component = item.base_type.as_component();
@@ -852,11 +865,6 @@ fn generate_component(
         }
     });
 
-    init.push(format!(
-        "{}.init_items(this, item_tree());",
-        window = window_ref_expression(component)
-    ));
-
     for extra_init_code in component.setup_code.borrow().iter() {
         init.push(compile_expression(extra_init_code, component));
     }
@@ -872,7 +880,7 @@ fn generate_component(
         }),
     ));
 
-    {
+    if !component.is_global() {
         let mut destructor = Vec::new();
 
         destructor.push("auto self = this;".to_owned());
@@ -896,76 +904,103 @@ fn generate_component(
         ));
     }
 
-    component_struct.members.push((
-        Access::Private,
-        Declaration::Function(Function {
-            name: "visit_children".into(),
-            signature: "(sixtyfps::private_api::ComponentRef component, intptr_t index, sixtyfps::TraversalOrder order, sixtyfps::private_api::ItemVisitorRefMut visitor) -> int64_t".into(),
-            is_static: true,
-            statements: Some(vec![
-                "static const auto dyn_visit = [] (const uint8_t *base,  [[maybe_unused]] sixtyfps::TraversalOrder order, [[maybe_unused]] sixtyfps::private_api::ItemVisitorRefMut visitor, uintptr_t dyn_index) -> int64_t {".to_owned(),
-                format!("    [[maybe_unused]] auto self = reinterpret_cast<const {}*>(base);", component_id),
-                format!("    switch(dyn_index) {{ {} }};", children_visitor_cases.join("")),
-                "    std::abort();\n};".to_owned(),
-                "return sixtyfps::sixtyfps_visit_item_tree(component, item_tree() , index, order, visitor, dyn_visit);".to_owned(),
-            ]),
-            ..Default::default()
-        }),
-    ));
+    if !component.is_global() {
+        component_struct.members.push((
+            Access::Private,
+            Declaration::Function(Function {
+                name: "visit_children".into(),
+                signature: "(sixtyfps::private_api::ComponentRef component, intptr_t index, sixtyfps::TraversalOrder order, sixtyfps::private_api::ItemVisitorRefMut visitor) -> int64_t".into(),
+                is_static: true,
+                statements: Some(vec![
+                    "static const auto dyn_visit = [] (const uint8_t *base,  [[maybe_unused]] sixtyfps::TraversalOrder order, [[maybe_unused]] sixtyfps::private_api::ItemVisitorRefMut visitor, uintptr_t dyn_index) -> int64_t {".to_owned(),
+                    format!("    [[maybe_unused]] auto self = reinterpret_cast<const {}*>(base);", component_id),
+                    format!("    switch(dyn_index) {{ {} }};", children_visitor_cases.join("")),
+                    "    std::abort();\n};".to_owned(),
+                    "return sixtyfps::sixtyfps_visit_item_tree(component, item_tree() , index, order, visitor, dyn_visit);".to_owned(),
+                ]),
+                ..Default::default()
+            }),
+        ));
 
-    component_struct.members.push((
-        Access::Private,
-        Declaration::Function(Function {
-            name: "item_tree".into(),
-            signature: "() -> sixtyfps::Slice<sixtyfps::private_api::ItemTreeNode>".into(),
-            is_static: true,
-            statements: Some(vec![
-                "static const sixtyfps::private_api::ItemTreeNode children[] {".to_owned(),
-                format!("    {} }};", tree_array.join(", ")),
-                "return { const_cast<sixtyfps::private_api::ItemTreeNode*>(children), std::size(children) };"
-                    .to_owned(),
-            ]),
-            ..Default::default()
-        }),
-    ));
+        component_struct.members.push((
+            Access::Private,
+            Declaration::Function(Function {
+                name: "item_tree".into(),
+                signature: "() -> sixtyfps::Slice<sixtyfps::private_api::ItemTreeNode>".into(),
+                is_static: true,
+                statements: Some(vec![
+                    "static const sixtyfps::private_api::ItemTreeNode children[] {".to_owned(),
+                    format!("    {} }};", tree_array.join(", ")),
+                    "return { const_cast<sixtyfps::private_api::ItemTreeNode*>(children), std::size(children) };"
+                        .to_owned(),
+                ]),
+                ..Default::default()
+            }),
+        ));
 
-    component_struct.members.push((
-        Access::Private,
-        Declaration::Var(Var {
-            ty: "int64_t".into(),
-            name: "mouse_grabber".into(),
-            init: Some("-1".into()),
-        }),
-    ));
-    component_struct.members.push((
-        Access::Private,
-        Declaration::Function(Function {
-            name: "input_event".into(),
-            signature:
-                "(sixtyfps::private_api::ComponentRef component, sixtyfps::MouseEvent mouse_event, const sixtyfps::private_api::ComponentWindow *window, const sixtyfps::private_api::ComponentRef *app_component) -> sixtyfps::InputEventResult"
-                    .into(),
-            is_static: true,
-            statements: Some(vec![
-                format!("    auto self = reinterpret_cast<{}*>(component.instance);", component_id),
-                "return sixtyfps::private_api::process_input_event(component, self->mouse_grabber, mouse_event, item_tree(), [self](int dyn_index, [[maybe_unused]] int rep_index) {".into(),
-                format!("    switch(dyn_index) {{ {} }};", repeated_input_branch.join("")),
-                "    return sixtyfps::private_api::ComponentRef{nullptr, nullptr};\n}, window, app_component);".into(),
-            ]),
-            ..Default::default()
-        }),
-    ));
-
-    component_struct.members.push((
-        Access::Private,
-        Declaration::Function(Function {
-            name: "key_event".into(),
-            signature:
-                "(sixtyfps::private_api::ComponentRef component, const sixtyfps::KeyEvent *key_event, const sixtyfps::private_api::ComponentWindow *window) -> sixtyfps::KeyEventResult"
-                .into(),
+        component_struct.members.push((
+            Access::Private,
+            Declaration::Var(Var {
+                ty: "int64_t".into(),
+                name: "mouse_grabber".into(),
+                init: Some("-1".into()),
+            }),
+        ));
+        component_struct.members.push((
+            Access::Private,
+            Declaration::Function(Function {
+                name: "input_event".into(),
+                signature:
+                    "(sixtyfps::private_api::ComponentRef component, sixtyfps::MouseEvent mouse_event, const sixtyfps::private_api::ComponentWindow *window, const sixtyfps::private_api::ComponentRef *app_component) -> sixtyfps::InputEventResult"
+                        .into(),
                 is_static: true,
                 statements: Some(vec![
                     format!("    auto self = reinterpret_cast<{}*>(component.instance);", component_id),
-                    "return sixtyfps::private_api::process_key_event(component, self->focus_item, key_event, item_tree(), [self](int dyn_index, [[maybe_unused]] int rep_index) {".into(),
+                    "return sixtyfps::private_api::process_input_event(component, self->mouse_grabber, mouse_event, item_tree(), [self](int dyn_index, [[maybe_unused]] int rep_index) {".into(),
+                    format!("    switch(dyn_index) {{ {} }};", repeated_input_branch.join("")),
+                    "    return sixtyfps::private_api::ComponentRef{nullptr, nullptr};\n}, window, app_component);".into(),
+                ]),
+                ..Default::default()
+            }),
+        ));
+
+        component_struct.members.push((
+            Access::Private,
+            Declaration::Function(Function {
+                name: "key_event".into(),
+                signature:
+                    "(sixtyfps::private_api::ComponentRef component, const sixtyfps::KeyEvent *key_event, const sixtyfps::private_api::ComponentWindow *window) -> sixtyfps::KeyEventResult"
+                    .into(),
+                    is_static: true,
+                    statements: Some(vec![
+                        format!("    auto self = reinterpret_cast<{}*>(component.instance);", component_id),
+                        "return sixtyfps::private_api::process_key_event(component, self->focus_item, key_event, item_tree(), [self](int dyn_index, [[maybe_unused]] int rep_index) {".into(),
+                        format!("    switch(dyn_index) {{ {} }};", repeated_input_branch.join("")),
+                        "    return sixtyfps::private_api::ComponentRef{nullptr, nullptr};\n}, window);".into(),
+                    ]),
+                    ..Default::default()
+                }),
+            ));
+
+        component_struct.members.push((
+            Access::Private,
+            Declaration::Var(Var {
+                ty: "int64_t".into(),
+                name: "focus_item".into(),
+                init: Some("-1".into()),
+            }),
+        ));
+        component_struct.members.push((
+            Access::Private,
+            Declaration::Function(Function {
+                name: "focus_event".into(),
+                signature:
+                    "(sixtyfps::private_api::ComponentRef component, const sixtyfps::FocusEvent *focus_event, const sixtyfps::private_api::ComponentWindow *window) -> sixtyfps::FocusEventResult"
+                        .into(),
+                is_static: true,
+                statements: Some(vec![
+                    format!("    auto self = reinterpret_cast<{}*>(component.instance);", component_id),
+                    "return sixtyfps::private_api::process_focus_event(component, self->focus_item, focus_event, item_tree(), [self](int dyn_index, [[maybe_unused]] int rep_index) {".into(),
                     format!("    switch(dyn_index) {{ {} }};", repeated_input_branch.join("")),
                     "    return sixtyfps::private_api::ComponentRef{nullptr, nullptr};\n}, window);".into(),
                 ]),
@@ -973,69 +1008,52 @@ fn generate_component(
             }),
         ));
 
-    component_struct.members.push((
-        Access::Private,
-        Declaration::Var(Var {
-            ty: "int64_t".into(),
-            name: "focus_item".into(),
-            init: Some("-1".into()),
-        }),
-    ));
-    component_struct.members.push((
-        Access::Private,
-        Declaration::Function(Function {
-            name: "focus_event".into(),
-            signature:
-                "(sixtyfps::private_api::ComponentRef component, const sixtyfps::FocusEvent *focus_event, const sixtyfps::private_api::ComponentWindow *window) -> sixtyfps::FocusEventResult"
-                    .into(),
-            is_static: true,
-            statements: Some(vec![
-                format!("    auto self = reinterpret_cast<{}*>(component.instance);", component_id),
-                "return sixtyfps::private_api::process_focus_event(component, self->focus_item, focus_event, item_tree(), [self](int dyn_index, [[maybe_unused]] int rep_index) {".into(),
-                format!("    switch(dyn_index) {{ {} }};", repeated_input_branch.join("")),
-                "    return sixtyfps::private_api::ComponentRef{nullptr, nullptr};\n}, window);".into(),
-            ]),
-            ..Default::default()
-        }),
-    ));
+        component_struct.members.push((
+            Access::Public, // FIXME: we call this function from tests
+            Declaration::Function(Function {
+                name: "compute_layout".into(),
+                signature: "(sixtyfps::private_api::ComponentRef component) -> void".into(),
+                is_static: true,
+                statements: Some(compute_layout(component, &mut repeater_layout_code)),
+                ..Default::default()
+            }),
+        ));
 
-    component_struct.members.push((
-        Access::Public, // FIXME: we call this function from tests
-        Declaration::Function(Function {
-            name: "compute_layout".into(),
-            signature: "(sixtyfps::private_api::ComponentRef component) -> void".into(),
-            is_static: true,
-            statements: Some(compute_layout(component, &mut repeater_layout_code)),
-            ..Default::default()
-        }),
-    ));
+        component_struct.members.push((
+            Access::Public,
+            Declaration::Var(Var {
+                ty: "static const sixtyfps::private_api::ComponentVTable".to_owned(),
+                name: "component_type".to_owned(),
+                init: None,
+            }),
+        ));
+    }
 
-    component_struct.members.push((
-        Access::Public,
-        Declaration::Var(Var {
-            ty: "static const sixtyfps::private_api::ComponentVTable".to_owned(),
-            name: "component_type".to_owned(),
-            init: None,
-        }),
-    ));
+    for glob in component.used_global.borrow().iter() {
+        let glob = glob.upgrade().unwrap();
+        component_struct.members.push((
+            Access::Private,
+            Declaration::Var(Var {
+                ty: format!("std::shared_ptr<{}>", self::component_id(&glob)),
+                name: format!("global_{}", glob.id),
+                init: Some(format!("std::make_shared<{}>()", self::component_id(&glob))),
+            }),
+        ));
+    }
 
-    let mut definitions = component_struct.extract_definitions().collect::<Vec<_>>();
-    let mut declarations = vec![];
-    declarations.push(Declaration::Struct(component_struct));
+    file.definitions.extend(component_struct.extract_definitions().collect::<Vec<_>>());
+    file.declarations.push(Declaration::Struct(component_struct));
 
-    declarations.push(Declaration::Var(Var {
-        ty: "const sixtyfps::private_api::ComponentVTable".to_owned(),
-        name: format!("{}::component_type", component_id),
-        init: Some(
-            "{ visit_children, nullptr, compute_layout, input_event, key_event, focus_event }"
-                .to_owned(),
-        ),
-    }));
-
-    declarations.append(&mut file.declarations);
-    declarations.append(&mut definitions);
-
-    file.declarations = declarations;
+    if !component.is_global() {
+        file.definitions.push(Declaration::Var(Var {
+            ty: "const sixtyfps::private_api::ComponentVTable".to_owned(),
+            name: format!("{}::component_type", component_id),
+            init: Some(
+                "{ visit_children, nullptr, compute_layout, input_event, key_event, focus_event }"
+                    .to_owned(),
+            ),
+        }));
+    }
 }
 
 fn component_id(component: &Rc<Component>) -> String {
@@ -1091,13 +1109,22 @@ fn access_member(
     let e = element.borrow();
     let enclosing_component = e.enclosing_component.upgrade().unwrap();
     if Rc::ptr_eq(component, &enclosing_component) {
-        if e.property_declarations.contains_key(name) || name == "" {
+        if e.property_declarations.contains_key(name) || name == "" || component.is_global() {
             format!("{}->{}", component_cpp, name)
         } else if let Some(vp) = super::as_flickable_viewport_property(element, name) {
             format!("{}->{}.viewport.{}", component_cpp, e.id.as_str(), vp)
         } else {
             format!("{}->{}.{}", component_cpp, e.id.as_str(), name)
         }
+    } else if enclosing_component.is_global() {
+        let mut root_component = component.clone();
+        let mut component_cpp = component_cpp.to_owned();
+        while let Some(p) = root_component.parent_element.upgrade() {
+            root_component = p.borrow().enclosing_component.upgrade().unwrap();
+            component_cpp = format!("{}->parent", component_cpp);
+        }
+        let global_comp = format!("{}->global_{}", component_cpp, enclosing_component.id);
+        access_member(element, name, &enclosing_component, &global_comp)
     } else {
         access_member(
             element,
