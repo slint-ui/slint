@@ -19,6 +19,7 @@ use crate::expression_tree::*;
 use crate::langtype::Type;
 use crate::object_tree::*;
 use crate::parser::{identifier_text, syntax_nodes, SyntaxKind, SyntaxNodeWithSourceFile};
+use crate::typeregister::TypeRegister;
 use by_address::ByAddress;
 use std::{collections::HashMap, collections::HashSet, rc::Rc};
 
@@ -69,6 +70,7 @@ fn resolve_expression(
     property_name: Option<&str>,
     property_type: Type,
     scope: &ComponentScope,
+    type_register: &TypeRegister,
     diag: &mut BuildDiagnostics,
 ) {
     if let Expression::Uncompiled(node) = expr {
@@ -78,6 +80,7 @@ fn resolve_expression(
             component_scope: &scope.0,
             diag,
             arguments: vec![],
+            type_register,
         };
 
         let new_expr = match node.kind() {
@@ -127,10 +130,24 @@ pub fn resolve_expressions(doc: &Document, diag: &mut BuildDiagnostics) {
                 if is_repeated {
                     // The first expression is always the model and it needs to be resolved with the parent scope
                     debug_assert!(elem.borrow().repeated.as_ref().is_none()); // should be none because it is taken by the visit_element_expressions function
-                    resolve_expression(expr, property_name, property_type(), scope, diag);
+                    resolve_expression(
+                        expr,
+                        property_name,
+                        property_type(),
+                        scope,
+                        &doc.local_registry,
+                        diag,
+                    );
                     is_repeated = false;
                 } else {
-                    resolve_expression(expr, property_name, property_type(), &new_scope, diag)
+                    resolve_expression(
+                        expr,
+                        property_name,
+                        property_type(),
+                        &new_scope,
+                        &doc.local_registry,
+                        diag,
+                    )
                 }
             });
             new_scope.0.pop();
@@ -156,6 +173,9 @@ pub struct LookupCtx<'a> {
 
     /// The name of the arguments of the signal or function
     arguments: Vec<String>,
+
+    /// The type register in which to look for Globals
+    type_register: &'a TypeRegister,
 }
 
 impl<'a> LookupCtx<'a> {
@@ -420,50 +440,7 @@ impl Expression {
         };
 
         if let Some(elem) = elem_opt {
-            let second = if let Some(second) = it.next() {
-                second
-            } else if matches!(ctx.property_type, Type::ElementReference) {
-                return Self::ElementReference(Rc::downgrade(&elem));
-            } else {
-                ctx.diag.push_error("Cannot take reference of an element".into(), &node);
-                return Self::Invalid;
-            };
-            let prop_name = crate::parser::normalize_identifier(second.text().as_str());
-
-            let p = elem.borrow().lookup_property(&prop_name);
-            if p.is_property_type() {
-                let prop = Self::PropertyReference(NamedReference {
-                    element: Rc::downgrade(&elem),
-                    name: prop_name,
-                });
-                return maybe_lookup_object(prop, it, ctx);
-            } else if matches!(p, Type::Signal{..}) {
-                if let Some(x) = it.next() {
-                    ctx.diag.push_error("Cannot access fields of signal".into(), &x)
-                }
-                return Self::SignalReference(NamedReference {
-                    element: Rc::downgrade(&elem),
-                    name: prop_name.to_string(),
-                });
-            } else if matches!(p, Type::Function{..}) {
-                let member = elem.borrow().base_type.lookup_member_function(&prop_name);
-                return Self::MemberFunction {
-                    base: Box::new(Expression::ElementReference(Rc::downgrade(&elem))),
-                    base_node: node,
-                    member: Box::new(member),
-                };
-            } else {
-                if let Some(minus_pos) = second.text().find('-') {
-                    // Attempt to recover if the user wanted to write "-"
-                    if elem.borrow().lookup_property(&second.text()[0..minus_pos]) != Type::Invalid
-                    {
-                        ctx.diag.push_error(format!("Cannot access property '{}'. Use space before the '-' if you meant a substraction.", second.text()), &second);
-                        return Self::Invalid;
-                    }
-                }
-                ctx.diag.push_error(format!("Cannot access property '{}'", second.text()), &second);
-                return Self::Invalid;
-            }
+            return continue_lookup_within_element(&elem, &mut it, node, ctx);
         }
 
         for elem in ctx.component_scope.iter().rev() {
@@ -493,6 +470,12 @@ impl Expression {
                 });
             } else if property.is_object_type() {
                 todo!("Continue lookling up");
+            }
+        }
+
+        if let Type::Component(c) = ctx.type_register.lookup(&first_str) {
+            if c.is_global() {
+                return continue_lookup_within_element(&c.root_element, &mut it, node, ctx);
             }
         }
 
@@ -832,6 +815,57 @@ impl Expression {
         }
 
         Expression::Array { element_ty, values }
+    }
+}
+
+fn continue_lookup_within_element(
+    elem: &ElementRc,
+    it: &mut impl Iterator<Item = crate::parser::SyntaxTokenWithSourceFile>,
+    node: SyntaxNodeWithSourceFile,
+    ctx: &mut LookupCtx,
+) -> Expression {
+    let second = if let Some(second) = it.next() {
+        second
+    } else if matches!(ctx.property_type, Type::ElementReference) {
+        return Expression::ElementReference(Rc::downgrade(elem));
+    } else {
+        ctx.diag.push_error("Cannot take reference of an element".into(), &node);
+        return Expression::Invalid;
+    };
+    let prop_name = crate::parser::normalize_identifier(second.text().as_str());
+
+    let p = elem.borrow().lookup_property(&prop_name);
+    if p.is_property_type() {
+        let prop = Expression::PropertyReference(NamedReference {
+            element: Rc::downgrade(elem),
+            name: prop_name,
+        });
+        return maybe_lookup_object(prop, it, ctx);
+    } else if matches!(p, Type::Signal{..}) {
+        if let Some(x) = it.next() {
+            ctx.diag.push_error("Cannot access fields of signal".into(), &x)
+        }
+        return Expression::SignalReference(NamedReference {
+            element: Rc::downgrade(elem),
+            name: prop_name.to_string(),
+        });
+    } else if matches!(p, Type::Function{..}) {
+        let member = elem.borrow().base_type.lookup_member_function(&prop_name);
+        return Expression::MemberFunction {
+            base: Box::new(Expression::ElementReference(Rc::downgrade(elem))),
+            base_node: node,
+            member: Box::new(member),
+        };
+    } else {
+        if let Some(minus_pos) = second.text().find('-') {
+            // Attempt to recover if the user wanted to write "-"
+            if elem.borrow().lookup_property(&second.text()[0..minus_pos]) != Type::Invalid {
+                ctx.diag.push_error(format!("Cannot access property '{}'. Use space before the '-' if you meant a substraction.", second.text()), &second);
+                return Expression::Invalid;
+            }
+        }
+        ctx.diag.push_error(format!("Cannot access property '{}'", second.text()), &second);
+        return Expression::Invalid;
     }
 }
 
