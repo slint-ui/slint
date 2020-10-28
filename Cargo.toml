@@ -53,4 +53,4 @@ default-members = [
 
 # Needed to pull in fix for https://github.com/rust-windowing/winit/pull/1747
 [patch.crates-io]
-winit = { git = "https://github.com/tronical/winit", rev = "9d9300359ff88e88c08f04e696e5aeabece6b776" }
+winit = { git = "https://github.com/tronical/winit", branch = "master" }
