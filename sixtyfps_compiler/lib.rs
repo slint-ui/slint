@@ -36,6 +36,7 @@ pub mod typeloader;
 pub mod typeregister;
 
 mod passes {
+    pub mod collect_globals;
     pub mod collect_resources;
     pub mod compile_paths;
     pub mod deduplicate_property_read;
@@ -137,6 +138,7 @@ pub fn run_passes(
     passes::move_declarations::move_declarations(&doc.root_component, diag);
     passes::remove_aliases::remove_aliases(&doc.root_component, diag);
     passes::resolve_native_classes::resolve_native_classes(&doc.root_component);
+    passes::collect_globals::collect_globals(&doc.root_component, diag);
 }
 
 mod library {

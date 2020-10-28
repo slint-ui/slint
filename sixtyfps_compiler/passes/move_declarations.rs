@@ -124,7 +124,7 @@ pub fn move_declarations(component: &Rc<Component>, diag: &mut BuildDiagnostics)
 fn fixup_reference(NamedReference { element, name }: &mut NamedReference) {
     let e = element.upgrade().unwrap();
     let component = e.borrow().enclosing_component.upgrade().unwrap();
-    if e.borrow().property_declarations.contains_key(name) {
+    if !component.is_global() && e.borrow().property_declarations.contains_key(name) {
         *name = map_name(&e, name.as_str());
         *element = Rc::downgrade(&component.root_element);
     }

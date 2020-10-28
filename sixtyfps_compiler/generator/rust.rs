@@ -73,21 +73,24 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<TokenStre
     let compo = generate_component(&doc.root_component, diag)?;
     let compo_id = component_id(&doc.root_component);
     let compo_module = format_ident!("sixtyfps_generated_{}", compo_id);
-    /*let (version_major, version_minor, version_patch): (usize, usize, usize) = (
-        env!("CARGO_PKG_VERSION_MAJOR").parse().unwrap(),
-        env!("CARGO_PKG_VERSION_MINOR").parse().unwrap(),
-        env!("CARGO_PKG_VERSION_PATCH").parse().unwrap(),
-    );*/
     let version_check = format_ident!(
         "VersionCheck_{}_{}_{}",
         env!("CARGO_PKG_VERSION_MAJOR"),
         env!("CARGO_PKG_VERSION_MINOR"),
         env!("CARGO_PKG_VERSION_PATCH"),
     );
+    let globals = doc
+        .root_component
+        .used_global
+        .borrow()
+        .iter()
+        .filter_map(|glob| generate_component(&glob.upgrade().unwrap(), diag))
+        .collect::<Vec<_>>();
     Some(quote! {
         #[allow(non_snake_case)]
         mod #compo_module {
             #(#structs)*
+            #(#globals)*
             #compo
             const _THE_SAME_VERSION_MUST_BE_USED_FOR_THE_COMPILER_AND_THE_RUNTIME : sixtyfps::#version_check = sixtyfps::#version_check;
         }
@@ -326,6 +329,11 @@ fn generate_component(
                     children_index: #children_index,
                 }
             ));
+        } else if item.base_type == Type::Void {
+            assert!(component.is_global());
+            for (k, binding_expression) in &item.bindings {
+                handle_property_binding(component, item_rc, k, binding_expression, &mut init);
+            }
         } else if let Some(repeated) = &item.repeated {
             let base_component = item.base_type.as_component();
             let repeater_index = repeated_element_names.len();
@@ -567,7 +575,7 @@ fn generate_component(
         parent_component_type = Some(self::component_id(
             &parent_element.borrow().enclosing_component.upgrade().unwrap(),
         ));
-    } else {
+    } else if !component.is_global() {
         // FIXME: This field is public for testing.
         maybe_window_field_decl = Some(quote!(pub window: sixtyfps::re_exports::ComponentWindow));
         maybe_window_field_init = Some(quote!(window: sixtyfps::create_window()));
@@ -600,13 +608,13 @@ fn generate_component(
     // Trick so we can use `#()` as a `if let Some` in `quote!`
     let parent_component_type = parent_component_type.iter().collect::<Vec<_>>();
 
-    let item_tree_array_len = item_tree_array.len();
-
     if diag.has_error() {
         return None;
     }
 
-    let drop_impl = {
+    let (drop_impl, pin) = if component.is_global() {
+        (None, quote!(#[pin]))
+    } else {
         let guarded_window_ref = {
             let mut root_component = component.clone();
             let mut component_rust = quote!(self);
@@ -621,39 +629,38 @@ fn generate_component(
             quote!(#component_rust.as_ref().window)
         };
 
-        quote!(impl sixtyfps::re_exports::PinnedDrop for #component_id {
-            fn drop(self: core::pin::Pin<&mut #component_id>) {
-                use sixtyfps::re_exports::*;
-                #guarded_window_ref.free_graphics_resources(VRef::new_pin(self.as_ref()));
-            }
-        })
+        (
+            Some(quote!(impl sixtyfps::re_exports::PinnedDrop for #component_id {
+                fn drop(self: core::pin::Pin<&mut #component_id>) {
+                    use sixtyfps::re_exports::*;
+                    #guarded_window_ref.free_graphics_resources(VRef::new_pin(self.as_ref()));
+                }
+            })),
+            quote!(#[pin_drop]),
+        )
     };
 
     for extra_init_code in component.setup_code.borrow().iter() {
         init.push(compile_expression(extra_init_code, component));
     }
 
-    let window_ref = window_ref_expression(component);
-
-    Some(quote!(
-        #(#resource_symbols)*
-
-        #[derive(sixtyfps::re_exports::FieldOffsets)]
-        #[const_field_offset(sixtyfps::re_exports::const_field_offset)]
-        #[repr(C)]
-        #[pin_drop]
-        #visibility struct #component_id {
-            #(#item_names : sixtyfps::re_exports::#item_types,)*
-            #(#declared_property_vars : sixtyfps::re_exports::Property<#declared_property_types>,)*
-            #(#declared_signals : sixtyfps::re_exports::Signal<(#(#declared_signals_types,)*)>,)*
-            #(#repeated_element_names : sixtyfps::re_exports::Repeater<#repeated_element_components>,)*
-            self_weak: sixtyfps::re_exports::OnceCell<sixtyfps::re_exports::PinWeak<#component_id>>,
-            #(parent : sixtyfps::re_exports::PinWeak<#parent_component_type>,)*
-            mouse_grabber: ::core::cell::Cell<sixtyfps::re_exports::VisitChildrenResult>,
-            focus_item: ::core::cell::Cell<sixtyfps::re_exports::VisitChildrenResult>,
-            #maybe_window_field_decl
-        }
-
+    let component_impl = if component.is_global() {
+        None
+    } else {
+        let item_tree_array_len = item_tree_array.len();
+        property_and_signal_accessors.push(quote!{
+            fn item_tree() -> &'static [sixtyfps::re_exports::ItemTreeNode<Self>] {
+                use sixtyfps::re_exports::*;
+                ComponentVTable_static!(static VT for #component_id);
+                // FIXME: ideally this should be a const
+                static ITEM_TREE : Lazy<[sixtyfps::re_exports::ItemTreeNode<#component_id>; #item_tree_array_len]>  =
+                    Lazy::new(|| [#(#item_tree_array),*]);
+                &*ITEM_TREE
+            }
+        });
+        let window_ref = window_ref_expression(component);
+        init.insert(0, quote!(sixtyfps::re_exports::init_component_items(_self, Self::item_tree(), &#window_ref);));
+        Some(quote! {
         impl sixtyfps::re_exports::Component for #component_id {
             fn visit_children_item(self: ::core::pin::Pin<&Self>, index: isize, order: sixtyfps::re_exports::TraversalOrder, visitor: sixtyfps::re_exports::ItemVisitorRefMut)
                 -> sixtyfps::re_exports::VisitChildrenResult
@@ -763,6 +770,40 @@ fn generate_component(
 
             #layouts
         }
+        })
+    };
+
+    let (global_name, global_type): (Vec<_>, Vec<_>) = component
+        .used_global
+        .borrow()
+        .iter()
+        .map(|g| {
+            let g = g.upgrade().unwrap();
+            (format_ident!("global_{}", g.id), self::component_id(&g))
+        })
+        .unzip();
+
+    Some(quote!(
+        #(#resource_symbols)*
+
+        #[derive(sixtyfps::re_exports::FieldOffsets)]
+        #[const_field_offset(sixtyfps::re_exports::const_field_offset)]
+        #[repr(C)]
+        #pin
+        #visibility struct #component_id {
+            #(#item_names : sixtyfps::re_exports::#item_types,)*
+            #(#declared_property_vars : sixtyfps::re_exports::Property<#declared_property_types>,)*
+            #(#declared_signals : sixtyfps::re_exports::Signal<(#(#declared_signals_types,)*)>,)*
+            #(#repeated_element_names : sixtyfps::re_exports::Repeater<#repeated_element_components>,)*
+            self_weak: sixtyfps::re_exports::OnceCell<sixtyfps::re_exports::PinWeak<#component_id>>,
+            #(parent : sixtyfps::re_exports::PinWeak<#parent_component_type>,)*
+            mouse_grabber: ::core::cell::Cell<sixtyfps::re_exports::VisitChildrenResult>,
+            focus_item: ::core::cell::Cell<sixtyfps::re_exports::VisitChildrenResult>,
+            #(#global_name : ::core::pin::Pin<::std::rc::Rc<#global_type>>,)*
+            #maybe_window_field_decl
+        }
+
+        #component_impl
 
         impl #component_id{
             pub fn new(#(parent: sixtyfps::re_exports::PinWeak::<#parent_component_type>)*)
@@ -770,7 +811,6 @@ fn generate_component(
             {
                 #![allow(unused)]
                 use sixtyfps::re_exports::*;
-                ComponentVTable_static!(static VT for #component_id);
                 let mut self_ = Self {
                     #(#item_names : ::core::default::Default::default(),)*
                     #(#declared_property_vars : ::core::default::Default::default(),)*
@@ -780,25 +820,18 @@ fn generate_component(
                     #(parent : parent as sixtyfps::re_exports::PinWeak::<#parent_component_type>,)*
                     mouse_grabber: ::core::cell::Cell::new(sixtyfps::re_exports::VisitChildrenResult::CONTINUE),
                     focus_item: ::core::cell::Cell::new(sixtyfps::re_exports::VisitChildrenResult::CONTINUE),
+                    #(#global_name : #global_type::new(),)*
                     #maybe_window_field_init
                 };
                 let self_pinned = std::rc::Rc::pin(self_);
                 self_pinned.self_weak.set(PinWeak::downgrade(self_pinned.clone())).map_err(|_|())
                     .expect("Can only be pinned once");
                 let _self = self_pinned.as_ref();
-                sixtyfps::re_exports::init_component_items(_self, Self::item_tree(), &#window_ref);
                 #(#init)*
                 self_pinned
             }
             #(#property_and_signal_accessors)*
 
-            fn item_tree() -> &'static [sixtyfps::re_exports::ItemTreeNode<Self>] {
-                use sixtyfps::re_exports::*;
-                // FIXME: ideally this should be a const
-                static ITEM_TREE : Lazy<[sixtyfps::re_exports::ItemTreeNode<#component_id>; #item_tree_array_len]>  =
-                    Lazy::new(|| [#(#item_tree_array),*]);
-                &*ITEM_TREE
-            }
         }
 
         #drop_impl
@@ -895,7 +928,7 @@ fn access_member(
     if Rc::ptr_eq(component, &enclosing_component) {
         let component_id = component_id(&enclosing_component);
         let name_ident = format_ident!("{}", name);
-        if e.property_declarations.contains_key(name) || is_special {
+        if e.property_declarations.contains_key(name) || is_special || component.is_global() {
             quote!(#component_id::FIELD_OFFSETS.#name_ident.apply_pin(#component_rust))
         } else if let Some(vp) = super::as_flickable_viewport_property(element, name) {
             let name_ident = format_ident!("{}", vp);
@@ -914,6 +947,16 @@ fn access_member(
                 .apply_pin(#component_rust)
             )
         }
+    } else if enclosing_component.is_global() {
+        let mut root_component = component.clone();
+        let mut component_rust = component_rust;
+        while let Some(p) = root_component.parent_element.upgrade() {
+            root_component = p.borrow().enclosing_component.upgrade().unwrap();
+            component_rust = quote!(#component_rust.parent.upgrade().unwrap().as_ref());
+        }
+        let global_id = format_ident!("global_{}", enclosing_component.id);
+        let global_comp = quote!(#component_rust.as_ref().#global_id.as_ref());
+        access_member(element, name, &enclosing_component, global_comp, is_special)
     } else {
         access_member(
             element,
