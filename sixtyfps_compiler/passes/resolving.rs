@@ -436,7 +436,14 @@ impl Expression {
             "parent" => ctx.component_scope.last().and_then(find_parent_element),
             "true" => return Self::BoolLiteral(true),
             "false" => return Self::BoolLiteral(false),
-            _ => find_element_by_id(ctx.component_scope, &first_str),
+            _ => find_element_by_id(ctx.component_scope, &first_str).or_else(|| {
+                if let Type::Component(c) = ctx.type_register.lookup(&first_str) {
+                    if c.is_global() {
+                        return Some(c.root_element.clone());
+                    }
+                }
+                None
+            }),
         };
 
         if let Some(elem) = elem_opt {
@@ -470,12 +477,6 @@ impl Expression {
                 });
             } else if property.is_object_type() {
                 todo!("Continue lookling up");
-            }
-        }
-
-        if let Type::Component(c) = ctx.type_register.lookup(&first_str) {
-            if c.is_global() {
-                return continue_lookup_within_element(&c.root_element, &mut it, node, ctx);
             }
         }
 

@@ -18,6 +18,10 @@ SomeComp := Rectangle {
     property<length> foo;
 }
 
+global my_lowercase := {
+    property <int> glob;
+}
+
 
 X := Rectangle {
     x: MyGlobal.custom_prop;
@@ -25,4 +29,17 @@ X := Rectangle {
 //                  ^error{Cannot access property 'blue'}
     y: SomeComp.foo;
 //     ^error{Cannot access id 'SomeComp'}
+
+    my_lowercase := Rectangle {
+
+    }
+
+    property <int> my_lowercase: 45;
+
+    property<color> xxx: my_lowercase.color;
+    property<int> yyy: my_lowercase.glob; // error because this is not the global, but the local element
+    //                              ^error{Cannot access property 'glob'}
+
+    property<int> zzz: self.my_lowercase;
+
 }
