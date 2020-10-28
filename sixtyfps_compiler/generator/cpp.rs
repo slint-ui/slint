@@ -510,7 +510,7 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
         }
     }
     for glob in doc.root_component.used_global.borrow().iter() {
-        generate_component(&mut file, &glob.upgrade().unwrap(), diag, None);
+        generate_component(&mut file, glob, diag, None);
     }
 
     generate_component(&mut file, &doc.root_component, diag, None);
@@ -1030,13 +1030,12 @@ fn generate_component(
     }
 
     for glob in component.used_global.borrow().iter() {
-        let glob = glob.upgrade().unwrap();
         component_struct.members.push((
             Access::Private,
             Declaration::Var(Var {
-                ty: format!("std::shared_ptr<{}>", self::component_id(&glob)),
+                ty: format!("std::shared_ptr<{}>", self::component_id(glob)),
                 name: format!("global_{}", glob.id),
-                init: Some(format!("std::make_shared<{}>()", self::component_id(&glob))),
+                init: Some(format!("std::make_shared<{}>()", self::component_id(glob))),
             }),
         ));
     }

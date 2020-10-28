@@ -140,9 +140,8 @@ pub struct Component {
     pub setup_code: RefCell<Vec<Expression>>,
 
     /// All the globals used by this component and its children.
-    /// This is a Weak because the TypeRegister should hold the actual strong, and there could be cycle otherwise.
-    /// This is filled by the collect_globals pass
-    pub used_global: RefCell<Vec<Weak<Component>>>,
+    /// FIXME: can we have cycle?
+    pub used_global: RefCell<Vec<Rc<Component>>>,
 }
 
 impl Component {

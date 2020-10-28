@@ -84,7 +84,7 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<TokenStre
         .used_global
         .borrow()
         .iter()
-        .filter_map(|glob| generate_component(&glob.upgrade().unwrap(), diag))
+        .filter_map(|glob| generate_component(glob, diag))
         .collect::<Vec<_>>();
     Some(quote! {
         #[allow(non_snake_case)]
@@ -777,10 +777,7 @@ fn generate_component(
         .used_global
         .borrow()
         .iter()
-        .map(|g| {
-            let g = g.upgrade().unwrap();
-            (format_ident!("global_{}", g.id), self::component_id(&g))
-        })
+        .map(|g| (format_ident!("global_{}", g.id), self::component_id(g)))
         .unzip();
 
     Some(quote!(

@@ -15,11 +15,10 @@ use crate::expression_tree::NamedReference;
 use crate::object_tree::*;
 use std::collections::BTreeMap;
 use std::rc::Rc;
-use std::rc::Weak;
 
 /// Fill the root_component's used_globals
 pub fn collect_globals(root_component: &Rc<Component>, _diag: &mut BuildDiagnostics) {
-    let mut hash = BTreeMap::<String, Weak<Component>>::new();
+    let mut hash = BTreeMap::<String, Rc<Component>>::new();
     recurse_elem_including_sub_components_no_borrow(
         &root_component.root_element,
         &(),
@@ -28,10 +27,7 @@ pub fn collect_globals(root_component: &Rc<Component>, _diag: &mut BuildDiagnost
                 let element = nr.element.upgrade().unwrap();
                 let global_component = element.borrow().enclosing_component.upgrade().unwrap();
                 if global_component.is_global() {
-                    hash.insert(
-                        global_component.id.clone(),
-                        element.borrow().enclosing_component.clone(),
-                    );
+                    hash.insert(global_component.id.clone(), global_component.clone());
                 }
             })
         },

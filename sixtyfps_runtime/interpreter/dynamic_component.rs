@@ -208,6 +208,7 @@ pub(crate) struct ComponentExtraData {
     mouse_grabber: core::cell::Cell<VisitChildrenResult>,
     focus_item: core::cell::Cell<VisitChildrenResult>,
     pub(crate) window: RefCell<Option<ComponentWindow>>,
+    pub(crate) globals: HashMap<String, Rc<crate::global_component::GlobalComponent>>,
 }
 
 impl Default for ComponentExtraData {
@@ -216,6 +217,7 @@ impl Default for ComponentExtraData {
             mouse_grabber: core::cell::Cell::new(VisitChildrenResult::CONTINUE),
             focus_item: core::cell::Cell::new(VisitChildrenResult::CONTINUE),
             window: RefCell::new(None),
+            globals: HashMap::new(),
         }
     }
 }
@@ -693,18 +695,19 @@ pub fn instantiate<'id>(
     parent_ctx: Option<ComponentRefPin>,
     #[cfg(target_arch = "wasm32")] canvas_id: String,
 ) -> ComponentBox<'id> {
-    let instance = component_type.dynamic_type.clone().create_instance();
-    let mem = instance.as_ptr().as_ptr() as *mut u8;
-    let component_box = ComponentBox { instance, component_type: component_type.clone() };
-    let instance_ref = component_box.borrow_instance();
+    let mut instance = component_type.dynamic_type.clone().create_instance();
 
     if let Some(parent) = parent_ctx {
-        unsafe {
-            *(mem.add(component_type.parent_component_offset.unwrap().get_byte_offset())
-                as *mut Option<ComponentRefPin>) = Some(parent);
-        }
+        *component_type.parent_component_offset.unwrap().apply_mut(instance.as_mut()) = Some(parent)
     } else {
-        let extra_data = component_type.extra_data_offset.apply(instance_ref.as_ref());
+        let extra_data = component_type.extra_data_offset.apply_mut(instance.as_mut());
+        extra_data.globals = component_type
+            .original
+            .used_global
+            .borrow()
+            .iter()
+            .map(|g| (g.id.clone(), crate::global_component::GlobalComponent::instantiate(g)))
+            .collect();
         #[cfg(not(target_arch = "wasm32"))]
         extra_data.window.replace(Some(sixtyfps_rendering_backend_default::create_window()));
         #[cfg(target_arch = "wasm32")]
@@ -712,6 +715,9 @@ pub fn instantiate<'id>(
             sixtyfps_rendering_backend_gl::create_gl_window_with_canvas_id(canvas_id),
         ));
     }
+
+    let component_box = ComponentBox { instance, component_type: component_type.clone() };
+    let instance_ref = component_box.borrow_instance();
 
     sixtyfps_corelib::component::init_component_items(
         instance_ref.instance,
@@ -721,7 +727,7 @@ pub fn instantiate<'id>(
 
     for item_within_component in component_type.items.values() {
         unsafe {
-            let item = item_within_component.item_from_component(mem);
+            let item = item_within_component.item_from_component(instance_ref.as_ptr());
             let elem = item_within_component.elem.borrow();
             for (prop, expr) in &elem.bindings {
                 let ty = elem.lookup_property(prop.as_str());
@@ -818,7 +824,7 @@ pub fn instantiate<'id>(
                             &component_type.original.root_element.borrow().property_animations,
                             prop,
                         );
-                        let item = Pin::new_unchecked(&*mem.add(*offset));
+                        let item = Pin::new_unchecked(&*instance_ref.as_ptr().add(*offset));
 
                         let mut e = Some(&expr.expression);
                         while let Some(Expression::TwoWayBinding(nr, next)) = &e {

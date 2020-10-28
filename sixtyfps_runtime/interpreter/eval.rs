@@ -211,28 +211,46 @@ macro_rules! declare_value_enum_conversion {
 declare_value_enum_conversion!(corelib::items::TextHorizontalAlignment, TextHorizontalAlignment);
 declare_value_enum_conversion!(corelib::items::TextVerticalAlignment, TextVerticalAlignment);
 
+#[derive(Copy, Clone)]
+enum ComponentInstance<'a, 'id> {
+    InstanceRef(InstanceRef<'a, 'id>),
+    GlobalComponent(&'a Rc<crate::global_component::GlobalComponent>),
+}
+
 /// The local variable needed for binding evaluation
 pub struct EvalLocalContext<'a, 'id> {
     local_variables: HashMap<String, Value>,
     function_arguments: Vec<Value>,
-    component_instance: InstanceRef<'a, 'id>,
+    component_instance: ComponentInstance<'a, 'id>,
 }
 
 impl<'a, 'id> EvalLocalContext<'a, 'id> {
-    pub fn from_component_instance(component_instance: InstanceRef<'a, 'id>) -> Self {
+    pub fn from_component_instance(component: InstanceRef<'a, 'id>) -> Self {
         Self {
             local_variables: Default::default(),
             function_arguments: Default::default(),
-            component_instance,
+            component_instance: ComponentInstance::InstanceRef(component),
         }
     }
 
     /// Create a context for a function and passing the arguments
     pub fn from_function_arguments(
-        component_instance: InstanceRef<'a, 'id>,
+        component: InstanceRef<'a, 'id>,
         function_arguments: Vec<Value>,
     ) -> Self {
-        Self { component_instance, function_arguments, local_variables: Default::default() }
+        Self {
+            component_instance: ComponentInstance::InstanceRef(component),
+            function_arguments,
+            local_variables: Default::default(),
+        }
+    }
+
+    pub fn from_global(global: &'a Rc<crate::global_component::GlobalComponent>) -> Self {
+        Self {
+            local_variables: Default::default(),
+            function_arguments: Default::default(),
+            component_instance: ComponentInstance::GlobalComponent(global),
+        }
     }
 }
 
@@ -252,16 +270,14 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
         Expression::ElementReference(_) => todo!("Element references are only supported in the context of built-in function calls at the moment"),
         Expression::MemberFunction { .. } => panic!("member function expressions must not appear in the code generator anymore"),
         Expression::PropertyReference(NamedReference { element, name }) => {
-            load_property(local_context.component_instance, &element.upgrade().unwrap(), name.as_ref()).unwrap()
+            load_property_helper(local_context.component_instance, &element.upgrade().unwrap(), name.as_ref()).unwrap()
         }
-        Expression::RepeaterIndexReference { element } => load_property(
-            local_context.component_instance,
+        Expression::RepeaterIndexReference { element } => load_property_helper(local_context.component_instance,
             &element.upgrade().unwrap().borrow().base_type.as_component().root_element,
             "index",
         )
         .unwrap(),
-        Expression::RepeaterModelReference { element } => load_property(
-            local_context.component_instance,
+        Expression::RepeaterModelReference { element } => load_property_helper(local_context.component_instance,
             &element.upgrade().unwrap().borrow().base_type.as_component().root_element,
             "model_data",
         )
@@ -298,30 +314,37 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
             Expression::SignalReference(NamedReference { element, name }) => {
                 let element = element.upgrade().unwrap();
                 generativity::make_guard!(guard);
-                let enclosing_component =
-                    enclosing_component_for_element(&element, local_context.component_instance, guard);
-                let component_type = enclosing_component.component_type;
+                match enclosing_component_instance_for_element(&element, local_context.component_instance, guard) {
+                    ComponentInstance::InstanceRef(enclosing_component) => {
+                        let component_type = enclosing_component.component_type;
+                        let item_info = &component_type.items[element.borrow().id.as_str()];
+                        let item = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
 
-                let item_info = &component_type.items[element.borrow().id.as_str()];
-                let item = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
-
-                if let Some(signal_offset) = item_info.rtti.signals.get(name.as_str()) {
-                    let signal =
-                        unsafe { &*(item.as_ptr().add(*signal_offset) as *const Signal<()>) };
-                    signal.emit(&());
-                } else if let Some(signal_offset) = component_type.custom_signals.get(name.as_str())
-                {
-                    let signal = signal_offset.apply(&*enclosing_component.instance);
-                    let args = arguments.iter().map(|e| eval_expression(e, local_context));
-                    signal.emit(args.collect::<Vec<_>>().as_slice())
-                } else {
-                    panic!("unkown signal {}", name)
-                }
-
+                        if let Some(signal_offset) = item_info.rtti.signals.get(name.as_str()) {
+                            let signal =
+                                unsafe { &*(item.as_ptr().add(*signal_offset) as *const Signal<()>) };
+                            signal.emit(&());
+                        } else if let Some(signal_offset) = component_type.custom_signals.get(name.as_str())
+                        {
+                            let signal = signal_offset.apply(&*enclosing_component.instance);
+                            let args = arguments.iter().map(|e| eval_expression(e, local_context));
+                            signal.emit(args.collect::<Vec<_>>().as_slice())
+                        } else {
+                            panic!("unkown signal {}", name)
+                        }
+                    }
+                    ComponentInstance::GlobalComponent(global) => {
+                        let args = arguments.iter().map(|e| eval_expression(e, local_context));
+                        global.emit_signal(name.as_ref(), args.collect::<Vec<_>>().as_slice());
+                    }
+                };
                 Value::Void
             }
             Expression::BuiltinFunctionReference(BuiltinFunction::GetWindowScaleFactor) => {
-                Value::Number(window_ref(local_context.component_instance).unwrap().scale_factor() as _)
+                match local_context.component_instance {
+                    ComponentInstance::InstanceRef(component) => Value::Number(window_ref(component).unwrap().scale_factor() as _),
+                    ComponentInstance::GlobalComponent(_) => panic!("Cannot get the window from a global component"),
+                }
             }
             Expression::BuiltinFunctionReference(BuiltinFunction::Debug) => {
                 let a = arguments.iter().map(|e| eval_expression(e, local_context));
@@ -332,8 +355,11 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                 if arguments.len() != 1 {
                     panic!("internal error: incorrect argument count to SetFocusItem")
                 }
+                let component = match  local_context.component_instance  {
+                    ComponentInstance::InstanceRef(c) => c,
+                    ComponentInstance::GlobalComponent(_) => panic!("Cannot access the focus item from a global component")
+                };
                 if let Expression::ElementReference(focus_item) = &arguments[0] {
-                    let component = local_context.component_instance;
                     generativity::make_guard!(guard);
                     let component_ref: Pin<vtable::VRef<corelib::component::ComponentVTable>> = unsafe {
                         Pin::new_unchecked(vtable::VRef::from_raw(
@@ -452,35 +478,48 @@ fn eval_assignement(lhs: &Expression, op: char, rhs: Value, local_context: &mut 
     };
     match lhs {
         Expression::PropertyReference(NamedReference { element, name }) => {
-            if op == '=' {
-                store_property(
-                    local_context.component_instance,
-                    &element.upgrade().unwrap(),
-                    name.as_ref(),
-                    rhs,
-                )
-                .unwrap();
-                return;
-            }
             let element = element.upgrade().unwrap();
             generativity::make_guard!(guard);
-            let enclosing_component =
-                enclosing_component_for_element(&element, local_context.component_instance, guard);
+            let enclosing_component = enclosing_component_instance_for_element(
+                &element,
+                local_context.component_instance,
+                guard,
+            );
 
-            let component = element.borrow().enclosing_component.upgrade().unwrap();
-            if element.borrow().id == component.root_element.borrow().id {
-                if let Some(x) = enclosing_component.component_type.custom_properties.get(name) {
-                    unsafe {
-                        let p = Pin::new_unchecked(&*enclosing_component.as_ptr().add(x.offset));
-                        x.prop.set(p, eval(x.prop.get(p).unwrap()), None).unwrap();
+            match enclosing_component {
+                ComponentInstance::InstanceRef(enclosing_component) => {
+                    if op == '=' {
+                        store_property(enclosing_component, &element, name.as_ref(), rhs).unwrap();
+                        return;
                     }
-                    return;
+
+                    let component = element.borrow().enclosing_component.upgrade().unwrap();
+                    if element.borrow().id == component.root_element.borrow().id {
+                        if let Some(x) =
+                            enclosing_component.component_type.custom_properties.get(name)
+                        {
+                            unsafe {
+                                let p = Pin::new_unchecked(
+                                    &*enclosing_component.as_ptr().add(x.offset),
+                                );
+                                x.prop.set(p, eval(x.prop.get(p).unwrap()), None).unwrap();
+                            }
+                            return;
+                        }
+                    };
+                    let item_info =
+                        &enclosing_component.component_type.items[element.borrow().id.as_str()];
+                    let item =
+                        unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
+                    let p = &item_info.rtti.properties[name.as_str()];
+                    p.set(item, eval(p.get(item)), None);
                 }
-            };
-            let item_info = &enclosing_component.component_type.items[element.borrow().id.as_str()];
-            let item = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
-            let p = &item_info.rtti.properties[name.as_str()];
-            p.set(item, eval(p.get(item)), None);
+                ComponentInstance::GlobalComponent(global) => {
+                    let val =
+                        if op == '=' { rhs } else { eval(global.get_property(name.as_str())) };
+                    global.set_property(name.as_str(), val);
+                }
+            }
         }
         Expression::ObjectAccess { base, name } => {
             if let Value::Object(mut o) = eval_expression(base, local_context) {
@@ -491,9 +530,13 @@ fn eval_assignement(lhs: &Expression, op: char, rhs: Value, local_context: &mut 
         }
         Expression::RepeaterModelReference { element } => {
             let element = element.upgrade().unwrap();
+            let component_instance = match local_context.component_instance {
+                ComponentInstance::InstanceRef(i) => i,
+                ComponentInstance::GlobalComponent(_) => panic!("can't have repeater in global"),
+            };
             generativity::make_guard!(g1);
             let enclosing_component =
-                enclosing_component_for_element(&element, local_context.component_instance, g1);
+                enclosing_component_for_element(&element, component_instance, g1);
             // we need a 'static Repeater component in order to call model_set_row_data, so get it.
             // Safety: This is the only 'static Id in scope.
             let static_guard =
@@ -525,24 +568,37 @@ fn eval_assignement(lhs: &Expression, op: char, rhs: Value, local_context: &mut 
 }
 
 pub fn load_property(component: InstanceRef, element: &ElementRc, name: &str) -> Result<Value, ()> {
+    load_property_helper(ComponentInstance::InstanceRef(component), element, name)
+}
+
+fn load_property_helper(
+    component_instance: ComponentInstance,
+    element: &ElementRc,
+    name: &str,
+) -> Result<Value, ()> {
     generativity::make_guard!(guard);
-    let enclosing_component = enclosing_component_for_element(&element, component, guard);
-    let element = element.borrow();
-    if element.id == element.enclosing_component.upgrade().unwrap().root_element.borrow().id {
-        if let Some(x) = enclosing_component.component_type.custom_properties.get(name) {
-            return unsafe {
-                x.prop.get(Pin::new_unchecked(&*enclosing_component.as_ptr().add(x.offset)))
+    match enclosing_component_instance_for_element(&element, component_instance, guard) {
+        ComponentInstance::InstanceRef(enclosing_component) => {
+            let element = element.borrow();
+            if element.id == element.enclosing_component.upgrade().unwrap().root_element.borrow().id
+            {
+                if let Some(x) = enclosing_component.component_type.custom_properties.get(name) {
+                    return unsafe {
+                        x.prop.get(Pin::new_unchecked(&*enclosing_component.as_ptr().add(x.offset)))
+                    };
+                }
             };
+            let item_info = enclosing_component
+                .component_type
+                .items
+                .get(element.id.as_str())
+                .unwrap_or_else(|| panic!("Unkown element for {}.{}", element.id, name));
+            core::mem::drop(element);
+            let item = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
+            Ok(item_info.rtti.properties.get(name).ok_or(())?.get(item))
         }
-    };
-    let item_info = enclosing_component
-        .component_type
-        .items
-        .get(element.id.as_str())
-        .unwrap_or_else(|| panic!("Unkown element for {}.{}", element.id, name));
-    core::mem::drop(element);
-    let item = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
-    Ok(item_info.rtti.properties.get(name).ok_or(())?.get(item))
+        ComponentInstance::GlobalComponent(glob) => Ok(glob.get_property(name)),
+    }
 }
 
 pub fn store_property(
@@ -575,37 +631,55 @@ pub fn store_property(
     Ok(())
 }
 
-pub fn window_ref(component: InstanceRef) -> Option<sixtyfps_corelib::eventloop::ComponentWindow> {
+fn root_component_instance<'a, 'old_id, 'new_id>(
+    component: InstanceRef<'a, 'old_id>,
+    guard: generativity::Guard<'new_id>,
+) -> InstanceRef<'a, 'new_id> {
     if let Some(parent_offset) = component.component_type.parent_component_offset {
         let parent_component =
-            if let Some(parent) = parent_offset.apply(&*component.instance.as_ref()) {
+            if let Some(parent) = parent_offset.apply(&*component.instance.get_ref()) {
                 *parent
             } else {
-                return None;
+                panic!("invalid parent ptr");
             };
-        generativity::make_guard!(guard);
-        window_ref(unsafe { InstanceRef::from_pin_ref(parent_component, guard) })
+        // we need a 'static guard in order to be able to re-borrow with lifetime 'a.
+        // Safety: This is the only 'static Id in scope.
+        let static_guard = unsafe { generativity::Guard::new(generativity::Id::<'static>::new()) };
+        root_component_instance(
+            unsafe { InstanceRef::from_pin_ref(parent_component, static_guard) },
+            guard,
+        )
     } else {
-        component
-            .component_type
-            .extra_data_offset
-            .apply(&*component.instance.as_ref())
-            .window
-            .borrow()
-            .as_ref()
-            .map(|w| w.clone())
+        // Safety: new_id is an unique id
+        unsafe {
+            std::mem::transmute::<InstanceRef<'a, 'old_id>, InstanceRef<'a, 'new_id>>(component)
+        }
     }
 }
 
+pub fn window_ref(component: InstanceRef) -> Option<sixtyfps_corelib::eventloop::ComponentWindow> {
+    generativity::make_guard!(guard);
+    let root = root_component_instance(component, guard);
+    let x = root
+        .component_type
+        .extra_data_offset
+        .apply(&*root.instance.get_ref())
+        .window
+        .borrow()
+        .clone();
+    x
+}
+
+/// Return the component instance which hold the given element.
+/// Does not take in account the global component.
 pub fn enclosing_component_for_element<'a, 'old_id, 'new_id>(
     element: &'a ElementRc,
     component: InstanceRef<'a, 'old_id>,
     guard: generativity::Guard<'new_id>,
 ) -> InstanceRef<'a, 'new_id> {
-    if Rc::ptr_eq(
-        &element.borrow().enclosing_component.upgrade().unwrap(),
-        &component.component_type.original,
-    ) {
+    let enclosing = &element.borrow().enclosing_component.upgrade().unwrap();
+    assert!(!enclosing.is_global());
+    if Rc::ptr_eq(enclosing, &component.component_type.original) {
         // Safety: new_id is an unique id
         unsafe {
             std::mem::transmute::<InstanceRef<'a, 'old_id>, InstanceRef<'a, 'new_id>>(component)
@@ -623,6 +697,39 @@ pub fn enclosing_component_for_element<'a, 'old_id, 'new_id>(
             core::mem::transmute::<InstanceRef, InstanceRef<'a, 'static>>(parent_instance)
         };
         enclosing_component_for_element(element, parent_instance, guard)
+    }
+}
+
+/// Return the component instance which hold the given element.
+/// The difference with enclosing_component_for_element is that it taked in account the GlobalComponent.
+fn enclosing_component_instance_for_element<'a, 'old_id, 'new_id>(
+    element: &'a ElementRc,
+    component_instance: ComponentInstance<'a, 'old_id>,
+    guard: generativity::Guard<'new_id>,
+) -> ComponentInstance<'a, 'new_id> {
+    let enclosing = &element.borrow().enclosing_component.upgrade().unwrap();
+    match component_instance {
+        ComponentInstance::InstanceRef(component) => {
+            if enclosing.is_global() {
+                // we need a 'static guard in order to be able to borrow from `root` otherwise it does not work because of variance.
+                // Safety: This is the only 'static Id in scope.
+                let static_guard =
+                    unsafe { generativity::Guard::new(generativity::Id::<'static>::new()) };
+                let root = root_component_instance(component, static_guard);
+                ComponentInstance::GlobalComponent(
+                    &root.component_type.extra_data_offset.apply(&*root.instance.get_ref()).globals
+                        [enclosing.id.as_str()],
+                )
+            } else {
+                ComponentInstance::InstanceRef(enclosing_component_for_element(
+                    element, component, guard,
+                ))
+            }
+        }
+        ComponentInstance::GlobalComponent(global) => {
+            assert!(Rc::ptr_eq(enclosing, &global.component));
+            ComponentInstance::GlobalComponent(global)
+        }
     }
 }
 

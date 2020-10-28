@@ -187,6 +187,10 @@ impl<'id> InstanceBox<'id> {
     pub fn as_pin_ref(&self) -> core::pin::Pin<&Instance<'id>> {
         unsafe { core::pin::Pin::new_unchecked(self.0.as_ref()) }
     }
+
+    pub fn as_mut(&mut self) -> &mut Instance<'id> {
+        unsafe { self.0.as_mut() }
+    }
 }
 
 impl<'id> Drop for InstanceBox<'id> {
