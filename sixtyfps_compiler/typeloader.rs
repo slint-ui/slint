@@ -8,7 +8,6 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 use std::cell::RefCell;
-use std::collections::BTreeMap;
 use std::io::Read;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -64,6 +63,7 @@ pub fn load_dependencies_recursively<'a>(
     doc: &syntax_nodes::Document,
     mut diagnostics: &mut FileDiagnostics,
     registry_to_populate: &Rc<RefCell<TypeRegister>>,
+    global_type_registry: &Rc<RefCell<TypeRegister>>,
     compiler_config: &CompilerConfiguration,
     builtin_library: Option<&'a VirtualDirectory<'a>>,
     all_documents: &mut Vec<Document>,
@@ -76,6 +76,7 @@ pub fn load_dependencies_recursively<'a>(
             dependency_path,
             imported_types,
             registry_to_populate,
+            global_type_registry,
             diagnostics,
             compiler_config,
             builtin_library,
@@ -89,6 +90,7 @@ fn load_dependency<'a>(
     path: PathBuf,
     imported_types: ImportedTypes,
     registry_to_populate: &Rc<RefCell<TypeRegister>>,
+    global_type_registry: &Rc<RefCell<TypeRegister>>,
     importer_diagnostics: &mut FileDiagnostics,
     compiler_config: &CompilerConfiguration,
     builtin_library: Option<&'a VirtualDirectory<'a>>,
@@ -102,11 +104,12 @@ fn load_dependency<'a>(
 
     let dependency_doc: syntax_nodes::Document = dependency_doc.into();
 
-    let dependency_registry = Rc::new(RefCell::new(TypeRegister::new(&registry_to_populate)));
+    let dependency_registry = Rc::new(RefCell::new(TypeRegister::new(&global_type_registry)));
     load_dependencies_recursively(
         &dependency_doc,
         &mut dependency_diagnostics,
         &dependency_registry,
+        &global_type_registry,
         compiler_config,
         builtin_library,
         all_documents,
@@ -148,10 +151,12 @@ fn load_dependency<'a>(
         registry_to_populate.borrow_mut().add_with_name(import_name.internal_name, imported_type);
     }
     all_documents.push(doc);
-    if !dependency_diagnostics.is_empty() {
-        build_diagnostics.add(dependency_diagnostics);
-    }
+
+    // Add diagnostics regardless whether they're empty or not. This is used by the syntax_tests to
+    // also verify that imported files have no errors.
+    build_diagnostics.add(dependency_diagnostics);
 }
+
 pub struct ImportedName {
     // name of export to match in the other file
     pub external_name: String,
@@ -182,7 +187,7 @@ struct ImportedTypes {
     pub source_code: String,
 }
 
-type DependenciesByFile = BTreeMap<PathBuf, ImportedTypes>;
+type DependenciesByFile = indexmap::IndexMap<PathBuf, ImportedTypes>;
 
 fn collect_dependencies<'a>(
     doc: &syntax_nodes::Document,
@@ -227,7 +232,7 @@ fn collect_dependencies<'a>(
         let import_path = path_to_import.to_string();
         if let Some(mut dependency_file) = open_file_from_include_paths(import_path) {
             let dependency_entry = match dependencies.entry(dependency_file.path.clone()) {
-                std::collections::btree_map::Entry::Vacant(vacant_entry) => {
+                indexmap::map::Entry::Vacant(vacant_entry) => {
                     let mut source_code = String::new();
                     if dependency_file.file.read_to_string(&mut source_code).is_err() {
                         doc_diagnostics.push_error(
@@ -245,9 +250,7 @@ fn collect_dependencies<'a>(
                         source_code,
                     })
                 }
-                std::collections::btree_map::Entry::Occupied(existing_entry) => {
-                    existing_entry.into_mut()
-                }
+                indexmap::map::Entry::Occupied(existing_entry) => existing_entry.into_mut(),
             };
 
             dependency_entry.type_names.extend(ImportedName::extract_imported_names(&import));
@@ -282,7 +285,9 @@ fn test_dependency_loading() {
 
     let doc_node: syntax_nodes::Document = doc_node.into();
 
-    let registry = Rc::new(RefCell::new(TypeRegister::new(&TypeRegister::builtin())));
+    let global_registry = TypeRegister::builtin();
+
+    let registry = Rc::new(RefCell::new(TypeRegister::new(&global_registry)));
 
     let mut build_diagnostics = BuildDiagnostics::default();
     let mut docs = vec![];
@@ -291,6 +296,7 @@ fn test_dependency_loading() {
         &doc_node,
         &mut test_diags,
         &registry,
+        &global_registry,
         &compiler_config,
         None,
         &mut docs,

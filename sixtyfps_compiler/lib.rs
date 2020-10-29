@@ -101,6 +101,7 @@ pub fn compile_syntax_node(
             &doc_node,
             &mut diagnostics,
             &type_registry,
+            &global_type_registry,
             &compiler_config,
             library::widget_library().iter().find(|x| x.0 == style).map(|x| x.1),
             &mut all_docs,
