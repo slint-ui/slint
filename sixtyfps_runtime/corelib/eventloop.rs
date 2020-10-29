@@ -272,7 +272,9 @@ impl EventLoop {
                         {
                             if layout_listener.as_ref().is_dirty() {
                                 layout_listener.as_ref().evaluate(|| {
-                                    //TODO   window.apply_geometry_constraint(component.as_ref().layout_info());
+                                    window.apply_geometry_constraint(
+                                        component.as_ref().layout_info(),
+                                    );
                                     component.as_ref().apply_layout(window.get_geometry())
                                 })
                             }

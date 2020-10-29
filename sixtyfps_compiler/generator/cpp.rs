@@ -1010,15 +1010,30 @@ fn generate_component(
             }),
         ));
 
+        let (apply_layout, layout_info) = compute_layout(component, &mut repeater_layout_code);
+
         component_struct.members.push((
             Access::Public, // FIXME: we call this function from tests
             Declaration::Function(Function {
                 name: "apply_layout".into(),
                 signature:
-                    "(sixtyfps::private_api::ComponentRef component, sixtyfps::Rect rect) -> void"
+                    "(sixtyfps::private_api::ComponentRef component, [[maybe_unused]] sixtyfps::Rect rect) -> void"
                         .into(),
                 is_static: true,
-                statements: Some(compute_layout(component, &mut repeater_layout_code)),
+                statements: Some(apply_layout),
+                ..Default::default()
+            }),
+        ));
+
+        component_struct.members.push((
+            Access::Private,
+            Declaration::Function(Function {
+                name: "layout_info".into(),
+                signature:
+                    "([[maybe_unused]] sixtyfps::private_api::ComponentRef component) -> sixtyfps::LayoutInfo"
+                        .into(),
+                is_static: true,
+                statements: Some(layout_info),
                 ..Default::default()
             }),
         ));
@@ -1052,7 +1067,7 @@ fn generate_component(
             ty: "const sixtyfps::private_api::ComponentVTable".to_owned(),
             name: format!("{}::component_type", component_id),
             init: Some(
-                "{ visit_children, nullptr, apply_layout, input_event, key_event, focus_event }"
+                "{ visit_children, layout_info, apply_layout, input_event, key_event, focus_event }"
                     .to_owned(),
             ),
         }));
@@ -1593,15 +1608,9 @@ impl crate::layout::gen::Language for CppLanguageLayoutGen {
 
 type LayoutTreeItem<'a> = crate::layout::gen::LayoutTreeItem<'a, CppLanguageLayoutGen>;
 
-fn get_layout_info_ref<'a, 'b>(
-    item: &'a crate::layout::LayoutItem,
-    layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
-    component: &Rc<Component>,
-) -> String {
-    let layout_info = item.layout.as_ref().map(|l| {
-        let layout_tree_item =
-            crate::layout::gen::collect_layouts_recursively(layout_tree, l, component);
-        match layout_tree_item {
+impl<'a> LayoutTreeItem<'a> {
+    fn layout_info(&self) -> String {
+        match self {
             LayoutTreeItem::GridLayout { cell_ref_variable, spacing, padding, .. } => format!(
                 "sixtyfps::grid_layout_info(&{}, {}, &{})",
                 cell_ref_variable, spacing, padding
@@ -1616,8 +1625,18 @@ fn get_layout_info_ref<'a, 'b>(
                 "sixtyfps::box_layout_info(&{}, {}, &{}, {})",
                 cell_ref_variable, spacing, padding, is_horizontal
             ),
-            LayoutTreeItem::PathLayout(_) => todo!(),
+            LayoutTreeItem::PathLayout(_) => "{/*layout_info for path not implemented*/}".into(),
         }
+    }
+}
+
+fn get_layout_info_ref<'a, 'b>(
+    item: &'a crate::layout::LayoutItem,
+    layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
+    component: &Rc<Component>,
+) -> String {
+    let layout_info = item.layout.as_ref().map(|l| {
+        crate::layout::gen::collect_layouts_recursively(layout_tree, l, component).layout_info()
     });
     let elem_info = item.element.as_ref().map(|elem| {
             format!(
@@ -1854,28 +1873,48 @@ impl<'a> LayoutTreeItem<'a> {
 fn compute_layout(
     component: &Rc<Component>,
     repeater_layout_code: &mut Vec<String>,
-) -> Vec<String> {
+) -> (Vec<String>, Vec<String>) {
     let mut res = vec![];
+    let mut layout_info = vec!["return {};".to_owned()];
 
-    res.push(format!(
+    let intro = format!(
         "[[maybe_unused]] auto self = reinterpret_cast<const {ty}*>(component.instance);",
         ty = component_id(component)
-    ));
-    component.layouts.borrow().iter().for_each(|layout| {
+    );
+    res.push(intro.clone());
+    let component_layouts = component.layouts.borrow();
+    component_layouts.iter().enumerate().for_each(|(idx, layout)| {
         let mut inverse_layout_tree = Vec::new();
 
         res.push("    {".into());
-        crate::layout::gen::collect_layouts_recursively(
+        let layout_item = crate::layout::gen::collect_layouts_recursively(
             &mut inverse_layout_tree,
             layout,
             component,
         );
 
-        res.extend(inverse_layout_tree.iter().filter_map(|layout| match layout {
-            LayoutTreeItem::GridLayout { var_creation_code, .. } => Some(var_creation_code.clone()),
-            LayoutTreeItem::BoxLayout { var_creation_code, .. } => Some(var_creation_code.clone()),
-            LayoutTreeItem::PathLayout(_) => None,
-        }));
+        if component_layouts.main_layout == Some(idx) {
+            layout_info = vec![intro.clone(), format!("return {};", layout_item.layout_info())];
+        }
+
+        let mut creation_code = inverse_layout_tree
+            .iter()
+            .filter_map(|layout| match layout {
+                LayoutTreeItem::GridLayout { var_creation_code, .. } => {
+                    Some(var_creation_code.clone())
+                }
+                LayoutTreeItem::BoxLayout { var_creation_code, .. } => {
+                    Some(var_creation_code.clone())
+                }
+                LayoutTreeItem::PathLayout(_) => None,
+            })
+            .collect::<Vec<_>>();
+
+        if component_layouts.main_layout == Some(idx) {
+            layout_info.splice(1..1, creation_code.iter().cloned());
+        }
+
+        res.append(&mut creation_code);
 
         inverse_layout_tree
             .iter()
@@ -1886,7 +1925,7 @@ fn compute_layout(
 
     res.append(repeater_layout_code);
 
-    res
+    (res, layout_info)
 }
 
 fn compile_path(path: &crate::expression_tree::Path, component: &Rc<Component>) -> String {
