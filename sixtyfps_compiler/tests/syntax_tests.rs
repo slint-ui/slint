@@ -56,32 +56,13 @@ fn process_file(path: &std::path::Path) -> std::io::Result<bool> {
     })
 }
 
-fn process_file_source(
-    path: &std::path::Path,
+fn process_diagnostics(
+    mut compile_diagnostics: sixtyfps_compilerlib::diagnostics::FileDiagnostics,
     source: String,
     silent: bool,
 ) -> std::io::Result<bool> {
-    let (syntax_node, parse_diagnostics) =
-        sixtyfps_compilerlib::parser::parse(source.clone(), Some(path));
-    let mut compile_diagnostics = if !parse_diagnostics.has_error() {
-        let compiler_config = sixtyfps_compilerlib::CompilerConfiguration {
-            style: "ugly".into(),
-            ..Default::default()
-        };
-        let (_, build_diags) = sixtyfps_compilerlib::compile_syntax_node(
-            syntax_node,
-            parse_diagnostics,
-            &compiler_config,
-        );
-        build_diags.into_iter().collect()
-    } else {
-        vec![parse_diagnostics]
-    };
-
-    assert_eq!(compile_diagnostics.len(), 1);
-    let mut compile_diagnostics = compile_diagnostics.remove(0);
-
     let mut success = true;
+    let path = compile_diagnostics.current_path.as_ref();
 
     // Find expected errors in the file. The first caret (^) points to the expected column. The number of
     // carets refers to the number of lines to go back. This is useful when one line of code produces multiple
@@ -145,6 +126,44 @@ fn process_file_source(
         }
 
         success = false;
+    }
+
+    Ok(success)
+}
+
+fn process_file_source(
+    path: &std::path::Path,
+    source: String,
+    silent: bool,
+) -> std::io::Result<bool> {
+    let (syntax_node, parse_diagnostics) =
+        sixtyfps_compilerlib::parser::parse(source.clone(), Some(path));
+    let compile_diagnostics = if !parse_diagnostics.has_error() {
+        let compiler_config = sixtyfps_compilerlib::CompilerConfiguration {
+            style: "ugly".into(),
+            ..Default::default()
+        };
+        let (_, build_diags) = sixtyfps_compilerlib::compile_syntax_node(
+            syntax_node,
+            parse_diagnostics,
+            &compiler_config,
+        );
+        build_diags.into_iter().collect()
+    } else {
+        vec![parse_diagnostics]
+    };
+
+    assert!(compile_diagnostics.len() >= 1);
+
+    let mut success = true;
+
+    for diagnostics in compile_diagnostics.into_iter() {
+        let source = if *diagnostics.current_path == path {
+            source.clone()
+        } else {
+            std::fs::read_to_string(diagnostics.current_path.as_ref())?
+        };
+        success &= process_diagnostics(diagnostics, source, silent)?;
     }
 
     Ok(success)
