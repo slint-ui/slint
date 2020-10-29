@@ -86,16 +86,6 @@ cpp! {{
             return new QApplication(argc, argv2);
         }();
     }
-
-    QWidget *global_widget()
-    {
-#if defined(Q_WS_MAC)
-        static QWidget widget;
-        return &widget;
-#else
-        return nullptr;
-#endif
-    }
 }}
 
 #[repr(C)]
@@ -148,7 +138,7 @@ impl Item for NativeButton {
             option.rect = QRect(QPoint(), size / dpr);
             if (down)
                 option.state |= QStyle::State_Sunken;
-            qApp->style()->drawControl(QStyle::CE_PushButton, &option, &p, global_widget());
+            qApp->style()->drawControl(QStyle::CE_PushButton, &option, &p, nullptr);
         });
         return HighLevelRenderingPrimitive::Image { source: imgarray.to_resource() };
     }
@@ -268,7 +258,7 @@ impl Item for NativeCheckBox {
             option.text = std::move(text);
             option.rect = QRect(QPoint(), size / dpr);
             option.state |= checked ? QStyle::State_On : QStyle::State_Off;
-            qApp->style()->drawControl(QStyle::CE_CheckBox, &option, &p, global_widget());
+            qApp->style()->drawControl(QStyle::CE_CheckBox, &option, &p, nullptr);
         });
         return HighLevelRenderingPrimitive::Image { source: imgarray.to_resource() };
     }
@@ -411,7 +401,7 @@ impl Item for NativeSpinBox {
             initQSpinBoxOptions(option, pressed, active_controls);
             style->drawComplexControl(QStyle::CC_SpinBox, &option, &p, nullptr);
 
-            auto text_rect = style->subControlRect(QStyle::CC_SpinBox, &option, QStyle::SC_SpinBoxEditField, global_widget());
+            auto text_rect = style->subControlRect(QStyle::CC_SpinBox, &option, QStyle::SC_SpinBoxEditField, nullptr);
             p.drawText(text_rect, QString::number(value));
         });
         return HighLevelRenderingPrimitive::Image { source: imgarray.to_resource() };
@@ -609,7 +599,7 @@ impl Item for NativeSlider {
             option.rect = QRect(QPoint(), size / dpr);
             initQSliderOptions(option, pressed, active_controls, min, max, value);
             auto style = qApp->style();
-            style->drawComplexControl(QStyle::CC_Slider, &option, &p, global_widget());
+            style->drawComplexControl(QStyle::CC_Slider, &option, &p, nullptr);
         });
         return HighLevelRenderingPrimitive::Image { source: imgarray.to_resource() };
     }
@@ -879,7 +869,7 @@ impl Item for NativeGroupBox {
             }
             option.textColor = QColor(qApp->style()->styleHint(
                 QStyle::SH_GroupBox_TextLabelColor, &option));
-            qApp->style()->drawComplexControl(QStyle::CC_GroupBox, &option, &p, global_widget());
+            qApp->style()->drawComplexControl(QStyle::CC_GroupBox, &option, &p, nullptr);
         });
         return HighLevelRenderingPrimitive::Image { source: imgarray.to_resource() };
     }
@@ -1026,7 +1016,7 @@ impl Item for NativeLineEdit {
             option.midLineWidth = 0;
             if (focused)
                 option.state |= QStyle::State_HasFocus;
-            qApp->style()->drawPrimitive(QStyle::PE_PanelLineEdit, &option, &p, global_widget());
+            qApp->style()->drawPrimitive(QStyle::PE_PanelLineEdit, &option, &p, nullptr);
         });
         return HighLevelRenderingPrimitive::Image { source: imgarray.to_resource() };
     }
@@ -1112,14 +1102,14 @@ impl Item for NativeScrollView {
                     QStyleOptionSlider option;
                     initQSliderOptions(option, false, 0, 0, 1000, 1000);
 
-                    int extent = qApp->style()->pixelMetric(QStyle::PM_ScrollBarExtent, &option, global_widget());
-                    int sliderMin = qApp->style()->pixelMetric(QStyle::PM_ScrollBarSliderMin, &option, global_widget());
-                    auto horizontal_size = qApp->style()->sizeFromContents(QStyle::CT_ScrollBar, &option, QSize(extent * 2 + sliderMin, extent), global_widget());
+                    int extent = qApp->style()->pixelMetric(QStyle::PM_ScrollBarExtent, &option, nullptr);
+                    int sliderMin = qApp->style()->pixelMetric(QStyle::PM_ScrollBarSliderMin, &option, nullptr);
+                    auto horizontal_size = qApp->style()->sizeFromContents(QStyle::CT_ScrollBar, &option, QSize(extent * 2 + sliderMin, extent), nullptr);
                     option.state ^= QStyle::State_Horizontal;
                     option.orientation = Qt::Vertical;
-                    extent = qApp->style()->pixelMetric(QStyle::PM_ScrollBarExtent, &option, global_widget());
-                    sliderMin = qApp->style()->pixelMetric(QStyle::PM_ScrollBarSliderMin, &option, global_widget());
-                    auto vertical_size = qApp->style()->sizeFromContents(QStyle::CT_ScrollBar, &option, QSize(extent, extent * 2 + sliderMin), global_widget());
+                    extent = qApp->style()->pixelMetric(QStyle::PM_ScrollBarExtent, &option, nullptr);
+                    sliderMin = qApp->style()->pixelMetric(QStyle::PM_ScrollBarSliderMin, &option, nullptr);
+                    auto vertical_size = qApp->style()->sizeFromContents(QStyle::CT_ScrollBar, &option, QSize(extent, extent * 2 + sliderMin), nullptr);
 
                     /*int hscrollOverlap = hbar->style()->pixelMetric(QStyle::PM_ScrollView_ScrollBarOverlap, &opt, hbar);
                     int vscrollOverlap = vbar->style()->pixelMetric(QStyle::PM_ScrollView_ScrollBarOverlap, &opt, vbar);*/
@@ -1129,7 +1119,7 @@ impl Item for NativeScrollView {
                     frameOption.frameShape = QFrame::StyledPanel;
                     frameOption.lineWidth = 1;
                     frameOption.midLineWidth = 0;
-                    QRect cr = qApp->style()->subElementRect(QStyle::SE_ShapedFrameContents, &frameOption, global_widget());
+                    QRect cr = qApp->style()->subElementRect(QStyle::SE_ShapedFrameContents, &frameOption, nullptr);
                     return {
                         qRound(cr.left() * dpr),
                         qRound(cr.top() * dpr),
@@ -1194,9 +1184,9 @@ impl Item for NativeScrollView {
             frameOption.midLineWidth = 0;
             frameOption.rect = corner_rect.toAlignedRect();
             QPainter p(img);
-            qApp->style()->drawPrimitive(QStyle::PE_PanelScrollAreaCorner, &frameOption, &p, global_widget());
+            qApp->style()->drawPrimitive(QStyle::PE_PanelScrollAreaCorner, &frameOption, &p, nullptr);
             frameOption.rect = QRect(QPoint(), corner_rect.toAlignedRect().topLeft());
-            qApp->style()->drawControl(QStyle::CE_ShapedFrame, &frameOption, &p, global_widget());
+            qApp->style()->drawControl(QStyle::CE_ShapedFrame, &frameOption, &p, nullptr);
         });
 
         let draw_scrollbar = |horizontal: bool,
@@ -1232,7 +1222,7 @@ impl Item for NativeScrollView {
                 }
 
                 auto style = qApp->style();
-                style->drawComplexControl(QStyle::CC_ScrollBar, &option, &p, global_widget());
+                style->drawComplexControl(QStyle::CC_ScrollBar, &option, &p, nullptr);
             });
         };
 
@@ -1503,14 +1493,14 @@ impl Item for NativeStandardListViewItem {
             option.decorationPosition = QStyleOptionViewItem::Left;
             option.decorationAlignment = Qt::AlignCenter;
             option.displayAlignment = Qt::AlignLeft|Qt::AlignVCenter;
-            option.showDecorationSelected = qApp->style()->styleHint(QStyle::SH_ItemView_ShowDecorationSelected, nullptr, global_widget());
+            option.showDecorationSelected = qApp->style()->styleHint(QStyle::SH_ItemView_ShowDecorationSelected, nullptr, nullptr);
             if (index % 2) {
                 option.features |= QStyleOptionViewItem::Alternate;
             }
             option.features |= QStyleOptionViewItem::HasDisplay;
             option.text = text;
-            qApp->style()->drawPrimitive(QStyle::PE_PanelItemViewRow, &option, &p, global_widget());
-            qApp->style()->drawControl(QStyle::CE_ItemViewItem, &option, &p, global_widget());
+            qApp->style()->drawPrimitive(QStyle::PE_PanelItemViewRow, &option, &p, nullptr);
+            qApp->style()->drawControl(QStyle::CE_ItemViewItem, &option, &p, nullptr);
         });
         return HighLevelRenderingPrimitive::Image { source: imgarray.to_resource() };
     }
@@ -1538,13 +1528,13 @@ impl Item for NativeStandardListViewItem {
             option.decorationPosition = QStyleOptionViewItem::Left;
             option.decorationAlignment = Qt::AlignCenter;
             option.displayAlignment = Qt::AlignLeft|Qt::AlignVCenter;
-            option.showDecorationSelected = qApp->style()->styleHint(QStyle::SH_ItemView_ShowDecorationSelected, nullptr, global_widget());
+            option.showDecorationSelected = qApp->style()->styleHint(QStyle::SH_ItemView_ShowDecorationSelected, nullptr, nullptr);
             if (index % 2) {
                 option.features |= QStyleOptionViewItem::Alternate;
             }
             option.features |= QStyleOptionViewItem::HasDisplay;
             option.text = text;
-            return qApp->style()->sizeFromContents(QStyle::CT_ItemViewItem, &option, QSize{}, global_widget());
+            return qApp->style()->sizeFromContents(QStyle::CT_ItemViewItem, &option, QSize{}, nullptr);
         });
         let result = LayoutInfo {
             min_width: s.width as f32 * dpr,
