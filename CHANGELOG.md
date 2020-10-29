@@ -3,6 +3,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+ - Allow dashes in identifiers (#52)
+ - VerticalLayout / HorizontalLayout
+ - Placeholder text in line edit
+ - global components (#96)
+
 ## [0.0.2] - 2020-12-22
 
 ### Changed
