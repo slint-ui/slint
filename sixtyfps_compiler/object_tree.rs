@@ -1039,24 +1039,11 @@ impl Exports {
             .ExportsList()
             .flat_map(|exports| exports.ExportSpecifier())
             .filter_map(|export_specifier| {
-                let internal_name = match identifier_text(&export_specifier.ExportIdentifier()) {
-                    Some(name) => name,
-                    _ => {
-                        diag.push_error(
-                            "Missing internal name for export".to_owned(),
-                            &export_specifier.ExportIdentifier(),
-                        );
-                        return None;
-                    }
-                };
+                let internal_name = identifier_text(&export_specifier.ExportIdentifier())
+                    .expect("internal error: missing internal name for export");
                 let exported_name = match export_specifier.ExportName() {
-                    Some(ident) => match identifier_text(&ident) {
-                        Some(name) => name,
-                        None => {
-                            diag.push_error("Missing external name for export".to_owned(), &ident);
-                            return None;
-                        }
-                    },
+                    Some(ident) => identifier_text(&ident)
+                        .expect("internal error: missing external name for export"),
                     None => internal_name.clone(),
                 };
                 Some(NamedExport { internal_name, exported_name })
@@ -1065,16 +1052,8 @@ impl Exports {
 
         exports.extend(doc.ExportsList().flat_map(|exports| exports.Component()).filter_map(
             |component| {
-                let name = match identifier_text(&component.DeclaredIdentifier()) {
-                    Some(name) => name,
-                    None => {
-                        diag.push_error(
-                            "Cannot export component without name".to_owned(),
-                            &component,
-                        );
-                        return None;
-                    }
-                };
+                let name = identifier_text(&component.DeclaredIdentifier())
+                    .expect("internal error: cannot export component without name");
                 Some(NamedExport { internal_name: name.clone(), exported_name: name })
             },
         ));
