@@ -93,6 +93,8 @@ pub trait GenericWindow {
     fn set_height(&self, height: f32);
     /// Returns the geometry of the window
     fn get_geometry(&self) -> crate::graphics::Rect;
+    /// apply the constraints
+    fn apply_geometry_constraint(&self, constraints: crate::layout::LayoutInfo);
 
     /// This function is called by the generated code when a component and therefore its tree of items are destroyed. The
     /// implementation typically uses this to free the underlying graphics resources cached via [`crate::graphics::RenderingCache`].
@@ -270,6 +272,7 @@ impl EventLoop {
                         {
                             if layout_listener.as_ref().is_dirty() {
                                 layout_listener.as_ref().evaluate(|| {
+                                    //TODO   window.apply_geometry_constraint(component.as_ref().layout_info());
                                     component.as_ref().apply_layout(window.get_geometry())
                                 })
                             }

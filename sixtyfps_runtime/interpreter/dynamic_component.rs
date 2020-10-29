@@ -639,10 +639,6 @@ fn generate_component<'id>(
 
     let extra_data_offset = builder.add_field_type::<ComponentExtraData>();
 
-    extern "C" fn layout_info(_: ComponentRefPin) -> LayoutInfo {
-        todo!()
-    }
-
     let t = ComponentVTable {
         visit_children_item,
         layout_info,
@@ -1331,6 +1327,26 @@ extern "C" fn focus_event(
                 FocusEventResult::FocusItemNotFound
             }
         }
+    }
+}
+
+extern "C" fn layout_info(component: ComponentRefPin) -> LayoutInfo {
+    generativity::make_guard!(guard);
+    // This is fine since we can only be called with a component that with our vtable which is a ComponentDescription
+    let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
+
+    let component_layouts = instance_ref.component_type.original.layouts.borrow();
+    if let Some(idx) = component_layouts.main_layout {
+        let mut inverse_layout_tree = Default::default();
+        collect_layouts_recursively(
+            &mut inverse_layout_tree,
+            &component_layouts[idx],
+            instance_ref,
+            &eval::window_ref(instance_ref).unwrap(),
+        )
+        .layout_info()
+    } else {
+        Default::default()
     }
 }
 

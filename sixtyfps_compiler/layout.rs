@@ -42,7 +42,15 @@ impl Layout {
     }
 }
 
-pub type LayoutVec = Vec<Layout>;
+/// Holds a list of all layout in the component
+#[derive(derive_more::Deref, derive_more::DerefMut, Default, Debug)]
+pub struct LayoutVec {
+    #[deref]
+    #[deref_mut]
+    pub layouts: Vec<Layout>,
+    /// The index within the vector of the layout which applies to the root item, if any
+    pub main_layout: Option<usize>,
+}
 
 /// An Item in the layout tree
 #[derive(Debug, Default)]

@@ -344,6 +344,8 @@ export ScrollView := Rectangle {
     property <length> viewport_y <=> fli.viewport_y;
     property <length> visible_width <=> fli.width;
     property <length> visible_height <=> fli.height;
+    minimum_height: 50px;
+    minimum_width: 50px;
     border_width: 1px;
     border_color: Palette.border_color;
     color: Palette.base_background_color;

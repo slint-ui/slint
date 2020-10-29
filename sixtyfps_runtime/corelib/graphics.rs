@@ -764,6 +764,34 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
         )
     }
 
+    fn apply_geometry_constraint(&self, constraints: crate::layout::LayoutInfo) {
+        match &*self.map_state.borrow() {
+            GraphicsWindowBackendState::Unmapped => {}
+            GraphicsWindowBackendState::Mapped(window) => {
+                window.backend.borrow().window().set_min_inner_size(
+                    if constraints.min_width > 0. || constraints.min_height > 0. {
+                        Some(winit::dpi::PhysicalSize::new(
+                            constraints.min_width,
+                            constraints.min_height,
+                        ))
+                    } else {
+                        None
+                    },
+                );
+                window.backend.borrow().window().set_max_inner_size(
+                    if constraints.max_width < f32::MAX || constraints.max_height < f32::MAX {
+                        Some(winit::dpi::PhysicalSize::new(
+                            constraints.max_width.min(65535.),
+                            constraints.max_height.min(65535.),
+                        ))
+                    } else {
+                        None
+                    },
+                );
+            }
+        }
+    }
+
     fn free_graphics_resources(
         self: Rc<Self>,
         component: core::pin::Pin<crate::component::ComponentRef>,

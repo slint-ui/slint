@@ -167,7 +167,7 @@ fn lower_element_layout(
     component: &Rc<Component>,
     elem: &ElementRc,
     diag: &mut BuildDiagnostics,
-) -> Vec<Layout> {
+) -> LayoutVec {
     let old_children = {
         let mut elem = elem.borrow_mut();
         let new_children = Vec::with_capacity(elem.children.len());
@@ -182,7 +182,7 @@ fn lower_element_layout(
         height_reference: Some(NamedReference::new(elem, "height")),
     };
 
-    let mut found_layouts = Vec::new();
+    let mut found_layouts = LayoutVec::default();
 
     for child in old_children {
         if let Some(layout_parser) = layout_parse_function(&child) {
@@ -190,6 +190,9 @@ fn lower_element_layout(
             if let Some(layout) =
                 layout_parser(component, rect_to_layout.clone(), &child, &mut children, diag)
             {
+                if Rc::ptr_eq(elem, &component.root_element) {
+                    found_layouts.main_layout = Some(found_layouts.len());
+                }
                 found_layouts.push(layout);
             }
             elem.borrow_mut().children = children;
@@ -211,7 +214,11 @@ fn lower_element_layout(
 pub fn lower_layouts(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
     recurse_elem(&component.root_element, &(), &mut |elem, _| {
         let mut layouts = lower_element_layout(component, elem, diag);
-        component.layouts.borrow_mut().append(&mut layouts);
+        let mut component_layouts = component.layouts.borrow_mut();
+        component_layouts.main_layout = component_layouts
+            .main_layout
+            .or_else(|| layouts.main_layout.map(|x| x + component_layouts.len()));
+        component_layouts.append(&mut layouts);
 
         if elem.borrow().repeated.is_some() {
             if let Type::Component(base) = &elem.borrow().base_type {
