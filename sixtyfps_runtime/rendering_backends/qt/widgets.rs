@@ -1207,9 +1207,15 @@ impl Item for NativeScrollView {
                 dpr as "float",
                 horizontal as "bool"
             ] {
-                QPainter p(img);
                 auto r = rect.toAlignedRect();
+            #if defined(Q_OS_MAC)
+                QImage scrollbar_image(r.size(), QImage::Format_ARGB32_Premultiplied);
+                scrollbar_image.fill(Qt::transparent);
+                QPainter p(&scrollbar_image);
+            #else
+                QPainter p(img);
                 p.translate(r.topLeft()); // There is bugs in the styles if the scrollbar is not in (0,0)
+            #endif
                 QStyleOptionSlider option;
                 option.rect = QRect(QPoint(), r.size());
                 initQSliderOptions(option, pressed, active_controls, 0, max / dpr, -value / dpr);
@@ -1223,6 +1229,11 @@ impl Item for NativeScrollView {
 
                 auto style = qApp->style();
                 style->drawComplexControl(QStyle::CC_ScrollBar, &option, &p, nullptr);
+                p.end();
+            #if defined(Q_OS_MAC)
+                p.begin(img);
+                p.drawImage(r.topLeft(), scrollbar_image);
+            #endif
             });
         };
 
