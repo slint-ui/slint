@@ -1481,23 +1481,33 @@ impl crate::layout::gen::Language for RustLanguageLayoutGen {
 
 type LayoutTreeItem<'a> = crate::layout::gen::LayoutTreeItem<'a, RustLanguageLayoutGen>;
 
+impl<'a> LayoutTreeItem<'a> {
+    fn layout_info(&self) -> TokenStream {
+        match self {
+            LayoutTreeItem::GridLayout { cell_ref_variable, spacing, padding, .. } => {
+                quote!(grid_layout_info(&Slice::from_slice(&#cell_ref_variable), #spacing, #padding))
+            }
+            LayoutTreeItem::BoxLayout {
+                cell_ref_variable,
+                spacing,
+                padding,
+                is_horizontal,
+                ..
+            } => {
+                quote!(box_layout_info(&Slice::from_slice(&#cell_ref_variable), #spacing, #padding, #is_horizontal))
+            }
+            LayoutTreeItem::PathLayout(_) => quote!(todo!("layout_info for PathLayout in rust.rs")),
+        }
+    }
+}
+
 fn get_layout_info_ref<'a, 'b>(
     item: &'a crate::layout::LayoutItem,
     layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
     component: &Rc<Component>,
 ) -> TokenStream {
-    let layout_info = item.layout.as_ref().map(|l|{
-        let layout_tree_item =
-            crate::layout::gen::collect_layouts_recursively(layout_tree, l, component);
-        match layout_tree_item {
-            LayoutTreeItem::GridLayout { cell_ref_variable, spacing, padding, .. } => {
-                quote!(grid_layout_info(&Slice::from_slice(&#cell_ref_variable), #spacing, #padding))
-            }
-            LayoutTreeItem::BoxLayout { cell_ref_variable, spacing, padding, is_horizontal, .. } => {
-                quote!(box_layout_info(&Slice::from_slice(&#cell_ref_variable), #spacing, #padding, #is_horizontal))
-            }
-            LayoutTreeItem::PathLayout(_) => todo!(),
-        }
+    let layout_info = item.layout.as_ref().map(|l| {
+        crate::layout::gen::collect_layouts_recursively(layout_tree, l, component).layout_info()
     });
     let elem_info = item.element.as_ref().map(|elem| {
         let e = format_ident!("{}", elem.borrow().id);
@@ -1738,20 +1748,40 @@ fn compute_layout(
     repeated_element_layouts: &[TokenStream],
 ) -> TokenStream {
     let mut layouts = vec![];
-    component.layouts.borrow().iter().for_each(|layout| {
+    let mut layout_info = quote!(Default::default());
+    let component_layouts = component.layouts.borrow();
+
+    component_layouts.iter().enumerate().for_each(|(idx, layout)| {
         let mut inverse_layout_tree = Vec::new();
 
-        crate::layout::gen::collect_layouts_recursively(
+        let layout_item = crate::layout::gen::collect_layouts_recursively(
             &mut inverse_layout_tree,
             layout,
             component,
         );
 
-        layouts.extend(inverse_layout_tree.iter().filter_map(|layout| match layout {
-            LayoutTreeItem::GridLayout { var_creation_code, .. } => Some(var_creation_code.clone()),
-            LayoutTreeItem::BoxLayout { var_creation_code, .. } => Some(var_creation_code.clone()),
-            LayoutTreeItem::PathLayout(_) => None,
-        }));
+        if component_layouts.main_layout == Some(idx) {
+            layout_info = layout_item.layout_info()
+        }
+
+        let mut creation_code = inverse_layout_tree
+            .iter()
+            .filter_map(|layout| match layout {
+                LayoutTreeItem::GridLayout { var_creation_code, .. } => {
+                    Some(var_creation_code.clone())
+                }
+                LayoutTreeItem::BoxLayout { var_creation_code, .. } => {
+                    Some(var_creation_code.clone())
+                }
+                LayoutTreeItem::PathLayout(_) => None,
+            })
+            .collect::<Vec<_>>();
+
+        if component_layouts.main_layout == Some(idx) {
+            layout_info = quote!(#(#creation_code)* #layout_info);
+        }
+
+        layouts.append(&mut creation_code);
 
         inverse_layout_tree
             .iter()
@@ -1763,7 +1793,11 @@ fn compute_layout(
 
     quote! {
         fn layout_info(self: ::core::pin::Pin<&Self>) -> sixtyfps::re_exports::LayoutInfo {
-            todo!("Implement in rust.rs")
+            #![allow(unused)]
+            use sixtyfps::re_exports::*;
+            let _self = self;
+            let window = #window_ref.clone();
+            #layout_info
         }
         fn apply_layout(self: ::core::pin::Pin<&Self>, _: sixtyfps::re_exports::Rect) {
             #![allow(unused)]
