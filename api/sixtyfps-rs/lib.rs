@@ -11,7 +11,7 @@ LICENSE END */
 # SixtyFPS
 
 This crate is the main entry point for embedding user interfaces designed with
-[SixtyFPS UI](https://www.sixtyfps.io/) in Rust programs.
+[SixtyFPS UI](https://sixtyfps.io/) in Rust programs.
 
 Included in this documentation is also the [language reference](docs::langref).
 

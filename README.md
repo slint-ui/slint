@@ -47,9 +47,9 @@ from potential customers or users.
 
 Refer to the README of each language directory in the `api` sub-folder:
 
- * [SixtyFPS-cpp](api/sixtyfps-cpp) ([Documentation](https://www.sixtyfps.io/docs/cpp))
- * [SixtyFPS-rs](api/sixtyfps-rs) ([Documentation](https://www.sixtyfps.io/docs/rust/sixtyfps/) [![Crates.io](https://img.shields.io/crates/v/sixtyfps)](https://crates.io/crates/sixtyfps))
- * [SixtyFPS-node](api/sixtyfps-node) ([Documentation](https://www.sixtyfps.io/docs/node) [![npm](https://img.shields.io/npm/v/sixtyfps)](https://www.npmjs.com/package/sixtyfps))
+ * [SixtyFPS-cpp](api/sixtyfps-cpp) ([Documentation](https://sixtyfps.io/docs/cpp))
+ * [SixtyFPS-rs](api/sixtyfps-rs) ([Documentation](https://sixtyfps.io/docs/rust/sixtyfps/) [![Crates.io](https://img.shields.io/crates/v/sixtyfps)](https://crates.io/crates/sixtyfps))
+ * [SixtyFPS-node](api/sixtyfps-node) ([Documentation](https://sixtyfps.io/docs/node) [![npm](https://img.shields.io/npm/v/sixtyfps)](https://www.npmjs.com/package/sixtyfps))
 
 The [examples](/examples) folder contains examples and demos. The `docs` folder contains [build instructions](docs/building.md) and [internal developer docs](docs/development.md).
 
@@ -60,7 +60,7 @@ Click on the screenshots to run the WebAssembly simulation
 
 | Printer Demo | Widget Gallery | Todo |
 |--------------|----------------|----------------|
-| [![Screenshot of the Printer Demo](resources/printerdemo_screenshot.png "Printer Demo")](https://www.sixtyfps.io/demos/printerdemo/) | [![Screenshot of the Gallery Demo](resources/gallery_screenshot.png "Gallery Demo")](https://www.sixtyfps.io/demos/gallery/) | [![Screenshot of the Todo Demo](resources/todo_screenshot.png "Todo Demo")](https://www.sixtyfps.io/demos/todo/) |
+| [![Screenshot of the Printer Demo](resources/printerdemo_screenshot.png "Printer Demo")](https://sixtyfps.io/demos/printerdemo/) | [![Screenshot of the Gallery Demo](resources/gallery_screenshot.png "Gallery Demo")](https://sixtyfps.io/demos/gallery/) | [![Screenshot of the Todo Demo](resources/todo_screenshot.png "Todo Demo")](https://sixtyfps.io/demos/todo/) |
 
 ## Desktop Native Widgets
 

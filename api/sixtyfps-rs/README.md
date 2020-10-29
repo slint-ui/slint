@@ -5,14 +5,14 @@
 
 **A Rust UI toolkit**
 
-[SixtyFPS](https://www.sixtyfps.io/) is a UI toolkit that supports different programming languages.
+[SixtyFPS](https://sixtyfps.io/) is a UI toolkit that supports different programming languages.
 SixtyFPS-rs is the Rust API to interact with a SixtyFPS UI design from Rust.
 
-The complete Rust documentation can be viewed online at https://www.sixtyfps.io/docs/rust/sixtyfps/.
+The complete Rust documentation can be viewed online at https://sixtyfps.io/docs/rust/sixtyfps/.
 
 ## Getting Started
 
-The [crate documentation](https://www.sixtyfps.io/docs/rust/sixtyfps/) shows how to use this crate.
+The [crate documentation](https://sixtyfps.io/docs/rust/sixtyfps/) shows how to use this crate.
 
 ### Hello World
 
@@ -41,7 +41,7 @@ fn main() {
 }
 ```
 
-The [`sixtyfps` crate documentation](https://www.sixtyfps.io/docs/rust/sixtyfps/)
+The [`sixtyfps` crate documentation](https://sixtyfps.io/docs/rust/sixtyfps/)
 contains more advanced examples and alternative ways to use this crate.
 
 ## More examples

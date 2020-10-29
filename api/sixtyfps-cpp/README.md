@@ -2,10 +2,10 @@
 
 **A C++ UI toolkit**
 
-[SixtyFPS](https://www.sixtyfps.io/) is a UI toolkit that supports different programming languages.
+[SixtyFPS](https://sixtyfps.io/) is a UI toolkit that supports different programming languages.
 SixtyFPS.cpp is the C++ API to interact with a SixtyFPS UI from C++.
 
-The complete C++ documentation can be viewed online at https://www.sixtyfps.io/docs/cpp/.
+The complete C++ documentation can be viewed online at https://sixtyfps.io/docs/cpp/.
 
 **Warning: Pre-Alpha**
 SixtyFPS is still in the early stages of development: APIs will change and important features are still being developed.

@@ -9,7 +9,7 @@ A fictional user interface for the touch screen of a printer
 
 `.60` Design | Rust Source | C++ Source | Node Source | Online wasm Preview  | Open in code editor
 --- | --- | --- | --- | --- | ---
-[`ui.60`](./printerdemo/ui/printerdemo.60) | [`main.rs`](./printerdemo/rust/main.rs) | [`main.cpp`](./printerdemo/cpp/main.cpp) | [`main.js`](./printerdemo/node/main.js)| [Online simulation](https://www.sixtyfps.io/demos/printerdemo/) | [Preview in Online Code Editor](https://www.sixtyfps.io/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/printerdemo/ui/printerdemo.60)
+[`ui.60`](./printerdemo/ui/printerdemo.60) | [`main.rs`](./printerdemo/rust/main.rs) | [`main.cpp`](./printerdemo/cpp/main.cpp) | [`main.js`](./printerdemo/node/main.js)| [Online simulation](https://sixtyfps.io/demos/printerdemo/) | [Preview in Online Code Editor](https://sixtyfps.io/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/printerdemo/ui/printerdemo.60)
 
 ![Screenshot of the Printer Demo](/resources/printerdemo_screenshot.png "Printer Demo")
 
@@ -20,7 +20,7 @@ A simple application showing the different widgets
 
 `.60` Design | Rust Source | C++ Source | Online wasm Preview  | Open in code editor
 --- | --- | --- | --- | ---
-[`gallery.60`](./gallery/gallery.60) | [`main.rs`](./gallery/main.rs) | [`main.cpp`](./gallery/main.cpp)| [Online simulation](https://www.sixtyfps.io/demos/gallery/) | [Preview in Online Code Editor](https://www.sixtyfps.io/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/gallery/gallery.60)
+[`gallery.60`](./gallery/gallery.60) | [`main.rs`](./gallery/main.rs) | [`main.cpp`](./gallery/main.cpp)| [Online simulation](https://sixtyfps.io/demos/gallery/) | [Preview in Online Code Editor](https://sixtyfps.io/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/gallery/gallery.60)
 
 ![Screenshot of the Gallery on Windows](/resources/gallery_win_screenshot.png "Gallery")
 
@@ -30,7 +30,7 @@ A simple todo mvc application
 
 `.60` Design | Rust Source | C++ Source | Node Source | Online wasm Preview  | Open in code editor
 --- | --- | --- | --- | --- | ---
-[`todo.60`](./todo/ui/todo.60) | [`main.rs`](./todo/rust/main.rs) | [`main.cpp`](./todo/cpp/main.cpp) | [`main.js`](./todo/node/main.js) | [Online simulation](https://www.sixtyfps.io/demos/todo/) | [Preview in Online Code Editor](https://www.sixtyfps.io/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/todo/ui/.60)
+[`todo.60`](./todo/ui/todo.60) | [`main.rs`](./todo/rust/main.rs) | [`main.cpp`](./todo/cpp/main.cpp) | [`main.js`](./todo/node/main.js) | [Online simulation](https://sixtyfps.io/demos/todo/) | [Preview in Online Code Editor](https://sixtyfps.io/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/todo/ui/.60)
 
 
 ## Loading the example with the `viewer`

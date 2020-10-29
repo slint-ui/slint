@@ -2,10 +2,10 @@
 
 [![npm](https://img.shields.io/npm/v/sixtyfps)](https://www.npmjs.com/package/sixtyfps)
 
-[SixtyFPS](https://www.sixtyfps.io/) is a UI toolkit that supports different programming languages.
+[SixtyFPS](https://sixtyfps.io/) is a UI toolkit that supports different programming languages.
 SixtyFPS-node is the integration with node.
 
-The complete C++ documentation can be viewed online at https://www.sixtyfps.io/docs/node/.
+The complete C++ documentation can be viewed online at https://sixtyfps.io/docs/node/.
 
 **Warning: Pre-Alpha**
 SixtyFPS is still in the early stages of development: APIs will change and important features are still being developed.
