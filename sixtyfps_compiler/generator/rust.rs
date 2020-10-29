@@ -392,10 +392,10 @@ fn generate_component(
                             viewport_width: core::pin::Pin<&sixtyfps::re_exports::Property<f32>>,
                         ) {
                             use sixtyfps::re_exports::*;
-                            self.compute_layout();
+                            let vp_w = viewport_width.get();
+                            self.apply_layout(Rect::new(Point::new(0., *offset_y), Size::new(vp_w, 0.)));
                             #p_y.set(*offset_y);
                             *offset_y += #p_height.get();
-                            let vp_w = viewport_width.get();
                             let w = #p_width.get();
                             if vp_w < w {
                                 viewport_width.set(w);
@@ -1765,7 +1765,7 @@ fn compute_layout(
         fn layout_info(self: ::core::pin::Pin<&Self>) -> sixtyfps::re_exports::LayoutInfo {
             todo!("Implement in rust.rs")
         }
-        fn compute_layout(self: ::core::pin::Pin<&Self>) {
+        fn apply_layout(self: ::core::pin::Pin<&Self>, _: sixtyfps::re_exports::Rect) {
             #![allow(unused)]
             use sixtyfps::re_exports::*;
             let dummy = Property::<f32>::default();

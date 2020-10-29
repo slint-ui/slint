@@ -410,7 +410,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
 
                 for c in self.inner.borrow().borrow().components.iter() {
                     c.1.as_ref().map(|x| {
-                        x.as_ref().compute_layout();
+                        x.as_ref().apply_layout(Default::default());
                         x.as_ref().visit_children_item(-1, crate::item_tree::TraversalOrder::FrontToBack, get_height_visitor.borrow_mut());
                     });
                 }
@@ -429,7 +429,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
                     self.ensure_updated_impl(&init, &model, 1);
                     if let Some(c) = self.inner.borrow().borrow().components.get(0) {
                         c.1.as_ref().map(|x| {
-                            x.as_ref().compute_layout();
+                            x.as_ref().apply_layout(Default::default());
                             x.as_ref().visit_children_item(-1, crate::item_tree::TraversalOrder::FrontToBack, get_height_visitor);
                         });
                     } else {
@@ -571,7 +571,7 @@ impl<C: RepeatedComponent> Repeater<C> {
     /// Recompute the layout of each child elements
     pub fn compute_layout(&self) {
         for c in self.inner.borrow().borrow().components.iter() {
-            c.1.as_ref().map(|x| x.as_ref().compute_layout());
+            c.1.as_ref().map(|x| x.as_ref().apply_layout(Default::default()));
         }
     }
 

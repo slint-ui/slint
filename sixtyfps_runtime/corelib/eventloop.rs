@@ -91,6 +91,9 @@ pub trait GenericWindow {
     /// Sets the size of the window to the specified `height`. This method is typically called in response to receiving a
     /// window resize event from the windowing system.
     fn set_height(&self, height: f32);
+    /// Returns the geometry of the window
+    fn get_geometry(&self) -> crate::graphics::Rect;
+
     /// This function is called by the generated code when a component and therefore its tree of items are destroyed. The
     /// implementation typically uses this to free the underlying graphics resources cached via [`crate::graphics::RenderingCache`].
     fn free_graphics_resources(
@@ -266,9 +269,9 @@ impl EventLoop {
                             windows.borrow().get(&id).map(|weakref| weakref.upgrade())
                         {
                             if layout_listener.as_ref().is_dirty() {
-                                layout_listener
-                                    .as_ref()
-                                    .evaluate(|| component.as_ref().compute_layout())
+                                layout_listener.as_ref().evaluate(|| {
+                                    component.as_ref().apply_layout(window.get_geometry())
+                                })
                             }
                             window.draw(component);
                         }

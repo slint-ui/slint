@@ -12,6 +12,7 @@ LICENSE END */
 //! This module contains the basic datastructures that are exposed to the C API
 
 use crate::eventloop::ComponentWindow;
+use crate::graphics::Rect;
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventResult, KeyEvent, KeyEventResult, MouseEvent,
 };
@@ -36,8 +37,8 @@ pub struct ComponentVTable {
     /// Returns the layout info for this component
     pub layout_info: extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>) -> LayoutInfo,
 
-    /// Will compute the layout of
-    pub compute_layout: extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>),
+    /// Apply the layout to all the items in the component, and set the geometry of the root to the given rect
+    pub apply_layout: extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>, Rect),
 
     /// input event
     pub input_event: extern "C" fn(

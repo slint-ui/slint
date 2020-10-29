@@ -473,7 +473,9 @@ fn handle_repeater(
             i = repeater_count,
         ));
 
-        layout_repeater_code.push(format!("self->{}.compute_layout();", repeater_id));
+        // FIXME: we should probably pass the parent element rect?
+        layout_repeater_code
+            .push(format!("self->{}.compute_layout(sixtyfps::Rect{{  }});", repeater_id,));
     }
 
     repeated_input_branch.push(format!(
@@ -755,10 +757,10 @@ fn generate_component(
                         "(float *offset_y, const sixtyfps::Property<float> *viewport_width) const -> void"
                             .to_owned(),
                     statements: Some(vec![
-                        "compute_layout({&component_type, const_cast<void *>(static_cast<const void *>(this))});".to_owned(),
-                        format!("{}.set(*offset_y);", p_y),
-                        format!("*offset_y += {}.get();", p_height),
                         "float vp_w = viewport_width->get();".to_owned(),
+                        format!("apply_layout({{&component_type, const_cast<void *>(static_cast<const void *>(this))}}, sixtyfps::Rect{{ 0, *offset_y, vp_w, {h} }});", h = "0/*FIXME: should compute the heigth somehow*/"),
+                        format!("{}.set(*offset_y);", p_y), // FIXME: shouldn't that be handled by apply layout?
+                        format!("*offset_y += {}.get();", p_height),
                         format!("float w = {}.get();", p_width),
                         "if (vp_w < w)".to_owned(),
                         "    viewport_width->set(w);".to_owned(),
@@ -1011,8 +1013,10 @@ fn generate_component(
         component_struct.members.push((
             Access::Public, // FIXME: we call this function from tests
             Declaration::Function(Function {
-                name: "compute_layout".into(),
-                signature: "(sixtyfps::private_api::ComponentRef component) -> void".into(),
+                name: "apply_layout".into(),
+                signature:
+                    "(sixtyfps::private_api::ComponentRef component, sixtyfps::Rect rect) -> void"
+                        .into(),
                 is_static: true,
                 statements: Some(compute_layout(component, &mut repeater_layout_code)),
                 ..Default::default()
@@ -1048,7 +1052,7 @@ fn generate_component(
             ty: "const sixtyfps::private_api::ComponentVTable".to_owned(),
             name: format!("{}::component_type", component_id),
             init: Some(
-                "{ visit_children, nullptr, compute_layout, input_event, key_event, focus_event }"
+                "{ visit_children, nullptr, apply_layout, input_event, key_event, focus_event }"
                     .to_owned(),
             ),
         }));

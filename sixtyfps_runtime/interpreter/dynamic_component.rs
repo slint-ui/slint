@@ -137,7 +137,7 @@ impl<'id> sixtyfps_corelib::model::RepeatedComponent for ComponentBox<'id> {
     }
 
     fn listview_layout(self: Pin<&Self>, offset_y: &mut f32, viewport_width: Pin<&Property<f32>>) {
-        self.as_ref().compute_layout();
+        self.as_ref().apply_layout(Default::default());
         self.component_type
             .set_property(self.borrow(), "y", eval::Value::Number(*offset_y as f64))
             .expect("cannot set y");
@@ -199,8 +199,8 @@ impl<'id> Component for ComponentBox<'id> {
     fn layout_info(self: ::core::pin::Pin<&Self>) -> sixtyfps_corelib::layout::LayoutInfo {
         self.borrow().as_ref().layout_info()
     }
-    fn compute_layout(self: ::core::pin::Pin<&Self>) {
-        self.borrow().as_ref().compute_layout()
+    fn apply_layout(self: ::core::pin::Pin<&Self>, r: sixtyfps_corelib::graphics::Rect) {
+        self.borrow().as_ref().apply_layout(r)
     }
 }
 
@@ -646,7 +646,7 @@ fn generate_component<'id>(
     let t = ComponentVTable {
         visit_children_item,
         layout_info,
-        compute_layout,
+        apply_layout,
         input_event,
         key_event,
         focus_event,
@@ -1334,7 +1334,7 @@ extern "C" fn focus_event(
     }
 }
 
-extern "C" fn compute_layout(component: ComponentRefPin) {
+extern "C" fn apply_layout(component: ComponentRefPin, _r: sixtyfps_corelib::graphics::Rect) {
     generativity::make_guard!(guard);
     // This is fine since we can only be called with a component that with our vtable which is a ComponentDescription
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };

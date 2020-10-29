@@ -64,7 +64,7 @@ TestCase := Rectangle {
 
 ```cpp
 TestCase instance;
-TestCase::compute_layout({&TestCase::component_type, &instance });
+TestCase::apply_layout({&TestCase::component_type, &instance }, sixtyfps::Rect{0, 0, 300, 300});
 assert(instance.get_blue_rect_ok());
 assert(instance.get_red_rect_ok());
 assert(instance.get_green_rect_ok());
@@ -78,7 +78,7 @@ assert(instance.get_pink_rect_ok());
 let instance = TestCase::new();
 let instance = instance.as_ref();
 use sixtyfps::re_exports::Component;
-instance.compute_layout();
+instance.apply_layout(sixtyfps::re_exports::Rect::new(Default::default(), sixtyfps::re_exports::Size::new(300., 300.)));
 assert!(instance.get_blue_rect_ok());
 assert!(instance.get_red_rect_ok());
 assert!(instance.get_green_rect_ok());

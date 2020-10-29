@@ -755,6 +755,15 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
         self.properties.as_ref().height.set(height);
     }
 
+    fn get_geometry(&self) -> crate::graphics::Rect {
+        euclid::rect(
+            0.,
+            0.,
+            WindowProperties::FIELD_OFFSETS.width.apply_pin(self.properties.as_ref()).get(),
+            WindowProperties::FIELD_OFFSETS.height.apply_pin(self.properties.as_ref()).get(),
+        )
+    }
+
     fn free_graphics_resources(
         self: Rc<Self>,
         component: core::pin::Pin<crate::component::ComponentRef>,

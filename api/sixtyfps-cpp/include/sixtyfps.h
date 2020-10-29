@@ -281,6 +281,7 @@ using cbindgen_private::solve_grid_layout;
 using cbindgen_private::solve_box_layout;
 using cbindgen_private::box_layout_info;
 using cbindgen_private::solve_path_layout;
+using cbindgen_private::Rect;
 
 inline LayoutInfo LayoutInfo::merge(const LayoutInfo &other) const {
     // Note: This "logic" is duplicated from LayoutInfo::merge in layout.rs.
@@ -461,7 +462,7 @@ class Repeater
     };
 
 public:
-    // FIXME: should be private, but compute_layout uses it.
+    // FIXME: should be private, but layouting code uses it.
     mutable std::shared_ptr<RepeaterInner> inner;
 
     template<typename F>
@@ -531,12 +532,12 @@ public:
         return { &C::component_type, x.ptr.get() };
     }
 
-    void compute_layout() const
+    void compute_layout(cbindgen_private::Rect parent_rect) const
     {
         if (!inner)
             return;
         for (auto &x : inner->data) {
-            x.ptr->compute_layout({ &C::component_type, x.ptr.get() });
+            x.ptr->apply_layout({ &C::component_type, x.ptr.get() }, parent_rect);
         }
     }
 
