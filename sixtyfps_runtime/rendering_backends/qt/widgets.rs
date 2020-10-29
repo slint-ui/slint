@@ -1208,6 +1208,8 @@ impl Item for NativeScrollView {
                 horizontal as "bool"
             ] {
                 auto r = rect.toAlignedRect();
+                // The mac style ignores painter translations (due to CGContextRef redirection) as well as
+                // option.rect's top-left - hence this hack with an intermediate buffer.
             #if defined(Q_OS_MAC)
                 QImage scrollbar_image(r.size(), QImage::Format_ARGB32_Premultiplied);
                 scrollbar_image.fill(Qt::transparent);
