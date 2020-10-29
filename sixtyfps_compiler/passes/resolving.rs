@@ -20,45 +20,7 @@ use crate::langtype::Type;
 use crate::object_tree::*;
 use crate::parser::{identifier_text, syntax_nodes, SyntaxKind, SyntaxNodeWithSourceFile};
 use crate::typeregister::TypeRegister;
-use by_address::ByAddress;
-use std::{collections::HashMap, collections::HashSet, rc::Rc};
-
-#[derive(Default)]
-/// Helper type to trace through a document and locate all the used components.
-struct ComponentCollection {
-    components_used: HashSet<ByAddress<Rc<Component>>>,
-}
-
-impl ComponentCollection {
-    fn add_document(&mut self, doc: &Document) {
-        doc.inner_components.iter().for_each(|component| self.add_component(component));
-    }
-    fn add_component(&mut self, component: &Rc<Component>) {
-        let component_key = ByAddress(component.clone());
-        match self.components_used.get(&component_key) {
-            Some(_) => return,
-            None => {
-                self.components_used.insert(component_key);
-                self.add_types_used_in_components(component);
-            }
-        };
-    }
-    fn add_types_used_in_components(&mut self, component: &Rc<Component>) {
-        recurse_elem(&component.root_element, &(), &mut |element: &ElementRc, _| {
-            self.add_type(&element.borrow().base_type);
-            // ### traverse more
-        });
-    }
-    fn add_type(&mut self, ty: &Type) {
-        if let Type::Component(component) = ty {
-            self.add_component(component);
-        }
-    }
-
-    fn iter(&self) -> impl Iterator<Item = &Rc<Component>> {
-        self.components_used.iter().map(|byaddr_key| &**byaddr_key)
-    }
-}
+use std::{collections::HashMap, rc::Rc};
 
 /// This represeresent a scope for the Component, where Component is the repeated component, but
 /// does not represent a component in the .60 file
@@ -114,9 +76,7 @@ fn resolve_expression(
 }
 
 pub fn resolve_expressions(doc: &Document, diag: &mut BuildDiagnostics) {
-    let mut all_components = ComponentCollection::default();
-    all_components.add_document(&doc);
-    for component in all_components.iter() {
+    for component in doc.inner_components.iter() {
         let scope = ComponentScope(vec![component.root_element.clone()]);
 
         recurse_elem(&component.root_element, &scope, &mut |elem, scope| {
@@ -481,6 +441,7 @@ impl Expression {
         }
 
         if it.next().is_some() {
+            ctx.type_register.help();
             ctx.diag.push_error(format!("Cannot access id '{}'", first_str), &node);
             return Expression::Invalid;
         }

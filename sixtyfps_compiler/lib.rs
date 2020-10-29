@@ -95,6 +95,7 @@ pub fn compile_syntax_node(
             Cow::from("ugly")
         });
 
+    let mut all_docs = vec![];
     if doc_node.source_file.is_some() {
         typeloader::load_dependencies_recursively(
             &doc_node,
@@ -102,6 +103,7 @@ pub fn compile_syntax_node(
             &type_registry,
             &compiler_config,
             library::widget_library().iter().find(|x| x.0 == style).map(|x| x.1),
+            &mut all_docs,
             &mut build_diagnostics,
         );
     }

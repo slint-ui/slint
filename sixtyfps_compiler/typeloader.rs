@@ -14,10 +14,8 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 use crate::diagnostics::{BuildDiagnostics, FileDiagnostics, SourceFile};
-use crate::parser::{
-    syntax_nodes::{Document, ImportSpecifier},
-    SyntaxKind, SyntaxTokenWithSourceFile,
-};
+use crate::object_tree::Document;
+use crate::parser::{syntax_nodes, SyntaxKind, SyntaxTokenWithSourceFile};
 use crate::typeregister::TypeRegister;
 use crate::CompilerConfiguration;
 
@@ -63,11 +61,12 @@ impl<'a> DirectoryAccess<'a> for &'a VirtualDirectory<'a> {
 }
 
 pub fn load_dependencies_recursively<'a>(
-    doc: &Document,
+    doc: &syntax_nodes::Document,
     mut diagnostics: &mut FileDiagnostics,
-    registry: &Rc<RefCell<TypeRegister>>,
+    registry_to_populate: &Rc<RefCell<TypeRegister>>,
     compiler_config: &CompilerConfiguration,
     builtin_library: Option<&'a VirtualDirectory<'a>>,
+    all_documents: &mut Vec<Document>,
     build_diagnostics: &mut BuildDiagnostics,
 ) {
     let dependencies =
@@ -76,10 +75,11 @@ pub fn load_dependencies_recursively<'a>(
         load_dependency(
             dependency_path,
             imported_types,
-            &registry,
+            registry_to_populate,
             diagnostics,
             compiler_config,
             builtin_library,
+            all_documents,
             build_diagnostics,
         );
     }
@@ -92,6 +92,7 @@ fn load_dependency<'a>(
     importer_diagnostics: &mut FileDiagnostics,
     compiler_config: &CompilerConfiguration,
     builtin_library: Option<&'a VirtualDirectory<'a>>,
+    all_documents: &mut Vec<Document>,
     build_diagnostics: &mut BuildDiagnostics,
 ) {
     let (dependency_doc, mut dependency_diagnostics) =
@@ -99,7 +100,7 @@ fn load_dependency<'a>(
 
     dependency_diagnostics.current_path = SourceFile::new(path);
 
-    let dependency_doc: Document = dependency_doc.into();
+    let dependency_doc: syntax_nodes::Document = dependency_doc.into();
 
     let dependency_registry = Rc::new(RefCell::new(TypeRegister::new(&registry_to_populate)));
     load_dependencies_recursively(
@@ -108,6 +109,7 @@ fn load_dependency<'a>(
         &dependency_registry,
         compiler_config,
         builtin_library,
+        all_documents,
         build_diagnostics,
     );
 
@@ -116,7 +118,7 @@ fn load_dependency<'a>(
         &mut dependency_diagnostics,
         &dependency_registry,
     );
-
+    crate::passes::resolving::resolve_expressions(&doc, build_diagnostics);
     let exports = doc.exports();
 
     for import_name in imported_types.type_names {
@@ -145,7 +147,7 @@ fn load_dependency<'a>(
 
         registry_to_populate.borrow_mut().add_with_name(import_name.internal_name, imported_type);
     }
-
+    all_documents.push(doc);
     if !dependency_diagnostics.is_empty() {
         build_diagnostics.add(dependency_diagnostics);
     }
@@ -158,7 +160,9 @@ pub struct ImportedName {
 }
 
 impl ImportedName {
-    pub fn extract_imported_names(import: &ImportSpecifier) -> impl Iterator<Item = ImportedName> {
+    pub fn extract_imported_names(
+        import: &syntax_nodes::ImportSpecifier,
+    ) -> impl Iterator<Item = ImportedName> {
         import.ImportIdentifierList().ImportIdentifier().map(|importident| {
             let external_name = importident.ExternalName().text().to_string().trim().to_string();
 
@@ -181,7 +185,7 @@ struct ImportedTypes {
 type DependenciesByFile = BTreeMap<PathBuf, ImportedTypes>;
 
 fn collect_dependencies<'a>(
-    doc: &Document,
+    doc: &syntax_nodes::Document,
     doc_diagnostics: &mut FileDiagnostics,
     compiler_config: &CompilerConfiguration,
     builtin_library: Option<&'a VirtualDirectory<'a>>,
@@ -276,11 +280,12 @@ fn test_dependency_loading() {
 
     let (doc_node, mut test_diags) = crate::parser::parse_file(main_test_path.clone()).unwrap();
 
-    let doc_node: Document = doc_node.into();
+    let doc_node: syntax_nodes::Document = doc_node.into();
 
     let registry = Rc::new(RefCell::new(TypeRegister::new(&TypeRegister::builtin())));
 
     let mut build_diagnostics = BuildDiagnostics::default();
+    let mut docs = vec![];
 
     load_dependencies_recursively(
         &doc_node,
@@ -288,6 +293,7 @@ fn test_dependency_loading() {
         &registry,
         &compiler_config,
         None,
+        &mut docs,
         &mut build_diagnostics,
     );
 
