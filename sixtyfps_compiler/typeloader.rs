@@ -146,7 +146,9 @@ fn load_dependency<'a>(
         registry_to_populate.borrow_mut().add_with_name(import_name.internal_name, imported_type);
     }
 
-    build_diagnostics.add(dependency_diagnostics);
+    if !dependency_diagnostics.is_empty() {
+        build_diagnostics.add(dependency_diagnostics);
+    }
 }
 pub struct ImportedName {
     // name of export to match in the other file

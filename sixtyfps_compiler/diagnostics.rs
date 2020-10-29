@@ -184,6 +184,11 @@ impl FileDiagnostics {
         })
     }
 
+    /// Return true if there are no diagnostics (warnings or errors); false otherwise.
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+
     #[cfg(feature = "display-diagnostics")]
     fn emit_diagnostics<'a, Output>(
         self,

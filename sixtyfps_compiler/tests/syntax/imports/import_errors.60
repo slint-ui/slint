@@ -1,0 +1,22 @@
+ /* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+import { NotThere } from "file_not_there.60";
+//                       ^error{Cannot find requested import file_not_there.60 in the include search path}
+
+import { NotExported } from "../../typeloader/incpath/local_helper_type.60";
+//                          ^error{No exported type called NotExported found in .+/\.\./\.\./typeloader/incpath/local_helper_type.60}
+
+import { Nothing } from "";
+//                      ^error{Unexpected empty import url}
+
+X := Rectangle {
+
+}
