@@ -190,6 +190,11 @@ pub trait RepeatedComponent: crate::component::Component {
         _viewport_width: Pin<&Property<f32>>,
     ) {
     }
+
+    /// Returns what's needed to perform the layout if this component is in a box layout
+    fn box_layout_data<'a>(self: Pin<&'a Self>) -> crate::layout::BoxLayoutCellData<'a> {
+        crate::layout::BoxLayoutCellData::default()
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]

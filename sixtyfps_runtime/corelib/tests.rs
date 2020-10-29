@@ -33,6 +33,7 @@ pub extern "C" fn sixtyfps_send_mouse_click(
     y: f32,
     window: &crate::eventloop::ComponentWindow,
 ) {
+    component.as_ref().apply_layout(window.0.get_geometry());
     let pos = euclid::point2(x, y);
     component.as_ref().input_event(
         MouseEvent { pos, what: MouseEventType::MouseMoved },

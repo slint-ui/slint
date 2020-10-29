@@ -363,28 +363,11 @@ fn generate_component(
                     quote!().into()
                 });
 
-                let listview_layout = repeated.is_listview.as_ref().map(|_| {
-                    let p_y = access_member(
-                        &base_component.root_element,
-                        "y",
-                        base_component,
-                        quote!(self),
-                        false,
-                    );
-                    let p_height = access_member(
-                        &base_component.root_element,
-                        "height",
-                        base_component,
-                        quote!(self),
-                        false,
-                    );
-                    let p_width = access_member(
-                        &base_component.root_element,
-                        "width",
-                        base_component,
-                        quote!(self),
-                        false,
-                    );
+                let extra_fn = if repeated.is_listview.is_some() {
+                    let am = |prop| access_member(&base_component.root_element, prop, base_component, quote!(self), false);
+                    let p_y = am("y");
+                    let p_height = am("height");
+                    let p_width = am("width");
                     quote! {
                         fn listview_layout(
                             self: core::pin::Pin<&Self>,
@@ -402,7 +385,22 @@ fn generate_component(
                             }
                         }
                     }
-                });
+                } else {
+                    // TODO: we could generate this code only if we know that this component is in a box layout
+                    let root_id = format_ident!("{}", base_component.root_element.borrow().id);
+                    quote! {
+                        fn box_layout_data<'a>(self: ::core::pin::Pin<&'a Self>) -> sixtyfps::re_exports::BoxLayoutCellData<'a> {
+                            use sixtyfps::re_exports::*;
+                            BoxLayoutCellData {
+                                constraint: self.layout_info(),
+                                x: Some(&self.get_ref().#root_id.x),
+                                y: Some(&self.get_ref().#root_id.y),
+                                width: Some(&self.get_ref().#root_id.width),
+                                height: Some(&self.get_ref().#root_id.height),
+                            }
+                        }
+                    }
+                };
 
                 quote! {
                     impl sixtyfps::re_exports::RepeatedComponent for #rep_component_id {
@@ -411,7 +409,7 @@ fn generate_component(
                             self.index.set(index);
                             self.model_data.set(data);
                         }
-                        #listview_layout
+                        #extra_fn
                     }
                 }
             });
@@ -1435,35 +1433,73 @@ impl crate::layout::gen::Language for RustLanguageLayoutGen {
         box_layout: &'a crate::layout::BoxLayout,
         component: &Rc<Component>,
     ) -> crate::layout::gen::LayoutTreeItem<'a, Self> {
-        let cells: Vec<_> = box_layout
+        let is_static_array = box_layout
             .elems
             .iter()
-            .map(|cell| {
-                let get_property_ref = |p: &Option<NamedReference>| match p {
-                    Some(nr) => {
-                        let p = access_named_reference(nr, component, quote!(_self));
-                        quote!(Some(#p.get_ref()))
-                    }
-                    None => quote!(None),
-                };
-                let lay_rect = cell.rect();
-                let width = get_property_ref(&lay_rect.width_reference);
-                let height = get_property_ref(&lay_rect.height_reference);
-                let x = get_property_ref(&lay_rect.x_reference);
-                let y = get_property_ref(&lay_rect.y_reference);
-                let layout_info = get_layout_info_ref(cell, layout_tree, component);
-                quote!(BoxLayoutCellData {
-                    x: #x,
-                    y: #y,
-                    width: #width,
-                    height: #height,
-                    constraint: #layout_info,
-                })
+            .all(|i| i.element.as_ref().map_or(true, |x| x.borrow().repeated.is_none()));
+
+        let mut make_box_layout_cell_data = |cell: &'a crate::layout::LayoutItem| {
+            let get_property_ref = |p: &Option<NamedReference>| match p {
+                Some(nr) => {
+                    let p = access_named_reference(nr, component, quote!(_self));
+                    quote!(Some(#p.get_ref()))
+                }
+                None => quote!(None),
+            };
+            let lay_rect = cell.rect();
+            let width = get_property_ref(&lay_rect.width_reference);
+            let height = get_property_ref(&lay_rect.height_reference);
+            let x = get_property_ref(&lay_rect.x_reference);
+            let y = get_property_ref(&lay_rect.y_reference);
+            let layout_info = get_layout_info_ref(cell, layout_tree, component);
+            quote!(BoxLayoutCellData {
+                x: #x,
+                y: #y,
+                width: #width,
+                height: #height,
+                constraint: #layout_info,
             })
-            .collect();
+        };
+        let cell_creation_code = if is_static_array {
+            let cells: Vec<_> = box_layout.elems.iter().map(make_box_layout_cell_data).collect();
+            let cell_ref_variable = format_ident!("cells_{}", layout_tree.len());
+            quote!(let #cell_ref_variable = [#( #cells ),*];)
+        } else {
+            let mut fixed_count = 0usize;
+            let mut repeated_count = quote!();
+            let mut push_code = quote!();
+            for item in &box_layout.elems {
+                match &item.element {
+                    Some(elem) if elem.borrow().repeated.is_some() => {
+                        let repeater_id = format_ident!("repeater_{}", elem.borrow().id);
+                        repeated_count = quote!(#repeated_count + self.#repeater_id.len());
+                        push_code = quote! {
+                            #push_code
+                            let internal_vec = self.#repeater_id.components_vec();
+                            for sub_comp in &internal_vec {
+                                items_vec.push(sub_comp.as_ref().box_layout_data())
+                            }
+                        }
+                    }
+                    _ => {
+                        let e = make_box_layout_cell_data(item);
+                        fixed_count += 1;
+                        push_code = quote! {
+                            #push_code
+                            items_vec.push(#e);
+                        }
+                    }
+                }
+            }
+            let cell_ref_variable = format_ident!("cells_{}", layout_tree.len());
+            quote! {
+                let mut items_vec = Vec::with_capacity(#fixed_count #repeated_count);
+                #push_code
+                let #cell_ref_variable = items_vec;
+            }
+        };
         let cell_ref_variable = format_ident!("cells_{}", layout_tree.len());
-        let cell_creation_code = quote!(let #cell_ref_variable
-                = [#( #cells ),*];);
+
         let (padding, spacing, spacing_creation_code) =
             generate_layout_padding_and_spacing(&layout_tree, &box_layout.geometry, component);
 
@@ -1748,7 +1784,10 @@ fn compute_layout(
     repeated_element_layouts: &[TokenStream],
 ) -> TokenStream {
     let mut layouts = vec![];
-    let mut layout_info = quote!(Default::default());
+    let root_id = format_ident!("{}", component.root_element.borrow().id);
+    let component_id = component_id(component);
+    let mut layout_info =
+        quote!(#component_id::FIELD_OFFSETS.#root_id.apply_pin(self).layouting_info(&window));
     let component_layouts = component.layouts.borrow();
 
     component_layouts.iter().enumerate().for_each(|(idx, layout)| {
