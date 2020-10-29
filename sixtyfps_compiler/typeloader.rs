@@ -7,10 +7,10 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-use std::cell::RefCell;
 use std::io::Read;
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::{cell::RefCell, collections::BTreeMap};
 
 use crate::diagnostics::{BuildDiagnostics, FileDiagnostics, SourceFile};
 use crate::object_tree::Document;
@@ -187,7 +187,7 @@ struct ImportedTypes {
     pub source_code: String,
 }
 
-type DependenciesByFile = indexmap::IndexMap<PathBuf, ImportedTypes>;
+type DependenciesByFile = BTreeMap<PathBuf, ImportedTypes>;
 
 fn collect_dependencies<'a>(
     doc: &syntax_nodes::Document,
@@ -232,7 +232,7 @@ fn collect_dependencies<'a>(
         let import_path = path_to_import.to_string();
         if let Some(mut dependency_file) = open_file_from_include_paths(import_path) {
             let dependency_entry = match dependencies.entry(dependency_file.path.clone()) {
-                indexmap::map::Entry::Vacant(vacant_entry) => {
+                std::collections::btree_map::Entry::Vacant(vacant_entry) => {
                     let mut source_code = String::new();
                     if dependency_file.file.read_to_string(&mut source_code).is_err() {
                         doc_diagnostics.push_error(
@@ -250,7 +250,9 @@ fn collect_dependencies<'a>(
                         source_code,
                     })
                 }
-                indexmap::map::Entry::Occupied(existing_entry) => existing_entry.into_mut(),
+                std::collections::btree_map::Entry::Occupied(existing_entry) => {
+                    existing_entry.into_mut()
+                }
             };
 
             dependency_entry.type_names.extend(ImportedName::extract_imported_names(&import));
