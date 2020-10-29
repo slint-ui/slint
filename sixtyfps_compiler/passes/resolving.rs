@@ -441,7 +441,6 @@ impl Expression {
         }
 
         if it.next().is_some() {
-            ctx.type_register.help();
             ctx.diag.push_error(format!("Cannot access id '{}'", first_str), &node);
             return Expression::Invalid;
         }
