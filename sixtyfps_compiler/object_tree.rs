@@ -88,7 +88,7 @@ impl Document {
                 _ => {}
             };
         }
-        let exports = Exports::from_node(&node, &inner_components, &parent_registry, diag);
+        let exports = Exports::from_node(&node, &inner_components, &parent_registry);
 
         Document {
             // FIXME: one should use the `component` hint instead of always returning the last
@@ -1033,7 +1033,6 @@ impl Exports {
         doc: &syntax_nodes::Document,
         inner_components: &Vec<Rc<Component>>,
         type_registry: &Rc<RefCell<TypeRegister>>,
-        diag: &mut FileDiagnostics,
     ) -> Self {
         let mut exports = doc
             .ExportsList()
