@@ -18,81 +18,70 @@ App := Window {
         height: parent.height;
     }
 
-    GridLayout {
+    VerticalLayout {
         padding: 20px;
         spacing: 20px;
 
-        Row {
-            GridLayout {
-                Row {
-                    Text {
-                        text: "Below are some of the standard widgets that";
-                    }
-                }
-                Row {
-                    Text {
-                        text: "application developers can easily re-use.";
-                    }
-                }
-            }
+        Text {
+            text: "Below are some of the standard widgets that";
+        }
+        Text {
+            text: "application developers can easily re-use.";
         }
 
-        Row {
+        HorizontalLayout {
             GroupBox {
                 title: "Button";
                 gallery_button := Button {
-                    maximum_width: 120px;
                     text: gallery_button.pressed ? "(pressed)" : "(not pressed)";
                 }
             }
+            Rectangle {}
         }
 
-        Row {
+        HorizontalLayout {
             GroupBox {
                 title: "CheckBox";
                 checkbox := CheckBox {
-                    maximum_width: 150px;
                     text: checkbox.checked ? "(checked)" : "(unchecked)";
                     checked: true;
                 }
             }
+            Rectangle {}
         }
-        Row {
+
+        HorizontalLayout {
             GroupBox {
                 title: "SpinBox";
                 SpinBox {
-                    maximum_width: 120px;
                     value: 42;
                 }
             }
+            Rectangle {}
         }
-        Row {
-            GroupBox {
-                title: "Slider";
-                Slider {
-                    value: 42;
-                }
-            }
-        }
-        Row {
-            GroupBox {
-                title: "LineEdit";
-                LineEdit {
-                    placeholder-text: "Enter some text";
-                }
-            }
-        }
-        Row {
-            GroupBox {
-                title: "StandardListView";
-                StandardListView {
-                    model: [
-                        {text: "Lorem"}, {text: "ipsum"},{text: "dolor"},{text: "sit"},{text: "amet"},{text: "consetetur"},
-                        {text: "Lorem"}, {text: "ipsum"},{text: "dolor"},{text: "sit"},{text: "amet"},{text: "consetetur"},
-                    ];
-                }
-            }
 
+        GroupBox {
+            title: "Slider";
+            Slider {
+                value: 42;
+            }
+        }
+
+        GroupBox {
+            title: "LineEdit";
+            LineEdit {
+                placeholder-text: "Enter some text";
+            }
+        }
+
+        GroupBox {
+            title: "StandardListView";
+            StandardListView {
+                model: [
+                    {text: "Lorem"}, {text: "ipsum"},{text: "dolor"},{text: "sit"},{text: "amet"},{text: "consetetur"},
+                    {text: "Lorem"}, {text: "ipsum"},{text: "dolor"},{text: "sit"},{text: "amet"},{text: "consetetur"},
+                ];
+            }
         }
     }
 }
