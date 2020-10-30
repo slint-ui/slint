@@ -34,7 +34,7 @@ use cgmath::Matrix4;
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use sixtyfps_corelib_macros::*;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 /// 2D Rectangle
@@ -474,6 +474,7 @@ type WindowFactoryFn<Backend> =
 struct MappedWindow<Backend: GraphicsBackend + 'static> {
     backend: RefCell<Backend>,
     rendering_cache: RefCell<RenderingCache<Backend>>,
+    constraints: Cell<crate::layout::LayoutInfo>,
 }
 
 enum GraphicsWindowBackendState<Backend: GraphicsBackend + 'static> {
@@ -712,6 +713,7 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
             self.map_state.replace(GraphicsWindowBackendState::Mapped(MappedWindow {
                 backend: RefCell::new(backend),
                 rendering_cache: Default::default(),
+                constraints: Default::default(),
             }));
 
             window_id
@@ -768,26 +770,29 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped => {}
             GraphicsWindowBackendState::Mapped(window) => {
-                window.backend.borrow().window().set_min_inner_size(
-                    if constraints.min_width > 0. || constraints.min_height > 0. {
-                        Some(winit::dpi::PhysicalSize::new(
-                            constraints.min_width,
-                            constraints.min_height,
-                        ))
-                    } else {
-                        None
-                    },
-                );
-                window.backend.borrow().window().set_max_inner_size(
-                    if constraints.max_width < f32::MAX || constraints.max_height < f32::MAX {
-                        Some(winit::dpi::PhysicalSize::new(
-                            constraints.max_width.min(65535.),
-                            constraints.max_height.min(65535.),
-                        ))
-                    } else {
-                        None
-                    },
-                );
+                if constraints != window.constraints.get() {
+                    window.backend.borrow().window().set_min_inner_size(
+                        if constraints.min_width > 0. || constraints.min_height > 0. {
+                            Some(winit::dpi::PhysicalSize::new(
+                                constraints.min_width,
+                                constraints.min_height,
+                            ))
+                        } else {
+                            None
+                        },
+                    );
+                    window.backend.borrow().window().set_max_inner_size(
+                        if constraints.max_width < f32::MAX || constraints.max_height < f32::MAX {
+                            Some(winit::dpi::PhysicalSize::new(
+                                constraints.max_width.min(65535.),
+                                constraints.max_height.min(65535.),
+                            ))
+                        } else {
+                            None
+                        },
+                    );
+                    window.constraints.set(constraints);
+                }
             }
         }
     }

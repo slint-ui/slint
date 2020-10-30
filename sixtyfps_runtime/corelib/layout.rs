@@ -17,7 +17,7 @@ type Coord = f32;
 
 /// The constraint that applies to an item
 #[repr(C)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LayoutInfo {
     /// The minimum width for the item.
     pub min_width: f32,
