@@ -22,6 +22,8 @@ You should use the `sixtyfps` crate instead
 #[cfg(feature = "proc_macro_span")]
 extern crate proc_macro;
 
+use core::future::Future;
+use core::pin::Pin;
 use std::{borrow::Cow, cell::RefCell, rc::Rc};
 
 pub mod diagnostics;
@@ -63,6 +65,14 @@ pub struct CompilerConfiguration {
     pub include_paths: Vec<std::path::PathBuf>,
     /// the name of the style. (eg: "native")
     pub style: Option<String>,
+
+    /// Callback to load import files which is called if the file could not be found
+    ///
+    /// The callback should open the file specified by the given file name and
+    /// return a `Ok(String)` containing the text content of the file, or a `Err(String)`
+    /// containing an error message
+    pub open_import_fallback:
+        Option<Box<dyn Fn(String) -> Pin<Box<dyn Future<Output = Result<String, String>>>>>>,
 }
 
 pub async fn compile_syntax_node(
@@ -108,7 +118,8 @@ pub async fn compile_syntax_node(
             builtin_lib,
             &mut all_docs,
             &mut build_diagnostics,
-        );
+        )
+        .await;
     }
 
     let doc = crate::object_tree::Document::from_node(doc_node, &mut diagnostics, &type_registry);
