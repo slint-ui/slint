@@ -15,13 +15,14 @@ use std::ops::Deref;
 pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> {
     let source = std::fs::read_to_string(&testcase.absolute_path)?;
 
-    let include_paths = &test_driver_lib::extract_include_paths(&source)
+    let include_paths = test_driver_lib::extract_include_paths(&source)
         .map(std::path::PathBuf::from)
         .collect::<Vec<_>>();
 
     let (syntax_node, diag) = parser::parse(source.clone(), Some(&testcase.absolute_path));
     let compiler_config = CompilerConfiguration { include_paths, ..Default::default() };
-    let (root_component, mut diag) = compile_syntax_node(syntax_node, diag, &compiler_config);
+    let (root_component, mut diag) =
+        spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
 
     if diag.has_error() {
         let vec = diag.to_string_vec();

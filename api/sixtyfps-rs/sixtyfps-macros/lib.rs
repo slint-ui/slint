@@ -331,9 +331,9 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
     let syntax_node = parser::SyntaxNodeWithSourceFile { node: syntax_node, source_file };
 
     //println!("{:#?}", syntax_node);
-    let compiler_config =
-        CompilerConfiguration { include_paths: &include_paths, ..Default::default() };
-    let (root_component, mut diag) = compile_syntax_node(syntax_node, diag, &compiler_config);
+    let compiler_config = CompilerConfiguration { include_paths, ..Default::default() };
+    let (root_component, mut diag) =
+        spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
     //println!("{:#?}", tree);
     if diag.has_error() {
         diag.map_offsets_to_span(&tokens);

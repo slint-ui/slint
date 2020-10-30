@@ -15,3 +15,4 @@ path = "lib.rs"
 [dependencies]
 sixtyfps-compilerlib = { version = "=0.0.2", path = "../../../sixtyfps_compiler", features = ["rust", "display-diagnostics"] }
 thiserror = "1"
+spin_on = "0.1"

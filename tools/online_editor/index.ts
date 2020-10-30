@@ -77,7 +77,7 @@ function update() {
 }
 
 
-function render_or_error(source, base_url, div) {
+async function render_or_error(source, base_url, div) {
     let canvas_id = 'canvas_' + Math.random().toString(36).substr(2, 9);
     let canvas = document.createElement("canvas");
     canvas.width = 800;
@@ -86,14 +86,10 @@ function render_or_error(source, base_url, div) {
     div.innerHTML = "";
     div.appendChild(canvas);
     try {
-        sixtyfps.instantiate_from_string(source, base_url, canvas_id);
+        var compiled_component = await sixtyfps.compile_from_string(source, base_url);
     } catch (e) {
-        if (e.message === "Using exceptions for control flow, don't mind me. This isn't actually an error!") {
-            monaco.editor.setModelMarkers(editor.getModel(), "sixtyfps", []);
-            throw e;
-        }
-        var text = document.createTextNode(e.message);
-        var p = document.createElement('pre');
+        let text = document.createTextNode(e.message);
+        let p = document.createElement('pre');
         p.appendChild(text);
         div.innerHTML = "<pre style='color: red; background-color:#fee; margin:0'>" + p.innerHTML + "</pre>";
 
@@ -114,6 +110,7 @@ function render_or_error(source, base_url, div) {
 
         throw e;
     }
+    compiled_component.run(canvas_id)
 }
 
 let keystorke_timeout_handle;

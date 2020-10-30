@@ -10,29 +10,25 @@ LICENSE END */
 //! This wasm library can be loaded from JS to load and display the content of .60 files
 #![cfg(target_arch = "wasm32")]
 
+use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 
 #[cfg(feature = "wee_alloc")]
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
-/// Compile and display the content of a string.
-/// The HTML must contains a <canvas> element with the given `canvas_id`
-/// where the result is gonna be rendered
+/// Compile the content of a string.
+///
+/// Returns a promise to a compiled component which can be run with ".run()"
 #[wasm_bindgen]
-pub fn instantiate_from_string(
-    source: &str,
-    base_url: &str,
-    canvas_id: String,
-) -> Result<(), JsValue> {
+pub async fn compile_from_string(
+    source: String,
+    base_url: String,
+) -> Result<WrappedCompiledComp, JsValue> {
     #[cfg(feature = "console_error_panic_hook")]
     console_error_panic_hook::set_once();
 
-    let c = match sixtyfps_interpreter::load(
-        source.to_owned(),
-        &std::path::Path::new(base_url),
-        Default::default(),
-    ) {
+    let c = match sixtyfps_interpreter::load(source, base_url.into(), Default::default()).await {
         (Ok(c), ..) => {
             //TODO: warnings.print();
             c
@@ -84,7 +80,20 @@ pub fn instantiate_from_string(
         }
     };
 
-    let component = c.clone().create(canvas_id);
-    component.window().run(component.borrow(), component.root_item());
-    Ok(())
+    Ok(WrappedCompiledComp(c))
+}
+
+#[wasm_bindgen]
+pub struct WrappedCompiledComp(Rc<sixtyfps_interpreter::ComponentDescription>);
+
+#[wasm_bindgen]
+impl WrappedCompiledComp {
+    /// Run this compiled component in a canvas.
+    /// The HTML must contains a <canvas> element with the given `canvas_id`
+    /// where the result is gonna be rendered
+    #[wasm_bindgen]
+    pub fn run(&self, canvas_id: String) {
+        let component = self.0.clone().create(canvas_id);
+        component.window().run(component.borrow(), component.root_item());
+    }
 }

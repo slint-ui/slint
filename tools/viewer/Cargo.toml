@@ -16,6 +16,7 @@ vtable = { version = "0.1", path="../../helper_crates/vtable" }
 structopt = "0.3.14"
 codemap-diagnostic = "0.1.1"
 codemap = "0.1"
+spin_on = "0.1"
 
 
 [[bin]]

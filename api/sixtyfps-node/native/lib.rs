@@ -63,18 +63,17 @@ fn load(mut cx: FunctionContext) -> JsResult<JsValue> {
         }
         None => vec![],
     };
-    let compiler_config = sixtyfps_compilerlib::CompilerConfiguration {
-        include_paths: &include_paths,
-        ..Default::default()
-    };
+    let compiler_config =
+        sixtyfps_compilerlib::CompilerConfiguration { include_paths, ..Default::default() };
     let source = std::fs::read_to_string(&path).or_else(|e| cx.throw_error(e.to_string()))?;
-    let (c, warnings) = match sixtyfps_interpreter::load(source, &path, compiler_config) {
-        (Ok(c), warnings) => (c, warnings),
-        (Err(()), errors) => {
-            errors.print();
-            return cx.throw_error("Compilation error");
-        }
-    };
+    let (c, warnings) =
+        match spin_on::spin_on(sixtyfps_interpreter::load(source, path.into(), compiler_config)) {
+            (Ok(c), warnings) => (c, warnings),
+            (Err(()), errors) => {
+                errors.print();
+                return cx.throw_error("Compilation error");
+            }
+        };
 
     warnings.print();
 

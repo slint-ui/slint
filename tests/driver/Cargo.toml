@@ -19,6 +19,7 @@ scopeguard = "1.1.0"
 test_driver_lib = { path = "../driver_lib" }
 lazy_static = "1.4.0"
 which = "4.0.2"
+spin_on = "0.1"
 
 [build-dependencies]
 test_driver_lib = { path = "../driver_lib" }

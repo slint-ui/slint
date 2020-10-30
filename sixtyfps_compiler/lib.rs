@@ -55,20 +55,20 @@ mod passes {
 
 #[derive(Default)]
 /// CompilationConfiguration allows configuring different aspects of the compiler.
-pub struct CompilerConfiguration<'a> {
+pub struct CompilerConfiguration {
     /// Indicate whether to embed resources such as images in the generated output or whether
     /// to retain references to the resources on the file system.
     pub embed_resources: bool,
     /// The compiler will look in these paths for components used in the file to compile.
-    pub include_paths: &'a [std::path::PathBuf],
+    pub include_paths: Vec<std::path::PathBuf>,
     /// the name of the style. (eg: "native")
-    pub style: Option<&'a str>,
+    pub style: Option<String>,
 }
 
-pub fn compile_syntax_node(
+pub async fn compile_syntax_node(
     doc_node: parser::SyntaxNodeWithSourceFile,
     mut diagnostics: diagnostics::FileDiagnostics,
-    compiler_config: &CompilerConfiguration,
+    compiler_config: CompilerConfiguration,
 ) -> (object_tree::Document, diagnostics::BuildDiagnostics) {
     let mut build_diagnostics = diagnostics::BuildDiagnostics::default();
 
@@ -80,6 +80,7 @@ pub fn compile_syntax_node(
 
     let style = compiler_config
         .style
+        .as_ref()
         .map(Cow::from)
         .or_else(|| std::env::var("SIXTYFPS_STYLE").map(Cow::from).ok())
         .unwrap_or_else(|| {
@@ -97,13 +98,14 @@ pub fn compile_syntax_node(
 
     let mut all_docs = typeloader::LoadedDocuments::default();
     if doc_node.source_file.is_some() {
+        let builtin_lib = library::widget_library().iter().find(|x| x.0 == style).map(|x| x.1);
         typeloader::load_dependencies_recursively(
             &doc_node,
             &mut diagnostics,
             &type_registry,
             &global_type_registry,
             &compiler_config,
-            library::widget_library().iter().find(|x| x.0 == style).map(|x| x.1),
+            builtin_lib,
             &mut all_docs,
             &mut build_diagnostics,
         );
@@ -115,7 +117,7 @@ pub fn compile_syntax_node(
 
     if !build_diagnostics.has_error() {
         // FIXME: ideally we would be able to run more passes, but currently we panic because invariant are not met.
-        run_passes(&doc, &mut build_diagnostics, compiler_config);
+        run_passes(&doc, &mut build_diagnostics, &compiler_config);
     }
 
     (doc, build_diagnostics)

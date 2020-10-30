@@ -175,20 +175,21 @@ impl<'id> dynamic_component::ComponentDescription<'id> {
 
 pub type ComponentDescription = dynamic_component::ComponentDescription<'static>;
 pub type ComponentBox = dynamic_component::ComponentBox<'static>;
-pub fn load(
+pub async fn load(
     source: String,
-    path: &std::path::Path,
+    path: std::path::PathBuf,
     mut compiler_config: CompilerConfiguration,
 ) -> (Result<Rc<ComponentDescription>, ()>, sixtyfps_compilerlib::diagnostics::BuildDiagnostics) {
     if compiler_config.style.is_none() && std::env::var("SIXTYFPS_STYLE").is_err() {
         // Defaults to native if it exists:
         compiler_config.style = Some(if sixtyfps_rendering_backend_default::HAS_NATIVE_STYLE {
-            "native"
+            "native".to_owned()
         } else {
-            "ugly"
+            "ugly".to_owned()
         });
     }
-    dynamic_component::load(source, path, &compiler_config, unsafe {
+    dynamic_component::load(source, path, compiler_config, unsafe {
         generativity::Guard::new(generativity::Id::new())
     })
+    .await
 }

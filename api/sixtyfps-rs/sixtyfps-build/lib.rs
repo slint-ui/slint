@@ -167,9 +167,14 @@ pub fn compile_with_config(
             compiler_config.embed_resources = true;
         }
     };
+    let embed_resources = compiler_config.embed_resources;
 
-    let (doc, mut diag) =
-        sixtyfps_compilerlib::compile_syntax_node(syntax_node, diag, &compiler_config);
+    // 'spin_on' is ok here because the compiler in single threaded and does not block if there is no blocking future
+    let (doc, mut diag) = spin_on::spin_on(sixtyfps_compilerlib::compile_syntax_node(
+        syntax_node,
+        diag,
+        compiler_config,
+    ));
 
     if diag.has_error() {
         let vec = diag.to_string_vec();
@@ -207,7 +212,7 @@ pub fn compile_with_config(
     write!(code_formater, "{}", generated).map_err(CompileError::SaveError)?;
     println!("cargo:rerun-if-changed={}", path.display());
 
-    if !compiler_config.embed_resources {
+    if embed_resources {
         for resource in doc.root_component.referenced_file_resources.borrow().keys() {
             println!("cargo:rerun-if-changed={}", resource);
         }

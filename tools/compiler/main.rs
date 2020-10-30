@@ -32,8 +32,8 @@ fn main() -> std::io::Result<()> {
         std::process::exit(-1);
     }
     let compiler_config =
-        CompilerConfiguration { include_paths: &args.include_paths, ..Default::default() };
-    let (doc, diag) = compile_syntax_node(syntax_node, diag, &compiler_config);
+        CompilerConfiguration { include_paths: args.include_paths, ..Default::default() };
+    let (doc, diag) = spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
 
     let mut diag = diag.check_and_exit_on_error();
 

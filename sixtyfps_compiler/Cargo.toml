@@ -43,5 +43,6 @@ once_cell = "1"
 [dev-dependencies]
 regex = "1.3.7"
 parser_test_macro = { path = "./parser_test_macro" }
+spin_on = "0.1"
 
 

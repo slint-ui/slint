@@ -6,7 +6,7 @@
     "use strict";
     import * as sixtyfps from 'https://sixtyfps.io/wasm-interpreter/sixtyfps_wasm_interpreter.js';
 
-    function render_or_error(source, div) {
+    async function render_or_error(source, div) {
         let canvas_id = 'canvas_' + Math.random().toString(36).substr(2, 9);
         let canvas = document.createElement("canvas");
         canvas.width = 100;
@@ -14,11 +14,8 @@
         canvas.id = canvas_id;
         div.appendChild(canvas);
         try {
-            sixtyfps.instantiate_from_string(source, document.location.href, canvas_id);
+            var compiled_component = await sixtyfps.compile_from_string(source, "");
         } catch (e) {
-            if (e.message === "Using exceptions for control flow, don't mind me. This isn't actually an error!") {
-                throw e;
-            }
             var text = document.createTextNode(e.message);
             var p = document.createElement('pre');
             p.appendChild(text);
@@ -26,6 +23,7 @@
 
             throw e;
         }
+        compiled_component.run(canvas_id);
     }
 
     async function run() {

@@ -433,20 +433,20 @@ fn rtti_for_flickable() -> (&'static str, Rc<ItemRTTI>) {
 /// Create a ComponentDescription from a source.
 /// The path corresponding to the source need to be passed as well (path is used for diagnostics
 /// and loading relative assets)
-pub fn load<'id>(
+pub async fn load<'id>(
     source: String,
-    path: &std::path::Path,
-    compiler_config: &CompilerConfiguration,
+    path: std::path::PathBuf,
+    compiler_config: CompilerConfiguration,
     guard: generativity::Guard<'id>,
 ) -> (Result<Rc<ComponentDescription<'id>>, ()>, sixtyfps_compilerlib::diagnostics::BuildDiagnostics)
 {
-    let (syntax_node, diag) = parser::parse(source, Some(path));
+    let (syntax_node, diag) = parser::parse(source, Some(path.as_path()));
     if diag.has_error() {
         let mut d = sixtyfps_compilerlib::diagnostics::BuildDiagnostics::default();
         d.add(diag);
         return (Err(()), d);
     }
-    let (doc, diag) = compile_syntax_node(syntax_node, diag, &compiler_config);
+    let (doc, diag) = compile_syntax_node(syntax_node, diag, compiler_config).await;
     if diag.has_error() {
         return (Err(()), diag);
     }

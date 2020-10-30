@@ -12,23 +12,24 @@ use std::error::Error;
 pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> {
     let source = std::fs::read_to_string(&testcase.absolute_path)?;
 
-    let include_paths = &test_driver_lib::extract_include_paths(&source)
+    let include_paths = test_driver_lib::extract_include_paths(&source)
         .map(std::path::PathBuf::from)
         .collect::<Vec<_>>();
-    let config = sixtyfps_compilerlib::CompilerConfiguration {
-        include_paths: &include_paths,
-        ..Default::default()
-    };
+    let config =
+        sixtyfps_compilerlib::CompilerConfiguration { include_paths, ..Default::default() };
 
-    let (component, _warnings) =
-        match sixtyfps_interpreter::load(source, &testcase.absolute_path, config) {
-            (Ok(c), diagnostics) => (c, diagnostics),
-            (Err(()), errors) => {
-                let vec = errors.to_string_vec();
-                errors.print();
-                return Err(vec.join("\n").into());
-            }
-        };
+    let (component, _warnings) = match spin_on::spin_on(sixtyfps_interpreter::load(
+        source,
+        testcase.absolute_path.clone(),
+        config,
+    )) {
+        (Ok(c), diagnostics) => (c, diagnostics),
+        (Err(()), errors) => {
+            let vec = errors.to_string_vec();
+            errors.print();
+            return Err(vec.join("\n").into());
+        }
+    };
 
     component.create();
 

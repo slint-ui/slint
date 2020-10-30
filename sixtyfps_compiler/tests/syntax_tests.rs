@@ -140,14 +140,14 @@ fn process_file_source(
         sixtyfps_compilerlib::parser::parse(source.clone(), Some(path));
     let compile_diagnostics = if !parse_diagnostics.has_error() {
         let compiler_config = sixtyfps_compilerlib::CompilerConfiguration {
-            style: "ugly".into(),
+            style: Some("ugly".into()),
             ..Default::default()
         };
-        let (_, build_diags) = sixtyfps_compilerlib::compile_syntax_node(
+        let (_, build_diags) = spin_on::spin_on(sixtyfps_compilerlib::compile_syntax_node(
             syntax_node,
             parse_diagnostics,
-            &compiler_config,
-        );
+            compiler_config,
+        ));
         build_diags.into_iter().collect()
     } else {
         vec![parse_diagnostics]
