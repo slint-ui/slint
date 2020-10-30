@@ -7,10 +7,11 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
+use std::cell::RefCell;
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::Read;
 use std::path::PathBuf;
 use std::rc::Rc;
-use std::{cell::RefCell, collections::BTreeMap};
 
 use crate::diagnostics::{BuildDiagnostics, FileDiagnostics, SourceFile};
 use crate::object_tree::Document;
@@ -18,19 +19,26 @@ use crate::parser::{syntax_nodes, SyntaxKind, SyntaxTokenWithSourceFile};
 use crate::typeregister::TypeRegister;
 use crate::CompilerConfiguration;
 
-pub struct OpenFile<'a> {
-    pub path: PathBuf,
-    pub file: Box<dyn Read + 'a>,
+/// Storage for a cache of all loaded documents
+#[derive(Default)]
+pub struct LoadedDocuments {
+    /// maps from the canonical file name to the object_tree::Document
+    docs: HashMap<PathBuf, Document>,
+    currently_loading: HashSet<PathBuf>,
 }
 
-pub trait DirectoryAccess<'a> {
+struct OpenFile<'a> {
+    path: PathBuf,
+    file: Box<dyn Read + 'a>,
+}
+
+trait DirectoryAccess<'a> {
     fn try_open(&self, file_path: String) -> Option<OpenFile<'a>>;
 }
 
 impl<'a> DirectoryAccess<'a> for PathBuf {
     fn try_open(&self, file_path: String) -> Option<OpenFile<'a>> {
-        let mut candidate = (*self).clone();
-        candidate.push(file_path);
+        let candidate = self.join(file_path);
 
         std::fs::File::open(&candidate)
             .ok()
@@ -66,7 +74,7 @@ pub fn load_dependencies_recursively<'a>(
     global_type_registry: &Rc<RefCell<TypeRegister>>,
     compiler_config: &CompilerConfiguration,
     builtin_library: Option<&'a VirtualDirectory<'a>>,
-    all_documents: &mut Vec<Document>,
+    all_documents: &mut LoadedDocuments,
     build_diagnostics: &mut BuildDiagnostics,
 ) {
     let dependencies =
@@ -94,34 +102,61 @@ fn load_dependency<'a>(
     importer_diagnostics: &mut FileDiagnostics,
     compiler_config: &CompilerConfiguration,
     builtin_library: Option<&'a VirtualDirectory<'a>>,
-    all_documents: &mut Vec<Document>,
+    all_documents: &mut LoadedDocuments,
     build_diagnostics: &mut BuildDiagnostics,
 ) {
-    let (dependency_doc, mut dependency_diagnostics) =
-        crate::parser::parse(imported_types.source_code, Some(&path));
+    let path_canon = path.canonicalize().unwrap_or(path.clone());
 
-    dependency_diagnostics.current_path = SourceFile::new(path);
+    let doc = if let Some(doc) = all_documents.docs.get(path_canon.as_path()) {
+        doc
+    } else {
+        if !all_documents.currently_loading.insert(path_canon.clone()) {
+            importer_diagnostics.push_error(
+                format!("Recursive import of {}", path.display()),
+                &imported_types.import_token,
+            );
+            return;
+        }
 
-    let dependency_doc: syntax_nodes::Document = dependency_doc.into();
+        let (dependency_doc, mut dependency_diagnostics) =
+            crate::parser::parse(imported_types.source_code, Some(&path));
 
-    let dependency_registry = Rc::new(RefCell::new(TypeRegister::new(&global_type_registry)));
-    load_dependencies_recursively(
-        &dependency_doc,
-        &mut dependency_diagnostics,
-        &dependency_registry,
-        &global_type_registry,
-        compiler_config,
-        builtin_library,
-        all_documents,
-        build_diagnostics,
-    );
+        dependency_diagnostics.current_path = SourceFile::new(path.clone());
 
-    let doc = crate::object_tree::Document::from_node(
-        dependency_doc,
-        &mut dependency_diagnostics,
-        &dependency_registry,
-    );
-    crate::passes::resolving::resolve_expressions(&doc, build_diagnostics);
+        let dependency_doc: syntax_nodes::Document = dependency_doc.into();
+
+        let dependency_registry = Rc::new(RefCell::new(TypeRegister::new(&global_type_registry)));
+        load_dependencies_recursively(
+            &dependency_doc,
+            &mut dependency_diagnostics,
+            &dependency_registry,
+            &global_type_registry,
+            compiler_config,
+            builtin_library,
+            all_documents,
+            build_diagnostics,
+        );
+
+        let doc = crate::object_tree::Document::from_node(
+            dependency_doc,
+            &mut dependency_diagnostics,
+            &dependency_registry,
+        );
+        crate::passes::resolving::resolve_expressions(&doc, build_diagnostics);
+
+        // Add diagnostics regardless whether they're empty or not. This is used by the syntax_tests to
+        // also verify that imported files have no errors.
+        build_diagnostics.add(dependency_diagnostics);
+
+        let _ok = all_documents.currently_loading.remove(path_canon.as_path());
+        assert!(_ok);
+
+        match all_documents.docs.entry(path_canon) {
+            std::collections::hash_map::Entry::Occupied(_) => unreachable!(),
+            std::collections::hash_map::Entry::Vacant(e) => e.insert(doc),
+        }
+    };
+
     let exports = doc.exports();
 
     for import_name in imported_types.type_names {
@@ -140,7 +175,7 @@ fn load_dependency<'a>(
                     format!(
                         "No exported type called {} found in {}",
                         import_name.external_name,
-                        dependency_diagnostics.current_path.to_string_lossy()
+                        path.display()
                     ),
                     &imported_types.import_token,
                 );
@@ -150,11 +185,6 @@ fn load_dependency<'a>(
 
         registry_to_populate.borrow_mut().add_with_name(import_name.internal_name, imported_type);
     }
-    all_documents.push(doc);
-
-    // Add diagnostics regardless whether they're empty or not. This is used by the syntax_tests to
-    // also verify that imported files have no errors.
-    build_diagnostics.add(dependency_diagnostics);
 }
 
 pub struct ImportedName {
@@ -292,7 +322,7 @@ fn test_dependency_loading() {
     let registry = Rc::new(RefCell::new(TypeRegister::new(&global_registry)));
 
     let mut build_diagnostics = BuildDiagnostics::default();
-    let mut docs = vec![];
+    let mut docs = Default::default();
 
     load_dependencies_recursively(
         &doc_node,
