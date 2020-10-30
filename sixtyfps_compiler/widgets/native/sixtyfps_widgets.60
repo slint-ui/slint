@@ -9,7 +9,11 @@
 LICENSE END */
 
 // FIXME: the font_size should be removed but is required right now to compile the printer_demo
-export Button := NativeButton { property<length> font_size; }
+export Button := NativeButton {
+    property<length> font_size;
+    enabled: true;
+    native_button_enabled: self.enabled;
+}
 export CheckBox := NativeCheckBox { }
 export SpinBox := NativeSpinBox { property<length> font_size; }
 export Slider := NativeSlider { max:100; }

@@ -32,8 +32,17 @@ App := Window {
         HorizontalLayout {
             GroupBox {
                 title: "Button";
-                gallery_button := Button {
-                    text: gallery_button.pressed ? "(pressed)" : "(not pressed)";
+                HorizontalLayout {
+                    spacing: 20px;
+
+                    Button {
+                        text: "Regular Button";
+                    }
+                    
+                    Button {
+                        text: "Disabled Button";
+                        enabled: false;
+                    }
                 }
             }
             Rectangle {}

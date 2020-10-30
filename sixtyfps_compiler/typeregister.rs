@@ -408,6 +408,7 @@ impl TypeRegister {
                 ("text", Type::String),
                 ("pressed", Type::Bool),
                 ("clicked", Type::Signal { args: vec![] }),
+                ("native_button_enabled", Type::Bool),
             ],
             &[],
         );

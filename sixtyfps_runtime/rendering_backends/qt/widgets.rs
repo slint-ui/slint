@@ -97,6 +97,7 @@ pub struct NativeButton {
     pub width: Property<f32>,
     pub height: Property<f32>,
     pub text: Property<SharedString>,
+    pub native_button_enabled: Property<bool>,
     pub pressed: Property<bool>,
     pub clicked: Signal<()>,
     pub cached_rendering_data: CachedRenderingData,
@@ -119,6 +120,7 @@ impl Item for NativeButton {
     ) -> HighLevelRenderingPrimitive {
         let down: bool = Self::FIELD_OFFSETS.pressed.apply_pin(self).get();
         let text: qttypes::QString = Self::FIELD_OFFSETS.text.apply_pin(self).get().as_str().into();
+        let enabled = Self::FIELD_OFFSETS.native_button_enabled.apply_pin(self).get();
         let size: qttypes::QSize = get_size!(self);
         let dpr = window.scale_factor();
 
@@ -128,6 +130,7 @@ impl Item for NativeButton {
         cpp!(unsafe [
             img as "QImage*",
             text as "QString",
+            enabled as "bool",
             size as "QSize",
             down as "bool",
             dpr as "float"
@@ -140,7 +143,8 @@ impl Item for NativeButton {
                 option.state |= QStyle::State_Sunken;
             else
                 option.state |= QStyle::State_Raised;
-            option.state |= QStyle::State_Enabled;
+            if (enabled)
+                option.state |= QStyle::State_Enabled;
             qApp->style()->drawControl(QStyle::CE_PushButton, &option, &p, nullptr);
         });
         return HighLevelRenderingPrimitive::Image { source: imgarray.to_resource() };
@@ -179,6 +183,11 @@ impl Item for NativeButton {
         _window: &ComponentWindow,
         _app_component: ComponentRefPin,
     ) -> InputEventResult {
+        let enabled = Self::FIELD_OFFSETS.native_button_enabled.apply_pin(self).get();
+        if !enabled {
+            return InputEventResult::EventIgnored;
+        }
+
         Self::FIELD_OFFSETS.pressed.apply_pin(self).set(match event.what {
             MouseEventType::MousePressed => true,
             MouseEventType::MouseExit | MouseEventType::MouseReleased => false,

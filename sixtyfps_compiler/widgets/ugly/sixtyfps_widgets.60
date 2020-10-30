@@ -11,6 +11,7 @@ LICENSE END */
 global Palette := {
     property<color> window_background: #ecedeb;
     property<color> text_color: #090909;
+    property<color> text_color_disabled: #aaa;
     property<color> text_color_secondary: #111;
     property<color> button_background: lightgray;
     property<color> heighlight_background: #556884;
@@ -23,12 +24,13 @@ export Button := Rectangle {
     signal clicked;
     property<string> text;
     property<length> font_size;
-    property<bool> pressed: touch_area.pressed;
+    property<bool> pressed: self.enabled && touch_area.pressed;
+    enabled: true;
 
     border_width: 2px;
     border_radius: 10px;
     border_color: Palette.text_color;
-    color: touch_area.pressed ? Palette.heighlight_background : Palette.button_background;
+    color: self.pressed ? Palette.heighlight_background : Palette.button_background;
     animate color { duration: 100ms; }
     horizontal-stretch: 0;
     vertical-stretch: 0;
@@ -42,14 +44,18 @@ export Button := Rectangle {
             font_size: root.font_size;
             horizontal_alignment: align_center;
             vertical_alignment: align_center;
-            color: Palette.text_color;
+            color: root.enabled ? Palette.text_color : Palette.text_color_disabled;
         }
     }
 
     touch_area := TouchArea {
         width: root.width;
         height: root.height;
-        clicked => { root.clicked() }
+        clicked => {
+            if (root.enabled) {
+                root.clicked();
+            }
+        }
     }
 }
 
