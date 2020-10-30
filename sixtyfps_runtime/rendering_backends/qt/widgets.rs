@@ -138,6 +138,9 @@ impl Item for NativeButton {
             option.rect = QRect(QPoint(), size / dpr);
             if (down)
                 option.state |= QStyle::State_Sunken;
+            else
+                option.state |= QStyle::State_Raised;
+            option.state |= QStyle::State_Enabled;
             qApp->style()->drawControl(QStyle::CE_PushButton, &option, &p, nullptr);
         });
         return HighLevelRenderingPrimitive::Image { source: imgarray.to_resource() };
@@ -258,6 +261,7 @@ impl Item for NativeCheckBox {
             option.text = std::move(text);
             option.rect = QRect(QPoint(), size / dpr);
             option.state |= checked ? QStyle::State_On : QStyle::State_Off;
+            option.state |= QStyle::State_Enabled;
             qApp->style()->drawControl(QStyle::CE_CheckBox, &option, &p, nullptr);
         });
         return HighLevelRenderingPrimitive::Image { source: imgarray.to_resource() };
@@ -859,6 +863,7 @@ impl Item for NativeGroupBox {
         ] {
             QPainter p(img);
             QStyleOptionGroupBox option;
+            option.state |= QStyle::State_Enabled;
             option.rect = QRect(QPoint(), size / dpr);
             option.text = text;
             option.lineWidth = 1;
@@ -948,6 +953,7 @@ impl Item for NativeLineEdit {
                 ] -> qttypes::QMargins as "QMargins" {
                     ensure_initialized();
                     QStyleOptionFrame option;
+                    option.state |= QStyle::State_Enabled;
                     option.lineWidth = 1;
                     option.midLineWidth = 0;
                      // Just some size big enough to be sure that the frame fitst in it
