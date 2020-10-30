@@ -38,6 +38,7 @@ export Demo := Window {
 `
 
 function load_from_url(url) {
+    initTabs(fileNameFromURL(new URL(url)));
     fetch(url).then(
         x => x.text().then(y => {
             base_url = url;
@@ -52,6 +53,7 @@ function select_combo_changed() {
     if (select.value) {
         load_from_url("https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/" + select.value);
     } else {
+        initTabs()
         base_url = "";
         editor.getModel().setValue(hello_world)
     }
@@ -69,6 +71,16 @@ auto_compile.onchange = function () {
         update()
     }
 };
+
+function fileNameFromURL(url: URL): string {
+    let path = url.pathname;
+    return path.substring(path.lastIndexOf('/') + 1);
+}
+
+function initTabs(main_source_filename: string = "unnamed.60") {
+    let tab_bar = document.getElementById("tabs") as HTMLUListElement;
+    tab_bar.innerHTML = `<li id="main_source_file" class="nav-item"><span class="nav-link active">${main_source_filename}</span></li>`;
+}
 
 function update() {
     let source = editor.getModel().getValue();
@@ -121,9 +133,11 @@ async function run() {
     const load_url = params.get("load_url");
     if (code) {
         editor.getModel().setValue(code);
+        initTabs();
     } else if (load_url) {
         load_from_url(load_url);
     } else {
+        initTabs()
         editor.getModel().setValue(hello_world);
     }
     sixtyfps = await import("../../api/sixtyfps-wasm-interpreter/pkg/index.js");
