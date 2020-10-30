@@ -771,21 +771,23 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
             GraphicsWindowBackendState::Unmapped => {}
             GraphicsWindowBackendState::Mapped(window) => {
                 if constraints != window.constraints.get() {
+                    let min_width = constraints.min_width.min(constraints.max_width);
+                    let min_height = constraints.min_height.min(constraints.max_height);
+                    let max_width = constraints.max_width.max(constraints.min_width);
+                    let max_height = constraints.max_height.max(constraints.min_height);
+
                     window.backend.borrow().window().set_min_inner_size(
-                        if constraints.min_width > 0. || constraints.min_height > 0. {
-                            Some(winit::dpi::PhysicalSize::new(
-                                constraints.min_width,
-                                constraints.min_height,
-                            ))
+                        if min_width > 0. || min_height > 0. {
+                            Some(winit::dpi::PhysicalSize::new(min_width, min_height))
                         } else {
                             None
                         },
                     );
                     window.backend.borrow().window().set_max_inner_size(
-                        if constraints.max_width < f32::MAX || constraints.max_height < f32::MAX {
+                        if max_width < f32::MAX || max_height < f32::MAX {
                             Some(winit::dpi::PhysicalSize::new(
-                                constraints.max_width.min(65535.),
-                                constraints.max_height.min(65535.),
+                                max_width.min(65535.),
+                                max_height.min(65535.),
                             ))
                         } else {
                             None
