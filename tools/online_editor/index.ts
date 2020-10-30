@@ -98,7 +98,11 @@ async function render_or_error(source, base_url, div) {
     div.innerHTML = "";
     div.appendChild(canvas);
     try {
-        var compiled_component = await sixtyfps.compile_from_string(source, base_url);
+        var compiled_component = await sixtyfps.compile_from_string(source, base_url, async (file_name: string) => {
+            let u = new URL(file_name, base_url);
+            const response = await fetch(u.toString());
+            return await response.text();
+        });
     } catch (e) {
         let text = document.createTextNode(e.message);
         let p = document.createElement('pre');

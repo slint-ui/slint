@@ -24,11 +24,31 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 pub async fn compile_from_string(
     source: String,
     base_url: String,
+    mut optional_import_callback: Option<js_sys::Function>,
 ) -> Result<WrappedCompiledComp, JsValue> {
     #[cfg(feature = "console_error_panic_hook")]
     console_error_panic_hook::set_once();
 
-    let c = match sixtyfps_interpreter::load(source, base_url.into(), Default::default()).await {
+    let mut config = sixtyfps_interpreter::CompilerConfiguration::default();
+
+    if let Some(callback) = optional_import_callback.take() {
+        config.open_import_fallback = Some(Box::new(move |file_name| {
+            Box::pin({
+                let callback = callback.clone();
+                let result = callback.call1(&JsValue::UNDEFINED, &file_name.into());
+                let promise: js_sys::Promise = result.unwrap().into();
+                async move {
+                    let future = wasm_bindgen_futures::JsFuture::from(promise);
+                    match future.await {
+                        Ok(js_ok) => Ok(js_ok.as_string().unwrap_or_default()),
+                        Err(js_err) => Err(js_err.as_string().unwrap_or_default()),
+                    }
+                }
+            })
+        }));
+    }
+
+    let c = match sixtyfps_interpreter::load(source, base_url.into(), config).await {
         (Ok(c), ..) => {
             //TODO: warnings.print();
             c
