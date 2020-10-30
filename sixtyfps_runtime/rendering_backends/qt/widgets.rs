@@ -97,7 +97,7 @@ pub struct NativeButton {
     pub width: Property<f32>,
     pub height: Property<f32>,
     pub text: Property<SharedString>,
-    pub native_button_enabled: Property<bool>,
+    pub enabled: Property<bool>,
     pub pressed: Property<bool>,
     pub clicked: Signal<()>,
     pub cached_rendering_data: CachedRenderingData,
@@ -120,7 +120,7 @@ impl Item for NativeButton {
     ) -> HighLevelRenderingPrimitive {
         let down: bool = Self::FIELD_OFFSETS.pressed.apply_pin(self).get();
         let text: qttypes::QString = Self::FIELD_OFFSETS.text.apply_pin(self).get().as_str().into();
-        let enabled = Self::FIELD_OFFSETS.native_button_enabled.apply_pin(self).get();
+        let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
         let size: qttypes::QSize = get_size!(self);
         let dpr = window.scale_factor();
 
@@ -183,7 +183,7 @@ impl Item for NativeButton {
         _window: &ComponentWindow,
         _app_component: ComponentRefPin,
     ) -> InputEventResult {
-        let enabled = Self::FIELD_OFFSETS.native_button_enabled.apply_pin(self).get();
+        let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
         if !enabled {
             return InputEventResult::EventIgnored;
         }

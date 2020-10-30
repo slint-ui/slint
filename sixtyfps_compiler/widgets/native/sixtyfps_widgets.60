@@ -12,7 +12,6 @@ LICENSE END */
 export Button := NativeButton {
     property<length> font_size;
     enabled: true;
-    native_button_enabled: self.enabled;
 }
 export CheckBox := NativeCheckBox { }
 export SpinBox := NativeSpinBox { property<length> font_size; }
