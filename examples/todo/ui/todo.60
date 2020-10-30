@@ -36,13 +36,14 @@ MainWindow := Window {
         spacing: 15px;
         HorizontalLayout {
             text_edit := LineEdit {
-                text: "Play Golf";
+                placeholder-text: "What needs to be done?";
                 accepted(text) => {
                     todo_added(text);
                 }
             }
             btn := Button {
                 text: "Add New Entry";
+                enabled: text_edit.text != "";
                 clicked => {
                     todo_added(text_edit.text);
                 }
