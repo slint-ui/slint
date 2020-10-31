@@ -326,11 +326,11 @@ impl GraphicsBackend for GLRenderer {
         }
     }
 
-    fn finish_primitives(&mut self, builder: Self::RenderingPrimitivesBuilder) {
+    fn finish_primitives(&mut self, _builder: Self::RenderingPrimitivesBuilder) {
         #[cfg(not(target_arch = "wasm32"))]
         {
             self.windowed_context =
-                Some(unsafe { builder.windowed_context.make_not_current().unwrap() });
+                Some(unsafe { _builder.windowed_context.make_not_current().unwrap() });
         }
     }
 
