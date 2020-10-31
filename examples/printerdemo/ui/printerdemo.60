@@ -446,18 +446,11 @@ MainWindow := Window {
         y: root.height - self.height - 20px;
         color: #eee;
 
-        //GridLayout {
-        //    spacing: 20px;
+        HorizontalLayout {
+            spacing: 10px;
+            padding: 10px;
             for color_info[idx] in ink_levels : Rectangle {
-
                 color: white;
-
-    // this should be done by the Layout later
-    width: (parent.width - 5*10px) / 4;
-    height: parent.height - 20px;
-    y: 10px;
-    x: 10px + (self.width + 10px) * idx;
-
                 Rectangle {
                     width: parent.width;
                     height: tentative_height > parent.height * color_info.level ? parent.height * color_info.level: tentative_height;
@@ -467,7 +460,7 @@ MainWindow := Window {
                     color: color_info.color;
                 }
             }
-        //}
+        }
 
         property <bool> full_screen;
         states [
