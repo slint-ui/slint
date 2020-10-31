@@ -26,6 +26,7 @@ use sixtyfps_corelib::item_tree::{
 };
 use sixtyfps_corelib::items::{Flickable, ItemRef, ItemVTable, PropertyAnimation, Rectangle};
 use sixtyfps_corelib::layout::{LayoutInfo, Padding};
+use sixtyfps_corelib::model::RepeatedComponent;
 use sixtyfps_corelib::model::Repeater;
 use sixtyfps_corelib::properties::InterpolatedPropertyValue;
 use sixtyfps_corelib::rtti::{self, FieldOffset, PropertyInfo};
@@ -54,17 +55,6 @@ impl<'id> ComponentBox<'id> {
     /// Safety: the lifetime is not unique
     pub fn description(&self) -> Rc<ComponentDescription<'id>> {
         return self.component_type.clone();
-    }
-
-    pub fn root_item(&self) -> Pin<ItemRef> {
-        let component = self.borrow();
-        let component_type = unsafe {
-            &*(component.get_vtable() as *const ComponentVTable as *const ComponentDescription)
-        };
-
-        let info = &component_type.items[component_type.original.root_element.borrow().id.as_str()];
-
-        unsafe { info.item_from_component(component.as_ptr()) }
     }
 
     pub fn borrow_instance<'a>(&'a self) -> InstanceRef<'a, 'id> {
@@ -126,7 +116,7 @@ pub(crate) struct RepeaterWithinComponent<'par_id, 'sub_id> {
     pub(crate) offset: FieldOffset<Instance<'par_id>, Repeater<ComponentBox<'sub_id>>>,
 }
 
-impl<'id> sixtyfps_corelib::model::RepeatedComponent for ComponentBox<'id> {
+impl<'id> RepeatedComponent for ComponentBox<'id> {
     type Data = eval::Value;
 
     fn update(&self, index: usize, data: Self::Data) {
@@ -157,6 +147,28 @@ impl<'id> sixtyfps_corelib::model::RepeatedComponent for ComponentBox<'id> {
         let vp_w = viewport_width.get();
         if vp_w < w {
             viewport_width.set(w);
+        }
+    }
+
+    fn box_layout_data<'a>(self: Pin<&'a Self>) -> BoxLayoutCellData<'a> {
+        let root_item = &self.component_type.original.root_element;
+        let get_prop = |name: &str| {
+            if root_item.borrow().lookup_property(name) == Type::Length {
+                let nr = NamedReference::new(root_item, name);
+                let p = get_property_ptr(&nr, self.borrow_instance());
+                // Safety: assuming get_property_ptr returned a valid pointer,
+                // we know that `Type::Length` is a property of type `f32`
+                Some(unsafe { &*(p as *const Property<f32>) })
+            } else {
+                None
+            }
+        };
+        BoxLayoutCellData {
+            constraint: self.as_ref().layout_info(),
+            x: get_prop("x"),
+            y: get_prop("y"),
+            width: get_prop("width"),
+            height: get_prop("height"),
         }
     }
 }
@@ -928,17 +940,40 @@ fn get_property_ptr(nr: &NamedReference, instance: InstanceRef) -> *const () {
 
 use sixtyfps_corelib::layout::*;
 
-pub struct LayoutWithCells<'a, C> {
+struct LayoutWithCells<'a, C> {
     geometry: &'a sixtyfps_compilerlib::layout::LayoutGeometry,
     cells: Vec<C>,
     spacing: f32,
     padding: Padding,
 }
 
+type RepeatedComponentRc = Pin<Rc<dyn RepeatedComponent<Data = eval::Value>>>;
+enum BoxLayoutCellTmpData<'a> {
+    Item(BoxLayoutCellData<'a>),
+    Repeater(Vec<RepeatedComponentRc>),
+}
+
+impl<'a> BoxLayoutCellTmpData<'a> {
+    fn into_cells(cells: &'a [Self]) -> Vec<BoxLayoutCellData<'a>> {
+        let mut c = Vec::with_capacity(cells.len());
+        for x in cells.iter() {
+            match x {
+                BoxLayoutCellTmpData::Item(cell) => {
+                    c.push((*cell).clone());
+                }
+                BoxLayoutCellTmpData::Repeater(vec) => {
+                    c.extend(vec.iter().map(|x| x.as_ref().box_layout_data()))
+                }
+            }
+        }
+        c
+    }
+}
+
 #[derive(derive_more::From)]
 enum LayoutTreeItem<'a> {
     GridLayout(LayoutWithCells<'a, GridLayoutCellData<'a>>),
-    BoxLayout(LayoutWithCells<'a, BoxLayoutCellData<'a>>, bool),
+    BoxLayout(LayoutWithCells<'a, BoxLayoutCellTmpData<'a>>, bool),
     PathLayout(&'a PathLayout),
 }
 
@@ -950,12 +985,15 @@ impl<'a> LayoutTreeItem<'a> {
                 grid_layout.spacing,
                 &grid_layout.padding,
             ),
-            LayoutTreeItem::BoxLayout(box_layout, is_horizontal) => box_layout_info(
-                &Slice::from(box_layout.cells.as_slice()),
-                box_layout.spacing,
-                &box_layout.padding,
-                *is_horizontal,
-            ),
+            LayoutTreeItem::BoxLayout(box_layout, is_horizontal) => {
+                let cells = BoxLayoutCellTmpData::into_cells(&box_layout.cells);
+                box_layout_info(
+                    &Slice::from(cells.as_slice()),
+                    box_layout.spacing,
+                    &box_layout.padding,
+                    *is_horizontal,
+                )
+            }
             LayoutTreeItem::PathLayout(_) => todo!(),
         }
     }
@@ -1060,23 +1098,47 @@ fn collect_layouts_recursively<'a, 'b>(
             );
         }
         Layout::BoxLayout(box_layout) => {
+            let mut make_box_layout_cell_data = |cell| {
+                let mut layout_info = get_layout_info(cell, component, layout_tree, window);
+                fill_layout_info_constraints(&mut layout_info, &cell.constraints, &expr_eval);
+                let rect = cell.rect();
+
+                BoxLayoutCellData {
+                    x: assume_property_f32(&rect.x_reference),
+                    y: assume_property_f32(&rect.y_reference),
+                    width: assume_property_f32(&rect.width_reference),
+                    height: assume_property_f32(&rect.height_reference),
+                    constraint: layout_info,
+                }
+            };
+
             let cells = box_layout
                 .elems
                 .iter()
-                .map(|cell| {
-                    let mut layout_info = get_layout_info(cell, component, layout_tree, window);
-                    fill_layout_info_constraints(&mut layout_info, &cell.constraints, &expr_eval);
-                    let rect = cell.rect();
-
-                    BoxLayoutCellData {
-                        x: assume_property_f32(&rect.x_reference),
-                        y: assume_property_f32(&rect.y_reference),
-                        width: assume_property_f32(&rect.width_reference),
-                        height: assume_property_f32(&rect.height_reference),
-                        constraint: layout_info,
+                .map(|item| match &item.element {
+                    Some(elem) if elem.borrow().repeated.is_some() => {
+                        // we need a 'static guard in order to be able to convert from Rc<ComponentBox<'id>> to
+                        // Rc<dyn RepeatedComponent + 'static>>.
+                        // Safety: This is the only 'static Id in scope.
+                        let static_guard =
+                            unsafe { generativity::Guard::new(generativity::Id::<'static>::new()) };
+                        BoxLayoutCellTmpData::Repeater(
+                            get_repeater_by_name(
+                                component,
+                                elem.borrow().id.as_str(),
+                                static_guard,
+                            )
+                            .as_ref()
+                            .components_vec()
+                            .into_iter()
+                            .map(|x| x as RepeatedComponentRc)
+                            .collect(),
+                        )
                     }
+                    _ => BoxLayoutCellTmpData::Item(make_box_layout_cell_data(item)),
                 })
-                .collect();
+                .collect::<Vec<_>>();
+
             let spacing = box_layout.geometry.spacing.as_ref().map_or(0., expr_eval);
             let padding = Padding {
                 left: box_layout.geometry.padding.left.as_ref().map_or(0., expr_eval),
@@ -1118,6 +1180,7 @@ impl<'a> LayoutTreeItem<'a> {
                 });
             }
             Self::BoxLayout(box_layout, is_horizontal) => {
+                let cells = BoxLayoutCellTmpData::into_cells(&box_layout.cells);
                 solve_box_layout(
                     &BoxLayoutData {
                         width: resolve_prop_ref(&box_layout.geometry.rect.width_reference),
@@ -1126,7 +1189,7 @@ impl<'a> LayoutTreeItem<'a> {
                         y: resolve_prop_ref(&box_layout.geometry.rect.y_reference),
                         spacing: box_layout.spacing,
                         padding: &box_layout.padding,
-                        cells: Slice::from(box_layout.cells.as_slice()),
+                        cells: Slice::from(cells.as_slice()),
                     },
                     *is_horizontal,
                 );
@@ -1346,7 +1409,7 @@ extern "C" fn layout_info(component: ComponentRefPin) -> LayoutInfo {
         )
         .layout_info()
     } else {
-        Default::default()
+        instance_ref.root_item().as_ref().layouting_info(&eval::window_ref(instance_ref).unwrap())
     }
 }
 
@@ -1406,5 +1469,11 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
 
     pub fn as_ref(&self) -> &Instance<'id> {
         &*self.instance
+    }
+
+    pub fn root_item(&self) -> Pin<ItemRef> {
+        let info = &self.component_type.items
+            [self.component_type.original.root_element.borrow().id.as_str()];
+        unsafe { info.item_from_component(self.as_ptr()) }
     }
 }

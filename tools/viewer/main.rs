@@ -44,6 +44,6 @@ fn main() -> std::io::Result<()> {
     };
 
     let component = c.create();
-    component.window().run(component.borrow(), component.root_item());
+    component.window().run(component.borrow(), component.borrow_instance().root_item());
     Ok(())
 }

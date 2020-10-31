@@ -398,7 +398,7 @@ pub struct BoxLayoutData<'a> {
 }
 
 #[repr(C)]
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct BoxLayoutCellData<'a> {
     pub constraint: LayoutInfo,
     pub x: Option<&'a Property<Coord>>,

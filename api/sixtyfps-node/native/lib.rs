@@ -330,7 +330,7 @@ declare_types! {
             let component = cx.borrow(&mut this, |x| x.0.clone());
             let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
             run_scoped(&mut cx,this.downcast().unwrap(), || {
-                component.window().run(component.borrow(), component.root_item());
+                component.window().run(component.borrow(), component.borrow_instance().root_item());
                 Ok(())
             })?;
             Ok(JsUndefined::new().as_value(&mut cx))
