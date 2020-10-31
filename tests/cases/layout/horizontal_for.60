@@ -57,7 +57,6 @@ assert_eq(instance.get_value(), 9);
 let instance = TestCase::new();
 let instance = instance.as_ref();
 
-
 sixtyfps::testing::send_mouse_click(instance, 5., 5.);
 assert_eq!(instance.get_value(), -10);
 

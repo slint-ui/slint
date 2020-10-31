@@ -745,10 +745,10 @@ fn generate_component(
             }),
         ));
 
+        let p_y = access_member(&component.root_element, "y", component, "this");
+        let p_height = access_member(&component.root_element, "height", component, "this");
+        let p_width = access_member(&component.root_element, "width", component, "this");
         if parent_element.borrow().repeated.as_ref().map_or(false, |r| r.is_listview.is_some()) {
-            let p_y = access_member(&component.root_element, "y", component, "this");
-            let p_height = access_member(&component.root_element, "height", component, "this");
-            let p_width = access_member(&component.root_element, "width", component, "this");
             component_struct.members.push((
                 Access::Public, // Because Repeater accesses it
                 Declaration::Function(Function {
@@ -768,6 +768,23 @@ fn generate_component(
                     ..Function::default()
                 }),
             ));
+        } else {
+            let p_x = access_member(&component.root_element, "x", component, "this");
+            component_struct.members.push((
+                Access::Public, // Because Repeater accesses it
+                Declaration::Function(Function {
+                    name: "box_layout_data".into(),
+                    signature: "() const -> sixtyfps::BoxLayoutCellData".to_owned(),
+                    statements: Some(vec![format!(
+                        "return {{ layouting_info({{&component_type, const_cast<void *>(static_cast<const void *>(this))}}), &{x}, &{y}, &{w}, &{h} }};",
+                        x = p_x,
+                        y = p_y,
+                        w = p_width,
+                        h = p_height
+                    )]),
+                    ..Function::default()
+                }),
+            ));
         }
     } else if !component.is_global() {
         component_struct.members.push((
@@ -776,21 +793,6 @@ fn generate_component(
                 ty: "sixtyfps::private_api::ComponentWindow".into(),
                 name: "window".into(),
                 ..Var::default()
-            }),
-        ));
-
-        let root_elem = component.root_element.borrow();
-        component_struct.members.push((
-            Access::Public,
-            Declaration::Function(Function {
-                name: "root_item".into(),
-                signature: "() -> VRef<sixtyfps::private_api::ItemVTable>".into(),
-                statements: Some(vec![format!(
-                    "return {{ &sixtyfps::private_api::{vt}, &this->{id} }};",
-                    vt = root_elem.base_type.as_native().vtable_symbol,
-                    id = root_elem.id
-                )]),
-                ..Default::default()
             }),
         ));
 
@@ -1028,7 +1030,7 @@ fn generate_component(
         component_struct.members.push((
             Access::Private,
             Declaration::Function(Function {
-                name: "layout_info".into(),
+                name: "layouting_info".into(),
                 signature:
                     "([[maybe_unused]] sixtyfps::private_api::ComponentRef component) -> sixtyfps::LayoutInfo"
                         .into(),
@@ -1044,6 +1046,21 @@ fn generate_component(
                 ty: "static const sixtyfps::private_api::ComponentVTable".to_owned(),
                 name: "component_type".to_owned(),
                 init: None,
+            }),
+        ));
+
+        let root_elem = component.root_element.borrow();
+        component_struct.members.push((
+            Access::Public,
+            Declaration::Function(Function {
+                name: "root_item".into(),
+                signature: "() const -> VRef<sixtyfps::private_api::ItemVTable>".into(),
+                statements: Some(vec![format!(
+                    "return {{ &sixtyfps::private_api::{vt}, const_cast<decltype(this->{id})*>(&this->{id}) }};",
+                    vt = root_elem.base_type.as_native().vtable_symbol,
+                    id = root_elem.id
+                )]),
+                ..Default::default()
             }),
         ));
     }
@@ -1067,7 +1084,7 @@ fn generate_component(
             ty: "const sixtyfps::private_api::ComponentVTable".to_owned(),
             name: format!("{}::component_type", component_id),
             init: Some(
-                "{ visit_children, layout_info, apply_layout, input_event, key_event, focus_event }"
+                "{ visit_children, layouting_info, apply_layout, input_event, key_event, focus_event }"
                     .to_owned(),
             ),
         }));
@@ -1555,36 +1572,61 @@ impl crate::layout::gen::Language for CppLanguageLayoutGen {
         box_layout: &'a crate::layout::BoxLayout,
         component: &Rc<Component>,
     ) -> crate::layout::gen::LayoutTreeItem<'a, Self> {
-        let cells: Vec<_> = box_layout
+        let is_static_array = box_layout
             .elems
             .iter()
-            .map(|cell| {
-                let layout_info = get_layout_info_ref(&cell, layout_tree, component);
-                let lay_rect = cell.rect();
-                let get_property_ref = |p: &Option<NamedReference>| match p {
-                    Some(nr) => format!("&{}", access_named_reference(nr, component, "self")),
-                    None => "nullptr".to_owned(),
-                };
-                format!(
-                    "        {{ {li}, {x}, {y}, {w}, {h} }},",
-                    li = layout_info,
-                    x = get_property_ref(&lay_rect.x_reference),
-                    y = get_property_ref(&lay_rect.y_reference),
-                    w = get_property_ref(&lay_rect.width_reference),
-                    h = get_property_ref(&lay_rect.height_reference)
-                )
-            })
-            .collect();
+            .all(|i| i.element.as_ref().map_or(true, |x| x.borrow().repeated.is_none()));
 
-        let cell_ref_variable = format!("cells_{}", layout_tree.len()).to_owned();
-        let mut creation_code = cells;
-        creation_code.insert(
-            0,
-            format!("    sixtyfps::BoxLayoutCellData {}_data[] = {{", cell_ref_variable,),
-        );
-        creation_code.push("    };".to_owned());
+        let mut make_box_layout_cell_data = |cell: &'a crate::layout::LayoutItem| {
+            let layout_info = get_layout_info_ref(&cell, layout_tree, component);
+            let lay_rect = cell.rect();
+            let get_property_ref = |p: &Option<NamedReference>| match p {
+                Some(nr) => format!("&{}", access_named_reference(nr, component, "self")),
+                None => "nullptr".to_owned(),
+            };
+            format!(
+                "    {{ {li}, {x}, {y}, {w}, {h} }}",
+                li = layout_info,
+                x = get_property_ref(&lay_rect.x_reference),
+                y = get_property_ref(&lay_rect.y_reference),
+                w = get_property_ref(&lay_rect.width_reference),
+                h = get_property_ref(&lay_rect.height_reference)
+            )
+        };
+
+        let mut creation_code = if is_static_array {
+            let mut creation_code: Vec<_> =
+                box_layout.elems.iter().map(make_box_layout_cell_data).map(|s| s + ",").collect();
+            creation_code.insert(0, "sixtyfps::BoxLayoutCellData @_data[] = {".into());
+            creation_code.push("};".to_owned());
+            creation_code
+        } else {
+            let mut push_code = vec!["std::vector<sixtyfps::BoxLayoutCellData> @_data;".into()];
+            for item in &box_layout.elems {
+                match &item.element {
+                    Some(elem) if elem.borrow().repeated.is_some() => {
+                        push_code.push(format!(
+                            "if (self->repeater_{id}.inner) for (auto &&sub_comp : self->repeater_{id}.inner->data)",
+                            id = elem.borrow().id
+                        ));
+                        push_code.push(
+                            "    @_data.push_back(sub_comp.ptr->box_layout_data());".to_owned(),
+                        );
+                    }
+                    _ => {
+                        push_code.push(format!(
+                            "@_data.push_back({});",
+                            make_box_layout_cell_data(item)
+                        ));
+                    }
+                }
+            }
+            push_code
+        };
+        let cell_ref_variable = format!("cells_{}", layout_tree.len());
+        creation_code.iter_mut().for_each(|s| *s = s.replace('@', cell_ref_variable.as_ref()));
         creation_code.push(format!(
-                "    const sixtyfps::Slice<sixtyfps::BoxLayoutCellData> {cv}{{{cv}_data, std::size({cv}_data)}};",
+               "const sixtyfps::Slice<sixtyfps::BoxLayoutCellData> {cv}{{&*std::begin({cv}_data), std::size({cv}_data)}};",
                 cv = cell_ref_variable
             ));
 
@@ -1874,14 +1916,18 @@ fn compute_layout(
     component: &Rc<Component>,
     repeater_layout_code: &mut Vec<String>,
 ) -> (Vec<String>, Vec<String>) {
-    let mut res = vec![];
-    let mut layout_info = vec!["return {};".to_owned()];
-
     let intro = format!(
         "[[maybe_unused]] auto self = reinterpret_cast<const {ty}*>(component.instance);",
         ty = component_id(component)
     );
-    res.push(intro.clone());
+    let mut res = vec![intro.clone()];
+    let mut layout_info = vec![
+        intro.clone(),
+        format!(
+            "return self->root_item().vtable->layouting_info(self->root_item(), &{});",
+            window_ref_expression(component)
+        ),
+    ];
     let component_layouts = component.layouts.borrow();
     component_layouts.iter().enumerate().for_each(|(idx, layout)| {
         let mut inverse_layout_tree = Vec::new();
