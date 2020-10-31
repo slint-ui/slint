@@ -17,12 +17,19 @@ namespace sixtyfps {
 struct Resource
 {
 public:
-    using Tag = cbindgen_private::types::Resource::Tag;
-
     Resource() : data(Data::None()) { }
     Resource(const SharedString &file_path) : data(Data::AbsoluteFilePath(file_path)) { }
 
+    friend bool operator==(const Resource &a, const Resource &b) {
+        return a.data == b.data;
+    }
+    friend bool operator!=(const Resource &a, const Resource &b) {
+        return a.data != b.data;
+    }
+
+
 private:
+    using Tag = cbindgen_private::types::Resource::Tag;
     using Data = cbindgen_private::types::Resource;
     Data data;
 };

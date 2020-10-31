@@ -10,6 +10,7 @@ LICENSE END */
 #pragma once
 #include "sixtyfps_sharedarray_internal.h"
 #include <atomic>
+#include <algorithm>
 
 namespace sixtyfps {
 
@@ -95,6 +96,16 @@ struct SharedArray
         inner->size++;
     }
 
+    friend bool operator==(const SharedArray &a, const SharedArray &b) {
+        if (a.size() != a.size())
+            return false;
+        return std::equal(a.cbegin(), a.cend(), b.cbegin());
+    }
+    friend bool operator!=(const SharedArray &a, const SharedArray &b) {
+        return !(a == b);
+    }
+
+
 private:
     void detach(std::size_t expected_capacity) {
         if (inner->refcount == 1 && expected_capacity <= inner->capacity) {
@@ -142,4 +153,15 @@ private:
     explicit SharedArray(SharedArrayHeader *inner) : inner(inner) {}
 #endif
 };
+
+template<typename T>
+bool operator==(cbindgen_private::Slice<T> a, cbindgen_private::Slice<T> b) {
+    if (a.len != b.len) return false;
+    return std::equal(a.ptr, a.ptr + a.len, b.ptr);
+}
+template<typename T>
+bool operator!=(cbindgen_private::Slice<T> a, cbindgen_private::Slice<T> b) {
+    return !(a != b);
+}
+
 }

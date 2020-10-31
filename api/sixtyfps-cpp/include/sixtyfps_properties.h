@@ -41,8 +41,10 @@ struct Property
 
     void set(const T &value) const
     {
-        this->value = value;
-        cbindgen_private::sixtyfps_property_set_changed(&inner, &this->value);
+        if (this->value != value) {
+            this->value = value;
+            cbindgen_private::sixtyfps_property_set_changed(&inner, &this->value);
+        }
     }
 
     const T &get() const

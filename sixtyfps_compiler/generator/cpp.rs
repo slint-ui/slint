@@ -108,6 +108,7 @@ mod cpp_ast {
                         signature: f.signature.clone(),
                         is_constructor_or_destructor: f.is_constructor_or_destructor,
                         is_static: false,
+                        is_friend: false,
                         statements: f.statements.take(),
                         template_parameters: f.template_parameters.clone(),
                     }))
@@ -126,6 +127,7 @@ mod cpp_ast {
         /// The function does not have return type
         pub is_constructor_or_destructor: bool,
         pub is_static: bool,
+        pub is_friend: bool,
         /// The list of statement instead the function.  When None,  this is just a function
         /// declaration without the definition
         pub statements: Option<Vec<String>>,
@@ -141,6 +143,9 @@ mod cpp_ast {
             }
             if self.is_static {
                 write!(f, "static ")?;
+            }
+            if self.is_friend {
+                write!(f, "friend ")?;
             }
             // all functions are inlines because we are in a header
             write!(f, "inline ")?;
@@ -540,9 +545,12 @@ fn generate_struct(
     fields: &BTreeMap<String, Type>,
     diag: &mut BuildDiagnostics,
 ) {
+    let mut operator_eq = String::new();
     let mut members = fields
         .iter()
         .map(|(name, t)| {
+            use std::fmt::Write;
+            write!(operator_eq, " && a.{0} == b.{0}", name).unwrap();
             (
                 Access::Public,
                 Declaration::Var(Var {
@@ -563,6 +571,26 @@ fn generate_struct(
         (Declaration::Var(a), Declaration::Var(b)) => a.name.cmp(&b.name),
         _ => unreachable!(),
     });
+    members.push((
+        Access::Public,
+        Declaration::Function(Function {
+            name: "operator==".to_owned(),
+            signature: format!("(const {0} &a, const {0} &b) -> bool", name),
+            is_friend: true,
+            statements: Some(vec![format!("return true{};", operator_eq)]),
+            ..Function::default()
+        }),
+    ));
+    members.push((
+        Access::Public,
+        Declaration::Function(Function {
+            name: "operator!=".to_owned(),
+            signature: format!("(const {0} &a, const {0} &b) -> bool", name),
+            is_friend: true,
+            statements: Some(vec!["return !(a == b);".into()]),
+            ..Function::default()
+        }),
+    ));
     file.declarations.push(Declaration::Struct(Struct {
         name: name.into(),
         members,

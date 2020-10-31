@@ -160,6 +160,8 @@ fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
             private_default_tagged_enum_constructor: true,
             ..Default::default()
         };
+        special_config.structure.derive_eq = true;
+        special_config.structure.derive_neq = true;
         // Put the rust type in a deeper "types" namespace, so the use of same type in for example generated
         // Property<> fields uses the public `sixtyfps::Blah` type
         special_config.namespaces =
