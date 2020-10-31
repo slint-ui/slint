@@ -335,7 +335,7 @@ impl ItemConsts for NativeCheckBox {
 
 ItemVTable_static! { #[no_mangle] pub static NativeCheckBoxVTable for NativeCheckBox }
 
-#[derive(Default, Copy, Clone, Debug)]
+#[derive(Default, Copy, Clone, Debug, PartialEq)]
 #[repr(C)]
 struct NativeSpinBoxData {
     active_controls: u32,
@@ -529,7 +529,7 @@ impl ItemConsts for NativeSpinBox {
 
 ItemVTable_static! { #[no_mangle] pub static NativeSpinBoxVTable for NativeSpinBox }
 
-#[derive(Default, Copy, Clone, Debug)]
+#[derive(Default, Copy, Clone, Debug, PartialEq)]
 #[repr(C)]
 struct NativeSliderData {
     active_controls: u32,

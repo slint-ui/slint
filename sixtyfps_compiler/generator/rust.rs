@@ -1269,7 +1269,11 @@ fn compile_assignment(
         Expression::PropertyReference(nr) => {
             let lhs_ = access_named_reference(nr, component, quote!(_self));
             if op == '=' {
-                quote!( #lhs_.set((#rhs) as _) )
+                if lhs.ty() == Type::Model {
+                    quote!( #lhs_.set_no_compare((#rhs)) )
+                } else {
+                    quote!( #lhs_.set((#rhs) as _) )
+                }
             } else {
                 let op = proc_macro2::Punct::new(op, proc_macro2::Spacing::Alone);
                 if lhs.ty() == Type::String {

@@ -563,7 +563,7 @@ fn generate_component<'id>(
 
     let mut custom_properties = HashMap::new();
     let mut custom_signals = HashMap::new();
-    fn property_info<T: Clone + Default + 'static>(
+    fn property_info<T: PartialEq + Clone + Default + 'static>(
     ) -> (Box<dyn PropertyInfo<u8, eval::Value>>, dynamic_type::StaticTypeInfo)
     where
         T: std::convert::TryInto<eval::Value>,

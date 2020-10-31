@@ -75,7 +75,7 @@ pub trait PropertyInfo<Item, Value> {
     unsafe fn link_two_ways(&self, item: Pin<&Item>, property2: *const ());
 }
 
-impl<Item, T: Clone + 'static, Value: 'static> PropertyInfo<Item, Value>
+impl<Item, T: PartialEq + Clone + 'static, Value: 'static> PropertyInfo<Item, Value>
     for FieldOffset<Item, crate::Property<T>>
 where
     Value: TryInto<T>,

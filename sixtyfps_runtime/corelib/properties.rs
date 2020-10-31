@@ -564,7 +564,10 @@ impl<T: Clone> Property<T> {
     /// If other properties have binding depending of this property, these properties will
     /// be marked as dirty.
     // FIXME  pub fn set(self: Pin<&Self>, t: T) {
-    pub fn set(&self, t: T) {
+    pub fn set(&self, t: T)
+    where
+        T: PartialEq,
+    {
         if !self.handle.access(|b| {
             b.map_or(false, |b| unsafe {
                 // Safety: b is a BindingHolder<T>
@@ -574,7 +577,34 @@ impl<T: Clone> Property<T> {
             self.handle.remove_binding();
         }
         // Safety: PropertyHandle::access ensure that the value is locked
-        self.handle.access(|_| unsafe { *self.value.get() = t });
+        if self.handle.access(|_| unsafe {
+            *self.value.get() != t && {
+                *self.value.get() = t;
+                true
+            }
+        }) {
+            self.handle.mark_dirty();
+        }
+    }
+
+    /// Same as Property::set, but does not require T to be PartialEq
+    ///
+    /// If other properties have binding depending of this property, these properties will
+    /// be marked as dirty.
+    // FIXME  pub fn set(self: Pin<&Self>, t: T) {
+    pub fn set_no_compare(&self, t: T) {
+        if !self.handle.access(|b| {
+            b.map_or(false, |b| unsafe {
+                // Safety: b is a BindingHolder<T>
+                (b.vtable.intercept_set)(&*b as *const BindingHolder, &t as *const T as *const ())
+            })
+        }) {
+            self.handle.remove_binding();
+        }
+        // Safety: PropertyHandle::access ensure that the value is locked
+        self.handle.access(|_| unsafe {
+            *self.value.get() = t;
+        });
         self.handle.mark_dirty();
     }
 
@@ -713,7 +743,7 @@ fn properties_simple_test() {
     assert_eq!(g(&compo.area), 8 * 8 * 2);
 }
 
-impl<T: Clone + 'static> Property<T> {
+impl<T: PartialEq + Clone + 'static> Property<T> {
     /// Link two property such that any change to one property is affecting the other property as if they
     /// where, in fact, a single property.
     /// The value or binding of prop2 is kept.
@@ -721,7 +751,7 @@ impl<T: Clone + 'static> Property<T> {
         struct TwoWayBinding<T> {
             common_property: Pin<Rc<Property<T>>>,
         }
-        impl<T: Clone + 'static> BindingCallable for TwoWayBinding<T> {
+        impl<T: PartialEq + Clone + 'static> BindingCallable for TwoWayBinding<T> {
             unsafe fn evaluate(self: Pin<&Self>, value: *mut ()) -> BindingResult {
                 *(value as *mut T) = self.common_property.as_ref().get();
                 BindingResult::KeepBinding
