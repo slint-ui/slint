@@ -416,7 +416,8 @@ fn generate_component(
 
             let mut model = compile_expression(&repeated.model, component);
             if repeated.is_conditional_element {
-                model = quote!(sixtyfps::re_exports::ModelHandle::Some(std::rc::Rc::<bool>::new(#model)))
+                model =
+                    quote!(sixtyfps::re_exports::ModelHandle::new(std::rc::Rc::<bool>::new(#model)))
             }
 
             // FIXME: there could be an optimization if `repeated.model.is_constant()`, we don't need a binding
@@ -1005,7 +1006,7 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                     quote!(sixtyfps::re_exports::SharedString::from(format!("{}", #f).as_str()))
                 }
                 (Type::Float32, Type::Model) | (Type::Int32, Type::Model) => {
-                    quote!(sixtyfps::re_exports::ModelHandle::Some(std::rc::Rc::<usize>::new(#f as usize)))
+                    quote!(sixtyfps::re_exports::ModelHandle::new(std::rc::Rc::<usize>::new(#f as usize)))
                 }
                 (Type::Float32, Type::Color) => {
                     quote!(sixtyfps::re_exports::Color::from_argb_encoded(#f as u32))
@@ -1210,7 +1211,7 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
         Expression::Array { values, element_ty } => {
             let rust_element_ty = rust_type(&element_ty, &Default::default()).unwrap();
             let val = values.iter().map(|e| compile_expression(e, component));
-            quote!(sixtyfps::re_exports::ModelHandle::Some(
+            quote!(sixtyfps::re_exports::ModelHandle::new(
                 std::rc::Rc::new(sixtyfps::re_exports::VecModel::<#rust_element_ty>::from(vec![#(#val as _),*]))
             ))
         }
@@ -1269,11 +1270,7 @@ fn compile_assignment(
         Expression::PropertyReference(nr) => {
             let lhs_ = access_named_reference(nr, component, quote!(_self));
             if op == '=' {
-                if lhs.ty() == Type::Model {
-                    quote!( #lhs_.set_no_compare((#rhs)) )
-                } else {
-                    quote!( #lhs_.set((#rhs) as _) )
-                }
+                quote!( #lhs_.set((#rhs) as _) )
             } else {
                 let op = proc_macro2::Punct::new(op, proc_macro2::Spacing::Alone);
                 if lhs.ty() == Type::String {

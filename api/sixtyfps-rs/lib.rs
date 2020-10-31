@@ -124,6 +124,7 @@ The follow table summarizes the entire mapping:
 | `logical_length` | `f32` | At run-time, logical lengths are automatically translated to physical pixels using the device pixel ratio. |
 | `duration` | `i64` | At run-time, durations are always represented as signed 64-bit integers with milisecond precision. |
 | structure | `struct` of the same name | |
+| array | [`ModelHandle`] |  |
 
 For user defined structures in the .60, an extra struct is generated.
 For example, if the `.60` contains

@@ -91,7 +91,7 @@ impl<T: 'static> VecModel<T> {
     where
         T: Clone,
     {
-        Some(Rc::<Self>::new(slice.iter().cloned().collect::<Vec<T>>().into()))
+        ModelHandle(Some(Rc::<Self>::new(slice.iter().cloned().collect::<Vec<T>>().into())))
     }
 
     /// Add a row at the end of the model
@@ -169,8 +169,44 @@ impl Model for bool {
 }
 
 /// Properties of type array in the .60 language are represented as
-/// an [Option] of an [Rc] of somthing implemented the [Model] trait
-pub type ModelHandle<T> = Option<Rc<dyn Model<Data = T>>>;
+/// an [`Option`] of an [`Rc`] of somthing implemented the [`Model`] trait
+#[derive(derive_more::Deref, derive_more::DerefMut, derive_more::From, derive_more::Into)]
+pub struct ModelHandle<T>(pub Option<Rc<dyn Model<Data = T>>>);
+
+impl<T> Clone for ModelHandle<T> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+impl<T> Default for ModelHandle<T> {
+    fn default() -> Self {
+        Self(None)
+    }
+}
+
+impl<T> core::cmp::PartialEq for ModelHandle<T> {
+    fn eq(&self, other: &Self) -> bool {
+        match (&self.0, &other.0) {
+            (None, None) => true,
+            (None, Some(_)) => false,
+            (Some(_), None) => false,
+            (Some(a), Some(b)) => Rc::ptr_eq(a, b),
+        }
+    }
+}
+
+impl<T> From<Rc<dyn Model<Data = T>>> for ModelHandle<T> {
+    fn from(x: Rc<dyn Model<Data = T>>) -> Self {
+        Self(Some(x))
+    }
+}
+
+impl<T> ModelHandle<T> {
+    /// Create a new handle wrapping the given model
+    pub fn new(model: Rc<dyn Model<Data = T>>) -> Self {
+        Self(Some(model))
+    }
+}
 
 /// Component that can be instantiated by a repeater.
 pub trait RepeatedComponent: crate::component::Component {
@@ -321,7 +357,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         if model.is_dirty() {
             // Invalidate previuos weeks on the previous models
             (*Rc::make_mut(&mut self.inner.borrow_mut()).get_mut()) = RepeaterInner::default();
-            if let Some(m) = model.get() {
+            if let ModelHandle(Some(m)) = model.get() {
                 let peer: Rc<RefCell<dyn ViewAbstraction>> = self.inner.borrow().clone();
                 m.attach_peer(ModelPeer { inner: Rc::downgrade(&peer) });
             }
@@ -332,7 +368,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
     /// Call this function to make sure that the model is updated.
     /// The init function is the function to create a component
     pub fn ensure_updated(self: Pin<&Self>, init: impl Fn() -> Pin<Rc<C>>) {
-        if let Some(model) = self.model() {
+        if let ModelHandle(Some(model)) = self.model() {
             if self.inner.borrow().borrow().is_dirty {
                 self.ensure_updated_impl(init, &model, model.row_count());
             }
@@ -382,7 +418,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
             viewport_y.set(0.);
         };
 
-        let model = if let Some(model) = self.model() {
+        let model = if let ModelHandle(Some(model)) = self.model() {
             model
         } else {
             return empty_model();
@@ -486,7 +522,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
 
     /// Sets the data directly in the model
     pub fn model_set_row_data(self: Pin<&Self>, row: usize, data: C::Data) {
-        if let Some(model) = self.model() {
+        if let ModelHandle(Some(model)) = self.model() {
             model.set_row_data(row, data);
             if let Some(c) = self.inner.borrow().borrow_mut().components.get_mut(row) {
                 if c.0 == RepeatedComponentState::Dirty {

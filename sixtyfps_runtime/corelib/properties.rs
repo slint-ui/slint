@@ -587,27 +587,6 @@ impl<T: Clone> Property<T> {
         }
     }
 
-    /// Same as Property::set, but does not require T to be PartialEq
-    ///
-    /// If other properties have binding depending of this property, these properties will
-    /// be marked as dirty.
-    // FIXME  pub fn set(self: Pin<&Self>, t: T) {
-    pub fn set_no_compare(&self, t: T) {
-        if !self.handle.access(|b| {
-            b.map_or(false, |b| unsafe {
-                // Safety: b is a BindingHolder<T>
-                (b.vtable.intercept_set)(&*b as *const BindingHolder, &t as *const T as *const ())
-            })
-        }) {
-            self.handle.remove_binding();
-        }
-        // Safety: PropertyHandle::access ensure that the value is locked
-        self.handle.access(|_| unsafe {
-            *self.value.get() = t;
-        });
-        self.handle.mark_dirty();
-    }
-
     /// Set a binding to this property.
     ///
     /// Bindings are evaluated lazily from calling get, and the return value of the binding

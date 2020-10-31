@@ -52,7 +52,7 @@ pub fn main() {
         }
     });
 
-    main_window.as_ref().set_todo_model(Some(todo_model));
+    main_window.as_ref().set_todo_model(sixtyfps::ModelHandle::new(todo_model));
 
     main_window.run();
 }
