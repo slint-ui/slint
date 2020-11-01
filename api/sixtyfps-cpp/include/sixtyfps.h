@@ -587,5 +587,13 @@ struct VersionCheckHelper
 }
 
 using cbindgen_private::StandardListViewItem;
+bool operator==(const StandardListViewItem &a, const StandardListViewItem &b) {
+    static_assert(sizeof(StandardListViewItem) == sizeof(std::tuple<SharedString>), "This should be updated if there are more fields");
+    return a.text == b.text;
+}
+bool operator!=(const StandardListViewItem &a, const StandardListViewItem &b) {
+    return !(a == b);
+}
+
 
 } // namespace sixtyfps
