@@ -579,21 +579,22 @@ Flickable::~Flickable()
     sixtyfps_flickable_data_free(&data);
 }
 
+using cbindgen_private::StandardListViewItem;
+namespace cbindgen_private {
+bool operator==(const StandardListViewItem &a, const StandardListViewItem &b) {
+    static_assert(sizeof(StandardListViewItem) == sizeof(std::tuple<SharedString>), "must update to cover all fields");
+    return a.text == b.text;
+}
+bool operator!=(const StandardListViewItem &a, const StandardListViewItem &b) {
+    return !(a == b);
+}
+}
+
 namespace private_api {
 template<int Major, int Minor, int Patch>
 struct VersionCheckHelper
 {
 };
 }
-
-using cbindgen_private::StandardListViewItem;
-bool operator==(const StandardListViewItem &a, const StandardListViewItem &b) {
-    static_assert(sizeof(StandardListViewItem) == sizeof(std::tuple<SharedString>), "This should be updated if there are more fields");
-    return a.text == b.text;
-}
-bool operator!=(const StandardListViewItem &a, const StandardListViewItem &b) {
-    return !(a == b);
-}
-
 
 } // namespace sixtyfps
