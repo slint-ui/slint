@@ -1469,13 +1469,19 @@ impl crate::layout::gen::Language for RustLanguageLayoutGen {
             let mut fixed_count = 0usize;
             let mut repeated_count = quote!();
             let mut push_code = quote!();
+            let component_id = component_id(component);
             for item in &box_layout.elems {
                 match &item.element {
                     Some(elem) if elem.borrow().repeated.is_some() => {
                         let repeater_id = format_ident!("repeater_{}", elem.borrow().id);
+                        let rep_component_id =
+                            self::component_id(&elem.borrow().base_type.as_component());
                         repeated_count = quote!(#repeated_count + self.#repeater_id.len());
                         push_code = quote! {
                             #push_code
+                            #component_id::FIELD_OFFSETS.#repeater_id.apply_pin(self).ensure_updated(
+                                || { #rep_component_id::new(self.self_weak.get().unwrap().clone()) }
+                            );
                             let internal_vec = self.#repeater_id.components_vec();
                             for sub_comp in &internal_vec {
                                 items_vec.push(sub_comp.as_ref().box_layout_data())

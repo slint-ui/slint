@@ -546,7 +546,7 @@ fn eval_assignement(lhs: &Expression, op: char, rhs: Value, local_context: &mut 
                 element.borrow().id.as_str(),
                 static_guard,
             );
-            repeater.model_set_row_data(
+            repeater.0.model_set_row_data(
                 eval_expression(
                     &Expression::RepeaterIndexReference { element: Rc::downgrade(&element) },
                     local_context,

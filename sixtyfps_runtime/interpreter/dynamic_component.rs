@@ -43,13 +43,8 @@ pub struct ComponentBox<'id> {
 
 impl<'id> ComponentBox<'id> {
     /// Borrow this component as a `Pin<ComponentRef>`
-    pub fn borrow(&self) -> ComponentRefPin {
-        unsafe {
-            Pin::new_unchecked(vtable::VRef::from_raw(
-                NonNull::from(&self.component_type.ct).cast(),
-                self.instance.as_ptr().cast(),
-            ))
-        }
+    pub fn borrow<'a>(&'a self) -> ComponentRefPin<'a> {
+        self.borrow_instance().borrow()
     }
 
     /// Safety: the lifetime is not unique
@@ -1124,17 +1119,28 @@ fn collect_layouts_recursively<'a, 'b>(
                         // Safety: This is the only 'static Id in scope.
                         let static_guard =
                             unsafe { generativity::Guard::new(generativity::Id::<'static>::new()) };
+
+                        let rep = get_repeater_by_name(
+                            component,
+                            elem.borrow().id.as_str(),
+                            static_guard,
+                        );
+                        rep.0.as_ref().ensure_updated(|| {
+                            Rc::pin(instantiate(
+                                rep.1.clone(),
+                                Some(component.borrow()),
+                                #[cfg(target_arch = "wasm32")]
+                                String::new(),
+                            ))
+                        });
+
                         BoxLayoutCellTmpData::Repeater(
-                            get_repeater_by_name(
-                                component,
-                                elem.borrow().id.as_str(),
-                                static_guard,
-                            )
-                            .as_ref()
-                            .components_vec()
-                            .into_iter()
-                            .map(|x| x as RepeatedComponentRc)
-                            .collect(),
+                            rep.0
+                                .as_ref()
+                                .components_vec()
+                                .into_iter()
+                                .map(|x| x as RepeatedComponentRc)
+                                .collect(),
                         )
                     }
                     _ => BoxLayoutCellTmpData::Item(make_box_layout_cell_data(item)),
@@ -1234,7 +1240,7 @@ impl<'a> LayoutTreeItem<'a> {
                         generativity::make_guard!(guard);
                         let repeater =
                             get_repeater_by_name(instance_ref, elem.borrow().id.as_str(), guard);
-                        let vec = repeater.components_vec();
+                        let vec = repeater.0.components_vec();
                         for sub_comp in vec.iter() {
                             push_layout_data(
                                 &elem.borrow().base_type.as_component().root_element,
@@ -1267,10 +1273,10 @@ pub fn get_repeater_by_name<'a, 'id>(
     instance_ref: InstanceRef<'a, '_>,
     name: &str,
     guard: generativity::Guard<'id>,
-) -> std::pin::Pin<&'a Repeater<ComponentBox<'id>>> {
+) -> (std::pin::Pin<&'a Repeater<ComponentBox<'id>>>, Rc<ComponentDescription<'id>>) {
     let rep_index = instance_ref.component_type.repeater_names[name];
     let rep_in_comp = instance_ref.component_type.repeater[rep_index].unerase(guard);
-    rep_in_comp.offset.apply_pin(instance_ref.instance)
+    (rep_in_comp.offset.apply_pin(instance_ref.instance), rep_in_comp.component_to_repeat.clone())
 }
 
 extern "C" fn input_event(
@@ -1471,6 +1477,16 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
 
     pub fn as_ref(&self) -> &Instance<'id> {
         &*self.instance
+    }
+
+    /// Borrow this component as a `Pin<ComponentRef>`
+    pub fn borrow(self) -> ComponentRefPin<'a> {
+        unsafe {
+            Pin::new_unchecked(vtable::VRef::from_raw(
+                NonNull::from(&self.component_type.ct).cast(),
+                NonNull::from(self.instance.get_ref()).cast(),
+            ))
+        }
     }
 
     pub fn root_item(&self) -> Pin<ItemRef> {

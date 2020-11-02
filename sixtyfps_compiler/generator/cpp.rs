@@ -1634,6 +1634,10 @@ impl crate::layout::gen::Language for CppLanguageLayoutGen {
                 match &item.element {
                     Some(elem) if elem.borrow().repeated.is_some() => {
                         push_code.push(format!(
+                            "self->repeater_{}.ensure_updated(self);",
+                            elem.borrow().id
+                        ));
+                        push_code.push(format!(
                             "if (self->repeater_{id}.inner) for (auto &&sub_comp : self->repeater_{id}.inner->data)",
                             id = elem.borrow().id
                         ));
