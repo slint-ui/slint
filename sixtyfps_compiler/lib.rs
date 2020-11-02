@@ -115,17 +115,14 @@ pub async fn compile_syntax_node(
     let mut all_docs = typeloader::LoadedDocuments::default();
     if doc_node.source_file.is_some() {
         let builtin_lib = library::widget_library().iter().find(|x| x.0 == style).map(|x| x.1);
-        typeloader::load_dependencies_recursively(
-            &doc_node,
-            &mut diagnostics,
-            &type_registry,
-            &global_type_registry,
-            &compiler_config,
-            builtin_lib,
-            &mut all_docs,
-            &mut build_diagnostics,
-        )
-        .await;
+        let mut loader = typeloader::TypeLoader {
+            global_type_registry: &global_type_registry,
+            compiler_config: &compiler_config,
+            builtin_library: builtin_lib,
+            all_documents: &mut all_docs,
+            build_diagnostics: &mut build_diagnostics,
+        };
+        loader.load_dependencies_recursively(&doc_node, &mut diagnostics, &type_registry).await;
     }
 
     let doc = crate::object_tree::Document::from_node(doc_node, &mut diagnostics, &type_registry);
