@@ -1,0 +1,73 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+import { SpinBox, Button, CheckBox, Slider, GroupBox, StandardListView } from "sixtyfps_widgets.60";
+import { Label, Page, Preview } from "common.60";
+
+export SettingsPage := Page {
+   GridLayout {
+        height: parent.height - 20px;
+        width: parent.width - 20px;
+        x: 10px;
+        y: 10px;
+        spacing: 10px;
+        padding: 15px;
+        Row {
+            GroupBox {
+                title: "Color Management";
+                GridLayout {
+                    Row {
+                        CheckBox {
+                            text: "Black and White";
+                        }
+                    }
+                }
+            }
+        }
+        Row {
+            GroupBox {
+                title: "Scanning";
+                GridLayout {
+                    spacing: 10px;
+                    Row {
+                        Text {
+                            text: "Resolution (DPI)";
+                        }
+                        Slider {  }
+                        Rectangle { }
+                    }
+                }
+            }
+        }
+        Row {
+            GroupBox {
+                title: "Power Management";
+                GridLayout {
+                    Row {
+                        CheckBox { text: "Eco Mode"; }
+                    }
+                }
+            }
+        }
+        Row {
+            GroupBox {
+                title: "Performance";
+                GridLayout {
+                    Row {
+                        CheckBox { text: "TURBO"; }
+                    }
+                }
+            }
+        }
+        Row { Rectangle {} }
+        Row { Rectangle {} }
+        Row { Rectangle {} }
+    }
+}
