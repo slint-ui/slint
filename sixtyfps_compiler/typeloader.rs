@@ -75,6 +75,7 @@ struct ImportedTypes {
 
 type DependenciesByFile = BTreeMap<PathBuf, ImportedTypes>;
 
+#[derive(Debug)]
 pub struct ImportedName {
     // name of export to match in the other file
     pub external_name: String,
@@ -160,6 +161,11 @@ impl<'a> TypeLoader<'a> {
                     crate::parser::parse(source_code, Some(&path));
 
                 dependency_diagnostics.current_path = SourceFile::new(path.clone());
+
+                if dependency_diagnostics.has_error() {
+                    self.build_diagnostics.add(dependency_diagnostics);
+                    return;
+                }
 
                 let dependency_doc: syntax_nodes::Document = dependency_doc.into();
 

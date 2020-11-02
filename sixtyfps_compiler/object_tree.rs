@@ -88,7 +88,7 @@ impl Document {
                 _ => {}
             };
         }
-        let exports = Exports::from_node(&node, &inner_components, &parent_registry);
+        let exports = Exports::from_node(&node, &inner_components, &local_registry, diag);
 
         Document {
             // FIXME: one should use the `component` hint instead of always returning the last
@@ -1023,12 +1023,6 @@ pub struct Transition {
     pub property_animations: Vec<(NamedReference, ElementRc)>,
 }
 
-#[derive(Debug, Clone)]
-pub struct NamedExport {
-    pub internal_name: String,
-    pub exported_name: String,
-}
-
 #[derive(Default, Debug, derive_more::Deref)]
 pub struct Exports(Vec<(String, Rc<Component>)>);
 
@@ -1036,8 +1030,16 @@ impl Exports {
     pub fn from_node(
         doc: &syntax_nodes::Document,
         inner_components: &Vec<Rc<Component>>,
-        type_registry: &Rc<RefCell<TypeRegister>>,
+        type_registry: &TypeRegister,
+        diag: &mut FileDiagnostics,
     ) -> Self {
+        #[derive(Debug, Clone)]
+        struct NamedExport {
+            internal_name_ident: SyntaxNodeWithSourceFile,
+            internal_name: String,
+            exported_name: String,
+        }
+
         let mut exports = doc
             .ExportsList()
             .flat_map(|exports| exports.ExportSpecifier())
@@ -1049,7 +1051,11 @@ impl Exports {
                         .expect("internal error: missing external name for export"),
                     None => internal_name.clone(),
                 };
-                Some(NamedExport { internal_name, exported_name })
+                Some(NamedExport {
+                    internal_name_ident: export_specifier.ExportIdentifier().into(),
+                    internal_name,
+                    exported_name,
+                })
             })
             .collect::<Vec<_>>();
 
@@ -1057,57 +1063,53 @@ impl Exports {
             |component| {
                 let name = identifier_text(&component.DeclaredIdentifier())
                     .expect("internal error: cannot export component without name");
-                Some(NamedExport { internal_name: name.clone(), exported_name: name })
+                Some(NamedExport {
+                    internal_name_ident: component.DeclaredIdentifier().into(),
+                    internal_name: name.clone(),
+                    exported_name: name,
+                })
             },
         ));
 
         if exports.is_empty() {
             let internal_name = inner_components.last().cloned().unwrap_or_default().id.clone();
             exports.push(NamedExport {
+                internal_name_ident: doc.clone().into(),
                 internal_name: internal_name.clone(),
                 exported_name: internal_name,
             })
         }
 
-        let imported_names = doc
-            .ImportSpecifier()
-            .map(|import| crate::typeloader::ImportedName::extract_imported_names(&import))
-            .flatten()
-            .collect::<Vec<_>>();
-
-        let resolve_export_to_inner_component_or_import = |export: &NamedExport| {
-            if let Some(local_comp) = inner_components.iter().find(|c| c.id == export.internal_name)
-            {
-                local_comp.clone()
-            } else {
-                imported_names
-                    .iter()
-                    .find_map(|import| {
-                        if import.internal_name == export.internal_name {
-                            Some(
-                                type_registry
-                                    .borrow()
-                                    .lookup_element(&import.internal_name)
-                                    .unwrap()
-                                    .as_component()
-                                    .clone(),
-                            )
-                        } else {
-                            None
-                        }
-                    })
-                    .unwrap()
-            }
-        };
+        let mut resolve_export_to_inner_component_or_import =
+            |export: &NamedExport| match type_registry.lookup(export.internal_name.as_str()) {
+                Type::Component(c) => Some(c),
+                Type::Invalid => {
+                    diag.push_error(
+                        format!("'{}' not found", export.internal_name),
+                        &export.internal_name_ident,
+                    );
+                    None
+                }
+                _ => {
+                    diag.push_error(
+                        format!(
+                            "Cannot export '{}' because it is not a component",
+                            export.internal_name,
+                        ),
+                        &export.internal_name_ident,
+                    );
+                    None
+                }
+            };
 
         Self(
             exports
                 .iter()
-                .map(|export| {
-                    (
+                .filter_map(|export| {
+                    Some((
                         export.exported_name.clone(),
-                        resolve_export_to_inner_component_or_import(export),
-                    )
+                        resolve_export_to_inner_component_or_import(export)?,
+                    ))
                 })
                 .collect(),
         )

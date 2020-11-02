@@ -1,0 +1,22 @@
+ /* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+export { Foo as Bar }
+//      ^error{'Foo' not found}
+
+export { Image as Plop }
+//      ^error{Cannot export 'Image' because it is not a component}
+
+export { string as Boob }
+//      ^error{Cannot export 'string' because it is not a component}
+
+Hello := Plop {
+//      ^error{Unknown type Plop}
+}

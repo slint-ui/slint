@@ -597,7 +597,10 @@ fn parse_export(p: &mut impl Parser) -> bool {
                     p.consume();
                     return true;
                 }
-                SyntaxKind::Eof => return false,
+                SyntaxKind::Eof => {
+                    p.error("Expected comma");
+                    return false;
+                }
                 SyntaxKind::Comma => {
                     p.consume();
                 }
