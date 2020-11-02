@@ -946,6 +946,7 @@ pub struct NativeLineEdit {
     pub native_padding_top: Property<f32>,
     pub native_padding_bottom: Property<f32>,
     pub focused: Property<bool>,
+    pub enabled: Property<bool>,
 }
 
 impl Item for NativeLineEdit {
@@ -1013,7 +1014,8 @@ impl Item for NativeLineEdit {
     ) -> HighLevelRenderingPrimitive {
         let size: qttypes::QSize = get_size!(self);
         let dpr = window.scale_factor();
-        let focused = Self::FIELD_OFFSETS.focused.apply_pin(self).get();
+        let focused: bool = Self::FIELD_OFFSETS.focused.apply_pin(self).get();
+        let enabled: bool = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
 
         let mut imgarray = QImageWrapArray::new(size, dpr);
         let img = &mut imgarray.img;
@@ -1022,6 +1024,7 @@ impl Item for NativeLineEdit {
             img as "QImage*",
             size as "QSize",
             dpr as "float",
+            enabled as "bool",
             focused as "bool"
         ] {
             QPainter p(img);
@@ -1031,6 +1034,8 @@ impl Item for NativeLineEdit {
             option.midLineWidth = 0;
             if (focused)
                 option.state |= QStyle::State_HasFocus;
+            if (enabled)
+                option.state |= QStyle::State_Enabled;
             qApp->style()->drawPrimitive(QStyle::PE_PanelLineEdit, &option, &p, nullptr);
         });
         return HighLevelRenderingPrimitive::Image { source: imgarray.to_resource() };

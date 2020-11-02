@@ -10,6 +10,7 @@ Their appearence can change depending on the style
 
 * **`text`** (*string*): The text written in the button.
 * **`pressed`**: (*bool*): Set to true when the button is pressed.
+* **`enabled`**: (*bool*): Defaults to true. When false, the button cannot be pressed
 
 ### Signals
 
@@ -134,6 +135,7 @@ Example := Window {
 * **`text`** (*string*): The test being edited
 * **`has_focus`**: (*bool*): Set to true when the line edit currently has the focus
 * **`placeholder_text`**: (*string*): A placeholder text being shown when there is no text in the edit field
+* **`enabled`**: (*bool*): Defaults to true. When false, nothing can be entered
 
 ### Signals
 

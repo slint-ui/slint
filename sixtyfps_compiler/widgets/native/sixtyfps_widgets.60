@@ -30,6 +30,7 @@ export GroupBox := NativeGroupBox {
 export LineEdit := NativeLineEdit {
     property <string> text;
     property <string> placeholder_text;
+    enabled: true;
     focused: input.has_focus;
     signal accepted(string);
     GridLayout {
@@ -39,6 +40,7 @@ export LineEdit := NativeLineEdit {
         padding_bottom: root.native_padding_bottom;
         input := TextInput {
             text <=> root.text;
+            enabled: root.enabled;
             accepted => {
                 root.accepted(self.text);
             }

@@ -35,7 +35,7 @@ pub fn reserved_property(name: &str) -> Type {
         ("clip", Type::Bool),
         ("opacity", Type::Float32),
         ("visible", Type::Bool),
-        ("enabled", Type::Bool),
+        // ("enabled", Type::Bool),
         ("col", Type::Int32),
         ("row", Type::Int32),
         ("colspan", Type::Int32),
@@ -247,6 +247,7 @@ impl TypeRegister {
                 ("anchor_position", Type::Int32),
                 ("has_focus", Type::Bool),
                 ("accepted", Type::Signal { args: vec![] }),
+                ("enabled", Type::Bool),
             ],
             &[
                 (
@@ -271,6 +272,7 @@ impl TypeRegister {
                     },
                 ),
                 ("text_cursor_width", Expression::NumberLiteral(2., Unit::Px)),
+                ("enabled", Expression::BoolLiteral(true)),
             ],
             &[(
                 "focus",
@@ -481,6 +483,7 @@ impl TypeRegister {
                 ("native_padding_top", Type::Length),
                 ("native_padding_bottom", Type::Length),
                 ("focused", Type::Bool),
+                ("enabled", Type::Bool),
             ],
             &[],
         );

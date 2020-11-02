@@ -30,7 +30,7 @@ export Button := Rectangle {
     property<string> text;
     property<length> font_size;
     property<bool> pressed: self.enabled && touch_area.pressed;
-    enabled: true;
+    property<bool> enabled: true;
 
     border_width: 2px;
     border_radius: 10px;
@@ -272,6 +272,7 @@ export LineEdit := Rectangle {
     property <string> text;
     property <string> placeholder_text;
     property <bool> has_focus: input.has_focus;
+    property <bool> enabled: true;
     signal accepted(string);
 
     border_color: root.has_focus ? Palette.heighlight_background : #ffffff;
@@ -292,6 +293,7 @@ export LineEdit := Rectangle {
             GridLayout {
                 padding: 3px;
                 input := TextInput {
+                    enabled: root.enabled;
                     text <=> root.text;
                     accepted => {
                         root.accepted(self.text);

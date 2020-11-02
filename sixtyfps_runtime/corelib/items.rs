@@ -918,6 +918,7 @@ pub struct TextInput {
     pub text_cursor_width: Property<f32>,
     pub cursor_visible: Property<bool>,
     pub has_focus: Property<bool>,
+    pub enabled: Property<bool>,
     pub accepted: Signal<()>,
     pub pressed: std::cell::Cell<bool>,
     pub cached_rendering_data: CachedRenderingData,
@@ -1032,6 +1033,10 @@ impl Item for TextInput {
         window: &ComponentWindow,
         app_component: ComponentRefPin,
     ) -> InputEventResult {
+        if !Self::FIELD_OFFSETS.enabled.apply_pin(self).get() {
+            return InputEventResult::EventIgnored;
+        }
+
         let clicked_offset = TextInput::with_font(self, window, |font| {
             let text = Self::FIELD_OFFSETS.text.apply_pin(self).get();
             font.text_offset_for_x_position(&text, event.pos.x)
@@ -1061,6 +1066,11 @@ impl Item for TextInput {
 
     fn key_event(self: Pin<&Self>, event: &KeyEvent, window: &ComponentWindow) -> KeyEventResult {
         use std::convert::TryFrom;
+
+        if !Self::FIELD_OFFSETS.enabled.apply_pin(self).get() {
+            return KeyEventResult::EventIgnored;
+        }
+
         match event {
             KeyEvent::CharacterInput { unicode_scalar, .. } => {
                 self.delete_selection();
