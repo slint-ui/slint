@@ -8,8 +8,10 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 TestCase := Rectangle {
+    property <int> xx : 1000;
+
     animate x {
-        duration: 1000ms;
+        duration: xx * 1ms;
         easing: ease;
     }
 

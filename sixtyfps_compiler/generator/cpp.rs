@@ -680,16 +680,19 @@ fn generate_component(
                     }),
                 ));
 
-                let prop_setter: Vec<String> = vec![format!(
-                    "{}.{};",
-                    access,
-                    property_set_value_code(
-                        &component,
-                        &*component.root_element.borrow(),
-                        cpp_name,
-                        "value"
-                    )
-                )];
+                let prop_setter: Vec<String> = vec![
+                    "[[maybe_unused]] auto self = this;".into(),
+                    format!(
+                        "{}.{};",
+                        access,
+                        property_set_value_code(
+                            &component,
+                            &*component.root_element.borrow(),
+                            cpp_name,
+                            "value"
+                        )
+                    ),
+                ];
                 component_struct.members.push((
                     Access::Public,
                     Declaration::Function(Function {

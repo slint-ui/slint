@@ -284,6 +284,7 @@ fn generate_component(
                         pub fn #setter_ident(self: ::core::pin::Pin<&Self>, value: #rust_property_type) {
                             #[allow(unused_imports)]
                             use sixtyfps::re_exports::*;
+                            let _self = self.as_ref();
                             #prop.#set_value
                         }
                     )
