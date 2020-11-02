@@ -517,7 +517,9 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
         }
     }
     for glob in doc.root_component.used_global.borrow().iter() {
-        generate_component(&mut file, glob, diag, None);
+        if !matches!(glob.root_element.borrow().base_type, Type::Builtin(_)) {
+            generate_component(&mut file, glob, diag, None);
+        }
     }
 
     generate_component(&mut file, &doc.root_component, diag, None);
@@ -1094,12 +1096,17 @@ fn generate_component(
     }
 
     for glob in component.used_global.borrow().iter() {
+        let ty = match &glob.root_element.borrow().base_type {
+            Type::Void => self::component_id(glob),
+            Type::Builtin(b) => format!("sixtyfps::{}", b.native_class.class_name),
+            _ => unreachable!(),
+        };
         component_struct.members.push((
             Access::Private,
             Declaration::Var(Var {
-                ty: format!("std::shared_ptr<{}>", self::component_id(glob)),
+                ty: format!("std::shared_ptr<{}>", ty),
                 name: format!("global_{}", glob.id),
-                init: Some(format!("std::make_shared<{}>()", self::component_id(glob))),
+                init: Some(format!("std::make_shared<{}>()", ty)),
             }),
         ));
     }

@@ -520,6 +520,27 @@ impl TypeRegister {
             &[],
         );
 
+        let mut native_style_metrics =
+            BuiltinElement::new(Rc::new(NativeClass::new_with_properties(
+                "NativeStyleMetrics",
+                [("layout_spacing", Type::LogicalLength), ("layout_padding", Type::LogicalLength)]
+                    .iter()
+                    .map(|(n, t)| (n.to_string(), t.clone())),
+            )));
+        native_style_metrics.is_global = true;
+        native_style_metrics.is_non_item_type = true;
+        let native_style_metrics = Rc::new(Component {
+            id: "NativeStyleMetrics".into(),
+            root_element: Rc::new(RefCell::new(crate::object_tree::Element {
+                base_type: Type::Builtin(Rc::new(native_style_metrics)),
+                ..Default::default()
+            })),
+            ..Default::default()
+        });
+        native_style_metrics.root_element.borrow_mut().enclosing_component =
+            Rc::downgrade(&native_style_metrics);
+        register.insert_type(Type::Component(native_style_metrics));
+
         Rc::new(RefCell::new(register))
     }
 

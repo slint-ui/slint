@@ -477,6 +477,7 @@ pub struct BuiltinElement {
     /// Non-item type do not have reserved properties (x/width/rowspan/...) added to them  (eg: PropertyAnimation)
     pub is_non_item_type: bool,
     pub member_functions: HashMap<String, Expression>,
+    pub is_global: bool,
 }
 
 impl BuiltinElement {

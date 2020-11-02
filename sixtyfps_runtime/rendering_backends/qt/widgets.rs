@@ -1594,3 +1594,38 @@ impl ItemConsts for NativeStandardListViewItem {
 }
 
 ItemVTable_static! { #[no_mangle] pub static NativeStandardListViewItemVTable for NativeStandardListViewItem }
+
+#[repr(C)]
+#[derive(FieldOffsets, BuiltinItem)]
+#[pin]
+pub struct NativeStyleMetrics {
+    pub layout_spacing: Property<f32>,
+    pub layout_padding: Property<f32>,
+}
+
+impl Default for NativeStyleMetrics {
+    fn default() -> Self {
+        let s = NativeStyleMetrics {
+            layout_spacing: Default::default(),
+            layout_padding: Default::default(),
+        };
+        sixtyfps_init_native_style_metrics(&s);
+        s
+    }
+}
+
+impl NativeStyleMetrics {
+    pub fn new() -> Pin<Rc<Self>> {
+        Rc::pin(Self::default())
+    }
+}
+
+/// Initialize the native style metrics
+#[no_mangle]
+pub extern "C" fn sixtyfps_init_native_style_metrics(self_: &NativeStyleMetrics) {
+    let layout_spacing = cpp!(unsafe [] -> f32 as "float" {
+        ensure_initialized();
+        return qApp->style()->pixelMetric(QStyle::PM_LayoutHorizontalSpacing);
+    });
+    self_.layout_spacing.set(layout_spacing.max(0.0));
+}

@@ -214,7 +214,7 @@ declare_value_enum_conversion!(corelib::items::TextVerticalAlignment, TextVertic
 #[derive(Copy, Clone)]
 enum ComponentInstance<'a, 'id> {
     InstanceRef(InstanceRef<'a, 'id>),
-    GlobalComponent(&'a Rc<crate::global_component::GlobalComponent>),
+    GlobalComponent(&'a Pin<Rc<dyn crate::global_component::GlobalComponent>>),
 }
 
 /// The local variable needed for binding evaluation
@@ -245,11 +245,11 @@ impl<'a, 'id> EvalLocalContext<'a, 'id> {
         }
     }
 
-    pub fn from_global(global: &'a Rc<crate::global_component::GlobalComponent>) -> Self {
+    pub fn from_global(global: &'a Pin<Rc<dyn crate::global_component::GlobalComponent>>) -> Self {
         Self {
             local_variables: Default::default(),
             function_arguments: Default::default(),
-            component_instance: ComponentInstance::GlobalComponent(global),
+            component_instance: ComponentInstance::GlobalComponent(&global),
         }
     }
 }
@@ -335,7 +335,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                     }
                     ComponentInstance::GlobalComponent(global) => {
                         let args = arguments.iter().map(|e| eval_expression(e, local_context));
-                        global.emit_signal(name.as_ref(), args.collect::<Vec<_>>().as_slice());
+                        global.as_ref().emit_signal(name.as_ref(), args.collect::<Vec<_>>().as_slice());
                     }
                 };
                 Value::Void
@@ -515,9 +515,12 @@ fn eval_assignement(lhs: &Expression, op: char, rhs: Value, local_context: &mut 
                     p.set(item, eval(p.get(item)), None);
                 }
                 ComponentInstance::GlobalComponent(global) => {
-                    let val =
-                        if op == '=' { rhs } else { eval(global.get_property(name.as_str())) };
-                    global.set_property(name.as_str(), val);
+                    let val = if op == '=' {
+                        rhs
+                    } else {
+                        eval(global.as_ref().get_property(name.as_str()))
+                    };
+                    global.as_ref().set_property(name.as_str(), val);
                 }
             }
         }
@@ -597,7 +600,7 @@ fn load_property_helper(
             let item = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
             Ok(item_info.rtti.properties.get(name).ok_or(())?.get(item))
         }
-        ComponentInstance::GlobalComponent(glob) => Ok(glob.get_property(name)),
+        ComponentInstance::GlobalComponent(glob) => Ok(glob.as_ref().get_property(name)),
     }
 }
 
@@ -727,7 +730,7 @@ fn enclosing_component_instance_for_element<'a, 'old_id, 'new_id>(
             }
         }
         ComponentInstance::GlobalComponent(global) => {
-            assert!(Rc::ptr_eq(enclosing, &global.component));
+            //assert!(Rc::ptr_eq(enclosing, &global.component));
             ComponentInstance::GlobalComponent(global)
         }
     }

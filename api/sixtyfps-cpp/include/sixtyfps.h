@@ -133,6 +133,7 @@ using cbindgen_private::NativeScrollView;
 using cbindgen_private::NativeSlider;
 using cbindgen_private::NativeSpinBox;
 using cbindgen_private::NativeStandardListViewItem;
+using cbindgen_private::NativeStyleMetrics;
 
 namespace private_api {
 constexpr inline ItemTreeNode make_item_node(std::uintptr_t offset,
@@ -577,6 +578,10 @@ Flickable::Flickable()
 Flickable::~Flickable()
 {
     sixtyfps_flickable_data_free(&data);
+}
+
+NativeStyleMetrics::NativeStyleMetrics() {
+    sixtyfps_init_native_style_metrics(this);
 }
 
 using cbindgen_private::StandardListViewItem;

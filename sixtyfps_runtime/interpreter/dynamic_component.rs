@@ -215,7 +215,7 @@ pub(crate) struct ComponentExtraData {
     mouse_grabber: core::cell::Cell<VisitChildrenResult>,
     focus_item: core::cell::Cell<VisitChildrenResult>,
     pub(crate) window: RefCell<Option<ComponentWindow>>,
-    pub(crate) globals: HashMap<String, Rc<crate::global_component::GlobalComponent>>,
+    pub(crate) globals: HashMap<String, Pin<Rc<dyn crate::global_component::GlobalComponent>>>,
 }
 
 impl Default for ComponentExtraData {
@@ -709,7 +709,7 @@ pub fn instantiate<'id>(
             .used_global
             .borrow()
             .iter()
-            .map(|g| (g.id.clone(), crate::global_component::GlobalComponent::instantiate(g)))
+            .map(|g| (g.id.clone(), crate::global_component::instantiate(g)))
             .collect();
         #[cfg(not(target_arch = "wasm32"))]
         extra_data.window.replace(Some(sixtyfps_rendering_backend_default::create_window()));

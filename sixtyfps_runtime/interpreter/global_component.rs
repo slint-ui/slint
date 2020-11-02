@@ -13,23 +13,62 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use sixtyfps_compilerlib::{langtype::Type, object_tree::Component};
-use sixtyfps_corelib::{Property, Signal};
+use sixtyfps_corelib::{rtti, Property, Signal};
 
 use crate::eval;
 
-/// For the global component, we don't use the dynamic_type optimisation, and we don't try to to optimize the property to their real type
-pub struct GlobalComponent {
+pub trait GlobalComponent {
+    fn emit_signal(self: Pin<&Self>, _signal_name: &str, _args: &[eval::Value]) {
+        todo!("emit signal")
+    }
+
+    fn set_property(self: Pin<&Self>, prop_name: &str, value: eval::Value);
+    fn get_property(self: Pin<&Self>, prop_name: &str) -> eval::Value;
+}
+
+pub fn instantiate(component: &Rc<Component>) -> Pin<Rc<dyn GlobalComponent>> {
+    debug_assert!(component.is_global());
+    match &component.root_element.borrow().base_type {
+        Type::Void => GlobalComponentInstance::instantiate(component),
+        Type::Builtin(b) => {
+            trait Helper {
+                fn instantiate(name: &str) -> Pin<Rc<dyn GlobalComponent>> {
+                    panic!("Cannot find native global {}", name)
+                }
+            }
+            impl Helper for () {}
+            impl<T: rtti::BuiltinItem + Default + 'static, Next: Helper> Helper for (T, Next) {
+                fn instantiate(name: &str) -> Pin<Rc<dyn GlobalComponent>> {
+                    if name == T::name() {
+                        Rc::pin(T::default())
+                    } else {
+                        Next::instantiate(name)
+                    }
+                }
+            }
+            sixtyfps_rendering_backend_default::NativeGlobals::instantiate(
+                b.native_class.class_name.as_ref(),
+            )
+        }
+        _ => unreachable!(),
+    }
+}
+
+/// For the global components, we don't use the dynamic_type optimisation,
+/// and we don't try to to optimize the property to their real type
+pub struct GlobalComponentInstance {
     properties: HashMap<String, Pin<Box<Property<eval::Value>>>>,
     signals: HashMap<String, Pin<Box<Signal<[eval::Value]>>>>,
     pub component: Rc<Component>,
 }
+impl Unpin for GlobalComponentInstance {}
 
-impl GlobalComponent {
+impl GlobalComponentInstance {
     /// Create a new instance of a GlobalComponent, for the given component
-    pub fn instantiate(component: &Rc<Component>) -> Rc<Self> {
+    fn instantiate(component: &Rc<Component>) -> Pin<Rc<Self>> {
         assert!(component.is_global());
 
-        let mut instance = GlobalComponent {
+        let mut instance = Self {
             properties: Default::default(),
             signals: Default::default(),
             component: component.clone(),
@@ -41,36 +80,47 @@ impl GlobalComponent {
                 instance.properties.insert(name.clone(), Box::pin(Default::default()));
             }
         }
-        let rc = Rc::new(instance);
+        let rc = Rc::pin(instance);
         for (k, expr) in &component.root_element.borrow().bindings {
             if expr.expression.is_constant() {
                 rc.properties[k].as_ref().set(eval::eval_expression(
                     &expr.expression,
-                    &mut eval::EvalLocalContext::from_global(&rc),
+                    &mut eval::EvalLocalContext::from_global(&(rc.clone() as _)),
                 ));
             } else {
-                let wk = Rc::downgrade(&rc);
+                let wk = Rc::<Self>::downgrade(&Pin::into_inner(rc.clone()));
                 let e = expr.expression.clone();
                 rc.properties[k].as_ref().set_binding(move || {
                     eval::eval_expression(
                         &e,
-                        &mut eval::EvalLocalContext::from_global(&wk.upgrade().unwrap()),
+                        &mut eval::EvalLocalContext::from_global(
+                            &(Pin::<Rc<Self>>::new(wk.upgrade().unwrap()) as _),
+                        ),
                     )
                 });
             }
         }
         rc
     }
-
-    pub fn emit_signal(self: &Rc<Self>, _signal_name: &str, _args: &[eval::Value]) {
-        todo!("emit signal")
-    }
-
-    pub fn set_property(self: &Rc<Self>, prop_name: &str, value: eval::Value) {
+}
+impl GlobalComponent for GlobalComponentInstance {
+    fn set_property(self: Pin<&Self>, prop_name: &str, value: eval::Value) {
         self.properties[prop_name].as_ref().set(value);
     }
 
-    pub fn get_property(self: &Rc<Self>, prop_name: &str) -> eval::Value {
+    fn get_property(self: Pin<&Self>, prop_name: &str) -> eval::Value {
         self.properties[prop_name].as_ref().get()
+    }
+}
+
+impl<T: rtti::BuiltinItem + 'static> GlobalComponent for T {
+    fn set_property(self: Pin<&Self>, prop_name: &str, value: crate::Value) {
+        let prop = Self::properties().into_iter().find(|(k, _)| *k == prop_name).unwrap().1;
+        prop.set(self, value, None).unwrap()
+    }
+
+    fn get_property(self: Pin<&Self>, prop_name: &str) -> crate::Value {
+        let prop = Self::properties().into_iter().find(|(k, _)| *k == prop_name).unwrap().1;
+        prop.get(self).unwrap()
     }
 }

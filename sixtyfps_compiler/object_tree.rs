@@ -174,7 +174,11 @@ impl Component {
 
     /// This component is a global component introduced with the "global" keyword
     pub fn is_global(&self) -> bool {
-        self.root_element.borrow().base_type == Type::Void
+        match &self.root_element.borrow().base_type {
+            Type::Void => true,
+            Type::Builtin(c) => c.is_global,
+            _ => false,
+        }
     }
 }
 

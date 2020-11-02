@@ -84,11 +84,13 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<TokenStre
         .used_global
         .borrow()
         .iter()
+        .filter(|glob| !matches!(glob.root_element.borrow().base_type, Type::Builtin(_)))
         .filter_map(|glob| generate_component(glob, diag))
         .collect::<Vec<_>>();
     Some(quote! {
         #[allow(non_snake_case)]
         mod #compo_module {
+            use sixtyfps::re_exports::*;
             #(#structs)*
             #(#globals)*
             #compo

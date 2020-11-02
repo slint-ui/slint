@@ -33,6 +33,26 @@ pub fn use_modules() -> usize {
     }
 }
 
+/// NativeWidgets and NativeGlobals are "type list" containing all the native widgets and global types.
+///
+/// It is built as a tuple `(Type, Tail)`  where `Tail` is also a "type list". a `()` is the end.
+///
+/// So it can be used like this to do something for all types:
+///
+/// ```rust
+/// trait DoSomething {
+///     fn do_something(/*...*/) { /*...*/
+///     }
+/// }
+/// impl DoSomething for () {}
+/// impl<T: sixtyfps_corelib::rtti::BuiltinItem, Next: DoSomething> DoSomething for (T, Next) {
+///     fn do_something(/*...*/) {
+///          /*...*/
+///          Next::do_something(/*...*/);
+///     }
+/// }
+/// sixtyfps_rendering_backend_qt::NativeWidgets::do_something(/*...*/)
+/// ```
 #[cfg(not(no_qt))]
 #[rustfmt::skip]
 pub type NativeWidgets =
@@ -46,6 +66,12 @@ pub type NativeWidgets =
     (widgets::NativeStandardListViewItem,
             ()))))))));
 
+#[cfg(not(no_qt))]
+#[rustfmt::skip]
+pub type NativeGlobals =
+    (widgets::NativeStyleMetrics,
+        ());
+
 pub mod native_widgets {
     #[cfg(not(no_qt))]
     pub use super::widgets::*;
@@ -53,5 +79,7 @@ pub mod native_widgets {
 
 #[cfg(no_qt)]
 pub type NativeWidgets = ();
+#[cfg(no_qt)]
+pub type NativeGlobals = ();
 
 pub const HAS_NATIVE_STYLE: bool = cfg!(not(no_qt));

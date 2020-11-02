@@ -241,6 +241,11 @@ fn gen_backend_qt(include_dir: &Path) -> anyhow::Result<()> {
     .map(|x| x.to_string())
     .collect();
 
+    config
+        .export
+        .body
+        .insert("NativeStyleMetrics".to_owned(), "    inline NativeStyleMetrics();".to_owned());
+
     let mut crate_dir = root_dir();
     crate_dir.extend(["sixtyfps_runtime", "rendering_backends", "qt"].iter());
     cbindgen::Builder::new()
