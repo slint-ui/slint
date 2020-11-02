@@ -150,7 +150,7 @@ Olivier and Simon started their open source journey in the KDE project, the popu
 for Linux. Later they met while working together in a small company in Norway called Trolltech, on the Qt C++ toolkit.
 Here, they gained valuable experience in API design, cross-platform software development and user interface components.
 Simon continued in the Qt Company as one lead developer and maintainer of the QtQml engine, while Olivier
-co-founded [Woboq](https://woboq.com), a software consulting company. Years later they are starting a
+co-founded [Woboq](https://woboq.com), a software consulting company. Years later, and now based in Berlin, they are starting a
 new project. With SixtyFPS they aim to make developing user interfaces fun for everyone: from JavaScript, C++, or
 Rust developers all the way to UI/UX designers.
 
