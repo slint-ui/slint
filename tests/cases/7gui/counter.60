@@ -1,0 +1,28 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+import { Button, LineEdit } from "sixtyfps_widgets.60";
+
+Counter := Window {
+    property <int> value: 0;
+    height: 30px;
+    layout := HorizontalLayout {
+        spacing: 7px;
+        padding: spacing;
+        LineEdit {
+            enabled: false;
+            text: value;
+        }
+        Button {
+            text: "Count";
+            clicked => { value += 1; }
+        }
+    }
+}

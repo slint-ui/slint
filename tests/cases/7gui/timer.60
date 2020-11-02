@@ -1,0 +1,54 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+import { LineEdit, Button, Slider } from "sixtyfps_widgets.60";
+
+Timer := Window {
+    property <duration> total_time: slider.value * 1s;
+    property <float> progress: 0.5;
+    animate progress { duration: total_time; }
+    VerticalLayout {
+        spacing: 7px;
+        padding: spacing;
+        HorizontalLayout {
+            Text { text: "Elapsed Time:"; }
+            Rectangle {
+                maximum-height: 30px;
+                color: gray;
+                Rectangle {
+                    height: 100%;
+                    width: parent.width * progress;
+                    color: lightblue;
+                }
+            }
+        }
+        Text{
+            text: (total_time / 1s) + "s";
+        }
+        HorizontalLayout {
+            Text { text: "Duration:"; }
+            slider := Slider {
+                max: 30s / 1s;
+                value: 10s / 1s;
+            }
+        }
+        Button {
+            text: "Reset";
+            clicked => {
+                if (progress > 0.5) {
+                    progress = 0;
+                } else {
+                    progress = 1;
+                }
+            }
+        }
+    }
+}
+

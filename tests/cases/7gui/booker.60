@@ -1,0 +1,31 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+import { LineEdit, Button } from "sixtyfps_widgets.60";
+
+Booker := Window {
+    property <int> combo_index:0;
+    VerticalLayout {
+        spacing: 7px;
+        padding: spacing;
+         // FIXME: this should be a combobox
+        if (combo_index == 0) : Button { clicked => { combo_index = 1; } text: "one-way flight"; }
+        if (combo_index == 1) : Button { clicked => { combo_index = 0; } text: "return flight"; }
+        LineEdit {
+            text: "27.03.2014";
+        }
+        LineEdit {
+            text: "27.03.2014";
+            enabled: combo_index != 0;
+        }
+        Button { text: "Book"; }
+    }
+}
+

@@ -1,0 +1,89 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+import { LineEdit, Button, Slider, StandardListView } from "sixtyfps_widgets.60";
+
+struct Circle := { x: float, y: float, r: float }
+
+CircleDraw := Window {
+
+    property <[Circle]> model: [
+        { x: 0.1, y:0.1, r: 5  },
+        { x: 0.03, y:0.4, r:8  },
+        { x: 0.82, y:0.2, r:10 },
+        { x: 0.5, y:0.31, r:2  },
+    ];
+
+    property<int> clicked_idx: -1;
+    property<Circle> selected_circle;
+
+    VerticalLayout {
+        spacing: 7px;
+        padding: spacing;
+        HorizontalLayout {
+            spacing: 12px;
+            Rectangle {} // FIXME: use layout alignment
+            Button { text: "Undo"; }
+            Button { text: "Redo"; }
+            Rectangle {}
+        }
+        Rectangle {
+            color: white;
+            border-color: black;
+            border-width: 2px;
+
+            for circle[idx] in model : Rectangle {
+                color: clicked_idx == idx ? gray : white;
+                border-color: black;
+                border-width: 2px;
+                border-radius: width / 2;
+                height: width;
+                width: circle.r / 50 * parent.width;
+                x: (parent.width - width)  * circle.x;
+                y: (parent.height - height) * circle.y;
+                TouchArea {
+                    height: 100%;
+                    width: 100%;
+                    clicked => {
+                        selected_circle = circle;
+                        clicked_idx = idx;
+                    }
+                }
+            }
+
+        }
+    }
+
+    if (clicked_idx != -1) : TouchArea {
+        height: 100%;
+        width: 100%;
+        clicked => { clicked_idx = -1; }
+    }
+    if (clicked_idx != -1) : Rectangle {
+        color: lightgray;
+        height: 30%;
+        width: 70%;
+        x: (parent.width - width) / 2;
+        y: parent.height - height - parent.height * 5%;
+        TouchArea {
+            height: 100%;
+            width: 100%;
+        }
+
+        VerticalLayout {
+            Text { text: "Adjust diameter of cercle at (" + selected_circle.x + ", " +  selected_circle.y + ")."; }
+            Slider {
+                max: 100;
+                value: selected_circle.r;
+            }
+        }
+    }
+}
+

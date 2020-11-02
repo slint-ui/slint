@@ -1,0 +1,46 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+import { LineEdit, ScrollView} from "sixtyfps_widgets.60";
+
+
+Cells := Window {
+
+    property<length> cell_height: 32px;
+    property<length> cell_width: 80px;
+
+    ScrollView {
+        width: 100%;
+        height: 100%;
+        viewport_width: 20px + 26 * cell_width;
+        viewport_height: 100 * cell_height;
+
+        for letter[idx] in ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z" ] : Rectangle {
+            x: 20px + idx * cell_width;
+            height: cell_height;
+            width: cell_width;
+            Text { text: letter; }
+        }
+        for __[idx] in 100 : Rectangle {
+            y: cell_height + idx * cell_height;
+            height: cell_height;
+            Text { text: idx; }
+            for ___[idx_x] in 26 :   LineEdit {
+                height: cell_height - 1px;
+                width: cell_width - 2px;
+                x: 20px + idx_x * cell_width;
+            }
+
+        }
+
+    }
+
+}
+
