@@ -27,17 +27,17 @@ pub struct LoadedDocuments {
     currently_loading: HashSet<PathBuf>,
 }
 
-struct OpenFile<'a> {
+struct OpenFile {
     path: PathBuf,
-    file: Box<dyn Read + 'a>,
+    file: Box<dyn Read>,
 }
 
 trait DirectoryAccess<'a> {
-    fn try_open(&self, file_path: &str) -> Option<OpenFile<'a>>;
+    fn try_open(&self, file_path: &str) -> Option<OpenFile>;
 }
 
 impl<'a> DirectoryAccess<'a> for PathBuf {
-    fn try_open(&self, file_path: &str) -> Option<OpenFile<'a>> {
+    fn try_open(&self, file_path: &str) -> Option<OpenFile> {
         let candidate = self.join(file_path);
 
         std::fs::File::open(&candidate)
@@ -54,14 +54,14 @@ pub struct VirtualFile<'a> {
 pub type VirtualDirectory<'a> = [&'a VirtualFile<'a>];
 
 impl<'a> DirectoryAccess<'a> for &'a VirtualDirectory<'a> {
-    fn try_open(&self, file_path: &str) -> Option<OpenFile<'a>> {
+    fn try_open(&self, file_path: &str) -> Option<OpenFile> {
         self.iter().find_map(|virtual_file| {
             if virtual_file.path != file_path {
                 return None;
             }
             Some(OpenFile {
                 path: file_path.into(),
-                file: Box::new(std::io::Cursor::new(virtual_file.contents.as_bytes())),
+                file: Box::new(std::io::Cursor::new(virtual_file.contents.to_owned())),
             })
         })
     }
@@ -70,7 +70,7 @@ impl<'a> DirectoryAccess<'a> for &'a VirtualDirectory<'a> {
 struct ImportedTypes {
     pub type_names: Vec<ImportedName>,
     pub import_token: SyntaxTokenWithSourceFile,
-    pub source_code: String,
+    pub file: Box<dyn Read>,
 }
 
 type DependenciesByFile = BTreeMap<PathBuf, ImportedTypes>;
@@ -129,7 +129,7 @@ impl<'a> TypeLoader<'a> {
     fn load_dependency<'b>(
         &'b mut self,
         path: PathBuf,
-        imported_types: ImportedTypes,
+        mut imported_types: ImportedTypes,
         registry_to_populate: &'b Rc<RefCell<TypeRegister>>,
         importer_diagnostics: &'b mut FileDiagnostics,
     ) -> core::pin::Pin<Box<dyn std::future::Future<Output = ()> + 'b>> {
@@ -147,8 +147,17 @@ impl<'a> TypeLoader<'a> {
                     return;
                 }
 
+                let mut source_code = String::new();
+                if imported_types.file.read_to_string(&mut source_code).is_err() {
+                    importer_diagnostics.push_error(
+                        format!("Error reading requested import {}", path.display()),
+                        &imported_types.import_token,
+                    );
+                    return;
+                }
+
                 let (dependency_doc, mut dependency_diagnostics) =
-                    crate::parser::parse(imported_types.source_code, Some(&path));
+                    crate::parser::parse(source_code, Some(&path));
 
                 dependency_diagnostics.current_path = SourceFile::new(path.clone());
 
@@ -254,28 +263,16 @@ impl<'a> TypeLoader<'a> {
                 continue;
             }
 
-            let dependency_entry = if let Some(mut dependency_file) =
+            let dependency_entry = if let Some(dependency_file) =
                 open_file_from_include_paths(&path_to_import)
             {
                 match dependencies.entry(dependency_file.path.clone()) {
-                    std::collections::btree_map::Entry::Vacant(vacant_entry) => {
-                        let mut source_code = String::new();
-                        if dependency_file.file.read_to_string(&mut source_code).is_err() {
-                            doc_diagnostics.push_error(
-                                format!(
-                                    "Error reading requested import {}",
-                                    dependency_file.path.display()
-                                ),
-                                &import_uri,
-                            );
-                            continue;
-                        }
-                        vacant_entry.insert(ImportedTypes {
+                    std::collections::btree_map::Entry::Vacant(vacant_entry) => vacant_entry
+                        .insert(ImportedTypes {
                             type_names: vec![],
                             import_token: import_uri,
-                            source_code,
-                        })
-                    }
+                            file: dependency_file.file,
+                        }),
                     std::collections::btree_map::Entry::Occupied(existing_entry) => {
                         existing_entry.into_mut()
                     }
@@ -322,7 +319,7 @@ impl<'a> TypeLoader<'a> {
                         entry.insert(ImportedTypes {
                             type_names: vec![],
                             import_token: import_uri,
-                            source_code,
+                            file: Box::new(std::io::Cursor::new(source_code)),
                         })
                     }
                     std::collections::btree_map::Entry::Occupied(entry) => entry.into_mut(),
