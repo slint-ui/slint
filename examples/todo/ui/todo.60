@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-import { SpinBox, Button, CheckBox, Slider, LineEdit, ScrollView, ListView } from "sixtyfps_widgets.60";
+import { SpinBox, Button, CheckBox, Slider, LineEdit, ScrollView, ListView, StyleMetrics } from "sixtyfps_widgets.60";
 
 export struct TodoItem := {
     title: string,
@@ -33,7 +33,7 @@ MainWindow := Window {
     ];
 
     VerticalLayout {
-        spacing: 15px;
+        spacing: StyleMetrics.layout_spacing;
         HorizontalLayout {
             text_edit := LineEdit {
                 placeholder-text: "What needs to be done?";

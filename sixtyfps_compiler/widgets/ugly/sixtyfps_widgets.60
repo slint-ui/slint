@@ -20,6 +20,11 @@ global Palette := {
     property<color> base_background_color: white;
 }
 
+export global StyleMetrics := {
+    property<logical_length> layout_spacing: 5px;
+    property<logical_length> layout_padding: 5px;
+}
+
 export Button := Rectangle {
     signal clicked;
     property<string> text;
