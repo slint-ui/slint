@@ -295,7 +295,7 @@ async fn collect_dependencies<'a>(
             let absolute_path = if let Some(path) = &compiler_config
                 .resolve_import_fallback
                 .as_ref()
-                .and_then(|cb| cb(path_to_import.clone()))
+                .map_or(Some(path_to_import.clone()), |cb| cb(path_to_import.clone()))
             {
                 path.clone()
             } else {
