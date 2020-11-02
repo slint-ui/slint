@@ -24,6 +24,7 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 pub async fn compile_from_string(
     source: String,
     base_url: String,
+    mut optional_resolve_import_callback: Option<js_sys::Function>,
     mut optional_import_callback: Option<js_sys::Function>,
 ) -> Result<WrappedCompiledComp, JsValue> {
     #[cfg(feature = "console_error_panic_hook")]
@@ -31,11 +32,20 @@ pub async fn compile_from_string(
 
     let mut config = sixtyfps_interpreter::CompilerConfiguration::default();
 
-    if let Some(callback) = optional_import_callback.take() {
+    if let (Some(resolver_callback), Some(load_callback)) =
+        (optional_resolve_import_callback.take(), optional_import_callback.take())
+    {
+        config.resolve_import_fallback = Some(Box::new(move |file_name| {
+            resolver_callback
+                .clone()
+                .call1(&JsValue::UNDEFINED, &file_name.into())
+                .ok()
+                .and_then(|path_value| path_value.as_string())
+        }));
         config.open_import_fallback = Some(Box::new(move |file_name| {
             Box::pin({
-                let callback = callback.clone();
-                let result = callback.call1(&JsValue::UNDEFINED, &file_name.into());
+                let load_callback = load_callback.clone();
+                let result = load_callback.call1(&JsValue::UNDEFINED, &file_name.into());
                 let promise: js_sys::Promise = result.unwrap().into();
                 async move {
                     let future = wasm_bindgen_futures::JsFuture::from(promise);

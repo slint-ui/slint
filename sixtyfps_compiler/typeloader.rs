@@ -292,10 +292,26 @@ async fn collect_dependencies<'a>(
                 }
             }
         } else {
-            match dependencies.entry(path_to_import.as_str().into()) {
+            let absolute_path = if let Some(path) = &compiler_config
+                .resolve_import_fallback
+                .as_ref()
+                .and_then(|cb| cb(path_to_import.clone()))
+            {
+                path.clone()
+            } else {
+                doc_diagnostics.push_error(
+                    format!(
+                        "Cannot find requested import {} in the include search path",
+                        path_to_import
+                    ),
+                    &import_uri,
+                );
+                continue;
+            };
+            match dependencies.entry(absolute_path.clone().into()) {
                 std::collections::btree_map::Entry::Vacant(entry) => {
                     let source = if let Some(cb) = &compiler_config.open_import_fallback {
-                        cb(path_to_import.clone()).await
+                        cb(absolute_path).await
                     } else {
                         Err(String::new())
                     };
