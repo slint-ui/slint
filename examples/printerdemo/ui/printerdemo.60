@@ -9,20 +9,7 @@
 LICENSE END */
 
 import { SpinBox, Button, CheckBox, Slider, GroupBox, StandardListView } from "sixtyfps_widgets.60";
-
-Label := Text {
-    font_size: 28px;
-}
-
-Page := Rectangle {
-    color: white;
-    animate y { duration: 300ms; easing: ease_out; }
-}
-
-Preview := Image {
-    source: img!"images/cat_preview_round.png";
-    width: self.height * 320/480;
-}
+import { Label, Page, Preview } from "common.60";
 
 
 CopyPage := Page {
