@@ -22,6 +22,22 @@ var editor = monaco.editor.create(document.getElementById("editor"), {
 });
 var base_url = "";
 
+enum DocumentReferenceKind {
+    DocumentInline,
+    DocumentInActiveEditor
+}
+
+interface InlineDocument {
+    kind: DocumentReferenceKind.DocumentInline;
+    source: string
+}
+
+interface CurrentDocument {
+    kind: DocumentReferenceKind.DocumentInActiveEditor
+}
+
+var documents: Map<string, InlineDocument | CurrentDocument> = new Map;
+
 let hello_world = `
 import { SpinBox, Button, CheckBox, Slider, GroupBox } from "sixtyfps_widgets.60";
 export Demo := Window {
@@ -80,6 +96,8 @@ function fileNameFromURL(url: URL): string {
 function initTabs(main_source_filename: string = "unnamed.60") {
     let tab_bar = document.getElementById("tabs") as HTMLUListElement;
     tab_bar.innerHTML = `<li id="main_source_file" class="nav-item"><span class="nav-link active">${main_source_filename}</span></li>`;
+    documents.clear();
+    documents.set(main_source_filename, { kind: DocumentReferenceKind.DocumentInActiveEditor });
 }
 
 function update() {
@@ -102,8 +120,26 @@ async function render_or_error(source, base_url, div) {
             let u = new URL(file_name, base_url);
             return u.toString();
         }, async (url: string) => {
-            const response = await fetch(url);
-            return await response.text();
+            let doc = documents.get(url);
+            if (doc === undefined) {
+                const response = await fetch(url);
+                let doc = await response.text();
+
+                let tab = document.createElement("li");
+                tab.setAttribute("class", "nav-item");
+                tab.dataset["url"] = url;
+                tab.innerHTML = `<span class="nav-link active">${fileNameFromURL(new URL(url))}</span>`;
+                let tab_bar = document.getElementById("tabs") as HTMLUListElement;
+                tab_bar.appendChild(tab);
+
+                documents.set(url, { kind: DocumentReferenceKind.DocumentInline, source: doc });
+
+                return doc;
+            } else if (doc.kind == DocumentReferenceKind.DocumentInline) {
+                return Promise.resolve(doc.source)
+            } else if (doc.kind == DocumentReferenceKind.DocumentInActiveEditor) {
+                return Promise.resolve(editor.getModel().getValue())
+            }
         });
     } catch (e) {
         let text = document.createTextNode(e.message);
