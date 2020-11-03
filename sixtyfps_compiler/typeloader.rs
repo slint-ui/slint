@@ -333,18 +333,7 @@ impl<'a> TypeLoader<'a> {
                             entry.insert(ImportedTypes {
                                 type_names: vec![],
                                 import_token: import_uri,
-                                source_code_future: Box::pin(async move {
-                                    let source_code = match source_future.await {
-                                        Ok(x) => x,
-                                        Err(err) => {
-                                            return Err(std::io::Error::new(
-                                                std::io::ErrorKind::Other,
-                                                err,
-                                            ))
-                                        }
-                                    };
-                                    Ok(source_code)
-                                }),
+                                source_code_future: source_future,
                             })
                         }
                         std::collections::btree_map::Entry::Occupied(entry) => entry.into_mut(),

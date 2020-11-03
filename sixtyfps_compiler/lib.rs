@@ -78,7 +78,7 @@ pub struct CompilerConfiguration {
     /// return a `Ok(String)` containing the text content of the file, or a `Err(String)`
     /// containing an error message
     pub open_import_fallback:
-        Option<Box<dyn Fn(String) -> Pin<Box<dyn Future<Output = Result<String, String>>>>>>,
+        Option<Box<dyn Fn(String) -> Pin<Box<dyn Future<Output = std::io::Result<String>>>>>>,
 }
 
 pub async fn compile_syntax_node(

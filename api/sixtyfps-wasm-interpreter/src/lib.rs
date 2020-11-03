@@ -51,7 +51,10 @@ pub async fn compile_from_string(
                     let future = wasm_bindgen_futures::JsFuture::from(promise);
                     match future.await {
                         Ok(js_ok) => Ok(js_ok.as_string().unwrap_or_default()),
-                        Err(js_err) => Err(js_err.as_string().unwrap_or_default()),
+                        Err(js_err) => Err(std::io::Error::new(
+                            std::io::ErrorKind::Other,
+                            js_err.as_string().unwrap_or_default(),
+                        )),
                     }
                 }
             })
