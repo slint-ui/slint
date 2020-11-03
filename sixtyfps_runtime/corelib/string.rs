@@ -243,8 +243,21 @@ where
         self.as_str() == other.as_ref()
     }
 }
-
 impl Eq for SharedString {}
+
+impl<T> PartialOrd<T> for SharedString
+where
+    T: ?Sized + AsRef<str>,
+{
+    fn partial_cmp(&self, other: &T) -> Option<std::cmp::Ordering> {
+        PartialOrd::partial_cmp(self.as_str(), other.as_ref())
+    }
+}
+impl Ord for SharedString {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        Ord::cmp(self.as_str(), other.as_str())
+    }
+}
 
 impl From<String> for SharedString {
     fn from(s: String) -> Self {
