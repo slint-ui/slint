@@ -113,11 +113,27 @@ pub struct TypeLoader<'a> {
     pub global_type_registry: &'a Rc<RefCell<TypeRegister>>,
     pub compiler_config: &'a CompilerConfiguration,
     pub builtin_library: Option<&'a VirtualDirectory<'a>>,
-    pub all_documents: &'a mut LoadedDocuments,
+    all_documents: LoadedDocuments,
     pub build_diagnostics: &'a mut BuildDiagnostics,
 }
 
 impl<'a> TypeLoader<'a> {
+    pub fn new(
+        global_type_registry: &'a Rc<RefCell<TypeRegister>>,
+        compiler_config: &'a CompilerConfiguration,
+        builtin_library: Option<&'a VirtualDirectory<'a>>,
+
+        build_diagnostics: &'a mut BuildDiagnostics,
+    ) -> Self {
+        Self {
+            global_type_registry,
+            compiler_config,
+            builtin_library,
+            all_documents: Default::default(),
+            build_diagnostics,
+        }
+    }
+
     pub async fn load_dependencies_recursively(
         &mut self,
         doc: &syntax_nodes::Document,
@@ -360,15 +376,9 @@ fn test_dependency_loading() {
     let registry = Rc::new(RefCell::new(TypeRegister::new(&global_registry)));
 
     let mut build_diagnostics = BuildDiagnostics::default();
-    let mut docs = Default::default();
 
-    let mut loader = TypeLoader {
-        global_type_registry: &global_registry,
-        compiler_config: &compiler_config,
-        builtin_library: None,
-        all_documents: &mut docs,
-        build_diagnostics: &mut build_diagnostics,
-    };
+    let mut loader =
+        TypeLoader::new(&global_registry, &compiler_config, None, &mut build_diagnostics);
 
     spin_on::spin_on(loader.load_dependencies_recursively(&doc_node, &mut test_diags, &registry));
 
@@ -408,14 +418,8 @@ X := XX {}
     let global_registry = TypeRegister::builtin();
     let registry = Rc::new(RefCell::new(TypeRegister::new(&global_registry)));
     let mut build_diagnostics = BuildDiagnostics::default();
-    let mut docs = Default::default();
-    let mut loader = TypeLoader {
-        global_type_registry: &global_registry,
-        compiler_config: &compiler_config,
-        builtin_library: None,
-        all_documents: &mut docs,
-        build_diagnostics: &mut build_diagnostics,
-    };
+    let mut loader =
+        TypeLoader::new(&global_registry, &compiler_config, None, &mut build_diagnostics);
     spin_on::spin_on(loader.load_dependencies_recursively(&doc_node, &mut test_diags, &registry));
     assert_eq!(ok.get(), true);
     assert!(!test_diags.has_error());

@@ -112,16 +112,14 @@ pub async fn compile_syntax_node(
             Cow::from("ugly")
         });
 
-    let mut all_docs = typeloader::LoadedDocuments::default();
+    let builtin_lib = library::widget_library().iter().find(|x| x.0 == style).map(|x| x.1);
+    let mut loader = typeloader::TypeLoader::new(
+        &global_type_registry,
+        &compiler_config,
+        builtin_lib,
+        &mut build_diagnostics,
+    );
     if doc_node.source_file.is_some() {
-        let builtin_lib = library::widget_library().iter().find(|x| x.0 == style).map(|x| x.1);
-        let mut loader = typeloader::TypeLoader {
-            global_type_registry: &global_type_registry,
-            compiler_config: &compiler_config,
-            builtin_library: builtin_lib,
-            all_documents: &mut all_docs,
-            build_diagnostics: &mut build_diagnostics,
-        };
         loader.load_dependencies_recursively(&doc_node, &mut diagnostics, &type_registry).await;
     }
 
