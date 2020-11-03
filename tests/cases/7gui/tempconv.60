@@ -17,10 +17,20 @@ TempConv := Window {
         padding: spacing;
         c := LineEdit {
             text: "0";
+            edited(text) => {
+                if (text.is-float()) {
+                    f.text = (text.to-float() * 9 / 5) + 32;
+                }
+            }
         }
         Text { text: "Celcius = "; }
         f := LineEdit {
-            text: "0";
+            text: "32";
+            edited(text) => {
+                if (text.is-float()) {
+                    c.text = (text.to-float() - 32) * (5 / 9);
+                }
+            }
         }
         Text { text: "Fahrenheit"; }
     }

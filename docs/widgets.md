@@ -140,6 +140,7 @@ Example := Window {
 ### Signals
 
 * **`accepted`**: Enter was pressed
+* **`edited`**: Emited when the text has changed because the user modified it
 
 ### Example
 

@@ -14,6 +14,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 (This is less than ideal and maybe we can have some automation later)
 
  - It needs to be changed in this module
+ - The ItemVTable_static at the end of datastructures.rs (new items only)
  - In the compiler: typeregister.rs
  - In the vewer: main.rs
  - For the C++ code (new item only): the build.rs to export the new item, and the `using` declaration in sixtyfps.h
@@ -919,6 +920,7 @@ pub struct TextInput {
     pub has_focus: Property<bool>,
     pub enabled: Property<bool>,
     pub accepted: Signal<()>,
+    pub edited: Signal<()>,
     pub pressed: std::cell::Cell<bool>,
     pub cached_rendering_data: CachedRenderingData,
 }
@@ -1089,6 +1091,8 @@ impl Item for TextInput {
                 // Keep the cursor visible when inserting text. Blinking should only occur when
                 // nothing is entered or the cursor isn't moved.
                 self.as_ref().show_cursor(window);
+
+                Self::FIELD_OFFSETS.edited.apply_pin(self).emit(&());
 
                 KeyEventResult::EventAccepted
             }
@@ -1305,6 +1309,7 @@ impl TextInput {
         self.cursor_position.set(anchor as i32);
         self.anchor_position.set(anchor as i32);
         self.text.set(text.into());
+        Self::FIELD_OFFSETS.edited.apply_pin(self).emit(&());
     }
 
     fn selection_anchor_and_cursor(self: Pin<&Self>) -> (usize, usize) {
@@ -1338,6 +1343,7 @@ impl TextInput {
         self.cursor_position.set(cursor_pos as i32);
         self.anchor_position.set(cursor_pos as i32);
         self.text.set(text.into());
+        Self::FIELD_OFFSETS.edited.apply_pin(self).emit(&());
     }
 
     fn copy(self: Pin<&Self>) {

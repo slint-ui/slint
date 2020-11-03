@@ -251,6 +251,7 @@ impl TypeRegister {
                 ("anchor_position", Type::Int32),
                 ("has_focus", Type::Bool),
                 ("accepted", Type::Signal { args: vec![] }),
+                ("edited", Type::Signal { args: vec![] }),
                 ("enabled", Type::Bool),
             ],
             &[

@@ -274,6 +274,7 @@ export LineEdit := Rectangle {
     property <bool> has_focus: input.has_focus;
     property <bool> enabled: true;
     signal accepted(string);
+    signal edited(string);
 
     border_color: root.has_focus ? Palette.heighlight_background : #ffffff;
     border_radius: 1px;
@@ -297,6 +298,9 @@ export LineEdit := Rectangle {
                     text <=> root.text;
                     accepted => {
                         root.accepted(self.text);
+                    }
+                    edited => {
+                        root.edited(self.text);
                     }
                 }
                 Text {

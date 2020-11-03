@@ -285,6 +285,11 @@ The `TextInput` is a lower-level item that shows text and allows entering text.
 
 * **`focus()`** Call this function to focus the text input and make it receive future keyboard events.
 
+### Signals
+
+* **`accepted()`**: Emited when enter key is pressed
+* **`edited()`**: Emited when the text has changed because the user modified it
+
 ### Example
 
 ```60

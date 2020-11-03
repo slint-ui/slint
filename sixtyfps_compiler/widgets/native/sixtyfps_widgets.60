@@ -33,6 +33,7 @@ export LineEdit := NativeLineEdit {
     enabled: true;
     focused: input.has_focus;
     signal accepted(string);
+    signal edited(string);
     GridLayout {
         padding_left: root.native_padding_left;
         padding_right: root.native_padding_right;
@@ -43,6 +44,9 @@ export LineEdit := NativeLineEdit {
             enabled: root.enabled;
             accepted => {
                 root.accepted(self.text);
+            }
+            edited => {
+                root.edited(self.text);
             }
         }
         Text {
