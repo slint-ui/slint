@@ -242,30 +242,58 @@ impl<'a> TypeLoader<'a> {
         })
     }
 
+    fn import_file(
+        &self,
+        referencing_file: &std::path::Path,
+        file_to_import: &str,
+    ) -> Option<OpenFile> {
+        // The directory of the current file is the first in the list of include directories.
+        let maybe_current_directory = referencing_file.parent();
+        core::iter::once(maybe_current_directory.map(|dir| dir.to_path_buf()).as_ref())
+            .filter_map(|dir| dir)
+            .chain(self.compiler_config.include_paths.iter())
+            .map(|include_path| {
+                if include_path.is_relative() && maybe_current_directory.is_some() {
+                    let mut abs_path = maybe_current_directory.unwrap().to_path_buf();
+                    abs_path.push(include_path);
+                    abs_path
+                } else {
+                    include_path.clone()
+                }
+            })
+            .find_map(|include_dir| include_dir.try_open(file_to_import))
+            .or_else(|| self.builtin_library.and_then(|lib| lib.try_open(file_to_import)))
+            .or_else(|| {
+                self.compiler_config
+                    .resolve_import_fallback
+                    .as_ref()
+                    .map_or_else(
+                        || Some(file_to_import.to_owned()),
+                        |resolve_import_callback| {
+                            resolve_import_callback(file_to_import.to_owned())
+                        },
+                    )
+                    .and_then(|resolved_absolute_path| {
+                        self.compiler_config
+                            .open_import_fallback
+                            .as_ref()
+                            .map(|cb| cb(resolved_absolute_path.clone()))
+                            .and_then(|future| {
+                                Some(OpenFile {
+                                    path: resolved_absolute_path.into(),
+                                    source_code_future: future,
+                                })
+                            })
+                    })
+            })
+    }
+
     async fn collect_dependencies(
         &mut self,
         doc: &syntax_nodes::Document,
         doc_diagnostics: &mut FileDiagnostics,
     ) -> DependenciesByFile {
-        // The directory of the current file is the first in the list of include directories.
-        let mut current_directory = doc.source_file.as_ref().unwrap().clone().as_ref().clone();
-        current_directory.pop();
-
-        let open_file_from_include_paths = |file_path: &str| {
-            core::iter::once(&current_directory)
-                .chain(self.compiler_config.include_paths.iter())
-                .map(|include_path| {
-                    if include_path.is_relative() {
-                        let mut abs_path = current_directory.clone();
-                        abs_path.push(include_path);
-                        abs_path
-                    } else {
-                        include_path.clone()
-                    }
-                })
-                .find_map(|include_dir| include_dir.try_open(file_path))
-                .or_else(|| self.builtin_library.and_then(|lib| lib.try_open(file_path)))
-        };
+        let referencing_file = doc.source_file.as_ref().unwrap().clone();
 
         let mut dependencies = DependenciesByFile::new();
 
@@ -280,65 +308,30 @@ impl<'a> TypeLoader<'a> {
                 continue;
             }
 
-            let dependency_entry =
-                if let Some(dependency_file) = open_file_from_include_paths(&path_to_import) {
-                    match dependencies.entry(dependency_file.path.clone()) {
-                        std::collections::btree_map::Entry::Vacant(vacant_entry) => vacant_entry
-                            .insert(ImportedTypes {
-                                type_names: vec![],
-                                import_token: import_uri,
-                                source_code_future: dependency_file.source_code_future,
-                            }),
-                        std::collections::btree_map::Entry::Occupied(existing_entry) => {
-                            existing_entry.into_mut()
-                        }
+            let dependency_entry = if let Some(dependency_file) =
+                self.import_file(&referencing_file, &path_to_import)
+            {
+                match dependencies.entry(dependency_file.path.clone()) {
+                    std::collections::btree_map::Entry::Vacant(vacant_entry) => vacant_entry
+                        .insert(ImportedTypes {
+                            type_names: vec![],
+                            import_token: import_uri,
+                            source_code_future: dependency_file.source_code_future,
+                        }),
+                    std::collections::btree_map::Entry::Occupied(existing_entry) => {
+                        existing_entry.into_mut()
                     }
-                } else {
-                    let absolute_path = if let Some(path) = &self
-                        .compiler_config
-                        .resolve_import_fallback
-                        .as_ref()
-                        .map_or(Some(path_to_import.clone()), |cb| cb(path_to_import.clone()))
-                    {
-                        path.clone()
-                    } else {
-                        doc_diagnostics.push_error(
-                            format!(
-                                "Cannot find requested import {} in the include search path",
-                                path_to_import
-                            ),
-                            &import_uri,
-                        );
-                        continue;
-                    };
-                    match dependencies.entry(absolute_path.clone().into()) {
-                        std::collections::btree_map::Entry::Vacant(entry) => {
-                            let source_future = if let Some(future) = self
-                                .compiler_config
-                                .open_import_fallback
-                                .as_ref()
-                                .map(|cb| cb(absolute_path))
-                            {
-                                future
-                            } else {
-                                doc_diagnostics.push_error(
-                                    format!(
-                                    "Cannot find requested import {} in the include search path",
-                                    path_to_import
-                                ),
-                                    &import_uri,
-                                );
-                                continue;
-                            };
-                            entry.insert(ImportedTypes {
-                                type_names: vec![],
-                                import_token: import_uri,
-                                source_code_future: source_future,
-                            })
-                        }
-                        std::collections::btree_map::Entry::Occupied(entry) => entry.into_mut(),
-                    }
-                };
+                }
+            } else {
+                doc_diagnostics.push_error(
+                    format!(
+                        "Cannot find requested import {} in the include search path",
+                        path_to_import
+                    ),
+                    &import_uri,
+                );
+                continue;
+            };
             dependency_entry.type_names.extend(ImportedName::extract_imported_names(&import));
         }
 
