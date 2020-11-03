@@ -798,6 +798,12 @@ impl SpannedWithSourceFile for NodeOrTokenWithSourceFile {
     }
 }
 
+impl Spanned for Option<SyntaxTokenWithSourceFile> {
+    fn span(&self) -> crate::diagnostics::Span {
+        self.as_ref().map(|t| t.span()).unwrap_or_default()
+    }
+}
+
 /// return the normalized identifier string of the first SyntaxKind::Identifier in this node
 pub fn identifier_text(node: &SyntaxNodeWithSourceFile) -> Option<String> {
     node.child_text(SyntaxKind::Identifier).map(|x| normalize_identifier(&x))
