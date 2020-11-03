@@ -22,8 +22,13 @@ var editor = monaco.editor.create(document.getElementById("editor"), {
 });
 var base_url = "";
 
+interface ModelAndViewState {
+    model: monaco.editor.ITextModel,
+    view_state: monaco.editor.ICodeEditorViewState
+}
+
 /// Index by url. Inline documents will use the empty string.
-var editor_documents: Map<string, monaco.editor.ITextModel> = new Map;
+var editor_documents: Map<string, ModelAndViewState> = new Map;
 
 let hello_world = `
 import { SpinBox, Button, CheckBox, Slider, GroupBox } from "sixtyfps_widgets.60";
@@ -109,7 +114,7 @@ function createMainModel(source: string, url: string): monaco.editor.ITextModel 
         permalink.href = this_url.toString();
         maybe_update_preview_automatically();
     });
-    editor_documents.set(url, model);
+    editor_documents.set(url, { model, view_state: null });
     update_preview();
     return model;
 }
@@ -140,23 +145,33 @@ function setCurrentTab(url: string) {
     let current_tab = document.querySelector(`#tabs li[class~="nav-item"] span[class~="nav-link"][class~="active"]`);
     if (current_tab != undefined) {
         current_tab.className = "nav-link";
+        let url = current_tab.parentElement.dataset.url;
+        if (url != undefined) {
+            let model_and_state = editor_documents.get(url);
+            model_and_state.view_state = editor.saveViewState();
+            editor_documents.set(url, model_and_state);
+        }
     }
     let new_current = document.querySelector(`#tabs li[class~="nav-item"][data-url="${url}"] span[class~="nav-link"]`);
     if (new_current != undefined) {
         new_current.className = "nav-link active";
     }
-    let model = editor_documents.get(url);
-    if (model != undefined) {
-        editor.setModel(model);
+    let model_and_state = editor_documents.get(url);
+    if (model_and_state != undefined) {
+        editor.setModel(model_and_state.model);
+        if (model_and_state.view_state != null) {
+            editor.restoreViewState(model_and_state.view_state);
+        }
+        editor.focus();
     }
 }
 
 function update_preview() {
-    let main_model = editor_documents.get(base_url);
-    if (main_model === undefined) {
+    let main_model_and_state = editor_documents.get(base_url);
+    if (main_model_and_state === undefined) {
         return;
     }
-    let source = main_model.getValue();
+    let source = main_model_and_state.model.getValue();
     let div = document.getElementById("preview") as HTMLDivElement;
     setTimeout(function () { render_or_error(source, base_url, div); }, 1);
 }
@@ -173,21 +188,21 @@ async function render_or_error(source: string, base_url: string, div: HTMLDivEle
         var compiled_component = await sixtyfps.compile_from_string(source, base_url, (file_name: string) => {
             let u = new URL(file_name, base_url);
             return u.toString();
-        }, async (url: string) => {
+        }, async (url: string): Promise<string> => {
             console.log("ERR", url);
-            let doc = editor_documents.get(url);
-            if (doc === undefined) {
+            let model_and_state = editor_documents.get(url);
+            if (model_and_state === undefined) {
                 const response = await fetch(url);
                 let doc = await response.text();
                 let model = monaco.editor.createModel(doc);
                 model.onDidChangeContent(function () {
                     maybe_update_preview_automatically();
                 });
-                editor_documents.set(url, model);
+                editor_documents.set(url, { model, view_state: null });
                 addTab(model, url);
                 return doc;
             }
-            return doc.getValue();
+            return model_and_state.model.getValue();
         });
     } catch (e) {
         let text = document.createTextNode(e.message);
