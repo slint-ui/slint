@@ -214,6 +214,7 @@ impl Padding {
 pub struct LayoutGeometry {
     pub rect: LayoutRect,
     pub spacing: Option<NamedReference>,
+    pub alignment: Option<NamedReference>,
     pub padding: Padding,
 }
 
@@ -221,6 +222,7 @@ impl LayoutGeometry {
     fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
         self.rect.visit_named_references(visitor);
         self.spacing.as_mut().map(|e| visitor(&mut *e));
+        self.alignment.as_mut().map(|e| visitor(&mut *e));
         self.padding.visit_named_references(visitor);
     }
 }
@@ -254,6 +256,7 @@ impl LayoutGeometry {
     pub fn new(rect: LayoutRect, layout_element: &ElementRc) -> Self {
         let padding = || binding_reference(layout_element, "padding");
         let spacing = binding_reference(layout_element, "spacing");
+        let alignment = binding_reference(layout_element, "alignment");
 
         init_fake_property(layout_element, "width", || rect.width_reference.clone());
         init_fake_property(layout_element, "height", || rect.height_reference.clone());
@@ -271,7 +274,7 @@ impl LayoutGeometry {
             bottom: binding_reference(layout_element, "padding_bottom").or_else(padding),
         };
 
-        Self { rect, spacing, padding }
+        Self { rect, spacing, padding, alignment }
     }
 }
 
@@ -377,6 +380,7 @@ pub mod gen {
             geometry: &'a LayoutGeometry,
             spacing: L::CompiledCode,
             padding: L::CompiledCode,
+            alignment: L::CompiledCode,
             var_creation_code: L::CompiledCode,
             cell_ref_variable: L::CompiledCode,
             is_horizontal: bool,

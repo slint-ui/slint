@@ -47,6 +47,10 @@ fn rust_type(
             let inner = rust_type(&o, span)?;
             Ok(quote!(sixtyfps::re_exports::ModelHandle<#inner>))
         }
+        Type::Enumeration(e) => {
+            let e = format_ident!("{}", e.name);
+            Ok(quote!(sixtyfps::re_exports::#e))
+        }
         _ => Err(CompilerDiagnostic {
             message: format!("Cannot map property type {} to Rust", ty),
             span: span.clone(),
@@ -1513,6 +1517,13 @@ impl crate::layout::gen::Language for RustLanguageLayoutGen {
         let (padding, spacing, spacing_creation_code) =
             generate_layout_padding_and_spacing(&layout_tree, &box_layout.geometry, component);
 
+        let alignment = if let Some(expr) = &box_layout.geometry.alignment {
+            let p = access_named_reference(expr, component, quote!(_self));
+            quote!(#p.get())
+        } else {
+            quote!(::core::default::Default::default())
+        };
+
         LayoutTreeItem::BoxLayout {
             is_horizontal: box_layout.is_horizontal,
             geometry: &box_layout.geometry,
@@ -1520,6 +1531,7 @@ impl crate::layout::gen::Language for RustLanguageLayoutGen {
             cell_ref_variable: quote!(#cell_ref_variable),
             spacing,
             padding,
+            alignment,
         }
         .into()
     }
@@ -1537,10 +1549,11 @@ impl<'a> LayoutTreeItem<'a> {
                 cell_ref_variable,
                 spacing,
                 padding,
+                alignment,
                 is_horizontal,
                 ..
             } => {
-                quote!(box_layout_info(&Slice::from_slice(&#cell_ref_variable), #spacing, #padding, #is_horizontal))
+                quote!(box_layout_info(&Slice::from_slice(&#cell_ref_variable), #spacing, #padding, #alignment, #is_horizontal))
             }
             LayoutTreeItem::PathLayout(_) => quote!(todo!("layout_info for PathLayout in rust.rs")),
         }
@@ -1629,7 +1642,7 @@ impl<'a> LayoutTreeItem<'a> {
                 let p = access_named_reference(nr, component, quote!(_self));
                 quote!(#p.get())
             } else {
-                quote!(0.)
+                quote!(::core::default::Default::default())
             }
         };
         match self {
@@ -1645,8 +1658,8 @@ impl<'a> LayoutTreeItem<'a> {
                     solve_grid_layout(&GridLayoutData {
                         width: #width,
                         height: #height,
-                        x: #x_pos as _,
-                        y: #y_pos as _,
+                        x: #x_pos,
+                        y: #y_pos,
                         cells: Slice::from_slice(&#cell_ref_variable),
                         spacing: #spacing,
                         padding: #padding,
@@ -1658,6 +1671,7 @@ impl<'a> LayoutTreeItem<'a> {
                 cell_ref_variable,
                 spacing,
                 padding,
+                alignment,
                 is_horizontal,
                 ..
             } => {
@@ -1670,11 +1684,12 @@ impl<'a> LayoutTreeItem<'a> {
                     solve_box_layout(&BoxLayoutData {
                         width: #width,
                         height: #height,
-                        x: #x_pos as _,
-                        y: #y_pos as _,
+                        x: #x_pos,
+                        y: #y_pos,
                         cells: Slice::from_slice(&#cell_ref_variable),
                         spacing: #spacing,
                         padding: #padding,
+                        alignment: #alignment
                     }, #is_horizontal);
                 });
             }

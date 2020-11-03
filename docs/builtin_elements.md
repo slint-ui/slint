@@ -187,6 +187,8 @@ they will be computed by the layout respecting the minimum and maximum sizes and
  * **`padding`** (*length*): the padding within the layout.
  * **`padding_left`**, **`padding_right`**, **`padding_top`** and **`padding_bottom`** (*length*):
     override the padding in specific sides.
+ * **`alignment`** (*FIXME enum*): Can be one of  `stretch`, `center`, `start`, `end`,
+    `space_between`, `space_around`. Defaults to `stretch`. Matches the CSS flex.
 
 ## Example
 

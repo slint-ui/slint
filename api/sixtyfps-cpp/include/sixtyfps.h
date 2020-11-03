@@ -283,6 +283,7 @@ using cbindgen_private::solve_box_layout;
 using cbindgen_private::box_layout_info;
 using cbindgen_private::solve_path_layout;
 using cbindgen_private::Rect;
+using cbindgen_private::LayoutAlignment;
 
 inline LayoutInfo LayoutInfo::merge(const LayoutInfo &other) const {
     // Note: This "logic" is duplicated from LayoutInfo::merge in layout.rs.

@@ -593,7 +593,7 @@ fn generate_component<'id>(
         if decl.is_alias.is_some() {
             continue;
         }
-        let (prop, type_info) = match decl.property_type {
+        let (prop, type_info) = match &decl.property_type {
             Type::Float32 => animated_property_info::<f32>(),
             Type::Int32 => animated_property_info::<i32>(),
             Type::String => property_info::<SharedString>(),
@@ -611,6 +611,16 @@ fn generate_component<'id>(
             Type::Object { .. } => property_info::<eval::Value>(),
             Type::Array(_) => property_info::<eval::Value>(),
             Type::Percent => property_info::<f32>(),
+            Type::Enumeration(e) => match e.name.as_ref() {
+                "LayoutAlignment" => property_info::<sixtyfps_corelib::layout::LayoutAlignment>(),
+                "TextHorizontalAlignment" => {
+                    property_info::<sixtyfps_corelib::items::TextHorizontalAlignment>()
+                }
+                "TextVerticalAlignment" => {
+                    property_info::<sixtyfps_corelib::items::TextVerticalAlignment>()
+                }
+                _ => panic!("unkown enum"),
+            },
             _ => panic!("bad type"),
         };
         custom_properties.insert(
@@ -970,7 +980,11 @@ impl<'a> BoxLayoutCellTmpData<'a> {
 #[derive(derive_more::From)]
 enum LayoutTreeItem<'a> {
     GridLayout(LayoutWithCells<'a, GridLayoutCellData<'a>>),
-    BoxLayout(LayoutWithCells<'a, BoxLayoutCellTmpData<'a>>, bool),
+    BoxLayout(
+        LayoutWithCells<'a, BoxLayoutCellTmpData<'a>>,
+        bool,
+        sixtyfps_corelib::layout::LayoutAlignment,
+    ),
     PathLayout(&'a PathLayout),
 }
 
@@ -982,12 +996,13 @@ impl<'a> LayoutTreeItem<'a> {
                 grid_layout.spacing,
                 &grid_layout.padding,
             ),
-            LayoutTreeItem::BoxLayout(box_layout, is_horizontal) => {
+            LayoutTreeItem::BoxLayout(box_layout, is_horizontal, alignment) => {
                 let cells = BoxLayoutCellTmpData::into_cells(&box_layout.cells);
                 box_layout_info(
                     &Slice::from(cells.as_slice()),
                     box_layout.spacing,
                     &box_layout.padding,
+                    *alignment,
                     *is_horizontal,
                 )
             }
@@ -1154,9 +1169,21 @@ fn collect_layouts_recursively<'a, 'b>(
                 top: box_layout.geometry.padding.top.as_ref().map_or(0., expr_eval),
                 bottom: box_layout.geometry.padding.bottom.as_ref().map_or(0., expr_eval),
             };
+            let alignment = box_layout
+                .geometry
+                .alignment
+                .as_ref()
+                .map(|nr| {
+                    eval::load_property(component, &nr.element.upgrade().unwrap(), &nr.name)
+                        .unwrap()
+                        .try_into()
+                        .unwrap_or_default()
+                })
+                .unwrap_or_default();
             layout_tree.push(LayoutTreeItem::BoxLayout(
                 LayoutWithCells { geometry: &box_layout.geometry, cells, spacing, padding },
                 box_layout.is_horizontal,
+                alignment,
             ));
         }
         Layout::PathLayout(layout) => layout_tree.push(layout.into()),
@@ -1187,7 +1214,7 @@ impl<'a> LayoutTreeItem<'a> {
                     cells: Slice::from(grid_layout.cells.as_slice()),
                 });
             }
-            Self::BoxLayout(box_layout, is_horizontal) => {
+            Self::BoxLayout(box_layout, is_horizontal, alignment) => {
                 let cells = BoxLayoutCellTmpData::into_cells(&box_layout.cells);
                 solve_box_layout(
                     &BoxLayoutData {
@@ -1198,6 +1225,7 @@ impl<'a> LayoutTreeItem<'a> {
                         spacing: box_layout.spacing,
                         padding: &box_layout.padding,
                         cells: Slice::from(cells.as_slice()),
+                        alignment: *alignment,
                     },
                     *is_horizontal,
                 );

@@ -382,6 +382,51 @@ pub extern "C" fn grid_layout_info<'a>(
     }
 }
 
+/// Enum representing the alignment property of a BoxLayout or HorizontalLayout
+#[derive(Copy, Clone, Debug, PartialEq, strum_macros::EnumString, strum_macros::Display)]
+#[repr(C)]
+#[allow(non_camel_case_types)]
+pub enum LayoutAlignment {
+    stretch,
+    center,
+    start,
+    end,
+    space_between,
+    space_around,
+}
+
+impl Default for LayoutAlignment {
+    fn default() -> Self {
+        Self::stretch
+    }
+}
+
+impl From<LayoutAlignment> for stretch::style::JustifyContent {
+    fn from(a: LayoutAlignment) -> Self {
+        match a {
+            LayoutAlignment::stretch => Self::FlexStart,
+            LayoutAlignment::center => Self::Center,
+            LayoutAlignment::start => Self::FlexStart,
+            LayoutAlignment::end => Self::FlexEnd,
+            LayoutAlignment::space_between => Self::SpaceBetween,
+            LayoutAlignment::space_around => Self::SpaceAround,
+        }
+    }
+}
+
+impl From<LayoutAlignment> for stretch::style::AlignContent {
+    fn from(a: LayoutAlignment) -> Self {
+        match a {
+            LayoutAlignment::stretch => Self::Stretch,
+            LayoutAlignment::center => Self::Center,
+            LayoutAlignment::start => Self::FlexStart,
+            LayoutAlignment::end => Self::FlexEnd,
+            LayoutAlignment::space_between => Self::SpaceBetween,
+            LayoutAlignment::space_around => Self::SpaceAround,
+        }
+    }
+}
+
 #[repr(C)]
 #[derive(Debug)]
 /// The BoxLayoutData is used to represent both a Horizontal and Vertical layout.
@@ -394,6 +439,7 @@ pub struct BoxLayoutData<'a> {
     pub y: Coord,
     pub spacing: Coord,
     pub padding: &'a Padding,
+    pub alignment: LayoutAlignment,
     pub cells: Slice<'a, BoxLayoutCellData<'a>>,
 }
 
@@ -418,10 +464,10 @@ pub extern "C" fn solve_box_layout(data: &BoxLayoutData, is_horizontal: bool) {
 
     let box_style = stretch::style::Style {
         size: Size { width: Dimension::Percent(1.), height: Dimension::Percent(1.) },
-        flex_grow: 1.,
-        display: Display::Flex,
         flex_direction: if is_horizontal { FlexDirection::Row } else { FlexDirection::Column },
         flex_basis: Dimension::Percent(1.),
+        justify_content: data.alignment.into(),
+        align_content: data.alignment.into(),
         ..Default::default()
     };
 
@@ -469,7 +515,13 @@ pub extern "C" fn solve_box_layout(data: &BoxLayoutData, is_horizontal: bool) {
         let cell_style = Style {
             min_size,
             max_size,
-            flex_grow: if let Some(s) = smaller_strecth { stretch_factor(cell) / s } else { 1. },
+            flex_grow: if data.alignment != LayoutAlignment::stretch {
+                0.
+            } else if let Some(s) = smaller_strecth {
+                stretch_factor(cell) / s
+            } else {
+                1.
+            },
             flex_basis: if is_horizontal { min_size.width } else { min_size.height },
             margin,
             align_self: AlignSelf::Stretch,
@@ -509,6 +561,7 @@ pub extern "C" fn box_layout_info<'a>(
     cells: &Slice<'a, BoxLayoutCellData<'a>>,
     spacing: Coord,
     padding: &Padding,
+    alignment: LayoutAlignment,
     is_horizontal: bool,
 ) -> LayoutInfo {
     let count = cells.len();
@@ -516,6 +569,7 @@ pub extern "C" fn box_layout_info<'a>(
         return LayoutInfo { max_width: 0., max_height: 0., ..LayoutInfo::default() };
     };
     let order_float = |a: &Coord, b: &Coord| a.partial_cmp(b).unwrap_or(core::cmp::Ordering::Equal);
+    let is_stretch = alignment == LayoutAlignment::stretch;
 
     if is_horizontal {
         let extra_w = padding.left + padding.right + spacing * (count - 1) as Coord;
@@ -527,7 +581,11 @@ pub extern "C" fn box_layout_info<'a>(
             + padding.top
             + padding.bottom;
         let min_width = cells.iter().map(|c| c.constraint.min_width).sum::<Coord>() + extra_w;
-        let max_width = cells.iter().map(|c| c.constraint.max_width).sum::<Coord>() + extra_w;
+        let max_width = if is_stretch {
+            cells.iter().map(|c| c.constraint.max_width).sum::<Coord>() + extra_w
+        } else {
+            f32::MAX
+        };
         let horizontal_stretch = cells.iter().map(|c| c.constraint.horizontal_stretch).sum::<f32>();
         let vertical_stretch =
             cells.iter().map(|c| c.constraint.vertical_stretch).min_by(order_float).unwrap();
@@ -549,7 +607,11 @@ pub extern "C" fn box_layout_info<'a>(
             + padding.left
             + padding.right;
         let min_height = cells.iter().map(|c| c.constraint.min_height).sum::<Coord>() + extra_h;
-        let max_height = cells.iter().map(|c| c.constraint.max_height).sum::<Coord>() + extra_h;
+        let max_height = if is_stretch {
+            cells.iter().map(|c| c.constraint.max_height).sum::<Coord>() + extra_h
+        } else {
+            f32::MAX
+        };
         let horizontal_stretch =
             cells.iter().map(|c| c.constraint.horizontal_stretch).min_by(order_float).unwrap();
         let vertical_stretch = cells.iter().map(|c| c.constraint.vertical_stretch).sum::<f32>();

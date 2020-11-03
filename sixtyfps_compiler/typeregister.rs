@@ -96,6 +96,10 @@ impl TypeRegister {
             declare_enum("TextHorizontalAlignment", &["align_left", "align_center", "align_right"]);
         let text_vertical_alignment =
             declare_enum("TextVerticalAlignment", &["align_top", "align_center", "align_bottom"]);
+        let layout_alignment = declare_enum(
+            "LayoutAlignment",
+            &["stretch", "center", "start", "end", "space_between", "space_around"],
+        );
 
         let native_class_with_member_functions =
             |tr: &mut TypeRegister,
@@ -296,9 +300,15 @@ impl TypeRegister {
         let mut horizontal_layout =
             BuiltinElement::new(Rc::new(NativeClass::new("HorizontalLayout")));
         horizontal_layout.properties.insert("spacing".to_owned(), Type::Length);
+        horizontal_layout
+            .properties
+            .insert("alignment".to_owned(), Type::Enumeration(layout_alignment.clone()));
         register.insert_type(Type::Builtin(Rc::new(horizontal_layout)));
         let mut vertical_layout = BuiltinElement::new(Rc::new(NativeClass::new("VerticalLayout")));
         vertical_layout.properties.insert("spacing".to_owned(), Type::Length);
+        vertical_layout
+            .properties
+            .insert("alignment".to_owned(), Type::Enumeration(layout_alignment));
         register.insert_type(Type::Builtin(Rc::new(vertical_layout)));
 
         let mut path_class = NativeClass::new("Path");

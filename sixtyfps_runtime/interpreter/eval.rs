@@ -210,6 +210,7 @@ macro_rules! declare_value_enum_conversion {
 
 declare_value_enum_conversion!(corelib::items::TextHorizontalAlignment, TextHorizontalAlignment);
 declare_value_enum_conversion!(corelib::items::TextVerticalAlignment, TextVerticalAlignment);
+declare_value_enum_conversion!(corelib::layout::LayoutAlignment, LayoutAlignment);
 
 #[derive(Copy, Clone)]
 enum ComponentInstance<'a, 'id> {

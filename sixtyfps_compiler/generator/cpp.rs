@@ -1679,11 +1679,18 @@ impl crate::layout::gen::Language for CppLanguageLayoutGen {
             component,
         );
 
+        let alignment = if let Some(nr) = &box_layout.geometry.alignment {
+            format!("{}.get()", access_named_reference(nr, component, "self"))
+        } else {
+            "{}".into()
+        };
+
         LayoutTreeItem::BoxLayout {
             is_horizontal: box_layout.is_horizontal,
             geometry: &box_layout.geometry,
             spacing,
             padding,
+            alignment,
             var_creation_code: creation_code.join("\n"),
             cell_ref_variable,
         }
@@ -1703,11 +1710,12 @@ impl<'a> LayoutTreeItem<'a> {
                 spacing,
                 cell_ref_variable,
                 padding,
+                alignment,
                 is_horizontal,
                 ..
             } => format!(
-                "sixtyfps::box_layout_info(&{}, {}, &{}, {})",
-                cell_ref_variable, spacing, padding, is_horizontal
+                "sixtyfps::box_layout_info(&{}, {}, &{}, {}, {})",
+                cell_ref_variable, spacing, padding, alignment, is_horizontal
             ),
             LayoutTreeItem::PathLayout(_) => "{/*layout_info for path not implemented*/}".into(),
         }
@@ -1822,19 +1830,21 @@ impl<'a> LayoutTreeItem<'a> {
                 spacing,
                 cell_ref_variable,
                 padding,
+                alignment,
                 is_horizontal,
                 ..
             } => {
                 code_stream.push("    { ".into());
                 code_stream.push("    sixtyfps::BoxLayoutData box { ".into());
                 code_stream.push(format!(
-                    "        {w}, {h}, {x}, {y}, {s}, &{p},",
+                    "        {w}, {h}, {x}, {y}, {s}, &{p}, {a},",
                     w = layout_prop(&geometry.rect.width_reference),
                     h = layout_prop(&geometry.rect.height_reference),
                     x = layout_prop(&geometry.rect.x_reference),
                     y = layout_prop(&geometry.rect.y_reference),
                     s = spacing,
                     p = padding,
+                    a = alignment
                 ));
                 code_stream.push(format!("        {cv}", cv = cell_ref_variable));
                 code_stream.push("    };".to_owned());
