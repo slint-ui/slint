@@ -82,6 +82,9 @@ struct SharedString
         return cbindgen_private::sixtyfps_shared_string_bytes(this);
     }
 
+    const char *begin() const { return data(); }
+    const char *end() const { return std::string_view(*this).end(); }
+
     /// Creates a new SharedString from the given number \a n. The string representation of the
     /// number uses a minimal formatting scheme: If \a n has no fractional part, the number will be
     /// formatted as an integer.

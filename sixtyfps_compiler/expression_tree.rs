@@ -10,7 +10,7 @@ LICENSE END */
 use crate::diagnostics::{BuildDiagnostics, Spanned, SpannedWithSourceFile};
 use crate::langtype::{BuiltinElement, EnumerationValue, Type};
 use crate::object_tree::*;
-use crate::parser::SyntaxNodeWithSourceFile;
+use crate::parser::{NodeOrTokenWithSourceFile, SyntaxNodeWithSourceFile};
 use core::cell::RefCell;
 use std::collections::HashMap;
 use std::hash::Hash;
@@ -50,6 +50,10 @@ pub enum BuiltinFunction {
     GetWindowScaleFactor,
     Debug,
     SetFocusItem,
+    /// the "42".to_float()
+    StringToFloat,
+    /// the "42".is_float()
+    StringIsFloat,
 }
 
 impl BuiltinFunction {
@@ -65,6 +69,12 @@ impl BuiltinFunction {
                 return_type: Box::new(Type::Void),
                 args: vec![Type::ElementReference],
             },
+            BuiltinFunction::StringToFloat => {
+                Type::Function { return_type: Box::new(Type::Float32), args: vec![Type::String] }
+            }
+            BuiltinFunction::StringIsFloat => {
+                Type::Function { return_type: Box::new(Type::Bool), args: vec![Type::String] }
+            }
         }
     }
 }
@@ -200,7 +210,7 @@ pub enum Expression {
     /// a regular FunctionCall expression where the base becomes the first argument.
     MemberFunction {
         base: Box<Expression>,
-        base_node: SyntaxNodeWithSourceFile,
+        base_node: NodeOrTokenWithSourceFile,
         member: Box<Expression>,
     },
 
@@ -370,7 +380,10 @@ impl Expression {
             },
             Expression::Cast { to, .. } => to.clone(),
             Expression::CodeBlock(sub) => sub.last().map_or(Type::Void, |e| e.ty()),
-            Expression::FunctionCall { function, .. } => function.ty(),
+            Expression::FunctionCall { function, .. } => match function.ty() {
+                Type::Function { return_type, .. } => *return_type,
+                _ => Type::Invalid,
+            },
             Expression::SelfAssignment { .. } => Type::Void,
             Expression::ResourceReference { .. } => Type::Resource,
             Expression::Condition { condition: _, true_expr, false_expr } => {

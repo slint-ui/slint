@@ -518,7 +518,7 @@ impl Expression {
         ctx: &mut LookupCtx,
     ) -> Expression {
         let mut sub_expr =
-            node.Expression().map(|n| (Self::from_expression_node(n.clone(), ctx), n.0));
+            node.Expression().map(|n| (Self::from_expression_node(n.clone(), ctx), n.0.into()));
 
         let mut arguments = Vec::new();
 
@@ -814,7 +814,7 @@ fn continue_lookup_within_element(
         let member = elem.borrow().base_type.lookup_member_function(&prop_name);
         return Expression::MemberFunction {
             base: Box::new(Expression::ElementReference(Rc::downgrade(elem))),
-            base_node: node,
+            base_node: node.into(),
             member: Box::new(member),
         };
     } else {
@@ -875,6 +875,24 @@ fn maybe_lookup_object(
                         c.root_element.borrow().lookup_property(x) != Type::Invalid
                     });
                 }
+            }
+            Type::String => {
+                return Expression::MemberFunction {
+                    base: Box::new(base),
+                    base_node: next.clone().into(), // Note that this is not the base_node, but the function's node
+                    member: Box::new(match next_str.as_str() {
+                        "is_float" => {
+                            Expression::BuiltinFunctionReference(BuiltinFunction::StringIsFloat)
+                        }
+                        "to_float" => {
+                            Expression::BuiltinFunctionReference(BuiltinFunction::StringToFloat)
+                        }
+                        _ => {
+                            ctx.diag.push_error("Cannot access fields of string".into(), &next);
+                            return Expression::Invalid;
+                        }
+                    }),
+                };
             }
             _ => {
                 ctx.diag.push_error("Cannot access fields of property".into(), &next);

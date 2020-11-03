@@ -384,6 +384,26 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                     panic!("internal error: argument to SetFocusItem must be an element")
                 }
             }
+            Expression::BuiltinFunctionReference(BuiltinFunction::StringIsFloat) => {
+                if arguments.len() != 1 {
+                    panic!("internal error: incorrect argument count to StringIsFloat")
+                }
+                if let Value::String(s) = eval_expression(&arguments[0], local_context) {
+                    Value::Bool(<f64 as core::str::FromStr>::from_str(s.as_str()).is_ok())
+                } else {
+                    panic!("Argument not a string");
+                }
+            }
+            Expression::BuiltinFunctionReference(BuiltinFunction::StringToFloat) => {
+                if arguments.len() != 1 {
+                    panic!("internal error: incorrect argument count to StringToFloat")
+                }
+                if let Value::String(s) = eval_expression(&arguments[0], local_context) {
+                    Value::Number(core::str::FromStr::from_str(s.as_str()).unwrap_or(0.))
+                } else {
+                    panic!("Argument not a string");
+                }
+            }
             _ => panic!("call of something not a signal"),
         }
         Expression::SelfAssignment { lhs, rhs, op } => {

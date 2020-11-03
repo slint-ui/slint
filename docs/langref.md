@@ -244,6 +244,8 @@ Example := Window {
  * Object types convert with another object type if they have the same property names and their types can be converted.
     The source object can have either missing properties, or extra properties. But not both.
  * Array generaly do not convert between eachother. But array literal can be converted if the type does convert.
+ * String can be converted to float by using the `to_float` function. That function returns 0 if the string is not
+   a valid number. you can check with `is_float` if the string contains a valid number
 
 ```60
 Example := Window {
@@ -255,6 +257,10 @@ Example := Window {
     property<{a: string, b: int}> prop2: { a: "x", b: 12, c: 42 };
     // ERROR: b is missing and c is extra, this does not compile, because it could be a typo.
     // property<{a: string, b: int}> prop2: { a: "x", c: 42 };
+
+    property<string> xxx: "42.1";
+    property<float> xxx1: xxx.to_float(); // 42.1
+    property<bool> xxx2: xxx.is_float(); // true
 }
 ```
 

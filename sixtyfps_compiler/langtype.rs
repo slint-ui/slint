@@ -238,7 +238,9 @@ impl Type {
 
     pub fn lookup_member_function(&self, name: &str) -> Expression {
         match self {
-            Type::Builtin(builtin) => builtin.member_functions.get(name).unwrap().clone(),
+            Type::Builtin(builtin) => {
+                builtin.member_functions.get(name).cloned().unwrap_or(Expression::Invalid)
+            }
             _ => Expression::Invalid,
         }
     }

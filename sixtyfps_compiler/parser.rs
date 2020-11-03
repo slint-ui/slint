@@ -639,6 +639,12 @@ impl Spanned for SyntaxToken {
     }
 }
 
+impl Spanned for rowan::NodeOrToken<SyntaxNode, SyntaxToken> {
+    fn span(&self) -> crate::diagnostics::Span {
+        crate::diagnostics::Span::new(self.text_range().start().into())
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct SyntaxNodeWithSourceFile {
     pub node: SyntaxNode,
@@ -699,9 +705,22 @@ impl SyntaxNodeWithSourceFile {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct NodeOrTokenWithSourceFile {
     node_or_token: rowan::NodeOrToken<SyntaxNode, SyntaxToken>,
     source_file: Option<SourceFile>,
+}
+
+impl From<SyntaxNodeWithSourceFile> for NodeOrTokenWithSourceFile {
+    fn from(n: SyntaxNodeWithSourceFile) -> Self {
+        Self { node_or_token: n.node.into(), source_file: n.source_file }
+    }
+}
+
+impl From<SyntaxTokenWithSourceFile> for NodeOrTokenWithSourceFile {
+    fn from(n: SyntaxTokenWithSourceFile) -> Self {
+        Self { node_or_token: n.token.into(), source_file: n.source_file }
+    }
 }
 
 impl NodeOrTokenWithSourceFile {
@@ -762,6 +781,18 @@ impl Spanned for SyntaxTokenWithSourceFile {
 }
 
 impl SpannedWithSourceFile for SyntaxTokenWithSourceFile {
+    fn source_file(&self) -> Option<&SourceFile> {
+        self.source_file.as_ref()
+    }
+}
+
+impl Spanned for NodeOrTokenWithSourceFile {
+    fn span(&self) -> crate::diagnostics::Span {
+        self.node_or_token.span()
+    }
+}
+
+impl SpannedWithSourceFile for NodeOrTokenWithSourceFile {
     fn source_file(&self) -> Option<&SourceFile> {
         self.source_file.as_ref()
     }

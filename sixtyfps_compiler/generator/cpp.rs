@@ -509,6 +509,7 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
 
     file.includes.push("<array>".into());
     file.includes.push("<limits>".into());
+    file.includes.push("<cstdlib>".into()); // TODO: ideally only include this if needed (by to_float)
     file.includes.push("<sixtyfps.h>".into());
 
     for ty in &doc.inner_structs {
@@ -1262,6 +1263,25 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
             BuiltinFunction::SetFocusItem => {
                 format!("{}.set_focus_item", window_ref_expression(component))
             }
+
+           /*  std::from_chars is unfortunately not yet implemented in gcc
+            BuiltinFunction::SringIsFloat => {
+                "[](const auto &a){ double v; auto r = std::from_chars(std::begin(a), std::end(a), v); return r.ptr == std::end(a); }"
+                    .into()
+            }
+            BuiltinFunction::StringToFloat => {
+                "[](const auto &a){ double v; auto r = std::from_chars(std::begin(a), std::end(a), v); return r.ptr == std::end(a) ? v : 0; }"
+                    .into()
+            }*/
+            BuiltinFunction::StringIsFloat => {
+                "[](const auto &a){ auto e1 = std::end(a); auto e2 = const_cast<char*>(e1); std::strtod(std::begin(a), &e2); return e1 == e2; }"
+                    .into()
+            }
+            BuiltinFunction::StringToFloat => {
+                "[](const auto &a){ auto e1 = std::end(a); auto e2 = const_cast<char*>(e1); auto r = std::strtod(std::begin(a), &e2); return e1 == e2 ? r : 0; }"
+                    .into()
+            }
+
         },
         Expression::ElementReference(_) => todo!("Element references are only supported in the context of built-in function calls at the moment"),
         Expression::MemberFunction { .. } => panic!("member function expressions must not appear in the code generator anymore"),
