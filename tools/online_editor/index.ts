@@ -89,6 +89,15 @@ function tabTitleFromURL(url: string): string {
     }
 }
 
+function maybe_update_preview_automatically() {
+    if (auto_compile.checked) {
+        if (keystorke_timeout_handle) {
+            clearTimeout(keystorke_timeout_handle);
+        }
+        keystorke_timeout_handle = setTimeout(update_preview, 500);
+    }
+}
+
 function createMainModel(source: string, url: string): monaco.editor.ITextModel {
     let model = monaco.editor.createModel(source);
     model.onDidChangeContent(function () {
@@ -98,13 +107,7 @@ function createMainModel(source: string, url: string): monaco.editor.ITextModel 
         let this_url = new URL(window.location.toString());
         this_url.search = params.toString();
         permalink.href = this_url.toString();
-        if (auto_compile.checked) {
-            if (keystorke_timeout_handle) {
-                clearTimeout(keystorke_timeout_handle);
-            }
-            keystorke_timeout_handle = setTimeout(update_preview, 500);
-
-        }
+        maybe_update_preview_automatically();
     });
     editor_documents.set(url, model);
     update_preview();
@@ -177,6 +180,9 @@ async function render_or_error(source, base_url, div) {
                 const response = await fetch(url);
                 let doc = await response.text();
                 let model = monaco.editor.createModel(doc);
+                model.onDidChangeContent(function () {
+                    maybe_update_preview_automatically();
+                });
                 editor_documents.set(url, model);
                 addTab(model, url);
                 return doc;
