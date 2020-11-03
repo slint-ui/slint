@@ -145,6 +145,36 @@ impl<'a> TypeLoader<'a> {
         }
     }
 
+    pub async fn import_type(
+        &mut self,
+        file_to_import: &str,
+        type_name: &str,
+        diagnostics: &mut FileDiagnostics,
+    ) -> Option<Rc<crate::object_tree::Component>> {
+        let file = match self.import_file(None, file_to_import) {
+            Some(file) => file,
+            None => return None,
+        };
+
+        let doc_path = match self
+            .ensure_document_loaded(&file.path, file.source_code_future, None, diagnostics)
+            .await
+        {
+            Some(doc_path) => doc_path,
+            None => return None,
+        };
+
+        let doc = self.all_documents.docs.get(&doc_path).unwrap();
+
+        doc.exports().iter().find_map(|(export_name, component)| {
+            if type_name == *export_name {
+                Some(component.clone())
+            } else {
+                None
+            }
+        })
+    }
+
     fn ensure_document_loaded<'b>(
         &'b mut self,
         path: &'b PathBuf,
@@ -278,11 +308,11 @@ impl<'a> TypeLoader<'a> {
 
     fn import_file(
         &self,
-        referencing_file: &std::path::Path,
+        referencing_file: Option<&std::path::Path>,
         file_to_import: &str,
     ) -> Option<OpenFile> {
         // The directory of the current file is the first in the list of include directories.
-        let maybe_current_directory = referencing_file.parent();
+        let maybe_current_directory = referencing_file.and_then(|path| path.parent());
         maybe_current_directory
             .into_iter()
             .chain(self.compiler_config.include_paths.iter().map(PathBuf::as_path))
@@ -341,7 +371,7 @@ impl<'a> TypeLoader<'a> {
             }
 
             let dependency_entry = if let Some(dependency_file) =
-                self.import_file(&referencing_file, &path_to_import)
+                self.import_file(Some(&referencing_file), &path_to_import)
             {
                 match dependencies.entry(dependency_file.path.clone()) {
                     std::collections::btree_map::Entry::Vacant(vacant_entry) => vacant_entry
@@ -442,4 +472,22 @@ X := XX {}
     assert_eq!(ok.get(), true);
     assert!(!test_diags.has_error());
     assert!(!build_diagnostics.has_error());
+}
+
+#[test]
+fn test_manual_import() {
+    let compiler_config = CompilerConfiguration { ..Default::default() };
+    let mut test_diags = FileDiagnostics::default();
+    let global_registry = TypeRegister::builtin();
+    let mut build_diagnostics = BuildDiagnostics::default();
+    let builtin_lib = crate::library::widget_library().iter().find(|x| x.0 == "ugly").map(|x| x.1);
+    let mut loader =
+        TypeLoader::new(&global_registry, &compiler_config, builtin_lib, &mut build_diagnostics);
+
+    let maybe_button_type =
+        spin_on::spin_on(loader.import_type("sixtyfps_widgets.60", "Button", &mut test_diags));
+
+    assert!(!test_diags.has_error());
+    assert!(!build_diagnostics.has_error());
+    assert!(maybe_button_type.is_some());
 }
