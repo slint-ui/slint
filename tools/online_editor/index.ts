@@ -124,6 +124,10 @@ function addTab(model: monaco.editor.ITextModel, url: string = "") {
     tab.dataset["url"] = url;
     tab.innerHTML = `<span class="nav-link">${tabTitleFromURL(url)}</span>`;
     tab_bar.appendChild(tab);
+    $(tab).on("click", (e) => {
+        e.preventDefault();
+        setCurrentTab(url);
+    });
     if (tab_bar.childElementCount == 1) {
         setCurrentTab(url);
     }
