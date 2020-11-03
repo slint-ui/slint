@@ -104,7 +104,7 @@ function maybe_update_preview_automatically() {
 }
 
 function createMainModel(source: string, url: string): monaco.editor.ITextModel {
-    let model = monaco.editor.createModel(source);
+    let model = monaco.editor.createModel(source, "sixtyfps");
     model.onDidChangeContent(function () {
         let permalink = (<HTMLAnchorElement>document.getElementById("permalink"));
         let params = new URLSearchParams();
