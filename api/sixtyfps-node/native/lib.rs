@@ -214,7 +214,6 @@ fn to_eval_value<'cx>(
             ))
         }
         Type::Enumeration(_) => todo!(),
-        Type::EnumerationValue(_) => todo!(),
         Type::Invalid
         | Type::Void
         | Type::Builtin(_)

@@ -794,7 +794,6 @@ impl Expression {
             Type::Enumeration(enumeration) => {
                 Expression::EnumerationValue(enumeration.clone().default_value())
             }
-            Type::EnumerationValue(_) => Expression::Invalid,
         }
     }
 

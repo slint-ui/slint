@@ -52,9 +52,7 @@ pub enum Type {
         fields: BTreeMap<String, Type>,
         name: Option<String>,
     },
-
     Enumeration(Rc<Enumeration>),
-    EnumerationValue(EnumerationValue),
 
     ElementReference,
 }
@@ -89,9 +87,6 @@ impl core::cmp::PartialEq for Type {
                 matches!(other, Type::Object{fields: f, name: n} if fields == f && name == n)
             }
             Type::Enumeration(lhs) => matches!(other, Type::Enumeration(rhs) if lhs == rhs),
-            Type::EnumerationValue(lhs) => {
-                matches!(other, Type::EnumerationValue(rhs) if lhs == rhs)
-            }
             Type::ElementReference => matches!(other, Type::ElementReference),
         }
     }
@@ -153,9 +148,6 @@ impl Display for Type {
             Type::PathElements => write!(f, "pathelements"),
             Type::Easing => write!(f, "easing"),
             Type::Enumeration(enumeration) => write!(f, "enum {}", enumeration.name),
-            Type::EnumerationValue(value) => {
-                write!(f, "enum {}::{}", value.enumeration.name, value.to_string())
-            }
             Type::ElementReference => write!(f, "element ref"),
         }
     }
@@ -368,7 +360,6 @@ impl Type {
             Type::Array(_) => None,
             Type::Object { .. } => None,
             Type::Enumeration(_) => None,
-            Type::EnumerationValue(_) => None,
             Type::ElementReference => None,
         }
     }
