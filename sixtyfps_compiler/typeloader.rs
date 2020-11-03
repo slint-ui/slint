@@ -249,16 +249,14 @@ impl<'a> TypeLoader<'a> {
     ) -> Option<OpenFile> {
         // The directory of the current file is the first in the list of include directories.
         let maybe_current_directory = referencing_file.parent();
-        core::iter::once(maybe_current_directory.map(|dir| dir.to_path_buf()).as_ref())
-            .filter_map(|dir| dir)
-            .chain(self.compiler_config.include_paths.iter())
+        maybe_current_directory
+            .into_iter()
+            .chain(self.compiler_config.include_paths.iter().map(PathBuf::as_path))
             .map(|include_path| {
                 if include_path.is_relative() && maybe_current_directory.is_some() {
-                    let mut abs_path = maybe_current_directory.unwrap().to_path_buf();
-                    abs_path.push(include_path);
-                    abs_path
+                    maybe_current_directory.unwrap().join(include_path)
                 } else {
-                    include_path.clone()
+                    include_path.to_path_buf()
                 }
             })
             .find_map(|include_dir| include_dir.try_open(file_to_import))
