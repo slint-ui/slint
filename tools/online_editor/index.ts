@@ -189,7 +189,6 @@ async function render_or_error(source: string, base_url: string, div: HTMLDivEle
             let u = new URL(file_name, base_url);
             return u.toString();
         }, async (url: string): Promise<string> => {
-            console.log("ERR", url);
             let model_and_state = editor_documents.get(url);
             if (model_and_state === undefined) {
                 const response = await fetch(url);
