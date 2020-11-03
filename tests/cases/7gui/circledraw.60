@@ -28,11 +28,10 @@ CircleDraw := Window {
         spacing: 7px;
         padding: spacing;
         HorizontalLayout {
+            alignment: center;
             spacing: 12px;
-            Rectangle {} // FIXME: use layout alignment
             Button { text: "Undo"; }
             Button { text: "Redo"; }
-            Rectangle {}
         }
         Rectangle {
             color: white;

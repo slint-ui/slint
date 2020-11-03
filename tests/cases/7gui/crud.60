@@ -34,10 +34,10 @@ Crud := Window {
             row: 4;
             colspan: 4;
             spacing: parent.spacing;
+            alignment: start;
             Button { text: "Create"; }
             Button { text: "Update"; }
             Button { text: "Delete"; }
-            Rectangle { } // FIXME: layout alignment
         }
 
     }

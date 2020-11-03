@@ -30,6 +30,7 @@ App := Window {
         }
 
         HorizontalLayout {
+            alignment: start;
             GroupBox {
                 title: "Button";
                 HorizontalLayout {
@@ -38,17 +39,17 @@ App := Window {
                     Button {
                         text: "Regular Button";
                     }
-                    
+
                     Button {
                         text: "Disabled Button";
                         enabled: false;
                     }
                 }
             }
-            Rectangle {}
         }
 
         HorizontalLayout {
+            alignment: start;
             GroupBox {
                 title: "CheckBox";
                 checkbox := CheckBox {
@@ -56,17 +57,16 @@ App := Window {
                     checked: true;
                 }
             }
-            Rectangle {}
         }
 
         HorizontalLayout {
+            alignment: start;
             GroupBox {
                 title: "SpinBox";
                 SpinBox {
                     value: 42;
                 }
             }
-            Rectangle {}
         }
 
         GroupBox {
