@@ -107,6 +107,15 @@ struct SharedString
         return std::string_view(a) != std::string_view(b);
     }
 
+    friend bool operator<(const SharedString &a, const SharedString &b)
+    { return std::string_view(a) < std::string_view(b); }
+    friend bool operator<=(const SharedString &a, const SharedString &b)
+    { return std::string_view(a) <= std::string_view(b); }
+    friend bool operator>(const SharedString &a, const SharedString &b)
+    { return std::string_view(a) > std::string_view(b); }
+    friend bool operator>=(const SharedString &a, const SharedString &b)
+    { return std::string_view(a) >= std::string_view(b); }
+
     /// Writes the \a shared_string to the specified \a stream and returns a reference to the
     /// stream.
     friend std::ostream &operator<<(std::ostream &stream, const SharedString &shared_string)
