@@ -91,10 +91,10 @@ function tabTitleFromURL(url: string): string {
 
 function maybe_update_preview_automatically() {
     if (auto_compile.checked) {
-        if (keystorke_timeout_handle) {
-            clearTimeout(keystorke_timeout_handle);
+        if (keystroke_timeout_handle) {
+            clearTimeout(keystroke_timeout_handle);
         }
-        keystorke_timeout_handle = setTimeout(update_preview, 500);
+        keystroke_timeout_handle = setTimeout(update_preview, 500);
     }
 }
 
@@ -157,11 +157,11 @@ function update_preview() {
         return;
     }
     let source = main_model.getValue();
-    let div = document.getElementById("preview");
+    let div = document.getElementById("preview") as HTMLDivElement;
     setTimeout(function () { render_or_error(source, base_url, div); }, 1);
 }
 
-async function render_or_error(source, base_url, div) {
+async function render_or_error(source: string, base_url: string, div: HTMLDivElement) {
     let canvas_id = 'canvas_' + Math.random().toString(36).substr(2, 9);
     let canvas = document.createElement("canvas");
     canvas.width = 800;
@@ -215,7 +215,7 @@ async function render_or_error(source, base_url, div) {
     compiled_component.run(canvas_id)
 }
 
-let keystorke_timeout_handle;
+let keystroke_timeout_handle: number;
 
 async function run() {
     sixtyfps = await import("../../api/sixtyfps-wasm-interpreter/pkg/index.js");
