@@ -45,9 +45,9 @@ pub async fn compile_from_string(
         config.open_import_fallback = Some(Box::new(move |file_name| {
             Box::pin({
                 let load_callback = load_callback.clone();
-                let result = load_callback.call1(&JsValue::UNDEFINED, &file_name.into());
-                let promise: js_sys::Promise = result.unwrap().into();
                 async move {
+                    let result = load_callback.call1(&JsValue::UNDEFINED, &file_name.into());
+                    let promise: js_sys::Promise = result.unwrap().into();
                     let future = wasm_bindgen_futures::JsFuture::from(promise);
                     match future.await {
                         Ok(js_ok) => Ok(js_ok.as_string().unwrap_or_default()),
