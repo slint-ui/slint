@@ -14,11 +14,10 @@ When adding an item or a property, it needs to be kept in sync with different pl
 (This is less than ideal and maybe we can have some automation later)
 
  - It needs to be changed in this module
- - The ItemVTable_static at the end of datastructures.rs (new items only)
  - In the compiler: typeregister.rs
  - In the vewer: main.rs
  - For the C++ code (new item only): the build.rs to export the new item, and the `using` declaration in sixtyfps.h
-
+ - Don't forget to update the documentation
 */
 
 #![allow(unsafe_code)]

@@ -7,7 +7,23 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
+
+/*!
+
+This module contains all the native Qt widgetimplementation that forwards to QStyle.
+
+Same as in sixtyfps_corelib::items, when When adding an item or a property,
+it needs to be kept in sync with different place.
+
+ - It needs to be changed in this module
+ - the Widget list in lib.rs
+ - In the compiler: typeregister.rs
+ - For the C++ code (new item only): the build.rs to export the new item, and the `using` declaration in sixtyfps.h
+ - Don't forget to update the documentation
+*/
+
 #![allow(non_upper_case_globals)]
+
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use cpp::cpp;
@@ -1599,6 +1615,149 @@ impl ItemConsts for NativeStandardListViewItem {
 }
 
 ItemVTable_static! { #[no_mangle] pub static NativeStandardListViewItemVTable for NativeStandardListViewItem }
+
+#[repr(C)]
+#[derive(FieldOffsets, Default, BuiltinItem)]
+#[pin]
+pub struct NativeComboBox {
+    pub x: Property<f32>,
+    pub y: Property<f32>,
+    pub width: Property<f32>,
+    pub height: Property<f32>,
+    pub enabled: Property<bool>,
+    pub pressed: Property<bool>,
+    pub is_open: Property<bool>,
+    pub current_value: Property<SharedString>,
+    pub cached_rendering_data: CachedRenderingData,
+}
+
+impl Item for NativeComboBox {
+    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+
+    fn geometry(self: Pin<&Self>) -> Rect {
+        euclid::rect(
+            Self::FIELD_OFFSETS.x.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.y.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.width.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.height.apply_pin(self).get(),
+        )
+    }
+    fn rendering_primitive(
+        self: Pin<&Self>,
+        window: &ComponentWindow,
+    ) -> HighLevelRenderingPrimitive {
+        let down: bool = Self::FIELD_OFFSETS.pressed.apply_pin(self).get();
+        let is_open: bool = Self::FIELD_OFFSETS.is_open.apply_pin(self).get();
+        let text: qttypes::QString =
+            Self::FIELD_OFFSETS.current_value.apply_pin(self).get().as_str().into();
+        let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
+        let size: qttypes::QSize = get_size!(self);
+        let dpr = window.scale_factor();
+
+        let mut imgarray = QImageWrapArray::new(size, dpr);
+        let img = &mut imgarray.img;
+
+        cpp!(unsafe [
+            img as "QImage*",
+            text as "QString",
+            enabled as "bool",
+            size as "QSize",
+            down as "bool",
+            is_open as "bool",
+            dpr as "float"
+        ] {
+            QPainter p(img);
+            QStyleOptionComboBox option;
+            option.currentText = std::move(text);
+            option.rect = QRect(QPoint(), size / dpr);
+            if (down)
+                option.state |= QStyle::State_Sunken;
+            else
+                option.state |= QStyle::State_Raised;
+            if (enabled)
+                option.state |= QStyle::State_Enabled;
+            if (is_open)
+                option.state |= QStyle::State_On;
+            option.subControls = QStyle::SC_All;
+            qApp->style()->drawComplexControl(QStyle::CC_ComboBox, &option, &p, nullptr);
+            qApp->style()->drawControl(QStyle::CE_ComboBoxLabel, &option, &p, nullptr);
+        });
+        return HighLevelRenderingPrimitive::Image { source: imgarray.to_resource() };
+    }
+
+    fn rendering_variables(
+        self: Pin<&Self>,
+        _window: &ComponentWindow,
+    ) -> SharedArray<RenderingVariable> {
+        SharedArray::default()
+    }
+
+    fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
+        let text: qttypes::QString =
+            Self::FIELD_OFFSETS.current_value.apply_pin(self).get().as_str().into();
+        let dpr = window.scale_factor();
+        let size = cpp!(unsafe [
+            text as "QString",
+            dpr as "float"
+        ] -> qttypes::QSize as "QSize" {
+            ensure_initialized();
+            QStyleOptionButton option;
+            // FIXME
+            option.rect = option.fontMetrics.boundingRect("*****************");
+            option.text = std::move(text);
+            return qApp->style()->sizeFromContents(QStyle::CT_ComboBox, &option, option.rect.size(), nullptr) * dpr;
+        });
+        LayoutInfo {
+            min_width: size.width as f32,
+            min_height: size.height as f32,
+            ..LayoutInfo::default()
+        }
+    }
+
+    fn input_event(
+        self: Pin<&Self>,
+        event: MouseEvent,
+        _window: &ComponentWindow,
+        _app_component: ComponentRefPin,
+    ) -> InputEventResult {
+        let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
+        if !enabled {
+            return InputEventResult::EventIgnored;
+        }
+        // FIXME: this is the input event of a button, but we need to do the proper hit test
+
+        Self::FIELD_OFFSETS.pressed.apply_pin(self).set(match event.what {
+            MouseEventType::MousePressed => true,
+            MouseEventType::MouseExit | MouseEventType::MouseReleased => false,
+            MouseEventType::MouseMoved => {
+                return if Self::FIELD_OFFSETS.pressed.apply_pin(self).get() {
+                    InputEventResult::GrabMouse
+                } else {
+                    InputEventResult::EventIgnored
+                }
+            }
+        });
+        if matches!(event.what, MouseEventType::MouseReleased) {
+            Self::FIELD_OFFSETS.is_open.apply_pin(self).set(true);
+            InputEventResult::EventAccepted
+        } else {
+            InputEventResult::GrabMouse
+        }
+    }
+
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
+
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+}
+
+impl ItemConsts for NativeComboBox {
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
+        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+}
+
+ItemVTable_static! { #[no_mangle] pub static NativeComboBoxVTable for NativeComboBox }
 
 #[repr(C)]
 #[derive(FieldOffsets, BuiltinItem)]

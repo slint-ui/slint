@@ -7,7 +7,7 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-import { Button, CheckBox, SpinBox, Slider, GroupBox, LineEdit, StandardListView } from "sixtyfps_widgets.60";
+import { Button, CheckBox, SpinBox, Slider, GroupBox, LineEdit, StandardListView, ComboBox } from "sixtyfps_widgets.60";
 
 App := Window {
     width: 500px;
@@ -65,6 +65,13 @@ App := Window {
                 title: "SpinBox";
                 SpinBox {
                     value: 42;
+                }
+            }
+
+            GroupBox {
+                title: "ComboBox";
+                ComboBox {
+                    model: ["Select Something", "From this", "Combobox"];
                 }
             }
         }

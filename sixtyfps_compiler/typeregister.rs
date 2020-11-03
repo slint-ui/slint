@@ -532,6 +532,20 @@ impl TypeRegister {
             ],
             &[],
         );
+        native_class(
+            &mut register,
+            "NativeComboBox",
+            &[
+                ("x", Type::Length),
+                ("y", Type::Length),
+                ("width", Type::Length),
+                ("height", Type::Length),
+                ("current_value", Type::String),
+                ("is_open", Type::Bool),
+                ("enabled", Type::Bool),
+            ],
+            &[],
+        );
 
         let mut native_style_metrics =
             BuiltinElement::new(Rc::new(NativeClass::new_with_properties(

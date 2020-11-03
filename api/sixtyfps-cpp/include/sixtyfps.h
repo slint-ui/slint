@@ -50,6 +50,7 @@ extern const cbindgen_private::ItemVTable NativeGroupBoxVTable;
 extern const cbindgen_private::ItemVTable NativeLineEditVTable;
 extern const cbindgen_private::ItemVTable NativeScrollViewVTable;
 extern const cbindgen_private::ItemVTable NativeStandardListViewItemVTable;
+extern const cbindgen_private::ItemVTable NativeComboBoxVTable;
 }
 }
 
@@ -134,6 +135,7 @@ using cbindgen_private::NativeSlider;
 using cbindgen_private::NativeSpinBox;
 using cbindgen_private::NativeStandardListViewItem;
 using cbindgen_private::NativeStyleMetrics;
+using cbindgen_private::NativeComboBox;
 
 namespace private_api {
 constexpr inline ItemTreeNode make_item_node(std::uintptr_t offset,

@@ -64,7 +64,8 @@ pub type NativeWidgets =
     (widgets::NativeLineEdit,
     (widgets::NativeScrollView,
     (widgets::NativeStandardListViewItem,
-            ()))))))));
+    (widgets::NativeComboBox,
+            ())))))))));
 
 #[cfg(not(no_qt))]
 #[rustfmt::skip]

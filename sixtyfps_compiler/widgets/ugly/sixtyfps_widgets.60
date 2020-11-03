@@ -418,3 +418,72 @@ export StandardListView := ListView {
     }
 }
 
+export ComboBox := Rectangle {
+    property <[string]> model;
+    property <int> current_index : -1;
+    property <string> current_value;
+    property <bool> is_open: false;
+    property <bool> enabled: true;
+
+    border_width: 2px;
+    border_radius: 10px;
+    border_color: Palette.text_color;
+    color: touch_area.pressed ? Palette.heighlight_background : Palette.button_background;
+    animate color { duration: 100ms; }
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+    minimum_width: 170px;
+
+    HorizontalLayout {
+        padding: root.border_radius;
+        t := Text {
+            text <=> root.current_value;
+            horizontal_alignment: align_center;
+            vertical_alignment: align_center;
+            color: root.enabled ? Palette.text_color : Palette.text_color_disabled;
+            horizontal-stretch: 1;
+        }
+        Text {
+            text:"▼";
+            color: root.enabled ? Palette.text_color : Palette.text_color_disabled;
+            horizontal-stretch: 0;
+        }
+    }
+
+    touch_area := TouchArea {
+        width: 100%;
+        height: 100%;
+        clicked => {
+            if (root.enabled) {
+                is_open = !is_open;
+            }
+        }
+    }
+
+    if (is_open && enabled) : Rectangle {
+        y: root.height;
+        width: root.width;
+        for value[idx] in root.model: Rectangle {
+            y: idx * height;
+            width: 100%;
+            height: t.height;
+            color: idx == root.current_index ? Palette.heighlight_background : Palette.base_background_color;
+            Text {
+                width: 100%;
+                height: 100%;
+                text: value;
+            }
+            TouchArea {
+                width: 100%;
+                height: 100%;
+                clicked => {
+                    if (root.enabled) {
+                        root.current_index = idx;
+                        root.current_value = value;
+                    }
+                    is_open = false;
+                }
+            }
+        }
+    }
+}
