@@ -186,7 +186,7 @@ async function render_or_error(source: string, base_url: string, div: HTMLDivEle
     div.appendChild(canvas);
     try {
         var compiled_component = await sixtyfps.compile_from_string(source, base_url, (file_name: string) => {
-            let u = new URL(file_name, base_url);
+            let u = new URL(file_name, base_url || undefined);
             return u.toString();
         }, async (url: string): Promise<string> => {
             let model_and_state = editor_documents.get(url);
