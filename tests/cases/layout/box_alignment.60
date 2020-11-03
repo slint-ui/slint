@@ -22,8 +22,10 @@ TestCase := Rectangle {
 
     VerticalLayout {
         alignment: end;
+        padding: 0phx;
         spacing: 5phx;
         HorizontalLayout {
+            padding: 0phx;
             spacing: 2phx;
             alignment: start;
             rs1 := MyWid { color: blue; }
@@ -31,6 +33,7 @@ TestCase := Rectangle {
             rs3 := MyWid { color: yellow; }
         }
         HorizontalLayout {
+            padding: 0phx;
             spacing: 2phx;
             alignment: space-between;
             rb1 := MyWid { color: green; }
@@ -38,6 +41,7 @@ TestCase := Rectangle {
             rb3 := MyWid { color: orange; }
         }
         HorizontalLayout {
+            padding: 0phx;
             spacing: 2phx;
             alignment: space-around;
             ra1 := MyWid { color: pink; }
@@ -45,6 +49,7 @@ TestCase := Rectangle {
             ra3 := MyWid { color: gray; }
         }
         HorizontalLayout {
+            padding: 0phx;
             spacing: 2phx;
             alignment: center;
             rc1 := MyWid { color: violet; }

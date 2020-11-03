@@ -12,17 +12,24 @@ TestCase := Rectangle {
     height: 300phx;
 
     VerticalLayout {
+        spacing: 0phx;
+        padding: 0phx;
+
         rect_orange := Rectangle {
             color: orange;
             maximum_height: 10phx;
         }
         HorizontalLayout {
+            spacing: 0phx;
+            padding: 0phx;
+
             rect_red := Rectangle {
                 color: red;
                 minimum_width: 200phx;
                 horizontal-stretch: 0;
                 HorizontalLayout {
                     spacing: 10px;
+                    padding: 0phx;
                     rect_green := Rectangle {
                         color: green;
                         maximum_width: 50phx;
@@ -49,6 +56,9 @@ TestCase := Rectangle {
                 VerticalLayout {
                     spacing: 5phx;
                     padding-top: 5phx;
+                    padding-bottom: 0phx;
+                    padding-left: 0phx;
+                    padding-right: 0phx;
                     rect_black1 := Rectangle {
                         color: black;
                     }
@@ -59,6 +69,9 @@ TestCase := Rectangle {
                 VerticalLayout {
                     spacing: 5phx;
                     padding-bottom: 5phx;
+                    padding-top: 0phx;
+                    padding-left: 0phx;
+                    padding-right: 0phx;
                     rect_black2 := Rectangle {
                         color: black;
                     }

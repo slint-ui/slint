@@ -10,6 +10,8 @@ LICENSE END */
 
 Container := Rectangle {
     GridLayout {
+        padding: 0phx;
+        spacing: 0phx;
         Row {
             Rectangle {
                 color: green;

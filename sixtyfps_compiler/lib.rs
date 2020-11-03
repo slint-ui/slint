@@ -113,14 +113,17 @@ pub async fn compile_syntax_node(
         });
 
     let builtin_lib = library::widget_library().iter().find(|x| x.0 == style).map(|x| x.1);
-    let mut loader = typeloader::TypeLoader::new(
-        &global_type_registry,
-        &compiler_config,
-        builtin_lib,
-        &mut build_diagnostics,
-    );
+    let mut loader =
+        typeloader::TypeLoader::new(&global_type_registry, &compiler_config, builtin_lib);
     if doc_node.source_file.is_some() {
-        loader.load_dependencies_recursively(&doc_node, &mut diagnostics, &type_registry).await;
+        loader
+            .load_dependencies_recursively(
+                &doc_node,
+                &mut diagnostics,
+                &mut build_diagnostics,
+                &type_registry,
+            )
+            .await;
     }
 
     let doc = crate::object_tree::Document::from_node(doc_node, &mut diagnostics, &type_registry);
@@ -129,15 +132,16 @@ pub async fn compile_syntax_node(
 
     if !build_diagnostics.has_error() {
         // FIXME: ideally we would be able to run more passes, but currently we panic because invariant are not met.
-        run_passes(&doc, &mut build_diagnostics, &compiler_config);
+        run_passes(&doc, &mut build_diagnostics, &mut loader, &compiler_config).await;
     }
 
     (doc, build_diagnostics)
 }
 
-pub fn run_passes(
+pub async fn run_passes<'a>(
     doc: &object_tree::Document,
     diag: &mut diagnostics::BuildDiagnostics,
+    mut type_loader: &mut typeloader::TypeLoader<'a>,
     compiler_config: &CompilerConfiguration,
 ) {
     passes::resolving::resolve_expressions(doc, diag);
@@ -150,7 +154,7 @@ pub fn run_passes(
     doc.root_component.embed_file_resources.set(compiler_config.embed_resources);
     passes::lower_states::lower_states(&doc.root_component, diag);
     passes::repeater_component::process_repeater_components(&doc.root_component);
-    passes::lower_layout::lower_layouts(&doc.root_component, diag);
+    passes::lower_layout::lower_layouts(&doc.root_component, &mut type_loader, diag).await;
     passes::deduplicate_property_read::deduplicate_property_read(&doc.root_component);
     passes::move_declarations::move_declarations(&doc.root_component, diag);
     passes::remove_aliases::remove_aliases(&doc.root_component, diag);

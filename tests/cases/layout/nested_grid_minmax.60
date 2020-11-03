@@ -14,8 +14,12 @@ TestCase := Rectangle {
     height: 300phx;
 
     GridLayout {
+        spacing: 0phx;
+        padding: 0phx;
         Row {
             GridLayout {
+                spacing: 0phx;
+                padding: 0phx;
                 rect1 := Rectangle {
                     color: red;
                     maximum_width: 50phx;

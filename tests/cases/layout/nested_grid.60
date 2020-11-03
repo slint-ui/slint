@@ -12,6 +12,9 @@ TestCase := Rectangle {
     height: 300phx;
 
     GridLayout {
+        spacing: 0phx;
+        padding: 0phx;
+
         Row {
             rect1 := Rectangle { color: red; horizontal-stretch: 2;}
         }
@@ -20,6 +23,7 @@ TestCase := Rectangle {
             rect2 := Rectangle { color: green; horizontal-stretch: 2; }
             GridLayout {
                 spacing: 4phx;
+                padding: 0phx;
                 rect3 := Rectangle { color: black; }
                 rect4 := Rectangle { color: blue; }
                 rect5 := Rectangle { color: red; row: 1; }

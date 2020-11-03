@@ -9,9 +9,12 @@
 LICENSE END */
 //! Datastructures used to represent layouts in the compiler
 
-use crate::expression_tree::{Expression, NamedReference, Path};
 use crate::langtype::Type;
 use crate::object_tree::{ElementRc, PropertyDeclaration};
+use crate::{
+    expression_tree::{Expression, NamedReference, Path},
+    object_tree::Component,
+};
 use std::{borrow::Cow, rc::Rc};
 
 #[derive(Debug, derive_more::From)]
@@ -253,9 +256,31 @@ fn init_fake_property(
 }
 
 impl LayoutGeometry {
-    pub fn new(rect: LayoutRect, layout_element: &ElementRc) -> Self {
-        let padding = || binding_reference(layout_element, "padding");
-        let spacing = binding_reference(layout_element, "spacing");
+    pub fn new(
+        rect: LayoutRect,
+        layout_element: &ElementRc,
+        style_metrics: &Option<Rc<Component>>,
+    ) -> Self {
+        let style_metrics_element = style_metrics.as_ref().map(|comp| comp.root_element.clone());
+
+        let padding = || {
+            let style_metrics_element = style_metrics_element.clone();
+            binding_reference(layout_element, "padding").or_else(|| {
+                style_metrics_element.map(|metrics| NamedReference {
+                    element: Rc::downgrade(&metrics),
+                    name: "layout_padding".into(),
+                })
+            })
+        };
+        let spacing = binding_reference(layout_element, "spacing").or_else({
+            let style_metrics_element = style_metrics_element.clone();
+            move || {
+                style_metrics_element.map(|metrics| NamedReference {
+                    element: Rc::downgrade(&metrics),
+                    name: "layout_spacing".into(),
+                })
+            }
+        });
         let alignment = binding_reference(layout_element, "alignment");
 
         init_fake_property(layout_element, "width", || rect.width_reference.clone());

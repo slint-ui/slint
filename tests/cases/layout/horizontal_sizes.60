@@ -12,7 +12,11 @@ TestCase := Rectangle {
     height: 300phx;
 
     VerticalLayout {
+        spacing: 0phx;
+        padding: 0phx;
         HorizontalLayout {
+            spacing: 0phx;
+            padding: 0phx;
             blue-rect := Rectangle {
                 color: blue;
                 height: 100phx;

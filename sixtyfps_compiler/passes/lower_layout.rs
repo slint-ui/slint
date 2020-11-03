@@ -9,11 +9,11 @@
 LICENSE END */
 //! Passe that compute the layout constraint
 
-use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::*;
 use crate::langtype::Type;
 use crate::layout::*;
 use crate::object_tree::*;
+use crate::{diagnostics::BuildDiagnostics, typeloader::TypeLoader};
 use std::rc::Rc;
 
 fn lower_grid_layout(
@@ -21,11 +21,12 @@ fn lower_grid_layout(
     rect: LayoutRect,
     grid_layout_element: &ElementRc,
     collected_children: &mut Vec<ElementRc>,
+    style_metrics: &Option<Rc<Component>>,
     diag: &mut BuildDiagnostics,
 ) -> Option<Layout> {
     let mut grid = GridLayout {
         elems: Default::default(),
-        geometry: LayoutGeometry::new(rect, &grid_layout_element),
+        geometry: LayoutGeometry::new(rect, &grid_layout_element, style_metrics),
     };
 
     let mut row = 0;
@@ -45,7 +46,15 @@ fn lower_grid_layout(
             }
             let row_children = std::mem::take(&mut layout_child.borrow_mut().children);
             for x in row_children {
-                grid.add_element(x, &mut row, &mut col, diag, &component, collected_children);
+                grid.add_element(
+                    x,
+                    &mut row,
+                    &mut col,
+                    diag,
+                    style_metrics,
+                    &component,
+                    collected_children,
+                );
                 col += 1;
             }
             component.optimized_elements.borrow_mut().push(layout_child.clone());
@@ -55,6 +64,7 @@ fn lower_grid_layout(
                 &mut row,
                 &mut col,
                 diag,
+                style_metrics,
                 &component,
                 collected_children,
             );
@@ -74,17 +84,20 @@ fn lower_box_layout(
     rect: LayoutRect,
     layout_element: &ElementRc,
     collected_children: &mut Vec<ElementRc>,
+    style_metrics: &Option<Rc<Component>>,
     diag: &mut BuildDiagnostics,
 ) -> Option<Layout> {
     let is_horizontal = layout_element.borrow().base_type.to_string() == "HorizontalLayout";
     let mut layout = BoxLayout {
         is_horizontal,
         elems: Default::default(),
-        geometry: LayoutGeometry::new(rect, &layout_element),
+        geometry: LayoutGeometry::new(rect, &layout_element, style_metrics),
     };
     let layout_children = std::mem::take(&mut layout_element.borrow_mut().children);
     for layout_child in layout_children {
-        if let Some(item) = create_layout_item(&layout_child, component, collected_children, diag) {
+        if let Some(item) =
+            create_layout_item(&layout_child, component, collected_children, style_metrics, diag)
+        {
             layout.elems.push(item)
         }
     }
@@ -101,6 +114,7 @@ fn lower_path_layout(
     rect: LayoutRect,
     path_layout_element: &ElementRc,
     collected_children: &mut Vec<ElementRc>,
+    _: &Option<Rc<Component>>,
     diag: &mut BuildDiagnostics,
 ) -> Option<Layout> {
     let layout_children = std::mem::take(&mut path_layout_element.borrow_mut().children);
@@ -146,6 +160,7 @@ fn layout_parse_function(
         LayoutRect,
         &ElementRc,
         &mut Vec<ElementRc>,
+        &Option<Rc<Component>>,
         &mut BuildDiagnostics,
     ) -> Option<Layout>,
 > {
@@ -166,6 +181,7 @@ fn layout_parse_function(
 fn lower_element_layout(
     component: &Rc<Component>,
     elem: &ElementRc,
+    style_metrics: &Option<Rc<Component>>,
     diag: &mut BuildDiagnostics,
 ) -> LayoutVec {
     let old_children = {
@@ -187,9 +203,14 @@ fn lower_element_layout(
     for child in old_children {
         if let Some(layout_parser) = layout_parse_function(&child) {
             let mut children = std::mem::take(&mut elem.borrow_mut().children);
-            if let Some(layout) =
-                layout_parser(component, rect_to_layout.clone(), &child, &mut children, diag)
-            {
+            if let Some(layout) = layout_parser(
+                component,
+                rect_to_layout.clone(),
+                &child,
+                &mut children,
+                style_metrics,
+                diag,
+            ) {
                 if Rc::ptr_eq(elem, &component.root_element) {
                     found_layouts.main_layout = Some(found_layouts.len());
                 }
@@ -211,9 +232,32 @@ fn lower_element_layout(
 }
 
 /// Currently this just removes the layout from the tree
-pub fn lower_layouts(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
+pub async fn lower_layouts<'a>(
+    component: &Rc<Component>,
+    type_loader: &mut TypeLoader<'a>,
+    diag: &mut BuildDiagnostics,
+) {
+    // Ignore import errors
+    let mut file_diags_to_ignore = crate::diagnostics::FileDiagnostics::default();
+    let mut build_diags_to_ignore = crate::diagnostics::BuildDiagnostics::default();
+    let style_metrics = type_loader
+        .import_type(
+            "sixtyfps_widgets.60",
+            "StyleMetrics",
+            &mut file_diags_to_ignore,
+            &mut build_diags_to_ignore,
+        )
+        .await;
+    lower_layouts_impl(component, &style_metrics, diag);
+}
+
+pub fn lower_layouts_impl(
+    component: &Rc<Component>,
+    style_metrics: &Option<Rc<Component>>,
+    diag: &mut BuildDiagnostics,
+) {
     recurse_elem(&component.root_element, &(), &mut |elem, _| {
-        let mut layouts = lower_element_layout(component, elem, diag);
+        let mut layouts = lower_element_layout(component, elem, style_metrics, diag);
         let mut component_layouts = component.layouts.borrow_mut();
         component_layouts.main_layout = component_layouts
             .main_layout
@@ -222,7 +266,7 @@ pub fn lower_layouts(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
 
         if elem.borrow().repeated.is_some() {
             if let Type::Component(base) = &elem.borrow().base_type {
-                lower_layouts(base, diag);
+                lower_layouts_impl(base, style_metrics, diag);
             }
         }
     });
@@ -234,6 +278,7 @@ fn create_layout_item(
     item_element: &ElementRc,
     component: &Rc<Component>,
     collected_children: &mut Vec<ElementRc>,
+    style_metrics: &Option<Rc<Component>>,
     diag: &mut BuildDiagnostics,
 ) -> Option<LayoutItem> {
     let mut constraints = LayoutConstraints::new(item_element);
@@ -264,21 +309,27 @@ fn create_layout_item(
     if let Some(nested_layout_parser) = layout_parse_function(item_element) {
         let layout_rect = LayoutRect::install_on_element(&item_element);
 
-        nested_layout_parser(component, layout_rect, &item_element, collected_children, diag).map(
-            |x| LayoutItem {
-                layout: Some(x),
-                constraints,
-                fixed_width,
-                fixed_height,
-                element: None,
-            },
+        nested_layout_parser(
+            component,
+            layout_rect,
+            &item_element,
+            collected_children,
+            style_metrics,
+            diag,
         )
+        .map(|x| LayoutItem {
+            layout: Some(x),
+            constraints,
+            fixed_width,
+            fixed_height,
+            element: None,
+        })
     } else {
         item_element.borrow_mut().child_of_layout = true;
         collected_children.push(item_element.clone());
         let element = item_element.clone();
         let layout = {
-            let mut layouts = lower_element_layout(component, &element, diag);
+            let mut layouts = lower_element_layout(component, &element, style_metrics, diag);
             if layouts.is_empty() {
                 None
             } else {
@@ -296,6 +347,7 @@ impl GridLayout {
         row: &mut u16,
         col: &mut u16,
         diag: &mut BuildDiagnostics,
+        style_metrics: &Option<Rc<Component>>,
         component: &Rc<Component>,
         collected_children: &mut Vec<ElementRc>,
     ) {
@@ -317,7 +369,7 @@ impl GridLayout {
         }
 
         if let Some(layout_item) =
-            create_layout_item(&item_element, component, collected_children, diag)
+            create_layout_item(&item_element, component, collected_children, style_metrics, diag)
         {
             self.elems.push(GridLayoutElement {
                 col: *col,
