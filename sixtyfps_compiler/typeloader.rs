@@ -29,7 +29,8 @@ pub struct LoadedDocuments {
 
 struct OpenFile {
     path: PathBuf,
-    file: Box<dyn Read>,
+    source_code_future:
+        core::pin::Pin<Box<dyn std::future::Future<Output = std::io::Result<String>>>>,
 }
 
 trait DirectoryAccess<'a> {
@@ -40,9 +41,13 @@ impl<'a> DirectoryAccess<'a> for PathBuf {
     fn try_open(&self, file_path: &str) -> Option<OpenFile> {
         let candidate = self.join(file_path);
 
-        std::fs::File::open(&candidate)
-            .ok()
-            .map(|f| OpenFile { path: candidate, file: Box::new(f) as Box<dyn Read> })
+        std::fs::File::open(&candidate).ok().map(|mut f| OpenFile {
+            path: candidate,
+            source_code_future: Box::pin(async move {
+                let mut buf = String::new();
+                f.read_to_string(&mut buf).map(|_| buf)
+            }),
+        })
     }
 }
 
@@ -61,7 +66,10 @@ impl<'a> DirectoryAccess<'a> for &'a VirtualDirectory<'a> {
             }
             Some(OpenFile {
                 path: file_path.into(),
-                file: Box::new(std::io::Cursor::new(virtual_file.contents.to_owned())),
+                source_code_future: Box::pin({
+                    let source = virtual_file.contents.to_owned();
+                    async move { Ok(source) }
+                }),
             })
         })
     }
@@ -273,16 +281,13 @@ impl<'a> TypeLoader<'a> {
             }
 
             let dependency_entry =
-                if let Some(mut dependency_file) = open_file_from_include_paths(&path_to_import) {
+                if let Some(dependency_file) = open_file_from_include_paths(&path_to_import) {
                     match dependencies.entry(dependency_file.path.clone()) {
                         std::collections::btree_map::Entry::Vacant(vacant_entry) => vacant_entry
                             .insert(ImportedTypes {
                                 type_names: vec![],
                                 import_token: import_uri,
-                                source_code_future: Box::pin(async move {
-                                    let mut buf = String::new();
-                                    dependency_file.file.read_to_string(&mut buf).map(|_| buf)
-                                }),
+                                source_code_future: dependency_file.source_code_future,
                             }),
                         std::collections::btree_map::Entry::Occupied(existing_entry) => {
                             existing_entry.into_mut()
