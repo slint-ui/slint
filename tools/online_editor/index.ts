@@ -193,7 +193,7 @@ async function render_or_error(source: string, base_url: string, div: HTMLDivEle
             if (model_and_state === undefined) {
                 const response = await fetch(url);
                 let doc = await response.text();
-                let model = monaco.editor.createModel(doc);
+                let model = monaco.editor.createModel(doc, "sixtyfps");
                 model.onDidChangeContent(function () {
                     maybe_update_preview_automatically();
                 });
