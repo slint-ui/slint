@@ -53,7 +53,7 @@ pub fn lex_whitespace(text: &str) -> usize {
 pub fn lex_comment(text: &str) -> usize {
     // FIXME: could report proper error if not properly terminated
     if text.starts_with("//") {
-        return text.find('\n').unwrap_or(0);
+        return text.find(&['\n', '\r'] as &[_]).unwrap_or(text.len());
     }
     if text.starts_with("/*") {
         let mut nested = 0;
@@ -228,6 +228,19 @@ fn basic_lexer_test() {
             (crate::parser::SyntaxKind::Comment, "/*/**/*/"),
             (crate::parser::SyntaxKind::Comment, "/**/"),
             (crate::parser::SyntaxKind::Star, "*"),
+        ],
+    );
+    compare(
+        "a//x\nb//y\r\nc//z",
+        &[
+            (crate::parser::SyntaxKind::Identifier, "a"),
+            (crate::parser::SyntaxKind::Comment, "//x"),
+            (crate::parser::SyntaxKind::Whitespace, "\n"),
+            (crate::parser::SyntaxKind::Identifier, "b"),
+            (crate::parser::SyntaxKind::Comment, "//y"),
+            (crate::parser::SyntaxKind::Whitespace, "\r\n"),
+            (crate::parser::SyntaxKind::Identifier, "c"),
+            (crate::parser::SyntaxKind::Comment, "//z"),
         ],
     );
 }
