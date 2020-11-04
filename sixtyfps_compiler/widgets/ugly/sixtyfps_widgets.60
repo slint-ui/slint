@@ -33,8 +33,8 @@ export Button := Rectangle {
     property<bool> pressed: self.enabled && touch_area.pressed;
     property<bool> enabled: true;
 
-    border_width: 2px;
-    border_radius: 10px;
+    border_width: 1px;
+    border_radius: 2px;
     border_color: Palette.text_color;
     color: self.pressed ? Palette.highlight_background : Palette.button_background;
     animate color { duration: 100ms; }
@@ -43,7 +43,7 @@ export Button := Rectangle {
 
 
     GridLayout {
-        padding: root.border_radius;
+        padding: root.border_radius + 8px;
 
         Text {
             text: root.text;
@@ -81,10 +81,10 @@ export CheckBox := Rectangle {
     indicator := Rectangle {
         height: root.height;
         width: root.height * 2;
-        border_width: 2px;
+        border_width: 1px;
         border_radius: root.height / 2;
-        border_color: root.enabled ? black : Palette.text_color_disabled;
-        color: white;
+        border_color: root.enabled ? (root.checked ? Palette.highlight_background : black) : Palette.text_color_disabled;
+        color: root.checked ? (root.enabled ? Palette.highlight_background : Palette.text_color_disabled) : white;
         animate color { duration: 100ms; }
 
         bubble := Rectangle {
@@ -94,7 +94,7 @@ export CheckBox := Rectangle {
             y: 4px;
             x: 4px + a * (indicator.width - bubble.width - 8px);
             property <float> a: root.checked ? 1 : 0;
-            color: root.checked ? Palette.highlight_background : (root.enabled ? Palette.button_background : Palette.text_color_disabled);
+            color: root.checked ? white : (root.enabled ? Palette.button_background : Palette.text_color_disabled);
             animate a, color { duration: 200ms; easing: ease;}
         }
     }
@@ -124,8 +124,8 @@ SpinBoxButton := Rectangle {
     property<string> text;
     property <length> font_size;
     property<bool> enabled;
-    border_width: 2px;
-    border_radius: 10px;
+    border_width: 1px;
+    border_radius: 2px;
     border_color: black;
     color: touch.pressed ? Palette.highlight_background : Palette.button_background;
     animate color { duration: 100ms; }
@@ -210,8 +210,8 @@ export Slider := Rectangle {
         width: parent.width;
         y: parent.height / 3;
         height: parent.height / 3;
-        border_width: 2px;
-        border_radius: self.height / 2;
+        border_width: 1px;
+        border_radius: 2px;
         border_color: black;
         color: root.enabled ? Palette.highlight_background : Palette.text_color_disabled;
     }
@@ -230,8 +230,8 @@ export Slider := Rectangle {
     handle := Rectangle {
         width: parent.height / 3;
         height: parent.height;
-        border_width: 2px;
-        border_radius: self.width / 2;
+        border_width: 1px;
+        border_radius: self.height / 2;
         border_color: black;
         color: touch_area.pressed ? Palette.button_background : white;
         animate color { duration: 100ms; }
@@ -267,7 +267,7 @@ export GroupBox := GridLayout {
         Rectangle {
             border_width: 1px;
             border_color: Palette.border_color;
-            border_radius: 3px;
+            border_radius: 2px;
             color: white;
 
             GridLayout {
@@ -339,7 +339,7 @@ ScrollBar := Rectangle {
         width: !horizontal ? parent.width : max <= 0phx ? 0phx : parent.width * (page_size / (max + page_size));
         height: horizontal ? parent.height : max <= 0phx ? 0phx : parent.height * (page_size / (max + page_size));
 
-        border_width: 2px;
+        border_width: 1px;
         border_radius: self.width / 2;
         border_color: black;
         color: touch_area.pressed ? Palette.highlight_background : Palette.button_background;
@@ -439,8 +439,8 @@ export ComboBox := Rectangle {
     property <bool> is_open: false;
     property <bool> enabled: true;
 
-    border_width: 2px;
-    border_radius: 10px;
+    border_width: 1px;
+    border_radius: 2px;
     border_color: Palette.text_color;
     color: touch_area.pressed ? Palette.highlight_background : Palette.button_background;
     animate color { duration: 100ms; }
