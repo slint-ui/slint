@@ -389,6 +389,8 @@ impl Default for TextVerticalAlignment {
     }
 }
 
+const DEFAULT_FONT_SIZE: f32 = 12.;
+
 /// The implementation of the `Text` element
 #[repr(C)]
 #[derive(FieldOffsets, Default, BuiltinItem)]
@@ -495,7 +497,7 @@ impl Text {
     fn font_pixel_size(self: Pin<&Self>, window: &ComponentWindow) -> f32 {
         let font_size = Self::FIELD_OFFSETS.font_size.apply_pin(self).get();
         if font_size == 0.0 {
-            16. * window.scale_factor()
+            DEFAULT_FONT_SIZE * window.scale_factor()
         } else {
             font_size
         }
@@ -1180,7 +1182,7 @@ impl TextInput {
     fn font_pixel_size(self: Pin<&Self>, window: &ComponentWindow) -> f32 {
         let font_size = Self::FIELD_OFFSETS.font_size.apply_pin(self).get();
         if font_size == 0.0 {
-            16. * window.scale_factor()
+            DEFAULT_FONT_SIZE * window.scale_factor()
         } else {
             font_size
         }
