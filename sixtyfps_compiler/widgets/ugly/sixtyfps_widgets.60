@@ -14,7 +14,7 @@ global Palette := {
     property<color> text_color_disabled: #aaa;
     property<color> text_color_secondary: #111;
     property<color> button_background: lightgray;
-    property<color> heighlight_background: #556884;
+    property<color> highlight_background: #556884;
     property<color> placeholder_text: #ccc;
     property<color> border_color: #d0d3cf;
     property<color> base_background_color: white;
@@ -35,7 +35,7 @@ export Button := Rectangle {
     border_width: 2px;
     border_radius: 10px;
     border_color: Palette.text_color;
-    color: self.pressed ? Palette.heighlight_background : Palette.button_background;
+    color: self.pressed ? Palette.highlight_background : Palette.button_background;
     animate color { duration: 100ms; }
     horizontal-stretch: 0;
     vertical-stretch: 0;
@@ -92,7 +92,7 @@ export CheckBox := Rectangle {
             y: 4px;
             x: 4px + a * (indicator.width - bubble.width - 8px);
             property <float> a: root.checked ? 1 : 0;
-            color: root.checked ? Palette.heighlight_background : Palette.button_background;
+            color: root.checked ? Palette.highlight_background : Palette.button_background;
             animate a, color { duration: 200ms; easing: ease;}
         }
     }
@@ -124,7 +124,7 @@ SpinBoxButton := Rectangle {
     border_width: 2px;
     border_radius: 10px;
     border_color: black;
-    color: touch.pressed ? Palette.heighlight_background : Palette.button_background;
+    color: touch.pressed ? Palette.highlight_background : Palette.button_background;
     animate color { duration: 100ms; }
     touch := TouchArea {
         width: parent.width;
@@ -205,7 +205,7 @@ export Slider := Rectangle {
         border_width: 2px;
         border_radius: self.height / 2;
         border_color: black;
-        color: Palette.heighlight_background;
+        color: Palette.highlight_background;
     }
 
     slider_empty := Rectangle {
@@ -276,7 +276,7 @@ export LineEdit := Rectangle {
     signal accepted(string);
     signal edited(string);
 
-    border_color: root.has_focus ? Palette.heighlight_background : #ffffff;
+    border_color: root.has_focus ? Palette.highlight_background : #ffffff;
     border_radius: 1px;
     border_width: 2px;
     horizontal-stretch: 1;
@@ -332,7 +332,7 @@ ScrollBar := Rectangle {
         border_width: 2px;
         border_radius: self.width / 2;
         border_color: black;
-        color: touch_area.pressed ? Palette.heighlight_background : Palette.button_background;
+        color: touch_area.pressed ? Palette.highlight_background : Palette.button_background;
         animate color { duration: 100ms; }
         x: !horizontal ? 0phx : (root.width - handle.width) * (new_value / max);
         y: horizontal ? 0phx : (root.height - handle.height) * (new_value / max);
@@ -413,7 +413,7 @@ export StandardListView := ListView {
         }
         height: 20px;
         width: parent.visible_width;
-        color: current_item == idx ? Palette.heighlight_background : transparent;
+        color: current_item == idx ? Palette.highlight_background : transparent;
         TouchArea {
             width: parent.width;
             height: parent.height;
@@ -432,7 +432,7 @@ export ComboBox := Rectangle {
     border_width: 2px;
     border_radius: 10px;
     border_color: Palette.text_color;
-    color: touch_area.pressed ? Palette.heighlight_background : Palette.button_background;
+    color: touch_area.pressed ? Palette.highlight_background : Palette.button_background;
     animate color { duration: 100ms; }
     horizontal-stretch: 0;
     vertical-stretch: 0;
@@ -471,7 +471,7 @@ export ComboBox := Rectangle {
             y: idx * height;
             width: 100%;
             height: t.height;
-            color: idx == root.current_index ? Palette.heighlight_background : Palette.base_background_color;
+            color: idx == root.current_index ? Palette.highlight_background : Palette.base_background_color;
             Text {
                 width: 100%;
                 height: 100%;
