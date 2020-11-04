@@ -22,11 +22,15 @@ App := Window {
         padding: 20px;
         spacing: 20px;
 
-        Text {
-            text: "Below are some of the standard widgets that";
-        }
-        Text {
-            text: "application developers can easily re-use.";
+        VerticalLayout {
+            padding: 0px;
+            spacing: 0px;
+            Text {
+                text: "Below are some of the standard widgets that";
+            }
+            Text {
+                text: "application developers can easily re-use.";
+            }
         }
 
         HorizontalLayout {
