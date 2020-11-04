@@ -21,6 +21,7 @@ jobs:
     env:
       LD_LIBRARY_PATH: /home/runner/work/sixtyfps/Qt/5.12.9/gcc_64/lib
       DYLD_FRAMEWORK_PATH: /Users/runner/work/sixtyfps/Qt/5.12.9/clang_64/lib
+      QT_QPA_PLATFORM: offscreen
 
     strategy:
       matrix:
