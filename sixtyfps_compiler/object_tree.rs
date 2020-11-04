@@ -710,7 +710,12 @@ impl Element {
     }
 }
 
-fn type_from_node(node: syntax_nodes::Type, diag: &mut FileDiagnostics, tr: &TypeRegister) -> Type {
+/// Create a Type for this node
+pub fn type_from_node(
+    node: syntax_nodes::Type,
+    diag: &mut FileDiagnostics,
+    tr: &TypeRegister,
+) -> Type {
     if let Some(qualified_type_node) = node.QualifiedName() {
         let qualified_type = QualifiedTypeName::from_node(qualified_type_node.clone());
 
@@ -733,7 +738,8 @@ fn type_from_node(node: syntax_nodes::Type, diag: &mut FileDiagnostics, tr: &Typ
     }
 }
 
-fn type_struct_from_node(
+/// Create a Type::Object from a syntax_nodes::ObjectType
+pub fn type_struct_from_node(
     object_node: syntax_nodes::ObjectType,
     diag: &mut FileDiagnostics,
     tr: &TypeRegister,

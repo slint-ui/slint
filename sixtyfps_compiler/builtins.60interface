@@ -1,0 +1,311 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+/**
+   This file contains the definition off all builtin items
+   It is parsed with the normal .60 parser, but the semantic.
+
+   `_` means that that this is a langtype::NativeClass with no parent.
+   Note that only the exported components are added to the type registers.
+
+   comments starting by `//-` have some meanings
+ */
+
+Rectangle := _ {
+    property <color> color;
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+}
+
+BorderRectangle := Rectangle {
+    property <length> border_width;
+    property <length> border_radius;
+    property <color> border_color;
+}
+
+export { BorderRectangle as Rectangle }
+
+export Image := _ {
+    property <resource> source;
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+}
+
+export Text := _ {
+    property <string> text;
+    property <string> font_family;
+    property <length> font_size;
+    property <color> color: #000;
+    property <TextHorizontalAlignment> horizontal_alignment;
+    property <TextVerticalAlignment> vertical_alignment;
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+}
+
+export TouchArea := _ {
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+    property <bool> pressed;
+    property <length> mouse_x;
+    property <length> mouse_y;
+    property <length> pressed_x;
+    property <length> pressed_y;
+    signal clicked;
+}
+
+export Flickable := _ {
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+                // These properties are actually going to be forwarded to the viewport by the
+                // code generator
+    property <length> viewport_height;
+    property <length> viewport_width;
+    property <length> viewport_x;
+    property <length> viewport_y;
+    property <bool> interactive: true;
+}
+
+export Window := _ {
+    property <length> width;
+    property <length> height;
+}
+
+export TextInput := _ {
+    property <string> text;
+    property <string> font_family;
+    property <length> font_size;
+    property <color> color: #000;
+    property <color> selection_foreground_color: #000;
+    property <color> selection_background_color: #808080;
+    property <TextHorizontalAlignment> horizontal_alignment;
+    property <TextVerticalAlignment> vertical_alignment;
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+    property <length> text_cursor_width: 2px;
+    property <int> cursor_position;
+    property <int> anchor_position;
+    property <bool> has_focus;
+    signal accepted;
+    signal edited;
+    property <bool> enabled: true;
+
+    //focus() is hardcoded in typeregister.rs
+}
+
+Row := _ {
+    //-is_non_item_type
+}
+
+// Note: layouts are not NativeClass, but this is lowerd in lower_layout
+export GridLayout := _ {
+    property <length> spacing;
+
+    // Additional accepted child
+    Row { }
+}
+
+export VerticalLayout := _ {
+    property <length> spacing;
+    property <LayoutAlignment> alignment;
+}
+
+export HorizontalLayout := _ {
+    property <length> spacing;
+    property <LayoutAlignment> alignment;
+}
+
+LineTo := _ {
+    property <float> x;
+    property <float> y;
+
+    //-rust_type_constructor:sixtyfps::re_exports::PathElement::LineTo(PathLineTo{{}})
+    //-cpp_type:sixtyfps::PathLineTo
+    //-is_non_item_type
+}
+
+ArcTo := _ {
+    property <float> x;
+    property <float> y;
+    property <float> radius_x;
+    property <float> radius_y;
+    property <float> x_rotation;
+    property <bool> large_arc;
+    property <bool> sweep;
+
+    //-rust_type_constructor:sixtyfps::re_exports::PathElement::ArcTo(PathArcTo{{}})
+    //-cpp_type:sixtyfps::PathArcTo
+    //-is_non_item_type
+}
+
+Close := _ {
+    //-rust_type_constructor:sixtyfps::re_exports::PathElement::Close
+    //-is_non_item_type
+    //-is_non_item_type
+}
+
+export Path := _ {
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+    property <color> fill_color;
+    property <color> stroke_color;
+    property <float> stroke_width;
+    property <string> commands;
+
+    //-disallow_global_types_as_child_elements
+    LineTo {}
+    ArcTo {}
+    Close {}
+}
+
+export PathLayout := _ {
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+    property <string> commands;
+    property <float> offset;
+
+    LineTo {}
+    ArcTo {}
+    Close {}
+}
+
+PropertyAnimation := _ {
+    property <duration> duration;
+    property <easing> easing;
+    property <int> loop_count;
+    //-is_non_item_type
+}
+
+export struct StandardListViewItem := {
+    //-name:sixtyfps::StandardListViewItem
+    text: string
+}
+
+export NativeButton := _ {
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+    property <string> text;
+    property <bool> pressed;
+    signal clicked;
+    property <bool> enabled;
+}
+
+export NativeCheckBox := _ {
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+    property <string> text;
+    property <bool> checked;
+    signal toggled;
+}
+
+export NativeSpinBox := _ {
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+    property <int> value;
+}
+
+export NativeSlider := _ {
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+    property <float> value;
+    property <float> min;
+    property <float> max;
+}
+
+export NativeGroupBox := _ {
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+    property <string> title;
+    property <length> native_padding_left;
+    property <length> native_padding_right;
+    property <length> native_padding_top;
+    property <length> native_padding_bottom;
+}
+
+export NativeLineEdit := _ {
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+    property <length> native_padding_left;
+    property <length> native_padding_right;
+    property <length> native_padding_top;
+    property <length> native_padding_bottom;
+    property <bool> focused;
+    property <bool> enabled;
+}
+
+export NativeScrollView := _ {
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+    property <length> horizontal_max;
+    property <length> horizontal_page_size;
+    property <length> horizontal_value;
+    property <length> vertical_max;
+    property <length> vertical_page_size;
+    property <length> vertical_value;
+    property <length> native_padding_left;
+    property <length> native_padding_right;
+    property <length> native_padding_top;
+    property <length> native_padding_bottom;
+}
+
+export NativeStandardListViewItem := _ {
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+    property <int> index;
+    property <StandardListViewItem> item;
+    property <bool> is_selected;
+}
+
+export NativeComboBox := _ {
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+    property <string> current_value;
+    property <bool> is_open;
+    property <bool> enabled;
+}
+
+export global NativeStyleMetrics := {
+    property <logical_length> layout_spacing;
+    property <logical_length> layout_padding;
+    //-is_non_item_type
+}

@@ -154,6 +154,18 @@ impl<'a> LookupCtx<'a> {
             })
         })
     }
+
+    /// Return a context that is just suitable to build simple const expression
+    pub fn empty_context(type_register: &'a TypeRegister, diag: &'a mut BuildDiagnostics) -> Self {
+        Self {
+            property_name: Default::default(),
+            property_type: Default::default(),
+            component_scope: Default::default(),
+            diag,
+            arguments: Default::default(),
+            type_register,
+        }
+    }
 }
 
 fn find_element_by_id(roots: &[ElementRc], name: &str) -> Option<ElementRc> {
@@ -196,7 +208,10 @@ fn find_parent_element(e: &ElementRc) -> Option<ElementRc> {
 }
 
 impl Expression {
-    fn from_binding_expression_node(node: SyntaxNodeWithSourceFile, ctx: &mut LookupCtx) -> Self {
+    pub fn from_binding_expression_node(
+        node: SyntaxNodeWithSourceFile,
+        ctx: &mut LookupCtx,
+    ) -> Self {
         debug_assert_eq!(node.kind(), SyntaxKind::BindingExpression);
         let e = node
             .child_node(SyntaxKind::Expression)

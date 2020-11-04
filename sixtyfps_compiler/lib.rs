@@ -32,6 +32,7 @@ pub mod generator;
 pub mod langtype;
 pub mod layout;
 pub mod lexer;
+pub(crate) mod load_builtins;
 pub mod object_tree;
 pub mod parser;
 pub mod typeloader;
