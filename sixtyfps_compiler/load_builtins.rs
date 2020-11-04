@@ -196,7 +196,7 @@ fn parse_annotation(key: &str, node: &SyntaxNode) -> Option<Option<String>> {
                 .text()
                 .as_str()
                 .strip_prefix("//-")
-                .and_then(|x| x.strip_prefix(key))
+                .and_then(|x| x.trim_end().strip_prefix(key))
             {
                 if comment.is_empty() {
                     return Some(None);
