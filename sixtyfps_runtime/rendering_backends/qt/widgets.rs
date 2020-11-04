@@ -17,7 +17,7 @@ it needs to be kept in sync with different place.
 
  - It needs to be changed in this module
  - the Widget list in lib.rs
- - In the compiler: builtins.60interface
+ - In the compiler: builtins.60
  - For the C++ code (new item only): the build.rs to export the new item, and the `using` declaration in sixtyfps.h
  - Don't forget to update the documentation
 */

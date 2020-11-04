@@ -9,7 +9,7 @@
 LICENSE END */
 
 /*!
-    Parse the contents of builtins.60interface and fill the builtin type registery
+    Parse the contents of builtins.60 and fill the builtin type registery
 */
 
 use std::rc::Rc;
@@ -26,11 +26,11 @@ use crate::{
     parser::{syntax_nodes, SyntaxKind},
 };
 
-/// Parse the contents of builtins.60interface and fill the builtin type registery
+/// Parse the contents of builtins.60 and fill the builtin type registery
 /// `register` is the register to fill with the builtin types.
 /// At this point, it really should already contain the basic Types (string, int, ...)
 pub fn load_builtins(register: &mut TypeRegister) {
-    let (node, mut diag) = crate::parser::parse(include_str!("builtins.60interface").into(), None);
+    let (node, mut diag) = crate::parser::parse(include_str!("builtins.60").into(), None);
     if !diag.is_empty() {
         let vec = diag.to_string_vec();
         #[cfg(feature = "display-diagnostics")]

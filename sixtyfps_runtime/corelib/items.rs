@@ -15,7 +15,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 
  - It needs to be changed in this module
  - The ItemVTable_static at the end of datastructures.rs (new items only)
- - In the compiler: builtins.60interface
+ - In the compiler: builtins.60
  - In the vewer: main.rs
  - For the C++ code (new item only): the build.rs to export the new item, and the `using` declaration in sixtyfps.h
  - Don't forget to update the documentation
