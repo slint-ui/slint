@@ -22,14 +22,22 @@ App := Window {
         padding: 20px;
         spacing: 20px;
 
-        VerticalLayout {
-            padding: 0px;
-            spacing: 0px;
-            Text {
-                text: "Below are some of the standard widgets that";
+        HorizontalLayout {
+            VerticalLayout {
+                padding: 0px;
+                spacing: 0px;
+                horizontal-stretch: 1;
+                Text {
+                    text: "Below are some of the standard widgets that";
+                }
+                Text {
+                    text: "application developers can easily re-use.";
+                }
             }
-            Text {
-                text: "application developers can easily re-use.";
+
+            disable_toggle := CheckBox {
+                checked: false;
+                text: "Disable Widgets";
             }
         }
 
@@ -37,17 +45,10 @@ App := Window {
             alignment: start;
             GroupBox {
                 title: "Button";
-                HorizontalLayout {
-                    spacing: 20px;
 
-                    Button {
-                        text: "Regular Button";
-                    }
-
-                    Button {
-                        text: "Disabled Button";
-                        enabled: false;
-                    }
+                Button {
+                    text: "Regular Button";
+                    enabled: !disable_toggle.checked;
                 }
             }
         }
@@ -76,6 +77,7 @@ App := Window {
                 title: "ComboBox";
                 ComboBox {
                     model: ["Select Something", "From this", "Combobox"];
+                    enabled: !disable_toggle.checked;
                 }
             }
         }
@@ -91,6 +93,7 @@ App := Window {
             title: "LineEdit";
             LineEdit {
                 placeholder-text: "Enter some text";
+                enabled: !disable_toggle.checked;
             }
         }
 
