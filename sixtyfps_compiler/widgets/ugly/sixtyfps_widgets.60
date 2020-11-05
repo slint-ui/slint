@@ -152,8 +152,8 @@ export SpinBox := Rectangle {
     property <length> font_size;
     color: white;
 
-    maximum_height: 40px;
-    minimum_height: 40px;
+    maximum_height: 32px;
+    minimum_height: 32px;
     minimum_width: 120px;
     horizontal-stretch: 1;
     vertical-stretch: 0;
@@ -192,8 +192,8 @@ export Slider := Rectangle {
     property<float> min: 0;
     property<float> value;
 
-    maximum_height: 40px;
-    minimum_height: 40px;
+    maximum_height: 32px;
+    minimum_height: 32px;
     minimum_width: 120px;
     horizontal-stretch: 1;
     vertical-stretch: 0;
