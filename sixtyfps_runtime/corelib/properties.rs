@@ -35,6 +35,16 @@ mod single_linked_list_pin {
         }
     }
 
+    impl<T> Drop for SingleLinkedListPinHead<T> {
+        fn drop(&mut self) {
+            // Use a loop instead of relying on the Drop of NodePtr to avoid recursion
+            while let Some(mut x) = core::mem::take(&mut self.0) {
+                // Safety: we don't touch the `x.value` which is the one protected by the Pin
+                self.0 = std::mem::take(unsafe { &mut Pin::get_unchecked_mut(x.as_mut()).next });
+            }
+        }
+    }
+
     impl<T> SingleLinkedListPinHead<T> {
         pub fn push_front(&mut self, value: T) -> Pin<&T> {
             self.0 = Some(Box::pin(SingleLinkedListPinNode { next: self.0.take(), value }));
@@ -72,6 +82,14 @@ mod single_linked_list_pin {
             head.iter().map(|x: Pin<&i32>| *x.get_ref()).collect::<Vec<i32>>(),
             vec![3, 2, 1]
         );
+    }
+    #[test]
+    fn big_list() {
+        // should not stack overflow
+        let mut head = SingleLinkedListPinHead::default();
+        for x in 0..100000 {
+            head.push_front(x);
+        }
     }
 }
 
