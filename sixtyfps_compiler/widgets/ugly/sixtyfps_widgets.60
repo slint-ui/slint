@@ -195,6 +195,7 @@ export Slider := Rectangle {
     property<float> max: 100;
     property<float> min: 0;
     property<float> value;
+    property<bool> enabled: true;
 
     maximum_height: 32px;
     minimum_height: 32px;
@@ -209,7 +210,7 @@ export Slider := Rectangle {
         border_width: 2px;
         border_radius: self.height / 2;
         border_color: black;
-        color: Palette.highlight_background;
+        color: root.enabled ? Palette.highlight_background : Palette.text_color_disabled;
     }
 
     slider_empty := Rectangle {
@@ -220,7 +221,7 @@ export Slider := Rectangle {
         border_width: slider_filled.border_width;
         border_radius: slider_filled.border_radius;
         border_color: slider_filled.border_color;
-        color: Palette.button_background;
+        color: root.enabled ? Palette.button_background : white;
     }
 
     handle := Rectangle {

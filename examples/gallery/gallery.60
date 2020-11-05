@@ -92,6 +92,7 @@ App := Window {
             enabled: !disable_toggle.checked;
             Slider {
                 value: 42;
+                enabled: !disable_toggle.checked;
             }
         }
 
