@@ -307,7 +307,7 @@ export LineEdit := Rectangle {
                     color: Palette.placeholder_text;
                     col: 0;
                     row: 0;
-                    text: root.text == "" ? root.placeholder_text : "";
+                    text: (root.text == "" && !input.has-focus) ? root.placeholder_text : "";
                 }
             }
         }
