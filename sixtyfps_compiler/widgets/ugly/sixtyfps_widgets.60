@@ -11,9 +11,9 @@ LICENSE END */
 global Palette := {
     property<color> window_background: #ecedeb;
     property<color> text_color: #090909;
-    property<color> text_color_disabled: #aaa;
+    property<color> text_color_disabled: lightgray;
     property<color> text_color_secondary: #111;
-    property<color> button_background: lightgray;
+    property<color> button_background: #aaa;
     property<color> highlight_background: #556884;
     property<color> placeholder_text: #ccc;
     property<color> border_color: #d0d3cf;
