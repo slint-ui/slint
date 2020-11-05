@@ -52,6 +52,7 @@ unsafe fn drop_inner<T>(inner: NonNull<SharedArrayInner<T>>) {
 /// Allocate the memory for the SharedArray with the given capacity. Return the inner with size and refcount set to 1
 fn alloc_with_capacity<T>(capacity: usize) -> NonNull<SharedArrayInner<T>> {
     let ptr = unsafe { alloc::alloc(compute_inner_layout::<T>(capacity)) };
+    assert!(!ptr.is_null(), "allocation of {:?} bytes failled", capacity);
     unsafe {
         core::ptr::write(
             ptr as *mut SharedArrayHeader,
@@ -442,6 +443,12 @@ fn push_test() {
     x.push(6);
     assert_eq!(x.as_slice(), &[1, 2, 3, 4, 5, 6]);
     assert_eq!(y.as_slice(), &[1, 2, 3]);
+}
+
+#[test]
+#[should_panic]
+fn invalid_capacity_test() {
+    let _: SharedArray<u8> = SharedArray::with_capacity(usize::MAX / 2 - 1000);
 }
 
 pub(crate) mod ffi {
