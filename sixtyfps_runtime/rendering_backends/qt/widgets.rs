@@ -245,6 +245,7 @@ pub struct NativeCheckBox {
     pub y: Property<f32>,
     pub width: Property<f32>,
     pub height: Property<f32>,
+    pub enabled: Property<bool>,
     pub toggled: Signal<()>,
     pub text: Property<SharedString>,
     pub checked: Property<bool>,
@@ -267,6 +268,7 @@ impl Item for NativeCheckBox {
         window: &ComponentWindow,
     ) -> HighLevelRenderingPrimitive {
         let checked: bool = Self::FIELD_OFFSETS.checked.apply_pin(self).get();
+        let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
         let text: qttypes::QString = Self::FIELD_OFFSETS.text.apply_pin(self).get().as_str().into();
         let size: qttypes::QSize = get_size!(self);
         let dpr = window.scale_factor();
@@ -276,6 +278,7 @@ impl Item for NativeCheckBox {
 
         cpp!(unsafe [
             img as "QImage*",
+            enabled as "bool",
             text as "QString",
             size as "QSize",
             checked as "bool",
@@ -286,7 +289,8 @@ impl Item for NativeCheckBox {
             option.text = std::move(text);
             option.rect = QRect(QPoint(), size / dpr);
             option.state |= checked ? QStyle::State_On : QStyle::State_Off;
-            option.state |= QStyle::State_Enabled;
+            if (enabled)
+                option.state |= QStyle::State_Enabled;
             qApp->style()->drawControl(QStyle::CE_CheckBox, &option, &p, nullptr);
         });
         return HighLevelRenderingPrimitive::Image { source: imgarray.to_resource() };
@@ -366,20 +370,23 @@ pub struct NativeSpinBox {
     pub y: Property<f32>,
     pub width: Property<f32>,
     pub height: Property<f32>,
+    pub enabled: Property<bool>,
     pub value: Property<i32>,
     pub cached_rendering_data: CachedRenderingData,
     data: Property<NativeSpinBoxData>,
 }
 
 cpp! {{
-void initQSpinBoxOptions(QStyleOptionSpinBox &option, bool pressed, int active_controls) {
+void initQSpinBoxOptions(QStyleOptionSpinBox &option, bool pressed, bool enabled, int active_controls) {
     auto style = qApp->style();
     option.activeSubControls = QStyle::SC_None;
     option.subControls = QStyle::SC_SpinBoxEditField | QStyle::SC_SpinBoxUp | QStyle::SC_SpinBoxDown;
     if (style->styleHint(QStyle::SH_SpinBox_ButtonsInsideFrame, nullptr, nullptr))
         option.subControls |= QStyle::SC_SpinBoxFrame;
     option.activeSubControls = {active_controls};
-    option.state = QStyle::State_Enabled | QStyle::State_Active;
+    if (enabled)
+        option.state |= QStyle::State_Enabled;
+    option.state |= QStyle::State_Active;
     if (pressed) {
         option.state |= QStyle::State_Sunken | QStyle::State_MouseOver;
     }
@@ -407,6 +414,7 @@ impl Item for NativeSpinBox {
         window: &ComponentWindow,
     ) -> HighLevelRenderingPrimitive {
         let value: i32 = Self::FIELD_OFFSETS.value.apply_pin(self).get();
+        let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
         let size: qttypes::QSize = get_size!(self);
         let dpr = window.scale_factor();
         let data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
@@ -418,6 +426,7 @@ impl Item for NativeSpinBox {
         cpp!(unsafe [
             img as "QImage*",
             value as "int",
+            enabled as "bool",
             size as "QSize",
             active_controls as "int",
             pressed as "bool",
@@ -427,7 +436,7 @@ impl Item for NativeSpinBox {
             auto style = qApp->style();
             QStyleOptionSpinBox option;
             option.rect = QRect(QPoint(), size / dpr);
-            initQSpinBoxOptions(option, pressed, active_controls);
+            initQSpinBoxOptions(option, pressed, enabled, active_controls);
             style->drawComplexControl(QStyle::CC_SpinBox, &option, &p, nullptr);
 
             auto text_rect = style->subControlRect(QStyle::CC_SpinBox, &option, QStyle::SC_SpinBoxEditField, nullptr);
@@ -448,19 +457,21 @@ impl Item for NativeSpinBox {
         let data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
         let active_controls = data.active_controls;
         let pressed = data.pressed;
+        let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
         let dpr = window.scale_factor();
 
         let size = cpp!(unsafe [
             //value as "int",
             active_controls as "int",
             pressed as "bool",
+            enabled as "bool",
             dpr as "float"
         ] -> qttypes::QSize as "QSize" {
             ensure_initialized();
             auto style = qApp->style();
 
             QStyleOptionSpinBox option;
-            initQSpinBoxOptions(option, pressed, active_controls);
+            initQSpinBoxOptions(option, pressed, enabled, active_controls);
 
             auto content = option.fontMetrics.boundingRect("0000");
 
@@ -482,6 +493,7 @@ impl Item for NativeSpinBox {
         _app_component: ComponentRefPin,
     ) -> InputEventResult {
         let size: qttypes::QSize = get_size!(self);
+        let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
         let mut data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
         let active_controls = data.active_controls;
         let pressed = data.pressed;
@@ -491,6 +503,7 @@ impl Item for NativeSpinBox {
         let new_control = cpp!(unsafe [
             pos as "QPoint",
             size as "QSize",
+            enabled as "bool",
             active_controls as "int",
             pressed as "bool"
         ] -> u32 as "int" {
@@ -499,7 +512,7 @@ impl Item for NativeSpinBox {
 
             QStyleOptionSpinBox option;
             option.rect = { QPoint{}, size };
-            initQSpinBoxOptions(option, pressed, active_controls);
+            initQSpinBoxOptions(option, pressed, enabled, active_controls);
 
             return style->hitTestComplexControl(QStyle::CC_SpinBox, &option, pos, nullptr);
         });
@@ -563,6 +576,7 @@ pub struct NativeSlider {
     pub y: Property<f32>,
     pub width: Property<f32>,
     pub height: Property<f32>,
+    pub enabled: Property<bool>,
     pub value: Property<f32>,
     pub min: Property<f32>,
     pub max: Property<f32>,
@@ -571,7 +585,7 @@ pub struct NativeSlider {
 }
 
 cpp! {{
-void initQSliderOptions(QStyleOptionSlider &option, bool pressed, int active_controls, int minimum, int maximum, int value) {
+void initQSliderOptions(QStyleOptionSlider &option, bool pressed, bool enabled, int active_controls, int minimum, int maximum, int value) {
     option.subControls = QStyle::SC_SliderGroove | QStyle::SC_SliderHandle;
     option.activeSubControls = { active_controls };
     option.orientation = Qt::Horizontal;
@@ -579,7 +593,9 @@ void initQSliderOptions(QStyleOptionSlider &option, bool pressed, int active_con
     option.minimum = minimum;
     option.sliderPosition = value;
     option.sliderValue = value;
-    option.state = QStyle::State_Enabled | QStyle::State_Active | QStyle::State_Horizontal;
+    if (enabled)
+        option.state |= QStyle::State_Enabled;
+    option.state |= QStyle::State_Active | QStyle::State_Horizontal;
     if (pressed) {
         option.state |= QStyle::State_Sunken | QStyle::State_MouseOver;
     }
@@ -601,6 +617,7 @@ impl Item for NativeSlider {
         self: Pin<&Self>,
         window: &ComponentWindow,
     ) -> HighLevelRenderingPrimitive {
+        let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
         let value = Self::FIELD_OFFSETS.value.apply_pin(self).get() as i32;
         let min = Self::FIELD_OFFSETS.min.apply_pin(self).get() as i32;
         let max = Self::FIELD_OFFSETS.max.apply_pin(self).get() as i32;
@@ -615,6 +632,7 @@ impl Item for NativeSlider {
 
         cpp!(unsafe [
             img as "QImage*",
+            enabled as "bool",
             value as "int",
             min as "int",
             max as "int",
@@ -626,7 +644,7 @@ impl Item for NativeSlider {
             QPainter p(img);
             QStyleOptionSlider option;
             option.rect = QRect(QPoint(), size / dpr);
-            initQSliderOptions(option, pressed, active_controls, min, max, value);
+            initQSliderOptions(option, pressed, enabled, active_controls, min, max, value);
             auto style = qApp->style();
             style->drawComplexControl(QStyle::CC_Slider, &option, &p, nullptr);
         });
@@ -641,6 +659,7 @@ impl Item for NativeSlider {
     }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
+        let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
         let value = Self::FIELD_OFFSETS.value.apply_pin(self).get() as i32;
         let min = Self::FIELD_OFFSETS.min.apply_pin(self).get() as i32;
         let max = Self::FIELD_OFFSETS.max.apply_pin(self).get() as i32;
@@ -650,6 +669,7 @@ impl Item for NativeSlider {
         let dpr = window.scale_factor();
 
         let size = cpp!(unsafe [
+            enabled as "bool",
             value as "int",
             min as "int",
             max as "int",
@@ -659,7 +679,7 @@ impl Item for NativeSlider {
         ] -> qttypes::QSize as "QSize" {
             ensure_initialized();
             QStyleOptionSlider option;
-            initQSliderOptions(option, pressed, active_controls, min, max, value);
+            initQSliderOptions(option, pressed, enabled, active_controls, min, max, value);
             auto style = qApp->style();
             auto thick = style->pixelMetric(QStyle::PM_SliderThickness, &option, nullptr);
             return style->sizeFromContents(QStyle::CT_Slider, &option, QSize(0, thick), nullptr) * dpr;
@@ -680,6 +700,7 @@ impl Item for NativeSlider {
         _app_component: ComponentRefPin,
     ) -> InputEventResult {
         let size: qttypes::QSize = get_size!(self);
+        let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
         let value = Self::FIELD_OFFSETS.value.apply_pin(self).get() as f32;
         let min = Self::FIELD_OFFSETS.min.apply_pin(self).get() as f32;
         let max = Self::FIELD_OFFSETS.max.apply_pin(self).get() as f32;
@@ -691,6 +712,7 @@ impl Item for NativeSlider {
         let new_control = cpp!(unsafe [
             pos as "QPoint",
             size as "QSize",
+            enabled as "bool",
             value as "float",
             min as "float",
             max as "float",
@@ -699,7 +721,7 @@ impl Item for NativeSlider {
         ] -> u32 as "int" {
             ensure_initialized();
             QStyleOptionSlider option;
-            initQSliderOptions(option, pressed, active_controls, min, max, value);
+            initQSliderOptions(option, pressed, enabled, active_controls, min, max, value);
             auto style = qApp->style();
             option.rect = { QPoint{}, size };
             return style->hitTestComplexControl(QStyle::CC_Slider, &option, pos, nullptr);
@@ -755,6 +777,7 @@ pub struct NativeGroupBox {
     pub y: Property<f32>,
     pub width: Property<f32>,
     pub height: Property<f32>,
+    pub enabled: Property<bool>,
     pub title: Property<SharedString>,
     pub cached_rendering_data: CachedRenderingData,
     pub native_padding_left: Property<f32>,
@@ -874,6 +897,7 @@ impl Item for NativeGroupBox {
     ) -> HighLevelRenderingPrimitive {
         let text: qttypes::QString =
             Self::FIELD_OFFSETS.title.apply_pin(self).get().as_str().into();
+        let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
         let size: qttypes::QSize = get_size!(self);
         let dpr = window.scale_factor();
 
@@ -883,12 +907,14 @@ impl Item for NativeGroupBox {
         cpp!(unsafe [
             img as "QImage*",
             text as "QString",
+            enabled as "bool",
             size as "QSize",
             dpr as "float"
         ] {
             QPainter p(img);
             QStyleOptionGroupBox option;
-            option.state |= QStyle::State_Enabled;
+            if (enabled)
+                option.state |= QStyle::State_Enabled;
             option.rect = QRect(QPoint(), size / dpr);
             option.text = text;
             option.lineWidth = 1;
@@ -1136,7 +1162,7 @@ impl Item for NativeScrollView {
                 ] -> qttypes::QMargins as "QMargins" {
                     ensure_initialized();
                     QStyleOptionSlider option;
-                    initQSliderOptions(option, false, 0, 0, 1000, 1000);
+                    initQSliderOptions(option, false, true, 0, 0, 1000, 1000);
 
                     int extent = qApp->style()->pixelMetric(QStyle::PM_ScrollBarExtent, &option, nullptr);
                     int sliderMin = qApp->style()->pixelMetric(QStyle::PM_ScrollBarSliderMin, &option, nullptr);
@@ -1256,7 +1282,7 @@ impl Item for NativeScrollView {
             #endif
                 QStyleOptionSlider option;
                 option.rect = QRect(QPoint(), r.size());
-                initQSliderOptions(option, pressed, active_controls, 0, max / dpr, -value / dpr);
+                initQSliderOptions(option, pressed, true, active_controls, 0, max / dpr, -value / dpr);
                 option.subControls = QStyle::SC_All;
                 option.pageStep = page_size / dpr;
 
@@ -1365,7 +1391,7 @@ impl Item for NativeScrollView {
             ] -> u32 as "int" {
                 ensure_initialized();
                 QStyleOptionSlider option;
-                initQSliderOptions(option, pressed, active_controls, 0, max / dpr, -value / dpr);
+                initQSliderOptions(option, pressed, true, active_controls, 0, max / dpr, -value / dpr);
                 option.pageStep = page_size / dpr;
                 if (!horizontal) {
                     option.state ^= QStyle::State_Horizontal;

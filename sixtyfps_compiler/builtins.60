@@ -219,6 +219,7 @@ export NativeCheckBox := _ {
     property <length> y;
     property <length> width;
     property <length> height;
+    property <bool> enabled;
     property <string> text;
     property <bool> checked;
     signal toggled;
@@ -229,6 +230,7 @@ export NativeSpinBox := _ {
     property <length> y;
     property <length> width;
     property <length> height;
+    property <bool> enabled;
     property <int> value;
 }
 
@@ -237,6 +239,7 @@ export NativeSlider := _ {
     property <length> y;
     property <length> width;
     property <length> height;
+    property <bool> enabled;
     property <float> value;
     property <float> min;
     property <float> max;
@@ -247,6 +250,7 @@ export NativeGroupBox := _ {
     property <length> y;
     property <length> width;
     property <length> height;
+    property <bool> enabled;
     property <string> title;
     property <length> native_padding_left;
     property <length> native_padding_right;
