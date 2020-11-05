@@ -45,6 +45,7 @@ App := Window {
             alignment: start;
             GroupBox {
                 title: "Button";
+                enabled: !disable_toggle.checked;
 
                 Button {
                     text: "Regular Button";
@@ -57,9 +58,11 @@ App := Window {
             alignment: start;
             GroupBox {
                 title: "CheckBox";
+                enabled: !disable_toggle.checked;
                 checkbox := CheckBox {
                     text: checkbox.checked ? "(checked)" : "(unchecked)";
                     checked: true;
+                    enabled: !disable_toggle.checked;
                 }
             }
         }
@@ -68,6 +71,7 @@ App := Window {
             alignment: start;
             GroupBox {
                 title: "SpinBox";
+                enabled: !disable_toggle.checked;
                 SpinBox {
                     value: 42;
                 }
@@ -75,6 +79,7 @@ App := Window {
 
             GroupBox {
                 title: "ComboBox";
+                enabled: !disable_toggle.checked;
                 ComboBox {
                     model: ["Select Something", "From this", "Combobox"];
                     enabled: !disable_toggle.checked;
@@ -84,6 +89,7 @@ App := Window {
 
         GroupBox {
             title: "Slider";
+            enabled: !disable_toggle.checked;
             Slider {
                 value: 42;
             }
@@ -91,6 +97,7 @@ App := Window {
 
         GroupBox {
             title: "LineEdit";
+            enabled: !disable_toggle.checked;
             LineEdit {
                 placeholder-text: "Enter some text";
                 enabled: !disable_toggle.checked;
@@ -99,6 +106,7 @@ App := Window {
 
         GroupBox {
             title: "StandardListView";
+            enabled: !disable_toggle.checked;
             StandardListView {
                 model: [
                     {text: "Lorem"}, {text: "ipsum"},{text: "dolor"},{text: "sit"},{text: "amet"},{text: "consetetur"},

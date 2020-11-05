@@ -18,6 +18,7 @@ global Palette := {
     property<color> placeholder_text: #ccc;
     property<color> border_color: #d0d3cf;
     property<color> base_background_color: white;
+    property<color> checkbox_unchecked_indicator: #aaa;
 }
 
 export global StyleMetrics := {
@@ -68,6 +69,7 @@ export CheckBox := Rectangle {
     signal toggled;
     property <string> text;
     property <bool> checked;
+    property<bool> enabled: true;
 
     maximum_height: 20px;
     minimum_height: 20px;
@@ -81,7 +83,7 @@ export CheckBox := Rectangle {
         width: root.height * 2;
         border_width: 2px;
         border_radius: root.height / 2;
-        border_color: black;
+        border_color: root.enabled ? black : Palette.text_color_disabled;
         color: white;
         animate color { duration: 100ms; }
 
@@ -92,7 +94,7 @@ export CheckBox := Rectangle {
             y: 4px;
             x: 4px + a * (indicator.width - bubble.width - 8px);
             property <float> a: root.checked ? 1 : 0;
-            color: root.checked ? Palette.highlight_background : Palette.button_background;
+            color: root.checked ? Palette.highlight_background : (root.enabled ? Palette.button_background : Palette.text_color_disabled);
             animate a, color { duration: 200ms; easing: ease;}
         }
     }
@@ -103,7 +105,7 @@ export CheckBox := Rectangle {
         vertical_alignment: align_center;
         width: parent.width - self.x;
         height: parent.height;
-        color: Palette.text_color;
+        color: root.enabled ? Palette.text_color : Palette.text_color_disabled;
     }
 
     touch_area := TouchArea {
@@ -150,6 +152,8 @@ export SpinBox := Rectangle {
     property <bool> checked;
     property <int> value;
     property <length> font_size;
+    property<bool> enabled: true;
+
     color: white;
 
     maximum_height: 32px;
@@ -183,7 +187,7 @@ export SpinBox := Rectangle {
         height: parent.height;
         horizontal_alignment: align_center;
         vertical_alignment: align_center;
-        color: Palette.text_color;
+        color: root.enabled ? Palette.text_color : Palette.text_color_disabled;
     }
 }
 
@@ -245,12 +249,14 @@ export Slider := Rectangle {
 
 export GroupBox := GridLayout {
     property <string> title;
+    property<bool> enabled: true;
+
     spacing: 5px;
     Row {
         Text {
             text: root.title;
             vertical-stretch: 0;
-            color: Palette.text_color;
+            color: root.enabled ? Palette.text_color : Palette.text_color_disabled;
         }
     }
     Row {
