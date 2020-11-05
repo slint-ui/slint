@@ -74,6 +74,7 @@ App := Window {
                 enabled: !disable_toggle.checked;
                 SpinBox {
                     value: 42;
+                    enabled: !disable_toggle.checked;
                 }
             }
 

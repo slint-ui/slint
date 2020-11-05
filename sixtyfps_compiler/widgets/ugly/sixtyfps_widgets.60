@@ -123,6 +123,7 @@ SpinBoxButton := Rectangle {
     signal clicked;
     property<string> text;
     property <length> font_size;
+    property<bool> enabled;
     border_width: 2px;
     border_radius: 10px;
     border_color: black;
@@ -142,7 +143,7 @@ SpinBoxButton := Rectangle {
         horizontal_alignment: align_center;
         text: root.text;
         font_size: root.font_size;
-        color: Palette.text_color;
+        color: root.enabled ? Palette.text_color : Palette.text_color_disabled;
     }
 }
 
@@ -168,11 +169,13 @@ export SpinBox := Rectangle {
         clicked => { root.value -= 1; }
         width: parent.height;
         height: parent.height;
+        enabled: root.enabled;
     }
 
     plus_button := SpinBoxButton {
         width: parent.height;
         height: parent.height;
+        enabled: root.enabled;
         x: parent.width - self.width;
         font_size: root.font_size;
         text: "+";
