@@ -64,7 +64,7 @@ MainWindow := Window {
             }
         }
         HorizontalLayout {
-            Rectangle { horizontal-stretch: 1; }  // Fixme: remove and use alignement instead
+            alignment: end;
             Button {
                 text: "Remove Done Items";
                 clicked => { root.remove_done(); }
