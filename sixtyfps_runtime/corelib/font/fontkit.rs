@@ -12,9 +12,9 @@ use pathfinder_geometry::{
     transform2d::Transform2F,
     vector::{Vector2F, Vector2I},
 };
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::hash::Hash;
+use std::{cell::RefCell, rc::Rc};
 
 #[derive(Clone)]
 pub struct GlyphMetrics {
@@ -23,6 +23,9 @@ pub struct GlyphMetrics {
 
 pub struct Font {
     pub pixel_size: f32,
+    // Keep the original handle around as that's typically a Handle::Path, while Font::handle() always returns a
+    // Handle::Memory, which is much slower to hash.
+    handle: Rc<font_kit::handle::Handle>,
     font: font_kit::font::Font,
     metrics: font_kit::metrics::Metrics,
     glyph_metrics_cache: RefCell<HashMap<u32, GlyphMetrics>>,
@@ -138,16 +141,16 @@ impl Font {
     }
 
     pub fn handle(&self) -> FontHandle {
-        FontHandle(self.font.handle().unwrap())
+        FontHandle(self.handle.clone())
     }
 }
 
 #[derive(Clone)]
-pub struct FontHandle(font_kit::handle::Handle);
+pub struct FontHandle(Rc<font_kit::handle::Handle>);
 
 impl Hash for FontHandle {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        match &self.0 {
+        match &self.0.as_ref() {
             font_kit::handle::Handle::Path { path, font_index } => {
                 path.hash(state);
                 font_index.hash(state);
@@ -162,15 +165,15 @@ impl Hash for FontHandle {
 
 impl PartialEq for FontHandle {
     fn eq(&self, other: &Self) -> bool {
-        match &self.0 {
-            font_kit::handle::Handle::Path { path, font_index } => match &other.0 {
+        match &self.0.as_ref() {
+            font_kit::handle::Handle::Path { path, font_index } => match &other.0.as_ref() {
                 font_kit::handle::Handle::Path {
                     path: other_path,
                     font_index: other_font_index,
                 } => path.eq(other_path) && font_index.eq(other_font_index),
                 _ => false,
             },
-            font_kit::handle::Handle::Memory { bytes, font_index } => match &other.0 {
+            font_kit::handle::Handle::Memory { bytes, font_index } => match &other.0.as_ref() {
                 font_kit::handle::Handle::Memory {
                     bytes: other_bytes,
                     font_index: other_font_index,
@@ -187,7 +190,13 @@ impl FontHandle {
     pub fn load(&self, pixel_size: f32) -> Result<Font, font_kit::error::FontLoadingError> {
         let font = self.0.load()?;
         let metrics = font.metrics();
-        Ok(Font { pixel_size, font, metrics, glyph_metrics_cache: Default::default() })
+        Ok(Font {
+            pixel_size,
+            font,
+            handle: self.0.clone(),
+            metrics,
+            glyph_metrics_cache: Default::default(),
+        })
     }
 
     pub fn new_from_match(family: &str) -> Self {
@@ -209,6 +218,6 @@ impl FontHandle {
 
 impl From<font_kit::handle::Handle> for FontHandle {
     fn from(h: font_kit::handle::Handle) -> Self {
-        Self(h)
+        Self(Rc::new(h))
     }
 }
