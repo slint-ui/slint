@@ -234,7 +234,7 @@ export Slider := Rectangle {
         width: parent.height / 3;
         height: parent.height;
         border_width: 1px;
-        border_radius: self.height / 2;
+        border_radius: 3px;
         border_color: black;
         color: touch_area.pressed ? Palette.button_background : white;
         animate color { duration: 100ms; }
