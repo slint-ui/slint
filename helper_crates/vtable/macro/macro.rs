@@ -77,6 +77,12 @@ For function type fields:
   the vtable without having a valid pointer to the actual object. But if the original function was
   marked unsafe, the unsafety is forwarded to the trait.
  - If a field is called `drop`, then it is understood that this is the destructor for a VBox.
+   It must have the type `fn(VRefMut<MyVTable>)`
+ - If a field is called `drop_in_place`, then it is understood as the in place destructor.
+   It must have the signature `fn(VRefMut<MyVTable>) -> Layout`
+   The returned layout will be passed to the deallocate function
+ - If a field is called `dealloc`, then it is a deallocation function.
+   It must have the signature `fn(&MyVTable, ptr: *mut u8, layout: Layout)`
  - If the first argument of the function is `VRef<MyVTable>` or `VRefMut<MyVTable>`, then it is
    understood as a `&self` or `&mut self` argument in the trait.
  - Similarly, if it is a `Pin<VRef<MyVTable>>` or `Pin<VRefMut<MyVTable>>`, self is mapped
@@ -189,7 +195,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let vtable_name = input.ident.clone();
 
-    let mut drop_impl = None;
+    let mut drop_impls = vec![];
 
     let mut generated_trait = ItemTrait {
         attrs: input
@@ -424,8 +430,8 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     #ident::<T>
                 },));
 
-                drop_impl = Some(quote! {
-                    impl VTableMetaDrop for #vtable_name {
+                drop_impls.push(quote! {
+                    unsafe impl VTableMetaDrop for #vtable_name {
                         unsafe fn drop(ptr: *mut #to_name) {
                             // Safety: The vtable is valid and inner is a type corresponding to the vtable,
                             // which was allocated such that drop is expected.
@@ -440,6 +446,39 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                         }
                     }
                 });
+                continue;
+            }
+
+            if ident == "drop_in_place" {
+                vtable_ctor.push(quote!(#ident: {
+                    #sig_extern {
+                        unsafe { ::core::ptr::drop_in_place((#self_call).0 as *mut T) };
+                        ::core::alloc::Layout::new::<T>().into()
+                    }
+                    #ident::<T>
+                },));
+
+                drop_impls.push(quote! {
+                    unsafe impl VTableMetaDropInPlace for #vtable_name {
+                        unsafe fn #ident(vtable: &Self::VTable, ptr: *mut u8) -> vtable::Layout {
+                            // Safety: The vtable is valid and ptr is a type corresponding to the vtable,
+                            (vtable.#ident)(VRefMut::from_raw(core::ptr::NonNull::from(vtable), core::ptr::NonNull::new_unchecked(ptr).cast()))
+                        }
+                        unsafe fn dealloc(vtable: &Self::VTable, ptr: *mut u8, layout: vtable::Layout) {
+                            (vtable.dealloc)(vtable, ptr, layout)
+                        }
+                    }
+                });
+                continue;
+            }
+            if ident == "dealloc" {
+                vtable_ctor.push(quote!(#ident: {
+                    unsafe extern "C" fn #ident(_: &#vtable_name, ptr: *mut u8, layout: vtable::Layout) {
+                        use ::core::convert::TryInto;
+                        ::std::alloc::dealloc(ptr, layout.try_into().unwrap())
+                    }
+                    #ident
+                },));
                 continue;
             }
 
@@ -699,7 +738,7 @@ and implements HasStaticVTable for it.
                 type Target = #to_name;
             }
 
-            #drop_impl
+            #(#drop_impls)*
         }
         #[doc(inline)]
         #[macro_use]

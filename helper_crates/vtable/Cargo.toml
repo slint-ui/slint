@@ -1,6 +1,6 @@
 [package]
 name = "vtable"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2018"
 license = "GPL-3.0-only"
@@ -12,5 +12,5 @@ homepage = "https://sixtyfps.io"
 [lib]
 
 [dependencies]
-vtable-macro = { version = "0.1", path = "./macro" }
+vtable-macro = { version = "=0.1.1", path = "./macro" }
 const-field-offset = { version = "0.1", path = "../const-field-offset" }

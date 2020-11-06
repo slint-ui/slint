@@ -16,6 +16,7 @@ This crate allows you to create ffi-friendly virtual tables.
    to safely work with it.
  - `VRef`/`VRefMut`/`VBox` types. They are fat reference/box types which wrap a pointer to
    the vtable, and a pointer to the object.
+ - `VRc`/`VWeak` types: equivalent to `std::rc::{Rc, Weak}` types but works with a vtable pointer.
  - Ability to store constants in a vtable.
  - These constants can even be a field offset.
 
@@ -60,7 +61,6 @@ The `#[vtable]` macro created the "Animal" trait.
 Note that the `#[vtable]` macro is applied to the VTable struct so
 that `cbindgen` can see the actual vtable.
 
-
 */
 
 #[doc(no_inline)]
@@ -70,6 +70,9 @@ use core::ops::{Deref, DerefMut, Drop};
 use core::{pin::Pin, ptr::NonNull};
 #[doc(inline)]
 pub use vtable_macro::*;
+
+mod vrc;
+pub use vrc::*;
 
 /// Internal trait that is implemented by the `#[vtable]` macro.
 ///
@@ -91,7 +94,7 @@ pub unsafe trait VTableMeta {
 /// This trait is implemented by the `#[vtable]` macro.
 ///
 /// It is implemented if the macro has a "drop" function.
-pub trait VTableMetaDrop: VTableMeta {
+pub unsafe trait VTableMetaDrop: VTableMeta {
     /// Safety: the Target needs to be pointing to a valid allocated pointer
     unsafe fn drop(ptr: *mut Self::Target);
     fn new_box<X: HasStaticVTable<Self>>(value: X) -> VBox<Self>;
