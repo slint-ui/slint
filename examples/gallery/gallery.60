@@ -52,10 +52,7 @@ App := Window {
                     enabled: !disable_toggle.checked;
                 }
             }
-        }
 
-        HorizontalLayout {
-            alignment: start;
             GroupBox {
                 title: "CheckBox";
                 enabled: !disable_toggle.checked;
