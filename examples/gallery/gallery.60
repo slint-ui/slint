@@ -11,7 +11,7 @@ import { Button, CheckBox, SpinBox, Slider, GroupBox, LineEdit, StandardListView
 
 App := Window {
     width: 500px;
-    height: 700px;
+    height: 550px;
     Rectangle {
         color: #ecedeb;
         width: parent.width;
@@ -20,7 +20,7 @@ App := Window {
 
     VerticalLayout {
         padding: 20px;
-        spacing: 20px;
+        spacing: 10px;
 
         HorizontalLayout {
             VerticalLayout {
