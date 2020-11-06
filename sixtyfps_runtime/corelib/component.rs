@@ -61,6 +61,11 @@ pub struct ComponentVTable {
         &FocusEvent,
         &ComponentWindow,
     ) -> FocusEventResult,
+
+    /// in-place destructor (for VRc)
+    pub drop_in_place: unsafe fn(VRefMut<ComponentVTable>) -> vtable::Layout,
+    /// dealloc function (for VRc)
+    pub dealloc: unsafe fn(&ComponentVTable, ptr: *mut u8, layout: vtable::Layout),
 }
 
 /// Alias for `vtable::VRef<ComponentVTable>` which represent a pointer to a `dyn Component` with

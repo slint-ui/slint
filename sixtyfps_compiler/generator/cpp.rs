@@ -1088,7 +1088,7 @@ fn generate_component(
             Access::Public,
             Declaration::Function(Function {
                 name: "root_item".into(),
-                signature: "() const -> VRef<sixtyfps::private_api::ItemVTable>".into(),
+                signature: "() const -> sixtyfps::private_api::ItemRef".into(),
                 statements: Some(vec![format!(
                     "return {{ &sixtyfps::private_api::{vt}, const_cast<decltype(this->{id})*>(&this->{id}) }};",
                     vt = root_elem.base_type.as_native().vtable_symbol,
@@ -1122,9 +1122,9 @@ fn generate_component(
         file.definitions.push(Declaration::Var(Var {
             ty: "const sixtyfps::private_api::ComponentVTable".to_owned(),
             name: format!("{}::component_type", component_id),
-            init: Some(
-                "{ visit_children, layouting_info, apply_layout, input_event, key_event, focus_event }"
-                    .to_owned(),
+            init: Some(format!(
+                "{{ visit_children, layouting_info, apply_layout, input_event, key_event, focus_event, sixtyfps::private_api::drop_in_place<{}>, sixtyfps::private_api::dealloc }}",
+                component_id)
             ),
         }));
     }

@@ -58,8 +58,9 @@ extern const cbindgen_private::ItemVTable NativeComboBoxVTable;
 namespace private_api {
 using cbindgen_private::ComponentVTable;
 using cbindgen_private::ItemVTable;
-using ComponentRef = VRef<private_api::ComponentVTable>;
-using ItemVisitorRefMut = VRefMut<cbindgen_private::ItemVisitorVTable>;
+using ComponentRef = vtable::VRef<private_api::ComponentVTable>;
+using ItemRef = vtable::VRef<private_api::ItemVTable>;
+using ItemVisitorRefMut = vtable::VRefMut<cbindgen_private::ItemVisitorVTable>;
 }
 using cbindgen_private::EasingCurve;
 using cbindgen_private::PropertyAnimation;
@@ -83,7 +84,7 @@ struct ComponentWindow
     void run(Component *c)
     {
         sixtyfps_component_window_run(
-                &inner, VRefMut<ComponentVTable> { &Component::component_type, c }, c->root_item());
+                &inner, vtable::VRefMut<ComponentVTable> { &Component::component_type, c }, c->root_item());
     }
 
     float scale_factor() const { return sixtyfps_component_window_get_scale_factor(&inner); }
@@ -96,10 +97,10 @@ struct ComponentWindow
     void free_graphics_resources(Component *c) const
     {
         cbindgen_private::sixtyfps_component_window_free_graphics_resources(
-                &inner, VRef<ComponentVTable> { &Component::component_type, c });
+                &inner, vtable::VRef<ComponentVTable> { &Component::component_type, c });
     }
 
-    void set_focus_item(Pin<VRef<ComponentVTable>> c, Pin<VRef<ItemVTable>> item)
+    void set_focus_item(vtable::VRef<ComponentVTable> c, vtable::VRef<ItemVTable> item)
     {
         cbindgen_private::sixtyfps_component_window_set_focus_item(&inner, c, item);
     }
@@ -108,7 +109,7 @@ struct ComponentWindow
     void init_items(Component *c, ItemTree items) const
     {
         cbindgen_private::sixtyfps_component_init_items(
-                VRef<ComponentVTable> { &Component::component_type, c }, items, &inner);
+                vtable::VRef<ComponentVTable> { &Component::component_type, c }, items, &inner);
     }
 
 private:
@@ -268,7 +269,21 @@ inline FocusEventResult process_focus_event(ComponentRef component, int64_t &foc
     }
     return FocusEventResult::FocusItemNotFound;
 }
+
+void dealloc(const ComponentVTable*, uint8_t *ptr, vtable::Layout layout) {
+#ifdef __cpp_sized_deallocation
+    ::operator delete(reinterpret_cast<void*>(ptr), layout.size, layout.align);
+#else
+    ::operator delete(reinterpret_cast<void*>(ptr));
+#endif
+
 }
+
+template<typename T> vtable::Layout drop_in_place(ComponentRef component) {
+    reinterpret_cast<T*>(component.instance)->~T();
+    return vtable::Layout { sizeof(T), std::align_val_t(alignof(T)) };
+}
+} // namespace private_api
 
 // layouts:
 using cbindgen_private::grid_layout_info;
@@ -530,7 +545,7 @@ public:
         return -1;
     }
 
-    VRef<private_api::ComponentVTable> item_at(int i) const
+    vtable::VRef<private_api::ComponentVTable> item_at(int i) const
     {
         const auto &x = inner->data.at(i);
         return { &C::component_type, x.ptr.get() };

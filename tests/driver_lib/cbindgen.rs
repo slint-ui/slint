@@ -215,7 +215,11 @@ fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
         .with_include("sixtyfps_color.h")
         .with_include("sixtyfps_pathdata.h")
         .with_after_include(format!(
-            "namespace sixtyfps {{ namespace private_api {{ enum class VersionCheck {{ Major = {}, Minor = {}, Patch = {} }}; struct ComponentWindow; }} namespace cbindgen_private {{ using sixtyfps::private_api::ComponentWindow; }} }}",
+            r"
+namespace sixtyfps {{
+    namespace private_api {{ enum class VersionCheck {{ Major = {}, Minor = {}, Patch = {} }}; struct ComponentWindow; }}
+    namespace cbindgen_private {{ using sixtyfps::private_api::ComponentWindow; using namespace vtable; }}
+}}",
             0, 0, 2,
         ))
         .generate()

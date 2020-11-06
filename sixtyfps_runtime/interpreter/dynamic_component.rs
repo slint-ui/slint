@@ -663,6 +663,8 @@ fn generate_component<'id>(
         input_event,
         key_event,
         focus_event,
+        drop_in_place,
+        dealloc,
     };
     let t = ComponentDescription {
         ct: t,
@@ -1470,6 +1472,17 @@ extern "C" fn apply_layout(component: ComponentRefPin, _r: sixtyfps_corelib::gra
         let rep_in_comp = rep_in_comp.unerase(g);
         rep_in_comp.offset.apply_pin(instance_ref.instance).compute_layout();
     }
+}
+
+unsafe extern "C" fn drop_in_place(component: vtable::VRefMut<ComponentVTable>) -> vtable::Layout {
+    let instance_ptr = component.as_ptr() as *mut Instance<'static>;
+    let layout = (*instance_ptr).type_info().layout();
+    dynamic_type::TypeInfo::drop_in_place(instance_ptr);
+    layout.into()
+}
+
+unsafe extern "C" fn dealloc(_vtable: &ComponentVTable, ptr: *mut u8, layout: vtable::Layout) {
+    std::alloc::dealloc(ptr, layout.try_into().unwrap());
 }
 
 /// Get the component description from a ComponentRef

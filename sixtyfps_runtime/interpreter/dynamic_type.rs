@@ -134,23 +134,32 @@ impl<'id> TypeInfo<'id> {
     /// The instance will be allocated on the heap.
     /// The instance must be freed with `delete_instance`
     pub fn create_instance(self: Rc<Self>) -> InstanceBox<'id> {
-        // Safety: the TypeInfo invariant means that the constructor can be called
         unsafe {
-            let mem = std::alloc::alloc(self.mem_layout);
-            std::ptr::write(mem as *mut Rc<_>, self.clone());
-            for f in &self.fields {
-                if let Some(ctor) = f.construct {
-                    ctor(mem.add(f.offset));
-                }
+            let mem = std::alloc::alloc(self.mem_layout) as *mut Instance;
+            self.create_instance_in_place(mem);
+            InstanceBox(core::ptr::NonNull::new_unchecked(mem))
+        }
+    }
+
+    /// Create an instance of this type.
+    ///
+    /// Safety: The memory must point to a region large enough to fit [`Self::layout()`]
+    /// that can safely be overwritten
+    pub unsafe fn create_instance_in_place(self: Rc<Self>, mem: *mut Instance<'id>) {
+        // Safety: the TypeInfo invariant means that the constructor can be called
+        let mem = mem as *mut u8;
+        std::ptr::write(mem as *mut Rc<_>, self.clone());
+        for f in &self.fields {
+            if let Some(ctor) = f.construct {
+                ctor(mem.add(f.offset));
             }
-            InstanceBox(core::ptr::NonNull::new_unchecked(mem as *mut Instance))
         }
     }
 
     /// Drop and free the memory of this instance
     ///
-    /// Saferty, the instance must have been created by `TypeInfo::create_instance`
-    unsafe fn delete_instance(instance: *mut Instance) {
+    /// Saferty, the instance must have been created by `TypeInfo::create_instance_in_place`
+    pub unsafe fn drop_in_place(instance: *mut Instance) {
         let type_info = (*instance).type_info.clone();
         let mem = instance as *mut u8;
         for f in &type_info.fields {
@@ -158,7 +167,20 @@ impl<'id> TypeInfo<'id> {
                 dtor(mem.add(f.offset));
             }
         }
-        std::alloc::dealloc(mem, type_info.mem_layout);
+    }
+
+    /// Drop and free the memory of this instance
+    ///
+    /// Saferty, the instance must have been created by `TypeInfo::create_instance`
+    unsafe fn delete_instance(instance: *mut Instance) {
+        let mem_layout = (*instance).type_info.mem_layout;
+        Self::drop_in_place(instance);
+        let mem = instance as *mut u8;
+        std::alloc::dealloc(mem, mem_layout);
+    }
+
+    pub fn layout(&self) -> core::alloc::Layout {
+        self.mem_layout
     }
 }
 
@@ -167,6 +189,13 @@ impl<'id> TypeInfo<'id> {
 pub struct Instance<'id> {
     type_info: Rc<TypeInfo<'id>>,
     _opaque: [u8; 0],
+}
+
+impl<'id> Instance<'id> {
+    /// return the TypeInfo which build this instance
+    pub fn type_info(&self) -> Rc<TypeInfo<'id>> {
+        self.type_info.clone()
+    }
 }
 
 impl<'id> core::fmt::Debug for Instance<'id> {

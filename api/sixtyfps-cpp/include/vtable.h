@@ -9,11 +9,21 @@
 LICENSE END */
 #pragma once
 
+#include <cstddef>
+#include <new>
+
+namespace vtable {
+
 template<typename T>
 struct VRefMut
 {
     const T *vtable;
     void *instance;
+};
+
+struct Layout {
+    std::size_t size;
+    std::align_val_t align;
 };
 
 // For the C++'s purpose, they are all the same
@@ -45,5 +55,8 @@ template<typename Base, typename T, typename Flag = void>
 struct VOffset
 {
     const T *vtable;
-    uintptr_t offset;
+    std::uintptr_t offset;
 };
+
+
+}
