@@ -18,7 +18,7 @@ use super::*;
 ///
 /// It is implemented if the macro has a "drop_in_place" function.
 pub unsafe trait VTableMetaDropInPlace: VTableMeta {
-    /// Safety: the Target needs to be pointing to a valid allocated pointer
+    /// Safety: the target ptr argument needs to be pointing to a valid allocated pointer
     unsafe fn drop_in_place(vtable: &Self::VTable, ptr: *mut u8) -> vrc::Layout;
     unsafe fn dealloc(vtable: &Self::VTable, ptr: *mut u8, layout: vrc::Layout);
 }
@@ -188,7 +188,7 @@ impl<T: VTableMetaDropInPlace + 'static> Drop for VWeak<T> {
 }
 
 impl<T: VTableMetaDropInPlace> VWeak<T> {
-    /// Retruns the `VRc` if there is still reference count to this item.
+    /// Returns a new `VRc` if some other instance still holds a strong reference to this item.
     /// Otherwise, returns None.
     pub fn upgrade(&self) -> Option<VRc<T>> {
         if let Some(i) = self.inner {
