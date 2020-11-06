@@ -452,10 +452,14 @@ export ComboBox := Rectangle {
     minimum_width: 170px;
 
     HorizontalLayout {
-        padding: root.border_radius;
+        padding-top: root.border_radius + 8px;
+        padding-bottom: root.border_radius + 8px;
+        padding-left: root.border_radius + 8px;
+        padding-right: root.border_radius + 8px;
+
         t := Text {
             text <=> root.current_value;
-            horizontal_alignment: align_center;
+            horizontal_alignment: align_left;
             vertical_alignment: align_center;
             color: root.enabled ? Palette.text_color : Palette.text_color_disabled;
             horizontal-stretch: 1;
