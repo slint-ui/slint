@@ -393,7 +393,7 @@ export ScrollView := Rectangle {
         height: parent.height - hbar.height -1px;
     }
     vbar := ScrollBar {
-        width: 20px;
+        width: 16px;
         x: fli.width + fli.x;
         height: fli.height + fli.y;
         horizontal: false;
@@ -401,7 +401,7 @@ export ScrollView := Rectangle {
         page_size: fli.height;
     }
     hbar := ScrollBar {
-        height: 20px;
+        height: 16px;
         y: fli.height + fli.y;
         width: fli.width + fli.x;
         horizontal: true;
