@@ -14,7 +14,7 @@ global Palette := {
     property<color> text_color_disabled: lightgray;
     property<color> text_color_secondary: #111;
     property<color> button_background: #aaa;
-    property<color> highlight_background: #556884;
+    property<color> highlight_background: #2b60ae;
     property<color> placeholder_text: #ccc;
     property<color> border_color: #d0d3cf;
     property<color> base_background_color: white;
