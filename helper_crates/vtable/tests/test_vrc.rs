@@ -40,14 +40,27 @@ fn rc_test() {
     let rc = VRc::new(SomeStruct { e: 42, x: "44".into(), foo: string.clone() });
     let string_copy = rc.borrow().rc_string();
     assert!(Rc::ptr_eq(&string, &string_copy));
+    assert_eq!(rc.strong_count(), 1);
     drop(string_copy);
     let w = rc.downgrade();
+    assert_eq!(rc.strong_count(), 1);
     {
         let rc2 = w.upgrade().unwrap();
         let string_copy = rc2.borrow().rc_string();
         assert!(Rc::ptr_eq(&string, &string_copy));
+        assert_eq!(rc.strong_count(), 2);
+        assert!(VRc::ptr_eq(&rc, &rc2));
+        // one in `string`, one in `string_copy`, one in the shared region.
+        assert_eq!(Rc::strong_count(&string), 3);
     }
+    assert_eq!(rc.strong_count(), 1); // just the one in `string`
     drop(rc);
     assert_eq!(Rc::strong_count(&string), 1);
     assert!(w.upgrade().is_none());
+
+    let rc = VRc::new(SomeStruct { e: 55, x: "_".into(), foo: string.clone() });
+    assert_eq!(Rc::strong_count(&string), 2);
+    assert_eq!(rc.strong_count(), 1);
+    drop(rc);
+    assert_eq!(Rc::strong_count(&string), 1);
 }

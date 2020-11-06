@@ -48,8 +48,13 @@ impl core::convert::TryFrom<Layout> for core::alloc::Layout {
 #[repr(C)]
 struct VRcInner<'vt, T: VTableMeta, X> {
     vtable: &'vt T::VTable,
+    /// The amount of VRc pointing to this object. When it reaches 0, the object will be droped
     strong_ref: Cell<u32>,
+    /// The amount of VWeak +1. When it reaches 0, the memory will be deallocated.
+    /// The +1 is there such as all the VRc together hold a weak reference to the memory
     weak_ref: Cell<u32>,
+    /// Actual data, or an instance of `Self::Layout` iff `strong_ref == 0`.
+    /// Can be seen as `union {data: X, layout: Layout}`  (but that's not stable)
     data: X,
 }
 
@@ -96,10 +101,11 @@ impl<T: VTableMetaDropInPlace> VRc<T> {
     /// the #[vtable] macro)
     pub fn new<X: HasStaticVTable<T>>(data: X) -> Self {
         let layout = core::alloc::Layout::new::<VRcInner<T, X>>();
-        let other = core::alloc::Layout::new::<VRcInner<T, Layout>>();
+        // We must ensure the size is enough to hold a Layout when stonr_count becomes 0
+        let layout_with_layout = core::alloc::Layout::new::<VRcInner<T, Layout>>();
         let layout = core::alloc::Layout::from_size_align(
-            layout.size().max(other.size()),
-            layout.align().max(other.align()),
+            layout.size().max(layout_with_layout.size()),
+            layout.align().max(layout_with_layout.align()),
         )
         .unwrap();
         let mem = unsafe { std::alloc::alloc(layout) as *mut VRcInner<T, X> };
@@ -110,7 +116,7 @@ impl<T: VTableMetaDropInPlace> VRc<T> {
             mem.write(VRcInner {
                 vtable: X::static_vtable(),
                 strong_ref: Cell::new(1),
-                weak_ref: Cell::new(1),
+                weak_ref: Cell::new(1), // All the VRc together hold a weak_ref to the memory
                 data,
             });
             VRc { inner: inner.cast() }
@@ -138,6 +144,16 @@ impl<T: VTableMetaDropInPlace> VRc<T> {
         let inner = unsafe { self.inner.as_ref() };
         inner.weak_ref.set(inner.weak_ref.get() + 1);
         VWeak { inner: Some(self.inner) }
+    }
+
+    /// Gets the number of strong (VRc) pointers to this allocation.
+    pub fn strong_count(&self) -> usize {
+        unsafe { self.inner.as_ref().strong_ref.get() as usize }
+    }
+
+    /// Returns true if the two VRc's point to the same allocation
+    pub fn ptr_eq(this: &Self, other: &Self) -> bool {
+        this.inner == other.inner
     }
 }
 
@@ -179,6 +195,8 @@ impl<T: VTableMetaDropInPlace + 'static> Drop for VWeak<T> {
             if inner.weak_ref.get() == 0 {
                 let vtable = inner.vtable;
                 unsafe {
+                    // Safety: while allocating, we made sure that the size was big enough to
+                    // hold a VRcInner<T, Layout>.
                     let layout = i.cast::<VRcInner<T, Layout>>().as_ref().data;
                     T::dealloc(vtable, i.cast().as_ptr(), layout);
                 }
