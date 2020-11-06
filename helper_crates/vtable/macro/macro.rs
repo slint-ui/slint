@@ -78,11 +78,13 @@ For function type fields:
   marked unsafe, the unsafety is forwarded to the trait.
  - If a field is called `drop`, then it is understood that this is the destructor for a VBox.
    It must have the type `fn(VRefMut<MyVTable>)`
- - If a field is called `drop_in_place`, then it is understood as the in place destructor.
-   It must have the signature `fn(VRefMut<MyVTable>) -> Layout`
-   The returned layout will be passed to the deallocate function
- - If a field is called `dealloc`, then it is a deallocation function.
-   It must have the signature `fn(&MyVTable, ptr: *mut u8, layout: Layout)`
+ - If two fields called `drop_in_place` and `dealloc` are present, then they are understood to be
+    in-place destructors and deallocation functions. `drop_in_place` must have the signature
+    `fn(VRefMut<MyVTable> -> Layout`, and `dealloc` must have the signature
+    `fn(&MyVTable, ptr: *mut u8, layout: Layout)`.
+    `drop_in_place` is responsible for destructing the object and returning the memory layout that
+    was used for the initial allocation. It will be passed to `dealloc`, which is responsible for releasing
+    the memory. These two functions are used to enable the use of `VRc` and `VWeak`.
  - If the first argument of the function is `VRef<MyVTable>` or `VRefMut<MyVTable>`, then it is
    understood as a `&self` or `&mut self` argument in the trait.
  - Similarly, if it is a `Pin<VRef<MyVTable>>` or `Pin<VRefMut<MyVTable>>`, self is mapped
