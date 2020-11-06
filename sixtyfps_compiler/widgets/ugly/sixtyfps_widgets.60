@@ -464,6 +464,7 @@ export ComboBox := Rectangle {
             text:"▼";
             color: root.enabled ? Palette.text_color : Palette.text_color_disabled;
             horizontal-stretch: 0;
+            vertical-alignment: align_center;
         }
     }
 
