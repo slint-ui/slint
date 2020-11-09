@@ -42,10 +42,10 @@ export const sixtyfps_language = <monaco.languages.IMonarchLanguage>{
             [/@symbols/, ''],
         ],
         inner: [
-            [/[a-zA-Z_][a-zA-Z0-9_]*\s*:=/, 'variable.parameter'],
-            [/[a-zA-Z_][a-zA-Z0-9_]*\s*:\s*\{/, 'variable.parameter', '@binding_1'],
-            [/[a-zA-Z_][a-zA-Z0-9_]*\s*:/, 'variable.parameter', '@binding_0'],
-            [/[a-zA-Z_][a-zA-Z0-9_]*/, {
+            [/[a-zA-Z_][a-zA-Z0-9_\-]*\s*:=/, 'variable.parameter'],
+            [/[a-zA-Z_][a-zA-Z0-9_\-]*\s*:\s*\{/, 'variable.parameter', '@binding_1'],
+            [/[a-zA-Z_][a-zA-Z0-9_\-]*\s*:/, 'variable.parameter', '@binding_0'],
+            [/[a-zA-Z_][a-zA-Z0-9_\-]*/, {
                 cases: {
                     '@inner_keywords': { token: 'keyword' },
                     '@default': 'identifier'
