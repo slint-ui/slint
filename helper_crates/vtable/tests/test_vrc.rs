@@ -69,6 +69,7 @@ fn rc_test() {
     assert_eq!(Rc::strong_count(&string), 1);
 }
 
+#[test]
 fn rc_dyn_test() {
     let string = Rc::new("hello".to_string());
     let origin = VRc::new(SomeStruct { e: 42, x: "44".into(), foo: string.clone() });

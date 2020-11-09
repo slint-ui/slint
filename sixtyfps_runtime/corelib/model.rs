@@ -23,6 +23,7 @@ use crate::items::ItemRef;
 use crate::Property;
 
 type ModelPeerInner = dyn ViewAbstraction;
+type ComponentRc<C> = vtable::VRc<crate::component::ComponentVTable, C>;
 
 /// Represent a handle to a view that listen to change to a model. See [`Model::attach_peer`] and [`ModelNotify`]
 #[derive(Clone)]
@@ -241,7 +242,7 @@ enum RepeatedComponentState {
     Dirty,
 }
 struct RepeaterInner<C: RepeatedComponent> {
-    components: Vec<(RepeatedComponentState, Option<Pin<Rc<C>>>)>,
+    components: Vec<(RepeatedComponentState, Option<ComponentRc<C>>)>,
     is_dirty: bool,
     /// The model row (index) of the first component in the `components` vector.
     /// Only used for ListView
@@ -367,7 +368,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
 
     /// Call this function to make sure that the model is updated.
     /// The init function is the function to create a component
-    pub fn ensure_updated(self: Pin<&Self>, init: impl Fn() -> Pin<Rc<C>>) {
+    pub fn ensure_updated(self: Pin<&Self>, init: impl Fn() -> ComponentRc<C>) {
         if let ModelHandle(Some(model)) = self.model() {
             if self.inner.borrow().borrow().is_dirty {
                 self.ensure_updated_impl(init, &model, model.row_count());
@@ -379,7 +380,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
     // returns true if new items were created
     fn ensure_updated_impl(
         self: Pin<&Self>,
-        init: impl Fn() -> Pin<Rc<C>>,
+        init: impl Fn() -> ComponentRc<C>,
         model: &Rc<dyn Model<Data = C::Data>>,
         count: usize,
     ) -> bool {
@@ -405,7 +406,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
     /// Same as `Self::ensuer_updated` but for a ListView
     pub fn ensure_updated_listview(
         self: Pin<&Self>,
-        init: impl Fn() -> Pin<Rc<C>>,
+        init: impl Fn() -> ComponentRc<C>,
         viewport_width: Pin<&Property<f32>>,
         viewport_height: Pin<&Property<f32>>,
         viewport_y: Pin<&Property<f32>>,
@@ -451,8 +452,8 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
 
                 for c in self.inner.borrow().borrow().components.iter() {
                     c.1.as_ref().map(|x| {
-                        x.as_ref().apply_layout(Default::default());
-                        x.as_ref().visit_children_item(-1, crate::item_tree::TraversalOrder::FrontToBack, get_height_visitor.borrow_mut());
+                        x.as_pin_ref().apply_layout(Default::default());
+                        x.as_pin_ref().visit_children_item(-1, crate::item_tree::TraversalOrder::FrontToBack, get_height_visitor.borrow_mut());
                     });
                 }
 
@@ -470,8 +471,8 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
                     self.ensure_updated_impl(&init, &model, 1);
                     if let Some(c) = self.inner.borrow().borrow().components.get(0) {
                         c.1.as_ref().map(|x| {
-                            x.as_ref().apply_layout(Default::default());
-                            x.as_ref().visit_children_item(-1, crate::item_tree::TraversalOrder::FrontToBack, get_height_visitor);
+                            x.as_pin_ref().apply_layout(Default::default());
+                            x.as_pin_ref().visit_children_item(-1, crate::item_tree::TraversalOrder::FrontToBack, get_height_visitor);
                         });
                     } else {
                         panic!("Could not determine size of items");
@@ -553,7 +554,8 @@ impl<C: RepeatedComponent> Repeater<C> {
         for i in 0..count {
             let c = self.inner.borrow().borrow().components.get(i).and_then(|c| c.1.clone());
             if let Some(c) = c {
-                if c.as_ref().visit_children_item(-1, order, visitor.borrow_mut()).has_aborted() {
+                if c.as_pin_ref().visit_children_item(-1, order, visitor.borrow_mut()).has_aborted()
+                {
                     return crate::item_tree::VisitChildrenResult::abort(i, 0);
                 }
             }
@@ -570,7 +572,7 @@ impl<C: RepeatedComponent> Repeater<C> {
         app_component: &ComponentRefPin,
     ) -> crate::input::InputEventResult {
         let c = self.inner.borrow().borrow().components[idx].1.clone();
-        c.map_or(Default::default(), |c| c.as_ref().input_event(event, window, app_component))
+        c.map_or(Default::default(), |c| c.as_pin_ref().input_event(event, window, app_component))
     }
 
     /// Forward a key event to a particular item
@@ -582,7 +584,7 @@ impl<C: RepeatedComponent> Repeater<C> {
     ) -> crate::input::KeyEventResult {
         let c = self.inner.borrow().borrow().components[idx].1.clone();
         c.map_or(crate::input::KeyEventResult::EventIgnored, |c| {
-            c.as_ref().key_event(event, window)
+            c.as_pin_ref().key_event(event, window)
         })
     }
 
@@ -595,7 +597,7 @@ impl<C: RepeatedComponent> Repeater<C> {
     ) -> crate::input::FocusEventResult {
         let c = self.inner.borrow().borrow().components[idx].1.clone();
         c.map_or(crate::input::FocusEventResult::FocusItemNotFound, |c| {
-            c.as_ref().focus_event(event, window)
+            c.as_pin_ref().focus_event(event, window)
         })
     }
 
@@ -605,14 +607,14 @@ impl<C: RepeatedComponent> Repeater<C> {
     }
 
     /// Returns a vector containing all components
-    pub fn components_vec(&self) -> Vec<Pin<Rc<C>>> {
+    pub fn components_vec(&self) -> Vec<ComponentRc<C>> {
         self.inner.borrow().borrow().components.iter().flat_map(|x| x.1.clone()).collect()
     }
 
     /// Recompute the layout of each child elements
     pub fn compute_layout(&self) {
         for c in self.inner.borrow().borrow().components.iter() {
-            c.1.as_ref().map(|x| x.as_ref().apply_layout(Default::default()));
+            c.1.as_ref().map(|x| x.as_pin_ref().apply_layout(Default::default()));
         }
     }
 
@@ -627,7 +629,7 @@ impl<C: RepeatedComponent> Repeater<C> {
         let mut y_offset = inner.offset as f32 * inner.cached_item_height;
         viewport_width.set(listview_width);
         for c in self.inner.borrow().borrow().components.iter() {
-            c.1.as_ref().map(|x| x.as_ref().listview_layout(&mut y_offset, viewport_width));
+            c.1.as_ref().map(|x| x.as_pin_ref().listview_layout(&mut y_offset, viewport_width));
         }
     }
 }

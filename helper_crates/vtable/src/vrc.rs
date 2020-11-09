@@ -50,7 +50,7 @@ impl core::convert::TryFrom<Layout> for core::alloc::Layout {
 }
 
 #[repr(C)]
-struct VRcInner<'vt, VTable: VTableMeta, X> {
+struct VRcInner<'vt, VTable: VTableMeta, X: ?Sized> {
     vtable: &'vt VTable::VTable,
     /// The amount of VRc pointing to this object. When it reaches 0, the object will be droped
     strong_ref: Cell<u32>,
@@ -74,11 +74,11 @@ struct VRcInner<'vt, VTable: VTableMeta, X> {
 /// safe to get a Pin reference with `borrow_pin`.
 /// - It is safe to pass it accross ffi boundaries.
 #[repr(transparent)]
-pub struct VRc<VTable: VTableMetaDropInPlace + 'static, X = Dyn> {
+pub struct VRc<VTable: VTableMetaDropInPlace + 'static, X: ?Sized = Dyn> {
     inner: NonNull<VRcInner<'static, VTable, X>>,
 }
 
-impl<VTable: VTableMetaDropInPlace + 'static, X> Drop for VRc<VTable, X> {
+impl<VTable: VTableMetaDropInPlace + 'static, X: ?Sized> Drop for VRc<VTable, X> {
     fn drop(&mut self) {
         unsafe {
             let inner = self.inner.as_ref();
@@ -140,7 +140,14 @@ impl<VTable: VTableMetaDropInPlace, X: HasStaticVTable<VTable>> VRc<VTable, X> {
     }
 }
 
-impl<VTable: VTableMetaDropInPlace, X> VRc<VTable, X> {
+impl<VTable: VTableMetaDropInPlace, X: ?Sized> VRc<VTable, X> {
+    /// Create a Pinned reference to the inner.
+    ///
+    /// This is safe because we don't allow mutable reference to the inner
+    pub fn as_pin_ref(&self) -> Pin<&X> {
+        unsafe { Pin::new_unchecked(&*self) }
+    }
+
     /// Gets a VRef pointing to this instance
     pub fn borrow<'b>(this: &'b Self) -> VRef<'b, VTable> {
         unsafe {
@@ -178,7 +185,7 @@ impl<VTable: VTableMetaDropInPlace, X> VRc<VTable, X> {
     }
 }
 
-impl<VTable: VTableMetaDropInPlace + 'static, X> Clone for VRc<VTable, X> {
+impl<VTable: VTableMetaDropInPlace + 'static, X: ?Sized> Clone for VRc<VTable, X> {
     fn clone(&self) -> Self {
         let inner = unsafe { self.inner.as_ref() };
         inner.strong_ref.set(inner.strong_ref.get() + 1);
@@ -186,9 +193,10 @@ impl<VTable: VTableMetaDropInPlace + 'static, X> Clone for VRc<VTable, X> {
     }
 }
 
-impl<VTable: VTableMetaDropInPlace, X: HasStaticVTable<VTable>> Deref for VRc<VTable, X> {
+impl<VTable: VTableMetaDropInPlace, X: ?Sized /*+ HasStaticVTable<VTable>*/> Deref
+    for VRc<VTable, X>
+{
     type Target = X;
-
     fn deref(&self) -> &Self::Target {
         let inner = unsafe { self.inner.as_ref() };
         &inner.data
@@ -203,9 +211,14 @@ impl<VTable: VTableMetaDropInPlace, X: HasStaticVTable<VTable>> Deref for VRc<VT
 /// Can be constructed with [`VRc::downgrade`] and use [`VWeak::upgrade`]
 /// to re-create the original VRc.
 #[repr(transparent)]
-#[derive(Default)]
-pub struct VWeak<VTable: VTableMetaDropInPlace + 'static, X = Dyn> {
+pub struct VWeak<VTable: VTableMetaDropInPlace + 'static, X: ?Sized = Dyn> {
     inner: Option<NonNull<VRcInner<'static, VTable, X>>>,
+}
+
+impl<VTable: VTableMetaDropInPlace + 'static, X> Default for VWeak<VTable, X> {
+    fn default() -> Self {
+        Self { inner: None }
+    }
 }
 
 impl<VTable: VTableMetaDropInPlace + 'static, X> Clone for VWeak<VTable, X> {
@@ -218,7 +231,7 @@ impl<VTable: VTableMetaDropInPlace + 'static, X> Clone for VWeak<VTable, X> {
     }
 }
 
-impl<T: VTableMetaDropInPlace + 'static, X> Drop for VWeak<T, X> {
+impl<T: VTableMetaDropInPlace + 'static, X: ?Sized> Drop for VWeak<T, X> {
     fn drop(&mut self) {
         if let Some(i) = self.inner {
             let inner = unsafe { i.as_ref() };

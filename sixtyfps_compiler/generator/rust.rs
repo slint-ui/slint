@@ -8,6 +8,9 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 /*! module for the Rust code generator
+
+Some convention used in the generated code:
+ - `_self` is of type `Pin<&ComponentType>`  where ComponentType is the type of the generated component
 */
 
 use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic, Level, Spanned};
@@ -138,16 +141,15 @@ fn handle_property_binding(
     binding_expression: &Expression,
     init: &mut Vec<TokenStream>,
 ) {
-    let rust_property =
-        access_member(item_rc, prop_name, component, quote!(self_pinned.as_ref()), false);
+    let rust_property = access_member(item_rc, prop_name, component, quote!(_self), false);
     if matches!(item_rc.borrow().lookup_property(prop_name), Type::Signal{..}) {
         let tokens_for_expression = compile_expression(binding_expression, &component);
         init.push(quote!(
             #rust_property.set_handler({
-                let self_weak = sixtyfps::re_exports::PinWeak::downgrade(self_pinned.clone());
+                let self_weak = sixtyfps::re_exports::VRc::downgrade(&self_pinned);
                 move |args| {
                     let self_pinned = self_weak.upgrade().unwrap();
-                    let _self = self_pinned.as_ref();
+                    let _self = self_pinned.as_pin_ref();
                     #tokens_for_expression;
                 }
             });
@@ -157,7 +159,7 @@ fn handle_property_binding(
             &nr.element.upgrade().unwrap(),
             &nr.name,
             component,
-            quote!(self_pinned.as_ref()),
+            quote!(_self),
             false,
         );
         init.push(quote!(
@@ -176,10 +178,10 @@ fn handle_property_binding(
                 &item_rc,
                 prop_name,
                 quote!({
-                    let self_weak = sixtyfps::re_exports::PinWeak::downgrade(self_pinned.clone());
+                    let self_weak = sixtyfps::re_exports::VRc::downgrade(&self_pinned);
                     move || {
                         let self_pinned = self_weak.upgrade().unwrap();
-                        let _self = self_pinned.as_ref();
+                        let _self = self_pinned.as_pin_ref();
                         (#tokens_for_expression) as _
                     }
                 }),
@@ -430,45 +432,29 @@ fn generate_component(
             // FIXME: there could be an optimization if `repeated.model.is_constant()`, we don't need a binding
             init.push(quote! {
                 self_pinned.#repeater_id.set_model_binding({
-                    let self_weak = sixtyfps::re_exports::PinWeak::downgrade(self_pinned.clone());
+                    let self_weak = sixtyfps::re_exports::VRc::downgrade(&self_pinned);
                     move || {
                         let self_pinned = self_weak.upgrade().unwrap();
-                        let _self = self_pinned.as_ref();
+                        let _self = self_pinned.as_pin_ref();
                         (#model) as _
                     }
                 });
             });
 
             if let Some(listview) = &repeated.is_listview {
-                let vp_y = access_named_reference(
-                    &listview.viewport_y,
-                    component,
-                    quote!(self_pinned.as_ref()),
-                );
-                let vp_h = access_named_reference(
-                    &listview.viewport_height,
-                    component,
-                    quote!(self_pinned.as_ref()),
-                );
-                let lv_h = access_named_reference(
-                    &listview.listview_height,
-                    component,
-                    quote!(self_pinned.as_ref()),
-                );
-                let vp_w = access_named_reference(
-                    &listview.viewport_width,
-                    component,
-                    quote!(self_pinned.as_ref()),
-                );
-                let lv_w = access_named_reference(
-                    &listview.listview_width,
-                    component,
-                    quote!(self_pinned.as_ref()),
-                );
+                let vp_y = access_named_reference(&listview.viewport_y, component, quote!(_self));
+                let vp_h =
+                    access_named_reference(&listview.viewport_height, component, quote!(_self));
+                let lv_h =
+                    access_named_reference(&listview.listview_height, component, quote!(_self));
+                let vp_w =
+                    access_named_reference(&listview.viewport_width, component, quote!(_self));
+                let lv_w =
+                    access_named_reference(&listview.listview_width, component, quote!(_self));
 
                 let ensure_updated = quote! {
                     #component_id::FIELD_OFFSETS.#repeater_id.apply_pin(self_pinned).ensure_updated_listview(
-                        || { #rep_component_id::new(self_pinned.self_weak.get().unwrap().clone()) },
+                        || { #rep_component_id::new(self_pinned.self_weak.get().unwrap().clone()).into() },
                         #vp_w, #vp_h, #vp_y, #lv_w.get(), #lv_h
                     );
                 };
@@ -487,7 +473,7 @@ fn generate_component(
                 repeated_visit_branch.push(quote!(
                     #repeater_index => {
                         #component_id::FIELD_OFFSETS.#repeater_id.apply_pin(self_pinned).ensure_updated(
-                                || { #rep_component_id::new(self_pinned.self_weak.get().unwrap().clone()) }
+                                || { #rep_component_id::new(self_pinned.self_weak.get().unwrap().clone()).into() }
                             );
                         self_pinned.#repeater_id.visit(order, visitor)
                     }
@@ -588,24 +574,19 @@ fn generate_component(
 
         let root_elem = component.root_element.borrow();
         let root_item_name = format_ident!("{}", root_elem.id);
-        property_and_signal_accessors.push(quote! {
-            pub fn run(self : core::pin::Pin<std::rc::Rc<Self>>) {
-                use sixtyfps::re_exports::*;
-                let root_item = Self::FIELD_OFFSETS.#root_item_name.apply_pin(self.as_ref());
-                self.as_ref().window.run(VRef::new_pin(self.as_ref()), VRef::new_pin(root_item));
-            }
-        });
-        property_and_signal_accessors.push(quote! {
-            pub fn as_weak(self: core::pin::Pin<std::rc::Rc<Self>>) -> sixtyfps::re_exports::PinWeak<Self> {
-                sixtyfps::re_exports::PinWeak::downgrade(self)
-            }
-        });
         visibility = Some(quote!(pub));
 
         has_window_impl = Some(quote!(
             impl sixtyfps::testing::HasWindow for #component_id {
                 fn component_window(&self) -> &sixtyfps::re_exports::ComponentWindow {
                     &self.window
+                }
+            }
+            impl sixtyfps::Component for #component_id {
+                fn run(self: ::core::pin::Pin<&Self>) {
+                    use sixtyfps::re_exports::*;
+                    let root_item = Self::FIELD_OFFSETS.#root_item_name.apply_pin(self);
+                    self.as_ref().window.run(VRef::new_pin(self.as_ref()), VRef::new_pin(root_item));
                 }
             }
         ))
@@ -630,9 +611,9 @@ fn generate_component(
                     parent
                 } else {
                     return;
-                }.as_ref());
+                });
             }
-            quote!(#component_rust.as_ref().window)
+            quote!(#component_rust.window)
         };
 
         (
@@ -675,6 +656,7 @@ fn generate_component(
                 return sixtyfps::re_exports::visit_item_tree(self, VRef::new_pin(self), Self::item_tree(), index, order, visitor, visit_dynamic);
                 #[allow(unused)]
                 fn visit_dynamic(self_pinned: ::core::pin::Pin<&#component_id>, order: sixtyfps::re_exports::TraversalOrder, visitor: ItemVisitorRefMut, dyn_index: usize) -> VisitChildrenResult  {
+                    let _self = self_pinned;
                     match dyn_index {
                         #(#repeated_visit_branch)*
                         _ => panic!("invalid dyn_index {}", dyn_index),
@@ -786,6 +768,27 @@ fn generate_component(
         .map(|g| (format_ident!("global_{}", g.id), self::component_id(g)))
         .unzip();
 
+    let new_code = if !component.is_global() {
+        quote! {
+            let self_pinned = VRc::new(self_);
+            self_pinned.self_weak.set(VRc::downgrade(&self_pinned)).map_err(|_|())
+                .expect("Can only be pinned once");
+            let _self = self_pinned.as_pin_ref();
+        }
+    } else {
+        quote! {
+            let self_pinned = ::std::rc::Rc::pin(self_);
+            let _self = self_pinned.as_ref();
+        }
+    };
+    let self_weak = if !component.is_global() { Some(quote!(self_weak)) } else { None };
+    let self_weak = self_weak.into_iter().collect::<Vec<_>>();
+    let component_handle = if !component.is_global() {
+        quote!(sixtyfps::ComponentHandle<Self>)
+    } else {
+        quote!(::core::pin::Pin<::std::rc::Rc<Self>>)
+    };
+
     Some(quote!(
         #(#resource_symbols)*
 
@@ -798,8 +801,8 @@ fn generate_component(
             #(#declared_property_vars : sixtyfps::re_exports::Property<#declared_property_types>,)*
             #(#declared_signals : sixtyfps::re_exports::Signal<(#(#declared_signals_types,)*)>,)*
             #(#repeated_element_names : sixtyfps::re_exports::Repeater<#repeated_element_components>,)*
-            self_weak: sixtyfps::re_exports::OnceCell<sixtyfps::re_exports::PinWeak<#component_id>>,
-            #(parent : sixtyfps::re_exports::PinWeak<#parent_component_type>,)*
+            #(#self_weak : sixtyfps::re_exports::OnceCell<sixtyfps::re_exports::VWeak<sixtyfps::re_exports::ComponentVTable, #component_id>>,)*
+            #(parent : sixtyfps::re_exports::VWeak<sixtyfps::re_exports::ComponentVTable, #parent_component_type>,)*
             mouse_grabber: ::core::cell::Cell<sixtyfps::re_exports::VisitChildrenResult>,
             focus_item: ::core::cell::Cell<sixtyfps::re_exports::VisitChildrenResult>,
             #(#global_name : ::core::pin::Pin<::std::rc::Rc<#global_type>>,)*
@@ -809,8 +812,8 @@ fn generate_component(
         #component_impl
 
         impl #component_id{
-            pub fn new(#(parent: sixtyfps::re_exports::PinWeak::<#parent_component_type>)*)
-                -> core::pin::Pin<std::rc::Rc<Self>>
+            pub fn new(#(parent: sixtyfps::re_exports::VWeak::<sixtyfps::re_exports::ComponentVTable, #parent_component_type>)*)
+                -> #component_handle
             {
                 #![allow(unused)]
                 use sixtyfps::re_exports::*;
@@ -819,19 +822,16 @@ fn generate_component(
                     #(#declared_property_vars : ::core::default::Default::default(),)*
                     #(#declared_signals : ::core::default::Default::default(),)*
                     #(#repeated_element_names : ::core::default::Default::default(),)*
-                    self_weak : ::core::default::Default::default(),
-                    #(parent : parent as sixtyfps::re_exports::PinWeak::<#parent_component_type>,)*
+                    #(#self_weak : ::core::default::Default::default(),)*
+                    #(parent : parent as sixtyfps::re_exports::VWeak::<sixtyfps::re_exports::ComponentVTable, #parent_component_type>,)*
                     mouse_grabber: ::core::cell::Cell::new(sixtyfps::re_exports::VisitChildrenResult::CONTINUE),
                     focus_item: ::core::cell::Cell::new(sixtyfps::re_exports::VisitChildrenResult::CONTINUE),
                     #(#global_name : #global_type::new(),)*
                     #maybe_window_field_init
                 };
-                let self_pinned = std::rc::Rc::pin(self_);
-                self_pinned.self_weak.set(PinWeak::downgrade(self_pinned.clone())).map_err(|_|())
-                    .expect("Can only be pinned once");
-                let _self = self_pinned.as_ref();
+                #new_code
                 #(#init)*
-                self_pinned
+                self_pinned.into()
             }
             #(#property_and_signal_accessors)*
 
@@ -955,10 +955,10 @@ fn access_member(
         let mut component_rust = component_rust;
         while let Some(p) = root_component.parent_element.upgrade() {
             root_component = p.borrow().enclosing_component.upgrade().unwrap();
-            component_rust = quote!(#component_rust.parent.upgrade().unwrap().as_ref());
+            component_rust = quote!(#component_rust.parent.upgrade().unwrap().as_pin_ref());
         }
         let global_id = format_ident!("global_{}", enclosing_component.id);
-        let global_comp = quote!(#component_rust.as_ref().#global_id.as_ref());
+        let global_comp = quote!(#component_rust.#global_id.as_ref());
         access_member(element, name, &enclosing_component, global_comp, is_special)
     } else {
         access_member(
@@ -972,7 +972,7 @@ fn access_member(
                 .enclosing_component
                 .upgrade()
                 .unwrap(),
-            quote!(#component_rust.parent.upgrade().unwrap().as_ref()),
+            quote!(#component_rust.parent.upgrade().unwrap().as_pin_ref()),
             is_special,
         )
     }
@@ -993,9 +993,9 @@ fn window_ref_expression(component: &Rc<Component>) -> TokenStream {
     let mut component_rust = quote!(_self);
     while let Some(p) = root_component.parent_element.upgrade() {
         root_component = p.borrow().enclosing_component.upgrade().unwrap();
-        component_rust = quote!(#component_rust.parent.upgrade().unwrap().as_ref());
+        component_rust = quote!(#component_rust.parent.upgrade().unwrap().as_pin_ref());
     }
-    quote!(#component_rust.as_ref().window)
+    quote!(#component_rust.window)
 }
 
 fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream {
@@ -1121,7 +1121,7 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                         let item = format_ident!("{}", focus_item.upgrade().unwrap().borrow().id);
                         let window_ref = window_ref_expression(component);
                         quote!(
-                            #window_ref.set_focus_item(VRef::new_pin(self_pinned.as_ref()), VRef::new_pin(Self::FIELD_OFFSETS.#item.apply_pin(self_pinned.as_ref())));
+                            #window_ref.set_focus_item(VRef::new_pin(self_pinned.as_pin_ref()), VRef::new_pin(Self::FIELD_OFFSETS.#item.apply_pin(self_pinned.as_pin_ref())));
                         )
                     } else {
                         panic!("internal error: argument to SetFocusItem must be an element")
@@ -1495,11 +1495,11 @@ impl crate::layout::gen::Language for RustLanguageLayoutGen {
                         push_code = quote! {
                             #push_code
                             #component_id::FIELD_OFFSETS.#repeater_id.apply_pin(self).ensure_updated(
-                                || { #rep_component_id::new(self.self_weak.get().unwrap().clone()) }
+                                || { #rep_component_id::new(self.self_weak.get().unwrap().clone()).into() }
                             );
                             let internal_vec = self.#repeater_id.components_vec();
                             for sub_comp in &internal_vec {
-                                items_vec.push(sub_comp.as_ref().box_layout_data())
+                                items_vec.push(sub_comp.as_pin_ref().box_layout_data())
                             }
                         }
                     }
@@ -1762,7 +1762,7 @@ impl<'a> LayoutTreeItem<'a> {
                             let e = path_layout_item_data(
                                 &root_element,
                                 quote!(sub_comp.#root_id),
-                                quote!(sub_comp.as_ref()),
+                                quote!(sub_comp.as_pin_ref()),
                             );
                             push_code = quote! {
                                 #push_code
@@ -1880,6 +1880,7 @@ fn compute_layout(
             #(#layouts)*
 
             let self_pinned = self;
+            let _self = self;
             #(#repeated_element_layouts)*
         }
     }

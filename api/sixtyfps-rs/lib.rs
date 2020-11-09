@@ -167,7 +167,6 @@ pub mod re_exports {
     pub use core::iter::FromIterator;
     pub use once_cell::sync::Lazy;
     pub use once_cell::unsync::OnceCell;
-    pub use pin_weak::rc::*;
     pub use sixtyfps_corelib::animations::EasingCurve;
     pub use sixtyfps_corelib::component::{
         init_component_items, Component, ComponentRefPin, ComponentVTable,
@@ -187,7 +186,6 @@ pub mod re_exports {
         TraversalOrder, VisitChildrenResult,
     };
     pub use sixtyfps_corelib::items::*;
-    pub use sixtyfps_corelib::layout::LayoutInfo;
     pub use sixtyfps_corelib::layout::*;
     pub use sixtyfps_corelib::model::*;
     pub use sixtyfps_corelib::properties::{Property, PropertyTracker};
@@ -206,6 +204,92 @@ pub mod re_exports {
 #[doc(hidden)]
 pub fn create_window() -> re_exports::ComponentWindow {
     sixtyfps_rendering_backend_default::create_window()
+}
+
+/// Trait implemented by the generated code
+pub trait Component: re_exports::HasStaticVTable<re_exports::ComponentVTable> {
+    /// Show this component and run the event loop
+    fn run(self: core::pin::Pin<&Self>);
+}
+
+/// Holds a strong reference to a component created from a .60 file.
+///
+/// The SixtyFPS compiler will generate component structure. The T type parameter
+/// is one of these structure.  In order to create a ComponentHandle, you would
+/// use the `T::new()` function, which returns a `ComponentHandle<T>`.
+///
+/// Internally, this is like a Rc pointer.
+/// You can get a weak pointer out of it using the `as_weak` function.
+pub struct ComponentHandle<T> {
+    inner: vtable::VRc<re_exports::ComponentVTable, T>,
+}
+
+impl<T> Clone for ComponentHandle<T> {
+    fn clone(&self) -> Self {
+        Self { inner: self.inner.clone() }
+    }
+}
+
+impl<T: Component> core::ops::Deref for ComponentHandle<T> {
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        &*self.inner
+    }
+}
+
+impl<T> From<vtable::VRc<re_exports::ComponentVTable, T>> for ComponentHandle<T> {
+    fn from(value: vtable::VRc<re_exports::ComponentVTable, T>) -> Self {
+        Self { inner: value }
+    }
+}
+
+impl<T> From<ComponentHandle<T>> for vtable::VRc<re_exports::ComponentVTable, T> {
+    fn from(value: ComponentHandle<T>) -> Self {
+        value.inner
+    }
+}
+
+impl<T: Component> ComponentHandle<T> {
+    /// Create a weak handle to this handle.
+    pub fn as_weak(&self) -> ComponentWeakHandle<T> {
+        ComponentWeakHandle { inner: vtable::VRc::downgrade(&self.inner) }
+    }
+    /// Returns a pinned reference to this component.
+    pub fn as_ref(&self) -> core::pin::Pin<&T> {
+        vtable::VRc::as_pin_ref(&self.inner)
+    }
+
+    /// Show this component and run the event loop
+    pub fn run(self) {
+        self.as_ref().run()
+    }
+}
+
+/// A weak handle to a component created from a .60 file.
+///
+/// One create a ComponentWeakHandle using the [`ComponentHandle::as_weak`] function, and one
+/// can get back the original ComponentHandle using the [`Self::upgrade`] function.
+pub struct ComponentWeakHandle<T> {
+    inner: vtable::VWeak<re_exports::ComponentVTable, T>,
+}
+
+impl<T> Clone for ComponentWeakHandle<T> {
+    fn clone(&self) -> Self {
+        Self { inner: self.inner.clone() }
+    }
+}
+
+impl<T> Default for ComponentWeakHandle<T> {
+    fn default() -> Self {
+        Self { inner: Default::default() }
+    }
+}
+
+impl<T> ComponentWeakHandle<T> {
+    /// Convert this weak pointer back to an actual
+    pub fn upgrade(&self) -> Option<ComponentHandle<T>> {
+        self.inner.upgrade().map(|inner| ComponentHandle { inner })
+    }
 }
 
 /// This module contains functions useful for unit tests

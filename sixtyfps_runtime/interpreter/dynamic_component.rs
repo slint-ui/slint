@@ -19,10 +19,12 @@ use sixtyfps_compilerlib::langtype::Type;
 use sixtyfps_compilerlib::layout::{Layout, LayoutConstraints, LayoutItem, PathLayout};
 use sixtyfps_compilerlib::*;
 use sixtyfps_corelib::component::{Component, ComponentRefPin, ComponentVTable};
-use sixtyfps_corelib::graphics::Resource;
-use sixtyfps_corelib::input::{FocusEventResult, KeyEventResult};
+use sixtyfps_corelib::graphics::{Rect, Resource};
+use sixtyfps_corelib::input::{
+    FocusEventResult, InputEventResult, KeyEvent, KeyEventResult, MouseEvent,
+};
 use sixtyfps_corelib::item_tree::{
-    ItemTreeNode, ItemVisitorRefMut, TraversalOrder, VisitChildrenResult,
+    ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, TraversalOrder, VisitChildrenResult,
 };
 use sixtyfps_corelib::items::{Flickable, ItemRef, ItemVTable, PropertyAnimation, Rectangle};
 use sixtyfps_corelib::layout::{LayoutInfo, Padding};
@@ -108,33 +110,36 @@ pub(crate) struct RepeaterWithinComponent<'par_id, 'sub_id> {
     /// The model
     pub(crate) model: Expression,
     /// Offset of the `Repeater`
-    pub(crate) offset: FieldOffset<Instance<'par_id>, Repeater<ComponentBox<'sub_id>>>,
+    offset: FieldOffset<Instance<'par_id>, Repeater<ErasedComponentBox>>,
 }
 
-impl<'id> RepeatedComponent for ComponentBox<'id> {
+impl RepeatedComponent for ErasedComponentBox {
     type Data = eval::Value;
 
     fn update(&self, index: usize, data: Self::Data) {
-        self.component_type
-            .set_property(self.borrow(), "index", index.try_into().unwrap())
-            .unwrap();
-        self.component_type.set_property(self.borrow(), "model_data", data).unwrap();
+        generativity::make_guard!(guard);
+        let s = self.unerase(guard);
+        s.component_type.set_property(s.borrow(), "index", index.try_into().unwrap()).unwrap();
+        s.component_type.set_property(s.borrow(), "model_data", data).unwrap();
     }
 
     fn listview_layout(self: Pin<&Self>, offset_y: &mut f32, viewport_width: Pin<&Property<f32>>) {
-        self.as_ref().apply_layout(Default::default());
-        self.component_type
-            .set_property(self.borrow(), "y", eval::Value::Number(*offset_y as f64))
+        generativity::make_guard!(guard);
+        let s = self.unerase(guard);
+
+        self.borrow().as_ref().apply_layout(Default::default());
+        s.component_type
+            .set_property(s.borrow(), "y", eval::Value::Number(*offset_y as f64))
             .expect("cannot set y");
-        let h: f32 = self
+        let h: f32 = s
             .component_type
-            .get_property(self.borrow(), "height")
+            .get_property(s.borrow(), "height")
             .expect("missing height")
             .try_into()
             .expect("height not the right type");
-        let w: f32 = self
+        let w: f32 = s
             .component_type
-            .get_property(self.borrow(), "width")
+            .get_property(s.borrow(), "width")
             .expect("missing width")
             .try_into()
             .expect("width not the right type");
@@ -146,11 +151,14 @@ impl<'id> RepeatedComponent for ComponentBox<'id> {
     }
 
     fn box_layout_data<'a>(self: Pin<&'a Self>) -> BoxLayoutCellData<'a> {
-        let root_item = &self.component_type.original.root_element;
+        generativity::make_guard!(guard);
+        let s = self.unerase(guard);
+
+        let root_item = &s.component_type.original.root_element;
         let get_prop = |name: &str| {
             if root_item.borrow().lookup_property(name) == Type::Length {
                 let nr = NamedReference::new(root_item, name);
-                let p = get_property_ptr(&nr, self.borrow_instance());
+                let p = get_property_ptr(&nr, s.borrow_instance());
                 // Safety: assuming get_property_ptr returned a valid pointer,
                 // we know that `Type::Length` is a property of type `f32`
                 Some(unsafe { &*(p as *const Property<f32>) })
@@ -159,7 +167,7 @@ impl<'id> RepeatedComponent for ComponentBox<'id> {
             }
         };
         BoxLayoutCellData {
-            constraint: self.as_ref().layout_info(),
+            constraint: self.borrow().as_ref().layout_info(),
             x: get_prop("x"),
             y: get_prop("y"),
             width: get_prop("width"),
@@ -168,7 +176,7 @@ impl<'id> RepeatedComponent for ComponentBox<'id> {
     }
 }
 
-impl<'id> Component for ComponentBox<'id> {
+impl Component for ErasedComponentBox {
     fn visit_children_item(
         self: ::core::pin::Pin<&Self>,
         index: isize,
@@ -210,6 +218,8 @@ impl<'id> Component for ComponentBox<'id> {
         self.borrow().as_ref().apply_layout(r)
     }
 }
+
+sixtyfps_corelib::ComponentVTable_static!(static COMPONENT_BOX_VT for ErasedComponentBox);
 
 pub(crate) struct ComponentExtraData {
     mouse_grabber: core::cell::Cell<VisitChildrenResult>,
@@ -314,12 +324,12 @@ extern "C" fn visit_children_item(
             let rep_in_comp = unsafe { instance_ref.component_type.repeater[index].get_untaged() };
             let repeater = rep_in_comp.offset.apply_pin(instance_ref.instance);
             let init = || {
-                Rc::pin(instantiate(
+                vtable::VRc::new(ErasedComponentBox::from(instantiate(
                     rep_in_comp.component_to_repeat.clone(),
                     Some(component),
                     #[cfg(target_arch = "wasm32")]
                     String::new(),
-                ))
+                )))
             };
             if let Some(lv) = &rep_in_comp
                 .component_to_repeat
@@ -530,7 +540,7 @@ fn generate_component<'id>(
             repeater.push(
                 RepeaterWithinComponent {
                     component_to_repeat: generate_component(base_component, guard),
-                    offset: builder.add_field_type::<Repeater<ComponentBox>>(),
+                    offset: builder.add_field_type::<Repeater<ErasedComponentBox>>(),
                     model: repeated.model.clone(),
                 }
                 .into(),
@@ -956,7 +966,36 @@ struct LayoutWithCells<'a, C> {
     padding: Padding,
 }
 
-type RepeatedComponentRc = Pin<Rc<dyn RepeatedComponent<Data = eval::Value>>>;
+pub struct ErasedComponentBox(ComponentBox<'static>);
+impl ErasedComponentBox {
+    pub fn unerase<'a, 'id>(
+        &'a self,
+        _guard: generativity::Guard<'id>,
+    ) -> Pin<&'a ComponentBox<'id>> {
+        Pin::new(
+            //Safety: 'id is unique because of `_guard`
+            unsafe { core::mem::transmute::<&ComponentBox<'static>, &ComponentBox<'id>>(&self.0) },
+        )
+    }
+
+    pub fn borrow<'a>(&'a self) -> ComponentRefPin<'a> {
+        // Safety: it is safe to access self.0 here because the 'id lifetime does not leak
+        self.0.borrow()
+    }
+}
+impl<'id> From<ComponentBox<'id>> for ErasedComponentBox {
+    fn from(inner: ComponentBox<'id>) -> Self {
+        // Safety: Nothing access the component directly, we only access it through unerased where
+        // the lifetime is unique again
+        unsafe {
+            ErasedComponentBox(core::mem::transmute::<ComponentBox<'id>, ComponentBox<'static>>(
+                inner,
+            ))
+        }
+    }
+}
+
+type RepeatedComponentRc = vtable::VRc<ComponentVTable, ErasedComponentBox>;
 enum BoxLayoutCellTmpData<'a> {
     Item(BoxLayoutCellData<'a>),
     Repeater(Vec<RepeatedComponentRc>),
@@ -971,7 +1010,7 @@ impl<'a> BoxLayoutCellTmpData<'a> {
                     c.push((*cell).clone());
                 }
                 BoxLayoutCellTmpData::Repeater(vec) => {
-                    c.extend(vec.iter().map(|x| x.as_ref().box_layout_data()))
+                    c.extend(vec.iter().map(|x| x.as_pin_ref().box_layout_data()))
                 }
             }
         }
@@ -1131,33 +1170,19 @@ fn collect_layouts_recursively<'a, 'b>(
                 .iter()
                 .map(|item| match &item.element {
                     Some(elem) if elem.borrow().repeated.is_some() => {
-                        // we need a 'static guard in order to be able to convert from Rc<ComponentBox<'id>> to
-                        // Rc<dyn RepeatedComponent + 'static>>.
-                        // Safety: This is the only 'static Id in scope.
-                        let static_guard =
-                            unsafe { generativity::Guard::new(generativity::Id::<'static>::new()) };
-
-                        let rep = get_repeater_by_name(
-                            component,
-                            elem.borrow().id.as_str(),
-                            static_guard,
-                        );
+                        generativity::make_guard!(guard);
+                        let rep = get_repeater_by_name(component, elem.borrow().id.as_str(), guard);
                         rep.0.as_ref().ensure_updated(|| {
-                            Rc::pin(instantiate(
+                            vtable::VRc::new(ErasedComponentBox::from(instantiate(
                                 rep.1.clone(),
                                 Some(component.borrow()),
                                 #[cfg(target_arch = "wasm32")]
                                 String::new(),
-                            ))
+                            )))
                         });
 
                         BoxLayoutCellTmpData::Repeater(
-                            rep.0
-                                .as_ref()
-                                .components_vec()
-                                .into_iter()
-                                .map(|x| x as RepeatedComponentRc)
-                                .collect(),
+                            rep.0.as_ref().components_vec().into_iter().collect(),
                         )
                     }
                     _ => BoxLayoutCellTmpData::Item(make_box_layout_cell_data(item)),
@@ -1272,9 +1297,10 @@ impl<'a> LayoutTreeItem<'a> {
                             get_repeater_by_name(instance_ref, elem.borrow().id.as_str(), guard);
                         let vec = repeater.0.components_vec();
                         for sub_comp in vec.iter() {
+                            generativity::make_guard!(guard);
                             push_layout_data(
                                 &elem.borrow().base_type.as_component().root_element,
-                                sub_comp.borrow_instance(),
+                                sub_comp.unerase(guard).borrow_instance(),
                             )
                         }
                     }
@@ -1303,7 +1329,7 @@ pub fn get_repeater_by_name<'a, 'id>(
     instance_ref: InstanceRef<'a, '_>,
     name: &str,
     guard: generativity::Guard<'id>,
-) -> (std::pin::Pin<&'a Repeater<ComponentBox<'id>>>, Rc<ComponentDescription<'id>>) {
+) -> (std::pin::Pin<&'a Repeater<ErasedComponentBox>>, Rc<ComponentDescription<'id>>) {
     let rep_index = instance_ref.component_type.repeater_names[name];
     let rep_in_comp = instance_ref.component_type.repeater[rep_index].unerase(guard);
     (rep_in_comp.offset.apply_pin(instance_ref.instance), rep_in_comp.component_to_repeat.clone())
