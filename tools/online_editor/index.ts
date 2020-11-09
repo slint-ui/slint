@@ -37,6 +37,7 @@ export Demo := Window {
     height: 300px;
     t:= Text {
         text: "Hello World";
+        font-size: 24px;
     }
     Image{
         y: 50px;
