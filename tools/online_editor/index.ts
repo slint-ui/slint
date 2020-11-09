@@ -33,13 +33,13 @@ var editor_documents: Map<string, ModelAndViewState> = new Map;
 let hello_world = `
 import { SpinBox, Button, CheckBox, Slider, GroupBox } from "sixtyfps_widgets.60";
 export Demo := Window {
-    width: 300px;
+    width:  300px;   // Width in logical pixels. All 'px' units are automatically scaled with screen resolution.
     height: 300px;
     t:= Text {
         text: "Hello World";
         font-size: 24px;
     }
-    Image{
+    Image {
         y: 50px;
         source: img!"https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/resources/logo_scaled.png";
     }
