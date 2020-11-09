@@ -42,6 +42,7 @@ pub mod widgets {
 pub mod generated_code {
 
     use crate::re_exports;
+    use crate::ComponentHandle;
 
     /// This an example of the API that is generated for a component in `.60` design markup. This may help you understand
     /// what functions you can call and how you can pass data in and out.
@@ -57,26 +58,7 @@ pub mod generated_code {
     pub struct SampleComponent {}
     impl SampleComponent {
         /// Creates a new instance that is reference counted and pinned in memory.
-        pub fn new() -> core::pin::Pin<std::rc::Rc<Self>> {
-            unimplemented!()
-        }
-        /// Creates a window on the screen, renders this component in it and spins an event loop to react
-        /// to user input. A typical sequence of creating an instance and showing it may look like this:
-        /// ```ignore
-        /// fn main() {
-        ///     let sample = SampleComponent::new();
-        ///     /// other setup code here, connect to signal handlers, set property values
-        ///     sample.run();
-        /// }
-        /// ```
-        pub fn run(self: core::pin::Pin<std::rc::Rc<Self>>) {}
-        /// Returns a weak pointer for an instance of this component. You can use this to in captures of
-        /// closures, for example signal handlers, to access the component later.
-        ///
-        /// The return type [`pin_weak::rc::PinWeak`] is exposed from the [`pin-weak`](https://crates.io/crates/pin-weak) crate
-        ///
-        /// See the documentation of [`Self::on_hello`] for an example
-        pub fn as_weak(self: core::pin::Pin<std::rc::Rc<Self>>) -> re_exports::PinWeak<Self> {
+        pub fn new() -> ComponentHandle<Self> {
             unimplemented!()
         }
         /// A getter is generated for each property declared at the root of the component.
@@ -103,7 +85,7 @@ pub mod generated_code {
         /// is generated. This is the function that registers the function f as callback when the
         /// signal `hello` is emitted. In order to access
         /// the component in the callback, you'd typically capture a weak reference obtained using
-        /// [`SampleComponent::as_weak`]
+        /// [`ComponentHandle::as_weak`]
         /// and then upgrade it to a strong reference when the callback is run:
         /// ```ignore
         ///     let sample = SampleComponent::new();

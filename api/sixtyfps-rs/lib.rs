@@ -98,8 +98,6 @@ This documentation contains a documented generated component: [`docs::generated_
 The following associated function are added to the component:
 
   - [`fn new() -> Pin<Rc<Self>>`](docs::generated_code::SampleComponent::new): to instantiate the component.
-  - [`fn run(self: Pin<Rc<Self>>)`](docs::generated_code::SampleComponent::run): to show and start the event loop.
-  - [`fn as_weak(self: Pin<Rc<Self>>)`](docs::generated_code::SampleComponent::as_weak): Convenience to create a weak reference pointer.
 
 For each top-level property
   - A setter [`fn set_<property_name>(&self, value: <PropertyType>)`](docs::generated_code::SampleComponent::set_counter)
