@@ -1,11 +1,17 @@
 {
     "name": "sixtyfps",
     "scopeName": "source.sixtyfps",
-    "patterns": [{ "include": "#document" }],
+    "patterns": [
+        {
+            "include": "#document"
+        }
+    ],
     "repository": {
         "document": {
             "patterns": [
-                { "include": "#general" },
+                {
+                    "include": "#general"
+                },
                 {
                     "match": "import|from",
                     "name": "keyword"
@@ -23,11 +29,11 @@
                     "name": "variable.language"
                 },
                 {
-                    "match": "\\w+ *:",
+                    "match": "[a-zA-Z_][a-zA-Z_\\-0-9]* *:",
                     "name": "variable.parameter"
                 },
                 {
-                    "match": "\\w+ *:=",
+                    "match": "[a-zA-Z_][a-zA-Z_\\-0-9]* *:=",
                     "name": "storage.type"
                 },
                 {
@@ -36,11 +42,6 @@
                 }
             ]
         },
-        "letter": {
-            "match": "a|b|c",
-            "name": "keyword"
-        },
-
         "general": {
             "patterns": [
                 {
@@ -57,7 +58,7 @@
                     "match": "\"[^\"]*\"",
                     "name": "string"
                 },
-                                {
+                {
                     "match": "#[0-9a-fA-F]+",
                     "name": "constant.other"
                 },
