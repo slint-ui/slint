@@ -1,0 +1,55 @@
+
+
+struct Piece := { pos_x: int, pos_y: int }
+
+export Main := Window {
+    signal piece_cliked(int);
+    property <[Piece]> pieces: [
+        { pos_x: 0, pos_y: 1 },
+        { pos_x: 0, pos_y: 2 },
+        { pos_x: 0, pos_y: 3 },
+        { pos_x: 1, pos_y: 0 },
+        { pos_x: 1, pos_y: 1 },
+        { pos_x: 1, pos_y: 2 },
+        { pos_x: 1, pos_y: 3 },
+        { pos_x: 2, pos_y: 0 },
+        { pos_x: 2, pos_y: 1 },
+        { pos_x: 2, pos_y: 2 },
+        { pos_x: 2, pos_y: 3 },
+        { pos_x: 3, pos_y: 0 },
+        { pos_x: 3, pos_y: 1 },
+        { pos_x: 3, pos_y: 2 },
+        { pos_x: 3, pos_y: 3 },
+    ];
+
+    property<length> pieces_size: (width < height ? width : height) / 5;
+
+    for p[i] in pieces : Rectangle {
+
+        color: #0d579b;
+        border-color: #0a457b;
+        border-width: 1px;
+        border-radius: pieces_size * 5%;
+        width: pieces_size;
+        height: pieces_size;
+        x: p.pos_x * pieces_size * (1+0.125) + (root.width - pieces_size*4.5)/2;
+        y: p.pos_y * pieces_size * (1+0.125) + (root.height - pieces_size*4.5)/2;
+        animate x , y { duration: 100ms; easing: ease-out; }
+
+        Text {
+            text: i+1;
+            color: white;
+            font-size: pieces_size / 3;
+            vertical-alignment: align-center;
+            horizontal-alignment: align-center;
+            width: 100%;
+            height: 100%;
+        }
+
+        TouchArea {
+            width: 100%;
+            height: 100%;
+            clicked => { root.piece_cliked(i); }
+        }
+    }
+}

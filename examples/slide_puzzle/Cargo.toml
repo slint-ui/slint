@@ -1,0 +1,18 @@
+[package]
+name = "slide_puzzle"
+version = "0.1.0"
+authors = ["SixtyFPS <info@sixtyfps.io>"]
+edition = "2018"
+publish = false
+license = "GPL-3.0-only"
+
+[[bin]]
+path = "main.rs"
+name = "slide_puzzle"
+
+[dependencies]
+rand = "0.7.3"
+sixtyfps = { path = "../../api/sixtyfps-rs" }
+
+[build-dependencies]
+sixtyfps-build = { path = "../../api/sixtyfps-rs/sixtyfps-build" }
