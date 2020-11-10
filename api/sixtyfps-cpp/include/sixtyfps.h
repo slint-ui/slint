@@ -272,7 +272,7 @@ inline FocusEventResult process_focus_event(ComponentRef component, int64_t &foc
 
 void dealloc(const ComponentVTable*, uint8_t *ptr, vtable::Layout layout) {
 #ifdef __cpp_sized_deallocation
-    ::operator delete(reinterpret_cast<void*>(ptr), layout.size, layout.align);
+    ::operator delete(reinterpret_cast<void*>(ptr), layout.size, static_cast<std::align_val_t>(layout.align));
 #else
     ::operator delete(reinterpret_cast<void*>(ptr));
 #endif
@@ -281,9 +281,43 @@ void dealloc(const ComponentVTable*, uint8_t *ptr, vtable::Layout layout) {
 
 template<typename T> vtable::Layout drop_in_place(ComponentRef component) {
     reinterpret_cast<T*>(component.instance)->~T();
-    return vtable::Layout { sizeof(T), std::align_val_t(alignof(T)) };
+    return vtable::Layout { sizeof(T), alignof(T) };
 }
 } // namespace private_api
+
+template<typename T> class ComponentWeakHandle;
+
+/// The component handle is like a shared pointer to a component in the generated code.
+/// In order to get a component, use `T::create()` where T is the name of the component
+/// in the .60 file. This give you a `ComponentHandle<T>`
+template<typename T>
+class ComponentHandle {
+    vtable::VRc<private_api::ComponentVTable, T> inner;
+    friend class ComponentWeakHandle<T>;
+public:
+    /// internal constructor
+    ComponentHandle(const vtable::VRc<private_api::ComponentVTable, T> &inner) : inner(inner) { }
+
+    const T* operator->() const {
+        return inner.operator->();
+    }
+};
+
+/// A weak reference to the component. Can be constructed from a `ComponentHandle<T>`
+template<typename T>
+class ComponentWeakHandle {
+    vtable::VWeak<private_api::ComponentVTable, T> inner;
+public:
+    ComponentWeakHandle() = default;
+    ComponentWeakHandle(const ComponentHandle<T>&other) : inner(other.inner) {}
+    std::optional<ComponentHandle<T>> lock() {
+        if (auto l = inner.lock()) {
+            return { ComponentHandle(*l) };
+        } else {
+            return {};
+        }
+    }
+};
 
 // layouts:
 using cbindgen_private::grid_layout_info;

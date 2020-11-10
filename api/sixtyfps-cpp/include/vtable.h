@@ -11,6 +11,8 @@ LICENSE END */
 
 #include <cstddef>
 #include <new>
+#include <algorithm>
+#include <optional>
 
 namespace vtable {
 
@@ -23,7 +25,7 @@ struct VRefMut
 
 struct Layout {
     std::size_t size;
-    std::align_val_t align;
+    std::size_t align;
 };
 
 // For the C++'s purpose, they are all the same
@@ -58,5 +60,93 @@ struct VOffset
     std::uintptr_t offset;
 };
 
+template<typename VTable, typename X>
+struct VRcInner {
+    template<typename VTable_, typename X_> friend class VRc;
+    template<typename VTable_, typename X_> friend class VWeak;
+private:
+    const VTable *vtable;
+    int strong_ref;
+    int weak_ref;
+    union {
+        X data;
+        Layout layout;
+    };
+};
 
-}
+struct Dyn {};
+
+template<typename VTable, typename X = Dyn>
+class VRc {
+    VRcInner<VTable, X> *inner;
+    VRc(VRcInner<VTable, X> inner) : inner(inner) {}
+    template<typename VTable_, typename X_> friend class VWeak;
+public:
+    ~VRc() {
+        if (--inner->strong_ref) {
+            Layout layout = inner->vtable->drop_in_place(&inner->data);
+            layout.size += sizeof(const VTable *) + 2 * sizeof(int);
+            layout.align = std::max<size_t>(layout.align, alignof(VRcInner<VTable, Dyn>));
+            inner->layout = layout;
+            if (--inner->weak_ref) {
+                inner->vtable->dealloc(layout);
+            }
+        }
+    }
+    VRc(const VRc &other): inner(other.inner) {
+        inner->strong_ref++;
+    }
+    VRc &operator=(const VRc &other) {
+        if (inner == other.inner)
+            return *this;
+        this->~VRc();
+        new(this) VRc(other);
+        return *this;
+    }
+    template<typename ...Args> static VRc make(Args... args) {
+        return VRc(new VRcInner<VTable, X>{
+            X::component_type, 1, 1, X(args...)
+        });
+    }
+
+    const X* operator->() const {
+        return inner->data;
+    }
+};
+
+template<typename VTable, typename X = Dyn>
+class VWeak {
+    VRcInner<VTable, X> *inner = nullptr;
+public:
+    VWeak() = default;
+    ~VWeak() {
+        if (inner && --inner->weak_ref) {
+            inner->vtable->dealloc(inner->layout);
+        }
+    }
+    VWeak(const VWeak &other): inner(other.inner) {
+        inner && inner->weak_ref++;
+    }
+    VWeak(const VRc<VTable, X> &other): inner(other.inner) {
+        inner && inner->weak_ref++;
+    }
+    VWeak &operator=(const VWeak &other) {
+        if (inner == other.inner)
+            return *this;
+        this->~VWeak();
+        new(this) VWeak(other);
+        return *this;
+    }
+
+    std::optional<VRc<VTable, X>> lock() const {
+        if (!inner || inner->strong_ref == 0)
+            return {};
+        inner->strong_ref++;
+        return { VRc<VTable, X>(inner) };
+    }
+};
+
+
+
+} //namespace vtable
+
