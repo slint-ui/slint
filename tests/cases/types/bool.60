@@ -13,7 +13,8 @@ TestCase := Rectangle {
 }
 /*
 ```cpp
-TestCase instance;
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
 assert(instance.get_truevar());
 assert(!instance.get_falsevar());
 ```

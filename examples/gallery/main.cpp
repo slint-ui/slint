@@ -11,6 +11,5 @@ LICENSE END */
 
 int main()
 {
-    static App app;
-    app.run();
+    App::create()->run();
 }

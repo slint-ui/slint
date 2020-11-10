@@ -36,7 +36,8 @@ TestCase := Rectangle {
 }
 /*
 ```cpp
-TestCase instance;
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
 assert_eq(instance.get_p1(), 51);
 assert_eq(instance.get_p2(), 3);
 ```

@@ -579,7 +579,7 @@ pub mod ffi {
     /// Spins an event loop and renders the items of the provided component in this window.
     #[no_mangle]
     pub unsafe extern "C" fn sixtyfps_component_window_run(
-        handle: *mut ComponentWindowOpaque,
+        handle: *const ComponentWindowOpaque,
         component: Pin<VRef<ComponentVTable>>,
         root_item: Pin<VRef<ItemVTable>>,
     ) {
@@ -603,7 +603,7 @@ pub mod ffi {
     /// Sets the window scale factor, merely for testing purposes.
     #[no_mangle]
     pub unsafe extern "C" fn sixtyfps_component_window_set_scale_factor(
-        handle: *mut ComponentWindowOpaque,
+        handle: *const ComponentWindowOpaque,
         value: f32,
     ) {
         let window = &*(handle as *const ComponentWindow);

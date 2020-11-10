@@ -18,7 +18,8 @@ TestCase := Rectangle {
 /*
 
 ```cpp
-TestCase instance;
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
 auto fuzzy_compare = [](float a, float b) { return std::abs(a - b) < 0.00000001; };
 assert(fuzzy_compare(instance.get_p1(), 1.));
 assert(fuzzy_compare(instance.get_p2(), 0.01));

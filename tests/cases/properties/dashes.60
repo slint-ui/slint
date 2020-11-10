@@ -23,7 +23,8 @@ LICENSE END */
 }
 /*
 ```cpp
-Test_Case instance;
+auto handle = Test_Case::create();
+const Test_Case &instance = *handle;
 assert_eq(instance.get_property_x1(), 42);
 assert_eq(instance.get_property_x2(), 42);
 assert_eq(instance.get_this__has_6_slashes__(), 86);

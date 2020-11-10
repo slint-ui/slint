@@ -633,7 +633,7 @@ fn generate_component(
                     Declaration::Function(Function {
                         name: format!("emit_{}", cpp_name),
                         signature: format!(
-                            "({})",
+                            "({}) const",
                             param_types
                                 .iter()
                                 .enumerate()
@@ -649,7 +649,7 @@ fn generate_component(
                     Declaration::Function(Function {
                         name: format!("on_{}", cpp_name),
                         template_parameters: Some("typename Functor".into()),
-                        signature: "(Functor && signal_handler)".into(),
+                        signature: "(Functor && signal_handler) const".into(),
                         statements: Some(vec![format!(
                             "{}.set_handler(std::forward<Functor>(signal_handler));",
                             cpp_name
@@ -675,7 +675,7 @@ fn generate_component(
                     Access::Public,
                     Declaration::Function(Function {
                         name: format!("get_{}", cpp_name),
-                        signature: format!("() -> {}", cpp_type),
+                        signature: format!("() const -> {}", cpp_type),
                         statements: Some(prop_getter),
                         ..Default::default()
                     }),
@@ -698,7 +698,7 @@ fn generate_component(
                     Access::Public,
                     Declaration::Function(Function {
                         name: format!("set_{}", cpp_name),
-                        signature: format!("(const {} &value)", cpp_type),
+                        signature: format!("(const {} &value) const", cpp_type),
                         statements: Some(prop_setter),
                         ..Default::default()
                     }),
@@ -771,7 +771,7 @@ fn generate_component(
             Declaration::Function(Function {
                 name: "update_data".into(),
                 signature: format!(
-                    "([[maybe_unused]] int i, [[maybe_unused]] const {} &data) -> void",
+                    "([[maybe_unused]] int i, [[maybe_unused]] const {} &data) const -> void",
                     cpp_model_data_type
                 ),
                 statements: Some(update_statements),
@@ -834,7 +834,7 @@ fn generate_component(
             Access::Public,
             Declaration::Function(Function {
                 name: "run".into(),
-                signature: "()".into(),
+                signature: "() const".into(),
                 statements: Some(vec!["window.run(this);".into()]),
                 ..Default::default()
             }),
@@ -843,6 +843,20 @@ fn generate_component(
         init.push(format!(
             "{}.init_items(this, item_tree());",
             window = window_ref_expression(component)
+        ));
+
+        component_struct.members.push((
+            Access::Public,
+            Declaration::Function(Function {
+                name: "create".into(),
+                signature: format!("() -> sixtyfps::ComponentHandle<{}>", component_id),
+                statements: Some(vec![format!(
+                    "return sixtyfps::ComponentHandle<{0}>{{ vtable::VRc<sixtyfps::private_api::ComponentVTable, {0}>::make() }};",
+                    component_id,
+                )]),
+                is_static: true,
+                ..Default::default()
+            }),
         ));
     }
 
@@ -893,7 +907,7 @@ fn generate_component(
         } else {
             tree_array.push(format!(
                 "sixtyfps::private_api::make_item_node(offsetof({}, {}), &sixtyfps::private_api::{}, {}, {})",
-                &component_id,
+                component_id,
                 item.id,
                 item.base_type.as_native().vtable_symbol,
                 if super::is_flickable(item_rc) { 1 } else { item.children.len() },
@@ -907,8 +921,13 @@ fn generate_component(
         init.push(compile_expression(extra_init_code, component));
     }
 
+    if !component.is_global() {
+        component_struct
+            .friends
+            .push(format!("vtable::VRc<sixtyfps::private_api::ComponentVTable, {}>", component_id));
+    }
     component_struct.members.push((
-        Access::Public,
+        if !component.is_global() { Access::Private } else { Access::Public },
         Declaration::Function(Function {
             name: component_id.clone(),
             signature: format!("({})", constructor_parent_arg),
@@ -1672,7 +1691,7 @@ impl crate::layout::gen::Language for CppLanguageLayoutGen {
                             id = elem.borrow().id
                         ));
                         push_code.push(
-                            "    @_data.push_back(sub_comp.ptr->box_layout_data());".to_owned(),
+                            "    @_data.push_back((*sub_comp.ptr)->box_layout_data());".to_owned(),
                         );
                     }
                     _ => {
@@ -1935,8 +1954,8 @@ impl<'a> LayoutTreeItem<'a> {
                                 "         items.push_back({});",
                                 path_layout_item_data(
                                     &root_element,
-                                    &format!("sub_comp.ptr->{}", root_element.borrow().id),
-                                    "sub_comp.ptr",
+                                    &format!("(*sub_comp.ptr)->{}", root_element.borrow().id),
+                                    "(*sub_comp.ptr)",
                                 )
                             ));
                         } else {

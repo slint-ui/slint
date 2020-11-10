@@ -103,7 +103,7 @@ pub(crate) mod ffi {
     /// The binding has signature fn(user_data)
     #[no_mangle]
     pub unsafe extern "C" fn sixtyfps_signal_set_handler(
-        sig: *mut SignalOpaque,
+        sig: *const SignalOpaque,
         binding: extern "C" fn(user_data: *mut c_void, arg: *const c_void),
         user_data: *mut c_void,
         drop_user_data: Option<extern "C" fn(*mut c_void)>,

@@ -13,7 +13,8 @@ TestCase := Rectangle {
 
 /*
 ```cpp
-TestCase instance;
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
 ```
 
 ```rust

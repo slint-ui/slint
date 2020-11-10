@@ -70,7 +70,8 @@ assert_eq!(another_model.row_data(2).1, sixtyfps::SharedString::from("world"));
 ```
 
 ```cpp
-TestCase instance;
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
 sixtyfps::testing::send_mouse_click(instance, 15., 5.);
 assert_eq(instance.get_clicked_score(), 791);
 

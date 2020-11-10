@@ -81,14 +81,14 @@ struct ComponentWindow
     ComponentWindow &operator=(const ComponentWindow &) = delete;
 
     template<typename Component>
-    void run(Component *c)
+    void run(const Component *c) const
     {
         sixtyfps_component_window_run(
-                &inner, vtable::VRefMut<ComponentVTable> { &Component::component_type, c }, c->root_item());
+                &inner, vtable::VRefMut<ComponentVTable> { &Component::component_type, const_cast<Component *>(c) }, c->root_item());
     }
 
     float scale_factor() const { return sixtyfps_component_window_get_scale_factor(&inner); }
-    void set_scale_factor(float value)
+    void set_scale_factor(float value) const
     {
         sixtyfps_component_window_set_scale_factor(&inner, value);
     }
@@ -274,7 +274,7 @@ void dealloc(const ComponentVTable*, uint8_t *ptr, vtable::Layout layout) {
 #ifdef __cpp_sized_deallocation
     ::operator delete(reinterpret_cast<void*>(ptr), layout.size, static_cast<std::align_val_t>(layout.align));
 #else
-    ::operator delete(reinterpret_cast<void*>(ptr));
+    ::operator delete(reinterpret_cast<void*>(ptr), static_cast<std::align_val_t>(layout.align));
 #endif
 
 }
@@ -301,6 +301,9 @@ public:
     const T* operator->() const {
         return inner.operator->();
     }
+    const T& operator*() const {
+        return inner.operator*();
+    }
 };
 
 /// A weak reference to the component. Can be constructed from a `ComponentHandle<T>`
@@ -310,7 +313,7 @@ class ComponentWeakHandle {
 public:
     ComponentWeakHandle() = default;
     ComponentWeakHandle(const ComponentHandle<T>&other) : inner(other.inner) {}
-    std::optional<ComponentHandle<T>> lock() {
+    std::optional<ComponentHandle<T>> lock() const {
         if (auto l = inner.lock()) {
             return { ComponentHandle(*l) };
         } else {
@@ -487,7 +490,7 @@ class Repeater
         struct ComponentWithState
         {
             State state = State::Dirty;
-            std::unique_ptr<C> ptr;
+            std::optional<vtable::VRc<private_api::ComponentVTable, C>> ptr;
         };
         std::vector<ComponentWithState> data;
         bool is_dirty = true;
@@ -541,11 +544,11 @@ public:
                 inner->data.resize(count);
                 for (int i = 0; i < count; ++i) {
                     auto &c = inner->data[i];
+                    if (!c.ptr) {
+                        c.ptr = { vtable::VRc<private_api::ComponentVTable, C>::make(parent) };
+                    }
                     if (c.state == RepeaterInner::State::Dirty) {
-                        if (!c.ptr) {
-                            c.ptr = std::make_unique<C>(parent);
-                        }
-                        c.ptr->update_data(i, m->row_data(i));
+                        (*c.ptr)->update_data(i, m->row_data(i));
                     }
                 }
             } else {
@@ -582,7 +585,7 @@ public:
     vtable::VRef<private_api::ComponentVTable> item_at(int i) const
     {
         const auto &x = inner->data.at(i);
-        return { &C::component_type, x.ptr.get() };
+        return { &C::component_type, const_cast<C*>(&(**x.ptr)) };
     }
 
     void compute_layout(cbindgen_private::Rect parent_rect) const
@@ -590,7 +593,7 @@ public:
         if (!inner)
             return;
         for (auto &x : inner->data) {
-            x.ptr->apply_layout({ &C::component_type, x.ptr.get() }, parent_rect);
+            (*x.ptr)->apply_layout({ &C::component_type, const_cast<C*>(&(**x.ptr)) }, parent_rect);
         }
     }
 
@@ -601,7 +604,7 @@ public:
         if (!inner)
             return offset;
         for (auto &x : inner->data) {
-            x.ptr->listview_layout(&offset, viewport_width);
+            (*x.ptr)->listview_layout(&offset, viewport_width);
         }
         return offset;
     }
@@ -616,7 +619,7 @@ public:
             if (inner && inner->is_dirty) {
                 auto &c = inner->data[row];
                 if (c.state == RepeaterInner::State::Dirty && c.ptr) {
-                    c.ptr->update_data(row, m->row_data(row));
+                    (*c.ptr)->update_data(row, m->row_data(row));
                 }
             }
         }

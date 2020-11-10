@@ -37,7 +37,8 @@ TestCase := Rectangle {
 
 /*
 ```cpp
-TestCase instance;
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
 
 // condition is false
 sixtyfps::testing::send_mouse_click(instance, 5., 5.);

@@ -23,7 +23,8 @@ LICENSE END */
 }
 /*
 ```cpp
-TestCase instance;
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
 assert_eq(instance.get_s1(), sixtyfps::SharedString("hello1212"));
 assert_eq(instance.get_s2(), sixtyfps::SharedString("10hello5.1"));
 instance.set_a(42);

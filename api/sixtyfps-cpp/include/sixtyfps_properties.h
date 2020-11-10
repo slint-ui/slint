@@ -66,18 +66,18 @@ struct Property
     }
 
     inline void set_animated_value(const T &value,
-                                   const cbindgen_private::PropertyAnimation &animation_data);
+                                   const cbindgen_private::PropertyAnimation &animation_data) const ;
     template<typename F>
     inline void set_animated_binding(F binding,
-                                     const cbindgen_private::PropertyAnimation &animation_data);
+                                     const cbindgen_private::PropertyAnimation &animation_data) const;
 
     bool is_dirty() const { return cbindgen_private::sixtyfps_property_is_dirty(&inner); }
 
-    static void link_two_way(Property<T> *p1, Property<T> *p2) {
+    static void link_two_way(const Property<T> *p1, const Property<T> *p2) {
         auto value = p2->get();
         cbindgen_private::PropertyHandleOpaque handle{};
         if ((p2->inner._0 & 0b10) == 0b10) {
-            std::swap(handle,p2->inner);
+            std::swap(handle, const_cast<Property<T>*>(p2)->inner);
         }
         auto common_property = std::make_shared<Property<T>>(handle, std::move(value));
         struct TwoWayBinding {
@@ -116,7 +116,7 @@ private:
 
 template<>
 void Property<int32_t>::set_animated_value(
-        const int32_t &new_value, const cbindgen_private::PropertyAnimation &animation_data)
+        const int32_t &new_value, const cbindgen_private::PropertyAnimation &animation_data) const
 {
     cbindgen_private::sixtyfps_property_set_animated_value_int(&inner, value, new_value,
                                                                &animation_data);
@@ -124,7 +124,7 @@ void Property<int32_t>::set_animated_value(
 
 template<>
 void Property<float>::set_animated_value(const float &new_value,
-                                         const cbindgen_private::PropertyAnimation &animation_data)
+                                         const cbindgen_private::PropertyAnimation &animation_data) const
 {
     cbindgen_private::sixtyfps_property_set_animated_value_float(&inner, value, new_value,
                                                                  &animation_data);
@@ -133,7 +133,7 @@ void Property<float>::set_animated_value(const float &new_value,
 template<>
 template<typename F>
 void Property<int32_t>::set_animated_binding(
-        F binding, const cbindgen_private::PropertyAnimation &animation_data)
+        F binding, const cbindgen_private::PropertyAnimation &animation_data) const
 {
     cbindgen_private::sixtyfps_property_set_animated_binding_int(
             &inner,
@@ -147,7 +147,7 @@ void Property<int32_t>::set_animated_binding(
 template<>
 template<typename F>
 void Property<float>::set_animated_binding(
-        F binding, const cbindgen_private::PropertyAnimation &animation_data)
+        F binding, const cbindgen_private::PropertyAnimation &animation_data) const
 {
     cbindgen_private::sixtyfps_property_set_animated_binding_float(
             &inner,

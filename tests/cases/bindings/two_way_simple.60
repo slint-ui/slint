@@ -55,7 +55,8 @@ assert_eq!(instance.get_sub_foo2(), 15);
 
 
 ```cpp
-TestCase instance;
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
 assert_eq(instance.get_sub_width1(), 80.);
 assert_eq(instance.get_sub_width2(), 80.);
 instance.set_sub_width1(99.);

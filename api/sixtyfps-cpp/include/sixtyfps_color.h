@@ -189,7 +189,7 @@ ARGBColor<float> Color::to_argb_float() const
 
 template<>
 void Property<Color>::set_animated_value(const Color &new_value,
-                                         const cbindgen_private::PropertyAnimation &animation_data)
+                                         const cbindgen_private::PropertyAnimation &animation_data) const
 {
     cbindgen_private::sixtyfps_property_set_animated_value_color(&inner, value, new_value,
                                                                  &animation_data);
@@ -198,7 +198,7 @@ void Property<Color>::set_animated_value(const Color &new_value,
 template<>
 template<typename F>
 void Property<Color>::set_animated_binding(
-        F binding, const cbindgen_private::PropertyAnimation &animation_data)
+        F binding, const cbindgen_private::PropertyAnimation &animation_data) const
 {
     cbindgen_private::sixtyfps_property_set_animated_binding_color(
             &inner,

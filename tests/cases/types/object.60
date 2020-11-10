@@ -42,7 +42,8 @@ assert_eq!(instance.get_foo_b(), 33);
 ```
 
 ```cpp
-TestCase instance;
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
 assert_eq(instance.get_foo_a(), sixtyfps::SharedString("444"));
 assert_eq(instance.get_foo_b(), 12);
 instance.emit_change_foo();

@@ -68,7 +68,8 @@ assert_eq!(instance.get_binding_dep(), 125);
 
 
 ```cpp
-TestCase instance;
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
 assert_eq(instance.get_hello(), 40);
 assert_eq(instance.get_binding_dep(), 100);
 instance.set_condition(false);

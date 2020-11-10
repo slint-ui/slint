@@ -128,8 +128,9 @@ TestCase := Rectangle {
 /*
 
 ```cpp
-TestCase instance;
-TestCase::apply_layout({&TestCase::component_type, &instance }, sixtyfps::Rect{0, 0, 300, 300});
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+TestCase::apply_layout({&TestCase::component_type, const_cast<TestCase*>(&instance) }, sixtyfps::Rect{0, 0, 300, 300});
 assert(instance.get_rect_blue_ok());
 assert(instance.get_rect_orange_ok());
 assert(instance.get_rect_red_ok());

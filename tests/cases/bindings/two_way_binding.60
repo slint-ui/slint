@@ -112,7 +112,8 @@ assert_eq!(instance.get_othercomp_some_value_alias2(), 1);
 
 
 ```cpp
-TestCase instance;
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
 assert_eq(instance.get_text1(), sixtyfps::SharedString("Hello"));
 assert_eq(instance.get_text2(), sixtyfps::SharedString("Blah"));
 assert_eq(instance.get_ti1_text(), sixtyfps::SharedString("Hello"));

@@ -17,17 +17,19 @@ inline void mock_elapsed_time(int64_t time_in_ms)
     cbindgen_private::sixtyfps_mock_elapsed_time(time_in_ms);
 }
 template<typename Component>
-inline void send_mouse_click(Component &component, float x, float y)
+inline void send_mouse_click(const Component &component, float x, float y)
 {
-    cbindgen_private::sixtyfps_send_mouse_click({ &Component::component_type, &component }, x, y,
-                                                &component.window);
+    cbindgen_private::sixtyfps_send_mouse_click(
+        { &Component::component_type, const_cast<Component *>(&component) },
+        x, y, &component.window);
 }
 
 template<typename Component>
-inline void send_keyboard_string_sequence(Component &component, const sixtyfps::SharedString &str)
+inline void send_keyboard_string_sequence(const Component &component, const sixtyfps::SharedString &str)
 {
-    cbindgen_private::send_keyboard_string_sequence({ &Component::component_type, &component },
-                                                    &str, &component.window);
+    cbindgen_private::send_keyboard_string_sequence(
+        { &Component::component_type, const_cast<Component *>(&component) },
+        &str, &component.window);
 }
 
 #define assert_eq(A, B)                                                                            \

@@ -37,7 +37,8 @@ assert!(instance.get_input2_focused());
 ```
 
 ```cpp
-TestCase instance;
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
 assert(!instance.get_input1_focused());
 assert(instance.get_input2_focused());
 ```

@@ -44,7 +44,8 @@ assert_eq!(instance.get_player_2_score(), 99);
 ```
 
 ```cpp
-TestCase instance;
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
 
 assert_eq(instance.get_player_1().score, 12.);
 auto [ energy_level, name, score ] = instance.get_player_2();

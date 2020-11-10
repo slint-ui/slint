@@ -106,7 +106,8 @@ assert_eq!(instance.get_clicked_index(), 1);
 ```
 
 ```cpp
-TestCase instance;
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
 
 // there should be nothing there
 sixtyfps::testing::send_mouse_click(instance, 25., 5.);

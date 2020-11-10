@@ -25,7 +25,8 @@ TestCase := Rectangle {
 /*
 
 ```cpp
-TestCase instance;
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
 float ratio = 1.;
 assert_eq(instance.get_l1(), 12.);
 assert_eq(instance.get_l2(), 12. * ratio);

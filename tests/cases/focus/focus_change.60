@@ -53,7 +53,8 @@ assert_eq!(instance.get_input2_text(), "Only for field 2");
 ```
 
 ```cpp
-TestCase instance;
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
 assert(!instance.get_input1_focused());
 assert(!instance.get_input2_focused());
 

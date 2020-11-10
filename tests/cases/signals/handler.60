@@ -17,7 +17,8 @@ TestCase := Rectangle {
 }
 /*
 ```cpp
-TestCase instance;
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
 int signal_3_emited = 0;
 instance.on_test_signal3([&]{ signal_3_emited++; });
 instance.set_signal_emission_count(0);

@@ -24,7 +24,8 @@ TestCase := Rectangle {
 
 ```cpp
 auto fuzzy_compare = [](float a, float b) { return std::abs(a - b) < 0.00000001; };
-TestCase instance;
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
 assert(instance.get_test_is_float());
 assert(fuzzy_compare(instance.get_number_as_float(), 42.56));
 assert(fuzzy_compare(instance.get_negative_as_float(), -1200000.1));

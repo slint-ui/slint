@@ -22,7 +22,8 @@ LICENSE END */
 }
 /*
 ```cpp
-TestCase instance;
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
 assert_eq(instance.get_p1(), 5770);
 assert_eq(instance.get_p2(), 5930);
 ```

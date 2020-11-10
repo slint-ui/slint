@@ -28,7 +28,8 @@ Test := Rectangle {
 
 /*
 ```cpp
-Test t;
+auto handle = Test::create();
+const Test &t = *handle;
 assert_eq(t.get_r1(), t.get_r2());
 assert_eq(t.get_r1(), t.get_r3());
 assert_eq(t.get_r1(), t.get_r4());

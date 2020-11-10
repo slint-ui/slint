@@ -23,7 +23,7 @@ struct Signal
     Signal &operator=(const Signal &) = delete;
 
     template<typename F>
-    void set_handler(F binding)
+    void set_handler(F binding) const
     {
         cbindgen_private::sixtyfps_signal_set_handler(
                 &inner,
