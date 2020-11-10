@@ -14,13 +14,6 @@ use std::rc::Rc;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
-/*
-sixtyfps::sixtyfps!(
-    import { Main as M } from "slide_puzzle.60";
-    Main := M {}
-);
-
-*/
 
 sixtyfps::include_modules!();
 
