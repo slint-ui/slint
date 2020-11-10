@@ -153,11 +153,13 @@ struct TodoItem {
 
 struct MainWindow {
  public:
-    inline auto get_todo_model () -> std::shared_ptr<sixtyfps::Model<TodoItem>>;
-    inline void set_todo_model (const std::shared_ptr<sixtyfps::Model<TodoItem>> &value);
+    inline auto create () -> sixtyfps::ComponentHandle<MainWindow>;
 
-    inline void emit_todo_added (sixtyfps::SharedString arg_0);
-    template<typename Functor> inline void on_todo_added (Functor && signal_handler);
+    inline auto get_todo_model () const -> std::shared_ptr<sixtyfps::Model<TodoItem>>;
+    inline void set_todo_model (const std::shared_ptr<sixtyfps::Model<TodoItem>> &value) const;
+
+    inline void emit_todo_added (sixtyfps::SharedString arg_0) const;
+    template<typename Functor> inline void on_todo_added (Functor && signal_handler) const;
 
     //...
 }
@@ -171,7 +173,7 @@ We can then use this from out .cpp file
 
 int main() {
     // Let's instantiate our window
-    auto todo_app = std::make_unique<MainWindow>();
+    auto todo_app = MainWindow::create();
 
     // let's create a model:
     auto todo_model = std::make_shared<sixtyfps::VectorModel<TodoItem>>(std::vector {

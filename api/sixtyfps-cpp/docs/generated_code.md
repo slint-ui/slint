@@ -42,27 +42,27 @@ This will generate a header with the following contents (edited for documentatio
 class SampleComponent {
 public:
     /// Contructor
-    inline SampleComponent ();
+    inline auto create () -> sixtyfps::ComponentHandle<MainWindow>;
     /// Destructor
     inline ~SampleComponent ();
 
     /// Show this component, and runs the event loop
-    inline void run ();
+    inline void run () const;
 
     /// Getter for the `counter` property
-    inline int get_counter () -> int;
+    inline int get_counter () const -> int;
     /// Setter for the `counter` property
-    inline void set_counter (const int &value);
+    inline void set_counter (const int &value) const;
 
     /// Getter for the `user_name` property
-    inline sixtyfps::SharedString get_user_name ();
+    inline sixtyfps::SharedString get_user_name () const;
     /// Setter for the `user_name` property
-    inline void set_user_name (const sixtyfps::SharedString &value);
+    inline void set_user_name (const sixtyfps::SharedString &value) const;
 
     /// Call this function to emit the `hello` signal
-    inline void emit_hello ();
+    inline void emit_hello () const;
     /// Sets the signal handler for the `hello` signal.
-    template<typename Functor> inline void on_hello (Functor && signal_handler);
+    template<typename Functor> inline void on_hello (Functor && signal_handler) const;
 
 private:
     /// private fields omitted
