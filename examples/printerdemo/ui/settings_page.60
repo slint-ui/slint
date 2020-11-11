@@ -39,7 +39,10 @@ export SettingsPage := Page {
         }
         GroupBox {
             title: "Performance";
-            CheckBox { text: "TURBO"; }
+            CheckBox {
+                text: "TURBO";
+                checked: true;
+            }
         }
     }
 }
