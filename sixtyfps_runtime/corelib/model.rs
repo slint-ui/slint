@@ -18,7 +18,6 @@ use std::{
 };
 
 use crate::component::ComponentRefPin;
-use crate::item_tree::VisitChildrenResult;
 use crate::items::ItemRef;
 use crate::Property;
 
@@ -434,26 +433,19 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         let listview_geometry_tracker =
             unsafe { self.map_unchecked(|s| &s.listview_geometry_tracker) };
         if listview_geometry_tracker.is_dirty() {
-            listview_geometry_tracker.evaluate_if_dirty(||{
+            listview_geometry_tracker.evaluate_if_dirty(|| {
                 // Compute the element height
                 let total_height = Cell::new(0.);
                 let count = Cell::new(0);
 
-                let mut get_height_visitor = |_: ComponentRefPin, _: isize, item: Pin<ItemRef>| -> VisitChildrenResult {
+                let get_height_visitor = |item: Pin<ItemRef>| {
                     count.set(count.get() + 1);
-                    total_height.set( total_height.get() + item.as_ref().geometry().height());
-
-                    VisitChildrenResult::abort(0, 0)
+                    total_height.set(total_height.get() + item.as_ref().geometry().height());
                 };
-                vtable::new_vref!(
-                    let mut get_height_visitor: VRefMut<crate::item_tree::ItemVisitorVTable> for crate::item_tree::ItemVisitor
-                        = &mut get_height_visitor
-                );
-
                 for c in self.inner.borrow().borrow().components.iter() {
                     c.1.as_ref().map(|x| {
                         x.as_pin_ref().apply_layout(Default::default());
-                        x.as_pin_ref().visit_children_item(-1, crate::item_tree::TraversalOrder::FrontToBack, get_height_visitor.borrow_mut());
+                        get_height_visitor(x.as_pin_ref().get_item_ref(0));
                     });
                 }
 
@@ -472,7 +464,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
                     if let Some(c) = self.inner.borrow().borrow().components.get(0) {
                         c.1.as_ref().map(|x| {
                             x.as_pin_ref().apply_layout(Default::default());
-                            x.as_pin_ref().visit_children_item(-1, crate::item_tree::TraversalOrder::FrontToBack, get_height_visitor);
+                            get_height_visitor(x.as_pin_ref().get_item_ref(0));
                         });
                     } else {
                         panic!("Could not determine size of items");
@@ -487,7 +479,8 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
                     viewport_y.set(-(element_height * row_count as f32 - listview_height).max(0.))
                 }
                 let offset = (-viewport_y.get() / element_height).floor() as usize;
-                let count = ((listview_height / element_height).ceil() as usize).min(row_count - offset);
+                let count =
+                    ((listview_height / element_height).ceil() as usize).min(row_count - offset);
                 self.set_offset(offset, count);
                 self.ensure_updated_impl(init, &model, count);
                 self.compute_layout_listview(viewport_width, listview_width);
