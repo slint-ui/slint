@@ -25,7 +25,7 @@ pub use eval::{ModelPtr, Value};
 
 use dynamic_component::InstanceRef;
 pub use sixtyfps_compilerlib::CompilerConfiguration;
-use sixtyfps_corelib::component::{ComponentRef, ComponentRefPin};
+use sixtyfps_corelib::component::{ComponentRef, ComponentRefPin, ComponentVTable};
 use std::{collections::HashMap, pin::Pin, rc::Rc};
 
 impl<'id> dynamic_component::ComponentDescription<'id> {
@@ -49,13 +49,15 @@ impl<'id> dynamic_component::ComponentDescription<'id> {
     pub fn create(
         self: Rc<Self>,
         #[cfg(target_arch = "wasm32")] canvas_id: String,
-    ) -> dynamic_component::ComponentBox<'id> {
-        dynamic_component::instantiate(
-            self,
-            None,
-            #[cfg(target_arch = "wasm32")]
-            canvas_id,
-        )
+    ) -> vtable::VRc<ComponentVTable, dynamic_component::ErasedComponentBox> {
+        vtable::VRc::new(dynamic_component::ErasedComponentBox::from(
+            dynamic_component::instantiate(
+                self,
+                None,
+                #[cfg(target_arch = "wasm32")]
+                canvas_id,
+            ),
+        ))
     }
 
     /// Set a value to property.
@@ -175,6 +177,7 @@ impl<'id> dynamic_component::ComponentDescription<'id> {
 
 pub type ComponentDescription = dynamic_component::ComponentDescription<'static>;
 pub type ComponentBox = dynamic_component::ComponentBox<'static>;
+pub type ComponentRc = vtable::VRc<ComponentVTable, dynamic_component::ErasedComponentBox>;
 pub async fn load(
     source: String,
     path: std::path::PathBuf,

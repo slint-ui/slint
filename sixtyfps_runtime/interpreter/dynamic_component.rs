@@ -986,6 +986,10 @@ impl ErasedComponentBox {
         // Safety: it is safe to access self.0 here because the 'id lifetime does not leak
         self.0.borrow()
     }
+
+    pub fn window(&self) -> sixtyfps_corelib::eventloop::ComponentWindow {
+        self.0.window()
+    }
 }
 impl<'id> From<ComponentBox<'id>> for ErasedComponentBox {
     fn from(inner: ComponentBox<'id>) -> Self {

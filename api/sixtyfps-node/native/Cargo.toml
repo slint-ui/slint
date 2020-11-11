@@ -25,6 +25,8 @@ scoped-tls-hkt = "0.1"
 neon = "0.5.0"
 css-color-parser2 = "1.0.1"
 spin_on = "0.1" #FIXME: remove and delegate to async JS instead
+vtable = { version = "0.1.1", path="../../../helper_crates/vtable" }
+generativity = "1"
 
 [build-dependencies]
 neon-build = "0.5.0"

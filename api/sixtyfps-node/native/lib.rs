@@ -18,7 +18,7 @@ mod js_model;
 mod persistent_context;
 
 struct WrappedComponentType(Option<Rc<sixtyfps_interpreter::ComponentDescription>>);
-struct WrappedComponentBox(Option<Rc<sixtyfps_interpreter::ComponentBox>>);
+struct WrappedComponentRc(Option<sixtyfps_interpreter::ComponentRc>);
 
 /// We need to do some gymnastic with closures to pass the ExecuteContext with the right lifetime
 type GlobalContextCallback<'c> =
@@ -143,7 +143,7 @@ fn create<'cx>(
 
     let mut obj = SixtyFpsComponent::new::<_, JsValue, _>(cx, std::iter::empty())?;
     persistent_context.save_to_object(cx, obj.downcast().unwrap());
-    cx.borrow_mut(&mut obj, |mut obj| obj.0 = Some(Rc::new(component)));
+    cx.borrow_mut(&mut obj, |mut obj| obj.0 = Some(component));
     Ok(obj.as_value(cx))
 }
 
@@ -320,9 +320,9 @@ declare_types! {
         }
     }
 
-    class SixtyFpsComponent for WrappedComponentBox {
+    class SixtyFpsComponent for WrappedComponentRc {
         init(_) {
-            Ok(WrappedComponentBox(None))
+            Ok(WrappedComponentRc(None))
         }
         method show(mut cx) {
             let mut this = cx.this();
@@ -340,6 +340,8 @@ declare_types! {
             let lock = cx.lock();
             let x = this.borrow(&lock).0.clone();
             let component = x.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            generativity::make_guard!(guard);
+            let component = component.unerase(guard);
             let value = component.description()
                 .get_property(component.borrow(), prop_name.as_str())
                 .or_else(|_| cx.throw_error(format!("Cannot read property")))?;
@@ -351,6 +353,8 @@ declare_types! {
             let lock = cx.lock();
             let x = this.borrow(&lock).0.clone();
             let component  = x.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            generativity::make_guard!(guard);
+            let component = component.unerase(guard);
             let ty = component.description().properties()
                 .get(&prop_name)
                 .ok_or(())
@@ -376,6 +380,8 @@ declare_types! {
             let lock = cx.lock();
             let x = this.borrow(&lock).0.clone();
             let component = x.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            generativity::make_guard!(guard);
+            let component = component.unerase(guard);
             let ty = component.description().properties().get(&signal_name)
                 .ok_or(())
                 .or_else(|()| {
@@ -417,6 +423,8 @@ declare_types! {
             let lock = cx.lock();
             let x = this.borrow(&lock).0.clone();
             let component = x.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            generativity::make_guard!(guard);
+            let component = component.unerase(guard);
             component.description().set_signal_handler(
                 component.borrow(),
                 signal_name.as_str(),
