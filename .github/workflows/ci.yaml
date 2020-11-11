@@ -348,7 +348,7 @@ jobs:
           du -hs target
 
   publish:
-    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+    # temporary: allow manual publish if: github.ref == 'refs/heads/master' && github.event_name == 'push'
     needs: [build_and_test, cpp, docs, wasm] # also depends on build_and_test and cpp to only publish if tests are green
     runs-on: ubuntu-20.04
     steps:
