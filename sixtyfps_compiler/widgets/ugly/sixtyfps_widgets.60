@@ -51,8 +51,8 @@ export Button := Rectangle {
         Text {
             text: root.text;
             font_size: root.font_size;
-            horizontal_alignment: align_center;
-            vertical_alignment: align_center;
+            horizontal-alignment: align-center;
+            vertical-alignment: align-center;
             color: root.enabled ? Palette.text_color : Palette.text_color_disabled;
         }
     }
@@ -105,7 +105,7 @@ export CheckBox := Rectangle {
     Text {
         x: indicator.width + 8px;
         text: root.text;
-        vertical_alignment: align_center;
+        vertical-alignment: align-center;
         width: parent.width - self.x;
         height: parent.height;
         color: root.enabled ? Palette.text_color : Palette.text_color_disabled;
@@ -142,8 +142,8 @@ SpinBoxButton := Rectangle {
         y: touch.pressed ? 1px : 0px;
         width: parent.width;
         height: parent.height;
-        vertical_alignment: align_center;
-        horizontal_alignment: align_center;
+        vertical-alignment: align-center;
+        horizontal-alignment: align-center;
         text: root.text;
         font_size: root.font_size;
         color: root.enabled ? Palette.text_color : Palette.text_color_disabled;
@@ -191,8 +191,8 @@ export SpinBox := Rectangle {
         x: parent.height + 15px;
         width: plus_button.x - self.x - 15px;
         height: parent.height;
-        horizontal_alignment: align_center;
-        vertical_alignment: align_center;
+        horizontal-alignment: align-center;
+        vertical-alignment: align-center;
         color: root.enabled ? Palette.text_color : Palette.text_color_disabled;
     }
 }
@@ -457,8 +457,8 @@ export ComboBox := Rectangle {
 
         t := Text {
             text <=> root.current_value;
-            horizontal_alignment: align_left;
-            vertical_alignment: align_center;
+            horizontal-alignment: align-left;
+            vertical-alignment: align-center;
             color: root.enabled ? Palette.text_color : Palette.text_color_disabled;
             horizontal-stretch: 1;
         }
@@ -466,7 +466,7 @@ export ComboBox := Rectangle {
             text:"▼";
             color: root.enabled ? Palette.text_color : Palette.text_color_disabled;
             horizontal-stretch: 0;
-            vertical-alignment: align_center;
+            vertical-alignment: align-center;
         }
     }
 

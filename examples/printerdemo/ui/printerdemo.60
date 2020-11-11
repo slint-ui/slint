@@ -119,8 +119,8 @@ MainWindow := Window {
             x: 5px;
             width: 100%;
             height: 100%;
-            horizontal_alignment: align_center;
-            vertical_alignment: align_center;
+            horizontal-alignment: align-center;
+            vertical-alignment: align-center;
             text: page_info.text;
             font_size: 28px;
             animate x, y {
@@ -155,7 +155,7 @@ MainWindow := Window {
                 img.height: root.height * 10%;
                 text.y: 0phx;
                 text.x: root.height * 25%;
-                //text.horizontal_alignment: align_left;
+                //text.horizontal-alignment: align-left;
             }
             pressed when root.active_page == 0 && touch.pressed : {
                 width: root.width / 5 + 6px;
