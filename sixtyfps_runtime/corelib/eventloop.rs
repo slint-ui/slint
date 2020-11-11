@@ -118,11 +118,7 @@ pub trait GenericWindow {
     );
     /// Sets the focus on the window to true or false, depending on the have_focus argument.
     /// This results in WindowFocusReceived and WindowFocusLost events.
-    fn set_focus(
-        self: Rc<Self>,
-        component: core::pin::Pin<crate::component::ComponentRef>,
-        have_focus: bool,
-    );
+    fn set_focus(self: Rc<Self>, have_focus: bool);
 }
 
 /// The ComponentWindow is the (rust) facing public type that can render the items
@@ -479,7 +475,7 @@ impl EventLoop {
                         if let Some(Some(window)) =
                             windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
                         {
-                            window.clone().set_focus(component, have_focus);
+                            window.clone().set_focus(have_focus);
                             // FIXME: remove this, it should be based on actual changes rather than this
                             window.request_redraw();
                         }

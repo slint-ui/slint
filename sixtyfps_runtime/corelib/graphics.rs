@@ -854,18 +854,15 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
         component.as_ref().focus_event(&crate::input::FocusEvent::FocusIn(item_ptr), &window);
     }
 
-    fn set_focus(
-        self: Rc<Self>,
-        component: core::pin::Pin<crate::component::ComponentRef>,
-        have_focus: bool,
-    ) {
+    fn set_focus(self: Rc<Self>, have_focus: bool) {
         let window = crate::eventloop::ComponentWindow::new(self.clone());
         let event = if have_focus {
             crate::input::FocusEvent::WindowReceivedFocus
         } else {
             crate::input::FocusEvent::WindowLostFocus
         };
-        component.as_ref().focus_event(&event, &window);
+        let component = self.component.borrow().upgrade().unwrap();
+        ComponentRc::borrow_pin(&component).as_ref().focus_event(&event, &window);
     }
 }
 
