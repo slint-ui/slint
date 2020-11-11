@@ -27,7 +27,7 @@ export FaxPage := Page {
         y: preview.y + 10px;
         width: parent.width - x - 40px;
         horizontal-alignment: align-center;
-        font_size: 40px;
+        font-size: 40px;
         height: 40px;
     }
 
@@ -80,7 +80,7 @@ export FaxPage := Page {
 
     send := Button {
         text: "Send";
-        font_size: 28px;
+        font-size: 28px;
         y: parent.height - height - 20px;
         x: parent.width - width - 40px;
         /* FIXME: does not work with the native stylr

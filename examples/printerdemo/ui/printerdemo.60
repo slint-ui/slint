@@ -25,17 +25,17 @@ TopPanel := Rectangle {
         text: "PrintMachine";
         color: active_page == 0 ? black : #0000;
         animate color { duration: 200ms; }
-        font_size: root.width * 5%;
+        font-size: root.width * 5%;
         y: 5px;
         x: 40px;
     }
     Text {
         y:  title1.y;
-        x: title1.x + title1.font_size*7; //title1.x + title1.width;
+        x: title1.x + title1.font-size*7; //title1.x + title1.width;
         text: "2000";
         color: active_page == 0 ? #918e8c : #0000;
         animate color { duration: 200ms; }
-        font_size: root.width * 5%;
+        font-size: root.width * 5%;
     }
 
     power_button := Image {
@@ -122,7 +122,7 @@ MainWindow := Window {
             horizontal-alignment: align-center;
             vertical-alignment: align-center;
             text: page_info.text;
-            font_size: 28px;
+            font-size: 28px;
             animate x, y {
                 duration: 300ms;
                 easing: ease_in_out;
@@ -183,7 +183,7 @@ MainWindow := Window {
         Text {
              text: "←";
              color: white;
-             font_size: root.height / 10;
+             font-size: root.height / 10;
         }
         TouchArea {
             width: 100%;

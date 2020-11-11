@@ -33,13 +33,13 @@ export CopyPage := Page {
 
                 Row {
                     SpinBox {
-                        font_size: 28px;
+                        font-size: 28px;
                     }
                 }
                 Row {
                     Button {
                         text: "Print Page";
-                        font_size: 28px;
+                        font-size: 28px;
                     }
                 }
                 Row {
