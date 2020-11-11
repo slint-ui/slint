@@ -570,7 +570,10 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
         *self.component.borrow_mut() = vtable::VRc::downgrade(&component)
     }
 
-    fn draw(self: Rc<Self>, component: crate::component::ComponentRefPin) {
+    fn draw(self: Rc<Self>) {
+        let component = self.component.borrow().upgrade().unwrap();
+        let component = ComponentRc::borrow_pin(&component);
+
         {
             let map_state = self.map_state.borrow();
             let window = map_state.as_mapped();
@@ -618,8 +621,9 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
         self: Rc<Self>,
         pos: winit::dpi::PhysicalPosition<f64>,
         what: MouseEventType,
-        component: crate::component::ComponentRefPin,
     ) {
+        let component = self.component.borrow().upgrade().unwrap();
+        let component = ComponentRc::borrow_pin(&component);
         component.as_ref().input_event(
             MouseEvent { pos: euclid::point2(pos.x as _, pos.y as _), what },
             &crate::eventloop::ComponentWindow::new(self.clone()),

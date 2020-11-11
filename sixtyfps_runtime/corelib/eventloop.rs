@@ -40,7 +40,7 @@ pub trait GenericWindow {
     fn set_component(self: Rc<Self>, component: &ComponentRc);
 
     /// Draw the items of the specified `component` in the given window.
-    fn draw(self: Rc<Self>, component: core::pin::Pin<crate::component::ComponentRef>);
+    fn draw(self: Rc<Self>);
     /// Receive a mouse event and pass it to the items of the component to
     /// change their state.
     ///
@@ -52,7 +52,6 @@ pub trait GenericWindow {
         self: Rc<Self>,
         pos: winit::dpi::PhysicalPosition<f64>,
         what: MouseEventType,
-        component: core::pin::Pin<crate::component::ComponentRef>,
     );
     /// Receive a key event and pass it to the items of the component to
     /// change their state.
@@ -286,7 +285,7 @@ impl EventLoop {
                                     component.as_ref().apply_layout(window.get_geometry())
                                 })
                             }
-                            window.draw(component);
+                            window.draw();
                         }
                     });
                 }
@@ -345,7 +344,7 @@ impl EventLoop {
                                     MouseEventType::MouseReleased
                                 }
                             };
-                            window.clone().process_mouse_input(cursor_pos, what, component);
+                            window.clone().process_mouse_input(cursor_pos, what);
                             // FIXME: remove this, it should be based on actual changes rather than this
                             window.request_redraw();
                         }
@@ -374,7 +373,7 @@ impl EventLoop {
                                 }
                                 winit::event::TouchPhase::Moved => MouseEventType::MouseMoved,
                             };
-                            window.clone().process_mouse_input(cursor_pos, what, component);
+                            window.clone().process_mouse_input(cursor_pos, what);
                             // FIXME: remove this, it should be based on actual changes rather than this
                             window.request_redraw();
                         }
@@ -391,11 +390,9 @@ impl EventLoop {
                         if let Some(Some(window)) =
                             windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
                         {
-                            window.clone().process_mouse_input(
-                                cursor_pos,
-                                MouseEventType::MouseMoved,
-                                component,
-                            );
+                            window
+                                .clone()
+                                .process_mouse_input(cursor_pos, MouseEventType::MouseMoved);
                             // FIXME: remove this, it should be based on actual changes rather than this
                             window.request_redraw();
                         }
