@@ -79,8 +79,11 @@ pub struct ComponentVTable {
 /// the associated vtable
 pub type ComponentRef<'a> = vtable::VRef<'a, ComponentVTable>;
 
-/// Type alias to the commonly use `Pin<VRef<ComponentVTable>>>`
+/// Type alias to the commonly used `Pin<VRef<ComponentVTable>>>`
 pub type ComponentRefPin<'a> = core::pin::Pin<ComponentRef<'a>>;
+
+/// Type alias to the commonly used VRc<ComponentVTable, Dyn>>
+pub type ComponentRc = vtable::VRc<ComponentVTable, Dyn>;
 
 /// Call init() on the ItemVTable for each item of the component.
 pub fn init_component_items<Base>(

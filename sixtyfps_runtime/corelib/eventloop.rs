@@ -13,7 +13,7 @@ LICENSE END */
     [GenericWindow] trait used by the generated code and the run-time to change
     aspects of windows on the screen.
 */
-use crate::component::ComponentVTable;
+use crate::component::{ComponentRc, ComponentVTable};
 use std::cell::RefCell;
 use std::{
     convert::TryInto,
@@ -143,8 +143,10 @@ impl ComponentWindow {
         Self(window_impl)
     }
     /// Spins an event loop and renders the items of the provided component in this window.
-    pub fn run(&self, component: Pin<VRef<ComponentVTable>>) {
+    pub fn run(&self, component: &ComponentRc) {
         let event_loop = crate::eventloop::EventLoop::new();
+
+        let component = ComponentRc::borrow_pin(component);
 
         self.0.clone().map_window(&event_loop, component);
 
@@ -583,7 +585,7 @@ pub mod ffi {
     #[no_mangle]
     pub unsafe extern "C" fn sixtyfps_component_window_run(
         handle: *const ComponentWindowOpaque,
-        component: Pin<VRef<ComponentVTable>>,
+        component: &ComponentRc,
     ) {
         let window = &*(handle as *const ComponentWindow);
         window.run(component);

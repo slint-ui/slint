@@ -44,6 +44,6 @@ fn main() -> std::io::Result<()> {
     };
 
     let component = c.create();
-    component.window().run(component.borrow());
+    component.window().run(&vtable::VRc::into_dyn(component));
     Ok(())
 }

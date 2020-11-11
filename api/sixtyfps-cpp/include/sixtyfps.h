@@ -72,8 +72,9 @@ using cbindgen_private::TraversalOrder;
 namespace private_api {
 using ItemTreeNode = cbindgen_private::ItemTreeNode<uint8_t>;
 
-struct ComponentWindow
+class ComponentWindow
 {
+public:
     ComponentWindow() { cbindgen_private::sixtyfps_component_window_init(&inner); }
     ~ComponentWindow() { cbindgen_private::sixtyfps_component_window_drop(&inner); }
     ComponentWindow(const ComponentWindow &) = delete;
@@ -83,8 +84,9 @@ struct ComponentWindow
     template<typename Component>
     void run(const Component *c) const
     {
-        sixtyfps_component_window_run(
-                &inner, vtable::VRefMut<ComponentVTable> { &Component::component_type, const_cast<Component *>(c) });
+        auto self_rc = c->self_weak.lock().value();
+        sixtyfps_component_window_run(&inner,
+                                      reinterpret_cast<cbindgen_private::ComponentRc *>(&self_rc));
     }
 
     float scale_factor() const { return sixtyfps_component_window_get_scale_factor(&inner); }
@@ -129,6 +131,7 @@ using cbindgen_private::Window;
 
 using cbindgen_private::NativeButton;
 using cbindgen_private::NativeCheckBox;
+using cbindgen_private::NativeComboBox;
 using cbindgen_private::NativeGroupBox;
 using cbindgen_private::NativeLineEdit;
 using cbindgen_private::NativeScrollView;
@@ -136,7 +139,6 @@ using cbindgen_private::NativeSlider;
 using cbindgen_private::NativeSpinBox;
 using cbindgen_private::NativeStandardListViewItem;
 using cbindgen_private::NativeStyleMetrics;
-using cbindgen_private::NativeComboBox;
 
 namespace private_api {
 constexpr inline ItemTreeNode make_item_node(std::uintptr_t offset,
@@ -153,9 +155,10 @@ constexpr inline ItemTreeNode make_dyn_node(std::uintptr_t offset)
                                                            offset } };
 }
 
-inline ItemRef get_item_ref(ComponentRef component, Slice<ItemTreeNode> item_tree, int index) {
+inline ItemRef get_item_ref(ComponentRef component, Slice<ItemTreeNode> item_tree, int index)
+{
     const auto &item = item_tree.ptr[index].item.item;
-    return ItemRef { item.vtable, reinterpret_cast<char*>(component.instance) + item.offset };
+    return ItemRef { item.vtable, reinterpret_cast<char *>(component.instance) + item.offset };
 }
 
 }
@@ -276,50 +279,55 @@ inline FocusEventResult process_focus_event(ComponentRef component, int64_t &foc
     return FocusEventResult::FocusItemNotFound;
 }
 
-void dealloc(const ComponentVTable*, uint8_t *ptr, vtable::Layout layout) {
+void dealloc(const ComponentVTable *, uint8_t *ptr, vtable::Layout layout)
+{
 #ifdef __cpp_sized_deallocation
-    ::operator delete(reinterpret_cast<void*>(ptr), layout.size, static_cast<std::align_val_t>(layout.align));
+    ::operator delete(reinterpret_cast<void *>(ptr), layout.size,
+                      static_cast<std::align_val_t>(layout.align));
 #else
-    ::operator delete(reinterpret_cast<void*>(ptr), static_cast<std::align_val_t>(layout.align));
+    ::operator delete(reinterpret_cast<void *>(ptr), static_cast<std::align_val_t>(layout.align));
 #endif
-
 }
 
-template<typename T> vtable::Layout drop_in_place(ComponentRef component) {
-    reinterpret_cast<T*>(component.instance)->~T();
+template<typename T>
+vtable::Layout drop_in_place(ComponentRef component)
+{
+    reinterpret_cast<T *>(component.instance)->~T();
     return vtable::Layout { sizeof(T), alignof(T) };
 }
 } // namespace private_api
 
-template<typename T> class ComponentWeakHandle;
+template<typename T>
+class ComponentWeakHandle;
 
 /// The component handle is like a shared pointer to a component in the generated code.
 /// In order to get a component, use `T::create()` where T is the name of the component
 /// in the .60 file. This give you a `ComponentHandle<T>`
 template<typename T>
-class ComponentHandle {
+class ComponentHandle
+{
     vtable::VRc<private_api::ComponentVTable, T> inner;
     friend class ComponentWeakHandle<T>;
+
 public:
     /// internal constructor
     ComponentHandle(const vtable::VRc<private_api::ComponentVTable, T> &inner) : inner(inner) { }
 
-    const T* operator->() const {
-        return inner.operator->();
-    }
-    const T& operator*() const {
-        return inner.operator*();
-    }
+    const T *operator->() const { return inner.operator->(); }
+    const T &operator*() const { return inner.operator*(); }
 };
 
 /// A weak reference to the component. Can be constructed from a `ComponentHandle<T>`
 template<typename T>
-class ComponentWeakHandle {
+class ComponentWeakHandle
+{
     vtable::VWeak<private_api::ComponentVTable, T> inner;
+
 public:
     ComponentWeakHandle() = default;
-    ComponentWeakHandle(const ComponentHandle<T>&other) : inner(other.inner) {}
-    std::optional<ComponentHandle<T>> lock() const {
+    ComponentWeakHandle(const ComponentHandle<T> &other) : inner(other.inner) { }
+    std::optional<ComponentHandle<T>> lock() const
+    {
         if (auto l = inner.lock()) {
             return { ComponentHandle(*l) };
         } else {
@@ -329,32 +337,31 @@ public:
 };
 
 // layouts:
+using cbindgen_private::box_layout_info;
+using cbindgen_private::BoxLayoutCellData;
+using cbindgen_private::BoxLayoutData;
 using cbindgen_private::grid_layout_info;
 using cbindgen_private::GridLayoutCellData;
 using cbindgen_private::GridLayoutData;
-using cbindgen_private::BoxLayoutData;
-using cbindgen_private::BoxLayoutCellData;
+using cbindgen_private::LayoutAlignment;
 using cbindgen_private::LayoutInfo;
 using cbindgen_private::Padding;
 using cbindgen_private::PathLayoutData;
 using cbindgen_private::PathLayoutItemData;
-using cbindgen_private::solve_grid_layout;
-using cbindgen_private::solve_box_layout;
-using cbindgen_private::box_layout_info;
-using cbindgen_private::solve_path_layout;
 using cbindgen_private::Rect;
-using cbindgen_private::LayoutAlignment;
+using cbindgen_private::solve_box_layout;
+using cbindgen_private::solve_grid_layout;
+using cbindgen_private::solve_path_layout;
 
-inline LayoutInfo LayoutInfo::merge(const LayoutInfo &other) const {
+inline LayoutInfo LayoutInfo::merge(const LayoutInfo &other) const
+{
     // Note: This "logic" is duplicated from LayoutInfo::merge in layout.rs.
-    return LayoutInfo {
-        std::max(min_width, other.min_width),
-        std::min(max_width, other.max_width),
-        std::max(min_height, other.min_height),
-        std::min(max_height, other.max_height),
-        std::min(horizontal_stretch, other.horizontal_stretch),
-        std::min(vertical_stretch, other.vertical_stretch)
-    };
+    return LayoutInfo { std::max(min_width, other.min_width),
+                        std::min(max_width, other.max_width),
+                        std::max(min_height, other.min_height),
+                        std::min(max_height, other.max_height),
+                        std::min(horizontal_stretch, other.horizontal_stretch),
+                        std::min(vertical_stretch, other.vertical_stretch) };
 }
 
 // models
@@ -591,7 +598,7 @@ public:
     vtable::VRef<private_api::ComponentVTable> item_at(int i) const
     {
         const auto &x = inner->data.at(i);
-        return { &C::component_type, const_cast<C*>(&(**x.ptr)) };
+        return { &C::component_type, const_cast<C *>(&(**x.ptr)) };
     }
 
     void compute_layout(cbindgen_private::Rect parent_rect) const
@@ -599,7 +606,8 @@ public:
         if (!inner)
             return;
         for (auto &x : inner->data) {
-            (*x.ptr)->apply_layout({ &C::component_type, const_cast<C*>(&(**x.ptr)) }, parent_rect);
+            (*x.ptr)->apply_layout({ &C::component_type, const_cast<C *>(&(**x.ptr)) },
+                                   parent_rect);
         }
     }
 
@@ -641,17 +649,21 @@ Flickable::~Flickable()
     sixtyfps_flickable_data_free(&data);
 }
 
-NativeStyleMetrics::NativeStyleMetrics() {
+NativeStyleMetrics::NativeStyleMetrics()
+{
     sixtyfps_init_native_style_metrics(this);
 }
 
 using cbindgen_private::StandardListViewItem;
 namespace cbindgen_private {
-bool operator==(const StandardListViewItem &a, const StandardListViewItem &b) {
-    static_assert(sizeof(StandardListViewItem) == sizeof(std::tuple<SharedString>), "must update to cover all fields");
+bool operator==(const StandardListViewItem &a, const StandardListViewItem &b)
+{
+    static_assert(sizeof(StandardListViewItem) == sizeof(std::tuple<SharedString>),
+                  "must update to cover all fields");
     return a.text == b.text;
 }
-bool operator!=(const StandardListViewItem &a, const StandardListViewItem &b) {
+bool operator!=(const StandardListViewItem &a, const StandardListViewItem &b)
+{
     return !(a == b);
 }
 }

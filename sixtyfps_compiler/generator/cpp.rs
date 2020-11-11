@@ -831,6 +831,18 @@ fn generate_component(
         ));
 
         component_struct.members.push((
+            Access::Private,
+            Declaration::Var(Var {
+                ty: format!(
+                    "vtable::VWeak<sixtyfps::private_api::ComponentVTable, {}>",
+                    component_id
+                ),
+                name: "self_weak".into(),
+                ..Var::default()
+            }),
+        ));
+
+        component_struct.members.push((
             Access::Public,
             Declaration::Function(Function {
                 name: "run".into(),
@@ -845,13 +857,18 @@ fn generate_component(
             window = window_ref_expression(component)
         ));
 
+        component_struct.friends.push("sixtyfps::private_api::ComponentWindow".into());
+
         component_struct.members.push((
             Access::Public,
             Declaration::Function(Function {
                 name: "create".into(),
                 signature: format!("() -> sixtyfps::ComponentHandle<{}>", component_id),
-                statements: Some(vec![format!(
-                    "return sixtyfps::ComponentHandle<{0}>{{ vtable::VRc<sixtyfps::private_api::ComponentVTable, {0}>::make() }};",
+                statements: Some(vec![
+                    format!("auto self_rc = vtable::VRc<sixtyfps::private_api::ComponentVTable, {0}>::make();", component_id),
+                    format!("const_cast<{0} *>(&*self_rc)->self_weak = vtable::VWeak(self_rc);", component_id),
+                    format!(
+                    "return sixtyfps::ComponentHandle<{0}>{{ self_rc }};",
                     component_id,
                 )]),
                 is_static: true,

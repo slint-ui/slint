@@ -68,6 +68,12 @@ impl<'id> ComponentBox<'id> {
             .unwrap()
             .clone()
     }
+
+    pub fn run(self) {
+        let rc_box = vtable::VRc::new(ErasedComponentBox::from(self));
+        let window = rc_box.0.window();
+        window.run(&vtable::VRc::into_dyn(rc_box));
+    }
 }
 
 impl<'id> Drop for ComponentBox<'id> {
