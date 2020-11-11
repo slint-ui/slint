@@ -549,10 +549,16 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     #some(#ident::<T>)
                 },));
             } else {
+                let erase_return_type_lifetime = match &sig_extern.output {
+                    ReturnType::Default => quote!(),
+                    // If the return type contains a implicit lifetime, it is safe to erase it while returning it
+                    // because a sound implementation of the trait wouldn't allow unsound things here
+                    ReturnType::Type(_, r) => quote!(core::mem::transmute::<#r, #r>),
+                };
                 vtable_ctor.push(quote!(#ident: {
                     #sig_extern {
                         // This is safe since the self must be a instance of our type
-                        unsafe { T::#ident(#self_call #forward_code) }
+                        unsafe { #erase_return_type_lifetime(T::#ident(#self_call #forward_code)) }
                     }
                     #ident::<T>
                 },));
@@ -765,6 +771,6 @@ and implements HasStaticVTable for it.
             }
         }
     );
-    //     println!("{}", result);
+    //println!("{}", result);
     result.into()
 }

@@ -982,6 +982,19 @@ fn generate_component(
         component_struct.members.push((
             Access::Private,
             Declaration::Function(Function {
+                name: "get_item_ref".into(),
+                signature: "(sixtyfps::private_api::ComponentRef component, uintptr_t index) -> sixtyfps::private_api::ItemRef".into(),
+                is_static: true,
+                statements: Some(vec![
+                    "return sixtyfps::private_api::get_item_ref(component, item_tree(), index);".to_owned(),
+                ]),
+                ..Default::default()
+            }),
+        ));
+
+        component_struct.members.push((
+            Access::Private,
+            Declaration::Function(Function {
                 name: "item_tree".into(),
                 signature: "() -> sixtyfps::Slice<sixtyfps::private_api::ItemTreeNode>".into(),
                 is_static: true,
@@ -1142,7 +1155,7 @@ fn generate_component(
             ty: "const sixtyfps::private_api::ComponentVTable".to_owned(),
             name: format!("{}::component_type", component_id),
             init: Some(format!(
-                "{{ visit_children, layouting_info, apply_layout, input_event, key_event, focus_event, sixtyfps::private_api::drop_in_place<{}>, sixtyfps::private_api::dealloc }}",
+                "{{ visit_children, get_item_ref, layouting_info, apply_layout, input_event, key_event, focus_event, sixtyfps::private_api::drop_in_place<{}>, sixtyfps::private_api::dealloc }}",
                 component_id)
             ),
         }));

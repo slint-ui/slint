@@ -152,6 +152,12 @@ constexpr inline ItemTreeNode make_dyn_node(std::uintptr_t offset)
     return ItemTreeNode { ItemTreeNode::DynamicTree_Body { ItemTreeNode::Tag::DynamicTree,
                                                            offset } };
 }
+
+inline ItemRef get_item_ref(ComponentRef component, Slice<ItemTreeNode> item_tree, int index) {
+    const auto &item = item_tree.ptr[index].item.item;
+    return ItemRef { item.vtable, reinterpret_cast<char*>(component.instance) + item.offset };
+}
+
 }
 
 using cbindgen_private::FocusEvent;

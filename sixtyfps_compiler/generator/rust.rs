@@ -757,6 +757,14 @@ fn generate_component(
             }
 
             #layouts
+
+            fn get_item_ref(self: ::core::pin::Pin<&Self>, index: usize) -> ::core::pin::Pin<ItemRef> {
+                match &Self::item_tree()[index] {
+                    ItemTreeNode::Item { item, .. } => item.apply_pin(self),
+                    ItemTreeNode::DynamicTree { .. } => panic!("get_item_ref called on dynamic tree"),
+
+                }
+            }
         }
         })
     };

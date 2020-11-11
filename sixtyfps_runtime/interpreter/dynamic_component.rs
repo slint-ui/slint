@@ -178,7 +178,7 @@ impl RepeatedComponent for ErasedComponentBox {
 
 impl Component for ErasedComponentBox {
     fn visit_children_item(
-        self: ::core::pin::Pin<&Self>,
+        self: Pin<&Self>,
         index: isize,
         order: TraversalOrder,
         visitor: ItemVisitorRefMut,
@@ -187,7 +187,7 @@ impl Component for ErasedComponentBox {
     }
 
     fn input_event(
-        self: ::core::pin::Pin<&Self>,
+        self: Pin<&Self>,
         mouse_event: sixtyfps_corelib::input::MouseEvent,
         window: &ComponentWindow,
         app_component: &ComponentRefPin,
@@ -196,7 +196,7 @@ impl Component for ErasedComponentBox {
     }
 
     fn key_event(
-        self: ::core::pin::Pin<&Self>,
+        self: Pin<&Self>,
         event: &sixtyfps_corelib::input::KeyEvent,
         window: &ComponentWindow,
     ) -> sixtyfps_corelib::input::KeyEventResult {
@@ -204,18 +204,21 @@ impl Component for ErasedComponentBox {
     }
 
     fn focus_event(
-        self: ::core::pin::Pin<&Self>,
+        self: Pin<&Self>,
         event: &sixtyfps_corelib::input::FocusEvent,
         window: &ComponentWindow,
     ) -> sixtyfps_corelib::input::FocusEventResult {
         self.borrow().as_ref().focus_event(event, window)
     }
 
-    fn layout_info(self: ::core::pin::Pin<&Self>) -> sixtyfps_corelib::layout::LayoutInfo {
+    fn layout_info(self: Pin<&Self>) -> sixtyfps_corelib::layout::LayoutInfo {
         self.borrow().as_ref().layout_info()
     }
-    fn apply_layout(self: ::core::pin::Pin<&Self>, r: sixtyfps_corelib::graphics::Rect) {
+    fn apply_layout(self: Pin<&Self>, r: sixtyfps_corelib::graphics::Rect) {
         self.borrow().as_ref().apply_layout(r)
+    }
+    fn get_item_ref<'a>(self: Pin<&'a Self>, index: usize) -> Pin<ItemRef<'a>> {
+        vtable::VRef::as_pin_ref(self.get_ref().borrow()).get_item_ref(index)
     }
 }
 
@@ -673,6 +676,7 @@ fn generate_component<'id>(
         input_event,
         key_event,
         focus_event,
+        get_item_ref,
         drop_in_place,
         dealloc,
     };
@@ -1497,6 +1501,17 @@ extern "C" fn apply_layout(component: ComponentRefPin, _r: sixtyfps_corelib::gra
         generativity::make_guard!(g);
         let rep_in_comp = rep_in_comp.unerase(g);
         rep_in_comp.offset.apply_pin(instance_ref.instance).compute_layout();
+    }
+}
+
+unsafe extern "C" fn get_item_ref(component: ComponentRefPin, index: usize) -> Pin<ItemRef> {
+    generativity::make_guard!(guard);
+    let instance_ref = InstanceRef::from_pin_ref(component, guard);
+    match &instance_ref.component_type.item_tree.as_slice()[index] {
+        ItemTreeNode::Item { item, .. } => core::mem::transmute::<Pin<ItemRef>, Pin<ItemRef>>(
+            item.apply_pin(instance_ref.instance),
+        ),
+        ItemTreeNode::DynamicTree { .. } => panic!("get_item_ref called on dynamic tree"),
     }
 }
 

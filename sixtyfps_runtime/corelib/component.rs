@@ -17,6 +17,7 @@ use crate::input::{
     FocusEvent, FocusEventResult, InputEventResult, KeyEvent, KeyEventResult, MouseEvent,
 };
 use crate::item_tree::{ItemVisitorVTable, TraversalOrder, VisitChildrenResult};
+use crate::items::ItemVTable;
 use crate::layout::LayoutInfo;
 use vtable::*;
 
@@ -33,6 +34,12 @@ pub struct ComponentVTable {
         order: TraversalOrder,
         visitor: VRefMut<ItemVisitorVTable>,
     ) -> VisitChildrenResult,
+
+    /// Return a reference to an item using the given index
+    pub get_item_ref: extern "C" fn(
+        core::pin::Pin<VRef<ComponentVTable>>,
+        index: usize,
+    ) -> core::pin::Pin<VRef<ItemVTable>>,
 
     /// Returns the layout info for this component
     pub layout_info: extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>) -> LayoutInfo,

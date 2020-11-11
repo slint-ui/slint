@@ -16,6 +16,7 @@ struct HelloVTable {
     foo_mut: fn(VRefMut<'_, HelloVTable>, u32) -> u32,
     construct: fn(*const HelloVTable, u32) -> VBox<HelloVTable>,
     assoc: fn(*const HelloVTable) -> isize,
+    with_lifetime: fn(VRef<'_, HelloVTable>) -> &'_ u32,
 
     drop: fn(VRefMut<'_, HelloVTable>),
 
@@ -47,6 +48,10 @@ impl Hello for SomeStruct {
 
     fn assoc() -> isize {
         32
+    }
+
+    fn with_lifetime(&self) -> &u32 {
+        &self.x
     }
 }
 impl HelloConsts for SomeStruct {
@@ -85,6 +90,10 @@ impl Hello for AnotherStruct {
 
     fn assoc() -> isize {
         999
+    }
+
+    fn with_lifetime(&self) -> &u32 {
+        &self.foo
     }
 }
 impl HelloConsts for AnotherStruct {
