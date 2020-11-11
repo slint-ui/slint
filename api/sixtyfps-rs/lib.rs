@@ -335,7 +335,6 @@ pub mod testing {
         key_codes: &[crate::re_exports::KeyCode],
     ) {
         sixtyfps_corelib::tests::sixtyfps_send_key_clicks(
-            vtable::VRef::new_pin(component),
             &crate::re_exports::Slice::from_slice(key_codes),
             component.component_window(),
         )
@@ -349,7 +348,6 @@ pub mod testing {
         sequence: &str,
     ) {
         sixtyfps_corelib::tests::send_keyboard_string_sequence(
-            vtable::VRef::new_pin(component),
             &super::SharedString::from(sequence),
             component.component_window(),
         )

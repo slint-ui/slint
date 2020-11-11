@@ -20,16 +20,15 @@ template<typename Component>
 inline void send_mouse_click(const Component &component, float x, float y)
 {
     cbindgen_private::sixtyfps_send_mouse_click(
-        { &Component::component_type, const_cast<Component *>(&component) },
-        x, y, &component.window);
+            { &Component::component_type, const_cast<Component *>(&component) }, x, y,
+            &component.window);
 }
 
 template<typename Component>
-inline void send_keyboard_string_sequence(const Component &component, const sixtyfps::SharedString &str)
+inline void send_keyboard_string_sequence(const Component &component,
+                                          const sixtyfps::SharedString &str)
 {
-    cbindgen_private::send_keyboard_string_sequence(
-        { &Component::component_type, const_cast<Component *>(&component) },
-        &str, &component.window);
+    cbindgen_private::send_keyboard_string_sequence(&str, &component.window);
 }
 
 #define assert_eq(A, B)                                                                            \

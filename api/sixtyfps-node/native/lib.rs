@@ -454,7 +454,7 @@ declare_types! {
             let comp = this.borrow(&lock).0.clone();
             let component = comp.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
             run_scoped(&mut cx,this.downcast().unwrap(), || {
-                sixtyfps_corelib::tests::send_keyboard_string_sequence(component.borrow(), &sequence.into(), &component.window());
+                sixtyfps_corelib::tests::send_keyboard_string_sequence(&sequence.into(), &component.window());
                 Ok(())
             })?;
             Ok(JsUndefined::new().as_value(&mut cx))

@@ -631,12 +631,11 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
         );
     }
 
-    fn process_key_input(
-        self: Rc<Self>,
-        event: &KeyEvent,
-        component: core::pin::Pin<crate::component::ComponentRef>,
-    ) {
-        component.as_ref().key_event(event, &crate::eventloop::ComponentWindow::new(self.clone()));
+    fn process_key_input(self: Rc<Self>, event: &KeyEvent) {
+        let component = self.component.borrow().upgrade().unwrap();
+        ComponentRc::borrow_pin(&component)
+            .as_ref()
+            .key_event(event, &crate::eventloop::ComponentWindow::new(self.clone()));
     }
 
     fn with_platform_window(&self, callback: &dyn Fn(&winit::window::Window)) {

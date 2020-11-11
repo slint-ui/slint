@@ -65,32 +65,24 @@ pub extern "C" fn sixtyfps_set_keyboard_modifiers(
 /// Simulate a key down event.
 #[no_mangle]
 pub extern "C" fn sixtyfps_send_key_clicks(
-    component: core::pin::Pin<crate::component::ComponentRef>,
     key_codes: &crate::slice::Slice<crate::input::KeyCode>,
     window: &crate::eventloop::ComponentWindow,
 ) {
     for key_code in key_codes.iter() {
-        window.process_key_input(
-            &crate::input::KeyEvent::KeyPressed {
-                code: *key_code,
-                modifiers: window.current_keyboard_modifiers(),
-            },
-            component,
-        );
-        window.process_key_input(
-            &crate::input::KeyEvent::KeyReleased {
-                code: *key_code,
-                modifiers: window.current_keyboard_modifiers(),
-            },
-            component,
-        );
+        window.process_key_input(&crate::input::KeyEvent::KeyPressed {
+            code: *key_code,
+            modifiers: window.current_keyboard_modifiers(),
+        });
+        window.process_key_input(&crate::input::KeyEvent::KeyReleased {
+            code: *key_code,
+            modifiers: window.current_keyboard_modifiers(),
+        });
     }
 }
 
 /// Simulate a character input event.
 #[no_mangle]
 pub extern "C" fn send_keyboard_string_sequence(
-    component: core::pin::Pin<crate::component::ComponentRef>,
     sequence: &crate::SharedString,
     window: &crate::eventloop::ComponentWindow,
 ) {
@@ -98,25 +90,19 @@ pub extern "C" fn send_keyboard_string_sequence(
 
     let key_down = |maybe_code: &Option<crate::input::KeyCode>| {
         maybe_code.clone().map(|code| {
-            window.process_key_input(
-                &crate::input::KeyEvent::KeyPressed {
-                    code: code,
-                    modifiers: window.current_keyboard_modifiers(),
-                },
-                component,
-            );
+            window.process_key_input(&crate::input::KeyEvent::KeyPressed {
+                code: code,
+                modifiers: window.current_keyboard_modifiers(),
+            });
         });
     };
 
     let key_up = |maybe_code: &Option<crate::input::KeyCode>| {
         maybe_code.clone().map(|code| {
-            window.process_key_input(
-                &crate::input::KeyEvent::KeyReleased {
-                    code: code,
-                    modifiers: window.current_keyboard_modifiers(),
-                },
-                component,
-            );
+            window.process_key_input(&crate::input::KeyEvent::KeyReleased {
+                code: code,
+                modifiers: window.current_keyboard_modifiers(),
+            });
         });
     };
 
@@ -131,13 +117,10 @@ pub extern "C" fn send_keyboard_string_sequence(
 
         key_down(&maybe_key_code);
 
-        window.process_key_input(
-            &crate::input::KeyEvent::CharacterInput {
-                unicode_scalar: ch.into(),
-                modifiers: window.current_keyboard_modifiers(),
-            },
-            component,
-        );
+        window.process_key_input(&crate::input::KeyEvent::CharacterInput {
+            unicode_scalar: ch.into(),
+            modifiers: window.current_keyboard_modifiers(),
+        });
 
         key_up(&maybe_key_code);
 

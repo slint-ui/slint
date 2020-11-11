@@ -59,11 +59,7 @@ pub trait GenericWindow {
     /// Arguments:
     /// * `event`: The key event received by the windowing system.
     /// * `component`: The SixtyFPS compiled component that provides the tree of items.
-    fn process_key_input(
-        self: Rc<Self>,
-        event: &KeyEvent,
-        component: core::pin::Pin<crate::component::ComponentRef>,
-    );
+    fn process_key_input(self: Rc<Self>, event: &KeyEvent);
     /// Calls the `callback` function with the underlying winit::Window that this
     /// GenericWindow backs.
     fn with_platform_window(&self, callback: &dyn Fn(&winit::window::Window));
@@ -190,12 +186,8 @@ impl ComponentWindow {
         self.0.clone().current_keyboard_modifiers()
     }
 
-    pub(crate) fn process_key_input(
-        &self,
-        event: &KeyEvent,
-        component: core::pin::Pin<crate::component::ComponentRef>,
-    ) {
-        self.0.clone().process_key_input(event, component)
+    pub(crate) fn process_key_input(&self, event: &KeyEvent) {
+        self.0.clone().process_key_input(event)
     }
 
     /// Clears the focus on any previously focused item and makes the provided
@@ -434,7 +426,7 @@ impl EventLoop {
                             if let Some(ref key_event) =
                                 (input, window.current_keyboard_modifiers()).try_into().ok()
                             {
-                                window.clone().process_key_input(key_event, component);
+                                window.clone().process_key_input(key_event);
                                 // FIXME: remove this, it should be based on actual changes rather than this
                                 window.request_redraw();
                             }
@@ -458,7 +450,7 @@ impl EventLoop {
                                         unicode_scalar: ch.into(),
                                         modifiers,
                                     };
-                                    window.clone().process_key_input(&key_event, component);
+                                    window.clone().process_key_input(&key_event);
                                     // FIXME: remove this, it should be based on actual changes rather than this
                                     window.request_redraw();
                                 }
