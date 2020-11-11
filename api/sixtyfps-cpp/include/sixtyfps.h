@@ -84,7 +84,7 @@ struct ComponentWindow
     void run(const Component *c) const
     {
         sixtyfps_component_window_run(
-                &inner, vtable::VRefMut<ComponentVTable> { &Component::component_type, const_cast<Component *>(c) }, c->root_item());
+                &inner, vtable::VRefMut<ComponentVTable> { &Component::component_type, const_cast<Component *>(c) });
     }
 
     float scale_factor() const { return sixtyfps_component_window_get_scale_factor(&inner); }

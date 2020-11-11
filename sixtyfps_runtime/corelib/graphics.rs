@@ -639,7 +639,7 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
     fn map_window(
         self: Rc<Self>,
         event_loop: &crate::eventloop::EventLoop,
-        root_item: Pin<ItemRef>,
+        component: core::pin::Pin<crate::component::ComponentRef>,
     ) {
         if matches!(&*self.map_state.borrow(), GraphicsWindowBackendState::Mapped(..)) {
             return;
@@ -669,6 +669,8 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
                 let existing_size = platform_window.inner_size();
 
                 let mut new_size = existing_size;
+
+                let root_item = component.as_ref().get_item_ref(0);
 
                 if let Some(window_item) = ItemRef::downcast_pin(root_item) {
                     let width =

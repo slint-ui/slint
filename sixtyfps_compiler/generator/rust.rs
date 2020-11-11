@@ -572,8 +572,6 @@ fn generate_component(
         maybe_window_field_decl = Some(quote!(pub window: sixtyfps::re_exports::ComponentWindow));
         maybe_window_field_init = Some(quote!(window: sixtyfps::create_window()));
 
-        let root_elem = component.root_element.borrow();
-        let root_item_name = format_ident!("{}", root_elem.id);
         visibility = Some(quote!(pub));
 
         has_window_impl = Some(quote!(
@@ -585,8 +583,7 @@ fn generate_component(
             impl sixtyfps::Component for #component_id {
                 fn run(self: ::core::pin::Pin<&Self>) {
                     use sixtyfps::re_exports::*;
-                    let root_item = Self::FIELD_OFFSETS.#root_item_name.apply_pin(self);
-                    self.as_ref().window.run(VRef::new_pin(self.as_ref()), VRef::new_pin(root_item));
+                    self.as_ref().window.run(VRef::new_pin(self.as_ref()));
                 }
             }
         ))

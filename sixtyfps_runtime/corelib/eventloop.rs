@@ -14,7 +14,6 @@ LICENSE END */
     aspects of windows on the screen.
 */
 use crate::component::ComponentVTable;
-use crate::items::ItemRef;
 use std::cell::RefCell;
 use std::{
     convert::TryInto,
@@ -70,11 +69,15 @@ pub trait GenericWindow {
     /// Arguments:
     /// * `event_loop`: The event loop used to drive further event handling for this window
     ///   as it will receive events.
-    /// * `root_item`: The root item of the scene. If the item is a [`crate::items::Window`], then
+    /// * `component`: The component that holds the root item of the scene. If the item is a [`crate::items::Window`], then
     ///   the `width` and `height` properties are read and the values are passed to the windowing system as request
     ///   for the initial size of the window. Then bindings are installed on these properties to keep them up-to-date
     ///   with the size as it may be changed by the user or the windowing system in general.
-    fn map_window(self: Rc<Self>, event_loop: &EventLoop, root_item: Pin<ItemRef>);
+    fn map_window(
+        self: Rc<Self>,
+        event_loop: &EventLoop,
+        component: core::pin::Pin<crate::component::ComponentRef>,
+    );
     /// Removes the window from the screen. The window is not destroyed though, it can be show (mapped) again later
     /// by calling [`GenericWindow::map_window`].
     fn unmap_window(self: Rc<Self>);
@@ -140,10 +143,10 @@ impl ComponentWindow {
         Self(window_impl)
     }
     /// Spins an event loop and renders the items of the provided component in this window.
-    pub fn run(&self, component: Pin<VRef<ComponentVTable>>, root_item: Pin<ItemRef>) {
+    pub fn run(&self, component: Pin<VRef<ComponentVTable>>) {
         let event_loop = crate::eventloop::EventLoop::new();
 
-        self.0.clone().map_window(&event_loop, root_item);
+        self.0.clone().map_window(&event_loop, component);
 
         event_loop.run(component);
 
@@ -581,10 +584,9 @@ pub mod ffi {
     pub unsafe extern "C" fn sixtyfps_component_window_run(
         handle: *const ComponentWindowOpaque,
         component: Pin<VRef<ComponentVTable>>,
-        root_item: Pin<VRef<ItemVTable>>,
     ) {
         let window = &*(handle as *const ComponentWindow);
-        window.run(component, root_item);
+        window.run(component);
     }
 
     /// Returns the window scale factor.
