@@ -50,14 +50,19 @@ impl<'id> dynamic_component::ComponentDescription<'id> {
         self: Rc<Self>,
         #[cfg(target_arch = "wasm32")] canvas_id: String,
     ) -> vtable::VRc<ComponentVTable, dynamic_component::ErasedComponentBox> {
-        vtable::VRc::new(dynamic_component::ErasedComponentBox::from(
+        let component_ref = vtable::VRc::new(dynamic_component::ErasedComponentBox::from(
             dynamic_component::instantiate(
                 self,
                 None,
                 #[cfg(target_arch = "wasm32")]
                 canvas_id,
             ),
-        ))
+        ));
+        component_ref
+            .as_pin_ref()
+            .window()
+            .set_component(&vtable::VRc::into_dyn(component_ref.clone()));
+        component_ref
     }
 
     /// Set a value to property.

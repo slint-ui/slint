@@ -144,6 +144,7 @@ fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
             "sixtyfps_component_window_set_scale_factor",
             "sixtyfps_component_window_free_graphics_resources",
             "sixtyfps_component_window_set_focus_item",
+            "sixtyfps_component_window_set_component",
             "sixtyfps_new_path_elements",
             "sixtyfps_new_path_events",
         ]

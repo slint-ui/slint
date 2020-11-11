@@ -867,6 +867,7 @@ fn generate_component(
                 statements: Some(vec![
                     format!("auto self_rc = vtable::VRc<sixtyfps::private_api::ComponentVTable, {0}>::make();", component_id),
                     format!("const_cast<{0} *>(&*self_rc)->self_weak = vtable::VWeak(self_rc);", component_id),
+                    "self_rc->window.set_component(*self_rc);".into(),
                     format!(
                     "return sixtyfps::ComponentHandle<{0}>{{ self_rc }};",
                     component_id,

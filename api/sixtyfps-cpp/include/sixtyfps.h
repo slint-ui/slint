@@ -114,6 +114,14 @@ public:
                 vtable::VRef<ComponentVTable> { &Component::component_type, c }, items, &inner);
     }
 
+    template<typename Component>
+    void set_component(const Component &c) const
+    {
+        auto self_rc = c.self_weak.lock().value();
+        sixtyfps_component_window_set_component(
+                &inner, reinterpret_cast<cbindgen_private::ComponentRc *>(&self_rc));
+    }
+
 private:
     cbindgen_private::ComponentWindowOpaque inner;
 };

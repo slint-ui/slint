@@ -574,6 +574,8 @@ fn generate_component(
 
         visibility = Some(quote!(pub));
 
+        init.push(quote!(_self.window.set_component(&VRc::into_dyn(_self.as_ref().self_weak.get().unwrap().upgrade().unwrap()));));
+
         has_window_impl = Some(quote!(
             impl sixtyfps::testing::HasWindow for #component_id {
                 fn component_window(&self) -> &sixtyfps::re_exports::ComponentWindow {

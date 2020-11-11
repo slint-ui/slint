@@ -146,8 +146,6 @@ impl ComponentWindow {
     pub fn run(&self, component: &ComponentRc) {
         let event_loop = crate::eventloop::EventLoop::new();
 
-        self.0.clone().set_component(component);
-
         self.0.clone().map_window(&event_loop);
 
         event_loop.run(ComponentRc::borrow_pin(component));
@@ -209,6 +207,11 @@ impl ComponentWindow {
         item: Pin<VRef<crate::items::ItemVTable>>,
     ) {
         self.0.clone().set_focus_item(component, item.as_ptr())
+    }
+
+    /// Associates this window with the specified component, for future event handling, etc.
+    pub fn set_component(&self, component: &ComponentRc) {
+        self.0.clone().set_component(component)
     }
 }
 
@@ -633,5 +636,15 @@ pub mod ffi {
     ) {
         let window = &*(handle as *const ComponentWindow);
         window.set_focus_item(component, item)
+    }
+
+    /// Associates the window with the given component.
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_component_window_set_component(
+        handle: *const ComponentWindowOpaque,
+        component: &ComponentRc,
+    ) {
+        let window = &*(handle as *const ComponentWindow);
+        window.set_component(component)
     }
 }
