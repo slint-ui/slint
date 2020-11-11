@@ -84,6 +84,8 @@ pub type ComponentRefPin<'a> = core::pin::Pin<ComponentRef<'a>>;
 
 /// Type alias to the commonly used VRc<ComponentVTable, Dyn>>
 pub type ComponentRc = vtable::VRc<ComponentVTable, Dyn>;
+/// Type alias to the commonly used VWeak<ComponentVTable, Dyn>>
+pub type ComponentWeak = vtable::VWeak<ComponentVTable, Dyn>;
 
 /// Call init() on the ItemVTable for each item of the component.
 pub fn init_component_items<Base>(

@@ -20,6 +20,7 @@ LICENSE END */
     created by the backend in a type-erased manner.
 */
 extern crate alloc;
+use crate::component::{ComponentRc, ComponentWeak};
 use crate::input::{KeyEvent, KeyboardModifiers, MouseEvent, MouseEventType};
 use crate::items::ItemRef;
 use crate::properties::{InterpolatedPropertyValue, Property};
@@ -520,6 +521,7 @@ pub struct GraphicsWindow<Backend: GraphicsBackend + 'static> {
     properties: Pin<Box<WindowProperties>>,
     cursor_blinker: std::cell::RefCell<pin_weak::rc::PinWeak<TextCursorBlinker>>,
     keyboard_modifiers: std::cell::Cell<KeyboardModifiers>,
+    component: std::cell::RefCell<ComponentWeak>,
 }
 
 impl<Backend: GraphicsBackend + 'static> GraphicsWindow<Backend> {
@@ -539,6 +541,7 @@ impl<Backend: GraphicsBackend + 'static> GraphicsWindow<Backend> {
             properties: Box::pin(WindowProperties::default()),
             cursor_blinker: Default::default(),
             keyboard_modifiers: Default::default(),
+            component: Default::default(),
         })
     }
 
@@ -563,6 +566,10 @@ impl<Backend: GraphicsBackend> Drop for GraphicsWindow<Backend> {
 }
 
 impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindow<Backend> {
+    fn set_component(self: Rc<Self>, component: &ComponentRc) {
+        *self.component.borrow_mut() = vtable::VRc::downgrade(&component)
+    }
+
     fn draw(self: Rc<Self>, component: crate::component::ComponentRefPin) {
         {
             let map_state = self.map_state.borrow();
@@ -636,11 +643,7 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
         callback(handle);
     }
 
-    fn map_window(
-        self: Rc<Self>,
-        event_loop: &crate::eventloop::EventLoop,
-        component: core::pin::Pin<crate::component::ComponentRef>,
-    ) {
+    fn map_window(self: Rc<Self>, event_loop: &crate::eventloop::EventLoop) {
         if matches!(&*self.map_state.borrow(), GraphicsWindowBackendState::Mapped(..)) {
             return;
         }
@@ -670,6 +673,8 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
 
                 let mut new_size = existing_size;
 
+                let component = self.component.borrow().upgrade().unwrap();
+                let component = ComponentRc::borrow_pin(&component);
                 let root_item = component.as_ref().get_item_ref(0);
 
                 if let Some(window_item) = ItemRef::downcast_pin(root_item) {

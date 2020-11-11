@@ -35,6 +35,10 @@ use winit::platform::desktop::EventLoopExtDesktop;
 ///
 /// [`crate::graphics`] provides an implementation of this trait for use with [`crate::graphics::GraphicsBackend`].
 pub trait GenericWindow {
+    /// Associates this window with the specified component. Further event handling and rendering, etc. will be
+    /// done with that component.
+    fn set_component(self: Rc<Self>, component: &ComponentRc);
+
     /// Draw the items of the specified `component` in the given window.
     fn draw(self: Rc<Self>, component: core::pin::Pin<crate::component::ComponentRef>);
     /// Receive a mouse event and pass it to the items of the component to
@@ -73,11 +77,7 @@ pub trait GenericWindow {
     ///   the `width` and `height` properties are read and the values are passed to the windowing system as request
     ///   for the initial size of the window. Then bindings are installed on these properties to keep them up-to-date
     ///   with the size as it may be changed by the user or the windowing system in general.
-    fn map_window(
-        self: Rc<Self>,
-        event_loop: &EventLoop,
-        component: core::pin::Pin<crate::component::ComponentRef>,
-    );
+    fn map_window(self: Rc<Self>, event_loop: &EventLoop);
     /// Removes the window from the screen. The window is not destroyed though, it can be show (mapped) again later
     /// by calling [`GenericWindow::map_window`].
     fn unmap_window(self: Rc<Self>);
@@ -146,11 +146,11 @@ impl ComponentWindow {
     pub fn run(&self, component: &ComponentRc) {
         let event_loop = crate::eventloop::EventLoop::new();
 
-        let component = ComponentRc::borrow_pin(component);
+        self.0.clone().set_component(component);
 
-        self.0.clone().map_window(&event_loop, component);
+        self.0.clone().map_window(&event_loop);
 
-        event_loop.run(component);
+        event_loop.run(ComponentRc::borrow_pin(component));
 
         self.0.clone().unmap_window();
     }
