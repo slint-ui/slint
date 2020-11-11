@@ -412,11 +412,9 @@ impl EventLoop {
                                 windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
                             {
                                 pressed = false;
-                                window.clone().process_mouse_input(
-                                    cursor_pos,
-                                    MouseEventType::MouseExit,
-                                    component,
-                                );
+                                window
+                                    .clone()
+                                    .process_mouse_input(cursor_pos, MouseEventType::MouseExit);
                                 // FIXME: remove this, it should be based on actual changes rather than this
                                 window.request_redraw();
                             }
