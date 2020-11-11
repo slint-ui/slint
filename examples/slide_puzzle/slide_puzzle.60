@@ -10,8 +10,30 @@ LICENSE END */
 
 struct Piece := { pos_x: int, pos_y: int }
 
+struct Theme := {
+    name: string,
+    window-backround-color: color,
+    game-background-color: color,
+    game-border: length,
+    game-radius: length,
+    game-text-color: color,
+    game-highlight-color: color,
+    piece-border: length,
+    piece-backround-1: color,
+    piece-backround-2: color,
+    piece-border-color-1: color,
+    piece-border-color-2: color,
+    piece-text-color-1: color,
+    piece-text-color-2: color,
+    piece-radius: length,
+    /// Ratio of the piece size
+    piece-spacing: float,
+}
+
 export Main := Window {
     signal piece_cliked(int);
+    property <int> moves;
+    property <int> tiles-left;
     property <[Piece]> pieces: [
         { pos_x: 0, pos_y: 1 },
         { pos_x: 0, pos_y: 2 },
@@ -30,34 +52,209 @@ export Main := Window {
         { pos_x: 3, pos_y: 3 },
     ];
 
-    property<length> pieces_size: (width < height ? width : height) / 5;
+    property <[Theme]> themes: [
+        {
+            name: "SIMPLE",
+            window-backround-color: #ffffff,
+            game-background-color: #ffffff,
+            game-border: 1px,
+            game-radius: 2px,
+            game-text-color: #858585,
+            game-highlight-color: #1d6aaa,
+            piece-border: 1px,
+            piece-backround-1: #0d579b,
+            piece-backround-2: #0d579b,
+            piece-border-color-1: #0a457b,
+            piece-border-color-2: #0a457b,
+            piece-text-color-1: #ffffff,
+            piece-text-color-2: #ffffff,
+            piece-radius: 4px,
+            /// Ratio of the piece size
+            piece-spacing: 10%,
+        },
+        {
+            name: "BERLIN",
+            window-backround-color: #5b84a8,
+            game-background-color: #ffffffcc,
+            game-border: 0px,
+            game-radius: 2px,
+            game-text-color: #858585,
+            game-highlight-color: #1d6aaa,
+            piece-border: 0px,
+            piece-backround-1: #43689e,
+            piece-backround-2: #2f2a14,
+            piece-border-color-1: #0000,
+            piece-border-color-2: #0000,
+            piece-text-color-1: #000000,
+            piece-text-color-2: #000000,
+            piece-radius: 0px,
+            /// Ratio of the piece size
+            piece-spacing: 8%,
+        },
+        {
+            name: "PLASTER",
+            window-backround-color: #424244,
+            game-background-color: #f8f4e9,
+            game-border: 5px,
+            game-radius: 20px,
+            game-text-color: #858585,
+            game-highlight-color: #e06b53,
+            piece-border: 4px,
+            piece-backround-1: #e06b53,
+            piece-backround-2: #f8f4e9,
+            piece-border-color-1: #424244,
+            piece-border-color-2: #e06b53,
+            piece-text-color-1: #f8f4e9,
+            piece-text-color-2: #424244,
+            piece-radius: 4px,
+            /// Ratio of the piece size
+            piece-spacing: 10%,
+        },
+    ];
 
-    for p[i] in pieces : Rectangle {
+    property<int> current-theme-index;
 
-        color: #0d579b;
-        border-color: #0a457b;
-        border-width: 1px;
-        border-radius: pieces_size * 5%;
-        width: pieces_size;
-        height: pieces_size;
-        x: p.pos_x * pieces_size * (1+0.125) + (root.width - pieces_size*4.5)/2;
-        y: p.pos_y * pieces_size * (1+0.125) + (root.height - pieces_size*4.5)/2;
-        animate x , y { duration: 100ms; easing: ease-out; }
+    // FIXME: themes[current-theme-index]
+    property <Theme> current-theme: {
+            name: "SIMPLE",
+            window-backround-color: #ffffff,
+            game-background-color: #ffffff,
+            game-border: 1px,
+            game-radius: 2px,
+            game-text-color: #858585,
+            game-highlight-color: #1d6aaa,
+            piece-border: 1px,
+            piece-backround-1: #0d579b,
+            piece-backround-2: #0d579b,
+            piece-border-color-1: #0a457b,
+            piece-border-color-2: #0a457b,
+            piece-text-color-1: #ffffff,
+            piece-text-color-2: #ffffff,
+            piece-radius: 4px,
+            /// Ratio of the piece size
+            piece-spacing: 10%,
+    };
 
-        Text {
-            text: i+1;
-            color: white;
-            font-size: pieces_size / 3;
-            vertical-alignment: align-center;
-            horizontal-alignment: align-center;
-            width: 100%;
-            height: 100%;
+    property<length> pieces_size: ((width < height ? width : height)) / 6;
+    property<length> pieces_spacing: pieces_size * current-theme.piece-spacing;
+
+    animate pieces_spacing { duration: 500ms; easing: ease-out; }
+
+    Rectangle {
+        height: 100%; width: 100%; color: current-theme.window-backround-color;
+        animate color { duration: 500ms; easing: ease-out; }
+    }
+
+    Rectangle {
+        color: current-theme.game-background-color;
+        border-color: current-theme.game-text-color;
+        border-width: current-theme.game-border;
+        border-radius: current-theme.game-radius;
+        width: pieces_size * 4.6;
+        height: pieces_size * 5.4;
+        x: (parent.width - width)/2;
+        y: (parent.height - height)/2;
+        animate color, border-color, border-width, border-radius { duration: 500ms; easing: ease-out; }
+
+        Rectangle {
+            width: parent.width * 90%;
+            height: pieces_size/2;
+            x: (parent.width - width) / 2;
+            HorizontalLayout {
+                spacing: 0px;
+                for theme[idx] in themes: TouchArea {
+                    t := Text {
+                        width: 100%; height: 100%;
+                        text: theme.name;
+                        color: idx == current-theme-index ? current-theme.game-highlight-color : current-theme.game-text-color;
+                        vertical-alignment: align-center;
+                        horizontal-alignment: align-center;
+                    }
+                    Rectangle {
+                        width: 100%;
+                        color: t.color;
+                        height: idx == current-theme-index ? 2px: 1px;
+                        y: parent.height - height;
+                    }
+                    clicked => {
+                        root.current-theme = theme;
+                        root.current-theme-index = idx;
+                    }
+                }
+            }
         }
 
-        TouchArea {
-            width: 100%;
-            height: 100%;
-            clicked => { root.piece_cliked(i); }
+
+        for p[i] in pieces : Rectangle {
+
+            color: i >= 8 ? current-theme.piece-backround-2 : current-theme.piece-backround-1;
+            border-color: i >= 8 ? current-theme.piece-border-color-2 : current-theme.piece-border-color-1;
+            border-width: current-theme.piece-border;
+            border-radius: current-theme.piece-radius;
+            width: pieces_size;
+            height: pieces_size;
+            property<float> px: p.pos_x;
+            property<float> py: p.pos_y;
+            x: py * (pieces_size + pieces_spacing)
+                + (parent.width - (4*pieces_size + 3*pieces_spacing))/2;
+            y: px * (pieces_size + pieces_spacing)
+                + (parent.height - (4*pieces_size + 3*pieces_spacing))/2;
+            animate px , py { duration: 100ms; easing: ease-out; }
+            animate color, border-color, border-width, border-radius { duration: 500ms; easing: ease-out; }
+
+            Text {
+                text: i+1;
+                color: i >= 8 ? current-theme.piece-text-color-2 : current-theme.piece-text-color-1;
+                font-size: pieces_size / 3;
+                vertical-alignment: align-center;
+                horizontal-alignment: align-center;
+                width: 100%;
+                height: 100%;
+            }
+
+            TouchArea {
+                width: 100%;
+                height: 100%;
+                clicked => { root.piece_cliked(i); }
+            }
+        }
+
+        Rectangle {
+            width: parent.width;
+            height: 1px;
+            color: current-theme.game-text-color;
+            y: parent.height - pieces_size / 2;
+        }
+
+        Rectangle {
+            height: pieces_size / 2;
+            y: parent.height - pieces_size / 2;
+            width: parent.width;
+
+            HorizontalLayout {
+                alignment: end;
+                padding: 10px;
+                Text {
+                    text: root.moves;
+                    color: current-theme.game-highlight-color;
+                    vertical-alignment: align-center;
+                }
+                Text {
+                    text: "Moves ";
+                    color: current-theme.game-text-color;
+                    vertical-alignment: align-center;
+                }
+                Text {
+                    text: root.tiles-left;
+                    color: current-theme.game-highlight-color;
+                    vertical-alignment: align-center;
+                }
+                Text {
+                    text: "Tiles left";
+                    color: current-theme.game-text-color;
+                    vertical-alignment: align-center;
+                }
+            }
         }
     }
 }
