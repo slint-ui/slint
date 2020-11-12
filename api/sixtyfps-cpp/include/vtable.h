@@ -69,6 +69,7 @@ private:
     const VTable *vtable = &X::component_type;
     int strong_ref = 1;
     int weak_ref = 1;
+    std::uint16_t data_offset = offsetof(VRcInner, data);
     union {
         X data;
         Layout layout;
@@ -86,7 +87,7 @@ public:
     ~VRc() {
         if (!--inner->strong_ref) {
             Layout layout = inner->vtable->drop_in_place({inner->vtable, &inner->data});
-            layout.size += sizeof(const VTable *) + 2 * sizeof(int);
+            layout.size += inner->data_offset;
             layout.align = std::max<size_t>(layout.align, alignof(VRcInner<VTable, Dyn>));
             inner->layout = layout;
             if (!--inner->weak_ref) {
