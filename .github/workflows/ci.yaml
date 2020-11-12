@@ -357,60 +357,60 @@ jobs:
           rm -rf target/*/*/*sixtyfps*
           du -hs target
 
-#  publish:
-#    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
-#    needs: [build_and_test, cpp, docs, wasm] # also depends on build_and_test and cpp to only publish if tests are green
-#    runs-on: ubuntu-20.04
-#    steps:
-#      - uses: actions/download-artifact@v2
-#        with:
-#          name: docs
-#      - uses: actions/download-artifact@v2
-#        with:
-#          name: wasm
-#      - name: Publish Docs and Demos
-#        run: |
-#            git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
-#            git config --global user.name "${GITHUB_ACTOR}"
-#            git clone "https://tronical:${{ secrets.WWW_PUBLISH_SECRET }}@github.com/sixtyfpsui/www"
-#            cd www
-#            rm -rf demos
-#            mkdir -p demos
-#            mkdir -p demos/gallery
-#            mkdir -p demos/printerdemo
-#            mkdir -p demos/todo
-#            mkdir -p demos/slide_puzzle
-#            cp -a ../examples/gallery/wasm/dist/* demos/gallery/
-#            cp -a ../examples/printerdemo/wasm/dist/* demos/printerdemo/
-#            cp -a ../examples/todo/wasm/dist/* demos/todo/
-#            cp -a ../examples/slide_puzzle/wasm/dist/* demos/slide_puzzle/
-#            git add demos
-#            git add -u demos
-#            rm -rf wasm-interpreter
-#            mkdir -p wasm-interpreter
-#            cp -a ../api/sixtyfps-wasm-interpreter/pkg/* ./wasm-interpreter/
-#            git add wasm-interpreter
-#            git add -u wasm-interpreter
-#            rm -rf editor
-#            mkdir -p editor
-#            cp -a ../tools/online_editor/dist/* editor/
-#            git add editor
-#            git add -u editor
-#            rm -rf docs
-#            mkdir -p docs
-#            mkdir -p docs/cpp
-#            cp -a ../target/cppdocs/html/* docs/cpp/
-#            mkdir -p docs/rust
-#            cp -a ../target/doc/* docs/rust/
-#            mkdir -p docs/node
-#            cp -a ../api/sixtyfps-node/docs/* docs/node/
-#            git add docs
-#            git add -u docs
-#            rm -rf resources
-#            cp -a ../resources .
-#            git add resources
-#            git add -u resources
-#            git commit --message "Update $NAME from $GITHUB_REPOSITORY" --message "Pull web demos and C++/Rust reference docs from commit $GITHUB_SHA ($GITHUB_REF)"
-#            git push origin master
+  publish:
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+    needs: [build_and_test, cpp, docs, wasm] # also depends on build_and_test and cpp to only publish if tests are green
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/download-artifact@v2
+        with:
+          name: docs
+      - uses: actions/download-artifact@v2
+        with:
+          name: wasm
+      - name: Publish Docs and Demos
+        run: |
+            git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+            git config --global user.name "${GITHUB_ACTOR}"
+            git clone "https://tronical:${{ secrets.WWW_PUBLISH_SECRET }}@github.com/sixtyfpsui/www"
+            cd www
+            rm -rf demos
+            mkdir -p demos
+            mkdir -p demos/gallery
+            mkdir -p demos/printerdemo
+            mkdir -p demos/todo
+            mkdir -p demos/slide_puzzle
+            cp -a ../examples/gallery/wasm/dist/* demos/gallery/
+            cp -a ../examples/printerdemo/wasm/dist/* demos/printerdemo/
+            cp -a ../examples/todo/wasm/dist/* demos/todo/
+            cp -a ../examples/slide_puzzle/wasm/dist/* demos/slide_puzzle/
+            git add demos
+            git add -u demos
+            rm -rf wasm-interpreter
+            mkdir -p wasm-interpreter
+            cp -a ../api/sixtyfps-wasm-interpreter/pkg/* ./wasm-interpreter/
+            git add wasm-interpreter
+            git add -u wasm-interpreter
+            rm -rf editor
+            mkdir -p editor
+            cp -a ../tools/online_editor/dist/* editor/
+            git add editor
+            git add -u editor
+            rm -rf docs
+            mkdir -p docs
+            mkdir -p docs/cpp
+            cp -a ../target/cppdocs/html/* docs/cpp/
+            mkdir -p docs/rust
+            cp -a ../target/doc/* docs/rust/
+            mkdir -p docs/node
+            cp -a ../api/sixtyfps-node/docs/* docs/node/
+            git add docs
+            git add -u docs
+            rm -rf resources
+            cp -a ../resources .
+            git add resources
+            git add -u resources
+            git commit --message "Update $NAME from $GITHUB_REPOSITORY" --message "Pull web demos and C++/Rust reference docs from commit $GITHUB_SHA ($GITHUB_REF)"
+            git push origin master
 
 
