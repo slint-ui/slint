@@ -74,6 +74,8 @@ private:
         X data;
         Layout layout;
     };
+
+    void *data_ptr() { return reinterpret_cast<char *>(this) + data_offset; }
 };
 
 struct Dyn {};
@@ -120,6 +122,8 @@ public:
     }
 
     VRc<VTable, Dyn> into_dyn() const { return *reinterpret_cast<const VRc<VTable, Dyn> *>(this); }
+
+    VRef<VTable> borrow() const { return { inner->vtable, inner->data_ptr() }; }
 };
 
 template<typename VTable, typename X = Dyn>

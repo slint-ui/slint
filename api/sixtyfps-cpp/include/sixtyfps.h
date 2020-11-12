@@ -62,6 +62,7 @@ using ComponentRef = vtable::VRef<private_api::ComponentVTable>;
 using ItemRef = vtable::VRef<private_api::ItemVTable>;
 using ItemVisitorRefMut = vtable::VRefMut<cbindgen_private::ItemVisitorVTable>;
 }
+using cbindgen_private::ComponentRc;
 using cbindgen_private::EasingCurve;
 using cbindgen_private::PropertyAnimation;
 using cbindgen_private::Slice;
@@ -174,7 +175,7 @@ using cbindgen_private::MouseEvent;
 using cbindgen_private::sixtyfps_visit_item_tree;
 namespace private_api {
 template<typename GetDynamic>
-inline InputEventResult process_input_event(ComponentRef component, int64_t &mouse_grabber,
+inline InputEventResult process_input_event(const ComponentRc &component_rc, int64_t &mouse_grabber,
                                             MouseEvent mouse_event, Slice<ItemTreeNode> tree,
                                             GetDynamic get_dynamic, const ComponentWindow *window,
                                             const ComponentRef *app_component)
@@ -182,7 +183,8 @@ inline InputEventResult process_input_event(ComponentRef component, int64_t &mou
     if (mouse_grabber != -1) {
         auto item_index = mouse_grabber & 0xffffffff;
         auto rep_index = mouse_grabber >> 32;
-        auto offset = cbindgen_private::sixtyfps_item_offset(component, tree, item_index);
+        auto offset =
+                cbindgen_private::sixtyfps_item_offset(component_rc.borrow(), tree, item_index);
         mouse_event.pos = { mouse_event.pos.x - offset.x, mouse_event.pos.y - offset.y };
         const auto &item_node = tree.ptr[item_index];
         InputEventResult result = InputEventResult::EventIgnored;
@@ -191,7 +193,7 @@ inline InputEventResult process_input_event(ComponentRef component, int64_t &mou
             result = item_node.item.item.vtable->input_event(
                     {
                             item_node.item.item.vtable,
-                            reinterpret_cast<char *>(component.instance)
+                            reinterpret_cast<char *>(component_rc.borrow().instance)
                                     + item_node.item.item.offset,
                     },
                     mouse_event, window, *app_component);
@@ -207,7 +209,7 @@ inline InputEventResult process_input_event(ComponentRef component, int64_t &mou
         return result;
     } else {
         return cbindgen_private::sixtyfps_process_ungrabbed_mouse_event(
-                component, mouse_event, window, *app_component, &mouse_grabber);
+                &component_rc, mouse_event, window, *app_component, &mouse_grabber);
     }
 }
 template<typename GetDynamic>
@@ -238,14 +240,14 @@ inline KeyEventResult process_key_event(ComponentRef component, int64_t focus_it
 }
 
 template<typename GetDynamic>
-inline FocusEventResult process_focus_event(ComponentRef component, int64_t &focus_item,
+inline FocusEventResult process_focus_event(const ComponentRc &component_rc, int64_t &focus_item,
                                             const FocusEvent *event, Slice<ItemTreeNode> tree,
                                             GetDynamic get_dynamic, const ComponentWindow *window)
 {
     switch (event->tag) {
     case FocusEvent::Tag::FocusIn:
-        return cbindgen_private::sixtyfps_locate_and_activate_focus_item(component, event, window,
-                                                                         &focus_item);
+        return cbindgen_private::sixtyfps_locate_and_activate_focus_item(&component_rc, event,
+                                                                         window, &focus_item);
     case FocusEvent::Tag::FocusOut:
         [[fallthrough]];
     case FocusEvent::Tag::WindowReceivedFocus:
@@ -260,7 +262,7 @@ inline FocusEventResult process_focus_event(ComponentRef component, int64_t &foc
                 item_node.item.item.vtable->focus_event(
                         {
                                 item_node.item.item.vtable,
-                                reinterpret_cast<char *>(component.instance)
+                                reinterpret_cast<char *>(component_rc.borrow().instance)
                                         + item_node.item.item.offset,
                         },
                         event, window);

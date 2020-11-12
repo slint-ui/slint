@@ -7,7 +7,7 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-use crate::component::{ComponentRefPin, ComponentVTable};
+use crate::component::{ComponentRc, ComponentVTable};
 use crate::graphics::Point;
 use crate::items::{ItemRef, ItemVTable};
 use core::pin::Pin;
@@ -106,7 +106,7 @@ pub struct ItemVisitorVTable {
     /// and `item` is a reference to the item itself
     visit_item: fn(
         VRefMut<ItemVisitorVTable>,
-        component: Pin<VRef<ComponentVTable>>,
+        component: &VRc<ComponentVTable, vtable::Dyn>,
         index: isize,
         item: Pin<VRef<ItemVTable>>,
     ) -> VisitChildrenResult,
@@ -117,12 +117,10 @@ pub struct ItemVisitorVTable {
 /// Type alias to `vtable::VRefMut<ItemVisitorVTable>`
 pub type ItemVisitorRefMut<'a> = vtable::VRefMut<'a, ItemVisitorVTable>;
 
-impl<T: FnMut(crate::component::ComponentRefPin, isize, Pin<ItemRef>) -> VisitChildrenResult>
-    ItemVisitor for T
-{
+impl<T: FnMut(&ComponentRc, isize, Pin<ItemRef>) -> VisitChildrenResult> ItemVisitor for T {
     fn visit_item(
         &mut self,
-        component: crate::component::ComponentRefPin,
+        component: &ComponentRc,
         index: isize,
         item: Pin<ItemRef>,
     ) -> VisitChildrenResult {
@@ -140,9 +138,9 @@ pub enum ItemVisitorResult<State> {
 ///
 /// Returns the index of the item that cancelled, or -1 if nobody cancelled
 pub fn visit_items<State>(
-    component: ComponentRefPin,
+    component: &ComponentRc,
     order: TraversalOrder,
-    mut visitor: impl FnMut(ComponentRefPin, Pin<ItemRef>, &State) -> ItemVisitorResult<State>,
+    mut visitor: impl FnMut(&ComponentRc, Pin<ItemRef>, &State) -> ItemVisitorResult<State>,
     state: State,
 ) -> VisitChildrenResult {
     visit_internal(
@@ -161,33 +159,33 @@ pub fn visit_items<State>(
 ///
 /// Returns the index of the item that cancelled, or -1 if nobody cancelled
 pub fn visit_items_with_post_visit<State, PostVisitState>(
-    component: ComponentRefPin,
+    component: &ComponentRc,
     order: TraversalOrder,
     mut visitor: impl FnMut(
-        ComponentRefPin,
+        &ComponentRc,
         Pin<ItemRef>,
         &State,
     ) -> (ItemVisitorResult<State>, PostVisitState),
-    mut post_visitor: impl FnMut(ComponentRefPin, Pin<ItemRef>, PostVisitState),
+    mut post_visitor: impl FnMut(&ComponentRc, Pin<ItemRef>, PostVisitState),
     state: State,
 ) -> VisitChildrenResult {
     visit_internal(component, order, &mut visitor, &mut post_visitor, -1, &state)
 }
 
 fn visit_internal<State, PostVisitState>(
-    component: ComponentRefPin,
+    component: &ComponentRc,
     order: TraversalOrder,
     visitor: &mut impl FnMut(
-        ComponentRefPin,
+        &ComponentRc,
         Pin<ItemRef>,
         &State,
     ) -> (ItemVisitorResult<State>, PostVisitState),
-    post_visitor: &mut impl FnMut(ComponentRefPin, Pin<ItemRef>, PostVisitState),
+    post_visitor: &mut impl FnMut(&ComponentRc, Pin<ItemRef>, PostVisitState),
     index: isize,
     state: &State,
 ) -> VisitChildrenResult {
     let mut actual_visitor =
-        |component: ComponentRefPin, index: isize, item: Pin<ItemRef>| -> VisitChildrenResult {
+        |component: &ComponentRc, index: isize, item: Pin<ItemRef>| -> VisitChildrenResult {
             match visitor(component, item, state) {
                 (ItemVisitorResult::Continue(state), post_visit_state) => {
                     let result =
@@ -199,7 +197,7 @@ fn visit_internal<State, PostVisitState>(
             }
         };
     vtable::new_vref!(let mut actual_visitor : VRefMut<ItemVisitorVTable> for ItemVisitor = &mut actual_visitor);
-    component.as_ref().visit_children_item(index, order, actual_visitor)
+    VRc::borrow_pin(component).as_ref().visit_children_item(index, order, actual_visitor)
 }
 
 /// Visit the children within an array of ItemTreeNode
@@ -212,7 +210,7 @@ fn visit_internal<State, PostVisitState>(
 /// Possibly we should generate code that directly call the visitor instead
 pub fn visit_item_tree<Base>(
     base: Pin<&Base>,
-    component: ComponentRefPin,
+    component: &ComponentRc,
     item_tree: &[ItemTreeNode<Base>],
     index: isize,
     order: TraversalOrder,
@@ -307,7 +305,7 @@ pub(crate) mod ffi {
     /// Safety: Assume a correct implementation of the item_tree array
     #[no_mangle]
     pub unsafe extern "C" fn sixtyfps_visit_item_tree(
-        component: Pin<VRef<ComponentVTable>>,
+        component: &ComponentRc,
         item_tree: Slice<ItemTreeNode<u8>>,
         index: isize,
         order: TraversalOrder,
@@ -320,7 +318,7 @@ pub(crate) mod ffi {
         ) -> VisitChildrenResult,
     ) -> VisitChildrenResult {
         crate::item_tree::visit_item_tree(
-            Pin::new_unchecked(&*(component.as_ptr() as *const u8)),
+            Pin::new_unchecked(&*(&**component as *const Dyn as *const u8)),
             component,
             item_tree.as_slice(),
             index,

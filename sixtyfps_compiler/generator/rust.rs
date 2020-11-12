@@ -651,7 +651,7 @@ fn generate_component(
                 -> sixtyfps::re_exports::VisitChildrenResult
             {
                 use sixtyfps::re_exports::*;
-                return sixtyfps::re_exports::visit_item_tree(self, VRef::new_pin(self), Self::item_tree(), index, order, visitor, visit_dynamic);
+                return sixtyfps::re_exports::visit_item_tree(self, &VRc::into_dyn(self.as_ref().self_weak.get().unwrap().upgrade().unwrap()), Self::item_tree(), index, order, visitor, visit_dynamic);
                 #[allow(unused)]
                 fn visit_dynamic(self_pinned: ::core::pin::Pin<&#component_id>, order: sixtyfps::re_exports::TraversalOrder, visitor: ItemVisitorRefMut, dyn_index: usize) -> VisitChildrenResult  {
                     let _self = self_pinned;
@@ -688,7 +688,7 @@ fn generate_component(
                         _ => (res, VisitChildrenResult::CONTINUE),
                     }
                 } else {
-                    process_ungrabbed_mouse_event(VRef::new_pin(self), mouse_event, window, app_component.clone())
+                    process_ungrabbed_mouse_event(&VRc::into_dyn(self.as_ref().self_weak.get().unwrap().upgrade().unwrap()), mouse_event, window, app_component.clone())
                 };
                 self.mouse_grabber.set(new_grab);
                 status
@@ -722,7 +722,7 @@ fn generate_component(
                 #[allow(unused)]
                 match event {
                     FocusEvent::FocusIn(_) => {
-                        let (event_result, visit_result) = locate_and_activate_focus_item(VRef::new_pin(self), event, window);
+                        let (event_result, visit_result) = locate_and_activate_focus_item(&VRc::into_dyn(self.as_ref().self_weak.get().unwrap().upgrade().unwrap()), event, window);
                         if event_result == FocusEventResult::FocusItemFound {
                             self.focus_item.set(visit_result)
                         }

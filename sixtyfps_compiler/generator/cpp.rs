@@ -1020,7 +1020,8 @@ fn generate_component(
                     format!("    [[maybe_unused]] auto self = reinterpret_cast<const {}*>(base);", component_id),
                     format!("    switch(dyn_index) {{ {} }};", children_visitor_cases.join("")),
                     "    std::abort();\n};".to_owned(),
-                    "return sixtyfps::sixtyfps_visit_item_tree(component, item_tree() , index, order, visitor, dyn_visit);".to_owned(),
+                    format!("auto self_rc = reinterpret_cast<const {}*>(component.instance)->self_weak.lock()->into_dyn();", component_id),
+                    "return sixtyfps::sixtyfps_visit_item_tree(&self_rc, item_tree() , index, order, visitor, dyn_visit);".to_owned(),
                 ]),
                 ..Default::default()
             }),
@@ -1072,8 +1073,9 @@ fn generate_component(
                         .into(),
                 is_static: true,
                 statements: Some(vec![
-                    format!("    auto self = reinterpret_cast<{}*>(component.instance);", component_id),
-                    "return sixtyfps::private_api::process_input_event(component, self->mouse_grabber, mouse_event, item_tree(), [self](int dyn_index, [[maybe_unused]] int rep_index) {".into(),
+                    format!("auto self = reinterpret_cast<{}*>(component.instance);", component_id),
+                    "auto self_rc = self->self_weak.lock()->into_dyn();".into(),
+                    "return sixtyfps::private_api::process_input_event(self_rc, self->mouse_grabber, mouse_event, item_tree(), [self](int dyn_index, [[maybe_unused]] int rep_index) {".into(),
                     "    (void)self;".into(),
                     format!("    switch(dyn_index) {{ {} }};", repeated_input_branch.join("")),
                     "    return sixtyfps::private_api::ComponentRef{nullptr, nullptr};\n}, window, app_component);".into(),
@@ -1118,8 +1120,9 @@ fn generate_component(
                         .into(),
                 is_static: true,
                 statements: Some(vec![
-                    format!("    auto self = reinterpret_cast<{}*>(component.instance);", component_id),
-                    "return sixtyfps::private_api::process_focus_event(component, self->focus_item, focus_event, item_tree(), [self](int dyn_index, [[maybe_unused]] int rep_index) {".into(),
+                    format!("auto self = reinterpret_cast<{}*>(component.instance);", component_id),
+                    "auto self_rc = self->self_weak.lock()->into_dyn();".into(),
+                    "return sixtyfps::private_api::process_focus_event(self_rc, self->focus_item, focus_event, item_tree(), [self](int dyn_index, [[maybe_unused]] int rep_index) {".into(),
                     "    (void)self;".into(),
                     format!("    switch(dyn_index) {{ {} }};", repeated_input_branch.join("")),
                     "    return sixtyfps::private_api::ComponentRef{nullptr, nullptr};\n}, window);".into(),

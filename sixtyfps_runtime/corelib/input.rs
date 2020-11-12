@@ -11,7 +11,7 @@ LICENSE END */
 */
 #![warn(missing_docs)]
 
-use crate::component::ComponentRefPin;
+use crate::component::{ComponentRc, ComponentRefPin};
 use crate::graphics::Point;
 use crate::item_tree::{ItemVisitorResult, VisitChildrenResult};
 use euclid::default::Vector2D;
@@ -480,7 +480,7 @@ pub enum FocusEventResult {
 /// the focus_event (assuming it is of type FocusIn). Once located, the focus in
 /// even will also be dispatched to the item itself.
 pub fn locate_and_activate_focus_item(
-    component: ComponentRefPin,
+    component: &ComponentRc,
     focus_event: &FocusEvent,
     window: &crate::eventloop::ComponentWindow,
 ) -> (FocusEventResult, VisitChildrenResult) {
@@ -522,7 +522,7 @@ pub fn locate_and_activate_focus_item(
 /// * `component`: The component to deliver the event to.
 /// * `event`: The mouse event to deliver.
 pub fn process_ungrabbed_mouse_event(
-    component: ComponentRefPin,
+    component: &ComponentRc,
     event: MouseEvent,
     window: &crate::eventloop::ComponentWindow,
     app_component: ComponentRefPin,
@@ -596,7 +596,7 @@ pub(crate) mod ffi {
 
     #[no_mangle]
     pub extern "C" fn sixtyfps_process_ungrabbed_mouse_event(
-        component: core::pin::Pin<crate::component::ComponentRef>,
+        component: &ComponentRc,
         event: MouseEvent,
         window: &crate::eventloop::ComponentWindow,
         app_component: core::pin::Pin<crate::component::ComponentRef>,
@@ -620,7 +620,7 @@ pub(crate) mod ffi {
 
     #[no_mangle]
     pub extern "C" fn sixtyfps_locate_and_activate_focus_item(
-        component: core::pin::Pin<crate::component::ComponentRef>,
+        component: &ComponentRc,
         event: &FocusEvent,
         window: &crate::eventloop::ComponentWindow,
         new_focus_item: &mut crate::item_tree::VisitChildrenResult,

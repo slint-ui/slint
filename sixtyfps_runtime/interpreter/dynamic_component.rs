@@ -336,9 +336,10 @@ extern "C" fn visit_children_item(
 ) -> VisitChildrenResult {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
+    let comp_rc = instance_ref.self_weak().get().unwrap().upgrade().unwrap();
     sixtyfps_corelib::item_tree::visit_item_tree(
         instance_ref.instance,
-        component,
+        &vtable::VRc::into_dyn(comp_rc),
         instance_ref.component_type.item_tree.as_slice().into(),
         index,
         order,
@@ -1014,6 +1015,7 @@ pub fn instantiate<'id>(
             );
         }
     }
+
     comp_rc
 }
 
@@ -1459,8 +1461,12 @@ extern "C" fn input_event(
             _ => (res, VisitChildrenResult::CONTINUE),
         }
     } else {
+        generativity::make_guard!(guard);
+        let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
+        let comp_rc = instance_ref.self_weak().get().unwrap().upgrade().unwrap();
+
         sixtyfps_corelib::input::process_ungrabbed_mouse_event(
-            component,
+            &vtable::VRc::into_dyn(comp_rc),
             mouse_event,
             window,
             app_component.clone(),
@@ -1508,8 +1514,16 @@ extern "C" fn focus_event(
 
     match event {
         FocusEvent::FocusIn(_) => {
+            generativity::make_guard!(guard);
+            let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
+            let comp_rc = instance_ref.self_weak().get().unwrap().upgrade().unwrap();
+
             let (event_result, visit_result) =
-                sixtyfps_corelib::input::locate_and_activate_focus_item(component, event, window);
+                sixtyfps_corelib::input::locate_and_activate_focus_item(
+                    &vtable::VRc::into_dyn(comp_rc),
+                    event,
+                    window,
+                );
             if event_result == FocusEventResult::FocusItemFound {
                 extra_data.focus_item.set(visit_result)
             }

@@ -14,8 +14,10 @@ use super::graphics::{
     Frame, GraphicsBackend, GraphicsWindow, RenderingCache, RenderingPrimitivesBuilder,
 };
 use super::items::ItemRef;
+use crate::component::ComponentRc;
+use crate::eventloop::ComponentWindow;
 use crate::item_tree::ItemVisitorResult;
-use crate::{eventloop::ComponentWindow, slice::Slice};
+use crate::slice::Slice;
 use cgmath::{Matrix4, SquareMatrix, Vector3};
 use std::cell::{Cell, RefCell};
 
@@ -80,7 +82,7 @@ pub(crate) fn update_item_rendering_data<Backend: GraphicsBackend>(
 }
 
 pub(crate) fn render_component_items<Backend: GraphicsBackend>(
-    component: crate::component::ComponentRefPin,
+    component: &ComponentRc,
     frame: &mut Backend::Frame,
     rendering_cache: &RefCell<RenderingCache<Backend>>,
     window: &std::rc::Rc<GraphicsWindow<Backend>>,
