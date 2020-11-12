@@ -296,11 +296,6 @@ impl<'a, T: ?Sized + VTableMeta> VRef<'a, T> {
             None
         }
     }
-
-    /// Return a Pin reference to the target, with the same lifetime
-    pub fn as_pin_ref(this: Pin<Self>) -> Pin<&'a T::Target> {
-        unsafe { Pin::new_unchecked(&*Pin::into_inner_unchecked(this).inner.deref::<T>()) }
-    }
 }
 
 /// `VRefMut<'a MyTraitVTable>` can be thought as a `&'a mut dyn MyTrait`
@@ -374,15 +369,6 @@ impl<'a, T: ?Sized + VTableMeta> VRefMut<'a, T> {
             unsafe { Some(&mut *(self.inner.ptr as *mut X)) }
         } else {
             None
-        }
-    }
-
-    /// Return a Pin reference to the target, with the same lifetime
-    pub fn as_pin_ref(this: Pin<Self>) -> Pin<&'a mut T::Target> {
-        unsafe {
-            Pin::new_unchecked(
-                &mut *(Pin::into_inner_unchecked(this).inner.deref::<T>() as *mut T::Target),
-            )
         }
     }
 }
