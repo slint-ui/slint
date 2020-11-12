@@ -321,17 +321,20 @@ impl<'a> TypeLoader<'a> {
         file_to_import: &str,
     ) -> Option<OpenFile> {
         // The directory of the current file is the first in the list of include directories.
-        let maybe_current_directory = referencing_file.and_then(|path| path.parent());
+        let maybe_current_directory =
+            referencing_file.and_then(|path| path.parent()).map(|p| p.to_path_buf());
         maybe_current_directory
+            .clone()
             .into_iter()
-            .chain(self.compiler_config.include_paths.iter().map(PathBuf::as_path))
-            .map(|include_path| {
-                if include_path.is_relative() && maybe_current_directory.is_some() {
-                    maybe_current_directory.unwrap().join(include_path)
-                } else {
-                    include_path.to_path_buf()
+            .chain(self.compiler_config.include_paths.iter().map(PathBuf::as_path).map({
+                |include_path| {
+                    if include_path.is_relative() && maybe_current_directory.as_ref().is_some() {
+                        maybe_current_directory.as_ref().unwrap().join(include_path)
+                    } else {
+                        include_path.to_path_buf()
+                    }
                 }
-            })
+            }))
             .find_map(|include_dir| include_dir.try_open(file_to_import))
             .or_else(|| self.builtin_library.and_then(|lib| lib.try_open(file_to_import)))
             .or_else(|| {
