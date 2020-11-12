@@ -347,7 +347,7 @@ jobs:
               examples/gallery/wasm/dist/
               examples/printerdemo/wasm/dist/
               examples/todo/wasm/dist/
-              examples/slide_puzzle/dist/
+              examples/slide_puzzle/wasm/dist/
               api/sixtyfps-wasm-interpreter/pkg/
               tools/online_editor/dist/
     - name: Clean cache # Otherwise the cache is much too big
