@@ -30,8 +30,9 @@ struct Theme := {
     piece-spacing: float,
 }
 
-export Main := Window {
+export MainWindow := Window {
     signal piece_cliked(int);
+    signal reset();
     property <int> moves;
     property <int> tiles-left;
     property <[Piece]> pieces: [
@@ -200,7 +201,7 @@ export Main := Window {
             y: px * (pieces_size + pieces_spacing)
                 + (parent.height - (4*pieces_size + 3*pieces_spacing))/2;
             animate px , py { duration: 100ms; easing: ease-out; }
-            animate color, border-color, border-width, border-radius { duration: 500ms; easing: ease-out; }
+            animate border-width, border-radius { duration: 500ms; easing: ease-out; }
 
             Text {
                 text: i+1;
@@ -232,8 +233,18 @@ export Main := Window {
             width: parent.width;
 
             HorizontalLayout {
-                alignment: end;
                 padding: 10px;
+                Text {
+                    text: " ↻ ";
+                    color: current-theme.game-highlight-color;
+                    vertical-alignment: align-center;
+                    TouchArea {
+                        width: 100%;
+                        height: 100%;
+                        clicked => { root.reset(); }
+                    }
+                }
+                Rectangle {} // stretch
                 Text {
                     text: root.moves;
                     color: current-theme.game-highlight-color;
