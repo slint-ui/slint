@@ -118,8 +118,9 @@ jobs:
           rm -rf target/*/incremental
           rm -rf target/*/*/*sixtyfps*
           rm -rf target/*/*sixtyfps*
-          rm -rf target/*/*/test* target/*/*/gallery* target/*/*/printerdemo* target/*/*/viewer* target/*/*/todo*
-          rm -rf target/*/viewer target/*/printerdemo target/*/gallery target/*/todo target/*/*test*
+          rm -rf target/*/*/test* target/*/*/gallery* target/*/*/printerdemo* target/*/*/viewer* target/*/*/todo* target/*/*/slide_puzzle*
+          rm -rf target/*/viewer target/*/printerdemo target/*/gallery target/*/todo target/*/slide_puzzle
+          rm -rf target/*/*test*
           du -hs target
     - name: Clean cache # Otherwise the cache is much too big
       if: matrix.os == 'windows-latest'
@@ -131,12 +132,15 @@ jobs:
           rm -Recurse -Force target/*/*/test*
           rm -Recurse -Force target/*/*/gallery*
           rm -Recurse -Force target/*/*/printerdemo*
+          rm -Recurse -Force target/*/*/todo*
+          rm -Recurse -Force target/*/*/slide_puzzle*
           rm -Recurse -Force target/*/*/viewer*
           rm -Recurse -Force target/*/*/todo*
           rm -Recurse -Force target/*/viewer
           rm -Recurse -Force target/*/printerdemo
           rm -Recurse -Force target/*/gallery
           rm -Recurse -Force target/*/todo
+          rm -Recurse -Force target/*/slide_puzzle
           rm -Recurse -Force target/*/*test*
           du -hs target
 
@@ -330,6 +334,11 @@ jobs:
           npm install
           npm run build
       working-directory: examples/todo/wasm
+    - name: Sliding Puzzle demo WASM build
+      run: |
+          npm install
+          npm run build
+      working-directory: examples/slide_puzzle/wasm
     - name: "Upload Demo Artifacts"
       uses: actions/upload-artifact@v2
       with:
@@ -338,6 +347,7 @@ jobs:
               examples/gallery/wasm/dist/
               examples/printerdemo/wasm/dist/
               examples/todo/wasm/dist/
+              examples/todo/slide_puzzle/dist/
               api/sixtyfps-wasm-interpreter/pkg/
               tools/online_editor/dist/
     - name: Clean cache # Otherwise the cache is much too big
@@ -369,9 +379,11 @@ jobs:
 #            mkdir -p demos/gallery
 #            mkdir -p demos/printerdemo
 #            mkdir -p demos/todo
+#            mkdir -p demos/slide_puzzle
 #            cp -a ../examples/gallery/wasm/dist/* demos/gallery/
 #            cp -a ../examples/printerdemo/wasm/dist/* demos/printerdemo/
 #            cp -a ../examples/todo/wasm/dist/* demos/todo/
+#            cp -a ../examples/slide_puzzle/wasm/dist/* demos/slide_puzzle/
 #            git add demos
 #            git add -u demos
 #            rm -rf wasm-interpreter

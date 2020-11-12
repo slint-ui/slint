@@ -23,6 +23,7 @@ members = [
     'examples/todo/rust',
     'examples/todo/wasm',
     'examples/slide_puzzle',
+    'examples/slide_puzzle/wasm',
     'helper_crates/const-field-offset',
     'helper_crates/vtable',
     'helper_crates/vtable/macro',
@@ -48,6 +49,7 @@ default-members = [
     'examples/gallery',
     'examples/printerdemo/rust',
     'examples/todo/rust',
+    'examples/slide_puzzle',
     'tests/driver',
     'tests/rustdriver'
 ]
