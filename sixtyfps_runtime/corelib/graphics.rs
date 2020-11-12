@@ -23,7 +23,7 @@ extern crate alloc;
 use crate::component::{ComponentRc, ComponentWeak};
 use crate::input::{KeyEvent, KeyboardModifiers, MouseEvent, MouseEventType};
 use crate::items::ItemRef;
-use crate::properties::{InterpolatedPropertyValue, Property};
+use crate::properties::{InterpolatedPropertyValue, Property, PropertyTracker};
 #[cfg(feature = "rtti")]
 use crate::rtti::{BuiltinItem, FieldInfo, PropertyInfo, ValueType};
 use crate::SharedArray;
@@ -522,6 +522,7 @@ pub struct GraphicsWindow<Backend: GraphicsBackend + 'static> {
     cursor_blinker: std::cell::RefCell<pin_weak::rc::PinWeak<TextCursorBlinker>>,
     keyboard_modifiers: std::cell::Cell<KeyboardModifiers>,
     component: std::cell::RefCell<ComponentWeak>,
+    layout_listener: Pin<Rc<PropertyTracker>>,
 }
 
 impl<Backend: GraphicsBackend + 'static> GraphicsWindow<Backend> {
@@ -542,12 +543,46 @@ impl<Backend: GraphicsBackend + 'static> GraphicsWindow<Backend> {
             cursor_blinker: Default::default(),
             keyboard_modifiers: Default::default(),
             component: Default::default(),
+            layout_listener: Rc::pin(Default::default()),
         })
     }
 
     /// Returns the window id of the window if it is mapped, None otherwise.
     pub fn id(&self) -> Option<winit::window::WindowId> {
         Some(self.map_state.borrow().as_mapped().backend.borrow().window().id())
+    }
+
+    fn apply_geometry_constraint(&self, constraints: crate::layout::LayoutInfo) {
+        match &*self.map_state.borrow() {
+            GraphicsWindowBackendState::Unmapped => {}
+            GraphicsWindowBackendState::Mapped(window) => {
+                if constraints != window.constraints.get() {
+                    let min_width = constraints.min_width.min(constraints.max_width);
+                    let min_height = constraints.min_height.min(constraints.max_height);
+                    let max_width = constraints.max_width.max(constraints.min_width);
+                    let max_height = constraints.max_height.max(constraints.min_height);
+
+                    window.backend.borrow().window().set_min_inner_size(
+                        if min_width > 0. || min_height > 0. {
+                            Some(winit::dpi::PhysicalSize::new(min_width, min_height))
+                        } else {
+                            None
+                        },
+                    );
+                    window.backend.borrow().window().set_max_inner_size(
+                        if max_width < f32::MAX || max_height < f32::MAX {
+                            Some(winit::dpi::PhysicalSize::new(
+                                max_width.min(65535.),
+                                max_height.min(65535.),
+                            ))
+                        } else {
+                            None
+                        },
+                    );
+                    window.constraints.set(constraints);
+                }
+            }
+        }
     }
 }
 
@@ -573,6 +608,15 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
     fn draw(self: Rc<Self>) {
         let component = self.component.borrow().upgrade().unwrap();
         let component = ComponentRc::borrow_pin(&component);
+
+        {
+            if self.layout_listener.as_ref().is_dirty() {
+                self.layout_listener.as_ref().evaluate(|| {
+                    self.apply_geometry_constraint(component.as_ref().layout_info());
+                    component.as_ref().apply_layout(self.get_geometry())
+                })
+            }
+        }
 
         {
             let map_state = self.map_state.borrow();
@@ -774,39 +818,6 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
             WindowProperties::FIELD_OFFSETS.width.apply_pin(self.properties.as_ref()).get(),
             WindowProperties::FIELD_OFFSETS.height.apply_pin(self.properties.as_ref()).get(),
         )
-    }
-
-    fn apply_geometry_constraint(&self, constraints: crate::layout::LayoutInfo) {
-        match &*self.map_state.borrow() {
-            GraphicsWindowBackendState::Unmapped => {}
-            GraphicsWindowBackendState::Mapped(window) => {
-                if constraints != window.constraints.get() {
-                    let min_width = constraints.min_width.min(constraints.max_width);
-                    let min_height = constraints.min_height.min(constraints.max_height);
-                    let max_width = constraints.max_width.max(constraints.min_width);
-                    let max_height = constraints.max_height.max(constraints.min_height);
-
-                    window.backend.borrow().window().set_min_inner_size(
-                        if min_width > 0. || min_height > 0. {
-                            Some(winit::dpi::PhysicalSize::new(min_width, min_height))
-                        } else {
-                            None
-                        },
-                    );
-                    window.backend.borrow().window().set_max_inner_size(
-                        if max_width < f32::MAX || max_height < f32::MAX {
-                            Some(winit::dpi::PhysicalSize::new(
-                                max_width.min(65535.),
-                                max_height.min(65535.),
-                            ))
-                        } else {
-                            None
-                        },
-                    );
-                    window.constraints.set(constraints);
-                }
-            }
-        }
     }
 
     fn free_graphics_resources(

@@ -84,9 +84,7 @@ public:
     template<typename Component>
     void run(const Component *c) const
     {
-        auto self_rc = c->self_weak.lock().value();
-        sixtyfps_component_window_run(&inner,
-                                      reinterpret_cast<cbindgen_private::ComponentRc *>(&self_rc));
+        sixtyfps_component_window_run(&inner);
     }
 
     float scale_factor() const { return sixtyfps_component_window_get_scale_factor(&inner); }

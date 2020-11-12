@@ -22,10 +22,7 @@ use std::{
 };
 use vtable::*;
 
-use crate::{
-    input::{KeyEvent, MouseEventType},
-    properties::PropertyTracker,
-};
+use crate::input::{KeyEvent, MouseEventType};
 #[cfg(not(target_arch = "wasm32"))]
 use winit::platform::desktop::EventLoopExtDesktop;
 
@@ -91,8 +88,6 @@ pub trait GenericWindow {
     fn set_height(&self, height: f32);
     /// Returns the geometry of the window
     fn get_geometry(&self) -> crate::graphics::Rect;
-    /// apply the constraints
-    fn apply_geometry_constraint(&self, constraints: crate::layout::LayoutInfo);
 
     /// This function is called by the generated code when a component and therefore its tree of items are destroyed. The
     /// implementation typically uses this to free the underlying graphics resources cached via [`crate::graphics::RenderingCache`].
@@ -134,12 +129,12 @@ impl ComponentWindow {
         Self(window_impl)
     }
     /// Spins an event loop and renders the items of the provided component in this window.
-    pub fn run(&self, component: &ComponentRc) {
+    pub fn run(&self) {
         let event_loop = crate::eventloop::EventLoop::new();
 
         self.0.clone().map_window(&event_loop);
 
-        event_loop.run(ComponentRc::borrow_pin(component));
+        event_loop.run();
 
         self.0.clone().unmap_window();
     }
@@ -242,10 +237,9 @@ impl EventLoop {
     /// Runs the event loop and renders the items in the provided `component` in its
     /// own window.
     #[allow(unused_mut)] // mut need changes for wasm
-    pub fn run(mut self, component: core::pin::Pin<crate::component::ComponentRef>) {
+    pub fn run(mut self) {
         use winit::event::Event;
         use winit::event_loop::{ControlFlow, EventLoopWindowTarget};
-        let layout_listener = Rc::pin(PropertyTracker::default());
 
         let mut cursor_pos = winit::dpi::PhysicalPosition::new(0., 0.);
         let mut pressed = false;
@@ -265,14 +259,6 @@ impl EventLoop {
                         if let Some(Some(window)) =
                             windows.borrow().get(&id).map(|weakref| weakref.upgrade())
                         {
-                            if layout_listener.as_ref().is_dirty() {
-                                layout_listener.as_ref().evaluate(|| {
-                                    window.apply_geometry_constraint(
-                                        component.as_ref().layout_info(),
-                                    );
-                                    component.as_ref().apply_layout(window.get_geometry())
-                                })
-                            }
                             window.draw();
                         }
                     });
@@ -569,12 +555,9 @@ pub mod ffi {
 
     /// Spins an event loop and renders the items of the provided component in this window.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_component_window_run(
-        handle: *const ComponentWindowOpaque,
-        component: &ComponentRc,
-    ) {
+    pub unsafe extern "C" fn sixtyfps_component_window_run(handle: *const ComponentWindowOpaque) {
         let window = &*(handle as *const ComponentWindow);
-        window.run(component);
+        window.run();
     }
 
     /// Returns the window scale factor.

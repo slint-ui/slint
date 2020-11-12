@@ -127,6 +127,6 @@ impl WrappedCompiledComp {
     #[wasm_bindgen]
     pub fn run(&self, canvas_id: String) {
         let component = self.0.clone().create(canvas_id);
-        component.window().run(&vtable::VRc::into_dyn(component));
+        component.window().run();
     }
 }

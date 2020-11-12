@@ -584,8 +584,7 @@ fn generate_component(
             }
             impl sixtyfps::Component for #component_id {
                 fn run(self: ::core::pin::Pin<&Self>) {
-                    use sixtyfps::re_exports::*;
-                    self.as_ref().window.run(&VRc::into_dyn(self.as_ref().self_weak.get().unwrap().upgrade().unwrap()));
+                    self.as_ref().window.run();
                 }
             }
         ))

@@ -329,7 +329,7 @@ declare_types! {
             let component = cx.borrow(&mut this, |x| x.0.clone());
             let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
             run_scoped(&mut cx,this.downcast().unwrap(), || {
-                component.window().run(&vtable::VRc::into_dyn(component));
+                component.window().run();
                 Ok(())
             })?;
             Ok(JsUndefined::new().as_value(&mut cx))
