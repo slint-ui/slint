@@ -18,6 +18,7 @@ rand = "0.7.3"
 wasm-bindgen = { version = "0.2" }
 web-sys = { version = "0.3", features=["console"] }
 console_error_panic_hook = "0.1.5"
+rand = { version = "0.7.3", features = ["wasm-bindgen"] }
 
 [build-dependencies]
 sixtyfps-build = { path = "../../../api/sixtyfps-rs/sixtyfps-build" }
