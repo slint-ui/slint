@@ -75,7 +75,7 @@ export MainWindow := Window {
         },
         {
             name: "BERLIN",
-            window-backround-color: #5b84a8,
+            window-backround-color: #ffffff88,
             game-background-color: #ffffffcc,
             game-border: 0px,
             game-radius: 2px,
@@ -141,6 +141,12 @@ export MainWindow := Window {
 
     animate pieces_spacing { duration: 500ms; easing: ease-out; }
 
+    Image {
+        height: 100%; width: 100%;
+        // https://commons.wikimedia.org/wiki/File:Berlin_potsdamer_platz.jpg Belappetit, CC BY-SA 3.0
+        source: img!"berlin.jpg";
+    }
+
     Rectangle {
         height: 100%; width: 100%; color: current-theme.window-backround-color;
         animate color { duration: 500ms; easing: ease-out; }
@@ -202,6 +208,15 @@ export MainWindow := Window {
                 + (parent.height - (4*pieces_size + 3*pieces_spacing))/2;
             animate px , py { duration: 200ms; easing: cubic-bezier(0.17,0.76,0.4,1.9); }
             animate border-width, border-radius { duration: 500ms; easing: ease-out; }
+
+            if (current-theme-index == 1) : Rectangle {
+                width: 50%;
+                height: 50%;
+                x: (parent.width - width) / 2;
+                y: (parent.height - height) / 2;
+                border-radius: width;
+                color: #fff8;
+            }
 
             Text {
                 text: i+1;
