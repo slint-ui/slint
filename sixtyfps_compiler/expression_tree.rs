@@ -49,6 +49,7 @@ impl Hash for NamedReference {
 pub enum BuiltinFunction {
     GetWindowScaleFactor,
     Debug,
+    Mod,
     SetFocusItem,
     /// the "42".to_float()
     StringToFloat,
@@ -73,6 +74,10 @@ impl BuiltinFunction {
             BuiltinFunction::Debug => {
                 Type::Function { return_type: Box::new(Type::Void), args: vec![Type::String] }
             }
+            BuiltinFunction::Mod => Type::Function {
+                return_type: Box::new(Type::Int32),
+                args: vec![Type::Int32, Type::Int32],
+            },
             BuiltinFunction::SetFocusItem => Type::Function {
                 return_type: Box::new(Type::Void),
                 args: vec![Type::ElementReference],

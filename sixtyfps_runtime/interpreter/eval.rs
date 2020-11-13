@@ -353,6 +353,10 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                 println!("{:?}", a.collect::<Vec<_>>());
                 Value::Void
             }
+            Expression::BuiltinFunctionReference(BuiltinFunction::Mod) => {
+                let mut toint = |e| -> i32 { eval_expression(e, local_context).try_into().unwrap() };
+                Value::Number((toint(&arguments[0]) % toint(&arguments[1])) as _)
+            }
             Expression::BuiltinFunctionReference(BuiltinFunction::SetFocusItem) => {
                 if arguments.len() != 1 {
                     panic!("internal error: incorrect argument count to SetFocusItem")

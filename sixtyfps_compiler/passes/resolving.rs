@@ -506,6 +506,7 @@ impl Expression {
         // Builtin functions  FIXME: handle that in a registery or something
         match first_str.as_str() {
             "debug" => return Expression::BuiltinFunctionReference(BuiltinFunction::Debug),
+            "mod" => return Expression::BuiltinFunctionReference(BuiltinFunction::Mod),
             "max" => {
                 return Expression::BuiltinMacroReference(BuiltinMacroFunction::Max, first.into())
             }
