@@ -136,7 +136,7 @@ export MainWindow := Window {
             piece-spacing: 10%,
     };
 
-    property<length> pieces_size: ((width < height ? width : height)) / 6;
+    property<length> pieces_size: min(width, height) / 6;
     property<length> pieces_spacing: pieces_size * current-theme.piece-spacing;
 
     animate pieces_spacing { duration: 500ms; easing: ease-out; }
