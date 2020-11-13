@@ -18,10 +18,27 @@ use wasm_bindgen::prelude::*;
 sixtyfps::include_modules!();
 
 fn shuffle() -> Vec<i8> {
+    fn is_solvable(positions: &[i8]) -> bool {
+        // Same source as the flutter's slide_puzzle:
+        // https://www.cs.bham.ac.uk/~mdr/teaching/modules04/java2/TilesSolvability.html
+
+        let mut inversions = 0;
+        for x in 0..positions.len() - 1 {
+            let v = positions[x];
+            inversions += positions[x + 1..].iter().filter(|x| **x >= 0 && **x < v).count();
+        }
+        //((blank on odd row from bottom) == (#inversions even))
+        let blank_row = positions.iter().position(|x| *x == -1).unwrap() as usize / 4;
+        inversions % 2 != blank_row % 2
+    }
+
     let mut vec = ((-1)..15).into_iter().collect::<Vec<i8>>();
     use rand::seq::SliceRandom;
     let mut rng = rand::thread_rng();
     vec.shuffle(&mut rng);
+    while !is_solvable(&vec) {
+        vec.shuffle(&mut rng);
+    }
     vec
 }
 
@@ -37,7 +54,7 @@ impl AppState {
     fn set_pieces_pos(&self, p: i8, pos: i8) {
         if p >= 0 {
             self.pieces
-                .set_row_data(p as usize, Piece { pos_x: (pos % 4) as _, pos_y: (pos / 4) as _ });
+                .set_row_data(p as usize, Piece { pos_y: (pos % 4) as _, pos_x: (pos / 4) as _ });
         }
     }
 
@@ -57,15 +74,15 @@ impl AppState {
 
     fn piece_clicked(&mut self, p: i8) {
         let piece = self.pieces.row_data(p as usize);
-        assert_eq!(self.positions[(piece.pos_y * 4 + piece.pos_x) as usize], p);
+        assert_eq!(self.positions[(piece.pos_x * 4 + piece.pos_y) as usize], p);
 
         // find the coordinate of the hole.
         let hole = self.positions.iter().position(|x| *x == -1).unwrap() as i8;
-        let pos = (piece.pos_y * 4 + piece.pos_x) as i8;
+        let pos = (piece.pos_x * 4 + piece.pos_y) as i8;
         let sign = if pos > hole { -1 } else { 1 };
-        if hole % 4 == piece.pos_x as i8 {
+        if hole % 4 == piece.pos_y as i8 {
             self.slide(pos, sign * 4)
-        } else if hole / 4 == piece.pos_y as i8 {
+        } else if hole / 4 == piece.pos_x as i8 {
             self.slide(pos, sign)
         } else {
             return;
