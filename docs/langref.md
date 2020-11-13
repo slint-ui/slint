@@ -693,3 +693,18 @@ App := Window {
     }
 }
 ```
+
+## Builtin functions
+
+ * **`debug(string) -> string`**
+
+The debug function take a string as an argument and prints it
+
+ * **`min`**, **`max`**
+
+Return the arguments with the minimum (or maximum) value. All arguments must be of the same numeric type
+
+ * **`mod(int, int) -> int`**
+
+Perform a modulo operation.
+
