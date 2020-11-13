@@ -202,7 +202,7 @@ impl GLRenderer {
 
             // Try to maintain the existing size of the canvas element. A window created with winit
             // on the web will always have 1024x768 as size otherwise.
-            let existing_canvas_size = winit::dpi::PhysicalSize::new(
+            let existing_canvas_size = winit::dpi::LogicalSize::new(
                 canvas.client_width() as u32,
                 canvas.client_height() as u32,
             );
@@ -211,8 +211,8 @@ impl GLRenderer {
                 Rc::new(window_builder.with_canvas(Some(canvas)).build(&event_loop).unwrap());
 
             {
-                let default_size = window.inner_size();
-                let new_size = winit::dpi::PhysicalSize::new(
+                let default_size = window.inner_size().to_logical(window.scale_factor());
+                let new_size = winit::dpi::LogicalSize::new(
                     if existing_canvas_size.width > 0 {
                         existing_canvas_size.width
                     } else {
