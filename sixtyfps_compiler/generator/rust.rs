@@ -1067,6 +1067,7 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
         },
         Expression::ElementReference(_) => todo!("Element references are only supported in the context of built-in function calls at the moment"),
         Expression::MemberFunction{ .. } => panic!("member function expressions must not appear in the code generator anymore"),
+        Expression::BuiltinMacroReference { .. } => panic!("macro expressions must not appear in the code generator anymore"),
         Expression::RepeaterIndexReference { element } => {
             let access = access_member(
                 &element.upgrade().unwrap().borrow().base_type.as_component().root_element,

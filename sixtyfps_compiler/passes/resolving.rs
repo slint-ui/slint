@@ -18,7 +18,9 @@ use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::*;
 use crate::langtype::Type;
 use crate::object_tree::*;
-use crate::parser::{identifier_text, syntax_nodes, SyntaxKind, SyntaxNodeWithSourceFile};
+use crate::parser::{
+    identifier_text, syntax_nodes, NodeOrTokenWithSourceFile, SyntaxKind, SyntaxNodeWithSourceFile,
+};
 use crate::typeregister::TypeRegister;
 use std::{collections::HashMap, rc::Rc};
 
@@ -481,7 +483,12 @@ impl Expression {
                     "ease_in" => Some(EasingCurve::CubicBezier(0.42, 0.0, 1.0, 1.0)),
                     "ease_in_out" => Some(EasingCurve::CubicBezier(0.42, 0.0, 0.58, 1.0)),
                     "ease_out" => Some(EasingCurve::CubicBezier(0.0, 0.0, 0.58, 1.0)),
-                    "cubic_bezier" => todo!("Not yet implemented"),
+                    "cubic_bezier" => {
+                        return Expression::BuiltinMacroReference(
+                            BuiltinMacroFunction::CubicBezier,
+                            first.into(),
+                        )
+                    }
                     _ => None,
                 };
                 if let Some(curve) = value {
@@ -497,9 +504,16 @@ impl Expression {
         }
 
         // Builtin functions  FIXME: handle that in a registery or something
-        if first_str == "debug" {
-            return Expression::BuiltinFunctionReference(BuiltinFunction::Debug);
-        }
+        match first_str.as_str() {
+            "debug" => return Expression::BuiltinFunctionReference(BuiltinFunction::Debug),
+            "max" => {
+                return Expression::BuiltinMacroReference(BuiltinMacroFunction::Max, first.into())
+            }
+            "min" => {
+                return Expression::BuiltinMacroReference(BuiltinMacroFunction::Min, first.into())
+            }
+            _ => {}
+        };
 
         // Attempt to recover if the user wanted to write "-"
         if let Some(minus_pos) = first.text().find('-') {
@@ -532,19 +546,55 @@ impl Expression {
         node: syntax_nodes::FunctionCallExpression,
         ctx: &mut LookupCtx,
     ) -> Expression {
-        let mut sub_expr =
-            node.Expression().map(|n| (Self::from_expression_node(n.clone(), ctx), n.0.into()));
+        let mut sub_expr = node.Expression().map(|n| {
+            (Self::from_expression_node(n.clone(), ctx), NodeOrTokenWithSourceFile::from(n.0))
+        });
 
         let mut arguments = Vec::new();
 
-        let function = sub_expr.next().map_or(Expression::Invalid, |e| e.0);
-        let function = if let Expression::MemberFunction { base, base_node, member } = function {
-            arguments.push((*base, base_node));
-            member
-        } else {
-            Box::new(function)
-        };
+        let (function, f_node) =
+            sub_expr.next().unwrap_or_else(|| (Expression::Invalid, node.0.clone().into()));
 
+        let function = match function {
+            Expression::BuiltinMacroReference(mac, _) => match mac {
+                BuiltinMacroFunction::Min => todo!("min/max not yet implemented"),
+                BuiltinMacroFunction::Max => todo!("min/max not yet implemented"),
+                BuiltinMacroFunction::CubicBezier => {
+                    let mut has_error = None;
+                    // FIXME: this is not pretty to be handling there.
+                    // Maybe "cubic_bezier" should be a function that is lowered later
+                    let mut a = || match sub_expr.next() {
+                        None => {
+                            has_error.get_or_insert((f_node.clone(), "Not enough arguments"));
+                            0.
+                        }
+                        Some((Expression::NumberLiteral(val, Unit::None), _)) => val as f32,
+                        Some((_, n)) => {
+                            has_error.get_or_insert((
+                                n,
+                                "Arguments to cubic bezier curve must be number literal",
+                            ));
+                            0.
+                        }
+                    };
+                    let expr =
+                        Expression::EasingCurve(EasingCurve::CubicBezier(a(), a(), a(), a()));
+                    if let Some((_, n)) = sub_expr.next() {
+                        has_error.get_or_insert((n, "Too many argument for bezier curve"));
+                    }
+                    if let Some((n, msg)) = has_error {
+                        ctx.diag.push_error(msg.into(), &n);
+                    }
+
+                    return expr;
+                }
+            },
+            Expression::MemberFunction { base, base_node, member } => {
+                arguments.push((*base, base_node));
+                member
+            }
+            _ => Box::new(function),
+        };
         arguments.extend(sub_expr);
 
         let arguments = match function.ty() {

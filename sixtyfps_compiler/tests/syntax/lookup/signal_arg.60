@@ -25,10 +25,13 @@ Xxx := Rectangle {
 //      ^error{The signal or function expects 3 arguments, but 4 are provided}
         plop(42, 42, 42);
 //               ^error{Cannot convert float to color}
-        hello(45, fff)
+        hello(45, fff);
 //      ^error{The expression is not a function}
 //                ^^error{Unknown unqualified identifier 'fff'}
-
+        (plop)("45", #fff, 42);
+        (root.plop)("45", #fff, 42);
+        (root.plop)("45", #fff, "45");
+//                              ^error{Cannot convert string to int}
     }
 
     x: 12phx;

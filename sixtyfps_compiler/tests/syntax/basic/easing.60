@@ -1,0 +1,29 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+X := Rectangle {
+    animate x { easing: ease-in; }
+    animate y { easing: foo; }
+    //                  ^error{Unknown unqualified identifier 'foo'}
+    animate color { easing: a; }
+    //                     ^error{Cannot convert int to easing}
+    property <int> a; animate a { easing: cubic-bezier(0.01,1.46,0.94,1.37); }
+    property <int> b; animate b { easing: cubic-bezier(0.01,1.46,0.94); }
+    //                                    ^error{Not enough arguments}
+    property <int> c; animate c { easing: cubic-bezier(); }
+    //                                    ^error{Not enough arguments}
+    property <int> d; animate d { easing: cubic-bezier(0,0,0,0,0,0); }
+    //                                                         ^error{Too many argument for bezier curve}
+    property <int> e; animate e { easing: cubic-bezier(0, a, b, c); }
+    //                                                    ^error{Arguments to cubic bezier curve must be number literal}
+    property <int> f; animate f { easing: cubic-bezier(0,0+0,0,0,0); }
+    //                                                   ^error{Arguments to cubic bezier curve must be number literal}
+}
+

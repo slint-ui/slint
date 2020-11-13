@@ -200,7 +200,7 @@ export MainWindow := Window {
                 + (parent.width - (4*pieces_size + 3*pieces_spacing))/2;
             y: px * (pieces_size + pieces_spacing)
                 + (parent.height - (4*pieces_size + 3*pieces_spacing))/2;
-            animate px , py { duration: 100ms; easing: ease-out; }
+            animate px , py { duration: 200ms; easing: cubic-bezier(0.17,0.76,0.4,1.9); }
             animate border-width, border-radius { duration: 500ms; easing: ease-out; }
 
             Text {

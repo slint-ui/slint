@@ -56,6 +56,14 @@ pub enum BuiltinFunction {
     StringIsFloat,
 }
 
+#[derive(Debug, Clone)]
+/// A builtin function which is handled by the compiler pass
+pub enum BuiltinMacroFunction {
+    Min,
+    Max,
+    CubicBezier,
+}
+
 impl BuiltinFunction {
     pub fn ty(&self) -> Type {
         match self {
@@ -214,6 +222,10 @@ pub enum Expression {
         member: Box<Expression>,
     },
 
+    /// Reference to a macro understood by the compiler.
+    /// These should be transformed to other expression before reaching generation
+    BuiltinMacroReference(BuiltinMacroFunction, NodeOrTokenWithSourceFile),
+
     /// A reference to a specific element. This isn't possible to create in .60 syntax itself, but intermediate passes may generate this
     /// type of expression.
     ElementReference(Weak<RefCell<Element>>),
@@ -350,6 +362,7 @@ impl Expression {
             }
             Expression::BuiltinFunctionReference(funcref) => funcref.ty(),
             Expression::MemberFunction { member, .. } => member.ty(),
+            Expression::BuiltinMacroReference { .. } => Type::Invalid, // We don't know the type
             Expression::ElementReference(_) => Type::ElementReference,
             Expression::RepeaterIndexReference { .. } => Type::Int32,
             Expression::RepeaterModelReference { element } => {
@@ -448,6 +461,7 @@ impl Expression {
                 visitor(&**base);
                 visitor(&**member);
             }
+            Expression::BuiltinMacroReference { .. } => {}
             Expression::ElementReference(_) => {}
             Expression::ObjectAccess { base, .. } => visitor(&**base),
             Expression::RepeaterIndexReference { .. } => {}
@@ -517,6 +531,7 @@ impl Expression {
                 visitor(&mut **base);
                 visitor(&mut **member);
             }
+            Expression::BuiltinMacroReference { .. } => {}
             Expression::ElementReference(_) => {}
             Expression::ObjectAccess { base, .. } => visitor(&mut **base),
             Expression::RepeaterIndexReference { .. } => {}
@@ -584,6 +599,7 @@ impl Expression {
             Expression::RepeaterIndexReference { .. } => false,
             Expression::RepeaterModelReference { .. } => false,
             Expression::FunctionParameterReference { .. } => false,
+            Expression::BuiltinMacroReference { .. } => false,
             Expression::ObjectAccess { base, .. } => base.is_constant(),
             Expression::Cast { from, to } => {
                 from.is_constant() && !matches!(to, Type::Length | Type::LogicalLength)

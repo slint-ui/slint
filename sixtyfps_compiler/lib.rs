@@ -39,6 +39,7 @@ pub mod typeloader;
 pub mod typeregister;
 
 mod passes {
+    pub mod check_expressions;
     pub mod collect_globals;
     pub mod collect_resources;
     pub mod compile_paths;
@@ -147,6 +148,7 @@ pub async fn run_passes<'a>(
 ) {
     passes::resolving::resolve_expressions(doc, diag);
     passes::inlining::inline(doc);
+    passes::check_expressions::check_expressions(doc, diag);
     passes::compile_paths::compile_paths(&doc.root_component, &doc.local_registry, diag);
     passes::unique_id::assign_unique_id(&doc.root_component);
     passes::focus_item::determine_initial_focus_item(&doc.root_component, diag);

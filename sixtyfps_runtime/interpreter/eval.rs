@@ -270,6 +270,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
         ),
         Expression::ElementReference(_) => todo!("Element references are only supported in the context of built-in function calls at the moment"),
         Expression::MemberFunction { .. } => panic!("member function expressions must not appear in the code generator anymore"),
+        Expression::BuiltinMacroReference { .. } => panic!("macro expressions must not appear in the code generator anymore"),
         Expression::PropertyReference(NamedReference { element, name }) => {
             load_property_helper(local_context.component_instance, &element.upgrade().unwrap(), name.as_ref()).unwrap()
         }
