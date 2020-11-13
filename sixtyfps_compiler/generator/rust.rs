@@ -1055,7 +1055,7 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                 quote!(#window_ref.scale_factor)
             }
             BuiltinFunction::Debug => quote!((|x| println!("{:?}", x))),
-            BuiltinFunction::Mod => quote!((|a1, a2| a1 % a2)),
+            BuiltinFunction::Mod => quote!((|a1, a2| (a1 as i32) % (a2 as i32))),
             BuiltinFunction::SetFocusItem => {
                 panic!("internal error: SetFocusItem is handled directly in CallFunction")
             }
