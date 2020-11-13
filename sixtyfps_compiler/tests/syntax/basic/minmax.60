@@ -1,0 +1,35 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+SuperSimple := Rectangle {
+    property <int> a: max + max() + max(45, "hello");
+//                    ^error{Builtin function must be called}
+//                          ^^error{Needs at least one argument}
+//                                          ^^^error{Cannot convert string to float}
+    property <length> b: max(41px, 41phx);
+    property <string> c: max("a", "b");
+//                           ^error{Invalid argument type}
+
+    property <int> d: min + min() + min(45, "hello");
+//                    ^error{Builtin function must be called}
+//                          ^^error{Needs at least one argument}
+//                                          ^^^error{Cannot convert string to float}
+    property <length> e: min(41px, 41phx);
+    property <string> f: min("a", "b");
+//                           ^error{Invalid argument type}
+
+    property <int> g: min(42, 42, 42cm);
+//                                ^error{Cannot convert logical_length to float}
+    property <int> h: min(42, 42 + 1) + max(1px , 2phx);
+//                                     ^error{Cannot convert logical_length to float}
+
+
+}
+
+
