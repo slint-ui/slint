@@ -203,6 +203,7 @@ lazy_static! {
         (".+\\.cpp$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
         (".+\\.md$", LicenseLocation::NoLicense),
         (".+\\.png$", LicenseLocation::NoLicense),
+        (".+\\.jpg$", LicenseLocation::NoLicense),
         (".+\\.svg$", LicenseLocation::NoLicense),
         (".+\\.json$", LicenseLocation::NoLicense),
         (".+\\.html$", LicenseLocation::NoLicense),
