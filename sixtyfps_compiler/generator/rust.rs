@@ -634,8 +634,7 @@ fn generate_component(
                 &*ITEM_TREE
             }
         });
-        let window_ref = window_ref_expression(component);
-        init.insert(0, quote!(sixtyfps::re_exports::init_component_items(_self, Self::item_tree(), &#window_ref);));
+        init.insert(0, quote!(sixtyfps::re_exports::init_component_items(_self, Self::item_tree(), &_self.window);));
         Some(quote! {
         impl sixtyfps::re_exports::Component for #component_id {
             fn visit_children_item(self: ::core::pin::Pin<&Self>, index: isize, order: sixtyfps::re_exports::TraversalOrder, visitor: sixtyfps::re_exports::ItemVisitorRefMut)
@@ -984,17 +983,6 @@ fn access_named_reference(
     access_member(&nr.element.upgrade().unwrap(), &nr.name, component, component_rust, false)
 }
 
-/// Return an expression that gets the window
-fn window_ref_expression(component: &Rc<Component>) -> TokenStream {
-    let mut root_component = component.clone();
-    let mut component_rust = quote!(_self);
-    while let Some(p) = root_component.parent_element.upgrade() {
-        root_component = p.borrow().enclosing_component.upgrade().unwrap();
-        component_rust = quote!(#component_rust.parent.upgrade().unwrap().as_pin_ref());
-    }
-    quote!(#component_rust.window)
-}
-
 fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream {
     match e {
         Expression::StringLiteral(s) => quote!(sixtyfps::re_exports::SharedString::from(#s)),
@@ -1042,8 +1030,7 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
         }
         Expression::BuiltinFunctionReference(funcref) => match funcref {
             BuiltinFunction::GetWindowScaleFactor => {
-                let window_ref = window_ref_expression(component);
-                quote!(#window_ref.scale_factor)
+                quote!(_self.window.scale_factor)
             }
             BuiltinFunction::Debug => quote!((|x| println!("{:?}", x))),
             BuiltinFunction::Mod => quote!((|a1, a2| (a1 as i32) % (a2 as i32))),
@@ -1121,9 +1108,8 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                     }
                     if let Expression::ElementReference(focus_item) = &arguments[0] {
                         let item = format_ident!("{}", focus_item.upgrade().unwrap().borrow().id);
-                        let window_ref = window_ref_expression(component);
                         quote!(
-                            #window_ref.set_focus_item(VRef::new_pin(self_pinned.as_pin_ref()), VRef::new_pin(Self::FIELD_OFFSETS.#item.apply_pin(self_pinned.as_pin_ref())));
+                            _self.window.set_focus_item(VRef::new_pin(self_pinned.as_pin_ref()), VRef::new_pin(Self::FIELD_OFFSETS.#item.apply_pin(self_pinned.as_pin_ref())));
                         )
                     } else {
                         panic!("internal error: argument to SetFocusItem must be an element")
@@ -1863,14 +1849,12 @@ fn compute_layout(
             .for_each(|layout| layout.emit_solve_calls(component, &mut layouts));
     });
 
-    let window_ref = window_ref_expression(component);
-
     quote! {
         fn layout_info(self: ::core::pin::Pin<&Self>) -> sixtyfps::re_exports::LayoutInfo {
             #![allow(unused)]
             use sixtyfps::re_exports::*;
             let _self = self;
-            let window = #window_ref.clone();
+            let window = _self.window.clone();
             #layout_info
         }
         fn apply_layout(self: ::core::pin::Pin<&Self>, _: sixtyfps::re_exports::Rect) {
@@ -1878,7 +1862,7 @@ fn compute_layout(
             use sixtyfps::re_exports::*;
             let dummy = Property::<f32>::default();
             let _self = self;
-            let window = #window_ref.clone();
+            let window = _self.window.clone();
             #(#layouts)*
 
             let self_pinned = self;
