@@ -49,6 +49,7 @@ struct AppState {
     /// position. -1 is no piece.
     positions: Vec<i8>,
     auto_play_timer: sixtyfps::Timer,
+    finished: bool,
 }
 
 impl AppState {
@@ -68,9 +69,10 @@ impl AppState {
         self.apply_tiles_left();
     }
 
-    fn apply_tiles_left(&self) {
+    fn apply_tiles_left(&mut self) {
         let left = 15 - self.positions.iter().enumerate().filter(|(i, x)| *i as i8 == **x).count();
         self.main_window.upgrade().map(|x| x.as_ref().set_tiles_left(left as _));
+        self.finished = left == 0;
     }
 
     fn piece_clicked(&mut self, p: i8) {
@@ -133,6 +135,7 @@ pub fn main() {
         main_window: main_window.as_weak(),
         positions: vec![],
         auto_play_timer: Default::default(),
+        finished: false,
     }));
     state.borrow_mut().randomize();
     main_window.as_ref().set_pieces(sixtyfps::ModelHandle::new(state.borrow().pieces.clone()));
@@ -140,6 +143,9 @@ pub fn main() {
     main_window.as_ref().on_piece_cliked(move |p| {
         state_copy.borrow().auto_play_timer.stop();
         state_copy.borrow().main_window.upgrade().map(|x| x.as_ref().set_auto_play(false));
+        if state_copy.borrow().finished {
+            return;
+        }
         state_copy.borrow_mut().piece_clicked(p as i8);
     });
     let state_copy = state.clone();

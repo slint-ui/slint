@@ -89,7 +89,7 @@ export MainWindow := Window {
             piece-border-color-1: #0000,
             piece-border-color-2: #0000,
             piece-text-color-1: #000000,
-            piece-text-color-2: #000000,
+            piece-text-color-2: #ffffff,
             piece-radius: 0px,
             /// Ratio of the piece size
             piece-spacing: 8%,
@@ -195,7 +195,7 @@ export MainWindow := Window {
 
 
         for p[i] in pieces : Rectangle {
-
+            property <bool> is_correct: i == p.pos_x * 4 + p.pos_y;
             color: i >= 8 ? current-theme.piece-backround-2 : current-theme.piece-backround-1;
             border-color: i >= 8 ? current-theme.piece-border-color-2 : current-theme.piece-border-color-1;
             border-width: current-theme.piece-border;
@@ -212,17 +212,17 @@ export MainWindow := Window {
             animate border-width, border-radius { duration: 500ms; easing: ease-out; }
 
             if (current-theme-index == 1) : Rectangle {
-                width: 50%;
-                height: 50%;
+                width: 60%;
+                height: 60%;
                 x: (parent.width - width) / 2;
                 y: (parent.height - height) / 2;
                 border-radius: width;
-                color: #fff8;
+                color: is_correct ? #0008 : #fff8;
             }
 
             Text {
                 text: i+1;
-                color: i >= 8 ? current-theme.piece-text-color-2 : current-theme.piece-text-color-1;
+                color: ((current-theme-index != 1 && i >= 8) || (current-theme-index == 1 && is_correct)) ? current-theme.piece-text-color-2 : current-theme.piece-text-color-1;
                 font-size: pieces_size / 3;
                 vertical-alignment: align-center;
                 horizontal-alignment: align-center;
@@ -235,6 +235,21 @@ export MainWindow := Window {
                 height: 100%;
                 clicked => { root.piece_cliked(i); }
             }
+        }
+
+        if (root.tiles-left == 0) : Text {
+            width: pieces_size;
+            height: pieces_size;
+            x: 3 * (pieces_size + pieces_spacing)
+                + (parent.width - (4*pieces_size + 3*pieces_spacing))/2;
+            y: 3 * (pieces_size + pieces_spacing)
+                + (parent.height - (4*pieces_size + 3*pieces_spacing))/2;
+
+            color: current-theme.game-highlight-color;
+            font-size: pieces_size / 2;
+            vertical-alignment: align-center;
+            horizontal-alignment: align-center;
+            text: "🖒";
         }
 
         Rectangle {
