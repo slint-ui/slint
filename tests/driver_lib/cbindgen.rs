@@ -139,6 +139,7 @@ fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
         special_config.export.exclude = [
             "sixtyfps_visit_item_tree",
             "sixtyfps_component_window_drop",
+            "sixtyfps_component_window_clone",
             "sixtyfps_component_window_run",
             "sixtyfps_component_window_get_scale_factor",
             "sixtyfps_component_window_set_scale_factor",

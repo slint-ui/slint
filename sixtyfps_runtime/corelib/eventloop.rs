@@ -553,6 +553,20 @@ pub mod ffi {
         core::ptr::read(handle as *mut ComponentWindow);
     }
 
+    /// Releases the reference to the component window held by handle.
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_component_window_clone(
+        source: *const ComponentWindowOpaque,
+        target: *mut ComponentWindowOpaque,
+    ) {
+        assert_eq!(
+            core::mem::size_of::<ComponentWindow>(),
+            core::mem::size_of::<ComponentWindowOpaque>()
+        );
+        let window = &*(source as *const ComponentWindow);
+        core::ptr::write(target as *mut ComponentWindow, window.clone());
+    }
+
     /// Spins an event loop and renders the items of the provided component in this window.
     #[no_mangle]
     pub unsafe extern "C" fn sixtyfps_component_window_run(handle: *const ComponentWindowOpaque) {

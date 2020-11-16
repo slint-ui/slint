@@ -111,6 +111,7 @@ mod cpp_ast {
                         is_friend: false,
                         statements: f.statements.take(),
                         template_parameters: f.template_parameters.clone(),
+                        constructor_member_initializers: f.constructor_member_initializers.clone(),
                     }))
                 }
                 _ => None,
@@ -133,6 +134,8 @@ mod cpp_ast {
         pub statements: Option<Vec<String>>,
         /// What's inside template<...> if any
         pub template_parameters: Option<String>,
+        /// Explicit initializers, such as FooClass::FooClass() : someMember(42) {}
+        pub constructor_member_initializers: Vec<String>,
     }
 
     impl Display for Function {
@@ -154,6 +157,9 @@ mod cpp_ast {
             }
             write!(f, "{} {}", self.name, self.signature)?;
             if let Some(st) = &self.statements {
+                if !self.constructor_member_initializers.is_empty() {
+                    writeln!(f, "\n : {}", self.constructor_member_initializers.join(","))?;
+                }
                 writeln!(f, "{{")?;
                 for s in st {
                     indent(f)?;
@@ -821,6 +827,14 @@ fn generate_component(
                 }),
             ));
         }
+        component_struct.members.push((
+            Access::Private,
+            Declaration::Var(Var {
+                ty: "sixtyfps::private_api::ComponentWindow".into(),
+                name: "window".into(),
+                ..Var::default()
+            }),
+        ));
     } else if !component.is_global() {
         component_struct.members.push((
             Access::Public, // FIXME: many of the different component bindings need to access this
@@ -853,10 +867,7 @@ fn generate_component(
             }),
         ));
 
-        init.push(format!(
-            "{}.init_items(this, item_tree());",
-            window = window_ref_expression(component)
-        ));
+        init.push("self->window.init_items(this, item_tree());".into());
 
         component_struct.friends.push("sixtyfps::private_api::ComponentWindow".into());
 
@@ -952,6 +963,11 @@ fn generate_component(
             signature: format!("({})", constructor_parent_arg),
             is_constructor_or_destructor: true,
             statements: Some(init),
+            constructor_member_initializers: if !component.is_global() && !is_root {
+                vec!["window(parent->window)".into()]
+            } else {
+                vec![]
+            },
             ..Default::default()
         }),
     ));
@@ -963,10 +979,7 @@ fn generate_component(
         if component.parent_element.upgrade().is_some() {
             destructor.push("if (!parent) return;".to_owned())
         }
-        destructor.push(format!(
-            "{window}.free_graphics_resources(this);",
-            window = window_ref_expression(component)
-        ));
+        destructor.push("self->window.free_graphics_resources(this);".into());
 
         component_struct.members.push((
             Access::Public,
@@ -1276,17 +1289,6 @@ fn access_named_reference(
     access_member(&nr.element.upgrade().unwrap(), &nr.name, component, component_cpp)
 }
 
-/// Return an expression that gets the window
-fn window_ref_expression(component: &Rc<Component>) -> String {
-    let mut root_component = component.clone();
-    let mut component_cpp = "self".to_owned();
-    while let Some(p) = root_component.parent_element.upgrade() {
-        root_component = p.borrow().enclosing_component.upgrade().unwrap();
-        component_cpp = format!("{}->parent", component_cpp);
-    }
-    format!("{}->window", component_cpp)
-}
-
 fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Component>) -> String {
     match e {
         Expression::StringLiteral(s) => {
@@ -1305,7 +1307,7 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
         ),
         Expression::BuiltinFunctionReference(funcref) => match funcref {
             BuiltinFunction::GetWindowScaleFactor => {
-                format!("{}.scale_factor", window_ref_expression(component))
+                "self->window.scale_factor".into()
             }
             BuiltinFunction::Debug => {
                 "[](auto... args){ (std::cout << ... << args) << std::endl; return nullptr; }"
@@ -1316,7 +1318,7 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
             BuiltinFunction::Ceil => "[](float a){ return std::ceil(a); }".into(),
             BuiltinFunction::Floor => "[](float a){ return std::floor(a); }".into(),
             BuiltinFunction::SetFocusItem => {
-                format!("{}.set_focus_item", window_ref_expression(component))
+                "self->window.set_focus_item".into()
             }
 
            /*  std::from_chars is unfortunately not yet implemented in gcc
@@ -1418,7 +1420,6 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
                 if let Expression::ElementReference(focus_item) = &arguments[0] {
                     let focus_item = focus_item.upgrade().unwrap();
                     let focus_item = focus_item.borrow();
-                    let window_ref = window_ref_expression(component);
                     let component =
                         format!("{{&{}::component_type, this}}", component_id(component));
                     let item = format!(
@@ -1426,7 +1427,7 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
                         vt = focus_item.base_type.as_native().vtable_symbol,
                         item = focus_item.id
                     );
-                    format!("{}.set_focus_item({}, {});", window_ref, component, item)
+                    format!("self->window.set_focus_item({}, {});", component, item)
                 } else {
                     panic!("internal error: argument to SetFocusItem must be an element")
                 }
@@ -1809,11 +1810,10 @@ fn get_layout_info_ref<'a, 'b>(
     });
     let elem_info = item.element.as_ref().map(|elem| {
             format!(
-                "sixtyfps::private_api::{vt}.layouting_info({{&sixtyfps::private_api::{vt}, const_cast<sixtyfps::{ty}*>(&self->{id})}}, &{window})",
+                "sixtyfps::private_api::{vt}.layouting_info({{&sixtyfps::private_api::{vt}, const_cast<sixtyfps::{ty}*>(&self->{id})}}, &self->window)",
                 vt = elem.borrow().base_type.as_native().vtable_symbol,
                 ty = elem.borrow().base_type.as_native().class_name,
                 id = elem.borrow().id,
-                window = window_ref_expression(component)
             )
         });
     let mut layout_info = match (layout_info, elem_info) {
@@ -2052,10 +2052,7 @@ fn compute_layout(
     let mut res = vec![intro.clone()];
     let mut layout_info = vec![
         intro.clone(),
-        format!(
-            "return self->root_item().vtable->layouting_info(self->root_item(), &{});",
-            window_ref_expression(component)
-        ),
+        "return self->root_item().vtable->layouting_info(self->root_item(), &self->window);".into(),
     ];
     let component_layouts = component.layouts.borrow();
     component_layouts.iter().enumerate().for_each(|(idx, layout)| {

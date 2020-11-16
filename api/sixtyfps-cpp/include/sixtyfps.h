@@ -77,7 +77,10 @@ class ComponentWindow
 public:
     ComponentWindow() { cbindgen_private::sixtyfps_component_window_init(&inner); }
     ~ComponentWindow() { cbindgen_private::sixtyfps_component_window_drop(&inner); }
-    ComponentWindow(const ComponentWindow &) = delete;
+    ComponentWindow(const ComponentWindow &other)
+    {
+        cbindgen_private::sixtyfps_component_window_clone(&other.inner, &inner);
+    }
     ComponentWindow(ComponentWindow &&) = delete;
     ComponentWindow &operator=(const ComponentWindow &) = delete;
 
