@@ -13,8 +13,9 @@ Remaining feature to implement to have parity:
    Seatle). Note that this feature is kind of broken in the flutter example as it is only applied
    when changing themes
  * Expanding cirle animation when pressing a tile.
- * Auto-play mode. Including animation of the auto-play checkbox
+ * Animation of the auto-play checkbox.
  * When the puzzle is finished, the last tile is added, and the tiles are growing in the Seatle theme,
    or a hand apears, and the puzzle cannot be moved.
  * The different styles are well separated in different files.
+ * Shadow on the tiles
 

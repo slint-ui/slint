@@ -19,6 +19,8 @@ use std::cell::{Cell, RefCell};
 type TimerCallback = Box<dyn Fn()>;
 
 /// The TimerMode specifies what should happen after the timer fired.
+///
+/// Used by the [`Timer::start`] function.
 #[derive(Copy, Clone)]
 pub enum TimerMode {
     /// A SingleShot timer is fired only once.
@@ -40,7 +42,7 @@ impl Timer {
     ///
     /// Arguments:
     /// * `mode`: The timer mode to apply, i.e. whether to repeatedly fire the timer or just once.
-    /// * `duration`: The duration from now until when the fire should fire.
+    /// * `duration`: The duration from now until when the timer should fire.
     /// * `callback`: The function to call when the time has been reached or exceeded.
     pub fn start(&self, mode: TimerMode, duration: std::time::Duration, callback: TimerCallback) {
         CURRENT_TIMERS.with(|timers| {

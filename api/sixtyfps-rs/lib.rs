@@ -156,6 +156,7 @@ pub use sixtyfps_corelib::model::{
 };
 pub use sixtyfps_corelib::sharedarray::SharedArray;
 pub use sixtyfps_corelib::string::SharedString;
+pub use sixtyfps_corelib::timers::{Timer, TimerMode};
 pub use sixtyfps_corelib::{ARGBColor, Color};
 
 /// internal re_exports used by the macro generated

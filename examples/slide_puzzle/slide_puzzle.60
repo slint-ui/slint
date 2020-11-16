@@ -33,6 +33,8 @@ struct Theme := {
 export MainWindow := Window {
     signal piece_cliked(int);
     signal reset();
+    signal enable_auto_mode(bool);
+    property <bool> auto_play;
     property <int> moves;
     property <int> tiles-left;
     property <[Piece]> pieces: [
@@ -206,7 +208,7 @@ export MainWindow := Window {
                 + (parent.width - (4*pieces_size + 3*pieces_spacing))/2;
             y: px * (pieces_size + pieces_spacing)
                 + (parent.height - (4*pieces_size + 3*pieces_spacing))/2;
-            animate px , py { duration: 200ms; easing: cubic-bezier(0.17,0.76,0.4,1.9); }
+            animate px , py { duration: 170ms; easing: cubic-bezier(0.17,0.76,0.4,1.75); }
             animate border-width, border-radius { duration: 500ms; easing: ease-out; }
 
             if (current-theme-index == 1) : Rectangle {
@@ -257,6 +259,21 @@ export MainWindow := Window {
                         width: 100%;
                         height: 100%;
                         clicked => { root.reset(); }
+                    }
+                }
+                Text {
+                    // FIXME: this should be a rectangle with an animated ✓
+                    text: auto_play ? " ☑ " : " ☐ ";
+                    color: auto_play ? current-theme.game-highlight-color : current-theme.game-text-color;
+                    animate color { duration: 200ms; }
+                    vertical-alignment: align-center;
+                    TouchArea {
+                        width: 100%;
+                        height: 100%;
+                        clicked => {
+                            auto_play = !auto_play;
+                            root.enable_auto_mode(auto_play);
+                        }
                     }
                 }
                 Rectangle {} // stretch

@@ -48,6 +48,7 @@ struct AppState {
     /// An array of 16 values wixh represent a 4x4 matrix containing the piece number in that
     /// position. -1 is no piece.
     positions: Vec<i8>,
+    auto_play_timer: sixtyfps::Timer,
 }
 
 impl AppState {
@@ -99,6 +100,24 @@ impl AppState {
             self.set_pieces_pos(self.positions[swap as usize] as _, swap);
         }
     }
+
+    fn random_move(&mut self) {
+        let mut rng = rand::thread_rng();
+        let hole = self.positions.iter().position(|x| *x == -1).unwrap() as i8;
+        let mut p;
+        loop {
+            p = rand::Rng::gen_range(&mut rng, 0, 16);
+            if hole == p {
+                continue;
+            } else if hole % 4 == p % 4 {
+                break;
+            } else if hole / 4 == p / 4 {
+                break;
+            }
+        }
+        let p = self.positions[p as usize];
+        self.piece_clicked(p)
+    }
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
@@ -113,12 +132,34 @@ pub fn main() {
         pieces: Rc::new(sixtyfps::VecModel::<Piece>::from(vec![Piece::default(); 15])),
         main_window: main_window.as_weak(),
         positions: vec![],
+        auto_play_timer: Default::default(),
     }));
     state.borrow_mut().randomize();
     main_window.as_ref().set_pieces(sixtyfps::ModelHandle::new(state.borrow().pieces.clone()));
     let state_copy = state.clone();
-    main_window.as_ref().on_piece_cliked(move |p| state_copy.borrow_mut().piece_clicked(p as i8));
+    main_window.as_ref().on_piece_cliked(move |p| {
+        state_copy.borrow().auto_play_timer.stop();
+        state_copy.borrow().main_window.upgrade().map(|x| x.as_ref().set_auto_play(false));
+        state_copy.borrow_mut().piece_clicked(p as i8);
+    });
     let state_copy = state.clone();
     main_window.as_ref().on_reset(move || state_copy.borrow_mut().randomize());
+    let state_copy = state.clone();
+    main_window.as_ref().on_enable_auto_mode(move |enabled| {
+        if enabled {
+            let state_weak = Rc::downgrade(&state_copy);
+            state_copy.borrow().auto_play_timer.start(
+                sixtyfps::TimerMode::Repeated,
+                std::time::Duration::from_millis(200),
+                Box::new(move || {
+                    if let Some(state) = state_weak.upgrade() {
+                        state.borrow_mut().random_move();
+                    }
+                }),
+            );
+        } else {
+            state_copy.borrow().auto_play_timer.stop();
+        }
+    });
     main_window.run();
 }
