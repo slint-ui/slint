@@ -130,6 +130,12 @@ impl Inner {
         debug_assert_eq!(core::mem::size_of::<T::Target>(), core::mem::size_of::<Inner>());
         self as *const Inner as *const T::Target
     }
+
+    /// Same as [`Self::deref`].
+    fn deref_mut<T: ?Sized + VTableMeta>(&mut self) -> *mut T::Target {
+        debug_assert_eq!(core::mem::size_of::<T::Target>(), core::mem::size_of::<Inner>());
+        self as *mut Inner as *mut T::Target
+    }
 }
 
 /// An equivalent of a Box that holds a pointer to a VTable and a pointer to an instance.
@@ -155,7 +161,7 @@ impl<T: ?Sized + VTableMetaDrop> Deref for VBox<T> {
 }
 impl<T: ?Sized + VTableMetaDrop> DerefMut for VBox<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe { &mut *(self.inner.deref::<T>() as *mut _) }
+        unsafe { &mut *(self.inner.deref_mut::<T>() as *mut _) }
     }
 }
 
@@ -316,7 +322,7 @@ impl<'a, T: ?Sized + VTableMeta> Deref for VRefMut<'a, T> {
 
 impl<'a, T: ?Sized + VTableMeta> DerefMut for VRefMut<'a, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe { &mut *(self.inner.deref::<T>() as *mut _) }
+        unsafe { &mut *(self.inner.deref_mut::<T>() as *mut _) }
     }
 }
 
