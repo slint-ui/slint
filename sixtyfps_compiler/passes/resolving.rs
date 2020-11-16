@@ -507,6 +507,9 @@ impl Expression {
         match first_str.as_str() {
             "debug" => return Expression::BuiltinFunctionReference(BuiltinFunction::Debug),
             "mod" => return Expression::BuiltinFunctionReference(BuiltinFunction::Mod),
+            "round" => return Expression::BuiltinFunctionReference(BuiltinFunction::Round),
+            "ceil" => return Expression::BuiltinFunctionReference(BuiltinFunction::Ceil),
+            "floor" => return Expression::BuiltinFunctionReference(BuiltinFunction::Floor),
             "max" => {
                 return Expression::BuiltinMacroReference(BuiltinMacroFunction::Max, first.into())
             }

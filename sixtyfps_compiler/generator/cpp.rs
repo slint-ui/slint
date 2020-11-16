@@ -510,6 +510,7 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
     file.includes.push("<array>".into());
     file.includes.push("<limits>".into());
     file.includes.push("<cstdlib>".into()); // TODO: ideally only include this if needed (by to_float)
+    file.includes.push("<cmath>".into()); // TODO: ideally only include this if needed (by floor/ceil/round)
     file.includes.push("<sixtyfps.h>".into());
 
     for ty in &doc.inner_structs {
@@ -1311,6 +1312,9 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
                     .into()
             }
             BuiltinFunction::Mod => "[](int a1, int a2){ return a1 % a2; }".into(),
+            BuiltinFunction::Round => "[](float a){ return std::round(a); }".into(),
+            BuiltinFunction::Ceil => "[](float a){ return std::ceil(a); }".into(),
+            BuiltinFunction::Floor => "[](float a){ return std::floor(a); }".into(),
             BuiltinFunction::SetFocusItem => {
                 format!("{}.set_focus_item", window_ref_expression(component))
             }
@@ -1450,6 +1454,7 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
                     '≥' => ">=",
                     '&' => "&&",
                     '|' => "||",
+                    '/' => "/(double)",
                     _ => op.encode_utf8(&mut buffer),
                 },
             )

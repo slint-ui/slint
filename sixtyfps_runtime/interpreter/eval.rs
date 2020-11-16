@@ -357,6 +357,18 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                 let mut toint = |e| -> i32 { eval_expression(e, local_context).try_into().unwrap() };
                 Value::Number((toint(&arguments[0]) % toint(&arguments[1])) as _)
             }
+            Expression::BuiltinFunctionReference(BuiltinFunction::Round) => {
+                let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
+                Value::Number(x.round())
+            }
+            Expression::BuiltinFunctionReference(BuiltinFunction::Ceil) => {
+                let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
+                Value::Number(x.ceil())
+            }
+            Expression::BuiltinFunctionReference(BuiltinFunction::Floor) => {
+                let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
+                Value::Number(x.floor())
+            }
             Expression::BuiltinFunctionReference(BuiltinFunction::SetFocusItem) => {
                 if arguments.len() != 1 {
                     panic!("internal error: incorrect argument count to SetFocusItem")

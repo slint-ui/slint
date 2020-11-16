@@ -708,3 +708,12 @@ Return the arguments with the minimum (or maximum) value. All arguments must be 
 
 Perform a modulo operation.
 
+ * **`round(float) -> int`**
+
+Return the value rounded to the nearest integer
+
+ * **`ceil(float) -> int`**, **`floor(float) -> int`**
+
+ Return the ceiling or floor
+
+

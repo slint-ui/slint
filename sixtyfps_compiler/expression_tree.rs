@@ -50,6 +50,9 @@ pub enum BuiltinFunction {
     GetWindowScaleFactor,
     Debug,
     Mod,
+    Round,
+    Ceil,
+    Floor,
     SetFocusItem,
     /// the "42".to_float()
     StringToFloat,
@@ -78,6 +81,9 @@ impl BuiltinFunction {
                 return_type: Box::new(Type::Int32),
                 args: vec![Type::Int32, Type::Int32],
             },
+            BuiltinFunction::Round | BuiltinFunction::Ceil | BuiltinFunction::Floor => {
+                Type::Function { return_type: Box::new(Type::Int32), args: vec![Type::Float32] }
+            }
             BuiltinFunction::SetFocusItem => Type::Function {
                 return_type: Box::new(Type::Void),
                 args: vec![Type::ElementReference],
