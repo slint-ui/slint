@@ -21,28 +21,31 @@ TopPanel := Rectangle {
 
    color: white;
 
-   title1 := Text {
-        text: "PrintMachine";
-        color: active_page == 0 ? black : #0000;
-        animate color { duration: 200ms; }
-        font-size: root.width * 5%;
-        y: 5px;
-        x: 40px;
-    }
-    Text {
-        y:  title1.y;
-        x: title1.x + title1.font-size*7; //title1.x + title1.width;
-        text: "2000";
-        color: active_page == 0 ? #918e8c : #0000;
-        animate color { duration: 200ms; }
-        font-size: root.width * 5%;
-    }
+    HorizontalLayout {
+        alignment: center;
+        Text {
+            text: "PrintMachine";
+            color: active_page == 0 ? black : #0000;
+            animate color { duration: 200ms; }
+            font-size: root.width * 5%;
+            horizontal-alignment: align-center;
+            vertical-alignment: align-center;
+        }
+        Text {
+            text: "2000";
+            color: active_page == 0 ? #918e8c : #0000;
+            animate color { duration: 200ms; }
+            font-size: root.width * 5%;
+            horizontal-alignment: align-center;
+            vertical-alignment: align-center;
 
+        }
+    }
     power_button := Image {
         x: parent.width - self.width - 20px;
-        y: 5px;
+        y: (parent.height - height) / 2;
         source: img!"images/power.png";
-        width: root.width * 5%;
+        width: 5%;
         height: self.width;
 
         TouchArea {
@@ -87,25 +90,26 @@ MainWindow := Window {
     panel := TopPanel {
         active_page: root.active_page;
         width: 100%;
-        height: 5% * root.width + 10px;
+        height: 12.5%;
         quit => { root.quit(); }
     }
 
     for page_info[idx] in [
-        { color: #129c08, text: "Copy", img_small: img!"images/replicate.png" },
-        { color: #009f6f, text: "Fax", img_small: img!"images/laptop.png" },
-        { color: #009ca9, text: "Print", img_small: img!"images/printer.png" },
-        { color: #0093bf, text: "Settings", img_small: img!"images/list.png" },
+        { color: #1ac80a, text: "Copy", img_small: img!"images/replicate.png" },
+        { color: #00c889, text: "Fax", img_small: img!"images/laptop.png" },
+        { color: #00bbc8, text: "Print", img_small: img!"images/printer.png" },
+        { color: #009dc8, text: "Settings", img_small: img!"images/list.png" },
     ] : Rectangle {
-        width: root.width / 5;
+        property <length> w: root.width / 5;
+        width: w;
         height: root.height / 3;
         y: root.height / 4;
-        x: idx * root.width / 4 + root.width / 45;
+        x: idx * (w + (root.width - w*4) / 5) + (root.width - w*4)/5;
         border_radius: 25px;
         color: page_info.color;
         img := Image {
             y: 5px;
-            x: 25px + (root.width / 6.25 / 2) - ((root.width / 5 - 25px) / 2);
+            x: (w - (root.width / 6.25)) / 2;
             width: root.width / 6.25;
             height: root.height / 4.68;
             source: page_info.img_small;
@@ -154,17 +158,11 @@ MainWindow := Window {
                 img.width: root.height * 10%;
                 img.height: root.height * 10%;
                 text.y: 0phx;
-                text.x: root.height * 25%;
-                //text.horizontal-alignment: align-left;
             }
             pressed when root.active_page == 0 && touch.pressed : {
-                width: root.width / 5 + 6px;
+                w: root.width / 5 + 6px;
                 height: root.height / 3 + 6px ;
                 y: root.height / 4 - 3px;
-                x: idx * root.width / 4 + root.width / 45 - 3px;
-                img.x: 8px;
-                img.y: 8px;
-                text.y: root.height / 5 + 5px;
             }
             invisible when root.active_page > 0 && root.active_page != idx + 1 : {
                 color: transparent;
@@ -176,14 +174,16 @@ MainWindow := Window {
     }
 
     if (root.active_page != 0) : Rectangle {
-        width: 12.5%;
+        width: height;
         height: 12.5%;
-        x: root.height / 50;
-        y: root.width / 100;
         Text {
-             text: "←";
-             color: white;
-             font-size: root.height / 10;
+            width: 100%;
+            height: 100%;
+            text: "←";
+            color: white;
+            font-size: root.height / 10;
+            horizontal-alignment: align-center;
+            vertical-alignment: align-center;
         }
         TouchArea {
             width: 100%;
