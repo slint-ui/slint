@@ -322,8 +322,8 @@ fn generate_component(
     let mut repeated_key_event_branch = Vec::new();
     let mut repeated_focus_branch = Vec::new();
     let mut init = Vec::new();
-    let mut maybe_window_field_decl = None;
-    let mut maybe_window_field_init = None;
+    let mut window_field_init = None;
+    let mut window_parent_param = None;
     super::build_array_helper(component, |item_rc, children_index, is_flickable_rect| {
         let item = item_rc.borrow();
         if is_flickable_rect {
@@ -454,7 +454,7 @@ fn generate_component(
 
                 let ensure_updated = quote! {
                     #component_id::FIELD_OFFSETS.#repeater_id.apply_pin(self_pinned).ensure_updated_listview(
-                        || { #rep_component_id::new(self_pinned.self_weak.get().unwrap().clone()).into() },
+                        || { #rep_component_id::new(self_pinned.self_weak.get().unwrap().clone(), &self_pinned.window).into() },
                         #vp_w, #vp_h, #vp_y, #lv_w.get(), #lv_h
                     );
                 };
@@ -473,7 +473,7 @@ fn generate_component(
                 repeated_visit_branch.push(quote!(
                     #repeater_index => {
                         #component_id::FIELD_OFFSETS.#repeater_id.apply_pin(self_pinned).ensure_updated(
-                                || { #rep_component_id::new(self_pinned.self_weak.get().unwrap().clone()).into() }
+                                || { #rep_component_id::new(self_pinned.self_weak.get().unwrap().clone(), &self_pinned.window).into() }
                             );
                         self_pinned.#repeater_id.visit(order, visitor)
                     }
@@ -540,6 +540,7 @@ fn generate_component(
     let mut visibility = None;
     let mut parent_component_type = None;
     let mut has_window_impl = None;
+    let mut window_field = Some(quote!(window: sixtyfps::re_exports::ComponentWindow));
     if let Some(parent_element) = component.parent_element.upgrade() {
         if !parent_element.borrow().repeated.as_ref().map_or(false, |r| r.is_conditional_element) {
             declared_property_vars.push(format_ident!("index"));
@@ -567,10 +568,12 @@ fn generate_component(
         parent_component_type = Some(self::component_id(
             &parent_element.borrow().enclosing_component.upgrade().unwrap(),
         ));
+        window_field_init = Some(quote!(window: parent_window.clone()));
+        window_parent_param = Some(quote!(, parent_window: &sixtyfps::re_exports::ComponentWindow))
     } else if !component.is_global() {
         // FIXME: This field is public for testing.
-        maybe_window_field_decl = Some(quote!(pub window: sixtyfps::re_exports::ComponentWindow));
-        maybe_window_field_init = Some(quote!(window: sixtyfps::create_window()));
+        window_field = Some(quote!(pub window: sixtyfps::re_exports::ComponentWindow));
+        window_field_init = Some(quote!(window: sixtyfps::create_window()));
 
         visibility = Some(quote!(pub));
 
@@ -588,6 +591,8 @@ fn generate_component(
                 }
             }
         ))
+    } else {
+        window_field = None;
     };
 
     // Trick so we can use `#()` as a `if let Some` in `quote!`
@@ -600,25 +605,11 @@ fn generate_component(
     let (drop_impl, pin) = if component.is_global() {
         (None, quote!(#[pin]))
     } else {
-        let guarded_window_ref = {
-            let mut root_component = component.clone();
-            let mut component_rust = quote!(self);
-            while let Some(p) = root_component.parent_element.upgrade() {
-                root_component = p.borrow().enclosing_component.upgrade().unwrap();
-                component_rust = quote!(if let Some(parent) = #component_rust.parent.upgrade() {
-                    parent
-                } else {
-                    return;
-                });
-            }
-            quote!(#component_rust.window)
-        };
-
         (
             Some(quote!(impl sixtyfps::re_exports::PinnedDrop for #component_id {
                 fn drop(self: core::pin::Pin<&mut #component_id>) {
                     use sixtyfps::re_exports::*;
-                    #guarded_window_ref.free_graphics_resources(VRef::new_pin(self.as_ref()));
+                    self.window.free_graphics_resources(VRef::new_pin(self.as_ref()));
                 }
             })),
             quote!(#[pin_drop]),
@@ -812,13 +803,13 @@ fn generate_component(
             mouse_grabber: ::core::cell::Cell<sixtyfps::re_exports::VisitChildrenResult>,
             focus_item: ::core::cell::Cell<sixtyfps::re_exports::VisitChildrenResult>,
             #(#global_name : ::core::pin::Pin<::std::rc::Rc<#global_type>>,)*
-            #maybe_window_field_decl
+            #window_field
         }
 
         #component_impl
 
         impl #component_id{
-            pub fn new(#(parent: sixtyfps::re_exports::VWeak::<sixtyfps::re_exports::ComponentVTable, #parent_component_type>)*)
+            pub fn new(#(parent: sixtyfps::re_exports::VWeak::<sixtyfps::re_exports::ComponentVTable, #parent_component_type>)* #window_parent_param)
                 -> #component_handle
             {
                 #![allow(unused)]
@@ -833,7 +824,7 @@ fn generate_component(
                     mouse_grabber: ::core::cell::Cell::new(sixtyfps::re_exports::VisitChildrenResult::CONTINUE),
                     focus_item: ::core::cell::Cell::new(sixtyfps::re_exports::VisitChildrenResult::CONTINUE),
                     #(#global_name : #global_type::new(),)*
-                    #maybe_window_field_init
+                    #window_field_init
                 };
                 #new_code
                 #(#init)*
@@ -1506,7 +1497,7 @@ impl crate::layout::gen::Language for RustLanguageLayoutGen {
                         push_code = quote! {
                             #push_code
                             #component_id::FIELD_OFFSETS.#repeater_id.apply_pin(self).ensure_updated(
-                                || { #rep_component_id::new(self.self_weak.get().unwrap().clone()).into() }
+                                || { #rep_component_id::new(self.self_weak.get().unwrap().clone(), &self.window).into() }
                             );
                             let internal_vec = self.#repeater_id.components_vec();
                             for sub_comp in &internal_vec {
