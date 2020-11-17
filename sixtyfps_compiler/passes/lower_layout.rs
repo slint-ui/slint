@@ -248,6 +248,8 @@ pub async fn lower_layouts<'a>(
             &mut build_diags_to_ignore,
         )
         .await;
+    let style_metrics =
+        style_metrics.and_then(|sm| if let Type::Component(c) = sm { Some(c) } else { None });
     lower_layouts_impl(component, &style_metrics, diag);
 }
 

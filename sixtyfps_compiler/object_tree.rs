@@ -100,7 +100,7 @@ impl Document {
         }
     }
 
-    pub fn exports(&self) -> &Vec<(String, Rc<Component>)> {
+    pub fn exports(&self) -> &Vec<(String, Type)> {
         &self.exports.0
     }
 }
@@ -1031,7 +1031,7 @@ pub struct Transition {
 }
 
 #[derive(Default, Debug, derive_more::Deref)]
-pub struct Exports(Vec<(String, Rc<Component>)>);
+pub struct Exports(Vec<(String, Type)>);
 
 impl Exports {
     pub fn from_node(
@@ -1077,6 +1077,17 @@ impl Exports {
                 })
             },
         ));
+        exports.extend(
+            doc.ExportsList().flat_map(|exports| exports.StructDeclaration()).filter_map(|st| {
+                let name = identifier_text(&st.DeclaredIdentifier())
+                    .expect("internal error: cannot export struct without name");
+                Some(NamedExport {
+                    internal_name_ident: st.DeclaredIdentifier().into(),
+                    internal_name: name.clone(),
+                    exported_name: name,
+                })
+            }),
+        );
 
         if exports.is_empty() {
             let internal_name = inner_components.last().cloned().unwrap_or_default().id.clone();
@@ -1089,7 +1100,7 @@ impl Exports {
 
         let mut resolve_export_to_inner_component_or_import =
             |export: &NamedExport| match type_registry.lookup(export.internal_name.as_str()) {
-                Type::Component(c) => Some(c),
+                ty @ Type::Component(_) | ty @ Type::Object { .. } => Some(ty),
                 Type::Invalid => {
                     diag.push_error(
                         format!("'{}' not found", export.internal_name),

@@ -149,7 +149,7 @@ impl<'a> TypeLoader<'a> {
         type_name: &str,
         diagnostics: &mut FileDiagnostics,
         build_diagnostics: &mut BuildDiagnostics,
-    ) -> Option<Rc<crate::object_tree::Component>> {
+    ) -> Option<crate::langtype::Type> {
         let file = match self.import_file(None, file_to_import) {
             Some(file) => file,
             None => return None,
@@ -171,9 +171,9 @@ impl<'a> TypeLoader<'a> {
 
         let doc = self.all_documents.docs.get(&doc_path).unwrap();
 
-        doc.exports().iter().find_map(|(export_name, component)| {
+        doc.exports().iter().find_map(|(export_name, ty)| {
             if type_name == *export_name {
-                Some(component.clone())
+                Some(ty.clone())
             } else {
                 None
             }
@@ -285,9 +285,9 @@ impl<'a> TypeLoader<'a> {
             let exports = doc.exports();
 
             for import_name in import.type_names {
-                let imported_type = exports.iter().find_map(|(export_name, component)| {
+                let imported_type = exports.iter().find_map(|(export_name, ty)| {
                     if import_name.external_name == *export_name {
-                        Some(component.clone())
+                        Some(ty.clone())
                     } else {
                         None
                     }
@@ -310,7 +310,7 @@ impl<'a> TypeLoader<'a> {
 
                 registry_to_populate
                     .borrow_mut()
-                    .add_with_name(import_name.internal_name, imported_type);
+                    .insert_type_with_name(imported_type, import_name.internal_name);
             }
         })
     }
