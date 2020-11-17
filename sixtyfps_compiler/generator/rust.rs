@@ -611,7 +611,10 @@ fn generate_component(
             Some(quote!(impl sixtyfps::re_exports::PinnedDrop for #component_id {
                 fn drop(self: core::pin::Pin<&mut #component_id>) {
                     use sixtyfps::re_exports::*;
-                    self.window.free_graphics_resources(VRef::new_pin(self.as_ref()));
+                    let items = [
+                        #(VRef::new_pin(Self::FIELD_OFFSETS.#item_names.apply_pin(self.as_ref())),)*
+                    ];
+                    self.window.free_graphics_resources(&Slice::from_slice(&items));
                 }
             })),
             quote!(#[pin_drop]),

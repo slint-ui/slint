@@ -77,9 +77,19 @@ impl<'id> ComponentBox<'id> {
 
 impl<'id> Drop for ComponentBox<'id> {
     fn drop(&mut self) {
-        match eval::window_ref(self.borrow_instance()) {
+        let instance_ref = self.borrow_instance();
+        match eval::window_ref(instance_ref) {
             Some(window) => {
-                window.free_graphics_resources(self.borrow());
+                let items = self
+                    .component_type
+                    .items
+                    .values()
+                    .map(|item_within_component| unsafe {
+                        item_within_component.item_from_component(instance_ref.as_ptr())
+                    })
+                    .collect::<Vec<_>>();
+
+                window.free_graphics_resources(&Slice::from_slice(items.as_slice()));
             }
             None => {}
         }

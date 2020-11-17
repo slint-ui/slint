@@ -894,6 +894,7 @@ fn generate_component(
     let mut repeated_input_branch = vec![];
     let mut repeater_layout_code = vec![];
     let mut tree_array = vec![];
+    let mut item_names_and_vt_symbols = vec![];
     let mut repeater_count = 0;
     super::build_array_helper(component, |item_rc, children_offset, is_flickable_rect| {
         let item = item_rc.borrow();
@@ -944,6 +945,8 @@ fn generate_component(
                 children_offset,
             ));
             handle_item(item_rc, &mut component_struct, &mut init);
+            item_names_and_vt_symbols
+                .push((item.id.clone(), item.base_type.as_native().vtable_symbol.clone()));
         }
     });
 
@@ -979,7 +982,15 @@ fn generate_component(
         if component.parent_element.upgrade().is_some() {
             destructor.push("if (!parent) return;".to_owned())
         }
-        destructor.push("self->window.free_graphics_resources(this);".into());
+        if !item_names_and_vt_symbols.is_empty() {
+            destructor.push("sixtyfps::private_api::ItemRef items[] = {".into());
+            destructor.push(item_names_and_vt_symbols.iter()
+                .map(|(item_name, vt_symbol)|
+                    format!("{{ &sixtyfps::private_api::{vt}, const_cast<decltype(this->{id})*>(&this->{id}) }}", id = item_name, vt = vt_symbol)
+                ).join(","));
+            destructor.push("};".into());
+            destructor.push("window.free_graphics_resources(sixtyfps::Slice<sixtyfps::private_api::ItemRef>{items, std::size(items)});".into());
+        }
 
         component_struct.members.push((
             Access::Public,

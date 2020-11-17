@@ -20,7 +20,6 @@ LICENSE END */
     created by the backend in a type-erased manner.
 */
 extern crate alloc;
-use crate::component::{ComponentRc, ComponentWeak};
 use crate::input::{KeyEvent, KeyboardModifiers, MouseEvent, MouseEventType};
 use crate::items::ItemRef;
 use crate::properties::{InterpolatedPropertyValue, Property, PropertyTracker};
@@ -29,6 +28,10 @@ use crate::rtti::{BuiltinItem, FieldInfo, PropertyInfo, ValueType};
 use crate::SharedArray;
 #[cfg(feature = "rtti")]
 use crate::Signal;
+use crate::{
+    component::{ComponentRc, ComponentWeak},
+    slice::Slice,
+};
 
 use auto_enums::auto_enum;
 use cgmath::Matrix4;
@@ -820,14 +823,11 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
         )
     }
 
-    fn free_graphics_resources(
-        self: Rc<Self>,
-        component: core::pin::Pin<crate::component::ComponentRef>,
-    ) {
+    fn free_graphics_resources<'a>(self: Rc<Self>, items: &Slice<'a, Pin<ItemRef<'a>>>) {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped => {}
             GraphicsWindowBackendState::Mapped(window) => {
-                crate::item_rendering::free_item_rendering_data(component, &window.rendering_cache)
+                crate::item_rendering::free_item_rendering_data(items, &window.rendering_cache)
             }
         }
     }

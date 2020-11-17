@@ -13,7 +13,11 @@ LICENSE END */
     [GenericWindow] trait used by the generated code and the run-time to change
     aspects of windows on the screen.
 */
-use crate::component::{ComponentRc, ComponentVTable};
+use crate::{
+    component::{ComponentRc, ComponentVTable},
+    items::ItemRef,
+    slice::Slice,
+};
 use std::cell::RefCell;
 use std::{
     convert::TryInto,
@@ -91,10 +95,7 @@ pub trait GenericWindow {
 
     /// This function is called by the generated code when a component and therefore its tree of items are destroyed. The
     /// implementation typically uses this to free the underlying graphics resources cached via [`crate::graphics::RenderingCache`].
-    fn free_graphics_resources(
-        self: Rc<Self>,
-        component: core::pin::Pin<crate::component::ComponentRef>,
-    );
+    fn free_graphics_resources<'a>(self: Rc<Self>, items: &Slice<'a, Pin<ItemRef<'a>>>);
     /// Installs a binding on the specified property that's toggled whenever the text cursor is supposed to be visible or not.
     fn set_cursor_blink_binding(&self, prop: &crate::properties::Property<bool>);
 
@@ -151,11 +152,8 @@ impl ComponentWindow {
 
     /// This function is called by the generated code when a component and therefore its tree of items are destroyed. The
     /// implementation typically uses this to free the underlying graphics resources cached via [RenderingCache][`crate::graphics::RenderingCache`].
-    pub fn free_graphics_resources(
-        &self,
-        component: core::pin::Pin<crate::component::ComponentRef>,
-    ) {
-        self.0.clone().free_graphics_resources(component);
+    pub fn free_graphics_resources<'a>(&self, items: &Slice<'a, Pin<ItemRef<'a>>>) {
+        self.0.clone().free_graphics_resources(items);
     }
 
     /// Installs a binding on the specified property that's toggled whenever the text cursor is supposed to be visible or not.
@@ -599,12 +597,12 @@ pub mod ffi {
 
     /// Sets the window scale factor, merely for testing purposes.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_component_window_free_graphics_resources(
+    pub unsafe extern "C" fn sixtyfps_component_window_free_graphics_resources<'a>(
         handle: *const ComponentWindowOpaque,
-        component: Pin<VRef<ComponentVTable>>,
+        items: &Slice<'a, Pin<ItemRef<'a>>>,
     ) {
         let window = &*(handle as *const ComponentWindow);
-        window.free_graphics_resources(component)
+        window.free_graphics_resources(items)
     }
 
     /// Sets the focus item.

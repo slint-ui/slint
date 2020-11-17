@@ -96,11 +96,9 @@ public:
         sixtyfps_component_window_set_scale_factor(&inner, value);
     }
 
-    template<typename Component>
-    void free_graphics_resources(Component *c) const
+    void free_graphics_resources(const sixtyfps::Slice<ItemRef> &items) const
     {
-        cbindgen_private::sixtyfps_component_window_free_graphics_resources(
-                &inner, vtable::VRef<ComponentVTable> { &Component::component_type, c });
+        cbindgen_private::sixtyfps_component_window_free_graphics_resources(&inner, &items);
     }
 
     void set_focus_item(vtable::VRef<ComponentVTable> c, vtable::VRef<ItemVTable> item)

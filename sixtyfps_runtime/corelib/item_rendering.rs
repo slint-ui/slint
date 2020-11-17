@@ -14,8 +14,8 @@ use super::graphics::{
     Frame, GraphicsBackend, GraphicsWindow, RenderingCache, RenderingPrimitivesBuilder,
 };
 use super::items::ItemRef;
-use crate::eventloop::ComponentWindow;
 use crate::item_tree::ItemVisitorResult;
+use crate::{eventloop::ComponentWindow, slice::Slice};
 use cgmath::{Matrix4, SquareMatrix, Vector3};
 use std::cell::{Cell, RefCell};
 
@@ -123,18 +123,12 @@ pub(crate) fn render_component_items<Backend: GraphicsBackend>(
     );
 }
 
-pub(crate) fn free_item_rendering_data<Backend: GraphicsBackend>(
-    component: crate::component::ComponentRefPin,
+pub(crate) fn free_item_rendering_data<'a, Backend: GraphicsBackend>(
+    items: &Slice<'a, core::pin::Pin<ItemRef<'a>>>,
     rendering_cache: &RefCell<RenderingCache<Backend>>,
 ) {
-    crate::item_tree::visit_items(
-        component,
-        crate::item_tree::TraversalOrder::FrontToBack,
-        |_, item, _| {
-            let cached_rendering_data = item.cached_rendering_data_offset();
-            cached_rendering_data.release(rendering_cache);
-            ItemVisitorResult::Continue(())
-        },
-        (),
-    );
+    for item in items.iter() {
+        let cached_rendering_data = item.cached_rendering_data_offset();
+        cached_rendering_data.release(rendering_cache);
+    }
 }
