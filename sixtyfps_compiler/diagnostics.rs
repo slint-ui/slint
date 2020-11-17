@@ -198,6 +198,10 @@ impl FileDiagnostics {
             Option<&'b codemap::CodeMap>,
         ) -> codemap_diagnostic::Emitter<'b>,
     ) {
+        if self.inner.is_empty() {
+            return;
+        }
+
         let mut codemap = codemap::CodeMap::new();
         let internal_errors = self.source.is_none();
         let file = codemap.add_file(
