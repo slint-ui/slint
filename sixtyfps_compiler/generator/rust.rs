@@ -67,7 +67,9 @@ fn rust_type(
 /// Fill the diagnostic in case of error.
 pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<TokenStream> {
     let (structs_ids, structs): (Vec<_>, Vec<_>) = doc
-        .inner_structs
+        .root_component
+        .used_structs
+        .borrow()
         .iter()
         .filter_map(|ty| {
             if let Type::Object { fields, name: Some(name) } = ty {

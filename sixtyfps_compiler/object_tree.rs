@@ -142,6 +142,7 @@ pub struct Component {
     /// All the globals used by this component and its children.
     /// FIXME: can we have cycle?
     pub used_global: RefCell<Vec<Rc<Component>>>,
+    pub used_structs: RefCell<Vec<Type>>,
 }
 
 impl Component {

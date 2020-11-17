@@ -594,6 +594,12 @@ impl Expression {
         }
     }
 
+    /// Visit itself and each sub expression recursively
+    pub fn visit_recursive(&self, visitor: &mut dyn FnMut(&Self)) {
+        visitor(self);
+        self.visit(|e| e.visit_recursive(visitor));
+    }
+
     pub fn is_constant(&self) -> bool {
         match self {
             Expression::Invalid => true,

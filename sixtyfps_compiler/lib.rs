@@ -42,6 +42,7 @@ mod passes {
     pub mod check_expressions;
     pub mod collect_globals;
     pub mod collect_resources;
+    pub mod collect_structs;
     pub mod compile_paths;
     pub mod deduplicate_property_read;
     pub mod focus_item;
@@ -163,6 +164,7 @@ pub async fn run_passes<'a>(
     passes::remove_aliases::remove_aliases(&doc.root_component, diag);
     passes::resolve_native_classes::resolve_native_classes(&doc.root_component);
     passes::collect_globals::collect_globals(&doc.root_component, diag);
+    passes::collect_structs::collect_structs(&doc.root_component, diag);
 }
 
 mod library {

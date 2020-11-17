@@ -519,7 +519,7 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
     file.includes.push("<cmath>".into()); // TODO: ideally only include this if needed (by floor/ceil/round)
     file.includes.push("<sixtyfps.h>".into());
 
-    for ty in &doc.inner_structs {
+    for ty in doc.root_component.used_structs.borrow().iter() {
         if let Type::Object { fields, name: Some(name) } = ty {
             generate_struct(&mut file, name, fields, diag);
         }
