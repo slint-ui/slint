@@ -36,7 +36,7 @@ use sixtyfps_corelib::slice::Slice;
 use sixtyfps_corelib::{eventloop::ComponentWindow, input::FocusEvent};
 use sixtyfps_corelib::{Color, Property, SharedString, Signal};
 use std::collections::HashMap;
-use std::{cell::RefCell, pin::Pin, rc::Rc};
+use std::{pin::Pin, rc::Rc};
 
 pub struct ComponentBox<'id> {
     instance: InstanceBox<'id>,
@@ -59,14 +59,13 @@ impl<'id> ComponentBox<'id> {
     }
 
     pub fn window(&self) -> sixtyfps_corelib::eventloop::ComponentWindow {
-        self.component_type
-            .extra_data_offset
+        (*self
+            .component_type
+            .window_offset
             .apply_pin(self.instance.as_pin_ref())
-            .window
-            .borrow()
-            .as_ref()
-            .unwrap()
-            .clone()
+            .as_pin_ref()
+            .unwrap())
+        .clone()
     }
 
     pub fn run(self) {
@@ -236,7 +235,6 @@ sixtyfps_corelib::ComponentVTable_static!(static COMPONENT_BOX_VT for ErasedComp
 pub(crate) struct ComponentExtraData {
     mouse_grabber: core::cell::Cell<VisitChildrenResult>,
     focus_item: core::cell::Cell<VisitChildrenResult>,
-    pub(crate) window: RefCell<Option<ComponentWindow>>,
     pub(crate) globals: HashMap<String, Pin<Rc<dyn crate::global_component::GlobalComponent>>>,
 }
 
@@ -245,7 +243,6 @@ impl Default for ComponentExtraData {
         Self {
             mouse_grabber: core::cell::Cell::new(VisitChildrenResult::CONTINUE),
             focus_item: core::cell::Cell::new(VisitChildrenResult::CONTINUE),
-            window: RefCell::new(None),
             globals: HashMap::new(),
         }
     }
@@ -309,6 +306,9 @@ pub struct ComponentDescription<'id> {
     /// Offset to a Option<ComponentPinRef>
     pub(crate) parent_component_offset:
         Option<FieldOffset<Instance<'id>, Option<ComponentRefPin<'id>>>>,
+    /// Offset to the window reference
+    pub(crate) window_offset:
+        FieldOffset<Instance<'id>, Option<sixtyfps_corelib::eventloop::ComponentWindow>>,
     /// Offset of a ComponentExtraData
     pub(crate) extra_data_offset: FieldOffset<Instance<'id>, ComponentExtraData>,
     /// Keep the Rc alive
@@ -676,6 +676,9 @@ fn generate_component<'id>(
         None
     };
 
+    let window_offset =
+        builder.add_field_type::<Option<sixtyfps_corelib::eventloop::ComponentWindow>>();
+
     let extra_data_offset = builder.add_field_type::<ComponentExtraData>();
 
     let t = ComponentVTable {
@@ -700,6 +703,7 @@ fn generate_component<'id>(
         repeater,
         repeater_names,
         parent_component_offset,
+        window_offset,
         extra_data_offset,
     };
 
@@ -736,7 +740,21 @@ pub fn instantiate<'id>(
     let mut instance = component_type.dynamic_type.clone().create_instance();
 
     if let Some(parent) = parent_ctx {
-        *component_type.parent_component_offset.unwrap().apply_mut(instance.as_mut()) = Some(parent)
+        generativity::make_guard!(guard);
+        // This is fine since we can only be called with a component that with our vtable which is a ComponentDescription
+        let parent_instance_ref = unsafe { InstanceRef::from_pin_ref(parent, guard) };
+
+        let window = parent_instance_ref
+            .component_type
+            .window_offset
+            .apply(parent_instance_ref.as_ref())
+            .as_ref()
+            .unwrap()
+            .clone();
+
+        *component_type.parent_component_offset.unwrap().apply_mut(instance.as_mut()) =
+            Some(parent);
+        *component_type.window_offset.apply_mut(instance.as_mut()) = Some(window);
     } else {
         let extra_data = component_type.extra_data_offset.apply_mut(instance.as_mut());
         extra_data.globals = component_type
@@ -747,11 +765,11 @@ pub fn instantiate<'id>(
             .map(|g| (g.id.clone(), crate::global_component::instantiate(g)))
             .collect();
         #[cfg(not(target_arch = "wasm32"))]
-        extra_data.window.replace(Some(sixtyfps_rendering_backend_default::create_window()));
+        let window = Some(sixtyfps_rendering_backend_default::create_window());
         #[cfg(target_arch = "wasm32")]
-        extra_data.window.replace(Some(
-            sixtyfps_rendering_backend_gl::create_gl_window_with_canvas_id(canvas_id),
-        ));
+        let window =
+            Some(sixtyfps_rendering_backend_gl::create_gl_window_with_canvas_id(canvas_id));
+        *component_type.window_offset.apply_mut(instance.as_mut()) = window;
     }
 
     let component_box = ComponentBox { instance, component_type: component_type.clone() };

@@ -703,16 +703,7 @@ fn root_component_instance<'a, 'old_id, 'new_id>(
 }
 
 pub fn window_ref(component: InstanceRef) -> Option<sixtyfps_corelib::eventloop::ComponentWindow> {
-    generativity::make_guard!(guard);
-    let root = root_component_instance(component, guard);
-    let x = root
-        .component_type
-        .extra_data_offset
-        .apply(&*root.instance.get_ref())
-        .window
-        .borrow()
-        .clone();
-    x
+    component.component_type.window_offset.apply(&*component.instance.get_ref()).clone()
 }
 
 /// Return the component instance which hold the given element.
