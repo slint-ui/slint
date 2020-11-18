@@ -1,0 +1,14 @@
+[package]
+name = "_7gui"
+version = "0.1.0"
+authors = ["SixtyFPS <info@sixtyfps.io>"]
+edition = "2018"
+publish = false
+license = "GPL-3.0-only"
+
+[[bin]]
+path = "booker.rs"
+name = "booker"
+
+[dependencies]
+sixtyfps = { path = "../../api/sixtyfps-rs" }
