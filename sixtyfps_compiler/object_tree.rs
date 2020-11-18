@@ -90,14 +90,22 @@ impl Document {
         }
         let exports = Exports::from_node(&node, &inner_components, &local_registry, diag);
 
-        Document {
-            // FIXME: one should use the `component` hint instead of always returning the last
-            root_component: inner_components.last().cloned().unwrap_or_default(),
-            inner_components,
-            inner_structs,
-            local_registry,
-            exports,
-        }
+        let root_component = inner_components
+            .last()
+            .cloned()
+            .or_else(|| {
+                node.ImportSpecifier()
+                    .last()
+                    .and_then(|import| {
+                        crate::typeloader::ImportedName::extract_imported_names(&import).last()
+                    })
+                    .and_then(|import| match local_registry.lookup(&import.internal_name) {
+                        Type::Component(c) => Some(c),
+                        _ => None,
+                    })
+            })
+            .unwrap_or_default();
+        Document { root_component, inner_components, inner_structs, local_registry, exports }
     }
 
     pub fn exports(&self) -> &Vec<(String, Type)> {
@@ -1090,12 +1098,13 @@ impl Exports {
         );
 
         if exports.is_empty() {
-            let internal_name = inner_components.last().cloned().unwrap_or_default().id.clone();
-            exports.push(NamedExport {
-                internal_name_ident: doc.clone().into(),
-                internal_name: internal_name.clone(),
-                exported_name: internal_name,
-            })
+            if let Some(internal_name) = inner_components.last().as_ref().map(|x| x.id.clone()) {
+                exports.push(NamedExport {
+                    internal_name_ident: doc.clone().into(),
+                    internal_name: internal_name.clone(),
+                    exported_name: internal_name,
+                })
+            }
         }
 
         let mut resolve_export_to_inner_component_or_import =
