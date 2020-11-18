@@ -382,7 +382,8 @@ impl PropertyHandle {
         }
     }
 
-    fn set_binding<B: BindingCallable + 'static>(&self, binding: B) {
+    /// Safety: the BindingCallable must be valid for the type of this property
+    unsafe fn set_binding<B: BindingCallable + 'static>(&self, binding: B) {
         let binding = alloc_binding_holder::<B>(binding);
         self.set_binding_impl(binding);
     }
@@ -632,11 +633,14 @@ impl<T: Clone> Property<T> {
     /// ```
     //FIXME pub fn set_binding(self: Pin<&Self>, f: impl Binding<T> + 'static) {
     pub fn set_binding(&self, binding: impl Binding<T> + 'static) {
-        self.handle.set_binding(move |val: *mut ()| unsafe {
-            let val = &mut *(val as *mut T);
-            *val = binding.evaluate(val);
-            BindingResult::KeepBinding
-        });
+        // Safety: This will make a binding callable for the type T
+        unsafe {
+            self.handle.set_binding(move |val: *mut ()| {
+                let val = &mut *(val as *mut T);
+                *val = binding.evaluate(val);
+                BindingResult::KeepBinding
+            });
+        }
         self.handle.mark_dirty();
     }
 
@@ -661,17 +665,20 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
             value,
             animation_data.clone(),
         ));
-        self.handle.set_binding(move |val: *mut ()| unsafe {
-            let (value, finished) = d.borrow_mut().compute_interpolated_value();
-            *(val as *mut T) = value;
-            if finished {
-                BindingResult::RemoveBinding
-            } else {
-                crate::animations::CURRENT_ANIMATION_DRIVER
-                    .with(|driver| driver.set_has_active_animations());
-                BindingResult::KeepBinding
-            }
-        });
+        // Safety: the BindingCallable will cast its arguement to T
+        unsafe {
+            self.handle.set_binding(move |val: *mut ()| {
+                let (value, finished) = d.borrow_mut().compute_interpolated_value();
+                *(val as *mut T) = value;
+                if finished {
+                    BindingResult::RemoveBinding
+                } else {
+                    crate::animations::CURRENT_ANIMATION_DRIVER
+                        .with(|driver| driver.set_has_active_animations());
+                    BindingResult::KeepBinding
+                }
+            });
+        }
     }
 
     /// Set a binding to this property.
@@ -681,7 +688,7 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
         binding: impl Binding<T> + 'static,
         animation_data: &PropertyAnimation,
     ) {
-        self.handle.set_binding(AnimatedBindingCallable::<T> {
+        let binding_callable = AnimatedBindingCallable::<T> {
             original_binding: PropertyHandle {
                 handle: Cell::new(
                     (alloc_binding_holder(move |val: *mut ()| unsafe {
@@ -698,7 +705,9 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
                 T::default(),
                 animation_data.clone(),
             )),
-        });
+        };
+        // Safety: the AnimatedBindingCallable's type match the property type
+        unsafe { self.handle.set_binding(binding_callable) };
         self.handle.mark_dirty();
     }
 }
@@ -779,8 +788,11 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
         };
         let common_property =
             Rc::pin(Property { handle, value: UnsafeCell::new(value), pinned: PhantomPinned });
-        prop1.handle.set_binding(TwoWayBinding { common_property: common_property.clone() });
-        prop2.handle.set_binding(TwoWayBinding { common_property: common_property.clone() });
+        // Safety: TwoWayBinding's T is the same as the type for both properties
+        unsafe {
+            prop1.handle.set_binding(TwoWayBinding { common_property: common_property.clone() });
+            prop2.handle.set_binding(TwoWayBinding { common_property: common_property.clone() });
+        }
         prop1.handle.mark_dirty();
     }
 }
@@ -845,16 +857,13 @@ struct PropertyValueAnimationData<T> {
 
 impl<T: InterpolatedPropertyValue> PropertyValueAnimationData<T> {
     fn new(from_value: T, to_value: T, details: PropertyAnimation) -> Self {
-        let start_time =
-            crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| driver.current_tick());
-
+        let start_time = crate::animations::current_tick();
         Self { from_value, to_value, details, start_time, loop_iteration: 0 }
     }
 
     fn compute_interpolated_value(&mut self) -> (T, bool) {
         let duration = self.details.duration as u128;
-        let new_tick =
-            crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| driver.current_tick());
+        let new_tick = crate::animations::current_tick();
         let mut time_progress = new_tick.duration_since(self.start_time).as_millis();
         if time_progress >= duration {
             if self.loop_iteration < self.details.loop_count || self.details.loop_count < 0 {
@@ -928,8 +937,7 @@ impl<T: InterpolatedPropertyValue> BindingCallable for AnimatedBindingCallable<T
         let original_dirty = self.original_binding.access(|b| b.unwrap().dirty.get());
         if original_dirty {
             self.state.set(AnimatedBindingState::ShouldStart);
-            self.animation_data.borrow_mut().start_time =
-                crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| driver.current_tick());
+            self.animation_data.borrow_mut().start_time = crate::animations::current_tick();
         }
     }
 }
@@ -1016,8 +1024,7 @@ mod animation_tests {
         assert_eq!(get_prop_value(&compo.width), 100);
         assert_eq!(get_prop_value(&compo.width_times_two), 200);
 
-        let start_time =
-            crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| driver.current_tick());
+        let start_time = crate::animations::current_tick();
 
         compo.width.set_animated_value(200, &animation_details);
         assert_eq!(get_prop_value(&compo.width), 100);
@@ -1045,8 +1052,7 @@ mod animation_tests {
     fn properties_test_animation_triggered_by_binding() {
         let compo = Component::new_test_component();
 
-        let start_time =
-            crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| driver.current_tick());
+        let start_time = crate::animations::current_tick();
 
         let animation_details = PropertyAnimation {
             duration: DURATION.as_millis() as _,
@@ -1095,8 +1101,7 @@ mod animation_tests {
 
         compo.width.set(100);
 
-        let start_time =
-            crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| driver.current_tick());
+        let start_time = crate::animations::current_tick();
 
         compo.width.set_animated_value(200, &animation_details);
         assert_eq!(get_prop_value(&compo.width), 100);
@@ -1141,8 +1146,7 @@ mod animation_tests {
 
         compo.width.set(100);
 
-        let start_time =
-            crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| driver.current_tick());
+        let start_time = crate::animations::current_tick();
 
         compo.width.set_animated_value(200, &animation_details);
         assert_eq!(get_prop_value(&compo.width), 100);
@@ -1162,6 +1166,52 @@ mod animation_tests {
         // the binding should be removed
         compo.width.handle.access(|binding| assert!(binding.is_none()));
     }
+}
+
+/// Value of the state property
+///
+/// A state is just the current state, but also has information about the previous state and the moment it changed
+#[repr(C)]
+#[derive(Clone, Default, Debug, PartialEq)]
+pub struct StateInfo {
+    /// The current state value
+    current_state: u32,
+    /// The previous state
+    previous_state: u32,
+    /// The instant in which the state changed last
+    change_time: crate::animations::Instant,
+}
+
+struct StateInfoBinding<F> {
+    dirty_time: Cell<Option<crate::animations::Instant>>,
+    binding: F,
+}
+
+impl<F: Fn() -> u32> crate::properties::BindingCallable for StateInfoBinding<F> {
+    unsafe fn evaluate(self: Pin<&Self>, value: *mut ()) -> BindingResult {
+        // Safety: We should ony set this binding on a property of type StateInfo
+        let value = &mut *(value as *mut StateInfo);
+        let new_state = (self.binding)();
+        let timestamp = self.dirty_time.take();
+        if new_state != value.current_state {
+            value.previous_state = value.current_state;
+            value.change_time = timestamp.unwrap_or_else(crate::animations::current_tick);
+        }
+        BindingResult::KeepBinding
+    }
+
+    fn mark_dirty(self: Pin<&Self>) {
+        if self.dirty_time.get().is_none() {
+            self.dirty_time.set(Some(crate::animations::current_tick()))
+        }
+    }
+}
+
+/// Sets a binding that returns a state to a StateInfo property
+pub fn set_state_binding(property: Pin<&Property<StateInfo>>, binding: impl Fn() -> u32 + 'static) {
+    let bind_callable = StateInfoBinding { dirty_time: Cell::new(None), binding };
+    // Safety: The StateInfoBinding is a BindingCallable for type StateInfo
+    unsafe { property.handle.set_binding(bind_callable) }
 }
 
 /// This structure allow to run a closure that queries properties, and can report
@@ -1413,19 +1463,20 @@ pub(crate) mod ffi {
         animation_data: &PropertyAnimation,
     ) {
         let d = RefCell::new(PropertyValueAnimationData::new(from, to, animation_data.clone()));
-        handle.0.set_binding(move |val: *mut ()| {
-            let (value, finished) = d.borrow_mut().compute_interpolated_value();
-            unsafe {
+        // Safety: The BindingCallable is for type T
+        unsafe {
+            handle.0.set_binding(move |val: *mut ()| {
+                let (value, finished) = d.borrow_mut().compute_interpolated_value();
                 *(val as *mut T) = value;
-            }
-            if finished {
-                BindingResult::RemoveBinding
-            } else {
-                crate::animations::CURRENT_ANIMATION_DRIVER
-                    .with(|driver| driver.set_has_active_animations());
-                BindingResult::KeepBinding
-            }
-        });
+                if finished {
+                    BindingResult::RemoveBinding
+                } else {
+                    crate::animations::CURRENT_ANIMATION_DRIVER
+                        .with(|driver| driver.set_has_active_animations());
+                    BindingResult::KeepBinding
+                }
+            })
+        };
     }
 
     /// Internal function to set up a property animation to the specified target value for an integer property.
