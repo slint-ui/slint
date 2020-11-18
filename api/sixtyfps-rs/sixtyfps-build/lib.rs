@@ -194,6 +194,12 @@ pub fn compile_with_config(
     let mut code_formater = CodeFormatter { indentation: 0, in_string: false, sink: file };
     let generated = match sixtyfps_compilerlib::generator::rust::generate(&doc, &mut diag) {
         Some(code) => {
+            for x in diag.files() {
+                if x.is_absolute() {
+                    println!("cargo:rerun-if-changed={}", x.display());
+                }
+            }
+
             // print warnings
             diag.diagnostics_as_string().lines().for_each(|w| {
                 if !w.is_empty() {

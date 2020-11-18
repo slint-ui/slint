@@ -18,7 +18,7 @@ You should use the `sixtyfps` crate instead.
 
 extern crate proc_macro;
 use proc_macro::{Spacing, TokenStream, TokenTree};
-use quote::ToTokens;
+use quote::{quote, ToTokens};
 use sixtyfps_compilerlib::parser::SyntaxKind;
 use sixtyfps_compilerlib::*;
 
@@ -340,7 +340,15 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
         return diag.into_token_stream().into();
     }
 
-    let result = generator::rust::generate(&root_component, &mut diag);
+    let mut result = generator::rust::generate(&root_component, &mut diag);
+
+    // Make sure to recompile if any of the external files changes
+    let reload = diag
+        .files()
+        .filter(|path| path.is_absolute() && !path.ends_with("Cargo.toml"))
+        .filter_map(|p| p.to_str())
+        .map(|p| quote! {const _ : &'static [u8] = ::core::include_bytes!(#p);});
+    result.as_mut().map(|x| x.extend(reload));
 
     result
         .unwrap_or_else(|| {

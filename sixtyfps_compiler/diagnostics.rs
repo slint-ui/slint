@@ -466,6 +466,11 @@ impl BuildDiagnostics {
     pub fn map_offsets_to_span(&mut self, span_map: &[crate::parser::Token]) {
         self.iter_mut().for_each(|diag| diag.map_offsets_to_span(span_map))
     }
+
+    /// Return an iterator containing all the files
+    pub fn files(&self) -> impl Iterator<Item = &'_ std::path::Path> + '_ {
+        self.per_input_file_diagnostics.keys().map(|x| x.as_path())
+    }
 }
 
 #[cfg(feature = "proc_macro_span")]
