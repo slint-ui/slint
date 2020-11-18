@@ -839,7 +839,7 @@ struct PropertyValueAnimationData<T> {
     from_value: T,
     to_value: T,
     details: PropertyAnimation,
-    start_time: instant::Instant,
+    start_time: crate::animations::Instant,
     loop_iteration: i32,
 }
 

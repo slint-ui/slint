@@ -28,11 +28,59 @@ impl Default for EasingCurve {
     }
 }
 
+/// Represent an instant, in miliseconds since the AnimationDriver's initial_instant
+#[repr(transparent)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Ord, PartialOrd, Eq)]
+pub struct Instant(u64);
+
+impl core::ops::Sub<Instant> for Instant {
+    type Output = core::time::Duration;
+    fn sub(self, other: Self) -> core::time::Duration {
+        core::time::Duration::from_millis(self.0 - other.0)
+    }
+}
+
+impl core::ops::Sub<core::time::Duration> for Instant {
+    type Output = Instant;
+    fn sub(self, other: core::time::Duration) -> Instant {
+        Self(self.0 - other.as_millis() as u64)
+    }
+}
+
+impl core::ops::Add<core::time::Duration> for Instant {
+    type Output = Instant;
+    fn add(self, other: core::time::Duration) -> Instant {
+        Self(self.0 + other.as_millis() as u64)
+    }
+}
+
+impl core::ops::AddAssign<core::time::Duration> for Instant {
+    fn add_assign(&mut self, other: core::time::Duration) {
+        self.0 += other.as_millis() as u64;
+    }
+}
+
+impl core::ops::SubAssign<core::time::Duration> for Instant {
+    fn sub_assign(&mut self, other: core::time::Duration) {
+        self.0 += other.as_millis() as u64;
+    }
+}
+
+impl Instant {
+    /// Returns the amount of time elapsed since an other instant.
+    ///
+    /// Equivalent to `self - earlier`
+    pub fn duration_since(self, earlier: Instant) -> core::time::Duration {
+        self - earlier
+    }
+}
+
 /// The AnimationDriver
 pub struct AnimationDriver {
     /// Indicate whether there are any active animations that require a future call to update_animations.
     active_animations: Cell<bool>,
-    global_instant: core::pin::Pin<Box<crate::Property<instant::Instant>>>,
+    global_instant: core::pin::Pin<Box<crate::Property<Instant>>>,
+    /// Time at which the AnimationDriver was created. global_instant is relative to that
     initial_instant: instant::Instant,
 }
 
@@ -40,7 +88,7 @@ impl Default for AnimationDriver {
     fn default() -> Self {
         AnimationDriver {
             active_animations: Cell::default(),
-            global_instant: Box::pin(crate::Property::new(instant::Instant::now())),
+            global_instant: Box::pin(crate::Property::new(Instant::default())),
             initial_instant: instant::Instant::now(),
         }
     }
@@ -49,7 +97,7 @@ impl Default for AnimationDriver {
 impl AnimationDriver {
     /// Iterates through all animations based on the new time tick and updates their state. This should be called by
     /// the windowing system driver for every frame.
-    pub fn update_animations(&self, new_tick: instant::Instant) {
+    pub fn update_animations(&self, new_tick: Instant) {
         self.active_animations.set(false);
         self.global_instant.as_ref().set(new_tick);
     }
@@ -66,7 +114,7 @@ impl AnimationDriver {
     }
     /// The current instant that is to be used for animation
     /// using this function register the current binding as a dependency
-    pub fn current_tick(&self) -> instant::Instant {
+    pub fn current_tick(&self) -> Instant {
         self.global_instant.as_ref().get()
     }
 }
@@ -75,7 +123,7 @@ thread_local!(pub(crate) static CURRENT_ANIMATION_DRIVER : AnimationDriver = Ani
 
 /// The current instant that is to be used for animation
 /// using this function register the current binding as a dependency
-pub fn current_tick() -> instant::Instant {
+pub fn current_tick() -> Instant {
     CURRENT_ANIMATION_DRIVER.with(|driver| driver.current_tick())
 }
 
@@ -133,15 +181,14 @@ fn easing_test() {
 /// Update the glibal animation time to the current time
 pub(crate) fn update_animations() {
     CURRENT_ANIMATION_DRIVER.with(|driver| {
-        match std::env::var("SIXTYFPS_SLOW_ANIMATIONS") {
-            Err(_) => driver.update_animations(instant::Instant::now()),
+        let duration = instant::Instant::now() - driver.initial_instant;
+        let duration = match std::env::var("SIXTYFPS_SLOW_ANIMATIONS") {
+            Err(_) => duration,
             Ok(val) => {
-                let factor = val.parse().unwrap_or(2.);
-                driver.update_animations(
-                    driver.initial_instant
-                        + (instant::Instant::now() - driver.initial_instant).div_f32(factor),
-                )
+                let factor = val.parse().unwrap_or(2);
+                duration / factor
             }
         };
+        driver.update_animations(Instant(duration.as_millis() as u64))
     });
 }

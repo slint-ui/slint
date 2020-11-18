@@ -10,12 +10,12 @@ LICENSE END */
 //! The implementation details behind the Flickable
 
 use crate::animations::EasingCurve;
+use crate::animations::Instant;
 use crate::graphics::Point;
 use crate::input::{MouseEvent, MouseEventType};
 use crate::items::{Flickable, PropertyAnimation, Rectangle};
 use core::cell::RefCell;
 use core::pin::Pin;
-use instant::Instant;
 
 #[derive(Default, Debug)]
 struct FlickableDataInnter {
