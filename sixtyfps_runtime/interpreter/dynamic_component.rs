@@ -41,7 +41,6 @@ use std::{pin::Pin, rc::Rc};
 pub struct ComponentBox<'id> {
     instance: InstanceBox<'id>,
     component_type: Rc<ComponentDescription<'id>>,
-    self_weak: once_cell::unsync::OnceCell<vtable::VWeak<ComponentVTable, ErasedComponentBox>>,
 }
 
 impl<'id> ComponentBox<'id> {
@@ -247,6 +246,8 @@ pub(crate) struct ComponentExtraData {
     mouse_grabber: core::cell::Cell<VisitChildrenResult>,
     focus_item: core::cell::Cell<VisitChildrenResult>,
     pub(crate) globals: HashMap<String, Pin<Rc<dyn crate::global_component::GlobalComponent>>>,
+    pub(crate) self_weak:
+        once_cell::unsync::OnceCell<vtable::VWeak<ComponentVTable, ErasedComponentBox>>,
 }
 
 impl Default for ComponentExtraData {
@@ -255,6 +256,7 @@ impl Default for ComponentExtraData {
             mouse_grabber: core::cell::Cell::new(VisitChildrenResult::CONTINUE),
             focus_item: core::cell::Cell::new(VisitChildrenResult::CONTINUE),
             globals: HashMap::new(),
+            self_weak: Default::default(),
         }
     }
 }
@@ -783,11 +785,7 @@ pub fn instantiate<'id>(
         *component_type.window_offset.apply_mut(instance.as_mut()) = window;
     }
 
-    let component_box = ComponentBox {
-        instance,
-        component_type: component_type.clone(),
-        self_weak: Default::default(),
-    };
+    let component_box = ComponentBox { instance, component_type: component_type.clone() };
     let instance_ref = component_box.borrow_instance();
 
     sixtyfps_corelib::component::init_component_items(
@@ -982,7 +980,8 @@ pub fn instantiate<'id>(
     {
         generativity::make_guard!(guard);
         let comp = comp_rc.unerase(guard);
-        comp.self_weak.set(vtable::VRc::downgrade(&comp_rc)).ok();
+        let weak = vtable::VRc::downgrade(&comp_rc);
+        comp.borrow_instance().self_weak().set(weak).ok();
     }
     comp_rc
 }
@@ -1627,5 +1626,12 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
         let info = &self.component_type.items
             [self.component_type.original.root_element.borrow().id.as_str()];
         unsafe { info.item_from_component(self.as_ptr()) }
+    }
+
+    pub fn self_weak(
+        &self,
+    ) -> &once_cell::unsync::OnceCell<vtable::VWeak<ComponentVTable, ErasedComponentBox>> {
+        let extra_data = self.component_type.extra_data_offset.apply(self.as_ref());
+        &extra_data.self_weak
     }
 }
