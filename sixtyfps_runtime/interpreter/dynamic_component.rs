@@ -41,6 +41,7 @@ use std::{pin::Pin, rc::Rc};
 pub struct ComponentBox<'id> {
     instance: InstanceBox<'id>,
     component_type: Rc<ComponentDescription<'id>>,
+    self_weak: once_cell::unsync::OnceCell<vtable::VWeak<ComponentVTable, ErasedComponentBox>>,
 }
 
 impl<'id> ComponentBox<'id> {
@@ -346,12 +347,12 @@ extern "C" fn visit_children_item(
             let rep_in_comp = unsafe { instance_ref.component_type.repeater[index].get_untaged() };
             let repeater = rep_in_comp.offset.apply_pin(instance_ref.instance);
             let init = || {
-                vtable::VRc::new(ErasedComponentBox::from(instantiate(
+                instantiate(
                     rep_in_comp.component_to_repeat.clone(),
                     Some(component),
                     #[cfg(target_arch = "wasm32")]
                     String::new(),
-                )))
+                )
             };
             if let Some(lv) = &rep_in_comp
                 .component_to_repeat
@@ -746,7 +747,7 @@ pub fn instantiate<'id>(
     component_type: Rc<ComponentDescription<'id>>,
     parent_ctx: Option<ComponentRefPin>,
     #[cfg(target_arch = "wasm32")] canvas_id: String,
-) -> ComponentBox<'id> {
+) -> vtable::VRc<ComponentVTable, ErasedComponentBox> {
     let mut instance = component_type.dynamic_type.clone().create_instance();
 
     if let Some(parent) = parent_ctx {
@@ -782,7 +783,11 @@ pub fn instantiate<'id>(
         *component_type.window_offset.apply_mut(instance.as_mut()) = window;
     }
 
-    let component_box = ComponentBox { instance, component_type: component_type.clone() };
+    let component_box = ComponentBox {
+        instance,
+        component_type: component_type.clone(),
+        self_weak: Default::default(),
+    };
     let instance_ref = component_box.borrow_instance();
 
     sixtyfps_corelib::component::init_component_items(
@@ -973,7 +978,13 @@ pub fn instantiate<'id>(
         );
     }
 
-    component_box
+    let comp_rc = vtable::VRc::new(ErasedComponentBox::from(component_box));
+    {
+        generativity::make_guard!(guard);
+        let comp = comp_rc.unerase(guard);
+        comp.self_weak.set(vtable::VRc::downgrade(&comp_rc)).ok();
+    }
+    comp_rc
 }
 
 fn get_property_ptr(nr: &NamedReference, instance: InstanceRef) -> *const () {
@@ -1218,12 +1229,12 @@ fn collect_layouts_recursively<'a, 'b>(
                         generativity::make_guard!(guard);
                         let rep = get_repeater_by_name(component, elem.borrow().id.as_str(), guard);
                         rep.0.as_ref().ensure_updated(|| {
-                            vtable::VRc::new(ErasedComponentBox::from(instantiate(
+                            instantiate(
                                 rep.1.clone(),
                                 Some(component.borrow()),
                                 #[cfg(target_arch = "wasm32")]
                                 String::new(),
-                            )))
+                            )
                         });
 
                         BoxLayoutCellTmpData::Repeater(
