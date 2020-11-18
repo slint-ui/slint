@@ -118,6 +118,8 @@ public:
     const X& operator*() const {
         return inner->data;
     }
+
+    VRc<VTable, Dyn> into_dyn() const { return *reinterpret_cast<const VRc<VTable, Dyn> *>(this); }
 };
 
 template<typename VTable, typename X = Dyn>

@@ -116,9 +116,8 @@ public:
     template<typename Component>
     void set_component(const Component &c) const
     {
-        auto self_rc = c.self_weak.lock().value();
-        sixtyfps_component_window_set_component(
-                &inner, reinterpret_cast<cbindgen_private::ComponentRc *>(&self_rc));
+        auto self_rc = c.self_weak.lock().value().into_dyn();
+        sixtyfps_component_window_set_component(&inner, &self_rc);
     }
 
 private:
