@@ -566,6 +566,8 @@ public:
                     auto &c = inner->data[i];
                     if (!c.ptr) {
                         c.ptr = { vtable::VRc<private_api::ComponentVTable, C>::make(parent) };
+                        const_cast<C *>(&**c.ptr)->self_weak =
+                                vtable::VWeak<private_api::ComponentVTable, C>(*c.ptr);
                     }
                     if (c.state == RepeaterInner::State::Dirty) {
                         (*c.ptr)->update_data(i, m->row_data(i));

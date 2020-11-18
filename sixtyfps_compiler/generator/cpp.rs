@@ -828,6 +828,17 @@ fn generate_component(
             ));
         }
         component_struct.members.push((
+            Access::Public,
+            Declaration::Var(Var {
+                ty: format!(
+                    "vtable::VWeak<sixtyfps::private_api::ComponentVTable, {}>",
+                    component_id
+                ),
+                name: "self_weak".into(),
+                ..Var::default()
+            }),
+        ));
+        component_struct.members.push((
             Access::Private,
             Declaration::Var(Var {
                 ty: "sixtyfps::private_api::ComponentWindow".into(),
