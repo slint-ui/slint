@@ -64,7 +64,6 @@ using ItemVisitorRefMut = vtable::VRefMut<cbindgen_private::ItemVisitorVTable>;
 }
 using cbindgen_private::EasingCurve;
 using cbindgen_private::PropertyAnimation;
-using cbindgen_private::StateInfo;
 using cbindgen_private::Slice;
 using cbindgen_private::TextHorizontalAlignment;
 using cbindgen_private::TextVerticalAlignment;

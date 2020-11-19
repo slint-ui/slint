@@ -21,6 +21,8 @@ struct PropertyAnimation;
 
 namespace sixtyfps {
 
+using cbindgen_private::StateInfo;
+
 template<typename T>
 struct Property
 {
@@ -112,6 +114,7 @@ struct Property
 private:
     cbindgen_private::PropertyHandleOpaque inner;
     mutable T value {};
+    template<typename F> friend void set_state_binding(const Property<StateInfo> &property, F binding);
 };
 
 template<>
@@ -156,6 +159,15 @@ void Property<float>::set_animated_binding(
             },
             new F(binding), [](void *user_data) { delete reinterpret_cast<F *>(user_data); },
             &animation_data);
+}
+
+template<typename F>
+void set_state_binding(const Property<StateInfo> &property, F binding) {
+     cbindgen_private::sixtyfps_property_set_state_binding(
+        &property.inner,
+        [](void *user_data) -> int32_t { return (*reinterpret_cast<F *>(user_data))(); },
+        new F(binding),
+        [](void *user_data) { delete reinterpret_cast<F *>(user_data); });
 }
 
 struct PropertyTracker

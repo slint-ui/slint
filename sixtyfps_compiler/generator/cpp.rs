@@ -308,23 +308,6 @@ fn property_set_value_code(
     }
 }
 
-fn property_set_binding_code(
-    component: &Rc<Component>,
-    element: &Element,
-    property_name: &str,
-    binding_expr: String,
-) -> String {
-    if let Some(animation_code) = property_animation_code(component, element, property_name) {
-        format!(
-            "set_animated_binding({binding}, {animation})",
-            binding = binding_expr,
-            animation = animation_code
-        )
-    } else {
-        format!("set_binding({})", binding_expr)
-    }
-}
-
 fn handle_property_binding(
     elem: &ElementRc,
     prop_name: &str,
@@ -334,8 +317,8 @@ fn handle_property_binding(
     let item = elem.borrow();
     let component = item.enclosing_component.upgrade().unwrap();
     let id = &item.id;
-    let prop_ty = item.lookup_property(prop_name);
-    if let Type::Signal { args } = &prop_ty {
+    let prop_type = item.lookup_property(prop_name);
+    if let Type::Signal { args } = &prop_type {
         let signal_accessor_prefix = if item.property_declarations.contains_key(prop_name) {
             String::new()
         } else {
@@ -359,7 +342,7 @@ fn handle_property_binding(
     } else if let Expression::TwoWayBinding(nr, next) = &binding_expression {
         init.push(format!(
             "sixtyfps::Property<{ty}>::link_two_way(&{p1}, &{p2});",
-            ty = prop_ty.cpp_type().unwrap_or_default(),
+            ty = prop_type.cpp_type().unwrap_or_default(),
             p1 = access_member(elem, prop_name, &component, "this"),
             p2 = access_named_reference(nr, &component, "this")
         ));
@@ -376,8 +359,14 @@ fn handle_property_binding(
         let component = &item.enclosing_component.upgrade().unwrap();
 
         let init_expr = compile_expression(binding_expression, component);
-        let setter = if binding_expression.is_constant() {
-            format!("set({});", init_expr)
+        let cpp_prop = if let Some(vp) = super::as_flickable_viewport_property(elem, prop_name) {
+            format!("{}viewport.{}", accessor_prefix, vp,)
+        } else {
+            format!("{}{}", accessor_prefix, prop_name,)
+        };
+
+        init.push(if binding_expression.is_constant() {
+            format!("{}.set({});", cpp_prop, init_expr)
         } else {
             let binding_code = format!(
                 "[this]() {{
@@ -386,23 +375,19 @@ fn handle_property_binding(
                         }}",
                 init = init_expr
             );
-            property_set_binding_code(component, &item, prop_name, binding_code)
-        };
-        if let Some(vp) = super::as_flickable_viewport_property(elem, prop_name) {
-            init.push(format!(
-                "{accessor_prefix}viewport.{cpp_prop}.{setter};",
-                accessor_prefix = accessor_prefix,
-                cpp_prop = vp,
-                setter = setter,
-            ))
-        } else {
-            init.push(format!(
-                "{accessor_prefix}{cpp_prop}.{setter};",
-                accessor_prefix = accessor_prefix,
-                cpp_prop = prop_name,
-                setter = setter,
-            ))
-        }
+
+            let is_state_info = match prop_type {
+                Type::Object { name: Some(name), .. } if name.ends_with("::StateInfo") => true,
+                _ => false,
+            };
+            if is_state_info {
+                format!("sixtyfps::set_state_binding({}, {});", cpp_prop, binding_code)
+            } else if let Some(anim) = property_animation_code(component, &item, prop_name) {
+                format!("{}.set_animated_binding({}, {});", cpp_prop, binding_code, anim)
+            } else {
+                format!("{}.set_binding({});", cpp_prop, binding_code)
+            }
+        });
     }
 }
 
@@ -989,7 +974,7 @@ fn generate_component(
     if !component.is_global() {
         let mut destructor = Vec::new();
 
-        destructor.push("auto self = this;".to_owned());
+        destructor.push("[[maybe_unused]] auto self = this;".to_owned());
         if component.parent_element.upgrade().is_some() {
             destructor.push("if (!parent) return;".to_owned())
         }

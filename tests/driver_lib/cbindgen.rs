@@ -115,6 +115,8 @@ fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
         .export
         .pre_body
         .insert("StateInfo".to_owned(), "    using Instant = uint64_t;".into());
+    properties_config.structure.derive_eq = true;
+    properties_config.structure.derive_neq = true;
     cbindgen::Builder::new()
         .with_config(properties_config)
         .with_src(crate_dir.join("properties.rs"))

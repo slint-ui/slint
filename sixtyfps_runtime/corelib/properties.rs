@@ -1583,6 +1583,36 @@ pub(crate) mod ffi {
         c_set_animated_binding(handle, binding, user_data, drop_user_data, animation_data);
     }
 
+    /// Internal function to set up a state binding on a Property<StateInfo>.
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_property_set_state_binding(
+        handle: &PropertyHandleOpaque,
+        binding: extern "C" fn(*mut c_void) -> i32,
+        user_data: *mut c_void,
+        drop_user_data: Option<extern "C" fn(*mut c_void)>,
+    ) {
+        struct CStateBinding {
+            binding: extern "C" fn(*mut c_void) -> i32,
+            user_data: *mut c_void,
+            drop_user_data: Option<extern "C" fn(*mut c_void)>,
+        }
+
+        impl Drop for CStateBinding {
+            fn drop(&mut self) {
+                if let Some(x) = self.drop_user_data {
+                    x(self.user_data)
+                }
+            }
+        }
+
+        let c_state_binding = CStateBinding { binding, user_data, drop_user_data };
+        let bind_callable = StateInfoBinding {
+            dirty_time: Cell::new(None),
+            binding: move || (c_state_binding.binding)(c_state_binding.user_data),
+        };
+        handle.0.set_binding(bind_callable)
+    }
+
     #[repr(C)]
     /// Opaque type representing the PropertyTracker
     pub struct PropertyTrackerOpaque {
