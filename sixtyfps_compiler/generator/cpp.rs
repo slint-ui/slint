@@ -519,7 +519,7 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
 
     file.definitions.push(Declaration::Var(Var{
         ty: format!(
-            "constexpr sixtyfps::private_api::VersionCheckHelper<{}, {}, {}>",
+            "[[maybe_unused]] constexpr sixtyfps::private_api::VersionCheckHelper<{}, {}, {}>",
             env!("CARGO_PKG_VERSION_MAJOR"),
             env!("CARGO_PKG_VERSION_MINOR"),
             env!("CARGO_PKG_VERSION_PATCH")),
