@@ -643,6 +643,9 @@ fn generate_component<'id>(
                     .insert(name.clone(), builder.add_field_type::<Signal<[eval::Value]>>());
                 continue;
             }
+            Type::Object { name: Some(name), .. } if name.ends_with("::StateInfo") => {
+                property_info::<sixtyfps_corelib::properties::StateInfo>()
+            }
             Type::Object { .. } => property_info::<eval::Value>(),
             Type::Array(_) => property_info::<eval::Value>(),
             Type::Percent => property_info::<f32>(),
@@ -888,6 +891,39 @@ pub fn instantiate<'id>(
                         offset, prop: prop_info, ..
                     }) = component_type.custom_properties.get(prop.as_str())
                     {
+                        let c = Pin::new_unchecked(vtable::VRef::from_raw(
+                            NonNull::from(&component_type.ct).cast(),
+                            component_box.instance.as_ptr().cast(),
+                        ));
+
+                        let is_state_info = match ty {
+                            Type::Object { name: Some(name), .. }
+                                if name.ends_with("::StateInfo") =>
+                            {
+                                true
+                            }
+                            _ => false,
+                        };
+                        if is_state_info {
+                            let prop = Pin::new_unchecked(
+                                &*(instance_ref.as_ptr().add(*offset)
+                                    as *const Property<sixtyfps_corelib::properties::StateInfo>),
+                            );
+                            let e = expr.expression.clone();
+                            sixtyfps_corelib::properties::set_state_binding(prop, move || {
+                                generativity::make_guard!(guard);
+                                eval::eval_expression(
+                                    &e,
+                                    &mut eval::EvalLocalContext::from_component_instance(
+                                        InstanceRef::from_pin_ref(c, guard),
+                                    ),
+                                )
+                                .try_into()
+                                .unwrap()
+                            });
+                            continue;
+                        }
+
                         let maybe_animation = animation_for_property(
                             instance_ref,
                             &component_type.original.root_element.borrow().property_animations,
@@ -912,12 +948,6 @@ pub fn instantiate<'id>(
                                 prop_info.set(item, v, None).unwrap();
                             } else {
                                 let e = e.clone();
-                                let component_type = component_type.clone();
-                                let instance = component_box.instance.as_ptr();
-                                let c = Pin::new_unchecked(vtable::VRef::from_raw(
-                                    NonNull::from(&component_type.ct).cast(),
-                                    instance.cast(),
-                                ));
                                 prop_info
                                     .set_binding(
                                         item,

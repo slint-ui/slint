@@ -31,7 +31,7 @@ impl Default for EasingCurve {
 /// Represent an instant, in miliseconds since the AnimationDriver's initial_instant
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug, Default, PartialEq, Ord, PartialOrd, Eq)]
-pub struct Instant(u64);
+pub struct Instant(pub u64);
 
 impl core::ops::Sub<Instant> for Instant {
     type Output = core::time::Duration;

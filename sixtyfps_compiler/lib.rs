@@ -156,7 +156,7 @@ pub async fn run_passes<'a>(
     passes::materialize_fake_properties::materialize_fake_properties(&doc.root_component);
     passes::collect_resources::collect_resources(&doc.root_component);
     doc.root_component.embed_file_resources.set(compiler_config.embed_resources);
-    passes::lower_states::lower_states(&doc.root_component, diag);
+    passes::lower_states::lower_states(&doc.root_component, &doc.local_registry, diag);
     passes::repeater_component::process_repeater_components(&doc.root_component);
     passes::lower_layout::lower_layouts(&doc.root_component, &mut type_loader, diag).await;
     passes::deduplicate_property_read::deduplicate_property_read(&doc.root_component);

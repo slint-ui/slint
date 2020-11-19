@@ -1175,11 +1175,11 @@ mod animation_tests {
 #[derive(Clone, Default, Debug, PartialEq)]
 pub struct StateInfo {
     /// The current state value
-    current_state: u32,
+    pub current_state: i32,
     /// The previous state
-    previous_state: u32,
+    pub previous_state: i32,
     /// The instant in which the state changed last
-    change_time: crate::animations::Instant,
+    pub change_time: crate::animations::Instant,
 }
 
 struct StateInfoBinding<F> {
@@ -1187,7 +1187,7 @@ struct StateInfoBinding<F> {
     binding: F,
 }
 
-impl<F: Fn() -> u32> crate::properties::BindingCallable for StateInfoBinding<F> {
+impl<F: Fn() -> i32> crate::properties::BindingCallable for StateInfoBinding<F> {
     unsafe fn evaluate(self: Pin<&Self>, value: *mut ()) -> BindingResult {
         // Safety: We should ony set this binding on a property of type StateInfo
         let value = &mut *(value as *mut StateInfo);
@@ -1196,6 +1196,7 @@ impl<F: Fn() -> u32> crate::properties::BindingCallable for StateInfoBinding<F> 
         if new_state != value.current_state {
             value.previous_state = value.current_state;
             value.change_time = timestamp.unwrap_or_else(crate::animations::current_tick);
+            value.current_state = new_state;
         }
         BindingResult::KeepBinding
     }
@@ -1208,7 +1209,7 @@ impl<F: Fn() -> u32> crate::properties::BindingCallable for StateInfoBinding<F> 
 }
 
 /// Sets a binding that returns a state to a StateInfo property
-pub fn set_state_binding(property: Pin<&Property<StateInfo>>, binding: impl Fn() -> u32 + 'static) {
+pub fn set_state_binding(property: Pin<&Property<StateInfo>>, binding: impl Fn() -> i32 + 'static) {
     let bind_callable = StateInfoBinding { dirty_time: Cell::new(None), binding };
     // Safety: The StateInfoBinding is a BindingCallable for type StateInfo
     unsafe { property.handle.set_binding(bind_callable) }

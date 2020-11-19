@@ -15,19 +15,38 @@ use crate::langtype::Type;
 use crate::object_tree::*;
 use std::rc::Rc;
 
-pub fn lower_states(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
-    recurse_elem(&component.root_element, &(), &mut |elem, _| lower_state_in_element(elem, diag));
+pub fn lower_states(
+    component: &Rc<Component>,
+    tr: &crate::typeregister::TypeRegister,
+    diag: &mut BuildDiagnostics,
+) {
+    let state_info_type = tr.lookup("StateInfo");
+    assert!(matches!(state_info_type, Type::Object{ name: Some(_), .. }));
+    recurse_elem(&component.root_element, &(), &mut |elem, _| {
+        lower_state_in_element(elem, &state_info_type, diag)
+    });
 }
 
-fn lower_state_in_element(root_element: &ElementRc, _diag: &mut BuildDiagnostics) {
+fn lower_state_in_element(
+    root_element: &ElementRc,
+    state_info_type: &Type,
+    _diag: &mut BuildDiagnostics,
+) {
     if root_element.borrow().states.is_empty() {
         return;
     }
+    let has_transitions = !root_element.borrow().transitions.is_empty();
     let state_property = compute_state_property_name(root_element);
-    let state_property_ref = Expression::PropertyReference(NamedReference {
+    let mut state_property_ref = Expression::PropertyReference(NamedReference {
         element: Rc::downgrade(root_element),
         name: state_property.clone(),
     });
+    if has_transitions {
+        state_property_ref = Expression::ObjectAccess {
+            base: Box::new(state_property_ref),
+            name: "current_state".into(),
+        };
+    }
     let mut state_value = Expression::NumberLiteral(0., Unit::None);
     let states = std::mem::take(&mut root_element.borrow_mut().states);
     for (idx, state) in states.into_iter().enumerate().rev() {
@@ -58,7 +77,10 @@ fn lower_state_in_element(root_element: &ElementRc, _diag: &mut BuildDiagnostics
     }
     root_element.borrow_mut().property_declarations.insert(
         state_property.clone(),
-        PropertyDeclaration { property_type: Type::Int32, ..PropertyDeclaration::default() },
+        PropertyDeclaration {
+            property_type: if has_transitions { state_info_type.clone() } else { Type::Int32 },
+            ..PropertyDeclaration::default()
+        },
     );
     root_element.borrow_mut().bindings.insert(state_property.clone(), state_value.into());
 }

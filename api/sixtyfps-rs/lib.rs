@@ -159,6 +159,11 @@ pub use sixtyfps_corelib::string::SharedString;
 pub use sixtyfps_corelib::timers::{Timer, TimerMode};
 pub use sixtyfps_corelib::{ARGBColor, Color};
 
+// FIXME: this should not be in this namespace
+// but the name is `sixtyfps::StateInfo` in builtin.60
+#[doc(hidden)]
+pub use sixtyfps_corelib::properties::StateInfo;
+
 /// internal re_exports used by the macro generated
 #[doc(hidden)]
 pub mod re_exports {
@@ -187,7 +192,7 @@ pub mod re_exports {
     pub use sixtyfps_corelib::items::*;
     pub use sixtyfps_corelib::layout::*;
     pub use sixtyfps_corelib::model::*;
-    pub use sixtyfps_corelib::properties::{Property, PropertyTracker};
+    pub use sixtyfps_corelib::properties::{set_state_binding, Property, PropertyTracker};
     pub use sixtyfps_corelib::signals::Signal;
     pub use sixtyfps_corelib::slice::Slice;
     pub use sixtyfps_corelib::Color;

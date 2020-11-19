@@ -159,27 +159,33 @@ declare_value_conversion!(Color => [Color] );
 declare_value_conversion!(PathElements => [PathData]);
 declare_value_conversion!(EasingCurve => [corelib::animations::EasingCurve]);
 
-impl TryFrom<corelib::model::StandardListViewItem> for Value {
-    type Error = ();
-    fn try_from(
-        corelib::model::StandardListViewItem { text }: corelib::model::StandardListViewItem,
-    ) -> Result<Self, ()> {
-        let mut hm = HashMap::new();
-        hm.insert("text".into(), text.try_into()?);
-        Ok(Value::Object(hm))
-    }
-}
-impl TryInto<corelib::model::StandardListViewItem> for Value {
-    type Error = ();
-    fn try_into(self) -> Result<corelib::model::StandardListViewItem, ()> {
-        match self {
-            Self::Object(x) => Ok(corelib::model::StandardListViewItem {
-                text: x.get("text").ok_or(())?.clone().try_into()?,
-            }),
-            _ => Err(()),
+macro_rules! declare_value_struct_conversion {
+    (struct $name:path { $($field:ident),* $(,)? }) => {
+        impl TryFrom<$name> for Value {
+            type Error = ();
+            fn try_from($name { $($field),* }: $name) -> Result<Self, ()> {
+                let mut hm = HashMap::new();
+                $(hm.insert(stringify!($field).into(), $field.try_into()?);)*
+                Ok(Value::Object(hm))
+            }
         }
-    }
+        impl TryInto<$name> for Value {
+            type Error = ();
+            fn try_into(self) -> Result<$name, ()> {
+                match self {
+                    Self::Object(x) => {
+                        type Ty = $name;
+                        Ok(Ty { $($field: x.get(stringify!($field)).ok_or(())?.clone().try_into()?),* })
+                    }
+                    _ => Err(()),
+                }
+            }
+        }
+    };
 }
+
+declare_value_struct_conversion!(struct corelib::model::StandardListViewItem { text });
+declare_value_struct_conversion!(struct corelib::properties::StateInfo { current_state, previous_state, change_time });
 
 macro_rules! declare_value_enum_conversion {
     ($ty:ty, $n:ident) => {
@@ -211,6 +217,22 @@ macro_rules! declare_value_enum_conversion {
 declare_value_enum_conversion!(corelib::items::TextHorizontalAlignment, TextHorizontalAlignment);
 declare_value_enum_conversion!(corelib::items::TextVerticalAlignment, TextVerticalAlignment);
 declare_value_enum_conversion!(corelib::layout::LayoutAlignment, LayoutAlignment);
+
+impl TryFrom<corelib::animations::Instant> for Value {
+    type Error = ();
+    fn try_from(value: corelib::animations::Instant) -> Result<Self, ()> {
+        Ok(Value::Number(value.0 as _))
+    }
+}
+impl TryInto<corelib::animations::Instant> for Value {
+    type Error = ();
+    fn try_into(self) -> Result<corelib::animations::Instant, ()> {
+        match self {
+            Value::Number(x) => Ok(corelib::animations::Instant(x as _)),
+            _ => Err(()),
+        }
+    }
+}
 
 #[derive(Copy, Clone)]
 enum ComponentInstance<'a, 'id> {

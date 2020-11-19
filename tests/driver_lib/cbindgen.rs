@@ -110,6 +110,11 @@ fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
 
     let mut properties_config = config.clone();
     properties_config.export.exclude.clear();
+    properties_config.export.include.push("StateInfo".into());
+    properties_config
+        .export
+        .pre_body
+        .insert("StateInfo".to_owned(), "    using Instant = uint64_t;".into());
     cbindgen::Builder::new()
         .with_config(properties_config)
         .with_src(crate_dir.join("properties.rs"))

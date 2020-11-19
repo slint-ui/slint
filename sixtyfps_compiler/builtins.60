@@ -203,6 +203,13 @@ export struct StandardListViewItem := {
     text: string
 }
 
+export struct StateInfo := {
+    //-name:sixtyfps::StateInfo
+    current_state: int,
+    previous_state: int,
+    //change_time: duration,
+}
+
 export NativeButton := _ {
     property <length> x;
     property <length> y;

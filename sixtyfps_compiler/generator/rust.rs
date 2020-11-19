@@ -144,7 +144,8 @@ fn handle_property_binding(
     init: &mut Vec<TokenStream>,
 ) {
     let rust_property = access_member(item_rc, prop_name, component, quote!(_self), false);
-    if matches!(item_rc.borrow().lookup_property(prop_name), Type::Signal{..}) {
+    let prop_type = item_rc.borrow().lookup_property(prop_name);
+    if matches!(prop_type, Type::Signal{..}) {
         let tokens_for_expression = compile_expression(binding_expression, &component);
         init.push(quote!(
             #rust_property.set_handler({
@@ -172,26 +173,30 @@ fn handle_property_binding(
         }
     } else {
         let tokens_for_expression = compile_expression(binding_expression, &component);
-        let setter = if binding_expression.is_constant() {
-            quote!(set((#tokens_for_expression) as _))
+        init.push(if binding_expression.is_constant() {
+            quote! { #rust_property.set((#tokens_for_expression) as _); }
         } else {
-            property_set_binding_tokens(
-                component,
-                &item_rc,
-                prop_name,
-                quote!({
-                    let self_weak = sixtyfps::re_exports::VRc::downgrade(&self_pinned);
-                    move || {
-                        let self_pinned = self_weak.upgrade().unwrap();
-                        let _self = self_pinned.as_pin_ref();
-                        (#tokens_for_expression) as _
-                    }
-                }),
-            )
-        };
-        init.push(quote!(
-            #rust_property.#setter;
-        ));
+            let binding_tokens = quote!({
+                let self_weak = sixtyfps::re_exports::VRc::downgrade(&self_pinned);
+                move || {
+                    let self_pinned = self_weak.upgrade().unwrap();
+                    let _self = self_pinned.as_pin_ref();
+                    (#tokens_for_expression) as _
+                }
+            });
+
+            let is_state_info = match prop_type {
+                Type::Object { name: Some(name), .. } if name.ends_with("::StateInfo") => true,
+                _ => false,
+            };
+            if is_state_info {
+                quote! { sixtyfps::re_exports::set_state_binding(#rust_property, #binding_tokens); }
+            } else if let Some(anim) = property_animation_tokens(component, &item_rc, prop_name) {
+                quote! { #rust_property.set_animated_binding(#binding_tokens, #anim); }
+            } else {
+                quote! { #rust_property.set_binding(#binding_tokens); }
+            }
+        });
     }
 }
 
@@ -896,19 +901,6 @@ fn property_set_value_tokens(
         quote!(set_animated_value(#value_tokens, #animation_tokens))
     } else {
         quote!(set(#value_tokens))
-    }
-}
-
-fn property_set_binding_tokens(
-    component: &Rc<Component>,
-    element: &ElementRc,
-    property_name: &str,
-    binding_tokens: TokenStream,
-) -> TokenStream {
-    if let Some(animation_tokens) = property_animation_tokens(component, element, property_name) {
-        quote!(set_animated_binding(#binding_tokens, #animation_tokens))
-    } else {
-        quote!(set_binding(#binding_tokens))
     }
 }
 
