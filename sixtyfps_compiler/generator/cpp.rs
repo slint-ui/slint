@@ -870,17 +870,28 @@ fn generate_component(
 
     if !component.is_global() {
         let maybe_constructor_param = if constructor_parent_arg.is_empty() { "" } else { "parent" };
+
+        let mut create_code = vec![
+            format!("auto self_rc = vtable::VRc<sixtyfps::private_api::ComponentVTable, {0}>::make({1});", component_id, maybe_constructor_param),
+            format!("auto self = const_cast<{0} *>(&*self_rc);", component_id),
+            "self->self_weak = vtable::VWeak(self_rc);".into(),
+            "self_rc->window.set_component(*self_rc);".into()
+        ];
+        create_code.extend(
+            component.setup_code.borrow().iter().map(|code| compile_expression(code, component)),
+        );
+        create_code
+            .push(format!("return sixtyfps::ComponentHandle<{0}>{{ self_rc }};", component_id));
+
         component_struct.members.push((
             Access::Public,
             Declaration::Function(Function {
                 name: "create".into(),
-                signature: format!("({}) -> sixtyfps::ComponentHandle<{}>", constructor_parent_arg, component_id),
-                statements: Some(vec![
-                    format!("auto self_rc = vtable::VRc<sixtyfps::private_api::ComponentVTable, {0}>::make({1});", component_id, maybe_constructor_param),
-                    format!("const_cast<{0} *>(&*self_rc)->self_weak = vtable::VWeak(self_rc);", component_id),
-                    "self_rc->window.set_component(*self_rc);".into(),
-                    format!("return sixtyfps::ComponentHandle<{0}>{{ self_rc }};", component_id)
-                ]),
+                signature: format!(
+                    "({}) -> sixtyfps::ComponentHandle<{}>",
+                    constructor_parent_arg, component_id
+                ),
+                statements: Some(create_code),
                 is_static: true,
                 ..Default::default()
             }),
@@ -946,10 +957,6 @@ fn generate_component(
                 .push((item.id.clone(), item.base_type.as_native().vtable_symbol.clone()));
         }
     });
-
-    for extra_init_code in component.setup_code.borrow().iter() {
-        init.push(compile_expression(extra_init_code, component));
-    }
 
     if !component.is_global() {
         component_struct
@@ -1432,9 +1439,9 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
                     let focus_item = focus_item.upgrade().unwrap();
                     let focus_item = focus_item.borrow();
                     let component =
-                        format!("{{&{}::component_type, this}}", component_id(component));
+                        format!("{{&{}::component_type, self}}", component_id(component));
                     let item = format!(
-                        "{{&sixtyfps::private_api::{vt}, &{item}}}",
+                        "{{&sixtyfps::private_api::{vt}, &self->{item}}}",
                         vt = focus_item.base_type.as_native().vtable_symbol,
                         item = focus_item.id
                     );

@@ -999,19 +999,20 @@ pub fn instantiate<'id>(
         });
     }
 
-    for extra_init_code in component_type.original.setup_code.borrow().iter() {
-        eval::eval_expression(
-            extra_init_code,
-            &mut eval::EvalLocalContext::from_component_instance(instance_ref),
-        );
-    }
-
     let comp_rc = vtable::VRc::new(ErasedComponentBox::from(component_box));
     {
         generativity::make_guard!(guard);
         let comp = comp_rc.unerase(guard);
         let weak = vtable::VRc::downgrade(&comp_rc);
-        comp.borrow_instance().self_weak().set(weak).ok();
+        let instance_ref = comp.borrow_instance();
+        instance_ref.self_weak().set(weak).ok();
+
+        for extra_init_code in component_type.original.setup_code.borrow().iter() {
+            eval::eval_expression(
+                extra_init_code,
+                &mut eval::EvalLocalContext::from_component_instance(instance_ref),
+            );
+        }
     }
     comp_rc
 }
