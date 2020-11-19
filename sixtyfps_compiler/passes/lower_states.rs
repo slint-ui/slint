@@ -13,6 +13,7 @@ use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::*;
 use crate::langtype::Type;
 use crate::object_tree::*;
+use crate::parser::SyntaxNodeWithSourceFile;
 use std::{collections::HashMap, rc::Rc};
 
 pub fn lower_states(
@@ -36,17 +37,19 @@ fn lower_state_in_element(
         return;
     }
     let has_transitions = !root_element.borrow().transitions.is_empty();
-    let state_property = compute_state_property_name(root_element);
-    let mut state_property_ref = Expression::PropertyReference(NamedReference {
+    let state_property_name = compute_state_property_name(root_element);
+    let state_property = Expression::PropertyReference(NamedReference {
         element: Rc::downgrade(root_element),
-        name: state_property.clone(),
+        name: state_property_name.clone(),
     });
-    if has_transitions {
-        state_property_ref = Expression::ObjectAccess {
-            base: Box::new(state_property_ref),
+    let state_property_ref = if has_transitions {
+        Expression::ObjectAccess {
+            base: Box::new(state_property.clone()),
             name: "current_state".into(),
-        };
-    }
+        }
+    } else {
+        state_property.clone()
+    };
     // Maps State name string -> integer id
     let mut states_id = HashMap::new();
     let mut state_value = Expression::NumberLiteral(0., Unit::None);
@@ -80,31 +83,66 @@ fn lower_state_in_element(
     }
 
     root_element.borrow_mut().property_declarations.insert(
-        state_property.clone(),
+        state_property_name.clone(),
         PropertyDeclaration {
             property_type: if has_transitions { state_info_type.clone() } else { Type::Int32 },
             ..PropertyDeclaration::default()
         },
     );
-    root_element.borrow_mut().bindings.insert(state_property.clone(), state_value.into());
+    root_element.borrow_mut().bindings.insert(state_property_name, state_value.into());
 
-    lower_transitions_in_element(root_element, states_id, diag);
+    lower_transitions_in_element(root_element, state_property, states_id, diag);
 }
 
 fn lower_transitions_in_element(
     elem: &ElementRc,
+    state_property: Expression,
     states_id: HashMap<String, i32>,
     diag: &mut BuildDiagnostics,
 ) {
     let transitions = std::mem::take(&mut elem.borrow_mut().transitions);
+    let mut props = HashMap::<
+        NamedReference,
+        (SyntaxNodeWithSourceFile, Vec<TransitionPropertyAnimation>),
+    >::new();
     for transition in transitions {
-        let _state = states_id.get(&transition.state_id).unwrap_or_else(|| {
+        let state = states_id.get(&transition.state_id).unwrap_or_else(|| {
             diag.push_error(
                 format!("State '{}' does not exist", transition.state_id),
                 &transition.node,
             );
             &0
         });
+
+        for (p, animation) in transition.property_animations {
+            let t = TransitionPropertyAnimation {
+                state_id: *state,
+                is_out: transition.is_out,
+                animation,
+            };
+            let node = &transition.node;
+            props.entry(p).or_insert_with(|| (node.clone(), vec![])).1.push(t);
+        }
+    }
+    for (ne, (node, animations)) in props {
+        let e = ne.element.upgrade().unwrap();
+        match e.borrow_mut().property_animations.entry(ne.name) {
+            std::collections::hash_map::Entry::Occupied(e) => {
+                diag.push_error(
+                    format!(
+                    "The property '{}' cannot have transition because it already has an animation",
+                    e.key()
+                ),
+                    &node,
+                );
+            }
+            std::collections::hash_map::Entry::Vacant(e) => {
+                e.insert(PropertyAnimation::Transition {
+                    state_ref: state_property.clone(),
+                    animations,
+                });
+            }
+        };
     }
 }
 

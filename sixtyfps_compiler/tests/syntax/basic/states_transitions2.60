@@ -1,0 +1,34 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+TestCase := Rectangle {
+    property<bool> checked;
+    property <int> border;
+    animate color { }
+    states [
+        checked when checked: {
+            color: blue;
+            border: 42;
+        }
+    ]
+
+    transitions [
+        to does_not_exist: {
+//        ^error{State 'does_not_exist' does not exist}
+            animate * { }
+        }
+        to checked: {
+//        ^error{The property 'color' cannot have transition because it already has an animation}
+            animate color { }
+        }
+    ]
+
+
+}
+
