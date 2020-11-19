@@ -1064,7 +1064,7 @@ fn generate_component(
                         .into(),
                 is_static: true,
                 statements: Some(vec![
-                    format!("    auto self = reinterpret_cast<{}*>(component.instance);", component_id),
+                    format!("    [[maybe_unused]] auto self = reinterpret_cast<{}*>(component.instance);", component_id),
                     "return sixtyfps::private_api::process_input_event(component, self->mouse_grabber, mouse_event, item_tree(), [self](int dyn_index, [[maybe_unused]] int rep_index) {".into(),
                     format!("    switch(dyn_index) {{ {} }};", repeated_input_branch.join("")),
                     "    return sixtyfps::private_api::ComponentRef{nullptr, nullptr};\n}, window, app_component);".into(),
@@ -1082,7 +1082,7 @@ fn generate_component(
                     .into(),
                     is_static: true,
                     statements: Some(vec![
-                        format!("    auto self = reinterpret_cast<{}*>(component.instance);", component_id),
+                        format!("    [[maybe_unused]] auto self = reinterpret_cast<{}*>(component.instance);", component_id),
                         "return sixtyfps::private_api::process_key_event(component, self->focus_item, key_event, item_tree(), [self](int dyn_index, [[maybe_unused]] int rep_index) {".into(),
                         format!("    switch(dyn_index) {{ {} }};", repeated_input_branch.join("")),
                         "    return sixtyfps::private_api::ComponentRef{nullptr, nullptr};\n}, window);".into(),
@@ -1108,7 +1108,7 @@ fn generate_component(
                         .into(),
                 is_static: true,
                 statements: Some(vec![
-                    format!("    auto self = reinterpret_cast<{}*>(component.instance);", component_id),
+                    format!("    [[maybe_unused]] auto self = reinterpret_cast<{}*>(component.instance);", component_id),
                     "return sixtyfps::private_api::process_focus_event(component, self->focus_item, focus_event, item_tree(), [self](int dyn_index, [[maybe_unused]] int rep_index) {".into(),
                     format!("    switch(dyn_index) {{ {} }};", repeated_input_branch.join("")),
                     "    return sixtyfps::private_api::ComponentRef{nullptr, nullptr};\n}, window);".into(),
