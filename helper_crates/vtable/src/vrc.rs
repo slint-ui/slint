@@ -71,6 +71,10 @@ impl<'vt, VTable: VTableMeta, X> VRcInner<'vt, VTable, X> {
         let ptr = self as *const Self as *const u8;
         unsafe { ptr.add(self.data_offset as usize) as *const X }
     }
+    fn as_ref(&self) -> &X {
+        let ptr = self as *const Self as *const u8;
+        unsafe { &*(ptr.add(self.data_offset as usize) as *const X) }
+    }
 }
 
 /// A reference counted pointer to an object matching the virtual table `T`
@@ -217,7 +221,7 @@ impl<VTable: VTableMetaDropInPlace, X /*+ HasStaticVTable<VTable>*/> Deref for V
     type Target = X;
     fn deref(&self) -> &Self::Target {
         let inner = unsafe { self.inner.as_ref() };
-        &inner.data
+        inner.as_ref()
     }
 }
 
