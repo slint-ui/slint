@@ -13,18 +13,13 @@ LICENSE END */
     [GenericWindow] trait used by the generated code and the run-time to change
     aspects of windows on the screen.
 */
-use crate::{
-    component::{ComponentRc, ComponentVTable},
-    items::ItemRef,
-    slice::Slice,
-};
+use crate::{component::ComponentRc, items::ItemRef, slice::Slice};
 use std::cell::RefCell;
 use std::{
     convert::TryInto,
     pin::Pin,
     rc::{Rc, Weak},
 };
-use vtable::*;
 
 use crate::input::{KeyEvent, MouseEventType};
 #[cfg(not(target_arch = "wasm32"))]
@@ -107,11 +102,7 @@ pub trait GenericWindow {
 
     /// Sets the focus to the item pointed to by item_ptr. This will remove the focus from any
     /// currently focused item.
-    fn set_focus_item(
-        self: Rc<Self>,
-        component: core::pin::Pin<crate::component::ComponentRef>,
-        item_ptr: *const u8,
-    );
+    fn set_focus_item(self: Rc<Self>, focus_item_component: &ComponentRc, focus_item_index: usize);
     /// Sets the focus on the window to true or false, depending on the have_focus argument.
     /// This results in WindowFocusReceived and WindowFocusLost events.
     fn set_focus(self: Rc<Self>, have_focus: bool);
@@ -181,12 +172,8 @@ impl ComponentWindow {
 
     /// Clears the focus on any previously focused item and makes the provided
     /// item the focus item, in order to receive future key events.
-    pub fn set_focus_item(
-        &self,
-        component: core::pin::Pin<crate::component::ComponentRef>,
-        item: Pin<VRef<crate::items::ItemVTable>>,
-    ) {
-        self.0.clone().set_focus_item(component, item.as_ptr())
+    pub fn set_focus_item(&self, focus_item_component: &ComponentRc, focus_item_index: usize) {
+        self.0.clone().set_focus_item(focus_item_component, focus_item_index)
     }
 
     /// Associates this window with the specified component, for future event handling, etc.
@@ -532,7 +519,6 @@ pub mod ffi {
     #![allow(unsafe_code)]
 
     use super::*;
-    use crate::items::ItemVTable;
 
     #[allow(non_camel_case_types)]
     type c_void = ();
@@ -609,11 +595,11 @@ pub mod ffi {
     #[no_mangle]
     pub unsafe extern "C" fn sixtyfps_component_window_set_focus_item(
         handle: *const ComponentWindowOpaque,
-        component: Pin<VRef<ComponentVTable>>,
-        item: Pin<VRef<ItemVTable>>,
+        focus_item_component: &ComponentRc,
+        focus_item_index: usize,
     ) {
         let window = &*(handle as *const ComponentWindow);
-        window.set_focus_item(component, item)
+        window.set_focus_item(focus_item_component, focus_item_index)
     }
 
     /// Associates the window with the given component.

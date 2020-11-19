@@ -25,7 +25,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 #![allow(non_upper_case_globals)]
 #![allow(missing_docs)] // because documenting each property of items is redundent
 
-use super::component::{ComponentRefPin, ComponentVTable};
+use super::component::ComponentVTable;
 use super::eventloop::ComponentWindow;
 use super::graphics::{Color, HighLevelRenderingPrimitive, PathData, Rect, Resource};
 use super::input::{
@@ -84,7 +84,8 @@ pub struct ItemVTable {
         core::pin::Pin<VRef<ItemVTable>>,
         MouseEvent,
         window: &ComponentWindow,
-        app_component: core::pin::Pin<VRef<ComponentVTable>>,
+        self_component: &VRc<ComponentVTable, vtable::Dyn>,
+        self_index: usize,
     ) -> InputEventResult,
 
     pub focus_event:
@@ -160,7 +161,8 @@ impl Item for Rectangle {
         self: Pin<&Self>,
         _: MouseEvent,
         _window: &ComponentWindow,
-        _app_component: ComponentRefPin,
+        _self_component: &VRc<ComponentVTable, vtable::Dyn>,
+        _self_index: usize,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
@@ -248,7 +250,8 @@ impl Item for BorderRectangle {
         self: Pin<&Self>,
         _: MouseEvent,
         _window: &ComponentWindow,
-        _app_component: ComponentRefPin,
+        _self_component: &VRc<ComponentVTable, vtable::Dyn>,
+        _self_index: usize,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
@@ -334,7 +337,8 @@ impl Item for Image {
         self: Pin<&Self>,
         _: MouseEvent,
         _window: &ComponentWindow,
-        _app_component: ComponentRefPin,
+        _self_component: &VRc<ComponentVTable, vtable::Dyn>,
+        _self_index: usize,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
@@ -476,7 +480,8 @@ impl Item for Text {
         self: Pin<&Self>,
         _: MouseEvent,
         _window: &ComponentWindow,
-        _app_component: ComponentRefPin,
+        _self_component: &VRc<ComponentVTable, vtable::Dyn>,
+        _self_index: usize,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
@@ -567,7 +572,8 @@ impl Item for TouchArea {
         self: Pin<&Self>,
         event: MouseEvent,
         _window: &ComponentWindow,
-        _app_component: ComponentRefPin,
+        _self_component: &VRc<ComponentVTable, vtable::Dyn>,
+        _self_index: usize,
     ) -> InputEventResult {
         Self::FIELD_OFFSETS.mouse_x.apply_pin(self).set(event.pos.x);
         Self::FIELD_OFFSETS.mouse_y.apply_pin(self).set(event.pos.y);
@@ -674,7 +680,8 @@ impl Item for Path {
         self: Pin<&Self>,
         _: MouseEvent,
         _window: &ComponentWindow,
-        _app_component: ComponentRefPin,
+        _self_component: &VRc<ComponentVTable, vtable::Dyn>,
+        _self_index: usize,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
@@ -750,7 +757,8 @@ impl Item for Flickable {
         self: Pin<&Self>,
         event: MouseEvent,
         _window: &ComponentWindow,
-        _app_component: ComponentRefPin,
+        _self_component: &VRc<ComponentVTable, vtable::Dyn>,
+        _self_index: usize,
     ) -> InputEventResult {
         if !Self::FIELD_OFFSETS.interactive.apply_pin(self).get() {
             return InputEventResult::EventIgnored;
@@ -875,7 +883,8 @@ impl Item for Window {
         self: Pin<&Self>,
         _event: MouseEvent,
         _window: &ComponentWindow,
-        _app_component: ComponentRefPin,
+        _self_component: &VRc<ComponentVTable, vtable::Dyn>,
+        _self_index: usize,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
@@ -1034,7 +1043,8 @@ impl Item for TextInput {
         self: Pin<&Self>,
         event: MouseEvent,
         window: &ComponentWindow,
-        app_component: ComponentRefPin,
+        self_component: &VRc<ComponentVTable, vtable::Dyn>,
+        self_index: usize,
     ) -> InputEventResult {
         if !Self::FIELD_OFFSETS.enabled.apply_pin(self).get() {
             return InputEventResult::EventIgnored;
@@ -1050,7 +1060,7 @@ impl Item for TextInput {
             self.as_ref().anchor_position.set(clicked_offset);
             self.as_ref().cursor_position.set(clicked_offset);
             if !Self::FIELD_OFFSETS.has_focus.apply_pin(self).get() {
-                window.set_focus_item(app_component, VRef::new_pin(self));
+                window.set_focus_item(self_component, self_index);
             }
         }
 
@@ -1166,7 +1176,7 @@ impl Item for TextInput {
 
     fn focus_event(self: Pin<&Self>, event: &FocusEvent, window: &ComponentWindow) {
         match event {
-            FocusEvent::FocusIn(_) | FocusEvent::WindowReceivedFocus => {
+            FocusEvent::FocusIn | FocusEvent::WindowReceivedFocus => {
                 self.has_focus.set(true);
                 self.show_cursor(window);
             }

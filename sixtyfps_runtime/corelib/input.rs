@@ -11,7 +11,7 @@ LICENSE END */
 */
 #![warn(missing_docs)]
 
-use crate::component::{ComponentRc, ComponentRefPin};
+use crate::component::ComponentRc;
 use crate::graphics::Point;
 use crate::item_tree::{ItemVisitorResult, VisitChildrenResult};
 use euclid::default::Vector2D;
@@ -453,62 +453,14 @@ pub enum KeyEventResult {
 #[derive(Debug, Clone, PartialEq)]
 #[repr(C)]
 pub enum FocusEvent {
-    /// This event is sent when an item receives the focus. The value contained
-    /// in the tuple is a raw pointer to the item that is intended to receive the
-    /// focus. This is only used for equality comparison.
-    FocusIn(*const u8),
+    /// This event is sent when an item receives the focus.
+    FocusIn,
     /// This event is sent when an item looses the focus.
     FocusOut,
     /// This event is sent when the window receives the keyboard focus.
     WindowReceivedFocus,
     /// This event is sent when the window looses the keyboard focus.
     WindowLostFocus,
-}
-
-/// Represents how a component's focus_event dealt with the transfer of focus
-/// to an item.
-#[derive(Debug, Clone, PartialEq, Copy)]
-#[repr(C)]
-pub enum FocusEventResult {
-    /// The requested item to transfer focus to was found.
-    FocusItemFound,
-    /// The requested focus item was not in the component's tree of items.
-    FocusItemNotFound,
-}
-
-/// Scans the tree of items of the component to locate the item pointed to by
-/// the focus_event (assuming it is of type FocusIn). Once located, the focus in
-/// even will also be dispatched to the item itself.
-pub fn locate_and_activate_focus_item(
-    component: &ComponentRc,
-    focus_event: &FocusEvent,
-    window: &crate::eventloop::ComponentWindow,
-) -> (FocusEventResult, VisitChildrenResult) {
-    let mut result = FocusEventResult::FocusItemNotFound;
-    let item_index = crate::item_tree::visit_items(
-        component,
-        crate::item_tree::TraversalOrder::FrontToBack,
-        |_, item, _| -> ItemVisitorResult<()> {
-            if let FocusEvent::FocusIn(new_focus_item_ptr) = focus_event {
-                if item.as_ptr() == *new_focus_item_ptr {
-                    item.as_ref().focus_event(focus_event, window);
-                    result = FocusEventResult::FocusItemFound;
-                    return ItemVisitorResult::Abort;
-                }
-            }
-            ItemVisitorResult::Continue(())
-        },
-        (),
-    );
-
-    (
-        result,
-        if result == FocusEventResult::FocusItemFound {
-            item_index
-        } else {
-            VisitChildrenResult::CONTINUE
-        },
-    )
 }
 
 /// Feed the given mouse event into the tree of items that component holds. The
@@ -525,7 +477,6 @@ pub fn process_ungrabbed_mouse_event(
     component: &ComponentRc,
     event: MouseEvent,
     window: &crate::eventloop::ComponentWindow,
-    app_component: ComponentRefPin,
 ) -> (InputEventResult, VisitChildrenResult) {
     let offset = Vector2D::new(0., 0.);
 
@@ -533,14 +484,14 @@ pub fn process_ungrabbed_mouse_event(
     let item_index = crate::item_tree::visit_items(
         component,
         crate::item_tree::TraversalOrder::FrontToBack,
-        |_, item, offset| -> ItemVisitorResult<Vector2D<f32>> {
+        |comp_rc, item, item_index, offset| -> ItemVisitorResult<Vector2D<f32>> {
             let geom = item.as_ref().geometry();
             let geom = geom.translate(*offset);
 
             if geom.contains(event.pos) {
                 let mut event2 = event.clone();
                 event2.pos -= geom.origin.to_vector();
-                match item.as_ref().input_event(event2, window, app_component) {
+                match item.as_ref().input_event(event2, window, comp_rc, item_index) {
                     InputEventResult::EventAccepted => {
                         result = InputEventResult::EventAccepted;
                         return ItemVisitorResult::Abort;
@@ -599,10 +550,9 @@ pub(crate) mod ffi {
         component: &ComponentRc,
         event: MouseEvent,
         window: &crate::eventloop::ComponentWindow,
-        app_component: core::pin::Pin<crate::component::ComponentRef>,
         new_mouse_grabber: &mut crate::item_tree::VisitChildrenResult,
     ) -> InputEventResult {
-        let (res, grab) = process_ungrabbed_mouse_event(component, event, window, app_component);
+        let (res, grab) = process_ungrabbed_mouse_event(component, event, window);
         *new_mouse_grabber = grab;
         res
     }
@@ -617,16 +567,4 @@ pub(crate) mod ffi {
     ) -> (InputEventResult, crate::item_tree::VisitChildrenResult) {
         process_grabbed_mouse_event(component, item, offset, event, old_grab)
     }*/
-
-    #[no_mangle]
-    pub extern "C" fn sixtyfps_locate_and_activate_focus_item(
-        component: &ComponentRc,
-        event: &FocusEvent,
-        window: &crate::eventloop::ComponentWindow,
-        new_focus_item: &mut crate::item_tree::VisitChildrenResult,
-    ) -> FocusEventResult {
-        let (result, focus_item) = locate_and_activate_focus_item(component, event, window);
-        *new_focus_item = focus_item;
-        result
-    }
 }

@@ -402,12 +402,6 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                 };
                 if let Expression::ElementReference(focus_item) = &arguments[0] {
                     generativity::make_guard!(guard);
-                    let component_ref: Pin<vtable::VRef<corelib::component::ComponentVTable>> = unsafe {
-                        Pin::new_unchecked(vtable::VRef::from_raw(
-                            core::ptr::NonNull::from(&component.component_type.ct).cast(),
-                            core::ptr::NonNull::from(&*component.as_ptr()),
-                        ))
-                    };
 
                     let focus_item = focus_item.upgrade().unwrap();
                     let enclosing_component =
@@ -415,10 +409,10 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                     let component_type = enclosing_component.component_type;
 
                     let item_info = &component_type.items[focus_item.borrow().id.as_str()];
-                    let item =
-                        unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
 
-                    window_ref(component).unwrap().set_focus_item(component_ref, item);
+                    let focus_item_comp = enclosing_component.self_weak().get().unwrap().upgrade().unwrap();
+
+                    window_ref(component).unwrap().set_focus_item(&vtable::VRc::into_dyn(focus_item_comp), item_info.item_index());
                     Value::Void
                 } else {
                     panic!("internal error: argument to SetFocusItem must be an element")

@@ -358,8 +358,6 @@ fn generate_component(
     let mut repeated_element_components = Vec::new();
     let mut repeated_visit_branch = Vec::new();
     let mut repeated_input_branch = Vec::new();
-    let mut repeated_key_event_branch = Vec::new();
-    let mut repeated_focus_branch = Vec::new();
     let mut init = Vec::new();
     let mut window_field_init = None;
     let mut window_parent_param = None;
@@ -524,13 +522,7 @@ fn generate_component(
             }
 
             repeated_input_branch.push(quote!(
-                #repeater_index => self.#repeater_id.input_event(rep_index, event, window, app_component),
-            ));
-            repeated_key_event_branch.push(quote!(
-                #repeater_index => self.#repeater_id.key_event(rep_index, event, window),
-            ));
-            repeated_focus_branch.push(quote!(
-                #repeater_index => self.#repeater_id.focus_event(rep_index, event, window),
+                #repeater_index => self.#repeater_id.input_event(rep_index, event, window),
             ));
 
             item_tree_array.push(quote!(
@@ -694,10 +686,10 @@ fn generate_component(
                 }
             }
 
-            fn input_event(self: ::core::pin::Pin<&Self>, mouse_event : sixtyfps::re_exports::MouseEvent, window: &sixtyfps::re_exports::ComponentWindow,
-                           app_component: &::core::pin::Pin<sixtyfps::re_exports::VRef<sixtyfps::re_exports::ComponentVTable>>) -> sixtyfps::re_exports::InputEventResult {
+            fn input_event(self: ::core::pin::Pin<&Self>, mouse_event : sixtyfps::re_exports::MouseEvent, window: &sixtyfps::re_exports::ComponentWindow) -> sixtyfps::re_exports::InputEventResult {
                 use sixtyfps::re_exports::*;
                 let mouse_grabber = self.mouse_grabber.get();
+                let self_rc = VRc::into_dyn(self.as_ref().self_weak.get().unwrap().upgrade().unwrap());
                 #[allow(unused)]
                 let (status, new_grab) = if let Some((item_index, rep_index)) = mouse_grabber.aborted_indexes() {
                     let tree = Self::item_tree();
@@ -706,7 +698,7 @@ fn generate_component(
                     event.pos -= offset.to_vector();
                     let res = match tree[item_index] {
                         ItemTreeNode::Item { item, .. } => {
-                            item.apply_pin(self).as_ref().input_event(event, window, app_component.clone())
+                            item.apply_pin(self).as_ref().input_event(event, window, &self_rc, item_index)
                         }
                         ItemTreeNode::DynamicTree { index } => {
                             match index {
@@ -720,70 +712,10 @@ fn generate_component(
                         _ => (res, VisitChildrenResult::CONTINUE),
                     }
                 } else {
-                    process_ungrabbed_mouse_event(&VRc::into_dyn(self.as_ref().self_weak.get().unwrap().upgrade().unwrap()), mouse_event, window, app_component.clone())
+                    process_ungrabbed_mouse_event(&self_rc, mouse_event, window)
                 };
                 self.mouse_grabber.set(new_grab);
                 status
-            }
-
-            fn key_event(self: ::core::pin::Pin<&Self>, event : &sixtyfps::re_exports::KeyEvent, window: &sixtyfps::re_exports::ComponentWindow)
-                -> sixtyfps::re_exports::KeyEventResult {
-                use sixtyfps::re_exports::*;
-                #[allow(unused)]
-                if let Some((item_index, rep_index)) = self.focus_item.get().aborted_indexes() {
-                    let tree = Self::item_tree();
-                    match tree[item_index] {
-                        ItemTreeNode::Item { item, .. } => {
-                            item.apply_pin(self).as_ref().key_event(&event, window)
-                        }
-                        ItemTreeNode::DynamicTree { index } => {
-                            match index {
-                                #(#repeated_key_event_branch)*
-                                _ => panic!("invalid index {}", index),
-                            }
-                        }
-                    }
-                } else {
-                    KeyEventResult::EventIgnored
-                }
-            }
-
-            fn focus_event(self: ::core::pin::Pin<&Self>, event: &sixtyfps::re_exports::FocusEvent, window: &sixtyfps::re_exports::ComponentWindow)
-                -> sixtyfps::re_exports::FocusEventResult {
-                use sixtyfps::re_exports::*;
-                #[allow(unused)]
-                match event {
-                    FocusEvent::FocusIn(_) => {
-                        let (event_result, visit_result) = locate_and_activate_focus_item(&VRc::into_dyn(self.as_ref().self_weak.get().unwrap().upgrade().unwrap()), event, window);
-                        if event_result == FocusEventResult::FocusItemFound {
-                            self.focus_item.set(visit_result)
-                        }
-                        event_result
-                    }
-                    FocusEvent::FocusOut | FocusEvent::WindowReceivedFocus | FocusEvent::WindowLostFocus => {
-                        if let Some((item_index, rep_index)) = self.focus_item.get().aborted_indexes() {
-                            let tree = Self::item_tree();
-                            match tree[item_index] {
-                                ItemTreeNode::Item { item, .. } => {
-                                    item.apply_pin(self).as_ref().focus_event(&event, window)
-                                }
-                                ItemTreeNode::DynamicTree { index } => {
-                                    match index {
-                                        #(#repeated_focus_branch)*
-                                        _ => panic!("invalid index {}", index),
-                                    };
-                                }
-                            };
-                            // Preserve the focus_item field unless we're clearing it as part of a focus out phase.
-                            if matches!(event, FocusEvent::FocusOut) {
-                                self.focus_item.set(VisitChildrenResult::CONTINUE);
-                            }
-                            FocusEventResult::FocusItemFound // We had a focus item and "found" it and notified it
-                        } else {
-                            FocusEventResult::FocusItemNotFound
-                        }
-                    }
-                }
             }
 
             #layouts
@@ -842,7 +774,6 @@ fn generate_component(
             #(#self_weak : sixtyfps::re_exports::OnceCell<sixtyfps::re_exports::VWeak<sixtyfps::re_exports::ComponentVTable, #component_id>>,)*
             #(parent : sixtyfps::re_exports::VWeak<sixtyfps::re_exports::ComponentVTable, #parent_component_type>,)*
             mouse_grabber: ::core::cell::Cell<sixtyfps::re_exports::VisitChildrenResult>,
-            focus_item: ::core::cell::Cell<sixtyfps::re_exports::VisitChildrenResult>,
             #(#global_name : ::core::pin::Pin<::std::rc::Rc<#global_type>>,)*
             #window_field
         }
@@ -863,7 +794,6 @@ fn generate_component(
                     #(#self_weak : ::core::default::Default::default(),)*
                     #(parent : parent as sixtyfps::re_exports::VWeak::<sixtyfps::re_exports::ComponentVTable, #parent_component_type>,)*
                     mouse_grabber: ::core::cell::Cell::new(sixtyfps::re_exports::VisitChildrenResult::CONTINUE),
-                    focus_item: ::core::cell::Cell::new(sixtyfps::re_exports::VisitChildrenResult::CONTINUE),
                     #(#global_name : #global_type::new(),)*
                     #window_field_init
                 };
@@ -1129,9 +1059,11 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                         panic!("internal error: incorrect argument count to SetFocusItem call");
                     }
                     if let Expression::ElementReference(focus_item) = &arguments[0] {
-                        let item = format_ident!("{}", focus_item.upgrade().unwrap().borrow().id);
+                        let focus_item = focus_item.upgrade().unwrap();
+                        let focus_item = focus_item.borrow();
+                        let item_index = focus_item.item_index.get().unwrap();
                         quote!(
-                            _self.window.set_focus_item(VRef::new_pin(self_pinned.as_pin_ref()), VRef::new_pin(Self::FIELD_OFFSETS.#item.apply_pin(self_pinned.as_pin_ref())));
+                            _self.window.set_focus_item(&VRc::into_dyn(_self.self_weak.get().unwrap().upgrade().unwrap()), #item_index);
                         )
                     } else {
                         panic!("internal error: argument to SetFocusItem must be an element")

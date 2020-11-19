@@ -13,9 +13,7 @@ LICENSE END */
 
 use crate::eventloop::ComponentWindow;
 use crate::graphics::Rect;
-use crate::input::{
-    FocusEvent, FocusEventResult, InputEventResult, KeyEvent, KeyEventResult, MouseEvent,
-};
+use crate::input::{InputEventResult, MouseEvent};
 use crate::item_tree::{ItemVisitorVTable, TraversalOrder, VisitChildrenResult};
 use crate::items::ItemVTable;
 use crate::layout::LayoutInfo;
@@ -52,22 +50,7 @@ pub struct ComponentVTable {
         core::pin::Pin<VRef<ComponentVTable>>,
         MouseEvent,
         &ComponentWindow,
-        &core::pin::Pin<VRef<ComponentVTable>>,
     ) -> InputEventResult,
-
-    /// key event
-    pub key_event: extern "C" fn(
-        core::pin::Pin<VRef<ComponentVTable>>,
-        &KeyEvent,
-        &ComponentWindow,
-    ) -> KeyEventResult,
-
-    /// Event sent to transfer focus between items or to communicate window focus change.
-    pub focus_event: extern "C" fn(
-        core::pin::Pin<VRef<ComponentVTable>>,
-        &FocusEvent,
-        &ComponentWindow,
-    ) -> FocusEventResult,
 
     /// in-place destructor (for VRc)
     pub drop_in_place: unsafe fn(VRefMut<ComponentVTable>) -> vtable::Layout,

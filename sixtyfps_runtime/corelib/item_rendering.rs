@@ -95,7 +95,7 @@ pub(crate) fn render_component_items<Backend: GraphicsBackend>(
     crate::item_tree::visit_items_with_post_visit(
         component,
         crate::item_tree::TraversalOrder::BackToFront,
-        |_, item, transform| {
+        |_, item, _, transform| {
             let origin = item.as_ref().geometry().origin;
             let transform =
                 transform * Matrix4::from_translation(Vector3::new(origin.x, origin.y, 0.));

@@ -165,6 +165,25 @@ pub async fn run_passes<'a>(
     passes::resolve_native_classes::resolve_native_classes(&doc.root_component);
     passes::collect_globals::collect_globals(&doc.root_component, diag);
     passes::collect_structs::collect_structs(&doc.root_component, diag);
+
+    fn generate_item_indices(component: &Rc<object_tree::Component>) {
+        let mut current_item_index: usize = 0;
+        generator::build_array_helper(&component, move |item_rc, _, is_flickable_rect| {
+            let item = item_rc.borrow();
+            if is_flickable_rect {
+                current_item_index += 1;
+            } else if item.base_type == crate::langtype::Type::Void {
+            } else if item.repeated.is_some() {
+                generate_item_indices(&*item.base_type.as_component());
+                current_item_index += 1;
+            } else {
+                item.item_index.set(current_item_index).unwrap();
+                current_item_index += 1;
+            }
+        });
+    }
+
+    generate_item_indices(&doc.root_component);
 }
 
 mod library {

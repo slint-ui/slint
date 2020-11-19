@@ -98,9 +98,10 @@ public:
         cbindgen_private::sixtyfps_component_window_free_graphics_resources(&inner, &items);
     }
 
-    void set_focus_item(vtable::VRef<ComponentVTable> c, vtable::VRef<ItemVTable> item)
+    void set_focus_item(const ComponentRc &component_rc, uintptr_t item_index)
     {
-        cbindgen_private::sixtyfps_component_window_set_focus_item(&inner, c, item);
+        cbindgen_private::sixtyfps_component_window_set_focus_item(&inner, &component_rc,
+                                                                   item_index);
     }
 
     template<typename Component, typename ItemTree>
@@ -167,7 +168,6 @@ inline ItemRef get_item_ref(ComponentRef component, Slice<ItemTreeNode> item_tre
 }
 
 using cbindgen_private::FocusEvent;
-using cbindgen_private::FocusEventResult;
 using cbindgen_private::InputEventResult;
 using cbindgen_private::KeyEvent;
 using cbindgen_private::KeyEventResult;
@@ -177,8 +177,7 @@ namespace private_api {
 template<typename GetDynamic>
 inline InputEventResult process_input_event(const ComponentRc &component_rc, int64_t &mouse_grabber,
                                             MouseEvent mouse_event, Slice<ItemTreeNode> tree,
-                                            GetDynamic get_dynamic, const ComponentWindow *window,
-                                            const ComponentRef *app_component)
+                                            GetDynamic get_dynamic, const ComponentWindow *window)
 {
     if (mouse_grabber != -1) {
         auto item_index = mouse_grabber & 0xffffffff;
@@ -196,11 +195,11 @@ inline InputEventResult process_input_event(const ComponentRc &component_rc, int
                             reinterpret_cast<char *>(component_rc.borrow().instance)
                                     + item_node.item.item.offset,
                     },
-                    mouse_event, window, *app_component);
+                    mouse_event, window, &component_rc, item_index);
             break;
         case ItemTreeNode::Tag::DynamicTree: {
             ComponentRef comp = get_dynamic(item_node.dynamic_tree.index, rep_index);
-            result = comp.vtable->input_event(comp, mouse_event, window, app_component);
+            result = comp.vtable->input_event(comp, mouse_event, window);
         } break;
         }
         if (result != InputEventResult::GrabMouse) {
@@ -208,79 +207,9 @@ inline InputEventResult process_input_event(const ComponentRc &component_rc, int
         }
         return result;
     } else {
-        return cbindgen_private::sixtyfps_process_ungrabbed_mouse_event(
-                &component_rc, mouse_event, window, *app_component, &mouse_grabber);
+        return cbindgen_private::sixtyfps_process_ungrabbed_mouse_event(&component_rc, mouse_event,
+                                                                        window, &mouse_grabber);
     }
-}
-template<typename GetDynamic>
-inline KeyEventResult process_key_event(ComponentRef component, int64_t focus_item,
-                                        const KeyEvent *event, Slice<ItemTreeNode> tree,
-                                        GetDynamic get_dynamic, const ComponentWindow *window)
-{
-    if (focus_item != -1) {
-        auto item_index = focus_item & 0xffffffff;
-        auto rep_index = focus_item >> 32;
-        const auto &item_node = tree.ptr[item_index];
-        switch (item_node.tag) {
-        case ItemTreeNode::Tag::Item:
-            return item_node.item.item.vtable->key_event(
-                    {
-                            item_node.item.item.vtable,
-                            reinterpret_cast<char *>(component.instance)
-                                    + item_node.item.item.offset,
-                    },
-                    event, window);
-        case ItemTreeNode::Tag::DynamicTree: {
-            ComponentRef comp = get_dynamic(item_node.dynamic_tree.index, rep_index);
-            return comp.vtable->key_event(comp, event, window);
-        };
-        }
-    }
-    return KeyEventResult::EventIgnored;
-}
-
-template<typename GetDynamic>
-inline FocusEventResult process_focus_event(const ComponentRc &component_rc, int64_t &focus_item,
-                                            const FocusEvent *event, Slice<ItemTreeNode> tree,
-                                            GetDynamic get_dynamic, const ComponentWindow *window)
-{
-    switch (event->tag) {
-    case FocusEvent::Tag::FocusIn:
-        return cbindgen_private::sixtyfps_locate_and_activate_focus_item(&component_rc, event,
-                                                                         window, &focus_item);
-    case FocusEvent::Tag::FocusOut:
-        [[fallthrough]];
-    case FocusEvent::Tag::WindowReceivedFocus:
-        [[fallthrough]];
-    case FocusEvent::Tag::WindowLostFocus:
-        if (focus_item != -1) {
-            auto item_index = focus_item & 0xffffffff;
-            auto rep_index = focus_item >> 32;
-            const auto &item_node = tree.ptr[item_index];
-            switch (item_node.tag) {
-            case ItemTreeNode::Tag::Item:
-                item_node.item.item.vtable->focus_event(
-                        {
-                                item_node.item.item.vtable,
-                                reinterpret_cast<char *>(component_rc.borrow().instance)
-                                        + item_node.item.item.offset,
-                        },
-                        event, window);
-                break;
-            case ItemTreeNode::Tag::DynamicTree: {
-                ComponentRef comp = get_dynamic(item_node.dynamic_tree.index, rep_index);
-                comp.vtable->focus_event(comp, event, window);
-            } break;
-            }
-            if (event->tag == FocusEvent::Tag::FocusOut) {
-                focus_item = -1;
-            }
-            return FocusEventResult::FocusItemFound;
-        } else {
-            return FocusEventResult::FocusItemNotFound;
-        }
-    }
-    return FocusEventResult::FocusItemNotFound;
 }
 
 void dealloc(const ComponentVTable *, uint8_t *ptr, vtable::Layout layout)

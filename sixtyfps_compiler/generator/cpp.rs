@@ -1104,60 +1104,13 @@ fn generate_component(
             Declaration::Function(Function {
                 name: "input_event".into(),
                 signature:
-                    "(sixtyfps::private_api::ComponentRef component, sixtyfps::MouseEvent mouse_event, const sixtyfps::private_api::ComponentWindow *window, const sixtyfps::private_api::ComponentRef *app_component) -> sixtyfps::InputEventResult"
+                    "(sixtyfps::private_api::ComponentRef component, sixtyfps::MouseEvent mouse_event, const sixtyfps::private_api::ComponentWindow *window) -> sixtyfps::InputEventResult"
                         .into(),
                 is_static: true,
                 statements: Some(vec![
                     format!("auto self = reinterpret_cast<{}*>(component.instance);", component_id),
                     "auto self_rc = self->self_weak.lock()->into_dyn();".into(),
                     "return sixtyfps::private_api::process_input_event(self_rc, self->mouse_grabber, mouse_event, item_tree(), [self](int dyn_index, [[maybe_unused]] int rep_index) {".into(),
-                    "    (void)self;".into(),
-                    format!("    switch(dyn_index) {{ {} }};", repeated_input_branch.join("")),
-                    "    return sixtyfps::private_api::ComponentRef{nullptr, nullptr};\n}, window, app_component);".into(),
-                ]),
-                ..Default::default()
-            }),
-        ));
-
-        component_struct.members.push((
-            Access::Private,
-            Declaration::Function(Function {
-                name: "key_event".into(),
-                signature:
-                    "(sixtyfps::private_api::ComponentRef component, const sixtyfps::KeyEvent *key_event, const sixtyfps::private_api::ComponentWindow *window) -> sixtyfps::KeyEventResult"
-                    .into(),
-                    is_static: true,
-                    statements: Some(vec![
-                        format!("    auto self = reinterpret_cast<{}*>(component.instance);", component_id),
-                        "return sixtyfps::private_api::process_key_event(component, self->focus_item, key_event, item_tree(), [self](int dyn_index, [[maybe_unused]] int rep_index) {".into(),
-                        "    (void)self;".into(),
-                        format!("    switch(dyn_index) {{ {} }};", repeated_input_branch.join("")),
-                        "    return sixtyfps::private_api::ComponentRef{nullptr, nullptr};\n}, window);".into(),
-                    ]),
-                    ..Default::default()
-                }),
-            ));
-
-        component_struct.members.push((
-            Access::Private,
-            Declaration::Var(Var {
-                ty: "int64_t".into(),
-                name: "focus_item".into(),
-                init: Some("-1".into()),
-            }),
-        ));
-        component_struct.members.push((
-            Access::Private,
-            Declaration::Function(Function {
-                name: "focus_event".into(),
-                signature:
-                    "(sixtyfps::private_api::ComponentRef component, const sixtyfps::FocusEvent *focus_event, const sixtyfps::private_api::ComponentWindow *window) -> sixtyfps::FocusEventResult"
-                        .into(),
-                is_static: true,
-                statements: Some(vec![
-                    format!("auto self = reinterpret_cast<{}*>(component.instance);", component_id),
-                    "auto self_rc = self->self_weak.lock()->into_dyn();".into(),
-                    "return sixtyfps::private_api::process_focus_event(self_rc, self->focus_item, focus_event, item_tree(), [self](int dyn_index, [[maybe_unused]] int rep_index) {".into(),
                     "    (void)self;".into(),
                     format!("    switch(dyn_index) {{ {} }};", repeated_input_branch.join("")),
                     "    return sixtyfps::private_api::ComponentRef{nullptr, nullptr};\n}, window);".into(),
@@ -1243,7 +1196,7 @@ fn generate_component(
             ty: "const sixtyfps::private_api::ComponentVTable".to_owned(),
             name: format!("{}::component_type", component_id),
             init: Some(format!(
-                "{{ visit_children, get_item_ref, layouting_info, apply_layout, input_event, key_event, focus_event, sixtyfps::private_api::drop_in_place<{}>, sixtyfps::private_api::dealloc }}",
+                "{{ visit_children, get_item_ref, layouting_info, apply_layout, input_event, sixtyfps::private_api::drop_in_place<{}>, sixtyfps::private_api::dealloc }}",
                 component_id)
             ),
         }));
@@ -1476,14 +1429,7 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
                 if let Expression::ElementReference(focus_item) = &arguments[0] {
                     let focus_item = focus_item.upgrade().unwrap();
                     let focus_item = focus_item.borrow();
-                    let component =
-                        format!("{{&{}::component_type, self}}", component_id(component));
-                    let item = format!(
-                        "{{&sixtyfps::private_api::{vt}, &self->{item}}}",
-                        vt = focus_item.base_type.as_native().vtable_symbol,
-                        item = focus_item.id
-                    );
-                    format!("self->window.set_focus_item({}, {});", component, item)
+                    format!("self->window.set_focus_item(self->self_weak.lock()->into_dyn(), {});", focus_item.item_index.get().unwrap())
                 } else {
                     panic!("internal error: argument to SetFocusItem must be an element")
                 }

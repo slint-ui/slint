@@ -27,7 +27,7 @@ it needs to be kept in sync with different place.
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use cpp::cpp;
-use sixtyfps_corelib::component::{ComponentRefPin, ComponentVTable};
+use sixtyfps_corelib::component::ComponentVTable;
 use sixtyfps_corelib::eventloop::ComponentWindow;
 use sixtyfps_corelib::graphics::{HighLevelRenderingPrimitive, Rect, RenderingVariable, Resource};
 use sixtyfps_corelib::input::{
@@ -197,7 +197,8 @@ impl Item for NativeButton {
         self: Pin<&Self>,
         event: MouseEvent,
         _window: &ComponentWindow,
-        _app_component: ComponentRefPin,
+        _self_component: &vtable::VRc<ComponentVTable, vtable::Dyn>,
+        _self_index: usize,
     ) -> InputEventResult {
         let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
         if !enabled {
@@ -329,7 +330,8 @@ impl Item for NativeCheckBox {
         self: Pin<&Self>,
         event: MouseEvent,
         _window: &ComponentWindow,
-        _app_component: ComponentRefPin,
+        _self_component: &vtable::VRc<ComponentVTable, vtable::Dyn>,
+        _self_index: usize,
     ) -> InputEventResult {
         if matches!(event.what, MouseEventType::MouseReleased) {
             Self::FIELD_OFFSETS
@@ -490,7 +492,8 @@ impl Item for NativeSpinBox {
         self: Pin<&Self>,
         event: MouseEvent,
         _window: &ComponentWindow,
-        _app_component: ComponentRefPin,
+        _self_component: &vtable::VRc<ComponentVTable, vtable::Dyn>,
+        _self_index: usize,
     ) -> InputEventResult {
         let size: qttypes::QSize = get_size!(self);
         let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
@@ -697,7 +700,8 @@ impl Item for NativeSlider {
         self: Pin<&Self>,
         event: MouseEvent,
         _window: &ComponentWindow,
-        _app_component: ComponentRefPin,
+        _self_component: &vtable::VRc<ComponentVTable, vtable::Dyn>,
+        _self_index: usize,
     ) -> InputEventResult {
         let size: qttypes::QSize = get_size!(self);
         let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
@@ -955,7 +959,8 @@ impl Item for NativeGroupBox {
         self: Pin<&Self>,
         _: MouseEvent,
         _window: &ComponentWindow,
-        _app_component: ComponentRefPin,
+        _self_component: &vtable::VRc<ComponentVTable, vtable::Dyn>,
+        _self_index: usize,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
@@ -1107,7 +1112,8 @@ impl Item for NativeLineEdit {
         self: Pin<&Self>,
         _: MouseEvent,
         _window: &ComponentWindow,
-        _app_component: ComponentRefPin,
+        _self_component: &vtable::VRc<ComponentVTable, vtable::Dyn>,
+        _self_index: usize,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
@@ -1358,7 +1364,8 @@ impl Item for NativeScrollView {
         self: Pin<&Self>,
         event: MouseEvent,
         window: &ComponentWindow,
-        _app_component: ComponentRefPin,
+        _self_component: &vtable::VRc<ComponentVTable, vtable::Dyn>,
+        _self_index: usize,
     ) -> InputEventResult {
         let dpr = window.scale_factor();
         let size: qttypes::QSize = get_size!(self);
@@ -1623,7 +1630,8 @@ impl Item for NativeStandardListViewItem {
         self: Pin<&Self>,
         _event: MouseEvent,
         _window: &ComponentWindow,
-        _app_component: ComponentRefPin,
+        _self_component: &vtable::VRc<ComponentVTable, vtable::Dyn>,
+        _self_index: usize,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
@@ -1744,7 +1752,8 @@ impl Item for NativeComboBox {
         self: Pin<&Self>,
         event: MouseEvent,
         _window: &ComponentWindow,
-        _app_component: ComponentRefPin,
+        _self_component: &vtable::VRc<ComponentVTable, vtable::Dyn>,
+        _self_index: usize,
     ) -> InputEventResult {
         let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
         if !enabled {

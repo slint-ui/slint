@@ -17,7 +17,6 @@ use std::{
     rc::{Rc, Weak},
 };
 
-use crate::component::ComponentRefPin;
 use crate::items::ItemRef;
 use crate::Property;
 
@@ -562,36 +561,9 @@ impl<C: RepeatedComponent> Repeater<C> {
         idx: usize,
         event: crate::input::MouseEvent,
         window: &crate::eventloop::ComponentWindow,
-        app_component: &ComponentRefPin,
     ) -> crate::input::InputEventResult {
         let c = self.inner.borrow().borrow().components[idx].1.clone();
-        c.map_or(Default::default(), |c| c.as_pin_ref().input_event(event, window, app_component))
-    }
-
-    /// Forward a key event to a particular item
-    pub fn key_event(
-        &self,
-        idx: usize,
-        event: &crate::input::KeyEvent,
-        window: &crate::eventloop::ComponentWindow,
-    ) -> crate::input::KeyEventResult {
-        let c = self.inner.borrow().borrow().components[idx].1.clone();
-        c.map_or(crate::input::KeyEventResult::EventIgnored, |c| {
-            c.as_pin_ref().key_event(event, window)
-        })
-    }
-
-    /// Forward a focus event to a particular item
-    pub fn focus_event(
-        &self,
-        idx: usize,
-        event: &crate::input::FocusEvent,
-        window: &crate::eventloop::ComponentWindow,
-    ) -> crate::input::FocusEventResult {
-        let c = self.inner.borrow().borrow().components[idx].1.clone();
-        c.map_or(crate::input::FocusEventResult::FocusItemNotFound, |c| {
-            c.as_pin_ref().focus_event(event, window)
-        })
+        c.map_or(Default::default(), |c| c.as_pin_ref().input_event(event, window))
     }
 
     /// Return the amount of item currently in the component

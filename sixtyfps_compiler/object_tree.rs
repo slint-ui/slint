@@ -268,6 +268,10 @@ pub struct Element {
 
     pub child_of_layout: bool,
 
+    /// This is the component-local index of this item in the item tree array.
+    /// It is generated after the last pass and before the generators run.
+    pub item_index: once_cell::unsync::OnceCell<usize>,
+
     /// The AST node, if available
     pub node: Option<syntax_nodes::Element>,
 }

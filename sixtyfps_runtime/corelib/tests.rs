@@ -35,22 +35,10 @@ pub extern "C" fn sixtyfps_send_mouse_click(
 ) {
     component.as_ref().apply_layout(window.0.get_geometry());
     let pos = euclid::point2(x, y);
-    component.as_ref().input_event(
-        MouseEvent { pos, what: MouseEventType::MouseMoved },
-        window,
-        &component,
-    );
-    component.as_ref().input_event(
-        MouseEvent { pos, what: MouseEventType::MousePressed },
-        window,
-        &component,
-    );
+    component.as_ref().input_event(MouseEvent { pos, what: MouseEventType::MouseMoved }, window);
+    component.as_ref().input_event(MouseEvent { pos, what: MouseEventType::MousePressed }, window);
     sixtyfps_mock_elapsed_time(50);
-    component.as_ref().input_event(
-        MouseEvent { pos, what: MouseEventType::MouseReleased },
-        window,
-        &component,
-    );
+    component.as_ref().input_event(MouseEvent { pos, what: MouseEventType::MouseReleased }, window);
 }
 
 /// Simulate a change in keyboard modifiers pressed.

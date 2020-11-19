@@ -167,6 +167,7 @@ fn duplicate_element_with_mapping(
             .map(|t| duplicate_transition(t, mapping, root_component))
             .collect(),
         child_of_layout: elem.child_of_layout,
+        item_index: Default::default(), // Not determined yet
     }));
     mapping.insert(element_key(element.clone()), new.clone());
     new
