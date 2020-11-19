@@ -1478,13 +1478,18 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
         }
         Expression::Condition { condition, true_expr, false_expr } => {
             let cond_code = compile_expression(condition, component);
+            let cond_code_without_parens = if cond_code.starts_with('(') && cond_code.ends_with(')') {
+                &cond_code[1..cond_code.len() - 1]
+            } else {
+                &cond_code
+            };
             let true_code = compile_expression(true_expr, component);
             let false_code = compile_expression(false_expr, component);
             let ty = e.ty();
             if ty == Type::Invalid || ty == Type::Void {
                 format!(
                     r#"[&]() {{ if ({}) {{ {}; }} else {{ {}; }}}}()"#,
-                    cond_code,
+                    cond_code_without_parens,
                     true_code,
                     false_code
                 )
@@ -1492,7 +1497,7 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
                 format!(
                     r#"[&]() -> {} {{ if ({}) {{ return {}; }} else {{ return {}; }}}}()"#,
                     ty.cpp_type().unwrap(),
-                    cond_code,
+                    cond_code_without_parens,
                     true_code,
                     false_code
                 )
