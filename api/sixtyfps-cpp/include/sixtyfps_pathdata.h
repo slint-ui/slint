@@ -48,6 +48,7 @@ public:
             case cbindgen_private::types::PathData::Tag::None:
                 return true;
         }
+        return false; //unreachable
     }
     friend bool operator!=(const PathData &a, const PathData &b) {
         return !(a == b);

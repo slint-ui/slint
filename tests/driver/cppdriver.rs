@@ -93,6 +93,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     if compiler.is_like_clang() || compiler.is_like_gnu() {
         compiler_command.arg("-std=c++17");
         compiler_command.arg("-g");
+        compiler_command.arg("-Werror").arg("-Wall").arg("-Wextra");
         compiler_command.arg(concat!("-L", env!("CPP_LIB_PATH")));
         compiler_command.arg("-lsixtyfps_rendering_backend_default");
         compiler_command.arg("-o").arg(&*binary_path);
