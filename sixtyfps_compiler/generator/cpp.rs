@@ -1323,7 +1323,7 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
                 "[](auto... args){ (std::cout << ... << args) << std::endl; return nullptr; }"
                     .into()
             }
-            BuiltinFunction::Mod => "[](int a1, int a2){ return a1 % a2; }".into(),
+            BuiltinFunction::Mod => "[](auto a1, auto a2){ return static_cast<int>(a1) % static_cast<int>(a2); }".into(),
             BuiltinFunction::Round => "[](float a){ return std::round(a); }".into(),
             BuiltinFunction::Ceil => "[](float a){ return std::ceil(a); }".into(),
             BuiltinFunction::Floor => "[](float a){ return std::floor(a); }".into(),
