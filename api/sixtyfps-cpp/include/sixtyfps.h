@@ -84,10 +84,7 @@ public:
     ComponentWindow(ComponentWindow &&) = delete;
     ComponentWindow &operator=(const ComponentWindow &) = delete;
 
-    void run() const
-    {
-        sixtyfps_component_window_run(&inner);
-    }
+    void run() const { sixtyfps_component_window_run(&inner); }
 
     float scale_factor() const { return sixtyfps_component_window_get_scale_factor(&inner); }
     void set_scale_factor(float value) const
@@ -372,7 +369,7 @@ inline LayoutInfo LayoutInfo::merge(const LayoutInfo &other) const
 // models
 struct AbstractRepeaterView
 {
-    ~AbstractRepeaterView() = default;
+    virtual ~AbstractRepeaterView() = default;
     virtual void row_added(int index, int count) = 0;
     virtual void row_removed(int index, int count) = 0;
     virtual void row_changed(int index) = 0;
