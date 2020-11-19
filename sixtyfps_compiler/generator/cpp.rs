@@ -281,14 +281,16 @@ fn property_animation_code(
     element: &Element,
     property_name: &str,
 ) -> Option<String> {
-    if let Some(animation) = element.property_animations.get(property_name) {
-        Some(new_struct_with_bindings(
-            "sixtyfps::PropertyAnimation",
-            &animation.borrow().bindings,
-            component,
-        ))
-    } else {
-        None
+    match element.property_animations.get(property_name) {
+        Some(crate::object_tree::PropertyAnimation::Static(animation)) => {
+            Some(new_struct_with_bindings(
+                "sixtyfps::PropertyAnimation",
+                &animation.borrow().bindings,
+                component,
+            ))
+        }
+        Some(_) => todo!("handle transitions in C++"),
+        _ => None,
     }
 }
 fn property_set_value_code(

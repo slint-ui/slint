@@ -870,24 +870,26 @@ fn property_animation_tokens(
     element: &ElementRc,
     property_name: &str,
 ) -> Option<TokenStream> {
-    if let Some(animation) = element.borrow().property_animations.get(property_name) {
-        let bindings: Vec<TokenStream> = animation
-            .borrow()
-            .bindings
-            .iter()
-            .map(|(prop, initializer)| {
-                let prop_ident = format_ident!("{}", prop);
-                let initializer = compile_expression(initializer, component);
-                quote!(#prop_ident: #initializer as _)
-            })
-            .collect();
+    match element.borrow().property_animations.get(property_name) {
+        Some(crate::object_tree::PropertyAnimation::Static(animation)) => {
+            let bindings: Vec<TokenStream> = animation
+                .borrow()
+                .bindings
+                .iter()
+                .map(|(prop, initializer)| {
+                    let prop_ident = format_ident!("{}", prop);
+                    let initializer = compile_expression(initializer, component);
+                    quote!(#prop_ident: #initializer as _)
+                })
+                .collect();
 
-        Some(quote!(&sixtyfps::re_exports::PropertyAnimation{
-            #(#bindings, )*
-            ..::core::default::Default::default()
-        }))
-    } else {
-        None
+            Some(quote!(&sixtyfps::re_exports::PropertyAnimation{
+                #(#bindings, )*
+                ..::core::default::Default::default()
+            }))
+        }
+        Some(_) => todo!("handle transitions in Rust"),
+        _ => None,
     }
 }
 

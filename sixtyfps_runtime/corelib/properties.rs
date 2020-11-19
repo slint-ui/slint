@@ -688,7 +688,7 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
         binding: impl Binding<T> + 'static,
         animation_data: &PropertyAnimation,
     ) {
-        let binding_callable = AnimatedBindingCallable::<T> {
+        let binding_callable = AnimatedBindingCallable::<T, _> {
             original_binding: PropertyHandle {
                 handle: Cell::new(
                     (alloc_binding_holder(move |val: *mut ()| unsafe {
@@ -705,7 +705,42 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
                 T::default(),
                 animation_data.clone(),
             )),
+            compute_animation_details: || -> AnimationDetail { None },
         };
+
+        // Safety: the AnimatedBindingCallable's type match the property type
+        unsafe { self.handle.set_binding(binding_callable) };
+        self.handle.mark_dirty();
+    }
+
+    /// Set a binding to this property, providing a callback for the transition animation
+    ///
+    pub fn set_animated_binding_for_transition(
+        &self,
+        binding: impl Binding<T> + 'static,
+        compute_animation_details: impl Fn() -> (PropertyAnimation, crate::animations::Instant)
+            + 'static,
+    ) {
+        let binding_callable = AnimatedBindingCallable::<T, _> {
+            original_binding: PropertyHandle {
+                handle: Cell::new(
+                    (alloc_binding_holder(move |val: *mut ()| unsafe {
+                        let val = &mut *(val as *mut T);
+                        *(val as *mut T) = binding.evaluate(val);
+                        BindingResult::KeepBinding
+                    }) as usize)
+                        | 0b10,
+                ),
+            },
+            state: Cell::new(AnimatedBindingState::NotAnimating),
+            animation_data: RefCell::new(PropertyValueAnimationData::new(
+                T::default(),
+                T::default(),
+                PropertyAnimation::default(),
+            )),
+            compute_animation_details: move || Some(compute_animation_details()),
+        };
+
         // Safety: the AnimatedBindingCallable's type match the property type
         unsafe { self.handle.set_binding(binding_callable) };
         self.handle.mark_dirty();
@@ -889,13 +924,18 @@ enum AnimatedBindingState {
     ShouldStart,
 }
 
-struct AnimatedBindingCallable<T> {
+struct AnimatedBindingCallable<T, A> {
     original_binding: PropertyHandle,
     state: Cell<AnimatedBindingState>,
     animation_data: RefCell<PropertyValueAnimationData<T>>,
+    compute_animation_details: A,
 }
 
-impl<T: InterpolatedPropertyValue> BindingCallable for AnimatedBindingCallable<T> {
+type AnimationDetail = Option<(PropertyAnimation, crate::animations::Instant)>;
+
+impl<T: InterpolatedPropertyValue, A: Fn() -> AnimationDetail> BindingCallable
+    for AnimatedBindingCallable<T, A>
+{
     unsafe fn evaluate(self: Pin<&Self>, value: *mut ()) -> BindingResult {
         self.original_binding.register_as_dependency_to_current_binding();
         match self.state.get() {
@@ -918,6 +958,10 @@ impl<T: InterpolatedPropertyValue> BindingCallable for AnimatedBindingCallable<T
                 let mut animation_data = self.animation_data.borrow_mut();
                 animation_data.from_value = value.clone();
                 self.original_binding.update((&mut animation_data.to_value) as *mut T as *mut ());
+                if let Some((details, start_time)) = (self.compute_animation_details)() {
+                    animation_data.start_time = start_time;
+                    animation_data.details = details;
+                }
                 let (val, finished) = animation_data.compute_interpolated_value();
                 *value = val;
                 if finished {
@@ -1524,7 +1568,7 @@ pub(crate) mod ffi {
             extern "C" fn(*mut c_void, *mut T),
             extern "C" fn(*mut c_void, *mut ()),
         >(binding);
-        handle.0.set_binding(AnimatedBindingCallable::<T> {
+        handle.0.set_binding(AnimatedBindingCallable::<T, _> {
             original_binding: PropertyHandle {
                 handle: Cell::new(
                     (alloc_binding_holder(make_c_function_binding(
@@ -1543,6 +1587,7 @@ pub(crate) mod ffi {
                 T::default(),
                 animation_data.clone(),
             )),
+            compute_animation_details: || -> AnimationDetail { None },
         });
         handle.0.mark_dirty();
     }

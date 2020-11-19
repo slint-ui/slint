@@ -148,7 +148,7 @@ fn duplicate_element_with_mapping(
         property_animations: elem
             .property_animations
             .iter()
-            .map(|(k, v)| (k.clone(), duplicate_element_with_mapping(v, mapping, root_component)))
+            .map(|(k, v)| (k.clone(), duplicate_property_animation(v, mapping, root_component)))
             .collect(),
         // We will do the fixup of the bindings later
         bindings: elem.bindings.clone(),
@@ -170,6 +170,33 @@ fn duplicate_element_with_mapping(
     }));
     mapping.insert(element_key(element.clone()), new.clone());
     new
+}
+
+fn duplicate_property_animation(
+    v: &PropertyAnimation,
+    mapping: &mut HashMap<ByAddress<ElementRc>, ElementRc>,
+    root_component: &Rc<Component>,
+) -> PropertyAnimation {
+    match v {
+        PropertyAnimation::Static(a) => {
+            PropertyAnimation::Static(duplicate_element_with_mapping(a, mapping, root_component))
+        }
+        PropertyAnimation::Transition { state_ref, animations } => PropertyAnimation::Transition {
+            state_ref: state_ref.clone(),
+            animations: animations
+                .iter()
+                .map(|a| TransitionPropertyAnimation {
+                    state_id: a.state_id,
+                    is_out: a.is_out,
+                    animation: duplicate_element_with_mapping(
+                        &a.animation,
+                        mapping,
+                        root_component,
+                    ),
+                })
+                .collect(),
+        },
+    }
 }
 
 fn fixup_reference(

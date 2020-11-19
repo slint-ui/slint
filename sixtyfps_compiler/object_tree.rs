@@ -207,6 +207,22 @@ impl From<Type> for PropertyDeclaration {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct TransitionPropertyAnimation {
+    /// The state id as computed in lower_state
+    pub state_id: i32,
+    /// false for 'to', true for 'out'
+    pub is_out: bool,
+    /// The content of the `anumation` object
+    pub animation: ElementRc,
+}
+
+#[derive(Debug, Clone)]
+pub enum PropertyAnimation {
+    Static(ElementRc),
+    Transition { state_ref: Expression, animations: Vec<TransitionPropertyAnimation> },
+}
+
 /// An Element is an instentation of a Component
 #[derive(Default, Debug)]
 pub struct Element {
@@ -226,7 +242,7 @@ pub struct Element {
 
     pub property_declarations: HashMap<String, PropertyDeclaration>,
 
-    pub property_animations: HashMap<String, ElementRc>,
+    pub property_animations: HashMap<String, PropertyAnimation>,
 
     /// Tis element is part of a `for <xxx> in <model>:
     pub repeated: Option<RepeatedElementInfo>,
@@ -468,7 +484,7 @@ impl Element {
                             tr,
                         ) {
                             if r.property_animations
-                                .insert(prop_name.clone(), anim_element)
+                                .insert(prop_name.clone(), PropertyAnimation::Static(anim_element))
                                 .is_some()
                             {
                                 diag.push_error("Duplicated animation".into(), &prop_name_token)
@@ -942,17 +958,24 @@ pub fn visit_element_expressions(
     elem: &ElementRc,
     mut vis: impl FnMut(&mut Expression, Option<&str>, &dyn Fn() -> Type),
 ) {
+    fn visit_element_expressions_simple(
+        elem: &ElementRc,
+        vis: &mut impl FnMut(&mut Expression, Option<&str>, &dyn Fn() -> Type),
+    ) {
+        let mut bindings = std::mem::take(&mut elem.borrow_mut().bindings);
+        for (name, expr) in &mut bindings {
+            vis(expr, Some(name.as_str()), &|| elem.borrow().lookup_property(name));
+        }
+        elem.borrow_mut().bindings = bindings;
+    }
+
     let repeated = std::mem::take(&mut elem.borrow_mut().repeated);
     if let Some(mut r) = repeated {
         let is_conditional_element = r.is_conditional_element;
         vis(&mut r.model, None, &|| if is_conditional_element { Type::Bool } else { Type::Model });
         elem.borrow_mut().repeated = Some(r)
     }
-    let mut bindings = std::mem::take(&mut elem.borrow_mut().bindings);
-    for (name, expr) in &mut bindings {
-        vis(expr, Some(name.as_str()), &|| elem.borrow().lookup_property(name));
-    }
-    elem.borrow_mut().bindings = bindings;
+    visit_element_expressions_simple(elem, &mut vis);
     let mut states = std::mem::take(&mut elem.borrow_mut().states);
     for s in &mut states {
         if let Some(cond) = s.condition.as_mut() {
@@ -966,13 +989,25 @@ pub fn visit_element_expressions(
     }
     elem.borrow_mut().states = states;
 
-    let property_animations = std::mem::take(&mut elem.borrow_mut().property_animations);
-    for anim_elem in property_animations.values() {
-        let mut bindings = std::mem::take(&mut anim_elem.borrow_mut().bindings);
-        for (name, expr) in &mut bindings {
-            vis(expr, Some(name.as_str()), &|| anim_elem.borrow().lookup_property(name));
+    let mut transitions = std::mem::take(&mut elem.borrow_mut().transitions);
+    for t in &mut transitions {
+        for (_, a) in &mut t.property_animations {
+            visit_element_expressions_simple(a, &mut vis);
         }
-        anim_elem.borrow_mut().bindings = bindings;
+    }
+    elem.borrow_mut().transitions = transitions;
+
+    let mut property_animations = std::mem::take(&mut elem.borrow_mut().property_animations);
+    for anim_elem in property_animations.values_mut() {
+        match anim_elem {
+            PropertyAnimation::Static(e) => visit_element_expressions_simple(e, &mut vis),
+            PropertyAnimation::Transition { animations, state_ref } => {
+                vis(state_ref, None, &|| Type::Int32);
+                for a in animations {
+                    visit_element_expressions_simple(&a.animation, &mut vis)
+                }
+            }
+        }
     }
     elem.borrow_mut().property_animations = property_animations;
 }

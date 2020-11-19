@@ -729,14 +729,17 @@ fn generate_component<'id>(
 
 pub fn animation_for_property(
     component: InstanceRef,
-    all_animations: &HashMap<String, ElementRc>,
+    all_animations: &HashMap<String, sixtyfps_compilerlib::object_tree::PropertyAnimation>,
     property_name: &str,
 ) -> Option<PropertyAnimation> {
     match all_animations.get(property_name) {
-        Some(anim_elem) => Some(eval::new_struct_with_bindings(
-            &anim_elem.borrow().bindings,
-            &mut eval::EvalLocalContext::from_component_instance(component),
-        )),
+        Some(sixtyfps_compilerlib::object_tree::PropertyAnimation::Static(anim_elem)) => {
+            Some(eval::new_struct_with_bindings(
+                &anim_elem.borrow().bindings,
+                &mut eval::EvalLocalContext::from_component_instance(component),
+            ))
+        }
+        Some(_) => todo!("handle transitions in interpreter"),
         None => None,
     }
 }
