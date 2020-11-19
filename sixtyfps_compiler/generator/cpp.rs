@@ -866,20 +866,21 @@ fn generate_component(
         init.push("self->window.init_items(this, item_tree());".into());
 
         component_struct.friends.push("sixtyfps::private_api::ComponentWindow".into());
+    }
 
+    if !component.is_global() {
+        let maybe_constructor_param = if constructor_parent_arg.is_empty() { "" } else { "parent" };
         component_struct.members.push((
             Access::Public,
             Declaration::Function(Function {
                 name: "create".into(),
-                signature: format!("() -> sixtyfps::ComponentHandle<{}>", component_id),
+                signature: format!("({}) -> sixtyfps::ComponentHandle<{}>", constructor_parent_arg, component_id),
                 statements: Some(vec![
-                    format!("auto self_rc = vtable::VRc<sixtyfps::private_api::ComponentVTable, {0}>::make();", component_id),
+                    format!("auto self_rc = vtable::VRc<sixtyfps::private_api::ComponentVTable, {0}>::make({1});", component_id, maybe_constructor_param),
                     format!("const_cast<{0} *>(&*self_rc)->self_weak = vtable::VWeak(self_rc);", component_id),
                     "self_rc->window.set_component(*self_rc);".into(),
-                    format!(
-                    "return sixtyfps::ComponentHandle<{0}>{{ self_rc }};",
-                    component_id,
-                )]),
+                    format!("return sixtyfps::ComponentHandle<{0}>{{ self_rc }};", component_id)
+                ]),
                 is_static: true,
                 ..Default::default()
             }),

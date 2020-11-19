@@ -505,7 +505,7 @@ class Repeater
         struct ComponentWithState
         {
             State state = State::Dirty;
-            std::optional<vtable::VRc<private_api::ComponentVTable, C>> ptr;
+            std::optional<ComponentHandle<C>> ptr;
         };
         std::vector<ComponentWithState> data;
         bool is_dirty = true;
@@ -560,9 +560,7 @@ public:
                 for (int i = 0; i < count; ++i) {
                     auto &c = inner->data[i];
                     if (!c.ptr) {
-                        c.ptr = { vtable::VRc<private_api::ComponentVTable, C>::make(parent) };
-                        const_cast<C *>(&**c.ptr)->self_weak =
-                                vtable::VWeak<private_api::ComponentVTable, C>(*c.ptr);
+                        c.ptr = C::create(parent);
                     }
                     if (c.state == RepeaterInner::State::Dirty) {
                         (*c.ptr)->update_data(i, m->row_data(i));
