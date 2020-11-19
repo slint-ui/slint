@@ -858,7 +858,7 @@ fn generate_component(
             Declaration::Function(Function {
                 name: "run".into(),
                 signature: "() const".into(),
-                statements: Some(vec!["window.run(this);".into()]),
+                statements: Some(vec!["window.run();".into()]),
                 ..Default::default()
             }),
         ));

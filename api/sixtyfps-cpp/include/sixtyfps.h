@@ -84,8 +84,7 @@ public:
     ComponentWindow(ComponentWindow &&) = delete;
     ComponentWindow &operator=(const ComponentWindow &) = delete;
 
-    template<typename Component>
-    void run(const Component *c) const
+    void run() const
     {
         sixtyfps_component_window_run(&inner);
     }
