@@ -13,7 +13,7 @@ use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::*;
 use crate::langtype::Type;
 use crate::object_tree::*;
-use std::rc::Rc;
+use std::{collections::HashMap, rc::Rc};
 
 pub fn lower_states(
     component: &Rc<Component>,
@@ -30,7 +30,7 @@ pub fn lower_states(
 fn lower_state_in_element(
     root_element: &ElementRc,
     state_info_type: &Type,
-    _diag: &mut BuildDiagnostics,
+    diag: &mut BuildDiagnostics,
 ) {
     if root_element.borrow().states.is_empty() {
         return;
@@ -47,6 +47,8 @@ fn lower_state_in_element(
             name: "current_state".into(),
         };
     }
+    // Maps State name string -> integer id
+    let mut states_id = HashMap::new();
     let mut state_value = Expression::NumberLiteral(0., Unit::None);
     let states = std::mem::take(&mut root_element.borrow_mut().states);
     for (idx, state) in states.into_iter().enumerate().rev() {
@@ -74,7 +76,9 @@ fn lower_state_in_element(
                 .into(),
             );
         }
+        states_id.insert(state.id, idx as i32 + 1);
     }
+
     root_element.borrow_mut().property_declarations.insert(
         state_property.clone(),
         PropertyDeclaration {
@@ -83,6 +87,25 @@ fn lower_state_in_element(
         },
     );
     root_element.borrow_mut().bindings.insert(state_property.clone(), state_value.into());
+
+    lower_transitions_in_element(root_element, states_id, diag);
+}
+
+fn lower_transitions_in_element(
+    elem: &ElementRc,
+    states_id: HashMap<String, i32>,
+    diag: &mut BuildDiagnostics,
+) {
+    let transitions = std::mem::take(&mut elem.borrow_mut().transitions);
+    for transition in transitions {
+        let _state = states_id.get(&transition.state_id).unwrap_or_else(|| {
+            diag.push_error(
+                format!("State '{}' does not exist", transition.state_id),
+                &transition.node,
+            );
+            &0
+        });
+    }
 }
 
 /// Returns a suitable unique name for the "state" property

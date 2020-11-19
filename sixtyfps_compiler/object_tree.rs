@@ -602,6 +602,7 @@ impl Element {
                             .map(|anim_element| (ne, anim_element))
                     })
                     .collect(),
+                node: trs.DeclaredIdentifier().into(),
             };
             r.borrow_mut().transitions.push(trans);
         }
@@ -1071,6 +1072,8 @@ pub struct Transition {
     pub is_out: bool,
     pub state_id: String,
     pub property_animations: Vec<(NamedReference, ElementRc)>,
+    /// Node pointing to the state name
+    pub node: SyntaxNodeWithSourceFile,
 }
 
 #[derive(Default, Debug, derive_more::Deref)]

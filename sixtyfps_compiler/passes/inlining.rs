@@ -236,5 +236,6 @@ fn duplicate_transition(
                 (r.clone(), duplicate_element_with_mapping(anim, mapping, root_component))
             })
             .collect(),
+        node: t.node.clone(),
     }
 }
