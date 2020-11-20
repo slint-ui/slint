@@ -194,12 +194,8 @@ export MainWindow := Window {
         }
 
 
-        for p[i] in pieces : Rectangle {
+        for p[i] in pieces : Clip {
             property <bool> is_correct: i == p.pos_x * 4 + p.pos_y;
-            color: i >= 8 ? current-theme.piece-backround-2 : current-theme.piece-backround-1;
-            border-color: i >= 8 ? current-theme.piece-border-color-2 : current-theme.piece-border-color-1;
-            border-width: current-theme.piece-border;
-            border-radius: current-theme.piece-radius;
             width: pieces_size;
             height: pieces_size;
             property<float> px: p.pos_x;
@@ -209,7 +205,16 @@ export MainWindow := Window {
             y: px * (pieces_size + pieces_spacing)
                 + (parent.height - (4*pieces_size + 3*pieces_spacing))/2;
             animate px , py { duration: 170ms; easing: cubic-bezier(0.17,0.76,0.4,1.75); }
-            animate border-width, border-radius { duration: 500ms; easing: ease-out; }
+
+            Rectangle {
+                width: 100%;
+                height: 100%;
+                color: i >= 8 ? current-theme.piece-backround-2 : current-theme.piece-backround-1;
+                border-color: i >= 8 ? current-theme.piece-border-color-2 : current-theme.piece-border-color-1;
+                border-width: current-theme.piece-border;
+                border-radius: current-theme.piece-radius;
+                animate border-width, border-radius { duration: 500ms; easing: ease-out; }
+            }
 
             if (current-theme-index == 1) : Rectangle {
                 width: 60%;

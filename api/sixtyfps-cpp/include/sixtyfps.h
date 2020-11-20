@@ -41,6 +41,7 @@ extern const cbindgen_private::ItemVTable PathVTable;
 extern const cbindgen_private::ItemVTable FlickableVTable;
 extern const cbindgen_private::ItemVTable WindowVTable;
 extern const cbindgen_private::ItemVTable TextInputVTable;
+extern const cbindgen_private::ItemVTable ClipVTable;
 
 extern const cbindgen_private::ItemVTable NativeButtonVTable;
 extern const cbindgen_private::ItemVTable NativeCheckBoxVTable;
@@ -124,6 +125,7 @@ private:
 }
 
 using cbindgen_private::BorderRectangle;
+using cbindgen_private::Clip;
 using cbindgen_private::Flickable;
 using cbindgen_private::Image;
 using cbindgen_private::Path;

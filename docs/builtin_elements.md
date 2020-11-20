@@ -114,7 +114,6 @@ A text simply show the text on the screen
   within the item
 
 
-
 ### Example
 
 ```60
@@ -303,4 +302,8 @@ Example := Window {
 }
 ```
 
+## `Clip`
+
+By default, when an item is bigger or outside another item, it is still shown.
+But the `Clip` element  make sure to clip any children outside of the rectangle bounds
 

@@ -14,10 +14,9 @@ When adding an item or a property, it needs to be kept in sync with different pl
 (This is less than ideal and maybe we can have some automation later)
 
  - It needs to be changed in this module
- - The ItemVTable_static at the end of datastructures.rs (new items only)
  - In the compiler: builtins.60
- - In the vewer: main.rs
- - For the C++ code (new item only): the build.rs to export the new item, and the `using` declaration in sixtyfps.h
+ - In the interpreter: dynamic_component.rs
+ - For the C++ code (new item only): the cbindgen.rs to export the new item, and the `using` declaration in sixtyfps.h
  - Don't forget to update the documentation
 */
 
@@ -621,6 +620,81 @@ ItemVTable_static! {
     /// The VTable for `TouchArea`
     #[no_mangle]
     pub static TouchAreaVTable for TouchArea
+}
+
+#[repr(C)]
+#[derive(FieldOffsets, Default, BuiltinItem)]
+#[pin]
+/// The implementation of the `Rectangle` element
+pub struct Clip {
+    pub color: Property<Color>,
+    pub x: Property<f32>,
+    pub y: Property<f32>,
+    pub width: Property<f32>,
+    pub height: Property<f32>,
+    pub cached_rendering_data: CachedRenderingData,
+}
+
+impl Item for Clip {
+    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+
+    fn geometry(self: Pin<&Self>) -> Rect {
+        euclid::rect(
+            Self::FIELD_OFFSETS.x.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.y.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.width.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.height.apply_pin(self).get(),
+        )
+    }
+    fn rendering_primitive(
+        self: Pin<&Self>,
+        _window: &ComponentWindow,
+    ) -> HighLevelRenderingPrimitive {
+        let width = Self::FIELD_OFFSETS.width.apply_pin(self).get();
+        let height = Self::FIELD_OFFSETS.height.apply_pin(self).get();
+        if width > 0. && height > 0. {
+            HighLevelRenderingPrimitive::ClipRect { width, height }
+        } else {
+            HighLevelRenderingPrimitive::NoContents
+        }
+    }
+
+    fn rendering_variables(
+        self: Pin<&Self>,
+        _window: &ComponentWindow,
+    ) -> SharedArray<RenderingVariable> {
+        Default::default()
+    }
+
+    fn layouting_info(self: Pin<&Self>, _window: &crate::eventloop::ComponentWindow) -> LayoutInfo {
+        LayoutInfo { horizontal_stretch: 1., vertical_stretch: 1., ..LayoutInfo::default() }
+    }
+
+    fn input_event(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window: &ComponentWindow,
+        _app_component: ComponentRefPin,
+    ) -> InputEventResult {
+        InputEventResult::EventIgnored
+    }
+
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
+
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+}
+
+impl ItemConsts for Clip {
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<Clip, CachedRenderingData> =
+        Clip::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+}
+
+ItemVTable_static! {
+    /// The VTable for `Clip`
+    #[no_mangle]
+    pub static ClipVTable for Clip
 }
 
 /// The implementation of the `Path` element

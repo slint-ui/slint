@@ -111,6 +111,13 @@ export TextInput := _ {
     //focus() is hardcoded in typeregister.rs
 }
 
+export Clip := _ {
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+}
+
 Row := _ {
     //-is_non_item_type
 }

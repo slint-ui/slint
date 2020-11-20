@@ -497,6 +497,7 @@ fn generate_component<'id>(
                 rtti_for_flickable(),
                 rtti_for::<Window>(),
                 rtti_for::<TextInput>(),
+                rtti_for::<Clip>(),
             ]
             .iter()
             .cloned(),

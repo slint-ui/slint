@@ -58,6 +58,7 @@ fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
         "TextVerticalAlignment",
         "Window",
         "TextInput",
+        "Clip",
     ]
     .iter()
     .map(|x| x.to_string())
