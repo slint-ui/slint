@@ -207,11 +207,19 @@ MainWindow := Window {
                 color: white;
                 Rectangle {
                     width: parent.width;
-                    height: tentative_height > parent.height * color_info.level ? parent.height * color_info.level: tentative_height;
-                    property <length> tentative_height: root.active_page == 0 ? parent.height * color_info.level : 0phx;
-                    animate tentative_height { duration: 750ms; easing: ease_in_out; }
+                    height: parent.height * color_info.level;
                     y: parent.height - self.height;
                     color: color_info.color;
+                    states [
+                        innactive when root.active_page != 0 : {
+                            height: 0phx;
+                        }
+                    ]
+                    transitions [
+                        out innactive : {
+                            animate height { duration: 750ms; easing: ease_in_out; }
+                        }
+                    ]
                 }
             }
         }
