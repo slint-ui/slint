@@ -140,7 +140,7 @@ pub fn main() {
     state.borrow_mut().randomize();
     main_window.as_ref().set_pieces(sixtyfps::ModelHandle::new(state.borrow().pieces.clone()));
     let state_copy = state.clone();
-    main_window.as_ref().on_piece_cliked(move |p| {
+    main_window.as_ref().on_piece_clicked(move |p| {
         state_copy.borrow().auto_play_timer.stop();
         state_copy.borrow().main_window.upgrade().map(|x| x.as_ref().set_auto_play(false));
         if state_copy.borrow().finished {

@@ -12,15 +12,15 @@ struct Piece := { pos_x: int, pos_y: int }
 
 struct Theme := {
     name: string,
-    window-backround-color: color,
+    window-background-color: color,
     game-background-color: color,
     game-border: length,
     game-radius: length,
     game-text-color: color,
     game-highlight-color: color,
     piece-border: length,
-    piece-backround-1: color,
-    piece-backround-2: color,
+    piece-background-1: color,
+    piece-background-2: color,
     piece-border-color-1: color,
     piece-border-color-2: color,
     piece-text-color-1: color,
@@ -31,7 +31,7 @@ struct Theme := {
 }
 
 export MainWindow := Window {
-    signal piece_cliked(int);
+    signal piece_clicked(int);
     signal reset();
     signal enable_auto_mode(bool);
     property <bool> auto_play;
@@ -58,15 +58,15 @@ export MainWindow := Window {
     property <[Theme]> themes: [
         {
             name: "SIMPLE",
-            window-backround-color: #ffffff,
+            window-background-color: #ffffff,
             game-background-color: #ffffff,
             game-border: 1px,
             game-radius: 2px,
             game-text-color: #858585,
             game-highlight-color: #1d6aaa,
             piece-border: 1px,
-            piece-backround-1: #0d579b,
-            piece-backround-2: #0d579b,
+            piece-background-1: #0d579b,
+            piece-background-2: #0d579b,
             piece-border-color-1: #0a457b,
             piece-border-color-2: #0a457b,
             piece-text-color-1: #ffffff,
@@ -77,15 +77,15 @@ export MainWindow := Window {
         },
         {
             name: "BERLIN",
-            window-backround-color: #ffffff88,
+            window-background-color: #ffffff88,
             game-background-color: #ffffffcc,
             game-border: 0px,
             game-radius: 2px,
             game-text-color: #858585,
             game-highlight-color: #1d6aaa,
             piece-border: 0px,
-            piece-backround-1: #43689e,
-            piece-backround-2: #2f2a14,
+            piece-background-1: #43689e,
+            piece-background-2: #2f2a14,
             piece-border-color-1: #0000,
             piece-border-color-2: #0000,
             piece-text-color-1: #000000,
@@ -96,15 +96,15 @@ export MainWindow := Window {
         },
         {
             name: "PLASTER",
-            window-backround-color: #424244,
+            window-background-color: #424244,
             game-background-color: #f8f4e9,
             game-border: 5px,
             game-radius: 20px,
             game-text-color: #858585,
             game-highlight-color: #e06b53,
             piece-border: 4px,
-            piece-backround-1: #e06b53,
-            piece-backround-2: #f8f4e9,
+            piece-background-1: #e06b53,
+            piece-background-2: #f8f4e9,
             piece-border-color-1: #424244,
             piece-border-color-2: #e06b53,
             piece-text-color-1: #f8f4e9,
@@ -120,15 +120,15 @@ export MainWindow := Window {
     // FIXME: themes[current-theme-index]
     property <Theme> current-theme: {
             name: "SIMPLE",
-            window-backround-color: #ffffff,
+            window-background-color: #ffffff,
             game-background-color: #ffffff,
             game-border: 1px,
             game-radius: 2px,
             game-text-color: #858585,
             game-highlight-color: #1d6aaa,
             piece-border: 1px,
-            piece-backround-1: #0d579b,
-            piece-backround-2: #0d579b,
+            piece-background-1: #0d579b,
+            piece-background-2: #0d579b,
             piece-border-color-1: #0a457b,
             piece-border-color-2: #0a457b,
             piece-text-color-1: #ffffff,
@@ -150,7 +150,7 @@ export MainWindow := Window {
     }
 
     Rectangle {
-        height: 100%; width: 100%; color: current-theme.window-backround-color;
+        height: 100%; width: 100%; color: current-theme.window-background-color;
         animate color { duration: 500ms; easing: ease-out; }
     }
 
@@ -209,7 +209,7 @@ export MainWindow := Window {
             Rectangle {
                 width: 100%;
                 height: 100%;
-                color: i >= 8 ? current-theme.piece-backround-2 : current-theme.piece-backround-1;
+                color: i >= 8 ? current-theme.piece-background-2 : current-theme.piece-background-1;
                 border-color: i >= 8 ? current-theme.piece-border-color-2 : current-theme.piece-border-color-1;
                 border-width: current-theme.piece-border;
                 border-radius: current-theme.piece-radius;
@@ -238,7 +238,7 @@ export MainWindow := Window {
             touch := TouchArea {
                 width: 100%;
                 height: 100%;
-                clicked => { root.piece_cliked(i); }
+                clicked => { root.piece_clicked(i); }
             }
 
             shadow := Rectangle {
