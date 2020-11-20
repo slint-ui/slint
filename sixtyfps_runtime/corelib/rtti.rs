@@ -40,6 +40,27 @@ declare_ValueType![
     crate::model::StandardListViewItem,
 ];
 
+/// What kind of animation is on a binding
+pub enum AnimatedBindingKind {
+    /// No animation is on the binding
+    NotAnimated,
+    /// Single animation
+    Animation(PropertyAnimation),
+    /// Transition
+    Transition(Box<dyn Fn() -> (PropertyAnimation, crate::animations::Instant)>),
+}
+
+impl AnimatedBindingKind {
+    /// return a PropertyAnimation if self contains AnimatedBindingKind::Animation
+    pub fn as_animation(self) -> Option<PropertyAnimation> {
+        match self {
+            AnimatedBindingKind::NotAnimated => None,
+            AnimatedBindingKind::Animation(a) => Some(a),
+            AnimatedBindingKind::Transition(_) => None,
+        }
+    }
+}
+
 pub trait PropertyInfo<Item, Value> {
     fn get(&self, item: Pin<&Item>) -> Result<Value, ()>;
     fn set(
@@ -52,7 +73,7 @@ pub trait PropertyInfo<Item, Value> {
         &self,
         item: Pin<&Item>,
         binding: Box<dyn Fn() -> Value>,
-        animation: Option<PropertyAnimation>,
+        animation: AnimatedBindingKind,
     ) -> Result<(), ()>;
 
     /// The offset of the property in the item.
@@ -101,9 +122,9 @@ where
         &self,
         item: Pin<&Item>,
         binding: Box<dyn Fn() -> Value>,
-        animation: Option<PropertyAnimation>,
+        animation: AnimatedBindingKind,
     ) -> Result<(), ()> {
-        if animation.is_some() {
+        if !matches!(animation, AnimatedBindingKind::NotAnimated) {
             Err(())
         } else {
             self.apply_pin(item).set_binding(move || {
@@ -157,18 +178,30 @@ where
         &self,
         item: Pin<&Item>,
         binding: Box<dyn Fn() -> Value>,
-        animation: Option<PropertyAnimation>,
+        animation: AnimatedBindingKind,
     ) -> Result<(), ()> {
-        if let Some(animation) = animation {
-            self.apply_pin(item).set_animated_binding(
-                move || {
-                    binding().try_into().map_err(|_| ()).expect("binding was of the wrong type")
-                },
-                animation,
-            );
-            Ok(())
-        } else {
-            self.0.set_binding(item, binding, None)
+        match animation {
+            AnimatedBindingKind::NotAnimated => {
+                self.0.set_binding(item, binding, AnimatedBindingKind::NotAnimated)
+            }
+            AnimatedBindingKind::Animation(animation) => {
+                self.apply_pin(item).set_animated_binding(
+                    move || {
+                        binding().try_into().map_err(|_| ()).expect("binding was of the wrong type")
+                    },
+                    animation,
+                );
+                Ok(())
+            }
+            AnimatedBindingKind::Transition(tr) => {
+                self.apply_pin(item).set_animated_binding_for_transition(
+                    move || {
+                        binding().try_into().map_err(|_| ()).expect("binding was of the wrong type")
+                    },
+                    tr,
+                );
+                Ok(())
+            }
         }
     }
     fn offset(&self) -> usize {

@@ -108,7 +108,11 @@ impl<'id> dynamic_component::ComponentDescription<'id> {
         let x = self.custom_properties.get(name).ok_or(())?;
         unsafe {
             x.prop
-                .set_binding(Pin::new_unchecked(&*component.as_ptr().add(x.offset)), binding, None)
+                .set_binding(
+                    Pin::new_unchecked(&*component.as_ptr().add(x.offset)),
+                    binding,
+                    sixtyfps_corelib::rtti::AnimatedBindingKind::NotAnimated,
+                )
                 .unwrap()
         };
         Ok(())

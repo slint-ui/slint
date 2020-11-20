@@ -18,6 +18,7 @@ use sixtyfps_compilerlib::expression_tree::{
 use sixtyfps_compilerlib::langtype::Type;
 use sixtyfps_compilerlib::object_tree::ElementRc;
 use sixtyfps_corelib as corelib;
+use sixtyfps_corelib::rtti::AnimatedBindingKind;
 use sixtyfps_corelib::{
     graphics::PathElement, items::ItemRef, items::PropertyAnimation, Color, PathData, Resource,
     SharedArray, SharedString, Signal,
@@ -32,7 +33,7 @@ pub trait ErasedPropertyInfo {
         &self,
         item: Pin<ItemRef>,
         binding: Box<dyn Fn() -> Value>,
-        animation: Option<PropertyAnimation>,
+        animation: AnimatedBindingKind,
     );
     fn offset(&self) -> usize;
 
@@ -54,7 +55,7 @@ impl<Item: vtable::HasStaticVTable<corelib::items::ItemVTable>> ErasedPropertyIn
         &self,
         item: Pin<ItemRef>,
         binding: Box<dyn Fn() -> Value>,
-        animation: Option<PropertyAnimation>,
+        animation: AnimatedBindingKind,
     ) {
         (*self).set_binding(ItemRef::downcast_pin(item).unwrap(), binding, animation).unwrap();
     }
@@ -678,7 +679,7 @@ pub fn store_property(
     let enclosing_component = enclosing_component_for_element(&element, component_instance, guard);
     let maybe_animation = crate::dynamic_component::animation_for_property(
         enclosing_component,
-        &element.borrow().property_animations,
+        &element.borrow(),
         name,
     );
 
@@ -687,14 +688,14 @@ pub fn store_property(
         if let Some(x) = enclosing_component.component_type.custom_properties.get(name) {
             unsafe {
                 let p = Pin::new_unchecked(&*enclosing_component.as_ptr().add(x.offset));
-                return x.prop.set(p, value, maybe_animation);
+                return x.prop.set(p, value, maybe_animation.as_animation());
             }
         }
     };
     let item_info = &enclosing_component.component_type.items[element.borrow().id.as_str()];
     let item = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
     let p = &item_info.rtti.properties.get(name).ok_or(())?;
-    p.set(item, value, maybe_animation);
+    p.set(item, value, maybe_animation.as_animation());
     Ok(())
 }
 

@@ -31,7 +31,7 @@ use sixtyfps_corelib::layout::{LayoutInfo, Padding};
 use sixtyfps_corelib::model::RepeatedComponent;
 use sixtyfps_corelib::model::Repeater;
 use sixtyfps_corelib::properties::InterpolatedPropertyValue;
-use sixtyfps_corelib::rtti::{self, FieldOffset, PropertyInfo};
+use sixtyfps_corelib::rtti::{self, AnimatedBindingKind, FieldOffset, PropertyInfo};
 use sixtyfps_corelib::slice::Slice;
 use sixtyfps_corelib::{eventloop::ComponentWindow, input::FocusEvent};
 use sixtyfps_corelib::{Color, Property, SharedString, Signal};
@@ -448,7 +448,7 @@ fn rtti_for_flickable() -> (&'static str, Rc<ItemRTTI>) {
             &self,
             item: Pin<ItemRef>,
             binding: Box<dyn Fn() -> eval::Value>,
-            animation: Option<PropertyAnimation>,
+            animation: AnimatedBindingKind,
         ) {
             (*self.0).set_binding(viewport(item), binding, animation).unwrap();
         }
@@ -729,27 +729,60 @@ fn generate_component<'id>(
 
 pub fn animation_for_property(
     component: InstanceRef,
-    all_animations: &HashMap<String, sixtyfps_compilerlib::object_tree::PropertyAnimation>,
+    element: &Element,
     property_name: &str,
-) -> Option<PropertyAnimation> {
-    match all_animations.get(property_name) {
+) -> AnimatedBindingKind {
+    match element.property_animations.get(property_name) {
         Some(sixtyfps_compilerlib::object_tree::PropertyAnimation::Static(anim_elem)) => {
-            Some(eval::new_struct_with_bindings(
+            AnimatedBindingKind::Animation(eval::new_struct_with_bindings(
                 &anim_elem.borrow().bindings,
                 &mut eval::EvalLocalContext::from_component_instance(component),
             ))
         }
-        Some(_) => todo!("handle transitions in interpreter"),
-        None => None,
-    }
-}
+        Some(sixtyfps_compilerlib::object_tree::PropertyAnimation::Transition {
+            animations,
+            state_ref,
+        }) => {
+            let component_ptr = component.as_ptr();
+            let vtable = NonNull::from(&component.component_type.ct).cast();
+            let animations = animations.clone();
+            let state_ref = state_ref.clone();
+            AnimatedBindingKind::Transition(Box::new(
+                move || -> (PropertyAnimation, sixtyfps_corelib::animations::Instant) {
+                    generativity::make_guard!(guard);
+                    let component = unsafe {
+                        InstanceRef::from_pin_ref(
+                            Pin::new_unchecked(vtable::VRef::from_raw(
+                                vtable,
+                                NonNull::new_unchecked(component_ptr as *mut u8),
+                            )),
+                            guard,
+                        )
+                    };
 
-fn animation_for_element_property(
-    component: InstanceRef,
-    element: &Element,
-    property_name: &str,
-) -> Option<PropertyAnimation> {
-    animation_for_property(component, &element.property_animations, property_name)
+                    let mut context = eval::EvalLocalContext::from_component_instance(component);
+                    let state = eval::eval_expression(&state_ref, &mut context);
+                    let state_info: sixtyfps_corelib::properties::StateInfo =
+                        state.try_into().unwrap();
+                    for a in &animations {
+                        if (a.is_out && a.state_id == state_info.previous_state)
+                            || (!a.is_out && a.state_id == state_info.current_state)
+                        {
+                            return (
+                                eval::new_struct_with_bindings(
+                                    &a.animation.borrow().bindings,
+                                    &mut context,
+                                ),
+                                state_info.change_time,
+                            );
+                        }
+                    }
+                    return Default::default();
+                },
+            ))
+        }
+        None => AnimatedBindingKind::NotAnimated,
+    }
 }
 
 pub fn instantiate<'id>(
@@ -847,8 +880,7 @@ pub fn instantiate<'id>(
                     if let Some(prop_rtti) =
                         item_within_component.rtti.properties.get(prop.as_str())
                     {
-                        let maybe_animation =
-                            animation_for_element_property(instance_ref, &elem, prop);
+                        let maybe_animation = animation_for_property(instance_ref, &elem, prop);
                         let mut e = Some(&expr.expression);
                         while let Some(Expression::TwoWayBinding(nr, next)) = &e {
                             // Safety: The compiler must have ensured that the properties exist and are of the same type
@@ -865,7 +897,7 @@ pub fn instantiate<'id>(
                                             instance_ref,
                                         ),
                                     ),
-                                    maybe_animation,
+                                    maybe_animation.as_animation(),
                                 );
                             } else {
                                 let e = e.clone();
@@ -930,7 +962,7 @@ pub fn instantiate<'id>(
 
                         let maybe_animation = animation_for_property(
                             instance_ref,
-                            &component_type.original.root_element.borrow().property_animations,
+                            &component_type.original.root_element.borrow(),
                             prop,
                         );
                         let item = Pin::new_unchecked(&*instance_ref.as_ptr().add(*offset));
