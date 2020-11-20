@@ -276,37 +276,26 @@ fn new_struct_with_bindings(
     )
 }
 
-fn property_animation_code(
-    component: &Rc<Component>,
-    element: &Element,
-    property_name: &str,
-) -> Option<String> {
-    match element.property_animations.get(property_name) {
-        Some(crate::object_tree::PropertyAnimation::Static(animation)) => {
-            Some(new_struct_with_bindings(
-                "sixtyfps::PropertyAnimation",
-                &animation.borrow().bindings,
-                component,
-            ))
-        }
-        Some(_) => todo!("handle transitions in C++"),
-        _ => None,
-    }
+fn property_animation_code(component: &Rc<Component>, animation: &ElementRc) -> String {
+    new_struct_with_bindings("sixtyfps::PropertyAnimation", &animation.borrow().bindings, component)
 }
+
 fn property_set_value_code(
     component: &Rc<Component>,
     element: &Element,
     property_name: &str,
     value_expr: &str,
 ) -> String {
-    if let Some(animation_code) = property_animation_code(component, element, property_name) {
-        format!(
-            "set_animated_value({value}, {animation})",
-            value = value_expr,
-            animation = animation_code
-        )
-    } else {
-        format!("set({})", value_expr)
+    match element.property_animations.get(property_name) {
+        Some(crate::object_tree::PropertyAnimation::Static(animation)) => {
+            let animation_code = property_animation_code(component, animation);
+            format!(
+                "set_animated_value({value}, {animation})",
+                value = value_expr,
+                animation = animation_code
+            )
+        }
+        _ => format!("set({})", value_expr),
     }
 }
 
@@ -384,10 +373,45 @@ fn handle_property_binding(
             };
             if is_state_info {
                 format!("sixtyfps::set_state_binding({}, {});", cpp_prop, binding_code)
-            } else if let Some(anim) = property_animation_code(component, &item, prop_name) {
-                format!("{}.set_animated_binding({}, {});", cpp_prop, binding_code, anim)
             } else {
-                format!("{}.set_binding({});", cpp_prop, binding_code)
+                match item.property_animations.get(prop_name) {
+                    Some(crate::object_tree::PropertyAnimation::Static(anim)) => {
+                        let anim = property_animation_code(&component, anim);
+                        format!("{}.set_animated_binding({}, {});", cpp_prop, binding_code, anim)
+                    }
+                    Some(crate::object_tree::PropertyAnimation::Transition {
+                        state_ref,
+                        animations,
+                    }) => {
+                        let state_tokens = compile_expression(state_ref, component);
+                        let mut anim_expr = animations.iter().map(|a| {
+                            let cond = compile_expression(
+                                &a.condition(Expression::ReadLocalVariable {
+                                    name: "state".into(),
+                                    ty: state_ref.ty(),
+                                }),
+                                component,
+                            );
+                            let anim = property_animation_code(component, &a.animation);
+                            format!("if ({}) {{ return {}; }}", cond, anim)
+                        });
+                        format!(
+                            "{}.set_animated_binding_for_transition({},
+                            [this](uint64_t *start_time) -> sixtyfps::PropertyAnimation {{
+                                [[maybe_unused]] auto self = this;
+                                auto state = {};
+                                *start_time = state.change_time;
+                                {}
+                                return {{}};
+                            }});",
+                            cpp_prop,
+                            binding_code,
+                            state_tokens,
+                            anim_expr.join(" ")
+                        )
+                    }
+                    None => format!("{}.set_binding({});", cpp_prop, binding_code),
+                }
             }
         });
     }

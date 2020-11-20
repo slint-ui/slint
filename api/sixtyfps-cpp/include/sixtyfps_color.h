@@ -195,18 +195,4 @@ void Property<Color>::set_animated_value(const Color &new_value,
                                                                  &animation_data);
 }
 
-template<>
-template<typename F>
-void Property<Color>::set_animated_binding(
-        F binding, const cbindgen_private::PropertyAnimation &animation_data) const
-{
-    cbindgen_private::sixtyfps_property_set_animated_binding_color(
-            &inner,
-            [](void *user_data, Color *value) {
-                *reinterpret_cast<Color *>(value) = (*reinterpret_cast<F *>(user_data))();
-            },
-            new F(binding), [](void *user_data) { delete reinterpret_cast<F *>(user_data); },
-            &animation_data);
-}
-
 }

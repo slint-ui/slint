@@ -23,6 +23,34 @@ namespace sixtyfps {
 
 using cbindgen_private::StateInfo;
 
+namespace private_api {
+
+void sixtyfps_property_set_animated_binding_helper(const cbindgen_private::PropertyHandleOpaque *handle,
+        void (*binding)(void*, int32_t*), void *user_data, void (*drop_user_data)(void*),
+        const cbindgen_private::PropertyAnimation *animation_data,
+        cbindgen_private::PropertyAnimation (*transition_data)(void *, uint64_t *)) {
+    cbindgen_private::sixtyfps_property_set_animated_binding_int(handle, binding, user_data, drop_user_data, animation_data, transition_data);
+}
+
+void sixtyfps_property_set_animated_binding_helper(const cbindgen_private::PropertyHandleOpaque *handle,
+        void (*binding)(void*, float*), void *user_data, void (*drop_user_data)(void*),
+        const cbindgen_private::PropertyAnimation *animation_data,
+        cbindgen_private::PropertyAnimation (*transition_data)(void *, uint64_t *)) {
+    cbindgen_private::sixtyfps_property_set_animated_binding_float(handle, binding, user_data, drop_user_data, animation_data, transition_data);
+}
+
+void sixtyfps_property_set_animated_binding_helper(const cbindgen_private::PropertyHandleOpaque *handle,
+        void (*binding)(void*, Color*), void *user_data, void (*drop_user_data)(void*),
+        const cbindgen_private::PropertyAnimation *animation_data,
+        cbindgen_private::PropertyAnimation (*transition_data)(void *, uint64_t *)) {
+    cbindgen_private::sixtyfps_property_set_animated_binding_color(handle, binding, user_data, drop_user_data, animation_data, transition_data);
+}
+
+
+
+}
+
+
 template<typename T>
 struct Property
 {
@@ -71,7 +99,34 @@ struct Property
                                    const cbindgen_private::PropertyAnimation &animation_data) const ;
     template<typename F>
     inline void set_animated_binding(F binding,
-                                     const cbindgen_private::PropertyAnimation &animation_data) const;
+                                     const cbindgen_private::PropertyAnimation &animation_data) const {
+        private_api::sixtyfps_property_set_animated_binding_helper(
+            &inner,
+            [](void *user_data, T *value) {
+                *reinterpret_cast<T *>(value) = (*reinterpret_cast<F *>(user_data))();
+            },
+            new F(binding), [](void *user_data) { delete reinterpret_cast<F *>(user_data); },
+            &animation_data, nullptr);
+    }
+
+    template<typename F, typename Trans>
+    inline void set_animated_binding_for_transition(F binding, Trans animation) const {
+        struct UserData {
+            F binding;
+            Trans animation;
+        };
+        private_api::sixtyfps_property_set_animated_binding_helper(
+            &inner,
+            [](void *user_data, T *value) {
+                *reinterpret_cast<T *>(value) = reinterpret_cast<UserData *>(user_data)->binding();
+            },
+            new UserData{binding, animation},
+            [](void *user_data) { delete reinterpret_cast<UserData *>(user_data); },
+            nullptr,
+            [](void *user_data, uint64_t *instant) {
+                return reinterpret_cast<UserData *>(user_data)->animation(instant);
+            });
+    }
 
     bool is_dirty() const { return cbindgen_private::sixtyfps_property_is_dirty(&inner); }
 
@@ -133,33 +188,6 @@ void Property<float>::set_animated_value(const float &new_value,
                                                                  &animation_data);
 }
 
-template<>
-template<typename F>
-void Property<int32_t>::set_animated_binding(
-        F binding, const cbindgen_private::PropertyAnimation &animation_data) const
-{
-    cbindgen_private::sixtyfps_property_set_animated_binding_int(
-            &inner,
-            [](void *user_data, int32_t *value) {
-                *reinterpret_cast<int32_t *>(value) = (*reinterpret_cast<F *>(user_data))();
-            },
-            new F(binding), [](void *user_data) { delete reinterpret_cast<F *>(user_data); },
-            &animation_data);
-}
-
-template<>
-template<typename F>
-void Property<float>::set_animated_binding(
-        F binding, const cbindgen_private::PropertyAnimation &animation_data) const
-{
-    cbindgen_private::sixtyfps_property_set_animated_binding_float(
-            &inner,
-            [](void *user_data, float *value) {
-                *reinterpret_cast<float *>(value) = (*reinterpret_cast<F *>(user_data))();
-            },
-            new F(binding), [](void *user_data) { delete reinterpret_cast<F *>(user_data); },
-            &animation_data);
-}
 
 template<typename F>
 void set_state_binding(const Property<StateInfo> &property, F binding) {

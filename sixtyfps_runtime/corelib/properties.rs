@@ -1562,33 +1562,51 @@ pub(crate) mod ffi {
         binding: extern "C" fn(*mut c_void, *mut T),
         user_data: *mut c_void,
         drop_user_data: Option<extern "C" fn(*mut c_void)>,
-        animation_data: &PropertyAnimation,
+        animation_data: Option<&PropertyAnimation>,
+        transition_data: Option<
+            extern "C" fn(user_data: *mut c_void, start_instant: &mut u64) -> PropertyAnimation,
+        >,
     ) {
         let binding = core::mem::transmute::<
             extern "C" fn(*mut c_void, *mut T),
             extern "C" fn(*mut c_void, *mut ()),
         >(binding);
-        handle.0.set_binding(AnimatedBindingCallable::<T, _> {
-            original_binding: PropertyHandle {
-                handle: Cell::new(
-                    (alloc_binding_holder(make_c_function_binding(
-                        binding,
-                        user_data,
-                        drop_user_data,
-                        None,
-                        None,
-                    )) as usize)
-                        | 0b10,
-                ),
-            },
-            state: Cell::new(AnimatedBindingState::NotAnimating),
-            animation_data: RefCell::new(PropertyValueAnimationData::new(
-                T::default(),
-                T::default(),
-                animation_data.clone(),
-            )),
-            compute_animation_details: || -> AnimationDetail { None },
-        });
+        let original_binding = PropertyHandle {
+            handle: Cell::new(
+                (alloc_binding_holder(make_c_function_binding(
+                    binding,
+                    user_data,
+                    drop_user_data,
+                    None,
+                    None,
+                )) as usize)
+                    | 0b10,
+            ),
+        };
+        let animation_data = RefCell::new(PropertyValueAnimationData::new(
+            T::default(),
+            T::default(),
+            animation_data.cloned().unwrap_or_default(),
+        ));
+        if let Some(transition_data) = transition_data {
+            handle.0.set_binding(AnimatedBindingCallable::<T, _> {
+                original_binding,
+                state: Cell::new(AnimatedBindingState::NotAnimating),
+                animation_data,
+                compute_animation_details: move || -> AnimationDetail {
+                    let mut start_instant = 0;
+                    let anim = transition_data(user_data, &mut start_instant);
+                    Some((anim, crate::animations::Instant(start_instant)))
+                },
+            });
+        } else {
+            handle.0.set_binding(AnimatedBindingCallable::<T, _> {
+                original_binding,
+                state: Cell::new(AnimatedBindingState::NotAnimating),
+                animation_data,
+                compute_animation_details: || -> AnimationDetail { None },
+            });
+        }
         handle.0.mark_dirty();
     }
 
@@ -1599,9 +1617,19 @@ pub(crate) mod ffi {
         binding: extern "C" fn(*mut c_void, *mut i32),
         user_data: *mut c_void,
         drop_user_data: Option<extern "C" fn(*mut c_void)>,
-        animation_data: &PropertyAnimation,
+        animation_data: Option<&PropertyAnimation>,
+        transition_data: Option<
+            extern "C" fn(user_data: *mut c_void, start_instant: &mut u64) -> PropertyAnimation,
+        >,
     ) {
-        c_set_animated_binding(handle, binding, user_data, drop_user_data, animation_data);
+        c_set_animated_binding(
+            handle,
+            binding,
+            user_data,
+            drop_user_data,
+            animation_data,
+            transition_data,
+        );
     }
 
     /// Internal function to set up a property animation between values produced by the specified binding for a float property.
@@ -1611,9 +1639,19 @@ pub(crate) mod ffi {
         binding: extern "C" fn(*mut c_void, *mut f32),
         user_data: *mut c_void,
         drop_user_data: Option<extern "C" fn(*mut c_void)>,
-        animation_data: &PropertyAnimation,
+        animation_data: Option<&PropertyAnimation>,
+        transition_data: Option<
+            extern "C" fn(user_data: *mut c_void, start_instant: &mut u64) -> PropertyAnimation,
+        >,
     ) {
-        c_set_animated_binding(handle, binding, user_data, drop_user_data, animation_data);
+        c_set_animated_binding(
+            handle,
+            binding,
+            user_data,
+            drop_user_data,
+            animation_data,
+            transition_data,
+        );
     }
 
     /// Internal function to set up a property animation between values produced by the specified binding for a color property.
@@ -1623,9 +1661,19 @@ pub(crate) mod ffi {
         binding: extern "C" fn(*mut c_void, *mut Color),
         user_data: *mut c_void,
         drop_user_data: Option<extern "C" fn(*mut c_void)>,
-        animation_data: &PropertyAnimation,
+        animation_data: Option<&PropertyAnimation>,
+        transition_data: Option<
+            extern "C" fn(user_data: *mut c_void, start_instant: &mut u64) -> PropertyAnimation,
+        >,
     ) {
-        c_set_animated_binding(handle, binding, user_data, drop_user_data, animation_data);
+        c_set_animated_binding(
+            handle,
+            binding,
+            user_data,
+            drop_user_data,
+            animation_data,
+            transition_data,
+        );
     }
 
     /// Internal function to set up a state binding on a Property<StateInfo>.
