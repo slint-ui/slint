@@ -63,6 +63,11 @@ fn inline_element(
     elem_mut.property_animations.extend(
         inlined_component.root_element.borrow().property_animations.iter().map(clone_tuple),
     );
+    // FIXME: states and transitions will be merged while inlining, this is not what we want
+    elem_mut.states.extend(inlined_component.root_element.borrow().states.iter().cloned());
+    elem_mut
+        .transitions
+        .extend(inlined_component.root_element.borrow().transitions.iter().cloned());
 
     // Map the old element to the new
     let mut mapping = HashMap::new();

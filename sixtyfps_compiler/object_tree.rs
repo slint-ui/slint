@@ -1086,7 +1086,7 @@ pub struct State {
     pub property_changes: Vec<(NamedReference, Expression)>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Transition {
     /// false for 'to', true for 'out'
     pub is_out: bool,
