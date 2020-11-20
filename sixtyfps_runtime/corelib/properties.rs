@@ -658,12 +658,12 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
     ///
     /// If other properties have binding depending of this property, these properties will
     /// be marked as dirty.
-    pub fn set_animated_value(&self, value: T, animation_data: &PropertyAnimation) {
+    pub fn set_animated_value(&self, value: T, animation_data: PropertyAnimation) {
         // FIXME if the current value is a dirty binding, we must run it, but we do not have the context
         let d = RefCell::new(PropertyValueAnimationData::new(
             self.get_internal(),
             value,
-            animation_data.clone(),
+            animation_data,
         ));
         // Safety: the BindingCallable will cast its arguement to T
         unsafe {
@@ -686,7 +686,7 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
     pub fn set_animated_binding(
         &self,
         binding: impl Binding<T> + 'static,
-        animation_data: &PropertyAnimation,
+        animation_data: PropertyAnimation,
     ) {
         let binding_callable = AnimatedBindingCallable::<T, _> {
             original_binding: PropertyHandle {
@@ -703,7 +703,7 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
             animation_data: RefCell::new(PropertyValueAnimationData::new(
                 T::default(),
                 T::default(),
-                animation_data.clone(),
+                animation_data,
             )),
             compute_animation_details: || -> AnimationDetail { None },
         };
@@ -1070,7 +1070,7 @@ mod animation_tests {
 
         let start_time = crate::animations::current_tick();
 
-        compo.width.set_animated_value(200, &animation_details);
+        compo.width.set_animated_value(200, animation_details);
         assert_eq!(get_prop_value(&compo.width), 100);
         assert_eq!(get_prop_value(&compo.width_times_two), 200);
 
@@ -1109,7 +1109,7 @@ mod animation_tests {
                 let compo = w.upgrade().unwrap();
                 get_prop_value(&compo.feed_property)
             },
-            &animation_details,
+            animation_details,
         );
 
         compo.feed_property.set(100);
@@ -1147,7 +1147,7 @@ mod animation_tests {
 
         let start_time = crate::animations::current_tick();
 
-        compo.width.set_animated_value(200, &animation_details);
+        compo.width.set_animated_value(200, animation_details);
         assert_eq!(get_prop_value(&compo.width), 100);
 
         crate::animations::CURRENT_ANIMATION_DRIVER
@@ -1192,7 +1192,7 @@ mod animation_tests {
 
         let start_time = crate::animations::current_tick();
 
-        compo.width.set_animated_value(200, &animation_details);
+        compo.width.set_animated_value(200, animation_details);
         assert_eq!(get_prop_value(&compo.width), 100);
 
         crate::animations::CURRENT_ANIMATION_DRIVER

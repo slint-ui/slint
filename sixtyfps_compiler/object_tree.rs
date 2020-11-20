@@ -12,6 +12,7 @@ LICENSE END */
 */
 
 use crate::diagnostics::{FileDiagnostics, Spanned, SpannedWithSourceFile};
+use crate::expression_tree::Unit;
 use crate::expression_tree::{Expression, ExpressionSpanned, NamedReference};
 use crate::langtype::{NativeClass, Type};
 use crate::parser::{identifier_text, syntax_nodes, SyntaxKind, SyntaxNodeWithSourceFile};
@@ -215,6 +216,21 @@ pub struct TransitionPropertyAnimation {
     pub is_out: bool,
     /// The content of the `anumation` object
     pub animation: ElementRc,
+}
+
+impl TransitionPropertyAnimation {
+    /// Return an expression which returns a boolean which is true if the transition is active.
+    /// The state argument is an expresison referencing the state property of type StateInfo
+    pub fn condition(&self, state: Expression) -> Expression {
+        Expression::BinaryExpression {
+            lhs: Box::new(Expression::ObjectAccess {
+                base: Box::new(state),
+                name: (if self.is_out { "previous_state" } else { "current_state" }).into(),
+            }),
+            rhs: Box::new(Expression::NumberLiteral(self.state_id as _, Unit::None)),
+            op: '=',
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

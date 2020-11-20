@@ -146,7 +146,7 @@ where
         value: Value,
         animation: Option<PropertyAnimation>,
     ) -> Result<(), ()> {
-        if let Some(animation) = &animation {
+        if let Some(animation) = animation {
             self.apply_pin(item).set_animated_value(value.try_into().map_err(|_| ())?, animation);
             Ok(())
         } else {
@@ -159,7 +159,7 @@ where
         binding: Box<dyn Fn() -> Value>,
         animation: Option<PropertyAnimation>,
     ) -> Result<(), ()> {
-        if let Some(animation) = &animation {
+        if let Some(animation) = animation {
             self.apply_pin(item).set_animated_binding(
                 move || {
                     binding().try_into().map_err(|_| ()).expect("binding was of the wrong type")

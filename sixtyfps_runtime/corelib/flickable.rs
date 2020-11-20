@@ -64,10 +64,10 @@ impl FlickableData {
                     };
                     (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.x)
                         .apply_pin(flick)
-                        .set_animated_value(final_pos.x, &anim);
+                        .set_animated_value(final_pos.x, anim.clone());
                     (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.y)
                         .apply_pin(flick)
-                        .set_animated_value(final_pos.y, &anim);
+                        .set_animated_value(final_pos.y, anim);
                 }
                 inner.pressed_time = None
             }

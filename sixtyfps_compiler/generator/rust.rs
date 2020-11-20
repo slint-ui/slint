@@ -191,10 +191,42 @@ fn handle_property_binding(
             };
             if is_state_info {
                 quote! { sixtyfps::re_exports::set_state_binding(#rust_property, #binding_tokens); }
-            } else if let Some(anim) = property_animation_tokens(component, &item_rc, prop_name) {
-                quote! { #rust_property.set_animated_binding(#binding_tokens, #anim); }
             } else {
-                quote! { #rust_property.set_binding(#binding_tokens); }
+                match item_rc.borrow().property_animations.get(prop_name) {
+                    Some(crate::object_tree::PropertyAnimation::Static(anim)) => {
+                        let anim = property_animation_tokens(component, anim);
+                        quote! { #rust_property.set_animated_binding(#binding_tokens, #anim); }
+                    }
+                    Some(crate::object_tree::PropertyAnimation::Transition {
+                        state_ref,
+                        animations,
+                    }) => {
+                        let state_tokens = compile_expression(state_ref, component);
+                        let anim_expr = animations.iter().map(|a| {
+                            let cond = compile_expression(
+                                &a.condition(Expression::ReadLocalVariable {
+                                    name: "state".into(),
+                                    ty: state_ref.ty(),
+                                }),
+                                component,
+                            );
+                            let a_tokens = property_animation_tokens(component, &a.animation);
+                            quote!(if #cond { #a_tokens })
+                        });
+                        quote! {
+                            let self_weak = sixtyfps::re_exports::VRc::downgrade(&self_pinned);
+                            #rust_property.set_animated_binding_for_transition(#binding_tokens, move || {
+                                let self_pinned = self_weak.upgrade().unwrap();
+                                let _self = self_pinned.as_pin_ref();
+                                let state = #state_tokens;
+                                ({ #(#anim_expr else)* { sixtyfps::re_exports::PropertyAnimation::default() }  }, state.change_time)
+                            });
+                        }
+                    }
+                    None => {
+                        quote! { #rust_property.set_binding(#binding_tokens); }
+                    }
+                }
             }
         });
     }
@@ -867,30 +899,19 @@ fn component_id(component: &Component) -> proc_macro2::Ident {
 
 fn property_animation_tokens(
     component: &Rc<Component>,
-    element: &ElementRc,
-    property_name: &str,
+    animation: &ElementRc,
 ) -> Option<TokenStream> {
-    match element.borrow().property_animations.get(property_name) {
-        Some(crate::object_tree::PropertyAnimation::Static(animation)) => {
-            let bindings: Vec<TokenStream> = animation
-                .borrow()
-                .bindings
-                .iter()
-                .map(|(prop, initializer)| {
-                    let prop_ident = format_ident!("{}", prop);
-                    let initializer = compile_expression(initializer, component);
-                    quote!(#prop_ident: #initializer as _)
-                })
-                .collect();
+    let animation = animation.borrow();
+    let bindings = animation.bindings.iter().map(|(prop, initializer)| {
+        let prop_ident = format_ident!("{}", prop);
+        let initializer = compile_expression(initializer, component);
+        quote!(#prop_ident: #initializer as _)
+    });
 
-            Some(quote!(&sixtyfps::re_exports::PropertyAnimation{
-                #(#bindings, )*
-                ..::core::default::Default::default()
-            }))
-        }
-        Some(_) => todo!("handle transitions in Rust"),
-        _ => None,
-    }
+    Some(quote!(sixtyfps::re_exports::PropertyAnimation{
+        #(#bindings, )*
+        ..::core::default::Default::default()
+    }))
 }
 
 fn property_set_value_tokens(
@@ -899,10 +920,12 @@ fn property_set_value_tokens(
     property_name: &str,
     value_tokens: TokenStream,
 ) -> TokenStream {
-    if let Some(animation_tokens) = property_animation_tokens(component, element, property_name) {
-        quote!(set_animated_value(#value_tokens, #animation_tokens))
-    } else {
-        quote!(set(#value_tokens))
+    match element.borrow().property_animations.get(property_name) {
+        Some(crate::object_tree::PropertyAnimation::Static(animation)) => {
+            let animation_tokens = property_animation_tokens(component, animation);
+            quote!(set_animated_value(#value_tokens, #animation_tokens))
+        }
+        _ => quote!(set(#value_tokens)),
     }
 }
 
