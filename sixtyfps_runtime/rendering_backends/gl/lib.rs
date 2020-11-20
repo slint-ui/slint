@@ -77,7 +77,6 @@ enum GLRenderingPrimitive {
         vertices: GLArrayBuffer<Vertex>,
         texture_vertices: GLArrayBuffer<Vertex>,
         texture: texture::AtlasAllocation,
-        image_size: Size,
     },
     #[cfg(target_arch = "wasm32")]
     DynamicPrimitive {
@@ -629,7 +628,6 @@ impl GLRenderingPrimitivesBuilder {
         atlas: &mut TextureAtlas,
         image: impl texture::UploadableAtlasImage,
     ) -> GLRenderingPrimitive {
-        let image_size = Size::new(image.width() as _, image.height() as _);
         let rect =
             Rect::new(Point::new(0.0, 0.0), Size::new(image.width() as f32, image.height() as f32));
 
@@ -647,12 +645,7 @@ impl GLRenderingPrimitivesBuilder {
         let texture_vertices =
             GLArrayBuffer::new(&context, &atlas_allocation.normalized_texture_coordinates());
 
-        GLRenderingPrimitive::Texture {
-            vertices,
-            texture_vertices,
-            texture: atlas_allocation,
-            image_size,
-        }
+        GLRenderingPrimitive::Texture { vertices, texture_vertices, texture: atlas_allocation }
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -803,11 +796,12 @@ impl GLFrame {
                 );
                 None
             }
-            GLRenderingPrimitive::Texture { vertices, texture_vertices, texture, image_size } => {
+            GLRenderingPrimitive::Texture { vertices, texture_vertices, texture } => {
                 let matrix = if let Some(scaled_width) = rendering_var.next() {
                     matrix
                         * Matrix4::from_nonuniform_scale(
-                            scaled_width.as_scaled_width() / image_size.width,
+                            scaled_width.as_scaled_width()
+                                / texture.texture_coordinates.width() as f32,
                             1.,
                             1.,
                         )
@@ -819,7 +813,8 @@ impl GLFrame {
                     matrix
                         * Matrix4::from_nonuniform_scale(
                             1.,
-                            scaled_height.as_scaled_height() / image_size.height,
+                            scaled_height.as_scaled_height()
+                                / texture.texture_coordinates.height() as f32,
                             1.,
                         )
                 } else {
