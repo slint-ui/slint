@@ -252,6 +252,15 @@ fn get_cpp_type(ty: &Type, type_node: &dyn Spanned, diag: &mut BuildDiagnostics)
     })
 }
 
+/// If the expression is surrounded with parentheses, remove these parentheses
+fn remove_parentheses(expr: &str) -> &str {
+    if expr.starts_with('(') && expr.ends_with(')') {
+        &expr[1..expr.len() - 1]
+    } else {
+        expr
+    }
+}
+
 fn new_struct_with_bindings(
     type_name: &str,
     bindings: &HashMap<String, ExpressionSpanned>,
@@ -393,7 +402,7 @@ fn handle_property_binding(
                                 component,
                             );
                             let anim = property_animation_code(component, &a.animation);
-                            format!("if ({}) {{ return {}; }}", cond, anim)
+                            format!("if ({}) {{ return {}; }}", remove_parentheses(&cond), anim)
                         });
                         format!(
                             "{}.set_animated_binding_for_transition({},
@@ -1515,18 +1524,14 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
         }
         Expression::Condition { condition, true_expr, false_expr } => {
             let cond_code = compile_expression(condition, component);
-            let cond_code_without_parens = if cond_code.starts_with('(') && cond_code.ends_with(')') {
-                &cond_code[1..cond_code.len() - 1]
-            } else {
-                &cond_code
-            };
+            let cond_code = remove_parentheses(&cond_code);
             let true_code = compile_expression(true_expr, component);
             let false_code = compile_expression(false_expr, component);
             let ty = e.ty();
             if ty == Type::Invalid || ty == Type::Void {
                 format!(
                     r#"[&]() {{ if ({}) {{ {}; }} else {{ {}; }}}}()"#,
-                    cond_code_without_parens,
+                    cond_code,
                     true_code,
                     false_code
                 )
@@ -1534,7 +1539,7 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
                 format!(
                     r#"[&]() -> {} {{ if ({}) {{ return {}; }} else {{ return {}; }}}}()"#,
                     ty.cpp_type().unwrap(),
-                    cond_code_without_parens,
+                    cond_code,
                     true_code,
                     false_code
                 )
