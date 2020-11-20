@@ -674,7 +674,8 @@ impl Item for Clip {
         self: Pin<&Self>,
         _: MouseEvent,
         _window: &ComponentWindow,
-        _app_component: ComponentRefPin,
+        _self_component: &VRc<ComponentVTable, vtable::Dyn>,
+        _self_index: usize,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
