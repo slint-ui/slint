@@ -30,6 +30,31 @@ struct Theme := {
     piece-spacing: float,
 }
 
+Checkbox := Rectangle {
+    property <bool> checked;
+    signal toggled(bool);
+    property<color> checked_color;
+    property<color> unchecked_color;
+    Text {
+        width: 100%;
+        height: 100%;
+
+        // FIXME: this should be a rectangle with an animated ✓
+        text: checked ? " ☑ " : " ☐ ";
+        color: checked ? checked_color : unchecked_color;
+        animate color { duration: 200ms; }
+        vertical-alignment: align-center;
+        TouchArea {
+            width: 100%;
+            height: 100%;
+            clicked => {
+                checked = !checked;
+                root.toggled(checked);
+            }
+        }
+    }
+}
+
 export MainWindow := Window {
     signal piece_clicked(int);
     signal reset();
@@ -312,20 +337,11 @@ export MainWindow := Window {
                         clicked => { root.reset(); }
                     }
                 }
-                Text {
-                    // FIXME: this should be a rectangle with an animated ✓
-                    text: auto_play ? " ☑ " : " ☐ ";
-                    color: auto_play ? current-theme.game-highlight-color : current-theme.game-text-color;
-                    animate color { duration: 200ms; }
-                    vertical-alignment: align-center;
-                    TouchArea {
-                        width: 100%;
-                        height: 100%;
-                        clicked => {
-                            auto_play = !auto_play;
-                            root.enable_auto_mode(auto_play);
-                        }
-                    }
+                Checkbox {
+                    checked <=> auto_play;
+                    toggled(checked) => { root.enable_auto_mode(checked) }
+                    checked_color: current-theme.game-highlight-color;
+                    unchecked_color: current-theme.game-text-color;
                 }
                 Rectangle {} // stretch
                 Text {
