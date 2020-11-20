@@ -30,30 +30,71 @@ struct Theme := {
     piece-spacing: float,
 }
 
+
+
 Checkbox := Rectangle {
     property <bool> checked;
     signal toggled(bool);
     property<color> checked_color;
     property<color> unchecked_color;
-    Text {
-        width: 100%;
+
+    border-width: height * 10%;
+    border-color: unchecked_color;
+    border-radius: 2px;
+
+    clip := Clip {
+        width: 0px;
         height: 100%;
 
-        // FIXME: this should be a rectangle with an animated ✓
-        text: checked ? " ☑ " : " ☐ ";
-        color: checked ? checked_color : unchecked_color;
-        animate color { duration: 200ms; }
-        vertical-alignment: align-center;
-        TouchArea {
-            width: 100%;
-            height: 100%;
-            clicked => {
-                checked = !checked;
-                root.toggled(checked);
+        Text {
+            width: root.width;
+            height: root.height;
+
+            text: "✓";
+            font-size: height;
+            color: white;
+            animate color { duration: 200ms; }
+            vertical-alignment: align-center;
+            horizontal-alignment: align-center;
+            ta := TouchArea {
+                width: 100%;
+                height: 100%;
+                clicked => {
+                    checked = !checked;
+                    root.toggled(checked);
+                }
             }
         }
+
     }
+
+    states [
+       /* pressed when ta.pressed : {
+            clip.width: root.width;
+            root.border-color: checked_color;
+            root.border-width: root.width;
+        }*/
+        checked when root.checked : {
+            clip.width: root.width;
+            border-color: checked_color;
+            border-width: root.width;
+        }
+    ]
+    transitions [
+        to checked : {
+            animate clip.width { duration: 200ms; easing: ease-in; }
+            animate border-width { duration: 100ms; easing: ease-out; }
+        }
+        out checked : {
+            animate clip.width { duration: 100ms; easing: ease; }
+            animate border-width { duration: 200ms; easing: ease-in-out; }
+            animate border-color { duration: 200ms; easing: cubic-bezier(1,1,1,0); }
+        }
+
+    ]
 }
+
+
 
 export MainWindow := Window {
     signal piece_clicked(int);
@@ -326,9 +367,10 @@ export MainWindow := Window {
             width: parent.width;
 
             HorizontalLayout {
-                padding: 10px;
+                padding: parent.height * 25%;
                 Text {
                     text: " ↻ ";
+                    font-size: parent.height * 50%;
                     color: current-theme.game-highlight-color;
                     vertical-alignment: align-center;
                     TouchArea {
@@ -338,6 +380,7 @@ export MainWindow := Window {
                     }
                 }
                 Checkbox {
+                    width: height;
                     checked <=> auto_play;
                     toggled(checked) => { root.enable_auto_mode(checked) }
                     checked_color: current-theme.game-highlight-color;

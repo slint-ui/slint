@@ -652,11 +652,7 @@ impl Item for Clip {
     ) -> HighLevelRenderingPrimitive {
         let width = Self::FIELD_OFFSETS.width.apply_pin(self).get();
         let height = Self::FIELD_OFFSETS.height.apply_pin(self).get();
-        if width > 0. && height > 0. {
-            HighLevelRenderingPrimitive::ClipRect { width, height }
-        } else {
-            HighLevelRenderingPrimitive::NoContents
-        }
+        HighLevelRenderingPrimitive::ClipRect { width, height }
     }
 
     fn rendering_variables(
