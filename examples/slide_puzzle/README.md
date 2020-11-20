@@ -12,7 +12,8 @@ Remaining feature to implement to have parity:
  * bold text when the tile is in the correct position in classic style
    Note that this feature is kind of broken in the flutter example as it is only applied
    when changing themes
- * Expanding cirle animation when pressing a tile.
+ * Clip the Expanding cirle animation when pressing a tile.
+ * Hover effect on tiles
  * Animation of the auto-play checkbox.
  * When the puzzle is finished, the last tile is added, and the tiles are growing in the Seatle theme.
  * The different styles are well separated in different files.

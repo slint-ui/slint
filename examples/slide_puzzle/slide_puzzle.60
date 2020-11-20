@@ -230,11 +230,42 @@ export MainWindow := Window {
                 height: 100%;
             }
 
-            TouchArea {
+            touch := TouchArea {
                 width: 100%;
                 height: 100%;
                 clicked => { root.piece_cliked(i); }
             }
+
+            shadow := Rectangle {
+                width: 100%;
+                height: 100%;
+                circle := Rectangle {
+                    height: width;
+                    border-radius: width/2;
+                    color: #0002;
+                    x: touch.pressed_x - width/2;
+                    y: touch.pressed_y - width/2;
+                }
+            }
+
+            states [
+                hover when false: {
+                    shadow.color: #0001;
+                }
+                pressed when touch.pressed : {
+                    shadow.color: #0002;
+                    circle.width: shadow.width * 2 * 1.4142;
+                }
+            ]
+            transitions [
+                to pressed : {
+                    animate shadow.color { duration: 50ms; }
+                    animate circle.width { duration: 2s; easing: ease-out; }
+                }
+                out pressed : {
+                    animate shadow.color { duration: 50ms; }
+                }
+            ]
         }
 
         if (root.tiles-left == 0) : Text {
