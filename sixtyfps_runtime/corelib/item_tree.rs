@@ -107,7 +107,7 @@ pub struct ItemVisitorVTable {
     visit_item: fn(
         VRefMut<ItemVisitorVTable>,
         component: &VRc<ComponentVTable, vtable::Dyn>,
-        index: isize,
+        index: usize,
         item: Pin<VRef<ItemVTable>>,
     ) -> VisitChildrenResult,
     /// Destructor
@@ -117,11 +117,11 @@ pub struct ItemVisitorVTable {
 /// Type alias to `vtable::VRefMut<ItemVisitorVTable>`
 pub type ItemVisitorRefMut<'a> = vtable::VRefMut<'a, ItemVisitorVTable>;
 
-impl<T: FnMut(&ComponentRc, isize, Pin<ItemRef>) -> VisitChildrenResult> ItemVisitor for T {
+impl<T: FnMut(&ComponentRc, usize, Pin<ItemRef>) -> VisitChildrenResult> ItemVisitor for T {
     fn visit_item(
         &mut self,
         component: &ComponentRc,
-        index: isize,
+        index: usize,
         item: Pin<ItemRef>,
     ) -> VisitChildrenResult {
         self(component, index, item)
@@ -184,18 +184,20 @@ fn visit_internal<State, PostVisitState>(
     index: isize,
     state: &State,
 ) -> VisitChildrenResult {
-    let mut actual_visitor =
-        |component: &ComponentRc, index: isize, item: Pin<ItemRef>| -> VisitChildrenResult {
-            match visitor(component, item, state) {
-                (ItemVisitorResult::Continue(state), post_visit_state) => {
-                    let result =
-                        visit_internal(component, order, visitor, post_visitor, index, &state);
-                    post_visitor(component, item, post_visit_state);
-                    result
-                }
-                (ItemVisitorResult::Abort, _) => VisitChildrenResult::abort(index as usize, 0),
+    let mut actual_visitor = |component: &ComponentRc,
+                              index: usize,
+                              item: Pin<ItemRef>|
+     -> VisitChildrenResult {
+        match visitor(component, item, state) {
+            (ItemVisitorResult::Continue(state), post_visit_state) => {
+                let result =
+                    visit_internal(component, order, visitor, post_visitor, index as isize, &state);
+                post_visitor(component, item, post_visit_state);
+                result
             }
-        };
+            (ItemVisitorResult::Abort, _) => VisitChildrenResult::abort(index, 0),
+        }
+    };
     vtable::new_vref!(let mut actual_visitor : VRefMut<ItemVisitorVTable> for ItemVisitor = &mut actual_visitor);
     VRc::borrow_pin(component).as_ref().visit_children_item(index, order, actual_visitor)
 }
@@ -225,7 +227,7 @@ pub fn visit_item_tree<Base>(
     let mut visit_at_index = |idx: usize| -> VisitChildrenResult {
         match &item_tree[idx] {
             ItemTreeNode::Item { item, .. } => {
-                visitor.visit_item(component, idx as isize, item.apply_pin(base))
+                visitor.visit_item(component, idx, item.apply_pin(base))
             }
             ItemTreeNode::DynamicTree { index } => {
                 if let Some(sub_idx) =
