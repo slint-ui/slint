@@ -34,13 +34,22 @@ BorderRectangle := Rectangle {
 
 export { BorderRectangle as Rectangle }
 
-export Image := _ {
+Image := _ {
     property <resource> source;
     property <length> x;
     property <length> y;
     property <length> width;
     property <length> height;
 }
+
+export ClippedImage := Image {
+    property <int> source-clip-x;
+    property <int> source-clip-y;
+    property <int> source-clip-width;
+    property <int> source-clip-height;
+}
+
+export { ClippedImage as Image }
 
 export Text := _ {
     property <string> text;

@@ -9,7 +9,11 @@
 LICENSE END */
 use super::{GLContext, Vertex};
 use glow::HasContext;
-use pathfinder_geometry::{rect::RectI, vector::Vector2I};
+use pathfinder_geometry::{
+    rect::{RectF, RectI},
+    vector::{Vector2F, Vector2I},
+};
+use sixtyfps_corelib::graphics::IntRect;
 use std::{cell::RefCell, rc::Rc};
 
 pub struct GLTexture {
@@ -202,12 +206,25 @@ impl Drop for AtlasAllocation {
 }
 
 impl AtlasAllocation {
-    pub(crate) fn normalized_texture_coordinates(&self) -> [Vertex; 6] {
+    pub(crate) fn normalized_texture_coordinates_with_source_rect(
+        &self,
+        source_rect: &IntRect,
+    ) -> [Vertex; 6] {
         let atlas_width = self.atlas.texture.width as f32;
         let atlas_height = self.atlas.texture.height as f32;
         let origin = self.texture_coordinates.origin();
         let size = self.texture_coordinates.size();
-        let texture_coordinates = RectI::new(origin, size);
+        let texture_coordinates = RectF::new(
+            Vector2F::new(
+                (origin.x() + source_rect.min_x()) as f32,
+                (origin.y() + source_rect.min_y()) as f32,
+            ),
+            if source_rect.is_empty() {
+                Vector2F::new(size.x() as f32, size.y() as f32)
+            } else {
+                Vector2F::new(source_rect.width() as f32, source_rect.height() as f32)
+            },
+        );
 
         let tex_left = ((texture_coordinates.min_x() as f32) + 0.5) / atlas_width;
         let tex_top = ((texture_coordinates.min_y() as f32) + 0.5) / atlas_height;
@@ -220,6 +237,9 @@ impl AtlasAllocation {
         let tex_vertex4 = Vertex { _pos: [tex_left, tex_bottom] };
 
         [tex_vertex1, tex_vertex2, tex_vertex3, tex_vertex1, tex_vertex3, tex_vertex4]
+    }
+    pub(crate) fn normalized_texture_coordinates(&self) -> [Vertex; 6] {
+        self.normalized_texture_coordinates_with_source_rect(&IntRect::default())
     }
 }
 

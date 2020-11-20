@@ -5,7 +5,6 @@ https://flutter.github.io/samples/slide_puzzle
 This will allow to compare SixtyFPS and Flutter.
 
 Remaining feature to implement to have parity:
- * Images on the tiles in the "Berlin" theme.
  * Fonts.
  * "Spring" animation instead of a bezier curve.
  * Animation when clicking on a tile that cannot be moved.

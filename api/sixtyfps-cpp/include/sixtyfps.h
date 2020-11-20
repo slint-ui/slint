@@ -37,6 +37,7 @@ extern const cbindgen_private::ItemVTable BorderRectangleVTable;
 extern const cbindgen_private::ItemVTable TextVTable;
 extern const cbindgen_private::ItemVTable TouchAreaVTable;
 extern const cbindgen_private::ItemVTable ImageVTable;
+extern const cbindgen_private::ItemVTable ClippedImageVTable;
 extern const cbindgen_private::ItemVTable PathVTable;
 extern const cbindgen_private::ItemVTable FlickableVTable;
 extern const cbindgen_private::ItemVTable WindowVTable;
@@ -126,6 +127,7 @@ private:
 
 using cbindgen_private::BorderRectangle;
 using cbindgen_private::Clip;
+using cbindgen_private::ClippedImage;
 using cbindgen_private::Flickable;
 using cbindgen_private::Image;
 using cbindgen_private::Path;

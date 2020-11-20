@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
  - VerticalLayout / HorizontalLayout
  - Placeholder text in line edit
  - global components (#96)
+ - `Image` element: New source-clip-{x, y, width, height} properties
 
 ## [0.0.2] - 2020-12-22
 

@@ -489,6 +489,7 @@ fn generate_component<'id>(
         rtti.extend(
             [
                 rtti_for::<Image>(),
+                rtti_for::<ClippedImage>(),
                 rtti_for::<Text>(),
                 rtti_for::<Rectangle>(),
                 rtti_for::<BorderRectangle>(),

@@ -45,6 +45,7 @@ fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
         "Rectangle",
         "BorderRectangle",
         "Image",
+        "ClippedImage",
         "TouchArea",
         "Flickable",
         "Text",

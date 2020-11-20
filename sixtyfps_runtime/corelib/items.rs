@@ -26,7 +26,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 
 use super::component::ComponentVTable;
 use super::eventloop::ComponentWindow;
-use super::graphics::{Color, HighLevelRenderingPrimitive, PathData, Rect, Resource};
+use super::graphics::{Color, HighLevelRenderingPrimitive, IntRect, PathData, Rect, Resource};
 use super::input::{
     FocusEvent, InputEventResult, KeyEvent, KeyEventResult, KeyboardModifiers, MouseEvent,
     MouseEventType,
@@ -305,6 +305,7 @@ impl Item for Image {
     ) -> HighLevelRenderingPrimitive {
         HighLevelRenderingPrimitive::Image {
             source: Self::FIELD_OFFSETS.source.apply_pin(self).get(),
+            source_clip_rect: IntRect::default(),
         }
     }
 
@@ -360,6 +361,103 @@ ItemVTable_static! {
     /// The VTable for `Image`
     #[no_mangle]
     pub static ImageVTable for Image
+}
+
+#[repr(C)]
+#[derive(FieldOffsets, Default, BuiltinItem)]
+#[pin]
+/// The implementation of the `ClippedImage` element
+pub struct ClippedImage {
+    pub source: Property<Resource>,
+    pub x: Property<f32>,
+    pub y: Property<f32>,
+    pub width: Property<f32>,
+    pub height: Property<f32>,
+    pub source_clip_x: Property<i32>,
+    pub source_clip_y: Property<i32>,
+    pub source_clip_width: Property<i32>,
+    pub source_clip_height: Property<i32>,
+    pub cached_rendering_data: CachedRenderingData,
+}
+
+impl Item for ClippedImage {
+    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+
+    fn geometry(self: Pin<&Self>) -> Rect {
+        euclid::rect(
+            Self::FIELD_OFFSETS.x.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.y.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.width.apply_pin(self).get(),
+            Self::FIELD_OFFSETS.height.apply_pin(self).get(),
+        )
+    }
+    fn rendering_primitive(
+        self: Pin<&Self>,
+        _window: &ComponentWindow,
+    ) -> HighLevelRenderingPrimitive {
+        HighLevelRenderingPrimitive::Image {
+            source: Self::FIELD_OFFSETS.source.apply_pin(self).get(),
+            source_clip_rect: euclid::rect(
+                Self::FIELD_OFFSETS.source_clip_x.apply_pin(self).get(),
+                Self::FIELD_OFFSETS.source_clip_y.apply_pin(self).get(),
+                Self::FIELD_OFFSETS.source_clip_width.apply_pin(self).get(),
+                Self::FIELD_OFFSETS.source_clip_height.apply_pin(self).get(),
+            ),
+        }
+    }
+
+    fn rendering_variables(
+        self: Pin<&Self>,
+        _window: &ComponentWindow,
+    ) -> SharedArray<RenderingVariable> {
+        let mut vars = SharedArray::default();
+
+        let width = Self::FIELD_OFFSETS.width.apply_pin(self).get();
+        let height = Self::FIELD_OFFSETS.height.apply_pin(self).get();
+
+        if width > 0. {
+            vars.push(RenderingVariable::ScaledWidth(width));
+        }
+        if height > 0. {
+            vars.push(RenderingVariable::ScaledHeight(height));
+        }
+
+        vars
+    }
+
+    fn layouting_info(self: Pin<&Self>, _window: &crate::eventloop::ComponentWindow) -> LayoutInfo {
+        // FIXME: should we use the image size here
+        Default::default()
+    }
+
+    fn input_event(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window: &ComponentWindow,
+        _self_component: &VRc<ComponentVTable, vtable::Dyn>,
+        _self_index: usize,
+    ) -> InputEventResult {
+        InputEventResult::EventIgnored
+    }
+
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
+
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+}
+
+impl ItemConsts for ClippedImage {
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<
+        ClippedImage,
+        CachedRenderingData,
+    > = ClippedImage::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+}
+
+ItemVTable_static! {
+    /// The VTable for `ClippedImage`
+    #[no_mangle]
+    pub static ClippedImageVTable for ClippedImage
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, strum_macros::EnumString, strum_macros::Display)]

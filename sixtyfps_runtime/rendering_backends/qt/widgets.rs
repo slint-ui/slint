@@ -163,7 +163,10 @@ impl Item for NativeButton {
                 option.state |= QStyle::State_Enabled;
             qApp->style()->drawControl(QStyle::CE_PushButton, &option, &p, nullptr);
         });
-        return HighLevelRenderingPrimitive::Image { source: imgarray.to_resource() };
+        return HighLevelRenderingPrimitive::Image {
+            source: imgarray.to_resource(),
+            source_clip_rect: Default::default(),
+        };
     }
 
     fn rendering_variables(
@@ -294,7 +297,10 @@ impl Item for NativeCheckBox {
                 option.state |= QStyle::State_Enabled;
             qApp->style()->drawControl(QStyle::CE_CheckBox, &option, &p, nullptr);
         });
-        return HighLevelRenderingPrimitive::Image { source: imgarray.to_resource() };
+        return HighLevelRenderingPrimitive::Image {
+            source: imgarray.to_resource(),
+            source_clip_rect: Default::default(),
+        };
     }
 
     fn rendering_variables(
@@ -444,7 +450,10 @@ impl Item for NativeSpinBox {
             auto text_rect = style->subControlRect(QStyle::CC_SpinBox, &option, QStyle::SC_SpinBoxEditField, nullptr);
             p.drawText(text_rect, QString::number(value));
         });
-        return HighLevelRenderingPrimitive::Image { source: imgarray.to_resource() };
+        return HighLevelRenderingPrimitive::Image {
+            source: imgarray.to_resource(),
+            source_clip_rect: Default::default(),
+        };
     }
 
     fn rendering_variables(
@@ -651,7 +660,10 @@ impl Item for NativeSlider {
             auto style = qApp->style();
             style->drawComplexControl(QStyle::CC_Slider, &option, &p, nullptr);
         });
-        return HighLevelRenderingPrimitive::Image { source: imgarray.to_resource() };
+        return HighLevelRenderingPrimitive::Image {
+            source: imgarray.to_resource(),
+            source_clip_rect: Default::default(),
+        };
     }
 
     fn rendering_variables(
@@ -931,7 +943,10 @@ impl Item for NativeGroupBox {
                 QStyle::SH_GroupBox_TextLabelColor, &option));
             qApp->style()->drawComplexControl(QStyle::CC_GroupBox, &option, &p, nullptr);
         });
-        return HighLevelRenderingPrimitive::Image { source: imgarray.to_resource() };
+        return HighLevelRenderingPrimitive::Image {
+            source: imgarray.to_resource(),
+            source_clip_rect: Default::default(),
+        };
     }
 
     fn rendering_variables(
@@ -1085,7 +1100,10 @@ impl Item for NativeLineEdit {
                 option.state |= QStyle::State_Enabled;
             qApp->style()->drawPrimitive(QStyle::PE_PanelLineEdit, &option, &p, nullptr);
         });
-        return HighLevelRenderingPrimitive::Image { source: imgarray.to_resource() };
+        return HighLevelRenderingPrimitive::Image {
+            source: imgarray.to_resource(),
+            source_clip_rect: Default::default(),
+        };
     }
 
     fn rendering_variables(
@@ -1336,7 +1354,10 @@ impl Item for NativeScrollView {
             data.pressed == 1,
         );
 
-        return HighLevelRenderingPrimitive::Image { source: imgarray.to_resource() };
+        return HighLevelRenderingPrimitive::Image {
+            source: imgarray.to_resource(),
+            source_clip_rect: Default::default(),
+        };
     }
 
     fn rendering_variables(
@@ -1584,7 +1605,10 @@ impl Item for NativeStandardListViewItem {
             qApp->style()->drawPrimitive(QStyle::PE_PanelItemViewRow, &option, &p, nullptr);
             qApp->style()->drawControl(QStyle::CE_ItemViewItem, &option, &p, nullptr);
         });
-        return HighLevelRenderingPrimitive::Image { source: imgarray.to_resource() };
+        return HighLevelRenderingPrimitive::Image {
+            source: imgarray.to_resource(),
+            source_clip_rect: Default::default(),
+        };
     }
 
     fn rendering_variables(
@@ -1716,7 +1740,10 @@ impl Item for NativeComboBox {
             qApp->style()->drawComplexControl(QStyle::CC_ComboBox, &option, &p, nullptr);
             qApp->style()->drawControl(QStyle::CE_ComboBoxLabel, &option, &p, nullptr);
         });
-        return HighLevelRenderingPrimitive::Image { source: imgarray.to_resource() };
+        return HighLevelRenderingPrimitive::Image {
+            source: imgarray.to_resource(),
+            source_clip_rect: Default::default(),
+        };
     }
 
     fn rendering_variables(

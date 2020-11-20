@@ -18,8 +18,8 @@ use sixtyfps_corelib::eventloop::ComponentWindow;
 use sixtyfps_corelib::{
     graphics::{
         Color, Frame as GraphicsFrame, GraphicsBackend, GraphicsWindow,
-        HighLevelRenderingPrimitive, Point, Rect, RenderingPrimitivesBuilder, RenderingVariable,
-        Resource, RgbaColor, Size,
+        HighLevelRenderingPrimitive, IntRect, Point, Rect, RenderingPrimitivesBuilder,
+        RenderingVariable, Resource, RgbaColor, Size,
     },
     SharedArray,
 };
@@ -413,7 +413,7 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                     let rect = Rect::new(Point::default(), Size::new(*width, *height));
                     smallvec![self.fill_rectangle(&rect, *border_radius, *border_width)]
                 }
-                HighLevelRenderingPrimitive::Image { source } => {
+                HighLevelRenderingPrimitive::Image { source, source_clip_rect } => {
                     match source {
                         #[cfg(not(target_arch = "wasm32"))]
                         Resource::AbsoluteFilePath(path) => {
@@ -430,7 +430,8 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                             smallvec![GLRenderingPrimitivesBuilder::create_image(
                                 &self.context,
                                 &mut *self.texture_atlas.borrow_mut(),
-                                image
+                                image,
+                                source_clip_rect
                             )]
                         }
                         #[cfg(target_arch = "wasm32")]
@@ -447,12 +448,14 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                                     let shared_primitive = shared_primitive.clone();
                                     let window = self.window.clone();
                                     let event_loop_proxy = self.event_loop_proxy.clone();
+                                    let source_clip_rect = *source_clip_rect;
                                     move || {
                                         let texture_primitive =
                                             GLRenderingPrimitivesBuilder::create_image(
                                                 &context,
                                                 &mut *atlas.borrow_mut(),
                                                 &html_image,
+                                                &source_clip_rect,
                                             );
 
                                         *shared_primitive.borrow_mut() = Some(texture_primitive);
@@ -485,7 +488,8 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                             smallvec![GLRenderingPrimitivesBuilder::create_image(
                                 &self.context,
                                 &mut *self.texture_atlas.borrow_mut(),
-                                image
+                                image,
+                                &source_clip_rect
                             )]
                         }
                         Resource::EmbeddedRgbaImage { width, height, data } => {
@@ -498,7 +502,8 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                             smallvec![GLRenderingPrimitivesBuilder::create_image(
                                 &self.context,
                                 &mut *self.texture_atlas.borrow_mut(),
-                                image
+                                image,
+                                &source_clip_rect
                             )]
                         }
                         Resource::None => SmallVec::new(),
@@ -627,6 +632,7 @@ impl GLRenderingPrimitivesBuilder {
         context: &Rc<glow::Context>,
         atlas: &mut TextureAtlas,
         image: impl texture::UploadableAtlasImage,
+        source_rect: &IntRect,
     ) -> GLRenderingPrimitive {
         let rect =
             Rect::new(Point::new(0.0, 0.0), Size::new(image.width() as f32, image.height() as f32));
@@ -642,8 +648,10 @@ impl GLRenderingPrimitivesBuilder {
             &context,
             &vec![vertex1, vertex2, vertex3, vertex1, vertex3, vertex4],
         );
-        let texture_vertices =
-            GLArrayBuffer::new(&context, &atlas_allocation.normalized_texture_coordinates());
+        let texture_vertices = GLArrayBuffer::new(
+            &context,
+            &atlas_allocation.normalized_texture_coordinates_with_source_rect(source_rect),
+        );
 
         GLRenderingPrimitive::Texture { vertices, texture_vertices, texture: atlas_allocation }
     }

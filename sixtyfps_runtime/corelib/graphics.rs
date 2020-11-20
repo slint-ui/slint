@@ -43,6 +43,8 @@ use std::rc::Rc;
 
 /// 2D Rectangle
 pub type Rect = euclid::default::Rect<f32>;
+/// 2D Rectangle with integer coordinates
+pub type IntRect = euclid::default::Rect<i32>;
 /// 2D Point
 pub type Point = euclid::default::Point2D<f32>;
 /// 2D Size
@@ -276,7 +278,7 @@ pub enum HighLevelRenderingPrimitive {
     /// Optional rendering variables:
     /// * [`RenderingVariable::ScaledWidth`]: The image will be scaled to the specified width.
     /// * [`RenderingVariable::ScaledHeight`]: The image will be scaled to the specified height.
-    Image { source: crate::Resource },
+    Image { source: crate::Resource, source_clip_rect: IntRect },
     /// Renders the specified `text` with a font that matches the specified family (`font_family`) and the given
     /// pixel size (`font_size`).
     ///
@@ -1211,6 +1213,16 @@ pub(crate) mod ffi {
         y: f32,
         width: f32,
         height: f32,
+    }
+
+    /// Expand IntRect so that cbindgen can see it. ( is in fact euclid::default::Rect<i32>)
+    #[cfg(cbindgen)]
+    #[repr(C)]
+    struct IntRect {
+        x: i32,
+        y: i32,
+        width: i32,
+        height: i32,
     }
 
     /// Expand Point so that cbindgen can see it. ( is in fact euclid::default::PointD2<f32>)

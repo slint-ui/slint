@@ -88,6 +88,8 @@ An Image can be used to represent an image loaded from an image file
 
 * **`source`** (*image*): The image to load. In order to reference image, one uses the `img!"..."` macro
   which loads the file relative to the directory containing the .60 file.
+* **`source-clip-x`**, **`source-clip-y`**, **`source-clip-width`**, **`source-clip-height`** (*int*): properties in source
+  image coordinates that, when specified, can be used to render only a portion of the specified image.
 
 ### Example
 
