@@ -24,7 +24,7 @@ use sixtyfps_corelib::{
     SharedArray,
 };
 use smallvec::{smallvec, SmallVec};
-use std::cell::RefCell;
+use std::{cell::RefCell, collections::HashMap};
 
 extern crate alloc;
 use alloc::rc::Rc;
@@ -76,7 +76,7 @@ enum GLRenderingPrimitive {
     Texture {
         vertices: GLArrayBuffer<Vertex>,
         texture_vertices: GLArrayBuffer<Vertex>,
-        texture: texture::AtlasAllocation,
+        texture: Rc<texture::AtlasAllocation>,
     },
     #[cfg(target_arch = "wasm32")]
     DynamicPrimitive {
@@ -102,6 +102,8 @@ struct NormalRectangle {
     indices: GLIndexBuffer<u16>,
 }
 
+type TextureCacheKey = String;
+
 pub struct GLRenderer {
     context: Rc<glow::Context>,
     path_shader: PathShader,
@@ -119,6 +121,7 @@ pub struct GLRenderer {
     #[cfg(not(target_arch = "wasm32"))]
     windowed_context: Option<glutin::WindowedContext<glutin::NotCurrent>>,
     normal_rectangle: Option<NormalRectangle>,
+    texture_cache: Rc<RefCell<HashMap<TextureCacheKey, Rc<texture::AtlasAllocation>>>>,
 }
 
 pub struct GLRenderingPrimitivesBuilder {
@@ -136,6 +139,8 @@ pub struct GLRenderingPrimitivesBuilder {
         Rc<winit::event_loop::EventLoopProxy<sixtyfps_corelib::eventloop::CustomEvent>>,
     #[cfg(not(target_arch = "wasm32"))]
     windowed_context: glutin::WindowedContext<glutin::PossiblyCurrent>,
+
+    texture_cache: Rc<RefCell<HashMap<TextureCacheKey, Rc<texture::AtlasAllocation>>>>,
 }
 
 pub struct GLFrame {
@@ -272,6 +277,7 @@ impl GLRenderer {
             #[cfg(not(target_arch = "wasm32"))]
             windowed_context: Some(unsafe { windowed_context.make_not_current().unwrap() }),
             normal_rectangle: None,
+            texture_cache: Default::default(),
         }
     }
 }
@@ -322,6 +328,8 @@ impl GraphicsBackend for GLRenderer {
             event_loop_proxy: self.event_loop_proxy.clone(),
             #[cfg(not(target_arch = "wasm32"))]
             windowed_context: current_windowed_context,
+
+            texture_cache: self.texture_cache.clone(),
         }
     }
 
@@ -420,17 +428,15 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                             let mut image_path = std::env::current_exe().unwrap();
                             image_path.pop(); // pop of executable name
                             image_path.push(&*path.clone());
-                            let image = image::open(image_path.as_path()).unwrap().into_rgba();
-                            let image = image::ImageBuffer::<image::Rgba<u8>, &[u8]>::from_raw(
-                                image.width(),
-                                image.height(),
-                                &image,
-                            )
-                            .unwrap();
-                            smallvec![GLRenderingPrimitivesBuilder::create_image(
+
+                            let atlas_allocation = self
+                                .cached_texture(image_path.to_string_lossy().to_string(), || {
+                                    image::open(image_path.as_path()).unwrap().into_rgba()
+                                });
+
+                            smallvec![GLRenderingPrimitivesBuilder::create_texture(
                                 &self.context,
-                                &mut *self.texture_atlas.borrow_mut(),
-                                image,
+                                atlas_allocation,
                                 source_clip_rect
                             )]
                         }
@@ -634,15 +640,28 @@ impl GLRenderingPrimitivesBuilder {
         image: impl texture::UploadableAtlasImage,
         source_rect: &IntRect,
     ) -> GLRenderingPrimitive {
-        let rect =
-            Rect::new(Point::new(0.0, 0.0), Size::new(image.width() as f32, image.height() as f32));
+        let atlas_allocation = atlas.allocate_image_in_atlas(&context, image);
+
+        Self::create_texture(context, Rc::new(atlas_allocation), source_rect)
+    }
+
+    fn create_texture(
+        context: &Rc<glow::Context>,
+        atlas_allocation: Rc<texture::AtlasAllocation>,
+        source_rect: &IntRect,
+    ) -> GLRenderingPrimitive {
+        let rect = Rect::new(
+            Point::new(0.0, 0.0),
+            Size::new(
+                atlas_allocation.texture_coordinates.width() as f32,
+                atlas_allocation.texture_coordinates.height() as f32,
+            ),
+        );
 
         let vertex1 = Vertex { _pos: [rect.min_x(), rect.min_y()] };
         let vertex2 = Vertex { _pos: [rect.max_x(), rect.min_y()] };
         let vertex3 = Vertex { _pos: [rect.max_x(), rect.max_y()] };
         let vertex4 = Vertex { _pos: [rect.min_x(), rect.max_y()] };
-
-        let atlas_allocation = atlas.allocate_image_in_atlas(&context, image);
 
         let vertices = GLArrayBuffer::new(
             &context,
@@ -654,6 +673,24 @@ impl GLRenderingPrimitivesBuilder {
         );
 
         GLRenderingPrimitive::Texture { vertices, texture_vertices, texture: atlas_allocation }
+    }
+
+    fn cached_texture<Img: texture::UploadableAtlasImage>(
+        &self,
+        key: TextureCacheKey,
+        create_fn: impl Fn() -> Img,
+    ) -> Rc<texture::AtlasAllocation> {
+        self.texture_cache
+            .borrow_mut()
+            .entry(key)
+            .or_insert_with(|| {
+                Rc::new(
+                    self.texture_atlas
+                        .borrow_mut()
+                        .allocate_image_in_atlas(&self.context, create_fn()),
+                )
+            })
+            .clone()
     }
 
     #[cfg(not(target_arch = "wasm32"))]
