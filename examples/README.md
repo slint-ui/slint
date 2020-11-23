@@ -30,7 +30,16 @@ A simple todo mvc application
 
 `.60` Design | Rust Source | C++ Source | Node Source | Online wasm Preview  | Open in code editor
 --- | --- | --- | --- | --- | ---
-[`todo.60`](./todo/ui/todo.60) | [`main.rs`](./todo/rust/main.rs) | [`main.cpp`](./todo/cpp/main.cpp) | [`main.js`](./todo/node/main.js) | [Online simulation](https://sixtyfps.io/demos/todo/) | [Preview in Online Code Editor](https://sixtyfps.io/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/todo/ui/.60)
+[`todo.60`](./todo/ui/todo.60) | [`main.rs`](./todo/rust/main.rs) | [`main.cpp`](./todo/cpp/main.cpp) | [`main.js`](./todo/node/main.js) | [Online simulation](https://sixtyfps.io/demos/todo/) | [Preview in Online Code Editor](https://sixtyfps.io/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/todo/ui/todo.60)
+
+### `slide_puzzle`
+
+Puzzle game based on a Flutter example. See [Readme](./slide_puzzle)
+
+`.60` Design | Rust Source | C++ Source | Node Source | Online wasm Preview  | Open in code editor
+--- | --- | --- | --- | --- | ---
+[`slide_puzzle.60`](./slide_puzzle/slide_puzzle.60) | [`main.rs`](./todo/rust/main.rs) | ❌ | ❌ | [Online simulation](https://sixtyfps.io/demos/slide_puzzle/) | [Preview in Online Code Editor](https://sixtyfps.io/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/slide_puzzle/slide_puzzle.60)
+
 
 
 ## Loading the example with the `viewer`
