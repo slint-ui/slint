@@ -12,7 +12,6 @@ Remaining feature to implement to have parity:
    Note that this feature is kind of broken in the flutter example as it is only applied
    when changing themes
  * Hover effect on tiles and on the auto-play checkbox.
- * When the puzzle is finished, the last tile is added, and the tiles are growing in the Seatle theme.
  * The different styles are well separated in different files.
  * Shadow on the tiles
 

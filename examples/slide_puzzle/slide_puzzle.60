@@ -112,6 +112,7 @@ export MainWindow := Window {
     property <int> moves;
     property <int> tiles-left;
     property <[Piece]> pieces: [
+        { pos_x: 0, pos_y: 0 },
         { pos_x: 0, pos_y: 1 },
         { pos_x: 0, pos_y: 2 },
         { pos_x: 0, pos_y: 3 },
@@ -126,7 +127,6 @@ export MainWindow := Window {
         { pos_x: 3, pos_y: 0 },
         { pos_x: 3, pos_y: 1 },
         { pos_x: 3, pos_y: 2 },
-        { pos_x: 3, pos_y: 3 },
     ];
 
     property <[Theme]> themes: [
@@ -216,7 +216,8 @@ export MainWindow := Window {
     };
 
     property<length> pieces_size: min(width, height) / 6;
-    property<length> pieces_spacing: pieces_size * current-theme.piece-spacing;
+    property<length> pieces_spacing: current-theme.game-use-background-image && tiles-left == 0 ?
+        2px : (pieces_size * current-theme.piece-spacing);
 
     animate pieces_spacing { duration: 500ms; easing: ease-out; }
 
@@ -291,6 +292,15 @@ export MainWindow := Window {
                 source-clip-y: floor(i / 4) * 683 / 4;
                 source-clip-width: 1024 / 4;
                 source-clip-height: 683 / 4;
+
+                if (root.tiles-left != 0) : Rectangle {
+                    width: 60%;
+                    height: 60%;
+                    x: (parent.width - width) / 2;
+                    y: (parent.height - height) / 2;
+                    border-radius: width;
+                    color: is_correct ? #0008 : #fff8;
+                }
             }
 
             if (!current-theme.game-use-background-image) : Rectangle {
@@ -303,18 +313,9 @@ export MainWindow := Window {
                 animate border-width, border-radius { duration: 500ms; easing: ease-out; }
             }
 
-            if (current-theme-index == 1) : Rectangle {
-                width: 60%;
-                height: 60%;
-                x: (parent.width - width) / 2;
-                y: (parent.height - height) / 2;
-                border-radius: width;
-                color: is_correct ? #0008 : #fff8;
-            }
-
-            Text {
+            if (!current-theme.game-use-background-image || tiles-left > 0) : Text {
                 text: i+1;
-                color: ((current-theme-index != 1 && i >= 8) || (current-theme-index == 1 && is_correct)) ? current-theme.piece-text-color-2 : current-theme.piece-text-color-1;
+                color: ((!current-theme.game-use-background-image && i >= 8) || (current-theme.game-use-background-image && is_correct)) ? current-theme.piece-text-color-2 : current-theme.piece-text-color-1;
                 font-size: pieces_size / 3;
                 vertical-alignment: align-center;
                 horizontal-alignment: align-center;
@@ -373,6 +374,16 @@ export MainWindow := Window {
             vertical-alignment: align-center;
             horizontal-alignment: align-center;
             text: "🖒";
+
+            if (current-theme.game-use-background-image) : Image {
+                height: 100%; width: 100%;
+                // https://commons.wikimedia.org/wiki/File:Berlin_potsdamer_platz.jpg Belappetit, CC BY-SA 3.0
+                source: img!"berlin.jpg";
+                source-clip-x: 3 * 1024 / 4;
+                source-clip-y: 3 * 683 / 4;
+                source-clip-width: 1024 / 4;
+                source-clip-height: 683 / 4;
+            }
         }
 
         Rectangle {
