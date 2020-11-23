@@ -158,7 +158,7 @@ pub use sixtyfps_corelib::model::{
 pub use sixtyfps_corelib::sharedarray::SharedArray;
 pub use sixtyfps_corelib::string::SharedString;
 pub use sixtyfps_corelib::timers::{Timer, TimerMode};
-pub use sixtyfps_corelib::{ARGBColor, Color};
+pub use sixtyfps_corelib::{RgbaColor, Color};
 
 // FIXME: this should not be in this namespace
 // but the name is `sixtyfps::StateInfo` in builtin.60

@@ -17,7 +17,7 @@ use lyon::tessellation::{
 use sixtyfps_corelib::eventloop::ComponentWindow;
 use sixtyfps_corelib::{
     graphics::{
-        ARGBColor, Color, Frame as GraphicsFrame, GraphicsBackend, GraphicsWindow,
+        RgbaColor, Color, Frame as GraphicsFrame, GraphicsBackend, GraphicsWindow,
         HighLevelRenderingPrimitive, Point, Rect, RenderingPrimitivesBuilder, RenderingVariable,
         Resource, Size,
     },
@@ -352,7 +352,7 @@ impl GraphicsBackend for GLRenderer {
             self.context.stencil_mask(0);
         }
 
-        let col: ARGBColor<f32> = (*clear_color).into();
+        let col: RgbaColor<f32> = (*clear_color).into();
         unsafe {
             self.context.stencil_mask(0xff);
             self.context.clear_stencil(0);
@@ -774,7 +774,7 @@ impl GLFrame {
     ) -> Option<OpaqueRenderingPrimitive> {
         match gl_primitive {
             GLRenderingPrimitive::FillPath { vertices, indices } => {
-                let col: ARGBColor<f32> = (*rendering_var.next().unwrap().as_color()).into();
+                let col: RgbaColor<f32> = (*rendering_var.next().unwrap().as_color()).into();
                 self.fill_path(&matrix, vertices, indices, col);
                 None
             }
@@ -785,8 +785,8 @@ impl GLFrame {
                 border_width,
                 rect_size,
             } => {
-                let col: ARGBColor<f32> = (*rendering_var.next().unwrap().as_color()).into();
-                let border_color: ARGBColor<f32> = if *border_width > 0. {
+                let col: RgbaColor<f32> = (*rendering_var.next().unwrap().as_color()).into();
+                let border_color: RgbaColor<f32> = if *border_width > 0. {
                     (*rendering_var.next().unwrap().as_color()).into()
                 } else {
                     Default::default()
@@ -830,7 +830,7 @@ impl GLFrame {
                 None
             }
             GLRenderingPrimitive::GlyphRuns { glyph_runs } => {
-                let col: ARGBColor<f32> = (*rendering_var.next().unwrap().as_color()).into();
+                let col: RgbaColor<f32> = (*rendering_var.next().unwrap().as_color()).into();
 
                 let render_glyphs = |text_color| {
                     for GlyphRun { vertices, texture_vertices, texture, vertex_count } in glyph_runs
@@ -861,9 +861,9 @@ impl GLFrame {
                         Some(text_cursor),
                     ) => {
                         rendering_var.next();
-                        let foreground_color: ARGBColor<f32> =
+                        let foreground_color: RgbaColor<f32> =
                             (*rendering_var.next().unwrap().as_color()).into();
-                        let background_color: ARGBColor<f32> =
+                        let background_color: RgbaColor<f32> =
                             (*rendering_var.next().unwrap().as_color()).into();
 
                         // Phase 1
@@ -966,10 +966,10 @@ impl GLFrame {
                     &matrix,
                     &vertices,
                     &indices,
-                    ARGBColor { alpha: 0., red: 0., green: 0., blue: 0. },
+                    RgbaColor { alpha: 0., red: 0., green: 0., blue: 0. },
                     0.,
                     0.,
-                    ARGBColor { alpha: 0., red: 0., green: 0., blue: 0. },
+                    RgbaColor { alpha: 0., red: 0., green: 0., blue: 0. },
                     *rect_size,
                 );
 
@@ -1009,10 +1009,10 @@ impl GLFrame {
                     &matrix,
                     &vertices,
                     &indices,
-                    ARGBColor { alpha: 0., red: 0., green: 0., blue: 0. },
+                    RgbaColor { alpha: 0., red: 0., green: 0., blue: 0. },
                     0.,
                     0.,
-                    ARGBColor { alpha: 0., red: 0., green: 0., blue: 0. },
+                    RgbaColor { alpha: 0., red: 0., green: 0., blue: 0. },
                     *rect_size,
                 );
 
@@ -1049,7 +1049,7 @@ impl GLFrame {
         matrix: &Matrix4<f32>,
         vertices: &GLArrayBuffer<Vertex>,
         indices: &GLIndexBuffer<u16>,
-        color: ARGBColor<f32>,
+        color: RgbaColor<f32>,
     ) {
         self.path_shader.bind(&self.context, &to_gl_matrix(&matrix), color, vertices, indices);
 
@@ -1065,10 +1065,10 @@ impl GLFrame {
         matrix: &Matrix4<f32>,
         vertices: &GLArrayBuffer<Vertex>,
         indices: &GLIndexBuffer<u16>,
-        color: ARGBColor<f32>,
+        color: RgbaColor<f32>,
         radius: f32,
         border_width: f32,
-        border_color: ARGBColor<f32>,
+        border_color: RgbaColor<f32>,
         rect_size: Size,
     ) {
         // Make sure the border fits into the rectangle
@@ -1123,7 +1123,7 @@ impl GLFrame {
         texture_vertices: &GLArrayBuffer<Vertex>,
         texture: &texture::GLTexture,
         vertex_count: i32,
-        color: ARGBColor<f32>,
+        color: RgbaColor<f32>,
     ) {
         self.glyph_shader.bind(
             &self.context,

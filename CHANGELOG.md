@@ -15,6 +15,7 @@ All notable changes to this project will be documented in this file.
  - Default to the native style in the `viewer`, if available.
  - Changed the name of the common logical pixel unit from `lx` to `px`. The less
    often used physical pixel has now the `phx` suffix.
+ - ARGBColor renamed RgbaColor
 
 ### Added
  - Add support for more keyboard shortcuts to `TextInput`.

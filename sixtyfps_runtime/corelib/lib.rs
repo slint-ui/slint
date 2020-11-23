@@ -57,7 +57,7 @@ pub use signals::Signal;
 pub use graphics::Color;
 
 #[doc(inline)]
-pub use graphics::ARGBColor;
+pub use graphics::RgbaColor;
 
 #[doc(inline)]
 pub use graphics::PathData;

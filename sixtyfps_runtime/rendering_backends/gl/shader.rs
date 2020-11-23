@@ -13,11 +13,11 @@ use super::{
     GLContext, Vertex,
 };
 use glow::HasContext;
-use sixtyfps_corelib::graphics::ARGBColor;
+use sixtyfps_corelib::graphics::RgbaColor;
 use std::rc::Rc;
 
-fn premultiply_alpha(col: ARGBColor<f32>) -> ARGBColor<f32> {
-    ARGBColor {
+fn premultiply_alpha(col: RgbaColor<f32>) -> RgbaColor<f32> {
+    RgbaColor {
         alpha: col.alpha,
         red: col.red * col.alpha,
         green: col.green * col.alpha,
@@ -127,7 +127,7 @@ impl PathShader {
         &self,
         gl: &glow::Context,
         matrix: &[f32; 16],
-        vertcolor: ARGBColor<f32>,
+        vertcolor: RgbaColor<f32>,
         pos: &GLArrayBuffer<Vertex>,
         indices: &GLIndexBuffer<u16>,
     ) {
@@ -260,11 +260,11 @@ impl RectShader {
         &self,
         gl: &glow::Context,
         matrix: &[f32; 16],
-        vertcolor: ARGBColor<f32>,
+        vertcolor: RgbaColor<f32>,
         rect_size: &[f32; 2],
         radius: f32,
         border_width: f32,
-        border_color: ARGBColor<f32>,
+        border_color: RgbaColor<f32>,
         pos: &GLArrayBuffer<Vertex>,
         indices: &GLIndexBuffer<u16>,
     ) {
@@ -434,7 +434,7 @@ impl GlyphShader {
         &self,
         gl: &glow::Context,
         matrix: &[f32; 16],
-        text_color: ARGBColor<f32>,
+        text_color: RgbaColor<f32>,
         tex: &GLTexture,
         pos: &GLArrayBuffer<Vertex>,
         tex_pos: &GLArrayBuffer<Vertex>,

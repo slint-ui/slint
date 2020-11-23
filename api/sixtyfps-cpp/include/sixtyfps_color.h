@@ -18,12 +18,12 @@ namespace sixtyfps {
 
 class Color;
 
-/// ARGBColor stores the red, green, blue and alpha components of a color
+/// RgbaColor stores the red, green, blue and alpha components of a color
 /// with the precision of the template parameter T. For example if T is float,
 /// the values are normalized between 0 and 1. If T is uint8_t, they values range
 /// is 0 to 255.
 template<typename T>
-struct ARGBColor
+struct RgbaColor
 {
     /// The alpha component.
     T alpha;
@@ -34,9 +34,9 @@ struct ARGBColor
     /// The blue component.
     T blue;
 
-    /// Creates a new ARGBColor instance from a given color. This template function is
+    /// Creates a new RgbaColor instance from a given color. This template function is
     /// specialized and thus implemented for T == uint8_t and T == float.
-    ARGBColor(const Color &col);
+    RgbaColor(const Color &col);
 };
 
 /// Color represents a color in the SixtyFPS run-time, represented using 8-bit channels for
@@ -46,14 +46,14 @@ class Color
 public:
     /// Default constructs a new color that is entirely transparent.
     Color() { inner.red = inner.green = inner.blue = inner.alpha = 0; }
-    Color(const ARGBColor<uint8_t> &col)
+    Color(const RgbaColor<uint8_t> &col)
     {
         inner.red = col.red;
         inner.green = col.green;
         inner.blue = col.blue;
         inner.alpha = col.alpha;
     }
-    Color(const ARGBColor<float> &col)
+    Color(const RgbaColor<float> &col)
     {
         inner.red = col.red * 255;
         inner.green = col.green * 255;
@@ -115,11 +115,11 @@ public:
         return Color::from_argb_float(1.0, red, green, blue);
     }
 
-    /// Converts this color to an ARGBColor struct for easy destructuring.
-    inline ARGBColor<uint8_t> to_argb_uint() const;
+    /// Converts this color to an RgbaColor struct for easy destructuring.
+    inline RgbaColor<uint8_t> to_argb_uint() const;
 
-    /// Converts this color to an ARGBColor struct for easy destructuring.
-    inline ARGBColor<float> to_argb_float() const;
+    /// Converts this color to an RgbaColor struct for easy destructuring.
+    inline RgbaColor<float> to_argb_float() const;
 
     /// Returns the red channel of the color as u8 in the range 0..255.
     uint8_t red() const { return inner.red; }
@@ -160,7 +160,7 @@ private:
 };
 
 template<>
-ARGBColor<uint8_t>::ARGBColor(const Color &color)
+RgbaColor<uint8_t>::RgbaColor(const Color &color)
 {
     red = color.red();
     green = color.green();
@@ -169,7 +169,7 @@ ARGBColor<uint8_t>::ARGBColor(const Color &color)
 }
 
 template<>
-ARGBColor<float>::ARGBColor(const Color &color)
+RgbaColor<float>::RgbaColor(const Color &color)
 {
     red = float(color.red()) / 255.;
     green = float(color.green()) / 255.;
@@ -177,14 +177,14 @@ ARGBColor<float>::ARGBColor(const Color &color)
     alpha = float(color.alpha()) / 255.;
 }
 
-ARGBColor<uint8_t> Color::to_argb_uint() const
+RgbaColor<uint8_t> Color::to_argb_uint() const
 {
-    return ARGBColor<uint8_t>(*this);
+    return RgbaColor<uint8_t>(*this);
 }
 
-ARGBColor<float> Color::to_argb_float() const
+RgbaColor<float> Color::to_argb_float() const
 {
-    return ARGBColor<float>(*this);
+    return RgbaColor<float>(*this);
 }
 
 template<>

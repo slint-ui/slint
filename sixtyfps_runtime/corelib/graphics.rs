@@ -48,13 +48,13 @@ pub type Point = euclid::default::Point2D<f32>;
 /// 2D Size
 pub type Size = euclid::default::Size2D<f32>;
 
-/// ARGBColor stores the red, green, blue and alpha components of a color
+/// RgbaColor stores the red, green, blue and alpha components of a color
 /// with the precision of the generic parameter T. For example if T is f32,
 /// the values are normalized between 0 and 1. If T is u8, they values range
 /// is 0 to 255.
 /// This is merely a helper class for use with [`Color`].
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
-pub struct ARGBColor<T> {
+pub struct RgbaColor<T> {
     /// The alpha component.
     pub alpha: T,
     /// The red channel.
@@ -71,15 +71,15 @@ pub struct ARGBColor<T> {
 /// ```
 /// # fn do_something_with_red_and_green(_:f32, _:f32) {}
 /// # fn do_something_with_red(_:u8) {}
-/// # use sixtyfps_corelib::graphics::{Color, ARGBColor};
+/// # use sixtyfps_corelib::graphics::{Color, RgbaColor};
 /// # let some_color = Color::from_rgb_u8(0, 0, 0);
 /// let col = some_color.to_argb_f32();
 /// do_something_with_red_and_green(col.red, col.green);
 ///
-/// let ARGBColor { red, blue, green, .. } = some_color.to_argb_u8();
+/// let RgbaColor { red, blue, green, .. } = some_color.to_argb_u8();
 /// do_something_with_red(red);
 ///
-/// let new_col = Color::from(ARGBColor{ red: 0.5, green: 0.65, blue: 0.32, alpha: 1.});
+/// let new_col = Color::from(RgbaColor{ red: 0.5, green: 0.65, blue: 0.32, alpha: 1.});
 /// ```
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
 #[repr(C)]
@@ -90,20 +90,20 @@ pub struct Color {
     alpha: u8,
 }
 
-impl From<ARGBColor<u8>> for Color {
-    fn from(col: ARGBColor<u8>) -> Self {
+impl From<RgbaColor<u8>> for Color {
+    fn from(col: RgbaColor<u8>) -> Self {
         Self { red: col.red, green: col.green, blue: col.blue, alpha: col.alpha }
     }
 }
 
-impl From<Color> for ARGBColor<u8> {
+impl From<Color> for RgbaColor<u8> {
     fn from(col: Color) -> Self {
-        ARGBColor { red: col.red, green: col.green, blue: col.blue, alpha: col.alpha }
+        RgbaColor { red: col.red, green: col.green, blue: col.blue, alpha: col.alpha }
     }
 }
 
-impl From<ARGBColor<u8>> for ARGBColor<f32> {
-    fn from(col: ARGBColor<u8>) -> Self {
+impl From<RgbaColor<u8>> for RgbaColor<f32> {
+    fn from(col: RgbaColor<u8>) -> Self {
         Self {
             red: (col.red as f32) / 255.0,
             green: (col.green as f32) / 255.0,
@@ -113,15 +113,15 @@ impl From<ARGBColor<u8>> for ARGBColor<f32> {
     }
 }
 
-impl From<Color> for ARGBColor<f32> {
+impl From<Color> for RgbaColor<f32> {
     fn from(col: Color) -> Self {
-        let u8col: ARGBColor<u8> = col.into();
+        let u8col: RgbaColor<u8> = col.into();
         u8col.into()
     }
 }
 
-impl From<ARGBColor<f32>> for Color {
-    fn from(col: ARGBColor<f32>) -> Self {
+impl From<RgbaColor<f32>> for Color {
+    fn from(col: RgbaColor<f32>) -> Self {
         Self {
             red: (col.red * 255.) as u8,
             green: (col.green * 255.) as u8,
@@ -163,7 +163,7 @@ impl Color {
 
     /// Construct a color from the alpha, red, green and blue color channel parameters.
     pub fn from_argb_f32(alpha: f32, red: f32, green: f32, blue: f32) -> Self {
-        ARGBColor { alpha, red, green, blue }.into()
+        RgbaColor { alpha, red, green, blue }.into()
     }
 
     /// Construct a color from the red, green and blue color channel parameters. The alpha
@@ -172,14 +172,14 @@ impl Color {
         Self::from_argb_f32(1.0, red, green, blue)
     }
 
-    /// Converts this color to an ARGBColor struct for easy destructuring.
-    pub fn to_argb_u8(&self) -> ARGBColor<u8> {
-        ARGBColor::from(*self)
+    /// Converts this color to an RgbaColor struct for easy destructuring.
+    pub fn to_argb_u8(&self) -> RgbaColor<u8> {
+        RgbaColor::from(*self)
     }
 
-    /// Converts this color to an ARGBColor struct for easy destructuring.
-    pub fn to_argb_f32(&self) -> ARGBColor<f32> {
-        ARGBColor::from(*self)
+    /// Converts this color to an RgbaColor struct for easy destructuring.
+    pub fn to_argb_f32(&self) -> RgbaColor<f32> {
+        RgbaColor::from(*self)
     }
 
     /// Returns the red channel of the color as u8 in the range 0..255.
@@ -657,7 +657,7 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
         let mut frame = backend.new_frame(
             size.width,
             size.height,
-            &ARGBColor { red: 255 as u8, green: 255, blue: 255, alpha: 255 }.into(),
+            &RgbaColor { red: 255 as u8, green: 255, blue: 255, alpha: 255 }.into(),
         );
         crate::item_rendering::render_component_items(
             &component_rc,
