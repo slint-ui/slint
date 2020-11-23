@@ -102,7 +102,11 @@ struct NormalRectangle {
     indices: GLIndexBuffer<u16>,
 }
 
-type TextureCacheKey = String;
+#[derive(PartialEq, Eq, Hash)]
+enum TextureCacheKey {
+    Path(String),
+    EmbeddedData(by_address::ByAddress<&'static [u8]>),
+}
 
 pub struct GLRenderer {
     context: Rc<glow::Context>,
@@ -429,10 +433,10 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                             image_path.pop(); // pop of executable name
                             image_path.push(&*path.clone());
 
-                            let atlas_allocation = self
-                                .cached_texture(image_path.to_string_lossy().to_string(), || {
-                                    image::open(image_path.as_path()).unwrap().into_rgba()
-                                });
+                            let atlas_allocation = self.cached_texture(
+                                TextureCacheKey::Path(image_path.to_string_lossy().to_string()),
+                                || image::open(image_path.as_path()).unwrap().into_rgba(),
+                            );
 
                             smallvec![GLRenderingPrimitivesBuilder::create_texture(
                                 &self.context,
@@ -483,19 +487,21 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                             }]
                         }
                         Resource::EmbeddedData(slice) => {
-                            let image_slice = slice.as_slice();
-                            let image = image::load_from_memory(image_slice).unwrap().to_rgba();
-                            let image = image::ImageBuffer::<image::Rgba<u8>, &[u8]>::from_raw(
-                                image.width(),
-                                image.height(),
-                                &image,
-                            )
-                            .unwrap();
-                            smallvec![GLRenderingPrimitivesBuilder::create_image(
+                            let atlas_allocation = self.cached_texture(
+                                TextureCacheKey::EmbeddedData(by_address::ByAddress(
+                                    slice.as_slice(),
+                                )),
+                                || {
+                                    let image_slice = slice.as_slice();
+
+                                    image::load_from_memory(image_slice).unwrap().to_rgba()
+                                },
+                            );
+
+                            smallvec![GLRenderingPrimitivesBuilder::create_texture(
                                 &self.context,
-                                &mut *self.texture_atlas.borrow_mut(),
-                                image,
-                                &source_clip_rect
+                                atlas_allocation,
+                                source_clip_rect
                             )]
                         }
                         Resource::EmbeddedRgbaImage { width, height, data } => {
