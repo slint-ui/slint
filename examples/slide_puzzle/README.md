@@ -7,7 +7,6 @@ This will allow to compare SixtyFPS and Flutter.
 Remaining feature to implement to have parity:
  * Fonts.
  * "Spring" animation instead of a bezier curve.
- * Animation when clicking on a tile that cannot be moved.
  * bold text when the tile is in the correct position in classic style
    Note that this feature is kind of broken in the flutter example as it is only applied
    when changing themes

@@ -3,12 +3,20 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+ - The Component is now handled in a `ComponentHandle` struct in both rust and C++
+ - ARGBColor renamed RgbaColor
+
 ### Added
  - Allow dashes in identifiers (#52)
  - VerticalLayout / HorizontalLayout
  - Placeholder text in line edit
  - global components (#96)
+ - `Crop` element
  - `Image` element: New source-clip-{x, y, width, height} properties
+ - `Timer` in rust API
+ - Transitions are now implemented
+ - round/ceil/floor/mod/max/min/cubic-bezier functions
 
 ## [0.0.2] - 2020-12-22
 
@@ -16,7 +24,6 @@ All notable changes to this project will be documented in this file.
  - Default to the native style in the `viewer`, if available.
  - Changed the name of the common logical pixel unit from `lx` to `px`. The less
    often used physical pixel has now the `phx` suffix.
- - ARGBColor renamed RgbaColor
 
 ### Added
  - Add support for more keyboard shortcuts to `TextInput`.
