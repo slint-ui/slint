@@ -211,7 +211,11 @@ pub fn main() {
     });
 
     let state_copy = state.clone();
-    main_window.as_ref().on_reset(move || state_copy.borrow_mut().randomize());
+    main_window.as_ref().on_reset(move || {
+        state_copy.borrow().auto_play_timer.stop();
+        state_copy.borrow().main_window.upgrade().map(|x| x.as_ref().set_auto_play(false));
+        state_copy.borrow_mut().randomize();
+    });
 
     let state_copy = state.clone();
     main_window.as_ref().on_enable_auto_mode(move |enabled| {
