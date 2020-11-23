@@ -24,10 +24,11 @@ use sixtyfps_corelib::{
     SharedArray,
 };
 use smallvec::{smallvec, SmallVec};
-use std::{cell::RefCell, collections::HashMap};
-
-extern crate alloc;
-use alloc::rc::Rc;
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+    rc::{Rc, Weak},
+};
 
 mod texture;
 use texture::{GLTexture, TextureAtlas};
@@ -102,7 +103,7 @@ struct NormalRectangle {
     indices: GLIndexBuffer<u16>,
 }
 
-#[derive(PartialEq, Eq, Hash)]
+#[derive(PartialEq, Eq, Hash, Debug)]
 enum TextureCacheKey {
     Path(String),
     EmbeddedData(by_address::ByAddress<&'static [u8]>),
@@ -125,7 +126,11 @@ pub struct GLRenderer {
     #[cfg(not(target_arch = "wasm32"))]
     windowed_context: Option<glutin::WindowedContext<glutin::NotCurrent>>,
     normal_rectangle: Option<NormalRectangle>,
-    texture_cache: Rc<RefCell<HashMap<TextureCacheKey, Rc<texture::AtlasAllocation>>>>,
+    /// When creating new rendering primitives, the cache allows the re-use of textures across
+    /// primitives and frames. Each time the rendering primitives builder finishes, the
+    /// cache is drained of all weak references that have no more strong references. Retaining
+    /// across frames works because the new primitive is created before the old one is deleted.
+    texture_cache: Rc<RefCell<HashMap<TextureCacheKey, Weak<texture::AtlasAllocation>>>>,
 }
 
 pub struct GLRenderingPrimitivesBuilder {
@@ -144,7 +149,7 @@ pub struct GLRenderingPrimitivesBuilder {
     #[cfg(not(target_arch = "wasm32"))]
     windowed_context: glutin::WindowedContext<glutin::PossiblyCurrent>,
 
-    texture_cache: Rc<RefCell<HashMap<TextureCacheKey, Rc<texture::AtlasAllocation>>>>,
+    texture_cache: Rc<RefCell<HashMap<TextureCacheKey, Weak<texture::AtlasAllocation>>>>,
 }
 
 pub struct GLFrame {
@@ -338,6 +343,12 @@ impl GraphicsBackend for GLRenderer {
     }
 
     fn finish_primitives(&mut self, _builder: Self::RenderingPrimitivesBuilder) {
+        self.texture_cache.borrow_mut().retain(|_, cached_texture| {
+            cached_texture
+                .upgrade()
+                .map_or(false, |cached_texture| Rc::strong_count(&cached_texture) > 1)
+        });
+
         #[cfg(not(target_arch = "wasm32"))]
         {
             self.windowed_context =
@@ -686,17 +697,28 @@ impl GLRenderingPrimitivesBuilder {
         key: TextureCacheKey,
         create_fn: impl Fn() -> Img,
     ) -> Rc<texture::AtlasAllocation> {
-        self.texture_cache
-            .borrow_mut()
-            .entry(key)
-            .or_insert_with(|| {
-                Rc::new(
+        match self.texture_cache.borrow_mut().entry(key) {
+            std::collections::hash_map::Entry::Occupied(mut existing_entry) => {
+                existing_entry.get().upgrade().unwrap_or_else(|| {
+                    let result = Rc::new(
+                        self.texture_atlas
+                            .borrow_mut()
+                            .allocate_image_in_atlas(&self.context, create_fn()),
+                    );
+                    existing_entry.insert(Rc::downgrade(&result));
+                    result
+                })
+            }
+            std::collections::hash_map::Entry::Vacant(vacant_entry) => {
+                let result = Rc::new(
                     self.texture_atlas
                         .borrow_mut()
                         .allocate_image_in_atlas(&self.context, create_fn()),
-                )
-            })
-            .clone()
+                );
+                vacant_entry.insert(Rc::downgrade(&result));
+                result
+            }
+        }
     }
 
     #[cfg(not(target_arch = "wasm32"))]
