@@ -17,9 +17,9 @@ use lyon::tessellation::{
 use sixtyfps_corelib::eventloop::ComponentWindow;
 use sixtyfps_corelib::{
     graphics::{
-        RgbaColor, Color, Frame as GraphicsFrame, GraphicsBackend, GraphicsWindow,
+        Color, Frame as GraphicsFrame, GraphicsBackend, GraphicsWindow,
         HighLevelRenderingPrimitive, Point, Rect, RenderingPrimitivesBuilder, RenderingVariable,
-        Resource, Size,
+        Resource, RgbaColor, Size,
     },
     SharedArray,
 };
