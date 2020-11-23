@@ -23,13 +23,13 @@ use crate::Property;
 type ModelPeerInner = dyn ViewAbstraction;
 type ComponentRc<C> = vtable::VRc<crate::component::ComponentVTable, C>;
 
-/// Represent a handle to a view that listen to change to a model. See [`Model::attach_peer`] and [`ModelNotify`]
+/// Represent a handle to a view that listens to changes to a model. See [`Model::attach_peer`] and [`ModelNotify`]
 #[derive(Clone)]
 pub struct ModelPeer {
     inner: Weak<RefCell<ModelPeerInner>>,
 }
 
-/// Dispatch notification from a [`Model`] to one or several [`ModelPeer`].
+/// Dispatch notifications from a [`Model`] to one or several [`ModelPeer`].
 /// Typically, you would want to put this in the implementaiton of the Model
 #[derive(Default)]
 pub struct ModelNotify {
@@ -77,7 +77,7 @@ pub trait Model {
     fn attach_peer(&self, peer: ModelPeer);
 }
 
-/// A model backed by an SharedArray
+/// A model backed by a SharedArray
 #[derive(Default)]
 pub struct VecModel<T> {
     array: RefCell<Vec<T>>,
@@ -168,7 +168,7 @@ impl Model for bool {
 }
 
 /// Properties of type array in the .60 language are represented as
-/// an [`Option`] of an [`Rc`] of somthing implemented the [`Model`] trait
+/// an [`Option`] of an [`Rc`] of something implemented the [`Model`] trait
 #[derive(derive_more::Deref, derive_more::DerefMut, derive_more::From, derive_more::Into)]
 pub struct ModelHandle<T>(pub Option<Rc<dyn Model<Data = T>>>);
 
