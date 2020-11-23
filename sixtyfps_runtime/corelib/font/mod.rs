@@ -7,6 +7,7 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
+use crate::string::SharedString;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -29,15 +30,15 @@ struct FontMatch {
 #[derive(Default)]
 pub struct FontCache {
     // index by family name
-    loaded_fonts: RefCell<HashMap<String, FontMatch>>,
+    loaded_fonts: RefCell<HashMap<SharedString, FontMatch>>,
 }
 
 impl FontCache {
-    pub fn find_font(&self, family: &str, pixel_size: f32) -> Rc<Font> {
+    pub fn find_font(&self, family: &SharedString, pixel_size: f32) -> Rc<Font> {
         assert_ne!(pixel_size, 0.0);
 
         let mut loaded_fonts = self.loaded_fonts.borrow_mut();
-        let font_match = loaded_fonts.entry(family.to_owned()).or_insert_with(|| FontMatch {
+        let font_match = loaded_fonts.entry(family.clone()).or_insert_with(|| FontMatch {
             handle: FontHandle::new_from_match(family),
             fonts_per_pixel_size: Vec::new(),
         });

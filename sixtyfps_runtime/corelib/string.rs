@@ -291,6 +291,12 @@ impl core::ops::Add<&str> for SharedString {
     }
 }
 
+impl std::hash::Hash for SharedString {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.as_str().hash(state)
+    }
+}
+
 #[test]
 fn simple_test() {
     let x = SharedString::from("hello world!");

@@ -14,6 +14,7 @@ use collections::hash_map::HashMap;
 use itertools::Itertools;
 use sixtyfps_corelib::font::Font;
 use sixtyfps_corelib::font::FontHandle;
+use sixtyfps_corelib::SharedString;
 use std::cell::RefCell;
 use std::{collections, rc::Rc};
 
@@ -27,7 +28,11 @@ pub(crate) struct GlyphCache {
 }
 
 impl GlyphCache {
-    pub fn find_font(&self, font_family: &str, pixel_size: f32) -> Rc<RefCell<CachedFontGlyphs>> {
+    pub fn find_font(
+        &self,
+        font_family: &SharedString,
+        pixel_size: f32,
+    ) -> Rc<RefCell<CachedFontGlyphs>> {
         let font =
             sixtyfps_corelib::font::FONT_CACHE.with(|fc| fc.find_font(font_family, pixel_size));
 

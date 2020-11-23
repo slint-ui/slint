@@ -14,7 +14,7 @@ use lyon::tessellation::{
     FillAttributes, FillOptions, FillTessellator, StrokeAttributes, StrokeOptions,
     StrokeTessellator,
 };
-use sixtyfps_corelib::eventloop::ComponentWindow;
+use sixtyfps_corelib::{eventloop::ComponentWindow, SharedString};
 use sixtyfps_corelib::{
     graphics::{
         Color, Frame as GraphicsFrame, GraphicsBackend, GraphicsWindow,
@@ -725,7 +725,7 @@ impl GLRenderingPrimitivesBuilder {
     fn create_glyph_runs(
         &mut self,
         text: &str,
-        font_family: &str,
+        font_family: &SharedString,
         pixel_size: f32,
     ) -> GLRenderingPrimitive {
         let cached_glyphs = self.platform_data.glyph_cache.find_font(font_family, pixel_size);
@@ -739,7 +739,7 @@ impl GLRenderingPrimitivesBuilder {
     fn create_glyph_runs(
         &mut self,
         text: &str,
-        font_family: &str,
+        font_family: &SharedString,
         pixel_size: f32,
     ) -> GLRenderingPrimitive {
         let font =
