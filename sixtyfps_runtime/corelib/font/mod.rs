@@ -27,6 +27,15 @@ struct FontMatch {
     fonts_per_pixel_size: Vec<Rc<Font>>,
 }
 
+pub trait HasFont {
+    fn font_family(&self) -> SharedString;
+    fn font_pixel_size(&self, window: &crate::eventloop::ComponentWindow) -> f32;
+    fn font(&self, window: &crate::eventloop::ComponentWindow) -> Rc<Font> {
+        crate::font::FONT_CACHE
+            .with(|fc| fc.find_font(&self.font_family(), self.font_pixel_size(window)))
+    }
+}
+
 #[derive(Default)]
 pub struct FontCache {
     // index by family name

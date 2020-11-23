@@ -33,6 +33,7 @@ use super::input::{
 };
 use super::item_rendering::CachedRenderingData;
 use super::layout::LayoutInfo;
+use crate::font::HasFont;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::{Property, SharedString, Signal};
@@ -606,6 +607,22 @@ impl Text {
     }
 }
 
+impl HasFont for Pin<&Text> {
+    fn font_family(&self) -> SharedString {
+        <Self as core::ops::Deref>::Target::FIELD_OFFSETS.font_family.apply_pin(*self).get()
+    }
+
+    fn font_pixel_size(&self, window: &ComponentWindow) -> f32 {
+        let font_size =
+            <Self as core::ops::Deref>::Target::FIELD_OFFSETS.font_size.apply_pin(*self).get();
+        if font_size == 0.0 {
+            DEFAULT_FONT_SIZE * window.scale_factor()
+        } else {
+            font_size
+        }
+    }
+}
+
 ItemVTable_static! {
     /// The VTable for `Text`
     #[no_mangle]
@@ -1157,14 +1174,10 @@ impl Item for TextInput {
         if self.has_selection() {
             let (anchor_pos, cursor_pos) = self.selection_anchor_and_cursor();
             let text = Self::FIELD_OFFSETS.text.apply_pin(self).get();
-            let (selection_start_x, selection_end_x, font_height) =
-                TextInput::with_font(self, window, |font| {
-                    (
-                        font.text_width(text.split_at(anchor_pos as _).0),
-                        font.text_width(text.split_at(cursor_pos as _).0),
-                        font.height(),
-                    )
-                });
+            let font = self.font(window);
+            let selection_start_x = font.text_width(text.split_at(anchor_pos as _).0);
+            let selection_end_x = font.text_width(text.split_at(cursor_pos as _).0);
+            let font_height = font.height();
 
             variables.push(RenderingVariable::TextSelection(
                 selection_start_x,
@@ -1182,9 +1195,9 @@ impl Item for TextInput {
         if Self::FIELD_OFFSETS.cursor_visible.apply_pin(self).get() {
             let cursor_pos = Self::FIELD_OFFSETS.cursor_position.apply_pin(self).get();
             let text = Self::FIELD_OFFSETS.text.apply_pin(self).get();
-            let (cursor_x_pos, font_height) = TextInput::with_font(self, window, |font| {
-                (font.text_width(text.split_at(cursor_pos as _).0), font.height())
-            });
+            let font = self.font(window);
+            let cursor_x_pos = font.text_width(text.split_at(cursor_pos as _).0);
+            let font_height = font.height();
 
             let cursor_width =
                 Self::FIELD_OFFSETS.text_cursor_width.apply_pin(self).get() * window.scale_factor();
@@ -1196,9 +1209,9 @@ impl Item for TextInput {
     }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
-        let (width, height) = TextInput::with_font(self, window, |font| {
-            (font.text_width("********************"), font.height())
-        });
+        let font = self.font(window);
+        let width = font.text_width("********************");
+        let height = font.height();
 
         LayoutInfo {
             min_width: width,
@@ -1219,10 +1232,9 @@ impl Item for TextInput {
             return InputEventResult::EventIgnored;
         }
 
-        let clicked_offset = TextInput::with_font(self, window, |font| {
-            let text = Self::FIELD_OFFSETS.text.apply_pin(self).get();
-            font.text_offset_for_x_position(&text, event.pos.x)
-        }) as i32;
+        let text = Self::FIELD_OFFSETS.text.apply_pin(self).get();
+        let font = self.font(window);
+        let clicked_offset = font.text_offset_for_x_position(&text, event.pos.x) as i32;
 
         if matches!(event.what, MouseEventType::MousePressed) {
             self.as_ref().pressed.set(true);
@@ -1538,25 +1550,28 @@ impl TextInput {
             self.insert(&text);
         }
     }
-
-    fn with_font<R>(
-        self: Pin<&Self>,
-        window: &ComponentWindow,
-        callback: impl FnOnce(&crate::font::Font) -> R,
-    ) -> R {
-        let font_family = Self::FIELD_OFFSETS.font_family.apply_pin(self).get();
-        let font_size = TextInput::font_pixel_size(self, window);
-        crate::font::FONT_CACHE.with(|fc| {
-            let font = fc.find_font(&font_family, font_size);
-            callback(&font)
-        })
-    }
 }
 
 ItemVTable_static! {
     /// The VTable for `TextInput`
     #[no_mangle]
     pub static TextInputVTable for TextInput
+}
+
+impl HasFont for Pin<&TextInput> {
+    fn font_family(&self) -> SharedString {
+        <Self as core::ops::Deref>::Target::FIELD_OFFSETS.font_family.apply_pin(*self).get()
+    }
+
+    fn font_pixel_size(&self, window: &ComponentWindow) -> f32 {
+        let font_size =
+            <Self as core::ops::Deref>::Target::FIELD_OFFSETS.font_size.apply_pin(*self).get();
+        if font_size == 0.0 {
+            DEFAULT_FONT_SIZE * window.scale_factor()
+        } else {
+            font_size
+        }
+    }
 }
 
 thread_local!(pub(crate) static CLIPBOARD : std::cell::RefCell<copypasta::ClipboardContext> = std::cell::RefCell::new(copypasta::ClipboardContext::new().unwrap()));
