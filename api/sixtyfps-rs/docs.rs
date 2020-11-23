@@ -21,13 +21,17 @@ LICENSE END */
 
 pub mod langref {
     #![doc(include = "docs/langref.md")]
-    #![doc = ""]
+    //!
+    //! #
+    //! Next: [Builtin Elements](super::builtin_elements)
 }
 
 #[cfg(all(doc, nightly))]
 pub mod builtin_elements {
     #![doc(include = "docs/builtin_elements.md")]
-    #![doc = ""]
+    //!
+    //! #
+    //! Next: [Widgets](super::widgets)
 }
 
 #[cfg(all(doc, nightly))]

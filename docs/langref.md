@@ -9,7 +9,7 @@ The basic idea is that the `.60` files contains one or several components.
 These components contain a tree of elements. Each declared component can be
 given a name and re-used under that name as an an element later.
 
-By default, the SixtyFPS comes with some [builtin elements](builtin_elements.md).
+By default, the SixtyFPS comes with some [builtin elements](builtin_elements.md) and [widgets](widgets.md).
 
 Below is an example of components and elements:
 
