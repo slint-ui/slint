@@ -37,7 +37,7 @@ sixtyfps::sixtyfps!{
     }
 }
 fn main() {
-    HelloWorld::new().run()
+    HelloWorld::new().run();
 }
 ```
 

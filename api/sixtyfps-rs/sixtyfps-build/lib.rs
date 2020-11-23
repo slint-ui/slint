@@ -43,7 +43,7 @@ Then in your main file
 ```ignore
 sixtyfps::include_modules!();
 fn main() {
-    HelloWorld::new().run()
+    HelloWorld::new().run();
 }
 ```
 */
