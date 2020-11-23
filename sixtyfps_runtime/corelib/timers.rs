@@ -95,6 +95,8 @@ struct TimerData {
     duration: std::time::Duration,
     mode: TimerMode,
     running: bool,
+    /// Set to true when it is removed when the callback is still running
+    removed: bool,
     callback: Option<TimerCallback>,
 }
 
@@ -106,15 +108,12 @@ struct ActiveTimer {
 
 /// TimerList provides the interface to the event loop for activating times and
 /// determining the nearest timeout.
+#[derive(Default)]
 pub struct TimerList {
     timers: vec_arena::Arena<TimerData>,
     active_timers: Vec<ActiveTimer>,
-}
-
-impl Default for TimerList {
-    fn default() -> Self {
-        Self { timers: Default::default(), active_timers: Vec::new() }
-    }
+    /// If a callback is currently running, this is the id of the currently running callback
+    callback_active: Option<usize>,
 }
 
 impl TimerList {
@@ -140,6 +139,8 @@ impl TimerList {
         }
 
         CURRENT_TIMERS.with(|timers| {
+            assert!(timers.borrow().callback_active.is_none(), "Recursion in timer code");
+
             let mut any_activated = false;
 
             // The active timer list is cleared here and not-yet-fired ones are inserted below, in order to allow
@@ -149,13 +150,16 @@ impl TimerList {
                 if active_timer.timeout <= now {
                     any_activated = true;
 
+                    timers.borrow_mut().callback_active = Some(active_timer.id);
                     let callback = timers.borrow_mut().timers[active_timer.id].callback.take();
                     callback.as_ref().map(|cb| cb());
-
                     let mut timers = timers.borrow_mut();
                     timers.timers[active_timer.id].callback = callback;
+                    timers.callback_active = None;
 
-                    if matches!(timers.timers[active_timer.id].mode, TimerMode::Repeated) {
+                    if timers.timers[active_timer.id].removed {
+                        timers.timers.remove(active_timer.id);
+                    } else if matches!(timers.timers[active_timer.id].mode, TimerMode::Repeated) {
                         timers.activate_timer(active_timer.id);
                     }
                 } else {
@@ -174,7 +178,8 @@ impl TimerList {
         duration: std::time::Duration,
         callback: TimerCallback,
     ) -> usize {
-        let timer_data = TimerData { duration, mode, running: false, callback: Some(callback) };
+        let timer_data =
+            TimerData { duration, mode, running: false, removed: false, callback: Some(callback) };
         let inactive_timer_id = if let Some(id) = id {
             self.deactivate_timer(id);
             self.timers[id] = timer_data;
@@ -217,7 +222,11 @@ impl TimerList {
 
     fn remove_timer(&mut self, timer_id: usize) {
         self.deactivate_timer(timer_id);
-        self.timers.remove(timer_id);
+        if self.callback_active == Some(timer_id) {
+            self.timers[timer_id].removed = true;
+        } else {
+            self.timers.remove(timer_id);
+        }
     }
 }
 

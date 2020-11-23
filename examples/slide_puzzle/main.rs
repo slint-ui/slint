@@ -49,14 +49,19 @@ struct AppState {
     /// position. -1 is no piece.
     positions: Vec<i8>,
     auto_play_timer: sixtyfps::Timer,
+    kick_animation_timer: sixtyfps::Timer,
+    /// The speed in the x and y direction for the associated tile
+    speed_for_kick_animation: [(f32, f32); 15],
     finished: bool,
 }
 
 impl AppState {
     fn set_pieces_pos(&self, p: i8, pos: i8) {
         if p >= 0 {
-            self.pieces
-                .set_row_data(p as usize, Piece { pos_y: (pos % 4) as _, pos_x: (pos / 4) as _ });
+            self.pieces.set_row_data(
+                p as usize,
+                Piece { pos_y: (pos % 4) as _, pos_x: (pos / 4) as _, offset_x: 0., offset_y: 0. },
+            );
         }
     }
 
@@ -75,7 +80,7 @@ impl AppState {
         self.finished = left == 0;
     }
 
-    fn piece_clicked(&mut self, p: i8) {
+    fn piece_clicked(&mut self, p: i8) -> bool {
         let piece = self.pieces.row_data(p as usize);
         assert_eq!(self.positions[(piece.pos_x * 4 + piece.pos_y) as usize], p);
 
@@ -88,10 +93,15 @@ impl AppState {
         } else if hole / 4 == piece.pos_x as i8 {
             self.slide(pos, sign)
         } else {
-            return;
+            self.speed_for_kick_animation[p as usize] = (
+                if hole % 4 > piece.pos_y as i8 { 10. } else { -10. },
+                if hole / 4 > piece.pos_x as i8 { 10. } else { -10. },
+            );
+            return false;
         };
         self.apply_tiles_left();
         self.main_window.upgrade().map(|x| x.as_ref().set_moves(x.as_ref().get_moves() + 1));
+        true
     }
 
     fn slide(&mut self, pos: i8, offset: i8) {
@@ -118,7 +128,44 @@ impl AppState {
             }
         }
         let p = self.positions[p as usize];
-        self.piece_clicked(p)
+        self.piece_clicked(p);
+    }
+
+    /// Advence the kick animation
+    fn kick_animation(&mut self) {
+        /// update offset and speed, returns true if the animation is still running
+        fn spring_animation(offset: &mut f32, speed: &mut f32) -> bool {
+            const C: f32 = 0.3; // Constant = k/m
+            const DAMP: f32 = 0.7;
+            const EPS: f32 = 0.3;
+            let acceleration = -*offset * C;
+            *speed += acceleration;
+            *speed *= DAMP;
+            if *speed != 0. || *offset != 0. {
+                *offset += *speed;
+                if speed.abs() < EPS && offset.abs() < EPS {
+                    *speed = 0.;
+                    *offset = 0.;
+                }
+                true
+            } else {
+                false
+            }
+        }
+
+        let mut has_animation = false;
+        for idx in 0..15 {
+            let mut p = self.pieces.row_data(idx);
+            let ax = spring_animation(&mut p.offset_x, &mut self.speed_for_kick_animation[idx].0);
+            let ay = spring_animation(&mut p.offset_y, &mut self.speed_for_kick_animation[idx].1);
+            if ax || ay {
+                self.pieces.set_row_data(idx, p);
+                has_animation = true;
+            }
+        }
+        if !has_animation {
+            self.kick_animation_timer.stop();
+        }
     }
 }
 
@@ -135,10 +182,13 @@ pub fn main() {
         main_window: main_window.as_weak(),
         positions: vec![],
         auto_play_timer: Default::default(),
+        kick_animation_timer: Default::default(),
+        speed_for_kick_animation: Default::default(),
         finished: false,
     }));
     state.borrow_mut().randomize();
     main_window.as_ref().set_pieces(sixtyfps::ModelHandle::new(state.borrow().pieces.clone()));
+
     let state_copy = state.clone();
     main_window.as_ref().on_piece_clicked(move |p| {
         state_copy.borrow().auto_play_timer.stop();
@@ -146,10 +196,23 @@ pub fn main() {
         if state_copy.borrow().finished {
             return;
         }
-        state_copy.borrow_mut().piece_clicked(p as i8);
+        if !state_copy.borrow_mut().piece_clicked(p as i8) {
+            let state_weak = Rc::downgrade(&state_copy);
+            state_copy.borrow().kick_animation_timer.start(
+                sixtyfps::TimerMode::Repeated,
+                std::time::Duration::from_millis(16),
+                Box::new(move || {
+                    if let Some(state) = state_weak.upgrade() {
+                        state.borrow_mut().kick_animation();
+                    }
+                }),
+            );
+        }
     });
+
     let state_copy = state.clone();
     main_window.as_ref().on_reset(move || state_copy.borrow_mut().randomize());
+
     let state_copy = state.clone();
     main_window.as_ref().on_enable_auto_mode(move |enabled| {
         if enabled {

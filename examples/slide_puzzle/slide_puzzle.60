@@ -8,7 +8,14 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-struct Piece := { pos_x: int, pos_y: int }
+struct Piece := {
+    // col/row position of the tile in the puzzle
+    pos_x: int,
+    pos_y: int,
+    // offset in pixel from the base position for the kicking animation
+    offset_x: logical_length,
+    offset_y: logical_length,
+}
 
 struct Theme := {
     name: string,
@@ -266,9 +273,9 @@ export MainWindow := Window {
             height: pieces_size;
             property<float> px: p.pos_x;
             property<float> py: p.pos_y;
-            x: py * (pieces_size + pieces_spacing)
+            x: py * (pieces_size + pieces_spacing) + p.offset_x
                 + (parent.width - (4*pieces_size + 3*pieces_spacing))/2;
-            y: px * (pieces_size + pieces_spacing)
+            y: px * (pieces_size + pieces_spacing) + p.offset_y
                 + (parent.height - (4*pieces_size + 3*pieces_spacing))/2;
             animate px , py { duration: 170ms; easing: cubic-bezier(0.17,0.76,0.4,1.75); }
 
