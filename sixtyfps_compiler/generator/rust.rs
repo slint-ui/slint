@@ -553,19 +553,15 @@ fn generate_component(
         }
     });
 
-    let resource_symbols: Vec<proc_macro2::TokenStream> = if component.embed_file_resources.get() {
-        component
-            .referenced_file_resources
-            .borrow()
-            .iter()
-            .map(|(path, id)| {
-                let symbol = format_ident!("SFPS_EMBEDDED_RESOURCE_{}", id);
-                quote!(const #symbol: &'static [u8] = ::core::include_bytes!(#path);)
-            })
-            .collect()
-    } else {
-        Vec::new()
-    };
+    let resource_symbols: Vec<proc_macro2::TokenStream> = component
+        .embedded_file_resources
+        .borrow()
+        .iter()
+        .map(|(path, id)| {
+            let symbol = format_ident!("SFPS_EMBEDDED_RESOURCE_{}", id);
+            quote!(const #symbol: &'static [u8] = ::core::include_bytes!(#path);)
+        })
+        .collect();
 
     let layouts = compute_layout(component, &repeated_element_layouts);
     let mut visibility = None;
@@ -1136,17 +1132,15 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
             let op = proc_macro2::Punct::new(*op, proc_macro2::Spacing::Alone);
             quote!( #op #sub )
         }
-        Expression::ResourceReference { absolute_source_path } => {
-            if let Some(id) = component
-                .referenced_file_resources
-                .borrow()
-                .get(absolute_source_path)
-                .filter(|_| component.embed_file_resources.get())
-            {
-                let symbol = format_ident!("SFPS_EMBEDDED_RESOURCE_{}", id);
-                quote!(sixtyfps::re_exports::Resource::EmbeddedData(#symbol.into()))
-            } else {
-                quote!(sixtyfps::re_exports::Resource::AbsoluteFilePath(sixtyfps::re_exports::SharedString::from(#absolute_source_path)))
+        Expression::ResourceReference(resource_ref) => {
+            match resource_ref {
+                crate::expression_tree::ResourceReference::AbsolutePath(path) => {
+                     quote!(sixtyfps::re_exports::Resource::AbsoluteFilePath(sixtyfps::re_exports::SharedString::from(#path)))
+                },
+                crate::expression_tree::ResourceReference::EmbeddedData(resource_id) => {
+                    let symbol = format_ident!("SFPS_EMBEDDED_RESOURCE_{}", resource_id);
+                    quote!(sixtyfps::re_exports::Resource::EmbeddedData(#symbol.into()))
+                }
             }
         }
         Expression::Condition { condition, true_expr, false_expr } => {

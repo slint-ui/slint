@@ -479,8 +479,13 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                 (sub, op) => panic!("unsupported {} {:?}", op, sub),
             }
         }
-        Expression::ResourceReference { absolute_source_path } => {
-            Value::Resource(Resource::AbsoluteFilePath(absolute_source_path.into()))
+        Expression::ResourceReference(resource_ref) => {
+            match resource_ref {
+                sixtyfps_compilerlib::expression_tree::ResourceReference::AbsolutePath(path) => {
+                    Value::Resource(Resource::AbsoluteFilePath(path.into()))
+                }
+                sixtyfps_compilerlib::expression_tree::ResourceReference::EmbeddedData(_) => panic!("Resource embedding is not supported by the interpreter")
+            }
         }
         Expression::Condition { condition, true_expr, false_expr } => {
             match eval_expression(&**condition, local_context).try_into()

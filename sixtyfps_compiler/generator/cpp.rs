@@ -1465,8 +1465,11 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
         Expression::UnaryOp { sub, op } => {
             format!("({op} {sub})", sub = compile_expression(&*sub, component), op = op,)
         }
-        Expression::ResourceReference { absolute_source_path } => {
-            format!(r#"sixtyfps::Resource(sixtyfps::SharedString("{}"))"#, absolute_source_path)
+        Expression::ResourceReference(resource_ref)  => {
+            match resource_ref {
+                crate::expression_tree::ResourceReference::AbsolutePath(path) => format!(r#"sixtyfps::Resource(sixtyfps::SharedString("{}"))"#, path),
+                crate::expression_tree::ResourceReference::EmbeddedData(_) => unimplemented!("The C++ generator does not support resource embedding yet")
+            }
         }
         Expression::Condition { condition, true_expr, false_expr } => {
             let cond_code = compile_expression(condition, component);

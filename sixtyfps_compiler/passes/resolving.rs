@@ -371,7 +371,7 @@ impl Expression {
                     }
                 };
 
-                Expression::ResourceReference { absolute_source_path }
+                Expression::ResourceReference(ResourceReference::AbsolutePath(absolute_source_path))
             }
             Some(x) => {
                 ctx.diag.push_error(format!("Unknown bang keyword `{}`", x), &node);

@@ -319,9 +319,7 @@ pub enum Expression {
         op: char,
     },
 
-    ResourceReference {
-        absolute_source_path: String,
-    },
+    ResourceReference(ResourceReference),
 
     Condition {
         condition: Box<Expression>,
@@ -822,7 +820,9 @@ impl Expression {
             Type::LogicalLength => Expression::NumberLiteral(0., Unit::Px),
             Type::Percent => Expression::NumberLiteral(100., Unit::Percent),
             // FIXME: Is that correct?
-            Type::Resource => Expression::ResourceReference { absolute_source_path: String::new() },
+            Type::Resource => {
+                Expression::ResourceReference(ResourceReference::AbsolutePath(String::new()))
+            }
             Type::Bool => Expression::BoolLiteral(false),
             Type::Model => Expression::Invalid,
             Type::PathElements => Expression::PathElements { elements: Path::Elements(vec![]) },
@@ -913,4 +913,12 @@ impl Default for EasingCurve {
     fn default() -> Self {
         Self::Linear
     }
+}
+
+// The compiler generates ResourceReference::AbsolutePath for all references likg img!"foo.png"
+// and the resource lowering path may change this to EmbeddedData if configured.
+#[derive(Clone, Debug)]
+pub enum ResourceReference {
+    AbsolutePath(String),
+    EmbeddedData(usize),
 }
