@@ -150,7 +150,7 @@ export MainWindow := Window {
             piece-text-color-2: #ffffff,
             piece-text-weight-incorrect-pos: 400,
             piece-text-weight-correct-pos: 700,
-            piece-radius: 4px,
+            piece-radius: 5px,
             /// Ratio of the piece size
             piece-spacing: 10%,
         },
@@ -194,7 +194,7 @@ export MainWindow := Window {
             piece-text-color-2: #424244,
             piece-text-weight-incorrect-pos: 700,
             piece-text-weight-correct-pos: 700,
-            piece-radius: 4px,
+            piece-radius: 5px,
             /// Ratio of the piece size
             piece-spacing: 10%,
         },
@@ -220,7 +220,7 @@ export MainWindow := Window {
             piece-text-color-2: #ffffff,
             piece-text-weight-incorrect-pos: 400,
             piece-text-weight-correct-pos: 700,
-            piece-radius: 4px,
+            piece-radius: 5px,
             /// Ratio of the piece size
             piece-spacing: 10%,
     };
@@ -353,13 +353,14 @@ export MainWindow := Window {
             }
 
             states [
-                hover when touch.has_hover: {
-                    shadow.color: #0001;
-                }
                 pressed when touch.pressed : {
                     shadow.color: #0002;
                     circle.width: shadow.width * 2 * 1.4142;
                 }
+                hover when touch.has_hover: {
+                    shadow.color: #0000000d;
+                }
+
             ]
             transitions [
                 to pressed : {
