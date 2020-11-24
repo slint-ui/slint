@@ -14,6 +14,7 @@ LICENSE END */
 use crate::component::ComponentRc;
 use crate::graphics::Point;
 use crate::item_tree::{ItemVisitorResult, VisitChildrenResult};
+use crate::items::{ItemRc, ItemRef, ItemWeak};
 use euclid::default::Vector2D;
 use sixtyfps_corelib_macros::*;
 use std::convert::TryFrom;
@@ -522,29 +523,76 @@ pub fn process_ungrabbed_mouse_event(
         },
     )
 }
-/*
-/// The event must be in the component coordinate
-/// Returns the new grabber.
-pub fn process_grabbed_mouse_event(
-    component: ComponentRefPin,
-    item: core::pin::Pin<ItemRef>,
-    offset: Point,
-    event: MouseEvent,
-    old_grab: VisitChildrenResult,
-) -> (InputEventResult, VisitChildrenResult) {
-    let mut event2 = event.clone();
-    event2.pos -= offset.to_vector();
 
-    let res = item.as_ref().input_event(event2);
-    match res {
-        InputEventResult::EventIgnored => {
-            // We need then to forward to another event
-            process_ungrabbed_mouse_event(component, event)
+/// Process the `mouse_event` on the `component`, the `mouse_grabber_stack` is the prebious stack
+/// of mouse grabber.
+/// Returns a new mouse grabber stack.
+pub fn process_mouse_input(
+    component: ComponentRc,
+    mouse_event: MouseEvent,
+    window: &crate::eventloop::ComponentWindow,
+    mut mouse_grabber_stack: Vec<ItemWeak>,
+) -> Vec<ItemWeak> {
+    'grab: loop {
+        if mouse_grabber_stack.is_empty() {
+            break 'grab;
+        };
+        let mut event = mouse_event.clone();
+        for it in mouse_grabber_stack.iter() {
+            let item = if let Some(item) = it.upgrade() { item } else { break 'grab };
+            let g = item.borrow().as_ref().geometry();
+            event.pos -= g.origin.to_vector();
         }
-        InputEventResult::GrabMouse => (res, old_grab),
-        InputEventResult::EventAccepted => (res, VisitChildrenResult::CONTINUE),
+        let grabber = mouse_grabber_stack.last().unwrap().upgrade().unwrap();
+        return match grabber.borrow().as_ref().input_event(event, window, &grabber) {
+            InputEventResult::GrabMouse => mouse_grabber_stack,
+            _ => Default::default(),
+        };
     }
-}*/
+
+    let offset = Vector2D::new(0., 0.);
+    mouse_grabber_stack.clear();
+
+    let mut result = Vec::new();
+    type State = (Vector2D<f32>, Vec<ItemWeak>);
+    crate::item_tree::visit_items(
+        &component,
+        crate::item_tree::TraversalOrder::FrontToBack,
+        |comp_rc: &ComponentRc,
+         item: core::pin::Pin<ItemRef>,
+         item_index: usize,
+         (offset, mouse_grabber_stack): &State|
+         -> ItemVisitorResult<State> {
+            let item_rc = ItemRc::new(comp_rc.clone(), item_index);
+
+            let geom = item.as_ref().geometry();
+            let geom = geom.translate(*offset);
+
+            if geom.contains(mouse_event.pos) {
+                let mut event2 = mouse_event.clone();
+                event2.pos -= geom.origin.to_vector();
+                match item.as_ref().input_event(event2, window, &item_rc) {
+                    InputEventResult::EventAccepted => {
+                        return ItemVisitorResult::Abort;
+                    }
+                    InputEventResult::EventIgnored => (),
+                    InputEventResult::GrabMouse => {
+                        result = mouse_grabber_stack.clone();
+                        result.push(item_rc.downgrade());
+                        return ItemVisitorResult::Abort;
+                    }
+                };
+            }
+
+            let mut mouse_grabber_stack = mouse_grabber_stack.clone();
+            mouse_grabber_stack.push(item_rc.downgrade());
+            ItemVisitorResult::Continue((geom.origin.to_vector(), mouse_grabber_stack))
+        },
+        (offset, mouse_grabber_stack),
+    );
+
+    result
+}
 
 pub(crate) mod ffi {
     use super::*;

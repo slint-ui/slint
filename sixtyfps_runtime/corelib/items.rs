@@ -103,6 +103,7 @@ pub type ItemRef<'a> = vtable::VRef<'a, ItemVTable>;
 
 /// A ItemRc is holding a reference to a component containing the item, and the index of this item
 #[repr(C)]
+#[derive(Clone)]
 pub struct ItemRc {
     component: vtable::VRc<ComponentVTable>,
     index: usize,
@@ -127,7 +128,7 @@ impl ItemRc {
 }
 
 /// A Weak reference to an item that can be constructed from an ItemRc.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct ItemWeak {
     component: crate::component::ComponentWeak,
     index: usize,

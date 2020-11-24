@@ -529,6 +529,7 @@ pub struct GraphicsWindow<Backend: GraphicsBackend + 'static> {
     component: std::cell::RefCell<ComponentWeak>,
     layout_listener: Pin<Rc<PropertyTracker>>,
     focus_item: std::cell::RefCell<ItemWeak>,
+    mouse_grabber_stack: std::cell::Cell<Vec<ItemWeak>>,
 }
 
 impl<Backend: GraphicsBackend + 'static> GraphicsWindow<Backend> {
@@ -551,6 +552,7 @@ impl<Backend: GraphicsBackend + 'static> GraphicsWindow<Backend> {
             component: Default::default(),
             layout_listener: Rc::pin(Default::default()),
             focus_item: Default::default(),
+            mouse_grabber_stack: Default::default(),
         })
     }
 
@@ -674,11 +676,12 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
         what: MouseEventType,
     ) {
         let component = self.component.borrow().upgrade().unwrap();
-        let component = ComponentRc::borrow_pin(&component);
-        component.as_ref().input_event(
+        self.mouse_grabber_stack.set(crate::input::process_mouse_input(
+            component,
             MouseEvent { pos: euclid::point2(pos.x as _, pos.y as _), what },
             &crate::eventloop::ComponentWindow::new(self.clone()),
-        );
+            self.mouse_grabber_stack.take(),
+        ));
     }
 
     fn process_key_input(self: Rc<Self>, event: &KeyEvent) {
