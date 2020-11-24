@@ -492,6 +492,7 @@ impl Default for TextVerticalAlignment {
 }
 
 const DEFAULT_FONT_SIZE: f32 = 12.;
+const DEFAULT_FONT_WEIGHT: i32 = 400;
 
 /// The implementation of the `Text` element
 #[repr(C)]
@@ -501,6 +502,7 @@ pub struct Text {
     pub text: Property<SharedString>,
     pub font_family: Property<SharedString>,
     pub font_size: Property<f32>,
+    pub font_weight: Property<i32>,
     pub color: Property<Color>,
     pub horizontal_alignment: Property<TextHorizontalAlignment>,
     pub vertical_alignment: Property<TextVerticalAlignment>,
@@ -594,6 +596,16 @@ impl ItemConsts for Text {
 impl HasFont for Pin<&Text> {
     fn font_family(&self) -> SharedString {
         <Self as core::ops::Deref>::Target::FIELD_OFFSETS.font_family.apply_pin(*self).get()
+    }
+
+    fn font_weight(&self) -> i32 {
+        let weight =
+            <Self as core::ops::Deref>::Target::FIELD_OFFSETS.font_weight.apply_pin(*self).get();
+        if weight == 0 {
+            DEFAULT_FONT_WEIGHT
+        } else {
+            weight
+        }
     }
 
     fn font_pixel_size(&self, window: &ComponentWindow) -> f32 {
@@ -1085,6 +1097,7 @@ pub struct TextInput {
     pub text: Property<SharedString>,
     pub font_family: Property<SharedString>,
     pub font_size: Property<f32>,
+    pub font_weight: Property<i32>,
     pub color: Property<Color>,
     pub selection_foreground_color: Property<Color>,
     pub selection_background_color: Property<Color>,
@@ -1533,6 +1546,16 @@ ItemVTable_static! {
 impl HasFont for Pin<&TextInput> {
     fn font_family(&self) -> SharedString {
         <Self as core::ops::Deref>::Target::FIELD_OFFSETS.font_family.apply_pin(*self).get()
+    }
+
+    fn font_weight(&self) -> i32 {
+        let weight =
+            <Self as core::ops::Deref>::Target::FIELD_OFFSETS.font_weight.apply_pin(*self).get();
+        if weight == 0 {
+            DEFAULT_FONT_WEIGHT
+        } else {
+            weight
+        }
     }
 
     fn font_pixel_size(&self, window: &ComponentWindow) -> f32 {

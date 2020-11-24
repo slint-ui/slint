@@ -33,6 +33,8 @@ struct Theme := {
     piece-border-color-2: color,
     piece-text-color-1: color,
     piece-text-color-2: color,
+    piece-text-weight-incorrect-pos: int,
+    piece-text-weight-correct-pos: int,
     piece-radius: length,
     /// Ratio of the piece size
     piece-spacing: float,
@@ -146,6 +148,8 @@ export MainWindow := Window {
             piece-border-color-2: #0a457b,
             piece-text-color-1: #ffffff,
             piece-text-color-2: #ffffff,
+            piece-text-weight-incorrect-pos: 400,
+            piece-text-weight-correct-pos: 700,
             piece-radius: 4px,
             /// Ratio of the piece size
             piece-spacing: 10%,
@@ -166,6 +170,8 @@ export MainWindow := Window {
             piece-border-color-2: #0000,
             piece-text-color-1: #000000,
             piece-text-color-2: #ffffff,
+            piece-text-weight-incorrect-pos: 700,
+            piece-text-weight-correct-pos: 700,
             piece-radius: 0px,
             /// Ratio of the piece size
             piece-spacing: 8%,
@@ -186,6 +192,8 @@ export MainWindow := Window {
             piece-border-color-2: #e06b53,
             piece-text-color-1: #f8f4e9,
             piece-text-color-2: #424244,
+            piece-text-weight-incorrect-pos: 700,
+            piece-text-weight-correct-pos: 700,
             piece-radius: 4px,
             /// Ratio of the piece size
             piece-spacing: 10%,
@@ -210,6 +218,8 @@ export MainWindow := Window {
             piece-border-color-2: #0a457b,
             piece-text-color-1: #ffffff,
             piece-text-color-2: #ffffff,
+            piece-text-weight-incorrect-pos: 400,
+            piece-text-weight-correct-pos: 700,
             piece-radius: 4px,
             /// Ratio of the piece size
             piece-spacing: 10%,
@@ -317,6 +327,7 @@ export MainWindow := Window {
                 text: i+1;
                 color: ((!current-theme.game-use-background-image && i >= 8) || (current-theme.game-use-background-image && is_correct)) ? current-theme.piece-text-color-2 : current-theme.piece-text-color-1;
                 font-size: pieces_size / 3;
+                font-weight: is_correct ? current-theme.piece-text-weight-correct-pos : current-theme.piece-text-weight-incorrect-pos;
                 vertical-alignment: align-center;
                 horizontal-alignment: align-center;
                 width: 100%;

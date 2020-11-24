@@ -9,6 +9,8 @@
 LICENSE END */
 use std::hash::Hash;
 
+use super::FontRequest;
+
 #[derive(Clone)]
 struct GlyphMetrics {
     advance: f32,
@@ -17,6 +19,7 @@ struct GlyphMetrics {
 pub struct Font {
     pub pixel_size: f32,
     font_family: String,
+    weight: i32,
     text_canvas: web_sys::HtmlCanvasElement,
     canvas_context: web_sys::CanvasRenderingContext2d,
 }
@@ -62,7 +65,8 @@ impl Font {
         self.text_canvas.style().set_property("height", &format!("{}px", self.pixel_size)).unwrap();
 
         // Re-apply after resize :(
-        self.canvas_context.set_font(&format!("{}px \"{}\"", self.pixel_size, self.font_family));
+        self.canvas_context
+            .set_font(&format!("{} {}px \"{}\"", self.weight, self.pixel_size, self.font_family));
 
         self.canvas_context.set_text_align("center");
         self.canvas_context.set_text_baseline("middle");
@@ -88,11 +92,12 @@ impl Font {
 }
 
 #[derive(Clone)]
-pub struct FontHandle(String);
+pub struct FontHandle(FontRequest);
 
 impl Hash for FontHandle {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.hash(state)
+        self.0.family.hash(state);
+        self.0.weight.hash(state);
     }
 }
 
@@ -106,7 +111,7 @@ impl Eq for FontHandle {}
 
 impl FontHandle {
     pub fn load(&self, pixel_size: f32) -> Result<Font, ()> {
-        let font_family = &self.0;
+        let font_family = &self.0.family;
 
         let text_canvas = web_sys::window()
             .unwrap()
@@ -125,12 +130,18 @@ impl FontHandle {
             .dyn_into::<web_sys::CanvasRenderingContext2d>()
             .unwrap();
 
-        canvas_context.set_font(&format!("{}px \"{}\"", pixel_size, font_family));
+        canvas_context.set_font(&format!("{} {}px \"{}\"", self.0.weight, pixel_size, font_family));
 
-        Ok(Font { pixel_size, font_family: font_family.clone(), text_canvas, canvas_context })
+        Ok(Font {
+            pixel_size,
+            font_family: self.0.family.to_string(),
+            weight: self.0.weight,
+            text_canvas,
+            canvas_context,
+        })
     }
 
-    pub fn new_from_match(family: &str) -> Self {
-        Self(family.to_owned())
+    pub fn new_from_request(request: &FontRequest) -> Self {
+        Self(request.clone())
     }
 }

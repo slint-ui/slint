@@ -111,6 +111,7 @@ A text simply show the text on the screen
 * **`text`** (*string*): The actual text.
 * **`font_family`** (*string*): The font name
 * **`font_size`** (*length*): The font size of the text
+* **`font_weight`** (*int*): The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
 * **`color`** (*color*): The color of the text (default: transparent)
 * **`horizontal_alignment`**, **`vertical_alignment`** (*FIXME: enum*): How is the text aligned
   within the item
@@ -277,6 +278,7 @@ The `TextInput` is a lower-level item that shows text and allows entering text.
 * **`text`** (*string*): The actual text.
 * **`font_family`** (*string*): The font name
 * **`font_size`** (*length*): The font size of the text
+* **`font_weight`** (*int*): The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
 * **`color`** (*color*): The color of the text (default: transparent)
 * **`horizontal_alignment`**, **`vertical_alignment`** (*FIXME: enum*): How is the text aligned
   within the item

@@ -16,6 +16,8 @@ use std::collections::HashMap;
 use std::hash::Hash;
 use std::{cell::RefCell, rc::Rc};
 
+use super::FontRequest;
+
 #[derive(Clone)]
 pub struct GlyphMetrics {
     pub advance: f32,
@@ -199,17 +201,18 @@ impl FontHandle {
         })
     }
 
-    pub fn new_from_match(family: &str) -> Self {
-        let family_name = if family.len() == 0 {
+    pub fn new_from_request(request: &FontRequest) -> Self {
+        let family_name = if request.family.len() == 0 {
             font_kit::family_name::FamilyName::SansSerif
         } else {
-            font_kit::family_name::FamilyName::Title(family.into())
+            font_kit::family_name::FamilyName::Title(request.family.to_string())
         };
 
         font_kit::source::SystemSource::new()
             .select_best_match(
                 &[family_name, font_kit::family_name::FamilyName::SansSerif],
-                &font_kit::properties::Properties::new(),
+                &font_kit::properties::Properties::new()
+                    .weight(font_kit::properties::Weight(request.weight as f32)),
             )
             .unwrap()
             .into()

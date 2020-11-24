@@ -55,6 +55,7 @@ export Text := _ {
     property <string> text;
     property <string> font_family;
     property <length> font_size;
+    property <int> font_weight;
     property <color> color: #000;
     property <TextHorizontalAlignment> horizontal_alignment;
     property <TextVerticalAlignment> vertical_alignment;
@@ -100,6 +101,7 @@ export TextInput := _ {
     property <string> text;
     property <string> font_family;
     property <length> font_size;
+    property <int> font_weight;
     property <color> color: #000;
     property <color> selection_foreground_color: #000;
     property <color> selection_background_color: #808080;
