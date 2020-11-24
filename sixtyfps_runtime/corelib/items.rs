@@ -102,6 +102,43 @@ pub struct ItemVTable {
 /// the associated vtable
 pub type ItemRef<'a> = vtable::VRef<'a, ItemVTable>;
 
+/// A ItemRc is holding a reference to a component containing the item, and the index of this item
+pub struct ItemRc {
+    component: crate::component::ComponentRc,
+    index: usize,
+}
+
+impl ItemRc {
+    /// Create an ItemRc from a component and an index
+    pub fn new(component: crate::component::ComponentRc, index: usize) -> Self {
+        Self { component, index }
+    }
+    /// Return a `Pin<ItemRef<'a>>`
+    pub fn borrow<'a>(&'a self) -> Pin<ItemRef<'a>> {
+        let comp_ref_pin = crate::component::ComponentRc::borrow_pin(&self.component);
+        let result = comp_ref_pin.as_ref().get_item_ref(self.index);
+        // Safety: we can expand the lifetime of the ItemRef because we know it lives for at least the
+        // lifetime of the component, which is 'a.  Pin::as_ref removes the lifetime, but we can just put it back.
+        unsafe { core::mem::transmute::<Pin<ItemRef<'_>>, Pin<ItemRef<'a>>>(result) }
+    }
+    pub fn downgrade(&self) -> ItemWeak {
+        ItemWeak { component: VRc::downgrade(&self.component), index: self.index }
+    }
+}
+
+/// A Weak reference to an item that can be constructed from an ItemRc.
+#[derive(Default)]
+pub struct ItemWeak {
+    component: crate::component::ComponentWeak,
+    index: usize,
+}
+
+impl ItemWeak {
+    pub fn upgrade(&self) -> Option<ItemRc> {
+        self.component.upgrade().map(|c| ItemRc::new(c, self.index))
+    }
+}
+
 #[repr(C)]
 #[derive(FieldOffsets, Default, BuiltinItem)]
 #[pin]
@@ -1237,7 +1274,7 @@ impl Item for TextInput {
             self.as_ref().anchor_position.set(clicked_offset);
             self.as_ref().cursor_position.set(clicked_offset);
             if !Self::FIELD_OFFSETS.has_focus.apply_pin(self).get() {
-                window.set_focus_item(self_component, self_index);
+                window.set_focus_item(&ItemRc::new(self_component.clone(), self_index));
             }
         }
 

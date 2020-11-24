@@ -412,7 +412,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
 
                     let focus_item_comp = enclosing_component.self_weak().get().unwrap().upgrade().unwrap();
 
-                    window_ref(component).unwrap().set_focus_item(&vtable::VRc::into_dyn(focus_item_comp), item_info.item_index());
+                    window_ref(component).unwrap().set_focus_item(&corelib::items::ItemRc::new(vtable::VRc::into_dyn(focus_item_comp), item_info.item_index()));
                     Value::Void
                 } else {
                     panic!("internal error: argument to SetFocusItem must be an element")

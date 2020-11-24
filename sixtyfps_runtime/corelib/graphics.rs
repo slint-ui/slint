@@ -21,7 +21,7 @@ LICENSE END */
 */
 extern crate alloc;
 use crate::input::{KeyEvent, KeyboardModifiers, MouseEvent, MouseEventType};
-use crate::items::ItemRef;
+use crate::items::{ItemRc, ItemRef, ItemWeak};
 use crate::properties::{InterpolatedPropertyValue, Property, PropertyTracker};
 #[cfg(feature = "rtti")]
 use crate::rtti::{BuiltinItem, FieldInfo, PropertyInfo, ValueType};
@@ -528,8 +528,7 @@ pub struct GraphicsWindow<Backend: GraphicsBackend + 'static> {
     keyboard_modifiers: std::cell::Cell<KeyboardModifiers>,
     component: std::cell::RefCell<ComponentWeak>,
     layout_listener: Pin<Rc<PropertyTracker>>,
-    focus_item_component: std::cell::RefCell<ComponentWeak>,
-    focus_item_index: std::cell::Cell<usize>,
+    focus_item: std::cell::RefCell<ItemWeak>,
 }
 
 impl<Backend: GraphicsBackend + 'static> GraphicsWindow<Backend> {
@@ -551,8 +550,7 @@ impl<Backend: GraphicsBackend + 'static> GraphicsWindow<Backend> {
             keyboard_modifiers: Default::default(),
             component: Default::default(),
             layout_listener: Rc::pin(Default::default()),
-            focus_item_component: Default::default(),
-            focus_item_index: Default::default(),
+            focus_item: Default::default(),
         })
     }
 
@@ -684,12 +682,9 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
     }
 
     fn process_key_input(self: Rc<Self>, event: &KeyEvent) {
-        if let Some(focus_item_component) = self.as_ref().focus_item_component.borrow().upgrade() {
+        if let Some(focus_item) = self.as_ref().focus_item.borrow().upgrade() {
             let window = &crate::eventloop::ComponentWindow::new(self.clone());
-            let comp_ref_pin = ComponentRc::borrow_pin(&focus_item_component);
-            let focus_item =
-                comp_ref_pin.as_ref().get_item_ref(self.as_ref().focus_item_index.get() as usize);
-            focus_item.as_ref().key_event(event, &window);
+            focus_item.borrow().as_ref().key_event(event, &window);
         }
     }
 
@@ -863,25 +858,19 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
         self.keyboard_modifiers.set(state)
     }
 
-    fn set_focus_item(self: Rc<Self>, focus_item_component: &ComponentRc, focus_item_index: usize) {
+    fn set_focus_item(self: Rc<Self>, focus_item: &ItemRc) {
         let window = crate::eventloop::ComponentWindow::new(self.clone());
 
-        if let Some(old_focus_item_component) =
-            self.as_ref().focus_item_component.borrow().upgrade()
-        {
-            let comp_ref_pin = ComponentRc::borrow_pin(&old_focus_item_component);
-            let old_focus_item =
-                comp_ref_pin.as_ref().get_item_ref(self.as_ref().focus_item_index.get());
-            old_focus_item.as_ref().focus_event(&crate::input::FocusEvent::FocusOut, &window);
+        if let Some(old_focus_item) = self.as_ref().focus_item.borrow().upgrade() {
+            old_focus_item
+                .borrow()
+                .as_ref()
+                .focus_event(&crate::input::FocusEvent::FocusOut, &window);
         }
 
-        *self.as_ref().focus_item_component.borrow_mut() =
-            ComponentRc::downgrade(&focus_item_component);
-        self.as_ref().focus_item_index.set(focus_item_index);
+        *self.as_ref().focus_item.borrow_mut() = focus_item.downgrade();
 
-        let comp_ref_pin = ComponentRc::borrow_pin(&focus_item_component);
-        let new_focus_item = comp_ref_pin.as_ref().get_item_ref(focus_item_index);
-        new_focus_item.as_ref().focus_event(&crate::input::FocusEvent::FocusIn, &window);
+        focus_item.borrow().as_ref().focus_event(&crate::input::FocusEvent::FocusIn, &window);
     }
 
     fn set_focus(self: Rc<Self>, have_focus: bool) {
@@ -892,11 +881,8 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
             crate::input::FocusEvent::WindowLostFocus
         };
 
-        if let Some(focus_item_component) = self.as_ref().focus_item_component.borrow().upgrade() {
-            let comp_ref_pin = ComponentRc::borrow_pin(&focus_item_component);
-            let focus_item =
-                comp_ref_pin.as_ref().get_item_ref(self.as_ref().focus_item_index.get() as usize);
-            focus_item.as_ref().focus_event(&event, &window);
+        if let Some(focus_item) = self.as_ref().focus_item.borrow().upgrade() {
+            focus_item.borrow().as_ref().focus_event(&event, &window);
         }
     }
 }

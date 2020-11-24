@@ -13,13 +13,12 @@ LICENSE END */
     [GenericWindow] trait used by the generated code and the run-time to change
     aspects of windows on the screen.
 */
-use crate::{component::ComponentRc, items::ItemRef, slice::Slice};
+use crate::component::ComponentRc;
+use crate::items::{ItemRc, ItemRef};
+use crate::slice::Slice;
 use std::cell::RefCell;
-use std::{
-    convert::TryInto,
-    pin::Pin,
-    rc::{Rc, Weak},
-};
+use std::rc::{Rc, Weak};
+use std::{convert::TryInto, pin::Pin};
 
 use crate::input::{KeyEvent, MouseEventType};
 #[cfg(not(target_arch = "wasm32"))]
@@ -102,7 +101,7 @@ pub trait GenericWindow {
 
     /// Sets the focus to the item pointed to by item_ptr. This will remove the focus from any
     /// currently focused item.
-    fn set_focus_item(self: Rc<Self>, focus_item_component: &ComponentRc, focus_item_index: usize);
+    fn set_focus_item(self: Rc<Self>, focus_item: &ItemRc);
     /// Sets the focus on the window to true or false, depending on the have_focus argument.
     /// This results in WindowFocusReceived and WindowFocusLost events.
     fn set_focus(self: Rc<Self>, have_focus: bool);
@@ -172,8 +171,8 @@ impl ComponentWindow {
 
     /// Clears the focus on any previously focused item and makes the provided
     /// item the focus item, in order to receive future key events.
-    pub fn set_focus_item(&self, focus_item_component: &ComponentRc, focus_item_index: usize) {
-        self.0.clone().set_focus_item(focus_item_component, focus_item_index)
+    pub fn set_focus_item(&self, focus_item: &ItemRc) {
+        self.0.clone().set_focus_item(focus_item)
     }
 
     /// Associates this window with the specified component, for future event handling, etc.
@@ -599,7 +598,7 @@ pub mod ffi {
         focus_item_index: usize,
     ) {
         let window = &*(handle as *const ComponentWindow);
-        window.set_focus_item(focus_item_component, focus_item_index)
+        window.set_focus_item(&ItemRc::new(focus_item_component.clone(), focus_item_index))
     }
 
     /// Associates the window with the given component.
