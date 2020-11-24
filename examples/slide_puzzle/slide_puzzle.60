@@ -353,7 +353,7 @@ export MainWindow := Window {
             }
 
             states [
-                hover when false: {
+                hover when touch.has_hover: {
                     shadow.color: #0001;
                 }
                 pressed when touch.pressed : {

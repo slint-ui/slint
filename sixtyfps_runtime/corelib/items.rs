@@ -669,6 +669,7 @@ pub struct TouchArea {
     pub height: Property<f32>,
     /// FIXME: We should anotate this as an "output" property.
     pub pressed: Property<bool>,
+    pub has_hover: Property<bool>,
     /// FIXME: there should be just one property for the point istead of two.
     /// Could even be merged with pressed in a Property<Option<Point>> (of course, in the
     /// implementation item only, for the compiler it would stay separate properties)
@@ -719,6 +720,7 @@ impl Item for TouchArea {
     ) -> InputEventResult {
         Self::FIELD_OFFSETS.mouse_x.apply_pin(self).set(event.pos.x);
         Self::FIELD_OFFSETS.mouse_y.apply_pin(self).set(event.pos.y);
+        Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(event.what != MouseEventType::MouseExit);
 
         let result = if matches!(event.what, MouseEventType::MouseReleased) {
             Self::FIELD_OFFSETS.clicked.apply_pin(self).emit(&());
@@ -738,7 +740,7 @@ impl Item for TouchArea {
                 return if Self::FIELD_OFFSETS.pressed.apply_pin(self).get() {
                     InputEventResult::GrabMouse
                 } else {
-                    InputEventResult::EventIgnored
+                    InputEventResult::ObserveHover
                 }
             }
         });

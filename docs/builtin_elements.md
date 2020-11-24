@@ -142,6 +142,7 @@ The TouchArea control what happens when the zone covered by it is touched or int
 ### Properties
 
 * **`pressed`** (*bool*): Set to true by the TouchArea when the mouse is pressed over it.
+* **`has_hover`** (*bool*): Set to true by the TouchArea when the mouse is over it.
 * **`mouse_x`**, **`mouse_y`** (*length*): Set by the TouchArea to the position of the mouse within it.
 * **`pressed_x`**, **`mouse_y`** (*length*): Set to true by the TouchArea to the position of the
     mouse at the moment it was last pressed.

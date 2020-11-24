@@ -33,31 +33,30 @@ pub extern "C" fn sixtyfps_send_mouse_click(
     y: f32,
     window: &crate::eventloop::ComponentWindow,
 ) {
-    let mut mouse_grabber = Vec::new();
+    let mut state = crate::input::MouseInputState::default();
     vtable::VRc::borrow_pin(component).as_ref().apply_layout(window.0.get_geometry());
 
     let pos = euclid::point2(x, y);
 
-    mouse_grabber = crate::input::process_mouse_input(
+    state = crate::input::process_mouse_input(
         component.clone(),
         MouseEvent { pos, what: MouseEventType::MouseMoved },
         window,
-        mouse_grabber,
+        state,
     );
-    mouse_grabber = crate::input::process_mouse_input(
+    state = crate::input::process_mouse_input(
         component.clone(),
         MouseEvent { pos, what: MouseEventType::MousePressed },
         window,
-        mouse_grabber,
+        state,
     );
     sixtyfps_mock_elapsed_time(50);
-    mouse_grabber = crate::input::process_mouse_input(
+    crate::input::process_mouse_input(
         component.clone(),
         MouseEvent { pos, what: MouseEventType::MouseReleased },
         window,
-        mouse_grabber,
+        state,
     );
-    drop(mouse_grabber);
 }
 
 /// Simulate a change in keyboard modifiers pressed.

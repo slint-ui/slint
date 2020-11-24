@@ -67,6 +67,8 @@ pub enum InputEventResult {
     },*/
     /// All further mouse event need to be sent to this item or component
     GrabMouse,
+    /// One must send an MouseExit when the mouse leave this item
+    ObserveHover,
 }
 
 impl Default for InputEventResult {
@@ -464,6 +466,15 @@ pub enum FocusEvent {
     WindowLostFocus,
 }
 
+/// The state which a window should hold for the mouse input
+#[derive(Default)]
+pub struct MouseInputState {
+    /// The stack of item which contain the mouse cursor (or grab)
+    item_stack: Vec<ItemWeak>,
+    /// true if the top item of the stack has the mouse grab
+    grabbed: bool,
+}
+
 /// Process the `mouse_event` on the `component`, the `mouse_grabber_stack` is the prebious stack
 /// of mouse grabber.
 /// Returns a new mouse grabber stack.
@@ -471,29 +482,40 @@ pub fn process_mouse_input(
     component: ComponentRc,
     mouse_event: MouseEvent,
     window: &crate::eventloop::ComponentWindow,
-    mut mouse_grabber_stack: Vec<ItemWeak>,
-) -> Vec<ItemWeak> {
+    mouse_input_state: MouseInputState,
+) -> MouseInputState {
     'grab: loop {
-        if mouse_grabber_stack.is_empty() {
+        if !mouse_input_state.grabbed || mouse_input_state.item_stack.is_empty() {
             break 'grab;
         };
         let mut event = mouse_event.clone();
-        for it in mouse_grabber_stack.iter() {
+        for it in mouse_input_state.item_stack.iter() {
             let item = if let Some(item) = it.upgrade() { item } else { break 'grab };
             let g = item.borrow().as_ref().geometry();
             event.pos -= g.origin.to_vector();
         }
-        let grabber = mouse_grabber_stack.last().unwrap().upgrade().unwrap();
+        let grabber = mouse_input_state.item_stack.last().unwrap().upgrade().unwrap();
         return match grabber.borrow().as_ref().input_event(event, window, &grabber) {
-            InputEventResult::GrabMouse => mouse_grabber_stack,
+            InputEventResult::GrabMouse => mouse_input_state,
             _ => Default::default(),
         };
     }
 
-    let offset = Vector2D::new(0., 0.);
-    mouse_grabber_stack.clear();
+    // Send the Exit event.
+    // FIXME: we should send the exit event only if they no longer have the mouse
+    let mut pos = mouse_event.pos;
+    for it in mouse_input_state.item_stack.iter() {
+        let item = if let Some(item) = it.upgrade() { item } else { break };
+        let g = item.borrow().as_ref().geometry();
+        pos -= g.origin.to_vector();
+        item.borrow().as_ref().input_event(
+            MouseEvent { pos, what: MouseEventType::MouseExit },
+            window,
+            &item,
+        );
+    }
 
-    let mut result = Vec::new();
+    let mut result = MouseInputState::default();
     type State = (Vector2D<f32>, Vec<ItemWeak>);
     crate::item_tree::visit_items(
         &component,
@@ -513,13 +535,22 @@ pub fn process_mouse_input(
                 event2.pos -= geom.origin.to_vector();
                 match item.as_ref().input_event(event2, window, &item_rc) {
                     InputEventResult::EventAccepted => {
+                        result.item_stack = mouse_grabber_stack.clone();
+                        result.item_stack.push(item_rc.downgrade());
+                        result.grabbed = false;
                         return ItemVisitorResult::Abort;
                     }
                     InputEventResult::EventIgnored => (),
                     InputEventResult::GrabMouse => {
-                        result = mouse_grabber_stack.clone();
-                        result.push(item_rc.downgrade());
+                        result.item_stack = mouse_grabber_stack.clone();
+                        result.item_stack.push(item_rc.downgrade());
+                        result.grabbed = true;
                         return ItemVisitorResult::Abort;
+                    }
+                    InputEventResult::ObserveHover => {
+                        result.item_stack = mouse_grabber_stack.clone();
+                        result.item_stack.push(item_rc.downgrade());
+                        result.grabbed = false;
                     }
                 };
             }
@@ -528,8 +559,7 @@ pub fn process_mouse_input(
             mouse_grabber_stack.push(item_rc.downgrade());
             ItemVisitorResult::Continue((geom.origin.to_vector(), mouse_grabber_stack))
         },
-        (offset, mouse_grabber_stack),
+        (Vector2D::new(0., 0.), Vec::new()),
     );
-
     result
 }
