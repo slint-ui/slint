@@ -21,8 +21,8 @@ assert(!instance.get_falsevar());
 
 
 ```rust
-let instance = TestCase::new();
-let instance = instance.as_ref();
+let handle = TestCase::new();
+let instance = handle.as_ref();
 assert!(instance.get_truevar(), 1);
 assert!(!instance.get_falsevar(), 1);
 ```

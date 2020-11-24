@@ -1091,34 +1091,6 @@ fn generate_component(
             }),
         ));
 
-        component_struct.members.push((
-            Access::Private,
-            Declaration::Var(Var {
-                ty: "int64_t".into(),
-                name: "mouse_grabber".into(),
-                init: Some("-1".into()),
-            }),
-        ));
-        component_struct.members.push((
-            Access::Private,
-            Declaration::Function(Function {
-                name: "input_event".into(),
-                signature:
-                    "(sixtyfps::private_api::ComponentRef component, sixtyfps::MouseEvent mouse_event, const sixtyfps::private_api::ComponentWindow *window) -> sixtyfps::InputEventResult"
-                        .into(),
-                is_static: true,
-                statements: Some(vec![
-                    format!("auto self = reinterpret_cast<{}*>(component.instance);", component_id),
-                    "auto self_rc = self->self_weak.lock()->into_dyn();".into(),
-                    "return sixtyfps::private_api::process_input_event(self_rc, self->mouse_grabber, mouse_event, item_tree(), [self](int dyn_index, [[maybe_unused]] int rep_index) {".into(),
-                    "    (void)self;".into(),
-                    format!("    switch(dyn_index) {{ {} }};", repeated_input_branch.join("")),
-                    "    return sixtyfps::private_api::ComponentRef{nullptr, nullptr};\n}, window);".into(),
-                ]),
-                ..Default::default()
-            }),
-        ));
-
         let (apply_layout, layout_info) = compute_layout(component, &mut repeater_layout_code);
 
         component_struct.members.push((
@@ -1196,7 +1168,7 @@ fn generate_component(
             ty: "const sixtyfps::private_api::ComponentVTable".to_owned(),
             name: format!("{}::component_type", component_id),
             init: Some(format!(
-                "{{ visit_children, get_item_ref, layouting_info, apply_layout, input_event, sixtyfps::private_api::drop_in_place<{}>, sixtyfps::private_api::dealloc }}",
+                "{{ visit_children, get_item_ref, layouting_info, apply_layout,  sixtyfps::private_api::drop_in_place<{}>, sixtyfps::private_api::dealloc }}",
                 component_id)
             ),
         }));

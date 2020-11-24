@@ -13,7 +13,7 @@ LICENSE END */
 
 use crate::component::ComponentRc;
 use crate::graphics::Point;
-use crate::item_tree::{ItemVisitorResult, VisitChildrenResult};
+use crate::item_tree::ItemVisitorResult;
 use crate::items::{ItemRc, ItemRef, ItemWeak};
 use euclid::default::Vector2D;
 use sixtyfps_corelib_macros::*;
@@ -464,66 +464,6 @@ pub enum FocusEvent {
     WindowLostFocus,
 }
 
-/// Feed the given mouse event into the tree of items that component holds. The
-/// event will be delivered to items in front first.
-///
-/// The returned tuple is identical with the tuple the ItemVTable's input_event returns,
-/// indicating the acceptance or potential mouse grabbing as well as how to proceed
-/// in the event of recursive item tree traversal.
-///
-/// Arguments:
-/// * `component`: The component to deliver the event to.
-/// * `event`: The mouse event to deliver.
-pub fn process_ungrabbed_mouse_event(
-    component: &ComponentRc,
-    event: MouseEvent,
-    window: &crate::eventloop::ComponentWindow,
-) -> (InputEventResult, VisitChildrenResult) {
-    let offset = Vector2D::new(0., 0.);
-
-    let mut result = InputEventResult::EventIgnored;
-    let item_index = crate::item_tree::visit_items(
-        component,
-        crate::item_tree::TraversalOrder::FrontToBack,
-        |comp_rc, item, item_index, offset| -> ItemVisitorResult<Vector2D<f32>> {
-            let geom = item.as_ref().geometry();
-            let geom = geom.translate(*offset);
-
-            if geom.contains(event.pos) {
-                let mut event2 = event.clone();
-                event2.pos -= geom.origin.to_vector();
-                match item.as_ref().input_event(
-                    event2,
-                    window,
-                    &crate::items::ItemRc::new(comp_rc.clone(), item_index),
-                ) {
-                    InputEventResult::EventAccepted => {
-                        result = InputEventResult::EventAccepted;
-                        return ItemVisitorResult::Abort;
-                    }
-                    InputEventResult::EventIgnored => (),
-                    InputEventResult::GrabMouse => {
-                        result = InputEventResult::GrabMouse;
-                        return ItemVisitorResult::Abort;
-                    }
-                };
-            }
-
-            ItemVisitorResult::Continue(geom.origin.to_vector())
-        },
-        offset,
-    );
-
-    (
-        result,
-        if result == InputEventResult::GrabMouse {
-            item_index
-        } else {
-            VisitChildrenResult::CONTINUE
-        },
-    )
-}
-
 /// Process the `mouse_event` on the `component`, the `mouse_grabber_stack` is the prebious stack
 /// of mouse grabber.
 /// Returns a new mouse grabber stack.
@@ -592,31 +532,4 @@ pub fn process_mouse_input(
     );
 
     result
-}
-
-pub(crate) mod ffi {
-    use super::*;
-
-    #[no_mangle]
-    pub extern "C" fn sixtyfps_process_ungrabbed_mouse_event(
-        component: &ComponentRc,
-        event: MouseEvent,
-        window: &crate::eventloop::ComponentWindow,
-        new_mouse_grabber: &mut crate::item_tree::VisitChildrenResult,
-    ) -> InputEventResult {
-        let (res, grab) = process_ungrabbed_mouse_event(component, event, window);
-        *new_mouse_grabber = grab;
-        res
-    }
-    /*
-    #[no_mangle]
-    pub extern "C" fn sixtyfps_process_grabbed_mouse_event(
-        component: ComponentRefPin,
-        item: core::pin::Pin<ItemRef>,
-        offset: Point,
-        event: MouseEvent,
-        old_grab: VisitChildrenResult,
-    ) -> (InputEventResult, crate::item_tree::VisitChildrenResult) {
-        process_grabbed_mouse_event(component, item, offset, event, old_grab)
-    }*/
 }

@@ -42,8 +42,8 @@ assert_eq(signal_3_string_value, "hello");
 ```
 
 ```rust
-let instance = TestCase::new();
-let instance = instance.as_ref();
+let handle = TestCase::new();
+let instance = handle.as_ref();
 let signal_3_emited = std::rc::Rc::new(std::cell::RefCell::new((0, String::new())));
 instance.on_test_signal3({
     let signal_3_emited = signal_3_emited.clone();

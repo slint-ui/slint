@@ -181,9 +181,9 @@ pub mod re_exports {
         PathArcTo, PathData, PathElement, PathEvent, PathLineTo, Point, Rect, Size,
     };
     pub use sixtyfps_corelib::input::{
-        process_ungrabbed_mouse_event, FocusEvent, InputEventResult, KeyCode, KeyEvent,
-        KeyEventResult, KeyboardModifiers, MouseEvent, ALT_MODIFIER, CONTROL_MODIFIER,
-        COPY_PASTE_MODIFIER, LOGO_MODIFIER, NO_MODIFIER, SHIFT_MODIFIER,
+        FocusEvent, InputEventResult, KeyCode, KeyEvent, KeyEventResult, KeyboardModifiers,
+        MouseEvent, ALT_MODIFIER, CONTROL_MODIFIER, COPY_PASTE_MODIFIER, LOGO_MODIFIER,
+        NO_MODIFIER, SHIFT_MODIFIER,
     };
     pub use sixtyfps_corelib::item_tree::{
         item_offset, visit_item_tree, ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable,
@@ -308,17 +308,17 @@ pub mod testing {
     pub use sixtyfps_corelib::tests::sixtyfps_mock_elapsed_time as mock_elapsed_time;
     /// Simulate a mouse click
     pub fn send_mouse_click<
-        X: vtable::HasStaticVTable<sixtyfps_corelib::component::ComponentVTable> + HasWindow,
+        X: vtable::HasStaticVTable<sixtyfps_corelib::component::ComponentVTable> + HasWindow + 'static,
     >(
-        component: core::pin::Pin<&X>,
+        component: &crate::ComponentHandle<X>,
         x: f32,
         y: f32,
     ) {
         sixtyfps_corelib::tests::sixtyfps_send_mouse_click(
-            vtable::VRef::new_pin(component),
+            &vtable::VRc::into_dyn(component.inner.clone()),
             x,
             y,
-            component.component_window(),
+            component.inner.component_window(),
         );
     }
 

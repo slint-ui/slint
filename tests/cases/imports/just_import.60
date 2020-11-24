@@ -19,8 +19,8 @@ assert_eq(instance.get_some_prop(), 42);
 ```
 
 ```rust
-let instance = MainWindow::new();
-let instance = instance.as_ref();
+let handle = MainWindow::new();
+let instance = handle.as_ref();
 assert_eq!(instance.get_some_prop(), 42);
 ```
 

@@ -30,8 +30,8 @@ TestCase := Rectangle {
 
 /*
 ```rust
-let instance = TestCase::new();
-let instance = instance.as_ref();
+let handle = TestCase::new();
+let instance = handle.as_ref();
 assert!(!instance.get_input1_focused());
 assert!(instance.get_input2_focused());
 ```

@@ -28,17 +28,36 @@ pub extern "C" fn sixtyfps_mock_elapsed_time(time_in_ms: u64) {
 /// Simulate a click on a position within the component.
 #[no_mangle]
 pub extern "C" fn sixtyfps_send_mouse_click(
-    component: core::pin::Pin<crate::component::ComponentRef>,
+    component: &crate::component::ComponentRc,
     x: f32,
     y: f32,
     window: &crate::eventloop::ComponentWindow,
 ) {
-    component.as_ref().apply_layout(window.0.get_geometry());
+    let mut mouse_grabber = Vec::new();
+    vtable::VRc::borrow_pin(component).as_ref().apply_layout(window.0.get_geometry());
+
     let pos = euclid::point2(x, y);
-    component.as_ref().input_event(MouseEvent { pos, what: MouseEventType::MouseMoved }, window);
-    component.as_ref().input_event(MouseEvent { pos, what: MouseEventType::MousePressed }, window);
+
+    mouse_grabber = crate::input::process_mouse_input(
+        component.clone(),
+        MouseEvent { pos, what: MouseEventType::MouseMoved },
+        window,
+        mouse_grabber,
+    );
+    mouse_grabber = crate::input::process_mouse_input(
+        component.clone(),
+        MouseEvent { pos, what: MouseEventType::MousePressed },
+        window,
+        mouse_grabber,
+    );
     sixtyfps_mock_elapsed_time(50);
-    component.as_ref().input_event(MouseEvent { pos, what: MouseEventType::MouseReleased }, window);
+    mouse_grabber = crate::input::process_mouse_input(
+        component.clone(),
+        MouseEvent { pos, what: MouseEventType::MouseReleased },
+        window,
+        mouse_grabber,
+    );
+    drop(mouse_grabber);
 }
 
 /// Simulate a change in keyboard modifiers pressed.

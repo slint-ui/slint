@@ -28,8 +28,8 @@ assert_eq(instance.get_color_of_initialized_text(), sixtyfps::Color::from_rgb_ui
 ```
 
 ```rust
-let instance = TestCase::new();
-let instance = instance.as_ref();
+let handle = TestCase::new();
+let instance = handle.as_ref();
 assert_eq!(instance.get_default_text_color(), sixtyfps::Color::from_rgb_u8(0, 0, 0));
 assert_eq!(instance.get_color_of_initialized_text(), sixtyfps::Color::from_rgb_u8(255, 255, 255));
 ```

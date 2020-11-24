@@ -178,44 +178,6 @@ using cbindgen_private::KeyEventResult;
 using cbindgen_private::MouseEvent;
 using cbindgen_private::sixtyfps_visit_item_tree;
 namespace private_api {
-template<typename GetDynamic>
-inline InputEventResult process_input_event(const ComponentRc &component_rc, int64_t &mouse_grabber,
-                                            MouseEvent mouse_event, Slice<ItemTreeNode> tree,
-                                            GetDynamic get_dynamic, const ComponentWindow *window)
-{
-    if (mouse_grabber != -1) {
-        auto item_index = mouse_grabber & 0xffffffff;
-        auto rep_index = mouse_grabber >> 32;
-        auto offset =
-                cbindgen_private::sixtyfps_item_offset(component_rc.borrow(), tree, item_index);
-        mouse_event.pos = { mouse_event.pos.x - offset.x, mouse_event.pos.y - offset.y };
-        const auto &item_node = tree.ptr[item_index];
-        InputEventResult result = InputEventResult::EventIgnored;
-        cbindgen_private::ItemRc item_rc{component_rc, uintptr_t(item_index)};
-        switch (item_node.tag) {
-        case ItemTreeNode::Tag::Item:
-            result = item_node.item.item.vtable->input_event(
-                    {
-                            item_node.item.item.vtable,
-                            reinterpret_cast<char *>(component_rc.borrow().instance)
-                                    + item_node.item.item.offset,
-                    },
-                    mouse_event, window, &item_rc);
-            break;
-        case ItemTreeNode::Tag::DynamicTree: {
-            ComponentRef comp = get_dynamic(item_node.dynamic_tree.index, rep_index);
-            result = comp.vtable->input_event(comp, mouse_event, window);
-        } break;
-        }
-        if (result != InputEventResult::GrabMouse) {
-            mouse_grabber = -1;
-        }
-        return result;
-    } else {
-        return cbindgen_private::sixtyfps_process_ungrabbed_mouse_event(&component_rc, mouse_event,
-                                                                        window, &mouse_grabber);
-    }
-}
 
 void dealloc(const ComponentVTable *, uint8_t *ptr, vtable::Layout layout)
 {

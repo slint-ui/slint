@@ -22,8 +22,8 @@ assert_eq(instance.get_t2(), true);
 
 
 ```rust
-let instance = TestCase::new();
-let instance = instance.as_ref();
+let handle = TestCase::new();
+let instance = handle.as_ref();
 assert_eq!(instance.get_t1(), 98.5);
 assert_eq!(instance.get_t2(), true);
 ```

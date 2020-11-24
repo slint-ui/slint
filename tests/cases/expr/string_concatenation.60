@@ -36,8 +36,8 @@ assert_eq(instance.get_s4(), sixtyfps::SharedString("ayoxxx"));
 
 
 ```rust
-let instance = TestCase::new();
-let instance = instance.as_ref();
+let handle = TestCase::new();
+let instance = handle.as_ref();
 assert_eq!(instance.get_s1(), sixtyfps::SharedString::from("hello1212"));
 assert_eq!(instance.get_s2(), sixtyfps::SharedString::from("10hello5.1"));
 instance.set_a(42);

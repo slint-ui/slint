@@ -21,7 +21,6 @@ use sixtyfps_compilerlib::*;
 use sixtyfps_corelib::component::{Component, ComponentRefPin, ComponentVTable};
 use sixtyfps_corelib::eventloop::ComponentWindow;
 use sixtyfps_corelib::graphics::{Rect, Resource};
-use sixtyfps_corelib::input::{InputEventResult, MouseEvent};
 use sixtyfps_corelib::item_tree::{
     ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, TraversalOrder, VisitChildrenResult,
 };
@@ -203,14 +202,6 @@ impl Component for ErasedComponentBox {
         self.borrow().as_ref().visit_children_item(index, order, visitor)
     }
 
-    fn input_event(
-        self: Pin<&Self>,
-        mouse_event: sixtyfps_corelib::input::MouseEvent,
-        window: &ComponentWindow,
-    ) -> sixtyfps_corelib::input::InputEventResult {
-        self.borrow().as_ref().input_event(mouse_event, window)
-    }
-
     fn layout_info(self: Pin<&Self>) -> sixtyfps_corelib::layout::LayoutInfo {
         self.borrow().as_ref().layout_info()
     }
@@ -228,7 +219,6 @@ impl Component for ErasedComponentBox {
 sixtyfps_corelib::ComponentVTable_static!(static COMPONENT_BOX_VT for ErasedComponentBox);
 
 pub(crate) struct ComponentExtraData {
-    mouse_grabber: core::cell::Cell<VisitChildrenResult>,
     pub(crate) globals: HashMap<String, Pin<Rc<dyn crate::global_component::GlobalComponent>>>,
     pub(crate) self_weak:
         once_cell::unsync::OnceCell<vtable::VWeak<ComponentVTable, ErasedComponentBox>>,
@@ -236,11 +226,7 @@ pub(crate) struct ComponentExtraData {
 
 impl Default for ComponentExtraData {
     fn default() -> Self {
-        Self {
-            mouse_grabber: core::cell::Cell::new(VisitChildrenResult::CONTINUE),
-            globals: HashMap::new(),
-            self_weak: Default::default(),
-        }
+        Self { globals: HashMap::new(), self_weak: Default::default() }
     }
 }
 
@@ -687,7 +673,6 @@ fn generate_component<'id>(
         visit_children_item,
         layout_info,
         apply_layout,
-        input_event,
         get_item_ref,
         drop_in_place,
         dealloc,
@@ -1441,53 +1426,6 @@ pub fn get_repeater_by_name<'a, 'id>(
     (rep_in_comp.offset.apply_pin(instance_ref.instance), rep_in_comp.component_to_repeat.clone())
 }
 
-extern "C" fn input_event(
-    component: ComponentRefPin,
-    mouse_event: sixtyfps_corelib::input::MouseEvent,
-    window: &sixtyfps_corelib::eventloop::ComponentWindow,
-) -> sixtyfps_corelib::input::InputEventResult {
-    // This is fine since we can only be called with a component that with our vtable which is a ComponentDescription
-    let component_type = unsafe { get_component_type(component) };
-    let instance = unsafe { Pin::new_unchecked(&*component.as_ptr().cast::<Instance>()) };
-    let extra_data = component_type.extra_data_offset.apply(&*instance);
-    generativity::make_guard!(guard);
-    let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
-    let comp_rc = instance_ref.self_weak().get().unwrap().upgrade().unwrap();
-
-    let mouse_grabber = extra_data.mouse_grabber.get();
-    let (status, new_grab) = if let Some((item_index, rep_index)) = mouse_grabber.aborted_indexes()
-    {
-        let tree = &component_type.item_tree;
-        let offset = sixtyfps_corelib::item_tree::item_offset(instance, tree, item_index);
-        let mut event = mouse_event.clone();
-        event.pos -= offset.to_vector();
-        let res = match tree[item_index] {
-            ItemTreeNode::Item { item, .. } => item.apply_pin(instance).as_ref().input_event(
-                event,
-                window,
-                &sixtyfps_corelib::items::ItemRc::new(vtable::VRc::into_dyn(comp_rc), item_index),
-            ),
-            ItemTreeNode::DynamicTree { index } => {
-                generativity::make_guard!(guard);
-                let rep_in_comp = component_type.repeater[index].unerase(guard);
-                rep_in_comp.offset.apply_pin(instance).input_event(rep_index, event, window)
-            }
-        };
-        match res {
-            sixtyfps_corelib::input::InputEventResult::GrabMouse => (res, mouse_grabber),
-            _ => (res, VisitChildrenResult::CONTINUE),
-        }
-    } else {
-        sixtyfps_corelib::input::process_ungrabbed_mouse_event(
-            &vtable::VRc::into_dyn(comp_rc),
-            mouse_event,
-            window,
-        )
-    };
-    extra_data.mouse_grabber.set(new_grab);
-    status
-}
-
 extern "C" fn layout_info(component: ComponentRefPin) -> LayoutInfo {
     generativity::make_guard!(guard);
     // This is fine since we can only be called with a component that with our vtable which is a ComponentDescription
@@ -1551,14 +1489,6 @@ unsafe extern "C" fn drop_in_place(component: vtable::VRefMut<ComponentVTable>) 
 
 unsafe extern "C" fn dealloc(_vtable: &ComponentVTable, ptr: *mut u8, layout: vtable::Layout) {
     std::alloc::dealloc(ptr, layout.try_into().unwrap());
-}
-
-/// Get the component description from a ComponentRef
-///
-/// Safety: the component must have been created by the interpreter
-pub unsafe fn get_component_type<'a>(component: ComponentRefPin<'a>) -> &'a ComponentDescription {
-    &*(Pin::into_inner_unchecked(component).get_vtable() as *const ComponentVTable
-        as *const ComponentDescription)
 }
 
 #[derive(Copy, Clone)]

@@ -440,8 +440,9 @@ declare_types! {
             let lock = cx.lock();
             let comp = this.borrow(&lock).0.clone();
             let component = comp.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            let win = component.window();
             run_scoped(&mut cx,this.downcast().unwrap(), || {
-                sixtyfps_corelib::tests::sixtyfps_send_mouse_click(component.borrow(), x, y, &component.window());
+                sixtyfps_corelib::tests::sixtyfps_send_mouse_click(&vtable::VRc::into_dyn(component), x, y, &win);
                 Ok(())
             })?;
             Ok(JsUndefined::new().as_value(&mut cx))

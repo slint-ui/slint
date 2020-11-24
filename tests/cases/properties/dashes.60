@@ -31,8 +31,8 @@ assert_eq(instance.get_this__has_6_slashes__(), 86);
 ```
 
 ```rust
-let instance = Test_Case::new();
-let instance = instance.as_ref();
+let handle = Test_Case::new();
+let instance = handle.as_ref();
 assert_eq!(instance.get_property_x1(), 42.);
 assert_eq!(instance.get_property_x2(), 42.);
 assert_eq!(instance.get_this__has_6_slashes__(), 86);

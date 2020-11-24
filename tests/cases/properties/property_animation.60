@@ -31,8 +31,8 @@ TestCase := Rectangle {
 /*
 
 ```rust
-let instance = TestCase::new();
-let instance = instance.as_ref();
+let handle = TestCase::new();
+let instance = handle.as_ref();
 assert_eq!(instance.get_hello(), 40);
 assert_eq!(instance.get_binding_dep(), 100);
 instance.set_condition(false);

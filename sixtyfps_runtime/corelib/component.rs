@@ -13,7 +13,6 @@ LICENSE END */
 
 use crate::eventloop::ComponentWindow;
 use crate::graphics::Rect;
-use crate::input::{InputEventResult, MouseEvent};
 use crate::item_tree::{ItemVisitorVTable, TraversalOrder, VisitChildrenResult};
 use crate::items::ItemVTable;
 use crate::layout::LayoutInfo;
@@ -44,13 +43,6 @@ pub struct ComponentVTable {
 
     /// Apply the layout to all the items in the component, and set the geometry of the root to the given rect
     pub apply_layout: extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>, Rect),
-
-    /// input event
-    pub input_event: extern "C" fn(
-        core::pin::Pin<VRef<ComponentVTable>>,
-        MouseEvent,
-        &ComponentWindow,
-    ) -> InputEventResult,
 
     /// in-place destructor (for VRc)
     pub drop_in_place: unsafe fn(VRefMut<ComponentVTable>) -> vtable::Layout,

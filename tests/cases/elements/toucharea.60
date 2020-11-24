@@ -33,37 +33,37 @@ auto handle = TestCase::create();
 const TestCase &instance = *handle;
 
 // does not click on anything
-sixtyfps::testing::send_mouse_click(instance, 5., 5.);
+sixtyfps::testing::send_mouse_click(&handle, 5., 5.);
 assert_eq(instance.get_touch1(), 0);
 assert_eq(instance.get_touch2(), 0);
 
 // click on second one
-sixtyfps::testing::send_mouse_click(instance, 101., 101.);
+sixtyfps::testing::send_mouse_click(&handle, 101., 101.);
 assert_eq(instance.get_touch1(), 0);
 assert_eq(instance.get_touch2(), 1);
 
 // click on first one only
-sixtyfps::testing::send_mouse_click(instance, 108., 108.);
+sixtyfps::testing::send_mouse_click(&handle, 108., 108.);
 assert_eq(instance.get_touch1(), 1);
 assert_eq(instance.get_touch2(), 1);
 ```
 
 
 ```rust
-let instance = TestCase::new();
-let instance = instance.as_ref();
+let handle = TestCase::new();
+let instance = handle.as_ref();
 // does not click on anything
-sixtyfps::testing::send_mouse_click(instance, 5., 5.);
+sixtyfps::testing::send_mouse_click(&handle, 5., 5.);
 assert_eq!(instance.get_touch1(), 0);
 assert_eq!(instance.get_touch2(), 0);
 
 // click on second one
-sixtyfps::testing::send_mouse_click(instance, 101., 101.);
+sixtyfps::testing::send_mouse_click(&handle, 101., 101.);
 assert_eq!(instance.get_touch1(), 0);
 assert_eq!(instance.get_touch2(), 1);
 
 // click on first one only
-sixtyfps::testing::send_mouse_click(instance, 108., 108.);
+sixtyfps::testing::send_mouse_click(&handle, 108., 108.);
 assert_eq!(instance.get_touch1(), 1);
 assert_eq!(instance.get_touch2(), 1);
 ```

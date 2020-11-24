@@ -42,8 +42,8 @@ assert(instance.get_rect1_pos_ok());
 
 
 ```rust
-let instance = TestCase::new();
-let instance = instance.as_ref();
+let handle = TestCase::new();
+let instance = handle.as_ref();
 use sixtyfps::re_exports::Component;
 instance.apply_layout(sixtyfps::re_exports::Rect::new(Default::default(), sixtyfps::re_exports::Size::new(300., 200.)));
 assert!(instance.get_rect1_pos_ok());

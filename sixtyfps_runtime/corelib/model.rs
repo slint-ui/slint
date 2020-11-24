@@ -555,17 +555,6 @@ impl<C: RepeatedComponent> Repeater<C> {
         crate::item_tree::VisitChildrenResult::CONTINUE
     }
 
-    /// Forward an input event to a particular item
-    pub fn input_event(
-        &self,
-        idx: usize,
-        event: crate::input::MouseEvent,
-        window: &crate::eventloop::ComponentWindow,
-    ) -> crate::input::InputEventResult {
-        let c = self.inner.borrow().borrow().components[idx].1.clone();
-        c.map_or(Default::default(), |c| c.as_pin_ref().input_event(event, window))
-    }
-
     /// Return the amount of item currently in the component
     pub fn len(&self) -> usize {
         self.inner.borrow().borrow().components.len()

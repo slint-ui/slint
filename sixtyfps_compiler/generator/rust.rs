@@ -682,37 +682,6 @@ fn generate_component(
                 }
             }
 
-            fn input_event(self: ::core::pin::Pin<&Self>, mouse_event : sixtyfps::re_exports::MouseEvent, window: &sixtyfps::re_exports::ComponentWindow) -> sixtyfps::re_exports::InputEventResult {
-                use sixtyfps::re_exports::*;
-                let mouse_grabber = self.mouse_grabber.get();
-                let self_rc = VRc::into_dyn(self.as_ref().self_weak.get().unwrap().upgrade().unwrap());
-                #[allow(unused)]
-                let (status, new_grab) = if let Some((item_index, rep_index)) = mouse_grabber.aborted_indexes() {
-                    let tree = Self::item_tree();
-                    let offset = item_offset(self, tree, item_index);
-                    let mut event = mouse_event.clone();
-                    event.pos -= offset.to_vector();
-                    let res = match tree[item_index] {
-                        ItemTreeNode::Item { item, .. } => {
-                            item.apply_pin(self).as_ref().input_event(event, window, &ItemRc::new(self_rc, item_index))
-                        }
-                        ItemTreeNode::DynamicTree { index } => {
-                            match index {
-                                #(#repeated_input_branch)*
-                                _ => panic!("invalid index {}", index),
-                            }
-                        }
-                    };
-                    match res {
-                        InputEventResult::GrabMouse => (res, mouse_grabber),
-                        _ => (res, VisitChildrenResult::CONTINUE),
-                    }
-                } else {
-                    process_ungrabbed_mouse_event(&self_rc, mouse_event, window)
-                };
-                self.mouse_grabber.set(new_grab);
-                status
-            }
 
             #layouts
 
@@ -769,7 +738,6 @@ fn generate_component(
             #(#repeated_element_names : sixtyfps::re_exports::Repeater<#repeated_element_components>,)*
             #(#self_weak : sixtyfps::re_exports::OnceCell<sixtyfps::re_exports::VWeak<sixtyfps::re_exports::ComponentVTable, #component_id>>,)*
             #(parent : sixtyfps::re_exports::VWeak<sixtyfps::re_exports::ComponentVTable, #parent_component_type>,)*
-            mouse_grabber: ::core::cell::Cell<sixtyfps::re_exports::VisitChildrenResult>,
             #(#global_name : ::core::pin::Pin<::std::rc::Rc<#global_type>>,)*
             #window_field
         }
@@ -789,7 +757,6 @@ fn generate_component(
                     #(#repeated_element_names : ::core::default::Default::default(),)*
                     #(#self_weak : ::core::default::Default::default(),)*
                     #(parent : parent as sixtyfps::re_exports::VWeak::<sixtyfps::re_exports::ComponentVTable, #parent_component_type>,)*
-                    mouse_grabber: ::core::cell::Cell::new(sixtyfps::re_exports::VisitChildrenResult::CONTINUE),
                     #(#global_name : #global_type::new(),)*
                     #window_field_init
                 };

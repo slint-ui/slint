@@ -55,8 +55,8 @@ assert_eq(instance.get_result(), 5+33-1);
 
 
 ```rust
-let instance = TestCase::new();
-let instance = instance.as_ref();
+let handle = TestCase::new();
+let instance = handle.as_ref();
 instance.emit_action();
 assert_eq!(instance.get_result(), 3);
 instance.set_value(5);
