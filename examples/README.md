@@ -11,7 +11,7 @@ A fictional user interface for the touch screen of a printer
 --- | --- | --- | --- | --- | ---
 [`ui.60`](./printerdemo/ui/printerdemo.60) | [`main.rs`](./printerdemo/rust/main.rs) | [`main.cpp`](./printerdemo/cpp/main.cpp) | [`main.js`](./printerdemo/node/main.js)| [Online simulation](https://sixtyfps.io/demos/printerdemo/) | [Preview in Online Code Editor](https://sixtyfps.io/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/printerdemo/ui/printerdemo.60)
 
-![Screenshot of the Printer Demo](/resources/printerdemo_screenshot.png "Printer Demo")
+![Screenshot of the Printer Demo](https://sixtyfps.io/resources/printerdemo_screenshot.png "Printer Demo")
 
 
 ### `gallery`
@@ -22,7 +22,7 @@ A simple application showing the different widgets
 --- | --- | --- | --- | ---
 [`gallery.60`](./gallery/gallery.60) | [`main.rs`](./gallery/main.rs) | [`main.cpp`](./gallery/main.cpp)| [Online simulation](https://sixtyfps.io/demos/gallery/) | [Preview in Online Code Editor](https://sixtyfps.io/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/gallery/gallery.60)
 
-![Screenshot of the Gallery on Windows](/resources/gallery_win_screenshot.png "Gallery")
+![Screenshot of the Gallery on Windows](https://sixtyfps.io/resources/gallery_win_screenshot.png "Gallery")
 
 ### `todo`
 
@@ -40,7 +40,7 @@ Puzzle game based on a Flutter example. See [Readme](./slide_puzzle)
 --- | --- | --- | --- | --- | ---
 [`slide_puzzle.60`](./slide_puzzle/slide_puzzle.60) | [`main.rs`](./todo/rust/main.rs) | ❌ | ❌ | [Online simulation](https://sixtyfps.io/demos/slide_puzzle/) | [Preview in Online Code Editor](https://sixtyfps.io/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/slide_puzzle/slide_puzzle.60)
 
-
+![Screenshot of the Slide Puzzle](https://sixtyfps.io/resources/puzzle_screenshot.png "Slide Puzzle")
 
 ## Loading the example with the `viewer`
 

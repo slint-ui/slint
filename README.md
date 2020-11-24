@@ -60,13 +60,13 @@ Click on the screenshots to run the WebAssembly simulation
 
 | Printer Demo | Slide Puzzle | Todo | Widget Gallery |
 |--------------|----------------|----------------|----------------|
-| [![Screenshot of the Printer Demo](resources/printerdemo_screenshot.png "Printer Demo")](https://sixtyfps.io/demos/printerdemo/) | [![Screenshot of the Slide Puzzle](resources/puzzle_screenshot.png "Slide Puzzle")](https://sixtyfps.io/demos/slide_puzzle/) | [![Screenshot of the Todo Demo](resources/todo_screenshot.png "Todo Demo")](https://sixtyfps.io/demos/todo/) | [![Screenshot of the Gallery Demo](resources/gallery_screenshot.png "Gallery Demo")](https://sixtyfps.io/demos/gallery/) |
+| [![Screenshot of the Printer Demo](https://sixtyfps.io/resources/printerdemo_screenshot.png "Printer Demo")](https://sixtyfps.io/demos/printerdemo/) | [![Screenshot of the Slide Puzzle](https://sixtyfps.io/resources/puzzle_screenshot.png "Slide Puzzle")](https://sixtyfps.io/demos/slide_puzzle/) | [![Screenshot of the Todo Demo](https://sixtyfps.io/resources/todo_screenshot.png "Todo Demo")](https://sixtyfps.io/demos/todo/) | [![Screenshot of the Gallery Demo](https://sixtyfps.io/resources/gallery_screenshot.png "Gallery Demo")](https://sixtyfps.io/demos/gallery/) |
 
 ## Desktop Native Widgets
 
 | Windows | macOS | Linux |
 |---------|-------|-------|
-| ![Screenshot of the Gallery on Windows](resources/gallery_win_screenshot.png "Gallery") | ![Screenshot of the Gallery on macOS](resources/gallery_mac_screenshot.png "Gallery") | ![Screenshot of the Gallery on Linux](resources/gallery_linux_screenshot.png "Gallery") |
+| ![Screenshot of the Gallery on Windows](https://sixtyfps.io/resources/gallery_win_screenshot.png "Gallery") | ![Screenshot of the Gallery on macOS](https://sixtyfps.io/resources/gallery_mac_screenshot.png "Gallery") | ![Screenshot of the Gallery on Linux](https://sixtyfps.io/resources/gallery_linux_screenshot.png "Gallery") |
 
 ## The .60 Markup Language
 
