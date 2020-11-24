@@ -7,7 +7,7 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-use std::{hash::Hash, rc::Rc};
+use std::rc::Rc;
 
 use super::FontRequest;
 
@@ -92,21 +92,6 @@ impl Font {
 }
 
 pub struct FontHandle(FontRequest);
-
-impl Hash for FontHandle {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.family.hash(state);
-        self.0.weight.hash(state);
-    }
-}
-
-impl PartialEq for FontHandle {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.eq(&other.0)
-    }
-}
-
-impl Eq for FontHandle {}
 
 impl FontHandle {
     pub fn load(self: &Rc<Self>, pixel_size: f32) -> Font {
