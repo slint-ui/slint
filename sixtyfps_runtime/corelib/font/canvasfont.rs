@@ -7,7 +7,7 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-use std::hash::Hash;
+use std::{hash::Hash, rc::Rc};
 
 use super::FontRequest;
 
@@ -91,7 +91,6 @@ impl Font {
     }
 }
 
-#[derive(Clone)]
 pub struct FontHandle(FontRequest);
 
 impl Hash for FontHandle {
@@ -110,7 +109,7 @@ impl PartialEq for FontHandle {
 impl Eq for FontHandle {}
 
 impl FontHandle {
-    pub fn load(&self, pixel_size: f32) -> Result<Font, ()> {
+    pub fn load(self: &Rc<Self>, pixel_size: f32) -> Font {
         let font_family = &self.0.family;
 
         let text_canvas = web_sys::window()
@@ -132,16 +131,16 @@ impl FontHandle {
 
         canvas_context.set_font(&format!("{} {}px \"{}\"", self.0.weight, pixel_size, font_family));
 
-        Ok(Font {
+        Font {
             pixel_size,
             font_family: self.0.family.to_string(),
             weight: self.0.weight,
             text_canvas,
             canvas_context,
-        })
+        }
     }
 
-    pub fn new_from_request(request: &FontRequest) -> Self {
-        Self(request.clone())
+    pub fn new_from_request(request: &FontRequest) -> Result<Rc<Self>, ()> {
+        Ok(Rc::new(Self(request.clone())))
     }
 }

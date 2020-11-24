@@ -25,11 +25,7 @@ pub struct GlyphMetrics {
 
 pub struct Font {
     pub pixel_size: f32,
-    // Keep the original handle around as that's typically a Handle::Path, while Font::handle() always returns a
-    // Handle::Memory, which is much slower to hash.
-    handle: Rc<font_kit::handle::Handle>,
-    font: font_kit::font::Font,
-    metrics: font_kit::metrics::Metrics,
+    handle: Rc<FontHandle>,
     glyph_metrics_cache: RefCell<HashMap<u32, GlyphMetrics>>,
 }
 
@@ -42,10 +38,11 @@ impl Font {
             (
                 offset,
                 ch,
-                self.font.glyph_for_char(ch).unwrap_or_else(|| {
-                    self.font
+                self.handle.font.glyph_for_char(ch).unwrap_or_else(|| {
+                    self.handle
+                        .font
                         .glyph_for_char('\u{FFFD}')
-                        .unwrap_or_else(|| self.font.glyph_for_char('?').unwrap())
+                        .unwrap_or_else(|| self.handle.font.glyph_for_char('?').unwrap())
                 }),
             )
         })
@@ -78,7 +75,7 @@ impl Font {
             .entry(glyph)
             .or_insert_with(|| {
                 let advance =
-                    self.font.advance(glyph).unwrap().x() * self.font_units_to_pixel_size();
+                    self.handle.font.advance(glyph).unwrap().x() * self.font_units_to_pixel_size();
                 GlyphMetrics { advance }
             })
             .clone()
@@ -86,19 +83,20 @@ impl Font {
 
     #[inline]
     fn font_units_to_pixel_size(&self) -> f32 {
-        self.pixel_size / self.metrics.units_per_em as f32
+        self.pixel_size / self.handle.metrics.units_per_em as f32
     }
 
     pub fn ascent(&self) -> f32 {
-        self.metrics.ascent * self.font_units_to_pixel_size()
+        self.handle.metrics.ascent * self.font_units_to_pixel_size()
     }
 
     pub fn descent(&self) -> f32 {
-        self.metrics.descent * self.font_units_to_pixel_size()
+        self.handle.metrics.descent * self.font_units_to_pixel_size()
     }
 
     pub fn height(&self) -> f32 {
-        (self.metrics.ascent - self.metrics.descent + 1.) * self.font_units_to_pixel_size()
+        (self.handle.metrics.ascent - self.handle.metrics.descent + 1.)
+            * self.font_units_to_pixel_size()
     }
 
     pub fn rasterize_glyph(&self, glyph_id: u32) -> (f32, f32, ImageBuffer<Rgba<u8>, Vec<u8>>) {
@@ -106,6 +104,7 @@ impl Font {
         let raster_opts = font_kit::canvas::RasterizationOptions::GrayscaleAa;
 
         let glyph_rect = self
+            .handle
             .font
             .raster_bounds(glyph_id, self.pixel_size, Transform2F::default(), hinting, raster_opts)
             .unwrap();
@@ -120,7 +119,8 @@ impl Font {
             Vector2I::new(glyph_width, glyph_height),
             font_kit::canvas::Format::A8,
         );
-        self.font
+        self.handle
+            .font
             .rasterize_glyph(
                 &mut canvas,
                 glyph_id,
@@ -142,17 +142,20 @@ impl Font {
         )
     }
 
-    pub fn handle(&self) -> FontHandle {
-        FontHandle(self.handle.clone())
+    pub fn handle(&self) -> Rc<FontHandle> {
+        self.handle.clone()
     }
 }
 
-#[derive(Clone)]
-pub struct FontHandle(Rc<font_kit::handle::Handle>);
+pub struct FontHandle {
+    handle: font_kit::handle::Handle,
+    font: font_kit::font::Font,
+    metrics: font_kit::metrics::Metrics,
+}
 
 impl Hash for FontHandle {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        match &self.0.as_ref() {
+        match &self.handle {
             font_kit::handle::Handle::Path { path, font_index } => {
                 path.hash(state);
                 font_index.hash(state);
@@ -167,15 +170,15 @@ impl Hash for FontHandle {
 
 impl PartialEq for FontHandle {
     fn eq(&self, other: &Self) -> bool {
-        match &self.0.as_ref() {
-            font_kit::handle::Handle::Path { path, font_index } => match &other.0.as_ref() {
+        match &self.handle {
+            font_kit::handle::Handle::Path { path, font_index } => match &other.handle {
                 font_kit::handle::Handle::Path {
                     path: other_path,
                     font_index: other_font_index,
                 } => path.eq(other_path) && font_index.eq(other_font_index),
                 _ => false,
             },
-            font_kit::handle::Handle::Memory { bytes, font_index } => match &other.0.as_ref() {
+            font_kit::handle::Handle::Memory { bytes, font_index } => match &other.handle {
                 font_kit::handle::Handle::Memory {
                     bytes: other_bytes,
                     font_index: other_font_index,
@@ -189,38 +192,30 @@ impl PartialEq for FontHandle {
 impl Eq for FontHandle {}
 
 impl FontHandle {
-    pub fn load(&self, pixel_size: f32) -> Result<Font, font_kit::error::FontLoadingError> {
-        let font = self.0.load()?;
-        let metrics = font.metrics();
-        Ok(Font {
-            pixel_size,
-            font,
-            handle: self.0.clone(),
-            metrics,
-            glyph_metrics_cache: Default::default(),
-        })
+    pub fn load(self: &Rc<Self>, pixel_size: f32) -> Font {
+        Font { pixel_size, handle: self.clone(), glyph_metrics_cache: Default::default() }
     }
 
-    pub fn new_from_request(request: &FontRequest) -> Self {
+    pub fn new_from_request(
+        request: &FontRequest,
+    ) -> Result<Rc<Self>, font_kit::error::FontLoadingError> {
         let family_name = if request.family.len() == 0 {
             font_kit::family_name::FamilyName::SansSerif
         } else {
             font_kit::family_name::FamilyName::Title(request.family.to_string())
         };
 
-        font_kit::source::SystemSource::new()
+        let handle = font_kit::source::SystemSource::new()
             .select_best_match(
                 &[family_name, font_kit::family_name::FamilyName::SansSerif],
                 &font_kit::properties::Properties::new()
                     .weight(font_kit::properties::Weight(request.weight as f32)),
             )
-            .unwrap()
-            .into()
-    }
-}
+            .unwrap();
 
-impl From<font_kit::handle::Handle> for FontHandle {
-    fn from(h: font_kit::handle::Handle) -> Self {
-        Self(Rc::new(h))
+        let font = handle.load()?;
+        let metrics = font.metrics();
+
+        Ok(Rc::new(FontHandle { handle, font, metrics }))
     }
 }

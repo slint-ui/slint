@@ -23,7 +23,7 @@ mod canvasfont;
 pub use canvasfont::*;
 
 struct FontMatch {
-    handle: FontHandle,
+    handle: Rc<FontHandle>,
     fonts_per_pixel_size: Vec<Rc<Font>>,
 }
 
@@ -76,7 +76,7 @@ impl FontCache {
         let mut loaded_fonts = self.loaded_fonts.borrow_mut();
         let font_match =
             loaded_fonts.entry(FontCacheKey::new(request)).or_insert_with(|| FontMatch {
-                handle: FontHandle::new_from_request(&request),
+                handle: FontHandle::new_from_request(&request).unwrap(),
                 fonts_per_pixel_size: Vec::new(),
             });
 
@@ -93,7 +93,7 @@ impl FontCache {
                 },
             )
             .unwrap_or_else(|| {
-                let fnt = Rc::new(font_match.handle.load(request.pixel_size).unwrap());
+                let fnt = Rc::new(font_match.handle.load(request.pixel_size));
                 font_match.fonts_per_pixel_size.push(fnt.clone());
                 fnt
             })

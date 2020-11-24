@@ -22,7 +22,7 @@ use super::GlyphRun;
 
 #[derive(Default)]
 pub(crate) struct GlyphCache {
-    glyphs_by_font: RefCell<HashMap<FontHandle, GlyphsByPixelSize>>,
+    glyphs_by_font: RefCell<HashMap<Rc<FontHandle>, GlyphsByPixelSize>>,
 }
 
 impl GlyphCache {
