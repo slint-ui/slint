@@ -58,9 +58,9 @@ The [examples](/examples) folder contains examples and demos. The `docs` folder 
 
 Click on the screenshots to run the WebAssembly simulation
 
-| Printer Demo | Widget Gallery | Todo |
+| Printer Demo | Todo | Widget Gallery |
 |--------------|----------------|----------------|
-| [![Screenshot of the Printer Demo](resources/printerdemo_screenshot.png "Printer Demo")](https://sixtyfps.io/demos/printerdemo/) | [![Screenshot of the Gallery Demo](resources/gallery_screenshot.png "Gallery Demo")](https://sixtyfps.io/demos/gallery/) | [![Screenshot of the Todo Demo](resources/todo_screenshot.png "Todo Demo")](https://sixtyfps.io/demos/todo/) |
+| [![Screenshot of the Printer Demo](resources/printerdemo_screenshot.png "Printer Demo")](https://sixtyfps.io/demos/printerdemo/) | [![Screenshot of the Todo Demo](resources/todo_screenshot.png "Todo Demo")](https://sixtyfps.io/demos/todo/) | [![Screenshot of the Gallery Demo](resources/gallery_screenshot.png "Gallery Demo")](https://sixtyfps.io/demos/gallery/) |
 
 ## Desktop Native Widgets
 
