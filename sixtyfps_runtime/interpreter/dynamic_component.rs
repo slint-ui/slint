@@ -1455,35 +1455,35 @@ extern "C" fn input_event(
     let comp_rc = instance_ref.self_weak().get().unwrap().upgrade().unwrap();
 
     let mouse_grabber = extra_data.mouse_grabber.get();
-    let (status, new_grab) =
-        if let Some((item_index, rep_index)) = mouse_grabber.aborted_indexes() {
-            let tree = &component_type.item_tree;
-            let offset = sixtyfps_corelib::item_tree::item_offset(instance, tree, item_index);
-            let mut event = mouse_event.clone();
-            event.pos -= offset.to_vector();
-            let res =
-                match tree[item_index] {
-                    ItemTreeNode::Item { item, .. } => item
-                        .apply_pin(instance)
-                        .as_ref()
-                        .input_event(event, window, &vtable::VRc::into_dyn(comp_rc), item_index),
-                    ItemTreeNode::DynamicTree { index } => {
-                        generativity::make_guard!(guard);
-                        let rep_in_comp = component_type.repeater[index].unerase(guard);
-                        rep_in_comp.offset.apply_pin(instance).input_event(rep_index, event, window)
-                    }
-                };
-            match res {
-                sixtyfps_corelib::input::InputEventResult::GrabMouse => (res, mouse_grabber),
-                _ => (res, VisitChildrenResult::CONTINUE),
-            }
-        } else {
-            sixtyfps_corelib::input::process_ungrabbed_mouse_event(
-                &vtable::VRc::into_dyn(comp_rc),
-                mouse_event,
+    let (status, new_grab) = if let Some((item_index, rep_index)) = mouse_grabber.aborted_indexes()
+    {
+        let tree = &component_type.item_tree;
+        let offset = sixtyfps_corelib::item_tree::item_offset(instance, tree, item_index);
+        let mut event = mouse_event.clone();
+        event.pos -= offset.to_vector();
+        let res = match tree[item_index] {
+            ItemTreeNode::Item { item, .. } => item.apply_pin(instance).as_ref().input_event(
+                event,
                 window,
-            )
+                &sixtyfps_corelib::items::ItemRc::new(vtable::VRc::into_dyn(comp_rc), item_index),
+            ),
+            ItemTreeNode::DynamicTree { index } => {
+                generativity::make_guard!(guard);
+                let rep_in_comp = component_type.repeater[index].unerase(guard);
+                rep_in_comp.offset.apply_pin(instance).input_event(rep_index, event, window)
+            }
         };
+        match res {
+            sixtyfps_corelib::input::InputEventResult::GrabMouse => (res, mouse_grabber),
+            _ => (res, VisitChildrenResult::CONTINUE),
+        }
+    } else {
+        sixtyfps_corelib::input::process_ungrabbed_mouse_event(
+            &vtable::VRc::into_dyn(comp_rc),
+            mouse_event,
+            window,
+        )
+    };
     extra_data.mouse_grabber.set(new_grab);
     status
 }

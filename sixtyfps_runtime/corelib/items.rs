@@ -24,7 +24,6 @@ When adding an item or a property, it needs to be kept in sync with different pl
 #![allow(non_upper_case_globals)]
 #![allow(missing_docs)] // because documenting each property of items is redundent
 
-use super::component::ComponentVTable;
 use super::eventloop::ComponentWindow;
 use super::graphics::{Color, HighLevelRenderingPrimitive, IntRect, PathData, Rect, Resource};
 use super::input::{
@@ -33,6 +32,7 @@ use super::input::{
 };
 use super::item_rendering::CachedRenderingData;
 use super::layout::LayoutInfo;
+use crate::component::ComponentVTable;
 use crate::font::HasFont;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
@@ -84,8 +84,7 @@ pub struct ItemVTable {
         core::pin::Pin<VRef<ItemVTable>>,
         MouseEvent,
         window: &ComponentWindow,
-        self_component: &VRc<ComponentVTable, vtable::Dyn>,
-        self_index: usize,
+        self_rc: &ItemRc,
     ) -> InputEventResult,
 
     pub focus_event:
@@ -103,19 +102,20 @@ pub struct ItemVTable {
 pub type ItemRef<'a> = vtable::VRef<'a, ItemVTable>;
 
 /// A ItemRc is holding a reference to a component containing the item, and the index of this item
+#[repr(C)]
 pub struct ItemRc {
-    component: crate::component::ComponentRc,
+    component: vtable::VRc<ComponentVTable>,
     index: usize,
 }
 
 impl ItemRc {
     /// Create an ItemRc from a component and an index
-    pub fn new(component: crate::component::ComponentRc, index: usize) -> Self {
+    pub fn new(component: vtable::VRc<ComponentVTable>, index: usize) -> Self {
         Self { component, index }
     }
     /// Return a `Pin<ItemRef<'a>>`
     pub fn borrow<'a>(&'a self) -> Pin<ItemRef<'a>> {
-        let comp_ref_pin = crate::component::ComponentRc::borrow_pin(&self.component);
+        let comp_ref_pin = vtable::VRc::borrow_pin(&self.component);
         let result = comp_ref_pin.as_ref().get_item_ref(self.index);
         // Safety: we can expand the lifetime of the ItemRef because we know it lives for at least the
         // lifetime of the component, which is 'a.  Pin::as_ref removes the lifetime, but we can just put it back.
@@ -198,8 +198,7 @@ impl Item for Rectangle {
         self: Pin<&Self>,
         _: MouseEvent,
         _window: &ComponentWindow,
-        _self_component: &VRc<ComponentVTable, vtable::Dyn>,
-        _self_index: usize,
+        _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
@@ -287,8 +286,7 @@ impl Item for BorderRectangle {
         self: Pin<&Self>,
         _: MouseEvent,
         _window: &ComponentWindow,
-        _self_component: &VRc<ComponentVTable, vtable::Dyn>,
-        _self_index: usize,
+        _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
@@ -375,8 +373,7 @@ impl Item for Image {
         self: Pin<&Self>,
         _: MouseEvent,
         _window: &ComponentWindow,
-        _self_component: &VRc<ComponentVTable, vtable::Dyn>,
-        _self_index: usize,
+        _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
@@ -472,8 +469,7 @@ impl Item for ClippedImage {
         self: Pin<&Self>,
         _: MouseEvent,
         _window: &ComponentWindow,
-        _self_component: &VRc<ComponentVTable, vtable::Dyn>,
-        _self_index: usize,
+        _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
@@ -612,8 +608,7 @@ impl Item for Text {
         self: Pin<&Self>,
         _: MouseEvent,
         _window: &ComponentWindow,
-        _self_component: &VRc<ComponentVTable, vtable::Dyn>,
-        _self_index: usize,
+        _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
@@ -719,8 +714,7 @@ impl Item for TouchArea {
         self: Pin<&Self>,
         event: MouseEvent,
         _window: &ComponentWindow,
-        _self_component: &VRc<ComponentVTable, vtable::Dyn>,
-        _self_index: usize,
+        _self_rc: &ItemRc,
     ) -> InputEventResult {
         Self::FIELD_OFFSETS.mouse_x.apply_pin(self).set(event.pos.x);
         Self::FIELD_OFFSETS.mouse_y.apply_pin(self).set(event.pos.y);
@@ -818,8 +812,7 @@ impl Item for Clip {
         self: Pin<&Self>,
         _: MouseEvent,
         _window: &ComponentWindow,
-        _self_component: &VRc<ComponentVTable, vtable::Dyn>,
-        _self_index: usize,
+        _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
@@ -899,8 +892,7 @@ impl Item for Path {
         self: Pin<&Self>,
         _: MouseEvent,
         _window: &ComponentWindow,
-        _self_component: &VRc<ComponentVTable, vtable::Dyn>,
-        _self_index: usize,
+        _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
@@ -976,8 +968,7 @@ impl Item for Flickable {
         self: Pin<&Self>,
         event: MouseEvent,
         _window: &ComponentWindow,
-        _self_component: &VRc<ComponentVTable, vtable::Dyn>,
-        _self_index: usize,
+        _self_rc: &ItemRc,
     ) -> InputEventResult {
         if !Self::FIELD_OFFSETS.interactive.apply_pin(self).get() {
             return InputEventResult::EventIgnored;
@@ -1102,8 +1093,7 @@ impl Item for Window {
         self: Pin<&Self>,
         _event: MouseEvent,
         _window: &ComponentWindow,
-        _self_component: &VRc<ComponentVTable, vtable::Dyn>,
-        _self_index: usize,
+        _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
@@ -1258,8 +1248,7 @@ impl Item for TextInput {
         self: Pin<&Self>,
         event: MouseEvent,
         window: &ComponentWindow,
-        self_component: &VRc<ComponentVTable, vtable::Dyn>,
-        self_index: usize,
+        self_rc: &ItemRc,
     ) -> InputEventResult {
         if !Self::FIELD_OFFSETS.enabled.apply_pin(self).get() {
             return InputEventResult::EventIgnored;
@@ -1274,7 +1263,7 @@ impl Item for TextInput {
             self.as_ref().anchor_position.set(clicked_offset);
             self.as_ref().cursor_position.set(clicked_offset);
             if !Self::FIELD_OFFSETS.has_focus.apply_pin(self).get() {
-                window.set_focus_item(&ItemRc::new(self_component.clone(), self_index));
+                window.set_focus_item(self_rc);
             }
         }
 

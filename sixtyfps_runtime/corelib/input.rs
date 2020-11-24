@@ -491,7 +491,11 @@ pub fn process_ungrabbed_mouse_event(
             if geom.contains(event.pos) {
                 let mut event2 = event.clone();
                 event2.pos -= geom.origin.to_vector();
-                match item.as_ref().input_event(event2, window, comp_rc, item_index) {
+                match item.as_ref().input_event(
+                    event2,
+                    window,
+                    &crate::items::ItemRc::new(comp_rc.clone(), item_index),
+                ) {
                     InputEventResult::EventAccepted => {
                         result = InputEventResult::EventAccepted;
                         return ItemVisitorResult::Abort;

@@ -694,7 +694,7 @@ fn generate_component(
                     event.pos -= offset.to_vector();
                     let res = match tree[item_index] {
                         ItemTreeNode::Item { item, .. } => {
-                            item.apply_pin(self).as_ref().input_event(event, window, &self_rc, item_index)
+                            item.apply_pin(self).as_ref().input_event(event, window, &ItemRc::new(self_rc, item_index))
                         }
                         ItemTreeNode::DynamicTree { index } => {
                             match index {
@@ -1059,7 +1059,7 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                         let focus_item = focus_item.borrow();
                         let item_index = focus_item.item_index.get().unwrap();
                         quote!(
-                            _self.window.set_focus_item(&VRc::into_dyn(_self.self_weak.get().unwrap().upgrade().unwrap()), #item_index);
+                            _self.window.set_focus_item(&ItemRc::new(VRc::into_dyn(_self.self_weak.get().unwrap().upgrade().unwrap()), #item_index));
                         )
                     } else {
                         panic!("internal error: argument to SetFocusItem must be an element")

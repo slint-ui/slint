@@ -594,11 +594,10 @@ pub mod ffi {
     #[no_mangle]
     pub unsafe extern "C" fn sixtyfps_component_window_set_focus_item(
         handle: *const ComponentWindowOpaque,
-        focus_item_component: &ComponentRc,
-        focus_item_index: usize,
+        focus_item: &ItemRc,
     ) {
         let window = &*(handle as *const ComponentWindow);
-        window.set_focus_item(&ItemRc::new(focus_item_component.clone(), focus_item_index))
+        window.set_focus_item(focus_item)
     }
 
     /// Associates the window with the given component.

@@ -102,8 +102,8 @@ public:
 
     void set_focus_item(const ComponentRc &component_rc, uintptr_t item_index)
     {
-        cbindgen_private::sixtyfps_component_window_set_focus_item(&inner, &component_rc,
-                                                                   item_index);
+        cbindgen_private::ItemRc item_rc{component_rc, item_index};
+        cbindgen_private::sixtyfps_component_window_set_focus_item(&inner, &item_rc);
     }
 
     template<typename Component, typename ItemTree>
@@ -191,6 +191,7 @@ inline InputEventResult process_input_event(const ComponentRc &component_rc, int
         mouse_event.pos = { mouse_event.pos.x - offset.x, mouse_event.pos.y - offset.y };
         const auto &item_node = tree.ptr[item_index];
         InputEventResult result = InputEventResult::EventIgnored;
+        cbindgen_private::ItemRc item_rc{component_rc, uintptr_t(item_index)};
         switch (item_node.tag) {
         case ItemTreeNode::Tag::Item:
             result = item_node.item.item.vtable->input_event(
@@ -199,7 +200,7 @@ inline InputEventResult process_input_event(const ComponentRc &component_rc, int
                             reinterpret_cast<char *>(component_rc.borrow().instance)
                                     + item_node.item.item.offset,
                     },
-                    mouse_event, window, &component_rc, item_index);
+                    mouse_event, window, &item_rc);
             break;
         case ItemTreeNode::Tag::DynamicTree: {
             ComponentRef comp = get_dynamic(item_node.dynamic_tree.index, rep_index);
