@@ -14,6 +14,7 @@ global Palette := {
     property<color> text_color_disabled: lightgray;
     property<color> text_color_secondary: #111;
     property<color> button_background: #aaa;
+    property<color> button_pressed: #9c9c9c;
     property<color> highlight_background: #2b60ae;
     property<color> placeholder_text: #ccc;
     property<color> border_color: #d0d3cf;
@@ -36,7 +37,7 @@ export Button := Rectangle {
     border_width: 1px;
     border_radius: 2px;
     border_color: Palette.text_color;
-    color: self.pressed ? Palette.highlight_background : Palette.button_background;
+    color: self.pressed ? Palette.button_pressed : Palette.button_background;
     animate color { duration: 100ms; }
     horizontal-stretch: 0;
     vertical-stretch: 0;
@@ -130,7 +131,7 @@ SpinBoxButton := Rectangle {
     border_width: 1px;
     border_radius: 2px;
     border_color: black;
-    color: touch.pressed ? Palette.highlight_background : Palette.button_background;
+    color: touch.pressed ? Palette.button_pressed : Palette.button_background;
     animate color { duration: 100ms; }
     touch := TouchArea {
         width: parent.width;
@@ -236,7 +237,7 @@ export Slider := Rectangle {
         border_width: 1px;
         border_radius: 3px;
         border_color: black;
-        color: touch_area.pressed ? Palette.button_background : white;
+        color: touch_area.pressed ? Palette.button_pressed : white;
         animate color { duration: 100ms; }
         x: (root.width - handle.width) * (new_value - min)/(max - min);
         property<float> new_value_tmp : touch_area.pressed
@@ -343,7 +344,7 @@ ScrollBar := Rectangle {
         height: horizontal ? parent.height : max <= 0phx ? 0phx : parent.height * (page_size / (max + page_size));
 
         border_radius: self.width / 2;
-        color: touch_area.pressed ? Palette.highlight_background : Palette.button_background;
+        color: touch_area.pressed ? Palette.button_pressed : Palette.button_background;
         animate color { duration: 100ms; }
         x: !horizontal ? 0phx : (root.width - handle.width) * (new_value / max);
         y: horizontal ? 0phx : (root.height - handle.height) * (new_value / max);
@@ -443,7 +444,7 @@ export ComboBox := Rectangle {
     border_width: 1px;
     border_radius: 2px;
     border_color: Palette.text_color;
-    color: touch_area.pressed ? Palette.highlight_background : Palette.button_background;
+    color: touch_area.pressed ? Palette.button_pressed : Palette.button_background;
     animate color { duration: 100ms; }
     horizontal-stretch: 0;
     vertical-stretch: 0;
