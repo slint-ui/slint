@@ -7,6 +7,9 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
+/*!
+Font abstraction for the run-time library.
+*/
 use crate::string::SharedString;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -27,6 +30,9 @@ struct FontMatch {
     fonts_per_pixel_size: Vec<Rc<Font>>,
 }
 
+/// FontRequest collects all the developer-configurable properties for fonts, such as family, weight, etc.
+/// It is submitted as a request to the platform font system (i.e. CoreText on macOS) and in exchange we
+/// store a Rc<FontHandle>
 #[derive(Debug, Clone, PartialEq)]
 #[repr(C)]
 pub struct FontRequest {
@@ -35,10 +41,16 @@ pub struct FontRequest {
     pixel_size: f32,
 }
 
+/// HasFont is a convenience trait for items holding font properties, such as Text or TextInput.
 pub trait HasFont {
+    /// Return the value of the font-family property.
     fn font_family(&self) -> SharedString;
+    /// Return the value of the font-weight property.
     fn font_weight(&self) -> i32;
+    /// Return the value if the font-size property converted to window specific pixels, respecting
+    /// the window scale factor.
     fn font_pixel_size(&self, window: &crate::eventloop::ComponentWindow) -> f32;
+    /// Translates the values of the different font related properties into a FontRequest object.
     fn font_request(&self, window: &crate::eventloop::ComponentWindow) -> FontRequest {
         FontRequest {
             family: self.font_family(),
@@ -46,6 +58,7 @@ pub trait HasFont {
             pixel_size: self.font_pixel_size(window),
         }
     }
+    /// Returns a Font object that matches the requested font properties of this trait object (item).
     fn font(&self, window: &crate::eventloop::ComponentWindow) -> Rc<Font> {
         crate::font::FONT_CACHE.with(|fc| fc.find_font(&self.font_request(window)))
     }
@@ -63,6 +76,7 @@ impl FontCacheKey {
     }
 }
 
+/// FontCache caches the expensive process of looking up fonts by family, weight, style, etc. (FontRequest)
 #[derive(Default)]
 pub struct FontCache {
     // index by family name
@@ -70,6 +84,8 @@ pub struct FontCache {
 }
 
 impl FontCache {
+    /// Submits the given FontRequest to the platform's font system (i.e. CoreText) and returns the font found.
+    /// The result is cached, so this function should be cheap to call.
     pub fn find_font(&self, request: &FontRequest) -> Rc<Font> {
         assert_ne!(request.pixel_size, 0.0);
 
@@ -101,5 +117,6 @@ impl FontCache {
 }
 
 thread_local! {
+    /// The thread-local font-cache holding references to resolved font requests
     pub static FONT_CACHE: FontCache = Default::default();
 }
