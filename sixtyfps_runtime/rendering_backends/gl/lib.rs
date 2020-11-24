@@ -14,7 +14,7 @@ use lyon::tessellation::{
     FillAttributes, FillOptions, FillTessellator, StrokeAttributes, StrokeOptions,
     StrokeTessellator,
 };
-use sixtyfps_corelib::{eventloop::ComponentWindow, SharedString};
+use sixtyfps_corelib::{eventloop::ComponentWindow, font::FontRequest};
 use sixtyfps_corelib::{
     graphics::{
         Color, Frame as GraphicsFrame, GraphicsBackend, GraphicsWindow,
@@ -532,8 +532,8 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                         Resource::None => SmallVec::new(),
                     }
                 }
-                HighLevelRenderingPrimitive::Text { text, font_family, font_size } => {
-                    smallvec![self.create_glyph_runs(text, font_family, *font_size)]
+                HighLevelRenderingPrimitive::Text { text, font_request } => {
+                    smallvec![self.create_glyph_runs(text, font_request)]
                 }
                 HighLevelRenderingPrimitive::Path { width, height, elements, stroke_width } => {
                     let mut primitives = SmallVec::new();
@@ -725,10 +725,9 @@ impl GLRenderingPrimitivesBuilder {
     fn create_glyph_runs(
         &mut self,
         text: &str,
-        font_family: &SharedString,
-        pixel_size: f32,
+        font_request: &FontRequest,
     ) -> GLRenderingPrimitive {
-        let cached_glyphs = self.platform_data.glyph_cache.find_font(font_family, pixel_size);
+        let cached_glyphs = self.platform_data.glyph_cache.find_font(font_request);
         let mut cached_glyphs = cached_glyphs.borrow_mut();
         let mut atlas = self.texture_atlas.borrow_mut();
         let glyphs_runs = cached_glyphs.render_glyphs(&self.context, &mut atlas, text);
@@ -739,11 +738,9 @@ impl GLRenderingPrimitivesBuilder {
     fn create_glyph_runs(
         &mut self,
         text: &str,
-        font_family: &SharedString,
-        pixel_size: f32,
+        font_request: &FontRequest,
     ) -> GLRenderingPrimitive {
-        let font =
-            sixtyfps_corelib::font::FONT_CACHE.with(|fc| fc.find_font(font_family, pixel_size));
+        let font = sixtyfps_corelib::font::FONT_CACHE.with(|fc| fc.find_font(font_request));
         let text_canvas = font.render_text(text);
 
         let texture = Rc::new(GLTexture::new_from_canvas(&self.context, &text_canvas));

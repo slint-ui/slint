@@ -285,7 +285,7 @@ pub enum HighLevelRenderingPrimitive {
     /// Expected rendering variables:
     /// * [`RenderingVariable::Color`]: The color to use for rendering the glyphs.
     /// * [`RenderingVariable::TextCursor`]: Draw a text cursor.
-    Text { text: crate::SharedString, font_family: crate::SharedString, font_size: f32 },
+    Text { text: crate::SharedString, font_request: super::font::FontRequest },
     /// Renders a path specified by the `elements` parameter. The path will be scaled to fit into the given
     /// `width` and `height`. If the `stroke_width` is greater than zero, then path will also be outlined.
     ///

@@ -529,8 +529,7 @@ impl Item for Text {
     ) -> HighLevelRenderingPrimitive {
         HighLevelRenderingPrimitive::Text {
             text: Self::FIELD_OFFSETS.text.apply_pin(self).get(),
-            font_family: Self::FIELD_OFFSETS.font_family.apply_pin(self).get(),
-            font_size: Text::font_pixel_size(self, window),
+            font_request: self.font_request(window),
         }
     }
 
@@ -562,16 +561,12 @@ impl Item for Text {
     }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
-        let font_family = Self::FIELD_OFFSETS.font_family.apply_pin(self).get();
-        let font_size = Text::font_pixel_size(self, window);
         let text = Self::FIELD_OFFSETS.text.apply_pin(self).get();
 
-        crate::font::FONT_CACHE.with(|fc| {
-            let font = fc.find_font(&font_family, font_size);
-            let width = font.text_width(&text);
-            let height = font.height();
-            LayoutInfo { min_width: width, min_height: height, ..LayoutInfo::default() }
-        })
+        let font = self.font(window);
+        let width = font.text_width(&text);
+        let height = font.height();
+        LayoutInfo { min_width: width, min_height: height, ..LayoutInfo::default() }
     }
 
     fn input_event(
@@ -594,17 +589,6 @@ impl Item for Text {
 impl ItemConsts for Text {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Text, CachedRenderingData> =
         Text::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
-}
-
-impl Text {
-    fn font_pixel_size(self: Pin<&Self>, window: &ComponentWindow) -> f32 {
-        let font_size = Self::FIELD_OFFSETS.font_size.apply_pin(self).get();
-        if font_size == 0.0 {
-            DEFAULT_FONT_SIZE * window.scale_factor()
-        } else {
-            font_size
-        }
-    }
 }
 
 impl HasFont for Pin<&Text> {
@@ -1140,8 +1124,7 @@ impl Item for TextInput {
     ) -> HighLevelRenderingPrimitive {
         HighLevelRenderingPrimitive::Text {
             text: Self::FIELD_OFFSETS.text.apply_pin(self).get(),
-            font_family: Self::FIELD_OFFSETS.font_family.apply_pin(self).get(),
-            font_size: TextInput::font_pixel_size(self, window),
+            font_request: self.font_request(window),
         }
     }
 
@@ -1365,17 +1348,6 @@ impl Item for TextInput {
                 self.has_focus.set(false);
                 self.hide_cursor()
             }
-        }
-    }
-}
-
-impl TextInput {
-    fn font_pixel_size(self: Pin<&Self>, window: &ComponentWindow) -> f32 {
-        let font_size = Self::FIELD_OFFSETS.font_size.apply_pin(self).get();
-        if font_size == 0.0 {
-            DEFAULT_FONT_SIZE * window.scale_factor()
-        } else {
-            font_size
         }
     }
 }
