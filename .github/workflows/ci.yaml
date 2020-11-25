@@ -263,7 +263,6 @@ jobs:
               target/doc
               target/cppdocs/html
               api/sixtyfps-node/docs
-              resources
   wasm:
     runs-on: ubuntu-20.04
     steps:
@@ -406,10 +405,6 @@ jobs:
             cp -a ../api/sixtyfps-node/docs/* docs/node/
             git add docs
             git add -u docs
-            rm -rf resources
-            cp -a ../resources .
-            git add resources
-            git add -u resources
             git commit --message "Update $NAME from $GITHUB_REPOSITORY" --message "Pull web demos and C++/Rust reference docs from commit $GITHUB_SHA ($GITHUB_REF)"
             git push origin master
 
