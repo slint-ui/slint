@@ -64,20 +64,15 @@ fn create_repeater_components(component: &Rc<Component>) {
 /// Make sure that references to property within the repeated element actually point to the reference
 /// to the root of the newly created component
 fn adjust_references(comp: &Rc<Component>) {
-    recurse_elem(&comp.root_element, &(), &mut |elem, _| {
-        visit_all_named_references(elem, |NamedReference { element, name }| {
-            if name == "$model" {
-                return;
-            }
-            let e = element.upgrade().unwrap();
-            if e.borrow().repeated.is_some() {
-                if let Type::Component(c) = e.borrow().base_type.clone() {
-                    *element = Rc::downgrade(&c.root_element);
-                };
-            }
-        });
-        if let Type::Component(c) = elem.borrow().base_type.clone() {
-            adjust_references(&c);
+    visit_all_named_references(&comp, &mut |NamedReference { element, name }| {
+        if name == "$model" {
+            return;
+        }
+        let e = element.upgrade().unwrap();
+        if e.borrow().repeated.is_some() {
+            if let Type::Component(c) = e.borrow().base_type.clone() {
+                *element = Rc::downgrade(&c.root_element);
+            };
         }
     });
 }

@@ -72,15 +72,11 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
     }
 
     // Do the replacements
-    let mut replace = |nr: &mut NamedReference| {
+    visit_all_named_references(&component, &mut |nr: &mut NamedReference| {
         if let Some(new) = aliases_to_remove.get(nr) {
             *nr = new.clone();
         }
-    };
-    recurse_elem_including_sub_components_no_borrow(&component, &(), &mut |elem, _| {
-        visit_all_named_references(elem, replace)
     });
-    component.layouts.borrow_mut().iter_mut().for_each(|l| l.visit_named_references(&mut replace));
 
     // Remove the properties
     for (remove, to) in aliases_to_remove {

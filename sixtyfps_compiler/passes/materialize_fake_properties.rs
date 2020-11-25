@@ -17,7 +17,7 @@ use std::rc::Rc;
 
 pub fn materialize_fake_properties(component: &Rc<Component>) {
     recurse_elem_no_borrow(&component.root_element, &(), &mut |elem, _| {
-        visit_all_named_references(elem, |NamedReference { element, name }| {
+        visit_all_named_references_in_element(elem, |NamedReference { element, name }| {
             let elem = element.upgrade().unwrap();
             let elem = elem.borrow_mut();
             let (base_type, mut property_declarations) =

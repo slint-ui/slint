@@ -10,9 +10,9 @@ LICENSE END */
 
 //! Passes that fills the root component used_global
 
+use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::NamedReference;
 use crate::object_tree::*;
-use crate::{diagnostics::BuildDiagnostics, langtype::Type};
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
@@ -27,23 +27,6 @@ pub fn collect_globals(root_component: &Rc<Component>, _diag: &mut BuildDiagnost
             hash.insert(global_component.id.clone(), global_component.clone());
         }
     };
-
-    recurse_elem_including_sub_components_no_borrow(&root_component, &(), &mut |elem, _| {
-        if elem.borrow().repeated.is_some() {
-            if let Type::Component(base) = &elem.borrow().base_type {
-                base.layouts
-                    .borrow_mut()
-                    .iter_mut()
-                    .for_each(|l| l.visit_named_references(&mut maybe_collect_global));
-            }
-        }
-        visit_all_named_references(elem, &mut maybe_collect_global);
-    });
-    root_component
-        .layouts
-        .borrow_mut()
-        .iter_mut()
-        .for_each(|l| l.visit_named_references(&mut maybe_collect_global));
-
+    visit_all_named_references(&root_component, &mut maybe_collect_global);
     *root_component.used_global.borrow_mut() = hash.into_iter().map(|(_, v)| v).collect();
 }

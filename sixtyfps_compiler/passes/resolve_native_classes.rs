@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 //! After inlining and moving declarations, all Element::base_type should be Type::BuiltinElement. This pass resolves them
-//  to NativeClass and picking a variant that only contains the used properties.
+//! to NativeClass and picking a variant that only contains the used properties.
 
 use crate::langtype::Type;
 use crate::object_tree::{recurse_elem, Component};

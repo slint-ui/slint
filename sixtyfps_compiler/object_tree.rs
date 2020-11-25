@@ -1031,7 +1031,12 @@ pub fn visit_element_expressions(
     elem.borrow_mut().property_animations = property_animations;
 }
 
-pub fn visit_all_named_references(elem: &ElementRc, mut vis: impl FnMut(&mut NamedReference)) {
+/// Visit all the named reference in an element
+/// But does not recurse in sub-elements. (unlike [`visit_all_named_references`] which recurse)
+pub fn visit_all_named_references_in_element(
+    elem: &ElementRc,
+    mut vis: impl FnMut(&mut NamedReference),
+) {
     fn recurse_expression(expr: &mut Expression, vis: &mut impl FnMut(&mut NamedReference)) {
         expr.visit_mut(|sub| recurse_expression(sub, vis));
         match expr {
@@ -1075,6 +1080,21 @@ pub fn visit_all_named_references(elem: &ElementRc, mut vis: impl FnMut(&mut Nam
         }
     }
     elem.borrow_mut().repeated = repeated;
+}
+
+/// Visit all named reference in this component and sub component
+pub fn visit_all_named_references(
+    component: &Component,
+    vis: &mut impl FnMut(&mut NamedReference),
+) {
+    let elem = &component.root_element;
+    recurse_elem_no_borrow(elem, &(), &mut |elem, _| {
+        visit_all_named_references_in_element(elem, |nr| vis(nr));
+        if let Type::Component(base) = &elem.borrow().base_type {
+            visit_all_named_references(base, vis);
+        }
+    });
+    component.layouts.borrow_mut().iter_mut().for_each(|l| l.visit_named_references(vis));
 }
 
 #[derive(Debug, Clone)]
