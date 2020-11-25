@@ -25,7 +25,7 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
     let mut aliases_to_invert = Mapping::new();
 
     // Detects all aliases
-    recurse_elem_including_sub_components(&component.root_element, &(), &mut |e, _| {
+    recurse_elem_including_sub_components(component, &(), &mut |e, _| {
         for (name, expr) in &e.borrow().bindings {
             if let Expression::TwoWayBinding(nr, _next) = &expr.expression {
                 let other_e = nr.element.upgrade().unwrap();
@@ -77,11 +77,9 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
             *nr = new.clone();
         }
     };
-    recurse_elem_including_sub_components_no_borrow(
-        &component.root_element,
-        &(),
-        &mut |elem, _| visit_all_named_references(elem, replace),
-    );
+    recurse_elem_including_sub_components_no_borrow(&component, &(), &mut |elem, _| {
+        visit_all_named_references(elem, replace)
+    });
     component.layouts.borrow_mut().iter_mut().for_each(|l| l.visit_named_references(&mut replace));
 
     // Remove the properties

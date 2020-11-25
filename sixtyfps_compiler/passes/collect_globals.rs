@@ -28,21 +28,17 @@ pub fn collect_globals(root_component: &Rc<Component>, _diag: &mut BuildDiagnost
         }
     };
 
-    recurse_elem_including_sub_components_no_borrow(
-        &root_component.root_element,
-        &(),
-        &mut |elem, _| {
-            if elem.borrow().repeated.is_some() {
-                if let Type::Component(base) = &elem.borrow().base_type {
-                    base.layouts
-                        .borrow_mut()
-                        .iter_mut()
-                        .for_each(|l| l.visit_named_references(&mut maybe_collect_global));
-                }
+    recurse_elem_including_sub_components_no_borrow(&root_component, &(), &mut |elem, _| {
+        if elem.borrow().repeated.is_some() {
+            if let Type::Component(base) = &elem.borrow().base_type {
+                base.layouts
+                    .borrow_mut()
+                    .iter_mut()
+                    .for_each(|l| l.visit_named_references(&mut maybe_collect_global));
             }
-            visit_all_named_references(elem, &mut maybe_collect_global);
-        },
-    );
+        }
+        visit_all_named_references(elem, &mut maybe_collect_global);
+    });
     root_component
         .layouts
         .borrow_mut()

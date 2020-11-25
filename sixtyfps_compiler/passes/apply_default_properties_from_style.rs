@@ -39,7 +39,7 @@ pub async fn apply_default_properties_from_style<'a>(
     let style_metrics = if let Some(Type::Component(c)) = style_metrics { c } else { return };
 
     crate::object_tree::recurse_elem_including_sub_components(
-        &root_component.root_element,
+        &root_component,
         &(),
         &mut |elem, _| {
             if elem.borrow().native_class().map_or(false, |nc| nc.class_name == "TextInput") {

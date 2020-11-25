@@ -15,7 +15,7 @@ use crate::object_tree::*;
 use std::{cell::RefCell, collections::HashMap};
 
 pub fn deduplicate_property_read(component: &Component) {
-    recurse_elem_including_sub_components(&component.root_element, &(), &mut |elem, _| {
+    recurse_elem_including_sub_components(component, &(), &mut |elem, _| {
         visit_element_expressions(elem, |expr, _, ty| {
             if matches!(ty(), Type::Signal{..}) {
                 // Signal handler can't be optimizes because they can have side effect.

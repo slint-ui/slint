@@ -26,22 +26,18 @@ pub fn collect_structs(root_component: &Rc<Component>, _diag: &mut BuildDiagnost
         });
     };
 
-    recurse_elem_including_sub_components_no_borrow(
-        &root_component.root_element,
-        &(),
-        &mut |elem, _| {
-            for (_, x) in &elem.borrow().property_declarations {
-                maybe_collect_object(&x.property_type);
-            }
-            visit_element_expressions(elem, |expr, _, _| {
-                expr.visit_recursive(&mut |expr| {
-                    if let Expression::Object { ty, .. } = expr {
-                        maybe_collect_object(ty)
-                    }
-                })
+    recurse_elem_including_sub_components_no_borrow(&root_component, &(), &mut |elem, _| {
+        for (_, x) in &elem.borrow().property_declarations {
+            maybe_collect_object(&x.property_type);
+        }
+        visit_element_expressions(elem, |expr, _, _| {
+            expr.visit_recursive(&mut |expr| {
+                if let Expression::Object { ty, .. } = expr {
+                    maybe_collect_object(ty)
+                }
             })
-        },
-    );
+        })
+    });
 
     let mut used_struct = root_component.used_structs.borrow_mut();
     *used_struct = Vec::with_capacity(hash.len());
