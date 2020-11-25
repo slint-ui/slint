@@ -91,9 +91,9 @@ impl Font {
     }
 }
 
-pub struct FontHandle(FontRequest);
+pub struct PlatformFont(FontRequest);
 
-impl FontHandle {
+impl PlatformFont {
     pub fn load(self: &Rc<Self>, pixel_size: f32) -> Font {
         let font_family = &self.0.family;
 

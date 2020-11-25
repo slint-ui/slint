@@ -12,7 +12,7 @@ use super::texture::{AtlasAllocation, TextureAtlas};
 use super::Vertex;
 use collections::hash_map::HashMap;
 use itertools::Itertools;
-use sixtyfps_corelib::font::{Font, FontHandle, FontRequest};
+use sixtyfps_corelib::font::{Font, FontRequest, PlatformFont};
 use std::cell::RefCell;
 use std::{collections, rc::Rc};
 
@@ -22,7 +22,7 @@ use super::GlyphRun;
 
 #[derive(Default)]
 pub(crate) struct GlyphCache {
-    glyphs_by_font: RefCell<HashMap<Rc<FontHandle>, GlyphsByPixelSize>>,
+    glyphs_by_font: RefCell<HashMap<Rc<PlatformFont>, GlyphsByPixelSize>>,
 }
 
 impl GlyphCache {

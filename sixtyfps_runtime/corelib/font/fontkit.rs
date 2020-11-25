@@ -25,7 +25,7 @@ pub struct GlyphMetrics {
 
 pub struct Font {
     pub pixel_size: f32,
-    handle: Rc<FontHandle>,
+    handle: Rc<PlatformFont>,
     glyph_metrics_cache: RefCell<HashMap<u32, GlyphMetrics>>,
 }
 
@@ -142,18 +142,18 @@ impl Font {
         )
     }
 
-    pub fn handle(&self) -> Rc<FontHandle> {
+    pub fn handle(&self) -> Rc<PlatformFont> {
         self.handle.clone()
     }
 }
 
-pub struct FontHandle {
+pub struct PlatformFont {
     handle: font_kit::handle::Handle,
     font: font_kit::font::Font,
     metrics: font_kit::metrics::Metrics,
 }
 
-impl Hash for FontHandle {
+impl Hash for PlatformFont {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         match &self.handle {
             font_kit::handle::Handle::Path { path, font_index } => {
@@ -168,7 +168,7 @@ impl Hash for FontHandle {
     }
 }
 
-impl PartialEq for FontHandle {
+impl PartialEq for PlatformFont {
     fn eq(&self, other: &Self) -> bool {
         match &self.handle {
             font_kit::handle::Handle::Path { path, font_index } => match &other.handle {
@@ -189,9 +189,9 @@ impl PartialEq for FontHandle {
     }
 }
 
-impl Eq for FontHandle {}
+impl Eq for PlatformFont {}
 
-impl FontHandle {
+impl PlatformFont {
     pub fn load(self: &Rc<Self>, pixel_size: f32) -> Font {
         Font { pixel_size, handle: self.clone(), glyph_metrics_cache: Default::default() }
     }
@@ -216,6 +216,6 @@ impl FontHandle {
         let font = handle.load()?;
         let metrics = font.metrics();
 
-        Ok(Rc::new(FontHandle { handle, font, metrics }))
+        Ok(Rc::new(PlatformFont { handle, font, metrics }))
     }
 }
