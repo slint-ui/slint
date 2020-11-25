@@ -16,12 +16,7 @@ use std::collections::HashMap;
 use std::hash::Hash;
 use std::{cell::RefCell, rc::Rc};
 
-use super::FontRequest;
-
-#[derive(Clone)]
-pub struct GlyphMetrics {
-    pub advance: f32,
-}
+use super::{FontRequest, GlyphMetrics};
 
 pub struct Font {
     pub pixel_size: f32,

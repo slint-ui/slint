@@ -9,12 +9,7 @@
 LICENSE END */
 use std::rc::Rc;
 
-use super::FontRequest;
-
-#[derive(Clone)]
-struct GlyphMetrics {
-    advance: f32,
-}
+use super::{FontRequest, GlyphMetrics};
 
 pub struct Font {
     pub pixel_size: f32,

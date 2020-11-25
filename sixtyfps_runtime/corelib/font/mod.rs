@@ -36,6 +36,14 @@ mod canvasfont;
 #[cfg(target_arch = "wasm32")]
 pub use canvasfont::*;
 
+/// GlyphMetrics contains the different kinds of measures for glyphs. This is typically obtained
+/// using the Font APIs.
+#[derive(Clone)]
+pub struct GlyphMetrics {
+    /// The distance from this glyph to the next one.
+    pub advance: f32,
+}
+
 struct FontMatch {
     handle: Rc<PlatformFont>,
     fonts_per_pixel_size: Vec<Rc<Font>>,
