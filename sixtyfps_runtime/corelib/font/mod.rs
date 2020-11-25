@@ -9,6 +9,17 @@
 LICENSE END */
 /*!
 Font abstraction for the run-time library.
+
+The module receives FontRequest objects and returns Rc<Font>, which represents a font provided by
+the underlying platform that matches the specified font request as closely as possible.
+
+Internally a FontRequest is resolved to a Rc<PlatformFont> and a list of Rc<Font> instances, one for
+each pixel size. The Rc<Font> is basically an Rc<PlatformFont> and the pixel size specific, cached glyph
+metrics -- base on the assumption that the platform provides scalable fonts.
+
+On the graphics side, the generated rasterized glyphs may be cached in textures. That cache is indexed by the
+Rc<PlatformFont> since the underlying platform may map different font requests to the same physical PlatformFont
+(typically backed by a .ttf file or ttf inside a .ttc)
 */
 use crate::string::SharedString;
 use std::cell::RefCell;
