@@ -112,7 +112,7 @@ export TextInput := _ {
     property <length> y;
     property <length> width;
     property <length> height;
-    property <length> text_cursor_width: 2px;
+    property <length> text_cursor_width /*: StyleMetrics.text_cursor_width */;
     property <int> cursor_position;
     property <int> anchor_position;
     property <bool> has_focus;
@@ -337,5 +337,6 @@ export NativeComboBox := _ {
 export global NativeStyleMetrics := {
     property <logical_length> layout_spacing;
     property <logical_length> layout_padding;
+    property <logical_length> text_cursor_width;
     //-is_non_item_type
 }

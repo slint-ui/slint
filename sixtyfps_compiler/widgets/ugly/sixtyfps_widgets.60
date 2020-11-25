@@ -26,6 +26,7 @@ global Palette := {
 export global StyleMetrics := {
     property<logical_length> layout_spacing: 5px;
     property<logical_length> layout_padding: 5px;
+    property<logical_length> text_cursor_width: 2px;
 }
 
 export Button := Rectangle {

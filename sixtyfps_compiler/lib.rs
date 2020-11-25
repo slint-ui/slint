@@ -39,6 +39,7 @@ pub mod typeloader;
 pub mod typeregister;
 
 mod passes {
+    pub mod apply_default_properties_from_style;
     pub mod check_expressions;
     pub mod collect_globals;
     pub mod collect_structs;
@@ -160,6 +161,12 @@ pub async fn run_passes<'a>(
     passes::lower_states::lower_states(&doc.root_component, &doc.local_registry, diag);
     passes::repeater_component::process_repeater_components(&doc.root_component);
     passes::lower_layout::lower_layouts(&doc.root_component, &mut type_loader, diag).await;
+    passes::apply_default_properties_from_style::apply_default_properties_from_style(
+        &doc.root_component,
+        &mut type_loader,
+        diag,
+    )
+    .await;
     passes::deduplicate_property_read::deduplicate_property_read(&doc.root_component);
     passes::move_declarations::move_declarations(&doc.root_component, diag);
     passes::remove_aliases::remove_aliases(&doc.root_component, diag);

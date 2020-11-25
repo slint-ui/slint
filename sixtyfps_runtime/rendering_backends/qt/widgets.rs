@@ -1817,6 +1817,7 @@ ItemVTable_static! { #[no_mangle] pub static NativeComboBoxVTable for NativeComb
 pub struct NativeStyleMetrics {
     pub layout_spacing: Property<f32>,
     pub layout_padding: Property<f32>,
+    pub text_cursor_width: Property<f32>,
 }
 
 impl Default for NativeStyleMetrics {
@@ -1824,6 +1825,7 @@ impl Default for NativeStyleMetrics {
         let s = NativeStyleMetrics {
             layout_spacing: Default::default(),
             layout_padding: Default::default(),
+            text_cursor_width: Default::default(),
         };
         sixtyfps_init_native_style_metrics(&s);
         s
@@ -1844,4 +1846,8 @@ pub extern "C" fn sixtyfps_init_native_style_metrics(self_: &NativeStyleMetrics)
         return qApp->style()->pixelMetric(QStyle::PM_LayoutHorizontalSpacing);
     });
     self_.layout_spacing.set(layout_spacing.max(0.0));
+    let text_cursor_width = cpp!(unsafe [] -> f32 as "float" {
+        return qApp->style()->pixelMetric(QStyle::PM_TextCursorWidth);
+    });
+    self_.text_cursor_width.set(text_cursor_width.max(0.0));
 }
