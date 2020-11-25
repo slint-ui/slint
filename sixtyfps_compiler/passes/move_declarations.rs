@@ -46,6 +46,8 @@ pub fn move_declarations(component: &Rc<Component>, diag: &mut BuildDiagnostics)
     let mut new_root_property_animations = HashMap::new();
 
     let move_bindings_and_animations = &mut |elem: &ElementRc| {
+        visit_all_named_references_in_element(elem, fixup_reference);
+
         if elem.borrow().repeated.is_some() {
             if let Type::Component(base) = &elem.borrow().base_type {
                 move_declarations(base, diag);
@@ -89,7 +91,11 @@ pub fn move_declarations(component: &Rc<Component>, diag: &mut BuildDiagnostics)
 
     component.optimized_elements.borrow().iter().for_each(|e| move_bindings_and_animations(e));
 
-    visit_all_named_references(&component, &mut fixup_reference);
+    component
+        .layouts
+        .borrow_mut()
+        .iter_mut()
+        .for_each(|f| f.visit_named_references(&mut |e| fixup_reference(e)));
 
     let move_properties = &mut |elem: &ElementRc| {
         let elem_decl = Declarations::take_from_element(&mut *elem.borrow_mut());
