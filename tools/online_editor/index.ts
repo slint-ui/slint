@@ -42,7 +42,7 @@ export Demo := Window {
     }
     Image {
         y: 50px;
-        source: img!"https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/resources/logo_scaled.png";
+        source: img!"https://sixtyfps.io/resources/logo_scaled.png";
     }
 }
 `

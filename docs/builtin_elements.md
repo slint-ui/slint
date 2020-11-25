@@ -96,7 +96,7 @@ An Image can be used to represent an image loaded from an image file
 
 ```60
 Example := Image {
-    source: img!"https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/resources/logo_scaled.png";
+    source: img!"https://sixtyfps.io/resources/logo_scaled.png";
     width: 64px;
     height: 44px;
 }
