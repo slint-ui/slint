@@ -200,6 +200,9 @@ impl GLRenderer {
         };
 
         #[cfg(target_arch = "wasm32")]
+        let event_loop_proxy = Rc::new(event_loop.create_proxy());
+
+        #[cfg(target_arch = "wasm32")]
         let (window, context) = {
             let canvas = web_sys::window()
                 .unwrap()
@@ -213,8 +216,6 @@ impl GLRenderer {
             use winit::platform::web::WindowBuilderExtWebSys;
             use winit::platform::web::WindowExtWebSys;
 
-            // Try to maintain the existing size of the canvas element. A window created with winit
-            // on the web will always have 1024x768 as size otherwise.
             let existing_canvas_size = winit::dpi::LogicalSize::new(
                 canvas.client_width() as u32,
                 canvas.client_height() as u32,
@@ -222,6 +223,42 @@ impl GLRenderer {
 
             let window =
                 Rc::new(window_builder.with_canvas(Some(canvas)).build(&event_loop).unwrap());
+
+            // Try to maintain the existing size of the canvas element. A window created with winit
+            // on the web will always have 1024x768 as size otherwise.
+
+            let resize_canvas = {
+                let event_loop_proxy = event_loop_proxy.clone();
+                let canvas = web_sys::window()
+                    .unwrap()
+                    .document()
+                    .unwrap()
+                    .get_element_by_id(canvas_id)
+                    .unwrap()
+                    .dyn_into::<web_sys::HtmlCanvasElement>()
+                    .unwrap();
+                let window = window.clone();
+                move |_: web_sys::Event| {
+                    let existing_canvas_size = winit::dpi::LogicalSize::new(
+                        canvas.client_width() as u32,
+                        canvas.client_height() as u32,
+                    );
+
+                    window.set_inner_size(existing_canvas_size);
+                    window.request_redraw();
+                    event_loop_proxy
+                        .send_event(sixtyfps_corelib::eventloop::CustomEvent::WakeUpAndPoll)
+                        .ok();
+                }
+            };
+
+            let resize_closure =
+                wasm_bindgen::closure::Closure::wrap(Box::new(resize_canvas) as Box<dyn FnMut(_)>);
+            web_sys::window()
+                .unwrap()
+                .add_event_listener_with_callback("resize", resize_closure.as_ref().unchecked_ref())
+                .unwrap();
+            resize_closure.forget();
 
             {
                 let default_size = window.inner_size().to_logical(window.scale_factor());
@@ -282,7 +319,7 @@ impl GLRenderer {
             #[cfg(target_arch = "wasm32")]
             window,
             #[cfg(target_arch = "wasm32")]
-            event_loop_proxy: Rc::new(event_loop.create_proxy()),
+            event_loop_proxy,
             #[cfg(not(target_arch = "wasm32"))]
             windowed_context: Some(unsafe { windowed_context.make_not_current().unwrap() }),
             normal_rectangle: None,
