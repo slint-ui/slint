@@ -18,7 +18,7 @@ use crate::component::ComponentRc;
 use crate::eventloop::ComponentWindow;
 use crate::item_tree::ItemVisitorResult;
 use crate::slice::Slice;
-use cgmath::{Matrix4, SquareMatrix, Vector3};
+use cgmath::{Matrix4, Vector3};
 use std::cell::{Cell, RefCell};
 
 /// This structure must be present in items that are Rendered and contains information.
@@ -86,8 +86,9 @@ pub(crate) fn render_component_items<Backend: GraphicsBackend>(
     frame: &mut Backend::Frame,
     rendering_cache: &RefCell<RenderingCache<Backend>>,
     window: &std::rc::Rc<GraphicsWindow<Backend>>,
+    origin: crate::graphics::Point,
 ) {
-    let transform = Matrix4::identity();
+    let transform = Matrix4::from_translation(Vector3::new(origin.x, origin.y, 0.));
     let window = ComponentWindow::new(window.clone());
 
     let frame = RefCell::new(frame);

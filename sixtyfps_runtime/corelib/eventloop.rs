@@ -14,6 +14,7 @@ LICENSE END */
     aspects of windows on the screen.
 */
 use crate::component::ComponentRc;
+use crate::graphics::Point;
 use crate::items::{ItemRc, ItemRef};
 use crate::slice::Slice;
 use std::cell::RefCell;
@@ -105,6 +106,11 @@ pub trait GenericWindow {
     /// Sets the focus on the window to true or false, depending on the have_focus argument.
     /// This results in WindowFocusReceived and WindowFocusLost events.
     fn set_focus(self: Rc<Self>, have_focus: bool);
+
+    /// Show a popup at the given position
+    fn show_popup(&self, popup: &ComponentRc, position: Point);
+    /// Close the active popup if any
+    fn close_popup(&self);
 }
 
 /// The ComponentWindow is the (rust) facing public type that can render the items
@@ -178,6 +184,15 @@ impl ComponentWindow {
     /// Associates this window with the specified component, for future event handling, etc.
     pub fn set_component(&self, component: &ComponentRc) {
         self.0.clone().set_component(component)
+    }
+
+    /// Show a popup at the given position
+    pub fn show_popup(&self, popup: &ComponentRc, position: Point) {
+        self.0.clone().show_popup(popup, position)
+    }
+    /// Close the active popup if any
+    pub fn close_popup(&self) {
+        self.0.clone().close_popup()
     }
 }
 
@@ -608,5 +623,23 @@ pub mod ffi {
     ) {
         let window = &*(handle as *const ComponentWindow);
         window.set_component(component)
+    }
+
+    /// Show a popup.
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_component_window_show_popup(
+        handle: *const ComponentWindowOpaque,
+        popup: &ComponentRc,
+        position: crate::graphics::Point,
+    ) {
+        let window = &*(handle as *const ComponentWindow);
+        window.show_popup(popup, position);
+    }
+    /// Close the current popup
+    pub unsafe extern "C" fn sixtyfps_component_window_close_popup(
+        handle: *const ComponentWindowOpaque,
+    ) {
+        let window = &*(handle as *const ComponentWindow);
+        window.close_popup();
     }
 }

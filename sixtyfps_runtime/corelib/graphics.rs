@@ -530,6 +530,9 @@ pub struct GraphicsWindow<Backend: GraphicsBackend + 'static> {
     layout_listener: Pin<Rc<PropertyTracker>>,
     focus_item: std::cell::RefCell<ItemWeak>,
     mouse_input_state: std::cell::Cell<crate::input::MouseInputState>,
+    /// Current popup's component and position
+    /// FIXME: the popup should actually be another window, not just some overlay
+    active_popup: std::cell::RefCell<Option<(ComponentRc, Point)>>,
 }
 
 impl<Backend: GraphicsBackend + 'static> GraphicsWindow<Backend> {
@@ -553,6 +556,7 @@ impl<Backend: GraphicsBackend + 'static> GraphicsWindow<Backend> {
             layout_listener: Rc::pin(Default::default()),
             focus_item: Default::default(),
             mouse_input_state: Default::default(),
+            active_popup: Default::default(),
         })
     }
 
@@ -666,7 +670,17 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
             &mut frame,
             &window.rendering_cache,
             &self,
+            Point::default(),
         );
+        if let Some(popup) = &*self.active_popup.borrow() {
+            crate::item_rendering::render_component_items(
+                &popup.0,
+                &mut frame,
+                &window.rendering_cache,
+                &self,
+                popup.1,
+            );
+        }
         backend.present_frame(frame);
     }
 
@@ -675,10 +689,26 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
         pos: winit::dpi::PhysicalPosition<f64>,
         what: MouseEventType,
     ) {
-        let component = self.component.borrow().upgrade().unwrap();
+        let mut pos = euclid::point2(pos.x as _, pos.y as _);
+        let component = if let Some(popup) = &*self.active_popup.borrow() {
+            pos -= popup.1.to_vector();
+            if what == MouseEventType::MousePressed {
+                // close the popup if one press outside the popup
+                let geom =
+                    ComponentRc::borrow_pin(&popup.0).as_ref().get_item_ref(0).as_ref().geometry();
+                if !geom.contains(pos) {
+                    self.close_popup();
+                    return;
+                }
+            }
+            popup.0.clone()
+        } else {
+            self.component.borrow().upgrade().unwrap()
+        };
+
         self.mouse_input_state.set(crate::input::process_mouse_input(
             component,
-            MouseEvent { pos: euclid::point2(pos.x as _, pos.y as _), what },
+            MouseEvent { pos, what },
             &crate::eventloop::ComponentWindow::new(self.clone()),
             self.mouse_input_state.take(),
         ));
@@ -887,6 +917,14 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
         if let Some(focus_item) = self.as_ref().focus_item.borrow().upgrade() {
             focus_item.borrow().as_ref().focus_event(&event, &window);
         }
+    }
+
+    fn show_popup(&self, popup: &ComponentRc, position: Point) {
+        *self.active_popup.borrow_mut() = Some((popup.clone(), position));
+    }
+
+    fn close_popup(&self) {
+        *self.active_popup.borrow_mut() = None;
     }
 }
 

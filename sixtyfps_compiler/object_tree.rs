@@ -114,6 +114,11 @@ impl Document {
     }
 }
 
+#[derive(Debug)]
+pub struct PopupWindow {
+    pub component: Rc<Component>,
+}
+
 /// A component is a type in the language which can be instantiated,
 /// Or is materialized for repeated expression.
 #[derive(Default, Debug)]
@@ -148,6 +153,8 @@ pub struct Component {
     /// FIXME: can we have cycle?
     pub used_global: RefCell<Vec<Rc<Component>>>,
     pub used_structs: RefCell<Vec<Type>>,
+
+    pub popup_windows: RefCell<Vec<PopupWindow>>,
 }
 
 impl Component {
@@ -1098,6 +1105,11 @@ pub fn visit_all_named_references(
         }
     });
     component.layouts.borrow_mut().iter_mut().for_each(|l| l.visit_named_references(vis));
+    component
+        .popup_windows
+        .borrow()
+        .iter()
+        .for_each(|p| visit_all_named_references(&p.component, vis));
 }
 
 /// Visit all expression in this component and sub components

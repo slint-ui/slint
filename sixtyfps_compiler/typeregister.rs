@@ -135,6 +135,19 @@ impl TypeRegister {
             }
             _ => unreachable!(),
         };
+        match &mut register.types.get_mut("PopupWindow").unwrap() {
+            Type::Builtin(ref mut b) => {
+                Rc::get_mut(b)
+                    .unwrap()
+                    .properties
+                    .insert("show".into(), BuiltinFunction::ShowPopupWindow.ty());
+                Rc::get_mut(b).unwrap().member_functions.insert(
+                    "show".into(),
+                    Expression::BuiltinFunctionReference(BuiltinFunction::ShowPopupWindow),
+                );
+            }
+            _ => unreachable!(),
+        };
 
         Rc::new(RefCell::new(register))
     }

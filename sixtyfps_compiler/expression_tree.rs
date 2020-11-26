@@ -54,6 +54,7 @@ pub enum BuiltinFunction {
     Ceil,
     Floor,
     SetFocusItem,
+    ShowPopupWindow,
     /// the "42".to_float()
     StringToFloat,
     /// the "42".is_float()
@@ -85,6 +86,10 @@ impl BuiltinFunction {
                 Type::Function { return_type: Box::new(Type::Int32), args: vec![Type::Float32] }
             }
             BuiltinFunction::SetFocusItem => Type::Function {
+                return_type: Box::new(Type::Void),
+                args: vec![Type::ElementReference],
+            },
+            BuiltinFunction::ShowPopupWindow => Type::Function {
                 return_type: Box::new(Type::Void),
                 args: vec![Type::ElementReference],
             },

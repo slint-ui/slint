@@ -96,6 +96,11 @@ pub fn move_declarations(component: &Rc<Component>, diag: &mut BuildDiagnostics)
         .borrow_mut()
         .iter_mut()
         .for_each(|f| f.visit_named_references(&mut |e| fixup_reference(e)));
+    component
+        .popup_windows
+        .borrow()
+        .iter()
+        .for_each(|f| visit_all_named_references(&f.component, &mut |e| fixup_reference(e)));
 
     let move_properties = &mut |elem: &ElementRc| {
         let elem_decl = Declarations::take_from_element(&mut *elem.borrow_mut());

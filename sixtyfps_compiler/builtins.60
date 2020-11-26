@@ -210,6 +210,19 @@ export PathLayout := _ {
     Close {}
 }
 
+// Note: not a a native class, handled in the lower_popups pass
+export PopupWindow := _ {
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+    property <length> anchor_x;
+    property <length> anchor_y;
+    property <length> anchor_height;
+    property <length> anchor_width;
+    //show() is hardcoded in typeregister.rs
+}
+
 PropertyAnimation := _ {
     property <duration> duration;
     property <easing> easing;

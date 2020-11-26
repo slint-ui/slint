@@ -239,7 +239,12 @@ fn generate_component(
     component: &Rc<Component>,
     diag: &mut BuildDiagnostics,
 ) -> Option<TokenStream> {
-    let mut extra_components = vec![];
+    let mut extra_components = component
+        .popup_windows
+        .borrow()
+        .iter()
+        .filter_map(|c| generate_component(&c.component, diag))
+        .collect::<Vec<_>>();
     let mut declared_property_vars = vec![];
     let mut declared_property_types = vec![];
     let mut declared_signals = vec![];
@@ -569,7 +574,7 @@ fn generate_component(
     let mut has_window_impl = None;
     let mut window_field = Some(quote!(window: sixtyfps::re_exports::ComponentWindow));
     if let Some(parent_element) = component.parent_element.upgrade() {
-        if !parent_element.borrow().repeated.as_ref().map_or(false, |r| r.is_conditional_element) {
+        if parent_element.borrow().repeated.as_ref().map_or(false, |r| !r.is_conditional_element) {
             declared_property_vars.push(format_ident!("index"));
             declared_property_types.push(quote!(usize));
             declared_property_vars.push(format_ident!("model_data"));
@@ -952,8 +957,8 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
             BuiltinFunction::Round => quote!((|a| (a as f64).round())),
             BuiltinFunction::Ceil => quote!((|a| (a as f64).ceil())),
             BuiltinFunction::Floor => quote!((|a| (a as f64).floor())),
-            BuiltinFunction::SetFocusItem => {
-                panic!("internal error: SetFocusItem is handled directly in CallFunction")
+            BuiltinFunction::SetFocusItem | BuiltinFunction::ShowPopupWindow => {
+                panic!("internal error: should be handled directly in CallFunction")
             }
             BuiltinFunction::StringToFloat => {
                 quote!((|x: SharedString| -> f64 { ::core::str::FromStr::from_str(x.as_str()).unwrap_or_default() } ))
@@ -1027,6 +1032,23 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                         let item_index = focus_item.item_index.get().unwrap();
                         quote!(
                             _self.window.set_focus_item(&ItemRc::new(VRc::into_dyn(_self.self_weak.get().unwrap().upgrade().unwrap()), #item_index));
+                        )
+                    } else {
+                        panic!("internal error: argument to SetFocusItem must be an element")
+                    }
+                }
+                Expression::BuiltinFunctionReference(BuiltinFunction::ShowPopupWindow) => {
+                    if arguments.len() != 1 {
+                        panic!("internal error: incorrect argument count to ShowPopupWindow call");
+                    }
+                    if let Expression::ElementReference(popup_window) = &arguments[0] {
+                        let popup_window = popup_window.upgrade().unwrap();
+                        let popup_window_id = component_id(&popup_window.borrow().enclosing_component.upgrade().unwrap());
+                        quote!(
+                            _self.window.show_popup(
+                                #popup_window_id::new(self.self_weak.get().unwrap().clone(), &self.window).into(),
+                                Point::new(0.,0.)
+                            );
                         )
                     } else {
                         panic!("internal error: argument to SetFocusItem must be an element")

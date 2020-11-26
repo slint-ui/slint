@@ -1301,6 +1301,9 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
             BuiltinFunction::SetFocusItem => {
                 "self->window.set_focus_item".into()
             }
+            BuiltinFunction::ShowPopupWindow => {
+                "self->window.show_popup".into()
+            }
 
            /*  std::from_chars is unfortunately not yet implemented in gcc
             BuiltinFunction::SringIsFloat => {
