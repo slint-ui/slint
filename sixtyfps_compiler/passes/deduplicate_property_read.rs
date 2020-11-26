@@ -12,7 +12,8 @@ LICENSE END */
 use crate::expression_tree::*;
 use crate::langtype::Type;
 use crate::object_tree::*;
-use std::{cell::RefCell, collections::HashMap};
+use std::cell::RefCell;
+use std::collections::HashMap;
 
 pub fn deduplicate_property_read(component: &Component) {
     visit_all_expressions(component, |expr, ty| {

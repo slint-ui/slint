@@ -9,7 +9,9 @@
 LICENSE END */
 use crate::expression_tree::{Expression, ResourceReference};
 use crate::object_tree::*;
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::rc::Rc;
 
 pub fn embed_resources(component: &Rc<Component>) {
     let global_embedded_resources = &component.embedded_file_resources;

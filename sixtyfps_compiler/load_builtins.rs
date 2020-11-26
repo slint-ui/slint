@@ -12,19 +12,15 @@ LICENSE END */
     Parse the contents of builtins.60 and fill the builtin type registery
 */
 
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
-use std::{cell::RefCell, collections::HashMap};
 
-use crate::{expression_tree::Expression, object_tree::Element, typeregister::TypeRegister};
-use crate::{
-    langtype::{BuiltinElement, NativeClass, Type},
-    parser::SyntaxNode,
-};
-use crate::{object_tree, object_tree::QualifiedTypeName, parser::identifier_text};
-use crate::{
-    object_tree::Component,
-    parser::{syntax_nodes, SyntaxKind},
-};
+use crate::expression_tree::Expression;
+use crate::langtype::{BuiltinElement, NativeClass, Type};
+use crate::object_tree::{self, *};
+use crate::parser::{identifier_text, syntax_nodes, SyntaxKind, SyntaxNode};
+use crate::typeregister::TypeRegister;
 
 /// Parse the contents of builtins.60 and fill the builtin type registery
 /// `register` is the register to fill with the builtin types.

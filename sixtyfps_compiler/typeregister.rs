@@ -7,8 +7,9 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
+use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
-use std::{cell::RefCell, rc::Rc};
+use std::rc::Rc;
 
 use crate::expression_tree::{BuiltinFunction, Expression};
 use crate::langtype::{Enumeration, Type};

@@ -24,7 +24,9 @@ extern crate proc_macro;
 
 use core::future::Future;
 use core::pin::Pin;
-use std::{borrow::Cow, cell::RefCell, rc::Rc};
+use std::borrow::Cow;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 pub mod diagnostics;
 pub mod expression_tree;
