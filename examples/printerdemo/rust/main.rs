@@ -44,6 +44,7 @@ pub fn main() {
     });
 
     main_window.as_ref().on_quit(move || {
+        #[cfg(not(target_arch = "wasm32"))]
         std::process::exit(0);
     });
 
