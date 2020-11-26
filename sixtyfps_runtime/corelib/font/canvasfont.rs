@@ -13,10 +13,29 @@ use super::{FontRequest, GlyphMetrics};
 
 pub struct Font {
     pub pixel_size: f32,
-    font_family: String,
-    weight: i32,
+    request: FontRequest,
     text_canvas: web_sys::HtmlCanvasElement,
     canvas_context: web_sys::CanvasRenderingContext2d,
+}
+
+trait CSSFontShortHand {
+    fn to_css_font_shorthand_string(&self, pixel_size: f32) -> String;
+}
+
+impl CSSFontShortHand for FontRequest {
+    fn to_css_font_shorthand_string(&self, pixel_size: f32) -> String {
+        let mut result = format!("{} {}px ", self.weight, pixel_size);
+
+        if self.family.is_empty() {
+            result.push_str("system-ui, -apple-system, sans-serif")
+        } else {
+            result.push('"');
+            result.push_str(&self.family);
+            result.push('"');
+        }
+
+        result
+    }
 }
 
 impl Font {
@@ -49,10 +68,16 @@ impl Font {
     }
 
     pub fn render_text<'a>(&'a self, text: &str) -> &'a web_sys::HtmlCanvasElement {
+        self.canvas_context.set_font(&self.request.to_css_font_shorthand_string(self.pixel_size));
         let text_metrics = self.canvas_context.measure_text(text).unwrap();
 
+        /// ### HACK: Add padding to the canvas as web-sys doesn't have bindings to the font ascent/descent
+        /// properties and even then according to caniuse.com those aren't very well supported to begin with.
+        /// So this creates a slightly bigger texture that's wasting transparent pixels.
+        let height = (1.5 * self.pixel_size) as u32;
+
         self.text_canvas.set_width(text_metrics.width() as _);
-        self.text_canvas.set_height(self.pixel_size as _);
+        self.text_canvas.set_height(height);
         self.text_canvas
             .style()
             .set_property("width", &format!("{}px", text_metrics.width()))
@@ -60,8 +85,7 @@ impl Font {
         self.text_canvas.style().set_property("height", &format!("{}px", self.pixel_size)).unwrap();
 
         // Re-apply after resize :(
-        self.canvas_context
-            .set_font(&format!("{} {}px \"{}\"", self.weight, self.pixel_size, self.font_family));
+        self.canvas_context.set_font(&self.request.to_css_font_shorthand_string(self.pixel_size));
 
         self.canvas_context.set_text_align("center");
         self.canvas_context.set_text_baseline("middle");
@@ -90,8 +114,6 @@ pub struct PlatformFont(FontRequest);
 
 impl PlatformFont {
     pub fn load(self: &Rc<Self>, pixel_size: f32) -> Font {
-        let font_family = &self.0.family;
-
         let text_canvas = web_sys::window()
             .unwrap()
             .document()
@@ -109,15 +131,9 @@ impl PlatformFont {
             .dyn_into::<web_sys::CanvasRenderingContext2d>()
             .unwrap();
 
-        canvas_context.set_font(&format!("{} {}px \"{}\"", self.0.weight, pixel_size, font_family));
+        canvas_context.set_font(&self.0.to_css_font_shorthand_string(pixel_size));
 
-        Font {
-            pixel_size,
-            font_family: self.0.family.to_string(),
-            weight: self.0.weight,
-            text_canvas,
-            canvas_context,
-        }
+        Font { pixel_size, request: self.0.clone(), text_canvas, canvas_context }
     }
 
     pub fn new_from_request(request: &FontRequest) -> Result<Rc<Self>, ()> {
