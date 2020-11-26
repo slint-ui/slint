@@ -920,18 +920,14 @@ pub fn recurse_elem_including_sub_components<State>(
     state: &State,
     vis: &mut impl FnMut(&ElementRc, &State) -> State,
 ) {
-    let elem = &component.root_element;
-    let state = vis(elem, state);
-    for sub in &elem.borrow().children {
-        recurse_elem(sub, &state, &mut |elem, state| {
-            if elem.borrow().repeated.is_some() {
-                if let Type::Component(base) = &elem.borrow().base_type {
-                    recurse_elem_including_sub_components(base, state, vis);
-                }
+    recurse_elem(&component.root_element, state, &mut |elem, state| {
+        if elem.borrow().repeated.is_some() {
+            if let Type::Component(base) = &elem.borrow().base_type {
+                recurse_elem_including_sub_components(base, state, vis);
             }
-            vis(elem, state)
-        });
-    }
+        }
+        vis(elem, state)
+    });
 }
 
 /// Same as recurse_elem, but will take the children from the element as to not keep the element borrow
@@ -954,18 +950,14 @@ pub fn recurse_elem_including_sub_components_no_borrow<State>(
     state: &State,
     vis: &mut impl FnMut(&ElementRc, &State) -> State,
 ) {
-    let elem = &component.root_element;
-    let state = vis(elem, state);
-    for sub in &elem.borrow().children {
-        recurse_elem_no_borrow(sub, &state, &mut |elem, state| {
-            if elem.borrow().repeated.is_some() {
-                if let Type::Component(base) = &elem.borrow().base_type {
-                    recurse_elem_including_sub_components_no_borrow(base, state, vis);
-                }
+    recurse_elem_no_borrow(&component.root_element, state, &mut |elem, state| {
+        if elem.borrow().repeated.is_some() {
+            if let Type::Component(base) = &elem.borrow().base_type {
+                recurse_elem_including_sub_components_no_borrow(base, state, vis);
             }
-            vis(elem, state)
-        });
-    }
+        }
+        vis(elem, state)
+    });
 }
 
 /// This visit the binding attached to this element, but does not recurse in children elements
