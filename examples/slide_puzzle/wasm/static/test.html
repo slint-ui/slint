@@ -25,11 +25,13 @@
     }
   }
 
-  @media screen and (max-width: 992px) {
-    .hide-on-mobile {
+  @media screen and (max-width: 992px) and (orientation: landscape) {
+    .hide-in-mobile-landscape {
       display: none;
     }
+  }
 
+  @media screen and (max-width: 992px) {
     * {
       margin: 0;
       padding: 0;
@@ -39,18 +41,19 @@
 
   @media screen and (min-width: 992px) {
     canvas {
-      width: 640px !important;
-      height: 480px !important;
+      width: 100vw !important;
+      height: 50vh !important;
     }
   }
 </style>
 
 <body>
-  <p class="hide-on-mobile">This is the SixtyFPS Slide Puzzle Demo compiled to WebAssembly. It demonstrates different
+  <p class="hide-in-mobile-landscape">This is the SixtyFPS Slide Puzzle Demo compiled to WebAssembly. It demonstrates
+    different
     re-usable graphical
     elements.</p>
   <canvas id="canvas"></canvas>
-  <p class="hide-on-mobile">
+  <p class="hide-in-mobile-landscape">
     <a href="https://github.com/sixtyfpsui/sixtyfps/blob/master/examples/slide_puzzle/slide_puzzle.60">
       View Source Code on GitHub</a> -
     <a
