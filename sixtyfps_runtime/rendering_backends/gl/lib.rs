@@ -483,7 +483,7 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
 
                             let atlas_allocation = self.cached_texture(
                                 TextureCacheKey::Path(image_path.to_string_lossy().to_string()),
-                                || image::open(image_path.as_path()).unwrap().into_rgba(),
+                                || image::open(image_path.as_path()).unwrap().into_rgba8(),
                             );
 
                             smallvec![GLRenderingPrimitivesBuilder::create_texture(
@@ -542,7 +542,7 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                                 || {
                                     let image_slice = slice.as_slice();
 
-                                    image::load_from_memory(image_slice).unwrap().to_rgba()
+                                    image::load_from_memory(image_slice).unwrap().to_rgba8()
                                 },
                             );
 

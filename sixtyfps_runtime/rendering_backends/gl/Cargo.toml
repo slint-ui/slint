@@ -20,7 +20,7 @@ default = ["x11"]
 [dependencies]
 sixtyfps-corelib = { version = "=0.0.2", path = "../../corelib" }
 lyon = { version = "0.16" }
-image = { version = "0.23.10", default-features = false }
+image = { version = "0.23.12", default-features = false }
 cgmath = "0.17.0"
 vtable = { version = "0.1", path = "../../../helper_crates/vtable" }
 pathfinder_geometry = "0.5.1"
