@@ -71,9 +71,9 @@ impl Font {
         self.canvas_context.set_font(&self.request.to_css_font_shorthand_string(self.pixel_size));
         let text_metrics = self.canvas_context.measure_text(text).unwrap();
 
-        /// ### HACK: Add padding to the canvas as web-sys doesn't have bindings to the font ascent/descent
-        /// properties and even then according to caniuse.com those aren't very well supported to begin with.
-        /// So this creates a slightly bigger texture that's wasting transparent pixels.
+        // ### HACK: Add padding to the canvas as web-sys doesn't have bindings to the font ascent/descent
+        // properties and even then according to caniuse.com those aren't very well supported to begin with.
+        // So this creates a slightly bigger texture that's wasting transparent pixels.
         let height = (1.5 * self.pixel_size) as u32;
 
         self.text_canvas.set_width(text_metrics.width() as _);
