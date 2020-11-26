@@ -946,6 +946,11 @@ pub fn recurse_elem_including_sub_components<State>(
         }
         vis(elem, state)
     });
+    component
+        .popup_windows
+        .borrow()
+        .iter()
+        .for_each(|p| recurse_elem_including_sub_components(&p.component, state, vis))
 }
 
 /// Same as recurse_elem, but will take the children from the element as to not keep the element borrow
@@ -955,11 +960,10 @@ pub fn recurse_elem_no_borrow<State>(
     vis: &mut impl FnMut(&ElementRc, &State) -> State,
 ) {
     let state = vis(elem, state);
-    let children = std::mem::take(&mut elem.borrow_mut().children);
+    let children = elem.borrow().children.clone();
     for sub in &children {
         recurse_elem_no_borrow(sub, &state, vis);
     }
-    elem.borrow_mut().children = children;
 }
 
 /// Same as [`recurse_elem`] but include the elements form sub_components
@@ -976,6 +980,11 @@ pub fn recurse_elem_including_sub_components_no_borrow<State>(
         }
         vis(elem, state)
     });
+    component
+        .popup_windows
+        .borrow()
+        .iter()
+        .for_each(|p| recurse_elem_including_sub_components(&p.component, state, vis))
 }
 
 /// This visit the binding attached to this element, but does not recurse in children elements
@@ -1097,19 +1106,13 @@ pub fn visit_all_named_references(
     component: &Component,
     vis: &mut impl FnMut(&mut NamedReference),
 ) {
-    let elem = &component.root_element;
-    recurse_elem_no_borrow(elem, &(), &mut |elem, _| {
+    recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
         visit_all_named_references_in_element(elem, |nr| vis(nr));
         if let Type::Component(base) = &elem.borrow().base_type {
             visit_all_named_references(base, vis);
         }
     });
     component.layouts.borrow_mut().iter_mut().for_each(|l| l.visit_named_references(vis));
-    component
-        .popup_windows
-        .borrow()
-        .iter()
-        .for_each(|p| visit_all_named_references(&p.component, vis));
 }
 
 /// Visit all expression in this component and sub components

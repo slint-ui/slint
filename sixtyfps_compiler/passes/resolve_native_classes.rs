@@ -11,21 +11,24 @@ LICENSE END */
 //! to NativeClass and picking a variant that only contains the used properties.
 
 use crate::langtype::Type;
-use crate::object_tree::{recurse_elem, Component};
+use crate::object_tree::{recurse_elem_including_sub_components, Component};
 
 pub fn resolve_native_classes(component: &Component) {
-    recurse_elem(&component.root_element, &(), &mut |elem, _| {
+    recurse_elem_including_sub_components(&component, &(), &mut |elem, _| {
         let new_native_class = {
             let elem = elem.borrow();
 
             let base_type = match &elem.base_type {
-                Type::Component(comp) => {
-                    // Components at this point must be for example repeaters. Recurse.
-                    resolve_native_classes(&comp);
+                Type::Component(_) => {
+                    // recurse_elem_including_sub_components will recurse into it
                     return;
                 }
                 Type::Builtin(b) => b,
-                _ => panic!("This should not happen because of inlining"),
+                Type::Native(_) => {
+                    // already native
+                    return;
+                }
+                _ => panic!("This should not happen"),
             };
 
             let native_properties_used = elem.bindings.keys().filter(|k| {

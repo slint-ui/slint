@@ -42,6 +42,8 @@ pub fn move_declarations(component: &Rc<Component>, diag: &mut BuildDiagnostics)
         }
     });
 
+    component.popup_windows.borrow().iter().for_each(|f| move_declarations(&f.component, diag));
+
     let mut new_root_bindings = HashMap::new();
     let mut new_root_property_animations = HashMap::new();
 

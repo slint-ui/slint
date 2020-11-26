@@ -253,24 +253,19 @@ pub async fn lower_layouts<'a>(
     lower_layouts_impl(component, &style_metrics, diag);
 }
 
-pub fn lower_layouts_impl(
+fn lower_layouts_impl(
     component: &Rc<Component>,
     style_metrics: &Option<Rc<Component>>,
     diag: &mut BuildDiagnostics,
 ) {
-    recurse_elem(&component.root_element, &(), &mut |elem, _| {
-        let mut layouts = lower_element_layout(component, elem, style_metrics, diag);
+    recurse_elem_including_sub_components(&component, &(), &mut |elem, _| {
+        let component = elem.borrow().enclosing_component.upgrade().unwrap();
+        let mut layouts = lower_element_layout(&component, elem, style_metrics, diag);
         let mut component_layouts = component.layouts.borrow_mut();
         component_layouts.main_layout = component_layouts
             .main_layout
             .or_else(|| layouts.main_layout.map(|x| x + component_layouts.len()));
         component_layouts.append(&mut layouts);
-
-        if elem.borrow().repeated.is_some() {
-            if let Type::Component(base) = &elem.borrow().base_type {
-                lower_layouts_impl(base, style_metrics, diag);
-            }
-        }
     });
     check_no_layout_properties(&component.root_element, diag);
 }

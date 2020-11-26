@@ -8,22 +8,20 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-
-X := PopupWindow {
-//  ^error{PopupWindow cannot be the top level}
-
-    Rectangle {
-
-        popup := PopupWindow {
-//              ^error{Cannot access the inside of a PopupWindow from enclosing component}
-            r := Rectangle {
-            }
+Combo := Rectangle {
+    property <color> inner_color;
+    PopupWindow {
+        Rectangle {
+            color: root.inner_color;
+            /* FIXME!!!  VerticalLayout {
+                for aa in [1, 2]: Text { text: aa; }
+            }*/
         }
-
-        color: r.color;
-
     }
+}
 
+TestCase := Rectangle {
 
+    for x in [1, 2] :  Combo { }
 
 }

@@ -21,7 +21,9 @@ pub fn lower_popups(
     type_register: &TypeRegister,
     diag: &mut BuildDiagnostics,
 ) {
-    let window_type = type_register.lookup_element("Window").unwrap();
+    let window_type = Type::Native(
+        type_register.lookup_element("Window").unwrap().as_builtin().native_class.clone(),
+    );
 
     recurse_elem_including_sub_components_no_borrow(
         component,
@@ -53,7 +55,7 @@ fn lower_popup_window(
     debug_assert!(parent_component.layouts.borrow().is_empty());
 
     // Remove the popup_window_element from its parent
-    parent_element.borrow_mut().children.retain(|child| Rc::ptr_eq(child, popup_window_element));
+    parent_element.borrow_mut().children.retain(|child| !Rc::ptr_eq(child, popup_window_element));
 
     popup_window_element.borrow_mut().base_type = window_type.clone();
 
