@@ -14,11 +14,9 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 pub fn embed_resources(component: &Rc<Component>) {
     let global_embedded_resources = &component.embedded_file_resources;
 
-    recurse_elem_including_sub_components(component, &(), &mut |elem, _| {
-        visit_element_expressions(elem, |e, _, _| {
-            embed_resources_from_expression(e, component, global_embedded_resources)
-        });
-    })
+    visit_all_expressions(component, |e, _| {
+        embed_resources_from_expression(e, component, global_embedded_resources)
+    });
 }
 
 fn embed_resources_from_expression(

@@ -1097,6 +1097,18 @@ pub fn visit_all_named_references(
     component.layouts.borrow_mut().iter_mut().for_each(|l| l.visit_named_references(vis));
 }
 
+/// Visit all expression in this component and sub components
+///
+/// Does not recurse in the expression itself
+pub fn visit_all_expressions(
+    component: &Component,
+    mut vis: impl FnMut(&mut Expression, &dyn Fn() -> Type),
+) {
+    recurse_elem_including_sub_components(component, &(), &mut |elem, _| {
+        visit_element_expressions(elem, |expr, _, ty| vis(expr, ty));
+    })
+}
+
 #[derive(Debug, Clone)]
 pub struct State {
     pub id: String,

@@ -30,12 +30,13 @@ pub fn collect_structs(root_component: &Rc<Component>, _diag: &mut BuildDiagnost
         for (_, x) in &elem.borrow().property_declarations {
             maybe_collect_object(&x.property_type);
         }
-        visit_element_expressions(elem, |expr, _, _| {
-            expr.visit_recursive(&mut |expr| {
-                if let Expression::Object { ty, .. } = expr {
-                    maybe_collect_object(ty)
-                }
-            })
+    });
+
+    visit_all_expressions(root_component, |expr, _| {
+        expr.visit_recursive(&mut |expr| {
+            if let Expression::Object { ty, .. } = expr {
+                maybe_collect_object(ty)
+            }
         })
     });
 

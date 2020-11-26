@@ -10,16 +10,14 @@ LICENSE END */
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::Expression;
-use crate::object_tree::{recurse_elem, visit_element_expressions};
+use crate::object_tree::visit_all_expressions;
 
 /// Check the validity of expressions
 ///
 /// - Make sure that there is no uncalled member function or macro
 pub fn check_expressions(doc: &crate::object_tree::Document, diag: &mut BuildDiagnostics) {
     for component in &doc.inner_components {
-        recurse_elem(&component.root_element, &(), &mut |elem, _| {
-            visit_element_expressions(elem, |e, _, _| check_expression(e, diag));
-        })
+        visit_all_expressions(component, |e, _| check_expression(e, diag));
     }
 }
 
