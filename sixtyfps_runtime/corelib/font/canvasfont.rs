@@ -9,7 +9,7 @@
 LICENSE END */
 use std::rc::Rc;
 
-use super::{FontRequest, GlyphMetrics};
+use super::FontRequest;
 
 pub struct Font {
     pub pixel_size: f32,
