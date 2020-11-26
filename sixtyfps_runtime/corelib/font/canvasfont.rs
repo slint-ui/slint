@@ -9,11 +9,14 @@
 LICENSE END */
 use std::rc::Rc;
 
+use wasm_bindgen::JsCast;
+
 use super::FontRequest;
 
 pub struct Font {
     pub pixel_size: f32,
     request: FontRequest,
+    height: f32,
     text_canvas: web_sys::HtmlCanvasElement,
     canvas_context: web_sys::CanvasRenderingContext2d,
 }
@@ -64,20 +67,15 @@ impl Font {
     }
 
     pub fn height(&self) -> f32 {
-        self.pixel_size
+        self.height
     }
 
     pub fn render_text<'a>(&'a self, text: &str) -> &'a web_sys::HtmlCanvasElement {
         self.canvas_context.set_font(&self.request.to_css_font_shorthand_string(self.pixel_size));
         let text_metrics = self.canvas_context.measure_text(text).unwrap();
 
-        // ### HACK: Add padding to the canvas as web-sys doesn't have bindings to the font ascent/descent
-        // properties and even then according to caniuse.com those aren't very well supported to begin with.
-        // So this creates a slightly bigger texture that's wasting transparent pixels.
-        let height = (1.5 * self.pixel_size) as u32;
-
         self.text_canvas.set_width(text_metrics.width() as _);
-        self.text_canvas.set_height(height);
+        self.text_canvas.set_height(self.height as _);
         self.text_canvas
             .style()
             .set_property("width", &format!("{}px", text_metrics.width()))
@@ -123,7 +121,6 @@ impl PlatformFont {
             .dyn_into::<web_sys::HtmlCanvasElement>()
             .unwrap();
 
-        use wasm_bindgen::JsCast;
         let canvas_context = text_canvas
             .get_context("2d")
             .unwrap()
@@ -131,9 +128,23 @@ impl PlatformFont {
             .dyn_into::<web_sys::CanvasRenderingContext2d>()
             .unwrap();
 
-        canvas_context.set_font(&self.0.to_css_font_shorthand_string(pixel_size));
+        let css_font = self.0.to_css_font_shorthand_string(pixel_size);
 
-        Font { pixel_size, request: self.0.clone(), text_canvas, canvas_context }
+        canvas_context.set_font(&css_font);
+
+        let height = {
+            let doc = web_sys::window().unwrap().document().unwrap();
+            let span =
+                doc.create_element("span").unwrap().dyn_into::<web_sys::HtmlSpanElement>().unwrap();
+            span.style().set_property("font", &css_font).unwrap();
+            span.set_inner_text("M");
+            doc.body().unwrap().append_child(&span).unwrap();
+            let height = span.offset_height();
+            doc.body().unwrap().remove_child(&span).unwrap();
+            height as f32
+        };
+
+        Font { pixel_size, request: self.0.clone(), height, text_canvas, canvas_context }
     }
 
     pub fn new_from_request(request: &FontRequest) -> Result<Rc<Self>, ()> {
