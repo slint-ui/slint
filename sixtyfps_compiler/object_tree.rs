@@ -1106,13 +1106,24 @@ pub fn visit_all_named_references(
     component: &Component,
     vis: &mut impl FnMut(&mut NamedReference),
 ) {
-    recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
-        visit_all_named_references_in_element(elem, |nr| vis(nr));
-        if let Type::Component(base) = &elem.borrow().base_type {
-            visit_all_named_references(base, vis);
-        }
-    });
-    component.layouts.borrow_mut().iter_mut().for_each(|l| l.visit_named_references(vis));
+    recurse_elem_including_sub_components_no_borrow(
+        component,
+        &Weak::new(),
+        &mut |elem, parent_compo| {
+            visit_all_named_references_in_element(elem, |nr| vis(nr));
+            let compo = elem.borrow().enclosing_component.clone();
+            if !Weak::ptr_eq(parent_compo, &compo) {
+                compo
+                    .upgrade()
+                    .unwrap()
+                    .layouts
+                    .borrow_mut()
+                    .iter_mut()
+                    .for_each(|l| l.visit_named_references(vis))
+            }
+            compo
+        },
+    );
 }
 
 /// Visit all expression in this component and sub components

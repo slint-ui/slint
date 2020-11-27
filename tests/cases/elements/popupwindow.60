@@ -13,15 +13,13 @@ Combo := Rectangle {
     PopupWindow {
         Rectangle {
             color: root.inner_color;
-            /* FIXME!!!  VerticalLayout {
+            VerticalLayout {
                 for aa in [1, 2]: Text { text: aa; }
-            }*/
+            }
         }
     }
 }
 
 TestCase := Rectangle {
-
     for x in [1, 2] :  Combo { }
-
 }
