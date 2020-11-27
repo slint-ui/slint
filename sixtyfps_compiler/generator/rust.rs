@@ -1046,7 +1046,7 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                         let popup_window_id = component_id(&popup_window.borrow().enclosing_component.upgrade().unwrap());
                         quote!(
                             _self.window.show_popup(
-                                #popup_window_id::new(self.self_weak.get().unwrap().clone(), &self.window).into(),
+                                &VRc::into_dyn(#popup_window_id::new(_self.self_weak.get().unwrap().clone(), &_self.window).into()),
                                 Point::new(0.,0.)
                             );
                         )

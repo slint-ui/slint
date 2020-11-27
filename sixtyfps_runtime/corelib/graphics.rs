@@ -653,6 +653,24 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
                 (),
             );
 
+            if let Some(popup) = &*self.active_popup.borrow() {
+                // Generate cached rendering data once
+                crate::item_tree::visit_items(
+                    &popup.0,
+                    crate::item_tree::TraversalOrder::BackToFront,
+                    |_, item, _, _| {
+                        crate::item_rendering::update_item_rendering_data(
+                            item,
+                            &window.rendering_cache,
+                            &mut rendering_primitives_builder,
+                            &self,
+                        );
+                        crate::item_tree::ItemVisitorResult::Continue(())
+                    },
+                    (),
+                );
+            }
+
             backend.finish_primitives(rendering_primitives_builder);
         }
 
@@ -690,7 +708,8 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
         what: MouseEventType,
     ) {
         let mut pos = euclid::point2(pos.x as _, pos.y as _);
-        let component = if let Some(popup) = &*self.active_popup.borrow() {
+        let active_popup = (*self.active_popup.borrow()).clone();
+        let component = if let Some(popup) = active_popup {
             pos -= popup.1.to_vector();
             if what == MouseEventType::MousePressed {
                 // close the popup if one press outside the popup
