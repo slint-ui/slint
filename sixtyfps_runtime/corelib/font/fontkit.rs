@@ -145,40 +145,52 @@ impl Font {
 pub struct PlatformFont {
     handle: font_kit::handle::Handle,
     font: font_kit::font::Font,
+    /// Keep a reference to the static font data, for efficient hashing in the glyph cache
+    app_font_data: Option<&'static [u8]>,
     metrics: font_kit::metrics::Metrics,
 }
 
 impl Hash for PlatformFont {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        match &self.handle {
-            font_kit::handle::Handle::Path { path, font_index } => {
-                path.hash(state);
-                font_index.hash(state);
+        match self.app_font_data {
+            Some(app_font_data) => {
+                core::ptr::hash(app_font_data, state);
             }
-            font_kit::handle::Handle::Memory { bytes, font_index } => {
-                bytes.hash(state);
-                font_index.hash(state);
-            }
+            None => match &self.handle {
+                font_kit::handle::Handle::Path { path, font_index } => {
+                    path.hash(state);
+                    font_index.hash(state);
+                }
+                font_kit::handle::Handle::Memory { bytes, font_index } => {
+                    bytes.hash(state);
+                    font_index.hash(state);
+                }
+            },
         }
     }
 }
 
 impl PartialEq for PlatformFont {
     fn eq(&self, other: &Self) -> bool {
-        match &self.handle {
-            font_kit::handle::Handle::Path { path, font_index } => match &other.handle {
-                font_kit::handle::Handle::Path {
-                    path: other_path,
-                    font_index: other_font_index,
-                } => path.eq(other_path) && font_index.eq(other_font_index),
-                _ => false,
-            },
-            font_kit::handle::Handle::Memory { bytes, font_index } => match &other.handle {
-                font_kit::handle::Handle::Memory {
-                    bytes: other_bytes,
-                    font_index: other_font_index,
-                } => bytes.eq(other_bytes) && font_index.eq(other_font_index),
-                _ => false,
+        match (self.app_font_data, other.app_font_data) {
+            (Some(this_app_font_data), Some(other_app_font_data)) => {
+                core::ptr::eq(this_app_font_data, other_app_font_data)
+            }
+            _ => match &self.handle {
+                font_kit::handle::Handle::Path { path, font_index } => match &other.handle {
+                    font_kit::handle::Handle::Path {
+                        path: other_path,
+                        font_index: other_font_index,
+                    } => path.eq(other_path) && font_index.eq(other_font_index),
+                    _ => false,
+                },
+                font_kit::handle::Handle::Memory { bytes, font_index } => match &other.handle {
+                    font_kit::handle::Handle::Memory {
+                        bytes: other_bytes,
+                        font_index: other_font_index,
+                    } => bytes.eq(other_bytes) && font_index.eq(other_font_index),
+                    _ => false,
+                },
             },
         }
     }
@@ -189,6 +201,10 @@ impl Eq for PlatformFont {}
 impl PlatformFont {
     pub fn load(self: &Rc<Self>, pixel_size: f32) -> Font {
         Font { pixel_size, handle: self.clone(), glyph_metrics_cache: Default::default() }
+    }
+
+    pub fn family_name(self: &Rc<Self>) -> String {
+        self.font.family_name()
     }
 
     pub fn new_from_request(
@@ -211,6 +227,19 @@ impl PlatformFont {
         let font = handle.load()?;
         let metrics = font.metrics();
 
-        Ok(Rc::new(PlatformFont { handle, font, metrics }))
+        Ok(Rc::new(PlatformFont { handle, font, app_font_data: None, metrics }))
+    }
+
+    pub fn new_from_slice(
+        data: &'static [u8],
+    ) -> Result<Rc<Self>, font_kit::error::FontLoadingError> {
+        // ### font-kit is missing API to work on a static slice
+        let data_copy = std::sync::Arc::new(data.to_vec());
+        let handle = font_kit::handle::Handle::from_memory(data_copy, 0);
+        let font = handle.load()?;
+
+        let metrics = font.metrics();
+
+        Ok(Rc::new(PlatformFont { handle, font, app_font_data: Some(data), metrics }))
     }
 }

@@ -6,7 +6,6 @@ https://flutter.github.io/samples/slide_puzzle
 This will allow to compare SixtyFPS and Flutter.
 
 Remaining feature to implement to have parity:
- * Fonts.
  * "Spring" animation instead of a bezier curve.
  * Hover/Pressed effect on the auto-play checkbox.
  * The different styles are well separated in different files.

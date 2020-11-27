@@ -10,6 +10,14 @@ module.exports = {
     devServer: {
         contentBase: dist,
     },
+    module: {
+        rules: [
+            {
+                test: /\.ttf$/,
+                loader: 'file-loader',
+            },
+        ],
+    },
     plugins: [
         new CopyPlugin({
             patterns: [

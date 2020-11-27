@@ -49,6 +49,12 @@ struct FontMatch {
     fonts_per_pixel_size: Vec<Rc<Font>>,
 }
 
+impl FontMatch {
+    fn new(handle: Rc<PlatformFont>) -> Self {
+        Self { handle, fonts_per_pixel_size: Vec::new() }
+    }
+}
+
 /// FontRequest collects all the developer-configurable properties for fonts, such as family, weight, etc.
 /// It is submitted as a request to the platform font system (i.e. CoreText on macOS) and in exchange we
 /// store a Rc<FontHandle>
@@ -100,6 +106,7 @@ impl FontCacheKey {
 pub struct FontCache {
     // index by family name
     loaded_fonts: RefCell<HashMap<FontCacheKey, FontMatch>>,
+    application_fonts: RefCell<HashMap<String, FontMatch>>,
 }
 
 impl FontCache {
@@ -109,11 +116,13 @@ impl FontCache {
         assert_ne!(request.pixel_size, 0.0);
 
         let mut loaded_fonts = self.loaded_fonts.borrow_mut();
-        let font_match =
-            loaded_fonts.entry(FontCacheKey::new(request)).or_insert_with(|| FontMatch {
-                handle: PlatformFont::new_from_request(&request).unwrap(),
-                fonts_per_pixel_size: Vec::new(),
-            });
+        let mut application_fonts = self.application_fonts.borrow_mut();
+
+        let font_match = application_fonts.get_mut(request.family.as_str()).unwrap_or_else(|| {
+            loaded_fonts.entry(FontCacheKey::new(request)).or_insert_with(|| {
+                FontMatch::new(PlatformFont::new_from_request(&request).unwrap())
+            })
+        });
 
         font_match
             .fonts_per_pixel_size
@@ -138,4 +147,22 @@ impl FontCache {
 thread_local! {
     /// The thread-local font-cache holding references to resolved font requests
     pub static FONT_CACHE: FontCache = Default::default();
+}
+
+/// This function can be used to register a custom TrueType font with SixtyFPS,
+/// for use with the `font-family` property. The provided slice must be a valid TrueType
+/// font.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn register_application_font_from_memory(
+    data: &'static [u8],
+) -> Result<(), Box<dyn std::error::Error>> {
+    let platform_font = PlatformFont::new_from_slice(data).map_err(Box::new)?;
+
+    FONT_CACHE.with(|fc| {
+        fc.application_fonts
+            .borrow_mut()
+            .insert(platform_font.family_name(), FontMatch::new(platform_font))
+    });
+
+    Ok(())
 }

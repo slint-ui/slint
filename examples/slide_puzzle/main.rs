@@ -176,6 +176,15 @@ pub fn main() {
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
     console_error_panic_hook::set_once();
 
+    #[cfg(not(target_arch = "wasm32"))]
+    match sixtyfps::register_application_font_from_memory(include_bytes!("Plaster-Regular.ttf")) {
+        Ok(()) => {}
+        Err(err) => {
+            eprintln!("Error registering Plaster font: {}", err);
+            std::process::exit(1);
+        }
+    };
+
     let main_window = MainWindow::new();
     let state = Rc::new(RefCell::new(AppState {
         pieces: Rc::new(sixtyfps::VecModel::<Piece>::from(vec![Piece::default(); 15])),

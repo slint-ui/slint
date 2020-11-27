@@ -7,4 +7,11 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-import('./pkg/index.js');
+
+import plaster_font_url from "../Plaster-regular.ttf";
+
+let plaster_font_face = new FontFace("Plaster", `url(${plaster_font_url})`);
+plaster_font_face.load().then(() => {
+    document.fonts.add(plaster_font_face);
+    import('./pkg/index.js')
+});
