@@ -224,6 +224,8 @@ fn fixup_element_references(
         {
             *element = Rc::downgrade(new_element);
         }
+    } else {
+        expr.visit_mut(|e| fixup_element_references(e, mapping));
     }
 }
 

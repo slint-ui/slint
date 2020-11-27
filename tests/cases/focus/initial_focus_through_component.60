@@ -12,6 +12,13 @@ TextComponent := Rectangle {
     property<bool> has_focus: my_text_input.has_focus;
     initial_focus: my_text_input;
     my_text_input := TextInput { }
+
+    signal not_called;
+    not_called => {
+        if (false) {
+            my_text_input.focus();
+        }
+    }
 }
 
 TestCase := Rectangle {
