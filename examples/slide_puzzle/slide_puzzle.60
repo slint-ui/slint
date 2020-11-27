@@ -49,30 +49,43 @@ Checkbox := Rectangle {
     property<color> checked_color;
     property<color> unchecked_color;
 
-    border-width: height * 10%;
-    border-color: unchecked_color;
-    border-radius: 2px;
+    hover_rect := Rectangle {
+        color: #f5f5f5;
+        x: - parent.width / 4;
+        y: - parent.height / 4;
+        width: ta.has_hover ? root.width * 1.5 : 0px;
+        height: self.width;
+        border-radius: width;
+    }
 
-    clip := Clip {
-        width: 0px;
+    checkbox_rect := Rectangle {
+        width: 100%;
         height: 100%;
+        border-width: height * 10%;
+        border-color: unchecked_color;
+        border-radius: 2px;
 
-        Text {
-            width: root.width;
-            height: root.height;
+        clip := Clip {
+            width: 0px;
+            height: 100%;
 
-            text: "✓";
-            font-size: height;
-            color: white;
-            animate color { duration: 200ms; }
-            vertical-alignment: align-center;
-            horizontal-alignment: align-center;
-            ta := TouchArea {
-                width: 100%;
-                height: 100%;
-                clicked => {
-                    checked = !checked;
-                    root.toggled(checked);
+            Text {
+                width: root.width;
+                height: root.height;
+
+                text: "✓";
+                font-size: height;
+                color: white;
+                animate color { duration: 200ms; }
+                vertical-alignment: align-center;
+                horizontal-alignment: align-center;
+                ta := TouchArea {
+                    width: 100%;
+                    height: 100%;
+                    clicked => {
+                        checked = !checked;
+                        root.toggled(checked);
+                    }
                 }
             }
         }
@@ -87,19 +100,19 @@ Checkbox := Rectangle {
         }*/
         checked when root.checked : {
             clip.width: root.width;
-            border-color: checked_color;
-            border-width: root.width;
+            checkbox_rect.border-color: checked_color;
+            checkbox_rect.border-width: root.width;
         }
     ]
     transitions [
         to checked : {
             animate clip.width { duration: 200ms; easing: ease-in; }
-            animate border-width { duration: 100ms; easing: ease-out; }
+            animate checkbox_rect.border-width { duration: 100ms; easing: ease-out; }
         }
         out checked : {
             animate clip.width { duration: 100ms; easing: ease; }
-            animate border-width { duration: 200ms; easing: ease-in-out; }
-            animate border-color { duration: 200ms; easing: cubic-bezier(1,1,1,0); }
+            animate checkbox_rect.border-width { duration: 200ms; easing: ease-in-out; }
+            animate checkbox_rect.border-color { duration: 200ms; easing: cubic-bezier(1,1,1,0); }
         }
 
     ]
