@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-import plaster_font_url from "../Plaster-Regular.ttf";
+import plaster_font_url from "../plaster-font/Plaster-Regular.ttf";
 
 let plaster_font_face = new FontFace("Plaster", `url(${plaster_font_url})`);
 plaster_font_face.load().then(() => {
