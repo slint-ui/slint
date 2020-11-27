@@ -62,8 +62,7 @@ Hello := Rectangle {
 
 
     for pp[idx] in [{a: 1, b: "P"},{a: 2, c: 1}]: Text {
-//                 ^error{Cannot convert \{ a: float,c: float,\} to \{ a: float,b: string,\}}
-        text: pp.b;
+        text: pp.b; // Ok! pp will have a, b and c properties, and b will be the empty string.
     }
 
 }

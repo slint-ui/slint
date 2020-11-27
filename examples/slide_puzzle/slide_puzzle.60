@@ -164,7 +164,6 @@ export MainWindow := Window {
             piece-text-color-2: #ffffff,
             piece-text-weight-incorrect-pos: 400,
             piece-text-weight-correct-pos: 700,
-            piece-text-font-family: "",
             piece-radius: 5px,
             /// Ratio of the piece size
             piece-spacing: 10%,
@@ -187,7 +186,6 @@ export MainWindow := Window {
             piece-text-color-2: #ffffff,
             piece-text-weight-incorrect-pos: 700,
             piece-text-weight-correct-pos: 700,
-            piece-text-font-family: "",
             piece-radius: 0px,
             /// Ratio of the piece size
             piece-spacing: 8%,
@@ -237,7 +235,6 @@ export MainWindow := Window {
             piece-text-color-2: #ffffff,
             piece-text-weight-incorrect-pos: 400,
             piece-text-weight-correct-pos: 700,
-            piece-text-font-family: "",
             piece-radius: 5px,
             /// Ratio of the piece size
             piece-spacing: 10%,

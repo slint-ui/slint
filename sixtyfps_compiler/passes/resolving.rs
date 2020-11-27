@@ -836,8 +836,8 @@ impl Expression {
             node.Expression().map(|e| Expression::from_expression_node(e, ctx)).collect();
 
         // FIXME: what's the type of an empty array ?
-        // Also, be smarter about finding a common type
-        let element_ty = values.first().map_or(Type::Invalid, |e| e.ty());
+        let element_ty =
+            Self::common_target_type_for_type_list(values.iter().map(|expr| expr.ty()));
 
         for e in values.iter_mut() {
             *e = core::mem::replace(e, Expression::Invalid).maybe_convert_to(
@@ -849,6 +849,36 @@ impl Expression {
         }
 
         Expression::Array { element_ty, values }
+    }
+
+    /// This function is used to find a type that's suitable for casting each instance of a bunch of expressions
+    /// to a type that captures most aspects. For example for an array of object literals the result is a merge of
+    /// all seen fields.
+    fn common_target_type_for_type_list<'a>(types: impl Iterator<Item = Type>) -> Type {
+        types.fold(Type::Invalid, |target_type, expr_ty| {
+            if target_type == expr_ty {
+                return target_type;
+            } else if target_type == Type::Invalid {
+                return expr_ty;
+            } else {
+                match (target_type, expr_ty) {
+                    (
+                        Type::Object { fields: mut result_fields, name: result_name },
+                        Type::Object { fields: elem_fields, name: elem_name },
+                    ) => {
+                        result_fields.extend(elem_fields);
+                        Type::Object { name: result_name.or(elem_name), fields: result_fields }
+                    }
+                    (target_type, expr_ty) => {
+                        if expr_ty.can_convert(&target_type) {
+                            target_type
+                        } else {
+                            Type::Invalid
+                        }
+                    }
+                }
+            }
+        })
     }
 }
 
