@@ -207,6 +207,7 @@ lazy_static! {
         (".+\\.svg$", LicenseLocation::NoLicense),
         (".+\\.json$", LicenseLocation::NoLicense),
         (".+\\.html$", LicenseLocation::NoLicense),
+        (".+\\.ttf$", LicenseLocation::NoLicense),
         (".+\\.rst$", LicenseLocation::Tag(LicenseTagStyle::rst_comment_style())),
         (".+\\.yaml$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         (".*\\.gitignore$", LicenseLocation::NoLicense),
@@ -228,6 +229,7 @@ lazy_static! {
         (".*README$", LicenseLocation::NoLicense),
         (".*README\\.txt$", LicenseLocation::NoLicense),
         ("LICENSE\\..*", LicenseLocation::NoLicense),
+        ("^examples/slide_puzzle/OFL.txt$", LicenseLocation::NoLicense),
     ]
     .iter()
     .map(|(re, ty)| (regex::Regex::new(re).unwrap(), *ty))
