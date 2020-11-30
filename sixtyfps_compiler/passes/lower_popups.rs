@@ -10,6 +10,7 @@ LICENSE END */
 //! Passe that compute the layout constraint
 
 use crate::diagnostics::BuildDiagnostics;
+use crate::expression_tree::{Expression, NamedReference};
 use crate::langtype::Type;
 use crate::object_tree::*;
 use crate::typeregister::TypeRegister;
@@ -27,29 +28,37 @@ pub fn lower_popups(
 
     recurse_elem_including_sub_components_no_borrow(
         component,
-        &None,
-        &mut |elem, parent_element: &Option<ElementRc>| {
+        &Vec::new(),
+        &mut |elem, parent_stack: &Vec<ElementRc>| {
             let is_popup = elem.borrow().base_type.to_string() == "PopupWindow";
             if is_popup {
-                match parent_element {
-                    None => diag
-                        .push_error("PopupWindow cannot be the top level".into(), &*elem.borrow()),
-                    Some(parent_element) => {
-                        lower_popup_window(elem, parent_element, &window_type, diag)
-                    }
-                }
+                lower_popup_window(elem, parent_stack, &window_type, diag);
             }
-            Some(elem.clone())
+            // this could be implemented in a better way with less cloning of the state
+            let mut parent_stack = parent_stack.clone();
+            parent_stack.push(elem.clone());
+            parent_stack
         },
     )
 }
 
 fn lower_popup_window(
     popup_window_element: &ElementRc,
-    parent_element: &ElementRc,
+    parent_stack: &Vec<ElementRc>,
     window_type: &Type,
     diag: &mut BuildDiagnostics,
 ) {
+    let parent_element = match parent_stack.last() {
+        None => {
+            diag.push_error(
+                "PopupWindow cannot be the top level".into(),
+                &*popup_window_element.borrow(),
+            );
+            return;
+        }
+        Some(parent_element) => parent_element,
+    };
+
     let parent_component = parent_element.borrow().enclosing_component.upgrade().unwrap();
     // Because layout constraint which are supposed to be in the popup will not be lowered, the layout lowering should be done after
     debug_assert!(parent_component.layouts.borrow().is_empty());
@@ -59,16 +68,21 @@ fn lower_popup_window(
 
     popup_window_element.borrow_mut().base_type = window_type.clone();
 
-    let comp = Rc::new(Component {
+    let popup_comp = Rc::new(Component {
         root_element: popup_window_element.clone(),
         parent_element: Rc::downgrade(parent_element),
         ..Component::default()
     });
 
-    let weak = Rc::downgrade(&comp);
-    recurse_elem(&comp.root_element, &(), &mut |e, _| {
+    let weak = Rc::downgrade(&popup_comp);
+    recurse_elem(&popup_comp.root_element, &(), &mut |e, _| {
         e.borrow_mut().enclosing_component = weak.clone()
     });
+
+    // Generate a x and y property, relative to the window coordinate
+    // FIXME: this is a hack that doesn't always work, perhaps should we store an item ref or something
+    let coord_x = create_coodiate(&popup_comp, parent_stack, "x");
+    let coord_y = create_coodiate(&popup_comp, parent_stack, "y");
 
     // Throw error when accessing the popup from outside
     // FIXME:
@@ -85,5 +99,50 @@ fn lower_popup_window(
         }
     });
 
-    parent_component.popup_windows.borrow_mut().push(PopupWindow { component: comp });
+    parent_component.popup_windows.borrow_mut().push(PopupWindow {
+        component: popup_comp,
+        x: coord_x,
+        y: coord_y,
+    });
+}
+
+fn create_coodiate(
+    popup_comp: &Rc<Component>,
+    parent_stack: &Vec<ElementRc>,
+    coord: &str,
+) -> NamedReference {
+    let mut expression = popup_comp
+        .root_element
+        .borrow()
+        .bindings
+        .get(coord)
+        .map(|e| e.expression.clone())
+        .unwrap_or(Expression::NumberLiteral(0., crate::expression_tree::Unit::Phx));
+
+    for parent in parent_stack {
+        match &parent.borrow().base_type {
+            Type::Builtin(b) => {
+                if !b.properties.contains_key(coord) {
+                    continue;
+                }
+            }
+            _ => continue,
+        }
+        expression = Expression::BinaryExpression {
+            lhs: Box::new(expression),
+            rhs: Box::new(Expression::PropertyReference(NamedReference {
+                element: Rc::downgrade(&parent),
+                name: coord.to_owned(),
+            })),
+            op: '+',
+        };
+    }
+    let parent_element = parent_stack.last().unwrap();
+    let property_name = format!("{}_popup_{}", popup_comp.root_element.borrow().id, coord);
+    parent_element
+        .borrow_mut()
+        .property_declarations
+        .insert(property_name.clone(), Type::Length.into());
+    parent_element.borrow_mut().bindings.insert(property_name.clone(), expression.into());
+    NamedReference { element: Rc::downgrade(&parent_element), name: property_name }
 }

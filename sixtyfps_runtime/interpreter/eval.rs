@@ -418,6 +418,28 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                     panic!("internal error: argument to SetFocusItem must be an element")
                 }
             }
+            Expression::BuiltinFunctionReference(BuiltinFunction::ShowPopupWindow) => {
+                if arguments.len() != 1 {
+                    panic!("internal error: incorrect argument count to ShowPopupWindow")
+                }
+                let component = match  local_context.component_instance  {
+                    ComponentInstance::InstanceRef(c) => c,
+                    ComponentInstance::GlobalComponent(_) => panic!("Cannot show popup from a global component")
+                };
+                if let Expression::ElementReference(popup_window) = &arguments[0] {
+                    let popup_window = popup_window.upgrade().unwrap();
+                    let pop_comp = popup_window.borrow().enclosing_component.upgrade().unwrap();
+                    let parent_component = pop_comp.parent_element.upgrade().unwrap().borrow().enclosing_component.upgrade().unwrap();
+                    let popup_list = parent_component.popup_windows.borrow();
+                    let popup = popup_list.iter().find(|p| Rc::ptr_eq(&p.component, &pop_comp)).unwrap();
+                    let x = load_property_helper(local_context.component_instance, &popup.x.element.upgrade().unwrap(), &popup.x.name).unwrap();
+                    let y = load_property_helper(local_context.component_instance, &popup.y.element.upgrade().unwrap(), &popup.y.name).unwrap();
+                    crate::dynamic_component::show_popup(popup, x.try_into().unwrap(), y.try_into().unwrap(), component.borrow(), window_ref(component).unwrap());
+                    Value::Void
+                } else {
+                    panic!("internal error: argument to SetFocusItem must be an element")
+                }
+            }
             Expression::BuiltinFunctionReference(BuiltinFunction::StringIsFloat) => {
                 if arguments.len() != 1 {
                     panic!("internal error: incorrect argument count to StringIsFloat")

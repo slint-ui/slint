@@ -19,7 +19,11 @@ pub fn assign_unique_id(component: &Rc<Component>) {
     recurse_elem(&component.root_element, &(), &mut |elem, _| {
         count += 1;
         let mut elem_mut = elem.borrow_mut();
-        let old_id = if !elem_mut.id.is_empty() { elem_mut.id.as_str() } else { "item" };
+        let old_id = if !elem_mut.id.is_empty() {
+            elem_mut.id.clone()
+        } else {
+            elem_mut.base_type.to_string().to_ascii_lowercase()
+        };
         elem_mut.id = format!("{}_{}", old_id, count);
     })
 }

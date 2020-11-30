@@ -1043,11 +1043,17 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                     }
                     if let Expression::ElementReference(popup_window) = &arguments[0] {
                         let popup_window = popup_window.upgrade().unwrap();
-                        let popup_window_id = component_id(&popup_window.borrow().enclosing_component.upgrade().unwrap());
+                        let pop_comp = popup_window.borrow().enclosing_component.upgrade().unwrap();
+                        let popup_window_id = component_id(&pop_comp);
+                        let parent_component = pop_comp.parent_element.upgrade().unwrap().borrow().enclosing_component.upgrade().unwrap();
+                        let popup_list = parent_component.popup_windows.borrow();
+                        let popup = popup_list.iter().find(|p| Rc::ptr_eq(&p.component, &pop_comp)).unwrap();
+                        let x = access_named_reference(&popup.x, component, quote!(_self));
+                        let y = access_named_reference(&popup.y, component, quote!(_self));
                         quote!(
                             _self.window.show_popup(
                                 &VRc::into_dyn(#popup_window_id::new(_self.self_weak.get().unwrap().clone(), &_self.window).into()),
-                                Point::new(0.,0.)
+                                Point::new(#x.get(), #y.get())
                             );
                         )
                     } else {

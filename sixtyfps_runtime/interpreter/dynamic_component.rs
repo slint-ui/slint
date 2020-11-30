@@ -182,6 +182,7 @@ impl RepeatedComponent for ErasedComponentBox {
                 None
             }
         };
+
         BoxLayoutCellData {
             constraint: self.borrow().as_ref().layout_info(),
             x: get_prop("x"),
@@ -1540,4 +1541,24 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
         let extra_data = self.component_type.extra_data_offset.apply(self.as_ref());
         &extra_data.self_weak
     }
+}
+
+/// Show the popup at the given location
+pub fn show_popup(
+    popup: &object_tree::PopupWindow,
+    x: f32,
+    y: f32,
+    parent_comp: ComponentRefPin,
+    window: ComponentWindow,
+) {
+    generativity::make_guard!(guard);
+    // FIXME: we should compile once and keep the cached compiled component
+    let compiled = generate_component(&popup.component, guard);
+    let inst = instantiate(
+        compiled,
+        Some(parent_comp),
+        #[cfg(target_arch = "wasm32")]
+        String::new(),
+    );
+    window.show_popup(&vtable::VRc::into_dyn(inst), sixtyfps_corelib::graphics::Point::new(x, y));
 }

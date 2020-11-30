@@ -117,6 +117,8 @@ impl Document {
 #[derive(Debug)]
 pub struct PopupWindow {
     pub component: Rc<Component>,
+    pub x: NamedReference,
+    pub y: NamedReference,
 }
 
 /// A component is a type in the language which can be instantiated,
@@ -1113,13 +1115,12 @@ pub fn visit_all_named_references(
             visit_all_named_references_in_element(elem, |nr| vis(nr));
             let compo = elem.borrow().enclosing_component.clone();
             if !Weak::ptr_eq(parent_compo, &compo) {
-                compo
-                    .upgrade()
-                    .unwrap()
-                    .layouts
-                    .borrow_mut()
-                    .iter_mut()
-                    .for_each(|l| l.visit_named_references(vis))
+                let compo = compo.upgrade().unwrap();
+                compo.layouts.borrow_mut().iter_mut().for_each(|l| l.visit_named_references(vis));
+                compo.popup_windows.borrow_mut().iter_mut().for_each(|p| {
+                    vis(&mut p.x);
+                    vis(&mut p.y);
+                });
             }
             compo
         },
