@@ -312,3 +312,31 @@ Example := Window {
 By default, when an item is bigger or outside another item, it is still shown.
 But the `Clip` element  make sure to clip any children outside of the rectangle bounds
 
+## `PopupWindow`
+
+This allow to show a popup window like a tooltip or a popup menu.
+
+Note: it is not allowed to access properties on element within the popup from outside of the popup
+
+### Methods
+
+* **`show()`** Call this function to show the popup.
+
+### Example
+
+```60
+Example := Window {
+    width: 270px;
+    height: 100px;
+
+    popup := PopupWindow {
+        Rectangle { height:100%; width: 100%; color: yellow; }
+        x: 20px; y: 20px; height: 50px; width: 150px;
+    }
+
+    TouchArea {
+        height:100%; width: 100%;
+        clicked => { popup.show(); }
+    }
+}
+```
