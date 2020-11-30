@@ -734,7 +734,10 @@ impl Element {
                         Type::Signal { .. } => {
                             format!("'{}' is a signal. Use `=>` to connect", name)
                         }
-                        _ => format!("Cannot assign to {}{}", name, name_for_lookup_error),
+                        _ => format!(
+                            "Cannot assign to {}{} because it does not have a valid property type.",
+                            name, name_for_lookup_error
+                        ),
                     },
                     &name_token,
                 );
