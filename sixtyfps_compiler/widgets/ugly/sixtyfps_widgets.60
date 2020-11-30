@@ -488,7 +488,7 @@ export ComboBox := Rectangle {
         y: root.height;
         width: root.width;
         VerticalLayout {
-            //spacing: 0px;
+            spacing: 0px;
             for value[idx] in root.model: Rectangle {
                 color: idx == root.current_index ? Palette.highlight_background : Palette.base_background_color;
                 VerticalLayout { // FIXME: ideally this layout shouldn't be required

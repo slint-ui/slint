@@ -10,13 +10,17 @@ LICENSE END */
 
 Combo := Rectangle {
     property <color> inner_color;
-    PopupWindow {
+    my_popup := PopupWindow {
         Rectangle {
             color: root.inner_color;
-            VerticalLayout {
+            insidelayout := VerticalLayout {
+                spacing: 3px;
                 for aa in [1, 2]: Text { text: aa; }
             }
         }
+    }
+    TouchArea {
+        clicked => { my_popup.show(); }
     }
 }
 
