@@ -369,11 +369,19 @@ impl Element {
             let type_node = prop_decl.Type();
             let prop_type = type_from_node(type_node.clone(), diag, tr);
             let prop_name = identifier_text(&prop_decl.DeclaredIdentifier()).unwrap();
+
             if !matches!(r.lookup_property(&prop_name), Type::Invalid) {
                 diag.push_error(
                     format!("Cannot override property '{}'", prop_name),
                     &prop_decl.DeclaredIdentifier().child_token(SyntaxKind::Identifier).unwrap(),
                 )
+            }
+
+            if prop_type != Type::Invalid && !prop_type.is_property_type() {
+                diag.push_error(
+                    format!("'{}' is not a valid property type", prop_type),
+                    &type_node,
+                );
             }
 
             r.property_declarations.insert(
