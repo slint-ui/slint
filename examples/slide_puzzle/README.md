@@ -8,6 +8,8 @@ This will allow to compare SixtyFPS and Flutter.
 Remaining feature to implement to have parity:
  * "Spring" animation instead of a bezier curve.
  * Hover/Pressed effect on the auto-play checkbox.
+ * When clicking on the auto-play checkbox, the gray hover
+   circle bounces in the direction of the mouse cursor
  * The different styles are well separated in different files.
  * Shadow on the tiles
  * Some layout adjustment
