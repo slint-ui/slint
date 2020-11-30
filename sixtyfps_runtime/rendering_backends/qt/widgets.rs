@@ -1678,6 +1678,7 @@ pub struct NativeComboBox {
     pub is_open: Property<bool>,
     pub current_value: Property<SharedString>,
     pub cached_rendering_data: CachedRenderingData,
+    pub open_popup: Signal<()>,
 }
 
 impl Item for NativeComboBox {
@@ -1791,6 +1792,7 @@ impl Item for NativeComboBox {
         });
         if matches!(event.what, MouseEventType::MouseReleased) {
             Self::FIELD_OFFSETS.is_open.apply_pin(self).set(true);
+            Self::FIELD_OFFSETS.open_popup.apply_pin(self).emit(&());
             InputEventResult::EventAccepted
         } else {
             InputEventResult::GrabMouse

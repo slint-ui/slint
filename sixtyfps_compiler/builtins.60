@@ -345,6 +345,7 @@ export NativeComboBox := _ {
     property <string> current_value;
     property <bool> is_open;
     property <bool> enabled;
+    signal open_popup;
 }
 
 export global NativeStyleMetrics := {
