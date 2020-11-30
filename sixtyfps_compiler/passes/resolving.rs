@@ -793,17 +793,14 @@ impl Expression {
         // FIXME: we should we add bool to the context
         let condition = Self::from_expression_node(condition_n.clone().into(), ctx)
             .maybe_convert_to(Type::Bool, None, &condition_n, &mut ctx.diag);
-        let mut true_expr = Self::from_expression_node(true_expr_n.clone().into(), ctx);
-        let mut false_expr = Self::from_expression_node(false_expr_n.clone().into(), ctx);
-        let (true_ty, false_ty) = (true_expr.ty(), false_expr.ty());
-        if true_ty != false_ty {
-            if false_ty.can_convert(&true_ty) {
-                false_expr =
-                    false_expr.maybe_convert_to(true_ty, None, &false_expr_n, &mut ctx.diag);
-            } else {
-                true_expr = true_expr.maybe_convert_to(false_ty, None, &true_expr_n, &mut ctx.diag);
-            }
-        }
+        let true_expr = Self::from_expression_node(true_expr_n.clone().into(), ctx);
+        let false_expr = Self::from_expression_node(false_expr_n.clone().into(), ctx);
+        let result_ty = Self::common_target_type_for_type_list(
+            [true_expr.ty(), false_expr.ty()].iter().cloned(),
+        );
+        let true_expr =
+            true_expr.maybe_convert_to(result_ty.clone(), None, &true_expr_n, &mut ctx.diag);
+        let false_expr = false_expr.maybe_convert_to(result_ty, None, &false_expr_n, &mut ctx.diag);
         Expression::Condition {
             condition: Box::new(condition),
             true_expr: Box::new(true_expr),
@@ -866,12 +863,28 @@ impl Expression {
                         Type::Object { fields: mut result_fields, name: result_name },
                         Type::Object { fields: elem_fields, name: elem_name },
                     ) => {
-                        result_fields.extend(elem_fields);
+                        for (elem_name, elem_ty) in elem_fields.into_iter() {
+                            match result_fields.entry(elem_name) {
+                                std::collections::btree_map::Entry::Vacant(free_entry) => {
+                                    free_entry.insert(elem_ty);
+                                }
+                                std::collections::btree_map::Entry::Occupied(
+                                    mut existing_field,
+                                ) => {
+                                    *existing_field.get_mut() =
+                                        Self::common_target_type_for_type_list(
+                                            [existing_field.get().clone(), elem_ty].iter().cloned(),
+                                        );
+                                }
+                            }
+                        }
                         Type::Object { name: result_name.or(elem_name), fields: result_fields }
                     }
                     (target_type, expr_ty) => {
                         if expr_ty.can_convert(&target_type) {
                             target_type
+                        } else if target_type.can_convert(&expr_ty) {
+                            expr_ty
                         } else {
                             Type::Invalid
                         }
