@@ -98,7 +98,7 @@ impl Display for Type {
             Type::Invalid => write!(f, "<error>"),
             Type::Void => write!(f, "void"),
             Type::Component(c) => c.id.fmt(f),
-            Type::Builtin(b) => b.native_class.class_name.fmt(f),
+            Type::Builtin(b) => b.name.fmt(f),
             Type::Native(b) => b.class_name.fmt(f),
             Type::Signal { args } => {
                 write!(f, "signal")?;
@@ -462,6 +462,7 @@ impl NativeClass {
 
 #[derive(Debug, Clone, Default)]
 pub struct BuiltinElement {
+    pub name: String,
     pub native_class: Rc<NativeClass>,
     pub properties: HashMap<String, Type>,
     pub default_bindings: HashMap<String, Expression>,
@@ -481,7 +482,12 @@ impl BuiltinElement {
                 properties.insert(prop_name.clone(), prop_type.clone());
             }
         });
-        Self { native_class, properties, ..Default::default() }
+        Self {
+            name: native_class.class_name.clone(),
+            native_class,
+            properties,
+            ..Default::default()
+        }
     }
 }
 

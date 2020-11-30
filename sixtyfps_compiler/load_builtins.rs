@@ -133,6 +133,7 @@ pub fn load_builtins(register: &mut TypeRegister) {
             .collect();
         if let Some(builtin_name) = exports.get(&id) {
             if !global {
+                builtin.name = builtin_name.clone();
                 register
                     .insert_type_with_name(Type::Builtin(Rc::new(builtin)), builtin_name.clone());
             } else {

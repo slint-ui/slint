@@ -27,7 +27,7 @@ X := Rectangle {
     height: width;
 
     foo := Rectangle {
-        width: foo.height;
+        border_width: foo.height;
     }
 
     Rectangle {
@@ -37,13 +37,15 @@ X := Rectangle {
         color: foo.height.blue;
 //                        ^error{Cannot access fields of property}
         x: foo.blue;
-//             ^error{Cannot access property 'blue'}
+//             ^error{Element 'Rectangle' does not have a property 'blue'}
 
     }
 
     plop := Comp {
         x: plop.custom_prop;
         color_prop: yellow;
+        y: plop.not_exist;
+//              ^error{Element 'Comp' does not have a property 'not_exist'}
     }
 
 

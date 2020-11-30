@@ -16,10 +16,10 @@ Xxx := Rectangle {
 
     property <length> x1: my-rect.width;
     property <length> x2: my-rect.width-1px;
-    //                            ^error{Cannot access property 'width-1px'. Use space before the '-' if you meant a substraction.}
+    //                            ^error{Element 'Rectangle' does not have a property 'width-1px'. Use space before the '-' if you meant a substraction.}
     property <length> x3: my_rect.border-width;
     property <length> x4: my_rect.border_width-1px;
-    //                            ^error{Cannot access property 'border_width-1px'. Use space before the '-' if you meant a substraction.}
+    //                            ^error{Element 'Rectangle' does not have a property 'border_width-1px'. Use space before the '-' if you meant a substraction.}
 
 
     property <{a-b: string, d-c: string, e_f: string, xx: { hello: int, world: int }}> obj: {a_b: "hello", d-c: "world", e-f: "!"};

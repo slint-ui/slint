@@ -941,14 +941,30 @@ fn continue_lookup_within_element(
             member: Box::new(member),
         };
     } else {
+        let mut err = |extra: &str| {
+            let what = match &elem.borrow().base_type {
+                Type::Void => {
+                    let global = elem.borrow().enclosing_component.upgrade().unwrap();
+                    assert!(global.is_global());
+                    format!("'{}'", global.id)
+                }
+                Type::Component(c) => format!("Element '{}'", c.id),
+                Type::Builtin(b) => format!("Element '{}'", b.name),
+                _ => unreachable!(),
+            };
+            ctx.diag.push_error(
+                format!("{} does not have a property '{}'.{}", what, second.text(), extra),
+                &second,
+            );
+        };
         if let Some(minus_pos) = second.text().find('-') {
             // Attempt to recover if the user wanted to write "-"
             if elem.borrow().lookup_property(&second.text()[0..minus_pos]) != Type::Invalid {
-                ctx.diag.push_error(format!("Cannot access property '{}'. Use space before the '-' if you meant a substraction.", second.text()), &second);
+                err(" Use space before the '-' if you meant a substraction.");
                 return Expression::Invalid;
             }
         }
-        ctx.diag.push_error(format!("Cannot access property '{}'", second.text()), &second);
+        err("");
         return Expression::Invalid;
     }
 }
