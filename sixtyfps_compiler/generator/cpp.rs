@@ -318,7 +318,7 @@ fn handle_property_binding(
     let component = item.enclosing_component.upgrade().unwrap();
     let id = &item.id;
     let prop_type = item.lookup_property(prop_name);
-    if let Type::Signal { args } = &prop_type {
+    if let Type::Signal { args, .. } = &prop_type {
         let signal_accessor_prefix = if item.property_declarations.contains_key(prop_name) {
             String::new()
         } else {
@@ -332,7 +332,7 @@ fn handle_property_binding(
             "{signal_accessor_prefix}{prop}.set_handler(
                     [this]({params}) {{
                         [[maybe_unused]] auto self = this;
-                        {code};
+                        return {code};
                     }});",
             signal_accessor_prefix = signal_accessor_prefix,
             prop = prop_name,
@@ -653,14 +653,14 @@ fn generate_component(
     let mut init = vec!["[[maybe_unused]] auto self = this;".into()];
 
     for (cpp_name, property_decl) in component.root_element.borrow().property_declarations.iter() {
-        let ty = if let Type::Signal { args } = &property_decl.property_type {
+        let ty = if let Type::Signal { args, return_type } = &property_decl.property_type {
             let param_types = args
                 .iter()
                 .map(|t| get_cpp_type(t, &property_decl.type_node, diag))
                 .collect::<Vec<_>>();
             if property_decl.expose_in_public_api && is_root {
                 let signal_emitter = vec![format!(
-                    "{}.emit({});",
+                    "return {}.emit({});",
                     cpp_name,
                     (0..args.len()).map(|i| format!("arg_{}", i)).join(", ")
                 )];
@@ -669,12 +669,17 @@ fn generate_component(
                     Declaration::Function(Function {
                         name: format!("emit_{}", cpp_name),
                         signature: format!(
-                            "({}) const",
+                            "({}) -> {} const",
                             param_types
                                 .iter()
                                 .enumerate()
                                 .map(|(i, ty)| format!("{} arg_{}", ty, i))
-                                .join(", ")
+                                .join(", "),
+                            return_type.as_ref().map_or("void".into(), |t| get_cpp_type(
+                                &t,
+                                &property_decl.type_node,
+                                diag
+                            ))
                         ),
                         statements: Some(signal_emitter),
                         ..Default::default()

@@ -401,7 +401,7 @@ impl Expression {
 
         if let Some(index) = ctx.arguments.iter().position(|x| x == &first_str) {
             let ty = match &ctx.property_type {
-                Type::Signal { args } | Type::Function { args, .. } => args[index].clone(),
+                Type::Signal { args, .. } | Type::Function { args, .. } => args[index].clone(),
                 _ => panic!("There should only be argument within functions or signal"),
             };
             let e = Expression::FunctionParameterReference { index, ty };
@@ -606,7 +606,7 @@ impl Expression {
         arguments.extend(sub_expr);
 
         let arguments = match function.ty() {
-            Type::Function { args, .. } | Type::Signal { args } => {
+            Type::Function { args, .. } | Type::Signal { args, .. } => {
                 if arguments.len() != args.len() {
                     ctx.diag.push_error(
                         format!(

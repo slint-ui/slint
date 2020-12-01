@@ -452,10 +452,13 @@ impl Element {
         for sig_decl in node.SignalDeclaration() {
             let name = identifier_text(&sig_decl.DeclaredIdentifier()).unwrap();
             let args = sig_decl.Type().map(|node_ty| type_from_node(node_ty, diag, tr)).collect();
+            let return_type = sig_decl
+                .ReturnType()
+                .map(|ret_ty| Box::new(type_from_node(ret_ty.Type(), diag, tr)));
             r.property_declarations.insert(
                 name,
                 PropertyDeclaration {
-                    property_type: Type::Signal { args },
+                    property_type: Type::Signal { return_type, args },
                     type_node: Some(sig_decl.into()),
                     ..Default::default()
                 },
@@ -468,7 +471,7 @@ impl Element {
                 None => continue,
             };
             let prop_type = r.lookup_property(&name);
-            if let Type::Signal { args } = prop_type {
+            if let Type::Signal { args, .. } = prop_type {
                 let num_arg = con_node.DeclaredIdentifier().count();
                 if num_arg > args.len() {
                     diag.push_error(

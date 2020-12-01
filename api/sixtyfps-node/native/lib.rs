@@ -390,7 +390,7 @@ declare_types! {
                 .clone();
             let persistent_context =
                 persistent_context::PersistentContext::from_object(&mut cx, this.downcast().unwrap())?;
-            let args = if let Type::Signal {args} = ty {
+            let args = if let Type::Signal {args, ..} = ty {
                 let count = args.len();
                 let args = arguments.into_iter()
                     .zip(args.into_iter())

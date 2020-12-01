@@ -249,10 +249,11 @@ fn generate_component(
     let mut declared_property_types = vec![];
     let mut declared_signals = vec![];
     let mut declared_signals_types = vec![];
+    let mut declared_signals_ret = vec![];
     let mut property_and_signal_accessors: Vec<TokenStream> = vec![];
     for (prop_name, property_decl) in component.root_element.borrow().property_declarations.iter() {
         let prop_ident = format_ident!("{}", prop_name);
-        if let Type::Signal { args } = &property_decl.property_type {
+        if let Type::Signal { args, return_type } = &property_decl.property_type {
             declared_signals.push(prop_ident.clone());
             let signal_args = args
                 .iter()
@@ -293,6 +294,12 @@ fn generate_component(
                 );
             }
             declared_signals_types.push(signal_args);
+            declared_signals_ret.push(return_type.as_ref().map_or(quote!(()), |a| {
+                rust_type(&a, &property_decl.type_node.span()).unwrap_or_else(|err| {
+                    diag.push_internal_error(err.into());
+                    quote!()
+                })
+            }));
         } else {
             let rust_property_type =
                 rust_type(&property_decl.property_type, &property_decl.type_node.span())
@@ -1064,7 +1071,7 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                     let f = compile_expression(function, &component);
                     let a = arguments.iter().map(|a| compile_expression(a, &component));
                     let function_type = function.ty();
-                    if let Type::Signal { args } = function_type {
+                    if let Type::Signal { args, .. } = function_type {
                         let cast = args.iter().map(|ty| match ty {
                             Type::Bool => quote!(as bool),
                             Type::Int32 => quote!(as i32),

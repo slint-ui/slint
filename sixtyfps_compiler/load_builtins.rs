@@ -96,6 +96,13 @@ pub fn load_builtins(register: &mut TypeRegister) {
                                     object_tree::type_from_node(a, *diag.borrow_mut(), register)
                                 })
                                 .collect(),
+                            return_type: s.ReturnType().map(|a| {
+                                Box::new(object_tree::type_from_node(
+                                    a.Type(),
+                                    *diag.borrow_mut(),
+                                    register,
+                                ))
+                            }),
                         },
                     )
                 })),

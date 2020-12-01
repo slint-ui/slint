@@ -25,6 +25,7 @@ pub enum Type {
     Native(Rc<NativeClass>),
 
     Signal {
+        return_type: Option<Box<Type>>,
         args: Vec<Type>,
     },
     Function {
@@ -65,7 +66,9 @@ impl core::cmp::PartialEq for Type {
             Type::Component(a) => matches!(other, Type::Component(b) if Rc::ptr_eq(a, b)),
             Type::Builtin(a) => matches!(other, Type::Builtin(b) if Rc::ptr_eq(a, b)),
             Type::Native(a) => matches!(other, Type::Native(b) if Rc::ptr_eq(a, b)),
-            Type::Signal { args: a } => matches!(other, Type::Signal { args: b } if a == b),
+            Type::Signal { args: a, return_type: ra } => {
+                matches!(other, Type::Signal { args: b, return_type: rb } if a == b && ra == rb)
+            }
             Type::Function { return_type: lhs_rt, args: lhs_args } => {
                 matches!(other, Type::Function { return_type: rhs_rt, args: rhs_args } if lhs_rt == rhs_rt && lhs_args == rhs_args)
             }
@@ -100,7 +103,7 @@ impl Display for Type {
             Type::Component(c) => c.id.fmt(f),
             Type::Builtin(b) => b.name.fmt(f),
             Type::Native(b) => b.class_name.fmt(f),
-            Type::Signal { args } => {
+            Type::Signal { args, return_type } => {
                 write!(f, "signal")?;
                 if !args.is_empty() {
                     write!(f, "(")?;
@@ -111,6 +114,9 @@ impl Display for Type {
                         write!(f, "{}", arg)?;
                     }
                     write!(f, ")")?
+                }
+                if let Some(rt) = return_type {
+                    write!(f, "-> {}", rt)?;
                 }
                 Ok(())
             }

@@ -409,6 +409,7 @@ impl Expression {
             Expression::CodeBlock(sub) => sub.last().map_or(Type::Void, |e| e.ty()),
             Expression::FunctionCall { function, .. } => match function.ty() {
                 Type::Function { return_type, .. } => *return_type,
+                Type::Signal { return_type, .. } => return_type.map_or(Type::Void, |x| *x),
                 _ => Type::Invalid,
             },
             Expression::SelfAssignment { .. } => Type::Void,
