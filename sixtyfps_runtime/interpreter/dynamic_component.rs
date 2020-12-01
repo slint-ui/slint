@@ -31,7 +31,7 @@ use sixtyfps_corelib::model::Repeater;
 use sixtyfps_corelib::properties::InterpolatedPropertyValue;
 use sixtyfps_corelib::rtti::{self, AnimatedBindingKind, FieldOffset, PropertyInfo};
 use sixtyfps_corelib::slice::Slice;
-use sixtyfps_corelib::{Color, Property, SharedString, Signal};
+use sixtyfps_corelib::{Color, Property, SharedString};
 use std::collections::HashMap;
 use std::{pin::Pin, rc::Rc};
 
@@ -268,6 +268,8 @@ impl<'id> ErasedRepeaterWithinComponent<'id> {
     }
 }
 
+type Signal = sixtyfps_corelib::Signal<[eval::Value], eval::Value>;
+
 /// ComponentDescription is a representation of a component suitable for interpretation
 ///
 /// It contains information about how to create and destroy the Component.
@@ -282,7 +284,7 @@ pub struct ComponentDescription<'id> {
     item_tree: Vec<ItemTreeNode<crate::dynamic_type::Instance<'id>>>,
     pub(crate) items: HashMap<String, ItemWithinComponent>,
     pub(crate) custom_properties: HashMap<String, PropertiesWithinComponent>,
-    pub(crate) custom_signals: HashMap<String, FieldOffset<Instance<'id>, Signal<[eval::Value]>>>,
+    pub(crate) custom_signals: HashMap<String, FieldOffset<Instance<'id>, Signal>>,
     repeater: Vec<ErasedRepeaterWithinComponent<'id>>,
     /// Map the Element::id of the repeater to the index in the `repeater` vec
     pub repeater_names: HashMap<String, usize>,
@@ -612,8 +614,7 @@ fn generate_component<'id>(
             Type::Resource => property_info::<Resource>(),
             Type::Bool => property_info::<bool>(),
             Type::Signal { .. } => {
-                custom_signals
-                    .insert(name.clone(), builder.add_field_type::<Signal<[eval::Value]>>());
+                custom_signals.insert(name.clone(), builder.add_field_type::<Signal>());
                 continue;
             }
             Type::Object { name: Some(name), .. } if name.ends_with("::StateInfo") => {
@@ -820,7 +821,8 @@ pub fn instantiate<'id>(
                     if let Some(signal_offset) =
                         item_within_component.rtti.signals.get(prop.as_str())
                     {
-                        let signal = &*(item.as_ptr().add(*signal_offset) as *const Signal<()>);
+                        let signal = &*(item.as_ptr().add(*signal_offset)
+                            as *const sixtyfps_corelib::Signal<()>);
                         signal.set_handler(move |_: &()| {
                             generativity::make_guard!(guard);
                             eval::eval_expression(
@@ -840,7 +842,7 @@ pub fn instantiate<'id>(
                                 InstanceRef::from_pin_ref(c, guard),
                                 args.iter().cloned().collect(),
                             );
-                            eval::eval_expression(&expr, &mut local_context);
+                            eval::eval_expression(&expr, &mut local_context)
                         })
                     } else {
                         panic!("unkown signal {}", prop)

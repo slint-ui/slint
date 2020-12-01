@@ -86,21 +86,31 @@ fn make_signal_handler<'cx>(
     cx: &mut impl Context<'cx>,
     persistent_context: &persistent_context::PersistentContext<'cx>,
     fun: Handle<'cx, JsFunction>,
-) -> Box<dyn Fn(&[sixtyfps_interpreter::Value])> {
+    return_type: Option<Box<Type>>,
+) -> Box<dyn Fn(&[sixtyfps_interpreter::Value]) -> sixtyfps_interpreter::Value> {
     let fun_value = fun.as_value(cx);
     let fun_idx = persistent_context.allocate(cx, fun_value);
     Box::new(move |args| {
         let args = args.iter().cloned().collect::<Vec<_>>();
+        let ret = core::cell::Cell::new(sixtyfps_interpreter::Value::Void);
+        let borrow_ret = &ret;
+        let return_type = &return_type;
         run_with_global_contect(&move |cx, persistent_context| {
             let args = args.iter().map(|a| to_js_value(a.clone(), cx).unwrap()).collect::<Vec<_>>();
-            persistent_context
+            let ret = persistent_context
                 .get(cx, fun_idx)
                 .unwrap()
                 .downcast::<JsFunction>()
                 .unwrap()
                 .call::<_, _, JsValue, _>(cx, JsUndefined::new(), args)
                 .unwrap();
-        })
+            if let Some(return_type) = return_type {
+                borrow_ret.set(
+                    to_eval_value(ret, (**return_type).clone(), cx, persistent_context).unwrap(),
+                );
+            }
+        });
+        ret.into_inner()
     })
 }
 
@@ -123,13 +133,13 @@ fn create<'cx>(
                     cx.throw_error(format!("Property {} not found in the component", prop_name))
                 })?
                 .clone();
-            if let Type::Signal { .. } = ty {
+            if let Type::Signal { return_type, .. } = ty {
                 let fun = value.downcast_or_throw::<JsFunction, _>(cx)?;
                 component_type
                     .set_signal_handler(
                         component.borrow(),
                         prop_name.as_str(),
-                        make_signal_handler(cx, &persistent_context, fun),
+                        make_signal_handler(cx, &persistent_context, fun, return_type),
                     )
                     .or_else(|_| cx.throw_error(format!("Cannot set signal")))?;
             } else {
@@ -414,7 +424,7 @@ declare_types! {
             Ok(JsUndefined::new().as_value(&mut cx))
         }
 
-         method connect_signal(mut cx) {
+        method connect_signal(mut cx) {
             let signal_name = cx.argument::<JsString>(0)?.value();
             let handler = cx.argument::<JsFunction>(1)?;
             let this = cx.this();
@@ -425,12 +435,24 @@ declare_types! {
             let component = x.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
             generativity::make_guard!(guard);
             let component = component.unerase(guard);
-            component.description().set_signal_handler(
-                component.borrow(),
-                signal_name.as_str(),
-                make_signal_handler(&mut cx, &persistent_context, handler)
-            ).or_else(|_| cx.throw_error(format!("Cannot set signal")))?;
-            Ok(JsUndefined::new().as_value(&mut cx))
+
+            let ty = component.description().properties().get(&signal_name)
+                .ok_or(())
+                .or_else(|()| {
+                    cx.throw_error(format!("Signal {} not found in the component", signal_name))
+                })?
+                .clone();
+            if let Type::Signal {return_type, ..} = ty {
+                component.description().set_signal_handler(
+                    component.borrow(),
+                    signal_name.as_str(),
+                    make_signal_handler(&mut cx, &persistent_context, handler, return_type)
+                ).or_else(|_| cx.throw_error(format!("Cannot set signal")))?;
+                Ok(JsUndefined::new().as_value(&mut cx))
+            } else {
+                cx.throw_error(format!("{} is not a signal", signal_name))?;
+                unreachable!()
+            }
         }
 
         method send_mouse_click(mut cx) {

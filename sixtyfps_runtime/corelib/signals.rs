@@ -23,31 +23,34 @@ use core::cell::Cell;
 /// The Arg represents the argument. It should always be a tuple
 ///
 #[repr(C)]
-pub struct Signal<Arg: ?Sized> {
+pub struct Signal<Arg: ?Sized, Ret = ()> {
     /// FIXME: Box<dyn> is a fat object and we probaly want to put an erased type in there
-    handler: Cell<Option<Box<dyn Fn(&Arg)>>>,
+    handler: Cell<Option<Box<dyn Fn(&Arg) -> Ret>>>,
 }
 
-impl<Arg: ?Sized> Default for Signal<Arg> {
+impl<Arg: ?Sized, Ret> Default for Signal<Arg, Ret> {
     fn default() -> Self {
         Self { handler: Default::default() }
     }
 }
 
-impl<Arg: ?Sized> Signal<Arg> {
+impl<Arg: ?Sized, Ret: Default> Signal<Arg, Ret> {
     /// Emit the signal with the given argument.
-    pub fn emit(&self, a: &Arg) {
+    pub fn emit(&self, a: &Arg) -> Ret {
         if let Some(h) = self.handler.take() {
-            h(a);
+            let r = h(a);
             assert!(self.handler.take().is_none(), "Signal Handler set while emitted");
-            self.handler.set(Some(h))
+            self.handler.set(Some(h));
+            r
+        } else {
+            Default::default()
         }
     }
 
     /// Set an handler to be called when the signal is emited
     ///
     /// There can only be one single handler per signal.
-    pub fn set_handler(&self, f: impl Fn(&Arg) + 'static) {
+    pub fn set_handler(&self, f: impl Fn(&Arg) -> Ret + 'static) {
         self.handler.set(Some(Box::new(f)));
     }
 }

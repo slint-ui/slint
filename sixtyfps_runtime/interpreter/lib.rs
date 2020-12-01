@@ -151,7 +151,7 @@ impl<'id> dynamic_component::ComponentDescription<'id> {
         &self,
         component: Pin<ComponentRef>,
         name: &str,
-        handler: Box<dyn Fn(&[Value])>,
+        handler: Box<dyn Fn(&[Value]) -> Value>,
     ) -> Result<(), ()> {
         if !core::ptr::eq((&self.ct) as *const _, component.get_vtable() as *const _) {
             return Err(());

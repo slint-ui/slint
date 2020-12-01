@@ -18,7 +18,7 @@ use sixtyfps_corelib::{rtti, Property, Signal};
 use crate::eval;
 
 pub trait GlobalComponent {
-    fn emit_signal(self: Pin<&Self>, _signal_name: &str, _args: &[eval::Value]) {
+    fn emit_signal(self: Pin<&Self>, _signal_name: &str, _args: &[eval::Value]) -> eval::Value {
         todo!("emit signal")
     }
 

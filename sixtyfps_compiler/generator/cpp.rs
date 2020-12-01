@@ -658,6 +658,9 @@ fn generate_component(
                 .iter()
                 .map(|t| get_cpp_type(t, &property_decl.type_node, diag))
                 .collect::<Vec<_>>();
+            let return_type = return_type
+                .as_ref()
+                .map_or("void".into(), |t| get_cpp_type(&t, &property_decl.type_node, diag));
             if property_decl.expose_in_public_api && is_root {
                 let signal_emitter = vec![format!(
                     "return {}.emit({});",
@@ -669,17 +672,13 @@ fn generate_component(
                     Declaration::Function(Function {
                         name: format!("emit_{}", cpp_name),
                         signature: format!(
-                            "({}) -> {} const",
+                            "({}) const -> {}",
                             param_types
                                 .iter()
                                 .enumerate()
                                 .map(|(i, ty)| format!("{} arg_{}", ty, i))
                                 .join(", "),
-                            return_type.as_ref().map_or("void".into(), |t| get_cpp_type(
-                                &t,
-                                &property_decl.type_node,
-                                diag
-                            ))
+                            return_type
                         ),
                         statements: Some(signal_emitter),
                         ..Default::default()
@@ -699,7 +698,7 @@ fn generate_component(
                     }),
                 ));
             }
-            format!("sixtyfps::Signal<{}>", param_types.join(", "))
+            format!("sixtyfps::Signal<{}({})>", return_type, param_types.join(", "))
         } else {
             let cpp_type =
                 get_cpp_type(&property_decl.property_type, &property_decl.type_node, diag);

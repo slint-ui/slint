@@ -349,6 +349,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                             let signal =
                                 unsafe { &*(item.as_ptr().add(*signal_offset) as *const Signal<()>) };
                             signal.emit(&());
+                            Value::Void
                         } else if let Some(signal_offset) = component_type.custom_signals.get(name.as_str())
                         {
                             let signal = signal_offset.apply(&*enclosing_component.instance);
@@ -360,10 +361,9 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                     }
                     ComponentInstance::GlobalComponent(global) => {
                         let args = arguments.iter().map(|e| eval_expression(e, local_context));
-                        global.as_ref().emit_signal(name.as_ref(), args.collect::<Vec<_>>().as_slice());
+                        global.as_ref().emit_signal(name.as_ref(), args.collect::<Vec<_>>().as_slice())
                     }
-                };
-                Value::Void
+                }
             }
             Expression::BuiltinFunctionReference(BuiltinFunction::GetWindowScaleFactor) => {
                 match local_context.component_instance {
