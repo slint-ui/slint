@@ -153,7 +153,7 @@ fn handle_property_binding(
                 move |args| {
                     let self_pinned = self_weak.upgrade().unwrap();
                     let _self = self_pinned.as_pin_ref();
-                    #tokens_for_expression;
+                    #tokens_for_expression
                 }
             });
         ));
@@ -263,6 +263,12 @@ fn generate_component(
                     diag.push_internal_error(err.into());
                     vec![]
                 });
+            let return_type = return_type.as_ref().map_or(quote!(()), |a| {
+                rust_type(&a, &property_decl.type_node.span()).unwrap_or_else(|err| {
+                    diag.push_internal_error(err.into());
+                    quote!()
+                })
+            });
 
             if property_decl.expose_in_public_api {
                 let args_name =
@@ -271,7 +277,7 @@ fn generate_component(
                 property_and_signal_accessors.push(
                     quote!(
                         #[allow(dead_code)]
-                        pub fn #emitter_ident(self: ::core::pin::Pin<&Self>, #(#args_name : #signal_args,)*) {
+                        pub fn #emitter_ident(self: ::core::pin::Pin<&Self>, #(#args_name : #signal_args,)*) -> #return_type {
                             Self::FIELD_OFFSETS.#prop_ident.apply_pin(self).emit(&(#(#args_name,)*))
                         }
                     )
@@ -282,7 +288,7 @@ fn generate_component(
                 property_and_signal_accessors.push(
                     quote!(
                         #[allow(dead_code)]
-                        pub fn #on_ident(self: ::core::pin::Pin<&Self>, f: impl Fn(#(#signal_args),*) + 'static) {
+                        pub fn #on_ident(self: ::core::pin::Pin<&Self>, f: impl Fn(#(#signal_args),*) -> #return_type + 'static) {
                             #[allow(unused)]
                             Self::FIELD_OFFSETS.#prop_ident.apply_pin(self).set_handler(
                                 // FIXME: why do i need to clone here?
@@ -294,12 +300,7 @@ fn generate_component(
                 );
             }
             declared_signals_types.push(signal_args);
-            declared_signals_ret.push(return_type.as_ref().map_or(quote!(()), |a| {
-                rust_type(&a, &property_decl.type_node.span()).unwrap_or_else(|err| {
-                    diag.push_internal_error(err.into());
-                    quote!()
-                })
-            }));
+            declared_signals_ret.push(return_type);
         } else {
             let rust_property_type =
                 rust_type(&property_decl.property_type, &property_decl.type_node.span())
@@ -746,7 +747,7 @@ fn generate_component(
         #visibility struct #component_id {
             #(#item_names : sixtyfps::re_exports::#item_types,)*
             #(#declared_property_vars : sixtyfps::re_exports::Property<#declared_property_types>,)*
-            #(#declared_signals : sixtyfps::re_exports::Signal<(#(#declared_signals_types,)*)>,)*
+            #(#declared_signals : sixtyfps::re_exports::Signal<(#(#declared_signals_types,)*), #declared_signals_ret>,)*
             #(#repeated_element_names : sixtyfps::re_exports::Repeater<#repeated_element_components>,)*
             #(#self_weak : sixtyfps::re_exports::OnceCell<sixtyfps::re_exports::VWeak<sixtyfps::re_exports::ComponentVTable, #component_id>>,)*
             #(parent : sixtyfps::re_exports::VWeak<sixtyfps::re_exports::ComponentVTable, #parent_component_type>,)*

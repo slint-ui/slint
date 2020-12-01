@@ -73,7 +73,7 @@ require.extensions['.60'] =
             c.signals().forEach((x: string) => {
                 Object.defineProperty(ret, x, {
                     get() {
-                        let signal = function () { comp.emit_signal(x, [...arguments]); } as Signal;
+                        let signal = function () { return comp.emit_signal(x, [...arguments]); } as Signal;
                         signal.setHandler = function (callback) { comp.connect_signal(x, callback) };
                         return signal;
                     },

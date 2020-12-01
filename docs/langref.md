@@ -332,6 +332,18 @@ Example := Rectangle {
 }
 ```
 
+
+And return value.
+
+```60
+Example := Rectangle {
+    // declares a signal with a return value
+    signal hello(int, int) -> int;
+    hello(aa, bb) => { aa + bb }
+}
+```
+
+
 ## Expressions
 
 Expressions are a powerful way to declare relationships and connections in your user interface. They

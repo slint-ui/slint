@@ -171,14 +171,13 @@ impl<'id> dynamic_component::ComponentDescription<'id> {
         component: ComponentRefPin,
         name: &str,
         args: &[Value],
-    ) -> Result<(), ()> {
+    ) -> Result<Value, ()> {
         if !core::ptr::eq((&self.ct) as *const _, component.get_vtable() as *const _) {
             return Err(());
         }
         let x = self.custom_signals.get(name).ok_or(())?;
         let sig = x.apply(unsafe { &*(component.as_ptr() as *const dynamic_type::Instance) });
-        sig.emit(args);
-        Ok(())
+        Ok(sig.emit(args))
     }
 }
 

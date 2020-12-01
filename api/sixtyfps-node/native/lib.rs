@@ -352,9 +352,11 @@ declare_types! {
             let component = x.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
             generativity::make_guard!(guard);
             let component = component.unerase(guard);
-            let value = component.description()
-                .get_property(component.borrow(), prop_name.as_str())
-                .or_else(|_| cx.throw_error(format!("Cannot read property")))?;
+            let value = run_scoped(&mut cx,this.downcast().unwrap(), || {
+                component.description()
+                    .get_property(component.borrow(), prop_name.as_str())
+                    .map_err(|_| format!("Cannot read property"))
+            })?;
             to_js_value(value, &mut cx)
         }
         method set_property(mut cx) {
@@ -416,12 +418,12 @@ declare_types! {
                 unreachable!()
             };
 
-            run_scoped(&mut cx,this.downcast().unwrap(), || {
+            let res = run_scoped(&mut cx,this.downcast().unwrap(), || {
                 component.description()
                     .emit_signal(component.borrow(), signal_name.as_str(), args.as_slice())
                     .map_err(|()| "Cannot emit signal".to_string())
             })?;
-            Ok(JsUndefined::new().as_value(&mut cx))
+            to_js_value(res, &mut cx)
         }
 
         method connect_signal(mut cx) {
