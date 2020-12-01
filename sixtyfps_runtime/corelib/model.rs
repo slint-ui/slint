@@ -207,6 +207,22 @@ impl<T> ModelHandle<T> {
     }
 }
 
+impl<T> Model for ModelHandle<T> {
+    type Data = T;
+
+    fn row_count(&self) -> usize {
+        self.0.as_ref().map_or(0, |model| model.row_count())
+    }
+
+    fn row_data(&self, row: usize) -> Self::Data {
+        self.0.as_ref().unwrap().row_data(row)
+    }
+
+    fn attach_peer(&self, peer: ModelPeer) {
+        self.0.as_ref().map(|model| model.attach_peer(peer));
+    }
+}
+
 /// Component that can be instantiated by a repeater.
 pub trait RepeatedComponent: crate::component::Component {
     /// The data corresponding to the model
