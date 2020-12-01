@@ -158,8 +158,11 @@ impl Item for NativeButton {
                 option.state |= QStyle::State_Sunken;
             else
                 option.state |= QStyle::State_Raised;
-            if (enabled)
+            if (enabled) {
                 option.state |= QStyle::State_Enabled;
+            } else {
+                option.palette.setCurrentColorGroup(QPalette::Disabled);
+            }
             qApp->style()->drawControl(QStyle::CE_PushButton, &option, &p, nullptr);
         });
         return HighLevelRenderingPrimitive::Image {
@@ -291,8 +294,11 @@ impl Item for NativeCheckBox {
             option.text = std::move(text);
             option.rect = QRect(QPoint(), size / dpr);
             option.state |= checked ? QStyle::State_On : QStyle::State_Off;
-            if (enabled)
+            if (enabled) {
                 option.state |= QStyle::State_Enabled;
+            } else {
+                option.palette.setCurrentColorGroup(QPalette::Disabled);
+            }
             qApp->style()->drawControl(QStyle::CE_CheckBox, &option, &p, nullptr);
         });
         return HighLevelRenderingPrimitive::Image {
@@ -336,6 +342,9 @@ impl Item for NativeCheckBox {
         _window: &ComponentWindow,
         _self_rc: &sixtyfps_corelib::items::ItemRc,
     ) -> InputEventResult {
+        if !Self::FIELD_OFFSETS.enabled.apply_pin(self).get() {
+            return InputEventResult::EventIgnored;
+        }
         if matches!(event.what, MouseEventType::MouseReleased) {
             Self::FIELD_OFFSETS
                 .checked
@@ -389,8 +398,11 @@ void initQSpinBoxOptions(QStyleOptionSpinBox &option, bool pressed, bool enabled
     if (style->styleHint(QStyle::SH_SpinBox_ButtonsInsideFrame, nullptr, nullptr))
         option.subControls |= QStyle::SC_SpinBoxFrame;
     option.activeSubControls = {active_controls};
-    if (enabled)
+    if (enabled) {
         option.state |= QStyle::State_Enabled;
+    } else {
+        option.palette.setCurrentColorGroup(QPalette::Disabled);
+    }
     option.state |= QStyle::State_Active;
     if (pressed) {
         option.state |= QStyle::State_Sunken | QStyle::State_MouseOver;
@@ -445,6 +457,7 @@ impl Item for NativeSpinBox {
             style->drawComplexControl(QStyle::CC_SpinBox, &option, &p, nullptr);
 
             auto text_rect = style->subControlRect(QStyle::CC_SpinBox, &option, QStyle::SC_SpinBoxEditField, nullptr);
+            p.setPen(option.palette.color(QPalette::Text));
             p.drawText(text_rect, QString::number(value));
         });
         return HighLevelRenderingPrimitive::Image {
@@ -530,14 +543,20 @@ impl Item for NativeSpinBox {
                     data.pressed = true;
                     true
                 }
-                MouseEventType::MouseExit | MouseEventType::MouseReleased => {
+                MouseEventType::MouseExit => {
+                    data.pressed = false;
+                    true
+                }
+                MouseEventType::MouseReleased => {
                     data.pressed = false;
                     if new_control == cpp!(unsafe []->u32 as "int" { return QStyle::SC_SpinBoxUp;})
+                        && enabled
                     {
                         self.value.set(Self::FIELD_OFFSETS.value.apply_pin(self).get() + 1);
                     }
                     if new_control
                         == cpp!(unsafe []->u32 as "int" { return QStyle::SC_SpinBoxDown;})
+                        && enabled
                     {
                         self.value.set(Self::FIELD_OFFSETS.value.apply_pin(self).get() - 1);
                     }
@@ -601,8 +620,11 @@ void initQSliderOptions(QStyleOptionSlider &option, bool pressed, bool enabled, 
     option.minimum = minimum;
     option.sliderPosition = value;
     option.sliderValue = value;
-    if (enabled)
+    if (enabled) {
         option.state |= QStyle::State_Enabled;
+    } else {
+        option.palette.setCurrentColorGroup(QPalette::Disabled);
+    }
     option.state |= QStyle::State_Active | QStyle::State_Horizontal;
     if (pressed) {
         option.state |= QStyle::State_Sunken | QStyle::State_MouseOver;
@@ -924,8 +946,11 @@ impl Item for NativeGroupBox {
         ] {
             QPainter p(img);
             QStyleOptionGroupBox option;
-            if (enabled)
+            if (enabled) {
                 option.state |= QStyle::State_Enabled;
+            } else {
+                option.palette.setCurrentColorGroup(QPalette::Disabled);
+            }
             option.rect = QRect(QPoint(), size / dpr);
             option.text = text;
             option.lineWidth = 1;
@@ -1090,8 +1115,11 @@ impl Item for NativeLineEdit {
             option.midLineWidth = 0;
             if (focused)
                 option.state |= QStyle::State_HasFocus;
-            if (enabled)
+            if (enabled) {
                 option.state |= QStyle::State_Enabled;
+            } else {
+                option.palette.setCurrentColorGroup(QPalette::Disabled);
+            }
             qApp->style()->drawPrimitive(QStyle::PE_PanelLineEdit, &option, &p, nullptr);
         });
         return HighLevelRenderingPrimitive::Image {
@@ -1724,8 +1752,11 @@ impl Item for NativeComboBox {
                 option.state |= QStyle::State_Sunken;
             else
                 option.state |= QStyle::State_Raised;
-            if (enabled)
+            if (enabled) {
                 option.state |= QStyle::State_Enabled;
+            } else {
+                option.palette.setCurrentColorGroup(QPalette::Disabled);
+            }
             if (is_open)
                 option.state |= QStyle::State_On;
             option.subControls = QStyle::SC_All;

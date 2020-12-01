@@ -250,7 +250,7 @@ export NativeButton := _ {
     property <string> text;
     property <bool> pressed;
     signal clicked;
-    property <bool> enabled;
+    property <bool> enabled: true;
 }
 
 export NativeCheckBox := _ {
@@ -258,7 +258,7 @@ export NativeCheckBox := _ {
     property <length> y;
     property <length> width;
     property <length> height;
-    property <bool> enabled;
+    property <bool> enabled: true;
     property <string> text;
     property <bool> checked;
     signal toggled;
@@ -269,7 +269,7 @@ export NativeSpinBox := _ {
     property <length> y;
     property <length> width;
     property <length> height;
-    property <bool> enabled;
+    property <bool> enabled: true;
     property <int> value;
 }
 
@@ -278,7 +278,7 @@ export NativeSlider := _ {
     property <length> y;
     property <length> width;
     property <length> height;
-    property <bool> enabled;
+    property <bool> enabled: true;
     property <float> value;
     property <float> min;
     property <float> max;
@@ -289,7 +289,7 @@ export NativeGroupBox := _ {
     property <length> y;
     property <length> width;
     property <length> height;
-    property <bool> enabled;
+    property <bool> enabled: true;
     property <string> title;
     property <length> native_padding_left;
     property <length> native_padding_right;
@@ -307,7 +307,7 @@ export NativeLineEdit := _ {
     property <length> native_padding_top;
     property <length> native_padding_bottom;
     property <bool> focused;
-    property <bool> enabled;
+    property <bool> enabled: true;
 }
 
 export NativeScrollView := _ {
@@ -344,7 +344,7 @@ export NativeComboBox := _ {
     property <length> height;
     property <string> current_value;
     property <bool> is_open;
-    property <bool> enabled;
+    property <bool> enabled: true;
     signal open_popup;
 }
 
