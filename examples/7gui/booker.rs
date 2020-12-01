@@ -8,17 +8,27 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-use sixtyfps::Model;
-use std::cell::RefCell;
-use std::rc::Rc;
-
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::*;
+use chrono::NaiveDate;
+use sixtyfps::SharedString;
 
 sixtyfps::sixtyfps!(import { Booker } from "booker.60";);
 
-#[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub fn main() {
     let booker = Booker::new();
+    booker.as_ref().on_validate_date(|date: SharedString| {
+        NaiveDate::parse_from_str(date.as_str(), "%d.%m.%Y").is_ok()
+    });
+    booker.as_ref().on_compare_date(|date1: SharedString, date2: SharedString| {
+        let date1 = match NaiveDate::parse_from_str(date1.as_str(), "%d.%m.%Y") {
+            Err(_) => return false,
+            Ok(x) => x,
+        };
+        let date2 = match NaiveDate::parse_from_str(date2.as_str(), "%d.%m.%Y") {
+            Err(_) => return false,
+            Ok(x) => x,
+        };
+        date1 <= date2
+    });
+
     booker.run();
 }
