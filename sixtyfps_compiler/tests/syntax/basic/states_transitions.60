@@ -31,7 +31,7 @@ TestCase := Rectangle {
     ]
 
     transitions [
-        to pressed: {
+        in pressed: {
             animate * { duration: 88ms; }
             animate color { duration: 88ms; }
         }

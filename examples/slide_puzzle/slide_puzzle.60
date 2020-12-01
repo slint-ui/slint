@@ -105,7 +105,7 @@ Checkbox := Rectangle {
         }
     ]
     transitions [
-        to checked : {
+        in checked : {
             animate clip.width { duration: 200ms; easing: ease-in; }
             animate checkbox_rect.border-width { duration: 100ms; easing: ease-out; }
         }
@@ -379,7 +379,7 @@ export MainWindow := Window {
 
             ]
             transitions [
-                to pressed : {
+                in pressed : {
                     animate shadow.color { duration: 50ms; }
                     animate circle.width { duration: 2s; easing: ease-out; }
                 }

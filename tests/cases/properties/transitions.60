@@ -23,7 +23,7 @@ LICENSE END */
     ]
 
     transitions [
-        to xxx: {
+        in xxx: {
             animate some_prop { duration: 100ms; }
         }
         out xxx: {

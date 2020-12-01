@@ -19,11 +19,11 @@ TestCase := Rectangle {
     ]
 
     transitions [
-        to does_not_exist: {
+        in does_not_exist: {
 //        ^error{State 'does_not_exist' does not exist}
             animate * { }
         }
-        to checked: {
+        in checked: {
 //        ^error{The property 'color' cannot have transition because it already has an animation}
             animate color { }
         }

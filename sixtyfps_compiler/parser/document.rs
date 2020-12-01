@@ -526,7 +526,7 @@ fn parse_state(p: &mut impl Parser) -> bool {
 #[cfg_attr(test, parser_test)]
 /// ```test,Transitions
 /// transitions []
-/// transitions [to checked: {animate x { duration: 88ms; }} out checked: {animate x { duration: 88ms; }}]
+/// transitions [in checked: {animate x { duration: 88ms; }} out checked: {animate x { duration: 88ms; }}]
 /// ```
 fn parse_transitions(p: &mut impl Parser) {
     debug_assert_eq!(p.peek().as_str(), "transitions");
@@ -539,17 +539,17 @@ fn parse_transitions(p: &mut impl Parser) {
 
 #[cfg_attr(test, parser_test)]
 /// ```test,Transition
-/// to pressed : {}
-/// to pressed: { animate x { duration: 88ms; } }
+/// in pressed : {}
+/// in pressed: { animate x { duration: 88ms; } }
 /// out pressed: { animate x { duration: 88ms; } }
 /// ```
 fn parse_transition(p: &mut impl Parser) -> bool {
-    if !matches!(p.peek().as_str(), "to" | "out") {
-        p.error("Expected 'to' or 'out' to declare a transition");
+    if !matches!(p.peek().as_str(), "in" | "out") {
+        p.error("Expected 'in' or 'out' to declare a transition");
         return false;
     }
     let mut p = p.start_node(SyntaxKind::Transition);
-    p.consume(); // "to" or "out"
+    p.consume(); // "in" or "out"
     {
         let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
         p.expect(SyntaxKind::Identifier);

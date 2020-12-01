@@ -543,7 +543,7 @@ Example := Rectangle {
     ]
 
     transitions [
-        to down : {
+        in down : {
             animate color { duration: 300ms; }
         }
         out disabled : {

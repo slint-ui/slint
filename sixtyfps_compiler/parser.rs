@@ -332,7 +332,7 @@ declare_syntax! {
         StatePropertyChange -> [ QualifiedName, BindingExpression ],
         /// `transitions: [...]`
         Transitions -> [*Transition],
-        /// There is an idientfier "to" or "out", the DeclaredIdentifier is the state name
+        /// There is an idientfier "in" or "out", the DeclaredIdentifier is the state name
         Transition -> [DeclaredIdentifier, *PropertyAnimation],
         /// Export a set of declared components by name
         ExportsList -> [ *ExportSpecifier, ?Component, *StructDeclaration ],
