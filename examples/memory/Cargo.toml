@@ -1,0 +1,15 @@
+[package]
+name = "memory"
+version = "0.1.0"
+authors = ["SixtyFPS <info@sixtyfps.io>"]
+edition = "2018"
+publish = false
+license = "GPL-3.0-only"
+
+[[bin]]
+path = "main.rs"
+name = "memory"
+
+[dependencies]
+rand = "0.7.3"
+sixtyfps = { path = "../../api/sixtyfps-rs" }

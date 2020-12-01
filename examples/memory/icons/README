@@ -1,0 +1,11 @@
+The icons originate from Font-Awesome font ( http://fontawesome.io ) and licensed under the OFL
+
+    https://fontawesome.com/license/free
+
+The PNGs were generated using
+
+    https://github.com/encharm/Font-Awesome-SVG-PNG
+
+and 
+
+   npx font-awesome-svg-png --color black --png --size 128

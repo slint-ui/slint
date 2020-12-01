@@ -1,0 +1,85 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+struct TileData := {
+    image: resource,
+    image_visible: bool,
+    solved: bool,
+}
+
+MemoryTile := Rectangle {
+    border-radius: 8px;
+    signal clicked;
+    property <bool> image_visible;
+    property <resource> image;
+
+    color: forestgreen;
+
+    Image {
+        source: image;
+        width: parent.width;
+        height: parent.height;
+    }
+
+    Rectangle {
+        color: black;
+        width: parent.width;
+        height: image_visible ? 0px: parent.height;
+        animate height { duration: 250ms; easing: ease-in; }
+        border-radius: 8px;
+    }
+
+    TouchArea {
+        width: 100%;
+        height: 100%;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+export MainWindow := Window {
+    signal check_if_pair_solved();
+    property <bool> disable_tiles;
+
+    property<[TileData]> tile_options: [
+        { image: img!"icons/at.png" },
+        { image: img!"icons/balance-scale.png" },
+        { image: img!"icons/bicycle.png" },
+        { image: img!"icons/bus.png" },
+        { image: img!"icons/cloud.png" },
+        { image: img!"icons/cogs.png" },
+        { image: img!"icons/motorcycle.png" },
+        { image: img!"icons/video-camera.png" },
+    ];
+
+    property<length> tile_size: 64px;
+    property<length> tile_spacing: 10px;
+
+    property<[TileData]> memory_tiles;
+
+    for tile[i] in memory_tiles: MemoryTile {
+        x: mod(i, 4) * (tile_size + tile_spacing);
+        y: floor(i / 4) * (tile_size + tile_spacing);
+        width: tile_size;
+        height: tile_size;
+
+        image: tile.image;
+
+        image_visible: tile.image_visible || tile.solved;
+        
+        clicked => {
+            if (!root.disable_tiles) {
+                tile.image_visible = !tile.image_visible;
+                root.check_if_pair_solved();
+            }
+        }
+    }
+}
