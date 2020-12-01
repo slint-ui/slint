@@ -318,6 +318,7 @@ export LineEdit := Rectangle {
                     edited => {
                         root.edited(self.text);
                     }
+                    color: enabled ? Palette.text_color : Palette.text_color_disabled;
                 }
                 Text {
                     color: Palette.placeholder_text;
