@@ -370,6 +370,8 @@ fn parse_two_way_binding(p: &mut impl Parser) {
 /// signal foo(int, string);
 /// signal one_arg({ a: string, b: string});
 /// signal end_coma(a, b, c,);
+/// signal with_return(a, b) -> int;
+/// signal with_return2({a: string}) -> { a: string };
 /// ```
 /// Must consume at least one token
 fn parse_signal_declaration(p: &mut impl Parser) {
@@ -388,6 +390,15 @@ fn parse_signal_declaration(p: &mut impl Parser) {
             }
         }
         p.expect(SyntaxKind::RParent);
+        if p.test(SyntaxKind::Arrow) {
+            let mut p = p.start_node(SyntaxKind::ReturnType);
+            parse_type(&mut *p);
+        }
+    } else if p.test(SyntaxKind::Arrow) {
+        // Force signal with return value to also have parentheses, we could remove this
+        // restriction in the future
+        p.error("Signal with return value must be declared with parentheses e.g. 'signal foo() -> int;'");
+        parse_type(&mut *p);
     }
     p.expect(SyntaxKind::Semicolon);
 }

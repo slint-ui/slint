@@ -153,6 +153,12 @@ fn fill_token_vec(stream: impl Iterator<Item = TokenTree>, vec: &mut Vec<parser:
                                 last.kind = SyntaxKind::FatArrow;
                                 last.text = "=>".into();
                                 continue;
+                            } else if last.kind == SyntaxKind::Minus
+                                && prev_spacing == Spacing::Joint
+                            {
+                                last.kind = SyntaxKind::Arrow;
+                                last.text = "->".into();
+                                continue;
                             }
                         }
                         SyntaxKind::RAngle

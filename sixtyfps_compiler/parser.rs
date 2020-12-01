@@ -249,6 +249,7 @@ declare_syntax! {
         NotEqual -> "!=",
         ColonEqual -> ":=",
         FatArrow -> "=>",
+        Arrow -> "->",
         OrOr -> "||",
         AndAnd -> "&&",
         LBrace -> "{",
@@ -284,7 +285,9 @@ declare_syntax! {
         RepeatedElement -> [ ?DeclaredIdentifier, ?RepeatedIndex, Expression , Element],
         RepeatedIndex -> [],
         ConditionalElement -> [ Expression , Element],
-        SignalDeclaration -> [ DeclaredIdentifier, *Type ],
+        SignalDeclaration -> [ DeclaredIdentifier, *Type, ?ReturnType ],
+        /// `-> type`  (but without the ->)
+        ReturnType -> [Type],
         SignalConnection -> [ *DeclaredIdentifier,  CodeBlock ],
         /// Declaration of a propery.
         PropertyDeclaration-> [ Type , DeclaredIdentifier, ?BindingExpression, ?TwoWayBinding ],
