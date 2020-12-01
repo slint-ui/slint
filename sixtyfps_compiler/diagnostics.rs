@@ -473,13 +473,6 @@ impl BuildDiagnostics {
     }
 }
 
-#[cfg(feature = "proc_macro_span")]
-impl quote::ToTokens for BuildDiagnostics {
-    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        self.iter().for_each(|diag| diag.to_tokens(tokens))
-    }
-}
-
 impl Extend<FileDiagnostics> for BuildDiagnostics {
     fn extend<T: IntoIterator<Item = FileDiagnostics>>(&mut self, iter: T) {
         for diag in iter {

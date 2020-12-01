@@ -336,8 +336,7 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
     //println!("{:#?}", tree);
     if diag.has_error() {
-        diag.map_offsets_to_span(&tokens);
-        return diag.into_token_stream().into();
+        return report_diagnostics(diag, &tokens);
     }
 
     let mut result = generator::rust::generate(&root_component, &mut diag);
@@ -353,10 +352,27 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
         x.extend(quote! {const _ : Option<&'static str> = ::core::option_env!("SIXTYFPS_STYLE");});
     });
 
+    let diags = report_diagnostics(diag, &tokens);
+    result.map_or(diags, |r| r.into())
+}
+
+fn report_diagnostics(
+    diag: diagnostics::BuildDiagnostics,
+    span_map: &[parser::Token],
+) -> TokenStream {
+    let mut result = TokenStream::new();
+    let mut needs_error = diag.has_error();
+    for mut file_diag in diag.into_iter() {
+        if file_diag.source.is_none() {
+            file_diag.map_offsets_to_span(span_map);
+            needs_error &= !file_diag.has_error();
+            result.extend(TokenStream::from(file_diag.into_token_stream()))
+        } else {
+            file_diag.print();
+        }
+    }
+    if needs_error {
+        result.extend(TokenStream::from(quote!(compile_error! { "Error occured" })))
+    }
     result
-        .unwrap_or_else(|| {
-            diag.map_offsets_to_span(&tokens);
-            diag.into_token_stream()
-        })
-        .into()
 }
