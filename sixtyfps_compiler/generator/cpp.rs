@@ -640,6 +640,15 @@ fn generate_component(
     let component_id = component_id(component);
     let mut component_struct = Struct { name: component_id.clone(), ..Default::default() };
 
+    for c in component.popup_windows.borrow().iter() {
+        let mut friends = vec![self::component_id(&c.component)];
+        generate_component(file, &c.component, diag, Some(&mut friends));
+        if let Some(sub_components) = sub_components.as_mut() {
+            sub_components.extend_from_slice(friends.as_slice());
+        }
+        component_struct.friends.append(&mut friends);
+    }
+
     let is_root = component.parent_element.upgrade().is_none();
     let mut init = vec!["[[maybe_unused]] auto self = this;".into()];
 
@@ -747,10 +756,8 @@ fn generate_component(
     if !is_root {
         let parent_element = component.parent_element.upgrade().unwrap();
 
-        let mut update_statements = vec![];
-        let cpp_model_data_type = model_data_type(&parent_element, diag);
-
-        if !parent_element.borrow().repeated.as_ref().map_or(false, |r| r.is_conditional_element) {
+        if parent_element.borrow().repeated.as_ref().map_or(false, |r| !r.is_conditional_element) {
+            let cpp_model_data_type = model_data_type(&parent_element, diag);
             component_struct.members.push((
                 Access::Private,
                 Declaration::Var(Var {
@@ -769,7 +776,29 @@ fn generate_component(
                 }),
             ));
 
-            update_statements = vec!["index.set(i);".into(), "model_data.set(data);".into()];
+            let update_statements = vec!["index.set(i);".into(), "model_data.set(data);".into()];
+            component_struct.members.push((
+                Access::Public, // Because Repeater accesses it
+                Declaration::Function(Function {
+                    name: "update_data".into(),
+                    signature: format!(
+                        "(int i, const {} &data) const -> void",
+                        cpp_model_data_type
+                    ),
+                    statements: Some(update_statements),
+                    ..Function::default()
+                }),
+            ));
+        } else if parent_element.borrow().repeated.is_some() {
+            component_struct.members.push((
+                Access::Public, // Because Repeater accesses it
+                Declaration::Function(Function {
+                    name: "update_data".into(),
+                    signature: "(int, int) const -> void".into(),
+                    statements: Some(vec![]),
+                    ..Function::default()
+                }),
+            ));
         }
         let parent_component_id = self::component_id(
             &component
@@ -793,18 +822,6 @@ fn generate_component(
             }),
         ));
         component_struct.friends.push(parent_component_id);
-        component_struct.members.push((
-            Access::Public, // Because Repeater accesses it
-            Declaration::Function(Function {
-                name: "update_data".into(),
-                signature: format!(
-                    "([[maybe_unused]] int i, [[maybe_unused]] const {} &data) const -> void",
-                    cpp_model_data_type
-                ),
-                statements: Some(update_statements),
-                ..Function::default()
-            }),
-        ));
 
         let p_y = access_member(&component.root_element, "y", component, "this");
         let p_height = access_member(&component.root_element, "height", component, "this");
@@ -829,7 +846,7 @@ fn generate_component(
                     ..Function::default()
                 }),
             ));
-        } else {
+        } else if parent_element.borrow().repeated.is_some() {
             let p_x = access_member(&component.root_element, "x", component, "this");
             component_struct.members.push((
                 Access::Public, // Because Repeater accesses it
@@ -1405,6 +1422,24 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
                     let focus_item = focus_item.upgrade().unwrap();
                     let focus_item = focus_item.borrow();
                     format!("self->window.set_focus_item(self->self_weak.lock()->into_dyn(), {});", focus_item.item_index.get().unwrap())
+                } else {
+                    panic!("internal error: argument to SetFocusItem must be an element")
+                }
+            }
+            Expression::BuiltinFunctionReference(BuiltinFunction::ShowPopupWindow) => {
+                if arguments.len() != 1 {
+                    panic!("internal error: incorrect argument count to SetFocusItem call");
+                }
+                if let Expression::ElementReference(popup_window) = &arguments[0] {
+                    let popup_window = popup_window.upgrade().unwrap();
+                    let pop_comp = popup_window.borrow().enclosing_component.upgrade().unwrap();
+                    let popup_window_id = component_id(&pop_comp);
+                    let parent_component = pop_comp.parent_element.upgrade().unwrap().borrow().enclosing_component.upgrade().unwrap();
+                    let popup_list = parent_component.popup_windows.borrow();
+                    let popup = popup_list.iter().find(|p| Rc::ptr_eq(&p.component, &pop_comp)).unwrap();
+                    let x = access_named_reference(&popup.x, component, "self");
+                    let y = access_named_reference(&popup.y, component, "self");
+                    format!("self->window.show_popup<{}>(self, {{ {}.get(), {}.get() }} );", popup_window_id, x, y)
                 } else {
                     panic!("internal error: argument to SetFocusItem must be an element")
                 }

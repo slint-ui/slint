@@ -326,12 +326,12 @@ Note: it is not allowed to access properties on element within the popup from ou
 
 ```60
 Example := Window {
-    width: 270px;
+    width: 100px;
     height: 100px;
 
     popup := PopupWindow {
         Rectangle { height:100%; width: 100%; color: yellow; }
-        x: 20px; y: 20px; height: 50px; width: 150px;
+        x: 20px; y: 20px; height: 50px; width: 50px;
     }
 
     TouchArea {

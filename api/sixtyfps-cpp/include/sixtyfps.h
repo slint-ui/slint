@@ -120,6 +120,13 @@ public:
         sixtyfps_component_window_set_component(&inner, &self_rc);
     }
 
+    template<typename Component, typename Parent>
+    void show_popup(const Parent *parent_component, cbindgen_private::Point p) const
+    {
+        auto popup = Component::create(parent_component).into_dyn();
+        cbindgen_private::sixtyfps_component_window_show_popup(&inner, &popup, p);
+    }
+
 private:
     cbindgen_private::ComponentWindowOpaque inner;
 };
@@ -215,6 +222,11 @@ public:
 
     const T *operator->() const { return inner.operator->(); }
     const T &operator*() const { return inner.operator*(); }
+
+    /// internal function that returns the internal handle
+    vtable::VRc<private_api::ComponentVTable> into_dyn() const {
+        return inner.into_dyn();
+    }
 };
 
 /// A weak reference to the component. Can be constructed from a `ComponentHandle<T>`
