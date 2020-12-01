@@ -154,9 +154,7 @@ Example := Button {
 }
 ```
 
-### Two ways bindings
-
-(TODO)
+### Two-way Bindings
 
 Using the `<=>` syntax, one can create two ways binding between properties. These properties are now linked
 together.
@@ -524,7 +522,7 @@ Example := Rectangle {
 In that example, when the `is_enabled` property is set to false, the `disabled` state will be entered
 This will change the color of the Rectangle and of the Text.
 
-### Transitions (TODO)
+### Transitions
 
 Complex animations can be declared on state transitions:
 
