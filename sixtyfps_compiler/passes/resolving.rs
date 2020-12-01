@@ -692,12 +692,7 @@ impl Expression {
 
         let expected_ty = match operator_class(op) {
             OperatorClass::ComparisonOp => {
-                let (lhs_ty, rhs_ty) = (lhs.ty(), rhs.ty());
-                if rhs_ty.can_convert(&lhs_ty) {
-                    lhs_ty
-                } else {
-                    rhs_ty
-                }
+                Self::common_target_type_for_type_list([lhs.ty(), rhs.ty()].iter().cloned())
             }
             OperatorClass::LogicalOp => Type::Bool,
             OperatorClass::ArithmeticOp => {
