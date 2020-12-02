@@ -271,6 +271,7 @@ pub struct Element {
     pub states: Vec<State>,
     pub transitions: Vec<Transition>,
 
+    /// true when this item's geometry is handled by a layout
     pub child_of_layout: bool,
 
     /// This is the component-local index of this item in the item tree array.

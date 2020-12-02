@@ -219,11 +219,6 @@ fn lower_element_layout(
             elem.borrow_mut().children = children;
             continue;
         } else {
-            if !child.borrow().child_of_layout {
-                check_no_layout_properties(&child, diag);
-                // Don't check again in case we reach this element a second time, to avoid duplicate errors
-                child.borrow_mut().child_of_layout = true;
-            }
             elem.borrow_mut().children.push(child);
         }
     }
@@ -266,8 +261,8 @@ fn lower_layouts_impl(
             .main_layout
             .or_else(|| layouts.main_layout.map(|x| x + component_layouts.len()));
         component_layouts.append(&mut layouts);
+        check_no_layout_properties(elem, diag);
     });
-    check_no_layout_properties(&component.root_element, diag);
 }
 
 /// Create a LayoutItem for the given `item_element`  returns None is the layout is empty
@@ -303,6 +298,8 @@ fn create_layout_item(
     });
     drop(e);
 
+    item_element.borrow_mut().child_of_layout = true;
+
     if let Some(nested_layout_parser) = layout_parse_function(item_element) {
         let layout_rect = LayoutRect::install_on_element(&item_element);
 
@@ -322,7 +319,6 @@ fn create_layout_item(
             element: None,
         })
     } else {
-        item_element.borrow_mut().child_of_layout = true;
         collected_children.push(item_element.clone());
         let element = item_element.clone();
         let layout = {
@@ -350,10 +346,10 @@ impl GridLayout {
     ) {
         let mut get_const_value = |name: &str| {
             item_element
-                .borrow()
+                .borrow_mut()
                 .bindings
-                .get(name)
-                .and_then(|e| eval_const_expr(&e.expression, name, e, diag))
+                .remove(name)
+                .and_then(|e| eval_const_expr(&e.expression, name, &e, diag))
         };
         let colspan = get_const_value("colspan").unwrap_or(1);
         let rowspan = get_const_value("rowspan").unwrap_or(1);
