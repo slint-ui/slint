@@ -63,8 +63,7 @@ TestCase := Rectangle {
 /*
 
 ```rust
-let handle = TestCase::new();
-let instance = handle.as_ref();
+let instance = TestCase::new();
 assert_eq!(instance.get_text1(), sixtyfps::SharedString::from("Hello"));
 assert_eq!(instance.get_text2(), sixtyfps::SharedString::from("Blah"));
 assert_eq!(instance.get_ti1_text(), sixtyfps::SharedString::from("Hello"));

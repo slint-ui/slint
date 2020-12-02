@@ -44,7 +44,7 @@ fn shuffle() -> Vec<i8> {
 
 struct AppState {
     pieces: Rc<sixtyfps::VecModel<Piece>>,
-    main_window: sixtyfps::Weak<MainWindowRc>,
+    main_window: sixtyfps::Weak<MainWindow>,
     /// An array of 16 values wixh represent a 4x4 matrix containing the piece number in that
     /// position. -1 is no piece.
     positions: Vec<i8>,
@@ -187,7 +187,7 @@ pub fn main() {
         }
     };
 
-    let main_window = MainWindowRc::new();
+    let main_window = MainWindow::new();
     let state = Rc::new(RefCell::new(AppState {
         pieces: Rc::new(sixtyfps::VecModel::<Piece>::from(vec![Piece::default(); 15])),
         main_window: main_window.as_weak(),

@@ -95,10 +95,9 @@ assert(instance.get_test5());
 
 
 ```rust
-let handle = TestCase::new();
-let instance = handle.as_ref();
+let instance = TestCase::new();
 use sixtyfps::re_exports::Component;
-instance.apply_layout(sixtyfps::re_exports::Rect::new(Default::default(), sixtyfps::re_exports::Size::new(300., 300.)));
+instance.as_ref().apply_layout(sixtyfps::re_exports::Rect::new(Default::default(), sixtyfps::re_exports::Size::new(300., 300.)));
 assert!(instance.get_test1());
 assert!(instance.get_test2());
 assert!(instance.get_test3());

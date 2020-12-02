@@ -52,17 +52,16 @@ assert_eq(instance.get_value(), 1+1+2);
 
 
 ```rust
-let handle = TestCase::new();
-let instance = handle.as_ref();
+let instance = TestCase::new();
 use sixtyfps::re_exports::Component;
-sixtyfps::testing::send_mouse_click(&handle, -1., -1.); // FIXME: Force creation of repeater components before computing the layout
+sixtyfps::testing::send_mouse_click(instance.clone(), -1., -1.); // FIXME: Force creation of repeater components before computing the layout
 
-instance.apply_layout(sixtyfps::re_exports::Rect::new(Default::default(), sixtyfps::re_exports::Size::new(300., 300.)));
+instance.as_ref().apply_layout(sixtyfps::re_exports::Rect::new(Default::default(), sixtyfps::re_exports::Size::new(300., 300.)));
 
-sixtyfps::testing::send_mouse_click(&handle, 190., 190.);
+sixtyfps::testing::send_mouse_click(instance.clone(), 190., 190.);
 assert_eq!(instance.get_value(), 1+1);
 
-sixtyfps::testing::send_mouse_click(&handle, 5., 290.);
+sixtyfps::testing::send_mouse_click(instance.clone(), 5., 290.);
 assert_eq!(instance.get_value(), 1+1+2);
 
 ```

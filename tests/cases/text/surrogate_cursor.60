@@ -19,21 +19,20 @@ TestCase := TextInput {
 
 /*
 ```rust
-let handle = TestCase::new();
-let instance = handle.as_ref();
-sixtyfps::testing::send_mouse_click(&handle, 50., 50.);
+let instance = TestCase::new();
+sixtyfps::testing::send_mouse_click(instance.clone(), 50., 50.);
 assert!(instance.get_input_focused());
 assert_eq!(instance.get_test_text(), "");
-sixtyfps::testing::send_keyboard_string_sequence(instance, "😍");
+sixtyfps::testing::send_keyboard_string_sequence(instance.as_ref(), "😍");
 assert_eq!(instance.get_test_text(), "😍");
 assert!(!instance.get_has_selection());
 
-sixtyfps::testing::set_current_keyboard_modifiers(instance, sixtyfps::re_exports::SHIFT_MODIFIER.into());
-sixtyfps::testing::send_key_clicks(instance, &[sixtyfps::re_exports::KeyCode::Left]);
+sixtyfps::testing::set_current_keyboard_modifiers(instance.as_ref(), sixtyfps::re_exports::SHIFT_MODIFIER.into());
+sixtyfps::testing::send_key_clicks(instance.as_ref(), &[sixtyfps::re_exports::KeyCode::Left]);
 assert!(instance.get_has_selection());
 assert_eq!(instance.get_test_cursor_pos(), 0);
 assert_eq!(instance.get_test_anchor_pos(), 4);
-sixtyfps::testing::send_key_clicks(instance, &[sixtyfps::re_exports::KeyCode::Back]);
+sixtyfps::testing::send_key_clicks(instance.as_ref(), &[sixtyfps::re_exports::KeyCode::Back]);
 assert!(!instance.get_has_selection());
 
 assert_eq!(instance.get_test_text(), "");

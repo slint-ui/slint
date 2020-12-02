@@ -19,10 +19,9 @@ TestCase := Rectangle {
 
 /*
 ```rust
-let handle = TestCase::new();
-let instance = handle.as_ref();
+let instance = TestCase::new();
 instance.on_test_func({
-    let weak = handle.as_weak();
+    let weak = instance.as_weak();
     move |a| weak.upgrade().unwrap().as_ref().get_some_value() * a
 });
 assert_eq!(instance.get_test_prop(), 4 + 16);

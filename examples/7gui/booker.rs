@@ -14,7 +14,7 @@ use sixtyfps::SharedString;
 sixtyfps::sixtyfps!(import { Booker } from "booker.60";);
 
 pub fn main() {
-    let booker = BookerRc::new();
+    let booker = Booker::new();
     booker.on_validate_date(|date: SharedString| {
         NaiveDate::parse_from_str(date.as_str(), "%d.%m.%Y").is_ok()
     });

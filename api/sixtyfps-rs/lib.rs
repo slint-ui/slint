@@ -361,16 +361,13 @@ pub mod testing {
     pub fn send_mouse_click<
         X: vtable::HasStaticVTable<sixtyfps_corelib::component::ComponentVTable> + HasWindow + 'static,
     >(
-        component: &crate::ComponentHandle<X>,
+        component: impl Into<vtable::VRc<sixtyfps_corelib::component::ComponentVTable, X>>,
         x: f32,
         y: f32,
     ) {
-        sixtyfps_corelib::tests::sixtyfps_send_mouse_click(
-            &vtable::VRc::into_dyn(component.inner.clone()),
-            x,
-            y,
-            component.inner.component_window(),
-        );
+        let rc = component.into();
+        let dyn_rc = vtable::VRc::into_dyn(rc.clone());
+        sixtyfps_corelib::tests::sixtyfps_send_mouse_click(&dyn_rc, x, y, rc.component_window());
     }
 
     /// Simulate a change in keyboard modifiers being pressed

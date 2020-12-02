@@ -55,16 +55,15 @@ assert_eq(instance.get_value(), 9);
 
 
 ```rust
-let handle = TestCase::new();
-let instance = handle.as_ref();
+let instance = TestCase::new();
 
-sixtyfps::testing::send_mouse_click(&handle, 5., 5.);
+sixtyfps::testing::send_mouse_click(instance.clone(), 5., 5.);
 assert_eq!(instance.get_value(), -10);
 
-sixtyfps::testing::send_mouse_click(&handle, 25., 25.);
+sixtyfps::testing::send_mouse_click(instance.clone(), 25., 25.);
 assert_eq!(instance.get_value(), 8);
 
-sixtyfps::testing::send_mouse_click(&handle, 45., 15.);
+sixtyfps::testing::send_mouse_click(instance.clone(), 45., 15.);
 assert_eq!(instance.get_value(), 9);
 
 ```

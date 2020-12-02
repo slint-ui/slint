@@ -29,8 +29,7 @@ TestCase := Rectangle {
 /*
 
 ```rust
-let handle = TestCase::new();
-let instance = handle.as_ref();
+let instance = TestCase::new();
 assert_eq!(instance.get_sub_width1(), 80.);
 assert_eq!(instance.get_sub_width2(), 80.);
 instance.set_sub_width1(99.);

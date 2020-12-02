@@ -27,8 +27,7 @@ assert(!instance.get_e2());
 ```
 
 ```rust
-let handle = TestCase::new();
-let instance = handle.as_ref();
+let instance = TestCase::new();
 assert_eq!(instance.get_p1(), "hello");
 assert_eq!(instance.get_p2(), "fox:🦊");
 assert!(instance.get_e1());

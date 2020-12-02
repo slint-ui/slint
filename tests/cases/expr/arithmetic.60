@@ -37,8 +37,7 @@ assert_eq(instance.get_a(), (((42 + 8) * 10) / 2) - 3);
 
 
 ```rust
-let handle = TestCase::new();
-let instance = handle.as_ref();
+let instance = TestCase::new();
 assert_eq!(instance.get_t1(), 4 + 3 * 2 + 2 - 50 - 2);
 assert_eq!(instance.get_t2(), 500 / 2 * 30 - 1);
 instance.set_a(42);

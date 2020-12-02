@@ -48,8 +48,7 @@ assert_eq(instance.get_i2(), 50);
 
 
 ```rust
-let handle = TestCase::new();
-let instance = handle.as_ref();
+let instance = TestCase::new();
 assert_eq!(instance.get_untyped_d1(), 100);
 assert_eq!(instance.get_untyped_d2(), 3000);
 assert_eq!(instance.get_untyped_d3(), 1500);

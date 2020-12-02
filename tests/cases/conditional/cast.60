@@ -31,8 +31,7 @@ assert_eq(instance.get_s1(), "123");
 
 
 ```rust
-let handle = TestCase::new();
-let instance = handle.as_ref();
+let instance = TestCase::new();
 instance.set_condition(true);
 assert_eq!(instance.get_s1(), "abc");
 assert_eq!(instance.get_s2(), "123");

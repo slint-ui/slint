@@ -34,7 +34,7 @@ pub fn main() {
         TodoItem { checked: false, title: "Profit".into() },
     ]));
 
-    let main_window = MainWindowRc::new();
+    let main_window = MainWindow::new();
     main_window.on_todo_added({
         let todo_model = todo_model.clone();
         move |text| todo_model.push(TodoItem { checked: false, title: text })

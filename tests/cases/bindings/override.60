@@ -27,8 +27,7 @@ TestCase := Rectangle {
 
 /*
 ```rust
-let handle = TestCase::new();
-let instance = handle.as_ref();
+let instance = TestCase::new();
 assert_eq!(instance.get_prop_a(), 1);
 assert_eq!(instance.get_prop_b(), 2);
 ```

@@ -37,8 +37,7 @@ assert_eq(instance.get_controlled_test_length(), 100.);
 
 
 ```rust
-let handle = TestCase::new();
-let instance = handle.as_ref();
+let instance = TestCase::new();
 assert_eq!(instance.get_test_length(), 100.);
 
 assert_eq!(instance.get_controlled_test_length(), 20.);
