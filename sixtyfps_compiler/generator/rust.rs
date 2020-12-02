@@ -534,6 +534,8 @@ fn generate_component(
                 });
             });
 
+            let pub_rep_component_id = quote::format_ident!("{}Rc", rep_component_id);
+
             if let Some(listview) = &repeated.is_listview {
                 let vp_y = access_named_reference(&listview.viewport_y, component, quote!(_self));
                 let vp_h =
@@ -547,7 +549,7 @@ fn generate_component(
 
                 let ensure_updated = quote! {
                     #component_id::FIELD_OFFSETS.#repeater_id.apply_pin(self_pinned).ensure_updated_listview(
-                        || { #rep_component_id::new(self_pinned.self_weak.get().unwrap().clone(), &self_pinned.window).into() },
+                        || { #pub_rep_component_id::new(self_pinned.self_weak.get().unwrap().clone(), &self_pinned.window).into() },
                         #vp_w, #vp_h, #vp_y, #lv_w.get(), #lv_h
                     );
                 };
@@ -566,7 +568,7 @@ fn generate_component(
                 repeated_visit_branch.push(quote!(
                     #repeater_index => {
                         #component_id::FIELD_OFFSETS.#repeater_id.apply_pin(self_pinned).ensure_updated(
-                                || { #rep_component_id::new(self_pinned.self_weak.get().unwrap().clone(), &self_pinned.window).into() }
+                                || { #pub_rep_component_id::new(self_pinned.self_weak.get().unwrap().clone(), &self_pinned.window).into() }
                             );
                         self_pinned.#repeater_id.visit(order, visitor)
                     }
@@ -819,6 +821,12 @@ fn generate_component(
 
                 fn from_inner(inner: vtable::VRc<sixtyfps::re_exports::ComponentVTable, #component_id>) -> Self {
                     Self(inner)
+                }
+            }
+
+            impl From<#public_struct> for vtable::VRc<sixtyfps::re_exports::ComponentVTable, #component_id> {
+                fn from(value: #public_struct) -> Self {
+                    value.0
                 }
             }
         ))
@@ -1143,7 +1151,7 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                     if let Expression::ElementReference(popup_window) = &arguments[0] {
                         let popup_window = popup_window.upgrade().unwrap();
                         let pop_comp = popup_window.borrow().enclosing_component.upgrade().unwrap();
-                        let popup_window_id = component_id(&pop_comp);
+                        let popup_window_id = quote::format_ident!("{}Rc", component_id(&pop_comp));
                         let parent_component = pop_comp.parent_element.upgrade().unwrap().borrow().enclosing_component.upgrade().unwrap();
                         let popup_list = parent_component.popup_windows.borrow();
                         let popup = popup_list.iter().find(|p| Rc::ptr_eq(&p.component, &pop_comp)).unwrap();
@@ -1521,11 +1529,12 @@ impl crate::layout::gen::Language for RustLanguageLayoutGen {
                         let repeater_id = format_ident!("repeater_{}", elem.borrow().id);
                         let rep_component_id =
                             self::component_id(&elem.borrow().base_type.as_component());
+                        let pub_rep_component_id = quote::format_ident!("{}Rc", rep_component_id);
                         repeated_count = quote!(#repeated_count + self.#repeater_id.len());
                         push_code = quote! {
                             #push_code
                             #component_id::FIELD_OFFSETS.#repeater_id.apply_pin(self).ensure_updated(
-                                || { #rep_component_id::new(self.self_weak.get().unwrap().clone(), &self.window).into() }
+                                || { #pub_rep_component_id::new(self.self_weak.get().unwrap().clone(), &self.window).into() }
                             );
                             let internal_vec = self.#repeater_id.components_vec();
                             for sub_comp in &internal_vec {
