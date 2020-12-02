@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 ### Changed
  - The Component is now handled in a `ComponentHandle` struct in both rust and C++
  - ARGBColor renamed RgbaColor
+ - width and hight of some builtin elements now defaults to 100%
 
 ### Added
  - Allow dashes in identifiers (#52)
@@ -13,10 +14,16 @@ All notable changes to this project will be documented in this file.
  - Placeholder text in line edit
  - global components (#96)
  - `Crop` element
+ - `ComboBox` element
+ - `PopupWindow` element
  - `Image` element: New source-clip-{x, y, width, height} properties
  - `Timer` in rust API
  - Transitions are now implemented
  - round/ceil/floor/mod/max/min/cubic-bezier functions
+ - Signal can have return value
+ - `TouchArea` gained `has_hover`
+
+
 
 ## [0.0.2] - 2020-12-22
 
