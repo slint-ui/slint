@@ -21,6 +21,6 @@ pub fn main() {
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
     console_error_panic_hook::set_once();
 
-    let app = App::new();
+    let app = AppRc::new();
     app.run();
 }

@@ -14,11 +14,11 @@ use sixtyfps::SharedString;
 sixtyfps::sixtyfps!(import { Booker } from "booker.60";);
 
 pub fn main() {
-    let booker = Booker::new();
-    booker.as_ref().on_validate_date(|date: SharedString| {
+    let booker = BookerRc::new();
+    booker.on_validate_date(|date: SharedString| {
         NaiveDate::parse_from_str(date.as_str(), "%d.%m.%Y").is_ok()
     });
-    booker.as_ref().on_compare_date(|date1: SharedString, date2: SharedString| {
+    booker.on_compare_date(|date1: SharedString, date2: SharedString| {
         let date1 = match NaiveDate::parse_from_str(date1.as_str(), "%d.%m.%Y") {
             Err(_) => return false,
             Ok(x) => x,

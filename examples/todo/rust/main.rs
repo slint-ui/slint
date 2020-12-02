@@ -34,12 +34,12 @@ pub fn main() {
         TodoItem { checked: false, title: "Profit".into() },
     ]));
 
-    let main_window = MainWindow::new();
-    main_window.as_ref().on_todo_added({
+    let main_window = MainWindowRc::new();
+    main_window.on_todo_added({
         let todo_model = todo_model.clone();
         move |text| todo_model.push(TodoItem { checked: false, title: text })
     });
-    main_window.as_ref().on_remove_done({
+    main_window.on_remove_done({
         let todo_model = todo_model.clone();
         move || {
             let mut offset = 0;
@@ -52,7 +52,7 @@ pub fn main() {
         }
     });
 
-    main_window.as_ref().set_todo_model(sixtyfps::ModelHandle::new(todo_model));
+    main_window.set_todo_model(sixtyfps::ModelHandle::new(todo_model));
 
     main_window.run();
 }
