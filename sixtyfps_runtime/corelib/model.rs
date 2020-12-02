@@ -75,7 +75,43 @@ pub trait Model {
     fn set_row_data(&self, _row: usize, _data: Self::Data) {}
     /// Should forward to the internal [`ModelNotify::attach`]
     fn attach_peer(&self, peer: ModelPeer);
+
+    /// Returns an iterator visiting all elements of the model.
+    fn iter<'a>(&'a self) -> ModelIterator<'a, Self::Data>
+    where
+        Self: Sized,
+    {
+        ModelIterator { model: self, row: 0 }
+    }
 }
+
+/// An iterator over the elements of a model.
+/// This struct is created by the [Model::iter()] trait function.
+pub struct ModelIterator<'a, T> {
+    model: &'a dyn Model<Data = T>,
+    row: usize,
+}
+
+impl<'a, T> Iterator for ModelIterator<'a, T> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.row < self.model.row_count() {
+            let row = self.row;
+            self.row += 1;
+            Some(self.model.row_data(row))
+        } else {
+            None
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = self.model.row_count();
+        (len, Some(len))
+    }
+}
+
+impl<'a, T> ExactSizeIterator for ModelIterator<'a, T> {}
 
 /// A model backed by a SharedArray
 #[derive(Default)]
