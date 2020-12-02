@@ -49,8 +49,6 @@ TopPanel := Rectangle {
         height: self.width;
 
         TouchArea {
-            width: 100%;
-            height: 100%;
             clicked => {
                 root.quit();
             }
@@ -133,8 +131,6 @@ MainWindow := Window {
             }
         }
         touch := TouchArea {
-            width: 100%;
-            height: 100%;
             clicked => {
                 if (root.active_page == 0) {
                     root.active_page = idx + 1;
@@ -186,8 +182,6 @@ MainWindow := Window {
             vertical-alignment: align-center;
         }
         TouchArea {
-            width: 100%;
-            height: 100%;
             clicked => { root.active_page = 0; }
         }
     }
@@ -233,8 +227,6 @@ MainWindow := Window {
         ]
         animate width, height { duration: 200ms; easing: ease;  }
         TouchArea {
-            width: 100%;
-            height: 100%;
             clicked => {
                 if (active_page == 0) {
                     parent.full_screen = !parent.full_screen;

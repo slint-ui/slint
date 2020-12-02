@@ -59,15 +59,12 @@ Checkbox := Rectangle {
     }
 
     checkbox_rect := Rectangle {
-        width: 100%;
-        height: 100%;
         border-width: height * 10%;
         border-color: unchecked_color;
         border-radius: 2px;
 
         clip := Clip {
             width: 0px;
-            height: 100%;
 
             Text {
                 width: root.width;
@@ -80,8 +77,6 @@ Checkbox := Rectangle {
                 vertical-alignment: align-center;
                 horizontal-alignment: align-center;
                 ta := TouchArea {
-                    width: 100%;
-                    height: 100%;
                     clicked => {
                         checked = !checked;
                         root.toggled(checked);
@@ -253,7 +248,7 @@ export MainWindow := Window {
     }
 
     Rectangle {
-        height: 100%; width: 100%; color: current-theme.window-background-color;
+        color: current-theme.window-background-color;
         animate color { duration: 500ms; easing: ease-out; }
     }
 
@@ -283,7 +278,6 @@ export MainWindow := Window {
                         horizontal-alignment: align-center;
                     }
                     Rectangle {
-                        width: 100%;
                         color: t.color;
                         height: idx == current-theme-index ? 2px: 1px;
                         y: parent.height - height;
@@ -329,8 +323,6 @@ export MainWindow := Window {
             }
 
             if (!current-theme.game-use-background-image) : Rectangle {
-                width: 100%;
-                height: 100%;
                 color: i >= 8 ? current-theme.piece-background-2 : current-theme.piece-background-1;
                 border-color: i >= 8 ? current-theme.piece-border-color-2 : current-theme.piece-border-color-1;
                 border-width: current-theme.piece-border;
@@ -351,14 +343,10 @@ export MainWindow := Window {
             }
 
             touch := TouchArea {
-                width: 100%;
-                height: 100%;
                 clicked => { root.piece_clicked(i); }
             }
 
             shadow := Rectangle {
-                width: 100%;
-                height: 100%;
                 circle := Rectangle {
                     height: width;
                     border-radius: width/2;
@@ -434,8 +422,6 @@ export MainWindow := Window {
                     color: current-theme.game-highlight-color;
                     vertical-alignment: align-center;
                     TouchArea {
-                        width: 100%;
-                        height: 100%;
                         clicked => { root.reset(); }
                     }
                 }

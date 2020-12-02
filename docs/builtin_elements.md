@@ -22,6 +22,8 @@ Window is the root of what is on the screen
 By default, the rectangle is just an empty item that shows nothing. By setting a color or a border
 it is then possible to draw a simple rectangle on the screen
 
+When not part of a layout, its width or height defaults to 100% of the parent element when not specified.
+
 ### Properties
 
 * **`color`** (*color*): The background color of the Rectangle. (default value: transparent)
@@ -135,9 +137,13 @@ Example := Window {
 
 FIXME: write docs
 
+When not part of a layout, its width or height defaults to 100% of the parent element when not specified.
+
 ## `TouchArea`
 
 The TouchArea control what happens when the zone covered by it is touched or interacted with the mouse.
+
+When not part of a layout, its width or height defaults to 100% of the parent element when not specified.
 
 ### Properties
 
@@ -270,9 +276,13 @@ FIXME: write docs
 
 FIXME: write docs
 
+When not part of a layout, its width or height defaults to 100% of the parent element when not specified.
+
 ## `TextInput`
 
 The `TextInput` is a lower-level item that shows text and allows entering text.
+
+When not part of a layout, its width or height defaults to 100% of the parent element when not specified.
 
 ### Properties
 
@@ -311,6 +321,8 @@ Example := Window {
 
 By default, when an item is bigger or outside another item, it is still shown.
 But the `Clip` element  make sure to clip any children outside of the rectangle bounds
+
+When not part of a layout, its width or height defaults to 100% of the parent element when not specified.
 
 ## `PopupWindow`
 

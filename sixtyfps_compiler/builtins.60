@@ -30,6 +30,7 @@ BorderRectangle := Rectangle {
     property <length> border_width;
     property <length> border_radius;
     property <color> border_color;
+    //-expands_to_parent_geometry
 }
 
 export { BorderRectangle as Rectangle }
@@ -77,6 +78,7 @@ export TouchArea := _ {
     property <length> pressed_x;
     property <length> pressed_y;
     signal clicked;
+    //-expands_to_parent_geometry
 }
 
 export Flickable := _ {
@@ -91,6 +93,7 @@ export Flickable := _ {
     property <length> viewport_x;
     property <length> viewport_y;
     property <bool> interactive: true;
+    //-expands_to_parent_geometry
 }
 
 export Window := _ {
@@ -119,7 +122,7 @@ export TextInput := _ {
     signal accepted;
     signal edited;
     property <bool> enabled: true;
-
+    //-expands_to_parent_geometry
     //focus() is hardcoded in typeregister.rs
 }
 
@@ -128,6 +131,7 @@ export Clip := _ {
     property <length> y;
     property <length> width;
     property <length> height;
+    //-expands_to_parent_geometry
 }
 
 Row := _ {
@@ -195,6 +199,8 @@ export Path := _ {
     LineTo {}
     ArcTo {}
     Close {}
+
+    //-expands_to_parent_geometry
 }
 
 export PathLayout := _ {

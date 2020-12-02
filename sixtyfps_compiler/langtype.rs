@@ -478,6 +478,8 @@ pub struct BuiltinElement {
     pub is_non_item_type: bool,
     pub member_functions: HashMap<String, Expression>,
     pub is_global: bool,
+    /// True if this type has a default `width:100%; height:100%`
+    pub expands_to_parent_geometry: bool,
 }
 
 impl BuiltinElement {

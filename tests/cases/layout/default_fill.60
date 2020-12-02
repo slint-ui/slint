@@ -1,0 +1,48 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+TestCase := Rectangle {
+    width: 300phx;
+    height: 200phx;
+
+    elem1 := Rectangle {
+        elem2 := TouchArea {}
+    }
+    elem3 := Rectangle {
+        height: 50%;
+    }
+
+    property <bool> elem1_ok: elem1.width == 300phx && elem1.height == 200phx;
+    property <bool> elem2_ok: elem2.width == 300phx && elem2.height == 200phx;
+    property <bool> elem3_ok: elem2.width == 300phx && elem3.height == 200phx / 2;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+TestCase::apply_layout({&TestCase::component_type, const_cast<TestCase*>(&instance) }, sixtyfps::Rect{0, 0, 300, 300});
+assert(instance.get_elem1_ok());
+assert(instance.get_elem2_ok());
+assert(instance.get_elem3_ok());
+```
+
+
+```rust
+let handle = TestCase::new();
+let instance = handle.as_ref();
+use sixtyfps::re_exports::Component;
+instance.apply_layout(sixtyfps::re_exports::Rect::new(Default::default(), sixtyfps::re_exports::Size::new(300., 300.)));
+assert!(instance.get_elem1_ok());
+assert!(instance.get_elem2_ok());
+assert!(instance.get_elem3_ok());
+```
+
+*/
