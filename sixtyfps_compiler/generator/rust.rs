@@ -81,6 +81,7 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<TokenStre
         .unzip();
     let compo = generate_component(&doc.root_component, diag)?;
     let compo_id = component_id(&doc.root_component);
+    let public_compo_id = quote::format_ident!("{}Rc", compo_id);
     let compo_module = format_ident!("sixtyfps_generated_{}", compo_id);
     let version_check = format_ident!(
         "VersionCheck_{}_{}_{}",
@@ -105,7 +106,7 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<TokenStre
             #compo
             const _THE_SAME_VERSION_MUST_BE_USED_FOR_THE_COMPILER_AND_THE_RUNTIME : sixtyfps::#version_check = sixtyfps::#version_check;
         }
-        pub use #compo_module::{#compo_id #(,#structs_ids)* };
+        pub use #compo_module::{#compo_id, #public_compo_id #(,#structs_ids)* };
     })
 }
 
@@ -239,6 +240,8 @@ fn generate_component(
     component: &Rc<Component>,
     diag: &mut BuildDiagnostics,
 ) -> Option<TokenStream> {
+    let component_id = component_id(component);
+
     let mut extra_components = component
         .popup_windows
         .borrow()
@@ -251,6 +254,7 @@ fn generate_component(
     let mut declared_signals_types = vec![];
     let mut declared_signals_ret = vec![];
     let mut property_and_signal_accessors: Vec<TokenStream> = vec![];
+    let mut public_property_and_signal_accessors: Vec<TokenStream> = vec![];
     for (prop_name, property_decl) in component.root_element.borrow().property_declarations.iter() {
         let prop_ident = format_ident!("{}", prop_name);
         if let Type::Signal { args, return_type } = &property_decl.property_type {
@@ -283,9 +287,21 @@ fn generate_component(
                     )
                     .into(),
                 );
+                public_property_and_signal_accessors.push(
+                    quote!(
+                        #[allow(dead_code)]
+                        pub fn #emitter_ident(&self, #(#args_name : #signal_args,)*) -> #return_type {
+                            #component_id::FIELD_OFFSETS.#prop_ident.apply_pin(vtable::VRc::as_pin_ref(&self.0)).emit(&(#(#args_name,)*))
+                        }
+                    )
+                    .into(),
+                );
+
                 let on_ident = format_ident!("on_{}", prop_name);
                 let args_index = (0..signal_args.len()).map(proc_macro2::Literal::usize_unsuffixed);
-                property_and_signal_accessors.push(
+                {
+                    let args_index = args_index.clone();
+                    property_and_signal_accessors.push(
                     quote!(
                         #[allow(dead_code)]
                         pub fn #on_ident(self: ::core::pin::Pin<&Self>, f: impl Fn(#(#signal_args),*) -> #return_type + 'static) {
@@ -294,6 +310,16 @@ fn generate_component(
                                 // FIXME: why do i need to clone here?
                                 move |args| f(#(args.#args_index.clone()),*)
                             )
+                        }
+                    )
+                    .into(),
+                );
+                }
+                public_property_and_signal_accessors.push(
+                    quote!(
+                        #[allow(dead_code)]
+                        pub fn #on_ident(&self, f: impl Fn(#(#signal_args),*) -> #return_type + 'static) {
+                            vtable::VRc::as_pin_ref(&self.0).#on_ident(f)
                         }
                     )
                     .into(),
@@ -329,6 +355,15 @@ fn generate_component(
                     )
                     .into(),
                 );
+                public_property_and_signal_accessors.push(
+                    quote!(
+                        #[allow(dead_code)]
+                        pub fn #getter_ident(&self) -> #rust_property_type {
+                            vtable::VRc::as_pin_ref(&self.0).#getter_ident()
+                        }
+                    )
+                    .into(),
+                );
 
                 let set_value = property_set_value_tokens(
                     component,
@@ -348,6 +383,15 @@ fn generate_component(
                     )
                     .into(),
                 );
+                public_property_and_signal_accessors.push(
+                    quote!(
+                        #[allow(dead_code)]
+                        pub fn #setter_ident(&self, value: #rust_property_type) {
+                            vtable::VRc::as_pin_ref(&self.0).#setter_ident(value)
+                        }
+                    )
+                    .into(),
+                );
             }
 
             if property_decl.is_alias.is_none() {
@@ -360,8 +404,6 @@ fn generate_component(
     if diag.has_error() {
         return None;
     }
-
-    let component_id = component_id(component);
 
     let mut item_tree_array = Vec::new();
     let mut item_names = Vec::new();
@@ -737,6 +779,42 @@ fn generate_component(
         quote!(::core::pin::Pin<::std::rc::Rc<Self>>)
     };
 
+    let public_interface = if !component.is_global() {
+        let public_struct = quote::format_ident!("{}Rc", component_id);
+
+        let parent_name =
+            if !parent_component_type.is_empty() { Some(quote!(parent)) } else { None };
+        let window_parent_name = window_parent_param.as_ref().map(|_| quote!(, parent_window));
+
+        let run_fun = if component.parent_element.upgrade().is_none() {
+            Some(quote!(
+                pub fn run(self) {
+                    use sixtyfps::Component;
+                    vtable::VRc::as_pin_ref(&self.0).run();
+                }
+            ))
+        } else {
+            None
+        };
+
+        Some(quote!(
+            #[derive(Clone)]
+            #visibility struct #public_struct(vtable::VRc<sixtyfps::re_exports::ComponentVTable, #component_id>);
+
+            impl #public_struct {
+                pub fn new(#(parent: sixtyfps::re_exports::VWeak::<sixtyfps::re_exports::ComponentVTable, #parent_component_type>)* #window_parent_param) -> Self {
+                    Self(#component_id::new(#parent_name #window_parent_name).as_rc())
+                }
+                #(#public_property_and_signal_accessors)*
+
+                #run_fun
+            }
+
+        ))
+    } else {
+        None
+    };
+
     Some(quote!(
         #(#resource_symbols)*
 
@@ -780,6 +858,8 @@ fn generate_component(
             #(#property_and_signal_accessors)*
 
         }
+
+        #public_interface
 
         #drop_impl
 

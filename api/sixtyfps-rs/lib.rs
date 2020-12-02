@@ -271,6 +271,13 @@ impl<T: Component> ComponentHandle<T> {
     }
 }
 
+impl<T> ComponentHandle<T> {
+    /// Temporary addition until this class is gone.
+    pub fn as_rc(&self) -> vtable::VRc<re_exports::ComponentVTable, T> {
+        self.inner.clone()
+    }
+}
+
 /// A weak handle to a component created from a .60 file.
 ///
 /// One create a ComponentWeakHandle using the [`ComponentHandle::as_weak`] function, and one
