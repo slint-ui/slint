@@ -21,7 +21,8 @@ All notable changes to this project will be documented in this file.
  - Transitions are now implemented
  - round/ceil/floor/mod/max/min/cubic-bezier functions
  - Signal can have return value
- - `TouchArea` gained `has_hover`
+ - `has_hover` property in `TouchArea`
+ - `font-weight` property on Text
 
 
 
