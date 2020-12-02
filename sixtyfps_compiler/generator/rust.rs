@@ -107,6 +107,7 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<TokenStre
             const _THE_SAME_VERSION_MUST_BE_USED_FOR_THE_COMPILER_AND_THE_RUNTIME : sixtyfps::#version_check = sixtyfps::#version_check;
         }
         pub use #compo_module::{#compo_id, #public_compo_id #(,#structs_ids)* };
+        pub use sixtyfps::IntoWeak;
     })
 }
 
@@ -810,6 +811,16 @@ fn generate_component(
                 #run_fun
             }
 
+            impl sixtyfps::IntoWeak for #public_struct {
+                type Inner = #component_id;
+                fn as_weak(&self) -> sixtyfps::Weak<Self> {
+                    sixtyfps::Weak::new(&self.0)
+                }
+
+                fn from_inner(inner: vtable::VRc<sixtyfps::re_exports::ComponentVTable, #component_id>) -> Self {
+                    Self(inner)
+                }
+            }
         ))
     } else {
         None

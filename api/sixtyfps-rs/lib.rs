@@ -305,6 +305,48 @@ impl<T> ComponentWeakHandle<T> {
     }
 }
 
+/// This trait describes the conversion of a strongly referenced SixtyFPS component,
+/// held by a [vtable::VRc] into a weak reference.
+pub trait IntoWeak {
+    /// The type of the generated component.
+    type Inner;
+    /// Returns a new weak pointer.
+    fn as_weak(&self) -> Weak<Self>
+    where
+        Self: Sized;
+
+    /// Internal function used when upgrading a weak reference to a strong one.
+    fn from_inner(_: vtable::VRc<re_exports::ComponentVTable, Self::Inner>) -> Self;
+}
+
+/// Struct that's used to hold weak references for SixtyFPS components.
+pub struct Weak<T: IntoWeak> {
+    inner: vtable::VWeak<re_exports::ComponentVTable, T::Inner>,
+}
+
+impl<T: IntoWeak> Weak<T> {
+    #[doc(hidden)]
+    pub fn new(rc: &vtable::VRc<re_exports::ComponentVTable, T::Inner>) -> Self {
+        Self { inner: vtable::VRc::downgrade(&rc) }
+    }
+
+    /// Returns a new strongly referenced component if some other instance still
+    /// holds a strong reference. Otherwise, returns None.
+    pub fn upgrade(&self) -> Option<T>
+    where
+        T: IntoWeak,
+    {
+        self.inner.upgrade().map(|inner| T::from_inner(inner))
+    }
+
+    /// Convenience function that returns a new stronlyg referenced component if
+    /// some other instance still holds a strong reference. Otherwise, this function
+    /// panics.
+    pub fn unwrap(&self) -> T {
+        self.upgrade().unwrap()
+    }
+}
+
 /// This module contains functions useful for unit tests
 pub mod testing {
     /// This trait gives access to the underyling Window of a component for the
