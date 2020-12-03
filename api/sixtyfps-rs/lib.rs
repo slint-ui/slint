@@ -309,6 +309,7 @@ impl<T> ComponentWeakHandle<T> {
 /// held by a [vtable::VRc] into a weak reference.
 pub trait IntoWeak {
     /// The type of the generated component.
+    #[doc(hidden)]
     type Inner;
     /// Returns a new weak pointer.
     fn as_weak(&self) -> Weak<Self>
@@ -316,6 +317,7 @@ pub trait IntoWeak {
         Self: Sized;
 
     /// Internal function used when upgrading a weak reference to a strong one.
+    #[doc(hidden)]
     fn from_inner(_: vtable::VRc<re_exports::ComponentVTable, Self::Inner>) -> Self;
 }
 

@@ -46,7 +46,8 @@ pub mod widgets {
 pub mod generated_code {
 
     use crate::re_exports;
-    use crate::ComponentHandle;
+    use crate::IntoWeak;
+    use crate::Weak;
 
     /// This an example of the API that is generated for a component in `.60` design markup. This may help you understand
     /// what functions you can call and how you can pass data in and out.
@@ -59,16 +60,17 @@ pub mod generated_code {
     ///     /// ... maybe more elements here
     /// }
     /// ```
+    #[derive(Clone)]
     pub struct SampleComponent {}
     impl SampleComponent {
         /// Creates a new instance that is reference counted and pinned in memory.
-        pub fn new() -> ComponentHandle<Self> {
+        pub fn new() -> Self {
             unimplemented!()
         }
         /// A getter is generated for each property declared at the root of the component.
         /// In this case, this is the getter that returns the value of the `counter`
         /// property declared in the `.60` design markup.
-        pub fn get_counter(self: ::core::pin::Pin<&Self>) -> i32 {
+        pub fn get_counter(&self) -> i32 {
             unimplemented!()
         }
         /// A setter is generated for each property declared at the root of the component,
@@ -76,7 +78,7 @@ pub mod generated_code {
         /// declared in the `.60` design markup.
         pub fn set_counter(&self, value: i32) {}
         /// Returns the value of the `user_name` property declared in the `.60` design markup.
-        pub fn get_user_name(self: ::core::pin::Pin<&Self>) -> re_exports::SharedString {
+        pub fn get_user_name(&self) -> re_exports::SharedString {
             unimplemented!()
         }
         /// Assigns a new value to the `user_name` property.
@@ -84,21 +86,33 @@ pub mod generated_code {
         /// For each signal declared at the root of the component, a function to emit that
         /// signal is generated. This is the function that emits the `hello` signal declared
         /// in the `.60` design markup.
-        pub fn emit_hello(self: ::core::pin::Pin<&Self>) {}
+        pub fn emit_hello(&self) {}
         /// For each signal declared at the root of the component, a function connect to that signal
         /// is generated. This is the function that registers the function f as callback when the
         /// signal `hello` is emitted. In order to access
         /// the component in the callback, you'd typically capture a weak reference obtained using
-        /// [`ComponentHandle::as_weak`]
+        /// [`IntoWeak::as_weak`]
         /// and then upgrade it to a strong reference when the callback is run:
         /// ```ignore
         ///     let sample = SampleComponent::new();
-        ///     let sample_weak = sample.clone().as_weak();
+        ///     let sample_weak = sample.as_weak();
         ///     sample.as_ref().on_hello(move || {
-        ///         let sample = sample_weak.upgrade().unwrap();
+        ///         let sample = sample_weak.unwrap();
         ///         sample.as_ref().set_counter(42);
         ///     });
         /// ```
-        pub fn on_hello(self: ::core::pin::Pin<&Self>, f: impl Fn() + 'static) {}
+        pub fn on_hello(&self, f: impl Fn() + 'static) {}
+    }
+
+    impl IntoWeak for SampleComponent {
+        #[doc(hidden)]
+        type Inner = SampleComponent;
+        fn as_weak(&self) -> Weak<Self> {
+            unimplemented!()
+        }
+        #[doc(hidden)]
+        fn from_inner(_: vtable::VRc<re_exports::ComponentVTable, Self::Inner>) -> Self {
+            unimplemented!();
+        }
     }
 }
