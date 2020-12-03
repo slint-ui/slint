@@ -255,7 +255,6 @@ fn generate_component(
     let mut declared_signals_types = vec![];
     let mut declared_signals_ret = vec![];
     let mut property_and_signal_accessors: Vec<TokenStream> = vec![];
-    let mut public_property_and_signal_accessors: Vec<TokenStream> = vec![];
     for (prop_name, property_decl) in component.root_element.borrow().property_declarations.iter() {
         let prop_ident = format_ident!("{}", prop_name);
         if let Type::Signal { args, return_type } = &property_decl.property_type {
@@ -282,17 +281,9 @@ fn generate_component(
                 property_and_signal_accessors.push(
                     quote!(
                         #[allow(dead_code)]
-                        pub fn #emitter_ident(self: ::core::pin::Pin<&Self>, #(#args_name : #signal_args,)*) -> #return_type {
-                            Self::FIELD_OFFSETS.#prop_ident.apply_pin(self).emit(&(#(#args_name,)*))
-                        }
-                    )
-                    .into(),
-                );
-                public_property_and_signal_accessors.push(
-                    quote!(
-                        #[allow(dead_code)]
                         pub fn #emitter_ident(&self, #(#args_name : #signal_args,)*) -> #return_type {
-                            #component_id::FIELD_OFFSETS.#prop_ident.apply_pin(vtable::VRc::as_pin_ref(&self.0)).emit(&(#(#args_name,)*))
+                            let self_pinned = vtable::VRc::as_pin_ref(&self.0);
+                            #component_id::FIELD_OFFSETS.#prop_ident.apply_pin(self_pinned).emit(&(#(#args_name,)*))
                         }
                     )
                     .into(),
@@ -300,27 +291,16 @@ fn generate_component(
 
                 let on_ident = format_ident!("on_{}", prop_name);
                 let args_index = (0..signal_args.len()).map(proc_macro2::Literal::usize_unsuffixed);
-                {
-                    let args_index = args_index.clone();
-                    property_and_signal_accessors.push(
-                    quote!(
-                        #[allow(dead_code)]
-                        pub fn #on_ident(self: ::core::pin::Pin<&Self>, f: impl Fn(#(#signal_args),*) -> #return_type + 'static) {
-                            #[allow(unused)]
-                            Self::FIELD_OFFSETS.#prop_ident.apply_pin(self).set_handler(
-                                // FIXME: why do i need to clone here?
-                                move |args| f(#(args.#args_index.clone()),*)
-                            )
-                        }
-                    )
-                    .into(),
-                );
-                }
-                public_property_and_signal_accessors.push(
+                property_and_signal_accessors.push(
                     quote!(
                         #[allow(dead_code)]
                         pub fn #on_ident(&self, f: impl Fn(#(#signal_args),*) -> #return_type + 'static) {
-                            vtable::VRc::as_pin_ref(&self.0).#on_ident(f)
+                            let self_pinned = vtable::VRc::as_pin_ref(&self.0);
+                            #[allow(unused)]
+                            #component_id::FIELD_OFFSETS.#prop_ident.apply_pin(self_pinned).set_handler(
+                                // FIXME: why do i need to clone here?
+                                move |args| f(#(args.#args_index.clone()),*)
+                            )
                         }
                     )
                     .into(),
@@ -340,27 +320,19 @@ fn generate_component(
                 let setter_ident = format_ident!("set_{}", prop_name);
 
                 let prop = if let Some(alias) = &property_decl.is_alias {
-                    access_named_reference(alias, component, quote!(self))
+                    access_named_reference(alias, component, quote!(_self))
                 } else {
-                    quote!(Self::FIELD_OFFSETS.#prop_ident.apply_pin(self))
+                    quote!(#component_id::FIELD_OFFSETS.#prop_ident.apply_pin(_self))
                 };
 
                 property_and_signal_accessors.push(
                     quote!(
                         #[allow(dead_code)]
-                        pub fn #getter_ident(self: ::core::pin::Pin<&Self>) -> #rust_property_type {
+                        pub fn #getter_ident(&self) -> #rust_property_type {
                             #[allow(unused_imports)]
                             use sixtyfps::re_exports::*;
+                            let _self = vtable::VRc::as_pin_ref(&self.0);
                             #prop.get()
-                        }
-                    )
-                    .into(),
-                );
-                public_property_and_signal_accessors.push(
-                    quote!(
-                        #[allow(dead_code)]
-                        pub fn #getter_ident(&self) -> #rust_property_type {
-                            vtable::VRc::as_pin_ref(&self.0).#getter_ident()
                         }
                     )
                     .into(),
@@ -375,20 +347,11 @@ fn generate_component(
                 property_and_signal_accessors.push(
                     quote!(
                         #[allow(dead_code)]
-                        pub fn #setter_ident(self: ::core::pin::Pin<&Self>, value: #rust_property_type) {
+                        pub fn #setter_ident(&self, value: #rust_property_type) {
                             #[allow(unused_imports)]
                             use sixtyfps::re_exports::*;
-                            let _self = self.as_ref();
+                            let _self = vtable::VRc::as_pin_ref(&self.0);
                             #prop.#set_value
-                        }
-                    )
-                    .into(),
-                );
-                public_property_and_signal_accessors.push(
-                    quote!(
-                        #[allow(dead_code)]
-                        pub fn #setter_ident(&self, value: #rust_property_type) {
-                            vtable::VRc::as_pin_ref(&self.0).#setter_ident(value)
                         }
                     )
                     .into(),
@@ -708,50 +671,52 @@ fn generate_component(
         init.push(compile_expression(extra_init_code, component));
     }
 
-    let component_impl = if component.is_global() {
-        None
+    let (item_tree_impl, component_impl) = if component.is_global() {
+        (None, None)
     } else {
         let item_tree_array_len = item_tree_array.len();
-        property_and_signal_accessors.push(quote!{
-            fn item_tree() -> &'static [sixtyfps::re_exports::ItemTreeNode<Self>] {
-                use sixtyfps::re_exports::*;
-                ComponentVTable_static!(static VT for #component_id);
-                // FIXME: ideally this should be a const
-                static ITEM_TREE : Lazy<[sixtyfps::re_exports::ItemTreeNode<#component_id>; #item_tree_array_len]>  =
-                    Lazy::new(|| [#(#item_tree_array),*]);
-                &*ITEM_TREE
-            }
-        });
         init.insert(0, quote!(sixtyfps::re_exports::init_component_items(_self, Self::item_tree(), &_self.window);));
-        Some(quote! {
-        impl sixtyfps::re_exports::Component for #component_id {
-            fn visit_children_item(self: ::core::pin::Pin<&Self>, index: isize, order: sixtyfps::re_exports::TraversalOrder, visitor: sixtyfps::re_exports::ItemVisitorRefMut)
-                -> sixtyfps::re_exports::VisitChildrenResult
-            {
-                use sixtyfps::re_exports::*;
-                return sixtyfps::re_exports::visit_item_tree(self, &VRc::into_dyn(self.as_ref().self_weak.get().unwrap().upgrade().unwrap()), Self::item_tree(), index, order, visitor, visit_dynamic);
-                #[allow(unused)]
-                fn visit_dynamic(self_pinned: ::core::pin::Pin<&#component_id>, order: sixtyfps::re_exports::TraversalOrder, visitor: ItemVisitorRefMut, dyn_index: usize) -> VisitChildrenResult  {
-                    let _self = self_pinned;
-                    match dyn_index {
-                        #(#repeated_visit_branch)*
-                        _ => panic!("invalid dyn_index {}", dyn_index),
+        (
+            Some(quote! {
+                fn item_tree() -> &'static [sixtyfps::re_exports::ItemTreeNode<Self>] {
+                    use sixtyfps::re_exports::*;
+                    ComponentVTable_static!(static VT for #component_id);
+                    // FIXME: ideally this should be a const
+                    static ITEM_TREE : Lazy<[sixtyfps::re_exports::ItemTreeNode<#component_id>; #item_tree_array_len]>  =
+                        Lazy::new(|| [#(#item_tree_array),*]);
+                    &*ITEM_TREE
+                }
+            }),
+            Some(quote! {
+            impl sixtyfps::re_exports::Component for #component_id {
+                fn visit_children_item(self: ::core::pin::Pin<&Self>, index: isize, order: sixtyfps::re_exports::TraversalOrder, visitor: sixtyfps::re_exports::ItemVisitorRefMut)
+                    -> sixtyfps::re_exports::VisitChildrenResult
+                {
+                    use sixtyfps::re_exports::*;
+                    return sixtyfps::re_exports::visit_item_tree(self, &VRc::into_dyn(self.as_ref().self_weak.get().unwrap().upgrade().unwrap()), Self::item_tree(), index, order, visitor, visit_dynamic);
+                    #[allow(unused)]
+                    fn visit_dynamic(self_pinned: ::core::pin::Pin<&#component_id>, order: sixtyfps::re_exports::TraversalOrder, visitor: ItemVisitorRefMut, dyn_index: usize) -> VisitChildrenResult  {
+                        let _self = self_pinned;
+                        match dyn_index {
+                            #(#repeated_visit_branch)*
+                            _ => panic!("invalid dyn_index {}", dyn_index),
+                        }
+                    }
+                }
+
+
+                #layouts
+
+                fn get_item_ref(self: ::core::pin::Pin<&Self>, index: usize) -> ::core::pin::Pin<ItemRef> {
+                    match &Self::item_tree()[index] {
+                        ItemTreeNode::Item { item, .. } => item.apply_pin(self),
+                        ItemTreeNode::DynamicTree { .. } => panic!("get_item_ref called on dynamic tree"),
+
                     }
                 }
             }
-
-
-            #layouts
-
-            fn get_item_ref(self: ::core::pin::Pin<&Self>, index: usize) -> ::core::pin::Pin<ItemRef> {
-                match &Self::item_tree()[index] {
-                    ItemTreeNode::Item { item, .. } => item.apply_pin(self),
-                    ItemTreeNode::DynamicTree { .. } => panic!("get_item_ref called on dynamic tree"),
-
-                }
-            }
-        }
-        })
+            }),
+        )
     };
 
     let (global_name, global_type): (Vec<_>, Vec<_>) = component
@@ -808,7 +773,7 @@ fn generate_component(
                 pub fn new(#(parent: sixtyfps::re_exports::VWeak::<sixtyfps::re_exports::ComponentVTable, #parent_component_type>)* #window_parent_param) -> Self {
                     Self(#component_id::new(#parent_name #window_parent_name))
                 }
-                #(#public_property_and_signal_accessors)*
+                #(#property_and_signal_accessors)*
 
                 #run_fun
 
@@ -878,7 +843,7 @@ fn generate_component(
                 #(#init)*
                 self_pinned.into()
             }
-            #(#property_and_signal_accessors)*
+            #item_tree_impl
 
         }
 

@@ -61,7 +61,6 @@ assert_eq(t.get_g1(), t.get_b1());
 
 ```rust
 let t = Test::new();
-let t = t.as_ref();
 assert_eq!(t.get_r1(), t.get_r2());
 assert_eq!(t.get_r1(), t.get_r3());
 assert_eq!(t.get_r1(), t.get_r4());
