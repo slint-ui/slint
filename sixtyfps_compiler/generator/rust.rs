@@ -633,11 +633,6 @@ fn generate_component(
                     &self.window
                 }
             }
-            impl sixtyfps::Component for #component_id {
-                fn run(self: ::core::pin::Pin<&Self>) {
-                    self.as_ref().window.run();
-                }
-            }
         ))
     } else {
         window_field = None;
@@ -757,8 +752,7 @@ fn generate_component(
         let run_fun = if component.parent_element.upgrade().is_none() {
             Some(quote!(
                 pub fn run(self) {
-                    use sixtyfps::Component;
-                    vtable::VRc::as_pin_ref(&self.0).run();
+                    vtable::VRc::as_pin_ref(&self.0).window.run();
                 }
             ))
         } else {

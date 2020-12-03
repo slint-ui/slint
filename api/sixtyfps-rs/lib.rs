@@ -212,12 +212,6 @@ pub fn create_window() -> re_exports::ComponentWindow {
     sixtyfps_rendering_backend_default::create_window()
 }
 
-/// Trait implemented by the generated code
-pub trait Component: re_exports::HasStaticVTable<re_exports::ComponentVTable> {
-    /// Show this component and run the event loop
-    fn run(self: core::pin::Pin<&Self>);
-}
-
 /// This trait describes the conversion of a strongly referenced SixtyFPS component,
 /// held by a [vtable::VRc] into a weak reference.
 pub trait IntoWeak {
