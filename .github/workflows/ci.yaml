@@ -242,6 +242,9 @@ jobs:
     - name: Install doxygen
       run: sudo apt-get install doxygen
     - uses: dschep/install-pipenv-action@v1
+    - name: Remove docs from cache # Avoid stale docs
+      run: |
+          rm -rf target/doc target/cppdocs api/sixtyfps-node/docs
     - name: Build Cpp docs
       run: cargo xtask cppdocs
     - name: "Rust docs"
