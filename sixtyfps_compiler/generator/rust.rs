@@ -777,7 +777,7 @@ fn generate_component(
     let self_weak = if !component.is_global() { Some(quote!(self_weak)) } else { None };
     let self_weak = self_weak.into_iter().collect::<Vec<_>>();
     let component_handle = if !component.is_global() {
-        quote!(sixtyfps::ComponentHandle<Self>)
+        quote!(vtable::VRc<sixtyfps::re_exports::ComponentVTable, Self>)
     } else {
         quote!(::core::pin::Pin<::std::rc::Rc<Self>>)
     };
@@ -806,7 +806,7 @@ fn generate_component(
 
             impl #public_struct {
                 pub fn new(#(parent: sixtyfps::re_exports::VWeak::<sixtyfps::re_exports::ComponentVTable, #parent_component_type>)* #window_parent_param) -> Self {
-                    Self(#component_id::new(#parent_name #window_parent_name).as_rc())
+                    Self(#component_id::new(#parent_name #window_parent_name))
                 }
                 #(#public_property_and_signal_accessors)*
 
