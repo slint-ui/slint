@@ -496,8 +496,6 @@ fn generate_component(
                 });
             });
 
-            let rep_public_component_id = self::public_component_id(&*base_component);
-
             if let Some(listview) = &repeated.is_listview {
                 let vp_y = access_named_reference(&listview.viewport_y, component, quote!(_self));
                 let vp_h =
@@ -511,7 +509,7 @@ fn generate_component(
 
                 let ensure_updated = quote! {
                     #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(self_pinned).ensure_updated_listview(
-                        || { #rep_public_component_id::new(self_pinned.self_weak.get().unwrap().clone(), &self_pinned.window).into() },
+                        || { #rep_inner_component_id::new(self_pinned.self_weak.get().unwrap().clone(), &self_pinned.window).into() },
                         #vp_w, #vp_h, #vp_y, #lv_w.get(), #lv_h
                     );
                 };
@@ -530,7 +528,7 @@ fn generate_component(
                 repeated_visit_branch.push(quote!(
                     #repeater_index => {
                         #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(self_pinned).ensure_updated(
-                                || { #rep_public_component_id::new(self_pinned.self_weak.get().unwrap().clone(), &self_pinned.window).into() }
+                                || { #rep_inner_component_id::new(self_pinned.self_weak.get().unwrap().clone(), &self_pinned.window).into() }
                             );
                         self_pinned.#repeater_id.visit(order, visitor)
                     }
@@ -741,7 +739,8 @@ fn generate_component(
         quote!(::core::pin::Pin<::std::rc::Rc<Self>>)
     };
 
-    let public_interface = if !component.is_global() {
+    let public_interface = if !component.is_global() && component.parent_element.upgrade().is_none()
+    {
         let public_component_id = public_component_id(component);
 
         let parent_name =
@@ -1119,7 +1118,7 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                     if let Expression::ElementReference(popup_window) = &arguments[0] {
                         let popup_window = popup_window.upgrade().unwrap();
                         let pop_comp = popup_window.borrow().enclosing_component.upgrade().unwrap();
-                        let popup_window_id = public_component_id(&pop_comp);
+                        let popup_window_id = inner_component_id(&pop_comp);
                         let parent_component = pop_comp.parent_element.upgrade().unwrap().borrow().enclosing_component.upgrade().unwrap();
                         let popup_list = parent_component.popup_windows.borrow();
                         let popup = popup_list.iter().find(|p| Rc::ptr_eq(&p.component, &pop_comp)).unwrap();
@@ -1495,13 +1494,13 @@ impl crate::layout::gen::Language for RustLanguageLayoutGen {
                 match &item.element {
                     Some(elem) if elem.borrow().repeated.is_some() => {
                         let repeater_id = format_ident!("repeater_{}", elem.borrow().id);
-                        let rep_public_component_id =
-                            self::public_component_id(&elem.borrow().base_type.as_component());
+                        let rep_inner_component_id =
+                            self::inner_component_id(&elem.borrow().base_type.as_component());
                         repeated_count = quote!(#repeated_count + self.#repeater_id.len());
                         push_code = quote! {
                             #push_code
                             #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(self).ensure_updated(
-                                || { #rep_public_component_id::new(self.self_weak.get().unwrap().clone(), &self.window).into() }
+                                || { #rep_inner_component_id::new(self.self_weak.get().unwrap().clone(), &self.window).into() }
                             );
                             let internal_vec = self.#repeater_id.components_vec();
                             for sub_comp in &internal_vec {
