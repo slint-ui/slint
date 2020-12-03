@@ -233,6 +233,12 @@ pub struct Weak<T: IntoWeak> {
     inner: vtable::VWeak<re_exports::ComponentVTable, T::Inner>,
 }
 
+impl<T: IntoWeak> Clone for Weak<T> {
+    fn clone(&self) -> Self {
+        Self { inner: self.inner.clone() }
+    }
+}
+
 impl<T: IntoWeak> Weak<T> {
     #[doc(hidden)]
     pub fn new(rc: &vtable::VRc<re_exports::ComponentVTable, T::Inner>) -> Self {
