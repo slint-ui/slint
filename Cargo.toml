@@ -58,3 +58,9 @@ default-members = [
 # Needed to pull in fix for https://github.com/rust-windowing/winit/pull/1747
 [patch.crates-io]
 winit = { git = "https://github.com/tronical/winit", branch = "master" }
+
+#Do the build of the macro in release, in order to speedup the .60 compilation
+[profile.release.build-override]
+opt-level = 3
+[profile.dev.build-override]
+opt-level = 2
