@@ -768,11 +768,6 @@ fn generate_component(
                 #(#property_and_signal_accessors)*
 
                 #run_fun
-
-                #[allow(dead_code)]
-                pub fn as_ref(&self) -> core::pin::Pin<&#inner_component_id> {
-                    vtable::VRc::as_pin_ref(&self.0)
-                }
             }
 
             impl sixtyfps::IntoWeak for #public_component_id {

@@ -280,10 +280,14 @@ pub mod testing {
     }
 
     /// Simulate a change in keyboard modifiers being pressed
-    pub fn set_current_keyboard_modifiers<X: HasWindow>(
-        component: core::pin::Pin<&X>,
+    pub fn set_current_keyboard_modifiers<
+        X: vtable::HasStaticVTable<sixtyfps_corelib::component::ComponentVTable> + HasWindow,
+        Component: Into<vtable::VRc<sixtyfps_corelib::component::ComponentVTable, X>> + Clone,
+    >(
+        component: &Component,
         modifiers: crate::re_exports::KeyboardModifiers,
     ) {
+        let component = component.clone().into();
         sixtyfps_corelib::tests::sixtyfps_set_keyboard_modifiers(
             component.component_window(),
             modifiers,
@@ -293,10 +297,12 @@ pub mod testing {
     /// Simulate a series of key press and release event
     pub fn send_key_clicks<
         X: vtable::HasStaticVTable<sixtyfps_corelib::component::ComponentVTable> + HasWindow,
+        Component: Into<vtable::VRc<sixtyfps_corelib::component::ComponentVTable, X>> + Clone,
     >(
-        component: core::pin::Pin<&X>,
+        component: &Component,
         key_codes: &[crate::re_exports::KeyCode],
     ) {
+        let component = component.clone().into();
         sixtyfps_corelib::tests::sixtyfps_send_key_clicks(
             &crate::re_exports::Slice::from_slice(key_codes),
             component.component_window(),
@@ -306,14 +312,41 @@ pub mod testing {
     /// Simulate entering a sequence of ascii characters key by key.
     pub fn send_keyboard_string_sequence<
         X: vtable::HasStaticVTable<sixtyfps_corelib::component::ComponentVTable> + HasWindow,
+        Component: Into<vtable::VRc<sixtyfps_corelib::component::ComponentVTable, X>> + Clone,
     >(
-        component: core::pin::Pin<&X>,
+        component: &Component,
         sequence: &str,
     ) {
+        let component = component.clone().into();
         sixtyfps_corelib::tests::send_keyboard_string_sequence(
             &super::SharedString::from(sequence),
             component.component_window(),
         )
+    }
+
+    /// Applies the specified rectangular constraints to the component's layout.
+    pub fn apply_layout<
+        X: vtable::HasStaticVTable<sixtyfps_corelib::component::ComponentVTable>,
+        Component: Into<vtable::VRc<sixtyfps_corelib::component::ComponentVTable, X>> + Clone,
+    >(
+        component: &Component,
+        rect: sixtyfps_corelib::graphics::Rect,
+    ) {
+        let rc = component.clone().into();
+        vtable::VRc::borrow_pin(&rc).as_ref().apply_layout(rect);
+    }
+
+    /// Applies the specified scale factor to the window that's associated with the given component.
+    /// This overrides the value provided by the windowing system.
+    pub fn set_window_scale_factor<
+        X: vtable::HasStaticVTable<sixtyfps_corelib::component::ComponentVTable> + HasWindow,
+        Component: Into<vtable::VRc<sixtyfps_corelib::component::ComponentVTable, X>> + Clone,
+    >(
+        component: &Component,
+        factor: f32,
+    ) {
+        let component = component.clone().into();
+        component.component_window().set_scale_factor(factor)
     }
 }
 
