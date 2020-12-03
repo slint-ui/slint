@@ -269,12 +269,13 @@ pub mod testing {
     /// Simulate a mouse click
     pub fn send_mouse_click<
         X: vtable::HasStaticVTable<sixtyfps_corelib::component::ComponentVTable> + HasWindow + 'static,
+        Component: Into<vtable::VRc<sixtyfps_corelib::component::ComponentVTable, X>> + Clone,
     >(
-        component: impl Into<vtable::VRc<sixtyfps_corelib::component::ComponentVTable, X>>,
+        component: &Component,
         x: f32,
         y: f32,
     ) {
-        let rc = component.into();
+        let rc = component.clone().into();
         let dyn_rc = vtable::VRc::into_dyn(rc.clone());
         sixtyfps_corelib::tests::sixtyfps_send_mouse_click(&dyn_rc, x, y, rc.component_window());
     }

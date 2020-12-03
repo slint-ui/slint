@@ -46,7 +46,7 @@ TestCase := Rectangle {
 use sixtyfps::Model;
 let instance = TestCase::new();
 
-sixtyfps::testing::send_mouse_click(instance.clone(), 15., 5.);
+sixtyfps::testing::send_mouse_click(&instance, 15., 5.);
 assert_eq!(instance.get_clicked_score(), 791);
 
 type ModelData = (sixtyfps::SharedString, sixtyfps::SharedString, f32);
@@ -59,10 +59,10 @@ let another_model = std::rc::Rc::new(sixtyfps::VecModel::<ModelData>::from(
 
 instance.set_model(sixtyfps::ModelHandle::new(another_model.clone()));
 
-sixtyfps::testing::send_mouse_click(instance.clone(), 25., 5.);
+sixtyfps::testing::send_mouse_click(&instance, 25., 5.);
 assert_eq!(instance.get_clicked_score(), 335);
 assert_eq!(another_model.row_data(2).2, 335.);
-sixtyfps::testing::send_mouse_click(instance.clone(), 25., 5.);
+sixtyfps::testing::send_mouse_click(&instance, 25., 5.);
 assert_eq!(instance.get_clicked_score(), 337);
 assert_eq!(another_model.row_data(2).2, 337.);
 assert_eq!(another_model.row_data(2).1, sixtyfps::SharedString::from("world"));

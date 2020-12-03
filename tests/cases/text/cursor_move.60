@@ -20,7 +20,7 @@ TestCase := TextInput {
 /*
 ```rust
 let instance = TestCase::new();
-sixtyfps::testing::send_mouse_click(instance.clone(), 50., 50.);
+sixtyfps::testing::send_mouse_click(&instance, 50., 50.);
 assert!(instance.get_input_focused());
 assert_eq!(instance.get_test_text(), "");
 sixtyfps::testing::send_keyboard_string_sequence(&instance, "Test");

@@ -53,11 +53,11 @@ TestCase := Rectangle {
 let instance = TestCase::new();
 
 // there should be nothing there
-sixtyfps::testing::send_mouse_click(instance.clone(), 25., 5.);
+sixtyfps::testing::send_mouse_click(&instance, 25., 5.);
 assert_eq!(instance.get_clicked_score(), 0);
 assert_eq!(instance.get_clicked_internal_state(), 0);
 
-sixtyfps::testing::send_mouse_click(instance.clone(), 15., 5.);
+sixtyfps::testing::send_mouse_click(&instance, 15., 5.);
 assert_eq!(instance.get_clicked_score(), 789000);
 assert_eq!(instance.get_clicked_internal_state(), 1);
 
@@ -71,32 +71,32 @@ let another_model = std::rc::Rc::new(sixtyfps::VecModel::<ModelData>::from(
 
 instance.set_model(sixtyfps::ModelHandle::new(another_model.clone()));
 
-sixtyfps::testing::send_mouse_click(instance.clone(), 25., 5.);
+sixtyfps::testing::send_mouse_click(&instance, 25., 5.);
 assert_eq!(instance.get_clicked_score(), 333000);
 assert_eq!(instance.get_clicked_internal_state(), 1);
 assert_eq!(instance.get_clicked_index(), 2);
 
-sixtyfps::testing::send_mouse_click(instance.clone(), 15., 5.);
+sixtyfps::testing::send_mouse_click(&instance, 15., 5.);
 assert_eq!(instance.get_clicked_score(), 222000);
 assert_eq!(instance.get_clicked_name(), sixtyfps::SharedString::from("cruel"));
 assert_eq!(instance.get_clicked_internal_state(), 1);
 
 another_model.push(("a4".into(), "!".into(), 444.));
-sixtyfps::testing::send_mouse_click(instance.clone(), 35., 5.);
+sixtyfps::testing::send_mouse_click(&instance, 35., 5.);
 assert_eq!(instance.get_clicked_score(), 444000);
 assert_eq!(instance.get_clicked_name(), sixtyfps::SharedString::from("!"));
 assert_eq!(instance.get_clicked_internal_state(), 1);
 
 use sixtyfps::Model;
 another_model.set_row_data(1, ("a2".into(), "idyllic".into(), 555.));
-sixtyfps::testing::send_mouse_click(instance.clone(), 15., 5.);
+sixtyfps::testing::send_mouse_click(&instance, 15., 5.);
 assert_eq!(instance.get_clicked_score(), 555000);
 assert_eq!(instance.get_clicked_name(), sixtyfps::SharedString::from("idyllic"));
 assert_eq!(instance.get_clicked_internal_state(), 2);
 assert_eq!(instance.get_clicked_index(), 1);
 
 another_model.remove(1);
-sixtyfps::testing::send_mouse_click(instance.clone(), 15., 5.);
+sixtyfps::testing::send_mouse_click(&instance, 15., 5.);
 assert_eq!(instance.get_clicked_score(), 333000);
 assert_eq!(instance.get_clicked_name(), sixtyfps::SharedString::from("world"));
 assert_eq!(instance.get_clicked_internal_state(), 2);
