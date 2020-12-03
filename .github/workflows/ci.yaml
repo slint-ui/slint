@@ -266,6 +266,10 @@ jobs:
               target/doc
               target/cppdocs/html
               api/sixtyfps-node/docs
+    - name: Clean cache # Don't cache docs to avoid them including removed classes being published
+      run: |
+          rm -rf target/doc target/cppdocs api/sixtyfps-node/docs
+
   wasm:
     runs-on: ubuntu-20.04
     steps:
