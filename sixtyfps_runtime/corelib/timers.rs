@@ -17,6 +17,7 @@ LICENSE END */
 use std::cell::{Cell, RefCell};
 
 type TimerCallback = Box<dyn Fn()>;
+type SingleShotTimerCallback = Box<dyn FnOnce()>;
 
 /// The TimerMode specifies what should happen after the timer fired.
 ///
@@ -47,8 +48,32 @@ impl Timer {
     pub fn start(&self, mode: TimerMode, duration: std::time::Duration, callback: TimerCallback) {
         CURRENT_TIMERS.with(|timers| {
             let mut timers = timers.borrow_mut();
-            let id = timers.start_or_restart_timer(self.id.get(), mode, duration, callback);
+            let id = timers.start_or_restart_timer(
+                self.id.get(),
+                mode,
+                duration,
+                CallbackVariant::MultiFire(callback),
+            );
             self.id.set(Some(id));
+        })
+    }
+
+    /// Starts the timer with the duration, in order for the callback to called when the
+    /// timer fires. It is fired only once and then deleted.
+    ///
+    /// Arguments:
+    /// * `duration`: The duration from now until when the timer should fire.
+    /// * `callback`: The function to call when the time has been reached or exceeded.
+    pub fn single_shot(duration: std::time::Duration, callback: SingleShotTimerCallback) {
+        CURRENT_TIMERS.with(|timers| {
+            let mut timers = timers.borrow_mut();
+            let id = timers.start_or_restart_timer(
+                None,
+                TimerMode::SingleShot,
+                duration,
+                CallbackVariant::SingleShot(callback),
+            );
+            timers.timers[id].removed = true;
         })
     }
 
@@ -91,13 +116,35 @@ impl Drop for Timer {
     }
 }
 
+enum CallbackVariant {
+    Empty,
+    MultiFire(TimerCallback),
+    SingleShot(SingleShotTimerCallback),
+}
+
+impl CallbackVariant {
+    fn invoke(self) -> Self {
+        match self {
+            CallbackVariant::Empty => CallbackVariant::Empty,
+            CallbackVariant::MultiFire(cb) => {
+                cb();
+                CallbackVariant::MultiFire(cb)
+            }
+            CallbackVariant::SingleShot(cb) => {
+                cb();
+                CallbackVariant::Empty
+            }
+        }
+    }
+}
+
 struct TimerData {
     duration: std::time::Duration,
     mode: TimerMode,
     running: bool,
     /// Set to true when it is removed when the callback is still running
     removed: bool,
-    callback: Option<TimerCallback>,
+    callback: CallbackVariant,
 }
 
 #[derive(Clone, Copy)]
@@ -151,8 +198,11 @@ impl TimerList {
                     any_activated = true;
 
                     timers.borrow_mut().callback_active = Some(active_timer.id);
-                    let callback = timers.borrow_mut().timers[active_timer.id].callback.take();
-                    callback.as_ref().map(|cb| cb());
+                    let callback = std::mem::replace(
+                        &mut timers.borrow_mut().timers[active_timer.id].callback,
+                        CallbackVariant::Empty,
+                    );
+                    let callback = callback.invoke();
                     let mut timers = timers.borrow_mut();
                     timers.timers[active_timer.id].callback = callback;
                     timers.callback_active = None;
@@ -176,10 +226,9 @@ impl TimerList {
         id: Option<usize>,
         mode: TimerMode,
         duration: std::time::Duration,
-        callback: TimerCallback,
+        callback: CallbackVariant,
     ) -> usize {
-        let timer_data =
-            TimerData { duration, mode, running: false, removed: false, callback: Some(callback) };
+        let timer_data = TimerData { duration, mode, running: false, removed: false, callback };
         let inactive_timer_id = if let Some(id) = id {
             self.deactivate_timer(id);
             self.timers[id] = timer_data;
