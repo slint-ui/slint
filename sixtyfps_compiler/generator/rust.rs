@@ -80,8 +80,7 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<TokenStre
         })
         .unzip();
     let compo = generate_component(&doc.root_component, diag)?;
-    let compo_id = component_id(&doc.root_component);
-    let public_compo_id = quote::format_ident!("{}Rc", compo_id);
+    let compo_id = public_component_id(&doc.root_component);
     let compo_module = format_ident!("sixtyfps_generated_{}", compo_id);
     let version_check = format_ident!(
         "VersionCheck_{}_{}_{}",
@@ -106,7 +105,7 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<TokenStre
             #compo
             const _THE_SAME_VERSION_MUST_BE_USED_FOR_THE_COMPILER_AND_THE_RUNTIME : sixtyfps::#version_check = sixtyfps::#version_check;
         }
-        pub use #compo_module::{#public_compo_id as #compo_id #(,#structs_ids)* };
+        pub use #compo_module::{#compo_id #(,#structs_ids)* };
         pub use sixtyfps::IntoWeak;
     })
 }
@@ -241,7 +240,7 @@ fn generate_component(
     component: &Rc<Component>,
     diag: &mut BuildDiagnostics,
 ) -> Option<TokenStream> {
-    let component_id = component_id(component);
+    let inner_component_id = inner_component_id(component);
 
     let mut extra_components = component
         .popup_windows
@@ -283,7 +282,7 @@ fn generate_component(
                         #[allow(dead_code)]
                         pub fn #emitter_ident(&self, #(#args_name : #signal_args,)*) -> #return_type {
                             let self_pinned = vtable::VRc::as_pin_ref(&self.0);
-                            #component_id::FIELD_OFFSETS.#prop_ident.apply_pin(self_pinned).emit(&(#(#args_name,)*))
+                            #inner_component_id::FIELD_OFFSETS.#prop_ident.apply_pin(self_pinned).emit(&(#(#args_name,)*))
                         }
                     )
                     .into(),
@@ -297,7 +296,7 @@ fn generate_component(
                         pub fn #on_ident(&self, f: impl Fn(#(#signal_args),*) -> #return_type + 'static) {
                             let self_pinned = vtable::VRc::as_pin_ref(&self.0);
                             #[allow(unused)]
-                            #component_id::FIELD_OFFSETS.#prop_ident.apply_pin(self_pinned).set_handler(
+                            #inner_component_id::FIELD_OFFSETS.#prop_ident.apply_pin(self_pinned).set_handler(
                                 // FIXME: why do i need to clone here?
                                 move |args| f(#(args.#args_index.clone()),*)
                             )
@@ -322,7 +321,7 @@ fn generate_component(
                 let prop = if let Some(alias) = &property_decl.is_alias {
                     access_named_reference(alias, component, quote!(_self))
                 } else {
-                    quote!(#component_id::FIELD_OFFSETS.#prop_ident.apply_pin(_self))
+                    quote!(#inner_component_id::FIELD_OFFSETS.#prop_ident.apply_pin(_self))
                 };
 
                 property_and_signal_accessors.push(
@@ -389,7 +388,7 @@ fn generate_component(
 
             item_tree_array.push(quote!(
                 sixtyfps::re_exports::ItemTreeNode::Item{
-                    item: VOffset::new(#component_id::FIELD_OFFSETS.#field_name + sixtyfps::re_exports::Flickable::FIELD_OFFSETS.viewport),
+                    item: VOffset::new(#inner_component_id::FIELD_OFFSETS.#field_name + sixtyfps::re_exports::Flickable::FIELD_OFFSETS.viewport),
                     chilren_count: #children_count,
                     children_index: #children_index,
                 }
@@ -403,7 +402,7 @@ fn generate_component(
             let base_component = item.base_type.as_component();
             let repeater_index = repeated_element_names.len();
             let repeater_id = format_ident!("repeater_{}", item.id);
-            let rep_component_id = self::component_id(&*base_component);
+            let rep_inner_component_id = self::inner_component_id(&*base_component);
 
             extra_components.push(generate_component(&*base_component, diag).unwrap_or_else(
                 || {
@@ -413,7 +412,7 @@ fn generate_component(
             ));
             extra_components.push(if repeated.is_conditional_element {
                 quote! {
-                     impl sixtyfps::re_exports::RepeatedComponent for #rep_component_id {
+                     impl sixtyfps::re_exports::RepeatedComponent for #rep_inner_component_id {
                         type Data = ();
                         fn update(&self, _: usize, _: Self::Data) { }
                     }
@@ -468,7 +467,7 @@ fn generate_component(
                 };
 
                 quote! {
-                    impl sixtyfps::re_exports::RepeatedComponent for #rep_component_id {
+                    impl sixtyfps::re_exports::RepeatedComponent for #rep_inner_component_id {
                         type Data = #data_type;
                         fn update(&self, index: usize, data: Self::Data) {
                             self.index.set(index);
@@ -497,7 +496,7 @@ fn generate_component(
                 });
             });
 
-            let pub_rep_component_id = quote::format_ident!("{}Rc", rep_component_id);
+            let rep_public_component_id = self::public_component_id(&*base_component);
 
             if let Some(listview) = &repeated.is_listview {
                 let vp_y = access_named_reference(&listview.viewport_y, component, quote!(_self));
@@ -511,8 +510,8 @@ fn generate_component(
                     access_named_reference(&listview.listview_width, component, quote!(_self));
 
                 let ensure_updated = quote! {
-                    #component_id::FIELD_OFFSETS.#repeater_id.apply_pin(self_pinned).ensure_updated_listview(
-                        || { #pub_rep_component_id::new(self_pinned.self_weak.get().unwrap().clone(), &self_pinned.window).into() },
+                    #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(self_pinned).ensure_updated_listview(
+                        || { #rep_public_component_id::new(self_pinned.self_weak.get().unwrap().clone(), &self_pinned.window).into() },
                         #vp_w, #vp_h, #vp_y, #lv_w.get(), #lv_h
                     );
                 };
@@ -530,8 +529,8 @@ fn generate_component(
             } else {
                 repeated_visit_branch.push(quote!(
                     #repeater_index => {
-                        #component_id::FIELD_OFFSETS.#repeater_id.apply_pin(self_pinned).ensure_updated(
-                                || { #pub_rep_component_id::new(self_pinned.self_weak.get().unwrap().clone(), &self_pinned.window).into() }
+                        #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(self_pinned).ensure_updated(
+                                || { #rep_public_component_id::new(self_pinned.self_weak.get().unwrap().clone(), &self_pinned.window).into() }
                             );
                         self_pinned.#repeater_id.visit(order, visitor)
                     }
@@ -553,7 +552,7 @@ fn generate_component(
             ));
 
             repeated_element_names.push(repeater_id);
-            repeated_element_components.push(rep_component_id);
+            repeated_element_components.push(rep_inner_component_id);
         } else {
             let field_name = format_ident!("{}", item.id);
             let children_count =
@@ -561,7 +560,7 @@ fn generate_component(
 
             item_tree_array.push(quote!(
                 sixtyfps::re_exports::ItemTreeNode::Item{
-                    item: VOffset::new(#component_id::FIELD_OFFSETS.#field_name),
+                    item: VOffset::new(#inner_component_id::FIELD_OFFSETS.#field_name),
                     chilren_count: #children_count,
                     children_index: #children_index,
                 }
@@ -613,7 +612,7 @@ fn generate_component(
             );
         }
 
-        parent_component_type = Some(self::component_id(
+        parent_component_type = Some(self::inner_component_id(
             &parent_element.borrow().enclosing_component.upgrade().unwrap(),
         ));
         window_field_init = Some(quote!(window: parent_window.clone()));
@@ -628,7 +627,7 @@ fn generate_component(
         init.push(quote!(_self.window.set_component(&VRc::into_dyn(_self.as_ref().self_weak.get().unwrap().upgrade().unwrap()));));
 
         has_window_impl = Some(quote!(
-            impl sixtyfps::testing::HasWindow for #component_id {
+            impl sixtyfps::testing::HasWindow for #inner_component_id {
                 fn component_window(&self) -> &sixtyfps::re_exports::ComponentWindow {
                     &self.window
                 }
@@ -649,8 +648,8 @@ fn generate_component(
         (None, quote!(#[pin]))
     } else {
         (
-            Some(quote!(impl sixtyfps::re_exports::PinnedDrop for #component_id {
-                fn drop(self: core::pin::Pin<&mut #component_id>) {
+            Some(quote!(impl sixtyfps::re_exports::PinnedDrop for #inner_component_id {
+                fn drop(self: core::pin::Pin<&mut #inner_component_id>) {
                     use sixtyfps::re_exports::*;
                     let items = [
                         #(VRef::new_pin(Self::FIELD_OFFSETS.#item_names.apply_pin(self.as_ref())),)*
@@ -675,22 +674,22 @@ fn generate_component(
             Some(quote! {
                 fn item_tree() -> &'static [sixtyfps::re_exports::ItemTreeNode<Self>] {
                     use sixtyfps::re_exports::*;
-                    ComponentVTable_static!(static VT for #component_id);
+                    ComponentVTable_static!(static VT for #inner_component_id);
                     // FIXME: ideally this should be a const
-                    static ITEM_TREE : Lazy<[sixtyfps::re_exports::ItemTreeNode<#component_id>; #item_tree_array_len]>  =
+                    static ITEM_TREE : Lazy<[sixtyfps::re_exports::ItemTreeNode<#inner_component_id>; #item_tree_array_len]>  =
                         Lazy::new(|| [#(#item_tree_array),*]);
                     &*ITEM_TREE
                 }
             }),
             Some(quote! {
-            impl sixtyfps::re_exports::Component for #component_id {
+            impl sixtyfps::re_exports::Component for #inner_component_id {
                 fn visit_children_item(self: ::core::pin::Pin<&Self>, index: isize, order: sixtyfps::re_exports::TraversalOrder, visitor: sixtyfps::re_exports::ItemVisitorRefMut)
                     -> sixtyfps::re_exports::VisitChildrenResult
                 {
                     use sixtyfps::re_exports::*;
                     return sixtyfps::re_exports::visit_item_tree(self, &VRc::into_dyn(self.as_ref().self_weak.get().unwrap().upgrade().unwrap()), Self::item_tree(), index, order, visitor, visit_dynamic);
                     #[allow(unused)]
-                    fn visit_dynamic(self_pinned: ::core::pin::Pin<&#component_id>, order: sixtyfps::re_exports::TraversalOrder, visitor: ItemVisitorRefMut, dyn_index: usize) -> VisitChildrenResult  {
+                    fn visit_dynamic(self_pinned: ::core::pin::Pin<&#inner_component_id>, order: sixtyfps::re_exports::TraversalOrder, visitor: ItemVisitorRefMut, dyn_index: usize) -> VisitChildrenResult  {
                         let _self = self_pinned;
                         match dyn_index {
                             #(#repeated_visit_branch)*
@@ -718,7 +717,7 @@ fn generate_component(
         .used_global
         .borrow()
         .iter()
-        .map(|g| (format_ident!("global_{}", g.id), self::component_id(g)))
+        .map(|g| (format_ident!("global_{}", g.id), self::inner_component_id(g)))
         .unzip();
 
     let new_code = if !component.is_global() {
@@ -743,7 +742,7 @@ fn generate_component(
     };
 
     let public_interface = if !component.is_global() {
-        let public_struct = quote::format_ident!("{}Rc", component_id);
+        let public_component_id = public_component_id(component);
 
         let parent_name =
             if !parent_component_type.is_empty() { Some(quote!(parent)) } else { None };
@@ -761,34 +760,34 @@ fn generate_component(
 
         Some(quote!(
             #[derive(Clone)]
-            #visibility struct #public_struct(vtable::VRc<sixtyfps::re_exports::ComponentVTable, #component_id>);
+            #visibility struct #public_component_id(vtable::VRc<sixtyfps::re_exports::ComponentVTable, #inner_component_id>);
 
-            impl #public_struct {
+            impl #public_component_id {
                 pub fn new(#(parent: sixtyfps::re_exports::VWeak::<sixtyfps::re_exports::ComponentVTable, #parent_component_type>)* #window_parent_param) -> Self {
-                    Self(#component_id::new(#parent_name #window_parent_name))
+                    Self(#inner_component_id::new(#parent_name #window_parent_name))
                 }
                 #(#property_and_signal_accessors)*
 
                 #run_fun
 
-                pub fn as_ref(&self) -> core::pin::Pin<&#component_id> {
+                pub fn as_ref(&self) -> core::pin::Pin<&#inner_component_id> {
                     vtable::VRc::as_pin_ref(&self.0)
                 }
             }
 
-            impl sixtyfps::IntoWeak for #public_struct {
-                type Inner = #component_id;
+            impl sixtyfps::IntoWeak for #public_component_id {
+                type Inner = #inner_component_id;
                 fn as_weak(&self) -> sixtyfps::Weak<Self> {
                     sixtyfps::Weak::new(&self.0)
                 }
 
-                fn from_inner(inner: vtable::VRc<sixtyfps::re_exports::ComponentVTable, #component_id>) -> Self {
+                fn from_inner(inner: vtable::VRc<sixtyfps::re_exports::ComponentVTable, #inner_component_id>) -> Self {
                     Self(inner)
                 }
             }
 
-            impl From<#public_struct> for vtable::VRc<sixtyfps::re_exports::ComponentVTable, #component_id> {
-                fn from(value: #public_struct) -> Self {
+            impl From<#public_component_id> for vtable::VRc<sixtyfps::re_exports::ComponentVTable, #inner_component_id> {
+                fn from(value: #public_component_id) -> Self {
                     value.0
                 }
             }
@@ -804,12 +803,12 @@ fn generate_component(
         #[const_field_offset(sixtyfps::re_exports::const_field_offset)]
         #[repr(C)]
         #pin
-        #visibility struct #component_id {
+        #visibility struct #inner_component_id {
             #(#item_names : sixtyfps::re_exports::#item_types,)*
             #(#declared_property_vars : sixtyfps::re_exports::Property<#declared_property_types>,)*
             #(#declared_signals : sixtyfps::re_exports::Signal<(#(#declared_signals_types,)*), #declared_signals_ret>,)*
             #(#repeated_element_names : sixtyfps::re_exports::Repeater<#repeated_element_components>,)*
-            #(#self_weak : sixtyfps::re_exports::OnceCell<sixtyfps::re_exports::VWeak<sixtyfps::re_exports::ComponentVTable, #component_id>>,)*
+            #(#self_weak : sixtyfps::re_exports::OnceCell<sixtyfps::re_exports::VWeak<sixtyfps::re_exports::ComponentVTable, #inner_component_id>>,)*
             #(parent : sixtyfps::re_exports::VWeak<sixtyfps::re_exports::ComponentVTable, #parent_component_type>,)*
             #(#global_name : ::core::pin::Pin<::std::rc::Rc<#global_type>>,)*
             #window_field
@@ -817,7 +816,7 @@ fn generate_component(
 
         #component_impl
 
-        impl #component_id{
+        impl #inner_component_id{
             pub fn new(#(parent: sixtyfps::re_exports::VWeak::<sixtyfps::re_exports::ComponentVTable, #parent_component_type>)* #window_parent_param)
                 -> #component_handle
             {
@@ -851,8 +850,13 @@ fn generate_component(
     ))
 }
 
-/// Return an identifier suitable for this component
-fn component_id(component: &Component) -> proc_macro2::Ident {
+/// Return an identifier suitable for this component for internal use
+fn inner_component_id(component: &Component) -> proc_macro2::Ident {
+    format_ident!("Inner{}", public_component_id(component))
+}
+
+/// Return an identifier suitable for this component for the developer facing API
+fn public_component_id(component: &Component) -> proc_macro2::Ident {
     if component.id.is_empty() {
         let s = &component.root_element.borrow().id;
         // Capitalize first leter:
@@ -915,15 +919,15 @@ fn access_member(
 
     let enclosing_component = e.enclosing_component.upgrade().unwrap();
     if Rc::ptr_eq(component, &enclosing_component) {
-        let component_id = component_id(&enclosing_component);
+        let inner_component_id = inner_component_id(&enclosing_component);
         let name_ident = format_ident!("{}", name);
         if e.property_declarations.contains_key(name) || is_special || component.is_global() {
-            quote!(#component_id::FIELD_OFFSETS.#name_ident.apply_pin(#component_rust))
+            quote!(#inner_component_id::FIELD_OFFSETS.#name_ident.apply_pin(#component_rust))
         } else if let Some(vp) = super::as_flickable_viewport_property(element, name) {
             let name_ident = format_ident!("{}", vp);
             let elem_ident = format_ident!("{}", e.id);
 
-            quote!((#component_id::FIELD_OFFSETS.#elem_ident
+            quote!((#inner_component_id::FIELD_OFFSETS.#elem_ident
                 + sixtyfps::re_exports::Flickable::FIELD_OFFSETS.viewport
                 + sixtyfps::re_exports::Rectangle::FIELD_OFFSETS.#name_ident)
                     .apply_pin(#component_rust)
@@ -932,7 +936,7 @@ fn access_member(
             let elem_ident = format_ident!("{}", e.id);
             let elem_ty = format_ident!("{}", e.base_type.as_native().class_name);
 
-            quote!((#component_id::FIELD_OFFSETS.#elem_ident + #elem_ty::FIELD_OFFSETS.#name_ident)
+            quote!((#inner_component_id::FIELD_OFFSETS.#elem_ident + #elem_ty::FIELD_OFFSETS.#name_ident)
                 .apply_pin(#component_rust)
             )
         }
@@ -1114,7 +1118,7 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
                     if let Expression::ElementReference(popup_window) = &arguments[0] {
                         let popup_window = popup_window.upgrade().unwrap();
                         let pop_comp = popup_window.borrow().enclosing_component.upgrade().unwrap();
-                        let popup_window_id = quote::format_ident!("{}Rc", component_id(&pop_comp));
+                        let popup_window_id = public_component_id(&pop_comp);
                         let parent_component = pop_comp.parent_element.upgrade().unwrap().borrow().enclosing_component.upgrade().unwrap();
                         let popup_list = parent_component.popup_windows.borrow();
                         let popup = popup_list.iter().find(|p| Rc::ptr_eq(&p.component, &pop_comp)).unwrap();
@@ -1485,19 +1489,18 @@ impl crate::layout::gen::Language for RustLanguageLayoutGen {
             let mut fixed_count = 0usize;
             let mut repeated_count = quote!();
             let mut push_code = quote!();
-            let component_id = component_id(component);
+            let inner_component_id = inner_component_id(component);
             for item in &box_layout.elems {
                 match &item.element {
                     Some(elem) if elem.borrow().repeated.is_some() => {
                         let repeater_id = format_ident!("repeater_{}", elem.borrow().id);
-                        let rep_component_id =
-                            self::component_id(&elem.borrow().base_type.as_component());
-                        let pub_rep_component_id = quote::format_ident!("{}Rc", rep_component_id);
+                        let rep_public_component_id =
+                            self::public_component_id(&elem.borrow().base_type.as_component());
                         repeated_count = quote!(#repeated_count + self.#repeater_id.len());
                         push_code = quote! {
                             #push_code
-                            #component_id::FIELD_OFFSETS.#repeater_id.apply_pin(self).ensure_updated(
-                                || { #pub_rep_component_id::new(self.self_weak.get().unwrap().clone(), &self.window).into() }
+                            #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(self).ensure_updated(
+                                || { #rep_public_component_id::new(self.self_weak.get().unwrap().clone(), &self.window).into() }
                             );
                             let internal_vec = self.#repeater_id.components_vec();
                             for sub_comp in &internal_vec {
@@ -1820,9 +1823,9 @@ fn compute_layout(
 ) -> TokenStream {
     let mut layouts = vec![];
     let root_id = format_ident!("{}", component.root_element.borrow().id);
-    let component_id = component_id(component);
+    let inner_component_id = inner_component_id(component);
     let mut layout_info =
-        quote!(#component_id::FIELD_OFFSETS.#root_id.apply_pin(self).layouting_info(&window));
+        quote!(#inner_component_id::FIELD_OFFSETS.#root_id.apply_pin(self).layouting_info(&window));
     let component_layouts = component.layouts.borrow();
 
     component_layouts.iter().enumerate().for_each(|(idx, layout)| {
