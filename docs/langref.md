@@ -281,9 +281,8 @@ Example := Rectangle {
 This pattern of expressing the `width` or `height` in percent of the parent's property with the same name is
 common. For convenience, a short-hand syntax exists for this scenario:
 
+  - The property is `width` or `height`
   - A binding expression evaluates to a percentage.
-  - The property the expression is associated with has the type `length`.
-  - The property exists under the same name and type in the parent element.
 
 If these conditions are met, then it is not necessary to specify the parent property, instead you can simply
 use the percentage. The earlier example then looks like this:

@@ -14,7 +14,7 @@ LICENSE END */
 //!
 //! Most of the code for the resolving actualy lies in the expression_tree module
 
-use crate::diagnostics::BuildDiagnostics;
+use crate::diagnostics::{BuildDiagnostics, SpannedWithSourceFile};
 use crate::expression_tree::*;
 use crate::langtype::Type;
 use crate::object_tree::*;
@@ -55,12 +55,7 @@ fn resolve_expression(
             SyntaxKind::Expression => {
                 //FIXME again: this happen for non-binding expression (i.e: model)
                 Expression::from_expression_node(node.clone().into(), &mut lookup_ctx)
-                    .maybe_convert_to(
-                        lookup_ctx.property_type.clone(),
-                        lookup_ctx.symmetric_parent_property(),
-                        node,
-                        diag,
-                    )
+                    .maybe_convert_to(lookup_ctx.property_type.clone(), node, diag)
             }
             SyntaxKind::BindingExpression => {
                 Expression::from_binding_expression_node(node.clone(), &mut lookup_ctx)
@@ -141,22 +136,6 @@ pub struct LookupCtx<'a> {
 }
 
 impl<'a> LookupCtx<'a> {
-    pub fn symmetric_parent_property(&self) -> Option<(Type, NamedReference)> {
-        self.component_scope.last().and_then(find_parent_element).and_then(|parent| {
-            self.property_name.and_then(|name| {
-                let ty = parent.borrow().lookup_property(name);
-                if ty.is_property_type() {
-                    Some((
-                        ty,
-                        NamedReference { element: Rc::downgrade(&parent), name: name.to_string() },
-                    ))
-                } else {
-                    None
-                }
-            })
-        })
-    }
-
     /// Return a context that is just suitable to build simple const expression
     pub fn empty_context(type_register: &'a TypeRegister, diag: &'a mut BuildDiagnostics) -> Self {
         Self {
@@ -209,6 +188,54 @@ fn find_parent_element(e: &ElementRc) -> Option<ElementRc> {
     recurse(&root, e)
 }
 
+/// If the type of the expression is a percentage, and the current property evaluated is
+/// `width` or `height`, attempt to multiply by the parent `width` or `height`
+fn attempt_percent_conversion(
+    ctx: &mut LookupCtx,
+    e: Expression,
+    node: &dyn SpannedWithSourceFile,
+) -> Expression {
+    if ctx.property_type != Type::Length || e.ty() != Type::Percent {
+        return e;
+    }
+
+    const RELATIVE_TO_PARENT_PROPERTIES: [&'static str; 2] = ["width", "height"];
+    let property_name = ctx.property_name.unwrap_or_default();
+    if !RELATIVE_TO_PARENT_PROPERTIES.contains(&property_name) {
+        ctx.diag.push_error(
+            format!(
+                "Automatic conversion from percentage to lenght is only possible for the properties {}",
+                RELATIVE_TO_PARENT_PROPERTIES.join(" and ")
+            ),
+            node
+        );
+        return Expression::Invalid;
+    }
+
+    let mut parent = ctx.component_scope.last().and_then(find_parent_element);
+    while let Some(p) = parent {
+        let ty = p.borrow().lookup_property(property_name);
+        if ty == Type::Length {
+            return Expression::BinaryExpression {
+                lhs: Box::new(Expression::BinaryExpression {
+                    lhs: Box::new(e),
+                    rhs: Box::new(Expression::NumberLiteral(0.01, Unit::None)),
+                    op: '*',
+                }),
+                rhs: Box::new(Expression::PropertyReference(NamedReference {
+                    element: Rc::downgrade(&p),
+                    name: property_name.to_string(),
+                })),
+                op: '*',
+            };
+        }
+        parent = find_parent_element(&p);
+    }
+
+    ctx.diag.push_error("Cannot find parent property to apply relative lenght".into(), node);
+    Expression::Invalid
+}
+
 impl Expression {
     pub fn from_binding_expression_node(
         node: SyntaxNodeWithSourceFile,
@@ -223,12 +250,8 @@ impl Expression {
                     .map(|c| Self::from_codeblock_node(c.into(), ctx))
             })
             .unwrap_or(Self::Invalid);
-        e.maybe_convert_to(
-            ctx.property_type.clone(),
-            ctx.symmetric_parent_property(),
-            &node,
-            &mut ctx.diag,
-        )
+        let e = attempt_percent_conversion(ctx, e, &node);
+        e.maybe_convert_to(ctx.property_type.clone(), &node, &mut ctx.diag)
     }
 
     fn from_codeblock_node(node: syntax_nodes::CodeBlock, ctx: &mut LookupCtx) -> Expression {
@@ -621,9 +644,7 @@ impl Expression {
                     arguments
                         .into_iter()
                         .zip(args.iter())
-                        .map(|((e, node), ty)| {
-                            e.maybe_convert_to(ty.clone(), None, &node, &mut ctx.diag)
-                        })
+                        .map(|((e, node), ty)| e.maybe_convert_to(ty.clone(), &node, &mut ctx.diag))
                         .collect()
                 }
             }
@@ -660,7 +681,6 @@ impl Expression {
         }
         let rhs = Self::from_expression_node(rhs_n.clone().into(), ctx).maybe_convert_to(
             lhs.ty(),
-            None,
             &rhs_n,
             &mut ctx.diag,
         );
@@ -710,7 +730,6 @@ impl Expression {
                                         lhs: Box::new(lhs),
                                         rhs: Box::new(rhs.maybe_convert_to(
                                             Type::Float32,
-                                            None,
                                             &lhs_n,
                                             &mut ctx.diag,
                                         )),
@@ -721,7 +740,6 @@ impl Expression {
                                     return Expression::BinaryExpression {
                                         lhs: Box::new(lhs.maybe_convert_to(
                                             Type::Float32,
-                                            None,
                                             &lhs_n,
                                             &mut ctx.diag,
                                         )),
@@ -741,7 +759,6 @@ impl Expression {
                                         lhs: Box::new(lhs),
                                         rhs: Box::new(rhs.maybe_convert_to(
                                             Type::Float32,
-                                            None,
                                             &lhs_n,
                                             &mut ctx.diag,
                                         )),
@@ -757,8 +774,8 @@ impl Expression {
             }
         };
         Expression::BinaryExpression {
-            lhs: Box::new(lhs.maybe_convert_to(expected_ty.clone(), None, &lhs_n, &mut ctx.diag)),
-            rhs: Box::new(rhs.maybe_convert_to(expected_ty, None, &rhs_n, &mut ctx.diag)),
+            lhs: Box::new(lhs.maybe_convert_to(expected_ty.clone(), &lhs_n, &mut ctx.diag)),
+            rhs: Box::new(rhs.maybe_convert_to(expected_ty, &rhs_n, &mut ctx.diag)),
             op,
         }
     }
@@ -787,15 +804,14 @@ impl Expression {
         let (condition_n, true_expr_n, false_expr_n) = node.Expression();
         // FIXME: we should we add bool to the context
         let condition = Self::from_expression_node(condition_n.clone().into(), ctx)
-            .maybe_convert_to(Type::Bool, None, &condition_n, &mut ctx.diag);
+            .maybe_convert_to(Type::Bool, &condition_n, &mut ctx.diag);
         let true_expr = Self::from_expression_node(true_expr_n.clone().into(), ctx);
         let false_expr = Self::from_expression_node(false_expr_n.clone().into(), ctx);
         let result_ty = Self::common_target_type_for_type_list(
             [true_expr.ty(), false_expr.ty()].iter().cloned(),
         );
-        let true_expr =
-            true_expr.maybe_convert_to(result_ty.clone(), None, &true_expr_n, &mut ctx.diag);
-        let false_expr = false_expr.maybe_convert_to(result_ty, None, &false_expr_n, &mut ctx.diag);
+        let true_expr = true_expr.maybe_convert_to(result_ty.clone(), &true_expr_n, &mut ctx.diag);
+        let false_expr = false_expr.maybe_convert_to(result_ty, &false_expr_n, &mut ctx.diag);
         Expression::Condition {
             condition: Box::new(condition),
             true_expr: Box::new(true_expr),
@@ -834,7 +850,6 @@ impl Expression {
         for e in values.iter_mut() {
             *e = core::mem::replace(e, Expression::Invalid).maybe_convert_to(
                 element_ty.clone(),
-                None,
                 &node,
                 ctx.diag,
             );
@@ -916,7 +931,7 @@ fn min_max_macro(
         }
     };
     while let Some((next, arg_node)) = args.next() {
-        let rhs = next.maybe_convert_to(ty.clone(), None, &arg_node, diag);
+        let rhs = next.maybe_convert_to(ty.clone(), &arg_node, diag);
         static COUNTER: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(1);
         let id = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let n1 = format!("minmax_lhs{}", id);

@@ -8,17 +8,18 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 TestCase := Rectangle {
-    property<length> my_length: 200phx;
+    width: 600phx;
     inner_rect := Rectangle {
-        property<length> my_length: 50%;
+        width: 50%;
     }
-    property<length> test_length: inner_rect.my_length;
+    property<length> test_length: inner_rect.width;
 
+    height: 200phx;
     property<percent> controller: 10%;
     inner_rect_2 := Rectangle {
-        property<length> my_length: parent.controller;
+        height: parent.controller;
     }
-    property<length> controlled_test_length: inner_rect_2.my_length;
+    property<length> controlled_test_length: inner_rect_2.height;
 }
 
 
@@ -27,7 +28,7 @@ TestCase := Rectangle {
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
-assert_eq(instance.get_test_length(), 100.);
+assert_eq(instance.get_test_length(), 300.);
 
 assert_eq(instance.get_controlled_test_length(), 20.);
 instance.set_controller(50);
@@ -38,7 +39,7 @@ assert_eq(instance.get_controlled_test_length(), 100.);
 
 ```rust
 let instance = TestCase::new();
-assert_eq!(instance.get_test_length(), 100.);
+assert_eq!(instance.get_test_length(), 300.);
 
 assert_eq!(instance.get_controlled_test_length(), 20.);
 instance.set_controller(50.);
@@ -47,7 +48,7 @@ assert_eq!(instance.get_controlled_test_length(), 100.);
 
 ```js
 var instance = new sixtyfps.TestCase({});
-assert.equal(instance.test_length, 100.);
+assert.equal(instance.test_length, 300.);
 
 assert.equal(instance.controlled_test_length, 20.);
 instance.controller = 50.;

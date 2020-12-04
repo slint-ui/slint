@@ -32,7 +32,7 @@ X := Rectangle {
         color: "blue";
 //            ^error{Cannot convert string to color$}
         property<length> no_matching_parent: 50%;
-//                                          ^error{Cannot convert percent to length}
+//                                          ^error{Automatic conversion from percentage to lenght is only possible for the properties width and height}
     }
 
     property <{a: string, b: int}> object1: { a: "123", typo: 42};

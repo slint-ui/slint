@@ -1,0 +1,86 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+TestCase := Rectangle {
+    width: 300phx;
+    height: 300phx;
+
+    layout := GridLayout {
+        spacing: 0phx;
+        padding: 0phx;
+        Row {
+            rect1 := Rectangle {
+                color: red;
+                width: 10%;
+            }
+            rect2 := Rectangle {
+                color: blue;
+                height: 30%;
+            }
+        }
+
+        Row {
+            rect3 := Rectangle {
+                color: green;
+                height: 20phx;
+            }
+        }
+
+        Row {
+            rect4 := Rectangle {
+                color: cyan;
+            }
+            rect5 := Rectangle {
+                color: yellow;
+            }
+        }
+
+
+    }
+
+    property <length> expected_y1: 300phx*0.3;
+    property <length> expected_y2: 300phx*0.3 + 20phx;
+    property <length> expected_x1: 30phx;
+
+    property <bool> rect1_pos_ok: rect1.x == 0phx && rect1.y == 0phx && rect1.width == expected_x1 && rect1.height == expected_y1;
+    property <bool> rect2_pos_ok: rect2.x == expected_x1 && rect2.y == 0phx && rect2.width == 270phx && rect2.height == expected_y1;
+    property <bool> rect3_pos_ok: rect3.x == 0phx && rect3.y == expected_y1 && rect3.width == expected_x1 && rect3.height == 20phx;
+    property <bool> rect4_pos_ok: rect4.x == 0phx && rect4.y == expected_y2 && rect4.width == expected_x1 && rect4.height == 300phx - expected_y2;
+    property <bool> rect5_pos_ok: rect5.x == expected_x1 && rect5.y == expected_y2 && rect5.width == 270phx && rect5.height == 300phx - expected_y2;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+TestCase::apply_layout({&TestCase::component_type, const_cast<TestCase*>(&instance) }, sixtyfps::Rect{0, 0, 300, 300});
+assert(instance.get_rect1_pos_ok());
+assert(instance.get_rect2_pos_ok());
+assert(instance.get_rect3_pos_ok());
+assert(instance.get_rect4_pos_ok());
+assert(instance.get_rect5_pos_ok());
+
+```
+
+
+```rust
+let instance = TestCase::new();
+sixtyfps::testing::apply_layout(&instance, sixtyfps::re_exports::Rect::new(Default::default(), sixtyfps::re_exports::Size::new(300., 300.)));
+assert!(instance.get_rect1_pos_ok());
+assert!(instance.get_rect2_pos_ok());
+assert!(instance.get_rect3_pos_ok());
+assert!(instance.get_rect4_pos_ok());
+assert!(instance.get_rect5_pos_ok());
+
+```
+
+// FIXME! interpreter test
+
+*/
