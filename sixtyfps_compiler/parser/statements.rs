@@ -18,6 +18,8 @@ use super::prelude::*;
 /// expression.expression *= 45.2
 /// expression = "hello"
 /// if (true) { foo = bar; } else { bar = foo;  }
+/// return;
+/// if (true) { return 42; }
 /// ```
 pub fn parse_statement(p: &mut impl Parser) -> bool {
     if p.nth(0).kind() == SyntaxKind::RBrace {
@@ -31,6 +33,16 @@ pub fn parse_statement(p: &mut impl Parser) -> bool {
     if p.peek().as_str() == "if" && p.nth(1).kind() == SyntaxKind::LParent {
         let mut p = p.start_node(SyntaxKind::Expression);
         parse_if_statement(&mut *p);
+        return true;
+    }
+
+    if p.peek().as_str() == "return" {
+        let mut p = p.start_node_at(checkpoint.clone(), SyntaxKind::ReturnStatement);
+        p.expect(SyntaxKind::Identifier); // "return"
+        if !p.test(SyntaxKind::Semicolon) {
+            parse_expression(&mut *p);
+            p.expect(SyntaxKind::Semicolon);
+        }
         return true;
     }
 
