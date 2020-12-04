@@ -45,14 +45,19 @@ impl Timer {
     /// * `mode`: The timer mode to apply, i.e. whether to repeatedly fire the timer or just once.
     /// * `duration`: The duration from now until when the timer should fire.
     /// * `callback`: The function to call when the time has been reached or exceeded.
-    pub fn start(&self, mode: TimerMode, duration: std::time::Duration, callback: TimerCallback) {
+    pub fn start(
+        &self,
+        mode: TimerMode,
+        duration: std::time::Duration,
+        callback: impl Fn() + 'static,
+    ) {
         CURRENT_TIMERS.with(|timers| {
             let mut timers = timers.borrow_mut();
             let id = timers.start_or_restart_timer(
                 self.id.get(),
                 mode,
                 duration,
-                CallbackVariant::MultiFire(callback),
+                CallbackVariant::MultiFire(Box::new(callback)),
             );
             self.id.set(Some(id));
         })
@@ -64,14 +69,14 @@ impl Timer {
     /// Arguments:
     /// * `duration`: The duration from now until when the timer should fire.
     /// * `callback`: The function to call when the time has been reached or exceeded.
-    pub fn single_shot(duration: std::time::Duration, callback: SingleShotTimerCallback) {
+    pub fn single_shot(duration: std::time::Duration, callback: impl FnOnce() + 'static) {
         CURRENT_TIMERS.with(|timers| {
             let mut timers = timers.borrow_mut();
             let id = timers.start_or_restart_timer(
                 None,
                 TimerMode::SingleShot,
                 duration,
-                CallbackVariant::SingleShot(callback),
+                CallbackVariant::SingleShot(Box::new(callback)),
             );
             timers.timers[id].removed = true;
         })

@@ -1389,7 +1389,7 @@ impl TextCursorBlinker {
             self.cursor_blink_timer.start(
                 crate::timers::TimerMode::Repeated,
                 std::time::Duration::from_millis(500),
-                Box::new(toggle_cursor),
+                toggle_cursor,
             );
         }
     }

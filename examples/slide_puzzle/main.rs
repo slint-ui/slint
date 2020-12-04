@@ -212,11 +212,11 @@ pub fn main() {
             state_copy.borrow().kick_animation_timer.start(
                 sixtyfps::TimerMode::Repeated,
                 std::time::Duration::from_millis(16),
-                Box::new(move || {
+                move || {
                     if let Some(state) = state_weak.upgrade() {
                         state.borrow_mut().kick_animation();
                     }
-                }),
+                },
             );
         }
     });
@@ -235,11 +235,11 @@ pub fn main() {
             state_copy.borrow().auto_play_timer.start(
                 sixtyfps::TimerMode::Repeated,
                 std::time::Duration::from_millis(200),
-                Box::new(move || {
+                move || {
                     if let Some(state) = state_weak.upgrade() {
                         state.borrow_mut().random_move();
                     }
-                }),
+                },
             );
         } else {
             state_copy.borrow().auto_play_timer.stop();
