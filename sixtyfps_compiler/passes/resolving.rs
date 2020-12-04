@@ -269,11 +269,49 @@ impl Expression {
 
     fn from_codeblock_node(node: syntax_nodes::CodeBlock, ctx: &mut LookupCtx) -> Expression {
         debug_assert_eq!(node.kind(), SyntaxKind::CodeBlock);
-        Expression::CodeBlock(
-            node.children()
-                .filter(|n| n.kind() == SyntaxKind::Expression)
-                .map(|n| Self::from_expression_node(n.into(), ctx))
-                .collect(),
+
+        let mut statements_or_exprs = node
+            .children()
+            .filter_map(|n| match n.kind() {
+                SyntaxKind::Expression => Some(Self::from_expression_node(n.into(), ctx)),
+                SyntaxKind::ReturnStatement => Some(Self::from_return_statement(n.into(), ctx)),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+
+        let exit_points_and_return_types = statements_or_exprs
+            .iter()
+            .enumerate()
+            .filter_map(|(index, statement_or_expr)| {
+                if index == statements_or_exprs.len()
+                    || matches!(statement_or_expr, Expression::ReturnStatement(..))
+                {
+                    Some((index, statement_or_expr.ty()))
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+
+        let common_return_type = Self::common_target_type_for_type_list(
+            exit_points_and_return_types.iter().map(|(_, ty)| ty.clone()),
+        );
+
+        exit_points_and_return_types.into_iter().for_each(|(index, _)| {
+            let mut expr = std::mem::replace(&mut statements_or_exprs[index], Expression::Invalid);
+            expr = expr.maybe_convert_to(common_return_type.clone(), &node, &mut ctx.diag);
+            statements_or_exprs[index] = expr;
+        });
+
+        Expression::CodeBlock(statements_or_exprs)
+    }
+
+    fn from_return_statement(
+        node: syntax_nodes::ReturnStatement,
+        ctx: &mut LookupCtx,
+    ) -> Expression {
+        Expression::ReturnStatement(
+            node.Expression().map(|n| Box::new(Self::from_expression_node(n.into(), ctx))),
         )
     }
 

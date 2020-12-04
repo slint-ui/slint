@@ -363,6 +363,8 @@ pub enum Expression {
     EasingCurve(EasingCurve),
 
     EnumerationValue(EnumerationValue),
+
+    ReturnStatement(Option<Box<Expression>>),
 }
 
 impl Default for Expression {
@@ -469,6 +471,7 @@ impl Expression {
             Expression::ReadLocalVariable { ty, .. } => ty.clone(),
             Expression::EasingCurve(_) => Type::Easing,
             Expression::EnumerationValue(value) => Type::Enumeration(value.enumeration.clone()),
+            Expression::ReturnStatement(expr) => expr.as_ref().map_or(Type::Void, |expr| expr.ty()),
         }
     }
 
@@ -542,6 +545,9 @@ impl Expression {
             Expression::ReadLocalVariable { .. } => {}
             Expression::EasingCurve(_) => {}
             Expression::EnumerationValue(_) => {}
+            Expression::ReturnStatement(expr) => {
+                expr.as_deref().map(|expr| visitor(expr));
+            }
         }
     }
 
@@ -614,6 +620,9 @@ impl Expression {
             Expression::ReadLocalVariable { .. } => {}
             Expression::EasingCurve(_) => {}
             Expression::EnumerationValue(_) => {}
+            Expression::ReturnStatement(expr) => {
+                expr.as_deref_mut().map(|expr| visitor(expr));
+            }
         }
     }
 
@@ -666,6 +675,9 @@ impl Expression {
             Expression::ReadLocalVariable { .. } => false,
             Expression::EasingCurve(_) => true,
             Expression::EnumerationValue(_) => true,
+            Expression::ReturnStatement(expr) => {
+                expr.as_ref().map_or(true, |expr| expr.is_constant())
+            }
         }
     }
 
@@ -676,6 +688,13 @@ impl Expression {
         node: &impl SpannedWithSourceFile,
         diag: &mut BuildDiagnostics,
     ) -> Expression {
+        if let Expression::ReturnStatement(expr) = self {
+            return Expression::ReturnStatement(expr.map(|mut expr| {
+                let expr = std::mem::replace(&mut *expr, Expression::Invalid);
+                Box::new(expr.maybe_convert_to(target_type, node, diag))
+            }));
+        }
+
         let ty = self.ty();
         if ty == target_type || target_type == Type::Void || target_type == Type::Invalid {
             self

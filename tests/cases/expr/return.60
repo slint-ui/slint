@@ -1,0 +1,46 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+ TestCase := Rectangle {
+    property <bool> toggle;
+    property <int> value: {
+        if (toggle) {
+            return 42;
+        }
+        return 100;
+    }
+
+    signal test_signal;
+    property <bool> block_signal;
+    property <bool> signal_handled;
+    test_signal => {
+        if (block_signal) {
+            return;
+        }
+        signal_handled = true;
+    }
+}
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_value(), 100);
+instance.set_toggle(true);
+assert_eq(instance.get_value(), 42);
+
+instance.emit_test_signal();
+assert(instance.get_signal_handled());
+
+instance.set_signal_handled(false);
+instance.set_block_signal(true);
+instance.emit_test_signal();
+assert(!instance.get_signal_handled());
+```
+
+*/

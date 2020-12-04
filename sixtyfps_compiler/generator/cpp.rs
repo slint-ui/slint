@@ -1452,8 +1452,18 @@ fn compile_expression(
             }
         }
         Expression::CodeBlock(sub) => {
-            let mut x = sub.iter().map(|e| compile_expression(e, component)).collect::<Vec<_>>();
+            let len = sub.len();
+            let mut x = sub.iter().enumerate().map(|(i, e)| {
+                match e {
+                    Expression::ReturnStatement(return_expr) if i == len - 1 => {
+                        return_expr.as_ref().map_or_else(String::new, |return_expr| compile_expression(return_expr, component))
+                    },
+                    e => compile_expression(e, component)
+                }
+
+            }).collect::<Vec<_>>();
             if let Some(s) = x.last_mut() { *s = format!("return {};", s) };
+
             format!("[&]{{ {} }}()", x.join(";"))
         }
         Expression::FunctionCall { function, arguments, source_location: _  } => match &**function {
@@ -1608,6 +1618,7 @@ fn compile_expression(
         }
         Expression::Uncompiled(_) | Expression::TwoWayBinding(..) => panic!(),
         Expression::Invalid => "\n#error invalid expression\n".to_string(),
+        Expression::ReturnStatement(expr) => format!("return {};", expr.as_ref().map_or_else(String::new, |expr| compile_expression(expr, component))),
     }
 }
 

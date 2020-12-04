@@ -360,6 +360,9 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
         Expression::CodeBlock(sub) => {
             let mut v = Value::Void;
             for e in sub {
+                if let Expression::ReturnStatement(expr) = e {
+                    return expr.as_ref().map_or(Value::Void, |expr| eval_expression(expr, local_context))
+                }
                 v = eval_expression(e, local_context);
             }
             v
@@ -606,6 +609,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
         Expression::EnumerationValue(value) => {
             Value::EnumerationValue(value.enumeration.name.clone(), value.to_string())
         }
+        Expression::ReturnStatement(_) => panic!("internal error: return statement must only appear inside code block and handled there")
     }
 }
 
