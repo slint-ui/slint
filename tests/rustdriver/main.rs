@@ -7,7 +7,7 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-//#![allow(unused)]
+#![deny(warnings)]
 
 #[cfg(test)]
 include!(concat!(env!("OUT_DIR"), "/generated.rs"));

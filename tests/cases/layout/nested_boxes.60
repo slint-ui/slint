@@ -143,7 +143,6 @@ assert(instance.get_rect_black2_ok());
 
 ```rust
 let instance = TestCase::new();
-use sixtyfps::re_exports::Component;
 sixtyfps::testing::apply_layout(&instance, sixtyfps::re_exports::Rect::new(Default::default(), sixtyfps::re_exports::Size::new(300., 300.)));
 assert!(instance.get_rect_blue_ok());
 assert!(instance.get_rect_orange_ok());
