@@ -3,6 +3,10 @@
     "version": "0.0.2",
     "homepage": "https://github.com/sixtyfpsui/sixtyfps",
     "license": "SEE LICENSE IN LICENSE.md",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/sixtyfpsui/sixtyfps"
+    },
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
     "dependencies": {
