@@ -17,9 +17,17 @@ use core::convert::TryInto;
 /// This trait is implemented by the `#[vtable]` macro.
 ///
 /// It is implemented if the macro has a "drop_in_place" function.
+///
+/// Safety: the implementation of drop_in_place and dealloc must be correct
 pub unsafe trait VTableMetaDropInPlace: VTableMeta {
-    /// Safety: the target ptr argument needs to be pointing to a valid allocated pointer
+    /// # Safety
+    /// The target ptr argument needs to be pointing to a an instance of the VTable
+    /// after the call to this function, the memory is still there but no longer contains
+    /// a valid object.
     unsafe fn drop_in_place(vtable: &Self::VTable, ptr: *mut u8) -> vrc::Layout;
+    /// # Safety
+    /// The target ptr must have been allocated by the same allocator as the
+    /// one which the vtable will delegate to.
     unsafe fn dealloc(vtable: &Self::VTable, ptr: *mut u8, layout: vrc::Layout);
 }
 
@@ -173,7 +181,7 @@ impl<VTable: VTableMetaDropInPlace, X> VRc<VTable, X> {
     }
 
     /// Gets a VRef pointing to this instance
-    pub fn borrow<'b>(this: &'b Self) -> VRef<'b, VTable> {
+    pub fn borrow(this: &Self) -> VRef<'_, VTable> {
         unsafe {
             let inner = this.inner.cast::<VRcInner<VTable, u8>>();
             VRef::from_raw(

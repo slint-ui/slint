@@ -36,7 +36,7 @@ fn match_generic_type(ty: &Type, container: &str, containee: &Ident) -> bool {
 }
 
 /// Returns Some(type) if the type is `Pin<type>`
-fn is_pin<'a>(ty: &'a Type) -> Option<&'a Type> {
+fn is_pin(ty: &Type) -> Option<&Type> {
     if let Type::Path(pat) = ty {
         if let Some(seg) = pat.path.segments.last() {
             if seg.ident != "Pin" {
@@ -267,10 +267,10 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 asyncness: None,
                 unsafety: f.unsafety,
                 abi: None,
-                fn_token: f.fn_token.clone(),
+                fn_token: f.fn_token,
                 ident: ident.clone(),
                 generics: Default::default(),
-                paren_token: f.paren_token.clone(),
+                paren_token: f.paren_token,
                 inputs: Default::default(),
                 variadic: None,
                 output: f.output.clone(),
@@ -316,7 +316,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                                         .to_compile_error()
                                         .into();
                                 }
-                                if call_code.is_some() || sig.inputs.len() > 0 {
+                                if call_code.is_some() || !sig.inputs.is_empty() {
                                     return Error::new(
                                         p.span(),
                                         "VTable pointer need to be the first",
@@ -344,7 +344,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 } else {
                     (false, None)
                 } {
-                    if sig.inputs.len() > 0 {
+                    if !sig.inputs.is_empty() {
                         return Error::new(param.span(), "Self pointer need to be the first")
                             .to_compile_error()
                             .into();
@@ -590,7 +590,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
                 match &field.ty {
                     Type::Path(p) if p.path.get_ident().map(|i| i == "usize").unwrap_or(false) => {}
-                    ty @ _ => {
+                    ty => {
                         return Error::new(
                             ty.span(),
                             "The type of an #[field_offset] member in the vtable must be 'usize'",

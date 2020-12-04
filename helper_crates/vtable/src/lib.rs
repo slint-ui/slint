@@ -94,8 +94,12 @@ pub unsafe trait VTableMeta {
 /// This trait is implemented by the `#[vtable]` macro.
 ///
 /// It is implemented if the macro has a "drop" function.
+///
+/// # Safety
+/// Only the `#[vtable]` macro should implement this trait.
 pub unsafe trait VTableMetaDrop: VTableMeta {
-    /// Safety: the Target needs to be pointing to a valid allocated pointer
+    /// # Safety
+    /// `ptr` needs to be pointing to a valid allocated pointer
     unsafe fn drop(ptr: *mut Self::Target);
     fn new_box<X: HasStaticVTable<Self>>(value: X) -> VBox<Self>;
 }
@@ -184,7 +188,10 @@ impl<T: ?Sized + VTableMetaDrop> VBox<T> {
         T::new_box(value)
     }
 
-    /// Safety: the `ptr` needs to be a valid for the `vtable`, and properly allocated so it can be dropped
+    /// Create a new VBox from raw pointers
+    /// # Safety
+    /// The `ptr` needs to be a valid object fitting the `vtable`.
+    /// ptr must be properly allocated so it can be dropped.
     pub unsafe fn from_raw(vtable: NonNull<T::VTable>, ptr: NonNull<u8>) -> Self {
         Self {
             inner: Inner { vtable: vtable.cast().as_ptr(), ptr: ptr.cast().as_ptr() },
@@ -193,12 +200,12 @@ impl<T: ?Sized + VTableMetaDrop> VBox<T> {
     }
 
     /// Gets a VRef pointing to this box
-    pub fn borrow<'b>(&'b self) -> VRef<'b, T> {
+    pub fn borrow(&self) -> VRef<'_, T> {
         unsafe { VRef::from_inner(self.inner) }
     }
 
     /// Gets a VRefMut pointing to this box
-    pub fn borrow_mut<'b>(&'b mut self) -> VRefMut<'b, T> {
+    pub fn borrow_mut(&mut self) -> VRefMut<'_, T> {
         unsafe { VRefMut::from_inner(self.inner) }
     }
 
@@ -268,7 +275,10 @@ impl<'a, T: ?Sized + VTableMeta> VRef<'a, T> {
         Self { inner, phantom: PhantomData }
     }
 
-    /// Safety: the `ptr` needs to be a valid for the `vtable`, and properly allocated so it can be dropped
+    /// Create a new VRef from raw pointers
+    /// # Safety
+    /// The `ptr` needs to be a valid object fitting the `vtable`.
+    /// Both vtable and ptr lifetime must outlive 'a
     pub unsafe fn from_raw(vtable: NonNull<T::VTable>, ptr: NonNull<u8>) -> Self {
         Self {
             inner: Inner { vtable: vtable.cast().as_ptr(), ptr: ptr.cast().as_ptr() },
@@ -339,7 +349,12 @@ impl<'a, T: ?Sized + VTableMeta> VRefMut<'a, T> {
         Self { inner, phantom: PhantomData }
     }
 
-    /// Safety: the `ptr` needs to be a valid for the `vtable`, and properly allocated so it can be dropped
+    /// Create a new VRefMut from raw pointers
+    /// # Safety
+    /// The `ptr` needs to be a valid object fitting the `vtable`.
+    /// Both vtable and ptr lifetime must outlive 'a.
+    /// Can create mutable reference to ptr, so no other code can create mutable reference of ptr
+    /// during the life time 'a.
     pub unsafe fn from_raw(vtable: NonNull<T::VTable>, ptr: NonNull<u8>) -> Self {
         Self {
             inner: Inner { vtable: vtable.cast().as_ptr(), ptr: ptr.cast().as_ptr() },
@@ -348,12 +363,12 @@ impl<'a, T: ?Sized + VTableMeta> VRefMut<'a, T> {
     }
 
     /// Borrow this to obtain a VRef.
-    pub fn borrow<'b>(&'b self) -> VRef<'b, T> {
+    pub fn borrow(&self) -> VRef<'_, T> {
         unsafe { VRef::from_inner(self.inner) }
     }
 
     /// Borrow this to obtain a new VRefMut.
-    pub fn borrow_mut<'b>(&'b mut self) -> VRefMut<'b, T> {
+    pub fn borrow_mut(&mut self) -> VRefMut<'_, T> {
         unsafe { VRefMut::from_inner(self.inner) }
     }
 
@@ -465,9 +480,11 @@ impl<Base, T: ?Sized + VTableMeta, PinFlag> core::fmt::Debug for VOffset<Base, T
 }
 
 impl<Base, T: ?Sized + VTableMeta, Flag> VOffset<Base, T, Flag> {
+    /// Apply this offset to a reference to the base to obtain a [`VRef`] with the same
+    /// lifetime as the base lifetime
     #[inline]
-    pub fn apply<'a>(self, x: &'a Base) -> VRef<'a, T> {
-        let ptr = x as *const Base as *const u8;
+    pub fn apply(self, base: &Base) -> VRef<'_, T> {
+        let ptr = base as *const Base as *const u8;
         unsafe {
             VRef::from_raw(
                 NonNull::from(self.vtable),
@@ -476,9 +493,11 @@ impl<Base, T: ?Sized + VTableMeta, Flag> VOffset<Base, T, Flag> {
         }
     }
 
+    /// Apply this offset to a reference to the base to obtain a [`VRefMut`] with the same
+    /// lifetime as the base lifetime
     #[inline]
-    pub fn apply_mut<'a>(self, x: &'a mut Base) -> VRefMut<'a, T> {
-        let ptr = x as *mut Base as *mut u8;
+    pub fn apply_mut(self, base: &mut Base) -> VRefMut<'_, T> {
+        let ptr = base as *mut Base as *mut u8;
         unsafe {
             VRefMut::from_raw(
                 NonNull::from(self.vtable),
@@ -487,6 +506,8 @@ impl<Base, T: ?Sized + VTableMeta, Flag> VOffset<Base, T, Flag> {
         }
     }
 
+    /// Create an new VOffset from a [`FieldOffset`] where the target type implement the
+    /// [`HasStaticVTable`] trait.
     #[inline]
     pub fn new<X: HasStaticVTable<T>>(o: FieldOffset<Base, X, Flag>) -> Self {
         Self { vtable: X::static_vtable(), offset: o.get_byte_offset(), phantom: PhantomData }
@@ -494,7 +515,8 @@ impl<Base, T: ?Sized + VTableMeta, Flag> VOffset<Base, T, Flag> {
 
     /// Create a new VOffset from raw data
     ///
-    /// Safety: there must be a field that matches the vtable at offset T in base.
+    /// # Safety
+    /// There must be a field that matches the vtable at offset T in base.
     #[inline]
     pub unsafe fn from_raw(vtable: &'static T::VTable, offset: usize) -> Self {
         Self { vtable, offset, phantom: PhantomData }
