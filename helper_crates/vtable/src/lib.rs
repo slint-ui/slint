@@ -63,6 +63,8 @@ that `cbindgen` can see the actual vtable.
 
 */
 
+#![warn(missing_docs)]
+
 #[doc(no_inline)]
 pub use const_field_offset::*;
 use core::marker::PhantomData;
@@ -101,6 +103,7 @@ pub unsafe trait VTableMetaDrop: VTableMeta {
     /// # Safety
     /// `ptr` needs to be pointing to a valid allocated pointer
     unsafe fn drop(ptr: *mut Self::Target);
+    /// allocate a new [`VBox`]
     fn new_box<X: HasStaticVTable<Self>>(value: X) -> VBox<Self>;
 }
 
@@ -524,9 +527,11 @@ impl<Base, T: ?Sized + VTableMeta, Flag> VOffset<Base, T, Flag> {
 }
 
 impl<Base, T: ?Sized + VTableMeta> VOffset<Base, T, AllowPin> {
+    /// Apply this offset to a reference to the base to obtain a `Pin<VRef<'a, T>>` with the same
+    /// lifetime as the base lifetime
     #[inline]
-    pub fn apply_pin<'a>(self, x: Pin<&'a Base>) -> Pin<VRef<'a, T>> {
-        let ptr = x.get_ref() as *const Base as *mut u8;
+    pub fn apply_pin<'a>(self, base: Pin<&'a Base>) -> Pin<VRef<'a, T>> {
+        let ptr = base.get_ref() as *const Base as *mut u8;
         unsafe {
             Pin::new_unchecked(VRef::from_raw(
                 NonNull::from(self.vtable),

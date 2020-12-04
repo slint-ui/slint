@@ -39,7 +39,9 @@ pub struct Dyn(());
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct Layout {
+    /// The size in bytes
     pub size: usize,
+    /// The minimum alignement in bytes
     pub align: usize,
 }
 
