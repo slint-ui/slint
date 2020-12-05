@@ -978,8 +978,8 @@ fn access_named_reference(
     access_member(&nr.element.upgrade().unwrap(), &nr.name, component, component_rust, false)
 }
 
-fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream {
-    match e {
+fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStream {
+    match expr {
         Expression::StringLiteral(s) => quote!(sixtyfps::re_exports::SharedString::from(#s)),
         Expression::NumberLiteral(n, unit) => {
             let n = unit.normalize(*n);
@@ -1226,7 +1226,7 @@ fn compile_expression(e: &Expression, component: &Rc<Component>) -> TokenStream 
             )
         }
         Expression::Invalid | Expression::Uncompiled(_) | Expression::TwoWayBinding(..) => {
-            let error = format!("unsupported expression {:?}", e);
+            let error = format!("unsupported expression {:?}", expr);
             quote!(compile_error! {#error})
         }
         Expression::Array { values, element_ty } => {
