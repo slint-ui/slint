@@ -16,5 +16,5 @@ const-field-offset-macro = { version = "=0.1.0", path = "./macro" }
 field-offset = "0.3.2"
 
 [dev-dependencies]
-memoffset = "0.5.4"
+memoffset = "0.6"
 lazy_static = "1.4.0"
