@@ -848,7 +848,7 @@ fn generate_component(
 /// Return an identifier suitable for this component for internal use
 fn inner_component_id(component: &Component) -> proc_macro2::Ident {
     if component.is_global()
-        && matches!(dbg!(&component.root_element.borrow().base_type), Type::Builtin(_))
+        && matches!(&component.root_element.borrow().base_type, Type::Builtin(_))
     {
         public_component_id(component)
     } else {
