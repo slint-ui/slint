@@ -737,7 +737,7 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
     ) {
         let mut pos = euclid::point2(pos.x as _, pos.y as _);
         let active_popup = (*self.active_popup.borrow()).clone();
-        let component = if let Some(popup) = active_popup {
+        let component = if let Some(popup) = &active_popup {
             pos -= popup.1.to_vector();
             if what == MouseEventType::MousePressed {
                 // close the popup if one press outside the popup
@@ -759,6 +759,14 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
             &crate::eventloop::ComponentWindow::new(self.clone()),
             self.mouse_input_state.take(),
         ));
+
+        if active_popup.is_some() {
+            //FIXME: currently the ComboBox is the only thing that uses the popup, and it should close automatically
+            // on release.  But ideally, there would be API to close the popup rather than always closing it on release
+            if what == MouseEventType::MouseReleased {
+                self.close_popup();
+            }
+        }
     }
 
     fn process_key_input(self: Rc<Self>, event: &KeyEvent) {
