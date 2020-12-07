@@ -16,7 +16,7 @@ x11 = ["sixtyfps-rendering-backend-default/x11"]
 wayland = ["sixtyfps-rendering-backend-default/wayland"]
 
 [dependencies]
-once_cell = "1.4"
+once_cell = "1.5"
 sixtyfps-macros = { version = "=0.0.2", path = "sixtyfps-macros" }
 const-field-offset = { version = "0.1", path = "../../helper_crates/const-field-offset" }
 vtable = { version = "0.1.1", path = "../../helper_crates/vtable" }
@@ -25,7 +25,7 @@ sixtyfps-rendering-backend-default = { version = "=0.0.2", path="../../sixtyfps_
 derive_more = "0.99.5"
 
 [build-dependencies]
-rustc_version = "0.2.3"
+rustc_version = "0.3"
 
 # Currently disabled because it does not look good and it depends on external URL which are not stable yet
 # [package.metadata.docs.rs]
