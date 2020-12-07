@@ -35,15 +35,15 @@ pub fn widget_library() -> &'static [(&'static str, &'static VirtualDirectory<'s
         if !path.is_dir() {
             continue;
         }
-        write!(
+        writeln!(
             file,
-            "(\"{}\", &[{}]),\n",
+            "(\"{}\", &[{}]),",
             path.file_name().unwrap().to_string_lossy(),
             process_style(&path)?
         )?;
     }
 
-    write!(file, "]\n}}\n")?;
+    writeln!(file, "]\n}}")?;
 
     println!("cargo:rustc-env=SIXTYFPS_WIDGETS_LIBRARY={}", output_file_path.display());
 

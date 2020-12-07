@@ -261,9 +261,9 @@ impl FileDiagnostics {
             codemap_diagnostic::Emitter::vec(output, codemap)
         });
 
-        String::from_utf8(output).expect(&format!(
+        String::from_utf8(output).expect(
             "Internal error: There were errors during compilation but they did not result in valid utf-8 diagnostics!"
-        ))
+        )
     }
 
     #[cfg(feature = "proc_macro_span")]

@@ -40,7 +40,7 @@ pub fn materialize_fake_properties(component: &Rc<Component>) {
 fn maybe_materialize(
     property_declarations: &mut HashMap<String, PropertyDeclaration>,
     base_type: &Type,
-    prop: &String,
+    prop: &str,
 ) {
     if property_declarations.contains_key(prop) {
         return;

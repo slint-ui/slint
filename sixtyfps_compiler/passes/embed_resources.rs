@@ -26,8 +26,8 @@ fn embed_resources_from_expression(
     component: &Rc<Component>,
     global_embedded_resources: &RefCell<HashMap<String, usize>>,
 ) {
-    match e {
-        Expression::ResourceReference(ref mut resource_ref) => match resource_ref {
+    if let Expression::ResourceReference(ref mut resource_ref) = e {
+        match resource_ref {
             ResourceReference::AbsolutePath(path) => {
                 let mut resources = global_embedded_resources.borrow_mut();
                 let maybe_id = resources.len();
@@ -35,8 +35,7 @@ fn embed_resources_from_expression(
                 *resource_ref = ResourceReference::EmbeddedData(resource_id)
             }
             ResourceReference::EmbeddedData(_) => {}
-        },
-        _ => {}
+        }
     };
 
     e.visit_mut(|mut e| {

@@ -93,7 +93,7 @@ impl TypeRegister {
             register.insert_type_with_name(
                 Type::Enumeration(Rc::new(Enumeration {
                     name: name.to_owned(),
-                    values: values.into_iter().cloned().map(String::from).collect(),
+                    values: values.iter().cloned().map(String::from).collect(),
                     default_value: 0,
                 })),
                 name.to_owned(),
@@ -186,7 +186,6 @@ impl TypeRegister {
                         name,
                         permitted_parent_types.iter().next().unwrap()
                     )
-                    .to_owned()
                 } else {
                     let mut elements = permitted_parent_types.iter().cloned().collect::<Vec<_>>();
                     elements.sort();
@@ -195,7 +194,6 @@ impl TypeRegister {
                         name,
                         elements.join(", ")
                     )
-                    .to_owned()
                 }
             } else {
                 format!("Unknown type {}", name)

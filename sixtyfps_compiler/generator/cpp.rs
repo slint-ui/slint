@@ -376,10 +376,7 @@ fn handle_property_binding(
                 init = init_expr
             );
 
-            let is_state_info = match prop_type {
-                Type::Object { name: Some(name), .. } if name.ends_with("::StateInfo") => true,
-                _ => false,
-            };
+            let is_state_info = matches!(prop_type, Type::Object { name: Some(name), .. } if name.ends_with("::StateInfo"));
             if is_state_info {
                 format!("sixtyfps::set_state_binding({}, {});", cpp_prop, binding_code)
             } else {
@@ -1055,7 +1052,7 @@ fn generate_component(
         component_struct.members.push((
             Access::Public,
             Declaration::Function(Function {
-                name: format!("~{}", component_id.clone()),
+                name: format!("~{}", component_id),
                 signature: "()".to_owned(),
                 is_constructor_or_destructor: true,
                 statements: Some(destructor),
@@ -1212,25 +1209,17 @@ fn model_data_type(parent_element: &ElementRc, diag: &mut BuildDiagnostics) -> S
         element: Rc::downgrade(parent_element),
     }
     .ty();
-    model_data_type
-        .cpp_type()
-        .unwrap_or_else(|| {
-            diag.push_internal_error(
-                CompilerDiagnostic {
-                    message: format!("Cannot map property type {} to C++", model_data_type).into(),
-                    span: parent_element
-                        .borrow()
-                        .node
-                        .as_ref()
-                        .map(|n| n.span())
-                        .unwrap_or_default(),
-                    level: Level::Error,
-                }
-                .into(),
-            );
-            String::default()
-        })
-        .to_owned()
+    model_data_type.cpp_type().unwrap_or_else(|| {
+        diag.push_internal_error(
+            CompilerDiagnostic {
+                message: format!("Cannot map property type {} to C++", model_data_type),
+                span: parent_element.borrow().node.as_ref().map(|n| n.span()).unwrap_or_default(),
+                level: Level::Error,
+            }
+            .into(),
+        );
+        String::default()
+    })
 }
 
 /// Returns the code that can access the given property (but without the set or get)
@@ -1291,8 +1280,11 @@ fn access_named_reference(
     access_member(&nr.element.upgrade().unwrap(), &nr.name, component, component_cpp)
 }
 
-fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Component>) -> String {
-    match e {
+fn compile_expression(
+    expr: &crate::expression_tree::Expression,
+    component: &Rc<Component>,
+) -> String {
+    match expr {
         Expression::StringLiteral(s) => {
             format!(r#"sixtyfps::SharedString("{}")"#, s.escape_debug())
         }
@@ -1413,8 +1405,7 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
         }
         Expression::CodeBlock(sub) => {
             let mut x = sub.iter().map(|e| compile_expression(e, component)).collect::<Vec<_>>();
-            x.last_mut().map(|s| *s = format!("return {};", s));
-
+            if let Some(s) = x.last_mut() { *s = format!("return {};", s) };
             format!("[&]{{ {} }}()", x.join(";"))
         }
         Expression::FunctionCall { function, arguments } => match &**function {
@@ -1490,7 +1481,7 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
             let cond_code = remove_parentheses(&cond_code);
             let true_code = compile_expression(true_expr, component);
             let false_code = compile_expression(false_expr, component);
-            let ty = e.ty();
+            let ty = expr.ty();
             if ty == Type::Invalid || ty == Type::Void {
                 format!(
                     r#"[&]() {{ if ({}) {{ {}; }} else {{ {}; }}}}()"#,
@@ -1551,7 +1542,7 @@ fn compile_expression(e: &crate::expression_tree::Expression, component: &Rc<Com
             format!("sixtyfps::{}::{}", value.enumeration.name, value.to_string())
         }
         Expression::Uncompiled(_) | Expression::TwoWayBinding(..) => panic!(),
-        Expression::Invalid => format!("\n#error invalid expression\n"),
+        Expression::Invalid => "\n#error invalid expression\n".to_string(),
     }
 }
 
@@ -1675,7 +1666,7 @@ impl crate::layout::gen::Language for CppLanguageLayoutGen {
         cells: Vec<Self::CompiledCode>,
         component: &Rc<Component>,
     ) -> crate::layout::gen::LayoutTreeItem<'a, Self> {
-        let cell_ref_variable = format!("cells_{}", layout_tree.len()).to_owned();
+        let cell_ref_variable = format!("cells_{}", layout_tree.len());
         let mut creation_code = cells;
         creation_code.insert(
             0,
@@ -1861,7 +1852,7 @@ fn get_layout_info_ref<'a, 'b>(
 fn generate_layout_padding_and_spacing<'a, 'b>(
     creation_code: &mut Vec<String>,
     layout_geometry: &LayoutGeometry,
-    layout_tree: &'b Vec<LayoutTreeItem<'a>>,
+    layout_tree: &'b [LayoutTreeItem<'a>],
     component: &Rc<Component>,
 ) -> (String, String) {
     let spacing = if let Some(spacing) = &layout_geometry.spacing {

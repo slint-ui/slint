@@ -199,7 +199,7 @@ fn attempt_percent_conversion(
         return e;
     }
 
-    const RELATIVE_TO_PARENT_PROPERTIES: [&'static str; 2] = ["width", "height"];
+    const RELATIVE_TO_PARENT_PROPERTIES: [&str; 2] = ["width", "height"];
     let property_name = ctx.property_name.unwrap_or_default();
     if !RELATIVE_TO_PARENT_PROPERTIES.contains(&property_name) {
         ctx.diag.push_error(
@@ -351,11 +351,11 @@ impl Expression {
     }
 
     fn from_bang_expression_node(node: SyntaxNodeWithSourceFile, ctx: &mut LookupCtx) -> Self {
-        match identifier_text(&node).as_ref().map(|x| x.as_str()) {
+        match identifier_text(&node).as_deref() {
             None => {
                 debug_assert!(false, "the parser should not allow that");
                 ctx.diag.push_error("Missing bang keyword".into(), &node);
-                return Self::Invalid;
+                Self::Invalid
             }
             Some("img") => {
                 // FIXME: we probably need a better syntax and make this at another level.
@@ -398,7 +398,7 @@ impl Expression {
             }
             Some(x) => {
                 ctx.diag.push_error(format!("Unknown bang keyword `{}`", x), &node);
-                return Self::Invalid;
+                Self::Invalid
             }
         }
     }
@@ -464,7 +464,7 @@ impl Expression {
             if property.is_property_type() {
                 let prop = Self::PropertyReference(NamedReference {
                     element: Rc::downgrade(&elem),
-                    name: first_str.to_string(),
+                    name: first_str,
                 });
                 return maybe_lookup_object(prop, it, ctx);
             } else if matches!(property, Type::Signal{..}) {
@@ -473,7 +473,7 @@ impl Expression {
                 }
                 return Self::SignalReference(NamedReference {
                     element: Rc::downgrade(&elem),
-                    name: first_str.to_string(),
+                    name: first_str,
                 });
             } else if property.is_object_type() {
                 todo!("Continue lookling up");
@@ -662,7 +662,7 @@ impl Expression {
         ctx: &mut LookupCtx,
     ) -> Expression {
         let (lhs_n, rhs_n) = node.Expression();
-        let lhs = Self::from_expression_node(lhs_n.into(), ctx);
+        let lhs = Self::from_expression_node(lhs_n, ctx);
         let op = None
             .or(node.child_token(SyntaxKind::PlusEqual).and(Some('+')))
             .or(node.child_token(SyntaxKind::MinusEqual).and(Some('-')))
@@ -679,7 +679,7 @@ impl Expression {
                 &node,
             );
         }
-        let rhs = Self::from_expression_node(rhs_n.clone().into(), ctx).maybe_convert_to(
+        let rhs = Self::from_expression_node(rhs_n.clone(), ctx).maybe_convert_to(
             lhs.ty(),
             &rhs_n,
             &mut ctx.diag,
@@ -707,8 +707,8 @@ impl Expression {
             .unwrap_or('_');
 
         let (lhs_n, rhs_n) = node.Expression();
-        let lhs = Self::from_expression_node(lhs_n.clone().into(), ctx);
-        let rhs = Self::from_expression_node(rhs_n.clone().into(), ctx);
+        let lhs = Self::from_expression_node(lhs_n.clone(), ctx);
+        let rhs = Self::from_expression_node(rhs_n.clone(), ctx);
 
         let expected_ty = match operator_class(op) {
             OperatorClass::ComparisonOp => {
@@ -785,7 +785,7 @@ impl Expression {
         ctx: &mut LookupCtx,
     ) -> Expression {
         let exp_n = node.Expression();
-        let exp = Self::from_expression_node(exp_n.clone().into(), ctx);
+        let exp = Self::from_expression_node(exp_n, ctx);
 
         Expression::UnaryOp {
             sub: Box::new(exp),
@@ -803,10 +803,13 @@ impl Expression {
     ) -> Expression {
         let (condition_n, true_expr_n, false_expr_n) = node.Expression();
         // FIXME: we should we add bool to the context
-        let condition = Self::from_expression_node(condition_n.clone().into(), ctx)
-            .maybe_convert_to(Type::Bool, &condition_n, &mut ctx.diag);
-        let true_expr = Self::from_expression_node(true_expr_n.clone().into(), ctx);
-        let false_expr = Self::from_expression_node(false_expr_n.clone().into(), ctx);
+        let condition = Self::from_expression_node(condition_n.clone(), ctx).maybe_convert_to(
+            Type::Bool,
+            &condition_n,
+            &mut ctx.diag,
+        );
+        let true_expr = Self::from_expression_node(true_expr_n.clone(), ctx);
+        let false_expr = Self::from_expression_node(false_expr_n.clone(), ctx);
         let result_ty = Self::common_target_type_for_type_list(
             [true_expr.ty(), false_expr.ty()].iter().cloned(),
         );
@@ -861,12 +864,12 @@ impl Expression {
     /// This function is used to find a type that's suitable for casting each instance of a bunch of expressions
     /// to a type that captures most aspects. For example for an array of object literals the result is a merge of
     /// all seen fields.
-    fn common_target_type_for_type_list<'a>(types: impl Iterator<Item = Type>) -> Type {
+    fn common_target_type_for_type_list(types: impl Iterator<Item = Type>) -> Type {
         types.fold(Type::Invalid, |target_type, expr_ty| {
             if target_type == expr_ty {
-                return target_type;
+                target_type
             } else if target_type == Type::Invalid {
-                return expr_ty;
+                expr_ty
             } else {
                 match (target_type, expr_ty) {
                     (
@@ -930,7 +933,7 @@ fn min_max_macro(
             return Expression::Invalid;
         }
     };
-    while let Some((next, arg_node)) = args.next() {
+    for (next, arg_node) in args {
         let rhs = next.maybe_convert_to(ty.clone(), &arg_node, diag);
         static COUNTER: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(1);
         let id = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -977,22 +980,22 @@ fn continue_lookup_within_element(
             element: Rc::downgrade(elem),
             name: prop_name,
         });
-        return maybe_lookup_object(prop, it, ctx);
+        maybe_lookup_object(prop, it, ctx)
     } else if matches!(p, Type::Signal{..}) {
         if let Some(x) = it.next() {
             ctx.diag.push_error("Cannot access fields of signal".into(), &x)
         }
-        return Expression::SignalReference(NamedReference {
+        Expression::SignalReference(NamedReference {
             element: Rc::downgrade(elem),
-            name: prop_name.to_string(),
-        });
+            name: prop_name,
+        })
     } else if matches!(p, Type::Function{..}) {
         let member = elem.borrow().base_type.lookup_member_function(&prop_name);
-        return Expression::MemberFunction {
+        Expression::MemberFunction {
             base: Box::new(Expression::ElementReference(Rc::downgrade(elem))),
             base_node: node.into(),
             member: Box::new(member),
-        };
+        }
     } else {
         let mut err = |extra: &str| {
             let what = match &elem.borrow().base_type {
@@ -1018,13 +1021,13 @@ fn continue_lookup_within_element(
             }
         }
         err("");
-        return Expression::Invalid;
+        Expression::Invalid
     }
 }
 
 fn maybe_lookup_object(
     mut base: Expression,
-    mut it: impl Iterator<Item = crate::parser::SyntaxTokenWithSourceFile>,
+    it: impl Iterator<Item = crate::parser::SyntaxTokenWithSourceFile>,
     ctx: &mut LookupCtx,
 ) -> Expression {
     fn error_or_try_minus(
@@ -1042,7 +1045,7 @@ fn maybe_lookup_object(
         Expression::Invalid
     }
 
-    while let Some(next) = it.next() {
+    for next in it {
         let next_str = crate::parser::normalize_identifier(next.text().as_str());
         match base.ty() {
             Type::Object { fields, .. } => {
@@ -1095,42 +1098,42 @@ fn maybe_lookup_object(
     base
 }
 
-fn parse_color_literal(s: &str) -> Option<u32> {
-    if !s.starts_with("#") {
+fn parse_color_literal(str: &str) -> Option<u32> {
+    if !str.starts_with('#') {
         return None;
     }
-    if !s.is_ascii() {
+    if !str.is_ascii() {
         return None;
     }
-    let s = &s[1..];
-    let (r, g, b, a) = match s.len() {
+    let str = &str[1..];
+    let (r, g, b, a) = match str.len() {
         3 => (
-            u8::from_str_radix(&s[0..=0], 16).ok()? * 0x11,
-            u8::from_str_radix(&s[1..=1], 16).ok()? * 0x11,
-            u8::from_str_radix(&s[2..=2], 16).ok()? * 0x11,
+            u8::from_str_radix(&str[0..=0], 16).ok()? * 0x11,
+            u8::from_str_radix(&str[1..=1], 16).ok()? * 0x11,
+            u8::from_str_radix(&str[2..=2], 16).ok()? * 0x11,
             255u8,
         ),
         4 => (
-            u8::from_str_radix(&s[0..=0], 16).ok()? * 0x11,
-            u8::from_str_radix(&s[1..=1], 16).ok()? * 0x11,
-            u8::from_str_radix(&s[2..=2], 16).ok()? * 0x11,
-            u8::from_str_radix(&s[3..=3], 16).ok()? * 0x11,
+            u8::from_str_radix(&str[0..=0], 16).ok()? * 0x11,
+            u8::from_str_radix(&str[1..=1], 16).ok()? * 0x11,
+            u8::from_str_radix(&str[2..=2], 16).ok()? * 0x11,
+            u8::from_str_radix(&str[3..=3], 16).ok()? * 0x11,
         ),
         6 => (
-            u8::from_str_radix(&s[0..2], 16).ok()?,
-            u8::from_str_radix(&s[2..4], 16).ok()?,
-            u8::from_str_radix(&s[4..6], 16).ok()?,
+            u8::from_str_radix(&str[0..2], 16).ok()?,
+            u8::from_str_radix(&str[2..4], 16).ok()?,
+            u8::from_str_radix(&str[4..6], 16).ok()?,
             255u8,
         ),
         8 => (
-            u8::from_str_radix(&s[0..2], 16).ok()?,
-            u8::from_str_radix(&s[2..4], 16).ok()?,
-            u8::from_str_radix(&s[4..6], 16).ok()?,
-            u8::from_str_radix(&s[6..8], 16).ok()?,
+            u8::from_str_radix(&str[0..2], 16).ok()?,
+            u8::from_str_radix(&str[2..4], 16).ok()?,
+            u8::from_str_radix(&str[4..6], 16).ok()?,
+            u8::from_str_radix(&str[6..8], 16).ok()?,
         ),
         _ => return None,
     };
-    Some((a as u32) << 24 | (r as u32) << 16 | (g as u32) << 8 | (b as u32) << 0)
+    Some((a as u32) << 24 | (r as u32) << 16 | (g as u32) << 8 | (b as u32))
 }
 
 #[test]
@@ -1153,7 +1156,7 @@ fn unescape_string(string: &str) -> Option<String> {
     }
     let string = &string[1..(string.len() - 1)];
     // TODO: remove slashes
-    return Some(string.into());
+    Some(string.into())
 }
 
 fn parse_number_literal(s: String) -> Result<Expression, String> {

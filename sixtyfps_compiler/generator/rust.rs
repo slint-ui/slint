@@ -186,10 +186,7 @@ fn handle_property_binding(
                 }
             });
 
-            let is_state_info = match prop_type {
-                Type::Object { name: Some(name), .. } if name.ends_with("::StateInfo") => true,
-                _ => false,
-            };
+            let is_state_info = matches!(prop_type, Type::Object { name: Some(name), .. } if name.ends_with("::StateInfo"));
             if is_state_info {
                 quote! { sixtyfps::re_exports::set_state_binding(#rust_property, #binding_tokens); }
             } else {
@@ -285,7 +282,7 @@ fn generate_component(
                             #inner_component_id::FIELD_OFFSETS.#prop_ident.apply_pin(self_pinned).emit(&(#(#args_name,)*))
                         }
                     )
-                    .into(),
+                    ,
                 );
 
                 let on_ident = format_ident!("on_{}", prop_name);
@@ -302,7 +299,7 @@ fn generate_component(
                             )
                         }
                     )
-                    .into(),
+                    ,
                 );
             }
             declared_signals_types.push(signal_args);
@@ -312,7 +309,7 @@ fn generate_component(
                 rust_type(&property_decl.property_type, &property_decl.type_node.span())
                     .unwrap_or_else(|err| {
                         diag.push_internal_error(err.into());
-                        quote!().into()
+                        quote!()
                     });
             if property_decl.expose_in_public_api {
                 let getter_ident = format_ident!("get_{}", prop_name);
@@ -324,18 +321,15 @@ fn generate_component(
                     quote!(#inner_component_id::FIELD_OFFSETS.#prop_ident.apply_pin(_self))
                 };
 
-                property_and_signal_accessors.push(
-                    quote!(
-                        #[allow(dead_code)]
-                        pub fn #getter_ident(&self) -> #rust_property_type {
-                            #[allow(unused_imports)]
-                            use sixtyfps::re_exports::*;
-                            let _self = vtable::VRc::as_pin_ref(&self.0);
-                            #prop.get()
-                        }
-                    )
-                    .into(),
-                );
+                property_and_signal_accessors.push(quote!(
+                    #[allow(dead_code)]
+                    pub fn #getter_ident(&self) -> #rust_property_type {
+                        #[allow(unused_imports)]
+                        use sixtyfps::re_exports::*;
+                        let _self = vtable::VRc::as_pin_ref(&self.0);
+                        #prop.get()
+                    }
+                ));
 
                 let set_value = property_set_value_tokens(
                     component,
@@ -343,18 +337,15 @@ fn generate_component(
                     prop_name,
                     quote!(value),
                 );
-                property_and_signal_accessors.push(
-                    quote!(
-                        #[allow(dead_code)]
-                        pub fn #setter_ident(&self, value: #rust_property_type) {
-                            #[allow(unused_imports)]
-                            use sixtyfps::re_exports::*;
-                            let _self = vtable::VRc::as_pin_ref(&self.0);
-                            #prop.#set_value
-                        }
-                    )
-                    .into(),
-                );
+                property_and_signal_accessors.push(quote!(
+                    #[allow(dead_code)]
+                    pub fn #setter_ident(&self, value: #rust_property_type) {
+                        #[allow(unused_imports)]
+                        use sixtyfps::re_exports::*;
+                        let _self = vtable::VRc::as_pin_ref(&self.0);
+                        #prop.#set_value
+                    }
+                ));
             }
 
             if property_decl.is_alias.is_none() {
@@ -424,7 +415,7 @@ fn generate_component(
                 )
                 .unwrap_or_else(|err| {
                     diag.push_internal_error(err.into());
-                    quote!().into()
+                    quote!()
                 });
 
                 let extra_fn = if repeated.is_listview.is_some() {
@@ -605,7 +596,7 @@ fn generate_component(
                 )
                 .unwrap_or_else(|err| {
                     diag.push_internal_error(err.into());
-                    quote!().into()
+                    quote!()
                 }),
             );
         }
@@ -1447,7 +1438,6 @@ impl crate::layout::gen::Language for RustLanguageLayoutGen {
             spacing,
             padding,
         }
-        .into()
     }
 
     fn box_layout_tree_item<'a, 'b>(
@@ -1547,7 +1537,6 @@ impl crate::layout::gen::Language for RustLanguageLayoutGen {
             padding,
             alignment,
         }
-        .into()
     }
 }
 
@@ -1614,7 +1603,7 @@ fn get_layout_info_ref<'a, 'b>(
 }
 
 fn generate_layout_padding_and_spacing<'a, 'b>(
-    layout_tree: &'b Vec<LayoutTreeItem<'a>>,
+    layout_tree: &'b [LayoutTreeItem<'a>],
     layout_geometry: &'a LayoutGeometry,
     component: &Rc<Component>,
 ) -> (TokenStream, TokenStream, Option<TokenStream>) {

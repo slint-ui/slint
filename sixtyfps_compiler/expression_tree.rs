@@ -463,7 +463,9 @@ impl Expression {
             Expression::Invalid => {}
             Expression::Uncompiled(_) => {}
             Expression::TwoWayBinding(_, sub) => {
-                sub.as_deref().map(|e| visitor(e));
+                if let Some(e) = sub.as_deref() {
+                    visitor(e)
+                }
             }
             Expression::StringLiteral(_) => {}
             Expression::NumberLiteral(_, _) => {}
@@ -510,7 +512,7 @@ impl Expression {
                 }
             }
             Expression::Object { values, .. } => {
-                for (_, x) in values {
+                for x in values.values() {
                     visitor(x);
                 }
             }
@@ -533,7 +535,9 @@ impl Expression {
             Expression::Invalid => {}
             Expression::Uncompiled(_) => {}
             Expression::TwoWayBinding(_, sub) => {
-                sub.as_deref_mut().map(|e| visitor(e));
+                if let Some(e) = sub.as_deref_mut() {
+                    visitor(e)
+                }
             }
             Expression::StringLiteral(_) => {}
             Expression::NumberLiteral(_, _) => {}
@@ -580,7 +584,7 @@ impl Expression {
                 }
             }
             Expression::Object { values, .. } => {
-                for (_, x) in values {
+                for x in values.values_mut() {
                     visitor(x);
                 }
             }
@@ -818,7 +822,7 @@ impl Expression {
             Type::Object { fields, .. } => Expression::Object {
                 ty: ty.clone(),
                 values: fields
-                    .into_iter()
+                    .iter()
                     .map(|(k, v)| (k.clone(), Expression::default_value_for_type(v)))
                     .collect(),
             },
@@ -857,7 +861,7 @@ impl std::convert::From<Expression> for ExpressionSpanned {
 impl ExpressionSpanned {
     pub fn new_uncompiled(node: SyntaxNodeWithSourceFile) -> Self {
         let span = node.source_file().map(|f| (f.clone(), node.span()));
-        Self { expression: Expression::Uncompiled(node.into()), span }
+        Self { expression: Expression::Uncompiled(node), span }
     }
 }
 

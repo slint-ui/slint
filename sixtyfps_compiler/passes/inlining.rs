@@ -93,11 +93,11 @@ fn inline_element(
     {
         Some(insertion_element) if !Rc::ptr_eq(elem, insertion_element) => {
             insertion_element.borrow_mut().children.append(&mut elem_mut.children);
-            root_component.child_insertion_point.borrow_mut().as_mut().map(|cip| {
+            if let Some(cip) = root_component.child_insertion_point.borrow_mut().as_mut() {
                 if Rc::ptr_eq(cip, elem) {
                     *cip = insertion_element.clone();
                 }
-            });
+            };
         }
         _ => {
             new_children.append(&mut elem_mut.children);
@@ -120,7 +120,7 @@ fn inline_element(
     core::mem::drop(elem_mut);
 
     // Now fixup all binding and reference
-    for (_, e) in &mapping {
+    for e in mapping.values() {
         visit_all_named_references_in_element(e, |nr| fixup_reference(nr, &mapping));
         visit_element_expressions(e, |expr, _, _| fixup_element_references(expr, &mapping));
     }
@@ -209,7 +209,7 @@ fn fixup_reference(
     NamedReference { element, .. }: &mut NamedReference,
     mapping: &HashMap<ByAddress<ElementRc>, ElementRc>,
 ) {
-    if let Some(e) = element.upgrade().and_then(|e| mapping.get(&element_key(e.clone()))) {
+    if let Some(e) = element.upgrade().and_then(|e| mapping.get(&element_key(e))) {
         *element = Rc::downgrade(e);
     }
 }
@@ -219,9 +219,7 @@ fn fixup_element_references(
     mapping: &HashMap<ByAddress<ElementRc>, ElementRc>,
 ) {
     if let Expression::ElementReference(element) = expr {
-        if let Some(new_element) =
-            element.upgrade().and_then(|e| mapping.get(&element_key(e.clone())))
-        {
+        if let Some(new_element) = element.upgrade().and_then(|e| mapping.get(&element_key(e))) {
             *element = Rc::downgrade(new_element);
         }
     } else {

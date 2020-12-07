@@ -107,9 +107,9 @@ pub fn load_builtins(register: &mut TypeRegister) {
                     )
                 })),
         );
-        n.cpp_type = parse_annotation("cpp_type", &e.node).map(|x| x.unwrap().to_owned());
+        n.cpp_type = parse_annotation("cpp_type", &e.node).map(|x| x.unwrap());
         n.rust_type_constructor =
-            parse_annotation("rust_type_constructor", &e.node).map(|x| x.unwrap().to_owned());
+            parse_annotation("rust_type_constructor", &e.node).map(|x| x.unwrap());
         let global = if let Some(base) = e.QualifiedName() {
             let base = QualifiedTypeName::from_node(base).to_string();
             if base != "_" {

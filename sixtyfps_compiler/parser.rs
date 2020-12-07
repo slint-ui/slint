@@ -453,7 +453,7 @@ mod parser_trait {
                 self.error(format!("Syntax error: expected {:?}", kind));
                 return false;
             }
-            return true;
+            true
         }
 
         /// If the token if of this type, consume it and return true, otherwise return false
@@ -462,7 +462,7 @@ mod parser_trait {
                 return false;
             }
             self.consume();
-            return true;
+            true
         }
 
         /// consume everyting until reaching a token of this kind
@@ -749,7 +749,7 @@ impl NodeOrTokenWithSourceFile {
         let source_file = self.source_file.clone();
         self.node_or_token
             .into_token()
-            .map(move |token| SyntaxTokenWithSourceFile { token, source_file: source_file.clone() })
+            .map(move |token| SyntaxTokenWithSourceFile { token, source_file })
     }
 }
 

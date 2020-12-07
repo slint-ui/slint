@@ -44,7 +44,7 @@ pub fn lower_popups(
 
 fn lower_popup_window(
     popup_window_element: &ElementRc,
-    parent_stack: &Vec<ElementRc>,
+    parent_stack: &[ElementRc],
     window_type: &Type,
     diag: &mut BuildDiagnostics,
 ) {
@@ -108,7 +108,7 @@ fn lower_popup_window(
 
 fn create_coodiate(
     popup_comp: &Rc<Component>,
-    parent_stack: &Vec<ElementRc>,
+    parent_stack: &[ElementRc],
     coord: &str,
 ) -> NamedReference {
     let mut expression = popup_comp

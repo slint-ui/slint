@@ -166,8 +166,7 @@ impl Type {
 
     /// valid type for properties
     pub fn is_property_type(&self) -> bool {
-        match self {
-            Self::Float32
+        matches!(self, Self::Float32
             | Self::Int32
             | Self::String
             | Self::Color
@@ -182,9 +181,7 @@ impl Type {
             | Self::Enumeration(_)
             | Self::ElementReference
             | Self::Object { .. }
-            | Self::Array(_) => true,
-            _ => false,
-        }
+            | Self::Array(_))
     }
 
     pub fn ok_for_public_api(&self) -> bool {
@@ -436,7 +433,7 @@ impl NativeClass {
 
     fn lookup_property_distance(self: Rc<Self>, name: &str) -> (usize, Rc<Self>) {
         let mut distance = 0;
-        let mut class = self.clone();
+        let mut class = self;
         loop {
             if class.properties.contains_key(name) {
                 return (distance, class);

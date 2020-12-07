@@ -271,7 +271,7 @@ pub fn parse_qualified_name(p: &mut impl Parser) -> bool {
         p.expect(SyntaxKind::Identifier);
     }
 
-    return true;
+    true
 }
 
 #[cfg_attr(test, parser_test)]
@@ -622,9 +622,9 @@ fn parse_export(p: &mut impl Parser) -> bool {
             }
         }
     } else if p.peek().as_str() == "struct" {
-        return parse_struct_declaration(&mut *p);
+        parse_struct_declaration(&mut *p)
     } else {
-        return parse_component(&mut *p);
+        parse_component(&mut *p)
     }
 }
 
@@ -649,7 +649,7 @@ fn parse_export_specifier(p: &mut impl Parser) -> bool {
         }
     }
 
-    return true;
+    true
 }
 
 #[cfg_attr(test, parser_test)]
@@ -730,5 +730,5 @@ fn parse_import_identifier(p: &mut impl Parser) -> bool {
             return false;
         }
     }
-    return true;
+    true
 }

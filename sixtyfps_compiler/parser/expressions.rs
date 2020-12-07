@@ -96,15 +96,12 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) 
         }
     }
 
-    match p.nth(0).kind() {
-        SyntaxKind::LParent => {
-            {
-                let _ = p.start_node_at(checkpoint.clone(), SyntaxKind::Expression);
-            }
-            let mut p = p.start_node_at(checkpoint.clone(), SyntaxKind::FunctionCallExpression);
-            parse_function_arguments(&mut *p);
+    if p.nth(0).kind() == SyntaxKind::LParent {
+        {
+            let _ = p.start_node_at(checkpoint.clone(), SyntaxKind::Expression);
         }
-        _ => {}
+        let mut p = p.start_node_at(checkpoint.clone(), SyntaxKind::FunctionCallExpression);
+        parse_function_arguments(&mut *p);
     }
 
     if precedence >= OperatorPrecedence::Mul {
@@ -181,18 +178,15 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) 
         parse_expression_helper(&mut *p, OperatorPrecedence::Logical);
     }
 
-    match p.nth(0).kind() {
-        SyntaxKind::Question => {
-            {
-                let _ = p.start_node_at(checkpoint.clone(), SyntaxKind::Expression);
-            }
-            let mut p = p.start_node_at(checkpoint.clone(), SyntaxKind::ConditionalExpression);
-            p.consume();
-            parse_expression(&mut *p);
-            p.expect(SyntaxKind::Colon);
-            parse_expression(&mut *p);
+    if p.nth(0).kind() == SyntaxKind::Question {
+        {
+            let _ = p.start_node_at(checkpoint.clone(), SyntaxKind::Expression);
         }
-        _ => (),
+        let mut p = p.start_node_at(checkpoint, SyntaxKind::ConditionalExpression);
+        p.consume();
+        parse_expression(&mut *p);
+        p.expect(SyntaxKind::Colon);
+        parse_expression(&mut *p);
     }
 }
 

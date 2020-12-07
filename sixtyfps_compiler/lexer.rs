@@ -40,8 +40,8 @@ impl<F: for<'r> Fn(&'r str) -> usize> LexingRule for F {
 
 pub fn lex_whitespace(text: &str) -> usize {
     let mut len = 0;
-    let mut chars = text.chars();
-    while let Some(c) = chars.next() {
+    let chars = text.chars();
+    for c in chars {
         if !c.is_whitespace() {
             break;
         }
@@ -53,7 +53,7 @@ pub fn lex_whitespace(text: &str) -> usize {
 pub fn lex_comment(text: &str) -> usize {
     // FIXME: could report proper error if not properly terminated
     if text.starts_with("//") {
-        return text.find(&['\n', '\r'] as &[_]).unwrap_or(text.len());
+        return text.find(&['\n', '\r'] as &[_]).unwrap_or_else(|| text.len());
     }
     if text.starts_with("/*") {
         let mut nested = 0;
@@ -91,7 +91,7 @@ pub fn lex_string(text: &str) -> usize {
         return 0;
     }
     let end = text[1..].find('"').unwrap_or(0) + 2;
-    assert!(!text[..end].contains("\\"), "escape code not yet supported");
+    assert!(!text[..end].contains('\\'), "escape code not yet supported");
     end
 }
 
@@ -111,7 +111,7 @@ pub fn lex_number(text: &str) -> usize {
                     if c.is_ascii_alphabetic() {
                         len += c.len_utf8();
                         // The unit
-                        while let Some(c) = chars.next() {
+                        for c in chars {
                             if !c.is_ascii_alphabetic() {
                                 return len;
                             }
@@ -128,12 +128,12 @@ pub fn lex_number(text: &str) -> usize {
 }
 
 pub fn lex_color(text: &str) -> usize {
-    if !text.starts_with("#") {
+    if !text.starts_with('#') {
         return 0;
     }
     let mut len = 1;
-    let mut chars = text[1..].chars();
-    while let Some(c) = chars.next() {
+    let chars = text[1..].chars();
+    for c in chars {
         if !c.is_ascii_alphanumeric() {
             break;
         }
@@ -144,8 +144,8 @@ pub fn lex_color(text: &str) -> usize {
 
 pub fn lex_identifier(text: &str) -> usize {
     let mut len = 0;
-    let mut chars = text.chars();
-    while let Some(c) = chars.next() {
+    let chars = text.chars();
+    for c in chars {
         if !c.is_alphanumeric() && c != '_' && (c != '-' || len == 0) {
             break;
         }

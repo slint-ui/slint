@@ -48,8 +48,7 @@ fn lower_grid_layout(
             for x in row_children {
                 grid.add_element(
                     x,
-                    &mut row,
-                    &mut col,
+                    (&mut row, &mut col),
                     diag,
                     style_metrics,
                     &component,
@@ -61,8 +60,7 @@ fn lower_grid_layout(
         } else {
             grid.add_element(
                 layout_child,
-                &mut row,
-                &mut col,
+                (&mut row, &mut col),
                 diag,
                 style_metrics,
                 &component,
@@ -152,18 +150,18 @@ fn lower_path_layout(
     )
 }
 
+type LayoutParseFunction = dyn Fn(
+    &Rc<Component>,
+    LayoutRect,
+    &ElementRc,
+    &mut Vec<ElementRc>,
+    &Option<Rc<Component>>,
+    &mut BuildDiagnostics,
+) -> Option<Layout>;
+
 fn layout_parse_function(
     layout_element_candidate: &ElementRc,
-) -> Option<
-    &'static dyn Fn(
-        &Rc<Component>,
-        LayoutRect,
-        &ElementRc,
-        &mut Vec<ElementRc>,
-        &Option<Rc<Component>>,
-        &mut BuildDiagnostics,
-    ) -> Option<Layout>,
-> {
+) -> Option<&'static LayoutParseFunction> {
     if let Type::Builtin(be) = &layout_element_candidate.borrow().base_type {
         match be.native_class.class_name.as_str() {
             "Row" => panic!("Error caught at element lookup time"),
@@ -337,8 +335,7 @@ impl GridLayout {
     fn add_element(
         &mut self,
         item_element: ElementRc,
-        row: &mut u16,
-        col: &mut u16,
+        (row, col): (&mut u16, &mut u16),
         diag: &mut BuildDiagnostics,
         style_metrics: &Option<Rc<Component>>,
         component: &Rc<Component>,
@@ -384,7 +381,7 @@ fn eval_const_expr(
     match expression {
         Expression::NumberLiteral(v, Unit::None) => {
             let r = *v as u16;
-            if r as f32 != *v as f32 {
+            if (r as f32 - *v as f32).abs() > f32::EPSILON {
                 diag.push_error(format!("'{}' must be a positive integer", name), span);
                 None
             } else {

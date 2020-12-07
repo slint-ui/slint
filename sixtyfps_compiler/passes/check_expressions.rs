@@ -21,7 +21,7 @@ pub fn check_expressions(doc: &crate::object_tree::Document, diag: &mut BuildDia
     }
 }
 
-fn check_expression(e: &Expression, diag: &mut BuildDiagnostics) -> () {
+fn check_expression(e: &Expression, diag: &mut BuildDiagnostics) {
     match e {
         Expression::MemberFunction { base_node, .. } => {
             diag.push_error("Member function must be called".into(), base_node);

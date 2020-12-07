@@ -22,7 +22,7 @@ pub fn deduplicate_property_read(component: &Component) {
             // But that's fine as they also do not register dependencies
             return;
         }
-        process_expression(expr, &mut Default::default());
+        process_expression(expr, &DedupPropState::default());
     });
 }
 

@@ -191,7 +191,7 @@ impl<'a> TypeLoader<'a> {
         mut build_diagnostics: &'b mut BuildDiagnostics,
     ) -> core::pin::Pin<Box<dyn std::future::Future<Output = Option<PathBuf>> + 'b>> {
         Box::pin(async move {
-            let path_canon = path.canonicalize().unwrap_or(path.clone());
+            let path_canon = path.canonicalize().unwrap_or_else(|_| path.clone());
 
             if self.all_documents.docs.get(path_canon.as_path()).is_some() {
                 return Some(path_canon);
@@ -352,11 +352,9 @@ impl<'a> TypeLoader<'a> {
                             .open_import_fallback
                             .as_ref()
                             .map(|cb| cb(resolved_absolute_path.clone()))
-                            .and_then(|future| {
-                                Some(OpenFile {
-                                    path: resolved_absolute_path.into(),
-                                    source_code_future: future,
-                                })
+                            .map(|future| OpenFile {
+                                path: resolved_absolute_path.into(),
+                                source_code_future: future,
                             })
                     })
             })

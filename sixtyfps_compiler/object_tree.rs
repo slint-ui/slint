@@ -368,12 +368,7 @@ impl Element {
             node.Transitions().for_each(|n| error_on(&n, "transitions"));
             (Type::Void, String::new())
         };
-        let mut r = Element {
-            id,
-            base_type: base_type.clone(),
-            node: Some(node.clone()),
-            ..Default::default()
-        };
+        let mut r = Element { id, base_type, node: Some(node.clone()), ..Default::default() };
 
         for prop_decl in node.PropertyDeclaration() {
             let type_node = prop_decl.Type();
@@ -441,13 +436,10 @@ impl Element {
             diag,
         );
 
-        match &r.base_type {
-            Type::Builtin(builtin_base) => {
-                for (prop, expr) in &builtin_base.default_bindings {
-                    r.bindings.entry(prop.clone()).or_insert(expr.clone().into());
-                }
+        if let Type::Builtin(builtin_base) = &r.base_type {
+            for (prop, expr) in &builtin_base.default_bindings {
+                r.bindings.entry(prop.clone()).or_insert_with(|| expr.clone().into());
             }
-            _ => {}
         }
 
         for sig_decl in node.SignalDeclaration() {
@@ -1166,7 +1158,7 @@ pub struct Exports(Vec<(String, Type)>);
 impl Exports {
     pub fn from_node(
         doc: &syntax_nodes::Document,
-        inner_components: &Vec<Rc<Component>>,
+        inner_components: &[Rc<Component>],
         type_registry: &TypeRegister,
         diag: &mut FileDiagnostics,
     ) -> Self {
@@ -1180,7 +1172,7 @@ impl Exports {
         let mut exports = doc
             .ExportsList()
             .flat_map(|exports| exports.ExportSpecifier())
-            .filter_map(|export_specifier| {
+            .map(|export_specifier| {
                 let internal_name = identifier_text(&export_specifier.ExportIdentifier())
                     .expect("internal error: missing internal name for export");
                 let exported_name = match export_specifier.ExportName() {
@@ -1188,36 +1180,36 @@ impl Exports {
                         .expect("internal error: missing external name for export"),
                     None => internal_name.clone(),
                 };
-                Some(NamedExport {
+                NamedExport {
                     internal_name_ident: export_specifier.ExportIdentifier().into(),
                     internal_name,
                     exported_name,
-                })
+                }
             })
             .collect::<Vec<_>>();
 
-        exports.extend(doc.ExportsList().flat_map(|exports| exports.Component()).filter_map(
+        exports.extend(doc.ExportsList().flat_map(|exports| exports.Component()).map(
             |component| {
                 let name = identifier_text(&component.DeclaredIdentifier())
                     .expect("internal error: cannot export component without name");
-                Some(NamedExport {
+                NamedExport {
                     internal_name_ident: component.DeclaredIdentifier().into(),
                     internal_name: name.clone(),
                     exported_name: name,
-                })
+                }
             },
         ));
-        exports.extend(
-            doc.ExportsList().flat_map(|exports| exports.StructDeclaration()).filter_map(|st| {
+        exports.extend(doc.ExportsList().flat_map(|exports| exports.StructDeclaration()).map(
+            |st| {
                 let name = identifier_text(&st.DeclaredIdentifier())
                     .expect("internal error: cannot export struct without name");
-                Some(NamedExport {
+                NamedExport {
                     internal_name_ident: st.DeclaredIdentifier().into(),
                     internal_name: name.clone(),
                     exported_name: name,
-                })
-            }),
-        );
+                }
+            },
+        ));
 
         if exports.is_empty() {
             if let Some(internal_name) = inner_components.last().as_ref().map(|x| x.id.clone()) {

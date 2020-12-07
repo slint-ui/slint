@@ -146,10 +146,10 @@ pub async fn compile_syntax_node(
     (doc, build_diagnostics)
 }
 
-pub async fn run_passes<'a>(
+pub async fn run_passes(
     doc: &object_tree::Document,
     diag: &mut diagnostics::BuildDiagnostics,
-    mut type_loader: &mut typeloader::TypeLoader<'a>,
+    mut type_loader: &mut typeloader::TypeLoader<'_>,
     compiler_config: &CompilerConfiguration,
 ) {
     passes::resolving::resolve_expressions(doc, diag);
