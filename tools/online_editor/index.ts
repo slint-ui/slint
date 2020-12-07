@@ -186,6 +186,7 @@ export Demo := Window {
         canvas.id = canvas_id;
         div.innerHTML = "";
         div.appendChild(canvas);
+        var markers = [];
         try {
             var compiled_component = await sixtyfps.compile_from_string(source, base_url, (file_name: string) => {
                 let u = new URL(file_name, base_url || undefined);
@@ -212,7 +213,7 @@ export Demo := Window {
             div.innerHTML = "<pre style='color: red; background-color:#fee; margin:0'>" + p.innerHTML + "</pre>";
 
             if (e.errors) {
-                let markers = e.errors.map(function (x) {
+                markers = e.errors.map(function (x) {
                     return {
                         severity: 3 - x.level,
                         message: x.message,
@@ -223,10 +224,11 @@ export Demo := Window {
                         endColumn: -1,
                     }
                 });
-                monaco.editor.setModelMarkers(editor.getModel(), "sixtyfps", markers);
             }
 
             throw e;
+        } finally {
+            monaco.editor.setModelMarkers(editor.getModel(), "sixtyfps", markers);
         }
         compiled_component.run(canvas_id)
     }
