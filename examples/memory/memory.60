@@ -28,12 +28,22 @@ MemoryTile := Rectangle {
         height: parent.height;
     }
 
+    // Left curtain
     Rectangle {
         color: black;
-        width: parent.width;
-        height: image_visible ? 0px: parent.height;
-        animate height { duration: 250ms; easing: ease-in; }
-        border-radius: 8px;
+        width: image_visible ? 0px : parent.width / 2;
+        height: parent.height;
+        animate width { duration: 250ms; easing: ease-in; }
+    }
+
+    // Right curtain
+    Rectangle {
+        color: black;
+        x: image_visible ? parent.width : parent.width / 2;
+        width: image_visible ? 0px : parent.width / 2;
+        height: parent.height;
+        animate width { duration: 250ms; easing: ease-in; }
+        animate x { duration: 250ms; easing: ease-in; }
     }
 
     TouchArea {
