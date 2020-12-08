@@ -905,29 +905,24 @@ impl GLFrame {
                 None
             }
             GLRenderingPrimitive::Texture { vertices, texture_vertices, texture } => {
-                let matrix = if let Some(scaled_width) = rendering_var.next() {
-                    matrix
-                        * Matrix4::from_nonuniform_scale(
-                            scaled_width.as_scaled_width()
-                                / texture.texture_coordinates.width() as f32,
-                            1.,
-                            1.,
-                        )
-                } else {
-                    matrix
-                };
+                let texture_width = texture.texture_coordinates.width() as f32;
+                let texture_height = texture.texture_coordinates.height() as f32;
 
-                let matrix = if let Some(scaled_height) = rendering_var.next() {
-                    matrix
-                        * Matrix4::from_nonuniform_scale(
-                            1.,
-                            scaled_height.as_scaled_height()
-                                / texture.texture_coordinates.height() as f32,
-                            1.,
-                        )
-                } else {
-                    matrix
-                };
+                let target_width = rendering_var
+                    .next()
+                    .map(|var| var.as_scaled_width())
+                    .unwrap_or_else(|| texture_width);
+                let target_height = rendering_var
+                    .next()
+                    .map(|var| var.as_scaled_height())
+                    .unwrap_or_else(|| texture_height);
+
+                let matrix = matrix
+                    * Matrix4::from_nonuniform_scale(
+                        target_width / texture_width,
+                        target_height / texture_height,
+                        1.,
+                    );
 
                 self.render_texture(&matrix, vertices, texture_vertices, texture);
                 None
