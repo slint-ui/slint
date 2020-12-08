@@ -390,10 +390,12 @@ jobs:
             cp -a ../examples/gallery/wasm/dist/* demos/gallery/
             mkdir -p demos/printerdemo
             cp -a ../examples/printerdemo/rust/{pkg,index.html} demos/printerdemo/
+            rm demos/printerdemo/pkg/.gitignore
             mkdir -p demos/todo
             cp -a ../examples/todo/wasm/dist/* demos/todo/
             mkdir -p demos/slide_puzzle
             cp -a ../examples/slide_puzzle/{pkg,index.html,plaster-font} demos/slide_puzzle/
+            rm demos/slide_puzzle/pkg/.gitignore
             git add demos
             git add -u demos
             rm -rf wasm-interpreter
