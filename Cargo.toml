@@ -19,7 +19,6 @@ members = [
     'examples/gallery',
     'examples/gallery/wasm',
     'examples/printerdemo/rust',
-    'examples/printerdemo/wasm',
     'examples/todo/rust',
     'examples/todo/wasm',
     'examples/slide_puzzle',
