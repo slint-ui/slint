@@ -101,15 +101,6 @@ jobs:
       with:
           command: build
           args: --verbose --all-features
-    - name: Check formatting
-      if: matrix.os == 'ubuntu-20.04'
-      uses: actions-rs/cargo@v1
-      with:
-          command: fmt
-          args: -- --check
-    - name: Check license headers
-      if: matrix.os == 'ubuntu-20.04'
-      run: cargo xtask check_license_headers --show-all
     - name: Run tests
       uses: actions-rs/cargo@v1
       with:
@@ -250,6 +241,13 @@ jobs:
     - name: Remove docs from cache # Avoid stale docs
       run: |
           rm -rf target/doc target/cppdocs api/sixtyfps-node/docs
+    - name: Check formatting
+      uses: actions-rs/cargo@v1
+      with:
+          command: fmt
+          args: -- --check
+    - name: Check license headers
+      run: cargo xtask check_license_headers --show-all
     - name: Build Cpp docs
       run: cargo xtask cppdocs
     - name: "Rust docs"
