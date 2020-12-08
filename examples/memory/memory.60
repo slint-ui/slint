@@ -21,7 +21,7 @@ MemoryTile := Rectangle {
     property <bool> solved;
     property <resource> image;
 
-    color: solved ? #383095 : #309538;
+    color: !solved ? #3960D5 : #34CE57;
     animate color { duration: 800ms; }
 
     Image {
@@ -34,7 +34,7 @@ MemoryTile := Rectangle {
 
     // Left curtain
     Rectangle {
-        color: #303030;
+        color: #193076;
         border-radius: 4px;
         width: open_curtain ? 0px : parent.width / 2 + 4px;
         height: parent.height;
@@ -43,7 +43,7 @@ MemoryTile := Rectangle {
 
     // Right curtain
     Rectangle {
-        color: #303030;
+        color: #193076;
         border-radius: 4px;
         x: open_curtain ? parent.width : parent.width / 2 - 4px;
         width: open_curtain ? 0px : parent.width / 2 + 4px;
@@ -79,8 +79,8 @@ export MainWindow := Window {
     property<length> tile_size: 80px;
     property<length> tile_spacing: 10px;
 
-    width: 8 * tile_size + 2 * tile_spacing;
-    height: 8 * tile_size + 2 * tile_spacing;
+    width: 4 * tile_size + 5 * tile_spacing;
+    height: 4 * tile_size + 5 * tile_spacing;
 
     property<[TileData]> memory_tiles;
 
