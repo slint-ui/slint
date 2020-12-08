@@ -4,8 +4,6 @@ The icons originate from Font-Awesome font ( http://fontawesome.io ) and license
 
 The PNGs were generated using
 
-    https://github.com/encharm/Font-Awesome-SVG-PNG
-
-and 
-
-   npx font-awesome-svg-png --color black --png --size 128
+```sh
+for f in *.svg; do rsvg-convert -a -h 128 -o `echo $f | sed -e "s,-solid\.svg,.png,"` $f; done
+```

@@ -71,7 +71,7 @@ export MainWindow := Window {
         { image: img!"icons/cloud.png" },
         { image: img!"icons/cogs.png" },
         { image: img!"icons/motorcycle.png" },
-        { image: img!"icons/video-camera.png" },
+        { image: img!"icons/video.png" },
     ];
 
     property<length> tile_size: 80px;
