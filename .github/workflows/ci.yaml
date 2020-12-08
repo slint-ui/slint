@@ -355,7 +355,7 @@ jobs:
           name: wasm
           path: |
               examples/gallery/wasm/dist/
-              examples/printerdemo/wasm/dist/
+              examples/printerdemo/rust/
               examples/todo/wasm/dist/
               examples/slide_puzzle/wasm/dist/
               api/sixtyfps-wasm-interpreter/pkg/
