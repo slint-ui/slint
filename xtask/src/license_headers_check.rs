@@ -211,6 +211,7 @@ lazy_static! {
         (".+\\.rst$", LicenseLocation::Tag(LicenseTagStyle::rst_comment_style())),
         (".+\\.yaml$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         (".*\\.gitignore$", LicenseLocation::NoLicense),
+        (".*\\.gitattributes$", LicenseLocation::NoLicense),
         ("\\.clang-format$", LicenseLocation::NoLicense),
         (".+Dockerfile.*$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         ("^api/sixtyfps-cpp/docs/Pipfile$", LicenseLocation::NoLicense),
