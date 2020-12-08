@@ -6,13 +6,10 @@
 
 <body>
     <script type="module">
-        import init, { main } from "./pkg/wasmmemory.js";
-
+        import init from "./pkg/wasmmemory.js";
         async function run() {
             await init();
-            await main();
         }
-
         run();
     </script>
 
