@@ -65,6 +65,23 @@ or you can run them from anywhere in the Cargo workspace by name:
 cargo run --release --bin printerdemo
 ```
 
+### Wasm builds
+
+In order to make the wasm build of the example, you first need to edit the Cargo.toml
+files to uncomment the line starting with `#wasm#` (or use the `sed` line bellow)
+You can then use wasm-pack (which you may need to obtain with `cargo install wasm-pack`).
+This will generate the wasm in the `./pkg` directory, which the `index.html` file will open.
+Since wasm files cannot be served from `file://` URL, you need to open a wab server to serve
+the content
+
+```sh
+cd examples/printerdemo/rust
+sed -i "s/^#wasm# //" Cargo.toml
+wasm-pack build --release --target web
+python3 -m http.server
+```
+
+
 ## Running the C++ Examples
 
  * **When compiling SixtyFPS from sources:** If you follow the [C++ build instructions](/docs/building.md#c-build), this will build the C++

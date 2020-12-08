@@ -21,12 +21,12 @@ sixtyfps-build = { path = "../../../api/sixtyfps-rs/sixtyfps-build" }
 # This is commented out by default because we don't want to build it as a library by default
 # The CI has a script that does sed "s/#wasm# //" to generate the wasm build.
 
-#wasm# [lib]
-#wasm# path = "main.rs"
-#wasm# crate-type = ["cdylib"]
+[lib]
+path = "main.rs"
+crate-type = ["cdylib"]
 
-#wasm# [target.'cfg(target_arch = "wasm32")'.dependencies]
-#wasm# wasm-bindgen = { version = "0.2" }
-#wasm# web-sys = { version = "0.3", features=["console"] }
-#wasm# console_error_panic_hook = "0.1.5"
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = { version = "0.2" }
+web-sys = { version = "0.3", features=["console"] }
+console_error_panic_hook = "0.1.5"
 
