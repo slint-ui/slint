@@ -20,27 +20,31 @@ MemoryTile := Rectangle {
     property <bool> image_visible;
     property <resource> image;
 
-    color: forestgreen;
+    color: #309538;
 
     Image {
         source: image;
-        width: parent.width;
-        height: parent.height;
+        width: parent.width - 16px;
+        height: parent.height - 16px;
+        x: 8px;
+        y: 8px;
     }
 
     // Left curtain
     Rectangle {
-        color: black;
-        width: image_visible ? 0px : parent.width / 2;
+        color: #303030;
+        border-radius: 4px;
+        width: image_visible ? 0px : parent.width / 2 + 4px;
         height: parent.height;
         animate width { duration: 250ms; easing: ease-in; }
     }
 
     // Right curtain
     Rectangle {
-        color: black;
-        x: image_visible ? parent.width : parent.width / 2;
-        width: image_visible ? 0px : parent.width / 2;
+        color: #303030;
+        border-radius: 4px;
+        x: image_visible ? parent.width : parent.width / 2 - 4px;
+        width: image_visible ? 0px : parent.width / 2 + 4px;
         height: parent.height;
         animate width { duration: 250ms; easing: ease-in; }
         animate x { duration: 250ms; easing: ease-in; }
@@ -70,7 +74,7 @@ export MainWindow := Window {
         { image: img!"icons/video-camera.png" },
     ];
 
-    property<length> tile_size: 64px;
+    property<length> tile_size: 80px;
     property<length> tile_spacing: 10px;
 
     width: 8 * tile_size + 2 * tile_spacing;
@@ -87,7 +91,7 @@ export MainWindow := Window {
         image: tile.image;
 
         image_visible: tile.image_visible || tile.solved;
-        
+
         clicked => {
             if (!root.disable_tiles) {
                 tile.image_visible = !tile.image_visible;
