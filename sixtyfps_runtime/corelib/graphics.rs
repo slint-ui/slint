@@ -278,6 +278,7 @@ pub enum HighLevelRenderingPrimitive {
     /// Optional rendering variables:
     /// * [`RenderingVariable::ScaledWidth`]: The image will be scaled to the specified width.
     /// * [`RenderingVariable::ScaledHeight`]: The image will be scaled to the specified height.
+    /// * [`RenderingVariable::ImageFit`]: The image will be scaled/positioned according to the ImageFit policy.
     Image { source: crate::Resource, source_clip_rect: IntRect },
     /// Renders the specified `text` with a font that matches the specified family (`font_family`) and the given
     /// pixel size (`font_size`).
@@ -326,6 +327,7 @@ pub enum RenderingVariable {
     /// Draw a text selection. The parameters provide the starting x coordinate, the width and the height. This variable
     /// must be followed by two colors, foreground and background.
     TextSelection(f32, f32, f32),
+    ImageFit(crate::items::ImageFit),
 }
 
 impl RenderingVariable {

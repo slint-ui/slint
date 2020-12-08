@@ -41,6 +41,7 @@ Image := _ {
     property <length> y;
     property <length> width;
     property <length> height;
+    property <ImageFit> image_fit;
 }
 
 export ClippedImage := Image {

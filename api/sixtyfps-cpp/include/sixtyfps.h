@@ -72,6 +72,7 @@ using cbindgen_private::Slice;
 using cbindgen_private::TextHorizontalAlignment;
 using cbindgen_private::TextVerticalAlignment;
 using cbindgen_private::TraversalOrder;
+using cbindgen_private::ImageFit;
 
 namespace private_api {
 using ItemTreeNode = cbindgen_private::ItemTreeNode<uint8_t>;

@@ -34,6 +34,20 @@ use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use sixtyfps_corelib_macros::*;
 
+#[derive(Copy, Clone, Debug, PartialEq, strum_macros::EnumString, strum_macros::Display)]
+#[repr(C)]
+#[allow(non_camel_case_types)]
+pub enum ImageFit {
+    fill,
+    contain,
+}
+
+impl Default for ImageFit {
+    fn default() -> Self {
+        ImageFit::fill
+    }
+}
+
 #[repr(C)]
 #[derive(FieldOffsets, Default, BuiltinItem)]
 #[pin]
@@ -44,6 +58,7 @@ pub struct Image {
     pub y: Property<f32>,
     pub width: Property<f32>,
     pub height: Property<f32>,
+    pub image_fit: Property<ImageFit>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
@@ -83,6 +98,8 @@ impl Item for Image {
         if height > 0. {
             vars.push(RenderingVariable::ScaledHeight(height));
         }
+
+        vars.push(RenderingVariable::ImageFit(Self::FIELD_OFFSETS.image_fit.apply_pin(self).get()));
 
         vars
     }
@@ -125,6 +142,7 @@ pub struct ClippedImage {
     pub y: Property<f32>,
     pub width: Property<f32>,
     pub height: Property<f32>,
+    pub image_fit: Property<ImageFit>,
     pub source_clip_x: Property<i32>,
     pub source_clip_y: Property<i32>,
     pub source_clip_width: Property<i32>,
@@ -173,6 +191,8 @@ impl Item for ClippedImage {
         if height > 0. {
             vars.push(RenderingVariable::ScaledHeight(height));
         }
+
+        vars.push(RenderingVariable::ImageFit(Self::FIELD_OFFSETS.image_fit.apply_pin(self).get()));
 
         vars
     }

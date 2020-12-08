@@ -245,6 +245,7 @@ export MainWindow := Window {
         height: 100%; width: 100%;
         // https://commons.wikimedia.org/wiki/File:Berlin_potsdamer_platz.jpg Belappetit, CC BY-SA 3.0
         source: img!"berlin.jpg";
+        image-fit: contain;
     }
 
     Rectangle {
