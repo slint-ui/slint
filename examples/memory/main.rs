@@ -61,11 +61,15 @@ pub fn main() {
             let tiles_model = tiles_model.clone();
             let main_window_weak = main_window_weak.clone();
 
+            for (index, tile) in flipped_tiles.iter_mut() {
+                tile.solved = is_pair_solved;
+                tiles_model.set_row_data(*index, tile.clone());
+            }
+
             Timer::single_shot(Duration::from_secs(1), move || {
                 main_window_weak.unwrap().set_disable_tiles(false);
 
                 for (index, mut tile) in flipped_tiles.into_iter() {
-                    tile.solved = is_pair_solved;
                     tile.image_visible = is_pair_solved;
                     tiles_model.set_row_data(index, tile);
                 }

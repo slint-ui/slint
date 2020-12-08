@@ -17,10 +17,12 @@ struct TileData := {
 MemoryTile := Rectangle {
     border-radius: 8px;
     signal clicked;
-    property <bool> image_visible;
+    property <bool> open_curtain;
+    property <bool> solved;
     property <resource> image;
 
-    color: #309538;
+    color: solved ? #383095 : #309538;
+    animate color { duration: 800ms; }
 
     Image {
         source: image;
@@ -34,7 +36,7 @@ MemoryTile := Rectangle {
     Rectangle {
         color: #303030;
         border-radius: 4px;
-        width: image_visible ? 0px : parent.width / 2 + 4px;
+        width: open_curtain ? 0px : parent.width / 2 + 4px;
         height: parent.height;
         animate width { duration: 250ms; easing: ease-in; }
     }
@@ -43,8 +45,8 @@ MemoryTile := Rectangle {
     Rectangle {
         color: #303030;
         border-radius: 4px;
-        x: image_visible ? parent.width : parent.width / 2 - 4px;
-        width: image_visible ? 0px : parent.width / 2 + 4px;
+        x: open_curtain ? parent.width : parent.width / 2 - 4px;
+        width: open_curtain ? 0px : parent.width / 2 + 4px;
         height: parent.height;
         animate width { duration: 250ms; easing: ease-in; }
         animate x { duration: 250ms; easing: ease-in; }
@@ -90,7 +92,8 @@ export MainWindow := Window {
 
         image: tile.image;
 
-        image_visible: tile.image_visible || tile.solved;
+        open_curtain: tile.image_visible || tile.solved;
+        solved: tile.solved;
 
         clicked => {
             if (!root.disable_tiles) {
