@@ -12,9 +12,10 @@ use sixtyfps::{Model, ModelHandle, Timer, VecModel};
 use std::rc::Rc;
 use std::time::Duration;
 
-sixtyfps::sixtyfps! {
-    import { MainWindow } from "memory.60";
-}
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::*;
+
+sixtyfps::include_modules!();
 
 fn shuffle(tiles: &mut Vec<TileData>) {
     use rand::seq::SliceRandom;
@@ -22,7 +23,13 @@ fn shuffle(tiles: &mut Vec<TileData>) {
     tiles.shuffle(&mut rng);
 }
 
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub fn main() {
+    // This provides better error messages in debug mode.
+    // It's disabled in release mode so it doesn't bloat up the file size.
+    #[cfg(all(debug_assertions, target_arch = "wasm32"))]
+    console_error_panic_hook::set_once();
+
     let main_window = MainWindow::new();
 
     let mut tiles: Vec<TileData> = main_window.get_tile_options().iter().collect();

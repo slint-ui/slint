@@ -26,6 +26,7 @@ members = [
     'examples/slide_puzzle/wasm',
     'examples/7gui',
     'examples/memory',
+    'examples/memory/wasm',
     'helper_crates/const-field-offset',
     'helper_crates/vtable',
     'helper_crates/vtable/macro',

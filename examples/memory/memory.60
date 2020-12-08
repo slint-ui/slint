@@ -63,6 +63,9 @@ export MainWindow := Window {
     property<length> tile_size: 64px;
     property<length> tile_spacing: 10px;
 
+    width: 8 * tile_size + 2 * tile_spacing;
+    height: 8 * tile_size + 2 * tile_spacing;
+
     property<[TileData]> memory_tiles;
 
     for tile[i] in memory_tiles: MemoryTile {
