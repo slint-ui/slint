@@ -7,61 +7,48 @@
 </head>
 <style>
   canvas {
-    box-sizing: border-box;
+    width: 100% !important;
+    height: 100% !important;
   }
 
   canvas:focus {
     outline: none;
   }
 
-  @media screen and (orientation: landscape) {
-    canvas {
-      width: 100vw !important;
-      height: 100vh !important;
-    }
+  body {
+    padding: 0px;
+    margin: 0px;
   }
 
-  @media screen and (orientation: portrait) {
-    canvas {
-      width: 100vw !important;
-      height: 50vh !important;
-    }
-  }
-
-  @media screen and (max-width: 992px) and (orientation: landscape) {
-    .hide-in-mobile-landscape {
-      display: none;
-    }
-  }
-
-  @media screen and (max-width: 992px) {
-    * {
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-    }
-  }
-
-  @media screen and (min-width: 992px) {
-    canvas {
-      width: 100vw !important;
-      height: 50vh !important;
-    }
+  #container {
+    display: grid;
+    justify-items: stretch;
+    align-content: stretch;
+    align-items: stretch;
+    flex-direction: column;
+    width: 100vw;
+    height: 100vh;
+    padding: 0px;
+    margin: 0px;
+    grid-template-columns: auto;
+    grid-template-rows: max-content auto max-content;
   }
 </style>
 
 <body>
-  <p class="hide-in-mobile-landscape">This is the SixtyFPS Slide Puzzle compiled to WebAssembly. Note that the wasm
-    build is done for demonstration purposes. Native applications are the real target of the toolkit.</p>
-  <canvas id="canvas"></canvas>
-  <p class="hide-in-mobile-landscape">
-    <a href="https://github.com/sixtyfpsui/sixtyfps/blob/master/examples/slide_puzzle/slide_puzzle.60">
-      View Source Code on GitHub</a> -
-    <a
-      href="https://sixtyfps.io/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/slide_puzzle/slide_puzzle.60">
-      Edit in the online code editor
-    </a>
-  </p>
+  <div id="container">
+    <p>This is the SixtyFPS Slide Puzzle compiled to WebAssembly. Note that the wasm
+      build is done for demonstration purposes. Native applications are the real target of the toolkit.</p>
+    <canvas id="canvas"></canvas>
+    <p>
+      <a href="https://github.com/sixtyfpsui/sixtyfps/blob/master/examples/slide_puzzle/slide_puzzle.60">
+        View Source Code on GitHub</a> -
+      <a
+        href="https://sixtyfps.io/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/slide_puzzle/slide_puzzle.60">
+        Edit in the online code editor
+      </a>
+    </p>
+  </div>
   <script type="module">
     import init from './pkg/slide_puzzle.js';
     async function run() {
