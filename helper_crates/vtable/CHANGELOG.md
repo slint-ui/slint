@@ -1,7 +1,7 @@
 # Changelog
 All notable changes to this crate will be documented in this file.
 
-## [0.1.1] - 2020-12-08
+## [0.1.1] - 2020-12-09
 
 ### Changed
  - `VTableMetaDrop` was made unsafe as it should only be implemented by the macro
