@@ -62,7 +62,16 @@
       Edit in the online code editor
     </a>
   </p>
-  <script src="index.js"></script>
+  <script type="module">
+    import init from './pkg/slide_puzzle.js';
+    async function run() {
+      let plaster_font_face = new FontFace("Plaster", `url(./plaster-font/Plaster-Regular.ttf)`);
+      await plaster_font_face.load();
+      document.fonts.add(plaster_font_face);
+      await init();
+    }
+    run();
+  </script>
 </body>
 
 </html>

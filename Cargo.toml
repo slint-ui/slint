@@ -22,7 +22,6 @@ members = [
     'examples/todo/rust',
     'examples/todo/wasm',
     'examples/slide_puzzle',
-    'examples/slide_puzzle/wasm',
     'examples/7gui',
     'examples/memory',
     'examples/memory/wasm',

@@ -346,8 +346,8 @@ jobs:
       working-directory: examples/todo/wasm
     - name: Sliding Puzzle demo WASM build
       run: |
-          npm install
-          npm run build
+        sed -i "s/#wasm# //" Cargo.toml
+        wasm-pack build --release --target web
       working-directory: examples/slide_puzzle/wasm
     - name: "Upload Demo Artifacts"
       uses: actions/upload-artifact@v2
@@ -357,7 +357,7 @@ jobs:
               examples/gallery/wasm/dist/
               examples/printerdemo/rust/
               examples/todo/wasm/dist/
-              examples/slide_puzzle/wasm/dist/
+              examples/slide_puzzle/
               api/sixtyfps-wasm-interpreter/pkg/
               tools/online_editor/dist/
     - name: Clean cache # Otherwise the cache is much too big
@@ -387,14 +387,13 @@ jobs:
             rm -rf demos
             mkdir -p demos
             mkdir -p demos/gallery
-            mkdir -p demos/printerdemo
-            mkdir -p demos/todo
-            mkdir -p demos/slide_puzzle
             cp -a ../examples/gallery/wasm/dist/* demos/gallery/
-            cp -a ../examples/printerdemo/rust/pkg demos/printerdemo/
-            cp -a ../examples/printerdemo/rust/index.html demos/printerdemo/
+            mkdir -p demos/printerdemo
+            cp -a ../examples/printerdemo/rust/{pkg,index.html} demos/printerdemo/
+            mkdir -p demos/todo
             cp -a ../examples/todo/wasm/dist/* demos/todo/
-            cp -a ../examples/slide_puzzle/wasm/dist/* demos/slide_puzzle/
+            mkdir -p demos/slide_puzzle
+            cp -a ../examples/slide_puzzle/{pkg,index.html,plaster-font} demos/slide_puzzle/
             git add demos
             git add -u demos
             rm -rf wasm-interpreter
