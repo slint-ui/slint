@@ -105,6 +105,7 @@ struct NormalRectangle {
 
 #[derive(PartialEq, Eq, Hash, Debug)]
 enum TextureCacheKey {
+    #[cfg(not(target_arch = "wasm32"))]
     Path(String),
     EmbeddedData(by_address::ByAddress<&'static [u8]>),
 }

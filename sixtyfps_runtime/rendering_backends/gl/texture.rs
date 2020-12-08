@@ -238,6 +238,8 @@ impl AtlasAllocation {
 
         [tex_vertex1, tex_vertex2, tex_vertex3, tex_vertex1, tex_vertex3, tex_vertex4]
     }
+
+    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn normalized_texture_coordinates(&self) -> [Vertex; 6] {
         self.normalized_texture_coordinates_with_source_rect(&IntRect::default())
     }
