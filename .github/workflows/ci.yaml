@@ -38,8 +38,8 @@ jobs:
       id: cache-qt
       uses: actions/cache@v2
       with:
-        path: ../Qt
-        key: ${{ runner.os }}-${{ github.job }}-Qt-5.12.9
+        path: ~/work/sixtyfps/Qt
+        key: ${{ runner.os }}-${{ github.job }}-Qt5.12.9
     - name: Install Qt
       if: matrix.os != 'windows-latest'
       uses: jurplel/install-qt-action@v2
