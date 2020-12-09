@@ -50,7 +50,7 @@ pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
     let package_json: serde_json::Value = serde_json::from_str(&package_json_source)?;
 
     let file_name = node_dir.join(format!(
-        "{}-{}.tar.gz",
+        "{}-{}.tgz",
         package_json["name"].as_str().unwrap(),
         package_json["version"].as_str().unwrap()
     ));
