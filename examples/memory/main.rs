@@ -32,11 +32,9 @@ pub fn main() {
 
     let main_window = MainWindow::new();
 
-    let mut tiles: Vec<TileData> = main_window.get_tile_options().iter().collect();
-    tiles.extend(tiles.clone());
-
+    let tile_options = main_window.get_tile_options();
+    let mut tiles: Vec<TileData> = tile_options.iter().chain(tile_options.iter()).collect();
     shuffle(&mut tiles);
-
     let tiles_model = Rc::new(VecModel::from(tiles));
 
     main_window.set_memory_tiles(ModelHandle::new(tiles_model.clone()));
@@ -44,36 +42,30 @@ pub fn main() {
     let main_window_weak = main_window.as_weak();
 
     main_window.on_check_if_pair_solved(move || {
-        let mut flipped_tiles = Vec::new();
+        let mut flipped_tiles =
+            tiles_model.iter().enumerate().filter(|(_, tile)| tile.image_visible && !tile.solved);
 
-        for (index, tile) in tiles_model.iter().enumerate() {
-            if tile.image_visible && !tile.solved {
-                let index_tile_pair = (index, tile.clone());
-                flipped_tiles.push(index_tile_pair);
+        if let (Some((t1_idx, mut t1)), Some((t2_idx, mut t2))) =
+            (flipped_tiles.next(), flipped_tiles.next())
+        {
+            let is_pair_solved = t1 == t2;
+            if is_pair_solved {
+                t1.solved = true;
+                tiles_model.set_row_data(t1_idx, t1.clone());
+                t2.solved = true;
+                tiles_model.set_row_data(t2_idx, t2.clone());
+            } else {
+                main_window_weak.unwrap().set_disable_tiles(true);
+                let main_window_weak = main_window_weak.clone();
+                let tiles_model = tiles_model.clone();
+                Timer::single_shot(Duration::from_secs(1), move || {
+                    main_window_weak.unwrap().set_disable_tiles(false);
+                    t1.image_visible = false;
+                    tiles_model.set_row_data(t1_idx, t1);
+                    t2.image_visible = false;
+                    tiles_model.set_row_data(t2_idx, t2);
+                })
             }
-        }
-
-        if flipped_tiles.len() == 2 {
-            main_window_weak.unwrap().set_disable_tiles(true);
-
-            let is_pair_solved = flipped_tiles[0].1 == flipped_tiles[1].1;
-
-            let tiles_model = tiles_model.clone();
-            let main_window_weak = main_window_weak.clone();
-
-            for (index, tile) in flipped_tiles.iter_mut() {
-                tile.solved = is_pair_solved;
-                tiles_model.set_row_data(*index, tile.clone());
-            }
-
-            Timer::single_shot(Duration::from_secs(1), move || {
-                main_window_weak.unwrap().set_disable_tiles(false);
-
-                for (index, mut tile) in flipped_tiles.into_iter() {
-                    tile.image_visible = is_pair_solved;
-                    tiles_model.set_row_data(index, tile);
-                }
-            })
         }
     });
 
