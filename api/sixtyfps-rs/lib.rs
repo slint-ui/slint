@@ -63,11 +63,11 @@ In your Cargo.toml:
 build = "build.rs"
 
 [dependencies]
-sixtyfps = "0.0.2"
+sixtyfps = "0.0.3"
 ...
 
 [build-dependencies]
-sixtyfps-build = "0.0.2"
+sixtyfps-build = "0.0.3"
 ```
 
 In the `build.rs` file:
