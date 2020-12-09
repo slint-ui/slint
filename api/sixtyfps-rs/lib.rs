@@ -98,15 +98,15 @@ This documentation contains a documented generated component: [`docs::generated_
 
 The following associated function are added to the component:
 
-  - [`fn new() -> Pin<Rc<Self>>`](docs::generated_code::SampleComponent::new): to instantiate the component.
+  - [`fn new() -> Self`](docs::generated_code::SampleComponent::new): to instantiate the component.
 
 For each top-level property
   - A setter [`fn set_<property_name>(&self, value: <PropertyType>)`](docs::generated_code::SampleComponent::set_counter)
-  - A getter [`fn get_<property_name>(self: Pin<&Self>) -> <PropertyType>`](docs::generated_code::SampleComponent::get_counter)
+  - A getter [`fn get_<property_name>(&self) -> <PropertyType>`](docs::generated_code::SampleComponent::get_counter)
 
 For each top-level signal
-  - [`fn emit_<signal_name>(self: Pin<&Self>)`](docs::generated_code::SampleComponent::emit_hello): to emit the signal
-  - [`fn on_<signal_name>(self: Pin<&Self>, callback: impl Fn(<SignalArgs>) + 'static)`](docs::generated_code::SampleComponent::on_hello): to set the signal handler.
+  - [`fn emit_<signal_name>(&self)`](docs::generated_code::SampleComponent::emit_hello): to emit the signal
+  - [`fn on_<signal_name>(&self, callback: impl Fn(<SignalArgs>) + 'static)`](docs::generated_code::SampleComponent::on_hello): to set the signal handler.
 
 ### Type Mappings
 
