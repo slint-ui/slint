@@ -52,6 +52,10 @@ default-members = [
     'tests/rustdriver'
 ]
 
+[profile.release]
+lto = true
+
 # Needed to pull in fix for https://github.com/rust-windowing/winit/pull/1747
 [patch.crates-io]
 winit = { git = "https://github.com/tronical/winit", branch = "master" }
+
