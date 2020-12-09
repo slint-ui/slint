@@ -19,13 +19,13 @@ MemoryTile := Rectangle {
     signal clicked;
     property <bool> open_curtain;
     property <bool> solved;
-    property <resource> image;
+    property <resource> icon;
 
     color: solved ? #34CE57 : #3960D5;
     animate color { duration: 800ms; }
 
     Image {
-        source: image;
+        source: icon;
         width: parent.width - 16px;
         height: parent.height - 16px;
         x: 8px;
@@ -110,7 +110,7 @@ export MainWindow := Window {
         width: tile_size;
         height: tile_size;
 
-        image: tile.image;
+        icon: tile.image;
 
         open_curtain: tile.image_visible || tile.solved;
         solved: tile.solved;
