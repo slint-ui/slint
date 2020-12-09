@@ -21,7 +21,7 @@ MemoryTile := Rectangle {
     property <bool> solved;
     property <resource> image;
 
-    color: !solved ? #3960D5 : #34CE57;
+    color: solved ? #34CE57 : #3960D5;
     animate color { duration: 800ms; }
 
     Image {
