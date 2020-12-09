@@ -214,6 +214,7 @@ pub(crate) fn unregister_window(id: winit::window::WindowId) {
 
 /// This enum captures run-time specific events that can be dispatched to the event loop in
 /// addition to the winit events.
+#[derive(Debug)]
 pub enum CustomEvent {
     /// Request for the event loop to wake up and poll. This is used on the web for example to
     /// request an animation frame.
@@ -476,7 +477,6 @@ impl EventLoop {
                         return;
                     }
                     *control_flow = ControlFlow::Poll;
-                    //println!("Scheduling a redraw due to active animations");
                     ALL_WINDOWS.with(|windows| {
                         windows.borrow().values().for_each(|window| {
                             if let Some(window) = window.upgrade() {
