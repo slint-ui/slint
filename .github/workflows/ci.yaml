@@ -274,6 +274,8 @@ jobs:
           rm -rf target/doc target/cppdocs api/sixtyfps-node/docs
 
   wasm:
+    env:
+      CARGO_PROFILE_RELEASE_OPT_LEVEL: s
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
