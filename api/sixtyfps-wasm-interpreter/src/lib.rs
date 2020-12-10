@@ -30,7 +30,7 @@ pub async fn compile_from_string(
     #[cfg(feature = "console_error_panic_hook")]
     console_error_panic_hook::set_once();
 
-    let mut config = sixtyfps_interpreter::CompilerConfiguration::default();
+    let mut config = sixtyfps_interpreter::new_compiler_configuration();
 
     if let (Some(resolver_callback), Some(load_callback)) =
         (optional_resolve_import_callback, optional_import_callback)

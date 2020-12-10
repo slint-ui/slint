@@ -28,6 +28,12 @@ pub use sixtyfps_compilerlib::CompilerConfiguration;
 use sixtyfps_corelib::component::{ComponentRef, ComponentRefPin, ComponentVTable};
 use std::{collections::HashMap, pin::Pin, rc::Rc};
 
+pub fn new_compiler_configuration() -> CompilerConfiguration {
+    sixtyfps_compilerlib::CompilerConfiguration::new(
+        sixtyfps_compilerlib::generator::OutputFormat::Interpreter,
+    )
+}
+
 impl<'id> dynamic_component::ComponentDescription<'id> {
     /// The name of this Component as written in the .60 file
     pub fn id(&self) -> &str {
