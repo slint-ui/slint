@@ -27,6 +27,8 @@ use crate::item_rendering::CachedRenderingData;
 use crate::layout::LayoutInfo;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
+#[cfg(feature = "rtti")]
+use crate::Signal;
 use crate::{Property, SharedArray};
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
