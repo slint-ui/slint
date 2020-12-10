@@ -302,3 +302,65 @@ fn lower_bound<T>(vec: &Vec<T>, mut less_than: impl FnMut(&T) -> bool) -> usize 
 
     left
 }
+
+pub(crate) mod ffi {
+    use super::*;
+    #[allow(non_camel_case_types)]
+    type c_void = ();
+
+    struct WrapFn {
+        callback: extern "C" fn(*mut c_void),
+        user_data: *mut c_void,
+        drop_user_data: Option<extern "C" fn(*mut c_void)>,
+    }
+
+    impl Drop for WrapFn {
+        fn drop(&mut self) {
+            if let Some(x) = self.drop_user_data {
+                x(self.user_data)
+            }
+        }
+    }
+
+    /// Start a timer with the given duration in millisecond.
+    /// Returns the timer id.
+    /// The timer MUST be stopped with sixtyfps_timer_stop
+    #[no_mangle]
+    pub extern "C" fn sixtyfps_timer_start(
+        duration: u64,
+        callback: extern "C" fn(*mut c_void),
+        user_data: *mut c_void,
+        drop_user_data: Option<extern "C" fn(*mut c_void)>,
+    ) -> i64 {
+        let wrap = WrapFn { callback, user_data, drop_user_data };
+        let timer = Timer::default();
+        timer.start(TimerMode::Repeated, core::time::Duration::from_millis(duration), move || {
+            (wrap.callback)(wrap.user_data)
+        });
+        timer.id.get().map(|x| x as i64).unwrap_or(-1)
+    }
+
+    /// Execute a callback with a delay in milisecond
+    #[no_mangle]
+    pub extern "C" fn sixtyfps_timer_singleshot(
+        delay: u64,
+        callback: extern "C" fn(*mut c_void),
+        user_data: *mut c_void,
+        drop_user_data: Option<extern "C" fn(*mut c_void)>,
+    ) {
+        let wrap = WrapFn { callback, user_data, drop_user_data };
+        Timer::single_shot(core::time::Duration::from_millis(delay), move || {
+            (wrap.callback)(wrap.user_data)
+        });
+    }
+
+    /// Stop a timer and free its raw data
+    #[no_mangle]
+    pub extern "C" fn sixtyfps_timer_stop(id: i64) {
+        if id == -1 {
+            return;
+        }
+        let timer = Timer { id: Cell::new(Some(id as _)) };
+        timer.stop()
+    }
+}

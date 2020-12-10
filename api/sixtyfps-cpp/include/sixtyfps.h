@@ -18,6 +18,7 @@ LICENSE END */
 #include <memory>
 #include <algorithm>
 #include <iostream> // FIXME: remove: iostream always bring it lots of code so we should not have it in this header
+#include <chrono>
 
 namespace sixtyfps::cbindgen_private {
 // Workaround https://github.com/eqrion/cbindgen/issues/43
@@ -247,6 +248,41 @@ public:
         }
     }
 };
+
+/// A Timer that can call a callback at repeated interval
+///
+/// Use the static single_shot function to make a single shot timer
+struct Timer {
+    /// Construct a timer which will repeat the callback every `duration` milliseconds until
+    /// the destructor of the timer is called.
+    template<typename F>
+    Timer(std::chrono::milliseconds duration, F callback)
+        : id(cbindgen_private::sixtyfps_timer_start(
+            duration.count(),
+            [](void *data) { (*reinterpret_cast<F*>(data))(); },
+            new F(std::move(callback)),
+            [](void *data) { delete reinterpret_cast<F*>(data); }))
+        {}
+    Timer(const Timer&) = delete;
+    Timer &operator=(const Timer&) = delete;
+    ~Timer() {
+        cbindgen_private::sixtyfps_timer_stop(id);
+    }
+
+    /// Call the callback after the given duration.
+    template<typename F>
+    static void single_shot(std::chrono::milliseconds duration, F callback) {
+        cbindgen_private::sixtyfps_timer_singleshot(
+            duration.count(),
+            [](void *data) { (*reinterpret_cast<F*>(data))(); },
+            new F(std::move(callback)),
+            [](void *data) { delete reinterpret_cast<F*>(data); });
+    }
+
+private:
+    int64_t id;
+};
+
 
 // layouts:
 using cbindgen_private::box_layout_info;
