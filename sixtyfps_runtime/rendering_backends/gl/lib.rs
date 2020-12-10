@@ -282,6 +282,7 @@ impl GLRenderer {
 
             let mut attrs = web_sys::WebGlContextAttributes::new();
             attrs.stencil(true);
+            attrs.antialias(false);
 
             use wasm_bindgen::JsCast;
             let webgl1_context = window
