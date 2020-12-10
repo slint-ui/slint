@@ -54,7 +54,32 @@ use std::env;
 use std::io::Write;
 use std::path::Path;
 
-pub use sixtyfps_compilerlib::CompilerConfiguration;
+/// The structure for configuring aspects of the compilation of `.60` markup files to Rust.
+pub struct CompilerConfiguration {
+    config: sixtyfps_compilerlib::CompilerConfiguration,
+}
+
+impl CompilerConfiguration {
+    /// Creates a new default configuration.
+    pub fn new() -> Self {
+        Self { config: Default::default() }
+    }
+
+    /// Create a new configuration that includes sets the include paths used for looking up
+    /// `.60` imports to the specified vector of paths.
+    pub fn with_include_paths(self, include_paths: Vec<std::path::PathBuf>) -> Self {
+        let mut config = self.config;
+        config.include_paths = include_paths;
+        Self { config }
+    }
+
+    /// Create a new configuration that selects the style to be used for widgets.
+    pub fn with_style(self, style: String) -> Self {
+        let mut config = self.config;
+        config.style = Some(style);
+        Self { config }
+    }
+}
 
 /// Error returned by the `compile` function
 #[derive(thiserror::Error, Debug)]
@@ -140,10 +165,10 @@ impl<Sink: Write> Write for CodeFormatter<Sink> {
 /// Please check out the documentation of the `sixtyfps` crate for more information
 /// about how to use the generated code.
 pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
-    compile_with_config(path, Default::default())
+    compile_with_config(path, CompilerConfiguration::new())
 }
 
-/// Same as [`compile`], but allow to specify a configuration
+/// Same as [`compile`], but allow to specify a configuration.
 pub fn compile_with_config(
     path: impl AsRef<std::path::Path>,
     config: CompilerConfiguration,
@@ -160,7 +185,7 @@ pub fn compile_with_config(
         return Err(CompileError::CompileError(vec));
     }
 
-    let mut compiler_config = config;
+    let mut compiler_config = config.config;
 
     if let (Ok(target), Ok(host)) = (env::var("TARGET"), env::var("HOST")) {
         if target != host {
