@@ -28,21 +28,21 @@ int main()
     main_window->on_check_if_pair_solved([main_window_weak = sixtyfps::ComponentWeakHandle(main_window)] {
         auto main_window = *main_window_weak.lock();
         auto tiles_model = main_window->get_memory_tiles();
-        int index1 = -1;
-        TileData tile1;
+        int first_visible_index = -1;
+        TileData first_visible_tile;
         for (int i = 0; i < tiles_model->row_count(); ++i) {
             auto tile = tiles_model->row_data(i);
             if (!tile.image_visible || tile.solved)
                 continue;
-            if (index1 == -1) {
-                index1 = i;
-                tile1 = tile;
+            if (first_visible_index == -1) {
+                first_visible_index = i;
+                first_visible_tile = tile;
                 continue;
             }
-            bool is_pair_solved = tile == tile1;
+            bool is_pair_solved = tile == first_visible_tile;
             if (is_pair_solved) {
-                tile1.solved = true;
-                tiles_model->set_row_data(index1, tile1);
+                first_visible_tile.solved = true;
+                tiles_model->set_row_data(first_visible_index, first_visible_tile);
                 tile.solved = true;
                 tiles_model->set_row_data(i, tile);
                 return;
@@ -51,8 +51,8 @@ int main()
 
             sixtyfps::Timer::single_shot(std::chrono::seconds(1), [=]() mutable {
                 main_window->set_disable_tiles(false);
-                tile1.image_visible = false;
-                tiles_model->set_row_data(index1, tile1);
+                first_visible_tile.image_visible = false;
+                tiles_model->set_row_data(first_visible_index, first_visible_tile);
                 tile.image_visible = false;
                 tiles_model->set_row_data(i, tile);
             });
