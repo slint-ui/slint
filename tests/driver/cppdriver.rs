@@ -20,7 +20,8 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         .collect::<Vec<_>>();
 
     let (syntax_node, diag) = parser::parse(source.clone(), Some(&testcase.absolute_path));
-    let compiler_config = CompilerConfiguration { include_paths, ..Default::default() };
+    let mut compiler_config = CompilerConfiguration::new(generator::OutputFormat::Cpp);
+    compiler_config.include_paths = include_paths;
     let (root_component, mut diag) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
 

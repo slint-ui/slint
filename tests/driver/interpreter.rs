@@ -15,8 +15,10 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     let include_paths = test_driver_lib::extract_include_paths(&source)
         .map(std::path::PathBuf::from)
         .collect::<Vec<_>>();
-    let config =
-        sixtyfps_compilerlib::CompilerConfiguration { include_paths, ..Default::default() };
+    let mut config = sixtyfps_compilerlib::CompilerConfiguration::new(
+        sixtyfps_compilerlib::generator::OutputFormat::Interpreter,
+    );
+    config.include_paths = include_paths;
 
     let (component, _warnings) = match spin_on::spin_on(sixtyfps_interpreter::load(
         source,

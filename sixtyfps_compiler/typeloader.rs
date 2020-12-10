@@ -419,8 +419,9 @@ fn test_dependency_loading() {
     let mut incdir = test_source_path.clone();
     incdir.push("incpath");
 
-    let compiler_config =
-        CompilerConfiguration { include_paths: vec![incdir], ..Default::default() };
+    let mut compiler_config =
+        CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.include_paths = vec![incdir];
 
     let mut main_test_path = test_source_path.clone();
     main_test_path.push("dependency_test_main.60");
@@ -453,18 +454,17 @@ fn test_load_from_callback_ok() {
     let ok = Rc::new(core::cell::Cell::new(false));
     let ok_ = ok.clone();
 
-    let compiler_config = CompilerConfiguration {
-        open_import_fallback: Some(Box::new(move |path| {
-            let ok_ = ok_.clone();
-            Box::pin(async move {
-                assert_eq!(path, "../FooBar.60");
-                assert_eq!(ok_.get(), false);
-                ok_.set(true);
-                Ok("export XX := Rectangle {} ".to_owned())
-            })
-        })),
-        ..Default::default()
-    };
+    let mut compiler_config =
+        CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.open_import_fallback = Some(Box::new(move |path| {
+        let ok_ = ok_.clone();
+        Box::pin(async move {
+            assert_eq!(path, "../FooBar.60");
+            assert_eq!(ok_.get(), false);
+            ok_.set(true);
+            Ok("export XX := Rectangle {} ".to_owned())
+        })
+    }));
 
     let (doc_node, mut test_diags) = crate::parser::parse(
         r#"
@@ -494,7 +494,7 @@ X := XX {}
 
 #[test]
 fn test_manual_import() {
-    let compiler_config = CompilerConfiguration { ..Default::default() };
+    let compiler_config = CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
     let mut test_diags = FileDiagnostics::default();
     let global_registry = TypeRegister::builtin();
     let mut build_diagnostics = BuildDiagnostics::default();

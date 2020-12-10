@@ -94,7 +94,7 @@ Hello := Rectangle {
     Image {
         x: 200phx;
         y: 200phx;
-        source: img!"../../examples/graphicstest/logo.png";
+        source: img!"../../examples/memory/icons/tile_logo.png";
     }
 
     ButtonRectangle {
