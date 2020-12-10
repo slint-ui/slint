@@ -32,8 +32,8 @@ pub fn main() {
 
     let main_window = MainWindow::new();
 
-    let tile_options = main_window.get_tile_options();
-    let mut tiles: Vec<TileData> = tile_options.iter().chain(tile_options.iter()).collect();
+    let initial_tiles = main_window.get_memory_tiles();
+    let mut tiles: Vec<TileData> = initial_tiles.iter().chain(initial_tiles.iter()).collect();
     shuffle(&mut tiles);
     let tiles_model = Rc::new(VecModel::from(tiles));
 

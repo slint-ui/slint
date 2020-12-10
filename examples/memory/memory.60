@@ -85,7 +85,13 @@ export MainWindow := Window {
     signal check_if_pair_solved();
     property <bool> disable_tiles;
 
-    property<[TileData]> tile_options: [
+    property<length> tile_size: 80px;
+    property<length> tile_spacing: 10px;
+
+    width: 4 * tile_size + 5 * tile_spacing;
+    height: 4 * tile_size + 5 * tile_spacing;
+
+    property<[TileData]> memory_tiles : [
         { image: img!"icons/at.png" },
         { image: img!"icons/balance-scale.png" },
         { image: img!"icons/bicycle.png" },
@@ -95,14 +101,6 @@ export MainWindow := Window {
         { image: img!"icons/motorcycle.png" },
         { image: img!"icons/video.png" },
     ];
-
-    property<length> tile_size: 80px;
-    property<length> tile_spacing: 10px;
-
-    width: 4 * tile_size + 5 * tile_spacing;
-    height: 4 * tile_size + 5 * tile_spacing;
-
-    property<[TileData]> memory_tiles;
 
     for tile[i] in memory_tiles: MemoryTile {
         x: tile_spacing + mod(i, 4) * (tile_size + tile_spacing);
