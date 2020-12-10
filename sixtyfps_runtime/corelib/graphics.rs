@@ -790,7 +790,7 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
         }
 
         let id = {
-            let window_builder = winit::window::WindowBuilder::new();
+            let window_builder = winit::window::WindowBuilder::new().with_title("SixtyFPS Window");
 
             let backend = self.window_factory.as_ref()(&event_loop, window_builder);
 
