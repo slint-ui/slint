@@ -911,7 +911,10 @@ fn generate_component(
             Declaration::Function(Function {
                 name: "run".into(),
                 signature: "() const".into(),
-                statements: Some(vec!["window.run();".into()]),
+                statements: Some(vec![
+                    "window.set_component(**self_weak.lock());".into(),
+                    "window.run();".into(),
+                ]),
                 ..Default::default()
             }),
         ));
@@ -928,7 +931,6 @@ fn generate_component(
             format!("auto self_rc = vtable::VRc<sixtyfps::private_api::ComponentVTable, {0}>::make({1});", component_id, maybe_constructor_param),
             format!("auto self = const_cast<{0} *>(&*self_rc);", component_id),
             "self->self_weak = vtable::VWeak(self_rc);".into(),
-            "self_rc->window.set_component(*self_rc);".into()
         ];
         create_code.extend(
             component.setup_code.borrow().iter().map(|code| compile_expression(code, component)),
