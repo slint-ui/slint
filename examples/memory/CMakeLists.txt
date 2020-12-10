@@ -8,12 +8,14 @@
 # Please contact info@sixtyfps.io for more information.
 # LICENSE END
 cmake_minimum_required(VERSION 3.16)
+project(memory LANGUAGES CXX)
 
-project(SixtyFPS LANGUAGES CXX)
+if (NOT TARGET SixtyFPS::SixtyFPS)
+    find_package(SixtyFPS REQUIRED)
+endif()
 
-add_subdirectory(api/sixtyfps-cpp/)
-add_subdirectory(examples/printerdemo/cpp/)
-add_subdirectory(examples/todo/cpp/)
-add_subdirectory(examples/gallery/)
-add_subdirectory(examples/memory/)
-
+# Note, we can't name it simply "memory" because there is a C++ standard header with the same name
+# so `#include<memory>` includes the generated binary when it exists
+add_executable(memory_game memory.cpp)
+target_link_libraries(memory_game SixtyFPS::SixtyFPS)
+sixtyfps_target_60_sources(memory_game memory.60)
