@@ -17,12 +17,6 @@ use wasm_bindgen::prelude::*;
 
 sixtyfps::include_modules!();
 
-fn shuffle(tiles: &mut Vec<TileData>) {
-    use rand::seq::SliceRandom;
-    let mut rng = rand::thread_rng();
-    tiles.shuffle(&mut rng);
-}
-
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub fn main() {
     // This provides better error messages in debug mode.
@@ -32,9 +26,13 @@ pub fn main() {
 
     let main_window = MainWindow::new();
 
-    let initial_tiles = main_window.get_memory_tiles();
-    let mut tiles: Vec<TileData> = initial_tiles.iter().chain(initial_tiles.iter()).collect();
-    shuffle(&mut tiles);
+    let mut tiles: Vec<TileData> = main_window.get_memory_tiles().iter().collect();
+    tiles.extend(tiles.clone());
+
+    use rand::seq::SliceRandom;
+    let mut rng = rand::thread_rng();
+    tiles.shuffle(&mut rng);
+
     let tiles_model = Rc::new(VecModel::from(tiles));
 
     main_window.set_memory_tiles(ModelHandle::new(tiles_model.clone()));
