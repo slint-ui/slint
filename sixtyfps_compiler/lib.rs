@@ -63,7 +63,6 @@ mod passes {
     pub mod unique_id;
 }
 
-#[derive(Default)]
 /// CompilationConfiguration allows configuring different aspects of the compiler.
 pub struct CompilerConfiguration {
     /// Indicate whether to embed resources such as images in the generated output or whether
@@ -87,6 +86,33 @@ pub struct CompilerConfiguration {
     /// containing an error message
     pub open_import_fallback:
         Option<Box<dyn Fn(String) -> Pin<Box<dyn Future<Output = std::io::Result<String>>>>>>,
+}
+
+impl CompilerConfiguration {
+    pub fn new(output_format: crate::generator::OutputFormat) -> Self {
+        let embed_resources = match std::env::var("SIXTYFPS_EMBED_RESOURCES") {
+            Ok(var) => {
+                var.parse().unwrap_or_else(|_|{
+                    panic!("SIXTYFPS_EMBED_RESOURCES has incorrect value. Must be either unset, 'true' or 'false'")
+                })
+            }
+            Err(_) => {
+                match output_format {
+                    #[cfg(feature = "rust")]
+                    crate::generator::OutputFormat::Rust => true,
+                    _ => false,
+                }
+            }
+        };
+
+        Self {
+            embed_resources,
+            include_paths: Default::default(),
+            style: Default::default(),
+            resolve_import_fallback: Default::default(),
+            open_import_fallback: Default::default(),
+        }
+    }
 }
 
 pub async fn compile_syntax_node(

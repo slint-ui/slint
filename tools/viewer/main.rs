@@ -26,11 +26,11 @@ fn main() -> std::io::Result<()> {
     let args = Cli::from_args();
     let source = std::fs::read_to_string(&args.path)?;
 
-    let compiler_config = sixtyfps_compilerlib::CompilerConfiguration {
-        include_paths: args.include_paths,
-        style: if args.style.is_empty() { None } else { Some(args.style) },
-        ..Default::default()
-    };
+    let mut compiler_config = sixtyfps_compilerlib::CompilerConfiguration::new(
+        sixtyfps_compilerlib::generator::OutputFormat::Interpreter,
+    );
+    compiler_config.include_paths = args.include_paths;
+    compiler_config.style = if args.style.is_empty() { None } else { Some(args.style) };
 
     let c = match spin_on::spin_on(sixtyfps_interpreter::load(source, args.path, compiler_config)) {
         (Ok(c), warnings) => {

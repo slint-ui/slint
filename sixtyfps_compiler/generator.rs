@@ -28,6 +28,7 @@ pub enum OutputFormat {
     Cpp,
     #[cfg(feature = "rust")]
     Rust,
+    Interpreter,
 }
 
 impl OutputFormat {
@@ -75,6 +76,12 @@ pub fn generate(
             if let Some(output) = rust::generate(doc, diag) {
                 write!(destination, "{}", output)?;
             }
+        }
+        OutputFormat::Interpreter => {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "Unsupported output format: The interpreter is not a valid output format yet.",
+            )); // Perhaps byte code in the future?
         }
     }
     Ok(())

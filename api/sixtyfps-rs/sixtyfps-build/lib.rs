@@ -62,7 +62,11 @@ pub struct CompilerConfiguration {
 impl CompilerConfiguration {
     /// Creates a new default configuration.
     pub fn new() -> Self {
-        Self { config: Default::default() }
+        Self {
+            config: sixtyfps_compilerlib::CompilerConfiguration::new(
+                sixtyfps_compilerlib::generator::OutputFormat::Rust,
+            ),
+        }
     }
 
     /// Create a new configuration that includes sets the include paths used for looking up
