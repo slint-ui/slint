@@ -491,9 +491,41 @@ declare_types! {
     }
 }
 
+fn singleshot_timer(mut cx: FunctionContext) -> JsResult<JsValue> {
+    let duration_in_msecs = cx.argument::<JsNumber>(0)?.value() as u64;
+    let handler = cx.argument::<JsFunction>(1)?;
+
+    let global_persistent_context = persistent_context::PersistentContext::global(&mut cx)?;
+
+    let handler_value = handler.as_value(&mut cx);
+    let handler_idx = global_persistent_context.allocate(&mut cx, handler_value);
+    let callback = move || {
+        run_with_global_contect(&move |cx, _| {
+            let global_persistent_context =
+                persistent_context::PersistentContext::global(cx).unwrap();
+
+            global_persistent_context
+                .get(cx, handler_idx)
+                .unwrap()
+                .downcast::<JsFunction>()
+                .unwrap()
+                .call::<_, _, JsValue, _>(cx, JsUndefined::new(), vec![])
+                .unwrap();
+        });
+    };
+
+    sixtyfps_corelib::timers::Timer::single_shot(
+        std::time::Duration::from_millis(duration_in_msecs),
+        callback,
+    );
+
+    Ok(JsUndefined::new().upcast())
+}
+
 register_module!(mut m, {
     m.export_function("load", load)?;
     m.export_function("mock_elapsed_time", mock_elapsed_time)?;
+    m.export_function("singleshot_timer", singleshot_timer)?;
     Ok(())
 });
 

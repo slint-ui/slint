@@ -33,11 +33,23 @@ impl<'a> PersistentContext<'a> {
         self.0.get(cx, idx)
     }
 
-    pub fn save_to_object(self, cx: &mut impl Context<'a>, o: Handle<'a, JsObject>) {
+    pub fn save_to_object(&self, cx: &mut impl Context<'a>, o: Handle<'a, JsObject>) {
         o.set(cx, KEY, self.0).unwrap();
     }
 
     pub fn from_object(cx: &mut impl Context<'a>, o: Handle<'a, JsObject>) -> NeonResult<Self> {
         Ok(PersistentContext(o.get(cx, KEY)?.downcast_or_throw(cx)?))
+    }
+
+    pub fn global(cx: &mut impl Context<'a>) -> NeonResult<Self> {
+        let global_object: Handle<JsObject> = cx.global().downcast().unwrap();
+        Ok(match global_object.get(cx, KEY)?.downcast() {
+            Ok(array) => PersistentContext(array),
+            Err(_) => {
+                let ctx = PersistentContext::new(cx);
+                ctx.save_to_object(cx, global_object);
+                ctx
+            }
+        })
     }
 }

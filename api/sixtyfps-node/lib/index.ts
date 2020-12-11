@@ -220,8 +220,10 @@ class ArrayModel<T> implements Model<T> {
     }
 }
 
-
 module.exports = {
     private_api: native,
-    ArrayModel: ArrayModel
+    ArrayModel: ArrayModel,
+    Timer: {
+        singleShot: native.singleshot_timer,
+    }
 };
