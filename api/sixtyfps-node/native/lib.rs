@@ -204,7 +204,9 @@ fn to_eval_value<'cx>(
                 Ok(Value::Model(sixtyfps_interpreter::ModelPtr(m)))
             }
         },
-        Type::Resource => Ok(Value::String(val.to_string(cx)?.value().into())),
+        Type::Resource => {
+            Ok(Value::Resource(Resource::AbsoluteFilePath(val.to_string(cx)?.value().into())))
+        }
         Type::Bool => Ok(Value::Bool(val.downcast_or_throw::<JsBoolean, _>(cx)?.value())),
         Type::Object { fields, .. } => {
             let obj = val.downcast_or_throw::<JsObject, _>(cx)?;
