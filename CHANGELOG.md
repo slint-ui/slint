@@ -3,6 +3,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+ - Fixed animations sometimes stopping mid-way.
+ - Fixed rendering of C++ components
+ - Changed Rust `build.rs` API to use an opaque compiler configuration type
+ - With Rust, image resources are embedded in the binary by default.
+
 ## [0.0.3] - 2020-12-09
 
 ### Changed
