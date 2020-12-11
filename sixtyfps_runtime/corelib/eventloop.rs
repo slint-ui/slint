@@ -23,7 +23,7 @@ use std::{convert::TryInto, pin::Pin};
 
 use crate::input::{KeyEvent, MouseEventType};
 #[cfg(not(target_arch = "wasm32"))]
-use winit::platform::desktop::EventLoopExtDesktop;
+use winit::platform::run_return::EventLoopExtRunReturn;
 
 /// This trait represents the interface that the generated code and the run-time
 /// require in order to implement functionality such as device-independent pixels,
