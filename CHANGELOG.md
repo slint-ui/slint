@@ -3,6 +3,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.0.4] - 2020-12-04
+
 ### Changed
  - Fixed animations sometimes stopping mid-way.
  - Fixed rendering of C++ components
@@ -65,3 +67,4 @@ All notable changes to this project will be documented in this file.
 [0.0.1]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.0.1
 [0.0.2]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.0.2
 [0.0.3]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.0.3
+[0.0.4]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.0.4
