@@ -6,11 +6,15 @@ All notable changes to this project will be documented in this file.
 ## [0.0.4] - 2020-12-04
 
 ### Changed
- - Fixed animations sometimes stopping mid-way.
- - Fixed rendering of C++ components
  - Changed Rust `build.rs` API to use an opaque compiler configuration type
  - With Rust, image resources are embedded in the binary by default.
  - Updated winit version
+ - Updated Neon Version
+
+### Fixed
+ - Fixed animations sometimes stopping mid-way.
+ - Fixed rendering of C++ components
+ - Fixed disabled Slider
 
 ## [0.0.3] - 2020-12-09
 
