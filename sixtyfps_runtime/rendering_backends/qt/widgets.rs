@@ -760,7 +760,7 @@ impl Item for NativeSlider {
             return style->hitTestComplexControl(QStyle::CC_Slider, &option, pos, nullptr);
         });
         let result = match event.what {
-            MouseEventType::MousePressed => {
+            MouseEventType::MousePressed if enabled => {
                 data.pressed_x = event.pos.x as f32;
                 data.pressed = 1;
                 data.pressed_val = value;
@@ -770,7 +770,7 @@ impl Item for NativeSlider {
                 data.pressed = 0;
                 InputEventResult::EventAccepted
             }
-            MouseEventType::MouseMoved => {
+            MouseEventType::MouseMoved if enabled => {
                 if data.pressed != 0 {
                     // FIXME: use QStyle::subControlRect to find out the actual size of the groove
                     let new_val = data.pressed_val
@@ -780,6 +780,11 @@ impl Item for NativeSlider {
                 } else {
                     InputEventResult::EventIgnored
                 }
+            }
+            _ => {
+                assert!(!enabled);
+                data.pressed = 0;
+                InputEventResult::EventIgnored
             }
         };
         data.active_controls = new_control;

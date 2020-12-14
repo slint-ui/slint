@@ -239,10 +239,10 @@ export Slider := Rectangle {
         border_width: 1px;
         border_radius: 3px;
         border_color: black;
-        color: touch_area.pressed ? Palette.button_pressed : white;
+        color: (touch_area.pressed && enabled) ? Palette.button_pressed : white;
         animate color { duration: 100ms; }
         x: (root.width - handle.width) * (new_value - min)/(max - min);
-        property<float> new_value_tmp : touch_area.pressed
+        property<float> new_value_tmp : (touch_area.pressed && enabled)
             ? root.value + (touch_area.mouse_x - touch_area.pressed_x) * (max - min) / (root.width - handle.width)
             : root.value;
         property<float> new_value : new_value_tmp < root.min ? root.min
@@ -252,7 +252,9 @@ export Slider := Rectangle {
         width: parent.width;
         height: parent.height;
         clicked => {
-            root.value = handle.new_value;
+            if (enabled) {
+                root.value = handle.new_value;
+            }
         }
     }
 }
