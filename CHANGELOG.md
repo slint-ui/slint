@@ -14,7 +14,7 @@ All notable changes to this project will be documented in this file.
 ### Fixed
  - Fixed animations sometimes stopping mid-way.
  - Fixed rendering of C++ components
- - Fixed disabled Slider
+ - Fixed disabled widgets
 
 ## [0.0.3] - 2020-12-09
 

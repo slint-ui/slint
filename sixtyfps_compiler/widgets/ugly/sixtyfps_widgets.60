@@ -14,6 +14,7 @@ global Palette := {
     property<color> text_color_disabled: lightgray;
     property<color> text_color_secondary: #111;
     property<color> button_background: #aaa;
+    property<color> button_background_disabled: #aaa;
     property<color> button_hover: #8c8c8c;
     property<color> button_pressed: #575757;
     property<color> highlight_background: #2b60ae;
@@ -39,7 +40,7 @@ export Button := Rectangle {
     border_width: 1px;
     border_radius: 2px;
     border_color: Palette.text_color;
-    color: self.pressed ? Palette.button_pressed : (touch_area.has_hover ? Palette.button_hover : Palette.button_background);
+    color: !self.enabled ? Palette.button_background_disabled : self.pressed ? Palette.button_pressed : (touch_area.has_hover ? Palette.button_hover : Palette.button_background);
     animate color { duration: 100ms; }
     horizontal-stretch: 0;
     vertical-stretch: 0;
@@ -118,8 +119,10 @@ export CheckBox := Rectangle {
         width: root.width;
         height: root.height;
         clicked => {
-            root.checked = !root.checked;
-            root.toggled();
+            if (root.enabled) {
+                root.checked = !root.checked;
+                root.toggled();
+            }
         }
     }
 
@@ -133,16 +136,18 @@ SpinBoxButton := Rectangle {
     border_width: 1px;
     border_radius: 2px;
     border_color: black;
-    color: touch.pressed ? Palette.button_pressed : (touch.has_hover ? Palette.button_hover : Palette.button_background);
+    color: !enabled ? Palette.button_background_disabled : touch.pressed ? Palette.button_pressed : (touch.has_hover ? Palette.button_hover : Palette.button_background);
     animate color { duration: 100ms; }
     touch := TouchArea {
-        width: parent.width;
-        height: parent.height;
-        clicked => { root.clicked(); }
+        clicked => {
+            if (enabled) {
+                root.clicked();
+            }
+        }
     }
     Text {
-        x: touch.pressed ? 1px : 0px;
-        y: touch.pressed ? 1px : 0px;
+        x: enabled && touch.pressed ? 1px : 0px;
+        y: enabled && touch.pressed ? 1px : 0px;
         width: parent.width;
         height: parent.height;
         vertical-alignment: align-center;
@@ -449,7 +454,7 @@ export ComboBox := Rectangle {
     border_width: 1px;
     border_radius: 2px;
     border_color: Palette.text_color;
-    color: touch_area.pressed ? Palette.button_pressed : (touch_area.has_hover ? Palette.button_hover : Palette.button_background);
+    color: !enabled ? Palette.button_background_disabled : touch_area.pressed ? Palette.button_pressed : (touch_area.has_hover ? Palette.button_hover : Palette.button_background);
     animate color { duration: 100ms; }
     horizontal-stretch: 0;
     vertical-stretch: 0;
