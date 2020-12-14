@@ -40,7 +40,7 @@ export Button := Rectangle {
     border_width: 1px;
     border_radius: 2px;
     border_color: Palette.text_color;
-    color: !self.enabled ? Palette.button_background_disabled : self.pressed ? Palette.button_pressed : (touch_area.has_hover ? Palette.button_hover : Palette.button_background);
+    color: !self.enabled ? Palette.button_background_disabled: self.pressed ? Palette.button_pressed : (touch_area.has_hover ? Palette.button_hover : Palette.button_background);
     animate color { duration: 100ms; }
     horizontal-stretch: 0;
     vertical-stretch: 0;
