@@ -1,4 +1,13 @@
 #!/bin/bash -e
+# LICENSE BEGIN
+# This file is part of the SixtyFPS Project -- https://sixtyfps.io
+# Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+# Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+#
+# SPDX-License-Identifier: GPL-3.0-only
+# This file is also available under commercial licensing terms.
+# Please contact info@sixtyfps.io for more information.
+# LICENSE END
 cargo publish --manifest-path sixtyfps_runtime/corelib_macros/Cargo.toml
 cargo publish --manifest-path sixtyfps_compiler/Cargo.toml
 cargo publish --manifest-path sixtyfps_runtime/corelib/Cargo.toml --features x11
