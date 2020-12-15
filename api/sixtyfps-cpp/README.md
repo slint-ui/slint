@@ -47,7 +47,7 @@ CMake project, install it into a prefix directory of your choice and use `find_p
 
 The SixtyFPS continuous integration system is building binary packages to use with C++ so that you do not need to install a rust compiler.
 These binaries can be found by clicking on the last
-[succesful build of the master branch](https://github.com/sixtyfpsui/sixtyfps/actions?query=workflow%3ACI+is%3Asuccess+branch%3Amaster)
+[successful build of the master branch](https://github.com/sixtyfpsui/sixtyfps/actions?query=workflow%3ACI+is%3Asuccess+branch%3Amaster)
 and downloading the `cpp_bin` artifact.
 
 After extracting the artifact you can place the `lib` directory into your `CMAKE_PREFIX_PATH` and `find_package(SixtyFPS)` should succeed
