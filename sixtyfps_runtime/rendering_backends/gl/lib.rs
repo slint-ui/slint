@@ -67,8 +67,6 @@ enum GLRenderingPrimitive {
     Rectangle {
         vertices: GLArrayBuffer<Vertex>,
         indices: GLIndexBuffer<u16>,
-        radius: f32,
-        border_width: f32,
         rect_size: Size,
     },
     Texture {
@@ -461,16 +459,11 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
         OpaqueRenderingPrimitive {
             gl_primitives: match &primitive {
                 HighLevelRenderingPrimitive::NoContents => smallvec::SmallVec::new(),
-                HighLevelRenderingPrimitive::Rectangle {
-                    width,
-                    height,
-                    border_width,
-                    border_radius,
-                } => {
+                HighLevelRenderingPrimitive::Rectangle { width, height } => {
                     use lyon::math::Point;
 
                     let rect = Rect::new(Point::default(), Size::new(*width, *height));
-                    smallvec![self.fill_rectangle(&rect, *border_radius, *border_width)]
+                    smallvec![self.fill_rectangle(&rect)]
                 }
                 HighLevelRenderingPrimitive::Image { source, source_clip_rect } => {
                     match source {
@@ -587,8 +580,8 @@ impl RenderingPrimitivesBuilder for GLRenderingPrimitivesBuilder {
                     use lyon::math::Point;
 
                     let rect = Rect::new(Point::default(), Size::new(*width, *height));
-                    smallvec![match self.fill_rectangle(&rect, 0., 0.) {
-                        GLRenderingPrimitive::Rectangle { vertices, indices, radius: _, border_width: _, rect_size } => {
+                    smallvec![match self.fill_rectangle(&rect) {
+                        GLRenderingPrimitive::Rectangle { vertices, indices, rect_size } => {
                             GLRenderingPrimitive::ApplyClip{vertices: Rc::new(vertices), indices: Rc::new(indices), rect_size}
                         }
                         _ => panic!("internal error: unsupported clipping primitive returned by fill_rectangle")
@@ -662,12 +655,7 @@ impl GLRenderingPrimitivesBuilder {
         self.fill_path_from_geometry(&geometry)
     }
 
-    fn fill_rectangle(
-        &mut self,
-        rect: &Rect,
-        radius: f32,
-        border_width: f32,
-    ) -> GLRenderingPrimitive {
+    fn fill_rectangle(&mut self, rect: &Rect) -> GLRenderingPrimitive {
         let vertex1 = Vertex { _pos: [rect.min_x(), rect.min_y()] };
         let vertex2 = Vertex { _pos: [rect.min_x(), rect.max_y()] };
         let vertex3 = Vertex { _pos: [rect.max_x(), rect.max_y()] };
@@ -677,14 +665,7 @@ impl GLRenderingPrimitivesBuilder {
 
         let indices = GLIndexBuffer::new(&self.context, &[0, 1, 2, 0, 2, 3]);
 
-        GLRenderingPrimitive::Rectangle {
-            vertices,
-            indices,
-            radius,
-            border_width,
-            rect_size: rect.size,
-        }
-        .into()
+        GLRenderingPrimitive::Rectangle { vertices, indices, rect_size: rect.size }.into()
     }
 
     fn create_image(
@@ -875,21 +856,15 @@ impl GLFrame {
                 None
             }
             (
-                GLRenderingPrimitive::Rectangle {
-                    vertices,
-                    indices,
-                    radius,
-                    border_width,
-                    rect_size,
-                },
-                RenderingVariables::Rectangle { fill, stroke },
+                GLRenderingPrimitive::Rectangle { vertices, indices, rect_size },
+                RenderingVariables::Rectangle { fill, stroke, border_radius, border_width },
             ) => {
                 self.draw_rect(
                     &matrix,
                     vertices,
                     indices,
                     (*fill).into(),
-                    *radius,
+                    *border_radius,
                     *border_width,
                     (*stroke).into(),
                     *rect_size,

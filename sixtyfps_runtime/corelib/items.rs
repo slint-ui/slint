@@ -174,12 +174,7 @@ impl Item for Rectangle {
         let width = Self::FIELD_OFFSETS.width.apply_pin(self).get();
         let height = Self::FIELD_OFFSETS.height.apply_pin(self).get();
         if width > 0. && height > 0. {
-            HighLevelRenderingPrimitive::Rectangle {
-                width,
-                height,
-                border_width: 0.,
-                border_radius: 0.,
-            }
+            HighLevelRenderingPrimitive::Rectangle { width, height }
         } else {
             HighLevelRenderingPrimitive::NoContents
         }
@@ -189,6 +184,8 @@ impl Item for Rectangle {
         RenderingVariables::Rectangle {
             fill: Self::FIELD_OFFSETS.color.apply_pin(self).get(),
             stroke: Color::default(),
+            border_width: 0.,
+            border_radius: 0.,
         }
     }
 
@@ -259,12 +256,7 @@ impl Item for BorderRectangle {
         let width = Self::FIELD_OFFSETS.width.apply_pin(self).get();
         let height = Self::FIELD_OFFSETS.height.apply_pin(self).get();
         if width > 0. && height > 0. {
-            HighLevelRenderingPrimitive::Rectangle {
-                width,
-                height,
-                border_width: Self::FIELD_OFFSETS.border_width.apply_pin(self).get(),
-                border_radius: Self::FIELD_OFFSETS.border_radius.apply_pin(self).get(),
-            }
+            HighLevelRenderingPrimitive::Rectangle { width, height }
         } else {
             HighLevelRenderingPrimitive::NoContents
         }
@@ -274,6 +266,8 @@ impl Item for BorderRectangle {
         RenderingVariables::Rectangle {
             fill: Self::FIELD_OFFSETS.color.apply_pin(self).get(),
             stroke: Self::FIELD_OFFSETS.border_color.apply_pin(self).get(),
+            border_width: Self::FIELD_OFFSETS.border_width.apply_pin(self).get(),
+            border_radius: Self::FIELD_OFFSETS.border_radius.apply_pin(self).get(),
         }
     }
 

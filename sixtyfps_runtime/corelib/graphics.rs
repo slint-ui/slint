@@ -265,9 +265,8 @@ pub enum HighLevelRenderingPrimitive {
     /// Associated rendering variables: None.
     NoContents,
     /// Renders a rectangle with the specified `width` and `height`, as well as a border
-    /// around it. The `border_width` specifies the width to use for the border, and the
-    /// `border_radius` can be used to render a rounded rectangle.
-    Rectangle { width: f32, height: f32, border_width: f32, border_radius: f32 },
+    /// around it.
+    Rectangle { width: f32, height: f32 },
     /// Renders a image referenced by the specified `source`.
     Image { source: crate::Resource, source_clip_rect: IntRect },
     /// Renders the specified `text` with a font that matches the specified family
@@ -303,6 +302,10 @@ pub enum RenderingVariables {
         fill: Color,
         /// The color to use for stroking the border of the rectangle.
         stroke: Color,
+        /// The width to use for the border of the rectangle.
+        border_width: f32,
+        /// The radius to use for the edges, to create a rounded rectangle.
+        border_radius: f32,
     },
 
     /// Match [`HighLevelRenderingPrimitive::Image`], to scale the image.
