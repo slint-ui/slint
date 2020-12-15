@@ -91,7 +91,7 @@ examples as well by default
 
  ```sh
  mkdir build && cd build
- cmake -DCMAKE_PREFIX_PATH="<path to installed>" ..
+ cmake -GNinja -DCMAKE_PREFIX_PATH="<path to installed>" ..
  cmake --build .
  ```
 
