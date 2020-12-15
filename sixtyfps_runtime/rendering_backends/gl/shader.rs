@@ -187,7 +187,7 @@ impl RectShader {
         }"#;
 
         const RECT_FRAGMENT_SHADER: &str = r#"#version 100
-        precision mediump float;
+        precision highp float;
         uniform vec2 rectsize;
         uniform float radius;
         uniform float border_width;
