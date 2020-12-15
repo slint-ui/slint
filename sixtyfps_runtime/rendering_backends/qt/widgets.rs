@@ -28,7 +28,7 @@ use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use cpp::cpp;
 use sixtyfps_corelib::eventloop::ComponentWindow;
-use sixtyfps_corelib::graphics::{HighLevelRenderingPrimitive, Rect, RenderingVariable, Resource};
+use sixtyfps_corelib::graphics::{HighLevelRenderingPrimitive, Rect, RenderingVariables, Resource};
 use sixtyfps_corelib::input::{
     FocusEvent, InputEventResult, KeyEvent, KeyEventResult, MouseEvent, MouseEventType,
 };
@@ -171,11 +171,8 @@ impl Item for NativeButton {
         };
     }
 
-    fn rendering_variables(
-        self: Pin<&Self>,
-        _window: &ComponentWindow,
-    ) -> SharedArray<RenderingVariable> {
-        SharedArray::default()
+    fn rendering_variables(self: Pin<&Self>, _window: &ComponentWindow) -> RenderingVariables {
+        Default::default()
     }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
@@ -307,11 +304,8 @@ impl Item for NativeCheckBox {
         };
     }
 
-    fn rendering_variables(
-        self: Pin<&Self>,
-        _window: &ComponentWindow,
-    ) -> SharedArray<RenderingVariable> {
-        SharedArray::default()
+    fn rendering_variables(self: Pin<&Self>, _window: &ComponentWindow) -> RenderingVariables {
+        Default::default()
     }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
@@ -466,11 +460,8 @@ impl Item for NativeSpinBox {
         };
     }
 
-    fn rendering_variables(
-        self: Pin<&Self>,
-        _window: &ComponentWindow,
-    ) -> SharedArray<RenderingVariable> {
-        SharedArray::default()
+    fn rendering_variables(self: Pin<&Self>, _window: &ComponentWindow) -> RenderingVariables {
+        Default::default()
     }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
@@ -684,11 +675,8 @@ impl Item for NativeSlider {
         };
     }
 
-    fn rendering_variables(
-        self: Pin<&Self>,
-        _window: &ComponentWindow,
-    ) -> SharedArray<RenderingVariable> {
-        SharedArray::default()
+    fn rendering_variables(self: Pin<&Self>, _window: &ComponentWindow) -> RenderingVariables {
+        Default::default()
     }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
@@ -974,11 +962,8 @@ impl Item for NativeGroupBox {
         };
     }
 
-    fn rendering_variables(
-        self: Pin<&Self>,
-        _window: &ComponentWindow,
-    ) -> SharedArray<RenderingVariable> {
-        SharedArray::default()
+    fn rendering_variables(self: Pin<&Self>, _window: &ComponentWindow) -> RenderingVariables {
+        Default::default()
     }
 
     fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
@@ -1133,11 +1118,8 @@ impl Item for NativeLineEdit {
         };
     }
 
-    fn rendering_variables(
-        self: Pin<&Self>,
-        _window: &ComponentWindow,
-    ) -> SharedArray<RenderingVariable> {
-        SharedArray::default()
+    fn rendering_variables(self: Pin<&Self>, _window: &ComponentWindow) -> RenderingVariables {
+        Default::default()
     }
 
     fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
@@ -1386,11 +1368,8 @@ impl Item for NativeScrollView {
         };
     }
 
-    fn rendering_variables(
-        self: Pin<&Self>,
-        _window: &ComponentWindow,
-    ) -> SharedArray<RenderingVariable> {
-        SharedArray::default()
+    fn rendering_variables(self: Pin<&Self>, _window: &ComponentWindow) -> RenderingVariables {
+        Default::default()
     }
 
     fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
@@ -1636,11 +1615,8 @@ impl Item for NativeStandardListViewItem {
         };
     }
 
-    fn rendering_variables(
-        self: Pin<&Self>,
-        _window: &ComponentWindow,
-    ) -> SharedArray<RenderingVariable> {
-        SharedArray::default()
+    fn rendering_variables(self: Pin<&Self>, _window: &ComponentWindow) -> RenderingVariables {
+        Default::default()
     }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
@@ -1774,11 +1750,8 @@ impl Item for NativeComboBox {
         };
     }
 
-    fn rendering_variables(
-        self: Pin<&Self>,
-        _window: &ComponentWindow,
-    ) -> SharedArray<RenderingVariable> {
-        SharedArray::default()
+    fn rendering_variables(self: Pin<&Self>, _window: &ComponentWindow) -> RenderingVariables {
+        Default::default()
     }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {

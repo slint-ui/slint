@@ -23,7 +23,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 use super::{Item, ItemConsts, ItemRc};
 use crate::eventloop::ComponentWindow;
 use crate::font::HasFont;
-use crate::graphics::{Color, HighLevelRenderingPrimitive, Rect, RenderingVariable};
+use crate::graphics::{Color, HighLevelRenderingPrimitive, Point, Rect, RenderingVariables};
 use crate::input::{
     FocusEvent, InputEventResult, KeyEvent, KeyEventResult, KeyboardModifiers, MouseEvent,
     MouseEventType,
@@ -32,7 +32,7 @@ use crate::item_rendering::CachedRenderingData;
 use crate::layout::LayoutInfo;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
-use crate::{Property, SharedArray, SharedString, Signal};
+use crate::{Property, SharedString, Signal};
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use sixtyfps_corelib_macros::*;
@@ -111,10 +111,7 @@ impl Item for Text {
         }
     }
 
-    fn rendering_variables(
-        self: Pin<&Self>,
-        window: &ComponentWindow,
-    ) -> SharedArray<RenderingVariable> {
+    fn rendering_variables(self: Pin<&Self>, window: &ComponentWindow) -> RenderingVariables {
         let layout_info = self.layouting_info(window);
         let rect = self.geometry();
 
@@ -132,10 +129,12 @@ impl Item for Text {
             TextVerticalAlignment::align_bottom => rect.height() - layout_info.min_height,
         };
 
-        SharedArray::from([
-            RenderingVariable::Translate(translate_x, translate_y),
-            RenderingVariable::Color(Self::FIELD_OFFSETS.color.apply_pin(self).get()),
-        ])
+        RenderingVariables::Text {
+            translate: Point::new(translate_x, translate_y),
+            color: Self::FIELD_OFFSETS.color.apply_pin(self).get(),
+            cursor: None,
+            selection: None,
+        }
     }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
@@ -246,10 +245,7 @@ impl Item for TextInput {
         }
     }
 
-    fn rendering_variables(
-        self: Pin<&Self>,
-        window: &ComponentWindow,
-    ) -> SharedArray<RenderingVariable> {
+    fn rendering_variables(self: Pin<&Self>, window: &ComponentWindow) -> RenderingVariables {
         let layout_info = self.layouting_info(window);
         let rect = self.geometry();
 
@@ -267,12 +263,7 @@ impl Item for TextInput {
             TextVerticalAlignment::align_bottom => rect.height() - layout_info.min_height,
         };
 
-        let mut variables = SharedArray::from([
-            RenderingVariable::Translate(translate_x, translate_y),
-            RenderingVariable::Color(Self::FIELD_OFFSETS.color.apply_pin(self).get()),
-        ]);
-
-        if self.has_selection() {
+        let selection = if self.has_selection() {
             let (anchor_pos, cursor_pos) = self.selection_anchor_and_cursor();
             let text = Self::FIELD_OFFSETS.text.apply_pin(self).get();
             let font = self.font(window);
@@ -280,33 +271,36 @@ impl Item for TextInput {
             let selection_end_x = font.text_width(text.split_at(cursor_pos as _).0);
             let font_height = font.height();
 
-            variables.push(RenderingVariable::TextSelection(
+            Some(Box::new((
                 selection_start_x,
                 selection_end_x - selection_start_x,
                 font_height,
-            ));
-            let selection_foreground =
-                Self::FIELD_OFFSETS.selection_foreground_color.apply_pin(self).get();
-            let selection_background =
-                Self::FIELD_OFFSETS.selection_background_color.apply_pin(self).get();
-            variables.push(RenderingVariable::Color(selection_foreground));
-            variables.push(RenderingVariable::Color(selection_background));
-        }
+                Self::FIELD_OFFSETS.selection_foreground_color.apply_pin(self).get(),
+                Self::FIELD_OFFSETS.selection_background_color.apply_pin(self).get(),
+            )))
+        } else {
+            None
+        };
 
-        if Self::FIELD_OFFSETS.cursor_visible.apply_pin(self).get() {
+        let cursor = if Self::FIELD_OFFSETS.cursor_visible.apply_pin(self).get() {
             let cursor_pos = Self::FIELD_OFFSETS.cursor_position.apply_pin(self).get();
             let text = Self::FIELD_OFFSETS.text.apply_pin(self).get();
             let font = self.font(window);
             let cursor_x_pos = font.text_width(text.split_at(cursor_pos as _).0);
             let font_height = font.height();
-
             let cursor_width =
                 Self::FIELD_OFFSETS.text_cursor_width.apply_pin(self).get() * window.scale_factor();
+            Some(Box::new((cursor_x_pos, cursor_width, font_height)))
+        } else {
+            None
+        };
 
-            variables.push(RenderingVariable::TextCursor(cursor_x_pos, cursor_width, font_height));
+        RenderingVariables::Text {
+            translate: Point::new(translate_x, translate_y),
+            color: Self::FIELD_OFFSETS.color.apply_pin(self).get(),
+            cursor,
+            selection,
         }
-
-        variables
     }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {

@@ -21,15 +21,15 @@ When adding an item or a property, it needs to be kept in sync with different pl
 */
 use super::{Item, ItemConsts, ItemRc};
 use crate::eventloop::ComponentWindow;
-use crate::graphics::{HighLevelRenderingPrimitive, IntRect, Rect, RenderingVariable, Resource};
+use crate::graphics::{HighLevelRenderingPrimitive, IntRect, Rect, RenderingVariables, Resource};
 use crate::input::{FocusEvent, InputEventResult, KeyEvent, KeyEventResult, MouseEvent};
 use crate::item_rendering::CachedRenderingData;
 use crate::layout::LayoutInfo;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
+use crate::Property;
 #[cfg(feature = "rtti")]
 use crate::Signal;
-use crate::{Property, SharedArray};
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use sixtyfps_corelib_macros::*;
@@ -83,28 +83,15 @@ impl Item for Image {
         }
     }
 
-    fn rendering_variables(
-        self: Pin<&Self>,
-        _window: &ComponentWindow,
-    ) -> SharedArray<RenderingVariable> {
-        let mut vars = SharedArray::default();
-
-        let width = Self::FIELD_OFFSETS.width.apply_pin(self).get();
-        let height = Self::FIELD_OFFSETS.height.apply_pin(self).get();
-
-        if width > 0. {
-            vars.push(RenderingVariable::ScaledWidth(width));
+    fn rendering_variables(self: Pin<&Self>, _window: &ComponentWindow) -> RenderingVariables {
+        RenderingVariables::Image {
+            scaled_width: Self::FIELD_OFFSETS.width.apply_pin(self).get(),
+            scaled_height: Self::FIELD_OFFSETS.height.apply_pin(self).get(),
+            fit: Self::FIELD_OFFSETS.image_fit.apply_pin(self).get(),
         }
-        if height > 0. {
-            vars.push(RenderingVariable::ScaledHeight(height));
-        }
-
-        vars.push(RenderingVariable::ImageFit(Self::FIELD_OFFSETS.image_fit.apply_pin(self).get()));
-
-        vars
     }
 
-    fn layouting_info(self: Pin<&Self>, _window: &crate::eventloop::ComponentWindow) -> LayoutInfo {
+    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
         // FIXME: should we use the image size here
         Default::default()
     }
@@ -176,28 +163,15 @@ impl Item for ClippedImage {
         }
     }
 
-    fn rendering_variables(
-        self: Pin<&Self>,
-        _window: &ComponentWindow,
-    ) -> SharedArray<RenderingVariable> {
-        let mut vars = SharedArray::default();
-
-        let width = Self::FIELD_OFFSETS.width.apply_pin(self).get();
-        let height = Self::FIELD_OFFSETS.height.apply_pin(self).get();
-
-        if width > 0. {
-            vars.push(RenderingVariable::ScaledWidth(width));
+    fn rendering_variables(self: Pin<&Self>, _window: &ComponentWindow) -> RenderingVariables {
+        RenderingVariables::Image {
+            scaled_width: Self::FIELD_OFFSETS.width.apply_pin(self).get(),
+            scaled_height: Self::FIELD_OFFSETS.height.apply_pin(self).get(),
+            fit: Self::FIELD_OFFSETS.image_fit.apply_pin(self).get(),
         }
-        if height > 0. {
-            vars.push(RenderingVariable::ScaledHeight(height));
-        }
-
-        vars.push(RenderingVariable::ImageFit(Self::FIELD_OFFSETS.image_fit.apply_pin(self).get()));
-
-        vars
     }
 
-    fn layouting_info(self: Pin<&Self>, _window: &crate::eventloop::ComponentWindow) -> LayoutInfo {
+    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
         // FIXME: should we use the image size here
         Default::default()
     }

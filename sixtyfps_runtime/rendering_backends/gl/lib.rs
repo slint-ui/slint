@@ -14,15 +14,12 @@ use lyon::tessellation::{
     FillAttributes, FillOptions, FillTessellator, StrokeAttributes, StrokeOptions,
     StrokeTessellator,
 };
-use sixtyfps_corelib::{eventloop::ComponentWindow, font::FontRequest};
-use sixtyfps_corelib::{
-    graphics::{
-        Color, Frame as GraphicsFrame, GraphicsBackend, GraphicsWindow,
-        HighLevelRenderingPrimitive, IntRect, Point, Rect, RenderingPrimitivesBuilder,
-        RenderingVariable, Resource, RgbaColor, Size,
-    },
-    SharedArray,
+use sixtyfps_corelib::graphics::{
+    Color, Frame as GraphicsFrame, GraphicsBackend, GraphicsWindow, HighLevelRenderingPrimitive,
+    IntRect, Point, Rect, RenderingPrimitivesBuilder, RenderingVariables, Resource, RgbaColor,
+    Size,
 };
+use sixtyfps_corelib::{eventloop::ComponentWindow, font::FontRequest};
 use smallvec::{smallvec, SmallVec};
 use std::{
     cell::RefCell,
@@ -843,25 +840,20 @@ impl GraphicsFrame for GLFrame {
         &mut self,
         primitive: &OpaqueRenderingPrimitive,
         transform: &Matrix4<f32>,
-        variables: SharedArray<RenderingVariable>,
+        variables: RenderingVariables,
     ) -> Vec<OpaqueRenderingPrimitive> {
-        let matrix = self.root_matrix * transform;
+        let mut matrix = self.root_matrix * transform;
 
-        let mut rendering_var = variables.iter().peekable();
-
-        let matrix = match rendering_var.peek() {
-            Some(RenderingVariable::Translate(x_offset, y_offset)) => {
-                rendering_var.next();
-                matrix * Matrix4::from_translation(cgmath::Vector3::new(*x_offset, *y_offset, 0.))
-            }
-            _ => matrix,
+        if let RenderingVariables::Text { translate, .. } = &variables {
+            matrix = matrix
+                * Matrix4::from_translation(cgmath::Vector3::new(translate.x, translate.y, 0.))
         };
 
         primitive
             .gl_primitives
             .iter()
             .filter_map(|gl_primitive| {
-                self.render_one_low_level_primitive(gl_primitive, &mut rendering_var, matrix)
+                self.render_one_low_level_primitive(gl_primitive, &variables, matrix)
             })
             .collect::<Vec<_>>()
     }
@@ -871,66 +863,76 @@ impl GLFrame {
     fn render_one_low_level_primitive<'a>(
         &mut self,
         gl_primitive: &GLRenderingPrimitive,
-        rendering_var: &mut std::iter::Peekable<impl Iterator<Item = &'a RenderingVariable>>,
+        rendering_var: &RenderingVariables,
         matrix: Matrix4<f32>,
     ) -> Option<OpaqueRenderingPrimitive> {
-        match gl_primitive {
-            GLRenderingPrimitive::FillPath { vertices, indices } => {
-                let col: RgbaColor<f32> = (*rendering_var.next().unwrap().as_color()).into();
-                self.fill_path(&matrix, vertices, indices, col);
+        match (gl_primitive, rendering_var) {
+            (
+                GLRenderingPrimitive::FillPath { vertices, indices },
+                RenderingVariables::Path { fill, .. },
+            ) => {
+                self.fill_path(&matrix, vertices, indices, (*fill).into());
                 None
             }
-            GLRenderingPrimitive::Rectangle {
-                vertices,
-                indices,
-                radius,
-                border_width,
-                rect_size,
-            } => {
-                let col: RgbaColor<f32> = (*rendering_var.next().unwrap().as_color()).into();
-                let border_color: RgbaColor<f32> = if *border_width > 0. {
-                    (*rendering_var.next().unwrap().as_color()).into()
-                } else {
-                    Default::default()
-                };
+            (
+                GLRenderingPrimitive::Rectangle {
+                    vertices,
+                    indices,
+                    radius,
+                    border_width,
+                    rect_size,
+                },
+                RenderingVariables::Rectangle { fill, stroke },
+            ) => {
                 self.draw_rect(
                     &matrix,
                     vertices,
                     indices,
-                    col,
+                    (*fill).into(),
                     *radius,
                     *border_width,
-                    border_color,
+                    (*stroke).into(),
                     *rect_size,
                 );
                 None
             }
-            GLRenderingPrimitive::Texture { vertices, texture_vertices, texture } => {
+            (
+                GLRenderingPrimitive::Texture { vertices, texture_vertices, texture },
+                RenderingVariables::Image { scaled_width, scaled_height, fit },
+            ) => {
                 let texture_width = texture.texture_coordinates.width() as f32;
                 let texture_height = texture.texture_coordinates.height() as f32;
 
-                let target_width = rendering_var
-                    .next()
-                    .map(|var| var.as_scaled_width())
-                    .unwrap_or_else(|| texture_width);
-                let target_height = rendering_var
-                    .next()
-                    .map(|var| var.as_scaled_height())
-                    .unwrap_or_else(|| texture_height);
-
-                let matrix = matrix
-                    * Matrix4::from_nonuniform_scale(
-                        target_width / texture_width,
-                        target_height / texture_height,
-                        1.,
-                    );
+                let matrix = match fit {
+                    sixtyfps_corelib::items::ImageFit::fill => {
+                        matrix
+                            * Matrix4::from_nonuniform_scale(
+                                scaled_width / texture_width,
+                                scaled_height / texture_height,
+                                1.,
+                            )
+                    }
+                    sixtyfps_corelib::items::ImageFit::contain => {
+                        let ratio =
+                            f32::max(scaled_width / texture_width, scaled_height / texture_height);
+                        matrix * Matrix4::from_nonuniform_scale(ratio, ratio, 1.)
+                    }
+                };
 
                 self.render_texture(&matrix, vertices, texture_vertices, texture);
                 None
             }
-            GLRenderingPrimitive::GlyphRuns { glyph_runs } => {
-                let col: RgbaColor<f32> = (*rendering_var.next().unwrap().as_color()).into();
-
+            (
+                GLRenderingPrimitive::Texture { vertices, texture_vertices, texture },
+                RenderingVariables::NoContents,
+            ) => {
+                self.render_texture(&matrix, vertices, texture_vertices, texture);
+                None
+            }
+            (
+                GLRenderingPrimitive::GlyphRuns { glyph_runs },
+                RenderingVariables::Text { color, cursor, selection, .. },
+            ) => {
                 let render_glyphs = |text_color| {
                     for GlyphRun { vertices, texture_vertices, texture, vertex_count } in glyph_runs
                     {
@@ -945,6 +947,8 @@ impl GLFrame {
                     }
                 };
 
+                let col = (*color).into();
+
                 // Text selection is drawn in three phases:
                 // 1. Draw the selection background rectangle, use regular stencil testing, write into the stencil buffer with GL_INCR
                 // 2. Draw the glyphs, use regular stencil testing against current_stencil clip value + 1, don't write into the stencil buffer. This clips
@@ -954,22 +958,12 @@ impl GLFrame {
                 // 4. We draw the selection background rectangle, use regular stencil testing, write into the stencil buffer with GL_DECR, use false color mask.
                 //    This "removes" the selection rectangle from the stencil buffer again.
 
-                let reset_stencil = match (rendering_var.peek(), &self.normal_rectangle) {
-                    (
-                        Some(RenderingVariable::TextSelection(x, width, height)),
-                        Some(text_cursor),
-                    ) => {
-                        rendering_var.next();
-                        let foreground_color: RgbaColor<f32> =
-                            (*rendering_var.next().unwrap().as_color()).into();
-                        let background_color: RgbaColor<f32> =
-                            (*rendering_var.next().unwrap().as_color()).into();
-
-                        // Phase 1
-
+                let reset_stencil = match (selection, &self.normal_rectangle) {
+                    (Some(selection), Some(text_cursor)) => {
+                        let (x, width, height, foreground_color, background_color) = **selection;
                         let matrix = matrix
-                            * Matrix4::from_translation(cgmath::Vector3::new(*x, 0., 0.))
-                            * Matrix4::from_nonuniform_scale(*width, *height, 1.);
+                            * Matrix4::from_translation(cgmath::Vector3::new(x, 0., 0.))
+                            * Matrix4::from_nonuniform_scale(width, height, 1.);
 
                         unsafe {
                             self.context.stencil_mask(0xff);
@@ -980,7 +974,7 @@ impl GLFrame {
                             &matrix,
                             &text_cursor.vertices,
                             &text_cursor.indices,
-                            background_color,
+                            background_color.into(),
                         );
 
                         unsafe {
@@ -998,7 +992,7 @@ impl GLFrame {
                             );
                         }
 
-                        render_glyphs(foreground_color);
+                        render_glyphs(foreground_color.into());
 
                         unsafe {
                             self.context.stencil_func(
@@ -1040,21 +1034,20 @@ impl GLFrame {
                     }
                 }
 
-                match (rendering_var.peek(), &self.normal_rectangle) {
-                    (Some(RenderingVariable::TextCursor(x, width, height)), Some(text_cursor)) => {
+                match (cursor, &self.normal_rectangle) {
+                    (Some(cursor), Some(text_cursor)) => {
+                        let (x, width, height) = **cursor;
                         let matrix = matrix
-                            * Matrix4::from_translation(cgmath::Vector3::new(*x, 0., 0.))
-                            * Matrix4::from_nonuniform_scale(*width, *height, 1.);
+                            * Matrix4::from_translation(cgmath::Vector3::new(x, 0., 0.))
+                            * Matrix4::from_nonuniform_scale(width, height, 1.);
 
                         self.fill_path(&matrix, &text_cursor.vertices, &text_cursor.indices, col);
-
-                        rendering_var.next();
                     }
                     _ => {}
                 }
                 None
             }
-            GLRenderingPrimitive::ApplyClip { vertices, indices, rect_size } => {
+            (GLRenderingPrimitive::ApplyClip { vertices, indices, rect_size }, _) => {
                 unsafe {
                     self.context.stencil_mask(0xff);
                     self.context.stencil_op(glow::KEEP, glow::KEEP, glow::INCR);
@@ -1097,7 +1090,7 @@ impl GLFrame {
                 })
             }
 
-            GLRenderingPrimitive::ReleaseClip { vertices, indices, rect_size } => {
+            (GLRenderingPrimitive::ReleaseClip { vertices, indices, rect_size }, _) => {
                 unsafe {
                     self.context.stencil_mask(0xff);
                     self.context.stencil_op(glow::KEEP, glow::KEEP, glow::DECR);
@@ -1140,6 +1133,7 @@ impl GLFrame {
                 .as_ref()
                 .map(|p| self.render_one_low_level_primitive(p, rendering_var, matrix))
                 .unwrap_or(None),
+            _ => panic!("Mismatch rendering variables"),
         }
     }
 

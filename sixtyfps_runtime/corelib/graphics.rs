@@ -25,7 +25,6 @@ use crate::items::{ItemRc, ItemRef, ItemWeak};
 use crate::properties::{InterpolatedPropertyValue, Property, PropertyTracker};
 #[cfg(feature = "rtti")]
 use crate::rtti::{BuiltinItem, FieldInfo, PropertyInfo, ValueType};
-use crate::SharedArray;
 #[cfg(feature = "rtti")]
 use crate::Signal;
 use crate::{
@@ -268,32 +267,14 @@ pub enum HighLevelRenderingPrimitive {
     /// Renders a rectangle with the specified `width` and `height`, as well as a border
     /// around it. The `border_width` specifies the width to use for the border, and the
     /// `border_radius` can be used to render a rounded rectangle.
-    ///
-    /// Expected rendering variables:
-    /// * [`RenderingVariable::Color`]: The color to fill the rectangle with.
-    /// * [`RenderingVariable::Color`]: The color to use for stroking the border of the rectangle.
     Rectangle { width: f32, height: f32, border_width: f32, border_radius: f32 },
     /// Renders a image referenced by the specified `source`.
-    ///
-    /// Optional rendering variables:
-    /// * [`RenderingVariable::ScaledWidth`]: The image will be scaled to the specified width.
-    /// * [`RenderingVariable::ScaledHeight`]: The image will be scaled to the specified height.
-    /// * [`RenderingVariable::ImageFit`]: The image will be scaled/positioned according to the ImageFit policy.
     Image { source: crate::Resource, source_clip_rect: IntRect },
-    /// Renders the specified `text` with a font that matches the specified family (`font_family`) and the given
-    /// pixel size (`font_size`).
-    ///
-    /// Expected rendering variables:
-    /// * [`RenderingVariable::Color`]: The color to use for rendering the glyphs.
-    /// * [`RenderingVariable::TextCursor`]: Draw a text cursor.
+    /// Renders the specified `text` with a font that matches the specified family
+    /// (`font_family`) and the given pixel size (`font_size`).
     Text { text: crate::SharedString, font_request: super::font::FontRequest },
     /// Renders a path specified by the `elements` parameter. The path will be scaled to fit into the given
     /// `width` and `height`. If the `stroke_width` is greater than zero, then path will also be outlined.
-    ///
-    /// Expected rendering variables:
-    /// * [`RenderingVariable::Color`]: The color to use for filling the path.
-    /// * [`RenderingVariable::Color`]: The color to use for the path outline, if a non-zero `stroke_width`
-    ///   was specified.
     Path { width: f32, height: f32, elements: crate::PathData, stroke_width: f32 },
     /// Applies a clip rectangle for all subsequent rendering, with the given `width` and `height. When rendering
     /// the low-level rendering primitive created from this variant, [`Frame::render_primitive`] will return a
@@ -309,48 +290,61 @@ impl Default for HighLevelRenderingPrimitive {
 
 #[derive(Debug, Clone)]
 #[repr(C)]
-/// This enum is used to affect various aspects of the rendering of [GraphicsBackend::LowLevelRenderingPrimitive]
-/// without the need to re-create them. See the documentation of [HighLevelRenderingPrimitive]
+/// This enum is used to affect various aspects of the rendering of [`GraphicsBackend::LowLevelRenderingPrimitive`]
+/// without the need to re-create them. See the documentation of [`HighLevelRenderingPrimitive`]
 /// about which variables are supported in which order.
-pub enum RenderingVariable {
-    /// Translates the primitive by the given (x, y) vector.
-    Translate(f32, f32),
-    /// Apply the specified color. Depending on the order in the rendering variables array this may apply to different
-    /// aspects of the primitive, such as the fill or stroke.
-    Color(Color),
-    /// Scale the primitive by the specified width.
-    ScaledWidth(f32),
-    /// Scale the primitive by the specified height.
-    ScaledHeight(f32),
-    /// Draw a text cursor. The parameters provide the x coordiante and the width/height as (x, width, height) tuple.
-    TextCursor(f32, f32, f32),
-    /// Draw a text selection. The parameters provide the starting x coordinate, the width and the height. This variable
-    /// must be followed by two colors, foreground and background.
-    TextSelection(f32, f32, f32),
-    ImageFit(crate::items::ImageFit),
+pub enum RenderingVariables {
+    /// Nothing to render
+    NoContents,
+
+    /// Match [`HighLevelRenderingPrimitive::Rectangle`]
+    Rectangle {
+        /// The color to fill the rectangle with.
+        fill: Color,
+        /// The color to use for stroking the border of the rectangle.
+        stroke: Color,
+    },
+
+    /// Match [`HighLevelRenderingPrimitive::Image`], to scale the image.
+    /// Note that [RenderingVariables::NoContents] can also be used for image that does not need scaling
+    Image {
+        /// The image will be scaled to the specified width.
+        scaled_width: f32,
+        /// The image will be scaled to the specified height.
+        scaled_height: f32,
+        /// The image will be scaled/positioned according to the ImageFit policy
+        fit: crate::items::ImageFit,
+    },
+
+    /// The color to use for rendering the glyphs.
+    /// Text cursor to draw: the parameters provide the x coordiante and the width/height
+    /// as (x, width, height) tuple.
+    /// Text selection to draw: the parameters provide the starting x coordinate,
+    /// the width and the height, the foreground and background color
+    Text {
+        /// The translation (x, y),
+        translate: Point,
+        /// The color to use for rendering the glyphs.
+        color: Color,
+        /// Text cursor to draw: the parameters provide the x coordiante and the width/height
+        cursor: Option<Box<(f32, f32, f32)>>,
+        /// Text selection to draw: the parameters provide the starting x coordinate,
+        /// the width and the height, the foreground and background color
+        selection: Option<Box<(f32, f32, f32, Color, Color)>>,
+    },
+
+    /// Match [`HighLevelRenderingPrimitive::Path`]
+    Path {
+        /// The color to fill the rectangle with.
+        fill: Color,
+        /// The color to use for stroking the border of the rectangle.
+        stroke: Color,
+    },
 }
 
-impl RenderingVariable {
-    /// Returns the color of this variable, or panics if the enum holds a different variant.
-    pub fn as_color(&self) -> &Color {
-        match self {
-            RenderingVariable::Color(c) => c,
-            _ => panic!("internal error: expected color but found something else"),
-        }
-    }
-    /// Returns the scaled width of this variable, or panics if the enum holds a different variant.
-    pub fn as_scaled_width(&self) -> f32 {
-        match self {
-            RenderingVariable::ScaledWidth(w) => *w,
-            _ => panic!("internal error: expected scaled width but found something else"),
-        }
-    }
-    /// Returns the scaled height of this variable, or panics if the enum holds a different variant.
-    pub fn as_scaled_height(&self) -> f32 {
-        match self {
-            RenderingVariable::ScaledHeight(h) => *h,
-            _ => panic!("internal error: expected scaled height but found something else"),
-        }
+impl Default for RenderingVariables {
+    fn default() -> Self {
+        Self::NoContents
     }
 }
 
@@ -376,7 +370,7 @@ pub trait Frame {
         &mut self,
         primitive: &Self::LowLevelRenderingPrimitive,
         transform: &Matrix4<f32>,
-        variables: SharedArray<RenderingVariable>,
+        variables: RenderingVariables,
     ) -> Vec<Self::LowLevelRenderingPrimitive>;
 }
 

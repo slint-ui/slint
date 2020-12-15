@@ -76,7 +76,7 @@ pub struct ItemVTable {
     pub rendering_variables: extern "C" fn(
         core::pin::Pin<VRef<ItemVTable>>,
         window: &ComponentWindow,
-    ) -> SharedArray<RenderingVariable>,
+    ) -> RenderingVariables,
 
     /// We would need max/min/preferred size, and all layout info
     pub layouting_info:
@@ -185,13 +185,11 @@ impl Item for Rectangle {
         }
     }
 
-    fn rendering_variables(
-        self: Pin<&Self>,
-        _window: &ComponentWindow,
-    ) -> SharedArray<RenderingVariable> {
-        SharedArray::from([RenderingVariable::Color(
-            Self::FIELD_OFFSETS.color.apply_pin(self).get(),
-        )])
+    fn rendering_variables(self: Pin<&Self>, _window: &ComponentWindow) -> RenderingVariables {
+        RenderingVariables::Rectangle {
+            fill: Self::FIELD_OFFSETS.color.apply_pin(self).get(),
+            stroke: Color::default(),
+        }
     }
 
     fn layouting_info(self: Pin<&Self>, _window: &crate::eventloop::ComponentWindow) -> LayoutInfo {
@@ -272,14 +270,11 @@ impl Item for BorderRectangle {
         }
     }
 
-    fn rendering_variables(
-        self: Pin<&Self>,
-        _window: &ComponentWindow,
-    ) -> SharedArray<RenderingVariable> {
-        SharedArray::from([
-            RenderingVariable::Color(Self::FIELD_OFFSETS.color.apply_pin(self).get()),
-            RenderingVariable::Color(Self::FIELD_OFFSETS.border_color.apply_pin(self).get()),
-        ])
+    fn rendering_variables(self: Pin<&Self>, _window: &ComponentWindow) -> RenderingVariables {
+        RenderingVariables::Rectangle {
+            fill: Self::FIELD_OFFSETS.color.apply_pin(self).get(),
+            stroke: Self::FIELD_OFFSETS.border_color.apply_pin(self).get(),
+        }
     }
 
     fn layouting_info(self: Pin<&Self>, _window: &crate::eventloop::ComponentWindow) -> LayoutInfo {
@@ -370,11 +365,8 @@ impl Item for TouchArea {
         HighLevelRenderingPrimitive::NoContents
     }
 
-    fn rendering_variables(
-        self: Pin<&Self>,
-        _window: &ComponentWindow,
-    ) -> SharedArray<RenderingVariable> {
-        SharedArray::default()
+    fn rendering_variables(self: Pin<&Self>, _window: &ComponentWindow) -> RenderingVariables {
+        RenderingVariables::default()
     }
 
     fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
@@ -469,10 +461,7 @@ impl Item for Clip {
         HighLevelRenderingPrimitive::ClipRect { width, height }
     }
 
-    fn rendering_variables(
-        self: Pin<&Self>,
-        _window: &ComponentWindow,
-    ) -> SharedArray<RenderingVariable> {
+    fn rendering_variables(self: Pin<&Self>, _window: &ComponentWindow) -> RenderingVariables {
         Default::default()
     }
 
@@ -546,14 +535,11 @@ impl Item for Path {
         }
     }
 
-    fn rendering_variables(
-        self: Pin<&Self>,
-        _window: &ComponentWindow,
-    ) -> SharedArray<RenderingVariable> {
-        SharedArray::from([
-            RenderingVariable::Color(Self::FIELD_OFFSETS.fill_color.apply_pin(self).get()),
-            RenderingVariable::Color(Self::FIELD_OFFSETS.stroke_color.apply_pin(self).get()),
-        ])
+    fn rendering_variables(self: Pin<&Self>, _window: &ComponentWindow) -> RenderingVariables {
+        RenderingVariables::Path {
+            fill: Self::FIELD_OFFSETS.fill_color.apply_pin(self).get(),
+            stroke: Self::FIELD_OFFSETS.stroke_color.apply_pin(self).get(),
+        }
     }
 
     fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
@@ -625,11 +611,8 @@ impl Item for Flickable {
         }
     }
 
-    fn rendering_variables(
-        self: Pin<&Self>,
-        _window: &ComponentWindow,
-    ) -> SharedArray<RenderingVariable> {
-        SharedArray::default()
+    fn rendering_variables(self: Pin<&Self>, _window: &ComponentWindow) -> RenderingVariables {
+        Default::default()
     }
 
     fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
@@ -673,7 +656,7 @@ ItemVTable_static! {
     pub static FlickableVTable for Flickable
 }
 
-pub use crate::{graphics::RenderingVariable, SharedArray};
+pub use crate::{graphics::RenderingVariables, SharedArray};
 
 #[repr(C)]
 /// Wraps the internal datastructure for the Flickable
@@ -750,11 +733,8 @@ impl Item for Window {
         HighLevelRenderingPrimitive::NoContents
     }
 
-    fn rendering_variables(
-        self: Pin<&Self>,
-        _window: &ComponentWindow,
-    ) -> SharedArray<RenderingVariable> {
-        SharedArray::default()
+    fn rendering_variables(self: Pin<&Self>, _window: &ComponentWindow) -> RenderingVariables {
+        Default::default()
     }
 
     fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
