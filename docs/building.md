@@ -44,7 +44,7 @@ This is just a normal cmake build.
 
 ```sh
 mkdir cppbuild && cd cppbuild
-cmake ..
+cmake -GNinja ..
 cmake --build .
 ```
 

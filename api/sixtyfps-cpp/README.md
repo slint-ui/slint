@@ -15,6 +15,9 @@ SixtyFPS is still in the early stages of development: APIs will change and impor
 SixtyFPS comes with a CMake integration that automates the compilation step of the `.60` markup language files and
 offers a CMake target for convenient linkage.
 
+*Note*: We recommend using the Ninja generator of CMake for the most efficient build and `.60` dependency tracking.
+You can select the CMake Ninja backend by passing `-GNinja` or settig the `CMAKE_GENERATOR` environment variable to `Ninja`.
+
 ### Building from Sources
 
 The recommended and most flexible way to use the C++ API is to build SixtyFPS from sources.
