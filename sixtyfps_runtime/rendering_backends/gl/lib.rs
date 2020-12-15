@@ -1128,10 +1128,10 @@ impl GLFrame {
             }
 
             #[cfg(target_arch = "wasm32")]
-            GLRenderingPrimitive::DynamicPrimitive { primitive } => primitive
+            (GLRenderingPrimitive::DynamicPrimitive { primitive }, var) => primitive
                 .borrow()
                 .as_ref()
-                .map(|p| self.render_one_low_level_primitive(p, rendering_var, matrix))
+                .map(|p| self.render_one_low_level_primitive(p, var, matrix))
                 .unwrap_or(None),
             _ => panic!("Mismatch rendering variables"),
         }
