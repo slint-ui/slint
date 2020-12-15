@@ -15,7 +15,7 @@ function(SIXTYFPS_TARGET_60_SOURCES target)
         add_custom_command(
             OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${_60_BASE_NAME}.h
             COMMAND SixtyFPS::sixtyfps_compiler ${_60_ABSOLUTE} > ${CMAKE_CURRENT_BINARY_DIR}/${_60_BASE_NAME}.h
-            DEPENDS ${_60_ABSOLUTE}
+            DEPENDS SixtyFPS::sixtyfps_compiler ${_60_ABSOLUTE}
             COMMENT "Generating ${_60_BASE_NAME}.h")
         target_sources(${target} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/${_60_BASE_NAME}.h)
     endforeach()
