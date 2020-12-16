@@ -76,7 +76,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(SixtyFPS)
 
 add_executable(my_application main.cpp)
-target_link_libraries(my_application SixtyFPS::SixtyFPS)
+target_link_libraries(my_application PRIVATE SixtyFPS::SixtyFPS)
 sixtyfps_target_60_sources(my_application my_application_ui.60)
 ```
 

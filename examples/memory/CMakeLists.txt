@@ -17,5 +17,5 @@ endif()
 # Note, we can't name it simply "memory" because there is a C++ standard header with the same name
 # so `#include<memory>` includes the generated binary when it exists
 add_executable(memory_game memory.cpp)
-target_link_libraries(memory_game SixtyFPS::SixtyFPS)
+target_link_libraries(memory_game PRIVATE SixtyFPS::SixtyFPS)
 sixtyfps_target_60_sources(memory_game memory.60)

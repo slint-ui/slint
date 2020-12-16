@@ -15,5 +15,5 @@ if (NOT TARGET SixtyFPS::SixtyFPS)
 endif()
 
 add_executable(gallery main.cpp)
-target_link_libraries(gallery SixtyFPS::SixtyFPS)
+target_link_libraries(gallery PRIVATE SixtyFPS::SixtyFPS)
 sixtyfps_target_60_sources(gallery gallery.60)

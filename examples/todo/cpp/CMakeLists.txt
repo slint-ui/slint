@@ -15,5 +15,5 @@ if (NOT TARGET SixtyFPS::SixtyFPS)
 endif()
 
 add_executable(todo main.cpp)
-target_link_libraries(todo SixtyFPS::SixtyFPS)
+target_link_libraries(todo PRIVATE SixtyFPS::SixtyFPS)
 sixtyfps_target_60_sources(todo ../ui/todo.60)

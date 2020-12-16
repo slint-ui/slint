@@ -15,5 +15,5 @@ if (NOT TARGET SixtyFPS::SixtyFPS)
 endif()
 
 add_executable(printerdemo main.cpp)
-target_link_libraries(printerdemo SixtyFPS::SixtyFPS)
+target_link_libraries(printerdemo PRIVATE SixtyFPS::SixtyFPS)
 sixtyfps_target_60_sources(printerdemo ../ui/printerdemo.60)
