@@ -722,11 +722,14 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
         let window = map_state.as_mapped();
         let mut backend = window.backend.borrow_mut();
         let size = backend.window().inner_size();
-        let mut frame = backend.new_frame(
-            size.width,
-            size.height,
-            &RgbaColor { red: 255 as u8, green: 255, blue: 255, alpha: 255 }.into(),
-        );
+        let root_item = component.as_ref().get_item_ref(0);
+        let background_color = if let Some(window_item) = ItemRef::downcast_pin(root_item) {
+            crate::items::Window::FIELD_OFFSETS.color.apply_pin(window_item).get()
+        } else {
+            RgbaColor { red: 255 as u8, green: 255, blue: 255, alpha: 255 }.into()
+        };
+
+        let mut frame = backend.new_frame(size.width, size.height, &background_color);
         crate::item_rendering::render_component_items(
             &component_rc,
             &mut frame,

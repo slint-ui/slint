@@ -13,11 +13,7 @@ App := Window {
     width: 500px;
     height: 550px;
     title: "SixtyFPS Gallery";
-    Rectangle {
-        color: #ecedeb;
-        width: parent.width;
-        height: parent.height;
-    }
+    color: #ecedeb;
 
     VerticalLayout {
         padding: 20px;

@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
  - title property to the Window element
+ - color property to the Window element
 
 
 ## [0.0.4] - 2020-12-04
