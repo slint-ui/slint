@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
  - Renamed "signal" to "callback"
+ - Renamed "SharedArray" to "SharedVector" in the C++/Rust API
 
 
 ## [0.0.4] - 2020-12-04

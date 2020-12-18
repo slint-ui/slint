@@ -409,7 +409,7 @@ struct IntModel : Model<int>
     int row_data(int value) const override { return value; }
 };
 
-/// A Model backed by a SharedArray
+/// A Model backed by a SharedVector
 template<typename ModelData>
 class VectorModel : public Model<ModelData>
 {

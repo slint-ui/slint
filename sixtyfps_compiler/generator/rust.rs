@@ -1930,8 +1930,8 @@ fn compile_path_events(events: &crate::expression_tree::PathEvents) -> TokenStre
         })
         .collect();
 
-    quote!(sixtyfps::re_exports::SharedArray::<sixtyfps::re_exports::PathEvent>::from_slice(&[#(#converted_events),*]),
-           sixtyfps::re_exports::SharedArray::<sixtyfps::re_exports::Point>::from_slice(&[#(#coordinates),*]))
+    quote!(sixtyfps::re_exports::SharedVector::<sixtyfps::re_exports::PathEvent>::from_slice(&[#(#converted_events),*]),
+           sixtyfps::re_exports::SharedVector::<sixtyfps::re_exports::Point>::from_slice(&[#(#coordinates),*]))
 }
 
 fn compile_path(path: &Path, component: &Rc<Component>) -> TokenStream {
@@ -1973,7 +1973,7 @@ fn compile_path(path: &Path, component: &Rc<Component>) -> TokenStream {
                 .collect();
 
             quote!(sixtyfps::re_exports::PathData::Elements(
-                sixtyfps::re_exports::SharedArray::<sixtyfps::re_exports::PathElement>::from_slice(&[#(#converted_elements),*])
+                sixtyfps::re_exports::SharedVector::<sixtyfps::re_exports::PathElement>::from_slice(&[#(#converted_elements),*])
             ))
         }
         Path::Events(events) => {

@@ -113,7 +113,7 @@ impl<'a, T> Iterator for ModelIterator<'a, T> {
 
 impl<'a, T> ExactSizeIterator for ModelIterator<'a, T> {}
 
-/// A model backed by a SharedArray
+/// A model backed by a SharedVector
 #[derive(Default)]
 pub struct VecModel<T> {
     array: RefCell<Vec<T>>,

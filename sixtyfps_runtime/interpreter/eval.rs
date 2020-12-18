@@ -21,7 +21,7 @@ use sixtyfps_corelib as corelib;
 use sixtyfps_corelib::rtti::AnimatedBindingKind;
 use sixtyfps_corelib::{
     graphics::PathElement, items::ItemRef, items::PropertyAnimation, Color, PathData, Resource,
-    SharedArray, SharedString, Callback,
+    SharedVector, SharedString, Callback,
 };
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -876,14 +876,14 @@ fn convert_from_lyon_path<'a>(
         .collect::<Vec<_>>();
 
     PathData::Events(
-        SharedArray::from(events.as_slice()),
-        SharedArray::from_iter(coordinates.into_iter().cloned()),
+        SharedVector::from(events.as_slice()),
+        SharedVector::from_iter(coordinates.into_iter().cloned()),
     )
 }
 
 pub fn convert_path(path: &ExprPath, local_context: &mut EvalLocalContext) -> PathData {
     match path {
-        ExprPath::Elements(elements) => PathData::Elements(SharedArray::<PathElement>::from_iter(
+        ExprPath::Elements(elements) => PathData::Elements(SharedVector::<PathElement>::from_iter(
             elements.iter().map(|element| convert_path_element(element, local_context)),
         )),
         ExprPath::Events(events) => convert_from_lyon_path(events.iter()),

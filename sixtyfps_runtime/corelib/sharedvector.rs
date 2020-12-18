@@ -7,7 +7,7 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-//! module for the SharedArray and related things
+//! module for the SharedVector and related things
 #![allow(unsafe_code)]
 #![warn(missing_docs)]
 use core::fmt::Debug;
@@ -18,26 +18,26 @@ use core::sync::atomic;
 use std::{alloc, iter::FromIterator};
 
 #[repr(C)]
-struct SharedArrayHeader {
+struct SharedVectorHeader {
     refcount: atomic::AtomicIsize,
     size: usize,
     capacity: usize,
 }
 
 #[repr(C)]
-struct SharedArrayInner<T> {
-    header: SharedArrayHeader,
+struct SharedVectorInner<T> {
+    header: SharedVectorHeader,
     data: MaybeUninit<T>,
 }
 
 fn compute_inner_layout<T>(capacity: usize) -> alloc::Layout {
-    alloc::Layout::new::<SharedArrayHeader>()
+    alloc::Layout::new::<SharedVectorHeader>()
         .extend(alloc::Layout::array::<T>(capacity).unwrap())
         .unwrap()
         .0
 }
 
-unsafe fn drop_inner<T>(inner: NonNull<SharedArrayInner<T>>) {
+unsafe fn drop_inner<T>(inner: NonNull<SharedVectorInner<T>>) {
     debug_assert_eq!(inner.as_ref().header.refcount.load(core::sync::atomic::Ordering::Relaxed), 0);
     let data_ptr = inner.as_ref().data.as_ptr();
     for x in 0..inner.as_ref().header.size {
@@ -49,14 +49,14 @@ unsafe fn drop_inner<T>(inner: NonNull<SharedArrayInner<T>>) {
     )
 }
 
-/// Allocate the memory for the SharedArray with the given capacity. Return the inner with size and refcount set to 1
-fn alloc_with_capacity<T>(capacity: usize) -> NonNull<SharedArrayInner<T>> {
+/// Allocate the memory for the SharedVector with the given capacity. Return the inner with size and refcount set to 1
+fn alloc_with_capacity<T>(capacity: usize) -> NonNull<SharedVectorInner<T>> {
     let ptr = unsafe { alloc::alloc(compute_inner_layout::<T>(capacity)) };
     assert!(!ptr.is_null(), "allocation of {:?} bytes failled", capacity);
     unsafe {
         core::ptr::write(
-            ptr as *mut SharedArrayHeader,
-            SharedArrayHeader { refcount: 1.into(), size: 0, capacity },
+            ptr as *mut SharedVectorHeader,
+            SharedVectorHeader { refcount: 1.into(), size: 0, capacity },
         );
     }
     NonNull::new(ptr).unwrap().cast()
@@ -80,12 +80,12 @@ fn capacity_for_grow(current_cap: usize, required_cap: usize, elem_size: usize) 
 }
 
 #[repr(C)]
-/// SharedArray holds a reference-counted read-only copy of `[T]`.
-pub struct SharedArray<T> {
-    inner: NonNull<SharedArrayInner<T>>,
+/// SharedVector holds a reference-counted read-only copy of `[T]`.
+pub struct SharedVector<T> {
+    inner: NonNull<SharedVectorInner<T>>,
 }
 
-impl<T> Drop for SharedArray<T> {
+impl<T> Drop for SharedVector<T> {
     fn drop(&mut self) {
         unsafe {
             if self.inner.as_ref().header.refcount.load(atomic::Ordering::Relaxed) < 0 {
@@ -98,18 +98,18 @@ impl<T> Drop for SharedArray<T> {
     }
 }
 
-impl<T> Clone for SharedArray<T> {
+impl<T> Clone for SharedVector<T> {
     fn clone(&self) -> Self {
         unsafe {
             if self.inner.as_ref().header.refcount.load(atomic::Ordering::Relaxed) > 0 {
                 self.inner.as_ref().header.refcount.fetch_add(1, atomic::Ordering::SeqCst);
             }
-            return SharedArray { inner: self.inner };
+            return SharedVector { inner: self.inner };
         }
     }
 }
 
-impl<T> SharedArray<T> {
+impl<T> SharedVector<T> {
     /// Create a new empty array with a pre-allocated capacity in number of items
     pub fn with_capacity(capacity: usize) -> Self {
         Self { inner: alloc_with_capacity(capacity) }
@@ -135,9 +135,9 @@ impl<T> SharedArray<T> {
     }
 }
 
-impl<T: Clone> SharedArray<T> {
-    /// Create a SharedArray from a slice
-    pub fn from_slice(slice: &[T]) -> SharedArray<T> {
+impl<T: Clone> SharedVector<T> {
+    /// Create a SharedVector from a slice
+    pub fn from_slice(slice: &[T]) -> SharedVector<T> {
         Self::from(slice)
     }
 
@@ -149,7 +149,7 @@ impl<T: Clone> SharedArray<T> {
         if !is_shared && new_capacity <= self.capacity() {
             return;
         }
-        let mut new_array = SharedArray::with_capacity(new_capacity);
+        let mut new_array = SharedVector::with_capacity(new_capacity);
         core::mem::swap(&mut self.inner, &mut new_array.inner);
         let mut size = 0;
         let mut iter = new_array.into_iter();
@@ -189,12 +189,12 @@ impl<T: Clone> SharedArray<T> {
     /// If the array was bigger, extra elements will be discared
     ///
     /// ```
-    /// use sixtyfps_corelib::SharedArray;
-    /// let mut shared_array = SharedArray::<u32>::from_slice(&[1, 2, 3]);
-    /// shared_array.resize(5, 8);
-    /// assert_eq!(shared_array.as_slice(), &[1, 2, 3, 8, 8]);
-    /// shared_array.resize(2, 0);
-    /// assert_eq!(shared_array.as_slice(), &[1, 2]);
+    /// use sixtyfps_corelib::SharedVector;
+    /// let mut shared_vector = SharedVector::<u32>::from_slice(&[1, 2, 3]);
+    /// shared_vector.resize(5, 8);
+    /// assert_eq!(shared_vector.as_slice(), &[1, 2, 3, 8, 8]);
+    /// shared_vector.resize(2, 0);
+    /// assert_eq!(shared_vector.as_slice(), &[1, 2]);
     /// ```
     pub fn resize(&mut self, new_len: usize, value: T) {
         if self.len() == new_len {
@@ -224,7 +224,7 @@ impl<T: Clone> SharedArray<T> {
     }
 }
 
-impl<T> Deref for SharedArray<T> {
+impl<T> Deref for SharedVector<T> {
     type Target = [T];
     fn deref(&self) -> &Self::Target {
         self.as_slice()
@@ -232,13 +232,13 @@ impl<T> Deref for SharedArray<T> {
 }
 
 /* FIXME: is this a good idea to implement DerefMut knowing what it might detach?
-impl<T> DerefMut for SharedArray<T> {
+impl<T> DerefMut for SharedVector<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.as_slice_mut()
     }
 }*/
 
-impl<T: Clone> From<&[T]> for SharedArray<T> {
+impl<T: Clone> From<&[T]> for SharedVector<T> {
     fn from(slice: &[T]) -> Self {
         let capacity = slice.len();
         let mut result = Self::with_capacity(capacity);
@@ -258,7 +258,7 @@ impl<T: Clone> From<&[T]> for SharedArray<T> {
 macro_rules! from_array {
     ($($n:literal)*) => { $(
         // FIXME: remove the Clone bound
-        impl<T: Clone> From<[T; $n]> for SharedArray<T> {
+        impl<T: Clone> From<[T; $n]> for SharedVector<T> {
             fn from(array: [T; $n]) -> Self {
                 array.iter().cloned().collect()
             }
@@ -268,7 +268,7 @@ macro_rules! from_array {
 
 from_array! {0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31}
 
-impl<T> FromIterator<T> for SharedArray<T> {
+impl<T> FromIterator<T> for SharedVector<T> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         let mut iter = iter.into_iter();
         let mut capacity = iter.size_hint().0;
@@ -314,29 +314,29 @@ impl<T> FromIterator<T> for SharedArray<T> {
     }
 }
 
-static SHARED_NULL: SharedArrayHeader =
-    SharedArrayHeader { refcount: std::sync::atomic::AtomicIsize::new(-1), size: 0, capacity: 0 };
+static SHARED_NULL: SharedVectorHeader =
+    SharedVectorHeader { refcount: std::sync::atomic::AtomicIsize::new(-1), size: 0, capacity: 0 };
 
-impl<T> Default for SharedArray<T> {
+impl<T> Default for SharedVector<T> {
     fn default() -> Self {
-        SharedArray { inner: NonNull::from(&SHARED_NULL).cast() }
+        SharedVector { inner: NonNull::from(&SHARED_NULL).cast() }
     }
 }
 
-impl<T: Debug> Debug for SharedArray<T> {
+impl<T: Debug> Debug for SharedVector<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.as_slice().fmt(f)
     }
 }
 
-impl<T> AsRef<[T]> for SharedArray<T> {
+impl<T> AsRef<[T]> for SharedVector<T> {
     #[inline]
     fn as_ref(&self) -> &[T] {
         self.as_slice()
     }
 }
 
-impl<T, U> PartialEq<U> for SharedArray<T>
+impl<T, U> PartialEq<U> for SharedVector<T>
 where
     U: ?Sized + AsRef<[T]>,
     T: PartialEq,
@@ -346,9 +346,9 @@ where
     }
 }
 
-impl<T: Eq> Eq for SharedArray<T> {}
+impl<T: Eq> Eq for SharedVector<T> {}
 
-impl<T: Clone> IntoIterator for SharedArray<T> {
+impl<T: Clone> IntoIterator for SharedVector<T> {
     type Item = T;
     type IntoIter = IntoIter<T>;
     fn into_iter(self) -> Self::IntoIter {
@@ -366,15 +366,15 @@ impl<T: Clone> IntoIterator for SharedArray<T> {
 }
 
 enum IntoIterInner<T> {
-    Shared(SharedArray<T>, usize),
+    Shared(SharedVector<T>, usize),
     // Elements up to the usize member are already moved out
-    UnShared(NonNull<SharedArrayInner<T>>, usize),
+    UnShared(NonNull<SharedVectorInner<T>>, usize),
 }
 
 impl<T> Drop for IntoIterInner<T> {
     fn drop(&mut self) {
         match self {
-            IntoIterInner::Shared(..) => { /* drop of SharedArray takes care of it */ }
+            IntoIterInner::Shared(..) => { /* drop of SharedVector takes care of it */ }
             IntoIterInner::UnShared(inner, begin) => unsafe {
                 debug_assert_eq!(inner.as_ref().header.refcount.load(atomic::Ordering::Relaxed), 0);
                 let data_ptr = inner.as_ref().data.as_ptr();
@@ -390,9 +390,9 @@ impl<T> Drop for IntoIterInner<T> {
     }
 }
 
-/// An iterator that moves out of a SharedArray.
+/// An iterator that moves out of a SharedVector.
 ///
-/// This `struct` is created by the `into_iter` method on [`SharedArray`] (provided
+/// This `struct` is created by the `into_iter` method on [`SharedVector`] (provided
 /// by the [`IntoIterator`] trait).
 pub struct IntoIter<T>(IntoIterInner<T>);
 
@@ -421,22 +421,22 @@ impl<T: Clone> Iterator for IntoIter<T> {
 
 #[test]
 fn simple_test() {
-    let x: SharedArray<i32> = SharedArray::from([1, 2, 3]);
-    let y: SharedArray<i32> = SharedArray::from([3, 2, 1]);
+    let x: SharedVector<i32> = SharedVector::from([1, 2, 3]);
+    let y: SharedVector<i32> = SharedVector::from([3, 2, 1]);
     assert_eq!(x, x.clone());
     assert_ne!(x, y);
     let z: [i32; 3] = [1, 2, 3];
     assert_eq!(z, x.as_slice());
     let vec: Vec<i32> = vec![1, 2, 3];
     assert_eq!(x, vec);
-    let def: SharedArray<i32> = Default::default();
-    assert_eq!(def, SharedArray::<i32>::default());
+    let def: SharedVector<i32> = Default::default();
+    assert_eq!(def, SharedVector::<i32>::default());
     assert_ne!(def, x);
 }
 
 #[test]
 fn push_test() {
-    let mut x: SharedArray<i32> = SharedArray::from([1, 2, 3]);
+    let mut x: SharedVector<i32> = SharedVector::from([1, 2, 3]);
     let y = x.clone();
     x.push(4);
     x.push(5);
@@ -448,27 +448,27 @@ fn push_test() {
 #[test]
 #[should_panic]
 fn invalid_capacity_test() {
-    let _: SharedArray<u8> = SharedArray::with_capacity(usize::MAX / 2 - 1000);
+    let _: SharedVector<u8> = SharedVector::with_capacity(usize::MAX / 2 - 1000);
 }
 
 pub(crate) mod ffi {
     use super::*;
 
     #[no_mangle]
-    /// This function is used for the low-level C++ interface to allocate the backing vector of a SharedArray.
-    pub unsafe extern "C" fn sixtyfps_shared_array_allocate(size: usize, align: usize) -> *mut u8 {
+    /// This function is used for the low-level C++ interface to allocate the backing vector of a SharedVector.
+    pub unsafe extern "C" fn sixtyfps_shared_vector_allocate(size: usize, align: usize) -> *mut u8 {
         std::alloc::alloc(std::alloc::Layout::from_size_align(size, align).unwrap())
     }
 
     #[no_mangle]
-    /// This function is used for the low-level C++ interface to deallocate the backing vector of a SharedArray
-    pub unsafe extern "C" fn sixtyfps_shared_array_free(ptr: *mut u8, size: usize, align: usize) {
+    /// This function is used for the low-level C++ interface to deallocate the backing vector of a SharedVector
+    pub unsafe extern "C" fn sixtyfps_shared_vector_free(ptr: *mut u8, size: usize, align: usize) {
         std::alloc::dealloc(ptr, std::alloc::Layout::from_size_align(size, align).unwrap())
     }
 
     #[no_mangle]
-    /// This function is used for the low-level C++ interface to initialize the empty SharedArray.
-    pub unsafe extern "C" fn sixtyfps_shared_array_empty() -> *const u8 {
+    /// This function is used for the low-level C++ interface to initialize the empty SharedVector.
+    pub unsafe extern "C" fn sixtyfps_shared_vector_empty() -> *const u8 {
         &SHARED_NULL as *const _ as *const u8
     }
 }

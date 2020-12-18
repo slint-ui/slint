@@ -56,10 +56,10 @@ public:
 
 
 private:
-    static SharedArray<PathElement> elements_from_array(const PathElement *firstElement,
+    static SharedVector<PathElement> elements_from_array(const PathElement *firstElement,
                                                         size_t count)
     {
-        SharedArray<PathElement> tmp;
+        SharedVector<PathElement> tmp;
         sixtyfps_new_path_elements(&tmp, firstElement, count);
         return tmp;
     }
@@ -69,8 +69,8 @@ private:
                                                        const Point *firstCoordinate,
                                                        size_t coordinate_count)
     {
-        SharedArray<PathEvent> events;
-        SharedArray<Point> coordinates;
+        SharedVector<PathEvent> events;
+        SharedVector<Point> coordinates;
         sixtyfps_new_path_events(&events, &coordinates, firstEvent, event_count, firstCoordinate,
                                  coordinate_count);
         return Data::Events(events, coordinates);

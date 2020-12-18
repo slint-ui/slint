@@ -68,7 +68,7 @@ fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
 
     config.export.exclude = [
         "SharedString",
-        "SharedArray",
+        "SharedVector",
         "Resource",
         "Color",
         "PathData",
@@ -105,11 +105,11 @@ fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
 
     cbindgen::Builder::new()
         .with_config(config.clone())
-        .with_src(crate_dir.join("sharedarray.rs"))
-        .with_after_include("namespace sixtyfps { template<typename T> struct SharedArray; }")
+        .with_src(crate_dir.join("sharedvector.rs"))
+        .with_after_include("namespace sixtyfps { template<typename T> struct SharedVector; }")
         .generate()
-        .context("Unable to generate bindings for sixtyfps_sharedarray_internal.h")?
-        .write_to_file(include_dir.join("sixtyfps_sharedarray_internal.h"));
+        .context("Unable to generate bindings for sixtyfps_sharedvector_internal.h")?
+        .write_to_file(include_dir.join("sixtyfps_sharedvector_internal.h"));
 
     let mut properties_config = config.clone();
     properties_config.export.exclude.clear();
@@ -221,7 +221,7 @@ fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
         .with_src(crate_dir.join("lib.rs"))
         .with_include("vtable.h")
         .with_include("sixtyfps_string.h")
-        .with_include("sixtyfps_sharedarray.h")
+        .with_include("sixtyfps_sharedvector.h")
         .with_include("sixtyfps_properties.h")
         .with_include("sixtyfps_callbacks.h")
         .with_include("sixtyfps_resource.h")

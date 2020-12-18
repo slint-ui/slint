@@ -35,7 +35,7 @@ endforeach()
 set(generated_headers
     ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_internal.h
     ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_string_internal.h
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_sharedarray_internal.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_sharedvector_internal.h
     ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_properties_internal.h
     ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_resource_internal.h
     ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_color_internal.h

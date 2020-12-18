@@ -36,7 +36,7 @@ use sixtyfps_corelib::item_rendering::CachedRenderingData;
 use sixtyfps_corelib::items::{Item, ItemConsts, ItemRc, ItemVTable};
 use sixtyfps_corelib::layout::LayoutInfo;
 use sixtyfps_corelib::rtti::*;
-use sixtyfps_corelib::{ItemVTable_static, Property, SharedArray, SharedString, Callback};
+use sixtyfps_corelib::{ItemVTable_static, Property, SharedVector, SharedString, Callback};
 use sixtyfps_corelib_macros::*;
 use std::rc::Rc;
 
@@ -58,12 +58,12 @@ macro_rules! get_size {
 struct QImageWrapArray {
     /// The image reference the array, so the array must outlive the image without being detached or accessed
     img: qttypes::QImage,
-    array: SharedArray<u32>,
+    array: SharedVector<u32>,
 }
 
 impl QImageWrapArray {
     pub fn new(size: qttypes::QSize, dpr: f32) -> Self {
-        let mut array = SharedArray::default();
+        let mut array = SharedVector::default();
         array.resize((size.width * size.height) as usize, 0u32);
         let array_ptr = array.as_slice_mut().as_mut_ptr();
         let img = cpp!(unsafe [size as "QSize", array_ptr as "uchar*", dpr as "float"] -> qttypes::QImage as "QImage" {

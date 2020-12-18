@@ -236,7 +236,7 @@ pub enum Resource {
     EmbeddedData(super::slice::Slice<'static, u8>),
     /// Raw ARGB
     #[allow(missing_docs)]
-    EmbeddedRgbaImage { width: u32, height: u32, data: super::sharedarray::SharedArray<u32> },
+    EmbeddedRgbaImage { width: u32, height: u32, data: super::sharedvector::SharedVector<u32> },
 }
 
 impl Default for Resource {
@@ -1141,7 +1141,7 @@ pub struct PathDataIterator<'a> {
 
 enum LyonPathIteratorVariant<'a> {
     FromPath(lyon::path::Path),
-    FromEvents(&'a crate::SharedArray<PathEvent>, &'a crate::SharedArray<Point>),
+    FromEvents(&'a crate::SharedVector<PathEvent>, &'a crate::SharedVector<Point>),
 }
 
 impl<'a> PathDataIterator<'a> {
@@ -1193,10 +1193,10 @@ pub enum PathData {
     /// None is the variant when the path is empty.
     None,
     /// The Elements variant is used to make a Path from shared arrays of elements.
-    Elements(crate::SharedArray<PathElement>),
+    Elements(crate::SharedVector<PathElement>),
     /// The Events variant describes the path as a series of low-level events and
     /// associated coordinates.
-    Events(crate::SharedArray<PathEvent>, crate::SharedArray<Point>),
+    Events(crate::SharedVector<PathEvent>, crate::SharedVector<Point>),
 }
 
 impl Default for PathData {
@@ -1322,8 +1322,8 @@ pub(crate) mod ffi {
         first_element: *const PathElement,
         count: usize,
     ) {
-        let arr = crate::SharedArray::from(std::slice::from_raw_parts(first_element, count));
-        core::ptr::write(out as *mut crate::SharedArray<PathElement>, arr.clone());
+        let arr = crate::SharedVector::from(std::slice::from_raw_parts(first_element, count));
+        core::ptr::write(out as *mut crate::SharedVector<PathElement>, arr.clone());
     }
 
     #[no_mangle]
@@ -1336,13 +1336,13 @@ pub(crate) mod ffi {
         first_coordinate: *const Point,
         coordinate_count: usize,
     ) {
-        let events = crate::SharedArray::from(std::slice::from_raw_parts(first_event, event_count));
-        core::ptr::write(out_events as *mut crate::SharedArray<PathEvent>, events.clone());
-        let coordinates = crate::SharedArray::from(std::slice::from_raw_parts(
+        let events = crate::SharedVector::from(std::slice::from_raw_parts(first_event, event_count));
+        core::ptr::write(out_events as *mut crate::SharedVector<PathEvent>, events.clone());
+        let coordinates = crate::SharedVector::from(std::slice::from_raw_parts(
             first_coordinate,
             coordinate_count,
         ));
-        core::ptr::write(out_coordinates as *mut crate::SharedArray<Point>, coordinates.clone());
+        core::ptr::write(out_coordinates as *mut crate::SharedVector<Point>, coordinates.clone());
     }
 }
 

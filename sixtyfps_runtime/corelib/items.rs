@@ -650,7 +650,7 @@ ItemVTable_static! {
     pub static FlickableVTable for Flickable
 }
 
-pub use crate::{graphics::RenderingVariables, SharedArray};
+pub use crate::{graphics::RenderingVariables, SharedVector};
 
 #[repr(C)]
 /// Wraps the internal datastructure for the Flickable

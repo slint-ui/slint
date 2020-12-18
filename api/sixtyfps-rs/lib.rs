@@ -157,7 +157,7 @@ pub use sixtyfps_corelib::font::register_application_font_from_memory;
 pub use sixtyfps_corelib::model::{
     Model, ModelHandle, ModelNotify, ModelPeer, StandardListViewItem, VecModel,
 };
-pub use sixtyfps_corelib::sharedarray::SharedArray;
+pub use sixtyfps_corelib::sharedvector::SharedVector;
 pub use sixtyfps_corelib::string::SharedString;
 pub use sixtyfps_corelib::timers::{Timer, TimerMode};
 pub use sixtyfps_corelib::{Color, RgbaColor};
@@ -200,7 +200,7 @@ pub mod re_exports {
     pub use sixtyfps_corelib::Color;
     pub use sixtyfps_corelib::ComponentVTable_static;
     pub use sixtyfps_corelib::Resource;
-    pub use sixtyfps_corelib::SharedArray;
+    pub use sixtyfps_corelib::SharedVector;
     pub use sixtyfps_corelib::SharedString;
     pub use sixtyfps_rendering_backend_default::native_widgets::*;
     pub use vtable::{self, *};
