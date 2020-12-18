@@ -255,7 +255,7 @@ pub struct Element {
     pub id: String,
     //pub base: QualifiedTypeName,
     pub base_type: crate::langtype::Type,
-    /// Currently contains also the signals. FIXME: should that be changed?
+    /// Currently contains also the callbacks. FIXME: should that be changed?
     pub bindings: HashMap<String, ExpressionSpanned>,
     pub children: Vec<ElementRc>,
     /// The component which contains this element.
@@ -355,14 +355,14 @@ impl Element {
                 return ElementRc::default();
             }
 
-            // This must be a global component it can only have properties and signal
+            // This must be a global component it can only have properties and callback
             let mut error_on = |node: &dyn Spanned, what: &str| {
                 diag.push_error(format!("A global component cannot have {}", what), node);
             };
             node.SubElement().for_each(|n| error_on(&n, "sub elements"));
             node.RepeatedElement().for_each(|n| error_on(&n, "sub elements"));
             node.ChildrenPlaceholder().map(|n| error_on(&n, "sub elements"));
-            node.SignalConnection().for_each(|n| error_on(&n, "signal connections"));
+            node.CallbackConnection().for_each(|n| error_on(&n, "callback connections"));
             node.PropertyAnimation().for_each(|n| error_on(&n, "animations"));
             node.States().for_each(|n| error_on(&n, "states"));
             node.Transitions().for_each(|n| error_on(&n, "transitions"));
@@ -442,7 +442,7 @@ impl Element {
             }
         }
 
-        for sig_decl in node.SignalDeclaration() {
+        for sig_decl in node.CallbackDeclaration() {
             let name = identifier_text(&sig_decl.DeclaredIdentifier()).unwrap();
             let args = sig_decl.Type().map(|node_ty| type_from_node(node_ty, diag, tr)).collect();
             let return_type = sig_decl
@@ -451,20 +451,20 @@ impl Element {
             r.property_declarations.insert(
                 name,
                 PropertyDeclaration {
-                    property_type: Type::Signal { return_type, args },
+                    property_type: Type::Callback { return_type, args },
                     type_node: Some(sig_decl.into()),
                     ..Default::default()
                 },
             );
         }
 
-        for con_node in node.SignalConnection() {
+        for con_node in node.CallbackConnection() {
             let name = match identifier_text(&con_node) {
                 Some(x) => x,
                 None => continue,
             };
             let prop_type = r.lookup_property(&name);
-            if let Type::Signal { args, .. } = prop_type {
+            if let Type::Callback { args, .. } = prop_type {
                 let num_arg = con_node.DeclaredIdentifier().count();
                 if num_arg > args.len() {
                     diag.push_error(
@@ -482,13 +482,13 @@ impl Element {
                     .is_some()
                 {
                     diag.push_error(
-                        "Duplicated signal".into(),
+                        "Duplicated callback".into(),
                         &con_node.child_token(SyntaxKind::Identifier).unwrap(),
                     );
                 }
             } else {
                 diag.push_error(
-                    format!("'{}' is not a signal{}", name, name_for_looup_errors),
+                    format!("'{}' is not a callback{}", name, name_for_looup_errors),
                     &con_node.child_token(SyntaxKind::Identifier).unwrap(),
                 );
             }
@@ -736,8 +736,8 @@ impl Element {
                         Type::Invalid => {
                             format!("Unknown property {}{}", name, name_for_lookup_error)
                         }
-                        Type::Signal { .. } => {
-                            format!("'{}' is a signal. Use `=>` to connect", name)
+                        Type::Callback { .. } => {
+                            format!("'{}' is a callback. Use `=>` to connect", name)
                         }
                         _ => format!(
                             "Cannot assign to {}{} because it does not have a valid property type.",
@@ -1057,7 +1057,7 @@ pub fn visit_all_named_references_in_element(
     fn recurse_expression(expr: &mut Expression, vis: &mut impl FnMut(&mut NamedReference)) {
         expr.visit_mut(|sub| recurse_expression(sub, vis));
         match expr {
-            Expression::PropertyReference(r) | Expression::SignalReference(r) => vis(r),
+            Expression::PropertyReference(r) | Expression::CallbackReference(r) => vis(r),
             Expression::TwoWayBinding(r, _) => vis(r),
             // This is not really a named reference, but the result is the same, it need to be updated
             // FIXME: this should probably be lowered into a PropertyReference

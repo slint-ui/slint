@@ -9,12 +9,12 @@
 LICENSE END */
 
 SubElements := Rectangle {
-    signal foobar;
+    callback foobar;
 
-    signal signal_with_arg(int, string);
+    callback callback_with_arg(int, string);
 
-    signal invalid_arg(InvalidType);
-//                     ^error{Unknown type 'InvalidType'}
+    callback invalid_arg(InvalidType);
+//                       ^error{Unknown type 'InvalidType'}
 
     TouchArea {
         clicked => { foobar() }
@@ -22,25 +22,25 @@ SubElements := Rectangle {
 
     TouchArea {
         clicked: 45;
-//      ^error{'clicked' is a signal. Use `=>` to connect}
+//      ^error{'clicked' is a callback. Use `=>` to connect}
         x => {}
-//      ^error{'x' is not a signal in TouchArea}
+//      ^error{'x' is not a callback in TouchArea}
     }
 
     TouchArea {
         clicked => { foobar() }
         clicked => { foobar() }
-//      ^error{Duplicated signal}
+//      ^error{Duplicated callback}
     }
 
     does_not_exist => {
-//  ^error{'does_not_exist' is not a signal in Rectangle}
+//  ^error{'does_not_exist' is not a callback in Rectangle}
         root.does_not_exist();
     }
 
     foobar() => { foobar() }
-    signal_with_arg(a, b, c, d) => { }
-//  ^error{'signal_with_arg' only has 2 arguments, but 4 were provided}
+    callback_with_arg(a, b, c, d) => { }
+//  ^error{'callback_with_arg' only has 2 arguments, but 4 were provided}
 
 }
 

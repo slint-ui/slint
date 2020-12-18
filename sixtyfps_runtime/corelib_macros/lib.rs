@@ -60,8 +60,8 @@ pub fn builtin_item(input: TokenStream) -> TokenStream {
         .map(|f| (f.ident.as_ref().unwrap(), &f.ty))
         .unzip();
 
-    let signal_field_names =
-        fields.iter().filter(|f| is_signal(&f.ty)).map(|f| f.ident.as_ref().unwrap());
+    let callback_field_names =
+        fields.iter().filter(|f| is_callback(&f.ty)).map(|f| f.ident.as_ref().unwrap());
 
     let item_name = &input.ident;
 
@@ -85,9 +85,9 @@ pub fn builtin_item(input: TokenStream) -> TokenStream {
                     (stringify!(#plain_field_names), &O as &'static dyn FieldInfo<Self, Value> )
                 } ),*]
             }
-            fn signals() -> Vec<(&'static str, const_field_offset::FieldOffset<Self, Signal<()>, const_field_offset::AllowPin>)> {
+            fn callbacks() -> Vec<(&'static str, const_field_offset::FieldOffset<Self, Callback<()>, const_field_offset::AllowPin>)> {
                 vec![#(
-                    (stringify!(#signal_field_names),#item_name::FIELD_OFFSETS.#signal_field_names)
+                    (stringify!(#callback_field_names),#item_name::FIELD_OFFSETS.#callback_field_names)
                 ),*]
             }
         }
@@ -102,8 +102,8 @@ fn type_name(ty: &syn::Type) -> String {
 fn is_property(ty: &syn::Type) -> bool {
     type_name(ty).starts_with("Property <")
 }
-fn is_signal(ty: &syn::Type) -> bool {
-    type_name(ty).to_string().starts_with("Signal <")
+fn is_callback(ty: &syn::Type) -> bool {
+    type_name(ty).to_string().starts_with("Callback <")
 }
 
 #[proc_macro_derive(MappedKeyCode)]

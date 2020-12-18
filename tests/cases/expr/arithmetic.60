@@ -14,7 +14,7 @@ LICENSE END */
     property<int> t3: a - (3 + 2 * (a + 2));
     property<int> t4: 3 + - 5 - 8 - -9 * --- 120;
 
-    signal foo;
+    callback foo;
     foo => {
         a += 8;
         a *= 10;

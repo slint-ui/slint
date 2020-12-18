@@ -318,8 +318,8 @@ fn handle_property_binding(
     let component = item.enclosing_component.upgrade().unwrap();
     let id = &item.id;
     let prop_type = item.lookup_property(prop_name);
-    if let Type::Signal { args, .. } = &prop_type {
-        let signal_accessor_prefix = if item.property_declarations.contains_key(prop_name) {
+    if let Type::Callback { args, .. } = &prop_type {
+        let callback_accessor_prefix = if item.property_declarations.contains_key(prop_name) {
             String::new()
         } else {
             format!("{id}.", id = id.clone())
@@ -329,12 +329,12 @@ fn handle_property_binding(
         });
 
         init.push(format!(
-            "{signal_accessor_prefix}{prop}.set_handler(
+            "{callback_accessor_prefix}{prop}.set_handler(
                     [this]({params}) {{
                         [[maybe_unused]] auto self = this;
                         return {code};
                     }});",
-            signal_accessor_prefix = signal_accessor_prefix,
+            callback_accessor_prefix = callback_accessor_prefix,
             prop = prop_name,
             params = params.join(", "),
             code = compile_expression(binding_expression, &component)
@@ -650,7 +650,7 @@ fn generate_component(
     let mut init = vec!["[[maybe_unused]] auto self = this;".into()];
 
     for (cpp_name, property_decl) in component.root_element.borrow().property_declarations.iter() {
-        let ty = if let Type::Signal { args, return_type } = &property_decl.property_type {
+        let ty = if let Type::Callback { args, return_type } = &property_decl.property_type {
             let param_types = args
                 .iter()
                 .map(|t| get_cpp_type(t, &property_decl.type_node, diag))
@@ -659,7 +659,7 @@ fn generate_component(
                 .as_ref()
                 .map_or("void".into(), |t| get_cpp_type(&t, &property_decl.type_node, diag));
             if property_decl.expose_in_public_api && is_root {
-                let signal_emitter = vec![format!(
+                let callback_emitter = vec![format!(
                     "return {}.emit({});",
                     cpp_name,
                     (0..args.len()).map(|i| format!("arg_{}", i)).join(", ")
@@ -677,7 +677,7 @@ fn generate_component(
                                 .join(", "),
                             return_type
                         ),
-                        statements: Some(signal_emitter),
+                        statements: Some(callback_emitter),
                         ..Default::default()
                     }),
                 ));
@@ -686,16 +686,16 @@ fn generate_component(
                     Declaration::Function(Function {
                         name: format!("on_{}", cpp_name),
                         template_parameters: Some("typename Functor".into()),
-                        signature: "(Functor && signal_handler) const".into(),
+                        signature: "(Functor && callback_handler) const".into(),
                         statements: Some(vec![format!(
-                            "{}.set_handler(std::forward<Functor>(signal_handler));",
+                            "{}.set_handler(std::forward<Functor>(callback_handler));",
                             cpp_name
                         )]),
                         ..Default::default()
                     }),
                 ));
             }
-            format!("sixtyfps::Signal<{}({})>", return_type, param_types.join(", "))
+            format!("sixtyfps::Callback<{}({})>", return_type, param_types.join(", "))
         } else {
             let cpp_type =
                 get_cpp_type(&property_decl.property_type, &property_decl.type_node, diag);
@@ -1297,7 +1297,7 @@ fn compile_expression(
                 access_named_reference(nr, component, "self");
             format!(r#"{}.get()"#, access)
         }
-        Expression::SignalReference(nr) => format!(
+        Expression::CallbackReference(nr) => format!(
             "{}.emit",
             access_named_reference(nr, component, "self")
         ),

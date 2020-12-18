@@ -10,7 +10,7 @@ LICENSE END */
 
 TwoRectangle := Rectangle {
 
-    signal clicked;
+    callback clicked;
 
     Rectangle {
         x: 50phx;
@@ -29,7 +29,7 @@ TwoRectangle := Rectangle {
 
 ButtonRectangle := Rectangle {
     property<string> button_text;
-    signal clicked;
+    callback clicked;
     width: 100phx;
     height: 75phx;
 
@@ -65,9 +65,9 @@ ButtonRectangle := Rectangle {
 
 Hello := Rectangle {
 
-    signal foobar;
-    signal plus_clicked;
-    signal minus_clicked;
+    callback foobar;
+    callback plus_clicked;
+    callback minus_clicked;
 
     color: white;
 

@@ -11,7 +11,7 @@ LICENSE END */
 global MyGlobal := {
     property<int> bar: 5;
     property<int> foo: 3;
-    signal glob_signal;
+    callback glob_callback;
 }
 
 Foo := Rectangle {
@@ -23,9 +23,9 @@ Foo := Rectangle {
 
 TestCase := Rectangle {
 
-    signal emit_glob;
+    callback emit_glob;
     emit_glob => {
-        MyGlobal.glob_signal();
+        MyGlobal.glob_callback();
     }
     Foo {}
     foo := Foo {}

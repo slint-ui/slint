@@ -10,7 +10,7 @@ LICENSE END */
 
 Btn := Rectangle {
     property<string> button_text;
-    signal clicked;
+    callback clicked;
     width: 100phx;
     height: 75phx;
     TouchArea {

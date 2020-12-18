@@ -78,7 +78,7 @@ export TouchArea := _ {
     property <length> mouse_y;
     property <length> pressed_x;
     property <length> pressed_y;
-    signal clicked;
+    callback clicked;
     //-expands_to_parent_geometry
 }
 
@@ -120,8 +120,8 @@ export TextInput := _ {
     property <int> cursor_position;
     property <int> anchor_position;
     property <bool> has_focus;
-    signal accepted;
-    signal edited;
+    callback accepted;
+    callback edited;
     property <bool> enabled: true;
     //-expands_to_parent_geometry
     //focus() is hardcoded in typeregister.rs
@@ -256,7 +256,7 @@ export NativeButton := _ {
     property <length> height;
     property <string> text;
     property <bool> pressed;
-    signal clicked;
+    callback clicked;
     property <bool> enabled: true;
 }
 
@@ -268,7 +268,7 @@ export NativeCheckBox := _ {
     property <bool> enabled: true;
     property <string> text;
     property <bool> checked;
-    signal toggled;
+    callback toggled;
 }
 
 export NativeSpinBox := _ {
@@ -352,7 +352,7 @@ export NativeComboBox := _ {
     property <string> current_value;
     property <bool> is_open;
     property <bool> enabled: true;
-    signal open_popup;
+    callback open_popup;
 }
 
 export global NativeStyleMetrics := {

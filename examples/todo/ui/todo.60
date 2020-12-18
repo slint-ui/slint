@@ -18,8 +18,8 @@ export struct TodoItem := {
 MainWindow := Window {
     width: 400px;
     height: 600px;
-    signal todo_added(string);
-    signal remove_done();
+    callback todo_added(string);
+    callback remove_done();
 
     property <[TodoItem]> todo_model: [
         { title: "Implement the .60 file", checked: true },

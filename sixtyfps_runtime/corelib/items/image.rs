@@ -29,7 +29,7 @@ use crate::layout::LayoutInfo;
 use crate::rtti::*;
 use crate::Property;
 #[cfg(feature = "rtti")]
-use crate::Signal;
+use crate::Callback;
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use sixtyfps_corelib_macros::*;

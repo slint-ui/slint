@@ -13,7 +13,7 @@ TextComponent := Rectangle {
     initial_focus: my_text_input;
     my_text_input := TextInput { }
 
-    signal not_called;
+    callback not_called;
     not_called => {
         if (false) {
             my_text_input.focus();

@@ -56,7 +56,7 @@ where
         .output()
         .with_context(|| format!("Error launching {}", cmdline()))?;
     let code =
-        output.status.code().with_context(|| format!("Command received signal: {}", cmdline()))?;
+        output.status.code().with_context(|| format!("Command received callback: {}", cmdline()))?;
     if code != 0 {
         Err(anyhow::anyhow!(
             "Command {} exited with non-zero status: {}\nstdout: {}\nstderr: {}",

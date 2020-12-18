@@ -16,6 +16,6 @@ export struct MyStruct := {
 SampleComponent := Window {
     property<int> counter;
     property<string> user_name;
-    signal hello;
+    callback hello;
     // ... maybe more elements here
 }

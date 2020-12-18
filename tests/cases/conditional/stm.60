@@ -10,7 +10,7 @@ LICENSE END */
 TestCase := Rectangle {
     property<int> value;
     property<int> result : 3;
-    signal action;
+    callback action;
     action => {
         if (value == 5) {
             result += 1;
@@ -24,7 +24,7 @@ TestCase := Rectangle {
         }
     }
 
-    signal xxx;
+    callback xxx;
     xxx => {
         if (false) {
             action();

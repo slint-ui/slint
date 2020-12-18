@@ -34,7 +34,7 @@ use super::layout::LayoutInfo;
 use crate::component::ComponentVTable;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
-use crate::{Property, Signal};
+use crate::{Property, Callback};
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use sixtyfps_corelib_macros::*;
@@ -336,7 +336,7 @@ pub struct TouchArea {
     /// FIXME: should maybe be as parameter to the mouse event instead. Or at least just one property
     pub mouse_x: Property<f32>,
     pub mouse_y: Property<f32>,
-    pub clicked: Signal<()>,
+    pub clicked: Callback<()>,
     /// FIXME: remove this
     pub cached_rendering_data: CachedRenderingData,
 }

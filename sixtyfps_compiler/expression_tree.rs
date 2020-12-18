@@ -16,7 +16,7 @@ use std::collections::HashMap;
 use std::hash::Hash;
 use std::rc::{Rc, Weak};
 
-/// Reference to a property or signal of a given name within an element.
+/// Reference to a property or callback of a given name within an element.
 #[derive(Debug, Clone)]
 pub struct NamedReference {
     pub element: Weak<RefCell<Element>>,
@@ -219,12 +219,12 @@ pub enum Expression {
     ///
     BoolLiteral(bool),
 
-    /// Reference to the signal <name> in the <element>
+    /// Reference to the callback <name> in the <element>
     ///
-    /// Note: if we are to separate expression and statement, we probably do not need to have signal reference within expressions
-    SignalReference(NamedReference),
+    /// Note: if we are to separate expression and statement, we probably do not need to have callback reference within expressions
+    CallbackReference(NamedReference),
 
-    /// Reference to the signal <name> in the <element>
+    /// Reference to the callback <name> in the <element>
     PropertyReference(NamedReference),
 
     /// Reference to a function built into the run-time, implemented natively
@@ -368,7 +368,7 @@ impl Expression {
             Expression::TwoWayBinding(NamedReference { element, name }, _) => {
                 element.upgrade().unwrap().borrow().lookup_property(name)
             }
-            Expression::SignalReference(NamedReference { element, name }) => {
+            Expression::CallbackReference(NamedReference { element, name }) => {
                 element.upgrade().unwrap().borrow().lookup_property(name)
             }
             Expression::PropertyReference(NamedReference { element, name }) => {
@@ -409,7 +409,7 @@ impl Expression {
             Expression::CodeBlock(sub) => sub.last().map_or(Type::Void, |e| e.ty()),
             Expression::FunctionCall { function, .. } => match function.ty() {
                 Type::Function { return_type, .. } => *return_type,
-                Type::Signal { return_type, .. } => return_type.map_or(Type::Void, |x| *x),
+                Type::Callback { return_type, .. } => return_type.map_or(Type::Void, |x| *x),
                 _ => Type::Invalid,
             },
             Expression::SelfAssignment { .. } => Type::Void,
@@ -470,7 +470,7 @@ impl Expression {
             Expression::StringLiteral(_) => {}
             Expression::NumberLiteral(_, _) => {}
             Expression::BoolLiteral(_) => {}
-            Expression::SignalReference { .. } => {}
+            Expression::CallbackReference { .. } => {}
             Expression::PropertyReference { .. } => {}
             Expression::FunctionParameterReference { .. } => {}
             Expression::BuiltinFunctionReference { .. } => {}
@@ -542,7 +542,7 @@ impl Expression {
             Expression::StringLiteral(_) => {}
             Expression::NumberLiteral(_, _) => {}
             Expression::BoolLiteral(_) => {}
-            Expression::SignalReference { .. } => {}
+            Expression::CallbackReference { .. } => {}
             Expression::PropertyReference { .. } => {}
             Expression::FunctionParameterReference { .. } => {}
             Expression::BuiltinFunctionReference { .. } => {}
@@ -616,7 +616,7 @@ impl Expression {
             Expression::StringLiteral(_) => true,
             Expression::NumberLiteral(_, _) => true,
             Expression::BoolLiteral(_) => true,
-            Expression::SignalReference { .. } => false,
+            Expression::CallbackReference { .. } => false,
             Expression::PropertyReference { .. } => false,
             Expression::BuiltinFunctionReference { .. } => false,
             Expression::MemberFunction { .. } => false,
@@ -794,7 +794,7 @@ impl Expression {
             | Type::Component(_)
             | Type::Builtin(_)
             | Type::Native(_)
-            | Type::Signal { .. }
+            | Type::Callback { .. }
             | Type::Function { .. }
             | Type::Void
             | Type::ElementReference => Expression::Invalid,

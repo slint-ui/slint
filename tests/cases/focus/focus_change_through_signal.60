@@ -11,10 +11,10 @@ TestCase := Rectangle {
     width: 400phx;
     height: 400phx;
 
-    signal focus_input1();
+    callback focus_input1();
     focus_input1 => { input1.focus(); }
 
-    signal focus_input2();
+    callback focus_input2();
     focus_input2 => { (input2.focus)(); }
 
     input1 := TextInput {

@@ -26,7 +26,7 @@ type GlobalContextCallback<'c> =
 scoped_tls_hkt::scoped_thread_local!(static GLOBAL_CONTEXT:
     for <'a> &'a dyn for<'c> Fn(&'c GlobalContextCallback<'c>));
 
-/// This function exists as a workaround so one can access the ExecuteContext from signal handler
+/// This function exists as a workaround so one can access the ExecuteContext from callback handler
 fn run_scoped<'cx, T>(
     cx: &mut impl Context<'cx>,
     object_with_persistent_context: Handle<'cx, JsObject>,
@@ -84,7 +84,7 @@ fn load(mut cx: FunctionContext) -> JsResult<JsValue> {
     Ok(obj.as_value(&mut cx))
 }
 
-fn make_signal_handler<'cx>(
+fn make_callback_handler<'cx>(
     cx: &mut impl Context<'cx>,
     persistent_context: &persistent_context::PersistentContext<'cx>,
     fun: Handle<'cx, JsFunction>,
@@ -135,15 +135,15 @@ fn create<'cx>(
                     cx.throw_error(format!("Property {} not found in the component", prop_name))
                 })?
                 .clone();
-            if let Type::Signal { return_type, .. } = ty {
+            if let Type::Callback { return_type, .. } = ty {
                 let fun = value.downcast_or_throw::<JsFunction, _>(cx)?;
                 component_type
-                    .set_signal_handler(
+                    .set_callback_handler(
                         component.borrow(),
                         prop_name.as_str(),
-                        make_signal_handler(cx, &persistent_context, fun, return_type),
+                        make_callback_handler(cx, &persistent_context, fun, return_type),
                     )
-                    .or_else(|_| cx.throw_error(format!("Cannot set signal")))?;
+                    .or_else(|_| cx.throw_error(format!("Cannot set callback")))?;
             } else {
                 let value = to_eval_value(value, ty, cx, &persistent_context)?;
                 component_type
@@ -234,7 +234,7 @@ fn to_eval_value<'cx>(
         | Type::Native(_)
         | Type::Function { .. }
         | Type::Model
-        | Type::Signal { .. }
+        | Type::Callback { .. }
         | Type::Easing
         | Type::Component(_)
         | Type::PathElements
@@ -318,14 +318,14 @@ declare_types! {
             }
             Ok(array.as_value(&mut cx))
         }
-        method signals(mut cx) {
+        method callbacks(mut cx) {
             let this = cx.this();
             let ct = cx.borrow(&this, |x| x.0.clone());
             let ct = ct.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
             let properties = ct.properties();
             let array = JsArray::new(&mut cx, properties.len() as u32);
             let mut len: u32 = 0;
-            for (p, _) in properties.iter().filter(|(_, prop_type)| matches!(**prop_type, Type::Signal{..})) {
+            for (p, _) in properties.iter().filter(|(_, prop_type)| matches!(**prop_type, Type::Callback{..})) {
                 let prop_name = JsString::new(&mut cx, p);
                 array.set(&mut cx, len, prop_name)?;
                 len = len + 1;
@@ -389,8 +389,8 @@ declare_types! {
 
             Ok(JsUndefined::new().as_value(&mut cx))
         }
-        method emit_signal(mut cx) {
-            let signal_name = cx.argument::<JsString>(0)?.value();
+        method emit_callback(mut cx) {
+            let callback_name = cx.argument::<JsString>(0)?.value();
             let arguments = cx.argument::<JsArray>(1)?.to_vec(&mut cx)?;
             let this = cx.this();
             let lock = cx.lock();
@@ -398,40 +398,40 @@ declare_types! {
             let component = x.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
             generativity::make_guard!(guard);
             let component = component.unerase(guard);
-            let ty = component.description().properties().get(&signal_name)
+            let ty = component.description().properties().get(&callback_name)
                 .ok_or(())
                 .or_else(|()| {
-                    cx.throw_error(format!("Signal {} not found in the component", signal_name))
+                    cx.throw_error(format!("Callback {} not found in the component", callback_name))
                 })?
                 .clone();
             let persistent_context =
                 persistent_context::PersistentContext::from_object(&mut cx, this.downcast().unwrap())?;
-            let args = if let Type::Signal {args, ..} = ty {
+            let args = if let Type::Callback {args, ..} = ty {
                 let count = args.len();
                 let args = arguments.into_iter()
                     .zip(args.into_iter())
                     .map(|(a, ty)| to_eval_value(a, ty, &mut cx, &persistent_context))
                     .collect::<Result<Vec<_>, _>>()?;
                 if args.len() != count {
-                    cx.throw_error(format!("{} expect {} arguments, but {} where provided", signal_name, count, args.len()))?;
+                    cx.throw_error(format!("{} expect {} arguments, but {} where provided", callback_name, count, args.len()))?;
                 }
                 args
 
             } else {
-                cx.throw_error(format!("{} is not a signal", signal_name))?;
+                cx.throw_error(format!("{} is not a callback", callback_name))?;
                 unreachable!()
             };
 
             let res = run_scoped(&mut cx,this.downcast().unwrap(), || {
                 component.description()
-                    .emit_signal(component.borrow(), signal_name.as_str(), args.as_slice())
-                    .map_err(|()| "Cannot emit signal".to_string())
+                    .emit_callback(component.borrow(), callback_name.as_str(), args.as_slice())
+                    .map_err(|()| "Cannot emit callback".to_string())
             })?;
             to_js_value(res, &mut cx)
         }
 
-        method connect_signal(mut cx) {
-            let signal_name = cx.argument::<JsString>(0)?.value();
+        method connect_callback(mut cx) {
+            let callback_name = cx.argument::<JsString>(0)?.value();
             let handler = cx.argument::<JsFunction>(1)?;
             let this = cx.this();
             let persistent_context =
@@ -442,21 +442,21 @@ declare_types! {
             generativity::make_guard!(guard);
             let component = component.unerase(guard);
 
-            let ty = component.description().properties().get(&signal_name)
+            let ty = component.description().properties().get(&callback_name)
                 .ok_or(())
                 .or_else(|()| {
-                    cx.throw_error(format!("Signal {} not found in the component", signal_name))
+                    cx.throw_error(format!("Callback {} not found in the component", callback_name))
                 })?
                 .clone();
-            if let Type::Signal {return_type, ..} = ty {
-                component.description().set_signal_handler(
+            if let Type::Callback {return_type, ..} = ty {
+                component.description().set_callback_handler(
                     component.borrow(),
-                    signal_name.as_str(),
-                    make_signal_handler(&mut cx, &persistent_context, handler, return_type)
-                ).or_else(|_| cx.throw_error(format!("Cannot set signal")))?;
+                    callback_name.as_str(),
+                    make_callback_handler(&mut cx, &persistent_context, handler, return_type)
+                ).or_else(|_| cx.throw_error(format!("Cannot set callback")))?;
                 Ok(JsUndefined::new().as_value(&mut cx))
             } else {
-                cx.throw_error(format!("{} is not a signal", signal_name))?;
+                cx.throw_error(format!("{} is not a callback", callback_name))?;
                 unreachable!()
             }
         }

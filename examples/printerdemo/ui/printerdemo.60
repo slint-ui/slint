@@ -17,7 +17,7 @@ import { SettingsPage } from "settings_page.60";
 
 TopPanel := Rectangle {
    property<int> active_page: 0;
-   signal quit();
+   callback quit();
 
    color: white;
 
@@ -62,7 +62,7 @@ struct InkLevel := {
 }
 
 MainWindow := Window {
-    signal quit();
+    callback quit();
 
     width: 800px;
     height: 600px;
@@ -77,11 +77,11 @@ MainWindow := Window {
             ];
     /// Aliased to the fax number in the fax page
     property <string> fax_number;
-    signal fax_number_erase;
+    callback fax_number_erase;
     /// That's just a default implementation for the viewer, but the .cpp and .rs code
     /// overwrite that to erase only the last character
     fax_number_erase => { fax_number = ""; }
-    signal fax_send;
+    callback fax_send;
 
     property<int> active_page: 0;
 

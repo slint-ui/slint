@@ -10,9 +10,9 @@ LICENSE END */
 TestCase := Rectangle {
     property<string> text: "init";
     property<string> text2: { debug(text); text }
-    signal foo;
+    callback foo;
     foo => {
-        debug("signal");
+        debug("callback");
     }
     color: { text2; blue  }
 }

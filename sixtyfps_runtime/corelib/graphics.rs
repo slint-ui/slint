@@ -26,7 +26,7 @@ use crate::properties::{InterpolatedPropertyValue, Property, PropertyTracker};
 #[cfg(feature = "rtti")]
 use crate::rtti::{BuiltinItem, FieldInfo, PropertyInfo, ValueType};
 #[cfg(feature = "rtti")]
-use crate::Signal;
+use crate::Callback;
 use crate::{
     component::{ComponentRc, ComponentWeak},
     slice::Slice,

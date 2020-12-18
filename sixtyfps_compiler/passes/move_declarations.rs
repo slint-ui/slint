@@ -7,7 +7,7 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-//! This pass moves all declaration of properties or signal to the root
+//! This pass moves all declaration of properties or callback to the root
 
 use crate::diagnostics::{BuildDiagnostics, Level};
 use crate::expression_tree::NamedReference;

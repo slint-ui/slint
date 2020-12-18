@@ -19,8 +19,8 @@ export FaxPage := Page {
     }
 
     property<string> fax_number <=> text.text;
-    signal fax_number_erase;
-    signal fax_send;
+    callback fax_number_erase;
+    callback fax_send;
 
     text := Text {
         x: preview.x + preview.width + 20px;

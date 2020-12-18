@@ -163,7 +163,7 @@ fn visit_node(node: SyntaxNode, file: &mut impl Write, state: &mut State) -> std
             state.property_name = node.child_text(SyntaxKind::DeclaredIdentifier)
         }
         SyntaxKind::Binding => state.property_name = node.child_text(SyntaxKind::Identifier),
-        SyntaxKind::SignalDeclaration => {
+        SyntaxKind::CallbackDeclaration => {
             state.property_name = node.child_text(SyntaxKind::Identifier)
         }
         _ => (),

@@ -12,10 +12,10 @@ import { LineEdit, Button, ComboBox } from "sixtyfps_widgets.60";
 
 Booker := Window {
     // returns true if the string parameter is a valid date
-    signal validate_date(string) -> bool;
+    callback validate_date(string) -> bool;
     validate_date(_) => { true }
     // returns true if the first date is before the second date and they are both valid
-    signal compare_date(string, string) -> bool;
+    callback compare_date(string, string) -> bool;
     compare_date(a, b) => { a <= b }
     property <bool> message_visible;
     VerticalLayout {

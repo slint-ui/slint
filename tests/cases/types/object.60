@@ -19,7 +19,7 @@ TestCase := Rectangle {
     property<string> foo_a : foo.a;
     property<int> foo_b : foo.b;
     property<int> obj_cond_merge_b : obj_cond_merge.b;
-    signal change_foo;
+    callback change_foo;
     change_foo => {
         foo.a = obj_conversion2.a;
         foo.b += 8 + obj_conversion2.b;

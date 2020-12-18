@@ -12,7 +12,7 @@ Their appearence can change depending on the style
 * **`pressed`**: (*bool*): Set to true when the button is pressed.
 * **`enabled`**: (*bool*): Defaults to true. When false, the button cannot be pressed
 
-### Signals
+### Callbacks
 
 * **`clicked`**
 
@@ -39,7 +39,7 @@ Example := Window {
 * **`text`** (*string*): The text written next to the checkbox.
 * **`checked`**: (*bool*): Whether the checkbox is checked or not.
 
-### Signals
+### Callbacks
 
 * **`toggled`**: The checkbox value changed
 
@@ -137,7 +137,7 @@ Example := Window {
 * **`placeholder_text`**: (*string*): A placeholder text being shown when there is no text in the edit field
 * **`enabled`**: (*bool*): Defaults to true. When false, nothing can be entered
 
-### Signals
+### Callbacks
 
 * **`accepted`**: Enter was pressed
 * **`edited`**: Emited when the text has changed because the user modified it

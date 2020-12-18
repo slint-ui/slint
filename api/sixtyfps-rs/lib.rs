@@ -104,9 +104,9 @@ For each top-level property
   - A setter [`fn set_<property_name>(&self, value: <PropertyType>)`](docs::generated_code::SampleComponent::set_counter)
   - A getter [`fn get_<property_name>(&self) -> <PropertyType>`](docs::generated_code::SampleComponent::get_counter)
 
-For each top-level signal
-  - [`fn emit_<signal_name>(&self)`](docs::generated_code::SampleComponent::emit_hello): to emit the signal
-  - [`fn on_<signal_name>(&self, callback: impl Fn(<SignalArgs>) + 'static)`](docs::generated_code::SampleComponent::on_hello): to set the signal handler.
+For each top-level callback
+  - [`fn emit_<callback_name>(&self)`](docs::generated_code::SampleComponent::emit_hello): to emit the callback
+  - [`fn on_<callback_name>(&self, callback: impl Fn(<CallbackArgs>) + 'static)`](docs::generated_code::SampleComponent::on_hello): to set the callback handler.
 
 ### Type Mappings
 
@@ -195,7 +195,7 @@ pub mod re_exports {
     pub use sixtyfps_corelib::layout::*;
     pub use sixtyfps_corelib::model::*;
     pub use sixtyfps_corelib::properties::{set_state_binding, Property, PropertyTracker};
-    pub use sixtyfps_corelib::signals::Signal;
+    pub use sixtyfps_corelib::callbacks::Callback;
     pub use sixtyfps_corelib::slice::Slice;
     pub use sixtyfps_corelib::Color;
     pub use sixtyfps_corelib::ComponentVTable_static;

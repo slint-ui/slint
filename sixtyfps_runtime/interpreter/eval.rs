@@ -21,7 +21,7 @@ use sixtyfps_corelib as corelib;
 use sixtyfps_corelib::rtti::AnimatedBindingKind;
 use sixtyfps_corelib::{
     graphics::PathElement, items::ItemRef, items::PropertyAnimation, Color, PathData, Resource,
-    SharedArray, SharedString, Signal,
+    SharedArray, SharedString, Callback,
 };
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -288,7 +288,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
         Expression::StringLiteral(s) => Value::String(s.into()),
         Expression::NumberLiteral(n, unit) => Value::Number(unit.normalize(*n)),
         Expression::BoolLiteral(b) => Value::Bool(*b),
-        Expression::SignalReference { .. } => panic!("signal in expression"),
+        Expression::CallbackReference { .. } => panic!("callback in expression"),
         Expression::BuiltinFunctionReference(_) => panic!(
             "naked builtin function reference not allowed, should be handled by function call"
         ),
@@ -337,7 +337,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
             v
         }
         Expression::FunctionCall { function, arguments } => match &**function {
-            Expression::SignalReference(NamedReference { element, name }) => {
+            Expression::CallbackReference(NamedReference { element, name }) => {
                 let element = element.upgrade().unwrap();
                 generativity::make_guard!(guard);
                 match enclosing_component_instance_for_element(&element, local_context.component_instance, guard) {
@@ -346,23 +346,23 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                         let item_info = &component_type.items[element.borrow().id.as_str()];
                         let item = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
 
-                        if let Some(signal_offset) = item_info.rtti.signals.get(name.as_str()) {
-                            let signal =
-                                unsafe { &*(item.as_ptr().add(*signal_offset) as *const Signal<()>) };
-                            signal.emit(&());
+                        if let Some(callback_offset) = item_info.rtti.callbacks.get(name.as_str()) {
+                            let callback =
+                                unsafe { &*(item.as_ptr().add(*callback_offset) as *const Callback<()>) };
+                            callback.emit(&());
                             Value::Void
-                        } else if let Some(signal_offset) = component_type.custom_signals.get(name.as_str())
+                        } else if let Some(callback_offset) = component_type.custom_callbacks.get(name.as_str())
                         {
-                            let signal = signal_offset.apply(&*enclosing_component.instance);
+                            let callback = callback_offset.apply(&*enclosing_component.instance);
                             let args = arguments.iter().map(|e| eval_expression(e, local_context));
-                            signal.emit(args.collect::<Vec<_>>().as_slice())
+                            callback.emit(args.collect::<Vec<_>>().as_slice())
                         } else {
-                            panic!("unkown signal {}", name)
+                            panic!("unkown callback {}", name)
                         }
                     }
                     ComponentInstance::GlobalComponent(global) => {
                         let args = arguments.iter().map(|e| eval_expression(e, local_context));
-                        global.as_ref().emit_signal(name.as_ref(), args.collect::<Vec<_>>().as_slice())
+                        global.as_ref().emit_callback(name.as_ref(), args.collect::<Vec<_>>().as_slice())
                     }
                 }
             }
@@ -461,7 +461,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                     panic!("Argument not a string");
                 }
             }
-            _ => panic!("call of something not a signal"),
+            _ => panic!("call of something not a callback"),
         }
         Expression::SelfAssignment { lhs, rhs, op } => {
             let rhs = eval_expression(&**rhs, local_context);

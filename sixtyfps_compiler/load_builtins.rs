@@ -86,10 +86,10 @@ pub fn load_builtins(register: &mut TypeRegister) {
                         object_tree::type_from_node(p.Type(), *diag.borrow_mut(), register),
                     )
                 })
-                .chain(e.SignalDeclaration().map(|s| {
+                .chain(e.CallbackDeclaration().map(|s| {
                     (
                         identifier_text(&s.DeclaredIdentifier()).unwrap(),
-                        Type::Signal {
+                        Type::Callback {
                             args: s
                                 .Type()
                                 .map(|a| {

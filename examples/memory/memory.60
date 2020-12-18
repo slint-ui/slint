@@ -16,7 +16,7 @@ struct TileData := {
 
 MemoryTile := Rectangle {
     border-radius: 8px;
-    signal clicked;
+    callback clicked;
     property <bool> open_curtain;
     property <bool> solved;
     property <resource> icon;
@@ -82,7 +82,7 @@ MemoryTile := Rectangle {
 }
 
 export MainWindow := Window {
-    signal check_if_pair_solved();
+    callback check_if_pair_solved();
     property <bool> disable_tiles;
 
     property<length> tile_size: 80px;

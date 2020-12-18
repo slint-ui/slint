@@ -17,7 +17,7 @@ export const sixtyfps_language = <monaco.languages.IMonarchLanguage>{
         'import', 'from', 'export'
     ],
     inner_keywords: [
-        'property', 'signal', 'animate', 'states', 'transitions', 'if', 'for'
+        'property', 'callback', 'animate', 'states', 'transitions', 'if', 'for'
     ],
     lang_keywords: [
         'root', 'parent', 'this', 'if'

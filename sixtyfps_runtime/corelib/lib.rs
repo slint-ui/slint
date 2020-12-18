@@ -35,7 +35,7 @@ pub mod items;
 pub mod model;
 pub mod properties;
 pub mod sharedarray;
-pub mod signals;
+pub mod callbacks;
 pub mod string;
 
 #[doc(inline)]
@@ -51,7 +51,7 @@ pub use graphics::Resource;
 pub use properties::Property;
 
 #[doc(inline)]
-pub use signals::Signal;
+pub use callbacks::Callback;
 
 #[doc(inline)]
 pub use graphics::Color;
@@ -76,7 +76,7 @@ pub mod timers;
 #[cold]
 pub fn use_modules() -> usize {
     tests::sixtyfps_mock_elapsed_time as usize
-        + signals::ffi::sixtyfps_signal_init as usize
+        + callbacks::ffi::sixtyfps_callback_init as usize
         + sharedarray::ffi::sixtyfps_shared_array_empty as usize
         + layout::solve_grid_layout as usize
         + item_tree::ffi::sixtyfps_visit_item_tree as usize

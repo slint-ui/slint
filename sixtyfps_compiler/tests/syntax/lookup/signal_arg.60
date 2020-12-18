@@ -9,7 +9,7 @@
 LICENSE END */
 
 Xxx := Rectangle {
-    signal plop(string, color, int);
+    callback plop(string, color, int);
     property <color> glop_col;
     property <string> blah: "yo";
     plop(x, blah, hello) => {
@@ -20,9 +20,9 @@ Xxx := Rectangle {
 //             ^error{Cannot convert string to length}
         plop("hallo", #fff, 42);
         plop("hallo", #fff,);
-//      ^error{The signal or function expects 3 arguments, but 2 are provided}
+//      ^error{The callback or function expects 3 arguments, but 2 are provided}
         plop("hallo", #fff, 42, true);
-//      ^error{The signal or function expects 3 arguments, but 4 are provided}
+//      ^error{The callback or function expects 3 arguments, but 4 are provided}
         plop(42, 42, 42);
 //               ^error{Cannot convert float to color}
         hello(45, fff);

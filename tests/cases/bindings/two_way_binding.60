@@ -53,9 +53,9 @@ TestCase := Rectangle {
         some_value_alias <=> othercomp_some_value_alias2;
     }
 
-    signal set_ti1(string);
+    callback set_ti1(string);
     set_ti1(a) => { ti1.text = a; }
-    signal set_ti2(string);
+    callback set_ti2(string);
     set_ti2(a) => { ti2.text = a; }
 }
 

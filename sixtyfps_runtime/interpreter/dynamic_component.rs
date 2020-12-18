@@ -268,7 +268,7 @@ impl<'id> ErasedRepeaterWithinComponent<'id> {
     }
 }
 
-type Signal = sixtyfps_corelib::Signal<[eval::Value], eval::Value>;
+type Callback = sixtyfps_corelib::Callback<[eval::Value], eval::Value>;
 
 /// ComponentDescription is a representation of a component suitable for interpretation
 ///
@@ -284,7 +284,7 @@ pub struct ComponentDescription<'id> {
     item_tree: Vec<ItemTreeNode<crate::dynamic_type::Instance<'id>>>,
     pub(crate) items: HashMap<String, ItemWithinComponent>,
     pub(crate) custom_properties: HashMap<String, PropertiesWithinComponent>,
-    pub(crate) custom_signals: HashMap<String, FieldOffset<Instance<'id>, Signal>>,
+    pub(crate) custom_callbacks: HashMap<String, FieldOffset<Instance<'id>, Callback>>,
     repeater: Vec<ErasedRepeaterWithinComponent<'id>>,
     /// Map the Element::id of the repeater to the index in the `repeater` vec
     pub repeater_names: HashMap<String, usize>,
@@ -370,9 +370,9 @@ pub(crate) struct ItemRTTI {
     vtable: &'static ItemVTable,
     type_info: dynamic_type::StaticTypeInfo,
     pub(crate) properties: HashMap<&'static str, Box<dyn eval::ErasedPropertyInfo>>,
-    /// The uszie is an offset within this item to the Signal.
-    /// Ideally, we would need a vtable::VFieldOffset<ItemVTable, corelib::Signal<()>>
-    pub(crate) signals: HashMap<&'static str, usize>,
+    /// The uszie is an offset within this item to the Callback.
+    /// Ideally, we would need a vtable::VFieldOffset<ItemVTable, corelib::Callback<()>>
+    pub(crate) callbacks: HashMap<&'static str, usize>,
 }
 
 fn rtti_for<T: 'static + Default + rtti::BuiltinItem + vtable::HasStaticVTable<ItemVTable>>(
@@ -384,7 +384,7 @@ fn rtti_for<T: 'static + Default + rtti::BuiltinItem + vtable::HasStaticVTable<I
             .into_iter()
             .map(|(k, v)| (k, Box::new(v) as Box<dyn eval::ErasedPropertyInfo>))
             .collect(),
-        signals: T::signals().into_iter().map(|(k, v)| (k, v.get_byte_offset())).collect(),
+        callbacks: T::callbacks().into_iter().map(|(k, v)| (k, v.get_byte_offset())).collect(),
     };
     (T::name(), Rc::new(rtti))
 }
@@ -567,7 +567,7 @@ fn generate_component<'id>(
     });
 
     let mut custom_properties = HashMap::new();
-    let mut custom_signals = HashMap::new();
+    let mut custom_callbacks = HashMap::new();
     fn property_info<T: PartialEq + Clone + Default + 'static>(
     ) -> (Box<dyn PropertyInfo<u8, eval::Value>>, dynamic_type::StaticTypeInfo)
     where
@@ -613,8 +613,8 @@ fn generate_component<'id>(
             Type::LogicalLength => animated_property_info::<f32>(),
             Type::Resource => property_info::<Resource>(),
             Type::Bool => property_info::<bool>(),
-            Type::Signal { .. } => {
-                custom_signals.insert(name.clone(), builder.add_field_type::<Signal>());
+            Type::Callback { .. } => {
+                custom_callbacks.insert(name.clone(), builder.add_field_type::<Callback>());
                 continue;
             }
             Type::Object { name: Some(name), .. } if name.ends_with("::StateInfo") => {
@@ -686,7 +686,7 @@ fn generate_component<'id>(
         item_tree: tree_array,
         items: items_types,
         custom_properties,
-        custom_signals,
+        custom_callbacks,
         original: component.clone(),
         repeater,
         repeater_names,
@@ -811,7 +811,7 @@ pub fn instantiate<'id>(
             let elem = item_within_component.elem.borrow();
             for (prop, expr) in &elem.bindings {
                 let ty = elem.lookup_property(prop.as_str());
-                if let Type::Signal { .. } = ty {
+                if let Type::Callback { .. } = ty {
                     let expr = expr.clone();
                     let component_type = component_type.clone();
                     let instance = component_box.instance.as_ptr();
@@ -819,12 +819,12 @@ pub fn instantiate<'id>(
                         NonNull::from(&component_type.ct).cast(),
                         instance.cast(),
                     ));
-                    if let Some(signal_offset) =
-                        item_within_component.rtti.signals.get(prop.as_str())
+                    if let Some(callback_offset) =
+                        item_within_component.rtti.callbacks.get(prop.as_str())
                     {
-                        let signal = &*(item.as_ptr().add(*signal_offset)
-                            as *const sixtyfps_corelib::Signal<()>);
-                        signal.set_handler(move |_: &()| {
+                        let callback = &*(item.as_ptr().add(*callback_offset)
+                            as *const sixtyfps_corelib::Callback<()>);
+                        callback.set_handler(move |_: &()| {
                             generativity::make_guard!(guard);
                             eval::eval_expression(
                                 &expr,
@@ -833,11 +833,11 @@ pub fn instantiate<'id>(
                                 ),
                             );
                         })
-                    } else if let Some(signal_offset) =
-                        component_type.custom_signals.get(prop.as_str())
+                    } else if let Some(callback_offset) =
+                        component_type.custom_callbacks.get(prop.as_str())
                     {
-                        let signal = signal_offset.apply(instance_ref.as_ref());
-                        signal.set_handler(move |args| {
+                        let callback = callback_offset.apply(instance_ref.as_ref());
+                        callback.set_handler(move |args| {
                             generativity::make_guard!(guard);
                             let mut local_context = eval::EvalLocalContext::from_function_arguments(
                                 InstanceRef::from_pin_ref(c, guard),
@@ -846,7 +846,7 @@ pub fn instantiate<'id>(
                             eval::eval_expression(&expr, &mut local_context)
                         })
                     } else {
-                        panic!("unkown signal {}", prop)
+                        panic!("unkown callback {}", prop)
                     }
                 } else {
                     if let Some(prop_rtti) =

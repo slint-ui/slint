@@ -146,7 +146,7 @@ fn handle_property_binding(
 ) {
     let rust_property = access_member(item_rc, prop_name, component, quote!(_self), false);
     let prop_type = item_rc.borrow().lookup_property(prop_name);
-    if matches!(prop_type, Type::Signal{..}) {
+    if matches!(prop_type, Type::Callback{..}) {
         let tokens_for_expression = compile_expression(binding_expression, &component);
         init.push(quote!(
             #rust_property.set_handler({
@@ -247,15 +247,15 @@ fn generate_component(
         .collect::<Vec<_>>();
     let mut declared_property_vars = vec![];
     let mut declared_property_types = vec![];
-    let mut declared_signals = vec![];
-    let mut declared_signals_types = vec![];
-    let mut declared_signals_ret = vec![];
-    let mut property_and_signal_accessors: Vec<TokenStream> = vec![];
+    let mut declared_callbacks = vec![];
+    let mut declared_callbacks_types = vec![];
+    let mut declared_callbacks_ret = vec![];
+    let mut property_and_callback_accessors: Vec<TokenStream> = vec![];
     for (prop_name, property_decl) in component.root_element.borrow().property_declarations.iter() {
         let prop_ident = format_ident!("{}", prop_name);
-        if let Type::Signal { args, return_type } = &property_decl.property_type {
-            declared_signals.push(prop_ident.clone());
-            let signal_args = args
+        if let Type::Callback { args, return_type } = &property_decl.property_type {
+            declared_callbacks.push(prop_ident.clone());
+            let callback_args = args
                 .iter()
                 .map(|a| rust_type(a, &property_decl.type_node.span()))
                 .collect::<Result<Vec<_>, _>>()
@@ -272,12 +272,12 @@ fn generate_component(
 
             if property_decl.expose_in_public_api {
                 let args_name =
-                    (0..signal_args.len()).map(|i| format_ident!("arg_{}", i)).collect::<Vec<_>>();
+                    (0..callback_args.len()).map(|i| format_ident!("arg_{}", i)).collect::<Vec<_>>();
                 let emitter_ident = format_ident!("emit_{}", prop_name);
-                property_and_signal_accessors.push(
+                property_and_callback_accessors.push(
                     quote!(
                         #[allow(dead_code)]
-                        pub fn #emitter_ident(&self, #(#args_name : #signal_args,)*) -> #return_type {
+                        pub fn #emitter_ident(&self, #(#args_name : #callback_args,)*) -> #return_type {
                             let self_pinned = vtable::VRc::as_pin_ref(&self.0);
                             #inner_component_id::FIELD_OFFSETS.#prop_ident.apply_pin(self_pinned).emit(&(#(#args_name,)*))
                         }
@@ -286,11 +286,11 @@ fn generate_component(
                 );
 
                 let on_ident = format_ident!("on_{}", prop_name);
-                let args_index = (0..signal_args.len()).map(proc_macro2::Literal::usize_unsuffixed);
-                property_and_signal_accessors.push(
+                let args_index = (0..callback_args.len()).map(proc_macro2::Literal::usize_unsuffixed);
+                property_and_callback_accessors.push(
                     quote!(
                         #[allow(dead_code)]
-                        pub fn #on_ident(&self, f: impl Fn(#(#signal_args),*) -> #return_type + 'static) {
+                        pub fn #on_ident(&self, f: impl Fn(#(#callback_args),*) -> #return_type + 'static) {
                             let self_pinned = vtable::VRc::as_pin_ref(&self.0);
                             #[allow(unused)]
                             #inner_component_id::FIELD_OFFSETS.#prop_ident.apply_pin(self_pinned).set_handler(
@@ -302,8 +302,8 @@ fn generate_component(
                     ,
                 );
             }
-            declared_signals_types.push(signal_args);
-            declared_signals_ret.push(return_type);
+            declared_callbacks_types.push(callback_args);
+            declared_callbacks_ret.push(return_type);
         } else {
             let rust_property_type =
                 rust_type(&property_decl.property_type, &property_decl.type_node.span())
@@ -321,7 +321,7 @@ fn generate_component(
                     quote!(#inner_component_id::FIELD_OFFSETS.#prop_ident.apply_pin(_self))
                 };
 
-                property_and_signal_accessors.push(quote!(
+                property_and_callback_accessors.push(quote!(
                     #[allow(dead_code)]
                     pub fn #getter_ident(&self) -> #rust_property_type {
                         #[allow(unused_imports)]
@@ -337,7 +337,7 @@ fn generate_component(
                     prop_name,
                     quote!(value),
                 );
-                property_and_signal_accessors.push(quote!(
+                property_and_callback_accessors.push(quote!(
                     #[allow(dead_code)]
                     pub fn #setter_ident(&self, value: #rust_property_type) {
                         #[allow(unused_imports)]
@@ -756,7 +756,7 @@ fn generate_component(
                 pub fn new(#(parent: sixtyfps::re_exports::VWeak::<sixtyfps::re_exports::ComponentVTable, #parent_component_type>)* #window_parent_param) -> Self {
                     Self(#inner_component_id::new(#parent_name #window_parent_name))
                 }
-                #(#property_and_signal_accessors)*
+                #(#property_and_callback_accessors)*
 
                 #run_fun
             }
@@ -792,7 +792,7 @@ fn generate_component(
         #visibility struct #inner_component_id {
             #(#item_names : sixtyfps::re_exports::#item_types,)*
             #(#declared_property_vars : sixtyfps::re_exports::Property<#declared_property_types>,)*
-            #(#declared_signals : sixtyfps::re_exports::Signal<(#(#declared_signals_types,)*), #declared_signals_ret>,)*
+            #(#declared_callbacks : sixtyfps::re_exports::Callback<(#(#declared_callbacks_types,)*), #declared_callbacks_ret>,)*
             #(#repeated_element_names : sixtyfps::re_exports::Repeater<#repeated_element_components>,)*
             #(#self_weak : sixtyfps::re_exports::OnceCell<sixtyfps::re_exports::VWeak<sixtyfps::re_exports::ComponentVTable, #inner_component_id>>,)*
             #(parent : sixtyfps::re_exports::VWeak<sixtyfps::re_exports::ComponentVTable, #parent_component_type>,)*
@@ -811,7 +811,7 @@ fn generate_component(
                 let mut self_ = Self {
                     #(#item_names : ::core::default::Default::default(),)*
                     #(#declared_property_vars : ::core::default::Default::default(),)*
-                    #(#declared_signals : ::core::default::Default::default(),)*
+                    #(#declared_callbacks : ::core::default::Default::default(),)*
                     #(#repeated_element_names : ::core::default::Default::default(),)*
                     #(#self_weak : ::core::default::Default::default(),)*
                     #(parent : parent as sixtyfps::re_exports::VWeak::<sixtyfps::re_exports::ComponentVTable, #parent_component_type>,)*
@@ -893,7 +893,7 @@ fn property_set_value_tokens(
     }
 }
 
-/// Returns the code that can access the given property or signal (but without the set or get)
+/// Returns the code that can access the given property or callback (but without the set or get)
 ///
 /// to be used like:
 /// ```ignore
@@ -1081,7 +1081,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
             let map = sub.iter().map(|e| compile_expression(e, &component));
             quote!({ #(#map);* })
         }
-        Expression::SignalReference(nr) => access_named_reference(
+        Expression::CallbackReference(nr) => access_named_reference(
             nr,
             component,
             quote!(_self),
@@ -1130,7 +1130,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                     let f = compile_expression(function, &component);
                     let a = arguments.iter().map(|a| compile_expression(a, &component));
                     let function_type = function.ty();
-                    if let Type::Signal { args, .. } = function_type {
+                    if let Type::Callback { args, .. } = function_type {
                         let cast = args.iter().map(|ty| match ty {
                             Type::Bool => quote!(as bool),
                             Type::Int32 => quote!(as i32),

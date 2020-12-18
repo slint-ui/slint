@@ -17,8 +17,8 @@ use std::collections::HashMap;
 
 pub fn deduplicate_property_read(component: &Component) {
     visit_all_expressions(component, |expr, ty| {
-        if matches!(ty(), Type::Signal{..}) {
-            // Signal handler can't be optimizes because they can have side effect.
+        if matches!(ty(), Type::Callback{..}) {
+            // Callback handler can't be optimizes because they can have side effect.
             // But that's fine as they also do not register dependencies
             return;
         }

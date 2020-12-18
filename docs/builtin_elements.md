@@ -156,7 +156,7 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 * **`pressed_x`**, **`mouse_y`** (*length*): Set to true by the TouchArea to the position of the
     mouse at the moment it was last pressed.
 
-### Signals
+### Callbacks
 
 * **`clicked`**: Emited when the mouse is released
 
@@ -302,7 +302,7 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 
 * **`focus()`** Call this function to focus the text input and make it receive future keyboard events.
 
-### Signals
+### Callbacks
 
 * **`accepted()`**: Emited when enter key is pressed
 * **`edited()`**: Emited when the text has changed because the user modified it

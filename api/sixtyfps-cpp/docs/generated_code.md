@@ -13,10 +13,10 @@ This class will have the following public member functions:
  - for each properties:
     * A getter `get_<property_name>` returning the property type.
     * A setter `set_<property_name>` taking the new value of the property by const reference
- - for each signals:
-    * `emit_<signal_name>` function which takes the signal argument as parameter and emit the signal.
-    * `on_<signal_name>` functin wich takes a functor as an argument and sets the signal handler
-     for this signal. the functor must accept the type parameter of the signal
+ - for each callbacks:
+    * `emit_<callback_name>` function which takes the callback argument as parameter and emit the callback.
+    * `on_<callback_name>` functin wich takes a functor as an argument and sets the callback handler
+     for this callback. the functor must accept the type parameter of the callback
 
 ## Example
 
@@ -26,7 +26,7 @@ Let's assume we have this code in our `.60` file
 SampleComponent := Window {
     property<int> counter;
     property<string> user_name;
-    signal hello;
+    callback hello;
     // ... maybe more elements here
 }
 ```
@@ -59,10 +59,10 @@ public:
     /// Setter for the `user_name` property
     inline void set_user_name (const sixtyfps::SharedString &value) const;
 
-    /// Call this function to emit the `hello` signal
+    /// Call this function to emit the `hello` callback
     inline void emit_hello () const;
-    /// Sets the signal handler for the `hello` signal.
-    template<typename Functor> inline void on_hello (Functor && signal_handler) const;
+    /// Sets the callback handler for the `hello` callback.
+    template<typename Functor> inline void on_hello (Functor && callback_handler) const;
 
 private:
     /// private fields omitted

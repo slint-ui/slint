@@ -129,7 +129,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         if let Some(exit_code) = output.status.code() {
             return Err(format!("Test case exited with non-zero code: {}", exit_code).into());
         } else {
-            return Err("Test case exited by signal".into());
+            return Err("Test case exited by callback".into());
         }
     }
 

@@ -279,16 +279,16 @@ declare_syntax! {
         Component -> [ DeclaredIdentifier, Element ],
         /// Note: This is in fact the same as Component as far as the parser is concerned
         SubElement -> [ Element ],
-        Element -> [ ?QualifiedName, *PropertyDeclaration, *Binding, *SignalConnection,
-                     *SignalDeclaration, *SubElement, *RepeatedElement, *PropertyAnimation,
+        Element -> [ ?QualifiedName, *PropertyDeclaration, *Binding, *CallbackConnection,
+                     *CallbackDeclaration, *SubElement, *RepeatedElement, *PropertyAnimation,
                      *TwoWayBinding, *States, *Transitions, ?ChildrenPlaceholder ],
         RepeatedElement -> [ ?DeclaredIdentifier, ?RepeatedIndex, Expression , Element],
         RepeatedIndex -> [],
         ConditionalElement -> [ Expression , Element],
-        SignalDeclaration -> [ DeclaredIdentifier, *Type, ?ReturnType ],
+        CallbackDeclaration -> [ DeclaredIdentifier, *Type, ?ReturnType ],
         /// `-> type`  (but without the ->)
         ReturnType -> [Type],
-        SignalConnection -> [ *DeclaredIdentifier,  CodeBlock ],
+        CallbackConnection -> [ *DeclaredIdentifier,  CodeBlock ],
         /// Declaration of a propery.
         PropertyDeclaration-> [ Type , DeclaredIdentifier, ?BindingExpression, ?TwoWayBinding ],
         /// QualifiedName are the properties name

@@ -3,6 +3,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+ - Renamed "signal" to "callback"
+
+
 ## [0.0.4] - 2020-12-04
 
 ### Changed

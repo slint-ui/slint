@@ -52,7 +52,7 @@ class Component {
 /**
  * @hidden
  */
-interface Signal {
+interface Callback {
     (): any;
     setHandler(cb: any): void;
 }
@@ -70,12 +70,12 @@ require.extensions['.60'] =
                     enumerable: true,
                 })
             });
-            c.signals().forEach((x: string) => {
+            c.callbacks().forEach((x: string) => {
                 Object.defineProperty(ret, x, {
                     get() {
-                        let signal = function () { return comp.emit_signal(x, [...arguments]); } as Signal;
-                        signal.setHandler = function (callback) { comp.connect_signal(x, callback) };
-                        return signal;
+                        let callback = function () { return comp.emit_callback(x, [...arguments]); } as Callback;
+                        callback.setHandler = function (callback) { comp.connect_callback(x, callback) };
+                        return callback;
                     },
                     enumerable: true,
                 })

@@ -48,12 +48,12 @@ See [/examples/printerdemo/node](/examples/printerdemo/node) for a full example.
 ### Instantiating a component
 
 The exported component is exposed as a type constructor. The type constructor takes as parametter
-an object which allow to initialize the value of public properties or signals.
+an object which allow to initialize the value of public properties or callbacks.
 
 ```js
 require("sixtyfps");
 // In this example, the main.60 file exports a module which
-// has a counter property and a clicked signal
+// has a counter property and a clicked callback
 let ui = require("ui/main.60");
 let component = new ui.MainWindow({
     counter: 42,
@@ -70,15 +70,15 @@ component.counter = 42;
 console.log(component.counter);
 ```
 
-### Signals
+### Callbacks
 
-The signals are also exposed as property that have a setHandler function, and that can can be called.
+The callbacks are also exposed as property that have a setHandler function, and that can can be called.
 
 
 ```js
-// connect to a signal
+// connect to a callback
 component.clicked.setHandler(function() { console.log("hello"); })
-// emit a signal
+// emit a callback
 component.clicked();
 ```
 

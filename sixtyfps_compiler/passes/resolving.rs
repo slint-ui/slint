@@ -48,9 +48,9 @@ fn resolve_expression(
         };
 
         let new_expr = match node.kind() {
-            SyntaxKind::SignalConnection => {
-                //FIXME: proper signal suport (node is a codeblock)
-                Expression::from_signal_connection(node.clone().into(), &mut lookup_ctx)
+            SyntaxKind::CallbackConnection => {
+                //FIXME: proper callback suport (node is a codeblock)
+                Expression::from_callback_connection(node.clone().into(), &mut lookup_ctx)
             }
             SyntaxKind::Expression => {
                 //FIXME again: this happen for non-binding expression (i.e: model)
@@ -128,7 +128,7 @@ pub struct LookupCtx<'a> {
     /// Somewhere to report diagnostics
     diag: &'a mut BuildDiagnostics,
 
-    /// The name of the arguments of the signal or function
+    /// The name of the arguments of the callback or function
     arguments: Vec<String>,
 
     /// The type register in which to look for Globals
@@ -264,8 +264,8 @@ impl Expression {
         )
     }
 
-    fn from_signal_connection(
-        node: syntax_nodes::SignalConnection,
+    fn from_callback_connection(
+        node: syntax_nodes::CallbackConnection,
         ctx: &mut LookupCtx,
     ) -> Expression {
         ctx.arguments =
@@ -424,8 +424,8 @@ impl Expression {
 
         if let Some(index) = ctx.arguments.iter().position(|x| x == &first_str) {
             let ty = match &ctx.property_type {
-                Type::Signal { args, .. } | Type::Function { args, .. } => args[index].clone(),
-                _ => panic!("There should only be argument within functions or signal"),
+                Type::Callback { args, .. } | Type::Function { args, .. } => args[index].clone(),
+                _ => panic!("There should only be argument within functions or callback"),
             };
             let e = Expression::FunctionParameterReference { index, ty };
             return maybe_lookup_object(e, it, ctx);
@@ -467,11 +467,11 @@ impl Expression {
                     name: first_str,
                 });
                 return maybe_lookup_object(prop, it, ctx);
-            } else if matches!(property, Type::Signal{..}) {
+            } else if matches!(property, Type::Callback{..}) {
                 if let Some(x) = it.next() {
-                    ctx.diag.push_error("Cannot access fields of signal".into(), &x)
+                    ctx.diag.push_error("Cannot access fields of callback".into(), &x)
                 }
-                return Self::SignalReference(NamedReference {
+                return Self::CallbackReference(NamedReference {
                     element: Rc::downgrade(&elem),
                     name: first_str,
                 });
@@ -629,11 +629,11 @@ impl Expression {
         arguments.extend(sub_expr);
 
         let arguments = match function.ty() {
-            Type::Function { args, .. } | Type::Signal { args, .. } => {
+            Type::Function { args, .. } | Type::Callback { args, .. } => {
                 if arguments.len() != args.len() {
                     ctx.diag.push_error(
                         format!(
-                            "The signal or function expects {} arguments, but {} are provided",
+                            "The callback or function expects {} arguments, but {} are provided",
                             args.len(),
                             arguments.len()
                         ),
@@ -981,11 +981,11 @@ fn continue_lookup_within_element(
             name: prop_name,
         });
         maybe_lookup_object(prop, it, ctx)
-    } else if matches!(p, Type::Signal{..}) {
+    } else if matches!(p, Type::Callback{..}) {
         if let Some(x) = it.next() {
-            ctx.diag.push_error("Cannot access fields of signal".into(), &x)
+            ctx.diag.push_error("Cannot access fields of callback".into(), &x)
         }
-        Expression::SignalReference(NamedReference {
+        Expression::CallbackReference(NamedReference {
             element: Rc::downgrade(elem),
             name: prop_name,
         })

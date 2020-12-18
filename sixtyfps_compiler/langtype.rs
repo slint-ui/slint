@@ -24,7 +24,7 @@ pub enum Type {
     Builtin(Rc<BuiltinElement>),
     Native(Rc<NativeClass>),
 
-    Signal {
+    Callback {
         return_type: Option<Box<Type>>,
         args: Vec<Type>,
     },
@@ -66,8 +66,8 @@ impl core::cmp::PartialEq for Type {
             Type::Component(a) => matches!(other, Type::Component(b) if Rc::ptr_eq(a, b)),
             Type::Builtin(a) => matches!(other, Type::Builtin(b) if Rc::ptr_eq(a, b)),
             Type::Native(a) => matches!(other, Type::Native(b) if Rc::ptr_eq(a, b)),
-            Type::Signal { args: a, return_type: ra } => {
-                matches!(other, Type::Signal { args: b, return_type: rb } if a == b && ra == rb)
+            Type::Callback { args: a, return_type: ra } => {
+                matches!(other, Type::Callback { args: b, return_type: rb } if a == b && ra == rb)
             }
             Type::Function { return_type: lhs_rt, args: lhs_args } => {
                 matches!(other, Type::Function { return_type: rhs_rt, args: rhs_args } if lhs_rt == rhs_rt && lhs_args == rhs_args)
@@ -103,8 +103,8 @@ impl Display for Type {
             Type::Component(c) => c.id.fmt(f),
             Type::Builtin(b) => b.name.fmt(f),
             Type::Native(b) => b.class_name.fmt(f),
-            Type::Signal { args, return_type } => {
-                write!(f, "signal")?;
+            Type::Callback { args, return_type } => {
+                write!(f, "callback")?;
                 if !args.is_empty() {
                     write!(f, "(")?;
                     for (i, arg) in args.iter().enumerate() {
@@ -351,7 +351,7 @@ impl Type {
             Type::Component(_) => None,
             Type::Builtin(_) => None,
             Type::Native(_) => None,
-            Type::Signal { .. } => None,
+            Type::Callback { .. } => None,
             Type::Function { .. } => None,
             Type::Float32 => None,
             Type::Int32 => None,

@@ -15,7 +15,7 @@ ExtraComponent := Rectangle {
 Extra2 := Rectangle {
     property<int> top_level;
     property<int> value;
-    signal update_value;
+    callback update_value;
     for aaa[r] in [[10, top_level], [2, 3]] : Rectangle {
         width: parent.width;
         height: root.height;

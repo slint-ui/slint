@@ -13,20 +13,20 @@ LICENSE END */
 
 namespace sixtyfps {
 
-template<typename = void()> struct Signal;
+template<typename = void()> struct Callback;
 template<typename Ret, typename... Arg>
-struct Signal<Ret(Arg...)>
+struct Callback<Ret(Arg...)>
 {
-    Signal() { cbindgen_private::sixtyfps_signal_init(&inner); }
-    ~Signal() { cbindgen_private::sixtyfps_signal_drop(&inner); }
-    Signal(const Signal &) = delete;
-    Signal(Signal &&) = delete;
-    Signal &operator=(const Signal &) = delete;
+    Callback() { cbindgen_private::sixtyfps_callback_init(&inner); }
+    ~Callback() { cbindgen_private::sixtyfps_callback_drop(&inner); }
+    Callback(const Callback &) = delete;
+    Callback(Callback &&) = delete;
+    Callback &operator=(const Callback &) = delete;
 
     template<typename F>
     void set_handler(F binding) const
     {
-        cbindgen_private::sixtyfps_signal_set_handler(
+        cbindgen_private::sixtyfps_callback_set_handler(
                 &inner,
                 [](void *user_data, const void *arg) {
                     auto *p = reinterpret_cast<const Pair*>(arg);
@@ -40,30 +40,30 @@ struct Signal<Ret(Arg...)>
     {
         Ret r{};
         Pair p = std::pair{ &r, Tuple{arg...} };
-        cbindgen_private::sixtyfps_signal_emit(&inner, &p);
+        cbindgen_private::sixtyfps_callback_emit(&inner, &p);
         return r;
     }
 
 private:
     using Tuple = std::tuple<Arg...>;
     using Pair = std::pair<Ret *, Tuple>;
-    cbindgen_private::SignalOpaque inner;
+    cbindgen_private::CallbackOpaque inner;
 };
 
 
 template<typename... Arg>
-struct Signal<void(Arg...)>
+struct Callback<void(Arg...)>
 {
-    Signal() { cbindgen_private::sixtyfps_signal_init(&inner); }
-    ~Signal() { cbindgen_private::sixtyfps_signal_drop(&inner); }
-    Signal(const Signal &) = delete;
-    Signal(Signal &&) = delete;
-    Signal &operator=(const Signal &) = delete;
+    Callback() { cbindgen_private::sixtyfps_callback_init(&inner); }
+    ~Callback() { cbindgen_private::sixtyfps_callback_drop(&inner); }
+    Callback(const Callback &) = delete;
+    Callback(Callback &&) = delete;
+    Callback &operator=(const Callback &) = delete;
 
     template<typename F>
     void set_handler(F binding) const
     {
-        cbindgen_private::sixtyfps_signal_set_handler(
+        cbindgen_private::sixtyfps_callback_set_handler(
                 &inner,
                 [](void *user_data, const void *arg) {
                     std::apply(*reinterpret_cast<F *>(user_data),
@@ -76,12 +76,12 @@ struct Signal<void(Arg...)>
     void emit(const Arg &...arg) const
     {
         Tuple tuple{arg...};
-        cbindgen_private::sixtyfps_signal_emit(&inner, &tuple);
+        cbindgen_private::sixtyfps_callback_emit(&inner, &tuple);
     }
 
 private:
     using Tuple = std::tuple<Arg...>;
-    cbindgen_private::SignalOpaque inner;
+    cbindgen_private::CallbackOpaque inner;
 };
 
 

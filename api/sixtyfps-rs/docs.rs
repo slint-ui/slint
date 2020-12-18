@@ -56,7 +56,7 @@ pub mod generated_code {
     /// SampleComponent := Window {
     ///     property<int> counter;
     ///     property<string> user_name;
-    ///     signal hello;
+    ///     callback hello;
     ///     /// ... maybe more elements here
     /// }
     /// ```
@@ -83,13 +83,13 @@ pub mod generated_code {
         }
         /// Assigns a new value to the `user_name` property.
         pub fn set_user_name(&self, value: re_exports::SharedString) {}
-        /// For each signal declared at the root of the component, a function to emit that
-        /// signal is generated. This is the function that emits the `hello` signal declared
+        /// For each callback declared at the root of the component, a function to emit that
+        /// callback is generated. This is the function that emits the `hello` callback declared
         /// in the `.60` design markup.
         pub fn emit_hello(&self) {}
-        /// For each signal declared at the root of the component, a function connect to that signal
+        /// For each callback declared at the root of the component, a function connect to that callback
         /// is generated. This is the function that registers the function f as callback when the
-        /// signal `hello` is emitted. In order to access
+        /// callback `hello` is emitted. In order to access
         /// the component in the callback, you'd typically capture a weak reference obtained using
         /// [`IntoWeak::as_weak`]
         /// and then upgrade it to a strong reference when the callback is run:

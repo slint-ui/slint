@@ -45,7 +45,7 @@ struct Theme := {
 
 Checkbox := Rectangle {
     property <bool> checked;
-    signal toggled(bool);
+    callback toggled(bool);
     property<color> checked_color;
     property<color> unchecked_color;
 
@@ -116,9 +116,9 @@ Checkbox := Rectangle {
 
 
 export MainWindow := Window {
-    signal piece_clicked(int);
-    signal reset();
-    signal enable_auto_mode(bool);
+    callback piece_clicked(int);
+    callback reset();
+    callback enable_auto_mode(bool);
     property <bool> auto_play;
     property <int> moves;
     property <int> tiles-left;

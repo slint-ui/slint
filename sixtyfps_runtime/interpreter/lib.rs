@@ -40,7 +40,7 @@ impl<'id> dynamic_component::ComponentDescription<'id> {
         self.original.id.as_str()
     }
 
-    /// List of publicly declared properties or signal
+    /// List of publicly declared properties or callback
     pub fn properties(&self) -> HashMap<String, sixtyfps_compilerlib::langtype::Type> {
         self.original
             .root_element
@@ -127,7 +127,7 @@ impl<'id> dynamic_component::ComponentDescription<'id> {
     /// Return the value of a property
     ///
     /// Returns an error if the component is not an instance corresponding to this ComponentDescription,
-    /// or if a signal with this name does not exist in this component
+    /// or if a callback with this name does not exist in this component
     pub fn get_property(&self, component: ComponentRefPin, name: &str) -> Result<Value, ()> {
         if !core::ptr::eq((&self.ct) as *const _, component.get_vtable() as *const _) {
             return Err(());
@@ -149,11 +149,11 @@ impl<'id> dynamic_component::ComponentDescription<'id> {
         }
     }
 
-    /// Sets an handler for a signal
+    /// Sets an handler for a callback
     ///
     /// Returns an error if the component is not an instance corresponding to this ComponentDescription,
     /// or if the property with this name does not exist in this component
-    pub fn set_signal_handler(
+    pub fn set_callback_handler(
         &self,
         component: Pin<ComponentRef>,
         name: &str,
@@ -162,17 +162,17 @@ impl<'id> dynamic_component::ComponentDescription<'id> {
         if !core::ptr::eq((&self.ct) as *const _, component.get_vtable() as *const _) {
             return Err(());
         }
-        let x = self.custom_signals.get(name).ok_or(())?;
+        let x = self.custom_callbacks.get(name).ok_or(())?;
         let sig = x.apply(unsafe { &*(component.as_ptr() as *const dynamic_type::Instance) });
         sig.set_handler(handler);
         Ok(())
     }
 
-    /// Emits the specified signal
+    /// Emits the specified callback
     ///
     /// Returns an error if the component is not an instance corresponding to this ComponentDescription,
-    /// or if the signal with this name does not exist in this component
-    pub fn emit_signal(
+    /// or if the callback with this name does not exist in this component
+    pub fn emit_callback(
         &self,
         component: ComponentRefPin,
         name: &str,
@@ -181,7 +181,7 @@ impl<'id> dynamic_component::ComponentDescription<'id> {
         if !core::ptr::eq((&self.ct) as *const _, component.get_vtable() as *const _) {
             return Err(());
         }
-        let x = self.custom_signals.get(name).ok_or(())?;
+        let x = self.custom_callbacks.get(name).ok_or(())?;
         let sig = x.apply(unsafe { &*(component.as_ptr() as *const dynamic_type::Instance) });
         Ok(sig.emit(args))
     }

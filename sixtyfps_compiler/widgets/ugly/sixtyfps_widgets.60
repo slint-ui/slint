@@ -31,7 +31,7 @@ export global StyleMetrics := {
 }
 
 export Button := Rectangle {
-    signal clicked;
+    callback clicked;
     property<string> text;
     property<length> font-size;
     property<bool> pressed: self.enabled && touch_area.pressed;
@@ -73,7 +73,7 @@ export Button := Rectangle {
 }
 
 export CheckBox := Rectangle {
-    signal toggled;
+    callback toggled;
     property <string> text;
     property <bool> checked;
     property<bool> enabled: true;
@@ -129,7 +129,7 @@ export CheckBox := Rectangle {
 }
 
 SpinBoxButton := Rectangle {
-    signal clicked;
+    callback clicked;
     property<string> text;
     property <length> font-size;
     property<bool> enabled;
@@ -159,7 +159,7 @@ SpinBoxButton := Rectangle {
 }
 
 export SpinBox := Rectangle {
-    signal toggled;
+    callback toggled;
     property <string> text;
     property <bool> checked;
     property <int> value;
@@ -296,8 +296,8 @@ export LineEdit := Rectangle {
     property <string> placeholder_text;
     property <bool> has_focus: input.has_focus;
     property <bool> enabled: true;
-    signal accepted(string);
-    signal edited(string);
+    callback accepted(string);
+    callback edited(string);
 
     border_color: root.has_focus ? Palette.highlight_background : #ffffff;
     border_radius: 1px;

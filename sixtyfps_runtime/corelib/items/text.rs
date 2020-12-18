@@ -32,7 +32,7 @@ use crate::item_rendering::CachedRenderingData;
 use crate::layout::LayoutInfo;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
-use crate::{Property, SharedString, Signal};
+use crate::{Property, SharedString, Callback};
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use sixtyfps_corelib_macros::*;
@@ -217,8 +217,8 @@ pub struct TextInput {
     pub cursor_visible: Property<bool>,
     pub has_focus: Property<bool>,
     pub enabled: Property<bool>,
-    pub accepted: Signal<()>,
-    pub edited: Signal<()>,
+    pub accepted: Callback<()>,
+    pub edited: Callback<()>,
     pub pressed: std::cell::Cell<bool>,
     pub cached_rendering_data: CachedRenderingData,
 }

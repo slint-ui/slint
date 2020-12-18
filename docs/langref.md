@@ -298,35 +298,35 @@ Example := Rectangle {
 }
 ```
 
-## Signal
+## Callback
 
-Components may declare signals, that allow it to communicate changes of state to the outside. Signals are emitted by "calling" them
-and you can react to signal emissions by declaring a handler using the `=>` arrow syntax. The built-in `TouchArea`
-element comes with a `clicked` signal, that's emitted when the user touches the rectangular area covered by the element, or clicks into
-it with the mouse. In the example below, the emission of that signal is forwarded to another custom signal (`hello`) by declaring a
-handler and emitting our custom signal:
+Components may declare callbacks, that allow it to communicate changes of state to the outside. Callbacks are emitted by "calling" them
+and you can react to callback emissions by declaring a handler using the `=>` arrow syntax. The built-in `TouchArea`
+element comes with a `clicked` callback, that's emitted when the user touches the rectangular area covered by the element, or clicks into
+it with the mouse. In the example below, the emission of that callback is forwarded to another custom callback (`hello`) by declaring a
+handler and emitting our custom callback:
 
 ```60
 Example := Rectangle {
-    // declare a signal
-    signal hello;
+    // declare a callback
+    callback hello;
 
     area := TouchArea {
         // sets a handler with `=>`
         clicked => {
-            // emit the signal
+            // emit the callback
             root.hello()
         }
     }
 }
 ```
 
-It is also possible to add parameters to the signal.
+It is also possible to add parameters to the callback.
 
 ```60
 Example := Rectangle {
-    // declares a signal
-    signal hello(int, string);
+    // declares a callback
+    callback hello(int, string);
     hello(aa, bb) => { /* ... */ }
 }
 ```
@@ -336,8 +336,8 @@ And return value.
 
 ```60
 Example := Rectangle {
-    // declares a signal with a return value
-    signal hello(int, int) -> int;
+    // declares a callback with a return value
+    callback hello(int, int) -> int;
     hello(aa, bb) => { aa + bb }
 }
 ```
@@ -417,7 +417,7 @@ It is useful to have arrays of objects. An Object is between curly braces: `{ a:
 
 ## Statements
 
-Inside signal handlers, more complicated statements are allowed:
+Inside callback handlers, more complicated statements are allowed:
 
 Assignment:
 
@@ -431,10 +431,10 @@ Self-assignement with `+=` `-=` `*=` `/=`
 clicked => { some_property += 42; }
 ```
 
-Calling a signal
+Calling a callback
 
 ```
-clicked => { root.some_signal(); }
+clicked => { root.some_callback(); }
 ```
 
 Conditional expression

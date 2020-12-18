@@ -110,7 +110,7 @@ pub fn parse_element(p: &mut impl Parser) -> bool {
 /// for xx in model: Sub {}
 /// if (condition) : Sub {}
 /// clicked => {}
-/// signal foobar;
+/// callback foobar;
 /// property<int> width;
 /// animate someProp { }
 /// animate * { }
@@ -127,14 +127,14 @@ fn parse_element_content(p: &mut impl Parser) {
                 SyntaxKind::Colon => parse_property_binding(&mut *p),
                 SyntaxKind::ColonEqual | SyntaxKind::LBrace => parse_sub_element(&mut *p),
                 SyntaxKind::FatArrow | SyntaxKind::LParent if p.peek().as_str() != "if" => {
-                    parse_signal_connection(&mut *p)
+                    parse_callback_connection(&mut *p)
                 }
                 SyntaxKind::DoubleArrow => parse_two_way_binding(&mut *p),
                 SyntaxKind::Identifier if p.peek().as_str() == "for" => {
                     parse_repeated_element(&mut *p);
                 }
-                SyntaxKind::Identifier if p.peek().as_str() == "signal" => {
-                    parse_signal_declaration(&mut *p);
+                SyntaxKind::Identifier if p.peek().as_str() == "callback" => {
+                    parse_callback_declaration(&mut *p);
                 }
                 SyntaxKind::Identifier | SyntaxKind::Star if p.peek().as_str() == "animate" => {
                     parse_property_animation(&mut *p);
@@ -325,14 +325,14 @@ pub fn parse_code_block(p: &mut impl Parser) {
 }
 
 #[cfg_attr(test, parser_test)]
-/// ```test,SignalConnection
+/// ```test,CallbackConnection
 /// clicked => {}
 /// clicked() => { foo; }
 /// mouse_move(x, y) => {}
 /// mouse_move(x, y, ) => { bar; goo; }
 /// ```
-fn parse_signal_connection(p: &mut impl Parser) {
-    let mut p = p.start_node(SyntaxKind::SignalConnection);
+fn parse_callback_connection(p: &mut impl Parser) {
+    let mut p = p.start_node(SyntaxKind::CallbackConnection);
     p.consume(); // the identifier
     if p.test(SyntaxKind::LParent) {
         while p.peek().kind() != SyntaxKind::RParent {
@@ -364,20 +364,20 @@ fn parse_two_way_binding(p: &mut impl Parser) {
 }
 
 #[cfg_attr(test, parser_test)]
-/// ```test,SignalDeclaration
-/// signal foobar;
-/// signal my_signal();
-/// signal foo(int, string);
-/// signal one_arg({ a: string, b: string});
-/// signal end_coma(a, b, c,);
-/// signal with_return(a, b) -> int;
-/// signal with_return2({a: string}) -> { a: string };
+/// ```test,CallbackDeclaration
+/// callback foobar;
+/// callback my_callback();
+/// callback foo(int, string);
+/// callback one_arg({ a: string, b: string});
+/// callback end_coma(a, b, c,);
+/// callback with_return(a, b) -> int;
+/// callback with_return2({a: string}) -> { a: string };
 /// ```
 /// Must consume at least one token
-fn parse_signal_declaration(p: &mut impl Parser) {
-    debug_assert_eq!(p.peek().as_str(), "signal");
-    let mut p = p.start_node(SyntaxKind::SignalDeclaration);
-    p.consume(); // "signal"
+fn parse_callback_declaration(p: &mut impl Parser) {
+    debug_assert_eq!(p.peek().as_str(), "callback");
+    let mut p = p.start_node(SyntaxKind::CallbackDeclaration);
+    p.consume(); // "callback"
     {
         let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
         p.expect(SyntaxKind::Identifier);
@@ -395,9 +395,9 @@ fn parse_signal_declaration(p: &mut impl Parser) {
             parse_type(&mut *p);
         }
     } else if p.test(SyntaxKind::Arrow) {
-        // Force signal with return value to also have parentheses, we could remove this
+        // Force callback with return value to also have parentheses, we could remove this
         // restriction in the future
-        p.error("Signal with return value must be declared with parentheses e.g. 'signal foo() -> int;'");
+        p.error("Callback with return value must be declared with parentheses e.g. 'callback foo() -> int;'");
         parse_type(&mut *p);
     }
     p.expect(SyntaxKind::Semicolon);

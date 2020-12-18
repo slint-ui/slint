@@ -32,7 +32,7 @@ fn default_config() -> cbindgen::Config {
         cpp_compat: true,
         documentation: true,
         export: cbindgen::ExportConfig {
-            rename: [("Signal".into(), "Signal<>".into())].iter().cloned().collect(),
+            rename: [("Callback".into(), "Callback<>".into())].iter().cloned().collect(),
             ..Default::default()
         },
         ..Default::default()
@@ -78,11 +78,11 @@ fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
         "Property",
         "Slice",
         "PropertyHandleOpaque",
-        "Signal",
+        "Callback",
         "sixtyfps_property_listener_scope_evaluate",
         "sixtyfps_property_listener_scope_is_dirty",
         "PropertyTrackerOpaque",
-        "SignalOpaque",
+        "CallbackOpaque",
         "ComponentWindow",
     ]
     .iter()
@@ -123,7 +123,7 @@ fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
     cbindgen::Builder::new()
         .with_config(properties_config)
         .with_src(crate_dir.join("properties.rs"))
-        .with_src(crate_dir.join("signals.rs"))
+        .with_src(crate_dir.join("callbacks.rs"))
         .with_after_include("namespace sixtyfps { class Color; }")
         .generate()
         .context("Unable to generate bindings for sixtyfps_properties_internal.h")?
@@ -223,7 +223,7 @@ fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
         .with_include("sixtyfps_string.h")
         .with_include("sixtyfps_sharedarray.h")
         .with_include("sixtyfps_properties.h")
-        .with_include("sixtyfps_signals.h")
+        .with_include("sixtyfps_callbacks.h")
         .with_include("sixtyfps_resource.h")
         .with_include("sixtyfps_color.h")
         .with_include("sixtyfps_pathdata.h")

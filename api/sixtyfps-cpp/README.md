@@ -98,7 +98,7 @@ export struct TodoItem := {
 }
 
 export MainWindow := Window {
-    signal todo_added(string);
+    callback todo_added(string);
     property <[TodoItem]> todo_model;
 
     GridLayout {
@@ -162,7 +162,7 @@ struct MainWindow {
     inline void set_todo_model (const std::shared_ptr<sixtyfps::Model<TodoItem>> &value) const;
 
     inline void emit_todo_added (sixtyfps::SharedString arg_0) const;
-    template<typename Functor> inline void on_todo_added (Functor && signal_handler) const;
+    template<typename Functor> inline void on_todo_added (Functor && callback_handler) const;
 
     //...
 }
