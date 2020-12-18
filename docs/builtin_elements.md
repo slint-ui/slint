@@ -16,6 +16,10 @@ These properties are valid on all visible items
 
 Window is the root of what is on the screen
 
+### Properties
+
+* **`title`** (*string*): The window title that is shown in the title bar.
+* **`color`** (*color*): The background color of the Rectangle. (default value: depends on the style)
 
 ## `Rectangle`
 

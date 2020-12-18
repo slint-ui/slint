@@ -100,6 +100,8 @@ export Flickable := _ {
 export Window := _ {
     property <length> width;
     property <length> height;
+    property <color> color: #fff;
+    property <string> title: "SixtyFPS Window";
 }
 
 export TextInput := _ {

@@ -15,7 +15,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 
  - It needs to be changed in this module
  - In the compiler: builtins.60
- - In the interpreter: dynamic_component.rs
+ - In the interpreter (new item only): dynamic_component.rs
  - For the C++ code (new item only): the cbindgen.rs to export the new item, and the `using` declaration in sixtyfps.h
  - Don't forget to update the documentation
 */
@@ -33,7 +33,7 @@ use super::item_rendering::CachedRenderingData;
 use super::layout::LayoutInfo;
 use crate::component::ComponentVTable;
 #[cfg(feature = "rtti")]
-use crate::rtti::*;
+use crate::{rtti::*, SharedString};
 use crate::{Callback, Property};
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
@@ -706,6 +706,8 @@ pub struct PropertyAnimation {
 pub struct Window {
     pub width: Property<f32>,
     pub height: Property<f32>,
+    pub color: Property<Color>,
+    pub title: Property<SharedString>,
     pub cached_rendering_data: CachedRenderingData,
 }
 

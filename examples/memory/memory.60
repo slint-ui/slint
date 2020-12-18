@@ -82,6 +82,8 @@ MemoryTile := Rectangle {
 }
 
 export MainWindow := Window {
+    title: "Memory Game - SixtyFPS Demo";
+
     callback check_if_pair_solved();
     property <bool> disable_tiles;
 

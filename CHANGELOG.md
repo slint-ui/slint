@@ -7,6 +7,9 @@ All notable changes to this project will be documented in this file.
  - Renamed "signal" to "callback"
  - Renamed "SharedArray" to "SharedVector" in the C++/Rust API
 
+### Added
+ - title property to the Window element
+
 
 ## [0.0.4] - 2020-12-04
 

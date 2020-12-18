@@ -116,6 +116,8 @@ Checkbox := Rectangle {
 
 
 export MainWindow := Window {
+    title: "Slide Puzzle - SixtyFPS Demo";
+
     callback piece_clicked(int);
     callback reset();
     callback enable_auto_mode(bool);

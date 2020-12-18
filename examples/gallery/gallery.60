@@ -12,6 +12,7 @@ import { Button, CheckBox, SpinBox, Slider, GroupBox, LineEdit, StandardListView
 App := Window {
     width: 500px;
     height: 550px;
+    title: "SixtyFPS Gallery";
     Rectangle {
         color: #ecedeb;
         width: parent.width;

@@ -526,7 +526,8 @@ pub struct GraphicsWindow<Backend: GraphicsBackend + 'static> {
     cursor_blinker: std::cell::RefCell<pin_weak::rc::PinWeak<TextCursorBlinker>>,
     keyboard_modifiers: std::cell::Cell<KeyboardModifiers>,
     component: std::cell::RefCell<ComponentWeak>,
-    layout_listener: Pin<Rc<PropertyTracker>>,
+    /// Gets dirty when the layout restrictions, or some other property of the windows change
+    meta_property_listener: Pin<Rc<PropertyTracker>>,
     focus_item: std::cell::RefCell<ItemWeak>,
     mouse_input_state: std::cell::Cell<crate::input::MouseInputState>,
     /// Current popup's component and position
@@ -552,7 +553,7 @@ impl<Backend: GraphicsBackend + 'static> GraphicsWindow<Backend> {
             cursor_blinker: Default::default(),
             keyboard_modifiers: Default::default(),
             component: Default::default(),
-            layout_listener: Rc::pin(Default::default()),
+            meta_property_listener: Rc::pin(Default::default()),
             focus_item: Default::default(),
             mouse_input_state: Default::default(),
             active_popup: Default::default(),
@@ -596,6 +597,17 @@ impl<Backend: GraphicsBackend + 'static> GraphicsWindow<Backend> {
             }
         }
     }
+    fn apply_window_properties(&self, window_item: Pin<&crate::items::Window>) {
+        match &*self.map_state.borrow() {
+            GraphicsWindowBackendState::Unmapped => {}
+            GraphicsWindowBackendState::Mapped(window) => {
+                let backend = window.backend.borrow();
+                backend.window().set_title(
+                    crate::items::Window::FIELD_OFFSETS.title.apply_pin(window_item).get().as_str(),
+                );
+            }
+        }
+    }
 }
 
 impl<Backend: GraphicsBackend> Drop for GraphicsWindow<Backend> {
@@ -622,10 +634,15 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
         let component = ComponentRc::borrow_pin(&component_rc);
 
         {
-            if self.layout_listener.as_ref().is_dirty() {
-                self.layout_listener.as_ref().evaluate(|| {
+            if self.meta_property_listener.as_ref().is_dirty() {
+                self.meta_property_listener.as_ref().evaluate(|| {
                     self.apply_geometry_constraint(component.as_ref().layout_info());
                     component.as_ref().apply_layout(self.get_geometry());
+
+                    let root_item = component.as_ref().get_item_ref(0);
+                    if let Some(window_item) = ItemRef::downcast_pin(root_item) {
+                        self.apply_window_properties(window_item);
+                    }
 
                     if let Some((popup, pos)) = &*self.active_popup.borrow() {
                         let popup = ComponentRc::borrow_pin(popup);
@@ -788,9 +805,18 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
             return;
         }
 
-        let id = {
-            let window_builder = winit::window::WindowBuilder::new().with_title("SixtyFPS Window");
+        let component = self.component.borrow().upgrade().unwrap();
+        let component = ComponentRc::borrow_pin(&component);
+        let root_item = component.as_ref().get_item_ref(0);
 
+        let window_title = if let Some(window_item) = ItemRef::downcast_pin(root_item) {
+            crate::items::Window::FIELD_OFFSETS.title.apply_pin(window_item).get().to_string()
+        } else {
+            "SixtyFPS Window".to_string()
+        };
+        let window_builder = winit::window::WindowBuilder::new().with_title(window_title);
+
+        let id = {
             let backend = self.window_factory.as_ref()(&event_loop, window_builder);
 
             let platform_window = backend.window();
@@ -812,10 +838,6 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
                 let existing_size = platform_window.inner_size();
 
                 let mut new_size = existing_size;
-
-                let component = self.component.borrow().upgrade().unwrap();
-                let component = ComponentRc::borrow_pin(&component);
-                let root_item = component.as_ref().get_item_ref(0);
 
                 if let Some(window_item) = ItemRef::downcast_pin(root_item) {
                     let width =
@@ -974,7 +996,7 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
     }
 
     fn show_popup(&self, popup: &ComponentRc, position: Point) {
-        self.layout_listener.set_dirty();
+        self.meta_property_listener.set_dirty();
         *self.active_popup.borrow_mut() = Some((popup.clone(), position));
     }
 
