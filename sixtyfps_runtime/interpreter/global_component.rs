@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use sixtyfps_compilerlib::{langtype::Type, object_tree::Component};
-use sixtyfps_corelib::{rtti, Property, Callback};
+use sixtyfps_corelib::{rtti, Callback, Property};
 
 use crate::eval;
 

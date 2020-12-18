@@ -271,8 +271,9 @@ fn generate_component(
             });
 
             if property_decl.expose_in_public_api {
-                let args_name =
-                    (0..callback_args.len()).map(|i| format_ident!("arg_{}", i)).collect::<Vec<_>>();
+                let args_name = (0..callback_args.len())
+                    .map(|i| format_ident!("arg_{}", i))
+                    .collect::<Vec<_>>();
                 let emitter_ident = format_ident!("emit_{}", prop_name);
                 property_and_callback_accessors.push(
                     quote!(
@@ -286,7 +287,8 @@ fn generate_component(
                 );
 
                 let on_ident = format_ident!("on_{}", prop_name);
-                let args_index = (0..callback_args.len()).map(proc_macro2::Literal::usize_unsuffixed);
+                let args_index =
+                    (0..callback_args.len()).map(proc_macro2::Literal::usize_unsuffixed);
                 property_and_callback_accessors.push(
                     quote!(
                         #[allow(dead_code)]

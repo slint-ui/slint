@@ -20,8 +20,8 @@ use sixtyfps_compilerlib::object_tree::ElementRc;
 use sixtyfps_corelib as corelib;
 use sixtyfps_corelib::rtti::AnimatedBindingKind;
 use sixtyfps_corelib::{
-    graphics::PathElement, items::ItemRef, items::PropertyAnimation, Color, PathData, Resource,
-    SharedVector, SharedString, Callback,
+    graphics::PathElement, items::ItemRef, items::PropertyAnimation, Callback, Color, PathData,
+    Resource, SharedString, SharedVector,
 };
 use std::collections::HashMap;
 use std::rc::Rc;

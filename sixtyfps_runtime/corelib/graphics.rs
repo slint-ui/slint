@@ -1336,7 +1336,8 @@ pub(crate) mod ffi {
         first_coordinate: *const Point,
         coordinate_count: usize,
     ) {
-        let events = crate::SharedVector::from(std::slice::from_raw_parts(first_event, event_count));
+        let events =
+            crate::SharedVector::from(std::slice::from_raw_parts(first_event, event_count));
         core::ptr::write(out_events as *mut crate::SharedVector<PathEvent>, events.clone());
         let coordinates = crate::SharedVector::from(std::slice::from_raw_parts(
             first_coordinate,

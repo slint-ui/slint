@@ -30,12 +30,12 @@ pub mod layout;
 #[cfg(feature = "rtti")]
 pub mod rtti;
 
+pub mod callbacks;
 pub mod component;
 pub mod items;
 pub mod model;
 pub mod properties;
 pub mod sharedvector;
-pub mod callbacks;
 pub mod string;
 
 #[doc(inline)]

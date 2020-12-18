@@ -34,7 +34,7 @@ use super::layout::LayoutInfo;
 use crate::component::ComponentVTable;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
-use crate::{Property, Callback};
+use crate::{Callback, Property};
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use sixtyfps_corelib_macros::*;

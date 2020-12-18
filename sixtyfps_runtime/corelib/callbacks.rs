@@ -96,7 +96,10 @@ pub(crate) mod ffi {
 
     /// Emit the callback
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_callback_emit(sig: *const CallbackOpaque, arg: *const c_void) {
+    pub unsafe extern "C" fn sixtyfps_callback_emit(
+        sig: *const CallbackOpaque,
+        arg: *const c_void,
+    ) {
         let sig = &*(sig as *const Callback<c_void>);
         sig.emit(&*arg);
     }

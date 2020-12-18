@@ -36,7 +36,7 @@ use sixtyfps_corelib::item_rendering::CachedRenderingData;
 use sixtyfps_corelib::items::{Item, ItemConsts, ItemRc, ItemVTable};
 use sixtyfps_corelib::layout::LayoutInfo;
 use sixtyfps_corelib::rtti::*;
-use sixtyfps_corelib::{ItemVTable_static, Property, SharedVector, SharedString, Callback};
+use sixtyfps_corelib::{Callback, ItemVTable_static, Property, SharedString, SharedVector};
 use sixtyfps_corelib_macros::*;
 use std::rc::Rc;
 

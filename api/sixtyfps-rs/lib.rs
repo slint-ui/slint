@@ -175,6 +175,7 @@ pub mod re_exports {
     pub use once_cell::sync::Lazy;
     pub use once_cell::unsync::OnceCell;
     pub use sixtyfps_corelib::animations::EasingCurve;
+    pub use sixtyfps_corelib::callbacks::Callback;
     pub use sixtyfps_corelib::component::{
         init_component_items, Component, ComponentRefPin, ComponentVTable,
     };
@@ -195,13 +196,12 @@ pub mod re_exports {
     pub use sixtyfps_corelib::layout::*;
     pub use sixtyfps_corelib::model::*;
     pub use sixtyfps_corelib::properties::{set_state_binding, Property, PropertyTracker};
-    pub use sixtyfps_corelib::callbacks::Callback;
     pub use sixtyfps_corelib::slice::Slice;
     pub use sixtyfps_corelib::Color;
     pub use sixtyfps_corelib::ComponentVTable_static;
     pub use sixtyfps_corelib::Resource;
-    pub use sixtyfps_corelib::SharedVector;
     pub use sixtyfps_corelib::SharedString;
+    pub use sixtyfps_corelib::SharedVector;
     pub use sixtyfps_rendering_backend_default::native_widgets::*;
     pub use vtable::{self, *};
 }

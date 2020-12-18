@@ -32,7 +32,7 @@ use crate::item_rendering::CachedRenderingData;
 use crate::layout::LayoutInfo;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
-use crate::{Property, SharedString, Callback};
+use crate::{Callback, Property, SharedString};
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use sixtyfps_corelib_macros::*;
