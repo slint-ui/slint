@@ -33,7 +33,6 @@ use crate::{
 };
 
 use auto_enums::auto_enum;
-use cgmath::Matrix4;
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use sixtyfps_corelib_macros::*;
@@ -386,7 +385,7 @@ pub trait Frame {
     fn render_primitive(
         &mut self,
         primitive: &Self::LowLevelRenderingPrimitive,
-        transform: &Matrix4<f32>,
+        translation: Point,
         variables: RenderingVariables,
     ) -> Vec<Self::LowLevelRenderingPrimitive>;
 }

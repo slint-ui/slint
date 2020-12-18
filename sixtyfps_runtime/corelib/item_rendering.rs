@@ -18,7 +18,6 @@ use crate::component::ComponentRc;
 use crate::eventloop::ComponentWindow;
 use crate::item_tree::ItemVisitorResult;
 use crate::slice::Slice;
-use cgmath::{Matrix4, Vector3};
 use std::cell::{Cell, RefCell};
 
 /// This structure must be present in items that are Rendered and contains information.
@@ -88,7 +87,6 @@ pub(crate) fn render_component_items<Backend: GraphicsBackend>(
     window: &std::rc::Rc<GraphicsWindow<Backend>>,
     origin: crate::graphics::Point,
 ) {
-    let transform = Matrix4::from_translation(Vector3::new(origin.x, origin.y, 0.));
     let window = ComponentWindow::new(window.clone());
 
     let frame = RefCell::new(frame);
@@ -96,10 +94,9 @@ pub(crate) fn render_component_items<Backend: GraphicsBackend>(
     crate::item_tree::visit_items_with_post_visit(
         component,
         crate::item_tree::TraversalOrder::BackToFront,
-        |_, item, _, transform| {
+        |_, item, _, translation| {
             let origin = item.as_ref().geometry().origin;
-            let transform =
-                transform * Matrix4::from_translation(Vector3::new(origin.x, origin.y, 0.));
+            let translation = *translation + euclid::Vector2D::new(origin.x, origin.y);
 
             let cached_rendering_data = item.cached_rendering_data_offset();
             let cleanup_primitives = if cached_rendering_data.cache_ok.get() {
@@ -108,21 +105,21 @@ pub(crate) fn render_component_items<Backend: GraphicsBackend>(
                     &cache.get(cached_rendering_data.cache_index.get()).unwrap().primitive;
                 frame.borrow_mut().render_primitive(
                     &primitive,
-                    &transform,
+                    translation,
                     item.as_ref().rendering_variables(&window),
                 )
             } else {
                 Vec::new()
             };
 
-            (ItemVisitorResult::Continue(transform), (transform, cleanup_primitives))
+            (ItemVisitorResult::Continue(translation), (translation, cleanup_primitives))
         },
-        |_, _, (transform, cleanup_primitives)| {
+        |_, _, (translation, cleanup_primitives)| {
             cleanup_primitives.into_iter().for_each(|primitive| {
-                frame.borrow_mut().render_primitive(&primitive, &transform, Default::default());
+                frame.borrow_mut().render_primitive(&primitive, translation, Default::default());
             })
         },
-        transform,
+        origin,
     );
 }
 

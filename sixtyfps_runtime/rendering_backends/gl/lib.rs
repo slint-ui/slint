@@ -820,10 +820,11 @@ impl GraphicsFrame for GLFrame {
     fn render_primitive(
         &mut self,
         primitive: &OpaqueRenderingPrimitive,
-        transform: &Matrix4<f32>,
+        translation: Point,
         variables: RenderingVariables,
     ) -> Vec<OpaqueRenderingPrimitive> {
-        let mut matrix = self.root_matrix * transform;
+        let mut matrix = self.root_matrix
+            * Matrix4::from_translation(cgmath::Vector3::new(translation.x, translation.y, 0.));
 
         if let RenderingVariables::Text { translate, .. } = &variables {
             matrix = matrix
