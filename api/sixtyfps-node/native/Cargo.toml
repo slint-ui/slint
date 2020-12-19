@@ -27,6 +27,7 @@ css-color-parser2 = "1.0.1"
 spin_on = "0.1" #FIXME: remove and delegate to async JS instead
 vtable = { version = "0.1.1", path="../../../helper_crates/vtable" }
 generativity = "1"
+rand = "0.7.3"
 
 [build-dependencies]
 neon-build = "0.6.0"

@@ -9,6 +9,7 @@
 LICENSE END */
 use core::cell::RefCell;
 use neon::prelude::*;
+use rand::RngCore;
 use sixtyfps_compilerlib::langtype::Type;
 use sixtyfps_corelib::Resource;
 
@@ -491,26 +492,41 @@ declare_types! {
     }
 }
 
+fn singleshot_timer_property(id: u32) -> String {
+    format!("$__sixtyfps_singleshot_timer_{}", id)
+}
+
 fn singleshot_timer(mut cx: FunctionContext) -> JsResult<JsValue> {
     let duration_in_msecs = cx.argument::<JsNumber>(0)?.value() as u64;
     let handler = cx.argument::<JsFunction>(1)?;
 
-    let global_persistent_context = persistent_context::PersistentContext::global(&mut cx)?;
+    let global_object: Handle<JsObject> = cx.global().downcast().unwrap();
+    let unique_timer_property = {
+        let mut rng = rand::thread_rng();
+        loop {
+            let id = rng.next_u32();
+            let key = singleshot_timer_property(id);
+            if global_object.get(&mut cx, &*key)?.is_a::<JsUndefined>() {
+                break key;
+            }
+        }
+    };
 
     let handler_value = handler.as_value(&mut cx);
-    let handler_idx = global_persistent_context.allocate(&mut cx, handler_value);
+    global_object.set(&mut cx, &*unique_timer_property, handler_value).unwrap();
     let callback = move || {
         run_with_global_contect(&move |cx, _| {
-            let global_persistent_context =
-                persistent_context::PersistentContext::global(cx).unwrap();
+            let global_object: Handle<JsObject> = cx.global().downcast().unwrap();
 
-            global_persistent_context
-                .get(cx, handler_idx)
+            let callback = global_object
+                .get(cx, &*unique_timer_property)
                 .unwrap()
                 .downcast::<JsFunction>()
-                .unwrap()
-                .call::<_, _, JsValue, _>(cx, JsUndefined::new(), vec![])
                 .unwrap();
+
+            global_object.set(cx, &*unique_timer_property, JsUndefined::new()).unwrap();
+
+            callback.call::<_, _, JsValue, _>(cx, JsUndefined::new(), vec![]).unwrap();
         });
     };
 
