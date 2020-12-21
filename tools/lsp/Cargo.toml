@@ -1,0 +1,20 @@
+[package]
+name = "sixtyfps-lsp"
+version = "0.0.4"
+authors = ["SixtyFPS <info@sixtyfps.io>"]
+edition = "2018"
+license = "GPL-3.0-only"
+description = "SixtyFPS LSP server"
+repository = "https://github.com/sixtyfpsui/sixtyfps"
+homepage = "https://sixtyfps.io"
+
+[[bin]]
+name = "sixtyfps-lsp"
+path = "main.rs"
+
+[dependencies]
+sixtyfps-compilerlib = { version = "=0.0.4", path = "../../sixtyfps_compiler"}
+lsp-server = "0.5"
+lsp-types = "0.83"
+serde_json = "1.0.60"
+serde = "1.0.118"

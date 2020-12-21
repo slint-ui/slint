@@ -2,19 +2,33 @@
     "name": "sixtyfps",
     "version": "0.0.4",
     "engines": {
-        "vscode": "^1.31"
+        "vscode": "^1.43.0"
     },
     "publisher": "SixtyFPS",
+    "_activationEvents": [
+        "onLanguage:sixtyfps"
+    ],
     "contributes": {
-        "languages": [{
-            "id": "sixtyfps",
-            "aliases": ["SixtyFPS"],
-            "extensions": [".60"]
-        }],
-        "grammars": [{
-            "language": "sixtyfps",
-            "scopeName": "source.sixtyfps",
-            "path": "./sixtyfps.tmLanguage.json"
-        }]
+        "languages": [
+            {
+                "id": "sixtyfps",
+                "aliases": [
+                    "SixtyFPS"
+                ],
+                "extensions": [
+                    ".60"
+                ]
+            }
+        ],
+        "grammars": [
+            {
+                "language": "sixtyfps",
+                "scopeName": "source.sixtyfps",
+                "path": "./sixtyfps.tmLanguage.json"
+            }
+        ]
+    },
+    "dependencies": {
+        "vscode-languageclient": "^6.1.3"
     }
 }
