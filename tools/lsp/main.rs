@@ -1,19 +1,22 @@
+use std::collections::HashMap;
 use std::path::Path;
 
+use lsp_server::{Connection, Message, Request, RequestId, Response};
 use lsp_types::notification::{DidChangeTextDocument, DidOpenTextDocument, Notification};
-use lsp_types::request::Completion;
-use lsp_types::{
-    request::GotoDefinition, GotoDefinitionResponse, InitializeParams, ServerCapabilities,
-};
+use lsp_types::request::GotoDefinition;
+use lsp_types::request::{Completion, HoverRequest};
 use lsp_types::{
     CompletionItem, CompletionOptions, DidChangeTextDocumentParams, DidOpenTextDocumentParams,
-    HoverProviderCapability, OneOf, Position, PublishDiagnosticsParams, Range,
-    WorkDoneProgressOptions,
+    GotoDefinitionResponse, Hover, HoverProviderCapability, InitializeParams, MarkedString, OneOf,
+    Position, PublishDiagnosticsParams, Range, ServerCapabilities, Url, WorkDoneProgressOptions,
 };
 
-use lsp_server::{Connection, Message, Request, RequestId, Response};
-
 type Error = Box<dyn std::error::Error>;
+
+#[derive(Default)]
+struct DocumentCache {
+    files: HashMap<Url, sixtyfps_compilerlib::parser::syntax_nodes::Document>,
+}
 
 fn main() -> Result<(), Error> {
     let (connection, io_threads) = Connection::stdio();
@@ -41,6 +44,7 @@ fn main() -> Result<(), Error> {
 fn main_loop(connection: &Connection, params: serde_json::Value) -> Result<(), Error> {
     let _params: InitializeParams = serde_json::from_value(params).unwrap();
     eprintln!("starting example main loop");
+    let mut document_cache = DocumentCache::default();
     for msg in &connection.receiver {
         eprintln!("got msg: {:?}", msg);
         match msg {
@@ -48,16 +52,22 @@ fn main_loop(connection: &Connection, params: serde_json::Value) -> Result<(), E
                 if connection.handle_shutdown(&req)? {
                     return Ok(());
                 }
-                handle_request(connection, req)?;
+                handle_request(connection, req, &mut document_cache)?;
             }
             Message::Response(_resp) => {}
-            Message::Notification(notifi) => handle_notification(connection, notifi)?,
+            Message::Notification(notifi) => {
+                handle_notification(connection, notifi, &mut document_cache)?
+            }
         }
     }
     Ok(())
 }
 
-fn handle_request(connection: &Connection, req: Request) -> Result<(), Error> {
+fn handle_request(
+    connection: &Connection,
+    req: Request,
+    document_cache: &mut DocumentCache,
+) -> Result<(), Error> {
     let mut req = Some(req);
     if let Some((id, params)) = cast::<GotoDefinition>(&mut req) {
         eprintln!("got gotoDefinition request #{}: {:?}", id, params);
@@ -70,6 +80,13 @@ fn handle_request(connection: &Connection, req: Request) -> Result<(), Error> {
             CompletionItem::new_simple("Hello".to_string(), "Some detail".to_string()),
             CompletionItem::new_simple("Bye".to_string(), "More detail".to_string()),
         ];
+        let resp = Response::new_ok(id, result);
+        connection.sender.send(Message::Response(resp))?;
+    } else if let Some((id, params)) = cast::<HoverRequest>(&mut req) {
+        let result = Hover {
+            contents: lsp_types::HoverContents::Scalar(MarkedString::String("Test".into())),
+            range: None,
+        };
         let resp = Response::new_ok(id, result);
         connection.sender.send(Message::Response(resp))?;
     };
@@ -92,11 +109,17 @@ fn cast<Kind: lsp_types::request::Request>(
 fn handle_notification(
     connection: &Connection,
     req: lsp_server::Notification,
+    document_cache: &mut DocumentCache,
 ) -> Result<(), Error> {
     match &*req.method {
         DidOpenTextDocument::METHOD => {
             let params: DidOpenTextDocumentParams = serde_json::from_value(req.params)?;
-            reload_document(connection, params.text_document.text, params.text_document.uri)?;
+            reload_document(
+                connection,
+                params.text_document.text,
+                params.text_document.uri,
+                document_cache,
+            )?;
         }
         DidChangeTextDocument::METHOD => {
             let mut params: DidChangeTextDocumentParams = serde_json::from_value(req.params)?;
@@ -104,6 +127,7 @@ fn handle_notification(
                 connection,
                 params.content_changes.pop().unwrap().text,
                 params.text_document.uri,
+                document_cache,
             )?;
         }
         _ => (),
@@ -115,32 +139,63 @@ fn reload_document(
     connection: &Connection,
     content: String,
     uri: lsp_types::Url,
+    document_cache: &mut DocumentCache,
 ) -> Result<(), Error> {
-    let (_node, diag) = sixtyfps_compilerlib::parser::parse(content, Some(Path::new(uri.as_str())));
+    let (doc_node, diag) =
+        sixtyfps_compilerlib::parser::parse(content, Some(Path::new(uri.path())));
 
-    let diagnostics = diag
-        .inner
-        .iter()
-        .map(|d| {
-            lsp_types::Diagnostic::new(
-                to_range(d.line_column(&diag)),
-                Some(lsp_types::DiagnosticSeverity::Error),
-                None,
-                None,
-                d.to_string(),
-                None,
-                None,
-            )
-        })
-        .collect();
+    document_cache.files.insert(uri.clone(), doc_node.clone().into());
 
-    connection.sender.send(Message::Notification(lsp_server::Notification::new(
-        "textDocument/publishDiagnostics".into(),
-        PublishDiagnosticsParams { uri, diagnostics, version: None },
-    )))?;
+    if diag.has_error() {
+        let diagnostics = diag.inner.iter().map(|d| to_lsp_diag(d, &diag)).collect();
+        connection.sender.send(Message::Notification(lsp_server::Notification::new(
+            "textDocument/publishDiagnostics".into(),
+            PublishDiagnosticsParams { uri, diagnostics, version: None },
+        )))?;
+        return Ok(());
+    }
 
-    //sixtyfps_compilerlib::compile_syntax_node(doc_node, diagnostics, compiler_config);
+    let mut compiler_config = sixtyfps_compilerlib::CompilerConfiguration::new(
+        sixtyfps_compilerlib::generator::OutputFormat::Interpreter,
+    );
+    compiler_config.style = Some("ugly".into());
+    let (doc, diag) = spin_on::spin_on(sixtyfps_compilerlib::compile_syntax_node(
+        doc_node,
+        diag,
+        compiler_config,
+    ));
+
+    for file_diag in diag.into_iter() {
+        if file_diag.current_path.is_relative() {
+            continue;
+        }
+        let diagnostics = file_diag.inner.iter().map(|d| to_lsp_diag(d, &file_diag)).collect();
+        connection.sender.send(Message::Notification(lsp_server::Notification::new(
+            "textDocument/publishDiagnostics".into(),
+            PublishDiagnosticsParams {
+                uri: Url::from_file_path(file_diag.current_path.as_path()).unwrap(),
+                diagnostics,
+                version: None,
+            },
+        )))?;
+    }
+
     Ok(())
+}
+
+fn to_lsp_diag(
+    d: &sixtyfps_compilerlib::diagnostics::Diagnostic,
+    file_diag: &sixtyfps_compilerlib::diagnostics::FileDiagnostics,
+) -> lsp_types::Diagnostic {
+    lsp_types::Diagnostic::new(
+        to_range(d.line_column(file_diag)),
+        Some(lsp_types::DiagnosticSeverity::Error),
+        None,
+        None,
+        d.to_string(),
+        None,
+        None,
+    )
 }
 
 fn to_range(span: (usize, usize)) -> Range {
