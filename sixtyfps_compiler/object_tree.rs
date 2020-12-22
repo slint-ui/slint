@@ -843,7 +843,7 @@ fn animation_element_from_node(
 
 #[derive(Default, Debug, Clone)]
 pub struct QualifiedTypeName {
-    members: Vec<String>,
+    pub members: Vec<String>,
 }
 
 impl QualifiedTypeName {

@@ -7,15 +7,25 @@ use lsp_types::request::GotoDefinition;
 use lsp_types::request::{Completion, HoverRequest};
 use lsp_types::{
     CompletionItem, CompletionOptions, DidChangeTextDocumentParams, DidOpenTextDocumentParams,
-    GotoDefinitionResponse, Hover, HoverProviderCapability, InitializeParams, MarkedString, OneOf,
-    Position, PublishDiagnosticsParams, Range, ServerCapabilities, Url, WorkDoneProgressOptions,
+    GotoDefinitionResponse, Hover, HoverProviderCapability, InitializeParams, LocationLink,
+    MarkedString, OneOf, Position, PublishDiagnosticsParams, Range, ServerCapabilities, Url,
+    WorkDoneProgressOptions,
 };
+use sixtyfps_compilerlib::diagnostics::Spanned;
+use sixtyfps_compilerlib::parser::{SyntaxKind, SyntaxNodeWithSourceFile};
 
 type Error = Box<dyn std::error::Error>;
 
+struct FileState {
+    node: sixtyfps_compilerlib::parser::syntax_nodes::Document,
+    newline_offsets: Vec<u32>,
+    doc: sixtyfps_compilerlib::object_tree::Document,
+}
+
 #[derive(Default)]
+/// FIXME: this should be merged with the TypeLoader cache
 struct DocumentCache {
-    files: HashMap<Url, sixtyfps_compilerlib::parser::syntax_nodes::Document>,
+    files: HashMap<Url, FileState>,
 }
 
 fn main() -> Result<(), Error> {
@@ -70,8 +80,8 @@ fn handle_request(
 ) -> Result<(), Error> {
     let mut req = Some(req);
     if let Some((id, params)) = cast::<GotoDefinition>(&mut req) {
-        eprintln!("got gotoDefinition request #{}: {:?}", id, params);
-        let result = Some(GotoDefinitionResponse::Array(Vec::new()));
+        let result = token_descr(document_cache, params.text_document_position_params)
+            .and_then(|token| goto_definition(document_cache, token.parent()));
         let resp = Response::new_ok(id, result);
         connection.sender.send(Message::Response(resp))?;
     } else if let Some((id, params)) = cast::<Completion>(&mut req) {
@@ -83,14 +93,17 @@ fn handle_request(
         let resp = Response::new_ok(id, result);
         connection.sender.send(Message::Response(resp))?;
     } else if let Some((id, params)) = cast::<HoverRequest>(&mut req) {
-        let result = Hover {
-            contents: lsp_types::HoverContents::Scalar(MarkedString::String("Test".into())),
-            range: None,
-        };
+        let result =
+            token_descr(document_cache, params.text_document_position_params).map(|x| Hover {
+                contents: lsp_types::HoverContents::Scalar(MarkedString::from_language_code(
+                    "text".into(),
+                    format!("{:?}", x.token),
+                )),
+                range: None,
+            });
         let resp = Response::new_ok(id, result);
         connection.sender.send(Message::Response(resp))?;
     };
-    // ...
     Ok(())
 }
 
@@ -141,10 +154,23 @@ fn reload_document(
     uri: lsp_types::Url,
     document_cache: &mut DocumentCache,
 ) -> Result<(), Error> {
+    let mut ln_offs = 0;
+    let newline_offsets = content
+        .split('\n')
+        .map(|line| {
+            let r = ln_offs;
+            ln_offs += line.len() as u32 + 1;
+            r
+        })
+        .collect();
+
     let (doc_node, diag) =
         sixtyfps_compilerlib::parser::parse(content, Some(Path::new(uri.path())));
 
-    document_cache.files.insert(uri.clone(), doc_node.clone().into());
+    document_cache.files.insert(
+        uri.clone(),
+        FileState { node: doc_node.clone().into(), newline_offsets, doc: Default::default() },
+    );
 
     if diag.has_error() {
         let diagnostics = diag.inner.iter().map(|d| to_lsp_diag(d, &diag)).collect();
@@ -164,6 +190,7 @@ fn reload_document(
         diag,
         compiler_config,
     ));
+    document_cache.files.get_mut(&uri).unwrap().doc = doc;
 
     for file_diag in diag.into_iter() {
         if file_diag.current_path.is_relative() {
@@ -201,4 +228,77 @@ fn to_lsp_diag(
 fn to_range(span: (usize, usize)) -> Range {
     let pos = Position::new((span.0 as u32).saturating_sub(1), (span.1 as u32).saturating_sub(1));
     Range::new(pos, pos)
+}
+
+fn token_descr(
+    document_cache: &DocumentCache,
+    lsp_position: lsp_types::TextDocumentPositionParams,
+) -> Option<sixtyfps_compilerlib::parser::SyntaxTokenWithSourceFile> {
+    let file_state = document_cache.files.get(&lsp_position.text_document.uri)?;
+    let o = file_state.newline_offsets.get(lsp_position.position.line as usize)?
+        + lsp_position.position.character as u32;
+    let token = file_state.node.0.node.token_at_offset(o.into()).last()?;
+    Some(sixtyfps_compilerlib::parser::SyntaxTokenWithSourceFile {
+        token,
+        source_file: file_state.node.0.source_file.clone(),
+    })
+    //Some(format!("{:?}", token))
+}
+
+fn goto_definition(
+    document_cache: &mut DocumentCache,
+    token: sixtyfps_compilerlib::parser::SyntaxNodeWithSourceFile,
+) -> Option<GotoDefinitionResponse> {
+    match token.kind() {
+        SyntaxKind::QualifiedName => {
+            let source_file = token.source_file.clone()?;
+            let parent = token.node.parent()?;
+            let qual =
+                sixtyfps_compilerlib::object_tree::QualifiedTypeName::from_node(token.into());
+            match parent.kind() {
+                SyntaxKind::Element => {
+                    let file_state = document_cache
+                        .files
+                        .get(&Url::from_file_path(source_file.as_path()).ok()?)?;
+                    match file_state.doc.local_registry.lookup_qualified(&qual.members) {
+                        sixtyfps_compilerlib::langtype::Type::Component(c) => {
+                            goto_node(document_cache, &c.root_element.borrow().node.as_ref()?.0)
+                        }
+                        _ => None,
+                    }
+                }
+                _ => None,
+            }
+        }
+        _ => None,
+    }
+}
+
+fn goto_node(
+    document_cache: &mut DocumentCache,
+    node: &SyntaxNodeWithSourceFile,
+) -> Option<GotoDefinitionResponse> {
+    let target_uri = Url::from_file_path(node.source_file.as_ref()?.as_path()).ok()?;
+    let file_state = document_cache.files.get(&target_uri)?; // FIXME! the file might not be in the cache if it is not open currently
+    let offset = node.span().offset as u32;
+    let pos = file_state.newline_offsets.binary_search(&offset).map_or_else(
+        |line| {
+            if line == 0 {
+                Position::new(0, offset)
+            } else {
+                Position::new(
+                    line as u32 - 1,
+                    file_state.newline_offsets.get(line - 1).map_or(0, |x| offset - *x),
+                )
+            }
+        },
+        |line| Position::new(line as u32, 0),
+    );
+    let range = Range::new(pos, pos);
+    Some(GotoDefinitionResponse::Link(vec![LocationLink {
+        origin_selection_range: None,
+        target_uri,
+        target_range: range,
+        target_selection_range: range,
+    }]))
 }

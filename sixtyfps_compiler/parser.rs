@@ -661,6 +661,15 @@ pub struct SyntaxTokenWithSourceFile {
     pub source_file: Option<SourceFile>,
 }
 
+impl SyntaxTokenWithSourceFile {
+    pub fn parent(&self) -> SyntaxNodeWithSourceFile {
+        SyntaxNodeWithSourceFile {
+            node: self.token.parent(),
+            source_file: self.source_file.clone(),
+        }
+    }
+}
+
 impl std::fmt::Display for SyntaxTokenWithSourceFile {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.token.fmt(f)
