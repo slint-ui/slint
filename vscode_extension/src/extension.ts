@@ -1,27 +1,46 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
-import * as vscode from 'vscode';
+import * as path from 'path';
+import { workspace, ExtensionContext } from 'vscode';
 
-// this method is called when your extension is activated
-// your extension is activated the very first time the command is executed
-export function activate(context: vscode.ExtensionContext) {
+import {
+	LanguageClient,
+	LanguageClientOptions,
+	ServerCapabilities,
+	ServerOptions,
+	//	TransportKind
+} from 'vscode-languageclient/node';
 
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "sixtyfps-vscode" is now active!');
+let client: LanguageClient;
 
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
-	let disposable = vscode.commands.registerCommand('sixtyfps-vscode.helloWorld', () => {
-		// The code you place here will be executed every time your command is executed
+export function activate(context: ExtensionContext) {
 
-		// Display a message box to the user
-		vscode.window.showInformationMessage('Hello World from SixtyFPS-vscode!');
-	});
+	let serverModule = context.asAbsolutePath(path.join('..', 'target', 'debug', 'sixtyfps-lsp'));
+	console.log(serverModule);
 
-	context.subscriptions.push(disposable);
+	/*let test_output = vscode.window.createOutputChannel("Test Output");
+	test_output.appendLine("Hello from extension");*/
+
+	let serverOptions: ServerOptions = {
+		run: { command: serverModule },
+		debug: { command: serverModule }
+	};
+
+	let clientOptions: LanguageClientOptions = {
+		documentSelector: [{ scheme: 'file', language: 'sixtyfps' }],
+	};
+
+	client = new LanguageClient(
+		'sixtyfps-lsp',
+		'SixtyFPS LSP',
+		serverOptions,
+		clientOptions
+	);
+
+	client.start();
 }
 
-// this method is called when your extension is deactivated
-export function deactivate() {}
+export function deactivate(): Thenable<void> | undefined {
+	if (!client) {
+		return undefined;
+	}
+	return client.stop();
+}

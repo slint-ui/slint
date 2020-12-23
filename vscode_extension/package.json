@@ -10,7 +10,7 @@
 		"Other"
 	],
 	"activationEvents": [
-		"onCommand:sixtyfps-vscode.helloWorld"
+		"onLanguage:sixtyfps"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
@@ -40,7 +40,7 @@
 		]
 	},
 	"dependencies": {
-		"vscode-languageclient": "^6.1.3"
+		"vscode-languageclient": "^7"
 	},
 	"scripts": {
 		"vscode:prepublish": "npm run compile",

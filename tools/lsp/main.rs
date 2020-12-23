@@ -85,7 +85,6 @@ fn handle_request(
         let resp = Response::new_ok(id, result);
         connection.sender.send(Message::Response(resp))?;
     } else if let Some((id, params)) = cast::<Completion>(&mut req) {
-        eprintln!("got completion request #{}: {:?}", id, params);
         let result = vec![
             CompletionItem::new_simple("Hello".to_string(), "Some detail".to_string()),
             CompletionItem::new_simple("Bye".to_string(), "More detail".to_string()),
