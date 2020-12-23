@@ -19,7 +19,28 @@
 				"command": "sixtyfps-vscode.helloWorld",
 				"title": "Hello World"
 			}
+		],
+		"languages": [
+			{
+				"id": "sixtyfps",
+				"aliases": [
+					"SixtyFPS"
+				],
+				"extensions": [
+					".60"
+				]
+			}
+		],
+		"grammars": [
+			{
+				"language": "sixtyfps",
+				"scopeName": "source.sixtyfps",
+				"path": "./sixtyfps.tmLanguage.json"
+			}
 		]
+	},
+	"dependencies": {
+		"vscode-languageclient": "^6.1.3"
 	},
 	"scripts": {
 		"vscode:prepublish": "npm run compile",
