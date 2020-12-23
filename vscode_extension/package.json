@@ -14,12 +14,6 @@
 	],
 	"main": "./out/extension.js",
 	"contributes": {
-		"commands": [
-			{
-				"command": "sixtyfps-vscode.helloWorld",
-				"title": "Hello World"
-			}
-		],
 		"languages": [
 			{
 				"id": "sixtyfps",

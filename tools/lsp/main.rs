@@ -8,8 +8,8 @@ use lsp_types::request::{Completion, HoverRequest};
 use lsp_types::{
     CompletionItem, CompletionOptions, DidChangeTextDocumentParams, DidOpenTextDocumentParams,
     GotoDefinitionResponse, Hover, HoverProviderCapability, InitializeParams, LocationLink,
-    MarkedString, OneOf, Position, PublishDiagnosticsParams, Range, ServerCapabilities, Url,
-    WorkDoneProgressOptions,
+    MarkedString, OneOf, Position, PublishDiagnosticsParams, Range, ServerCapabilities,
+    TextDocumentSyncCapability, Url, WorkDoneProgressOptions,
 };
 use sixtyfps_compilerlib::diagnostics::Spanned;
 use sixtyfps_compilerlib::parser::{SyntaxKind, SyntaxNodeWithSourceFile};
@@ -41,6 +41,9 @@ fn main() -> Result<(), Error> {
         document_symbol_provider: Some(OneOf::Left(true)),
         workspace_symbol_provider: Some(OneOf::Left(true)),
         definition_provider: Some(OneOf::Left(true)),
+        text_document_sync: Some(TextDocumentSyncCapability::Kind(
+            lsp_types::TextDocumentSyncKind::Full,
+        )),
 
         ..ServerCapabilities::default()
     };
