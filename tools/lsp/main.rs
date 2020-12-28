@@ -16,7 +16,7 @@ use lsp_types::notification::{DidChangeTextDocument, DidOpenTextDocument, Notifi
 use lsp_types::request::GotoDefinition;
 use lsp_types::request::{Completion, HoverRequest};
 use lsp_types::{
-    CompletionItem, CompletionOptions, DidChangeTextDocumentParams, DidOpenTextDocumentParams,
+    CompletionOptions, DidChangeTextDocumentParams, DidOpenTextDocumentParams,
     GotoDefinitionResponse, Hover, HoverProviderCapability, InitializeParams, LocationLink,
     MarkedString, OneOf, Position, PublishDiagnosticsParams, Range, ServerCapabilities,
     TextDocumentSyncCapability, Url, WorkDoneProgressOptions,
@@ -97,13 +97,13 @@ fn handle_request(
             .and_then(|token| goto_definition(document_cache, token.parent()));
         let resp = Response::new_ok(id, result);
         connection.sender.send(Message::Response(resp))?;
-    } else if let Some((id, params)) = cast::<Completion>(&mut req) {
-        let result = vec![
+    } else if let Some((_id, _params)) = cast::<Completion>(&mut req) {
+        /*let result = vec![
             CompletionItem::new_simple("Hello".to_string(), "Some detail".to_string()),
             CompletionItem::new_simple("Bye".to_string(), "More detail".to_string()),
         ];
         let resp = Response::new_ok(id, result);
-        connection.sender.send(Message::Response(resp))?;
+        connection.sender.send(Message::Response(resp))?;*/
     } else if let Some((id, params)) = cast::<HoverRequest>(&mut req) {
         let result =
             token_descr(document_cache, params.text_document_position_params).map(|x| Hover {
