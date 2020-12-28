@@ -163,6 +163,7 @@ export SpinBox := Rectangle {
     property <string> text;
     property <bool> checked;
     property <int> value;
+    property <int> minimum;
     property <length> font-size;
     property<bool> enabled: true;
 
@@ -177,7 +178,11 @@ export SpinBox := Rectangle {
     SpinBoxButton {
         text: "-";
         font-size: root.font-size;
-        clicked => { root.value -= 1; }
+        clicked => {
+            if (root.value > root.minimum) {
+                root.value -= 1;
+            }
+        }
         width: parent.height;
         height: parent.height;
         enabled: root.enabled;
