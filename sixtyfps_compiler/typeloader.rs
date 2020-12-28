@@ -459,6 +459,7 @@ fn test_dependency_loading() {
     let mut compiler_config =
         CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
     compiler_config.include_paths = vec![incdir];
+    compiler_config.style = Some("ugly".into());
 
     let mut main_test_path = test_source_path.clone();
     main_test_path.push("dependency_test_main.60");
@@ -473,7 +474,7 @@ fn test_dependency_loading() {
 
     let mut build_diagnostics = BuildDiagnostics::default();
 
-    let mut loader = TypeLoader::new(&global_registry, &compiler_config, None);
+    let mut loader = TypeLoader::new(global_registry, &compiler_config, &mut build_diagnostics);
 
     spin_on::spin_on(loader.load_dependencies_recursively(
         &doc_node,
@@ -493,6 +494,7 @@ fn test_load_from_callback_ok() {
 
     let mut compiler_config =
         CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.style = Some("ugly".into());
     compiler_config.open_import_fallback = Some(Box::new(move |path| {
         let ok_ = ok_.clone();
         Box::pin(async move {
@@ -517,7 +519,7 @@ X := XX {}
     let global_registry = TypeRegister::builtin();
     let registry = Rc::new(RefCell::new(TypeRegister::new(&global_registry)));
     let mut build_diagnostics = BuildDiagnostics::default();
-    let mut loader = TypeLoader::new(&global_registry, &compiler_config, None);
+    let mut loader = TypeLoader::new(global_registry, &compiler_config, &mut build_diagnostics);
     spin_on::spin_on(loader.load_dependencies_recursively(
         &doc_node,
         &mut test_diags,
@@ -531,12 +533,13 @@ X := XX {}
 
 #[test]
 fn test_manual_import() {
-    let compiler_config = CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    let mut compiler_config =
+        CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.style = Some("ugly".into());
     let mut test_diags = FileDiagnostics::default();
     let global_registry = TypeRegister::builtin();
     let mut build_diagnostics = BuildDiagnostics::default();
-    let builtin_lib = crate::library::widget_library().iter().find(|x| x.0 == "ugly").map(|x| x.1);
-    let mut loader = TypeLoader::new(&global_registry, &compiler_config, builtin_lib);
+    let mut loader = TypeLoader::new(global_registry, &compiler_config, &mut build_diagnostics);
 
     let maybe_button_type = spin_on::spin_on(loader.import_type(
         "sixtyfps_widgets.60",
