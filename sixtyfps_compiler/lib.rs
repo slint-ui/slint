@@ -24,7 +24,6 @@ extern crate proc_macro;
 
 use core::future::Future;
 use core::pin::Pin;
-use std::borrow::Cow;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -128,27 +127,11 @@ pub async fn compile_syntax_node(
 
     let doc_node: parser::syntax_nodes::Document = doc_node.into();
 
-    let style = compiler_config
-        .style
-        .as_ref()
-        .map(Cow::from)
-        .or_else(|| std::env::var("SIXTYFPS_STYLE").map(Cow::from).ok())
-        .unwrap_or_else(|| {
-            let is_wasm = cfg!(target_arch = "wasm32")
-                || std::env::var("TARGET").map_or(false, |t| t.starts_with("wasm"));
-            if !is_wasm {
-                diagnostics.push_diagnostic_with_span(
-                    "SIXTYFPS_STYLE not defined, defaulting to 'ugly', see https://github.com/sixtyfpsui/sixtyfps/issues/83 for more info".to_owned(),
-                    Default::default(),
-                    diagnostics::Level::Warning,
-                );
-            }
-            Cow::from("ugly")
-        });
-
-    let builtin_lib = library::widget_library().iter().find(|x| x.0 == style).map(|x| x.1);
-    let mut loader =
-        typeloader::TypeLoader::new(&global_type_registry, &compiler_config, builtin_lib);
+    let mut loader = typeloader::TypeLoader::new(
+        &global_type_registry,
+        &compiler_config,
+        &mut build_diagnostics,
+    );
     if doc_node.source_file.is_some() {
         loader
             .load_dependencies_recursively(

@@ -7,13 +7,14 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
+use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::Read;
 use std::path::PathBuf;
 use std::rc::Rc;
 
-use crate::diagnostics::{BuildDiagnostics, FileDiagnostics, SourceFile};
+use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic, FileDiagnostics, SourceFile};
 use crate::object_tree::Document;
 use crate::parser::{syntax_nodes, SyntaxKind, SyntaxTokenWithSourceFile};
 use crate::typeregister::TypeRegister;
@@ -119,8 +120,29 @@ impl<'a> TypeLoader<'a> {
     pub fn new(
         global_type_registry: &'a Rc<RefCell<TypeRegister>>,
         compiler_config: &'a CompilerConfiguration,
-        builtin_library: Option<&'a VirtualDirectory<'a>>,
+        diag: &mut BuildDiagnostics,
     ) -> Self {
+        let style = compiler_config
+        .style
+        .as_ref()
+        .map(Cow::from)
+        .or_else(|| std::env::var("SIXTYFPS_STYLE").map(Cow::from).ok())
+        .unwrap_or_else(|| {
+            let is_wasm = cfg!(target_arch = "wasm32")
+                || std::env::var("TARGET").map_or(false, |t| t.starts_with("wasm"));
+            if !is_wasm {
+                diag.push_internal_error(CompilerDiagnostic {
+                    message: "SIXTYFPS_STYLE not defined, defaulting to 'ugly', see https://github.com/sixtyfpsui/sixtyfps/issues/83 for more info".to_owned(),
+                    span: Default::default(),
+                    level: crate::diagnostics::Level::Warning
+                }.into());
+            }
+            Cow::from("ugly")
+        });
+
+        let builtin_library =
+            crate::library::widget_library().iter().find(|x| x.0 == style).map(|x| x.1);
+
         Self {
             global_type_registry,
             compiler_config,
