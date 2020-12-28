@@ -11,11 +11,11 @@ use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::Read;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic, FileDiagnostics, SourceFile};
-use crate::object_tree::Document;
+use crate::object_tree::{self, Document};
 use crate::parser::{syntax_nodes, SyntaxKind, SyntaxTokenWithSourceFile};
 use crate::typeregister::TypeRegister;
 use crate::CompilerConfiguration;
@@ -110,7 +110,7 @@ impl ImportedName {
 }
 
 pub struct TypeLoader<'a> {
-    pub global_type_registry: &'a Rc<RefCell<TypeRegister>>,
+    pub global_type_registry: Rc<RefCell<TypeRegister>>,
     pub compiler_config: &'a CompilerConfiguration,
     pub builtin_library: Option<&'a VirtualDirectory<'a>>,
     all_documents: LoadedDocuments,
@@ -118,7 +118,7 @@ pub struct TypeLoader<'a> {
 
 impl<'a> TypeLoader<'a> {
     pub fn new(
-        global_type_registry: &'a Rc<RefCell<TypeRegister>>,
+        global_type_registry: Rc<RefCell<TypeRegister>>,
         compiler_config: &'a CompilerConfiguration,
         diag: &mut BuildDiagnostics,
     ) -> Self {
@@ -182,7 +182,7 @@ impl<'a> TypeLoader<'a> {
                 &file.path,
                 file.source_code_future,
                 None,
-                diagnostics,
+                Some(diagnostics),
                 build_diagnostics,
             )
             .await
@@ -202,83 +202,90 @@ impl<'a> TypeLoader<'a> {
         })
     }
 
-    fn ensure_document_loaded<'b>(
+    async fn ensure_document_loaded<'b>(
         &'b mut self,
-        path: &'b PathBuf,
-        source_code_future: core::pin::Pin<
-            Box<dyn std::future::Future<Output = std::io::Result<String>>>,
-        >,
+        path: &'b Path,
+        source_code_future: impl std::future::Future<Output = std::io::Result<String>>,
         import_token: Option<SyntaxTokenWithSourceFile>,
-        importer_diagnostics: &'b mut FileDiagnostics,
-        mut build_diagnostics: &'b mut BuildDiagnostics,
-    ) -> core::pin::Pin<Box<dyn std::future::Future<Output = Option<PathBuf>> + 'b>> {
-        Box::pin(async move {
-            let path_canon = path.canonicalize().unwrap_or_else(|_| path.clone());
+        importer_diagnostics: Option<&'b mut FileDiagnostics>,
+        build_diagnostics: &'b mut BuildDiagnostics,
+    ) -> Option<PathBuf> {
+        let path_canon = path.canonicalize().unwrap_or_else(|_| path.to_owned());
 
-            if self.all_documents.docs.get(path_canon.as_path()).is_some() {
-                return Some(path_canon);
-            }
+        if self.all_documents.docs.get(path_canon.as_path()).is_some() {
+            return Some(path_canon);
+        }
 
-            if !self.all_documents.currently_loading.insert(path_canon.clone()) {
-                importer_diagnostics
-                    .push_error(format!("Recursive import of {}", path.display()), &import_token);
+        if !self.all_documents.currently_loading.insert(path_canon.clone()) {
+            importer_diagnostics
+                .unwrap()
+                .push_error(format!("Recursive import of {}", path.display()), &import_token);
+            return None;
+        }
+
+        let source_code = match source_code_future.await {
+            Ok(source) => source,
+            Err(err) => {
+                importer_diagnostics.unwrap().push_error(
+                    format!("Error reading requested import {}: {}", path.display(), err),
+                    &import_token,
+                );
                 return None;
             }
+        };
 
-            let source_code = match source_code_future.await {
-                Ok(source) => source,
-                Err(err) => {
-                    importer_diagnostics.push_error(
-                        format!("Error reading requested import {}: {}", path.display(), err),
-                        &import_token,
-                    );
-                    return None;
-                }
-            };
+        self.load_file(&path_canon, source_code, build_diagnostics).await;
+        let _ok = self.all_documents.currently_loading.remove(path_canon.as_path());
+        assert!(_ok);
+        Some(path_canon)
+    }
 
-            let (dependency_doc, mut dependency_diagnostics) =
-                crate::parser::parse(source_code, Some(&path));
+    /// Load a file, and its dependency not run the passes.
+    ///
+    /// the path must be the canonical path
+    pub async fn load_file(
+        &mut self,
+        path: &Path,
+        source_code: String,
+        build_diagnostics: &mut BuildDiagnostics,
+    ) {
+        let (dependency_doc, mut dependency_diagnostics) =
+            crate::parser::parse(source_code, Some(&path));
 
-            dependency_diagnostics.current_path = SourceFile::new(path.clone());
+        dependency_diagnostics.current_path = SourceFile::new(path.to_owned());
 
-            if dependency_diagnostics.has_error() {
-                build_diagnostics.add(dependency_diagnostics);
-                return None;
-            }
-
-            let dependency_doc: syntax_nodes::Document = dependency_doc.into();
-
-            let dependency_registry =
-                Rc::new(RefCell::new(TypeRegister::new(&self.global_type_registry)));
-            self.load_dependencies_recursively(
-                &dependency_doc,
-                &mut dependency_diagnostics,
-                &mut build_diagnostics,
-                &dependency_registry,
-            )
-            .await;
-
-            let doc = crate::object_tree::Document::from_node(
-                dependency_doc,
-                &mut dependency_diagnostics,
-                &dependency_registry,
-            );
-            crate::passes::resolving::resolve_expressions(&doc, build_diagnostics);
-
-            // Add diagnostics regardless whether they're empty or not. This is used by the syntax_tests to
-            // also verify that imported files have no errors.
+        if dependency_diagnostics.has_error() {
             build_diagnostics.add(dependency_diagnostics);
+            let mut d = Document::default();
+            d.node = Some(dependency_doc.into());
+            self.all_documents.docs.insert(path.to_owned(), d);
+            return;
+        }
 
-            let _ok = self.all_documents.currently_loading.remove(path_canon.as_path());
-            assert!(_ok);
+        let dependency_doc: syntax_nodes::Document = dependency_doc.into();
 
-            match self.all_documents.docs.entry(path_canon.clone()) {
-                std::collections::hash_map::Entry::Occupied(_) => unreachable!(),
-                std::collections::hash_map::Entry::Vacant(e) => e.insert(doc),
-            };
+        let dependency_registry =
+            Rc::new(RefCell::new(TypeRegister::new(&self.global_type_registry)));
+        self.load_dependencies_recursively(
+            &dependency_doc,
+            &mut dependency_diagnostics,
+            build_diagnostics,
+            &dependency_registry,
+        )
+        .await;
 
-            Some(path_canon)
-        })
+        let doc = crate::object_tree::Document::from_node(
+            dependency_doc,
+            &mut dependency_diagnostics,
+            &dependency_registry,
+        );
+        crate::passes::resolving::resolve_expressions(&doc, build_diagnostics);
+
+        // Add diagnostics regardless whether they're empty or not. This is used by the syntax_tests to
+        // also verify that imported files have no errors.
+        build_diagnostics.add(dependency_diagnostics);
+
+        self.all_documents.docs.insert(path.to_owned(), doc);
     }
 
     fn load_dependency<'b>(
@@ -294,7 +301,7 @@ impl<'a> TypeLoader<'a> {
                     &import.file.path,
                     import.file.source_code_future,
                     Some(import.import_token.clone()),
-                    importer_diagnostics,
+                    Some(importer_diagnostics),
                     build_diagnostics,
                 )
                 .await
@@ -430,6 +437,14 @@ impl<'a> TypeLoader<'a> {
         }
 
         dependencies.into_iter().map(|(_, value)| value)
+    }
+
+    /// Return a document if it was already loaded
+    pub fn get_document(&self, path: &Path) -> Option<&object_tree::Document> {
+        path.canonicalize().map_or_else(
+            |_| self.all_documents.docs.get(path),
+            |path| self.all_documents.docs.get(&path),
+        )
     }
 }
 

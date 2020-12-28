@@ -21,21 +21,25 @@ use lsp_types::{
     MarkedString, OneOf, Position, PublishDiagnosticsParams, Range, ServerCapabilities,
     TextDocumentSyncCapability, Url, WorkDoneProgressOptions,
 };
-use sixtyfps_compilerlib::diagnostics::Spanned;
+use sixtyfps_compilerlib::diagnostics::{BuildDiagnostics, Spanned};
 use sixtyfps_compilerlib::parser::{SyntaxKind, SyntaxNodeWithSourceFile};
+use sixtyfps_compilerlib::typeloader::TypeLoader;
+use sixtyfps_compilerlib::typeregister::TypeRegister;
+use sixtyfps_compilerlib::CompilerConfiguration;
 
 type Error = Box<dyn std::error::Error>;
 
-struct FileState {
-    node: sixtyfps_compilerlib::parser::syntax_nodes::Document,
-    newline_offsets: Vec<u32>,
-    doc: sixtyfps_compilerlib::object_tree::Document,
+struct DocumentCache<'a> {
+    documents: TypeLoader<'a>,
+    newline_offsets: HashMap<Url, Vec<u32>>,
 }
 
-#[derive(Default)]
-/// FIXME: this should be merged with the TypeLoader cache
-struct DocumentCache {
-    files: HashMap<Url, FileState>,
+impl<'a> DocumentCache<'a> {
+    fn new(config: &'a CompilerConfiguration) -> Self {
+        let documents =
+            TypeLoader::new(TypeRegister::builtin(), config, &mut BuildDiagnostics::default());
+        Self { documents, newline_offsets: Default::default() }
+    }
 }
 
 fn main() -> Result<(), Error> {
@@ -67,7 +71,13 @@ fn main() -> Result<(), Error> {
 fn main_loop(connection: &Connection, params: serde_json::Value) -> Result<(), Error> {
     let _params: InitializeParams = serde_json::from_value(params).unwrap();
     eprintln!("starting example main loop");
-    let mut document_cache = DocumentCache::default();
+
+    let mut compiler_config = sixtyfps_compilerlib::CompilerConfiguration::new(
+        sixtyfps_compilerlib::generator::OutputFormat::Interpreter,
+    );
+    compiler_config.style = Some("ugly".into());
+
+    let mut document_cache = DocumentCache::new(&compiler_config);
     for msg in &connection.receiver {
         eprintln!("got msg: {:?}", msg);
         match msg {
@@ -160,49 +170,31 @@ fn handle_notification(
     Ok(())
 }
 
-fn reload_document(
-    connection: &Connection,
-    content: String,
-    uri: lsp_types::Url,
-    document_cache: &mut DocumentCache,
-) -> Result<(), Error> {
+fn newline_offsets_from_content(content: &str) -> Vec<u32> {
     let mut ln_offs = 0;
-    let newline_offsets = content
+    content
         .split('\n')
         .map(|line| {
             let r = ln_offs;
             ln_offs += line.len() as u32 + 1;
             r
         })
-        .collect();
+        .collect()
+}
 
-    let (doc_node, diag) =
-        sixtyfps_compilerlib::parser::parse(content, Some(Path::new(uri.path())));
+fn reload_document(
+    connection: &Connection,
+    content: String,
+    uri: lsp_types::Url,
+    document_cache: &mut DocumentCache,
+) -> Result<(), Error> {
+    let newline_offsets = newline_offsets_from_content(&content);
+    document_cache.newline_offsets.insert(uri.clone(), newline_offsets);
 
-    document_cache.files.insert(
-        uri.clone(),
-        FileState { node: doc_node.clone().into(), newline_offsets, doc: Default::default() },
-    );
-
-    if diag.has_error() {
-        let diagnostics = diag.inner.iter().map(|d| to_lsp_diag(d, &diag)).collect();
-        connection.sender.send(Message::Notification(lsp_server::Notification::new(
-            "textDocument/publishDiagnostics".into(),
-            PublishDiagnosticsParams { uri, diagnostics, version: None },
-        )))?;
-        return Ok(());
-    }
-
-    let mut compiler_config = sixtyfps_compilerlib::CompilerConfiguration::new(
-        sixtyfps_compilerlib::generator::OutputFormat::Interpreter,
-    );
-    compiler_config.style = Some("ugly".into());
-    let (doc, diag) = spin_on::spin_on(sixtyfps_compilerlib::compile_syntax_node(
-        doc_node,
-        diag,
-        compiler_config,
-    ));
-    document_cache.files.get_mut(&uri).unwrap().doc = doc;
+    let path = Path::new(uri.path());
+    let path = path.canonicalize().unwrap_or_else(|_| path.to_owned());
+    let mut diag = BuildDiagnostics::default();
+    spin_on::spin_on(document_cache.documents.load_file(&path, content, &mut diag));
 
     for file_diag in diag.into_iter() {
         if file_diag.current_path.is_relative() {
@@ -246,13 +238,19 @@ fn token_descr(
     document_cache: &DocumentCache,
     lsp_position: lsp_types::TextDocumentPositionParams,
 ) -> Option<sixtyfps_compilerlib::parser::SyntaxTokenWithSourceFile> {
-    let file_state = document_cache.files.get(&lsp_position.text_document.uri)?;
-    let o = file_state.newline_offsets.get(lsp_position.position.line as usize)?
+    let o = document_cache
+        .newline_offsets
+        .get(&lsp_position.text_document.uri)?
+        .get(lsp_position.position.line as usize)?
         + lsp_position.position.character as u32;
-    let token = file_state.node.0.node.token_at_offset(o.into()).last()?;
+
+    let doc =
+        document_cache.documents.get_document(Path::new(lsp_position.text_document.uri.path()))?;
+    let node = doc.node.as_ref()?;
+    let token = node.0.node.token_at_offset(o.into()).last()?;
     Some(sixtyfps_compilerlib::parser::SyntaxTokenWithSourceFile {
         token,
-        source_file: file_state.node.0.source_file.clone(),
+        source_file: node.0.source_file.clone(),
     })
     //Some(format!("{:?}", token))
 }
@@ -269,10 +267,8 @@ fn goto_definition(
                 sixtyfps_compilerlib::object_tree::QualifiedTypeName::from_node(token.into());
             match parent.kind() {
                 SyntaxKind::Element => {
-                    let file_state = document_cache
-                        .files
-                        .get(&Url::from_file_path(source_file.as_path()).ok()?)?;
-                    match file_state.doc.local_registry.lookup_qualified(&qual.members) {
+                    let doc = document_cache.documents.get_document(source_file.as_path())?;
+                    match doc.local_registry.lookup_qualified(&qual.members) {
                         sixtyfps_compilerlib::langtype::Type::Component(c) => {
                             goto_node(document_cache, &c.root_element.borrow().node.as_ref()?.0)
                         }
@@ -290,17 +286,23 @@ fn goto_node(
     document_cache: &mut DocumentCache,
     node: &SyntaxNodeWithSourceFile,
 ) -> Option<GotoDefinitionResponse> {
-    let target_uri = Url::from_file_path(node.source_file.as_ref()?.as_path()).ok()?;
-    let file_state = document_cache.files.get(&target_uri)?; // FIXME! the file might not be in the cache if it is not open currently
+    let path = node.source_file.as_ref()?.as_path();
+    let target_uri = Url::from_file_path(path).ok()?;
+    let newline_offsets = match document_cache.newline_offsets.entry(target_uri.clone()) {
+        std::collections::hash_map::Entry::Occupied(e) => e.into_mut(),
+        std::collections::hash_map::Entry::Vacant(e) => {
+            e.insert(newline_offsets_from_content(&std::fs::read_to_string(path).ok()?))
+        }
+    };
     let offset = node.span().offset as u32;
-    let pos = file_state.newline_offsets.binary_search(&offset).map_or_else(
+    let pos = newline_offsets.binary_search(&offset).map_or_else(
         |line| {
             if line == 0 {
                 Position::new(0, offset)
             } else {
                 Position::new(
                     line as u32 - 1,
-                    file_state.newline_offsets.get(line - 1).map_or(0, |x| offset - *x),
+                    newline_offsets.get(line - 1).map_or(0, |x| offset - *x),
                 )
             }
         },

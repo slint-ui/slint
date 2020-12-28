@@ -24,7 +24,7 @@ use std::rc::{Rc, Weak};
 /// The full document (a complete file)
 #[derive(Default, Debug)]
 pub struct Document {
-    //     node: SyntaxNode,
+    pub node: Option<syntax_nodes::Document>,
     pub inner_components: Vec<Rc<Component>>,
     pub inner_structs: Vec<Type>,
     pub root_component: Rc<Component>,
@@ -106,7 +106,14 @@ impl Document {
                     })
             })
             .unwrap_or_default();
-        Document { root_component, inner_components, inner_structs, local_registry, exports }
+        Document {
+            node: Some(node),
+            root_component,
+            inner_components,
+            inner_structs,
+            local_registry,
+            exports,
+        }
     }
 
     pub fn exports(&self) -> &Vec<(String, Type)> {
