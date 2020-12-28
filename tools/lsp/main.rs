@@ -192,9 +192,14 @@ fn reload_document(
     document_cache.newline_offsets.insert(uri.clone(), newline_offsets);
 
     let path = Path::new(uri.path());
-    let path = path.canonicalize().unwrap_or_else(|_| path.to_owned());
+    let path_canon = path.canonicalize().unwrap_or_else(|_| path.to_owned());
     let mut diag = BuildDiagnostics::default();
-    spin_on::spin_on(document_cache.documents.load_file(&path, content, &mut diag));
+    spin_on::spin_on(document_cache.documents.load_file(
+        &path_canon,
+        sixtyfps_compilerlib::diagnostics::SourceFile::new(path.to_owned()),
+        content,
+        &mut diag,
+    ));
 
     for file_diag in diag.into_iter() {
         if file_diag.current_path.is_relative() {

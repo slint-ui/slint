@@ -234,7 +234,13 @@ impl<'a> TypeLoader<'a> {
             }
         };
 
-        self.load_file(&path_canon, source_code, build_diagnostics).await;
+        self.load_file(
+            &path_canon,
+            SourceFile::new(path.to_owned()),
+            source_code,
+            build_diagnostics,
+        )
+        .await;
         let _ok = self.all_documents.currently_loading.remove(path_canon.as_path());
         assert!(_ok);
         Some(path_canon)
@@ -246,13 +252,14 @@ impl<'a> TypeLoader<'a> {
     pub async fn load_file(
         &mut self,
         path: &Path,
+        source_path: SourceFile,
         source_code: String,
         build_diagnostics: &mut BuildDiagnostics,
     ) {
         let (dependency_doc, mut dependency_diagnostics) =
-            crate::parser::parse(source_code, Some(&path));
+            crate::parser::parse(source_code, Some(&source_path));
 
-        dependency_diagnostics.current_path = SourceFile::new(path.to_owned());
+        dependency_diagnostics.current_path = source_path;
 
         if dependency_diagnostics.has_error() {
             build_diagnostics.add(dependency_diagnostics);
