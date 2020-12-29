@@ -18,7 +18,8 @@ use crate::object_tree::{Component, Document, ElementRc};
 
 #[cfg(feature = "cpp")]
 mod cpp;
-
+#[cfg(feature = "qml")]
+pub mod qml;
 #[cfg(feature = "rust")]
 pub mod rust;
 
@@ -28,6 +29,9 @@ pub enum OutputFormat {
     Cpp,
     #[cfg(feature = "rust")]
     Rust,
+    #[cfg(feature = "qml")]
+    Qml,
+
     Interpreter,
 }
 
@@ -38,6 +42,8 @@ impl OutputFormat {
             Some("cpp") | Some("cxx") | Some("h") | Some("hpp") => Some(Self::Cpp),
             #[cfg(feature = "rust")]
             Some("rs") => Some(Self::Rust),
+            #[cfg(feature = "qml")]
+            Some("qml") => Some(Self::Qml),
             _ => None,
         }
     }
@@ -51,6 +57,8 @@ impl std::str::FromStr for OutputFormat {
             "cpp" => Ok(Self::Cpp),
             #[cfg(feature = "rust")]
             "rust" => Ok(Self::Rust),
+            #[cfg(feature = "qml")]
+            "qml" => Ok(Self::Qml),
             _ => Err(format!("Unknown outpout format {}", s)),
         }
     }
@@ -74,6 +82,12 @@ pub fn generate(
         #[cfg(feature = "rust")]
         OutputFormat::Rust => {
             if let Some(output) = rust::generate(doc, diag) {
+                write!(destination, "{}", output)?;
+            }
+        }
+        #[cfg(feature = "qml")]
+        OutputFormat::Qml => {
+            if let Some(output) = qml::generate(doc, diag) {
                 write!(destination, "{}", output)?;
             }
         }
