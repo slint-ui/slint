@@ -64,6 +64,8 @@ Example := Window {
 ### Properties
 
 * **`value`** (*int*): The value.
+* **`minimum`** (*int*): The minimum value (default: 0).
+* **`maximum`** (*int*): The maximum value (default: 100).
 
 ### Example
 

@@ -380,6 +380,8 @@ pub struct NativeSpinBox {
     pub height: Property<f32>,
     pub enabled: Property<bool>,
     pub value: Property<i32>,
+    pub minimum: Property<i32>,
+    pub maximum: Property<i32>,
     pub cached_rendering_data: CachedRenderingData,
     data: Property<NativeSpinBoxData>,
 }
@@ -543,13 +545,19 @@ impl Item for NativeSpinBox {
                     if new_control == cpp!(unsafe []->u32 as "int" { return QStyle::SC_SpinBoxUp;})
                         && enabled
                     {
-                        self.value.set(Self::FIELD_OFFSETS.value.apply_pin(self).get() + 1);
+                        let v = Self::FIELD_OFFSETS.value.apply_pin(self).get();
+                        if v < Self::FIELD_OFFSETS.maximum.apply_pin(self).get() {
+                            self.value.set(v + 1);
+                        }
                     }
                     if new_control
                         == cpp!(unsafe []->u32 as "int" { return QStyle::SC_SpinBoxDown;})
                         && enabled
                     {
-                        self.value.set(Self::FIELD_OFFSETS.value.apply_pin(self).get() - 1);
+                        let v = Self::FIELD_OFFSETS.value.apply_pin(self).get();
+                        if v > Self::FIELD_OFFSETS.minimum.apply_pin(self).get() {
+                            self.value.set(v - 1);
+                        }
                     }
                     true
                 }

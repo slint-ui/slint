@@ -280,6 +280,8 @@ export NativeSpinBox := _ {
     property <length> height;
     property <bool> enabled: true;
     property <int> value;
+    property <int> minimum;
+    property <int> maximum: 100;
 }
 
 export NativeSlider := _ {
