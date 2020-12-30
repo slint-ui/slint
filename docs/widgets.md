@@ -154,7 +154,6 @@ Example := Window {
     LineEdit {
         width: parent.width;
         height: parent.height;
-        value: 42;
         placeholder_text: "Enter text here";
     }
 }
