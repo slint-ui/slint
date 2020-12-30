@@ -35,7 +35,7 @@ Timer := Window {
         HorizontalLayout {
             Text { text: "Duration:"; }
             slider := Slider {
-                max: 30s / 1s;
+                maximum: 30s / 1s;
                 value: 10s / 1s;
             }
         }

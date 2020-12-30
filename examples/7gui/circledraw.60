@@ -79,7 +79,7 @@ CircleDraw := Window {
         VerticalLayout {
             Text { text: "Adjust diameter of cercle at (" + selected_circle.x + ", " +  selected_circle.y + ")."; }
             Slider {
-                max: 100;
+                maximum: 100;
                 value: selected_circle.r;
             }
         }
