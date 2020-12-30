@@ -378,6 +378,15 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                     panic!("First argument not a color");
                 }
             }
+            Expression::BuiltinFunctionReference(BuiltinFunction::Rgb) => {
+                let r: i32 = eval_expression(&arguments[0], local_context).try_into().unwrap();
+                let g: i32 = eval_expression(&arguments[1], local_context).try_into().unwrap();
+                let b: i32 = eval_expression(&arguments[2], local_context).try_into().unwrap();
+                let r: u8 = r.max(0).min(255) as u8;
+                let g: u8 = g.max(0).min(255) as u8;
+                let b: u8 = b.max(0).min(255) as u8;
+                Value::Color(Color::from_rgb_u8(r, g, b))
+            }
             Expression::BuiltinFunctionReference(BuiltinFunction::ImplicitItemSize) => {
                 if arguments.len() != 1 {
                     panic!("internal error: incorrect argument count to ImplicitItemSize")

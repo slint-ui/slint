@@ -42,6 +42,7 @@ pub enum BuiltinFunction {
     StringIsFloat,
     ColorBrighter,
     ColorDarker,
+    Rgb,
     ImplicitItemSize,
 }
 
@@ -112,6 +113,10 @@ impl BuiltinFunction {
             BuiltinFunction::ColorDarker => Type::Function {
                 return_type: Box::new(Type::Color),
                 args: vec![Type::Color, Type::Float32],
+            },
+            BuiltinFunction::Rgb => Type::Function {
+                return_type: Box::new(Type::Color),
+                args: vec![Type::Int32, Type::Int32, Type::Int32],
             },
         }
     }

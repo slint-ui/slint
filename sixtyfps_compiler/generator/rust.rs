@@ -1114,6 +1114,14 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
             BuiltinFunction::ColorDarker => {
                 quote!((|x: Color, factor| -> Color { x.darker(factor as f32) }))
             }
+            BuiltinFunction::Rgb => {
+                quote!((|r: i32, g: i32, b: i32| {
+                    let r: u8 = r.max(0).min(255) as u8;
+                    let g: u8 = g.max(0).min(255) as u8;
+                    let b: u8 = b.max(0).min(255) as u8;
+                    sixtyfps::re_exports::Color::from_rgb_u8(r, g, b)
+                }))
+            }
         },
         Expression::ElementReference(_) => todo!("Element references are only supported in the context of built-in function calls at the moment"),
         Expression::MemberFunction{ .. } => panic!("member function expressions must not appear in the code generator anymore"),

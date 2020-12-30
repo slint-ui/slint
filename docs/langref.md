@@ -814,3 +814,7 @@ The trigonometry funtion. Note that the should be typed with `deg` or `rad` unit
   * **`sqrt(float) -> float`**
 
 Square root
+
+ * **`rgb(int, int, int) -> color`**
+
+Return the color as in CSS. Values are clipped to 0..255.
