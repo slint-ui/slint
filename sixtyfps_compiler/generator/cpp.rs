@@ -1313,6 +1313,7 @@ fn compile_expression(
             BuiltinFunction::Round => "[](float a){ return std::round(a); }".into(),
             BuiltinFunction::Ceil => "[](float a){ return std::ceil(a); }".into(),
             BuiltinFunction::Floor => "[](float a){ return std::floor(a); }".into(),
+            BuiltinFunction::Rgb => panic!(),
             BuiltinFunction::SetFocusItem => {
                 "self->window.set_focus_item".into()
             }

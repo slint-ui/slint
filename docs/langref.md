@@ -725,4 +725,6 @@ Return the value rounded to the nearest integer
 
  Return the ceiling or floor
 
+ * ** rgb(int, int, int) -> color **
 
+Return the color as in CSS. Values are clipped to 0..255.
