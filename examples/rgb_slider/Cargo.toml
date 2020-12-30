@@ -1,0 +1,14 @@
+[package]
+name = "rgb_slider"
+version = "0.1.0"
+edition = "2018"
+
+[[bin]]
+path = "main.rs"
+name = "rgb_slider"
+
+[dependencies]
+sixtyfps = { path = "../../api/sixtyfps-rs" }
+
+[build-dependencies]
+sixtyfps-build = { path = "../../api/sixtyfps-rs/sixtyfps-build" }

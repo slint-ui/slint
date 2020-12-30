@@ -1,0 +1,60 @@
+import { Slider } from "sixtyfps_widgets.60";
+
+SliderWithLabel := HorizontalLayout {
+    property<string> text;
+    property<length> text_width;
+    property<length> font_size;
+    property<int> value: floor(slider.value);
+    height: font_size;
+    HorizontalLayout {
+        width: root.text_width;
+        Text {
+            text: root.text;
+            font_size: root.font_size;
+        }
+        Text {
+            text: root.value;
+            font_size: root.font_size;
+        }
+    }
+    slider := Slider {
+        maximum: 255;
+    }
+}
+
+RGBSlider := Window {
+    width: 480px;
+    height: 130px;
+    GridLayout {
+        spacing: 10px;
+        padding: 10px;
+        Row {
+            r := SliderWithLabel {
+                text: "R";
+                text_width: 110px;
+                font_size: 30px;
+            }
+        }
+        Row {
+            g := SliderWithLabel {
+                text: "G";
+                text_width: 110px;
+                font_size: 30px;
+            }
+        }
+        Row {
+            b := SliderWithLabel {
+                text: "B";
+                text_width: 110px;
+                font_size: 30px;
+            }
+        }
+        Rectangle {
+            width: 110px;
+            row: 0;
+            col: 1;
+            rowspan: 3;
+            color: rgb(r.value, g.value, b.value);
+        }
+    }
+}
