@@ -291,8 +291,8 @@ export NativeSlider := _ {
     property <length> height;
     property <bool> enabled: true;
     property <float> value;
-    property <float> min;
-    property <float> max;
+    property <float> minimum;
+    property <float> maximum: 100;
 }
 
 export NativeGroupBox := _ {

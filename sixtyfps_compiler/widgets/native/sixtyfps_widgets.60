@@ -17,7 +17,7 @@ export Button := NativeButton {
 }
 export CheckBox := NativeCheckBox { }
 export SpinBox := NativeSpinBox { property<length> font-size; }
-export Slider := NativeSlider { max:100; }
+export Slider := NativeSlider { }
 export GroupBox := NativeGroupBox {
     GridLayout {
         padding_left: root.native_padding_left;

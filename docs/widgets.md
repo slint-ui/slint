@@ -88,8 +88,8 @@ Example := Window {
 ### Properties
 
 * **`value`** (*float*): The value.
-* **`min`** (*float*): The minimum value (default: 0)
-* **`max`** (*float*): The maximum value (default: 100)
+* **`minimum`** (*float*): The minimum value (default: 0)
+* **`maximum`** (*float*): The maximum value (default: 100)
 
 ### Example
 

@@ -216,8 +216,8 @@ export SpinBox := Rectangle {
 }
 
 export Slider := Rectangle {
-    property<float> max: 100;
-    property<float> min: 0;
+    property<float> maximum: 100;
+    property<float> minimum: 0;
     property<float> value;
     property<bool> enabled: true;
 
@@ -256,12 +256,12 @@ export Slider := Rectangle {
         border_color: black;
         color: (touch_area.pressed && enabled) ? Palette.button_pressed : white;
         animate color { duration: 100ms; }
-        x: (root.width - handle.width) * (new_value - min)/(max - min);
+        x: (root.width - handle.width) * (new_value - minimum)/(maximum - minimum);
         property<float> new_value_tmp : (touch_area.pressed && enabled)
-            ? root.value + (touch_area.mouse_x - touch_area.pressed_x) * (max - min) / (root.width - handle.width)
+            ? root.value + (touch_area.mouse_x - touch_area.pressed_x) * (maximum - minimum) / (root.width - handle.width)
             : root.value;
-        property<float> new_value : new_value_tmp < root.min ? root.min
-            : new_value_tmp > root.max ? root.max : new_value_tmp;
+        property<float> new_value : new_value_tmp < root.minimum ? root.minimum
+            : new_value_tmp > root.maximum ? root.maximum : new_value_tmp;
     }
     touch_area := TouchArea {
         width: parent.width;

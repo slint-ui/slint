@@ -604,8 +604,8 @@ pub struct NativeSlider {
     pub height: Property<f32>,
     pub enabled: Property<bool>,
     pub value: Property<f32>,
-    pub min: Property<f32>,
-    pub max: Property<f32>,
+    pub minimum: Property<f32>,
+    pub maximum: Property<f32>,
     pub cached_rendering_data: CachedRenderingData,
     data: Property<NativeSliderData>,
 }
@@ -648,8 +648,8 @@ impl Item for NativeSlider {
     ) -> HighLevelRenderingPrimitive {
         let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
         let value = Self::FIELD_OFFSETS.value.apply_pin(self).get() as i32;
-        let min = Self::FIELD_OFFSETS.min.apply_pin(self).get() as i32;
-        let max = Self::FIELD_OFFSETS.max.apply_pin(self).get() as i32;
+        let min = Self::FIELD_OFFSETS.minimum.apply_pin(self).get() as i32;
+        let max = Self::FIELD_OFFSETS.maximum.apply_pin(self).get() as i32;
         let size: qttypes::QSize = get_size!(self);
         let dpr = window.scale_factor();
         let data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
@@ -690,8 +690,8 @@ impl Item for NativeSlider {
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
         let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
         let value = Self::FIELD_OFFSETS.value.apply_pin(self).get() as i32;
-        let min = Self::FIELD_OFFSETS.min.apply_pin(self).get() as i32;
-        let max = Self::FIELD_OFFSETS.max.apply_pin(self).get() as i32;
+        let min = Self::FIELD_OFFSETS.minimum.apply_pin(self).get() as i32;
+        let max = Self::FIELD_OFFSETS.maximum.apply_pin(self).get() as i32;
         let data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
         let active_controls = data.active_controls;
         let pressed = data.pressed;
@@ -731,8 +731,8 @@ impl Item for NativeSlider {
         let size: qttypes::QSize = get_size!(self);
         let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
         let value = Self::FIELD_OFFSETS.value.apply_pin(self).get() as f32;
-        let min = Self::FIELD_OFFSETS.min.apply_pin(self).get() as f32;
-        let max = Self::FIELD_OFFSETS.max.apply_pin(self).get() as f32;
+        let min = Self::FIELD_OFFSETS.minimum.apply_pin(self).get() as f32;
+        let max = Self::FIELD_OFFSETS.maximum.apply_pin(self).get() as f32;
         let mut data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
         let active_controls = data.active_controls;
         let pressed: bool = data.pressed != 0;
