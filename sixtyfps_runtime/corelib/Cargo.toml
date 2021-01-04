@@ -17,6 +17,7 @@ path = "lib.rs"
 rtti = []
 x11 = ["winit/x11", "copypasta/x11"]
 wayland = ["winit/wayland", "copypasta/wayland"]
+femtovg_backend = ["femtovg"]
 
 [dependencies]
 image = { version = "0.23.12", default-features = false, features = [ "png", "jpeg" ] }
@@ -41,6 +42,7 @@ copypasta = { version = "0.7.0", default-features = false }
 auto_enums = "0.7"
 stretch = "0.3.2"
 weak-table =  "0.3"
+femtovg = { git = "https://github.com/femtovg/femtovg", branch = "master", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 instant = { version = "0.1", features = [ "wasm-bindgen", "now" ] }

@@ -221,6 +221,20 @@ impl std::fmt::Display for Color {
     }
 }
 
+#[cfg(feature = "femtovg_backend")]
+impl From<&Color> for femtovg::Color {
+    fn from(col: &Color) -> Self {
+        Self::rgba(col.red, col.green, col.blue, col.alpha)
+    }
+}
+
+#[cfg(feature = "femtovg_backend")]
+impl From<Color> for femtovg::Color {
+    fn from(col: Color) -> Self {
+        Self::rgba(col.red, col.green, col.blue, col.alpha)
+    }
+}
+
 /// A resource is a reference to binary data, for example images. They can be accessible on the file
 /// system or embedded in the resulting binary. Or they might be URLs to a web server and a downloaded
 /// is necessary before they can be used.

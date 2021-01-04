@@ -233,7 +233,7 @@ impl Item for NativeButton {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
+    fn render(self: Pin<&Self>, pos: Point, backend: &mut &mut dyn ItemRenderer) {
         //(*backend).draw_image_buffer(pos, ...)
     }
 }
@@ -361,7 +361,7 @@ impl Item for NativeCheckBox {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
+    fn render(self: Pin<&Self>, pos: Point, backend: &mut &mut dyn ItemRenderer) {
         //(*backend).draw_image_buffer(pos, ...)
     }
 }
@@ -586,7 +586,7 @@ impl Item for NativeSpinBox {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
+    fn render(self: Pin<&Self>, pos: Point, backend: &mut &mut dyn ItemRenderer) {
         //(*backend).draw_image_buffer(pos, ...)
     }
 }
@@ -809,7 +809,7 @@ impl Item for NativeSlider {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
+    fn render(self: Pin<&Self>, pos: Point, backend: &mut &mut dyn ItemRenderer) {
         //(*backend).draw_image_buffer(pos, ...)
     }
 }
@@ -1021,7 +1021,7 @@ impl Item for NativeGroupBox {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
+    fn render(self: Pin<&Self>, pos: Point, backend: &mut &mut dyn ItemRenderer) {
         //(*backend).draw_image_buffer(pos, ...)
     }
 }
@@ -1180,7 +1180,7 @@ impl Item for NativeLineEdit {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
+    fn render(self: Pin<&Self>, pos: Point, backend: &mut &mut dyn ItemRenderer) {
         //(*backend).draw_image_buffer(pos, ...)
     }
 }
@@ -1569,7 +1569,7 @@ impl Item for NativeScrollView {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
+    fn render(self: Pin<&Self>, pos: Point, backend: &mut &mut dyn ItemRenderer) {
         //(*backend).draw_image_buffer(pos, ...)
     }
 }
@@ -1704,7 +1704,7 @@ impl Item for NativeStandardListViewItem {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
+    fn render(self: Pin<&Self>, pos: Point, backend: &mut &mut dyn ItemRenderer) {
         //(*backend).draw_image_buffer(pos, ...)
     }
 }
@@ -1856,7 +1856,7 @@ impl Item for NativeComboBox {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
+    fn render(self: Pin<&Self>, pos: Point, backend: &mut &mut dyn ItemRenderer) {
         //(*backend).draw_image_buffer(pos, ...)
     }
 }

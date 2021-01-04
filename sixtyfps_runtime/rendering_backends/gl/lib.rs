@@ -1238,3 +1238,5 @@ pub type NativeWidgets = ();
 pub type NativeGlobals = ();
 pub mod native_widgets {}
 pub const HAS_NATIVE_STYLE: bool = false;
+
+pub mod renderer;

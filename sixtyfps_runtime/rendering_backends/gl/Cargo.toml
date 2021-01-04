@@ -18,7 +18,7 @@ wayland = ["winit/wayland", "glutin/wayland", "sixtyfps-corelib/wayland"]
 default = ["x11"]
 
 [dependencies]
-sixtyfps-corelib = { version = "=0.0.4", path = "../../corelib" }
+sixtyfps-corelib = { version = "=0.0.4", path = "../../corelib", features = ["femtovg_backend"] }
 lyon = { version = "0.16" }
 image = { version = "0.23.12", default-features = false }
 cgmath = "0.17.0"
@@ -28,6 +28,7 @@ guillotiere = "0.6"
 itertools = "0.9.0"
 smallvec = "1.4.1"
 by_address = "1.0.4"
+femtovg = { git = "https://github.com/femtovg/femtovg", branch = "master" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web_sys = { version = "0.3", package = "web-sys", features=["console", "WebGlContextAttributes"] }
