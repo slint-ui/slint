@@ -25,7 +25,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 #![allow(missing_docs)] // because documenting each property of items is redundent
 
 use super::eventloop::ComponentWindow;
-use super::graphics::{Color, HighLevelRenderingPrimitive, PathData, Rect};
+use super::graphics::{Color, HighLevelRenderingPrimitive, PathData, Point, Rect};
 use super::input::{
     FocusEvent, InputEventResult, KeyEvent, KeyEventResult, MouseEvent, MouseEventType,
 };
@@ -44,6 +44,18 @@ mod text;
 pub use text::*;
 mod image;
 pub use self::image::*;
+
+pub trait ItemRenderer {
+    /// will draw a rectangle in (pos.x + rect.x)
+    fn draw_rectangle(&self, pos: Point, rect: Pin<&Rectangle>);
+    fn draw_border_rectangle(&self, pos: Point, rect: Pin<&BorderRectangle>);
+    fn draw_image(&self, pos: Point, rect: Pin<&Image>);
+    fn draw_clipped_image(&self, pos: Point, rect: Pin<&ClippedImage>);
+    fn draw_text(&self, pos: Point, rect: Pin<&Text>);
+    fn draw_text_input(&self, pos: Point, rect: Pin<&TextInput>);
+    fn draw_path(&self, pos: Point, path: Pin<&Path>);
+    fn add_clip_rectangle(&self, pos: Point, clip: &Pin<&Clip>);
+}
 
 /// Items are the nodes in the render tree.
 #[vtable]
@@ -98,6 +110,9 @@ pub struct ItemVTable {
         &KeyEvent,
         window: &ComponentWindow,
     ) -> KeyEventResult,
+
+    pub render:
+        extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, pos: Point, backend: &&dyn ItemRenderer),
 }
 
 /// Alias for `vtable::VRef<ItemVTable>` which represent a pointer to a `dyn Item` with
@@ -207,6 +222,10 @@ impl Item for Rectangle {
     }
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+
+    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
+        (*backend).draw_rectangle(pos, self)
+    }
 }
 
 impl ItemConsts for Rectangle {
@@ -289,6 +308,10 @@ impl Item for BorderRectangle {
     }
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+
+    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
+        (*backend).draw_border_rectangle(pos, self)
+    }
 }
 
 impl ItemConsts for BorderRectangle {
@@ -407,6 +430,8 @@ impl Item for TouchArea {
     }
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+
+    fn render(self: Pin<&Self>, _pos: Point, _backend: &&dyn ItemRenderer) {}
 }
 
 impl ItemConsts for TouchArea {
@@ -476,6 +501,10 @@ impl Item for Clip {
     }
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+
+    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
+        (*backend).add_clip_rectangle(pos, &self)
+    }
 }
 
 impl ItemConsts for Clip {
@@ -553,6 +582,10 @@ impl Item for Path {
     }
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+
+    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
+        (*backend).draw_path(pos, self)
+    }
 }
 
 impl ItemConsts for Path {
@@ -636,6 +669,8 @@ impl Item for Flickable {
     }
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+
+    fn render(self: Pin<&Self>, _pos: Point, _backend: &&dyn ItemRenderer) {}
 }
 
 impl ItemConsts for Flickable {
@@ -750,6 +785,8 @@ impl Item for Window {
     }
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+
+    fn render(self: Pin<&Self>, _pos: Point, _backend: &&dyn ItemRenderer) {}
 }
 
 impl ItemConsts for Window {

@@ -28,12 +28,14 @@ use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use cpp::cpp;
 use sixtyfps_corelib::eventloop::ComponentWindow;
-use sixtyfps_corelib::graphics::{HighLevelRenderingPrimitive, Rect, RenderingVariables, Resource};
+use sixtyfps_corelib::graphics::{
+    HighLevelRenderingPrimitive, Point, Rect, RenderingVariables, Resource,
+};
 use sixtyfps_corelib::input::{
     FocusEvent, InputEventResult, KeyEvent, KeyEventResult, MouseEvent, MouseEventType,
 };
 use sixtyfps_corelib::item_rendering::CachedRenderingData;
-use sixtyfps_corelib::items::{Item, ItemConsts, ItemRc, ItemVTable};
+use sixtyfps_corelib::items::{Item, ItemConsts, ItemRc, ItemRenderer, ItemVTable};
 use sixtyfps_corelib::layout::LayoutInfo;
 use sixtyfps_corelib::rtti::*;
 use sixtyfps_corelib::{Callback, ItemVTable_static, Property, SharedString, SharedVector};
@@ -230,6 +232,10 @@ impl Item for NativeButton {
     }
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+
+    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
+        //(*backend).draw_image_buffer(pos, ...)
+    }
 }
 
 impl ItemConsts for NativeButton {
@@ -354,6 +360,10 @@ impl Item for NativeCheckBox {
     }
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+
+    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
+        //(*backend).draw_image_buffer(pos, ...)
+    }
 }
 
 impl ItemConsts for NativeCheckBox {
@@ -575,6 +585,10 @@ impl Item for NativeSpinBox {
     }
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+
+    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
+        //(*backend).draw_image_buffer(pos, ...)
+    }
 }
 
 impl ItemConsts for NativeSpinBox {
@@ -794,6 +808,10 @@ impl Item for NativeSlider {
     }
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+
+    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
+        //(*backend).draw_image_buffer(pos, ...)
+    }
 }
 
 impl ItemConsts for NativeSlider {
@@ -1002,6 +1020,10 @@ impl Item for NativeGroupBox {
     }
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+
+    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
+        //(*backend).draw_image_buffer(pos, ...)
+    }
 }
 
 impl ItemConsts for NativeGroupBox {
@@ -1157,6 +1179,10 @@ impl Item for NativeLineEdit {
     }
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+
+    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
+        //(*backend).draw_image_buffer(pos, ...)
+    }
 }
 
 impl ItemConsts for NativeLineEdit {
@@ -1542,6 +1568,10 @@ impl Item for NativeScrollView {
     }
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+
+    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
+        //(*backend).draw_image_buffer(pos, ...)
+    }
 }
 
 impl ItemConsts for NativeScrollView {
@@ -1673,6 +1703,10 @@ impl Item for NativeStandardListViewItem {
     }
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+
+    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
+        //(*backend).draw_image_buffer(pos, ...)
+    }
 }
 
 impl ItemConsts for NativeStandardListViewItem {
@@ -1821,6 +1855,10 @@ impl Item for NativeComboBox {
     }
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+
+    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
+        //(*backend).draw_image_buffer(pos, ...)
+    }
 }
 
 impl ItemConsts for NativeComboBox {

@@ -19,9 +19,11 @@ When adding an item or a property, it needs to be kept in sync with different pl
  - For the C++ code (new item only): the cbindgen.rs to export the new item, and the `using` declaration in sixtyfps.h
  - Don't forget to update the documentation
 */
-use super::{Item, ItemConsts, ItemRc};
+use super::{Item, ItemConsts, ItemRc, ItemRenderer};
 use crate::eventloop::ComponentWindow;
-use crate::graphics::{HighLevelRenderingPrimitive, IntRect, Rect, RenderingVariables, Resource};
+use crate::graphics::{
+    HighLevelRenderingPrimitive, IntRect, Point, Rect, RenderingVariables, Resource,
+};
 use crate::input::{FocusEvent, InputEventResult, KeyEvent, KeyEventResult, MouseEvent};
 use crate::item_rendering::CachedRenderingData;
 use crate::layout::LayoutInfo;
@@ -110,6 +112,10 @@ impl Item for Image {
     }
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+
+    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
+        (*backend).draw_image(pos, self)
+    }
 }
 
 impl ItemConsts for Image {
@@ -190,6 +196,10 @@ impl Item for ClippedImage {
     }
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+
+    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
+        (*backend).draw_clipped_image(pos, self)
+    }
 }
 
 impl ItemConsts for ClippedImage {

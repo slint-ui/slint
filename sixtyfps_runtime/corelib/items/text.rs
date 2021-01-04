@@ -20,7 +20,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
  - Don't forget to update the documentation
 */
 
-use super::{Item, ItemConsts, ItemRc};
+use super::{Item, ItemConsts, ItemRc, ItemRenderer};
 use crate::eventloop::ComponentWindow;
 use crate::font::HasFont;
 use crate::graphics::{Color, HighLevelRenderingPrimitive, Point, Rect, RenderingVariables};
@@ -160,6 +160,10 @@ impl Item for Text {
     }
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+
+    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
+        (*backend).draw_text(pos, self)
+    }
 }
 
 impl ItemConsts for Text {
@@ -460,6 +464,10 @@ impl Item for TextInput {
                 self.hide_cursor()
             }
         }
+    }
+
+    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
+        (*backend).draw_text_input(pos, self)
     }
 }
 
