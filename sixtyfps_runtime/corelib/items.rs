@@ -25,7 +25,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 #![allow(missing_docs)] // because documenting each property of items is redundent
 
 use super::eventloop::ComponentWindow;
-use super::graphics::{Color, HighLevelRenderingPrimitive, PathData, Point, Rect};
+use super::graphics::{Color, PathData, Point, Rect};
 use super::input::{
     FocusEvent, InputEventResult, KeyEvent, KeyEventResult, MouseEvent, MouseEventType,
 };
@@ -76,21 +76,6 @@ pub struct ItemVTable {
     #[allow(non_upper_case_globals)]
     #[field_offset(CachedRenderingData)]
     pub cached_rendering_data_offset: usize,
-
-    /// Return the rendering primitive used to display this item. This should depend on only
-    /// rarely changed properties as it typically contains data uploaded to the GPU.
-    pub rendering_primitive: extern "C" fn(
-        core::pin::Pin<VRef<ItemVTable>>,
-        window: &ComponentWindow,
-    ) -> HighLevelRenderingPrimitive,
-
-    /// Return the variables needed to render the graphical primitives of this item. These
-    /// are typically variables that do not require uploading any data sets to the GPU and
-    /// can instead be represented using uniforms.
-    pub rendering_variables: extern "C" fn(
-        core::pin::Pin<VRef<ItemVTable>>,
-        window: &ComponentWindow,
-    ) -> RenderingVariables,
 
     /// We would need max/min/preferred size, and all layout info
     pub layouting_info:
@@ -187,27 +172,6 @@ impl Item for Rectangle {
             Self::FIELD_OFFSETS.height.apply_pin(self).get(),
         )
     }
-    fn rendering_primitive(
-        self: Pin<&Self>,
-        _window: &ComponentWindow,
-    ) -> HighLevelRenderingPrimitive {
-        let width = Self::FIELD_OFFSETS.width.apply_pin(self).get();
-        let height = Self::FIELD_OFFSETS.height.apply_pin(self).get();
-        if width > 0. && height > 0. {
-            HighLevelRenderingPrimitive::Rectangle { width, height }
-        } else {
-            HighLevelRenderingPrimitive::NoContents
-        }
-    }
-
-    fn rendering_variables(self: Pin<&Self>, _window: &ComponentWindow) -> RenderingVariables {
-        RenderingVariables::Rectangle {
-            fill: Self::FIELD_OFFSETS.color.apply_pin(self).get(),
-            stroke: Color::default(),
-            border_width: 0.,
-            border_radius: 0.,
-        }
-    }
 
     fn layouting_info(self: Pin<&Self>, _window: &crate::eventloop::ComponentWindow) -> LayoutInfo {
         LayoutInfo { horizontal_stretch: 1., vertical_stretch: 1., ..LayoutInfo::default() }
@@ -272,27 +236,6 @@ impl Item for BorderRectangle {
             Self::FIELD_OFFSETS.width.apply_pin(self).get(),
             Self::FIELD_OFFSETS.height.apply_pin(self).get(),
         )
-    }
-    fn rendering_primitive(
-        self: Pin<&Self>,
-        _window: &ComponentWindow,
-    ) -> HighLevelRenderingPrimitive {
-        let width = Self::FIELD_OFFSETS.width.apply_pin(self).get();
-        let height = Self::FIELD_OFFSETS.height.apply_pin(self).get();
-        if width > 0. && height > 0. {
-            HighLevelRenderingPrimitive::Rectangle { width, height }
-        } else {
-            HighLevelRenderingPrimitive::NoContents
-        }
-    }
-
-    fn rendering_variables(self: Pin<&Self>, _window: &ComponentWindow) -> RenderingVariables {
-        RenderingVariables::Rectangle {
-            fill: Self::FIELD_OFFSETS.color.apply_pin(self).get(),
-            stroke: Self::FIELD_OFFSETS.border_color.apply_pin(self).get(),
-            border_width: Self::FIELD_OFFSETS.border_width.apply_pin(self).get(),
-            border_radius: Self::FIELD_OFFSETS.border_radius.apply_pin(self).get(),
-        }
     }
 
     fn layouting_info(self: Pin<&Self>, _window: &crate::eventloop::ComponentWindow) -> LayoutInfo {
@@ -380,16 +323,6 @@ impl Item for TouchArea {
             Self::FIELD_OFFSETS.height.apply_pin(self).get(),
         )
     }
-    fn rendering_primitive(
-        self: Pin<&Self>,
-        _window: &ComponentWindow,
-    ) -> HighLevelRenderingPrimitive {
-        HighLevelRenderingPrimitive::NoContents
-    }
-
-    fn rendering_variables(self: Pin<&Self>, _window: &ComponentWindow) -> RenderingVariables {
-        RenderingVariables::default()
-    }
 
     fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
         LayoutInfo::default()
@@ -475,18 +408,6 @@ impl Item for Clip {
             Self::FIELD_OFFSETS.height.apply_pin(self).get(),
         )
     }
-    fn rendering_primitive(
-        self: Pin<&Self>,
-        _window: &ComponentWindow,
-    ) -> HighLevelRenderingPrimitive {
-        let width = Self::FIELD_OFFSETS.width.apply_pin(self).get();
-        let height = Self::FIELD_OFFSETS.height.apply_pin(self).get();
-        HighLevelRenderingPrimitive::ClipRect { width, height }
-    }
-
-    fn rendering_variables(self: Pin<&Self>, _window: &ComponentWindow) -> RenderingVariables {
-        Default::default()
-    }
 
     fn layouting_info(self: Pin<&Self>, _window: &crate::eventloop::ComponentWindow) -> LayoutInfo {
         LayoutInfo { horizontal_stretch: 1., vertical_stretch: 1., ..LayoutInfo::default() }
@@ -549,24 +470,6 @@ impl Item for Path {
             0.,
             0.,
         )
-    }
-    fn rendering_primitive(
-        self: Pin<&Self>,
-        _window: &ComponentWindow,
-    ) -> HighLevelRenderingPrimitive {
-        HighLevelRenderingPrimitive::Path {
-            width: Self::FIELD_OFFSETS.width.apply_pin(self).get(),
-            height: Self::FIELD_OFFSETS.height.apply_pin(self).get(),
-            elements: Self::FIELD_OFFSETS.elements.apply_pin(self).get(),
-            stroke_width: Self::FIELD_OFFSETS.stroke_width.apply_pin(self).get(),
-        }
-    }
-
-    fn rendering_variables(self: Pin<&Self>, _window: &ComponentWindow) -> RenderingVariables {
-        RenderingVariables::Path {
-            fill: Self::FIELD_OFFSETS.fill_color.apply_pin(self).get(),
-            stroke: Self::FIELD_OFFSETS.stroke_color.apply_pin(self).get(),
-        }
     }
 
     fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
@@ -632,19 +535,6 @@ impl Item for Flickable {
             Self::FIELD_OFFSETS.height.apply_pin(self).get(),
         )
     }
-    fn rendering_primitive(
-        self: Pin<&Self>,
-        _window: &ComponentWindow,
-    ) -> HighLevelRenderingPrimitive {
-        HighLevelRenderingPrimitive::ClipRect {
-            width: Self::FIELD_OFFSETS.width.apply_pin(self).get(),
-            height: Self::FIELD_OFFSETS.height.apply_pin(self).get(),
-        }
-    }
-
-    fn rendering_variables(self: Pin<&Self>, _window: &ComponentWindow) -> RenderingVariables {
-        Default::default()
-    }
 
     fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
         LayoutInfo::default()
@@ -689,7 +579,7 @@ ItemVTable_static! {
     pub static FlickableVTable for Flickable
 }
 
-pub use crate::{graphics::RenderingVariables, SharedVector};
+pub use crate::SharedVector;
 
 #[repr(C)]
 /// Wraps the internal datastructure for the Flickable
@@ -760,16 +650,6 @@ impl Item for Window {
             Self::FIELD_OFFSETS.width.apply_pin(self).get(),
             Self::FIELD_OFFSETS.height.apply_pin(self).get(),
         )
-    }
-    fn rendering_primitive(
-        self: Pin<&Self>,
-        _window: &ComponentWindow,
-    ) -> HighLevelRenderingPrimitive {
-        HighLevelRenderingPrimitive::NoContents
-    }
-
-    fn rendering_variables(self: Pin<&Self>, _window: &ComponentWindow) -> RenderingVariables {
-        Default::default()
     }
 
     fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {

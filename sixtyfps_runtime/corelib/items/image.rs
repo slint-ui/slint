@@ -21,9 +21,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 */
 use super::{Item, ItemConsts, ItemRc, ItemRenderer};
 use crate::eventloop::ComponentWindow;
-use crate::graphics::{
-    HighLevelRenderingPrimitive, IntRect, Point, Rect, RenderingVariables, Resource,
-};
+use crate::graphics::{Point, Rect, Resource};
 use crate::input::{FocusEvent, InputEventResult, KeyEvent, KeyEventResult, MouseEvent};
 use crate::item_rendering::CachedRenderingData;
 use crate::layout::LayoutInfo;
@@ -74,23 +72,6 @@ impl Item for Image {
             Self::FIELD_OFFSETS.width.apply_pin(self).get(),
             Self::FIELD_OFFSETS.height.apply_pin(self).get(),
         )
-    }
-    fn rendering_primitive(
-        self: Pin<&Self>,
-        _window: &ComponentWindow,
-    ) -> HighLevelRenderingPrimitive {
-        HighLevelRenderingPrimitive::Image {
-            source: Self::FIELD_OFFSETS.source.apply_pin(self).get(),
-            source_clip_rect: IntRect::default(),
-        }
-    }
-
-    fn rendering_variables(self: Pin<&Self>, _window: &ComponentWindow) -> RenderingVariables {
-        RenderingVariables::Image {
-            scaled_width: Self::FIELD_OFFSETS.width.apply_pin(self).get(),
-            scaled_height: Self::FIELD_OFFSETS.height.apply_pin(self).get(),
-            fit: Self::FIELD_OFFSETS.image_fit.apply_pin(self).get(),
-        }
     }
 
     fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
@@ -153,28 +134,6 @@ impl Item for ClippedImage {
             Self::FIELD_OFFSETS.width.apply_pin(self).get(),
             Self::FIELD_OFFSETS.height.apply_pin(self).get(),
         )
-    }
-    fn rendering_primitive(
-        self: Pin<&Self>,
-        _window: &ComponentWindow,
-    ) -> HighLevelRenderingPrimitive {
-        HighLevelRenderingPrimitive::Image {
-            source: Self::FIELD_OFFSETS.source.apply_pin(self).get(),
-            source_clip_rect: euclid::rect(
-                Self::FIELD_OFFSETS.source_clip_x.apply_pin(self).get(),
-                Self::FIELD_OFFSETS.source_clip_y.apply_pin(self).get(),
-                Self::FIELD_OFFSETS.source_clip_width.apply_pin(self).get(),
-                Self::FIELD_OFFSETS.source_clip_height.apply_pin(self).get(),
-            ),
-        }
-    }
-
-    fn rendering_variables(self: Pin<&Self>, _window: &ComponentWindow) -> RenderingVariables {
-        RenderingVariables::Image {
-            scaled_width: Self::FIELD_OFFSETS.width.apply_pin(self).get(),
-            scaled_height: Self::FIELD_OFFSETS.height.apply_pin(self).get(),
-            fit: Self::FIELD_OFFSETS.image_fit.apply_pin(self).get(),
-        }
     }
 
     fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {

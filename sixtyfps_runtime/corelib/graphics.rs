@@ -258,156 +258,6 @@ impl Default for Resource {
     }
 }
 
-/// The run-time library uses this enum to instruct the [GraphicsBackend] to render SixtyFPS
-/// graphics items.
-/// The different variants of this enum closely resemble the properties found in the `.60`
-/// mark-up language for various items. More specifically this enum typically holds the
-/// properties that usually require for the allocation and uploading of GPU side data, such
-/// as vertex buffers or textures. Other properties such as colors not part of the enum but
-/// are provided to the back-end using [RenderingVariable]. That means that certain variants
-/// of this enum relate to a sequence of rendering variables.
-///
-/// Always absent here are the starting coordinates for the primitives. Those are provided
-/// using a translation in the transform parameter of [Frame::render_primitive].
-#[derive(PartialEq, Debug)]
-#[repr(C)]
-#[allow(missing_docs)]
-pub enum HighLevelRenderingPrimitive {
-    /// There is nothing to draw.
-    ///
-    /// Associated rendering variables: None.
-    NoContents,
-    /// Renders a rectangle with the specified `width` and `height`, as well as a border
-    /// around it.
-    Rectangle { width: f32, height: f32 },
-    /// Renders a image referenced by the specified `source`.
-    Image { source: crate::Resource, source_clip_rect: IntRect },
-    /// Renders the specified `text` with a font that matches the specified family
-    /// (`font_family`) and the given pixel size (`font_size`).
-    Text { text: crate::SharedString, font_request: super::font::FontRequest },
-    /// Renders a path specified by the `elements` parameter. The path will be scaled to fit into the given
-    /// `width` and `height`. If the `stroke_width` is greater than zero, then path will also be outlined.
-    Path { width: f32, height: f32, elements: crate::PathData, stroke_width: f32 },
-    /// Applies a clip rectangle for all subsequent rendering, with the given `width` and `height. When rendering
-    /// the low-level rendering primitive created from this variant, [`Frame::render_primitive`] will return a
-    /// vector with cleanup primitives that must be applied in order to unapply the clipping.
-    ClipRect { width: f32, height: f32 },
-}
-
-impl Default for HighLevelRenderingPrimitive {
-    fn default() -> Self {
-        Self::NoContents
-    }
-}
-
-#[derive(Debug, Clone)]
-#[repr(C)]
-/// This enum is used to affect various aspects of the rendering of [`GraphicsBackend::LowLevelRenderingPrimitive`]
-/// without the need to re-create them. See the documentation of [`HighLevelRenderingPrimitive`]
-/// about which variables are supported in which order.
-pub enum RenderingVariables {
-    /// Nothing to render
-    NoContents,
-
-    /// Match [`HighLevelRenderingPrimitive::Rectangle`]
-    Rectangle {
-        /// The color to fill the rectangle with.
-        fill: Color,
-        /// The color to use for stroking the border of the rectangle.
-        stroke: Color,
-        /// The width to use for the border of the rectangle.
-        border_width: f32,
-        /// The radius to use for the edges, to create a rounded rectangle.
-        border_radius: f32,
-    },
-
-    /// Match [`HighLevelRenderingPrimitive::Image`], to scale the image.
-    /// Note that [RenderingVariables::NoContents] can also be used for image that does not need scaling
-    Image {
-        /// The image will be scaled to the specified width.
-        scaled_width: f32,
-        /// The image will be scaled to the specified height.
-        scaled_height: f32,
-        /// The image will be scaled/positioned according to the ImageFit policy
-        fit: crate::items::ImageFit,
-    },
-
-    /// The color to use for rendering the glyphs.
-    /// Text cursor to draw: the parameters provide the x coordiante and the width/height
-    /// as (x, width, height) tuple.
-    /// Text selection to draw: the parameters provide the starting x coordinate,
-    /// the width and the height, the foreground and background color
-    Text {
-        /// The translation (x, y),
-        translate: Point,
-        /// The color to use for rendering the glyphs.
-        color: Color,
-        /// Text cursor to draw: the parameters provide the x coordiante and the width/height
-        cursor: Option<Box<(f32, f32, f32)>>,
-        /// Text selection to draw: the parameters provide the starting x coordinate,
-        /// the width and the height, the foreground and background color
-        selection: Option<Box<(f32, f32, f32, Color, Color)>>,
-    },
-
-    /// Match [`HighLevelRenderingPrimitive::Path`]
-    Path {
-        /// The color to fill the rectangle with.
-        fill: Color,
-        /// The color to use for stroking the border of the rectangle.
-        stroke: Color,
-    },
-}
-
-impl Default for RenderingVariables {
-    fn default() -> Self {
-        Self::NoContents
-    }
-}
-
-/// Frame is used to render previously created [GraphicsBackend::LowLevelRenderingPrimitive] instances
-/// to the back-buffer of the window.
-pub trait Frame {
-    /// This associated type is usually provided through the [GraphicsBackend::LowLevelRenderingPrimitive] type.
-    type LowLevelRenderingPrimitive;
-    /// Renderings the provided primitive to the back-buffer, taking the provided transform and additional rendering
-    /// variables into account.
-    ///
-    /// The returned primitives must be rendered after rendering any rendering primitives that are supposed to be
-    /// in a visual tree after this primitive. This is for example used to clean up clipping regions.
-    ///
-    /// Arguments:
-    /// * `primitive`: The primitive to render.
-    /// * `transform`: The geometry of the primitive will be transformed by this 4x4 matrix. This can be used to apply
-    ///                rotation, scaling, etc. without re-creating the low-level rendering primitive.
-    /// * `variables`: An array of [RenderingVariable] instances that are applied when rendering the primitive. These
-    ///                variables typically translate to OpenGL uniforms and allow for affecting various aspects of the
-    ///                rendering of the primitive without expensive buffer uploads to the GPU.
-    fn render_primitive(
-        &mut self,
-        primitive: &Self::LowLevelRenderingPrimitive,
-        translation: Point,
-        variables: RenderingVariables,
-    ) -> Vec<Self::LowLevelRenderingPrimitive>;
-}
-
-/// RenderingPrimitivesBuilder is used to convert instances of [HighLevelRenderingPrimitive] to
-/// the back-end specific [GraphicsBackend::LowLevelRenderingPrimitive], giving the backend a way
-/// to determin the optimal representation for rendering later. For example this may involve uploading
-/// textures for images to GPU memory, pre-rendering glyphs or allocating vertex buffers.
-pub trait RenderingPrimitivesBuilder {
-    /// This associated type is usually provided through the [GraphicsBackend::LowLevelRenderingPrimitive] type.
-    type LowLevelRenderingPrimitive;
-
-    /// Lowers the high-level rendering primitive to a representation suitable for the graphics backend.
-    ///
-    /// Arguments:
-    /// * `primitive`: The primitive to convert.
-    fn create(
-        &mut self,
-        primitive: HighLevelRenderingPrimitive,
-    ) -> Self::LowLevelRenderingPrimitive;
-}
-
 /// GraphicsBackend is the trait that the the SixtyFPS run-time uses to convert [HighLevelRenderingPrimitive]
 /// to an internal representation that is optimal for the backend, in order to render it later. The internal
 /// representation is opaque but must be provided via the [GraphicsBackend::LowLevelRenderingPrimitive] associated type.
@@ -419,79 +269,19 @@ pub trait RenderingPrimitivesBuilder {
 ///   1. A series of low-level rendering primitives can be rendered into a frame, that's started using [GraphicsBackend::new_frame].
 ///      The low-level rendering primitives are intended to be fast and ready for rendering.
 pub trait GraphicsBackend: Sized {
-    /// This associated type is typically opaque and is produced by the [RenderingPrimitivesBuilder]. For example it may contain
-    /// handles that refer to data that was uploaded to the GPU.
-    type LowLevelRenderingPrimitive;
-    /// This associated type ties the Frame trait together with this trait's LowLevelRenderingPrimitive.
-    type Frame: Frame<LowLevelRenderingPrimitive = Self::LowLevelRenderingPrimitive>;
-    /// This associated type ties the RenderingPrimitivesBuilder trait with this trait's LowLevelRenderingPrimitive.
-    type RenderingPrimitivesBuilder: RenderingPrimitivesBuilder<
-        LowLevelRenderingPrimitive = Self::LowLevelRenderingPrimitive,
-    >;
-
-    /// Creates a new RenderingPrimitivesBuilder for the allocation of any GPU side data of different primitives. Call
-    /// [GraphicsBackend::finish_primitives] when done.
-    fn new_rendering_primitives_builder(&mut self) -> Self::RenderingPrimitivesBuilder;
-    /// When all low-level rendering primitives have been created needed to render your scene, then this method
-    /// needs to be called to complete the process.
-    ///
-    /// Arguments:
-    /// * `builder`: The [RenderingPrimitivesBuilder] created by calling [GraphicsBackend::new_rendering_primitives_builder].
-    fn finish_primitives(&mut self, builder: Self::RenderingPrimitivesBuilder);
-
-    /// Begins the process of rendering a new frame into what is typically the window back-buffer. Call [GraphicsBackend::present_frame]
-    /// when all rendering primitives have been queued for rendering.
-    ///
-    /// Arguments:
-    /// * `width`: The width of the window to render.
-    /// * `height`: The height of the window to render.
-    /// * `clear_color`: The color to clear the back-buffer with.
-    fn new_frame(&mut self, width: u32, height: u32, clear_color: &Color) -> Self::Frame;
-    /// When all rendering primitives have been queued for rendering with the [Frame] API, pass the frame instance to this function
-    /// and thereby complete the rendering. The backend then will present the contents on the screen inside the window, for example by
-    /// flushing the backing store or swapping OpenGL buffers.
-    ///
-    /// Arguments:
-    /// * `frame`: The frame created by calling [GraphicsBackend::new_frame].
-    fn present_frame(&mut self, frame: Self::Frame);
+    type ItemRenderer: crate::items::ItemRenderer;
+    fn new_renderer(&mut self, width: u32, height: u32, clear_color: &Color) -> Self::ItemRenderer;
+    fn flush_renderer(&mut self, renderer: Self::ItemRenderer);
 
     /// Returns the window that the backend is associated with.
     fn window(&self) -> &winit::window::Window;
 }
-
-/// Holds a GraphicBackend's rendering primitive as well as a PropertyTracker that allows lazily re-creating
-/// the primitive if the properties needed to create it have changed.
-pub struct TrackingRenderingPrimitive<Backend: GraphicsBackend> {
-    /// The rendering primitive that's being tracked.
-    pub primitive: Backend::LowLevelRenderingPrimitive,
-    /// The property tracker that should be used to evaluate whether the primitive needs to be re-created
-    /// or not.
-    pub dependency_tracker: core::pin::Pin<Box<crate::properties::PropertyTracker>>,
-}
-
-impl<Backend: GraphicsBackend> TrackingRenderingPrimitive<Backend> {
-    /// Creates a new TrackingRenderingPrimitive by evaluating the provided update_fn once, storing the returned
-    /// rendering primitive and initializing the dependency tracker.
-    pub fn new(update_fn: impl FnOnce() -> Backend::LowLevelRenderingPrimitive) -> Self {
-        let dependency_tracker = Box::pin(crate::properties::PropertyTracker::default());
-        let primitive = dependency_tracker.as_ref().evaluate(update_fn);
-        Self { primitive, dependency_tracker }
-    }
-}
-
-/// The RenderingCache is used by the run-time library to avoid storing the
-/// typed [GraphicsBackend::LowLevelRenderingPrimitive] instances created for
-/// [Items][`crate::items`]. Instead it allows mapping them to a usize
-/// handle, and it also allows tracking whenever any of the properties used to
-/// create the primitive changed.
-pub type RenderingCache<Backend> = vec_arena::Arena<TrackingRenderingPrimitive<Backend>>;
 
 type WindowFactoryFn<Backend> =
     dyn Fn(&crate::eventloop::EventLoop, winit::window::WindowBuilder) -> Backend;
 
 struct MappedWindow<Backend: GraphicsBackend + 'static> {
     backend: RefCell<Backend>,
-    rendering_cache: RefCell<RenderingCache<Backend>>,
     constraints: Cell<crate::layout::LayoutInfo>,
 }
 
@@ -688,49 +478,6 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
             }
         }
 
-        {
-            let map_state = self.map_state.borrow();
-            let window = map_state.as_mapped();
-            let mut backend = window.backend.borrow_mut();
-            let mut rendering_primitives_builder = backend.new_rendering_primitives_builder();
-
-            // Generate cached rendering data once
-            crate::item_tree::visit_items(
-                &component_rc,
-                crate::item_tree::TraversalOrder::BackToFront,
-                |_, item, _, _| {
-                    crate::item_rendering::update_item_rendering_data(
-                        item,
-                        &window.rendering_cache,
-                        &mut rendering_primitives_builder,
-                        &self,
-                    );
-                    crate::item_tree::ItemVisitorResult::Continue(())
-                },
-                (),
-            );
-
-            if let Some(popup) = &*self.active_popup.borrow() {
-                // Generate cached rendering data once
-                crate::item_tree::visit_items(
-                    &popup.0,
-                    crate::item_tree::TraversalOrder::BackToFront,
-                    |_, item, _, _| {
-                        crate::item_rendering::update_item_rendering_data(
-                            item,
-                            &window.rendering_cache,
-                            &mut rendering_primitives_builder,
-                            &self,
-                        );
-                        crate::item_tree::ItemVisitorResult::Continue(())
-                    },
-                    (),
-                );
-            }
-
-            backend.finish_primitives(rendering_primitives_builder);
-        }
-
         let map_state = self.map_state.borrow();
         let window = map_state.as_mapped();
         let mut backend = window.backend.borrow_mut();
@@ -742,24 +489,17 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
             RgbaColor { red: 255 as u8, green: 255, blue: 255, alpha: 255 }.into()
         };
 
-        let mut frame = backend.new_frame(size.width, size.height, &background_color);
+        let mut renderer = backend.new_renderer(size.width, size.height, &background_color);
         crate::item_rendering::render_component_items(
             &component_rc,
-            &mut frame,
-            &window.rendering_cache,
+            &mut renderer,
             &self,
             Point::default(),
         );
         if let Some(popup) = &*self.active_popup.borrow() {
-            crate::item_rendering::render_component_items(
-                &popup.0,
-                &mut frame,
-                &window.rendering_cache,
-                &self,
-                popup.1,
-            );
+            crate::item_rendering::render_component_items(&popup.0, &mut renderer, &self, popup.1);
         }
-        backend.present_frame(frame);
+        backend.flush_renderer(renderer);
     }
 
     fn process_mouse_input(
@@ -897,7 +637,6 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
 
             self.map_state.replace(GraphicsWindowBackendState::Mapped(MappedWindow {
                 backend: RefCell::new(backend),
-                rendering_cache: Default::default(),
                 constraints: Default::default(),
             }));
 
@@ -955,7 +694,8 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped => {}
             GraphicsWindowBackendState::Mapped(window) => {
-                crate::item_rendering::free_item_rendering_data(items, &window.rendering_cache)
+                let mut backend = window.backend.borrow_mut();
+                crate::item_rendering::free_item_rendering_data(items, &mut *backend)
             }
         }
     }

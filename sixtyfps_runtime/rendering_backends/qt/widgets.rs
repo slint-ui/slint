@@ -28,9 +28,7 @@ use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use cpp::cpp;
 use sixtyfps_corelib::eventloop::ComponentWindow;
-use sixtyfps_corelib::graphics::{
-    HighLevelRenderingPrimitive, Point, Rect, RenderingVariables, Resource,
-};
+use sixtyfps_corelib::graphics::{Point, Rect, Resource};
 use sixtyfps_corelib::input::{
     FocusEvent, InputEventResult, KeyEvent, KeyEventResult, MouseEvent, MouseEventType,
 };
@@ -131,51 +129,6 @@ impl Item for NativeButton {
             Self::FIELD_OFFSETS.height.apply_pin(self).get(),
         )
     }
-    fn rendering_primitive(
-        self: Pin<&Self>,
-        window: &ComponentWindow,
-    ) -> HighLevelRenderingPrimitive {
-        let down: bool = Self::FIELD_OFFSETS.pressed.apply_pin(self).get();
-        let text: qttypes::QString = Self::FIELD_OFFSETS.text.apply_pin(self).get().as_str().into();
-        let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
-        let size: qttypes::QSize = get_size!(self);
-        let dpr = window.scale_factor();
-
-        let mut imgarray = QImageWrapArray::new(size, dpr);
-        let img = &mut imgarray.img;
-
-        cpp!(unsafe [
-            img as "QImage*",
-            text as "QString",
-            enabled as "bool",
-            size as "QSize",
-            down as "bool",
-            dpr as "float"
-        ] {
-            QPainter p(img);
-            QStyleOptionButton option;
-            option.text = std::move(text);
-            option.rect = QRect(QPoint(), size / dpr);
-            if (down)
-                option.state |= QStyle::State_Sunken;
-            else
-                option.state |= QStyle::State_Raised;
-            if (enabled) {
-                option.state |= QStyle::State_Enabled;
-            } else {
-                option.palette.setCurrentColorGroup(QPalette::Disabled);
-            }
-            qApp->style()->drawControl(QStyle::CE_PushButton, &option, &p, nullptr);
-        });
-        return HighLevelRenderingPrimitive::Image {
-            source: imgarray.to_resource(),
-            source_clip_rect: Default::default(),
-        };
-    }
-
-    fn rendering_variables(self: Pin<&Self>, _window: &ComponentWindow) -> RenderingVariables {
-        Default::default()
-    }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
         let text: qttypes::QString = Self::FIELD_OFFSETS.text.apply_pin(self).get().as_str().into();
@@ -270,48 +223,6 @@ impl Item for NativeCheckBox {
             Self::FIELD_OFFSETS.width.apply_pin(self).get(),
             Self::FIELD_OFFSETS.height.apply_pin(self).get(),
         )
-    }
-    fn rendering_primitive(
-        self: Pin<&Self>,
-        window: &ComponentWindow,
-    ) -> HighLevelRenderingPrimitive {
-        let checked: bool = Self::FIELD_OFFSETS.checked.apply_pin(self).get();
-        let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
-        let text: qttypes::QString = Self::FIELD_OFFSETS.text.apply_pin(self).get().as_str().into();
-        let size: qttypes::QSize = get_size!(self);
-        let dpr = window.scale_factor();
-
-        let mut imgarray = QImageWrapArray::new(size, dpr);
-        let img = &mut imgarray.img;
-
-        cpp!(unsafe [
-            img as "QImage*",
-            enabled as "bool",
-            text as "QString",
-            size as "QSize",
-            checked as "bool",
-            dpr as "float"
-        ] {
-            QPainter p(img);
-            QStyleOptionButton option;
-            option.text = std::move(text);
-            option.rect = QRect(QPoint(), size / dpr);
-            option.state |= checked ? QStyle::State_On : QStyle::State_Off;
-            if (enabled) {
-                option.state |= QStyle::State_Enabled;
-            } else {
-                option.palette.setCurrentColorGroup(QPalette::Disabled);
-            }
-            qApp->style()->drawControl(QStyle::CE_CheckBox, &option, &p, nullptr);
-        });
-        return HighLevelRenderingPrimitive::Image {
-            source: imgarray.to_resource(),
-            source_clip_rect: Default::default(),
-        };
-    }
-
-    fn rendering_variables(self: Pin<&Self>, _window: &ComponentWindow) -> RenderingVariables {
-        Default::default()
     }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
@@ -431,49 +342,6 @@ impl Item for NativeSpinBox {
             Self::FIELD_OFFSETS.width.apply_pin(self).get(),
             Self::FIELD_OFFSETS.height.apply_pin(self).get(),
         )
-    }
-    fn rendering_primitive(
-        self: Pin<&Self>,
-        window: &ComponentWindow,
-    ) -> HighLevelRenderingPrimitive {
-        let value: i32 = Self::FIELD_OFFSETS.value.apply_pin(self).get();
-        let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
-        let size: qttypes::QSize = get_size!(self);
-        let dpr = window.scale_factor();
-        let data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
-        let active_controls = data.active_controls;
-        let pressed = data.pressed;
-
-        let mut imgarray = QImageWrapArray::new(size, dpr);
-        let img = &mut imgarray.img;
-        cpp!(unsafe [
-            img as "QImage*",
-            value as "int",
-            enabled as "bool",
-            size as "QSize",
-            active_controls as "int",
-            pressed as "bool",
-            dpr as "float"
-        ] {
-            QPainter p(img);
-            auto style = qApp->style();
-            QStyleOptionSpinBox option;
-            option.rect = QRect(QPoint(), size / dpr);
-            initQSpinBoxOptions(option, pressed, enabled, active_controls);
-            style->drawComplexControl(QStyle::CC_SpinBox, &option, &p, nullptr);
-
-            auto text_rect = style->subControlRect(QStyle::CC_SpinBox, &option, QStyle::SC_SpinBoxEditField, nullptr);
-            p.setPen(option.palette.color(QPalette::Text));
-            p.drawText(text_rect, QString::number(value));
-        });
-        return HighLevelRenderingPrimitive::Image {
-            source: imgarray.to_resource(),
-            source_clip_rect: Default::default(),
-        };
-    }
-
-    fn rendering_variables(self: Pin<&Self>, _window: &ComponentWindow) -> RenderingVariables {
-        Default::default()
     }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
@@ -655,50 +523,6 @@ impl Item for NativeSlider {
             Self::FIELD_OFFSETS.width.apply_pin(self).get(),
             Self::FIELD_OFFSETS.height.apply_pin(self).get(),
         )
-    }
-    fn rendering_primitive(
-        self: Pin<&Self>,
-        window: &ComponentWindow,
-    ) -> HighLevelRenderingPrimitive {
-        let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
-        let value = Self::FIELD_OFFSETS.value.apply_pin(self).get() as i32;
-        let min = Self::FIELD_OFFSETS.minimum.apply_pin(self).get() as i32;
-        let max = Self::FIELD_OFFSETS.maximum.apply_pin(self).get() as i32;
-        let size: qttypes::QSize = get_size!(self);
-        let dpr = window.scale_factor();
-        let data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
-        let active_controls = data.active_controls;
-        let pressed = data.pressed;
-
-        let mut imgarray = QImageWrapArray::new(size, dpr);
-        let img = &mut imgarray.img;
-
-        cpp!(unsafe [
-            img as "QImage*",
-            enabled as "bool",
-            value as "int",
-            min as "int",
-            max as "int",
-            size as "QSize",
-            active_controls as "int",
-            pressed as "bool",
-            dpr as "float"
-        ] {
-            QPainter p(img);
-            QStyleOptionSlider option;
-            option.rect = QRect(QPoint(), size / dpr);
-            initQSliderOptions(option, pressed, enabled, active_controls, min, max, value);
-            auto style = qApp->style();
-            style->drawComplexControl(QStyle::CC_Slider, &option, &p, nullptr);
-        });
-        return HighLevelRenderingPrimitive::Image {
-            source: imgarray.to_resource(),
-            source_clip_rect: Default::default(),
-        };
-    }
-
-    fn rendering_variables(self: Pin<&Self>, _window: &ComponentWindow) -> RenderingVariables {
-        Default::default()
     }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
@@ -943,54 +767,6 @@ impl Item for NativeGroupBox {
             Self::FIELD_OFFSETS.height.apply_pin(self).get(),
         )
     }
-    fn rendering_primitive(
-        self: Pin<&Self>,
-        window: &ComponentWindow,
-    ) -> HighLevelRenderingPrimitive {
-        let text: qttypes::QString =
-            Self::FIELD_OFFSETS.title.apply_pin(self).get().as_str().into();
-        let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
-        let size: qttypes::QSize = get_size!(self);
-        let dpr = window.scale_factor();
-
-        let mut imgarray = QImageWrapArray::new(size, dpr);
-        let img = &mut imgarray.img;
-
-        cpp!(unsafe [
-            img as "QImage*",
-            text as "QString",
-            enabled as "bool",
-            size as "QSize",
-            dpr as "float"
-        ] {
-            QPainter p(img);
-            QStyleOptionGroupBox option;
-            if (enabled) {
-                option.state |= QStyle::State_Enabled;
-            } else {
-                option.palette.setCurrentColorGroup(QPalette::Disabled);
-            }
-            option.rect = QRect(QPoint(), size / dpr);
-            option.text = text;
-            option.lineWidth = 1;
-            option.midLineWidth = 0;
-            option.subControls = QStyle::SC_GroupBoxFrame;
-            if (!text.isEmpty()) {
-                option.subControls |= QStyle::SC_GroupBoxLabel;
-            }
-            option.textColor = QColor(qApp->style()->styleHint(
-                QStyle::SH_GroupBox_TextLabelColor, &option));
-            qApp->style()->drawComplexControl(QStyle::CC_GroupBox, &option, &p, nullptr);
-        });
-        return HighLevelRenderingPrimitive::Image {
-            source: imgarray.to_resource(),
-            source_clip_rect: Default::default(),
-        };
-    }
-
-    fn rendering_variables(self: Pin<&Self>, _window: &ComponentWindow) -> RenderingVariables {
-        Default::default()
-    }
 
     fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
         let left = Self::FIELD_OFFSETS.native_padding_left.apply_pin(self).get();
@@ -1108,48 +884,6 @@ impl Item for NativeLineEdit {
             Self::FIELD_OFFSETS.width.apply_pin(self).get(),
             Self::FIELD_OFFSETS.height.apply_pin(self).get(),
         )
-    }
-    fn rendering_primitive(
-        self: Pin<&Self>,
-        window: &ComponentWindow,
-    ) -> HighLevelRenderingPrimitive {
-        let size: qttypes::QSize = get_size!(self);
-        let dpr = window.scale_factor();
-        let focused: bool = Self::FIELD_OFFSETS.focused.apply_pin(self).get();
-        let enabled: bool = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
-
-        let mut imgarray = QImageWrapArray::new(size, dpr);
-        let img = &mut imgarray.img;
-
-        cpp!(unsafe [
-            img as "QImage*",
-            size as "QSize",
-            dpr as "float",
-            enabled as "bool",
-            focused as "bool"
-        ] {
-            QPainter p(img);
-            QStyleOptionFrame option;
-            option.rect = QRect(QPoint(), size / dpr);
-            option.lineWidth = 1;
-            option.midLineWidth = 0;
-            if (focused)
-                option.state |= QStyle::State_HasFocus;
-            if (enabled) {
-                option.state |= QStyle::State_Enabled;
-            } else {
-                option.palette.setCurrentColorGroup(QPalette::Disabled);
-            }
-            qApp->style()->drawPrimitive(QStyle::PE_PanelLineEdit, &option, &p, nullptr);
-        });
-        return HighLevelRenderingPrimitive::Image {
-            source: imgarray.to_resource(),
-            source_clip_rect: Default::default(),
-        };
-    }
-
-    fn rendering_variables(self: Pin<&Self>, _window: &ComponentWindow) -> RenderingVariables {
-        Default::default()
     }
 
     fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
@@ -1282,128 +1016,6 @@ impl Item for NativeScrollView {
             Self::FIELD_OFFSETS.width.apply_pin(self).get(),
             Self::FIELD_OFFSETS.height.apply_pin(self).get(),
         )
-    }
-    fn rendering_primitive(
-        self: Pin<&Self>,
-        window: &ComponentWindow,
-    ) -> HighLevelRenderingPrimitive {
-        let size: qttypes::QSize = get_size!(self);
-        let dpr = window.scale_factor();
-
-        let mut imgarray = QImageWrapArray::new(size, dpr);
-
-        let data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
-        let left = Self::FIELD_OFFSETS.native_padding_left.apply_pin(self).get();
-        let right = Self::FIELD_OFFSETS.native_padding_right.apply_pin(self).get();
-        let top = Self::FIELD_OFFSETS.native_padding_top.apply_pin(self).get();
-        let bottom = Self::FIELD_OFFSETS.native_padding_bottom.apply_pin(self).get();
-        let corner_rect = qttypes::QRectF {
-            x: ((size.width as f32 - (right - left)) / dpr) as _,
-            y: ((size.height as f32 - (bottom - top)) / dpr) as _,
-            width: ((right - left) / dpr) as _,
-            height: ((bottom - top) / dpr) as _,
-        };
-        let img: &mut qttypes::QImage = &mut imgarray.img;
-        cpp!(unsafe [img as "QImage*", corner_rect as "QRectF"] {
-            ensure_initialized();
-            QStyleOptionFrame frameOption;
-            frameOption.frameShape = QFrame::StyledPanel;
-            frameOption.lineWidth = 1;
-            frameOption.midLineWidth = 0;
-            frameOption.rect = corner_rect.toAlignedRect();
-            QPainter p(img);
-            qApp->style()->drawPrimitive(QStyle::PE_PanelScrollAreaCorner, &frameOption, &p, nullptr);
-            frameOption.rect = QRect(QPoint(), corner_rect.toAlignedRect().topLeft());
-            qApp->style()->drawControl(QStyle::CE_ShapedFrame, &frameOption, &p, nullptr);
-        });
-
-        let draw_scrollbar = |horizontal: bool,
-                              rect: qttypes::QRectF,
-                              value: i32,
-                              page_size: i32,
-                              max: i32,
-                              active_controls: u32,
-                              pressed: bool| {
-            cpp!(unsafe [
-                img as "QImage*",
-                value as "int",
-                page_size as "int",
-                max as "int",
-                rect as "QRectF",
-                active_controls as "int",
-                pressed as "bool",
-                dpr as "float",
-                horizontal as "bool"
-            ] {
-                auto r = rect.toAlignedRect();
-                // The mac style ignores painter translations (due to CGContextRef redirection) as well as
-                // option.rect's top-left - hence this hack with an intermediate buffer.
-            #if defined(Q_OS_MAC)
-                QImage scrollbar_image(r.size(), QImage::Format_ARGB32_Premultiplied);
-                scrollbar_image.fill(Qt::transparent);
-                QPainter p(&scrollbar_image);
-            #else
-                QPainter p(img);
-                p.translate(r.topLeft()); // There is bugs in the styles if the scrollbar is not in (0,0)
-            #endif
-                QStyleOptionSlider option;
-                option.rect = QRect(QPoint(), r.size());
-                initQSliderOptions(option, pressed, true, active_controls, 0, max / dpr, -value / dpr);
-                option.subControls = QStyle::SC_All;
-                option.pageStep = page_size / dpr;
-
-                if (!horizontal) {
-                    option.state ^= QStyle::State_Horizontal;
-                    option.orientation = Qt::Vertical;
-                }
-
-                auto style = qApp->style();
-                style->drawComplexControl(QStyle::CC_ScrollBar, &option, &p, nullptr);
-                p.end();
-            #if defined(Q_OS_MAC)
-                p.begin(img);
-                p.drawImage(r.topLeft(), scrollbar_image);
-            #endif
-            });
-        };
-
-        draw_scrollbar(
-            false,
-            qttypes::QRectF {
-                x: ((size.width as f32 - right + left) / dpr) as _,
-                y: 0.,
-                width: ((right - left) / dpr) as _,
-                height: ((size.height as f32 - bottom + top) / dpr) as _,
-            },
-            Self::FIELD_OFFSETS.vertical_value.apply_pin(self).get() as i32,
-            Self::FIELD_OFFSETS.vertical_page_size.apply_pin(self).get() as i32,
-            Self::FIELD_OFFSETS.vertical_max.apply_pin(self).get() as i32,
-            data.active_controls,
-            data.pressed == 2,
-        );
-        draw_scrollbar(
-            true,
-            qttypes::QRectF {
-                x: 0.,
-                y: ((size.height as f32 - bottom + top) / dpr) as _,
-                width: ((size.width as f32 - right + left) / dpr) as _,
-                height: ((bottom - top) / dpr) as _,
-            },
-            Self::FIELD_OFFSETS.horizontal_value.apply_pin(self).get() as i32,
-            Self::FIELD_OFFSETS.horizontal_page_size.apply_pin(self).get() as i32,
-            Self::FIELD_OFFSETS.horizontal_max.apply_pin(self).get() as i32,
-            data.active_controls,
-            data.pressed == 1,
-        );
-
-        return HighLevelRenderingPrimitive::Image {
-            source: imgarray.to_resource(),
-            source_clip_rect: Default::default(),
-        };
-    }
-
-    fn rendering_variables(self: Pin<&Self>, _window: &ComponentWindow) -> RenderingVariables {
-        Default::default()
     }
 
     fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
@@ -1606,56 +1218,6 @@ impl Item for NativeStandardListViewItem {
             Self::FIELD_OFFSETS.height.apply_pin(self).get(),
         )
     }
-    fn rendering_primitive(
-        self: Pin<&Self>,
-        window: &ComponentWindow,
-    ) -> HighLevelRenderingPrimitive {
-        let size: qttypes::QSize = get_size!(self);
-        let dpr = window.scale_factor();
-        let index: i32 = Self::FIELD_OFFSETS.index.apply_pin(self).get();
-        let is_selected: bool = Self::FIELD_OFFSETS.is_selected.apply_pin(self).get();
-        let item = Self::FIELD_OFFSETS.item.apply_pin(self).get();
-        let text: qttypes::QString = item.text.as_str().into();
-
-        let mut imgarray = QImageWrapArray::new(size, dpr);
-        let img = &mut imgarray.img;
-
-        cpp!(unsafe [
-            img as "QImage*",
-            size as "QSize",
-            dpr as "float",
-            index as "int",
-            is_selected as "bool",
-            text as "QString"
-        ] {
-            QPainter p(img);
-            QStyleOptionViewItem option;
-            option.rect = QRect(QPoint(), size / dpr);
-            option.state = QStyle::State_Enabled | QStyle::State_Active;
-            if (is_selected) {
-                option.state |= QStyle::State_Selected;
-            }
-            option.decorationPosition = QStyleOptionViewItem::Left;
-            option.decorationAlignment = Qt::AlignCenter;
-            option.displayAlignment = Qt::AlignLeft|Qt::AlignVCenter;
-            option.showDecorationSelected = qApp->style()->styleHint(QStyle::SH_ItemView_ShowDecorationSelected, nullptr, nullptr);
-            if (index % 2) {
-                option.features |= QStyleOptionViewItem::Alternate;
-            }
-            option.features |= QStyleOptionViewItem::HasDisplay;
-            option.text = text;
-            qApp->style()->drawPrimitive(QStyle::PE_PanelItemViewRow, &option, &p, nullptr);
-            qApp->style()->drawControl(QStyle::CE_ItemViewItem, &option, &p, nullptr);
-        });
-        return HighLevelRenderingPrimitive::Image {
-            source: imgarray.to_resource(),
-            source_clip_rect: Default::default(),
-        };
-    }
-
-    fn rendering_variables(self: Pin<&Self>, _window: &ComponentWindow) -> RenderingVariables {
-        Default::default()
-    }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
         let dpr = window.scale_factor();
@@ -1742,58 +1304,6 @@ impl Item for NativeComboBox {
             Self::FIELD_OFFSETS.width.apply_pin(self).get(),
             Self::FIELD_OFFSETS.height.apply_pin(self).get(),
         )
-    }
-    fn rendering_primitive(
-        self: Pin<&Self>,
-        window: &ComponentWindow,
-    ) -> HighLevelRenderingPrimitive {
-        let down: bool = Self::FIELD_OFFSETS.pressed.apply_pin(self).get();
-        let is_open: bool = Self::FIELD_OFFSETS.is_open.apply_pin(self).get();
-        let text: qttypes::QString =
-            Self::FIELD_OFFSETS.current_value.apply_pin(self).get().as_str().into();
-        let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
-        let size: qttypes::QSize = get_size!(self);
-        let dpr = window.scale_factor();
-
-        let mut imgarray = QImageWrapArray::new(size, dpr);
-        let img = &mut imgarray.img;
-
-        cpp!(unsafe [
-            img as "QImage*",
-            text as "QString",
-            enabled as "bool",
-            size as "QSize",
-            down as "bool",
-            is_open as "bool",
-            dpr as "float"
-        ] {
-            QPainter p(img);
-            QStyleOptionComboBox option;
-            option.currentText = std::move(text);
-            option.rect = QRect(QPoint(), size / dpr);
-            if (down)
-                option.state |= QStyle::State_Sunken;
-            else
-                option.state |= QStyle::State_Raised;
-            if (enabled) {
-                option.state |= QStyle::State_Enabled;
-            } else {
-                option.palette.setCurrentColorGroup(QPalette::Disabled);
-            }
-            if (is_open)
-                option.state |= QStyle::State_On;
-            option.subControls = QStyle::SC_All;
-            qApp->style()->drawComplexControl(QStyle::CC_ComboBox, &option, &p, nullptr);
-            qApp->style()->drawControl(QStyle::CE_ComboBoxLabel, &option, &p, nullptr);
-        });
-        return HighLevelRenderingPrimitive::Image {
-            source: imgarray.to_resource(),
-            source_clip_rect: Default::default(),
-        };
-    }
-
-    fn rendering_variables(self: Pin<&Self>, _window: &ComponentWindow) -> RenderingVariables {
-        Default::default()
     }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {

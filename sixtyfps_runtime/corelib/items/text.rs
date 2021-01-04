@@ -23,7 +23,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 use super::{Item, ItemConsts, ItemRc, ItemRenderer};
 use crate::eventloop::ComponentWindow;
 use crate::font::HasFont;
-use crate::graphics::{Color, HighLevelRenderingPrimitive, Point, Rect, RenderingVariables};
+use crate::graphics::{Color, Point, Rect};
 use crate::input::{
     FocusEvent, InputEventResult, KeyEvent, KeyEventResult, KeyboardModifiers, MouseEvent,
     MouseEventType,
@@ -100,41 +100,6 @@ impl Item for Text {
             Self::FIELD_OFFSETS.width.apply_pin(self).get(),
             Self::FIELD_OFFSETS.height.apply_pin(self).get(),
         )
-    }
-    fn rendering_primitive(
-        self: Pin<&Self>,
-        window: &ComponentWindow,
-    ) -> HighLevelRenderingPrimitive {
-        HighLevelRenderingPrimitive::Text {
-            text: Self::FIELD_OFFSETS.text.apply_pin(self).get(),
-            font_request: self.font_request(window),
-        }
-    }
-
-    fn rendering_variables(self: Pin<&Self>, window: &ComponentWindow) -> RenderingVariables {
-        let layout_info = self.layouting_info(window);
-        let rect = self.geometry();
-
-        let hor_alignment = Self::FIELD_OFFSETS.horizontal_alignment.apply_pin(self).get();
-        let translate_x = match hor_alignment {
-            TextHorizontalAlignment::align_left => 0.,
-            TextHorizontalAlignment::align_center => rect.width() / 2. - layout_info.min_width / 2.,
-            TextHorizontalAlignment::align_right => rect.width() - layout_info.min_width,
-        };
-
-        let ver_alignment = Self::FIELD_OFFSETS.vertical_alignment.apply_pin(self).get();
-        let translate_y = match ver_alignment {
-            TextVerticalAlignment::align_top => 0.,
-            TextVerticalAlignment::align_center => rect.height() / 2. - layout_info.min_height / 2.,
-            TextVerticalAlignment::align_bottom => rect.height() - layout_info.min_height,
-        };
-
-        RenderingVariables::Text {
-            translate: Point::new(translate_x, translate_y),
-            color: Self::FIELD_OFFSETS.color.apply_pin(self).get(),
-            cursor: None,
-            selection: None,
-        }
     }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
@@ -238,73 +203,6 @@ impl Item for TextInput {
             Self::FIELD_OFFSETS.width.apply_pin(self).get(),
             Self::FIELD_OFFSETS.height.apply_pin(self).get(),
         )
-    }
-    fn rendering_primitive(
-        self: Pin<&Self>,
-        window: &ComponentWindow,
-    ) -> HighLevelRenderingPrimitive {
-        HighLevelRenderingPrimitive::Text {
-            text: Self::FIELD_OFFSETS.text.apply_pin(self).get(),
-            font_request: self.font_request(window),
-        }
-    }
-
-    fn rendering_variables(self: Pin<&Self>, window: &ComponentWindow) -> RenderingVariables {
-        let layout_info = self.layouting_info(window);
-        let rect = self.geometry();
-
-        let hor_alignment = Self::FIELD_OFFSETS.horizontal_alignment.apply_pin(self).get();
-        let translate_x = match hor_alignment {
-            TextHorizontalAlignment::align_left => 0.,
-            TextHorizontalAlignment::align_center => rect.width() / 2. - layout_info.min_width / 2.,
-            TextHorizontalAlignment::align_right => rect.width() - layout_info.min_width,
-        };
-
-        let ver_alignment = Self::FIELD_OFFSETS.vertical_alignment.apply_pin(self).get();
-        let translate_y = match ver_alignment {
-            TextVerticalAlignment::align_top => 0.,
-            TextVerticalAlignment::align_center => rect.height() / 2. - layout_info.min_height / 2.,
-            TextVerticalAlignment::align_bottom => rect.height() - layout_info.min_height,
-        };
-
-        let selection = if self.has_selection() {
-            let (anchor_pos, cursor_pos) = self.selection_anchor_and_cursor();
-            let text = Self::FIELD_OFFSETS.text.apply_pin(self).get();
-            let font = self.font(window);
-            let selection_start_x = font.text_width(text.split_at(anchor_pos as _).0);
-            let selection_end_x = font.text_width(text.split_at(cursor_pos as _).0);
-            let font_height = font.height();
-
-            Some(Box::new((
-                selection_start_x,
-                selection_end_x - selection_start_x,
-                font_height,
-                Self::FIELD_OFFSETS.selection_foreground_color.apply_pin(self).get(),
-                Self::FIELD_OFFSETS.selection_background_color.apply_pin(self).get(),
-            )))
-        } else {
-            None
-        };
-
-        let cursor = if Self::FIELD_OFFSETS.cursor_visible.apply_pin(self).get() {
-            let cursor_pos = Self::FIELD_OFFSETS.cursor_position.apply_pin(self).get();
-            let text = Self::FIELD_OFFSETS.text.apply_pin(self).get();
-            let font = self.font(window);
-            let cursor_x_pos = font.text_width(text.split_at(cursor_pos as _).0);
-            let font_height = font.height();
-            let cursor_width =
-                Self::FIELD_OFFSETS.text_cursor_width.apply_pin(self).get() * window.scale_factor();
-            Some(Box::new((cursor_x_pos, cursor_width, font_height)))
-        } else {
-            None
-        };
-
-        RenderingVariables::Text {
-            translate: Point::new(translate_x, translate_y),
-            color: Self::FIELD_OFFSETS.color.apply_pin(self).get(),
-            cursor,
-            selection,
-        }
     }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
