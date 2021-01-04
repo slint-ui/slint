@@ -32,7 +32,7 @@ pub unsafe trait VTableMetaDropInPlace: VTableMeta {
 }
 
 /// This is a marker type to be used in [`VRc`] and [`VWeak`] to mean that the
-/// actual type is now known.
+/// actual type is not known.
 pub struct Dyn(());
 
 /// Similar to [`std::alloc::Layout`], but `repr(C)`
