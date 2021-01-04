@@ -316,7 +316,10 @@ impl ItemRenderer for GLItemRenderer {
         path.rect(0., 0., image_width, image_height);
 
         self.canvas.save_with(|canvas| {
-            canvas.translate(pos.x, pos.y);
+            canvas.translate(
+                pos.x + sixtyfps_corelib::items::Image::FIELD_OFFSETS.x.apply_pin(image).get(),
+                pos.y + sixtyfps_corelib::items::Image::FIELD_OFFSETS.y.apply_pin(image).get(),
+            );
 
             let scaled_width =
                 sixtyfps_corelib::items::Image::FIELD_OFFSETS.width.apply_pin(image).get();
@@ -379,9 +382,22 @@ impl ItemRenderer for GLItemRenderer {
         );
 
         let mut path = femtovg::Path::new();
-        path.rect(pos.x, pos.y, image_width, image_height);
+        path.rect(0., 0., image_width, image_height);
 
         self.canvas.save_with(|canvas| {
+            canvas.translate(
+                pos.x
+                    + sixtyfps_corelib::items::ClippedImage::FIELD_OFFSETS
+                        .x
+                        .apply_pin(clipped_image)
+                        .get(),
+                pos.y
+                    + sixtyfps_corelib::items::ClippedImage::FIELD_OFFSETS
+                        .y
+                        .apply_pin(clipped_image)
+                        .get(),
+            );
+
             let scaled_width = sixtyfps_corelib::items::ClippedImage::FIELD_OFFSETS
                 .width
                 .apply_pin(clipped_image)
