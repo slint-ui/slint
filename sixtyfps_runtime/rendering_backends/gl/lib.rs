@@ -313,9 +313,11 @@ impl ItemRenderer for GLItemRenderer {
             femtovg::Paint::image(image_id, 0., 0., source_width, source_height, 0.0, 1.0);
 
         let mut path = femtovg::Path::new();
-        path.rect(pos.x, pos.y, image_width, image_height);
+        path.rect(0., 0., image_width, image_height);
 
         self.canvas.save_with(|canvas| {
+            canvas.translate(pos.x, pos.y);
+
             let scaled_width =
                 sixtyfps_corelib::items::Image::FIELD_OFFSETS.width.apply_pin(image).get();
             let scaled_height =
