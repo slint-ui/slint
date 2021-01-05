@@ -10,10 +10,9 @@ LICENSE END */
 #![warn(missing_docs)]
 //! module for rendering the tree of items
 
-use super::graphics::{GraphicsBackend, GraphicsWindow, RenderingCache};
+use super::graphics::{GraphicsBackend, RenderingCache};
 use super::items::ItemRef;
 use crate::component::ComponentRc;
-use crate::eventloop::ComponentWindow;
 use crate::item_tree::ItemVisitorResult;
 use crate::slice::Slice;
 use std::cell::{Cell, RefCell};
@@ -60,7 +59,6 @@ impl CachedRenderingData {
 pub(crate) fn render_component_items<Backend: GraphicsBackend>(
     component: &ComponentRc,
     renderer: &mut Backend::ItemRenderer,
-    window: &std::rc::Rc<GraphicsWindow<Backend>>,
     origin: crate::graphics::Point,
 ) {
     use crate::items::ItemRenderer;

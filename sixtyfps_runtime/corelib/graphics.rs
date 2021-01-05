@@ -510,14 +510,17 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
         };
 
         let mut renderer = window.backend.borrow_mut().new_renderer(&background_color);
-        crate::item_rendering::render_component_items(
+        crate::item_rendering::render_component_items::<Backend>(
             &component_rc,
             &mut renderer,
-            &self,
             Point::default(),
         );
         if let Some(popup) = &*self.active_popup.borrow() {
-            crate::item_rendering::render_component_items(&popup.0, &mut renderer, &self, popup.1);
+            crate::item_rendering::render_component_items::<Backend>(
+                &popup.0,
+                &mut renderer,
+                popup.1,
+            );
         }
         window.backend.borrow_mut().flush_renderer(renderer);
     }

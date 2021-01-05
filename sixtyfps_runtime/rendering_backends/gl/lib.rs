@@ -276,7 +276,7 @@ impl GLItemRenderer {
                     Resource::EmbeddedData(data) => {
                         canvas.load_image_mem(data.as_slice(), femtovg::ImageFlags::empty()).ok()
                     }
-                    Resource::EmbeddedRgbaImage { width, height, data } => todo!(),
+                    Resource::EmbeddedRgbaImage { .. } => todo!(),
                 }
                 .map(|id| GPUCachedData::Image(Rc::new(CachedImage { id, canvas: canvas_rc })))
             })
@@ -467,19 +467,19 @@ impl ItemRenderer for GLItemRenderer {
         })
     }
 
-    fn draw_text(&mut self, pos: Point, rect: std::pin::Pin<&sixtyfps_corelib::items::Text>) {
+    fn draw_text(&mut self, _pos: Point, _rect: std::pin::Pin<&sixtyfps_corelib::items::Text>) {
         //todo!()
     }
 
     fn draw_text_input(
         &mut self,
-        pos: Point,
-        rect: std::pin::Pin<&sixtyfps_corelib::items::TextInput>,
+        _pos: Point,
+        _rect: std::pin::Pin<&sixtyfps_corelib::items::TextInput>,
     ) {
         //todo!()
     }
 
-    fn draw_path(&mut self, pos: Point, path: std::pin::Pin<&sixtyfps_corelib::items::Path>) {
+    fn draw_path(&mut self, _pos: Point, _path: std::pin::Pin<&sixtyfps_corelib::items::Path>) {
         //todo!()
     }
 
