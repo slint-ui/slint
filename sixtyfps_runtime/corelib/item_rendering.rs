@@ -30,7 +30,7 @@ pub struct CachedRenderingData {
 }
 
 impl CachedRenderingData {
-    pub fn ensure_up_to_date<T: Copy>(
+    pub fn ensure_up_to_date<T: Clone>(
         &self,
         cache: &mut RenderingCache<T>,
         update_fn: impl FnOnce() -> T,
@@ -41,11 +41,11 @@ impl CachedRenderingData {
             if existing_entry.dependency_tracker.is_dirty() {
                 existing_entry.data = existing_entry.dependency_tracker.as_ref().evaluate(update_fn)
             }
-            existing_entry.data
+            existing_entry.data.clone()
         } else {
             self.cache_index.set(cache.insert(crate::graphics::CachedGraphicsData::new(update_fn)));
             self.cache_ok.set(true);
-            cache.get(self.cache_index.get()).unwrap().data
+            cache.get(self.cache_index.get()).unwrap().data.clone()
         }
     }
 

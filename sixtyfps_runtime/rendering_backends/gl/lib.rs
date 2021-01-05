@@ -20,6 +20,20 @@ use sixtyfps_corelib::{Property, SharedVector};
 
 type CanvasRc = Rc<RefCell<femtovg::Canvas<femtovg::renderer::OpenGl>>>;
 
+#[derive(Clone)]
+enum GPUCachedData {
+    Image(femtovg::ImageId),
+}
+
+impl GPUCachedData {
+    fn as_image(&self) -> &femtovg::ImageId {
+        match self {
+            GPUCachedData::Image(id) => id,
+            //_ => panic!("internal error. image requested for non-image gpu data"),
+        }
+    }
+}
+
 pub struct GLRenderer {
     canvas: CanvasRc,
 
@@ -31,7 +45,7 @@ pub struct GLRenderer {
     #[cfg(not(target_arch = "wasm32"))]
     windowed_context: Option<glutin::WindowedContext<glutin::NotCurrent>>,
 
-    image_cache: Option<RenderingCache<Option<femtovg::ImageId>>>,
+    gpu_cache: Option<RenderingCache<Option<GPUCachedData>>>,
 }
 
 impl GLRenderer {
@@ -161,7 +175,7 @@ impl GLRenderer {
             event_loop_proxy,
             #[cfg(not(target_arch = "wasm32"))]
             windowed_context: Some(unsafe { windowed_context.make_not_current().unwrap() }),
-            image_cache: None,
+            gpu_cache: None,
         }
     }
 }
@@ -185,7 +199,7 @@ impl GraphicsBackend for GLRenderer {
             canvas: self.canvas.clone(),
             windowed_context: current_windowed_context,
             clip_rects: Default::default(),
-            image_cache: self.image_cache.take().unwrap_or_default(),
+            gpu_cache: self.gpu_cache.take().unwrap_or_default(),
             scale_factor: dpi_factor as f32,
         }
     }
@@ -201,7 +215,7 @@ impl GraphicsBackend for GLRenderer {
                 Some(unsafe { renderer.windowed_context.make_not_current().unwrap() });
         }
 
-        self.image_cache = Some(renderer.image_cache);
+        self.gpu_cache = Some(renderer.gpu_cache);
     }
     fn window(&self) -> &winit::window::Window {
         #[cfg(not(target_arch = "wasm32"))]
@@ -219,7 +233,7 @@ pub struct GLItemRenderer {
 
     clip_rects: SharedVector<Rect>,
 
-    image_cache: RenderingCache<Option<femtovg::ImageId>>,
+    gpu_cache: RenderingCache<Option<GPUCachedData>>,
     scale_factor: f32,
 }
 
@@ -230,22 +244,28 @@ impl GLItemRenderer {
         source_property: core::pin::Pin<&Property<Resource>>,
     ) -> Option<(femtovg::ImageId, femtovg::ImageInfo)> {
         let mut canvas = self.canvas.borrow_mut();
-        let cache = &mut self.image_cache;
+        let cache = &mut self.gpu_cache;
         item_cache
-            .ensure_up_to_date(cache, || match source_property.get() {
-                Resource::None => None,
-                Resource::AbsoluteFilePath(path) => canvas
-                    .load_image_file(
-                        std::path::Path::new(&path.as_str()),
-                        femtovg::ImageFlags::empty(),
-                    )
-                    .ok(),
-                Resource::EmbeddedData(data) => {
-                    canvas.load_image_mem(data.as_slice(), femtovg::ImageFlags::empty()).ok()
+            .ensure_up_to_date(cache, || {
+                match source_property.get() {
+                    Resource::None => None,
+                    Resource::AbsoluteFilePath(path) => canvas
+                        .load_image_file(
+                            std::path::Path::new(&path.as_str()),
+                            femtovg::ImageFlags::empty(),
+                        )
+                        .ok(),
+                    Resource::EmbeddedData(data) => {
+                        canvas.load_image_mem(data.as_slice(), femtovg::ImageFlags::empty()).ok()
+                    }
+                    Resource::EmbeddedRgbaImage { width, height, data } => todo!(),
                 }
-                Resource::EmbeddedRgbaImage { width, height, data } => todo!(),
+                .map(|img| GPUCachedData::Image(img))
             })
-            .map(|image_id| (image_id, canvas.image_info(image_id).unwrap()))
+            .map(|gpu_resource| {
+                let image_id = gpu_resource.as_image();
+                (*image_id, canvas.image_info(*image_id).unwrap())
+            })
     }
 }
 
