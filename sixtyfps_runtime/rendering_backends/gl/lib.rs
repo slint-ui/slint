@@ -11,7 +11,9 @@ LICENSE END */
 use sixtyfps_corelib::items::Item;
 use sixtyfps_corelib::{eventloop::ComponentWindow, items::ItemRenderer};
 use sixtyfps_corelib::{
-    graphics::{Color, GraphicsBackend, GraphicsWindow, Rect, Resource},
+    graphics::{Color, GraphicsBackend, GraphicsWindow, Rect, RenderingCache, Resource},
+    item_rendering::CachedRenderingData,
+    properties::Property,
     SharedVector,
 };
 
@@ -25,6 +27,8 @@ pub struct GLRenderer {
         Rc<winit::event_loop::EventLoopProxy<sixtyfps_corelib::eventloop::CustomEvent>>,
     #[cfg(not(target_arch = "wasm32"))]
     windowed_context: Option<glutin::WindowedContext<glutin::NotCurrent>>,
+
+    image_cache: Option<RenderingCache<Option<femtovg::ImageId>>>,
 }
 
 impl GLRenderer {
@@ -154,6 +158,7 @@ impl GLRenderer {
             event_loop_proxy,
             #[cfg(not(target_arch = "wasm32"))]
             windowed_context: Some(unsafe { windowed_context.make_not_current().unwrap() }),
+            image_cache: None,
         }
     }
 }
@@ -179,6 +184,7 @@ impl GraphicsBackend for GLRenderer {
             canvas,
             windowed_context: current_windowed_context,
             clip_rects: Default::default(),
+            image_cache: self.image_cache.take().unwrap_or_default(),
         }
     }
 
@@ -195,6 +201,7 @@ impl GraphicsBackend for GLRenderer {
         }
 
         self.canvas = Some(canvas);
+        self.image_cache = Some(renderer.image_cache);
     }
     fn window(&self) -> &winit::window::Window {
         #[cfg(not(target_arch = "wasm32"))]
@@ -211,21 +218,28 @@ pub struct GLItemRenderer {
     windowed_context: glutin::WindowedContext<glutin::PossiblyCurrent>,
 
     clip_rects: SharedVector<Rect>,
+
+    image_cache: RenderingCache<Option<femtovg::ImageId>>,
 }
 
 impl GLItemRenderer {
-    fn load_image(&mut self, source: Resource) -> Option<femtovg::ImageId> {
-        match source {
+    fn load_image(
+        &mut self,
+        item_cache: &CachedRenderingData,
+        source_property: core::pin::Pin<&Property<Resource>>,
+    ) -> Option<femtovg::ImageId> {
+        let canvas = &mut self.canvas;
+        let cache = &mut self.image_cache;
+        item_cache.ensure_up_to_date(cache, || match source_property.get() {
             Resource::None => None,
-            Resource::AbsoluteFilePath(path) => self
-                .canvas
+            Resource::AbsoluteFilePath(path) => canvas
                 .load_image_file(std::path::Path::new(&path.as_str()), femtovg::ImageFlags::empty())
                 .ok(),
             Resource::EmbeddedData(data) => {
-                self.canvas.load_image_mem(data.as_slice(), femtovg::ImageFlags::empty()).ok()
+                canvas.load_image_mem(data.as_slice(), femtovg::ImageFlags::empty()).ok()
             }
             Resource::EmbeddedRgbaImage { width, height, data } => todo!(),
-        }
+        })
     }
 }
 
@@ -300,10 +314,13 @@ impl ItemRenderer for GLItemRenderer {
         pos: sixtyfps_corelib::graphics::Point,
         image: std::pin::Pin<&sixtyfps_corelib::items::Image>,
     ) {
-        // TODO: cache
-        let image_id = self
-            .load_image(sixtyfps_corelib::items::Image::FIELD_OFFSETS.source.apply_pin(image).get())
-            .unwrap();
+        let image_id = match self.load_image(
+            &image.cached_rendering_data,
+            sixtyfps_corelib::items::Image::FIELD_OFFSETS.source.apply_pin(image),
+        ) {
+            Some(image_id) => image_id,
+            None => return,
+        };
 
         let info = self.canvas.image_info(image_id).unwrap();
 
@@ -338,15 +355,13 @@ impl ItemRenderer for GLItemRenderer {
         pos: sixtyfps_corelib::graphics::Point,
         clipped_image: std::pin::Pin<&sixtyfps_corelib::items::ClippedImage>,
     ) {
-        // TODO: cache
-        let image_id = self
-            .load_image(
-                sixtyfps_corelib::items::ClippedImage::FIELD_OFFSETS
-                    .source
-                    .apply_pin(clipped_image)
-                    .get(),
-            )
-            .unwrap();
+        let image_id = match self.load_image(
+            &clipped_image.cached_rendering_data,
+            sixtyfps_corelib::items::ClippedImage::FIELD_OFFSETS.source.apply_pin(clipped_image),
+        ) {
+            Some(image_id) => image_id,
+            None => return,
+        };
 
         let info = self.canvas.image_info(image_id).unwrap();
 

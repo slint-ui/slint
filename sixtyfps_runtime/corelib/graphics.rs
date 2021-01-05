@@ -258,6 +258,25 @@ impl Default for Resource {
     }
 }
 
+pub struct CachedGraphicsData<T> {
+    pub data: T,
+    /// The property tracker that should be used to evaluate whether the primitive needs to be re-created
+    /// or not.
+    pub dependency_tracker: core::pin::Pin<Box<crate::properties::PropertyTracker>>,
+}
+
+impl<T> CachedGraphicsData<T> {
+    /// Creates a new TrackingRenderingPrimitive by evaluating the provided update_fn once, storing the returned
+    /// rendering primitive and initializing the dependency tracker.
+    pub fn new(update_fn: impl FnOnce() -> T) -> Self {
+        let dependency_tracker = Box::pin(crate::properties::PropertyTracker::default());
+        let data = dependency_tracker.as_ref().evaluate(update_fn);
+        Self { data, dependency_tracker }
+    }
+}
+
+pub type RenderingCache<T> = vec_arena::Arena<CachedGraphicsData<T>>;
+
 /// GraphicsBackend is the trait that the the SixtyFPS run-time uses to convert [HighLevelRenderingPrimitive]
 /// to an internal representation that is optimal for the backend, in order to render it later. The internal
 /// representation is opaque but must be provided via the [GraphicsBackend::LowLevelRenderingPrimitive] associated type.

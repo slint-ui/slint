@@ -10,7 +10,7 @@ LICENSE END */
 #![warn(missing_docs)]
 //! module for rendering the tree of items
 
-use super::graphics::{GraphicsBackend, GraphicsWindow};
+use super::graphics::{GraphicsBackend, GraphicsWindow, RenderingCache};
 use super::items::ItemRef;
 use crate::component::ComponentRc;
 use crate::eventloop::ComponentWindow;
@@ -27,6 +27,34 @@ pub struct CachedRenderingData {
     pub(crate) cache_index: Cell<usize>,
     /// Set to false initially and when changes happen that require updating the cache
     pub(crate) cache_ok: Cell<bool>,
+}
+
+impl CachedRenderingData {
+    pub fn ensure_up_to_date<T: Copy>(
+        &self,
+        cache: &mut RenderingCache<T>,
+        update_fn: impl FnOnce() -> T,
+    ) -> T {
+        if self.cache_ok.get() {
+            let index = self.cache_index.get();
+            let existing_entry = cache.get_mut(index).unwrap();
+            if existing_entry.dependency_tracker.is_dirty() {
+                existing_entry.data = existing_entry.dependency_tracker.as_ref().evaluate(update_fn)
+            }
+            existing_entry.data
+        } else {
+            self.cache_index.set(cache.insert(crate::graphics::CachedGraphicsData::new(update_fn)));
+            self.cache_ok.set(true);
+            cache.get(self.cache_index.get()).unwrap().data
+        }
+    }
+
+    fn release<T>(&self, cache: &RefCell<RenderingCache<T>>) {
+        if self.cache_ok.get() {
+            let index = self.cache_index.get();
+            cache.borrow_mut().remove(index);
+        }
+    }
 }
 
 pub(crate) fn render_component_items<Backend: GraphicsBackend>(
