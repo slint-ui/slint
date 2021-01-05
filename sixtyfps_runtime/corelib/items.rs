@@ -33,8 +33,8 @@ use super::item_rendering::CachedRenderingData;
 use super::layout::LayoutInfo;
 use crate::component::ComponentVTable;
 #[cfg(feature = "rtti")]
-use crate::{rtti::*, SharedString};
-use crate::{Callback, Property};
+use crate::rtti::*;
+use crate::{Callback, Property, SharedString};
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use sixtyfps_corelib_macros::*;
