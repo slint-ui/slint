@@ -8,14 +8,13 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
+use sixtyfps_corelib::graphics::{
+    Color, GraphicsBackend, GraphicsWindow, Point, Rect, RenderingCache, Resource,
+};
+use sixtyfps_corelib::item_rendering::CachedRenderingData;
 use sixtyfps_corelib::items::Item;
 use sixtyfps_corelib::{eventloop::ComponentWindow, items::ItemRenderer};
-use sixtyfps_corelib::{
-    graphics::{Color, GraphicsBackend, GraphicsWindow, Rect, RenderingCache, Resource},
-    item_rendering::CachedRenderingData,
-    properties::Property,
-    SharedVector,
-};
+use sixtyfps_corelib::{Property, SharedVector};
 
 pub struct GLRenderer {
     canvas: Option<femtovg::Canvas<femtovg::renderer::OpenGl>>,
@@ -173,10 +172,8 @@ impl GraphicsBackend for GLRenderer {
 
         let mut canvas = self.canvas.take().unwrap();
 
-        {
-            let dpi_factor = current_windowed_context.window().scale_factor();
-            canvas.set_size(width, height, dpi_factor as f32);
-        }
+        let dpi_factor = current_windowed_context.window().scale_factor();
+        canvas.set_size(width, height, dpi_factor as f32);
 
         canvas.clear_rect(0, 0, width, height, clear_color.into());
 
@@ -185,6 +182,7 @@ impl GraphicsBackend for GLRenderer {
             windowed_context: current_windowed_context,
             clip_rects: Default::default(),
             image_cache: self.image_cache.take().unwrap_or_default(),
+            scale_factor: dpi_factor as f32,
         }
     }
 
@@ -220,6 +218,7 @@ pub struct GLItemRenderer {
     clip_rects: SharedVector<Rect>,
 
     image_cache: RenderingCache<Option<femtovg::ImageId>>,
+    scale_factor: f32,
 }
 
 impl GLItemRenderer {
@@ -249,10 +248,20 @@ fn rect_to_path(r: Rect) -> femtovg::Path {
     path
 }
 
+impl sixtyfps_corelib::items::RawRenderer for GLItemRenderer {
+    fn draw_pixmap(&mut self, _: Point, _: u32, _: u32, _: &[u32]) {
+        todo!()
+    }
+
+    fn scale_factor(&self) -> f32 {
+        self.scale_factor
+    }
+}
+
 impl ItemRenderer for GLItemRenderer {
     fn draw_rectangle(
         &mut self,
-        pos: sixtyfps_corelib::graphics::Point,
+        pos: Point,
         rect: std::pin::Pin<&sixtyfps_corelib::items::Rectangle>,
     ) {
         // TODO: cache path in item to avoid re-tesselation
@@ -268,7 +277,7 @@ impl ItemRenderer for GLItemRenderer {
 
     fn draw_border_rectangle(
         &mut self,
-        pos: sixtyfps_corelib::graphics::Point,
+        pos: Point,
         rect: std::pin::Pin<&sixtyfps_corelib::items::BorderRectangle>,
     ) {
         // TODO: cache path in item to avoid re-tesselation
@@ -309,11 +318,7 @@ impl ItemRenderer for GLItemRenderer {
         })
     }
 
-    fn draw_image(
-        &mut self,
-        pos: sixtyfps_corelib::graphics::Point,
-        image: std::pin::Pin<&sixtyfps_corelib::items::Image>,
-    ) {
+    fn draw_image(&mut self, pos: Point, image: std::pin::Pin<&sixtyfps_corelib::items::Image>) {
         let image_id = match self.load_image(
             &image.cached_rendering_data,
             sixtyfps_corelib::items::Image::FIELD_OFFSETS.source.apply_pin(image),
@@ -352,7 +357,7 @@ impl ItemRenderer for GLItemRenderer {
 
     fn draw_clipped_image(
         &mut self,
-        pos: sixtyfps_corelib::graphics::Point,
+        pos: Point,
         clipped_image: std::pin::Pin<&sixtyfps_corelib::items::ClippedImage>,
     ) {
         let image_id = match self.load_image(
@@ -429,35 +434,23 @@ impl ItemRenderer for GLItemRenderer {
         })
     }
 
-    fn draw_text(
-        &mut self,
-        pos: sixtyfps_corelib::graphics::Point,
-        rect: std::pin::Pin<&sixtyfps_corelib::items::Text>,
-    ) {
+    fn draw_text(&mut self, pos: Point, rect: std::pin::Pin<&sixtyfps_corelib::items::Text>) {
         //todo!()
     }
 
     fn draw_text_input(
         &mut self,
-        pos: sixtyfps_corelib::graphics::Point,
+        pos: Point,
         rect: std::pin::Pin<&sixtyfps_corelib::items::TextInput>,
     ) {
         //todo!()
     }
 
-    fn draw_path(
-        &mut self,
-        pos: sixtyfps_corelib::graphics::Point,
-        path: std::pin::Pin<&sixtyfps_corelib::items::Path>,
-    ) {
+    fn draw_path(&mut self, pos: Point, path: std::pin::Pin<&sixtyfps_corelib::items::Path>) {
         //todo!()
     }
 
-    fn combine_clip(
-        &mut self,
-        pos: sixtyfps_corelib::graphics::Point,
-        clip: &std::pin::Pin<&sixtyfps_corelib::items::Clip>,
-    ) {
+    fn combine_clip(&mut self, pos: Point, clip: &std::pin::Pin<&sixtyfps_corelib::items::Clip>) {
         let clip_rect = clip.geometry().translate([pos.x, pos.y].into());
         self.canvas.intersect_scissor(
             clip_rect.min_x(),

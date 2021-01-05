@@ -45,7 +45,15 @@ pub use text::*;
 mod image;
 pub use self::image::*;
 
-pub trait ItemRenderer {
+pub trait RawRenderer {
+    /// Draw a pixmap in position indicated by the `pos`.
+    /// The data must be argb pixels of size width x height.
+    fn draw_pixmap(&mut self, pos: Point, width: u32, height: u32, data: &[u32]);
+
+    /// Returns the scale factor
+    fn scale_factor(&self) -> f32;
+}
+pub trait ItemRenderer: RawRenderer {
     /// will draw a rectangle in (pos.x + rect.x)
     fn draw_rectangle(&mut self, pos: Point, rect: Pin<&Rectangle>);
     fn draw_border_rectangle(&mut self, pos: Point, rect: Pin<&BorderRectangle>);
