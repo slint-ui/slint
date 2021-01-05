@@ -8,6 +8,8 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
+use std::{cell::RefCell, rc::Rc};
+
 use sixtyfps_corelib::graphics::{
     Color, GraphicsBackend, GraphicsWindow, Point, Rect, RenderingCache, Resource,
 };
@@ -16,8 +18,10 @@ use sixtyfps_corelib::items::Item;
 use sixtyfps_corelib::{eventloop::ComponentWindow, items::ItemRenderer};
 use sixtyfps_corelib::{Property, SharedVector};
 
+type CanvasRc = Rc<RefCell<femtovg::Canvas<femtovg::renderer::OpenGl>>>;
+
 pub struct GLRenderer {
-    canvas: Option<femtovg::Canvas<femtovg::renderer::OpenGl>>,
+    canvas: CanvasRc,
 
     #[cfg(target_arch = "wasm32")]
     window: Rc<winit::window::Window>,
@@ -150,7 +154,7 @@ impl GLRenderer {
         let canvas = femtovg::Canvas::new(renderer).unwrap();
 
         GLRenderer {
-            canvas: Some(canvas),
+            canvas: Rc::new(RefCell::new(canvas)),
             #[cfg(target_arch = "wasm32")]
             window,
             #[cfg(target_arch = "wasm32")]
@@ -170,15 +174,15 @@ impl GraphicsBackend for GLRenderer {
         let current_windowed_context =
             unsafe { self.windowed_context.take().unwrap().make_current().unwrap() };
 
-        let mut canvas = self.canvas.take().unwrap();
-
         let dpi_factor = current_windowed_context.window().scale_factor();
-        canvas.set_size(width, height, dpi_factor as f32);
-
-        canvas.clear_rect(0, 0, width, height, clear_color.into());
+        {
+            let mut canvas = self.canvas.borrow_mut();
+            canvas.set_size(width, height, dpi_factor as f32);
+            canvas.clear_rect(0, 0, width, height, clear_color.into());
+        }
 
         GLItemRenderer {
-            canvas,
+            canvas: self.canvas.clone(),
             windowed_context: current_windowed_context,
             clip_rects: Default::default(),
             image_cache: self.image_cache.take().unwrap_or_default(),
@@ -187,8 +191,7 @@ impl GraphicsBackend for GLRenderer {
     }
 
     fn flush_renderer(&mut self, renderer: GLItemRenderer) {
-        let mut canvas = renderer.canvas;
-        canvas.flush();
+        self.canvas.borrow_mut().flush();
 
         #[cfg(not(target_arch = "wasm32"))]
         {
@@ -198,7 +201,6 @@ impl GraphicsBackend for GLRenderer {
                 Some(unsafe { renderer.windowed_context.make_not_current().unwrap() });
         }
 
-        self.canvas = Some(canvas);
         self.image_cache = Some(renderer.image_cache);
     }
     fn window(&self) -> &winit::window::Window {
@@ -210,7 +212,7 @@ impl GraphicsBackend for GLRenderer {
 }
 
 pub struct GLItemRenderer {
-    canvas: femtovg::Canvas<femtovg::renderer::OpenGl>,
+    canvas: CanvasRc,
 
     #[cfg(not(target_arch = "wasm32"))]
     windowed_context: glutin::WindowedContext<glutin::PossiblyCurrent>,
@@ -226,19 +228,24 @@ impl GLItemRenderer {
         &mut self,
         item_cache: &CachedRenderingData,
         source_property: core::pin::Pin<&Property<Resource>>,
-    ) -> Option<femtovg::ImageId> {
-        let canvas = &mut self.canvas;
+    ) -> Option<(femtovg::ImageId, femtovg::ImageInfo)> {
+        let mut canvas = self.canvas.borrow_mut();
         let cache = &mut self.image_cache;
-        item_cache.ensure_up_to_date(cache, || match source_property.get() {
-            Resource::None => None,
-            Resource::AbsoluteFilePath(path) => canvas
-                .load_image_file(std::path::Path::new(&path.as_str()), femtovg::ImageFlags::empty())
-                .ok(),
-            Resource::EmbeddedData(data) => {
-                canvas.load_image_mem(data.as_slice(), femtovg::ImageFlags::empty()).ok()
-            }
-            Resource::EmbeddedRgbaImage { width, height, data } => todo!(),
-        })
+        item_cache
+            .ensure_up_to_date(cache, || match source_property.get() {
+                Resource::None => None,
+                Resource::AbsoluteFilePath(path) => canvas
+                    .load_image_file(
+                        std::path::Path::new(&path.as_str()),
+                        femtovg::ImageFlags::empty(),
+                    )
+                    .ok(),
+                Resource::EmbeddedData(data) => {
+                    canvas.load_image_mem(data.as_slice(), femtovg::ImageFlags::empty()).ok()
+                }
+                Resource::EmbeddedRgbaImage { width, height, data } => todo!(),
+            })
+            .map(|image_id| (image_id, canvas.image_info(image_id).unwrap()))
     }
 }
 
@@ -269,7 +276,7 @@ impl ItemRenderer for GLItemRenderer {
         let paint = femtovg::Paint::color(
             sixtyfps_corelib::items::Rectangle::FIELD_OFFSETS.color.apply_pin(rect).get().into(),
         );
-        self.canvas.save_with(|canvas| {
+        self.canvas.borrow_mut().save_with(|canvas| {
             canvas.translate(pos.x, pos.y);
             canvas.fill_path(&mut path, paint)
         })
@@ -312,24 +319,22 @@ impl ItemRenderer for GLItemRenderer {
                 .apply_pin(rect)
                 .get(),
         );
-        self.canvas.save_with(|canvas| {
+        self.canvas.borrow_mut().save_with(|canvas| {
             canvas.translate(pos.x, pos.y);
             canvas.fill_path(&mut path, fill_paint)
         })
     }
 
     fn draw_image(&mut self, pos: Point, image: std::pin::Pin<&sixtyfps_corelib::items::Image>) {
-        let image_id = match self.load_image(
+        let (image_id, image_info) = match self.load_image(
             &image.cached_rendering_data,
             sixtyfps_corelib::items::Image::FIELD_OFFSETS.source.apply_pin(image),
         ) {
-            Some(image_id) => image_id,
+            Some(image) => image,
             None => return,
         };
 
-        let info = self.canvas.image_info(image_id).unwrap();
-
-        let (image_width, image_height) = (info.width() as f32, info.height() as f32);
+        let (image_width, image_height) = (image_info.width() as f32, image_info.height() as f32);
         let (source_width, source_height) = (image_width, image_height);
         let fill_paint =
             femtovg::Paint::image(image_id, 0., 0., source_width, source_height, 0.0, 1.0);
@@ -337,7 +342,7 @@ impl ItemRenderer for GLItemRenderer {
         let mut path = femtovg::Path::new();
         path.rect(0., 0., image_width, image_height);
 
-        self.canvas.save_with(|canvas| {
+        self.canvas.borrow_mut().save_with(|canvas| {
             canvas.translate(
                 pos.x + sixtyfps_corelib::items::Image::FIELD_OFFSETS.x.apply_pin(image).get(),
                 pos.y + sixtyfps_corelib::items::Image::FIELD_OFFSETS.y.apply_pin(image).get(),
@@ -360,15 +365,13 @@ impl ItemRenderer for GLItemRenderer {
         pos: Point,
         clipped_image: std::pin::Pin<&sixtyfps_corelib::items::ClippedImage>,
     ) {
-        let image_id = match self.load_image(
+        let (image_id, image_info) = match self.load_image(
             &clipped_image.cached_rendering_data,
             sixtyfps_corelib::items::ClippedImage::FIELD_OFFSETS.source.apply_pin(clipped_image),
         ) {
-            Some(image_id) => image_id,
+            Some(image) => image,
             None => return,
         };
-
-        let info = self.canvas.image_info(image_id).unwrap();
 
         let source_clip_rect = Rect::new(
             [
@@ -385,7 +388,7 @@ impl ItemRenderer for GLItemRenderer {
             [0., 0.].into(),
         );
 
-        let (image_width, image_height) = (info.width() as f32, info.height() as f32);
+        let (image_width, image_height) = (image_info.width() as f32, image_info.height() as f32);
         let (source_width, source_height) = if source_clip_rect.is_empty() {
             (image_width, image_height)
         } else {
@@ -404,7 +407,7 @@ impl ItemRenderer for GLItemRenderer {
         let mut path = femtovg::Path::new();
         path.rect(0., 0., image_width, image_height);
 
-        self.canvas.save_with(|canvas| {
+        self.canvas.borrow_mut().save_with(|canvas| {
             canvas.translate(
                 pos.x
                     + sixtyfps_corelib::items::ClippedImage::FIELD_OFFSETS
@@ -452,7 +455,7 @@ impl ItemRenderer for GLItemRenderer {
 
     fn combine_clip(&mut self, pos: Point, clip: &std::pin::Pin<&sixtyfps_corelib::items::Clip>) {
         let clip_rect = clip.geometry().translate([pos.x, pos.y].into());
-        self.canvas.intersect_scissor(
+        self.canvas.borrow_mut().intersect_scissor(
             clip_rect.min_x(),
             clip_rect.min_y(),
             clip_rect.width(),
@@ -468,9 +471,10 @@ impl ItemRenderer for GLItemRenderer {
     fn reset_clip(&mut self, rects: SharedVector<sixtyfps_corelib::graphics::Rect>) {
         self.clip_rects = rects;
         // ### Only do this if rects were really changed
-        self.canvas.reset_scissor();
+        let mut canvas = self.canvas.borrow_mut();
+        canvas.reset_scissor();
         for rect in self.clip_rects.as_slice() {
-            self.canvas.intersect_scissor(rect.min_x(), rect.min_y(), rect.width(), rect.height())
+            canvas.intersect_scissor(rect.min_x(), rect.min_y(), rect.width(), rect.height())
         }
     }
 }
