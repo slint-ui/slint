@@ -93,7 +93,7 @@ pub(crate) fn render_component_items<Backend: GraphicsBackend>(
 
 pub(crate) fn free_item_rendering_data<'a, Backend: GraphicsBackend>(
     items: &Slice<'a, core::pin::Pin<ItemRef<'a>>>,
-    _renderer: &mut Backend,
+    _renderer: &RefCell<Backend>,
 ) {
     for item in items.iter() {
         // TODO

@@ -713,8 +713,7 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped => {}
             GraphicsWindowBackendState::Mapped(window) => {
-                let mut backend = window.backend.borrow_mut();
-                crate::item_rendering::free_item_rendering_data(items, &mut *backend)
+                crate::item_rendering::free_item_rendering_data(items, &window.backend)
             }
         }
     }
