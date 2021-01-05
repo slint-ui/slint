@@ -40,6 +40,8 @@ use sixtyfps_corelib::{Callback, ItemVTable_static, Property, SharedString, Shar
 use sixtyfps_corelib_macros::*;
 use std::rc::Rc;
 
+type ItemRendererRef<'a> = &'a mut dyn ItemRenderer;
+
 use crate::qttypes;
 
 /// Helper macro to get the size from the width and height property,

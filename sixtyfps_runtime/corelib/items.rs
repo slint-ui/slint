@@ -59,6 +59,10 @@ pub trait ItemRenderer {
     fn reset_clip(&mut self, rects: SharedVector<Rect>);
 }
 
+/// Alias for `&mut dyn ItemRenderer`. Required so cbingen generates the ItemVTable
+/// despite the presence of trait object
+type ItemRendererRef<'a> = &'a mut dyn ItemRenderer;
+
 /// Items are the nodes in the render tree.
 #[vtable]
 #[repr(C)]
@@ -98,11 +102,8 @@ pub struct ItemVTable {
         window: &ComponentWindow,
     ) -> KeyEventResult,
 
-    pub render: extern "C" fn(
-        core::pin::Pin<VRef<ItemVTable>>,
-        pos: Point,
-        backend: &mut &mut dyn ItemRenderer,
-    ),
+    pub render:
+        extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, pos: Point, backend: &mut ItemRendererRef),
 }
 
 /// Alias for `vtable::VRef<ItemVTable>` which represent a pointer to a `dyn Item` with
