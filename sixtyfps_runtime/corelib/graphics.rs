@@ -295,6 +295,8 @@ pub trait GraphicsBackend: Sized {
 
     fn release_item_graphics_cache(&self, data: &CachedRenderingData);
 
+    fn refresh_window_scale_factor(&mut self);
+
     /// Returns the window that the backend is associated with.
     fn window(&self) -> &winit::window::Window;
 }
@@ -694,6 +696,12 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
 
     fn set_scale_factor(&self, factor: f32) {
         self.properties.as_ref().scale_factor.set(factor);
+        match &*self.map_state.borrow() {
+            GraphicsWindowBackendState::Unmapped => {}
+            GraphicsWindowBackendState::Mapped(window) => {
+                window.backend.borrow_mut().refresh_window_scale_factor();
+            }
+        }
     }
 
     fn set_width(&self, width: f32) {

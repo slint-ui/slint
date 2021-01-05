@@ -291,9 +291,9 @@ impl EventLoop {
                         if let Some(Some(window)) =
                             windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
                         {
-                            window.set_scale_factor(scale_factor as f32);
                             window.set_width(size.width as f32);
                             window.set_height(size.height as f32);
+                            window.set_scale_factor(scale_factor as f32);
                         }
                     });
                 }

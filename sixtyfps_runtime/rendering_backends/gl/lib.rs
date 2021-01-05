@@ -58,6 +58,7 @@ pub struct GLRenderer {
     windowed_context: Option<glutin::WindowedContext<glutin::NotCurrent>>,
 
     gpu_cache: RenderingCacheRc,
+    current_scale_factor: f32,
 }
 
 impl GLRenderer {
@@ -179,7 +180,7 @@ impl GLRenderer {
 
         let canvas = femtovg::Canvas::new(renderer).unwrap();
 
-        GLRenderer {
+        let mut renderer = GLRenderer {
             canvas: Rc::new(RefCell::new(canvas)),
             #[cfg(target_arch = "wasm32")]
             window,
@@ -188,7 +189,12 @@ impl GLRenderer {
             #[cfg(not(target_arch = "wasm32"))]
             windowed_context: Some(unsafe { windowed_context.make_not_current().unwrap() }),
             gpu_cache: Default::default(),
-        }
+            current_scale_factor: 0.0,
+        };
+
+        renderer.refresh_window_scale_factor();
+
+        renderer
     }
 }
 
@@ -232,6 +238,32 @@ impl GraphicsBackend for GLRenderer {
 
     fn release_item_graphics_cache(&self, data: &CachedRenderingData) {
         data.release(&mut self.gpu_cache.borrow_mut())
+    }
+
+    fn refresh_window_scale_factor(&mut self) {
+        let (size, dpi_factor) = {
+            let window = self.window();
+            (window.inner_size(), window.scale_factor() as f32)
+        };
+
+        if dpi_factor == self.current_scale_factor {
+            return;
+        }
+
+        self.current_scale_factor = dpi_factor;
+
+        // The scale factor in the Canvas can only be updated via `set_size`, which requires a current context
+        #[cfg(not(target_arch = "wasm32"))]
+        let current_windowed_context =
+            unsafe { self.windowed_context.take().unwrap().make_current().unwrap() };
+
+        self.canvas.borrow_mut().set_size(size.width, size.height, dpi_factor);
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.windowed_context =
+                Some(unsafe { current_windowed_context.make_not_current().unwrap() });
+        }
     }
 
     fn window(&self) -> &winit::window::Window {
