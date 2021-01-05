@@ -210,7 +210,7 @@ impl GraphicsBackend for GLRenderer {
         GLItemRenderer {
             canvas: self.canvas.clone(),
             windowed_context: current_windowed_context,
-            clip_rects: RefCell::new(Default::default()),
+            clip_rects: Default::default(),
             gpu_cache: self.gpu_cache.clone(),
             scale_factor: dpi_factor as f32,
         }
@@ -246,7 +246,7 @@ pub struct GLItemRenderer {
     #[cfg(not(target_arch = "wasm32"))]
     windowed_context: glutin::WindowedContext<glutin::PossiblyCurrent>,
 
-    clip_rects: RefCell<SharedVector<Rect>>,
+    clip_rects: SharedVector<Rect>,
 
     gpu_cache: RenderingCacheRc,
     scale_factor: f32,
@@ -292,7 +292,11 @@ fn rect_to_path(r: Rect) -> femtovg::Path {
 }
 
 impl ItemRenderer for GLItemRenderer {
-    fn draw_rectangle(&self, pos: Point, rect: std::pin::Pin<&sixtyfps_corelib::items::Rectangle>) {
+    fn draw_rectangle(
+        &mut self,
+        pos: Point,
+        rect: std::pin::Pin<&sixtyfps_corelib::items::Rectangle>,
+    ) {
         // TODO: cache path in item to avoid re-tesselation
         let mut path = rect_to_path(rect.geometry());
         let paint = femtovg::Paint::color(
@@ -305,7 +309,7 @@ impl ItemRenderer for GLItemRenderer {
     }
 
     fn draw_border_rectangle(
-        &self,
+        &mut self,
         pos: Point,
         rect: std::pin::Pin<&sixtyfps_corelib::items::BorderRectangle>,
     ) {
@@ -347,7 +351,7 @@ impl ItemRenderer for GLItemRenderer {
         })
     }
 
-    fn draw_image(&self, pos: Point, image: std::pin::Pin<&sixtyfps_corelib::items::Image>) {
+    fn draw_image(&mut self, pos: Point, image: std::pin::Pin<&sixtyfps_corelib::items::Image>) {
         let (cached_image, image_info) = match self.load_image(
             &image.cached_rendering_data,
             sixtyfps_corelib::items::Image::FIELD_OFFSETS.source.apply_pin(image),
@@ -385,7 +389,7 @@ impl ItemRenderer for GLItemRenderer {
     }
 
     fn draw_clipped_image(
-        &self,
+        &mut self,
         pos: Point,
         clipped_image: std::pin::Pin<&sixtyfps_corelib::items::ClippedImage>,
     ) {
@@ -461,23 +465,23 @@ impl ItemRenderer for GLItemRenderer {
         })
     }
 
-    fn draw_text(&self, pos: Point, rect: std::pin::Pin<&sixtyfps_corelib::items::Text>) {
+    fn draw_text(&mut self, pos: Point, rect: std::pin::Pin<&sixtyfps_corelib::items::Text>) {
         //todo!()
     }
 
     fn draw_text_input(
-        &self,
+        &mut self,
         pos: Point,
         rect: std::pin::Pin<&sixtyfps_corelib::items::TextInput>,
     ) {
         //todo!()
     }
 
-    fn draw_path(&self, pos: Point, path: std::pin::Pin<&sixtyfps_corelib::items::Path>) {
+    fn draw_path(&mut self, pos: Point, path: std::pin::Pin<&sixtyfps_corelib::items::Path>) {
         //todo!()
     }
 
-    fn combine_clip(&self, pos: Point, clip: &std::pin::Pin<&sixtyfps_corelib::items::Clip>) {
+    fn combine_clip(&mut self, pos: Point, clip: &std::pin::Pin<&sixtyfps_corelib::items::Clip>) {
         let clip_rect = clip.geometry().translate([pos.x, pos.y].into());
         self.canvas.borrow_mut().intersect_scissor(
             clip_rect.min_x(),
@@ -485,25 +489,25 @@ impl ItemRenderer for GLItemRenderer {
             clip_rect.width(),
             clip_rect.height(),
         );
-        self.clip_rects.borrow_mut().push(clip_rect);
+        self.clip_rects.push(clip_rect);
     }
 
     fn clip_rects(&self) -> SharedVector<sixtyfps_corelib::graphics::Rect> {
-        self.clip_rects.borrow().clone()
+        self.clip_rects.clone()
     }
 
-    fn reset_clip(&self, rects: SharedVector<sixtyfps_corelib::graphics::Rect>) {
-        *self.clip_rects.borrow_mut() = rects;
+    fn reset_clip(&mut self, rects: SharedVector<sixtyfps_corelib::graphics::Rect>) {
+        self.clip_rects = rects;
         // ### Only do this if rects were really changed
         let mut canvas = self.canvas.borrow_mut();
         canvas.reset_scissor();
-        for rect in self.clip_rects.borrow().as_slice() {
+        for rect in self.clip_rects.as_slice() {
             canvas.intersect_scissor(rect.min_x(), rect.min_y(), rect.width(), rect.height())
         }
     }
 
     fn draw_cached_pixmap(
-        &self,
+        &mut self,
         item_cache: &CachedRenderingData,
         pos: Point,
         update_fn: &dyn Fn(&mut dyn FnMut(u32, u32, &[u8])),

@@ -40,7 +40,7 @@ use sixtyfps_corelib::{Callback, ItemVTable_static, Property, SharedString, Shar
 use sixtyfps_corelib_macros::*;
 use std::rc::Rc;
 
-type ItemRendererRef<'a> = &'a dyn ItemRenderer;
+type ItemRendererRef<'a> = &'a mut dyn ItemRenderer;
 
 use crate::qttypes;
 
@@ -59,7 +59,7 @@ macro_rules! get_size {
 
 macro_rules! fn_render {
     ($this:ident $dpr:ident $size:ident $img:ident => $($tt:tt)*) => {
-        fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
+        fn render(self: Pin<&Self>, pos: Point, backend: &mut &mut dyn ItemRenderer) {
             let x = Self::FIELD_OFFSETS.x.apply_pin(self).get();
             let y = Self::FIELD_OFFSETS.y.apply_pin(self).get();
             let $dpr: f32 = backend.scale_factor();

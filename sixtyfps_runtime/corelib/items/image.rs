@@ -94,7 +94,7 @@ impl Item for Image {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
+    fn render(self: Pin<&Self>, pos: Point, backend: &mut &mut dyn ItemRenderer) {
         (*backend).draw_image(pos, self)
     }
 }
@@ -156,7 +156,7 @@ impl Item for ClippedImage {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
+    fn render(self: Pin<&Self>, pos: Point, backend: &mut &mut dyn ItemRenderer) {
         (*backend).draw_clipped_image(pos, self)
     }
 }

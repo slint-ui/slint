@@ -514,7 +514,7 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
             window.backend.borrow_mut().new_renderer(size.width, size.height, &background_color);
         crate::item_rendering::render_component_items(
             &component_rc,
-            &renderer,
+            &mut renderer,
             &self,
             Point::default(),
         );

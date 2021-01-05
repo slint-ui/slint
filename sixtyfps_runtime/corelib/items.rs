@@ -47,16 +47,16 @@ pub use self::image::*;
 
 pub trait ItemRenderer {
     /// will draw a rectangle in (pos.x + rect.x)
-    fn draw_rectangle(&self, pos: Point, rect: Pin<&Rectangle>);
-    fn draw_border_rectangle(&self, pos: Point, rect: Pin<&BorderRectangle>);
-    fn draw_image(&self, pos: Point, image: Pin<&Image>);
-    fn draw_clipped_image(&self, pos: Point, image: Pin<&ClippedImage>);
-    fn draw_text(&self, pos: Point, text: Pin<&Text>);
-    fn draw_text_input(&self, pos: Point, text_input: Pin<&TextInput>);
-    fn draw_path(&self, pos: Point, path: Pin<&Path>);
-    fn combine_clip(&self, pos: Point, clip: &Pin<&Clip>);
+    fn draw_rectangle(&mut self, pos: Point, rect: Pin<&Rectangle>);
+    fn draw_border_rectangle(&mut self, pos: Point, rect: Pin<&BorderRectangle>);
+    fn draw_image(&mut self, pos: Point, image: Pin<&Image>);
+    fn draw_clipped_image(&mut self, pos: Point, image: Pin<&ClippedImage>);
+    fn draw_text(&mut self, pos: Point, text: Pin<&Text>);
+    fn draw_text_input(&mut self, pos: Point, text_input: Pin<&TextInput>);
+    fn draw_path(&mut self, pos: Point, path: Pin<&Path>);
+    fn combine_clip(&mut self, pos: Point, clip: &Pin<&Clip>);
     fn clip_rects(&self) -> SharedVector<Rect>;
-    fn reset_clip(&self, rects: SharedVector<Rect>);
+    fn reset_clip(&mut self, rects: SharedVector<Rect>);
 
     /// Returns the scale factor
     fn scale_factor(&self) -> f32;
@@ -66,7 +66,7 @@ pub trait ItemRenderer {
     /// with a callback that need to be called once with `fn (width, height, data)` where data are the
     /// argb premultiplied pixel values
     fn draw_cached_pixmap(
-        &self,
+        &mut self,
         item_cache: &CachedRenderingData,
         pos: Point,
         update_fn: &dyn Fn(&mut dyn FnMut(u32, u32, &[u8])),
@@ -75,7 +75,7 @@ pub trait ItemRenderer {
 
 /// Alias for `&mut dyn ItemRenderer`. Required so cbingen generates the ItemVTable
 /// despite the presence of trait object
-type ItemRendererRef<'a> = &'a dyn ItemRenderer;
+type ItemRendererRef<'a> = &'a mut dyn ItemRenderer;
 
 /// Items are the nodes in the render tree.
 #[vtable]
@@ -117,7 +117,7 @@ pub struct ItemVTable {
     ) -> KeyEventResult,
 
     pub render:
-        extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, pos: Point, backend: &ItemRendererRef),
+        extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, pos: Point, backend: &mut ItemRendererRef),
 }
 
 /// Alias for `vtable::VRef<ItemVTable>` which represent a pointer to a `dyn Item` with
@@ -207,7 +207,7 @@ impl Item for Rectangle {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
+    fn render(self: Pin<&Self>, pos: Point, backend: &mut &mut dyn ItemRenderer) {
         (*backend).draw_rectangle(pos, self)
     }
 }
@@ -272,7 +272,7 @@ impl Item for BorderRectangle {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
+    fn render(self: Pin<&Self>, pos: Point, backend: &mut &mut dyn ItemRenderer) {
         (*backend).draw_border_rectangle(pos, self)
     }
 }
@@ -384,7 +384,7 @@ impl Item for TouchArea {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, _pos: Point, _backend: &&dyn ItemRenderer) {}
+    fn render(self: Pin<&Self>, _pos: Point, _backend: &mut &mut dyn ItemRenderer) {}
 }
 
 impl ItemConsts for TouchArea {
@@ -443,7 +443,7 @@ impl Item for Clip {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
+    fn render(self: Pin<&Self>, pos: Point, backend: &mut &mut dyn ItemRenderer) {
         (*backend).combine_clip(pos, &self)
     }
 }
@@ -506,7 +506,7 @@ impl Item for Path {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
+    fn render(self: Pin<&Self>, pos: Point, backend: &mut &mut dyn ItemRenderer) {
         (*backend).draw_path(pos, self)
     }
 }
@@ -580,7 +580,7 @@ impl Item for Flickable {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, _pos: Point, _backend: &&dyn ItemRenderer) {}
+    fn render(self: Pin<&Self>, _pos: Point, _backend: &mut &mut dyn ItemRenderer) {}
 }
 
 impl ItemConsts for Flickable {
@@ -686,7 +686,7 @@ impl Item for Window {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, _pos: Point, _backend: &&dyn ItemRenderer) {}
+    fn render(self: Pin<&Self>, _pos: Point, _backend: &mut &mut dyn ItemRenderer) {}
 }
 
 impl ItemConsts for Window {

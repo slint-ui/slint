@@ -59,19 +59,24 @@ impl CachedRenderingData {
 
 pub(crate) fn render_component_items<Backend: GraphicsBackend>(
     component: &ComponentRc,
-    renderer: &Backend::ItemRenderer,
+    renderer: &mut Backend::ItemRenderer,
     window: &std::rc::Rc<GraphicsWindow<Backend>>,
     origin: crate::graphics::Point,
 ) {
     use crate::items::ItemRenderer;
 
+    let renderer = RefCell::new(renderer);
+
     crate::item_tree::visit_items_with_post_visit(
         component,
         crate::item_tree::TraversalOrder::BackToFront,
         |_, item, _, translation| {
-            let saved_clip = renderer.clip_rects();
+            let saved_clip = renderer.borrow_mut().clip_rects();
 
-            item.as_ref().render(*translation, &(renderer as &dyn crate::items::ItemRenderer));
+            item.as_ref().render(
+                *translation,
+                &mut (*renderer.borrow_mut() as &mut dyn crate::items::ItemRenderer),
+            );
 
             let origin = item.as_ref().geometry().origin;
             let translation = *translation + euclid::Vector2D::new(origin.x, origin.y);
@@ -79,7 +84,7 @@ pub(crate) fn render_component_items<Backend: GraphicsBackend>(
             (ItemVisitorResult::Continue(translation), saved_clip)
         },
         |_, _, saved_clip| {
-            renderer.reset_clip(saved_clip);
+            renderer.borrow_mut().reset_clip(saved_clip);
         },
         origin,
     );
