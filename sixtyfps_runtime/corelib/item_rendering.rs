@@ -49,35 +49,29 @@ impl CachedRenderingData {
         }
     }
 
-    fn release<T>(&self, cache: &RefCell<RenderingCache<T>>) {
+    pub fn release<T>(&self, cache: &mut RenderingCache<T>) {
         if self.cache_ok.get() {
             let index = self.cache_index.get();
-            cache.borrow_mut().remove(index);
+            cache.remove(index);
         }
     }
 }
 
 pub(crate) fn render_component_items<Backend: GraphicsBackend>(
     component: &ComponentRc,
-    renderer: &mut Backend::ItemRenderer,
+    renderer: &Backend::ItemRenderer,
     window: &std::rc::Rc<GraphicsWindow<Backend>>,
     origin: crate::graphics::Point,
 ) {
     use crate::items::ItemRenderer;
-    let window = ComponentWindow::new(window.clone());
-
-    let renderer = RefCell::new(renderer);
 
     crate::item_tree::visit_items_with_post_visit(
         component,
         crate::item_tree::TraversalOrder::BackToFront,
         |_, item, _, translation| {
-            let saved_clip = renderer.borrow_mut().clip_rects();
+            let saved_clip = renderer.clip_rects();
 
-            item.as_ref().render(
-                *translation,
-                &mut (*renderer.borrow_mut() as &mut dyn crate::items::ItemRenderer),
-            );
+            item.as_ref().render(*translation, &(renderer as &dyn crate::items::ItemRenderer));
 
             let origin = item.as_ref().geometry().origin;
             let translation = *translation + euclid::Vector2D::new(origin.x, origin.y);
@@ -85,7 +79,7 @@ pub(crate) fn render_component_items<Backend: GraphicsBackend>(
             (ItemVisitorResult::Continue(translation), saved_clip)
         },
         |_, _, saved_clip| {
-            renderer.borrow_mut().reset_clip(saved_clip);
+            renderer.reset_clip(saved_clip);
         },
         origin,
     );
@@ -93,9 +87,10 @@ pub(crate) fn render_component_items<Backend: GraphicsBackend>(
 
 pub(crate) fn free_item_rendering_data<'a, Backend: GraphicsBackend>(
     items: &Slice<'a, core::pin::Pin<ItemRef<'a>>>,
-    _renderer: &RefCell<Backend>,
+    renderer: &RefCell<Backend>,
 ) {
     for item in items.iter() {
-        // TODO
+        let cached_rendering_data = item.cached_rendering_data_offset();
+        renderer.borrow().release_item_graphics_cache(cached_rendering_data)
     }
 }

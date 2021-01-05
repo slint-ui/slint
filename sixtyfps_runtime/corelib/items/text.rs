@@ -126,7 +126,7 @@ impl Item for Text {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &mut &mut dyn ItemRenderer) {
+    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
         (*backend).draw_text(pos, self)
     }
 }
@@ -364,7 +364,7 @@ impl Item for TextInput {
         }
     }
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &mut &mut dyn ItemRenderer) {
+    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
         (*backend).draw_text_input(pos, self)
     }
 }

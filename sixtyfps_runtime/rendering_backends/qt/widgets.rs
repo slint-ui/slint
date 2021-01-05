@@ -40,7 +40,7 @@ use sixtyfps_corelib::{Callback, ItemVTable_static, Property, SharedString, Shar
 use sixtyfps_corelib_macros::*;
 use std::rc::Rc;
 
-type ItemRendererRef<'a> = &'a mut dyn ItemRenderer;
+type ItemRendererRef<'a> = &'a dyn ItemRenderer;
 
 use crate::qttypes;
 
@@ -85,7 +85,7 @@ impl QImageWrapArray {
         QImageWrapArray { img, array }
     }
 
-    pub fn draw(&self, pos: Point, render: &mut dyn ItemRenderer) {
+    pub fn draw(&self, pos: Point, render: &dyn ItemRenderer) {
         let size = self.img.size();
         render.draw_pixmap(pos, size.width, size.height, self.array.as_slice());
     }
@@ -196,7 +196,7 @@ impl Item for NativeButton {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &mut &mut dyn ItemRenderer) {
+    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
         let down: bool = Self::FIELD_OFFSETS.pressed.apply_pin(self).get();
         let text: qttypes::QString = Self::FIELD_OFFSETS.text.apply_pin(self).get().as_str().into();
         let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
@@ -314,7 +314,7 @@ impl Item for NativeCheckBox {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &mut &mut dyn ItemRenderer) {
+    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
         let checked: bool = Self::FIELD_OFFSETS.checked.apply_pin(self).get();
         let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
         let text: qttypes::QString = Self::FIELD_OFFSETS.text.apply_pin(self).get().as_str().into();
@@ -525,7 +525,7 @@ impl Item for NativeSpinBox {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &mut &mut dyn ItemRenderer) {
+    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
         let value: i32 = Self::FIELD_OFFSETS.value.apply_pin(self).get();
         let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
         let size: qttypes::QSize = get_size!(self);
@@ -734,7 +734,7 @@ impl Item for NativeSlider {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &mut &mut dyn ItemRenderer) {
+    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
         let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
         let value = Self::FIELD_OFFSETS.value.apply_pin(self).get() as i32;
         let min = Self::FIELD_OFFSETS.minimum.apply_pin(self).get() as i32;
@@ -929,7 +929,7 @@ impl Item for NativeGroupBox {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &mut &mut dyn ItemRenderer) {
+    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
         let text: qttypes::QString =
             Self::FIELD_OFFSETS.title.apply_pin(self).get().as_str().into();
         let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
@@ -1081,7 +1081,7 @@ impl Item for NativeLineEdit {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &mut &mut dyn ItemRenderer) {
+    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
         let size: qttypes::QSize = get_size!(self);
         let dpr = backend.scale_factor();
         let focused: bool = Self::FIELD_OFFSETS.focused.apply_pin(self).get();
@@ -1377,7 +1377,7 @@ impl Item for NativeScrollView {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &mut &mut dyn ItemRenderer) {
+    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
         let size: qttypes::QSize = get_size!(self);
         let dpr = backend.scale_factor();
 
@@ -1571,7 +1571,7 @@ impl Item for NativeStandardListViewItem {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &mut &mut dyn ItemRenderer) {
+    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
         let size: qttypes::QSize = get_size!(self);
         let dpr = backend.scale_factor();
         let index: i32 = Self::FIELD_OFFSETS.index.apply_pin(self).get();
@@ -1708,7 +1708,7 @@ impl Item for NativeComboBox {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &mut &mut dyn ItemRenderer) {
+    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
         let down: bool = Self::FIELD_OFFSETS.pressed.apply_pin(self).get();
         let is_open: bool = Self::FIELD_OFFSETS.is_open.apply_pin(self).get();
         let text: qttypes::QString =

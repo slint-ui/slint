@@ -21,6 +21,7 @@ LICENSE END */
 */
 extern crate alloc;
 use crate::input::{KeyEvent, KeyboardModifiers, MouseEvent, MouseEventType};
+use crate::item_rendering::CachedRenderingData;
 use crate::items::{ItemRc, ItemRef, ItemWeak};
 use crate::properties::{InterpolatedPropertyValue, Property, PropertyTracker};
 #[cfg(feature = "rtti")]
@@ -292,6 +293,8 @@ pub trait GraphicsBackend: Sized {
     fn new_renderer(&mut self, width: u32, height: u32, clear_color: &Color) -> Self::ItemRenderer;
     fn flush_renderer(&mut self, renderer: Self::ItemRenderer);
 
+    fn release_item_graphics_cache(&self, data: &CachedRenderingData);
+
     /// Returns the window that the backend is associated with.
     fn window(&self) -> &winit::window::Window;
 }
@@ -499,8 +502,7 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
 
         let map_state = self.map_state.borrow();
         let window = map_state.as_mapped();
-        let mut backend = window.backend.borrow_mut();
-        let size = backend.window().inner_size();
+        let size = window.backend.borrow().window().inner_size();
         let root_item = component.as_ref().get_item_ref(0);
         let background_color = if let Some(window_item) = ItemRef::downcast_pin(root_item) {
             crate::items::Window::FIELD_OFFSETS.color.apply_pin(window_item).get()
@@ -508,17 +510,18 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
             RgbaColor { red: 255 as u8, green: 255, blue: 255, alpha: 255 }.into()
         };
 
-        let mut renderer = backend.new_renderer(size.width, size.height, &background_color);
+        let mut renderer =
+            window.backend.borrow_mut().new_renderer(size.width, size.height, &background_color);
         crate::item_rendering::render_component_items(
             &component_rc,
-            &mut renderer,
+            &renderer,
             &self,
             Point::default(),
         );
         if let Some(popup) = &*self.active_popup.borrow() {
             crate::item_rendering::render_component_items(&popup.0, &mut renderer, &self, popup.1);
         }
-        backend.flush_renderer(renderer);
+        window.backend.borrow_mut().flush_renderer(renderer);
     }
 
     fn process_mouse_input(
