@@ -291,28 +291,6 @@ fn rect_to_path(r: Rect) -> femtovg::Path {
     path
 }
 
-impl sixtyfps_corelib::items::RawRenderer for GLItemRenderer {
-    fn draw_pixmap(&self, pos: Point, width: u32, height: u32, data: &[u8]) {
-        use rgb::FromSlice;
-        let mut canvas = self.canvas.borrow_mut();
-        let img = imgref::Img::new(data.as_rgba(), width as usize, height as usize);
-
-        let image_id = match canvas.create_image(img, femtovg::ImageFlags::PREMULTIPLIED) {
-            Ok(x) => x,
-            Err(_) => return,
-        };
-        let fill_paint =
-            femtovg::Paint::image(image_id, pos.x, pos.y, width as f32, height as f32, 0.0, 1.0);
-        let mut path = femtovg::Path::new();
-        path.rect(pos.x, pos.y, width as f32, height as f32);
-        canvas.fill_path(&mut path, fill_paint);
-    }
-
-    fn scale_factor(&self) -> f32 {
-        self.scale_factor
-    }
-}
-
 impl ItemRenderer for GLItemRenderer {
     fn draw_rectangle(&self, pos: Point, rect: std::pin::Pin<&sixtyfps_corelib::items::Rectangle>) {
         // TODO: cache path in item to avoid re-tesselation
@@ -522,6 +500,49 @@ impl ItemRenderer for GLItemRenderer {
         for rect in self.clip_rects.borrow().as_slice() {
             canvas.intersect_scissor(rect.min_x(), rect.min_y(), rect.width(), rect.height())
         }
+    }
+
+    fn draw_cached_pixmap(
+        &self,
+        item_cache: &CachedRenderingData,
+        pos: Point,
+        update_fn: &dyn Fn(&mut dyn FnMut(u32, u32, &[u8])),
+    ) {
+        let canvas = &self.canvas;
+        let mut cache = self.gpu_cache.borrow_mut();
+
+        let image_cache = item_cache.ensure_up_to_date(&mut cache, || {
+            let mut image_cache = None;
+            update_fn(&mut |width: u32, height: u32, data: &[u8]| {
+                use rgb::FromSlice;
+                let img = imgref::Img::new(data.as_rgba(), width as usize, height as usize);
+                if let Some(image_id) =
+                    canvas.borrow_mut().create_image(img, femtovg::ImageFlags::PREMULTIPLIED).ok()
+                {
+                    image_cache = Some(GPUCachedData::Image(Rc::new(CachedImage {
+                        id: image_id,
+                        canvas: canvas.clone(),
+                    })))
+                };
+            });
+            image_cache
+        });
+        let image_id = match image_cache {
+            Some(x) => x.as_image().id,
+            None => return,
+        };
+        let mut canvas = self.canvas.borrow_mut();
+
+        let image_info = canvas.image_info(image_id).unwrap();
+        let (width, height) = (image_info.width() as f32, image_info.height() as f32);
+        let fill_paint = femtovg::Paint::image(image_id, pos.x, pos.y, width, height, 0.0, 1.0);
+        let mut path = femtovg::Path::new();
+        path.rect(pos.x, pos.y, width, height);
+        canvas.fill_path(&mut path, fill_paint);
+    }
+
+    fn scale_factor(&self) -> f32 {
+        self.scale_factor
     }
 }
 

@@ -45,15 +45,7 @@ pub use text::*;
 mod image;
 pub use self::image::*;
 
-pub trait RawRenderer {
-    /// Draw a pixmap in position indicated by the `pos`.
-    /// The data must be argb pixels of size width x height.
-    fn draw_pixmap(&self, pos: Point, width: u32, height: u32, data: &[u8]);
-
-    /// Returns the scale factor
-    fn scale_factor(&self) -> f32;
-}
-pub trait ItemRenderer: RawRenderer {
+pub trait ItemRenderer {
     /// will draw a rectangle in (pos.x + rect.x)
     fn draw_rectangle(&self, pos: Point, rect: Pin<&Rectangle>);
     fn draw_border_rectangle(&self, pos: Point, rect: Pin<&BorderRectangle>);
@@ -65,6 +57,20 @@ pub trait ItemRenderer: RawRenderer {
     fn combine_clip(&self, pos: Point, clip: &Pin<&Clip>);
     fn clip_rects(&self) -> SharedVector<Rect>;
     fn reset_clip(&self, rects: SharedVector<Rect>);
+
+    /// Returns the scale factor
+    fn scale_factor(&self) -> f32;
+
+    /// Draw a pixmap in position indicated by the `pos`.
+    /// The pixmap will be taken from cache if the cache is valid, otherwise, update_fn will be called
+    /// with a callback that need to be called once with `fn (width, height, data)` where data are the
+    /// argb premultiplied pixel values
+    fn draw_cached_pixmap(
+        &self,
+        item_cache: &CachedRenderingData,
+        pos: Point,
+        update_fn: &dyn Fn(&mut dyn FnMut(u32, u32, &[u8])),
+    );
 }
 
 /// Alias for `&mut dyn ItemRenderer`. Required so cbingen generates the ItemVTable

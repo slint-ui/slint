@@ -57,13 +57,26 @@ macro_rules! get_size {
     }};
 }
 
-/// Helper macro to get the possition of this item, given an offset Point,
-macro_rules! get_pos {
-    ($self:ident + $offset:expr) => {{
-        let x = Self::FIELD_OFFSETS.x.apply_pin($self).get();
-        let y = Self::FIELD_OFFSETS.y.apply_pin($self).get();
-        Point::new(x, y) + $offset.to_vector()
-    }};
+macro_rules! fn_render {
+    ($this:ident $dpr:ident $size:ident $img:ident => $($tt:tt)*) => {
+        fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
+            let x = Self::FIELD_OFFSETS.x.apply_pin(self).get();
+            let y = Self::FIELD_OFFSETS.y.apply_pin(self).get();
+            let $dpr: f32 = backend.scale_factor();
+            backend.draw_cached_pixmap(
+                &self.cached_rendering_data,
+                Point::new(x, y) + pos.to_vector(),
+                &mut |callback| {
+                    let $size: qttypes::QSize = get_size!(self);
+                    let mut imgarray = QImageWrapArray::new($size, $dpr);
+                    let $img = &mut imgarray.img;
+                    let $this = self;
+                    $($tt)*
+                    imgarray.draw(callback);
+                },
+            );
+        }
+    };
 }
 
 struct QImageWrapArray {
@@ -85,9 +98,9 @@ impl QImageWrapArray {
         QImageWrapArray { img, array }
     }
 
-    pub fn draw(&self, pos: Point, render: &dyn ItemRenderer) {
+    pub fn draw(&self, callback: &mut dyn FnMut(u32, u32, &[u8])) {
         let size = self.img.size();
-        render.draw_pixmap(pos, size.width, size.height, self.array.as_slice());
+        callback(size.width, size.height, self.array.as_slice());
     }
 }
 
@@ -196,15 +209,10 @@ impl Item for NativeButton {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
-        let down: bool = Self::FIELD_OFFSETS.pressed.apply_pin(self).get();
-        let text: qttypes::QString = Self::FIELD_OFFSETS.text.apply_pin(self).get().as_str().into();
-        let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
-        let size: qttypes::QSize = get_size!(self);
-        let dpr = backend.scale_factor();
-
-        let mut imgarray = QImageWrapArray::new(size, dpr);
-        let img = &mut imgarray.img;
+    fn_render! { this dpr size img =>
+        let down: bool = Self::FIELD_OFFSETS.pressed.apply_pin(this).get();
+        let text: qttypes::QString = Self::FIELD_OFFSETS.text.apply_pin(this).get().as_str().into();
+        let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(this).get();
 
         cpp!(unsafe [
             img as "QImage*",
@@ -229,7 +237,6 @@ impl Item for NativeButton {
             }
             qApp->style()->drawControl(QStyle::CE_PushButton, &option, &p, nullptr);
         });
-        imgarray.draw(get_pos!(self + pos), *backend);
     }
 }
 
@@ -314,15 +321,10 @@ impl Item for NativeCheckBox {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
-        let checked: bool = Self::FIELD_OFFSETS.checked.apply_pin(self).get();
-        let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
-        let text: qttypes::QString = Self::FIELD_OFFSETS.text.apply_pin(self).get().as_str().into();
-        let size: qttypes::QSize = get_size!(self);
-        let dpr = backend.scale_factor();
-
-        let mut imgarray = QImageWrapArray::new(size, dpr);
-        let img = &mut imgarray.img;
+    fn_render! { this dpr size img =>
+        let checked: bool = Self::FIELD_OFFSETS.checked.apply_pin(this).get();
+        let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(this).get();
+        let text: qttypes::QString = Self::FIELD_OFFSETS.text.apply_pin(this).get().as_str().into();
 
         cpp!(unsafe [
             img as "QImage*",
@@ -344,7 +346,6 @@ impl Item for NativeCheckBox {
             }
             qApp->style()->drawControl(QStyle::CE_CheckBox, &option, &p, nullptr);
         });
-        imgarray.draw(get_pos!(self + pos), *backend);
     }
 }
 
@@ -525,17 +526,13 @@ impl Item for NativeSpinBox {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
-        let value: i32 = Self::FIELD_OFFSETS.value.apply_pin(self).get();
-        let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
-        let size: qttypes::QSize = get_size!(self);
-        let dpr = backend.scale_factor();
-        let data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
+    fn_render! { this dpr size img =>
+        let value: i32 = Self::FIELD_OFFSETS.value.apply_pin(this).get();
+        let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(this).get();
+        let data = Self::FIELD_OFFSETS.data.apply_pin(this).get();
         let active_controls = data.active_controls;
         let pressed = data.pressed;
 
-        let mut imgarray = QImageWrapArray::new(size, dpr);
-        let img = &mut imgarray.img;
         cpp!(unsafe [
             img as "QImage*",
             value as "int",
@@ -556,7 +553,6 @@ impl Item for NativeSpinBox {
             p.setPen(option.palette.color(QPalette::Text));
             p.drawText(text_rect, QString::number(value));
         });
-        imgarray.draw(get_pos!(self + pos), *backend);
     }
 }
 
@@ -734,19 +730,14 @@ impl Item for NativeSlider {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
-        let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
-        let value = Self::FIELD_OFFSETS.value.apply_pin(self).get() as i32;
-        let min = Self::FIELD_OFFSETS.minimum.apply_pin(self).get() as i32;
-        let max = Self::FIELD_OFFSETS.maximum.apply_pin(self).get() as i32;
-        let size: qttypes::QSize = get_size!(self);
-        let dpr = backend.scale_factor();
-        let data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
+    fn_render! { this dpr size img =>
+        let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(this).get();
+        let value = Self::FIELD_OFFSETS.value.apply_pin(this).get() as i32;
+        let min = Self::FIELD_OFFSETS.minimum.apply_pin(this).get() as i32;
+        let max = Self::FIELD_OFFSETS.maximum.apply_pin(this).get() as i32;
+        let data = Self::FIELD_OFFSETS.data.apply_pin(this).get();
         let active_controls = data.active_controls;
         let pressed = data.pressed;
-
-        let mut imgarray = QImageWrapArray::new(size, dpr);
-        let img = &mut imgarray.img;
 
         cpp!(unsafe [
             img as "QImage*",
@@ -766,7 +757,6 @@ impl Item for NativeSlider {
             auto style = qApp->style();
             style->drawComplexControl(QStyle::CC_Slider, &option, &p, nullptr);
         });
-        imgarray.draw(get_pos!(self + pos), *backend);
     }
 }
 
@@ -929,15 +919,10 @@ impl Item for NativeGroupBox {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
+    fn_render! { this dpr size img =>
         let text: qttypes::QString =
-            Self::FIELD_OFFSETS.title.apply_pin(self).get().as_str().into();
-        let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
-        let size: qttypes::QSize = get_size!(self);
-        let dpr = backend.scale_factor();
-
-        let mut imgarray = QImageWrapArray::new(size, dpr);
-        let img = &mut imgarray.img;
+            Self::FIELD_OFFSETS.title.apply_pin(this).get().as_str().into();
+        let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(this).get();
 
         cpp!(unsafe [
             img as "QImage*",
@@ -965,7 +950,6 @@ impl Item for NativeGroupBox {
                 QStyle::SH_GroupBox_TextLabelColor, &option));
             qApp->style()->drawComplexControl(QStyle::CC_GroupBox, &option, &p, nullptr);
         });
-        imgarray.draw(get_pos!(self + pos), *backend);
     }
 }
 
@@ -1081,14 +1065,9 @@ impl Item for NativeLineEdit {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
-        let size: qttypes::QSize = get_size!(self);
-        let dpr = backend.scale_factor();
-        let focused: bool = Self::FIELD_OFFSETS.focused.apply_pin(self).get();
-        let enabled: bool = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
-
-        let mut imgarray = QImageWrapArray::new(size, dpr);
-        let img = &mut imgarray.img;
+    fn_render! { this dpr size img =>
+        let focused: bool = Self::FIELD_OFFSETS.focused.apply_pin(this).get();
+        let enabled: bool = Self::FIELD_OFFSETS.enabled.apply_pin(this).get();
 
         cpp!(unsafe [
             img as "QImage*",
@@ -1111,7 +1090,6 @@ impl Item for NativeLineEdit {
             }
             qApp->style()->drawPrimitive(QStyle::PE_PanelLineEdit, &option, &p, nullptr);
         });
-        imgarray.draw(get_pos!(self + pos), *backend);
     }
 }
 
@@ -1377,24 +1355,19 @@ impl Item for NativeScrollView {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
-        let size: qttypes::QSize = get_size!(self);
-        let dpr = backend.scale_factor();
+    fn_render! { this dpr size img =>
 
-        let mut imgarray = QImageWrapArray::new(size, dpr);
-
-        let data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
-        let left = Self::FIELD_OFFSETS.native_padding_left.apply_pin(self).get();
-        let right = Self::FIELD_OFFSETS.native_padding_right.apply_pin(self).get();
-        let top = Self::FIELD_OFFSETS.native_padding_top.apply_pin(self).get();
-        let bottom = Self::FIELD_OFFSETS.native_padding_bottom.apply_pin(self).get();
+        let data = Self::FIELD_OFFSETS.data.apply_pin(this).get();
+        let left = Self::FIELD_OFFSETS.native_padding_left.apply_pin(this).get();
+        let right = Self::FIELD_OFFSETS.native_padding_right.apply_pin(this).get();
+        let top = Self::FIELD_OFFSETS.native_padding_top.apply_pin(this).get();
+        let bottom = Self::FIELD_OFFSETS.native_padding_bottom.apply_pin(this).get();
         let corner_rect = qttypes::QRectF {
             x: ((size.width as f32 - (right - left)) / dpr) as _,
             y: ((size.height as f32 - (bottom - top)) / dpr) as _,
             width: ((right - left) / dpr) as _,
             height: ((bottom - top) / dpr) as _,
         };
-        let img: &mut qttypes::QImage = &mut imgarray.img;
         cpp!(unsafe [img as "QImage*", corner_rect as "QRectF"] {
             ensure_initialized();
             QStyleOptionFrame frameOption;
@@ -1466,9 +1439,9 @@ impl Item for NativeScrollView {
                 width: ((right - left) / dpr) as _,
                 height: ((size.height as f32 - bottom + top) / dpr) as _,
             },
-            Self::FIELD_OFFSETS.vertical_value.apply_pin(self).get() as i32,
-            Self::FIELD_OFFSETS.vertical_page_size.apply_pin(self).get() as i32,
-            Self::FIELD_OFFSETS.vertical_max.apply_pin(self).get() as i32,
+            Self::FIELD_OFFSETS.vertical_value.apply_pin(this).get() as i32,
+            Self::FIELD_OFFSETS.vertical_page_size.apply_pin(this).get() as i32,
+            Self::FIELD_OFFSETS.vertical_max.apply_pin(this).get() as i32,
             data.active_controls,
             data.pressed == 2,
         );
@@ -1480,14 +1453,12 @@ impl Item for NativeScrollView {
                 width: ((size.width as f32 - right + left) / dpr) as _,
                 height: ((bottom - top) / dpr) as _,
             },
-            Self::FIELD_OFFSETS.horizontal_value.apply_pin(self).get() as i32,
-            Self::FIELD_OFFSETS.horizontal_page_size.apply_pin(self).get() as i32,
-            Self::FIELD_OFFSETS.horizontal_max.apply_pin(self).get() as i32,
+            Self::FIELD_OFFSETS.horizontal_value.apply_pin(this).get() as i32,
+            Self::FIELD_OFFSETS.horizontal_page_size.apply_pin(this).get() as i32,
+            Self::FIELD_OFFSETS.horizontal_max.apply_pin(this).get() as i32,
             data.active_controls,
             data.pressed == 1,
         );
-
-        imgarray.draw(get_pos!(self + pos), *backend);
     }
 }
 
@@ -1571,17 +1542,11 @@ impl Item for NativeStandardListViewItem {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
-        let size: qttypes::QSize = get_size!(self);
-        let dpr = backend.scale_factor();
-        let index: i32 = Self::FIELD_OFFSETS.index.apply_pin(self).get();
-        let is_selected: bool = Self::FIELD_OFFSETS.is_selected.apply_pin(self).get();
-        let item = Self::FIELD_OFFSETS.item.apply_pin(self).get();
+    fn_render! { this dpr size img =>
+        let index: i32 = Self::FIELD_OFFSETS.index.apply_pin(this).get();
+        let is_selected: bool = Self::FIELD_OFFSETS.is_selected.apply_pin(this).get();
+        let item = Self::FIELD_OFFSETS.item.apply_pin(this).get();
         let text: qttypes::QString = item.text.as_str().into();
-
-        let mut imgarray = QImageWrapArray::new(size, dpr);
-        let img = &mut imgarray.img;
-
         cpp!(unsafe [
             img as "QImage*",
             size as "QSize",
@@ -1609,7 +1574,6 @@ impl Item for NativeStandardListViewItem {
             qApp->style()->drawPrimitive(QStyle::PE_PanelItemViewRow, &option, &p, nullptr);
             qApp->style()->drawControl(QStyle::CE_ItemViewItem, &option, &p, nullptr);
         });
-        imgarray.draw(get_pos!(self + pos), *backend);
     }
 }
 
@@ -1708,18 +1672,12 @@ impl Item for NativeComboBox {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &&dyn ItemRenderer) {
-        let down: bool = Self::FIELD_OFFSETS.pressed.apply_pin(self).get();
-        let is_open: bool = Self::FIELD_OFFSETS.is_open.apply_pin(self).get();
+    fn_render! { this dpr size img =>
+        let down: bool = Self::FIELD_OFFSETS.pressed.apply_pin(this).get();
+        let is_open: bool = Self::FIELD_OFFSETS.is_open.apply_pin(this).get();
         let text: qttypes::QString =
-            Self::FIELD_OFFSETS.current_value.apply_pin(self).get().as_str().into();
-        let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
-        let size: qttypes::QSize = get_size!(self);
-        let dpr = backend.scale_factor();
-
-        let mut imgarray = QImageWrapArray::new(size, dpr);
-        let img = &mut imgarray.img;
-
+            Self::FIELD_OFFSETS.current_value.apply_pin(this).get().as_str().into();
+        let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(this).get();
         cpp!(unsafe [
             img as "QImage*",
             text as "QString",
@@ -1748,7 +1706,6 @@ impl Item for NativeComboBox {
             qApp->style()->drawComplexControl(QStyle::CC_ComboBox, &option, &p, nullptr);
             qApp->style()->drawControl(QStyle::CE_ComboBoxLabel, &option, &p, nullptr);
         });
-        imgarray.draw(pos, *backend)
     }
 }
 
