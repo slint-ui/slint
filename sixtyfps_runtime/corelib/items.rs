@@ -48,7 +48,7 @@ pub use self::image::*;
 pub trait RawRenderer {
     /// Draw a pixmap in position indicated by the `pos`.
     /// The data must be argb pixels of size width x height.
-    fn draw_pixmap(&mut self, pos: Point, width: u32, height: u32, data: &[u32]);
+    fn draw_pixmap(&mut self, pos: Point, width: u32, height: u32, data: &[u8]);
 
     /// Returns the scale factor
     fn scale_factor(&self) -> f32;

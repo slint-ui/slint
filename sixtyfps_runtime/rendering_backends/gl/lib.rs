@@ -256,8 +256,23 @@ fn rect_to_path(r: Rect) -> femtovg::Path {
 }
 
 impl sixtyfps_corelib::items::RawRenderer for GLItemRenderer {
-    fn draw_pixmap(&mut self, _: Point, _: u32, _: u32, _: &[u32]) {
-        todo!()
+    fn draw_pixmap(&mut self, pos: Point, width: u32, height: u32, data: &[u8]) {
+        use rgb::FromSlice;
+        let mut canvas = self.canvas.borrow_mut();
+        let img = imgref::Img::new(data.as_rgba(), width as usize, height as usize);
+        let image_id = match canvas.create_image(img, femtovg::ImageFlags::empty()) {
+            Ok(x) => x,
+            Err(_) => return,
+        };
+        let info = canvas.image_info(image_id).unwrap();
+
+        let (image_width, image_height) = (info.width() as f32, info.height() as f32);
+        let (source_width, source_height) = (image_width, image_height);
+        let fill_paint =
+            femtovg::Paint::image(image_id, 0., 0., source_width, source_height, 0.0, 1.0);
+        let mut path = femtovg::Path::new();
+        path.rect(pos.x, pos.y, image_width, image_height);
+        canvas.fill_path(&mut path, fill_paint);
     }
 
     fn scale_factor(&self) -> f32 {

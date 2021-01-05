@@ -28,7 +28,7 @@ use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use cpp::cpp;
 use sixtyfps_corelib::eventloop::ComponentWindow;
-use sixtyfps_corelib::graphics::{Point, Rect, Resource};
+use sixtyfps_corelib::graphics::{Point, Rect};
 use sixtyfps_corelib::input::{
     FocusEvent, InputEventResult, KeyEvent, KeyEventResult, MouseEvent, MouseEventType,
 };
@@ -57,16 +57,25 @@ macro_rules! get_size {
     }};
 }
 
+/// Helper macro to get the possition of this item, given an offset Point,
+macro_rules! get_pos {
+    ($self:ident + $offset:expr) => {{
+        let x = Self::FIELD_OFFSETS.x.apply_pin($self).get();
+        let y = Self::FIELD_OFFSETS.y.apply_pin($self).get();
+        Point::new(x, y) + $offset.to_vector()
+    }};
+}
+
 struct QImageWrapArray {
     /// The image reference the array, so the array must outlive the image without being detached or accessed
     img: qttypes::QImage,
-    array: SharedVector<u32>,
+    array: SharedVector<u8>,
 }
 
 impl QImageWrapArray {
     pub fn new(size: qttypes::QSize, dpr: f32) -> Self {
         let mut array = SharedVector::default();
-        array.resize((size.width * size.height) as usize, 0u32);
+        array.resize((size.width * size.height * 4) as usize, 0);
         let array_ptr = array.as_slice_mut().as_mut_ptr();
         let img = cpp!(unsafe [size as "QSize", array_ptr as "uchar*", dpr as "float"] -> qttypes::QImage as "QImage" {
             QImage img(array_ptr, size.width(), size.height(), size.width() * 4, QImage::Format_ARGB32_Premultiplied);
@@ -220,7 +229,7 @@ impl Item for NativeButton {
             }
             qApp->style()->drawControl(QStyle::CE_PushButton, &option, &p, nullptr);
         });
-        imgarray.draw(pos, *backend);
+        imgarray.draw(get_pos!(self + pos), *backend);
     }
 }
 
@@ -335,7 +344,7 @@ impl Item for NativeCheckBox {
             }
             qApp->style()->drawControl(QStyle::CE_CheckBox, &option, &p, nullptr);
         });
-        imgarray.draw(pos, *backend);
+        imgarray.draw(get_pos!(self + pos), *backend);
     }
 }
 
@@ -547,7 +556,7 @@ impl Item for NativeSpinBox {
             p.setPen(option.palette.color(QPalette::Text));
             p.drawText(text_rect, QString::number(value));
         });
-        imgarray.draw(pos, *backend);
+        imgarray.draw(get_pos!(self + pos), *backend);
     }
 }
 
@@ -757,7 +766,7 @@ impl Item for NativeSlider {
             auto style = qApp->style();
             style->drawComplexControl(QStyle::CC_Slider, &option, &p, nullptr);
         });
-        imgarray.draw(pos, *backend);
+        imgarray.draw(get_pos!(self + pos), *backend);
     }
 }
 
@@ -956,7 +965,7 @@ impl Item for NativeGroupBox {
                 QStyle::SH_GroupBox_TextLabelColor, &option));
             qApp->style()->drawComplexControl(QStyle::CC_GroupBox, &option, &p, nullptr);
         });
-        imgarray.draw(pos, *backend);
+        imgarray.draw(get_pos!(self + pos), *backend);
     }
 }
 
@@ -1102,7 +1111,7 @@ impl Item for NativeLineEdit {
             }
             qApp->style()->drawPrimitive(QStyle::PE_PanelLineEdit, &option, &p, nullptr);
         });
-        imgarray.draw(pos, *backend);
+        imgarray.draw(get_pos!(self + pos), *backend);
     }
 }
 
@@ -1478,7 +1487,7 @@ impl Item for NativeScrollView {
             data.pressed == 1,
         );
 
-        imgarray.draw(pos, *backend);
+        imgarray.draw(get_pos!(self + pos), *backend);
     }
 }
 
@@ -1600,7 +1609,7 @@ impl Item for NativeStandardListViewItem {
             qApp->style()->drawPrimitive(QStyle::PE_PanelItemViewRow, &option, &p, nullptr);
             qApp->style()->drawControl(QStyle::CE_ItemViewItem, &option, &p, nullptr);
         });
-        imgarray.draw(pos, *backend);
+        imgarray.draw(get_pos!(self + pos), *backend);
     }
 }
 
