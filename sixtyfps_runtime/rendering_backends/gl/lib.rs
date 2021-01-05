@@ -195,7 +195,9 @@ impl GLRenderer {
 impl GraphicsBackend for GLRenderer {
     type ItemRenderer = GLItemRenderer;
 
-    fn new_renderer(&mut self, width: u32, height: u32, clear_color: &Color) -> GLItemRenderer {
+    fn new_renderer(&mut self, clear_color: &Color) -> GLItemRenderer {
+        let size = self.window().inner_size();
+
         #[cfg(not(target_arch = "wasm32"))]
         let current_windowed_context =
             unsafe { self.windowed_context.take().unwrap().make_current().unwrap() };
@@ -203,8 +205,8 @@ impl GraphicsBackend for GLRenderer {
         let dpi_factor = current_windowed_context.window().scale_factor();
         {
             let mut canvas = self.canvas.borrow_mut();
-            canvas.set_size(width, height, dpi_factor as f32);
-            canvas.clear_rect(0, 0, width, height, clear_color.into());
+            canvas.set_size(size.width, size.height, dpi_factor as f32);
+            canvas.clear_rect(0, 0, size.width, size.height, clear_color.into());
         }
 
         GLItemRenderer {

@@ -290,7 +290,7 @@ pub type RenderingCache<T> = vec_arena::Arena<CachedGraphicsData<T>>;
 ///      The low-level rendering primitives are intended to be fast and ready for rendering.
 pub trait GraphicsBackend: Sized {
     type ItemRenderer: crate::items::ItemRenderer;
-    fn new_renderer(&mut self, width: u32, height: u32, clear_color: &Color) -> Self::ItemRenderer;
+    fn new_renderer(&mut self, clear_color: &Color) -> Self::ItemRenderer;
     fn flush_renderer(&mut self, renderer: Self::ItemRenderer);
 
     fn release_item_graphics_cache(&self, data: &CachedRenderingData);
@@ -502,7 +502,6 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
 
         let map_state = self.map_state.borrow();
         let window = map_state.as_mapped();
-        let size = window.backend.borrow().window().inner_size();
         let root_item = component.as_ref().get_item_ref(0);
         let background_color = if let Some(window_item) = ItemRef::downcast_pin(root_item) {
             crate::items::Window::FIELD_OFFSETS.color.apply_pin(window_item).get()
@@ -510,8 +509,7 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
             RgbaColor { red: 255 as u8, green: 255, blue: 255, alpha: 255 }.into()
         };
 
-        let mut renderer =
-            window.backend.borrow_mut().new_renderer(size.width, size.height, &background_color);
+        let mut renderer = window.backend.borrow_mut().new_renderer(&background_color);
         crate::item_rendering::render_component_items(
             &component_rc,
             &mut renderer,
