@@ -19,7 +19,6 @@ use sixtyfps_compilerlib::langtype::Type;
 use sixtyfps_compilerlib::layout::{Layout, LayoutConstraints, LayoutItem, PathLayout};
 use sixtyfps_compilerlib::*;
 use sixtyfps_corelib::component::{Component, ComponentRefPin, ComponentVTable};
-use sixtyfps_corelib::eventloop::ComponentWindow;
 use sixtyfps_corelib::graphics::{Rect, Resource};
 use sixtyfps_corelib::item_tree::{
     ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, TraversalOrder, VisitChildrenResult,
@@ -31,6 +30,7 @@ use sixtyfps_corelib::model::Repeater;
 use sixtyfps_corelib::properties::InterpolatedPropertyValue;
 use sixtyfps_corelib::rtti::{self, AnimatedBindingKind, FieldOffset, PropertyInfo};
 use sixtyfps_corelib::slice::Slice;
+use sixtyfps_corelib::window::ComponentWindow;
 use sixtyfps_corelib::{Color, Property, SharedString};
 use std::collections::HashMap;
 use std::{pin::Pin, rc::Rc};
@@ -55,7 +55,7 @@ impl<'id> ComponentBox<'id> {
         InstanceRef { instance: self.instance.as_pin_ref(), component_type: &self.component_type }
     }
 
-    pub fn window(&self) -> sixtyfps_corelib::eventloop::ComponentWindow {
+    pub fn window(&self) -> ComponentWindow {
         (*self
             .component_type
             .window_offset
@@ -293,7 +293,7 @@ pub struct ComponentDescription<'id> {
         Option<FieldOffset<Instance<'id>, Option<ComponentRefPin<'id>>>>,
     /// Offset to the window reference
     pub(crate) window_offset:
-        FieldOffset<Instance<'id>, Option<sixtyfps_corelib::eventloop::ComponentWindow>>,
+        FieldOffset<Instance<'id>, Option<sixtyfps_corelib::window::ComponentWindow>>,
     /// Offset of a ComponentExtraData
     pub(crate) extra_data_offset: FieldOffset<Instance<'id>, ComponentExtraData>,
     /// Keep the Rc alive
@@ -667,8 +667,7 @@ fn generate_component<'id>(
         None
     };
 
-    let window_offset =
-        builder.add_field_type::<Option<sixtyfps_corelib::eventloop::ComponentWindow>>();
+    let window_offset = builder.add_field_type::<Option<ComponentWindow>>();
 
     let extra_data_offset = builder.add_field_type::<ComponentExtraData>();
 
@@ -1074,7 +1073,7 @@ impl ErasedComponentBox {
         self.0.borrow()
     }
 
-    pub fn window(&self) -> sixtyfps_corelib::eventloop::ComponentWindow {
+    pub fn window(&self) -> ComponentWindow {
         self.0.window()
     }
 }

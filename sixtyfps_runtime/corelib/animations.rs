@@ -8,6 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 #![warn(missing_docs)]
+//! The animation system
 
 use std::cell::Cell;
 

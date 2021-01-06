@@ -20,7 +20,6 @@ When adding an item or a property, it needs to be kept in sync with different pl
  - Don't forget to update the documentation
 */
 use super::{Item, ItemConsts, ItemRc};
-use crate::eventloop::ComponentWindow;
 use crate::graphics::{Point, Rect, Resource};
 use crate::input::{FocusEvent, InputEventResult, KeyEvent, KeyEventResult, MouseEvent};
 use crate::item_rendering::CachedRenderingData;
@@ -28,6 +27,7 @@ use crate::item_rendering::ItemRenderer;
 use crate::layout::LayoutInfo;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
+use crate::window::ComponentWindow;
 #[cfg(feature = "rtti")]
 use crate::Callback;
 use crate::Property;

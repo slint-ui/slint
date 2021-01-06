@@ -24,16 +24,16 @@ When adding an item or a property, it needs to be kept in sync with different pl
 #![allow(non_upper_case_globals)]
 #![allow(missing_docs)] // because documenting each property of items is redundent
 
-use super::eventloop::ComponentWindow;
-use super::graphics::{Color, PathData, Point, Rect};
-use super::input::{
+use crate::component::ComponentVTable;
+use crate::graphics::{Color, PathData, Point, Rect};
+use crate::input::{
     FocusEvent, InputEventResult, KeyEvent, KeyEventResult, MouseEvent, MouseEventType,
 };
-use super::item_rendering::CachedRenderingData;
-use super::layout::LayoutInfo;
-use crate::component::ComponentVTable;
+use crate::item_rendering::CachedRenderingData;
+use crate::layout::LayoutInfo;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
+use crate::window::ComponentWindow;
 use crate::{Callback, Property, SharedString};
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
@@ -160,7 +160,7 @@ impl Item for Rectangle {
         )
     }
 
-    fn layouting_info(self: Pin<&Self>, _window: &crate::eventloop::ComponentWindow) -> LayoutInfo {
+    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
         LayoutInfo { horizontal_stretch: 1., vertical_stretch: 1., ..LayoutInfo::default() }
     }
 
@@ -225,7 +225,7 @@ impl Item for BorderRectangle {
         )
     }
 
-    fn layouting_info(self: Pin<&Self>, _window: &crate::eventloop::ComponentWindow) -> LayoutInfo {
+    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
         LayoutInfo { horizontal_stretch: 1., vertical_stretch: 1., ..LayoutInfo::default() }
     }
 
@@ -396,7 +396,7 @@ impl Item for Clip {
         )
     }
 
-    fn layouting_info(self: Pin<&Self>, _window: &crate::eventloop::ComponentWindow) -> LayoutInfo {
+    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
         LayoutInfo { horizontal_stretch: 1., vertical_stretch: 1., ..LayoutInfo::default() }
     }
 

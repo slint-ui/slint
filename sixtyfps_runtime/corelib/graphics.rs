@@ -20,18 +20,17 @@ LICENSE END */
     created by the backend in a type-erased manner.
 */
 extern crate alloc;
+use crate::component::{ComponentRc, ComponentWeak};
 use crate::input::{KeyEvent, KeyboardModifiers, MouseEvent, MouseEventType};
 use crate::item_rendering::CachedRenderingData;
 use crate::items::{ItemRc, ItemRef, ItemWeak};
 use crate::properties::{InterpolatedPropertyValue, Property, PropertyTracker};
 #[cfg(feature = "rtti")]
 use crate::rtti::{BuiltinItem, FieldInfo, PropertyInfo, ValueType};
+use crate::slice::Slice;
+use crate::window::{ComponentWindow, GenericWindow};
 #[cfg(feature = "rtti")]
 use crate::Callback;
-use crate::{
-    component::{ComponentRc, ComponentWeak},
-    slice::Slice,
-};
 
 use auto_enums::auto_enum;
 use const_field_offset::FieldOffsets;
@@ -451,7 +450,7 @@ impl<Backend: GraphicsBackend> Drop for GraphicsWindow<Backend> {
     }
 }
 
-impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindow<Backend> {
+impl<Backend: GraphicsBackend> GenericWindow for GraphicsWindow<Backend> {
     fn set_component(self: Rc<Self>, component: &ComponentRc) {
         *self.component.borrow_mut() = vtable::VRc::downgrade(&component)
     }
@@ -553,7 +552,7 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
         self.mouse_input_state.set(crate::input::process_mouse_input(
             component,
             MouseEvent { pos, what },
-            &crate::eventloop::ComponentWindow::new(self.clone()),
+            &ComponentWindow::new(self.clone()),
             self.mouse_input_state.take(),
         ));
 
@@ -568,7 +567,7 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
 
     fn process_key_input(self: Rc<Self>, event: &KeyEvent) {
         if let Some(focus_item) = self.as_ref().focus_item.borrow().upgrade() {
-            let window = &crate::eventloop::ComponentWindow::new(self.clone());
+            let window = &ComponentWindow::new(self.clone());
             focus_item.borrow().as_ref().key_event(event, &window);
         }
     }
@@ -668,10 +667,7 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
             window_id
         };
 
-        crate::eventloop::register_window(
-            id,
-            self.clone() as Rc<dyn crate::eventloop::GenericWindow>,
-        );
+        crate::eventloop::register_window(id, self.clone() as Rc<dyn GenericWindow>);
     }
 
     fn request_redraw(&self) {
@@ -754,7 +750,7 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
     }
 
     fn set_focus_item(self: Rc<Self>, focus_item: &ItemRc) {
-        let window = crate::eventloop::ComponentWindow::new(self.clone());
+        let window = ComponentWindow::new(self.clone());
 
         if let Some(old_focus_item) = self.as_ref().focus_item.borrow().upgrade() {
             old_focus_item
@@ -769,7 +765,7 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
     }
 
     fn set_focus(self: Rc<Self>, have_focus: bool) {
-        let window = crate::eventloop::ComponentWindow::new(self.clone());
+        let window = ComponentWindow::new(self.clone());
         let event = if have_focus {
             crate::input::FocusEvent::WindowReceivedFocus
         } else {

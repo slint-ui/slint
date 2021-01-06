@@ -179,7 +179,6 @@ pub mod re_exports {
     pub use sixtyfps_corelib::component::{
         init_component_items, Component, ComponentRefPin, ComponentVTable,
     };
-    pub use sixtyfps_corelib::eventloop::ComponentWindow;
     pub use sixtyfps_corelib::graphics::{
         PathArcTo, PathData, PathElement, PathEvent, PathLineTo, Point, Rect, Size,
     };
@@ -197,6 +196,7 @@ pub mod re_exports {
     pub use sixtyfps_corelib::model::*;
     pub use sixtyfps_corelib::properties::{set_state_binding, Property, PropertyTracker};
     pub use sixtyfps_corelib::slice::Slice;
+    pub use sixtyfps_corelib::window::ComponentWindow;
     pub use sixtyfps_corelib::Color;
     pub use sixtyfps_corelib::ComponentVTable_static;
     pub use sixtyfps_corelib::Resource;

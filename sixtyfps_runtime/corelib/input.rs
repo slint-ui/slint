@@ -481,7 +481,7 @@ pub struct MouseInputState {
 pub fn process_mouse_input(
     component: ComponentRc,
     mouse_event: MouseEvent,
-    window: &crate::eventloop::ComponentWindow,
+    window: &crate::window::ComponentWindow,
     mouse_input_state: MouseInputState,
 ) -> MouseInputState {
     'grab: loop {

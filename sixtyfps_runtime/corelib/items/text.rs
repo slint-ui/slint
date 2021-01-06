@@ -21,7 +21,6 @@ When adding an item or a property, it needs to be kept in sync with different pl
 */
 
 use super::{Item, ItemConsts, ItemRc};
-use crate::eventloop::ComponentWindow;
 use crate::font::HasFont;
 use crate::graphics::{Color, Point, Rect};
 use crate::input::{
@@ -32,6 +31,7 @@ use crate::item_rendering::{CachedRenderingData, ItemRenderer};
 use crate::layout::LayoutInfo;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
+use crate::window::ComponentWindow;
 use crate::{Callback, Property, SharedString};
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;

@@ -11,6 +11,7 @@ LICENSE END */
 #![warn(missing_docs)]
 
 use crate::input::{MouseEvent, MouseEventType};
+use crate::window::ComponentWindow;
 
 /// SixtyFPS animations do not use real time, but use a mocked time.
 /// Normally, the event loop update the time of the animation using
@@ -31,7 +32,7 @@ pub extern "C" fn sixtyfps_send_mouse_click(
     component: &crate::component::ComponentRc,
     x: f32,
     y: f32,
-    window: &crate::eventloop::ComponentWindow,
+    window: &ComponentWindow,
 ) {
     let mut state = crate::input::MouseInputState::default();
     vtable::VRc::borrow_pin(component).as_ref().apply_layout(window.0.get_geometry());
@@ -62,7 +63,7 @@ pub extern "C" fn sixtyfps_send_mouse_click(
 /// Simulate a change in keyboard modifiers pressed.
 #[no_mangle]
 pub extern "C" fn sixtyfps_set_keyboard_modifiers(
-    window: &crate::eventloop::ComponentWindow,
+    window: &ComponentWindow,
     modifiers: crate::input::KeyboardModifiers,
 ) {
     window.set_current_keyboard_modifiers(modifiers)
@@ -72,7 +73,7 @@ pub extern "C" fn sixtyfps_set_keyboard_modifiers(
 #[no_mangle]
 pub extern "C" fn sixtyfps_send_key_clicks(
     key_codes: &crate::slice::Slice<crate::input::KeyCode>,
-    window: &crate::eventloop::ComponentWindow,
+    window: &ComponentWindow,
 ) {
     for key_code in key_codes.iter() {
         window.process_key_input(&crate::input::KeyEvent::KeyPressed {
@@ -90,7 +91,7 @@ pub extern "C" fn sixtyfps_send_key_clicks(
 #[no_mangle]
 pub extern "C" fn send_keyboard_string_sequence(
     sequence: &crate::SharedString,
-    window: &crate::eventloop::ComponentWindow,
+    window: &ComponentWindow,
 ) {
     use std::convert::TryInto;
 

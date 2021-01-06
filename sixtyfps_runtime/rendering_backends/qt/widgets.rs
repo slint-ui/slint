@@ -27,7 +27,6 @@ it needs to be kept in sync with different place.
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use cpp::cpp;
-use sixtyfps_corelib::eventloop::ComponentWindow;
 use sixtyfps_corelib::graphics::{Point, Rect};
 use sixtyfps_corelib::input::{
     FocusEvent, InputEventResult, KeyEvent, KeyEventResult, MouseEvent, MouseEventType,
@@ -36,6 +35,7 @@ use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::{Item, ItemConsts, ItemRc, ItemVTable};
 use sixtyfps_corelib::layout::LayoutInfo;
 use sixtyfps_corelib::rtti::*;
+use sixtyfps_corelib::window::ComponentWindow;
 use sixtyfps_corelib::{Callback, ItemVTable_static, Property, SharedString, SharedVector};
 use sixtyfps_corelib_macros::*;
 use std::rc::Rc;

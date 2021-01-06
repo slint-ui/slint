@@ -13,19 +13,14 @@ LICENSE END */
     [GenericWindow] trait used by the generated code and the run-time to change
     aspects of windows on the screen.
 */
-use crate::component::ComponentRc;
 use crate::input::{KeyEvent, MouseEventType};
-use crate::items::{ItemRc, ItemRef};
-use crate::slice::Slice;
+use crate::window::*;
 use std::cell::RefCell;
 use std::convert::TryInto;
-use std::pin::Pin;
 use std::rc::{Rc, Weak};
 
 #[cfg(not(target_arch = "wasm32"))]
 use winit::platform::run_return::EventLoopExtRunReturn;
-
-pub use crate::window::*;
 
 thread_local! {
     static ALL_WINDOWS: RefCell<std::collections::HashMap<winit::window::WindowId, Weak<dyn GenericWindow>>> = RefCell::new(std::collections::HashMap::new());
@@ -357,122 +352,5 @@ impl EventLoop {
     /// Returns a reference to the backing winit event loop.
     pub fn get_winit_event_loop(&self) -> &winit::event_loop::EventLoop<CustomEvent> {
         &self.winit_loop
-    }
-}
-
-/// This module contains the functions needed to interface with the event loop and window traits
-/// from outside the Rust language.
-pub mod ffi {
-    #![allow(unsafe_code)]
-
-    use super::*;
-
-    #[allow(non_camel_case_types)]
-    type c_void = ();
-
-    /// Same layout as ComponentWindow (fat pointer)
-    #[repr(C)]
-    pub struct ComponentWindowOpaque(*const c_void, *const c_void);
-
-    /// Releases the reference to the component window held by handle.
-    #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_component_window_drop(handle: *mut ComponentWindowOpaque) {
-        assert_eq!(
-            core::mem::size_of::<ComponentWindow>(),
-            core::mem::size_of::<ComponentWindowOpaque>()
-        );
-        core::ptr::read(handle as *mut ComponentWindow);
-    }
-
-    /// Releases the reference to the component window held by handle.
-    #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_component_window_clone(
-        source: *const ComponentWindowOpaque,
-        target: *mut ComponentWindowOpaque,
-    ) {
-        assert_eq!(
-            core::mem::size_of::<ComponentWindow>(),
-            core::mem::size_of::<ComponentWindowOpaque>()
-        );
-        let window = &*(source as *const ComponentWindow);
-        core::ptr::write(target as *mut ComponentWindow, window.clone());
-    }
-
-    /// Spins an event loop and renders the items of the provided component in this window.
-    #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_component_window_run(handle: *const ComponentWindowOpaque) {
-        let window = &*(handle as *const ComponentWindow);
-        window.run();
-    }
-
-    /// Returns the window scale factor.
-    #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_component_window_get_scale_factor(
-        handle: *const ComponentWindowOpaque,
-    ) -> f32 {
-        assert_eq!(
-            core::mem::size_of::<ComponentWindow>(),
-            core::mem::size_of::<ComponentWindowOpaque>()
-        );
-        let window = &*(handle as *const ComponentWindow);
-        window.scale_factor()
-    }
-
-    /// Sets the window scale factor, merely for testing purposes.
-    #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_component_window_set_scale_factor(
-        handle: *const ComponentWindowOpaque,
-        value: f32,
-    ) {
-        let window = &*(handle as *const ComponentWindow);
-        window.set_scale_factor(value)
-    }
-
-    /// Sets the window scale factor, merely for testing purposes.
-    #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_component_window_free_graphics_resources<'a>(
-        handle: *const ComponentWindowOpaque,
-        items: &Slice<'a, Pin<ItemRef<'a>>>,
-    ) {
-        let window = &*(handle as *const ComponentWindow);
-        window.free_graphics_resources(items)
-    }
-
-    /// Sets the focus item.
-    #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_component_window_set_focus_item(
-        handle: *const ComponentWindowOpaque,
-        focus_item: &ItemRc,
-    ) {
-        let window = &*(handle as *const ComponentWindow);
-        window.set_focus_item(focus_item)
-    }
-
-    /// Associates the window with the given component.
-    #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_component_window_set_component(
-        handle: *const ComponentWindowOpaque,
-        component: &ComponentRc,
-    ) {
-        let window = &*(handle as *const ComponentWindow);
-        window.set_component(component)
-    }
-
-    /// Show a popup.
-    #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_component_window_show_popup(
-        handle: *const ComponentWindowOpaque,
-        popup: &ComponentRc,
-        position: crate::graphics::Point,
-    ) {
-        let window = &*(handle as *const ComponentWindow);
-        window.show_popup(popup, position);
-    }
-    /// Close the current popup
-    pub unsafe extern "C" fn sixtyfps_component_window_close_popup(
-        handle: *const ComponentWindowOpaque,
-    ) {
-        let window = &*(handle as *const ComponentWindow);
-        window.close_popup();
     }
 }

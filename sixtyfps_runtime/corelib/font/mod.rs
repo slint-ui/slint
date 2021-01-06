@@ -22,6 +22,7 @@ Rc<PlatformFont> since the underlying platform may map different font requests t
 (typically backed by a .ttf file or ttf inside a .ttc)
 */
 use crate::string::SharedString;
+use crate::window::ComponentWindow;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -74,9 +75,9 @@ pub trait HasFont {
     fn font_weight(&self) -> i32;
     /// Return the value if the font-size property converted to window specific pixels, respecting
     /// the window scale factor.
-    fn font_pixel_size(&self, window: &crate::eventloop::ComponentWindow) -> f32;
+    fn font_pixel_size(&self, window: &ComponentWindow) -> f32;
     /// Translates the values of the different font related properties into a FontRequest object.
-    fn font_request(&self, window: &crate::eventloop::ComponentWindow) -> FontRequest {
+    fn font_request(&self, window: &ComponentWindow) -> FontRequest {
         FontRequest {
             family: self.font_family(),
             weight: self.font_weight(),
@@ -84,7 +85,7 @@ pub trait HasFont {
         }
     }
     /// Returns a Font object that matches the requested font properties of this trait object (item).
-    fn font(&self, window: &crate::eventloop::ComponentWindow) -> Rc<Font> {
+    fn font(&self, window: &ComponentWindow) -> Rc<Font> {
         crate::font::FONT_CACHE.with(|fc| fc.find_font(&self.font_request(window)))
     }
 }

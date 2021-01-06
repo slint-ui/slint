@@ -11,11 +11,11 @@ LICENSE END */
 
 //! This module contains the basic datastructures that are exposed to the C API
 
-use crate::eventloop::ComponentWindow;
 use crate::graphics::Rect;
 use crate::item_tree::{ItemVisitorVTable, TraversalOrder, VisitChildrenResult};
 use crate::items::ItemVTable;
 use crate::layout::LayoutInfo;
+use crate::window::ComponentWindow;
 use vtable::*;
 
 /// A Component is representing an unit that is allocated together
@@ -88,7 +88,7 @@ pub(crate) mod ffi {
     pub unsafe extern "C" fn sixtyfps_component_init_items(
         component: ComponentRefPin,
         item_tree: Slice<ItemTreeNode<u8>>,
-        window_handle: *const crate::eventloop::ffi::ComponentWindowOpaque,
+        window_handle: *const crate::window::ffi::ComponentWindowOpaque,
     ) {
         let window = &*(window_handle as *const ComponentWindow);
         super::init_component_items(

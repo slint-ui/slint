@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-use sixtyfps_corelib::eventloop::ComponentWindow;
+use sixtyfps_corelib::window::ComponentWindow;
 
 cfg_if::cfg_if! {
     if #[cfg(any(target_os="windows", target_os="macos", target_os = "linux", target_os = "dragonfly", target_os = "freebsd", target_os = "openbsd", target_os = "netbsd"))] {
@@ -60,8 +60,8 @@ pub fn use_modules() {
 }
 
 pub mod ffi {
-    use sixtyfps_corelib::eventloop::ffi::ComponentWindowOpaque;
-    use sixtyfps_corelib::eventloop::ComponentWindow;
+    use sixtyfps_corelib::window::ffi::ComponentWindowOpaque;
+    use sixtyfps_corelib::window::ComponentWindow;
 
     #[no_mangle]
     pub unsafe extern "C" fn sixtyfps_component_window_init(out: *mut ComponentWindowOpaque) {

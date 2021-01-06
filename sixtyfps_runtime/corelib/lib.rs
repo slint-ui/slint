@@ -18,26 +18,29 @@ You should use the `sixtyfps` crate instead
 
 #![deny(unsafe_code)]
 
-/// The animation system
 pub mod animations;
+pub mod callbacks;
+pub mod component;
+pub mod eventloop;
 pub(crate) mod flickable;
 pub mod font;
 pub mod graphics;
 pub mod input;
+pub mod item_rendering;
 pub mod item_tree;
+pub mod items;
 pub mod layout;
+pub mod model;
+pub mod properties;
+pub mod sharedvector;
+pub mod slice;
+pub mod string;
+pub mod tests;
+pub mod timers;
 pub mod window;
 
 #[cfg(feature = "rtti")]
 pub mod rtti;
-
-pub mod callbacks;
-pub mod component;
-pub mod items;
-pub mod model;
-pub mod properties;
-pub mod sharedvector;
-pub mod string;
 
 #[doc(inline)]
 pub use string::SharedString;
@@ -63,13 +66,6 @@ pub use graphics::RgbaColor;
 #[doc(inline)]
 pub use graphics::PathData;
 
-pub mod slice;
-
-pub mod eventloop;
-pub mod item_rendering;
-pub mod tests;
-pub mod timers;
-
 /// One need to use at least one function in each module in order to get them
 /// exported in the final binary.
 /// This only use functions from modules which are not otherwise used.
@@ -84,7 +80,7 @@ pub fn use_modules() -> usize {
         + graphics::ffi::sixtyfps_new_path_elements as usize
         + properties::ffi::sixtyfps_property_init as usize
         + string::ffi::sixtyfps_shared_string_bytes as usize
-        + eventloop::ffi::sixtyfps_component_window_drop as usize
+        + window::ffi::sixtyfps_component_window_drop as usize
         + component::ffi::sixtyfps_component_init_items as usize
         + timers::ffi::sixtyfps_timer_start as usize
 }

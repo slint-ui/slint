@@ -11,6 +11,11 @@ use crate::dynamic_component::InstanceRef;
 use core::convert::{TryFrom, TryInto};
 use core::iter::FromIterator;
 use core::pin::Pin;
+use corelib::graphics::PathElement;
+use corelib::items::{ItemRef, PropertyAnimation};
+use corelib::rtti::AnimatedBindingKind;
+use corelib::window::ComponentWindow;
+use corelib::{Callback, Color, PathData, Resource, SharedString, SharedVector};
 use sixtyfps_compilerlib::expression_tree::{
     BuiltinFunction, EasingCurve, Expression, ExpressionSpanned, NamedReference, Path as ExprPath,
     PathElement as ExprPathElement,
@@ -18,11 +23,6 @@ use sixtyfps_compilerlib::expression_tree::{
 use sixtyfps_compilerlib::langtype::Type;
 use sixtyfps_compilerlib::object_tree::ElementRc;
 use sixtyfps_corelib as corelib;
-use sixtyfps_corelib::rtti::AnimatedBindingKind;
-use sixtyfps_corelib::{
-    graphics::PathElement, items::ItemRef, items::PropertyAnimation, Callback, Color, PathData,
-    Resource, SharedString, SharedVector,
-};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -747,7 +747,7 @@ fn root_component_instance<'a, 'old_id, 'new_id>(
     }
 }
 
-pub fn window_ref(component: InstanceRef) -> Option<sixtyfps_corelib::eventloop::ComponentWindow> {
+pub fn window_ref(component: InstanceRef) -> Option<ComponentWindow> {
     component.component_type.window_offset.apply(&*component.instance.get_ref()).clone()
 }
 
