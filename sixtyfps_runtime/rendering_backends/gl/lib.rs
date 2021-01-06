@@ -553,7 +553,6 @@ impl ItemRenderer for GLItemRenderer {
     }
 
     fn draw_text(&mut self, pos: Point, text: std::pin::Pin<&sixtyfps_corelib::items::Text>) {
-        use sixtyfps_corelib::graphics::HasFont;
         use sixtyfps_corelib::items::{TextHorizontalAlignment, TextVerticalAlignment};
 
         let font_request = FontRequest { family: text.font_family(), weight: text.font_weight() };

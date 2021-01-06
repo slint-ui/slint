@@ -311,28 +311,6 @@ impl ScaledFont {
     }
 }
 
-/// HasFont is a convenience trait for items holding font properties, such as Text or TextInput.
-pub trait HasFont {
-    /// Return the value of the font-family property.
-    fn font_family(&self) -> SharedString;
-    /// Return the value of the font-weight property.
-    fn font_weight(&self) -> i32;
-    /// Return the value if the font-size property converted to window specific pixels, respecting
-    /// the window scale factor.
-    fn font_pixel_size(&self, scale_factor: f32) -> f32;
-    /// Translates the values of the different font related properties into a FontRequest object.
-    fn font_request(&self, window: &ComponentWindow) -> FontRequest {
-        FontRequest { family: self.font_family(), weight: self.font_weight() }
-    }
-    /// Returns a Font object that matches the requested font properties of this trait object (item).
-    fn font(&self, window: &ComponentWindow) -> Option<ScaledFont> {
-        window.0.font(self.font_request(window)).map(|font| ScaledFont {
-            font,
-            pixel_size: self.font_pixel_size(window.scale_factor()),
-        })
-    }
-}
-
 /// GraphicsBackend is the trait that the the SixtyFPS run-time uses to convert [HighLevelRenderingPrimitive]
 /// to an internal representation that is optimal for the backend, in order to render it later. The internal
 /// representation is opaque but must be provided via the [GraphicsBackend::LowLevelRenderingPrimitive] associated type.
