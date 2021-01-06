@@ -185,7 +185,7 @@ fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
             .with_src(crate_dir.join("animations.rs"))
             //            .with_src(crate_dir.join("input.rs"))
             .with_src(crate_dir.join("item_rendering.rs"))
-            .with_src(crate_dir.join("eventloop.rs"))
+            .with_src(crate_dir.join("window.rs"))
             .generate()
             .with_context(|| format!("Unable to generate bindings for {}", internal_header))?
             .write_to_file(include_dir.join(internal_header));
