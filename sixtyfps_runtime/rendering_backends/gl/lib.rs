@@ -20,6 +20,7 @@ use sixtyfps_corelib::{Property, SharedString, SharedVector};
 
 mod graphics_window;
 use graphics_window::*;
+pub(crate) mod eventloop;
 
 type CanvasRc = Rc<RefCell<femtovg::Canvas<femtovg::renderer::OpenGl>>>;
 type RenderingCacheRc = Rc<RefCell<RenderingCache<Option<GPUCachedData>>>>;
@@ -97,8 +98,7 @@ pub struct GLRenderer {
     #[cfg(target_arch = "wasm32")]
     window: Rc<winit::window::Window>,
     #[cfg(target_arch = "wasm32")]
-    event_loop_proxy:
-        Rc<winit::event_loop::EventLoopProxy<sixtyfps_corelib::eventloop::CustomEvent>>,
+    event_loop_proxy: Rc<winit::event_loop::EventLoopProxy<eventloop::CustomEvent>>,
     #[cfg(not(target_arch = "wasm32"))]
     windowed_context: Option<glutin::WindowedContext<glutin::NotCurrent>>,
 
@@ -110,7 +110,7 @@ pub struct GLRenderer {
 
 impl GLRenderer {
     pub fn new(
-        event_loop: &winit::event_loop::EventLoop<sixtyfps_corelib::eventloop::CustomEvent>,
+        event_loop: &winit::event_loop::EventLoop<eventloop::CustomEvent>,
         window_builder: winit::window::WindowBuilder,
         #[cfg(target_arch = "wasm32")] canvas_id: &str,
     ) -> GLRenderer {
@@ -188,9 +188,7 @@ impl GLRenderer {
 
                     window.set_inner_size(existing_canvas_size);
                     window.request_redraw();
-                    event_loop_proxy
-                        .send_event(sixtyfps_corelib::eventloop::CustomEvent::WakeUpAndPoll)
-                        .ok();
+                    event_loop_proxy.send_event(eventloop::CustomEvent::WakeUpAndPoll).ok();
                 }
             };
 

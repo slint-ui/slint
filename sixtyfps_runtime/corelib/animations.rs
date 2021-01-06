@@ -122,7 +122,7 @@ impl AnimationDriver {
     }
 }
 
-thread_local!(pub(crate) static CURRENT_ANIMATION_DRIVER : AnimationDriver = AnimationDriver::default());
+thread_local!(pub static CURRENT_ANIMATION_DRIVER : AnimationDriver = AnimationDriver::default());
 
 /// The current instant that is to be used for animation
 /// using this function register the current binding as a dependency
@@ -182,7 +182,7 @@ fn easing_test() {
 */
 
 /// Update the glibal animation time to the current time
-pub(crate) fn update_animations() {
+pub fn update_animations() {
     CURRENT_ANIMATION_DRIVER.with(|driver| {
         let duration = instant::Instant::now() - driver.initial_instant;
         let duration = match std::env::var("SIXTYFPS_SLOW_ANIMATIONS") {

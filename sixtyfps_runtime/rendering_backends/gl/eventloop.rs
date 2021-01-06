@@ -13,9 +13,11 @@ LICENSE END */
     [GenericWindow] trait used by the generated code and the run-time to change
     aspects of windows on the screen.
 */
-use crate::graphics::Point;
-use crate::input::{KeyEvent, MouseEventType};
-use crate::window::*;
+use sixtyfps_corelib as corelib;
+
+use corelib::graphics::Point;
+use corelib::input::{KeyEvent, MouseEventType};
+use corelib::window::*;
 use std::cell::RefCell;
 use std::convert::TryInto;
 use std::rc::{Rc, Weak};
@@ -82,7 +84,7 @@ impl EventLoop {
                     ..
                 } => *control_flow = winit::event_loop::ControlFlow::Exit,
                 winit::event::Event::RedrawRequested(id) => {
-                    crate::animations::update_animations();
+                    corelib::animations::update_animations();
                     ALL_WINDOWS.with(|windows| {
                         if let Some(Some(window)) =
                             windows.borrow().get(&id).map(|weakref| weakref.upgrade())
@@ -129,7 +131,7 @@ impl EventLoop {
                     event: winit::event::WindowEvent::MouseInput { state, .. },
                     ..
                 } => {
-                    crate::animations::update_animations();
+                    corelib::animations::update_animations();
                     ALL_WINDOWS.with(|windows| {
                         if let Some(Some(window)) =
                             windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
@@ -155,7 +157,7 @@ impl EventLoop {
                     event: winit::event::WindowEvent::Touch(touch),
                     ..
                 } => {
-                    crate::animations::update_animations();
+                    corelib::animations::update_animations();
                     ALL_WINDOWS.with(|windows| {
                         if let Some(Some(window)) =
                             windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
@@ -186,7 +188,7 @@ impl EventLoop {
                     ..
                 } => {
                     cursor_pos = euclid::point2(position.x as _, position.y as _);
-                    crate::animations::update_animations();
+                    corelib::animations::update_animations();
                     ALL_WINDOWS.with(|windows| {
                         if let Some(Some(window)) =
                             windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
@@ -207,7 +209,7 @@ impl EventLoop {
                     ..
                 } => {
                     if pressed {
-                        crate::animations::update_animations();
+                        corelib::animations::update_animations();
                         ALL_WINDOWS.with(|windows| {
                             if let Some(Some(window)) =
                                 windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
@@ -227,7 +229,7 @@ impl EventLoop {
                     ref window_id,
                     event: winit::event::WindowEvent::KeyboardInput { ref input, .. },
                 } => {
-                    crate::animations::update_animations();
+                    corelib::animations::update_animations();
                     ALL_WINDOWS.with(|windows| {
                         if let Some(Some(window)) =
                             windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
@@ -247,7 +249,7 @@ impl EventLoop {
                     event: winit::event::WindowEvent::ReceivedCharacter(ch),
                 } => {
                     if !ch.is_control() {
-                        crate::animations::update_animations();
+                        corelib::animations::update_animations();
                         ALL_WINDOWS.with(|windows| {
                             if let Some(Some(window)) =
                                 windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
@@ -299,7 +301,7 @@ impl EventLoop {
             }
 
             if *control_flow != winit::event_loop::ControlFlow::Exit {
-                crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
+                corelib::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
                     if !driver.has_active_animations() {
                         return;
                     }
@@ -314,7 +316,7 @@ impl EventLoop {
                 })
             }
 
-            if crate::timers::TimerList::maybe_activate_timers() {
+            if corelib::timers::TimerList::maybe_activate_timers() {
                 ALL_WINDOWS.with(|windows| {
                     windows.borrow().values().for_each(|window| {
                         if let Some(window) = window.upgrade() {
@@ -325,7 +327,7 @@ impl EventLoop {
             }
 
             if *control_flow == winit::event_loop::ControlFlow::Wait {
-                if let Some(next_timer) = crate::timers::TimerList::next_timeout() {
+                if let Some(next_timer) = corelib::timers::TimerList::next_timeout() {
                     *control_flow = winit::event_loop::ControlFlow::WaitUntil(next_timer);
                 }
             }

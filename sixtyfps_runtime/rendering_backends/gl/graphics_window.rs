@@ -26,9 +26,9 @@ use corelib::Property;
 use sixtyfps_corelib as corelib;
 
 type WindowFactoryFn<Backend> =
-    dyn Fn(&corelib::eventloop::EventLoop, winit::window::WindowBuilder) -> Backend;
+    dyn Fn(&crate::eventloop::EventLoop, winit::window::WindowBuilder) -> Backend;
 
-/// GraphicsWindow is an implementation of the [GenericWindow][`corelib::eventloop::GenericWindow`] trait. This is
+/// GraphicsWindow is an implementation of the [GenericWindow][`crate::eventloop::GenericWindow`] trait. This is
 /// typically instantiated by entry factory functions of the different graphics backends.
 pub struct GraphicsWindow<Backend: GraphicsBackend + 'static> {
     window_factory: Box<WindowFactoryFn<Backend>>,
@@ -54,7 +54,7 @@ impl<Backend: GraphicsBackend + 'static> GraphicsWindow<Backend> {
     ///   of the window changes to mapped. The event loop and window builder parameters can be used to create a
     ///   backing window.
     pub fn new(
-        graphics_backend_factory: impl Fn(&corelib::eventloop::EventLoop, winit::window::WindowBuilder) -> Backend
+        graphics_backend_factory: impl Fn(&crate::eventloop::EventLoop, winit::window::WindowBuilder) -> Backend
             + 'static,
     ) -> Rc<Self> {
         Rc::new(Self {
@@ -133,7 +133,7 @@ impl<Backend: GraphicsBackend + 'static> GraphicsWindow<Backend> {
     ///   the `width` and `height` properties are read and the values are passed to the windowing system as request
     ///   for the initial size of the window. Then bindings are installed on these properties to keep them up-to-date
     ///   with the size as it may be changed by the user or the windowing system in general.
-    fn map_window(self: Rc<Self>, event_loop: &corelib::eventloop::EventLoop) {
+    fn map_window(self: Rc<Self>, event_loop: &crate::eventloop::EventLoop) {
         if matches!(&*self.map_state.borrow(), GraphicsWindowBackendState::Mapped(..)) {
             return;
         }
@@ -220,7 +220,7 @@ impl<Backend: GraphicsBackend + 'static> GraphicsWindow<Backend> {
             window_id
         };
 
-        corelib::eventloop::register_window(id, self.clone() as Rc<dyn GenericWindow>);
+        crate::eventloop::register_window(id, self.clone() as Rc<dyn GenericWindow>);
     }
     /// Removes the window from the screen. The window is not destroyed though, it can be show (mapped) again later
     /// by calling [`GenericWindow::map_window`].
@@ -237,7 +237,7 @@ impl<Backend: GraphicsBackend> Drop for GraphicsWindow<Backend> {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped => {}
             GraphicsWindowBackendState::Mapped(mw) => {
-                corelib::eventloop::unregister_window(mw.backend.borrow().window().id());
+                crate::eventloop::unregister_window(mw.backend.borrow().window().id());
             }
         }
         if let Some(existing_blinker) = self.cursor_blinker.borrow().upgrade() {
@@ -483,7 +483,7 @@ impl<Backend: GraphicsBackend> GenericWindow for GraphicsWindow<Backend> {
     }
 
     fn run(self: Rc<Self>) {
-        let event_loop = corelib::eventloop::EventLoop::new();
+        let event_loop = crate::eventloop::EventLoop::new();
 
         self.clone().map_window(&event_loop);
         event_loop.run();

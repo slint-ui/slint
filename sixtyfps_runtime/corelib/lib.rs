@@ -21,7 +21,6 @@ You should use the `sixtyfps` crate instead
 pub mod animations;
 pub mod callbacks;
 pub mod component;
-pub mod eventloop;
 pub(crate) mod flickable;
 pub mod graphics;
 pub mod input;
