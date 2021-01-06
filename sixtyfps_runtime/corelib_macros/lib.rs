@@ -102,6 +102,29 @@ fn type_name(ty: &syn::Type) -> String {
 fn is_property(ty: &syn::Type) -> bool {
     type_name(ty).starts_with("Property <")
 }
+
+// Try to match `Property<Foo>` on the syn tree and return Foo if found
+fn property_type(ty: &syn::Type) -> Option<&syn::Type> {
+    if let syn::Type::Path(syn::TypePath { path: syn::Path { segments, .. }, .. }) = ty {
+        if let Some(syn::PathSegment {
+            ident,
+            arguments:
+                syn::PathArguments::AngleBracketed(syn::AngleBracketedGenericArguments { args, .. }),
+        }) = segments.first()
+        {
+            match args.first() {
+                Some(syn::GenericArgument::Type(property_type))
+                    if ident.to_string() == "Property" =>
+                {
+                    return Some(property_type)
+                }
+                _ => {}
+            }
+        }
+    }
+    None
+}
+
 fn is_callback(ty: &syn::Type) -> bool {
     type_name(ty).to_string().starts_with("Callback <")
 }
@@ -128,6 +151,49 @@ pub fn keycode_mapping(input: TokenStream) -> TokenStream {
                     #(winit::event::VirtualKeyCode::#variants => Self::#variants),*
                 }
             }
+        }
+    )
+    .into()
+}
+
+#[proc_macro_derive(GeneratePropertyAccessors)]
+pub fn generate_property_accessors(input: TokenStream) -> TokenStream {
+    let input = syn::parse_macro_input!(input as syn::DeriveInput);
+
+    let fields = match &input.data {
+        syn::Data::Struct(syn::DataStruct { fields: f @ syn::Fields::Named(..), .. }) => f,
+        _ => {
+            return syn::Error::new(
+                input.ident.span(),
+                "Only `struct` with named field are supported",
+            )
+            .to_compile_error()
+            .into()
+        }
+    };
+
+    let (prop_field_names, prop_field_types): (Vec<_>, Vec<_>) = fields
+        .iter()
+        .filter_map(|field| {
+            property_type(&field.ty).and_then(|prop_type| {
+                if matches!(field.vis, syn::Visibility::Public(_)) {
+                    Some((field.ident.as_ref().unwrap(), prop_type))
+                } else {
+                    None
+                }
+            })
+        })
+        .unzip();
+
+    let item_name = &input.ident;
+
+    quote!(
+        impl #item_name {
+            #(
+                pub fn #prop_field_names(self: Pin<&Self>) -> #prop_field_types {
+                    Self::FIELD_OFFSETS.#prop_field_names.apply_pin(self).get()
+                }
+            )*
         }
     )
     .into()

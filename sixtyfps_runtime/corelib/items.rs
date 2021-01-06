@@ -136,7 +136,7 @@ impl ItemWeak {
 }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, BuiltinItem)]
+#[derive(FieldOffsets, Default, BuiltinItem, GeneratePropertyAccessors)]
 #[pin]
 /// The implementation of the `Rectangle` element
 pub struct Rectangle {
@@ -198,7 +198,7 @@ ItemVTable_static! {
 }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, BuiltinItem)]
+#[derive(FieldOffsets, Default, BuiltinItem, GeneratePropertyAccessors)]
 #[pin]
 /// The implementation of the `BorderRectangle` element
 pub struct BorderRectangle {

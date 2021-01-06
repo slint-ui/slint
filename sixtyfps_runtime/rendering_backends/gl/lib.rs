@@ -386,9 +386,7 @@ impl ItemRenderer for GLItemRenderer {
     ) {
         // TODO: cache path in item to avoid re-tesselation
         let mut path = rect_to_path(rect.geometry());
-        let paint = femtovg::Paint::color(
-            sixtyfps_corelib::items::Rectangle::FIELD_OFFSETS.color.apply_pin(rect).get().into(),
-        );
+        let paint = femtovg::Paint::color(rect.color().into());
         self.canvas.borrow_mut().save_with(|canvas| {
             canvas.translate(pos.x, pos.y);
             canvas.fill_path(&mut path, paint)
@@ -402,36 +400,10 @@ impl ItemRenderer for GLItemRenderer {
     ) {
         // TODO: cache path in item to avoid re-tesselation
         let mut path = femtovg::Path::new();
-        path.rounded_rect(
-            sixtyfps_corelib::items::BorderRectangle::FIELD_OFFSETS.x.apply_pin(rect).get(),
-            sixtyfps_corelib::items::BorderRectangle::FIELD_OFFSETS.y.apply_pin(rect).get(),
-            sixtyfps_corelib::items::BorderRectangle::FIELD_OFFSETS.width.apply_pin(rect).get(),
-            sixtyfps_corelib::items::BorderRectangle::FIELD_OFFSETS.height.apply_pin(rect).get(),
-            sixtyfps_corelib::items::BorderRectangle::FIELD_OFFSETS
-                .border_radius
-                .apply_pin(rect)
-                .get(),
-        );
-        let fill_paint = femtovg::Paint::color(
-            sixtyfps_corelib::items::BorderRectangle::FIELD_OFFSETS
-                .color
-                .apply_pin(rect)
-                .get()
-                .into(),
-        );
-        let mut border_paint = femtovg::Paint::color(
-            sixtyfps_corelib::items::BorderRectangle::FIELD_OFFSETS
-                .border_color
-                .apply_pin(rect)
-                .get()
-                .into(),
-        );
-        border_paint.set_line_width(
-            sixtyfps_corelib::items::BorderRectangle::FIELD_OFFSETS
-                .border_width
-                .apply_pin(rect)
-                .get(),
-        );
+        path.rounded_rect(rect.x(), rect.y(), rect.width(), rect.height(), rect.border_radius());
+        let fill_paint = femtovg::Paint::color(rect.color().into());
+        let mut border_paint = femtovg::Paint::color(rect.border_color().into());
+        border_paint.set_line_width(rect.border_width());
         self.canvas.borrow_mut().save_with(|canvas| {
             canvas.translate(pos.x, pos.y);
             canvas.fill_path(&mut path, fill_paint)
