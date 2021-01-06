@@ -71,11 +71,6 @@ impl<Backend: GraphicsBackend + 'static> GraphicsWindow<Backend> {
         })
     }
 
-    /// Returns the window id of the window if it is mapped, None otherwise.
-    pub fn id(&self) -> Option<winit::window::WindowId> {
-        Some(self.map_state.borrow().as_mapped().backend.borrow().window().id())
-    }
-
     fn apply_geometry_constraint(&self, constraints: corelib::layout::LayoutInfo) {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped => {}

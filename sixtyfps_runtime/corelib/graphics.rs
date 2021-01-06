@@ -24,7 +24,6 @@ use crate::item_rendering::CachedRenderingData;
 use crate::properties::InterpolatedPropertyValue;
 #[cfg(feature = "rtti")]
 use crate::rtti::{BuiltinItem, FieldInfo, PropertyInfo, ValueType};
-use crate::window::ComponentWindow;
 use crate::{Callback, SharedString};
 use auto_enums::auto_enum;
 use const_field_offset::FieldOffsets;

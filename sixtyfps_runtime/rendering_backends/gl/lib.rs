@@ -321,7 +321,6 @@ impl GraphicsBackend for GLRenderer {
     }
 
     fn font(&mut self, request: FontRequest) -> Rc<dyn Font> {
-        let canvas_rc = self.canvas.clone();
         self.loaded_fonts.borrow_mut().font(&self.canvas, request) as Rc<dyn Font>
     }
 }
