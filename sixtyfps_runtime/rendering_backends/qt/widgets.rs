@@ -32,8 +32,8 @@ use sixtyfps_corelib::graphics::{Point, Rect};
 use sixtyfps_corelib::input::{
     FocusEvent, InputEventResult, KeyEvent, KeyEventResult, MouseEvent, MouseEventType,
 };
-use sixtyfps_corelib::item_rendering::CachedRenderingData;
-use sixtyfps_corelib::items::{Item, ItemConsts, ItemRc, ItemRenderer, ItemVTable};
+use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
+use sixtyfps_corelib::items::{Item, ItemConsts, ItemRc, ItemVTable};
 use sixtyfps_corelib::layout::LayoutInfo;
 use sixtyfps_corelib::rtti::*;
 use sixtyfps_corelib::{Callback, ItemVTable_static, Property, SharedString, SharedVector};

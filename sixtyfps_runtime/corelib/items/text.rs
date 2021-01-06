@@ -20,7 +20,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
  - Don't forget to update the documentation
 */
 
-use super::{Item, ItemConsts, ItemRc, ItemRenderer};
+use super::{Item, ItemConsts, ItemRc};
 use crate::eventloop::ComponentWindow;
 use crate::font::HasFont;
 use crate::graphics::{Color, Point, Rect};
@@ -28,7 +28,7 @@ use crate::input::{
     FocusEvent, InputEventResult, KeyEvent, KeyEventResult, KeyboardModifiers, MouseEvent,
     MouseEventType,
 };
-use crate::item_rendering::CachedRenderingData;
+use crate::item_rendering::{CachedRenderingData, ItemRenderer};
 use crate::layout::LayoutInfo;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;

@@ -11,10 +11,12 @@ LICENSE END */
 //! module for rendering the tree of items
 
 use super::graphics::{GraphicsBackend, RenderingCache};
-use super::items::ItemRef;
+use super::items::*;
 use crate::component::ComponentRc;
+use crate::graphics::{Point, Rect};
 use crate::item_tree::ItemVisitorResult;
 use crate::slice::Slice;
+use core::pin::Pin;
 use std::cell::{Cell, RefCell};
 
 /// This structure must be present in items that are Rendered and contains information.
@@ -61,8 +63,6 @@ pub(crate) fn render_component_items<Backend: GraphicsBackend>(
     renderer: &mut Backend::ItemRenderer,
     origin: crate::graphics::Point,
 ) {
-    use crate::items::ItemRenderer;
-
     let renderer = RefCell::new(renderer);
 
     crate::item_tree::visit_items_with_post_visit(
@@ -71,10 +71,8 @@ pub(crate) fn render_component_items<Backend: GraphicsBackend>(
         |_, item, _, translation| {
             let saved_clip = renderer.borrow_mut().clip_rects();
 
-            item.as_ref().render(
-                *translation,
-                &mut (*renderer.borrow_mut() as &mut dyn crate::items::ItemRenderer),
-            );
+            item.as_ref()
+                .render(*translation, &mut (*renderer.borrow_mut() as &mut dyn ItemRenderer));
 
             let origin = item.as_ref().geometry().origin;
             let translation = *translation + euclid::Vector2D::new(origin.x, origin.y);
@@ -96,4 +94,32 @@ pub(crate) fn free_item_rendering_data<'a, Backend: GraphicsBackend>(
         let cached_rendering_data = item.cached_rendering_data_offset();
         renderer.borrow().release_item_graphics_cache(cached_rendering_data)
     }
+}
+
+pub trait ItemRenderer {
+    /// will draw a rectangle in (pos.x + rect.x)
+    fn draw_rectangle(&mut self, pos: Point, rect: Pin<&Rectangle>);
+    fn draw_border_rectangle(&mut self, pos: Point, rect: Pin<&BorderRectangle>);
+    fn draw_image(&mut self, pos: Point, image: Pin<&Image>);
+    fn draw_clipped_image(&mut self, pos: Point, image: Pin<&ClippedImage>);
+    fn draw_text(&mut self, pos: Point, text: Pin<&Text>);
+    fn draw_text_input(&mut self, pos: Point, text_input: Pin<&TextInput>);
+    fn draw_path(&mut self, pos: Point, path: Pin<&Path>);
+    fn combine_clip(&mut self, pos: Point, clip: &Pin<&Clip>);
+    fn clip_rects(&self) -> SharedVector<Rect>;
+    fn reset_clip(&mut self, rects: SharedVector<Rect>);
+
+    /// Returns the scale factor
+    fn scale_factor(&self) -> f32;
+
+    /// Draw a pixmap in position indicated by the `pos`.
+    /// The pixmap will be taken from cache if the cache is valid, otherwise, update_fn will be called
+    /// with a callback that need to be called once with `fn (width, height, data)` where data are the
+    /// argb premultiplied pixel values
+    fn draw_cached_pixmap(
+        &mut self,
+        item_cache: &CachedRenderingData,
+        pos: Point,
+        update_fn: &dyn Fn(&mut dyn FnMut(u32, u32, &[u8])),
+    );
 }

@@ -10,12 +10,12 @@ LICENSE END */
 
 use std::{cell::RefCell, rc::Rc};
 
+use sixtyfps_corelib::eventloop::ComponentWindow;
 use sixtyfps_corelib::graphics::{
     Color, GraphicsBackend, GraphicsWindow, Point, Rect, RenderingCache, Resource,
 };
-use sixtyfps_corelib::item_rendering::CachedRenderingData;
+use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::Item;
-use sixtyfps_corelib::{eventloop::ComponentWindow, items::ItemRenderer};
 use sixtyfps_corelib::{Property, SharedVector};
 
 type CanvasRc = Rc<RefCell<femtovg::Canvas<femtovg::renderer::OpenGl>>>;

@@ -289,7 +289,7 @@ pub type RenderingCache<T> = vec_arena::Arena<CachedGraphicsData<T>>;
 ///   1. A series of low-level rendering primitives can be rendered into a frame, that's started using [GraphicsBackend::new_frame].
 ///      The low-level rendering primitives are intended to be fast and ready for rendering.
 pub trait GraphicsBackend: Sized {
-    type ItemRenderer: crate::items::ItemRenderer;
+    type ItemRenderer: crate::item_rendering::ItemRenderer;
     fn new_renderer(&mut self, clear_color: &Color) -> Self::ItemRenderer;
     fn flush_renderer(&mut self, renderer: Self::ItemRenderer);
 
