@@ -535,6 +535,7 @@ impl ItemRenderer for GLItemRenderer {
         );
         paint.set_font(&[font.font_id]);
         paint.set_font_size(text.font_pixel_size(self.scale_factor()));
+        paint.set_text_baseline(femtovg::Baseline::Top);
 
         let text_str = sixtyfps_corelib::items::Text::FIELD_OFFSETS.text.apply_pin(text).get();
 
