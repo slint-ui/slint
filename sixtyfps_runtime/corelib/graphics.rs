@@ -573,7 +573,7 @@ impl<Backend: GraphicsBackend> crate::eventloop::GenericWindow for GraphicsWindo
         }
     }
 
-    fn with_platform_window(&self, callback: &dyn Fn(&winit::window::Window)) {
+    fn with_platform_window(&self, callback: &mut dyn FnMut(&winit::window::Window)) {
         let map_state = self.map_state.borrow();
         let window = map_state.as_mapped();
         let backend = window.backend.borrow();

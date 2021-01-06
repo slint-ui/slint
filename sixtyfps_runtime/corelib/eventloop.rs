@@ -58,7 +58,7 @@ pub trait GenericWindow {
     fn process_key_input(self: Rc<Self>, event: &KeyEvent);
     /// Calls the `callback` function with the underlying winit::Window that this
     /// GenericWindow backs.
-    fn with_platform_window(&self, callback: &dyn Fn(&winit::window::Window));
+    fn with_platform_window(&self, callback: &mut dyn FnMut(&winit::window::Window));
     /// Requests for the window to be mapped to the screen.
     ///
     /// Arguments:
@@ -271,9 +271,11 @@ impl EventLoop {
                         if let Some(Some(window)) =
                             windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
                         {
-                            window.with_platform_window(&|platform_window| {
-                                window.set_scale_factor(platform_window.scale_factor() as f32);
+                            let mut sf = 1.;
+                            window.with_platform_window(&mut |platform_window| {
+                                sf = platform_window.scale_factor();
                             });
+                            window.set_scale_factor(sf as f32);
                             window.set_width(size.width as f32);
                             window.set_height(size.height as f32);
                         }
