@@ -405,7 +405,8 @@ impl ItemRenderer for GLItemRenderer {
         border_paint.set_line_width(rect.border_width());
         self.canvas.borrow_mut().save_with(|canvas| {
             canvas.translate(pos.x, pos.y);
-            canvas.fill_path(&mut path, fill_paint)
+            canvas.fill_path(&mut path, fill_paint);
+            canvas.stroke_path(&mut path, border_paint);
         })
     }
 
