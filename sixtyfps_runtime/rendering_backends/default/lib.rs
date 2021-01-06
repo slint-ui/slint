@@ -13,10 +13,8 @@ use sixtyfps_corelib::window::ComponentWindow;
 cfg_if::cfg_if! {
     if #[cfg(any(target_os="windows", target_os="macos", target_os = "linux", target_os = "dragonfly", target_os = "freebsd", target_os = "openbsd", target_os = "netbsd"))] {
         use sixtyfps_rendering_backend_qt as default_backend;
-        use default_backend::create_gl_window as create_default_window;
     } else {
         use sixtyfps_rendering_backend_gl as default_backend;
-        use default_backend::create_gl_window as create_default_window;
     }
 }
 
@@ -29,11 +27,11 @@ pub fn create_window() -> ComponentWindow {
 
     #[cfg(feature = "sixtyfps-rendering-backend-qt")]
     if backend_config == "Qt" {
-        return sixtyfps_rendering_backend_qt::create_gl_window();
+        return sixtyfps_rendering_backend_qt::create_window();
     }
     #[cfg(feature = "sixtyfps-rendering-backend-gl")]
     if backend_config == "GL" {
-        return sixtyfps_rendering_backend_gl::create_gl_window();
+        return sixtyfps_rendering_backend_gl::create_window();
     }
 
     #[cfg(any(
@@ -44,7 +42,7 @@ pub fn create_window() -> ComponentWindow {
         eprintln!("Could not load rendering backend {}, fallback to default", backend_config)
     }
 
-    create_default_window()
+    default_backend::create_window()
 }
 
 pub use default_backend::{native_widgets, NativeGlobals, NativeWidgets, HAS_NATIVE_STYLE};

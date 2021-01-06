@@ -673,7 +673,7 @@ impl Font for GLFont {
     }
 }
 
-pub fn create_gl_window() -> ComponentWindow {
+pub fn create_window() -> ComponentWindow {
     ComponentWindow::new(GraphicsWindow::new(|event_loop, window_builder| {
         GLRenderer::new(
             &event_loop.get_winit_event_loop(),
