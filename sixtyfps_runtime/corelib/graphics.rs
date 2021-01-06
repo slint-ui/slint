@@ -691,12 +691,7 @@ impl<Backend: GraphicsBackend> GenericWindow for GraphicsWindow<Backend> {
         window.backend.borrow_mut().flush_renderer(renderer);
     }
 
-    fn process_mouse_input(
-        self: Rc<Self>,
-        pos: winit::dpi::PhysicalPosition<f64>,
-        what: MouseEventType,
-    ) {
-        let mut pos = euclid::point2(pos.x as _, pos.y as _);
+    fn process_mouse_input(self: Rc<Self>, mut pos: Point, what: MouseEventType) {
         let active_popup = (*self.active_popup.borrow()).clone();
         let component = if let Some(popup) = &active_popup {
             pos -= popup.1.to_vector();
@@ -737,14 +732,6 @@ impl<Backend: GraphicsBackend> GenericWindow for GraphicsWindow<Backend> {
         }
     }
 
-    fn with_platform_window(&self, callback: &mut dyn FnMut(&winit::window::Window)) {
-        let map_state = self.map_state.borrow();
-        let window = map_state.as_mapped();
-        let backend = window.backend.borrow();
-        let handle = backend.window();
-        callback(handle);
-    }
-
     fn request_redraw(&self) {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped => {}
@@ -764,6 +751,16 @@ impl<Backend: GraphicsBackend> GenericWindow for GraphicsWindow<Backend> {
             GraphicsWindowBackendState::Unmapped => {}
             GraphicsWindowBackendState::Mapped(window) => {
                 window.backend.borrow_mut().refresh_window_scale_factor();
+            }
+        }
+    }
+
+    fn refresh_window_scale_factor(&self) {
+        match &*self.map_state.borrow() {
+            GraphicsWindowBackendState::Unmapped => {}
+            GraphicsWindowBackendState::Mapped(window) => {
+                let sf = window.backend.borrow().window().scale_factor();
+                self.set_scale_factor(sf as f32)
             }
         }
     }

@@ -37,11 +37,7 @@ pub trait GenericWindow {
     /// * `pos`: The position of the mouse event in window physical coordinates.
     /// * `what`: The type of mouse event.
     /// * `component`: The SixtyFPS compiled component that provides the tree of items.
-    fn process_mouse_input(
-        self: Rc<Self>,
-        pos: winit::dpi::PhysicalPosition<f64>,
-        what: MouseEventType,
-    );
+    fn process_mouse_input(self: Rc<Self>, pos: Point, what: MouseEventType);
     /// Receive a key event and pass it to the items of the component to
     /// change their state.
     ///
@@ -49,9 +45,6 @@ pub trait GenericWindow {
     /// * `event`: The key event received by the windowing system.
     /// * `component`: The SixtyFPS compiled component that provides the tree of items.
     fn process_key_input(self: Rc<Self>, event: &KeyEvent);
-    /// Calls the `callback` function with the underlying winit::Window that this
-    /// GenericWindow backs.
-    fn with_platform_window(&self, callback: &mut dyn FnMut(&winit::window::Window));
     /// Spins an event loop and renders the items of the provided component in this window.
     fn run(self: Rc<Self>);
     /// Issue a request to the windowing system to re-render the contents of the window. This is typically an asynchronous
@@ -61,6 +54,8 @@ pub trait GenericWindow {
     fn scale_factor(&self) -> f32;
     /// Sets an overriding scale factor for the window. This is typically only used for testing.
     fn set_scale_factor(&self, factor: f32);
+    /// reload the scale_factor from the window manager and sets the internal scale_factor property accordingly
+    fn refresh_window_scale_factor(&self);
     /// Sets the size of the window to the specified `width`. This method is typically called in response to receiving a
     /// window resize event from the windowing system.
     fn set_width(&self, width: f32);

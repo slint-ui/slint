@@ -13,6 +13,7 @@ LICENSE END */
     [GenericWindow] trait used by the generated code and the run-time to change
     aspects of windows on the screen.
 */
+use crate::graphics::Point;
 use crate::input::{KeyEvent, MouseEventType};
 use crate::window::*;
 use std::cell::RefCell;
@@ -67,7 +68,8 @@ impl EventLoop {
         use winit::event::Event;
         use winit::event_loop::{ControlFlow, EventLoopWindowTarget};
 
-        let mut cursor_pos = winit::dpi::PhysicalPosition::new(0., 0.);
+        // last seen cursor position, (physical coordinate)
+        let mut cursor_pos = Point::default();
         let mut pressed = false;
         let mut run_fn = move |event: Event<CustomEvent>,
                                _: &EventLoopWindowTarget<CustomEvent>,
@@ -97,11 +99,7 @@ impl EventLoop {
                         if let Some(Some(window)) =
                             windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
                         {
-                            let mut sf = 1.;
-                            window.with_platform_window(&mut |platform_window| {
-                                sf = platform_window.scale_factor();
-                            });
-                            window.set_scale_factor(sf as f32);
+                            window.refresh_window_scale_factor();
                             window.set_width(size.width as f32);
                             window.set_height(size.height as f32);
                         }
@@ -162,7 +160,8 @@ impl EventLoop {
                         if let Some(Some(window)) =
                             windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
                         {
-                            let cursor_pos = touch.location;
+                            let cursor_pos =
+                                euclid::point2(touch.location.x as _, touch.location.y as _);
                             let what = match touch.phase {
                                 winit::event::TouchPhase::Started => {
                                     pressed = true;
@@ -186,7 +185,7 @@ impl EventLoop {
                     event: winit::event::WindowEvent::CursorMoved { position, .. },
                     ..
                 } => {
-                    cursor_pos = position;
+                    cursor_pos = euclid::point2(position.x as _, position.y as _);
                     crate::animations::update_animations();
                     ALL_WINDOWS.with(|windows| {
                         if let Some(Some(window)) =
