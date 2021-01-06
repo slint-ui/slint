@@ -58,7 +58,7 @@ impl CachedRenderingData {
     }
 }
 
-pub(crate) fn render_component_items<Backend: GraphicsBackend>(
+pub fn render_component_items<Backend: GraphicsBackend>(
     component: &ComponentRc,
     renderer: &mut Backend::ItemRenderer,
     origin: crate::graphics::Point,
@@ -86,7 +86,7 @@ pub(crate) fn render_component_items<Backend: GraphicsBackend>(
     );
 }
 
-pub(crate) fn free_item_rendering_data<'a, Backend: GraphicsBackend>(
+pub fn free_item_rendering_data<'a, Backend: GraphicsBackend>(
     items: &Slice<'a, core::pin::Pin<ItemRef<'a>>>,
     renderer: &RefCell<Backend>,
 ) {

@@ -19,6 +19,7 @@ default = ["x11"]
 
 [dependencies]
 sixtyfps-corelib = { version = "=0.0.4", path = "../../corelib", features = ["femtovg_backend"] }
+const-field-offset = { version = "0.1", path = "../../../helper_crates/const-field-offset" }
 lyon = { version = "0.16" }
 image = { version = "0.23.12", default-features = false }
 rgb = "0.8"
@@ -32,6 +33,7 @@ smallvec = "1.4.1"
 by_address = "1.0.4"
 femtovg = { git = "https://github.com/femtovg/femtovg", branch = "master" }
 euclid = "0.22.1"
+pin-weak = "1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web_sys = { version = "0.3", package = "web-sys", features=["console", "WebGlContextAttributes"] }

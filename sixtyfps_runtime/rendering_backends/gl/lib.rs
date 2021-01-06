@@ -11,13 +11,15 @@ LICENSE END */
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use sixtyfps_corelib::graphics::{
-    Color, Font, FontRequest, GraphicsBackend, GraphicsWindow, Point, Rect, RenderingCache,
-    Resource,
+    Color, Font, FontRequest, GraphicsBackend, Point, Rect, RenderingCache, Resource,
 };
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::Item;
 use sixtyfps_corelib::window::ComponentWindow;
 use sixtyfps_corelib::{Property, SharedString, SharedVector};
+
+mod graphics_window;
+use graphics_window::*;
 
 type CanvasRc = Rc<RefCell<femtovg::Canvas<femtovg::renderer::OpenGl>>>;
 type RenderingCacheRc = Rc<RefCell<RenderingCache<Option<GPUCachedData>>>>;

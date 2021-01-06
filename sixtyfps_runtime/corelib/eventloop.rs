@@ -27,13 +27,13 @@ thread_local! {
     static ALL_WINDOWS: RefCell<std::collections::HashMap<winit::window::WindowId, Weak<dyn GenericWindow>>> = RefCell::new(std::collections::HashMap::new());
 }
 
-pub(crate) fn register_window(id: winit::window::WindowId, window: Rc<dyn GenericWindow>) {
+pub fn register_window(id: winit::window::WindowId, window: Rc<dyn GenericWindow>) {
     ALL_WINDOWS.with(|windows| {
         windows.borrow_mut().insert(id, Rc::downgrade(&window));
     })
 }
 
-pub(crate) fn unregister_window(id: winit::window::WindowId) {
+pub fn unregister_window(id: winit::window::WindowId) {
     ALL_WINDOWS.with(|windows| {
         windows.borrow_mut().remove(&id);
     })
