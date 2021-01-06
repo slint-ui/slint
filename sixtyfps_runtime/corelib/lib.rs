@@ -26,6 +26,7 @@ pub mod graphics;
 pub mod input;
 pub mod item_tree;
 pub mod layout;
+pub mod window;
 
 #[cfg(feature = "rtti")]
 pub mod rtti;
