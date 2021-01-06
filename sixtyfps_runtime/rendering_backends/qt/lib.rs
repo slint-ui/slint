@@ -9,14 +9,14 @@
 LICENSE END */
 #![recursion_limit = "512"]
 
+use sixtyfps_corelib::window::ComponentWindow;
+
+#[cfg(not(no_qt))]
+mod qt_window;
 #[cfg(not(no_qt))]
 mod qttypes;
 #[cfg(not(no_qt))]
 mod widgets;
-
-// FIXME: right now, we are just re-exposing the GL backend, but eventually, we want the Qt
-// backend to use QPainter to draw directly on the window.
-pub use sixtyfps_rendering_backend_gl::*;
 
 #[doc(hidden)]
 #[cold]
@@ -84,3 +84,10 @@ pub type NativeWidgets = ();
 pub type NativeGlobals = ();
 
 pub const HAS_NATIVE_STYLE: bool = cfg!(not(no_qt));
+
+pub fn create_window() -> ComponentWindow {
+    #[cfg(no_qt)]
+    panic!("The Qt backend needs Qt");
+    #[cfg(not(no_qt))]
+    ComponentWindow::new(qt_window::QtWindow::new())
+}
