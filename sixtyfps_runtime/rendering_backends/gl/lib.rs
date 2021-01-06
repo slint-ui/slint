@@ -103,7 +103,6 @@ pub struct GLRenderer {
     windowed_context: Option<glutin::WindowedContext<glutin::NotCurrent>>,
 
     gpu_cache: RenderingCacheRc,
-    current_scale_factor: f32,
 
     loaded_fonts: Rc<RefCell<FontDatabase>>,
 }
@@ -225,7 +224,7 @@ impl GLRenderer {
 
         let canvas = femtovg::Canvas::new(renderer).unwrap();
 
-        let mut renderer = GLRenderer {
+        GLRenderer {
             canvas: Rc::new(RefCell::new(canvas)),
             #[cfg(target_arch = "wasm32")]
             window,
@@ -234,13 +233,8 @@ impl GLRenderer {
             #[cfg(not(target_arch = "wasm32"))]
             windowed_context: Some(unsafe { windowed_context.make_not_current().unwrap() }),
             gpu_cache: Default::default(),
-            current_scale_factor: 0.0,
             loaded_fonts: Default::default(),
-        };
-
-        renderer.refresh_window_scale_factor();
-
-        renderer
+        }
     }
 }
 
@@ -254,19 +248,22 @@ impl GraphicsBackend for GLRenderer {
         let current_windowed_context =
             unsafe { self.windowed_context.take().unwrap().make_current().unwrap() };
 
-        let dpi_factor = current_windowed_context.window().scale_factor();
         {
             let mut canvas = self.canvas.borrow_mut();
-            canvas.set_size(size.width, size.height, dpi_factor as f32);
+            // We pass 1.0 as dpi / device pixel ratio as femtovg only uses this factor to scale
+            // text metrics. Since we do the entire translation from logical pixels to physical
+            // pixels on our end, we don't need femtovg to scale a second time.
+            canvas.set_size(size.width, size.height, 1.0);
             canvas.clear_rect(0, 0, size.width, size.height, clear_color.into());
         }
 
+        let scale_factor = current_windowed_context.window().scale_factor() as f32;
         GLItemRenderer {
             canvas: self.canvas.clone(),
             windowed_context: current_windowed_context,
             clip_rects: Default::default(),
             gpu_cache: self.gpu_cache.clone(),
-            scale_factor: dpi_factor as f32,
+            scale_factor,
             loaded_fonts: self.loaded_fonts.clone(),
         }
     }
@@ -285,32 +282,6 @@ impl GraphicsBackend for GLRenderer {
 
     fn release_item_graphics_cache(&self, data: &CachedRenderingData) {
         data.release(&mut self.gpu_cache.borrow_mut())
-    }
-
-    fn refresh_window_scale_factor(&mut self) {
-        let (size, dpi_factor) = {
-            let window = self.window();
-            (window.inner_size(), window.scale_factor() as f32)
-        };
-
-        if dpi_factor == self.current_scale_factor {
-            return;
-        }
-
-        self.current_scale_factor = dpi_factor;
-
-        // The scale factor in the Canvas can only be updated via `set_size`, which requires a current context
-        #[cfg(not(target_arch = "wasm32"))]
-        let current_windowed_context =
-            unsafe { self.windowed_context.take().unwrap().make_current().unwrap() };
-
-        self.canvas.borrow_mut().set_size(size.width, size.height, dpi_factor);
-
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            self.windowed_context =
-                Some(unsafe { current_windowed_context.make_not_current().unwrap() });
-        }
     }
 
     fn window(&self) -> &winit::window::Window {
@@ -542,8 +513,10 @@ impl ItemRenderer for GLItemRenderer {
         let max_width = sixtyfps_corelib::items::Text::FIELD_OFFSETS.width.apply_pin(text).get();
         let max_height = sixtyfps_corelib::items::Text::FIELD_OFFSETS.height.apply_pin(text).get();
         let (text_width, text_height) = {
-            let metrics = self.canvas.borrow_mut().measure_text(0., 0., &text_str, paint).unwrap();
-            (metrics.width(), metrics.height())
+            let text_metrics =
+                self.canvas.borrow_mut().measure_text(0., 0., &text_str, paint).unwrap();
+            let font_metrics = self.canvas.borrow_mut().measure_font(paint).unwrap();
+            (text_metrics.width(), font_metrics.height())
         };
 
         let translate_x = match sixtyfps_corelib::items::Text::FIELD_OFFSETS

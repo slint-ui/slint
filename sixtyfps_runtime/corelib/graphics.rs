@@ -318,8 +318,6 @@ pub trait GraphicsBackend: Sized {
 
     fn release_item_graphics_cache(&self, data: &CachedRenderingData);
 
-    fn refresh_window_scale_factor(&mut self);
-
     fn font(&mut self, request: FontRequest) -> Rc<dyn Font>;
 
     /// Returns the window that the backend is associated with.
