@@ -31,6 +31,7 @@ use crate::slice::Slice;
 use crate::window::{ComponentWindow, GenericWindow};
 #[cfg(feature = "rtti")]
 use crate::Callback;
+use crate::SharedString;
 
 use auto_enums::auto_enum;
 use const_field_offset::FieldOffsets;
@@ -277,6 +278,61 @@ impl<T> CachedGraphicsData<T> {
 
 pub type RenderingCache<T> = vec_arena::Arena<CachedGraphicsData<T>>;
 
+/// FontRequest collects all the developer-configurable properties for fonts, such as family, weight, etc.
+/// It is submitted as a request to the platform font system (i.e. CoreText on macOS) and in exchange we
+/// store a Rc<FontHandle>
+#[derive(Debug, Clone, PartialEq)]
+#[repr(C)]
+pub struct FontRequest {
+    pub family: SharedString,
+    pub weight: i32,
+}
+
+pub trait Font {
+    fn text_width(&self, pixel_size: f32, text: &str) -> f32;
+    fn text_offset_for_x_position<'a>(&self, pixel_size: f32, text: &'a str, x: f32) -> usize;
+    fn height(&self, pixel_size: f32) -> f32;
+}
+
+pub struct ScaledFont {
+    pub font: Rc<dyn Font>,
+    pub pixel_size: f32,
+}
+
+impl ScaledFont {
+    pub(crate) fn text_width(&self, text: &str) -> f32 {
+        self.font.text_width(self.pixel_size, text)
+    }
+    pub(crate) fn text_offset_for_x_position<'a>(&self, text: &'a str, x: f32) -> usize {
+        self.font.text_offset_for_x_position(self.pixel_size, text, x)
+    }
+    pub(crate) fn height(&self) -> f32 {
+        self.font.height(self.pixel_size)
+    }
+}
+
+/// HasFont is a convenience trait for items holding font properties, such as Text or TextInput.
+pub trait HasFont {
+    /// Return the value of the font-family property.
+    fn font_family(&self) -> SharedString;
+    /// Return the value of the font-weight property.
+    fn font_weight(&self) -> i32;
+    /// Return the value if the font-size property converted to window specific pixels, respecting
+    /// the window scale factor.
+    fn font_pixel_size(&self, scale_factor: f32) -> f32;
+    /// Translates the values of the different font related properties into a FontRequest object.
+    fn font_request(&self, window: &ComponentWindow) -> FontRequest {
+        FontRequest { family: self.font_family(), weight: self.font_weight() }
+    }
+    /// Returns a Font object that matches the requested font properties of this trait object (item).
+    fn font(&self, window: &ComponentWindow) -> Option<ScaledFont> {
+        window.0.font(self.font_request(window)).map(|font| ScaledFont {
+            font,
+            pixel_size: self.font_pixel_size(window.scale_factor()),
+        })
+    }
+}
+
 /// GraphicsBackend is the trait that the the SixtyFPS run-time uses to convert [HighLevelRenderingPrimitive]
 /// to an internal representation that is optimal for the backend, in order to render it later. The internal
 /// representation is opaque but must be provided via the [GraphicsBackend::LowLevelRenderingPrimitive] associated type.
@@ -295,6 +351,8 @@ pub trait GraphicsBackend: Sized {
     fn release_item_graphics_cache(&self, data: &CachedRenderingData);
 
     fn refresh_window_scale_factor(&mut self);
+
+    fn font(&mut self, request: FontRequest) -> Rc<dyn Font>;
 
     /// Returns the window that the backend is associated with.
     fn window(&self) -> &winit::window::Window;
@@ -785,6 +843,15 @@ impl<Backend: GraphicsBackend> GenericWindow for GraphicsWindow<Backend> {
     fn close_popup(&self) {
         *self.active_popup.borrow_mut() = None;
     }
+
+    fn font(&self, request: crate::graphics::FontRequest) -> Option<Rc<dyn crate::graphics::Font>> {
+        match &*self.map_state.borrow() {
+            GraphicsWindowBackendState::Unmapped => None,
+            GraphicsWindowBackendState::Mapped(window) => {
+                Some(window.backend.borrow_mut().font(request))
+            }
+        }
+    }
 }
 
 #[repr(C)]
@@ -1209,4 +1276,24 @@ impl TextCursorBlinker {
     fn stop(&self) {
         self.cursor_blink_timer.stop()
     }
+}
+
+/// This function can be used to register a custom TrueType font with SixtyFPS,
+/// for use with the `font-family` property. The provided slice must be a valid TrueType
+/// font.
+pub fn register_application_font_from_memory(
+    data: &'static [u8],
+) -> Result<(), Box<dyn std::error::Error>> {
+    /*
+    let platform_font = PlatformFont::new_from_slice(data).map_err(Box::new)?;
+
+    FONT_CACHE.with(|fc| {
+        fc.application_fonts
+            .borrow_mut()
+            .insert(platform_font.family_name(), FontMatch::new(platform_font))
+    });
+
+    Ok(())
+    */
+    todo!()
 }

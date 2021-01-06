@@ -43,6 +43,12 @@ glow = { version = "0.7.0", features = ["web-sys"], default-features = false }
 winit = { version = "0.24", default-features = false }
 glutin = { version = "0.26", default-features = false }
 glow = { version = "0.7.0", default-features = false }
+font-kit = { version = "0.10", features = ["loader-freetype"] }
+
+# Require font-config from the system. Issue #88 indicates that the copy provided by servo-fontconfig may be incompatible
+# with distros at times.
+[target.'cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios", target_arch = "wasm32")))'.dependencies]
+servo-fontconfig = { version = "0.5", features = [ "force_system_lib" ] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 cocoa = { version = "0.24.0" }

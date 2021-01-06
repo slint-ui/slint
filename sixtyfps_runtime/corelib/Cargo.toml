@@ -50,13 +50,7 @@ web_sys = { version = "0.3", package = "web-sys", features=["console", "CanvasRe
 wasm-bindgen = { version = "0.2" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-font-kit = { version = "0.10", features = ["loader-freetype"] }
 pathfinder_geometry = "0.5.1"
-
-# Require font-config from the system. Issue #88 indicates that the copy provided by servo-fontconfig may be incompatible
-# with distros at times.
-[target.'cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios", target_arch = "wasm32")))'.dependencies]
-servo-fontconfig = { version = "0.5", features = [ "force_system_lib" ] }
 
 [dev-dependencies]
 pin-weak = "1"

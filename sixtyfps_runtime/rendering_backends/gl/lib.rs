@@ -8,15 +8,16 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use sixtyfps_corelib::graphics::{
-    Color, GraphicsBackend, GraphicsWindow, Point, Rect, RenderingCache, Resource,
+    Color, Font, FontRequest, GraphicsBackend, GraphicsWindow, Point, Rect, RenderingCache,
+    Resource,
 };
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::Item;
 use sixtyfps_corelib::window::ComponentWindow;
-use sixtyfps_corelib::{Property, SharedVector};
+use sixtyfps_corelib::{Property, SharedString, SharedVector};
 
 type CanvasRc = Rc<RefCell<femtovg::Canvas<femtovg::renderer::OpenGl>>>;
 type RenderingCacheRc = Rc<RefCell<RenderingCache<Option<GPUCachedData>>>>;
@@ -46,6 +47,48 @@ impl GPUCachedData {
     }
 }
 
+struct FontDatabase(HashMap<FontCacheKey, Rc<GLFont>>);
+
+impl Default for FontDatabase {
+    fn default() -> Self {
+        Self(HashMap::new())
+    }
+}
+
+impl FontDatabase {
+    fn font(&mut self, canvas: &CanvasRc, request: FontRequest) -> Rc<GLFont> {
+        self.0
+            .entry(FontCacheKey::new(&request))
+            .or_insert_with(|| {
+                let family_name = if request.family.len() == 0 {
+                    font_kit::family_name::FamilyName::SansSerif
+                } else {
+                    font_kit::family_name::FamilyName::Title(request.family.to_string())
+                };
+
+                let handle = font_kit::source::SystemSource::new()
+                    .select_best_match(
+                        &[family_name, font_kit::family_name::FamilyName::SansSerif],
+                        &font_kit::properties::Properties::new()
+                            .weight(font_kit::properties::Weight(request.weight as f32)),
+                    )
+                    .unwrap();
+
+                let canvas_font = match handle {
+                    font_kit::handle::Handle::Path { path, font_index } => {
+                        canvas.borrow_mut().add_font(path)
+                    }
+                    font_kit::handle::Handle::Memory { bytes, font_index } => {
+                        canvas.borrow_mut().add_font_mem(bytes.as_slice())
+                    }
+                }
+                .unwrap();
+                Rc::new(GLFont { font_id: canvas_font, canvas: canvas.clone() })
+            })
+            .clone()
+    }
+}
+
 pub struct GLRenderer {
     canvas: CanvasRc,
 
@@ -59,6 +102,8 @@ pub struct GLRenderer {
 
     gpu_cache: RenderingCacheRc,
     current_scale_factor: f32,
+
+    loaded_fonts: Rc<RefCell<FontDatabase>>,
 }
 
 impl GLRenderer {
@@ -190,6 +235,7 @@ impl GLRenderer {
             windowed_context: Some(unsafe { windowed_context.make_not_current().unwrap() }),
             gpu_cache: Default::default(),
             current_scale_factor: 0.0,
+            loaded_fonts: Default::default(),
         };
 
         renderer.refresh_window_scale_factor();
@@ -221,6 +267,7 @@ impl GraphicsBackend for GLRenderer {
             clip_rects: Default::default(),
             gpu_cache: self.gpu_cache.clone(),
             scale_factor: dpi_factor as f32,
+            loaded_fonts: self.loaded_fonts.clone(),
         }
     }
 
@@ -272,6 +319,11 @@ impl GraphicsBackend for GLRenderer {
         #[cfg(target_arch = "wasm32")]
         return &self.window;
     }
+
+    fn font(&mut self, request: FontRequest) -> Rc<dyn Font> {
+        let canvas_rc = self.canvas.clone();
+        self.loaded_fonts.borrow_mut().font(&self.canvas, request) as Rc<dyn Font>
+    }
 }
 
 pub struct GLItemRenderer {
@@ -283,6 +335,7 @@ pub struct GLItemRenderer {
     clip_rects: SharedVector<Rect>,
 
     gpu_cache: RenderingCacheRc,
+    loaded_fonts: Rc<RefCell<FontDatabase>>,
     scale_factor: f32,
 }
 
@@ -499,8 +552,61 @@ impl ItemRenderer for GLItemRenderer {
         })
     }
 
-    fn draw_text(&mut self, _pos: Point, _rect: std::pin::Pin<&sixtyfps_corelib::items::Text>) {
-        //todo!()
+    fn draw_text(&mut self, pos: Point, text: std::pin::Pin<&sixtyfps_corelib::items::Text>) {
+        use sixtyfps_corelib::graphics::HasFont;
+        use sixtyfps_corelib::items::{TextHorizontalAlignment, TextVerticalAlignment};
+
+        let font_request = FontRequest { family: text.font_family(), weight: text.font_weight() };
+        let font = self.loaded_fonts.borrow_mut().font(&self.canvas, font_request);
+
+        let mut paint = femtovg::Paint::color(
+            sixtyfps_corelib::items::Text::FIELD_OFFSETS.color.apply_pin(text).get().into(),
+        );
+        paint.set_font(&[font.font_id]);
+        paint.set_font_size(text.font_pixel_size(self.scale_factor()));
+
+        let text_str = sixtyfps_corelib::items::Text::FIELD_OFFSETS.text.apply_pin(text).get();
+
+        let max_width = sixtyfps_corelib::items::Text::FIELD_OFFSETS.width.apply_pin(text).get();
+        let max_height = sixtyfps_corelib::items::Text::FIELD_OFFSETS.height.apply_pin(text).get();
+        let (text_width, text_height) = {
+            let metrics = self.canvas.borrow_mut().measure_text(0., 0., &text_str, paint).unwrap();
+            (metrics.width(), metrics.height())
+        };
+
+        let translate_x = match sixtyfps_corelib::items::Text::FIELD_OFFSETS
+            .horizontal_alignment
+            .apply_pin(text)
+            .get()
+        {
+            TextHorizontalAlignment::align_left => 0.,
+            TextHorizontalAlignment::align_center => max_width / 2. - text_width / 2.,
+            TextHorizontalAlignment::align_right => max_width - text_width,
+        };
+
+        let translate_y = match sixtyfps_corelib::items::Text::FIELD_OFFSETS
+            .vertical_alignment
+            .apply_pin(text)
+            .get()
+        {
+            TextVerticalAlignment::align_top => 0.,
+            TextVerticalAlignment::align_center => max_height / 2. - text_height / 2.,
+            TextVerticalAlignment::align_bottom => max_height - text_height,
+        };
+
+        self.canvas
+            .borrow_mut()
+            .fill_text(
+                pos.x
+                    + sixtyfps_corelib::items::Text::FIELD_OFFSETS.x.apply_pin(text).get()
+                    + translate_x,
+                pos.y
+                    + sixtyfps_corelib::items::Text::FIELD_OFFSETS.y.apply_pin(text).get()
+                    + translate_y,
+                text_str,
+                paint,
+            )
+            .unwrap();
     }
 
     fn draw_text_input(
@@ -581,6 +687,44 @@ impl ItemRenderer for GLItemRenderer {
 
     fn scale_factor(&self) -> f32 {
         self.scale_factor
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Hash)]
+struct FontCacheKey {
+    family: SharedString,
+    weight: i32,
+}
+
+impl FontCacheKey {
+    fn new(request: &FontRequest) -> Self {
+        Self { family: request.family.clone(), weight: request.weight }
+    }
+}
+
+struct GLFont {
+    font_id: femtovg::FontId,
+    canvas: CanvasRc,
+}
+
+impl Font for GLFont {
+    fn text_width(&self, pixel_size: f32, text: &str) -> f32 {
+        let mut paint = femtovg::Paint::default();
+        paint.set_font(&[self.font_id]);
+        paint.set_font_size(pixel_size);
+        self.canvas.borrow_mut().measure_text(0., 0., text, paint).unwrap().width()
+    }
+
+    fn text_offset_for_x_position<'a>(&self, pixel_size: f32, text: &'a str, x: f32) -> usize {
+        //todo!()
+        return 0;
+    }
+
+    fn height(&self, pixel_size: f32) -> f32 {
+        let mut paint = femtovg::Paint::default();
+        paint.set_font(&[self.font_id]);
+        paint.set_font_size(pixel_size);
+        self.canvas.borrow_mut().measure_font(paint).unwrap().height()
     }
 }
 

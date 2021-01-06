@@ -21,8 +21,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 */
 
 use super::{Item, ItemConsts, ItemRc};
-use crate::font::HasFont;
-use crate::graphics::{Color, Point, Rect};
+use crate::graphics::{Color, HasFont, Point, Rect};
 use crate::input::{
     FocusEvent, InputEventResult, KeyEvent, KeyEventResult, KeyboardModifiers, MouseEvent,
     MouseEventType,
@@ -105,10 +104,13 @@ impl Item for Text {
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
         let text = Self::FIELD_OFFSETS.text.apply_pin(self).get();
 
-        let font = self.font(window);
-        let width = font.text_width(&text);
-        let height = font.height();
-        LayoutInfo { min_width: width, min_height: height, ..LayoutInfo::default() }
+        if let Some(font) = self.font(window) {
+            let width = font.text_width(&text);
+            let height = font.height();
+            LayoutInfo { min_width: width, min_height: height, ..LayoutInfo::default() }
+        } else {
+            LayoutInfo::default()
+        }
     }
 
     fn input_event(
@@ -151,11 +153,11 @@ impl HasFont for Pin<&Text> {
         }
     }
 
-    fn font_pixel_size(&self, window: &ComponentWindow) -> f32 {
+    fn font_pixel_size(&self, scale_factor: f32) -> f32 {
         let font_size =
             <Self as core::ops::Deref>::Target::FIELD_OFFSETS.font_size.apply_pin(*self).get();
         if font_size == 0.0 {
-            DEFAULT_FONT_SIZE * window.scale_factor()
+            DEFAULT_FONT_SIZE * scale_factor
         } else {
             font_size
         }
@@ -206,15 +208,18 @@ impl Item for TextInput {
     }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
-        let font = self.font(window);
-        let width = font.text_width("********************");
-        let height = font.height();
+        if let Some(font) = self.font(window) {
+            let width = font.text_width("********************");
+            let height = font.height();
 
-        LayoutInfo {
-            min_width: width,
-            min_height: height,
-            horizontal_stretch: 1.,
-            ..LayoutInfo::default()
+            LayoutInfo {
+                min_width: width,
+                min_height: height,
+                horizontal_stretch: 1.,
+                ..LayoutInfo::default()
+            }
+        } else {
+            LayoutInfo::default()
         }
     }
 
@@ -229,7 +234,10 @@ impl Item for TextInput {
         }
 
         let text = Self::FIELD_OFFSETS.text.apply_pin(self).get();
-        let font = self.font(window);
+        let font = match self.font(window) {
+            Some(font) => font,
+            None => return InputEventResult::EventIgnored,
+        };
         let clicked_offset = font.text_offset_for_x_position(&text, event.pos.x) as i32;
 
         if matches!(event.what, MouseEventType::MousePressed) {
@@ -556,11 +564,11 @@ impl HasFont for Pin<&TextInput> {
         }
     }
 
-    fn font_pixel_size(&self, window: &ComponentWindow) -> f32 {
+    fn font_pixel_size(&self, scale_factor: f32) -> f32 {
         let font_size =
             <Self as core::ops::Deref>::Target::FIELD_OFFSETS.font_size.apply_pin(*self).get();
         if font_size == 0.0 {
-            DEFAULT_FONT_SIZE * window.scale_factor()
+            DEFAULT_FONT_SIZE * scale_factor
         } else {
             font_size
         }

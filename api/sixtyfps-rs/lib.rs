@@ -152,8 +152,7 @@ struct MyStruct {
 
 pub use sixtyfps_macros::sixtyfps;
 
-#[cfg(not(target_arch = "wasm32"))]
-pub use sixtyfps_corelib::font::register_application_font_from_memory;
+pub use sixtyfps_corelib::graphics::register_application_font_from_memory;
 pub use sixtyfps_corelib::model::{
     Model, ModelHandle, ModelNotify, ModelPeer, StandardListViewItem, VecModel,
 };
