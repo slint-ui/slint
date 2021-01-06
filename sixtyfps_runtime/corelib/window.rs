@@ -52,19 +52,8 @@ pub trait GenericWindow {
     /// Calls the `callback` function with the underlying winit::Window that this
     /// GenericWindow backs.
     fn with_platform_window(&self, callback: &mut dyn FnMut(&winit::window::Window));
-    /// Requests for the window to be mapped to the screen.
-    ///
-    /// Arguments:
-    /// * `event_loop`: The event loop used to drive further event handling for this window
-    ///   as it will receive events.
-    /// * `component`: The component that holds the root item of the scene. If the item is a [`crate::items::Window`], then
-    ///   the `width` and `height` properties are read and the values are passed to the windowing system as request
-    ///   for the initial size of the window. Then bindings are installed on these properties to keep them up-to-date
-    ///   with the size as it may be changed by the user or the windowing system in general.
-    fn map_window(self: Rc<Self>, event_loop: &crate::eventloop::EventLoop);
-    /// Removes the window from the screen. The window is not destroyed though, it can be show (mapped) again later
-    /// by calling [`GenericWindow::map_window`].
-    fn unmap_window(self: Rc<Self>);
+    /// Spins an event loop and renders the items of the provided component in this window.
+    fn run(self: Rc<Self>);
     /// Issue a request to the windowing system to re-render the contents of the window. This is typically an asynchronous
     /// request.
     fn request_redraw(&self);
@@ -122,13 +111,7 @@ impl ComponentWindow {
     }
     /// Spins an event loop and renders the items of the provided component in this window.
     pub fn run(&self) {
-        let event_loop = crate::eventloop::EventLoop::new();
-
-        self.0.clone().map_window(&event_loop);
-
-        event_loop.run();
-
-        self.0.clone().unmap_window();
+        self.0.clone().run();
     }
 
     /// Returns the scale factor set on the window.

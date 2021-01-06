@@ -492,6 +492,113 @@ impl<Backend: GraphicsBackend + 'static> GraphicsWindow<Backend> {
             }
         }
     }
+
+    /// Requests for the window to be mapped to the screen.
+    ///
+    /// Arguments:
+    /// * `event_loop`: The event loop used to drive further event handling for this window
+    ///   as it will receive events.
+    /// * `component`: The component that holds the root item of the scene. If the item is a [`crate::items::Window`], then
+    ///   the `width` and `height` properties are read and the values are passed to the windowing system as request
+    ///   for the initial size of the window. Then bindings are installed on these properties to keep them up-to-date
+    ///   with the size as it may be changed by the user or the windowing system in general.
+    fn map_window(self: Rc<Self>, event_loop: &crate::eventloop::EventLoop) {
+        if matches!(&*self.map_state.borrow(), GraphicsWindowBackendState::Mapped(..)) {
+            return;
+        }
+
+        let component = self.component.borrow().upgrade().unwrap();
+        let component = ComponentRc::borrow_pin(&component);
+        let root_item = component.as_ref().get_item_ref(0);
+
+        let window_title = if let Some(window_item) = ItemRef::downcast_pin(root_item) {
+            crate::items::Window::FIELD_OFFSETS.title.apply_pin(window_item).get().to_string()
+        } else {
+            "SixtyFPS Window".to_string()
+        };
+        let window_builder = winit::window::WindowBuilder::new().with_title(window_title);
+
+        let id = {
+            let backend = self.window_factory.as_ref()(&event_loop, window_builder);
+
+            let platform_window = backend.window();
+
+            if std::env::var("SIXTYFPS_FULLSCREEN").is_ok() {
+                platform_window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)));
+            }
+
+            let window_id = platform_window.id();
+
+            // Ideally we should be passing the initial requested size to the window builder, but those properties
+            // may be specified in logical pixels, relative to the scale factory, which we only know *after* mapping
+            // the window to the screen. So we first map the window then, propagate the scale factory and *then* the
+            // width/height properties should have the correct values calculated via their bindings that multiply with
+            // the scale factor.
+            // We could pass the logical requested size at window builder time, *if* we knew what the values are.
+            {
+                self.properties.as_ref().scale_factor.set(platform_window.scale_factor() as _);
+                let existing_size = platform_window.inner_size();
+
+                let mut new_size = existing_size;
+
+                if let Some(window_item) = ItemRef::downcast_pin(root_item) {
+                    let width =
+                        crate::items::Window::FIELD_OFFSETS.width.apply_pin(window_item).get();
+                    if width > 0. {
+                        new_size.width = width as _;
+                    }
+                    let height =
+                        crate::items::Window::FIELD_OFFSETS.height.apply_pin(window_item).get();
+                    if height > 0. {
+                        new_size.height = height as _;
+                    }
+
+                    {
+                        let window = self.clone();
+                        window_item.as_ref().width.set_binding(move || {
+                            WindowProperties::FIELD_OFFSETS
+                                .width
+                                .apply_pin(window.properties.as_ref())
+                                .get()
+                        });
+                    }
+                    {
+                        let window = self.clone();
+                        window_item.as_ref().height.set_binding(move || {
+                            WindowProperties::FIELD_OFFSETS
+                                .height
+                                .apply_pin(window.properties.as_ref())
+                                .get()
+                        });
+                    }
+                }
+
+                if new_size != existing_size {
+                    platform_window.set_inner_size(new_size)
+                }
+
+                self.properties.as_ref().width.set(new_size.width as _);
+                self.properties.as_ref().height.set(new_size.height as _);
+            }
+
+            self.map_state.replace(GraphicsWindowBackendState::Mapped(MappedWindow {
+                backend: RefCell::new(backend),
+                constraints: Default::default(),
+            }));
+
+            window_id
+        };
+
+        crate::eventloop::register_window(id, self.clone() as Rc<dyn GenericWindow>);
+    }
+    /// Removes the window from the screen. The window is not destroyed though, it can be show (mapped) again later
+    /// by calling [`GenericWindow::map_window`].
+    fn unmap_window(self: Rc<Self>) {
+        self.map_state.replace(GraphicsWindowBackendState::Unmapped);
+        if let Some(existing_blinker) = self.cursor_blinker.borrow().upgrade() {
+            existing_blinker.stop();
+        }
+    }
 }
 
 impl<Backend: GraphicsBackend> Drop for GraphicsWindow<Backend> {
@@ -638,109 +745,12 @@ impl<Backend: GraphicsBackend> GenericWindow for GraphicsWindow<Backend> {
         callback(handle);
     }
 
-    fn map_window(self: Rc<Self>, event_loop: &crate::eventloop::EventLoop) {
-        if matches!(&*self.map_state.borrow(), GraphicsWindowBackendState::Mapped(..)) {
-            return;
-        }
-
-        let component = self.component.borrow().upgrade().unwrap();
-        let component = ComponentRc::borrow_pin(&component);
-        let root_item = component.as_ref().get_item_ref(0);
-
-        let window_title = if let Some(window_item) = ItemRef::downcast_pin(root_item) {
-            crate::items::Window::FIELD_OFFSETS.title.apply_pin(window_item).get().to_string()
-        } else {
-            "SixtyFPS Window".to_string()
-        };
-        let window_builder = winit::window::WindowBuilder::new().with_title(window_title);
-
-        let id = {
-            let backend = self.window_factory.as_ref()(&event_loop, window_builder);
-
-            let platform_window = backend.window();
-
-            if std::env::var("SIXTYFPS_FULLSCREEN").is_ok() {
-                platform_window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)));
-            }
-
-            let window_id = platform_window.id();
-
-            // Ideally we should be passing the initial requested size to the window builder, but those properties
-            // may be specified in logical pixels, relative to the scale factory, which we only know *after* mapping
-            // the window to the screen. So we first map the window then, propagate the scale factory and *then* the
-            // width/height properties should have the correct values calculated via their bindings that multiply with
-            // the scale factor.
-            // We could pass the logical requested size at window builder time, *if* we knew what the values are.
-            {
-                self.properties.as_ref().scale_factor.set(platform_window.scale_factor() as _);
-                let existing_size = platform_window.inner_size();
-
-                let mut new_size = existing_size;
-
-                if let Some(window_item) = ItemRef::downcast_pin(root_item) {
-                    let width =
-                        crate::items::Window::FIELD_OFFSETS.width.apply_pin(window_item).get();
-                    if width > 0. {
-                        new_size.width = width as _;
-                    }
-                    let height =
-                        crate::items::Window::FIELD_OFFSETS.height.apply_pin(window_item).get();
-                    if height > 0. {
-                        new_size.height = height as _;
-                    }
-
-                    {
-                        let window = self.clone();
-                        window_item.as_ref().width.set_binding(move || {
-                            WindowProperties::FIELD_OFFSETS
-                                .width
-                                .apply_pin(window.properties.as_ref())
-                                .get()
-                        });
-                    }
-                    {
-                        let window = self.clone();
-                        window_item.as_ref().height.set_binding(move || {
-                            WindowProperties::FIELD_OFFSETS
-                                .height
-                                .apply_pin(window.properties.as_ref())
-                                .get()
-                        });
-                    }
-                }
-
-                if new_size != existing_size {
-                    platform_window.set_inner_size(new_size)
-                }
-
-                self.properties.as_ref().width.set(new_size.width as _);
-                self.properties.as_ref().height.set(new_size.height as _);
-            }
-
-            self.map_state.replace(GraphicsWindowBackendState::Mapped(MappedWindow {
-                backend: RefCell::new(backend),
-                constraints: Default::default(),
-            }));
-
-            window_id
-        };
-
-        crate::eventloop::register_window(id, self.clone() as Rc<dyn GenericWindow>);
-    }
-
     fn request_redraw(&self) {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped => {}
             GraphicsWindowBackendState::Mapped(window) => {
                 window.backend.borrow().window().request_redraw()
             }
-        }
-    }
-
-    fn unmap_window(self: Rc<Self>) {
-        self.map_state.replace(GraphicsWindowBackendState::Unmapped);
-        if let Some(existing_blinker) = self.cursor_blinker.borrow().upgrade() {
-            existing_blinker.stop();
         }
     }
 
@@ -842,6 +852,14 @@ impl<Backend: GraphicsBackend> GenericWindow for GraphicsWindow<Backend> {
 
     fn close_popup(&self) {
         *self.active_popup.borrow_mut() = None;
+    }
+
+    fn run(self: Rc<Self>) {
+        let event_loop = crate::eventloop::EventLoop::new();
+
+        self.clone().map_window(&event_loop);
+        event_loop.run();
+        self.unmap_window();
     }
 
     fn font(&self, request: crate::graphics::FontRequest) -> Option<Rc<dyn crate::graphics::Font>> {
