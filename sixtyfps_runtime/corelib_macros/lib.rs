@@ -16,8 +16,14 @@ extern crate proc_macro;
 use proc_macro::TokenStream;
 use quote::quote;
 
-#[proc_macro_derive(BuiltinItem, attributes(rtti_field))]
-pub fn builtin_item(input: TokenStream) -> TokenStream {
+/// This derive macro is used with structures in the run-time library that are meant
+/// to be exposed to the language. The structure is introspected for properties and fields
+/// marked with the `rtti_field` attribute and generates run-time type information for use
+/// with the interpeter.
+/// In addition all `Property<T> foo` fields get a convenient getter function generated
+/// that works on a `Pin<&Self>` receiver.
+#[proc_macro_derive(SixtyFPSElement, attributes(rtti_field))]
+pub fn sixtyfps_element(input: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(input as syn::DeriveInput);
 
     let fields = match &input.data {
@@ -32,11 +38,23 @@ pub fn builtin_item(input: TokenStream) -> TokenStream {
         }
     };
 
-    let (prop_field_names, prop_field_types): (Vec<_>, Vec<_>) = fields
-        .iter()
-        .filter(|f| is_property(&f.ty) && matches!(f.vis, syn::Visibility::Public(_)))
-        .map(|f| (f.ident.as_ref().unwrap(), &f.ty))
-        .unzip();
+    let mut pub_prop_field_names = Vec::new();
+    let mut pub_prop_field_types = Vec::new();
+    let mut property_names = Vec::new();
+    let mut property_visibility = Vec::new();
+    let mut property_types = Vec::new();
+    for field in fields {
+        if let Some(property_type) = property_type(&field.ty) {
+            let name = field.ident.as_ref().unwrap();
+            if matches!(field.vis, syn::Visibility::Public(_)) {
+                pub_prop_field_names.push(name);
+                pub_prop_field_types.push(&field.ty);
+            }
+            property_names.push(name);
+            property_visibility.push(field.vis.clone());
+            property_types.push(property_type);
+        }
+    }
 
     let (plain_field_names, plain_field_types): (Vec<_>, Vec<_>) = fields
         .iter()
@@ -73,9 +91,9 @@ pub fn builtin_item(input: TokenStream) -> TokenStream {
             }
             fn properties<Value: ValueType>() -> Vec<(&'static str, &'static dyn PropertyInfo<Self, Value>)> {
                 vec![#( {
-                    const O : MaybeAnimatedPropertyInfoWrapper<#item_name, #prop_field_types> =
-                        MaybeAnimatedPropertyInfoWrapper(#item_name::FIELD_OFFSETS.#prop_field_names);
-                    (stringify!(#prop_field_names), (&O).as_property_info())
+                    const O : MaybeAnimatedPropertyInfoWrapper<#item_name, #pub_prop_field_types> =
+                        MaybeAnimatedPropertyInfoWrapper(#item_name::FIELD_OFFSETS.#pub_prop_field_names);
+                    (stringify!(#pub_prop_field_names), (&O).as_property_info())
                 } ),*]
             }
             fn fields<Value: ValueType>() -> Vec<(&'static str, &'static dyn FieldInfo<Self, Value>)> {
@@ -91,16 +109,20 @@ pub fn builtin_item(input: TokenStream) -> TokenStream {
                 ),*]
             }
         }
+
+        impl #item_name {
+            #(
+                #property_visibility fn #property_names(self: core::pin::Pin<&Self>) -> #property_types {
+                    Self::FIELD_OFFSETS.#property_names.apply_pin(self).get()
+                }
+            )*
+        }
     )
     .into()
 }
 
 fn type_name(ty: &syn::Type) -> String {
     quote!(#ty).to_string()
-}
-
-fn is_property(ty: &syn::Type) -> bool {
-    type_name(ty).starts_with("Property <")
 }
 
 // Try to match `Property<Foo>` on the syn tree and return Foo if found
@@ -151,49 +173,6 @@ pub fn keycode_mapping(input: TokenStream) -> TokenStream {
                     #(winit::event::VirtualKeyCode::#variants => Self::#variants),*
                 }
             }
-        }
-    )
-    .into()
-}
-
-#[proc_macro_derive(GeneratePropertyAccessors)]
-pub fn generate_property_accessors(input: TokenStream) -> TokenStream {
-    let input = syn::parse_macro_input!(input as syn::DeriveInput);
-
-    let fields = match &input.data {
-        syn::Data::Struct(syn::DataStruct { fields: f @ syn::Fields::Named(..), .. }) => f,
-        _ => {
-            return syn::Error::new(
-                input.ident.span(),
-                "Only `struct` with named field are supported",
-            )
-            .to_compile_error()
-            .into()
-        }
-    };
-
-    let (prop_field_names, prop_field_types): (Vec<_>, Vec<_>) = fields
-        .iter()
-        .filter_map(|field| {
-            property_type(&field.ty).and_then(|prop_type| {
-                if matches!(field.vis, syn::Visibility::Public(_)) {
-                    Some((field.ident.as_ref().unwrap(), prop_type))
-                } else {
-                    None
-                }
-            })
-        })
-        .unzip();
-
-    let item_name = &input.ident;
-
-    quote!(
-        impl #item_name {
-            #(
-                pub fn #prop_field_names(self: Pin<&Self>) -> #prop_field_types {
-                    Self::FIELD_OFFSETS.#prop_field_names.apply_pin(self).get()
-                }
-            )*
         }
     )
     .into()

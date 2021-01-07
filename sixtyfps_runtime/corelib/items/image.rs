@@ -50,7 +50,7 @@ impl Default for ImageFit {
 }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, BuiltinItem)]
+#[derive(FieldOffsets, Default, SixtyFPSElement)]
 #[pin]
 /// The implementation of the `Image` element
 pub struct Image {
@@ -108,7 +108,7 @@ impl ItemConsts for Image {
 }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, BuiltinItem)]
+#[derive(FieldOffsets, Default, SixtyFPSElement)]
 #[pin]
 /// The implementation of the `ClippedImage` element
 pub struct ClippedImage {

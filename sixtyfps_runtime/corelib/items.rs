@@ -136,7 +136,7 @@ impl ItemWeak {
 }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, BuiltinItem, GeneratePropertyAccessors)]
+#[derive(FieldOffsets, Default, SixtyFPSElement)]
 #[pin]
 /// The implementation of the `Rectangle` element
 pub struct Rectangle {
@@ -198,7 +198,7 @@ ItemVTable_static! {
 }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, BuiltinItem, GeneratePropertyAccessors)]
+#[derive(FieldOffsets, Default, SixtyFPSElement)]
 #[pin]
 /// The implementation of the `BorderRectangle` element
 pub struct BorderRectangle {
@@ -276,7 +276,7 @@ ItemVTable_static! {
 
 /// The implementation of the `TouchArea` element
 #[repr(C)]
-#[derive(FieldOffsets, Default, BuiltinItem)]
+#[derive(FieldOffsets, Default, SixtyFPSElement)]
 #[pin]
 pub struct TouchArea {
     pub x: Property<f32>,
@@ -373,7 +373,7 @@ ItemVTable_static! {
 }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, BuiltinItem)]
+#[derive(FieldOffsets, Default, SixtyFPSElement)]
 #[pin]
 /// The implementation of the `Clip` element
 pub struct Clip {
@@ -433,7 +433,7 @@ ItemVTable_static! {
 
 /// The implementation of the `Path` element
 #[repr(C)]
-#[derive(FieldOffsets, Default, BuiltinItem)]
+#[derive(FieldOffsets, Default, SixtyFPSElement)]
 #[pin]
 pub struct Path {
     pub x: Property<f32>,
@@ -496,7 +496,7 @@ ItemVTable_static! {
 
 /// The implementation of the `Flickable` element
 #[repr(C)]
-#[derive(FieldOffsets, Default, BuiltinItem)]
+#[derive(FieldOffsets, Default, SixtyFPSElement)]
 #[pin]
 pub struct Flickable {
     pub x: Property<f32>,
@@ -604,7 +604,7 @@ pub unsafe extern "C" fn sixtyfps_flickable_data_free(data: *mut FlickableDataBo
 
 /// The implementation of the `PropertyAnimation` element
 #[repr(C)]
-#[derive(FieldOffsets, Default, BuiltinItem, Clone, Debug)]
+#[derive(FieldOffsets, Default, SixtyFPSElement, Clone, Debug)]
 #[pin]
 pub struct PropertyAnimation {
     #[rtti_field]
@@ -617,7 +617,7 @@ pub struct PropertyAnimation {
 
 /// The implementation of the `Window` element
 #[repr(C)]
-#[derive(FieldOffsets, Default, BuiltinItem)]
+#[derive(FieldOffsets, Default, SixtyFPSElement)]
 #[pin]
 pub struct Window {
     pub width: Property<f32>,

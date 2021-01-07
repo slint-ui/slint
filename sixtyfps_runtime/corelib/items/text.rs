@@ -71,7 +71,7 @@ const DEFAULT_FONT_WEIGHT: i32 = 400;
 
 /// The implementation of the `Text` element
 #[repr(C)]
-#[derive(FieldOffsets, Default, BuiltinItem)]
+#[derive(FieldOffsets, Default, SixtyFPSElement)]
 #[pin]
 pub struct Text {
     pub text: Property<SharedString>,
@@ -139,14 +139,6 @@ impl ItemConsts for Text {
 }
 
 impl Text {
-    fn font_family(self: Pin<&Self>) -> SharedString {
-        Self::FIELD_OFFSETS.font_family.apply_pin(self).get()
-    }
-
-    fn font_weight(self: Pin<&Self>) -> i32 {
-        Self::FIELD_OFFSETS.font_weight.apply_pin(self).get()
-    }
-
     pub fn font_pixel_size(self: Pin<&Self>, scale_factor: f32) -> f32 {
         let font_size = Self::FIELD_OFFSETS.font_size.apply_pin(self).get();
         if font_size == 0.0 {
@@ -180,7 +172,7 @@ impl Text {
 
 /// The implementation of the `TextInput` element
 #[repr(C)]
-#[derive(FieldOffsets, Default, BuiltinItem)]
+#[derive(FieldOffsets, Default, SixtyFPSElement)]
 #[pin]
 pub struct TextInput {
     pub text: Property<SharedString>,
@@ -560,14 +552,6 @@ impl TextInput {
         if let Some(text) = CLIPBOARD.with(|clipboard| clipboard.borrow_mut().get_contents().ok()) {
             self.insert(&text);
         }
-    }
-
-    fn font_family(self: Pin<&Self>) -> SharedString {
-        Self::FIELD_OFFSETS.font_family.apply_pin(self).get()
-    }
-
-    fn font_weight(self: Pin<&Self>) -> i32 {
-        Self::FIELD_OFFSETS.font_weight.apply_pin(self).get()
     }
 
     fn font_pixel_size(self: Pin<&Self>, scale_factor: f32) -> f32 {

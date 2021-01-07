@@ -325,7 +325,7 @@ pub trait GraphicsBackend: Sized {
 }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, BuiltinItem, Clone, Debug, PartialEq)]
+#[derive(FieldOffsets, Default, SixtyFPSElement, Clone, Debug, PartialEq)]
 #[pin]
 /// PathLineTo describes the event of moving the cursor on the path to the specified location
 /// along a straight line.
@@ -339,7 +339,7 @@ pub struct PathLineTo {
 }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, BuiltinItem, Clone, Debug, PartialEq)]
+#[derive(FieldOffsets, Default, SixtyFPSElement, Clone, Debug, PartialEq)]
 #[pin]
 /// PathArcTo describes the event of moving the cursor on the path across an arc to the specified
 /// x/y coordinates, with the specified x/y radius and additional properties.

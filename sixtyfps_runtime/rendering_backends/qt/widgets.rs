@@ -127,7 +127,7 @@ cpp! {{
 }}
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, BuiltinItem)]
+#[derive(FieldOffsets, Default, SixtyFPSElement)]
 #[pin]
 pub struct NativeButton {
     pub x: Property<f32>,
@@ -248,7 +248,7 @@ impl ItemConsts for NativeButton {
 ItemVTable_static! { #[no_mangle] pub static NativeButtonVTable for NativeButton }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, BuiltinItem)]
+#[derive(FieldOffsets, Default, SixtyFPSElement)]
 #[pin]
 pub struct NativeCheckBox {
     pub x: Property<f32>,
@@ -364,7 +364,7 @@ struct NativeSpinBoxData {
 }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, BuiltinItem)]
+#[derive(FieldOffsets, Default, SixtyFPSElement)]
 #[pin]
 pub struct NativeSpinBox {
     pub x: Property<f32>,
@@ -574,7 +574,7 @@ struct NativeSliderData {
 }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, BuiltinItem)]
+#[derive(FieldOffsets, Default, SixtyFPSElement)]
 #[pin]
 pub struct NativeSlider {
     pub x: Property<f32>,
@@ -768,7 +768,7 @@ impl ItemConsts for NativeSlider {
 ItemVTable_static! { #[no_mangle] pub static NativeSliderVTable for NativeSlider }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, BuiltinItem)]
+#[derive(FieldOffsets, Default, SixtyFPSElement)]
 #[pin]
 pub struct NativeGroupBox {
     pub x: Property<f32>,
@@ -961,7 +961,7 @@ impl ItemConsts for NativeGroupBox {
 ItemVTable_static! { #[no_mangle] pub static NativeGroupBoxVTable for NativeGroupBox }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, BuiltinItem)]
+#[derive(FieldOffsets, Default, SixtyFPSElement)]
 #[pin]
 pub struct NativeLineEdit {
     pub x: Property<f32>,
@@ -1101,7 +1101,7 @@ impl ItemConsts for NativeLineEdit {
 ItemVTable_static! { #[no_mangle] pub static NativeLineEditVTable for NativeLineEdit }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, BuiltinItem)]
+#[derive(FieldOffsets, Default, SixtyFPSElement)]
 #[pin]
 pub struct NativeScrollView {
     pub x: Property<f32>,
@@ -1470,7 +1470,7 @@ impl ItemConsts for NativeScrollView {
 ItemVTable_static! { #[no_mangle] pub static NativeScrollViewVTable for NativeScrollView }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, BuiltinItem)]
+#[derive(FieldOffsets, Default, SixtyFPSElement)]
 #[pin]
 pub struct NativeStandardListViewItem {
     pub x: Property<f32>,
@@ -1585,7 +1585,7 @@ impl ItemConsts for NativeStandardListViewItem {
 ItemVTable_static! { #[no_mangle] pub static NativeStandardListViewItemVTable for NativeStandardListViewItem }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, BuiltinItem)]
+#[derive(FieldOffsets, Default, SixtyFPSElement)]
 #[pin]
 pub struct NativeComboBox {
     pub x: Property<f32>,
@@ -1717,7 +1717,7 @@ impl ItemConsts for NativeComboBox {
 ItemVTable_static! { #[no_mangle] pub static NativeComboBoxVTable for NativeComboBox }
 
 #[repr(C)]
-#[derive(FieldOffsets, BuiltinItem)]
+#[derive(FieldOffsets, SixtyFPSElement)]
 #[pin]
 pub struct NativeStyleMetrics {
     pub layout_spacing: Property<f32>,
