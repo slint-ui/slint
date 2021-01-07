@@ -58,6 +58,21 @@ impl Default for FontDatabase {
     }
 }
 
+thread_local! {
+    /// Database used to keep track of fonts added by the application
+    pub static APPLICATION_FONTS: RefCell<fontdb::Database> = RefCell::new(fontdb::Database::new())
+}
+
+/// This function can be used to register a custom TrueType font with SixtyFPS,
+/// for use with the `font-family` property. The provided slice must be a valid TrueType
+/// font.
+pub fn register_application_font_from_memory(
+    data: &'static [u8],
+) -> Result<(), Box<dyn std::error::Error>> {
+    APPLICATION_FONTS.with(|fontdb| fontdb.borrow_mut().load_font_data(data.into()));
+    Ok(())
+}
+
 fn try_load_app_font(canvas: &CanvasRc, request: &FontRequest) -> Option<GLFont> {
     let family = if request.family.is_empty() {
         fontdb::Family::SansSerif
@@ -69,7 +84,7 @@ fn try_load_app_font(canvas: &CanvasRc, request: &FontRequest) -> Option<GLFont>
         weight: fontdb::Weight(request.weight as u16),
         ..Default::default()
     };
-    sixtyfps_corelib::graphics::APPLICATION_FONTS.with(|font_db| {
+    APPLICATION_FONTS.with(|font_db| {
         let font_db = font_db.borrow();
         font_db.query(&query).and_then(|id| font_db.face_source(id)).map(|(source, _index)| {
             GLFont {

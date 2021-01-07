@@ -152,7 +152,6 @@ struct MyStruct {
 
 pub use sixtyfps_macros::sixtyfps;
 
-pub use sixtyfps_corelib::graphics::register_application_font_from_memory;
 pub use sixtyfps_corelib::model::{
     Model, ModelHandle, ModelNotify, ModelPeer, StandardListViewItem, VecModel,
 };
@@ -160,6 +159,7 @@ pub use sixtyfps_corelib::sharedvector::SharedVector;
 pub use sixtyfps_corelib::string::SharedString;
 pub use sixtyfps_corelib::timers::{Timer, TimerMode};
 pub use sixtyfps_corelib::{Color, RgbaColor};
+pub use sixtyfps_rendering_backend_default::register_application_font_from_memory;
 
 // FIXME: this should not be in this namespace
 // but the name is `sixtyfps::StateInfo` in builtin.60

@@ -45,7 +45,10 @@ pub fn create_window() -> ComponentWindow {
     default_backend::create_window()
 }
 
-pub use default_backend::{native_widgets, NativeGlobals, NativeWidgets, HAS_NATIVE_STYLE};
+pub use default_backend::{
+    native_widgets, register_application_font_from_memory, NativeGlobals, NativeWidgets,
+    HAS_NATIVE_STYLE,
+};
 
 #[doc(hidden)]
 #[cold]

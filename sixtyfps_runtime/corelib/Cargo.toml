@@ -43,7 +43,6 @@ auto_enums = "0.7"
 stretch = "0.3.2"
 weak-table =  "0.3"
 femtovg = { git = "https://github.com/femtovg/femtovg", branch = "master", optional = true }
-fontdb = "0.5.1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 instant = { version = "0.1", features = [ "wasm-bindgen", "now" ] }
