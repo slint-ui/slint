@@ -534,8 +534,7 @@ impl ItemRenderer for GLItemRenderer {
     fn draw_text(&mut self, pos: Point, text: std::pin::Pin<&sixtyfps_corelib::items::Text>) {
         use sixtyfps_corelib::items::{TextHorizontalAlignment, TextVerticalAlignment};
 
-        let font_request = FontRequest { family: text.font_family(), weight: text.font_weight() };
-        let font = self.loaded_fonts.borrow_mut().font(&self.canvas, font_request);
+        let font = self.loaded_fonts.borrow_mut().font(&self.canvas, text.font_request());
 
         let mut paint = femtovg::Paint::color(
             sixtyfps_corelib::items::Text::FIELD_OFFSETS.color.apply_pin(text).get().into(),

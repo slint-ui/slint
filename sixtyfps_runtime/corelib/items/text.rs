@@ -139,17 +139,12 @@ impl ItemConsts for Text {
 }
 
 impl Text {
-    pub fn font_family(self: Pin<&Self>) -> SharedString {
+    fn font_family(self: Pin<&Self>) -> SharedString {
         Self::FIELD_OFFSETS.font_family.apply_pin(self).get()
     }
 
-    pub fn font_weight(self: Pin<&Self>) -> i32 {
-        let weight = Self::FIELD_OFFSETS.font_weight.apply_pin(self).get();
-        if weight == 0 {
-            DEFAULT_FONT_WEIGHT
-        } else {
-            weight
-        }
+    fn font_weight(self: Pin<&Self>) -> i32 {
+        Self::FIELD_OFFSETS.font_weight.apply_pin(self).get()
     }
 
     pub fn font_pixel_size(self: Pin<&Self>, scale_factor: f32) -> f32 {
@@ -161,17 +156,25 @@ impl Text {
         }
     }
 
+    pub fn font_request(self: Pin<&Self>) -> crate::graphics::FontRequest {
+        crate::graphics::FontRequest {
+            family: self.font_family(),
+            weight: {
+                let weight = self.font_weight();
+                if weight == 0 {
+                    DEFAULT_FONT_WEIGHT
+                } else {
+                    weight
+                }
+            },
+        }
+    }
+
     pub fn font(self: Pin<&Self>, window: &ComponentWindow) -> Option<crate::graphics::ScaledFont> {
-        window
-            .0
-            .font(crate::graphics::FontRequest {
-                family: self.font_family(),
-                weight: self.font_weight(),
-            })
-            .map(|font| crate::graphics::ScaledFont {
-                font,
-                pixel_size: self.font_pixel_size(window.scale_factor()),
-            })
+        window.0.font(self.font_request()).map(|font| crate::graphics::ScaledFont {
+            font,
+            pixel_size: self.font_pixel_size(window.scale_factor()),
+        })
     }
 }
 
@@ -564,12 +567,7 @@ impl TextInput {
     }
 
     fn font_weight(self: Pin<&Self>) -> i32 {
-        let weight = Self::FIELD_OFFSETS.font_weight.apply_pin(self).get();
-        if weight == 0 {
-            DEFAULT_FONT_WEIGHT
-        } else {
-            weight
-        }
+        Self::FIELD_OFFSETS.font_weight.apply_pin(self).get()
     }
 
     fn font_pixel_size(self: Pin<&Self>, scale_factor: f32) -> f32 {
@@ -581,17 +579,25 @@ impl TextInput {
         }
     }
 
+    pub fn font_request(self: Pin<&Self>) -> crate::graphics::FontRequest {
+        crate::graphics::FontRequest {
+            family: self.font_family(),
+            weight: {
+                let weight = self.font_weight();
+                if weight == 0 {
+                    DEFAULT_FONT_WEIGHT
+                } else {
+                    weight
+                }
+            },
+        }
+    }
+
     pub fn font(self: Pin<&Self>, window: &ComponentWindow) -> Option<crate::graphics::ScaledFont> {
-        window
-            .0
-            .font(crate::graphics::FontRequest {
-                family: self.font_family(),
-                weight: self.font_weight(),
-            })
-            .map(|font| crate::graphics::ScaledFont {
-                font,
-                pixel_size: self.font_pixel_size(window.scale_factor()),
-            })
+        window.0.font(self.font_request()).map(|font| crate::graphics::ScaledFont {
+            font,
+            pixel_size: self.font_pixel_size(window.scale_factor()),
+        })
     }
 }
 
