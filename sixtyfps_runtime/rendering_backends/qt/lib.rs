@@ -91,3 +91,13 @@ pub fn create_window() -> ComponentWindow {
     #[cfg(not(no_qt))]
     ComponentWindow::new(qt_window::QtWindow::new())
 }
+
+/// This function can be used to register a custom TrueType font with SixtyFPS,
+/// for use with the `font-family` property. The provided slice must be a valid TrueType
+/// font.
+pub fn register_application_font_from_memory(
+    _data: &'static [u8],
+) -> Result<(), Box<dyn std::error::Error>> {
+    // TODO
+    Ok(())
+}
