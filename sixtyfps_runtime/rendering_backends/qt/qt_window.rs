@@ -9,7 +9,7 @@
 LICENSE END */
 
 use cpp::*;
-use items::ImageFit;
+use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
 use sixtyfps_corelib::component::{ComponentRc, ComponentWeak};
 use sixtyfps_corelib::graphics::{GraphicsBackend, Point};
 use sixtyfps_corelib::input::{MouseEventType, MouseInputState};
@@ -150,15 +150,39 @@ impl ItemRenderer for QPainter {
     }
 
     fn draw_text(&mut self, pos: Point, text: std::pin::Pin<&items::Text>) {
-        let pos1 = qttypes::QPoint { x: pos.x as _, y: pos.y as _ };
-        let pos2: qttypes::QPoint = get_pos!(items::Text, text);
-        let color: u32 = items::Text::FIELD_OFFSETS.color.apply_pin(text).get().as_argb_encoded();
-        let string: qttypes::QString =
-            items::Text::FIELD_OFFSETS.text.apply_pin(text).get().as_str().into();
-        cpp! { unsafe [self as "QPainter*", pos1 as "QPoint", pos2 as "QPoint", color as "QRgb", string as "QString"] {
+        let rect: qttypes::QRectF = get_geometry!(pos, items::Text, text);
+        let color: u32 = text.color().as_argb_encoded();
+        let string: qttypes::QString = text.text().as_str().into();
+        let pixel_size: f32 = text.font_pixel_size(self.scale_factor());
+
+        let flags = match text.horizontal_alignment() {
+            TextHorizontalAlignment::align_left => {
+                cpp!(unsafe [] -> i32 as "int" { return Qt::AlignLeft; })
+            }
+            TextHorizontalAlignment::align_center => {
+                cpp!(unsafe [] -> i32 as "int" { return Qt::AlignHCenter; })
+            }
+            TextHorizontalAlignment::align_right => {
+                cpp!(unsafe [] -> i32 as "int" { return Qt::AlignRight; })
+            }
+        } | match text.vertical_alignment() {
+            TextVerticalAlignment::align_top => {
+                cpp!(unsafe [] -> i32 as "int" { return Qt::AlignTop; })
+            }
+            TextVerticalAlignment::align_center => {
+                cpp!(unsafe [] -> i32 as "int" { return Qt::AlignVCenter; })
+            }
+            TextVerticalAlignment::align_bottom => {
+                cpp!(unsafe [] -> i32 as "int" { return Qt::AlignBottom; })
+            }
+        };
+        cpp! { unsafe [self as "QPainter*", rect as "QRectF", color as "QRgb", string as "QString", flags as "int", pixel_size as "float"] {
+            QFont f;
+            f.setPixelSize(pixel_size);
+            self->setFont(f);
             self->setPen(QColor{color});
             self->setBrush(Qt::NoBrush);
-            self->drawText(pos1 + pos2, string);
+            self->drawText(rect, flags, string);
         }}
     }
 
@@ -513,8 +537,7 @@ impl GenericWindow for QtWindow {
         &self,
         request: sixtyfps_corelib::graphics::FontRequest,
     ) -> Option<Rc<dyn sixtyfps_corelib::graphics::Font>> {
-        // FIXME
-        None
+        Some(Rc::new(QtFont))
     }
 }
 
@@ -546,5 +569,31 @@ impl GraphicsBackend for QtBackend {
 
     fn window(&self) -> &winit::window::Window {
         todo!()
+    }
+}
+
+/// FIXME: this could wrap a QFont (or QFontMetrics?)
+struct QtFont;
+
+impl sixtyfps_corelib::graphics::Font for QtFont {
+    fn text_width(&self, pixel_size: f32, text: &str) -> f32 {
+        let string = qttypes::QString::from(text);
+        cpp! { unsafe [string as "QString", pixel_size as "float"] -> f32 as "float"{
+            QFont f;
+            f.setPixelSize(pixel_size);
+            return QFontMetricsF(f).boundingRect(string).width();
+        }}
+    }
+
+    fn text_offset_for_x_position<'a>(&self, pixel_size: f32, text: &'a str, x: f32) -> usize {
+        todo!()
+    }
+
+    fn height(&self, pixel_size: f32) -> f32 {
+        cpp! { unsafe [pixel_size as "float"] -> f32 as "float"{
+            QFont f;
+            f.setPixelSize(pixel_size);
+            return QFontMetricsF(f).height();
+        }}
     }
 }
