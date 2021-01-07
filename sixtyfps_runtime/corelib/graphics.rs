@@ -28,7 +28,7 @@ use crate::{Callback, SharedString};
 use auto_enums::auto_enum;
 use const_field_offset::FieldOffsets;
 use sixtyfps_corelib_macros::*;
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
 /// 2D Rectangle
 pub type Rect = euclid::default::Rect<f32>;
@@ -688,22 +688,17 @@ pub(crate) mod ffi {
     }
 }
 
+thread_local! {
+    /// Database used to keep track of fonts added by the application
+    pub static APPLICATION_FONTS: RefCell<fontdb::Database> = RefCell::new(fontdb::Database::new())
+}
+
 /// This function can be used to register a custom TrueType font with SixtyFPS,
 /// for use with the `font-family` property. The provided slice must be a valid TrueType
 /// font.
 pub fn register_application_font_from_memory(
     data: &'static [u8],
 ) -> Result<(), Box<dyn std::error::Error>> {
-    /*
-    let platform_font = PlatformFont::new_from_slice(data).map_err(Box::new)?;
-
-    FONT_CACHE.with(|fc| {
-        fc.application_fonts
-            .borrow_mut()
-            .insert(platform_font.family_name(), FontMatch::new(platform_font))
-    });
-
+    APPLICATION_FONTS.with(|fontdb| fontdb.borrow_mut().load_font_data(data.into()));
     Ok(())
-    */
-    todo!()
 }

@@ -58,35 +58,71 @@ impl Default for FontDatabase {
     }
 }
 
+fn try_load_app_font(canvas: &CanvasRc, request: &FontRequest) -> Option<GLFont> {
+    let family = if request.family.is_empty() {
+        fontdb::Family::SansSerif
+    } else {
+        fontdb::Family::Name(&request.family)
+    };
+    let query = fontdb::Query {
+        families: &[family],
+        weight: fontdb::Weight(request.weight as u16),
+        ..Default::default()
+    };
+    sixtyfps_corelib::graphics::APPLICATION_FONTS.with(|font_db| {
+        let font_db = font_db.borrow();
+        font_db.query(&query).and_then(|id| font_db.face_source(id)).map(|(source, _index)| {
+            GLFont {
+                // pass index to femtovg once femtovg/femtovg/pull/21 is merged
+                font_id: match source.as_ref() {
+                    fontdb::Source::Binary(data) => {
+                        canvas.borrow_mut().add_font_mem(&data).unwrap()
+                    }
+                    fontdb::Source::File(path) => canvas.borrow_mut().add_font(path).unwrap(),
+                },
+                canvas: canvas.clone(),
+            }
+        })
+    })
+}
+
+fn load_system_font(canvas: &CanvasRc, request: &FontRequest) -> GLFont {
+    let family_name = if request.family.len() == 0 {
+        font_kit::family_name::FamilyName::SansSerif
+    } else {
+        font_kit::family_name::FamilyName::Title(request.family.to_string())
+    };
+
+    let handle = font_kit::source::SystemSource::new()
+        .select_best_match(
+            &[family_name, font_kit::family_name::FamilyName::SansSerif],
+            &font_kit::properties::Properties::new()
+                .weight(font_kit::properties::Weight(request.weight as f32)),
+        )
+        .unwrap();
+
+    // pass index to femtovg once femtovg/femtovg/pull/21 is merged
+    let canvas_font = match handle {
+        font_kit::handle::Handle::Path { path, font_index: _ } => {
+            canvas.borrow_mut().add_font(path)
+        }
+        font_kit::handle::Handle::Memory { bytes, font_index: _ } => {
+            canvas.borrow_mut().add_font_mem(bytes.as_slice())
+        }
+    }
+    .unwrap();
+    GLFont { font_id: canvas_font, canvas: canvas.clone() }
+}
+
 impl FontDatabase {
     fn font(&mut self, canvas: &CanvasRc, request: FontRequest) -> Rc<GLFont> {
         self.0
             .entry(FontCacheKey::new(&request))
             .or_insert_with(|| {
-                let family_name = if request.family.len() == 0 {
-                    font_kit::family_name::FamilyName::SansSerif
-                } else {
-                    font_kit::family_name::FamilyName::Title(request.family.to_string())
-                };
-
-                let handle = font_kit::source::SystemSource::new()
-                    .select_best_match(
-                        &[family_name, font_kit::family_name::FamilyName::SansSerif],
-                        &font_kit::properties::Properties::new()
-                            .weight(font_kit::properties::Weight(request.weight as f32)),
-                    )
-                    .unwrap();
-
-                let canvas_font = match handle {
-                    font_kit::handle::Handle::Path { path, font_index } => {
-                        canvas.borrow_mut().add_font(path)
-                    }
-                    font_kit::handle::Handle::Memory { bytes, font_index } => {
-                        canvas.borrow_mut().add_font_mem(bytes.as_slice())
-                    }
-                }
-                .unwrap();
-                Rc::new(GLFont { font_id: canvas_font, canvas: canvas.clone() })
+                Rc::new(
+                    try_load_app_font(canvas, &request)
+                        .unwrap_or_else(|| load_system_font(canvas, &request)),
+                )
             })
             .clone()
     }

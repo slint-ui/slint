@@ -34,6 +34,7 @@ by_address = "1.0.4"
 femtovg = { git = "https://github.com/femtovg/femtovg", branch = "master" }
 euclid = "0.22.1"
 pin-weak = "1"
+fontdb = "0.5.1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web_sys = { version = "0.3", package = "web-sys", features=["console", "WebGlContextAttributes"] }
