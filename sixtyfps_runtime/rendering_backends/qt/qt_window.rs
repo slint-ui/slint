@@ -11,13 +11,15 @@ LICENSE END */
 use cpp::*;
 use sixtyfps_corelib::component::{ComponentRc, ComponentWeak};
 use sixtyfps_corelib::graphics::{GraphicsBackend, Point};
+use sixtyfps_corelib::input::{MouseEventType, MouseInputState};
 use sixtyfps_corelib::item_rendering::ItemRenderer;
 use sixtyfps_corelib::items::{self, ItemRef};
 use sixtyfps_corelib::properties::PropertyTracker;
-use sixtyfps_corelib::window::GenericWindow;
+use sixtyfps_corelib::window::{ComponentWindow, GenericWindow};
+use std::cell::{Cell, RefCell};
 use std::pin::Pin;
 use std::ptr::NonNull;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 use super::qttypes;
 
@@ -43,6 +45,25 @@ cpp! {{
             QSize size = event->size();
             rust!(SFPS_resizeEvent [rust_window: &QtWindow as "void*", size: qttypes::QSize as "QSize"] {
                 rust_window.resize_event(size)
+            });
+        }
+
+        void mousePressEvent(QMouseEvent *event) override {
+            QPoint pos = event->pos();
+            rust!(SFPS_mousePressEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint"] {
+                rust_window.mouse_event(MouseEventType::MousePressed, pos)
+            });
+        }
+        void mouseReleaseEvent(QMouseEvent *event) override {
+            QPoint pos = event->pos();
+            rust!(SFPS_mouseReleaseEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint"] {
+                rust_window.mouse_event(MouseEventType::MouseReleased, pos)
+            });
+        }
+        void mouseMoveEvent(QMouseEvent *event) override {
+            QPoint pos = event->pos();
+            rust!(SFPS_mouseMoveEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint"] {
+                rust_window.mouse_event(MouseEventType::MouseMoved, pos)
             });
         }
 
@@ -202,9 +223,13 @@ cpp_class!(unsafe struct QWidgetPtr as "std::unique_ptr<QWidget>");
 
 pub struct QtWindow {
     widget_ptr: QWidgetPtr,
-    component: std::cell::RefCell<ComponentWeak>,
+    component: RefCell<ComponentWeak>,
     /// Gets dirty when the layout restrictions, or some other property of the windows change
     meta_property_listener: Pin<Rc<PropertyTracker>>,
+    /// Gets dirty if something needs to be painted
+    redraw_listener: Pin<Rc<PropertyTracker>>,
+    mouse_input_state: Cell<MouseInputState>,
+    self_weak: once_cell::unsync::OnceCell<Weak<QtWindow>>,
 }
 
 impl QtWindow {
@@ -217,7 +242,11 @@ impl QtWindow {
             widget_ptr,
             component: Default::default(),
             meta_property_listener: Rc::pin(Default::default()),
+            redraw_listener: Rc::pin(Default::default()),
+            mouse_input_state: Default::default(),
+            self_weak: Default::default(),
         });
+        rc.self_weak.set(Rc::downgrade(&rc)).ok().unwrap();
         let widget_ptr = rc.widget_ptr();
         let rust_window = Rc::as_ptr(&rc);
         cpp! {unsafe [widget_ptr as "SixtyFPSWidget*", rust_window as "void*"]  {
@@ -250,11 +279,13 @@ impl QtWindow {
             })
         }
 
-        sixtyfps_corelib::item_rendering::render_component_items::<QtBackend>(
-            &component_rc,
-            painter,
-            Point::default(),
-        );
+        self.redraw_listener.as_ref().evaluate(|| {
+            sixtyfps_corelib::item_rendering::render_component_items::<QtBackend>(
+                &component_rc,
+                painter,
+                Point::default(),
+            );
+        });
     }
 
     fn resize_event(&self, size: qttypes::QSize) {
@@ -265,6 +296,20 @@ impl QtWindow {
             window_item.width.set(size.width as _);
             window_item.height.set(size.height as _);
         }
+    }
+
+    /// ### Candidate to be moved in corelib as this kind of duplicate GraphicsWindow::process_mouse_input
+    fn mouse_event(&self, what: MouseEventType, pos: qttypes::QPoint) {
+        sixtyfps_corelib::animations::update_animations();
+        let component = self.component.borrow().upgrade().unwrap();
+        let pos = Point::new(pos.x as _, pos.y as _);
+        self.mouse_input_state.set(sixtyfps_corelib::input::process_mouse_input(
+            component,
+            sixtyfps_corelib::input::MouseEvent { pos, what },
+            &ComponentWindow::new(self.self_weak.get().unwrap().upgrade().unwrap()),
+            self.mouse_input_state.take(),
+        ));
+        self.request_redraw();
     }
 
     /// Set the min/max sizes on the QWidget
@@ -326,7 +371,12 @@ impl GenericWindow for QtWindow {
     }
 
     fn request_redraw(&self) {
-        todo!()
+        if self.redraw_listener.is_dirty() {
+            let widget_ptr = self.widget_ptr();
+            cpp! {unsafe [widget_ptr as "QWidget*"] {
+                return widget_ptr->update();
+            }}
+        }
     }
 
     fn scale_factor(&self) -> f32 {
