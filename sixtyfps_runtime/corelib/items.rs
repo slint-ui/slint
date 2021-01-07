@@ -425,9 +425,8 @@ ItemVTable_static! {
 #[repr(C)]
 #[derive(FieldOffsets, Default, BuiltinItem)]
 #[pin]
-/// The implementation of the `Rectangle` element
+/// The implementation of the `Clip` element
 pub struct Clip {
-    pub color: Property<Color>,
     pub x: Property<f32>,
     pub y: Property<f32>,
     pub width: Property<f32>,
