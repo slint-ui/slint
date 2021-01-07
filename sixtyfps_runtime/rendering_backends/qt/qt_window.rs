@@ -77,16 +77,29 @@ macro_rules! get_pos {
 impl ItemRenderer for QPainter {
     fn draw_rectangle(&mut self, pos: Point, rect: Pin<&items::Rectangle>) {
         let pos = qttypes::QPoint { x: pos.x as _, y: pos.y as _ };
-        let color: u32 =
-            items::Rectangle::FIELD_OFFSETS.color.apply_pin(rect).get().as_argb_encoded();
+        let color: u32 = rect.color().as_argb_encoded();
         let rect: qttypes::QRectF = get_geometry!(items::Rectangle, rect);
         cpp! { unsafe [self as "QPainter*", pos as "QPoint", color as "QRgb", rect as "QRectF"] {
-            self->fillRect(rect.translated(pos), color);
+            self->fillRect(rect.translated(pos), QColor::fromRgba(color));
         }}
     }
 
     fn draw_border_rectangle(&mut self, pos: Point, rect: std::pin::Pin<&items::BorderRectangle>) {
-        todo!()
+        let pos = qttypes::QPoint { x: pos.x as _, y: pos.y as _ };
+        let color: u32 = rect.color().as_argb_encoded();
+        let border_color: u32 = rect.border_color().as_argb_encoded();
+        let border_width: f32 = rect.border_width();
+        let radius: f32 = rect.border_radius();
+        let rect: qttypes::QRectF = get_geometry!(items::BorderRectangle, rect);
+        cpp! { unsafe [self as "QPainter*", pos as "QPoint", color as "QRgb",  border_color as "QRgb", border_width as "float", radius as "float", rect as "QRectF"] {
+            self->setPen(border_width > 0 ? QPen(QColor::fromRgba(border_color), border_width) : Qt::NoPen);
+            self->setBrush(QColor::fromRgba(color));
+            if (radius > 0) {
+                self->drawRoundedRect(rect.translated(pos), radius, radius);
+            } else {
+                self->drawRect(rect.translated(pos));
+            }
+        }}
     }
 
     fn draw_image(&mut self, pos: Point, image: std::pin::Pin<&items::Image>) {
@@ -105,6 +118,7 @@ impl ItemRenderer for QPainter {
             items::Text::FIELD_OFFSETS.text.apply_pin(text).get().as_str().into();
         cpp! { unsafe [self as "QPainter*", pos1 as "QPoint", pos2 as "QPoint", color as "QRgb", string as "QString"] {
             self->setPen(QColor{color});
+            self->setBrush(Qt::NoBrush);
             self->drawText(pos1 + pos2, string);
         }}
     }
@@ -118,6 +132,7 @@ impl ItemRenderer for QPainter {
             items::TextInput::FIELD_OFFSETS.text.apply_pin(text_input).get().as_str().into();
         cpp! { unsafe [self as "QPainter*", pos1 as "QPoint", pos2 as "QPoint", color as "QRgb", string as "QString"] {
             self->setPen(QColor{color});
+            self->setBrush(Qt::NoBrush);
             self->drawText(pos1 + pos2, string);
         }}
     }
