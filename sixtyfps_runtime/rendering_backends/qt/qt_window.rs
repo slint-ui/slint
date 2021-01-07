@@ -9,13 +9,17 @@
 LICENSE END */
 
 use cpp::*;
+use items::ImageFit;
 use sixtyfps_corelib::component::{ComponentRc, ComponentWeak};
 use sixtyfps_corelib::graphics::{GraphicsBackend, Point};
 use sixtyfps_corelib::input::{MouseEventType, MouseInputState};
 use sixtyfps_corelib::item_rendering::ItemRenderer;
+use sixtyfps_corelib::items::Item;
 use sixtyfps_corelib::items::{self, ItemRef};
 use sixtyfps_corelib::properties::PropertyTracker;
 use sixtyfps_corelib::window::{ComponentWindow, GenericWindow};
+use sixtyfps_corelib::Resource;
+
 use std::cell::{Cell, RefCell};
 use std::pin::Pin;
 use std::ptr::NonNull;
@@ -72,8 +76,10 @@ cpp! {{
 
 cpp_class! {pub unsafe struct QPainter as "QPainter"}
 
+/// Given a position offset and an object of a given type that has x,y,width,height properties,
+/// create a QRectF that fits it.
 macro_rules! get_geometry {
-    ($ty:ty, $obj:expr) => {{
+    ($pos:expr, $ty:ty, $obj:expr) => {{
         type Ty = $ty;
         let width = Ty::FIELD_OFFSETS.width.apply_pin($obj).get();
         let height = Ty::FIELD_OFFSETS.height.apply_pin($obj).get();
@@ -82,7 +88,12 @@ macro_rules! get_geometry {
         if width < 1. || height < 1. {
             return Default::default();
         };
-        qttypes::QRectF { x: x as _, y: y as _, width: width as _, height: height as _ }
+        qttypes::QRectF {
+            x: (x + $pos.x as f32) as _,
+            y: (y + $pos.y as f32) as _,
+            width: width as _,
+            height: height as _,
+        }
     }};
 }
 
@@ -99,36 +110,43 @@ impl ItemRenderer for QPainter {
     fn draw_rectangle(&mut self, pos: Point, rect: Pin<&items::Rectangle>) {
         let pos = qttypes::QPoint { x: pos.x as _, y: pos.y as _ };
         let color: u32 = rect.color().as_argb_encoded();
-        let rect: qttypes::QRectF = get_geometry!(items::Rectangle, rect);
-        cpp! { unsafe [self as "QPainter*", pos as "QPoint", color as "QRgb", rect as "QRectF"] {
-            self->fillRect(rect.translated(pos), QColor::fromRgba(color));
+        let rect: qttypes::QRectF = get_geometry!(pos, items::Rectangle, rect);
+        cpp! { unsafe [self as "QPainter*", color as "QRgb", rect as "QRectF"] {
+            self->fillRect(rect, QColor::fromRgba(color));
         }}
     }
 
     fn draw_border_rectangle(&mut self, pos: Point, rect: std::pin::Pin<&items::BorderRectangle>) {
-        let pos = qttypes::QPoint { x: pos.x as _, y: pos.y as _ };
         let color: u32 = rect.color().as_argb_encoded();
         let border_color: u32 = rect.border_color().as_argb_encoded();
         let border_width: f32 = rect.border_width();
         let radius: f32 = rect.border_radius();
-        let rect: qttypes::QRectF = get_geometry!(items::BorderRectangle, rect);
-        cpp! { unsafe [self as "QPainter*", pos as "QPoint", color as "QRgb",  border_color as "QRgb", border_width as "float", radius as "float", rect as "QRectF"] {
+        let rect: qttypes::QRectF = get_geometry!(pos, items::BorderRectangle, rect);
+        cpp! { unsafe [self as "QPainter*", color as "QRgb",  border_color as "QRgb", border_width as "float", radius as "float", rect as "QRectF"] {
             self->setPen(border_width > 0 ? QPen(QColor::fromRgba(border_color), border_width) : Qt::NoPen);
             self->setBrush(QColor::fromRgba(color));
             if (radius > 0) {
-                self->drawRoundedRect(rect.translated(pos), radius, radius);
+                self->drawRoundedRect(rect, radius, radius);
             } else {
-                self->drawRect(rect.translated(pos));
+                self->drawRect(rect);
             }
         }}
     }
 
-    fn draw_image(&mut self, pos: Point, image: std::pin::Pin<&items::Image>) {
-        todo!()
+    fn draw_image(&mut self, pos: Point, image: Pin<&items::Image>) {
+        let dest_rect: qttypes::QRectF = get_geometry!(pos, items::Image, image);
+        self.draw_image_impl(image.source(), dest_rect, None, image.image_fit());
     }
 
-    fn draw_clipped_image(&mut self, pos: Point, image: std::pin::Pin<&items::ClippedImage>) {
-        todo!()
+    fn draw_clipped_image(&mut self, pos: Point, image: Pin<&items::ClippedImage>) {
+        let dest_rect: qttypes::QRectF = get_geometry!(pos, items::ClippedImage, image);
+        let source_rect = qttypes::QRectF {
+            x: image.source_clip_x() as _,
+            y: image.source_clip_y() as _,
+            width: image.source_clip_width() as _,
+            height: image.source_clip_height() as _,
+        };
+        self.draw_image_impl(image.source(), dest_rect, Some(source_rect), image.image_fit());
     }
 
     fn draw_text(&mut self, pos: Point, text: std::pin::Pin<&items::Text>) {
@@ -163,7 +181,8 @@ impl ItemRenderer for QPainter {
     }
 
     fn combine_clip(&mut self, pos: Point, clip: &std::pin::Pin<&items::Clip>) {
-        todo!()
+        let clip_rect = clip.geometry().translate([pos.x, pos.y].into());
+        self.reset_clip([clip_rect].iter().cloned().collect());
     }
 
     fn clip_rects(&self) -> sixtyfps_corelib::SharedVector<sixtyfps_corelib::graphics::Rect> {
@@ -216,6 +235,53 @@ impl ItemRenderer for QPainter {
                 self->drawImage(pos, img);
             }}
         })
+    }
+}
+
+impl QPainter {
+    fn draw_image_impl(
+        &mut self,
+        resource: Resource,
+        dest_rect: qttypes::QRectF,
+        source_rect: Option<qttypes::QRectF>,
+        image_fit: ImageFit,
+    ) {
+        // FIXME: the loaded png image could be cached.
+        let (is_path, data) = match resource {
+            Resource::None => return,
+            Resource::AbsoluteFilePath(path) => (true, qttypes::QByteArray::from(path.as_str())),
+            Resource::EmbeddedData(data) => (false, qttypes::QByteArray::from(data.as_slice())),
+            Resource::EmbeddedRgbaImage { .. } => todo!(),
+        };
+        let img = cpp! { unsafe [data as "QByteArray", is_path as "bool"] -> qttypes::QImage as "QImage" {
+            QImage img;
+            is_path ? img.load(QString::fromUtf8(data)) : img.loadFromData(data);
+            return img;
+        }};
+        let mut source_rect = source_rect.unwrap_or_else(|| {
+            let s = img.size();
+            qttypes::QRectF { x: 0., y: 0., width: s.width as _, height: s.height as _ }
+        });
+        match image_fit {
+            sixtyfps_corelib::items::ImageFit::fill => (),
+            sixtyfps_corelib::items::ImageFit::contain => {
+                let ratio = qttypes::qreal::max(
+                    dest_rect.width / source_rect.width,
+                    dest_rect.height / source_rect.height,
+                );
+                if source_rect.width > dest_rect.width / ratio {
+                    source_rect.x += (source_rect.width - dest_rect.width / ratio) / 2.;
+                    source_rect.width = dest_rect.width / ratio;
+                }
+                if source_rect.height > dest_rect.height / ratio {
+                    source_rect.y += (source_rect.height - dest_rect.height / ratio) / 2.;
+                    source_rect.height = dest_rect.height / ratio;
+                }
+            }
+        };
+        cpp! { unsafe [self as "QPainter*", img as "QImage", source_rect as "QRectF", dest_rect as "QRectF"] {
+            self->drawImage(dest_rect, img, source_rect);
+        }};
     }
 }
 
