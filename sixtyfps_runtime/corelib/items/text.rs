@@ -93,16 +93,11 @@ impl Item for Text {
 
     // FIXME: width / height.  or maybe it doesn't matter?  (
     fn geometry(self: Pin<&Self>) -> Rect {
-        euclid::rect(
-            Self::FIELD_OFFSETS.x.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.y.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.width.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.height.apply_pin(self).get(),
-        )
+        euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
-        let text = Self::FIELD_OFFSETS.text.apply_pin(self).get();
+        let text = self.text();
 
         if let Some(font) = self.font(window) {
             let width = font.text_width(&text);
@@ -140,7 +135,7 @@ impl ItemConsts for Text {
 
 impl Text {
     pub fn font_pixel_size(self: Pin<&Self>, scale_factor: f32) -> f32 {
-        let font_size = Self::FIELD_OFFSETS.font_size.apply_pin(self).get();
+        let font_size = self.font_size();
         if font_size == 0.0 {
             DEFAULT_FONT_SIZE * scale_factor
         } else {
@@ -205,12 +200,7 @@ impl Item for TextInput {
 
     // FIXME: width / height.  or maybe it doesn't matter?  (
     fn geometry(self: Pin<&Self>) -> Rect {
-        euclid::rect(
-            Self::FIELD_OFFSETS.x.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.y.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.width.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.height.apply_pin(self).get(),
-        )
+        euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
@@ -235,11 +225,11 @@ impl Item for TextInput {
         window: &ComponentWindow,
         self_rc: &ItemRc,
     ) -> InputEventResult {
-        if !Self::FIELD_OFFSETS.enabled.apply_pin(self).get() {
+        if !self.enabled() {
             return InputEventResult::EventIgnored;
         }
 
-        let text = Self::FIELD_OFFSETS.text.apply_pin(self).get();
+        let text = self.text();
         let font = match self.font(window) {
             Some(font) => font,
             None => return InputEventResult::EventIgnored,
@@ -250,7 +240,7 @@ impl Item for TextInput {
             self.as_ref().pressed.set(true);
             self.as_ref().anchor_position.set(clicked_offset);
             self.as_ref().cursor_position.set(clicked_offset);
-            if !Self::FIELD_OFFSETS.has_focus.apply_pin(self).get() {
+            if !self.has_focus() {
                 window.set_focus_item(self_rc);
             }
         }
@@ -271,7 +261,7 @@ impl Item for TextInput {
     fn key_event(self: Pin<&Self>, event: &KeyEvent, window: &ComponentWindow) -> KeyEventResult {
         use std::convert::TryFrom;
 
-        if !Self::FIELD_OFFSETS.enabled.apply_pin(self).get() {
+        if !self.enabled() {
             return KeyEventResult::EventIgnored;
         }
 
@@ -279,10 +269,10 @@ impl Item for TextInput {
             KeyEvent::CharacterInput { unicode_scalar, .. } => {
                 self.delete_selection();
 
-                let mut text: String = Self::FIELD_OFFSETS.text.apply_pin(self).get().into();
+                let mut text: String = self.text().into();
 
                 // FIXME: respect grapheme boundaries
-                let insert_pos = Self::FIELD_OFFSETS.cursor_position.apply_pin(self).get() as usize;
+                let insert_pos = self.cursor_position() as usize;
                 let ch = char::try_from(*unicode_scalar).unwrap().to_string();
                 text.insert_str(insert_pos, &ch);
 
@@ -427,12 +417,12 @@ impl TextInput {
         anchor_mode: AnchorMode,
         window: &ComponentWindow,
     ) -> bool {
-        let text = Self::FIELD_OFFSETS.text.apply_pin(self).get();
+        let text = self.text();
         if text.len() == 0 {
             return false;
         }
 
-        let last_cursor_pos = Self::FIELD_OFFSETS.cursor_position.apply_pin(self).get() as usize;
+        let last_cursor_pos = self.cursor_position() as usize;
 
         let new_cursor_pos = match direction {
             TextCursorDirection::Forward => {
@@ -491,7 +481,7 @@ impl TextInput {
     }
 
     fn delete_selection(self: Pin<&Self>) {
-        let text: String = Self::FIELD_OFFSETS.text.apply_pin(self).get().into();
+        let text: String = self.text().into();
         if text.len() == 0 {
             return;
         }
@@ -509,8 +499,8 @@ impl TextInput {
     }
 
     fn selection_anchor_and_cursor(self: Pin<&Self>) -> (usize, usize) {
-        let cursor_pos = Self::FIELD_OFFSETS.cursor_position.apply_pin(self).get().max(0);
-        let anchor_pos = Self::FIELD_OFFSETS.anchor_position.apply_pin(self).get().max(0);
+        let cursor_pos = self.cursor_position().max(0);
+        let anchor_pos = self.anchor_position().max(0);
 
         if anchor_pos > cursor_pos {
             (cursor_pos as _, anchor_pos as _)
@@ -526,13 +516,13 @@ impl TextInput {
 
     fn selected_text(self: Pin<&Self>) -> String {
         let (anchor, cursor) = self.selection_anchor_and_cursor();
-        let text: String = Self::FIELD_OFFSETS.text.apply_pin(self).get().into();
+        let text: String = self.text().into();
         text.split_at(anchor).1.split_at(cursor - anchor).0.to_string()
     }
 
     fn insert(self: Pin<&Self>, text_to_insert: &str) {
         self.delete_selection();
-        let mut text: String = Self::FIELD_OFFSETS.text.apply_pin(self).get().into();
+        let mut text: String = self.text().into();
         let cursor_pos = self.selection_anchor_and_cursor().1;
         text.insert_str(cursor_pos, text_to_insert);
         let cursor_pos = cursor_pos + text_to_insert.len();
@@ -555,7 +545,7 @@ impl TextInput {
     }
 
     fn font_pixel_size(self: Pin<&Self>, scale_factor: f32) -> f32 {
-        let font_size = Self::FIELD_OFFSETS.font_size.apply_pin(self).get();
+        let font_size = self.font_size();
         if font_size == 0.0 {
             DEFAULT_FONT_SIZE * scale_factor
         } else {

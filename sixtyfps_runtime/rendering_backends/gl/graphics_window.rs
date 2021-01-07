@@ -108,13 +108,7 @@ impl<Backend: GraphicsBackend + 'static> GraphicsWindow<Backend> {
             GraphicsWindowBackendState::Unmapped => {}
             GraphicsWindowBackendState::Mapped(window) => {
                 let backend = window.backend.borrow();
-                backend.window().set_title(
-                    corelib::items::Window::FIELD_OFFSETS
-                        .title
-                        .apply_pin(window_item)
-                        .get()
-                        .as_str(),
-                );
+                backend.window().set_title(window_item.title().as_str());
             }
         }
     }
@@ -137,11 +131,12 @@ impl<Backend: GraphicsBackend + 'static> GraphicsWindow<Backend> {
         let component = ComponentRc::borrow_pin(&component);
         let root_item = component.as_ref().get_item_ref(0);
 
-        let window_title = if let Some(window_item) = ItemRef::downcast_pin(root_item) {
-            corelib::items::Window::FIELD_OFFSETS.title.apply_pin(window_item).get().to_string()
-        } else {
-            "SixtyFPS Window".to_string()
-        };
+        let window_title =
+            if let Some(window_item) = ItemRef::downcast_pin::<corelib::items::Window>(root_item) {
+                window_item.title().to_string()
+            } else {
+                "SixtyFPS Window".to_string()
+            };
         let window_builder = winit::window::WindowBuilder::new().with_title(window_title);
 
         let id = {
@@ -167,14 +162,14 @@ impl<Backend: GraphicsBackend + 'static> GraphicsWindow<Backend> {
 
                 let mut new_size = existing_size;
 
-                if let Some(window_item) = ItemRef::downcast_pin(root_item) {
-                    let width =
-                        corelib::items::Window::FIELD_OFFSETS.width.apply_pin(window_item).get();
+                if let Some(window_item) =
+                    ItemRef::downcast_pin::<corelib::items::Window>(root_item)
+                {
+                    let width = window_item.width();
                     if width > 0. {
                         new_size.width = width as _;
                     }
-                    let height =
-                        corelib::items::Window::FIELD_OFFSETS.height.apply_pin(window_item).get();
+                    let height = window_item.height();
                     if height > 0. {
                         new_size.height = height as _;
                     }
@@ -295,11 +290,12 @@ impl<Backend: GraphicsBackend> GenericWindow for GraphicsWindow<Backend> {
         let map_state = self.map_state.borrow();
         let window = map_state.as_mapped();
         let root_item = component.as_ref().get_item_ref(0);
-        let background_color = if let Some(window_item) = ItemRef::downcast_pin(root_item) {
-            corelib::items::Window::FIELD_OFFSETS.color.apply_pin(window_item).get()
-        } else {
-            RgbaColor { red: 255 as u8, green: 255, blue: 255, alpha: 255 }.into()
-        };
+        let background_color =
+            if let Some(window_item) = ItemRef::downcast_pin::<corelib::items::Window>(root_item) {
+                window_item.color()
+            } else {
+                RgbaColor { red: 255 as u8, green: 255, blue: 255, alpha: 255 }.into()
+            };
 
         let mut renderer = window.backend.borrow_mut().new_renderer(&background_color);
         corelib::item_rendering::render_component_items::<Backend>(

@@ -48,8 +48,8 @@ use crate::qttypes;
 /// and return Default::default in case the size is too small
 macro_rules! get_size {
     ($self:ident) => {{
-        let width = Self::FIELD_OFFSETS.width.apply_pin($self).get();
-        let height = Self::FIELD_OFFSETS.height.apply_pin($self).get();
+        let width = $self.width();
+        let height = $self.height();
         if width < 1. || height < 1. {
             return Default::default();
         };
@@ -60,8 +60,8 @@ macro_rules! get_size {
 macro_rules! fn_render {
     ($this:ident $dpr:ident $size:ident $img:ident => $($tt:tt)*) => {
         fn render(self: Pin<&Self>, pos: Point, backend: &mut &mut dyn ItemRenderer) {
-            let x = Self::FIELD_OFFSETS.x.apply_pin(self).get();
-            let y = Self::FIELD_OFFSETS.y.apply_pin(self).get();
+            let x = self.x();
+            let y = self.y();
             let $dpr: f32 = backend.scale_factor();
             backend.draw_cached_pixmap(
                 &self.cached_rendering_data,
@@ -145,16 +145,11 @@ impl Item for NativeButton {
     fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
-        euclid::rect(
-            Self::FIELD_OFFSETS.x.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.y.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.width.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.height.apply_pin(self).get(),
-        )
+        euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
-        let text: qttypes::QString = Self::FIELD_OFFSETS.text.apply_pin(self).get().as_str().into();
+        let text: qttypes::QString = self.text().as_str().into();
         let dpr = window.scale_factor();
         let size = cpp!(unsafe [
             text as "QString",
@@ -179,7 +174,7 @@ impl Item for NativeButton {
         _window: &ComponentWindow,
         _self_rc: &sixtyfps_corelib::items::ItemRc,
     ) -> InputEventResult {
-        let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
+        let enabled = self.enabled();
         if !enabled {
             return InputEventResult::EventIgnored;
         }
@@ -188,7 +183,7 @@ impl Item for NativeButton {
             MouseEventType::MousePressed => true,
             MouseEventType::MouseExit | MouseEventType::MouseReleased => false,
             MouseEventType::MouseMoved => {
-                return if Self::FIELD_OFFSETS.pressed.apply_pin(self).get() {
+                return if self.pressed() {
                     InputEventResult::GrabMouse
                 } else {
                     InputEventResult::EventIgnored
@@ -210,9 +205,9 @@ impl Item for NativeButton {
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
     fn_render! { this dpr size img =>
-        let down: bool = Self::FIELD_OFFSETS.pressed.apply_pin(this).get();
-        let text: qttypes::QString = Self::FIELD_OFFSETS.text.apply_pin(this).get().as_str().into();
-        let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(this).get();
+        let down: bool = this.pressed();
+        let text: qttypes::QString = this.text().as_str().into();
+        let enabled = this.enabled();
 
         cpp!(unsafe [
             img as "QImage*",
@@ -266,16 +261,11 @@ impl Item for NativeCheckBox {
     fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
-        euclid::rect(
-            Self::FIELD_OFFSETS.x.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.y.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.width.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.height.apply_pin(self).get(),
-        )
+        euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
-        let text: qttypes::QString = Self::FIELD_OFFSETS.text.apply_pin(self).get().as_str().into();
+        let text: qttypes::QString = self.text().as_str().into();
         let dpr = window.scale_factor();
         let size = cpp!(unsafe [
             text as "QString",
@@ -302,14 +292,11 @@ impl Item for NativeCheckBox {
         _window: &ComponentWindow,
         _self_rc: &sixtyfps_corelib::items::ItemRc,
     ) -> InputEventResult {
-        if !Self::FIELD_OFFSETS.enabled.apply_pin(self).get() {
+        if !self.enabled() {
             return InputEventResult::EventIgnored;
         }
         if matches!(event.what, MouseEventType::MouseReleased) {
-            Self::FIELD_OFFSETS
-                .checked
-                .apply_pin(self)
-                .set(!Self::FIELD_OFFSETS.checked.apply_pin(self).get());
+            Self::FIELD_OFFSETS.checked.apply_pin(self).set(!self.checked());
             Self::FIELD_OFFSETS.toggled.apply_pin(self).emit(&())
         }
         InputEventResult::EventAccepted
@@ -322,9 +309,9 @@ impl Item for NativeCheckBox {
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
     fn_render! { this dpr size img =>
-        let checked: bool = Self::FIELD_OFFSETS.checked.apply_pin(this).get();
-        let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(this).get();
-        let text: qttypes::QString = Self::FIELD_OFFSETS.text.apply_pin(this).get().as_str().into();
+        let checked: bool = this.checked();
+        let enabled = this.enabled();
+        let text: qttypes::QString = this.text().as_str().into();
 
         cpp!(unsafe [
             img as "QImage*",
@@ -408,20 +395,15 @@ impl Item for NativeSpinBox {
     fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
-        euclid::rect(
-            Self::FIELD_OFFSETS.x.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.y.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.width.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.height.apply_pin(self).get(),
-        )
+        euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
-        //let value: i32 = Self::FIELD_OFFSETS.value.apply_pin(self).get();
-        let data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
+        //let value: i32 = self.value();
+        let data = self.data();
         let active_controls = data.active_controls;
         let pressed = data.pressed;
-        let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
+        let enabled = self.enabled();
         let dpr = window.scale_factor();
 
         let size = cpp!(unsafe [
@@ -457,8 +439,8 @@ impl Item for NativeSpinBox {
         _self_rc: &sixtyfps_corelib::items::ItemRc,
     ) -> InputEventResult {
         let size: qttypes::QSize = get_size!(self);
-        let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
-        let mut data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
+        let enabled = self.enabled();
+        let mut data = self.data();
         let active_controls = data.active_controls;
         let pressed = data.pressed;
 
@@ -495,8 +477,8 @@ impl Item for NativeSpinBox {
                     if new_control == cpp!(unsafe []->u32 as "int" { return QStyle::SC_SpinBoxUp;})
                         && enabled
                     {
-                        let v = Self::FIELD_OFFSETS.value.apply_pin(self).get();
-                        if v < Self::FIELD_OFFSETS.maximum.apply_pin(self).get() {
+                        let v = self.value();
+                        if v < self.maximum() {
                             self.value.set(v + 1);
                         }
                     }
@@ -504,8 +486,8 @@ impl Item for NativeSpinBox {
                         == cpp!(unsafe []->u32 as "int" { return QStyle::SC_SpinBoxDown;})
                         && enabled
                     {
-                        let v = Self::FIELD_OFFSETS.value.apply_pin(self).get();
-                        if v > Self::FIELD_OFFSETS.minimum.apply_pin(self).get() {
+                        let v = self.value();
+                        if v > self.minimum() {
                             self.value.set(v - 1);
                         }
                     }
@@ -527,9 +509,9 @@ impl Item for NativeSpinBox {
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
     fn_render! { this dpr size img =>
-        let value: i32 = Self::FIELD_OFFSETS.value.apply_pin(this).get();
-        let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(this).get();
-        let data = Self::FIELD_OFFSETS.data.apply_pin(this).get();
+        let value: i32 = this.value();
+        let enabled = this.enabled();
+        let data = this.data();
         let active_controls = data.active_controls;
         let pressed = data.pressed;
 
@@ -614,20 +596,15 @@ impl Item for NativeSlider {
     fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
-        euclid::rect(
-            Self::FIELD_OFFSETS.x.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.y.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.width.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.height.apply_pin(self).get(),
-        )
+        euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
-        let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
-        let value = Self::FIELD_OFFSETS.value.apply_pin(self).get() as i32;
-        let min = Self::FIELD_OFFSETS.minimum.apply_pin(self).get() as i32;
-        let max = Self::FIELD_OFFSETS.maximum.apply_pin(self).get() as i32;
-        let data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
+        let enabled = self.enabled();
+        let value = self.value() as i32;
+        let min = self.minimum() as i32;
+        let max = self.maximum() as i32;
+        let data = self.data();
         let active_controls = data.active_controls;
         let pressed = data.pressed;
         let dpr = window.scale_factor();
@@ -664,11 +641,11 @@ impl Item for NativeSlider {
         _self_rc: &sixtyfps_corelib::items::ItemRc,
     ) -> InputEventResult {
         let size: qttypes::QSize = get_size!(self);
-        let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
-        let value = Self::FIELD_OFFSETS.value.apply_pin(self).get() as f32;
-        let min = Self::FIELD_OFFSETS.minimum.apply_pin(self).get() as f32;
-        let max = Self::FIELD_OFFSETS.maximum.apply_pin(self).get() as f32;
-        let mut data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
+        let enabled = self.enabled();
+        let value = self.value() as f32;
+        let min = self.minimum() as f32;
+        let max = self.maximum() as f32;
+        let mut data = self.data();
         let active_controls = data.active_controls;
         let pressed: bool = data.pressed != 0;
         let pos = qttypes::QPoint { x: event.pos.x as _, y: event.pos.y as _ };
@@ -731,11 +708,11 @@ impl Item for NativeSlider {
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
     fn_render! { this dpr size img =>
-        let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(this).get();
-        let value = Self::FIELD_OFFSETS.value.apply_pin(this).get() as i32;
-        let min = Self::FIELD_OFFSETS.minimum.apply_pin(this).get() as i32;
-        let max = Self::FIELD_OFFSETS.maximum.apply_pin(this).get() as i32;
-        let data = Self::FIELD_OFFSETS.data.apply_pin(this).get();
+        let enabled = this.enabled();
+        let value = this.value() as i32;
+        let min = this.minimum() as i32;
+        let max = this.maximum() as i32;
+        let data = this.data();
         let active_controls = data.active_controls;
         let pressed = data.pressed;
 
@@ -882,19 +859,14 @@ impl Item for NativeGroupBox {
     }
 
     fn geometry(self: Pin<&Self>) -> Rect {
-        euclid::rect(
-            Self::FIELD_OFFSETS.x.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.y.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.width.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.height.apply_pin(self).get(),
-        )
+        euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
     fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
-        let left = Self::FIELD_OFFSETS.native_padding_left.apply_pin(self).get();
-        let right = Self::FIELD_OFFSETS.native_padding_right.apply_pin(self).get();
-        let top = Self::FIELD_OFFSETS.native_padding_top.apply_pin(self).get();
-        let bottom = Self::FIELD_OFFSETS.native_padding_bottom.apply_pin(self).get();
+        let left = self.native_padding_left();
+        let right = self.native_padding_right();
+        let top = self.native_padding_top();
+        let bottom = self.native_padding_bottom();
         LayoutInfo {
             min_width: left + right,
             min_height: top + bottom,
@@ -921,8 +893,8 @@ impl Item for NativeGroupBox {
 
     fn_render! { this dpr size img =>
         let text: qttypes::QString =
-            Self::FIELD_OFFSETS.title.apply_pin(this).get().as_str().into();
-        let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(this).get();
+            this.title().as_str().into();
+        let enabled = this.enabled();
 
         cpp!(unsafe [
             img as "QImage*",
@@ -1029,19 +1001,14 @@ impl Item for NativeLineEdit {
     }
 
     fn geometry(self: Pin<&Self>) -> Rect {
-        euclid::rect(
-            Self::FIELD_OFFSETS.x.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.y.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.width.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.height.apply_pin(self).get(),
-        )
+        euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
     fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
-        let left = Self::FIELD_OFFSETS.native_padding_left.apply_pin(self).get();
-        let right = Self::FIELD_OFFSETS.native_padding_right.apply_pin(self).get();
-        let top = Self::FIELD_OFFSETS.native_padding_top.apply_pin(self).get();
-        let bottom = Self::FIELD_OFFSETS.native_padding_bottom.apply_pin(self).get();
+        let left = self.native_padding_left();
+        let right = self.native_padding_right();
+        let top = self.native_padding_top();
+        let bottom = self.native_padding_bottom();
         LayoutInfo {
             min_width: left + right,
             min_height: top + bottom,
@@ -1066,8 +1033,8 @@ impl Item for NativeLineEdit {
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
     fn_render! { this dpr size img =>
-        let focused: bool = Self::FIELD_OFFSETS.focused.apply_pin(this).get();
-        let enabled: bool = Self::FIELD_OFFSETS.enabled.apply_pin(this).get();
+        let focused: bool = this.focused();
+        let enabled: bool = this.enabled();
 
         cpp!(unsafe [
             img as "QImage*",
@@ -1184,19 +1151,14 @@ impl Item for NativeScrollView {
     }
 
     fn geometry(self: Pin<&Self>) -> Rect {
-        euclid::rect(
-            Self::FIELD_OFFSETS.x.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.y.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.width.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.height.apply_pin(self).get(),
-        )
+        euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
     fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
-        let left = Self::FIELD_OFFSETS.native_padding_left.apply_pin(self).get();
-        let right = Self::FIELD_OFFSETS.native_padding_right.apply_pin(self).get();
-        let top = Self::FIELD_OFFSETS.native_padding_top.apply_pin(self).get();
-        let bottom = Self::FIELD_OFFSETS.native_padding_bottom.apply_pin(self).get();
+        let left = self.native_padding_left();
+        let right = self.native_padding_right();
+        let top = self.native_padding_top();
+        let bottom = self.native_padding_bottom();
         LayoutInfo {
             min_width: left + right,
             min_height: top + bottom,
@@ -1214,13 +1176,13 @@ impl Item for NativeScrollView {
     ) -> InputEventResult {
         let dpr = window.scale_factor();
         let size: qttypes::QSize = get_size!(self);
-        let mut data = Self::FIELD_OFFSETS.data.apply_pin(self).get();
+        let mut data = self.data();
         let active_controls = data.active_controls;
         let pressed = data.pressed;
-        let left = Self::FIELD_OFFSETS.native_padding_left.apply_pin(self).get();
-        let right = Self::FIELD_OFFSETS.native_padding_right.apply_pin(self).get();
-        let top = Self::FIELD_OFFSETS.native_padding_top.apply_pin(self).get();
-        let bottom = Self::FIELD_OFFSETS.native_padding_bottom.apply_pin(self).get();
+        let left = self.native_padding_left();
+        let right = self.native_padding_right();
+        let top = self.native_padding_top();
+        let bottom = self.native_padding_bottom();
 
         let mut handle_scrollbar = |horizontal: bool,
                                     pos: qttypes::QPoint,
@@ -1326,8 +1288,8 @@ impl Item for NativeScrollView {
                     height: (size.height as f32 - (bottom + top)) as _,
                 },
                 Self::FIELD_OFFSETS.vertical_value.apply_pin(self),
-                Self::FIELD_OFFSETS.vertical_page_size.apply_pin(self).get() as i32,
-                Self::FIELD_OFFSETS.vertical_max.apply_pin(self).get() as i32,
+                self.vertical_page_size() as i32,
+                self.vertical_max() as i32,
             )
         } else if pressed == 1 || event.pos.y > (size.height as f32 - bottom) {
             handle_scrollbar(
@@ -1341,8 +1303,8 @@ impl Item for NativeScrollView {
                     height: (bottom - top) as _,
                 },
                 Self::FIELD_OFFSETS.horizontal_value.apply_pin(self),
-                Self::FIELD_OFFSETS.horizontal_page_size.apply_pin(self).get() as i32,
-                Self::FIELD_OFFSETS.horizontal_max.apply_pin(self).get() as i32,
+                self.horizontal_page_size() as i32,
+                self.horizontal_max() as i32,
             )
         } else {
             Default::default()
@@ -1357,11 +1319,11 @@ impl Item for NativeScrollView {
 
     fn_render! { this dpr size img =>
 
-        let data = Self::FIELD_OFFSETS.data.apply_pin(this).get();
-        let left = Self::FIELD_OFFSETS.native_padding_left.apply_pin(this).get();
-        let right = Self::FIELD_OFFSETS.native_padding_right.apply_pin(this).get();
-        let top = Self::FIELD_OFFSETS.native_padding_top.apply_pin(this).get();
-        let bottom = Self::FIELD_OFFSETS.native_padding_bottom.apply_pin(this).get();
+        let data = this.data();
+        let left = this.native_padding_left();
+        let right = this.native_padding_right();
+        let top = this.native_padding_top();
+        let bottom = this.native_padding_bottom();
         let corner_rect = qttypes::QRectF {
             x: ((size.width as f32 - (right - left)) / dpr) as _,
             y: ((size.height as f32 - (bottom - top)) / dpr) as _,
@@ -1439,9 +1401,9 @@ impl Item for NativeScrollView {
                 width: ((right - left) / dpr) as _,
                 height: ((size.height as f32 - bottom + top) / dpr) as _,
             },
-            Self::FIELD_OFFSETS.vertical_value.apply_pin(this).get() as i32,
-            Self::FIELD_OFFSETS.vertical_page_size.apply_pin(this).get() as i32,
-            Self::FIELD_OFFSETS.vertical_max.apply_pin(this).get() as i32,
+            this.vertical_value() as i32,
+            this.vertical_page_size() as i32,
+            this.vertical_max() as i32,
             data.active_controls,
             data.pressed == 2,
         );
@@ -1453,9 +1415,9 @@ impl Item for NativeScrollView {
                 width: ((size.width as f32 - right + left) / dpr) as _,
                 height: ((bottom - top) / dpr) as _,
             },
-            Self::FIELD_OFFSETS.horizontal_value.apply_pin(this).get() as i32,
-            Self::FIELD_OFFSETS.horizontal_page_size.apply_pin(this).get() as i32,
-            Self::FIELD_OFFSETS.horizontal_max.apply_pin(this).get() as i32,
+            this.horizontal_value() as i32,
+            this.horizontal_page_size() as i32,
+            this.horizontal_max() as i32,
             data.active_controls,
             data.pressed == 1,
         );
@@ -1487,18 +1449,13 @@ impl Item for NativeStandardListViewItem {
     fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
-        euclid::rect(
-            Self::FIELD_OFFSETS.x.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.y.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.width.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.height.apply_pin(self).get(),
-        )
+        euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
         let dpr = window.scale_factor();
-        let index: i32 = Self::FIELD_OFFSETS.index.apply_pin(self).get();
-        let item = Self::FIELD_OFFSETS.item.apply_pin(self).get();
+        let index: i32 = self.index();
+        let item = self.item();
         let text: qttypes::QString = item.text.as_str().into();
 
         let s = cpp!(unsafe [
@@ -1543,9 +1500,9 @@ impl Item for NativeStandardListViewItem {
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
     fn_render! { this dpr size img =>
-        let index: i32 = Self::FIELD_OFFSETS.index.apply_pin(this).get();
-        let is_selected: bool = Self::FIELD_OFFSETS.is_selected.apply_pin(this).get();
-        let item = Self::FIELD_OFFSETS.item.apply_pin(this).get();
+        let index: i32 = this.index();
+        let is_selected: bool = this.is_selected();
+        let item = this.item();
         let text: qttypes::QString = item.text.as_str().into();
         cpp!(unsafe [
             img as "QImage*",
@@ -1604,17 +1561,11 @@ impl Item for NativeComboBox {
     fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
-        euclid::rect(
-            Self::FIELD_OFFSETS.x.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.y.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.width.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.height.apply_pin(self).get(),
-        )
+        euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
-        let text: qttypes::QString =
-            Self::FIELD_OFFSETS.current_value.apply_pin(self).get().as_str().into();
+        let text: qttypes::QString = self.current_value().as_str().into();
         let dpr = window.scale_factor();
         let size = cpp!(unsafe [
             text as "QString",
@@ -1640,7 +1591,7 @@ impl Item for NativeComboBox {
         _window: &ComponentWindow,
         _self_rc: &sixtyfps_corelib::items::ItemRc,
     ) -> InputEventResult {
-        let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(self).get();
+        let enabled = self.enabled();
         if !enabled {
             return InputEventResult::EventIgnored;
         }
@@ -1650,7 +1601,7 @@ impl Item for NativeComboBox {
             MouseEventType::MousePressed => true,
             MouseEventType::MouseExit | MouseEventType::MouseReleased => false,
             MouseEventType::MouseMoved => {
-                return if Self::FIELD_OFFSETS.pressed.apply_pin(self).get() {
+                return if self.pressed() {
                     InputEventResult::GrabMouse
                 } else {
                     InputEventResult::EventIgnored
@@ -1673,11 +1624,11 @@ impl Item for NativeComboBox {
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
     fn_render! { this dpr size img =>
-        let down: bool = Self::FIELD_OFFSETS.pressed.apply_pin(this).get();
-        let is_open: bool = Self::FIELD_OFFSETS.is_open.apply_pin(this).get();
+        let down: bool = this.pressed();
+        let is_open: bool = this.is_open();
         let text: qttypes::QString =
-            Self::FIELD_OFFSETS.current_value.apply_pin(this).get().as_str().into();
-        let enabled = Self::FIELD_OFFSETS.enabled.apply_pin(this).get();
+            this.current_value().as_str().into();
+        let enabled = this.enabled();
         cpp!(unsafe [
             img as "QImage*",
             text as "QString",

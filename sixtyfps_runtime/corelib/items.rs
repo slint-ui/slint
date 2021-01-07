@@ -152,12 +152,7 @@ impl Item for Rectangle {
     fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
-        euclid::rect(
-            Self::FIELD_OFFSETS.x.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.y.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.width.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.height.apply_pin(self).get(),
-        )
+        euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
     fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
@@ -217,12 +212,7 @@ impl Item for BorderRectangle {
     fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
-        euclid::rect(
-            Self::FIELD_OFFSETS.x.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.y.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.width.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.height.apply_pin(self).get(),
-        )
+        euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
     fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
@@ -303,12 +293,7 @@ impl Item for TouchArea {
     fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
-        euclid::rect(
-            Self::FIELD_OFFSETS.x.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.y.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.width.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.height.apply_pin(self).get(),
-        )
+        euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
     fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
@@ -340,7 +325,7 @@ impl Item for TouchArea {
             }
             MouseEventType::MouseExit | MouseEventType::MouseReleased => false,
             MouseEventType::MouseMoved => {
-                return if Self::FIELD_OFFSETS.pressed.apply_pin(self).get() {
+                return if self.pressed() {
                     InputEventResult::GrabMouse
                 } else {
                     InputEventResult::ObserveHover
@@ -388,12 +373,7 @@ impl Item for Clip {
     fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
-        euclid::rect(
-            Self::FIELD_OFFSETS.x.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.y.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.width.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.height.apply_pin(self).get(),
-        )
+        euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
     fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
@@ -451,12 +431,7 @@ impl Item for Path {
     fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
-        euclid::rect(
-            Self::FIELD_OFFSETS.x.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.y.apply_pin(self).get(),
-            0.,
-            0.,
-        )
+        euclid::rect(self.x(), self.y(), 0., 0.)
     }
 
     fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
@@ -515,12 +490,7 @@ impl Item for Flickable {
     fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
-        euclid::rect(
-            Self::FIELD_OFFSETS.x.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.y.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.width.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.height.apply_pin(self).get(),
-        )
+        euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
     fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
@@ -533,7 +503,7 @@ impl Item for Flickable {
         _window: &ComponentWindow,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
-        if !Self::FIELD_OFFSETS.interactive.apply_pin(self).get() {
+        if !self.interactive() {
             return InputEventResult::EventIgnored;
         }
         self.data.handle_mouse(self, event);
@@ -631,12 +601,7 @@ impl Item for Window {
     fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
-        euclid::rect(
-            0.,
-            0.,
-            Self::FIELD_OFFSETS.width.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.height.apply_pin(self).get(),
-        )
+        euclid::rect(0., 0., self.width(), self.height())
     }
 
     fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {

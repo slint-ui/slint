@@ -16,7 +16,7 @@ use sixtyfps_corelib::graphics::{
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::Item;
 use sixtyfps_corelib::window::ComponentWindow;
-use sixtyfps_corelib::{Property, SharedString, SharedVector};
+use sixtyfps_corelib::{SharedString, SharedVector};
 
 mod graphics_window;
 use graphics_window::*;
@@ -349,14 +349,14 @@ impl GLItemRenderer {
     fn load_image(
         &self,
         item_cache: &CachedRenderingData,
-        source_property: core::pin::Pin<&Property<Resource>>,
+        source_property_getter: impl Fn() -> Resource,
     ) -> Option<(Rc<CachedImage>, femtovg::ImageInfo)> {
         let canvas_rc = self.canvas.clone();
         let mut canvas = self.canvas.borrow_mut();
         let mut cache = self.gpu_cache.borrow_mut();
         item_cache
             .ensure_up_to_date(&mut cache, || {
-                match source_property.get() {
+                match source_property_getter() {
                     Resource::None => None,
                     Resource::AbsoluteFilePath(path) => canvas
                         .load_image_file(
@@ -418,13 +418,11 @@ impl ItemRenderer for GLItemRenderer {
     }
 
     fn draw_image(&mut self, pos: Point, image: std::pin::Pin<&sixtyfps_corelib::items::Image>) {
-        let (cached_image, image_info) = match self.load_image(
-            &image.cached_rendering_data,
-            sixtyfps_corelib::items::Image::FIELD_OFFSETS.source.apply_pin(image),
-        ) {
-            Some(image) => image,
-            None => return,
-        };
+        let (cached_image, image_info) =
+            match self.load_image(&image.cached_rendering_data, || image.source()) {
+                Some(image) => image,
+                None => return,
+            };
 
         let image_id = cached_image.id;
 
@@ -437,15 +435,10 @@ impl ItemRenderer for GLItemRenderer {
         path.rect(0., 0., image_width, image_height);
 
         self.canvas.borrow_mut().save_with(|canvas| {
-            canvas.translate(
-                pos.x + sixtyfps_corelib::items::Image::FIELD_OFFSETS.x.apply_pin(image).get(),
-                pos.y + sixtyfps_corelib::items::Image::FIELD_OFFSETS.y.apply_pin(image).get(),
-            );
+            canvas.translate(pos.x + image.x(), pos.y + image.y());
 
-            let scaled_width =
-                sixtyfps_corelib::items::Image::FIELD_OFFSETS.width.apply_pin(image).get();
-            let scaled_height =
-                sixtyfps_corelib::items::Image::FIELD_OFFSETS.height.apply_pin(image).get();
+            let scaled_width = image.width();
+            let scaled_height = image.height();
             if scaled_width > 0. && scaled_height > 0. {
                 canvas.scale(scaled_width / image_width, scaled_height / image_height);
             }
@@ -459,26 +452,15 @@ impl ItemRenderer for GLItemRenderer {
         pos: Point,
         clipped_image: std::pin::Pin<&sixtyfps_corelib::items::ClippedImage>,
     ) {
-        let (cached_image, image_info) = match self.load_image(
-            &clipped_image.cached_rendering_data,
-            sixtyfps_corelib::items::ClippedImage::FIELD_OFFSETS.source.apply_pin(clipped_image),
-        ) {
+        let (cached_image, image_info) = match self
+            .load_image(&clipped_image.cached_rendering_data, || clipped_image.source())
+        {
             Some(image) => image,
             None => return,
         };
 
         let source_clip_rect = Rect::new(
-            [
-                sixtyfps_corelib::items::ClippedImage::FIELD_OFFSETS
-                    .source_clip_x
-                    .apply_pin(clipped_image)
-                    .get() as _,
-                sixtyfps_corelib::items::ClippedImage::FIELD_OFFSETS
-                    .source_clip_y
-                    .apply_pin(clipped_image)
-                    .get() as _,
-            ]
-            .into(),
+            [clipped_image.source_clip_x() as _, clipped_image.source_clip_y() as _].into(),
             [0., 0.].into(),
         );
 
@@ -502,27 +484,10 @@ impl ItemRenderer for GLItemRenderer {
         path.rect(0., 0., image_width, image_height);
 
         self.canvas.borrow_mut().save_with(|canvas| {
-            canvas.translate(
-                pos.x
-                    + sixtyfps_corelib::items::ClippedImage::FIELD_OFFSETS
-                        .x
-                        .apply_pin(clipped_image)
-                        .get(),
-                pos.y
-                    + sixtyfps_corelib::items::ClippedImage::FIELD_OFFSETS
-                        .y
-                        .apply_pin(clipped_image)
-                        .get(),
-            );
+            canvas.translate(pos.x + clipped_image.x(), pos.y + clipped_image.y());
 
-            let scaled_width = sixtyfps_corelib::items::ClippedImage::FIELD_OFFSETS
-                .width
-                .apply_pin(clipped_image)
-                .get();
-            let scaled_height = sixtyfps_corelib::items::ClippedImage::FIELD_OFFSETS
-                .height
-                .apply_pin(clipped_image)
-                .get();
+            let scaled_width = clipped_image.width();
+            let scaled_height = clipped_image.height();
             if scaled_width > 0. && scaled_height > 0. {
                 canvas.scale(scaled_width / image_width, scaled_height / image_height);
             }
@@ -536,17 +501,15 @@ impl ItemRenderer for GLItemRenderer {
 
         let font = self.loaded_fonts.borrow_mut().font(&self.canvas, text.font_request());
 
-        let mut paint = femtovg::Paint::color(
-            sixtyfps_corelib::items::Text::FIELD_OFFSETS.color.apply_pin(text).get().into(),
-        );
+        let mut paint = femtovg::Paint::color(text.color().into());
         paint.set_font(&[font.font_id]);
         paint.set_font_size(text.font_pixel_size(self.scale_factor()));
         paint.set_text_baseline(femtovg::Baseline::Top);
 
-        let text_str = sixtyfps_corelib::items::Text::FIELD_OFFSETS.text.apply_pin(text).get();
+        let text_str = text.text();
 
-        let max_width = sixtyfps_corelib::items::Text::FIELD_OFFSETS.width.apply_pin(text).get();
-        let max_height = sixtyfps_corelib::items::Text::FIELD_OFFSETS.height.apply_pin(text).get();
+        let max_width = text.width();
+        let max_height = text.height();
         let (text_width, text_height) = {
             let text_metrics =
                 self.canvas.borrow_mut().measure_text(0., 0., &text_str, paint).unwrap();
@@ -554,21 +517,13 @@ impl ItemRenderer for GLItemRenderer {
             (text_metrics.width(), font_metrics.height())
         };
 
-        let translate_x = match sixtyfps_corelib::items::Text::FIELD_OFFSETS
-            .horizontal_alignment
-            .apply_pin(text)
-            .get()
-        {
+        let translate_x = match text.horizontal_alignment() {
             TextHorizontalAlignment::align_left => 0.,
             TextHorizontalAlignment::align_center => max_width / 2. - text_width / 2.,
             TextHorizontalAlignment::align_right => max_width - text_width,
         };
 
-        let translate_y = match sixtyfps_corelib::items::Text::FIELD_OFFSETS
-            .vertical_alignment
-            .apply_pin(text)
-            .get()
-        {
+        let translate_y = match text.vertical_alignment() {
             TextVerticalAlignment::align_top => 0.,
             TextVerticalAlignment::align_center => max_height / 2. - text_height / 2.,
             TextVerticalAlignment::align_bottom => max_height - text_height,
@@ -577,12 +532,8 @@ impl ItemRenderer for GLItemRenderer {
         self.canvas
             .borrow_mut()
             .fill_text(
-                pos.x
-                    + sixtyfps_corelib::items::Text::FIELD_OFFSETS.x.apply_pin(text).get()
-                    + translate_x,
-                pos.y
-                    + sixtyfps_corelib::items::Text::FIELD_OFFSETS.y.apply_pin(text).get()
-                    + translate_y,
+                pos.x + text.x() + translate_x,
+                pos.y + text.y() + translate_y,
                 text_str,
                 paint,
             )
@@ -695,7 +646,7 @@ impl Font for GLFont {
         self.canvas.borrow_mut().measure_text(0., 0., text, paint).unwrap().width()
     }
 
-    fn text_offset_for_x_position<'a>(&self, pixel_size: f32, text: &'a str, x: f32) -> usize {
+    fn text_offset_for_x_position<'a>(&self, _pixel_size: f32, _text: &'a str, _x: f32) -> usize {
         //todo!()
         return 0;
     }

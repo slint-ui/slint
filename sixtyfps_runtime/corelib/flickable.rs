@@ -91,8 +91,8 @@ impl FlickableData {
 
 /// Make sure that the point is within the bounds
 fn ensure_in_bound(flick: Pin<&Flickable>, p: Point) -> Point {
-    let w = (Flickable::FIELD_OFFSETS.width).apply_pin(flick).get();
-    let h = (Flickable::FIELD_OFFSETS.height).apply_pin(flick).get();
+    let w = flick.width();
+    let h = flick.height();
     let vw =
         (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.width).apply_pin(flick).get();
     let vh = (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.height)

@@ -67,12 +67,7 @@ impl Item for Image {
     fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
-        euclid::rect(
-            Self::FIELD_OFFSETS.x.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.y.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.width.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.height.apply_pin(self).get(),
-        )
+        euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
     fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
@@ -129,12 +124,7 @@ impl Item for ClippedImage {
     fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
-        euclid::rect(
-            Self::FIELD_OFFSETS.x.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.y.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.width.apply_pin(self).get(),
-            Self::FIELD_OFFSETS.height.apply_pin(self).get(),
-        )
+        euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
     fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
