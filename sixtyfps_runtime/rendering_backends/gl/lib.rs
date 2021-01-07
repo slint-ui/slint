@@ -481,12 +481,25 @@ impl ItemRenderer for GLItemRenderer {
         pos: Point,
         rect: std::pin::Pin<&sixtyfps_corelib::items::BorderRectangle>,
     ) {
-        // TODO: cache path in item to avoid re-tesselation
+        // In CSS the border is entirely towards the inside of the boundary
+        // geometry, while in femtovg the line with for a stroke is 50% in-
+        // and 50% outwards. We choose the CSS model, so the inner rectangle
+        // is adjusted accordingly.
+        let border_width = rect.border_width();
         let mut path = femtovg::Path::new();
-        path.rounded_rect(rect.x(), rect.y(), rect.width(), rect.height(), rect.border_radius());
+        path.rounded_rect(
+            rect.x() + border_width / 2.,
+            rect.y() + border_width / 2.,
+            rect.width() - border_width,
+            rect.height() - border_width,
+            rect.border_radius(),
+        );
+
         let fill_paint = femtovg::Paint::color(rect.color().into());
+
         let mut border_paint = femtovg::Paint::color(rect.border_color().into());
-        border_paint.set_line_width(rect.border_width());
+        border_paint.set_line_width(border_width);
+
         self.canvas.borrow_mut().save_with(|canvas| {
             canvas.translate(pos.x, pos.y);
             canvas.fill_path(&mut path, fill_paint);
