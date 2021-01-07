@@ -12,7 +12,8 @@ use cpp::*;
 use sixtyfps_corelib::component::{ComponentRc, ComponentWeak};
 use sixtyfps_corelib::graphics::{GraphicsBackend, Point};
 use sixtyfps_corelib::item_rendering::ItemRenderer;
-use sixtyfps_corelib::items;
+use sixtyfps_corelib::items::{self, ItemRef};
+use sixtyfps_corelib::properties::PropertyTracker;
 use sixtyfps_corelib::window::GenericWindow;
 use std::pin::Pin;
 use std::ptr::NonNull;
@@ -25,6 +26,7 @@ cpp! {{
     #include <QtGui/QPainter>
     #include <QtGui/QPaintEngine>
     #include <QtGui/QWindow>
+    #include <QtGui/QResizeEvent>
     void ensure_initialized();
 
     struct SixtyFPSWidget : QWidget {
@@ -34,6 +36,13 @@ cpp! {{
             auto painter_ptr = &painter;
             rust!(SFPS_paintEvent [rust_window: &QtWindow as "void*", painter_ptr: &mut QPainter as "QPainter*"] {
                 rust_window.paint_event(painter_ptr)
+            });
+        }
+
+        void resizeEvent(QResizeEvent *event) override {
+            QSize size = event->size();
+            rust!(SFPS_resizeEvent [rust_window: &QtWindow as "void*", size: qttypes::QSize as "QSize"] {
+                rust_window.resize_event(size)
             });
         }
 
@@ -179,6 +188,8 @@ cpp_class!(unsafe struct QWidgetPtr as "std::unique_ptr<QWidget>");
 pub struct QtWindow {
     widget_ptr: QWidgetPtr,
     component: std::cell::RefCell<ComponentWeak>,
+    /// Gets dirty when the layout restrictions, or some other property of the windows change
+    meta_property_listener: Pin<Rc<PropertyTracker>>,
 }
 
 impl QtWindow {
@@ -187,7 +198,11 @@ impl QtWindow {
             ensure_initialized();
             return std::make_unique<SixtyFPSWidget>();
         }};
-        let rc = Rc::new(QtWindow { widget_ptr, component: Default::default() });
+        let rc = Rc::new(QtWindow {
+            widget_ptr,
+            component: Default::default(),
+            meta_property_listener: Rc::pin(Default::default()),
+        });
         let widget_ptr = rc.widget_ptr();
         let rust_window = Rc::as_ptr(&rc);
         cpp! {unsafe [widget_ptr as "SixtyFPSWidget*", rust_window as "void*"]  {
@@ -201,20 +216,67 @@ impl QtWindow {
         unsafe { std::mem::transmute_copy::<QWidgetPtr, NonNull<_>>(&self.widget_ptr) }
     }
 
+    /// ### Candidate to be moved in corelib as this kind of duplicate GraphicsWindow::draw
     fn paint_event(&self, painter: &mut QPainter) {
         sixtyfps_corelib::animations::update_animations();
 
         let component_rc = self.component.borrow().upgrade().unwrap();
         let component = ComponentRc::borrow_pin(&component_rc);
 
-        // FIXME: not every frame
-        component.as_ref().apply_layout(Default::default());
+        if self.meta_property_listener.as_ref().is_dirty() {
+            self.meta_property_listener.as_ref().evaluate(|| {
+                self.apply_geometry_constraint(component.as_ref().layout_info());
+                component.as_ref().apply_layout(Default::default());
+
+                let root_item = component.as_ref().get_item_ref(0);
+                if let Some(window_item) = ItemRef::downcast_pin(root_item) {
+                    self.apply_window_properties(window_item);
+                }
+            })
+        }
 
         sixtyfps_corelib::item_rendering::render_component_items::<QtBackend>(
             &component_rc,
             painter,
             Point::default(),
         );
+    }
+
+    fn resize_event(&self, size: qttypes::QSize) {
+        let component = self.component.borrow().upgrade().unwrap();
+        let component = ComponentRc::borrow_pin(&component);
+        let root_item = component.as_ref().get_item_ref(0);
+        if let Some(window_item) = ItemRef::downcast_pin::<items::Window>(root_item) {
+            window_item.width.set(size.width as _);
+            window_item.height.set(size.height as _);
+        }
+    }
+
+    /// Set the min/max sizes on the QWidget
+    fn apply_geometry_constraint(&self, constraints: sixtyfps_corelib::layout::LayoutInfo) {
+        let widget_ptr = self.widget_ptr();
+        let min_width: f32 = constraints.min_width.min(constraints.max_width);
+        let min_height: f32 = constraints.min_height.min(constraints.max_height);
+        let mut max_width: f32 = constraints.max_width.max(constraints.min_width);
+        let mut max_height: f32 = constraints.max_height.max(constraints.min_height);
+        cpp! {unsafe [widget_ptr as "QWidget*",  min_width as "float", min_height as "float", mut max_width as "float", mut max_height as "float"] {
+            widget_ptr->setMinimumSize(QSize(min_width, min_height));
+            if (max_width > QWIDGETSIZE_MAX)
+                max_width = QWIDGETSIZE_MAX;
+            if (max_height > QWIDGETSIZE_MAX)
+                max_height = QWIDGETSIZE_MAX;
+            widget_ptr->setMaximumSize(QSize(max_width, max_height));
+        }};
+    }
+
+    /// Apply windows property such as title to the QWidget*
+    fn apply_window_properties(&self, window_item: Pin<&items::Window>) {
+        let widget_ptr = self.widget_ptr();
+        let title: qttypes::QString =
+            items::Window::FIELD_OFFSETS.title.apply_pin(window_item).get().as_str().into();
+        cpp! {unsafe [widget_ptr as "QWidget*",  title as "QString"] {
+            widget_ptr->setWindowTitle(title);
+        }};
     }
 }
 
