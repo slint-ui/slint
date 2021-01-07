@@ -17,7 +17,7 @@ use std::rc::Rc;
 use const_field_offset::FieldOffsets;
 use corelib::component::{ComponentRc, ComponentWeak};
 use corelib::graphics::*;
-use corelib::input::{KeyEvent, KeyboardModifiers, MouseEvent, MouseEventType};
+use corelib::input::{KeyEvent, KeyboardModifiers, MouseEvent, MouseEventType, TextCursorBlinker};
 use corelib::items::{ItemRc, ItemRef, ItemWeak};
 use corelib::properties::PropertyTracker;
 use corelib::slice::Slice;
@@ -525,68 +525,5 @@ impl Default for WindowProperties {
             width: Property::new(800.),
             height: Property::new(600.),
         }
-    }
-}
-
-/// The TextCursorBlinker takes care of providing a toggled boolean property
-/// that can be used to animate a blinking cursor. It's typically stored in the
-/// Window using a Weak and set_binding() can be used to set up a binding on a given
-/// property that'll keep it up-to-date. That binding keeps a strong reference to the
-/// blinker. If the underlying item that uses it goes away, the binding goes away and
-/// so does the blinker.
-#[derive(FieldOffsets)]
-#[repr(C)]
-#[pin]
-struct TextCursorBlinker {
-    cursor_visible: Property<bool>,
-    cursor_blink_timer: corelib::timers::Timer,
-}
-
-impl TextCursorBlinker {
-    fn new() -> Pin<Rc<Self>> {
-        Rc::pin(Self {
-            cursor_visible: Property::new(true),
-            cursor_blink_timer: Default::default(),
-        })
-    }
-
-    fn set_binding(
-        instance: Pin<Rc<TextCursorBlinker>>,
-        prop: &corelib::properties::Property<bool>,
-    ) {
-        instance.as_ref().cursor_visible.set(true);
-        // Re-start timer, in case.
-        Self::start(&instance);
-        prop.set_binding(move || {
-            TextCursorBlinker::FIELD_OFFSETS.cursor_visible.apply_pin(instance.as_ref()).get()
-        });
-    }
-
-    fn start(self: &Pin<Rc<Self>>) {
-        if self.cursor_blink_timer.running() {
-            self.cursor_blink_timer.restart();
-        } else {
-            let toggle_cursor = {
-                let weak_blinker = pin_weak::rc::PinWeak::downgrade(self.clone());
-                move || {
-                    if let Some(blinker) = weak_blinker.upgrade() {
-                        let visible = TextCursorBlinker::FIELD_OFFSETS
-                            .cursor_visible
-                            .apply_pin(blinker.as_ref())
-                            .get();
-                        blinker.cursor_visible.set(!visible);
-                    }
-                }
-            };
-            self.cursor_blink_timer.start(
-                corelib::timers::TimerMode::Repeated,
-                std::time::Duration::from_millis(500),
-                toggle_cursor,
-            );
-        }
-    }
-
-    fn stop(&self) {
-        self.cursor_blink_timer.stop()
     }
 }

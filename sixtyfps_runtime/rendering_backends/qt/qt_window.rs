@@ -12,10 +12,10 @@ use cpp::*;
 use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
 use sixtyfps_corelib::component::{ComponentRc, ComponentWeak};
 use sixtyfps_corelib::graphics::{GraphicsBackend, Point};
-use sixtyfps_corelib::input::{MouseEventType, MouseInputState};
+use sixtyfps_corelib::input::{MouseEventType, MouseInputState, TextCursorBlinker};
 use sixtyfps_corelib::item_rendering::ItemRenderer;
-use sixtyfps_corelib::items::Item;
 use sixtyfps_corelib::items::{self, ItemRef};
+use sixtyfps_corelib::items::{Item, ItemWeak};
 use sixtyfps_corelib::properties::PropertyTracker;
 use sixtyfps_corelib::window::{ComponentWindow, GenericWindow};
 use sixtyfps_corelib::Resource;
@@ -33,6 +33,7 @@ cpp! {{
     #include <QtGui/QPaintEngine>
     #include <QtGui/QWindow>
     #include <QtGui/QResizeEvent>
+    #include <QtGui/QTextLayout>
     void ensure_initialized();
 
     struct SixtyFPSWidget : QWidget {
@@ -313,13 +314,15 @@ cpp_class!(unsafe struct QWidgetPtr as "std::unique_ptr<QWidget>");
 
 pub struct QtWindow {
     widget_ptr: QWidgetPtr,
+    self_weak: once_cell::unsync::OnceCell<Weak<QtWindow>>,
     component: RefCell<ComponentWeak>,
     /// Gets dirty when the layout restrictions, or some other property of the windows change
     meta_property_listener: Pin<Rc<PropertyTracker>>,
     /// Gets dirty if something needs to be painted
     redraw_listener: Pin<Rc<PropertyTracker>>,
     mouse_input_state: Cell<MouseInputState>,
-    self_weak: once_cell::unsync::OnceCell<Weak<QtWindow>>,
+    focus_item: std::cell::RefCell<ItemWeak>,
+    cursor_blinker: RefCell<pin_weak::rc::PinWeak<TextCursorBlinker>>,
 }
 
 impl QtWindow {
@@ -330,11 +333,13 @@ impl QtWindow {
         }};
         let rc = Rc::new(QtWindow {
             widget_ptr,
+            self_weak: Default::default(),
             component: Default::default(),
             meta_property_listener: Rc::pin(Default::default()),
             redraw_listener: Rc::pin(Default::default()),
             mouse_input_state: Default::default(),
-            self_weak: Default::default(),
+            focus_item: Default::default(),
+            cursor_blinker: Default::default(),
         });
         rc.self_weak.set(Rc::downgrade(&rc)).ok().unwrap();
         let widget_ptr = rc.widget_ptr();
@@ -503,7 +508,16 @@ impl GenericWindow for QtWindow {
     }
 
     fn set_cursor_blink_binding(&self, prop: &sixtyfps_corelib::Property<bool>) {
-        todo!()
+        let existing_blinker = self.cursor_blinker.borrow().clone();
+
+        let blinker = existing_blinker.upgrade().unwrap_or_else(|| {
+            let new_blinker = TextCursorBlinker::new();
+            *self.cursor_blinker.borrow_mut() =
+                pin_weak::rc::PinWeak::downgrade(new_blinker.clone());
+            new_blinker
+        });
+
+        TextCursorBlinker::set_binding(blinker, prop);
     }
 
     fn current_keyboard_modifiers(&self) -> sixtyfps_corelib::input::KeyboardModifiers {
@@ -517,12 +531,37 @@ impl GenericWindow for QtWindow {
         todo!()
     }
 
+    /// ### Candidate to be moved in corelib as this kind of duplicate GraphicsWindow::set_focus_item
     fn set_focus_item(self: Rc<Self>, focus_item: &items::ItemRc) {
-        todo!()
+        let window = ComponentWindow::new(self.clone());
+
+        if let Some(old_focus_item) = self.as_ref().focus_item.borrow().upgrade() {
+            old_focus_item
+                .borrow()
+                .as_ref()
+                .focus_event(&sixtyfps_corelib::input::FocusEvent::FocusOut, &window);
+        }
+
+        *self.as_ref().focus_item.borrow_mut() = focus_item.downgrade();
+
+        focus_item
+            .borrow()
+            .as_ref()
+            .focus_event(&sixtyfps_corelib::input::FocusEvent::FocusIn, &window);
     }
 
+    /// ### Candidate to be moved in corelib as this kind of duplicate GraphicsWindow::set_focussixtyfps_
     fn set_focus(self: Rc<Self>, have_focus: bool) {
-        todo!()
+        let window = ComponentWindow::new(self.clone());
+        let event = if have_focus {
+            sixtyfps_corelib::input::FocusEvent::WindowReceivedFocus
+        } else {
+            sixtyfps_corelib::input::FocusEvent::WindowLostFocus
+        };
+
+        if let Some(focus_item) = self.as_ref().focus_item.borrow().upgrade() {
+            focus_item.borrow().as_ref().focus_event(&event, &window);
+        }
     }
 
     fn show_popup(&self, popup: &sixtyfps_corelib::component::ComponentRc, position: Point) {
@@ -586,7 +625,17 @@ impl sixtyfps_corelib::graphics::Font for QtFont {
     }
 
     fn text_offset_for_x_position<'a>(&self, pixel_size: f32, text: &'a str, x: f32) -> usize {
-        todo!()
+        let string = qttypes::QString::from(text);
+        cpp! { unsafe [string as "QString", pixel_size as "float", x as "float"] -> usize as "long long" {
+            QFont f;
+            f.setPixelSize(pixel_size);
+            QTextLayout layout(string, f);
+            if (layout.lineCount() == 0)
+                return 0;
+            auto cur = layout.lineAt(0).xToCursor(x);
+            // convert to an utf8 pos;
+            return QStringView(string).left(cur).toUtf8().size();
+        }}
     }
 
     fn height(&self, pixel_size: f32) -> f32 {
