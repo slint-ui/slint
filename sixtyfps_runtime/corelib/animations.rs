@@ -122,7 +122,11 @@ impl AnimationDriver {
     }
 }
 
-thread_local!(pub static CURRENT_ANIMATION_DRIVER : AnimationDriver = AnimationDriver::default());
+thread_local!(
+/// This is the default instance of the animation driver that's used to advance all property animations
+/// at the same time.
+pub static CURRENT_ANIMATION_DRIVER : AnimationDriver = AnimationDriver::default()
+);
 
 /// The current instant that is to be used for animation
 /// using this function register the current binding as a dependency

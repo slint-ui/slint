@@ -31,6 +31,9 @@ pub struct CachedRenderingData {
 }
 
 impl CachedRenderingData {
+    /// This function allows retrieving the backend specific per-item data cache, updating
+    /// it if depending properties have changed. The supplied update_fn will be called when
+    /// properties have changed or the cache is initialized the first time.
     pub fn ensure_up_to_date<T: Clone>(
         &self,
         cache: &mut RenderingCache<T>,
@@ -50,6 +53,9 @@ impl CachedRenderingData {
         }
     }
 
+    /// This function can be used to remove an entry from the rendering cache for a given item, if it
+    /// exists, i.e. if any data was ever cached. This is typically called by the graphics backend's
+    /// implementation of the release_item_graphics_cache function.
     pub fn release<T>(&self, cache: &mut RenderingCache<T>) {
         if self.cache_ok.get() {
             let index = self.cache_index.get();
@@ -58,6 +64,8 @@ impl CachedRenderingData {
     }
 }
 
+/// Renders the tree of items that component holds, using the specified renderer. Rendering is done
+/// relative to the specified origin.
 pub fn render_component_items<Backend: GraphicsBackend>(
     component: &ComponentRc,
     renderer: &mut Backend::ItemRenderer,
@@ -86,6 +94,8 @@ pub fn render_component_items<Backend: GraphicsBackend>(
     );
 }
 
+/// Calls release_item_graphics_cache() for each item in the slice. This is typically called
+/// from implementations of GenericWindow::free_graphics_resources.
 pub fn free_item_rendering_data<'a, Backend: GraphicsBackend>(
     items: &Slice<'a, core::pin::Pin<ItemRef<'a>>>,
     renderer: &RefCell<Backend>,

@@ -248,7 +248,12 @@ impl Default for Resource {
     }
 }
 
+/// CachedGraphicsData allows the graphics backend to store an arbitrary piece of data associated with
+/// an item, which is typically computed by accessing properties. The dependency_tracker is used to allow
+/// for a lazy computation. Typically backends store either compute intensive data or handles that refer to
+/// data that's stored in GPU memory.
 pub struct CachedGraphicsData<T> {
+    /// The backend specific data.
     pub data: T,
     /// The property tracker that should be used to evaluate whether the primitive needs to be re-created
     /// or not.
@@ -265,6 +270,9 @@ impl<T> CachedGraphicsData<T> {
     }
 }
 
+/// The RenderingCache, in combination with CachedGraphicsData, allows backends to store data that's either
+/// intensive to compute or has bad CPU locality. Backends typically keep a RenderingCache instance and use
+/// the item's cached_rendering_data() integer as index in the vec_arena::Arena.
 pub type RenderingCache<T> = vec_arena::Arena<CachedGraphicsData<T>>;
 
 /// FontRequest collects all the developer-configurable properties for fonts, such as family, weight, etc.
@@ -273,6 +281,8 @@ pub type RenderingCache<T> = vec_arena::Arena<CachedGraphicsData<T>>;
 #[derive(Debug, Clone, PartialEq)]
 #[repr(C)]
 pub struct FontRequest {
+    /// The name of the font family to be used, such as "Helvetica". An empty family name means the system
+    /// default font family should be used.
     pub family: SharedString,
     /// If the weight is None, the the system default font weight should be used.
     pub weight: Option<i32>,
@@ -280,9 +290,19 @@ pub struct FontRequest {
     pub pixel_size: Option<f32>,
 }
 
+/// The Font trait is constructed from a FontRequest by the graphics backend and supplied to text related
+/// items in order to measure text.
 pub trait Font {
+    /// Returns the width of the given string in physical pixels.
     fn text_width(&self, text: &str) -> f32;
+    /// Returns the (UTF-8) byte offset in the given text that refers to the character that contributed to
+    /// the glyph cluster that's visually nearest to the given x coordinate. This is used for hit-testing,
+    /// for example when receiving a mouse click into a text field. Then this function returns the "cursor"
+    /// position.
     fn text_offset_for_x_position<'a>(&self, text: &'a str, x: f32) -> usize;
+    /// Returns the height of the font. This is typically the sum of the ascent and the descent, resulting
+    /// in the height that can fit the talltest glyphs of the font. Note that it is possible though that
+    /// the font may include glyphs that exceed this.
     fn height(&self) -> f32;
 }
 
@@ -297,12 +317,22 @@ pub trait Font {
 ///   1. A series of low-level rendering primitives can be rendered into a frame, that's started using [GraphicsBackend::new_frame].
 ///      The low-level rendering primitives are intended to be fast and ready for rendering.
 pub trait GraphicsBackend: Sized {
+    /// The backend must provide an implementation of the ItemRenderer trait in order to allow for the run-time
+    /// to render the tree of items.
     type ItemRenderer: crate::item_rendering::ItemRenderer;
+    /// Returns a new item renderer instance. At this point rendering begins and the backend ensures that the
+    /// window background was cleared with the specified clear_color.
     fn new_renderer(&mut self, clear_color: &Color) -> Self::ItemRenderer;
+    /// Complete the item rendering by calling this function. This will typically flush any remaining/pending
+    /// commands to the underlying graphics subsystem.
     fn flush_renderer(&mut self, renderer: Self::ItemRenderer);
 
+    /// This function is called by the run-time to release any backend-specific cached rendering data, typically
+    /// before destroying an item.
     fn release_item_graphics_cache(&self, data: &CachedRenderingData);
 
+    /// Returns a Font trait object that can be used to measure text and that matches the given font request as
+    /// closely as possible.
     fn font(&mut self, request: FontRequest) -> Box<dyn Font>;
 
     /// Returns the window that the backend is associated with.
