@@ -143,7 +143,7 @@ impl Text {
         }
     }
 
-    pub fn font_request(self: Pin<&Self>) -> crate::graphics::FontRequest {
+    pub fn font_request(self: Pin<&Self>, scale_factor: f32) -> crate::graphics::FontRequest {
         crate::graphics::FontRequest {
             family: self.font_family(),
             weight: {
@@ -154,14 +154,15 @@ impl Text {
                     weight
                 }
             },
+            pixel_size: self.font_pixel_size(scale_factor),
         }
     }
 
-    pub fn font(self: Pin<&Self>, window: &ComponentWindow) -> Option<crate::graphics::ScaledFont> {
-        window.0.font(self.font_request()).map(|font| crate::graphics::ScaledFont {
-            font,
-            pixel_size: self.font_pixel_size(window.scale_factor()),
-        })
+    pub fn font(
+        self: Pin<&Self>,
+        window: &ComponentWindow,
+    ) -> Option<Box<dyn crate::graphics::Font>> {
+        window.0.font(self.font_request(window.scale_factor()))
     }
 }
 
@@ -553,7 +554,7 @@ impl TextInput {
         }
     }
 
-    pub fn font_request(self: Pin<&Self>) -> crate::graphics::FontRequest {
+    pub fn font_request(self: Pin<&Self>, scale_factor: f32) -> crate::graphics::FontRequest {
         crate::graphics::FontRequest {
             family: self.font_family(),
             weight: {
@@ -564,14 +565,15 @@ impl TextInput {
                     weight
                 }
             },
+            pixel_size: self.font_pixel_size(scale_factor),
         }
     }
 
-    pub fn font(self: Pin<&Self>, window: &ComponentWindow) -> Option<crate::graphics::ScaledFont> {
-        window.0.font(self.font_request()).map(|font| crate::graphics::ScaledFont {
-            font,
-            pixel_size: self.font_pixel_size(window.scale_factor()),
-        })
+    pub fn font(
+        self: Pin<&Self>,
+        window: &ComponentWindow,
+    ) -> Option<Box<dyn crate::graphics::Font>> {
+        window.0.font(self.font_request(window.scale_factor()))
     }
 }
 

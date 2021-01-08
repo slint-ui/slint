@@ -478,7 +478,7 @@ impl<Backend: GraphicsBackend> GenericWindow for GraphicsWindow<Backend> {
     fn font(
         &self,
         request: corelib::graphics::FontRequest,
-    ) -> Option<Rc<dyn corelib::graphics::Font>> {
+    ) -> Option<Box<dyn corelib::graphics::Font>> {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped => None,
             GraphicsWindowBackendState::Mapped(window) => {

@@ -28,7 +28,6 @@ use crate::{Callback, SharedString};
 use auto_enums::auto_enum;
 use const_field_offset::FieldOffsets;
 use sixtyfps_corelib_macros::*;
-use std::rc::Rc;
 
 /// 2D Rectangle
 pub type Rect = euclid::default::Rect<f32>;
@@ -276,29 +275,13 @@ pub type RenderingCache<T> = vec_arena::Arena<CachedGraphicsData<T>>;
 pub struct FontRequest {
     pub family: SharedString,
     pub weight: i32,
-}
-
-pub trait Font {
-    fn text_width(&self, pixel_size: f32, text: &str) -> f32;
-    fn text_offset_for_x_position<'a>(&self, pixel_size: f32, text: &'a str, x: f32) -> usize;
-    fn height(&self, pixel_size: f32) -> f32;
-}
-
-pub struct ScaledFont {
-    pub font: Rc<dyn Font>,
     pub pixel_size: f32,
 }
 
-impl ScaledFont {
-    pub(crate) fn text_width(&self, text: &str) -> f32 {
-        self.font.text_width(self.pixel_size, text)
-    }
-    pub(crate) fn text_offset_for_x_position<'a>(&self, text: &'a str, x: f32) -> usize {
-        self.font.text_offset_for_x_position(self.pixel_size, text, x)
-    }
-    pub(crate) fn height(&self) -> f32 {
-        self.font.height(self.pixel_size)
-    }
+pub trait Font {
+    fn text_width(&self, text: &str) -> f32;
+    fn text_offset_for_x_position<'a>(&self, text: &'a str, x: f32) -> usize;
+    fn height(&self) -> f32;
 }
 
 /// GraphicsBackend is the trait that the the SixtyFPS run-time uses to convert [HighLevelRenderingPrimitive]
@@ -318,7 +301,7 @@ pub trait GraphicsBackend: Sized {
 
     fn release_item_graphics_cache(&self, data: &CachedRenderingData);
 
-    fn font(&mut self, request: FontRequest) -> Rc<dyn Font>;
+    fn font(&mut self, request: FontRequest) -> Box<dyn Font>;
 
     /// Returns the window that the backend is associated with.
     fn window(&self) -> &winit::window::Window;

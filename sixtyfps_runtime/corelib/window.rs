@@ -89,7 +89,8 @@ pub trait GenericWindow {
     /// Close the active popup if any
     fn close_popup(&self);
 
-    fn font(&self, request: crate::graphics::FontRequest) -> Option<Rc<dyn crate::graphics::Font>>;
+    fn font(&self, request: crate::graphics::FontRequest)
+        -> Option<Box<dyn crate::graphics::Font>>;
 }
 
 /// The ComponentWindow is the (rust) facing public type that can render the items
