@@ -14,8 +14,8 @@ use sixtyfps_corelib::component::{ComponentRc, ComponentWeak};
 use sixtyfps_corelib::graphics::{FontRequest, GraphicsBackend, Point};
 use sixtyfps_corelib::input::{MouseEventType, MouseInputState, TextCursorBlinker};
 use sixtyfps_corelib::item_rendering::ItemRenderer;
+use sixtyfps_corelib::items::ItemWeak;
 use sixtyfps_corelib::items::{self, ItemRef};
-use sixtyfps_corelib::items::{Item, ItemWeak};
 use sixtyfps_corelib::properties::PropertyTracker;
 use sixtyfps_corelib::window::{ComponentWindow, GenericWindow};
 use sixtyfps_corelib::Resource;
@@ -220,7 +220,7 @@ impl ItemRenderer for QPainter {
         }}
     }
 
-    fn draw_path(&mut self, pos: Point, path: std::pin::Pin<&items::Path>) {
+    fn draw_path(&mut self, _pos: Point, _path: std::pin::Pin<&items::Path>) {
         todo!()
     }
 
@@ -239,7 +239,7 @@ impl ItemRenderer for QPainter {
 
     fn draw_cached_pixmap(
         &mut self,
-        item_cache: &sixtyfps_corelib::item_rendering::CachedRenderingData,
+        _item_cache: &sixtyfps_corelib::item_rendering::CachedRenderingData,
         pos: Point,
         update_fn: &dyn Fn(&mut dyn FnMut(u32, u32, &[u8])),
     ) {
@@ -619,22 +619,22 @@ struct QtBackend;
 impl GraphicsBackend for QtBackend {
     type ItemRenderer = QPainter;
 
-    fn new_renderer(&mut self, clear_color: &sixtyfps_corelib::Color) -> Self::ItemRenderer {
+    fn new_renderer(&mut self, _clear_color: &sixtyfps_corelib::Color) -> Self::ItemRenderer {
         todo!()
     }
 
-    fn flush_renderer(&mut self, renderer: Self::ItemRenderer) {
+    fn flush_renderer(&mut self, _renderer: Self::ItemRenderer) {
         todo!()
     }
 
     fn release_item_graphics_cache(
         &self,
-        data: &sixtyfps_corelib::item_rendering::CachedRenderingData,
+        _data: &sixtyfps_corelib::item_rendering::CachedRenderingData,
     ) {
         todo!()
     }
 
-    fn font(&mut self, request: FontRequest) -> Box<dyn sixtyfps_corelib::graphics::Font> {
+    fn font(&mut self, _request: FontRequest) -> Box<dyn sixtyfps_corelib::graphics::Font> {
         todo!()
     }
 
