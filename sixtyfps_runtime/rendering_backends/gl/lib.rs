@@ -20,7 +20,7 @@ use sixtyfps_corelib::graphics::{
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::Item;
 use sixtyfps_corelib::window::ComponentWindow;
-use sixtyfps_corelib::{SharedString, SharedVector};
+use sixtyfps_corelib::SharedString;
 
 mod graphics_window;
 use graphics_window::*;
@@ -328,7 +328,6 @@ impl GraphicsBackend for GLRenderer {
         GLItemRenderer {
             canvas: self.canvas.clone(),
             windowed_context: current_windowed_context,
-            clip_rects: Default::default(),
             item_rendering_cache: self.item_rendering_cache.clone(),
             image_cache: self.image_cache.clone(),
             scale_factor,
@@ -375,8 +374,6 @@ pub struct GLItemRenderer {
 
     #[cfg(not(target_arch = "wasm32"))]
     windowed_context: glutin::WindowedContext<glutin::PossiblyCurrent>,
-
-    clip_rects: SharedVector<Rect>,
 
     item_rendering_cache: ItemRenderingCacheRc,
     image_cache: ImageCacheRc,
@@ -650,21 +647,14 @@ impl ItemRenderer for GLItemRenderer {
             clip_rect.width(),
             clip_rect.height(),
         );
-        self.clip_rects.push(clip_rect);
     }
 
-    fn clip_rects(&self) -> SharedVector<sixtyfps_corelib::graphics::Rect> {
-        self.clip_rects.clone()
+    fn save_state(&mut self) {
+        self.canvas.borrow_mut().save();
     }
 
-    fn reset_clip(&mut self, rects: SharedVector<sixtyfps_corelib::graphics::Rect>) {
-        self.clip_rects = rects;
-        // ### Only do this if rects were really changed
-        let mut canvas = self.canvas.borrow_mut();
-        canvas.reset_scissor();
-        for rect in self.clip_rects.as_slice() {
-            canvas.intersect_scissor(rect.min_x(), rect.min_y(), rect.width(), rect.height())
-        }
+    fn restore_state(&mut self) {
+        self.canvas.borrow_mut().restore();
     }
 
     fn draw_cached_pixmap(

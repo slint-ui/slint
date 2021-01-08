@@ -13,7 +13,7 @@ LICENSE END */
 use super::graphics::{GraphicsBackend, RenderingCache};
 use super::items::*;
 use crate::component::ComponentRc;
-use crate::graphics::{Point, Rect};
+use crate::graphics::Point;
 use crate::item_tree::ItemVisitorResult;
 use crate::slice::Slice;
 use core::pin::Pin;
@@ -69,7 +69,7 @@ pub fn render_component_items<Backend: GraphicsBackend>(
         component,
         crate::item_tree::TraversalOrder::BackToFront,
         |_, item, _, translation| {
-            let saved_clip = renderer.borrow_mut().clip_rects();
+            renderer.borrow_mut().save_state();
 
             item.as_ref()
                 .render(*translation, &mut (*renderer.borrow_mut() as &mut dyn ItemRenderer));
@@ -77,10 +77,10 @@ pub fn render_component_items<Backend: GraphicsBackend>(
             let origin = item.as_ref().geometry().origin;
             let translation = *translation + euclid::Vector2D::new(origin.x, origin.y);
 
-            (ItemVisitorResult::Continue(translation), saved_clip)
+            (ItemVisitorResult::Continue(translation), ())
         },
-        |_, _, saved_clip| {
-            renderer.borrow_mut().reset_clip(saved_clip);
+        |_, _, _| {
+            renderer.borrow_mut().restore_state();
         },
         origin,
     );
@@ -110,8 +110,8 @@ pub trait ItemRenderer {
     fn draw_text_input(&mut self, pos: Point, text_input: Pin<&TextInput>);
     fn draw_path(&mut self, pos: Point, path: Pin<&Path>);
     fn combine_clip(&mut self, pos: Point, clip: &Pin<&Clip>);
-    fn clip_rects(&self) -> SharedVector<Rect>;
-    fn reset_clip(&mut self, rects: SharedVector<Rect>);
+    fn save_state(&mut self);
+    fn restore_state(&mut self);
 
     /// Returns the scale factor
     fn scale_factor(&self) -> f32;
