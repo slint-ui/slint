@@ -35,6 +35,8 @@ cpp! {{
     #include <QtGui/QResizeEvent>
     #include <QtGui/QTextLayout>
     #include <QtCore/QBasicTimer>
+    #include <QtCore/QTimer>
+    #include <QtCore/QPointer>
     void ensure_initialized();
 
     struct TimerHandler : QObject {
@@ -391,10 +393,13 @@ impl QtWindow {
                 return;
             }
             let widget_ptr = self.widget_ptr();
-            // This will update so another paint event will be called.
-            // Maybe we should actually wait 16ms instead
             cpp! {unsafe [widget_ptr as "QWidget*"] {
-                return widget_ptr->update();
+                // FIXME: using QTimer -::singleShot is not optimal. We should use Qt animation timer
+                QTimer::singleShot(16, [widget_ptr = QPointer<QWidget>(widget_ptr)] {
+                    if (widget_ptr)
+                        widget_ptr->update();
+                });
+                //return widget_ptr->update();
             }}
         });
     }
@@ -686,7 +691,9 @@ fn timer_event() {
     });
 
     if let Some(instant) = sixtyfps_corelib::timers::TimerList::next_timeout() {
-        let timeout = instant.duration_since(std::time::Instant::now()).as_millis() as i32;
+        let now = std::time::Instant::now();
+        let timeout =
+            if instant > now { instant.duration_since(now).as_millis() as i32 } else { 0 };
         cpp! { unsafe [timeout as "int"] {
             TimerHandler::instance().timer.start(timeout, &TimerHandler::instance());
         }}
