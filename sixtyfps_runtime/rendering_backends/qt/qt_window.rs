@@ -385,6 +385,18 @@ impl QtWindow {
                 Point::default(),
             );
         });
+
+        sixtyfps_corelib::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
+            if !driver.has_active_animations() {
+                return;
+            }
+            let widget_ptr = self.widget_ptr();
+            // This will update so another paint event will be called.
+            // Maybe we should actually wait 16ms instead
+            cpp! {unsafe [widget_ptr as "QWidget*"] {
+                return widget_ptr->update();
+            }}
+        });
     }
 
     fn resize_event(&self, size: qttypes::QSize) {
