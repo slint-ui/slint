@@ -29,6 +29,9 @@ pub(crate) mod eventloop;
 type CanvasRc = Rc<RefCell<femtovg::Canvas<femtovg::renderer::OpenGl>>>;
 type ItemRenderingCacheRc = Rc<RefCell<RenderingCache<Option<GPUCachedData>>>>;
 
+pub const DEFAULT_FONT_SIZE: f32 = 12.;
+pub const DEFAULT_FONT_WEIGHT: i32 = 400; // CSS normal
+
 struct CachedImage {
     id: femtovg::ImageId,
     canvas: CanvasRc,
@@ -95,7 +98,7 @@ fn try_load_app_font(canvas: &CanvasRc, request: &FontRequest) -> Option<femtovg
     };
     let query = fontdb::Query {
         families: &[family],
-        weight: fontdb::Weight(request.weight as u16),
+        weight: fontdb::Weight(request.weight.unwrap() as u16),
         ..Default::default()
     };
     APPLICATION_FONTS.with(|font_db| {
@@ -121,7 +124,7 @@ fn load_system_font(canvas: &CanvasRc, request: &FontRequest) -> femtovg::FontId
         .select_best_match(
             &[family_name, font_kit::family_name::FamilyName::SansSerif],
             &font_kit::properties::Properties::new()
-                .weight(font_kit::properties::Weight(request.weight as f32)),
+                .weight(font_kit::properties::Weight(request.weight.unwrap() as f32)),
         )
         .unwrap();
 
@@ -138,14 +141,25 @@ fn load_system_font(canvas: &CanvasRc, request: &FontRequest) -> femtovg::FontId
 }
 
 impl FontDatabase {
-    fn font(&mut self, canvas: &CanvasRc, request: FontRequest) -> femtovg::FontId {
-        self.0
-            .entry(FontCacheKey::new(&request))
-            .or_insert_with(|| {
-                try_load_app_font(canvas, &request)
-                    .unwrap_or_else(|| load_system_font(canvas, &request))
-            })
-            .clone()
+    fn font(&mut self, canvas: &CanvasRc, mut request: FontRequest, scale_factor: f32) -> GLFont {
+        request.pixel_size = request.pixel_size.or(Some(DEFAULT_FONT_SIZE * scale_factor));
+        request.weight = request.weight.or(Some(DEFAULT_FONT_WEIGHT));
+
+        GLFont {
+            font_id: self
+                .0
+                .entry(FontCacheKey {
+                    family: request.family.clone(),
+                    weight: request.weight.unwrap(),
+                })
+                .or_insert_with(|| {
+                    try_load_app_font(canvas, &request)
+                        .unwrap_or_else(|| load_system_font(canvas, &request))
+                })
+                .clone(),
+            canvas: canvas.clone(),
+            pixel_size: request.pixel_size.unwrap(),
+        }
     }
 }
 
@@ -357,12 +371,11 @@ impl GraphicsBackend for GLRenderer {
     }
 
     fn font(&mut self, request: FontRequest) -> Box<dyn Font> {
-        let pixel_size = request.pixel_size;
-        Box::new(GLFont {
-            font_id: self.loaded_fonts.borrow_mut().font(&self.canvas, request),
-            canvas: self.canvas.clone(),
-            pixel_size,
-        })
+        Box::new(self.loaded_fonts.borrow_mut().font(
+            &self.canvas,
+            request,
+            self.window().scale_factor() as f32,
+        ))
     }
 }
 
@@ -583,13 +596,13 @@ impl ItemRenderer for GLItemRenderer {
     fn draw_text(&mut self, pos: Point, text: std::pin::Pin<&sixtyfps_corelib::items::Text>) {
         use sixtyfps_corelib::items::{TextHorizontalAlignment, TextVerticalAlignment};
 
-        let font_id =
-            self.loaded_fonts.borrow_mut().font(&self.canvas, text.font_request(self.scale_factor));
+        let font = self.loaded_fonts.borrow_mut().font(
+            &self.canvas,
+            text.font_request(),
+            self.scale_factor,
+        );
 
-        let mut paint = femtovg::Paint::color(text.color().into());
-        paint.set_font(&[font_id]);
-        paint.set_font_size(text.font_pixel_size(self.scale_factor()));
-        paint.set_text_baseline(femtovg::Baseline::Top);
+        let paint = font.paint(text.color().into());
 
         let text_str = text.text();
 
@@ -705,12 +718,6 @@ struct FontCacheKey {
     weight: i32,
 }
 
-impl FontCacheKey {
-    fn new(request: &FontRequest) -> Self {
-        Self { family: request.family.clone(), weight: request.weight }
-    }
-}
-
 struct GLFont {
     font_id: femtovg::FontId,
     pixel_size: f32,
@@ -735,6 +742,16 @@ impl Font for GLFont {
         paint.set_font(&[self.font_id]);
         paint.set_font_size(self.pixel_size);
         self.canvas.borrow_mut().measure_font(paint).unwrap().height()
+    }
+}
+
+impl GLFont {
+    fn paint(&self, color: Color) -> femtovg::Paint {
+        let mut paint = femtovg::Paint::color(color.into());
+        paint.set_font(&[self.font_id]);
+        paint.set_font_size(self.pixel_size);
+        paint.set_text_baseline(femtovg::Baseline::Top);
+        paint
     }
 }
 

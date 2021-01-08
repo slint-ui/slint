@@ -66,9 +66,6 @@ impl Default for TextVerticalAlignment {
     }
 }
 
-const DEFAULT_FONT_SIZE: f32 = 12.;
-const DEFAULT_FONT_WEIGHT: i32 = 400;
-
 /// The implementation of the `Text` element
 #[repr(C)]
 #[derive(FieldOffsets, Default, SixtyFPSElement)]
@@ -99,7 +96,7 @@ impl Item for Text {
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
         let text = self.text();
 
-        if let Some(font) = self.font(window) {
+        if let Some(font) = window.0.font(self.font_request()) {
             let width = font.text_width(&text);
             let height = font.height();
             LayoutInfo { min_width: width, min_height: height, ..LayoutInfo::default() }
@@ -134,35 +131,26 @@ impl ItemConsts for Text {
 }
 
 impl Text {
-    pub fn font_pixel_size(self: Pin<&Self>, scale_factor: f32) -> f32 {
-        let font_size = self.font_size();
-        if font_size == 0.0 {
-            DEFAULT_FONT_SIZE * scale_factor
-        } else {
-            font_size
-        }
-    }
-
-    pub fn font_request(self: Pin<&Self>, scale_factor: f32) -> crate::graphics::FontRequest {
+    pub fn font_request(self: Pin<&Self>) -> crate::graphics::FontRequest {
         crate::graphics::FontRequest {
             family: self.font_family(),
             weight: {
                 let weight = self.font_weight();
                 if weight == 0 {
-                    DEFAULT_FONT_WEIGHT
+                    None
                 } else {
-                    weight
+                    Some(weight)
                 }
             },
-            pixel_size: self.font_pixel_size(scale_factor),
+            pixel_size: {
+                let font_size = self.font_size();
+                if font_size == 0.0 {
+                    None
+                } else {
+                    Some(font_size)
+                }
+            },
         }
-    }
-
-    pub fn font(
-        self: Pin<&Self>,
-        window: &ComponentWindow,
-    ) -> Option<Box<dyn crate::graphics::Font>> {
-        window.0.font(self.font_request(window.scale_factor()))
     }
 }
 
@@ -205,7 +193,7 @@ impl Item for TextInput {
     }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
-        if let Some(font) = self.font(window) {
+        if let Some(font) = window.0.font(self.font_request()) {
             let width = font.text_width("********************");
             let height = font.height();
 
@@ -231,7 +219,7 @@ impl Item for TextInput {
         }
 
         let text = self.text();
-        let font = match self.font(window) {
+        let font = match window.0.font(self.font_request()) {
             Some(font) => font,
             None => return InputEventResult::EventIgnored,
         };
@@ -545,35 +533,26 @@ impl TextInput {
         }
     }
 
-    fn font_pixel_size(self: Pin<&Self>, scale_factor: f32) -> f32 {
-        let font_size = self.font_size();
-        if font_size == 0.0 {
-            DEFAULT_FONT_SIZE * scale_factor
-        } else {
-            font_size
-        }
-    }
-
-    pub fn font_request(self: Pin<&Self>, scale_factor: f32) -> crate::graphics::FontRequest {
+    pub fn font_request(self: Pin<&Self>) -> crate::graphics::FontRequest {
         crate::graphics::FontRequest {
             family: self.font_family(),
             weight: {
                 let weight = self.font_weight();
                 if weight == 0 {
-                    DEFAULT_FONT_WEIGHT
+                    None
                 } else {
-                    weight
+                    Some(weight)
                 }
             },
-            pixel_size: self.font_pixel_size(scale_factor),
+            pixel_size: {
+                let font_size = self.font_size();
+                if font_size == 0.0 {
+                    None
+                } else {
+                    Some(font_size)
+                }
+            },
         }
-    }
-
-    pub fn font(
-        self: Pin<&Self>,
-        window: &ComponentWindow,
-    ) -> Option<Box<dyn crate::graphics::Font>> {
-        window.0.font(self.font_request(window.scale_factor()))
     }
 }
 

@@ -268,14 +268,16 @@ impl<T> CachedGraphicsData<T> {
 pub type RenderingCache<T> = vec_arena::Arena<CachedGraphicsData<T>>;
 
 /// FontRequest collects all the developer-configurable properties for fonts, such as family, weight, etc.
-/// It is submitted as a request to the platform font system (i.e. CoreText on macOS) and in exchange we
-/// store a Rc<FontHandle>
+/// It is submitted as a request to the platform font system (i.e. CoreText on macOS) and in exchange the
+/// backend returns a Box<dyn Font>.
 #[derive(Debug, Clone, PartialEq)]
 #[repr(C)]
 pub struct FontRequest {
     pub family: SharedString,
-    pub weight: i32,
-    pub pixel_size: f32,
+    /// If the weight is None, the the system default font weight should be used.
+    pub weight: Option<i32>,
+    /// If the pixel size is None, the system default font size should be used.
+    pub pixel_size: Option<f32>,
 }
 
 pub trait Font {
