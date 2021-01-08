@@ -34,7 +34,26 @@ cpp! {{
     #include <QtGui/QWindow>
     #include <QtGui/QResizeEvent>
     #include <QtGui/QTextLayout>
+    #include <QtCore/QBasicTimer>
     void ensure_initialized();
+
+    struct TimerHandler : QObject {
+        QBasicTimer timer;
+        static TimerHandler& instance() {
+            static TimerHandler instance;
+            return instance;
+        }
+
+        void timerEvent(QTimerEvent *event) override {
+            if (event->timerId() != timer.timerId()) {
+                QObject::timerEvent(event);
+                return;
+            }
+            timer.stop();
+            rust!(SFPS_timerEvent [] { timer_event() });
+        }
+
+    };
 
     struct SixtyFPSWidget : QWidget {
         void *rust_window;
@@ -71,8 +90,8 @@ cpp! {{
                 rust_window.mouse_event(MouseEventType::MouseMoved, pos)
             });
         }
-
     };
+
 }}
 
 cpp_class! {pub unsafe struct QPainter as "QPainter"}
@@ -324,12 +343,14 @@ impl QtWindow {
             focus_item: Default::default(),
             cursor_blinker: Default::default(),
         });
-        rc.self_weak.set(Rc::downgrade(&rc)).ok().unwrap();
+        let self_weak = Rc::downgrade(&rc);
+        rc.self_weak.set(self_weak.clone()).ok().unwrap();
         let widget_ptr = rc.widget_ptr();
         let rust_window = Rc::as_ptr(&rc);
         cpp! {unsafe [widget_ptr as "SixtyFPSWidget*", rust_window as "void*"]  {
             widget_ptr->rust_window = rust_window;
         }};
+        ALL_WINDOWS.with(|aw| aw.borrow_mut().push(self_weak));
         rc
     }
 
@@ -387,7 +408,8 @@ impl QtWindow {
             &ComponentWindow::new(self.self_weak.get().unwrap().upgrade().unwrap()),
             self.mouse_input_state.take(),
         ));
-        self.request_redraw();
+        timer_event();
+        //self.request_redraw();
     }
 
     /// Set the min/max sizes on the QWidget
@@ -629,6 +651,32 @@ impl sixtyfps_corelib::graphics::Font for QFont {
     fn height(&self) -> f32 {
         cpp! { unsafe [self as "const QFont*"] -> f32 as "float"{
             return QFontMetricsF(*self).height();
+        }}
+    }
+}
+
+thread_local! {
+    // FIXME: currently the window are never removed
+    static ALL_WINDOWS: RefCell<Vec<Weak<QtWindow>>> = Default::default();
+}
+
+/// Called by C++'s TimerHandler::timerEvent, or everytime a timer might have been started
+fn timer_event() {
+    sixtyfps_corelib::animations::update_animations();
+    sixtyfps_corelib::timers::TimerList::maybe_activate_timers();
+
+    ALL_WINDOWS.with(|windows| {
+        for x in windows.borrow().iter() {
+            if let Some(x) = x.upgrade() {
+                x.request_redraw();
+            }
+        }
+    });
+
+    if let Some(instant) = sixtyfps_corelib::timers::TimerList::next_timeout() {
+        let timeout = instant.duration_since(std::time::Instant::now()).as_millis() as i32;
+        cpp! { unsafe [timeout as "int"] {
+            TimerHandler::instance().timer.start(timeout, &TimerHandler::instance());
         }}
     }
 }
