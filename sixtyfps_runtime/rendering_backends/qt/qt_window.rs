@@ -11,7 +11,7 @@ LICENSE END */
 use cpp::*;
 use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
 use sixtyfps_corelib::component::{ComponentRc, ComponentWeak};
-use sixtyfps_corelib::graphics::{GraphicsBackend, Point};
+use sixtyfps_corelib::graphics::{FontRequest, GraphicsBackend, Point};
 use sixtyfps_corelib::input::{MouseEventType, MouseInputState, TextCursorBlinker};
 use sixtyfps_corelib::item_rendering::ItemRenderer;
 use sixtyfps_corelib::items::{self, ItemRef};
@@ -154,7 +154,7 @@ impl ItemRenderer for QPainter {
         let rect: qttypes::QRectF = get_geometry!(pos, items::Text, text);
         let color: u32 = text.color().as_argb_encoded();
         let string: qttypes::QString = text.text().as_str().into();
-        let pixel_size: f32 = text.font_pixel_size(self.scale_factor());
+        let font: QFont = get_font(text.font_request());
 
         let flags = match text.horizontal_alignment() {
             TextHorizontalAlignment::align_left => {
@@ -177,10 +177,8 @@ impl ItemRenderer for QPainter {
                 cpp!(unsafe [] -> i32 as "int" { return Qt::AlignBottom; })
             }
         };
-        cpp! { unsafe [self as "QPainter*", rect as "QRectF", color as "QRgb", string as "QString", flags as "int", pixel_size as "float"] {
-            QFont f;
-            f.setPixelSize(pixel_size);
-            self->setFont(f);
+        cpp! { unsafe [self as "QPainter*", rect as "QRectF", color as "QRgb", string as "QString", flags as "int", font as "QFont"] {
+            self->setFont(font);
             self->setPen(QColor{color});
             self->setBrush(Qt::NoBrush);
             self->drawText(rect, flags, string);
@@ -206,37 +204,10 @@ impl ItemRenderer for QPainter {
     }
 
     fn combine_clip(&mut self, pos: Point, clip: &std::pin::Pin<&items::Clip>) {
-        let clip_rect = clip.geometry().translate([pos.x, pos.y].into());
-        self.reset_clip([clip_rect].iter().cloned().collect());
-    }
-
-    fn clip_rects(&self) -> sixtyfps_corelib::SharedVector<sixtyfps_corelib::graphics::Rect> {
-        // FIXME
-        return Default::default();
-    }
-
-    fn reset_clip(
-        &mut self,
-        rects: sixtyfps_corelib::SharedVector<sixtyfps_corelib::graphics::Rect>,
-    ) {
-        let mut iter = rects.iter();
-        if let Some(r) =
-            iter.next().and_then(|first| iter.try_fold(*first, |acc, r| acc.intersection(r)))
-        {
-            let rect = qttypes::QRectF {
-                x: r.origin.x as _,
-                y: r.origin.y as _,
-                width: r.size.width as _,
-                height: r.size.height as _,
-            };
-            cpp! { unsafe [self as "QPainter*", rect as "QRectF"] {
-                self->setClipRect(rect, Qt::ReplaceClip);
-            }}
-        } else {
-            cpp! { unsafe [self as "QPainter*"] {
-                self->setClipRect(QRect(), Qt::NoClip);
-            }}
-        }
+        let clip_rect: qttypes::QRectF = get_geometry!(pos, items::Clip, *clip);
+        cpp! { unsafe [self as "QPainter*", clip_rect as "QRectF"] {
+            self->setClipRect(clip_rect, Qt::IntersectClip);
+        }}
     }
 
     fn scale_factor(&self) -> f32 {
@@ -260,6 +231,18 @@ impl ItemRenderer for QPainter {
                 self->drawImage(pos, img);
             }}
         })
+    }
+
+    fn save_state(&mut self) {
+        cpp! { unsafe [self as "QPainter*"] {
+            self->save();
+        }}
+    }
+
+    fn restore_state(&mut self) {
+        cpp! { unsafe [self as "QPainter*"] {
+            self->restore();
+        }}
     }
 }
 
@@ -572,12 +555,25 @@ impl GenericWindow for QtWindow {
         todo!()
     }
 
-    fn font(
-        &self,
-        request: sixtyfps_corelib::graphics::FontRequest,
-    ) -> Option<Rc<dyn sixtyfps_corelib::graphics::Font>> {
-        Some(Rc::new(QtFont))
+    fn font(&self, request: FontRequest) -> Option<Box<dyn sixtyfps_corelib::graphics::Font>> {
+        Some(Box::new(get_font(request)))
     }
+}
+
+fn get_font(request: FontRequest) -> QFont {
+    let family: qttypes::QString = request.family.as_str().into();
+    let pixel_size: f32 = request.pixel_size.unwrap_or(0.);
+    let weight: i32 = request.weight.unwrap_or(0);
+    cpp!(unsafe [family as "QString", pixel_size as "float", weight as "int"] -> QFont as "QFont" {
+        QFont f;
+        if (!family.isEmpty())
+            f.setFamily(family);
+        if (pixel_size > 0)
+            f.setPixelSize(pixel_size);
+        if (weight > 0)
+            f.setWeight(weight);
+        return f;
+    })
 }
 
 struct QtBackend;
@@ -599,10 +595,7 @@ impl GraphicsBackend for QtBackend {
         todo!()
     }
 
-    fn font(
-        &mut self,
-        request: sixtyfps_corelib::graphics::FontRequest,
-    ) -> Rc<dyn sixtyfps_corelib::graphics::Font> {
+    fn font(&mut self, request: FontRequest) -> Box<dyn sixtyfps_corelib::graphics::Font> {
         todo!()
     }
 
@@ -611,25 +604,20 @@ impl GraphicsBackend for QtBackend {
     }
 }
 
-/// FIXME: this could wrap a QFont (or QFontMetrics?)
-struct QtFont;
+cpp_class! {pub unsafe struct QFont as "QFont"}
 
-impl sixtyfps_corelib::graphics::Font for QtFont {
-    fn text_width(&self, pixel_size: f32, text: &str) -> f32 {
+impl sixtyfps_corelib::graphics::Font for QFont {
+    fn text_width(&self, text: &str) -> f32 {
         let string = qttypes::QString::from(text);
-        cpp! { unsafe [string as "QString", pixel_size as "float"] -> f32 as "float"{
-            QFont f;
-            f.setPixelSize(pixel_size);
-            return QFontMetricsF(f).boundingRect(string).width();
+        cpp! { unsafe [self as "const QFont*",  string as "QString"] -> f32 as "float"{
+            return QFontMetricsF(*self).boundingRect(string).width();
         }}
     }
 
-    fn text_offset_for_x_position<'a>(&self, pixel_size: f32, text: &'a str, x: f32) -> usize {
+    fn text_offset_for_x_position<'a>(&self, text: &'a str, x: f32) -> usize {
         let string = qttypes::QString::from(text);
-        cpp! { unsafe [string as "QString", pixel_size as "float", x as "float"] -> usize as "long long" {
-            QFont f;
-            f.setPixelSize(pixel_size);
-            QTextLayout layout(string, f);
+        cpp! { unsafe [self as "const QFont*", string as "QString", x as "float"] -> usize as "long long" {
+            QTextLayout layout(string, *self);
             if (layout.lineCount() == 0)
                 return 0;
             auto cur = layout.lineAt(0).xToCursor(x);
@@ -638,11 +626,9 @@ impl sixtyfps_corelib::graphics::Font for QtFont {
         }}
     }
 
-    fn height(&self, pixel_size: f32) -> f32 {
-        cpp! { unsafe [pixel_size as "float"] -> f32 as "float"{
-            QFont f;
-            f.setPixelSize(pixel_size);
-            return QFontMetricsF(f).height();
+    fn height(&self) -> f32 {
+        cpp! { unsafe [self as "const QFont*"] -> f32 as "float"{
+            return QFontMetricsF(*self).height();
         }}
     }
 }
