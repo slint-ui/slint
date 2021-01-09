@@ -776,15 +776,19 @@ struct GLFont {
 
 impl Font for GLFont {
     fn text_width(&self, text: &str) -> f32 {
-        let mut paint = femtovg::Paint::default();
-        paint.set_font(&[self.font_id]);
-        paint.set_font_size(self.pixel_size);
-        self.canvas.borrow_mut().measure_text(0., 0., text, paint).unwrap().width()
+        self.measure(text).width()
     }
 
-    fn text_offset_for_x_position<'a>(&self, _text: &'a str, _x: f32) -> usize {
-        //todo!()
-        return 0;
+    fn text_offset_for_x_position<'a>(&self, text: &'a str, x: f32) -> usize {
+        let metrics = self.measure(text);
+        let mut current_x = 0.;
+        for glyph in metrics.glyphs {
+            if current_x + glyph.advance_x / 2. >= x {
+                return glyph.byte_index;
+            }
+            current_x += glyph.advance_x;
+        }
+        return text.len();
     }
 
     fn height(&self) -> f32 {
@@ -792,6 +796,15 @@ impl Font for GLFont {
         paint.set_font(&[self.font_id]);
         paint.set_font_size(self.pixel_size);
         self.canvas.borrow_mut().measure_font(paint).unwrap().height()
+    }
+}
+
+impl GLFont {
+    fn measure(&self, text: &str) -> femtovg::TextMetrics {
+        let mut paint = femtovg::Paint::default();
+        paint.set_font(&[self.font_id]);
+        paint.set_font_size(self.pixel_size);
+        self.canvas.borrow_mut().measure_text(0., 0., text, paint).unwrap()
     }
 }
 
