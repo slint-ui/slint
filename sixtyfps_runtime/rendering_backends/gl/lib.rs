@@ -488,11 +488,12 @@ impl ItemRenderer for GLItemRenderer {
         pos: Point,
         rect: std::pin::Pin<&sixtyfps_corelib::items::BorderRectangle>,
     ) {
+        // If the border width exceeds the width, just fill the rectangle.
+        let border_width = rect.border_width().min(rect.width() / 2.);
         // In CSS the border is entirely towards the inside of the boundary
         // geometry, while in femtovg the line with for a stroke is 50% in-
         // and 50% outwards. We choose the CSS model, so the inner rectangle
         // is adjusted accordingly.
-        let border_width = rect.border_width();
         let mut path = femtovg::Path::new();
         path.rounded_rect(
             rect.x() + border_width / 2.,
