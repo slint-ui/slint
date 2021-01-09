@@ -19,6 +19,7 @@ use sixtyfps_corelib::graphics::{
 };
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::Item;
+use sixtyfps_corelib::items::{TextHorizontalAlignment, TextVerticalAlignment};
 use sixtyfps_corelib::window::ComponentWindow;
 use sixtyfps_corelib::SharedString;
 
@@ -595,56 +596,62 @@ impl ItemRenderer for GLItemRenderer {
     }
 
     fn draw_text(&mut self, pos: Point, text: std::pin::Pin<&sixtyfps_corelib::items::Text>) {
-        use sixtyfps_corelib::items::{TextHorizontalAlignment, TextVerticalAlignment};
-
-        let font = self.loaded_fonts.borrow_mut().font(
-            &self.canvas,
+        self.draw_text_impl(
+            pos + euclid::Vector2D::new(text.x(), text.y()),
+            text.width(),
+            text.height(),
+            &text.text(),
             text.font_request(),
-            self.scale_factor,
+            text.color(),
+            text.horizontal_alignment(),
+            text.vertical_alignment(),
         );
-
-        let paint = font.paint(text.color().into());
-
-        let text_str = text.text();
-
-        let max_width = text.width();
-        let max_height = text.height();
-        let (text_width, text_height) = {
-            let text_metrics =
-                self.canvas.borrow_mut().measure_text(0., 0., &text_str, paint).unwrap();
-            let font_metrics = self.canvas.borrow_mut().measure_font(paint).unwrap();
-            (text_metrics.width(), font_metrics.height())
-        };
-
-        let translate_x = match text.horizontal_alignment() {
-            TextHorizontalAlignment::align_left => 0.,
-            TextHorizontalAlignment::align_center => max_width / 2. - text_width / 2.,
-            TextHorizontalAlignment::align_right => max_width - text_width,
-        };
-
-        let translate_y = match text.vertical_alignment() {
-            TextVerticalAlignment::align_top => 0.,
-            TextVerticalAlignment::align_center => max_height / 2. - text_height / 2.,
-            TextVerticalAlignment::align_bottom => max_height - text_height,
-        };
-
-        self.canvas
-            .borrow_mut()
-            .fill_text(
-                pos.x + text.x() + translate_x,
-                pos.y + text.y() + translate_y,
-                text_str,
-                paint,
-            )
-            .unwrap();
     }
 
     fn draw_text_input(
         &mut self,
-        _pos: Point,
-        _rect: std::pin::Pin<&sixtyfps_corelib::items::TextInput>,
+        pos: Point,
+        text_input: std::pin::Pin<&sixtyfps_corelib::items::TextInput>,
     ) {
-        //todo!()
+        let pos = pos + euclid::Vector2D::new(text_input.x(), text_input.y());
+        let metrics = self.draw_text_impl(
+            pos,
+            text_input.width(),
+            text_input.height(),
+            &text_input.text(),
+            text_input.font_request(),
+            text_input.color(),
+            text_input.horizontal_alignment(),
+            text_input.vertical_alignment(),
+        );
+
+        let cursor_index = text_input.cursor_position();
+        if cursor_index >= 0 && text_input.cursor_visible() {
+            let cursor_x = metrics
+                .glyphs
+                .iter()
+                .find_map(|glyph| {
+                    if glyph.byte_index == cursor_index as usize {
+                        Some(glyph.x)
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or_else(|| pos.x + metrics.width());
+            let mut cursor_rect = femtovg::Path::new();
+            cursor_rect.rect(
+                cursor_x,
+                pos.y,
+                text_input.text_cursor_width() * self.scale_factor,
+                self.loaded_fonts
+                    .borrow_mut()
+                    .font(&self.canvas, text_input.font_request(), self.scale_factor)
+                    .height(),
+            );
+            self.canvas
+                .borrow_mut()
+                .fill_path(&mut cursor_rect, femtovg::Paint::color(text_input.color().into()));
+        }
     }
 
     fn draw_path(&mut self, _pos: Point, _path: std::pin::Pin<&sixtyfps_corelib::items::Path>) {
@@ -710,6 +717,48 @@ impl ItemRenderer for GLItemRenderer {
 
     fn scale_factor(&self) -> f32 {
         self.scale_factor
+    }
+}
+
+impl GLItemRenderer {
+    fn draw_text_impl(
+        &mut self,
+        pos: Point,
+        max_width: f32,
+        max_height: f32,
+        text: &str,
+        font_request: FontRequest,
+        color: Color,
+        horizontal_alignment: TextHorizontalAlignment,
+        vertical_alignment: TextVerticalAlignment,
+    ) -> femtovg::TextMetrics {
+        let font =
+            self.loaded_fonts.borrow_mut().font(&self.canvas, font_request, self.scale_factor);
+
+        let paint = font.paint(color.into());
+
+        let (text_width, text_height) = {
+            let text_metrics = self.canvas.borrow_mut().measure_text(0., 0., &text, paint).unwrap();
+            let font_metrics = self.canvas.borrow_mut().measure_font(paint).unwrap();
+            (text_metrics.width(), font_metrics.height())
+        };
+
+        let translate_x = match horizontal_alignment {
+            TextHorizontalAlignment::align_left => 0.,
+            TextHorizontalAlignment::align_center => max_width / 2. - text_width / 2.,
+            TextHorizontalAlignment::align_right => max_width - text_width,
+        };
+
+        let translate_y = match vertical_alignment {
+            TextVerticalAlignment::align_top => 0.,
+            TextVerticalAlignment::align_center => max_height / 2. - text_height / 2.,
+            TextVerticalAlignment::align_bottom => max_height - text_height,
+        };
+
+        self.canvas
+            .borrow_mut()
+            .fill_text(pos.x + translate_x, pos.y + translate_y, text, paint)
+            .unwrap()
     }
 }
 
