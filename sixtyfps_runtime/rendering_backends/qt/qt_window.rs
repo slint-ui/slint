@@ -59,6 +59,7 @@ cpp! {{
 
     struct SixtyFPSWidget : QWidget {
         void *rust_window;
+
         void paintEvent(QPaintEvent *) override {
             QPainter painter(this);
             auto painter_ptr = &painter;
@@ -85,6 +86,13 @@ cpp! {{
             rust!(SFPS_mouseReleaseEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint"] {
                 rust_window.mouse_event(MouseEventType::MouseReleased, pos)
             });
+            if (auto p = dynamic_cast<const SixtyFPSWidget*>(parent())) {
+                // FIXME: better way to close the popup
+                void *parent_window = p->rust_window;
+                rust!(SFPS_mouseReleaseEventPopup [parent_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint"] {
+                    parent_window.close_popup();
+                });
+            }
         }
         void mouseMoveEvent(QMouseEvent *event) override {
             QPoint pos = event->pos();
@@ -331,6 +339,8 @@ pub struct QtWindow {
     mouse_input_state: Cell<MouseInputState>,
     focus_item: std::cell::RefCell<ItemWeak>,
     cursor_blinker: RefCell<pin_weak::rc::PinWeak<TextCursorBlinker>>,
+
+    popup_window: RefCell<Option<(Rc<QtWindow>, ComponentRc)>>,
 }
 
 impl QtWindow {
@@ -348,6 +358,7 @@ impl QtWindow {
             mouse_input_state: Default::default(),
             focus_item: Default::default(),
             cursor_blinker: Default::default(),
+            popup_window: Default::default(),
         });
         let self_weak = Rc::downgrade(&rc);
         rc.self_weak.set(self_weak.clone()).ok().unwrap();
@@ -591,11 +602,21 @@ impl GenericWindow for QtWindow {
     }
 
     fn show_popup(&self, popup: &sixtyfps_corelib::component::ComponentRc, position: Point) {
-        todo!()
+        let popup_window = Self::new();
+        popup_window.clone().set_component(popup);
+        let popup_ptr = popup_window.widget_ptr();
+        let pos = qttypes::QPoint { x: position.x as _, y: position.y as _ };
+        let widget_ptr = self.widget_ptr();
+        cpp! {unsafe [widget_ptr as "QWidget*", popup_ptr as "QWidget*", pos as "QPoint"] {
+            popup_ptr->setParent(widget_ptr, Qt::Popup);
+            popup_ptr->move(pos + widget_ptr->pos());
+            popup_ptr->show();
+        }};
+        self.popup_window.replace(Some((popup_window, popup.clone())));
     }
 
     fn close_popup(&self) {
-        todo!()
+        self.popup_window.replace(None);
     }
 
     fn font(&self, request: FontRequest) -> Option<Box<dyn sixtyfps_corelib::graphics::Font>> {
