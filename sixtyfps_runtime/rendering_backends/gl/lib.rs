@@ -18,6 +18,7 @@ use sixtyfps_corelib::graphics::{
     Color, Font, FontRequest, GraphicsBackend, Point, Rect, RenderingCache, Resource,
 };
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
+use sixtyfps_corelib::items::ImageFit;
 use sixtyfps_corelib::items::Item;
 use sixtyfps_corelib::items::{TextHorizontalAlignment, TextVerticalAlignment};
 use sixtyfps_corelib::properties::Property;
@@ -547,6 +548,7 @@ impl ItemRenderer for GLItemRenderer {
             Rect::default(),
             image.width(),
             image.height(),
+            image.image_fit(),
         );
     }
 
@@ -567,6 +569,7 @@ impl ItemRenderer for GLItemRenderer {
             source_clip_rect,
             clipped_image.width(),
             clipped_image.height(),
+            clipped_image.image_fit(),
         );
     }
 
@@ -801,6 +804,7 @@ impl GLItemRenderer {
         source_clip_rect: Rect,
         scaled_width: f32,
         scaled_height: f32,
+        image_fit: ImageFit,
     ) {
         let (cached_image, image_info) =
             match self.load_cached_item_image(item_cache, || source_property.get()) {
@@ -830,9 +834,16 @@ impl GLItemRenderer {
         self.canvas.borrow_mut().save_with(|canvas| {
             canvas.translate(pos.x, pos.y);
 
-            if scaled_width > 0. && scaled_height > 0. {
-                canvas.scale(scaled_width / image_width, scaled_height / image_height);
-            }
+            match image_fit {
+                ImageFit::fill => {
+                    canvas.scale(scaled_width / source_width, scaled_height / source_height);
+                }
+                ImageFit::contain => {
+                    let ratio =
+                        f32::max(scaled_width / source_width, scaled_height / source_height);
+                    canvas.scale(ratio, ratio)
+                }
+            };
 
             canvas.fill_path(&mut path, fill_paint);
         })
