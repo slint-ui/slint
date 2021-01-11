@@ -24,12 +24,7 @@ lyon = { version = "0.16" }
 image = { version = "0.23.12", default-features = false }
 rgb = "0.8"
 imgref = "1.6.1"
-cgmath = "0.17.0"
 vtable = { version = "0.1", path = "../../../helper_crates/vtable" }
-pathfinder_geometry = "0.5.1"
-guillotiere = "0.6"
-itertools = "0.9.0"
-smallvec = "1.4.1"
 by_address = "1.0.4"
 femtovg = { version = "0.1.0" }
 euclid = "0.22.1"
