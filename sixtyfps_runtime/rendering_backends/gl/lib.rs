@@ -614,6 +614,12 @@ impl ItemRenderer for GLItemRenderer {
         text_input: std::pin::Pin<&sixtyfps_corelib::items::TextInput>,
     ) {
         let pos = pos + euclid::Vector2D::new(text_input.x(), text_input.y());
+        let font = self.loaded_fonts.borrow_mut().font(
+            &self.canvas,
+            text_input.font_request(),
+            self.scale_factor,
+        );
+
         let metrics = self.draw_text_impl(
             pos,
             text_input.width(),
@@ -624,6 +630,56 @@ impl ItemRenderer for GLItemRenderer {
             text_input.horizontal_alignment(),
             text_input.vertical_alignment(),
         );
+
+        // This way of drawing selected text isn't quite 100% correct. Due to femtovg only being able to
+        // have a simple rectangular selection - due to the use of the scissor clip - the selected text is
+        // drawn *over* the unselected text. If the selection background color is transparent, then that means
+        // that glyphs are blended twice, which may lead to artifacts.
+        // It would be better to draw the selected text and non-selected text without overlap.
+        if text_input.has_selection() {
+            let (anchor_pos, cursor_pos) = text_input.selection_anchor_and_cursor();
+            let mut selection_start_x = 0.;
+            let mut selection_end_x = 0.;
+            for glyph in &metrics.glyphs {
+                if glyph.byte_index == anchor_pos {
+                    selection_start_x = glyph.x;
+                }
+                if glyph.byte_index == (cursor_pos as i32 - 1).max(0) as usize {
+                    selection_end_x = glyph.x + glyph.advance_x;
+                }
+            }
+
+            let selection_rect = Rect::new(
+                [selection_start_x, pos.y].into(),
+                [selection_end_x - selection_start_x, font.height()].into(),
+            );
+
+            self.canvas.borrow_mut().fill_path(
+                &mut rect_to_path(selection_rect),
+                femtovg::Paint::color(text_input.selection_background_color().into()),
+            );
+
+            self.canvas.borrow_mut().save();
+            self.canvas.borrow_mut().intersect_scissor(
+                selection_rect.min_x(),
+                selection_rect.min_y(),
+                selection_rect.width(),
+                selection_rect.height(),
+            );
+
+            self.draw_text_impl(
+                pos,
+                text_input.width(),
+                text_input.height(),
+                &text_input.text(),
+                text_input.font_request(),
+                text_input.selection_foreground_color().into(),
+                text_input.horizontal_alignment(),
+                text_input.vertical_alignment(),
+            );
+
+            self.canvas.borrow_mut().restore();
+        };
 
         let cursor_index = text_input.cursor_position();
         if cursor_index >= 0 && text_input.cursor_visible() {
@@ -643,10 +699,7 @@ impl ItemRenderer for GLItemRenderer {
                 cursor_x,
                 pos.y,
                 text_input.text_cursor_width() * self.scale_factor,
-                self.loaded_fonts
-                    .borrow_mut()
-                    .font(&self.canvas, text_input.font_request(), self.scale_factor)
-                    .height(),
+                font.height(),
             );
             self.canvas
                 .borrow_mut()

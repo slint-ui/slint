@@ -487,7 +487,7 @@ impl TextInput {
         Self::FIELD_OFFSETS.edited.apply_pin(self).emit(&());
     }
 
-    fn selection_anchor_and_cursor(self: Pin<&Self>) -> (usize, usize) {
+    pub fn selection_anchor_and_cursor(self: Pin<&Self>) -> (usize, usize) {
         let cursor_pos = self.cursor_position().max(0);
         let anchor_pos = self.anchor_position().max(0);
 
@@ -498,7 +498,7 @@ impl TextInput {
         }
     }
 
-    fn has_selection(self: Pin<&Self>) -> bool {
+    pub fn has_selection(self: Pin<&Self>) -> bool {
         let (anchor_pos, cursor_pos) = self.selection_anchor_and_cursor();
         anchor_pos != cursor_pos
     }
