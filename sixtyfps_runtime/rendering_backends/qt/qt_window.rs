@@ -240,9 +240,10 @@ impl ItemRenderer for QPainter {
     }
 
     fn scale_factor(&self) -> f32 {
-        cpp! { unsafe [self as "QPainter*"] -> f32 as "float" {
+        return 1.;
+        /* cpp! { unsafe [self as "QPainter*"] -> f32 as "float" {
             return self->paintEngine()->paintDevice()->devicePixelRatioF();
-        }}
+        }} */
     }
 
     fn draw_cached_pixmap(
@@ -512,10 +513,11 @@ impl GenericWindow for QtWindow {
     }
 
     fn scale_factor(&self) -> f32 {
-        let widget_ptr = self.widget_ptr();
+        return 1.;
+        /* let widget_ptr = self.widget_ptr();
         cpp! {unsafe [widget_ptr as "QWidget*"] -> f32 as "float" {
             return widget_ptr->windowHandle()->devicePixelRatio();
-        }}
+        }} */
     }
 
     fn set_scale_factor(&self, factor: f32) {
