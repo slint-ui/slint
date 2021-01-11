@@ -31,7 +31,7 @@ guillotiere = "0.6"
 itertools = "0.9.0"
 smallvec = "1.4.1"
 by_address = "1.0.4"
-femtovg = { git = "https://github.com/femtovg/femtovg", branch = "master" }
+femtovg = { version = "0.1.0" }
 euclid = "0.22.1"
 pin-weak = "1"
 fontdb = "0.5.1"
