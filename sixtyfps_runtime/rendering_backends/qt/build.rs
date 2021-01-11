@@ -16,6 +16,10 @@ fn qmake_query(var: &str) -> Option<String> {
     })
 }
 fn main() {
+    if std::env::var("TARGET").map_or(false, |t| t.starts_with("wasm")) {
+        println!("cargo:rustc-cfg=no_qt");
+        return;
+    }
     if qmake_query("QT_VERSION").is_none() {
         println!("cargo:rustc-cfg=no_qt");
         println!(

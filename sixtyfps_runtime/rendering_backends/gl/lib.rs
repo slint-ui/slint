@@ -46,7 +46,6 @@ impl Drop for CachedImage {
 
 #[derive(PartialEq, Eq, Hash, Debug)]
 enum ImageCacheKey {
-    #[cfg(not(target_arch = "wasm32"))]
     Path(String),
     EmbeddedData(by_address::ByAddress<&'static [u8]>),
 }
@@ -68,80 +67,29 @@ impl GPUCachedData {
     }
 }
 
-struct FontDatabase(HashMap<FontCacheKey, femtovg::FontId>);
+struct FontCache(HashMap<FontCacheKey, femtovg::FontId>);
 
-impl Default for FontDatabase {
+impl Default for FontCache {
     fn default() -> Self {
         Self(HashMap::new())
     }
 }
 
-thread_local! {
-    /// Database used to keep track of fonts added by the application
-    pub static APPLICATION_FONTS: RefCell<fontdb::Database> = RefCell::new(fontdb::Database::new())
-}
+#[cfg(not(target_arch = "wasm32"))]
+mod fonts_fontdb;
+#[cfg(not(target_arch = "wasm32"))]
+pub use fonts_fontdb::register_application_font_from_memory;
+#[cfg(not(target_arch = "wasm32"))]
+use fonts_fontdb::*;
 
-/// This function can be used to register a custom TrueType font with SixtyFPS,
-/// for use with the `font-family` property. The provided slice must be a valid TrueType
-/// font.
-pub fn register_application_font_from_memory(
-    data: &'static [u8],
-) -> Result<(), Box<dyn std::error::Error>> {
-    APPLICATION_FONTS.with(|fontdb| fontdb.borrow_mut().load_font_data(data.into()));
-    Ok(())
-}
+#[cfg(target_arch = "wasm32")]
+mod fonts_wasm;
+#[cfg(target_arch = "wasm32")]
+pub use fonts_wasm::register_application_font_from_memory;
+#[cfg(target_arch = "wasm32")]
+use fonts_wasm::*;
 
-fn try_load_app_font(canvas: &CanvasRc, request: &FontRequest) -> Option<femtovg::FontId> {
-    let family = if request.family.is_empty() {
-        fontdb::Family::SansSerif
-    } else {
-        fontdb::Family::Name(&request.family)
-    };
-    let query = fontdb::Query {
-        families: &[family],
-        weight: fontdb::Weight(request.weight.unwrap() as u16),
-        ..Default::default()
-    };
-    APPLICATION_FONTS.with(|font_db| {
-        let font_db = font_db.borrow();
-        font_db.query(&query).and_then(|id| font_db.face_source(id)).map(|(source, _index)| {
-            // pass index to femtovg once femtovg/femtovg/pull/21 is merged
-            match source.as_ref() {
-                fontdb::Source::Binary(data) => canvas.borrow_mut().add_font_mem(&data).unwrap(),
-                fontdb::Source::File(path) => canvas.borrow_mut().add_font(path).unwrap(),
-            }
-        })
-    })
-}
-
-fn load_system_font(canvas: &CanvasRc, request: &FontRequest) -> femtovg::FontId {
-    let family_name = if request.family.len() == 0 {
-        font_kit::family_name::FamilyName::SansSerif
-    } else {
-        font_kit::family_name::FamilyName::Title(request.family.to_string())
-    };
-
-    let handle = font_kit::source::SystemSource::new()
-        .select_best_match(
-            &[family_name, font_kit::family_name::FamilyName::SansSerif],
-            &font_kit::properties::Properties::new()
-                .weight(font_kit::properties::Weight(request.weight.unwrap() as f32)),
-        )
-        .unwrap();
-
-    // pass index to femtovg once femtovg/femtovg/pull/21 is merged
-    match handle {
-        font_kit::handle::Handle::Path { path, font_index: _ } => {
-            canvas.borrow_mut().add_font(path)
-        }
-        font_kit::handle::Handle::Memory { bytes, font_index: _ } => {
-            canvas.borrow_mut().add_font_mem(bytes.as_slice())
-        }
-    }
-    .unwrap()
-}
-
-impl FontDatabase {
+impl FontCache {
     fn font(&mut self, canvas: &CanvasRc, mut request: FontRequest, scale_factor: f32) -> GLFont {
         request.pixel_size = request.pixel_size.or(Some(DEFAULT_FONT_SIZE * scale_factor));
         request.weight = request.weight.or(Some(DEFAULT_FONT_WEIGHT));
@@ -177,7 +125,7 @@ pub struct GLRenderer {
     item_rendering_cache: ItemRenderingCacheRc,
     image_cache: ImageCacheRc,
 
-    loaded_fonts: Rc<RefCell<FontDatabase>>,
+    loaded_fonts: Rc<RefCell<FontCache>>,
 }
 
 impl GLRenderer {
@@ -218,6 +166,8 @@ impl GLRenderer {
 
         #[cfg(target_arch = "wasm32")]
         let (window, renderer) = {
+            use wasm_bindgen::JsCast;
+
             let canvas = web_sys::window()
                 .unwrap()
                 .document()
@@ -291,7 +241,8 @@ impl GLRenderer {
                 }
             }
 
-            let renderer = femtovg::renderer::OpenGl::new_from_html_canvas(window.canvas());
+            let renderer =
+                femtovg::renderer::OpenGl::new_from_html_canvas(&window.canvas()).unwrap();
             (window, renderer)
         };
 
@@ -316,7 +267,10 @@ impl GraphicsBackend for GLRenderer {
     type ItemRenderer = GLItemRenderer;
 
     fn new_renderer(&mut self, clear_color: &Color) -> GLItemRenderer {
-        let size = self.window().inner_size();
+        let (size, scale_factor) = {
+            let window = self.window();
+            (window.inner_size(), window.scale_factor() as f32)
+        };
 
         #[cfg(not(target_arch = "wasm32"))]
         let current_windowed_context =
@@ -331,9 +285,9 @@ impl GraphicsBackend for GLRenderer {
             canvas.clear_rect(0, 0, size.width, size.height, clear_color.into());
         }
 
-        let scale_factor = current_windowed_context.window().scale_factor() as f32;
         GLItemRenderer {
             canvas: self.canvas.clone(),
+            #[cfg(not(target_arch = "wasm32"))]
             windowed_context: current_windowed_context,
             item_rendering_cache: self.item_rendering_cache.clone(),
             image_cache: self.image_cache.clone(),
@@ -342,15 +296,15 @@ impl GraphicsBackend for GLRenderer {
         }
     }
 
-    fn flush_renderer(&mut self, renderer: GLItemRenderer) {
+    fn flush_renderer(&mut self, _renderer: GLItemRenderer) {
         self.canvas.borrow_mut().flush();
 
         #[cfg(not(target_arch = "wasm32"))]
         {
-            renderer.windowed_context.swap_buffers().unwrap();
+            _renderer.windowed_context.swap_buffers().unwrap();
 
             self.windowed_context =
-                Some(unsafe { renderer.windowed_context.make_not_current().unwrap() });
+                Some(unsafe { _renderer.windowed_context.make_not_current().unwrap() });
         }
 
         self.image_cache.borrow_mut().retain(|_, cached_image_weak| {
@@ -388,7 +342,7 @@ pub struct GLItemRenderer {
 
     item_rendering_cache: ItemRenderingCacheRc,
     image_cache: ImageCacheRc,
-    loaded_fonts: Rc<RefCell<FontDatabase>>,
+    loaded_fonts: Rc<RefCell<FontCache>>,
     scale_factor: f32,
 }
 

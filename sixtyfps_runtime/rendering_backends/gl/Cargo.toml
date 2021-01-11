@@ -29,19 +29,20 @@ by_address = "1.0.4"
 femtovg = { git = "https://github.com/femtovg/femtovg", branch = "master" }
 euclid = "0.22.1"
 pin-weak = "1"
-fontdb = "0.5.1"
+scoped-tls-hkt = "0.1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web_sys = { version = "0.3", package = "web-sys", features=["console", "WebGlContextAttributes"] }
 wasm-bindgen = { version = "0.2" }
 winit = { version = "0.24", default-features = false, features = ["web-sys"] }
-glow = { version = "0.7.0", features = ["web-sys"], default-features = false }
+ttf-parser = "0.9"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 winit = { version = "0.24", default-features = false }
 glutin = { version = "0.26", default-features = false }
 glow = { version = "0.7.0", default-features = false }
 font-kit = { version = "0.10", features = ["loader-freetype"] }
+fontdb = { version = "0.5.1" }
 
 # Require font-config from the system. Issue #88 indicates that the copy provided by servo-fontconfig may be incompatible
 # with distros at times.
