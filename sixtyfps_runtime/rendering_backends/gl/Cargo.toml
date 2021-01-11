@@ -26,7 +26,7 @@ rgb = "0.8"
 imgref = "1.6.1"
 vtable = { version = "0.1", path = "../../../helper_crates/vtable" }
 by_address = "1.0.4"
-femtovg = { version = "0.1.0" }
+femtovg = { git = "https://github.com/femtovg/femtovg", branch = "master" }
 euclid = "0.22.1"
 pin-weak = "1"
 fontdb = "0.5.1"
