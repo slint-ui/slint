@@ -42,6 +42,7 @@ use std::rc::Rc;
 
 type ItemRendererRef<'a> = &'a mut dyn ItemRenderer;
 
+use crate::qt_window::QPainter;
 use crate::qttypes;
 
 /// Helper macro to get the size from the width and height property,
@@ -58,23 +59,38 @@ macro_rules! get_size {
 }
 
 macro_rules! fn_render {
-    ($this:ident $dpr:ident $size:ident $img:ident => $($tt:tt)*) => {
+    ($this:ident $dpr:ident $size:ident $painter:ident => $($tt:tt)*) => {
         fn render(self: Pin<&Self>, pos: Point, backend: &mut &mut dyn ItemRenderer) {
             let x = self.x();
             let y = self.y();
             let $dpr: f32 = backend.scale_factor();
-            backend.draw_cached_pixmap(
-                &self.cached_rendering_data,
-                Point::new(x, y) + pos.to_vector(),
-                &mut |callback| {
-                    let $size: qttypes::QSize = get_size!(self);
-                    let mut imgarray = QImageWrapArray::new($size, $dpr);
-                    let $img = &mut imgarray.img;
-                    let $this = self;
-                    $($tt)*
-                    imgarray.draw(callback);
-                },
-            );
+            if let Some(painter) = std::any::Any::downcast_mut::<QPainter>(backend.as_any()) {
+                let $size: qttypes::QSize = get_size!(self);
+                let $this = self;
+                let pos = qttypes::QPoint { x: (x + pos.x) as _, y: (y + pos.y) as _ };
+                painter.save_state();
+                cpp!(unsafe [painter as "QPainter*", pos as "QPoint"] { painter->translate(pos); });
+                let $painter = painter;
+                $($tt)*
+                $painter.restore_state();
+            } else {
+                // Fallback: this happen when the Qt backend is not used and the gl backend is used instead
+                backend.draw_cached_pixmap(
+                    &self.cached_rendering_data,
+                    Point::new(x, y) + pos.to_vector(),
+                    &mut |callback| {
+                        let $size: qttypes::QSize = get_size!(self);
+                        let mut imgarray = QImageWrapArray::new($size, $dpr);
+                        let img = &mut imgarray.img;
+                        let mut painter_ = cpp!(unsafe [img as "QImage*"] -> QPainter as "QPainter" { return QPainter(img); });
+                        let $painter = &mut painter_;
+                        let $this = self;
+                        $($tt)*
+                        drop(painter_);
+                        imgarray.draw(callback);
+                    },
+                );
+            }
         }
     };
 }
@@ -111,6 +127,7 @@ cpp! {{
     #include <QtWidgets/QStyleFactory>
     #include <QtGui/QPainter>
     #include <QtCore/QDebug>
+    #include <QtCore/QScopeGuard>
 
     void ensure_initialized()
     {
@@ -204,20 +221,19 @@ impl Item for NativeButton {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn_render! { this dpr size img =>
+    fn_render! { this dpr size painter =>
         let down: bool = this.pressed();
         let text: qttypes::QString = this.text().as_str().into();
         let enabled = this.enabled();
 
         cpp!(unsafe [
-            img as "QImage*",
+            painter as "QPainter*",
             text as "QString",
             enabled as "bool",
             size as "QSize",
             down as "bool",
             dpr as "float"
         ] {
-            QPainter p(img);
             QStyleOptionButton option;
             option.text = std::move(text);
             option.rect = QRect(QPoint(), size / dpr);
@@ -230,7 +246,7 @@ impl Item for NativeButton {
             } else {
                 option.palette.setCurrentColorGroup(QPalette::Disabled);
             }
-            qApp->style()->drawControl(QStyle::CE_PushButton, &option, &p, nullptr);
+            qApp->style()->drawControl(QStyle::CE_PushButton, &option, painter, nullptr);
         });
     }
 }
@@ -308,20 +324,19 @@ impl Item for NativeCheckBox {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn_render! { this dpr size img =>
+    fn_render! { this dpr size painter =>
         let checked: bool = this.checked();
         let enabled = this.enabled();
         let text: qttypes::QString = this.text().as_str().into();
 
         cpp!(unsafe [
-            img as "QImage*",
+            painter as "QPainter*",
             enabled as "bool",
             text as "QString",
             size as "QSize",
             checked as "bool",
             dpr as "float"
         ] {
-            QPainter p(img);
             QStyleOptionButton option;
             option.text = std::move(text);
             option.rect = QRect(QPoint(), size / dpr);
@@ -331,7 +346,7 @@ impl Item for NativeCheckBox {
             } else {
                 option.palette.setCurrentColorGroup(QPalette::Disabled);
             }
-            qApp->style()->drawControl(QStyle::CE_CheckBox, &option, &p, nullptr);
+            qApp->style()->drawControl(QStyle::CE_CheckBox, &option, painter, nullptr);
         });
     }
 }
@@ -508,7 +523,7 @@ impl Item for NativeSpinBox {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn_render! { this dpr size img =>
+    fn_render! { this dpr size painter =>
         let value: i32 = this.value();
         let enabled = this.enabled();
         let data = this.data();
@@ -516,7 +531,7 @@ impl Item for NativeSpinBox {
         let pressed = data.pressed;
 
         cpp!(unsafe [
-            img as "QImage*",
+            painter as "QPainter*",
             value as "int",
             enabled as "bool",
             size as "QSize",
@@ -524,16 +539,15 @@ impl Item for NativeSpinBox {
             pressed as "bool",
             dpr as "float"
         ] {
-            QPainter p(img);
             auto style = qApp->style();
             QStyleOptionSpinBox option;
             option.rect = QRect(QPoint(), size / dpr);
             initQSpinBoxOptions(option, pressed, enabled, active_controls);
-            style->drawComplexControl(QStyle::CC_SpinBox, &option, &p, nullptr);
+            style->drawComplexControl(QStyle::CC_SpinBox, &option, painter, nullptr);
 
             auto text_rect = style->subControlRect(QStyle::CC_SpinBox, &option, QStyle::SC_SpinBoxEditField, nullptr);
-            p.setPen(option.palette.color(QPalette::Text));
-            p.drawText(text_rect, QString::number(value));
+            painter->setPen(option.palette.color(QPalette::Text));
+            painter->drawText(text_rect, QString::number(value));
         });
     }
 }
@@ -707,7 +721,7 @@ impl Item for NativeSlider {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn_render! { this dpr size img =>
+    fn_render! { this dpr size painter =>
         let enabled = this.enabled();
         let value = this.value() as i32;
         let min = this.minimum() as i32;
@@ -717,7 +731,7 @@ impl Item for NativeSlider {
         let pressed = data.pressed;
 
         cpp!(unsafe [
-            img as "QImage*",
+            painter as "QPainter*",
             enabled as "bool",
             value as "int",
             min as "int",
@@ -727,12 +741,11 @@ impl Item for NativeSlider {
             pressed as "bool",
             dpr as "float"
         ] {
-            QPainter p(img);
             QStyleOptionSlider option;
             option.rect = QRect(QPoint(), size / dpr);
             initQSliderOptions(option, pressed, enabled, active_controls, min, max, value);
             auto style = qApp->style();
-            style->drawComplexControl(QStyle::CC_Slider, &option, &p, nullptr);
+            style->drawComplexControl(QStyle::CC_Slider, &option, painter, nullptr);
         });
     }
 }
@@ -891,19 +904,18 @@ impl Item for NativeGroupBox {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn_render! { this dpr size img =>
+    fn_render! { this dpr size painter =>
         let text: qttypes::QString =
             this.title().as_str().into();
         let enabled = this.enabled();
 
         cpp!(unsafe [
-            img as "QImage*",
+            painter as "QPainter*",
             text as "QString",
             enabled as "bool",
             size as "QSize",
             dpr as "float"
         ] {
-            QPainter p(img);
             QStyleOptionGroupBox option;
             if (enabled) {
                 option.state |= QStyle::State_Enabled;
@@ -920,7 +932,7 @@ impl Item for NativeGroupBox {
             }
             option.textColor = QColor(qApp->style()->styleHint(
                 QStyle::SH_GroupBox_TextLabelColor, &option));
-            qApp->style()->drawComplexControl(QStyle::CC_GroupBox, &option, &p, nullptr);
+            qApp->style()->drawComplexControl(QStyle::CC_GroupBox, &option, painter, nullptr);
         });
     }
 }
@@ -1032,18 +1044,17 @@ impl Item for NativeLineEdit {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn_render! { this dpr size img =>
+    fn_render! { this dpr size painter =>
         let focused: bool = this.focused();
         let enabled: bool = this.enabled();
 
         cpp!(unsafe [
-            img as "QImage*",
+            painter as "QPainter*",
             size as "QSize",
             dpr as "float",
             enabled as "bool",
             focused as "bool"
         ] {
-            QPainter p(img);
             QStyleOptionFrame option;
             option.rect = QRect(QPoint(), size / dpr);
             option.lineWidth = 1;
@@ -1055,7 +1066,7 @@ impl Item for NativeLineEdit {
             } else {
                 option.palette.setCurrentColorGroup(QPalette::Disabled);
             }
-            qApp->style()->drawPrimitive(QStyle::PE_PanelLineEdit, &option, &p, nullptr);
+            qApp->style()->drawPrimitive(QStyle::PE_PanelLineEdit, &option, painter, nullptr);
         });
     }
 }
@@ -1317,7 +1328,7 @@ impl Item for NativeScrollView {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn_render! { this dpr size img =>
+    fn_render! { this dpr size painter =>
 
         let data = this.data();
         let left = this.native_padding_left();
@@ -1330,17 +1341,16 @@ impl Item for NativeScrollView {
             width: ((right - left) / dpr) as _,
             height: ((bottom - top) / dpr) as _,
         };
-        cpp!(unsafe [img as "QImage*", corner_rect as "QRectF"] {
+        cpp!(unsafe [painter as "QPainter*", corner_rect as "QRectF"] {
             ensure_initialized();
             QStyleOptionFrame frameOption;
             frameOption.frameShape = QFrame::StyledPanel;
             frameOption.lineWidth = 1;
             frameOption.midLineWidth = 0;
             frameOption.rect = corner_rect.toAlignedRect();
-            QPainter p(img);
-            qApp->style()->drawPrimitive(QStyle::PE_PanelScrollAreaCorner, &frameOption, &p, nullptr);
+            qApp->style()->drawPrimitive(QStyle::PE_PanelScrollAreaCorner, &frameOption, painter, nullptr);
             frameOption.rect = QRect(QPoint(), corner_rect.toAlignedRect().topLeft());
-            qApp->style()->drawControl(QStyle::CE_ShapedFrame, &frameOption, &p, nullptr);
+            qApp->style()->drawControl(QStyle::CE_ShapedFrame, &frameOption, painter, nullptr);
         });
 
         let draw_scrollbar = |horizontal: bool,
@@ -1351,7 +1361,7 @@ impl Item for NativeScrollView {
                               active_controls: u32,
                               pressed: bool| {
             cpp!(unsafe [
-                img as "QImage*",
+                painter as "QPainter*",
                 value as "int",
                 page_size as "int",
                 max as "int",
@@ -1367,10 +1377,11 @@ impl Item for NativeScrollView {
             #if defined(Q_OS_MAC)
                 QImage scrollbar_image(r.size(), QImage::Format_ARGB32_Premultiplied);
                 scrollbar_image.fill(Qt::transparent);
-                QPainter p(&scrollbar_image);
+                {QPainter p(&scrollbar_image); QPainter *painter = &p;
             #else
-                QPainter p(img);
-                p.translate(r.topLeft()); // There is bugs in the styles if the scrollbar is not in (0,0)
+                painter->save();
+                auto cleanup = qScopeGuard([&] { painter->restore(); });
+                painter->translate(r.topLeft()); // There is bugs in the styles if the scrollbar is not in (0,0)
             #endif
                 QStyleOptionSlider option;
                 option.rect = QRect(QPoint(), r.size());
@@ -1384,11 +1395,10 @@ impl Item for NativeScrollView {
                 }
 
                 auto style = qApp->style();
-                style->drawComplexControl(QStyle::CC_ScrollBar, &option, &p, nullptr);
-                p.end();
+                style->drawComplexControl(QStyle::CC_ScrollBar, &option, painter, nullptr);
             #if defined(Q_OS_MAC)
-                p.begin(img);
-                p.drawImage(r.topLeft(), scrollbar_image);
+                }
+                painter->drawImage(r.topLeft(), scrollbar_image);
             #endif
             });
         };
@@ -1499,20 +1509,19 @@ impl Item for NativeStandardListViewItem {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn_render! { this dpr size img =>
+    fn_render! { this dpr size painter =>
         let index: i32 = this.index();
         let is_selected: bool = this.is_selected();
         let item = this.item();
         let text: qttypes::QString = item.text.as_str().into();
         cpp!(unsafe [
-            img as "QImage*",
+            painter as "QPainter*",
             size as "QSize",
             dpr as "float",
             index as "int",
             is_selected as "bool",
             text as "QString"
         ] {
-            QPainter p(img);
             QStyleOptionViewItem option;
             option.rect = QRect(QPoint(), size / dpr);
             option.state = QStyle::State_Enabled | QStyle::State_Active;
@@ -1528,8 +1537,8 @@ impl Item for NativeStandardListViewItem {
             }
             option.features |= QStyleOptionViewItem::HasDisplay;
             option.text = text;
-            qApp->style()->drawPrimitive(QStyle::PE_PanelItemViewRow, &option, &p, nullptr);
-            qApp->style()->drawControl(QStyle::CE_ItemViewItem, &option, &p, nullptr);
+            qApp->style()->drawPrimitive(QStyle::PE_PanelItemViewRow, &option, painter, nullptr);
+            qApp->style()->drawControl(QStyle::CE_ItemViewItem, &option, painter, nullptr);
         });
     }
 }
@@ -1623,14 +1632,14 @@ impl Item for NativeComboBox {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn_render! { this dpr size img =>
+    fn_render! { this dpr size painter =>
         let down: bool = this.pressed();
         let is_open: bool = this.is_open();
         let text: qttypes::QString =
             this.current_value().as_str().into();
         let enabled = this.enabled();
         cpp!(unsafe [
-            img as "QImage*",
+            painter as "QPainter*",
             text as "QString",
             enabled as "bool",
             size as "QSize",
@@ -1638,7 +1647,6 @@ impl Item for NativeComboBox {
             is_open as "bool",
             dpr as "float"
         ] {
-            QPainter p(img);
             QStyleOptionComboBox option;
             option.currentText = std::move(text);
             option.rect = QRect(QPoint(), size / dpr);
@@ -1654,8 +1662,8 @@ impl Item for NativeComboBox {
             if (is_open)
                 option.state |= QStyle::State_On;
             option.subControls = QStyle::SC_All;
-            qApp->style()->drawComplexControl(QStyle::CC_ComboBox, &option, &p, nullptr);
-            qApp->style()->drawControl(QStyle::CE_ComboBoxLabel, &option, &p, nullptr);
+            qApp->style()->drawComplexControl(QStyle::CC_ComboBox, &option, painter, nullptr);
+            qApp->style()->drawControl(QStyle::CE_ComboBoxLabel, &option, painter, nullptr);
         });
     }
 }

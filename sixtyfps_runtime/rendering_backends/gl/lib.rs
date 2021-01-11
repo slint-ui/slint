@@ -771,6 +771,10 @@ impl ItemRenderer for GLItemRenderer {
     fn scale_factor(&self) -> f32 {
         self.scale_factor
     }
+
+    fn as_any(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
 }
 
 impl GLItemRenderer {

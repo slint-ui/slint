@@ -111,7 +111,7 @@ pub fn free_item_rendering_data<'a, Backend: GraphicsBackend>(
 /// The item needs to be rendered relative to its (x,y) position. For example,
 /// draw_rectangle should draw a rectangle in `(pos.x + rect.x, pos.y + rect.y)`
 #[allow(missing_docs)]
-pub trait ItemRenderer {
+pub trait ItemRenderer: core::any::Any {
     fn draw_rectangle(&mut self, pos: Point, rect: Pin<&Rectangle>);
     fn draw_border_rectangle(&mut self, pos: Point, rect: Pin<&BorderRectangle>);
     fn draw_image(&mut self, pos: Point, image: Pin<&Image>);
@@ -136,4 +136,7 @@ pub trait ItemRenderer {
         pos: Point,
         update_fn: &dyn Fn(&mut dyn FnMut(u32, u32, &[u8])),
     );
+
+    /// Return self as a `&Any` that can be downcasted to the original type
+    fn as_any(&mut self) -> &mut dyn core::any::Any;
 }
