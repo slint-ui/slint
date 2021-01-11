@@ -367,12 +367,22 @@ impl GLItemRenderer {
         html_image.set_cross_origin(Some("anonymous"));
         html_image.set_onload(Some(
             &wasm_bindgen::closure::Closure::once_into_js({
-                let canvas = self.canvas.clone();
+                let canvas_weak = Rc::downgrade(&self.canvas);
                 let html_image = html_image.clone();
                 let image_id = image_id.clone();
-                let window = self.window.clone();
-                let event_loop_proxy = self.event_loop_proxy.clone();
+                let window_weak = Rc::downgrade(&self.window);
+                let event_loop_proxy_weak = Rc::downgrade(&self.event_loop_proxy);
                 move || {
+                    let (canvas, window, event_loop_proxy) = match (
+                        canvas_weak.upgrade(),
+                        window_weak.upgrade(),
+                        event_loop_proxy_weak.upgrade(),
+                    ) {
+                        (Some(canvas), Some(window), Some(event_loop_proxy)) => {
+                            (canvas, window, event_loop_proxy)
+                        }
+                        _ => return,
+                    };
                     canvas
                         .borrow_mut()
                         .realloc_image(
