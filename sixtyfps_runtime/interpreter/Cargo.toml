@@ -13,7 +13,7 @@ path = "lib.rs"
 
 [dependencies]
 sixtyfps-corelib = { version = "=0.0.4", path = "../corelib", features = ["rtti"] }
-sixtyfps-rendering-backend-default = { version = "=0.0.4", path = "../../sixtyfps_runtime/rendering_backends/default" }
+sixtyfps-rendering-backend-default = { version = "=0.0.4", path = "../../sixtyfps_runtime/rendering_backends/default", features = ["sixtyfps-rendering-backend-gl"] }
 vtable = { version = "0.1.1", path="../../helper_crates/vtable" }
 sixtyfps-compilerlib = { version = "=0.0.4", path = "../../sixtyfps_compiler" }
 lyon = { version = "0.16" }

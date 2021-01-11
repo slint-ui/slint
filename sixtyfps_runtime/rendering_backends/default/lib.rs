@@ -7,6 +7,13 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
+/*!
+The purpose of this crate is to select the default backend for [SixtyFPS](https://sixtyfps.io)
+
+The backend can either be a runtime or a build time decision.  The runtime decision is decided
+by the `SIXTYFPS_BACKEND` environment variable. The built time default depends on the platform.
+In order for the crate to be available at runtime, they need to be added as feature
+ */
 
 use sixtyfps_corelib::window::ComponentWindow;
 
@@ -42,6 +49,10 @@ pub fn create_window() -> ComponentWindow {
         eprintln!("Could not load rendering backend {}, fallback to default", backend_config)
     }
 
+    #[cfg(feature = "sixtyfps-rendering-backend-qt")]
+    if sixtyfps_rendering_backend_qt::IS_AVAILABLE {
+        return sixtyfps_rendering_backend_qt::create_window();
+    }
     default_backend::create_window()
 }
 

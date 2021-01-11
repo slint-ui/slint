@@ -84,6 +84,8 @@ pub type NativeWidgets = ();
 pub type NativeGlobals = ();
 
 pub const HAS_NATIVE_STYLE: bool = cfg!(not(no_qt));
+/// False if the backend was compiled without Qt so it wouldn't do anything
+pub const IS_AVAILABLE: bool = cfg!(not(no_qt));
 
 pub fn create_window() -> ComponentWindow {
     #[cfg(no_qt)]
