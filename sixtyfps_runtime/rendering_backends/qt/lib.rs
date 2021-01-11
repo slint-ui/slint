@@ -9,6 +9,7 @@
 LICENSE END */
 #![recursion_limit = "512"]
 
+use cpp::cpp;
 use sixtyfps_corelib::window::ComponentWindow;
 
 #[cfg(not(no_qt))]
@@ -98,8 +99,15 @@ pub fn create_window() -> ComponentWindow {
 /// for use with the `font-family` property. The provided slice must be a valid TrueType
 /// font.
 pub fn register_application_font_from_memory(
-    _data: &'static [u8],
+    data: &'static [u8],
 ) -> Result<(), Box<dyn std::error::Error>> {
-    // TODO
+    #[cfg(not(no_qt))]
+    {
+        let data = qttypes::QByteArray::from(data);
+        cpp! {unsafe [data as "QByteArray"] {
+            ensure_initialized();
+            QFontDatabase::addApplicationFontFromData(data);
+        } }
+    };
     Ok(())
 }
