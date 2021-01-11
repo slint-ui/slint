@@ -20,6 +20,7 @@ use sixtyfps_corelib::graphics::{
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::Item;
 use sixtyfps_corelib::items::{TextHorizontalAlignment, TextVerticalAlignment};
+use sixtyfps_corelib::properties::Property;
 use sixtyfps_corelib::window::ComponentWindow;
 use sixtyfps_corelib::SharedString;
 
@@ -539,33 +540,14 @@ impl ItemRenderer for GLItemRenderer {
     }
 
     fn draw_image(&mut self, pos: Point, image: std::pin::Pin<&sixtyfps_corelib::items::Image>) {
-        let (cached_image, image_info) =
-            match self.load_cached_item_image(&image.cached_rendering_data, || image.source()) {
-                Some(image) => image,
-                None => return,
-            };
-
-        let image_id = cached_image.id;
-
-        let (image_width, image_height) = (image_info.width() as f32, image_info.height() as f32);
-        let (source_width, source_height) = (image_width, image_height);
-        let fill_paint =
-            femtovg::Paint::image(image_id, 0., 0., source_width, source_height, 0.0, 1.0);
-
-        let mut path = femtovg::Path::new();
-        path.rect(0., 0., image_width, image_height);
-
-        self.canvas.borrow_mut().save_with(|canvas| {
-            canvas.translate(pos.x + image.x(), pos.y + image.y());
-
-            let scaled_width = image.width();
-            let scaled_height = image.height();
-            if scaled_width > 0. && scaled_height > 0. {
-                canvas.scale(scaled_width / image_width, scaled_height / image_height);
-            }
-
-            canvas.fill_path(&mut path, fill_paint);
-        })
+        self.draw_image_impl(
+            pos + euclid::Vector2D::new(image.x(), image.y()),
+            &image.cached_rendering_data,
+            sixtyfps_corelib::items::Image::FIELD_OFFSETS.source.apply_pin(image),
+            Rect::default(),
+            image.width(),
+            image.height(),
+        );
     }
 
     fn draw_clipped_image(
@@ -573,48 +555,19 @@ impl ItemRenderer for GLItemRenderer {
         pos: Point,
         clipped_image: std::pin::Pin<&sixtyfps_corelib::items::ClippedImage>,
     ) {
-        let (cached_image, image_info) = match self
-            .load_cached_item_image(&clipped_image.cached_rendering_data, || clipped_image.source())
-        {
-            Some(image) => image,
-            None => return,
-        };
-
         let source_clip_rect = Rect::new(
             [clipped_image.source_clip_x() as _, clipped_image.source_clip_y() as _].into(),
             [0., 0.].into(),
         );
 
-        let (image_width, image_height) = (image_info.width() as f32, image_info.height() as f32);
-        let (source_width, source_height) = if source_clip_rect.is_empty() {
-            (image_width, image_height)
-        } else {
-            (source_clip_rect.width() as _, source_clip_rect.height() as _)
-        };
-        let fill_paint = femtovg::Paint::image(
-            cached_image.id,
-            source_clip_rect.min_x(),
-            source_clip_rect.min_y(),
-            source_width,
-            source_height,
-            0.0,
-            1.0,
+        self.draw_image_impl(
+            pos + euclid::Vector2D::new(clipped_image.x(), clipped_image.y()),
+            &clipped_image.cached_rendering_data,
+            sixtyfps_corelib::items::ClippedImage::FIELD_OFFSETS.source.apply_pin(clipped_image),
+            source_clip_rect,
+            clipped_image.width(),
+            clipped_image.height(),
         );
-
-        let mut path = femtovg::Path::new();
-        path.rect(0., 0., image_width, image_height);
-
-        self.canvas.borrow_mut().save_with(|canvas| {
-            canvas.translate(pos.x + clipped_image.x(), pos.y + clipped_image.y());
-
-            let scaled_width = clipped_image.width();
-            let scaled_height = clipped_image.height();
-            if scaled_width > 0. && scaled_height > 0. {
-                canvas.scale(scaled_width / image_width, scaled_height / image_height);
-            }
-
-            canvas.fill_path(&mut path, fill_paint);
-        })
     }
 
     fn draw_text(&mut self, pos: Point, text: std::pin::Pin<&sixtyfps_corelib::items::Text>) {
@@ -838,6 +791,51 @@ impl GLItemRenderer {
             .borrow_mut()
             .fill_text(pos.x + translate_x, pos.y + translate_y, text, paint)
             .unwrap()
+    }
+
+    fn draw_image_impl(
+        &mut self,
+        pos: Point,
+        item_cache: &CachedRenderingData,
+        source_property: std::pin::Pin<&Property<Resource>>,
+        source_clip_rect: Rect,
+        scaled_width: f32,
+        scaled_height: f32,
+    ) {
+        let (cached_image, image_info) =
+            match self.load_cached_item_image(item_cache, || source_property.get()) {
+                Some(image) => image,
+                None => return,
+            };
+
+        let (image_width, image_height) = (image_info.width() as f32, image_info.height() as f32);
+        let (source_width, source_height) = if source_clip_rect.is_empty() {
+            (image_width, image_height)
+        } else {
+            (source_clip_rect.width() as _, source_clip_rect.height() as _)
+        };
+        let fill_paint = femtovg::Paint::image(
+            cached_image.id,
+            source_clip_rect.min_x(),
+            source_clip_rect.min_y(),
+            source_width,
+            source_height,
+            0.0,
+            1.0,
+        );
+
+        let mut path = femtovg::Path::new();
+        path.rect(0., 0., image_width, image_height);
+
+        self.canvas.borrow_mut().save_with(|canvas| {
+            canvas.translate(pos.x, pos.y);
+
+            if scaled_width > 0. && scaled_height > 0. {
+                canvas.scale(scaled_width / image_width, scaled_height / image_height);
+            }
+
+            canvas.fill_path(&mut path, fill_paint);
+        })
     }
 }
 
