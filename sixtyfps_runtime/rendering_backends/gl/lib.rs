@@ -287,8 +287,12 @@ impl GraphicsBackend for GLRenderer {
 
         GLItemRenderer {
             canvas: self.canvas.clone(),
+            #[cfg(target_arch = "wasm32")]
+            window: self.window.clone(),
             #[cfg(not(target_arch = "wasm32"))]
             windowed_context: current_windowed_context,
+            #[cfg(target_arch = "wasm32")]
+            event_loop_proxy: self.event_loop_proxy.clone(),
             item_rendering_cache: self.item_rendering_cache.clone(),
             image_cache: self.image_cache.clone(),
             scale_factor,
@@ -337,8 +341,12 @@ impl GraphicsBackend for GLRenderer {
 pub struct GLItemRenderer {
     canvas: CanvasRc,
 
+    #[cfg(target_arch = "wasm32")]
+    window: Rc<winit::window::Window>,
     #[cfg(not(target_arch = "wasm32"))]
     windowed_context: glutin::WindowedContext<glutin::PossiblyCurrent>,
+    #[cfg(target_arch = "wasm32")]
+    event_loop_proxy: Rc<winit::event_loop::EventLoopProxy<eventloop::CustomEvent>>,
 
     item_rendering_cache: ItemRenderingCacheRc,
     image_cache: ImageCacheRc,
@@ -347,6 +355,51 @@ pub struct GLItemRenderer {
 }
 
 impl GLItemRenderer {
+    #[cfg(target_arch = "wasm32")]
+    fn load_html_image(&self, url: &str) -> femtovg::ImageId {
+        let image_id = self
+            .canvas
+            .borrow_mut()
+            .create_image_empty(1, 1, femtovg::PixelFormat::Rgba8, femtovg::ImageFlags::empty())
+            .unwrap();
+
+        let html_image = web_sys::HtmlImageElement::new().unwrap();
+        html_image.set_cross_origin(Some("anonymous"));
+        html_image.set_onload(Some(
+            &wasm_bindgen::closure::Closure::once_into_js({
+                let canvas = self.canvas.clone();
+                let html_image = html_image.clone();
+                let image_id = image_id.clone();
+                let window = self.window.clone();
+                let event_loop_proxy = self.event_loop_proxy.clone();
+                move || {
+                    canvas
+                        .borrow_mut()
+                        .realloc_image(
+                            image_id,
+                            html_image.width() as usize,
+                            html_image.height() as usize,
+                            femtovg::PixelFormat::Rgba8,
+                            femtovg::ImageFlags::empty(),
+                        )
+                        .unwrap();
+                    canvas.borrow_mut().update_image(image_id, &html_image.into(), 0, 0).unwrap();
+
+                    // As you can paint on a HTML canvas at any point in time, request_redraw()
+                    // on a winit window only queues an additional internal event, that'll be
+                    // be dispatched as the next event. We are however not in an event loop
+                    // call, so we also need to wake up the event loop.
+                    window.request_redraw();
+                    event_loop_proxy.send_event(crate::eventloop::CustomEvent::WakeUpAndPoll).ok();
+                }
+            })
+            .into(),
+        ));
+        html_image.set_src(&url);
+
+        image_id
+    }
+
     // Look up the given image cache key in the image cache and upgrade the weak reference to a strong one if found,
     // otherwise a new image is created/loaded from the given callback.
     fn lookup_image_in_cache_or_create(
@@ -378,13 +431,18 @@ impl GLItemRenderer {
             Resource::None => return None,
             Resource::AbsoluteFilePath(path) => {
                 self.lookup_image_in_cache_or_create(ImageCacheKey::Path(path.to_string()), || {
-                    self.canvas
-                        .borrow_mut()
-                        .load_image_file(
-                            std::path::Path::new(&path.as_str()),
-                            femtovg::ImageFlags::empty(),
-                        )
-                        .unwrap()
+                    #[cfg(not(target_arch = "wasm32"))]
+                    {
+                        self.canvas
+                            .borrow_mut()
+                            .load_image_file(
+                                std::path::Path::new(&path.as_str()),
+                                femtovg::ImageFlags::empty(),
+                            )
+                            .unwrap()
+                    }
+                    #[cfg(target_arch = "wasm32")]
+                    self.load_html_image(&path)
                 })
             }
             Resource::EmbeddedData(data) => self.lookup_image_in_cache_or_create(
