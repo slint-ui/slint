@@ -43,13 +43,11 @@ pub(crate) fn try_load_app_font(
     };
     APPLICATION_FONTS.with(|font_db| {
         let font_db = font_db.borrow();
-        font_db.query(&query).and_then(|id| font_db.face_source(id)).map(|(source, _index)| {
-            // pass index to femtovg once femtovg/femtovg/pull/21 is merged
-            match source.as_ref() {
-                fontdb::Source::Binary(data) => canvas.borrow_mut().add_font_mem(&data).unwrap(),
-                #[cfg(not(target_arch = "wasm32"))]
-                fontdb::Source::File(path) => canvas.borrow_mut().add_font(path).unwrap(),
-            }
+        font_db.query(&query).and_then(|id| {
+            font_db.with_face_data(id, |data, _index| {
+                // pass index to femtovg once femtovg/femtovg/pull/21 is merged
+                canvas.borrow_mut().add_font_mem(&data).unwrap()
+            })
         })
     })
 }
