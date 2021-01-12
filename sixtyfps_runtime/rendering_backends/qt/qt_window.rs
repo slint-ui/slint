@@ -227,7 +227,14 @@ impl ItemRenderer for QtItemRenderer<'_> {
         let rect: qttypes::QRectF = get_geometry!(pos, items::Text, text);
         let color: u32 = text.color().as_argb_encoded();
         let string: qttypes::QString = text.text().as_str().into();
-        let font: QFont = get_font(text.font_request());
+        let cached =
+            text.cached_rendering_data.ensure_up_to_date(&mut self.cache.borrow_mut(), || {
+                QtRenderingCacheItem::Font(get_font(text.font_request()))
+            });
+        let font: QFont = match cached {
+            QtRenderingCacheItem::Font(font) => font,
+            _ => return,
+        };
 
         let flags = match text.horizontal_alignment() {
             TextHorizontalAlignment::align_left => {
@@ -299,7 +306,6 @@ impl ItemRenderer for QtItemRenderer<'_> {
         pos: Point,
         update_fn: &dyn Fn(&mut dyn FnMut(u32, u32, &[u8])),
     ) {
-        // FIXME! draw_cached_pixmap is the wrong abstraction now
         update_fn(&mut |width: u32, height: u32, data: &[u8]| {
             let pos = qttypes::QPoint { x: pos.x as _, y: pos.y as _ };
             let data = data.as_ptr();
