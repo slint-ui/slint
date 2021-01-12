@@ -166,15 +166,6 @@ macro_rules! get_geometry {
     }};
 }
 
-macro_rules! get_pos {
-    ($ty:ty, $obj:expr) => {{
-        type Ty = $ty;
-        let x = Ty::FIELD_OFFSETS.x.apply_pin($obj).get();
-        let y = Ty::FIELD_OFFSETS.y.apply_pin($obj).get();
-        qttypes::QPoint { x: x as _, y: y as _ }
-    }};
-}
-
 #[derive(Clone)]
 enum QtRenderingCacheItem {
     Image(qttypes::QImage),
@@ -562,7 +553,6 @@ impl QtWindow {
 
     fn key_event(&self, key: i32, text: qttypes::QString, modif: u32, released: bool) {
         sixtyfps_corelib::animations::update_animations();
-        let component = self.component.borrow().upgrade().unwrap();
         let text: String = text.into();
         let mut modifiers = sixtyfps_corelib::input::KeyboardModifiers::default();
         if modif & key_generated::Qt_KeyboardModifier_ControlModifier != 0 {
