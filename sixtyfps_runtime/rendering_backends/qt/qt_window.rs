@@ -11,14 +11,14 @@ LICENSE END */
 use cpp::*;
 use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
 use sixtyfps_corelib::component::{ComponentRc, ComponentWeak};
-use sixtyfps_corelib::graphics::{FontRequest, GraphicsBackend, Point, RenderingCache};
+use sixtyfps_corelib::graphics::{FontRequest, Point, RenderingCache};
 use sixtyfps_corelib::input::{MouseEventType, MouseInputState, TextCursorBlinker};
-use sixtyfps_corelib::item_rendering::ItemRenderer;
+use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::ItemWeak;
 use sixtyfps_corelib::items::{self, ItemRef};
 use sixtyfps_corelib::properties::PropertyTracker;
 use sixtyfps_corelib::window::{ComponentWindow, GenericWindow};
-use sixtyfps_corelib::Resource;
+use sixtyfps_corelib::{Property, Resource};
 
 use std::cell::{Cell, RefCell};
 use std::pin::Pin;
@@ -151,14 +151,18 @@ macro_rules! get_pos {
     }};
 }
 
-enum QtRenderingCache {
+#[derive(Clone)]
+enum QtRenderingCacheItem {
     Image(qttypes::QImage),
     Font(QFont),
+    Invalid,
 }
+
+type QtRenderingCache = Rc<RefCell<RenderingCache<QtRenderingCacheItem>>>;
 
 struct QtItemRenderer<'a> {
     painter: &'a mut QPainter,
-    cache: Rc<RefCell<RenderingCache<QtRenderingCache>>>,
+    cache: QtRenderingCache,
 }
 
 impl ItemRenderer for QtItemRenderer<'_> {
@@ -192,7 +196,13 @@ impl ItemRenderer for QtItemRenderer<'_> {
 
     fn draw_image(&mut self, pos: Point, image: Pin<&items::Image>) {
         let dest_rect: qttypes::QRectF = get_geometry!(pos, items::Image, image);
-        self.draw_image_impl(image.source(), dest_rect, None, image.image_fit());
+        self.draw_image_impl(
+            &image.cached_rendering_data,
+            items::Image::FIELD_OFFSETS.source.apply_pin(image),
+            dest_rect,
+            None,
+            image.image_fit(),
+        );
     }
 
     fn draw_clipped_image(&mut self, pos: Point, image: Pin<&items::ClippedImage>) {
@@ -203,7 +213,13 @@ impl ItemRenderer for QtItemRenderer<'_> {
             width: image.source_clip_width() as _,
             height: image.source_clip_height() as _,
         };
-        self.draw_image_impl(image.source(), dest_rect, Some(source_rect), image.image_fit());
+        self.draw_image_impl(
+            &image.cached_rendering_data,
+            items::ClippedImage::FIELD_OFFSETS.source.apply_pin(image),
+            dest_rect,
+            Some(source_rect),
+            image.image_fit(),
+        );
     }
 
     fn draw_text(&mut self, pos: Point, text: std::pin::Pin<&items::Text>) {
@@ -310,23 +326,30 @@ impl ItemRenderer for QtItemRenderer<'_> {
 impl QtItemRenderer<'_> {
     fn draw_image_impl(
         &mut self,
-        resource: Resource,
+        item_cache: &CachedRenderingData,
+        source_property: Pin<&Property<Resource>>,
         dest_rect: qttypes::QRectF,
         source_rect: Option<qttypes::QRectF>,
         image_fit: ImageFit,
     ) {
-        // FIXME: the loaded png image could be cached.
-        let (is_path, data) = match resource {
-            Resource::None => return,
-            Resource::AbsoluteFilePath(path) => (true, qttypes::QByteArray::from(path.as_str())),
-            Resource::EmbeddedData(data) => (false, qttypes::QByteArray::from(data.as_slice())),
-            Resource::EmbeddedRgbaImage { .. } => todo!(),
+        let cached = item_cache.ensure_up_to_date(&mut self.cache.borrow_mut(), || {
+            let (is_path, data) = match source_property.get() {
+                Resource::None => return QtRenderingCacheItem::Invalid,
+                Resource::AbsoluteFilePath(path) => (true, qttypes::QByteArray::from(path.as_str())),
+                Resource::EmbeddedData(data) => (false, qttypes::QByteArray::from(data.as_slice())),
+                Resource::EmbeddedRgbaImage { .. } => todo!(),
+            };
+            let img = cpp! { unsafe [data as "QByteArray", is_path as "bool"] -> qttypes::QImage as "QImage" {
+                QImage img;
+                is_path ? img.load(QString::fromUtf8(data)) : img.loadFromData(data);
+                return img;
+            }};
+            QtRenderingCacheItem::Image(img)
+        });
+        let img: &qttypes::QImage = match &cached {
+            QtRenderingCacheItem::Image(img) => img,
+            _ => return,
         };
-        let img = cpp! { unsafe [data as "QByteArray", is_path as "bool"] -> qttypes::QImage as "QImage" {
-            QImage img;
-            is_path ? img.load(QString::fromUtf8(data)) : img.loadFromData(data);
-            return img;
-        }};
         let mut source_rect = source_rect.unwrap_or_else(|| {
             let s = img.size();
             qttypes::QRectF { x: 0., y: 0., width: s.width as _, height: s.height as _ }
@@ -349,8 +372,8 @@ impl QtItemRenderer<'_> {
             }
         };
         let painter: &mut QPainter = &mut *self.painter;
-        cpp! { unsafe [painter as "QPainter*", img as "QImage", source_rect as "QRectF", dest_rect as "QRectF"] {
-            painter->drawImage(dest_rect, img, source_rect);
+        cpp! { unsafe [painter as "QPainter*", img as "QImage*", source_rect as "QRectF", dest_rect as "QRectF"] {
+            painter->drawImage(dest_rect, *img, source_rect);
         }};
     }
 }
@@ -370,6 +393,8 @@ pub struct QtWindow {
     cursor_blinker: RefCell<pin_weak::rc::PinWeak<TextCursorBlinker>>,
 
     popup_window: RefCell<Option<(Rc<QtWindow>, ComponentRc)>>,
+
+    cache: QtRenderingCache,
 }
 
 impl QtWindow {
@@ -388,6 +413,7 @@ impl QtWindow {
             focus_item: Default::default(),
             cursor_blinker: Default::default(),
             popup_window: Default::default(),
+            cache: Default::default(),
         });
         let self_weak = Rc::downgrade(&rc);
         rc.self_weak.set(self_weak.clone()).ok().unwrap();
@@ -424,8 +450,9 @@ impl QtWindow {
             })
         }
 
+        let cache = self.cache.clone();
         self.redraw_listener.as_ref().evaluate(|| {
-            let mut renderer = QtItemRenderer { painter, cache: Default::default() };
+            let mut renderer = QtItemRenderer { painter, cache };
             sixtyfps_corelib::item_rendering::render_component_items(
                 &component_rc,
                 &mut renderer,
