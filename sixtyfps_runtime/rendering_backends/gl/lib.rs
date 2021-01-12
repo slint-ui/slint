@@ -15,7 +15,7 @@ use std::{
 };
 
 use sixtyfps_corelib::graphics::{
-    Color, Font, FontRequest, GraphicsBackend, Point, Rect, RenderingCache, Resource,
+    Color, FontMetrics, FontRequest, GraphicsBackend, Point, Rect, RenderingCache, Resource,
 };
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::ImageFit;
@@ -331,7 +331,7 @@ impl GraphicsBackend for GLRenderer {
         return &self.window;
     }
 
-    fn font(&mut self, request: FontRequest) -> Box<dyn Font> {
+    fn font_metrics(&mut self, request: FontRequest) -> Box<dyn FontMetrics> {
         Box::new(self.loaded_fonts.borrow_mut().font(
             &self.canvas,
             request,
@@ -862,7 +862,7 @@ struct GLFont {
     canvas: CanvasRc,
 }
 
-impl Font for GLFont {
+impl FontMetrics for GLFont {
     fn text_width(&self, text: &str) -> f32 {
         self.measure(text).width()
     }

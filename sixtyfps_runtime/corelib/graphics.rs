@@ -290,9 +290,9 @@ pub struct FontRequest {
     pub pixel_size: Option<f32>,
 }
 
-/// The Font trait is constructed from a FontRequest by the graphics backend and supplied to text related
+/// The FontMetrics trait is constructed from a FontRequest by the graphics backend and supplied to text related
 /// items in order to measure text.
-pub trait Font {
+pub trait FontMetrics {
     /// Returns the width of the given string in physical pixels.
     fn text_width(&self, text: &str) -> f32;
     /// Returns the (UTF-8) byte offset in the given text that refers to the character that contributed to
@@ -331,9 +331,9 @@ pub trait GraphicsBackend: Sized {
     /// before destroying an item.
     fn release_item_graphics_cache(&self, data: &CachedRenderingData);
 
-    /// Returns a Font trait object that can be used to measure text and that matches the given font request as
+    /// Returns a FontMetrics trait object that can be used to measure text and that matches the given font request as
     /// closely as possible.
-    fn font(&mut self, request: FontRequest) -> Box<dyn Font>;
+    fn font_metrics(&mut self, request: FontRequest) -> Box<dyn FontMetrics>;
 
     /// Returns the window that the backend is associated with.
     fn window(&self) -> &winit::window::Window;

@@ -471,14 +471,14 @@ impl<Backend: GraphicsBackend> GenericWindow for GraphicsWindow<Backend> {
         self.unmap_window();
     }
 
-    fn font(
+    fn font_metrics(
         &self,
         request: corelib::graphics::FontRequest,
-    ) -> Option<Box<dyn corelib::graphics::Font>> {
+    ) -> Option<Box<dyn corelib::graphics::FontMetrics>> {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped => None,
             GraphicsWindowBackendState::Mapped(window) => {
-                Some(window.backend.borrow_mut().font(request))
+                Some(window.backend.borrow_mut().font_metrics(request))
             }
         }
     }

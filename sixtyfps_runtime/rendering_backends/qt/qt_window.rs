@@ -757,7 +757,10 @@ impl GenericWindow for QtWindow {
         self.popup_window.replace(None);
     }
 
-    fn font(&self, request: FontRequest) -> Option<Box<dyn sixtyfps_corelib::graphics::Font>> {
+    fn font_metrics(
+        &self,
+        request: FontRequest,
+    ) -> Option<Box<dyn sixtyfps_corelib::graphics::FontMetrics>> {
         Some(Box::new(get_font(request)))
     }
 }
@@ -780,7 +783,7 @@ fn get_font(request: FontRequest) -> QFont {
 
 cpp_class! {pub unsafe struct QFont as "QFont"}
 
-impl sixtyfps_corelib::graphics::Font for QFont {
+impl sixtyfps_corelib::graphics::FontMetrics for QFont {
     fn text_width(&self, text: &str) -> f32 {
         let string = qttypes::QString::from(text);
         cpp! { unsafe [self as "const QFont*",  string as "QString"] -> f32 as "float"{

@@ -96,9 +96,9 @@ impl Item for Text {
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
         let text = self.text();
 
-        if let Some(font) = window.0.font(self.font_request()) {
-            let width = font.text_width(&text);
-            let height = font.height();
+        if let Some(font_metrics) = window.0.font_metrics(self.font_request()) {
+            let width = font_metrics.text_width(&text);
+            let height = font_metrics.height();
             LayoutInfo { min_width: width, min_height: height, ..LayoutInfo::default() }
         } else {
             LayoutInfo::default()
@@ -193,9 +193,9 @@ impl Item for TextInput {
     }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
-        if let Some(font) = window.0.font(self.font_request()) {
-            let width = font.text_width("********************");
-            let height = font.height();
+        if let Some(font_metrics) = window.0.font_metrics(self.font_request()) {
+            let width = font_metrics.text_width("********************");
+            let height = font_metrics.height();
 
             LayoutInfo {
                 min_width: width,
@@ -219,11 +219,11 @@ impl Item for TextInput {
         }
 
         let text = self.text();
-        let font = match window.0.font(self.font_request()) {
+        let font_metrics = match window.0.font_metrics(self.font_request()) {
             Some(font) => font,
             None => return InputEventResult::EventIgnored,
         };
-        let clicked_offset = font.text_offset_for_x_position(&text, event.pos.x) as i32;
+        let clicked_offset = font_metrics.text_offset_for_x_position(&text, event.pos.x) as i32;
 
         if matches!(event.what, MouseEventType::MousePressed) {
             self.as_ref().pressed.set(true);
