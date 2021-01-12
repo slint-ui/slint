@@ -396,6 +396,12 @@ impl From<KeyboardModifier> for KeyboardModifiers {
     }
 }
 
+impl core::ops::BitOrAssign<KeyboardModifier> for KeyboardModifiers {
+    fn bitor_assign(&mut self, rhs: KeyboardModifier) {
+        self.0 |= rhs.0;
+    }
+}
+
 /// Represents a key event sent by the windowing system.
 #[derive(Debug, Clone, PartialEq)]
 #[repr(C)]

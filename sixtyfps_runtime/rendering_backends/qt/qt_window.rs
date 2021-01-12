@@ -12,7 +12,9 @@ use cpp::*;
 use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
 use sixtyfps_corelib::component::{ComponentRc, ComponentWeak};
 use sixtyfps_corelib::graphics::{FontRequest, Point, RenderingCache};
-use sixtyfps_corelib::input::{MouseEventType, MouseInputState, TextCursorBlinker};
+use sixtyfps_corelib::input::{
+    KeyCode, KeyEvent, MouseEventType, MouseInputState, TextCursorBlinker,
+};
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::ItemWeak;
 use sixtyfps_corelib::items::{self, ItemRef};
@@ -22,9 +24,12 @@ use sixtyfps_corelib::window::{ComponentWindow, GenericWindow};
 use sixtyfps_corelib::{Property, Resource};
 
 use std::cell::{Cell, RefCell};
+use std::convert::TryFrom;
 use std::pin::Pin;
 use std::ptr::NonNull;
 use std::rc::{Rc, Weak};
+
+use crate::key_generated;
 
 use super::qttypes;
 
@@ -101,6 +106,23 @@ cpp! {{
             QPoint pos = event->pos();
             rust!(SFPS_mouseMoveEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint"] {
                 rust_window.mouse_event(MouseEventType::MouseMoved, pos)
+            });
+        }
+
+        void keyPressEvent(QKeyEvent *event) override {
+            uint modif = uint(event->modifiers());
+            QString text =  event->text();
+            int key = event->key();
+            rust!(SFPS_keyPress [rust_window: &QtWindow as "void*", key: i32 as "int", text: qttypes::QString as "QString", modif: u32 as "uint"] {
+                rust_window.key_event(key, text.clone(), modif, false);
+            });
+        }
+        void keyReleaseEvent(QKeyEvent *event) override {
+            uint modif = uint(event->modifiers());
+            QString text =  event->text();
+            int key = event->key();
+            rust!(SFPS_keyRelease [rust_window: &QtWindow as "void*", key: i32 as "int", text: qttypes::QString as "QString", modif: u32 as "uint"] {
+                rust_window.key_event(key, text.clone(), modif, true);
             });
         }
     };
@@ -502,7 +524,55 @@ impl QtWindow {
             self.mouse_input_state.take(),
         ));
         timer_event();
-        //self.request_redraw();
+    }
+
+    fn key_event(&self, key: i32, text: qttypes::QString, modif: u32, released: bool) {
+        sixtyfps_corelib::animations::update_animations();
+        let component = self.component.borrow().upgrade().unwrap();
+        let text: String = text.into();
+        let mut modifiers = sixtyfps_corelib::input::KeyboardModifiers::default();
+        if modif & key_generated::Qt_KeyboardModifier_ControlModifier != 0 {
+            modifiers |= sixtyfps_corelib::input::CONTROL_MODIFIER
+        }
+        if modif & key_generated::Qt_KeyboardModifier_AltModifier != 0 {
+            modifiers |= sixtyfps_corelib::input::ALT_MODIFIER
+        }
+        if modif & key_generated::Qt_KeyboardModifier_ShiftModifier != 0 {
+            modifiers |= sixtyfps_corelib::input::SHIFT_MODIFIER
+        }
+        if modif & key_generated::Qt_KeyboardModifier_MetaModifier != 0 {
+            modifiers |= sixtyfps_corelib::input::LOGO_MODIFIER
+        }
+        let code = match key as key_generated::Qt_Key {
+            key_generated::Qt_Key_Key_Left => Some(KeyCode::Left),
+            key_generated::Qt_Key_Key_Right => Some(KeyCode::Right),
+            key_generated::Qt_Key_Key_Up => Some(KeyCode::Up),
+            key_generated::Qt_Key_Key_Down => Some(KeyCode::Down),
+            key_generated::Qt_Key_Key_Insert => Some(KeyCode::Insert),
+            key_generated::Qt_Key_Key_Backspace => Some(KeyCode::Back),
+            key_generated::Qt_Key_Key_Delete => Some(KeyCode::Delete),
+            key_generated::Qt_Key_Key_End => Some(KeyCode::End),
+            key_generated::Qt_Key_Key_Home => Some(KeyCode::Home),
+            key_generated::Qt_Key_Key_Return => Some(KeyCode::Return),
+            key_generated::Qt_Key_Key_Enter => Some(KeyCode::NumpadEnter),
+            _ => text.chars().next().and_then(|x| KeyCode::try_from(x).ok()),
+        };
+
+        if let Some(code) = code {
+            let event = if released {
+                KeyEvent::KeyReleased { code, modifiers }
+            } else {
+                KeyEvent::KeyPressed { code, modifiers }
+            };
+            self.self_weak.get().unwrap().upgrade().unwrap().process_key_input(&event);
+        }
+        if released && !text.is_empty() {
+            for x in text.chars() {
+                let event = KeyEvent::CharacterInput { unicode_scalar: x as _, modifiers };
+                self.self_weak.get().unwrap().upgrade().unwrap().process_key_input(&event);
+            }
+        }
+        timer_event();
     }
 
     /// Set the min/max sizes on the QWidget
@@ -551,8 +621,12 @@ impl GenericWindow for QtWindow {
         todo!()
     }
 
+    /// ### Candidate to be moved in corelib (same as GraphicsWindow::process_key_input)
     fn process_key_input(self: Rc<Self>, event: &sixtyfps_corelib::input::KeyEvent) {
-        todo!()
+        if let Some(focus_item) = self.as_ref().focus_item.borrow().upgrade() {
+            let window = &ComponentWindow::new(self.clone());
+            focus_item.borrow().as_ref().key_event(event, &window);
+        }
     }
 
     fn run(self: Rc<Self>) {

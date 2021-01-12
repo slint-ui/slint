@@ -19,6 +19,8 @@ mod qttypes;
 #[cfg(not(no_qt))]
 mod widgets;
 
+mod key_generated;
+
 #[doc(hidden)]
 #[cold]
 pub fn use_modules() -> usize {
