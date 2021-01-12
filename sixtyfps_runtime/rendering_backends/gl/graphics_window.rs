@@ -298,17 +298,13 @@ impl<Backend: GraphicsBackend> GenericWindow for GraphicsWindow<Backend> {
             };
 
         let mut renderer = window.backend.borrow_mut().new_renderer(&background_color);
-        corelib::item_rendering::render_component_items::<Backend>(
+        corelib::item_rendering::render_component_items(
             &component_rc,
             &mut renderer,
             Point::default(),
         );
         if let Some(popup) = &*self.active_popup.borrow() {
-            corelib::item_rendering::render_component_items::<Backend>(
-                &popup.0,
-                &mut renderer,
-                popup.1,
-            );
+            corelib::item_rendering::render_component_items(&popup.0, &mut renderer, popup.1);
         }
         window.backend.borrow_mut().flush_renderer(renderer);
     }

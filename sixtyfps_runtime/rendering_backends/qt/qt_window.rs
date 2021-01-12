@@ -11,7 +11,7 @@ LICENSE END */
 use cpp::*;
 use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
 use sixtyfps_corelib::component::{ComponentRc, ComponentWeak};
-use sixtyfps_corelib::graphics::{FontRequest, GraphicsBackend, Point};
+use sixtyfps_corelib::graphics::{FontRequest, GraphicsBackend, Point, RenderingCache};
 use sixtyfps_corelib::input::{MouseEventType, MouseInputState, TextCursorBlinker};
 use sixtyfps_corelib::item_rendering::ItemRenderer;
 use sixtyfps_corelib::items::ItemWeak;
@@ -107,6 +107,20 @@ cpp! {{
 
 cpp_class! {pub unsafe struct QPainter as "QPainter"}
 
+impl QPainter {
+    pub fn save_state(&mut self) {
+        cpp! { unsafe [self as "QPainter*"] {
+            self->save();
+        }}
+    }
+
+    pub fn restore_state(&mut self) {
+        cpp! { unsafe [self as "QPainter*"] {
+            self->restore();
+        }}
+    }
+}
+
 /// Given a position offset and an object of a given type that has x,y,width,height properties,
 /// create a QRectF that fits it.
 macro_rules! get_geometry {
@@ -137,13 +151,24 @@ macro_rules! get_pos {
     }};
 }
 
-impl ItemRenderer for QPainter {
+enum QtRenderingCache {
+    Image(qttypes::QImage),
+    Font(QFont),
+}
+
+struct QtItemRenderer<'a> {
+    painter: &'a mut QPainter,
+    cache: Rc<RefCell<RenderingCache<QtRenderingCache>>>,
+}
+
+impl ItemRenderer for QtItemRenderer<'_> {
     fn draw_rectangle(&mut self, pos: Point, rect: Pin<&items::Rectangle>) {
         let pos = qttypes::QPoint { x: pos.x as _, y: pos.y as _ };
         let color: u32 = rect.color().as_argb_encoded();
         let rect: qttypes::QRectF = get_geometry!(pos, items::Rectangle, rect);
-        cpp! { unsafe [self as "QPainter*", color as "QRgb", rect as "QRectF"] {
-            self->fillRect(rect, QColor::fromRgba(color));
+        let painter: &mut QPainter = &mut *self.painter;
+        cpp! { unsafe [painter as "QPainter*", color as "QRgb", rect as "QRectF"] {
+            painter->fillRect(rect, QColor::fromRgba(color));
         }}
     }
 
@@ -153,13 +178,14 @@ impl ItemRenderer for QPainter {
         let border_width: f32 = rect.border_width();
         let radius: f32 = rect.border_radius();
         let rect: qttypes::QRectF = get_geometry!(pos, items::BorderRectangle, rect);
-        cpp! { unsafe [self as "QPainter*", color as "QRgb",  border_color as "QRgb", border_width as "float", radius as "float", rect as "QRectF"] {
-            self->setPen(border_width > 0 ? QPen(QColor::fromRgba(border_color), border_width) : Qt::NoPen);
-            self->setBrush(QColor::fromRgba(color));
+        let painter: &mut QPainter = &mut *self.painter;
+        cpp! { unsafe [painter as "QPainter*", color as "QRgb",  border_color as "QRgb", border_width as "float", radius as "float", rect as "QRectF"] {
+            painter->setPen(border_width > 0 ? QPen(QColor::fromRgba(border_color), border_width) : Qt::NoPen);
+            painter->setBrush(QColor::fromRgba(color));
             if (radius > 0) {
-                self->drawRoundedRect(rect, radius, radius);
+                painter->drawRoundedRect(rect, radius, radius);
             } else {
-                self->drawRect(rect);
+                painter->drawRect(rect);
             }
         }}
     }
@@ -207,11 +233,12 @@ impl ItemRenderer for QPainter {
                 cpp!(unsafe [] -> i32 as "int" { return Qt::AlignBottom; })
             }
         };
-        cpp! { unsafe [self as "QPainter*", rect as "QRectF", color as "QRgb", string as "QString", flags as "int", font as "QFont"] {
-            self->setFont(font);
-            self->setPen(QColor{color});
-            self->setBrush(Qt::NoBrush);
-            self->drawText(rect, flags, string);
+        let painter: &mut QPainter = &mut *self.painter;
+        cpp! { unsafe [painter as "QPainter*", rect as "QRectF", color as "QRgb", string as "QString", flags as "int", font as "QFont"] {
+            painter->setFont(font);
+            painter->setPen(QColor{color});
+            painter->setBrush(Qt::NoBrush);
+            painter->drawText(rect, flags, string);
         }}
     }
 
@@ -222,10 +249,11 @@ impl ItemRenderer for QPainter {
             items::TextInput::FIELD_OFFSETS.color.apply_pin(text_input).get().as_argb_encoded();
         let string: qttypes::QString =
             items::TextInput::FIELD_OFFSETS.text.apply_pin(text_input).get().as_str().into();
-        cpp! { unsafe [self as "QPainter*", pos1 as "QPoint", pos2 as "QPoint", color as "QRgb", string as "QString"] {
-            self->setPen(QColor{color});
-            self->setBrush(Qt::NoBrush);
-            self->drawText(pos1 + pos2, string);
+        let painter: &mut QPainter = &mut *self.painter;
+        cpp! { unsafe [painter as "QPainter*", pos1 as "QPoint", pos2 as "QPoint", color as "QRgb", string as "QString"] {
+            painter->setPen(QColor{color});
+            painter->setBrush(Qt::NoBrush);
+            painter->drawText(pos1 + pos2, string);
         }}
     }
 
@@ -235,15 +263,16 @@ impl ItemRenderer for QPainter {
 
     fn combine_clip(&mut self, pos: Point, clip: &std::pin::Pin<&items::Clip>) {
         let clip_rect: qttypes::QRectF = get_geometry!(pos, items::Clip, *clip);
-        cpp! { unsafe [self as "QPainter*", clip_rect as "QRectF"] {
-            self->setClipRect(clip_rect, Qt::IntersectClip);
+        let painter: &mut QPainter = &mut *self.painter;
+        cpp! { unsafe [painter as "QPainter*", clip_rect as "QRectF"] {
+            painter->setClipRect(clip_rect, Qt::IntersectClip);
         }}
     }
 
     fn scale_factor(&self) -> f32 {
         return 1.;
-        /* cpp! { unsafe [self as "QPainter*"] -> f32 as "float" {
-            return self->paintEngine()->paintDevice()->devicePixelRatioF();
+        /* cpp! { unsafe [painter as "QPainter*"] -> f32 as "float" {
+            return painter->paintEngine()->paintDevice()->devicePixelRatioF();
         }} */
     }
 
@@ -257,31 +286,28 @@ impl ItemRenderer for QPainter {
         update_fn(&mut |width: u32, height: u32, data: &[u8]| {
             let pos = qttypes::QPoint { x: pos.x as _, y: pos.y as _ };
             let data = data.as_ptr();
-            cpp! { unsafe [self as "QPainter*", pos as "QPoint", width as "int", height as "int", data as "const unsigned char *"] {
+            let painter: &mut QPainter = &mut *self.painter;
+            cpp! { unsafe [painter as "QPainter*", pos as "QPoint", width as "int", height as "int", data as "const unsigned char *"] {
                 QImage img(data, width, height, width * 4, QImage::Format_ARGB32_Premultiplied);
-                self->drawImage(pos, img);
+                painter->drawImage(pos, img);
             }}
         })
     }
 
     fn save_state(&mut self) {
-        cpp! { unsafe [self as "QPainter*"] {
-            self->save();
-        }}
+        self.painter.save_state()
     }
 
     fn restore_state(&mut self) {
-        cpp! { unsafe [self as "QPainter*"] {
-            self->restore();
-        }}
+        self.painter.restore_state()
     }
 
     fn as_any(&mut self) -> &mut dyn std::any::Any {
-        self
+        self.painter
     }
 }
 
-impl QPainter {
+impl QtItemRenderer<'_> {
     fn draw_image_impl(
         &mut self,
         resource: Resource,
@@ -322,8 +348,9 @@ impl QPainter {
                 }
             }
         };
-        cpp! { unsafe [self as "QPainter*", img as "QImage", source_rect as "QRectF", dest_rect as "QRectF"] {
-            self->drawImage(dest_rect, img, source_rect);
+        let painter: &mut QPainter = &mut *self.painter;
+        cpp! { unsafe [painter as "QPainter*", img as "QImage", source_rect as "QRectF", dest_rect as "QRectF"] {
+            painter->drawImage(dest_rect, img, source_rect);
         }};
     }
 }
@@ -398,9 +425,10 @@ impl QtWindow {
         }
 
         self.redraw_listener.as_ref().evaluate(|| {
-            sixtyfps_corelib::item_rendering::render_component_items::<QtBackend>(
+            let mut renderer = QtItemRenderer { painter, cache: Default::default() };
+            sixtyfps_corelib::item_rendering::render_component_items(
                 &component_rc,
-                painter,
+                &mut renderer,
                 Point::default(),
             );
         });
@@ -641,34 +669,6 @@ fn get_font(request: FontRequest) -> QFont {
             f.setWeight(weight);
         return f;
     })
-}
-
-struct QtBackend;
-impl GraphicsBackend for QtBackend {
-    type ItemRenderer = QPainter;
-
-    fn new_renderer(&mut self, _clear_color: &sixtyfps_corelib::Color) -> Self::ItemRenderer {
-        todo!()
-    }
-
-    fn flush_renderer(&mut self, _renderer: Self::ItemRenderer) {
-        todo!()
-    }
-
-    fn release_item_graphics_cache(
-        &self,
-        _data: &sixtyfps_corelib::item_rendering::CachedRenderingData,
-    ) {
-        todo!()
-    }
-
-    fn font(&mut self, _request: FontRequest) -> Box<dyn sixtyfps_corelib::graphics::Font> {
-        todo!()
-    }
-
-    fn window(&self) -> &winit::window::Window {
-        todo!()
-    }
 }
 
 cpp_class! {pub unsafe struct QFont as "QFont"}

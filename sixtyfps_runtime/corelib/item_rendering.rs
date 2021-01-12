@@ -66,9 +66,9 @@ impl CachedRenderingData {
 
 /// Renders the tree of items that component holds, using the specified renderer. Rendering is done
 /// relative to the specified origin.
-pub fn render_component_items<Backend: GraphicsBackend>(
+pub fn render_component_items(
     component: &ComponentRc,
-    renderer: &mut Backend::ItemRenderer,
+    renderer: &mut dyn ItemRenderer,
     origin: crate::graphics::Point,
 ) {
     let renderer = RefCell::new(renderer);
@@ -111,7 +111,7 @@ pub fn free_item_rendering_data<'a, Backend: GraphicsBackend>(
 /// The item needs to be rendered relative to its (x,y) position. For example,
 /// draw_rectangle should draw a rectangle in `(pos.x + rect.x, pos.y + rect.y)`
 #[allow(missing_docs)]
-pub trait ItemRenderer: core::any::Any {
+pub trait ItemRenderer {
     fn draw_rectangle(&mut self, pos: Point, rect: Pin<&Rectangle>);
     fn draw_border_rectangle(&mut self, pos: Point, rect: Pin<&BorderRectangle>);
     fn draw_image(&mut self, pos: Point, image: Pin<&Image>);
@@ -137,6 +137,6 @@ pub trait ItemRenderer: core::any::Any {
         update_fn: &dyn Fn(&mut dyn FnMut(u32, u32, &[u8])),
     );
 
-    /// Return self as a `&Any` that can be downcasted to the original type
+    /// Return the internal renderer
     fn as_any(&mut self) -> &mut dyn core::any::Any;
 }
