@@ -37,6 +37,7 @@ cpp! {{
     #include <QtCore/QBasicTimer>
     #include <QtCore/QTimer>
     #include <QtCore/QPointer>
+    #include <memory>
     void ensure_initialized();
 
     struct TimerHandler : QObject {
