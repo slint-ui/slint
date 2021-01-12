@@ -181,7 +181,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
     fn draw_border_rectangle(&mut self, pos: Point, rect: std::pin::Pin<&items::BorderRectangle>) {
         let color: u32 = rect.color().as_argb_encoded();
         let border_color: u32 = rect.border_color().as_argb_encoded();
-        let border_width: f32 = rect.border_width();
+        let border_width: f32 = rect.border_width().min(rect.width() / 2.);
         let radius: f32 = rect.border_radius();
         let rect: qttypes::QRectF = get_geometry!(pos, items::BorderRectangle, rect);
         let painter: &mut QPainter = &mut *self.painter;
