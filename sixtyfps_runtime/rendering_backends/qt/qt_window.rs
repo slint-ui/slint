@@ -156,7 +156,6 @@ macro_rules! get_pos {
 #[derive(Clone)]
 enum QtRenderingCacheItem {
     Image(qttypes::QImage),
-    Font(QFont),
     Invalid,
 }
 
@@ -233,15 +232,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
         let rect: qttypes::QRectF = get_geometry!(pos, items::Text, text);
         let color: u32 = text.color().as_argb_encoded();
         let string: qttypes::QString = text.text().as_str().into();
-        let cached =
-            text.cached_rendering_data.ensure_up_to_date(&mut self.cache.borrow_mut(), || {
-                QtRenderingCacheItem::Font(get_font(text.font_request()))
-            });
-        let font: QFont = match cached {
-            QtRenderingCacheItem::Font(font) => font,
-            _ => return,
-        };
-
+        let font: QFont = get_font(text.font_request());
         let flags = match text.horizontal_alignment() {
             TextHorizontalAlignment::align_left => {
                 cpp!(unsafe [] -> i32 as "int" { return Qt::AlignLeft; })
