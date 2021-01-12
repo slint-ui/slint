@@ -97,7 +97,7 @@ impl FontCache {
         request.weight = request.weight.or(Some(DEFAULT_FONT_WEIGHT));
 
         GLFont {
-            font_id: self
+            fonts: smallvec::smallvec![self
                 .0
                 .entry(FontCacheKey {
                     family: request.family.clone(),
@@ -107,7 +107,7 @@ impl FontCache {
                     try_load_app_font(canvas, &request)
                         .unwrap_or_else(|| load_system_font(canvas, &request))
                 })
-                .clone(),
+                .clone()],
             canvas: canvas.clone(),
             pixel_size: request.pixel_size.unwrap(),
         }
@@ -332,11 +332,12 @@ impl GraphicsBackend for GLRenderer {
     }
 
     fn font_metrics(&mut self, request: FontRequest) -> Box<dyn FontMetrics> {
-        Box::new(self.loaded_fonts.borrow_mut().font(
-            &self.canvas,
+        Box::new(GLFontMetrics {
             request,
-            self.window().scale_factor() as f32,
-        ))
+            canvas: self.canvas.clone(),
+            scale_factor: self.window().scale_factor() as f32,
+            loaded_fonts: self.loaded_fonts.clone(),
+        })
     }
 }
 
@@ -860,18 +861,43 @@ struct FontCacheKey {
 }
 
 struct GLFont {
-    font_id: femtovg::FontId,
+    fonts: smallvec::SmallVec<[femtovg::FontId; 4]>,
     pixel_size: f32,
     canvas: CanvasRc,
 }
 
-impl FontMetrics for GLFont {
+impl GLFont {
+    fn measure(&self, text: &str) -> femtovg::TextMetrics {
+        self.canvas.borrow_mut().measure_text(0., 0., text, self.paint()).unwrap()
+    }
+
+    fn height(&self) -> f32 {
+        self.canvas.borrow_mut().measure_font(self.paint()).unwrap().height()
+    }
+
+    fn paint(&self) -> femtovg::Paint {
+        let mut paint = femtovg::Paint::default();
+        paint.set_font(&self.fonts);
+        paint.set_font_size(self.pixel_size);
+        paint.set_text_baseline(femtovg::Baseline::Top);
+        paint
+    }
+}
+
+struct GLFontMetrics {
+    request: FontRequest,
+    canvas: CanvasRc,
+    scale_factor: f32,
+    loaded_fonts: Rc<RefCell<FontCache>>,
+}
+
+impl FontMetrics for GLFontMetrics {
     fn text_width(&self, text: &str) -> f32 {
-        self.measure(text).width()
+        self.font().measure(text).width()
     }
 
     fn text_offset_for_x_position<'a>(&self, text: &'a str, x: f32) -> usize {
-        let metrics = self.measure(text);
+        let metrics = self.font().measure(text);
         let mut current_x = 0.;
         for glyph in metrics.glyphs {
             if current_x + glyph.advance_x / 2. >= x {
@@ -883,26 +909,13 @@ impl FontMetrics for GLFont {
     }
 
     fn height(&self) -> f32 {
-        let mut paint = femtovg::Paint::default();
-        paint.set_font(&[self.font_id]);
-        paint.set_font_size(self.pixel_size);
-        self.canvas.borrow_mut().measure_font(paint).unwrap().height()
+        self.canvas.borrow_mut().measure_font(self.font().paint()).unwrap().height()
     }
 }
 
-impl GLFont {
-    fn measure(&self, text: &str) -> femtovg::TextMetrics {
-        self.canvas.borrow_mut().measure_text(0., 0., text, self.paint()).unwrap()
-    }
-}
-
-impl GLFont {
-    fn paint(&self) -> femtovg::Paint {
-        let mut paint = femtovg::Paint::default();
-        paint.set_font(&[self.font_id]);
-        paint.set_font_size(self.pixel_size);
-        paint.set_text_baseline(femtovg::Baseline::Top);
-        paint
+impl GLFontMetrics {
+    fn font(&self) -> GLFont {
+        self.loaded_fonts.borrow_mut().font(&self.canvas, self.request.clone(), self.scale_factor)
     }
 }
 
