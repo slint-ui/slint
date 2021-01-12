@@ -183,7 +183,12 @@ impl ItemRenderer for QtItemRenderer<'_> {
         let border_color: u32 = rect.border_color().as_argb_encoded();
         let border_width: f32 = rect.border_width().min(rect.width() / 2.);
         let radius: f32 = rect.border_radius();
-        let rect: qttypes::QRectF = get_geometry!(pos, items::BorderRectangle, rect);
+        let mut rect: qttypes::QRectF = get_geometry!(pos, items::BorderRectangle, rect);
+        // adjust the size so that the border is drawn within the geometry
+        rect.x += border_width as f64 / 2.;
+        rect.y += border_width as f64 / 2.;
+        rect.width -= border_width as f64;
+        rect.height -= border_width as f64;
         let painter: &mut QPainter = &mut *self.painter;
         cpp! { unsafe [painter as "QPainter*", color as "QRgb",  border_color as "QRgb", border_width as "float", radius as "float", rect as "QRectF"] {
             painter->setPen(border_width > 0 ? QPen(QColor::fromRgba(border_color), border_width) : Qt::NoPen);
