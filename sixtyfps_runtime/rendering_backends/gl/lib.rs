@@ -559,7 +559,8 @@ impl ItemRenderer for GLItemRenderer {
     ) {
         let source_clip_rect = Rect::new(
             [clipped_image.source_clip_x() as _, clipped_image.source_clip_y() as _].into(),
-            [0., 0.].into(),
+            [clipped_image.source_clip_width() as _, clipped_image.source_clip_height() as _]
+                .into(),
         );
 
         self.draw_image_impl(
@@ -819,18 +820,19 @@ impl GLItemRenderer {
         } else {
             (source_clip_rect.width() as _, source_clip_rect.height() as _)
         };
+
         let fill_paint = femtovg::Paint::image(
             cached_image.id,
-            source_clip_rect.min_x(),
-            source_clip_rect.min_y(),
-            source_width,
-            source_height,
+            -source_clip_rect.min_x(),
+            -source_clip_rect.min_y(),
+            image_width,
+            image_height,
             0.0,
             1.0,
         );
 
         let mut path = femtovg::Path::new();
-        path.rect(0., 0., image_width, image_height);
+        path.rect(0., 0., source_width, source_height);
 
         self.canvas.borrow_mut().save_with(|canvas| {
             canvas.translate(pos.x, pos.y);
