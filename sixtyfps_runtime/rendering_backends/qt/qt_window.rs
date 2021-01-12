@@ -64,6 +64,7 @@ cpp! {{
 
         void paintEvent(QPaintEvent *) override {
             QPainter painter(this);
+            painter.setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform);
             auto painter_ptr = &painter;
             rust!(SFPS_paintEvent [rust_window: &QtWindow as "void*", painter_ptr: &mut QPainter as "QPainter*"] {
                 rust_window.paint_event(painter_ptr)
