@@ -49,9 +49,10 @@ pub fn create_window() -> ComponentWindow {
         eprintln!("Could not load rendering backend {}, fallback to default", backend_config)
     }
 
-    #[cfg(feature = "sixtyfps-rendering-backend-qt")]
-    if sixtyfps_rendering_backend_qt::IS_AVAILABLE {
-        return sixtyfps_rendering_backend_qt::create_window();
+    #[cfg(feature = "sixtyfps-rendering-backend-gl")]
+    if !default_backend::IS_AVAILABLE {
+        // If Qt is not available always fallback to Gl
+        return sixtyfps_rendering_backend_gl::create_window();
     }
     default_backend::create_window()
 }
