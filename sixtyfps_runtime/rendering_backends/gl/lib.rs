@@ -770,7 +770,8 @@ impl GLItemRenderer {
         let font =
             self.loaded_fonts.borrow_mut().font(&self.canvas, font_request, self.scale_factor);
 
-        let paint = font.paint(color.into());
+        let mut paint = font.paint();
+        paint.set_color(color.into());
 
         let (text_width, text_height) = {
             let text_metrics = self.canvas.borrow_mut().measure_text(0., 0., &text, paint).unwrap();
@@ -889,16 +890,13 @@ impl FontMetrics for GLFont {
 
 impl GLFont {
     fn measure(&self, text: &str) -> femtovg::TextMetrics {
-        let mut paint = femtovg::Paint::default();
-        paint.set_font(&[self.font_id]);
-        paint.set_font_size(self.pixel_size);
-        self.canvas.borrow_mut().measure_text(0., 0., text, paint).unwrap()
+        self.canvas.borrow_mut().measure_text(0., 0., text, self.paint()).unwrap()
     }
 }
 
 impl GLFont {
-    fn paint(&self, color: Color) -> femtovg::Paint {
-        let mut paint = femtovg::Paint::color(color.into());
+    fn paint(&self) -> femtovg::Paint {
+        let mut paint = femtovg::Paint::default();
         paint.set_font(&[self.font_id]);
         paint.set_font_size(self.pixel_size);
         paint.set_text_baseline(femtovg::Baseline::Top);
