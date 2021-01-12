@@ -9,7 +9,7 @@
 LICENSE END */
 /*! Generated with
 ```sh
-bindgen /usr/include/qt/QtCore/qnamespace.h --whitelist-type Qt::Key --whitelist-type Qt::KeyboardModifier -o sixtyfps_runtime/rendering_backends/qt/key_generated.rs -- -I /usr/include/qt -xc++
+bindgen /usr/include/qt/QtCore/qnamespace.h --whitelist-type Qt::Key --whitelist-type Qt::KeyboardModifier --whitelist-type Qt::AlignmentFlag -o sixtyfps_runtime/rendering_backends/qt/key_generated.rs -- -I /usr/include/qt -xc++
 ```
 then add licence header and this doc
 */
@@ -26,6 +26,21 @@ pub const Qt_KeyboardModifier_KeypadModifier: Qt_KeyboardModifier = 536870912;
 pub const Qt_KeyboardModifier_GroupSwitchModifier: Qt_KeyboardModifier = 1073741824;
 pub const Qt_KeyboardModifier_KeyboardModifierMask: Qt_KeyboardModifier = 4261412864;
 pub type Qt_KeyboardModifier = ::std::os::raw::c_uint;
+pub const Qt_AlignmentFlag_AlignLeft: Qt_AlignmentFlag = 1;
+pub const Qt_AlignmentFlag_AlignLeading: Qt_AlignmentFlag = 1;
+pub const Qt_AlignmentFlag_AlignRight: Qt_AlignmentFlag = 2;
+pub const Qt_AlignmentFlag_AlignTrailing: Qt_AlignmentFlag = 2;
+pub const Qt_AlignmentFlag_AlignHCenter: Qt_AlignmentFlag = 4;
+pub const Qt_AlignmentFlag_AlignJustify: Qt_AlignmentFlag = 8;
+pub const Qt_AlignmentFlag_AlignAbsolute: Qt_AlignmentFlag = 16;
+pub const Qt_AlignmentFlag_AlignHorizontal_Mask: Qt_AlignmentFlag = 31;
+pub const Qt_AlignmentFlag_AlignTop: Qt_AlignmentFlag = 32;
+pub const Qt_AlignmentFlag_AlignBottom: Qt_AlignmentFlag = 64;
+pub const Qt_AlignmentFlag_AlignVCenter: Qt_AlignmentFlag = 128;
+pub const Qt_AlignmentFlag_AlignBaseline: Qt_AlignmentFlag = 256;
+pub const Qt_AlignmentFlag_AlignVertical_Mask: Qt_AlignmentFlag = 480;
+pub const Qt_AlignmentFlag_AlignCenter: Qt_AlignmentFlag = 132;
+pub type Qt_AlignmentFlag = ::std::os::raw::c_uint;
 pub const Qt_Key_Key_Escape: Qt_Key = 16777216;
 pub const Qt_Key_Key_Tab: Qt_Key = 16777217;
 pub const Qt_Key_Key_Backtab: Qt_Key = 16777218;

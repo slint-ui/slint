@@ -256,25 +256,13 @@ impl ItemRenderer for QtItemRenderer<'_> {
         let string: qttypes::QString = text.text().as_str().into();
         let font: QFont = get_font(text.font_request());
         let flags = match text.horizontal_alignment() {
-            TextHorizontalAlignment::align_left => {
-                cpp!(unsafe [] -> i32 as "int" { return Qt::AlignLeft; })
-            }
-            TextHorizontalAlignment::align_center => {
-                cpp!(unsafe [] -> i32 as "int" { return Qt::AlignHCenter; })
-            }
-            TextHorizontalAlignment::align_right => {
-                cpp!(unsafe [] -> i32 as "int" { return Qt::AlignRight; })
-            }
+            TextHorizontalAlignment::align_left => key_generated::Qt_AlignmentFlag_AlignLeft,
+            TextHorizontalAlignment::align_center => key_generated::Qt_AlignmentFlag_AlignHCenter,
+            TextHorizontalAlignment::align_right => key_generated::Qt_AlignmentFlag_AlignRight,
         } | match text.vertical_alignment() {
-            TextVerticalAlignment::align_top => {
-                cpp!(unsafe [] -> i32 as "int" { return Qt::AlignTop; })
-            }
-            TextVerticalAlignment::align_center => {
-                cpp!(unsafe [] -> i32 as "int" { return Qt::AlignVCenter; })
-            }
-            TextVerticalAlignment::align_bottom => {
-                cpp!(unsafe [] -> i32 as "int" { return Qt::AlignBottom; })
-            }
+            TextVerticalAlignment::align_top => key_generated::Qt_AlignmentFlag_AlignTop,
+            TextVerticalAlignment::align_center => key_generated::Qt_AlignmentFlag_AlignVCenter,
+            TextVerticalAlignment::align_bottom => key_generated::Qt_AlignmentFlag_AlignBottom,
         };
         let painter: &mut QPainter = &mut *self.painter;
         cpp! { unsafe [painter as "QPainter*", rect as "QRectF", color as "QRgb", string as "QString", flags as "int", font as "QFont"] {
@@ -286,17 +274,63 @@ impl ItemRenderer for QtItemRenderer<'_> {
     }
 
     fn draw_text_input(&mut self, pos: Point, text_input: std::pin::Pin<&items::TextInput>) {
-        let pos1 = qttypes::QPoint { x: pos.x as _, y: pos.y as _ };
-        let pos2: qttypes::QPoint = get_pos!(items::TextInput, text_input);
-        let color: u32 =
-            items::TextInput::FIELD_OFFSETS.color.apply_pin(text_input).get().as_argb_encoded();
-        let string: qttypes::QString =
-            items::TextInput::FIELD_OFFSETS.text.apply_pin(text_input).get().as_str().into();
+        let rect: qttypes::QRectF = get_geometry!(pos, items::TextInput, text_input);
+        let color: u32 = text_input.color().as_argb_encoded();
+        let selection_foreground_color: u32 =
+            text_input.selection_foreground_color().as_argb_encoded();
+        let selection_background_color: u32 =
+            text_input.selection_background_color().as_argb_encoded();
+
+        let string: qttypes::QString = text_input.text().as_str().into();
+        let font: QFont = get_font(text_input.font_request());
+        let flags = match text_input.horizontal_alignment() {
+            TextHorizontalAlignment::align_left => key_generated::Qt_AlignmentFlag_AlignLeft,
+            TextHorizontalAlignment::align_center => key_generated::Qt_AlignmentFlag_AlignHCenter,
+            TextHorizontalAlignment::align_right => key_generated::Qt_AlignmentFlag_AlignRight,
+        } | match text_input.vertical_alignment() {
+            TextVerticalAlignment::align_top => key_generated::Qt_AlignmentFlag_AlignTop,
+            TextVerticalAlignment::align_center => key_generated::Qt_AlignmentFlag_AlignVCenter,
+            TextVerticalAlignment::align_bottom => key_generated::Qt_AlignmentFlag_AlignBottom,
+        };
+        let cursor_position: i32 = text_input.cursor_position();
+        let anchor_position: i32 = text_input.anchor_position();
+        let text_cursor_width: f32 =
+            if text_input.cursor_visible() { text_input.text_cursor_width() } else { 0. };
+
         let painter: &mut QPainter = &mut *self.painter;
-        cpp! { unsafe [painter as "QPainter*", pos1 as "QPoint", pos2 as "QPoint", color as "QRgb", string as "QString"] {
+        cpp! { unsafe [
+                painter as "QPainter*",
+                rect as "QRectF",
+                color as "QRgb",
+                selection_foreground_color as "QRgb",
+                selection_background_color as "QRgb",
+                string as "QString",
+                flags as "int",
+                font as "QFont",
+                cursor_position as "int",
+                anchor_position as "int",
+                text_cursor_width as "float"] {
+
+            QTextLayout layout(string, font);
+            layout.beginLayout();
+            layout.createLine();
+            layout.endLayout();
             painter->setPen(QColor{color});
-            painter->setBrush(Qt::NoBrush);
-            painter->drawText(pos1 + pos2, string);
+            QVector<QTextLayout::FormatRange> selections;
+            if (anchor_position != cursor_position) {
+                QTextCharFormat fmt;
+                fmt.setBackground(QColor(selection_background_color));
+                fmt.setForeground(QColor(selection_foreground_color));
+                selections << QTextLayout::FormatRange{
+                    std::min(anchor_position, cursor_position),
+                    std::abs(anchor_position - cursor_position),
+                    fmt
+                };
+            }
+            layout.draw(painter, rect.topLeft(), selections);
+            if (text_cursor_width > 0) {
+                layout.drawCursor(painter, rect.topLeft(), cursor_position, text_cursor_width);
+            }
         }}
     }
 
@@ -795,6 +829,9 @@ impl sixtyfps_corelib::graphics::FontMetrics for QFont {
         let string = qttypes::QString::from(text);
         cpp! { unsafe [self as "const QFont*", string as "QString", x as "float"] -> usize as "long long" {
             QTextLayout layout(string, *self);
+            layout.beginLayout();
+            layout.createLine();
+            layout.endLayout();
             if (layout.lineCount() == 0)
                 return 0;
             auto cur = layout.lineAt(0).xToCursor(x);
