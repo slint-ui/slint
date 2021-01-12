@@ -301,7 +301,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
                 cursor_position as "int",
                 anchor_position as "int",
                 text_cursor_width as "float"] {
-
+            Q_UNUSED(flags); // FIXME
             QTextLayout layout(string, font);
             layout.beginLayout();
             layout.createLine();
@@ -446,6 +446,11 @@ pub struct QtWindow {
     popup_window: RefCell<Option<(Rc<QtWindow>, ComponentRc)>>,
 
     cache: QtRenderingCache,
+
+    ///FIXME: this is only used for testing and should be removed
+    current_keyboard_modifiers: Cell<sixtyfps_corelib::input::KeyboardModifiers>,
+
+    scale_factor: Pin<Box<Property<f32>>>,
 }
 
 impl QtWindow {
@@ -465,6 +470,8 @@ impl QtWindow {
             cursor_blinker: Default::default(),
             popup_window: Default::default(),
             cache: Default::default(),
+            current_keyboard_modifiers: Default::default(),
+            scale_factor: Box::pin(Property::new(1.)),
         });
         let self_weak = Rc::downgrade(&rc);
         rc.self_weak.set(self_weak.clone()).ok().unwrap();
@@ -671,15 +678,16 @@ impl GenericWindow for QtWindow {
     }
 
     fn scale_factor(&self) -> f32 {
-        return 1.;
+        self.scale_factor.as_ref().get()
         /* let widget_ptr = self.widget_ptr();
         cpp! {unsafe [widget_ptr as "QWidget*"] -> f32 as "float" {
             return widget_ptr->windowHandle()->devicePixelRatio();
         }} */
     }
 
+    /// Only used for testing
     fn set_scale_factor(&self, factor: f32) {
-        todo!()
+        self.scale_factor.as_ref().set(factor)
     }
 
     fn refresh_window_scale_factor(&self) {
@@ -695,7 +703,8 @@ impl GenericWindow for QtWindow {
     }
 
     fn get_geometry(&self) -> sixtyfps_corelib::graphics::Rect {
-        todo!()
+        // FIXME
+        Default::default()
     }
 
     /// ### Candidate to be moved in corelib
@@ -719,15 +728,16 @@ impl GenericWindow for QtWindow {
         TextCursorBlinker::set_binding(blinker, prop);
     }
 
+    /// FIXME: this is only used for testing and should not be there
     fn current_keyboard_modifiers(&self) -> sixtyfps_corelib::input::KeyboardModifiers {
-        todo!()
+        self.current_keyboard_modifiers.get()
     }
 
     fn set_current_keyboard_modifiers(
         &self,
         modifiers: sixtyfps_corelib::input::KeyboardModifiers,
     ) {
-        todo!()
+        self.current_keyboard_modifiers.set(modifiers)
     }
 
     /// ### Candidate to be moved in corelib as this kind of duplicate GraphicsWindow::set_focus_item
