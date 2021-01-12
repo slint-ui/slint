@@ -17,6 +17,7 @@ use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::ItemWeak;
 use sixtyfps_corelib::items::{self, ItemRef};
 use sixtyfps_corelib::properties::PropertyTracker;
+use sixtyfps_corelib::slice::Slice;
 use sixtyfps_corelib::window::{ComponentWindow, GenericWindow};
 use sixtyfps_corelib::{Property, Resource};
 
@@ -596,10 +597,12 @@ impl GenericWindow for QtWindow {
         todo!()
     }
 
-    fn free_graphics_resources<'a>(
-        self: Rc<Self>,
-        items: &sixtyfps_corelib::slice::Slice<'a, std::pin::Pin<items::ItemRef<'a>>>,
-    ) {
+    /// ### Candidate to be moved in corelib
+    fn free_graphics_resources<'a>(self: Rc<Self>, items: &Slice<'a, Pin<items::ItemRef<'a>>>) {
+        for item in items.iter() {
+            let cached_rendering_data = item.cached_rendering_data_offset();
+            cached_rendering_data.release(&mut self.cache.borrow_mut());
+        }
     }
 
     fn set_cursor_blink_binding(&self, prop: &sixtyfps_corelib::Property<bool>) {
