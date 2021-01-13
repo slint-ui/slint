@@ -56,8 +56,7 @@ pub fn register_application_font_from_memory(
 
 fn maybe_init_fonts() {
     if FONTS.with(|fonts| fonts.borrow().is_empty()) {
-        load_font_from_memory(include_bytes!("fonts/Roboto-Regular.ttf")).unwrap();
-        load_font_from_memory(include_bytes!("fonts/Roboto-Bold.ttf")).unwrap();
+        load_font_from_memory(include_bytes!("fonts/DejaVuSans.ttf")).unwrap();
     }
 }
 
@@ -101,4 +100,15 @@ pub(crate) fn try_load_app_font(
 
 pub(crate) fn load_system_font(_canvas: &CanvasRc, _request: &FontRequest) -> femtovg::FontId {
     unreachable!()
+}
+
+pub(crate) fn font_fallbacks_for_request(_request: &FontRequest) -> Vec<FontRequest> {
+    ["DejaVu Sans"]
+        .iter()
+        .map(|family_name| FontRequest {
+            family: (*family_name).into(),
+            weight: _request.weight,
+            pixel_size: _request.pixel_size,
+        })
+        .collect()
 }

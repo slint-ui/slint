@@ -92,25 +92,32 @@ pub use fonts_wasm::register_application_font_from_memory;
 use fonts_wasm::*;
 
 impl FontCache {
+    fn load_single_font(&mut self, canvas: &CanvasRc, request: &FontRequest) -> femtovg::FontId {
+        self.0
+            .entry(FontCacheKey { family: request.family.clone(), weight: request.weight.unwrap() })
+            .or_insert_with(|| {
+                try_load_app_font(canvas, &request)
+                    .unwrap_or_else(|| load_system_font(canvas, &request))
+            })
+            .clone()
+    }
+
     fn font(&mut self, canvas: &CanvasRc, mut request: FontRequest, scale_factor: f32) -> GLFont {
         request.pixel_size = request.pixel_size.or(Some(DEFAULT_FONT_SIZE * scale_factor));
         request.weight = request.weight.or(Some(DEFAULT_FONT_WEIGHT));
 
-        GLFont {
-            fonts: smallvec::smallvec![self
-                .0
-                .entry(FontCacheKey {
-                    family: request.family.clone(),
-                    weight: request.weight.unwrap(),
-                })
-                .or_insert_with(|| {
-                    try_load_app_font(canvas, &request)
-                        .unwrap_or_else(|| load_system_font(canvas, &request))
-                })
-                .clone()],
-            canvas: canvas.clone(),
-            pixel_size: request.pixel_size.unwrap(),
-        }
+        let primary_font = self.load_single_font(canvas, &request);
+        let fallbacks = font_fallbacks_for_request(&request);
+
+        let fonts = core::iter::once(primary_font)
+            .chain(
+                fallbacks
+                    .iter()
+                    .map(|fallback_request| self.load_single_font(canvas, &fallback_request)),
+            )
+            .collect::<Vec<_>>();
+
+        GLFont { fonts, canvas: canvas.clone(), pixel_size: request.pixel_size.unwrap() }
     }
 }
 
@@ -861,7 +868,7 @@ struct FontCacheKey {
 }
 
 struct GLFont {
-    fonts: smallvec::SmallVec<[femtovg::FontId; 4]>,
+    fonts: Vec<femtovg::FontId>,
     pixel_size: f32,
     canvas: CanvasRc,
 }

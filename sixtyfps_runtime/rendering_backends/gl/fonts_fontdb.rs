@@ -78,3 +78,31 @@ pub(crate) fn load_system_font(canvas: &CanvasRc, request: &FontRequest) -> femt
     }
     .unwrap()
 }
+
+pub(crate) fn font_fallbacks_for_request(_request: &FontRequest) -> Vec<FontRequest> {
+    #[cfg(target_os = "macos")]
+    {
+        core_text::font::new_from_name(
+            &_request.family,
+            _request.pixel_size.unwrap_or_default() as f64,
+        )
+        .ok()
+        .map(|requested_font| {
+            core_text::font::cascade_list_for_languages(
+                &requested_font,
+                &core_foundation::array::CFArray::from_CFTypes(&[]),
+            )
+            .iter()
+            .map(|fallback_descriptor| FontRequest {
+                family: fallback_descriptor.family_name().into(),
+                weight: _request.weight,
+                pixel_size: _request.pixel_size,
+            })
+            .take(2) // Take only the top two from the fallback list until we have a more efficent on-demand font loading mechanism in femtovg
+            .collect::<Vec<_>>()
+        })
+        .unwrap_or_default()
+    }
+    #[cfg(not(target_os = "macos"))]
+    vec![]
+}

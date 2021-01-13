@@ -230,8 +230,7 @@ lazy_static! {
         (".*README$", LicenseLocation::NoLicense),
         (".*README\\.txt$", LicenseLocation::NoLicense),
         ("LICENSE\\..*", LicenseLocation::NoLicense),
-        ("LICENSE-APACHE", LicenseLocation::NoLicense),
-        ("LICENSE-SIL", LicenseLocation::NoLicense),
+        ("LICENSE-DejaVu", LicenseLocation::NoLicense),
         ("^examples/slide_puzzle/plaster-font/OFL.txt$", LicenseLocation::NoLicense),
     ]
     .iter()

@@ -52,4 +52,6 @@ servo-fontconfig = { version = "0.5", features = [ "force_system_lib" ] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 cocoa = { version = "0.24.0" }
+core-text = { version = "19.1.0" }
+core-foundation = { version = "0.9.1" }
 
