@@ -379,7 +379,7 @@ impl QtItemRenderer<'_> {
         &mut self,
         item_cache: &CachedRenderingData,
         source_property: Pin<&Property<Resource>>,
-        dest_rect: qttypes::QRectF,
+        mut dest_rect: qttypes::QRectF,
         source_rect: Option<qttypes::QRectF>,
         image_fit: ImageFit,
     ) {
@@ -401,9 +401,18 @@ impl QtItemRenderer<'_> {
             QtRenderingCacheItem::Image(img) => img,
             _ => return,
         };
-        let mut source_rect = source_rect.unwrap_or_else(|| {
-            let s = img.size();
-            qttypes::QRectF { x: 0., y: 0., width: s.width as _, height: s.height as _ }
+        let image_size = img.size();
+        if dest_rect.width == 0. {
+            dest_rect.width = image_size.width as _;
+        }
+        if dest_rect.height == 0. {
+            dest_rect.height = image_size.height as _;
+        }
+        let mut source_rect = source_rect.unwrap_or_else(|| qttypes::QRectF {
+            x: 0.,
+            y: 0.,
+            width: image_size.width as _,
+            height: image_size.height as _,
         });
         match image_fit {
             sixtyfps_corelib::items::ImageFit::fill => (),

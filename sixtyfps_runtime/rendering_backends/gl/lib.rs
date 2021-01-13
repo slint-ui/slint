@@ -812,8 +812,8 @@ impl GLItemRenderer {
         item_cache: &CachedRenderingData,
         source_property: std::pin::Pin<&Property<Resource>>,
         source_clip_rect: Rect,
-        scaled_width: f32,
-        scaled_height: f32,
+        target_width: f32,
+        target_height: f32,
         image_fit: ImageFit,
     ) {
         let (cached_image, image_info) =
@@ -828,6 +828,9 @@ impl GLItemRenderer {
         } else {
             (source_clip_rect.width() as _, source_clip_rect.height() as _)
         };
+
+        let target_width = if target_width == 0. { image_width } else { target_width };
+        let target_height = if target_height == 0. { image_height } else { target_height };
 
         let fill_paint = femtovg::Paint::image(
             cached_image.id,
@@ -847,11 +850,11 @@ impl GLItemRenderer {
 
             match image_fit {
                 ImageFit::fill => {
-                    canvas.scale(scaled_width / source_width, scaled_height / source_height);
+                    canvas.scale(target_width / source_width, target_height / source_height);
                 }
                 ImageFit::contain => {
                     let ratio =
-                        f32::max(scaled_width / source_width, scaled_height / source_height);
+                        f32::max(target_width / source_width, target_height / source_height);
                     canvas.scale(ratio, ratio)
                 }
             };
