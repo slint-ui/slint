@@ -11,7 +11,7 @@ LICENSE END */
 use cpp::*;
 use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
 use sixtyfps_corelib::component::{ComponentRc, ComponentWeak};
-use sixtyfps_corelib::graphics::{FontRequest, Point, RenderingCache};
+use sixtyfps_corelib::graphics::{FontRequest, PathElement, PathEvent, Point, RenderingCache};
 use sixtyfps_corelib::input::{
     KeyCode, KeyEvent, MouseEventType, MouseInputState, TextCursorBlinker,
 };
@@ -21,7 +21,7 @@ use sixtyfps_corelib::items::{self, ItemRef};
 use sixtyfps_corelib::properties::PropertyTracker;
 use sixtyfps_corelib::slice::Slice;
 use sixtyfps_corelib::window::{ComponentWindow, GenericWindow};
-use sixtyfps_corelib::{Property, Resource};
+use sixtyfps_corelib::{PathData, Property, Resource};
 
 use std::cell::{Cell, RefCell};
 use std::convert::TryFrom;
@@ -37,6 +37,7 @@ cpp! {{
     #include <QtWidgets/QWidget>
     #include <QtGui/QPainter>
     #include <QtGui/QPaintEngine>
+    #include <QtGui/QPainterPath>
     #include <QtGui/QWindow>
     #include <QtGui/QResizeEvent>
     #include <QtGui/QTextLayout>
@@ -141,6 +142,48 @@ impl QPainter {
     pub fn restore_state(&mut self) {
         cpp! { unsafe [self as "QPainter*"] {
             self->restore();
+        }}
+    }
+}
+
+cpp_class! {pub unsafe struct QPainterPath as "QPainterPath"}
+
+impl QPainterPath {
+    pub fn reserve(&mut self, size: usize) {
+        cpp! { unsafe [self as "QPainterPath*", size as "long long"] {
+            self->reserve(size);
+        }}
+    }
+
+    pub fn move_to(&mut self, to: qttypes::QPointF) {
+        cpp! { unsafe [self as "QPainterPath*", to as "QPointF"] {
+            self->lineTo(to);
+        }}
+    }
+    pub fn line_to(&mut self, to: qttypes::QPointF) {
+        cpp! { unsafe [self as "QPainterPath*", to as "QPointF"] {
+            self->lineTo(to);
+        }}
+    }
+    pub fn quad_to(&mut self, ctrl: qttypes::QPointF, to: qttypes::QPointF) {
+        cpp! { unsafe [self as "QPainterPath*", ctrl as "QPointF", to as "QPointF"] {
+            self->quadTo(ctrl, to);
+        }}
+    }
+    pub fn cubic_to(
+        &mut self,
+        ctrl1: qttypes::QPointF,
+        ctrl2: qttypes::QPointF,
+        to: qttypes::QPointF,
+    ) {
+        cpp! { unsafe [self as "QPainterPath*", ctrl1 as "QPointF", ctrl2 as "QPointF", to as "QPointF"] {
+            self->cubicTo(ctrl1, ctrl2, to);
+        }}
+    }
+
+    pub fn close(&mut self) {
+        cpp! { unsafe [self as "QPainterPath*"] {
+            self->closeSubpath();
         }}
     }
 }
@@ -325,8 +368,78 @@ impl ItemRenderer for QtItemRenderer<'_> {
         }}
     }
 
-    fn draw_path(&mut self, _pos: Point, _path: std::pin::Pin<&items::Path>) {
-        todo!()
+    fn draw_path(&mut self, pos: Point, path: Pin<&items::Path>) {
+        // FIXME: handle width/height
+        //let rect: qttypes::QRectF = get_geometry!(pos, items::Path, path);
+        let pos = qttypes::QPoint { x: (pos.x + path.x()) as _, y: (pos.y + path.y()) as _ };
+        let fill_color: u32 = path.fill_color().as_argb_encoded();
+        let stroke_color: u32 = path.stroke_color().as_argb_encoded();
+        let stroke_width: f32 = path.stroke_width();
+        let mut painter_path = QPainterPath::default();
+        match path.elements() {
+            PathData::None => {
+                return;
+            }
+            PathData::Elements(elms) => {
+                painter_path.reserve(elms.len());
+                for e in elms.iter() {
+                    match e {
+                        PathElement::LineTo(lt) => {
+                            painter_path.line_to(qttypes::QPointF { x: lt.x as _, y: lt.y as _ });
+                        }
+                        PathElement::ArcTo(at) => {
+                            // FIXME! Not a line
+                            painter_path.line_to(qttypes::QPointF { x: at.x as _, y: at.y as _ });
+                        }
+                        PathElement::Close => painter_path.close(),
+                    }
+                }
+            }
+            PathData::Events(events, points) => {
+                let mut points = points.iter();
+                let mut next = || {
+                    let p = points.next().unwrap();
+                    qttypes::QPointF { x: p.x as _, y: p.y as _ }
+                };
+                for e in events.iter() {
+                    match e {
+                        PathEvent::Begin => {
+                            painter_path.move_to(next());
+                        }
+                        PathEvent::Line => {
+                            painter_path.move_to(next());
+                            painter_path.line_to(next());
+                        }
+                        PathEvent::Quadratic => {
+                            painter_path.move_to(next());
+                            painter_path.quad_to(next(), next());
+                        }
+                        PathEvent::Cubic => {
+                            painter_path.move_to(next());
+                            painter_path.cubic_to(next(), next(), next());
+                        }
+                        PathEvent::EndOpen => {}
+                        PathEvent::EndClosed => painter_path.close(),
+                    }
+                }
+            }
+        };
+
+        let painter: &mut QPainter = &mut *self.painter;
+        cpp! { unsafe [
+                painter as "QPainter*",
+                pos as "QPoint",
+                mut painter_path as "QPainterPath",
+                fill_color as "QRgb",
+                stroke_color as "QRgb",
+                stroke_width as "float"] {
+            painter->save();
+            auto cleanup = qScopeGuard([&] { painter->restore(); });
+            painter->translate(pos);
+            painter->setPen(stroke_width > 0 ? QPen(QColor::fromRgba(stroke_color), stroke_width) : Qt::NoPen);
+            painter->setBrush(QColor::fromRgba(fill_color));
+            painter->drawPath(painter_path);
+        }}
     }
 
     fn combine_clip(&mut self, pos: Point, clip: Pin<&items::Clip>) {

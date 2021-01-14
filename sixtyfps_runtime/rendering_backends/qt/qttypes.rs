@@ -168,6 +168,13 @@ pub struct QPoint {
 
 #[repr(C)]
 #[derive(Default, Clone, Copy, PartialEq, Debug)]
+pub struct QPointF {
+    pub x: qreal,
+    pub y: qreal,
+}
+
+#[repr(C)]
+#[derive(Default, Clone, Copy, PartialEq, Debug)]
 pub struct QMargins {
     pub left: i32,
     pub top: i32,
