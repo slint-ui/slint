@@ -50,6 +50,10 @@ jobs:
       if: matrix.os != 'windows-latest'
       run: |
           echo "SIXTYFPS_STYLE=native" >> $GITHUB_ENV
+    - name: Set default style
+      if: matrix.os == 'windows-latest'
+      run: |
+          echo "SIXTYFPS_STYLE=ugly" >> $GITHUB_ENV
     - name: Setup Node.js
       uses: actions/setup-node@v1
       with:
