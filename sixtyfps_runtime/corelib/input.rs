@@ -589,6 +589,8 @@ pub struct TextCursorBlinker {
 }
 
 impl TextCursorBlinker {
+    /// Creates a new instance, wrapped in a Pin<Rc<_>> because the boolean property
+    /// the blinker properties uses the property system that requires pinning.
     pub fn new() -> Pin<Rc<Self>> {
         Rc::pin(Self {
             cursor_visible: Property::new(true),
@@ -596,6 +598,8 @@ impl TextCursorBlinker {
         })
     }
 
+    /// Sets a binding on the provided property that will ensure that the property value
+    /// is true when the cursor should be shown and false if not.
     pub fn set_binding(instance: Pin<Rc<TextCursorBlinker>>, prop: &Property<bool>) {
         instance.as_ref().cursor_visible.set(true);
         // Re-start timer, in case.
@@ -605,6 +609,8 @@ impl TextCursorBlinker {
         });
     }
 
+    /// Starts the blinking cursor timer that will toggle the cursor and update all bindings that
+    /// were installed on properties with set_binding call.
     pub fn start(self: &Pin<Rc<Self>>) {
         if self.cursor_blink_timer.running() {
             self.cursor_blink_timer.restart();
@@ -629,6 +635,8 @@ impl TextCursorBlinker {
         }
     }
 
+    /// Stops the blinking cursor timer. This is usually used for example when the window that contains
+    /// text editable elements looses the focus or is hidden.
     pub fn stop(&self) {
         self.cursor_blink_timer.stop()
     }
