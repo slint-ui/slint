@@ -1337,7 +1337,9 @@ fn compile_expression(
                 "[](const auto &a){ auto e1 = std::end(a); auto e2 = const_cast<char*>(e1); auto r = std::strtod(std::begin(a), &e2); return e1 == e2 ? r : 0; }"
                     .into()
             }
-
+            BuiltinFunction::ImplicitItemSize => {
+                unreachable!()
+            }
         },
         Expression::ElementReference(_) => todo!("Element references are only supported in the context of built-in function calls at the moment"),
         Expression::MemberFunction { .. } => panic!("member function expressions must not appear in the code generator anymore"),
@@ -1439,6 +1441,24 @@ fn compile_expression(
                     format!("self->window.show_popup<{}>(self, {{ {}.get(), {}.get() }} );", popup_window_id, x, y)
                 } else {
                     panic!("internal error: argument to SetFocusItem must be an element")
+                }
+            }
+            Expression::BuiltinFunctionReference(BuiltinFunction::ImplicitItemSize) => {
+                if arguments.len() != 1 {
+                    panic!("internal error: incorrect argument count to ImplicitItemSize call");
+                }
+                if let Expression::ElementReference(item) = &arguments[0] {
+                    let item = item.upgrade().unwrap();
+                    let item = item.borrow();
+                    let native_item = item.base_type.as_native();
+                    //format!("self->window.set_focus_item(self->self_weak.lock()->into_dyn(), {});", focus_item.item_index.get().unwrap())
+                    format!("sixtyfps::private_api::{vt}.implicit_size({{&sixtyfps::private_api::{vt}, const_cast<sixtyfps::{ty}*>(&self->{id})}}, &window)",
+                        vt = native_item.vtable_symbol,
+                        ty = native_item.class_name,
+                        id = item.id
+                    )
+                } else {
+                    panic!("internal error: argument to ImplicitItemSize must be an element")
                 }
             }
             _ => {

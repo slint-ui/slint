@@ -461,6 +461,39 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                     panic!("Argument not a string");
                 }
             }
+            Expression::BuiltinFunctionReference(BuiltinFunction::ImplicitItemSize) => {
+                if arguments.len() != 1 {
+                    panic!("internal error: incorrect argument count to ImplicitItemSize")
+                }
+                let component = match  local_context.component_instance  {
+                    ComponentInstance::InstanceRef(c) => c,
+                    ComponentInstance::GlobalComponent(_) => panic!("Cannot access the implicit item size from a global component")
+                };
+                if let Expression::ElementReference(item) = &arguments[0] {
+                    generativity::make_guard!(guard);
+
+                    let item = item.upgrade().unwrap();
+                    let enclosing_component =
+                        enclosing_component_for_element(&item, component, guard);
+                    let component_type = enclosing_component.component_type;
+                    let item_info = &component_type.items[item.borrow().id.as_str()];
+                    let item_ref = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
+
+                    let window = window_ref(component).unwrap();
+
+                    let size = item_ref.as_ref().implicit_size(&window);
+                    let values = [
+                        ("width".to_string(), Value::Number(size.width as f64)),
+                        ("height".to_string(), Value::Number(size.height as f64)),
+                    ]
+                    .iter()
+                    .cloned()
+                    .collect();
+                    Value::Object(values)
+                } else {
+                    panic!("internal error: argument to ImplicitItemWidth must be an element")
+                }
+            }
             _ => panic!("call of something not a callback"),
         }
         Expression::SelfAssignment { lhs, rhs, op } => {

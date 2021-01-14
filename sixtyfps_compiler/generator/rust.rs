@@ -1025,7 +1025,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
             BuiltinFunction::Round => quote!((|a| (a as f64).round())),
             BuiltinFunction::Ceil => quote!((|a| (a as f64).ceil())),
             BuiltinFunction::Floor => quote!((|a| (a as f64).floor())),
-            BuiltinFunction::SetFocusItem | BuiltinFunction::ShowPopupWindow => {
+            BuiltinFunction::SetFocusItem | BuiltinFunction::ShowPopupWindow | BuiltinFunction::ImplicitItemSize => {
                 panic!("internal error: should be handled directly in CallFunction")
             }
             BuiltinFunction::StringToFloat => {
@@ -1126,6 +1126,21 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                         )
                     } else {
                         panic!("internal error: argument to SetFocusItem must be an element")
+                    }
+                }
+                Expression::BuiltinFunctionReference(BuiltinFunction::ImplicitItemSize) => {
+                    if arguments.len() != 1 {
+                        panic!("internal error: incorrect argument count to ImplicitItemSize call");
+                    }
+                    if let Expression::ElementReference(item) = &arguments[0] {
+                        let item = item.upgrade().unwrap();
+                        let item = item.borrow();
+                        let item_id = format_ident!("{}", item.id);
+                        quote!(
+                            Self::FIELD_OFFSETS.#item_id.apply_pin(_self).implicit_size(&_self.window)
+                        )
+                    } else {
+                        panic!("internal error: argument to ImplicitItemSize must be an element")
                     }
                 }
                 _ => {

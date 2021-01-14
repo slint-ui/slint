@@ -17,6 +17,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::expression_tree::Expression;
+use crate::langtype::DefaultSizeBinding;
 use crate::langtype::{BuiltinElement, NativeClass, Type};
 use crate::object_tree::{self, *};
 use crate::parser::{identifier_text, syntax_nodes, SyntaxKind, SyntaxNode};
@@ -130,8 +131,13 @@ pub fn load_builtins(register: &mut TypeRegister) {
         builtin.disallow_global_types_as_child_elements =
             parse_annotation("disallow_global_types_as_child_elements", &e.node).is_some();
         builtin.is_non_item_type = parse_annotation("is_non_item_type", &e.node).is_some();
-        builtin.expands_to_parent_geometry =
-            parse_annotation("expands_to_parent_geometry", &e.node).is_some();
+        builtin.default_size_binding = parse_annotation("default_size_binding", &e.node)
+            .map(|size_type| match size_type.as_ref().map(|s| s.as_str()) {
+                Some("expands_to_parent_geometry") => DefaultSizeBinding::ExpandsToParentGeometry,
+                Some("implicit_size") => DefaultSizeBinding::ImplicitSize,
+                other => panic!("invalid default size binding {:?}", other),
+            })
+            .unwrap_or(DefaultSizeBinding::None);
         builtin.additional_accepted_child_types = e
             .SubElement()
             .map(|s| {

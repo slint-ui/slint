@@ -30,7 +30,7 @@ BorderRectangle := Rectangle {
     property <length> border_width;
     property <length> border_radius;
     property <color> border_color;
-    //-expands_to_parent_geometry
+    //-default_size_binding:expands_to_parent_geometry
 }
 
 export { BorderRectangle as Rectangle }
@@ -49,6 +49,7 @@ export ClippedImage := Image {
     property <int> source-clip-y;
     property <int> source-clip-width;
     property <int> source-clip-height;
+    //-default_size_binding:implicit_size
 }
 
 export { ClippedImage as Image }
@@ -65,6 +66,7 @@ export Text := _ {
     property <length> y;
     property <length> width;
     property <length> height;
+    //-default_size_binding:implicit_size
 }
 
 export TouchArea := _ {
@@ -79,7 +81,7 @@ export TouchArea := _ {
     property <length> pressed_x;
     property <length> pressed_y;
     callback clicked;
-    //-expands_to_parent_geometry
+    //-default_size_binding:expands_to_parent_geometry
 }
 
 export Flickable := _ {
@@ -94,7 +96,7 @@ export Flickable := _ {
     property <length> viewport_x;
     property <length> viewport_y;
     property <bool> interactive: true;
-    //-expands_to_parent_geometry
+    //-default_size_binding:expands_to_parent_geometry
 }
 
 export Window := _ {
@@ -125,7 +127,7 @@ export TextInput := _ {
     callback accepted;
     callback edited;
     property <bool> enabled: true;
-    //-expands_to_parent_geometry
+    //-default_size_binding:expands_to_parent_geometry
     //focus() is hardcoded in typeregister.rs
 }
 
@@ -134,7 +136,7 @@ export Clip := _ {
     property <length> y;
     property <length> width;
     property <length> height;
-    //-expands_to_parent_geometry
+    //-default_size_binding:expands_to_parent_geometry
 }
 
 Row := _ {
@@ -203,7 +205,7 @@ export Path := _ {
     ArcTo {}
     Close {}
 
-    //-expands_to_parent_geometry
+    //-default_size_binding:expands_to_parent_geometry
 }
 
 export PathLayout := _ {

@@ -59,6 +59,7 @@ pub enum BuiltinFunction {
     StringToFloat,
     /// the "42".is_float()
     StringIsFloat,
+    ImplicitItemSize,
 }
 
 #[derive(Debug, Clone)]
@@ -99,6 +100,19 @@ impl BuiltinFunction {
             BuiltinFunction::StringIsFloat => {
                 Type::Function { return_type: Box::new(Type::Bool), args: vec![Type::String] }
             }
+            BuiltinFunction::ImplicitItemSize => Type::Function {
+                return_type: Box::new(Type::Object {
+                    fields: [
+                        ("width".to_string(), Type::Length),
+                        ("height".to_string(), Type::Length),
+                    ]
+                    .iter()
+                    .cloned()
+                    .collect(),
+                    name: Some("Size".to_string()),
+                }),
+                args: vec![Type::ElementReference],
+            },
         }
     }
 }

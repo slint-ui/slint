@@ -463,6 +463,22 @@ impl NativeClass {
     }
 }
 
+#[derive(Debug, Clone)]
+pub enum DefaultSizeBinding {
+    /// There should not be a default binding for the size
+    None,
+    /// The size should default to `width:100%; height:100%`
+    ExpandsToParentGeometry,
+    /// The size should default to the item's implicit size
+    ImplicitSize,
+}
+
+impl Default for DefaultSizeBinding {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct BuiltinElement {
     pub name: String,
@@ -475,8 +491,7 @@ pub struct BuiltinElement {
     pub is_non_item_type: bool,
     pub member_functions: HashMap<String, Expression>,
     pub is_global: bool,
-    /// True if this type has a default `width:100%; height:100%`
-    pub expands_to_parent_geometry: bool,
+    pub default_size_binding: DefaultSizeBinding,
 }
 
 impl BuiltinElement {
