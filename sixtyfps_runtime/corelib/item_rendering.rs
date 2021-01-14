@@ -119,7 +119,7 @@ pub trait ItemRenderer {
     fn draw_text(&mut self, pos: Point, text: Pin<&Text>);
     fn draw_text_input(&mut self, pos: Point, text_input: Pin<&TextInput>);
     fn draw_path(&mut self, pos: Point, path: Pin<&Path>);
-    fn combine_clip(&mut self, pos: Point, clip: &Pin<&Clip>);
+    fn combine_clip(&mut self, pos: Point, clip: Pin<&Clip>);
     fn save_state(&mut self);
     fn restore_state(&mut self);
 

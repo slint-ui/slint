@@ -698,7 +698,7 @@ impl ItemRenderer for GLItemRenderer {
         //todo!()
     }
 
-    fn combine_clip(&mut self, pos: Point, clip: &std::pin::Pin<&sixtyfps_corelib::items::Clip>) {
+    fn combine_clip(&mut self, pos: Point, clip: std::pin::Pin<&sixtyfps_corelib::items::Clip>) {
         let clip_rect = clip.geometry().translate([pos.x, pos.y].into());
         self.canvas.borrow_mut().intersect_scissor(
             clip_rect.min_x(),

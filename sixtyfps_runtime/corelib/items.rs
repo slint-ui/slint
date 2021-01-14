@@ -396,7 +396,7 @@ impl Item for Clip {
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
     fn render(self: Pin<&Self>, pos: Point, backend: &mut ItemRendererRef) {
-        (*backend).combine_clip(pos, &self)
+        (*backend).combine_clip(pos, self)
     }
 }
 
