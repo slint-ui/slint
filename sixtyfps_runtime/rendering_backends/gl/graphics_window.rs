@@ -25,14 +25,16 @@ use corelib::window::{ComponentWindow, GenericWindow};
 use corelib::Property;
 use sixtyfps_corelib as corelib;
 
-type WindowFactoryFn<Backend> =
+type Backend = super::GLRenderer;
+
+type WindowFactoryFn =
     dyn Fn(&crate::eventloop::EventLoop, winit::window::WindowBuilder) -> Backend;
 
 /// GraphicsWindow is an implementation of the [GenericWindow][`crate::eventloop::GenericWindow`] trait. This is
 /// typically instantiated by entry factory functions of the different graphics backends.
-pub struct GraphicsWindow<Backend: GraphicsBackend + 'static> {
-    window_factory: Box<WindowFactoryFn<Backend>>,
-    map_state: RefCell<GraphicsWindowBackendState<Backend>>,
+pub struct GraphicsWindow {
+    window_factory: Box<WindowFactoryFn>,
+    map_state: RefCell<GraphicsWindowBackendState>,
     properties: Pin<Box<WindowProperties>>,
     cursor_blinker: RefCell<pin_weak::rc::PinWeak<TextCursorBlinker>>,
     keyboard_modifiers: std::cell::Cell<KeyboardModifiers>,
@@ -46,7 +48,7 @@ pub struct GraphicsWindow<Backend: GraphicsBackend + 'static> {
     active_popup: std::cell::RefCell<Option<(ComponentRc, Point)>>,
 }
 
-impl<Backend: GraphicsBackend + 'static> GraphicsWindow<Backend> {
+impl GraphicsWindow {
     /// Creates a new reference-counted instance.
     ///
     /// Arguments:
@@ -222,7 +224,7 @@ impl<Backend: GraphicsBackend + 'static> GraphicsWindow<Backend> {
     }
 }
 
-impl<Backend: GraphicsBackend> Drop for GraphicsWindow<Backend> {
+impl Drop for GraphicsWindow {
     fn drop(&mut self) {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped => {}
@@ -236,7 +238,7 @@ impl<Backend: GraphicsBackend> Drop for GraphicsWindow<Backend> {
     }
 }
 
-impl<Backend: GraphicsBackend> GenericWindow for GraphicsWindow<Backend> {
+impl GenericWindow for GraphicsWindow {
     fn set_component(self: Rc<Self>, component: &ComponentRc) {
         *self.component.borrow_mut() = vtable::VRc::downgrade(&component)
     }
@@ -398,7 +400,11 @@ impl<Backend: GraphicsBackend> GenericWindow for GraphicsWindow<Backend> {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped => {}
             GraphicsWindowBackendState::Mapped(window) => {
-                corelib::item_rendering::free_item_rendering_data(items, &window.backend)
+                for item in items.iter() {
+                    let cached_rendering_data = item.cached_rendering_data_offset();
+                    cached_rendering_data
+                        .release(&mut window.backend.borrow().item_rendering_cache.borrow_mut())
+                }
             }
         }
     }
@@ -484,18 +490,18 @@ impl<Backend: GraphicsBackend> GenericWindow for GraphicsWindow<Backend> {
     }
 }
 
-struct MappedWindow<Backend: GraphicsBackend + 'static> {
+struct MappedWindow {
     backend: RefCell<Backend>,
     constraints: Cell<corelib::layout::LayoutInfo>,
 }
 
-enum GraphicsWindowBackendState<Backend: GraphicsBackend + 'static> {
+enum GraphicsWindowBackendState {
     Unmapped,
-    Mapped(MappedWindow<Backend>),
+    Mapped(MappedWindow),
 }
 
-impl<Backend: GraphicsBackend + 'static> GraphicsWindowBackendState<Backend> {
-    fn as_mapped(&self) -> &MappedWindow<Backend> {
+impl GraphicsWindowBackendState {
+    fn as_mapped(&self) -> &MappedWindow {
         match self {
             GraphicsWindowBackendState::Unmapped => panic!(
                 "internal error: tried to access window functions that require a mapped window"

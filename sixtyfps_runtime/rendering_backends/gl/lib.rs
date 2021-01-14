@@ -272,9 +272,7 @@ impl GLRenderer {
     }
 }
 
-impl GraphicsBackend for GLRenderer {
-    type ItemRenderer = GLItemRenderer;
-
+impl GLRenderer {
     fn new_renderer(&mut self, clear_color: &Color) -> GLItemRenderer {
         let (size, scale_factor) = {
             let window = self.window();
@@ -326,11 +324,9 @@ impl GraphicsBackend for GLRenderer {
                 .map_or(false, |cached_image_rc| Rc::strong_count(&cached_image_rc) > 1)
         });
     }
+}
 
-    fn release_item_graphics_cache(&self, data: &CachedRenderingData) {
-        data.release(&mut self.item_rendering_cache.borrow_mut())
-    }
-
+impl GraphicsBackend for GLRenderer {
     fn window(&self) -> &winit::window::Window {
         #[cfg(not(target_arch = "wasm32"))]
         return self.windowed_context.as_ref().unwrap().window();

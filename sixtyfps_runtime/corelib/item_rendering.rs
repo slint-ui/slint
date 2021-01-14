@@ -10,12 +10,11 @@ LICENSE END */
 #![warn(missing_docs)]
 //! module for rendering the tree of items
 
-use super::graphics::{GraphicsBackend, RenderingCache};
+use super::graphics::RenderingCache;
 use super::items::*;
 use crate::component::ComponentRc;
 use crate::graphics::Point;
 use crate::item_tree::ItemVisitorResult;
-use crate::slice::Slice;
 use core::pin::Pin;
 use std::cell::{Cell, RefCell};
 
@@ -92,18 +91,6 @@ pub fn render_component_items(
         },
         origin,
     );
-}
-
-/// Calls release_item_graphics_cache() for each item in the slice. This is typically called
-/// from implementations of GenericWindow::free_graphics_resources.
-pub fn free_item_rendering_data<'a, Backend: GraphicsBackend>(
-    items: &Slice<'a, core::pin::Pin<ItemRef<'a>>>,
-    renderer: &RefCell<Backend>,
-) {
-    for item in items.iter() {
-        let cached_rendering_data = item.cached_rendering_data_offset();
-        renderer.borrow().release_item_graphics_cache(cached_rendering_data)
-    }
 }
 
 /// Trait used to render each items.

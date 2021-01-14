@@ -20,7 +20,6 @@ LICENSE END */
     created by the backend in a type-erased manner.
 */
 extern crate alloc;
-use crate::item_rendering::CachedRenderingData;
 use crate::properties::InterpolatedPropertyValue;
 #[cfg(feature = "rtti")]
 use crate::rtti::{BuiltinItem, FieldInfo, PropertyInfo, ValueType};
@@ -317,20 +316,6 @@ pub trait FontMetrics {
 ///   1. A series of low-level rendering primitives can be rendered into a frame, that's started using [GraphicsBackend::new_frame].
 ///      The low-level rendering primitives are intended to be fast and ready for rendering.
 pub trait GraphicsBackend: Sized {
-    /// The backend must provide an implementation of the ItemRenderer trait in order to allow for the run-time
-    /// to render the tree of items.
-    type ItemRenderer: crate::item_rendering::ItemRenderer;
-    /// Returns a new item renderer instance. At this point rendering begins and the backend ensures that the
-    /// window background was cleared with the specified clear_color.
-    fn new_renderer(&mut self, clear_color: &Color) -> Self::ItemRenderer;
-    /// Complete the item rendering by calling this function. This will typically flush any remaining/pending
-    /// commands to the underlying graphics subsystem.
-    fn flush_renderer(&mut self, renderer: Self::ItemRenderer);
-
-    /// This function is called by the run-time to release any backend-specific cached rendering data, typically
-    /// before destroying an item.
-    fn release_item_graphics_cache(&self, data: &CachedRenderingData);
-
     /// Returns a FontMetrics trait object that can be used to measure text and that matches the given font request as
     /// closely as possible.
     fn font_metrics(&mut self, request: FontRequest) -> Box<dyn FontMetrics>;
