@@ -76,6 +76,7 @@ private:
     };
 
     void *data_ptr() { return reinterpret_cast<char *>(this) + data_offset; }
+    ~VRcInner() = delete;
 };
 
 struct Dyn {};
