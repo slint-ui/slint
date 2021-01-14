@@ -66,7 +66,7 @@ struct VRcInner {
     template<typename VTable_, typename X_> friend class VWeak;
 private:
     VRcInner() : layout {} {}
-    const VTable *vtable = &X::component_type;
+    const VTable *vtable = &X::static_vtable;
     int strong_ref = 1;
     int weak_ref = 1;
     std::uint16_t data_offset = offsetof(VRcInner, data);
@@ -108,6 +108,9 @@ public:
         new(this) VRc(other);
         return *this;
     }
+    /// Construct a new VRc holding an X.
+    ///
+    /// The type X must have a static member `static_vtable` of type VTable
     template<typename ...Args> static VRc make(Args... args) {
         auto mem = ::operator new(sizeof(VRcInner<VTable, X>), static_cast<std::align_val_t>(alignof(VRcInner<VTable, X>)));
         auto inner = new (mem) VRcInner<VTable, X>;

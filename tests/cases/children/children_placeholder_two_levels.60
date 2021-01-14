@@ -44,7 +44,7 @@ TestCase := MegaContainer {
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
-TestCase::apply_layout({&TestCase::component_type, const_cast<TestCase*>(&instance) }, sixtyfps::Rect{0, 0, 300, 200});
+TestCase::apply_layout({&TestCase::static_vtable, const_cast<TestCase*>(&instance) }, sixtyfps::Rect{0, 0, 300, 200});
 assert(instance.get_rect1_pos_ok());
 ```
 

@@ -85,7 +85,7 @@ TestCase := Rectangle {
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
-TestCase::apply_layout({&TestCase::component_type, const_cast<TestCase*>(&instance) }, sixtyfps::Rect{0, 0, 300, 300});
+TestCase::apply_layout({&TestCase::static_vtable, const_cast<TestCase*>(&instance) }, sixtyfps::Rect{0, 0, 300, 300});
 assert(instance.get_test1());
 assert(instance.get_test2());
 assert(instance.get_test3());

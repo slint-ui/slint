@@ -112,7 +112,7 @@ public:
     void init_items(Component *c, ItemTree items) const
     {
         cbindgen_private::sixtyfps_component_init_items(
-                vtable::VRef<ComponentVTable> { &Component::component_type, c }, items, &inner);
+                vtable::VRef<ComponentVTable> { &Component::static_vtable, c }, items, &inner);
     }
 
     template<typename Component>
@@ -547,7 +547,7 @@ public:
     vtable::VRef<private_api::ComponentVTable> item_at(int i) const
     {
         const auto &x = inner->data.at(i);
-        return { &C::component_type, const_cast<C *>(&(**x.ptr)) };
+        return { &C::static_vtable, const_cast<C *>(&(**x.ptr)) };
     }
 
     void compute_layout(cbindgen_private::Rect parent_rect) const
@@ -555,7 +555,7 @@ public:
         if (!inner)
             return;
         for (auto &x : inner->data) {
-            (*x.ptr)->apply_layout({ &C::component_type, const_cast<C *>(&(**x.ptr)) },
+            (*x.ptr)->apply_layout({ &C::static_vtable, const_cast<C *>(&(**x.ptr)) },
                                    parent_rect);
         }
     }

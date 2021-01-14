@@ -837,7 +837,7 @@ fn generate_component(
                             .to_owned(),
                     statements: Some(vec![
                         "float vp_w = viewport_width->get();".to_owned(),
-                        format!("apply_layout({{&component_type, const_cast<void *>(static_cast<const void *>(this))}}, sixtyfps::Rect{{ 0, *offset_y, vp_w, {h} }});", h = "0/*FIXME: should compute the heigth somehow*/"),
+                        format!("apply_layout({{&static_vtable, const_cast<void *>(static_cast<const void *>(this))}}, sixtyfps::Rect{{ 0, *offset_y, vp_w, {h} }});", h = "0/*FIXME: should compute the heigth somehow*/"),
                         format!("{}.set(*offset_y);", p_y), // FIXME: shouldn't that be handled by apply layout?
                         format!("*offset_y += {}.get();", p_height),
                         format!("float w = {}.get();", p_width),
@@ -855,7 +855,7 @@ fn generate_component(
                     name: "box_layout_data".into(),
                     signature: "() const -> sixtyfps::BoxLayoutCellData".to_owned(),
                     statements: Some(vec![format!(
-                        "return {{ layouting_info({{&component_type, const_cast<void *>(static_cast<const void *>(this))}}), &{x}, &{y}, &{w}, &{h} }};",
+                        "return {{ layouting_info({{&static_vtable, const_cast<void *>(static_cast<const void *>(this))}}), &{x}, &{y}, &{w}, &{h} }};",
                         x = p_x,
                         y = p_y,
                         w = p_width,
@@ -1143,7 +1143,7 @@ fn generate_component(
             Access::Public,
             Declaration::Var(Var {
                 ty: "static const sixtyfps::private_api::ComponentVTable".to_owned(),
-                name: "component_type".to_owned(),
+                name: "static_vtable".to_owned(),
                 init: None,
             }),
         ));
@@ -1186,7 +1186,7 @@ fn generate_component(
     if !component.is_global() {
         file.definitions.push(Declaration::Var(Var {
             ty: "const sixtyfps::private_api::ComponentVTable".to_owned(),
-            name: format!("{}::component_type", component_id),
+            name: format!("{}::static_vtable", component_id),
             init: Some(format!(
                 "{{ visit_children, get_item_ref, layouting_info, apply_layout,  sixtyfps::private_api::drop_in_place<{}>, sixtyfps::private_api::dealloc }}",
                 component_id)
