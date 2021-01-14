@@ -15,7 +15,7 @@ use std::{
 };
 
 use sixtyfps_corelib::graphics::{
-    Color, FontMetrics, FontRequest, GraphicsBackend, Point, Rect, RenderingCache, Resource,
+    Color, FontMetrics, FontRequest, Point, Rect, RenderingCache, Resource,
 };
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::ImageFit;
@@ -270,9 +270,9 @@ impl GLRenderer {
             loaded_fonts: Default::default(),
         }
     }
-}
 
-impl GLRenderer {
+    /// Returns a new item renderer instance. At this point rendering begins and the backend ensures that the
+    /// window background was cleared with the specified clear_color.
     fn new_renderer(&mut self, clear_color: &Color) -> GLItemRenderer {
         let (size, scale_factor) = {
             let window = self.window();
@@ -307,6 +307,8 @@ impl GLRenderer {
         }
     }
 
+    /// Complete the item rendering by calling this function. This will typically flush any remaining/pending
+    /// commands to the underlying graphics subsystem.
     fn flush_renderer(&mut self, _renderer: GLItemRenderer) {
         self.canvas.borrow_mut().flush();
 
@@ -324,9 +326,7 @@ impl GLRenderer {
                 .map_or(false, |cached_image_rc| Rc::strong_count(&cached_image_rc) > 1)
         });
     }
-}
 
-impl GraphicsBackend for GLRenderer {
     fn window(&self) -> &winit::window::Window {
         #[cfg(not(target_arch = "wasm32"))]
         return self.windowed_context.as_ref().unwrap().window();
@@ -334,6 +334,8 @@ impl GraphicsBackend for GLRenderer {
         return &self.window;
     }
 
+    /// Returns a FontMetrics trait object that can be used to measure text and that matches the given font request as
+    /// closely as possible.
     fn font_metrics(&mut self, request: FontRequest) -> Box<dyn FontMetrics> {
         Box::new(GLFontMetrics {
             request,

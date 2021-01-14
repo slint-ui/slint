@@ -11,10 +11,7 @@ LICENSE END */
 /*!
     Graphics Abstractions.
 
-    This module contains the abstractions and convenience types to allow the runtime
-    library to instruct different graphics backends to render the tree of items.
-
-    The entry trait is [GraphicsBackend].
+    This module contains the abstractions and convenience types used for rendering.
 
     The run-time library also makes use of [RenderingCache] to store the rendering primitives
     created by the backend in a type-erased manner.
@@ -303,25 +300,6 @@ pub trait FontMetrics {
     /// in the height that can fit the talltest glyphs of the font. Note that it is possible though that
     /// the font may include glyphs that exceed this.
     fn height(&self) -> f32;
-}
-
-/// GraphicsBackend is the trait that the the SixtyFPS run-time uses to convert [HighLevelRenderingPrimitive]
-/// to an internal representation that is optimal for the backend, in order to render it later. The internal
-/// representation is opaque but must be provided via the [GraphicsBackend::LowLevelRenderingPrimitive] associated type.
-///
-/// The backend operates in two modes:
-///   1. It can be used to create new rendering primitives, by calling [GraphicsBackend::new_rendering_primitives_builder]. This is
-///      usually an expensive step, that involves uploading data to the GPU or performing other pre-calculations.
-///
-///   1. A series of low-level rendering primitives can be rendered into a frame, that's started using [GraphicsBackend::new_frame].
-///      The low-level rendering primitives are intended to be fast and ready for rendering.
-pub trait GraphicsBackend: Sized {
-    /// Returns a FontMetrics trait object that can be used to measure text and that matches the given font request as
-    /// closely as possible.
-    fn font_metrics(&mut self, request: FontRequest) -> Box<dyn FontMetrics>;
-
-    /// Returns the window that the backend is associated with.
-    fn window(&self) -> &winit::window::Window;
 }
 
 #[repr(C)]

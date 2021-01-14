@@ -8,7 +8,6 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 //! This module contains the GraphicsWindow that used to be within corelib.
-//! FIXME The GraphicsWindow probably does not need to be generic
 
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
@@ -25,6 +24,7 @@ use corelib::window::{ComponentWindow, GenericWindow};
 use corelib::Property;
 use sixtyfps_corelib as corelib;
 
+/// FIXME! this is some remains from a time where the GLRenderer was called the backend
 type Backend = super::GLRenderer;
 
 type WindowFactoryFn =
