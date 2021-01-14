@@ -402,8 +402,9 @@ impl GenericWindow for GraphicsWindow {
             GraphicsWindowBackendState::Mapped(window) => {
                 for item in items.iter() {
                     let cached_rendering_data = item.cached_rendering_data_offset();
-                    cached_rendering_data
-                        .release(&mut window.backend.borrow().item_rendering_cache.borrow_mut())
+                    cached_rendering_data.release(
+                        &mut window.backend.borrow().shared_data.item_rendering_cache.borrow_mut(),
+                    )
                 }
             }
         }

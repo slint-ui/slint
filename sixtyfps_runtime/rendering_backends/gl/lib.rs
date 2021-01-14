@@ -30,7 +30,6 @@ use graphics_window::*;
 pub(crate) mod eventloop;
 
 type CanvasRc = Rc<RefCell<femtovg::Canvas<femtovg::renderer::OpenGl>>>;
-type ItemRenderingCacheRc = Rc<RefCell<RenderingCache<Option<GPUCachedData>>>>;
 
 pub const DEFAULT_FONT_SIZE: f32 = 12.;
 pub const DEFAULT_FONT_WEIGHT: i32 = 400; // CSS normal
@@ -51,9 +50,6 @@ enum ImageCacheKey {
     Path(String),
     EmbeddedData(by_address::ByAddress<&'static [u8]>),
 }
-// Cache used to avoid repeatedly decoding images from disk. The weak references are
-// drained after flushing the renderer commands to the screen.
-type ImageCacheRc = Rc<RefCell<HashMap<ImageCacheKey, Weak<CachedImage>>>>;
 
 #[derive(Clone)]
 enum GPUCachedData {
@@ -121,248 +117,23 @@ impl FontCache {
     }
 }
 
-pub struct GLRenderer {
+struct GLRendererData {
     canvas: CanvasRc,
 
     #[cfg(target_arch = "wasm32")]
     window: Rc<winit::window::Window>,
     #[cfg(target_arch = "wasm32")]
     event_loop_proxy: Rc<winit::event_loop::EventLoopProxy<eventloop::CustomEvent>>,
-    #[cfg(not(target_arch = "wasm32"))]
-    windowed_context: Option<glutin::WindowedContext<glutin::NotCurrent>>,
+    item_rendering_cache: RefCell<RenderingCache<Option<GPUCachedData>>>,
 
-    item_rendering_cache: ItemRenderingCacheRc,
-    image_cache: ImageCacheRc,
+    // Cache used to avoid repeatedly decoding images from disk. The weak references are
+    // drained after flushing the renderer commands to the screen.
+    image_cache: RefCell<HashMap<ImageCacheKey, Weak<CachedImage>>>,
 
-    loaded_fonts: Rc<RefCell<FontCache>>,
+    loaded_fonts: RefCell<FontCache>,
 }
 
-impl GLRenderer {
-    pub fn new(
-        event_loop: &winit::event_loop::EventLoop<eventloop::CustomEvent>,
-        window_builder: winit::window::WindowBuilder,
-        #[cfg(target_arch = "wasm32")] canvas_id: &str,
-    ) -> GLRenderer {
-        #[cfg(not(target_arch = "wasm32"))]
-        let (windowed_context, renderer) = {
-            let windowed_context = glutin::ContextBuilder::new()
-                .with_vsync(true)
-                .build_windowed(window_builder, &event_loop)
-                .unwrap();
-            let windowed_context = unsafe { windowed_context.make_current().unwrap() };
-
-            let renderer = femtovg::renderer::OpenGl::new(|symbol| {
-                windowed_context.get_proc_address(symbol) as *const _
-            })
-            .unwrap();
-
-            #[cfg(target_os = "macos")]
-            {
-                use cocoa::appkit::NSView;
-                use winit::platform::macos::WindowExtMacOS;
-                let ns_view = windowed_context.window().ns_view();
-                let view_id: cocoa::base::id = ns_view as *const _ as *mut _;
-                unsafe {
-                    NSView::setLayerContentsPlacement(view_id, cocoa::appkit::NSViewLayerContentsPlacement::NSViewLayerContentsPlacementTopLeft)
-                }
-            }
-
-            (windowed_context, renderer)
-        };
-
-        #[cfg(target_arch = "wasm32")]
-        let event_loop_proxy = Rc::new(event_loop.create_proxy());
-
-        #[cfg(target_arch = "wasm32")]
-        let (window, renderer) = {
-            use wasm_bindgen::JsCast;
-
-            let canvas = web_sys::window()
-                .unwrap()
-                .document()
-                .unwrap()
-                .get_element_by_id(canvas_id)
-                .unwrap()
-                .dyn_into::<web_sys::HtmlCanvasElement>()
-                .unwrap();
-
-            use winit::platform::web::WindowBuilderExtWebSys;
-            use winit::platform::web::WindowExtWebSys;
-
-            let existing_canvas_size = winit::dpi::LogicalSize::new(
-                canvas.client_width() as u32,
-                canvas.client_height() as u32,
-            );
-
-            let window =
-                Rc::new(window_builder.with_canvas(Some(canvas)).build(&event_loop).unwrap());
-
-            // Try to maintain the existing size of the canvas element. A window created with winit
-            // on the web will always have 1024x768 as size otherwise.
-
-            let resize_canvas = {
-                let event_loop_proxy = event_loop_proxy.clone();
-                let canvas = web_sys::window()
-                    .unwrap()
-                    .document()
-                    .unwrap()
-                    .get_element_by_id(canvas_id)
-                    .unwrap()
-                    .dyn_into::<web_sys::HtmlCanvasElement>()
-                    .unwrap();
-                let window = window.clone();
-                move |_: web_sys::Event| {
-                    let existing_canvas_size = winit::dpi::LogicalSize::new(
-                        canvas.client_width() as u32,
-                        canvas.client_height() as u32,
-                    );
-
-                    window.set_inner_size(existing_canvas_size);
-                    window.request_redraw();
-                    event_loop_proxy.send_event(eventloop::CustomEvent::WakeUpAndPoll).ok();
-                }
-            };
-
-            let resize_closure =
-                wasm_bindgen::closure::Closure::wrap(Box::new(resize_canvas) as Box<dyn FnMut(_)>);
-            web_sys::window()
-                .unwrap()
-                .add_event_listener_with_callback("resize", resize_closure.as_ref().unchecked_ref())
-                .unwrap();
-            resize_closure.forget();
-
-            {
-                let default_size = window.inner_size().to_logical(window.scale_factor());
-                let new_size = winit::dpi::LogicalSize::new(
-                    if existing_canvas_size.width > 0 {
-                        existing_canvas_size.width
-                    } else {
-                        default_size.width
-                    },
-                    if existing_canvas_size.height > 0 {
-                        existing_canvas_size.height
-                    } else {
-                        default_size.height
-                    },
-                );
-                if new_size != default_size {
-                    window.set_inner_size(new_size);
-                }
-            }
-
-            let renderer =
-                femtovg::renderer::OpenGl::new_from_html_canvas(&window.canvas()).unwrap();
-            (window, renderer)
-        };
-
-        let canvas = femtovg::Canvas::new(renderer).unwrap();
-
-        GLRenderer {
-            canvas: Rc::new(RefCell::new(canvas)),
-            #[cfg(target_arch = "wasm32")]
-            window,
-            #[cfg(target_arch = "wasm32")]
-            event_loop_proxy,
-            #[cfg(not(target_arch = "wasm32"))]
-            windowed_context: Some(unsafe { windowed_context.make_not_current().unwrap() }),
-            item_rendering_cache: Default::default(),
-            image_cache: Default::default(),
-            loaded_fonts: Default::default(),
-        }
-    }
-
-    /// Returns a new item renderer instance. At this point rendering begins and the backend ensures that the
-    /// window background was cleared with the specified clear_color.
-    fn new_renderer(&mut self, clear_color: &Color) -> GLItemRenderer {
-        let (size, scale_factor) = {
-            let window = self.window();
-            (window.inner_size(), window.scale_factor() as f32)
-        };
-
-        #[cfg(not(target_arch = "wasm32"))]
-        let current_windowed_context =
-            unsafe { self.windowed_context.take().unwrap().make_current().unwrap() };
-
-        {
-            let mut canvas = self.canvas.borrow_mut();
-            // We pass 1.0 as dpi / device pixel ratio as femtovg only uses this factor to scale
-            // text metrics. Since we do the entire translation from logical pixels to physical
-            // pixels on our end, we don't need femtovg to scale a second time.
-            canvas.set_size(size.width, size.height, 1.0);
-            canvas.clear_rect(0, 0, size.width, size.height, clear_color.into());
-        }
-
-        GLItemRenderer {
-            canvas: self.canvas.clone(),
-            #[cfg(target_arch = "wasm32")]
-            window: self.window.clone(),
-            #[cfg(not(target_arch = "wasm32"))]
-            windowed_context: current_windowed_context,
-            #[cfg(target_arch = "wasm32")]
-            event_loop_proxy: self.event_loop_proxy.clone(),
-            item_rendering_cache: self.item_rendering_cache.clone(),
-            image_cache: self.image_cache.clone(),
-            scale_factor,
-            loaded_fonts: self.loaded_fonts.clone(),
-        }
-    }
-
-    /// Complete the item rendering by calling this function. This will typically flush any remaining/pending
-    /// commands to the underlying graphics subsystem.
-    fn flush_renderer(&mut self, _renderer: GLItemRenderer) {
-        self.canvas.borrow_mut().flush();
-
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            _renderer.windowed_context.swap_buffers().unwrap();
-
-            self.windowed_context =
-                Some(unsafe { _renderer.windowed_context.make_not_current().unwrap() });
-        }
-
-        self.image_cache.borrow_mut().retain(|_, cached_image_weak| {
-            cached_image_weak
-                .upgrade()
-                .map_or(false, |cached_image_rc| Rc::strong_count(&cached_image_rc) > 1)
-        });
-    }
-
-    fn window(&self) -> &winit::window::Window {
-        #[cfg(not(target_arch = "wasm32"))]
-        return self.windowed_context.as_ref().unwrap().window();
-        #[cfg(target_arch = "wasm32")]
-        return &self.window;
-    }
-
-    /// Returns a FontMetrics trait object that can be used to measure text and that matches the given font request as
-    /// closely as possible.
-    fn font_metrics(&mut self, request: FontRequest) -> Box<dyn FontMetrics> {
-        Box::new(GLFontMetrics {
-            request,
-            canvas: self.canvas.clone(),
-            scale_factor: self.window().scale_factor() as f32,
-            loaded_fonts: self.loaded_fonts.clone(),
-        })
-    }
-}
-
-pub struct GLItemRenderer {
-    canvas: CanvasRc,
-
-    #[cfg(target_arch = "wasm32")]
-    window: Rc<winit::window::Window>,
-    #[cfg(not(target_arch = "wasm32"))]
-    windowed_context: glutin::WindowedContext<glutin::PossiblyCurrent>,
-    #[cfg(target_arch = "wasm32")]
-    event_loop_proxy: Rc<winit::event_loop::EventLoopProxy<eventloop::CustomEvent>>,
-
-    item_rendering_cache: ItemRenderingCacheRc,
-    image_cache: ImageCacheRc,
-    loaded_fonts: Rc<RefCell<FontCache>>,
-    scale_factor: f32,
-}
-
-impl GLItemRenderer {
+impl GLRendererData {
     #[cfg(target_arch = "wasm32")]
     fn load_html_image(&self, url: &str) -> femtovg::ImageId {
         let image_id = self
@@ -493,6 +264,226 @@ impl GLItemRenderer {
     }
 }
 
+pub struct GLRenderer {
+    shared_data: Rc<GLRendererData>,
+    #[cfg(not(target_arch = "wasm32"))]
+    windowed_context: Option<glutin::WindowedContext<glutin::NotCurrent>>,
+}
+
+impl GLRenderer {
+    pub fn new(
+        event_loop: &winit::event_loop::EventLoop<eventloop::CustomEvent>,
+        window_builder: winit::window::WindowBuilder,
+        #[cfg(target_arch = "wasm32")] canvas_id: &str,
+    ) -> GLRenderer {
+        #[cfg(not(target_arch = "wasm32"))]
+        let (windowed_context, renderer) = {
+            let windowed_context = glutin::ContextBuilder::new()
+                .with_vsync(true)
+                .build_windowed(window_builder, &event_loop)
+                .unwrap();
+            let windowed_context = unsafe { windowed_context.make_current().unwrap() };
+
+            let renderer = femtovg::renderer::OpenGl::new(|symbol| {
+                windowed_context.get_proc_address(symbol) as *const _
+            })
+            .unwrap();
+
+            #[cfg(target_os = "macos")]
+            {
+                use cocoa::appkit::NSView;
+                use winit::platform::macos::WindowExtMacOS;
+                let ns_view = windowed_context.window().ns_view();
+                let view_id: cocoa::base::id = ns_view as *const _ as *mut _;
+                unsafe {
+                    NSView::setLayerContentsPlacement(view_id, cocoa::appkit::NSViewLayerContentsPlacement::NSViewLayerContentsPlacementTopLeft)
+                }
+            }
+
+            (windowed_context, renderer)
+        };
+
+        #[cfg(target_arch = "wasm32")]
+        let event_loop_proxy = Rc::new(event_loop.create_proxy());
+
+        #[cfg(target_arch = "wasm32")]
+        let (window, renderer) = {
+            use wasm_bindgen::JsCast;
+
+            let canvas = web_sys::window()
+                .unwrap()
+                .document()
+                .unwrap()
+                .get_element_by_id(canvas_id)
+                .unwrap()
+                .dyn_into::<web_sys::HtmlCanvasElement>()
+                .unwrap();
+
+            use winit::platform::web::WindowBuilderExtWebSys;
+            use winit::platform::web::WindowExtWebSys;
+
+            let existing_canvas_size = winit::dpi::LogicalSize::new(
+                canvas.client_width() as u32,
+                canvas.client_height() as u32,
+            );
+
+            let window =
+                Rc::new(window_builder.with_canvas(Some(canvas)).build(&event_loop).unwrap());
+
+            // Try to maintain the existing size of the canvas element. A window created with winit
+            // on the web will always have 1024x768 as size otherwise.
+
+            let resize_canvas = {
+                let event_loop_proxy = event_loop_proxy.clone();
+                let canvas = web_sys::window()
+                    .unwrap()
+                    .document()
+                    .unwrap()
+                    .get_element_by_id(canvas_id)
+                    .unwrap()
+                    .dyn_into::<web_sys::HtmlCanvasElement>()
+                    .unwrap();
+                let window = window.clone();
+                move |_: web_sys::Event| {
+                    let existing_canvas_size = winit::dpi::LogicalSize::new(
+                        canvas.client_width() as u32,
+                        canvas.client_height() as u32,
+                    );
+
+                    window.set_inner_size(existing_canvas_size);
+                    window.request_redraw();
+                    event_loop_proxy.send_event(eventloop::CustomEvent::WakeUpAndPoll).ok();
+                }
+            };
+
+            let resize_closure =
+                wasm_bindgen::closure::Closure::wrap(Box::new(resize_canvas) as Box<dyn FnMut(_)>);
+            web_sys::window()
+                .unwrap()
+                .add_event_listener_with_callback("resize", resize_closure.as_ref().unchecked_ref())
+                .unwrap();
+            resize_closure.forget();
+
+            {
+                let default_size = window.inner_size().to_logical(window.scale_factor());
+                let new_size = winit::dpi::LogicalSize::new(
+                    if existing_canvas_size.width > 0 {
+                        existing_canvas_size.width
+                    } else {
+                        default_size.width
+                    },
+                    if existing_canvas_size.height > 0 {
+                        existing_canvas_size.height
+                    } else {
+                        default_size.height
+                    },
+                );
+                if new_size != default_size {
+                    window.set_inner_size(new_size);
+                }
+            }
+
+            let renderer =
+                femtovg::renderer::OpenGl::new_from_html_canvas(&window.canvas()).unwrap();
+            (window, renderer)
+        };
+
+        let canvas = femtovg::Canvas::new(renderer).unwrap();
+
+        let shared_data = GLRendererData {
+            canvas: Rc::new(RefCell::new(canvas)),
+
+            #[cfg(target_arch = "wasm32")]
+            window,
+            #[cfg(target_arch = "wasm32")]
+            event_loop_proxy,
+
+            item_rendering_cache: Default::default(),
+            image_cache: Default::default(),
+            loaded_fonts: Default::default(),
+        };
+
+        GLRenderer {
+            shared_data: Rc::new(shared_data),
+            #[cfg(not(target_arch = "wasm32"))]
+            windowed_context: Some(unsafe { windowed_context.make_not_current().unwrap() }),
+        }
+    }
+
+    /// Returns a new item renderer instance. At this point rendering begins and the backend ensures that the
+    /// window background was cleared with the specified clear_color.
+    fn new_renderer(&mut self, clear_color: &Color) -> GLItemRenderer {
+        let (size, scale_factor) = {
+            let window = self.window();
+            (window.inner_size(), window.scale_factor() as f32)
+        };
+
+        #[cfg(not(target_arch = "wasm32"))]
+        let current_windowed_context =
+            unsafe { self.windowed_context.take().unwrap().make_current().unwrap() };
+
+        {
+            let mut canvas = self.shared_data.canvas.borrow_mut();
+            // We pass 1.0 as dpi / device pixel ratio as femtovg only uses this factor to scale
+            // text metrics. Since we do the entire translation from logical pixels to physical
+            // pixels on our end, we don't need femtovg to scale a second time.
+            canvas.set_size(size.width, size.height, 1.0);
+            canvas.clear_rect(0, 0, size.width, size.height, clear_color.into());
+        }
+
+        GLItemRenderer {
+            shared_data: self.shared_data.clone(),
+            #[cfg(not(target_arch = "wasm32"))]
+            windowed_context: current_windowed_context,
+            scale_factor,
+        }
+    }
+
+    /// Complete the item rendering by calling this function. This will typically flush any remaining/pending
+    /// commands to the underlying graphics subsystem.
+    fn flush_renderer(&mut self, _renderer: GLItemRenderer) {
+        self.shared_data.canvas.borrow_mut().flush();
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            _renderer.windowed_context.swap_buffers().unwrap();
+
+            self.windowed_context =
+                Some(unsafe { _renderer.windowed_context.make_not_current().unwrap() });
+        }
+
+        self.shared_data.image_cache.borrow_mut().retain(|_, cached_image_weak| {
+            cached_image_weak
+                .upgrade()
+                .map_or(false, |cached_image_rc| Rc::strong_count(&cached_image_rc) > 1)
+        });
+    }
+
+    fn window(&self) -> &winit::window::Window {
+        #[cfg(not(target_arch = "wasm32"))]
+        return self.windowed_context.as_ref().unwrap().window();
+        #[cfg(target_arch = "wasm32")]
+        return &self.shared_data.window;
+    }
+
+    /// Returns a FontMetrics trait object that can be used to measure text and that matches the given font request as
+    /// closely as possible.
+    fn font_metrics(&mut self, request: FontRequest) -> Box<dyn FontMetrics> {
+        Box::new(GLFontMetrics {
+            request,
+            scale_factor: self.window().scale_factor() as f32,
+            shared_data: self.shared_data.clone(),
+        })
+    }
+}
+
+pub struct GLItemRenderer {
+    shared_data: Rc<GLRendererData>,
+    #[cfg(not(target_arch = "wasm32"))]
+    windowed_context: glutin::WindowedContext<glutin::PossiblyCurrent>,
+    scale_factor: f32,
+}
+
 fn rect_to_path(r: Rect) -> femtovg::Path {
     let mut path = femtovg::Path::new();
     path.rect(r.min_x(), r.min_y(), r.width(), r.height());
@@ -508,7 +499,7 @@ impl ItemRenderer for GLItemRenderer {
         // TODO: cache path in item to avoid re-tesselation
         let mut path = rect_to_path(rect.geometry());
         let paint = femtovg::Paint::color(rect.color().into());
-        self.canvas.borrow_mut().save_with(|canvas| {
+        self.shared_data.canvas.borrow_mut().save_with(|canvas| {
             canvas.translate(pos.x, pos.y);
             canvas.fill_path(&mut path, paint)
         })
@@ -539,7 +530,7 @@ impl ItemRenderer for GLItemRenderer {
         let mut border_paint = femtovg::Paint::color(rect.border_color().into());
         border_paint.set_line_width(border_width);
 
-        self.canvas.borrow_mut().save_with(|canvas| {
+        self.shared_data.canvas.borrow_mut().save_with(|canvas| {
             canvas.translate(pos.x, pos.y);
             canvas.fill_path(&mut path, fill_paint);
             canvas.stroke_path(&mut path, border_paint);
@@ -599,8 +590,8 @@ impl ItemRenderer for GLItemRenderer {
         text_input: std::pin::Pin<&sixtyfps_corelib::items::TextInput>,
     ) {
         let pos = pos + euclid::Vector2D::new(text_input.x(), text_input.y());
-        let font = self.loaded_fonts.borrow_mut().font(
-            &self.canvas,
+        let font = self.shared_data.loaded_fonts.borrow_mut().font(
+            &self.shared_data.canvas,
             text_input.font_request(),
             self.scale_factor,
         );
@@ -639,18 +630,21 @@ impl ItemRenderer for GLItemRenderer {
                 [selection_end_x - selection_start_x, font.height()].into(),
             );
 
-            self.canvas.borrow_mut().fill_path(
-                &mut rect_to_path(selection_rect),
-                femtovg::Paint::color(text_input.selection_background_color().into()),
-            );
+            {
+                let mut canvas = self.shared_data.canvas.borrow_mut();
+                canvas.fill_path(
+                    &mut rect_to_path(selection_rect),
+                    femtovg::Paint::color(text_input.selection_background_color().into()),
+                );
 
-            self.canvas.borrow_mut().save();
-            self.canvas.borrow_mut().intersect_scissor(
-                selection_rect.min_x(),
-                selection_rect.min_y(),
-                selection_rect.width(),
-                selection_rect.height(),
-            );
+                canvas.save();
+                canvas.intersect_scissor(
+                    selection_rect.min_x(),
+                    selection_rect.min_y(),
+                    selection_rect.width(),
+                    selection_rect.height(),
+                );
+            }
 
             self.draw_text_impl(
                 pos,
@@ -663,7 +657,7 @@ impl ItemRenderer for GLItemRenderer {
                 text_input.vertical_alignment(),
             );
 
-            self.canvas.borrow_mut().restore();
+            self.shared_data.canvas.borrow_mut().restore();
         };
 
         let cursor_index = text_input.cursor_position();
@@ -686,7 +680,8 @@ impl ItemRenderer for GLItemRenderer {
                 text_input.text_cursor_width() * self.scale_factor,
                 font.height(),
             );
-            self.canvas
+            self.shared_data
+                .canvas
                 .borrow_mut()
                 .fill_path(&mut cursor_rect, femtovg::Paint::color(text_input.color().into()));
         }
@@ -698,7 +693,7 @@ impl ItemRenderer for GLItemRenderer {
 
     fn combine_clip(&mut self, pos: Point, clip: std::pin::Pin<&sixtyfps_corelib::items::Clip>) {
         let clip_rect = clip.geometry().translate([pos.x, pos.y].into());
-        self.canvas.borrow_mut().intersect_scissor(
+        self.shared_data.canvas.borrow_mut().intersect_scissor(
             clip_rect.min_x(),
             clip_rect.min_y(),
             clip_rect.width(),
@@ -707,11 +702,11 @@ impl ItemRenderer for GLItemRenderer {
     }
 
     fn save_state(&mut self) {
-        self.canvas.borrow_mut().save();
+        self.shared_data.canvas.borrow_mut().save();
     }
 
     fn restore_state(&mut self) {
-        self.canvas.borrow_mut().restore();
+        self.shared_data.canvas.borrow_mut().restore();
     }
 
     fn draw_cached_pixmap(
@@ -720,8 +715,8 @@ impl ItemRenderer for GLItemRenderer {
         pos: Point,
         update_fn: &dyn Fn(&mut dyn FnMut(u32, u32, &[u8])),
     ) {
-        let canvas = &self.canvas;
-        let mut cache = self.item_rendering_cache.borrow_mut();
+        let canvas = &self.shared_data.canvas;
+        let mut cache = self.shared_data.item_rendering_cache.borrow_mut();
 
         let cached_image = item_cache.ensure_up_to_date(&mut cache, || {
             let mut cached_image = None;
@@ -743,7 +738,7 @@ impl ItemRenderer for GLItemRenderer {
             Some(x) => x.as_image().id,
             None => return,
         };
-        let mut canvas = self.canvas.borrow_mut();
+        let mut canvas = self.shared_data.canvas.borrow_mut();
 
         let image_info = canvas.image_info(image_id).unwrap();
         let (width, height) = (image_info.width() as f32, image_info.height() as f32);
@@ -774,15 +769,19 @@ impl GLItemRenderer {
         horizontal_alignment: TextHorizontalAlignment,
         vertical_alignment: TextVerticalAlignment,
     ) -> femtovg::TextMetrics {
-        let font =
-            self.loaded_fonts.borrow_mut().font(&self.canvas, font_request, self.scale_factor);
+        let font = self.shared_data.loaded_fonts.borrow_mut().font(
+            &self.shared_data.canvas,
+            font_request,
+            self.scale_factor,
+        );
 
         let mut paint = font.paint();
         paint.set_color(color.into());
 
+        let mut canvas = self.shared_data.canvas.borrow_mut();
         let (text_width, text_height) = {
-            let text_metrics = self.canvas.borrow_mut().measure_text(0., 0., &text, paint).unwrap();
-            let font_metrics = self.canvas.borrow_mut().measure_font(paint).unwrap();
+            let text_metrics = canvas.measure_text(0., 0., &text, paint).unwrap();
+            let font_metrics = canvas.measure_font(paint).unwrap();
             (text_metrics.width(), font_metrics.height())
         };
 
@@ -798,10 +797,7 @@ impl GLItemRenderer {
             TextVerticalAlignment::align_bottom => max_height - text_height,
         };
 
-        self.canvas
-            .borrow_mut()
-            .fill_text(pos.x + translate_x, pos.y + translate_y, text, paint)
-            .unwrap()
+        canvas.fill_text(pos.x + translate_x, pos.y + translate_y, text, paint).unwrap()
     }
 
     fn draw_image_impl(
@@ -815,7 +811,7 @@ impl GLItemRenderer {
         image_fit: ImageFit,
     ) {
         let (cached_image, image_info) =
-            match self.load_cached_item_image(item_cache, || source_property.get()) {
+            match self.shared_data.load_cached_item_image(item_cache, || source_property.get()) {
                 Some(image) => image,
                 None => return,
             };
@@ -843,7 +839,7 @@ impl GLItemRenderer {
         let mut path = femtovg::Path::new();
         path.rect(0., 0., source_width, source_height);
 
-        self.canvas.borrow_mut().save_with(|canvas| {
+        self.shared_data.canvas.borrow_mut().save_with(|canvas| {
             canvas.translate(pos.x, pos.y);
 
             match image_fit {
@@ -894,9 +890,8 @@ impl GLFont {
 
 struct GLFontMetrics {
     request: FontRequest,
-    canvas: CanvasRc,
     scale_factor: f32,
-    loaded_fonts: Rc<RefCell<FontCache>>,
+    shared_data: Rc<GLRendererData>,
 }
 
 impl FontMetrics for GLFontMetrics {
@@ -917,13 +912,17 @@ impl FontMetrics for GLFontMetrics {
     }
 
     fn height(&self) -> f32 {
-        self.canvas.borrow_mut().measure_font(self.font().paint()).unwrap().height()
+        self.shared_data.canvas.borrow_mut().measure_font(self.font().paint()).unwrap().height()
     }
 }
 
 impl GLFontMetrics {
     fn font(&self) -> GLFont {
-        self.loaded_fonts.borrow_mut().font(&self.canvas, self.request.clone(), self.scale_factor)
+        self.shared_data.loaded_fonts.borrow_mut().font(
+            &self.shared_data.canvas,
+            self.request.clone(),
+            self.scale_factor,
+        )
     }
 }
 
