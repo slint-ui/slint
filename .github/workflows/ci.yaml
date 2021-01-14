@@ -19,8 +19,8 @@ on:
 jobs:
   build_and_test:
     env:
-      LD_LIBRARY_PATH: /home/runner/work/sixtyfps/Qt/5.12.9/gcc_64/lib
-      DYLD_FRAMEWORK_PATH: /Users/runner/work/sixtyfps/Qt/5.12.9/clang_64/lib
+      LD_LIBRARY_PATH: /home/runner/work/sixtyfps/Qt/5.15.2/gcc_64/lib
+      DYLD_FRAMEWORK_PATH: /Users/runner/work/sixtyfps/Qt/5.15.2/clang_64/lib
       QT_QPA_PLATFORM: offscreen
 
     strategy:
@@ -39,12 +39,12 @@ jobs:
       uses: actions/cache@v2
       with:
         path: ~/work/sixtyfps/Qt
-        key: ${{ runner.os }}-${{ github.job }}-Qt5.12.9
+        key: ${{ runner.os }}-${{ github.job }}-Qt5.15.2
     - name: Install Qt
       if: matrix.os != 'windows-latest'
       uses: jurplel/install-qt-action@v2
       with:
-        version: '5.12.9'
+        version: '5.15.2'
         cached: ${{ steps.cache-qt.outputs.cache-hit }}
     - name: Set default style
       if: matrix.os != 'windows-latest'
@@ -142,8 +142,8 @@ jobs:
 
   cpp:
     env:
-      LD_LIBRARY_PATH: /home/runner/work/sixtyfps/Qt/5.12.9/gcc_64/lib
-      DYLD_FRAMEWORK_PATH: /Users/runner/work/sixtyfps/Qt/5.12.9/clang_64/lib
+      LD_LIBRARY_PATH: /home/runner/work/sixtyfps/Qt/5.15.2/gcc_64/lib
+      DYLD_FRAMEWORK_PATH: /Users/runner/work/sixtyfps/Qt/5.15.2/clang_64/lib
     strategy:
       matrix:
         os: [ubuntu-20.04, macos-latest, windows-latest]
@@ -159,12 +159,12 @@ jobs:
       uses: actions/cache@v2
       with:
         path: ../Qt
-        key: ${{ runner.os }}-${{ github.job }}-cpp-Qt-5.12.9
+        key: ${{ runner.os }}-${{ github.job }}-cpp-Qt-5.15.2
     - name: Install Qt
       if: matrix.os != 'windows-latest'
       uses: jurplel/install-qt-action@v2
       with:
-        version: '5.12.9'
+        version: '5.15.2'
         cached: ${{ steps.cache-qt.outputs.cache-hit }}
     - name: Cache cargo registry
       uses: actions/cache@v2
