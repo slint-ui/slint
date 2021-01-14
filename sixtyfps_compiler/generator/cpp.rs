@@ -1474,7 +1474,7 @@ fn compile_expression(
         }
         Expression::ResourceReference(resource_ref)  => {
             match resource_ref {
-                crate::expression_tree::ResourceReference::AbsolutePath(path) => format!(r#"sixtyfps::Resource(sixtyfps::SharedString("{}"))"#, path),
+                crate::expression_tree::ResourceReference::AbsolutePath(path) => format!(r#"sixtyfps::Resource(sixtyfps::SharedString("{}"))"#, path.escape_debug()),
                 crate::expression_tree::ResourceReference::EmbeddedData(_) => unimplemented!("The C++ generator does not support resource embedding yet")
             }
         }
