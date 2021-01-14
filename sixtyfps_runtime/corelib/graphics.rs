@@ -624,12 +624,20 @@ pub(crate) mod ffi {
         height: i32,
     }
 
-    /// Expand Point so that cbindgen can see it. ( is in fact euclid::default::PointD2<f32>)
+    /// Expand Point so that cbindgen can see it. ( is in fact euclid::default::Point2D<f32>)
     #[cfg(cbindgen)]
     #[repr(C)]
     struct Point {
         x: f32,
         y: f32,
+    }
+
+    /// Expand Size so that cbindgen can see it. ( is in fact euclid::default::Size2D<f32>)
+    #[cfg(cbindgen)]
+    #[repr(C)]
+    struct Size {
+        width: f32,
+        height: f32,
     }
 
     #[no_mangle]

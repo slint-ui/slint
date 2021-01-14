@@ -139,7 +139,9 @@ impl CachedImage {
     #[cfg(target_arch = "wasm32")]
     fn notify_loaded(&self) {
         if let ImageData::GPUSide { upload_pending, .. } = &*self.0.borrow() {
-            upload_pending.as_ref().map(|pending_property| pending_property.as_ref().set(true));
+            upload_pending.as_ref().map(|pending_property| {
+                pending_property.as_ref().set(false);
+            });
         }
     }
 }
@@ -243,7 +245,7 @@ impl GLRendererData {
         let cached_image = Rc::new(CachedImage::new_on_gpu(
             &self.canvas,
             image_id,
-            Some(Box::pin(Default::default())),
+            Some(Box::pin(/*upload pending*/ Property::new(true))),
         ));
 
         let html_image = web_sys::HtmlImageElement::new().unwrap();
@@ -283,14 +285,14 @@ impl GLRendererData {
                         .unwrap();
                     canvas.borrow_mut().update_image(image_id, &html_image.into(), 0, 0).unwrap();
 
+                    cached_image.notify_loaded();
+
                     // As you can paint on a HTML canvas at any point in time, request_redraw()
                     // on a winit window only queues an additional internal event, that'll be
                     // be dispatched as the next event. We are however not in an event loop
                     // call, so we also need to wake up the event loop.
                     window.request_redraw();
                     event_loop_proxy.send_event(crate::eventloop::CustomEvent::WakeUpAndPoll).ok();
-
-                    cached_image.notify_loaded();
                 }
             })
             .into(),
@@ -578,6 +580,19 @@ impl GLRenderer {
             scale_factor: self.window().scale_factor() as f32,
             shared_data: self.shared_data.clone(),
         })
+    }
+
+    /// Returns the size of image referenced by the specified resource. These are image pixels, not adjusted
+    /// to the window scale factor.
+    fn image_size(
+        &self,
+        item_graphics_cache: &sixtyfps_corelib::item_rendering::CachedRenderingData,
+        source: Resource,
+    ) -> sixtyfps_corelib::graphics::Size {
+        self.shared_data
+            .load_cached_item_image(item_graphics_cache, || source.clone())
+            .map(|image| image.size())
+            .unwrap_or_default()
     }
 }
 

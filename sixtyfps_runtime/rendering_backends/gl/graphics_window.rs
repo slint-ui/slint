@@ -442,6 +442,20 @@ impl GenericWindow for GraphicsWindow {
             }
         }
     }
+
+    fn image_size(
+        &self,
+        item_graphics_cache: &sixtyfps_corelib::item_rendering::CachedRenderingData,
+        source: Resource,
+    ) -> sixtyfps_corelib::graphics::Size {
+        match &*self.map_state.borrow() {
+            GraphicsWindowBackendState::Unmapped => Default::default(),
+            GraphicsWindowBackendState::Mapped(window) => {
+                window.backend.borrow_mut().image_size(item_graphics_cache, source)
+                    * self.scale_factor()
+            }
+        }
+    }
 }
 
 struct MappedWindow {

@@ -21,7 +21,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 */
 
 use super::{Item, ItemConsts, ItemRc};
-use crate::graphics::{Color, Point, Rect};
+use crate::graphics::{Color, Point, Rect, Size};
 use crate::input::{
     FocusEvent, InputEventResult, KeyEvent, KeyEventResult, KeyboardModifiers, MouseEvent,
     MouseEventType,
@@ -103,6 +103,14 @@ impl Item for Text {
         } else {
             LayoutInfo::default()
         }
+    }
+
+    fn implicit_size(self: Pin<&Self>, window: &ComponentWindow) -> Size {
+        window
+            .0
+            .font_metrics(self.font_request())
+            .map(|metrics| euclid::size2(metrics.text_width(&self.text()), metrics.height()))
+            .unwrap_or_default()
     }
 
     fn input_event(
@@ -206,6 +214,14 @@ impl Item for TextInput {
         } else {
             LayoutInfo::default()
         }
+    }
+
+    fn implicit_size(self: Pin<&Self>, window: &ComponentWindow) -> Size {
+        window
+            .0
+            .font_metrics(self.font_request())
+            .map(|metrics| euclid::size2(metrics.text_width(&self.text()), metrics.height()))
+            .unwrap_or_default()
     }
 
     fn input_event(

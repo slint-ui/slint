@@ -25,7 +25,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 #![allow(missing_docs)] // because documenting each property of items is redundent
 
 use crate::component::ComponentVTable;
-use crate::graphics::{Color, PathData, Point, Rect};
+use crate::graphics::{Color, PathData, Point, Rect, Size};
 use crate::input::{
     FocusEvent, InputEventResult, KeyEvent, KeyEventResult, MouseEvent, MouseEventType,
 };
@@ -70,6 +70,9 @@ pub struct ItemVTable {
     /// We would need max/min/preferred size, and all layout info
     pub layouting_info:
         extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, window: &ComponentWindow) -> LayoutInfo,
+
+    pub implicit_size:
+        extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, window: &ComponentWindow) -> Size,
 
     /// input event
     pub input_event: extern "C" fn(
@@ -159,6 +162,10 @@ impl Item for Rectangle {
         LayoutInfo { horizontal_stretch: 1., vertical_stretch: 1., ..LayoutInfo::default() }
     }
 
+    fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
+        Default::default()
+    }
+
     fn input_event(
         self: Pin<&Self>,
         _: MouseEvent,
@@ -217,6 +224,10 @@ impl Item for BorderRectangle {
 
     fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
         LayoutInfo { horizontal_stretch: 1., vertical_stretch: 1., ..LayoutInfo::default() }
+    }
+
+    fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
+        Default::default()
     }
 
     fn input_event(
@@ -300,6 +311,10 @@ impl Item for TouchArea {
         LayoutInfo::default()
     }
 
+    fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
+        Default::default()
+    }
+
     fn input_event(
         self: Pin<&Self>,
         event: MouseEvent,
@@ -380,6 +395,10 @@ impl Item for Clip {
         LayoutInfo { horizontal_stretch: 1., vertical_stretch: 1., ..LayoutInfo::default() }
     }
 
+    fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
+        Default::default()
+    }
+
     fn input_event(
         self: Pin<&Self>,
         _: MouseEvent,
@@ -436,6 +455,10 @@ impl Item for Path {
 
     fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
         LayoutInfo::default()
+    }
+
+    fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
+        Default::default()
     }
 
     fn input_event(
@@ -495,6 +518,10 @@ impl Item for Flickable {
 
     fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
         LayoutInfo::default()
+    }
+
+    fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
+        Default::default()
     }
 
     fn input_event(
@@ -606,6 +633,10 @@ impl Item for Window {
 
     fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
         LayoutInfo::default()
+    }
+
+    fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
+        Default::default()
     }
 
     fn input_event(

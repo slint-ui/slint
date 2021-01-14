@@ -484,6 +484,20 @@ impl ItemRenderer for QtItemRenderer<'_> {
     }
 }
 
+fn load_image_from_resource(resource: Resource) -> Option<qttypes::QImage> {
+    let (is_path, data) = match resource {
+        Resource::None => return None,
+        Resource::AbsoluteFilePath(path) => (true, qttypes::QByteArray::from(path.as_str())),
+        Resource::EmbeddedData(data) => (false, qttypes::QByteArray::from(data.as_slice())),
+        Resource::EmbeddedRgbaImage { .. } => todo!(),
+    };
+    Some(cpp! { unsafe [data as "QByteArray", is_path as "bool"] -> qttypes::QImage as "QImage" {
+        QImage img;
+        is_path ? img.load(QString::fromUtf8(data)) : img.loadFromData(data);
+        return img;
+    }})
+}
+
 impl QtItemRenderer<'_> {
     fn draw_image_impl(
         &mut self,
@@ -494,18 +508,8 @@ impl QtItemRenderer<'_> {
         image_fit: ImageFit,
     ) {
         let cached = item_cache.ensure_up_to_date(&mut self.cache.borrow_mut(), || {
-            let (is_path, data) = match source_property.get() {
-                Resource::None => return QtRenderingCacheItem::Invalid,
-                Resource::AbsoluteFilePath(path) => (true, qttypes::QByteArray::from(path.as_str())),
-                Resource::EmbeddedData(data) => (false, qttypes::QByteArray::from(data.as_slice())),
-                Resource::EmbeddedRgbaImage { .. } => todo!(),
-            };
-            let img = cpp! { unsafe [data as "QByteArray", is_path as "bool"] -> qttypes::QImage as "QImage" {
-                QImage img;
-                is_path ? img.load(QString::fromUtf8(data)) : img.loadFromData(data);
-                return img;
-            }};
-            QtRenderingCacheItem::Image(img)
+            load_image_from_resource(source_property.get())
+                .map_or(QtRenderingCacheItem::Invalid, |img| QtRenderingCacheItem::Image(img))
         });
         let img: &qttypes::QImage = match &cached {
             QtRenderingCacheItem::Image(img) => img,
@@ -802,6 +806,19 @@ impl GenericWindow for QtWindow {
         request: FontRequest,
     ) -> Option<Box<dyn sixtyfps_corelib::graphics::FontMetrics>> {
         Some(Box::new(get_font(request)))
+    }
+
+    fn image_size(
+        &self,
+        _item_graphics_cache: &sixtyfps_corelib::item_rendering::CachedRenderingData,
+        source: Resource,
+    ) -> sixtyfps_corelib::graphics::Size {
+        load_image_from_resource(source)
+            .map(|img| {
+                let qsize = img.size();
+                euclid::size2(qsize.width as f32, qsize.height as f32)
+            })
+            .unwrap_or_default()
     }
 }
 

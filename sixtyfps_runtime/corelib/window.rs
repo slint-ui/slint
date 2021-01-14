@@ -15,6 +15,7 @@ use crate::graphics::Point;
 use crate::input::{KeyEvent, MouseEventType, MouseInputState, TextCursorBlinker};
 use crate::items::{ItemRc, ItemRef, ItemWeak};
 use crate::slice::Slice;
+use crate::Resource;
 use core::cell::Cell;
 use core::pin::Pin;
 use std::cell::RefCell;
@@ -58,6 +59,14 @@ pub trait GenericWindow {
         &self,
         request: crate::graphics::FontRequest,
     ) -> Option<Box<dyn crate::graphics::FontMetrics>>;
+
+    /// Return the size of the image referenced by the specified resource, multiplied by the window
+    /// scale factor.
+    fn image_size(
+        &self,
+        item_graphics_cache: &crate::item_rendering::CachedRenderingData,
+        source: Resource,
+    ) -> crate::graphics::Size;
 }
 
 /// Structure that represent a Window in the runtime

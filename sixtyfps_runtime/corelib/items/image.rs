@@ -20,7 +20,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
  - Don't forget to update the documentation
 */
 use super::{Item, ItemConsts, ItemRc};
-use crate::graphics::{Point, Rect, Resource};
+use crate::graphics::{Point, Rect, Resource, Size};
 use crate::input::{FocusEvent, InputEventResult, KeyEvent, KeyEventResult, MouseEvent};
 use crate::item_rendering::CachedRenderingData;
 use crate::item_rendering::ItemRenderer;
@@ -73,6 +73,10 @@ impl Item for Image {
     fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
         // FIXME: should we use the image size here
         Default::default()
+    }
+
+    fn implicit_size(self: Pin<&Self>, window: &ComponentWindow) -> Size {
+        window.0.image_size(&self.cached_rendering_data, self.source())
     }
 
     fn input_event(
@@ -130,6 +134,10 @@ impl Item for ClippedImage {
     fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
         // FIXME: should we use the image size here
         Default::default()
+    }
+
+    fn implicit_size(self: Pin<&Self>, window: &ComponentWindow) -> Size {
+        window.0.image_size(&self.cached_rendering_data, self.source())
     }
 
     fn input_event(

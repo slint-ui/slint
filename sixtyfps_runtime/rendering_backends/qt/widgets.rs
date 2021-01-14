@@ -27,7 +27,7 @@ it needs to be kept in sync with different place.
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use cpp::cpp;
-use sixtyfps_corelib::graphics::{Point, Rect};
+use sixtyfps_corelib::graphics::{Point, Rect, Size};
 use sixtyfps_corelib::input::{
     FocusEvent, InputEventResult, KeyEvent, KeyEventResult, MouseEvent, MouseEventType,
 };
@@ -185,6 +185,10 @@ impl Item for NativeButton {
         }
     }
 
+    fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
+        Default::default()
+    }
+
     fn input_event(
         self: Pin<&Self>,
         event: MouseEvent,
@@ -300,6 +304,10 @@ impl Item for NativeCheckBox {
             horizontal_stretch: 1.,
             ..LayoutInfo::default()
         }
+    }
+
+    fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
+        Default::default()
     }
 
     fn input_event(
@@ -445,6 +453,10 @@ impl Item for NativeSpinBox {
             horizontal_stretch: 1.,
             ..LayoutInfo::default()
         }
+    }
+
+    fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
+        Default::default()
     }
 
     fn input_event(
@@ -646,6 +658,10 @@ impl Item for NativeSlider {
             horizontal_stretch: 1.,
             ..LayoutInfo::default()
         }
+    }
+
+    fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
+        Default::default()
     }
 
     fn input_event(
@@ -889,6 +905,10 @@ impl Item for NativeGroupBox {
         }
     }
 
+    fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
+        Default::default()
+    }
+
     fn input_event(
         self: Pin<&Self>,
         _: MouseEvent,
@@ -1027,6 +1047,10 @@ impl Item for NativeLineEdit {
             horizontal_stretch: 1.,
             ..LayoutInfo::default()
         }
+    }
+
+    fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
+        Default::default()
     }
 
     fn input_event(
@@ -1177,6 +1201,10 @@ impl Item for NativeScrollView {
             vertical_stretch: 1.,
             ..LayoutInfo::default()
         }
+    }
+
+    fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
+        Default::default()
     }
 
     fn input_event(
@@ -1494,6 +1522,10 @@ impl Item for NativeStandardListViewItem {
         result
     }
 
+    fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
+        Default::default()
+    }
+
     fn input_event(
         self: Pin<&Self>,
         _event: MouseEvent,
@@ -1592,6 +1624,10 @@ impl Item for NativeComboBox {
             min_height: size.height as f32,
             ..LayoutInfo::default()
         }
+    }
+
+    fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
+        Default::default()
     }
 
     fn input_event(
