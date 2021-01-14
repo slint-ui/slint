@@ -403,7 +403,7 @@ impl GenericWindow for GraphicsWindow {
                 for item in items.iter() {
                     let cached_rendering_data = item.cached_rendering_data_offset();
                     cached_rendering_data.release(
-                        &mut window.backend.borrow().shared_data.item_rendering_cache.borrow_mut(),
+                        &mut window.backend.borrow().shared_data.item_graphics_cache.borrow_mut(),
                     )
                 }
             }

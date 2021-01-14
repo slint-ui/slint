@@ -15,7 +15,7 @@ use std::{
 };
 
 use sixtyfps_corelib::graphics::{
-    Color, FontMetrics, FontRequest, Point, Rect, RenderingCache, Resource,
+    Color, FontMetrics, FontRequest, Point, Rect, RenderingCache, Resource, Size,
 };
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::ImageFit;
@@ -34,14 +34,104 @@ type CanvasRc = Rc<RefCell<femtovg::Canvas<femtovg::renderer::OpenGl>>>;
 pub const DEFAULT_FONT_SIZE: f32 = 12.;
 pub const DEFAULT_FONT_WEIGHT: i32 = 400; // CSS normal
 
-struct CachedImage {
-    id: femtovg::ImageId,
-    canvas: CanvasRc,
+enum ImageData {
+    GPUSide {
+        id: femtovg::ImageId,
+        canvas: CanvasRc,
+        /// If present, this boolean property indicates whether the image has been uploaded yet or
+        /// if that operation is still pending. If not present, then the image *is* available. This is
+        /// used for remote HTML image loading and the property will be used to correctly track dependencies
+        /// to graphics items that query for the size.
+        upload_pending: Option<core::pin::Pin<Box<Property<bool>>>>,
+    },
+    CPUSide {
+        decoded_image: image::DynamicImage,
+    },
 }
 
-impl Drop for CachedImage {
+impl Drop for ImageData {
     fn drop(&mut self) {
-        self.canvas.borrow_mut().delete_image(self.id)
+        match self {
+            ImageData::GPUSide { id, canvas, .. } => {
+                canvas.borrow_mut().delete_image(*id);
+            }
+            ImageData::CPUSide { .. } => {}
+        }
+    }
+}
+
+struct CachedImage(RefCell<ImageData>);
+
+impl CachedImage {
+    fn new_on_cpu(decoded_image: image::DynamicImage) -> Self {
+        Self(RefCell::new(ImageData::CPUSide { decoded_image }))
+    }
+
+    fn new_on_gpu(
+        canvas: &CanvasRc,
+        image_id: femtovg::ImageId,
+        upload_pending_notifier: Option<core::pin::Pin<Box<Property<bool>>>>,
+    ) -> Self {
+        Self(RefCell::new(ImageData::GPUSide {
+            id: image_id,
+            canvas: canvas.clone(),
+            upload_pending: upload_pending_notifier,
+        }))
+    }
+
+    // Upload the image to the GPU? if that hasn't happened yet. This function could take just a canvas
+    // as parameter, but since an upload requires a current context, this is "enforced" by taking
+    // a renderer instead (which implies a current context).
+    fn ensure_uploaded_to_gpu(&self, current_renderer: &GLItemRenderer) -> femtovg::ImageId {
+        use std::convert::TryFrom;
+
+        let canvas = &current_renderer.shared_data.canvas;
+
+        let img = &mut *self.0.borrow_mut();
+
+        if let ImageData::CPUSide { decoded_image } = img {
+            let image_source = femtovg::ImageSource::try_from(&*decoded_image).unwrap();
+            let image_id = canvas
+                .borrow_mut()
+                .create_image(image_source, femtovg::ImageFlags::empty())
+                .unwrap();
+
+            *img = ImageData::GPUSide { id: image_id, canvas: canvas.clone(), upload_pending: None }
+        };
+
+        match &img {
+            ImageData::GPUSide { id, .. } => *id,
+            _ => unreachable!(),
+        }
+    }
+
+    fn size(&self) -> Size {
+        use std::convert::TryFrom;
+
+        match &*self.0.borrow() {
+            ImageData::GPUSide { id, canvas, upload_pending } => {
+                if upload_pending
+                    .as_ref()
+                    .map_or(false, |pending_property| pending_property.as_ref().get())
+                {
+                    Ok((1, 1))
+                } else {
+                    canvas.borrow().image_info(*id).map(|info| (info.width(), info.height()))
+                }
+            }
+            ImageData::CPUSide { decoded_image: data } => {
+                femtovg::ImageSource::try_from(data).map(|image| image.dimensions())
+            }
+        }
+        .map(|(width, height)| euclid::size2(width as f32, height as f32))
+        .unwrap_or_default()
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn notify_loaded(&self) {
+        if let ImageData::GPUSide { upload_pending, .. } = &*self.0.borrow() {
+            upload_pending.as_ref().map(|pending_property| pending_property.as_ref().set(true));
+        }
     }
 }
 
@@ -50,16 +140,15 @@ enum ImageCacheKey {
     Path(String),
     EmbeddedData(by_address::ByAddress<&'static [u8]>),
 }
-
 #[derive(Clone)]
-enum GPUCachedData {
+enum ItemGraphicsCacheEntry {
     Image(Rc<CachedImage>),
 }
 
-impl GPUCachedData {
+impl ItemGraphicsCacheEntry {
     fn as_image(&self) -> &Rc<CachedImage> {
         match self {
-            GPUCachedData::Image(image) => image,
+            ItemGraphicsCacheEntry::Image(image) => image,
             //_ => panic!("internal error. image requested for non-image gpu data"),
         }
     }
@@ -124,7 +213,7 @@ struct GLRendererData {
     window: Rc<winit::window::Window>,
     #[cfg(target_arch = "wasm32")]
     event_loop_proxy: Rc<winit::event_loop::EventLoopProxy<eventloop::CustomEvent>>,
-    item_rendering_cache: RefCell<RenderingCache<Option<GPUCachedData>>>,
+    item_graphics_cache: RefCell<RenderingCache<Option<ItemGraphicsCacheEntry>>>,
 
     // Cache used to avoid repeatedly decoding images from disk. The weak references are
     // drained after flushing the renderer commands to the screen.
@@ -135,12 +224,18 @@ struct GLRendererData {
 
 impl GLRendererData {
     #[cfg(target_arch = "wasm32")]
-    fn load_html_image(&self, url: &str) -> femtovg::ImageId {
+    fn load_html_image(&self, url: &str) -> Rc<CachedImage> {
         let image_id = self
             .canvas
             .borrow_mut()
             .create_image_empty(1, 1, femtovg::PixelFormat::Rgba8, femtovg::ImageFlags::empty())
             .unwrap();
+
+        let cached_image = Rc::new(CachedImage::new_on_gpu(
+            &self.canvas,
+            image_id,
+            Some(Box::pin(Default::default())),
+        ));
 
         let html_image = web_sys::HtmlImageElement::new().unwrap();
         html_image.set_cross_origin(Some("anonymous"));
@@ -150,16 +245,21 @@ impl GLRendererData {
                 let html_image = html_image.clone();
                 let image_id = image_id.clone();
                 let window_weak = Rc::downgrade(&self.window);
+                let cached_image_weak = Rc::downgrade(&cached_image);
                 let event_loop_proxy_weak = Rc::downgrade(&self.event_loop_proxy);
                 move || {
-                    let (canvas, window, event_loop_proxy) = match (
+                    let (canvas, window, event_loop_proxy, cached_image) = match (
                         canvas_weak.upgrade(),
                         window_weak.upgrade(),
                         event_loop_proxy_weak.upgrade(),
+                        cached_image_weak.upgrade(),
                     ) {
-                        (Some(canvas), Some(window), Some(event_loop_proxy)) => {
-                            (canvas, window, event_loop_proxy)
-                        }
+                        (
+                            Some(canvas),
+                            Some(window),
+                            Some(event_loop_proxy),
+                            Some(cached_image),
+                        ) => (canvas, window, event_loop_proxy, cached_image),
                         _ => return,
                     };
                     canvas
@@ -180,13 +280,15 @@ impl GLRendererData {
                     // call, so we also need to wake up the event loop.
                     window.request_redraw();
                     event_loop_proxy.send_event(crate::eventloop::CustomEvent::WakeUpAndPoll).ok();
+
+                    cached_image.notify_loaded();
                 }
             })
             .into(),
         ));
         html_image.set_src(&url);
 
-        image_id
+        cached_image
     }
 
     // Look up the given image cache key in the image cache and upgrade the weak reference to a strong one if found,
@@ -194,20 +296,18 @@ impl GLRendererData {
     fn lookup_image_in_cache_or_create(
         &self,
         cache_key: ImageCacheKey,
-        image_create_fn: impl Fn() -> femtovg::ImageId,
+        image_create_fn: impl Fn() -> Rc<CachedImage>,
     ) -> Rc<CachedImage> {
         match self.image_cache.borrow_mut().entry(cache_key) {
             std::collections::hash_map::Entry::Occupied(mut existing_entry) => {
                 existing_entry.get().upgrade().unwrap_or_else(|| {
-                    let new_image =
-                        Rc::new(CachedImage { id: image_create_fn(), canvas: self.canvas.clone() });
+                    let new_image = image_create_fn();
                     existing_entry.insert(Rc::downgrade(&new_image));
                     new_image
                 })
             }
             std::collections::hash_map::Entry::Vacant(vacant_entry) => {
-                let new_image =
-                    Rc::new(CachedImage { id: image_create_fn(), canvas: self.canvas.clone() });
+                let new_image = image_create_fn();
                 vacant_entry.insert(Rc::downgrade(&new_image));
                 new_image
             }
@@ -215,20 +315,16 @@ impl GLRendererData {
     }
 
     // Try to load the image the given resource points to
-    fn load_image_resource(&self, resource: Resource) -> Option<GPUCachedData> {
-        Some(GPUCachedData::Image(match resource {
+    fn load_image_resource(&self, resource: Resource) -> Option<ItemGraphicsCacheEntry> {
+        Some(ItemGraphicsCacheEntry::Image(match resource {
             Resource::None => return None,
             Resource::AbsoluteFilePath(path) => {
                 self.lookup_image_in_cache_or_create(ImageCacheKey::Path(path.to_string()), || {
                     #[cfg(not(target_arch = "wasm32"))]
                     {
-                        self.canvas
-                            .borrow_mut()
-                            .load_image_file(
-                                std::path::Path::new(&path.as_str()),
-                                femtovg::ImageFlags::empty(),
-                            )
-                            .unwrap()
+                        Rc::new(CachedImage::new_on_cpu(
+                            image::open(std::path::Path::new(&path.as_str())).unwrap(),
+                        ))
                     }
                     #[cfg(target_arch = "wasm32")]
                     self.load_html_image(&path)
@@ -237,10 +333,9 @@ impl GLRendererData {
             Resource::EmbeddedData(data) => self.lookup_image_in_cache_or_create(
                 ImageCacheKey::EmbeddedData(by_address::ByAddress(data.as_slice())),
                 || {
-                    self.canvas
-                        .borrow_mut()
-                        .load_image_mem(data.as_slice(), femtovg::ImageFlags::empty())
-                        .unwrap()
+                    Rc::new(CachedImage::new_on_cpu(
+                        image::load_from_memory(data.as_slice()).unwrap(),
+                    ))
                 },
             ),
             Resource::EmbeddedRgbaImage { .. } => todo!(),
@@ -253,13 +348,13 @@ impl GLRendererData {
         &self,
         item_cache: &CachedRenderingData,
         source_property_getter: impl Fn() -> Resource,
-    ) -> Option<(Rc<CachedImage>, femtovg::ImageInfo)> {
-        let mut cache = self.item_rendering_cache.borrow_mut();
+    ) -> Option<Rc<CachedImage>> {
+        let mut cache = self.item_graphics_cache.borrow_mut();
         item_cache
             .ensure_up_to_date(&mut cache, || self.load_image_resource(source_property_getter()))
             .map(|gpu_resource| {
                 let image = gpu_resource.as_image();
-                (image.clone(), self.canvas.borrow().image_info(image.id).unwrap())
+                image.clone()
             })
     }
 }
@@ -398,7 +493,7 @@ impl GLRenderer {
             #[cfg(target_arch = "wasm32")]
             event_loop_proxy,
 
-            item_rendering_cache: Default::default(),
+            item_graphics_cache: Default::default(),
             image_cache: Default::default(),
             loaded_fonts: Default::default(),
         };
@@ -716,9 +811,9 @@ impl ItemRenderer for GLItemRenderer {
         update_fn: &dyn Fn(&mut dyn FnMut(u32, u32, &[u8])),
     ) {
         let canvas = &self.shared_data.canvas;
-        let mut cache = self.shared_data.item_rendering_cache.borrow_mut();
+        let mut cache = self.shared_data.item_graphics_cache.borrow_mut();
 
-        let cached_image = item_cache.ensure_up_to_date(&mut cache, || {
+        let cache_entry = item_cache.ensure_up_to_date(&mut cache, || {
             let mut cached_image = None;
             update_fn(&mut |width: u32, height: u32, data: &[u8]| {
                 use rgb::FromSlice;
@@ -726,16 +821,15 @@ impl ItemRenderer for GLItemRenderer {
                 if let Some(image_id) =
                     canvas.borrow_mut().create_image(img, femtovg::ImageFlags::PREMULTIPLIED).ok()
                 {
-                    cached_image = Some(GPUCachedData::Image(Rc::new(CachedImage {
-                        id: image_id,
-                        canvas: canvas.clone(),
-                    })))
+                    cached_image = Some(ItemGraphicsCacheEntry::Image(Rc::new(
+                        CachedImage::new_on_gpu(canvas, image_id, None),
+                    )))
                 };
             });
             cached_image
         });
-        let image_id = match cached_image {
-            Some(x) => x.as_image().id,
+        let image_id = match cache_entry {
+            Some(ItemGraphicsCacheEntry::Image(image)) => image.ensure_uploaded_to_gpu(&self),
             None => return,
         };
         let mut canvas = self.shared_data.canvas.borrow_mut();
@@ -810,28 +904,30 @@ impl GLItemRenderer {
         target_height: f32,
         image_fit: ImageFit,
     ) {
-        let (cached_image, image_info) =
+        let cached_image =
             match self.shared_data.load_cached_item_image(item_cache, || source_property.get()) {
                 Some(image) => image,
                 None => return,
             };
 
-        let (image_width, image_height) = (image_info.width() as f32, image_info.height() as f32);
+        let image_id = cached_image.ensure_uploaded_to_gpu(&self);
+        let image_size = cached_image.size();
+
         let (source_width, source_height) = if source_clip_rect.is_empty() {
-            (image_width, image_height)
+            (image_size.width, image_size.height)
         } else {
             (source_clip_rect.width() as _, source_clip_rect.height() as _)
         };
 
-        let target_width = if target_width == 0. { image_width } else { target_width };
-        let target_height = if target_height == 0. { image_height } else { target_height };
+        let target_width = if target_width == 0. { image_size.width } else { target_width };
+        let target_height = if target_height == 0. { image_size.height } else { target_height };
 
         let fill_paint = femtovg::Paint::image(
-            cached_image.id,
+            image_id,
             -source_clip_rect.min_x(),
             -source_clip_rect.min_y(),
-            image_width,
-            image_height,
+            image_size.width,
+            image_size.height,
             0.0,
             1.0,
         );
