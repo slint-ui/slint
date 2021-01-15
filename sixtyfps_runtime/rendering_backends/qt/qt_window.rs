@@ -503,7 +503,7 @@ impl QtItemRenderer<'_> {
         &mut self,
         item_cache: &CachedRenderingData,
         source_property: Pin<&Property<Resource>>,
-        mut dest_rect: qttypes::QRectF,
+        dest_rect: qttypes::QRectF,
         source_rect: Option<qttypes::QRectF>,
         image_fit: ImageFit,
     ) {
@@ -516,12 +516,6 @@ impl QtItemRenderer<'_> {
             _ => return,
         };
         let image_size = img.size();
-        if dest_rect.width == 0. {
-            dest_rect.width = image_size.width as _;
-        }
-        if dest_rect.height == 0. {
-            dest_rect.height = image_size.height as _;
-        }
         let mut source_rect = source_rect.unwrap_or_else(|| qttypes::QRectF {
             x: 0.,
             y: 0.,

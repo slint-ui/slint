@@ -943,9 +943,6 @@ impl GLItemRenderer {
             (source_clip_rect.width() as _, source_clip_rect.height() as _)
         };
 
-        let target_width = if target_width == 0. { image_size.width } else { target_width };
-        let target_height = if target_height == 0. { image_size.height } else { target_height };
-
         let fill_paint = femtovg::Paint::image(
             image_id,
             -source_clip_rect.min_x(),
