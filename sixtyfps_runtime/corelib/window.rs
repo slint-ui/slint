@@ -24,9 +24,7 @@ use std::rc::Rc;
 /// This trait represents the interface that the generated code and the run-time
 /// require in order to implement functionality such as device-independent pixels,
 /// window resizing and other typicaly windowing system related tasks.
-///
-/// [`crate::graphics`] provides an implementation of this trait for use with [`crate::graphics::GraphicsBackend`].
-pub trait GenericWindow {
+pub trait PlatformWindow {
     /// Spins an event loop and renders the items of the provided component in this window.
     /// FIXME: replace by a show() function, and move run() in the backend
     fn run(self: Rc<Self>);
@@ -72,7 +70,7 @@ pub trait GenericWindow {
 /// Structure that represent a Window in the runtime
 pub struct Window {
     /// FIXME! use Box instead;
-    platform_window: Rc<dyn GenericWindow>,
+    platform_window: Rc<dyn PlatformWindow>,
     component: RefCell<ComponentWeak>,
     mouse_input_state: Cell<MouseInputState>,
 
@@ -90,7 +88,7 @@ impl Drop for Window {
 
 impl Window {
     /// Create a new instance of the window, given the platform_window
-    pub fn new(platform_window: Rc<dyn GenericWindow>) -> Self {
+    pub fn new(platform_window: Rc<dyn PlatformWindow>) -> Self {
         Self {
             platform_window,
             component: Default::default(),
@@ -190,7 +188,7 @@ impl Window {
 }
 
 impl core::ops::Deref for Window {
-    type Target = dyn GenericWindow;
+    type Target = dyn PlatformWindow;
 
     fn deref(&self) -> &Self::Target {
         &*self.platform_window

@@ -10,7 +10,7 @@ LICENSE END */
 #![warn(missing_docs)]
 /*!
     This module contains the event loop implementation using winit, as well as the
-    [GenericWindow] trait used by the generated code and the run-time to change
+    [PlatformWindow] trait used by the generated code and the run-time to change
     aspects of windows on the screen.
 */
 use sixtyfps_corelib as corelib;

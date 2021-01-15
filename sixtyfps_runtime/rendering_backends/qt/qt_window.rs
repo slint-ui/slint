@@ -17,7 +17,7 @@ use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::{self, ItemRef};
 use sixtyfps_corelib::properties::PropertyTracker;
 use sixtyfps_corelib::slice::Slice;
-use sixtyfps_corelib::window::GenericWindow;
+use sixtyfps_corelib::window::PlatformWindow;
 use sixtyfps_corelib::{PathData, Property, Resource};
 
 use std::cell::RefCell;
@@ -732,7 +732,7 @@ impl QtWindow {
 }
 
 #[allow(unused)]
-impl GenericWindow for QtWindow {
+impl PlatformWindow for QtWindow {
     fn run(self: Rc<Self>) {
         let widget_ptr = self.widget_ptr();
         cpp! {unsafe [widget_ptr as "QWidget*"] {

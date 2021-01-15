@@ -20,7 +20,7 @@ use corelib::input::{KeyboardModifiers, MouseEvent, MouseEventType};
 use corelib::items::ItemRef;
 use corelib::properties::PropertyTracker;
 use corelib::slice::Slice;
-use corelib::window::{ComponentWindow, GenericWindow};
+use corelib::window::{ComponentWindow, PlatformWindow};
 use corelib::Property;
 use sixtyfps_corelib as corelib;
 
@@ -30,7 +30,7 @@ type Backend = super::GLRenderer;
 type WindowFactoryFn =
     dyn Fn(&crate::eventloop::EventLoop, winit::window::WindowBuilder) -> Backend;
 
-/// GraphicsWindow is an implementation of the [GenericWindow][`crate::eventloop::GenericWindow`] trait. This is
+/// GraphicsWindow is an implementation of the [PlatformWindow][`crate::eventloop::PlatformWindow`] trait. This is
 /// typically instantiated by entry factory functions of the different graphics backends.
 pub struct GraphicsWindow {
     pub(crate) self_weak: once_cell::unsync::OnceCell<Weak<corelib::window::Window>>,
@@ -212,7 +212,7 @@ impl GraphicsWindow {
         crate::eventloop::register_window(id, self.clone());
     }
     /// Removes the window from the screen. The window is not destroyed though, it can be show (mapped) again later
-    /// by calling [`GenericWindow::map_window`].
+    /// by calling [`PlatformWindow::map_window`].
     fn unmap_window(self: Rc<Self>) {
         self.map_state.replace(GraphicsWindowBackendState::Unmapped);
         /* FIXME:
@@ -373,7 +373,7 @@ impl GraphicsWindow {
     }
 }
 
-impl GenericWindow for GraphicsWindow {
+impl PlatformWindow for GraphicsWindow {
     fn request_redraw(&self) {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped => {}
