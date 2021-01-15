@@ -88,13 +88,18 @@ impl CachedImage {
         let canvas = &current_renderer.shared_data.canvas;
 
         let img = &mut *self.0.borrow_mut();
-
         if let ImageData::CPUSide { decoded_image } = img {
-            let image_source = femtovg::ImageSource::try_from(&*decoded_image).unwrap();
-            let image_id = canvas
-                .borrow_mut()
-                .create_image(image_source, femtovg::ImageFlags::empty())
-                .unwrap();
+            let image_id = match femtovg::ImageSource::try_from(&*decoded_image) {
+                Ok(image_source) => {
+                    canvas.borrow_mut().create_image(image_source, femtovg::ImageFlags::empty())
+                }
+                Err(_) => {
+                    let converted = image::DynamicImage::ImageRgba8(decoded_image.to_rgba8());
+                    let image_source = femtovg::ImageSource::try_from(&converted).unwrap();
+                    canvas.borrow_mut().create_image(image_source, femtovg::ImageFlags::empty())
+                }
+            }
+            .unwrap();
 
             *img = ImageData::GPUSide { id: image_id, canvas: canvas.clone(), upload_pending: None }
         };
@@ -106,7 +111,7 @@ impl CachedImage {
     }
 
     fn size(&self) -> Size {
-        use std::convert::TryFrom;
+        use image::GenericImageView;
 
         match &*self.0.borrow() {
             ImageData::GPUSide { id, canvas, upload_pending } => {
@@ -114,16 +119,20 @@ impl CachedImage {
                     .as_ref()
                     .map_or(false, |pending_property| pending_property.as_ref().get())
                 {
-                    Ok((1, 1))
+                    Ok((1., 1.))
                 } else {
-                    canvas.borrow().image_info(*id).map(|info| (info.width(), info.height()))
+                    canvas
+                        .borrow()
+                        .image_info(*id)
+                        .map(|info| (info.width() as f32, info.height() as f32))
                 }
             }
             ImageData::CPUSide { decoded_image: data } => {
-                femtovg::ImageSource::try_from(data).map(|image| image.dimensions())
+                let (width, height) = data.dimensions();
+                Ok((width as f32, height as f32))
             }
         }
-        .map(|(width, height)| euclid::size2(width as f32, height as f32))
+        .map(|(width, height)| euclid::size2(width, height))
         .unwrap_or_default()
     }
 
