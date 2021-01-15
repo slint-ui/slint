@@ -551,16 +551,14 @@ impl PathData {
     fn build_path(element_it: std::slice::Iter<PathElement>) -> lyon::path::Path {
         use lyon::geom::SvgArc;
         use lyon::math::{Angle, Point, Vector};
-        use lyon::path::{
-            builder::{Build, FlatPathBuilder, SvgBuilder},
-            ArcFlags,
-        };
+        use lyon::path::traits::SvgPathBuilder;
+        use lyon::path::ArcFlags;
 
         let mut path_builder = lyon::path::Path::builder().with_svg();
         for element in element_it {
             match element {
                 PathElement::LineTo(PathLineTo { x, y }) => {
-                    path_builder.line_to(Point::new(*x, *y))
+                    path_builder.line_to(Point::new(*x, *y));
                 }
                 PathElement::ArcTo(PathArcTo {
                     x,
