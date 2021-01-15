@@ -19,6 +19,7 @@ You should use the `sixtyfps` crate instead
 #![deny(unsafe_code)]
 
 pub mod animations;
+pub mod backend;
 pub mod callbacks;
 pub mod component;
 pub(crate) mod flickable;

@@ -15,8 +15,6 @@ by the `SIXTYFPS_BACKEND` environment variable. The built time default depends o
 In order for the crate to be available at runtime, they need to be added as feature
  */
 
-use sixtyfps_corelib::window::ComponentWindow;
-
 cfg_if::cfg_if! {
     if #[cfg(any(target_os="windows", target_os="macos", target_os = "linux", target_os = "dragonfly", target_os = "freebsd", target_os = "openbsd", target_os = "netbsd"))] {
         use sixtyfps_rendering_backend_qt as default_backend;
@@ -25,41 +23,48 @@ cfg_if::cfg_if! {
     }
 }
 
-pub fn create_window() -> ComponentWindow {
-    #[cfg(any(
-        feature = "sixtyfps-rendering-backend-qt",
-        feature = "sixtyfps-rendering-backend-gl"
-    ))]
-    let backend_config = std::env::var("SIXTYFPS_BACKEND").unwrap_or_default();
+pub fn backend() -> &'static dyn sixtyfps_corelib::backend::Backend {
+    static INSTANCE: once_cell::sync::OnceCell<
+        Box<dyn sixtyfps_corelib::backend::Backend + 'static>,
+    > = once_cell::sync::OnceCell::new();
 
-    #[cfg(feature = "sixtyfps-rendering-backend-qt")]
-    if backend_config == "Qt" {
-        return sixtyfps_rendering_backend_qt::create_window();
-    }
-    #[cfg(feature = "sixtyfps-rendering-backend-gl")]
-    if backend_config == "GL" {
-        return sixtyfps_rendering_backend_gl::create_window();
-    }
+    let instance = INSTANCE.get_or_init(|| {
+        #[cfg(any(
+            feature = "sixtyfps-rendering-backend-qt",
+            feature = "sixtyfps-rendering-backend-gl"
+        ))]
+        let backend_config = std::env::var("SIXTYFPS_BACKEND").unwrap_or_default();
 
-    #[cfg(any(
-        feature = "sixtyfps-rendering-backend-qt",
-        feature = "sixtyfps-rendering-backend-gl"
-    ))]
-    if !backend_config.is_empty() {
-        eprintln!("Could not load rendering backend {}, fallback to default", backend_config)
-    }
+        #[cfg(feature = "sixtyfps-rendering-backend-qt")]
+        if backend_config == "Qt" {
+            return Box::new(sixtyfps_rendering_backend_qt::Backend);
+        }
+        #[cfg(feature = "sixtyfps-rendering-backend-gl")]
+        if backend_config == "GL" {
+            return Box::new(sixtyfps_rendering_backend_gl::Backend);
+        }
 
-    #[cfg(feature = "sixtyfps-rendering-backend-gl")]
-    if !default_backend::IS_AVAILABLE {
-        // If Qt is not available always fallback to Gl
-        return sixtyfps_rendering_backend_gl::create_window();
-    }
-    default_backend::create_window()
+        #[cfg(any(
+            feature = "sixtyfps-rendering-backend-qt",
+            feature = "sixtyfps-rendering-backend-gl"
+        ))]
+        if !backend_config.is_empty() {
+            eprintln!("Could not load rendering backend {}, fallback to default", backend_config)
+        }
+
+        #[cfg(feature = "sixtyfps-rendering-backend-gl")]
+        if !default_backend::IS_AVAILABLE {
+            // If Qt is not available always fallback to Gl
+            return Box::new(sixtyfps_rendering_backend_gl::Backend);
+        }
+        return Box::new(default_backend::Backend);
+    });
+    use std::ops::Deref;
+    instance.deref()
 }
 
 pub use default_backend::{
-    native_widgets, register_application_font_from_memory, NativeGlobals, NativeWidgets,
-    HAS_NATIVE_STYLE,
+    native_widgets, Backend, NativeGlobals, NativeWidgets, HAS_NATIVE_STYLE,
 };
 
 #[doc(hidden)]
@@ -82,6 +87,6 @@ pub mod ffi {
             core::mem::size_of::<ComponentWindow>(),
             core::mem::size_of::<ComponentWindowOpaque>()
         );
-        core::ptr::write(out as *mut ComponentWindow, crate::create_window());
+        core::ptr::write(out as *mut ComponentWindow, crate::backend().create_window());
     }
 }

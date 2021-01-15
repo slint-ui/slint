@@ -159,7 +159,15 @@ pub use sixtyfps_corelib::sharedvector::SharedVector;
 pub use sixtyfps_corelib::string::SharedString;
 pub use sixtyfps_corelib::timers::{Timer, TimerMode};
 pub use sixtyfps_corelib::{Color, RgbaColor};
-pub use sixtyfps_rendering_backend_default::register_application_font_from_memory;
+
+/// This function can be used to register a custom TrueType font with SixtyFPS,
+/// for use with the `font-family` property. The provided slice must be a valid TrueType
+/// font.
+pub fn register_application_font_from_memory(
+    data: &'static [u8],
+) -> Result<(), Box<dyn std::error::Error>> {
+    sixtyfps_rendering_backend_default::backend().register_application_font_from_memory(data)
+}
 
 // FIXME: this should not be in this namespace
 // but the name is `sixtyfps::StateInfo` in builtin.60
@@ -208,7 +216,7 @@ pub mod re_exports {
 /// Creates a new window to render components in.
 #[doc(hidden)]
 pub fn create_window() -> re_exports::ComponentWindow {
-    sixtyfps_rendering_backend_default::create_window()
+    sixtyfps_rendering_backend_default::backend().create_window()
 }
 
 /// This trait describes the conversion of a strongly referenced SixtyFPS component,

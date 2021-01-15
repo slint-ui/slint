@@ -788,7 +788,7 @@ pub fn instantiate<'id>(
             .map(|g| (g.id.clone(), crate::global_component::instantiate(g)))
             .collect();
         #[cfg(not(target_arch = "wasm32"))]
-        let window = Some(sixtyfps_rendering_backend_default::create_window());
+        let window = Some(sixtyfps_rendering_backend_default::backend().create_window());
         #[cfg(target_arch = "wasm32")]
         let window =
             Some(sixtyfps_rendering_backend_gl::create_gl_window_with_canvas_id(canvas_id));

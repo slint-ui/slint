@@ -89,27 +89,28 @@ pub const HAS_NATIVE_STYLE: bool = cfg!(not(no_qt));
 /// False if the backend was compiled without Qt so it wouldn't do anything
 pub const IS_AVAILABLE: bool = cfg!(not(no_qt));
 
-pub fn create_window() -> ComponentWindow {
-    #[cfg(no_qt)]
-    panic!("The Qt backend needs Qt");
-    #[cfg(not(no_qt))]
-    ComponentWindow::new(qt_window::QtWindow::new())
-}
+pub struct Backend;
+impl sixtyfps_corelib::backend::Backend for Backend {
+    fn create_window(&'static self) -> ComponentWindow {
+        #[cfg(no_qt)]
+        panic!("The Qt backend needs Qt");
+        #[cfg(not(no_qt))]
+        ComponentWindow::new(qt_window::QtWindow::new())
+    }
 
-/// This function can be used to register a custom TrueType font with SixtyFPS,
-/// for use with the `font-family` property. The provided slice must be a valid TrueType
-/// font.
-pub fn register_application_font_from_memory(
-    _data: &'static [u8],
-) -> Result<(), Box<dyn std::error::Error>> {
-    #[cfg(not(no_qt))]
-    {
-        use cpp::cpp;
-        let data = qttypes::QByteArray::from(_data);
-        cpp! {unsafe [data as "QByteArray"] {
-            ensure_initialized();
-            QFontDatabase::addApplicationFontFromData(data);
-        } }
-    };
-    Ok(())
+    fn register_application_font_from_memory(
+        &'static self,
+        _data: &'static [u8],
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        #[cfg(not(no_qt))]
+        {
+            use cpp::cpp;
+            let data = qttypes::QByteArray::from(_data);
+            cpp! {unsafe [data as "QByteArray"] {
+                ensure_initialized();
+                QFontDatabase::addApplicationFontFromData(data);
+            } }
+        };
+        Ok(())
+    }
 }

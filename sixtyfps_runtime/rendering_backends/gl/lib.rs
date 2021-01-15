@@ -1022,17 +1022,6 @@ impl GLFontMetrics {
     }
 }
 
-pub fn create_window() -> ComponentWindow {
-    ComponentWindow::new(GraphicsWindow::new(|event_loop, window_builder| {
-        GLRenderer::new(
-            &event_loop.get_winit_event_loop(),
-            window_builder,
-            #[cfg(target_arch = "wasm32")]
-            "canvas",
-        )
-    }))
-}
-
 #[cfg(target_arch = "wasm32")]
 pub fn create_gl_window_with_canvas_id(canvas_id: String) -> ComponentWindow {
     ComponentWindow::new(GraphicsWindow::new(move |event_loop, window_builder| {
@@ -1051,3 +1040,24 @@ pub type NativeGlobals = ();
 pub mod native_widgets {}
 pub const HAS_NATIVE_STYLE: bool = false;
 pub const IS_AVAILABLE: bool = true;
+
+pub struct Backend;
+impl sixtyfps_corelib::backend::Backend for Backend {
+    fn create_window(&'static self) -> ComponentWindow {
+        ComponentWindow::new(GraphicsWindow::new(|event_loop, window_builder| {
+            GLRenderer::new(
+                &event_loop.get_winit_event_loop(),
+                window_builder,
+                #[cfg(target_arch = "wasm32")]
+                "canvas",
+            )
+        }))
+    }
+
+    fn register_application_font_from_memory(
+        &'static self,
+        data: &'static [u8],
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        self::register_application_font_from_memory(data)
+    }
+}
