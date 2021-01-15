@@ -9,8 +9,6 @@
 LICENSE END */
 #![recursion_limit = "512"]
 
-use std::rc::Rc;
-
 use sixtyfps_corelib::window::ComponentWindow;
 
 #[cfg(not(no_qt))]
@@ -99,8 +97,8 @@ impl sixtyfps_corelib::backend::Backend for Backend {
         #[cfg(not(no_qt))]
         {
             let qt_window = qt_window::QtWindow::new();
-            let window = Rc::new(sixtyfps_corelib::window::Window::new(qt_window.clone()));
-            qt_window.self_weak.set(Rc::downgrade(&window)).ok().unwrap();
+            let window = std::rc::Rc::new(sixtyfps_corelib::window::Window::new(qt_window.clone()));
+            qt_window.self_weak.set(std::rc::Rc::downgrade(&window)).ok().unwrap();
             ComponentWindow::new(window)
         }
     }

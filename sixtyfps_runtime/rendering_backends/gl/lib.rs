@@ -1033,9 +1033,12 @@ impl GLFontMetrics {
 
 #[cfg(target_arch = "wasm32")]
 pub fn create_gl_window_with_canvas_id(canvas_id: String) -> ComponentWindow {
-    ComponentWindow::new(GraphicsWindow::new(move |event_loop, window_builder| {
+    let platform_window = GraphicsWindow::new(move |event_loop, window_builder| {
         GLRenderer::new(&event_loop.get_winit_event_loop(), window_builder, &canvas_id)
-    }))
+    });
+    let window = Rc::new(sixtyfps_corelib::window::Window::new(platform_window.clone()));
+    platform_window.self_weak.set(Rc::downgrade(&window)).ok().unwrap();
+    ComponentWindow(window)
 }
 
 #[doc(hidden)]
