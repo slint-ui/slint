@@ -12,9 +12,7 @@ use cpp::*;
 use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
 use sixtyfps_corelib::component::{ComponentRc, ComponentWeak};
 use sixtyfps_corelib::graphics::{FontRequest, PathElement, PathEvent, Point, RenderingCache};
-use sixtyfps_corelib::input::{
-    KeyCode, KeyEvent, MouseEventType, MouseInputState, TextCursorBlinker,
-};
+use sixtyfps_corelib::input::{KeyCode, KeyEvent, MouseEventType, TextCursorBlinker};
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::ItemWeak;
 use sixtyfps_corelib::items::{self, ItemRef};
@@ -561,7 +559,6 @@ pub struct QtWindow {
     meta_property_listener: Pin<Rc<PropertyTracker>>,
     /// Gets dirty if something needs to be painted
     redraw_listener: Pin<Rc<PropertyTracker>>,
-    mouse_input_state: Cell<MouseInputState>,
     focus_item: std::cell::RefCell<ItemWeak>,
     cursor_blinker: RefCell<pin_weak::rc::PinWeak<TextCursorBlinker>>,
 
@@ -587,7 +584,6 @@ impl QtWindow {
             component: Default::default(),
             meta_property_listener: Rc::pin(Default::default()),
             redraw_listener: Rc::pin(Default::default()),
-            mouse_input_state: Default::default(),
             focus_item: Default::default(),
             cursor_blinker: Default::default(),
             popup_window: Default::default(),
@@ -665,17 +661,9 @@ impl QtWindow {
         }
     }
 
-    /// ### Candidate to be moved in corelib as this kind of duplicate GraphicsWindow::process_mouse_input
     fn mouse_event(&self, what: MouseEventType, pos: qttypes::QPoint) {
-        sixtyfps_corelib::animations::update_animations();
-        let component = self.component.borrow().upgrade().unwrap();
         let pos = Point::new(pos.x as _, pos.y as _);
-        self.mouse_input_state.set(sixtyfps_corelib::input::process_mouse_input(
-            component,
-            sixtyfps_corelib::input::MouseEvent { pos, what },
-            &ComponentWindow::new(self.self_weak.get().unwrap().upgrade().unwrap()),
-            self.mouse_input_state.take(),
-        ));
+        self.self_weak.get().unwrap().upgrade().unwrap().process_mouse_input(pos, what);
         timer_event();
     }
 
@@ -757,18 +745,6 @@ impl QtWindow {
 
 #[allow(unused)]
 impl GenericWindow for QtWindow {
-    fn draw(self: Rc<Self>) {
-        todo!()
-    }
-
-    fn process_mouse_input(
-        self: Rc<Self>,
-        pos: Point,
-        what: sixtyfps_corelib::input::MouseEventType,
-    ) {
-        todo!()
-    }
-
     /// ### Candidate to be moved in corelib (same as GraphicsWindow::process_key_input)
     fn process_key_input(self: Rc<Self>, event: &sixtyfps_corelib::input::KeyEvent) {
         if let Some(focus_item) = self.as_ref().focus_item.borrow().upgrade() {

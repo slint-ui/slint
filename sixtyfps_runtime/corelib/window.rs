@@ -12,9 +12,10 @@ LICENSE END */
 
 use crate::component::{ComponentRc, ComponentWeak};
 use crate::graphics::Point;
-use crate::input::{KeyEvent, MouseEventType};
+use crate::input::{KeyEvent, MouseEventType, MouseInputState};
 use crate::items::{ItemRc, ItemRef};
 use crate::slice::Slice;
+use core::cell::Cell;
 use core::pin::Pin;
 use std::rc::Rc;
 
@@ -24,16 +25,6 @@ use std::rc::Rc;
 ///
 /// [`crate::graphics`] provides an implementation of this trait for use with [`crate::graphics::GraphicsBackend`].
 pub trait GenericWindow {
-    /// Draw the items of the specified `component` in the given window.
-    fn draw(self: Rc<Self>);
-    /// Receive a mouse event and pass it to the items of the component to
-    /// change their state.
-    ///
-    /// Arguments:
-    /// * `pos`: The position of the mouse event in window physical coordinates.
-    /// * `what`: The type of mouse event.
-    /// * `component`: The SixtyFPS compiled component that provides the tree of items.
-    fn process_mouse_input(self: Rc<Self>, pos: Point, what: MouseEventType);
     /// Receive a key event and pass it to the items of the component to
     /// change their state.
     ///
@@ -101,12 +92,17 @@ pub struct Window {
     /// FIXME! use Box instead;
     platform_window: Rc<dyn GenericWindow>,
     component: std::cell::RefCell<ComponentWeak>,
+    mouse_input_state: Cell<MouseInputState>,
 }
 
 impl Window {
     /// Create a new instance of the window, given the platform_window
     pub fn new(platform_window: Rc<dyn GenericWindow>) -> Self {
-        Self { platform_window, component: Default::default() }
+        Self {
+            platform_window,
+            component: Default::default(),
+            mouse_input_state: Default::default(),
+        }
     }
 
     /// Associates this window with the specified component. Further event handling and rendering, etc. will be
@@ -129,7 +125,14 @@ impl Window {
     /// * `what`: The type of mouse event.
     /// * `component`: The SixtyFPS compiled component that provides the tree of items.
     pub fn process_mouse_input(self: Rc<Self>, pos: Point, what: MouseEventType) {
-        self.platform_window.clone().process_mouse_input(pos, what)
+        crate::animations::update_animations();
+        let component = self.component.borrow().upgrade().unwrap();
+        self.mouse_input_state.set(crate::input::process_mouse_input(
+            component,
+            crate::input::MouseEvent { pos, what },
+            &ComponentWindow::new(self.clone()),
+            self.mouse_input_state.take(),
+        ));
     }
     /// Receive a key event and pass it to the items of the component to
     /// change their state.

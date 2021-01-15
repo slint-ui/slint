@@ -26,10 +26,13 @@ use std::rc::{Rc, Weak};
 use winit::platform::run_return::EventLoopExtRunReturn;
 
 thread_local! {
-    static ALL_WINDOWS: RefCell<std::collections::HashMap<winit::window::WindowId, Weak<dyn GenericWindow>>> = RefCell::new(std::collections::HashMap::new());
+    static ALL_WINDOWS: RefCell<std::collections::HashMap<winit::window::WindowId, Weak<crate::graphics_window::GraphicsWindow>>> = RefCell::new(std::collections::HashMap::new());
 }
 
-pub fn register_window(id: winit::window::WindowId, window: Rc<dyn GenericWindow>) {
+pub fn register_window(
+    id: winit::window::WindowId,
+    window: Rc<crate::graphics_window::GraphicsWindow>,
+) {
     ALL_WINDOWS.with(|windows| {
         windows.borrow_mut().insert(id, Rc::downgrade(&window));
     })

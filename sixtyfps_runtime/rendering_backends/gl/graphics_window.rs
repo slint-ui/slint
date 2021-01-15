@@ -212,7 +212,7 @@ impl GraphicsWindow {
             window_id
         };
 
-        crate::eventloop::register_window(id, self.clone() as Rc<dyn GenericWindow>);
+        crate::eventloop::register_window(id, self.clone());
     }
     /// Removes the window from the screen. The window is not destroyed though, it can be show (mapped) again later
     /// by calling [`GenericWindow::map_window`].
@@ -242,8 +242,9 @@ impl Drop for GraphicsWindow {
     }
 }
 
-impl GenericWindow for GraphicsWindow {
-    fn draw(self: Rc<Self>) {
+impl GraphicsWindow {
+    /// Draw the items of the specified `component` in the given window.
+    pub fn draw(self: Rc<Self>) {
         let component_rc = self.component();
         let component = ComponentRc::borrow_pin(&component_rc);
 
@@ -311,7 +312,10 @@ impl GenericWindow for GraphicsWindow {
         window.backend.borrow_mut().flush_renderer(renderer);
     }
 
-    fn process_mouse_input(self: Rc<Self>, mut pos: Point, what: MouseEventType) {
+    /// FIXME: this is the same as Window::process_mouse_input, but this handle the popup.
+    /// Ideally the popup should be handled as a different window or by theevent loop, and
+    /// this function can go away
+    pub fn process_mouse_input(self: Rc<Self>, mut pos: Point, what: MouseEventType) {
         let active_popup = (*self.active_popup.borrow()).clone();
         let component = if let Some(popup) = &active_popup {
             pos -= popup.1.to_vector();
@@ -344,7 +348,8 @@ impl GenericWindow for GraphicsWindow {
             }
         }
     }
-
+}
+impl GenericWindow for GraphicsWindow {
     fn process_key_input(self: Rc<Self>, event: &KeyEvent) {
         if let Some(focus_item) = self.as_ref().focus_item.borrow().upgrade() {
             let window = &ComponentWindow::new(self.self_weak.get().unwrap().upgrade().unwrap());
