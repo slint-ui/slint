@@ -20,7 +20,6 @@ default = ["x11"]
 [dependencies]
 sixtyfps-corelib = { version = "=0.0.4", path = "../../corelib", features = ["femtovg_backend"] }
 const-field-offset = { version = "0.1", path = "../../../helper_crates/const-field-offset" }
-lyon = { version = "0.16" }
 image = { version = "0.23.12", default-features = false }
 rgb = "0.8"
 imgref = "1.6.1"

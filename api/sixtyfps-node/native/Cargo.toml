@@ -22,14 +22,14 @@ sixtyfps-compilerlib = { version = "=0.0.4", path="../../../sixtyfps_compiler", 
 sixtyfps-interpreter = { version = "=0.0.4", path="../../../sixtyfps_runtime/interpreter" }
 sixtyfps-corelib = { version = "=0.0.4", path="../../../sixtyfps_runtime/corelib" }
 scoped-tls-hkt = "0.1"
-neon = "0.6.0"
+neon = "0.7.0"
 css-color-parser2 = "1.0.1"
 spin_on = "0.1" #FIXME: remove and delegate to async JS instead
 vtable = { version = "0.1.1", path="../../../helper_crates/vtable" }
 generativity = "1"
-rand = "0.7.3"
+rand = "0.8"
 
 [build-dependencies]
-neon-build = "0.6.0"
+neon-build = "0.7.0"
 
 
