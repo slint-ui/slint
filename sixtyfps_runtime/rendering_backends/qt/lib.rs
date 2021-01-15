@@ -9,6 +9,8 @@
 LICENSE END */
 #![recursion_limit = "512"]
 
+use std::rc::Rc;
+
 use sixtyfps_corelib::window::ComponentWindow;
 
 #[cfg(not(no_qt))]
@@ -95,7 +97,12 @@ impl sixtyfps_corelib::backend::Backend for Backend {
         #[cfg(no_qt)]
         panic!("The Qt backend needs Qt");
         #[cfg(not(no_qt))]
-        ComponentWindow::new(qt_window::QtWindow::new())
+        {
+            let qt_window = qt_window::QtWindow::new();
+            let window = Rc::new(sixtyfps_corelib::window::Window::new(qt_window.clone()));
+            qt_window.self_weak.set(Rc::downgrade(&window)).ok().unwrap();
+            ComponentWindow::new(window)
+        }
     }
 
     fn register_application_font_from_memory(

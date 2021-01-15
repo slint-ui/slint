@@ -1053,14 +1053,17 @@ pub const IS_AVAILABLE: bool = true;
 pub struct Backend;
 impl sixtyfps_corelib::backend::Backend for Backend {
     fn create_window(&'static self) -> ComponentWindow {
-        ComponentWindow::new(GraphicsWindow::new(|event_loop, window_builder| {
+        let platform_window = GraphicsWindow::new(|event_loop, window_builder| {
             GLRenderer::new(
                 &event_loop.get_winit_event_loop(),
                 window_builder,
                 #[cfg(target_arch = "wasm32")]
                 "canvas",
             )
-        }))
+        });
+        let window = Rc::new(sixtyfps_corelib::window::Window::new(platform_window.clone()));
+        platform_window.self_weak.set(Rc::downgrade(&window)).ok().unwrap();
+        ComponentWindow(window)
     }
 
     fn register_application_font_from_memory(

@@ -11,10 +11,10 @@ LICENSE END */
 
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 use const_field_offset::FieldOffsets;
-use corelib::component::{ComponentRc, ComponentWeak};
+use corelib::component::ComponentRc;
 use corelib::graphics::*;
 use corelib::input::{KeyEvent, KeyboardModifiers, MouseEvent, MouseEventType, TextCursorBlinker};
 use corelib::items::{ItemRc, ItemRef, ItemWeak};
@@ -33,12 +33,12 @@ type WindowFactoryFn =
 /// GraphicsWindow is an implementation of the [GenericWindow][`crate::eventloop::GenericWindow`] trait. This is
 /// typically instantiated by entry factory functions of the different graphics backends.
 pub struct GraphicsWindow {
+    pub(crate) self_weak: once_cell::unsync::OnceCell<Weak<corelib::window::Window>>,
     window_factory: Box<WindowFactoryFn>,
     map_state: RefCell<GraphicsWindowBackendState>,
     properties: Pin<Box<WindowProperties>>,
-    cursor_blinker: RefCell<pin_weak::rc::PinWeak<TextCursorBlinker>>,
     keyboard_modifiers: std::cell::Cell<KeyboardModifiers>,
-    component: std::cell::RefCell<ComponentWeak>,
+    cursor_blinker: RefCell<pin_weak::rc::PinWeak<TextCursorBlinker>>,
     /// Gets dirty when the layout restrictions, or some other property of the windows change
     meta_property_listener: Pin<Rc<PropertyTracker>>,
     focus_item: std::cell::RefCell<ItemWeak>,
@@ -60,12 +60,12 @@ impl GraphicsWindow {
             + 'static,
     ) -> Rc<Self> {
         Rc::new(Self {
+            self_weak: Default::default(),
             window_factory: Box::new(graphics_backend_factory),
             map_state: RefCell::new(GraphicsWindowBackendState::Unmapped),
             properties: Box::pin(WindowProperties::default()),
             cursor_blinker: Default::default(),
             keyboard_modifiers: Default::default(),
-            component: Default::default(),
             meta_property_listener: Rc::pin(Default::default()),
             focus_item: Default::default(),
             mouse_input_state: Default::default(),
@@ -129,7 +129,7 @@ impl GraphicsWindow {
             return;
         }
 
-        let component = self.component.borrow().upgrade().unwrap();
+        let component = self.component();
         let component = ComponentRc::borrow_pin(&component);
         let root_item = component.as_ref().get_item_ref(0);
 
@@ -222,6 +222,10 @@ impl GraphicsWindow {
             existing_blinker.stop();
         }
     }
+
+    fn component(&self) -> ComponentRc {
+        self.self_weak.get().unwrap().upgrade().unwrap().component()
+    }
 }
 
 impl Drop for GraphicsWindow {
@@ -239,12 +243,8 @@ impl Drop for GraphicsWindow {
 }
 
 impl GenericWindow for GraphicsWindow {
-    fn set_component(self: Rc<Self>, component: &ComponentRc) {
-        *self.component.borrow_mut() = vtable::VRc::downgrade(&component)
-    }
-
     fn draw(self: Rc<Self>) {
-        let component_rc = self.component.borrow().upgrade().unwrap();
+        let component_rc = self.component();
         let component = ComponentRc::borrow_pin(&component_rc);
 
         {
@@ -326,13 +326,13 @@ impl GenericWindow for GraphicsWindow {
             }
             popup.0.clone()
         } else {
-            self.component.borrow().upgrade().unwrap()
+            self.component()
         };
 
         self.mouse_input_state.set(corelib::input::process_mouse_input(
             component,
             MouseEvent { pos, what },
-            &ComponentWindow::new(self.clone()),
+            &ComponentWindow::new(self.self_weak.get().unwrap().upgrade().unwrap()),
             self.mouse_input_state.take(),
         ));
 
@@ -347,7 +347,7 @@ impl GenericWindow for GraphicsWindow {
 
     fn process_key_input(self: Rc<Self>, event: &KeyEvent) {
         if let Some(focus_item) = self.as_ref().focus_item.borrow().upgrade() {
-            let window = &ComponentWindow::new(self.clone());
+            let window = &ComponentWindow::new(self.self_weak.get().unwrap().upgrade().unwrap());
             focus_item.borrow().as_ref().key_event(event, &window);
         }
     }
@@ -434,7 +434,7 @@ impl GenericWindow for GraphicsWindow {
     }
 
     fn set_focus_item(self: Rc<Self>, focus_item: &ItemRc) {
-        let window = ComponentWindow::new(self.clone());
+        let window = &ComponentWindow::new(self.self_weak.get().unwrap().upgrade().unwrap());
 
         if let Some(old_focus_item) = self.as_ref().focus_item.borrow().upgrade() {
             old_focus_item
@@ -449,7 +449,7 @@ impl GenericWindow for GraphicsWindow {
     }
 
     fn set_focus(self: Rc<Self>, have_focus: bool) {
-        let window = ComponentWindow::new(self.clone());
+        let window = &ComponentWindow::new(self.self_weak.get().unwrap().upgrade().unwrap());
         let event = if have_focus {
             corelib::input::FocusEvent::WindowReceivedFocus
         } else {

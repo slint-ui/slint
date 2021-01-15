@@ -555,7 +555,7 @@ cpp_class!(unsafe struct QWidgetPtr as "std::unique_ptr<QWidget>");
 
 pub struct QtWindow {
     widget_ptr: QWidgetPtr,
-    self_weak: once_cell::unsync::OnceCell<Weak<QtWindow>>,
+    pub(crate) self_weak: once_cell::unsync::OnceCell<Weak<sixtyfps_corelib::window::Window>>,
     component: RefCell<ComponentWeak>,
     /// Gets dirty when the layout restrictions, or some other property of the windows change
     meta_property_listener: Pin<Rc<PropertyTracker>>,
@@ -565,7 +565,7 @@ pub struct QtWindow {
     focus_item: std::cell::RefCell<ItemWeak>,
     cursor_blinker: RefCell<pin_weak::rc::PinWeak<TextCursorBlinker>>,
 
-    popup_window: RefCell<Option<(Rc<QtWindow>, ComponentRc)>>,
+    popup_window: RefCell<Option<(Rc<sixtyfps_corelib::window::Window>, ComponentRc)>>,
 
     cache: QtRenderingCache,
 
@@ -596,7 +596,6 @@ impl QtWindow {
             scale_factor: Box::pin(Property::new(1.)),
         });
         let self_weak = Rc::downgrade(&rc);
-        rc.self_weak.set(self_weak.clone()).ok().unwrap();
         let widget_ptr = rc.widget_ptr();
         let rust_window = Rc::as_ptr(&rc);
         cpp! {unsafe [widget_ptr as "SixtyFPSWidget*", rust_window as "void*"]  {
@@ -758,10 +757,6 @@ impl QtWindow {
 
 #[allow(unused)]
 impl GenericWindow for QtWindow {
-    fn set_component(self: Rc<Self>, component: &sixtyfps_corelib::component::ComponentRc) {
-        *self.component.borrow_mut() = vtable::VRc::downgrade(&component)
-    }
-
     fn draw(self: Rc<Self>) {
         todo!()
     }
@@ -777,7 +772,7 @@ impl GenericWindow for QtWindow {
     /// ### Candidate to be moved in corelib (same as GraphicsWindow::process_key_input)
     fn process_key_input(self: Rc<Self>, event: &sixtyfps_corelib::input::KeyEvent) {
         if let Some(focus_item) = self.as_ref().focus_item.borrow().upgrade() {
-            let window = &ComponentWindow::new(self.clone());
+            let window = &ComponentWindow::new(self.self_weak.get().unwrap().upgrade().unwrap());
             focus_item.borrow().as_ref().key_event(event, &window);
         }
     }
@@ -864,7 +859,7 @@ impl GenericWindow for QtWindow {
 
     /// ### Candidate to be moved in corelib as this kind of duplicate GraphicsWindow::set_focus_item
     fn set_focus_item(self: Rc<Self>, focus_item: &items::ItemRc) {
-        let window = ComponentWindow::new(self.clone());
+        let window = ComponentWindow::new(self.self_weak.get().unwrap().upgrade().unwrap());
 
         if let Some(old_focus_item) = self.as_ref().focus_item.borrow().upgrade() {
             old_focus_item
@@ -883,7 +878,7 @@ impl GenericWindow for QtWindow {
 
     /// ### Candidate to be moved in corelib as this kind of duplicate GraphicsWindow::set_focussixtyfps_
     fn set_focus(self: Rc<Self>, have_focus: bool) {
-        let window = ComponentWindow::new(self.clone());
+        let window = ComponentWindow::new(self.self_weak.get().unwrap().upgrade().unwrap());
         let event = if have_focus {
             sixtyfps_corelib::input::FocusEvent::WindowReceivedFocus
         } else {
@@ -896,8 +891,10 @@ impl GenericWindow for QtWindow {
     }
 
     fn show_popup(&self, popup: &sixtyfps_corelib::component::ComponentRc, position: Point) {
-        let popup_window = Self::new();
-        popup_window.clone().set_component(popup);
+        let popup_window = QtWindow::new();
+        let window = Rc::new(sixtyfps_corelib::window::Window::new(popup_window.clone()));
+        popup_window.self_weak.set(Rc::downgrade(&window)).ok().unwrap();
+        window.set_component(popup);
         let popup_ptr = popup_window.widget_ptr();
         let pos = qttypes::QPoint { x: position.x as _, y: position.y as _ };
         let widget_ptr = self.widget_ptr();
@@ -906,7 +903,7 @@ impl GenericWindow for QtWindow {
             popup_ptr->move(pos + widget_ptr->pos());
             popup_ptr->show();
         }};
-        self.popup_window.replace(Some((popup_window, popup.clone())));
+        self.popup_window.replace(Some((window, popup.clone())));
     }
 
     fn close_popup(&self) {

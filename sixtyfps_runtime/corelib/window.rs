@@ -10,7 +10,7 @@ LICENSE END */
 #![warn(missing_docs)]
 //! Exposed Window API
 
-use crate::component::ComponentRc;
+use crate::component::{ComponentRc, ComponentWeak};
 use crate::graphics::Point;
 use crate::input::{KeyEvent, MouseEventType};
 use crate::items::{ItemRc, ItemRef};
@@ -24,10 +24,6 @@ use std::rc::Rc;
 ///
 /// [`crate::graphics`] provides an implementation of this trait for use with [`crate::graphics::GraphicsBackend`].
 pub trait GenericWindow {
-    /// Associates this window with the specified component. Further event handling and rendering, etc. will be
-    /// done with that component.
-    fn set_component(self: Rc<Self>, component: &ComponentRc);
-
     /// Draw the items of the specified `component` in the given window.
     fn draw(self: Rc<Self>);
     /// Receive a mouse event and pass it to the items of the component to
@@ -100,21 +96,91 @@ pub trait GenericWindow {
     ) -> Option<Box<dyn crate::graphics::FontMetrics>>;
 }
 
+/// Structure that represent a Window in the runtime
+pub struct Window {
+    /// FIXME! use Box instead;
+    platform_window: Rc<dyn GenericWindow>,
+    component: std::cell::RefCell<ComponentWeak>,
+}
+
+impl Window {
+    /// Create a new instance of the window, given the platform_window
+    pub fn new(platform_window: Rc<dyn GenericWindow>) -> Self {
+        Self { platform_window, component: Default::default() }
+    }
+
+    /// Associates this window with the specified component. Further event handling and rendering, etc. will be
+    /// done with that component.
+    pub fn set_component(&self, component: &ComponentRc) {
+        self.component.replace(ComponentRc::downgrade(component));
+    }
+
+    /// return the component.
+    /// Panics if it wasn't set.
+    pub fn component(&self) -> ComponentRc {
+        self.component.borrow().upgrade().unwrap()
+    }
+
+    /// Receive a mouse event and pass it to the items of the component to
+    /// change their state.
+    ///
+    /// Arguments:
+    /// * `pos`: The position of the mouse event in window physical coordinates.
+    /// * `what`: The type of mouse event.
+    /// * `component`: The SixtyFPS compiled component that provides the tree of items.
+    pub fn process_mouse_input(self: Rc<Self>, pos: Point, what: MouseEventType) {
+        self.platform_window.clone().process_mouse_input(pos, what)
+    }
+    /// Receive a key event and pass it to the items of the component to
+    /// change their state.
+    ///
+    /// Arguments:
+    /// * `event`: The key event received by the windowing system.
+    /// * `component`: The SixtyFPS compiled component that provides the tree of items.
+    pub fn process_key_input(self: Rc<Self>, event: &KeyEvent) {
+        self.platform_window.clone().process_key_input(event)
+    }
+
+    /// Installs a binding on the specified property that's toggled whenever the text cursor is supposed to be visible or not.
+    pub fn set_cursor_blink_binding(&self, prop: &crate::properties::Property<bool>) {
+        self.platform_window.clone().set_cursor_blink_binding(prop)
+    }
+
+    /// Sets the focus to the item pointed to by item_ptr. This will remove the focus from any
+    /// currently focused item.
+    pub fn set_focus_item(self: Rc<Self>, focus_item: &ItemRc) {
+        self.platform_window.clone().set_focus_item(focus_item)
+    }
+    /// Sets the focus on the window to true or false, depending on the have_focus argument.
+    /// This results in WindowFocusReceived and WindowFocusLost events.
+    pub fn set_focus(self: Rc<Self>, have_focus: bool) {
+        self.platform_window.clone().set_focus(have_focus)
+    }
+}
+
+impl core::ops::Deref for Window {
+    type Target = dyn GenericWindow;
+
+    fn deref(&self) -> &Self::Target {
+        &*self.platform_window
+    }
+}
+
 /// The ComponentWindow is the (rust) facing public type that can render the items
 /// of components to the screen.
 #[repr(C)]
 #[derive(Clone)]
-pub struct ComponentWindow(pub std::rc::Rc<dyn GenericWindow>);
+pub struct ComponentWindow(pub std::rc::Rc<Window>);
 
 impl ComponentWindow {
     /// Creates a new instance of a CompomentWindow based on the given window implementation. Only used
     /// internally.
-    pub fn new(window_impl: std::rc::Rc<dyn GenericWindow>) -> Self {
+    pub fn new(window_impl: std::rc::Rc<Window>) -> Self {
         Self(window_impl)
     }
     /// Spins an event loop and renders the items of the provided component in this window.
     pub fn run(&self) {
-        self.0.clone().run();
+        self.0.platform_window.clone().run();
     }
 
     /// Returns the scale factor set on the window.
@@ -130,12 +196,12 @@ impl ComponentWindow {
     /// This function is called by the generated code when a component and therefore its tree of items are destroyed. The
     /// implementation typically uses this to free the underlying graphics resources cached via [RenderingCache][`crate::graphics::RenderingCache`].
     pub fn free_graphics_resources<'a>(&self, items: &Slice<'a, Pin<ItemRef<'a>>>) {
-        self.0.clone().free_graphics_resources(items);
+        self.0.platform_window.clone().free_graphics_resources(items);
     }
 
     /// Installs a binding on the specified property that's toggled whenever the text cursor is supposed to be visible or not.
     pub(crate) fn set_cursor_blink_binding(&self, prop: &crate::properties::Property<bool>) {
-        self.0.clone().set_cursor_blink_binding(prop)
+        self.0.platform_window.clone().set_cursor_blink_binding(prop)
     }
 
     /// Sets the currently active keyboard notifiers. This is used only for testing or directly
@@ -149,31 +215,31 @@ impl ComponentWindow {
 
     /// Returns the currently active keyboard notifiers.
     pub(crate) fn current_keyboard_modifiers(&self) -> crate::input::KeyboardModifiers {
-        self.0.clone().current_keyboard_modifiers()
+        self.0.platform_window.clone().current_keyboard_modifiers()
     }
 
     pub(crate) fn process_key_input(&self, event: &KeyEvent) {
-        self.0.clone().process_key_input(event)
+        self.0.platform_window.clone().process_key_input(event)
     }
 
     /// Clears the focus on any previously focused item and makes the provided
     /// item the focus item, in order to receive future key events.
     pub fn set_focus_item(&self, focus_item: &ItemRc) {
-        self.0.clone().set_focus_item(focus_item)
+        self.0.platform_window.clone().set_focus_item(focus_item)
     }
 
     /// Associates this window with the specified component, for future event handling, etc.
     pub fn set_component(&self, component: &ComponentRc) {
-        self.0.clone().set_component(component)
+        self.0.set_component(component)
     }
 
     /// Show a popup at the given position
     pub fn show_popup(&self, popup: &ComponentRc, position: Point) {
-        self.0.clone().show_popup(popup, position)
+        self.0.platform_window.clone().show_popup(popup, position)
     }
     /// Close the active popup if any
     pub fn close_popup(&self) {
-        self.0.clone().close_popup()
+        self.0.platform_window.clone().close_popup()
     }
 }
 
@@ -187,9 +253,9 @@ pub mod ffi {
     #[allow(non_camel_case_types)]
     type c_void = ();
 
-    /// Same layout as ComponentWindow (fat pointer)
+    /// Same layout as ComponentWindow
     #[repr(C)]
-    pub struct ComponentWindowOpaque(*const c_void, *const c_void);
+    pub struct ComponentWindowOpaque(*const c_void);
 
     /// Releases the reference to the component window held by handle.
     #[no_mangle]
