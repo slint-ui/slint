@@ -766,18 +766,6 @@ impl GenericWindow for QtWindow {
         self.scale_factor.as_ref().set(factor)
     }
 
-    fn refresh_window_scale_factor(&self) {
-        todo!()
-    }
-
-    fn set_width(&self, width: f32) {
-        todo!()
-    }
-
-    fn set_height(&self, height: f32) {
-        todo!()
-    }
-
     fn get_geometry(&self) -> sixtyfps_corelib::graphics::Rect {
         // FIXME
         Default::default()

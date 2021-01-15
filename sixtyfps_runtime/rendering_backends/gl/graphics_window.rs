@@ -353,7 +353,26 @@ impl GraphicsWindow {
     pub fn set_current_keyboard_modifiers(&self, state: KeyboardModifiers) {
         self.keyboard_modifiers.set(state)
     }
+
+    /// reload the scale_factor from the window manager and sets the internal scale_factor property accordingly
+    pub fn refresh_window_scale_factor(&self) {
+        match &*self.map_state.borrow() {
+            GraphicsWindowBackendState::Unmapped => {}
+            GraphicsWindowBackendState::Mapped(window) => {
+                let sf = window.backend.borrow().window().scale_factor();
+                self.set_scale_factor(sf as f32)
+            }
+        }
+    }
+
+    /// Sets the size of the window. This method is typically called in response to receiving a
+    /// window resize event from the windowing system.
+    pub fn set_geometry(&self, width: f32, height: f32) {
+        self.properties.as_ref().width.set(width);
+        self.properties.as_ref().height.set(height);
+    }
 }
+
 impl GenericWindow for GraphicsWindow {
     fn request_redraw(&self) {
         match &*self.map_state.borrow() {
@@ -370,24 +389,6 @@ impl GenericWindow for GraphicsWindow {
 
     fn set_scale_factor(&self, factor: f32) {
         self.properties.as_ref().scale_factor.set(factor);
-    }
-
-    fn refresh_window_scale_factor(&self) {
-        match &*self.map_state.borrow() {
-            GraphicsWindowBackendState::Unmapped => {}
-            GraphicsWindowBackendState::Mapped(window) => {
-                let sf = window.backend.borrow().window().scale_factor();
-                self.set_scale_factor(sf as f32)
-            }
-        }
-    }
-
-    fn set_width(&self, width: f32) {
-        self.properties.as_ref().width.set(width);
-    }
-
-    fn set_height(&self, height: f32) {
-        self.properties.as_ref().height.set(height);
     }
 
     fn get_geometry(&self) -> corelib::graphics::Rect {

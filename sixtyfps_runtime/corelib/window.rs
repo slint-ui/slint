@@ -27,6 +27,7 @@ use std::rc::Rc;
 /// [`crate::graphics`] provides an implementation of this trait for use with [`crate::graphics::GraphicsBackend`].
 pub trait GenericWindow {
     /// Spins an event loop and renders the items of the provided component in this window.
+    /// FIXME: replace by a show() function, and move run() in the backend
     fn run(self: Rc<Self>);
     /// Issue a request to the windowing system to re-render the contents of the window. This is typically an asynchronous
     /// request.
@@ -35,14 +36,7 @@ pub trait GenericWindow {
     fn scale_factor(&self) -> f32;
     /// Sets an overriding scale factor for the window. This is typically only used for testing.
     fn set_scale_factor(&self, factor: f32);
-    /// reload the scale_factor from the window manager and sets the internal scale_factor property accordingly
-    fn refresh_window_scale_factor(&self);
-    /// Sets the size of the window to the specified `width`. This method is typically called in response to receiving a
-    /// window resize event from the windowing system.
-    fn set_width(&self, width: f32);
-    /// Sets the size of the window to the specified `height`. This method is typically called in response to receiving a
-    /// window resize event from the windowing system.
-    fn set_height(&self, height: f32);
+
     /// Returns the geometry of the window
     fn get_geometry(&self) -> crate::graphics::Rect;
 

@@ -105,8 +105,7 @@ impl EventLoop {
                             windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
                         {
                             window.refresh_window_scale_factor();
-                            window.set_width(size.width as f32);
-                            window.set_height(size.height as f32);
+                            window.set_geometry(size.width as _, size.height as _);
                         }
                     });
                 }
@@ -122,8 +121,7 @@ impl EventLoop {
                         if let Some(Some(window)) =
                             windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
                         {
-                            window.set_width(size.width as f32);
-                            window.set_height(size.height as f32);
+                            window.set_geometry(size.width as f32, size.height as f32);
                             window.set_scale_factor(scale_factor as f32);
                         }
                     });
