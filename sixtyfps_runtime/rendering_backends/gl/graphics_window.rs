@@ -16,8 +16,8 @@ use std::rc::{Rc, Weak};
 use const_field_offset::FieldOffsets;
 use corelib::component::ComponentRc;
 use corelib::graphics::*;
-use corelib::input::{KeyEvent, KeyboardModifiers, MouseEvent, MouseEventType, TextCursorBlinker};
-use corelib::items::{ItemRc, ItemRef, ItemWeak};
+use corelib::input::{KeyboardModifiers, MouseEvent, MouseEventType};
+use corelib::items::ItemRef;
 use corelib::properties::PropertyTracker;
 use corelib::slice::Slice;
 use corelib::window::{ComponentWindow, GenericWindow};
@@ -38,10 +38,9 @@ pub struct GraphicsWindow {
     map_state: RefCell<GraphicsWindowBackendState>,
     properties: Pin<Box<WindowProperties>>,
     keyboard_modifiers: std::cell::Cell<KeyboardModifiers>,
-    cursor_blinker: RefCell<pin_weak::rc::PinWeak<TextCursorBlinker>>,
     /// Gets dirty when the layout restrictions, or some other property of the windows change
     meta_property_listener: Pin<Rc<PropertyTracker>>,
-    focus_item: std::cell::RefCell<ItemWeak>,
+
     mouse_input_state: std::cell::Cell<corelib::input::MouseInputState>,
     /// Current popup's component and position
     /// FIXME: the popup should actually be another window, not just some overlay
@@ -64,10 +63,8 @@ impl GraphicsWindow {
             window_factory: Box::new(graphics_backend_factory),
             map_state: RefCell::new(GraphicsWindowBackendState::Unmapped),
             properties: Box::pin(WindowProperties::default()),
-            cursor_blinker: Default::default(),
             keyboard_modifiers: Default::default(),
             meta_property_listener: Rc::pin(Default::default()),
-            focus_item: Default::default(),
             mouse_input_state: Default::default(),
             active_popup: Default::default(),
         })
@@ -218,9 +215,10 @@ impl GraphicsWindow {
     /// by calling [`GenericWindow::map_window`].
     fn unmap_window(self: Rc<Self>) {
         self.map_state.replace(GraphicsWindowBackendState::Unmapped);
+        /* FIXME:
         if let Some(existing_blinker) = self.cursor_blinker.borrow().upgrade() {
             existing_blinker.stop();
-        }
+        }*/
     }
 
     fn component(&self) -> ComponentRc {
@@ -235,9 +233,6 @@ impl Drop for GraphicsWindow {
             GraphicsWindowBackendState::Mapped(mw) => {
                 crate::eventloop::unregister_window(mw.backend.borrow().window().id());
             }
-        }
-        if let Some(existing_blinker) = self.cursor_blinker.borrow().upgrade() {
-            existing_blinker.stop();
         }
     }
 }
@@ -348,15 +343,18 @@ impl GraphicsWindow {
             }
         }
     }
+
+    /// Returns the currently active keyboard notifiers.
+    pub fn current_keyboard_modifiers(&self) -> KeyboardModifiers {
+        self.keyboard_modifiers.get()
+    }
+    /// Sets the currently active keyboard notifiers. This is used only for testing or directly
+    /// from the event loop implementation.
+    pub fn set_current_keyboard_modifiers(&self, state: KeyboardModifiers) {
+        self.keyboard_modifiers.set(state)
+    }
 }
 impl GenericWindow for GraphicsWindow {
-    fn process_key_input(self: Rc<Self>, event: &KeyEvent) {
-        if let Some(focus_item) = self.as_ref().focus_item.borrow().upgrade() {
-            let window = &ComponentWindow::new(self.self_weak.get().unwrap().upgrade().unwrap());
-            focus_item.borrow().as_ref().key_event(event, &window);
-        }
-    }
-
     fn request_redraw(&self) {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped => {}
@@ -412,57 +410,6 @@ impl GenericWindow for GraphicsWindow {
                     )
                 }
             }
-        }
-    }
-
-    fn set_cursor_blink_binding(&self, prop: &corelib::properties::Property<bool>) {
-        let existing_blinker = self.cursor_blinker.borrow().clone();
-
-        let blinker = existing_blinker.upgrade().unwrap_or_else(|| {
-            let new_blinker = TextCursorBlinker::new();
-            *self.cursor_blinker.borrow_mut() =
-                pin_weak::rc::PinWeak::downgrade(new_blinker.clone());
-            new_blinker
-        });
-
-        TextCursorBlinker::set_binding(blinker, prop);
-    }
-
-    /// Returns the currently active keyboard notifiers.
-    fn current_keyboard_modifiers(&self) -> KeyboardModifiers {
-        self.keyboard_modifiers.get()
-    }
-    /// Sets the currently active keyboard notifiers. This is used only for testing or directly
-    /// from the event loop implementation.
-    fn set_current_keyboard_modifiers(&self, state: KeyboardModifiers) {
-        self.keyboard_modifiers.set(state)
-    }
-
-    fn set_focus_item(self: Rc<Self>, focus_item: &ItemRc) {
-        let window = &ComponentWindow::new(self.self_weak.get().unwrap().upgrade().unwrap());
-
-        if let Some(old_focus_item) = self.as_ref().focus_item.borrow().upgrade() {
-            old_focus_item
-                .borrow()
-                .as_ref()
-                .focus_event(&corelib::input::FocusEvent::FocusOut, &window);
-        }
-
-        *self.as_ref().focus_item.borrow_mut() = focus_item.downgrade();
-
-        focus_item.borrow().as_ref().focus_event(&corelib::input::FocusEvent::FocusIn, &window);
-    }
-
-    fn set_focus(self: Rc<Self>, have_focus: bool) {
-        let window = &ComponentWindow::new(self.self_weak.get().unwrap().upgrade().unwrap());
-        let event = if have_focus {
-            corelib::input::FocusEvent::WindowReceivedFocus
-        } else {
-            corelib::input::FocusEvent::WindowLostFocus
-        };
-
-        if let Some(focus_item) = self.as_ref().focus_item.borrow().upgrade() {
-            focus_item.borrow().as_ref().focus_event(&event, &window);
         }
     }
 

@@ -583,7 +583,7 @@ pub fn process_mouse_input(
 #[derive(FieldOffsets)]
 #[repr(C)]
 #[pin]
-pub struct TextCursorBlinker {
+pub(crate) struct TextCursorBlinker {
     cursor_visible: Property<bool>,
     cursor_blink_timer: crate::timers::Timer,
 }

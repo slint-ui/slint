@@ -271,6 +271,9 @@ impl<T: IntoWeak> Weak<T> {
 
 /// This module contains functions useful for unit tests
 pub mod testing {
+    use core::cell::Cell;
+    thread_local!(static KEYBOARD_MODIFIERS : Cell<crate::re_exports::KeyboardModifiers> = Default::default());
+
     /// This trait gives access to the underyling Window of a component for the
     /// purposes of testing.
     pub trait HasWindow {
@@ -298,14 +301,10 @@ pub mod testing {
         X: vtable::HasStaticVTable<sixtyfps_corelib::component::ComponentVTable> + HasWindow,
         Component: Into<vtable::VRc<sixtyfps_corelib::component::ComponentVTable, X>> + Clone,
     >(
-        component: &Component,
+        _component: &Component,
         modifiers: crate::re_exports::KeyboardModifiers,
     ) {
-        let component = component.clone().into();
-        sixtyfps_corelib::tests::sixtyfps_set_keyboard_modifiers(
-            component.component_window(),
-            modifiers,
-        )
+        KEYBOARD_MODIFIERS.with(|x| x.set(modifiers))
     }
 
     /// Simulate a series of key press and release event
@@ -319,6 +318,7 @@ pub mod testing {
         let component = component.clone().into();
         sixtyfps_corelib::tests::sixtyfps_send_key_clicks(
             &crate::re_exports::Slice::from_slice(key_codes),
+            KEYBOARD_MODIFIERS.with(|x| x.get()),
             component.component_window(),
         )
     }
@@ -334,6 +334,7 @@ pub mod testing {
         let component = component.clone().into();
         sixtyfps_corelib::tests::send_keyboard_string_sequence(
             &super::SharedString::from(sequence),
+            KEYBOARD_MODIFIERS.with(|x| x.get()),
             component.component_window(),
         )
     }

@@ -28,7 +28,7 @@ template<typename Component>
 inline void send_keyboard_string_sequence(const Component &component,
                                           const sixtyfps::SharedString &str)
 {
-    cbindgen_private::send_keyboard_string_sequence(&str, &component.window);
+    cbindgen_private::send_keyboard_string_sequence(&str, {}, &component.window);
 }
 
 #define assert_eq(A, B)                                                                            \

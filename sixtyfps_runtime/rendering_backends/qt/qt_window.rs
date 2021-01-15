@@ -12,16 +12,15 @@ use cpp::*;
 use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
 use sixtyfps_corelib::component::{ComponentRc, ComponentWeak};
 use sixtyfps_corelib::graphics::{FontRequest, PathElement, PathEvent, Point, RenderingCache};
-use sixtyfps_corelib::input::{KeyCode, KeyEvent, MouseEventType, TextCursorBlinker};
+use sixtyfps_corelib::input::{KeyCode, KeyEvent, MouseEventType};
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
-use sixtyfps_corelib::items::ItemWeak;
 use sixtyfps_corelib::items::{self, ItemRef};
 use sixtyfps_corelib::properties::PropertyTracker;
 use sixtyfps_corelib::slice::Slice;
-use sixtyfps_corelib::window::{ComponentWindow, GenericWindow};
+use sixtyfps_corelib::window::GenericWindow;
 use sixtyfps_corelib::{PathData, Property, Resource};
 
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 use std::convert::TryFrom;
 use std::pin::Pin;
 use std::ptr::NonNull;
@@ -559,15 +558,10 @@ pub struct QtWindow {
     meta_property_listener: Pin<Rc<PropertyTracker>>,
     /// Gets dirty if something needs to be painted
     redraw_listener: Pin<Rc<PropertyTracker>>,
-    focus_item: std::cell::RefCell<ItemWeak>,
-    cursor_blinker: RefCell<pin_weak::rc::PinWeak<TextCursorBlinker>>,
 
     popup_window: RefCell<Option<(Rc<sixtyfps_corelib::window::Window>, ComponentRc)>>,
 
     cache: QtRenderingCache,
-
-    ///FIXME: this is only used for testing and should be removed
-    current_keyboard_modifiers: Cell<sixtyfps_corelib::input::KeyboardModifiers>,
 
     scale_factor: Pin<Box<Property<f32>>>,
 }
@@ -584,11 +578,8 @@ impl QtWindow {
             component: Default::default(),
             meta_property_listener: Rc::pin(Default::default()),
             redraw_listener: Rc::pin(Default::default()),
-            focus_item: Default::default(),
-            cursor_blinker: Default::default(),
             popup_window: Default::default(),
             cache: Default::default(),
-            current_keyboard_modifiers: Default::default(),
             scale_factor: Box::pin(Property::new(1.)),
         });
         let self_weak = Rc::downgrade(&rc);
@@ -745,14 +736,6 @@ impl QtWindow {
 
 #[allow(unused)]
 impl GenericWindow for QtWindow {
-    /// ### Candidate to be moved in corelib (same as GraphicsWindow::process_key_input)
-    fn process_key_input(self: Rc<Self>, event: &sixtyfps_corelib::input::KeyEvent) {
-        if let Some(focus_item) = self.as_ref().focus_item.borrow().upgrade() {
-            let window = &ComponentWindow::new(self.self_weak.get().unwrap().upgrade().unwrap());
-            focus_item.borrow().as_ref().key_event(event, &window);
-        }
-    }
-
     fn run(self: Rc<Self>) {
         let widget_ptr = self.widget_ptr();
         cpp! {unsafe [widget_ptr as "QWidget*"] {
@@ -800,69 +783,10 @@ impl GenericWindow for QtWindow {
         Default::default()
     }
 
-    /// ### Candidate to be moved in corelib
     fn free_graphics_resources<'a>(self: Rc<Self>, items: &Slice<'a, Pin<items::ItemRef<'a>>>) {
         for item in items.iter() {
             let cached_rendering_data = item.cached_rendering_data_offset();
             cached_rendering_data.release(&mut self.cache.borrow_mut());
-        }
-    }
-
-    fn set_cursor_blink_binding(&self, prop: &sixtyfps_corelib::Property<bool>) {
-        let existing_blinker = self.cursor_blinker.borrow().clone();
-
-        let blinker = existing_blinker.upgrade().unwrap_or_else(|| {
-            let new_blinker = TextCursorBlinker::new();
-            *self.cursor_blinker.borrow_mut() =
-                pin_weak::rc::PinWeak::downgrade(new_blinker.clone());
-            new_blinker
-        });
-
-        TextCursorBlinker::set_binding(blinker, prop);
-    }
-
-    /// FIXME: this is only used for testing and should not be there
-    fn current_keyboard_modifiers(&self) -> sixtyfps_corelib::input::KeyboardModifiers {
-        self.current_keyboard_modifiers.get()
-    }
-
-    fn set_current_keyboard_modifiers(
-        &self,
-        modifiers: sixtyfps_corelib::input::KeyboardModifiers,
-    ) {
-        self.current_keyboard_modifiers.set(modifiers)
-    }
-
-    /// ### Candidate to be moved in corelib as this kind of duplicate GraphicsWindow::set_focus_item
-    fn set_focus_item(self: Rc<Self>, focus_item: &items::ItemRc) {
-        let window = ComponentWindow::new(self.self_weak.get().unwrap().upgrade().unwrap());
-
-        if let Some(old_focus_item) = self.as_ref().focus_item.borrow().upgrade() {
-            old_focus_item
-                .borrow()
-                .as_ref()
-                .focus_event(&sixtyfps_corelib::input::FocusEvent::FocusOut, &window);
-        }
-
-        *self.as_ref().focus_item.borrow_mut() = focus_item.downgrade();
-
-        focus_item
-            .borrow()
-            .as_ref()
-            .focus_event(&sixtyfps_corelib::input::FocusEvent::FocusIn, &window);
-    }
-
-    /// ### Candidate to be moved in corelib as this kind of duplicate GraphicsWindow::set_focussixtyfps_
-    fn set_focus(self: Rc<Self>, have_focus: bool) {
-        let window = ComponentWindow::new(self.self_weak.get().unwrap().upgrade().unwrap());
-        let event = if have_focus {
-            sixtyfps_corelib::input::FocusEvent::WindowReceivedFocus
-        } else {
-            sixtyfps_corelib::input::FocusEvent::WindowLostFocus
-        };
-
-        if let Some(focus_item) = self.as_ref().focus_item.borrow().upgrade() {
-            focus_item.borrow().as_ref().focus_event(&event, &window);
         }
     }
 

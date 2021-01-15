@@ -240,7 +240,13 @@ impl EventLoop {
                             if let Some(ref key_event) =
                                 (input, window.current_keyboard_modifiers()).try_into().ok()
                             {
-                                window.clone().process_key_input(key_event);
+                                window
+                                    .self_weak
+                                    .get()
+                                    .unwrap()
+                                    .upgrade()
+                                    .unwrap()
+                                    .process_key_input(key_event);
                                 // FIXME: remove this, it should be based on actual changes rather than this
                                 window.request_redraw();
                             }
@@ -264,7 +270,13 @@ impl EventLoop {
                                         unicode_scalar: ch.into(),
                                         modifiers,
                                     };
-                                    window.clone().process_key_input(&key_event);
+                                    window
+                                        .self_weak
+                                        .get()
+                                        .unwrap()
+                                        .upgrade()
+                                        .unwrap()
+                                        .process_key_input(&key_event);
                                     // FIXME: remove this, it should be based on actual changes rather than this
                                     window.request_redraw();
                                 }
@@ -293,7 +305,13 @@ impl EventLoop {
                         if let Some(Some(window)) =
                             windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
                         {
-                            window.clone().set_focus(have_focus);
+                            window
+                                .self_weak
+                                .get()
+                                .unwrap()
+                                .upgrade()
+                                .unwrap()
+                                .set_focus(have_focus);
                             // FIXME: remove this, it should be based on actual changes rather than this
                             window.request_redraw();
                         }

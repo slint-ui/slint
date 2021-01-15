@@ -12,11 +12,12 @@ LICENSE END */
 
 use crate::component::{ComponentRc, ComponentWeak};
 use crate::graphics::Point;
-use crate::input::{KeyEvent, MouseEventType, MouseInputState};
-use crate::items::{ItemRc, ItemRef};
+use crate::input::{KeyEvent, MouseEventType, MouseInputState, TextCursorBlinker};
+use crate::items::{ItemRc, ItemRef, ItemWeak};
 use crate::slice::Slice;
 use core::cell::Cell;
 use core::pin::Pin;
+use std::cell::RefCell;
 use std::rc::Rc;
 
 /// This trait represents the interface that the generated code and the run-time
@@ -25,13 +26,6 @@ use std::rc::Rc;
 ///
 /// [`crate::graphics`] provides an implementation of this trait for use with [`crate::graphics::GraphicsBackend`].
 pub trait GenericWindow {
-    /// Receive a key event and pass it to the items of the component to
-    /// change their state.
-    ///
-    /// Arguments:
-    /// * `event`: The key event received by the windowing system.
-    /// * `component`: The SixtyFPS compiled component that provides the tree of items.
-    fn process_key_input(self: Rc<Self>, event: &KeyEvent);
     /// Spins an event loop and renders the items of the provided component in this window.
     fn run(self: Rc<Self>);
     /// Issue a request to the windowing system to re-render the contents of the window. This is typically an asynchronous
@@ -55,21 +49,6 @@ pub trait GenericWindow {
     /// This function is called by the generated code when a component and therefore its tree of items are destroyed. The
     /// implementation typically uses this to free the underlying graphics resources cached via [`crate::graphics::RenderingCache`].
     fn free_graphics_resources<'a>(self: Rc<Self>, items: &Slice<'a, Pin<ItemRef<'a>>>);
-    /// Installs a binding on the specified property that's toggled whenever the text cursor is supposed to be visible or not.
-    fn set_cursor_blink_binding(&self, prop: &crate::properties::Property<bool>);
-
-    /// Returns the currently active keyboard notifiers.
-    fn current_keyboard_modifiers(&self) -> crate::input::KeyboardModifiers;
-    /// Sets the currently active keyboard notifiers. This is used only for testing or directly
-    /// from the event loop implementation.
-    fn set_current_keyboard_modifiers(&self, modifiers: crate::input::KeyboardModifiers);
-
-    /// Sets the focus to the item pointed to by item_ptr. This will remove the focus from any
-    /// currently focused item.
-    fn set_focus_item(self: Rc<Self>, focus_item: &ItemRc);
-    /// Sets the focus on the window to true or false, depending on the have_focus argument.
-    /// This results in WindowFocusReceived and WindowFocusLost events.
-    fn set_focus(self: Rc<Self>, have_focus: bool);
 
     /// Show a popup at the given position
     fn show_popup(&self, popup: &ComponentRc, position: Point);
@@ -91,8 +70,19 @@ pub trait GenericWindow {
 pub struct Window {
     /// FIXME! use Box instead;
     platform_window: Rc<dyn GenericWindow>,
-    component: std::cell::RefCell<ComponentWeak>,
+    component: RefCell<ComponentWeak>,
     mouse_input_state: Cell<MouseInputState>,
+
+    focus_item: RefCell<ItemWeak>,
+    cursor_blinker: RefCell<pin_weak::rc::PinWeak<crate::input::TextCursorBlinker>>,
+}
+
+impl Drop for Window {
+    fn drop(&mut self) {
+        if let Some(existing_blinker) = self.cursor_blinker.borrow().upgrade() {
+            existing_blinker.stop();
+        }
+    }
 }
 
 impl Window {
@@ -102,6 +92,8 @@ impl Window {
             platform_window,
             component: Default::default(),
             mouse_input_state: Default::default(),
+            focus_item: Default::default(),
+            cursor_blinker: Default::default(),
         }
     }
 
@@ -141,23 +133,56 @@ impl Window {
     /// * `event`: The key event received by the windowing system.
     /// * `component`: The SixtyFPS compiled component that provides the tree of items.
     pub fn process_key_input(self: Rc<Self>, event: &KeyEvent) {
-        self.platform_window.clone().process_key_input(event)
+        if let Some(focus_item) = self.focus_item.borrow().upgrade() {
+            let window = &ComponentWindow::new(self.clone());
+            focus_item.borrow().as_ref().key_event(event, &window);
+        }
     }
 
     /// Installs a binding on the specified property that's toggled whenever the text cursor is supposed to be visible or not.
-    pub fn set_cursor_blink_binding(&self, prop: &crate::properties::Property<bool>) {
-        self.platform_window.clone().set_cursor_blink_binding(prop)
+    pub fn set_cursor_blink_binding(&self, prop: &crate::Property<bool>) {
+        let existing_blinker = self.cursor_blinker.borrow().clone();
+
+        let blinker = existing_blinker.upgrade().unwrap_or_else(|| {
+            let new_blinker = TextCursorBlinker::new();
+            *self.cursor_blinker.borrow_mut() =
+                pin_weak::rc::PinWeak::downgrade(new_blinker.clone());
+            new_blinker
+        });
+
+        TextCursorBlinker::set_binding(blinker, prop);
     }
 
     /// Sets the focus to the item pointed to by item_ptr. This will remove the focus from any
     /// currently focused item.
     pub fn set_focus_item(self: Rc<Self>, focus_item: &ItemRc) {
-        self.platform_window.clone().set_focus_item(focus_item)
+        let window = ComponentWindow::new(self.clone());
+
+        if let Some(old_focus_item) = self.as_ref().focus_item.borrow().upgrade() {
+            old_focus_item
+                .borrow()
+                .as_ref()
+                .focus_event(&crate::input::FocusEvent::FocusOut, &window);
+        }
+
+        *self.as_ref().focus_item.borrow_mut() = focus_item.downgrade();
+
+        focus_item.borrow().as_ref().focus_event(&crate::input::FocusEvent::FocusIn, &window);
     }
+
     /// Sets the focus on the window to true or false, depending on the have_focus argument.
     /// This results in WindowFocusReceived and WindowFocusLost events.
     pub fn set_focus(self: Rc<Self>, have_focus: bool) {
-        self.platform_window.clone().set_focus(have_focus)
+        let window = ComponentWindow::new(self.clone());
+        let event = if have_focus {
+            crate::input::FocusEvent::WindowReceivedFocus
+        } else {
+            crate::input::FocusEvent::WindowLostFocus
+        };
+
+        if let Some(focus_item) = self.as_ref().focus_item.borrow().upgrade() {
+            focus_item.borrow().as_ref().focus_event(&event, &window);
+        }
     }
 }
 
@@ -204,31 +229,17 @@ impl ComponentWindow {
 
     /// Installs a binding on the specified property that's toggled whenever the text cursor is supposed to be visible or not.
     pub(crate) fn set_cursor_blink_binding(&self, prop: &crate::properties::Property<bool>) {
-        self.0.platform_window.clone().set_cursor_blink_binding(prop)
-    }
-
-    /// Sets the currently active keyboard notifiers. This is used only for testing or directly
-    /// from the event loop implementation.
-    pub(crate) fn set_current_keyboard_modifiers(
-        &self,
-        modifiers: crate::input::KeyboardModifiers,
-    ) {
-        self.0.clone().set_current_keyboard_modifiers(modifiers)
-    }
-
-    /// Returns the currently active keyboard notifiers.
-    pub(crate) fn current_keyboard_modifiers(&self) -> crate::input::KeyboardModifiers {
-        self.0.platform_window.clone().current_keyboard_modifiers()
+        self.0.clone().set_cursor_blink_binding(prop)
     }
 
     pub(crate) fn process_key_input(&self, event: &KeyEvent) {
-        self.0.platform_window.clone().process_key_input(event)
+        self.0.clone().process_key_input(event)
     }
 
     /// Clears the focus on any previously focused item and makes the provided
     /// item the focus item, in order to receive future key events.
     pub fn set_focus_item(&self, focus_item: &ItemRc) {
-        self.0.platform_window.clone().set_focus_item(focus_item)
+        self.0.clone().set_focus_item(focus_item)
     }
 
     /// Associates this window with the specified component, for future event handling, etc.

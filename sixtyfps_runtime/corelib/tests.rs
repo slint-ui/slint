@@ -60,30 +60,18 @@ pub extern "C" fn sixtyfps_send_mouse_click(
     );
 }
 
-/// Simulate a change in keyboard modifiers pressed.
-#[no_mangle]
-pub extern "C" fn sixtyfps_set_keyboard_modifiers(
-    window: &ComponentWindow,
-    modifiers: crate::input::KeyboardModifiers,
-) {
-    window.set_current_keyboard_modifiers(modifiers)
-}
-
 /// Simulate a key down event.
 #[no_mangle]
 pub extern "C" fn sixtyfps_send_key_clicks(
     key_codes: &crate::slice::Slice<crate::input::KeyCode>,
+    modifiers: crate::input::KeyboardModifiers,
     window: &ComponentWindow,
 ) {
     for key_code in key_codes.iter() {
-        window.process_key_input(&crate::input::KeyEvent::KeyPressed {
-            code: *key_code,
-            modifiers: window.current_keyboard_modifiers(),
-        });
-        window.process_key_input(&crate::input::KeyEvent::KeyReleased {
-            code: *key_code,
-            modifiers: window.current_keyboard_modifiers(),
-        });
+        window
+            .process_key_input(&crate::input::KeyEvent::KeyPressed { code: *key_code, modifiers });
+        window
+            .process_key_input(&crate::input::KeyEvent::KeyReleased { code: *key_code, modifiers });
     }
 }
 
@@ -91,31 +79,28 @@ pub extern "C" fn sixtyfps_send_key_clicks(
 #[no_mangle]
 pub extern "C" fn send_keyboard_string_sequence(
     sequence: &crate::SharedString,
+    modifiers: crate::input::KeyboardModifiers,
     window: &ComponentWindow,
 ) {
     use std::convert::TryInto;
 
     let key_down = |maybe_code: &Option<crate::input::KeyCode>| {
         maybe_code.clone().map(|code| {
-            window.process_key_input(&crate::input::KeyEvent::KeyPressed {
-                code: code,
-                modifiers: window.current_keyboard_modifiers(),
-            });
+            window.process_key_input(&crate::input::KeyEvent::KeyPressed { code: code, modifiers });
         });
     };
 
     let key_up = |maybe_code: &Option<crate::input::KeyCode>| {
         maybe_code.clone().map(|code| {
-            window.process_key_input(&crate::input::KeyEvent::KeyReleased {
-                code: code,
-                modifiers: window.current_keyboard_modifiers(),
-            });
+            window
+                .process_key_input(&crate::input::KeyEvent::KeyReleased { code: code, modifiers });
         });
     };
 
     for ch in sequence.chars() {
+        let mut modifiers = modifiers;
         let maybe_key_code = if ch.is_ascii_uppercase() {
-            window.set_current_keyboard_modifiers(crate::input::SHIFT_MODIFIER.into());
+            modifiers |= crate::input::SHIFT_MODIFIER;
             ch.to_ascii_lowercase().try_into()
         } else {
             ch.try_into()
@@ -126,11 +111,9 @@ pub extern "C" fn send_keyboard_string_sequence(
 
         window.process_key_input(&crate::input::KeyEvent::CharacterInput {
             unicode_scalar: ch.into(),
-            modifiers: window.current_keyboard_modifiers(),
+            modifiers,
         });
 
         key_up(&maybe_key_code);
-
-        window.set_current_keyboard_modifiers(crate::input::NO_MODIFIER.into());
     }
 }
