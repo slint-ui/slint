@@ -28,8 +28,8 @@ pub struct LoadedDocuments {
     currently_loading: HashSet<PathBuf>,
 }
 
-struct OpenFile {
-    path: PathBuf,
+pub(crate) struct OpenFile {
+    pub(crate) path: PathBuf,
     source_code_future:
         core::pin::Pin<Box<dyn std::future::Future<Output = std::io::Result<String>>>>,
 }
@@ -286,7 +286,7 @@ impl<'a> TypeLoader<'a> {
             &mut dependency_diagnostics,
             &dependency_registry,
         );
-        crate::passes::resolving::resolve_expressions(&doc, build_diagnostics);
+        crate::passes::resolving::resolve_expressions(&doc, &self, build_diagnostics);
 
         // Add diagnostics regardless whether they're empty or not. This is used by the syntax_tests to
         // also verify that imported files have no errors.
@@ -351,7 +351,7 @@ impl<'a> TypeLoader<'a> {
         })
     }
 
-    fn import_file(
+    pub(crate) fn import_file(
         &self,
         referencing_file: Option<&std::path::Path>,
         file_to_import: &str,

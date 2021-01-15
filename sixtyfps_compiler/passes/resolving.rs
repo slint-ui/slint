@@ -35,6 +35,7 @@ fn resolve_expression(
     property_type: Type,
     scope: &ComponentScope,
     type_register: &TypeRegister,
+    type_loader: &crate::typeloader::TypeLoader,
     diag: &mut BuildDiagnostics,
 ) {
     if let Expression::Uncompiled(node) = expr {
@@ -45,6 +46,7 @@ fn resolve_expression(
             diag,
             arguments: vec![],
             type_register,
+            type_loader: Some(type_loader),
         };
 
         let new_expr = match node.kind() {
@@ -72,7 +74,11 @@ fn resolve_expression(
     }
 }
 
-pub fn resolve_expressions(doc: &Document, diag: &mut BuildDiagnostics) {
+pub fn resolve_expressions(
+    doc: &Document,
+    type_loader: &crate::typeloader::TypeLoader,
+    diag: &mut BuildDiagnostics,
+) {
     for component in doc.inner_components.iter() {
         let scope = ComponentScope(vec![component.root_element.clone()]);
 
@@ -93,6 +99,7 @@ pub fn resolve_expressions(doc: &Document, diag: &mut BuildDiagnostics) {
                         property_type(),
                         scope,
                         &doc.local_registry,
+                        type_loader,
                         diag,
                     );
                     is_repeated = false;
@@ -103,6 +110,7 @@ pub fn resolve_expressions(doc: &Document, diag: &mut BuildDiagnostics) {
                         property_type(),
                         &new_scope,
                         &doc.local_registry,
+                        type_loader,
                         diag,
                     )
                 }
@@ -133,6 +141,10 @@ pub struct LookupCtx<'a> {
 
     /// The type register in which to look for Globals
     type_register: &'a TypeRegister,
+
+    /// The type loader instance, which may be used to resolve relative path references
+    /// for example for img!
+    type_loader: Option<&'a crate::typeloader::TypeLoader<'a>>,
 }
 
 impl<'a> LookupCtx<'a> {
@@ -145,6 +157,7 @@ impl<'a> LookupCtx<'a> {
             diag,
             arguments: Default::default(),
             type_register,
+            type_loader: None,
         }
     }
 }
@@ -376,18 +389,17 @@ impl Expression {
                     if path.is_absolute() || s.starts_with("http://") || s.starts_with("https://") {
                         s
                     } else {
-                        let path = node
-                            .source_file
-                            .unwrap_or_default()
-                            .parent()
-                            .map(|b| b.join(path))
-                            .unwrap_or_else(|| path.to_owned());
-                        if path.is_absolute() {
-                            path.to_string_lossy().to_string()
+                        if let Some(resolved_file) = ctx.type_loader.and_then(|loader| {
+                            loader.import_file(
+                                node.source_file.as_ref().map(|path_rc| path_rc.as_path()),
+                                &s,
+                            )
+                        }) {
+                            resolved_file.path.to_string_lossy().to_string()
                         } else {
                             std::env::current_dir()
                                 .map(|b| b.join(&path))
-                                .unwrap_or(path)
+                                .unwrap_or_else(|_| path.into())
                                 .to_string_lossy()
                                 .to_string()
                         }

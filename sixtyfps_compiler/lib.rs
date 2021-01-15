@@ -158,7 +158,7 @@ pub async fn run_passes(
     mut type_loader: &mut typeloader::TypeLoader<'_>,
     compiler_config: &CompilerConfiguration,
 ) {
-    passes::resolving::resolve_expressions(doc, diag);
+    passes::resolving::resolve_expressions(doc, &type_loader, diag);
     passes::inlining::inline(doc);
     passes::check_expressions::check_expressions(doc, diag);
     passes::compile_paths::compile_paths(&doc.root_component, &doc.local_registry, diag);
