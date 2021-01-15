@@ -1451,7 +1451,6 @@ fn compile_expression(
                     let item = item.upgrade().unwrap();
                     let item = item.borrow();
                     let native_item = item.base_type.as_native();
-                    //format!("self->window.set_focus_item(self->self_weak.lock()->into_dyn(), {});", focus_item.item_index.get().unwrap())
                     format!("sixtyfps::private_api::{vt}.implicit_size({{&sixtyfps::private_api::{vt}, const_cast<sixtyfps::{ty}*>(&self->{id})}}, &window)",
                         vt = native_item.vtable_symbol,
                         ty = native_item.class_name,
