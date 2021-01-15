@@ -10,7 +10,7 @@ LICENSE END */
 
 use cpp::*;
 use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
-use sixtyfps_corelib::component::{ComponentRc, ComponentWeak};
+use sixtyfps_corelib::component::ComponentRc;
 use sixtyfps_corelib::graphics::{FontRequest, PathElement, PathEvent, Point, RenderingCache};
 use sixtyfps_corelib::input::{KeyCode, KeyEvent, MouseEventType};
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
@@ -553,7 +553,7 @@ cpp_class!(unsafe struct QWidgetPtr as "std::unique_ptr<QWidget>");
 pub struct QtWindow {
     widget_ptr: QWidgetPtr,
     pub(crate) self_weak: once_cell::unsync::OnceCell<Weak<sixtyfps_corelib::window::Window>>,
-    component: RefCell<ComponentWeak>,
+
     /// Gets dirty when the layout restrictions, or some other property of the windows change
     meta_property_listener: Pin<Rc<PropertyTracker>>,
     /// Gets dirty if something needs to be painted
@@ -575,7 +575,6 @@ impl QtWindow {
         let rc = Rc::new(QtWindow {
             widget_ptr,
             self_weak: Default::default(),
-            component: Default::default(),
             meta_property_listener: Rc::pin(Default::default()),
             redraw_listener: Rc::pin(Default::default()),
             popup_window: Default::default(),
@@ -601,7 +600,7 @@ impl QtWindow {
     fn paint_event(&self, painter: &mut QPainter) {
         sixtyfps_corelib::animations::update_animations();
 
-        let component_rc = self.component.borrow().upgrade().unwrap();
+        let component_rc = self.self_weak.get().unwrap().upgrade().unwrap().component();
         let component = ComponentRc::borrow_pin(&component_rc);
 
         if self.meta_property_listener.as_ref().is_dirty() {
@@ -643,8 +642,8 @@ impl QtWindow {
     }
 
     fn resize_event(&self, size: qttypes::QSize) {
-        let component = self.component.borrow().upgrade().unwrap();
-        let component = ComponentRc::borrow_pin(&component);
+        let component_rc = self.self_weak.get().unwrap().upgrade().unwrap().component();
+        let component = ComponentRc::borrow_pin(&component_rc);
         let root_item = component.as_ref().get_item_ref(0);
         if let Some(window_item) = ItemRef::downcast_pin::<items::Window>(root_item) {
             window_item.width.set(size.width as _);
