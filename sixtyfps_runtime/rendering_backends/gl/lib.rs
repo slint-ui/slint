@@ -358,7 +358,7 @@ impl GLRendererData {
     fn load_cached_item_image(
         &self,
         item_cache: &CachedRenderingData,
-        source_property_getter: impl Fn() -> Resource,
+        source_property_getter: impl FnOnce() -> Resource,
     ) -> Option<Rc<CachedImage>> {
         let mut cache = self.item_graphics_cache.borrow_mut();
         item_cache
@@ -590,7 +590,7 @@ impl GLRenderer {
         source: Resource,
     ) -> sixtyfps_corelib::graphics::Size {
         self.shared_data
-            .load_cached_item_image(item_graphics_cache, || source.clone())
+            .load_cached_item_image(item_graphics_cache, || source)
             .map(|image| image.size())
             .unwrap_or_default()
     }
