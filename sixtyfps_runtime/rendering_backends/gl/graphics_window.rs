@@ -451,7 +451,7 @@ impl PlatformWindow for GraphicsWindow {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped => Default::default(),
             GraphicsWindowBackendState::Mapped(window) => {
-                window.backend.borrow_mut().image_size(item_graphics_cache, source)
+                window.backend.borrow().image_size(item_graphics_cache, source)
                     * self.scale_factor()
             }
         }
