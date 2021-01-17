@@ -18,6 +18,7 @@ use std::os::raw::c_char;
 
 cpp! {{
     #include <QtGui/QImage>
+    #include <QtGui/QPixmap>
 }}
 
 cpp_class!(
@@ -34,6 +35,16 @@ impl QImage {
     }
     pub fn size(&self) -> QSize {
         cpp!(unsafe [self as "const QImage*"] -> QSize as "QSize" { return self->size(); })
+    }
+}
+
+cpp_class!(
+    pub unsafe struct QPixmap as "QPixmap"
+);
+
+impl QPixmap {
+    pub fn size(&self) -> QSize {
+        cpp!(unsafe [self as "const QPixmap*"] -> QSize as "QSize" { return self->size(); })
     }
 }
 

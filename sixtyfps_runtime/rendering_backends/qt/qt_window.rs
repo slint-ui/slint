@@ -208,7 +208,7 @@ macro_rules! get_geometry {
 
 #[derive(Clone)]
 enum QtRenderingCacheItem {
-    Image(qttypes::QImage),
+    Pixmap(qttypes::QPixmap),
     Invalid,
 }
 
@@ -484,15 +484,15 @@ impl ItemRenderer for QtItemRenderer<'_> {
     }
 }
 
-fn load_image_from_resource(resource: Resource) -> Option<qttypes::QImage> {
+fn load_image_from_resource(resource: Resource) -> Option<qttypes::QPixmap> {
     let (is_path, data) = match resource {
         Resource::None => return None,
         Resource::AbsoluteFilePath(path) => (true, qttypes::QByteArray::from(path.as_str())),
         Resource::EmbeddedData(data) => (false, qttypes::QByteArray::from(data.as_slice())),
         Resource::EmbeddedRgbaImage { .. } => todo!(),
     };
-    Some(cpp! { unsafe [data as "QByteArray", is_path as "bool"] -> qttypes::QImage as "QImage" {
-        QImage img;
+    Some(cpp! { unsafe [data as "QByteArray", is_path as "bool"] -> qttypes::QPixmap as "QPixmap" {
+        QPixmap img;
         is_path ? img.load(QString::fromUtf8(data)) : img.loadFromData(data);
         return img;
     }})
@@ -509,13 +509,15 @@ impl QtItemRenderer<'_> {
     ) {
         let cached = item_cache.ensure_up_to_date(&mut self.cache.borrow_mut(), || {
             load_image_from_resource(source_property.get())
-                .map_or(QtRenderingCacheItem::Invalid, |img| QtRenderingCacheItem::Image(img))
+                .map_or(QtRenderingCacheItem::Invalid, |pixmap| {
+                    QtRenderingCacheItem::Pixmap(pixmap)
+                })
         });
-        let img: &qttypes::QImage = match &cached {
-            QtRenderingCacheItem::Image(img) => img,
+        let pixmap: &qttypes::QPixmap = match &cached {
+            QtRenderingCacheItem::Pixmap(pixmap) => pixmap,
             _ => return,
         };
-        let image_size = img.size();
+        let image_size = pixmap.size();
         let mut source_rect = source_rect.unwrap_or_else(|| qttypes::QRectF {
             x: 0.,
             y: 0.,
@@ -540,8 +542,8 @@ impl QtItemRenderer<'_> {
             }
         };
         let painter: &mut QPainter = &mut *self.painter;
-        cpp! { unsafe [painter as "QPainter*", img as "QImage*", source_rect as "QRectF", dest_rect as "QRectF"] {
-            painter->drawImage(dest_rect, *img, source_rect);
+        cpp! { unsafe [painter as "QPainter*", pixmap as "QPixmap*", source_rect as "QRectF", dest_rect as "QRectF"] {
+            painter->drawPixmap(dest_rect, *pixmap, source_rect);
         }};
     }
 }
