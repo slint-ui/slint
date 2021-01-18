@@ -360,6 +360,7 @@ impl Expression {
             .or_else(|| node.ObjectLiteral().map(|n| Self::from_object_literal_node(n, ctx)))
             .or_else(|| node.Array().map(|n| Self::from_array_node(n, ctx)))
             .or_else(|| node.CodeBlock().map(|n| Self::from_codeblock_node(n, ctx)))
+            .or_else(|| node.StringTemplate().map(|n| Self::from_string_template_node(n, ctx)))
             .unwrap_or(Self::Invalid)
     }
 
@@ -875,6 +876,28 @@ impl Expression {
         Expression::Array { element_ty, values }
     }
 
+    fn from_string_template_node(
+        node: syntax_nodes::StringTemplate,
+        ctx: &mut LookupCtx,
+    ) -> Expression {
+        let mut exprs = node.Expression().map(|e| {
+            Expression::from_expression_node(e.clone(), ctx).maybe_convert_to(
+                Type::String,
+                &e,
+                ctx.diag,
+            )
+        });
+        let mut result = exprs.next().unwrap_or_default();
+        while let Some(x) = exprs.next() {
+            result = Expression::BinaryExpression {
+                lhs: Box::new(std::mem::take(&mut result)),
+                rhs: Box::new(x),
+                op: '+',
+            }
+        }
+        result
+    }
+
     /// This function is used to find a type that's suitable for casting each instance of a bunch of expressions
     /// to a type that captures most aspects. For example for an array of object literals the result is a merge of
     /// all seen fields.
@@ -1165,10 +1188,8 @@ fn test_parse_color_literal() {
 }
 
 fn unescape_string(string: &str) -> Option<String> {
-    if !string.starts_with('"') || !string.ends_with('"') {
-        return None;
-    }
-    let string = &string[1..(string.len() - 1)];
+    let string = string.strip_prefix('"').or_else(|| string.strip_prefix('}'))?;
+    let string = string.strip_suffix('"').or_else(|| string.strip_suffix("\\{"))?;
     if !string.contains('\\') {
         return Some(string.into());
     }

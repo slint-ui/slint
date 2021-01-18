@@ -30,9 +30,20 @@ fn main() -> std::io::Result<()> {
         if module_name.starts_with(|c: char| !c.is_ascii_alphabetic()) {
             module_name.insert_str(0, "_");
         }
+        let source = std::fs::read_to_string(&testcase.absolute_path)?;
+
+        if source.contains("\\{") {
+            // Unfortunately, \{ is not valid in a rust string so it cannot be used in a sixtyfps! macro
+            write!(
+                generated_file,
+                "mod r#{0} {{ #[test] #[ignore] fn ignored_because_string_template() {{}} }}",
+                module_name
+            )?;
+            continue;
+        }
+
         write!(generated_file, "#[path=\"{0}.rs\"] mod r#{0};\n", module_name)?;
 
-        let source = std::fs::read_to_string(&testcase.absolute_path)?;
         let mut output = std::fs::File::create(
             Path::new(&std::env::var_os("OUT_DIR").unwrap()).join(format!("{}.rs", module_name)),
         )?;

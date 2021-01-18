@@ -65,7 +65,13 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) 
                 parse_qualified_name(&mut *p);
             }
         }
-        SyntaxKind::StringLiteral => p.consume(),
+        SyntaxKind::StringLiteral => {
+            if p.nth(0).as_str().ends_with('{') {
+                parse_template_string(&mut *p)
+            } else {
+                p.consume()
+            }
+        }
         SyntaxKind::NumberLiteral => p.consume(),
         SyntaxKind::ColorLiteral => p.consume(),
         SyntaxKind::LParent => {
@@ -266,4 +272,31 @@ fn parse_function_arguments(p: &mut impl Parser) {
         }
     }
     p.expect(SyntaxKind::RParent);
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,StringTemplate
+/// "foo\{bar}"
+/// "foo\{4 + 5}foo"
+/// ```
+fn parse_template_string(p: &mut impl Parser) {
+    let mut p = p.start_node(SyntaxKind::StringTemplate);
+    debug_assert!(p.nth(0).as_str().ends_with("\\{"));
+    {
+        let mut p = p.start_node(SyntaxKind::Expression);
+        p.consume();
+    }
+    loop {
+        parse_expression(&mut *p);
+        let peek = p.peek();
+        if peek.kind != SyntaxKind::StringLiteral || !peek.as_str().starts_with('}') {
+            p.error("Error while parsing string template")
+        }
+        let mut p = p.start_node(SyntaxKind::Expression);
+        let cont = peek.as_str().ends_with('{');
+        p.consume();
+        if !cont {
+            break;
+        }
+    }
 }

@@ -393,10 +393,11 @@ Some character can be escaped with slashes (`\`)
 | `\"` | `"` |
 | `\\` | `\` |
 | `\n` | line return |
+| `\{<expression>}` | the content of the expression |
 
 Anything else after a `\` is an error.
 
-(TODO: support using stuff like `` "hello \{foo}" ``)
+
 (TODO: translations: `tr!"Hello"`)
 
 

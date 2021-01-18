@@ -670,9 +670,15 @@ fn parse_import_specifier(p: &mut impl Parser) -> bool {
     if !p.expect(SyntaxKind::Identifier) {
         return false;
     }
-    if !p.expect(SyntaxKind::StringLiteral) {
+    let peek = p.peek();
+    if peek.kind != SyntaxKind::StringLiteral
+        || !peek.as_str().starts_with('"')
+        || !peek.as_str().ends_with('"')
+    {
+        p.error("Expected plain string literal");
         return false;
     }
+    p.consume();
     p.expect(SyntaxKind::Semicolon)
 }
 
