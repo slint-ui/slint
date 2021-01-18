@@ -807,9 +807,9 @@ impl PlatformWindow for QtWindow {
     fn image_size(
         &self,
         _item_graphics_cache: &sixtyfps_corelib::item_rendering::CachedRenderingData,
-        source: Resource,
+        source: Pin<&sixtyfps_corelib::properties::Property<Resource>>,
     ) -> sixtyfps_corelib::graphics::Size {
-        load_image_from_resource(source)
+        load_image_from_resource(source.get())
             .map(|img| {
                 let qsize = img.size();
                 euclid::size2(qsize.width as f32, qsize.height as f32)

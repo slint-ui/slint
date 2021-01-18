@@ -587,10 +587,10 @@ impl GLRenderer {
     fn image_size(
         &self,
         item_graphics_cache: &sixtyfps_corelib::item_rendering::CachedRenderingData,
-        source: Resource,
+        source: core::pin::Pin<&sixtyfps_corelib::properties::Property<Resource>>,
     ) -> sixtyfps_corelib::graphics::Size {
         self.shared_data
-            .load_cached_item_image(item_graphics_cache, || source)
+            .load_cached_item_image(item_graphics_cache, || source.get())
             .map(|image| image.size())
             .unwrap_or_default()
     }

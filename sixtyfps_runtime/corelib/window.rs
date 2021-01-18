@@ -63,7 +63,7 @@ pub trait PlatformWindow {
     fn image_size(
         &self,
         item_graphics_cache: &crate::item_rendering::CachedRenderingData,
-        source: Resource,
+        source: Pin<&crate::properties::Property<Resource>>,
     ) -> crate::graphics::Size;
 }
 
