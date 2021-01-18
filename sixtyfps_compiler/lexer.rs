@@ -90,9 +90,24 @@ pub fn lex_string(text: &str) -> usize {
     if !text.starts_with('"') {
         return 0;
     }
-    let end = text[1..].find('"').unwrap_or(0) + 2;
-    assert!(!text[..end].contains('\\'), "escape code not yet supported");
-    end
+    let mut end = 1; // skip the '"'
+    loop {
+        let stop = match text[end..].find(&['"', '\\'][..]) {
+            Some(stop) => end + stop,
+            // FIXME: report an error for unterminated string
+            None => return 0,
+        };
+        match text.as_bytes()[stop] {
+            b'"' => {
+                assert!(!text[..stop].contains('\n'), "new lines in string not yet supported");
+                return stop + 1;
+            }
+            b'\\' => {
+                end = stop + 2;
+            }
+            _ => unreachable!(),
+        }
+    }
 }
 
 pub fn lex_number(text: &str) -> usize {
@@ -241,6 +256,15 @@ fn basic_lexer_test() {
             (crate::parser::SyntaxKind::Whitespace, "\r\n"),
             (crate::parser::SyntaxKind::Identifier, "c"),
             (crate::parser::SyntaxKind::Comment, "//z"),
+        ],
+    );
+    compare(r#""x""#, &[(crate::parser::SyntaxKind::StringLiteral, r#""x""#)]);
+    compare(
+        r#"a"\"\\"x"#,
+        &[
+            (crate::parser::SyntaxKind::Identifier, "a"),
+            (crate::parser::SyntaxKind::StringLiteral, r#""\"\\""#),
+            (crate::parser::SyntaxKind::Identifier, "x"),
         ],
     );
 }

@@ -10,6 +10,7 @@ LICENSE END */
 TestCase := Rectangle {
     property<string> p1: "hello";
     property<string> p2: "fox:🦊";
+    property<string> p3: "with\"quote\\\"";
     property<bool> e1: p2 == "fox:🦊";
     property<bool> e2: p2 == "fox:🦍";
 }
@@ -22,6 +23,7 @@ auto handle = TestCase::create();
 const TestCase &instance = *handle;
 assert_eq(instance.get_p1(), "hello");
 assert_eq(instance.get_p2(), u8"fox:🦊");
+assert_eq(instance.get_p3(), "with\"quote\\\"");
 assert(instance.get_e1());
 assert(!instance.get_e2());
 ```
@@ -30,6 +32,7 @@ assert(!instance.get_e2());
 let instance = TestCase::new();
 assert_eq!(instance.get_p1(), "hello");
 assert_eq!(instance.get_p2(), "fox:🦊");
+assert_eq!(instance.get_p3(), "with\"quote\\\"");
 assert!(instance.get_e1());
 assert!(!instance.get_e2());
 ```
@@ -38,6 +41,7 @@ assert!(!instance.get_e2());
 var instance = new sixtyfps.TestCase({});
 assert.equal(instance.p1, "hello");
 assert.equal(instance.p2, "fox:🦊");
+assert.equal(instance.p3, "with\"quote\\\"");
 assert(instance.e1);
 assert(!instance.e2);
 ```

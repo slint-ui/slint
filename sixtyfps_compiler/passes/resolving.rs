@@ -1169,8 +1169,47 @@ fn unescape_string(string: &str) -> Option<String> {
         return None;
     }
     let string = &string[1..(string.len() - 1)];
-    // TODO: remove slashes
-    Some(string.into())
+    if !string.contains('\\') {
+        return Some(string.into());
+    }
+    let mut result = String::with_capacity(string.len());
+    let mut pos = 0;
+    loop {
+        let stop = match string[pos..].find('\\') {
+            Some(stop) => pos + stop,
+            None => {
+                result += &string[pos..];
+                return Some(result);
+            }
+        };
+        if stop + 1 >= string.len() {
+            return None;
+        }
+        result += &string[pos..stop];
+        pos = stop + 2;
+        match string.as_bytes()[stop + 1] {
+            b'"' => result += "\"",
+            b'\\' => result += "\\",
+            b'n' => result += "\n",
+            _ => return None,
+        }
+    }
+}
+
+#[test]
+fn test_unsecape_string() {
+    assert_eq!(unescape_string(r#""foo_bar""#), Some("foo_bar".into()));
+    assert_eq!(unescape_string(r#""foo\"bar""#), Some("foo\"bar".into()));
+    assert_eq!(unescape_string(r#""foo\\\"bar""#), Some("foo\\\"bar".into()));
+    assert_eq!(unescape_string(r#""fo\na\\r""#), Some("fo\na\\r".into()));
+    assert_eq!(unescape_string(r#""fo\xa""#), None);
+    assert_eq!(unescape_string(r#""fooo\""#), None);
+    assert_eq!(unescape_string(r#""f\n\n\nf""#), Some("f\n\n\nf".into()));
+    assert_eq!(unescape_string(r#""music\♪xx""#), None);
+    assert_eq!(unescape_string(r#""music\"♪\"🎝""#), Some("music\"♪\"🎝".into()));
+    assert_eq!(unescape_string(r#""foo_bar"#), None);
+    assert_eq!(unescape_string(r#""foo_bar\"#), None);
+    assert_eq!(unescape_string(r#"foo_bar""#), None);
 }
 
 fn parse_number_literal(s: String) -> Result<Expression, String> {

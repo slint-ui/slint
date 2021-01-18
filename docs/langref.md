@@ -385,7 +385,18 @@ Example := Rectangle {
 ### Strings
 
 Strings can be used with surrounding quotes: `"foo"`.
-(TODO: escaping, support using stuff like `` `hello {foo}` ``)
+
+Some character can be escaped with slashes (`\`)
+
+| Escape | Result |
+| --- | --- |
+| `\"` | `"` |
+| `\\` | `\` |
+| `\n` | line return |
+
+Anything else after a `\` is an error.
+
+(TODO: support using stuff like `` "hello \{foo}" ``)
 (TODO: translations: `tr!"Hello"`)
 
 

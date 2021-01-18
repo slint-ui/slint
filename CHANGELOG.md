@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
  - title property to the Window element
  - color property to the Window element
  - maximum/minimum properties to the SpinBox
+ - strings can contain escape code
 
 
 ## [0.0.4] - 2020-12-04
