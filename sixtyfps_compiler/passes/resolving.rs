@@ -389,20 +389,22 @@ impl Expression {
                     if path.is_absolute() || s.starts_with("http://") || s.starts_with("https://") {
                         s
                     } else {
-                        if let Some(resolved_file) = ctx.type_loader.and_then(|loader| {
-                            loader.import_file(
-                                node.source_file.as_ref().map(|path_rc| path_rc.as_path()),
-                                &s,
-                            )
-                        }) {
-                            resolved_file.path.to_string_lossy().to_string()
-                        } else {
-                            std::env::current_dir()
-                                .map(|b| b.join(&path))
-                                .unwrap_or_else(|_| path.into())
-                                .to_string_lossy()
-                                .to_string()
-                        }
+                        ctx.type_loader
+                            .and_then(|loader| {
+                                loader
+                                    .import_file(
+                                        node.source_file.as_ref().map(|path_rc| path_rc.as_path()),
+                                        &s,
+                                    )
+                                    .map(|resolved_file| resolved_file.path)
+                            })
+                            .unwrap_or_else(|| {
+                                std::env::current_dir()
+                                    .map(|b| b.join(&path))
+                                    .unwrap_or_else(|_| path.into())
+                            })
+                            .to_string_lossy()
+                            .to_string()
                     }
                 };
 
