@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
  - Renamed "signal" to "callback"
  - Renamed "SharedArray" to "SharedVector" in the C++/Rust API
  - Renamed Slider min and max property to minimum and maximum
+ - The graphics rendering backend was changed to use femtovg or Qt
 
 ### Added
  - title property to the Window element
