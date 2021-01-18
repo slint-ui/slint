@@ -208,3 +208,7 @@ pub async fn load(
     })
     .await
 }
+
+pub fn run_event_loop() {
+    sixtyfps_rendering_backend_default::backend().run_event_loop();
+}

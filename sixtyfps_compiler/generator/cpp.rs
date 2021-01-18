@@ -909,11 +909,36 @@ fn generate_component(
         component_struct.members.push((
             Access::Public,
             Declaration::Function(Function {
+                name: "show".into(),
+                signature: "() const".into(),
+                statements: Some(vec![
+                    "window.set_component(**self_weak.lock());".into(),
+                    "window.show();".into(),
+                ]),
+                ..Default::default()
+            }),
+        ));
+
+        component_struct.members.push((
+            Access::Public,
+            Declaration::Function(Function {
+                name: "hide".into(),
+                signature: "() const".into(),
+                statements: Some(vec!["window.hide();".into()]),
+                ..Default::default()
+            }),
+        ));
+
+        component_struct.members.push((
+            Access::Public,
+            Declaration::Function(Function {
                 name: "run".into(),
                 signature: "() const".into(),
                 statements: Some(vec![
                     "window.set_component(**self_weak.lock());".into(),
-                    "window.run();".into(),
+                    "show();".into(),
+                    "sixtyfps::run_event_loop();".into(),
+                    "hide();".into(),
                 ]),
                 ..Default::default()
             }),

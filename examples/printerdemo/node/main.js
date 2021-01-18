@@ -29,5 +29,5 @@ window.fax_send.setHandler(function () {
     window.fax_number = "";
 })
 
-window.show();
+window.run();
 

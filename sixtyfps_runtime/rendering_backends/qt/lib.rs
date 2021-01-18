@@ -103,6 +103,16 @@ impl sixtyfps_corelib::backend::Backend for Backend {
         }
     }
 
+    fn run_event_loop(&'static self) {
+        #[cfg(not(no_qt))]
+        {
+            use cpp::cpp;
+            cpp! {unsafe [] {
+                qApp->exec();
+            } }
+        };
+    }
+
     fn register_application_font_from_memory(
         &'static self,
         _data: &'static [u8],

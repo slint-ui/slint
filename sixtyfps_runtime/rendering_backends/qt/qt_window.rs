@@ -735,11 +735,17 @@ impl QtWindow {
 
 #[allow(unused)]
 impl PlatformWindow for QtWindow {
-    fn run(self: Rc<Self>) {
+    fn show(self: Rc<Self>) {
         let widget_ptr = self.widget_ptr();
         cpp! {unsafe [widget_ptr as "QWidget*"] {
             widget_ptr->show();
-            qApp->exec();
+        }};
+    }
+
+    fn hide(self: Rc<Self>) {
+        let widget_ptr = self.widget_ptr();
+        cpp! {unsafe [widget_ptr as "QWidget*"] {
+            widget_ptr->hide();
         }};
     }
 

@@ -426,9 +426,11 @@ impl PlatformWindow for GraphicsWindow {
         *self.active_popup.borrow_mut() = None;
     }
 
-    fn run(self: Rc<Self>) {
-        self.clone().map_window();
-        crate::eventloop::run();
+    fn show(self: Rc<Self>) {
+        self.map_window();
+    }
+
+    fn hide(self: Rc<Self>) {
         self.unmap_window();
     }
 

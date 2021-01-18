@@ -44,6 +44,8 @@ fn main() -> std::io::Result<()> {
     };
 
     let component = c.create();
-    component.window().run();
+    component.window().show();
+    sixtyfps_interpreter::run_event_loop();
+    component.window().hide();
     Ok(())
 }

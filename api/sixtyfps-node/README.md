@@ -38,7 +38,7 @@ Combining these two steps leads us to the obligator "Hello World" example:
 require("sixtyfps");
 let ui = require("../ui/main.60");
 let main = new ui.Main();
-main.show();
+main.run();
 ```
 
 See [/examples/printerdemo/node](/examples/printerdemo/node) for a full example.

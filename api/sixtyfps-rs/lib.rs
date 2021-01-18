@@ -89,7 +89,7 @@ fn main() {
 
 ### Generated components
 
-As of now, only the last component of a .60 source is generated. It is planed to generate all exported components.
+As of now, only the last component of a .60 source is generated. It is planned to generate all exported components.
 
 The component is generated and re-exported at the location of the [`include_modules!`]  or [`sixtyfps!`] macro.
 it consist of a struct of the same name of the component.
@@ -99,6 +99,10 @@ This documentation contains a documented generated component: [`docs::generated_
 The following associated function are added to the component:
 
   - [`fn new() -> Self`](docs::generated_code::SampleComponent::new): to instantiate the component.
+  - [`fn show(&self)`]()docs::generated_code::SampleComponent::show): to show the window of the component.
+  - [`fn hide(&self)`]()docs::generated_code::SampleComponent::hide): to hide the window of the component.
+  - [`fn run(&self)`]()docs::generated_code::SampleComponent::run): a convenience function that first calls `show()`,
+    followed by spinning the event loop, and `hide()` when returning from the event loop.
 
 For each top-level property
   - A setter [`fn set_<property_name>(&self, value: <PropertyType>)`](docs::generated_code::SampleComponent::set_counter)
@@ -107,6 +111,10 @@ For each top-level property
 For each top-level callback
   - [`fn emit_<callback_name>(&self)`](docs::generated_code::SampleComponent::emit_hello): to emit the callback
   - [`fn on_<callback_name>(&self, callback: impl Fn(<CallbackArgs>) + 'static)`](docs::generated_code::SampleComponent::on_hello): to set the callback handler.
+
+After instantiating the component you can call just [`fn run(&self)`] on it, in order to show it and spin the event loop to
+render and react to input events. If you want to show multiple components simultaneously, then you can also call just
+`show()` first. When you're ready to enter the event loop, just call [`run_event_loop()`].
 
 ### Type Mappings
 
@@ -217,6 +225,13 @@ pub mod re_exports {
 #[doc(hidden)]
 pub fn create_window() -> re_exports::ComponentWindow {
     sixtyfps_rendering_backend_default::backend().create_window()
+}
+
+/// Enters the main event loop. This is necessary in order to receive
+/// events from the windowing system in order to render to the screen
+/// and react to user input.
+pub fn run_event_loop() {
+    sixtyfps_rendering_backend_default::backend().run_event_loop();
 }
 
 /// This trait describes the conversion of a strongly referenced SixtyFPS component,

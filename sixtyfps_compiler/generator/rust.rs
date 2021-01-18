@@ -742,8 +742,18 @@ fn generate_component(
 
         let run_fun = if component.parent_element.upgrade().is_none() {
             Some(quote!(
-                pub fn run(self) {
-                    vtable::VRc::as_pin_ref(&self.0).window.run();
+                pub fn run(&self) {
+                    self.show();
+                    sixtyfps::run_event_loop();
+                    self.hide();
+                }
+
+                pub fn show(&self) {
+                    vtable::VRc::as_pin_ref(&self.0).window.show();
+                }
+
+                pub fn hide(&self) {
+                    vtable::VRc::as_pin_ref(&self.0).window.hide();
                 }
             ))
         } else {

@@ -19,6 +19,9 @@ pub trait Backend: Send + Sync {
     /// FIXME: should return a Box<dyn PlatformWindow>
     fn create_window(&'static self) -> ComponentWindow;
 
+    /// Spins an event loop and renders the items of the provided component in this window.
+    fn run_event_loop(&'static self);
+
     /// This function can be used to register a custom TrueType font with SixtyFPS,
     /// for use with the `font-family` property. The provided slice must be a valid TrueType
     /// font.

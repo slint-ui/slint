@@ -25,9 +25,10 @@ use std::rc::Rc;
 /// require in order to implement functionality such as device-independent pixels,
 /// window resizing and other typicaly windowing system related tasks.
 pub trait PlatformWindow {
-    /// Spins an event loop and renders the items of the provided component in this window.
-    /// FIXME: replace by a show() function, and move run() in the backend
-    fn run(self: Rc<Self>);
+    /// Registers the window with the windowing system.
+    fn show(self: Rc<Self>);
+    /// Deregisters the window from the windowing system.
+    fn hide(self: Rc<Self>);
     /// Issue a request to the windowing system to re-render the contents of the window. This is typically an asynchronous
     /// request.
     fn request_redraw(&self);
@@ -207,9 +208,16 @@ impl ComponentWindow {
     pub fn new(window_impl: std::rc::Rc<Window>) -> Self {
         Self(window_impl)
     }
-    /// Spins an event loop and renders the items of the provided component in this window.
-    pub fn run(&self) {
-        self.0.platform_window.clone().run();
+
+    /// Registers the window with the windowing system, in order to render the component's items and react
+    /// to input events once the event loop spins.
+    pub fn show(&self) {
+        self.0.platform_window.clone().show();
+    }
+
+    /// De-registers the window with the windowing system.
+    pub fn hide(&self) {
+        self.0.platform_window.clone().hide();
     }
 
     /// Returns the scale factor set on the window.
@@ -298,9 +306,16 @@ pub mod ffi {
 
     /// Spins an event loop and renders the items of the provided component in this window.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_component_window_run(handle: *const ComponentWindowOpaque) {
+    pub unsafe extern "C" fn sixtyfps_component_window_show(handle: *const ComponentWindowOpaque) {
         let window = &*(handle as *const ComponentWindow);
-        window.run();
+        window.show();
+    }
+
+    /// Spins an event loop and renders the items of the provided component in this window.
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_component_window_hide(handle: *const ComponentWindowOpaque) {
+        let window = &*(handle as *const ComponentWindow);
+        window.hide();
     }
 
     /// Returns the window scale factor.

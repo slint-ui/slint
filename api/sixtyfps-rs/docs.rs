@@ -67,6 +67,23 @@ pub mod generated_code {
         pub fn new() -> Self {
             unimplemented!()
         }
+        /// Marks the window of this component to be shown on the screen. This registers
+        /// the window with the windowing system. In order to react to events from the windowing system,
+        /// such as draw requests or mouse/touch input, it is still necessary to spin the event loop,
+        /// using [`crate::run_event_loop`].
+        pub fn show(&self) {
+            unimplemented!()
+        }
+        /// Marks the window of this component to be hidden on the screen. This de-registers
+        /// the window from the windowing system and it will not receive any further events.
+        pub fn hide(&self) {
+            unimplemented!()
+        }
+        /// This is a convenience function that first calls [`Self::show`], followed by [`crate::run_event_loop()`]
+        /// and [`Self::hide`].
+        pub fn run(&self) {
+            unimplemented!()
+        }
         /// A getter is generated for each property declared at the root of the component.
         /// In this case, this is the getter that returns the value of the `counter`
         /// property declared in the `.60` design markup.

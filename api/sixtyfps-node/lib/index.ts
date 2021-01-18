@@ -36,8 +36,16 @@ class Component {
         this.comp = comp;
     }
 
+    run() {
+        this.comp.run();
+    }
+
     show() {
         this.comp.show();
+    }
+
+    hide() {
+        this.comp.hide();
     }
 
     send_mouse_click(x: number, y: number) {

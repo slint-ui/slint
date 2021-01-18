@@ -89,4 +89,9 @@ pub mod ffi {
         );
         core::ptr::write(out as *mut ComponentWindow, crate::backend().create_window());
     }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_run_event_loop() {
+        crate::backend().run_event_loop();
+    }
 }

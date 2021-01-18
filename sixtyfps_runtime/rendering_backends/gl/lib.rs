@@ -1131,6 +1131,10 @@ impl sixtyfps_corelib::backend::Backend for Backend {
         ComponentWindow(window)
     }
 
+    fn run_event_loop(&'static self) {
+        crate::eventloop::run();
+    }
+
     fn register_application_font_from_memory(
         &'static self,
         data: &'static [u8],

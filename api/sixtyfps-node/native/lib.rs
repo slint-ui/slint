@@ -339,12 +339,34 @@ declare_types! {
         init(_) {
             Ok(WrappedComponentRc(None))
         }
+        method run(mut cx) {
+            let mut this = cx.this();
+            let component = cx.borrow(&mut this, |x| x.0.clone());
+            let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            run_scoped(&mut cx,this.downcast().unwrap(), || {
+                component.window().show();
+                sixtyfps_interpreter::run_event_loop();
+                component.window().hide();
+                Ok(())
+            })?;
+            Ok(JsUndefined::new().as_value(&mut cx))
+        }
         method show(mut cx) {
             let mut this = cx.this();
             let component = cx.borrow(&mut this, |x| x.0.clone());
             let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
             run_scoped(&mut cx,this.downcast().unwrap(), || {
-                component.window().run();
+                component.window().show();
+                Ok(())
+            })?;
+            Ok(JsUndefined::new().as_value(&mut cx))
+        }
+        method hide(mut cx) {
+            let mut this = cx.this();
+            let component = cx.borrow(&mut this, |x| x.0.clone());
+            let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            run_scoped(&mut cx,this.downcast().unwrap(), || {
+                component.window().hide();
                 Ok(())
             })?;
             Ok(JsUndefined::new().as_value(&mut cx))

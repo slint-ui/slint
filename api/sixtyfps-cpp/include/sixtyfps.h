@@ -89,7 +89,8 @@ public:
     ComponentWindow(ComponentWindow &&) = delete;
     ComponentWindow &operator=(const ComponentWindow &) = delete;
 
-    void run() const { sixtyfps_component_window_run(&inner); }
+    void show() const { sixtyfps_component_window_show(&inner); }
+    void hide() const { sixtyfps_component_window_hide(&inner); }
 
     float scale_factor() const { return sixtyfps_component_window_get_scale_factor(&inner); }
     void set_scale_factor(float value) const
@@ -622,6 +623,11 @@ template<int Major, int Minor, int Patch>
 struct VersionCheckHelper
 {
 };
+}
+
+void run_event_loop()
+{
+    cbindgen_private::sixtyfps_run_event_loop();
 }
 
 } // namespace sixtyfps
