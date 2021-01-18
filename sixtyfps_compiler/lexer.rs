@@ -13,16 +13,23 @@ LICENSE END */
 //! It is kind of shared with parser.rs, which implements the lex_next_token based on the macro_rules
 //! that declares token
 
+#[derive(Default)]
+pub struct LexState {
+    /// The top of the stack is the level of embedded braces `{`.
+    /// So we must still lex so many '}' before re-entering into a string mode and pop the stack.
+    template_string_stack: Vec<u32>,
+}
+
 /// This trait is used by the `crate::parser::lex_next_token` function and is implemented
 /// for rule passed to the macro which can be either a string literal, or a function
 pub trait LexingRule {
     /// Return the size of the match for this rule, or 0 if there is no match
-    fn lex(&self, text: &str) -> usize;
+    fn lex(&self, text: &str, state: &mut LexState) -> usize;
 }
 
 impl<'a> LexingRule for &'a str {
     #[inline]
-    fn lex(&self, text: &str) -> usize {
+    fn lex(&self, text: &str, _: &mut LexState) -> usize {
         if text.starts_with(*self) {
             self.len()
         } else {
@@ -31,14 +38,14 @@ impl<'a> LexingRule for &'a str {
     }
 }
 
-impl<F: for<'r> Fn(&'r str) -> usize> LexingRule for F {
+impl<F: Fn(&str, &mut LexState) -> usize> LexingRule for F {
     #[inline]
-    fn lex(&self, text: &str) -> usize {
-        (self)(text)
+    fn lex(&self, text: &str, state: &mut LexState) -> usize {
+        (self)(text, state)
     }
 }
 
-pub fn lex_whitespace(text: &str) -> usize {
+pub fn lex_whitespace(text: &str, _: &mut LexState) -> usize {
     let mut len = 0;
     let chars = text.chars();
     for c in chars {
@@ -50,7 +57,7 @@ pub fn lex_whitespace(text: &str) -> usize {
     len
 }
 
-pub fn lex_comment(text: &str) -> usize {
+pub fn lex_comment(text: &str, _: &mut LexState) -> usize {
     // FIXME: could report proper error if not properly terminated
     if text.starts_with("//") {
         return text.find(&['\n', '\r'] as &[_]).unwrap_or_else(|| text.len());
@@ -86,8 +93,22 @@ pub fn lex_comment(text: &str) -> usize {
     0
 }
 
-pub fn lex_string(text: &str) -> usize {
-    if !text.starts_with('"') {
+pub fn lex_string(text: &str, state: &mut LexState) -> usize {
+    if let Some(brace_level) = state.template_string_stack.last_mut() {
+        if text.starts_with('{') {
+            *brace_level += 1;
+            return 0;
+        } else if text.starts_with('}') {
+            if *brace_level > 0 {
+                *brace_level -= 1;
+                return 0;
+            } else {
+                state.template_string_stack.pop();
+            }
+        } else if !text.starts_with('"') {
+            return 0;
+        }
+    } else if !text.starts_with('"') {
         return 0;
     }
     let mut end = 1; // skip the '"'
@@ -103,6 +124,11 @@ pub fn lex_string(text: &str) -> usize {
                 return stop + 1;
             }
             b'\\' => {
+                if text.as_bytes()[stop + 1] == b'{' {
+                    assert!(!text[..stop].contains('\n'), "new lines in string not yet supported");
+                    state.template_string_stack.push(0);
+                    return stop + 2;
+                }
                 end = stop + 2;
             }
             _ => unreachable!(),
@@ -110,7 +136,7 @@ pub fn lex_string(text: &str) -> usize {
     }
 }
 
-pub fn lex_number(text: &str) -> usize {
+pub fn lex_number(text: &str, _: &mut LexState) -> usize {
     let mut len = 0;
     let mut chars = text.chars();
     let mut had_period = false;
@@ -142,7 +168,7 @@ pub fn lex_number(text: &str) -> usize {
     len
 }
 
-pub fn lex_color(text: &str) -> usize {
+pub fn lex_color(text: &str, _: &mut LexState) -> usize {
     if !text.starts_with('#') {
         return 0;
     }
@@ -157,7 +183,7 @@ pub fn lex_color(text: &str) -> usize {
     len
 }
 
-pub fn lex_identifier(text: &str) -> usize {
+pub fn lex_identifier(text: &str, _: &mut LexState) -> usize {
     let mut len = 0;
     let chars = text.chars();
     for c in chars {
@@ -172,8 +198,9 @@ pub fn lex_identifier(text: &str) -> usize {
 pub fn lex(mut source: &str) -> Vec<crate::parser::Token> {
     let mut result = vec![];
     let mut offset = 0;
+    let mut state = LexState::default();
     while !source.is_empty() {
-        if let Some((len, kind)) = crate::parser::lex_next_token(source) {
+        if let Some((len, kind)) = crate::parser::lex_next_token(source, &mut state) {
             result.push(crate::parser::Token {
                 kind,
                 text: source[..len].into(),
@@ -265,6 +292,23 @@ fn basic_lexer_test() {
             (crate::parser::SyntaxKind::Identifier, "a"),
             (crate::parser::SyntaxKind::StringLiteral, r#""\"\\""#),
             (crate::parser::SyntaxKind::Identifier, "x"),
+        ],
+    );
+    compare(
+        r#""a\{b{c}d"e\{f}g"h}i"j"#,
+        &[
+            (crate::parser::SyntaxKind::StringLiteral, r#""a\{"#),
+            (crate::parser::SyntaxKind::Identifier, "b"),
+            (crate::parser::SyntaxKind::LBrace, "{"),
+            (crate::parser::SyntaxKind::Identifier, "c"),
+            (crate::parser::SyntaxKind::RBrace, "}"),
+            (crate::parser::SyntaxKind::Identifier, "d"),
+            (crate::parser::SyntaxKind::StringLiteral, r#""e\{"#),
+            (crate::parser::SyntaxKind::Identifier, "f"),
+            (crate::parser::SyntaxKind::StringLiteral, r#"}g""#),
+            (crate::parser::SyntaxKind::Identifier, "h"),
+            (crate::parser::SyntaxKind::StringLiteral, r#"}i""#),
+            (crate::parser::SyntaxKind::Identifier, "j"),
         ],
     );
 }

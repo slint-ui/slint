@@ -182,10 +182,10 @@ macro_rules! declare_syntax {
         }
 
         /// Returns a pair of the matched token type at the beginning of `text`, and its size
-        pub fn lex_next_token(text : &str) -> Option<(usize, SyntaxKind)> {
+        pub fn lex_next_token(text : &str, state: &mut crate::lexer::LexState) -> Option<(usize, SyntaxKind)> {
             use crate::lexer::LexingRule;
             $(
-                let len = ($rule).lex(text);
+                let len = ($rule).lex(text, state);
                 if len > 0 {
                     return Some((len, SyntaxKind::$token));
                 }
