@@ -423,8 +423,8 @@ pub struct GLRenderer {
 }
 
 impl GLRenderer {
-    pub fn new(
-        event_loop: &winit::event_loop::EventLoop<eventloop::CustomEvent>,
+    pub(crate) fn new(
+        event_loop: &dyn crate::eventloop::EventLoopInterface,
         window_builder: winit::window::WindowBuilder,
         #[cfg(target_arch = "wasm32")] canvas_id: &str,
     ) -> GLRenderer {
@@ -432,7 +432,7 @@ impl GLRenderer {
         let (windowed_context, renderer) = {
             let windowed_context = glutin::ContextBuilder::new()
                 .with_vsync(true)
-                .build_windowed(window_builder, &event_loop)
+                .build_windowed(window_builder, event_loop.event_loop_target())
                 .unwrap();
             let windowed_context = unsafe { windowed_context.make_current().unwrap() };
 
@@ -456,7 +456,7 @@ impl GLRenderer {
         };
 
         #[cfg(target_arch = "wasm32")]
-        let event_loop_proxy = Rc::new(event_loop.create_proxy());
+        let event_loop_proxy = Rc::new(event_loop.event_loop_proxy().clone());
 
         #[cfg(target_arch = "wasm32")]
         let (window, renderer) = {
@@ -479,8 +479,12 @@ impl GLRenderer {
                 canvas.client_height() as u32,
             );
 
-            let window =
-                Rc::new(window_builder.with_canvas(Some(canvas)).build(&event_loop).unwrap());
+            let window = Rc::new(
+                window_builder
+                    .with_canvas(Some(canvas))
+                    .build(&event_loop.event_loop_target())
+                    .unwrap(),
+            );
 
             // Try to maintain the existing size of the canvas element. A window created with winit
             // on the web will always have 1024x768 as size otherwise.
@@ -1092,7 +1096,7 @@ impl GLFontMetrics {
 #[cfg(target_arch = "wasm32")]
 pub fn create_gl_window_with_canvas_id(canvas_id: String) -> ComponentWindow {
     let platform_window = GraphicsWindow::new(move |event_loop, window_builder| {
-        GLRenderer::new(&event_loop.get_winit_event_loop(), window_builder, &canvas_id)
+        GLRenderer::new(event_loop, window_builder, &canvas_id)
     });
     let window = Rc::new(sixtyfps_corelib::window::Window::new(platform_window.clone()));
     platform_window.self_weak.set(Rc::downgrade(&window)).ok().unwrap();
@@ -1116,7 +1120,7 @@ impl sixtyfps_corelib::backend::Backend for Backend {
     fn create_window(&'static self) -> ComponentWindow {
         let platform_window = GraphicsWindow::new(|event_loop, window_builder| {
             GLRenderer::new(
-                &event_loop.get_winit_event_loop(),
+                event_loop,
                 window_builder,
                 #[cfg(target_arch = "wasm32")]
                 "canvas",

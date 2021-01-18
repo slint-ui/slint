@@ -28,7 +28,7 @@ use sixtyfps_corelib as corelib;
 type Backend = super::GLRenderer;
 
 type WindowFactoryFn =
-    dyn Fn(&crate::eventloop::EventLoop, winit::window::WindowBuilder) -> Backend;
+    dyn Fn(&dyn crate::eventloop::EventLoopInterface, winit::window::WindowBuilder) -> Backend;
 
 /// GraphicsWindow is an implementation of the [PlatformWindow][`crate::eventloop::PlatformWindow`] trait. This is
 /// typically instantiated by entry factory functions of the different graphics backends.
@@ -54,8 +54,8 @@ impl GraphicsWindow {
     /// * `graphics_backend_factory`: The factor function stored in the GraphicsWindow that's called when the state
     ///   of the window changes to mapped. The event loop and window builder parameters can be used to create a
     ///   backing window.
-    pub fn new(
-        graphics_backend_factory: impl Fn(&crate::eventloop::EventLoop, winit::window::WindowBuilder) -> Backend
+    pub(crate) fn new(
+        graphics_backend_factory: impl Fn(&dyn crate::eventloop::EventLoopInterface, winit::window::WindowBuilder) -> Backend
             + 'static,
     ) -> Rc<Self> {
         Rc::new(Self {
@@ -115,13 +115,11 @@ impl GraphicsWindow {
     /// Requests for the window to be mapped to the screen.
     ///
     /// Arguments:
-    /// * `event_loop`: The event loop used to drive further event handling for this window
-    ///   as it will receive events.
     /// * `component`: The component that holds the root item of the scene. If the item is a [`corelib::items::Window`], then
     ///   the `width` and `height` properties are read and the values are passed to the windowing system as request
     ///   for the initial size of the window. Then bindings are installed on these properties to keep them up-to-date
     ///   with the size as it may be changed by the user or the windowing system in general.
-    fn map_window(self: Rc<Self>, event_loop: &crate::eventloop::EventLoop) {
+    fn map_window(self: Rc<Self>) {
         if matches!(&*self.map_state.borrow(), GraphicsWindowBackendState::Mapped(..)) {
             return;
         }
@@ -139,7 +137,9 @@ impl GraphicsWindow {
         let window_builder = winit::window::WindowBuilder::new().with_title(window_title);
 
         let id = {
-            let backend = self.window_factory.as_ref()(&event_loop, window_builder);
+            let backend = crate::eventloop::with_window_target(|event_loop| {
+                self.window_factory.as_ref()(event_loop, window_builder)
+            });
 
             // Ideally we should be passing the initial requested size to the window builder, but those properties
             // may be specified in logical pixels, relative to the scale factory, which we only know *after* mapping
@@ -427,10 +427,8 @@ impl PlatformWindow for GraphicsWindow {
     }
 
     fn run(self: Rc<Self>) {
-        let event_loop = crate::eventloop::EventLoop::new();
-
-        self.clone().map_window(&event_loop);
-        event_loop.run();
+        self.clone().map_window();
+        crate::eventloop::run();
         self.unmap_window();
     }
 
