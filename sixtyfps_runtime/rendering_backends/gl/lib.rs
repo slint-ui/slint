@@ -217,11 +217,59 @@ impl FontCache {
     }
 }
 
+// glutin's WindowedContext tries to enforce being current or not. Since we need the WindowedContext's window() function
+// in the GL renderer regardless whether we're current or not, we wrap the two states back into one type.
+#[cfg(not(target_arch = "wasm32"))]
+enum WindowedContextWrapper {
+    NotCurrent(glutin::WindowedContext<glutin::NotCurrent>),
+    Current(glutin::WindowedContext<glutin::PossiblyCurrent>),
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl WindowedContextWrapper {
+    fn window(&self) -> &winit::window::Window {
+        match self {
+            Self::NotCurrent(context) => context.window(),
+            Self::Current(context) => context.window(),
+        }
+    }
+
+    fn make_current(self) -> Self {
+        match self {
+            Self::NotCurrent(not_current_ctx) => {
+                let current_ctx = unsafe { not_current_ctx.make_current().unwrap() };
+                Self::Current(current_ctx)
+            }
+            this @ Self::Current(_) => this,
+        }
+    }
+
+    fn make_not_current(self) -> Self {
+        match self {
+            this @ Self::NotCurrent(_) => this,
+            Self::Current(current_ctx_rc) => {
+                Self::NotCurrent(unsafe { current_ctx_rc.make_not_current().unwrap() })
+            }
+        }
+    }
+
+    fn swap_buffers(&mut self) {
+        match self {
+            WindowedContextWrapper::NotCurrent(_) => {}
+            WindowedContextWrapper::Current(current_ctx) => {
+                current_ctx.swap_buffers().unwrap();
+            }
+        }
+    }
+}
+
 struct GLRendererData {
     canvas: CanvasRc,
 
     #[cfg(target_arch = "wasm32")]
     window: Rc<winit::window::Window>,
+    #[cfg(not(target_arch = "wasm32"))]
+    windowed_context: RefCell<Option<WindowedContextWrapper>>,
     #[cfg(target_arch = "wasm32")]
     event_loop_proxy: Rc<winit::event_loop::EventLoopProxy<eventloop::CustomEvent>>,
     item_graphics_cache: RefCell<RenderingCache<Option<ItemGraphicsCacheEntry>>>,
@@ -372,8 +420,6 @@ impl GLRendererData {
 
 pub struct GLRenderer {
     shared_data: Rc<GLRendererData>,
-    #[cfg(not(target_arch = "wasm32"))]
-    windowed_context: Option<glutin::WindowedContext<glutin::NotCurrent>>,
 }
 
 impl GLRenderer {
@@ -499,6 +545,10 @@ impl GLRenderer {
         let shared_data = GLRendererData {
             canvas: Rc::new(RefCell::new(canvas)),
 
+            #[cfg(not(target_arch = "wasm32"))]
+            windowed_context: RefCell::new(Some(WindowedContextWrapper::NotCurrent(unsafe {
+                windowed_context.make_not_current().unwrap()
+            }))),
             #[cfg(target_arch = "wasm32")]
             window,
             #[cfg(target_arch = "wasm32")]
@@ -509,11 +559,7 @@ impl GLRenderer {
             loaded_fonts: Default::default(),
         };
 
-        GLRenderer {
-            shared_data: Rc::new(shared_data),
-            #[cfg(not(target_arch = "wasm32"))]
-            windowed_context: Some(unsafe { windowed_context.make_not_current().unwrap() }),
-        }
+        GLRenderer { shared_data: Rc::new(shared_data) }
     }
 
     /// Returns a new item renderer instance. At this point rendering begins and the backend ensures that the
@@ -525,8 +571,10 @@ impl GLRenderer {
         };
 
         #[cfg(not(target_arch = "wasm32"))]
-        let current_windowed_context =
-            unsafe { self.windowed_context.take().unwrap().make_current().unwrap() };
+        {
+            let ctx = &mut *self.shared_data.windowed_context.borrow_mut();
+            *ctx = ctx.take().unwrap().make_current().into();
+        }
 
         {
             let mut canvas = self.shared_data.canvas.borrow_mut();
@@ -537,12 +585,7 @@ impl GLRenderer {
             canvas.clear_rect(0, 0, size.width, size.height, clear_color.into());
         }
 
-        GLItemRenderer {
-            shared_data: self.shared_data.clone(),
-            #[cfg(not(target_arch = "wasm32"))]
-            windowed_context: current_windowed_context,
-            scale_factor,
-        }
+        GLItemRenderer { shared_data: self.shared_data.clone(), scale_factor }
     }
 
     /// Complete the item rendering by calling this function. This will typically flush any remaining/pending
@@ -552,10 +595,10 @@ impl GLRenderer {
 
         #[cfg(not(target_arch = "wasm32"))]
         {
-            _renderer.windowed_context.swap_buffers().unwrap();
+            let mut ctx = self.shared_data.windowed_context.borrow_mut().take().unwrap();
+            ctx.swap_buffers();
 
-            self.windowed_context =
-                Some(unsafe { _renderer.windowed_context.make_not_current().unwrap() });
+            *self.shared_data.windowed_context.borrow_mut() = ctx.make_not_current().into();
         }
 
         self.shared_data.image_cache.borrow_mut().retain(|_, cached_image_weak| {
@@ -565,10 +608,15 @@ impl GLRenderer {
         });
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
+    fn window(&self) -> std::cell::Ref<winit::window::Window> {
+        std::cell::Ref::map(self.shared_data.windowed_context.borrow(), |ctx| {
+            ctx.as_ref().unwrap().window()
+        })
+    }
+
+    #[cfg(target_arch = "wasm32")]
     fn window(&self) -> &winit::window::Window {
-        #[cfg(not(target_arch = "wasm32"))]
-        return self.windowed_context.as_ref().unwrap().window();
-        #[cfg(target_arch = "wasm32")]
         return &self.shared_data.window;
     }
 
@@ -598,8 +646,6 @@ impl GLRenderer {
 
 pub struct GLItemRenderer {
     shared_data: Rc<GLRendererData>,
-    #[cfg(not(target_arch = "wasm32"))]
-    windowed_context: glutin::WindowedContext<glutin::PossiblyCurrent>,
     scale_factor: f32,
 }
 

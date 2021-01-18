@@ -141,21 +141,22 @@ impl GraphicsWindow {
         let id = {
             let backend = self.window_factory.as_ref()(&event_loop, window_builder);
 
-            let platform_window = backend.window();
-
-            if std::env::var("SIXTYFPS_FULLSCREEN").is_ok() {
-                platform_window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)));
-            }
-
-            let window_id = platform_window.id();
-
             // Ideally we should be passing the initial requested size to the window builder, but those properties
             // may be specified in logical pixels, relative to the scale factory, which we only know *after* mapping
             // the window to the screen. So we first map the window then, propagate the scale factory and *then* the
             // width/height properties should have the correct values calculated via their bindings that multiply with
             // the scale factor.
             // We could pass the logical requested size at window builder time, *if* we knew what the values are.
-            {
+            let window_id = {
+                let platform_window = backend.window();
+
+                if std::env::var("SIXTYFPS_FULLSCREEN").is_ok() {
+                    platform_window
+                        .set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)));
+                }
+
+                let window_id = platform_window.id();
+
                 self.properties.as_ref().scale_factor.set(platform_window.scale_factor() as _);
                 let existing_size = platform_window.inner_size();
 
@@ -199,7 +200,9 @@ impl GraphicsWindow {
 
                 self.properties.as_ref().width.set(new_size.width as _);
                 self.properties.as_ref().height.set(new_size.height as _);
-            }
+
+                window_id
+            };
 
             self.map_state.replace(GraphicsWindowBackendState::Mapped(MappedWindow {
                 backend: RefCell::new(backend),
