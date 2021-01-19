@@ -15,7 +15,7 @@ use corelib::graphics::PathElement;
 use corelib::items::{ItemRef, PropertyAnimation};
 use corelib::rtti::AnimatedBindingKind;
 use corelib::window::ComponentWindow;
-use corelib::{Callback, Color, PathData, Resource, SharedString, SharedVector};
+use corelib::{Color, PathData, Resource, SharedString, SharedVector};
 use sixtyfps_compilerlib::expression_tree::{
     BuiltinFunction, EasingCurve, Expression, ExpressionSpanned, NamedReference, Path as ExprPath,
     PathElement as ExprPathElement,
@@ -65,6 +65,28 @@ impl<Item: vtable::HasStaticVTable<corelib::items::ItemVTable>> ErasedPropertyIn
     unsafe fn link_two_ways(&self, item: Pin<ItemRef>, property2: *const ()) {
         // Safety: ErasedPropertyInfo::link_two_ways and PropertyInfo::link_two_ways have the same safety requirement
         (*self).link_two_ways(ItemRef::downcast_pin(item).unwrap(), property2)
+    }
+}
+
+pub trait ErasedCallbackInfo {
+    fn emit(&self, item: Pin<ItemRef>, args: &[Value]) -> Value;
+    fn set_handler(&self, item: Pin<ItemRef>, handler: Box<dyn Fn(&[Value]) -> Value>);
+    fn offset(&self) -> usize;
+}
+
+impl<Item: vtable::HasStaticVTable<corelib::items::ItemVTable>> ErasedCallbackInfo
+    for &'static dyn corelib::rtti::CallbackInfo<Item, Value>
+{
+    fn emit(&self, item: Pin<ItemRef>, args: &[Value]) -> Value {
+        (*self).emit(ItemRef::downcast_pin(item).unwrap(), args).unwrap()
+    }
+
+    fn set_handler(&self, item: Pin<ItemRef>, handler: Box<dyn Fn(&[Value]) -> Value>) {
+        (*self).set_handler(ItemRef::downcast_pin(item).unwrap(), handler).unwrap()
+    }
+
+    fn offset(&self) -> usize {
+        (*self).offset()
     }
 }
 
@@ -345,17 +367,14 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                         let component_type = enclosing_component.component_type;
                         let item_info = &component_type.items[element.borrow().id.as_str()];
                         let item = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
+                        let args = arguments.iter().map(|e| eval_expression(e, local_context)).collect::<Vec<_>>();
 
-                        if let Some(callback_offset) = item_info.rtti.callbacks.get(name.as_str()) {
-                            let callback =
-                                unsafe { &*(item.as_ptr().add(*callback_offset) as *const Callback<()>) };
-                            callback.emit(&());
-                            Value::Void
+                        if let Some(callback) = item_info.rtti.callbacks.get(name.as_str()) {
+                            callback.emit(item, args.as_slice())
                         } else if let Some(callback_offset) = component_type.custom_callbacks.get(name.as_str())
                         {
                             let callback = callback_offset.apply(&*enclosing_component.instance);
-                            let args = arguments.iter().map(|e| eval_expression(e, local_context));
-                            callback.emit(args.collect::<Vec<_>>().as_slice())
+                            callback.emit(args.as_slice())
                         } else {
                             panic!("unkown callback {}", name)
                         }

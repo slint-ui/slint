@@ -100,13 +100,15 @@ pub fn sixtyfps_element(input: TokenStream) -> TokenStream {
                 vec![#( {
                     const O : const_field_offset::FieldOffset<#item_name, #plain_field_types, const_field_offset::AllowPin> =
                         #item_name::FIELD_OFFSETS.#plain_field_names;
-                    (stringify!(#plain_field_names), &O as &'static dyn FieldInfo<Self, Value> )
+                    (stringify!(#plain_field_names), &O as &'static dyn FieldInfo<Self, Value>)
                 } ),*]
             }
-            fn callbacks() -> Vec<(&'static str, const_field_offset::FieldOffset<Self, Callback<()>, const_field_offset::AllowPin>)> {
-                vec![#(
-                    (stringify!(#callback_field_names),#item_name::FIELD_OFFSETS.#callback_field_names)
-                ),*]
+            fn callbacks<Value: ValueType>() -> Vec<(&'static str, &'static dyn CallbackInfo<Self, Value>)> {
+                vec![#( {
+                    const O : const_field_offset::FieldOffset<#item_name, Callback<()>, const_field_offset::AllowPin> =
+                         #item_name::FIELD_OFFSETS.#callback_field_names;
+                    (stringify!(#callback_field_names), &O as  &'static dyn CallbackInfo<Self, Value>)
+                } ),*]
             }
         }
 

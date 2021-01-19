@@ -28,8 +28,6 @@ use crate::layout::LayoutInfo;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::ComponentWindow;
-#[cfg(feature = "rtti")]
-use crate::Callback;
 use crate::Property;
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;

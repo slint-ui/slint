@@ -19,7 +19,7 @@ use core::pin::Pin;
 
 macro_rules! declare_ValueType {
     ($($ty:ty,)*) => {
-        pub trait ValueType: 'static $(+ TryInto<$ty> + TryFrom<$ty>)* {}
+        pub trait ValueType: 'static + Default $(+ TryInto<$ty> + TryFrom<$ty>)* {}
     };
 }
 declare_ValueType![
@@ -218,6 +218,43 @@ where
     }
 }
 
+pub trait CallbackInfo<Item, Value> {
+    fn emit(&self, item: Pin<&Item>, args: &[Value]) -> Result<Value, ()>;
+    fn set_handler(
+        &self,
+        item: Pin<&Item>,
+        handler: Box<dyn Fn(&[Value]) -> Value>,
+    ) -> Result<(), ()>;
+
+    /// The offset of the Callback<> in the item.
+    /// The use of this is unsafe
+    fn offset(&self) -> usize;
+}
+
+impl<Item, Value: Default + 'static> CallbackInfo<Item, Value>
+    for FieldOffset<Item, crate::Callback<()>>
+{
+    fn emit(&self, item: Pin<&Item>, _args: &[Value]) -> Result<Value, ()> {
+        self.apply_pin(item).emit(&());
+        Ok(Default::default())
+    }
+
+    fn set_handler(
+        &self,
+        item: Pin<&Item>,
+        handler: Box<dyn Fn(&[Value]) -> Value>,
+    ) -> Result<(), ()> {
+        self.apply_pin(item).set_handler(move |()| {
+            handler(&[]);
+        });
+        Ok(())
+    }
+
+    fn offset(&self) -> usize {
+        todo!()
+    }
+}
+
 pub trait FieldInfo<Item, Value> {
     fn set_field(&self, item: &mut Item, value: Value) -> Result<(), ()>;
 }
@@ -237,8 +274,5 @@ pub trait BuiltinItem: Sized {
     fn name() -> &'static str;
     fn properties<Value: ValueType>() -> Vec<(&'static str, &'static dyn PropertyInfo<Self, Value>)>;
     fn fields<Value: ValueType>() -> Vec<(&'static str, &'static dyn FieldInfo<Self, Value>)>;
-    fn callbacks() -> Vec<(
-        &'static str,
-        const_field_offset::FieldOffset<Self, crate::Callback<()>, const_field_offset::AllowPin>,
-    )>;
+    fn callbacks<Value: ValueType>() -> Vec<(&'static str, &'static dyn CallbackInfo<Self, Value>)>;
 }

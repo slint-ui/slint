@@ -364,9 +364,7 @@ pub(crate) struct ItemRTTI {
     vtable: &'static ItemVTable,
     type_info: dynamic_type::StaticTypeInfo,
     pub(crate) properties: HashMap<&'static str, Box<dyn eval::ErasedPropertyInfo>>,
-    /// The uszie is an offset within this item to the Callback.
-    /// Ideally, we would need a vtable::VFieldOffset<ItemVTable, corelib::Callback<()>>
-    pub(crate) callbacks: HashMap<&'static str, usize>,
+    pub(crate) callbacks: HashMap<&'static str, Box<dyn eval::ErasedCallbackInfo>>,
 }
 
 fn rtti_for<T: 'static + Default + rtti::BuiltinItem + vtable::HasStaticVTable<ItemVTable>>(
@@ -378,7 +376,10 @@ fn rtti_for<T: 'static + Default + rtti::BuiltinItem + vtable::HasStaticVTable<I
             .into_iter()
             .map(|(k, v)| (k, Box::new(v) as Box<dyn eval::ErasedPropertyInfo>))
             .collect(),
-        callbacks: T::callbacks().into_iter().map(|(k, v)| (k, v.get_byte_offset())).collect(),
+        callbacks: T::callbacks()
+            .into_iter()
+            .map(|(k, v)| (k, Box::new(v) as Box<dyn eval::ErasedCallbackInfo>))
+            .collect(),
     };
     (T::name(), Rc::new(rtti))
 }
@@ -812,20 +813,20 @@ pub fn instantiate<'id>(
                         NonNull::from(&component_type.ct).cast(),
                         instance.cast(),
                     ));
-                    if let Some(callback_offset) =
-                        item_within_component.rtti.callbacks.get(prop.as_str())
+                    if let Some(callback) = item_within_component.rtti.callbacks.get(prop.as_str())
                     {
-                        let callback = &*(item.as_ptr().add(*callback_offset)
-                            as *const sixtyfps_corelib::Callback<()>);
-                        callback.set_handler(move |_: &()| {
-                            generativity::make_guard!(guard);
-                            eval::eval_expression(
-                                &expr,
-                                &mut eval::EvalLocalContext::from_component_instance(
-                                    InstanceRef::from_pin_ref(c, guard),
-                                ),
-                            );
-                        })
+                        callback.set_handler(
+                            item,
+                            Box::new(move |args| {
+                                generativity::make_guard!(guard);
+                                let mut local_context =
+                                    eval::EvalLocalContext::from_function_arguments(
+                                        InstanceRef::from_pin_ref(c, guard),
+                                        args.iter().cloned().collect(),
+                                    );
+                                eval::eval_expression(&expr, &mut local_context)
+                            }),
+                        )
                     } else if let Some(callback_offset) =
                         component_type.custom_callbacks.get(prop.as_str())
                     {
