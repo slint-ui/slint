@@ -20,21 +20,16 @@ App := Window {
         spacing: 10px;
 
         HorizontalLayout {
-            VerticalLayout {
-                padding: 0px;
-                spacing: 0px;
-                horizontal-stretch: 1;
-                Text {
-                    text: "Below are some of the standard widgets that";
-                }
-                Text {
-                    text: "application developers can easily re-use.";
-                }
+            Text {
+                text: "Below are some of the standard widgets that\napplication developers can easily re-use.";
             }
 
-            disable_toggle := CheckBox {
-                checked: false;
-                text: "Disable Widgets";
+            VerticalLayout {
+                alignment: start;
+                disable_toggle := CheckBox {
+                    checked: false;
+                    text: "Disable Widgets";
+                }
             }
         }
 

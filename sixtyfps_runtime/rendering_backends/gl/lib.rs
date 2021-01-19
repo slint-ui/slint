@@ -734,16 +734,51 @@ impl ItemRenderer for GLItemRenderer {
     }
 
     fn draw_text(&mut self, pos: Point, text: std::pin::Pin<&sixtyfps_corelib::items::Text>) {
-        self.draw_text_impl(
-            pos + euclid::Vector2D::new(text.x(), text.y()),
-            text.width(),
-            text.height(),
-            &text.text(),
+        let pos = pos + euclid::Vector2D::new(text.x(), text.y());
+        let max_width = text.width();
+        let max_height = text.height();
+        let string = text.text();
+        let string = string.as_str();
+        let vertical_alignment = text.vertical_alignment();
+        let horizontal_alignment = text.horizontal_alignment();
+        let font = self.shared_data.loaded_fonts.borrow_mut().font(
+            &self.shared_data.canvas,
             text.font_request(),
-            text.color(),
-            text.horizontal_alignment(),
-            text.vertical_alignment(),
+            self.scale_factor,
         );
+        let text_size = font.text_size(string);
+        let mut paint = font.paint();
+        paint.set_color(text.color().into());
+
+        let mut canvas = self.shared_data.canvas.borrow_mut();
+
+        let font_metrics = canvas.measure_font(paint).unwrap();
+
+        let mut y = pos.y
+            + match vertical_alignment {
+                TextVerticalAlignment::align_top => 0.,
+                TextVerticalAlignment::align_center => max_height / 2. - text_size.height / 2.,
+                TextVerticalAlignment::align_bottom => max_height - text_size.height,
+            };
+
+        let mut start = 0;
+        while start < string.len() {
+            let index = canvas.break_text(max_width, &string[start..], paint).unwrap();
+            if index == 0 {
+                break;
+            }
+            let index = start + index;
+
+            let text_metrics = canvas.measure_text(0., 0., &string[start..index], paint).unwrap();
+            let translate_x = match horizontal_alignment {
+                TextHorizontalAlignment::align_left => 0.,
+                TextHorizontalAlignment::align_center => max_width / 2. - text_metrics.width() / 2.,
+                TextHorizontalAlignment::align_right => max_width - text_metrics.width(),
+            };
+            canvas.fill_text(pos.x + translate_x, y, &string[start..index], paint).unwrap();
+            y += font_metrics.height();
+            start = index;
+        }
     }
 
     fn draw_text_input(
@@ -1046,6 +1081,29 @@ impl GLFont {
         paint.set_text_baseline(femtovg::Baseline::Top);
         paint
     }
+
+    fn text_size(&self, text: &str) -> Size {
+        let paint = self.paint();
+        let mut canvas = self.canvas.borrow_mut();
+        let font_metrics = canvas.measure_font(paint).unwrap();
+        let mut y = 0.;
+        let mut start = 0;
+        let mut width = 0.;
+        let mut height = 0.;
+        while start < text.len() {
+            let index = canvas.break_text(f32::MAX, &text[start..], paint).unwrap();
+            if index == 0 {
+                break;
+            }
+            let index = start + index;
+            let mesure = canvas.measure_text(0., 0., &text[start..index], paint).unwrap();
+            start = index;
+            height = y + mesure.height();
+            y += font_metrics.height();
+            width = mesure.width().max(width);
+        }
+        euclid::size2(width, height)
+    }
 }
 
 struct GLFontMetrics {
@@ -1056,8 +1114,7 @@ struct GLFontMetrics {
 
 impl FontMetrics for GLFontMetrics {
     fn text_size(&self, text: &str) -> Size {
-        let m = self.font().measure(text);
-        euclid::size2(m.width(), m.height())
+        self.font().text_size(text)
     }
 
     fn text_offset_for_x_position<'a>(&self, text: &'a str, x: f32) -> usize {
