@@ -372,6 +372,97 @@ ItemVTable_static! {
     pub static TouchAreaVTable for TouchArea
 }
 
+/// A runtime item that exposes key
+#[repr(C)]
+#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[pin]
+pub struct FocusScope {
+    pub x: Property<f32>,
+    pub y: Property<f32>,
+    pub width: Property<f32>,
+    pub height: Property<f32>,
+    pub has_focus: Property<bool>,
+    pub key_pressed: Callback<(SharedString,)>,
+    pub key_released: Callback<(SharedString,)>,
+    /// FIXME: remove this
+    pub cached_rendering_data: CachedRenderingData,
+}
+
+impl Item for FocusScope {
+    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+
+    fn geometry(self: Pin<&Self>) -> Rect {
+        euclid::rect(self.x(), self.y(), self.width(), self.height())
+    }
+
+    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
+        LayoutInfo::default()
+    }
+
+    fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
+        Default::default()
+    }
+
+    fn input_event(
+        self: Pin<&Self>,
+        event: MouseEvent,
+        window: &ComponentWindow,
+        self_rc: &ItemRc,
+    ) -> InputEventResult {
+        /*if !self.enabled() {
+            return InputEventResult::EventIgnored;
+        }*/
+        if matches!(event.what, MouseEventType::MousePressed) {
+            if !self.has_focus() {
+                window.set_focus_item(self_rc);
+            }
+        }
+        InputEventResult::EventAccepted
+    }
+
+    fn key_event(self: Pin<&Self>, event: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
+        match event {
+            KeyEvent::KeyPressed { .. } => {}
+            KeyEvent::KeyReleased { .. } => {}
+            KeyEvent::CharacterInput { unicode_scalar, .. } => {
+                if let Some(char) = std::char::from_u32(*unicode_scalar) {
+                    let key = SharedString::from(char.to_string().as_str());
+                    // FIXME: handle pressed and release in their event
+                    Self::FIELD_OFFSETS.key_pressed.apply_pin(self).emit(&(key.clone(),));
+                    Self::FIELD_OFFSETS.key_released.apply_pin(self).emit(&(key,));
+                }
+            }
+        };
+        KeyEventResult::EventAccepted
+    }
+
+    fn focus_event(self: Pin<&Self>, event: &FocusEvent, _window: &ComponentWindow) {
+        match event {
+            FocusEvent::FocusIn | FocusEvent::WindowReceivedFocus => {
+                self.has_focus.set(true);
+            }
+            FocusEvent::FocusOut | FocusEvent::WindowLostFocus => {
+                self.has_focus.set(false);
+            }
+        }
+    }
+
+    fn render(self: Pin<&Self>, _pos: Point, _backend: &mut ItemRendererRef) {}
+}
+
+impl ItemConsts for FocusScope {
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<
+        FocusScope,
+        CachedRenderingData,
+    > = FocusScope::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+}
+
+ItemVTable_static! {
+    /// The VTable for `FocusScope`
+    #[no_mangle]
+    pub static FocusScopeVTable for FocusScope
+}
+
 #[repr(C)]
 #[derive(FieldOffsets, Default, SixtyFPSElement)]
 #[pin]

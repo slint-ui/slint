@@ -71,7 +71,6 @@ impl<Item: vtable::HasStaticVTable<corelib::items::ItemVTable>> ErasedPropertyIn
 pub trait ErasedCallbackInfo {
     fn emit(&self, item: Pin<ItemRef>, args: &[Value]) -> Value;
     fn set_handler(&self, item: Pin<ItemRef>, handler: Box<dyn Fn(&[Value]) -> Value>);
-    fn offset(&self) -> usize;
 }
 
 impl<Item: vtable::HasStaticVTable<corelib::items::ItemVTable>> ErasedCallbackInfo
@@ -83,10 +82,6 @@ impl<Item: vtable::HasStaticVTable<corelib::items::ItemVTable>> ErasedCallbackIn
 
     fn set_handler(&self, item: Pin<ItemRef>, handler: Box<dyn Fn(&[Value]) -> Value>) {
         (*self).set_handler(ItemRef::downcast_pin(item).unwrap(), handler).unwrap()
-    }
-
-    fn offset(&self) -> usize {
-        (*self).offset()
     }
 }
 

@@ -478,6 +478,7 @@ fn generate_component<'id>(
                 rtti_for::<Rectangle>(),
                 rtti_for::<BorderRectangle>(),
                 rtti_for::<TouchArea>(),
+                rtti_for::<FocusScope>(),
                 rtti_for::<Path>(),
                 rtti_for_flickable(),
                 rtti_for::<Window>(),

@@ -84,6 +84,17 @@ export TouchArea := _ {
     //-default_size_binding:expands_to_parent_geometry
 }
 
+export FocusScope := _ {
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+    property <bool> has_focus;
+    callback key_pressed(string);
+    callback key_released(string);
+    //-default_size_binding:expands_to_parent_geometry
+}
+
 export Flickable := _ {
     property <length> x;
     property <length> y;

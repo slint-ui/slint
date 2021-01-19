@@ -47,6 +47,7 @@ fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
         "Image",
         "ClippedImage",
         "TouchArea",
+        "FocusScope",
         "Flickable",
         "Text",
         "Path",

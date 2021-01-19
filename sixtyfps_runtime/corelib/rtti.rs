@@ -19,7 +19,7 @@ use core::pin::Pin;
 
 macro_rules! declare_ValueType {
     ($($ty:ty,)*) => {
-        pub trait ValueType: 'static + Default $(+ TryInto<$ty> + TryFrom<$ty>)* {}
+        pub trait ValueType: 'static + Default + Clone $(+ TryInto<$ty> + TryFrom<$ty>)* {}
     };
 }
 declare_ValueType![
@@ -225,10 +225,6 @@ pub trait CallbackInfo<Item, Value> {
         item: Pin<&Item>,
         handler: Box<dyn Fn(&[Value]) -> Value>,
     ) -> Result<(), ()>;
-
-    /// The offset of the Callback<> in the item.
-    /// The use of this is unsafe
-    fn offset(&self) -> usize;
 }
 
 impl<Item, Value: Default + 'static> CallbackInfo<Item, Value>
@@ -249,9 +245,32 @@ impl<Item, Value: Default + 'static> CallbackInfo<Item, Value>
         });
         Ok(())
     }
+}
 
-    fn offset(&self) -> usize {
-        todo!()
+impl<Item, Value: Clone + Default + 'static, T: Clone> CallbackInfo<Item, Value>
+    for FieldOffset<Item, crate::Callback<(T,)>>
+where
+    Value: TryInto<T>,
+    T: TryInto<Value>,
+{
+    fn emit(&self, item: Pin<&Item>, args: &[Value]) -> Result<Value, ()> {
+        let value = args.first().ok_or(())?;
+        let value = value.clone().try_into().map_err(|_| ())?;
+        self.apply_pin(item).emit(&(value,));
+        Ok(Value::default())
+    }
+
+    fn set_handler(
+        &self,
+        item: Pin<&Item>,
+        handler: Box<dyn Fn(&[Value]) -> Value>,
+    ) -> Result<(), ()> {
+        self.apply_pin(item).set_handler(move |(val,)| {
+            let val: Value = val.clone().try_into().ok().unwrap();
+            handler(&[val]);
+            Value::default();
+        });
+        Ok(())
     }
 }
 
