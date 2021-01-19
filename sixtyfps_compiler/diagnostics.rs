@@ -77,6 +77,9 @@ impl From<SyntaxNodeWithSourceFile> for SourceLocation {
 
 pub trait SpannedWithSourceFile: Spanned {
     fn source_file(&self) -> Option<&SourceFile>;
+    fn to_source_location(&self) -> SourceLocation {
+        SourceLocation { source_file: self.source_file().cloned(), span: self.span() }
+    }
 }
 
 impl Spanned for SourceLocation {
@@ -88,6 +91,18 @@ impl Spanned for SourceLocation {
 impl SpannedWithSourceFile for SourceLocation {
     fn source_file(&self) -> Option<&SourceFile> {
         self.source_file.as_ref()
+    }
+}
+
+impl Spanned for Option<SourceLocation> {
+    fn span(&self) -> crate::diagnostics::Span {
+        self.as_ref().map(|n| n.span()).unwrap_or_default()
+    }
+}
+
+impl SpannedWithSourceFile for Option<SourceLocation> {
+    fn source_file(&self) -> Option<&SourceFile> {
+        self.as_ref().map(|n| n.source_file.as_ref()).unwrap_or_default()
     }
 }
 

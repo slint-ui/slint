@@ -1456,7 +1456,7 @@ fn compile_expression(
             if let Some(s) = x.last_mut() { *s = format!("return {};", s) };
             format!("[&]{{ {} }}()", x.join(";"))
         }
-        Expression::FunctionCall { function, arguments } => match &**function {
+        Expression::FunctionCall { function, arguments, source_location: _  } => match &**function {
             Expression::BuiltinFunctionReference(BuiltinFunction::SetFocusItem) => {
                 if arguments.len() != 1 {
                     panic!("internal error: incorrect argument count to SetFocusItem call");

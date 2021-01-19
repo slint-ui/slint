@@ -315,6 +315,7 @@ pub enum Expression {
     FunctionCall {
         function: Box<Expression>,
         arguments: Vec<Expression>,
+        source_location: Option<SourceLocation>,
     },
 
     /// A SelfAssignment or an Assignment.  When op is '=' this is a signel assignment.
@@ -501,7 +502,7 @@ impl Expression {
             Expression::CodeBlock(sub) => {
                 sub.iter().for_each(visitor);
             }
-            Expression::FunctionCall { function, arguments } => {
+            Expression::FunctionCall { function, arguments, source_location: _ } => {
                 visitor(&**function);
                 arguments.iter().for_each(visitor);
             }
@@ -573,7 +574,7 @@ impl Expression {
             Expression::CodeBlock(sub) => {
                 sub.iter_mut().for_each(visitor);
             }
-            Expression::FunctionCall { function, arguments } => {
+            Expression::FunctionCall { function, arguments, source_location: _ } => {
                 visitor(&mut **function);
                 arguments.iter_mut().for_each(visitor);
             }
@@ -687,6 +688,7 @@ impl Expression {
                             BuiltinFunction::GetWindowScaleFactor,
                         )),
                         arguments: vec![],
+                        source_location: Some(node.to_source_location()),
                     }),
                     op: '/',
                 },
@@ -697,6 +699,7 @@ impl Expression {
                             BuiltinFunction::GetWindowScaleFactor,
                         )),
                         arguments: vec![],
+                        source_location: Some(node.to_source_location()),
                     }),
                     op: '*',
                 },

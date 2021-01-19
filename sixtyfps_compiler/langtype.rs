@@ -241,9 +241,11 @@ impl Type {
 
     pub fn lookup_member_function(&self, name: &str) -> Expression {
         match self {
-            Type::Builtin(builtin) => {
-                builtin.member_functions.get(name).cloned().unwrap_or(Expression::Invalid)
-            }
+            Type::Builtin(builtin) => builtin
+                .member_functions
+                .get(name)
+                .cloned()
+                .unwrap_or(crate::typeregister::reserved_member_function(name)),
             _ => Expression::Invalid,
         }
     }
@@ -489,6 +491,7 @@ pub struct BuiltinElement {
     pub disallow_global_types_as_child_elements: bool,
     /// Non-item type do not have reserved properties (x/width/rowspan/...) added to them  (eg: PropertyAnimation)
     pub is_non_item_type: bool,
+    pub accepts_focus: bool,
     pub member_functions: HashMap<String, Expression>,
     pub is_global: bool,
     pub default_size_binding: DefaultSizeBinding,

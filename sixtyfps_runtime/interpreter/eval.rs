@@ -353,7 +353,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
             }
             v
         }
-        Expression::FunctionCall { function, arguments } => match &**function {
+        Expression::FunctionCall { function, arguments, source_location: _ } => match &**function {
             Expression::CallbackReference(NamedReference { element, name }) => {
                 let element = element.upgrade().unwrap();
                 generativity::make_guard!(guard);

@@ -13,6 +13,28 @@ X := Rectangle {
     initial_focus: someRect;
 //                ^error{element is not focusable}
 
+    callback trigger_focus_change();
+    trigger_focus_change => {
+        someRect.focus();
+//      ^error{focus\(\) can only be called on focusable elements}
+    }
+
+    indirect_focus_chain_rect := Rectangle {
+       initial-focus: someRect;
+//                   ^error{element is not focusable}
+    }
+
+    callback trigger_focus_change_2();
+    trigger_focus_change_2 => {
+        indirect_focus_chain_rect.focus();
+//      ^error{focus\(\) can only be called on focusable elements}
+    }
 
     someRect := Rectangle {}
+
+    someFocusScope := FocusScope {}
+    callback activate_focus_scope();
+    activate_focus_scope => {
+        someFocusScope.focus(); // OK!
+    }
 }

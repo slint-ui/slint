@@ -42,6 +42,7 @@ pub fn reserved_property(name: &str) -> Type {
         ("colspan", Type::Int32),
         ("rowspan", Type::Int32),
         ("initial_focus", Type::ElementReference),
+        ("focus", BuiltinFunction::SetFocusItem.ty()),
     ]
     .iter()
     {
@@ -50,6 +51,20 @@ pub fn reserved_property(name: &str) -> Type {
         }
     }
     Type::Invalid
+}
+
+/// These member functions are injected in every time
+pub fn reserved_member_function(name: &str) -> Expression {
+    for (m, e) in [
+        ("focus", Expression::BuiltinFunctionReference(BuiltinFunction::SetFocusItem)), // match for callable "focus" property
+    ]
+    .iter()
+    {
+        if *m == name {
+            return e.clone();
+        }
+    }
+    Expression::Invalid
 }
 
 #[derive(Debug, Default)]
@@ -123,19 +138,6 @@ impl TypeRegister {
             .for_each(|ty| ty.collect_contextual_types(&mut context_restricted_types));
         register.context_restricted_types = context_restricted_types;
 
-        match &mut register.types.get_mut("TextInput").unwrap() {
-            Type::Builtin(ref mut b) => {
-                Rc::get_mut(b)
-                    .unwrap()
-                    .properties
-                    .insert("focus".into(), BuiltinFunction::SetFocusItem.ty());
-                Rc::get_mut(b).unwrap().member_functions.insert(
-                    "focus".into(),
-                    Expression::BuiltinFunctionReference(BuiltinFunction::SetFocusItem),
-                );
-            }
-            _ => unreachable!(),
-        };
         match &mut register.types.get_mut("PopupWindow").unwrap() {
             Type::Builtin(ref mut b) => {
                 Rc::get_mut(b)

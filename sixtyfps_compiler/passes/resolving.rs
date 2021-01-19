@@ -669,7 +669,11 @@ impl Expression {
             }
         };
 
-        Expression::FunctionCall { function, arguments }
+        Expression::FunctionCall {
+            function,
+            arguments,
+            source_location: Some(node.to_source_location()),
+        }
     }
 
     fn from_self_assignement_node(

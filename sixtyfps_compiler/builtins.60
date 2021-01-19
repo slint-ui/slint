@@ -93,6 +93,7 @@ export FocusScope := _ {
     callback key_pressed(string);
     callback key_released(string);
     //-default_size_binding:expands_to_parent_geometry
+    //-accepts_focus
 }
 
 export Flickable := _ {
@@ -139,7 +140,7 @@ export TextInput := _ {
     callback edited;
     property <bool> enabled: true;
     //-default_size_binding:expands_to_parent_geometry
-    //focus() is hardcoded in typeregister.rs
+    //-accepts_focus
 }
 
 export Clip := _ {

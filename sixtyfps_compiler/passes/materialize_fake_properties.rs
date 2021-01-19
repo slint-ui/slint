@@ -48,7 +48,9 @@ fn maybe_materialize(
     let has_declared_property = match &base_type {
         Type::Component(c) => has_declared_property(&c.root_element.borrow(), prop),
         Type::Builtin(b) => b.properties.contains_key(prop),
-        Type::Native(n) => n.lookup_property(prop).is_some(),
+        Type::Native(n) => {
+            n.lookup_property(prop).map_or(false, |prop_type| prop_type.is_property_type())
+        }
         _ => false,
     };
 

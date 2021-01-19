@@ -58,6 +58,7 @@ fn make_default_implicit(elem: &ElementRc, property: &str, function: BuiltinFunc
             base: Expression::FunctionCall {
                 function: Box::new(Expression::BuiltinFunctionReference(function)),
                 arguments: vec![Expression::ElementReference(Rc::downgrade(elem))],
+                source_location: None,
             }
             .into(),
             name: property.into(),

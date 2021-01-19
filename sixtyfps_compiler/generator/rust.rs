@@ -1098,7 +1098,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
             component,
             quote!(_self),
         ),
-        Expression::FunctionCall { function, arguments } => {
+        Expression::FunctionCall { function, arguments,  source_location: _ } => {
             match &**function {
                 Expression::BuiltinFunctionReference(BuiltinFunction::SetFocusItem) => {
                     if arguments.len() != 1 {
