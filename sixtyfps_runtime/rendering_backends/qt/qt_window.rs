@@ -843,11 +843,13 @@ fn get_font(request: FontRequest) -> QFont {
 cpp_class! {pub unsafe struct QFont as "QFont"}
 
 impl sixtyfps_corelib::graphics::FontMetrics for QFont {
-    fn text_width(&self, text: &str) -> f32 {
+    fn text_size(&self, text: &str) -> sixtyfps_corelib::graphics::Size {
         let string = qttypes::QString::from(text);
-        cpp! { unsafe [self as "const QFont*",  string as "QString"] -> f32 as "float"{
-            return QFontMetricsF(*self).boundingRect(string).width();
-        }}
+        let size = cpp! { unsafe [self as "const QFont*",  string as "QString"]
+                -> qttypes::QSizeF as "QSizeF"{
+            return QFontMetricsF(*self).boundingRect(QRectF(), 0, string).size();
+        }};
+        sixtyfps_corelib::graphics::Size::new(size.width as _, size.height as _)
     }
 
     fn text_offset_for_x_position<'a>(&self, text: &'a str, x: f32) -> usize {

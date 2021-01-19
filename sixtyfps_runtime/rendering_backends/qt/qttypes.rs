@@ -170,6 +170,16 @@ pub struct QSize {
     pub height: u32,
 }
 
+/// Bindings for [`QSizeF`][class] class.
+///
+/// [class]: https://doc.qt.io/qt-5/qsizef.html
+#[repr(C)]
+#[derive(Default, Clone, Copy, PartialEq, Debug)]
+pub struct QSizeF {
+    pub width: qreal,
+    pub height: qreal,
+}
+
 #[repr(C)]
 #[derive(Default, Clone, Copy, PartialEq, Debug)]
 pub struct QPoint {

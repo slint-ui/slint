@@ -1055,8 +1055,9 @@ struct GLFontMetrics {
 }
 
 impl FontMetrics for GLFontMetrics {
-    fn text_width(&self, text: &str) -> f32 {
-        self.font().measure(text).width()
+    fn text_size(&self, text: &str) -> Size {
+        let m = self.font().measure(text);
+        euclid::size2(m.width(), m.height())
     }
 
     fn text_offset_for_x_position<'a>(&self, text: &'a str, x: f32) -> usize {

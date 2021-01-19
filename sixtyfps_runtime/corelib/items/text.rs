@@ -97,9 +97,8 @@ impl Item for Text {
         let text = self.text();
 
         if let Some(font_metrics) = window.0.font_metrics(self.font_request()) {
-            let width = font_metrics.text_width(&text);
-            let height = font_metrics.height();
-            LayoutInfo { min_width: width, min_height: height, ..LayoutInfo::default() }
+            let size = font_metrics.text_size(&text);
+            LayoutInfo { min_width: size.width, min_height: size.height, ..LayoutInfo::default() }
         } else {
             LayoutInfo::default()
         }
@@ -109,7 +108,7 @@ impl Item for Text {
         window
             .0
             .font_metrics(self.font_request())
-            .map(|metrics| euclid::size2(metrics.text_width(&self.text()), metrics.height()))
+            .map(|metrics| metrics.text_size(&self.text()))
             .unwrap_or_default()
     }
 
@@ -202,12 +201,11 @@ impl Item for TextInput {
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
         if let Some(font_metrics) = window.0.font_metrics(self.font_request()) {
-            let width = font_metrics.text_width("********************");
-            let height = font_metrics.height();
+            let size = font_metrics.text_size("********************");
 
             LayoutInfo {
-                min_width: width,
-                min_height: height,
+                min_width: size.width,
+                min_height: size.height,
                 horizontal_stretch: 1.,
                 ..LayoutInfo::default()
             }
@@ -220,7 +218,7 @@ impl Item for TextInput {
         window
             .0
             .font_metrics(self.font_request())
-            .map(|metrics| euclid::size2(metrics.text_width(&self.text()), metrics.height()))
+            .map(|metrics| metrics.text_size(&self.text()))
             .unwrap_or_default()
     }
 
