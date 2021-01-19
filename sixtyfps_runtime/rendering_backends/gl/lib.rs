@@ -568,11 +568,8 @@ impl GLRenderer {
 
     /// Returns a new item renderer instance. At this point rendering begins and the backend ensures that the
     /// window background was cleared with the specified clear_color.
-    fn new_renderer(&mut self, clear_color: &Color) -> GLItemRenderer {
-        let (size, scale_factor) = {
-            let window = self.window();
-            (window.inner_size(), window.scale_factor() as f32)
-        };
+    fn new_renderer(&mut self, clear_color: &Color, scale_factor: f32) -> GLItemRenderer {
+        let size = self.window().inner_size();
 
         #[cfg(not(target_arch = "wasm32"))]
         {
@@ -626,12 +623,8 @@ impl GLRenderer {
 
     /// Returns a FontMetrics trait object that can be used to measure text and that matches the given font request as
     /// closely as possible.
-    fn font_metrics(&mut self, request: FontRequest) -> Box<dyn FontMetrics> {
-        Box::new(GLFontMetrics {
-            request,
-            scale_factor: self.window().scale_factor() as f32,
-            shared_data: self.shared_data.clone(),
-        })
+    fn font_metrics(&mut self, request: FontRequest, scale_factor: f32) -> Box<dyn FontMetrics> {
+        Box::new(GLFontMetrics { request, scale_factor, shared_data: self.shared_data.clone() })
     }
 
     /// Returns the size of image referenced by the specified resource. These are image pixels, not adjusted

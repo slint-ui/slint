@@ -298,7 +298,8 @@ impl GraphicsWindow {
                 RgbaColor { red: 255 as u8, green: 255, blue: 255, alpha: 255 }.into()
             };
 
-        let mut renderer = window.backend.borrow_mut().new_renderer(&background_color);
+        let mut renderer =
+            window.backend.borrow_mut().new_renderer(&background_color, self.scale_factor());
         corelib::item_rendering::render_component_items(
             &component_rc,
             &mut renderer,
@@ -441,7 +442,7 @@ impl PlatformWindow for GraphicsWindow {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped => None,
             GraphicsWindowBackendState::Mapped(window) => {
-                Some(window.backend.borrow_mut().font_metrics(request))
+                Some(window.backend.borrow_mut().font_metrics(request, self.scale_factor()))
             }
         }
     }
