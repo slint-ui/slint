@@ -78,8 +78,17 @@ pub fn sixtyfps_element(input: TokenStream) -> TokenStream {
         .map(|f| (f.ident.as_ref().unwrap(), &f.ty))
         .unzip();
 
-    let callback_field_names =
-        fields.iter().filter(|f| is_callback(&f.ty)).map(|f| f.ident.as_ref().unwrap());
+    let mut callback_field_names = Vec::new();
+    let mut callback_args = Vec::new();
+    for field in fields {
+        if let Some(arg) = callback_arg(&field.ty) {
+            if matches!(field.vis, syn::Visibility::Public(_)) {
+                let name = field.ident.as_ref().unwrap();
+                callback_field_names.push(name);
+                callback_args.push(arg);
+            }
+        }
+    }
 
     let item_name = &input.ident;
 
@@ -105,7 +114,7 @@ pub fn sixtyfps_element(input: TokenStream) -> TokenStream {
             }
             fn callbacks<Value: ValueType>() -> Vec<(&'static str, &'static dyn CallbackInfo<Self, Value>)> {
                 vec![#( {
-                    const O : const_field_offset::FieldOffset<#item_name, Callback<()>, const_field_offset::AllowPin> =
+                    const O : const_field_offset::FieldOffset<#item_name, Callback<#callback_args>, const_field_offset::AllowPin> =
                          #item_name::FIELD_OFFSETS.#callback_field_names;
                     (stringify!(#callback_field_names), &O as  &'static dyn CallbackInfo<Self, Value>)
                 } ),*]
@@ -121,10 +130,6 @@ pub fn sixtyfps_element(input: TokenStream) -> TokenStream {
         }
     )
     .into()
-}
-
-fn type_name(ty: &syn::Type) -> String {
-    quote!(#ty).to_string()
 }
 
 // Try to match `Property<Foo>` on the syn tree and return Foo if found
@@ -149,8 +154,26 @@ fn property_type(ty: &syn::Type) -> Option<&syn::Type> {
     None
 }
 
-fn is_callback(ty: &syn::Type) -> bool {
-    type_name(ty).to_string().starts_with("Callback <")
+// Try to match `Callback<Args>` on the syn tree and return Args if found
+fn callback_arg(ty: &syn::Type) -> Option<&syn::Type> {
+    if let syn::Type::Path(syn::TypePath { path: syn::Path { segments, .. }, .. }) = ty {
+        if let Some(syn::PathSegment {
+            ident,
+            arguments:
+                syn::PathArguments::AngleBracketed(syn::AngleBracketedGenericArguments { args, .. }),
+        }) = segments.first()
+        {
+            match args.first() {
+                Some(syn::GenericArgument::Type(property_type))
+                    if ident.to_string() == "Callback" =>
+                {
+                    return Some(property_type)
+                }
+                _ => {}
+            }
+        }
+    }
+    None
 }
 
 #[proc_macro_derive(MappedKeyCode)]
