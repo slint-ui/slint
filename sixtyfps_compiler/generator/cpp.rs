@@ -195,6 +195,25 @@ mod cpp_ast {
     pub trait CppType {
         fn cpp_type(&self) -> Option<String>;
     }
+
+    pub fn escape_string(str: &str) -> String {
+        let mut result = String::with_capacity(str.len());
+        for x in str.chars() {
+            match x {
+                '\n' => result.push_str("\\n"),
+                '\\' => result.push_str("\\\\"),
+                '\"' => result.push_str("\\\""),
+                '\t' => result.push_str("\\t"),
+                '\r' => result.push_str("\\r"),
+                _ if !x.is_ascii() || (x as u32) < 32 => {
+                    use std::fmt::Write;
+                    write!(result, "\\U{:0>8x}", x as u32).unwrap();
+                }
+                _ => result.push(x),
+            }
+        }
+        result
+    }
 }
 
 use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic, Level, Spanned};
@@ -1313,7 +1332,7 @@ fn compile_expression(
 ) -> String {
     match expr {
         Expression::StringLiteral(s) => {
-            format!(r#"sixtyfps::SharedString("{}")"#, s.escape_debug())
+            format!(r#"sixtyfps::SharedString("{}")"#, escape_string(s.as_str()))
         }
         Expression::NumberLiteral(n, unit) => unit.normalize(*n).to_string(),
         Expression::BoolLiteral(b) => b.to_string(),
@@ -1518,7 +1537,7 @@ fn compile_expression(
         }
         Expression::ResourceReference(resource_ref)  => {
             match resource_ref {
-                crate::expression_tree::ResourceReference::AbsolutePath(path) => format!(r#"sixtyfps::Resource(sixtyfps::SharedString("{}"))"#, path.escape_debug()),
+                crate::expression_tree::ResourceReference::AbsolutePath(path) => format!(r#"sixtyfps::Resource(sixtyfps::SharedString("{}"))"#, escape_string(path.as_str())),
                 crate::expression_tree::ResourceReference::EmbeddedData(_) => unimplemented!("The C++ generator does not support resource embedding yet")
             }
         }
