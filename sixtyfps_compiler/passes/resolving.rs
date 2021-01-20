@@ -1212,6 +1212,15 @@ fn unescape_string(string: &str) -> Option<String> {
             b'"' => result += "\"",
             b'\\' => result += "\\",
             b'n' => result += "\n",
+            b'u' => {
+                if string.as_bytes().get(pos)? != &b'{' {
+                    return None;
+                }
+                let end = string[pos..].find('}')? + pos;
+                let x = u32::from_str_radix(&string[pos + 1..end], 16).ok()?;
+                result.push(std::char::from_u32(x)?);
+                pos = end + 1;
+            }
             _ => return None,
         }
     }
@@ -1231,6 +1240,14 @@ fn test_unsecape_string() {
     assert_eq!(unescape_string(r#""foo_bar"#), None);
     assert_eq!(unescape_string(r#""foo_bar\"#), None);
     assert_eq!(unescape_string(r#"foo_bar""#), None);
+    assert_eq!(unescape_string(r#""d\u{8}a\u{d4}f\u{Ed3}""#), Some("d\u{8}a\u{d4}f\u{ED3}".into()));
+    assert_eq!(unescape_string(r#""xxx\""#), None);
+    assert_eq!(unescape_string(r#""xxx\u""#), None);
+    assert_eq!(unescape_string(r#""xxx\uxx""#), None);
+    assert_eq!(unescape_string(r#""xxx\u{""#), None);
+    assert_eq!(unescape_string(r#""xxx\u{22""#), None);
+    assert_eq!(unescape_string(r#""xxx\u{qsdf}""#), None);
+    assert_eq!(unescape_string(r#""xxx\u{1234567890}""#), None);
 }
 
 fn parse_number_literal(s: String) -> Result<Expression, String> {

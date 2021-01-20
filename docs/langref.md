@@ -392,8 +392,9 @@ Some character can be escaped with slashes (`\`)
 | --- | --- |
 | `\"` | `"` |
 | `\\` | `\` |
-| `\n` | line return |
-| `\{<expression>}` | the content of the expression |
+| `\n` | new line |
+| `\u{xxx}` | where `xxx` is an hexadecimal number, this expand to the unicode character represented by this number |
+| `\{expression}` | the expression is evaluated and inserted here |
 
 Anything else after a `\` is an error.
 
