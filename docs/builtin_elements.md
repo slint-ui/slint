@@ -190,6 +190,32 @@ Example := Window {
 }
 ```
 
+## `FocusScope`
+
+The FocusScope exposes callback to intercept the pressed key when it has focus.
+
+### Properties
+
+* **`has_focus`** (*bool*): Set to true when item is focused and receives keyboard events.
+
+### Methods
+
+* **`focus()`** Call this function to focus the text input and make it receive future keyboard events.
+
+### Callbacks
+
+* **`key_pressed(string)`**: Emited when a key is pressed, the argument is the string representation of the key
+* **`key_released(string)`**: Emited when a key is released, the argument is the string representation of the key
+
+### Example
+
+```60
+Example := Window {
+    FocusScope {
+        key-pressed(key) => { debug(key); }
+    }
+}
+```
 
 ## `VerticalLayout` / `HorizontalLayout`
 
