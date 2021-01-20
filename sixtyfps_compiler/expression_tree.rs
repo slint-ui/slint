@@ -7,7 +7,7 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-use crate::diagnostics::{BuildDiagnostics, Spanned, SpannedWithSourceFile};
+use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned, SpannedWithSourceFile};
 use crate::langtype::{BuiltinElement, EnumerationValue, Type};
 use crate::object_tree::*;
 use crate::parser::{NodeOrTokenWithSourceFile, SyntaxNodeWithSourceFile};
@@ -863,7 +863,7 @@ pub struct ExpressionSpanned {
     #[deref]
     #[deref_mut]
     pub expression: Expression,
-    pub span: Option<(crate::diagnostics::SourceFile, crate::diagnostics::Span)>,
+    pub span: Option<SourceLocation>,
 }
 
 impl std::convert::From<Expression> for ExpressionSpanned {
@@ -874,20 +874,19 @@ impl std::convert::From<Expression> for ExpressionSpanned {
 
 impl ExpressionSpanned {
     pub fn new_uncompiled(node: SyntaxNodeWithSourceFile) -> Self {
-        let span = node.source_file().map(|f| (f.clone(), node.span()));
-        Self { expression: Expression::Uncompiled(node), span }
+        Self { expression: Expression::Uncompiled(node.clone()), span: Some(node.into()) }
     }
 }
 
 impl SpannedWithSourceFile for ExpressionSpanned {
     fn source_file(&self) -> Option<&crate::diagnostics::SourceFile> {
-        self.span.as_ref().map(|x| &x.0)
+        self.span.as_ref().and_then(|x| x.source_file())
     }
 }
 
 impl Spanned for ExpressionSpanned {
     fn span(&self) -> crate::diagnostics::Span {
-        self.span.as_ref().map(|x| x.1.clone()).unwrap_or_default()
+        self.span.as_ref().map(|x| x.span()).unwrap_or_default()
     }
 }
 

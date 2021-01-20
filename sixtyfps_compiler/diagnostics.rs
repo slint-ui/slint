@@ -58,13 +58,37 @@ impl From<proc_macro::Span> for Span {
 
 /// Returns a span.  This is implemented for tokens and nodes
 pub trait Spanned {
-    fn span(&self) -> crate::diagnostics::Span;
+    fn span(&self) -> Span;
 }
 
 pub type SourceFile = Rc<PathBuf>;
 
+#[derive(Debug, Clone)]
+pub struct SourceLocation {
+    source_file: Option<SourceFile>,
+    span: Span,
+}
+
+impl From<SyntaxNodeWithSourceFile> for SourceLocation {
+    fn from(node: SyntaxNodeWithSourceFile) -> Self {
+        SourceLocation { source_file: node.source_file, span: node.node.span() }
+    }
+}
+
 pub trait SpannedWithSourceFile: Spanned {
     fn source_file(&self) -> Option<&SourceFile>;
+}
+
+impl Spanned for SourceLocation {
+    fn span(&self) -> Span {
+        self.span.clone()
+    }
+}
+
+impl SpannedWithSourceFile for SourceLocation {
+    fn source_file(&self) -> Option<&SourceFile> {
+        self.source_file.as_ref()
+    }
 }
 
 /// Diagnostics level (error or warning)
@@ -319,6 +343,8 @@ impl FileDiagnostics {
 
 #[cfg(feature = "proc_macro_span")]
 use quote::quote;
+
+use crate::parser::SyntaxNodeWithSourceFile;
 
 #[cfg(feature = "proc_macro_span")]
 impl quote::ToTokens for FileDiagnostics {
