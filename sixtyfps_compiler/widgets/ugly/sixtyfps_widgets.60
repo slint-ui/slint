@@ -308,6 +308,7 @@ export LineEdit := Rectangle {
     property <bool> enabled: true;
     callback accepted(string);
     callback edited(string);
+    forward-focus: input;
 
     border_color: root.has_focus ? Palette.highlight_background : #ffffff;
     border_radius: 1px;
