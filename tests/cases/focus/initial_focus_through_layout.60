@@ -10,7 +10,7 @@ LICENSE END */
 
 TextComponent := GridLayout {
     property<bool> has_focus: my_text_input.has_focus;
-    initial_focus: my_text_input;
+    forward-focus: my_text_input;
     Row {
         my_text_input := TextInput { }
     }
@@ -19,7 +19,7 @@ TextComponent := GridLayout {
 TestCase := Rectangle {
     width: 400phx;
     height: 400phx;
-    initial_focus: input2;
+    forward-focus: input2;
 
     input1 := TextComponent {
     }

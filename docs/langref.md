@@ -653,52 +653,7 @@ Certain elements such as ```TextInput``` accept not only input from the mouse/fi
 also key events originating from (virtual) keyboards. In order for an item to receive
 these events, it must have the focus. This is visible through the `has_focus` property.
 
-Items themselves may acquire the focus as a result of user input such as a mouse click.
-In addition, developers can specify which items shall receive the focus when the application
-window initially receives the focus. This is specified through the `initial_focus` property,
-for which bindings may be declared at the root of components. For example in the following
-scene with two ```TextInput``` elements, it is the second one that'll have the initial keyboard
-focus when they're shown:
-
-```60
-App := Window {
-    initial_focus: second_input_field;
-
-    GridLayout {
-        Row {
-            first_input_field := TextInput {}
-        }
-        Row {
-            second_input_field := TextInput {}
-        }
-    }
-}
-```
-
-The initial focus may also be propagated through reusable components:
-
-```60
-LabeledInput := GridLayout {
-    initial_focus: input;
-    Row {
-        Text {
-            text: "Input Label:";
-        }
-        input := TextInput {}
-    }
-}
-
-App := Window {
-    initial_focus: label2;
-
-    GridLayout {
-        label1 := LabeledInput {}
-        label2 := LabeledInput {}
-    }
-}
-```
-
-It's also possible to manually activate the focus on elements such as ```TextInput```:
+You can manually activate the focus on an element by calling `focus()`:
 
 ```60
 import { Button } from "sixtyfps_widgets.60";
@@ -715,6 +670,35 @@ App := Window {
     }
 }
 ```
+
+If you have wrapped the `TextInput` in a component, then you can forward such a focus activation
+using the `forward-focus` property to refer to the element that should receive it:
+
+```60
+LabeledInput := GridLayout {
+    forward-focus: input;
+    Row {
+        Text {
+            text: "Input Label:";
+        }
+        input := TextInput {}
+    }
+}
+
+App := Window {
+    GridLayout {
+        Button {
+            text: "press me";
+            clicked => { label.focus(); }
+        }
+        label := LabeledInput {
+        }
+    }
+}
+``````
+
+If you use the `forward-focus` property on a `Window`, then the specified element will receive
+the focus the very first time the window receives the focus - it becomes the initial focus element.
 
 ## Builtin functions
 

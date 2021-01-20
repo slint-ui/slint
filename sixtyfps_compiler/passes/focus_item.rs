@@ -7,7 +7,8 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-//! This pass follows the initial_focus property on the root element to determine the initial focus item
+//! This pass follows the forward-focus property on the root element to determine the initial focus item
+//  as well as handle the forward for `focus()` calls in code.
 
 use std::rc::Rc;
 
@@ -23,14 +24,14 @@ enum FocusCheckResult {
 }
 
 fn element_focus_check(element: &ElementRc) -> FocusCheckResult {
-    if let Some(initial_focus_binding) = element.borrow().bindings.get("initial_focus") {
-        if let Expression::ElementReference(target) = &initial_focus_binding.expression {
+    if let Some(forwarded_focus_binding) = element.borrow().bindings.get("forward_focus") {
+        if let Expression::ElementReference(target) = &forwarded_focus_binding.expression {
             return FocusCheckResult::FocusForwarded(
                 target.upgrade().unwrap(),
-                initial_focus_binding.to_source_location(),
+                forwarded_focus_binding.to_source_location(),
             );
         } else {
-            panic!("internal error: initial_focus property is of type ElementReference but received non-element-reference binding");
+            panic!("internal error: forward_focus property is of type ElementReference but received non-element-reference binding");
         }
     }
 
@@ -63,7 +64,7 @@ fn find_focusable_element(
 }
 
 /// Ensure that all element references in SetFocusItem calls point to elements that can accept the focus, following
-/// any `initial-focus` chains if needed.
+/// any `forward-focus` chains if needed.
 fn resolve_element_reference_in_set_focus_call(expr: &mut Expression, diag: &mut BuildDiagnostics) {
     if let Expression::FunctionCall { function, arguments, source_location } = expr {
         if let Expression::BuiltinFunctionReference(BuiltinFunction::SetFocusItem) =
@@ -112,10 +113,10 @@ pub fn determine_initial_focus_item(component: &Rc<Component>, diag: &mut BuildD
     }
 }
 
-/// The `initial_focus` property is not a real property that can be generated, so remove any bindings to it
+/// The `forward_focus` property is not a real property that can be generated, so remove any bindings to it
 /// to aovid them being materialized.
-pub fn erase_initial_focus_properties(component: &Rc<Component>) {
+pub fn erase_forward_focus_properties(component: &Rc<Component>) {
     recurse_elem_no_borrow(&component.root_element, &(), &mut |elem, _| {
-        elem.borrow_mut().bindings.remove("initial_focus");
+        elem.borrow_mut().bindings.remove("forward_focus");
     })
 }

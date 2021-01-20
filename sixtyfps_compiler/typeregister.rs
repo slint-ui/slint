@@ -41,7 +41,7 @@ pub fn reserved_property(name: &str) -> Type {
         ("row", Type::Int32),
         ("colspan", Type::Int32),
         ("rowspan", Type::Int32),
-        ("initial_focus", Type::ElementReference),
+        ("forward_focus", Type::ElementReference),
         ("focus", BuiltinFunction::SetFocusItem.ty()),
     ]
     .iter()

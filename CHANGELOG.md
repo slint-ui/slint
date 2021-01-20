@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
  - Renamed "SharedArray" to "SharedVector" in the C++/Rust API
  - Renamed Slider min and max property to minimum and maximum
  - The graphics rendering backend was changed to use femtovg or Qt
+ - Renamed `initial-focus` to `forward-focus` as focus related property on elements
 
 ### Added
  - title property to the Window element

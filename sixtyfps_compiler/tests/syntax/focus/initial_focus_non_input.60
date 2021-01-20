@@ -10,7 +10,7 @@ LICENSE END */
 
 
 X := Rectangle {
-    initial_focus: someRect;
+    forward-focus: someRect;
 //                ^error{element is not focusable}
 
     callback trigger_focus_change();
@@ -20,7 +20,7 @@ X := Rectangle {
     }
 
     indirect_focus_chain_rect := Rectangle {
-       initial-focus: someRect;
+       forward-focus: someRect;
 //                   ^error{element is not focusable}
     }
 

@@ -165,7 +165,7 @@ pub async fn run_passes(
     passes::unique_id::assign_unique_id(&doc.root_component);
     passes::focus_item::resolve_element_reference_in_set_focus_calls(&doc.root_component, diag);
     passes::focus_item::determine_initial_focus_item(&doc.root_component, diag);
-    passes::focus_item::erase_initial_focus_properties(&doc.root_component);
+    passes::focus_item::erase_forward_focus_properties(&doc.root_component);
     passes::materialize_fake_properties::materialize_fake_properties(&doc.root_component);
     if compiler_config.embed_resources {
         passes::embed_resources::embed_resources(&doc.root_component);

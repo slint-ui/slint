@@ -11,7 +11,7 @@ LICENSE END */
 TestCase := Rectangle {
     width: 400phx;
     height: 400phx;
-    initial_focus: input1;
+    forward-focus: input1;
 
     input1 := TextInput {
         width: parent.width;

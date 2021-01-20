@@ -17,7 +17,7 @@ TestCase := Rectangle {
     rectangle := Rectangle {
         width: parent.width;
         height: 200phx;
-        initial-focus: input;
+        forward-focus: input;
     }
 
     input := TextInput {
