@@ -32,7 +32,7 @@ use sixtyfps_corelib::input::{
     FocusEvent, InputEventResult, KeyEvent, KeyEventResult, MouseEvent, MouseEventType,
 };
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
-use sixtyfps_corelib::items::{Item, ItemConsts, ItemRc, ItemVTable};
+use sixtyfps_corelib::items::{Item, ItemConsts, ItemRc, ItemVTable, VoidArg};
 use sixtyfps_corelib::layout::LayoutInfo;
 use sixtyfps_corelib::rtti::*;
 use sixtyfps_corelib::window::ComponentWindow;
@@ -154,7 +154,7 @@ pub struct NativeButton {
     pub text: Property<SharedString>,
     pub enabled: Property<bool>,
     pub pressed: Property<bool>,
-    pub clicked: Callback<()>,
+    pub clicked: Callback<VoidArg>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
@@ -271,7 +271,7 @@ pub struct NativeCheckBox {
     pub width: Property<f32>,
     pub height: Property<f32>,
     pub enabled: Property<bool>,
-    pub toggled: Callback<()>,
+    pub toggled: Callback<VoidArg>,
     pub text: Property<SharedString>,
     pub checked: Property<bool>,
     pub cached_rendering_data: CachedRenderingData,
@@ -1595,7 +1595,7 @@ pub struct NativeComboBox {
     pub is_open: Property<bool>,
     pub current_value: Property<SharedString>,
     pub cached_rendering_data: CachedRenderingData,
-    pub open_popup: Callback<()>,
+    pub open_popup: Callback<VoidArg>,
 }
 
 impl Item for NativeComboBox {

@@ -49,6 +49,10 @@ pub use self::image::*;
 /// despite the presence of trait object
 type ItemRendererRef<'a> = &'a mut dyn crate::item_rendering::ItemRenderer;
 
+/// Workarounds for cbindgen
+pub type VoidArg = ();
+type StringArg = (SharedString,);
+
 /// Items are the nodes in the render tree.
 #[vtable]
 #[repr(C)]
@@ -295,7 +299,7 @@ pub struct TouchArea {
     /// FIXME: should maybe be as parameter to the mouse event instead. Or at least just one property
     pub mouse_x: Property<f32>,
     pub mouse_y: Property<f32>,
-    pub clicked: Callback<()>,
+    pub clicked: Callback<VoidArg>,
     /// FIXME: remove this
     pub cached_rendering_data: CachedRenderingData,
 }
@@ -382,8 +386,8 @@ pub struct FocusScope {
     pub width: Property<f32>,
     pub height: Property<f32>,
     pub has_focus: Property<bool>,
-    pub key_pressed: Callback<(SharedString,)>,
-    pub key_released: Callback<(SharedString,)>,
+    pub key_pressed: Callback<StringArg>,
+    pub key_released: Callback<StringArg>,
     /// FIXME: remove this
     pub cached_rendering_data: CachedRenderingData,
 }

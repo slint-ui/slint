@@ -32,7 +32,13 @@ fn default_config() -> cbindgen::Config {
         cpp_compat: true,
         documentation: true,
         export: cbindgen::ExportConfig {
-            rename: [("Callback".into(), "Callback<>".into())].iter().cloned().collect(),
+            rename: [
+                ("VoidArg".into(), "void()".into()),
+                ("StringArg".into(), "void(SharedString)".into()),
+            ]
+            .iter()
+            .cloned()
+            .collect(),
             ..Default::default()
         },
         ..Default::default()
@@ -85,6 +91,8 @@ fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
         "PropertyTrackerOpaque",
         "CallbackOpaque",
         "ComponentWindow",
+        "VoidArg",
+        "StringArg",
     ]
     .iter()
     .map(|x| x.to_string())

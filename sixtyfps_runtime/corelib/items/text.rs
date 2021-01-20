@@ -20,7 +20,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
  - Don't forget to update the documentation
 */
 
-use super::{Item, ItemConsts, ItemRc};
+use super::{Item, ItemConsts, ItemRc, VoidArg};
 use crate::graphics::{Color, Point, Rect, Size};
 use crate::input::{
     FocusEvent, InputEventResult, KeyEvent, KeyEventResult, KeyboardModifiers, MouseEvent,
@@ -185,8 +185,8 @@ pub struct TextInput {
     pub cursor_visible: Property<bool>,
     pub has_focus: Property<bool>,
     pub enabled: Property<bool>,
-    pub accepted: Callback<()>,
-    pub edited: Callback<()>,
+    pub accepted: Callback<VoidArg>,
+    pub edited: Callback<VoidArg>,
     pub pressed: std::cell::Cell<bool>,
     pub cached_rendering_data: CachedRenderingData,
 }
