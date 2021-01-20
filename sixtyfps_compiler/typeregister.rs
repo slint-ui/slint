@@ -43,6 +43,9 @@ pub fn reserved_property(name: &str) -> Type {
         ("rowspan", Type::Int32),
         ("forward_focus", Type::ElementReference),
         ("focus", BuiltinFunction::SetFocusItem.ty()),
+        ("mouse_clicked", Type::Callback { return_type: None, args: vec![] }),
+        ("key_pressed", Type::Callback { return_type: None, args: vec![Type::String] }),
+        ("key_released", Type::Callback { return_type: None, args: vec![Type::String] }),
     ]
     .iter()
     {

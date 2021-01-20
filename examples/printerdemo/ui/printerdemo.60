@@ -227,13 +227,13 @@ MainWindow := Window {
             }
         ]
         animate width, height { duration: 200ms; easing: ease;  }
-        TouchArea {
-            clicked => {
-                if (active_page == 0) {
-                    parent.full_screen = !parent.full_screen;
-                }
+
+        mouse-clicked => {
+            if (active_page == 0) {
+                full_screen = !full_screen;
             }
         }
+
     }
 
     CopyPage {

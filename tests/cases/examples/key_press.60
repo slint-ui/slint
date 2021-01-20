@@ -10,14 +10,13 @@ LICENSE END */
 
 W := Window {
     VerticalLayout {
-        Rectangle { color: field.has_focus ? blue: red;  }
-        field := FocusScope {
-            vertical_stretch: 1;
+        //Rectangle { color: x.has_focus ? blue: red;  }
+        x := Rectangle {
+            color: yellow;
             key-pressed(key) => {
                 debug(key);
                 t.text += key;
             }
-            Rectangle { color: yellow; }
         }
         t:= Text {
             text: "> ";

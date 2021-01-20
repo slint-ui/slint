@@ -50,6 +50,7 @@ mod passes {
     pub mod embed_resources;
     pub mod focus_item;
     pub mod inlining;
+    pub mod lower_events;
     pub mod lower_layout;
     pub mod lower_popups;
     pub mod lower_states;
@@ -161,6 +162,7 @@ pub async fn run_passes(
     passes::resolving::resolve_expressions(doc, &type_loader, diag);
     passes::inlining::inline(doc);
     passes::check_expressions::check_expressions(doc, diag);
+    passes::lower_events::lower_events(&doc.root_component, &doc.local_registry, diag);
     passes::compile_paths::compile_paths(&doc.root_component, &doc.local_registry, diag);
     passes::unique_id::assign_unique_id(&doc.root_component);
     passes::focus_item::resolve_element_reference_in_set_focus_calls(&doc.root_component, diag);
