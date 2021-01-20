@@ -158,14 +158,14 @@ jobs:
       if: matrix.os == 'ubuntu-20.04'
       run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev
     - name: Cache Qt
-      if: matrix.os != 'windows-latest'
+      if: false && matrix.os != 'windows-latest'
       id: cache-qt
       uses: actions/cache@v2
       with:
         path: ../Qt
         key: ${{ runner.os }}-${{ github.job }}-cpp-Qt-5.15.2
     - name: Install Qt
-      if: matrix.os != 'windows-latest'
+      if: false && matrix.os != 'windows-latest'
       uses: jurplel/install-qt-action@v2
       with:
         version: '5.15.2'
