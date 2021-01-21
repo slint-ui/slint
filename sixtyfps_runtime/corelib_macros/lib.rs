@@ -175,30 +175,3 @@ fn callback_arg(ty: &syn::Type) -> Option<&syn::Type> {
     }
     None
 }
-
-#[proc_macro_derive(MappedKeyCode)]
-pub fn keycode_mapping(input: TokenStream) -> TokenStream {
-    let input = syn::parse_macro_input!(input as syn::DeriveInput);
-
-    let variants = match &input.data {
-        syn::Data::Enum(syn::DataEnum { variants, .. }) => variants,
-        _ => {
-            return syn::Error::new(input.ident.span(), "Only `enum` types are supported")
-                .to_compile_error()
-                .into()
-        }
-    }
-    .iter()
-    .collect::<Vec<_>>();
-
-    quote!(
-        impl From<winit::event::VirtualKeyCode> for KeyCode {
-            fn from(code: winit::event::VirtualKeyCode) -> Self {
-                match code {
-                    #(winit::event::VirtualKeyCode::#variants => Self::#variants),*
-                }
-            }
-        }
-    )
-    .into()
-}

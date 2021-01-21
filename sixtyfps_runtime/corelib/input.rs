@@ -11,15 +11,13 @@ LICENSE END */
 */
 #![warn(missing_docs)]
 
-use crate::component::ComponentRc;
 use crate::graphics::Point;
 use crate::item_tree::ItemVisitorResult;
 use crate::items::{ItemRc, ItemRef, ItemWeak};
 use crate::Property;
+use crate::{component::ComponentRc, SharedString};
 use const_field_offset::FieldOffsets;
 use euclid::default::Vector2D;
-use sixtyfps_corelib_macros::*;
-use std::convert::TryFrom;
 use std::pin::Pin;
 use std::rc::Rc;
 
@@ -81,220 +79,68 @@ impl Default for InputEventResult {
     }
 }
 
-/// A key code is a symbolic name for a key on a keyboard. Depending on the
-/// key mappings, different keys may produce different key codes.
-/// Key codes are typically produced when pressing or releasing a key.
-#[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq, MappedKeyCode)]
-#[allow(missing_docs)]
-pub enum KeyCode {
-    Key1,
-    Key2,
-    Key3,
-    Key4,
-    Key5,
-    Key6,
-    Key7,
-    Key8,
-    Key9,
-    Key0,
-    A,
-    B,
-    C,
-    D,
-    E,
-    F,
-    G,
-    H,
-    I,
-    J,
-    K,
-    L,
-    M,
-    N,
-    O,
-    P,
-    Q,
-    R,
-    S,
-    T,
-    U,
-    V,
-    W,
-    X,
-    Y,
-    Z,
-    Escape,
-    F1,
-    F2,
-    F3,
-    F4,
-    F5,
-    F6,
-    F7,
-    F8,
-    F9,
-    F10,
-    F11,
-    F12,
-    F13,
-    F14,
-    F15,
-    F16,
-    F17,
-    F18,
-    F19,
-    F20,
-    F21,
-    F22,
-    F23,
-    F24,
-    Snapshot,
-    Scroll,
-    Pause,
-    Insert,
-    Home,
-    Delete,
-    End,
-    PageDown,
-    PageUp,
+/// InternalKeyCode is used to certain keys to unicode characters, since our
+/// public key event only exposes a string. This enum captures this mapping.
+#[derive(Debug, PartialEq, Clone)]
+pub enum InternalKeyCode {
+    /// Code corresponding to the left cursor key - encoded as 0xE ASCII (shift out)
     Left,
-    Up,
+    /// Code corresponding to the right cursor key -- encoded as 0xF ASCII (shift in)
     Right,
-    Down,
+    /// Code corresponding to the home key -- encoded as 0x2 ASCII (start of text)
+    Home,
+    /// Code corresponding to the end key -- encoded as 0x3 ASCII (end of text)
+    End,
+    /// Code corresponding to the backspace key -- encoded as 0x7 ASCII (backspace)
     Back,
+    /// Code corresponding to the delete key -- encoded as 0x7F ASCII (delete)
+    Delete,
+    /// Code corresponding to the return key -- encoded as 0xA ASCII (newline)
     Return,
-    Space,
-    Compose,
-    Caret,
-    Numlock,
-    Numpad0,
-    Numpad1,
-    Numpad2,
-    Numpad3,
-    Numpad4,
-    Numpad5,
-    Numpad6,
-    Numpad7,
-    Numpad8,
-    Numpad9,
-    AbntC1,
-    AbntC2,
-    NumpadAdd,
-    Apostrophe,
-    Apps,
-    Asterisk,
-    At,
-    Ax,
-    Backslash,
-    Calculator,
-    Capital,
-    Colon,
-    Comma,
-    Convert,
-    NumpadDecimal,
-    NumpadDivide,
-    Equals,
-    Grave,
-    Kana,
-    Kanji,
-    LAlt,
-    LBracket,
-    LControl,
-    LShift,
-    LWin,
-    Mail,
-    MediaSelect,
-    MediaStop,
-    Minus,
-    NumpadMultiply,
-    Mute,
-    MyComputer,
-    NavigateForward,
-    NavigateBackward,
-    NextTrack,
-    NoConvert,
-    NumpadComma,
-    NumpadEnter,
-    NumpadEquals,
-    OEM102,
-    Period,
-    PlayPause,
-    Plus,
-    Power,
-    PrevTrack,
-    RAlt,
-    RBracket,
-    RControl,
-    RShift,
-    RWin,
-    Semicolon,
-    Slash,
-    Sleep,
-    Stop,
-    NumpadSubtract,
-    Sysrq,
-    Tab,
-    Underline,
-    Unlabeled,
-    VolumeDown,
-    VolumeUp,
-    Wake,
-    WebBack,
-    WebFavorites,
-    WebForward,
-    WebHome,
-    WebRefresh,
-    WebSearch,
-    WebStop,
-    Yen,
-    Copy,
-    Paste,
-    Cut,
 }
 
-impl TryFrom<char> for KeyCode {
-    type Error = ();
+const LEFT_CODE: char = '\u{000E}'; // shift out
+const RIGHT_CODE: char = '\u{000F}'; // shift in
+const HOME_CODE: char = '\u{0002}'; // start of text
+const END_CODE: char = '\u{0003}'; // end of text
+const BACK_CODE: char = '\u{0007}'; // backspace \b
+const DELETE_CODE: char = '\u{007F}'; // cancel
+const RETURN_CODE: char = '\u{000A}'; // \n
 
-    fn try_from(value: char) -> Result<Self, Self::Error> {
-        Ok(match value {
-            'a' => Self::A,
-            'b' => Self::B,
-            'c' => Self::C,
-            'd' => Self::D,
-            'e' => Self::E,
-            'f' => Self::F,
-            'g' => Self::G,
-            'h' => Self::H,
-            'i' => Self::I,
-            'j' => Self::J,
-            'k' => Self::K,
-            'l' => Self::L,
-            'm' => Self::M,
-            'n' => Self::N,
-            'o' => Self::O,
-            'p' => Self::P,
-            'q' => Self::Q,
-            'r' => Self::R,
-            's' => Self::S,
-            't' => Self::T,
-            'u' => Self::U,
-            'v' => Self::V,
-            'w' => Self::W,
-            'x' => Self::X,
-            'y' => Self::Y,
-            'z' => Self::Z,
-            '1' => Self::Key1,
-            '2' => Self::Key2,
-            '3' => Self::Key3,
-            '4' => Self::Key4,
-            '5' => Self::Key5,
-            '6' => Self::Key6,
-            '7' => Self::Key7,
-            '8' => Self::Key8,
-            '9' => Self::Key9,
-            _ => return Err(()),
-        })
+impl InternalKeyCode {
+    /// Encodes the internal key code as string
+    pub fn encode_to_string(&self) -> SharedString {
+        match self {
+            InternalKeyCode::Left => LEFT_CODE,
+            InternalKeyCode::Right => RIGHT_CODE,
+            InternalKeyCode::Home => HOME_CODE,
+            InternalKeyCode::End => END_CODE,
+            InternalKeyCode::Back => BACK_CODE,
+            InternalKeyCode::Delete => DELETE_CODE,
+            InternalKeyCode::Return => RETURN_CODE,
+        }
+        .to_string()
+        .into()
+    }
+    /// Tries to see if the provided string corresponds to a single special
+    /// encoded key.
+    pub fn try_decode_from_string(str: &SharedString) -> Option<Self> {
+        let mut chars = str.chars();
+        let ch = chars.next();
+        if ch.is_some() && chars.next().is_none() {
+            Some(match ch.unwrap() {
+                LEFT_CODE => Self::Left,
+                RIGHT_CODE => Self::Right,
+                HOME_CODE => Self::Home,
+                END_CODE => Self::End,
+                BACK_CODE => Self::Back,
+                DELETE_CODE => Self::Delete,
+                RETURN_CODE => Self::Return,
+                _ => return None,
+            })
+        } else {
+            None
+        }
     }
 }
 
@@ -408,47 +254,18 @@ impl core::ops::BitOrAssign<KeyboardModifier> for KeyboardModifiers {
 pub enum KeyEvent {
     /// A key on a keyboard was pressed.
     KeyPressed {
-        /// The key code of the pressed key.
-        code: KeyCode,
+        /// The unicode representation of the key pressed.
+        string: SharedString,
         /// The keyboard modifiers active at the time of the key press event.
         modifiers: KeyboardModifiers,
     },
     /// A key on a keyboard was released.
     KeyReleased {
-        /// The key code of the released key.
-        code: KeyCode,
+        /// The unicode representation of the key released.
+        string: SharedString,
         /// The keyboard modifiers active at the time of the key release event.
         modifiers: KeyboardModifiers,
     },
-    /// A key on a keyboard was released that results in
-    /// a character that's suitable for text input.
-    CharacterInput {
-        /// The u32 is a unicode scalar value that is safe to convert to char.
-        unicode_scalar: u32,
-        /// The keyboard modifiers active at the time of the char input event.
-        modifiers: KeyboardModifiers,
-    },
-}
-
-impl TryFrom<(&winit::event::KeyboardInput, KeyboardModifiers)> for KeyEvent {
-    type Error = ();
-
-    fn try_from(
-        input: (&winit::event::KeyboardInput, KeyboardModifiers),
-    ) -> Result<Self, Self::Error> {
-        let key_code = match input.0.virtual_keycode {
-            Some(code) => code.into(),
-            None => return Err(()),
-        };
-        Ok(match input.0.state {
-            winit::event::ElementState::Pressed => {
-                KeyEvent::KeyPressed { code: key_code, modifiers: input.1 }
-            }
-            winit::event::ElementState::Released => {
-                KeyEvent::KeyReleased { code: key_code, modifiers: input.1 }
-            }
-        })
-    }
 }
 
 /// Represents how an item's key_event handler dealt with a key event.

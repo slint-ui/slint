@@ -22,6 +22,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 
 use super::{Item, ItemConsts, ItemRc, VoidArg};
 use crate::graphics::{Color, Point, Rect, Size};
+use crate::input::InternalKeyCode;
 use crate::input::{
     FocusEvent, InputEventResult, KeyEvent, KeyEventResult, KeyboardModifiers, MouseEvent,
     MouseEventType,
@@ -269,18 +270,53 @@ impl Item for TextInput {
         }
 
         match event {
-            KeyEvent::CharacterInput { unicode_scalar, .. } => {
+            KeyEvent::KeyPressed { string, modifiers } => {
+                if let Some(keycode) = InternalKeyCode::try_decode_from_string(string) {
+                    if let Ok(text_cursor_movement) = TextCursorDirection::try_from(keycode.clone())
+                    {
+                        TextInput::move_cursor(
+                            self,
+                            text_cursor_movement,
+                            (*modifiers).into(),
+                            window,
+                        );
+                        return KeyEventResult::EventAccepted;
+                    } else if keycode == InternalKeyCode::Back {
+                        TextInput::delete_previous(self, window);
+                        return KeyEventResult::EventAccepted;
+                    } else if keycode == InternalKeyCode::Delete {
+                        TextInput::delete_char(self, window);
+                        return KeyEventResult::EventAccepted;
+                    } else if keycode == InternalKeyCode::Return {
+                        Self::FIELD_OFFSETS.accepted.apply_pin(self).emit(&());
+                        return KeyEventResult::EventAccepted;
+                    }
+                }
+                KeyEventResult::EventIgnored
+            }
+            KeyEvent::KeyReleased { string, modifiers }
+                // Only insert/interpreter non-control character strings
+                if !string.is_empty() && string.as_str().chars().all(|ch| !ch.is_control()) =>
+            {
+                if modifiers.test_exclusive(crate::input::COPY_PASTE_MODIFIER) {
+                    if string == "c" {
+                        self.copy();
+                        return KeyEventResult::EventAccepted;
+                    } else if string == "v" {
+                        self.paste();
+                        return KeyEventResult::EventAccepted;
+                    }
+                }
                 self.delete_selection();
 
                 let mut text: String = self.text().into();
 
                 // FIXME: respect grapheme boundaries
                 let insert_pos = self.cursor_position() as usize;
-                let ch = char::try_from(*unicode_scalar).unwrap().to_string();
-                text.insert_str(insert_pos, &ch);
+                text.insert_str(insert_pos, &string);
 
                 self.as_ref().text.set(text.into());
-                let new_cursor_pos = (insert_pos + ch.len()) as i32;
+                let new_cursor_pos = (insert_pos + string.len()) as i32;
                 self.as_ref().cursor_position.set(new_cursor_pos);
                 self.as_ref().anchor_position.set(new_cursor_pos);
 
@@ -290,68 +326,6 @@ impl Item for TextInput {
 
                 Self::FIELD_OFFSETS.edited.apply_pin(self).emit(&());
 
-                KeyEventResult::EventAccepted
-            }
-            KeyEvent::KeyPressed { code, modifiers } if *code == crate::input::KeyCode::Right => {
-                TextInput::move_cursor(
-                    self,
-                    TextCursorDirection::Forward,
-                    (*modifiers).into(),
-                    window,
-                );
-                KeyEventResult::EventAccepted
-            }
-            KeyEvent::KeyPressed { code, modifiers } if *code == crate::input::KeyCode::Left => {
-                TextInput::move_cursor(
-                    self,
-                    TextCursorDirection::Backward,
-                    (*modifiers).into(),
-                    window,
-                );
-                KeyEventResult::EventAccepted
-            }
-            KeyEvent::KeyPressed { code, modifiers } if *code == crate::input::KeyCode::Home => {
-                TextInput::move_cursor(
-                    self,
-                    TextCursorDirection::StartOfLine,
-                    (*modifiers).into(),
-                    window,
-                );
-                KeyEventResult::EventAccepted
-            }
-            KeyEvent::KeyPressed { code, modifiers } if *code == crate::input::KeyCode::End => {
-                TextInput::move_cursor(
-                    self,
-                    TextCursorDirection::EndOfLine,
-                    (*modifiers).into(),
-                    window,
-                );
-                KeyEventResult::EventAccepted
-            }
-            KeyEvent::KeyPressed { code, .. } if *code == crate::input::KeyCode::Back => {
-                TextInput::delete_previous(self, window);
-                KeyEventResult::EventAccepted
-            }
-            KeyEvent::KeyPressed { code, .. } if *code == crate::input::KeyCode::Delete => {
-                TextInput::delete_char(self, window);
-                KeyEventResult::EventAccepted
-            }
-            KeyEvent::KeyPressed { code, .. } if *code == crate::input::KeyCode::Return => {
-                Self::FIELD_OFFSETS.accepted.apply_pin(self).emit(&());
-                KeyEventResult::EventAccepted
-            }
-            KeyEvent::KeyReleased { code, modifiers }
-                if modifiers.test_exclusive(crate::input::COPY_PASTE_MODIFIER)
-                    && *code == crate::input::KeyCode::C =>
-            {
-                self.copy();
-                KeyEventResult::EventAccepted
-            }
-            KeyEvent::KeyReleased { code, modifiers }
-                if modifiers.test_exclusive(crate::input::COPY_PASTE_MODIFIER)
-                    && *code == crate::input::KeyCode::V =>
-            {
-                self.paste();
                 KeyEventResult::EventAccepted
             }
             _ => KeyEventResult::EventIgnored,
@@ -388,6 +362,20 @@ enum TextCursorDirection {
     Backward,
     StartOfLine,
     EndOfLine,
+}
+
+impl std::convert::TryFrom<InternalKeyCode> for TextCursorDirection {
+    type Error = ();
+
+    fn try_from(value: InternalKeyCode) -> Result<Self, Self::Error> {
+        Ok(match value {
+            InternalKeyCode::Left => Self::Backward,
+            InternalKeyCode::Right => Self::Forward,
+            InternalKeyCode::Home => Self::StartOfLine,
+            InternalKeyCode::End => Self::EndOfLine,
+            _ => return Err(()),
+        })
+    }
 }
 
 enum AnchorMode {

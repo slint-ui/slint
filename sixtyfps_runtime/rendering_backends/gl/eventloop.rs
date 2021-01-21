@@ -16,10 +16,9 @@ LICENSE END */
 use sixtyfps_corelib as corelib;
 
 use corelib::graphics::Point;
-use corelib::input::{KeyEvent, MouseEventType};
+use corelib::input::{InternalKeyCode, KeyEvent, MouseEventType};
 use corelib::window::*;
 use std::cell::RefCell;
-use std::convert::TryInto;
 use std::rc::{Rc, Weak};
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -292,19 +291,57 @@ pub fn run() {
                         if let Some(Some(window)) =
                             windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
                         {
-                            if let Some(ref key_event) =
-                                (input, window.current_keyboard_modifiers()).try_into().ok()
+                            if let Some(key_code) =
+                                input.virtual_keycode.and_then(|virtual_keycode| {
+                                    match virtual_keycode {
+                                        winit::event::VirtualKeyCode::Left => {
+                                            Some(InternalKeyCode::Left)
+                                        }
+                                        winit::event::VirtualKeyCode::Right => {
+                                            Some(InternalKeyCode::Right)
+                                        }
+                                        winit::event::VirtualKeyCode::Home => {
+                                            Some(InternalKeyCode::Home)
+                                        }
+                                        winit::event::VirtualKeyCode::End => {
+                                            Some(InternalKeyCode::End)
+                                        }
+                                        winit::event::VirtualKeyCode::Back => {
+                                            Some(InternalKeyCode::Back)
+                                        }
+                                        winit::event::VirtualKeyCode::Delete => {
+                                            Some(InternalKeyCode::Delete)
+                                        }
+                                        winit::event::VirtualKeyCode::Return => {
+                                            Some(InternalKeyCode::Return)
+                                        }
+                                        _ => None,
+                                    }
+                                })
                             {
+                                let string = key_code.encode_to_string();
+                                let event = match input.state {
+                                    glutin::event::ElementState::Pressed => KeyEvent::KeyPressed {
+                                        string,
+                                        modifiers: window.current_keyboard_modifiers(),
+                                    },
+                                    glutin::event::ElementState::Released => {
+                                        KeyEvent::KeyReleased {
+                                            string,
+                                            modifiers: window.current_keyboard_modifiers(),
+                                        }
+                                    }
+                                };
                                 window
                                     .self_weak
                                     .get()
                                     .unwrap()
                                     .upgrade()
                                     .unwrap()
-                                    .process_key_input(key_event);
+                                    .process_key_input(&event);
                                 // FIXME: remove this, it should be based on actual changes rather than this
                                 window.request_redraw();
-                            }
+                            };
                         }
                     });
                 }
@@ -321,8 +358,8 @@ pub fn run() {
                                 let modifiers = window.current_keyboard_modifiers();
 
                                 if !modifiers.control() && !modifiers.alt() && !modifiers.logo() {
-                                    let key_event = KeyEvent::CharacterInput {
-                                        unicode_scalar: ch.into(),
+                                    let key_event = KeyEvent::KeyReleased {
+                                        string: ch.to_string().into(),
                                         modifiers,
                                     };
                                     window

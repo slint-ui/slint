@@ -198,9 +198,9 @@ pub mod re_exports {
         PathArcTo, PathData, PathElement, PathEvent, PathLineTo, Point, Rect, Size,
     };
     pub use sixtyfps_corelib::input::{
-        FocusEvent, InputEventResult, KeyCode, KeyEvent, KeyEventResult, KeyboardModifiers,
-        MouseEvent, ALT_MODIFIER, CONTROL_MODIFIER, COPY_PASTE_MODIFIER, LOGO_MODIFIER,
-        NO_MODIFIER, SHIFT_MODIFIER,
+        FocusEvent, InputEventResult, KeyEvent, KeyEventResult, KeyboardModifiers, MouseEvent,
+        ALT_MODIFIER, CONTROL_MODIFIER, COPY_PASTE_MODIFIER, LOGO_MODIFIER, NO_MODIFIER,
+        SHIFT_MODIFIER,
     };
     pub use sixtyfps_corelib::item_tree::{
         item_offset, visit_item_tree, ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable,
@@ -320,22 +320,6 @@ pub mod testing {
         modifiers: crate::re_exports::KeyboardModifiers,
     ) {
         KEYBOARD_MODIFIERS.with(|x| x.set(modifiers))
-    }
-
-    /// Simulate a series of key press and release event
-    pub fn send_key_clicks<
-        X: vtable::HasStaticVTable<sixtyfps_corelib::component::ComponentVTable> + HasWindow,
-        Component: Into<vtable::VRc<sixtyfps_corelib::component::ComponentVTable, X>> + Clone,
-    >(
-        component: &Component,
-        key_codes: &[crate::re_exports::KeyCode],
-    ) {
-        let component = component.clone().into();
-        sixtyfps_corelib::tests::sixtyfps_send_key_clicks(
-            &crate::re_exports::Slice::from_slice(key_codes),
-            KEYBOARD_MODIFIERS.with(|x| x.get()),
-            component.component_window(),
-        )
     }
 
     /// Simulate entering a sequence of ascii characters key by key.

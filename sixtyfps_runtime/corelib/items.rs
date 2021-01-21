@@ -426,15 +426,11 @@ impl Item for FocusScope {
 
     fn key_event(self: Pin<&Self>, event: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
         match event {
-            KeyEvent::KeyPressed { .. } => {}
-            KeyEvent::KeyReleased { .. } => {}
-            KeyEvent::CharacterInput { unicode_scalar, .. } => {
-                if let Some(char) = std::char::from_u32(*unicode_scalar) {
-                    let key = SharedString::from(char.to_string().as_str());
-                    // FIXME: handle pressed and release in their event
-                    Self::FIELD_OFFSETS.key_pressed.apply_pin(self).emit(&(key.clone(),));
-                    Self::FIELD_OFFSETS.key_released.apply_pin(self).emit(&(key,));
-                }
+            KeyEvent::KeyPressed { string, .. } => {
+                Self::FIELD_OFFSETS.key_pressed.apply_pin(self).emit(&(string.clone(),));
+            }
+            KeyEvent::KeyReleased { string, .. } => {
+                Self::FIELD_OFFSETS.key_released.apply_pin(self).emit(&(string.clone(),));
             }
         };
         KeyEventResult::EventAccepted

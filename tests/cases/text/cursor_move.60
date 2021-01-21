@@ -19,6 +19,14 @@ TestCase := TextInput {
 
 /*
 ```rust
+
+// from input.rs
+const LEFT_CODE: char = '\u{000E}'; // shift out
+const RIGHT_CODE: char = '\u{000F}'; // shift in
+const HOME_CODE: char = '\u{0002}'; // start of text
+const END_CODE: char = '\u{0003}'; // end of text
+const BACK_CODE: char = '\u{0007}'; // backspace \b
+
 let instance = TestCase::new();
 sixtyfps::testing::send_mouse_click(&instance, 50., 50.);
 assert!(instance.get_input_focused());
@@ -28,39 +36,39 @@ assert_eq!(instance.get_test_text(), "Test");
 assert!(!instance.get_has_selection());
 
 sixtyfps::testing::set_current_keyboard_modifiers(&instance, sixtyfps::re_exports::SHIFT_MODIFIER.into());
-sixtyfps::testing::send_key_clicks(&instance, &[sixtyfps::re_exports::KeyCode::Left]);
+sixtyfps::testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
 sixtyfps::testing::set_current_keyboard_modifiers(&instance, sixtyfps::re_exports::NO_MODIFIER.into());
 assert!(instance.get_has_selection());
-sixtyfps::testing::send_key_clicks(&instance, &[sixtyfps::re_exports::KeyCode::Back]);
+sixtyfps::testing::send_keyboard_string_sequence(&instance, &BACK_CODE.to_string());
 assert!(!instance.get_has_selection());
-sixtyfps::testing::send_key_clicks(&instance, &[sixtyfps::re_exports::KeyCode::Back]);
+sixtyfps::testing::send_keyboard_string_sequence(&instance, &BACK_CODE.to_string());
 
 assert_eq!(instance.get_test_text(), "Te");
 
-sixtyfps::testing::send_key_clicks(&instance, &[sixtyfps::re_exports::KeyCode::Right]);
-sixtyfps::testing::send_key_clicks(&instance, &[sixtyfps::re_exports::KeyCode::Right]);
-sixtyfps::testing::send_key_clicks(&instance, &[sixtyfps::re_exports::KeyCode::Right]);
-sixtyfps::testing::send_key_clicks(&instance, &[sixtyfps::re_exports::KeyCode::Right]);
+sixtyfps::testing::send_keyboard_string_sequence(&instance, &RIGHT_CODE.to_string());
+sixtyfps::testing::send_keyboard_string_sequence(&instance, &RIGHT_CODE.to_string());
+sixtyfps::testing::send_keyboard_string_sequence(&instance, &RIGHT_CODE.to_string());
+sixtyfps::testing::send_keyboard_string_sequence(&instance, &RIGHT_CODE.to_string());
 assert_eq!(instance.get_test_cursor_pos(), 2);
 
-sixtyfps::testing::send_key_clicks(&instance, &[sixtyfps::re_exports::KeyCode::Left]);
-sixtyfps::testing::send_key_clicks(&instance, &[sixtyfps::re_exports::KeyCode::Left]);
-sixtyfps::testing::send_key_clicks(&instance, &[sixtyfps::re_exports::KeyCode::Left]);
-sixtyfps::testing::send_key_clicks(&instance, &[sixtyfps::re_exports::KeyCode::Left]);
+sixtyfps::testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
+sixtyfps::testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
+sixtyfps::testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
+sixtyfps::testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
 assert_eq!(instance.get_test_cursor_pos(), 0);
 
 sixtyfps::testing::set_current_keyboard_modifiers(&instance, sixtyfps::re_exports::SHIFT_MODIFIER.into());
-sixtyfps::testing::send_key_clicks(&instance, &[sixtyfps::re_exports::KeyCode::End]);
+sixtyfps::testing::send_keyboard_string_sequence(&instance, &END_CODE.to_string());
 sixtyfps::testing::set_current_keyboard_modifiers(&instance, sixtyfps::re_exports::NO_MODIFIER.into());
 assert!(instance.get_has_selection());
 assert_eq!(instance.get_test_cursor_pos(), 2);
 assert_eq!(instance.get_test_anchor_pos(), 0);
 
-sixtyfps::testing::send_key_clicks(&instance, &[sixtyfps::re_exports::KeyCode::Left]);
+sixtyfps::testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
 assert!(!instance.get_has_selection());
 
 sixtyfps::testing::set_current_keyboard_modifiers(&instance, sixtyfps::re_exports::SHIFT_MODIFIER.into());
-sixtyfps::testing::send_key_clicks(&instance, &[sixtyfps::re_exports::KeyCode::Home]);
+sixtyfps::testing::send_keyboard_string_sequence(&instance, &HOME_CODE.to_string());
 sixtyfps::testing::set_current_keyboard_modifiers(&instance, sixtyfps::re_exports::NO_MODIFIER.into());
 assert!(instance.get_has_selection());
 assert_eq!(instance.get_test_cursor_pos(), 0);

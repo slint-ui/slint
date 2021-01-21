@@ -19,6 +19,11 @@ TestCase := TextInput {
 
 /*
 ```rust
+
+// from input.rs
+const LEFT_CODE: char = '\u{000E}'; // shift out
+const BACK_CODE: char = '\u{0007}'; // backspace \b
+
 let instance = TestCase::new();
 sixtyfps::testing::send_mouse_click(&instance, 50., 50.);
 assert!(instance.get_input_focused());
@@ -28,11 +33,11 @@ assert_eq!(instance.get_test_text(), "😍");
 assert!(!instance.get_has_selection());
 
 sixtyfps::testing::set_current_keyboard_modifiers(&instance, sixtyfps::re_exports::SHIFT_MODIFIER.into());
-sixtyfps::testing::send_key_clicks(&instance, &[sixtyfps::re_exports::KeyCode::Left]);
+sixtyfps::testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
 assert!(instance.get_has_selection());
 assert_eq!(instance.get_test_cursor_pos(), 0);
 assert_eq!(instance.get_test_anchor_pos(), 4);
-sixtyfps::testing::send_key_clicks(&instance, &[sixtyfps::re_exports::KeyCode::Back]);
+sixtyfps::testing::send_keyboard_string_sequence(&instance, &BACK_CODE.to_string());
 assert!(!instance.get_has_selection());
 
 assert_eq!(instance.get_test_text(), "");

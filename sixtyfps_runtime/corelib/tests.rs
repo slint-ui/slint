@@ -10,8 +10,9 @@ LICENSE END */
 //! Functions usefull for testing
 #![warn(missing_docs)]
 
-use crate::input::{MouseEvent, MouseEventType};
+use crate::input::{KeyEvent, KeyboardModifiers, MouseEvent, MouseEventType, SHIFT_MODIFIER};
 use crate::window::ComponentWindow;
+use crate::SharedString;
 
 /// SixtyFPS animations do not use real time, but use a mocked time.
 /// Normally, the event loop update the time of the animation using
@@ -60,60 +61,21 @@ pub extern "C" fn sixtyfps_send_mouse_click(
     );
 }
 
-/// Simulate a key down event.
-#[no_mangle]
-pub extern "C" fn sixtyfps_send_key_clicks(
-    key_codes: &crate::slice::Slice<crate::input::KeyCode>,
-    modifiers: crate::input::KeyboardModifiers,
-    window: &ComponentWindow,
-) {
-    for key_code in key_codes.iter() {
-        window
-            .process_key_input(&crate::input::KeyEvent::KeyPressed { code: *key_code, modifiers });
-        window
-            .process_key_input(&crate::input::KeyEvent::KeyReleased { code: *key_code, modifiers });
-    }
-}
-
 /// Simulate a character input event.
 #[no_mangle]
 pub extern "C" fn send_keyboard_string_sequence(
     sequence: &crate::SharedString,
-    modifiers: crate::input::KeyboardModifiers,
+    modifiers: KeyboardModifiers,
     window: &ComponentWindow,
 ) {
-    use std::convert::TryInto;
-
-    let key_down = |maybe_code: &Option<crate::input::KeyCode>| {
-        maybe_code.clone().map(|code| {
-            window.process_key_input(&crate::input::KeyEvent::KeyPressed { code: code, modifiers });
-        });
-    };
-
-    let key_up = |maybe_code: &Option<crate::input::KeyCode>| {
-        maybe_code.clone().map(|code| {
-            window
-                .process_key_input(&crate::input::KeyEvent::KeyReleased { code: code, modifiers });
-        });
-    };
-
     for ch in sequence.chars() {
         let mut modifiers = modifiers;
-        let maybe_key_code = if ch.is_ascii_uppercase() {
-            modifiers |= crate::input::SHIFT_MODIFIER;
-            ch.to_ascii_lowercase().try_into()
-        } else {
-            ch.try_into()
+        if ch.is_ascii_uppercase() {
+            modifiers |= SHIFT_MODIFIER;
         }
-        .ok();
+        let string: SharedString = ch.to_string().into();
 
-        key_down(&maybe_key_code);
-
-        window.process_key_input(&crate::input::KeyEvent::CharacterInput {
-            unicode_scalar: ch.into(),
-            modifiers,
-        });
-
-        key_up(&maybe_key_code);
+        window.process_key_input(&KeyEvent::KeyPressed { string: string.clone(), modifiers });
+        window.process_key_input(&KeyEvent::KeyReleased { string, modifiers });
     }
 }

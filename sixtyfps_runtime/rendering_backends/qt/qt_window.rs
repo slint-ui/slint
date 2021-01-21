@@ -12,7 +12,7 @@ use cpp::*;
 use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
 use sixtyfps_corelib::component::ComponentRc;
 use sixtyfps_corelib::graphics::{FontRequest, Point, RenderingCache};
-use sixtyfps_corelib::input::{KeyCode, KeyEvent, MouseEventType};
+use sixtyfps_corelib::input::{InternalKeyCode, KeyEvent, MouseEventType};
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::{self, ItemRef};
 use sixtyfps_corelib::properties::PropertyTracker;
@@ -21,7 +21,6 @@ use sixtyfps_corelib::window::PlatformWindow;
 use sixtyfps_corelib::{PathData, Property, Resource};
 
 use std::cell::RefCell;
-use std::convert::TryFrom;
 use std::pin::Pin;
 use std::ptr::NonNull;
 use std::rc::{Rc, Weak};
@@ -661,35 +660,26 @@ impl QtWindow {
         if modif & key_generated::Qt_KeyboardModifier_MetaModifier != 0 {
             modifiers |= sixtyfps_corelib::input::LOGO_MODIFIER
         }
-        let code = match key as key_generated::Qt_Key {
-            key_generated::Qt_Key_Key_Left => Some(KeyCode::Left),
-            key_generated::Qt_Key_Key_Right => Some(KeyCode::Right),
-            key_generated::Qt_Key_Key_Up => Some(KeyCode::Up),
-            key_generated::Qt_Key_Key_Down => Some(KeyCode::Down),
-            key_generated::Qt_Key_Key_Insert => Some(KeyCode::Insert),
-            key_generated::Qt_Key_Key_Backspace => Some(KeyCode::Back),
-            key_generated::Qt_Key_Key_Delete => Some(KeyCode::Delete),
-            key_generated::Qt_Key_Key_End => Some(KeyCode::End),
-            key_generated::Qt_Key_Key_Home => Some(KeyCode::Home),
-            key_generated::Qt_Key_Key_Return => Some(KeyCode::Return),
-            key_generated::Qt_Key_Key_Enter => Some(KeyCode::NumpadEnter),
-            _ => text.chars().next().and_then(|x| KeyCode::try_from(x).ok()),
-        };
 
-        if let Some(code) = code {
-            let event = if released {
-                KeyEvent::KeyReleased { code, modifiers }
-            } else {
-                KeyEvent::KeyPressed { code, modifiers }
-            };
-            self.self_weak.get().unwrap().upgrade().unwrap().process_key_input(&event);
+        let string = match key as key_generated::Qt_Key {
+            key_generated::Qt_Key_Key_Left => Some(InternalKeyCode::Left),
+            key_generated::Qt_Key_Key_Right => Some(InternalKeyCode::Right),
+            key_generated::Qt_Key_Key_Backspace => Some(InternalKeyCode::Back),
+            key_generated::Qt_Key_Key_Delete => Some(InternalKeyCode::Delete),
+            key_generated::Qt_Key_Key_End => Some(InternalKeyCode::End),
+            key_generated::Qt_Key_Key_Home => Some(InternalKeyCode::Home),
+            key_generated::Qt_Key_Key_Return => Some(InternalKeyCode::Return),
+            _ => None,
         }
-        if released && !text.is_empty() {
-            for x in text.chars() {
-                let event = KeyEvent::CharacterInput { unicode_scalar: x as _, modifiers };
-                self.self_weak.get().unwrap().upgrade().unwrap().process_key_input(&event);
-            }
-        }
+        .map_or_else(|| text.into(), |code| code.encode_to_string());
+
+        let event = if released {
+            KeyEvent::KeyReleased { string, modifiers }
+        } else {
+            KeyEvent::KeyPressed { string, modifiers }
+        };
+        self.self_weak.get().unwrap().upgrade().unwrap().process_key_input(&event);
+
         timer_event();
     }
 
