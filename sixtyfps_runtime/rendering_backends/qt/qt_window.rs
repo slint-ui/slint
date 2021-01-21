@@ -11,7 +11,7 @@ LICENSE END */
 use cpp::*;
 use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
 use sixtyfps_corelib::component::ComponentRc;
-use sixtyfps_corelib::graphics::{FontRequest, PathElement, PathEvent, Point, RenderingCache};
+use sixtyfps_corelib::graphics::{FontRequest, Point, RenderingCache};
 use sixtyfps_corelib::input::{KeyCode, KeyEvent, MouseEventType};
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::{self, ItemRef};
