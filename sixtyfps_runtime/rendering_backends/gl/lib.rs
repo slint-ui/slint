@@ -768,14 +768,15 @@ impl ItemRenderer for GLItemRenderer {
                 break;
             }
             let index = start + index;
-
-            let text_metrics = canvas.measure_text(0., 0., &string[start..index], paint).unwrap();
+            // trim is there to remove the \n
+            let to_draw = string[start..index].trim();
+            let text_metrics = canvas.measure_text(0., 0., to_draw, paint).unwrap();
             let translate_x = match horizontal_alignment {
                 TextHorizontalAlignment::align_left => 0.,
                 TextHorizontalAlignment::align_center => max_width / 2. - text_metrics.width() / 2.,
                 TextHorizontalAlignment::align_right => max_width - text_metrics.width(),
             };
-            canvas.fill_text(pos.x + translate_x, y, &string[start..index], paint).unwrap();
+            canvas.fill_text(pos.x + translate_x, y, to_draw, paint).unwrap();
             y += font_metrics.height();
             start = index;
         }
