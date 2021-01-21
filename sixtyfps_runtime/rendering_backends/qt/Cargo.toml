@@ -24,6 +24,7 @@ sixtyfps-corelib = { version = "=0.0.4", path = "../../corelib" }
 euclid = "0.22.1"
 pin-weak = "1"
 once_cell = "1"
+lyon_path = "0.17"
 # FIXME: remove
 winit = { version="0.24" }
 

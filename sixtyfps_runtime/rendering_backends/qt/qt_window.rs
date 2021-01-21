@@ -146,11 +146,12 @@ impl QPainter {
 cpp_class! {pub unsafe struct QPainterPath as "QPainterPath"}
 
 impl QPainterPath {
+    /*
     pub fn reserve(&mut self, size: usize) {
         cpp! { unsafe [self as "QPainterPath*", size as "long long"] {
             self->reserve(size);
         }}
-    }
+    }*/
 
     pub fn move_to(&mut self, to: qttypes::QPointF) {
         cpp! { unsafe [self as "QPainterPath*", to as "QPointF"] {
@@ -366,6 +367,10 @@ impl ItemRenderer for QtItemRenderer<'_> {
     }
 
     fn draw_path(&mut self, pos: Point, path: Pin<&items::Path>) {
+        let elements = path.elements();
+        if matches!(elements, PathData::None) {
+            return;
+        }
         // FIXME: handle width/height
         //let rect: qttypes::QRectF = get_geometry!(pos, items::Path, path);
         let pos = qttypes::QPoint { x: (pos.x + path.x()) as _, y: (pos.y + path.y()) as _ };
@@ -373,54 +378,37 @@ impl ItemRenderer for QtItemRenderer<'_> {
         let stroke_color: u32 = path.stroke_color().as_argb_encoded();
         let stroke_width: f32 = path.stroke_width();
         let mut painter_path = QPainterPath::default();
-        match path.elements() {
-            PathData::None => {
-                return;
-            }
-            PathData::Elements(elms) => {
-                painter_path.reserve(elms.len());
-                for e in elms.iter() {
-                    match e {
-                        PathElement::LineTo(lt) => {
-                            painter_path.line_to(qttypes::QPointF { x: lt.x as _, y: lt.y as _ });
-                        }
-                        PathElement::ArcTo(at) => {
-                            // FIXME! Not a line
-                            painter_path.line_to(qttypes::QPointF { x: at.x as _, y: at.y as _ });
-                        }
-                        PathElement::Close => painter_path.close(),
-                    }
-                }
-            }
-            PathData::Events(events, points) => {
-                let mut points = points.iter();
-                let mut next = || {
-                    let p = points.next().unwrap();
+        for x in elements.iter().iter() {
+            impl From<Point> for qttypes::QPointF {
+                fn from(p: Point) -> Self {
                     qttypes::QPointF { x: p.x as _, y: p.y as _ }
-                };
-                for e in events.iter() {
-                    match e {
-                        PathEvent::Begin => {
-                            painter_path.move_to(next());
-                        }
-                        PathEvent::Line => {
-                            painter_path.move_to(next());
-                            painter_path.line_to(next());
-                        }
-                        PathEvent::Quadratic => {
-                            painter_path.move_to(next());
-                            painter_path.quad_to(next(), next());
-                        }
-                        PathEvent::Cubic => {
-                            painter_path.move_to(next());
-                            painter_path.cubic_to(next(), next(), next());
-                        }
-                        PathEvent::EndOpen => {}
-                        PathEvent::EndClosed => painter_path.close(),
+                }
+            }
+            match x {
+                lyon_path::Event::Begin { at } => {
+                    painter_path.move_to(at.into());
+                }
+                lyon_path::Event::Line { from, to } => {
+                    painter_path.move_to(from.into());
+                    painter_path.line_to(to.into());
+                }
+                lyon_path::Event::Quadratic { from, ctrl, to } => {
+                    painter_path.move_to(from.into());
+                    painter_path.quad_to(ctrl.into(), to.into());
+                }
+
+                lyon_path::Event::Cubic { from, ctrl1, ctrl2, to } => {
+                    painter_path.move_to(from.into());
+                    painter_path.cubic_to(ctrl1.into(), ctrl2.into(), to.into());
+                }
+                lyon_path::Event::End { last: _, first: _, close } => {
+                    // FIXME: are we supposed to do something with last and first?
+                    if close {
+                        painter_path.close()
                     }
                 }
             }
-        };
+        }
 
         let painter: &mut QPainter = &mut *self.painter;
         cpp! { unsafe [

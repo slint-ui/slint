@@ -885,8 +885,47 @@ impl ItemRenderer for GLItemRenderer {
         }
     }
 
-    fn draw_path(&mut self, _pos: Point, _path: std::pin::Pin<&sixtyfps_corelib::items::Path>) {
-        //todo!()
+    fn draw_path(&mut self, pos: Point, path: std::pin::Pin<&sixtyfps_corelib::items::Path>) {
+        let elements = path.elements();
+        if matches!(elements, sixtyfps_corelib::PathData::None) {
+            return;
+        }
+        let mut fpath = femtovg::Path::new();
+        for x in elements.iter().iter() {
+            match x {
+                lyon_path::Event::Begin { at } => {
+                    fpath.move_to(at.x, at.y);
+                }
+                lyon_path::Event::Line { from, to } => {
+                    fpath.move_to(from.x, from.y);
+                    fpath.line_to(to.x, to.y);
+                }
+                lyon_path::Event::Quadratic { from, ctrl, to } => {
+                    fpath.move_to(from.x, from.y);
+                    fpath.quad_to(ctrl.x, ctrl.y, to.x, to.y);
+                }
+
+                lyon_path::Event::Cubic { from, ctrl1, ctrl2, to } => {
+                    fpath.move_to(from.x, from.y);
+                    fpath.bezier_to(ctrl1.x, ctrl1.y, ctrl2.x, ctrl2.y, to.x, to.y);
+                }
+                lyon_path::Event::End { last: _, first: _, close } => {
+                    if close {
+                        fpath.close()
+                    }
+                }
+            }
+        }
+
+        let fill_paint = femtovg::Paint::color(path.fill_color().into());
+        let mut border_paint = femtovg::Paint::color(path.stroke_color().into());
+        border_paint.set_line_width(path.stroke_width());
+
+        self.shared_data.canvas.borrow_mut().save_with(|canvas| {
+            canvas.translate(pos.x + path.x(), pos.y + path.y());
+            canvas.fill_path(&mut fpath, fill_paint);
+            canvas.stroke_path(&mut fpath, border_paint);
+        })
     }
 
     fn combine_clip(&mut self, pos: Point, clip: std::pin::Pin<&sixtyfps_corelib::items::Clip>) {
