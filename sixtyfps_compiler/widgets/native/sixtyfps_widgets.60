@@ -32,6 +32,7 @@ export LineEdit := NativeLineEdit {
     property <string> placeholder_text;
     enabled: true;
     focused: input.has_focus;
+    forward-focus: input;
     callback accepted(string);
     callback edited(string);
     GridLayout {
