@@ -15,8 +15,8 @@ path = "lib.rs"
 [features]
 # Allow the vewer to query at runtime information about item types
 rtti = []
-x11 = ["winit/x11", "copypasta/x11"]
-wayland = ["winit/wayland", "copypasta/wayland"]
+x11 = ["copypasta/x11"]
+wayland = ["copypasta/wayland"]
 femtovg_backend = ["femtovg"]
 
 [dependencies]
@@ -24,7 +24,6 @@ image = { version = "0.23.12", default-features = false, features = [ "png", "jp
 const-field-offset = { version = "0.1", path = "../../helper_crates/const-field-offset" }
 vtable = { version="0.1.1", path = "../../helper_crates/vtable" }
 sixtyfps-corelib-macros = { version = "=0.0.4", path = "../corelib_macros" }
-winit = { version = "0.24", default-features = false }
 lyon = { version = "0.17.3" }
 euclid = "0.22.1"
 triomphe = "0.1.1"

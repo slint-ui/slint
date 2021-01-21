@@ -163,18 +163,14 @@ pub struct KeyboardModifier(u32);
 /// Convenience constant that indicates no modifier key being pressed on a keyboard.
 pub const NO_MODIFIER: KeyboardModifier = KeyboardModifier(0);
 /// Convenience constant that indicates the shift key being pressed on a keyboard.
-pub const SHIFT_MODIFIER: KeyboardModifier =
-    KeyboardModifier(winit::event::ModifiersState::SHIFT.bits());
+pub const SHIFT_MODIFIER: KeyboardModifier = KeyboardModifier(1);
 /// Convenience constant that indicates the control key being pressed on a keyboard.
-pub const CONTROL_MODIFIER: KeyboardModifier =
-    KeyboardModifier(winit::event::ModifiersState::CTRL.bits());
+pub const CONTROL_MODIFIER: KeyboardModifier = KeyboardModifier(2);
 /// Convenience constant that indicates the control key being pressed on a keyboard.
-pub const ALT_MODIFIER: KeyboardModifier =
-    KeyboardModifier(winit::event::ModifiersState::ALT.bits());
+pub const ALT_MODIFIER: KeyboardModifier = KeyboardModifier(4);
 /// Convenience constant that on macOS indicates the command key and on Windows the
 /// windows key being pressed on a keyboard.
-pub const LOGO_MODIFIER: KeyboardModifier =
-    KeyboardModifier(winit::event::ModifiersState::LOGO.bits());
+pub const LOGO_MODIFIER: KeyboardModifier = KeyboardModifier(8);
 
 /// Convenience constant that is used to detect copy & paste related shortcuts, where
 /// on macOS the modifier is the command key (aka LOGO_MODIFIER) and on Linux and Windows
@@ -227,12 +223,6 @@ impl KeyboardModifiers {
 impl Default for KeyboardModifiers {
     fn default() -> Self {
         Self(NO_MODIFIER.0)
-    }
-}
-
-impl From<winit::event::ModifiersState> for KeyboardModifiers {
-    fn from(state: winit::event::ModifiersState) -> Self {
-        Self(state.bits())
     }
 }
 

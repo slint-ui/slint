@@ -15,9 +15,9 @@ LICENSE END */
 */
 use sixtyfps_corelib as corelib;
 
-use corelib::graphics::Point;
-use corelib::input::{InternalKeyCode, KeyEvent, MouseEventType};
+use corelib::input::{InternalKeyCode, KeyEvent, KeyboardModifiers, MouseEventType};
 use corelib::window::*;
+use corelib::{graphics::Point, input::NO_MODIFIER};
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
@@ -384,7 +384,20 @@ pub fn run() {
                         if let Some(Some(window)) =
                             windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
                         {
-                            window.set_current_keyboard_modifiers(state.into());
+                            let mut modifiers: KeyboardModifiers = NO_MODIFIER.into();
+                            if state.shift() {
+                                modifiers |= corelib::input::SHIFT_MODIFIER;
+                            }
+                            if state.alt() {
+                                modifiers |= corelib::input::ALT_MODIFIER;
+                            }
+                            if state.ctrl() {
+                                modifiers |= corelib::input::CONTROL_MODIFIER;
+                            }
+                            if state.logo() {
+                                modifiers |= corelib::input::LOGO_MODIFIER;
+                            }
+                            window.set_current_keyboard_modifiers(modifiers);
                         }
                     });
                 }
