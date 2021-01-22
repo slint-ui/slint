@@ -84,14 +84,28 @@ export TouchArea := _ {
     //-default_size_binding:expands_to_parent_geometry
 }
 
+export struct KeyboardModifiers := {
+    //-name:sixtyfps::KeyboardModifiers
+    alt: bool,
+    control: bool,
+    shift: bool,
+    meta: bool,
+}
+
+export struct KeyEvent := {
+    //-name:sixtyfps::KeyEvent
+    text: string,
+    modifiers: KeyboardModifiers,
+}
+
 export FocusScope := _ {
     property <length> x;
     property <length> y;
     property <length> width;
     property <length> height;
     property <bool> has_focus;
-    callback key_pressed(string);
-    callback key_released(string);
+    callback key_pressed(KeyEvent);
+    callback key_released(KeyEvent);
     //-default_size_binding:expands_to_parent_geometry
     //-accepts_focus
 }

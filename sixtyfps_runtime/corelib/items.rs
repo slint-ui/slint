@@ -52,7 +52,7 @@ type ItemRendererRef<'a> = &'a mut dyn crate::item_rendering::ItemRenderer;
 
 /// Workarounds for cbindgen
 pub type VoidArg = ();
-type StringArg = (SharedString,);
+type KeyEventArg = (KeyEvent,);
 
 /// Items are the nodes in the render tree.
 #[vtable]
@@ -387,8 +387,8 @@ pub struct FocusScope {
     pub width: Property<f32>,
     pub height: Property<f32>,
     pub has_focus: Property<bool>,
-    pub key_pressed: Callback<StringArg>,
-    pub key_released: Callback<StringArg>,
+    pub key_pressed: Callback<KeyEventArg>,
+    pub key_released: Callback<KeyEventArg>,
     /// FIXME: remove this
     pub cached_rendering_data: CachedRenderingData,
 }
@@ -428,10 +428,10 @@ impl Item for FocusScope {
     fn key_event(self: Pin<&Self>, event: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
         match event.event_type {
             KeyEventType::KeyPressed => {
-                Self::FIELD_OFFSETS.key_pressed.apply_pin(self).emit(&(event.text.clone(),));
+                Self::FIELD_OFFSETS.key_pressed.apply_pin(self).emit(&(event.clone(),));
             }
             KeyEventType::KeyReleased => {
-                Self::FIELD_OFFSETS.key_released.apply_pin(self).emit(&(event.text.clone(),));
+                Self::FIELD_OFFSETS.key_released.apply_pin(self).emit(&(event.clone(),));
             }
         };
         KeyEventResult::EventAccepted

@@ -163,7 +163,7 @@ pub struct KeyboardModifiers {
     pub meta: bool,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, strum_macros::EnumString, strum_macros::Display)]
 #[repr(C)]
 /// This enum defines the different kinds of key events that can happen.
 pub enum KeyEventType {
@@ -173,8 +173,14 @@ pub enum KeyEventType {
     KeyReleased,
 }
 
+impl Default for KeyEventType {
+    fn default() -> Self {
+        Self::KeyPressed
+    }
+}
+
 /// Represents a key event sent by the windowing system.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 #[repr(C)]
 pub struct KeyEvent {
     /// The unicode representation of the key pressed.

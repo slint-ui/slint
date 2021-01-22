@@ -13,9 +13,21 @@ W := Window {
         Rectangle { color: field.has_focus ? blue: red;  }
         field := FocusScope {
             vertical_stretch: 1;
-            key-pressed(key) => {
-                debug(key);
-                t.text += key;
+            key-pressed(event) => {
+                if (event.modifiers.control) {
+                    debug("   (control modifier pressed)");
+                }
+                if (event.modifiers.alt) {
+                    debug("   (alt modifier pressed)");
+                }
+                if (event.modifiers.shift) {
+                    debug("   (shift modifier pressed)");
+                }
+                if (event.modifiers.meta) {
+                    debug("   (meta modifier pressed)");
+                }
+                debug(event.text);
+                t.text += event.text;
             }
             Rectangle { color: yellow; }
         }

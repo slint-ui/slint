@@ -204,15 +204,20 @@ The FocusScope exposes callback to intercept the pressed key when it has focus.
 
 ### Callbacks
 
-* **`key_pressed(string)`**: Emited when a key is pressed, the argument is the string representation of the key
-* **`key_released(string)`**: Emited when a key is released, the argument is the string representation of the key
+* **`key_pressed(KeyEvent)`**: Emited when a key is pressed, the argument is a `KeyEvent` object
+* **`key_released(KeyEvent)`**: Emited when a key is released, the argument is a `KeyEvent` object
 
 ### Example
 
 ```60
 Example := Window {
     FocusScope {
-        key-pressed(key) => { debug(key); }
+        key-pressed(event) => {
+            debug(event.text);
+            if (event.modifiers.control) {
+                debug("control was pressed during this event");
+            }
+        }
     }
 }
 ```
@@ -385,3 +390,27 @@ Example := Window {
     }
 }
 ```
+
+# Builtin Structures
+
+## `KeyEvent`
+
+This structure is generated and passed to the key press and release
+callbacks of the `FocusScope` element.
+
+### Fields
+
+* **`text`** (*string*): The string representation of the key
+* **`modifiers`** (*KeyboardModifiers*): The keyboard modifiers pressed during the event
+
+## `KeyboardModifiers`
+
+This structure is generated as part of `KeyEvent`, to indicate which modifier keys
+are pressed during the generation of a key event.
+
+### Fields
+
+* **`control`** (*bool*): True if the control key is pressed. On macOS this corresponds to the command key.
+* **`alt`** (*bool*): True if alt key is pressed.
+* **`shift`** (*bool*): True if the shift key is pressed.
+* **`meta`** (*bool*): True if the windows key is pressed on Windows, or the control key on macOS.

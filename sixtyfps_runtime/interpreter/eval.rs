@@ -208,6 +208,8 @@ macro_rules! declare_value_struct_conversion {
 
 declare_value_struct_conversion!(struct corelib::model::StandardListViewItem { text });
 declare_value_struct_conversion!(struct corelib::properties::StateInfo { current_state, previous_state, change_time });
+declare_value_struct_conversion!(struct corelib::input::KeyboardModifiers { control, alt, shift, meta });
+declare_value_struct_conversion!(struct corelib::input::KeyEvent { event_type, text, modifiers });
 
 /// Implement TryFrom / TryInto for Value that convert an `enum` to/from `Value::EnumerationValue`
 ///
@@ -244,6 +246,7 @@ declare_value_enum_conversion!(corelib::items::TextHorizontalAlignment, TextHori
 declare_value_enum_conversion!(corelib::items::TextVerticalAlignment, TextVerticalAlignment);
 declare_value_enum_conversion!(corelib::layout::LayoutAlignment, LayoutAlignment);
 declare_value_enum_conversion!(corelib::items::ImageFit, ImageFit);
+declare_value_enum_conversion!(corelib::input::KeyEventType, KeyEventType);
 
 impl TryFrom<corelib::animations::Instant> for Value {
     type Error = ();

@@ -34,7 +34,7 @@ fn default_config() -> cbindgen::Config {
         export: cbindgen::ExportConfig {
             rename: [
                 ("VoidArg".into(), "void()".into()),
-                ("StringArg".into(), "void(SharedString)".into()),
+                ("KeyEventArg".into(), "void(KeyEvent)".into()),
             ]
             .iter()
             .cloned()
@@ -80,7 +80,6 @@ fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
         "Color",
         "PathData",
         "PathElement",
-        "KeyEvent",
         "sixtyfps_new_path_elements",
         "sixtyfps_new_path_events",
         "Property",
@@ -93,7 +92,7 @@ fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
         "CallbackOpaque",
         "ComponentWindow",
         "VoidArg",
-        "StringArg",
+        "KeyEventArg",
     ]
     .iter()
     .map(|x| x.to_string())
