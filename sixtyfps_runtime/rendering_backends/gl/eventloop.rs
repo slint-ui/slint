@@ -383,11 +383,17 @@ pub fn run() {
                         if let Some(Some(window)) =
                             windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
                         {
+                            // To provide an easier cross-platform behavior, we map the command key to control
+                            // on macOS, and control to meta.
+                            #[cfg(target_os = "macos")]
+                            let (control, meta) = (state.logo(), state.ctrl());
+                            #[cfg(not(target_os = "macos"))]
+                            let (control, meta) = (state.ctrl(), state.logo());
                             let modifiers = KeyboardModifiers {
                                 shift: state.shift(),
                                 alt: state.alt(),
-                                control: state.ctrl(),
-                                logo: state.logo(),
+                                control,
+                                meta,
                             };
                             window.set_current_keyboard_modifiers(modifiers);
                         }

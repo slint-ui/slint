@@ -651,7 +651,7 @@ impl QtWindow {
             control: (modif & key_generated::Qt_KeyboardModifier_ControlModifier) != 0,
             alt: (modif & key_generated::Qt_KeyboardModifier_AltModifier) != 0,
             shift: (modif & key_generated::Qt_KeyboardModifier_ShiftModifier) != 0,
-            logo: (modif & key_generated::Qt_KeyboardModifier_MetaModifier) != 0,
+            meta: (modif & key_generated::Qt_KeyboardModifier_MetaModifier) != 0,
         };
 
         let text = qt_key_to_string(key as key_generated::Qt_Key, text);

@@ -147,9 +147,9 @@ impl InternalKeyCode {
 /// KeyboardModifier provides booleans to indicate possible modifier keys
 /// on a keyboard, such as Shift, Control, etc.
 ///
-/// On macOS, the command key is mapped to the logo modifier.
+/// On macOS, the command key is mapped to the meta modifier.
 ///
-/// On Windows, the windows key is mapped to the logo modifier.
+/// On Windows, the windows key is mapped to the meta modifier.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 #[repr(C)]
 pub struct KeyboardModifiers {
@@ -160,22 +160,7 @@ pub struct KeyboardModifiers {
     /// Indicates the shift key on a keyboard.
     pub shift: bool,
     /// Indicates the logo key on macOS and the windows key on Windows.
-    pub logo: bool,
-}
-
-impl KeyboardModifiers {
-    /// Convenience function that is used to detect copy & paste related shortcuts, where
-    /// on macOS the modifier is the command key (aka logo) and on Linux and Windows
-    /// it is control.
-    pub fn is_copy_paste_modifier(&self) -> bool {
-        match (self.alt, self.control, self.shift, self.logo) {
-            #[cfg(target_os = "macos")]
-            (false, false, false, true) => true,
-            #[cfg(not(target_os = "macos"))]
-            (false, true, false, false) => true,
-            _ => false,
-        }
-    }
+    pub meta: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]

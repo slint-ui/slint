@@ -298,7 +298,7 @@ impl Item for TextInput {
                 // Only insert/interpreter non-control character strings
                 if !event.text.is_empty() && event.text.as_str().chars().all(|ch| !ch.is_control()) =>
             {
-                if event.modifiers.is_copy_paste_modifier() {
+                if event.modifiers.control {
                     if event.text == "c" {
                         self.copy();
                         return KeyEventResult::EventAccepted;
