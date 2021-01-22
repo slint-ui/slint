@@ -1206,6 +1206,8 @@ pub mod native_widgets {}
 pub const HAS_NATIVE_STYLE: bool = false;
 pub const IS_AVAILABLE: bool = true;
 
+thread_local!(pub(crate) static CLIPBOARD : std::cell::RefCell<copypasta::ClipboardContext> = std::cell::RefCell::new(copypasta::ClipboardContext::new().unwrap()));
+
 pub struct Backend;
 impl sixtyfps_corelib::backend::Backend for Backend {
     fn create_window(&'static self) -> ComponentWindow {
@@ -1231,5 +1233,15 @@ impl sixtyfps_corelib::backend::Backend for Backend {
         data: &'static [u8],
     ) -> Result<(), Box<dyn std::error::Error>> {
         self::register_application_font_from_memory(data)
+    }
+
+    fn set_clipboard_text(&'static self, text: String) {
+        use copypasta::ClipboardProvider;
+        CLIPBOARD.with(|clipboard| clipboard.borrow_mut().set_contents(text).ok());
+    }
+
+    fn clipboard_text(&'static self) -> Option<String> {
+        use copypasta::ClipboardProvider;
+        CLIPBOARD.with(|clipboard| clipboard.borrow_mut().get_contents().ok())
     }
 }

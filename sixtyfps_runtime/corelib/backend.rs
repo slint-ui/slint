@@ -29,6 +29,9 @@ pub trait Backend: Send + Sync {
         &'static self,
         data: &'static [u8],
     ) -> Result<(), Box<dyn std::error::Error>>;
+
+    fn set_clipboard_text(&'static self, text: String);
+    fn clipboard_text(&'static self) -> Option<String>;
 }
 
 static PRIVATE_BACKEND_INSTANCE: once_cell::sync::OnceCell<Box<dyn Backend + 'static>> =

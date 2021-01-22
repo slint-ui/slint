@@ -524,13 +524,11 @@ impl TextInput {
     }
 
     fn copy(self: Pin<&Self>) {
-        use copypasta::ClipboardProvider;
-        CLIPBOARD.with(|clipboard| clipboard.borrow_mut().set_contents(self.selected_text()).ok());
+        crate::backend::instance().map(|backend| backend.set_clipboard_text(self.selected_text()));
     }
 
     fn paste(self: Pin<&Self>) {
-        use copypasta::ClipboardProvider;
-        if let Some(text) = CLIPBOARD.with(|clipboard| clipboard.borrow_mut().get_contents().ok()) {
+        if let Some(text) = crate::backend::instance().and_then(|backend| backend.clipboard_text()) {
             self.insert(&text);
         }
     }
@@ -558,4 +556,3 @@ impl TextInput {
     }
 }
 
-thread_local!(pub(crate) static CLIPBOARD : std::cell::RefCell<copypasta::ClipboardContext> = std::cell::RefCell::new(copypasta::ClipboardContext::new().unwrap()));

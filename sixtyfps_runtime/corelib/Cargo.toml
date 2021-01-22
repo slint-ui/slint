@@ -15,8 +15,6 @@ path = "lib.rs"
 [features]
 # Allow the vewer to query at runtime information about item types
 rtti = []
-x11 = ["copypasta/x11"]
-wayland = ["copypasta/wayland"]
 femtovg_backend = ["femtovg"]
 
 [dependencies]
@@ -36,7 +34,6 @@ strum = "0.20"
 strum_macros = "0.20"
 vec-arena = "1.0.0"
 pin-weak = "1"
-copypasta = { version = "0.7.0", default-features = false }
 auto_enums = "0.7"
 stretch = "0.3.2"
 weak-table =  "0.3"

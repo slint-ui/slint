@@ -13,8 +13,8 @@ homepage = "https://sixtyfps.io"
 path = "lib.rs"
 
 [features]
-x11 = ["winit/x11", "glutin/x11", "sixtyfps-corelib/x11"]
-wayland = ["winit/wayland", "glutin/wayland", "sixtyfps-corelib/wayland"]
+x11 = ["winit/x11", "glutin/x11", "copypasta/x11"]
+wayland = ["winit/wayland", "glutin/wayland", "copypasta/wayland"]
 default = ["x11"]
 
 [dependencies]
@@ -32,6 +32,7 @@ scoped-tls-hkt = "0.1"
 smallvec = "1.4.1"
 once_cell = "1.5"
 lyon_path = "0.17"
+copypasta = { version = "0.7.0", default-features = false }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web_sys = { version = "0.3", package = "web-sys", features=["console", "WebGlContextAttributes"] }

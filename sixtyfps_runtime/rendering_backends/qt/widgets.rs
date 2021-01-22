@@ -126,6 +126,8 @@ cpp! {{
     #include <QtWidgets/QStyleOption>
     #include <QtWidgets/QStyleFactory>
     #include <QtGui/QPainter>
+    #include <QtGui/QClipboard>
+    #include <QtCore/QMimeData>
     #include <QtCore/QDebug>
     #include <QtCore/QScopeGuard>
 
