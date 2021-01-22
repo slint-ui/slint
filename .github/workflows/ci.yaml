@@ -211,6 +211,7 @@ jobs:
     env:
       # allow deprecated warning because we are using nightly and some things might be deprecated in nightly
       # for which the stable alternative is not yet available
+      RUSTFLAGS: -A deprecated
       RUSTDOCFLAGS: --html-in-header=/home/runner/work/sixtyfps/sixtyfps/api/sixtyfps-rs/sixtyfps-docs-integration.html -A deprecated
       SIXTYFPS_NO_QT: 1
     steps:
