@@ -648,10 +648,10 @@ impl QtWindow {
         sixtyfps_corelib::animations::update_animations();
         let text: String = text.into();
         let modifiers = sixtyfps_corelib::input::KeyboardModifiers {
-            control: modif & key_generated::Qt_KeyboardModifier_ControlModifier != 0,
-            alt: modif & key_generated::Qt_KeyboardModifier_AltModifier != 0,
-            shift: modif & key_generated::Qt_KeyboardModifier_ShiftModifier != 0,
-            logo: modif & key_generated::Qt_KeyboardModifier_MetaModifier != 0,
+            control: (modif & key_generated::Qt_KeyboardModifier_ControlModifier) != 0,
+            alt: (modif & key_generated::Qt_KeyboardModifier_AltModifier) != 0,
+            shift: (modif & key_generated::Qt_KeyboardModifier_ShiftModifier) != 0,
+            logo: (modif & key_generated::Qt_KeyboardModifier_MetaModifier) != 0,
         };
 
         let text = match key as key_generated::Qt_Key {
