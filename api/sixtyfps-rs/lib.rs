@@ -199,8 +199,6 @@ pub mod re_exports {
     };
     pub use sixtyfps_corelib::input::{
         FocusEvent, InputEventResult, KeyEvent, KeyEventResult, KeyboardModifiers, MouseEvent,
-        ALT_MODIFIER, CONTROL_MODIFIER, COPY_PASTE_MODIFIER, LOGO_MODIFIER, NO_MODIFIER,
-        SHIFT_MODIFIER,
     };
     pub use sixtyfps_corelib::item_tree::{
         item_offset, visit_item_tree, ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable,

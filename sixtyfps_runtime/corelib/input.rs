@@ -144,97 +144,37 @@ impl InternalKeyCode {
     }
 }
 
-/// KeyboardModifiers wraps a u32 that reserves a single bit for each
-/// possible modifier key on a keyboard, such as Shift, Control, etc.
+/// KeyboardModifier provides booleans to indicate possible modifier keys
+/// on a keyboard, such as Shift, Control, etc.
 ///
 /// On macOS, the command key is mapped to the logo modifier.
 ///
 /// On Windows, the windows key is mapped to the logo modifier.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 #[repr(C)]
-pub struct KeyboardModifiers(u32);
-/// KeyboardModifier wraps a u32 that has a single bit set to represent
-/// a modifier key such as shift on a keyboard. Convenience constants such as
-/// [`NO_MODIFIER`], [`SHIFT_MODIFIER`], [`CONTROL_MODIFIER`], [`ALT_MODIFIER`]
-/// and [`LOGO_MODIFIER`] are provided.
-#[derive(Copy, Clone, Debug)]
-#[repr(C)]
-pub struct KeyboardModifier(u32);
-/// Convenience constant that indicates no modifier key being pressed on a keyboard.
-pub const NO_MODIFIER: KeyboardModifier = KeyboardModifier(0);
-/// Convenience constant that indicates the shift key being pressed on a keyboard.
-pub const SHIFT_MODIFIER: KeyboardModifier = KeyboardModifier(1);
-/// Convenience constant that indicates the control key being pressed on a keyboard.
-pub const CONTROL_MODIFIER: KeyboardModifier = KeyboardModifier(2);
-/// Convenience constant that indicates the control key being pressed on a keyboard.
-pub const ALT_MODIFIER: KeyboardModifier = KeyboardModifier(4);
-/// Convenience constant that on macOS indicates the command key and on Windows the
-/// windows key being pressed on a keyboard.
-pub const LOGO_MODIFIER: KeyboardModifier = KeyboardModifier(8);
-
-/// Convenience constant that is used to detect copy & paste related shortcuts, where
-/// on macOS the modifier is the command key (aka LOGO_MODIFIER) and on Linux and Windows
-/// it is control.
-pub const COPY_PASTE_MODIFIER: KeyboardModifier =
-    if cfg!(target_os = "macos") { LOGO_MODIFIER } else { CONTROL_MODIFIER };
+pub struct KeyboardModifiers {
+    /// Indicates the alt key on a keyboard.
+    pub alt: bool,
+    /// Indicates the control key on a keyboard.
+    pub control: bool,
+    /// Indicates the shift key on a keyboard.
+    pub shift: bool,
+    /// Indicates the logo key on macOS and the windows key on Windows.
+    pub logo: bool,
+}
 
 impl KeyboardModifiers {
-    /// Returns true if this set of keyboard modifiers includes the given modifier; false otherwise.
-    ///
-    /// Arguments:
-    /// * `modifier`: The keyboard modifier to test for, usually one of the provided convenience
-    ///               constants such as [`SHIFT_MODIFIER`].
-    pub fn test(&self, modifier: KeyboardModifier) -> bool {
-        self.0 & modifier.0 != 0
-    }
-
-    /// Returns true if this set of keyboard modifiers consists of exactly the one specified
-    /// modifier; false otherwise.
-    ///
-    /// Arguments:
-    /// * `modifier`: The only modifier that is allowed to be in this modifier set, in order
-    //                for this function to return true;
-    pub fn test_exclusive(&self, modifier: KeyboardModifier) -> bool {
-        self.0 == modifier.0
-    }
-
-    /// Returns true if the shift key is part of this set of keyboard modifiers.
-    pub fn shift(&self) -> bool {
-        self.test(SHIFT_MODIFIER)
-    }
-
-    /// Returns true if the control key is part of this set of keyboard modifiers.
-    pub fn control(&self) -> bool {
-        self.test(CONTROL_MODIFIER)
-    }
-
-    /// Returns true if the alt key is part of this set of keyboard modifiers.
-    pub fn alt(&self) -> bool {
-        self.test(ALT_MODIFIER)
-    }
-
-    /// Returns true if on macOS the command key and on Windows the Windows key is part of this
-    /// set of keyboard modifiers.
-    pub fn logo(&self) -> bool {
-        self.test(LOGO_MODIFIER)
-    }
-}
-
-impl Default for KeyboardModifiers {
-    fn default() -> Self {
-        Self(NO_MODIFIER.0)
-    }
-}
-
-impl From<KeyboardModifier> for KeyboardModifiers {
-    fn from(modifier: KeyboardModifier) -> Self {
-        Self(modifier.0)
-    }
-}
-
-impl core::ops::BitOrAssign<KeyboardModifier> for KeyboardModifiers {
-    fn bitor_assign(&mut self, rhs: KeyboardModifier) {
-        self.0 |= rhs.0;
+    /// Convenience function that is used to detect copy & paste related shortcuts, where
+    /// on macOS the modifier is the command key (aka logo) and on Linux and Windows
+    /// it is control.
+    pub fn is_copy_paste_modifier(&self) -> bool {
+        match (self.alt, self.control, self.shift, self.logo) {
+            #[cfg(target_os = "macos")]
+            (false, false, false, true) => true,
+            #[cfg(not(target_os = "macos"))]
+            (false, true, false, false) => true,
+            _ => false,
+        }
     }
 }
 

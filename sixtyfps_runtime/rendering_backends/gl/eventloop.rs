@@ -15,9 +15,9 @@ LICENSE END */
 */
 use sixtyfps_corelib as corelib;
 
+use corelib::graphics::Point;
 use corelib::input::{InternalKeyCode, KeyEvent, KeyboardModifiers, MouseEventType};
 use corelib::window::*;
-use corelib::{graphics::Point, input::NO_MODIFIER};
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
@@ -355,7 +355,7 @@ pub fn run() {
                             {
                                 let modifiers = window.current_keyboard_modifiers();
 
-                                if !modifiers.control() && !modifiers.alt() && !modifiers.logo() {
+                                if !modifiers.control && !modifiers.alt && !modifiers.logo {
                                     let key_event = KeyEvent::KeyReleased {
                                         text: ch.to_string().into(),
                                         modifiers,
@@ -382,19 +382,12 @@ pub fn run() {
                         if let Some(Some(window)) =
                             windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
                         {
-                            let mut modifiers: KeyboardModifiers = NO_MODIFIER.into();
-                            if state.shift() {
-                                modifiers |= corelib::input::SHIFT_MODIFIER;
-                            }
-                            if state.alt() {
-                                modifiers |= corelib::input::ALT_MODIFIER;
-                            }
-                            if state.ctrl() {
-                                modifiers |= corelib::input::CONTROL_MODIFIER;
-                            }
-                            if state.logo() {
-                                modifiers |= corelib::input::LOGO_MODIFIER;
-                            }
+                            let modifiers = KeyboardModifiers {
+                                shift: state.shift(),
+                                alt: state.alt(),
+                                control: state.ctrl(),
+                                logo: state.logo(),
+                            };
                             window.set_current_keyboard_modifiers(modifiers);
                         }
                     });

@@ -647,19 +647,12 @@ impl QtWindow {
     fn key_event(&self, key: i32, text: qttypes::QString, modif: u32, released: bool) {
         sixtyfps_corelib::animations::update_animations();
         let text: String = text.into();
-        let mut modifiers = sixtyfps_corelib::input::KeyboardModifiers::default();
-        if modif & key_generated::Qt_KeyboardModifier_ControlModifier != 0 {
-            modifiers |= sixtyfps_corelib::input::CONTROL_MODIFIER
-        }
-        if modif & key_generated::Qt_KeyboardModifier_AltModifier != 0 {
-            modifiers |= sixtyfps_corelib::input::ALT_MODIFIER
-        }
-        if modif & key_generated::Qt_KeyboardModifier_ShiftModifier != 0 {
-            modifiers |= sixtyfps_corelib::input::SHIFT_MODIFIER
-        }
-        if modif & key_generated::Qt_KeyboardModifier_MetaModifier != 0 {
-            modifiers |= sixtyfps_corelib::input::LOGO_MODIFIER
-        }
+        let modifiers = sixtyfps_corelib::input::KeyboardModifiers {
+            control: modif & key_generated::Qt_KeyboardModifier_ControlModifier != 0,
+            alt: modif & key_generated::Qt_KeyboardModifier_AltModifier != 0,
+            shift: modif & key_generated::Qt_KeyboardModifier_ShiftModifier != 0,
+            logo: modif & key_generated::Qt_KeyboardModifier_MetaModifier != 0,
+        };
 
         let text = match key as key_generated::Qt_Key {
             key_generated::Qt_Key_Key_Left => Some(InternalKeyCode::Left),

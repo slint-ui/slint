@@ -298,7 +298,7 @@ impl Item for TextInput {
                 // Only insert/interpreter non-control character strings
                 if !event_text.is_empty() && event_text.as_str().chars().all(|ch| !ch.is_control()) =>
             {
-                if modifiers.test_exclusive(crate::input::COPY_PASTE_MODIFIER) {
+                if modifiers.is_copy_paste_modifier() {
                     if event_text == "c" {
                         self.copy();
                         return KeyEventResult::EventAccepted;
@@ -385,7 +385,7 @@ enum AnchorMode {
 
 impl From<KeyboardModifiers> for AnchorMode {
     fn from(modifiers: KeyboardModifiers) -> Self {
-        if modifiers.shift() {
+        if modifiers.shift {
             Self::KeepAnchor
         } else {
             Self::MoveAnchor

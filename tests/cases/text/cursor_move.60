@@ -27,6 +27,11 @@ const HOME_CODE: char = '\u{0002}'; // start of text
 const END_CODE: char = '\u{0003}'; // end of text
 const BACK_CODE: char = '\u{0007}'; // backspace \b
 
+let shift_modifier = sixtyfps::re_exports::KeyboardModifiers {
+    shift: true,
+    ..Default::default()
+};
+
 let instance = TestCase::new();
 sixtyfps::testing::send_mouse_click(&instance, 50., 50.);
 assert!(instance.get_input_focused());
@@ -35,9 +40,9 @@ sixtyfps::testing::send_keyboard_string_sequence(&instance, "Test");
 assert_eq!(instance.get_test_text(), "Test");
 assert!(!instance.get_has_selection());
 
-sixtyfps::testing::set_current_keyboard_modifiers(&instance, sixtyfps::re_exports::SHIFT_MODIFIER.into());
+sixtyfps::testing::set_current_keyboard_modifiers(&instance, shift_modifier);
 sixtyfps::testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
-sixtyfps::testing::set_current_keyboard_modifiers(&instance, sixtyfps::re_exports::NO_MODIFIER.into());
+sixtyfps::testing::set_current_keyboard_modifiers(&instance, sixtyfps::re_exports::KeyboardModifiers::default());
 assert!(instance.get_has_selection());
 sixtyfps::testing::send_keyboard_string_sequence(&instance, &BACK_CODE.to_string());
 assert!(!instance.get_has_selection());
@@ -57,9 +62,9 @@ sixtyfps::testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string
 sixtyfps::testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
 assert_eq!(instance.get_test_cursor_pos(), 0);
 
-sixtyfps::testing::set_current_keyboard_modifiers(&instance, sixtyfps::re_exports::SHIFT_MODIFIER.into());
+sixtyfps::testing::set_current_keyboard_modifiers(&instance, shift_modifier);
 sixtyfps::testing::send_keyboard_string_sequence(&instance, &END_CODE.to_string());
-sixtyfps::testing::set_current_keyboard_modifiers(&instance, sixtyfps::re_exports::NO_MODIFIER.into());
+sixtyfps::testing::set_current_keyboard_modifiers(&instance, sixtyfps::re_exports::KeyboardModifiers::default());
 assert!(instance.get_has_selection());
 assert_eq!(instance.get_test_cursor_pos(), 2);
 assert_eq!(instance.get_test_anchor_pos(), 0);
@@ -67,9 +72,9 @@ assert_eq!(instance.get_test_anchor_pos(), 0);
 sixtyfps::testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
 assert!(!instance.get_has_selection());
 
-sixtyfps::testing::set_current_keyboard_modifiers(&instance, sixtyfps::re_exports::SHIFT_MODIFIER.into());
+sixtyfps::testing::set_current_keyboard_modifiers(&instance, shift_modifier);
 sixtyfps::testing::send_keyboard_string_sequence(&instance, &HOME_CODE.to_string());
-sixtyfps::testing::set_current_keyboard_modifiers(&instance, sixtyfps::re_exports::NO_MODIFIER.into());
+sixtyfps::testing::set_current_keyboard_modifiers(&instance, sixtyfps::re_exports::KeyboardModifiers::default());
 assert!(instance.get_has_selection());
 assert_eq!(instance.get_test_cursor_pos(), 0);
 assert_eq!(instance.get_test_anchor_pos(), 1);

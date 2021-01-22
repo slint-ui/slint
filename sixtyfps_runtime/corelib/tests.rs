@@ -10,7 +10,7 @@ LICENSE END */
 //! Functions usefull for testing
 #![warn(missing_docs)]
 
-use crate::input::{KeyEvent, KeyboardModifiers, MouseEvent, MouseEventType, SHIFT_MODIFIER};
+use crate::input::{KeyEvent, KeyboardModifiers, MouseEvent, MouseEventType};
 use crate::window::ComponentWindow;
 use crate::SharedString;
 
@@ -71,7 +71,7 @@ pub extern "C" fn send_keyboard_string_sequence(
     for ch in sequence.chars() {
         let mut modifiers = modifiers;
         if ch.is_ascii_uppercase() {
-            modifiers |= SHIFT_MODIFIER;
+            modifiers.shift = true;
         }
         let text: SharedString = ch.to_string().into();
 
