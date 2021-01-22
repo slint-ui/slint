@@ -80,6 +80,7 @@ fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
         "Color",
         "PathData",
         "PathElement",
+        "KeyEvent",
         "sixtyfps_new_path_elements",
         "sixtyfps_new_path_events",
         "Property",
@@ -241,7 +242,7 @@ fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
             r"
 namespace sixtyfps {{
     namespace private_api {{ enum class VersionCheck {{ Major = {}, Minor = {}, Patch = {} }}; class ComponentWindow; }}
-    namespace cbindgen_private {{ using sixtyfps::private_api::ComponentWindow; using namespace vtable; }}
+    namespace cbindgen_private {{ using sixtyfps::private_api::ComponentWindow; using namespace vtable; struct KeyEvent; }}
 }}",
             0, 0, 4,
         ))
