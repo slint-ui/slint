@@ -213,6 +213,7 @@ jobs:
     runs-on: ubuntu-20.04
     env:
           RUSTDOCFLAGS: --html-in-header=/home/runner/work/sixtyfps/sixtyfps/api/sixtyfps-rs/sixtyfps-docs-integration.html
+          SIXTYFPS_NO_QT: 1
     steps:
     - uses: actions/checkout@v2
     - name: Setup Node.js
