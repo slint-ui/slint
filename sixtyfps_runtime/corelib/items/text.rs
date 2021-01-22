@@ -294,7 +294,7 @@ impl Item for TextInput {
                 }
                 KeyEventResult::EventIgnored
             }
-            KeyEventType::KeyReleased 
+            KeyEventType::KeyReleased
                 // Only insert/interpreter non-control character strings
                 if !event.text.is_empty() && event.text.as_str().chars().all(|ch| !ch.is_control()) =>
             {
@@ -528,7 +528,8 @@ impl TextInput {
     }
 
     fn paste(self: Pin<&Self>) {
-        if let Some(text) = crate::backend::instance().and_then(|backend| backend.clipboard_text()) {
+        if let Some(text) = crate::backend::instance().and_then(|backend| backend.clipboard_text())
+        {
             self.insert(&text);
         }
     }
@@ -555,4 +556,3 @@ impl TextInput {
         }
     }
 }
-
