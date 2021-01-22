@@ -10,7 +10,6 @@ LICENSE END */
 
 use cpp::*;
 use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
-use sixtyfps_corelib::component::ComponentRc;
 use sixtyfps_corelib::graphics::{FontRequest, Point, RenderingCache};
 use sixtyfps_corelib::input::{InternalKeyCode, KeyEvent, KeyEventType, MouseEventType};
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
@@ -18,6 +17,7 @@ use sixtyfps_corelib::items::{self, ItemRef};
 use sixtyfps_corelib::properties::PropertyTracker;
 use sixtyfps_corelib::slice::Slice;
 use sixtyfps_corelib::window::PlatformWindow;
+use sixtyfps_corelib::{component::ComponentRc, SharedString};
 use sixtyfps_corelib::{PathData, Property, Resource};
 
 use std::cell::RefCell;
@@ -654,17 +654,7 @@ impl QtWindow {
             logo: (modif & key_generated::Qt_KeyboardModifier_MetaModifier) != 0,
         };
 
-        let text = match key as key_generated::Qt_Key {
-            key_generated::Qt_Key_Key_Left => Some(InternalKeyCode::Left),
-            key_generated::Qt_Key_Key_Right => Some(InternalKeyCode::Right),
-            key_generated::Qt_Key_Key_Backspace => Some(InternalKeyCode::Back),
-            key_generated::Qt_Key_Key_Delete => Some(InternalKeyCode::Delete),
-            key_generated::Qt_Key_Key_End => Some(InternalKeyCode::End),
-            key_generated::Qt_Key_Key_Home => Some(InternalKeyCode::Home),
-            key_generated::Qt_Key_Key_Return => Some(InternalKeyCode::Return),
-            _ => None,
-        }
-        .map_or_else(|| text.into(), |code| code.encode_to_string());
+        let text = qt_key_to_string(key as key_generated::Qt_Key, text);
 
         let event = KeyEvent {
             event_type: if released { KeyEventType::KeyReleased } else { KeyEventType::KeyPressed },
@@ -871,4 +861,102 @@ fn timer_event() {
             TimerHandler::instance().timer.start(timeout, &TimerHandler::instance());
         }}
     }
+}
+
+fn qt_key_to_string(key: key_generated::Qt_Key, event_text: String) -> SharedString {
+    // First try to see if we received one of the non-ascii keys that we have
+    // a special representation for. If that fails, try to use the provided
+    // text. If that's empty, then try to see if the provided key has an ascii
+    // representation. The last step is needed because modifiers may result in
+    // the text to be empty otherwise, for example Ctrl+C.
+    if let Some(special_key_code) = match key as key_generated::Qt_Key {
+        key_generated::Qt_Key_Key_Left => Some(InternalKeyCode::Left),
+        key_generated::Qt_Key_Key_Right => Some(InternalKeyCode::Right),
+        key_generated::Qt_Key_Key_Backspace => Some(InternalKeyCode::Back),
+        key_generated::Qt_Key_Key_Delete => Some(InternalKeyCode::Delete),
+        key_generated::Qt_Key_Key_End => Some(InternalKeyCode::End),
+        key_generated::Qt_Key_Key_Home => Some(InternalKeyCode::Home),
+        key_generated::Qt_Key_Key_Return => Some(InternalKeyCode::Return),
+        _ => None,
+    } {
+        return special_key_code.encode_to_string();
+    };
+
+    if !event_text.is_empty() {
+        return event_text.into();
+    }
+
+    match key {
+        key_generated::Qt_Key_Key_Space => " ",
+        key_generated::Qt_Key_Key_Exclam => "!",
+        key_generated::Qt_Key_Key_QuoteDbl => "\"",
+        key_generated::Qt_Key_Key_NumberSign => "#",
+        key_generated::Qt_Key_Key_Dollar => "$",
+        key_generated::Qt_Key_Key_Percent => "%",
+        key_generated::Qt_Key_Key_Ampersand => "&",
+        key_generated::Qt_Key_Key_Apostrophe => "'",
+        key_generated::Qt_Key_Key_ParenLeft => "(",
+        key_generated::Qt_Key_Key_ParenRight => ")",
+        key_generated::Qt_Key_Key_Asterisk => "*",
+        key_generated::Qt_Key_Key_Plus => "+",
+        key_generated::Qt_Key_Key_Comma => ",",
+        key_generated::Qt_Key_Key_Minus => "-",
+        key_generated::Qt_Key_Key_Period => ".",
+        key_generated::Qt_Key_Key_Slash => "/",
+        key_generated::Qt_Key_Key_0 => "0",
+        key_generated::Qt_Key_Key_1 => "1",
+        key_generated::Qt_Key_Key_2 => "2",
+        key_generated::Qt_Key_Key_3 => "3",
+        key_generated::Qt_Key_Key_4 => "4",
+        key_generated::Qt_Key_Key_5 => "5",
+        key_generated::Qt_Key_Key_6 => "6",
+        key_generated::Qt_Key_Key_7 => "7",
+        key_generated::Qt_Key_Key_8 => "8",
+        key_generated::Qt_Key_Key_9 => "9",
+        key_generated::Qt_Key_Key_Colon => ":",
+        key_generated::Qt_Key_Key_Semicolon => ";",
+        key_generated::Qt_Key_Key_Less => "<",
+        key_generated::Qt_Key_Key_Equal => "=",
+        key_generated::Qt_Key_Key_Greater => ">",
+        key_generated::Qt_Key_Key_Question => "?",
+        key_generated::Qt_Key_Key_At => "@",
+        key_generated::Qt_Key_Key_A => "a",
+        key_generated::Qt_Key_Key_B => "b",
+        key_generated::Qt_Key_Key_C => "c",
+        key_generated::Qt_Key_Key_D => "d",
+        key_generated::Qt_Key_Key_E => "e",
+        key_generated::Qt_Key_Key_F => "f",
+        key_generated::Qt_Key_Key_G => "g",
+        key_generated::Qt_Key_Key_H => "h",
+        key_generated::Qt_Key_Key_I => "i",
+        key_generated::Qt_Key_Key_J => "j",
+        key_generated::Qt_Key_Key_K => "k",
+        key_generated::Qt_Key_Key_L => "l",
+        key_generated::Qt_Key_Key_M => "m",
+        key_generated::Qt_Key_Key_N => "n",
+        key_generated::Qt_Key_Key_O => "o",
+        key_generated::Qt_Key_Key_P => "p",
+        key_generated::Qt_Key_Key_Q => "q",
+        key_generated::Qt_Key_Key_R => "r",
+        key_generated::Qt_Key_Key_S => "s",
+        key_generated::Qt_Key_Key_T => "t",
+        key_generated::Qt_Key_Key_U => "u",
+        key_generated::Qt_Key_Key_V => "v",
+        key_generated::Qt_Key_Key_W => "w",
+        key_generated::Qt_Key_Key_X => "x",
+        key_generated::Qt_Key_Key_Y => "y",
+        key_generated::Qt_Key_Key_Z => "z",
+        key_generated::Qt_Key_Key_BracketLeft => "[",
+        key_generated::Qt_Key_Key_Backslash => "\\",
+        key_generated::Qt_Key_Key_BracketRight => "]",
+        key_generated::Qt_Key_Key_AsciiCircum => "^",
+        key_generated::Qt_Key_Key_Underscore => "_",
+        key_generated::Qt_Key_Key_QuoteLeft => "`",
+        key_generated::Qt_Key_Key_BraceLeft => "{",
+        key_generated::Qt_Key_Key_Bar => "|",
+        key_generated::Qt_Key_Key_BraceRight => "}",
+        key_generated::Qt_Key_Key_AsciiTilde => "~",
+        _ => "",
+    }
+    .into()
 }
