@@ -150,15 +150,14 @@ impl sixtyfps_corelib::backend::Backend for Backend {
                 return QGuiApplication::clipboard()->mimeData()->hasText();
             } };
             if has_text {
-                Some(
+                return Some(
                     cpp! { unsafe [] -> qttypes::QString as "QString" {
                         return QGuiApplication::clipboard()->text();
                     }}
                     .into(),
-                )
-            } else {
-                None
+                );
             }
         }
+        None
     }
 }
