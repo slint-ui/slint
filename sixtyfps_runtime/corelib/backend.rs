@@ -30,3 +30,18 @@ pub trait Backend: Send + Sync {
         data: &'static [u8],
     ) -> Result<(), Box<dyn std::error::Error>>;
 }
+
+static PRIVATE_BACKEND_INSTANCE: once_cell::sync::OnceCell<Box<dyn Backend + 'static>> =
+    once_cell::sync::OnceCell::new();
+
+pub fn instance() -> Option<&'static dyn Backend> {
+    use std::ops::Deref;
+    PRIVATE_BACKEND_INSTANCE.get().map(|backend_box| backend_box.deref())
+}
+
+pub fn instance_or_init(
+    factory_fn: impl FnOnce() -> Box<dyn Backend + 'static>,
+) -> &'static dyn Backend {
+    use std::ops::Deref;
+    PRIVATE_BACKEND_INSTANCE.get_or_init(factory_fn).deref()
+}

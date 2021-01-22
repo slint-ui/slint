@@ -24,11 +24,7 @@ cfg_if::cfg_if! {
 }
 
 pub fn backend() -> &'static dyn sixtyfps_corelib::backend::Backend {
-    static INSTANCE: once_cell::sync::OnceCell<
-        Box<dyn sixtyfps_corelib::backend::Backend + 'static>,
-    > = once_cell::sync::OnceCell::new();
-
-    let instance = INSTANCE.get_or_init(|| {
+    sixtyfps_corelib::backend::instance_or_init(|| {
         #[cfg(any(
             feature = "sixtyfps-rendering-backend-qt",
             feature = "sixtyfps-rendering-backend-gl"
@@ -58,9 +54,7 @@ pub fn backend() -> &'static dyn sixtyfps_corelib::backend::Backend {
             return Box::new(sixtyfps_rendering_backend_gl::Backend);
         }
         return Box::new(default_backend::Backend);
-    });
-    use std::ops::Deref;
-    instance.deref()
+    })
 }
 
 pub use default_backend::{
