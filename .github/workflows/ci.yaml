@@ -19,8 +19,6 @@ on:
 jobs:
   build_and_test:
     env:
-      #dummy is there to work around https://github.com/jurplel/install-qt-action/pull/79
-      LD_LIBRARY_PATH: /home/runner/work/sixtyfps/Qt/5.15.2/gcc_64/lib:dummy
       DYLD_FRAMEWORK_PATH: /Users/runner/work/sixtyfps/Qt/5.15.2/clang_64/lib
       QT_QPA_PLATFORM: offscreen
 
@@ -54,8 +52,8 @@ jobs:
     - name: Set default style
       if: matrix.os == 'windows-latest'
       run: |
-          echo "SIXTYFPS_STYLE=ugly" >> $GITHUB_ENV
-          echo "SIXTYFPS_NO_QT=1" >> $GITHUB_ENV
+          echo "SIXTYFPS_STYLE=ugly" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo "SIXTYFPS_NO_QT=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
     - name: Setup Node.js
       uses: actions/setup-node@v1
       with:
@@ -148,7 +146,6 @@ jobs:
 
   cpp:
     env:
-      LD_LIBRARY_PATH: /home/runner/work/sixtyfps/Qt/5.15.2/gcc_64/lib:dummy
       DYLD_FRAMEWORK_PATH: /Users/runner/work/sixtyfps/Qt/5.15.2/clang_64/lib
     strategy:
       matrix:
@@ -160,14 +157,14 @@ jobs:
       if: matrix.os == 'ubuntu-20.04'
       run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev
     - name: Cache Qt
-      if: false && matrix.os != 'windows-latest'
+      if: matrix.os != 'windows-latest'
       id: cache-qt
       uses: actions/cache@v2
       with:
         path: ../Qt
-        key: ${{ runner.os }}-${{ github.job }}-cpp-Qt-5.15.2
+        key: ${{ runner.os }}-${{ github.job }}-cpp-Qt5.15.2
     - name: Install Qt
-      if: false && matrix.os != 'windows-latest'
+      if: matrix.os != 'windows-latest'
       uses: jurplel/install-qt-action@v2
       with:
         version: '5.15.2'
@@ -212,8 +209,10 @@ jobs:
   docs:
     runs-on: ubuntu-20.04
     env:
-          RUSTDOCFLAGS: --html-in-header=/home/runner/work/sixtyfps/sixtyfps/api/sixtyfps-rs/sixtyfps-docs-integration.html
-          SIXTYFPS_NO_QT: 1
+      # allow deprecated warning because we are using nightly and some things might be deprecated in nightly
+      # for which the stable alternative is not yet available
+      RUSTDOCFLAGS: --html-in-header=/home/runner/work/sixtyfps/sixtyfps/api/sixtyfps-rs/sixtyfps-docs-integration.html -A deprecated
+      SIXTYFPS_NO_QT: 1
     steps:
     - uses: actions/checkout@v2
     - name: Setup Node.js

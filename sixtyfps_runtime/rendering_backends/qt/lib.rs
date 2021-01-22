@@ -129,11 +129,11 @@ impl sixtyfps_corelib::backend::Backend for Backend {
         Ok(())
     }
 
-    fn set_clipboard_text(&'static self, text: String) {
+    fn set_clipboard_text(&'static self, _text: String) {
         #[cfg(not(no_qt))]
         {
             use cpp::cpp;
-            let text: qttypes::QString = text.into();
+            let text: qttypes::QString = _text.into();
             cpp! {unsafe [text as "QString"] {
                 ensure_initialized();
                 QGuiApplication::clipboard()->setText(text);
