@@ -1332,7 +1332,7 @@ fn compile_expression(
 ) -> String {
     match expr {
         Expression::StringLiteral(s) => {
-            format!(r#"sixtyfps::SharedString("{}")"#, escape_string(s.as_str()))
+            format!(r#"sixtyfps::SharedString(u8"{}")"#, escape_string(s.as_str()))
         }
         Expression::NumberLiteral(n, unit) => unit.normalize(*n).to_string(),
         Expression::BoolLiteral(b) => b.to_string(),
@@ -1537,7 +1537,7 @@ fn compile_expression(
         }
         Expression::ResourceReference(resource_ref)  => {
             match resource_ref {
-                crate::expression_tree::ResourceReference::AbsolutePath(path) => format!(r#"sixtyfps::Resource(sixtyfps::SharedString("{}"))"#, escape_string(path.as_str())),
+                crate::expression_tree::ResourceReference::AbsolutePath(path) => format!(r#"sixtyfps::Resource(sixtyfps::SharedString(u8"{}"))"#, escape_string(path.as_str())),
                 crate::expression_tree::ResourceReference::EmbeddedData(_) => unimplemented!("The C++ generator does not support resource embedding yet")
             }
         }
