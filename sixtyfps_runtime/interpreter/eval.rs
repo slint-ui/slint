@@ -144,7 +144,10 @@ impl corelib::rtti::ValueType for Value {}
 ///
 /// For example
 /// `declare_value_conversion!(Number => [u32, u64, i32, i64, f32, f64] );`
-/// means that Value::Number can be converted to / from each of the said rust types
+/// means that `Value::Number` can be converted to / from each of the said rust types
+///
+/// For `Value::Object` mapping to a rust `struct`, one can use [`declare_value_struct_conversion!`]
+/// And for `Value::EnumerationValue` which maps to a rust `enum`, one can use [`declare_value_struct_conversion!`]
 macro_rules! declare_value_conversion {
     ( $value:ident => [$($ty:ty),*] ) => {
         $(
@@ -177,6 +180,7 @@ declare_value_conversion!(Color => [Color] );
 declare_value_conversion!(PathElements => [PathData]);
 declare_value_conversion!(EasingCurve => [corelib::animations::EasingCurve]);
 
+/// Implement TryFrom / TryInto for Value that convert a `struct` to/from `Value::Object`
 macro_rules! declare_value_struct_conversion {
     (struct $name:path { $($field:ident),* $(,)? }) => {
         impl TryFrom<$name> for Value {
@@ -205,6 +209,10 @@ macro_rules! declare_value_struct_conversion {
 declare_value_struct_conversion!(struct corelib::model::StandardListViewItem { text });
 declare_value_struct_conversion!(struct corelib::properties::StateInfo { current_state, previous_state, change_time });
 
+/// Implement TryFrom / TryInto for Value that convert an `enum` to/from `Value::EnumerationValue`
+///
+/// The `enum` must derive `Display` and `FromStr`
+/// (can be done with `strum_macros::EnumString`, `strum_macros::Display` derive macro)
 macro_rules! declare_value_enum_conversion {
     ($ty:ty, $n:ident) => {
         impl TryFrom<$ty> for Value {
