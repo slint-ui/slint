@@ -245,14 +245,14 @@ pub enum KeyEvent {
     /// A key on a keyboard was pressed.
     KeyPressed {
         /// The unicode representation of the key pressed.
-        string: SharedString,
+        text: SharedString,
         /// The keyboard modifiers active at the time of the key press event.
         modifiers: KeyboardModifiers,
     },
     /// A key on a keyboard was released.
     KeyReleased {
         /// The unicode representation of the key released.
-        string: SharedString,
+        text: SharedString,
         /// The keyboard modifiers active at the time of the key release event.
         modifiers: KeyboardModifiers,
     },

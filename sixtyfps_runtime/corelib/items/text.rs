@@ -270,8 +270,8 @@ impl Item for TextInput {
         }
 
         match event {
-            KeyEvent::KeyPressed { string, modifiers } => {
-                if let Some(keycode) = InternalKeyCode::try_decode_from_string(string) {
+            KeyEvent::KeyPressed { text, modifiers } => {
+                if let Some(keycode) = InternalKeyCode::try_decode_from_string(text) {
                     if let Ok(text_cursor_movement) = TextCursorDirection::try_from(keycode.clone())
                     {
                         TextInput::move_cursor(
@@ -294,15 +294,15 @@ impl Item for TextInput {
                 }
                 KeyEventResult::EventIgnored
             }
-            KeyEvent::KeyReleased { string, modifiers }
+            KeyEvent::KeyReleased { text: event_text, modifiers }
                 // Only insert/interpreter non-control character strings
-                if !string.is_empty() && string.as_str().chars().all(|ch| !ch.is_control()) =>
+                if !event_text.is_empty() && event_text.as_str().chars().all(|ch| !ch.is_control()) =>
             {
                 if modifiers.test_exclusive(crate::input::COPY_PASTE_MODIFIER) {
-                    if string == "c" {
+                    if event_text == "c" {
                         self.copy();
                         return KeyEventResult::EventAccepted;
-                    } else if string == "v" {
+                    } else if event_text == "v" {
                         self.paste();
                         return KeyEventResult::EventAccepted;
                     }
@@ -313,10 +313,10 @@ impl Item for TextInput {
 
                 // FIXME: respect grapheme boundaries
                 let insert_pos = self.cursor_position() as usize;
-                text.insert_str(insert_pos, &string);
+                text.insert_str(insert_pos, &event_text);
 
                 self.as_ref().text.set(text.into());
-                let new_cursor_pos = (insert_pos + string.len()) as i32;
+                let new_cursor_pos = (insert_pos + event_text.len()) as i32;
                 self.as_ref().cursor_position.set(new_cursor_pos);
                 self.as_ref().anchor_position.set(new_cursor_pos);
 

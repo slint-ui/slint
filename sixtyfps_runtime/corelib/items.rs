@@ -426,11 +426,11 @@ impl Item for FocusScope {
 
     fn key_event(self: Pin<&Self>, event: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
         match event {
-            KeyEvent::KeyPressed { string, .. } => {
-                Self::FIELD_OFFSETS.key_pressed.apply_pin(self).emit(&(string.clone(),));
+            KeyEvent::KeyPressed { text, .. } => {
+                Self::FIELD_OFFSETS.key_pressed.apply_pin(self).emit(&(text.clone(),));
             }
-            KeyEvent::KeyReleased { string, .. } => {
-                Self::FIELD_OFFSETS.key_released.apply_pin(self).emit(&(string.clone(),));
+            KeyEvent::KeyReleased { text, .. } => {
+                Self::FIELD_OFFSETS.key_released.apply_pin(self).emit(&(text.clone(),));
             }
         };
         KeyEventResult::EventAccepted

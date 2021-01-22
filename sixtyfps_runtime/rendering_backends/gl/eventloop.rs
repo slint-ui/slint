@@ -319,14 +319,14 @@ pub fn run() {
                                     }
                                 })
                             {
-                                let string = key_code.encode_to_string();
+                                let text = key_code.encode_to_string();
                                 let event = match input.state {
                                     winit::event::ElementState::Pressed => KeyEvent::KeyPressed {
-                                        string,
+                                        text,
                                         modifiers: window.current_keyboard_modifiers(),
                                     },
                                     winit::event::ElementState::Released => KeyEvent::KeyReleased {
-                                        string,
+                                        text,
                                         modifiers: window.current_keyboard_modifiers(),
                                     },
                                 };
@@ -357,7 +357,7 @@ pub fn run() {
 
                                 if !modifiers.control() && !modifiers.alt() && !modifiers.logo() {
                                     let key_event = KeyEvent::KeyReleased {
-                                        string: ch.to_string().into(),
+                                        text: ch.to_string().into(),
                                         modifiers,
                                     };
                                     window

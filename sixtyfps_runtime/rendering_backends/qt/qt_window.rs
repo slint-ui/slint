@@ -661,7 +661,7 @@ impl QtWindow {
             modifiers |= sixtyfps_corelib::input::LOGO_MODIFIER
         }
 
-        let string = match key as key_generated::Qt_Key {
+        let text = match key as key_generated::Qt_Key {
             key_generated::Qt_Key_Key_Left => Some(InternalKeyCode::Left),
             key_generated::Qt_Key_Key_Right => Some(InternalKeyCode::Right),
             key_generated::Qt_Key_Key_Backspace => Some(InternalKeyCode::Back),
@@ -674,9 +674,9 @@ impl QtWindow {
         .map_or_else(|| text.into(), |code| code.encode_to_string());
 
         let event = if released {
-            KeyEvent::KeyReleased { string, modifiers }
+            KeyEvent::KeyReleased { text, modifiers }
         } else {
-            KeyEvent::KeyPressed { string, modifiers }
+            KeyEvent::KeyPressed { text, modifiers }
         };
         self.self_weak.get().unwrap().upgrade().unwrap().process_key_input(&event);
 

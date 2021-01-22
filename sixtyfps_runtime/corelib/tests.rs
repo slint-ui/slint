@@ -73,9 +73,9 @@ pub extern "C" fn send_keyboard_string_sequence(
         if ch.is_ascii_uppercase() {
             modifiers |= SHIFT_MODIFIER;
         }
-        let string: SharedString = ch.to_string().into();
+        let text: SharedString = ch.to_string().into();
 
-        window.process_key_input(&KeyEvent::KeyPressed { string: string.clone(), modifiers });
-        window.process_key_input(&KeyEvent::KeyReleased { string, modifiers });
+        window.process_key_input(&KeyEvent::KeyPressed { text: text.clone(), modifiers });
+        window.process_key_input(&KeyEvent::KeyReleased { text, modifiers });
     }
 }
