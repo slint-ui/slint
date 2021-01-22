@@ -55,6 +55,7 @@ jobs:
       if: matrix.os == 'windows-latest'
       run: |
           echo "SIXTYFPS_STYLE=ugly" >> $GITHUB_ENV
+          echo "SIXTYFPS_NO_QT=1" >> $GITHUB_ENV
     - name: Setup Node.js
       uses: actions/setup-node@v1
       with:

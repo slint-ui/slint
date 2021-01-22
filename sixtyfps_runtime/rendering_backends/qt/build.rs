@@ -16,7 +16,10 @@ fn qmake_query(var: &str) -> Option<String> {
     })
 }
 fn main() {
-    if std::env::var("TARGET").map_or(false, |t| t.starts_with("wasm")) {
+    println!("cargo:rerun-if-env-changed=SIXTYFPS_NO_QT");
+    if std::env::var("TARGET").map_or(false, |t| t.starts_with("wasm"))
+        || std::env::var("SIXTYFPS_NO_QT").is_ok()
+    {
         println!("cargo:rustc-cfg=no_qt");
         return;
     }
