@@ -321,16 +321,14 @@ pub fn run() {
                             {
                                 let string = key_code.encode_to_string();
                                 let event = match input.state {
-                                    glutin::event::ElementState::Pressed => KeyEvent::KeyPressed {
+                                    winit::event::ElementState::Pressed => KeyEvent::KeyPressed {
                                         string,
                                         modifiers: window.current_keyboard_modifiers(),
                                     },
-                                    glutin::event::ElementState::Released => {
-                                        KeyEvent::KeyReleased {
-                                            string,
-                                            modifiers: window.current_keyboard_modifiers(),
-                                        }
-                                    }
+                                    winit::event::ElementState::Released => KeyEvent::KeyReleased {
+                                        string,
+                                        modifiers: window.current_keyboard_modifiers(),
+                                    },
                                 };
                                 window
                                     .self_weak
