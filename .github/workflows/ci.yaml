@@ -19,6 +19,7 @@ on:
 jobs:
   build_and_test:
     env:
+      LD_LIBRARY_PATH: /home/runner/work/sixtyfps/Qt/5.15.2/gcc_64/lib
       DYLD_FRAMEWORK_PATH: /Users/runner/work/sixtyfps/Qt/5.15.2/clang_64/lib
       QT_QPA_PLATFORM: offscreen
 
@@ -45,6 +46,7 @@ jobs:
       with:
         version: '5.15.2'
         cached: ${{ steps.cache-qt.outputs.cache-hit }}
+        set-env: false # https://github.com/jurplel/install-qt-action/pull/79
     - name: Set default style
       if: matrix.os != 'windows-latest'
       run: |
@@ -145,6 +147,7 @@ jobs:
 
   cpp:
     env:
+      LD_LIBRARY_PATH: /home/runner/work/sixtyfps/Qt/5.15.2/gcc_64/lib
       DYLD_FRAMEWORK_PATH: /Users/runner/work/sixtyfps/Qt/5.15.2/clang_64/lib
     strategy:
       matrix:
@@ -168,6 +171,7 @@ jobs:
       with:
         version: '5.15.2'
         cached: ${{ steps.cache-qt.outputs.cache-hit }}
+        set-env: false # https://github.com/jurplel/install-qt-action/pull/79
     - name: Cache cargo registry
       uses: actions/cache@v2
       with:
