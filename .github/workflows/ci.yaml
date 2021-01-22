@@ -19,7 +19,6 @@ on:
 jobs:
   build_and_test:
     env:
-      LD_LIBRARY_PATH: /home/runner/work/sixtyfps/Qt/5.15.2/gcc_64/lib
       DYLD_FRAMEWORK_PATH: /Users/runner/work/sixtyfps/Qt/5.15.2/clang_64/lib
       QT_QPA_PLATFORM: offscreen
 
@@ -146,7 +145,6 @@ jobs:
 
   cpp:
     env:
-      LD_LIBRARY_PATH: /home/runner/work/sixtyfps/Qt/5.15.2/gcc_64/lib
       DYLD_FRAMEWORK_PATH: /Users/runner/work/sixtyfps/Qt/5.15.2/clang_64/lib
     strategy:
       matrix:
