@@ -178,24 +178,26 @@ impl KeyboardModifiers {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+#[repr(C)]
+/// This enum defines the different kinds of key events that can happen.
+pub enum KeyEventType {
+    /// A key on a keyboard was pressed.
+    KeyPressed,
+    /// A key on a keyboard was released.
+    KeyReleased,
+}
+
 /// Represents a key event sent by the windowing system.
 #[derive(Debug, Clone, PartialEq)]
 #[repr(C)]
-pub enum KeyEvent {
-    /// A key on a keyboard was pressed.
-    KeyPressed {
-        /// The unicode representation of the key pressed.
-        text: SharedString,
-        /// The keyboard modifiers active at the time of the key press event.
-        modifiers: KeyboardModifiers,
-    },
-    /// A key on a keyboard was released.
-    KeyReleased {
-        /// The unicode representation of the key released.
-        text: SharedString,
-        /// The keyboard modifiers active at the time of the key release event.
-        modifiers: KeyboardModifiers,
-    },
+pub struct KeyEvent {
+    /// The unicode representation of the key pressed.
+    pub text: SharedString,
+    /// The keyboard modifiers active at the time of the key press event.
+    pub modifiers: KeyboardModifiers,
+    /// Indicates whether the key was pressed or released
+    pub event_type: KeyEventType,
 }
 
 /// Represents how an item's key_event handler dealt with a key event.

@@ -16,7 +16,7 @@ LICENSE END */
 use sixtyfps_corelib as corelib;
 
 use corelib::graphics::Point;
-use corelib::input::{InternalKeyCode, KeyEvent, KeyboardModifiers, MouseEventType};
+use corelib::input::{InternalKeyCode, KeyEvent, KeyEventType, KeyboardModifiers, MouseEventType};
 use corelib::window::*;
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
@@ -320,15 +320,17 @@ pub fn run() {
                                 })
                             {
                                 let text = key_code.encode_to_string();
-                                let event = match input.state {
-                                    winit::event::ElementState::Pressed => KeyEvent::KeyPressed {
-                                        text,
-                                        modifiers: window.current_keyboard_modifiers(),
+                                let event = KeyEvent {
+                                    event_type: match input.state {
+                                        winit::event::ElementState::Pressed => {
+                                            KeyEventType::KeyPressed
+                                        }
+                                        winit::event::ElementState::Released => {
+                                            KeyEventType::KeyReleased
+                                        }
                                     },
-                                    winit::event::ElementState::Released => KeyEvent::KeyReleased {
-                                        text,
-                                        modifiers: window.current_keyboard_modifiers(),
-                                    },
+                                    text,
+                                    modifiers: window.current_keyboard_modifiers(),
                                 };
                                 window
                                     .self_weak
@@ -356,7 +358,8 @@ pub fn run() {
                                 let modifiers = window.current_keyboard_modifiers();
 
                                 if !modifiers.control && !modifiers.alt && !modifiers.logo {
-                                    let key_event = KeyEvent::KeyReleased {
+                                    let key_event = KeyEvent {
+                                        event_type: KeyEventType::KeyReleased,
                                         text: ch.to_string().into(),
                                         modifiers,
                                     };

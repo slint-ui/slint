@@ -27,7 +27,8 @@ When adding an item or a property, it needs to be kept in sync with different pl
 use crate::component::ComponentVTable;
 use crate::graphics::{Color, PathData, Point, Rect, Size};
 use crate::input::{
-    FocusEvent, InputEventResult, KeyEvent, KeyEventResult, MouseEvent, MouseEventType,
+    FocusEvent, InputEventResult, KeyEvent, KeyEventResult, KeyEventType, MouseEvent,
+    MouseEventType,
 };
 use crate::item_rendering::CachedRenderingData;
 use crate::layout::LayoutInfo;
@@ -425,12 +426,12 @@ impl Item for FocusScope {
     }
 
     fn key_event(self: Pin<&Self>, event: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
-        match event {
-            KeyEvent::KeyPressed { text, .. } => {
-                Self::FIELD_OFFSETS.key_pressed.apply_pin(self).emit(&(text.clone(),));
+        match event.event_type {
+            KeyEventType::KeyPressed => {
+                Self::FIELD_OFFSETS.key_pressed.apply_pin(self).emit(&(event.text.clone(),));
             }
-            KeyEvent::KeyReleased { text, .. } => {
-                Self::FIELD_OFFSETS.key_released.apply_pin(self).emit(&(text.clone(),));
+            KeyEventType::KeyReleased => {
+                Self::FIELD_OFFSETS.key_released.apply_pin(self).emit(&(event.text.clone(),));
             }
         };
         KeyEventResult::EventAccepted

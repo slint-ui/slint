@@ -24,8 +24,8 @@ use super::{Item, ItemConsts, ItemRc, VoidArg};
 use crate::graphics::{Color, Point, Rect, Size};
 use crate::input::InternalKeyCode;
 use crate::input::{
-    FocusEvent, InputEventResult, KeyEvent, KeyEventResult, KeyboardModifiers, MouseEvent,
-    MouseEventType,
+    FocusEvent, InputEventResult, KeyEvent, KeyEventResult, KeyEventType, KeyboardModifiers,
+    MouseEvent, MouseEventType,
 };
 use crate::item_rendering::{CachedRenderingData, ItemRenderer};
 use crate::layout::LayoutInfo;
@@ -269,15 +269,15 @@ impl Item for TextInput {
             return KeyEventResult::EventIgnored;
         }
 
-        match event {
-            KeyEvent::KeyPressed { text, modifiers } => {
-                if let Some(keycode) = InternalKeyCode::try_decode_from_string(text) {
+        match event.event_type {
+            KeyEventType::KeyPressed  => {
+                if let Some(keycode) = InternalKeyCode::try_decode_from_string(&event.text) {
                     if let Ok(text_cursor_movement) = TextCursorDirection::try_from(keycode.clone())
                     {
                         TextInput::move_cursor(
                             self,
                             text_cursor_movement,
-                            (*modifiers).into(),
+                            event.modifiers.into(),
                             window,
                         );
                         return KeyEventResult::EventAccepted;
@@ -294,15 +294,15 @@ impl Item for TextInput {
                 }
                 KeyEventResult::EventIgnored
             }
-            KeyEvent::KeyReleased { text: event_text, modifiers }
+            KeyEventType::KeyReleased 
                 // Only insert/interpreter non-control character strings
-                if !event_text.is_empty() && event_text.as_str().chars().all(|ch| !ch.is_control()) =>
+                if !event.text.is_empty() && event.text.as_str().chars().all(|ch| !ch.is_control()) =>
             {
-                if modifiers.is_copy_paste_modifier() {
-                    if event_text == "c" {
+                if event.modifiers.is_copy_paste_modifier() {
+                    if event.text == "c" {
                         self.copy();
                         return KeyEventResult::EventAccepted;
-                    } else if event_text == "v" {
+                    } else if event.text == "v" {
                         self.paste();
                         return KeyEventResult::EventAccepted;
                     }
@@ -313,10 +313,10 @@ impl Item for TextInput {
 
                 // FIXME: respect grapheme boundaries
                 let insert_pos = self.cursor_position() as usize;
-                text.insert_str(insert_pos, &event_text);
+                text.insert_str(insert_pos, &event.text);
 
                 self.as_ref().text.set(text.into());
-                let new_cursor_pos = (insert_pos + event_text.len()) as i32;
+                let new_cursor_pos = (insert_pos + event.text.len()) as i32;
                 self.as_ref().cursor_position.set(new_cursor_pos);
                 self.as_ref().anchor_position.set(new_cursor_pos);
 

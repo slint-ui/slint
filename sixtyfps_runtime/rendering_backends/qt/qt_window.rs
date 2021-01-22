@@ -12,7 +12,7 @@ use cpp::*;
 use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
 use sixtyfps_corelib::component::ComponentRc;
 use sixtyfps_corelib::graphics::{FontRequest, Point, RenderingCache};
-use sixtyfps_corelib::input::{InternalKeyCode, KeyEvent, MouseEventType};
+use sixtyfps_corelib::input::{InternalKeyCode, KeyEvent, KeyEventType, MouseEventType};
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::{self, ItemRef};
 use sixtyfps_corelib::properties::PropertyTracker;
@@ -666,10 +666,10 @@ impl QtWindow {
         }
         .map_or_else(|| text.into(), |code| code.encode_to_string());
 
-        let event = if released {
-            KeyEvent::KeyReleased { text, modifiers }
-        } else {
-            KeyEvent::KeyPressed { text, modifiers }
+        let event = KeyEvent {
+            event_type: if released { KeyEventType::KeyReleased } else { KeyEventType::KeyPressed },
+            text,
+            modifiers,
         };
         self.self_weak.get().unwrap().upgrade().unwrap().process_key_input(&event);
 
