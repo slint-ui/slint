@@ -357,22 +357,20 @@ pub fn run() {
                             {
                                 let modifiers = window.current_keyboard_modifiers();
 
-                                if !modifiers.control && !modifiers.alt && !modifiers.logo {
-                                    let key_event = KeyEvent {
-                                        event_type: KeyEventType::KeyReleased,
-                                        text: ch.to_string().into(),
-                                        modifiers,
-                                    };
-                                    window
-                                        .self_weak
-                                        .get()
-                                        .unwrap()
-                                        .upgrade()
-                                        .unwrap()
-                                        .process_key_input(&key_event);
-                                    // FIXME: remove this, it should be based on actual changes rather than this
-                                    window.request_redraw();
-                                }
+                                let key_event = KeyEvent {
+                                    event_type: KeyEventType::KeyReleased,
+                                    text: ch.to_string().into(),
+                                    modifiers,
+                                };
+                                window
+                                    .self_weak
+                                    .get()
+                                    .unwrap()
+                                    .upgrade()
+                                    .unwrap()
+                                    .process_key_input(&key_event);
+                                // FIXME: remove this, it should be based on actual changes rather than this
+                                window.request_redraw();
                             }
                         });
                     }
