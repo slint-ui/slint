@@ -357,18 +357,28 @@ pub fn run() {
                             {
                                 let modifiers = window.current_keyboard_modifiers();
 
-                                let key_event = KeyEvent {
-                                    event_type: KeyEventType::KeyReleased,
+                                let mut event = KeyEvent {
+                                    event_type: KeyEventType::KeyPressed,
                                     text: ch.to_string().into(),
                                     modifiers,
                                 };
+
                                 window
                                     .self_weak
                                     .get()
                                     .unwrap()
                                     .upgrade()
                                     .unwrap()
-                                    .process_key_input(&key_event);
+                                    .process_key_input(&event);
+
+                                event.event_type = KeyEventType::KeyReleased;
+                                window
+                                    .self_weak
+                                    .get()
+                                    .unwrap()
+                                    .upgrade()
+                                    .unwrap()
+                                    .process_key_input(&event);
                                 // FIXME: remove this, it should be based on actual changes rather than this
                                 window.request_redraw();
                             }
