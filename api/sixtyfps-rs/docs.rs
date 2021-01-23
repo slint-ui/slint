@@ -17,6 +17,7 @@ LICENSE END */
     - The [`langref`] module is the reference documentation for the `.60` language.
     - The [`widgets`] and [`builtin_elements`] modules contains the documentation of elements usable
       within the `.60` files
+    - The [`layouting`] module contains the documentation to position the elements.
 */
 
 pub mod langref {
@@ -37,6 +38,14 @@ pub mod builtin_elements {
 #[cfg(all(doc, nightly))]
 pub mod widgets {
     #![doc(include = "docs/widgets.md")]
+    //!
+    //! #
+    //! Next: [Layouting](super::layouting)
+}
+
+#[cfg(all(doc, nightly))]
+pub mod layouting {
+    #![doc(include = "docs/layouting.md")]
     #![doc = ""]
 }
 

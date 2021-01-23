@@ -14,7 +14,7 @@ This crate is the main entry point for embedding user interfaces designed with
 [SixtyFPS UI](https://sixtyfps.io/) in Rust programs.
 
 Included in this documentation is also the [language reference](docs::langref),
-documentation of [builtin elements](docs::builtin_elements) and [widgets](docs::widgets).
+documentation of [builtin elements](docs::builtin_elements), [widgets](docs::widgets) and [layouting](docs::layouting).
 
 ## How to use:
 
