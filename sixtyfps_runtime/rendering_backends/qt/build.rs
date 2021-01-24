@@ -12,7 +12,7 @@ use std::process::Command;
 fn qmake_query(var: &str) -> Option<String> {
     let qmake = std::env::var_os("QMAKE").unwrap_or("qmake".into());
     Command::new(qmake).env("QT_SELECT", "qt5").args(&["-query", var]).output().ok().map(|output| {
-        String::from_utf8(output.stdout).expect("UTF-8 conversion from ouytput of qmake failed")
+        String::from_utf8(output.stdout).expect("UTF-8 conversion from output of qmake failed")
     })
 }
 fn main() {
@@ -26,7 +26,7 @@ fn main() {
     if qmake_query("QT_VERSION").is_none() {
         println!("cargo:rustc-cfg=no_qt");
         println!(
-            "cargo:warning=Could not find a Qt installation. The Qt backend will not be functional"
+            "cargo:warning=Could not find a Qt installation. The Qt backend will not be functional. See https://github.com/sixtyfpsui/sixtyfps/blob/master/docs/install_qt.md for more info"
         );
         return;
     }
