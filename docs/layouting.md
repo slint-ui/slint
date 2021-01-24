@@ -115,6 +115,14 @@ Example := Window {
 }
 ```
 
+### Alignment
+
+Each elements is sized according to their `width` or `height` is specified, otherwise it is
+set to the minimum size which is set with the minimum-width or minimum-height property, or
+the minimum size of an inner layout, whateer is bigger.
+Then, the elements are placed according to the alignement.
+The size of elements is bigger than the minimum size only if the alignement is stretch
+
 
 This example show the different alignment possibilities
 
@@ -168,6 +176,53 @@ Example := Window {
     }
 }
 ```
+
+### Stretch algorithm
+
+When the `alignement` is set to stretch (the default), the elements are sized to their minimum size,
+then the extra space is shared amongst element proportional to their stretch factor set with the
+`horizontal-stretch` and `vertical-stretch` properties. But the size does not exceed the maximum size.
+The stretch factor is a floating point number. The elements that have a default content size usually defaults to 0
+while elements that default to the size of their parents defaults to 1.
+An element of a stretch factor if 0 will keep its minimum size, unless all the other elements also have a stretch
+factor of 0 or reached their maximum size.
+
+Examples:
+
+```60
+Example := Window {
+    width: 300px;
+    height: 200px;
+    VerticalLayout {
+        // Same stretch factor (1 by default): the size is devided equally
+        HorizontalLayout {
+            Rectangle { color: blue; }
+            Rectangle { color: yellow;}
+            Rectangle { color: green;}
+        }
+        // Elements with a bigger minimum-width are given a bigger size before they expand
+        HorizontalLayout {
+            Rectangle { color: cyan; minimum-width: 100px;}
+            Rectangle { color: magenta; minimum-width: 50px;}
+            Rectangle { color: gold;}
+        }
+        // Stretch factor twice as big:  grows twice as much
+        HorizontalLayout {
+            Rectangle { color: navy; horizontal-stretch: 2;}
+            Rectangle { color: gray; }
+        }
+        // All elements not having a maximum width have a stretch factor of 0 so they grow
+        HorizontalLayout {
+            Rectangle { color: red; maximum-width: 20px; }
+            Rectangle { color: orange; horizontal-stretch: 0; }
+            Rectangle { color: pink; horizontal-stretch: 0; }
+        }
+    }
+}
+```
+
+
+### `for`
 
 The VerticalLayout and Horizontal layout may also contain `for` or `if` expressions, and it does what one expect
 
