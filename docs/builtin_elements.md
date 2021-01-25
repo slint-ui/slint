@@ -123,7 +123,7 @@ A text simply show the text on the screen
 * **`font_weight`** (*int*): The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
 * **`color`** (*color*): The color of the text (default: transparent)
 * **`horizontal_alignment`** (*enum [`TextHorizontalAlignment`](#texthorizontalalignment)*): The horizontal alignment of the text.
-* **`vertical_alignment`** (*enum [`TextVerticalAlignment`](#textverticalalignment): The vertical alignment of the text.
+* **`vertical_alignment`** (*enum [`TextVerticalAlignment`](#textverticalalignment)*): The vertical alignment of the text.
 
 
 ### Example
