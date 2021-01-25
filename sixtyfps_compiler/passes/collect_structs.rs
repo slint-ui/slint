@@ -69,8 +69,8 @@ fn sort_struct(hash: &mut BTreeMap<String, Type>, vec: &mut Vec<Type>, key: &str
 
 fn visit_named_object(ty: &Type, visitor: &mut impl FnMut(&String, &Type)) {
     match ty {
-        Type::Object { name: Some(name), .. } => visitor(&name, ty),
-        Type::Object { fields, name: None } => {
+        Type::Object { fields, name } => {
+            name.as_ref().map(|struct_name| visitor(struct_name, ty));
             for sub_ty in fields.values() {
                 visit_named_object(&sub_ty, visitor);
             }
