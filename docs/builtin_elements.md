@@ -122,8 +122,8 @@ A text simply show the text on the screen
 * **`font_size`** (*length*): The font size of the text
 * **`font_weight`** (*int*): The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
 * **`color`** (*color*): The color of the text (default: transparent)
-* **`horizontal_alignment`**, **`vertical_alignment`** (*FIXME: enum*): How is the text aligned
-  within the item
+* **`horizontal_alignment`** (*`TextHorizontalAlignment`*): The horizontal alignment of the text.
+* **`vertical_alignment`** (*`TextVerticalAlignment`*): The vertical alignment of the text.
 
 
 ### Example
@@ -329,8 +329,8 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 * **`font_size`** (*length*): The font size of the text
 * **`font_weight`** (*int*): The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
 * **`color`** (*color*): The color of the text (default: transparent)
-* **`horizontal_alignment`**, **`vertical_alignment`** (*FIXME: enum*): How is the text aligned
-  within the item
+* **`horizontal_alignment`** (*`TextHorizontalAlignment`*): The horizontal alignment of the text.
+* **`vertical_alignment`** (*`TextVerticalAlignment`*): The vertical alignment of the text.
 * **`has_focus`** (*bool*): Set to true when item is focused and receives keyboard events.
 
 ### Methods
@@ -414,3 +414,26 @@ are pressed during the generation of a key event.
 * **`alt`** (*bool*): True if alt key is pressed.
 * **`shift`** (*bool*): True if the shift key is pressed.
 * **`meta`** (*bool*): True if the windows key is pressed on Windows, or the control key on macOS.
+
+# Builtin Enums
+
+## `TextHorizontalAlignment`
+
+This enum describes the different types of alignment of text along the horizontal axis.
+
+### Values
+
+* **`TextHorizontalAlignment.left`**: The text will be aligned with the left edge of the contained box.
+* **`TextHorizontalAlignment.center`**: The text will be horizontally centered within the contained box.
+* **`TextHorizontalAlignment.right`** The text will be alignt to the right right of the contained box.
+
+## `TextVerticalAlignment`
+
+This enum describes the different types of alignment of text along the vertical axis.
+
+### Values
+
+* **`TextVerticalAlignment.top`**: The text will be aligned to the top of the contained box.
+* **`TextVerticalAlignment.center`**: The text will be vertically centered within the contained box.
+* **`TextVerticalAlignment.bottom`** The text will be alignt to the bottom of the contained box.
+
