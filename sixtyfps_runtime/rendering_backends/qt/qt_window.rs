@@ -387,17 +387,14 @@ impl ItemRenderer for QtItemRenderer<'_> {
                 lyon_path::Event::Begin { at } => {
                     painter_path.move_to(at.into());
                 }
-                lyon_path::Event::Line { from, to } => {
-                    painter_path.move_to(from.into());
+                lyon_path::Event::Line { from: _, to } => {
                     painter_path.line_to(to.into());
                 }
-                lyon_path::Event::Quadratic { from, ctrl, to } => {
-                    painter_path.move_to(from.into());
+                lyon_path::Event::Quadratic { from: _, ctrl, to } => {
                     painter_path.quad_to(ctrl.into(), to.into());
                 }
 
-                lyon_path::Event::Cubic { from, ctrl1, ctrl2, to } => {
-                    painter_path.move_to(from.into());
+                lyon_path::Event::Cubic { from: _, ctrl1, ctrl2, to } => {
                     painter_path.cubic_to(ctrl1.into(), ctrl2.into(), to.into());
                 }
                 lyon_path::Event::End { last: _, first: _, close } => {

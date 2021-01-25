@@ -896,17 +896,14 @@ impl ItemRenderer for GLItemRenderer {
                 lyon_path::Event::Begin { at } => {
                     fpath.move_to(at.x, at.y);
                 }
-                lyon_path::Event::Line { from, to } => {
-                    fpath.move_to(from.x, from.y);
+                lyon_path::Event::Line { from: _, to } => {
                     fpath.line_to(to.x, to.y);
                 }
-                lyon_path::Event::Quadratic { from, ctrl, to } => {
-                    fpath.move_to(from.x, from.y);
+                lyon_path::Event::Quadratic { from: _, ctrl, to } => {
                     fpath.quad_to(ctrl.x, ctrl.y, to.x, to.y);
                 }
 
-                lyon_path::Event::Cubic { from, ctrl1, ctrl2, to } => {
-                    fpath.move_to(from.x, from.y);
+                lyon_path::Event::Cubic { from: _, ctrl1, ctrl2, to } => {
                     fpath.bezier_to(ctrl1.x, ctrl1.y, ctrl2.x, ctrl2.y, to.x, to.y);
                 }
                 lyon_path::Event::End { last: _, first: _, close } => {
