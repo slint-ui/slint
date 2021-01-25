@@ -201,8 +201,8 @@ pub mod re_exports {
         FocusEvent, InputEventResult, KeyEvent, KeyEventResult, KeyboardModifiers, MouseEvent,
     };
     pub use sixtyfps_corelib::item_tree::{
-        item_offset, visit_item_tree, ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable,
-        TraversalOrder, VisitChildrenResult,
+        visit_item_tree, ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, TraversalOrder,
+        VisitChildrenResult,
     };
     pub use sixtyfps_corelib::items::*;
     pub use sixtyfps_corelib::layout::*;
