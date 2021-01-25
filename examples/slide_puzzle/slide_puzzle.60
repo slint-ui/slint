@@ -74,8 +74,8 @@ Checkbox := Rectangle {
                 font-size: height;
                 color: white;
                 animate color { duration: 200ms; }
-                vertical-alignment: align-center;
-                horizontal-alignment: align-center;
+                vertical-alignment: center;
+                horizontal-alignment: center;
                 ta := TouchArea {
                     clicked => {
                         checked = !checked;
@@ -277,8 +277,8 @@ export MainWindow := Window {
                         width: 100%; height: 100%;
                         text: theme.name;
                         color: idx == current-theme-index ? current-theme.game-highlight-color : current-theme.game-text-color;
-                        vertical-alignment: align-center;
-                        horizontal-alignment: align-center;
+                        vertical-alignment: center;
+                        horizontal-alignment: center;
                     }
                     Rectangle {
                         color: t.color;
@@ -339,8 +339,8 @@ export MainWindow := Window {
                 font-size: pieces_size / 3;
                 font-weight: is_correct ? current-theme.piece-text-weight-correct-pos : current-theme.piece-text-weight-incorrect-pos;
                 font-family: current-theme.piece-text-font-family;
-                vertical-alignment: align-center;
-                horizontal-alignment: align-center;
+                vertical-alignment: center;
+                horizontal-alignment: center;
                 width: 100%;
                 height: 100%;
             }
@@ -390,8 +390,8 @@ export MainWindow := Window {
 
             color: current-theme.game-highlight-color;
             font-size: pieces_size / 2;
-            vertical-alignment: align-center;
-            horizontal-alignment: align-center;
+            vertical-alignment: center;
+            horizontal-alignment: center;
             text: "🖒";
 
             if (current-theme.game-use-background-image) : Image {
@@ -423,7 +423,7 @@ export MainWindow := Window {
                     text: " ↻ ";
                     font-size: parent.height * 50%;
                     color: current-theme.game-highlight-color;
-                    vertical-alignment: align-center;
+                    vertical-alignment: center;
                     TouchArea {
                         clicked => { root.reset(); }
                     }
@@ -439,22 +439,22 @@ export MainWindow := Window {
                 Text {
                     text: root.moves;
                     color: current-theme.game-highlight-color;
-                    vertical-alignment: align-center;
+                    vertical-alignment: center;
                 }
                 Text {
                     text: "Moves ";
                     color: current-theme.game-text-color;
-                    vertical-alignment: align-center;
+                    vertical-alignment: center;
                 }
                 Text {
                     text: root.tiles-left;
                     color: current-theme.game-highlight-color;
-                    vertical-alignment: align-center;
+                    vertical-alignment: center;
                 }
                 Text {
                     text: "Tiles left";
                     color: current-theme.game-text-color;
-                    vertical-alignment: align-center;
+                    vertical-alignment: center;
                 }
             }
         }

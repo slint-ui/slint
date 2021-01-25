@@ -115,8 +115,8 @@ impl TypeRegister {
             );
         };
 
-        declare_enum("TextHorizontalAlignment", &["align_left", "align_center", "align_right"]);
-        declare_enum("TextVerticalAlignment", &["align_top", "align_center", "align_bottom"]);
+        declare_enum("TextHorizontalAlignment", &["left", "center", "right"]);
+        declare_enum("TextVerticalAlignment", &["top", "center", "bottom"]);
         declare_enum(
             "LayoutAlignment",
             &["stretch", "center", "start", "end", "space_between", "space_around"],

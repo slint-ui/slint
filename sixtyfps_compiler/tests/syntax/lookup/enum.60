@@ -10,11 +10,11 @@ LICENSE END */
 
 TestCase := Text {
     // allow unqualified enum when we can infer the type from the property assigned to
-    horizontal-alignment: align-right;
+    horizontal-alignment: right;
 
     callback change_alignment();
     change_alignment => {
         // allow qualified enum lookup
-        self.horizontal_alignment = TextHorizontalAlignment.align-left;
+        self.horizontal_alignment = TextHorizontalAlignment.left;
     }
 }

@@ -49,8 +49,8 @@ ButtonRectangle := Rectangle {
             text: button_text;
             width: root.width;
             height: root.height;
-            horizontal-alignment: align-left;
-            vertical-alignment: align-center;
+            horizontal-alignment: left;
+            vertical-alignment: center;
         }
         animate x { duration: 500ms; }
         animate y { duration: 500ms; }

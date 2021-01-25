@@ -26,7 +26,7 @@ export FaxPage := Page {
         x: preview.x + preview.width + 20px;
         y: preview.y + 10px;
         width: parent.width - x - 40px;
-        horizontal-alignment: align-center;
+        horizontal-alignment: center;
         font-size: 40px;
         height: 40px;
     }
@@ -58,8 +58,8 @@ export FaxPage := Page {
                 Text {
                     width: 100%;
                     height: 100%;
-                    horizontal-alignment: align-center;
-                    vertical-alignment: align-center;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
                     color: white;
                     text: num >= 0 ? num : "⌫";
                 }

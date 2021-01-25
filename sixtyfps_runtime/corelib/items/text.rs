@@ -41,14 +41,14 @@ use sixtyfps_corelib_macros::*;
 #[repr(C)]
 #[allow(non_camel_case_types)]
 pub enum TextHorizontalAlignment {
-    align_left,
-    align_center,
-    align_right,
+    left,
+    center,
+    right,
 }
 
 impl Default for TextHorizontalAlignment {
     fn default() -> Self {
-        Self::align_left
+        Self::left
     }
 }
 
@@ -56,14 +56,14 @@ impl Default for TextHorizontalAlignment {
 #[repr(C)]
 #[allow(non_camel_case_types)]
 pub enum TextVerticalAlignment {
-    align_top,
-    align_center,
-    align_bottom,
+    top,
+    center,
+    bottom,
 }
 
 impl Default for TextVerticalAlignment {
     fn default() -> Self {
-        Self::align_top
+        Self::top
     }
 }
 

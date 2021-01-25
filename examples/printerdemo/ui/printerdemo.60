@@ -28,16 +28,16 @@ TopPanel := Rectangle {
             color: active_page == 0 ? black : #0000;
             animate color { duration: 200ms; }
             font-size: root.width * 5%;
-            horizontal-alignment: align-center;
-            vertical-alignment: align-center;
+            horizontal-alignment: center;
+            vertical-alignment: center;
         }
         Text {
             text: "2000";
             color: active_page == 0 ? #918e8c : #0000;
             animate color { duration: 200ms; }
             font-size: root.width * 5%;
-            horizontal-alignment: align-center;
-            vertical-alignment: align-center;
+            horizontal-alignment: center;
+            vertical-alignment: center;
 
         }
     }
@@ -122,8 +122,8 @@ MainWindow := Window {
             x: 5px;
             width: 100%;
             height: 100%;
-            horizontal-alignment: align-center;
-            vertical-alignment: align-center;
+            horizontal-alignment: center;
+            vertical-alignment: center;
             text: page_info.text;
             font-size: 28px;
             animate x, y {
@@ -179,8 +179,8 @@ MainWindow := Window {
             text: "←";
             color: white;
             font-size: root.height / 10;
-            horizontal-alignment: align-center;
-            vertical-alignment: align-center;
+            horizontal-alignment: center;
+            vertical-alignment: center;
         }
         TouchArea {
             clicked => { root.active_page = 0; }

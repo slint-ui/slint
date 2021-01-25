@@ -756,9 +756,9 @@ impl ItemRenderer for GLItemRenderer {
 
         let mut y = pos.y
             + match vertical_alignment {
-                TextVerticalAlignment::align_top => 0.,
-                TextVerticalAlignment::align_center => max_height / 2. - text_size.height / 2.,
-                TextVerticalAlignment::align_bottom => max_height - text_size.height,
+                TextVerticalAlignment::top => 0.,
+                TextVerticalAlignment::center => max_height / 2. - text_size.height / 2.,
+                TextVerticalAlignment::bottom => max_height - text_size.height,
             };
 
         let mut start = 0;
@@ -772,9 +772,9 @@ impl ItemRenderer for GLItemRenderer {
             let to_draw = string[start..index].trim();
             let text_metrics = canvas.measure_text(0., 0., to_draw, paint).unwrap();
             let translate_x = match horizontal_alignment {
-                TextHorizontalAlignment::align_left => 0.,
-                TextHorizontalAlignment::align_center => max_width / 2. - text_metrics.width() / 2.,
-                TextHorizontalAlignment::align_right => max_width - text_metrics.width(),
+                TextHorizontalAlignment::left => 0.,
+                TextHorizontalAlignment::center => max_width / 2. - text_metrics.width() / 2.,
+                TextHorizontalAlignment::right => max_width - text_metrics.width(),
             };
             canvas.fill_text(pos.x + translate_x, y, to_draw, paint).unwrap();
             y += font_metrics.height();
@@ -1022,15 +1022,15 @@ impl GLItemRenderer {
         };
 
         let translate_x = match horizontal_alignment {
-            TextHorizontalAlignment::align_left => 0.,
-            TextHorizontalAlignment::align_center => max_width / 2. - text_width / 2.,
-            TextHorizontalAlignment::align_right => max_width - text_width,
+            TextHorizontalAlignment::left => 0.,
+            TextHorizontalAlignment::center => max_width / 2. - text_width / 2.,
+            TextHorizontalAlignment::right => max_width - text_width,
         };
 
         let translate_y = match vertical_alignment {
-            TextVerticalAlignment::align_top => 0.,
-            TextVerticalAlignment::align_center => max_height / 2. - text_height / 2.,
-            TextVerticalAlignment::align_bottom => max_height - text_height,
+            TextVerticalAlignment::top => 0.,
+            TextVerticalAlignment::center => max_height / 2. - text_height / 2.,
+            TextVerticalAlignment::bottom => max_height - text_height,
         };
 
         canvas.fill_text(pos.x + translate_x, pos.y + translate_y, text, paint).unwrap()

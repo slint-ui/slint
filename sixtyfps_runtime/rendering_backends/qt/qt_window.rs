@@ -287,13 +287,13 @@ impl ItemRenderer for QtItemRenderer<'_> {
         let string: qttypes::QString = text.text().as_str().into();
         let font: QFont = get_font(text.font_request());
         let flags = match text.horizontal_alignment() {
-            TextHorizontalAlignment::align_left => key_generated::Qt_AlignmentFlag_AlignLeft,
-            TextHorizontalAlignment::align_center => key_generated::Qt_AlignmentFlag_AlignHCenter,
-            TextHorizontalAlignment::align_right => key_generated::Qt_AlignmentFlag_AlignRight,
+            TextHorizontalAlignment::left => key_generated::Qt_AlignmentFlag_AlignLeft,
+            TextHorizontalAlignment::center => key_generated::Qt_AlignmentFlag_AlignHCenter,
+            TextHorizontalAlignment::right => key_generated::Qt_AlignmentFlag_AlignRight,
         } | match text.vertical_alignment() {
-            TextVerticalAlignment::align_top => key_generated::Qt_AlignmentFlag_AlignTop,
-            TextVerticalAlignment::align_center => key_generated::Qt_AlignmentFlag_AlignVCenter,
-            TextVerticalAlignment::align_bottom => key_generated::Qt_AlignmentFlag_AlignBottom,
+            TextVerticalAlignment::top => key_generated::Qt_AlignmentFlag_AlignTop,
+            TextVerticalAlignment::center => key_generated::Qt_AlignmentFlag_AlignVCenter,
+            TextVerticalAlignment::bottom => key_generated::Qt_AlignmentFlag_AlignBottom,
         };
         let painter: &mut QPainter = &mut *self.painter;
         cpp! { unsafe [painter as "QPainter*", rect as "QRectF", color as "QRgb", string as "QString", flags as "int", font as "QFont"] {
@@ -315,13 +315,13 @@ impl ItemRenderer for QtItemRenderer<'_> {
         let string: qttypes::QString = text_input.text().as_str().into();
         let font: QFont = get_font(text_input.font_request());
         let flags = match text_input.horizontal_alignment() {
-            TextHorizontalAlignment::align_left => key_generated::Qt_AlignmentFlag_AlignLeft,
-            TextHorizontalAlignment::align_center => key_generated::Qt_AlignmentFlag_AlignHCenter,
-            TextHorizontalAlignment::align_right => key_generated::Qt_AlignmentFlag_AlignRight,
+            TextHorizontalAlignment::left => key_generated::Qt_AlignmentFlag_AlignLeft,
+            TextHorizontalAlignment::center => key_generated::Qt_AlignmentFlag_AlignHCenter,
+            TextHorizontalAlignment::right => key_generated::Qt_AlignmentFlag_AlignRight,
         } | match text_input.vertical_alignment() {
-            TextVerticalAlignment::align_top => key_generated::Qt_AlignmentFlag_AlignTop,
-            TextVerticalAlignment::align_center => key_generated::Qt_AlignmentFlag_AlignVCenter,
-            TextVerticalAlignment::align_bottom => key_generated::Qt_AlignmentFlag_AlignBottom,
+            TextVerticalAlignment::top => key_generated::Qt_AlignmentFlag_AlignTop,
+            TextVerticalAlignment::center => key_generated::Qt_AlignmentFlag_AlignVCenter,
+            TextVerticalAlignment::bottom => key_generated::Qt_AlignmentFlag_AlignBottom,
         };
         let cursor_position: i32 = text_input.cursor_position();
         let anchor_position: i32 = text_input.anchor_position();
