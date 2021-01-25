@@ -9,7 +9,7 @@
 LICENSE END */
 
 struct Foo := {
-    char: string,
+    ok: bool,
 }
 
 // Make sure that the generated code for this compiles, as we emit
