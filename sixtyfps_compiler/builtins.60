@@ -132,6 +132,18 @@ export Window := _ {
     property <string> title: "SixtyFPS Window";
 }
 
+export BoxShadow := _ {
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+    property <length> radius;
+    property <length> offset_x;
+    property <length> offset_y;
+    property <color> color;
+    property <length> blur;
+}
+
 export TextInput := _ {
     property <string> text;
     property <string> font_family;

@@ -68,6 +68,7 @@ fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
         "Window",
         "TextInput",
         "Clip",
+        "BoxShadow",
     ]
     .iter()
     .map(|x| x.to_string())

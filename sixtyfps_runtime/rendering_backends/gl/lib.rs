@@ -925,6 +925,79 @@ impl ItemRenderer for GLItemRenderer {
         })
     }
 
+    fn draw_box_shadow(
+        &mut self,
+        pos: Point,
+        box_shadow: std::pin::Pin<&sixtyfps_corelib::items::BoxShadow>,
+    ) {
+        // TODO: cache path in item to avoid re-tesselation
+
+        let blur = box_shadow.blur();
+
+        let shadow_outer_rect: euclid::Rect<f32, euclid::UnknownUnit> = euclid::rect(
+            box_shadow.x() + box_shadow.offset_x() - blur / 2.,
+            box_shadow.y() + box_shadow.offset_y() - blur / 2.,
+            box_shadow.width() + blur,
+            box_shadow.height() + blur,
+        );
+
+        let shadow_inner_rect: euclid::Rect<f32, euclid::UnknownUnit> = euclid::rect(
+            box_shadow.x() + box_shadow.offset_x() + blur / 2.,
+            box_shadow.y() + box_shadow.offset_y() + blur / 2.,
+            box_shadow.width() - blur,
+            box_shadow.height() - blur,
+        );
+
+        let shadow_fill_rect: euclid::Rect<f32, euclid::UnknownUnit> = euclid::rect(
+            shadow_outer_rect.min_x() + blur / 2.,
+            shadow_outer_rect.min_y() + blur / 2.,
+            box_shadow.width(),
+            box_shadow.height(),
+        );
+
+        let paint = femtovg::Paint::box_gradient(
+            shadow_fill_rect.min_x(),
+            shadow_fill_rect.min_y(),
+            shadow_fill_rect.width(),
+            shadow_fill_rect.height(),
+            box_shadow.radius(),
+            box_shadow.blur(),
+            box_shadow.color().into(),
+            Color::from_argb_u8(0, 0, 0, 0).into(),
+        );
+
+        let mut path = femtovg::Path::new();
+        path.rounded_rect(
+            shadow_outer_rect.min_x(),
+            shadow_outer_rect.min_y(),
+            shadow_outer_rect.width(),
+            shadow_outer_rect.height(),
+            box_shadow.radius(),
+        );
+        path.rect(
+            shadow_inner_rect.min_x(),
+            shadow_inner_rect.min_y(),
+            shadow_inner_rect.width(),
+            shadow_inner_rect.height(),
+        );
+        path.solidity(femtovg::Solidity::Hole);
+
+        self.shared_data.canvas.borrow_mut().save_with(|canvas| {
+            canvas.translate(pos.x, pos.y);
+            canvas.fill_path(&mut path, paint);
+
+            let mut shadow_inner_path = femtovg::Path::new();
+            shadow_inner_path.rect(
+                shadow_inner_rect.min_x(),
+                shadow_inner_rect.min_y(),
+                shadow_inner_rect.width(),
+                shadow_inner_rect.height(),
+            );
+            let fill = femtovg::Paint::color(box_shadow.color().into());
+            canvas.fill_path(&mut shadow_inner_path, fill);
+        })
+    }
+
     fn combine_clip(&mut self, pos: Point, clip: std::pin::Pin<&sixtyfps_corelib::items::Clip>) {
         let clip_rect = clip.geometry().translate([pos.x, pos.y].into());
         self.shared_data.canvas.borrow_mut().intersect_scissor(
@@ -941,6 +1014,10 @@ impl ItemRenderer for GLItemRenderer {
 
     fn restore_state(&mut self) {
         self.shared_data.canvas.borrow_mut().restore();
+    }
+
+    fn scale_factor(&self) -> f32 {
+        self.scale_factor
     }
 
     fn draw_cached_pixmap(
@@ -979,10 +1056,6 @@ impl ItemRenderer for GLItemRenderer {
         let mut path = femtovg::Path::new();
         path.rect(pos.x, pos.y, width, height);
         canvas.fill_path(&mut path, fill_paint);
-    }
-
-    fn scale_factor(&self) -> f32 {
-        self.scale_factor
     }
 
     fn as_any(&mut self) -> &mut dyn std::any::Any {

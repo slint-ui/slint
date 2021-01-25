@@ -423,12 +423,24 @@ impl ItemRenderer for QtItemRenderer<'_> {
         }}
     }
 
+    fn draw_box_shadow(&mut self, _pos: Point, _box_shadow: Pin<&items::BoxShadow>) {
+        todo!()
+    }
+
     fn combine_clip(&mut self, pos: Point, clip: Pin<&items::Clip>) {
         let clip_rect: qttypes::QRectF = get_geometry!(pos, items::Clip, clip);
         let painter: &mut QPainter = &mut *self.painter;
         cpp! { unsafe [painter as "QPainter*", clip_rect as "QRectF"] {
             painter->setClipRect(clip_rect, Qt::IntersectClip);
         }}
+    }
+
+    fn save_state(&mut self) {
+        self.painter.save_state()
+    }
+
+    fn restore_state(&mut self) {
+        self.painter.restore_state()
     }
 
     fn scale_factor(&self) -> f32 {
@@ -453,14 +465,6 @@ impl ItemRenderer for QtItemRenderer<'_> {
                 painter->drawImage(pos, img);
             }}
         })
-    }
-
-    fn save_state(&mut self) {
-        self.painter.save_state()
-    }
-
-    fn restore_state(&mut self) {
-        self.painter.restore_state()
     }
 
     fn as_any(&mut self) -> &mut dyn std::any::Any {

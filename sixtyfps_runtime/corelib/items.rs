@@ -769,6 +769,71 @@ ItemVTable_static! {
     pub static WindowVTable for Window
 }
 
+/// The implementation of the `BoxShadow` element
+#[repr(C)]
+#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[pin]
+pub struct BoxShadow {
+    // Rectangle properties
+    pub x: Property<f32>,
+    pub y: Property<f32>,
+    pub width: Property<f32>,
+    pub height: Property<f32>,
+    pub radius: Property<f32>,
+    // Shadow specific properties
+    pub offset_x: Property<f32>,
+    pub offset_y: Property<f32>,
+    pub color: Property<Color>,
+    pub blur: Property<f32>,
+    pub cached_rendering_data: CachedRenderingData,
+}
+
+impl Item for BoxShadow {
+    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+
+    fn geometry(self: Pin<&Self>) -> Rect {
+        euclid::rect(self.x(), self.y(), self.width(), self.height())
+    }
+
+    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
+        LayoutInfo::default()
+    }
+
+    fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
+        Default::default()
+    }
+
+    fn input_event(
+        self: Pin<&Self>,
+        _event: MouseEvent,
+        _window: &ComponentWindow,
+        _self_rc: &ItemRc,
+    ) -> InputEventResult {
+        InputEventResult::EventIgnored
+    }
+
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
+
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+
+    fn render(self: Pin<&Self>, pos: Point, backend: &mut ItemRendererRef) {
+        (*backend).draw_box_shadow(pos, self)
+    }
+}
+
+impl ItemConsts for BoxShadow {
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
+        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+}
+
+ItemVTable_static! {
+    /// The VTable for `BoxShadow`
+    #[no_mangle]
+    pub static BoxShadowVTable for BoxShadow
+}
+
 ItemVTable_static! {
     /// The VTable for `Text`
     #[no_mangle]
