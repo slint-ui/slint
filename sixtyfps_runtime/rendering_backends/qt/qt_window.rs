@@ -154,7 +154,7 @@ impl QPainterPath {
 
     pub fn move_to(&mut self, to: qttypes::QPointF) {
         cpp! { unsafe [self as "QPainterPath*", to as "QPointF"] {
-            self->lineTo(to);
+            self->moveTo(to);
         }}
     }
     pub fn line_to(&mut self, to: qttypes::QPointF) {
