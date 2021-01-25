@@ -29,7 +29,7 @@ Example := Window {
 }
 ```
 
-The `x`, `y` property is relative to the parent, it can be specified in `px` (logical pixels, scaled with the ascpect ratio), `phx` (phisical pixel).
+The `x`, `y` property is relative to the parent, it can be specified in `px` (logical pixels, scaled with the device pixel ratio), `phx` (physical pixel).
 The default value for `x` and `y` is always 0.
 
 The `width` and `height` properties are also values in pixels. Additionaly, they can take a value in `%`, in that case, this is the ratio compared to the parent element.
@@ -53,7 +53,7 @@ Layout have a `spacing` and `padding` property. Thir default value is defined by
 ## VerticalLayout and HorizontalLayout
 
 These layout the widgets in a column (HorizontalLayout) or in a row (VerticalLayout).
-By default, the elements will be stretched or shrinked so that they take the whole space, but this can be adjusted with the alignement.
+By default, the elements will be stretched or shrinked so that they take the whole space, but this can be adjusted with the alignment.
 
 ```60
 // Stretch by default
@@ -120,8 +120,8 @@ Example := Window {
 Each elements is sized according to their `width` or `height` is specified, otherwise it is
 set to the minimum size which is set with the minimum-width or minimum-height property, or
 the minimum size of an inner layout, whateer is bigger.
-Then, the elements are placed according to the alignement.
-The size of elements is bigger than the minimum size only if the alignement is stretch
+Then, the elements are placed according to the alignment.
+The size of elements is bigger than the minimum size only if the alignment is stretch
 
 
 This example show the different alignment possibilities
@@ -179,7 +179,7 @@ Example := Window {
 
 ### Stretch algorithm
 
-When the `alignement` is set to stretch (the default), the elements are sized to their minimum size,
+When the `alignment` is set to stretch (the default), the elements are sized to their minimum size,
 then the extra space is shared amongst element proportional to their stretch factor set with the
 `horizontal-stretch` and `vertical-stretch` properties. But the size does not exceed the maximum size.
 The stretch factor is a floating point number. The elements that have a default content size usually defaults to 0
