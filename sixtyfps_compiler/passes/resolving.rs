@@ -310,9 +310,18 @@ impl Expression {
         node: syntax_nodes::ReturnStatement,
         ctx: &mut LookupCtx,
     ) -> Expression {
-        Expression::ReturnStatement(
-            node.Expression().map(|n| Box::new(Self::from_expression_node(n.into(), ctx))),
-        )
+        let return_type = if let Type::Callback { return_type, .. } = &ctx.property_type {
+            return_type.as_ref().map_or(Type::Void, |b| (**b).clone())
+        } else {
+            ctx.property_type.clone()
+        };
+        Expression::ReturnStatement(node.Expression().map(|n| {
+            Box::new(Self::from_expression_node(n.into(), ctx).maybe_convert_to(
+                return_type,
+                &node,
+                &mut ctx.diag,
+            ))
+        }))
     }
 
     fn from_callback_connection(
